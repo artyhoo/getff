@@ -39,6 +39,8 @@ export function hostMatches(host: string, allowed: readonly string[]): boolean {
 
 import { readFileSync } from 'node:fs';
 import { validateAckFileShape, errorsText } from './internal-validators.ts';
+import { diag } from '../diagnostics/registry.ts';
+import type { Diagnostic } from '../diagnostics/types.ts';
 
 export interface AckEntry {
   key: string; // enters the allowlistKey namespace
@@ -49,9 +51,19 @@ export interface AckEntry {
   ackedAt: string; // ISO 8601 calendar date
 }
 
-/** Thrown on ANY malformed ack entry — fail-closed and loud. */
+/** Thrown on ANY malformed ack entry — fail-closed and loud.
+ *  `.diagnostics` (NEW-2, D1 Task 3B) carries exactly one FF2014 diagnostic
+ *  per throw, built FROM the same message string passed to `super()` —
+ *  `.message`/`.name` stay byte-identical to pre-D1 (allowlist-resolver.test.ts
+ *  asserts on the message strings verbatim; fidelity per NEW-3).
+ *  `.diagnostics` is additive-only. */
 export class AckFileError extends Error {
   override name = 'AckFileError';
+  public readonly diagnostics: Diagnostic[];
+  constructor(message: string) {
+    super(message);
+    this.diagnostics = [diag('FF2014', { ackFileReason: message })];
+  }
 }
 
 /** Missing file ⇒ empty Map (fail-closed default). Malformed content ⇒ throw. */
@@ -113,8 +125,6 @@ import { dirname, join, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Provenance } from './types.ts';
 import { ALLOWED_SOURCES } from './allowlist.ts';
-import { diag } from '../diagnostics/registry.ts';
-import type { Diagnostic } from '../diagnostics/types.ts';
 
 /** Ecosystem seam (S1: interface only; npm adapter lands in S2, non-JS in S4).
  *  Parameterizes the toolchain axis ({toolchain, stack}) instead of forking

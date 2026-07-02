@@ -67,6 +67,37 @@ describe('Tier-2 ack file — fail-closed parsing', () => {
     const m = loadAckFile(ackFile([{ ...GOOD, hosts: ['ORM.Drizzle.Team.'] }]));
     expect(m.get('drizzle.docs')?.hosts).toEqual(['orm.drizzle.team']);
   });
+  it('D1 NEW-2: every AckFileError throw site carries .diagnostics: [FF2014] (message unchanged)', () => {
+    const assertFF2014 = (fn: () => void, expectedMessage?: string) => {
+      let caught: unknown;
+      try {
+        fn();
+      } catch (e) {
+        caught = e;
+      }
+      expect(caught).toBeInstanceOf(AckFileError);
+      const err = caught as InstanceType<typeof AckFileError>;
+      expect(err.diagnostics).toHaveLength(1);
+      expect(err.diagnostics[0]?.code).toBe('FF2014');
+      expect(err.diagnostics[0]?.message).toBe(err.message);
+      if (expectedMessage !== undefined) expect(err.message).toBe(expectedMessage);
+    };
+    // bad shape (missing ackedBy)
+    const { ackedBy: _drop, ...noAck } = GOOD;
+    assertFF2014(() => loadAckFile(ackFile([noAck])));
+    // malformed ackedAt date
+    assertFF2014(() => loadAckFile(ackFile([{ ...GOOD, ackedAt: 'yesterday' }])));
+    // IP-literal host
+    assertFF2014(() => loadAckFile(ackFile([{ ...GOOD, hosts: ['127.0.0.1'] }])));
+    // single-label host (#857)
+    assertFF2014(() => loadAckFile(ackFile([{ ...GOOD, hosts: ['com'] }])));
+    // duplicate key
+    assertFF2014(() => loadAckFile(ackFile([GOOD, { ...GOOD, reason: 'dup' }])));
+    // bad JSON (raw, non-entries write)
+    const p = join(mkdtempSync(join(tmpdir(), 'ack-badjson-')), 'research-allowlist.json');
+    writeFileSync(p, '{ not valid json');
+    assertFF2014(() => loadAckFile(p));
+  });
   it('missing file resolves to empty (fail-closed default, not an error)', () => {
     expect(loadAckFile('/nonexistent/research-allowlist.json').size).toBe(0);
   });
