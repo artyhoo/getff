@@ -99,7 +99,8 @@ export function loadAckFile(path: string): Map<string, AckEntry> {
 
 // --- resolver port + tiered validation ---
 
-import { join } from 'node:path';
+import { dirname, join, resolve as resolvePath } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { Provenance } from './types.ts';
 import { ALLOWED_SOURCES, type ProvenanceValidation } from './allowlist.ts';
 
@@ -114,6 +115,28 @@ export interface EcosystemAdapter {
 export interface InstalledMeta {
   homepage?: string;
   repository?: string | { type?: string; url?: string };
+}
+
+// --- Tier-1 support: multi-tenant apex data file (DN #6 Option A-via-C) ---
+
+// AIF_SYNTH_PKG_ROOT: same bundle-relocation env var as internal-validators.ts —
+// when running as a precompiled bundle, import.meta.url points to the bundle
+// file (install/ dir), not the original source.
+const _here = dirname(fileURLToPath(import.meta.url));
+const _pkgCoreForData = process.env['AIF_SYNTH_PKG_ROOT'];
+const MULTI_TENANT_HOSTS_PATH = _pkgCoreForData
+  ? resolvePath(_pkgCoreForData, 'research', 'multi-tenant-hosts.json')
+  : resolvePath(_here, 'multi-tenant-hosts.json');
+const MULTI_TENANT_HOSTS: readonly string[] = (
+  JSON.parse(readFileSync(MULTI_TENANT_HOSTS_PATH, 'utf8')) as { hosts: string[] }
+).hosts;
+
+/** Is `host` equal to, or a subdomain of, a known multi-tenant apex
+ *  (github.com, *.github.io, npmjs.com, …)? Matching rule per kickoff §4/DN #6:
+ *  host === entry || host.endsWith('.' + entry) — the same segment-safe
+ *  subdomain-inclusive semantics as hostMatches, applied to the apex list. */
+function isMultiTenantHost(host: string): boolean {
+  return MULTI_TENANT_HOSTS.some((apex) => host === apex || host.endsWith(`.${apex}`));
 }
 export interface ResolveCtx {
   /** Consumer root: the directory containing the consumer package.json. */
@@ -141,33 +164,88 @@ export function resolveAllowedSources(ctx?: ResolveCtx): ResolvedSources {
     tier0: ALLOWED_SOURCES as Readonly<Record<string, readonly string[]>>,
     tier2,
     tier1For(packageName: string): Tier1Result {
-      // S1 stub — real derivation (local installed-package metadata, exact-host,
-      // multi-tenant-ineligible) lands in S2 behind the EcosystemAdapter seam.
-      return {
-        ok: false,
-        reason: `host not authorized: Tier-1 unavailable for \`${packageName}\` (no ecosystem adapter wired — S2)`,
-      };
+      // No adapter wired (S1 back-compat path, or no ctx at all) ⇒ always miss.
+      if (!ctx?.adapter) {
+        return {
+          ok: false,
+          reason: `host not authorized: Tier-1 unavailable for \`${packageName}\` (no ecosystem adapter wired — S2)`,
+        };
+      }
+      // Direct-dep gate (kickoff §4: transitive deps excluded — the full
+      // dependency closure is not consumer-chosen).
+      if (!ctx.adapter.listDirectDeps(ctx.root).has(packageName)) {
+        return {
+          ok: false,
+          reason: `host not authorized: \`${packageName}\` is not a direct dependency`,
+        };
+      }
+      const meta = ctx.adapter.readInstalledMeta(ctx.root, packageName);
+      const candidateFields = [meta?.homepage, meta?.repository];
+      const hosts: string[] = [];
+      for (const field of candidateFields) {
+        const rawHost = extractHttpsHostFromMeta(field);
+        if (rawHost === null) continue; // no extractable https host — contributes nothing
+        const host = canonicalizeHost(rawHost);
+        if (isIpLiteral(host)) continue;
+        if (hasPunycodeLabel(host)) continue;
+        if (isMultiTenantHost(host)) continue; // H2/DN #6 — shared-apex ineligible
+        if (!hosts.includes(host)) hosts.push(host);
+      }
+      if (hosts.length === 0) {
+        return {
+          ok: false,
+          reason: `no Tier-1-eligible host in ${packageName} metadata (multi-tenant or non-https)`,
+        };
+      }
+      return { ok: true, hosts };
     },
   };
 }
 
-/** Tiered provenance validation — first match wins (kickoff §4: Tier 0 → 1 → 2).
- *  Tier-0 preserves the pre-refactor validator's ok-verdict + reason strings for
- *  every curated-store input. It is NOT byte-identical on all inputs: the §4
- *  cross-tier invariants (host canonicalization, IP-literal + punycode rejection)
- *  apply uniformly, so a trailing-dot FQDN of an allowed host now resolves ok, and
- *  IP-literal / punycode inputs carry a specific reason. Those three divergences
- *  are pinned in allowlist-resolver.test.ts (executable truth, not a prose claim).
- *  Three untouched callers print the reason strings as consumer guidance. */
-export function validateProvenance(
-  p: Provenance,
+/** Local re-implementation of ecosystem-npm.ts's extractHttpsHost, generalized
+ *  over the InstalledMeta['repository'] | string | undefined union so this
+ *  file does not need to import the npm-specific adapter module (the resolver
+ *  stays ecosystem-agnostic — S4 non-JS adapters produce the same
+ *  InstalledMeta shape). Mirrors ecosystem-npm.ts extractHttpsHost exactly. */
+function extractHttpsHostFromMeta(
+  field: InstalledMeta['homepage'] | InstalledMeta['repository'],
+): string | null {
+  if (field === undefined) return null;
+  if (typeof field === 'object') {
+    return extractHttpsHostFromMeta(field.url);
+  }
+  const stripped = field.startsWith('git+') ? field.slice(4) : field;
+  try {
+    const url = new URL(stripped);
+    if (url.protocol !== 'https:') return null;
+    return url.hostname;
+  } catch {
+    return null;
+  }
+}
+
+/** Tiered validation of a single URL string against p's allowlistKey/packageName
+ *  — first match wins (kickoff §4: Tier 0 → 1 → 2). Factored out of
+ *  validateProvenance so the finalUrl same-tier check (below) can re-run the
+ *  IDENTICAL tier-resolution logic on a second URL string, rather than
+ *  duplicating it. Tier-0 preserves the pre-refactor validator's ok-verdict +
+ *  reason strings for every curated-store input. It is NOT byte-identical on
+ *  all inputs: the §4 cross-tier invariants (host canonicalization, IP-literal
+ *  + punycode rejection) apply uniformly, so a trailing-dot FQDN of an allowed
+ *  host now resolves ok, and IP-literal / punycode inputs carry a specific
+ *  reason. Those three divergences are pinned in allowlist-resolver.test.ts
+ *  (executable truth, not a prose claim). Three untouched callers print the
+ *  reason strings as consumer guidance. */
+function validateUrlAgainstTiers(
+  rawUrl: string,
+  p: Pick<Provenance, 'allowlistKey' | 'packageName'>,
   resolved: ResolvedSources,
   opts?: { entryPackage?: string },
 ): ProvenanceValidation {
   // Tier 0 — replicate the legacy key-first ordering for exact back-compat.
   const builtinHosts = resolved.tier0[p.allowlistKey];
   if (builtinHosts) {
-    const parsed = parseHttpsHost(p.url);
+    const parsed = parseHttpsHost(rawUrl);
     if (!('host' in parsed)) return parsed;
     if (hasPunycodeLabel(parsed.host)) return punycodeReject(parsed.host);
     if (hostMatches(parsed.host, builtinHosts)) return { ok: true };
@@ -179,7 +257,7 @@ export function validateProvenance(
 
   // Tier 1 — scope-locked derived trust (activates in S2; S1 tier1For always misses).
   let tier1Miss: string | undefined;
-  const packageName = (p as Provenance & { packageName?: string }).packageName;
+  const packageName = p.packageName;
   if (packageName !== undefined && opts?.entryPackage !== undefined) {
     if (packageName !== opts.entryPackage) {
       return {
@@ -189,7 +267,7 @@ export function validateProvenance(
     }
     const t1 = resolved.tier1For(packageName);
     if (t1.ok) {
-      const parsed = parseHttpsHost(p.url);
+      const parsed = parseHttpsHost(rawUrl);
       if (!('host' in parsed)) return parsed;
       if (hasPunycodeLabel(parsed.host)) return punycodeReject(parsed.host);
       if (hostMatches(parsed.host, t1.hosts)) return { ok: true };
@@ -208,7 +286,7 @@ export function validateProvenance(
         reason: `ack key ${p.allowlistKey} is scoped to package ${ack.scope}`,
       };
     }
-    const parsed = parseHttpsHost(p.url);
+    const parsed = parseHttpsHost(rawUrl);
     if (!('host' in parsed)) return parsed;
     if (hostMatches(parsed.host, ack.hosts)) {
       // Carve-out (kickoff §4): a punycode host passes ONLY via an acked host
@@ -229,6 +307,32 @@ export function validateProvenance(
 
   if (tier1Miss) return { ok: false, reason: tier1Miss };
   return { ok: false, reason: `unknown allowlistKey: ${p.allowlistKey}` };
+}
+
+/** Tiered provenance validation, public entrypoint. Validates p.url against
+ *  the tier stack; when p.finalUrl is present and differs from p.url, the
+ *  final URL must INDEPENDENTLY satisfy the same tier resolution (kickoff §4
+ *  redirect handling) — a redirect crossing to a host that tier does not
+ *  cover fails closed. finalUrl is an agent-protocol obligation, not a
+ *  validator-verified fact about what was actually fetched (kickoff §4
+ *  honesty bound) — this check only bounds what a RECORDED finalUrl may claim. */
+export function validateProvenance(
+  p: Provenance,
+  resolved: ResolvedSources,
+  opts?: { entryPackage?: string },
+): ProvenanceValidation {
+  const urlResult = validateUrlAgainstTiers(p.url, p, resolved, opts);
+  if (!urlResult.ok) return urlResult;
+  if (p.finalUrl !== undefined && p.finalUrl !== p.url) {
+    const finalResult = validateUrlAgainstTiers(p.finalUrl, p, resolved, opts);
+    if (!finalResult.ok) {
+      return {
+        ok: false,
+        reason: `finalUrl redirect crosses to an unauthorized host: ${finalResult.reason}`,
+      };
+    }
+  }
+  return urlResult;
 }
 
 function parseHttpsHost(rawUrl: string): { host: string } | ProvenanceValidation {

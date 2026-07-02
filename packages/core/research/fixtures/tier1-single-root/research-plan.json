@@ -1,0 +1,23 @@
+{
+  "framework": "drizzle-orm",
+  "version": null,
+  "patterns": [
+    {
+      "id": "drizzle-orm-rls",
+      "summary": "Row Level Security (RLS) policies restrict which rows a database role can access.",
+      "bestPractices": ["Define RLS policies alongside table schema using pgPolicy()."],
+      "antiPatterns": ["Relying on application-layer filtering alone for multi-tenant isolation."],
+      "package": "drizzle-orm",
+      "provenance": [
+        {
+          "url": "https://orm.drizzle.team/docs/rls",
+          "allowlistKey": "drizzle-orm",
+          "fetchedAt": "2026-07-02T00:00:00Z",
+          "packageName": "drizzle-orm"
+        }
+      ]
+    }
+  ],
+  "missing": [],
+  "drift": null
+}

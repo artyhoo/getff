@@ -1,0 +1,31 @@
+{
+  "hosts": [
+    "github.com",
+    "gitlab.com",
+    "bitbucket.org",
+    "codeberg.org",
+    "sourceforge.net",
+    "github.io",
+    "gitlab.io",
+    "readthedocs.io",
+    "readthedocs.org",
+    "gitbook.io",
+    "vercel.app",
+    "netlify.app",
+    "pages.dev",
+    "surge.sh",
+    "herokuapp.com",
+    "web.app",
+    "firebaseapp.com",
+    "azurewebsites.net",
+    "workers.dev",
+    "npmjs.com",
+    "npmjs.org",
+    "jsdelivr.net",
+    "unpkg.com",
+    "medium.com",
+    "notion.site",
+    "hashnode.dev",
+    "dev.to"
+  ]
+}
