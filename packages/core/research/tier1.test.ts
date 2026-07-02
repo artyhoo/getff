@@ -164,8 +164,9 @@ describe('Task 2.3 — Tier-1 derivation (DN #6 lead: A-via-C multi-tenant conta
       resolved,
       { entryPackage: 'react' },
     );
-    expect(v.ok).toBe(false);
-    expect(v.reason).toMatch(/cross-package/);
+    expect(v).not.toBeNull();
+    expect(v?.code).toBe('FF2010');
+    expect(v?.message).toMatch(/cross-package/);
   });
 
   it('S2-N6: xn-- (IDN) homepage host derives nothing', () => {
@@ -222,7 +223,7 @@ describe('Task 2.3 — Tier-1 derivation (DN #6 lead: A-via-C multi-tenant conta
       resolved,
       { entryPackage: 'drizzle-orm' },
     );
-    expect(vDrizzle.ok).toBe(true);
+    expect(vDrizzle).toBeNull();
 
     // Passes for entryPackage 'drizzle-orm', fails for 'hono' (scope-lock: T-RTT-A).
     const vHono = validateProvenance(
@@ -234,7 +235,8 @@ describe('Task 2.3 — Tier-1 derivation (DN #6 lead: A-via-C multi-tenant conta
       resolved,
       { entryPackage: 'hono' },
     );
-    expect(vHono.ok).toBe(false);
+    expect(vHono).not.toBeNull();
+    expect(vHono?.code).toBe('FF2010');
   });
 });
 
@@ -290,7 +292,7 @@ describe('AC 3 — E2E: Tier-1 single-root stub fixture', () => {
     for (const entry of plan.patterns) {
       for (const p of entry.provenance) {
         const v = validateProvenance(p, resolved, { entryPackage: entry.package });
-        expect(v.ok).toBe(true);
+        expect(v).toBeNull();
       }
     }
   });
@@ -306,9 +308,10 @@ describe('AC 3 — E2E: Tier-1 single-root stub fixture', () => {
     for (const entry of plan.patterns) {
       for (const p of entry.provenance) {
         const v = validateProvenance(p, resolved, { entryPackage: entry.package });
-        expect(v.ok).toBe(false);
-        expect(v.reason).toMatch(/is not a direct dependency/);
-        expect(v.reason).not.toMatch(/unknown allowlistKey/);
+        expect(v).not.toBeNull();
+        expect(v?.code).toBe('FF2007');
+        expect(v?.message).toMatch(/is not a direct dependency/);
+        expect(v?.message).not.toMatch(/unknown allowlistKey/);
       }
     }
   });
@@ -331,7 +334,8 @@ describe('Task 2.5 — finalUrl same-tier check (redirect containment)', () => {
       }),
       resolvedEmpty,
     );
-    expect(v.ok).toBe(false);
+    expect(v).not.toBeNull();
+    expect(v?.code).toBe('FF2015');
   });
 
   it('positive: finalUrl on a host covered by the same tier passes', () => {
@@ -344,7 +348,7 @@ describe('Task 2.5 — finalUrl same-tier check (redirect containment)', () => {
       }),
       resolvedEmpty,
     );
-    expect(v.ok).toBe(true);
+    expect(v).toBeNull();
   });
 
   it('no finalUrl present: url-only validation unaffected (back-compat)', () => {
@@ -353,7 +357,7 @@ describe('Task 2.5 — finalUrl same-tier check (redirect containment)', () => {
       PROV({ url: 'https://nextjs.org/docs', allowlistKey: 'next.official' }),
       resolvedEmpty,
     );
-    expect(v.ok).toBe(true);
+    expect(v).toBeNull();
   });
 });
 
