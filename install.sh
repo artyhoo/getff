@@ -238,6 +238,7 @@ do_refresh() {
     case "$(basename "$f")" in
       manual-rule-liveness-prober.md) continue ;;
       shipped-agent-liveness-prober.md) continue ;;
+      backward-sweep-auditor.md) continue ;;  # authoring-only tool (§1.7 backward-check cold-sweep, T21)
     esac
     refresh_safe "$f" "$PROJECT_ROOT/.claude/agents/$(basename "$f")"
   done
