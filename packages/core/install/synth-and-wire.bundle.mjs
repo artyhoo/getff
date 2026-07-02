@@ -8564,51 +8564,18 @@ var require_ajv = __commonJS({
 });
 
 // packages/core/install/synth-and-wire.ts
-import { existsSync as existsSync4, readFileSync as readFileSync5, writeFileSync as writeFileSync2 } from "node:fs";
+import { existsSync as existsSync4, readFileSync as readFileSync6, writeFileSync as writeFileSync2 } from "node:fs";
 import { dirname as dirname5, resolve as resolve5 } from "node:path";
 import process3 from "node:process";
 
 // packages/core/research/load.ts
 var import_semver = __toESM(require_semver2(), 1);
-import { existsSync, readFileSync as readFileSync2 } from "node:fs";
+import { existsSync, readFileSync as readFileSync3 } from "node:fs";
 import { dirname as dirname2, resolve as resolve2 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 
-// packages/core/research/allowlist.ts
-var ALLOWED_SOURCES = {
-  "next.official": ["nextjs.org", "vercel.com"],
-  "react.official": ["react.dev"],
-  "react-native.official": ["reactnative.dev"],
-  "expo.official": ["expo.dev"],
-  "tailwind.official": ["tailwindcss.com"],
-  "mdn": ["developer.mozilla.org"],
-  "typescript.official": ["typescriptlang.org", "www.typescriptlang.org"]
-};
-function validateProvenance(p) {
-  const hosts = ALLOWED_SOURCES[p.allowlistKey];
-  if (!hosts) {
-    return { ok: false, reason: `unknown allowlistKey: ${p.allowlistKey}` };
-  }
-  let url;
-  try {
-    url = new URL(p.url);
-  } catch {
-    return { ok: false, reason: `malformed URL: ${p.url}` };
-  }
-  if (url.protocol !== "https:") {
-    return { ok: false, reason: `non-https URL: ${p.url}` };
-  }
-  const hostMatch = hosts.some(
-    (h) => url.hostname === h || url.hostname.endsWith(`.${h}`)
-  );
-  if (!hostMatch) {
-    return {
-      ok: false,
-      reason: `host ${url.hostname} not allowed under key ${p.allowlistKey} (expected one of: ${hosts.join(", ")})`
-    };
-  }
-  return { ok: true };
-}
+// packages/core/research/allowlist-resolver.ts
+import { readFileSync as readFileSync2 } from "node:fs";
 
 // packages/core/research/internal-validators.ts
 var import_ajv = __toESM(require_ajv(), 1);
@@ -8621,14 +8588,190 @@ var SCHEMA_PATH = _pkgCore ? resolve(_pkgCore, "research", "research-plan.schema
 var ajv = new import_ajv.Ajv({ allErrors: true, strict: false });
 var schemaDoc = JSON.parse(readFileSync(SCHEMA_PATH, "utf8"));
 ajv.addSchema(schemaDoc, "research-plan");
+var ACK_SCHEMA_PATH = _pkgCore ? resolve(_pkgCore, "research", "research-allowlist.schema.json") : resolve(HERE, "research-allowlist.schema.json");
+var ackSchemaDoc = JSON.parse(readFileSync(ACK_SCHEMA_PATH, "utf8"));
+ajv.addSchema(ackSchemaDoc, "research-allowlist");
 var validateEntry = ajv.compile({
   $ref: "research-plan#/definitions/ResearchEntry"
 });
 var validateResearchPlanShape = ajv.compile({
   $ref: "research-plan"
 });
+var validateAckFileShape = ajv.compile({
+  $ref: "research-allowlist"
+});
 function errorsText(errors) {
   return ajv.errorsText(errors);
+}
+
+// packages/core/research/allowlist-resolver.ts
+import { join } from "node:path";
+function canonicalizeHost(host) {
+  const lower = host.toLowerCase();
+  return lower.endsWith(".") ? lower.slice(0, -1) : lower;
+}
+function isIpLiteral(host) {
+  if (host.startsWith("[") && host.endsWith("]")) return true;
+  return /^\d{1,3}(\.\d{1,3}){3}$/.test(host);
+}
+function hasPunycodeLabel(host) {
+  return host.split(".").some((label) => label.startsWith("xn--"));
+}
+function hostMatches(host, allowed) {
+  return allowed.some((a) => host === a || host.endsWith(`.${a}`));
+}
+var AckFileError = class extends Error {
+  name = "AckFileError";
+};
+function loadAckFile(path) {
+  let raw;
+  try {
+    raw = readFileSync2(path, "utf8");
+  } catch (e) {
+    if (e.code === "ENOENT") return /* @__PURE__ */ new Map();
+    throw e;
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new AckFileError(`malformed JSON in ack file: ${path}`);
+  }
+  if (!validateAckFileShape(parsed)) {
+    throw new AckFileError(errorsText(validateAckFileShape.errors));
+  }
+  const doc = parsed;
+  const map = /* @__PURE__ */ new Map();
+  for (const entry of doc.entries) {
+    if (!Number.isFinite(Date.parse(entry.ackedAt))) {
+      throw new AckFileError(
+        `malformed ackedAt date "${entry.ackedAt}" in entry "${entry.key}"`
+      );
+    }
+    const hosts = entry.hosts.map(canonicalizeHost);
+    for (const h of hosts) {
+      if (isIpLiteral(h)) {
+        throw new AckFileError(
+          `IP-literal host "${h}" in entry "${entry.key}" \u2014 registrable domain names only`
+        );
+      }
+    }
+    if (map.has(entry.key)) {
+      throw new AckFileError(`duplicate key "${entry.key}" in ack file`);
+    }
+    map.set(entry.key, { ...entry, hosts });
+  }
+  return map;
+}
+function resolveAllowedSources(ctx) {
+  const tier2 = ctx ? loadAckFile(ctx.ackFilePath ?? join(ctx.root, ".ai-factory", "research-allowlist.json")) : /* @__PURE__ */ new Map();
+  return {
+    tier0: ALLOWED_SOURCES,
+    tier2,
+    tier1For(packageName) {
+      return {
+        ok: false,
+        reason: `host not authorized: Tier-1 unavailable for \`${packageName}\` (no ecosystem adapter wired \u2014 S2)`
+      };
+    }
+  };
+}
+function validateProvenance(p, resolved, opts) {
+  const builtinHosts = resolved.tier0[p.allowlistKey];
+  if (builtinHosts) {
+    const parsed = parseHttpsHost(p.url);
+    if (!("host" in parsed)) return parsed;
+    if (hasPunycodeLabel(parsed.host)) return punycodeReject(parsed.host);
+    if (hostMatches(parsed.host, builtinHosts)) return { ok: true };
+    return {
+      ok: false,
+      reason: `host ${parsed.host} not allowed under key ${p.allowlistKey} (expected one of: ${builtinHosts.join(", ")})`
+    };
+  }
+  let tier1Miss;
+  const packageName = p.packageName;
+  if (packageName !== void 0 && opts?.entryPackage !== void 0) {
+    if (packageName !== opts.entryPackage) {
+      return {
+        ok: false,
+        reason: `cross-package provenance: packageName ${packageName} !== entry.package ${opts.entryPackage} (T-RTT-A)`
+      };
+    }
+    const t1 = resolved.tier1For(packageName);
+    if (t1.ok) {
+      const parsed = parseHttpsHost(p.url);
+      if (!("host" in parsed)) return parsed;
+      if (hasPunycodeLabel(parsed.host)) return punycodeReject(parsed.host);
+      if (hostMatches(parsed.host, t1.hosts)) return { ok: true };
+      tier1Miss = `host not authorized: not in the Tier-1 host set of \`${packageName}\``;
+    } else {
+      tier1Miss = t1.reason;
+    }
+  }
+  const ack = resolved.tier2.get(p.allowlistKey);
+  if (ack) {
+    if (ack.scope !== void 0 && opts?.entryPackage !== ack.scope) {
+      return {
+        ok: false,
+        reason: `ack key ${p.allowlistKey} is scoped to package ${ack.scope}`
+      };
+    }
+    const parsed = parseHttpsHost(p.url);
+    if (!("host" in parsed)) return parsed;
+    if (hostMatches(parsed.host, ack.hosts)) {
+      if (hasPunycodeLabel(parsed.host)) {
+        const explicitlyAcked = ack.hosts.some(
+          (a) => hasPunycodeLabel(a) && (parsed.host === a || parsed.host.endsWith(`.${a}`))
+        );
+        if (!explicitlyAcked) return punycodeReject(parsed.host);
+      }
+      return { ok: true };
+    }
+    return {
+      ok: false,
+      reason: `host ${parsed.host} not allowed under ack key ${p.allowlistKey} (acked hosts: ${ack.hosts.join(", ")})`
+    };
+  }
+  if (tier1Miss) return { ok: false, reason: tier1Miss };
+  return { ok: false, reason: `unknown allowlistKey: ${p.allowlistKey}` };
+}
+function parseHttpsHost(rawUrl) {
+  let url;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    return { ok: false, reason: `malformed URL: ${rawUrl}` };
+  }
+  if (url.protocol !== "https:") {
+    return { ok: false, reason: `non-https URL: ${rawUrl}` };
+  }
+  const host = canonicalizeHost(url.hostname);
+  if (isIpLiteral(host)) {
+    return { ok: false, reason: `IP-literal host ${host} rejected: registrable domain names only` };
+  }
+  return { host };
+}
+function punycodeReject(host) {
+  return {
+    ok: false,
+    reason: `punycode (xn--) host ${host} rejected outside an explicit Tier-2 ack`
+  };
+}
+
+// packages/core/research/allowlist.ts
+var ALLOWED_SOURCES = {
+  "next.official": ["nextjs.org", "vercel.com"],
+  "react.official": ["react.dev"],
+  "react-native.official": ["reactnative.dev"],
+  "expo.official": ["expo.dev"],
+  "tailwind.official": ["tailwindcss.com"],
+  "mdn": ["developer.mozilla.org"],
+  "typescript.official": ["typescriptlang.org", "www.typescriptlang.org"]
+};
+var tier0Only;
+function validateProvenance2(p) {
+  tier0Only ??= resolveAllowedSources();
+  return validateProvenance(p, tier0Only);
 }
 
 // packages/core/research/load.ts
@@ -8647,13 +8790,13 @@ var ResearchEntryError = class extends Error {
 };
 function tryLoad(filePath) {
   if (!existsSync(filePath)) return null;
-  const raw = JSON.parse(readFileSync2(filePath, "utf8"));
+  const raw = JSON.parse(readFileSync3(filePath, "utf8"));
   if (!validateEntry(raw)) {
     throw new ResearchEntryError(filePath, errorsText(validateEntry.errors));
   }
   const entry = raw;
   for (const p of entry.provenance) {
-    const v = validateProvenance(p);
+    const v = validateProvenance2(p);
     if (!v.ok) {
       throw new ResearchEntryError(filePath, `provenance violation \u2014 ${v.reason}`);
     }
@@ -8694,7 +8837,7 @@ function loadEntries(framework, version, patterns) {
 
 // packages/core/synthesizer/synthesize.ts
 var import_ajv2 = __toESM(require_ajv(), 1);
-import { existsSync as existsSync2, readFileSync as readFileSync3 } from "node:fs";
+import { existsSync as existsSync2, readFileSync as readFileSync4 } from "node:fs";
 import { dirname as dirname3, resolve as resolve3 } from "node:path";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
 
@@ -8852,10 +8995,10 @@ var RECIPES_ROOT = _pkgCore3 ? resolve3(_pkgCore3, "synthesizer", "recipes") : r
 var SCHEMA_PATH2 = _pkgCore3 ? resolve3(_pkgCore3, "synthesizer", "synthesis-plan.schema.json") : resolve3(HERE3, "synthesis-plan.schema.json");
 var RECIPE_SCHEMA_PATH = _pkgCore3 ? resolve3(_pkgCore3, "synthesizer", "recipe.schema.json") : resolve3(HERE3, "recipe.schema.json");
 var ajv2 = new import_ajv2.Ajv({ allErrors: true, strict: false });
-var schema = JSON.parse(readFileSync3(SCHEMA_PATH2, "utf8"));
+var schema = JSON.parse(readFileSync4(SCHEMA_PATH2, "utf8"));
 ajv2.addSchema(schema, "synthesis-plan");
 var validatePlan = ajv2.compile({ $ref: "synthesis-plan" });
-var recipeSchema = JSON.parse(readFileSync3(RECIPE_SCHEMA_PATH, "utf8"));
+var recipeSchema = JSON.parse(readFileSync4(RECIPE_SCHEMA_PATH, "utf8"));
 var validateRecipe = ajv2.compile(recipeSchema);
 var SynthesisPlanError = class extends Error {
   constructor(errors) {
@@ -8878,7 +9021,7 @@ var RecipeError = class extends Error {
 function loadRecipe(patternId) {
   const path = resolve3(RECIPES_ROOT, `${patternId}.json`);
   if (!existsSync2(path)) return null;
-  const raw = JSON.parse(readFileSync3(path, "utf8"));
+  const raw = JSON.parse(readFileSync4(path, "utf8"));
   if (!validateRecipe(raw)) {
     throw new RecipeError(path, ajv2.errorsText(validateRecipe.errors));
   }
@@ -8940,9 +9083,9 @@ function synthesize(plan) {
 
 // packages/core/install/wire-eslint-r2.ts
 import { execFileSync } from "node:child_process";
-import { existsSync as existsSync3, readFileSync as readFileSync4, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync as existsSync3, readFileSync as readFileSync5, unlinkSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname as dirname4, join, relative, resolve as resolve4 } from "node:path";
+import { dirname as dirname4, join as join2, relative, resolve as resolve4 } from "node:path";
 import process2 from "node:process";
 import { pathToFileURL } from "node:url";
 var R2_RULE_ID = "rules-as-tests/no-unsafe-zod-parse";
@@ -9328,7 +9471,7 @@ async function probeViaEslint(configPath, cwd) {
   try {
     const reqd = createRequire(resolve4(cwd, "package.json"));
     const pj = reqd.resolve("eslint/package.json");
-    eslintBin = join(dirname4(pj), "bin", "eslint.js");
+    eslintBin = join2(dirname4(pj), "bin", "eslint.js");
     if (!existsSync3(eslintBin)) return "unavailable";
   } catch {
     return "unavailable";
@@ -9359,7 +9502,7 @@ ${stderr.slice(0, 400)}`);
 }
 async function resolveAndWire(args) {
   const { configPath, cwd, runProbe, scope } = args;
-  const original = readFileSync4(configPath, "utf8");
+  const original = readFileSync5(configPath, "utf8");
   if (original.includes(R2_RULE_ID)) {
     return { status: "already-wired", original, modified: original };
   }
@@ -9414,7 +9557,7 @@ async function main() {
     console.log(`\xB7 wire-eslint-r2: ${configPath} not found \u2014 skipped`);
     process2.exit(0);
   }
-  const source = readFileSync4(configPath, "utf8");
+  const source = readFileSync5(configPath, "utf8");
   const result = await wireConfigSource(source);
   switch (result.status) {
     case "already-wired":
@@ -9533,7 +9676,7 @@ function mergeLiveRules(presetRules, liveRules) {
 function readLiveSnippet(snippetPath) {
   if (!existsSync4(snippetPath)) return {};
   try {
-    const raw = readFileSync5(snippetPath, "utf8").trim();
+    const raw = readFileSync6(snippetPath, "utf8").trim();
     if (!raw) return {};
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
@@ -9625,7 +9768,7 @@ async function main2() {
     if (!existsSync4(configPath)) {
       console.log(`  [dry-run] [synth-wire] ${configPath} not found \u2014 would skip`);
     } else {
-      const source2 = readFileSync5(configPath, "utf8");
+      const source2 = readFileSync6(configPath, "utf8");
       const result2 = await wireNRules(source2, mergedRules, {
         overrideKeys,
         // #829: enable plugin self-registration for presets that don't pre-register `rules-as-tests`
@@ -9645,7 +9788,7 @@ async function main2() {
     console.log(`  [synth-wire] ${configPath} not found \u2014 skipped`);
     process3.exit(0);
   }
-  const source = readFileSync5(configPath, "utf8");
+  const source = readFileSync6(configPath, "utf8");
   const result = await wireNRules(source, mergedRules, {
     overrideKeys,
     // #829: see the dry-run site above — enables plugin self-registration for presets lacking it.
