@@ -8702,6 +8702,7 @@ function resolveAllowedSources(ctx) {
         if (rawHost === null) continue;
         const host = canonicalizeHost(rawHost);
         if (isIpLiteral(host)) continue;
+        if (!host.includes(".")) continue;
         if (hasPunycodeLabel(host)) continue;
         if (isMultiTenantHost(host)) continue;
         if (!hosts.includes(host)) hosts.push(host);
