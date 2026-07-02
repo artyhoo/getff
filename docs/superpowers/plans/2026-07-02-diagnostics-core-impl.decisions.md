@@ -162,6 +162,27 @@ Result: `loadEntries` is defined at `load.ts:74` and its consumers all treat it 
 
 ---
 
+## DN-D1-5 — 3-arg `validateProvenance` return-type change breaks `tier1.test.ts` (~15 assertion sites)
+
+> **Added 2026-07-03 by the orchestrator mid-run** (surfaced when Task 3 dispatch re-verified the tree). A genuine technical fork the spec/plan did not reckon with, because `tier1.test.ts` landed in trust-tiers **S2 — after** the spec was written (the spec §3.3 still described `validateProvenance` as 2-arg; the plan corrected it to 3-arg but did not address the test's `.reason` reads). Resolved on the merits; WF2's two independent reviewers are the anti-collusion check on this call.
+
+**Decision:** OPTION A — change the 3-arg `validateProvenance(p, resolved, opts?)` return type to `Diagnostic | null` (spec §3.3 intent), constructing the `Diagnostic` natively via `diag('FF2xxx', params)` at each failure site inside `validateUrlAgainstTiers`, and **migrate `tier1.test.ts` + `validate-plan.test.ts`** to the new shape. Do NOT keep a parallel stringly-typed function (Option B rejected — it defeats D1's purpose of killing stringly-typed reason discrimination).
+
+**Migration rules (mechanical, fidelity-preserving):**
+- `null` = provenance OK (no diagnostic); a `Diagnostic` = failure. So the `.ok` semantics **flip**: `expect(v.ok).toBe(false)` → `expect(v).not.toBeNull()`; `expect(v.ok).toBe(true)` → `expect(v).toBeNull()`.
+- `expect(v.reason).toMatch(/X/)` → `expect(v?.message).toMatch(/X/)` AND additionally assert the structured code (`expect(v?.code).toBe('FF20NN')`) — the code assertion is the D1 win; the message-substring stays as the NEW-3 fidelity proof.
+- **DO NOT touch `tier1For(...)` calls** — `tier1For` returns `Tier1Result {ok, reason}` (the resolver's own type, `allowlist-resolver.ts:159-161`), which D1 does NOT change. Only `validateProvenance(...)` call sites migrate. E.g. `tier1.test.ts:150-153` (`resolvedSsh.tier1For('pkg-d')` → `{ok, reason}`) stays byte-unchanged.
+- The 1-arg wrapper `validateProvenance(p)` (`allowlist.ts:42`) KEEPS `{ok, reason}` (DN-D1-1) — its consumers (`load.ts`, `research-adapter-anthropic.ts`) and `allowlist.test.ts` stay byte-untouched. It derives `{ok, reason}` from the Diagnostic internally (`reason = diag?.message`, `ok = diag === null`).
+
+**Rationale / evidence:**
+- `tier1.test.ts` calls the 3-arg form and reads `.ok`/`.reason` at ≥15 sites (`rg -n 'validateProvenance\(|\.reason|\.ok' packages/core/research/tier1.test.ts` → :162, :167-168, :216, :225, :228, :237, :292-293, :308-311, :326, :334, :339, :347, :352, :356).
+- AC 3 (spec §8 / plan Global Constraints) names the "untouched-green" callers explicitly: **synthesizer CLI, file-clients, rule-bootstrap-cli, installer `ValidationReport.ok`, `--strict` exit codes**. `tier1.test.ts` is NOT among them — it is a unit test *of the resolver surface D1 redesigns*, so migrating it is in-scope, not an AC-3 violation. The AC-3 "untouched" set = tests of UNCHANGED surfaces (`allowlist.test.ts` 1-arg, `load.test.ts`, `research-adapter-anthropic` tests, all `validator/gate-*` suites).
+- Option B (dual function) would leave a stringly-typed `validateProvenance` alive next to a `validateProvenanceDiag` — the exact "one spec, N enforcement points" drift D1 §1 exists to eliminate.
+
+**Falsifier ("wrong if …"):** wrong if `tier1.test.ts` turns out to be in a trust-tiers do-not-edit set (it is NOT — only `research-source-trust.md` + `principles/30` are forbidden; `allowlist-resolver.ts` is explicitly "now yours"), OR if a caller outside the AC-3 list consumes the 3-arg form's `.reason` in production (grep: only `validate-plan.ts` does, and it is rewritten in Task 3.1/3.3). If the migrated `tier1.test.ts` needs to WEAKEN any assertion (drop a substring check rather than move it to `.message`/`.code`), STOP — that means fidelity broke.
+
+---
+
 ## FF2xxx table (15 codes) — reconfirmed against this tree
 
 Each `file:line` re-opened at `HEAD == 35c0b4104`. `reason:` sites enumerated via `grep -n 'reason:' packages/core/research/allowlist-resolver.ts` (excluding the two type-declaration lines `:47`, `:161`).
