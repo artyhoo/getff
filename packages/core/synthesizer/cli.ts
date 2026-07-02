@@ -21,6 +21,12 @@ import type { SynthesisPlan } from './types.ts';
 import { createAnthropicResearchClient } from '../research/research-adapter-anthropic.ts';
 import { createAnthropicGenerateClient } from './generate-adapter-anthropic.ts';
 import { runGeneratePath } from './generate-cli.ts';
+// DN #7 Option A (Task 2.6): thread resolveCtx to the external validator so
+// --from-research runs get Tier-1/2 when the plan's provenance needs it.
+// npmAdapter is imported directly (not via the research barrel) — the CLI
+// already reaches into research internals for its own convenience per
+// research/index.ts's documented Planner-Executor isolation comment.
+import { npmAdapter } from '../research/ecosystem-npm.ts';
 
 interface Args {
   root: string;
@@ -57,7 +63,10 @@ function parseArgs(argv: string[]): Args {
 async function loadPlan(args: Args): Promise<ResearchPlan> {
   if (args.fromResearch) {
     const parsed: unknown = JSON.parse(readFileSync(args.fromResearch, 'utf8'));
-    validateResearchPlan(parsed);
+    // args.root is the consumer project root this --from-research run targets
+    // (defaults to process.cwd(), or an explicit positional arg) — thread it
+    // as the Tier-1 resolveCtx root. Never guess a different root (DN #7).
+    validateResearchPlan(parsed, { root: args.root, adapter: npmAdapter });
     return parsed;
   }
   if (process.env['AIF_RESEARCH'] === 'llm') {

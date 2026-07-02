@@ -18,6 +18,7 @@ import process from 'node:process';
 import type { DetectionResult } from '../detector/types.ts';
 import type { ResearchPlan } from '../research/types.ts';
 import { validateResearchPlan } from '../research/validate-plan.ts';
+import { npmAdapter } from '../research/ecosystem-npm.ts';
 import type { RuleResearchClient } from './rule-research-port.ts';
 import type {
   GenerateCandidate,
@@ -38,7 +39,11 @@ export class FileResearchClient implements RuleResearchClient {
   async research(_detection: DetectionResult): Promise<ResearchPlan> {
     const raw = readFileSync(this.planPath, 'utf8');
     const parsed: unknown = JSON.parse(raw);
-    validateResearchPlan(parsed); // asserts parsed is ResearchPlan; throws on violation
+    // DN #7 Option A (Task 2.6): thread the consumer-root/cwd notion this call
+    // path already holds — this CLI's entrypoint (rule-bootstrap-cli.ts)
+    // defaults its own consumerRoot to process.cwd() too, so this is the
+    // same root the surrounding install-time run targets, not a guess.
+    validateResearchPlan(parsed, { root: process.cwd(), adapter: npmAdapter });
     return parsed;
   }
 }

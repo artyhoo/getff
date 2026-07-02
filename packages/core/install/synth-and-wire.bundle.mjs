@@ -8565,14 +8565,14 @@ var require_ajv = __commonJS({
 
 // packages/core/install/synth-and-wire.ts
 import { existsSync as existsSync4, readFileSync as readFileSync6, writeFileSync as writeFileSync2 } from "node:fs";
-import { dirname as dirname5, resolve as resolve5 } from "node:path";
+import { dirname as dirname6, resolve as resolve5 } from "node:path";
 import process3 from "node:process";
 
 // packages/core/research/load.ts
 var import_semver = __toESM(require_semver2(), 1);
 import { existsSync, readFileSync as readFileSync3 } from "node:fs";
-import { dirname as dirname2, resolve as resolve2 } from "node:path";
-import { fileURLToPath as fileURLToPath2 } from "node:url";
+import { dirname as dirname3, resolve as resolve2 } from "node:path";
+import { fileURLToPath as fileURLToPath3 } from "node:url";
 
 // packages/core/research/allowlist-resolver.ts
 import { readFileSync as readFileSync2 } from "node:fs";
@@ -8605,7 +8605,8 @@ function errorsText(errors) {
 }
 
 // packages/core/research/allowlist-resolver.ts
-import { join } from "node:path";
+import { dirname as dirname2, join, resolve as resolvePath } from "node:path";
+import { fileURLToPath as fileURLToPath2 } from "node:url";
 function canonicalizeHost(host) {
   const lower = host.toLowerCase();
   return lower.endsWith(".") ? lower.slice(0, -1) : lower;
@@ -8663,23 +8664,71 @@ function loadAckFile(path) {
   }
   return map;
 }
+var _here = dirname2(fileURLToPath2(import.meta.url));
+var _pkgCoreForData = process.env["AIF_SYNTH_PKG_ROOT"];
+var MULTI_TENANT_HOSTS_PATH = _pkgCoreForData ? resolvePath(_pkgCoreForData, "research", "multi-tenant-hosts.json") : resolvePath(_here, "multi-tenant-hosts.json");
+var MULTI_TENANT_HOSTS = JSON.parse(readFileSync2(MULTI_TENANT_HOSTS_PATH, "utf8")).hosts;
+function isMultiTenantHost(host) {
+  return MULTI_TENANT_HOSTS.some((apex) => host === apex || host.endsWith(`.${apex}`));
+}
 function resolveAllowedSources(ctx) {
   const tier2 = ctx ? loadAckFile(ctx.ackFilePath ?? join(ctx.root, ".ai-factory", "research-allowlist.json")) : /* @__PURE__ */ new Map();
   return {
     tier0: ALLOWED_SOURCES,
     tier2,
     tier1For(packageName) {
-      return {
-        ok: false,
-        reason: `host not authorized: Tier-1 unavailable for \`${packageName}\` (no ecosystem adapter wired \u2014 S2)`
-      };
+      if (!ctx?.adapter) {
+        return {
+          ok: false,
+          reason: `host not authorized: Tier-1 unavailable for \`${packageName}\` (no ecosystem adapter wired \u2014 S2)`
+        };
+      }
+      if (!ctx.adapter.listDirectDeps(ctx.root).has(packageName)) {
+        return {
+          ok: false,
+          reason: `host not authorized: \`${packageName}\` is not a direct dependency`
+        };
+      }
+      const meta = ctx.adapter.readInstalledMeta(ctx.root, packageName);
+      const candidateFields = [meta?.homepage, meta?.repository];
+      const hosts = [];
+      for (const field of candidateFields) {
+        const rawHost = extractHttpsHostFromMeta(field);
+        if (rawHost === null) continue;
+        const host = canonicalizeHost(rawHost);
+        if (isIpLiteral(host)) continue;
+        if (hasPunycodeLabel(host)) continue;
+        if (isMultiTenantHost(host)) continue;
+        if (!hosts.includes(host)) hosts.push(host);
+      }
+      if (hosts.length === 0) {
+        return {
+          ok: false,
+          reason: `no Tier-1-eligible host in ${packageName} metadata (multi-tenant or non-https)`
+        };
+      }
+      return { ok: true, hosts };
     }
   };
 }
-function validateProvenance(p, resolved, opts) {
+function extractHttpsHostFromMeta(field) {
+  if (field === void 0) return null;
+  if (typeof field === "object") {
+    return extractHttpsHostFromMeta(field.url);
+  }
+  const stripped = field.startsWith("git+") ? field.slice(4) : field;
+  try {
+    const url = new URL(stripped);
+    if (url.protocol !== "https:") return null;
+    return url.hostname;
+  } catch {
+    return null;
+  }
+}
+function validateUrlAgainstTiers(rawUrl, p, resolved, opts) {
   const builtinHosts = resolved.tier0[p.allowlistKey];
   if (builtinHosts) {
-    const parsed = parseHttpsHost(p.url);
+    const parsed = parseHttpsHost(rawUrl);
     if (!("host" in parsed)) return parsed;
     if (hasPunycodeLabel(parsed.host)) return punycodeReject(parsed.host);
     if (hostMatches(parsed.host, builtinHosts)) return { ok: true };
@@ -8699,7 +8748,7 @@ function validateProvenance(p, resolved, opts) {
     }
     const t1 = resolved.tier1For(packageName);
     if (t1.ok) {
-      const parsed = parseHttpsHost(p.url);
+      const parsed = parseHttpsHost(rawUrl);
       if (!("host" in parsed)) return parsed;
       if (hasPunycodeLabel(parsed.host)) return punycodeReject(parsed.host);
       if (hostMatches(parsed.host, t1.hosts)) return { ok: true };
@@ -8716,7 +8765,7 @@ function validateProvenance(p, resolved, opts) {
         reason: `ack key ${p.allowlistKey} is scoped to package ${ack.scope}`
       };
     }
-    const parsed = parseHttpsHost(p.url);
+    const parsed = parseHttpsHost(rawUrl);
     if (!("host" in parsed)) return parsed;
     if (hostMatches(parsed.host, ack.hosts)) {
       if (hasPunycodeLabel(parsed.host)) {
@@ -8734,6 +8783,20 @@ function validateProvenance(p, resolved, opts) {
   }
   if (tier1Miss) return { ok: false, reason: tier1Miss };
   return { ok: false, reason: `unknown allowlistKey: ${p.allowlistKey}` };
+}
+function validateProvenance(p, resolved, opts) {
+  const urlResult = validateUrlAgainstTiers(p.url, p, resolved, opts);
+  if (!urlResult.ok) return urlResult;
+  if (p.finalUrl !== void 0 && p.finalUrl !== p.url) {
+    const finalResult = validateUrlAgainstTiers(p.finalUrl, p, resolved, opts);
+    if (!finalResult.ok) {
+      return {
+        ok: false,
+        reason: `finalUrl redirect crosses to an unauthorized host: ${finalResult.reason}`
+      };
+    }
+  }
+  return urlResult;
 }
 function parseHttpsHost(rawUrl) {
   let url;
@@ -8775,7 +8838,7 @@ function validateProvenance2(p) {
 }
 
 // packages/core/research/load.ts
-var HERE2 = dirname2(fileURLToPath2(import.meta.url));
+var HERE2 = dirname3(fileURLToPath3(import.meta.url));
 var _pkgCore2 = process.env["AIF_SYNTH_PKG_ROOT"];
 var STORE_ROOT = _pkgCore2 ? resolve2(_pkgCore2, "research", "store") : resolve2(HERE2, "store");
 var ResearchEntryError = class extends Error {
@@ -8838,8 +8901,8 @@ function loadEntries(framework, version, patterns) {
 // packages/core/synthesizer/synthesize.ts
 var import_ajv2 = __toESM(require_ajv(), 1);
 import { existsSync as existsSync2, readFileSync as readFileSync4 } from "node:fs";
-import { dirname as dirname3, resolve as resolve3 } from "node:path";
-import { fileURLToPath as fileURLToPath3 } from "node:url";
+import { dirname as dirname4, resolve as resolve3 } from "node:path";
+import { fileURLToPath as fileURLToPath4 } from "node:url";
 
 // packages/core/synthesizer/compile-declarative-md.ts
 var ESLINT_RESTRICTED_RULE_NAME = "rules-as-tests/restricted-syntax-audit-exempt";
@@ -8989,7 +9052,7 @@ function mergeEslintRuleConfig(acc, next, newSource, ruleSources) {
 }
 
 // packages/core/synthesizer/synthesize.ts
-var HERE3 = dirname3(fileURLToPath3(import.meta.url));
+var HERE3 = dirname4(fileURLToPath4(import.meta.url));
 var _pkgCore3 = process.env["AIF_SYNTH_PKG_ROOT"];
 var RECIPES_ROOT = _pkgCore3 ? resolve3(_pkgCore3, "synthesizer", "recipes") : resolve3(HERE3, "recipes");
 var SCHEMA_PATH2 = _pkgCore3 ? resolve3(_pkgCore3, "synthesizer", "synthesis-plan.schema.json") : resolve3(HERE3, "synthesis-plan.schema.json");
@@ -9085,7 +9148,7 @@ function synthesize(plan) {
 import { execFileSync } from "node:child_process";
 import { existsSync as existsSync3, readFileSync as readFileSync5, unlinkSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname as dirname4, join as join2, relative, resolve as resolve4 } from "node:path";
+import { dirname as dirname5, join as join2, relative, resolve as resolve4 } from "node:path";
 import process2 from "node:process";
 import { pathToFileURL } from "node:url";
 var R2_RULE_ID = "rules-as-tests/no-unsafe-zod-parse";
@@ -9095,7 +9158,7 @@ function r2Element(variant, scope) {
 }
 function customRulesImportSpecifier(configPath, cwd) {
   const target = resolve4(cwd, "eslint-rules-local/index.mjs");
-  let rel = relative(dirname4(resolve4(configPath)), target);
+  let rel = relative(dirname5(resolve4(configPath)), target);
   if (!rel.startsWith(".")) rel = `./${rel}`;
   return rel;
 }
@@ -9471,7 +9534,7 @@ async function probeViaEslint(configPath, cwd) {
   try {
     const reqd = createRequire(resolve4(cwd, "package.json"));
     const pj = reqd.resolve("eslint/package.json");
-    eslintBin = join2(dirname4(pj), "bin", "eslint.js");
+    eslintBin = join2(dirname5(pj), "bin", "eslint.js");
     if (!existsSync3(eslintBin)) return "unavailable";
   } catch {
     return "unavailable";
@@ -9482,7 +9545,7 @@ async function probeViaEslint(configPath, cwd) {
     nodeArgs.push("--import", "tsx");
   } catch {
   }
-  const dir = dirname4(resolve4(configPath));
+  const dir = dirname5(resolve4(configPath));
   const target = synthProbeTarget(dir);
   try {
     execFileSync(process2.execPath, [...nodeArgs, eslintBin, "--print-config", target], { cwd: dir, stdio: "pipe" });
@@ -9723,7 +9786,7 @@ async function main2() {
   const configPath = resolve5(pathIdx >= 0 ? argv[pathIdx + 1] : "./eslint.config.mjs");
   const dryRun = argv.includes("--dry-run");
   const snippetIdx = argv.indexOf("--snippet");
-  const snippetPath = snippetIdx >= 0 ? resolve5(argv[snippetIdx + 1]) : resolve5(dirname5(configPath), ".ai-factory", "synthesizer-output", "eslint-rules-snippet.json");
+  const snippetPath = snippetIdx >= 0 ? resolve5(argv[snippetIdx + 1]) : resolve5(dirname6(configPath), ".ai-factory", "synthesizer-output", "eslint-rules-snippet.json");
   const KNOWN_FLAGS = /* @__PURE__ */ new Set(["--help", "-h", "--stack", "--path", "--dry-run", "--snippet"]);
   for (let i = 0; i < argv.length; i++) {
     if (argv[i].startsWith("--") || argv[i].startsWith("-")) {
@@ -9774,7 +9837,7 @@ async function main2() {
         // #829: enable plugin self-registration for presets that don't pre-register `rules-as-tests`
         // (RN/ts-server). Resolved against the config's own dir → `./eslint-rules-local/index.mjs`
         // (40-configs.sh provisions it at the root AND per-workspace), so it works for both layouts.
-        customRulesImportPath: customRulesImportSpecifier(configPath, dirname5(configPath))
+        customRulesImportPath: customRulesImportSpecifier(configPath, dirname6(configPath))
       });
       if (result2.status === "already-wired") {
         console.log(`  [dry-run] [synth-wire] all synthesized rules already present in ${configPath} (no change needed)`);
@@ -9792,7 +9855,7 @@ async function main2() {
   const result = await wireNRules(source, mergedRules, {
     overrideKeys,
     // #829: see the dry-run site above — enables plugin self-registration for presets lacking it.
-    customRulesImportPath: customRulesImportSpecifier(configPath, dirname5(configPath))
+    customRulesImportPath: customRulesImportSpecifier(configPath, dirname6(configPath))
   });
   switch (result.status) {
     case "already-wired":

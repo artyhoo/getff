@@ -5,6 +5,12 @@ export interface Provenance {
   url: string;
   allowlistKey: string;
   fetchedAt: string;
+  /** NEW (S2): Tier-1 scope-lock right-hand side. Convention: set allowlistKey
+   *  to the package name for Tier-1 routing (not a Tier-0 key). */
+  packageName?: string;
+  /** NEW (S2): post-redirect URL — agent-protocol obligation, NOT validator-
+   *  verified (kickoff §4); when present it must pass the same tier as url. */
+  finalUrl?: string;
 }
 
 export interface ResearchEntry {
@@ -14,6 +20,9 @@ export interface ResearchEntry {
   antiPatterns: string[];
   provenance: Provenance[];
   extras?: Record<string, unknown>;
+  /** NEW (S2): trusted scope-lock left side; required for Tier-1 authorization,
+   *  absent on Tier-0 curated entries (T15 back-compat with the 9 store JSONs). */
+  package?: string;
 }
 
 export type DriftKind = 'modal-verb' | 'term-presence';
