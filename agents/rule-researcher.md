@@ -121,7 +121,7 @@ For each `provenance` entry you write:
 **Allowlist keys → hosts** (extend the data, not this protocol, for new stacks):
 
 | `allowlistKey`        | hosts                                          |
-| --------------------- | ----------------------------------------------- |
+| --------------------- | ---------------------------------------------- |
 | `next.official`       | `nextjs.org`, `vercel.com`                     |
 | `react.official`      | `react.dev`                                    |
 | `tailwind.official`   | `tailwindcss.com`                              |
