@@ -1,0 +1,153 @@
+// Tiered allowlist resolver — S1 suite (Tier 0 + Tier 2).
+// Paired negatives per kickoff §5 S1 (each observed RED before its fix — TDD).
+import { describe, it, expect } from 'vitest';
+import {
+  canonicalizeHost,
+  isIpLiteral,
+  hasPunycodeLabel,
+  hostMatches,
+} from './allowlist-resolver.ts';
+
+describe('host invariant helpers', () => {
+  it('canonicalizes case and trailing dot; rejects IP literals (bare IPv4 + bracketed IPv6)', () => {
+    expect(canonicalizeHost('NextJS.org.')).toBe('nextjs.org');
+    expect(isIpLiteral('127.0.0.1')).toBe(true);
+    expect(isIpLiteral('[::1]')).toBe(true); // URL.hostname keeps brackets
+    expect(isIpLiteral('nextjs.org')).toBe(false);
+  });
+  it('detects xn-- per DNS label (URL.hostname is already ASCII)', () => {
+    expect(hasPunycodeLabel('xn--caf-dma.com')).toBe(true);
+    expect(hasPunycodeLabel('docs.xn--caf-dma.com')).toBe(true);
+    expect(hasPunycodeLabel('nextjs.org')).toBe(false);
+  });
+  it('matches bare domain inclusive of subdomains, segment-safe', () => {
+    expect(hostMatches('nextjs.org', ['nextjs.org'])).toBe(true);
+    expect(hostMatches('docs.nextjs.org', ['nextjs.org'])).toBe(true);
+    expect(hostMatches('evilnextjs.org', ['nextjs.org'])).toBe(false); // no substring match
+  });
+});
+
+// --- Task 1.2: Tier-2 ack file — fail-closed parsing ---
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { loadAckFile, AckFileError } from './allowlist-resolver.ts';
+
+function ackFile(entries: unknown[]): string {
+  const p = join(mkdtempSync(join(tmpdir(), 'ack-')), 'research-allowlist.json');
+  writeFileSync(p, JSON.stringify({ entries }, null, 2));
+  return p;
+}
+const GOOD = {
+  key: 'drizzle.docs',
+  hosts: ['orm.drizzle.team'],
+  reason: 'ORM docs for researched practices',
+  ackedBy: 'art',
+  ackedAt: '2026-07-02',
+};
+
+describe('Tier-2 ack file — fail-closed parsing', () => {
+  it('S1-N2: entry WITHOUT ack fields fails', () => {
+    const { ackedBy: _drop, ...noAck } = GOOD;
+    expect(() => loadAckFile(ackFile([noAck]))).toThrow(AckFileError);
+  });
+  it('S1-N3: malformed ackedAt date fails (shape-valid but not a real date)', () => {
+    expect(() => loadAckFile(ackFile([{ ...GOOD, ackedAt: 'yesterday' }]))).toThrow(AckFileError);
+    expect(() => loadAckFile(ackFile([{ ...GOOD, ackedAt: '2026-13-45' }]))).toThrow(AckFileError);
+  });
+  it('rejects IP-literal hosts and duplicate keys (cross-tier invariant, fail-closed)', () => {
+    expect(() => loadAckFile(ackFile([{ ...GOOD, hosts: ['127.0.0.1'] }]))).toThrow(AckFileError);
+    expect(() => loadAckFile(ackFile([GOOD, { ...GOOD, reason: 'dup' }]))).toThrow(AckFileError);
+  });
+  it('positive control: a well-formed ack loads, hosts canonicalized', () => {
+    const m = loadAckFile(ackFile([{ ...GOOD, hosts: ['ORM.Drizzle.Team.'] }]));
+    expect(m.get('drizzle.docs')?.hosts).toEqual(['orm.drizzle.team']);
+  });
+  it('missing file resolves to empty (fail-closed default, not an error)', () => {
+    expect(loadAckFile('/nonexistent/research-allowlist.json').size).toBe(0);
+  });
+});
+
+// --- Task 1.3: resolveAllowedSources + two-arg validateProvenance (Tiers 0+2) ---
+import { resolveAllowedSources, validateProvenance } from './allowlist-resolver.ts';
+import type { Provenance } from './types.ts';
+
+const PROV = (over: { url: string; allowlistKey: string }): Provenance => ({
+  fetchedAt: '2026-07-02T00:00:00Z',
+  ...over,
+});
+const ctxWith = (entries: unknown[]) =>
+  resolveAllowedSources({ root: '/tmp/unused', ackFilePath: ackFile(entries) });
+
+describe('validateProvenance(p, resolved) — S1 tiers 0+2', () => {
+  const resolvedEmpty = resolveAllowedSources(); // no ctx: tier0 only, tier2 empty, zero fs
+
+  it('S1-N1: unknown key still fails', () => {
+    const v = validateProvenance(
+      PROV({ url: 'https://orm.drizzle.team/docs', allowlistKey: 'drizzle.docs' }),
+      resolvedEmpty,
+    );
+    expect(v.ok).toBe(false);
+    expect(v.reason).toMatch(/unknown allowlistKey/);
+  });
+  it('S1-N4: http:// fails even for a known key', () => {
+    const v = validateProvenance(
+      PROV({ url: 'http://nextjs.org/docs', allowlistKey: 'next.official' }),
+      resolvedEmpty,
+    );
+    expect(v.ok).toBe(false);
+    expect(v.reason).toMatch(/non-https/);
+  });
+  it('S1-N5: xn-- host fails outside an explicit Tier-2 ack', () => {
+    const resolved = ctxWith([GOOD]); // acks orm.drizzle.team only
+    const v = validateProvenance(
+      PROV({ url: 'https://xn--caf-dma.com/x', allowlistKey: 'drizzle.docs' }),
+      resolved,
+    );
+    expect(v.ok).toBe(false);
+    expect(v.reason).toMatch(/xn--|punycode/);
+  });
+  it('carve-out: an explicitly-acked punycode host passes (kickoff §4)', () => {
+    const resolved = ctxWith([{ ...GOOD, key: 'idn.docs', hosts: ['xn--caf-dma.com'] }]);
+    const v = validateProvenance(
+      PROV({ url: 'https://xn--caf-dma.com/x', allowlistKey: 'idn.docs' }),
+      resolved,
+    );
+    expect(v.ok).toBe(true);
+  });
+  it('positive control: well-formed ack authorizes its key + host (subdomain-inclusive)', () => {
+    const resolved = ctxWith([GOOD]);
+    expect(
+      validateProvenance(
+        PROV({ url: 'https://orm.drizzle.team/docs/rls', allowlistKey: 'drizzle.docs' }),
+        resolved,
+      ).ok,
+    ).toBe(true);
+    expect(
+      validateProvenance(
+        PROV({ url: 'https://docs.orm.drizzle.team/x', allowlistKey: 'drizzle.docs' }),
+        resolved,
+      ).ok,
+    ).toBe(true);
+  });
+  it('Tier-2 scope-lock: scoped ack rejects a mismatched entryPackage', () => {
+    const resolved = ctxWith([{ ...GOOD, scope: 'drizzle-orm' }]);
+    const p = PROV({ url: 'https://orm.drizzle.team/docs', allowlistKey: 'drizzle.docs' });
+    expect(validateProvenance(p, resolved, { entryPackage: 'drizzle-orm' }).ok).toBe(true);
+    expect(validateProvenance(p, resolved, { entryPackage: 'hono' }).ok).toBe(false);
+  });
+  it('Tier-0 regression: builtin key + host passes through the new path; IP literal rejected', () => {
+    expect(
+      validateProvenance(
+        PROV({ url: 'https://nextjs.org/docs', allowlistKey: 'next.official' }),
+        resolvedEmpty,
+      ).ok,
+    ).toBe(true);
+    expect(
+      validateProvenance(
+        PROV({ url: 'https://127.0.0.1/docs', allowlistKey: 'next.official' }),
+        resolvedEmpty,
+      ).ok,
+    ).toBe(false);
+  });
+});

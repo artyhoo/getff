@@ -22,12 +22,22 @@ const ajv = new Ajv({ allErrors: true, strict: false });
 const schemaDoc = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'));
 ajv.addSchema(schemaDoc, 'research-plan');
 
+const ACK_SCHEMA_PATH = _pkgCore
+  ? resolve(_pkgCore, 'research', 'research-allowlist.schema.json')
+  : resolve(HERE, 'research-allowlist.schema.json');
+const ackSchemaDoc = JSON.parse(readFileSync(ACK_SCHEMA_PATH, 'utf8'));
+ajv.addSchema(ackSchemaDoc, 'research-allowlist');
+
 export const validateEntry: ValidateFunction = ajv.compile({
   $ref: 'research-plan#/definitions/ResearchEntry',
 });
 
 export const validateResearchPlanShape: ValidateFunction = ajv.compile({
   $ref: 'research-plan',
+});
+
+export const validateAckFileShape: ValidateFunction = ajv.compile({
+  $ref: 'research-allowlist',
 });
 
 export function errorsText(errors: ValidateFunction['errors']): string {
