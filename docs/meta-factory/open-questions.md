@@ -234,7 +234,7 @@ Phase 8 entry research (see [phase-8-research.md §6](phase-8-research.md)) clos
 
 | Layer | Surface | Artifact |
 |---|---|---|
-| Rule | [`.claude/rules/phase-research-coverage.md`](../../.claude/rules/phase-research-coverage.md) | 5-item coverage checklist + 4 self-reflection prompts + 4 anti-patterns |
+| Rule | [`.claude/rules/phase-research-coverage.md`](../../.claude/rules/phase-research-coverage.md) | 5-item coverage checklist + 4 self-reflection prompts + 4 anti-patterns *(v1-ship snapshot, 2026-05-08 — item counts grew since; rule §1 is now count-free by design, see its header "Naming note")* |
 | Patches accumulator | [`docs/meta-factory/research-patches/`](research-patches/) | one file per discovered gap; AIF `/aif-evolve` patch format |
 | Discipline-layer SSOT trigger | this entry (§13.16) | when to widen / promote the rule |
 
