@@ -84,8 +84,16 @@ fi
 if [[ -e "$PROJECT_DIR/node_modules" ]] && [[ ! -e "$WORKTREE_DIR/node_modules" ]]; then
   ln -sfn "$PROJECT_DIR/node_modules" "$WORKTREE_DIR/node_modules"
 fi
+# packages/core/node_modules must point at the primary's REAL nested dir when it
+# exists — a ../../node_modules link shadows the nested layer the root lock plans
+# (diverging dep versions) and fakes synth-bundle drift in fresh worktrees
+# (incident 2026-07-02). Fallback only when the primary has no nested dir.
 if [[ -d "$WORKTREE_DIR/packages/core" ]] && [[ ! -e "$WORKTREE_DIR/packages/core/node_modules" ]]; then
-  ln -sfn ../../node_modules "$WORKTREE_DIR/packages/core/node_modules"
+  if [[ -d "$PROJECT_DIR/packages/core/node_modules" ]]; then
+    ln -sfn "$PROJECT_DIR/packages/core/node_modules" "$WORKTREE_DIR/packages/core/node_modules"
+  else
+    ln -sfn ../../node_modules "$WORKTREE_DIR/packages/core/node_modules"
+  fi
 fi
 
 # Link gitignored orchestrator-prompts to a canonical store outside every
