@@ -22,6 +22,10 @@
 
 export default {
   test: {
+    // Tripwire: the suite must leave the real .claude/hooks/ untouched
+    // (2026-07-02 seeded-break leak incident). Delta-based; advisory without git.
+    // Node-builtins-only module — safe to load from repo root (see NOTE above).
+    globalSetup: ['./packages/core/audit-self/hooks-tree-guard.ts'],
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
