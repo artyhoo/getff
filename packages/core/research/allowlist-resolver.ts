@@ -152,8 +152,13 @@ export function resolveAllowedSources(ctx?: ResolveCtx): ResolvedSources {
 }
 
 /** Tiered provenance validation — first match wins (kickoff §4: Tier 0 → 1 → 2).
- *  Reason strings for Tier-0 outcomes match the pre-refactor validator exactly
- *  (three untouched callers print them as consumer guidance). */
+ *  Tier-0 preserves the pre-refactor validator's ok-verdict + reason strings for
+ *  every curated-store input. It is NOT byte-identical on all inputs: the §4
+ *  cross-tier invariants (host canonicalization, IP-literal + punycode rejection)
+ *  apply uniformly, so a trailing-dot FQDN of an allowed host now resolves ok, and
+ *  IP-literal / punycode inputs carry a specific reason. Those three divergences
+ *  are pinned in allowlist-resolver.test.ts (executable truth, not a prose claim).
+ *  Three untouched callers print the reason strings as consumer guidance. */
 export function validateProvenance(
   p: Provenance,
   resolved: ResolvedSources,

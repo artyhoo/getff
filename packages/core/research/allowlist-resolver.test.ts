@@ -150,4 +150,34 @@ describe('validateProvenance(p, resolved) — S1 tiers 0+2', () => {
       ).ok,
     ).toBe(false);
   });
+  // The one-arg wrapper is NOT byte-identical to the pre-refactor validator: the §4
+  // cross-tier invariants apply to Tier-0 too, so three edge inputs diverge. Pinned
+  // here so the divergence is a tested invariant, not an untested "zero behavior
+  // change" prose claim (the project's own #trap-stated-but-not-enforced).
+  it('Tier-0 §4 cross-tier divergences from the pre-refactor validator are pinned', () => {
+    // (a) trailing-dot FQDN of an allowed host: pre-refactor returned ok:false
+    // (hostname "nextjs.org." did not match); canonicalization now resolves ok:true.
+    expect(
+      validateProvenance(
+        PROV({ url: 'https://nextjs.org./docs', allowlistKey: 'next.official' }),
+        resolvedEmpty,
+      ),
+    ).toEqual({ ok: true });
+    // (b) IP-literal on a Tier-0 key: pre-refactor generic "host ... not allowed";
+    // now a specific IP-literal reason. ok stays false either way.
+    const ip = validateProvenance(
+      PROV({ url: 'https://127.0.0.1/docs', allowlistKey: 'next.official' }),
+      resolvedEmpty,
+    );
+    expect(ip.ok).toBe(false);
+    expect(ip.reason).toMatch(/IP-literal/);
+    // (c) punycode on a Tier-0 key: pre-refactor generic "host ... not allowed";
+    // now a specific punycode reason. ok stays false either way.
+    const idn = validateProvenance(
+      PROV({ url: 'https://xn--caf-dma.com/x', allowlistKey: 'next.official' }),
+      resolvedEmpty,
+    );
+    expect(idn.ok).toBe(false);
+    expect(idn.reason).toMatch(/punycode|xn--/);
+  });
 });
