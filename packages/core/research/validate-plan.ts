@@ -39,6 +39,16 @@ export type PlanCheckResult =
   | { ok: true; plan: ResearchPlan; diagnostics: [] }
   | { ok: false; diagnostics: Diagnostic[] };
 
+/** Maps a provenance Diagnostic to the entry `id` it belongs to. Built
+ *  alongside `diagnostics` in checkResearchPlan's loop rather than recovered
+ *  by parsing `path` back apart — `research-plan.schema.json` leaves `id` an
+ *  unconstrained string, so an id containing `/` (e.g. `'next/app-router'`)
+ *  is schema-legal but not round-trippable through a `[^/]+` path regex.
+ *  A `WeakMap` keyed on the Diagnostic object itself avoids widening the
+ *  Diagnostic shape (still exactly the diag()-constructed value) or
+ *  reserving an ad-hoc field for a throw-adapter-only concern. */
+type EntryIdMap = WeakMap<Diagnostic, string>;
+
 /** Accumulates ALL ajv shape diagnostics (allErrors already on) AND ALL
  *  provenance violations across ALL entries — replaces first-failure throw.
  *  `patterns` is iterated defensively (Array.isArray guard) so a
@@ -48,7 +58,11 @@ export type PlanCheckResult =
  *  checks are independent, not sequential-and-short-circuiting. When
  *  `patterns` is absent or not an array, only shape diagnostics apply (there
  *  is nothing iterable to derive provenance diagnostics from). */
-export function checkResearchPlan(plan: unknown, ctx?: ResolveCtx): PlanCheckResult {
+export function checkResearchPlan(
+  plan: unknown,
+  ctx?: ResolveCtx,
+  entryIdOut?: EntryIdMap,
+): PlanCheckResult {
   const shapeOk = validateResearchPlanShape(plan);
   const diagnostics: Diagnostic[] = shapeOk
     ? []
@@ -73,7 +87,12 @@ export function checkResearchPlan(plan: unknown, ctx?: ResolveCtx): PlanCheckRes
           // Attach a path pointing at the owning entry (ajv-instancePath
           // style) without disturbing code/message/params — those are the
           // exact Diagnostic diag() already constructed at the failure site.
-          diagnostics.push({ ...d, path: d.path ?? `/patterns/${entryId}/provenance` });
+          const withPath: Diagnostic = { ...d, path: d.path ?? `/patterns/${entryId}/provenance` };
+          diagnostics.push(withPath);
+          // Record the id->diagnostic association out-of-band (see
+          // EntryIdMap doc comment) — `path` alone can't round-trip an id
+          // containing '/', but the map records it verbatim, unconstrained.
+          entryIdOut?.set(withPath, entryId);
         }
       }
     }
@@ -106,7 +125,8 @@ export function validateResearchPlan(
   plan: unknown,
   resolveCtx?: ResolveCtx,
 ): asserts plan is ResearchPlan {
-  const result = checkResearchPlan(plan, resolveCtx);
+  const entryIds: EntryIdMap = new WeakMap();
+  const result = checkResearchPlan(plan, resolveCtx, entryIds);
   if (!result.ok) {
     const first = result.diagnostics[0];
     if (first === undefined) {
@@ -118,21 +138,14 @@ export function validateResearchPlan(
     // tests assert on. Shape diagnostics are FF1001 (ajv errorsText format,
     // matching the pre-D1 ResearchPlanError(errorsText(...)) message).
     // Provenance diagnostics carry the resolver's FF2xxx codes — preserve
-    // the exact 'pattern[id] provenance violation — <reason>' wrapper text.
+    // the exact 'pattern[id] provenance violation — <reason>' wrapper text,
+    // with the entry id read verbatim from entryIds (built alongside the
+    // diagnostics in checkResearchPlan — see EntryIdMap doc comment for why
+    // this doesn't recover the id by parsing `path` back apart).
     const message =
       first.code === 'FF1001'
         ? errorsText(validateResearchPlanShape.errors)
-        : `pattern[${planEntryIdFor(plan, first)}] provenance violation — ${first.message}`;
+        : `pattern[${entryIds.get(first) ?? '<unknown>'}] provenance violation — ${first.message}`;
     throw new ResearchPlanError(message, result.diagnostics);
   }
-}
-
-/** Recovers the entry id a provenance Diagnostic belongs to, from its
- *  `path` (set in checkResearchPlan as `/patterns/<id>/provenance`), for the
- *  throw-adapter's message-fidelity wrapper text. Falls back to '<unknown>'
- *  if path is absent or unparseable (should not happen — checkResearchPlan
- *  always sets it for provenance diagnostics). */
-function planEntryIdFor(_plan: unknown, d: Diagnostic): string {
-  const m = /^\/patterns\/([^/]+)\/provenance$/.exec(d.path ?? '');
-  return m?.[1] ?? '<unknown>';
 }

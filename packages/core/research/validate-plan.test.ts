@@ -158,3 +158,39 @@ describe('checkResearchPlan — accumulation (AC 2)', () => {
     expect(result).toMatchObject({ ok: true, diagnostics: [] });
   });
 });
+
+// --- Reviewer finding (D1 Task 3A fix pass): entry.id containing '/' ---
+// research-plan.schema.json leaves `id` an unconstrained string, so
+// 'next/app-router' is schema-legal. Pre-fix, validateResearchPlan's
+// throw-adapter recovered the id by regex-matching the diagnostic's
+// `path` (`/patterns/<id>/provenance`), and `[^/]+` cannot match an id
+// containing a slash — the wrapper text degraded to 'pattern[<unknown>]'
+// instead of 'pattern[next/app-router]', breaking NEW-3 verbatim-fidelity
+// for this schema-legal input class. Observed RED before the fix (manual
+// capture): message was
+// "Invalid ResearchPlan: pattern[<unknown>] provenance violation — host
+// example.evil not allowed under key next.official (expected one of:
+// nextjs.org, vercel.com)".
+describe('validateResearchPlan — entry id containing "/" (NEW-3 fidelity)', () => {
+  it('preserves the slash-containing id verbatim in the thrown message', () => {
+    const bad = {
+      ...validPlan,
+      patterns: [
+        {
+          ...validEntry,
+          id: 'next/app-router',
+          provenance: [
+            {
+              url: 'https://example.evil/fake',
+              allowlistKey: 'next.official',
+              fetchedAt: '2026-05-08',
+            },
+          ],
+        },
+      ],
+    };
+    expect(() => validateResearchPlan(bad)).toThrow(/pattern\[next\/app-router\] provenance violation/);
+    // Sanity: would have failed pre-fix — degraded id is NOT present.
+    expect(() => validateResearchPlan(bad)).not.toThrow(/pattern\[<unknown>\]/);
+  });
+});
