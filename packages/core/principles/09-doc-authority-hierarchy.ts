@@ -50,6 +50,7 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   '.claude/rules/ci-tool-pinning.md',
   '.claude/rules/egress-no-api-bypass.md',
   '.claude/rules/skill-description-quality.md',
+  '.claude/rules/research-source-trust.md',
 
   // docs/meta-factory/ reference docs (excluding sub-folders + filename-convention transients)
   'docs/meta-factory/EXECUTION-PLAN.md',

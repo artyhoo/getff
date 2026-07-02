@@ -118,15 +118,15 @@ For each `provenance` entry you write:
 3. Set `allowlistKey` to a **real key** (below) whose host list contains the URL's host. The factory's host-gate is only a backstop; the in-session fetch+quote is the substantive check. https-only.
 4. **Redirect handling:** if `WebFetch` reports a redirect notice (cross-host redirect), record the `finalUrl` you actually landed on in the provenance entry, and **re-fetch only an independently-allowlisted target** — do not simply trust the redirect destination. The validator checks a present `finalUrl` against the same tier that authorized `url`; a redirect crossing to an unauthorized host fails closed.
 
-**Allowlist keys → hosts** (extend the data, not this protocol, for new stacks):
+**Trust tiers** (extend the data, not this protocol, for new stacks — see [`.claude/rules/research-source-trust.md`](../.claude/rules/research-source-trust.md) for the full discipline; first match wins):
 
-| `allowlistKey`        | hosts                                          |
-| --------------------- | ---------------------------------------------- |
-| `next.official`       | `nextjs.org`, `vercel.com`                     |
-| `react.official`      | `react.dev`                                    |
-| `tailwind.official`   | `tailwindcss.com`                              |
-| `typescript.official` | `typescriptlang.org`, `www.typescriptlang.org` |
-| `mdn`                 | `developer.mozilla.org`                        |
+| Tier                        | Source                                                                                                                                                                                    | Extend by                                                                                                                                                                                              |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Tier 0 — builtin**        | Framework-curated `allowlistKey → hosts` map (`packages/core/research/allowlist.ts`)                                                                                                      | Edit the framework's own source — reserved for the maintainers, not a per-research extension point                                                                                                     |
+| **Tier 1 — derived (npm)**  | A **direct dependency** of the consumer project's own local `homepage`/`repository` metadata, scope-locked to that package, multi-tenant apexes (`github.com`, `*.github.io`, …) excluded | Nothing to do — set `allowlistKey` to the package's own name and provenance `packageName` to the same value; the factory derives the host set automatically at validate time (`allowlist-resolver.ts`) |
+| **Tier 2 — consumer-acked** | `.ai-factory/research-allowlist.json` — a committed, human-reviewed ack record (`{key, hosts[], scope?, reason, ackedBy, ackedAt}`)                                                       | Add an entry to that JSON file (see below) — this is the fallback when a Tier-1 miss occurs                                                                                                            |
+
+Builtin Tier-0 keys today: `next.official` (`nextjs.org`, `vercel.com`), `react.official` (`react.dev`), `tailwind.official` (`tailwindcss.com`), `typescript.official` (`typescriptlang.org`, `www.typescriptlang.org`), `mdn` (`developer.mozilla.org`).
 
 For a package that is a **direct dependency** of the consumer project (Tier 1, derived), set `allowlistKey` to the package's own name and provenance `packageName` to the same value — the factory derives the allowed host set from that package's local `homepage`/`repository` metadata at validate time (`allowlist-resolver.ts`), scope-locked to that package only.
 
