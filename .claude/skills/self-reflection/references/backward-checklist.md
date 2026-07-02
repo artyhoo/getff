@@ -5,6 +5,22 @@
 
 The backward direction is what `#recursive-self-application-gap` was created to catch. Forward-check verifies the proposal complies with existing disciplines; backward-check verifies the new rule the proposal introduces is applied to *all* existing artefacts under its scope.
 
+## Step 0 — Defeat restatement first (cold-sweep + enumeration format)
+
+The dominant failure of this checklist under a long, context-loaded session is **restatement** — writing a backward-check that recaps *what the PR did* (naming only the diff's own files) instead of sweeping the *sibling surfaces* where the same change-class must also hold. This is [`#backward-check-restates-not-sweeps`](../../../rules/ai-laziness-traps.md) (T21); its incident is PR #857, where a restated backward-check let a real parallel Tier-1 gap reach the PR. Two structural guards (a stronger reminder would rot under the same fatigue):
+
+1. **Delegate to the cold sub-agent when the change has parallel surfaces.** Dispatch [`agents/backward-sweep-auditor.md`](../../../../agents/backward-sweep-auditor.md) with **only the change's class** (one-sentence content predicate — *never* the diff or PR narrative). It enumerates every parallel surface and returns `GAP-FOUND` / `SWEPT-CLEAN` per surface. It cannot restate the PR because it never saw it. AI-agnostic, no paid LLM.
+2. **Author the section in the enumeration format**, so an omission is visible without reading the code:
+   ```text
+   Class of this change = <content predicate>.
+   Surfaces where the class occurs (population N, via <grep/find command>):
+     - <surface file:line> — SWEPT-CLEAN (guard at <file:line>)   [touched-by-change: NO]
+     - <surface file:line> — GAP-FOUND   (action / follow-up commit)
+   Surfaces NOT in the diff but IN the class: <non-empty, unless genuinely first-of-class>.
+   ```
+
+Steps 1–6 below are how *you* (or the cold agent) run the sweep whose result populates this format.
+
 ## Step 1 — Determine the new rule's scope
 
 Express scope as a path glob or a content predicate:
