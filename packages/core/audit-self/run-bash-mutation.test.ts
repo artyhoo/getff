@@ -37,7 +37,10 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const WRAPPER = resolve(HERE, 'run-bash-mutation.sh');
+// Recursive bootstrap (shipping research-patch): when the wrapper is itself the
+// mutation target, its mutants land in a shadow copy whose path arrives via
+// BASHMUT_HOOK — spawn THAT copy so wrapper-mutants are actually exercised.
+const WRAPPER = process.env.BASHMUT_HOOK ?? resolve(HERE, 'run-bash-mutation.sh');
 
 function has(cmd: string): boolean {
   try {

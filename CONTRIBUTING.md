@@ -142,8 +142,14 @@ Notes:
   opener; a bash glob in a comment (`# … hooks/*.sh`) would otherwise suppress
   mutation of the rest of the file. The wrapper neutralises this automatically
   (line-count-preserving), so kill rates are not silently truncated.
-- The wrapper transiently overwrites the target hook while testing each mutant
-  and restores it on completion — don't edit or commit that hook mid-run.
+- Mutants are swapped into a temp **shadow copy** of the hook — the tracked
+  file is never written (2026-07-02 leak incident: concurrent suite instances
+  interleaved the old in-place swap/restore and a mutant leaked into the tree).
+  The shadow's path reaches the test command via `BASHMUT_HOOK`; a hook test
+  that spawns its hook must spawn `$BASHMUT_HOOK` (falling back to the tracked
+  path when unset), or every mutant survives and the gate fails loudly.
+  `packages/core/audit-self/hooks-tree-guard.ts` (vitest globalSetup) is the
+  suite-level tripwire that fails a run which leaks into `.claude/hooks/`.
 
 ## Build-vs-reuse + `Prior-art:` trailer convention (Phase 8.8)
 
