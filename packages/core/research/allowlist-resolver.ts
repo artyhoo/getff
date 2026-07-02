@@ -209,6 +209,12 @@ export function resolveAllowedSources(ctx?: ResolveCtx): ResolvedSources {
         if (rawHost === null) continue; // no extractable https host — contributes nothing
         const host = canonicalizeHost(rawHost);
         if (isIpLiteral(host)) continue;
+        // A single-label host (bare TLD, e.g. "com") would authorize an entire TLD via
+        // hostMatches (`host === 'com' || host.endsWith('.com')`). Same fail-closed class
+        // as the isIpLiteral reject above and the loadAckFile single-label guard (Tier-2),
+        // applied to the Tier-1 derivation surface so both host sources reject bare TLDs
+        // consistently.
+        if (!host.includes('.')) continue;
         if (hasPunycodeLabel(host)) continue;
         if (isMultiTenantHost(host)) continue; // H2/DN #6 — shared-apex ineligible
         if (!hosts.includes(host)) hosts.push(host);
