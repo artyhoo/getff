@@ -8656,6 +8656,11 @@ function loadAckFile(path) {
           `IP-literal host "${h}" in entry "${entry.key}" \u2014 registrable domain names only`
         );
       }
+      if (!h.includes(".")) {
+        throw new AckFileError(
+          `single-label host "${h}" in entry "${entry.key}" \u2014 registrable domain names only`
+        );
+      }
     }
     if (map.has(entry.key)) {
       throw new AckFileError(`duplicate key "${entry.key}" in ack file`);
