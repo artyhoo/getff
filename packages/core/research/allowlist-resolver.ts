@@ -88,6 +88,16 @@ export function loadAckFile(path: string): Map<string, AckEntry> {
           `IP-literal host "${h}" in entry "${entry.key}" — registrable domain names only`,
         );
       }
+      // A single-label host (bare TLD, e.g. "com") would authorize an entire TLD via
+      // hostMatches (`host === 'com' || host.endsWith('.com')`). `h` is already
+      // canonicalized (so "com." → "com"), so no-dot ⇒ not a registrable domain name.
+      // Same fail-closed class as the IP-literal reject above (a human hand-edit typo,
+      // e.g. "com" for "docs.com", would silently widen trust to every *.com).
+      if (!h.includes('.')) {
+        throw new AckFileError(
+          `single-label host "${h}" in entry "${entry.key}" — registrable domain names only`,
+        );
+      }
     }
     if (map.has(entry.key)) {
       throw new AckFileError(`duplicate key "${entry.key}" in ack file`);

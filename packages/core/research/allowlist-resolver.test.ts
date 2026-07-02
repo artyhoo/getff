@@ -55,11 +55,15 @@ describe('Tier-2 ack file — fail-closed parsing', () => {
     expect(() => loadAckFile(ackFile([{ ...GOOD, ackedAt: 'yesterday' }]))).toThrow(AckFileError);
     expect(() => loadAckFile(ackFile([{ ...GOOD, ackedAt: '2026-13-45' }]))).toThrow(AckFileError);
   });
-  it('rejects IP-literal hosts and duplicate keys (cross-tier invariant, fail-closed)', () => {
+  it('rejects IP-literal hosts, single-label hosts, and duplicate keys (cross-tier invariant, fail-closed)', () => {
     expect(() => loadAckFile(ackFile([{ ...GOOD, hosts: ['127.0.0.1'] }]))).toThrow(AckFileError);
+    // A bare TLD (single-label host) authorizes an entire TLD via hostMatches (`host === 'com'
+    // || host.endsWith('.com')`) — a whole-*.com widening from a human typo (`com` for `docs.com`).
+    // Rejected at load time, same fail-closed family as the IP-literal reject above.
+    expect(() => loadAckFile(ackFile([{ ...GOOD, hosts: ['com'] }]))).toThrow(AckFileError);
     expect(() => loadAckFile(ackFile([GOOD, { ...GOOD, reason: 'dup' }]))).toThrow(AckFileError);
   });
-  it('positive control: a well-formed ack loads, hosts canonicalized', () => {
+  it('positive control: a well-formed two-label ack loads, hosts canonicalized', () => {
     const m = loadAckFile(ackFile([{ ...GOOD, hosts: ['ORM.Drizzle.Team.'] }]));
     expect(m.get('drizzle.docs')?.hosts).toEqual(['orm.drizzle.team']);
   });
