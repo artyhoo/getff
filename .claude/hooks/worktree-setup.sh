@@ -110,8 +110,19 @@ fi
 if [[ -e "$PROJECT_DIR/node_modules" ]] && [[ ! -e "$WORKTREE_DIR/node_modules" ]]; then
   ln -sfn "$PROJECT_DIR/node_modules" "$WORKTREE_DIR/node_modules"
 fi
+# packages/core/node_modules must point at the primary's REAL nested dir when it
+# exists: the root lock plans nested dep versions (packages/core/node_modules/<dep>)
+# that diverge from the root layer, and a ../../node_modules link SHADOWS the
+# nested layer — esbuild then bundles the root versions and
+# `scripts/build-synth-bundle.sh --check` false-fails with "synth-bundle drift"
+# in every fresh worktree (incident 2026-07-02). Fallback to ../../node_modules
+# only when the primary has no nested dir (fresh clone before install).
 if [[ -d "$WORKTREE_DIR/packages/core" ]] && [[ ! -e "$WORKTREE_DIR/packages/core/node_modules" ]]; then
-  ln -sfn ../../node_modules "$WORKTREE_DIR/packages/core/node_modules"
+  if [[ -d "$PROJECT_DIR/packages/core/node_modules" ]]; then
+    ln -sfn "$PROJECT_DIR/packages/core/node_modules" "$WORKTREE_DIR/packages/core/node_modules"
+  else
+    ln -sfn ../../node_modules "$WORKTREE_DIR/packages/core/node_modules"
+  fi
 fi
 
 # Link gitignored orchestrator-prompts to a canonical store outside every
