@@ -686,6 +686,12 @@ Manual baseline: 1-2 дня создание `preset-next-16-manual`. Затем
 
 Согласно PROPOSAL §10 Phase 10-11 + §13.5, §13.6.
 
+**Validation-chain / multi-toolchain (2026-07-02, by reference — single-source):**
+последовательность trust-tiers S1→S2→S3 (shipped 2026-07-02: #850/#852/#853) → diagnostics D1 → B → MT (Rust, `{toolchain, stack}`).
+Дизайн D1+B: [../superpowers/specs/2026-07-02-diagnostics-core-design.md](../superpowers/specs/2026-07-02-diagnostics-core-design.md) (§6 binding sequencing, §9 stage B).
+R-phase + architecture v0.2: [research-patches/2026-07-02-multi-toolchain-generalization.md](research-patches/2026-07-02-multi-toolchain-generalization.md) (§9 supersedes §8; §9.1 invention gaps; пробы P1-P6 до MT-kickoff).
+Sequencing-домом остаётся ROADMAP «Поток MT» (planning workspace). Не гейтит MVP.
+
 После каждой sub-фазы — тот же retrospective gate.
 
 ### Post-1.0 growth waves N0–N8 (active — tracked elsewhere by reference)
