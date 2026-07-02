@@ -8,6 +8,8 @@
 # kind=mcp              → detect-first `claude mcp add`; processed by the 05-mcp layer INSIDE install.sh
 #                         (before 70-deps); NEVER processed by the post-install wrapper loop (D5/I1 ordering).
 #                         No version pin in install_cmd. Requires claude CLI (graceful skip if absent).
+# kind=cli              → native CLI binary; detect-first; official installer run on consent by the
+#                         post-install wrapper loop (same routing as cc-plugin).
 #
 # stacks=* → relevant for all stacks; comma-separated list for stack-specific (e.g. react-next,ts-server).
 # The stacks column is consumed by 15-companions-stack.sh for static stack-aware selection.
@@ -15,3 +17,5 @@
 superpowers	claude plugin list 2>/dev/null | grep -q superpowers	claude plugin install superpowers@claude-plugins-official --scope user	cc-plugin	*
 runtime-bridge	curl -sf "${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}/health"	(bridge)	external-service	*
 deepwiki	claude mcp list --scope user 2>/dev/null | grep -q deepwiki	claude mcp add --scope user --transport http deepwiki https://mcp.deepwiki.com/mcp	mcp	*
+ast-grep-cli	command -v ast-grep	npm install -g @ast-grep/cli	cli	*
+ast-grep	claude plugin list 2>/dev/null | grep -q ast-grep	claude plugin marketplace add ast-grep/agent-skill && claude plugin install ast-grep@ast-grep-marketplace --scope user	cc-plugin	*

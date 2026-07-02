@@ -52,6 +52,10 @@ These are unconditional — they ship with the project and need no extra install
 
 **Runtime-discipline rules R7/R8 are opt-in.** `no-direct-time-randomness` (R7) and `require-otel-span` (R8) need an injected Clock/Random + `infrastructure/` layer and an OpenTelemetry tracer — infra a fresh skeleton lacks. The shipped `eslint.config.mjs` enables them only when `AIF_STRICT_RUNTIME=1` is set in the environment; R2 (validation at boundaries) stays unconditional. Custom-rule file globs are **layout-agnostic** (flat / layered / monorepo) — widen `RULE_GLOBS` in `eslint.config.mjs` if `check-rule-globs.sh` reports a rule inert.
 
+### Structural code search (ast-grep)
+
+For structure-aware queries — counting real array/object members, finding language constructs (e.g. async functions without try/catch), or any search where plain-text grep can false-positive on comments, strings, or code fences — prefer `ast-grep` (AST-aware) over regex grep. If your harness has the `ast-grep` skill, invoke it; otherwise run the CLI directly: `ast-grep run --pattern '<pattern>' --lang <lang> .` (install if missing: `npm install -g @ast-grep/cli` — `./setup` offers both the CLI and the skill). Plain grep stays fine for simple string lookups.
+
 ### AI Factory commands (only if you have aif installed)
 
 **If you use AI Factory (aif)** for spec-driven development, the commands below are available. AI Factory is **not bundled** by this installer — install it separately to use them.

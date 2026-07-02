@@ -155,7 +155,7 @@ Companion installs run as `./setup` step 3, driven by a manifest (`setup.d/compa
 - **Detect-first:** a companion that is already present is skipped.
 - **Consent per companion (interactive):** `Install <name>? [y/N]` — default is N; no companion is mandatory. When stdin is not a tty (piped / CI), prompts fall through to N automatically.
 - **Headless:** `--yes` / `--all` install every missing manifest companion without prompting; `--dry-run` prints what would be installed.
-- **Official installers only, no version pin** — currently Superpowers via `claude plugin install superpowers@claude-plugins-official`.
+- **Official installers only, no version pin** — currently Superpowers via `claude plugin install superpowers@claude-plugins-official`, and ast-grep (structural code search: CLI via `npm install -g @ast-grep/cli`, then the official `ast-grep/agent-skill` plugin).
 - **External services** (manifest kind `external-service` — the aif-handoff runtime-bridge) are not plain installs; they route to the guided-detect bridge step (`./setup` step 4) instead.
 
 Each `cc-plugin` companion is installed via `claude plugin install` — this is **administrative file-management** (file copy + manifest registration into `~/.claude/`), **not** an API-billed LLM call. Verified VERIFIED-FREE per Stage 2 v3 §4.8.
