@@ -41,5 +41,6 @@ let tier0Only: ResolvedSources | undefined;
 
 export function validateProvenance(p: Provenance): ProvenanceValidation {
   tier0Only ??= resolveAllowedSources();
-  return validateWithResolved(p, tier0Only);
+  const d = validateWithResolved(p, tier0Only);
+  return d === null ? { ok: true } : { ok: false, reason: d.message };
 }

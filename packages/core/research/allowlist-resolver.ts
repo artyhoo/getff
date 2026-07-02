@@ -112,7 +112,9 @@ export function loadAckFile(path: string): Map<string, AckEntry> {
 import { dirname, join, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Provenance } from './types.ts';
-import { ALLOWED_SOURCES, type ProvenanceValidation } from './allowlist.ts';
+import { ALLOWED_SOURCES } from './allowlist.ts';
+import { diag } from '../diagnostics/registry.ts';
+import type { Diagnostic } from '../diagnostics/types.ts';
 
 /** Ecosystem seam (S1: interface only; npm adapter lands in S2, non-JS in S4).
  *  Parameterizes the toolchain axis ({toolchain, stack}) instead of forking
@@ -251,39 +253,37 @@ function validateUrlAgainstTiers(
   p: Pick<Provenance, 'allowlistKey' | 'packageName'>,
   resolved: ResolvedSources,
   opts?: { entryPackage?: string },
-): ProvenanceValidation {
+): Diagnostic | null {
   // Tier 0 — replicate the legacy key-first ordering for exact back-compat.
   const builtinHosts = resolved.tier0[p.allowlistKey];
   if (builtinHosts) {
     const parsed = parseHttpsHost(rawUrl);
-    if (!('host' in parsed)) return parsed;
+    if (parsed.diagnostic) return parsed.diagnostic;
     if (hasPunycodeLabel(parsed.host)) return punycodeReject(parsed.host);
-    if (hostMatches(parsed.host, builtinHosts)) return { ok: true };
-    return {
-      ok: false,
-      reason: `host ${parsed.host} not allowed under key ${p.allowlistKey} (expected one of: ${builtinHosts.join(', ')})`,
-    };
+    if (hostMatches(parsed.host, builtinHosts)) return null;
+    return diag('FF2006', {
+      host: parsed.host,
+      allowlistKey: p.allowlistKey,
+      expectedHosts: builtinHosts.join(', '),
+    });
   }
 
   // Tier 1 — scope-locked derived trust (activates in S2; S1 tier1For always misses).
-  let tier1Miss: string | undefined;
+  let tier1Miss: Diagnostic | undefined;
   const packageName = p.packageName;
   if (packageName !== undefined && opts?.entryPackage !== undefined) {
     if (packageName !== opts.entryPackage) {
-      return {
-        ok: false,
-        reason: `cross-package provenance: packageName ${packageName} !== entry.package ${opts.entryPackage} (T-RTT-A)`,
-      };
+      return diag('FF2010', { packageName, entryPackage: opts.entryPackage });
     }
     const t1 = resolved.tier1For(packageName);
     if (t1.ok) {
       const parsed = parseHttpsHost(rawUrl);
-      if (!('host' in parsed)) return parsed;
+      if (parsed.diagnostic) return parsed.diagnostic;
       if (hasPunycodeLabel(parsed.host)) return punycodeReject(parsed.host);
-      if (hostMatches(parsed.host, t1.hosts)) return { ok: true };
-      tier1Miss = `host not authorized: not in the Tier-1 host set of \`${packageName}\``;
+      if (hostMatches(parsed.host, t1.hosts)) return null;
+      tier1Miss = diag('FF2011', { packageName });
     } else {
-      tier1Miss = t1.reason;
+      tier1Miss = tier1ReasonToDiagnostic(t1.reason, packageName);
     }
   }
 
@@ -291,13 +291,10 @@ function validateUrlAgainstTiers(
   const ack = resolved.tier2.get(p.allowlistKey);
   if (ack) {
     if (ack.scope !== undefined && opts?.entryPackage !== ack.scope) {
-      return {
-        ok: false,
-        reason: `ack key ${p.allowlistKey} is scoped to package ${ack.scope}`,
-      };
+      return diag('FF2012', { allowlistKey: p.allowlistKey, scope: ack.scope });
     }
     const parsed = parseHttpsHost(rawUrl);
-    if (!('host' in parsed)) return parsed;
+    if (parsed.diagnostic) return parsed.diagnostic;
     if (hostMatches(parsed.host, ack.hosts)) {
       // Carve-out (kickoff §4): a punycode host passes ONLY via an acked host
       // that itself carries the xn-- label — i.e. a human deliberately listed it.
@@ -307,16 +304,33 @@ function validateUrlAgainstTiers(
         );
         if (!explicitlyAcked) return punycodeReject(parsed.host);
       }
-      return { ok: true };
+      return null;
     }
-    return {
-      ok: false,
-      reason: `host ${parsed.host} not allowed under ack key ${p.allowlistKey} (acked hosts: ${ack.hosts.join(', ')})`,
-    };
+    return diag('FF2013', {
+      host: parsed.host,
+      allowlistKey: p.allowlistKey,
+      ackedHosts: ack.hosts.join(', '),
+    });
   }
 
-  if (tier1Miss) return { ok: false, reason: tier1Miss };
-  return { ok: false, reason: `unknown allowlistKey: ${p.allowlistKey}` };
+  if (tier1Miss) return tier1Miss;
+  return diag('FF2005', { allowlistKey: p.allowlistKey });
+}
+
+/** Maps a Tier1Result failure reason string (from resolveAllowedSources's
+ *  tier1For — an UNCHANGED Tier1Result {ok,reason} shape, not migrated by D1)
+ *  to its FF2xxx code. The three reason classes tier1For emits are fixed by
+ *  its own source (allowlist-resolver.ts resolveAllowedSources): no-adapter
+ *  (FF2008), not-a-direct-dependency (FF2007), no-eligible-host (FF2009,
+ *  DN-D1-2 single code). */
+function tier1ReasonToDiagnostic(reason: string, packageName: string): Diagnostic {
+  if (reason.includes('no ecosystem adapter wired')) {
+    return diag('FF2008', { packageName });
+  }
+  if (reason.includes('is not a direct dependency')) {
+    return diag('FF2007', { packageName });
+  }
+  return diag('FF2009', { packageName });
 }
 
 /** Tiered provenance validation, public entrypoint. Validates p.url against
@@ -330,41 +344,35 @@ export function validateProvenance(
   p: Provenance,
   resolved: ResolvedSources,
   opts?: { entryPackage?: string },
-): ProvenanceValidation {
+): Diagnostic | null {
   const urlResult = validateUrlAgainstTiers(p.url, p, resolved, opts);
-  if (!urlResult.ok) return urlResult;
+  if (urlResult !== null) return urlResult;
   if (p.finalUrl !== undefined && p.finalUrl !== p.url) {
     const finalResult = validateUrlAgainstTiers(p.finalUrl, p, resolved, opts);
-    if (!finalResult.ok) {
-      return {
-        ok: false,
-        reason: `finalUrl redirect crosses to an unauthorized host: ${finalResult.reason}`,
-      };
+    if (finalResult !== null) {
+      return diag('FF2015', { innerReason: finalResult.message });
     }
   }
-  return urlResult;
+  return null;
 }
 
-function parseHttpsHost(rawUrl: string): { host: string } | ProvenanceValidation {
+function parseHttpsHost(rawUrl: string): { host: string; diagnostic?: undefined } | { diagnostic: Diagnostic } {
   let url: URL;
   try {
     url = new URL(rawUrl);
   } catch {
-    return { ok: false, reason: `malformed URL: ${rawUrl}` };
+    return { diagnostic: diag('FF2001', { url: rawUrl }) };
   }
   if (url.protocol !== 'https:') {
-    return { ok: false, reason: `non-https URL: ${rawUrl}` };
+    return { diagnostic: diag('FF2002', { url: rawUrl }) };
   }
   const host = canonicalizeHost(url.hostname);
   if (isIpLiteral(host)) {
-    return { ok: false, reason: `IP-literal host ${host} rejected: registrable domain names only` };
+    return { diagnostic: diag('FF2003', { host }) };
   }
   return { host };
 }
 
-function punycodeReject(host: string): ProvenanceValidation {
-  return {
-    ok: false,
-    reason: `punycode (xn--) host ${host} rejected outside an explicit Tier-2 ack`,
-  };
+function punycodeReject(host: string): Diagnostic {
+  return diag('FF2004', { host });
 }
