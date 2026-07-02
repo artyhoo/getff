@@ -22,6 +22,15 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '../../../');
 const SCRIPT = resolve(REPO_ROOT, 'scripts/check-skill-drift.sh');
 
+/**
+ * Timeout for the script-spawning test. check-skill-drift.sh sweeps every SKILL.md in
+ * ~1.5s in isolation, but under full-suite file-parallelism (.husky/pre-push runs
+ * `npm test --workspace=@rules-as-tests/core`) it competes with other bash-spawning
+ * principle tests and can exceed vitest's 5s default — a false timeout fail, not a
+ * drift finding. Mirrors 20-bundle-classification's SLOW_SHELL_MS.
+ */
+const SLOW_SHELL_MS = 30_000;
+
 describe('Principle 14 — skill drift detection (D-AuditC-5 channel 3 / CI last resort)', () => {
   it('script exists at scripts/check-skill-drift.sh and is executable', () => {
     const stat = statSync(SCRIPT);
@@ -29,7 +38,7 @@ describe('Principle 14 — skill drift detection (D-AuditC-5 channel 3 / CI last
     expect(stat.mode & 0o100, 'script must be executable (owner bit)').toBeGreaterThan(0);
   });
 
-  it('detects 0 broken refs and 0 missing frontmatter in current repo state', () => {
+  it('detects 0 broken refs and 0 missing frontmatter in current repo state', { timeout: SLOW_SHELL_MS }, () => {
     const result = spawnSync('bash', [SCRIPT], {
       cwd: REPO_ROOT,
       encoding: 'utf8',

@@ -40,6 +40,15 @@ const REPO_ROOT = resolve(HERE, '../../..');
 const HELPER = resolve(REPO_ROOT, '.claude/skills/pipeline/helpers/bundle-curate.sh');
 const FIXTURES = resolve(HERE, '__fixtures__/bundle');
 
+/**
+ * Per-test timeout. bundle-curate.sh spawns classify-work.sh + assign-skill.sh once per
+ * backlog item, so a single run is ~3-5s in isolation; under full-suite file-parallelism
+ * (.husky/pre-push runs `npm test --workspace=@rules-as-tests/core`) a run can exceed
+ * vitest's 5s default and false-fail on timeout, not on a real assertion. Mirrors the
+ * sibling paired-negative file's SLOW_SHELL_MS (60s there — mutant arms re-spawn more).
+ */
+const SLOW_SHELL_MS = 30_000;
+
 /** Run bundle-curate.sh on a fixture file; return stdout as string. */
 function runBundleCurate(fixtureName: string): string {
   const fixturePath = resolve(FIXTURES, fixtureName);
@@ -57,7 +66,7 @@ function countRows(output: string, notesPattern: string): number {
     .length;
 }
 
-describe('Principle 20 — bundle-curate.sh mechanical correctness', () => {
+describe('Principle 20 — bundle-curate.sh mechanical correctness', { timeout: SLOW_SHELL_MS }, () => {
   it('bundle-curate.sh helper exists and is executable', () => {
     expect(existsSync(HELPER), `helper not found at: ${HELPER}`).toBe(true);
   });
