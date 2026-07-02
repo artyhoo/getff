@@ -202,6 +202,28 @@ describe('Task 2.3 — Tier-1 derivation (DN #6 lead: A-via-C multi-tenant conta
     });
   });
 
+  it('S2-N8: single-label (bare-TLD) host derives nothing (homepage "com" AND repository "io")', () => {
+    const rootCom = makeConsumerRoot({
+      deps: { 'pkg-tld': '^1.0.0' },
+      nodeModules: { 'pkg-tld': { name: 'pkg-tld', homepage: 'https://com' } },
+    });
+    const resolvedCom = resolveAllowedSources({ root: rootCom, adapter: npmAdapter });
+    expect(resolvedCom.tier1For('pkg-tld')).toMatchObject({
+      ok: false,
+      reason: expect.stringContaining('no Tier-1-eligible host'),
+    });
+
+    const rootIo = makeConsumerRoot({
+      deps: { 'pkg-tld2': '^1.0.0' },
+      nodeModules: { 'pkg-tld2': { name: 'pkg-tld2', repository: 'https://io' } },
+    });
+    const resolvedIo = resolveAllowedSources({ root: rootIo, adapter: npmAdapter });
+    expect(resolvedIo.tier1For('pkg-tld2')).toMatchObject({
+      ok: false,
+      reason: expect.stringContaining('no Tier-1-eligible host'),
+    });
+  });
+
   it('positive control: single-tenant homepage authorizes ONLY its own package', () => {
     const root = makeConsumerRoot({
       deps: { 'drizzle-orm': '^0.40.0', hono: '^4.0.0' },
