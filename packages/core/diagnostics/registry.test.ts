@@ -4,12 +4,17 @@
 //
 // Assertions:
 //  (a) code format ^FF[1-5]\d{3}$
-//  (b) uniqueness — REGISTRY keys are unique by construction (a JS object
-//      literal cannot carry a duplicate key), so uniqueness is verified via
-//      a synthetic duplicate-injection check that mirrors what a real
-//      duplicate would look like. RED observed manually (see redEvidence in
-//      the task report) by seeding a literal duplicate key in registry.ts
-//      and confirming this test's Object.keys().length check fails.
+//  (b) uniqueness — checked against the RAW SOURCE TEXT of registry.ts, not
+//      Object.keys(REGISTRY). A JS object literal silently collapses a
+//      duplicate key before Object.keys() ever runs (the parser keeps only
+//      the last occurrence), so any check built on Object.keys/REGISTRY is
+//      a tautology that can never observe a real duplicate. Reading the
+//      source text and counting `FFxxxx:` key declarations sidesteps the
+//      parser collapse entirely — a genuine duplicate `FF2001:` block in
+//      registry.ts shows up as two textual occurrences, which this test
+//      catches. RED observed by seeding a real second `FF2001:` entry in
+//      registry.ts and confirming this test fails (see redEvidence in the
+//      task report).
 //  (c) every {placeholder} in a template has a matching key in that code's
 //      construction-site fixture (CODE_FIXTURES below) — decoupled from
 //      production wiring so codes whose call-site lands in a later Task
@@ -17,9 +22,32 @@
 //  (d) append-only vs registry.codes.snapshot.json — removing a code from
 //      REGISTRY must fail this test.
 
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { REGISTRY, diag } from './registry.ts';
-import snapshot from './registry.codes.snapshot.json' with { type: 'json' };
+
+const snapshot = JSON.parse(
+  readFileSync(new URL('./registry.codes.snapshot.json', import.meta.url), 'utf8'),
+) as { codes: string[] };
+
+// Raw source text of registry.ts — read independently of the compiled/parsed
+// REGISTRY object so (b) can see a duplicate key BEFORE the JS object-literal
+// parser silently collapses it (which is what makes an Object.keys()-based
+// check a tautology — see comment block above).
+const registrySource = readFileSync(new URL('./registry.ts', import.meta.url), 'utf8');
+
+// Matches top-level `FFxxxx: {` key declarations inside the REGISTRY object
+// literal, e.g. "  FF2001: {" — the exact shape every entry in registry.ts
+// uses (see registry.ts:31, :40, etc.).
+const REGISTRY_KEY_DECL_RE = /^\s{2}(FF[1-5]\d{3}):\s*\{/gm;
+
+function extractRegistryKeyDeclarations(source: string): string[] {
+  const keys: string[] = [];
+  for (const match of source.matchAll(REGISTRY_KEY_DECL_RE)) {
+    keys.push(match[1]);
+  }
+  return keys;
+}
 
 describe('diagnostics registry — structural invariants', () => {
   const codes = Object.keys(REGISTRY);
@@ -30,16 +58,22 @@ describe('diagnostics registry — structural invariants', () => {
     }
   });
 
-  it('(b) every code is unique', () => {
-    // Object.keys on a JS object literal is unique by construction — this
-    // assertion is the mechanical form of that guarantee. To observe RED,
-    // seed a literal duplicate key (e.g. a second `FF2001:` entry) in
-    // registry.ts: the object-literal parser silently overwrites the first,
-    // so Object.keys().length stays the same as before the duplicate was
-    // added while a manually-tracked expected count diverges — see the
-    // seeded-duplicate probe used at RED-observation time (task report).
-    const asSet = new Set(codes);
-    expect(asSet.size, 'duplicate code detected in REGISTRY').toBe(codes.length);
+  it('(b) every code is unique (checked against registry.ts source text)', () => {
+    const declaredKeys = extractRegistryKeyDeclarations(registrySource);
+    expect(declaredKeys.length, 'no FFxxxx: key declarations found in registry.ts — regex drifted from source shape').toBeGreaterThan(0);
+    const asSet = new Set(declaredKeys);
+    expect(
+      asSet.size,
+      `duplicate code detected in registry.ts source text: ${JSON.stringify(declaredKeys)}`,
+    ).toBe(declaredKeys.length);
+  });
+
+  it('(b-2) source-text key declarations match REGISTRY runtime keys 1:1', () => {
+    // Cross-check: the source-text extraction in (b) must agree with what
+    // the parsed REGISTRY object actually exposes, so (b) cannot silently
+    // drift from what diag() actually sees at runtime.
+    const declaredKeys = extractRegistryKeyDeclarations(registrySource);
+    expect(new Set(declaredKeys)).toEqual(new Set(codes));
   });
 
   it('(d) registry is append-only vs the committed snapshot', () => {
