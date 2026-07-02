@@ -177,6 +177,40 @@ session, or Path B activation per §4.5).
    Lead: documented approximation now, subset when a real mismatch fires.
 4. **Umbrella naming/slotting:** run as standalone umbrella vs fold S1+S2 into one PR
    (they share `allowlist.ts`). Lead: standalone, S1→S2 sequential (same-file contention).
+5. **Generate-first sequencing (see §9):** confirm trust-tiers → generate-first-delivery as the
+   next umbrella, vs folding a minimal S0 (staleness markers on shipped presets) into S3 here.
+   Lead: sequencing as stated; the S0 staleness-marker line-item MAY ride with S3 doc updates.
+
+## §9 Companion maintainer direction — generate-first delivery (recorded 2026-07-02)
+
+Maintainer directive (2026-07-02 dialogue, verbatim intent): *presets remain only as
+legacy/template — a snapshot-oracle for verification; everything is GENERATED, because
+presets go stale.*
+
+This operationalizes the project's founding thesis («presets устаревают, принципы — нет»)
+and the already-written acceptance criterion in
+[EXECUTION-PLAN.md §1](../../../docs/meta-factory/EXECUTION-PLAN.md) («мета-фабрика
+**регенерирует** canonical Next 15 preset с diff ≤5%, обновляет до Next 16 с diff ≤15%»);
+vocabulary per SSOT #166 (compiler-bootstrap same-result test: curated preset = regression
+**oracle**, not the product). Target delivery model:
+
+- **Generation is the primary path for ALL stacks** — covered stacks stop being «copy the
+  preset» and run the same research→plan→factory pipeline as uncovered ones (augment-first
+  already points this way since #824/#828).
+- **Presets / curated store demote to three roles:** (1) **regression oracle** — generated
+  output for the canonical stack must match the preset within the diff budget, enforced as a
+  test (the §1 criterion becomes shipped CI, not prose); (2) **cold-start fallback** when
+  generation degrades (offline install, missing ack, research failure) — shipped with an
+  explicit `snapshot-of: <date>` staleness marker, never silently as current; (3) authoring
+  examples for rule writers.
+- **Dependency on this umbrella:** generate-first for arbitrary stacks REQUIRES Tier 1/2
+  provenance (S1-S2) — without them generation fails allowlist for everything beyond the
+  7 builtin keys. Sequencing: this umbrella ships first; a **generate-first-delivery** umbrella
+  (own kickoff, own R-phase: diff-budget mechanics, staleness-marker format, `rules-lock.json`
+  interplay, offline-fallback semantics, per-install generation cost) is authored after S2
+  merges.
+- **Not a goal change** — a delivery-model inversion inside the existing goal; README untouched
+  ([README.md#why-this-exists](../../../README.md#why-this-exists) owns the goal).
 
 ## See also
 
