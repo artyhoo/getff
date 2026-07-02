@@ -17,7 +17,7 @@ import { execSync } from 'node:child_process';
 import { chmodSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { snapshotHooksTree, assertNoHooksTreeDelta } from './hooks-tree-guard';
+import { snapshotHooksTree, assertNoHooksTreeDelta } from './hooks-tree-guard.js';
 
 const tmpDirs: string[] = [];
 afterEach(() => {
