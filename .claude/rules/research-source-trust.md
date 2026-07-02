@@ -31,7 +31,7 @@ This is a **named, binding trigger**, not a suggestion: today's factory is deter
 
 ## §4 Ecosystem-prefix reservation (S4)
 
-`Provenance.packageName` and `ResearchEntry.package` are bare package names today (implicit `npm:` ecosystem — the only adapter S1/S2 ship). [Kickoff §5 S4](../orchestrator-prompts/rule-research-trust-tiers/kickoff.md) reserves an **ecosystem-prefix convention** for when a non-JS ecosystem adapter lands (triggered, not scheduled — trigger: first non-JS consumer request, first documented injection attempt, or Path B activation per §2 above): `cargo:serde`, `pip:requests`, and so on, with `npm:` remaining the implicit default for unprefixed names (back-compat with every entry written before S4). This line reserves the convention now; S4 implements the parsing + `EcosystemAdapter` dispatch when triggered.
+`Provenance.packageName` and `ResearchEntry.package` are bare package names today (implicit `npm:` ecosystem — the only adapter S1/S2 ship). This rule reserves, for a future S4, an **ecosystem prefix** on these names (triggered, not scheduled — trigger: first non-JS consumer request, first documented injection attempt, or Path B activation per §2 above). The concrete scheme (e.g. `cargo:serde`, `pip:requests`, with `npm:` remaining the implicit default for unprefixed names) is this rule's own forward-looking placeholder — **not** a kickoff-specified format: [kickoff §5 S4](../orchestrator-prompts/rule-research-trust-tiers/kickoff.md) reserves the non-JS **adapters** (`{toolchain, stack}`), not a naming convention. This line reserves the placeholder now; S4 implements the parsing + `EcosystemAdapter` dispatch when triggered.
 
 ## §5 Accepted defence-in-depth (S2 adversarial review — documented, not coded)
 
