@@ -346,7 +346,8 @@ received in this research.
 
 Probes P1–P3 from §9 executed this session (read-only, on this repo; each result independently
 re-verified by an adversarial second pass — 3/4 CONFIRMED, P2 REVISED with a corrected number).
-P4–P6 remain for the MT-kickoff (Rust firing spike, ast-grep fallback, status-line render).
+P4–P6 were executed/designed 2026-07-03 during MT-umbrella authoring (**P4 designed-only** — `cargo`
+absent in env; **P5 live-run** for real; **P6 demonstrated**) and are recorded below.
 
 ### P1 — CLAUDE.md reverse-compile into IR nodes (validates §9 p.4 "composition over node SETS")
 
@@ -390,6 +391,49 @@ hits** — no shipped or CI tool reads the §Rules "Enforces" column. **Verdict:
 gap** — an AGENTS.md-class file can silently drift into contradicting its own enforced rules with
 zero mechanical detection. Confirms the §9 p.5 "drift detected within one regenerate cycle" claim
 fills an unoccupied position, not a solved one.
+
+### P4 — Rust firing spike (toolchain ABSENT — paper design, honest record, 2026-07-03)
+
+Firing-test contract as data (§4 invariant 4):
+
+```json
+{ "command": "cargo clippy --message-format=json",
+  "jsonPath": "$.message.code.code",
+  "expectedCode": "clippy::disallowed_methods" }
+```
+
+Grounded in §2 (row "JSON diagnostics": `cargo clippy --message-format=json`, stable code `clippy::disallowed_methods`) + rustc's `rustc_errors::json::DiagnosticCode` (each cargo-metadata `compiler-message` carries `message.code = {code, explanation}`); the path `message.code.code` is real, not invented. Fixture: a tiny crate + `rust-toolchain.toml` (pin stable) + `clippy.toml` `disallowed-methods = ["std::env::var"]`; the invalid fixture calls `std::env::var` directly, the valid one wraps it behind an injected accessor.
+
+**Verdict:** the contract triple + its documentary grounding are established. Live-fire was NOT executed — `cargo`/`rustc`/`clippy` are absent in this env; live-verification of the JSON path against a real `cargo clippy --message-format=json` run is deferred to a Rust-toolchain env. No pass was faked.
+
+### P5 — ast-grep fallback on a ruff-inexpressible case (RUN FOR REAL, 2026-07-03)
+
+Case: forbid `datetime.datetime.now()` calls (R7 time-injection analog) — ruff's `flake8-tidy-imports` (TID251/TID253) is import-only and cannot express a bare method-call ban (§2 / P2).
+
+```yaml
+id: no-datetime-now
+language: python
+rule: { pattern: datetime.datetime.now($$$ARGS) }
+message: "Use an injected clock, not datetime.datetime.now() directly"
+severity: error
+```
+
+Observed (`ast-grep scan --rule no-datetime-now.yml <file>`): `invalid.py` → `error[no-datetime-now]` at line 4, exit 1; `valid.py` (clock indirection) → no output, exit 0. Independently re-verified by the orchestrator.
+
+**Verdict:** ast-grep 0.44.0 expresses a bare-method-call ban that ruff's closed vocabulary structurally cannot — a real paired RED/GREEN. §9 p.8 (Python enters via the ast-grep escape hatch) is empirically reinforced with a live-fired instance (P2 = census-level drop; P5 = one live case).
+
+### P6 — status-line render = pure template substitution (LLM-free claim, 2026-07-03)
+
+```js
+const renderStatusLine = (node) => {
+  const { eslint, clippy, ruff } = node.enforcement;
+  return `Enforced: eslint ${eslint} · clippy ${clippy} · ruff ${ruff}`;
+};
+```
+
+Run on two IR-node-shaped inputs → deterministic string output; re-invocation on the same input is byte-identical (no IO, no network, no randomness — reads only its argument).
+
+**Verdict:** confirms §9 p.6 / p.7 — status-line rendering from an IR node's already-resident `enforcement` fields is pure deterministic substitution, LLM-free and network-free by construction.
 
 ## Prevention
 
