@@ -495,3 +495,44 @@ describe('dup-detect.sh — T15 self-application documentation', () => {
     expect(src).toContain('basis=deliverable-on-staging');
   });
 });
+
+// ── Perf-regression structural guard ─────────────────────────────────────────
+//
+// The whole reason this helper exists in its current form is a performance property:
+// `/pipeline` no-arg overran a 120s harness `!`-fence because check_umbrella ran an
+// O(umbrellas × deliverables/PRs) subshell storm (per-deliverable `comm -12 <(...)` +
+// per-PR `comm`/`sort`/`tok_stdin`). That was replaced by ONE awk pass per signal over
+// indexes precomputed ONCE (precompute_prs + _DELIV_INDEX). Every OTHER test here asserts
+// only STDOUT — so a revert to the comm/sort/grep chain would be byte-identical output and
+// keep them all green while silently reintroducing the ~469s timeout (verified by the
+// completeness reviewer: a `sleep 0.3` per umbrella left output identical and all tests
+// passing). Per the project thesis "documents lie; tests don't", a load-bearing perf
+// property with no executable guard is the armed-but-not-fired gap this block closes.
+//
+// A wall-clock assertion is deliberately avoided (CI-runner variance → flake; cf. the
+// priority-score-skip-closed.test.ts precedent, which guards its sibling 446s→76s
+// optimisation by MECHANISM, not by timing). This guard pins the mechanism structurally:
+// the awk passes + the once-only precomputes must stay, and the per-item `comm` storm must
+// not return. Non-vacuous: the pre-fix script (HEAD~2) contained `comm -12` and no
+// precompute_prs, so this block would have been RED on it.
+describe('dup-detect.sh — perf-regression structural guard (anti-revert to the O(n²) subshell storm)', () => {
+  it('keeps the once-only precomputes and the awk intersection passes; forbids the per-item comm storm', () => {
+    const src = readFileSync(SCRIPT, 'utf8');
+
+    // Once-only precompute mechanism must remain (a revert re-tokenising per umbrella/PR
+    // would drop these). PR facts parsed once; deliverable "PATH<TAB>TOKEN" index built once.
+    expect(src).toContain('precompute_prs');
+    expect(src).toContain('_DELIV_INDEX');
+
+    // The two hot loops must stay awk-based. These literals are the intersection kernels:
+    //  - Signal 2 jaccard score = floor(100·|A∩B|/|A∪B|) computed in awk;
+    //  - Signal 3 deliverable overlap counted per path in awk (>=2 floor).
+    expect(src).toMatch(/int\(100 \* ic \/ uc\)/); // Signal 2 awk score kernel
+    expect(src).toMatch(/c\[ord\[k\]\] >= 2/); //     Signal 3 awk overlap kernel
+
+    // The per-item `comm -12 <(...)` intersection — the exact O(umbrellas × items) storm
+    // the awk passes replaced — must NOT reappear anywhere in the script. A revert to it is
+    // output-identical but catastrophic at runtime, so this is the load-bearing assertion.
+    expect(src).not.toMatch(/comm\s+-12/);
+  });
+});

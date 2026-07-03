@@ -26,7 +26,7 @@ e3c6086efb6dbafaac285132c61c3da1f17ada581d1efe84986c1589ed1b905a  .claude/skills
 f8ff7a734f8f4d3a9367ea45a61e17f1cde292327596c300e41ac8bf276f9e66  .claude/skills/dispatcher/helpers/monitor-classify.sh
 e1784c032fb6366007c76da0dcbba0f9db6a6816e4d3d9d27e0128554838d0a0  .claude/skills/dispatcher/helpers/notify-gate.sh
 5d21f0757512eafe17f0be69a891dea8ddee4627b3bf71871e8a71536e3dab7f  .claude/skills/dispatcher/helpers/tg-notify.sh
-ca9c60ee7cc74151a763837deafb9c24a35ea6e46c7e9ec3790a5a9f37bd7811  .claude/skills/pipeline/SKILL.md
+308b220aac1546baa6c14310ceff92edbb6453d12cd00489326940a9ec451f82  .claude/skills/pipeline/SKILL.md
 7b016aef242405688029efd80b2e24dccabf3d03060a64cd019e522601fd990f  .claude/skills/pipeline/evals/RESULTS.md
 29731fcb8f314d897b786fbf6b840302bf7eb4dcc27e18d7cd5cb855b3341fee  .claude/skills/pipeline/evals/evals.json
 3fb659d0d73c6bdf90ab35758808c0e0ac47f31d19c7665bcc719dcf2497df2b  .claude/skills/pipeline/evals/files/scenario-1-noarg-state.md
@@ -39,7 +39,7 @@ eed9962cef541117bd4be15133ccdc05a05e4e90fea18108d15fd855d6cc7fd7  .claude/skills
 f58b54fd4a2c3b1bb1e99e7abc78984a8d74651612970157b233ee300b5a0a15  .claude/skills/pipeline/helpers/delta-diff.sh
 1ebcbf313a3c75ef3c4ca3bb07a76e4ab9935eb331d04e5074e2c43b26449bdb  .claude/skills/pipeline/helpers/delta-write-from-state.sh
 01fa576465e4a85ed54594bd99b86954ab616b35d3cae7f477d0f148ef0078fc  .claude/skills/pipeline/helpers/dispatch-from-state.sh
-64db1b0216ca8c0d8e0529492551faa722d7ba67b86f98cd5d868bcb676eb18f  .claude/skills/pipeline/helpers/dup-detect.sh
+8ec9720ed5e3c690bb394230d5f0c7aba2f70321769e6752e46586fa7b57cc7b  .claude/skills/pipeline/helpers/dup-detect.sh
 ea812d548aa1618c3c8093795d1532ca80a747ba6fb181ec584120c1c50d8373  .claude/skills/pipeline/helpers/emit-output-strings.sh
 a3fca0b0d4a4f22b0c8588c0b450b431db0865dcfdd2f466cce4d4e961731033  .claude/skills/pipeline/helpers/inflight-check.sh
 2d78d45261fb37f3e0b1d09fa39c272d0833190914a6a8b7ebd22f5047d922d1  .claude/skills/pipeline/helpers/integer-name-guard.sh
