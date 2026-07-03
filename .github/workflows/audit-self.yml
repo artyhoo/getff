@@ -381,6 +381,8 @@ jobs:
         run: bash tests/install-sh/refresh-safe-dir-payload.test.sh
       - name: "install-sh — refresh regenerates eslint barrel (#876: --refresh re-derives index.mjs so a new rule isn't stranded)"
         run: bash tests/install-sh/refresh-regenerates-barrel.test.sh
+      - name: "install-sh — different-stack switch prunes barrel (#882: --force/--refresh with a NEW stack removes the prior stack's stray preset rule)"
+        run: bash tests/install-sh/refresh-different-stack-prunes-barrel.test.sh
       - name: install-sh — gh-636 dispatcher tsx probe (degrade to fallback, never crash on unresolvable tsx)
         run: bash tests/install-sh/gh-636-dispatcher-tsx-probe.test.sh
       - name: install-sh — gh-636 ensure-tsx-root (install guarantees tsx resolves from workspace root; --full/offer/warn)
