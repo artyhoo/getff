@@ -4975,7 +4975,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve6.call(this, root, ref);
+      let _sch = resolve7.call(this, root, ref);
       if (_sch === void 0) {
         const schema2 = (_a = root.localRefs) === null || _a === void 0 ? void 0 : _a[ref];
         const { schemaId } = this.opts;
@@ -5002,7 +5002,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve6(root, ref) {
+    function resolve7(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -5633,7 +5633,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve6(baseURI, relativeURI, options) {
+    function resolve7(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const resolved = resolveComponent(parse(baseURI, schemelessOptions), parse(relativeURI, schemelessOptions), schemelessOptions, true);
       schemelessOptions.skipEscape = true;
@@ -5891,7 +5891,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve6,
+      resolve: resolve7,
       resolveComponent,
       equal,
       serialize,
@@ -8565,7 +8565,7 @@ var require_ajv = __commonJS({
 
 // packages/core/install/synth-and-wire.ts
 import { existsSync as existsSync4, readFileSync as readFileSync7, writeFileSync as writeFileSync2 } from "node:fs";
-import { dirname as dirname6, resolve as resolve5 } from "node:path";
+import { dirname as dirname7, resolve as resolve6 } from "node:path";
 import process3 from "node:process";
 
 // packages/core/research/load.ts
@@ -9241,8 +9241,8 @@ function loadEntries(framework, version, patterns) {
 // packages/core/synthesizer/synthesize.ts
 var import_ajv5 = __toESM(require_ajv(), 1);
 import { existsSync as existsSync2, readFileSync as readFileSync5 } from "node:fs";
-import { dirname as dirname4, resolve as resolve3 } from "node:path";
-import { fileURLToPath as fileURLToPath4 } from "node:url";
+import { dirname as dirname5, resolve as resolve4 } from "node:path";
+import { fileURLToPath as fileURLToPath5 } from "node:url";
 
 // packages/core/synthesizer/compile-declarative-md.ts
 var ESLINT_RESTRICTED_RULE_NAME = "rules-as-tests/restricted-syntax-audit-exempt";
@@ -9446,9 +9446,12 @@ function nodeToSynthesizedRule(node, enrichment) {
 
 // packages/core/ir/gates/grammar.ts
 import { readFileSync as readFileSync4 } from "node:fs";
-var schemaDoc2 = JSON.parse(
-  readFileSync4(new URL("../convention-node.schema.json", import.meta.url), "utf8")
-);
+import { dirname as dirname4, resolve as resolve3 } from "node:path";
+import { fileURLToPath as fileURLToPath4 } from "node:url";
+var HERE3 = dirname4(fileURLToPath4(import.meta.url));
+var _pkgCore3 = process.env["AIF_SYNTH_PKG_ROOT"];
+var SCHEMA_PATH2 = _pkgCore3 ? resolve3(_pkgCore3, "ir", "convention-node.schema.json") : resolve3(HERE3, "..", "convention-node.schema.json");
+var schemaDoc2 = JSON.parse(readFileSync4(SCHEMA_PATH2, "utf8"));
 var validateNode = makeSchemaValidator(schemaDoc2, "ConventionNode");
 function isNodeShape(value) {
   if (typeof value !== "object" || value === null) return false;
@@ -9569,7 +9572,7 @@ function wireRuleThroughNode(rule) {
   return mergeEnrichment(projected, rule);
 }
 function mergeEnrichment(projected, original) {
-  const resolve6 = (key) => {
+  const resolve7 = (key) => {
     switch (key) {
       case "title":
         return projected.title;
@@ -9591,7 +9594,7 @@ function mergeEnrichment(projected, original) {
   };
   const merged = {};
   for (const key of Object.keys(original)) {
-    merged[key] = resolve6(key);
+    merged[key] = resolve7(key);
   }
   return merged;
 }
@@ -9613,13 +9616,13 @@ function mergeCheck(projectedCheck, originalCheck) {
 }
 
 // packages/core/synthesizer/synthesize.ts
-var HERE3 = dirname4(fileURLToPath4(import.meta.url));
-var _pkgCore3 = process.env["AIF_SYNTH_PKG_ROOT"];
-var RECIPES_ROOT = _pkgCore3 ? resolve3(_pkgCore3, "synthesizer", "recipes") : resolve3(HERE3, "recipes");
-var SCHEMA_PATH2 = _pkgCore3 ? resolve3(_pkgCore3, "synthesizer", "synthesis-plan.schema.json") : resolve3(HERE3, "synthesis-plan.schema.json");
-var RECIPE_SCHEMA_PATH = _pkgCore3 ? resolve3(_pkgCore3, "synthesizer", "recipe.schema.json") : resolve3(HERE3, "recipe.schema.json");
+var HERE4 = dirname5(fileURLToPath5(import.meta.url));
+var _pkgCore4 = process.env["AIF_SYNTH_PKG_ROOT"];
+var RECIPES_ROOT = _pkgCore4 ? resolve4(_pkgCore4, "synthesizer", "recipes") : resolve4(HERE4, "recipes");
+var SCHEMA_PATH3 = _pkgCore4 ? resolve4(_pkgCore4, "synthesizer", "synthesis-plan.schema.json") : resolve4(HERE4, "synthesis-plan.schema.json");
+var RECIPE_SCHEMA_PATH = _pkgCore4 ? resolve4(_pkgCore4, "synthesizer", "recipe.schema.json") : resolve4(HERE4, "recipe.schema.json");
 var ajv = new import_ajv5.Ajv({ allErrors: true, strict: false });
-var schema = JSON.parse(readFileSync5(SCHEMA_PATH2, "utf8"));
+var schema = JSON.parse(readFileSync5(SCHEMA_PATH3, "utf8"));
 ajv.addSchema(schema, "synthesis-plan");
 var validatePlan = ajv.compile({ $ref: "synthesis-plan" });
 var recipeSchema = JSON.parse(readFileSync5(RECIPE_SCHEMA_PATH, "utf8"));
@@ -9643,7 +9646,7 @@ var RecipeError = class extends Error {
   errors;
 };
 function loadRecipe(patternId) {
-  const path = resolve3(RECIPES_ROOT, `${patternId}.json`);
+  const path = resolve4(RECIPES_ROOT, `${patternId}.json`);
   if (!existsSync2(path)) return null;
   const raw = JSON.parse(readFileSync5(path, "utf8"));
   if (!validateRecipe(raw)) {
@@ -9710,7 +9713,7 @@ function synthesize(plan) {
 import { execFileSync } from "node:child_process";
 import { existsSync as existsSync3, readFileSync as readFileSync6, unlinkSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname as dirname5, join as join2, relative, resolve as resolve4 } from "node:path";
+import { dirname as dirname6, join as join2, relative, resolve as resolve5 } from "node:path";
 import process2 from "node:process";
 import { pathToFileURL } from "node:url";
 var R2_RULE_ID = "rules-as-tests/no-unsafe-zod-parse";
@@ -9719,8 +9722,8 @@ function r2Element(variant, scope) {
   return variant === "self-contained" ? `{ ${filesPart}plugins: { 'rules-as-tests': customRules }, rules: { '${R2_RULE_ID}': 'error' } }` : `{ ${filesPart}rules: { '${R2_RULE_ID}': 'error' } }`;
 }
 function customRulesImportSpecifier(configPath, cwd) {
-  const target = resolve4(cwd, "eslint-rules-local/index.mjs");
-  let rel = relative(dirname5(resolve4(configPath)), target);
+  const target = resolve5(cwd, "eslint-rules-local/index.mjs");
+  let rel = relative(dirname6(resolve5(configPath)), target);
   if (!rel.startsWith(".")) rel = `./${rel}`;
   return rel;
 }
@@ -9757,7 +9760,7 @@ async function wireConfigSource(source, opts = {}) {
   let Project;
   let SyntaxKind;
   try {
-    const requireFromCwd = createRequire(resolve4(process2.cwd(), "package.json"));
+    const requireFromCwd = createRequire(resolve5(process2.cwd(), "package.json"));
     const tsMorphPath = requireFromCwd.resolve("ts-morph");
     const mod = await import(pathToFileURL(tsMorphPath).href);
     Project = mod.Project;
@@ -9983,7 +9986,7 @@ async function wireNRules(source, synthRules, opts = {}) {
   let Project;
   let SyntaxKind;
   try {
-    const requireFromCwd = createRequire(resolve4(process2.cwd(), "package.json"));
+    const requireFromCwd = createRequire(resolve5(process2.cwd(), "package.json"));
     const tsMorphPath = requireFromCwd.resolve("ts-morph");
     const mod = await import(pathToFileURL(tsMorphPath).href);
     Project = mod.Project;
@@ -10087,27 +10090,27 @@ async function wireNRules(source, synthRules, opts = {}) {
   return { status: "wired", original: source, modified };
 }
 function synthProbeTarget(configDir) {
-  const p = resolve4(configDir, "__aif_r2_probe__.ts");
+  const p = resolve5(configDir, "__aif_r2_probe__.ts");
   writeFileSync(p, "export const __aif_probe = 1;\n", "utf8");
   return p;
 }
 async function probeViaEslint(configPath, cwd) {
   let eslintBin;
   try {
-    const reqd = createRequire(resolve4(cwd, "package.json"));
+    const reqd = createRequire(resolve5(cwd, "package.json"));
     const pj = reqd.resolve("eslint/package.json");
-    eslintBin = join2(dirname5(pj), "bin", "eslint.js");
+    eslintBin = join2(dirname6(pj), "bin", "eslint.js");
     if (!existsSync3(eslintBin)) return "unavailable";
   } catch {
     return "unavailable";
   }
   const nodeArgs = [];
   try {
-    createRequire(resolve4(cwd, "package.json")).resolve("tsx");
+    createRequire(resolve5(cwd, "package.json")).resolve("tsx");
     nodeArgs.push("--import", "tsx");
   } catch {
   }
-  const dir = dirname5(resolve4(configPath));
+  const dir = dirname6(resolve5(configPath));
   const target = synthProbeTarget(dir);
   try {
     execFileSync(process2.execPath, [...nodeArgs, eslintBin, "--print-config", target], { cwd: dir, stdio: "pipe" });
@@ -10167,7 +10170,7 @@ async function main() {
     process2.exit(0);
   }
   const pathIdx = argv.indexOf("--path");
-  const configPath = resolve4(pathIdx >= 0 ? argv[pathIdx + 1] : "./eslint.config.mjs");
+  const configPath = resolve5(pathIdx >= 0 ? argv[pathIdx + 1] : "./eslint.config.mjs");
   const scopeIdx = argv.indexOf("--scope");
   const scopeStr = scopeIdx >= 0 ? argv[scopeIdx + 1] : void 0;
   const scope = scopeStr ? { files: [scopeStr] } : void 0;
@@ -10345,10 +10348,10 @@ async function main2() {
   }
   const stack = argv[stackIdx + 1];
   const pathIdx = argv.indexOf("--path");
-  const configPath = resolve5(pathIdx >= 0 ? argv[pathIdx + 1] : "./eslint.config.mjs");
+  const configPath = resolve6(pathIdx >= 0 ? argv[pathIdx + 1] : "./eslint.config.mjs");
   const dryRun = argv.includes("--dry-run");
   const snippetIdx = argv.indexOf("--snippet");
-  const snippetPath = snippetIdx >= 0 ? resolve5(argv[snippetIdx + 1]) : resolve5(dirname6(configPath), ".ai-factory", "synthesizer-output", "eslint-rules-snippet.json");
+  const snippetPath = snippetIdx >= 0 ? resolve6(argv[snippetIdx + 1]) : resolve6(dirname7(configPath), ".ai-factory", "synthesizer-output", "eslint-rules-snippet.json");
   const KNOWN_FLAGS = /* @__PURE__ */ new Set(["--help", "-h", "--stack", "--path", "--dry-run", "--snippet"]);
   for (let i = 0; i < argv.length; i++) {
     if (argv[i].startsWith("--") || argv[i].startsWith("-")) {
@@ -10399,7 +10402,7 @@ async function main2() {
         // #829: enable plugin self-registration for presets that don't pre-register `rules-as-tests`
         // (RN/ts-server). Resolved against the config's own dir → `./eslint-rules-local/index.mjs`
         // (40-configs.sh provisions it at the root AND per-workspace), so it works for both layouts.
-        customRulesImportPath: customRulesImportSpecifier(configPath, dirname6(configPath))
+        customRulesImportPath: customRulesImportSpecifier(configPath, dirname7(configPath))
       });
       if (result2.status === "already-wired") {
         console.log(`  [dry-run] [synth-wire] all synthesized rules already present in ${configPath} (no change needed)`);
@@ -10417,7 +10420,7 @@ async function main2() {
   const result = await wireNRules(source, mergedRules, {
     overrideKeys,
     // #829: see the dry-run site above — enables plugin self-registration for presets lacking it.
-    customRulesImportPath: customRulesImportSpecifier(configPath, dirname6(configPath))
+    customRulesImportPath: customRulesImportSpecifier(configPath, dirname7(configPath))
   });
   switch (result.status) {
     case "already-wired":

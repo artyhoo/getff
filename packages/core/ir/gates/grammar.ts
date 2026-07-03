@@ -8,15 +8,27 @@
 // whether any diagnostic was produced.
 
 import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { ajvErrorsToDiagnostics, makeSchemaValidator } from '../../diagnostics/ajv.ts';
 import { diag } from '../../diagnostics/registry.ts';
 import { REGISTRY } from '../../diagnostics/registry.ts';
 import type { Diagnostic } from '../../diagnostics/types.ts';
 import type { GrammarGateOutcome } from './types.ts';
 
-const schemaDoc = JSON.parse(
-  readFileSync(new URL('../convention-node.schema.json', import.meta.url), 'utf8'),
-) as Record<string, unknown>;
+// AIF_SYNTH_PKG_ROOT: when this gate runs inside the precompiled synth bundle
+// (install/synth-and-wire.bundle.mjs — the synthesize() врезка pulls the gate into that bundle),
+// import.meta.url points at the bundle file, so a bare `new URL('../convention-node.schema.json',
+// import.meta.url)` anchor resolves to the wrong dir and ENOENTs at consumer runtime. Mirror the
+// four sibling fs anchors (research/internal-validators.ts, research/load.ts, allowlist-resolver.ts,
+// synthesizer/synthesize.ts): resolve under $AIF_SYNTH_PKG_ROOT/ir when set, else relative to this
+// source file. setup.d/99-finalize.sh + pre-push.ts set the env var to the packages/core payload dir.
+const HERE = dirname(fileURLToPath(import.meta.url));
+const _pkgCore = process.env['AIF_SYNTH_PKG_ROOT'];
+const SCHEMA_PATH = _pkgCore
+  ? resolve(_pkgCore, 'ir', 'convention-node.schema.json')
+  : resolve(HERE, '..', 'convention-node.schema.json');
+const schemaDoc = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8')) as Record<string, unknown>;
 
 const validateNode = makeSchemaValidator(schemaDoc, 'ConventionNode');
 
