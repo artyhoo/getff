@@ -89,15 +89,22 @@ if grep -hE 'copy_safe' "$REPO_ROOT"/setup.d/*.sh 2>/dev/null | grep -vE '^[[:sp
   echo "FATAL: a copy_safe dst starts with an immediate \$var after \$PROJECT_ROOT/ — unparseable; extend the gate"; exit 1
 fi
 
-# ── REFRESH: every consumer path do_refresh() writes to (inside the function body only) ─────────
-# Two forms: (a) "$PROJECT_ROOT/<path>" refresh_safe/cp targets (normalized like FULL); (b) the
-# "<src>:scripts/<dst>" _pair strings consumed via the $_d loop var (literal scripts/ basenames).
+# ── REFRESH: every consumer path do_refresh() actually WRITES to (write-intent lines only) ──────
+# Extract from the do_refresh body but EXCLUDE comment / echo / chmod_safe lines: a path that
+# survives ONLY in a comment or a chmod_safe line is NOT refreshed. (Without this, removing a
+# `refresh_safe … "$PROJECT_ROOT/.husky/pre-push"` line left the path "present" via its sibling
+# `chmod_safe +x … .husky/pre-push` line → false-GREEN.) Two write-intent forms remain:
+# (a) "$PROJECT_ROOT/<path>" on refresh_safe / cp / var-assignment lines (normalized like FULL);
+# (b) the "<src>:scripts/<dst>" _pair data lines consumed via the $_d loop var (literal basenames).
 refresh_body() {
   awk '/^do_refresh\(\) \{/{f=1} f{print} f&&/^\}/{exit}' "$INSTALL"
 }
+refresh_writes() {  # do_refresh body minus comment / echo / chmod_safe lines (non-write noise)
+  refresh_body | grep -vE '^[[:space:]]*#|^[[:space:]]*echo |chmod_safe'
+}
 # shellcheck disable=SC2016
-REFRESH=$( { refresh_body | grep -oE '\$PROJECT_ROOT/[A-Za-z0-9._/-]*' | sed -E 's#\$PROJECT_ROOT/##'
-             refresh_body | grep -oE 'scripts/[A-Za-z0-9._-]+\.(sh|ts)'
+REFRESH=$( { refresh_writes | grep -oE '\$PROJECT_ROOT/[A-Za-z0-9._/-]*' | sed -E 's#\$PROJECT_ROOT/##'
+             refresh_writes | grep -oE ':scripts/[A-Za-z0-9._-]+\.(sh|ts)' | sed 's#:scripts/#scripts/#'
            } | sed '/^$/d' | sort -u)
 
 # Guard against a broken harness silently passing (empty sets ⇒ vacuous green).
@@ -130,6 +137,27 @@ if [ -z "${stale_excl// }" ]; then
   ok "every EXCLUDED entry is still a live copy_safe delivery (no stale exclusions)"
 else
   bad "EXCLUDED lists path(s) no longer delivered by copy_safe → remove the stale exclusion:$stale_excl"
+fi
+
+# ── Check 3: eslint-rules-local/ source-dir parity (the ONE multi-glob namespace) ────────────────
+# eslint-rules-local/ is populated from MULTIPLE source dirs (core + per-stack presets), so the
+# namespace-level match in Check 1 is sound ONLY if refresh iterates the SAME source dirs delivery
+# does — otherwise a preset rule is delivered but stranded (the live #869-class bug this closed).
+# Enforce it directly: every packages/*/eslint-rules dir the delivery feeds into eslint-rules-local
+# must also be iterated by do_refresh. (40-configs.sh's only packages/*/eslint-rules refs ARE the
+# eslint-rules-local _copy_rule delivery loops, so a whole-file scan is unambiguous here.)
+DELIV_RULE_DIRS=$(grep -vE '^[[:space:]]*#' "$REPO_ROOT/setup.d/40-configs.sh" \
+  | grep -oE 'packages/[A-Za-z0-9._-]+/eslint-rules' | sort -u)
+REFRESH_RULE_DIRS=$(refresh_writes | grep -oE 'packages/[A-Za-z0-9._-]+/eslint-rules' | sort -u)
+[ -n "$DELIV_RULE_DIRS" ] || { echo "FATAL: no packages/*/eslint-rules dirs found in 40-configs.sh — extraction broke"; exit 1; }
+missing_dirs=""
+for d in $DELIV_RULE_DIRS; do
+  printf '%s\n' "$REFRESH_RULE_DIRS" | grep -qxF "$d" || missing_dirs="$missing_dirs $d"
+done
+if [ -z "${missing_dirs// }" ]; then
+  ok "eslint-rules-local: do_refresh iterates every packages/*/eslint-rules source dir delivery ships (preset parity)"
+else
+  bad "eslint-rules-local: delivery ships from source dir(s) do_refresh never refreshes → preset rules stranded:$missing_dirs"
 fi
 
 # ── neg (LOAD-BEARING): drop one known-present entry from REFRESH → Check 1 MUST flag it ─────────

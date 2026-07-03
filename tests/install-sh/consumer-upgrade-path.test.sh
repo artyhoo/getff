@@ -24,6 +24,16 @@ make_consumer() {
   echo "$T"
 }
 
+# A react-next consumer — ships the preset eslint-rules-local rules (no-server-imports-in-client)
+# that the ts-server consumer above does NOT, needed to exercise the preset refresh sub-population.
+make_consumer_next() {
+  local T
+  T=$(mktemp -d)
+  printf '{ "name":"consumer","version":"0.0.0" }\n' > "$T/package.json"
+  ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" react-next ) >/dev/null 2>&1
+  echo "$T"
+}
+
 # ══════════════════════════════════════════════════════════════════════════════
 # TEST 1 — stale-refreshed (paired-negative)
 # Plant stale content in a framework-owned agent, run --refresh, assert the
@@ -328,6 +338,59 @@ else
 fi
 
 rm -rf "$TC6" "$TC6_NEG"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TEST 7 — #869-class on the eslint-rules-local/ PRESET sub-population (react-next)
+# The core rules ship to eslint-rules-local/ on every stack; the PRESET rules ship
+# only per-stack (react-next → no-server-imports-in-client, react-spa → require-
+# error-boundary). do_refresh's eslint-rules-local loop originally iterated the CORE
+# glob only, stranding preset rules on react-next/react-spa consumers (a live #869
+# gap the ts-server-based TEST 6 could not see). This arm proves a PRESET rule
+# refreshes on a react-next consumer. Paired-negative: WITHOUT --refresh it stays stale.
+# ══════════════════════════════════════════════════════════════════════════════
+TC7=$(make_consumer_next)
+STALE7="STALE_PRESET_RULE_INJECTED_PRE_869C"
+# both a CORE rule (control — was already refreshed) and the PRESET rule (the gap)
+PRESET_ARTEFACTS=(
+  "eslint-rules-local/no-unsafe-zod-parse.mjs|packages/core/eslint-rules/no-unsafe-zod-parse.mjs"
+  "eslint-rules-local/no-server-imports-in-client.ts|packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.ts"
+  "eslint-rules-local/no-server-imports-in-client.mjs|packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.mjs"
+)
+
+# Precondition: the preset rule must actually have been delivered (else the test is vacuous)
+if [ ! -f "$TC7/eslint-rules-local/no-server-imports-in-client.mjs" ]; then
+  bad "gh-869c precondition: react-next install did NOT ship the preset rule → cannot test its refresh"
+else
+  ok "gh-869c precondition: react-next install shipped the preset rule no-server-imports-in-client.mjs"
+
+  for _entry in "${PRESET_ARTEFACTS[@]}"; do
+    _name="${_entry%%|*}"
+    printf '%s\n' "$STALE7" > "$TC7/$_name"
+  done
+  ( cd "$TC7" && bash "$REPO_ROOT/install.sh" --refresh ) >/dev/null 2>&1
+  for _entry in "${PRESET_ARTEFACTS[@]}"; do
+    _name="${_entry%%|*}"; _src="${_entry##*|}"
+    _dst="$TC7/$_name"
+    if grep -qF "$STALE7" "$_dst"; then
+      bad "gh-869c pos: $_name still stale after --refresh (preset omitted from do_refresh)"
+    elif [ "$(cat "$_dst")" = "$(cat "$REPO_ROOT/$_src")" ]; then
+      ok "gh-869c pos: $_name refreshed to framework source (matches, not a truncated stub)"
+    else
+      bad "gh-869c pos: $_name changed but does NOT match framework source $_src"
+    fi
+  done
+
+  # neg (LOAD-BEARING): plant stale in the preset rule, do NOT refresh → stays stale
+  TC7_NEG=$(make_consumer_next)
+  printf '%s\n' "$STALE7" > "$TC7_NEG/eslint-rules-local/no-server-imports-in-client.mjs"
+  if grep -qF "$STALE7" "$TC7_NEG/eslint-rules-local/no-server-imports-in-client.mjs"; then
+    ok "gh-869c neg: without --refresh, planted preset rule stays stale (assertion non-vacuous)"
+  else
+    bad "gh-869c neg: preset rule lost its stale marker without --refresh → test was vacuous"
+  fi
+  rm -rf "$TC7_NEG"
+fi
+rm -rf "$TC7"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

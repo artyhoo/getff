@@ -367,22 +367,31 @@ do_refresh() {
   done
 
   # ── Custom ESLint rules plugin → eslint-rules-local/ (#869-class: framework-owned) ──
-  # 40-configs.sh copy_safe's the framework-authored core rules (no-unsafe-zod-parse,
-  # no-direct-time-randomness, require-otel-span, restricted-syntax-audit-exempt) into the
-  # consumer's eslint-rules-local/ as PRE-COMPILED .mjs + .d.ts + .ts (fix #752). These are
+  # 40-configs.sh copy_safe's framework-authored rules into eslint-rules-local/ as PRE-COMPILED
+  # .mjs + .d.ts + .ts (fix #752): the CORE rules (always) PLUS the stack's PRESET rules
+  # (react-next → no-server-imports-in-client; react-spa → require-error-boundary). All are
   # framework-namespace files a consumer never owns (setup.d/lib.sh:194) — DISTINCT from the
   # packages/core/eslint-rules/ copy above (guard-liveness dep). A rule-logic fix must reach a
-  # brownfield consumer non-destructively; copy_safe skip-if-exists cannot deliver it. Mirrors the
-  # _copy_rule delivery glob so the refresh set tracks the delivery set automatically.
+  # brownfield consumer non-destructively; copy_safe skip-if-exists cannot deliver it. Iterate the
+  # SAME source dirs (core + per-stack presets) the _copy_rule delivery uses at 40-configs.sh:128-157
+  # so the refresh set tracks delivery — the refresh-covers-full-delivery gate Check 3 enforces this
+  # source-dir parity (a core-only refresh silently stranded preset rules on react-next/react-spa
+  # consumers before this — the exact #869 class, verified live).
   echo "▶ Custom ESLint rules → eslint-rules-local/"
-  for _rl in "$PKG_ROOT"/packages/core/eslint-rules/*.ts; do
-    case "$_rl" in
-      *.test.ts|*.d.ts|*/index.ts) continue ;;
-    esac
-    _rlstem="${_rl%.ts}"; _rlbn="$(basename "$_rlstem")"
-    refresh_safe "$_rl" "$PROJECT_ROOT/eslint-rules-local/$_rlbn.ts"
-    [ -f "$_rlstem.mjs" ]  && refresh_safe "$_rlstem.mjs"  "$PROJECT_ROOT/eslint-rules-local/$_rlbn.mjs"
-    [ -f "$_rlstem.d.ts" ] && refresh_safe "$_rlstem.d.ts" "$PROJECT_ROOT/eslint-rules-local/$_rlbn.d.ts"
+  _rule_dirs="packages/core/eslint-rules"
+  if [ "$STACK" = "react-next" ]; then _rule_dirs="$_rule_dirs packages/preset-next-15-canonical/eslint-rules"; fi
+  if [ "$STACK" = "react-spa" ];  then _rule_dirs="$_rule_dirs packages/preset-react-spa/eslint-rules"; fi
+  for _rdir in $_rule_dirs; do
+    for _rl in "$PKG_ROOT/$_rdir"/*.ts; do
+      case "$_rl" in
+        *.test.ts|*.d.ts|*/index.ts) continue ;;
+      esac
+      [ -e "$_rl" ] || continue   # empty-glob guard (nullglob off → literal *.ts)
+      _rlstem="${_rl%.ts}"; _rlbn="$(basename "$_rlstem")"
+      refresh_safe "$_rl" "$PROJECT_ROOT/eslint-rules-local/$_rlbn.ts"
+      [ -f "$_rlstem.mjs" ]  && refresh_safe "$_rlstem.mjs"  "$PROJECT_ROOT/eslint-rules-local/$_rlbn.mjs"
+      [ -f "$_rlstem.d.ts" ] && refresh_safe "$_rlstem.d.ts" "$PROJECT_ROOT/eslint-rules-local/$_rlbn.d.ts"
+    done
   done
 
   _fb_src="$PKG_ROOT/packages/core/hooks/pre-push.fallback.sh"
