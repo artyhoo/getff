@@ -159,13 +159,18 @@ DOWNSTREAM_DOCS=(
   "CLAUDE.md"
   ".claude/hooks/inject-session-bootstrap.sh"
   "docs/meta-factory/EXECUTION-PLAN.md"
+  "AGENTS.md"
 )
 
 # Mode detection (D3/D5 only): authoring repo vs consumer install.
 # D3/D5 are authoring-repo drift probes — they track goal-phrase parity across
 # THIS framework's own goal-bearing docs, none of which install.sh ships to
-# consumers (it ships AGENTS.md + .ai-factory/RULES.md, which do not carry the
-# canonical phrase). Without this gate every fresh consumer install failed D3
+# consumers (it ships an AGENTS.md.template + .ai-factory/RULES.md; the rendered
+# consumer AGENTS.md is consumer-authored and does not carry the canonical
+# phrase — unlike the authoring-repo root AGENTS.md, this framework's own
+# portable rule index for off-CC harnesses, which carries the phrase and is
+# therefore enrolled in DOWNSTREAM_DOCS above). Without this gate every fresh
+# consumer install failed D3
 # (4× "file not found") and D5 (the installed script itself is a phrase-carrying
 # orphan at scripts/audit-ai-docs.sh — TEST_INFRA only exempts the authoring
 # path), making install.sh's "Run ./scripts/audit-ai-docs.sh — should PASS"
@@ -273,8 +278,16 @@ if skip_unless D5; then : ; else
     # FROZEN — historical artefacts; phrase appears in research/audit prose, not
     # as live downstream goal-bearing claim.
     D5_FROZEN_PATTERNS='(docs/meta-factory/research-patches/|docs/audits/)'
-    # TEST_INFRASTRUCTURE — files that define the canon or test it.
-    D5_TEST_INFRA_PATTERNS='(packages/core/audit-self/audit-ai-docs\.sh|packages/core/audit-self/audit-ai-docs\.test\.sh|packages/core/audit-self/template-render\.audit\.ts)'
+    # TEST_INFRASTRUCTURE — files that define the canon or test it. The audit
+    # tool's own source + tests (both the .ts implementation and the .sh probe,
+    # plus their .test.* siblings) carry the phrase as fixtures/assertions, not
+    # as a live downstream goal-bearing claim. Mirrors D5_TEST_INFRA_RE in the
+    # canonical .ts implementation (audit-ai-docs.ts) — the .ts|.test.ts arms
+    # were previously present only there, causing bash/.ts D5 drift on
+    # packages/core/audit-self/audit-ai-docs.ts. inject-session-bootstrap.test.ts
+    # is the negative test for the phrase-injection hook — it asserts on the
+    # canonical phrase and is test infra, not a downstream doc.
+    D5_TEST_INFRA_PATTERNS='(packages/core/audit-self/audit-ai-docs\.(ts|test\.ts|sh|test\.sh)|packages/core/audit-self/template-render\.audit\.ts|packages/core/hooks/inject-session-bootstrap\.test\.ts)'
     # ROOT_SOURCE — README.md defines CANON_ALT as the project's own goal statement;
     # it is the upstream authority, not a downstream consumer requiring drift-tracking.
     D5_ROOT_SOURCE_PATTERNS='(^README\.md$)'
