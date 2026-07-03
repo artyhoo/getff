@@ -89,8 +89,8 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
     // otherwise pass vacuously) or accidentally explodes it. Semantic alignment
     // with rule §2 is the maintainer's responsibility on each list update.
     expect(REQUIRED_HEADER_DOCS.length).toBeGreaterThanOrEqual(20);
-    // Upper bound tracks the list in lockstep (66 → 69 react-spa → 72: +3 react-native docs, 2026-06-24 → 73: +egress-no-api-bypass.md, 2026-06-27 → 81: +8 project-local .claude/skills/*/SKILL.md, DN-M1 → 82: +skill-description-quality.md, 2026-06-27 → 84: +rule-researcher agent + rule-research skill (live-adapter Phase 1), 2026-06-29 → 85: +research-source-trust.md, 2026-07-02 (rule-research-trust-tiers S3)).
-    expect(REQUIRED_HEADER_DOCS.length).toBeLessThanOrEqual(85);
+    // Upper bound tracks the list in lockstep (66 → 69 react-spa → 72: +3 react-native docs, 2026-06-24 → 73: +egress-no-api-bypass.md, 2026-06-27 → 81: +8 project-local .claude/skills/*/SKILL.md, DN-M1 → 82: +skill-description-quality.md, 2026-06-27 → 84: +rule-researcher agent + rule-research skill (live-adapter Phase 1), 2026-06-29 → 85: +research-source-trust.md, 2026-07-02 (rule-research-trust-tiers S3) → 87: +source-before-shape.md rule + capability-reuse-auditor.md agent, 2026-07-02 (source-before-shape mechanism)).
+    expect(REQUIRED_HEADER_DOCS.length).toBeLessThanOrEqual(87);
     // Canonical roots must always be present
     expect(REQUIRED_HEADER_DOCS).toContain('README.md');
     expect(REQUIRED_HEADER_DOCS).toContain('CLAUDE.md');
@@ -170,8 +170,9 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
 
     // 19 baseline + 3 react-spa + 3 react-native shipped docs (each: RULES.md,
     // RULES.<stack>.md, templates/ARCHITECTURE.<stack>.md) wired by install.sh = 25;
-    // +1 rule-researcher agent (live-adapter Phase 1, 2026-06-29) = 26.
-    expect(installShipped).toHaveLength(26);
+    // +1 rule-researcher agent (live-adapter Phase 1, 2026-06-29) = 26;
+    // +1 capability-reuse-auditor agent (source-before-shape, 2026-07-02) = 27.
+    expect(installShipped).toHaveLength(27);
     expect(new Set(installShipped)).toEqual(new Set(shippedSubset));
   });
 

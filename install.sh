@@ -119,6 +119,7 @@ SHIPPED_DOCS=(
   "agents/orchestrator-worker-discipline.md"
   "agents/aif-init.md"
   "agents/rule-researcher.md"
+  "agents/capability-reuse-auditor.md"
   "skills/tool-bootstrapping/SKILL.md"
   "skills/tool-bootstrapping/references/decision-format.md"
 )
