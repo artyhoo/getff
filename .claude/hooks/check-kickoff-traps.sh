@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # PostToolUse gate — kickoff T-enumeration floor (Wave N8 C2, ai-laziness-traps §3).
-# @cc-only-rationale: PostToolUse edit-time gate — kickoffs are gitignored, so no
-#   pre-push/CI channel can reach them; edit-time is the earliest (and only) gate.
+# @cc-only-rationale: PostToolUse edit-time gate — kickoffs are authored and
+#   dispatched before any pre-push/CI channel runs on their content; edit-time is the earliest (and only) gate.
 # spec: .claude/rules/ai-laziness-traps.md §3 (kickoff-author obligation #2)
 #
 # On Edit|Write|MultiEdit of a `.claude/orchestrator-prompts/<wave>/kickoff.md` that

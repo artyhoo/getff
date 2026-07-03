@@ -216,12 +216,12 @@ they exist AND still work — silent regression here is severity BLOCKER.
 22. Negative tests for audit-ai-docs.sh probes.
 
     Check:
-    bash packages/core/audit-self/audit-ai-docs.test.sh
+    npx vitest run packages/core/audit-self/audit-ai-docs.test.ts
 
-    EXPECTED: exit code 0, summary line "9 pass / 0 fail" (or higher if probes
-    were added). Each test injects a violation in a temp dir, runs the probe
-    with --only=R<N>/D<N>, asserts the probe catches it. NOTE: only the core
-    (ts-server) probes are negative-tested; the react-next probes
+    EXPECTED: exit 0, all tests pass (vitest — ported from the old bash
+    negative-test harness, Wave 10.4). Each test injects a violation in a temp
+    dir, runs the probe with --only=R<N>/D<N>, asserts the probe catches it.
+    NOTE: only the core (ts-server) probes are negative-tested; the react-next probes
     (packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh) have
     no paired negative-test file — flag as a MAJOR finding.
 

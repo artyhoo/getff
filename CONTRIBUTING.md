@@ -164,7 +164,7 @@ The pre-push hook flags a commit as a capability commit if **any** of:
 
 | Trigger | Detection |
 |---|---|
-| New explicit dependency added to `package.json` | diff line matches `^\+\s*"[^"]+":\s*"\^?[0-9]` (transitive deps don't count) |
+| New explicit dependency added to `package.json` | a dependency key on an added `+` line with no matching removed `-` line, across semver-prefix forms `^ ~ >= <= = *` (transitive deps don't count) — see `packages/core/hooks/checks/prior-art.ts` |
 | New file ≥50 LOC under a **new** subdirectory of `packages/core/` | new path under previously-empty `packages/core/<dir>/` |
 | New file ≥80 LOC anywhere under `packages/` | size threshold for new abstractions |
 
@@ -235,7 +235,7 @@ Both must be fixed at source — no `--no-verify` / silent CI bypass.
 ### Bypass policy
 
 `git push --no-verify` skips the hook content but the CI job
-`enforce-husky-presence` still runs `audit-ai-docs.test.sh`-equivalent
+`enforce-husky-presence` still runs `audit-ai-docs.test.ts`-equivalent
 checks (T9 — added hook regression test under `tests/hooks/`). Skipping
 the hook does not skip the principle test; principle 08 runs in
 `principles-meta-tests` CI job and catches research-file violations

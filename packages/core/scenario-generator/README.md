@@ -1,7 +1,7 @@
 # scenario-generator
 
-> **Authoritative for:** the `packages/core/scenario-generator/` module — its purpose, usage, cost model, isolation mechanism, and files. Consumer: the `/aif-generate-scenarios` skill and the `manual-rule-liveness-prober`.
-> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). The `/aif-generate-scenarios` orchestration skill — see [.claude/skills/aif-generate-scenarios/SKILL.md](../../../.claude/skills/aif-generate-scenarios/SKILL.md). The isolation mechanism detail + contamination proof — see [isolation.md](./isolation.md).
+> **Authoritative for:** the `packages/core/scenario-generator/` module — its purpose, usage, cost model, isolation mechanism, and files. Consumer: the `manual-rule-liveness-prober`.
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). The isolation mechanism detail + contamination proof — see [isolation.md](./isolation.md).
 
 ## What this is
 
@@ -13,7 +13,7 @@ The `scenario-generator` module is the **deterministic, CI-testable half** of th
 4. **CLI** (`cli.ts`) — `gate`, `gate-text`, `write`, `extract-keywords` subcommands for use by the skill.
 5. **Isolation mechanism** (`dispatch-baseline.ts`, `isolation.md`) — spawns `claude -p` from a temp dir outside the repo to prevent ambient rule contamination (W2 anti-pattern).
 
-The LLM-bound parts (G1-G5 scenario design, Pass-1 RED dispatch, Pass-2 GREEN dispatch) live in the **session-bound skill** at `.claude/skills/aif-generate-scenarios/SKILL.md`, NOT here. This keeps all paid LLM calls off CI per [`no-paid-llm-in-ci.md`](../../../.claude/rules/no-paid-llm-in-ci.md).
+The LLM-bound parts (G1-G5 scenario design, Pass-1 RED dispatch, Pass-2 GREEN dispatch) live in a **session-bound orchestration step**, NOT here — this module intentionally stops at the deterministic/CI-testable boundary. This keeps all paid LLM calls off CI per [`no-paid-llm-in-ci.md`](../../../.claude/rules/no-paid-llm-in-ci.md).
 
 ## Cost model
 
@@ -94,4 +94,4 @@ The `manual-rule-liveness-prober` reads this file first (before the manifest) wh
 
 This module is covered by SSOT #115 in `docs/meta-factory/prior-art-evaluations.md` — verdict `ADAPT+generative` (updated 2026-06-16 when this generator shipped). The capability commit carries `Prior-art: prior-art-evaluations.md#115 (verdict ADAPT+generative — generator now ships, flipping from ADAPT)`.
 
-See also: [.claude/skills/aif-generate-scenarios/SKILL.md](../../../.claude/skills/aif-generate-scenarios/SKILL.md) for the full orchestration procedure.
+See also: [isolation.md](./isolation.md) and [proof.md](./proof.md) for the full orchestration procedure and end-to-end proof.

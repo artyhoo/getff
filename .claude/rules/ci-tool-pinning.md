@@ -29,7 +29,7 @@ A bare install without a pin is non-deterministic: the CI job's behaviour depend
 
 ## §2 Scope
 
-Both rules apply exclusively to `.github/workflows/*.yml` files in this repository (our own CI). Rule A's pre-push gate (`unpinnedToolInstallSection` in `pre-push.ts:196`) scans every workflow YAML file via `workflowYmlFiles()`.
+Both rules apply exclusively to `.github/workflows/*.yml` files in this repository (our own CI). Rule A's pre-push gate (`unpinnedToolInstallSection` in `pre-push.ts`) scans every workflow YAML file via `workflowYmlFiles()`.
 
 **Carve-outs (Rule A does not flag):**
 
@@ -69,7 +69,7 @@ One-directional pointer: companion-install-principle.md is NOT edited by this ru
 ## §5 §1.7 self-reflexive note
 
 - **Forward-check:** complies with [no-paid-llm-in-ci.md](no-paid-llm-in-ci.md) (the pre-push gate is deterministic regex, zero API calls); complies with [build-first-reuse-default.md](build-first-reuse-default.md) (REUSE zizmor for the npm/gem/pip-via-action-input slice, BUILD only the unserved bare-`run:` slice per SSOT #153); complies with [doc-authority-hierarchy.md §2-§3](doc-authority-hierarchy.md) (this file carries Class + Authoritative-for header + is registered in principle 09 `REQUIRED_HEADER_DOCS`); complies with [dual-implementation-discipline.md §2(ii)](dual-implementation-discipline.md) (pre-push gate is repo-internal Husky tooling, §2 non-trigger (ii) — no portable fallback required).
-- **Backward-check:** codifies the 2026-06-22 unpinned-zizmor incident (`audit-self.yml:741` pinned to 1.25.2 to suppress findings rather than fix them); enforces the fix (`npm ci --prefix`, `pip install zizmor==1.26.1`) that the preceding commits applied; self-applies via §1 Task #8 (dogfood: all unpinned bare-`run:` installs in `.github/workflows/` pinned before this PR ships). See `packages/core/hooks/pre-push.ts:196`.
+- **Backward-check:** codifies the 2026-06-22 unpinned-zizmor incident (`audit-self.yml:741` pinned to 1.25.2 to suppress findings rather than fix them); enforces the fix (`npm ci --prefix`, `pip install zizmor==1.26.1`) that the preceding commits applied; self-applies via §1 Task #8 (dogfood: all unpinned bare-`run:` installs in `.github/workflows/` pinned before this PR ships). See `unpinnedToolInstallSection` in `packages/core/hooks/pre-push.ts`.
 
 ## §6 Promotion / retirement
 

@@ -14,6 +14,8 @@
 
 ### 7.1 Что значит «core invariant»
 
+> **Design-target note:** пути ниже (`core/...`) описывают *целевой* слой из PROPOSAL.md §7 (pre-monorepo layout), не текущую построенную структуру — актуальный код живёт под `packages/core/`, и `core/generic-rules/R1.json` не существует. См. аналогичную оговорку в [architecture.md](architecture.md#L7).
+
 Файлы и компоненты, изменение которых требует **major version bump** мета-фабрики и явного review:
 - `core/principles.md`
 - `core/manifest-schema.json`

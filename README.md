@@ -12,9 +12,10 @@
 After install, your project has:
 
 1. **A skill** (`.claude/skills/rules-as-tests/`) — auto-activates in Claude Code on questions about lint, tests, CI, mutation testing, contracts, AI-driven code drift.
-2. **Sub-agents** (`.claude/agents/`):
+2. **Sub-agents** (`.claude/agents/`) — 8 shipped: `review-sidecar`, `living-docs-auditor`, `compliance-verifier`, `memory-codification-auditor`, `orchestrator-worker-discipline`, `aif-init`, `rule-researcher`, `capability-reuse-auditor`:
    - `review-sidecar` — two-AI tautology review of tests (our differentiator; no earlier deterministic channel — its cousin Stryker is CI-only).
    - `living-docs-auditor` — runs `audit-ai-docs.sh` and interprets results (backward Living-Documentation drift).
+   - the remaining 6 cover §1.7 PR-review substance (`compliance-verifier`), memory-to-repo codification audits (`memory-codification-auditor`), aif-dispatched worker discipline (`orchestrator-worker-discipline`), AIF onboarding scaffolds (`aif-init`), live-documentation rule research (`rule-researcher`), and build-vs-reuse capability audits (`capability-reuse-auditor`) — see `agents/` for each agent's own description.
    - R1–R20 code-rule validation is enforced **earlier** (edit-time custom ESLint + pre-push) and via AI Factory's own `rules-sidecar` (which reads your `.ai-factory/RULES.md`) — so we no longer ship a competing `best-practices-sidecar` (C-1 KEEP-AIF, 2026-05-20).
    - **skill-context overrides** (`.ai-factory/skill-context/`) ride AIF's own pipeline instead of colliding agent slots (C-1 follow-up, SSOT #50): `aif-review/SKILL.md` injects our anti-tautology test-review into AIF's `review-sidecar`; `aif-rules-check/SKILL.md` injects the R10-naming + test-existence residue into AIF's `rules-sidecar`.
 3. **AI Factory templates** (`.ai-factory/`) — DESCRIPTION, ARCHITECTURE, RULES (R1–R11 + R12–R20 for UI + IR1–IR6 for microservices).
@@ -230,7 +231,7 @@ ai-factory extension add ./rules-as-tests-aif
 
 # Path C — cherry-pick configs only (no skill, no sub-agents, no audit):
 cp /tmp/rt/templates/ts-server/eslint.config.mjs .
-cp /tmp/rt/templates/shared/tsconfig.json .
+cp /tmp/rt/packages/core/templates/shared/tsconfig.json .
 # ... see INSTALL.md §C
 ```
 

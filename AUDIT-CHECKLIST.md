@@ -14,7 +14,9 @@ This checklist is **rule-as-test recursion**: the package about "executable rule
 ### 1.1 File count and structure
 ```bash
 git ls-files | wc -l
-# EXPECTED: ~390 tracked files (packages/ monorepo; was ~37-40 in the early flat layout)
+# EXPECTED: grows monotonically over time (packages/ monorepo; was ~37-40 in the
+# early flat layout, ~390 pre-1587). Not a fixed number — sanity-check the count
+# is in the same order of magnitude as the last audit, not an exact match.
 ```
 
 ### 1.2 Bash scripts have valid syntax
@@ -53,8 +55,10 @@ done
 [ -x setup.sh ] && [ -x install.sh ] && [ -x packages/core/audit-self/audit-ai-docs.sh ] || echo "FAIL: missing +x"
 # EXPECTED: silent (no output = pass).
 # KNOWN FINDING (2026-05-21): setup.sh is git mode 100644 (not +x) while install.sh is 100755.
-# This probe FAILs on it — a real inconsistency finding, not a stale-probe artifact. setup.sh
-# is invoked as `bash setup.sh` so it works, but the bit is inconsistent. Surface, do not fix here.
+# packages/core/audit-self/audit-ai-docs.sh is ALSO git mode 100644 (verify:
+# git ls-files -s packages/core/audit-self/audit-ai-docs.sh). This probe FAILs on both —
+# a real inconsistency finding, not a stale-probe artifact. Both scripts are invoked via
+# `bash <script>` so they work, but the bit is inconsistent. Surface, do not fix here.
 ```
 
 ---
@@ -175,8 +179,11 @@ Specifically check:
 
 ### 3.4 Sub-agents have clear responsibility boundaries
 
-Post-C-1 (2026-05-20) we ship exactly three sub-agents (`best-practices-sidecar` is
-KEEP-AIF — not ours; see `docs/meta-factory/research-patches/2026-05-20-agent-collision-resolution.md`):
+Post-C-1 (2026-05-20) `best-practices-sidecar` is KEEP-AIF — not ours; see
+`docs/meta-factory/research-patches/2026-05-20-agent-collision-resolution.md`. The
+`agents/` directory has since grown beyond the original three — check current contents
+rather than assuming a fixed count; cross-check which of these are actually copied to
+consumer projects via the shipped-set logic in `setup.d/20-agents.sh` (§2 block):
 
 - `review-sidecar` — adversarial two-AI diff review for tautological/mock-only tests; no
   awareness of how the code was written. (Portable SSOT; content also rides AIF's
@@ -186,10 +193,17 @@ KEEP-AIF — not ours; see `docs/meta-factory/research-patches/2026-05-20-agent-
   from `docs-auditor` to de-collide with AIF's same-named **forward** doc-gen gate.
 - `compliance-verifier` — reviews PR-description §1.7 Forward/Backward sections for
   substantive file:line evidence; no collision with AIF.
+- other agents added since (e.g. `backward-sweep-auditor`, `capability-reuse-auditor`,
+  `manual-rule-liveness-prober`, `memory-codification-auditor`,
+  `orchestrator-worker-discipline`, `rule-researcher`, `shipped-agent-liveness-prober`,
+  `aif-init`) — see each file's own frontmatter `description:` for scope; not all are
+  copied to consumers via `setup.d/20-agents.sh`.
 
 ```bash
 ls agents/
-# EXPECTED: review-sidecar.md, living-docs-auditor.md, compliance-verifier.md (NO best-practices-sidecar.md, NO docs-auditor.md)
+# EXPECTED: no fixed count — grows over time. Verify NO best-practices-sidecar.md,
+# NO docs-auditor.md (both retired per the C-1 resolution above); cross-check the
+# shipped subset against setup.d/20-agents.sh §2.
 ```
 
 If two agents have the same job description with different wording — fail.
@@ -411,8 +425,9 @@ negative test — inject artificial violation, run probe, expect FAIL, revert."
 
 Such tests now exist for the core (ts-server) probes:
 ```bash
-bash packages/core/audit-self/audit-ai-docs.test.sh
-# EXPECTED: exit 0, summary "9 pass / 0 fail" (or higher if probes were added).
+npx vitest run packages/core/audit-self/audit-ai-docs.test.ts
+# EXPECTED: exit 0, all tests pass (vitest — ported from the old bash
+# negative-test harness, Wave 10.4).
 # Each test injects a violation in a temp dir, runs the probe with --only=R<N>/D<N>,
 # asserts the probe catches it. Wired into .github/workflows/audit-self.yml job `probe-tests`.
 ```

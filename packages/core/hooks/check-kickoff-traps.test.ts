@@ -3,8 +3,8 @@
  * (.claude/hooks/check-kickoff-traps.sh) — Wave N8 C2, the edit-time enforcement
  * of ai-laziness-traps.md §3 obligation #2 (≥3 distinct T-numbers enumerated).
  *
- * Channel: kickoffs are gitignored, so principle 12 (CI-skipped) cannot reach
- * them and pre-push/CI never see them — edit-time PostToolUse is the earliest
+ * Channel: kickoffs are authored + dispatched before any pre-push/CI channel
+ * sees their content, so principle 12 (CI-skipped) cannot gate them — edit-time PostToolUse is the earliest
  * (and only) channel. This hook adds the COUNT floor principle 12's compound
  * check (presence-of-any-one-pattern) misses.
  *

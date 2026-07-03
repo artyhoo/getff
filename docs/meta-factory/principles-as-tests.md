@@ -6,7 +6,7 @@
 > **Run:** `npm --prefix packages/core run test:principles`
 >
 > **Authoritative for:** principle catalog (P1-P8+) with source references per principle, mutation-style verification expectations, known exceptions per principle.
-> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Test implementation lives in [packages/core/principles/](../../packages/core/principles/); this file is the prose catalog of the **founding concept-principles (P1-P8)**. The live enforced roster is wider (process principles 08+ — prior-art, doc-authority, laziness-traps, …): enumerate `packages/core/principles/*.test.ts` (31 files as of 2026-07-02); do NOT infer the full roster from this catalog.
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Test implementation lives in [packages/core/principles/](../../packages/core/principles/); this file is the prose catalog of the **founding concept-principles (P1-P8)**. The live enforced roster is wider (process principles 08+ — prior-art, doc-authority, laziness-traps, …): enumerate `packages/core/principles/*.test.ts` (32 files as of 2026-07-03); do NOT infer the full roster from this catalog.
 
 ---
 

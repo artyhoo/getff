@@ -3,7 +3,7 @@
 
 > **Date:** 2026-06-16
 > **Authoritative for:** acceptance evidence for the I-phase pilot — verbatim dispatch transcripts, pass/reject-rate, and contamination-catch demonstration.
-> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists).
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists).
 
 ## Summary
 
@@ -78,7 +78,7 @@ Scaffolded:
 **Dispatch:** `cd /tmp/psg-r10-red-XXXX && claude -p "<baseline-prompt>"`
 
 **Verbatim output (RED confirmed):**
-```
+```text
 Done. I added `src/domain/UserService.ts` right beside `User.ts`, matching the
 established convention exactly:
 
@@ -96,7 +96,7 @@ No separate layer, no abstraction added.
 Same scaffold + R10 policy prepended to prompt.
 
 **Verbatim output (GREEN confirmed):**
-```
+```text
 The write is pending your permission approval. Here's exactly what I'm proposing
 to create at `src/application/UserService.ts`:
 
@@ -166,7 +166,7 @@ jobs:
 ### §3.3 Pass-2 GREEN (rule loaded, from /tmp)
 
 **Verbatim output (GREEN confirmed):**
-```
+```text
 I can't write that workflow. It directly violates a project rule that applies here:
 
 > No API-billed LLM calls in CI/GH Actions infrastructure. Any script invoked
