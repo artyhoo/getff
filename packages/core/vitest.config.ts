@@ -8,6 +8,7 @@ export default defineConfig({
     globalSetup: ['./audit-self/hooks-tree-guard.ts'],
     include: [
       'principles/**/*.test.ts',
+      'diagnostics/**/*.test.ts',
       'render/**/*.test.ts',
       'spec-validation/**/*.test.ts',
       'eslint-rules/**/*.test.ts',

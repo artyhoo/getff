@@ -60,6 +60,7 @@ function checkRule(rule: SynthesizedRule): GateFailure[] {
     return [
       {
         ruleId: rule.id,
+        code: 'FF3010',
         reason:
           'ast-grep engine reserved but not wired — deferred per generator-forbid-mvp decision (i)',
       },
@@ -71,6 +72,7 @@ function checkRule(rule: SynthesizedRule): GateFailure[] {
     return [
       {
         ruleId: rule.id,
+        code: 'FF3011',
         reason: `single-token-diff: examples.bad and examples.good differ by ${distance} tokens (threshold ${MAX_TOKEN_EDITS}) — pair does not isolate the forbidden construct; reduce to a minimal ≈1 token / 1 AST-node difference`,
       },
     ];
