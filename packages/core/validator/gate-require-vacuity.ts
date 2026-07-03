@@ -68,6 +68,7 @@ export function runRequireVacuityGate(plan: SynthesisPlan): GateOutcome {
     if (engine === 'ast-grep') {
       failures.push({
         ruleId: rule.id,
+        code: 'FF3018',
         reason:
           'ast-grep engine reserved but not wired for require-vacuity gate — deferred per generator-require-composite-tier decision',
       });
@@ -83,6 +84,7 @@ export function runRequireVacuityGate(plan: SynthesisPlan): GateOutcome {
     if (badViolations.length === 0) {
       failures.push({
         ruleId: rule.id,
+        code: 'FF3019',
         reason: `require-vacuity direction A — selector never fires on examples.bad; rule can never catch violations`,
       });
     }
@@ -93,6 +95,7 @@ export function runRequireVacuityGate(plan: SynthesisPlan): GateOutcome {
     if (goodViolations.length > 0) {
       failures.push({
         ruleId: rule.id,
+        code: 'FF3020',
         reason: `require-vacuity direction B — selector fires on good example (${goodViolations.length} violation${goodViolations.length > 1 ? 's' : ''}); rule fires unconditionally`,
       });
     }

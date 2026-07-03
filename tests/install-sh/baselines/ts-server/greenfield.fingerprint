@@ -7,7 +7,7 @@ e9562da75056ca6bc8ddc0ccacf15405ad3b5c3de9a79021029e9a28118760d5  .ai-factory/ru
 7d6b6061459f0939e64358447d0905329ddd4c52abd459ee8d9d201653ffb791  .ai-factory/skill-context/aif-rules-check/SKILL.md
 0c30698c40b5aa2426d52565b046c974597b82310bbf035927df47982858caa3  .ai-factory/tool-decisions.md
 8ec70c8c3df7f0759cf74d12785a316e449b21da6434d649883ca236e66f1471  .claude/agents/aif-init.md
-8fcbc48611175a68747f4e067caa00e40f816ccb8c0aab5a8f2d7dc6edc3af3b  .claude/agents/capability-reuse-auditor.md
+99b95958c677c0690ff7620b1ae75dedcabf6d3d63bff38d431be86539fc3487  .claude/agents/capability-reuse-auditor.md
 926fd65546506a7a62651839ed5028527bbe95395b86367005c6ef9f9471ba9f  .claude/agents/compliance-verifier.md
 0964a4d3deb5e15e916c599f375874785af96e935bec9efbc7488e600cee719d  .claude/agents/living-docs-auditor.md
 9d8c397a7f9d8f4d0d791297beb21e69d244968e80c729f46d4a0c4f89412ff0  .claude/agents/memory-codification-auditor.md

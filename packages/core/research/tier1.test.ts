@@ -164,8 +164,9 @@ describe('Task 2.3 — Tier-1 derivation (DN #6 lead: A-via-C multi-tenant conta
       resolved,
       { entryPackage: 'react' },
     );
-    expect(v.ok).toBe(false);
-    expect(v.reason).toMatch(/cross-package/);
+    expect(v).not.toBeNull();
+    expect(v?.code).toBe('FF2010');
+    expect(v?.message).toMatch(/cross-package/);
   });
 
   it('S2-N6: xn-- (IDN) homepage host derives nothing', () => {
@@ -202,6 +203,28 @@ describe('Task 2.3 — Tier-1 derivation (DN #6 lead: A-via-C multi-tenant conta
     });
   });
 
+  it('S2-N8: single-label (bare-TLD) host derives nothing (homepage "com" AND repository "io")', () => {
+    const rootCom = makeConsumerRoot({
+      deps: { 'pkg-tld': '^1.0.0' },
+      nodeModules: { 'pkg-tld': { name: 'pkg-tld', homepage: 'https://com' } },
+    });
+    const resolvedCom = resolveAllowedSources({ root: rootCom, adapter: npmAdapter });
+    expect(resolvedCom.tier1For('pkg-tld')).toMatchObject({
+      ok: false,
+      reason: expect.stringContaining('no Tier-1-eligible host'),
+    });
+
+    const rootIo = makeConsumerRoot({
+      deps: { 'pkg-tld2': '^1.0.0' },
+      nodeModules: { 'pkg-tld2': { name: 'pkg-tld2', repository: 'https://io' } },
+    });
+    const resolvedIo = resolveAllowedSources({ root: rootIo, adapter: npmAdapter });
+    expect(resolvedIo.tier1For('pkg-tld2')).toMatchObject({
+      ok: false,
+      reason: expect.stringContaining('no Tier-1-eligible host'),
+    });
+  });
+
   it('positive control: single-tenant homepage authorizes ONLY its own package', () => {
     const root = makeConsumerRoot({
       deps: { 'drizzle-orm': '^0.40.0', hono: '^4.0.0' },
@@ -222,7 +245,7 @@ describe('Task 2.3 — Tier-1 derivation (DN #6 lead: A-via-C multi-tenant conta
       resolved,
       { entryPackage: 'drizzle-orm' },
     );
-    expect(vDrizzle.ok).toBe(true);
+    expect(vDrizzle).toBeNull();
 
     // Passes for entryPackage 'drizzle-orm', fails for 'hono' (scope-lock: T-RTT-A).
     const vHono = validateProvenance(
@@ -234,7 +257,67 @@ describe('Task 2.3 — Tier-1 derivation (DN #6 lead: A-via-C multi-tenant conta
       resolved,
       { entryPackage: 'hono' },
     );
-    expect(vHono.ok).toBe(false);
+    expect(vHono).not.toBeNull();
+    expect(vHono?.code).toBe('FF2010');
+  });
+});
+
+// --- tier1ReasonToDiagnostic FF2008/FF2009 code coverage ---
+// Reviewer finding (whole-work pass): tier1ReasonToDiagnostic
+// (allowlist-resolver.ts:342) maps tier1For's {ok,reason} string to an FF code
+// via substring match. Only the FF2007 branch was end-to-end .code-asserted
+// (AC 3 "degradation" test above); FF2008 (no adapter) and FF2009 (adapter
+// present, zero eligible hosts — the silent `else` fallthrough) were not.
+// These two tests close that gap via validateProvenance, driving a Tier-1
+// miss where Tier-0 AND Tier-2 also miss (allowlistKey unknown to Tier-0, no
+// ack file present).
+describe('tier1ReasonToDiagnostic — FF2008/FF2009 .code coverage', () => {
+  it('FF2008: no adapter wired on ResolveCtx (ctx present, ctx.adapter absent)', () => {
+    const root = makeConsumerRoot({
+      deps: { 'pkg-no-adapter': '^1.0.0' },
+      nodeModules: {
+        'pkg-no-adapter': { name: 'pkg-no-adapter', homepage: 'https://pkg-no-adapter.example' },
+      },
+    });
+    // ctx has a root (so tier1For is reachable) but NO adapter key at all —
+    // the resolveAllowedSources tier1For "no ecosystem adapter wired" branch.
+    const resolved = resolveAllowedSources({ root });
+    const v = validateProvenance(
+      PROV({
+        url: 'https://pkg-no-adapter.example/docs',
+        allowlistKey: 'pkg-no-adapter', // unknown to Tier-0 — falls through to Tier-1
+        packageName: 'pkg-no-adapter',
+      }),
+      resolved,
+      { entryPackage: 'pkg-no-adapter' },
+    );
+    expect(v).not.toBeNull();
+    expect(v?.code).toBe('FF2008');
+  });
+
+  it('FF2009: adapter present, package derives zero eligible hosts (multi-tenant homepage)', () => {
+    const root = makeConsumerRoot({
+      deps: { 'pkg-multi-tenant': '^1.0.0' },
+      nodeModules: {
+        // github.com is on the multi-tenant list (per S2-N3) — adapter IS
+        // wired and the package IS a direct dep, but zero hosts survive
+        // the multi-tenant filter, so tier1For hits its "no Tier-1-eligible
+        // host" reason (the tier1ReasonToDiagnostic `else` fallthrough).
+        'pkg-multi-tenant': { name: 'pkg-multi-tenant', homepage: 'https://github.com/org/pkg-multi-tenant' },
+      },
+    });
+    const resolved = resolveAllowedSources({ root, adapter: npmAdapter });
+    const v = validateProvenance(
+      PROV({
+        url: 'https://github.com/org/pkg-multi-tenant/docs',
+        allowlistKey: 'pkg-multi-tenant', // unknown to Tier-0 — falls through to Tier-1
+        packageName: 'pkg-multi-tenant',
+      }),
+      resolved,
+      { entryPackage: 'pkg-multi-tenant' },
+    );
+    expect(v).not.toBeNull();
+    expect(v?.code).toBe('FF2009');
   });
 });
 
@@ -290,7 +373,7 @@ describe('AC 3 — E2E: Tier-1 single-root stub fixture', () => {
     for (const entry of plan.patterns) {
       for (const p of entry.provenance) {
         const v = validateProvenance(p, resolved, { entryPackage: entry.package });
-        expect(v.ok).toBe(true);
+        expect(v).toBeNull();
       }
     }
   });
@@ -306,9 +389,10 @@ describe('AC 3 — E2E: Tier-1 single-root stub fixture', () => {
     for (const entry of plan.patterns) {
       for (const p of entry.provenance) {
         const v = validateProvenance(p, resolved, { entryPackage: entry.package });
-        expect(v.ok).toBe(false);
-        expect(v.reason).toMatch(/is not a direct dependency/);
-        expect(v.reason).not.toMatch(/unknown allowlistKey/);
+        expect(v).not.toBeNull();
+        expect(v?.code).toBe('FF2007');
+        expect(v?.message).toMatch(/is not a direct dependency/);
+        expect(v?.message).not.toMatch(/unknown allowlistKey/);
       }
     }
   });
@@ -331,7 +415,8 @@ describe('Task 2.5 — finalUrl same-tier check (redirect containment)', () => {
       }),
       resolvedEmpty,
     );
-    expect(v.ok).toBe(false);
+    expect(v).not.toBeNull();
+    expect(v?.code).toBe('FF2015');
   });
 
   it('positive: finalUrl on a host covered by the same tier passes', () => {
@@ -344,7 +429,7 @@ describe('Task 2.5 — finalUrl same-tier check (redirect containment)', () => {
       }),
       resolvedEmpty,
     );
-    expect(v.ok).toBe(true);
+    expect(v).toBeNull();
   });
 
   it('no finalUrl present: url-only validation unaffected (back-compat)', () => {
@@ -353,7 +438,7 @@ describe('Task 2.5 — finalUrl same-tier check (redirect containment)', () => {
       PROV({ url: 'https://nextjs.org/docs', allowlistKey: 'next.official' }),
       resolvedEmpty,
     );
-    expect(v.ok).toBe(true);
+    expect(v).toBeNull();
   });
 });
 

@@ -89,6 +89,7 @@ function runEslintRoundtrip(
     return [
       {
         ruleId: rule.id,
+        code: 'FF3003',
         reason:
           'ast-grep engine reserved but not wired — deferred per generator-forbid-mvp decision (i)',
       },
@@ -100,6 +101,7 @@ function runEslintRoundtrip(
     return [
       {
         ruleId: rule.id,
+        code: 'FF3004',
         reason:
           'eslint rule has no negative-test (gate 1 catches this; gate 2 cannot run without it)',
       },
@@ -136,6 +138,7 @@ function runEslintRoundtrip(
     if (!negMatched) {
       failures.push({
         ruleId: rule.id,
+        code: 'FF3005',
         reason: `negative-test.input[${idx}] did not produce expected violation '${negativeTest['expect-violation']}' for rule '${ruleName}'; got ${JSON.stringify(
           negMessages.map((m) => ({ rule: m.ruleId, messageId: m.messageId })),
         )}`,
@@ -150,6 +153,7 @@ function runEslintRoundtrip(
   if (posViolation) {
     failures.push({
       ruleId: rule.id,
+      code: 'FF3006',
       reason: `examples.good produced unexpected violation: rule='${posViolation.ruleId}' message='${posViolation.message}'`,
     });
   }

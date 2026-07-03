@@ -10,6 +10,7 @@
       "failures": [
         {
           "ruleId": "G97",
+          "code": "FF3005",
           "reason": "negative-test.input[0] did not produce expected violation 'no-restricted-imports' for rule 'no-restricted-imports'; got []"
         }
       ]
