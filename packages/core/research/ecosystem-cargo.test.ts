@@ -630,6 +630,104 @@ abs-poison-member = { workspace = true }
   });
 });
 
+// ── LOW correctness follow-up: manifest name-symmetry across all three
+// resolution branches (final adversarial audit, non-security). The
+// workspace-member branch already verifies the resolved manifest's declared
+// `[package] name` matches the requested dep (resolveDepManifestPath, the
+// `for (const memberDir of ...)` loop). The vendored and path-override
+// branches did NOT — they trusted whatever manifest sat at the resolved
+// path/dir key, even if its OWN declared name differed from the requested
+// dep. Not a security hole (all candidate manifests are already in-tree,
+// PR-reviewed, containment-checked) — but the invariant "a manifest is
+// trusted for pkg X only if it declares name = X" should hold uniformly.
+describe('cargoAdapter — manifest name-symmetry across resolution branches', () => {
+  it('path-override: a manifest at the resolved path declaring a DIFFERENT name is not trusted for the requested dep (mismatch rejected)', () => {
+    const root = makeRoot({
+      rootManifest: `
+[package]
+name = "consumer"
+version = "0.1.0"
+
+[dependencies]
+poison = { path = "crates/mislabeled" }
+`,
+      pathDeps: {
+        'crates/mislabeled': `[package]\nname = "somethingelse"\nversion = "0.1.0"\nhomepage = "https://mismatch.example"\n`,
+      },
+    });
+
+    expect(cargoAdapter.readInstalledMeta(root, 'poison')).toBeNull();
+
+    const resolved = resolveAllowedSources({ root, adapter: cargoAdapter });
+    expect(resolved.tier1For('cargo:poison').ok).toBe(false);
+  });
+
+  it('vendored: a manifest at vendor/<pkg>/Cargo.toml declaring a DIFFERENT name is not trusted for the requested dep (mismatch rejected)', () => {
+    const root = makeRoot({
+      rootManifest: `
+[package]
+name = "consumer"
+version = "0.1.0"
+
+[dependencies]
+serde = "1.0"
+`,
+      vendored: {
+        serde: `[package]\nname = "notserde"\nversion = "1.0.0"\nhomepage = "https://mismatch-vendor.example"\n`,
+      },
+    });
+
+    expect(cargoAdapter.readInstalledMeta(root, 'serde')).toBeNull();
+
+    const resolved = resolveAllowedSources({ root, adapter: cargoAdapter });
+    expect(resolved.tier1For('cargo:serde').ok).toBe(false);
+  });
+
+  it('positive control: path-override manifest correctly declaring the matching name still resolves (name-symmetry check does not over-reject)', () => {
+    const root = makeRoot({
+      rootManifest: `
+[package]
+name = "consumer"
+version = "0.1.0"
+
+[dependencies]
+foo = { path = "crates/foo" }
+`,
+      pathDeps: {
+        'crates/foo': `[package]\nname = "foo"\nversion = "0.1.0"\nhomepage = "https://foo.example"\n`,
+      },
+    });
+
+    const meta = cargoAdapter.readInstalledMeta(root, 'foo');
+    expect(meta?.homepage).toBe('https://foo.example');
+
+    const resolved = resolveAllowedSources({ root, adapter: cargoAdapter });
+    expect(resolved.tier1For('cargo:foo').ok).toBe(true);
+  });
+
+  it('positive control: vendored manifest correctly declaring the matching name still resolves (name-symmetry check does not over-reject)', () => {
+    const root = makeRoot({
+      rootManifest: `
+[package]
+name = "consumer"
+version = "0.1.0"
+
+[dependencies]
+serde = "1.0"
+`,
+      vendored: {
+        serde: `[package]\nname = "serde"\nversion = "1.0.0"\nhomepage = "https://serde.rs"\n`,
+      },
+    });
+
+    const meta = cargoAdapter.readInstalledMeta(root, 'serde');
+    expect(meta?.homepage).toBe('https://serde.rs');
+
+    const resolved = resolveAllowedSources({ root, adapter: cargoAdapter });
+    expect(resolved.tier1For('cargo:serde').ok).toBe(true);
+  });
+});
+
 // ── FIX C: duplicate [package] tables must fail-closed (parser robustness) ──
 describe('cargoAdapter — duplicate [package] table (fail-closed, MINOR)', () => {
   it('a manifest with two conflicting [package] tables yields null (never guesses which host is "the" host)', () => {
