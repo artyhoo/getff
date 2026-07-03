@@ -54,19 +54,19 @@ sed -n '/for f in.*agents/,/done/p' install.sh | grep -E '(case|continue|\.md)'
 
 **Illustrative shipped set as of 2026-07-03** (verify against `install.sh` §2 before dispatching — drift is possible):
 
-| agent slug                       | tools declared                            | install.sh-shipped?            |
-| -------------------------------- | ----------------------------------------- | ------------------------------ |
-| `aif-init`                       | `Read, Glob, Write`                       | YES                            |
-| `capability-reuse-auditor`       | `Read, Glob, Grep`                        | YES                            |
-| `compliance-verifier`            | `Read, Glob, Grep`                        | YES                            |
-| `living-docs-auditor`            | `Read, Glob, Bash`                        | YES                            |
-| `memory-codification-auditor`    | `Read, Glob, Grep`                        | YES                            |
-| `orchestrator-worker-discipline` | `Read`                                    | YES                            |
-| `review-sidecar`                 | `Read, Glob, Grep`                        | YES                            |
-| `rule-researcher`                | `Read, Write, Bash, Grep, Glob, WebFetch, WebSearch` | YES                 |
-| `backward-sweep-auditor`         | `Read, Glob, Grep, Bash`                  | NO (authoring-only, T21)       |
-| `manual-rule-liveness-prober`    | `Read, Glob, Grep, Agent`                 | NO (authoring-only, #552)      |
-| `shipped-agent-liveness-prober`  | `Read, Glob, Grep, Agent`                 | NO (authoring-only, this file) |
+| agent slug                       | tools declared                                       | install.sh-shipped?            |
+| -------------------------------- | ---------------------------------------------------- | ------------------------------ |
+| `aif-init`                       | `Read, Glob, Write`                                  | YES                            |
+| `capability-reuse-auditor`       | `Read, Glob, Grep`                                   | YES                            |
+| `compliance-verifier`            | `Read, Glob, Grep`                                   | YES                            |
+| `living-docs-auditor`            | `Read, Glob, Bash`                                   | YES                            |
+| `memory-codification-auditor`    | `Read, Glob, Grep`                                   | YES                            |
+| `orchestrator-worker-discipline` | `Read`                                               | YES                            |
+| `review-sidecar`                 | `Read, Glob, Grep`                                   | YES                            |
+| `rule-researcher`                | `Read, Write, Bash, Grep, Glob, WebFetch, WebSearch` | YES                            |
+| `backward-sweep-auditor`         | `Read, Glob, Grep, Bash`                             | NO (authoring-only, T21)       |
+| `manual-rule-liveness-prober`    | `Read, Glob, Grep, Agent`                            | NO (authoring-only, #552)      |
+| `shipped-agent-liveness-prober`  | `Read, Glob, Grep, Agent`                            | NO (authoring-only, this file) |
 
 **Nuance:** principle 21 arm (a) *form-*scans **all** `agents/*.md` for canonical tool names (including the authoring-only agents). This M2 prober *behaviour-*probes **only the install.sh-copied shipped surface** (the `all` keyword iterates exactly that set, derived per the §Shipped-surface command above — do not hardcode a count) that consumers actually receive. The boundary matters: an authoring-only agent fabricating findings costs the maintainer; a shipped agent fabricating findings costs the consumer.
 

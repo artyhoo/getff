@@ -20,6 +20,7 @@ The LLM-bound parts (G1-G5 scenario design, Pass-1 RED dispatch, Pass-2 GREEN di
 > **Generating scenarios for N rules ≈ ≥2N session-bound LLM dispatches.**
 
 Each scenario requires at minimum:
+
 - 1× Pass-1 RED dispatch (baseline without rule, from `/tmp`)
 - 1× Pass-2 GREEN dispatch (same baseline + rule policy, from `/tmp`)
 
@@ -37,17 +38,17 @@ The RED (baseline) dispatch MUST run from a directory OUTSIDE the repo tree so `
 
 ## Files
 
-| File | Purpose |
-|------|---------|
-| `types.ts` | Type definitions (PressureType, GeneratedScenario, GeneratedScenariosFile) |
-| `static-gate.ts` | W1/W3/W4/W5 deterministic checks — zero LLM, CI-safe |
-| `store.ts` | Read/merge/write `.ai-factory/generated-scenarios.json` |
-| `cli.ts` | CLI shim for skill shell-outs |
-| `dispatch-baseline.ts` | Isolated subprocess dispatch from /tmp |
-| `isolation.md` | Mechanism documentation + contamination proof |
-| `proof.md` | End-to-end RED→GREEN proof transcript (I-phase pilot, 2026-06-16) |
-| `static-gate.test.ts` | Paired-negative tests for W1/W3/W4/W5 |
-| `store.test.ts` | Paired-negative tests for storage-boundary guard |
+| File                   | Purpose                                                                    |
+| ---------------------- | -------------------------------------------------------------------------- |
+| `types.ts`             | Type definitions (PressureType, GeneratedScenario, GeneratedScenariosFile) |
+| `static-gate.ts`       | W1/W3/W4/W5 deterministic checks — zero LLM, CI-safe                       |
+| `store.ts`             | Read/merge/write `.ai-factory/generated-scenarios.json`                    |
+| `cli.ts`               | CLI shim for skill shell-outs                                              |
+| `dispatch-baseline.ts` | Isolated subprocess dispatch from /tmp                                     |
+| `isolation.md`         | Mechanism documentation + contamination proof                              |
+| `proof.md`             | End-to-end RED→GREEN proof transcript (I-phase pilot, 2026-06-16)          |
+| `static-gate.test.ts`  | Paired-negative tests for W1/W3/W4/W5                                      |
+| `store.test.ts`        | Paired-negative tests for storage-boundary guard                           |
 
 ## Using the CLI
 
