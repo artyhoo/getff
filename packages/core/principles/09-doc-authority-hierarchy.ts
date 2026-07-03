@@ -51,6 +51,7 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   '.claude/rules/egress-no-api-bypass.md',
   '.claude/rules/skill-description-quality.md',
   '.claude/rules/research-source-trust.md',
+  '.claude/rules/source-before-shape.md',
 
   // docs/meta-factory/ reference docs (excluding sub-folders + filename-convention transients)
   'docs/meta-factory/EXECUTION-PLAN.md',
@@ -131,6 +132,7 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   'agents/orchestrator-worker-discipline.md',
   'agents/aif-init.md',
   'agents/rule-researcher.md',
+  'agents/capability-reuse-auditor.md',
 ];
 
 /**

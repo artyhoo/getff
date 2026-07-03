@@ -43,6 +43,7 @@ Universal format read by Cursor, Codex CLI, Aider, Windsurf, and other non-CC ha
 | [`.claude/rules/reviewer-discipline.md`](.claude/rules/reviewer-discipline.md) | Reviewer sessions surface decision-needed forks; they do not choose project strategy |
 | [`.claude/rules/rule-enforcement-channel-selection.md`](.claude/rules/rule-enforcement-channel-selection.md) | Every rule fails at the earliest reachable channel; CI is the last resort, not the primary gate |
 | [`.claude/rules/skill-description-quality.md`](.claude/rules/skill-description-quality.md) | SKILL.md `description`-field quality discipline (deferred Class C); promotion at ≥3 misrouting incidents / 6 months |
+| [`.claude/rules/source-before-shape.md`](.claude/rules/source-before-shape.md) | Before creating a capability (skill/agent/module) or scoping a dispatch, read the authoritative source (SSOT/existing skills, or the spec) first as an input to the shape — not a post-hoc trailer; edit-time reminder via the rule injector |
 
 ## Key files for contributors
 
