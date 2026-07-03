@@ -10,7 +10,7 @@ automated check. Bypass via `/aif-rules` (with rationale), never via `--no-verif
 
 ## Summary table
 
-> Generated from `factory/rules-manifest.json` by `scripts/render-rules.ts`. Do not edit by hand.
+> Generated from `packages/core/manifest/rules-manifest.json` by `packages/core/render/render-rules.ts`. Do not edit by hand.
 
 <!-- begin: rules-table-generated -->
 | Rule | Stack | Check |
