@@ -1,32 +1,30 @@
 // D-tripwire — the mechanical detector for research-source-trust.md §5 item 2's
-// harden-criterion. Item D (dep-name path-traversal) stays KEEP-DOCUMENTED /
-// BLOCKED / latent-only: the traversal string in installedPkgJsonPath's `join`
-// (ecosystem-npm.ts) is never reached with attacker input because tier1For gates
-// on `listDirectDeps(root).has(packageName)` first — `Set.has` is pure
-// string-equality (no path join), and the membership set is built from the
-// consumer's own (trusted) package.json. The real defence is that scope-lock,
-// NOT a string check — adding a "path-traversal guard" on the CVE-class name
-// match alone would be T16 (#pattern-matching-on-name) + discipline-theatre
-// against a non-reachable input.
+// harden-criterion. Item D (dep-name path-traversal) was KEEP-DOCUMENTED /
+// BLOCKED / latent-only while npmAdapter was the sole EcosystemAdapter: the
+// traversal string in installedPkgJsonPath's `join` (ecosystem-npm.ts) was never
+// reached with attacker input because tier1For gates on
+// `listDirectDeps(root).has(packageName)` first — `Set.has` is pure
+// string-equality (no path join), and the membership set was built from the
+// consumer's own (trusted) package.json.
 //
-// §5 item 2's harden-criterion — "reject `..`/`/` path segments in dependency
-// names IF a non-`package.json`-controlled dependency source is ever added to the
-// ecosystem-adapter seam" — is a rot-prone PROSE promise. This file converts it
-// into a detector that fires when the PRECONDITION that makes D live appears, in
-// its two observable shapes:
-//   (A) a SECOND EcosystemAdapter implementation lands — Part A counts the typed
-//       `EcosystemAdapter` value declarations across the research package.
-//   (B) the sole adapter's dep source stops being the consumer's package.json —
-//       Part B pins npmAdapter.listDirectDeps behaviourally (a real call): a dep
-//       DECLARED in the consumer package.json is included; a package present in
-//       node_modules but ABSENT from package.json is excluded.
+// STAGE S4 FLIP: cargoAdapter (ecosystem-cargo.ts) landed as a SECOND
+// EcosystemAdapter, which is precisely Part A's precondition shape. Per the
+// harden-criterion, BOTH installedPkgJsonPath (ecosystem-npm.ts) and
+// cargoAdapter's own manifest-path builder (ecosystem-cargo.ts) now reject
+// `..`/separator-bearing dependency names BEFORE any path join
+// (isUnsafeDepName in each file). D is HARDENED, not merely documented, as of
+// this commit (research-source-trust.md §5 item 4 lists this — cross-referenced
+// there under the cargo-adapter section; item 2 above records the historical
+// KEEP-DOCUMENTED state this file supersedes).
 //
-// GREEN today: npmAdapter is the only EcosystemAdapter impl and its dep source is
-// the consumer package.json. RED the moment either precondition shape lands —
-// which is exactly when D's latent join defect must be re-examined for the new
-// adapter / new dep source, and D flipped from KEEP-DOCUMENTED to hardened.
+// This file remains a LIVE tripwire, not a one-time acknowledgement: Part A now
+// asserts the POSITIVE property — every current EcosystemAdapter implementation
+// file that constructs a filesystem path from a dependency name also contains a
+// traversal-guard signal — and RE-arms for the future: a THIRD adapter (or any
+// adapter whose source lacks the guard signal) fails Part A again, the same way
+// the second one flipped it before this rewrite.
 //
-// Deterministic: git ls-files + readFileSync + regex + one real adapter call.
+// Deterministic: git ls-files + readFileSync + regex + real adapter calls.
 // ZERO API-billed calls (no-paid-llm-in-ci). git-aware population mirrors
 // principle 30's trackedStoreFiles idiom — a new ecosystem-*.ts adapter is
 // covered the moment it lands, no static-list edit.
@@ -37,6 +35,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { npmAdapter } from './ecosystem-npm.ts';
+import { cargoAdapter } from './ecosystem-cargo.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '..', '..', '..'); // research → core → packages → root
@@ -71,8 +70,8 @@ function trackedResearchSources(): string[] {
  *  Residual (documented, NOT backstopped): a second adapter that carries NO
  *  textual `EcosystemAdapter` type at its definition (e.g. an untyped object
  *  registered dynamically) would evade this textual count. Part B does NOT cover
- *  that gap — it pins the SOLE adapter's dep-source behaviour, it does not count
- *  adapters — so the two `it` blocks are INDEPENDENT signals, not a backstop pair.
+ *  that gap — it pins npmAdapter's dep-source behaviour, it does not count
+ *  adapters — so the `it` blocks are INDEPENDENT signals, not a backstop pair.
  *  If a dynamically-registered adapter shape ever lands, add a registry-level
  *  assertion here. */
 function adapterImplFiles(): string[] {
@@ -81,24 +80,115 @@ function adapterImplFiles(): string[] {
   return trackedResearchSources().filter((f) => IMPL.test(readFileSync(f, 'utf8')));
 }
 
+/** Textual signal that a file contains a path-traversal / separator guard on
+ *  a dependency name before constructing a filesystem path from it. Matches
+ *  this repo's actual guard shape (`isUnsafeDepName` helper, checking `..`
+ *  and a path separator) rather than any specific function name, so a
+ *  differently-named-but-equivalent guard in a future adapter still counts —
+ *  the signal is "rejects `..` AND a separator", not a specific identifier. */
+function hasTraversalGuardSignal(source: string): boolean {
+  const mentionsDotDotReject = /\.\.['"]?\s*\)|includes\(['"]\.\.['"]\)/.test(source);
+  const mentionsSeparatorReject =
+    /includes\(['"]\/['"]\)|includes\(['"]\\\\['"]\)|isUnsafeDepName/.test(source);
+  return mentionsDotDotReject && mentionsSeparatorReject;
+}
+
 describe('D-tripwire — EcosystemAdapter precondition (research-source-trust.md §5 item 2)', () => {
-  // ── Part A: exactly one EcosystemAdapter implementation exists ────────────
-  it('exactly one EcosystemAdapter implementation exists (npmAdapter); a second lands RED', () => {
+  // ── Part A: EVERY EcosystemAdapter implementation guards path-traversal ───
+  it('a SECOND EcosystemAdapter has landed (cargoAdapter) — precondition is live, exactly as designed', () => {
     const impls = adapterImplFiles();
-    // Sentinel: the glob/regex must reach at least the one known impl. Zero means
-    // the detector broke (rename, glob drift), not that the seam is empty.
+    // Sentinel: the glob/regex must reach at least the known impls. Fewer
+    // than 2 means either the detector broke (rename, glob drift) or
+    // cargoAdapter's landing regressed — both are failures, not successes.
     expect(
       impls.length,
-      `EcosystemAdapter impl detector found ${impls.length} files — expected ≥1 (npmAdapter). ` +
-        `Zero means the git-glob/regex broke, not that the seam is empty.`,
-    ).toBeGreaterThan(0);
+      `EcosystemAdapter impl detector found ${impls.length} files — expected ≥2 (npmAdapter + ` +
+        `cargoAdapter, S4). Fewer means the git-glob/regex broke or cargoAdapter regressed.`,
+    ).toBeGreaterThanOrEqual(2);
+  });
+
+  it('EVERY EcosystemAdapter implementation file rejects `..`/separator dependency-name segments before building a path', () => {
+    const impls = adapterImplFiles();
+    const withoutGuard = impls.filter((f) => !hasTraversalGuardSignal(readFileSync(f, 'utf8')));
     expect(
-      impls.map((f) => f.replace(`${REPO_ROOT}/`, '')),
-      'A SECOND EcosystemAdapter implementation landed. Precondition for §5 item 2 (D) is now ' +
-        'live: before wiring it, add the `..`/`/` path-segment reject to installedPkgJsonPath ' +
-        '(ecosystem-npm.ts) OR to the new adapter, and flip D from KEEP-DOCUMENTED to hardened ' +
-        'in research-source-trust.md §5.',
-    ).toHaveLength(1);
+      withoutGuard.map((f) => f.replace(`${REPO_ROOT}/`, '')),
+      'The following EcosystemAdapter implementation(s) construct a filesystem path from a ' +
+        'dependency name WITHOUT a visible `..`/separator traversal guard. Per §5 item 2\'s ' +
+        'now-live harden-criterion, every adapter that builds fs paths from dep names must ' +
+        'reject `..` and path-separator segments BEFORE the join (see isUnsafeDepName in ' +
+        'ecosystem-npm.ts / ecosystem-cargo.ts for the reference shape).',
+    ).toHaveLength(0);
+  });
+
+  it('negative-control proof: the detector actually discriminates (a guard-shaped string is matched, a plain join is not)', () => {
+    // Proves hasTraversalGuardSignal is not vacuously true for any source
+    // text — a naive "just join the segments" snippet must NOT match.
+    const guarded = `
+      function isUnsafeDepName(name) { return name.includes('..') || name.includes('/'); }
+    `;
+    const unguarded = `
+      function installedPkgJsonPath(root, name) { return join(root, 'node_modules', name); }
+    `;
+    expect(hasTraversalGuardSignal(guarded)).toBe(true);
+    expect(hasTraversalGuardSignal(unguarded)).toBe(false);
+  });
+
+  it('behavioural proof: BOTH shipped adapters actually reject a traversal name at runtime (not just textually)', () => {
+    const npmRoot = mkdtempSync(join(tmpdir(), 'd-tripwire-npm-'));
+    writeFileSync(join(npmRoot, 'package.json'), JSON.stringify({ dependencies: {} }, null, 2));
+    expect(npmAdapter.readInstalledMeta(npmRoot, '../evil')).toBeNull();
+
+    const cargoRoot = mkdtempSync(join(tmpdir(), 'd-tripwire-cargo-'));
+    writeFileSync(
+      join(cargoRoot, 'Cargo.toml'),
+      '[package]\nname = "consumer"\nversion = "0.1.0"\n',
+    );
+    expect(cargoAdapter.readInstalledMeta(cargoRoot, '../evil')).toBeNull();
+  });
+
+  it('behavioural end-to-end paired-negatives: cargoAdapter rejects a traversing path-override VALUE and a traversing workspace-member VALUE (§5 BLOCKER — distinct surface from the dep-NAME guard above)', () => {
+    // The dep-NAME guard (isUnsafeDepName on `pkg`) is necessary but NOT
+    // sufficient — the path-override and workspace-member *values* (declared
+    // inside the consumer's OWN root Cargo.toml, not the queried dep name)
+    // are a second, independent traversal surface. This is the textual
+    // signal's blind spot: `hasTraversalGuardSignal` only proves a guard
+    // string exists somewhere in the file, not that every fs-path-building
+    // branch actually calls it. Kept SUPPLEMENTARY to that textual check,
+    // per research-source-trust.md §5 item 2.
+
+    // (a) override-value traversal: `path = "../escape-a"` naming a real,
+    // out-of-tree manifest — must NOT resolve.
+    const overrideRoot = mkdtempSync(join(tmpdir(), 'd-tripwire-cargo-override-'));
+    writeFileSync(
+      join(overrideRoot, 'Cargo.toml'),
+      '[package]\nname = "consumer"\nversion = "0.1.0"\n\n' +
+        '[dependencies]\npoison = { path = "../escape-a" }\n',
+    );
+    const overrideOutside = resolve(overrideRoot, '..', 'escape-a');
+    mkdirSync(overrideOutside, { recursive: true });
+    writeFileSync(
+      join(overrideOutside, 'Cargo.toml'),
+      '[package]\nname = "poison"\nhomepage = "https://evil.example"\n',
+    );
+    expect(cargoAdapter.readInstalledMeta(overrideRoot, 'poison')).toBeNull();
+    expect(cargoAdapter.listDirectDeps(overrideRoot).has('poison')).toBe(false);
+
+    // (b) member-value traversal: `[workspace] members = ["../escape-b"]`
+    // naming a real, out-of-tree member manifest — must NOT resolve.
+    const memberRoot = mkdtempSync(join(tmpdir(), 'd-tripwire-cargo-member-'));
+    writeFileSync(
+      join(memberRoot, 'Cargo.toml'),
+      '[workspace]\nmembers = ["../escape-b"]\n\n[package]\nname = "consumer"\n' +
+        'version = "0.1.0"\n\n[dependencies]\npoison-b = { workspace = true }\n',
+    );
+    const memberOutside = resolve(memberRoot, '..', 'escape-b');
+    mkdirSync(memberOutside, { recursive: true });
+    writeFileSync(
+      join(memberOutside, 'Cargo.toml'),
+      '[package]\nname = "poison-b"\nhomepage = "https://evil-b.example"\n',
+    );
+    expect(cargoAdapter.readInstalledMeta(memberRoot, 'poison-b')).toBeNull();
+    expect(cargoAdapter.listDirectDeps(memberRoot).has('poison-b')).toBe(false);
   });
 
   // ── Part B: the sole adapter's dep source IS the consumer's package.json ──

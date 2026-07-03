@@ -113,6 +113,7 @@ const CODE_FIXTURES: Record<string, Record<string, string | number>> = {
   FF2013: { host: 'evil.com', allowlistKey: 'my-key', ackedHosts: 'docs.my-package.com' },
   FF2014: { ackFileReason: 'malformed JSON in ack file: /tmp/x.json' },
   FF2015: { innerReason: 'unknown allowlistKey: react' },
+  FF2016: { packageName: 'cargo:serde' },
   // --- FF3xxx: L4 semantic gates (Task 4, DN-D1-4) ---
   FF3001: { details: 'must have required property \'framework\' at /' },
   FF3002: { checkType: 'eslint' },

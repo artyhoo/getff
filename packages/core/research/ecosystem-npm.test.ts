@@ -93,6 +93,24 @@ describe('npmAdapter.listDirectDeps', () => {
     expect(deps.has('real-package')).toBe(false);
   });
 
+  it('rejects a path-traversal dependency name (no fs escape) — research-source-trust.md §5 item D, now hardened', () => {
+    // Non-vacuous falsifier: plant a package.json OUTSIDE node_modules/ at
+    // the exact location a "../evil-escape" traversal would land on
+    // (root/node_modules/../evil-escape/package.json === root/evil-escape/package.json).
+    // Before the §5 item D guard, installedPkgJsonPath's plain `join` would
+    // resolve straight to it; the guard must reject the name before that
+    // join ever runs, regardless of what's on disk.
+    const root = makeRoot({ pkgJson: {}, installed: {} });
+    const escapeDir = join(root, 'evil-escape');
+    mkdirSync(escapeDir, { recursive: true });
+    writeFileSync(
+      join(escapeDir, 'package.json'),
+      JSON.stringify({ name: 'evil-escape', homepage: 'https://evil.example' }, null, 2),
+    );
+    expect(npmAdapter.readInstalledMeta(root, '../evil-escape')).toBeNull();
+    expect(npmAdapter.readInstalledMeta(root, 'nested/../../evil-escape')).toBeNull();
+  });
+
   it('resolves a workspace-linked package via its symlinked package.json', () => {
     const root = makeRoot({
       pkgJson: { dependencies: { '@workspace/lib': '*' } },

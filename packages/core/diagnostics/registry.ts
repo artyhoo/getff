@@ -146,6 +146,15 @@ export const REGISTRY: Readonly<Record<string, RegistryEntry>> = Object.freeze({
       'p.finalUrl is present, differs from p.url, and independently fails the same tier ' +
       'resolution. allowlist-resolver.ts validateProvenance (finalUrl redirect check).',
   },
+  FF2016: {
+    template: 'ecosystem mismatch: `{packageName}` requested a different ecosystem than the wired adapter',
+    defaultSeverity: 'error',
+    explanation:
+      'S4 ecosystem-prefix dispatch (research-source-trust.md §4): packageName carries an ' +
+      '"<ecosystem>:<bareName>" prefix (or defaults to npm when unprefixed) that does not ' +
+      'match ctx.adapter.ecosystem — fail closed rather than silently retrying under the ' +
+      'wrong adapter. allowlist-resolver.ts resolveAllowedSources tier1For.',
+  },
 
   // --- FF3xxx: L4 semantic gates (validator/gate-*.ts) ---
   // One code per failure KIND per gate (DN-D1-4, spec-literal per-gate

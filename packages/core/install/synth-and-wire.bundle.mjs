@@ -8669,6 +8669,11 @@ var REGISTRY = Object.freeze({
     defaultSeverity: "error",
     explanation: "p.finalUrl is present, differs from p.url, and independently fails the same tier resolution. allowlist-resolver.ts validateProvenance (finalUrl redirect check)."
   },
+  FF2016: {
+    template: "ecosystem mismatch: `{packageName}` requested a different ecosystem than the wired adapter",
+    defaultSeverity: "error",
+    explanation: 'S4 ecosystem-prefix dispatch (research-source-trust.md \xA74): packageName carries an "<ecosystem>:<bareName>" prefix (or defaults to npm when unprefixed) that does not match ctx.adapter.ecosystem \u2014 fail closed rather than silently retrying under the wrong adapter. allowlist-resolver.ts resolveAllowedSources tier1For.'
+  },
   // --- FF3xxx: L4 semantic gates (validator/gate-*.ts) ---
   // One code per failure KIND per gate (DN-D1-4, spec-literal per-gate
   // allocation — 20 codes, not the 16-code shared-astgrep alternative).
@@ -8859,6 +8864,23 @@ function errorsText2(errors) {
 // packages/core/research/allowlist-resolver.ts
 import { dirname as dirname2, join, resolve as resolvePath } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
+
+// packages/core/research/ecosystem-name.ts
+var KNOWN_ECOSYSTEM_PREFIXES = /* @__PURE__ */ new Set(["npm", "cargo"]);
+function parseEcosystemName(name) {
+  const idx = name.indexOf(":");
+  if (idx === -1) {
+    return { ecosystem: "npm", bareName: name };
+  }
+  const prefix = name.slice(0, idx);
+  const rest = name.slice(idx + 1);
+  if (KNOWN_ECOSYSTEM_PREFIXES.has(prefix)) {
+    return { ecosystem: prefix, bareName: rest };
+  }
+  return { ecosystem: "unknown", bareName: name };
+}
+
+// packages/core/research/allowlist-resolver.ts
 function canonicalizeHost(host) {
   const lower = host.toLowerCase();
   return lower.endsWith(".") ? lower.slice(0, -1) : lower;
@@ -8945,13 +8967,21 @@ function resolveAllowedSources(ctx) {
           reason: `host not authorized: Tier-1 unavailable for \`${packageName}\` (no ecosystem adapter wired \u2014 S2)`
         };
       }
-      if (!ctx.adapter.listDirectDeps(ctx.root).has(packageName)) {
+      const parsed = parseEcosystemName(packageName);
+      if (parsed.ecosystem !== ctx.adapter.ecosystem) {
+        return {
+          ok: false,
+          reason: `ecosystem mismatch: \`${packageName}\` requests ecosystem "${parsed.ecosystem}", wired adapter is "${ctx.adapter.ecosystem}"`
+        };
+      }
+      const bareName = parsed.bareName;
+      if (!ctx.adapter.listDirectDeps(ctx.root).has(bareName)) {
         return {
           ok: false,
           reason: `host not authorized: \`${packageName}\` is not a direct dependency`
         };
       }
-      const meta = ctx.adapter.readInstalledMeta(ctx.root, packageName);
+      const meta = ctx.adapter.readInstalledMeta(ctx.root, bareName);
       const candidateFields = [meta?.homepage, meta?.repository];
       const hosts = [];
       for (const field of candidateFields) {
@@ -9046,6 +9076,9 @@ function validateUrlAgainstTiers(rawUrl, p, resolved, opts) {
 function tier1ReasonToDiagnostic(reason, packageName) {
   if (reason.includes("no ecosystem adapter wired")) {
     return diag("FF2008", { packageName });
+  }
+  if (reason.includes("ecosystem mismatch")) {
+    return diag("FF2016", { packageName });
   }
   if (reason.includes("is not a direct dependency")) {
     return diag("FF2007", { packageName });

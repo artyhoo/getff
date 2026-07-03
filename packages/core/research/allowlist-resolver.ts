@@ -125,6 +125,7 @@ import { dirname, join, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Provenance } from './types.ts';
 import { ALLOWED_SOURCES } from './allowlist.ts';
+import { parseEcosystemName } from './ecosystem-name.ts';
 
 /** Ecosystem seam (S1: interface only; npm adapter lands in S2, non-JS in S4).
  *  Parameterizes the toolchain axis ({toolchain, stack}) instead of forking
@@ -193,15 +194,27 @@ export function resolveAllowedSources(ctx?: ResolveCtx): ResolvedSources {
           reason: `host not authorized: Tier-1 unavailable for \`${packageName}\` (no ecosystem adapter wired — S2)`,
         };
       }
+      // S4 ecosystem-prefix dispatch (research-source-trust.md §4): a
+      // packageName may carry an explicit "<ecosystem>:<bareName>" prefix.
+      // Fail closed if it does not match the wired adapter's ecosystem —
+      // NEVER silently retry the bare/prefixed form under the wrong adapter.
+      const parsed = parseEcosystemName(packageName);
+      if (parsed.ecosystem !== ctx.adapter.ecosystem) {
+        return {
+          ok: false,
+          reason: `ecosystem mismatch: \`${packageName}\` requests ecosystem "${parsed.ecosystem}", wired adapter is "${ctx.adapter.ecosystem}"`,
+        };
+      }
+      const bareName = parsed.bareName;
       // Direct-dep gate (kickoff §4: transitive deps excluded — the full
       // dependency closure is not consumer-chosen).
-      if (!ctx.adapter.listDirectDeps(ctx.root).has(packageName)) {
+      if (!ctx.adapter.listDirectDeps(ctx.root).has(bareName)) {
         return {
           ok: false,
           reason: `host not authorized: \`${packageName}\` is not a direct dependency`,
         };
       }
-      const meta = ctx.adapter.readInstalledMeta(ctx.root, packageName);
+      const meta = ctx.adapter.readInstalledMeta(ctx.root, bareName);
       const candidateFields = [meta?.homepage, meta?.repository];
       const hosts: string[] = [];
       for (const field of candidateFields) {
@@ -335,13 +348,16 @@ function validateUrlAgainstTiers(
 
 /** Maps a Tier1Result failure reason string (from resolveAllowedSources's
  *  tier1For — an UNCHANGED Tier1Result {ok,reason} shape, not migrated by D1)
- *  to its FF2xxx code. The three reason classes tier1For emits are fixed by
+ *  to its FF2xxx code. The four reason classes tier1For emits are fixed by
  *  its own source (allowlist-resolver.ts resolveAllowedSources): no-adapter
- *  (FF2008), not-a-direct-dependency (FF2007), no-eligible-host (FF2009,
- *  DN-D1-2 single code). */
+ *  (FF2008), ecosystem-mismatch (FF2016, S4), not-a-direct-dependency
+ *  (FF2007), no-eligible-host (FF2009, DN-D1-2 single code). */
 function tier1ReasonToDiagnostic(reason: string, packageName: string): Diagnostic {
   if (reason.includes('no ecosystem adapter wired')) {
     return diag('FF2008', { packageName });
+  }
+  if (reason.includes('ecosystem mismatch')) {
+    return diag('FF2016', { packageName });
   }
   if (reason.includes('is not a direct dependency')) {
     return diag('FF2007', { packageName });

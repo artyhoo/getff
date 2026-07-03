@@ -8,17 +8,43 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { EcosystemAdapter, InstalledMeta } from './allowlist-resolver.ts';
 
-/** node_modules/<name>/package.json path — scoped names split on the slash. */
-function installedPkgJsonPath(root: string, name: string): string {
+/** Rejects a dependency name containing a path-traversal or separator
+ *  segment BEFORE it is ever joined into a filesystem path
+ *  (research-source-trust.md §5 item D harden-criterion — now LIVE: a
+ *  second EcosystemAdapter (cargoAdapter, ecosystem-cargo.ts) landed,
+ *  which is exactly the precondition ecosystem-adapter-precondition.test.ts
+ *  watches for). A legitimate scoped name (`@scope/name`) contains exactly
+ *  one `/` at a fixed position and is handled by installedPkgJsonPath's own
+ *  `name.split('/')` BEFORE this guard is consulted per-segment — this
+ *  guard runs on the RAW incoming name and rejects any `..` substring or a
+ *  segment count/shape indicating traversal beyond the scoped-name form. */
+function isUnsafeDepName(name: string): boolean {
+  if (name.includes('..')) return true;
+  const segments = name.startsWith('@') ? name.split('/') : [name];
+  // A scoped name has exactly 2 segments (@scope, name); a bare name has
+  // exactly 1. More segments, or an embedded separator within a segment,
+  // indicates a shape this adapter's join was never designed for — reject
+  // rather than silently joining a longer/deeper path than intended.
+  if (name.startsWith('@') && segments.length !== 2) return true;
+  return segments.some((s) => s.includes('/') || s.includes('\\'));
+}
+
+/** node_modules/<name>/package.json path — scoped names split on the slash.
+ *  Returns null for an unsafe name (§5 item D) instead of ever constructing
+ *  a path from it. */
+function installedPkgJsonPath(root: string, name: string): string | null {
+  if (isUnsafeDepName(name)) return null;
   const segments = name.startsWith('@') ? name.split('/') : [name];
   return join(root, 'node_modules', ...segments, 'package.json');
 }
 
-/** Reads and parses an installed package.json; null if absent or unreadable.
+/** Reads and parses an installed package.json; null if absent, unreadable,
+ *  or the name is rejected by installedPkgJsonPath's traversal guard.
  *  existsSync + readFileSync both follow symlinks (workspace-linked packages
  *  install as a symlinked node_modules/<name> dir — kickoff §4). */
 function readInstalledPkgJson(root: string, name: string): Record<string, unknown> | null {
   const p = installedPkgJsonPath(root, name);
+  if (p === null) return null;
   if (!existsSync(p)) return null;
   try {
     return JSON.parse(readFileSync(p, 'utf8')) as Record<string, unknown>;
