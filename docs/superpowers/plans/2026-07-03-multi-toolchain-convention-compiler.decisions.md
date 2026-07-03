@@ -95,6 +95,8 @@ this — either by applying a README widening (product scope includes multi-tool
 scoping MT as internal/experimental-only (not yet product scope). The kickoff §2 STOP line encodes
 this.
 
+**RESOLVED 2026-07-03: APPLIED — README widened to multi-toolchain roadmap (Rust/cargo next), PR #870 (832118b7b). MT S1 unblocked.**
+
 ---
 
 ## Owner decision #2 — AGENTS.md fenced-block ownership (RESOLVED: Option A, 2026-07-03)

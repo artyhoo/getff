@@ -2,8 +2,9 @@
 
 > **Status:** design authored in the MT-umbrella planning session (2026-07-03), on the R-phase base
 > [research-patches/2026-07-02-multi-toolchain-generalization.md](../../meta-factory/research-patches/2026-07-02-multi-toolchain-generalization.md)
-> (v0.2 architecture, §8/§9). Implementation is BLOCKED on two owner decisions (README widening +
-> AGENTS.md fenced-block ownership) and on a Rust toolchain for live firing — see §7 and the
+> (v0.2 architecture, §8/§9). Implementation gating: Owner decision #2 (AGENTS.md fenced-block)
+> RESOLVED — Option A (2026-07-03); README widening APPLIED on staging (#870, 832118b7b). Remaining
+> live gate: a Rust toolchain for cargo live-fire (§8) — see the
 > [decisions doc](../plans/2026-07-03-multi-toolchain-convention-compiler.decisions.md).
 > **Authoritative for:** the MT Convention-Compiler design — the three-plane shape (narrow-core IR
 > + per-backend capability matrix), the IR v0 node shape, the four tier vocabularies, the six
