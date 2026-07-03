@@ -30,6 +30,7 @@
       "failures": [
         {
           "ruleId": "G87",
+          "code": "FF3017",
           "reason": "autofix-clean: fixer for 'no-extra-parens' left 1 violation(s) in fixed output \u2014 fix is incomplete or introduces new same-rule violations"
         }
       ]
