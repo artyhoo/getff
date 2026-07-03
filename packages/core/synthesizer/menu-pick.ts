@@ -10,6 +10,7 @@ import type { ResearchPlan } from '../research/types.ts';
 import { loadRecipe } from './synthesize.ts';
 import { compileDeclarativeMd } from './compile-declarative-md.ts';
 import { mergeEslintRuleConfig } from './merge-eslint-config.ts';
+import { wireRuleThroughNode } from './to-node.ts';
 import type { SynthesisPlan, SynthesizedRule } from './types.ts';
 import type { Menu, MenuCandidate, MenuPickClient } from './menu-pick-port.ts';
 
@@ -48,11 +49,15 @@ export async function synthesizeLive(
     if (plan.framework !== null && !recipe.appliesTo.includes(plan.framework)) continue;
 
     const id = `G${nextId++}`;
-    const rule: SynthesizedRule = {
+    const composed: SynthesizedRule = {
       ...recipe.rule,
       id,
       research: { entryId: entry.id, provenance: entry.provenance },
     };
+    // MT S3b врезка: thread the composed rule through the IR plane (grammar gate + npm
+    // adapter for the declarative-syntax class); output stays byte-identical (mergeEnrichment
+    // preserves the composed rule's key order). Mirrors synthesize.ts:90-102.
+    const rule = wireRuleThroughNode(composed);
     rules.push(rule);
     if (rule.check.type === 'declarative') {
       mdFragments.push(compileDeclarativeMd(rule));

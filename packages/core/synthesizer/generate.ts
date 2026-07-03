@@ -14,6 +14,7 @@ import {
   declarativeRestrictedConfigEntry,
 } from './compile-declarative-md.ts';
 import { mergeEslintRuleConfig } from './merge-eslint-config.ts';
+import { wireRuleThroughNode } from './to-node.ts';
 import type { ManifestCheck, SynthesisPlan, SynthesizedRule } from './types.ts';
 import type { GenerateClient, Menu, MenuCandidate } from './generate-port.ts';
 
@@ -72,7 +73,7 @@ export async function synthesizeGenerate(
       };
     }
 
-    const rule: SynthesizedRule = {
+    const composed: SynthesizedRule = {
       id,
       title: candidate.title,
       stack: candidate.stack,
@@ -86,8 +87,15 @@ export async function synthesizeGenerate(
       candidate.negativeTest &&
       (check.type === 'declarative' || check.type === 'eslint')
     ) {
-      rule['negative-test'] = candidate.negativeTest;
+      composed['negative-test'] = candidate.negativeTest;
     }
+
+    // MT S3b врезка: thread the FINAL composed rule (AFTER the negative-test mutation, so the
+    // enrichment round-trips) through the IR plane — grammar gate + npm adapter for the
+    // declarative-syntax class. Output stays byte-identical: mergeEnrichment rebuilds in the
+    // composed rule's key order [id,title,stack,check,examples,research,negative-test].
+    // Mirrors synthesize.ts:90-102.
+    const rule = wireRuleThroughNode(composed);
 
     rules.push(rule);
 
