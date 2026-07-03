@@ -194,7 +194,7 @@ merge_prettierignore() {
     # GH #890: an existing block → INSERT the missing patterns immediately before the END marker so
     # the block stays SINGLE (no duplicate marker — the f15 begin-marker-count==1 invariant). Rewrite
     # via a temp file with a pure read-loop (bash-3.2 / BSD-tool safe: no sed path-escaping, no awk
-    # array-passing). END is guaranteed present — the block is only ever written as a BEGIN/END pair.
+    # array-passing).
     local _tmp="${dst}.aif-merge.$$"
     local _emitted=0 _l
     while IFS= read -r _l || [ -n "$_l" ]; do
@@ -204,6 +204,16 @@ merge_prettierignore() {
       fi
       printf '%s\n' "$_l"
     done < "$dst" > "$_tmp"
+    # Fallback: BEGIN present but END absent (corrupt file, or a prior install interrupted between the
+    # BEGIN/patterns/END printfs of the append path below — that write is NOT atomic). Never lose the
+    # patterns silently (which would also make the ✓ echo a lie); append them + a fresh END so the
+    # block self-heals and the next run is a clean no-op.
+    if [ "$_emitted" -eq 0 ]; then
+      {
+        printf '%s\n' "${missing[@]}"
+        printf '%s\n' "$PRETTIERIGNORE_END"
+      } >> "$_tmp"
+    fi
     mv "$_tmp" "$dst"
     echo "  ✓ $dst (added ${#missing[@]} new AIF .prettierignore pattern(s) to the existing block)"
   else
