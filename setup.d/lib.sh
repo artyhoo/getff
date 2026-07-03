@@ -93,6 +93,9 @@ copy_safe() {
 # Naming: for foo.md the override is foo.override.md; for foo.sh it is foo.sh.override.md
 # (the %.md strip is a no-op on non-.md files, so the pattern is uniform — ${dst%.md}.override.md).
 # T-Upgrade-A: default-to-SKIP on any ownership signal — a wrong overwrite is irreversible.
+# #873: directory payloads are REPLACED, not nested — mirrors the existing
+# refresh_skill_with_transform precedent (rm -rf "$dst"; cp -r). File refresh is unchanged (a
+# file source cp -r's over an existing file correctly).
 refresh_safe() {
   local src="$1"
   local dst="$2"
@@ -111,6 +114,7 @@ refresh_safe() {
     return 0
   fi
   mkdir -p "$(dirname "$dst")"
+  [ -d "$src" ] && rm -rf "$dst"   # #873: replace directory payloads (cp -r nests into an existing dir)
   cp -r "$src" "$dst"
   echo "  ✓ $dst (refreshed)"
 }
