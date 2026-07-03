@@ -1,28 +1,33 @@
 #!/usr/bin/env bash
-# refresh-covers-full-delivery.test.sh — #869: every framework-owned consumer SCRIPT
-# that a --full install delivers to scripts/ MUST also be re-copied by --refresh.
+# refresh-covers-full-delivery.test.sh — #869: every framework-owned artefact that a --full
+# install delivers via copy_safe MUST also be re-copied by --refresh (do_refresh).
 #
-# Closes the recurring "refresh omits a --full-delivered artefact" class (#635 hooks/
-# package.json, #735 pre-push dep, #869 check-fences-fire.sh + check-shields-up.sh).
-# Root mechanism: setup.d/40-configs.sh delivers via copy_safe, which SKIPS-if-exists.
-# So a brownfield consumer only ever receives an UPDATED framework script through
-# do_refresh() (install.sh), whose refresh_safe OVERWRITES. A script delivered by
-# --full but omitted from do_refresh can therefore never reach an already-installed
-# consumer non-destructively — the framework's own fixes false-RED forever on it.
+# Closes the recurring "refresh omits a --full-delivered framework artefact" class:
+#   #635 packages/core/hooks/package.json, #735 pre-push dep, #869 check-fences-fire.sh +
+#   check-shields-up.sh (scripts/), .husky/pre-{commit,push} + eslint-rules-local/ (this PR).
+# Root mechanism: copy_safe (setup.d/lib.sh) SKIPS-if-exists. So a brownfield consumer only ever
+# receives an UPDATED framework artefact through do_refresh(), whose refresh_safe OVERWRITES. A
+# framework file delivered by --full but omitted from do_refresh can therefore never reach an
+# already-installed consumer non-destructively — the framework's own fixes false-RED (or, for
+# .husky/pre-push, HARD-CRASH per #636) forever on it. This gate is the mechanical form of the
+# install.sh do_refresh "@sync-with-layers" invariant + the install.sh:398 prose promise
+# ("Consumer-owned files … were not touched") — encoded as an executable assertion.
 #
-# This is the mechanical form of the install.sh:228 invariant comment
-#   "@sync-with-layers: do_refresh mirrors the layer-by-layer install".
-# install-self-verification.test.sh arm (vii) checks the --full (copy_safe) side;
-# THIS gate checks the --refresh (do_refresh) side of the same delivery.
+# SCOPE: copy_safe deliveries only (the skip-if-exists mechanism that causes the bug). Other
+# delivery mechanisms — refresh_skill_with_transform (skills), merge_prettierignore, the yq
+# workflow-merge — have their own refresh semantics and are out of this gate's population.
 #
-# Population = the .sh / .ts targets of copy_safe → scripts/ (executable audit gates).
-# Directory payloads (e.g. scripts/fences-fire-fixtures) are intentionally OUT of this
-# gate's population: refresh_safe's `cp -r` nests-into an existing directory rather than
-# replacing it, so directory-refresh is a separate capability (tracked follow-up, #869
-# morning report) — not a script this gate governs.
+# GRANULARITY: destinations are normalized by keeping the literal path prefix up to the first
+# shell-expansion segment ($var / $(...)). A literally-delivered file (scripts/x.sh, .husky/
+# pre-push) stays a literal → exact per-file match (catches a single-file omission). A glob-
+# delivered namespace (eslint-rules-local/$bn.ts, .claude/agents/$(basename …)) collapses to its
+# directory prefix → namespace match, which is SOUND only because delivery and refresh iterate
+# the SAME source glob (so no per-file omission is possible within it). Directory payloads with
+# no extension (scripts/fences-fire-fixtures) are EXCLUDED — refresh_safe's cp -r nests-into an
+# existing directory rather than replacing it (issue #873), a distinct capability.
 #
-# Deterministic, no network: awk over do_refresh() + grep over setup.d. Paired-negative
-# arm proves the set-difference is non-vacuous (a real omission flips the gate RED).
+# Deterministic, no network: awk over do_refresh() + grep over setup.d. Paired-negative arm
+# proves the set-difference is non-vacuous (a real omission flips the gate RED).
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 INSTALL="$REPO_ROOT/install.sh"
@@ -32,33 +37,75 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 
 [ -f "$INSTALL" ] || { echo "FATAL: $INSTALL not found"; exit 1; }
 
-# ── EXCLUDED: .sh/.ts targets deliberately NOT refreshed (data-driven escape hatch) ──
-# Currently empty. Add "<basename> — <rationale>" here only with a documented reason a
-# --full-delivered script must NOT be refreshed. (fences-fire-fixtures is a DIRECTORY,
-# already outside the .sh/.ts population below — it needs no entry here.)
-EXCLUDED=""
+# ── EXCLUDED: copy_safe destinations deliberately NOT refreshed (data-driven escape hatch) ──
+# Each entry is a CONSUMER-OWNED (Layer-3) file that a consumer customises — refreshing it would
+# clobber their edits — OR the one deferred directory payload. install.sh:398 + setup.d/lib.sh:194
+# (framework-namespace vs consumer-ownable split) are the prose this list encodes. A NEW copy_safe
+# destination that is framework-owned must be REFRESHED (added to do_refresh), not added here.
+EXCLUDED=$(sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' <<'EXC' | sed '/^$/d'
+  # Consumer-owned config files (copy_safe keeps the consumer's own; refresh must not clobber)
+  tsconfig.json
+  .prettierrc.json
+  .lintstagedrc.json
+  .nvmrc
+  .dependency-cruiser.cjs
+  stryker.config.json
+  vitest.config.ts
+  playwright.config.ts
+  eslint.config.mjs
+  eslint.config.rn-common.mjs
+  .github/workflows/ci.yml
+  .github/workflows/workflow-integrity.yml
+  AGENTS.md
+  # Generated / consumer-customisable .ai-factory docs (per-consumer content; not framework code)
+  .ai-factory/RULES.md
+  .ai-factory/RULES.react-next.md
+  .ai-factory/RULES.react-spa.md
+  .ai-factory/RULES.react-native.md
+  .ai-factory/ARCHITECTURE.ts-server.md
+  .ai-factory/ARCHITECTURE.react-next.md
+  .ai-factory/ARCHITECTURE.react-spa.md
+  .ai-factory/ARCHITECTURE.react-native.md
+  .ai-factory/DESCRIPTION.template.md
+  .ai-factory/tool-decisions.md
+  .ai-factory/rules/integration-rules.md
+  # Deferred: DIRECTORY payload — refresh_safe cp -r nests-into-existing dir (tracked: issue #873)
+  scripts/fences-fire-fixtures
+EXC
+)
 
-# ── FULL: every .sh/.ts that a --full install copy_safe's into scripts/ ──────────────
-# Scan ALL setup.d/*.sh (not just 40-configs.sh) so a future delivery move is still seen.
+# ── FULL: every framework artefact a --full install copy_safe's to a consumer path ──────────────
+# Scan ALL setup.d/*.sh (not just 40-configs.sh), skip comment lines (a commented-out copy_safe is
+# not a live delivery). Normalize each dst to the literal prefix up to the first $-expansion.
 # shellcheck disable=SC2016  # single-quoted regex matches the literal '$PROJECT_ROOT' in source; no expansion intended
-FULL=$(grep -hE 'copy_safe' "$REPO_ROOT"/setup.d/*.sh 2>/dev/null \
-  | grep -oE '\$PROJECT_ROOT/scripts/[A-Za-z0-9._-]+\.(sh|ts)"' \
-  | sed -E 's#.*/scripts/##; s/"$//' | sort -u)
+FULL=$(grep -hE 'copy_safe' "$REPO_ROOT"/setup.d/*.sh 2>/dev/null | grep -vE '^[[:space:]]*#' \
+  | grep -oE '\$PROJECT_ROOT/[A-Za-z0-9._/-]*' | sed -E 's#\$PROJECT_ROOT/##' | sort -u)
 
-# ── REFRESH: every scripts/*.{sh,ts} literal inside the do_refresh() function body ──
-# awk extracts the function body (from `do_refresh() {` to its closing `}` at col 0),
-# so it survives line-number drift and catches BOTH the loop pairs ("...:scripts/X.sh")
-# and the var-assigned stack targets (_rn_dst="$PROJECT_ROOT/scripts/audit-ai-docs...").
+# Fail loud if a copy_safe dst begins with an immediate variable ("$PROJECT_ROOT/$x") — it would
+# normalize to the empty string and silently escape FULL (a false-GREEN hole). None exist today.
+# shellcheck disable=SC2016
+if grep -hE 'copy_safe' "$REPO_ROOT"/setup.d/*.sh 2>/dev/null | grep -vE '^[[:space:]]*#' \
+   | grep -qE '"\$PROJECT_ROOT/\$'; then
+  echo "FATAL: a copy_safe dst starts with an immediate \$var after \$PROJECT_ROOT/ — unparseable; extend the gate"; exit 1
+fi
+
+# ── REFRESH: every consumer path do_refresh() writes to (inside the function body only) ─────────
+# Two forms: (a) "$PROJECT_ROOT/<path>" refresh_safe/cp targets (normalized like FULL); (b) the
+# "<src>:scripts/<dst>" _pair strings consumed via the $_d loop var (literal scripts/ basenames).
 refresh_body() {
   awk '/^do_refresh\(\) \{/{f=1} f{print} f&&/^\}/{exit}' "$INSTALL"
 }
-REFRESH=$(refresh_body | grep -oE 'scripts/[A-Za-z0-9._-]+\.(sh|ts)' | sed 's#scripts/##' | sort -u)
+# shellcheck disable=SC2016
+REFRESH=$( { refresh_body | grep -oE '\$PROJECT_ROOT/[A-Za-z0-9._/-]*' | sed -E 's#\$PROJECT_ROOT/##'
+             refresh_body | grep -oE 'scripts/[A-Za-z0-9._-]+\.(sh|ts)'
+           } | sed '/^$/d' | sort -u)
 
 # Guard against a broken harness silently passing (empty sets ⇒ vacuous green).
-[ -n "$FULL" ]    || { echo "FATAL: FULL set empty — copy_safe→scripts/ extraction broke"; exit 1; }
-[ -n "$REFRESH" ] || { echo "FATAL: REFRESH set empty — do_refresh() extraction broke"; exit 1; }
+[ -n "$FULL" ]     || { echo "FATAL: FULL set empty — copy_safe→\$PROJECT_ROOT extraction broke"; exit 1; }
+[ -n "$REFRESH" ]  || { echo "FATAL: REFRESH set empty — do_refresh() extraction broke"; exit 1; }
+[ -n "$EXCLUDED" ] || { echo "FATAL: EXCLUDED set empty — heredoc parse broke"; exit 1; }
 
-# ── pos: FULL ⊆ (REFRESH ∪ EXCLUDED) ────────────────────────────────────────────────
+# ── Check 1 (pos): FULL ⊆ (REFRESH ∪ EXCLUDED) ──────────────────────────────────────────────────
 compute_missing() {  # $1 = refresh set (newline list); prints FULL entries not in it/EXCLUDED
   local refresh="$1" f
   for f in $FULL; do
@@ -67,15 +114,25 @@ compute_missing() {  # $1 = refresh set (newline list); prints FULL entries not 
     printf '%s ' "$f"
   done
 }
-
 missing=$(compute_missing "$REFRESH")
 if [ -z "${missing// }" ]; then
-  ok "every --full-delivered scripts/*.{sh,ts} is re-copied by do_refresh() (no refresh drift)"
+  ok "every --full-delivered copy_safe artefact is refreshed by do_refresh() or explicitly EXCLUDED (no refresh drift)"
 else
-  bad "script(s) delivered by --full but OMITTED from do_refresh() → brownfield consumers can't get fixes:$missing"
+  bad "framework artefact(s) delivered by --full but OMITTED from do_refresh() → brownfield consumers can't get fixes:$missing"
 fi
 
-# ── neg (LOAD-BEARING): drop one known-present entry from REFRESH → gate MUST flag it ──
+# ── Check 2 (hygiene): EXCLUDED ⊆ FULL (no stale exclusion for a delivery that no longer exists) ─
+stale_excl=""
+for e in $EXCLUDED; do
+  printf '%s\n' "$FULL" | grep -qxF "$e" || stale_excl="$stale_excl $e"
+done
+if [ -z "${stale_excl// }" ]; then
+  ok "every EXCLUDED entry is still a live copy_safe delivery (no stale exclusions)"
+else
+  bad "EXCLUDED lists path(s) no longer delivered by copy_safe → remove the stale exclusion:$stale_excl"
+fi
+
+# ── neg (LOAD-BEARING): drop one known-present entry from REFRESH → Check 1 MUST flag it ─────────
 # probe MUST be a FULL∩REFRESH entry — dropping it from REFRESH then creates a REAL gap
 # (compute_missing only iterates FULL, so a REFRESH-only entry would prove nothing).
 probe=""

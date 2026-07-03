@@ -366,6 +366,25 @@ do_refresh() {
                  "$PROJECT_ROOT/packages/core/eslint-rules/$_esl"
   done
 
+  # ── Custom ESLint rules plugin → eslint-rules-local/ (#869-class: framework-owned) ──
+  # 40-configs.sh copy_safe's the framework-authored core rules (no-unsafe-zod-parse,
+  # no-direct-time-randomness, require-otel-span, restricted-syntax-audit-exempt) into the
+  # consumer's eslint-rules-local/ as PRE-COMPILED .mjs + .d.ts + .ts (fix #752). These are
+  # framework-namespace files a consumer never owns (setup.d/lib.sh:194) — DISTINCT from the
+  # packages/core/eslint-rules/ copy above (guard-liveness dep). A rule-logic fix must reach a
+  # brownfield consumer non-destructively; copy_safe skip-if-exists cannot deliver it. Mirrors the
+  # _copy_rule delivery glob so the refresh set tracks the delivery set automatically.
+  echo "▶ Custom ESLint rules → eslint-rules-local/"
+  for _rl in "$PKG_ROOT"/packages/core/eslint-rules/*.ts; do
+    case "$_rl" in
+      *.test.ts|*.d.ts|*/index.ts) continue ;;
+    esac
+    _rlstem="${_rl%.ts}"; _rlbn="$(basename "$_rlstem")"
+    refresh_safe "$_rl" "$PROJECT_ROOT/eslint-rules-local/$_rlbn.ts"
+    [ -f "$_rlstem.mjs" ]  && refresh_safe "$_rlstem.mjs"  "$PROJECT_ROOT/eslint-rules-local/$_rlbn.mjs"
+    [ -f "$_rlstem.d.ts" ] && refresh_safe "$_rlstem.d.ts" "$PROJECT_ROOT/eslint-rules-local/$_rlbn.d.ts"
+  done
+
   _fb_src="$PKG_ROOT/packages/core/hooks/pre-push.fallback.sh"
   _fb_dst="$PROJECT_ROOT/packages/core/hooks/pre-push.fallback.sh"
   refresh_safe "$_fb_src" "$_fb_dst"
@@ -378,6 +397,25 @@ do_refresh() {
   # bridge. Same AIF-owned, hooks-scoped marker — cannot collide with a consumer's own package.
   refresh_safe "$PKG_ROOT/packages/core/templates/shared/hooks-package.json" \
                "$PROJECT_ROOT/packages/core/hooks/package.json"
+
+  # ── Husky hook dispatchers → .husky/ (#869-class: framework-owned) ──
+  # 50-hooks.sh:11-12 copy_safe's these framework-authored dispatchers into .husky/ (skip-if-
+  # exists). They are NOT consumer config — husky-pre-push.sh is "the TS-core dispatcher shipped
+  # by install.sh". #636/#638 added a load-bearing tsx-ESM probe to husky-pre-push.sh without
+  # which the hook HARD-CRASHES instead of degrading to the bash fallback on a pnpm monorepo. A
+  # brownfield consumer whose .husky/pre-push predates that fix can only receive it non-
+  # destructively via --refresh — copy_safe never updates it. refresh_safe honours a sibling
+  # .husky/pre-push.override.md for a consumer that has taken Layer-3 ownership.
+  # LITERAL destinations (not a loop var): the delivery in 50-hooks.sh names these two files
+  # literally, so the refresh must too — a per-file refresh-completeness gate can only exact-match
+  # a literal against a literal (a collapsed .husky/ namespace target would let a future
+  # literally-delivered .husky/* file slip through refresh undetected).
+  echo "▶ Husky hooks → .husky/"
+  refresh_safe "$PKG_ROOT/packages/core/templates/shared/husky-pre-commit.sh" "$PROJECT_ROOT/.husky/pre-commit"
+  refresh_safe "$PKG_ROOT/packages/core/templates/shared/husky-pre-push.sh"   "$PROJECT_ROOT/.husky/pre-push"
+  if [ "$DRY_RUN" != "--dry-run" ]; then
+    chmod_safe +x "$PROJECT_ROOT/.husky/pre-commit" "$PROJECT_ROOT/.husky/pre-push" 2>/dev/null || true
+  fi
 
   # ── Skill-context overrides (derived from SHIPPED_DOCS — cannot drift) ──
   echo "▶ Skill-context → .ai-factory/skill-context/"

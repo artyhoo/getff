@@ -268,6 +268,67 @@ fi
 
 rm -rf "$TC5" "$TC5_NEG"
 
+# ══════════════════════════════════════════════════════════════════════════════
+# TEST 6 — #869-class on the .husky/ + eslint-rules-local/ surfaces
+# The refresh-covers-full-delivery gate proved these framework surfaces are now in
+# do_refresh statically; this arm proves the refresh ACTUALLY writes them on a real
+# consumer. .husky/pre-push staleness is the worst case (a pre-#636 dispatcher HARD-
+# CRASHES instead of degrading to the bash fallback on a pnpm monorepo). eslint-rules-
+# local/ ships framework-authored core rules (lib.sh:194 "consumer never owns") as
+# pre-compiled .mjs + .ts. Paired-negative: WITHOUT --refresh each stays stale.
+# ══════════════════════════════════════════════════════════════════════════════
+TC6=$(make_consumer)
+STALE6="STALE_FRAMEWORK_ARTEFACT_INJECTED_PRE_869B"
+# <consumer path> | <framework source relative to REPO_ROOT>
+FRAMEWORK_ARTEFACTS=(
+  ".husky/pre-commit|packages/core/templates/shared/husky-pre-commit.sh"
+  ".husky/pre-push|packages/core/templates/shared/husky-pre-push.sh"
+  "eslint-rules-local/no-unsafe-zod-parse.ts|packages/core/eslint-rules/no-unsafe-zod-parse.ts"
+  "eslint-rules-local/no-unsafe-zod-parse.mjs|packages/core/eslint-rules/no-unsafe-zod-parse.mjs"
+)
+
+# Plant stale content in each shipped framework artefact
+for _entry in "${FRAMEWORK_ARTEFACTS[@]}"; do
+  _name="${_entry%%|*}"
+  printf '%s\n' "$STALE6" > "$TC6/$_name"
+done
+
+# Run --refresh
+( cd "$TC6" && bash "$REPO_ROOT/install.sh" --refresh ) >/dev/null 2>&1
+
+# pos: each artefact is refreshed to the framework source
+for _entry in "${FRAMEWORK_ARTEFACTS[@]}"; do
+  _name="${_entry%%|*}"; _src="${_entry##*|}"
+  _dst="$TC6/$_name"
+  if grep -qF "$STALE6" "$_dst"; then
+    bad "gh-869b pos: $_name still stale after --refresh (omitted from do_refresh)"
+  elif [ "$(cat "$_dst")" = "$(cat "$REPO_ROOT/$_src")" ]; then
+    ok "gh-869b pos: $_name refreshed to framework source (matches, not a truncated stub)"
+  else
+    bad "gh-869b pos: $_name changed but does NOT match framework source $_src"
+  fi
+done
+
+# neg (LOAD-BEARING): plant stale, do NOT refresh → stale persists (proves non-vacuity)
+TC6_NEG=$(make_consumer)
+for _entry in "${FRAMEWORK_ARTEFACTS[@]}"; do
+  _name="${_entry%%|*}"
+  printf '%s\n' "$STALE6" > "$TC6_NEG/$_name"
+done
+# Do NOT run --refresh
+_neg6_all_stale=1
+for _entry in "${FRAMEWORK_ARTEFACTS[@]}"; do
+  _name="${_entry%%|*}"
+  grep -qF "$STALE6" "$TC6_NEG/$_name" || _neg6_all_stale=0
+done
+if [ "$_neg6_all_stale" -eq 1 ]; then
+  ok "gh-869b neg: without --refresh, all planted framework artefacts stay stale (assertion non-vacuous)"
+else
+  bad "gh-869b neg: a framework artefact lost its stale marker without --refresh → test was vacuous"
+fi
+
+rm -rf "$TC6" "$TC6_NEG"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
