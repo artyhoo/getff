@@ -10,11 +10,11 @@
 // Short-circuit (DN-B-4 = Option B, confirmed against the baseline AC-2
 // fixture): the shape gate failing does NOT skip provenance wholesale --
 // provenance still runs on shape-valid entries even when other entries in
-// the SAME plan are shape-invalid (preserves today's independent-
-// accumulation semantics, validate-plan.ts:52-60). The skip applies ONLY
-// when the top-level plan.patterns is not iterable at all (a HARD
-// un-iterable shape) -- there is nothing to walk, mirroring today's
-// maybePatterns === undefined guard (validate-plan.ts:71-74).
+// the SAME plan are shape-invalid (preserves the independent-accumulation
+// semantics of the pre-stage-B inline checkResearchPlan loop). The skip
+// applies ONLY when the top-level plan.patterns is not iterable at all (a
+// HARD un-iterable shape) -- there is nothing to walk, mirroring the
+// `Array.isArray(patterns)` guard that inline loop used.
 //
 // The short-circuit is a REPORTING label only -- it does NOT skip calling
 // runProvenanceGate. runProvenanceGate itself resolves the tier stack
@@ -23,7 +23,7 @@
 // .ai-factory/research-allowlist.json must still propagate out of this
 // aggregator for an un-iterable-patterns plan -- exactly as it propagated
 // out of pre-stage-B checkResearchPlan, which derived `resolved` BEFORE its
-// `if (maybePatterns)` guard (validate-plan.ts pre-Task-4, line 75).
+// `if (maybePatterns)` array guard (the pre-Task-4 inline form).
 // Calling runProvenanceGate unconditionally and remapping its 'pass' result
 // to 'skip' (only for the un-iterable-patterns case) preserves both DN-B-3
 // (resolve always runs, AckFileError always propagates) and DN-B-4 (the
