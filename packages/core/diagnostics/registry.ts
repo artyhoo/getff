@@ -9,11 +9,13 @@
 //
 // Ranges (tsc diagnosticMessages.json pattern): FF1xxx schema/shape,
 // FF2xxx provenance/trust, FF3xxx L4 semantic gates, FF4xxx installer/wiring
-// (reserved), FF5xxx CLI/config (reserved). FF = fitness functions (getff
-// brand). This file seeds FF1001, the 15 FF2xxx codes, and the 20 FF3xxx
-// codes (Task 4, DN-D1-4 — one code per failure kind per gate, spec-literal
-// per-gate allocation; see decisions.md DN-D1-4 for the full derivation).
-// FF4xxx/FF5xxx are D2 at-touch (reserved, not seeded here).
+// (reserved), FF5xxx CLI/config (reserved), FF6xxx IR grammar gates (seeded
+// S1), FF7xxx render outcomes (reserved, seeded by cargo-v0 S2). FF = fitness
+// functions (getff brand). This file seeds FF1001, the 15 FF2xxx codes, and
+// the 20 FF3xxx codes (Task 4, DN-D1-4 — one code per failure kind per gate,
+// spec-literal per-gate allocation; see decisions.md DN-D1-4 for the full
+// derivation), plus 3 FF6xxx codes (MT umbrella S1 — IR grammar gate).
+// FF4xxx/FF5xxx/FF7xxx are D2/S2 at-touch (reserved, not seeded here).
 //
 // Registry is append-only: never remove or renumber an existing code (see
 // registry.test.ts test (d), pinned against registry.codes.snapshot.json).
@@ -262,6 +264,29 @@ export const REGISTRY: Readonly<Record<string, RegistryEntry>> = Object.freeze({
     template: 'require-vacuity direction B — selector fires on good example ({count} violation{plural}); rule fires unconditionally',
     defaultSeverity: 'error',
     explanation: 'requireVacuity gate: selector fires on the good example too (always-red false positive). gate-require-vacuity.ts.',
+  },
+
+  // --- FF6xxx: IR grammar gates (MT umbrella S1 — ir/gates/grammar.ts) ---
+  FF6001: {
+    template: 'degenerate pairedExamples: positive === negative for node {nodeId}',
+    defaultSeverity: 'error',
+    explanation:
+      'IR grammar gate (tautology class): pairedExamples.positive and pairedExamples.negative ' +
+      'are byte-identical, so the pair cannot discriminate the convention it claims to test. ir/gates/grammar.ts.',
+  },
+  FF6002: {
+    template: 'duplicate ConventionNode id {id} ({count} occurrences)',
+    defaultSeverity: 'error',
+    explanation:
+      'IR grammar gate (conflict class): two or more nodes in the set share the same id, ' +
+      'breaking id-addressability. ir/gates/grammar.ts.',
+  },
+  FF6003: {
+    template: 'dangling anchor {anchor} on node {nodeId}: not a REGISTRY code',
+    defaultSeverity: 'error',
+    explanation:
+      'IR grammar gate (coverage/broken-ref class, principle-08 pattern generalized): an anchor ' +
+      'in node.anchors does not resolve to a key in the diagnostics REGISTRY. ir/gates/grammar.ts.',
   },
 });
 
