@@ -28,9 +28,15 @@
 #     of globbing the whole dir. priority-score.sh's completion-detection (Caller A)
 #     passes the open-survivor set so the expensive per-umbrella jaccard never runs
 #     over an already-closed umbrella (skip-closed perf, 2026-06-17). Off by default;
-#     the standalone dedup caller (Caller B, SKILL §2.5 Step 2) never sets it, so its
-#     `--all` / single-name behaviour is unchanged. dup-detect stays closure-agnostic:
-#     it scans the names it is given and does NOT itself decide what is "closed".
+#     on this subset path dup-detect stays closure-agnostic: it scans exactly the names
+#     it is given and does NOT itself decide what is "closed" (Caller A already filtered).
+#   MO_SKIP_CLOSED (Caller B opt-in, default unset) — when set to "1" on the SELF-
+#     DISCOVERING glob path (no MO_UMBRELLA_SUBSET), skip any umbrella that carries a
+#     committed done.md before the expensive per-umbrella scan. The standalone dedup
+#     caller (Caller B, SKILL §2.5 Step 2 no-arg overview) sets it so its --all pass
+#     does not re-scan the ~177/253 already-closed umbrellas. Default unset → plain
+#     --all is unchanged (scans every umbrella — Test 11 paired-negative). Ignored on
+#     the MO_UMBRELLA_SUBSET path (the subset is authoritative) and in single-name mode.
 #
 # @cc-only-rationale: meta-orchestrator skill helper — runs in-session via !shell injection;
 #   no portable equivalent fires at the same moment (PostToolUse timing is CC-specific).
@@ -182,7 +188,13 @@ if [[ -z "${ARG}" || "${ARG}" == "--all" ]]; then
     for name in ${MO_UMBRELLA_SUBSET}; do check_umbrella "${name}"; done
   else
     if [[ ! -d "${PROMPTS_DIR}" ]]; then echo "(no orchestrator-prompts dir)"; exit 0; fi
-    for d in "${PROMPTS_DIR}"/*/; do check_umbrella "$(basename "${d}")"; done
+    for d in "${PROMPTS_DIR}"/*/; do
+      # MO_SKIP_CLOSED opt-in (Caller B): drop umbrellas already provably closed by a
+      # committed done.md before the expensive per-umbrella scan. Applies ONLY here, the
+      # self-discovering glob path; default unset → every umbrella scanned (closure-agnostic).
+      if [[ "${MO_SKIP_CLOSED:-}" == "1" && -f "${d}done.md" ]]; then continue; fi
+      check_umbrella "$(basename "${d}")"
+    done
   fi
 else
   check_umbrella "${ARG}"
