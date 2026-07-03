@@ -73,6 +73,7 @@ Full enumeration: [references/forward-checklist.md](references/forward-checklist
 
 Full enumeration: [references/backward-checklist.md](references/backward-checklist.md). Quick form:
 
+0. **Defeat restatement first (T21).** A backward-check that recaps *what the PR did* — naming only the diff's own files — is a restatement, not a sweep ([`#backward-check-restates-not-sweeps`](../../rules/ai-laziness-traps.md), incident PR #857). When the change has parallel/sibling surfaces, dispatch the cold [`agents/backward-sweep-auditor.md`](../../../agents/backward-sweep-auditor.md) with **only the change's class** (never the diff/PR) and author the section in the enumeration format (`Class = X; Surfaces where X occurs: [all, with evidence]; per surface SWEPT-CLEAN | GAP-FOUND`). See [references/backward-checklist.md Step 0](references/backward-checklist.md).
 1. **Complete sweep of artefacts under new rule's scope** — not §1.5 floor of «3-5 examples» but the *complete* set. Use `find` / `grep` against the rule's path scope; verify every match is either in compliance or explicitly exempted.
 2. **Exemption mechanism explicit** — glob (`packages/*/fixtures/**`) or sentinel marker (`<!-- fixture: with-drift -->`) — pick one, document in rule body.
 3. **Exemption itself has meta-test** — positive: exemption preserves intent (file under exemption with intentionally-invalid content does not break enforcement); mutation: removing exemption breaks intent (without exemption, fixture file makes enforcement fail).

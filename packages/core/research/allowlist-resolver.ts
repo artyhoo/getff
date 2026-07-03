@@ -213,7 +213,7 @@ export function resolveAllowedSources(ctx?: ResolveCtx): ResolvedSources {
         // hostMatches (`host === 'com' || host.endsWith('.com')`). Same fail-closed class
         // as the isIpLiteral reject above and the loadAckFile single-label guard (Tier-2),
         // applied to the Tier-1 derivation surface so both host sources reject bare TLDs
-        // consistently.
+        // consistently. (Independently added on staging by #860 — merge-reconciled, identical.)
         if (!host.includes('.')) continue;
         if (hasPunycodeLabel(host)) continue;
         if (isMultiTenantHost(host)) continue; // H2/DN #6 — shared-apex ineligible

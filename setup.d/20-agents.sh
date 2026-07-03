@@ -25,6 +25,7 @@ for f in "$PKG_ROOT"/agents/*.md; do
   case "$(basename "$f")" in
     manual-rule-liveness-prober.md) continue ;;  # authoring-only tool (#552)
     shipped-agent-liveness-prober.md) continue ;;  # authoring-only tool (M2 probe, #552 sibling)
+    backward-sweep-auditor.md) continue ;;  # authoring-only tool (§1.7 backward-check cold-sweep, T21)
   esac
   copy_safe "$f" "$PROJECT_ROOT/.claude/agents/$(basename "$f")"
 done
