@@ -1,7 +1,11 @@
 # runtime-bridge — CLI reference
 
+> **Authoritative for:** the `packages/runtime-bridge` CLI command reference — one section per
+> entrypoint under `packages/runtime-bridge/src/cli/`, each with Usage, Flags, and Example.
+> **NOT authoritative for:** architecture and design rationale — see [`DESIGN.md`](./DESIGN.md).
+
 `packages/runtime-bridge/` bridges this repo's orchestrator to the
-[`aif-handoff`](https://github.com/lee-to/aif-handoff) autonomous agent runtime. It exposes six
+[`aif-handoff`](https://github.com/lee-to/aif-handoff) autonomous agent runtime. It exposes seven
 CLI entrypoints under `packages/runtime-bridge/src/cli/`. This is the operator-facing reference
 manual: one section per command (ordered by name), each with **Usage**, **Flags**, and **Example**.
 
@@ -16,6 +20,7 @@ All commands are pure TypeScript run via `tsx`. Run them from the repo root.
 - [`answer`](#answer) — push the resolved answer back and resume the agent.
 - [`await`](#await) — watch a dispatched task to a terminal state and print the result.
 - [`dispatch`](#dispatch) — send a kickoff to the agent runtime (creates a task).
+- [`ensure-parallel`](#ensure-parallel) — self-heal a project's `parallelEnabled` DB flag.
 - [`harvest`](#harvest) — push the agent's committed branch, open a PR, arm auto-merge.
 - [`park`](#park) — agent-side: stop on a hard fork and ask the operator.
 - [`questions`](#questions) — list parked questions awaiting an operator answer.
@@ -164,6 +169,46 @@ Exit codes: `0` always — non-blocking injection per the
 
 ```bash
 tsx packages/runtime-bridge/src/cli/dispatch.ts /tmp/qloop-battletest/kickoff.md
+```
+
+---
+
+## ensure-parallel
+
+The self-heal half of Finding A (`dirty_worktree`). `aif` creates a per-task git worktree only
+when a 3-gate AND holds (`AIF_TASK_WORKTREES_ENABLED` env && `project.parallelEnabled` DB flag &&
+`projectSupportsTaskWorktrees`). `parallelEnabled` is a project-level DB flag settable only via the
+web UI / raw DB — no env or config.yaml knob — so a freshly-provisioned instance has it `0` and
+every task runs in-place on the shared checkout, dirtying it and 409-ing the next dispatch on
+`dirty_worktree`. This guard re-applies the fix on any instance.
+
+It does a full-project round-trip rather than a minimal PUT: `aif` exposes no targeted
+`parallelEnabled` write (only `PATCH /:id/auto-queue-mode` exists), and the sole `parallelEnabled`
+path is the full `PUT /projects/:id`, whose handler NULLs any omitted `*MaxBudgetUsd` field. So the
+guard reads the full project back from `GET /projects` and writes every field, flipping only
+`parallelEnabled` — a minimal PUT would silently wipe any UI-set budget.
+
+### Usage
+
+```bash
+tsx packages/runtime-bridge/src/cli/ensure-parallel.ts --project <id>
+# --project defaults to $RUNTIME_BRIDGE_AIF_PROJECT_ID.
+```
+
+### Flags
+
+| Flag | Description |
+| --- | --- |
+| `--project <id>` | The project to enable. Defaults to `$RUNTIME_BRIDGE_AIF_PROJECT_ID`. |
+| `--json` | Print the result as a JSON object. |
+
+Exit codes: `0` — already-enabled or enabled-now; `1` — bad args / project missing / REST error
+(message on stderr).
+
+### Example
+
+```bash
+tsx packages/runtime-bridge/src/cli/ensure-parallel.ts --project "$RUNTIME_BRIDGE_AIF_PROJECT_ID"
 ```
 
 ---

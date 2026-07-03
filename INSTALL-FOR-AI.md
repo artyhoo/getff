@@ -32,7 +32,7 @@ cd /tmp/rules-as-tests-aif
 - Disabling a probe in `audit-ai-docs.sh`.
 
 **NEVER — refuse if asked, redirect to a senior or to `/aif-rules` discussion:**
-- Edit files under `eslint-rules-local/` (these are vendored copies; edit upstream in `templates/shared/eslint-rules/` and reinstall).
+- Edit files under `eslint-rules-local/` (these are vendored copies; edit upstream in `packages/core/eslint-rules/` (shared/generic rules) or `packages/preset-<stack>/eslint-rules/` (stack-specific rules) and reinstall).
 - Edit generated `RULES.md` if Phase 2's `rules-manifest.json` exists — regenerate via `packages/core/render/render-rules.ts` instead.
 - Pass `--no-verify`, `--no-gpg-sign`, or any hook-skip flag in commits.
 - Push to `main` directly or force-push any shared branch.
@@ -180,7 +180,7 @@ After successful setup, your project has:
 
 ```text
 project/
-├── AGENTS.md                          ← copied from templates/shared/AGENTS.md.template (edit)
+├── AGENTS.md                          ← copied from packages/core/templates/shared/AGENTS.md.template (edit)
 ├── CLAUDE.md                          ← optional, points to AGENTS.md
 ├── .nvmrc                             ← Node version pin (CI depends on this)
 ├── tsconfig.json                      ← strict TypeScript settings

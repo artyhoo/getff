@@ -282,6 +282,6 @@ npm run audit:docs || {
 
 - `references/doc-organization.md` — hot/cold split AGENTS.md, drift detection §5.1-5.5.
 - `agents/living-docs-auditor.md` — sub-agent, который запускает audit-скрипт под `/aif-verify`.
-- `scripts/audit-ai-docs.sh` — эталон серверного TS.
-- `scripts/audit-ai-docs.react-next.sh` — эталон UI-стека.
+- `packages/core/audit-self/audit-ai-docs.sh` — эталон серверного TS.
+- `packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh` — эталон UI-стека.
 - `references/overview.md` Layer 5 — Living Documentation как принцип, частным случаем которого является self-testing AI documentation.

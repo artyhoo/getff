@@ -155,4 +155,4 @@ src/lib/
 | No `screen.debug()`                      | `testing-library/no-debugging-utils` + probe `R20` (subset)                               |
 | useEffect deps                           | `react-hooks/exhaustive-deps: 'error'` (manual review)                                    |
 
-See `.ai-factory/RULES.react-next.md` for R12–R20 and `references/checks-map.md` for the enforcement layer map.
+See `.ai-factory/RULES.react-next.md` for R12–R20.

@@ -175,7 +175,7 @@ After the framework deploy (`./setup` step 2 — or `bash install.sh <stack>` di
 | `.ai-factory/RULES.md` | R1-R11 (or +R12-R20 for react-next) | **Yes — review and trim per project** |
 | `.ai-factory/DESCRIPTION.template.md` | template with `<PLACEHOLDERS>` | **Yes — fill in, rename to `DESCRIPTION.md`** |
 | `.ai-factory/ARCHITECTURE.ts-server.md` | drop-in for canonical hexagonal layout | Maybe — rename to `ARCHITECTURE.md` if your layout matches |
-| `AGENTS.md` (root) | from `templates/shared/AGENTS.md.template` | **Yes — review** |
+| `AGENTS.md` (root) | from `packages/core/templates/shared/AGENTS.md.template` | **Yes — review** |
 | `eslint.config.mjs`, `vitest.config.ts`, `tsconfig.json`, `stryker.config.json`, `.lintstagedrc.json`, `.nvmrc` | stack-specific configs | No — work out of the box |
 | `.husky/pre-commit`, `.husky/pre-push` | Husky hooks (lint-staged + typecheck + audit) | No |
 | `.github/workflows/ci.yml` | full CI pipeline (lint, typecheck, arch, tests, mutation) | No — works as-is † |
