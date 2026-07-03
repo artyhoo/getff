@@ -262,6 +262,65 @@ describe('Task 2.3 — Tier-1 derivation (DN #6 lead: A-via-C multi-tenant conta
   });
 });
 
+// --- tier1ReasonToDiagnostic FF2008/FF2009 code coverage ---
+// Reviewer finding (whole-work pass): tier1ReasonToDiagnostic
+// (allowlist-resolver.ts:342) maps tier1For's {ok,reason} string to an FF code
+// via substring match. Only the FF2007 branch was end-to-end .code-asserted
+// (AC 3 "degradation" test above); FF2008 (no adapter) and FF2009 (adapter
+// present, zero eligible hosts — the silent `else` fallthrough) were not.
+// These two tests close that gap via validateProvenance, driving a Tier-1
+// miss where Tier-0 AND Tier-2 also miss (allowlistKey unknown to Tier-0, no
+// ack file present).
+describe('tier1ReasonToDiagnostic — FF2008/FF2009 .code coverage', () => {
+  it('FF2008: no adapter wired on ResolveCtx (ctx present, ctx.adapter absent)', () => {
+    const root = makeConsumerRoot({
+      deps: { 'pkg-no-adapter': '^1.0.0' },
+      nodeModules: {
+        'pkg-no-adapter': { name: 'pkg-no-adapter', homepage: 'https://pkg-no-adapter.example' },
+      },
+    });
+    // ctx has a root (so tier1For is reachable) but NO adapter key at all —
+    // the resolveAllowedSources tier1For "no ecosystem adapter wired" branch.
+    const resolved = resolveAllowedSources({ root });
+    const v = validateProvenance(
+      PROV({
+        url: 'https://pkg-no-adapter.example/docs',
+        allowlistKey: 'pkg-no-adapter', // unknown to Tier-0 — falls through to Tier-1
+        packageName: 'pkg-no-adapter',
+      }),
+      resolved,
+      { entryPackage: 'pkg-no-adapter' },
+    );
+    expect(v).not.toBeNull();
+    expect(v?.code).toBe('FF2008');
+  });
+
+  it('FF2009: adapter present, package derives zero eligible hosts (multi-tenant homepage)', () => {
+    const root = makeConsumerRoot({
+      deps: { 'pkg-multi-tenant': '^1.0.0' },
+      nodeModules: {
+        // github.com is on the multi-tenant list (per S2-N3) — adapter IS
+        // wired and the package IS a direct dep, but zero hosts survive
+        // the multi-tenant filter, so tier1For hits its "no Tier-1-eligible
+        // host" reason (the tier1ReasonToDiagnostic `else` fallthrough).
+        'pkg-multi-tenant': { name: 'pkg-multi-tenant', homepage: 'https://github.com/org/pkg-multi-tenant' },
+      },
+    });
+    const resolved = resolveAllowedSources({ root, adapter: npmAdapter });
+    const v = validateProvenance(
+      PROV({
+        url: 'https://github.com/org/pkg-multi-tenant/docs',
+        allowlistKey: 'pkg-multi-tenant', // unknown to Tier-0 — falls through to Tier-1
+        packageName: 'pkg-multi-tenant',
+      }),
+      resolved,
+      { entryPackage: 'pkg-multi-tenant' },
+    );
+    expect(v).not.toBeNull();
+    expect(v?.code).toBe('FF2009');
+  });
+});
+
 // --- AC 2: Tier-1 resolution never egresses and is byte-deterministic (T-RTT-B) ---
 describe('AC 2 — offline determinism (throwing-fetch falsifier)', () => {
   it('Tier-1 resolution never egresses and is byte-deterministic', () => {
