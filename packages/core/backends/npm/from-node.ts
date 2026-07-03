@@ -22,8 +22,8 @@
 import { diag } from '../../diagnostics/registry.ts';
 import type { ConventionNode } from '../../ir/types.ts';
 import type { SynthesizedRule } from '../../synthesizer/types.ts';
-// import bridge until 3c hoist — do not copy
-import { assertEveryNodeResolved, type RenderOutcome } from '../cargo/render-outcome.ts';
+import { assertEveryNodeResolved, type RenderOutcome } from '../shared/render-outcome.ts';
+import type { ToolchainBackend } from '../shared/toolchain-backend.ts';
 
 const BACKEND_NAME = 'npm-eslint-declarative';
 
@@ -173,3 +173,14 @@ function renderRestrictedEntry(params: NpmDeclarativeParams, claim: string): str
   const entry: Record<string, string> = { selector: params.selector, message: claim };
   return JSON.stringify(['error', entry]);
 }
+
+// ToolchainBackend<SynthesizedRule[]> conformance (3c). The public renderNpmDeclarative is NOT
+// renamed and keeps its `{ rules, outcomes }` shape; this declaration adapts it to the generic
+// `{ artifacts, outcomes }` frame at the declaration site (its artifact is the SynthesizedRule[]).
+export const npmDeclarativeBackend = {
+  name: BACKEND_NAME,
+  render(nodes: ConventionNode[]) {
+    const { rules, outcomes } = renderNpmDeclarative(nodes);
+    return { artifacts: rules, outcomes };
+  },
+} satisfies ToolchainBackend<SynthesizedRule[]>;

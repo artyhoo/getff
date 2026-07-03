@@ -17,80 +17,14 @@ import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import type { CapabilityMatrix } from '../shared/capability-matrix.ts';
+import { validateMatrix } from '../shared/capability-matrix.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-type CellStatus = 'no' | 'partial' | 'yes';
-
-interface MatrixEvidence {
-  kind: string;
-  date?: string;
-  toolchain?: string;
-  capturedDiagnostic?: string;
-}
-
-interface MatrixCell {
-  status: CellStatus;
-  refusedCode?: string;
-  caps?: string[];
-  evidence?: MatrixEvidence;
-}
-
-interface CapabilityMatrix {
-  backend: string;
-  contract: string;
-  cells: Record<string, MatrixCell>;
-}
-
-/**
- * Validate a CapabilityMatrix against the mechanized-honesty contract:
- *  - every cell with status !== 'no' MUST carry evidence.kind === 'live-fired'
- *  - that evidence MUST carry non-empty date + toolchain
- *  - capturedDiagnostic MUST parse as JSON and its `ruleId` MUST equal expectedRuleId
- *    (the ESLint diagnostic's rule identity — flat shape, distinct from cargo's nesting)
- *  - `caps` is allowed ONLY on 'partial' cells
- * Returns an array of violation strings (empty = valid).
- */
-export function validateMatrix(m: CapabilityMatrix, expectedRuleId: string): string[] {
-  const violations: string[] = [];
-  for (const [cellName, cell] of Object.entries(m.cells)) {
-    if (cell.status !== 'no') {
-      if (cell.evidence === undefined || cell.evidence.kind !== 'live-fired') {
-        violations.push(`cell "${cellName}": status "${cell.status}" requires evidence.kind === 'live-fired'`);
-        continue;
-      }
-      if (!cell.evidence.date || cell.evidence.date.length === 0) {
-        violations.push(`cell "${cellName}": evidence.date is missing/empty`);
-      }
-      if (!cell.evidence.toolchain || cell.evidence.toolchain.length === 0) {
-        violations.push(`cell "${cellName}": evidence.toolchain is missing/empty`);
-      }
-      if (!cell.evidence.capturedDiagnostic || cell.evidence.capturedDiagnostic.length === 0) {
-        violations.push(`cell "${cellName}": evidence.capturedDiagnostic is missing/empty`);
-      } else {
-        let parsed: unknown;
-        try {
-          parsed = JSON.parse(cell.evidence.capturedDiagnostic);
-        } catch {
-          violations.push(`cell "${cellName}": evidence.capturedDiagnostic does not parse as JSON`);
-          parsed = undefined;
-        }
-        if (parsed !== undefined) {
-          const ruleId = (parsed as { ruleId?: unknown })?.ruleId;
-          if (ruleId !== expectedRuleId) {
-            violations.push(
-              `cell "${cellName}": capturedDiagnostic ruleId is "${String(ruleId)}", expected "${expectedRuleId}"`,
-            );
-          }
-        }
-      }
-    }
-    if (cell.caps !== undefined && cell.status !== 'partial') {
-      violations.push(`cell "${cellName}": "caps" is only allowed on 'partial' cells (status is "${cell.status}")`);
-    }
-  }
-  return violations;
-}
+// npm's live diagnostic identity is the ESLint diagnostic's flat `ruleId` shape (distinct
+// from cargo's nested `message.code.code`).
+const extractRuleId = (parsed: unknown): unknown => (parsed as { ruleId?: unknown })?.ruleId;
 
 /**
  * Extract the eslint version claimed by an evidence `toolchain` string (the
@@ -139,7 +73,7 @@ describe('validateMatrix — paired negatives (unit test of the function)', () =
       contract: 'x.json',
       cells: { syntax: { status: 'yes' } },
     };
-    const violations = validateMatrix(m, 'no-restricted-syntax');
+    const violations = validateMatrix(m, 'no-restricted-syntax', extractRuleId);
     expect(violations.length).toBeGreaterThan(0);
     expect(violations.some((v) => v.includes('live-fired'))).toBe(true);
   });
@@ -150,7 +84,7 @@ describe('validateMatrix — paired negatives (unit test of the function)', () =
       contract: 'x.json',
       cells: { 'type-aware': { status: 'no', refusedCode: 'FF7001' } },
     };
-    expect(validateMatrix(m, 'no-restricted-syntax')).toEqual([]);
+    expect(validateMatrix(m, 'no-restricted-syntax', extractRuleId)).toEqual([]);
   });
 
   it('caps on a "no" cell is a violation', () => {
@@ -159,7 +93,7 @@ describe('validateMatrix — paired negatives (unit test of the function)', () =
       contract: 'x.json',
       cells: { 'type-aware': { status: 'no', caps: ['whoops'] } },
     };
-    const violations = validateMatrix(m, 'no-restricted-syntax');
+    const violations = validateMatrix(m, 'no-restricted-syntax', extractRuleId);
     expect(violations.some((v) => v.includes('caps'))).toBe(true);
   });
 
@@ -179,7 +113,7 @@ describe('validateMatrix — paired negatives (unit test of the function)', () =
         },
       },
     };
-    expect(validateMatrix(m, 'no-restricted-syntax')).toEqual([]);
+    expect(validateMatrix(m, 'no-restricted-syntax', extractRuleId)).toEqual([]);
   });
 
   it('capturedDiagnostic with a mismatched ruleId is a violation', () => {
@@ -198,8 +132,9 @@ describe('validateMatrix — paired negatives (unit test of the function)', () =
         },
       },
     };
-    const violations = validateMatrix(m, 'no-restricted-syntax');
-    expect(violations.some((v) => v.includes('ruleId'))).toBe(true);
+    const violations = validateMatrix(m, 'no-restricted-syntax', extractRuleId);
+    // reconciled message: identity-mismatch now reports "identity is ...", extractor-agnostic
+    expect(violations.some((v) => v.includes('identity is'))).toBe(true);
   });
 });
 
@@ -255,7 +190,7 @@ describe('capability-matrix.json — the committed file passes validateMatrix', 
   it('every cell with status !== "no" carries live-fired evidence matching the contract', () => {
     const matrix = JSON.parse(readFileSync(join(__dirname, 'capability-matrix.json'), 'utf8')) as CapabilityMatrix;
     const contract = JSON.parse(readFileSync(join(__dirname, matrix.contract), 'utf8')) as { expectedRuleId: string };
-    const violations = validateMatrix(matrix, contract.expectedRuleId);
+    const violations = validateMatrix(matrix, contract.expectedRuleId, extractRuleId);
     expect(violations).toEqual([]);
   });
 

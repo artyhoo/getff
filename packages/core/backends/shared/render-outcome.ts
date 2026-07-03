@@ -1,9 +1,7 @@
+// hoisted-from: backends/cargo/render-outcome.ts (S2, spec §4 verbatim) at 3c; consumers: cargo, npm
 // RenderOutcome — spec §4 VERBATIM transcription (backend-plane contract).
 // Spec: docs/superpowers/specs/2026-07-03-multi-toolchain-convention-compiler-design.md §4.
 // MT umbrella S2 (cargo-backend-v0).
-//
-// @hoist-at-s3: generic over backends by construction — extract to the generic
-// frame ONLY at S3, from three real backends (spec §7). Do not hoist earlier.
 export type RenderOutcome =
   | { kind: 'rendered'; surfaces: RenderedSurface[] }
   | { kind: 'degraded'; code: string /* FF */; note: string }
@@ -17,7 +15,6 @@ export interface RenderedSurface {
   content: string;
 }
 
-// @hoist-at-s3 (same unit as RenderOutcome):
 /**
  * Throws (programmer-bug class, mirrors diag()'s throw-on-unknown-code contract in
  * diagnostics/registry.ts) if any nodeId in `nodeIds` lacks exactly one entry in
