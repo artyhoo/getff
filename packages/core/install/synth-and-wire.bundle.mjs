@@ -8796,6 +8796,22 @@ var REGISTRY = Object.freeze({
     template: "dangling anchor {anchor} on node {nodeId}: not a REGISTRY code",
     defaultSeverity: "error",
     explanation: "IR grammar gate (coverage/broken-ref class, principle-08 pattern generalized): an anchor in node.anchors does not resolve to a key in the diagnostics REGISTRY. ir/gates/grammar.ts."
+  },
+  // --- FF7xxx: render outcomes (MT umbrella S2 — backends/cargo/render-clippy.ts) ---
+  FF7001: {
+    template: "not expressible in {backend}: selectorClass {selectorClass} (node {nodeId})",
+    defaultSeverity: "warning",
+    explanation: "Backend render refusal (capability class): the node's selectorClass has no representation in this backend's render target at v0 (e.g. syntax-class or dep-graph-class nodes against the cargo clippy.toml backend). backends/cargo/render-clippy.ts."
+  },
+  FF7002: {
+    template: "params contract violation for {backend} renderer: node {nodeId} missing/invalid {missing}",
+    defaultSeverity: "error",
+    explanation: "Backend render refusal (params class): node.params does not satisfy the backend's own params contract (e.g. missing kind/path, or kind outside the backend's known set). backends/cargo/render-clippy.ts."
+  },
+  FF7003: {
+    template: "severity {requested} not projected by {backend} at v0 (node {nodeId})",
+    defaultSeverity: "note",
+    explanation: "Backend render degradation (severity class): the node's defaultSeverity has no projection in this backend's render target at v0 (rendered-with-loss, not dropped \u2014 the content is still emitted). backends/cargo/render-clippy.ts."
   }
 });
 function lookup(code) {

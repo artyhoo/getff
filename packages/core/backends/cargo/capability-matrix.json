@@ -1,0 +1,29 @@
+{
+  "backend": "cargo-clippy-toml",
+  "contract": "firing-contract.json",
+  "cells": {
+    "syntax": {
+      "status": "no",
+      "refusedCode": "FF7001"
+    },
+    "type-aware": {
+      "status": "partial",
+      "caps": [
+        "no per-impl trait-method bans",
+        "no higher-order calls (rust-clippy#8849)",
+        "no generic-instantiation match",
+        "severity not projected at v0 (clippy.toml carries none)"
+      ],
+      "evidence": {
+        "kind": "live-fired",
+        "date": "2026-07-03",
+        "toolchain": "rustc 1.96.1 (31fca3adb 2026-06-26)",
+        "capturedDiagnostic": "{\"reason\": \"compiler-message\", \"package_id\": \"path+file:///fixtures/firing/invalid#firing-invalid@0.1.0\", \"manifest_path\": \"fixtures/firing/invalid/Cargo.toml\", \"target\": {\"kind\": [\"bin\"], \"crate_types\": [\"bin\"], \"name\": \"firing-invalid\", \"src_path\": \"fixtures/firing/invalid/src/main.rs\", \"edition\": \"2021\", \"doc\": true, \"doctest\": false, \"test\": true}, \"message\": {\"rendered\": \"warning: use of a disallowed method `std::env::var`\\n --> src/main.rs:2:16\\n  |\\n2 |     let home = std::env::var(\\\"HOME\\\");\\n  |                ^^^^^^^^^^^^^\\n  |\\n  = note: Read configuration through the injected config accessor, never std::env::var directly\\n  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.96.0/index.html#disallowed_methods\\n  = note: `#[warn(clippy::disallowed_methods)]` on by default\\n\\n\", \"$message_type\": \"diagnostic\", \"children\": [{\"children\": [], \"code\": null, \"level\": \"note\", \"message\": \"Read configuration through the injected config accessor, never std::env::var directly\", \"rendered\": null, \"spans\": []}, {\"children\": [], \"code\": null, \"level\": \"help\", \"message\": \"for further information visit https://rust-lang.github.io/rust-clippy/rust-1.96.0/index.html#disallowed_methods\", \"rendered\": null, \"spans\": []}, {\"children\": [], \"code\": null, \"level\": \"note\", \"message\": \"`#[warn(clippy::disallowed_methods)]` on by default\", \"rendered\": null, \"spans\": []}], \"level\": \"warning\", \"message\": \"use of a disallowed method `std::env::var`\", \"spans\": [{\"byte_end\": 40, \"byte_start\": 27, \"column_end\": 29, \"column_start\": 16, \"expansion\": null, \"file_name\": \"src/main.rs\", \"is_primary\": true, \"label\": null, \"line_end\": 2, \"line_start\": 2, \"suggested_replacement\": null, \"suggestion_applicability\": null, \"text\": [{\"highlight_end\": 29, \"highlight_start\": 16, \"text\": \"    let home = std::env::var(\\\"HOME\\\");\"}]}], \"code\": {\"code\": \"clippy::disallowed_methods\", \"explanation\": null}}}"
+      }
+    },
+    "dep-graph": {
+      "status": "no",
+      "refusedCode": "FF7001"
+    }
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "command": "cargo clippy --message-format=json",
+  "jsonPath": "$.message.code.code",
+  "expectedCode": "clippy::disallowed_methods"
+}

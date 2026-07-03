@@ -211,6 +211,14 @@ jobs:
       # `npm ci --prefix packages/core` install above (same job, no new job/npm-ci).
       - name: Run packages/core/ir tests (MT S1)
         run: npm --prefix packages/core run test:ir
+      # MT umbrella S2: packages/core/backends/ (cargo-backend-v0 renderer + firing harness
+      # + capability matrix) is a new vitest include-allowlist entry (vitest.config.ts) —
+      # gate it here, reusing the `npm ci --prefix packages/core` install above. No Rust
+      # toolchain is installed on this runner, so the live-fire tests (R7/R8) loudly
+      # describe.skipIf(!cargoPresent) and warn rather than silently passing (T-MT-C) —
+      # the renderer/routing/registry/matrix-honesty tests still run and gate for real.
+      - name: Run packages/core/backends tests (MT S2)
+        run: npm --prefix packages/core run test:backends
       # CI-gap option C (hook-test-suite-rot): the packages/core/hooks/ vitest suite was
       # never gated — only principles/ was — which is how a real cross-platform regression
       # (priority-score-synthetic.sh xargs) accumulated 15 failures unnoticed. Gate it here.
