@@ -204,6 +204,70 @@ fi
 
 rm -rf "$TC4" "$TC4_NEG"
 
+# ══════════════════════════════════════════════════════════════════════════════
+# TEST 5 — #869: --refresh ships the framework audit-gate SCRIPTS that --full delivers
+# A consumer that installed BEFORE #831 (shields-up accepts husky-v9 .husky/_) or
+# #837 (fences-fire files: key + TS parser) can regain those fixes only via a
+# non-destructive path if do_refresh() re-copies the scripts. copy_safe skips-if-
+# exists, so a plain --full never updates them on a brownfield consumer →
+# check:fences-fire / check:shields-up false-RED forever. Same class as TEST 4
+# (#635) and #735. Includes run-generated-rule-mutation.sh (the issue's "Consider":
+# the consumer-shipped mutation surface, also --full-delivered but refresh-omitted).
+# Paired-negative: WITHOUT --refresh each planted stale marker persists (non-vacuous).
+# ══════════════════════════════════════════════════════════════════════════════
+TC5=$(make_consumer)
+STALE5="STALE_GATE_SCRIPT_INJECTED_PRE_869"
+# <consumer scripts/ basename> | <framework source relative to REPO_ROOT>
+# — mirrors the copy_safe delivery in setup.d/40-configs.sh (check-fences-fire :51,
+#   check-shields-up :57, run-generated-rule-mutation :61).
+GATE_SCRIPTS=(
+  "check-fences-fire.sh|packages/core/audit-self/check-fences-fire.sh"
+  "check-shields-up.sh|packages/core/audit-self/check-shields-up.sh"
+  "run-generated-rule-mutation.sh|packages/core/synthesizer/run-generated-rule-mutation.sh"
+)
+
+# Plant stale content in each shipped gate script (simulate a pre-fix brownfield copy)
+for _entry in "${GATE_SCRIPTS[@]}"; do
+  _name="${_entry%%|*}"
+  printf '%s\n' "$STALE5" > "$TC5/scripts/$_name"
+done
+
+# Run --refresh (non-dry-run so it actually writes)
+( cd "$TC5" && bash "$REPO_ROOT/install.sh" --refresh ) >/dev/null 2>&1
+
+# pos: each gate script is refreshed to the framework source (not the stale stub)
+for _entry in "${GATE_SCRIPTS[@]}"; do
+  _name="${_entry%%|*}"; _src="${_entry##*|}"
+  _dst="$TC5/scripts/$_name"
+  if grep -qF "$STALE5" "$_dst"; then
+    bad "gh-869 pos: $_name still stale after --refresh (omitted from do_refresh copy-list)"
+  elif [ "$(cat "$_dst")" = "$(cat "$REPO_ROOT/$_src")" ]; then
+    ok "gh-869 pos: $_name refreshed to framework source (matches, not a truncated stub)"
+  else
+    bad "gh-869 pos: $_name changed but does NOT match framework source $_src"
+  fi
+done
+
+# neg (LOAD-BEARING): plant stale, do NOT refresh → stale persists (proves non-vacuity)
+TC5_NEG=$(make_consumer)
+for _entry in "${GATE_SCRIPTS[@]}"; do
+  _name="${_entry%%|*}"
+  printf '%s\n' "$STALE5" > "$TC5_NEG/scripts/$_name"
+done
+# Do NOT run --refresh
+_neg_all_stale=1
+for _entry in "${GATE_SCRIPTS[@]}"; do
+  _name="${_entry%%|*}"
+  grep -qF "$STALE5" "$TC5_NEG/scripts/$_name" || _neg_all_stale=0
+done
+if [ "$_neg_all_stale" -eq 1 ]; then
+  ok "gh-869 neg: without --refresh, all planted gate scripts stay stale (assertion non-vacuous)"
+else
+  bad "gh-869 neg: a gate script lost its stale marker without --refresh → test was vacuous"
+fi
+
+rm -rf "$TC5" "$TC5_NEG"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

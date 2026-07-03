@@ -299,7 +299,10 @@ do_refresh() {
     "packages/core/audit-self/detect-r2-boundary.sh:scripts/detect-r2-boundary.sh" \
     "packages/core/audit-self/r2-na-marker.sh:scripts/r2-na-marker.sh" \
     "packages/core/audit-self/check-arch-boundaries.sh:scripts/check-arch-boundaries.sh" \
-    "packages/core/audit-self/check-lintstaged-resolves.sh:scripts/check-lintstaged-resolves.sh"; do
+    "packages/core/audit-self/check-lintstaged-resolves.sh:scripts/check-lintstaged-resolves.sh" \
+    "packages/core/audit-self/check-fences-fire.sh:scripts/check-fences-fire.sh" \
+    "packages/core/audit-self/check-shields-up.sh:scripts/check-shields-up.sh" \
+    "packages/core/synthesizer/run-generated-rule-mutation.sh:scripts/run-generated-rule-mutation.sh"; do
     _s="${_pair%%:*}"; _d="${_pair##*:}"
     refresh_safe "$PKG_ROOT/$_s" "$PROJECT_ROOT/$_d"
     case "$_d" in
