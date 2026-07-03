@@ -500,6 +500,10 @@ generate_eslint_barrel() {
     # so a stranded rule from a prior install/refresh isn't re-registered. Small, isolated mapping
     # (not shared with the copy loops) — see design doc note above.
     _valid_dirs="packages/core/eslint-rules"
+    # STACK is install.sh's global stack selector (set before this file is sourced), unrelated
+    # to the lowercase `stack` local in _detect_stacks_per_workspace() above; shellcheck flags it
+    # only because this is $STACK's first reference in THIS file, with no local assignment to see.
+    # shellcheck disable=SC2153
     case "$STACK" in
       react-next) _valid_dirs="$_valid_dirs packages/preset-next-15-canonical/eslint-rules" ;;
       react-spa)  _valid_dirs="$_valid_dirs packages/preset-react-spa/eslint-rules" ;;
