@@ -1,6 +1,6 @@
 # ESLint barrel stack-stranding fix — design
 
-**Status:** proposed (brainstorming phase)
+**Status:** implemented (see [plan](../plans/2026-07-03-eslint-barrel-stack-prune.md))
 **Date:** 2026-07-03
 **Issue:** [#882](https://github.com/artyhoo/rules-as-tests-aif/issues/882) (scope widened during design — see Scope)
 
@@ -70,5 +70,5 @@ The per-workspace / monorepo scenario — where a single root might need to host
 ## References
 
 - Issue [#882](https://github.com/artyhoo/rules-as-tests-aif/issues/882)
-- `setup.d/lib.sh:486` `generate_eslint_barrel()`
+- `setup.d/lib.sh:493` `generate_eslint_barrel()`
 - `tests/install-sh/refresh-regenerates-barrel.test.sh`
