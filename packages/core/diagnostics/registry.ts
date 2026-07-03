@@ -8,10 +8,12 @@
 //   against packages/core/research/allowlist-resolver.ts at HEAD 35c0b4104).
 //
 // Ranges (tsc diagnosticMessages.json pattern): FF1xxx schema/shape,
-// FF2xxx provenance/trust, FF3xxx L4 semantic gates (Task 4), FF4xxx
-// installer/wiring (reserved), FF5xxx CLI/config (reserved). FF = fitness
-// functions (getff brand). This file seeds FF1001 + the 15 FF2xxx codes only
-// — FF3xxx lands in Task 4 (plan sequencing), FF4xxx/FF5xxx are D2 at-touch.
+// FF2xxx provenance/trust, FF3xxx L4 semantic gates, FF4xxx installer/wiring
+// (reserved), FF5xxx CLI/config (reserved). FF = fitness functions (getff
+// brand). This file seeds FF1001, the 15 FF2xxx codes, and the 20 FF3xxx
+// codes (Task 4, DN-D1-4 — one code per failure kind per gate, spec-literal
+// per-gate allocation; see decisions.md DN-D1-4 for the full derivation).
+// FF4xxx/FF5xxx are D2 at-touch (reserved, not seeded here).
 //
 // Registry is append-only: never remove or renumber an existing code (see
 // registry.test.ts test (d), pinned against registry.codes.snapshot.json).
@@ -143,6 +145,114 @@ export const REGISTRY: Readonly<Record<string, RegistryEntry>> = Object.freeze({
     explanation:
       'p.finalUrl is present, differs from p.url, and independently fails the same tier ' +
       'resolution. allowlist-resolver.ts validateProvenance (finalUrl redirect check).',
+  },
+
+  // --- FF3xxx: L4 semantic gates (validator/gate-*.ts) ---
+  // One code per failure KIND per gate (DN-D1-4, spec-literal per-gate
+  // allocation — 20 codes, not the 16-code shared-astgrep alternative).
+  // The astgrep-deferred branch appears in 5 gates; each gets its own code
+  // because its message text already diverges per gate (e.g.
+  // gate-require-vacuity.ts's wording differs from the other four) and the
+  // gate identity is a meaningful discriminator for the `path`/context.
+  FF3001: {
+    template: 'SynthesisPlan schema violation: {details}',
+    defaultSeverity: 'error',
+    explanation: 'Gate 1 (schema): plan fails synthesis-plan.schema.json (ajv). gate-schema.ts.',
+  },
+  FF3002: {
+    template: '{checkType}-checked rule has no negative-test (required by L4 gate 2 — rule-tester roundtrip)',
+    defaultSeverity: 'error',
+    explanation: 'Gate 1 (schema): an eslint/declarative rule is missing its negative-test. gate-schema.ts.',
+  },
+  FF3003: {
+    template: 'ast-grep engine reserved but not wired — deferred per generator-forbid-mvp decision (i)',
+    defaultSeverity: 'error',
+    explanation: 'Gate 2 (ruleTester): declarative rule declares engine ast-grep, deferred. gate-rule-tester.ts.',
+  },
+  FF3004: {
+    template: 'eslint rule has no negative-test (gate 1 catches this; gate 2 cannot run without it)',
+    defaultSeverity: 'error',
+    explanation: 'Gate 2 (ruleTester): eslint-type rule missing negative-test. gate-rule-tester.ts.',
+  },
+  FF3005: {
+    template: 'negative-test.input[{idx}] did not produce expected violation \'{expectViolation}\' for rule \'{ruleName}\'; got {got}',
+    defaultSeverity: 'error',
+    explanation: 'Gate 2 (ruleTester): negative-test input did not fire the expected violation. gate-rule-tester.ts.',
+  },
+  FF3006: {
+    template: 'examples.good produced unexpected violation: rule=\'{ruleId}\' message=\'{message}\'',
+    defaultSeverity: 'error',
+    explanation: 'Gate 2 (ruleTester): examples.good unexpectedly fired the rule. gate-rule-tester.ts.',
+  },
+  FF3007: {
+    template: 'tautology — rule \'{ruleName}\' fires on negative-corpus/{fileName}: {details}',
+    defaultSeverity: 'error',
+    explanation: 'Gate 4 (tautology): rule fires on a fixed negative-corpus file. gate-tautology.ts.',
+  },
+  FF3008: {
+    template: 'references plugin rule \'{ruleName}\' that does not exist in the preset plugin registry; known: {knownRules}',
+    defaultSeverity: 'error',
+    explanation: 'Gate 6 (conflict): plugin rule reference orphan. gate-conflict.ts.',
+  },
+  FF3009: {
+    template: 'synthesized rule references \'{ruleName}\' but eslintConfigSnippet has no entry for it (B1 merge may have dropped the rule, or recipe.eslintRuleConfig is empty)',
+    defaultSeverity: 'error',
+    explanation: 'Gate 6 (conflict): eslintConfigSnippet is missing an entry for a referenced rule. gate-conflict.ts.',
+  },
+  FF3010: {
+    template: 'ast-grep engine reserved but not wired — deferred per generator-forbid-mvp decision (i)',
+    defaultSeverity: 'error',
+    explanation: 'Gate 7 (singleTokenDiff): declarative rule declares engine ast-grep, deferred. gate-single-token-diff.ts.',
+  },
+  FF3011: {
+    template: 'single-token-diff: examples.bad and examples.good differ by {distance} tokens (threshold {threshold}) — pair does not isolate the forbidden construct; reduce to a minimal ≈1 token / 1 AST-node difference',
+    defaultSeverity: 'error',
+    explanation: 'Gate 7 (singleTokenDiff): bad/good example pair exceeds MAX_TOKEN_EDITS. gate-single-token-diff.ts.',
+  },
+  FF3012: {
+    template: 'ast-grep engine reserved but not wired — deferred per generator-forbid-mvp decision (i)',
+    defaultSeverity: 'error',
+    explanation: 'Gate 8 (messageIdCoverage): declarative rule declares engine ast-grep with a declared message/messageId, deferred. gate-message-id-coverage.ts.',
+  },
+  FF3013: {
+    template: 'messageId-coverage: declared check.message \'{declaredMessage}\' not found in emitted message \'{emittedMessage}\' — declared message is unreachable',
+    defaultSeverity: 'error',
+    explanation: 'Gate 8 (messageIdCoverage): declared check.message never appears in the actually-emitted message. gate-message-id-coverage.ts.',
+  },
+  FF3014: {
+    template: 'messageId-coverage: declared check.messageId \'{declaredMessageId}\' does not match emitted messageId \'{emittedMessageId}\' — declared messageId is unreachable',
+    defaultSeverity: 'error',
+    explanation: 'Gate 8 (messageIdCoverage): declared check.messageId never matches the actually-emitted messageId. gate-message-id-coverage.ts.',
+  },
+  FF3015: {
+    template: 'ast-grep engine reserved but not wired — deferred per generator-forbid-mvp decision (i)',
+    defaultSeverity: 'error',
+    explanation: 'Gate 9 (autofixClean): declarative rule declares engine ast-grep, deferred. gate-autofix-clean.ts.',
+  },
+  FF3016: {
+    template: 'autofix-clean: fixer for \'{ruleName}\' produced unparseable output — {details}',
+    defaultSeverity: 'error',
+    explanation: 'Gate 9 (autofixClean): one-pass fixer output fails to parse. gate-autofix-clean.ts.',
+  },
+  FF3017: {
+    template: 'autofix-clean: fixer for \'{ruleName}\' left {count} violation(s) in fixed output — fix is incomplete or introduces new same-rule violations',
+    defaultSeverity: 'error',
+    explanation: 'Gate 9 (autofixClean): fixer output still has same-rule violations after one pass. gate-autofix-clean.ts.',
+  },
+  FF3018: {
+    template: 'ast-grep engine reserved but not wired for require-vacuity gate — deferred per generator-require-composite-tier decision',
+    defaultSeverity: 'error',
+    explanation: 'requireVacuity gate: declarative require-presence rule declares engine ast-grep, deferred. gate-require-vacuity.ts.',
+  },
+  FF3019: {
+    template: 'require-vacuity direction A — selector never fires on examples.bad; rule can never catch violations',
+    defaultSeverity: 'error',
+    explanation: 'requireVacuity gate: selector never fires on the bad example (always-green false negative). gate-require-vacuity.ts.',
+  },
+  FF3020: {
+    template: 'require-vacuity direction B — selector fires on good example ({count} violation{plural}); rule fires unconditionally',
+    defaultSeverity: 'error',
+    explanation: 'requireVacuity gate: selector fires on the good example too (always-red false positive). gate-require-vacuity.ts.',
   },
 });
 

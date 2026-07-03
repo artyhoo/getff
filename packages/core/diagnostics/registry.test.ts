@@ -113,6 +113,27 @@ const CODE_FIXTURES: Record<string, Record<string, string | number>> = {
   FF2013: { host: 'evil.com', allowlistKey: 'my-key', ackedHosts: 'docs.my-package.com' },
   FF2014: { ackFileReason: 'malformed JSON in ack file: /tmp/x.json' },
   FF2015: { innerReason: 'unknown allowlistKey: react' },
+  // --- FF3xxx: L4 semantic gates (Task 4, DN-D1-4) ---
+  FF3001: { details: 'must have required property \'framework\' at /' },
+  FF3002: { checkType: 'eslint' },
+  FF3003: {},
+  FF3004: {},
+  FF3005: { idx: 0, expectViolation: 'no-restricted-imports', ruleName: 'no-restricted-imports', got: '[]' },
+  FF3006: { ruleId: 'no-restricted-imports', message: 'unexpected violation' },
+  FF3007: { ruleName: 'no-restricted-imports', fileName: 'unrelated.tsx', details: "'react' import is restricted" },
+  FF3008: { ruleName: 'rules-as-tests/no-such-rule', knownRules: 'rules-as-tests/no-server-imports-in-client' },
+  FF3009: { ruleName: 'no-debugger' },
+  FF3010: {},
+  FF3011: { distance: 22, threshold: 5 },
+  FF3012: {},
+  FF3013: { declaredMessage: 'Do not use generators', emittedMessage: 'No generators!' },
+  FF3014: { declaredMessageId: 'noGen', emittedMessageId: 'other' },
+  FF3015: {},
+  FF3016: { ruleName: 'no-extra-parens', details: 'Unexpected token' },
+  FF3017: { ruleName: 'no-extra-parens', count: 1 },
+  FF3018: {},
+  FF3019: {},
+  FF3020: { count: 1, plural: '' },
 };
 
 describe('diagnostics registry — (c) placeholder coverage per code', () => {
@@ -180,7 +201,9 @@ describe('diagnostics registry — message-fidelity (NEW-3): templates reproduce
   it('FF2007 message does NOT collapse to "unknown allowlistKey" text', () => {
     expect(diag('FF2007', CODE_FIXTURES.FF2007).message).not.toMatch(/unknown allowlistKey/);
   });
-  it('FF3003-equivalent astgrep text is out of scope for Task 1 (FF3xxx not seeded yet)', () => {
-    expect(REGISTRY['FF3003']).toBeUndefined();
+  it('FF3003 astgrep-deferred message matches gate-rule-tester.test.ts:206 assertion', () => {
+    expect(diag('FF3003', CODE_FIXTURES.FF3003).message).toMatch(
+      /ast-grep engine reserved but not wired/,
+    );
   });
 });
