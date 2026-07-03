@@ -191,6 +191,22 @@ AFTER_MD5=$(md5 -q "$DSTU" 2>/dev/null || md5sum "$DSTU" | awk '{print $1}')
   && ok "#890 unit: 3rd merge with unchanged source is a byte-identical no-op (genuinely idempotent)" \
   || bad "#890 unit: 3rd merge with unchanged source mutated the file (not idempotent)"
 
+# ── #890 corrupt-block guard: BEGIN present but END missing (interrupted write / hand-edit) ──
+# The append path writes BEGIN/patterns/END as three non-atomic printfs; an install interrupted
+# mid-write can leave a BEGIN with no END. The insert path must NOT silently drop the missing
+# patterns (and must not falsely report ✓) — it must deliver them and restore the END marker.
+DSTC="$U/pi-corrupt"
+printf '%s\n' 'dist/' "$PRETTIERIGNORE_BEGIN" '.ai-factory/RULES.md' > "$DSTC"   # BEGIN, NO END (corrupt)
+CSRC="$U/csrc"
+printf '%s\n' '.ai-factory/RULES.md' '.ai-factory/NEWPAT.md' > "$CSRC"
+merge_prettierignore "$CSRC" "$DSTC" >/dev/null 2>&1
+grep -qxF '.ai-factory/NEWPAT.md' "$DSTC" \
+  && ok "#890 corrupt-block: new pattern delivered even with a missing END marker (no silent loss)" \
+  || bad "#890 corrupt-block: new pattern silently LOST when the END marker was absent"
+grep -qxF "$PRETTIERIGNORE_END" "$DSTC" \
+  && ok "#890 corrupt-block: END marker restored — block self-healed" \
+  || bad "#890 corrupt-block: END marker still absent after merge (block stays corrupt)"
+
 # ── #890: --refresh delivers managed-block updates to an ALREADY-INSTALLED consumer ───────────
 # do_refresh() must ALSO call merge_prettierignore, else a stale block on an installed consumer
 # never receives a new template pattern without --force. Simulate a stale block by stripping one
