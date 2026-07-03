@@ -12,7 +12,7 @@ Run a well-scoped implementation task to completion with **no human in the loop*
 
 ## The loop is SDD (do not reinvent)
 
-Invoke `superpowers:subagent-driven-development` for the core: coordinator → fresh implementer subagent per increment → **two** fresh reviewer subagents (spec-reviewer ≈ top-down / architecture; code-quality-reviewer ≈ bottom-up / code) → rework loop. Models on this substrate: Executor = Sonnet; the two reviewers + a plan-reconciling Planner = Opus; **Fable** is available for the genuinely-hardest reasoning. A per-session tier ban (e.g. "no Fable this run") is an operator override stated at launch, not part of this skill.
+Invoke `superpowers:subagent-driven-development` for the core: coordinator → fresh implementer subagent per increment → **two** fresh reviewer subagents (spec-reviewer ≈ top-down / architecture; code-quality-reviewer ≈ bottom-up / code) → rework loop. Models on this substrate: Executor = Sonnet; the top-down spec/architecture reviewer + a plan-reconciling Planner = Opus; the bottom-up code-quality reviewer = Sonnet (per SDD's «least powerful model that can handle each role» — bottom-up code review is the cheaper-model-sufficient altitude, top-down architecture review keeps Opus); **Fable** is available for the genuinely-hardest reasoning. A per-session tier ban (e.g. "no Fable this run") is an operator override stated at launch, not part of this skill.
 
 ## The overnight delta (all this skill actually owns)
 
