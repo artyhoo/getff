@@ -15,10 +15,10 @@ e9562da75056ca6bc8ddc0ccacf15405ad3b5c3de9a79021029e9a28118760d5  .ai-factory/ru
 9d8c397a7f9d8f4d0d791297beb21e69d244968e80c729f46d4a0c4f89412ff0  .claude/agents/memory-codification-auditor.md
 13b5439e8244c58ddf5f27cbef58a79bfbc9625c4fb68033f228bca446f83f60  .claude/agents/orchestrator-worker-discipline.md
 69f3259d89f153fecdd70754b7e5728f0e285fd15dd7b6d6a3b4df473e058a8c  .claude/agents/review-sidecar.md
-24ec09334bb59d2bc7352b7efda2aba9badd215145a9ff29899d97615594934e  .claude/agents/rule-researcher.md
+3ebcbeec56d57cb639db931b36a1d9dc69c7636b45935c0e74f7c7bad5dd7804  .claude/agents/rule-researcher.md
 2d9259521f752780d0a7fe6df7fc089d35907f3080280af8c264e5e61b96fec8  .claude/hooks/deps-hash-check.sh
 d069eb1cabf8a67875ee885b180c6cced2e5787b96e32a19cdef5cf0dde2a7ec  .claude/settings.json
-87eadd049880a934542008fea927e6436d8de1e0a648182b02b0b39b74663ce7  .claude/skills/aif-doctor/SKILL.md
+bb9063836143c3e56c05175037c26e25121a2db821357d98728de4431c585c6d  .claude/skills/aif-doctor/SKILL.md
 a61194b1eb8ea92372cee7ad053b797d08f36d6d62f51c992aac015f4f97181b  .claude/skills/aif-doctor/helpers/heal.sh
 feb8117af8ed47e7651475cc8174fc49705538274c7c9fa200dda45d95616235  .claude/skills/aif-doctor/helpers/refresh-aif-base.sh
 e3c6086efb6dbafaac285132c61c3da1f17ada581d1efe84986c1589ed1b905a  .claude/skills/dispatcher/SKILL.md
@@ -26,7 +26,7 @@ e3c6086efb6dbafaac285132c61c3da1f17ada581d1efe84986c1589ed1b905a  .claude/skills
 f8ff7a734f8f4d3a9367ea45a61e17f1cde292327596c300e41ac8bf276f9e66  .claude/skills/dispatcher/helpers/monitor-classify.sh
 e1784c032fb6366007c76da0dcbba0f9db6a6816e4d3d9d27e0128554838d0a0  .claude/skills/dispatcher/helpers/notify-gate.sh
 5d21f0757512eafe17f0be69a891dea8ddee4627b3bf71871e8a71536e3dab7f  .claude/skills/dispatcher/helpers/tg-notify.sh
-308b220aac1546baa6c14310ceff92edbb6453d12cd00489326940a9ec451f82  .claude/skills/pipeline/SKILL.md
+0ae11367d1727717acc54fdc66dbffe4d2d2a26a9f99564f34f2a311dac1713c  .claude/skills/pipeline/SKILL.md
 7b016aef242405688029efd80b2e24dccabf3d03060a64cd019e522601fd990f  .claude/skills/pipeline/evals/RESULTS.md
 29731fcb8f314d897b786fbf6b840302bf7eb4dcc27e18d7cd5cb855b3341fee  .claude/skills/pipeline/evals/evals.json
 3fb659d0d73c6bdf90ab35758808c0e0ac47f31d19c7665bcc719dcf2497df2b  .claude/skills/pipeline/evals/files/scenario-1-noarg-state.md
@@ -75,7 +75,7 @@ e279a989947be84b0fd28929640037ed4c5753b2d7adcb158129af3fa62d129d  .claude/skills
 421649209ad31993e1ea89bb6e2a813254f2effd9a948da0798cadf11a7ddc93  .claude/skills/rules-as-tests/references/doc-organization.md
 e2bad837ee42f3c61cdbe440461721477d4761c6bfae24209b1504d3e673998f  .claude/skills/rules-as-tests/references/overview.md
 20fa73731f967aed19cc5be75e10c3eb50ad9e9f16986d5848a85c9d3d27688a  .claude/skills/rules-as-tests/references/self-testing-docs.md
-c640d363f655ec0f262bbd1ecd6605fbf4edfc0644f9c91603e4bc3834937d20  .claude/skills/template-audit/SKILL.md
+a4a1d9a97e0c5b6e202a28735269056269a7668299c67a719bef9605117b8d55  .claude/skills/template-audit/SKILL.md
 5e6b0ef8592298f302c55be3ba5e6f08b3bde16796498851c3dbbfa49181d434  .claude/skills/tool-bootstrapping/SKILL.md
 18971ed38cd6a928cd9965ea202cb8fd0981d753aad6e57092603b33308d57bc  .claude/skills/tool-bootstrapping/references/decision-format.md
 0c30698c40b5aa2426d52565b046c974597b82310bbf035927df47982858caa3  .claude/skills/tool-bootstrapping/templates/tool-decisions.md.template
@@ -125,7 +125,7 @@ f2e47eba1ab90f83718573284d01205ed443a6e5fdfe83e1c08d9a1abfa90b36  packages/core/
 3138a1f52bc9f04f83a70d31793efb0eda355c1cbf1a13276f1ac4017f2c8fc2  packages/core/hooks/utils/run-check.ts
 4fc444c5d3de5dec76c7f01b8ec85076735c9dafa7f48df91e5d04689f3cc43e  playwright.config.ts
 70bd13392e7f2d9950b2f15936b6239f770c4adc20bb8b09f7fe15a699cab9b0  scripts/audit-ai-docs.react-spa.sh
-83ba57cd46880a0a475fe322c890e3ea61d89ba34fd322ef3a3a4d076bbfbac7  scripts/audit-ai-docs.sh
+abd2f84e553cce9120cfa6d6bd4cd94f1f9559d20f282a6ad55a499fd3ed5b03  scripts/audit-ai-docs.sh
 64902bcaedea1fb1ed26271359a5c7f2bb0a1b7c5e0d46cee28df55d8a0a3d2d  scripts/audit-r4.ts
 b047a1fde5a9f274f116435389d72b9b4d74adbac1af5469cce33bceb70a7175  scripts/check-arch-boundaries.sh
 9d07f0912b5a444f769dbb87e908b1667e9729ac6b3b3257898b669a0c51206c  scripts/check-fences-fire.sh

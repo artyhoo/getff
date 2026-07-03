@@ -23,7 +23,7 @@ allowed-tools:
 
 # /aif-doctor — aif operational-health triage
 
-**Origin:** BUILD verdict 2026-06-03. The `/dispatcher` loop works, but the _operating environment_ repeatedly breaks (runtime crash-loop, capacity saturation, flaky proxy) and nothing captured how to triage it in seconds instead of re-deriving every session. SSOT #112. Kickoff: `.claude/orchestrator-prompts/aif-doctor-skill/kickoff.md` (gitignored — local-only, not a resolvable link).
+**Origin:** BUILD verdict 2026-06-03. The `/dispatcher` loop works, but the _operating environment_ repeatedly breaks (runtime crash-loop, capacity saturation, flaky proxy) and nothing captured how to triage it in seconds instead of re-deriving every session. SSOT #112. Kickoff: [`.claude/orchestrator-prompts/aif-doctor-skill/kickoff.md`](../../orchestrator-prompts/aif-doctor-skill/kickoff.md).
 
 **Substrate:** existing helpers + upstream read-only endpoints. Zero new scripts, zero npm deps, zero LLM/API-billed calls ([no-paid-llm-in-ci.md §1](../../rules/no-paid-llm-in-ci.md)). A full agent run costs tokens; this skill spends none — `curl` + `docker exec` + `grep` only.
 

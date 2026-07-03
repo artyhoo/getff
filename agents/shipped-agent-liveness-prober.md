@@ -52,19 +52,23 @@ grep -n 'continue' install.sh | grep -A1 'agents'
 sed -n '/for f in.*agents/,/done/p' install.sh | grep -E '(case|continue|\.md)'
 ```
 
-**Illustrative shipped set as of 2026-06-16** (verify against `install.sh` §2 before dispatching — drift is possible):
+**Illustrative shipped set as of 2026-07-03** (verify against `install.sh` §2 before dispatching — drift is possible):
 
-| agent slug                       | tools declared            | install.sh-shipped?            |
-| -------------------------------- | ------------------------- | ------------------------------ |
-| `compliance-verifier`            | `Read, Glob, Grep`        | YES                            |
-| `living-docs-auditor`            | `Read, Glob, Bash`        | YES                            |
-| `memory-codification-auditor`    | `Read, Glob, Grep`        | YES                            |
-| `orchestrator-worker-discipline` | `Read`                    | YES                            |
-| `review-sidecar`                 | `Read, Glob, Grep`        | YES                            |
-| `manual-rule-liveness-prober`    | `Read, Glob, Grep, Agent` | NO (authoring-only, #552)      |
-| `shipped-agent-liveness-prober`  | `Read, Glob, Grep, Agent` | NO (authoring-only, this file) |
+| agent slug                       | tools declared                                       | install.sh-shipped?            |
+| -------------------------------- | ---------------------------------------------------- | ------------------------------ |
+| `aif-init`                       | `Read, Glob, Write`                                  | YES                            |
+| `capability-reuse-auditor`       | `Read, Glob, Grep`                                   | YES                            |
+| `compliance-verifier`            | `Read, Glob, Grep`                                   | YES                            |
+| `living-docs-auditor`            | `Read, Glob, Bash`                                   | YES                            |
+| `memory-codification-auditor`    | `Read, Glob, Grep`                                   | YES                            |
+| `orchestrator-worker-discipline` | `Read`                                               | YES                            |
+| `review-sidecar`                 | `Read, Glob, Grep`                                   | YES                            |
+| `rule-researcher`                | `Read, Write, Bash, Grep, Glob, WebFetch, WebSearch` | YES                            |
+| `backward-sweep-auditor`         | `Read, Glob, Grep, Bash`                             | NO (authoring-only, T21)       |
+| `manual-rule-liveness-prober`    | `Read, Glob, Grep, Agent`                            | NO (authoring-only, #552)      |
+| `shipped-agent-liveness-prober`  | `Read, Glob, Grep, Agent`                            | NO (authoring-only, this file) |
 
-**Nuance:** principle 21 arm (a) *form-*scans **all** `agents/*.md` for canonical tool names (including the two authoring-only agents). This M2 prober *behaviour-*probes **only the shipped 5** — the install.sh-copied surface that consumers actually receive. The boundary matters: an authoring-only agent fabricating findings costs the maintainer; a shipped agent fabricating findings costs the consumer.
+**Nuance:** principle 21 arm (a) *form-*scans **all** `agents/*.md` for canonical tool names (including the authoring-only agents). This M2 prober *behaviour-*probes **only the install.sh-copied shipped surface** (the `all` keyword iterates exactly that set, derived per the §Shipped-surface command above — do not hardcode a count) that consumers actually receive. The boundary matters: an authoring-only agent fabricating findings costs the maintainer; a shipped agent fabricating findings costs the consumer.
 
 ---
 
@@ -169,17 +173,13 @@ VERDICT: LIVE | BASELINE-DIDN'T-FAIL | WITH-TOOLS-DIDN'T-COMPLY | DISPATCH-INFEA
 RECOMMENDATION: <none (LIVE) | strengthen fixture task-prompt + re-run | revise agent/fixture (maintainer) | park + describe>
 ```
 
-When input is `all`: emit one such block per shipped agent, then a summary table:
+When input is `all`: emit one such block per shipped agent, then a summary table with **one row per agent actually probed** — derive the rows dynamically from the install.sh §2 shipped set (verified per the §Shipped-surface command), do NOT hardcode the row list:
 
 ```text
 SUMMARY (M2 behavioural liveness probe — <date>)
 | agent                      | verdict                    |
 |----------------------------|----------------------------|
-| compliance-verifier        | <verdict>                  |
-| living-docs-auditor        | <verdict>                  |
-| memory-codification-auditor| <verdict>                  |
-| orchestrator-worker-discipline | <verdict>              |
-| review-sidecar             | <verdict>                  |
+| <one row per shipped agent, derived from the install.sh §2 surface> | <verdict> |
 SURFACE: install.sh §2 shipped set (verify before running: <command>)
 NEXT: address any FLAG or PARK items before promoting this probe to mandatory (§5.2 trigger).
 ```

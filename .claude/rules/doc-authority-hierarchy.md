@@ -15,7 +15,7 @@ This rule formalises **doc-authority hierarchy** as a project invariant, paralle
 - decision-level discipline (Prior-art trailers + SSOT)
 - search-level discipline ([phase-research-coverage.md](phase-research-coverage.md))
 
-The rule applies to **(a)** canonical project-internal docs and **(b)** shipped consumer-facing artefacts copied to consumer projects via `install.sh` (framework templates, preset rules + arch, sub-agent prompts — see canonical list in [`packages/core/principles/09-doc-authority-hierarchy.test.ts`](../../packages/core/principles/09-doc-authority-hierarchy.test.ts) `REQUIRED_HEADER_DOCS`). Compliance for **runtime-generated** consumer docs (e.g. `RULES.md` produced by AI-driven recipes, not static-copied) remains deferred per [closed-questions.md §13.21](../../docs/meta-factory/closed-questions.md) — that surface is L3 work for Phase 11+.
+The rule applies to **(a)** canonical project-internal docs and **(b)** shipped consumer-facing artefacts copied to consumer projects via `install.sh` (framework templates, preset rules + arch, sub-agent prompts — see canonical list `REQUIRED_HEADER_DOCS`, defined + exported in the sibling module [`packages/core/principles/09-doc-authority-hierarchy.ts`](../../packages/core/principles/09-doc-authority-hierarchy.ts) and consumed by the [`.test.ts`](../../packages/core/principles/09-doc-authority-hierarchy.test.ts)). Compliance for **runtime-generated** consumer docs (e.g. `RULES.md` produced by AI-driven recipes, not static-copied) remains deferred per [closed-questions.md §13.21](../../docs/meta-factory/closed-questions.md) — that surface is L3 work for Phase 11+.
 
 ## §1 Problem this solves
 
@@ -34,13 +34,15 @@ Conflicting authority claims become detectable at review time and at session-sta
 - Operational reference docs under `docs/meta-factory/*.md` (excluding the transient-by-naming subset below)
 - Skill primary docs + cold references: `skills/*/SKILL.md`, `skills/*/references/*.md`
 - Hot operational docs: `.claude/session-bootstrap.md`, `.claude/rules/*.md`
-- Shipped consumer-facing artefacts copied to consumer projects via `install.sh:89-128`: framework templates under `packages/core/templates/shared/`, preset shared rules + arch under `packages/preset-next-15-canonical/`, sub-agent prompts under `agents/`. Canonical list lives in [`packages/core/principles/09-doc-authority-hierarchy.test.ts`](../../packages/core/principles/09-doc-authority-hierarchy.test.ts) `REQUIRED_HEADER_DOCS`. Generated-doc compliance trigger ([§13.21](../../docs/meta-factory/closed-questions.md)) — Wave 1 + Wave 2 closure (2026-05-09).
+- Shipped consumer-facing artefacts copied to consumer projects via `install.sh:89-128`: framework templates under `packages/core/templates/shared/`, preset shared rules + arch under `packages/preset-next-15-canonical/`, sub-agent prompts under `agents/`. Canonical list `REQUIRED_HEADER_DOCS` is defined + exported in the sibling module [`packages/core/principles/09-doc-authority-hierarchy.ts`](../../packages/core/principles/09-doc-authority-hierarchy.ts) (consumed by the [`.test.ts`](../../packages/core/principles/09-doc-authority-hierarchy.test.ts)). Generated-doc compliance trigger ([§13.21](../../docs/meta-factory/closed-questions.md)) — Wave 1 + Wave 2 closure (2026-05-09).
 
 **Folder-level authority (single header in folder README, individual files inherit):**
 - `docs/meta-factory/retros/` — closed historical artifacts post-merge; individual files scope-bound by phase ID
 - `docs/meta-factory/research-patches/` — one patch per coverage gap, append-only; individual files scope-bound by gap
 
 > **Dynamic enforcement note (2026-07-02):** skill primary docs + cold references under **both** roots (`skills/*` and `.claude/skills/*`: `SKILL.md`, `references/*.md`) are enforced **dynamically** by principle 09 (`enumerateSkillPrimaryDocs` + `REQUIRED_PATH_PATTERNS`, git-aware per the principle-15 pattern) — a new skill is covered the moment it lands, with no static-list edit. Origin: 2026-07-02 delta-audit F2 — `/story` + `/ai-doc` shipped headerless while the static-list-only test stayed green ([research-patches/2026-07-02-doc-audit-delta.md §2](../../docs/meta-factory/research-patches/2026-07-02-doc-audit-delta.md)).
+
+> **Dynamic enforcement note (2026-07-03, M7):** flat rule + agent docs — every `*.md` directly under `.claude/rules/` and `agents/` — are likewise enforced **dynamically** by principle 09 (`enumerateFlatRequiredDocs` + `REQUIRED_PATH_PATTERNS`, git-aware + tracked-only, mirroring the skill mechanism above) — a new rule or agent is covered the moment it lands, with no static-list edit. Origin: M7 drift audit — `kickoff-staging-placement.md`, `recommendation-laziness-discipline.md`, and several `agents/*.md` were required by §2 «Required for» yet absent from the static `REQUIRED_HEADER_DOCS` array, so their header requirement was unenforced while the test stayed green. The static array entries are retained (they double as the `install.sh` SHIPPED_DOCS drift sentinel); the dynamic sweep is the superset that closes the new-file gap.
 
 **Filename-convention authority (no per-file header required — filename itself establishes scope):**
 - `docs/meta-factory/PHASE-*-PROMPT.md` and `docs/meta-factory/*-PROMPT.md` (orchestrator/reviewer prompts) — filename indicates phase + transient nature; per-file authority is implicit
@@ -51,7 +53,7 @@ Conflicting authority claims become detectable at review time and at session-sta
 - Generated artifacts (rules-lock.json, snapshots, fixtures) — they have schema, not prose
 - Tests (test names ARE the documentation per «documents lie; tests don't»)
 - Code files (TypeScript/JS) — JSDoc comments serve different purpose
-- Gitignored files (`.claude/orchestrator-prompts/` etc.) — out of project doc surface
+- Gitignored dispatch inputs under `.claude/orchestrator-prompts/*/*` — out of project doc surface. **Note the tracked exceptions:** `.gitignore` ignores the directory (`.claude/orchestrator-prompts/*` + `*/*`) but negates back `README.md`, every `*/kickoff.md`, and every `*/done.md` (399 tracked files as of 2026-07-03) — these are **tracked-but-header-exempt** by a deliberate scope decision (they are filename-convention transients, scope-bound by umbrella dir + basename, not authority-bearing canonical docs). This reconciles with [kickoff-staging-placement.md §1](kickoff-staging-placement.md) — kickoffs are *tracked* (read from `staging` by dispatch consumers), yet carry no Authoritative-for header.
 
 ## §3 Header format
 
@@ -115,7 +117,8 @@ Individual files in such folders inherit folder authority and do **not** need th
 
 ## See also
 
-- [packages/core/principles/09-doc-authority-hierarchy.test.ts](../../packages/core/principles/09-doc-authority-hierarchy.test.ts) — executable principle.
+- [packages/core/principles/09-doc-authority-hierarchy.ts](../../packages/core/principles/09-doc-authority-hierarchy.ts) — shared module: `REQUIRED_HEADER_DOCS` + the dynamic enumerators (`enumerateSkillPrimaryDocs`, `enumerateFlatRequiredDocs`) + `REQUIRED_PATH_PATTERNS`.
+- [packages/core/principles/09-doc-authority-hierarchy.test.ts](../../packages/core/principles/09-doc-authority-hierarchy.test.ts) — executable principle (consumes the module above).
 - [.claude/session-bootstrap.md](../session-bootstrap.md) — Step 0 file linking to README as canonical goal source.
 - [CLAUDE.md `Artifact Ownership Contract`](../../CLAUDE.md) — read-only / read-write boundaries per agent class.
 - [docs/meta-factory/closed-questions.md §13.21](../../docs/meta-factory/closed-questions.md) — generated-doc compliance trigger (deferred L3 work; closed 2026-05-10, archived).

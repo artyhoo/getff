@@ -155,10 +155,21 @@ export function isExempt(relPath: string): boolean {
  * the static list only knew tool-bootstrapping). Covers rule §2 "Skill primary
  * docs + cold references" for both skill roots. Anchored so fixture copies under
  * packages/** (EXEMPT_PATTERNS territory) never match.
+ *
+ * 2026-07-03 (M7): extended to `.claude/rules/*.md` and `agents/*.md`. The rule
+ * §2 "Required for" lists `.claude/rules/*.md` (all rule files) and shipped
+ * sub-agent prompts under `agents/`, but only a hand-maintained subset was in
+ * the static REQUIRED_HEADER_DOCS array — new rule/agent files (e.g.
+ * kickoff-staging-placement.md, recommendation-laziness-discipline.md, and every
+ * agent added after the last static-list edit) landed unenforced. These patterns
+ * make the requirement dynamic: a new rule or agent is covered the moment it
+ * lands, no static-list edit required — mirroring the skill mechanism.
  */
 export const REQUIRED_PATH_PATTERNS: readonly RegExp[] = [
   /^(?:\.claude\/)?skills\/[^/]+\/SKILL\.md$/,
   /^(?:\.claude\/)?skills\/[^/]+\/references\/[^/]+\.md$/,
+  /^\.claude\/rules\/[^/]+\.md$/,
+  /^agents\/[^/]+\.md$/,
 ];
 
 export function matchesRequiredPattern(relPath: string): boolean {
@@ -169,17 +180,27 @@ export function matchesRequiredPattern(relPath: string): boolean {
 const SKILL_DOC_ROOTS: readonly string[] = ['.claude/skills', 'skills'];
 
 /**
- * Tracked files under the skill roots, or null when git is unavailable.
+ * Flat doc roots swept by the dynamic enumeration (M7, 2026-07-03): every
+ * `*.md` directly under these dirs requires an Authoritative-for header per
+ * rule §2 "Required for". Flat (no `references/` sub-shape) — one glob per root.
+ */
+const FLAT_DOC_ROOTS: readonly string[] = ['.claude/rules', 'agents'];
+
+/**
+ * Tracked files under `roots`, or null when git is unavailable.
  * Git-aware for the same reason as principle 15 (FQA S1-D F1): an
  * installer-populated clone carries gitignored `aif-*` skills that are
  * headerless by design — filesystem-blind enumeration would false-RED locally
  * while green in CI. Falls back to null → filesystem enumeration off-repo.
  */
-function trackedSkillDocs(repoRoot: string): Set<string> | null {
+function trackedDocsUnder(
+  repoRoot: string,
+  roots: readonly string[],
+): Set<string> | null {
   try {
     const out = execFileSync(
       'git',
-      ['-C', repoRoot, 'ls-files', '--', ...SKILL_DOC_ROOTS],
+      ['-C', repoRoot, 'ls-files', '--', ...roots],
       { encoding: 'utf8' },
     );
     return new Set(out.split('\n').filter(Boolean));
@@ -197,7 +218,7 @@ function trackedSkillDocs(repoRoot: string): Set<string> | null {
 export function enumerateSkillPrimaryDocs(
   repoRoot: string = process.cwd(),
 ): string[] {
-  const tracked = trackedSkillDocs(repoRoot);
+  const tracked = trackedDocsUnder(repoRoot, SKILL_DOC_ROOTS);
   const found: string[] = [];
   for (const root of SKILL_DOC_ROOTS) {
     const absRoot = `${repoRoot}/${root}`;
@@ -222,6 +243,52 @@ export function enumerateSkillPrimaryDocs(
     }
   }
   return found.sort();
+}
+
+/**
+ * Enumerate flat required-header docs (repo-root-relative POSIX paths): every
+ * `*.md` directly under `.claude/rules/` and `agents/` (M7, 2026-07-03). New
+ * rule/agent files are covered the moment they land — no static REQUIRED_HEADER_DOCS
+ * edit required. Git-aware + tracked-only (same rationale as
+ * `enumerateSkillPrimaryDocs`: an installer-populated clone may carry gitignored
+ * `aif-*` agent copies that are headerless by design). Zero glob dep.
+ */
+export function enumerateFlatRequiredDocs(
+  repoRoot: string = process.cwd(),
+): string[] {
+  const tracked = trackedDocsUnder(repoRoot, FLAT_DOC_ROOTS);
+  const found: string[] = [];
+  for (const root of FLAT_DOC_ROOTS) {
+    const absRoot = `${repoRoot}/${root}`;
+    if (!existsSync(absRoot)) continue;
+    for (const entry of readdirSync(absRoot, { withFileTypes: true })) {
+      // Flat: only `*.md` files directly under the root (no recursion).
+      if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+      const rel = `${root}/${entry.name}`;
+      // Git-aware skip: audit only the tracked surface when git is available.
+      if (tracked && !tracked.has(rel)) continue;
+      found.push(rel);
+    }
+  }
+  return found.sort();
+}
+
+/**
+ * Combined dynamic enumeration: skill primary docs + cold references
+ * (`enumerateSkillPrimaryDocs`) plus flat rule/agent docs
+ * (`enumerateFlatRequiredDocs`). This is the full set of docs whose
+ * header requirement is enforced *dynamically* (no static REQUIRED_HEADER_DOCS
+ * entry needed). Sorted, de-duplicated.
+ */
+export function enumerateRequiredDocs(
+  repoRoot: string = process.cwd(),
+): string[] {
+  return [
+    ...new Set([
+      ...enumerateSkillPrimaryDocs(repoRoot),
+      ...enumerateFlatRequiredDocs(repoRoot),
+    ]),
+  ].sort();
 }
 
 /**

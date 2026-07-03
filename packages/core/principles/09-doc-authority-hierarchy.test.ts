@@ -37,6 +37,8 @@ import {
   isExempt,
   matchesRequiredPattern,
   enumerateSkillPrimaryDocs,
+  enumerateFlatRequiredDocs,
+  enumerateRequiredDocs,
   hasAuthorityHeader,
   checkDocsHaveAuthorityHeader,
   selectRequiredPaths,
@@ -320,9 +322,108 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
     });
 
     it('REQUIRED_PATH_PATTERNS exported and anchored (sentinel)', () => {
-      expect(REQUIRED_PATH_PATTERNS.length).toBe(2);
+      // 2 skill patterns + 2 flat patterns (.claude/rules/*.md, agents/*.md) — M7.
+      expect(REQUIRED_PATH_PATTERNS.length).toBe(4);
       // Anchoring sentinel: a path merely *containing* a skills segment must not match.
       expect(matchesRequiredPattern('docs/skills/foo/SKILL.md')).toBe(false);
+    });
+  });
+
+  // ── Dynamic rule/agent enumeration (M7, 2026-07-03) ───────────────────────
+  // Gap-class: doc-authority-hierarchy.md §2 lists `.claude/rules/*.md` (all
+  // rule files) + shipped `agents/*.md` as Required-for, but only a
+  // hand-maintained subset lived in the static REQUIRED_HEADER_DOCS array —
+  // new rule/agent files (kickoff-staging-placement.md,
+  // recommendation-laziness-discipline.md, agents added after the last static
+  // edit) landed unenforced. Now enforced dynamically, mirroring the skill
+  // enumeration: a new rule or agent is covered the moment it lands.
+  describe('dynamic rule/agent enumeration — new rules/agents cannot land headerless', () => {
+    it('every enumerated flat doc (.claude/rules/*.md + agents/*.md) declares Authoritative-for', () => {
+      const enumerated = enumerateFlatRequiredDocs(REPO_ROOT);
+      const result = checkDocsHaveAuthorityHeader(enumerated, REPO_ROOT);
+      expect(
+        result.violations,
+        `Flat rule/agent authority violations:\n${result.violations.map((v) => `${v.path}: ${v.reason}`).join('\n')}`,
+      ).toHaveLength(0);
+    });
+
+    it('enumeration is non-vacuous: sees both roots and the previously-unenforced files', () => {
+      const enumerated = enumerateFlatRequiredDocs(REPO_ROOT);
+      // The two rule files that were NOT in the static list (M7 origin).
+      expect(enumerated).toContain('.claude/rules/kickoff-staging-placement.md');
+      expect(enumerated).toContain(
+        '.claude/rules/recommendation-laziness-discipline.md',
+      );
+      // An agent that was NOT in the static REQUIRED_HEADER_DOCS array.
+      expect(enumerated).toContain('agents/backward-sweep-auditor.md');
+      // A rule + an agent that WERE already static — enumeration is a superset.
+      expect(enumerated).toContain('.claude/rules/doc-authority-hierarchy.md');
+      expect(enumerated).toContain('agents/review-sidecar.md');
+      expect(enumerated.length).toBeGreaterThanOrEqual(20);
+    });
+
+    it('enumeration covers every static rule/agent entry (no list/reality drift)', () => {
+      const enumerated = new Set(enumerateFlatRequiredDocs(REPO_ROOT));
+      const staticFlatDocs = REQUIRED_HEADER_DOCS.filter(
+        (p) => p.startsWith('.claude/rules/') || p.startsWith('agents/'),
+      );
+      const missing = staticFlatDocs.filter((p) => !enumerated.has(p));
+      expect(
+        missing,
+        `Static rule/agent entries not found by enumeration (deleted or untracked?):\n${missing.join('\n')}`,
+      ).toEqual([]);
+    });
+
+    it('positive: patterns match rule + agent docs directly under their root', () => {
+      expect(
+        matchesRequiredPattern('.claude/rules/kickoff-staging-placement.md'),
+      ).toBe(true);
+      expect(matchesRequiredPattern('agents/backward-sweep-auditor.md')).toBe(
+        true,
+      );
+    });
+
+    it('negative: patterns do NOT match nested extras, non-md, or lookalike paths', () => {
+      // nested one level deeper than the flat root
+      expect(matchesRequiredPattern('.claude/rules/sub/nested.md')).toBe(false);
+      expect(matchesRequiredPattern('agents/sub/nested.md')).toBe(false);
+      // non-markdown
+      expect(matchesRequiredPattern('.claude/rules/README.txt')).toBe(false);
+      expect(matchesRequiredPattern('agents/helper.sh')).toBe(false);
+      // lookalike: a path merely *containing* the segment must not match
+      expect(matchesRequiredPattern('docs/agents/foo.md')).toBe(false);
+      expect(matchesRequiredPattern('packages/agents/foo.md')).toBe(false);
+    });
+
+    it('edit-time channel: selectRequiredPaths keeps dynamic rule/agent docs', () => {
+      // A brand-new rule / agent's edit must survive the PostToolUse filter so
+      // the edit-time channel catches a missing header — not only CI.
+      const filtered = selectRequiredPaths([
+        '.claude/rules/kickoff-staging-placement.md',
+        'agents/backward-sweep-auditor.md',
+        'package.json',
+        'unrelated/source.ts',
+      ]);
+      expect(filtered).toEqual([
+        '.claude/rules/kickoff-staging-placement.md',
+        'agents/backward-sweep-auditor.md',
+      ]);
+    });
+
+    it('combined enumerateRequiredDocs is the de-duplicated union of skill + flat docs', () => {
+      const combined = enumerateRequiredDocs(REPO_ROOT);
+      const skills = enumerateSkillPrimaryDocs(REPO_ROOT);
+      const flat = enumerateFlatRequiredDocs(REPO_ROOT);
+      const expected = [...new Set([...skills, ...flat])].sort();
+      expect(combined).toEqual(expected);
+      // No duplicates.
+      expect(combined.length).toBe(new Set(combined).size);
+      // Every enumerated doc has a header (the load-bearing invariant).
+      const result = checkDocsHaveAuthorityHeader(combined, REPO_ROOT);
+      expect(
+        result.violations,
+        `Combined authority violations:\n${result.violations.map((v) => `${v.path}: ${v.reason}`).join('\n')}`,
+      ).toHaveLength(0);
     });
   });
 
