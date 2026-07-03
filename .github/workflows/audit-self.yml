@@ -372,6 +372,10 @@ jobs:
         run: bash tests/install-sh/consumer-upgrade-path.test.sh
       - name: "install-sh — refresh-covers-full-delivery (#869 do_refresh ⊇ --full scripts/*.{sh,ts} delivery)"
         run: bash tests/install-sh/refresh-covers-full-delivery.test.sh
+      - name: "install-sh — refresh-safe dir-payload (#873: refresh_safe replaces directory payloads, not nests)"
+        run: bash tests/install-sh/refresh-safe-dir-payload.test.sh
+      - name: "install-sh — refresh regenerates eslint barrel (#876: --refresh re-derives index.mjs so a new rule isn't stranded)"
+        run: bash tests/install-sh/refresh-regenerates-barrel.test.sh
       - name: install-sh — gh-636 dispatcher tsx probe (degrade to fallback, never crash on unresolvable tsx)
         run: bash tests/install-sh/gh-636-dispatcher-tsx-probe.test.sh
       - name: install-sh — gh-636 ensure-tsx-root (install guarantees tsx resolves from workspace root; --full/offer/warn)

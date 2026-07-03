@@ -22,9 +22,9 @@
 # pre-push) stays a literal → exact per-file match (catches a single-file omission). A glob-
 # delivered namespace (eslint-rules-local/$bn.ts, .claude/agents/$(basename …)) collapses to its
 # directory prefix → namespace match, which is SOUND only because delivery and refresh iterate
-# the SAME source glob (so no per-file omission is possible within it). Directory payloads with
-# no extension (scripts/fences-fire-fixtures) are EXCLUDED — refresh_safe's cp -r nests-into an
-# existing directory rather than replacing it (issue #873), a distinct capability.
+# the SAME source glob (so no per-file omission is possible within it). Directory payloads
+# (scripts/fences-fire-fixtures) are now refreshed like any other framework artefact — #873 fixed
+# refresh_safe to REPLACE an existing directory instead of nesting cp -r into it.
 #
 # Deterministic, no network: awk over do_refresh() + grep over setup.d. Paired-negative arm
 # proves the set-difference is non-vacuous (a real omission flips the gate RED).
@@ -69,8 +69,6 @@ EXCLUDED=$(sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' <<'EXC' | sed 
   .ai-factory/DESCRIPTION.template.md
   .ai-factory/tool-decisions.md
   .ai-factory/rules/integration-rules.md
-  # Deferred: DIRECTORY payload — refresh_safe cp -r nests-into-existing dir (tracked: issue #873)
-  scripts/fences-fire-fixtures
 EXC
 )
 
