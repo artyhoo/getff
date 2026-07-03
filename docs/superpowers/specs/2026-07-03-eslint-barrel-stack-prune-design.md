@@ -27,7 +27,7 @@ Before generating barrel content (inside the existing `if [ -z "$DRY_RUN" ]` gua
 
 No persisted state (no new marker file recording "which stack was this originally installed with") — the function only needs to know what's valid NOW, not what was true historically. Verified no such marker currently exists (checked `.ai-factory/`, `preset.meta.json`).
 
-Safe because `eslint-rules-local/` is documented, in two independent places, as 100% framework-owned — a consumer never places its own files there (`setup.d/40-configs.sh:373`, `setup.d/lib.sh:199`).
+Safe because `eslint-rules-local/` is documented, in two independent places, as 100% framework-owned — a consumer never places its own files there (`install.sh:373`, `setup.d/lib.sh:199`).
 
 Side benefit: the same mechanism also self-heals an unrelated drift case — a stale CORE rule file left behind after a rule is renamed/removed upstream — not just a stack-switch leftover.
 
@@ -65,7 +65,7 @@ Expected RED on current code (pre-fix), GREEN after.
 
 ## Known limitation (out of scope for this fix)
 
-The per-workspace / monorepo scenario — where a single root might need to host more than one stack's presets simultaneously — has NOT been verified against current code. Per existing memory, per-workspace preset placement work is heading toward separate per-workspace directories rather than a shared `eslint-rules-local/`, which would make this fix's "prune to single current stack" assumption safe. If that architecture ever changes to share one directory across stacks, this fix needs re-review.
+The per-workspace / monorepo scenario — where a single root might need to host more than one stack's presets simultaneously — was spot-checked during review, not exhaustively audited: `setup.d/40-configs.sh:224` shows each workspace gets a thin re-export (`export { default, rules } from '../../../eslint-rules-local/index.mjs'`) pointing back to a SINGLE root barrel, not a separate per-workspace directory. This supports the "prune to current stack" safety assumption — there's only ever one `eslint-rules-local/`, tied to whichever single `$STACK` the installer was invoked with. Not an exhaustive guarantee: based on one confirmed code reference, not a full audit of every workspace/multi-stack code path. If a future stack ever gains its own per-workspace preset delivery mechanism that changes this, this fix needs re-review.
 
 ## References
 
