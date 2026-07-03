@@ -157,10 +157,10 @@ else
 fi
 ```
 
-**Step 2 — L3 dup-detect + in-flight ledger** (dup-detect catches _merged_ dupes; inflight-check catches _live_ work — open PR / un-merged branch carrying the slug, e.g. a parallel session dispatching the same sub-wave before it merges):
+**Step 2 — L3 dup-detect + in-flight ledger** (dup-detect catches _merged_ dupes; inflight-check catches _live_ work — open PR / un-merged branch carrying the slug, e.g. a parallel session dispatching the same sub-wave before it merges). `MO_SKIP_CLOSED=1` is set on the dup-detect call so the no-arg overview `--all` scan skips the already-closed (done.md) umbrellas — otherwise the full-population glob over 250+ umbrellas overruns the 120s `!`-fence (in named mode the flag is a no-op; dup-detect stays closure-agnostic without it):
 
 ```!
-bash "${CLAUDE_SKILL_DIR}/helpers/run-helper.sh" "${CLAUDE_SKILL_DIR}/helpers/dup-detect.sh" "${umbrella:-}" 2>/dev/null; bash "${CLAUDE_SKILL_DIR}/helpers/run-helper.sh" "${CLAUDE_SKILL_DIR}/helpers/inflight-check.sh" "${umbrella:-}" 2>/dev/null
+MO_SKIP_CLOSED=1 bash "${CLAUDE_SKILL_DIR}/helpers/run-helper.sh" "${CLAUDE_SKILL_DIR}/helpers/dup-detect.sh" "${umbrella:-}" 2>/dev/null; bash "${CLAUDE_SKILL_DIR}/helpers/run-helper.sh" "${CLAUDE_SKILL_DIR}/helpers/inflight-check.sh" "${umbrella:-}" 2>/dev/null
 ```
 
 `POTENTIAL_DUPE:`/`MISSING:` (dup-detect) → surface per [reviewer-discipline.md §2](../../rules/reviewer-discipline.md). `INFLIGHT:` → **confirmation-needed before dispatch** (possible parallel-session collision); `CLEAR:` → proceed.
