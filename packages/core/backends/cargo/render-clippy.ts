@@ -20,7 +20,8 @@
 
 import { diag } from '../../diagnostics/registry.ts';
 import type { ConventionNode } from '../../ir/types.ts';
-import { assertEveryNodeResolved, type RenderOutcome } from './render-outcome.ts';
+import { assertEveryNodeResolved, type RenderOutcome } from '../shared/render-outcome.ts';
+import type { ToolchainBackend } from '../shared/toolchain-backend.ts';
 
 type BackendParamKind = 'method' | 'type' | 'macro';
 
@@ -137,6 +138,17 @@ export function renderCargoClippy(nodes: ConventionNode[]): { toml: string; outc
   const toml = renderToml(byTable);
   return { toml, outcomes };
 }
+
+// ToolchainBackend<string> conformance (3c). The public renderCargoClippy is NOT renamed and
+// keeps its `{ toml, outcomes }` shape; this declaration adapts it to the generic
+// `{ artifacts, outcomes }` frame at the declaration site (its artifact is the TOML string).
+export const cargoClippyBackend = {
+  name: BACKEND_NAME,
+  render(nodes: ConventionNode[]) {
+    const { toml, outcomes } = renderCargoClippy(nodes);
+    return { artifacts: toml, outcomes };
+  },
+} satisfies ToolchainBackend<string>;
 
 const TABLE_ORDER = ['disallowed-methods', 'disallowed-types', 'disallowed-macros'];
 

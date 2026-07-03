@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ConventionNode } from '../../ir/types.ts';
 import { runGrammarGate } from '../../ir/gates/grammar.ts';
-import { assertEveryNodeResolved, type RenderOutcome } from './render-outcome.ts';
+import { assertEveryNodeResolved, type RenderOutcome } from '../shared/render-outcome.ts';
 import { renderCargoClippy } from './render-clippy.ts';
 import { FIXTURE_NODE } from './test-fixtures.ts';
 

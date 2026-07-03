@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { ConventionNode } from '../../ir/types.ts';
-import { assertEveryNodeResolved } from '../cargo/render-outcome.ts';
+import { assertEveryNodeResolved } from '../shared/render-outcome.ts';
 import { nodeToSynthesizedRule, renderNpmDeclarative } from './from-node.ts';
 
 // --- Canonical syntax node (brief P1): no-direct-process-env ----------------------------
