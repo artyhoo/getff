@@ -1,7 +1,7 @@
-5662fbfb893bd30b2cef1ae5d4be77193f4139a9633c60c5db791f22e85a4781  .ai-factory/ARCHITECTURE.ts-server.md
+854cfb38f3d4acfd40245b5b490e5163658e2e98b0573239c15dd5802d16f5cb  .ai-factory/ARCHITECTURE.ts-server.md
 4d84d024cd89bbe08b57273a965c6e72b37ff34651c032101131e62c02346621  .ai-factory/DESCRIPTION.template.md
-2e244cda6b4692cbfb77b16ca04e727aa469d6e63b664523ba4848bd2232efcb  .ai-factory/RULES.md
-e9562da75056ca6bc8ddc0ccacf15405ad3b5c3de9a79021029e9a28118760d5  .ai-factory/rules/integration-rules.md
+195b728d635d9789b291419cd0ecd04e310af5d399b1be6dd1284c9f17ed77e4  .ai-factory/RULES.md
+e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 7a0a04091d03f039d9f025b8278bac98966e5a9b5ae51a7b636e42e31f9cba57  .ai-factory/skill-context/aif-orchestrator-discipline/SKILL.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
 7d6b6061459f0939e64358447d0905329ddd4c52abd459ee8d9d201653ffb791  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -67,12 +67,12 @@ dc81b0178b42ad6b120d92eeaa65de0bb60b0a0744c9205dcb6d7d7814d9bf5d  .claude/skills
 1eec4cec44402238c004dbcef2a953b0e19b0fbdd01f344e8ff46b87e3923bda  .claude/skills/pipeline/references/red-flags.md
 099f646a8f53b2faff048ac0404ebdfa8b42a12b5a610d74c68dcca499f4f39c  .claude/skills/pipeline/templates/meta-kickoff.template.md
 e279a989947be84b0fd28929640037ed4c5753b2d7adcb158129af3fa62d129d  .claude/skills/pipeline/templates/state.md.template
-86e259a3425dc8dbcf40d8bc3600bc14c0fca5ba45bf809eb77144c743357e20  .claude/skills/rules-as-tests/SKILL.md
+fc304d45e7f2d0896e6e7fbb6fd8fcac403c8e40c02e9aa14f28220c5461d907  .claude/skills/rules-as-tests/SKILL.md
 9cf60a06f9448d9666799a640dc4d5a93aa7c24292adc85b00f20af914e7ecc7  .claude/skills/rules-as-tests/references/ai-traps.md
-4ecd9cd5dccfb3a16a7a72c2eabb2a847dd73bcd445595070ed08cc1a9e53d21  .claude/skills/rules-as-tests/references/checks-map.md
+b62fe5a9ae04179432ec4557fc203ac589cde66ec50182c0b25edba934b21cce  .claude/skills/rules-as-tests/references/checks-map.md
 421649209ad31993e1ea89bb6e2a813254f2effd9a948da0798cadf11a7ddc93  .claude/skills/rules-as-tests/references/doc-organization.md
 e2bad837ee42f3c61cdbe440461721477d4761c6bfae24209b1504d3e673998f  .claude/skills/rules-as-tests/references/overview.md
-20fa73731f967aed19cc5be75e10c3eb50ad9e9f16986d5848a85c9d3d27688a  .claude/skills/rules-as-tests/references/self-testing-docs.md
+ab0683e5cdcdad176740a3a2a58a14d9fedd0aa75aa01cea83125d0ebe7d27d7  .claude/skills/rules-as-tests/references/self-testing-docs.md
 a4a1d9a97e0c5b6e202a28735269056269a7668299c67a719bef9605117b8d55  .claude/skills/template-audit/SKILL.md
 5e6b0ef8592298f302c55be3ba5e6f08b3bde16796498851c3dbbfa49181d434  .claude/skills/tool-bootstrapping/SKILL.md
 18971ed38cd6a928cd9965ea202cb8fd0981d753aad6e57092603b33308d57bc  .claude/skills/tool-bootstrapping/references/decision-format.md
