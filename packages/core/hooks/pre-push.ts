@@ -818,10 +818,11 @@ async function main(): Promise<void> {
   {
     const r = run('npm', ['--prefix', CORE, 'run', 'test:backends']);
     if (r.notFound) {
-      die('❌ npm/npx not found. Install Node.js to enable backend meta-tests.');
+      die(
+        '❌ npm/npx not found. Install Node.js to enable backend meta-tests.',
+      );
     }
-    if (r.exitCode !== 0)
-      die('❌ backend tests failed — fix before push', r);
+    if (r.exitCode !== 0) die('❌ backend tests failed — fix before push', r);
     emit(r);
   }
 
