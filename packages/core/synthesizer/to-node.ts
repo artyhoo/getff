@@ -12,19 +12,24 @@
 // the node (ir/types.ts:3 field freeze).
 //
 // Byte-identity lock (brief §3, T-3B-A): this врезка MUST keep synthesize()'s output
-// byte-identical to today. Two DIFFERENT locks cover two DIFFERENT paths — do not conflate:
-//   - Passthrough + gate-in-flow (the whole current canonical corpus): `synthesizer/
-//     snapshot.test.ts` (deep-equal against frozen expected-*.json — byte-exact) and
-//     `tests/acceptance/canonical-regen*` (similarity ≥ 0.95 acceptance — NOT byte-exact;
-//     the byte-exact guarantee is the snapshot's, not this one's). The canonical corpus
-//     (self-synth + fixture-synth) contains ZERO declarative-syntax rules, so for that
-//     corpus these locks only exercise the non-syntax PASSTHROUGH + the grammar gate — the
-//     npm adapter is NEVER hit by them. A snapshot diff that is NOT a temporary distortion
-//     is a projection-loss signal (лоси проекции) → escalate, do NOT edit assertion/snapshot.
-//   - The npm ADAPTER projection (declarative-syntax rules): byte-locked at UNIT level by
-//     `synthesizer/to-node.test.ts` (the check.message≠title trap + `toEqual` round-trip,
-//     verified live: breaking mergeEnrichment turns it RED). This is the honest N5 for the
-//     adapter path — the corpus has no declarative rule to make the integration lock fire.
+// byte-identical to today — byte-EXACT, INCLUDING object key order (emit.ts serializes the
+// manifest via JSON.stringify, so a key reorder changes the emitted bytes even when the rule
+// is semantically identical). mergeEnrichment reconstructs the output in the ORIGINAL rule's
+// key iteration order for exactly this reason (review BLOCKER-1 fix). Which locks cover what:
+//   - ORDER-SENSITIVE byte-exact lock (the real one for the adapter path): `synthesizer/
+//     to-node.test.ts` asserts `JSON.stringify(wireRuleThroughNode(rule)) === JSON.stringify(rule)`
+//     for BOTH a declarative-syntax rule (R20-shaped — routes through the npm adapter) and a
+//     non-syntax rule. `toEqual` alone is order-INSENSITIVE and did NOT catch the pre-fix
+//     reorder; the JSON.stringify assertion is what byte-locks key order.
+//   - Corpus regen locks: `tests/acceptance/canonical-regen*` synthesizes the frozen
+//     `expected-canonical-v15.json` — which DOES contain declarative-syntax rules (R14 + R20
+//     route through the npm adapter; only R12 is non-syntax). It compares via `presetSimilarity`
+//     (ruleIds/eslintKeys overlap ≥ 0.95) — an ORDER-INSENSITIVE metric that does NOT byte-lock
+//     the projection (it stayed 1.0 under the pre-fix key reorder). `synthesizer/snapshot.test.ts`
+//     deep-equals the next-16 fixture plan (also order-insensitive `toEqual`). So the corpus DOES
+//     exercise the adapter, but the byte-exact key-order guarantee is the to-node.test.ts
+//     assertion's, NOT the corpus metrics'. A snapshot diff that is NOT a temporary distortion is
+//     a projection-loss signal (лоси проекции) → escalate, do NOT edit assertion/snapshot.
 
 import type { Severity } from '../diagnostics/types.ts';
 import { nodeToSynthesizedRule, type NpmEnrichment } from '../backends/npm/from-node.ts';
@@ -90,6 +95,15 @@ export function buildNode(
     id: entryId,
     claim: rule.title,
     anchors: [],
+    // For a declarative-syntax rule this is a REAL classification ('syntax' — the adapter
+    // renders it). For a non-syntax rule (eslint/command/script/manual) the node exists ONLY
+    // to stand the grammar gate in the flow (T15/N4) and is then discarded — wireRuleThroughNode
+    // returns the original rule unchanged before the adapter is ever reached, so this value is
+    // NEVER consumed. 'dep-graph' is a throwaway placeholder here, NOT a real dependency-graph
+    // classification of the rule. (Latent trap guard: if a future stage feeds these gate-only
+    // nodes to the npm router in from-node.ts, 'dep-graph' would be refused FF7001 with a
+    // misleading "dependency-level ban" note — at that point give non-syntax nodes a truthful
+    // class or route them away before the router, do not let this placeholder leak.)
     selectorClass: isSyntaxDeclarative(rule.check) ? 'syntax' : 'dep-graph',
     params,
     defaultSeverity: DEFAULT_NODE_SEVERITY,
@@ -141,28 +155,87 @@ export function wireRuleThroughNode(rule: SynthesizedRule): SynthesizedRule {
 }
 
 /**
- * Overlay the enrichment + check-detail fields the adapter's node-projection cannot produce
- * onto the adapter output, so the result is byte-identical to the producer's original rule:
- *   - `id`             : adapter uses node.id (= entryId); the producer's rule.id is G{n}.
- *   - `check`          : the adapter sets check.message = claim and omits engine when the
- *                        node carries none; the recipe's check.message often DIFFERS from
- *                        the title/claim and always carries `engine` — restore the exact
- *                        producer check.
- *   - `research.entryId`: adapter sets it to node.id (= entryId) — same value, restored
- *                        explicitly for clarity.
+ * Reconstruct the byte-identical SynthesizedRule from (a) the adapter's node-projection and
+ * (b) the producer's original rule — preserving the ORIGINAL rule's exact key iteration order
+ * so `JSON.stringify(merged) === JSON.stringify(original)` (byte-exact, review BLOCKER-1).
+ *
+ * WHY key order matters and why a spread cannot be used here: the adapter builds `{id, title,
+ * …}` (id-first), and a trailing `{...projected, negative-test}` spread would (1) hoist `id`
+ * to the front and (2) append `negative-test` after `research`. The producer instead places
+ * `negative-test` before `id`, `id` before `research`. A naive spread therefore REORDERS keys
+ * for declarative rules — semantically identical, but not byte-identical (emit.ts writes the
+ * manifest via JSON.stringify, so the emitted bytes diverge). We rebuild field-by-field in the
+ * original's own iteration order to eliminate the reorder.
+ *
+ * Field sourcing (the adapter projection stays genuinely USED — a broken adapter is still
+ * caught, because the node-backbone-owned fields are taken from `projected`, not `original`):
+ *   - `title`            <- projected.title   (= node.claim; node backbone owns the claim)
+ *   - `examples`         <- projected.examples (= node.pairedExamples; backbone owns the pair)
+ *   - `check.selector`   <- projected.check.selector  (round-trips through node.params)
+ *   - `check.presence`   <- projected.check.presence  (round-trips through node.params)
+ *   - `check` other keys <- original.check   (engine + exact message + messageId are enrichment
+ *                          the node cannot carry — the adapter would overwrite message with the
+ *                          claim; restore the producer's exact check, in the producer's key order)
+ *   - `id`               <- original.id       (adapter uses node.id = entryId; producer id is G{n})
+ *   - `research`         <- original.research (adapter sets research.entryId = node.id — same
+ *                          value; restore the producer's object for byte-exact provenance order)
+ *   - `stack` / `applies-to` <- projected     (the adapter re-emitted them from enrichment; taking
+ *                          the projected copy proves the enrichment round-trip is used)
  *   - `negative-test` / `fixture` / `liveness-mode` / `pressure-scenario`: pure enrichment,
- *                        never in the node — carried from the producer's rule when present.
+ *                          never in the node — carried from the producer's rule when present.
  */
 function mergeEnrichment(projected: SynthesizedRule, original: SynthesizedRule): SynthesizedRule {
-  const merged: SynthesizedRule = {
-    ...projected,
-    id: original.id,
-    check: original.check, // exact producer check (engine + exact message + messageId)
-    research: original.research,
-    ...(original['negative-test'] !== undefined ? { 'negative-test': original['negative-test'] } : {}),
-    ...(original.fixture !== undefined ? { fixture: original.fixture } : {}),
-    ...(original['liveness-mode'] !== undefined ? { 'liveness-mode': original['liveness-mode'] } : {}),
-    ...(original['pressure-scenario'] !== undefined ? { 'pressure-scenario': original['pressure-scenario'] } : {}),
+  // Per-key value resolver. The adapter projection is the source for the node-backbone-owned
+  // fields (title, examples, and the selector/presence sub-fields of check); everything else is
+  // the producer's enrichment. `check` is rebuilt in the ORIGINAL check's key order so a
+  // declarative check's `{type, engine, selector, message, presence}` order is byte-preserved.
+  const resolve = (key: string): unknown => {
+    switch (key) {
+      case 'title':
+        return projected.title; // node backbone owns the claim -> title
+      case 'examples':
+        return projected.examples; // node backbone owns pairedExamples -> examples
+      case 'stack':
+        return projected.stack; // adapter re-emits from enrichment.stack (round-trip used)
+      case 'applies-to':
+        return projected['applies-to']; // adapter re-emits from enrichment.appliesTo
+      case 'check':
+        return mergeCheck(projected.check, original.check);
+      default:
+        // id, research, negative-test, fixture, liveness-mode, pressure-scenario — enrichment /
+        // producer identity the node cannot carry (or that the adapter set to node.id).
+        return (original as unknown as Record<string, unknown>)[key];
+    }
   };
-  return merged;
+
+  // Rebuild following the ORIGINAL rule's key iteration order — this is what preserves the bytes.
+  const merged: Record<string, unknown> = {};
+  for (const key of Object.keys(original)) {
+    merged[key] = resolve(key);
+  }
+  return merged as unknown as SynthesizedRule;
+}
+
+/**
+ * Rebuild the `check` field in the ORIGINAL check's key order, taking the selector + presence
+ * from the adapter's projection (they round-trip through node.params, so the projection is
+ * genuinely used) while preserving every other producer key (type, engine, message, messageId)
+ * exactly and in place. For a non-declarative check there is no selector/presence to project;
+ * the original check is returned verbatim.
+ */
+function mergeCheck(projectedCheck: ManifestCheck, originalCheck: ManifestCheck): ManifestCheck {
+  if (originalCheck.type !== 'declarative' || projectedCheck.type !== 'declarative') {
+    return originalCheck;
+  }
+  const rebuilt: Record<string, unknown> = {};
+  for (const key of Object.keys(originalCheck)) {
+    if (key === 'selector') {
+      rebuilt[key] = projectedCheck.selector; // from node.params.selector (projection used)
+    } else if (key === 'presence') {
+      rebuilt[key] = projectedCheck.presence; // from node.params.presence (projection used)
+    } else {
+      rebuilt[key] = (originalCheck as unknown as Record<string, unknown>)[key]; // engine/message/messageId
+    }
+  }
+  return rebuilt as unknown as ManifestCheck;
 }

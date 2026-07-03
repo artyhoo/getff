@@ -9,6 +9,7 @@
 // declarative round-trip byte-identity, non-declarative passthrough, gate-failure surfacing).
 
 import { describe, expect, it } from 'vitest';
+import { nodeToSynthesizedRule } from '../backends/npm/from-node.ts';
 import type { Provenance } from '../research/types.ts';
 import { buildNode, GrammarGateError, isSyntaxDeclarative, wireRuleThroughNode } from './to-node.ts';
 import type { SynthesizedRule } from './types.ts';
@@ -97,9 +98,11 @@ describe('buildNode — projects the convention backbone only (enrichment stays 
     expect(node.provenance).toEqual(PROV);
   });
   it('declarative rule -> syntax node carrying params.selector + presence', () => {
+    // Narrow the check union once so the selector is a plain string literal in the assertion.
+    if (DECLARATIVE_RULE.check.type !== 'declarative') throw new Error('fixture must be declarative');
     const node = buildNode(DECLARATIVE_RULE, 'x', PROV);
     expect(node.selectorClass).toBe('syntax');
-    expect(node.params['selector']).toBe(DECLARATIVE_RULE.check.type === 'declarative' && DECLARATIVE_RULE.check.selector);
+    expect(node.params['selector']).toBe(DECLARATIVE_RULE.check.selector);
     expect(node.params['presence']).toBe('require');
   });
   it('non-declarative rule -> non-syntax node with empty params (still gate-able)', () => {
@@ -123,6 +126,16 @@ describe('wireRuleThroughNode — врезка is byte-identical (the T-3B-A loc
     expect(out).toEqual(DECLARATIVE_RULE);
   });
 
+  // BYTE-EXACT, ORDER-SENSITIVE lock (review BLOCKER-1). `toEqual` above is order-INSENSITIVE
+  // and did NOT catch that the adapter's `{id,...}`-first order + a trailing enrichment spread
+  // reordered keys for declarative rules (id hoisted to front; negative-test appended after
+  // research). This is the order-sensitive lock the врезка's byte-identity contract actually
+  // needs — canonical-regen's presetSimilarity metric is order-insensitive and does NOT byte-lock.
+  it('declarative rule: JSON.stringify(out) === JSON.stringify(input) — byte-exact, key-order preserved', () => {
+    const out = wireRuleThroughNode(DECLARATIVE_RULE);
+    expect(JSON.stringify(out)).toBe(JSON.stringify(DECLARATIVE_RULE));
+  });
+
   it('the differing check.message survives the врезка (adapter would overwrite it with claim)', () => {
     const out = wireRuleThroughNode(DECLARATIVE_RULE);
     if (out.check.type !== 'declarative') throw new Error('expected declarative');
@@ -144,9 +157,53 @@ describe('wireRuleThroughNode — врезка is byte-identical (the T-3B-A loc
     expect(out).toEqual(ESLINT_RULE);
   });
 
+  // BYTE-EXACT lock for the non-syntax path too (review BLOCKER-1). Non-syntax returns the
+  // rule object identity unchanged, so key order is trivially preserved — but pin it so a
+  // future refactor that starts reconstructing the non-syntax output cannot silently reorder.
+  it('non-declarative (eslint) rule: JSON.stringify(out) === JSON.stringify(input) — byte-exact', () => {
+    const out = wireRuleThroughNode(ESLINT_RULE);
+    expect(JSON.stringify(out)).toBe(JSON.stringify(ESLINT_RULE));
+  });
+
   it('a manual rule passes the gate and is returned unchanged', () => {
     const out = wireRuleThroughNode(MANUAL_RULE);
     expect(out).toEqual(MANUAL_RULE);
+  });
+});
+
+describe('wireRuleThroughNode — the adapter projection stays genuinely USED (not discarded)', () => {
+  // The node backbone OWNS title (<- claim) and examples (<- pairedExamples). The byte-exact
+  // output MUST take those fields from the adapter's projected output, so a broken adapter is
+  // still caught. These tests prove the fields flow THROUGH the adapter: the врезка's title and
+  // examples equal what nodeToSynthesizedRule projects from the node — NOT a passthrough copy of
+  // the original. (Distortion coverage: if the adapter's title/examples projection is broken,
+  // the byte-exact declarative lock above goes RED — verified live in the fix report.)
+  it('the byte-exact output title equals the ADAPTER-projected title (node.claim), not a bypass copy', () => {
+    const node = buildNode(DECLARATIVE_RULE, DECLARATIVE_RULE.research.entryId, PROV);
+    const projected = nodeToSynthesizedRule(node, {
+      stack: DECLARATIVE_RULE.stack,
+      appliesTo: DECLARATIVE_RULE['applies-to'],
+    });
+    const out = wireRuleThroughNode(DECLARATIVE_RULE);
+    // title + examples in the врезка output are the adapter's projection (claim/pairedExamples),
+    // proving the projection is used, not discarded.
+    expect(out.title).toBe(projected.title);
+    expect(out.examples).toEqual(projected.examples);
+    // …and the adapter genuinely projects them from the node backbone, not from the original rule.
+    expect(projected.title).toBe(node.claim);
+    expect(projected.examples.bad).toBe(node.pairedExamples.negative);
+    expect(projected.examples.good).toBe(node.pairedExamples.positive);
+  });
+
+  it('the declarative check.selector/presence in the output come from the ADAPTER projection', () => {
+    const node = buildNode(DECLARATIVE_RULE, DECLARATIVE_RULE.research.entryId, PROV);
+    const projected = nodeToSynthesizedRule(node, { stack: DECLARATIVE_RULE.stack });
+    const out = wireRuleThroughNode(DECLARATIVE_RULE);
+    if (out.check.type !== 'declarative' || projected.check.type !== 'declarative') {
+      throw new Error('expected declarative checks');
+    }
+    expect(out.check.selector).toBe(projected.check.selector);
+    expect(out.check.presence).toBe(projected.check.presence);
   });
 });
 
@@ -173,5 +230,12 @@ describe('wireRuleThroughNode — the grammar gate stands IN the flow (T15 / N4)
       examples: { bad: '', good: 'x();' },
     };
     expect(() => wireRuleThroughNode(emptyExample)).toThrow(GrammarGateError);
+    // Mirror the FF6001 sibling: assert the diagnostic carries the expected code, not just that
+    // *a* GrammarGateError threw (MINOR-3). An empty example is an FF1001 shape failure.
+    try {
+      wireRuleThroughNode(emptyExample);
+    } catch (e) {
+      expect((e as GrammarGateError).diagnostics).toContain('FF1001');
+    }
   });
 });

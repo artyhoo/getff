@@ -94,8 +94,11 @@ export function synthesize(plan: ResearchPlan): SynthesisPlan {
     };
     // MT S3b врезка: thread the composed rule through the IR plane — build a ConventionNode
     // from its backbone, run the grammar gate (throws OUTWARD on failure), and route the
-    // declarative-syntax class through the shipped npm adapter. Byte-identical to `composed`
-    // by construction (enrichment merged back); locked by canonical-regen + snapshot.test.ts.
+    // declarative-syntax class through the shipped npm adapter. The output is reconstructed in
+    // `composed`'s own key iteration order so it is byte-EXACT (key order included) with the
+    // producer's rule. Corpus regen (canonical-regen: R14/R20 are declarative, so the adapter IS
+    // exercised) + snapshot.test.ts cover semantics via order-INSENSITIVE metrics; the
+    // ORDER-SENSITIVE byte lock is the JSON.stringify assertion in synthesizer/to-node.test.ts.
     const rule = wireRuleThroughNode(composed);
     rules.push(rule);
     if (rule.check.type === 'declarative') {
