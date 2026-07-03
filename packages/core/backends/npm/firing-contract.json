@@ -1,0 +1,4 @@
+{
+  "command": "npx vitest run backends/npm/firing",
+  "expectedRuleId": "no-restricted-syntax"
+}
