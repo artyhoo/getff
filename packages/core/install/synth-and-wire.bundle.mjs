@@ -2110,7 +2110,7 @@ var require_code = __commonJS({
       else if (arg instanceof Name)
         code.push(arg);
       else
-        code.push(interpolate(arg));
+        code.push(interpolate2(arg));
     }
     exports.addCodeArg = addCodeArg;
     function optimize(expr) {
@@ -2149,7 +2149,7 @@ var require_code = __commonJS({
       return c2.emptyStr() ? c1 : c1.emptyStr() ? c2 : str`${c1}${c2}`;
     }
     exports.strConcat = strConcat;
-    function interpolate(x) {
+    function interpolate2(x) {
       return typeof x == "number" || typeof x == "boolean" || x === null ? x : safeStringify(Array.isArray(x) ? x.join(",") : x);
     }
     function stringify(x) {
@@ -8578,30 +8578,282 @@ import { fileURLToPath as fileURLToPath3 } from "node:url";
 import { readFileSync as readFileSync2 } from "node:fs";
 
 // packages/core/research/internal-validators.ts
-var import_ajv = __toESM(require_ajv(), 1);
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+// packages/core/diagnostics/ajv.ts
+var import_ajv = __toESM(require_ajv(), 1);
+
+// packages/core/diagnostics/registry.ts
+var REGISTRY = Object.freeze({
+  // --- FF1xxx: schema/shape (ajv), both pipelines ---
+  FF1001: {
+    template: "schema violation: {keyword} at {instancePath} (schema: {schemaPath})",
+    defaultSeverity: "error",
+    explanation: "Generic ajv schema-shape violation. keyword is ajv's own discriminator; per-keyword codes would bloat the registry with no consumer (spec \xA73.2)."
+  },
+  // --- FF2xxx: provenance/trust (resolveAllowedSources / validateProvenance) ---
+  FF2001: {
+    template: "malformed URL: {url}",
+    defaultSeverity: "error",
+    explanation: "p.url (or finalUrl) failed `new URL()` parsing. allowlist-resolver.ts parseHttpsHost."
+  },
+  FF2002: {
+    template: "non-https URL: {url}",
+    defaultSeverity: "error",
+    explanation: 'URL parsed but protocol !== "https:". allowlist-resolver.ts parseHttpsHost.'
+  },
+  FF2003: {
+    template: "IP-literal host {host} rejected: registrable domain names only",
+    defaultSeverity: "error",
+    explanation: "Host is a bare IPv4 or bracketed IPv6 literal. allowlist-resolver.ts parseHttpsHost."
+  },
+  FF2004: {
+    template: "punycode (xn--) host {host} rejected outside an explicit Tier-2 ack",
+    defaultSeverity: "error",
+    explanation: "Host carries an xn-- (IDN/punycode) label and is not explicitly acked. allowlist-resolver.ts punycodeReject."
+  },
+  FF2005: {
+    template: "unknown allowlistKey: {allowlistKey}",
+    defaultSeverity: "error",
+    explanation: "allowlistKey matched no Tier-0 builtin, no Tier-1 miss reason, and no Tier-2 ack. allowlist-resolver.ts validateUrlAgainstTiers (terminal fallback)."
+  },
+  FF2006: {
+    template: "host {host} not allowed under key {allowlistKey} (expected one of: {expectedHosts})",
+    defaultSeverity: "error",
+    explanation: "allowlistKey matched a Tier-0 builtin, but the URL host is not in that key's host list. allowlist-resolver.ts validateUrlAgainstTiers (Tier 0 branch)."
+  },
+  FF2007: {
+    template: "host not authorized: `{packageName}` is not a direct dependency",
+    defaultSeverity: "error",
+    explanation: "Tier-1 direct-dep gate: packageName is not in the consumer's direct dependency set. allowlist-resolver.ts resolveAllowedSources tier1For."
+  },
+  FF2008: {
+    template: "host not authorized: Tier-1 unavailable for `{packageName}` (no ecosystem adapter wired \u2014 S2)",
+    defaultSeverity: "error",
+    explanation: "No EcosystemAdapter wired on the ResolveCtx (S1 back-compat path, or no ctx at all) \u2014 Tier-1 always misses. allowlist-resolver.ts resolveAllowedSources tier1For."
+  },
+  FF2009: {
+    template: "no Tier-1-eligible host in {packageName} metadata (multi-tenant or non-https)",
+    defaultSeverity: "error",
+    explanation: "Tier-1 derivation found zero eligible hosts across homepage/repository metadata (multi-tenant apex, non-https, IP-literal, or punycode all fold into this single reason \u2014 DN-D1-2: the resolver emits ONE reason string for all four causes, so ONE code is honest to what is actually emitted). allowlist-resolver.ts resolveAllowedSources tier1For."
+  },
+  FF2010: {
+    template: "cross-package provenance: packageName {packageName} !== entry.package {entryPackage} (T-RTT-A)",
+    defaultSeverity: "error",
+    explanation: "Tier-1 scope-lock: the provenance packageName does not match the entry's own package. allowlist-resolver.ts validateUrlAgainstTiers (Tier 1 branch)."
+  },
+  FF2011: {
+    template: "host not authorized: not in the Tier-1 host set of `{packageName}`",
+    defaultSeverity: "error",
+    explanation: "Tier-1 resolved a host set for packageName, but the URL host is not in it. allowlist-resolver.ts validateUrlAgainstTiers (Tier 1 branch)."
+  },
+  FF2012: {
+    template: "ack key {allowlistKey} is scoped to package {scope}",
+    defaultSeverity: "error",
+    explanation: "Tier-2 ack entry carries a scope that does not match opts.entryPackage. allowlist-resolver.ts validateUrlAgainstTiers (Tier 2 branch)."
+  },
+  FF2013: {
+    template: "host {host} not allowed under ack key {allowlistKey} (acked hosts: {ackedHosts})",
+    defaultSeverity: "error",
+    explanation: "Tier-2 ack entry exists for allowlistKey, but the URL host is not in its acked hosts. allowlist-resolver.ts validateUrlAgainstTiers (Tier 2 branch)."
+  },
+  FF2014: {
+    template: "{ackFileReason}",
+    defaultSeverity: "error",
+    explanation: "Ack-file malformed family \u2014 thrown as AckFileError (NEW-2), NOT returned by validateProvenance. Covers: malformed JSON, bad shape, malformed ackedAt date, IP-literal ack host, single-label ack host (#857), duplicate key. allowlist-resolver.ts loadAckFile throw sites."
+  },
+  FF2015: {
+    template: "finalUrl redirect crosses to an unauthorized host: {innerReason}",
+    defaultSeverity: "error",
+    explanation: "p.finalUrl is present, differs from p.url, and independently fails the same tier resolution. allowlist-resolver.ts validateProvenance (finalUrl redirect check)."
+  },
+  // --- FF3xxx: L4 semantic gates (validator/gate-*.ts) ---
+  // One code per failure KIND per gate (DN-D1-4, spec-literal per-gate
+  // allocation — 20 codes, not the 16-code shared-astgrep alternative).
+  // The astgrep-deferred branch appears in 5 gates; each gets its own code
+  // because its message text already diverges per gate (e.g.
+  // gate-require-vacuity.ts's wording differs from the other four) and the
+  // gate identity is a meaningful discriminator for the `path`/context.
+  FF3001: {
+    template: "SynthesisPlan schema violation: {details}",
+    defaultSeverity: "error",
+    explanation: "Gate 1 (schema): plan fails synthesis-plan.schema.json (ajv). gate-schema.ts."
+  },
+  FF3002: {
+    template: "{checkType}-checked rule has no negative-test (required by L4 gate 2 \u2014 rule-tester roundtrip)",
+    defaultSeverity: "error",
+    explanation: "Gate 1 (schema): an eslint/declarative rule is missing its negative-test. gate-schema.ts."
+  },
+  FF3003: {
+    template: "ast-grep engine reserved but not wired \u2014 deferred per generator-forbid-mvp decision (i)",
+    defaultSeverity: "error",
+    explanation: "Gate 2 (ruleTester): declarative rule declares engine ast-grep, deferred. gate-rule-tester.ts."
+  },
+  FF3004: {
+    template: "eslint rule has no negative-test (gate 1 catches this; gate 2 cannot run without it)",
+    defaultSeverity: "error",
+    explanation: "Gate 2 (ruleTester): eslint-type rule missing negative-test. gate-rule-tester.ts."
+  },
+  FF3005: {
+    template: "negative-test.input[{idx}] did not produce expected violation '{expectViolation}' for rule '{ruleName}'; got {got}",
+    defaultSeverity: "error",
+    explanation: "Gate 2 (ruleTester): negative-test input did not fire the expected violation. gate-rule-tester.ts."
+  },
+  FF3006: {
+    template: "examples.good produced unexpected violation: rule='{ruleId}' message='{message}'",
+    defaultSeverity: "error",
+    explanation: "Gate 2 (ruleTester): examples.good unexpectedly fired the rule. gate-rule-tester.ts."
+  },
+  FF3007: {
+    template: "tautology \u2014 rule '{ruleName}' fires on negative-corpus/{fileName}: {details}",
+    defaultSeverity: "error",
+    explanation: "Gate 4 (tautology): rule fires on a fixed negative-corpus file. gate-tautology.ts."
+  },
+  FF3008: {
+    template: "references plugin rule '{ruleName}' that does not exist in the preset plugin registry; known: {knownRules}",
+    defaultSeverity: "error",
+    explanation: "Gate 6 (conflict): plugin rule reference orphan. gate-conflict.ts."
+  },
+  FF3009: {
+    template: "synthesized rule references '{ruleName}' but eslintConfigSnippet has no entry for it (B1 merge may have dropped the rule, or recipe.eslintRuleConfig is empty)",
+    defaultSeverity: "error",
+    explanation: "Gate 6 (conflict): eslintConfigSnippet is missing an entry for a referenced rule. gate-conflict.ts."
+  },
+  FF3010: {
+    template: "ast-grep engine reserved but not wired \u2014 deferred per generator-forbid-mvp decision (i)",
+    defaultSeverity: "error",
+    explanation: "Gate 7 (singleTokenDiff): declarative rule declares engine ast-grep, deferred. gate-single-token-diff.ts."
+  },
+  FF3011: {
+    template: "single-token-diff: examples.bad and examples.good differ by {distance} tokens (threshold {threshold}) \u2014 pair does not isolate the forbidden construct; reduce to a minimal \u22481 token / 1 AST-node difference",
+    defaultSeverity: "error",
+    explanation: "Gate 7 (singleTokenDiff): bad/good example pair exceeds MAX_TOKEN_EDITS. gate-single-token-diff.ts."
+  },
+  FF3012: {
+    template: "ast-grep engine reserved but not wired \u2014 deferred per generator-forbid-mvp decision (i)",
+    defaultSeverity: "error",
+    explanation: "Gate 8 (messageIdCoverage): declarative rule declares engine ast-grep with a declared message/messageId, deferred. gate-message-id-coverage.ts."
+  },
+  FF3013: {
+    template: "messageId-coverage: declared check.message '{declaredMessage}' not found in emitted message '{emittedMessage}' \u2014 declared message is unreachable",
+    defaultSeverity: "error",
+    explanation: "Gate 8 (messageIdCoverage): declared check.message never appears in the actually-emitted message. gate-message-id-coverage.ts."
+  },
+  FF3014: {
+    template: "messageId-coverage: declared check.messageId '{declaredMessageId}' does not match emitted messageId '{emittedMessageId}' \u2014 declared messageId is unreachable",
+    defaultSeverity: "error",
+    explanation: "Gate 8 (messageIdCoverage): declared check.messageId never matches the actually-emitted messageId. gate-message-id-coverage.ts."
+  },
+  FF3015: {
+    template: "ast-grep engine reserved but not wired \u2014 deferred per generator-forbid-mvp decision (i)",
+    defaultSeverity: "error",
+    explanation: "Gate 9 (autofixClean): declarative rule declares engine ast-grep, deferred. gate-autofix-clean.ts."
+  },
+  FF3016: {
+    template: "autofix-clean: fixer for '{ruleName}' produced unparseable output \u2014 {details}",
+    defaultSeverity: "error",
+    explanation: "Gate 9 (autofixClean): one-pass fixer output fails to parse. gate-autofix-clean.ts."
+  },
+  FF3017: {
+    template: "autofix-clean: fixer for '{ruleName}' left {count} violation(s) in fixed output \u2014 fix is incomplete or introduces new same-rule violations",
+    defaultSeverity: "error",
+    explanation: "Gate 9 (autofixClean): fixer output still has same-rule violations after one pass. gate-autofix-clean.ts."
+  },
+  FF3018: {
+    template: "ast-grep engine reserved but not wired for require-vacuity gate \u2014 deferred per generator-require-composite-tier decision",
+    defaultSeverity: "error",
+    explanation: "requireVacuity gate: declarative require-presence rule declares engine ast-grep, deferred. gate-require-vacuity.ts."
+  },
+  FF3019: {
+    template: "require-vacuity direction A \u2014 selector never fires on examples.bad; rule can never catch violations",
+    defaultSeverity: "error",
+    explanation: "requireVacuity gate: selector never fires on the bad example (always-green false negative). gate-require-vacuity.ts."
+  },
+  FF3020: {
+    template: "require-vacuity direction B \u2014 selector fires on good example ({count} violation{plural}); rule fires unconditionally",
+    defaultSeverity: "error",
+    explanation: "requireVacuity gate: selector fires on the good example too (always-red false positive). gate-require-vacuity.ts."
+  }
+});
+function lookup(code) {
+  const entry = REGISTRY[code];
+  if (entry === void 0) {
+    throw new Error(`diag(): unknown diagnostic code "${code}" \u2014 not in REGISTRY`);
+  }
+  return entry;
+}
+var PLACEHOLDER_RE = /\{([a-zA-Z0-9_]+)\}/g;
+function interpolate(template, params) {
+  return template.replace(PLACEHOLDER_RE, (whole, key) => {
+    if (!Object.prototype.hasOwnProperty.call(params, key)) {
+      throw new Error(
+        `diag(): template placeholder "{${key}}" has no matching params key (params: ${JSON.stringify(params)})`
+      );
+    }
+    return String(params[key]);
+  });
+}
+function diag(code, params, opts) {
+  const entry = lookup(code);
+  return {
+    code,
+    severity: opts?.severity ?? entry.defaultSeverity,
+    ...opts?.path !== void 0 ? { path: opts.path } : {},
+    params,
+    message: interpolate(entry.template, params)
+  };
+}
+
+// packages/core/diagnostics/ajv.ts
+function makeSchemaValidator(schemaDoc2, ref) {
+  const ajv2 = new import_ajv.Ajv({ allErrors: true, strict: false });
+  const baseId = ref.split("#")[0];
+  const schemaId = typeof schemaDoc2["$id"] === "string" && schemaDoc2["$id"].length > 0 ? schemaDoc2["$id"] : baseId;
+  ajv2.addSchema(schemaDoc2, schemaId);
+  return ajv2.compile({ $ref: ref });
+}
+var errorsTextAjv = new import_ajv.Ajv({ allErrors: true, strict: false });
+function errorsText(errors) {
+  return errorsTextAjv.errorsText(errors);
+}
+function ajvErrorsToDiagnostics(errors) {
+  if (!errors) return [];
+  return errors.map(
+    (err) => diag(
+      "FF1001",
+      {
+        keyword: err.keyword,
+        instancePath: err.instancePath,
+        schemaPath: err.schemaPath
+      },
+      { path: err.instancePath }
+    )
+  );
+}
+
+// packages/core/research/internal-validators.ts
 var HERE = dirname(fileURLToPath(import.meta.url));
 var _pkgCore = process.env["AIF_SYNTH_PKG_ROOT"];
 var SCHEMA_PATH = _pkgCore ? resolve(_pkgCore, "research", "research-plan.schema.json") : resolve(HERE, "research-plan.schema.json");
-var ajv = new import_ajv.Ajv({ allErrors: true, strict: false });
 var schemaDoc = JSON.parse(readFileSync(SCHEMA_PATH, "utf8"));
-ajv.addSchema(schemaDoc, "research-plan");
 var ACK_SCHEMA_PATH = _pkgCore ? resolve(_pkgCore, "research", "research-allowlist.schema.json") : resolve(HERE, "research-allowlist.schema.json");
 var ackSchemaDoc = JSON.parse(readFileSync(ACK_SCHEMA_PATH, "utf8"));
-ajv.addSchema(ackSchemaDoc, "research-allowlist");
-var validateEntry = ajv.compile({
-  $ref: "research-plan#/definitions/ResearchEntry"
-});
-var validateResearchPlanShape = ajv.compile({
-  $ref: "research-plan"
-});
-var validateAckFileShape = ajv.compile({
-  $ref: "research-allowlist"
-});
-function errorsText(errors) {
-  return ajv.errorsText(errors);
+var validateEntry = makeSchemaValidator(
+  schemaDoc,
+  "research-plan#/definitions/ResearchEntry"
+);
+var validateResearchPlanShape = makeSchemaValidator(
+  schemaDoc,
+  "research-plan"
+);
+var validateAckFileShape = makeSchemaValidator(
+  ackSchemaDoc,
+  "research-allowlist"
+);
+function errorsText2(errors) {
+  return errorsText(errors);
 }
 
 // packages/core/research/allowlist-resolver.ts
@@ -8623,6 +8875,11 @@ function hostMatches(host, allowed) {
 }
 var AckFileError = class extends Error {
   name = "AckFileError";
+  diagnostics;
+  constructor(message) {
+    super(message);
+    this.diagnostics = [diag("FF2014", { ackFileReason: message })];
+  }
 };
 function loadAckFile(path) {
   let raw;
@@ -8639,7 +8896,7 @@ function loadAckFile(path) {
     throw new AckFileError(`malformed JSON in ack file: ${path}`);
   }
   if (!validateAckFileShape(parsed)) {
-    throw new AckFileError(errorsText(validateAckFileShape.errors));
+    throw new AckFileError(errorsText2(validateAckFileShape.errors));
   }
   const doc = parsed;
   const map = /* @__PURE__ */ new Map();
@@ -8735,44 +8992,39 @@ function validateUrlAgainstTiers(rawUrl, p, resolved, opts) {
   const builtinHosts = resolved.tier0[p.allowlistKey];
   if (builtinHosts) {
     const parsed = parseHttpsHost(rawUrl);
-    if (!("host" in parsed)) return parsed;
+    if (parsed.diagnostic) return parsed.diagnostic;
     if (hasPunycodeLabel(parsed.host)) return punycodeReject(parsed.host);
-    if (hostMatches(parsed.host, builtinHosts)) return { ok: true };
-    return {
-      ok: false,
-      reason: `host ${parsed.host} not allowed under key ${p.allowlistKey} (expected one of: ${builtinHosts.join(", ")})`
-    };
+    if (hostMatches(parsed.host, builtinHosts)) return null;
+    return diag("FF2006", {
+      host: parsed.host,
+      allowlistKey: p.allowlistKey,
+      expectedHosts: builtinHosts.join(", ")
+    });
   }
   let tier1Miss;
   const packageName = p.packageName;
   if (packageName !== void 0 && opts?.entryPackage !== void 0) {
     if (packageName !== opts.entryPackage) {
-      return {
-        ok: false,
-        reason: `cross-package provenance: packageName ${packageName} !== entry.package ${opts.entryPackage} (T-RTT-A)`
-      };
+      return diag("FF2010", { packageName, entryPackage: opts.entryPackage });
     }
     const t1 = resolved.tier1For(packageName);
     if (t1.ok) {
       const parsed = parseHttpsHost(rawUrl);
-      if (!("host" in parsed)) return parsed;
+      if (parsed.diagnostic) return parsed.diagnostic;
       if (hasPunycodeLabel(parsed.host)) return punycodeReject(parsed.host);
-      if (hostMatches(parsed.host, t1.hosts)) return { ok: true };
-      tier1Miss = `host not authorized: not in the Tier-1 host set of \`${packageName}\``;
+      if (hostMatches(parsed.host, t1.hosts)) return null;
+      tier1Miss = diag("FF2011", { packageName });
     } else {
-      tier1Miss = t1.reason;
+      tier1Miss = tier1ReasonToDiagnostic(t1.reason, packageName);
     }
   }
   const ack = resolved.tier2.get(p.allowlistKey);
   if (ack) {
     if (ack.scope !== void 0 && opts?.entryPackage !== ack.scope) {
-      return {
-        ok: false,
-        reason: `ack key ${p.allowlistKey} is scoped to package ${ack.scope}`
-      };
+      return diag("FF2012", { allowlistKey: p.allowlistKey, scope: ack.scope });
     }
     const parsed = parseHttpsHost(rawUrl);
-    if (!("host" in parsed)) return parsed;
+    if (parsed.diagnostic) return parsed.diagnostic;
     if (hostMatches(parsed.host, ack.hosts)) {
       if (hasPunycodeLabel(parsed.host)) {
         const explicitlyAcked = ack.hosts.some(
@@ -8780,51 +9032,55 @@ function validateUrlAgainstTiers(rawUrl, p, resolved, opts) {
         );
         if (!explicitlyAcked) return punycodeReject(parsed.host);
       }
-      return { ok: true };
+      return null;
     }
-    return {
-      ok: false,
-      reason: `host ${parsed.host} not allowed under ack key ${p.allowlistKey} (acked hosts: ${ack.hosts.join(", ")})`
-    };
+    return diag("FF2013", {
+      host: parsed.host,
+      allowlistKey: p.allowlistKey,
+      ackedHosts: ack.hosts.join(", ")
+    });
   }
-  if (tier1Miss) return { ok: false, reason: tier1Miss };
-  return { ok: false, reason: `unknown allowlistKey: ${p.allowlistKey}` };
+  if (tier1Miss) return tier1Miss;
+  return diag("FF2005", { allowlistKey: p.allowlistKey });
+}
+function tier1ReasonToDiagnostic(reason, packageName) {
+  if (reason.includes("no ecosystem adapter wired")) {
+    return diag("FF2008", { packageName });
+  }
+  if (reason.includes("is not a direct dependency")) {
+    return diag("FF2007", { packageName });
+  }
+  return diag("FF2009", { packageName });
 }
 function validateProvenance(p, resolved, opts) {
   const urlResult = validateUrlAgainstTiers(p.url, p, resolved, opts);
-  if (!urlResult.ok) return urlResult;
+  if (urlResult !== null) return urlResult;
   if (p.finalUrl !== void 0 && p.finalUrl !== p.url) {
     const finalResult = validateUrlAgainstTiers(p.finalUrl, p, resolved, opts);
-    if (!finalResult.ok) {
-      return {
-        ok: false,
-        reason: `finalUrl redirect crosses to an unauthorized host: ${finalResult.reason}`
-      };
+    if (finalResult !== null) {
+      return diag("FF2015", { innerReason: finalResult.message });
     }
   }
-  return urlResult;
+  return null;
 }
 function parseHttpsHost(rawUrl) {
   let url;
   try {
     url = new URL(rawUrl);
   } catch {
-    return { ok: false, reason: `malformed URL: ${rawUrl}` };
+    return { diagnostic: diag("FF2001", { url: rawUrl }) };
   }
   if (url.protocol !== "https:") {
-    return { ok: false, reason: `non-https URL: ${rawUrl}` };
+    return { diagnostic: diag("FF2002", { url: rawUrl }) };
   }
   const host = canonicalizeHost(url.hostname);
   if (isIpLiteral(host)) {
-    return { ok: false, reason: `IP-literal host ${host} rejected: registrable domain names only` };
+    return { diagnostic: diag("FF2003", { host }) };
   }
   return { host };
 }
 function punycodeReject(host) {
-  return {
-    ok: false,
-    reason: `punycode (xn--) host ${host} rejected outside an explicit Tier-2 ack`
-  };
+  return diag("FF2004", { host });
 }
 
 // packages/core/research/allowlist.ts
@@ -8840,7 +9096,8 @@ var ALLOWED_SOURCES = {
 var tier0Only;
 function validateProvenance2(p) {
   tier0Only ??= resolveAllowedSources();
-  return validateProvenance(p, tier0Only);
+  const d = validateProvenance(p, tier0Only);
+  return d === null ? { ok: true } : { ok: false, reason: d.message };
 }
 
 // packages/core/research/load.ts
@@ -8848,26 +9105,38 @@ var HERE2 = dirname3(fileURLToPath3(import.meta.url));
 var _pkgCore2 = process.env["AIF_SYNTH_PKG_ROOT"];
 var STORE_ROOT = _pkgCore2 ? resolve2(_pkgCore2, "research", "store") : resolve2(HERE2, "store");
 var ResearchEntryError = class extends Error {
-  constructor(path, errors) {
+  constructor(path, errors, diagnostics = []) {
     super(`Invalid research entry at ${path}: ${errors}`);
     this.path = path;
     this.errors = errors;
+    this.diagnostics = diagnostics;
     this.name = "ResearchEntryError";
   }
   path;
   errors;
+  diagnostics;
 };
 function tryLoad(filePath) {
   if (!existsSync(filePath)) return null;
   const raw = JSON.parse(readFileSync3(filePath, "utf8"));
   if (!validateEntry(raw)) {
-    throw new ResearchEntryError(filePath, errorsText(validateEntry.errors));
+    throw new ResearchEntryError(
+      filePath,
+      errorsText2(validateEntry.errors),
+      ajvErrorsToDiagnostics(validateEntry.errors)
+    );
   }
   const entry = raw;
   for (const p of entry.provenance) {
     const v = validateProvenance2(p);
     if (!v.ok) {
-      throw new ResearchEntryError(filePath, `provenance violation \u2014 ${v.reason}`);
+      const tier0Only2 = resolveAllowedSources();
+      const d = validateProvenance(p, tier0Only2);
+      throw new ResearchEntryError(
+        filePath,
+        `provenance violation \u2014 ${v.reason}`,
+        d ? [d] : []
+      );
     }
   }
   return entry;
@@ -8905,7 +9174,7 @@ function loadEntries(framework, version, patterns) {
 }
 
 // packages/core/synthesizer/synthesize.ts
-var import_ajv2 = __toESM(require_ajv(), 1);
+var import_ajv4 = __toESM(require_ajv(), 1);
 import { existsSync as existsSync2, readFileSync as readFileSync4 } from "node:fs";
 import { dirname as dirname4, resolve as resolve3 } from "node:path";
 import { fileURLToPath as fileURLToPath4 } from "node:url";
@@ -9063,12 +9332,12 @@ var _pkgCore3 = process.env["AIF_SYNTH_PKG_ROOT"];
 var RECIPES_ROOT = _pkgCore3 ? resolve3(_pkgCore3, "synthesizer", "recipes") : resolve3(HERE3, "recipes");
 var SCHEMA_PATH2 = _pkgCore3 ? resolve3(_pkgCore3, "synthesizer", "synthesis-plan.schema.json") : resolve3(HERE3, "synthesis-plan.schema.json");
 var RECIPE_SCHEMA_PATH = _pkgCore3 ? resolve3(_pkgCore3, "synthesizer", "recipe.schema.json") : resolve3(HERE3, "recipe.schema.json");
-var ajv2 = new import_ajv2.Ajv({ allErrors: true, strict: false });
+var ajv = new import_ajv4.Ajv({ allErrors: true, strict: false });
 var schema = JSON.parse(readFileSync4(SCHEMA_PATH2, "utf8"));
-ajv2.addSchema(schema, "synthesis-plan");
-var validatePlan = ajv2.compile({ $ref: "synthesis-plan" });
+ajv.addSchema(schema, "synthesis-plan");
+var validatePlan = ajv.compile({ $ref: "synthesis-plan" });
 var recipeSchema = JSON.parse(readFileSync4(RECIPE_SCHEMA_PATH, "utf8"));
-var validateRecipe = ajv2.compile(recipeSchema);
+var validateRecipe = ajv.compile(recipeSchema);
 var SynthesisPlanError = class extends Error {
   constructor(errors) {
     super(`Invalid SynthesisPlan: ${errors}`);
@@ -9092,7 +9361,7 @@ function loadRecipe(patternId) {
   if (!existsSync2(path)) return null;
   const raw = JSON.parse(readFileSync4(path, "utf8"));
   if (!validateRecipe(raw)) {
-    throw new RecipeError(path, ajv2.errorsText(validateRecipe.errors));
+    throw new RecipeError(path, ajv.errorsText(validateRecipe.errors));
   }
   return raw;
 }
@@ -9145,7 +9414,7 @@ function synthesize(plan) {
     eslintConfigSnippet: JSON.stringify(mergedEslintConfig, null, 2)
   };
   if (!validatePlan(result)) {
-    throw new SynthesisPlanError(ajv2.errorsText(validatePlan.errors));
+    throw new SynthesisPlanError(ajv.errorsText(validatePlan.errors));
   }
   return result;
 }

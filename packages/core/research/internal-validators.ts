@@ -3,11 +3,17 @@
 // during disk read) and validate-plan.ts (full ResearchPlan validation
 // for external consumers like the synthesizer's --from-research CLI mode).
 // Avoids double-compiling the schema and double-parsing the JSON file.
+//
+// D1: thin schema-binding wrapper over diagnostics/ajv.ts's shared factory
+// (Task 2.2). Zero behavior change — every exported symbol name and its
+// runtime shape (ValidateFunction / errorsText(errors): string) is
+// preserved verbatim for existing callers.
 
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Ajv, type ValidateFunction } from 'ajv';
+import type { ValidateFunction } from 'ajv';
+import { errorsText as sharedErrorsText, makeSchemaValidator } from '../diagnostics/ajv.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 // AIF_SYNTH_PKG_ROOT: when running as a precompiled bundle, import.meta.url points
@@ -18,28 +24,28 @@ const SCHEMA_PATH = _pkgCore
   ? resolve(_pkgCore, 'research', 'research-plan.schema.json')
   : resolve(HERE, 'research-plan.schema.json');
 
-const ajv = new Ajv({ allErrors: true, strict: false });
 const schemaDoc = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'));
-ajv.addSchema(schemaDoc, 'research-plan');
 
 const ACK_SCHEMA_PATH = _pkgCore
   ? resolve(_pkgCore, 'research', 'research-allowlist.schema.json')
   : resolve(HERE, 'research-allowlist.schema.json');
 const ackSchemaDoc = JSON.parse(readFileSync(ACK_SCHEMA_PATH, 'utf8'));
-ajv.addSchema(ackSchemaDoc, 'research-allowlist');
 
-export const validateEntry: ValidateFunction = ajv.compile({
-  $ref: 'research-plan#/definitions/ResearchEntry',
-});
+export const validateEntry: ValidateFunction = makeSchemaValidator(
+  schemaDoc,
+  'research-plan#/definitions/ResearchEntry',
+);
 
-export const validateResearchPlanShape: ValidateFunction = ajv.compile({
-  $ref: 'research-plan',
-});
+export const validateResearchPlanShape: ValidateFunction = makeSchemaValidator(
+  schemaDoc,
+  'research-plan',
+);
 
-export const validateAckFileShape: ValidateFunction = ajv.compile({
-  $ref: 'research-allowlist',
-});
+export const validateAckFileShape: ValidateFunction = makeSchemaValidator(
+  ackSchemaDoc,
+  'research-allowlist',
+);
 
 export function errorsText(errors: ValidateFunction['errors']): string {
-  return ajv.errorsText(errors);
+  return sharedErrorsText(errors);
 }

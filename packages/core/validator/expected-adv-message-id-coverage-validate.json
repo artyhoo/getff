@@ -26,6 +26,7 @@
       "failures": [
         {
           "ruleId": "G89",
+          "code": "FF3013",
           "reason": "messageId-coverage: declared check.message 'Do not use generators' not found in emitted message 'No generators!' \u2014 declared message is unreachable"
         }
       ]

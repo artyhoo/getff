@@ -18,6 +18,7 @@
       "failures": [
         {
           "ruleId": "G95",
+          "code": "FF3009",
           "reason": "synthesized rule references 'no-debugger' but eslintConfigSnippet has no entry for it (B1 merge may have dropped the rule, or recipe.eslintRuleConfig is empty)"
         }
       ]

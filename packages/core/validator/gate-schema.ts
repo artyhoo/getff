@@ -13,7 +13,10 @@ export function runSchemaGate(plan: unknown): GateOutcome {
     return {
       status: 'fail',
       failures: [
-        { reason: `SynthesisPlan schema violation: ${errorsText(validateSynthesisPlan.errors)}` },
+        {
+          code: 'FF3001',
+          reason: `SynthesisPlan schema violation: ${errorsText(validateSynthesisPlan.errors)}`,
+        },
       ],
     };
   }
@@ -26,6 +29,7 @@ export function runSchemaGate(plan: unknown): GateOutcome {
     ) {
       failures.push({
         ruleId: rule.id,
+        code: 'FF3002',
         reason: `${rule.check.type}-checked rule has no negative-test (required by L4 gate 2 — rule-tester roundtrip)`,
       });
     }

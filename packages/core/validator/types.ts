@@ -8,6 +8,10 @@ export type GateStatus = 'pass' | 'fail' | 'skip' | 'n/a';
 export interface GateFailure {
   ruleId?: string;
   reason: string;
+  /** FF3xxx diagnostic code — one per failure kind per gate (D1 diagnostics-core,
+   *  spec §3.4, plan Task 4, DECISIONS DN-D1-4). Additive field; GateOutcome /
+   *  ValidationReport shape is otherwise unchanged (AC 3, zero behavior change). */
+  code: string;
 }
 
 export interface GateOutcome {
