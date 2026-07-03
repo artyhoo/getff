@@ -97,7 +97,7 @@ this.
 
 ---
 
-## Owner decision #2 — AGENTS.md fenced-block ownership (SURFACED, NOT decided)
+## Owner decision #2 — AGENTS.md fenced-block ownership (RESOLVED: Option A, 2026-07-03)
 
 **The fork:** two shipped-artefact authority positions collide on `AGENTS.md`:
 
@@ -137,9 +137,13 @@ with no framework-owned region and no per-surface hash.
   AI-docs" niche stays unoccupied *for this file class*; the framework cannot claim its shipped
   AGENTS.md stays true to the code (the P3 gap persists by design).
 
-**No decision recorded here** — the maintainer resolves whether the executable-AI-docs surface is
-worth introducing a framework-owned region into a currently-consumer-owned file. Until resolved,
-surface 6 stays post-MVP (spec §5) and MT MVP ships without an AGENTS.md drift detector.
+**RESOLVED — Option A (maintainer decision, 2026-07-03).** The executable-AI-docs surface is worth
+introducing a framework-owned fenced region into the (otherwise consumer-owned) AGENTS.md, because
+drift-detection of convention-vs-code is the project's flagship niche (MT patch §0). Implementation +
+the owed `INSTALL-FOR-AI.md:301-316` / three-layer-model reconciliation are tracked as **WI-1** in the
+[`executable-aidocs-and-cargo-followups` umbrella](../../../.claude/orchestrator-prompts/executable-aidocs-and-cargo-followups/kickoff.md)
+(deferred; picked up on maintainer go — likely its own umbrella at that point). Until then, surface 6
+stays post-MVP (spec §5) and MT MVP ships without an AGENTS.md drift detector.
 
 ---
 
