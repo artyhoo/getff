@@ -2,6 +2,9 @@
 # Wave 7 sub-wave 7.2.a — UserPromptSubmit hook: inject session-bootstrap digest.
 # stdout is injected into Claude Code's prompt context by the harness automatically.
 # Full bootstrap: .claude/session-bootstrap.md (Step 0 read-first file).
+# @cc-only-rationale: internal dev tooling — UserPromptSubmit digest injection for the
+#   maintainer's own environment; no portable hook fires at prompt-submit. The digest
+#   content lives in .claude/session-bootstrap.md, readable by any harness.
 
 cat <<'DIGEST'
 [session-bootstrap digest — auto-injected at prompt submit]

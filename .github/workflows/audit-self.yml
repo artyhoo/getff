@@ -279,6 +279,19 @@ jobs:
         run: bash tests/install-sh/bridge-guided.test.sh
       - name: Run install-sh setup-orchestrator test (one-click-installer S3)
         run: bash tests/install-sh/setup-orchestrator.test.sh
+      - name: Run install-sh preset-staleness test (live-research-default-delivery #811 D4)
+        run: bash tests/install-sh/preset-staleness.test.sh
+      - name: Run install-sh B1 stack-research-lookup test (multistack-augment-first #827 B1)
+        run: bash tests/install-sh/b1-stack-research-lookup.test.sh
+      - name: Run install-sh B3 monorepo per-workspace wire test (multistack-augment-first #827 B3)
+        run: bash tests/install-sh/b3-monorepo-per-workspace-wire.test.sh
+      - name: Run install-sh B4 worktree workspace-resolve test (multistack-augment-first #827 B4)
+        run: bash tests/install-sh/b4-worktree-workspace-resolve.test.sh
+      # live-research-default-delivery §6 oracle: the live-snippet wiring + live-wins override
+      # proof must FIRE in CI (the install/ vitest dir is otherwise un-gated — armed-but-not-fired,
+      # PR #796 lesson). Targeted to the two new specs (no full install/ dir gate — scope).
+      - name: Run live-snippet wire oracle + override tests (live-research-default-delivery D1/D2/§6)
+        run: npx --prefix packages/core vitest run --reporter=default packages/core/install/wire-live-snippet.test.ts packages/core/install/wire-synth-rules.test.ts
       - name: Run ci-success aggregate-gate paired-negative
         run: bash scripts/ci-success-gate.test.sh
       - name: Run harvest-via-api mode/ref paired-negative (Git Data API push fallback)
@@ -357,6 +370,12 @@ jobs:
         run: bash tests/install-sh/consumer-pipeline.test.sh
       - name: install-sh — consumer-upgrade-path (--refresh acceptance gate — stale-refreshed + customise-survives)
         run: bash tests/install-sh/consumer-upgrade-path.test.sh
+      - name: "install-sh — refresh-covers-full-delivery (#869 do_refresh ⊇ --full scripts/*.{sh,ts} delivery)"
+        run: bash tests/install-sh/refresh-covers-full-delivery.test.sh
+      - name: "install-sh — refresh-safe dir-payload (#873: refresh_safe replaces directory payloads, not nests)"
+        run: bash tests/install-sh/refresh-safe-dir-payload.test.sh
+      - name: "install-sh — refresh regenerates eslint barrel (#876: --refresh re-derives index.mjs so a new rule isn't stranded)"
+        run: bash tests/install-sh/refresh-regenerates-barrel.test.sh
       - name: install-sh — gh-636 dispatcher tsx probe (degrade to fallback, never crash on unresolvable tsx)
         run: bash tests/install-sh/gh-636-dispatcher-tsx-probe.test.sh
       - name: install-sh — gh-636 ensure-tsx-root (install guarantees tsx resolves from workspace root; --full/offer/warn)
@@ -367,6 +386,14 @@ jobs:
         run: bash tests/install-sh/f16-stryker-live-mutants.test.sh
       - name: install-sh — f17 lint rules planted-violation (post-install liveness smoke Check3 Arm ii)
         run: bash tests/install-sh/f17-lint-rules-planted-violation.test.sh
+      - name: "install-sh — install-self-verification structural + degrade test (D6: gates shipped, graceful-degrade, wired)"
+        run: bash tests/install-sh/install-self-verification.test.sh
+      - name: "install-sh — check-fences-fire paired-negative (D4: probe is falsifiable; FENCE SILENT + FALSE POSITIVE arms)"
+        run: bash tests/install-sh/check-fences-fire-paired-negative.test.sh
+      - name: "install-sh — check-fences-fire FULL barrel (#838: R12 ACTIVE on react-next; neutered-R12 teeth; partial-barrel stacks not false-RED)"
+        run: bash tests/install-sh/check-fences-fire-full-barrel.test.sh
+      - name: "install-sh — check-shields-up paired-negative (#831: husky v9 .husky/_ accepted; positive + negative arms)"
+        run: bash tests/install-sh/check-shields-up-paired-negative.test.sh
       - name: "install-sh — byte-identical snapshot compare: all 4 stacks × {greenfield,brownfield} (modular-install-fullpack S1)"
         run: SNAPSHOT_MODE=compare bash tests/install-sh/byte-identical.test.sh
       - name: install-sh — lib-helpers unit test (O1 guard regression + all helpers exposed)
@@ -675,6 +702,81 @@ jobs:
           test -x node_modules/.bin/eslint \
             || { echo "::error::eslint not installed — install.sh --full dep install failed; the lint gate cannot run (false-green guard)"; exit 1; }
           npm run lint
+
+  framework-fresh-install-validate-multistack:
+    # GH #807: the deps-installed e2e companion to tests/install-sh/multi-stack-monorepo.test.sh §9.
+    # A fresh `install.sh ts-server --full` on a #793/#796 multi-stack monorepo (apps/api ts-server +
+    # apps/mobile Expo, NO root eslint.config.mjs) used to make the root-anchored validate gates go
+    # RED (check:globs/check:enforced exit 2; arch:check exit 1). The flat matrix job above installs
+    # into a SINGLE-package consumer and never exercises the no-root-config path — this is the
+    # genuinely-different monorepo fixture (⚑m3). It asserts the 3 deps-installed-meaningful gates:
+    # check:globs + check:enforced (Batch-A per-workspace recursion) and arch:check (Batch-B root
+    # .dependency-cruiser.cjs). format:check is covered deps-free by the §9 .prettierignore placement
+    # assertion (its #807 surface is a brownfield consumer-.prettierrc mismatch, NOT reproduced by a
+    # greenfield fixture whose configs are AIF-prettier-clean). Deterministic + API-free per
+    # no-paid-llm-in-ci.md — NOT the full `npm run validate` (typecheck/test/lint arms depend on
+    # per-workspace toolchain surfaces tracked under #808/#810, out of #807 scope).
+    name: "Fresh-install validate smoke — multi-stack monorepo (closes #807)"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '20'
+      - name: "Fresh install.sh ts-server --full into a multi-stack monorepo consumer"
+        run: |
+          CONSUMER=$(mktemp -d)
+          cd "$CONSUMER"
+          git init --quiet
+          git config user.email "ci@example.com"
+          git config user.name "CI"
+          # npm-managed multi-stack monorepo: apps/api (ts-server) + apps/mobile (Expo). NO
+          # pnpm-workspace.yaml — per-workspace detection (_workspace_pkg_dirs) keys on the
+          # apps/*/package.json dir-walk, NOT a pnpm manifest, so the multi-stack branch still fires;
+          # meanwhile detect_pm falls to npm (the runner has npm, not pnpm) so `--full` actually
+          # installs the toolchain. No workspace marker + no root src → AIF_ARCH_TARGET resolves to "."
+          # (setup.d/70-deps.sh:35-44) — the same safe target the green flat job uses.
+          # Root carries NO deps (exactly like the flat job): install.sh adds its 22 DEVDEPS and npm
+          # auto-installs the typescript-eslint peer typescript. A root `typescript` pin here caused an
+          # ERESOLVE/ETARGET on the first run (a non-existent 5.6.0 exact). Per-workspace `typescript`
+          # keys below are detection SIGNALS only (never npm-resolved — no "workspaces" field).
+          echo '{"name":"timeliner-mono","version":"0.0.0","private":true}' > package.json
+          # apps/api → ts-server (Hono). A boundary source file under src/routes so check:globs
+          # exercises the real glob-liveness recursion (not the trivial "no source → skip").
+          mkdir -p apps/api/src/routes
+          echo '{"name":"@timeliner/api","dependencies":{"hono":"4.0.0"},"devDependencies":{"typescript":"5.6.0"}}' > apps/api/package.json
+          printf 'export const users = 1;\n' > apps/api/src/routes/users.ts
+          # apps/mobile → react-native/Expo (ships NO RULE_GLOBS.boundary → the gate skips it).
+          mkdir -p apps/mobile
+          echo '{"name":"@timeliner/mobile","dependencies":{"expo":"~52.0.0","react-native":"0.76.0","react":"18.3.0"}}' > apps/mobile/package.json
+          bash "$GITHUB_WORKSPACE/install.sh" ts-server --full
+          echo "CONSUMER=$CONSUMER" >> "$GITHUB_ENV"
+      - name: Assert the consumer toolchain installed (else the gates are vacuous)
+        run: |
+          cd "$CONSUMER"
+          for bin in eslint depcruise; do
+            test -x "node_modules/.bin/$bin" \
+              || { echo "::error::$bin not installed — install.sh --full dep install failed; the multi-stack gate cannot run (false-green guard)"; exit 1; }
+          done
+          echo "✓ consumer toolchain present (eslint + dependency-cruiser)"
+      - name: "Consumer (multi-stack): the deps-installed #807 gates must be green"
+        # check:globs + check:enforced recurse per-workspace (Batch A); arch:check needs the root
+        # .dependency-cruiser.cjs the multi-stack branch now places (Batch B). All three were RED on a
+        # no-root-config monorepo before the fix (check:globs/enforced exit 2; arch:check exit 1).
+        # check:enforced runs `eslint --print-config` per workspace (eslint asserted above); apps/api
+        # has no zod boundary and apps/mobile no boundary tokens → both skip R2 cleanly → exit 0.
+        # format:check is covered deps-free by multi-stack-monorepo.test.sh §9 (Batch C placement).
+        # Deterministic + API-free per no-paid-llm-in-ci.md.
+        run: |
+          cd "$CONSUMER"
+          npm run check:globs
+          npm run check:enforced
+          npm run arch:check
+          echo "✓ multi-stack monorepo: check:globs + check:enforced + arch:check all green (#807)"
 
   framework-self-detect:
     name: Detector v1 — self-application snapshot (L1 invariant)

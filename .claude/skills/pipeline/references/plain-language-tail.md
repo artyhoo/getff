@@ -3,7 +3,8 @@
 <!-- @dual-pair: plain-language-tail -->
 <!-- spec: .claude/skills/pipeline/SKILL.md §10.3a stub + .claude/hooks/end-of-turn-reminder.sh -->
 
-> Companion to SKILL.md §10.3a (which carries the one-line stub binding); this file defines the orchestrator-checkpoint substance shape.
+> **Authoritative for:** the orchestrator-checkpoint substance shape for the `## 🟢 In plain words` tail — the three checkpoint moments and their required content items. Companion to [SKILL.md](../SKILL.md) §10.3a (which carries the one-line stub binding).
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../../README.md#why-this-exists). The per-turn generic tail enforcement — owned by [end-of-turn-reminder.sh](../../../hooks/end-of-turn-reminder.sh).
 
 Generic per-turn end-of-turn substance is enforced by [`.claude/hooks/end-of-turn-reminder.sh`](../../../hooks/end-of-turn-reminder.sh) (Stop hook, fires on long-text / question / claim-bearing turns). It enforces presence of the `## 🟢 In plain words` block via the Stop hook `decision:block` mechanism with anti-rationalization wording (Branch A/B/C/D + factual-claim scan): the hook fires `decision:block` with a `reason` payload, and the model adds the section in the next turn to unblock. The hook does NOT inject the section text directly — only the requirement.
 

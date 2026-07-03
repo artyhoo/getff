@@ -103,5 +103,31 @@ else
   echo "  · Arm D skipped — could not install dependency-cruiser@16 (offline/upstream); detector Arms A/B/C still prove the alarm."
 fi
 
-rm -f /tmp/g534a.$$ /tmp/g534b.$$ /tmp/g534c.$$ /tmp/g534d.$$ /tmp/g534e.$$ 2>/dev/null
+# ── #807: the multi-stack monorepo branch must place a ROOT .dependency-cruiser.cjs ────────────
+# The #793/#796 multi-stack branch placed per-workspace eslint configs but no root arch config, so
+# `arch:check` (depcruise --config .dependency-cruiser.cjs) exited 1 → validate RED. depcruise is a
+# repo-wide arch tool (crawls from src/), so a single root config is correct. Real install (deps-free
+# — </dev/null answers N), assert by PLACEMENT (can't run depcruise without deps). PAIRED-NEGATIVE:
+# the flat path (no per-workspace stacks) places it via its own branch — proven by the existing
+# install-sh suite — so this arm proves the multi-stack branch (which previously did NOT) now does.
+MS807=$(mktemp -d)
+printf '{ "name":"mono","private":true,"devDependencies":{"typescript":"5.6.0"} }\n' > "$MS807/package.json"
+printf 'packages:\n  - "apps/*"\n' > "$MS807/pnpm-workspace.yaml"
+mkdir -p "$MS807/apps/api"
+printf '{ "name":"@m/api","dependencies":{"hono":"4.0.0"},"devDependencies":{"typescript":"5.6.0"} }\n' > "$MS807/apps/api/package.json"
+mkdir -p "$MS807/apps/mobile"
+printf '{ "name":"@m/mobile","dependencies":{"expo":"~52.0.0","react-native":"0.76.0","react":"18.3.0"} }\n' > "$MS807/apps/mobile/package.json"
+( cd "$MS807" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force </dev/null ) >/tmp/g534ms.$$ 2>&1
+mrc=$?
+[ "$mrc" -eq 0 ] || bad "#807: multi-stack install rc=$mrc ($(tail -2 /tmp/g534ms.$$ | tr '\n' '|'))"
+[ -f "$MS807/.dependency-cruiser.cjs" ] \
+  && ok "#807: multi-stack branch places ROOT .dependency-cruiser.cjs (arch:check resolves; was MISSING)" \
+  || bad "#807: multi-stack branch did NOT place root .dependency-cruiser.cjs (arch:check exits 1)"
+# NEG (load-bearing): there must be no per-WORKSPACE .dependency-cruiser.cjs (placed once at root,
+# not N times inside the loop, per ⚑M2). A copy under apps/* would be the loop-placement bug.
+! [ -f "$MS807/apps/api/.dependency-cruiser.cjs" ] && ! [ -f "$MS807/apps/mobile/.dependency-cruiser.cjs" ] \
+  && ok "#807 neg: no per-workspace .dependency-cruiser.cjs (placed ONCE at root, not in the loop)" \
+  || bad "#807 neg: a per-workspace .dependency-cruiser.cjs exists — placed inside the loop (⚑M2 violation)"
+
+rm -f /tmp/g534a.$$ /tmp/g534b.$$ /tmp/g534c.$$ /tmp/g534d.$$ /tmp/g534e.$$ /tmp/g534ms.$$ 2>/dev/null
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

@@ -234,7 +234,7 @@ Phase 8 entry research (see [phase-8-research.md §6](phase-8-research.md)) clos
 
 | Layer | Surface | Artifact |
 |---|---|---|
-| Rule | [`.claude/rules/phase-research-coverage.md`](../../.claude/rules/phase-research-coverage.md) | 5-item coverage checklist + 4 self-reflection prompts + 4 anti-patterns |
+| Rule | [`.claude/rules/phase-research-coverage.md`](../../.claude/rules/phase-research-coverage.md) | 5-item coverage checklist + 4 self-reflection prompts + 4 anti-patterns *(v1-ship snapshot, 2026-05-08 — item counts grew since; rule §1 is now count-free by design, see its header "Naming note")* |
 | Patches accumulator | [`docs/meta-factory/research-patches/`](research-patches/) | one file per discovered gap; AIF `/aif-evolve` patch format |
 | Discipline-layer SSOT trigger | this entry (§13.16) | when to widen / promote the rule |
 
@@ -506,3 +506,18 @@ Recommendation-gate iterative research (branch `research/recommendation-gate-ite
 **Trigger to revisit (H10):** maintainer commits to a HOT structural gate beyond H1; OR H1 + the #98 detector longitudinal data shows the reminder is insufficient (recommendation-class groundedness not improving). Keep **SEPARATE** from §13.34 (consolidation decided against — bounded scope, round-5 §5.3).
 
 **Origin:** recommendation-gate-iterative R-phase rounds 3–5 §5 decision surface; D6 decided by maintainer 2026-05-21. **Cross-references:** [§13.34 Autonomous self-audit triggering layer](#1334-autonomous-self-audit-triggering-layer-post-wave-10-research) (related per-verdict-gate vs session-level-self-trigger split); #117 (H1 implementation); branch `research/recommendation-gate-iterative` (full evidence base).
+
+### 13.40 meta-factory installer/diagnostics CLI — declared but not built (design-target registry)
+
+The 2026-07-03 doc-remediation audit (PRs #867, #875, follow-up) found 5 `docs/meta-factory/*.md` docs honestly declaring a self-hosting meta-factory architecture (installer state-machine, self-diagnostics CI gate, upgrade CLI, research cache) that the code does not yet implement — the `meta-factory` bin is a literal placeholder stub. Each doc was **not** stripped of the aspiration; each got an inline `> **Implementation status:**` / `> **Design-target note:**` disclaimer (style matches `architecture.md:7`) so a reader is not misled into thinking the mechanism is live. This entry is the consolidated pointer.
+
+**Declared-not-built surfaces (design-target, none regressions):**
+- `failure-modes.md` §5.1/§5.2 — `.meta-factory-state.json` state-machine + `npx meta-factory install/--resume/--restart/status/--verify` CLI verbs.
+- `risks.md` — `research-cache.json` + TTL/auto-regen + `rules:upgrade` script (mitigation table mixes this with the real, shipped `rules-lock.json`).
+- `acceptance-tests.md` §6.3 — `meta-factory upgrade --to …` scenario.
+- `core-stability.md` §7.2/§7.3 — CI job `core-stability` + `core.lock` artifact + `core/principles.test.ts` immutability gate.
+- `self-application.md` L5(c) + §7 — CI gate `framework-self-diagnose` + `diagnostics-log.json` schema validation (L5(a)/(b) install-verification signals ARE shipped; only the (c) self-diagnose signal is the gap).
+
+**Trigger to revisit:** work begins on Phase 8.X (self-diagnostics) or the `meta-factory` bin per `self-diagnostics-design.md` — replace each disclaimer with the shipped mechanism, or promote this entry's items to a tracked implementation phase.
+
+**Origin:** 2026-07-03 doc-audit round 2, Type-B hunt (4 parallel auditors over `docs/meta-factory/*.md` + `.claude/rules/*.md`). **Cross-references:** [`architecture.md:7`](architecture.md) (the disclaimer style this entry's fixes reuse); [`self-diagnostics-design.md`](self-diagnostics-design.md) (Status: design only, Phase 8.X — the same gap, pre-existing honest marker).

@@ -1,6 +1,7 @@
 # Anti-patterns with examples
 
-> **Scope:** the 10 anti-patterns from [`phase-research-coverage.md §4`](../../../rules/phase-research-coverage.md), expanded with concrete project case studies. Reference for fast pattern-matching during retro / self-review. Inherits scope from [SKILL.md](../SKILL.md).
+> **Authoritative for:** the expanded case-study catalogue of the 10 anti-patterns from [`phase-research-coverage.md §4`](../../../rules/phase-research-coverage.md) — concrete project examples for fast pattern-matching during retro / self-review. Inherits invocation scope from [SKILL.md](../SKILL.md).
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../../README.md#why-this-exists). The anti-pattern definitions themselves — owned by [phase-research-coverage.md §4](../../../rules/phase-research-coverage.md).
 
 ## The 10 anti-patterns
 

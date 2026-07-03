@@ -2,6 +2,10 @@
 # Wave 7 7.2.c — PostToolUse: principle-09 authority header quick-check.
 # Delegates to 09-doc-authority-hierarchy.bin.ts (Batch A, sub-wave 7.1.c).
 # Input: hook JSON via stdin. CLI filters to REQUIRED_HEADER_DOCS; exits 0 for other paths.
+# @cc-only-rationale: edit-time PostToolUse delivery of the principle-09 authority-header
+#   check (delegates to 09-doc-authority-hierarchy.bin.ts). The same rule's portable
+#   enforcement is the principle-09 CI test itself — a rule+test lifecycle, excluded from
+#   @dual-pair per dual-implementation-discipline.md §9; no portable hook fires at edit-time.
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"

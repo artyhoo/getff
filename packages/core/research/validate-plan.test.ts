@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ResearchPlanError,
+  checkResearchPlan,
   validateResearchPlan,
 } from './validate-plan.ts';
 
@@ -89,5 +90,107 @@ describe('validateResearchPlan — B2 closure for synthesizer --from-research', 
   it('rejects a plan with extra top-level properties (additionalProperties: false)', () => {
     const bad = { ...validPlan, surprise: 'not allowed' };
     expect(() => validateResearchPlan(bad)).toThrow(ResearchPlanError);
+  });
+});
+
+// --- Task 3.4 / spec AC 2: accumulation paired-negative ---
+// Pre-D1, validateResearchPlan threw on the FIRST failure only — a plan with
+// 2 independent violations in DIFFERENT entries (1 shape + 1 provenance)
+// surfaced only the shape violation; the provenance violation in the second
+// entry was invisible. Observed RED before this fix (manual capture, D1
+// Task 3 report): validateResearchPlan(plan) threw
+// "Invalid ResearchPlan: data/patterns/0 must have required property
+// 'summary'" and `err.diagnostics` did not exist at all.
+describe('checkResearchPlan — accumulation (AC 2)', () => {
+  const planWithTwoIndependentViolations = {
+    framework: 'next',
+    version: '16.0.0',
+    patterns: [
+      {
+        id: 'bad-shape-entry',
+        // summary MISSING -> ajv shape violation (FF1001)
+        bestPractices: [],
+        antiPatterns: [],
+        provenance: [
+          { url: 'https://nextjs.org/docs', allowlistKey: 'next.official', fetchedAt: '2026-05-08' },
+        ],
+      },
+      {
+        id: 'bad-provenance-entry',
+        summary: 'ok',
+        bestPractices: [],
+        antiPatterns: [],
+        provenance: [
+          { url: 'https://example.evil/fake', allowlistKey: 'next.official', fetchedAt: '2026-05-08' },
+        ],
+      },
+    ],
+    missing: [],
+    drift: null,
+  };
+
+  it('accumulates BOTH a shape violation (entry 0) and a provenance violation (entry 1) — not just the first', () => {
+    const result = checkResearchPlan(planWithTwoIndependentViolations);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('unreachable — narrowed by the assertion above');
+    expect(result.diagnostics.length).toBeGreaterThanOrEqual(2);
+    const codes = result.diagnostics.map((d) => d.code);
+    expect(codes).toContain('FF1001'); // shape: missing 'summary' in entry 0
+    expect(codes.some((c) => c.startsWith('FF2'))).toBe(true); // provenance: entry 1's url outside allowlist
+  });
+
+  it('validateResearchPlan still throws (throw-adapter over the same accumulation) carrying the same diagnostics array', () => {
+    try {
+      validateResearchPlan(planWithTwoIndependentViolations);
+      throw new Error('expected validateResearchPlan to throw');
+    } catch (e) {
+      expect(e).toBeInstanceOf(ResearchPlanError);
+      const err = e as ResearchPlanError;
+      expect(err.diagnostics.length).toBeGreaterThanOrEqual(2);
+      const codes = err.diagnostics.map((d) => d.code);
+      expect(codes).toContain('FF1001');
+      expect(codes.some((c) => c.startsWith('FF2'))).toBe(true);
+    }
+  });
+
+  it('positive control: a valid plan yields {ok:true, diagnostics:[]}', () => {
+    const result = checkResearchPlan(validPlan);
+    expect(result).toMatchObject({ ok: true, diagnostics: [] });
+  });
+});
+
+// --- Reviewer finding (D1 Task 3A fix pass): entry.id containing '/' ---
+// research-plan.schema.json leaves `id` an unconstrained string, so
+// 'next/app-router' is schema-legal. Pre-fix, validateResearchPlan's
+// throw-adapter recovered the id by regex-matching the diagnostic's
+// `path` (`/patterns/<id>/provenance`), and `[^/]+` cannot match an id
+// containing a slash — the wrapper text degraded to 'pattern[<unknown>]'
+// instead of 'pattern[next/app-router]', breaking NEW-3 verbatim-fidelity
+// for this schema-legal input class. Observed RED before the fix (manual
+// capture): message was
+// "Invalid ResearchPlan: pattern[<unknown>] provenance violation — host
+// example.evil not allowed under key next.official (expected one of:
+// nextjs.org, vercel.com)".
+describe('validateResearchPlan — entry id containing "/" (NEW-3 fidelity)', () => {
+  it('preserves the slash-containing id verbatim in the thrown message', () => {
+    const bad = {
+      ...validPlan,
+      patterns: [
+        {
+          ...validEntry,
+          id: 'next/app-router',
+          provenance: [
+            {
+              url: 'https://example.evil/fake',
+              allowlistKey: 'next.official',
+              fetchedAt: '2026-05-08',
+            },
+          ],
+        },
+      ],
+    };
+    expect(() => validateResearchPlan(bad)).toThrow(/pattern\[next\/app-router\] provenance violation/);
+    // Sanity: would have failed pre-fix — degraded id is NOT present.
+    expect(() => validateResearchPlan(bad)).not.toThrow(/pattern\[<unknown>\]/);
   });
 });

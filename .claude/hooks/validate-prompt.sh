@@ -3,6 +3,9 @@
 # Fires on Edit|Write tool calls. Input: hook JSON via stdin (tool_input.file_path).
 # Exits 0 silently on pass or unmatched path; non-zero + diagnostic on red.
 # Gracefully skips if jq or tsx unavailable (never block tool calls for missing tooling).
+# @cc-only-rationale: edit-time PostToolUse delivery; the validator itself is portable
+#   (packages/core/spec-validation/validate-batch-spec.ts) — the hook is only its CC
+#   fire-point. No portable hook fires at edit-time.
 
 set -uo pipefail
 

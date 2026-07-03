@@ -343,7 +343,7 @@ describe('scoped emission — §13.5 I-2 L2 primitive (SSOT #182)', () => {
       const r = await wireNRules(base, synthRules, { scope: { files: ['apps/web/**'] } });
       expect(r.status).toBe('wired');
       expect(r.modified).toContain(`files: ["apps/web/**"]`);
-      expect(r.modified).toContain(`'rules-as-tests/no-non-null-assertion': 'error'`);
+      expect(r.modified).toMatch(/['"]rules-as-tests\/no-non-null-assertion['"]\s*:\s*['"]error['"]/);
     }
   );
 
@@ -372,5 +372,77 @@ describe('scoped emission — §13.5 I-2 L2 primitive (SSOT #182)', () => {
       expect(r.modified).not.toMatch(/files: \['apps\/it's/);
       expect(r.modified).toContain(`'${R2_RULE_ID}': 'error'`);
     }
+  );
+});
+
+// ── #829: wireNRules self-registers the rules-as-tests plugin when the config lacks it ─────────
+//
+// Paired-negative contract:
+//   ❌ tried: wire a net-new `rules-as-tests/*` rule into a config that does NOT register the
+//      `rules-as-tests` plugin (react-native-preset shape), passing customRulesImportPath. BEFORE
+//      the fix the N-rule path emitted the block bare (no `plugins`, no `import customRules`), so
+//      ESLint errored "could not find plugin 'rules-as-tests'" and the rule never fired (#829).
+//   ✅ expected: the new block self-registers — `plugins: { 'rules-as-tests': customRules }` plus an
+//      injected `import customRules from '<path>'` — so the plugin resolves and the rule fires.
+//   The anti-tautology half proves detection is real: a config that ALREADY registers the plugin
+//      (react-next shape) stays bare (no second registration / no second import), so the two paths
+//      produce DIFFERENT output. A no-op "always bare" or "always self-register" impl fails it.
+describe('#829: wireNRules plugin self-registration', () => {
+  // react-native-preset shape — spreads a base, registers NO rules-as-tests plugin.
+  const UNREGISTERED = `import expo from 'eslint-config-expo/flat.js';\nexport default [...expo];\n`;
+  // react-next shape — already registers the plugin inside a config object.
+  const REGISTERED = [
+    `import customRules from './eslint-rules-local/index.mjs';`,
+    `export default [`,
+    `  { plugins: { 'rules-as-tests': customRules }, rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } },`,
+    `];`,
+    ``,
+  ].join('\n');
+  const NEW_RULE = { 'rules-as-tests/no-direct-time-randomness': 'error' };
+  const IMPORT_PATH = '../../eslint-rules-local/index.mjs';
+
+  it.skipIf(!TS_MORPH_AVAILABLE)(
+    '✅ unregistered config + path → self-registers (plugins + injected import) so the plugin resolves',
+    async () => {
+      const r = await wireNRules(UNREGISTERED, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+      expect(r.status).toBe('wired');
+      expect(r.modified).toContain(`plugins: { 'rules-as-tests': customRules }`);
+      expect(r.modified).toMatch(/import customRules from ['"]\.\.\/\.\.\/eslint-rules-local\/index\.mjs['"]/);
+      expect(r.modified).toMatch(/['"]rules-as-tests\/no-direct-time-randomness['"]\s*:\s*['"]error['"]/);
+    },
+  );
+
+  it.skipIf(!TS_MORPH_AVAILABLE)(
+    '✅ already-registered config → stays bare (no double registration, no second import)',
+    async () => {
+      const r = await wireNRules(REGISTERED, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+      expect(r.status).toBe('wired');
+      expect(r.modified).toMatch(/['"]rules-as-tests\/no-direct-time-randomness['"]\s*:\s*['"]error['"]/);
+      const importCount = (r.modified.match(/import customRules from/g) ?? []).length;
+      expect(importCount).toBe(1);
+    },
+  );
+
+  it.skipIf(!TS_MORPH_AVAILABLE)(
+    '❌ anti-tautology: unregistered injects an import, registered does not → outputs differ',
+    async () => {
+      const unreg = await wireNRules(UNREGISTERED, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+      const reg = await wireNRules(REGISTERED, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+      const unregInjectsImport = /import customRules from ['"]\.\.\/\.\.\/eslint-rules-local/.test(unreg.modified);
+      const regAddsSecondImport = (reg.modified.match(/import customRules from/g) ?? []).length > 1;
+      expect(unregInjectsImport).toBe(true);
+      expect(regAddsSecondImport).toBe(false);
+    },
+  );
+
+  it.skipIf(!TS_MORPH_AVAILABLE)(
+    'absent customRulesImportPath → degrades to bare (no throw, backward-compatible)',
+    async () => {
+      const r = await wireNRules(UNREGISTERED, NEW_RULE, {});
+      expect(r.status).toBe('wired');
+      expect(r.modified).not.toContain('plugins:');
+      expect(r.modified).not.toContain('customRules');
+      expect(r.modified).toMatch(/['"]rules-as-tests\/no-direct-time-randomness['"]\s*:\s*['"]error['"]/);
+    },
   );
 });

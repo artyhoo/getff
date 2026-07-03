@@ -43,8 +43,8 @@
 - `tests/audit/audit-ai-docs.test.sh` — 16 негативных тестов
 
 **Что НЕ работает (подтверждено через `ls`):**
-- `.husky/` в корне репо отсутствует. Templates `husky-pre-commit.sh` и `husky-pre-push.sh` существуют, шипятся consumer'у через `install.sh:171-174` (mkdir + copy + chmod), но **author их не запускает**.
-- `audit-self.yml` НЕ имеет job'а `framework-self-install` (запуск install.sh + setup.sh на tmp-dir с прогоном собственных audits).
+- ~~`.husky/` в корне репо отсутствует. Templates `husky-pre-commit.sh` и `husky-pre-push.sh` существуют, шипятся consumer'у через `install.sh:171-174` (mkdir + copy + chmod), но **author их не запускает**.~~ — ЗАКРЫТО (Phase 1.A, commit `fea6ea7c7`): `.husky/{pre-commit,pre-push,post-checkout}` в корне репо и активны у author'а; таблица Pre-commit/Pre-push и схема ниже сохранены как историческая мотивация Phase 1.A (отметка 2026-07-02, doc-truth sweep).
+- ~~`audit-self.yml` НЕ имеет job'а `framework-self-install`~~ — ЗАКРЫТО 2026-06-29 (PR #823): jobs `framework-self-install-{ts-server,react-next,validated}` + `install-self-verification.test.sh` гоняются в CI.
 - `audit-self.yml` НЕ запускает actionlint/zizmor (что и привело к 4-cycle fix на workflow-integrity.yml).
 - `.claude/orchestrator-prompts/` — нет валидации SHA/file-existence для action references (привело к фейковому `rhysd/actionlint@<fake-sha>` в batch-D.md).
 
@@ -66,7 +66,7 @@
 | Spec discipline | orchestrator-prompts директория | SHA-validation, action existence check | Фейковые SHA коммитятся (`rhysd/actionlint@<fake>` в batch-D) |
 | Pre-commit | template для consumer'а | `.husky/pre-commit` в репо автора | Markdown >600 / broken bash коммитятся |
 | Pre-push | template для consumer'а | `.husky/pre-push` в репо автора | actionlint/zizmor errors уходят в CI (4 fix-cycle на 1 PR) |
-| CI-as-self-test | `audit-self.yml` 4 jobs | framework-self-install (E2E проверка install.sh+setup.sh) | Регрессии в installer обнаруживаются consumer'ом |
+| CI-as-self-test | `audit-self.yml` + `framework-self-install-{ts-server,react-next,validated}` jobs + `install-self-verification.test.sh` (PR #823, 2026-06-29) | — закрыто; E2E install+self-verify в CI | (исторически: регрессии ловил consumer) |
 
 **Эпистемологический разрыв:**
 ```text
@@ -93,10 +93,10 @@ Self-application — **не отдельный шаг**, а cross-cutting invari
 |---|---|---|
 | L0 Invariant Core | Принципы исполнимы как тесты, прогон в pre-commit/pre-push/CI на собственном manifest'е | Author не может закоммитить нарушение принципа |
 | L1 Stack Detector | Детектит сам себя в CI | `setup.sh --stack=$(detect)` идемпотентен на собственном репо |
-| L2 Research | Research собственные docs: `skills/rules-as-tests/SKILL.md` + `references/overview.md` + `references/ai-traps.md` (canonical per [self-application.md](self-application.md) §2) | Все три источника семантически синхронизированы; operationalization TBD Phase 6 per [open-questions.md](open-questions.md) §13.7 |
+| L2 Research | Research собственные docs: `skills/rules-as-tests/SKILL.md` + `references/overview.md` + `references/ai-traps.md` (canonical per [self-application.md](self-application.md) §2) | Все три источника семантически синхронизированы; **operationalized 2026-06-29** — live web_search research port+adapter+provenance-gate (PR #686), дефолт доставки augment-first (PR #824) |
 | L3 Synthesizer | Regenerate canonical preset, diff с live | Minimal diff |
 | L4 Validator | Прогоняется на `rules-manifest.json`, не только на LLM-output | Каждое существующее правило проходит meta-tests |
-| L5 Installer | Запускается в CI на tmp-dir, результат проходит framework's audits | framework-self-install green |
+| L5 Installer | Запускается в CI на tmp-dir, результат проходит framework's audits | framework-self-install green — достигнуто 2026-06-29 (PR #823) |
 | Spec discipline | orchestrator-prompts валидируются как код | Невозможно закоммитить spec с фейковым SHA |
 
 ### 3.3 Prior art — никто не делает stack-aware research-based generation с self-validation
@@ -271,6 +271,14 @@ Self-application — **не отдельный шаг**, а cross-cutting invari
 - **L3 Rule Synthesizer** (Phase 6 closed) — Path A only, hand-authored recipes (`packages/core/synthesizer/recipes/*.json`); `synthesize(plan)` is a pure JSON-to-SynthesisPlan transform. No LLM «picks from menu» yet. See [retros/phase-6.md](retros/phase-6.md).
 - **L4 Self-Validator** (Phase 7 closed) — gates 1, 2, 4, 6 REQUIRED; gate 3 (mutation) skipped (Path B only); gate 5 (two-AI review) deferred. Pure `validate(plan) → ValidationReport`, no LLM. See [retros/phase-7.md](retros/phase-7.md).
 - **L5 Installer** (Phase 7 closed) — artifact write + `rules-lock.json` + post-validate. No npm deps install / husky / GHA generation in v1. See [retros/phase-7.md](retros/phase-7.md).
+
+**What shipped beyond v1 (статус-аудит 2026-06-29, источник `origin/staging`):**
+
+- **L1 Stack Detector** — авто-детект из `package.json` (`_detect_stack_from_pkg`, node-free) на свежем install (PR #780/#790); **4 стека**: ts-server / react-next / react-spa / react-native (пресеты `packages/preset-react-spa/`, `packages/preset-react-native/`, #646 Stage 1); per-workspace детект для multi-stack монорепо (#793). Остаётся file-based + детерминированным, без LLM.
+- **L2 Research** — больше не только курируемый JSON: live web_search research (port+adapter+provenance-gate, $0-CI, #686) + live-research как дефолт доставки правил augment-first для react-next (#805/#811/#812/#824, 2026-06-29).
+- **L3 Synthesizer** — за пределами Path-A: recipe-less генерация (`generate.ts` + Anthropic-адаптер), декларативный ярус (`compile-declarative-md.ts`), live menu-pick, мутационная проверка сгенерированных правил (`run-generated-rule-mutation`).
+- **L4 Validator** — `packages/core/validator/` с гейтами tautology / single-token-diff (минимальная пара) / autofix-clean / message-id-coverage / rule-tester / require-vacuity / conflict / schema, у 6 из 8 — adversarial-тест (conflict/schema — обычный `.test.ts`). 31 принцип-тест.
+- **L5 Installer** — install-self-verification (заборы срабатывают, сгенерированные тесты не пустые, PR #823, closes #810); `--yes/--full` + авто-детект (T2b закрыт, #780); пре-компиляция ESLint-правил в `.mjs`+`.d.ts` (снят краш Node 22, `enforcement-liveness-fix` DONE #745/#752); модульный `setup.d/` (05–99).
 
 **Hard stop-rules from retros (all 4 held through Phase 7):**
 
@@ -677,6 +685,12 @@ Manual baseline: 1-2 дня создание `preset-next-16-manual`. Затем
 ### Phase 9+ — Path B, нишевые стеки, multi-stack monorepos, AIF integration
 
 Согласно PROPOSAL §10 Phase 10-11 + §13.5, §13.6.
+
+**Validation-chain / multi-toolchain (2026-07-02, by reference — single-source):**
+последовательность trust-tiers S1→S2→S3 (shipped 2026-07-02: #850/#852/#853) → diagnostics D1 → B → MT (Rust, `{toolchain, stack}`).
+Дизайн D1+B: [../superpowers/specs/2026-07-02-diagnostics-core-design.md](../superpowers/specs/2026-07-02-diagnostics-core-design.md) (§6 binding sequencing, §9 stage B).
+R-phase + architecture v0.2: [research-patches/2026-07-02-multi-toolchain-generalization.md](research-patches/2026-07-02-multi-toolchain-generalization.md) (§9 supersedes §8; §9.1 invention gaps; пробы P1-P6 до MT-kickoff).
+Sequencing-домом остаётся ROADMAP «Поток MT» (planning workspace). Не гейтит MVP.
 
 После каждой sub-фазы — тот же retrospective gate.
 

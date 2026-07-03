@@ -5,6 +5,8 @@
 >
 > **Authoritative for:** acceptance test design — installer self-validates through the 5-layer enforcement framework; reproduction scenario for canonical Next 15; acceptance test for invariant core itself.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists).
+>
+> **Implementation status** — this doc specifies *target* acceptance scenarios (from the PROPOSAL.md §6 split), NOT a claim that all of them are currently runnable. Some scenarios exercise **DESIGN-TARGET CLIs** — e.g. `meta-factory upgrade --to …` — that are **not yet implemented** (the `meta-factory` bin is a placeholder stub). These are acceptance targets to build against, not current capabilities; the self-test-through-5-layers design is the intended goal, tracked for future implementation.
 
 ---
 

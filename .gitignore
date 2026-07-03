@@ -57,3 +57,9 @@ packages/core/.stryker-tmp/
 
 # Agnosticism audit — generated conformance record
 tests/agnosticism/conformance-record.tsv
+
+# rule-research-trust-tiers S2 (kickoff AC 3): a checked-in stub node_modules
+# under the Tier-1 E2E fixture is deliberately tracked — the E2E test needs a
+# real installed-package.json on disk without requiring `npm install` in the
+# fixture dir. Negate the blanket node_modules ignores above for this one path.
+!packages/core/research/fixtures/**/node_modules/

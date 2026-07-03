@@ -32,4 +32,29 @@ cc_scrub "bash $SEED/cc-coupled-gate.sh" >/dev/null 2>&1 \
   || ok "anti-theatre: harness flags a CC-coupled gate (exit non-zero under scrub)"
 rm -rf "$SEED"
 
+# ── ANTI-THEATRE: channel-coverage probe (Surface 8) must FLAG a seeded missing/dangling
+# marker and PASS a marked hook. Without this, the probe could silently rot into an
+# always-PORTABLE no-op and principle 21 would stay green (the T2 "harness is theatre" gap).
+CCROOT=$(mktemp -d)
+mkdir -p "$CCROOT/tests/agnosticism/probes" "$CCROOT/.claude/hooks"
+cp "$REPO_ROOT/tests/agnosticism/_cc-absent-lib.sh" "$CCROOT/tests/agnosticism/"
+cp "$REPO_ROOT/tests/agnosticism/probes/channel-coverage.sh" "$CCROOT/tests/agnosticism/probes/"
+printf '#!/usr/bin/env bash\n# no delivery-channel marker\necho hi\n'                    > "$CCROOT/.claude/hooks/markerless.sh"
+printf '#!/usr/bin/env bash\n# @dual-pair: seeded-nonexistent-anchor\necho hi\n'          > "$CCROOT/.claude/hooks/dangling.sh"
+printf '#!/usr/bin/env bash\n# @cc-only-rationale: seeded deliberate CC-only\necho hi\n'  > "$CCROOT/.claude/hooks/marked.sh"
+printf '{"hooks":{}}\n' > "$CCROOT/.claude/settings.json"
+# Probe population comes from `git ls-files`, so the seed must be a git repo with hooks staged.
+( unset GIT_DIR GIT_COMMON_DIR GIT_WORK_TREE; cd "$CCROOT" && git init -q && git add -A ) >/dev/null 2>&1
+cc_out=$(RECORD_FILE=/dev/stdout bash "$CCROOT/tests/agnosticism/probes/channel-coverage.sh")
+echo "$cc_out" | grep -q 'markerless\.sh.*CC-ONLY-NO-MARKER' \
+  && ok "channel-coverage flags a markerless hook" \
+  || bad "channel-coverage MISSED a markerless hook — probe is blind"
+echo "$cc_out" | grep -q 'dangling\.sh.*DANGLING-PAIR' \
+  && ok "channel-coverage flags a dangling @dual-pair anchor" \
+  || bad "channel-coverage MISSED a dangling @dual-pair — §5 drift-check blind"
+echo "$cc_out" | grep -q 'marked\.sh.*PORTABLE' \
+  && ok "channel-coverage passes a cc-only-rationale hook" \
+  || bad "channel-coverage wrongly flagged a properly-marked hook"
+rm -rf "$CCROOT"
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

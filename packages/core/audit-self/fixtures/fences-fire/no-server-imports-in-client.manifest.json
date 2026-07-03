@@ -1,0 +1,4 @@
+{
+  "rule-id": "rules-as-tests/no-server-imports-in-client",
+  "description": "R12 — server-only imports in 'use client' files must be rejected (Class 1 standalone rule)"
+}

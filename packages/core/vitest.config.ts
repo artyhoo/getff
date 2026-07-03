@@ -3,8 +3,12 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     globals: false,
+    // Tripwire: the suite must leave the real .claude/hooks/ untouched
+    // (2026-07-02 seeded-break leak incident). Delta-based; advisory without git.
+    globalSetup: ['./audit-self/hooks-tree-guard.ts'],
     include: [
       'principles/**/*.test.ts',
+      'diagnostics/**/*.test.ts',
       'render/**/*.test.ts',
       'spec-validation/**/*.test.ts',
       'eslint-rules/**/*.test.ts',

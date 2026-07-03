@@ -83,7 +83,7 @@ const PAIRED_NEGATIVE_RE = /❌|Paired-negative contract|PAIRED-NEGATIVE/;
  * file with the ❌+✅ shape to pass the Stage 3C gate.
  *
  * Evidence (verified against real hook test files, T3):
- *   - .toBe(N) exit-code assertions: hooks/check-hook-marker.test.ts:69,74,79
+ *   - .toBe(N) exit-code assertions: hooks/check-hook-marker.test.ts:107,112,117
  *   - .toMatch( pattern checks:      hooks/end-of-turn-reminder.test.ts (many)
  *   - .toContain( string checks:     hooks/deps-hash-check.test.ts (many)
  *   - expect(r.status):              hooks/deps-hash-check.test.ts:80+
@@ -275,6 +275,11 @@ describe.skipIf(!HAS_UM)(
      *   packages/core/audit-self/run-bash-mutation.sh \
      *     .claude/hooks/check-hook-marker.sh \
      *     "npx vitest run hooks/check-hook-marker.test.ts" 60
+     *
+     * Seeded-break isolation (2026-07-02 leak incident): the wrapper swaps each
+     * mutant into a temp SHADOW copy announced via BASHMUT_HOOK — the tracked
+     * hook is never written, so concurrent suite instances cannot interleave
+     * mutate/restore on the real file (hooks-tree-guard.ts is the tripwire).
      *
      * Output format verified against run-bash-mutation.test.ts:91-101 (T16):
      *   "kill rate: XX%  (killed N / survived M of P)"

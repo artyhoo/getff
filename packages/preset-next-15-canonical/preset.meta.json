@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "snapshotDate": "2026-06-29",
+  "framework": "react-next",
+  "note": "Frozen Next-15 canonical preset snapshot. The pinned tool majors below anchor the #811 staleness guard: a deps-free install-time WARN fires when the consumer's installed major differs (setup.d/99-finalize.sh → warn_preset_staleness in setup.d/lib.sh). Presets are the FALLBACK baseline — prefer live-research delivery for rules matching your current versions.",
+  "pins": {
+    "next": 15,
+    "eslint": 9,
+    "prettier": 3,
+    "typescript-eslint": 8
+  }
+}

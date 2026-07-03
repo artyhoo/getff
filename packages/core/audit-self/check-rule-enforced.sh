@@ -35,6 +35,38 @@ set -uo pipefail
 
 CFG="${ESLINT_CONFIG:-eslint.config.mjs}"
 RULE="${AIF_ENFORCED_RULE:-rules-as-tests/no-unsafe-zod-parse}"
+
+# §807 multi-stack: a #793/#796 monorepo ships per-workspace eslint.config.mjs files and NO root
+# config — the per-workspace configs ARE the rule layer. Without this, the exit-2 guard below fires
+# before any shadow logic and validate goes RED. So when there is no root config (and we are not
+# already a per-workspace sub-invocation — ESLINT_CONFIG unset is the recursion guard), find the
+# per-workspace configs and run THIS SAME script once per workspace, from that workspace's dir with
+# ESLINT_CONFIG=eslint.config.mjs. Each child then sees a valid $CFG; eslint absent → each child
+# SKIPs (exit 0), the correct deps-free degrade. Aggregate exit codes (any non-zero → non-zero).
+# Capture an ABSOLUTE self-path BEFORE any cd so the `bash "$SELF"` re-exec survives `cd "$_wd"`
+# (and the child's r2-na-marker source resolves via its own absolute $0). (kickoff ⚑M1 / T-807-A)
+SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+if [ ! -f "$CFG" ] && [ -z "${ESLINT_CONFIG:-}" ]; then
+  _ws_cfgs="$(find . \( -name node_modules -o -path '*/packages/core' \) -prune -o \
+              -type f -name 'eslint.config.mjs' ! -path './eslint.config.mjs' -print 2>/dev/null)"
+  if [ -n "$_ws_cfgs" ]; then
+    _agg=0
+    while IFS= read -r _wc; do
+      [ -n "$_wc" ] || continue
+      _wd="$(dirname "$_wc")"
+      # Only RN/Expo/bare-RN ship NO RULE_GLOBS.boundary → R2 N/A there; skip. The empty-btokens path
+      # below (enforced.sh:82-85) already self-skips, but keep the guard for parity with
+      # check-rule-globs.sh. react-spa/react-next ship a boundary → they recurse normally. (⚑B2)
+      grep -qE '^[[:space:]]*boundary:[[:space:]]*\[' "$_wc" \
+        || { echo "  · ${_wd#./}: no RULE_GLOBS.boundary — R2 N/A (skipped)"; continue; }
+      ( cd "$_wd" && ESLINT_CONFIG=eslint.config.mjs bash "$SELF" ) || _agg=1
+    done <<EOF
+$_ws_cfgs
+EOF
+    exit "$_agg"
+  fi
+  # No per-workspace configs either → fall through to the exit-2 guard (genuine "run from root" error).
+fi
 [ -f "$CFG" ] || { echo "check-rule-enforced: $CFG not found (run from the project root)" >&2; exit 2; }
 
 PRUNE=( -name node_modules -o -name dist -o -name coverage -o -name .stryker-tmp -o -name reports -o -name .next -o -name .git )

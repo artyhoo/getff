@@ -31,7 +31,9 @@
       "properties": {
         "url": { "type": "string" },
         "allowlistKey": { "type": "string" },
-        "fetchedAt": { "type": "string" }
+        "fetchedAt": { "type": "string" },
+        "packageName": { "type": "string" },
+        "finalUrl": { "type": "string" }
       }
     },
     "ResearchEntry": {
@@ -56,7 +58,8 @@
         "extras": {
           "type": "object",
           "additionalProperties": true
-        }
+        },
+        "package": { "type": "string" }
       }
     },
     "DriftMismatch": {

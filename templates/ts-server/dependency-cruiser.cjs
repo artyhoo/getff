@@ -192,7 +192,15 @@ module.exports = {
     // from the cruise so guard-liveness.ts's `import { Linter } from 'eslint'` no longer
     // trips no-non-package-json on a fresh install. The monorepo-boundary rules and
     // check:arch-boundaries stay intact.
-    exclude: { path: '(?:^|/)packages/core/' },
+    // GH #807: same class for the shipped per-workspace ESLint configs on a multi-stack
+    // monorepo — apps/<x>/eslint.config.mjs (+ the RN eslint.config.rn-common.mjs) import
+    // eslint / typescript-eslint / globals, which live in the ROOT package.json, not the
+    // workspace's own. depcruise's no-non-package-json checks the NEAREST package.json, so
+    // it trips on every shipped per-workspace config. These are framework-shipped tooling
+    // config (not consumer architecture) — same exclusion rationale as packages/core/ above
+    // and the .prettierignore handling. (Flat repos: the single root eslint.config.mjs was
+    // already clean — its imports ARE in the root package.json — so this is inert there.)
+    exclude: { path: '(?:^|/)packages/core/|(?:^|/)eslint\\.config\\.[^/]+$' },
     tsConfig: { fileName: 'tsconfig.json' },
     enhancedResolveOptions: {
       exportsFields: ['exports'],

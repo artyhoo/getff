@@ -118,6 +118,22 @@ export function createAnthropicResearchClient(
         });
       }
 
+      // M4 seam (Task 2.5): the requested-target list is built from
+      // DetectionResult ONLY — never from the LLM response text. entry.package
+      // is stamped from this trusted list below, so the left-hand side of the
+      // Tier-1 scope-lock check (allowlist-resolver.ts) is trusted, not
+      // agent-asserted. Only stamp when the target is UNAMBIGUOUS (exactly one
+      // requested target) — with zero or multiple targets in a single-shot
+      // multi-pattern response there is no safe way to attribute an entry to
+      // one specific target without parsing LLM text, so entries get NO
+      // package field (kickoff Task 2.5: "not attributable → no package").
+      const requestedTargets = [
+        detection.framework.name,
+        ...(detection.missing ?? []),
+      ].filter((t): t is string => typeof t === 'string' && t.length > 0);
+      const trustedPackageTarget =
+        requestedTargets.length === 1 ? requestedTargets[0] : undefined;
+
       const res = await fetch(API_URL, {
         method: 'POST',
         headers: {
@@ -260,18 +276,23 @@ export function createAnthropicResearchClient(
             )
           : [];
 
+        // M4 seam: stamp entry.package from the TRUSTED target list built
+        // above — never from `entry`/`raw` (the parsed LLM response). Absent
+        // a single unambiguous target, package stays unset (never rides Tier 1).
         patterns.push({
           id,
           summary,
           bestPractices,
           antiPatterns,
           provenance: validProvenance,
+          ...(trustedPackageTarget !== undefined ? { package: trustedPackageTarget } : {}),
         });
 
         if (verbose) {
           console.debug('[research-adapter] entry built', {
             id,
             provenanceCount: validProvenance.length,
+            package: trustedPackageTarget,
           });
         }
       }

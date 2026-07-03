@@ -58,6 +58,7 @@ The new capability = a **"CC-absent mode"** flag on that harness + the conforman
 | 5 | Templates (`AGENTS.md.template:75` "skills auto-activate", `CLAUDE.md.template`) | Claim-truth probe: "auto-activate" is CC-only → false off-CC | Medium (doc honesty) |
 | 6 | **Paid surface** | Does anything route to metered API without explicit opt-in? Is the runtime-bridge transport default surfaced, not silent? Cross-check [no-paid-llm-in-ci.md](../../../.claude/rules/no-paid-llm-in-ci.md) | Cost-class |
 | 7 | `.claude/rules/` auto-load | Off-CC there is no auto-load → degradation; measure what a portable consumer must do manually | Medium |
+| 8 | **Channel coverage** — every CC hook script (tracked `.claude/hooks/**` ∪ `.claude/settings.json`-wired) | Marker probe: each hook declares a delivery channel — `# @cc-only-rationale:` OR a `# @dual-pair:` anchor that resolves to a portable counterpart (§5 drift-check); neither = silent CC lock-in | Medium (silent CC vendor lock-in) |
 
 **Population enumeration before sampling (T10):** each surface's full population is enumerated (`git ls-files` globs) and recorded *before* any probe, so "N clean" is meaningful, not a convenience-sample artifact (T1/T9).
 

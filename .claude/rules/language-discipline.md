@@ -43,7 +43,7 @@ Two sub-channels:
 
 - **Edit/CI:** [principle 22](../../packages/core/principles/22-internal-english.test.ts) — Surface 1 (machinery shell, zero-tolerance) + Surface 2 (SKILL.md bodies after frontmatter, allowlisted). Low-FP by construction; rule files (verbatim maintainer quotes) + pipeline references (match-data) are intentionally NOT scanned — covered by this prose. Channel choice per [rule-enforcement-channel-selection.md](rule-enforcement-channel-selection.md): mechanically-detectable → gate.
 - **Always-on:** the B1 output-language line ([`inject-session-bootstrap.sh`](../hooks/inject-session-bootstrap.sh)) — judgment-shaped prose-following, so injection, not a gate.
-- **Parity:** `lang/check-parity.sh` (en/ru key parity, incl. `AIF_EOT_*`).
+- **Parity:** [`.claude/hooks/lang/check-parity.sh`](../hooks/lang/check-parity.sh) (hook lang packs, en/ru key parity, incl. `AIF_EOT_*`) and [`.claude/skills/pipeline/lang/check-parity.sh`](../skills/pipeline/lang/check-parity.sh) (pipeline skill lang packs, `AIF_PIPELINE_*` / `AIF_RECAP_MARKER` parity).
 
 ## §5 Anti-patterns
 

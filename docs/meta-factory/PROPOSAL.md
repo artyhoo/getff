@@ -1,6 +1,6 @@
 # Meta-Factory: пакет, который генерирует rules-as-tests под конкретный стек через research
 
-> Status: **DRAFT / RFC**
+> Status: **FROZEN — historical design artifact** (original status at freeze: DRAFT / RFC)
 > Date: 2026-05-07
 > Authors: Art + AI discussion
 > Audience: будущие реализаторы, фреш-сессии Claude/Cursor, контрибьюторы
@@ -33,7 +33,7 @@
 
 Идея: пакет становится **спецификацией процесса**, а не списка правил.
 
-```
+```text
 [invariant core: принципы]
         +
 [detected stack: Next 16.2, Fastify 5, etc.]

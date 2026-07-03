@@ -1,0 +1,4 @@
+{
+  "rule-id": "rules-as-tests/no-unsafe-zod-parse",
+  "description": "R2 — Zod schema .parse() must be rejected in boundary files (Class 1 standalone rule)"
+}

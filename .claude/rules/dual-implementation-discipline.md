@@ -1,12 +1,12 @@
 # Dual-implementation discipline — discipline rule
 
-> **Class:** C — prose-only, no current executable artifact. Promotion criterion in §9.
+> **Class:** A — the §5 drift-check + §6 marker-presence sketches ship as an executable check: [tests/agnosticism/probes/channel-coverage.sh](../../tests/agnosticism/probes/channel-coverage.sh) (Surface 8, CI-run by [packages/core/principles/21-agnosticism-conformance.test.ts](../../packages/core/principles/21-agnosticism-conformance.test.ts); seeded-break paired-negative in [tests/agnosticism/harness-self.test.sh](../../tests/agnosticism/harness-self.test.sh)) + the edit-time gate [.claude/hooks/check-hook-marker.sh](../hooks/check-hook-marker.sh) (§6, PostToolUse). The §8 *semantic* anti-patterns (`#two-prompts-drift` ≥3-line divergence, `#sync-by-copy-paste`, `#brand-name-detection`) remain reviewer-time judgment, not gated. Promotion history: §9.
 > **Authoritative for:** dual-implementation discipline rule — §1 problem, §2 triggers + non-triggers, §3 audience triage, §4 detection mechanism, §5 drift check, §6 CC-bias mitigation, §7 single source of truth, §8 anti-patterns, §9 promotion / retirement, §10 see also.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Build-vs-reuse (upstream adoption vs build) — see [build-first-reuse-default.md](build-first-reuse-default.md). Search-coverage discipline — see [phase-research-coverage.md](phase-research-coverage.md).
 
 > **Origin:** 2026-05-16 strategic D-items dialogue, D2 verdict B+ «soft case-by-case + dual-implementation discipline» ([decisions.md §D2](../orchestrator-prompts/d-items-strategic-dialogue/decisions.md)). Maintainer framing: «Claude Code лучший — используем его фичи когда есть». Design session 2026-05-17.
 >
-> **Companion executable test (deferred):** none currently; promotion criterion in §9.
+> **Companion executable test:** [tests/agnosticism/probes/channel-coverage.sh](../../tests/agnosticism/probes/channel-coverage.sh) — Surface 8 of principle 21 (shipped 2026-07-02); enforces §5 (`@dual-pair` anchor resolves to a real counterpart) + §6 (every CC hook declares a delivery-channel marker), population-wide and off-CC. See §9.
 
 ---
 
@@ -135,7 +135,7 @@ grep -rl '@dual-pair:' .claude/hooks/ 2>/dev/null | while read hook; do
 done
 ```
 
-Promotion to principle test deferred per §9. Until then this check runs as a reviewer-session step, not CI.
+This check now runs in **CI** as [tests/agnosticism/probes/channel-coverage.sh](../../tests/agnosticism/probes/channel-coverage.sh) (Surface 8 of principle 21) — population-wide and off-CC — complementing the edit-time gate [.claude/hooks/check-hook-marker.sh](../hooks/check-hook-marker.sh). (Was a reviewer-session step until 2026-07-02; see §9.)
 
 ---
 
@@ -201,11 +201,9 @@ done
 
 **Definition for promotion counting:** a «dual-channel artefact» for §9 purposes is a CC hook file carrying `@dual-pair: <anchor>` paired with a markdown agent or skill carrying the same anchor in its file-appropriate comment syntax (§5). **Rule + principle-test pairings** (e.g., `.claude/rules/doc-authority-hierarchy.md` + `packages/core/principles/09-doc-authority-hierarchy.test.ts`) follow §7's SSOT pattern but are **NOT** counted toward this threshold — they predate the rule, share a different lifecycle (test enforces the rule, rather than two channels enforcing the same semantic check), and are not the target surface of §5/§6 mechanical checks.
 
-**Promotion to companion principle test** when EITHER:
-- 3 violations of `#two-prompts-drift` or `#cc-only-without-rationale` occur within a 6-month window, OR
-- the project ships its 5th dual-channel artefact (as defined above) (whichever fires first).
+**Promotion — LANDED (2026-07-02), ahead of the thresholds below.** The §5 + §6 mechanical sketches shipped as [tests/agnosticism/probes/channel-coverage.sh](../../tests/agnosticism/probes/channel-coverage.sh) — a Surface-8 probe of principle 21 (**REUSE** of the existing agnosticism harness rather than a dedicated `packages/core/principles/<N>-dual-implementation.test.ts` slot; the probe is a bash artefact under `tests/`, not a capability commit → no new principle slot consumed). It enforces §5 (anchor resolves to a real counterpart) + §6 (marker present) across the whole CC-hook population, off-CC, with a seeded-break paired-negative in `harness-self.test.sh`.
 
-Test would live at `packages/core/principles/<N>-dual-implementation.test.ts` (lowest free slot at promotion moment: 12, 13, or 15+). Implementation: §5 and §6 grep sketches promoted to TypeScript; extensible to AST inspection if drift complexity warrants.
+The original triggers that *would* have fired this promotion — 3 `#two-prompts-drift`/`#cc-only-without-rationale` violations in a 6-month window, OR the 5th dual-channel artefact — are now moot for §5/§6. A dedicated TypeScript principle slot stays unneeded unless drift complexity outgrows the bash probe (then: promote the §5/§6 sketches to TS at the lowest-free slot, extensible to AST inspection). The §8 *semantic* anti-patterns are NOT covered by the probe and retain the violation-count trigger above for their own future mechanisation.
 
 **Retirement:** if 12 consecutive months pass with zero dual-channel features shipped AND zero anti-pattern incidents, archive to prose under `CLAUDE.md ## Delivery channel choices` and delete this file. Matches peer-rule retirement criteria in reviewer-discipline.md and parallel-subwave-isolation.md.
 
@@ -213,7 +211,9 @@ Test would live at `packages/core/principles/<N>-dual-implementation.test.ts` (l
 
 Zero dual-channel feature pairs exist today. The 4 existing `.claude/hooks/*.sh` and 4 `agents/*.md` files predate this rule and currently lack `@dual-pair` / `@cc-only-rationale` markers. **The annotation protocol is forward-going:** existing artefacts receive markers at next touch (refactor, bug fix, semantic update) — NOT via a retroactive sweep in the same PR as this rule. Maintainer may choose to batch-annotate as a separate atomic commit; this is permitted, not required.
 
-Running §6 grep against the current state therefore reports 4 «MISSING marker» findings for `check-doc-authority.sh`, `deps-hash-check.sh`, `inject-session-bootstrap.sh`, `validate-prompt.sh`. This is the expected starting state, not a violation. Promotion-threshold counters (§9 first bullet) start at 0 and accrue from features shipped after this rule lands.
+At codification (2026-05-17) the §6 grep reported 4 «MISSING marker» findings (`check-doc-authority.sh`, `deps-hash-check.sh`, `inject-session-bootstrap.sh`, `validate-prompt.sh`) — the expected forward-going starting state, not a violation.
+
+**Update (2026-07-02).** All four now carry markers: `deps-hash-check.sh` gained `@dual-pair: deps-hash-check-dogfood`; the other three gained `@cc-only-rationale` when the Surface-8 probe shipped. The channel-coverage probe reports **zero** non-PORTABLE across the full CC-hook population (tracked `.claude/hooks/**` ∪ settings-wired scripts). §6 marker discipline is now CI-enforced, not forward-going-only.
 
 ---
 

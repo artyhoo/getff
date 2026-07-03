@@ -105,13 +105,13 @@ EDIT-TIME      PRE-COMMIT     PRE-PUSH       PRE-PR         CI on PR        CI o
 | Уровень                                                                | Подробное описание в                                                                                                                                                         |
 | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1 — IDE                                                                | Не выделено отдельно — это feature редактора                                                                                                                                 |
-| 2 — Pre-commit                                                         | `templates/shared/.lintstagedrc.json` + `husky-pre-commit.sh`                                                                                                                |
-| 3 — Pre-push                                                           | `templates/shared/husky-pre-push.sh` (с fallback на новые ветки)                                                                                                             |
+| 2 — Pre-commit                                                         | `packages/core/templates/shared/.lintstagedrc.json` + `husky-pre-commit.sh`                                                                                                  |
+| 3 — Pre-push                                                           | `packages/core/templates/shared/husky-pre-push.sh` (с fallback на новые ветки)                                                                                               |
 | 4 — Pre-PR (`audit-ai-docs.sh` + review-sidecar / living-docs-auditor) | `./scripts/audit-ai-docs.sh` + our `agents/review-sidecar.md` + `agents/living-docs-auditor.md` (+ AIF `rules-sidecar` / `/aif-verify` wrapper, если используете AI-Factory) |
-| 5 — CI on PR                                                           | `templates/ts-server/github-actions-ci.yml` или `templates/react-next/github-actions-ci-ui.yml`                                                                              |
+| 5 — CI on PR                                                           | `templates/ts-server/github-actions-ci.yml` или `packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml`                                                       |
 | 6 — CI on merge                                                        | Расширение `github-actions-ci.yml` для full mutation sweep (см. комментарии в файле)                                                                                         |
-| 7 — Pre-deploy / can-i-deploy                                          | `factory/rules/integration-rules.md` (IR2 — Pact + can-i-deploy)                                                                                                             |
-| 8 — Production                                                         | `factory/rules/integration-rules.md` (IR5 — observability) — расширения требуют отдельной инфраструктуры (Prometheus, Honeycomb, Argo Rollouts)                              |
+| 7 — Pre-deploy / can-i-deploy                                          | `packages/core/templates/shared/integration-rules.md` (IR2 — Pact + can-i-deploy)                                                                                            |
+| 8 — Production                                                         | `packages/core/templates/shared/integration-rules.md` (IR5 — observability) — расширения требуют отдельной инфраструктуры (Prometheus, Honeycomb, Argo Rollouts)             |
 
 ---
 
@@ -207,10 +207,10 @@ EDIT-TIME      PRE-COMMIT     PRE-PUSH       PRE-PR         CI on PR        CI o
 
 - **`skills/rules-as-tests/SKILL.md`** + `references/overview.md` — общая 5-слойная рамка (применима к уровням 4, 5).
 - **`templates/ts-server/`** — конфиги для серверного TS-стека (уровни 2, 3, 5, 6).
-- **`templates/react-next/`** — React/Next.js конфиги (уровни 2, 3, 5, 6).
+- **`packages/preset-next-15-canonical/templates/`** — React/Next.js конфиги (уровни 2, 3, 5, 6).
 - **`agents/review-sidecar.md`** + **`living-docs-auditor.md`** (ours) + AIF's own **`rules-sidecar`** (reads `RULES.md`) — sub-agents для уровня 4. На этом уровне всегда работает `./scripts/audit-ai-docs.sh` + наши sub-agents; `/aif-verify` — обёртка AI-Factory поверх них, если вы её используете. (`best-practices-sidecar` is AIF's — KEEP-AIF; R-rule residue rides the `aif-rules-check` skill-context.)
 - **`scripts/audit-ai-docs.sh`** — code-vs-docs probes (уровень 4 + 5).
-- **`factory/rules/integration-rules.md`** — IR1-IR6 для уровней 5 (Pact CI), 7 (can-i-deploy), 8 (observability propagation).
+- **`packages/core/templates/shared/integration-rules.md`** — IR1-IR6 для уровней 5 (Pact CI), 7 (can-i-deploy), 8 (observability propagation).
 - **`references/self-testing-docs.md`** — детально про code-vs-docs probes как extension рамки на саму AI-документацию.
 
 Если ты разработчик, читающий любой из перечисленных документов и потерял ориентир — вернись сюда, чтобы понять, где находишься.

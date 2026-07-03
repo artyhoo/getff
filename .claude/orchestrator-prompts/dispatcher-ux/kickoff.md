@@ -52,7 +52,7 @@ The first real run short-circuited *correctly* — but only because the operatin
 
 ## §2 Discipline
 - Branch per stage, base staging. Principle tests green (`npm --prefix packages/core run test:principles`). §1.7 PR-body each stage.
-- **Traps:** T3 (file:line evidence) · T15 (self-application — the closure decision uses the skill's own fork-discipline) · T16 (reuse `priority-score.sh` completion-detection, don't re-invent by name-match) · T19 (own cold-QA before handoff) · T20 (no verdict without evidence-tool).
+- **Traps** (per [ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md)): T3 (file:line evidence) · T15 (self-application — the closure decision uses the skill's own fork-discipline) · T16 (reuse `priority-score.sh` completion-detection, don't re-invent by name-match) · T19 (own cold-QA before handoff) · T20 (no verdict without evidence-tool).
 - **Domain trap T-DUX-A (guard false-negative):** the dedup guard must not mark a genuinely-fresh umbrella as already-done. Falsifier: a fresh umbrella whose slug appears in an unrelated merged PR's body gets skipped → require ≥2 corroborating signals (branch match AND artifact existence), not a lone slug-substring PR hit.
 - **Domain trap T-DUX-B (monitor verified by prose, not by test):** «§2.2 says don't `sleep`» is prose the AI can ignore — it is NOT verification. Falsifier: the P5 fix lands with no deterministic transition-test against a stubbed status sequence AND no no-`sleep`/no-compound safety check → the monitor is unproven, and a future edit reintroducing `sleep` passes silently. The poll MUST be a testable unit with both checks (P5-verify), else P5 is «fixed» on paper only.
 

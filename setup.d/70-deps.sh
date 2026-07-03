@@ -65,7 +65,10 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
         "check:enforced": "bash scripts/check-rule-enforced.sh",
         "check:arch-boundaries": "bash scripts/check-arch-boundaries.sh",
         "check:lintstaged": "bash scripts/check-lintstaged-resolves.sh",
-        "validate": "npm-run-all2 --parallel typecheck lint format:check arch:check audit:docs check:globs check:enforced check:arch-boundaries check:lintstaged test",
+        "check:fences-fire": "bash scripts/check-fences-fire.sh",
+        "check:shields-up": "bash scripts/check-shields-up.sh",
+        "test:mutation:generated": "bash scripts/run-generated-rule-mutation.sh",
+        "validate": "npm-run-all2 --parallel typecheck lint format:check arch:check audit:docs check:globs check:enforced check:arch-boundaries check:lintstaged check:fences-fire check:shields-up test",
         "prepare": "husky"
       };
       let added = 0;

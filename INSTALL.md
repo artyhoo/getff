@@ -73,6 +73,8 @@ The installer:
 
 By default it **never overwrites** existing files. Use `--force` to overwrite.
 
+Two further opt-in flags (see `install.sh` header for exact semantics): `--full` — also auto-installs the shipped dev-deps via the consumer's package manager (mutating, no prompts; stack arg required); `--wire-ci` — also auto-wires missing CI gates into an existing workflow via `yq` (detect-first). The recommended `./setup -y <stack>` one-shot path already implies `--full` + companions.
+
 ---
 
 ## Path C: manual copy (full control)
@@ -85,6 +87,10 @@ If you want to pick what to install file-by-file:
 mkdir -p .claude/skills .claude/agents
 cp -r path/to/pkg/skills/rules-as-tests .claude/skills/
 cp path/to/pkg/agents/*.md .claude/agents/
+# Authoring-only tools — not for consumers; remove if you copied them above:
+rm -f .claude/agents/manual-rule-liveness-prober.md \
+      .claude/agents/shipped-agent-liveness-prober.md \
+      .claude/agents/backward-sweep-auditor.md
 ```
 
 ### C.2 — AI Factory project files
@@ -118,10 +124,10 @@ chmod +x scripts/audit-ai-docs.react-next.sh
 Copy what you don't already have. Don't overwrite without reading first.
 
 ```bash
-cp path/to/pkg/templates/shared/AGENTS.md.template AGENTS.md
-cp path/to/pkg/templates/shared/.nvmrc .
-cp path/to/pkg/templates/shared/.lintstagedrc.json .
-cp path/to/pkg/templates/shared/tsconfig.json .
+cp path/to/pkg/packages/core/templates/shared/AGENTS.md.template AGENTS.md
+cp path/to/pkg/packages/core/templates/shared/.nvmrc .
+cp path/to/pkg/packages/core/templates/shared/.lintstagedrc.json .
+cp path/to/pkg/packages/core/templates/shared/tsconfig.json .
 
 # For ts-server:
 cp path/to/pkg/templates/ts-server/eslint.config.mjs .
@@ -130,23 +136,23 @@ cp path/to/pkg/templates/ts-server/dependency-cruiser.cjs .dependency-cruiser.cj
 cp path/to/pkg/templates/ts-server/stryker.config.json .
 
 # For react-next:
-cp path/to/pkg/templates/react-next/eslint.config.react.mjs eslint.config.mjs
-cp path/to/pkg/templates/react-next/vitest.config.ts .
-cp path/to/pkg/templates/react-next/playwright.config.ts .
+cp path/to/pkg/packages/preset-next-15-canonical/templates/eslint.config.react.mjs eslint.config.mjs
+cp path/to/pkg/packages/preset-next-15-canonical/templates/vitest.config.ts .
+cp path/to/pkg/packages/preset-next-15-canonical/templates/playwright.config.ts .
 cp path/to/pkg/templates/ts-server/dependency-cruiser.cjs .dependency-cruiser.cjs
 cp path/to/pkg/templates/ts-server/stryker.config.json .
 
 # Husky hooks:
 mkdir -p .husky
-cp path/to/pkg/templates/shared/husky-pre-commit.sh .husky/pre-commit
-cp path/to/pkg/templates/shared/husky-pre-push.sh .husky/pre-push
+cp path/to/pkg/packages/core/templates/shared/husky-pre-commit.sh .husky/pre-commit
+cp path/to/pkg/packages/core/templates/shared/husky-pre-push.sh .husky/pre-push
 chmod +x .husky/pre-commit .husky/pre-push
 
 # CI workflow:
 mkdir -p .github/workflows
 cp path/to/pkg/templates/ts-server/github-actions-ci.yml .github/workflows/ci.yml
 # Or for React/Next:
-cp path/to/pkg/templates/react-next/github-actions-ci-ui.yml .github/workflows/ci.yml
+cp path/to/pkg/packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml .github/workflows/ci.yml
 ```
 
 ---
@@ -244,8 +250,8 @@ npx husky init
 
 # Husky created .husky/pre-commit and .husky/pre-push template hooks.
 # Replace them with the ones we copied:
-cp path/to/pkg/templates/shared/husky-pre-commit.sh .husky/pre-commit
-cp path/to/pkg/templates/shared/husky-pre-push.sh .husky/pre-push
+cp path/to/pkg/packages/core/templates/shared/husky-pre-commit.sh .husky/pre-commit
+cp path/to/pkg/packages/core/templates/shared/husky-pre-push.sh .husky/pre-push
 chmod +x .husky/pre-commit .husky/pre-push
 ```
 

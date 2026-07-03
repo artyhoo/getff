@@ -7,7 +7,7 @@
 Этот подход разработан в реальной практике (см. аудит-скрипты в проектах sisters-sphere и artyhoo-cv); здесь — обобщённая форма, которую можно переносить.
 
 > **Authoritative for:** «rules-as-tests applied to AI documentation» pattern — `audit-ai-docs.sh` design, code-vs-doc probe pairing, negative-test pairing for AGENTS.md rules.
-> **NOT authoritative for:** framework's project goal — see [../../../README.md#why-this-exists](../../../README.md#why-this-exists). Doc-vs-doc authority drift (separate failure mode) — see [.claude/rules/doc-authority-hierarchy.md](../../../.claude/rules/doc-authority-hierarchy.md). AI-doc organization — see [doc-organization.md](doc-organization.md).
+> **NOT authoritative for:** framework's project goal — see [README.md#why-this-exists](https://github.com/artyhoo/rules-as-tests-aif/blob/main/README.md#why-this-exists). Doc-vs-doc authority drift (separate failure mode) — see [.claude/rules/doc-authority-hierarchy.md](https://github.com/artyhoo/rules-as-tests-aif/blob/main/.claude/rules/doc-authority-hierarchy.md). AI-doc organization — see [doc-organization.md](doc-organization.md).
 
 ---
 
@@ -282,6 +282,6 @@ npm run audit:docs || {
 
 - `references/doc-organization.md` — hot/cold split AGENTS.md, drift detection §5.1-5.5.
 - `agents/living-docs-auditor.md` — sub-agent, который запускает audit-скрипт под `/aif-verify`.
-- `scripts/audit-ai-docs.sh` — эталон серверного TS.
-- `scripts/audit-ai-docs.react-next.sh` — эталон UI-стека.
+- `packages/core/audit-self/audit-ai-docs.sh` — эталон серверного TS.
+- `packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh` — эталон UI-стека.
 - `references/overview.md` Layer 5 — Living Documentation как принцип, частным случаем которого является self-testing AI documentation.

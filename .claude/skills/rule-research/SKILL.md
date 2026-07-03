@@ -13,6 +13,8 @@ description: Use when a consumer wants to bootstrap stack-aware ESLint rules fro
 
 This skill is a thin entry point. The full protocol — detect stack → research practices from canonical docs (context7 + deepwiki + a real fetch) → author a `ResearchPlan` + `GenerateSelection` filtered to L4-expressible rules → write two committed JSON files — is `agents/rule-researcher.md`. Follow it directly; this wrapper exists only so the protocol is reachable by a Claude Code trigger without duplicating its logic (single source of truth, per `dual-implementation-discipline.md §7`).
 
+Provenance for every researched practice is gated by the tiered trust model — see [`.claude/rules/research-source-trust.md`](../../rules/research-source-trust.md) for the discipline (Tier 0 builtin / Tier 1 derived from a direct dependency's own metadata / Tier 2 consumer-acked) and `agents/rule-researcher.md`'s "Trust tiers" table for the per-practice mechanics.
+
 To run: open `agents/rule-researcher.md` and execute its numbered protocol against the current project, then run `./setup --full` to synthesize the researched rules.
 
 ## Without this skill

@@ -142,8 +142,14 @@ Notes:
   opener; a bash glob in a comment (`# … hooks/*.sh`) would otherwise suppress
   mutation of the rest of the file. The wrapper neutralises this automatically
   (line-count-preserving), so kill rates are not silently truncated.
-- The wrapper transiently overwrites the target hook while testing each mutant
-  and restores it on completion — don't edit or commit that hook mid-run.
+- Mutants are swapped into a temp **shadow copy** of the hook — the tracked
+  file is never written (2026-07-02 leak incident: concurrent suite instances
+  interleaved the old in-place swap/restore and a mutant leaked into the tree).
+  The shadow's path reaches the test command via `BASHMUT_HOOK`; a hook test
+  that spawns its hook must spawn `$BASHMUT_HOOK` (falling back to the tracked
+  path when unset), or every mutant survives and the gate fails loudly.
+  `packages/core/audit-self/hooks-tree-guard.ts` (vitest globalSetup) is the
+  suite-level tripwire that fails a run which leaks into `.claude/hooks/`.
 
 ## Build-vs-reuse + `Prior-art:` trailer convention (Phase 8.8)
 
@@ -158,7 +164,7 @@ The pre-push hook flags a commit as a capability commit if **any** of:
 
 | Trigger | Detection |
 |---|---|
-| New explicit dependency added to `package.json` | diff line matches `^\+\s*"[^"]+":\s*"\^?[0-9]` (transitive deps don't count) |
+| New explicit dependency added to `package.json` | a dependency key on an added `+` line with no matching removed `-` line, across semver-prefix forms `^ ~ >= <= = *` (transitive deps don't count) — see `packages/core/hooks/checks/prior-art.ts` |
 | New file ≥50 LOC under a **new** subdirectory of `packages/core/` | new path under previously-empty `packages/core/<dir>/` |
 | New file ≥80 LOC anywhere under `packages/` | size threshold for new abstractions |
 
@@ -229,7 +235,7 @@ Both must be fixed at source — no `--no-verify` / silent CI bypass.
 ### Bypass policy
 
 `git push --no-verify` skips the hook content but the CI job
-`enforce-husky-presence` still runs `audit-ai-docs.test.sh`-equivalent
+`enforce-husky-presence` still runs `audit-ai-docs.test.ts`-equivalent
 checks (T9 — added hook regression test under `tests/hooks/`). Skipping
 the hook does not skip the principle test; principle 08 runs in
 `principles-meta-tests` CI job and catches research-file violations

@@ -22,11 +22,12 @@
  */
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import process from 'node:process';
 import { loadEntries } from '../research/load.ts';
 import { synthesize } from '../synthesizer/synthesize.ts';
-import { wireNRules } from './wire-eslint-r2.ts';
+import { ESLINT_RESTRICTED_RULE_NAME } from '../synthesizer/compile-declarative-md.ts';
+import { customRulesImportSpecifier, wireNRules } from './wire-eslint-r2.ts';
 
 // ─── Canonical pattern sets per install stack ─────────────────────────────────
 // Mirrors the WRAPPER_TEMPLATES in packages/core/principles/26-template-selector-sync.test.ts.
@@ -44,6 +45,104 @@ const STACK_PATTERNS: Record<string, { framework: string; version: string; patte
     ],
   },
 };
+
+// ─── Live-research augment-first merge ────────────────────────────────────────
+// Union the deterministic preset-baseline rule set with the consumer's LIVE-research snippet
+// (emitted to .ai-factory/synthesizer-output/eslint-rules-snippet.json by 80-rule-bootstrap),
+// with LIVE precedence per rule-id — realising «live-research is the default delivery, presets
+// the fallback baseline». Returns the merged rule set + the set of rule-ids whose live value
+// must OVERRIDE the preset value already in the consumer config (D2 live-wins); the wrapper
+// rule (restricted-syntax-audit-exempt) augments by selector-union, never override.
+
+/**
+ * Safe rule-id charset: letters, digits, @, /, _, - (standard ESLint plugin/rule naming).
+ * Keys from the LLM-sourced live snippet are validated against this before use — a key outside
+ * this set could break out of the string literal in the generated eslint.config.mjs (RCE).
+ * NOTE: underscores (_) are in-charset, so `__proto__` PASSES this regex. The actual guard
+ * against prototype-key attacks is `Object.create(null)` in readLiveSnippet (creates a null-
+ * prototype object so `__proto__` is stored as an own data property, not a setter).
+ */
+const RULE_ID_SAFE = /^[A-Za-z0-9@/_-]+$/;
+
+/** Union two restricted-syntax wrapper arrays by selector; live entry wins on selector collision. */
+function unionWrapperSelectors(presetArr: unknown[], liveArr: unknown[]): unknown[] {
+  const severity =
+    typeof liveArr[0] === 'string'
+      ? liveArr[0]
+      : typeof presetArr[0] === 'string'
+        ? presetArr[0]
+        : 'error';
+  const bySelector = new Map<string, unknown>();
+  for (const e of presetArr.slice(1)) {
+    const sel = (e as { selector?: string })?.selector;
+    if (sel) bySelector.set(sel, e);
+  }
+  for (const e of liveArr.slice(1)) {
+    const sel = (e as { selector?: string })?.selector;
+    if (sel) bySelector.set(sel, e); // live overwrites the preset entry for the same selector
+  }
+  return [severity, ...bySelector.values()];
+}
+
+export function mergeLiveRules(
+  presetRules: Record<string, unknown>,
+  liveRules: Record<string, unknown>,
+): { rules: Record<string, unknown>; overrideKeys: Set<string> } {
+  const rules: Record<string, unknown> = { ...presetRules };
+  const overrideKeys = new Set<string>();
+  for (const [id, liveVal] of Object.entries(liveRules)) {
+    if (!RULE_ID_SAFE.test(id)) {
+      console.error(`  · synth-and-wire: live snippet — non-conforming rule-id '${id}' rejected`);
+      continue;
+    }
+    if (!Object.hasOwn(presetRules, id)) {
+      rules[id] = liveVal; // live-only rule — pure augment
+      continue;
+    }
+    const presetVal = presetRules[id];
+    if (Array.isArray(liveVal) && Array.isArray(presetVal)) {
+      // Wrapper rule (e.g. ESLINT_RESTRICTED_RULE_NAME): union selectors, live wins per selector.
+      // Augments via selector-union in the wirer — no override-replace needed.
+      rules[id] = unionWrapperSelectors(presetVal, liveVal);
+    } else {
+      // Simple rule (or a shape change) sharing a preset rule-id → live wins; mark for override.
+      rules[id] = liveVal;
+      overrideKeys.add(id);
+    }
+  }
+  return { rules, overrideKeys };
+}
+
+/**
+ * Read + parse the live-research eslint snippet if present. Returns {} when the file is absent
+ * (the byte-identical no-op gate) or unreadable/empty (degrade, never crash the install).
+ */
+function readLiveSnippet(snippetPath: string): Record<string, unknown> {
+  if (!existsSync(snippetPath)) return {};
+  try {
+    const raw = readFileSync(snippetPath, 'utf8').trim();
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const safe: Record<string, unknown> = Object.create(null);
+      for (const [id, val] of Object.entries(parsed as Record<string, unknown>)) {
+        if (!RULE_ID_SAFE.test(id)) {
+          console.error(`  · synth-and-wire: live snippet — non-conforming rule-id '${id}' rejected (must match [A-Za-z0-9@/_-]+)`);
+          continue;
+        }
+        safe[id] = val;
+      }
+      return safe;
+    }
+    console.error(`  · synth-and-wire: live snippet at ${snippetPath} is not a rules object — ignored`);
+    return {};
+  } catch (err) {
+    console.error(
+      `  · synth-and-wire: live snippet at ${snippetPath} unreadable (${(err as Error).message}) — using preset baseline only`,
+    );
+    return {};
+  }
+}
 
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
@@ -72,10 +171,19 @@ async function main(): Promise<void> {
   const configPath = resolve(pathIdx >= 0 ? argv[pathIdx + 1] : './eslint.config.mjs');
   const dryRun = argv.includes('--dry-run');
 
+  // Live-research snippet path (D1). Default: <consumer-root>/.ai-factory/synthesizer-output/
+  // eslint-rules-snippet.json, derived from the config's own directory (configPath lives at the
+  // consumer root). Override with --snippet for tests / non-default layouts.
+  const snippetIdx = argv.indexOf('--snippet');
+  const snippetPath =
+    snippetIdx >= 0
+      ? resolve(argv[snippetIdx + 1])
+      : resolve(dirname(configPath), '.ai-factory', 'synthesizer-output', 'eslint-rules-snippet.json');
+
   // Unknown-flag guard: catch mis-wired flags early rather than silently ignoring them
   // (the CLI's argv.indexOf approach swallows unrecognised flags — a mis-wired --store-root
   // would produce a silent green-lie no-op; this guard makes mis-wiring loud).
-  const KNOWN_FLAGS = new Set(['--help', '-h', '--stack', '--path', '--dry-run']);
+  const KNOWN_FLAGS = new Set(['--help', '-h', '--stack', '--path', '--dry-run', '--snippet']);
   for (let i = 0; i < argv.length; i++) {
     if (argv[i].startsWith('--') || argv[i].startsWith('-')) {
       if (!KNOWN_FLAGS.has(argv[i])) {
@@ -83,35 +191,58 @@ async function main(): Promise<void> {
         process.exit(0); // rc=0 — install must not abort
       }
       // skip the next arg if this flag consumes a value
-      if (argv[i] === '--stack' || argv[i] === '--path') i++;
+      if (argv[i] === '--stack' || argv[i] === '--path' || argv[i] === '--snippet') i++;
     }
   }
 
-  // Unknown stack → no declared patterns → synthesizer would emit {} → skip early
+  // Preset baseline: synthesize the stack's declared patterns. A stack with NO STACK_PATTERNS
+  // entry (ts-server, react-native, react-spa, …) contributes no preset rules → synthRules = {},
+  // but the LIVE-research snippet below can still wire — augment-first: live is the default
+  // delivery, presets the fallback baseline. #827 B2: the read+merge of the live snippet MUST run
+  // for an absent stackDef too, so the former early "no synthesizer pattern set" exit(0) (which
+  // fired BEFORE the merge) no longer kills live delivery for every non-react-next stack.
   const stackDef = STACK_PATTERNS[stack];
-  if (!stackDef) {
-    console.log(`  [synth-wire] stack '${stack}' has no synthesizer pattern set — skipped (no-op)`);
-    process.exit(0);
+  let synthRules: Record<string, unknown> = {};
+  if (stackDef) {
+    // Run the deterministic synthesizer (no LLM; no network — principle 17)
+    console.debug(`  [synth-wire] DEBUG: synthesizing rules for stack '${stack}' (${stackDef.framework}@${stackDef.version})`);
+    const entries = loadEntries(stackDef.framework, stackDef.version, stackDef.patterns);
+    const plan = synthesize({
+      framework: stackDef.framework,
+      version: stackDef.version,
+      patterns: entries,
+      missing: [],
+      drift: null,
+    });
+    synthRules = JSON.parse(plan.eslintConfigSnippet) as Record<string, unknown>;
+  } else {
+    console.log(`  [synth-wire] stack '${stack}' has no synthesizer pattern set — preset baseline empty; live-research snippet (if any) still wires`);
   }
 
-  // Run the deterministic synthesizer (no LLM; no network — principle 17)
-  console.debug(`  [synth-wire] DEBUG: synthesizing rules for stack '${stack}' (${stackDef.framework}@${stackDef.version})`);
-  const entries = loadEntries(stackDef.framework, stackDef.version, stackDef.patterns);
-  const plan = synthesize({
-    framework: stackDef.framework,
-    version: stackDef.version,
-    patterns: entries,
-    missing: [],
-    drift: null,
-  });
-  const synthRules = JSON.parse(plan.eslintConfigSnippet) as Record<string, unknown>;
+  // ─── Augment-first: merge the LIVE-research snippet over the preset baseline (D1/D2) ──
+  // The live snippet (when present) is the consumer's researched rules; it AUGMENTS the preset
+  // baseline and OVERRIDES on rule-id collision (live is the default delivery). Gated on the
+  // snippet FILE existing — absent ⇒ {} ⇒ mergedRules === synthRules ⇒ the byte-identical
+  // capture path (no snippet) is wholly unchanged (§5).
+  const liveRules = readLiveSnippet(snippetPath);
+  const { rules: mergedRules, overrideKeys } = mergeLiveRules(synthRules, liveRules);
+  if (Object.keys(liveRules).length > 0) {
+    const newIds = Object.keys(liveRules).filter((id) => !(id in synthRules));
+    const liveSelectors = Array.isArray(liveRules[ESLINT_RESTRICTED_RULE_NAME])
+      ? (liveRules[ESLINT_RESTRICTED_RULE_NAME] as unknown[]).length - 1
+      : 0;
+    console.log(
+      `  [synth-wire] live-research snippet found at ${snippetPath} — augmenting preset baseline ` +
+        `(live precedence; ${newIds.length} new rule-id(s), ${overrideKeys.size} override(s), ${liveSelectors} live selector(s))`,
+    );
+  }
 
-  if (Object.keys(synthRules).length === 0) {
+  if (Object.keys(mergedRules).length === 0) {
     console.log(`  [synth-wire] synthesizer emitted no rules for '${stack}' — no-op`);
     process.exit(0);
   }
 
-  console.debug(`  [synth-wire] DEBUG: emitted ${Object.keys(synthRules).length} rule(s): ${Object.keys(synthRules).join(', ')}`);
+  console.debug(`  [synth-wire] DEBUG: emitted ${Object.keys(mergedRules).length} rule(s): ${Object.keys(mergedRules).join(', ')}`);
 
   // Dry-run: check config existence and report what would happen, no writes
   if (dryRun) {
@@ -119,7 +250,13 @@ async function main(): Promise<void> {
       console.log(`  [dry-run] [synth-wire] ${configPath} not found — would skip`);
     } else {
       const source = readFileSync(configPath, 'utf8');
-      const result = await wireNRules(source, synthRules);
+      const result = await wireNRules(source, mergedRules, {
+        overrideKeys,
+        // #829: enable plugin self-registration for presets that don't pre-register `rules-as-tests`
+        // (RN/ts-server). Resolved against the config's own dir → `./eslint-rules-local/index.mjs`
+        // (40-configs.sh provisions it at the root AND per-workspace), so it works for both layouts.
+        customRulesImportPath: customRulesImportSpecifier(configPath, dirname(configPath)),
+      });
       if (result.status === 'already-wired') {
         console.log(`  [dry-run] [synth-wire] all synthesized rules already present in ${configPath} (no change needed)`);
       } else {
@@ -136,7 +273,11 @@ async function main(): Promise<void> {
   }
 
   const source = readFileSync(configPath, 'utf8');
-  const result = await wireNRules(source, synthRules);
+  const result = await wireNRules(source, mergedRules, {
+    overrideKeys,
+    // #829: see the dry-run site above — enables plugin self-registration for presets lacking it.
+    customRulesImportPath: customRulesImportSpecifier(configPath, dirname(configPath)),
+  });
 
   switch (result.status) {
     case 'already-wired':

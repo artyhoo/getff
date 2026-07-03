@@ -4,7 +4,7 @@
 > Companion: [PROPOSAL.md](PROPOSAL.md) (overview)
 >
 > **Authoritative for:** 6-layer architecture description (L0 Invariant Core → L5 Installer), data flow between layers, Path A vs Path B synthesis paths, v1 deterministic stance per layer.
-> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Phase scope and acceptance criteria — see [EXECUTION-PLAN.md](EXECUTION-PLAN.md).
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Phase scope and acceptance criteria — see [EXECUTION-PLAN.md](EXECUTION-PLAN.md). **Implementation status** — this doc describes the *target* layer design, not a claim that every layer is currently built; per-layer reality lives in [EXECUTION-PLAN.md](EXECUTION-PLAN.md) (status-audit 2026-06-29 / post-v1 block). External doc-synthesis tools (e.g. DeepWiki) reading L0-L5 as an operational subsystem is the misread this line exists to prevent.
 
 ---
 
@@ -29,7 +29,7 @@ Layer 5 — Installer
 
 | Компонент | Содержание | Почему invariant |
 |---|---|---|
-| Принципы | 5 layers framework, AST > grep, paired negative tests, mutation testing, two-AI review (via AIF `review-sidecar` with `model: opus` override) | Это сам тезис; если генерировать — теряется опора |
+| Принципы | 5 layers framework, AST > grep, paired negative tests, mutation testing, two-AI review (via AIF `review-sidecar`; `model: opus` override — v2 trigger, не в shipped-агенте: см. v1-stance note в §2.6 / [open-questions.md §13.10 entry #4](open-questions.md)) | Это сам тезис; если генерировать — теряется опора |
 | Meta-rules | «every rule has executable check», «no tautology», «documents lie», «MUST не демотируется до should» | Критерии валидности любого LLM-output |
 | Workflow контракт | detect → research → synthesize → validate → install | Контракт между фазами |
 | Schema manifest | JSON Schema для `rules-manifest.json` | Фиксирует формат, в который research должен попадать |
@@ -89,6 +89,10 @@ Layer 5 — Installer
 **Защита от prompt injection.** Жёсткий allowlist источников. WebSearch без allowlist для best practices — запрещён. Только официальные docs.
 
 > **v1 deterministic stance (2026-05-08):** Research Agent ships **deterministic-curated** in Phase 5 (`packages/core/research/store/`, hand-authored JSON entries; symbolic drift detection over 3 canonical sources). LLM extension (context7 MCP + Anthropic `web_search_20250305` with allowed_domains) deferred as v2 trigger per [open-questions.md §13.10](open-questions.md). The contract documented in §2.4 above describes the v1+v2 unified surface; v2 is a strict superset over the v1 store. v1 ships behaviorally identical to the contract for curated frameworks; v2 extends coverage to non-curated ones.
+>
+> **Live-adapter update (2026-07-02, doc-truth sweep):** the deferred leg is now **partially LIVE** — rule-research live-adapter Phase 1 (#805, umbrella closed #809) + live-research as the **default rule delivery**, augment-first (react-next #824; multistack B1-B4 #828; 2026-06-29). Mechanism: an in-session, AI-agnostic protocol ([agents/rule-researcher.md](../../agents/rule-researcher.md), thin CC trigger [.claude/skills/rule-research/SKILL.md](../../.claude/skills/rule-research/SKILL.md)) researches canonical live docs and emits committed `ResearchPlan`/`GenerateSelection` JSON; the deterministic factory synthesizes the rule + firing test from those (port/adapter surface: `packages/core/research/research-port.ts`, `research-adapter-anthropic.ts`, `research-live.test.ts`). No paid LLM in CI — research runs in the active session per [no-paid-llm-in-ci.md](../../.claude/rules/no-paid-llm-in-ci.md); the curated store remains the baseline (augment-first). Still v2-deferred: LLM-driven synthesizer menu-picker (§2.5) and Path B AST generation.
+>
+> **Trust-tier update (2026-07-02, rule-research-trust-tiers umbrella):** the hardcoded 7-key `ALLOWED_SOURCES` const above is now **resolver-computed** across three trust tiers evaluated in order (first match wins) — Tier 0 builtin curated (the same 7 keys, unchanged), Tier 1 derived automatically from a consumer's own direct-dependency metadata (scope-locked to that package, multi-tenant apexes excluded), and Tier 2 consumer-acked via a committed `.ai-factory/research-allowlist.json` file. The factory stays offline and no-network at validate time — Tier-1 resolution reads only local files (`allowlist-resolver.ts`). See [`.claude/rules/research-source-trust.md`](../../.claude/rules/research-source-trust.md) for the discipline and [`.claude/orchestrator-prompts/rule-research-trust-tiers/kickoff.md` §4](../../.claude/orchestrator-prompts/rule-research-trust-tiers/kickoff.md) for the full architecture.
 
 ### 2.5 Layer 3 — Rule Synthesizer
 

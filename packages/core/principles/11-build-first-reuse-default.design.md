@@ -25,9 +25,9 @@ A file qualifies as a capability artifact if it matches ANY:
 - `.claude/rules/*.md` (any new rule)
 - `.claude/skills/<skill-name>/SKILL.md` (any new skill primary doc)
 - `agents/*.md` (any new sub-agent prompt)
-- new explicit `package.json` dependency (matching `^\+\s*"[^"]+":\s*"\^?[0-9]` in diff)
+- new explicit `package.json` dependency (a dependency key on an added `+` line with no matching removed `-` line, semver-prefix forms `^ ~ >= <= = *`)
 
-This list mirrors the existing pre-push hook capability-detection in `.husky/pre-push` (intentionally consistent to avoid two competing definitions).
+This list mirrors the existing capability-detection in `packages/core/hooks/checks/prior-art.ts` (invoked by `.husky/pre-push`; intentionally consistent to avoid two competing definitions).
 
 ## §3 Match criterion (file → SSOT entry)
 

@@ -195,7 +195,21 @@ describe.skipIf(!JQ)('worktree-setup.sh — WorktreeCreate hook', () => {
     expect(readlinkSync(`${wt}/node_modules`)).toBe(`${repo}/node_modules`);
   });
 
-  it('symlinks packages/core/node_modules to ../../node_modules (workspace layout)', () => {
+  it('symlinks packages/core/node_modules to the primary REAL nested dir when it exists (shadowing fix, 2026-07-02)', () => {
+    // Primary carries a real nested layer (root lock plans diverging dep
+    // versions there) — the worktree link must target IT, not ../../node_modules,
+    // or esbuild bundles root versions and synth-bundle --check false-drifts.
+    mkdirSync(resolve(repo, 'packages/core/node_modules'), { recursive: true });
+    writeFileSync(resolve(repo, 'packages/core/node_modules/.keep'), '');
+    const r = runHook(payload('sym-core-nested', repo), { CLAUDE_PROJECT_DIR: repo });
+    expect(r.status).toBe(0);
+    const wt = `${repo}/.claude/worktrees/sym-core-nested`;
+    expect(readlinkSync(`${wt}/packages/core/node_modules`)).toBe(
+      `${repo}/packages/core/node_modules`,
+    );
+  });
+
+  it('falls back to ../../node_modules when primary has no nested packages/core/node_modules', () => {
     const r = runHook(payload('sym-core', repo), { CLAUDE_PROJECT_DIR: repo });
     expect(r.status).toBe(0);
     const wt = `${repo}/.claude/worktrees/sym-core`;

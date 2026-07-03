@@ -84,4 +84,54 @@ PIG="$TG/.prettierignore"
   && ok "F15 greenfield: no pre-existing file → .prettierignore copied WITH .ai-factory/RULES.md" \
   || bad "F15 greenfield: greenfield consumer did not receive a complete .prettierignore"
 
+# ── #807 multi-stack: per-workspace configs the multi-stack branch ships must be in .prettierignore ──
+# The #793/#796 multi-stack branch writes per-workspace eslint.config.mjs files; ignore_shipped_configs
+# only knew root basenames, so prettier --check . reflowed them and format:check went RED. The fix
+# discovers per-workspace configs and adds the shipped-fresh ones to the managed block, reusing the
+# fresh-vs-SKIPPED guard. Real install, deps-free (</dev/null answers N). Install WITHOUT --force on
+# the brownfield arm so copy_safe's skip-if-exists path (→ SKIPPED) is exercised, not bypassed.
+MS807=$(mktemp -d)
+printf '{ "name":"mono","private":true,"devDependencies":{"typescript":"5.6.0"} }\n' > "$MS807/package.json"
+printf 'packages:\n  - "apps/*"\n' > "$MS807/pnpm-workspace.yaml"
+mkdir -p "$MS807/apps/api"
+printf '{ "name":"@m/api","dependencies":{"hono":"4.0.0"},"devDependencies":{"typescript":"5.6.0"} }\n' > "$MS807/apps/api/package.json"
+mkdir -p "$MS807/apps/mobile"
+printf '{ "name":"@m/mobile","dependencies":{"expo":"~52.0.0","react-native":"0.76.0","react":"18.3.0"} }\n' > "$MS807/apps/mobile/package.json"
+( cd "$MS807" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force </dev/null ) >/dev/null 2>&1
+PI807="$MS807/.prettierignore"
+
+# (pos) the FRESH-shipped per-workspace configs are in the managed block.
+grep -qx 'apps/api/eslint.config.mjs' "$PI807" \
+  && ok "#807 pos: apps/api/eslint.config.mjs (fresh-shipped) added to .prettierignore managed block" \
+  || bad "#807 pos: apps/api/eslint.config.mjs NOT in .prettierignore (format:check would reflow it)"
+grep -qx 'apps/mobile/eslint.config.mjs' "$PI807" \
+  && ok "#807 pos: apps/mobile/eslint.config.mjs (fresh-shipped) added to .prettierignore managed block" \
+  || bad "#807 pos: apps/mobile/eslint.config.mjs NOT in .prettierignore"
+# RN ships eslint.config.rn-common.mjs too — it must also be covered.
+grep -qx 'apps/mobile/eslint.config.rn-common.mjs' "$PI807" \
+  && ok "#807 pos: apps/mobile/eslint.config.rn-common.mjs (RN shared base, fresh-shipped) covered" \
+  || bad "#807 pos: apps/mobile/eslint.config.rn-common.mjs NOT in .prettierignore"
+
+# (PAIRED-NEGATIVE) a CONSUMER-authored per-workspace config (present before install → copy_safe
+# SKIPs it → recorded in SKIPPED) must stay format-checked, i.e. NOT be added to the ignore block.
+MSN807=$(mktemp -d)
+printf '{ "name":"mono","private":true,"devDependencies":{"typescript":"5.6.0"} }\n' > "$MSN807/package.json"
+printf 'packages:\n  - "apps/*"\n' > "$MSN807/pnpm-workspace.yaml"
+mkdir -p "$MSN807/apps/api"
+printf '{ "name":"@m/api","dependencies":{"hono":"4.0.0"},"devDependencies":{"typescript":"5.6.0"} }\n' > "$MSN807/apps/api/package.json"
+# consumer already authored apps/api/eslint.config.mjs → install's copy_safe must SKIP it.
+printf '// consumer-authored — do not ignore\nexport default [];\n' > "$MSN807/apps/api/eslint.config.mjs"
+# install WITHOUT --force so copy_safe takes the skip-if-exists (→ SKIPPED) branch.
+( cd "$MSN807" && git init -q && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >/dev/null 2>&1
+PIN807="$MSN807/.prettierignore"
+# the consumer-authored config survived (copy_safe kept it) AND is NOT in the ignore block.
+grep -q 'consumer-authored' "$MSN807/apps/api/eslint.config.mjs" \
+  && ok "#807 neg: consumer-authored apps/api/eslint.config.mjs survived install (copy_safe kept it)" \
+  || bad "#807 neg: consumer-authored config was overwritten (copy_safe clobbered it)"
+if grep -qx 'apps/api/eslint.config.mjs' "$PIN807" 2>/dev/null; then
+  bad "#807 neg: consumer-authored (SKIPPED) apps/api config was added to .prettierignore — would stop format-checking it"
+else
+  ok "#807 neg: consumer-authored (SKIPPED) apps/api config NOT ignored — stays format-checked (non-vacuous)"
+fi
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

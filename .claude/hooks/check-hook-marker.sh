@@ -12,7 +12,10 @@
 # Why: prevents silent CC vendor-lock-in — every hook must state its channel
 # intent, so "CC-only" is a deliberate, recorded choice (§1b), not an accident.
 # Marker presence only; the §5 drift-check (anchor has a real counterpart) is a
-# separate, heavier item — out of scope here.
+# separate, heavier item — out of scope here. CI-side companion:
+# tests/agnosticism/probes/channel-coverage.sh (Surface 8, run by principle 21) is the
+# population-wide, off-CC counterpart — it checks the whole hook set at once AND resolves
+# @dual-pair anchors (§5). This edit-time gate stays the earliest reachable channel.
 #
 # Exit 1 on violation (repo PostToolUse-gate convention: check-doc-authority.sh).
 # Graceful no-op (exit 0) without jq, off-path, or for a deleted file.

@@ -32,7 +32,7 @@ cd /tmp/rules-as-tests-aif
 - Disabling a probe in `audit-ai-docs.sh`.
 
 **NEVER — refuse if asked, redirect to a senior or to `/aif-rules` discussion:**
-- Edit files under `eslint-rules-local/` (these are vendored copies; edit upstream in `templates/shared/eslint-rules/` and reinstall).
+- Edit files under `eslint-rules-local/` (these are vendored copies; edit upstream in `packages/core/eslint-rules/` (shared/generic rules) or `packages/preset-<stack>/eslint-rules/` (stack-specific rules) and reinstall).
 - Edit generated `RULES.md` if Phase 2's `rules-manifest.json` exists — regenerate via `packages/core/render/render-rules.ts` instead.
 - Pass `--no-verify`, `--no-gpg-sign`, or any hook-skip flag in commits.
 - Push to `main` directly or force-push any shared branch.
@@ -60,10 +60,10 @@ Install rules-as-tests-aif into this project. Follow these steps exactly:
    Show output. If it fails, stop and ask me what to do.
 
 4. From the rules-as-tests-aif package directory, run:
-   `bash setup.sh --stack=<detected-stack>`
+   `bash setup -y <detected-stack>`
 
    This installs:
-   - .claude/agents/{review-sidecar,living-docs-auditor,compliance-verifier}.md (best-practices-sidecar is KEEP-AIF — not shipped by us; review-sidecar default-skips when AIF's exists)
+   - .claude/agents/{review-sidecar,living-docs-auditor,compliance-verifier,memory-codification-auditor,orchestrator-worker-discipline,aif-init,rule-researcher,capability-reuse-auditor}.md (best-practices-sidecar is KEEP-AIF — not shipped by us; review-sidecar default-skips when AIF's exists)
    - .claude/skills/rules-as-tests/ — skill + 5 reference files in references/
    - .ai-factory/DESCRIPTION.template.md, ARCHITECTURE.ts-server.md, RULES.md, RULES.react-next.md (if applicable)
    - scripts/audit-ai-docs.sh (or .react-next.sh)
@@ -72,11 +72,11 @@ Install rules-as-tests-aif into this project. Follow these steps exactly:
    - package.json scripts (lint, typecheck, test, audit:docs, validate, etc.)
    - Dev dependencies via `npm install -D` (~25 packages)
 
-5. After setup.sh completes, do these checks and report results:
+5. After setup completes, do these checks and report results:
    a. `npm run typecheck` — should pass on a fresh project
    b. `npm run lint` — may have warnings on existing code, that's OK
    c. `npm run audit:docs` — should run, may report findings (read them aloud to me)
-   d. `ls -la .claude/agents/` — confirm living-docs-auditor.md, compliance-verifier.md exist (ours); review-sidecar.md + best-practices-sidecar.md may be AIF's when AIF is installed
+   d. `ls -la .claude/agents/` — confirm living-docs-auditor.md, compliance-verifier.md, memory-codification-auditor.md, orchestrator-worker-discipline.md, aif-init.md, rule-researcher.md, capability-reuse-auditor.md exist (ours); review-sidecar.md + best-practices-sidecar.md may be AIF's when AIF is installed
    e. `ls -la .ai-factory/` — confirm DESCRIPTION.md (or .template.md), ARCHITECTURE.md, RULES.md exist
 
 6. Read .ai-factory/DESCRIPTION.template.md and tell me which placeholders need filling.
@@ -180,7 +180,7 @@ After successful setup, your project has:
 
 ```text
 project/
-├── AGENTS.md                          ← copied from templates/shared/AGENTS.md.template (edit)
+├── AGENTS.md                          ← copied from packages/core/templates/shared/AGENTS.md.template (edit)
 ├── CLAUDE.md                          ← optional, points to AGENTS.md
 ├── .nvmrc                             ← Node version pin (CI depends on this)
 ├── tsconfig.json                      ← strict TypeScript settings
@@ -209,6 +209,11 @@ project/
 │   │   ├── review-sidecar.md          ← two-AI review for tautological tests (AIF's kept by default; our content via skill-context — follow-up)
 │   │   ├── living-docs-auditor.md     ← ours: runs audit-ai-docs.sh (renamed from docs-auditor to de-collide)
 │   │   ├── compliance-verifier.md     ← §1.7 substance review — read in active session before merge
+│   │   ├── memory-codification-auditor.md ← ours: durable-convention memory→repo codification audit
+│   │   ├── orchestrator-worker-discipline.md ← ours: orchestrator/worker role-separation audit
+│   │   ├── aif-init.md                ← ours: aif-handoff bootstrap helper
+│   │   ├── rule-researcher.md         ← ours: AI-agnostic live rule-research protocol
+│   │   ├── capability-reuse-auditor.md ← ours: source-before-shape reuse/scope audit
 │   │   └── (other AIF agents untouched)
 │   └── skills/rules-as-tests/
 │       ├── SKILL.md                   ← skill, auto-activates on triggers

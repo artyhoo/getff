@@ -13,19 +13,62 @@
  *   ✅ @dual-pair present                  → exit 0
  *   ✅ non-hook path / wrong tool          → exit 0 (off-path skip)
  *
- * Spawns the real hook with fixture stdin (the check-kickoff-traps.test.ts
- * precedent). Skips gracefully when `jq` is unavailable.
+ * Spawns a sandbox COPY of the hook with fixture stdin (the
+ * check-kickoff-traps.test.ts precedent). Skips gracefully when `jq` is
+ * unavailable.
+ *
+ * Sandbox isolation (leak incident 2026-07-02): the hook resolves its repo
+ * root from its own location ($(dirname $0)/../..), so copying it into
+ * <tmpdir>/.claude/hooks/ makes the tempdir its repo root — fixtures satisfy
+ * the path matcher WITHOUT ever writing the real working tree. Previously
+ * c4-test-* fixtures were written into the real .claude/hooks/ (a killed run
+ * leaked them into the tree). hooks-tree-guard.ts is the suite-level tripwire
+ * for any reintroduction of real-tree writes.
+ *
+ * Bash-mutation contract: under run-bash-mutation.sh the mutant is swapped
+ * into a temp shadow copy, never the tracked hook; its path arrives via
+ * BASHMUT_HOOK and the sandbox copies FROM it, so each nested vitest run
+ * exercises the current mutant.
  */
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
 import { execSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
-const HOOK = resolve(REPO_ROOT, '.claude/hooks/check-hook-marker.sh');
+const REAL_HOOK = resolve(REPO_ROOT, '.claude/hooks/check-hook-marker.sh');
+
+// run-bash-mutation.sh exports BASHMUT_HOOK = the shadow copy it swaps mutants
+// into. Honoring it is what lets the kill-rate gate exercise mutants without
+// touching the tracked hook. Set-but-missing is a broken invocation — fail loud.
+const SOURCE_HOOK = process.env.BASHMUT_HOOK ?? REAL_HOOK;
+if (process.env.BASHMUT_HOOK && !existsSync(SOURCE_HOOK)) {
+  throw new Error(`BASHMUT_HOOK points at a missing file: ${SOURCE_HOOK}`);
+}
+
+// Per-run sandbox mirroring <root>/.claude/hooks/. realpathSync so the hook's
+// own `cd … && pwd` (physical on symlinked macOS /var → /private/var) and the
+// fixture paths we pass agree on one textual prefix.
+const SANDBOX = realpathSync(mkdtempSync(join(tmpdir(), 'c4-marker-')));
+const SANDBOX_HOOKS = join(SANDBOX, '.claude', 'hooks');
+mkdirSync(SANDBOX_HOOKS, { recursive: true });
+const HOOK = join(SANDBOX_HOOKS, 'check-hook-marker.sh');
+copyFileSync(SOURCE_HOOK, HOOK);
+
+afterAll(() => {
+  rmSync(SANDBOX, { recursive: true, force: true });
+});
 
 function hasJq(): boolean {
   try {
@@ -37,21 +80,16 @@ function hasJq(): boolean {
 }
 const JQ = hasJq();
 
-const tmpFiles: string[] = [];
-afterEach(() => {
-  for (const f of tmpFiles.splice(0)) rmSync(f, { recursive: true, force: true });
-});
-
 /**
- * Write `body` to a real `.claude/hooks/<name>.sh` so the hook's path matcher
+ * Write `body` to the sandbox `.claude/hooks/<name>` so the hook's path matcher
  * fires against an on-disk file (PostToolUse reads post-edit content). Returns
- * the absolute path; removed in afterEach. Uses a unique name to avoid clobber.
+ * the absolute path; the whole sandbox is removed in afterAll. Uses a unique
+ * name to avoid clobber.
  */
-function writeHook(body: string): string {
-  const name = `c4-test-${Date.now()}-${Math.random().toString(36).slice(2)}.sh`;
-  const abs = resolve(REPO_ROOT, '.claude/hooks', name);
+function writeHook(body: string, ext = '.sh'): string {
+  const name = `c4-test-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
+  const abs = join(SANDBOX_HOOKS, name);
   writeFileSync(abs, body, 'utf8');
-  tmpFiles.push(abs);
   return abs;
 }
 
@@ -91,18 +129,15 @@ describe.skipIf(!JQ)('check-hook-marker.sh — PostToolUse delivery-channel mark
   });
 
   it('off-path: a .sh outside .claude/hooks/ → exit 0', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'c4-offpath-'));
-    tmpFiles.push(dir);
+    const dir = join(SANDBOX, 'offpath');
+    mkdirSync(dir, { recursive: true });
     const abs = join(dir, 'random.sh');
     writeFileSync(abs, '#!/usr/bin/env bash\n# no marker\n', 'utf8');
     expect(runHook('Write', abs)).toBe(0);
   });
 
   it('off-path: a non-.sh file under .claude/hooks/ → exit 0', () => {
-    const name = `c4-test-${Date.now()}.md`;
-    const abs = resolve(REPO_ROOT, '.claude/hooks', name);
-    writeFileSync(abs, '# no marker, but markdown\n', 'utf8');
-    tmpFiles.push(abs);
+    const abs = writeHook('# no marker, but markdown\n', '.md');
     expect(runHook('Write', abs)).toBe(0);
   });
 });

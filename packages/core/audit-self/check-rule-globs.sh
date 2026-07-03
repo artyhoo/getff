@@ -32,6 +32,41 @@
 set -uo pipefail
 
 CFG="${ESLINT_CONFIG:-eslint.config.mjs}"
+
+# §807 multi-stack: a #793/#796 monorepo ships per-workspace eslint.config.mjs files and NO root
+# config — the per-workspace configs ARE the rule layer. Without this, the exit-2 guard below fires
+# before any shadow logic and validate goes RED 6/10. So when there is no root config (and we are
+# not already a per-workspace sub-invocation — ESLINT_CONFIG unset is the recursion guard), find the
+# per-workspace configs and run THIS SAME script once per workspace, from that workspace's dir with
+# ESLINT_CONFIG=eslint.config.mjs. Each child then sees a valid $CFG and its existing find/shadow
+# logic scopes to that subtree. Aggregate exit codes (any non-zero → non-zero).
+# Capture an ABSOLUTE self-path BEFORE any cd so the `bash "$SELF"` re-exec survives `cd "$_wd"`
+# (and the child's r2-na-marker source resolves via its own absolute $0). (kickoff ⚑M1 / T-807-A)
+SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+if [ ! -f "$CFG" ] && [ -z "${ESLINT_CONFIG:-}" ]; then
+  # Prune node_modules and the framework's vendored packages/core (mirrors the PRUNE below) so a
+  # vendored config there can't fake a workspace. Exclude the root config (it doesn't exist on this
+  # path, but the `! -path` keeps the find symmetric with check-rule-enforced.sh).
+  _ws_cfgs="$(find . \( -name node_modules -o -path '*/packages/core' \) -prune -o \
+              -type f -name 'eslint.config.mjs' ! -path './eslint.config.mjs' -print 2>/dev/null)"
+  if [ -n "$_ws_cfgs" ]; then
+    _agg=0
+    while IFS= read -r _wc; do
+      [ -n "$_wc" ] || continue
+      _wd="$(dirname "$_wc")"
+      # Only RN/Expo/bare-RN ship NO RULE_GLOBS.boundary → R2 N/A there; skip (do NOT fail — an empty
+      # boundary would make check_rule FAIL, globs.sh:208-210). react-spa AND react-next DO ship a
+      # populated boundary block → they fall through and recurse normally. (kickoff ⚑B2 / T-807-B)
+      grep -qE '^[[:space:]]*boundary:[[:space:]]*\[' "$_wc" \
+        || { echo "  · ${_wd#./}: no RULE_GLOBS.boundary — R2 N/A (skipped)"; continue; }
+      ( cd "$_wd" && ESLINT_CONFIG=eslint.config.mjs bash "$SELF" ) || _agg=1
+    done <<EOF
+$_ws_cfgs
+EOF
+    exit "$_agg"
+  fi
+  # No per-workspace configs either → fall through to the exit-2 guard (genuine "run from root" error).
+fi
 [ -f "$CFG" ] || { echo "check-rule-globs: $CFG not found (run from the project root)" >&2; exit 2; }
 
 # C4 (GH #547 Point 2): honor a recorded R2 N/A decision via the shared marker helper (sibling file),

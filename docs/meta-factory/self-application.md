@@ -30,6 +30,8 @@ Self-application gap — это **не технический долг**. Это
 
 Self-application — **не отдельный шаг**, а cross-cutting invariant. Каждый слой мета-фабрики должен иметь explicit self-application clause и measurable acceptance criteria.
 
+> **Design-target note (L5 self-diagnose):** the L5 row's *closure signal* «(c) `framework-self-diagnose` CI gate green; `diagnostics-log.json` valid against schema» — and the identical clause in the §7 Acceptance table — is **DESIGN-TARGET, not yet closed**: no `framework-self-diagnose` job exists in `.github/workflows/` (only `framework-self-install*` / `audit-self` / `discipline-self-check` / `framework-self-template-render` are wired), and no `diagnostics-log.json` emission is built. The L5 (a)/(b) install-verification signals are shipped; the (c) self-diagnostics signal is the intended design, tracked for future implementation — L5 is **not** to be read as fully closed on the strength of (c). The L5 self-diagnose aspiration stands; only its *achieved* status is corrected here.
+
 | Слой | Self-application clause | Acceptance criteria |
 |---|---|---|
 | **L0 Invariant Core** | Принципы прогоняются как тесты против собственного `rules-manifest.json` в pre-commit/pre-push/CI | Автор не может закоммитить нарушение принципа; попытка блокируется `.husky/pre-commit` |
@@ -154,9 +156,9 @@ R2 drift (три источника описывают правило по-ра�
 | **L1 Stack Detector** | `make self-audit` зелёный. Snapshot-тест детектора стабилен на протяжении ≥3 недель без ложных срабатываний. |
 | **L2 Research Agent** | Команда `meta-factory research --self` завершается без drift-finding'ов между `skills/rules-as-tests/SKILL.md`, `references/overview.md`, `references/ai-traps.md` (см. §2 canonical list). |
 | **L3 Rule Synthesizer** | `diff -r packages/preset-next-15-canonical /tmp/regenerated-preset` — поведенческий diff ≤5%. Два независимых запуска дают идентичный output. |
-| **L4 Self-Validator** | Все правила R1–R20 проходят meta-tests в `tests/principles/`. Mutation-style проверка: сломать одно правило в manifest → соответствующий meta-test падает. Если не падает — meta-test тавтологичен. |
+| **L4 Self-Validator** | Все правила R1–R20 проходят meta-tests в `packages/core/principles/`. Mutation-style проверка: сломать одно правило в manifest → соответствующий meta-test падает. Если не падает — meta-test тавтологичен. |
 | **L5 Installer** | (a) Job `framework-self-install` в `audit-self.yml` зелёный. Артефакты tmp-потребителя проходят `bash tests/audit/audit-ai-docs.test.sh` с 0 FAIL. Верифицируется: намеренно сломать `install.sh` → job становится красным. (c) Job `framework-self-diagnose` зелёный; `diagnostics-log.json` проходит schema validation per [self-diagnostics-design.md §2](self-diagnostics-design.md). |
-| **Spec discipline** | Попытка закоммитить spec с паттерном `<owner>/<repo>@<40-char-sha>` где SHA не верифицирован — выдаёт warn (pre-commit) или hard-fail (pre-push). `scripts/validate-batch-spec.ts` существует и интегрирован. |
+| **Spec discipline** | Попытка закоммитить spec с паттерном `<owner>/<repo>@<40-char-sha>` где SHA не верифицирован — выдаёт warn (pre-commit) или hard-fail (pre-push). `packages/core/spec-validation/validate-batch-spec.ts` существует и интегрирован. |
 
 **Composite gate.** Phase 1 считается закрытой только если `make self-audit` зелёный **и** хотя бы один класс ошибок из §1 (spec/pre-commit/pre-push/CI) покрыт автоматическим enforcement'ом, не позволяющим ошибке пройти незаметно.
 

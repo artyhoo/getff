@@ -45,6 +45,7 @@ export function runConflictGate(plan: SynthesisPlan): GateOutcome {
       if (!presetRules.has(bareName)) {
         failures.push({
           ruleId: rule.id,
+          code: 'FF3008',
           reason: `references plugin rule '${ruleName}' that does not exist in the preset plugin registry; known: ${Array.from(presetRules).map((n) => PRESET_PREFIX + n).join(', ')}`,
         });
       }
@@ -54,6 +55,7 @@ export function runConflictGate(plan: SynthesisPlan): GateOutcome {
     if (!(ruleName in snippet)) {
       failures.push({
         ruleId: rule.id,
+        code: 'FF3009',
         reason: `synthesized rule references '${ruleName}' but eslintConfigSnippet has no entry for it (B1 merge may have dropped the rule, or recipe.eslintRuleConfig is empty)`,
       });
     }

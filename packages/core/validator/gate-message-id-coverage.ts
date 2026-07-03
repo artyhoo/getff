@@ -67,6 +67,7 @@ function checkRule(
     return [
       {
         ruleId: rule.id,
+        code: 'FF3012',
         reason:
           'ast-grep engine reserved but not wired — deferred per generator-forbid-mvp decision (i)',
       },
@@ -105,6 +106,7 @@ function checkRule(
     return [
       {
         ruleId: rule.id,
+        code: 'FF3013',
         reason: `messageId-coverage: declared check.message '${declaredMessage}' not found in emitted message '${violation.message}' — declared message is unreachable`,
       },
     ];
@@ -113,6 +115,7 @@ function checkRule(
     return [
       {
         ruleId: rule.id,
+        code: 'FF3014',
         reason: `messageId-coverage: declared check.messageId '${declaredMessageId}' does not match emitted messageId '${String(violation.messageId)}' — declared messageId is unreachable`,
       },
     ];

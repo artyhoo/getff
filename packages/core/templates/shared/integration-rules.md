@@ -114,6 +114,5 @@ Each service can add IR7+ rules in its own `.ai-factory/rules/integration-extens
 
 ## Related
 
-- `factory/RULES.md` — base R1–R11 (apply to single service)
-- `factory/RULES.react-next.md` — UI-specific R12–R20
-- `references/checks-map.md` — full enforcement layer map (uvel `can-i-deploy` is layer 7)
+- `.ai-factory/RULES.md` — base R1–R11 (apply to single service)
+- `.ai-factory/RULES.react-next.md` — UI-specific R12–R20

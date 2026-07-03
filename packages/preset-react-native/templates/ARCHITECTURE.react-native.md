@@ -19,8 +19,8 @@ eslint.config.bare-rn.mjs       ← Bare-RN baseline (@react-native/eslint-confi
                   └── no-restricted-globals denylist (web-globals, REQUIRED)
 ```
 
-**Why two baselines instead of one:** the project goal is multi-stack + a factory for any stack
-([README.md#why-this-exists](../../README.md#why-this-exists)). Expo consumers need `eslint-config-expo/flat`;
+**Why two baselines instead of one:** the source framework's goal is multi-stack + a factory for any stack
+(see the framework's own README `#why-this-exists`). Expo consumers need `eslint-config-expo/flat`;
 bare-RN consumers need `@react-native/eslint-config`. Both are served from one shared rule layer (DRY).
 
 ## Baseline selection criteria

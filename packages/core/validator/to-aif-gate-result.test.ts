@@ -26,12 +26,14 @@ const FAIL_REPORT: ValidationReport = {
     schema: { status: 'pass', failures: [] },
     ruleTester: {
       status: 'fail',
-      failures: [{ ruleId: 'G2', reason: 'negative-test did not produce expected violation' }],
+      failures: [
+        { ruleId: 'G2', code: 'FF3005', reason: 'negative-test did not produce expected violation' },
+      ],
     },
     tautology: { status: 'pass', failures: [] },
     conflict: {
       status: 'fail',
-      failures: [{ reason: 'orphan plugin reference' }],
+      failures: [{ code: 'FF3008', reason: 'orphan plugin reference' }],
     },
     singleTokenDiff: { status: 'n/a', failures: [] },
     messageIdCoverage: { status: 'n/a', failures: [] },

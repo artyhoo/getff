@@ -24,6 +24,16 @@ make_consumer() {
   echo "$T"
 }
 
+# A react-next consumer — ships the preset eslint-rules-local rules (no-server-imports-in-client)
+# that the ts-server consumer above does NOT, needed to exercise the preset refresh sub-population.
+make_consumer_next() {
+  local T
+  T=$(mktemp -d)
+  printf '{ "name":"consumer","version":"0.0.0" }\n' > "$T/package.json"
+  ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" react-next ) >/dev/null 2>&1
+  echo "$T"
+}
+
 # ══════════════════════════════════════════════════════════════════════════════
 # TEST 1 — stale-refreshed (paired-negative)
 # Plant stale content in a framework-owned agent, run --refresh, assert the
@@ -203,6 +213,184 @@ else
 fi
 
 rm -rf "$TC4" "$TC4_NEG"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TEST 5 — #869: --refresh ships the framework audit-gate SCRIPTS that --full delivers
+# A consumer that installed BEFORE #831 (shields-up accepts husky-v9 .husky/_) or
+# #837 (fences-fire files: key + TS parser) can regain those fixes only via a
+# non-destructive path if do_refresh() re-copies the scripts. copy_safe skips-if-
+# exists, so a plain --full never updates them on a brownfield consumer →
+# check:fences-fire / check:shields-up false-RED forever. Same class as TEST 4
+# (#635) and #735. Includes run-generated-rule-mutation.sh (the issue's "Consider":
+# the consumer-shipped mutation surface, also --full-delivered but refresh-omitted).
+# Paired-negative: WITHOUT --refresh each planted stale marker persists (non-vacuous).
+# ══════════════════════════════════════════════════════════════════════════════
+TC5=$(make_consumer)
+STALE5="STALE_GATE_SCRIPT_INJECTED_PRE_869"
+# <consumer scripts/ basename> | <framework source relative to REPO_ROOT>
+# — mirrors the copy_safe delivery in setup.d/40-configs.sh (check-fences-fire :51,
+#   check-shields-up :57, run-generated-rule-mutation :61).
+GATE_SCRIPTS=(
+  "check-fences-fire.sh|packages/core/audit-self/check-fences-fire.sh"
+  "check-shields-up.sh|packages/core/audit-self/check-shields-up.sh"
+  "run-generated-rule-mutation.sh|packages/core/synthesizer/run-generated-rule-mutation.sh"
+)
+
+# Plant stale content in each shipped gate script (simulate a pre-fix brownfield copy)
+for _entry in "${GATE_SCRIPTS[@]}"; do
+  _name="${_entry%%|*}"
+  printf '%s\n' "$STALE5" > "$TC5/scripts/$_name"
+done
+
+# Run --refresh (non-dry-run so it actually writes)
+( cd "$TC5" && bash "$REPO_ROOT/install.sh" --refresh ) >/dev/null 2>&1
+
+# pos: each gate script is refreshed to the framework source (not the stale stub)
+for _entry in "${GATE_SCRIPTS[@]}"; do
+  _name="${_entry%%|*}"; _src="${_entry##*|}"
+  _dst="$TC5/scripts/$_name"
+  if grep -qF "$STALE5" "$_dst"; then
+    bad "gh-869 pos: $_name still stale after --refresh (omitted from do_refresh copy-list)"
+  elif [ "$(cat "$_dst")" = "$(cat "$REPO_ROOT/$_src")" ]; then
+    ok "gh-869 pos: $_name refreshed to framework source (matches, not a truncated stub)"
+  else
+    bad "gh-869 pos: $_name changed but does NOT match framework source $_src"
+  fi
+done
+
+# neg (LOAD-BEARING): plant stale, do NOT refresh → stale persists (proves non-vacuity)
+TC5_NEG=$(make_consumer)
+for _entry in "${GATE_SCRIPTS[@]}"; do
+  _name="${_entry%%|*}"
+  printf '%s\n' "$STALE5" > "$TC5_NEG/scripts/$_name"
+done
+# Do NOT run --refresh
+_neg_all_stale=1
+for _entry in "${GATE_SCRIPTS[@]}"; do
+  _name="${_entry%%|*}"
+  grep -qF "$STALE5" "$TC5_NEG/scripts/$_name" || _neg_all_stale=0
+done
+if [ "$_neg_all_stale" -eq 1 ]; then
+  ok "gh-869 neg: without --refresh, all planted gate scripts stay stale (assertion non-vacuous)"
+else
+  bad "gh-869 neg: a gate script lost its stale marker without --refresh → test was vacuous"
+fi
+
+rm -rf "$TC5" "$TC5_NEG"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TEST 6 — #869-class on the .husky/ + eslint-rules-local/ surfaces
+# The refresh-covers-full-delivery gate proved these framework surfaces are now in
+# do_refresh statically; this arm proves the refresh ACTUALLY writes them on a real
+# consumer. .husky/pre-push staleness is the worst case (a pre-#636 dispatcher HARD-
+# CRASHES instead of degrading to the bash fallback on a pnpm monorepo). eslint-rules-
+# local/ ships framework-authored core rules (lib.sh:194 "consumer never owns") as
+# pre-compiled .mjs + .ts. Paired-negative: WITHOUT --refresh each stays stale.
+# ══════════════════════════════════════════════════════════════════════════════
+TC6=$(make_consumer)
+STALE6="STALE_FRAMEWORK_ARTEFACT_INJECTED_PRE_869B"
+# <consumer path> | <framework source relative to REPO_ROOT>
+FRAMEWORK_ARTEFACTS=(
+  ".husky/pre-commit|packages/core/templates/shared/husky-pre-commit.sh"
+  ".husky/pre-push|packages/core/templates/shared/husky-pre-push.sh"
+  "eslint-rules-local/no-unsafe-zod-parse.ts|packages/core/eslint-rules/no-unsafe-zod-parse.ts"
+  "eslint-rules-local/no-unsafe-zod-parse.mjs|packages/core/eslint-rules/no-unsafe-zod-parse.mjs"
+)
+
+# Plant stale content in each shipped framework artefact
+for _entry in "${FRAMEWORK_ARTEFACTS[@]}"; do
+  _name="${_entry%%|*}"
+  printf '%s\n' "$STALE6" > "$TC6/$_name"
+done
+
+# Run --refresh
+( cd "$TC6" && bash "$REPO_ROOT/install.sh" --refresh ) >/dev/null 2>&1
+
+# pos: each artefact is refreshed to the framework source
+for _entry in "${FRAMEWORK_ARTEFACTS[@]}"; do
+  _name="${_entry%%|*}"; _src="${_entry##*|}"
+  _dst="$TC6/$_name"
+  if grep -qF "$STALE6" "$_dst"; then
+    bad "gh-869b pos: $_name still stale after --refresh (omitted from do_refresh)"
+  elif [ "$(cat "$_dst")" = "$(cat "$REPO_ROOT/$_src")" ]; then
+    ok "gh-869b pos: $_name refreshed to framework source (matches, not a truncated stub)"
+  else
+    bad "gh-869b pos: $_name changed but does NOT match framework source $_src"
+  fi
+done
+
+# neg (LOAD-BEARING): plant stale, do NOT refresh → stale persists (proves non-vacuity)
+TC6_NEG=$(make_consumer)
+for _entry in "${FRAMEWORK_ARTEFACTS[@]}"; do
+  _name="${_entry%%|*}"
+  printf '%s\n' "$STALE6" > "$TC6_NEG/$_name"
+done
+# Do NOT run --refresh
+_neg6_all_stale=1
+for _entry in "${FRAMEWORK_ARTEFACTS[@]}"; do
+  _name="${_entry%%|*}"
+  grep -qF "$STALE6" "$TC6_NEG/$_name" || _neg6_all_stale=0
+done
+if [ "$_neg6_all_stale" -eq 1 ]; then
+  ok "gh-869b neg: without --refresh, all planted framework artefacts stay stale (assertion non-vacuous)"
+else
+  bad "gh-869b neg: a framework artefact lost its stale marker without --refresh → test was vacuous"
+fi
+
+rm -rf "$TC6" "$TC6_NEG"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TEST 7 — #869-class on the eslint-rules-local/ PRESET sub-population (react-next)
+# The core rules ship to eslint-rules-local/ on every stack; the PRESET rules ship
+# only per-stack (react-next → no-server-imports-in-client, react-spa → require-
+# error-boundary). do_refresh's eslint-rules-local loop originally iterated the CORE
+# glob only, stranding preset rules on react-next/react-spa consumers (a live #869
+# gap the ts-server-based TEST 6 could not see). This arm proves a PRESET rule
+# refreshes on a react-next consumer. Paired-negative: WITHOUT --refresh it stays stale.
+# ══════════════════════════════════════════════════════════════════════════════
+TC7=$(make_consumer_next)
+STALE7="STALE_PRESET_RULE_INJECTED_PRE_869C"
+# both a CORE rule (control — was already refreshed) and the PRESET rule (the gap)
+PRESET_ARTEFACTS=(
+  "eslint-rules-local/no-unsafe-zod-parse.mjs|packages/core/eslint-rules/no-unsafe-zod-parse.mjs"
+  "eslint-rules-local/no-server-imports-in-client.ts|packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.ts"
+  "eslint-rules-local/no-server-imports-in-client.mjs|packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.mjs"
+)
+
+# Precondition: the preset rule must actually have been delivered (else the test is vacuous)
+if [ ! -f "$TC7/eslint-rules-local/no-server-imports-in-client.mjs" ]; then
+  bad "gh-869c precondition: react-next install did NOT ship the preset rule → cannot test its refresh"
+else
+  ok "gh-869c precondition: react-next install shipped the preset rule no-server-imports-in-client.mjs"
+
+  for _entry in "${PRESET_ARTEFACTS[@]}"; do
+    _name="${_entry%%|*}"
+    printf '%s\n' "$STALE7" > "$TC7/$_name"
+  done
+  ( cd "$TC7" && bash "$REPO_ROOT/install.sh" --refresh ) >/dev/null 2>&1
+  for _entry in "${PRESET_ARTEFACTS[@]}"; do
+    _name="${_entry%%|*}"; _src="${_entry##*|}"
+    _dst="$TC7/$_name"
+    if grep -qF "$STALE7" "$_dst"; then
+      bad "gh-869c pos: $_name still stale after --refresh (preset omitted from do_refresh)"
+    elif [ "$(cat "$_dst")" = "$(cat "$REPO_ROOT/$_src")" ]; then
+      ok "gh-869c pos: $_name refreshed to framework source (matches, not a truncated stub)"
+    else
+      bad "gh-869c pos: $_name changed but does NOT match framework source $_src"
+    fi
+  done
+
+  # neg (LOAD-BEARING): plant stale in the preset rule, do NOT refresh → stays stale
+  TC7_NEG=$(make_consumer_next)
+  printf '%s\n' "$STALE7" > "$TC7_NEG/eslint-rules-local/no-server-imports-in-client.mjs"
+  if grep -qF "$STALE7" "$TC7_NEG/eslint-rules-local/no-server-imports-in-client.mjs"; then
+    ok "gh-869c neg: without --refresh, planted preset rule stays stale (assertion non-vacuous)"
+  else
+    bad "gh-869c neg: preset rule lost its stale marker without --refresh → test was vacuous"
+  fi
+  rm -rf "$TC7_NEG"
+fi
+rm -rf "$TC7"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

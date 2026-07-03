@@ -1,6 +1,7 @@
 # Forward-check — full enumeration
 
-> **Scope:** complete forward-check enumeration for §1.7 «Recommendation self-discipline check». Scoped by inheriting from [SKILL.md](../SKILL.md).
+> **Authoritative for:** the complete forward-check layer enumeration for §1.7 «Recommendation self-discipline check» — inherits invocation scope from [SKILL.md](../SKILL.md).
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../../README.md#why-this-exists). The §1.7 discipline itself — owned by [phase-research-coverage.md](../../../rules/phase-research-coverage.md).
 
 Apply each layer in order. Failure on any single layer → recommendation is **provisional**, not load-bearing.
 

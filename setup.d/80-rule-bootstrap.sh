@@ -38,9 +38,12 @@ if ! command -v node >/dev/null 2>&1; then
 fi
 
 _research_dir="$PROJECT_ROOT/.ai-factory/rules-research"
-# react-next is the validated demo stack for this slice; multi-stack extends this pair lookup.
-_plan="$_research_dir/react-next.research.json"
-_sel="$_research_dir/react-next.selection.json"
+# Stack-keyed research pair: the install's $STACK selects the artefacts (mirrors the
+# ${STACK:-ts-server} D3 notice in 99-finalize.sh:49-50). Multi-stack delivery (#827 B1):
+# react-native / ts-server / react-spa each look up their own <stack>.{research,selection}.json,
+# instead of the former react-next-only hardcode that silently degraded every other stack.
+_plan="$_research_dir/${STACK:-ts-server}.research.json"
+_sel="$_research_dir/${STACK:-ts-server}.selection.json"
 
 if [ ! -f "$_plan" ] || [ ! -f "$_sel" ]; then
   # Decision B: degrade + guidance — never ship the stub rule on the consumer path.
@@ -56,7 +59,12 @@ if [ -n "${DRY_RUN:-}" ]; then
   return 0 2>/dev/null || true
 fi
 
-printf '  [80-rule-bootstrap] LIVE research+selection → generate → buildLock (--full, react-next)\n'
+# B4 (#827): guarantee the factory's workspace deps (@rules-as-tests/*) resolve from PKG_ROOT
+# before invoking the factory (defined in lib.sh — sourced in dispatcher scope). No-op on the
+# happy path (properly-installed checkout); self-heals a borrowed/dangling worktree node_modules.
+ensure_workspace_pkg_links "$PKG_ROOT"
+
+printf '  [80-rule-bootstrap] LIVE research+selection → generate → buildLock (--full, %s)\n' "${STACK:-ts-server}"
 # Run tsx from PKG_ROOT (the framework — tsx is present there) while targeting the consumer
 # via --consumer-root, so this works even when the consumer has no tsx of its own.
 ( cd "$PKG_ROOT" && npx --no-install tsx "$_rb_cli" \

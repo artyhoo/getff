@@ -37,6 +37,11 @@ packages/core/hooks/**
 packages/core/eslint-rules/**
 scripts/audit-r4.ts
 
+# Lockfiles + generated migration metadata — not prettier-format-stable; `prettier --check`
+# would flag them on a fresh install with no consumer edit (pnpm monorepo + drizzle). (GH #833)
+pnpm-lock.yaml
+**/drizzle/**/meta/**
+
 # Build output / deps (consumers may extend this file)
 dist/
 coverage/

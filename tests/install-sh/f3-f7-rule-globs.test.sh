@@ -116,4 +116,92 @@ grep -qE "'\*\*/app/api/\*\*|'\*\*/actions/\*\*" "$RCFG" \
   && ok "F3 react-next: Next boundary globs are layout-agnostic (**/app/api, **/actions)" \
   || bad "F3 react-next: react boundary globs not layout-agnostic"
 
+# ── #807 multi-stack: no root config → check-rule-globs.sh recurses per workspace ──────────────
+# The #793/#796 layout ships per-workspace eslint.config.mjs + NO root config. check:globs must
+# recurse into each workspace instead of exit-2'ing on the missing root config. These fixtures are
+# built by hand (no install) so each workspace's R2 wiring is deterministic; the gate is run from
+# the consumer root via a RELATIVE path (proves the absolute-$SELF re-exec survives `cd`, ⚑M1).
+GATE_G="$REPO_ROOT/packages/core/audit-self/check-rule-globs.sh"
+
+# Minimal per-workspace ts-server-style config wiring R2 on a boundary glob (the gate parses
+# RULE_GLOBS.boundary then checks its globs reach ≥1 source file).
+write_ws_ts_cfg() { # $1=ws-dir
+  mkdir -p "$1"
+  cat > "$1/eslint.config.mjs" <<'CFG'
+const RULE_GLOBS = {
+  boundary: ['**/routes/**/*.{ts,tsx}'],
+};
+export default [{ files: RULE_GLOBS.boundary, rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } }];
+CFG
+}
+
+# (pos) ts-server workspace that wires R2 + has a boundary source file → recursed, exit 0.
+MS=$(mktemp -d)
+printf '{ "name":"mono","private":true }\n' > "$MS/package.json"
+write_ws_ts_cfg "$MS/apps/api"; mkdir -p "$MS/apps/api/src/routes"; echo 'export const u=1;' > "$MS/apps/api/src/routes/u.ts"
+if ( cd "$MS" && bash "$GATE_G" ) >/tmp/f37ms.$$ 2>&1; then
+  ok "#807 (pos): ts-server ws wires R2 + boundary src → check:globs recurses, exit 0 (was exit 2)"
+else
+  bad "#807 (pos): ts-server ws should pass but gate exited non-zero ($(tr '\n' ';' </tmp/f37ms.$$))"
+fi
+# Proves recursion happened (not the exit-2 guard) — the per-ws ✓ line is present, the guard msg is not.
+! grep -q 'run from the project root' /tmp/f37ms.$$ \
+  && ok "#807 (pos): NOT the exit-2 'run from the project root' path (recursed per-ws)" \
+  || bad "#807 (pos): hit the exit-2 root-config guard (recursion not reached)"
+
+# (PAIRED-NEGATIVE) a ts-server workspace with a boundary block but the boundary glob reaches NO
+# source file → the gate's silent-inertness alarm fires inside the recursion → non-zero.
+MSN=$(mktemp -d)
+printf '{ "name":"mono","private":true }\n' > "$MSN/package.json"
+write_ws_ts_cfg "$MSN/apps/api"
+# boundary glob is **/routes/** but we plant source ONLY outside it → R2 matches zero → alarm.
+mkdir -p "$MSN/apps/api/src/lib"; echo 'export const u=1;' > "$MSN/apps/api/src/lib/u.ts"
+if ( cd "$MSN" && bash "$GATE_G" ) >/tmp/f37msn.$$ 2>&1; then
+  bad "#807 NEG: ws boundary reaches zero source but gate PASSED → silent-inertness alarm vacuous"
+else
+  ok "#807 NEG: ws boundary reaches zero source → gate FAILS inside recursion (alarm non-vacuous)"
+fi
+
+# (B2) react-spa workspace — ships a boundary block → recursed, NOT skipped. Fixture wires the
+# react-spa boundary glob (**/api/**) and a matching source → the recursion's glob-liveness PASSES.
+MSS=$(mktemp -d)
+printf '{ "name":"mono","private":true }\n' > "$MSS/package.json"
+mkdir -p "$MSS/apps/web/src/api"
+cat > "$MSS/apps/web/eslint.config.mjs" <<'CFG'
+const RULE_GLOBS = {
+  boundary: ['**/api/**/*.{ts,tsx}'],
+};
+export default [{ files: RULE_GLOBS.boundary, rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } }];
+CFG
+echo 'export const f=1;' > "$MSS/apps/web/src/api/client.ts"
+if ( cd "$MSS" && bash "$GATE_G" ) >/tmp/f37mss.$$ 2>&1; then
+  ok "#807 (B2): react-spa ws (boundary present, glob reaches src) → recursed + PASSES (not skipped)"
+else
+  bad "#807 (B2): react-spa ws should pass (boundary reaches src) but gate failed ($(tr '\n' ';' </tmp/f37mss.$$))"
+fi
+grep -qi 'no RULE_GLOBS.boundary' /tmp/f37mss.$$ \
+  && bad "#807 (B2): react-spa ws was SKIPPED as no-boundary — SPA must recurse, not skip (T-807-B)" \
+  || ok "#807 (B2): react-spa ws was NOT skipped (it has a boundary block → recursed, per T-807-B)"
+
+# (B2) RN/Expo workspace — ships NO boundary block → skipped, NOT failed.
+MSR=$(mktemp -d)
+printf '{ "name":"mono","private":true }\n' > "$MSR/package.json"
+mkdir -p "$MSR/apps/mobile/src"
+# RN configs carry no RULE_GLOBS.boundary block (verified: preset-react-native/templates/*).
+cat > "$MSR/apps/mobile/eslint.config.mjs" <<'CFG'
+import rnCommon from './eslint.config.rn-common.mjs';
+export default [...rnCommon];
+CFG
+echo 'export const a=1;' > "$MSR/apps/mobile/src/App.ts"
+if ( cd "$MSR" && bash "$GATE_G" ) >/tmp/f37msr.$$ 2>&1; then
+  ok "#807 (B2): RN/Expo ws (no boundary block) → skipped, gate exits 0 (not failed)"
+else
+  bad "#807 (B2): RN/Expo ws should skip (no boundary) but gate failed ($(tr '\n' ';' </tmp/f37msr.$$))"
+fi
+grep -qi 'no RULE_GLOBS.boundary' /tmp/f37msr.$$ \
+  && ok "#807 (B2): RN/Expo ws emitted the 'no RULE_GLOBS.boundary — R2 N/A (skipped)' line" \
+  || bad "#807 (B2): RN/Expo ws did not emit the skip line (skip-guard not reached)"
+
+rm -f /tmp/f37ms.$$ /tmp/f37msn.$$ /tmp/f37mss.$$ /tmp/f37msr.$$ 2>/dev/null
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

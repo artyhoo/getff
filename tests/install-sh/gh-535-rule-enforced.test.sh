@@ -114,5 +114,79 @@ else
   bad "Arm4: gate hard-failed when eslint absent ($(tr '\n' ';' </tmp/g535d.$$))"
 fi
 
-rm -f "$FAKE" /tmp/g535a.$$ /tmp/g535b.$$ /tmp/g535r.$$ /tmp/g535r2.$$ /tmp/g535c.$$ /tmp/g535d.$$ 2>/dev/null
+# ── #807 multi-stack: no root config → check-rule-enforced.sh recurses per workspace ───────────
+# The #793/#796 layout ships per-workspace eslint.config.mjs + NO root config. The gate must recurse
+# into each workspace (with ESLINT_CONFIG set so the child finds a valid $CFG) instead of exit-2'ing
+# on the missing root config. The CWD-aware FAKE from Arm 1 resolves the rule from the package cwd.
+write_ws_cfg() { # $1=ws-dir $2=rule  — per-workspace config with a RULE_GLOBS.boundary block.
+  # NOTE: `boundary:` MUST be on its own line — the gate's awk extractor anchors on
+  # `^[[:space:]]*boundary:[[:space:]]*\[` (matching the real shipped multi-line template shape);
+  # an inline `{ boundary: [...] }` would be mis-read as "no boundary tokens".
+  mkdir -p "$1"
+  cat > "$1/eslint.config.mjs" <<CFG
+const RULE_GLOBS = {
+  boundary: ['**/routes/**/*.{ts,tsx}'],
+};
+export default [{ files: RULE_GLOBS.boundary, rules: { '$2': 'error' } }];
+CFG
+}
+
+# (pos) per-ws config WIRES the rule → recursion runs the child from the ws dir → child resolves the
+# rule → exit 0. No root config anywhere (the #807 bug shape).
+MS=$(mktemp -d)
+printf '{"name":"mono","private":true}\n' > "$MS/package.json"
+write_ws_cfg "$MS/apps/api" no-console
+printf '{"name":"api","dependencies":{"zod":"3.0.0"}}\n' > "$MS/apps/api/package.json"
+mkdir -p "$MS/apps/api/src/routes"; printf 'export const x=1;\n' > "$MS/apps/api/src/routes/p.ts"
+: > "$MS.cwdlog"
+if ( cd "$MS" && AIF_ESLINT_CMD="$FAKE" AIF_ENFORCED_RULE=no-console AIF_FAKE_RULE=no-console AIF_FAKE_CWD_LOG="$MS.cwdlog" bash "$GATE" ) >/tmp/g535ms.$$ 2>&1; then
+  ok "#807 (pos): no root config, ws WIRES rule → gate recurses + PASSES (was exit 2)"
+else
+  bad "#807 (pos): ws wires the rule but gate failed ($(tr '\n' ';' </tmp/g535ms.$$))"
+fi
+! grep -q 'run from the project root' /tmp/g535ms.$$ \
+  && ok "#807 (pos): NOT the exit-2 'run from the project root' path (recursed per-ws)" \
+  || bad "#807 (pos): hit the exit-2 root-config guard (recursion not reached)"
+
+# (PAIRED-NEGATIVE) per-ws config does NOT wire the rule, ws has a zod boundary → the child's
+# --print-config (cwd-aware fake) finds the rule absent → FAIL bubbles up through the recursion.
+MSN=$(mktemp -d)
+printf '{"name":"mono","private":true}\n' > "$MSN/package.json"
+mkdir -p "$MSN/apps/api/src/routes"
+# Give it a boundary block (own-line, so the gate's extractor sees it) but NO rule wired.
+cat > "$MSN/apps/api/eslint.config.mjs" <<'CFG'
+const RULE_GLOBS = {
+  boundary: ['**/routes/**/*.{ts,tsx}'],
+};
+export default [{ files: RULE_GLOBS.boundary, rules: {} }];
+CFG
+printf '{"name":"api","dependencies":{"zod":"3.0.0"}}\n' > "$MSN/apps/api/package.json"
+printf 'export const x=1;\n' > "$MSN/apps/api/src/routes/p.ts"
+: > "$MSN.cwdlog"
+if ( cd "$MSN" && AIF_ESLINT_CMD="$FAKE" AIF_ENFORCED_RULE=no-console AIF_FAKE_RULE=no-console AIF_FAKE_CWD_LOG="$MSN.cwdlog" bash "$GATE" ) >/tmp/g535msn.$$ 2>&1; then
+  bad "#807 NEG: ws does NOT wire the rule (zod boundary) but gate PASSED → recursion alarm vacuous"
+else
+  ok "#807 NEG: ws does NOT wire rule + zod boundary → gate FAILS through recursion (non-vacuous)"
+fi
+
+# (deps-free degrade) no root config + eslint ABSENT → each child SKIPs → exit 0 (the unit-test env).
+# Faithful deps-free env: keep the real PATH (the recursion + r2-na source legitimately need
+# dirname/basename — so the Arm-4 `PATH=/nonexistent` trick can't be used here) but shadow `npx` so
+# the gate's `npx --no-install eslint` resolver can't reach a hoisted workspace eslint, and clear
+# AIF_ESLINT_CMD. A fresh tmp fixture has no node_modules/.bin/eslint and there is no global eslint,
+# so the gate's resolver finds nothing → child SKIPs (exit 0), the correct deps-free degrade.
+MSD=$(mktemp -d); STUBBIN=$(mktemp -d)
+printf '#!/bin/sh\nexit 127\n' > "$STUBBIN/npx"; chmod +x "$STUBBIN/npx"
+printf '{"name":"mono","private":true}\n' > "$MSD/package.json"
+write_ws_cfg "$MSD/apps/api" no-console
+printf '{"name":"api","dependencies":{"zod":"3.0.0"}}\n' > "$MSD/apps/api/package.json"
+mkdir -p "$MSD/apps/api/src/routes"; printf 'export const x=1;\n' > "$MSD/apps/api/src/routes/p.ts"
+if ( cd "$MSD" && env -u AIF_ESLINT_CMD PATH="$STUBBIN:$PATH" bash "$GATE" ) >/tmp/g535msd.$$ 2>&1 \
+   && grep -qi 'eslint not available\|R2 N/A (skipped)\|nothing to verify' /tmp/g535msd.$$; then
+  ok "#807 (deps-free): no root config + eslint absent → recurses, child SKIPs → exit 0"
+else
+  bad "#807 (deps-free): gate hard-failed / no SKIP when eslint absent on a multi-stack monorepo ($(tr '\n' ';' </tmp/g535msd.$$))"
+fi
+
+rm -f "$FAKE" /tmp/g535a.$$ /tmp/g535b.$$ /tmp/g535r.$$ /tmp/g535r2.$$ /tmp/g535c.$$ /tmp/g535d.$$ /tmp/g535ms.$$ /tmp/g535msn.$$ /tmp/g535msd.$$ 2>/dev/null
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

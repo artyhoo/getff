@@ -2110,7 +2110,7 @@ var require_code = __commonJS({
       else if (arg instanceof Name)
         code.push(arg);
       else
-        code.push(interpolate(arg));
+        code.push(interpolate2(arg));
     }
     exports.addCodeArg = addCodeArg;
     function optimize(expr) {
@@ -2149,7 +2149,7 @@ var require_code = __commonJS({
       return c2.emptyStr() ? c1 : c1.emptyStr() ? c2 : str`${c1}${c2}`;
     }
     exports.strConcat = strConcat;
-    function interpolate(x) {
+    function interpolate2(x) {
       return typeof x == "number" || typeof x == "boolean" || x === null ? x : safeStringify(Array.isArray(x) ? x.join(",") : x);
     }
     function stringify(x) {
@@ -8564,96 +8564,612 @@ var require_ajv = __commonJS({
 });
 
 // packages/core/install/synth-and-wire.ts
-import { existsSync as existsSync4, readFileSync as readFileSync5, writeFileSync as writeFileSync2 } from "node:fs";
-import { resolve as resolve5 } from "node:path";
+import { existsSync as existsSync4, readFileSync as readFileSync6, writeFileSync as writeFileSync2 } from "node:fs";
+import { dirname as dirname6, resolve as resolve5 } from "node:path";
 import process3 from "node:process";
 
 // packages/core/research/load.ts
 var import_semver = __toESM(require_semver2(), 1);
-import { existsSync, readFileSync as readFileSync2 } from "node:fs";
-import { dirname as dirname2, resolve as resolve2 } from "node:path";
+import { existsSync, readFileSync as readFileSync3 } from "node:fs";
+import { dirname as dirname3, resolve as resolve2 } from "node:path";
+import { fileURLToPath as fileURLToPath3 } from "node:url";
+
+// packages/core/research/allowlist-resolver.ts
+import { readFileSync as readFileSync2 } from "node:fs";
+
+// packages/core/research/internal-validators.ts
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+// packages/core/diagnostics/ajv.ts
+var import_ajv = __toESM(require_ajv(), 1);
+
+// packages/core/diagnostics/registry.ts
+var REGISTRY = Object.freeze({
+  // --- FF1xxx: schema/shape (ajv), both pipelines ---
+  FF1001: {
+    template: "schema violation: {keyword} at {instancePath} (schema: {schemaPath})",
+    defaultSeverity: "error",
+    explanation: "Generic ajv schema-shape violation. keyword is ajv's own discriminator; per-keyword codes would bloat the registry with no consumer (spec \xA73.2)."
+  },
+  // --- FF2xxx: provenance/trust (resolveAllowedSources / validateProvenance) ---
+  FF2001: {
+    template: "malformed URL: {url}",
+    defaultSeverity: "error",
+    explanation: "p.url (or finalUrl) failed `new URL()` parsing. allowlist-resolver.ts parseHttpsHost."
+  },
+  FF2002: {
+    template: "non-https URL: {url}",
+    defaultSeverity: "error",
+    explanation: 'URL parsed but protocol !== "https:". allowlist-resolver.ts parseHttpsHost.'
+  },
+  FF2003: {
+    template: "IP-literal host {host} rejected: registrable domain names only",
+    defaultSeverity: "error",
+    explanation: "Host is a bare IPv4 or bracketed IPv6 literal. allowlist-resolver.ts parseHttpsHost."
+  },
+  FF2004: {
+    template: "punycode (xn--) host {host} rejected outside an explicit Tier-2 ack",
+    defaultSeverity: "error",
+    explanation: "Host carries an xn-- (IDN/punycode) label and is not explicitly acked. allowlist-resolver.ts punycodeReject."
+  },
+  FF2005: {
+    template: "unknown allowlistKey: {allowlistKey}",
+    defaultSeverity: "error",
+    explanation: "allowlistKey matched no Tier-0 builtin, no Tier-1 miss reason, and no Tier-2 ack. allowlist-resolver.ts validateUrlAgainstTiers (terminal fallback)."
+  },
+  FF2006: {
+    template: "host {host} not allowed under key {allowlistKey} (expected one of: {expectedHosts})",
+    defaultSeverity: "error",
+    explanation: "allowlistKey matched a Tier-0 builtin, but the URL host is not in that key's host list. allowlist-resolver.ts validateUrlAgainstTiers (Tier 0 branch)."
+  },
+  FF2007: {
+    template: "host not authorized: `{packageName}` is not a direct dependency",
+    defaultSeverity: "error",
+    explanation: "Tier-1 direct-dep gate: packageName is not in the consumer's direct dependency set. allowlist-resolver.ts resolveAllowedSources tier1For."
+  },
+  FF2008: {
+    template: "host not authorized: Tier-1 unavailable for `{packageName}` (no ecosystem adapter wired \u2014 S2)",
+    defaultSeverity: "error",
+    explanation: "No EcosystemAdapter wired on the ResolveCtx (S1 back-compat path, or no ctx at all) \u2014 Tier-1 always misses. allowlist-resolver.ts resolveAllowedSources tier1For."
+  },
+  FF2009: {
+    template: "no Tier-1-eligible host in {packageName} metadata (multi-tenant or non-https)",
+    defaultSeverity: "error",
+    explanation: "Tier-1 derivation found zero eligible hosts across homepage/repository metadata (multi-tenant apex, non-https, IP-literal, or punycode all fold into this single reason \u2014 DN-D1-2: the resolver emits ONE reason string for all four causes, so ONE code is honest to what is actually emitted). allowlist-resolver.ts resolveAllowedSources tier1For."
+  },
+  FF2010: {
+    template: "cross-package provenance: packageName {packageName} !== entry.package {entryPackage} (T-RTT-A)",
+    defaultSeverity: "error",
+    explanation: "Tier-1 scope-lock: the provenance packageName does not match the entry's own package. allowlist-resolver.ts validateUrlAgainstTiers (Tier 1 branch)."
+  },
+  FF2011: {
+    template: "host not authorized: not in the Tier-1 host set of `{packageName}`",
+    defaultSeverity: "error",
+    explanation: "Tier-1 resolved a host set for packageName, but the URL host is not in it. allowlist-resolver.ts validateUrlAgainstTiers (Tier 1 branch)."
+  },
+  FF2012: {
+    template: "ack key {allowlistKey} is scoped to package {scope}",
+    defaultSeverity: "error",
+    explanation: "Tier-2 ack entry carries a scope that does not match opts.entryPackage. allowlist-resolver.ts validateUrlAgainstTiers (Tier 2 branch)."
+  },
+  FF2013: {
+    template: "host {host} not allowed under ack key {allowlistKey} (acked hosts: {ackedHosts})",
+    defaultSeverity: "error",
+    explanation: "Tier-2 ack entry exists for allowlistKey, but the URL host is not in its acked hosts. allowlist-resolver.ts validateUrlAgainstTiers (Tier 2 branch)."
+  },
+  FF2014: {
+    template: "{ackFileReason}",
+    defaultSeverity: "error",
+    explanation: "Ack-file malformed family \u2014 thrown as AckFileError (NEW-2), NOT returned by validateProvenance. Covers: malformed JSON, bad shape, malformed ackedAt date, IP-literal ack host, single-label ack host (#857), duplicate key. allowlist-resolver.ts loadAckFile throw sites."
+  },
+  FF2015: {
+    template: "finalUrl redirect crosses to an unauthorized host: {innerReason}",
+    defaultSeverity: "error",
+    explanation: "p.finalUrl is present, differs from p.url, and independently fails the same tier resolution. allowlist-resolver.ts validateProvenance (finalUrl redirect check)."
+  },
+  FF2016: {
+    template: "ecosystem mismatch: `{packageName}` requested a different ecosystem than the wired adapter",
+    defaultSeverity: "error",
+    explanation: 'S4 ecosystem-prefix dispatch (research-source-trust.md \xA74): packageName carries an "<ecosystem>:<bareName>" prefix (or defaults to npm when unprefixed) that does not match ctx.adapter.ecosystem \u2014 fail closed rather than silently retrying under the wrong adapter. allowlist-resolver.ts resolveAllowedSources tier1For.'
+  },
+  // --- FF3xxx: L4 semantic gates (validator/gate-*.ts) ---
+  // One code per failure KIND per gate (DN-D1-4, spec-literal per-gate
+  // allocation — 20 codes, not the 16-code shared-astgrep alternative).
+  // The astgrep-deferred branch appears in 5 gates; each gets its own code
+  // because its message text already diverges per gate (e.g.
+  // gate-require-vacuity.ts's wording differs from the other four) and the
+  // gate identity is a meaningful discriminator for the `path`/context.
+  FF3001: {
+    template: "SynthesisPlan schema violation: {details}",
+    defaultSeverity: "error",
+    explanation: "Gate 1 (schema): plan fails synthesis-plan.schema.json (ajv). gate-schema.ts."
+  },
+  FF3002: {
+    template: "{checkType}-checked rule has no negative-test (required by L4 gate 2 \u2014 rule-tester roundtrip)",
+    defaultSeverity: "error",
+    explanation: "Gate 1 (schema): an eslint/declarative rule is missing its negative-test. gate-schema.ts."
+  },
+  FF3003: {
+    template: "ast-grep engine reserved but not wired \u2014 deferred per generator-forbid-mvp decision (i)",
+    defaultSeverity: "error",
+    explanation: "Gate 2 (ruleTester): declarative rule declares engine ast-grep, deferred. gate-rule-tester.ts."
+  },
+  FF3004: {
+    template: "eslint rule has no negative-test (gate 1 catches this; gate 2 cannot run without it)",
+    defaultSeverity: "error",
+    explanation: "Gate 2 (ruleTester): eslint-type rule missing negative-test. gate-rule-tester.ts."
+  },
+  FF3005: {
+    template: "negative-test.input[{idx}] did not produce expected violation '{expectViolation}' for rule '{ruleName}'; got {got}",
+    defaultSeverity: "error",
+    explanation: "Gate 2 (ruleTester): negative-test input did not fire the expected violation. gate-rule-tester.ts."
+  },
+  FF3006: {
+    template: "examples.good produced unexpected violation: rule='{ruleId}' message='{message}'",
+    defaultSeverity: "error",
+    explanation: "Gate 2 (ruleTester): examples.good unexpectedly fired the rule. gate-rule-tester.ts."
+  },
+  FF3007: {
+    template: "tautology \u2014 rule '{ruleName}' fires on negative-corpus/{fileName}: {details}",
+    defaultSeverity: "error",
+    explanation: "Gate 4 (tautology): rule fires on a fixed negative-corpus file. gate-tautology.ts."
+  },
+  FF3008: {
+    template: "references plugin rule '{ruleName}' that does not exist in the preset plugin registry; known: {knownRules}",
+    defaultSeverity: "error",
+    explanation: "Gate 6 (conflict): plugin rule reference orphan. gate-conflict.ts."
+  },
+  FF3009: {
+    template: "synthesized rule references '{ruleName}' but eslintConfigSnippet has no entry for it (B1 merge may have dropped the rule, or recipe.eslintRuleConfig is empty)",
+    defaultSeverity: "error",
+    explanation: "Gate 6 (conflict): eslintConfigSnippet is missing an entry for a referenced rule. gate-conflict.ts."
+  },
+  FF3010: {
+    template: "ast-grep engine reserved but not wired \u2014 deferred per generator-forbid-mvp decision (i)",
+    defaultSeverity: "error",
+    explanation: "Gate 7 (singleTokenDiff): declarative rule declares engine ast-grep, deferred. gate-single-token-diff.ts."
+  },
+  FF3011: {
+    template: "single-token-diff: examples.bad and examples.good differ by {distance} tokens (threshold {threshold}) \u2014 pair does not isolate the forbidden construct; reduce to a minimal \u22481 token / 1 AST-node difference",
+    defaultSeverity: "error",
+    explanation: "Gate 7 (singleTokenDiff): bad/good example pair exceeds MAX_TOKEN_EDITS. gate-single-token-diff.ts."
+  },
+  FF3012: {
+    template: "ast-grep engine reserved but not wired \u2014 deferred per generator-forbid-mvp decision (i)",
+    defaultSeverity: "error",
+    explanation: "Gate 8 (messageIdCoverage): declarative rule declares engine ast-grep with a declared message/messageId, deferred. gate-message-id-coverage.ts."
+  },
+  FF3013: {
+    template: "messageId-coverage: declared check.message '{declaredMessage}' not found in emitted message '{emittedMessage}' \u2014 declared message is unreachable",
+    defaultSeverity: "error",
+    explanation: "Gate 8 (messageIdCoverage): declared check.message never appears in the actually-emitted message. gate-message-id-coverage.ts."
+  },
+  FF3014: {
+    template: "messageId-coverage: declared check.messageId '{declaredMessageId}' does not match emitted messageId '{emittedMessageId}' \u2014 declared messageId is unreachable",
+    defaultSeverity: "error",
+    explanation: "Gate 8 (messageIdCoverage): declared check.messageId never matches the actually-emitted messageId. gate-message-id-coverage.ts."
+  },
+  FF3015: {
+    template: "ast-grep engine reserved but not wired \u2014 deferred per generator-forbid-mvp decision (i)",
+    defaultSeverity: "error",
+    explanation: "Gate 9 (autofixClean): declarative rule declares engine ast-grep, deferred. gate-autofix-clean.ts."
+  },
+  FF3016: {
+    template: "autofix-clean: fixer for '{ruleName}' produced unparseable output \u2014 {details}",
+    defaultSeverity: "error",
+    explanation: "Gate 9 (autofixClean): one-pass fixer output fails to parse. gate-autofix-clean.ts."
+  },
+  FF3017: {
+    template: "autofix-clean: fixer for '{ruleName}' left {count} violation(s) in fixed output \u2014 fix is incomplete or introduces new same-rule violations",
+    defaultSeverity: "error",
+    explanation: "Gate 9 (autofixClean): fixer output still has same-rule violations after one pass. gate-autofix-clean.ts."
+  },
+  FF3018: {
+    template: "ast-grep engine reserved but not wired for require-vacuity gate \u2014 deferred per generator-require-composite-tier decision",
+    defaultSeverity: "error",
+    explanation: "requireVacuity gate: declarative require-presence rule declares engine ast-grep, deferred. gate-require-vacuity.ts."
+  },
+  FF3019: {
+    template: "require-vacuity direction A \u2014 selector never fires on examples.bad; rule can never catch violations",
+    defaultSeverity: "error",
+    explanation: "requireVacuity gate: selector never fires on the bad example (always-green false negative). gate-require-vacuity.ts."
+  },
+  FF3020: {
+    template: "require-vacuity direction B \u2014 selector fires on good example ({count} violation{plural}); rule fires unconditionally",
+    defaultSeverity: "error",
+    explanation: "requireVacuity gate: selector fires on the good example too (always-red false positive). gate-require-vacuity.ts."
+  }
+});
+function lookup(code) {
+  const entry = REGISTRY[code];
+  if (entry === void 0) {
+    throw new Error(`diag(): unknown diagnostic code "${code}" \u2014 not in REGISTRY`);
+  }
+  return entry;
+}
+var PLACEHOLDER_RE = /\{([a-zA-Z0-9_]+)\}/g;
+function interpolate(template, params) {
+  return template.replace(PLACEHOLDER_RE, (whole, key) => {
+    if (!Object.prototype.hasOwnProperty.call(params, key)) {
+      throw new Error(
+        `diag(): template placeholder "{${key}}" has no matching params key (params: ${JSON.stringify(params)})`
+      );
+    }
+    return String(params[key]);
+  });
+}
+function diag(code, params, opts) {
+  const entry = lookup(code);
+  return {
+    code,
+    severity: opts?.severity ?? entry.defaultSeverity,
+    ...opts?.path !== void 0 ? { path: opts.path } : {},
+    params,
+    message: interpolate(entry.template, params)
+  };
+}
+
+// packages/core/diagnostics/ajv.ts
+function makeSchemaValidator(schemaDoc2, ref) {
+  const ajv2 = new import_ajv.Ajv({ allErrors: true, strict: false });
+  const baseId = ref.split("#")[0];
+  const schemaId = typeof schemaDoc2["$id"] === "string" && schemaDoc2["$id"].length > 0 ? schemaDoc2["$id"] : baseId;
+  ajv2.addSchema(schemaDoc2, schemaId);
+  return ajv2.compile({ $ref: ref });
+}
+var errorsTextAjv = new import_ajv.Ajv({ allErrors: true, strict: false });
+function errorsText(errors) {
+  return errorsTextAjv.errorsText(errors);
+}
+function ajvErrorsToDiagnostics(errors) {
+  if (!errors) return [];
+  return errors.map(
+    (err) => diag(
+      "FF1001",
+      {
+        keyword: err.keyword,
+        instancePath: err.instancePath,
+        schemaPath: err.schemaPath
+      },
+      { path: err.instancePath }
+    )
+  );
+}
+
+// packages/core/research/internal-validators.ts
+var HERE = dirname(fileURLToPath(import.meta.url));
+var _pkgCore = process.env["AIF_SYNTH_PKG_ROOT"];
+var SCHEMA_PATH = _pkgCore ? resolve(_pkgCore, "research", "research-plan.schema.json") : resolve(HERE, "research-plan.schema.json");
+var schemaDoc = JSON.parse(readFileSync(SCHEMA_PATH, "utf8"));
+var ACK_SCHEMA_PATH = _pkgCore ? resolve(_pkgCore, "research", "research-allowlist.schema.json") : resolve(HERE, "research-allowlist.schema.json");
+var ackSchemaDoc = JSON.parse(readFileSync(ACK_SCHEMA_PATH, "utf8"));
+var validateEntry = makeSchemaValidator(
+  schemaDoc,
+  "research-plan#/definitions/ResearchEntry"
+);
+var validateResearchPlanShape = makeSchemaValidator(
+  schemaDoc,
+  "research-plan"
+);
+var validateAckFileShape = makeSchemaValidator(
+  ackSchemaDoc,
+  "research-allowlist"
+);
+function errorsText2(errors) {
+  return errorsText(errors);
+}
+
+// packages/core/research/allowlist-resolver.ts
+import { dirname as dirname2, join, resolve as resolvePath } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
+
+// packages/core/research/ecosystem-name.ts
+var KNOWN_ECOSYSTEM_PREFIXES = /* @__PURE__ */ new Set(["npm", "cargo"]);
+function parseEcosystemName(name) {
+  const idx = name.indexOf(":");
+  if (idx === -1) {
+    return { ecosystem: "npm", bareName: name };
+  }
+  const prefix = name.slice(0, idx);
+  const rest = name.slice(idx + 1);
+  if (KNOWN_ECOSYSTEM_PREFIXES.has(prefix)) {
+    return { ecosystem: prefix, bareName: rest };
+  }
+  return { ecosystem: "unknown", bareName: name };
+}
+
+// packages/core/research/allowlist-resolver.ts
+function canonicalizeHost(host) {
+  const lower = host.toLowerCase();
+  return lower.endsWith(".") ? lower.slice(0, -1) : lower;
+}
+function isIpLiteral(host) {
+  if (host.startsWith("[") && host.endsWith("]")) return true;
+  return /^\d{1,3}(\.\d{1,3}){3}$/.test(host);
+}
+function hasPunycodeLabel(host) {
+  return host.split(".").some((label) => label.startsWith("xn--"));
+}
+function hostMatches(host, allowed) {
+  return allowed.some((a) => host === a || host.endsWith(`.${a}`));
+}
+var AckFileError = class extends Error {
+  name = "AckFileError";
+  diagnostics;
+  constructor(message) {
+    super(message);
+    this.diagnostics = [diag("FF2014", { ackFileReason: message })];
+  }
+};
+function loadAckFile(path) {
+  let raw;
+  try {
+    raw = readFileSync2(path, "utf8");
+  } catch (e) {
+    if (e.code === "ENOENT") return /* @__PURE__ */ new Map();
+    throw e;
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new AckFileError(`malformed JSON in ack file: ${path}`);
+  }
+  if (!validateAckFileShape(parsed)) {
+    throw new AckFileError(errorsText2(validateAckFileShape.errors));
+  }
+  const doc = parsed;
+  const map = /* @__PURE__ */ new Map();
+  for (const entry of doc.entries) {
+    if (!Number.isFinite(Date.parse(entry.ackedAt))) {
+      throw new AckFileError(
+        `malformed ackedAt date "${entry.ackedAt}" in entry "${entry.key}"`
+      );
+    }
+    const hosts = entry.hosts.map(canonicalizeHost);
+    for (const h of hosts) {
+      if (isIpLiteral(h)) {
+        throw new AckFileError(
+          `IP-literal host "${h}" in entry "${entry.key}" \u2014 registrable domain names only`
+        );
+      }
+      if (!h.includes(".")) {
+        throw new AckFileError(
+          `single-label host "${h}" in entry "${entry.key}" \u2014 registrable domain names only`
+        );
+      }
+    }
+    if (map.has(entry.key)) {
+      throw new AckFileError(`duplicate key "${entry.key}" in ack file`);
+    }
+    map.set(entry.key, { ...entry, hosts });
+  }
+  return map;
+}
+var _here = dirname2(fileURLToPath2(import.meta.url));
+var _pkgCoreForData = process.env["AIF_SYNTH_PKG_ROOT"];
+var MULTI_TENANT_HOSTS_PATH = _pkgCoreForData ? resolvePath(_pkgCoreForData, "research", "multi-tenant-hosts.json") : resolvePath(_here, "multi-tenant-hosts.json");
+var MULTI_TENANT_HOSTS = JSON.parse(readFileSync2(MULTI_TENANT_HOSTS_PATH, "utf8")).hosts;
+function isMultiTenantHost(host) {
+  return MULTI_TENANT_HOSTS.some((apex) => host === apex || host.endsWith(`.${apex}`));
+}
+function resolveAllowedSources(ctx) {
+  const tier2 = ctx ? loadAckFile(ctx.ackFilePath ?? join(ctx.root, ".ai-factory", "research-allowlist.json")) : /* @__PURE__ */ new Map();
+  return {
+    tier0: ALLOWED_SOURCES,
+    tier2,
+    tier1For(packageName) {
+      if (!ctx?.adapter) {
+        return {
+          ok: false,
+          reason: `host not authorized: Tier-1 unavailable for \`${packageName}\` (no ecosystem adapter wired \u2014 S2)`
+        };
+      }
+      const parsed = parseEcosystemName(packageName);
+      if (parsed.ecosystem !== ctx.adapter.ecosystem) {
+        return {
+          ok: false,
+          reason: `ecosystem mismatch: \`${packageName}\` requests ecosystem "${parsed.ecosystem}", wired adapter is "${ctx.adapter.ecosystem}"`
+        };
+      }
+      const bareName = parsed.bareName;
+      if (!ctx.adapter.listDirectDeps(ctx.root).has(bareName)) {
+        return {
+          ok: false,
+          reason: `host not authorized: \`${packageName}\` is not a direct dependency`
+        };
+      }
+      const meta = ctx.adapter.readInstalledMeta(ctx.root, bareName);
+      const candidateFields = [meta?.homepage, meta?.repository];
+      const hosts = [];
+      for (const field of candidateFields) {
+        const rawHost = extractHttpsHostFromMeta(field);
+        if (rawHost === null) continue;
+        const host = canonicalizeHost(rawHost);
+        if (isIpLiteral(host)) continue;
+        if (!host.includes(".")) continue;
+        if (hasPunycodeLabel(host)) continue;
+        if (isMultiTenantHost(host)) continue;
+        if (!hosts.includes(host)) hosts.push(host);
+      }
+      if (hosts.length === 0) {
+        return {
+          ok: false,
+          reason: `no Tier-1-eligible host in ${packageName} metadata (multi-tenant or non-https)`
+        };
+      }
+      return { ok: true, hosts };
+    }
+  };
+}
+function extractHttpsHostFromMeta(field) {
+  if (field === void 0) return null;
+  if (typeof field === "object") {
+    return extractHttpsHostFromMeta(field.url);
+  }
+  const stripped = field.startsWith("git+") ? field.slice(4) : field;
+  try {
+    const url = new URL(stripped);
+    if (url.protocol !== "https:") return null;
+    return url.hostname;
+  } catch {
+    return null;
+  }
+}
+function validateUrlAgainstTiers(rawUrl, p, resolved, opts) {
+  const builtinHosts = resolved.tier0[p.allowlistKey];
+  if (builtinHosts) {
+    const parsed = parseHttpsHost(rawUrl);
+    if (parsed.diagnostic) return parsed.diagnostic;
+    if (hasPunycodeLabel(parsed.host)) return punycodeReject(parsed.host);
+    if (hostMatches(parsed.host, builtinHosts)) return null;
+    return diag("FF2006", {
+      host: parsed.host,
+      allowlistKey: p.allowlistKey,
+      expectedHosts: builtinHosts.join(", ")
+    });
+  }
+  let tier1Miss;
+  const packageName = p.packageName;
+  if (packageName !== void 0 && opts?.entryPackage !== void 0) {
+    if (packageName !== opts.entryPackage) {
+      return diag("FF2010", { packageName, entryPackage: opts.entryPackage });
+    }
+    const t1 = resolved.tier1For(packageName);
+    if (t1.ok) {
+      const parsed = parseHttpsHost(rawUrl);
+      if (parsed.diagnostic) return parsed.diagnostic;
+      if (hasPunycodeLabel(parsed.host)) return punycodeReject(parsed.host);
+      if (hostMatches(parsed.host, t1.hosts)) return null;
+      tier1Miss = diag("FF2011", { packageName });
+    } else {
+      tier1Miss = tier1ReasonToDiagnostic(t1.reason, packageName);
+    }
+  }
+  const ack = resolved.tier2.get(p.allowlistKey);
+  if (ack) {
+    if (ack.scope !== void 0 && opts?.entryPackage !== ack.scope) {
+      return diag("FF2012", { allowlistKey: p.allowlistKey, scope: ack.scope });
+    }
+    const parsed = parseHttpsHost(rawUrl);
+    if (parsed.diagnostic) return parsed.diagnostic;
+    if (hostMatches(parsed.host, ack.hosts)) {
+      if (hasPunycodeLabel(parsed.host)) {
+        const explicitlyAcked = ack.hosts.some(
+          (a) => hasPunycodeLabel(a) && (parsed.host === a || parsed.host.endsWith(`.${a}`))
+        );
+        if (!explicitlyAcked) return punycodeReject(parsed.host);
+      }
+      return null;
+    }
+    return diag("FF2013", {
+      host: parsed.host,
+      allowlistKey: p.allowlistKey,
+      ackedHosts: ack.hosts.join(", ")
+    });
+  }
+  if (tier1Miss) return tier1Miss;
+  return diag("FF2005", { allowlistKey: p.allowlistKey });
+}
+function tier1ReasonToDiagnostic(reason, packageName) {
+  if (reason.includes("no ecosystem adapter wired")) {
+    return diag("FF2008", { packageName });
+  }
+  if (reason.includes("ecosystem mismatch")) {
+    return diag("FF2016", { packageName });
+  }
+  if (reason.includes("is not a direct dependency")) {
+    return diag("FF2007", { packageName });
+  }
+  return diag("FF2009", { packageName });
+}
+function validateProvenance(p, resolved, opts) {
+  const urlResult = validateUrlAgainstTiers(p.url, p, resolved, opts);
+  if (urlResult !== null) return urlResult;
+  if (p.finalUrl !== void 0 && p.finalUrl !== p.url) {
+    const finalResult = validateUrlAgainstTiers(p.finalUrl, p, resolved, opts);
+    if (finalResult !== null) {
+      return diag("FF2015", { innerReason: finalResult.message });
+    }
+  }
+  return null;
+}
+function parseHttpsHost(rawUrl) {
+  let url;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    return { diagnostic: diag("FF2001", { url: rawUrl }) };
+  }
+  if (url.protocol !== "https:") {
+    return { diagnostic: diag("FF2002", { url: rawUrl }) };
+  }
+  const host = canonicalizeHost(url.hostname);
+  if (isIpLiteral(host)) {
+    return { diagnostic: diag("FF2003", { host }) };
+  }
+  return { host };
+}
+function punycodeReject(host) {
+  return diag("FF2004", { host });
+}
 
 // packages/core/research/allowlist.ts
 var ALLOWED_SOURCES = {
   "next.official": ["nextjs.org", "vercel.com"],
   "react.official": ["react.dev"],
+  "react-native.official": ["reactnative.dev"],
+  "expo.official": ["expo.dev"],
   "tailwind.official": ["tailwindcss.com"],
   "mdn": ["developer.mozilla.org"],
   "typescript.official": ["typescriptlang.org", "www.typescriptlang.org"]
 };
-function validateProvenance(p) {
-  const hosts = ALLOWED_SOURCES[p.allowlistKey];
-  if (!hosts) {
-    return { ok: false, reason: `unknown allowlistKey: ${p.allowlistKey}` };
-  }
-  let url;
-  try {
-    url = new URL(p.url);
-  } catch {
-    return { ok: false, reason: `malformed URL: ${p.url}` };
-  }
-  if (url.protocol !== "https:") {
-    return { ok: false, reason: `non-https URL: ${p.url}` };
-  }
-  const hostMatch = hosts.some(
-    (h) => url.hostname === h || url.hostname.endsWith(`.${h}`)
-  );
-  if (!hostMatch) {
-    return {
-      ok: false,
-      reason: `host ${url.hostname} not allowed under key ${p.allowlistKey} (expected one of: ${hosts.join(", ")})`
-    };
-  }
-  return { ok: true };
-}
-
-// packages/core/research/internal-validators.ts
-var import_ajv = __toESM(require_ajv(), 1);
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-var HERE = dirname(fileURLToPath(import.meta.url));
-var _pkgCore = process.env["AIF_SYNTH_PKG_ROOT"];
-var SCHEMA_PATH = _pkgCore ? resolve(_pkgCore, "research", "research-plan.schema.json") : resolve(HERE, "research-plan.schema.json");
-var ajv = new import_ajv.Ajv({ allErrors: true, strict: false });
-var schemaDoc = JSON.parse(readFileSync(SCHEMA_PATH, "utf8"));
-ajv.addSchema(schemaDoc, "research-plan");
-var validateEntry = ajv.compile({
-  $ref: "research-plan#/definitions/ResearchEntry"
-});
-var validateResearchPlanShape = ajv.compile({
-  $ref: "research-plan"
-});
-function errorsText(errors) {
-  return ajv.errorsText(errors);
+var tier0Only;
+function validateProvenance2(p) {
+  tier0Only ??= resolveAllowedSources();
+  const d = validateProvenance(p, tier0Only);
+  return d === null ? { ok: true } : { ok: false, reason: d.message };
 }
 
 // packages/core/research/load.ts
-var HERE2 = dirname2(fileURLToPath2(import.meta.url));
+var HERE2 = dirname3(fileURLToPath3(import.meta.url));
 var _pkgCore2 = process.env["AIF_SYNTH_PKG_ROOT"];
 var STORE_ROOT = _pkgCore2 ? resolve2(_pkgCore2, "research", "store") : resolve2(HERE2, "store");
 var ResearchEntryError = class extends Error {
-  constructor(path, errors) {
+  constructor(path, errors, diagnostics = []) {
     super(`Invalid research entry at ${path}: ${errors}`);
     this.path = path;
     this.errors = errors;
+    this.diagnostics = diagnostics;
     this.name = "ResearchEntryError";
   }
   path;
   errors;
+  diagnostics;
 };
 function tryLoad(filePath) {
   if (!existsSync(filePath)) return null;
-  const raw = JSON.parse(readFileSync2(filePath, "utf8"));
+  const raw = JSON.parse(readFileSync3(filePath, "utf8"));
   if (!validateEntry(raw)) {
-    throw new ResearchEntryError(filePath, errorsText(validateEntry.errors));
+    throw new ResearchEntryError(
+      filePath,
+      errorsText2(validateEntry.errors),
+      ajvErrorsToDiagnostics(validateEntry.errors)
+    );
   }
   const entry = raw;
   for (const p of entry.provenance) {
-    const v = validateProvenance(p);
+    const v = validateProvenance2(p);
     if (!v.ok) {
-      throw new ResearchEntryError(filePath, `provenance violation \u2014 ${v.reason}`);
+      const tier0Only2 = resolveAllowedSources();
+      const d = validateProvenance(p, tier0Only2);
+      throw new ResearchEntryError(
+        filePath,
+        `provenance violation \u2014 ${v.reason}`,
+        d ? [d] : []
+      );
     }
   }
   return entry;
@@ -8691,10 +9207,10 @@ function loadEntries(framework, version, patterns) {
 }
 
 // packages/core/synthesizer/synthesize.ts
-var import_ajv2 = __toESM(require_ajv(), 1);
-import { existsSync as existsSync2, readFileSync as readFileSync3 } from "node:fs";
-import { dirname as dirname3, resolve as resolve3 } from "node:path";
-import { fileURLToPath as fileURLToPath3 } from "node:url";
+var import_ajv4 = __toESM(require_ajv(), 1);
+import { existsSync as existsSync2, readFileSync as readFileSync4 } from "node:fs";
+import { dirname as dirname4, resolve as resolve3 } from "node:path";
+import { fileURLToPath as fileURLToPath4 } from "node:url";
 
 // packages/core/synthesizer/compile-declarative-md.ts
 var ESLINT_RESTRICTED_RULE_NAME = "rules-as-tests/restricted-syntax-audit-exempt";
@@ -8844,17 +9360,17 @@ function mergeEslintRuleConfig(acc, next, newSource, ruleSources) {
 }
 
 // packages/core/synthesizer/synthesize.ts
-var HERE3 = dirname3(fileURLToPath3(import.meta.url));
+var HERE3 = dirname4(fileURLToPath4(import.meta.url));
 var _pkgCore3 = process.env["AIF_SYNTH_PKG_ROOT"];
 var RECIPES_ROOT = _pkgCore3 ? resolve3(_pkgCore3, "synthesizer", "recipes") : resolve3(HERE3, "recipes");
 var SCHEMA_PATH2 = _pkgCore3 ? resolve3(_pkgCore3, "synthesizer", "synthesis-plan.schema.json") : resolve3(HERE3, "synthesis-plan.schema.json");
 var RECIPE_SCHEMA_PATH = _pkgCore3 ? resolve3(_pkgCore3, "synthesizer", "recipe.schema.json") : resolve3(HERE3, "recipe.schema.json");
-var ajv2 = new import_ajv2.Ajv({ allErrors: true, strict: false });
-var schema = JSON.parse(readFileSync3(SCHEMA_PATH2, "utf8"));
-ajv2.addSchema(schema, "synthesis-plan");
-var validatePlan = ajv2.compile({ $ref: "synthesis-plan" });
-var recipeSchema = JSON.parse(readFileSync3(RECIPE_SCHEMA_PATH, "utf8"));
-var validateRecipe = ajv2.compile(recipeSchema);
+var ajv = new import_ajv4.Ajv({ allErrors: true, strict: false });
+var schema = JSON.parse(readFileSync4(SCHEMA_PATH2, "utf8"));
+ajv.addSchema(schema, "synthesis-plan");
+var validatePlan = ajv.compile({ $ref: "synthesis-plan" });
+var recipeSchema = JSON.parse(readFileSync4(RECIPE_SCHEMA_PATH, "utf8"));
+var validateRecipe = ajv.compile(recipeSchema);
 var SynthesisPlanError = class extends Error {
   constructor(errors) {
     super(`Invalid SynthesisPlan: ${errors}`);
@@ -8876,9 +9392,9 @@ var RecipeError = class extends Error {
 function loadRecipe(patternId) {
   const path = resolve3(RECIPES_ROOT, `${patternId}.json`);
   if (!existsSync2(path)) return null;
-  const raw = JSON.parse(readFileSync3(path, "utf8"));
+  const raw = JSON.parse(readFileSync4(path, "utf8"));
   if (!validateRecipe(raw)) {
-    throw new RecipeError(path, ajv2.errorsText(validateRecipe.errors));
+    throw new RecipeError(path, ajv.errorsText(validateRecipe.errors));
   }
   return raw;
 }
@@ -8931,16 +9447,16 @@ function synthesize(plan) {
     eslintConfigSnippet: JSON.stringify(mergedEslintConfig, null, 2)
   };
   if (!validatePlan(result)) {
-    throw new SynthesisPlanError(ajv2.errorsText(validatePlan.errors));
+    throw new SynthesisPlanError(ajv.errorsText(validatePlan.errors));
   }
   return result;
 }
 
 // packages/core/install/wire-eslint-r2.ts
 import { execFileSync } from "node:child_process";
-import { existsSync as existsSync3, readFileSync as readFileSync4, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync as existsSync3, readFileSync as readFileSync5, unlinkSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname as dirname4, join, relative, resolve as resolve4 } from "node:path";
+import { dirname as dirname5, join as join2, relative, resolve as resolve4 } from "node:path";
 import process2 from "node:process";
 import { pathToFileURL } from "node:url";
 var R2_RULE_ID = "rules-as-tests/no-unsafe-zod-parse";
@@ -8950,7 +9466,7 @@ function r2Element(variant, scope) {
 }
 function customRulesImportSpecifier(configPath, cwd) {
   const target = resolve4(cwd, "eslint-rules-local/index.mjs");
-  let rel = relative(dirname4(resolve4(configPath)), target);
+  let rel = relative(dirname5(resolve4(configPath)), target);
   if (!rel.startsWith(".")) rel = `./${rel}`;
   return rel;
 }
@@ -9051,9 +9567,12 @@ async function wireConfigSource(source, opts = {}) {
 }
 var WRAPPER_RULE_KEY = "rules-as-tests/restricted-syntax-audit-exempt";
 function jsString(s) {
-  if (!s.includes('"')) return `"${s}"`;
-  if (!s.includes("'")) return `'${s}'`;
-  return `"${s.replace(/"/g, '\\"')}"`;
+  const needsEscape = s.includes("\\") || s.includes("\n") || s.includes("\r") || s.includes("\u2028") || s.includes("\u2029");
+  if (!needsEscape) {
+    if (!s.includes('"')) return `"${s}"`;
+    if (!s.includes("'")) return `'${s}'`;
+  }
+  return JSON.stringify(s);
 }
 function simpleRulePresent(source, ruleName) {
   return source.includes(`'${ruleName}'`) || source.includes(`"${ruleName}"`);
@@ -9065,10 +9584,9 @@ function wrapperSelectorsPresent(source, arrValue) {
     return sel != null && source.includes(sel);
   });
 }
-function buildRuleConfigElement(ruleName, value, scope) {
-  const filesPart = scope ? `files: [${scope.files.map((f) => jsString(f)).join(", ")}], ` : "";
+function buildRuleValueExpr(value) {
   if (typeof value === "string") {
-    return `{ ${filesPart}rules: { '${ruleName}': ${jsString(value)} } }`;
+    return jsString(value);
   }
   if (Array.isArray(value)) {
     const severity = typeof value[0] === "string" ? value[0] : "error";
@@ -9077,9 +9595,75 @@ function buildRuleConfigElement(ruleName, value, scope) {
       if (e.message) parts.push(`message: ${jsString(e.message)}`);
       return `{ ${parts.join(", ")} }`;
     });
-    return `{ ${filesPart}rules: { '${ruleName}': [${jsString(severity)}, ${entries.join(", ")}] } }`;
+    return `[${jsString(severity)}, ${entries.join(", ")}]`;
   }
-  return `{ ${filesPart}rules: { '${ruleName}': ${JSON.stringify(value)} } }`;
+  return JSON.stringify(value);
+}
+function buildRuleConfigElement(ruleName, value, scope, registerPlugin = false) {
+  const filesPart = scope ? `files: [${scope.files.map((f) => jsString(f)).join(", ")}], ` : "";
+  const pluginsPart = registerPlugin ? `plugins: { 'rules-as-tests': customRules }, ` : "";
+  return `{ ${filesPart}${pluginsPart}rules: { ${jsString(ruleName)}: ${buildRuleValueExpr(value)} } }`;
+}
+function configRegistersRulesAsTestsPlugin(elements, SyntaxKind) {
+  for (const el of elements) {
+    if (!el.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
+    for (const prop of el.getProperties?.() ?? []) {
+      let propName;
+      try {
+        propName = normPropName(prop.getName?.());
+      } catch {
+        continue;
+      }
+      if (propName !== "plugins") continue;
+      const pluginsInit = prop.getInitializer?.();
+      if (!pluginsInit?.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
+      for (const pp of pluginsInit.getProperties?.() ?? []) {
+        let ppName;
+        try {
+          ppName = normPropName(pp.getName?.());
+        } catch {
+          continue;
+        }
+        if (ppName === "rules-as-tests") return true;
+      }
+    }
+  }
+  return false;
+}
+function exprEqual(a, b) {
+  const norm = (s) => s.replace(/['"`]/g, '"').replace(/\s+/g, "");
+  return norm(a) === norm(b);
+}
+function replaceSimpleRuleValue(elements, SyntaxKind, ruleName, desiredExpr) {
+  for (const el of elements) {
+    if (!el.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
+    for (const prop of el.getProperties?.() ?? []) {
+      let propName;
+      try {
+        propName = normPropName(prop.getName?.());
+      } catch {
+        continue;
+      }
+      if (propName !== "rules") continue;
+      const rulesInit = prop.getInitializer?.();
+      if (!rulesInit?.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
+      for (const rp of rulesInit.getProperties?.() ?? []) {
+        let rpName;
+        try {
+          rpName = normPropName(rp.getName?.());
+        } catch {
+          continue;
+        }
+        if (rpName !== ruleName) continue;
+        const init = rp.getInitializer?.();
+        if (!init) return "not-found";
+        if (exprEqual(init.getText(), desiredExpr)) return "same";
+        rp.setInitializer(desiredExpr);
+        return "changed";
+      }
+    }
+  }
+  return "not-found";
 }
 function normPropName(name) {
   if (typeof name !== "string") return "";
@@ -9119,23 +9703,29 @@ function mergeSelectorsIntoExistingWrapper(elements, SyntaxKind, missingSels) {
   }
   return false;
 }
-async function wireNRules(source, synthRules, _opts = {}) {
+async function wireNRules(source, synthRules, opts = {}) {
   const ruleEntries = Object.entries(synthRules);
   if (ruleEntries.length === 0) {
     return { status: "already-wired", original: source, modified: source };
   }
+  const overrideKeys = opts.overrideKeys;
   const missing = [];
+  const overrides = [];
   for (const [key, value] of ruleEntries) {
     if (Array.isArray(value)) {
       if (!wrapperSelectorsPresent(source, value)) missing.push({ key, value });
-    } else {
-      if (!simpleRulePresent(source, key)) missing.push({ key, value });
+    } else if (!simpleRulePresent(source, key)) {
+      missing.push({ key, value });
+    } else if (overrideKeys?.has(key)) {
+      overrides.push({ key, value });
     }
   }
-  if (missing.length === 0) {
+  if (missing.length === 0 && overrides.length === 0) {
     return { status: "already-wired", original: source, modified: source };
   }
-  console.debug(`  [synth-wire] DEBUG: ${missing.length} rule(s) to wire: ${missing.map((m) => m.key).join(", ")}`);
+  console.debug(
+    `  [synth-wire] DEBUG: ${missing.length} rule(s) to wire, ${overrides.length} override(s): ${[...missing, ...overrides].map((m) => m.key).join(", ")}`
+  );
   let Project;
   let SyntaxKind;
   try {
@@ -9178,9 +9768,31 @@ async function wireNRules(source, synthRules, _opts = {}) {
     return { status: "unrecognised", original: source, modified: source };
   }
   const configElements = isCallExprMode ? callExprNode.getArguments() : exportArr.getElements?.() ?? [];
+  let changed = false;
+  const selfRegisterEligible = !!opts.customRulesImportPath && !configRegistersRulesAsTestsPlugin(configElements, SyntaxKind);
+  let didSelfRegister = false;
+  const registerFor = (ruleKey) => {
+    const yes = selfRegisterEligible && ruleKey.startsWith("rules-as-tests/");
+    if (yes) didSelfRegister = true;
+    return yes;
+  };
+  for (const { key, value } of overrides) {
+    const desired = buildRuleValueExpr(value);
+    const outcome = replaceSimpleRuleValue(configElements, SyntaxKind, key, desired);
+    if (outcome === "changed") {
+      console.debug(`  [synth-wire] DEBUG: live-override replaced value of '${key}'`);
+      changed = true;
+    } else if (outcome === "not-found") {
+      console.debug(`  [synth-wire] DEBUG: override target '${key}' not found as a rules prop \u2014 appending`);
+      if (isCallExprMode) callExprNode.addArgument(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
+      else exportArr.addElement(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
+      changed = true;
+    }
+  }
   for (const { key, value } of missing) {
-    if (_opts.scope) {
-      console.log(`  [wire:N-rule] scoping ${key} to files=${_opts.scope.files.join(", ")}`);
+    changed = true;
+    if (opts.scope) {
+      console.log(`  [wire:N-rule] scoping ${key} to files=${opts.scope.files.join(", ")}`);
     }
     if (Array.isArray(value)) {
       const missingSels = value.slice(1).filter(
@@ -9190,9 +9802,9 @@ async function wireNRules(source, synthRules, _opts = {}) {
       if (!merged) {
         console.debug(`  [synth-wire] DEBUG: adding new wrapper block for '${key}'`);
         if (isCallExprMode) {
-          callExprNode.addArgument(buildRuleConfigElement(key, value, _opts.scope));
+          callExprNode.addArgument(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
         } else {
-          exportArr.addElement(buildRuleConfigElement(key, value, _opts.scope));
+          exportArr.addElement(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
         }
       } else {
         console.debug(`  [synth-wire] DEBUG: merged ${missingSels.length} selector(s) into existing '${key}' block`);
@@ -9200,10 +9812,21 @@ async function wireNRules(source, synthRules, _opts = {}) {
     } else {
       console.debug(`  [synth-wire] DEBUG: appending simple rule block for '${key}'`);
       if (isCallExprMode) {
-        callExprNode.addArgument(buildRuleConfigElement(key, value, _opts.scope));
+        callExprNode.addArgument(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
       } else {
-        exportArr.addElement(buildRuleConfigElement(key, value, _opts.scope));
+        exportArr.addElement(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
       }
+    }
+  }
+  if (!changed) {
+    return { status: "already-wired", original: source, modified: source };
+  }
+  if (didSelfRegister && opts.customRulesImportPath) {
+    const already = sf.getImportDeclarations().some(
+      (d) => d.getDefaultImport()?.getText() === "customRules"
+    );
+    if (!already) {
+      sf.addImportDeclaration({ defaultImport: "customRules", moduleSpecifier: opts.customRulesImportPath });
     }
   }
   const modified = sf.getFullText();
@@ -9219,7 +9842,7 @@ async function probeViaEslint(configPath, cwd) {
   try {
     const reqd = createRequire(resolve4(cwd, "package.json"));
     const pj = reqd.resolve("eslint/package.json");
-    eslintBin = join(dirname4(pj), "bin", "eslint.js");
+    eslintBin = join2(dirname5(pj), "bin", "eslint.js");
     if (!existsSync3(eslintBin)) return "unavailable";
   } catch {
     return "unavailable";
@@ -9230,7 +9853,7 @@ async function probeViaEslint(configPath, cwd) {
     nodeArgs.push("--import", "tsx");
   } catch {
   }
-  const dir = dirname4(resolve4(configPath));
+  const dir = dirname5(resolve4(configPath));
   const target = synthProbeTarget(dir);
   try {
     execFileSync(process2.execPath, [...nodeArgs, eslintBin, "--print-config", target], { cwd: dir, stdio: "pipe" });
@@ -9250,7 +9873,7 @@ ${stderr.slice(0, 400)}`);
 }
 async function resolveAndWire(args) {
   const { configPath, cwd, runProbe, scope } = args;
-  const original = readFileSync4(configPath, "utf8");
+  const original = readFileSync5(configPath, "utf8");
   if (original.includes(R2_RULE_ID)) {
     return { status: "already-wired", original, modified: original };
   }
@@ -9305,7 +9928,7 @@ async function main() {
     console.log(`\xB7 wire-eslint-r2: ${configPath} not found \u2014 skipped`);
     process2.exit(0);
   }
-  const source = readFileSync4(configPath, "utf8");
+  const source = readFileSync5(configPath, "utf8");
   const result = await wireConfigSource(source);
   switch (result.status) {
     case "already-wired":
@@ -9385,6 +10008,68 @@ var STACK_PATTERNS = {
     ]
   }
 };
+var RULE_ID_SAFE = /^[A-Za-z0-9@/_-]+$/;
+function unionWrapperSelectors(presetArr, liveArr) {
+  const severity = typeof liveArr[0] === "string" ? liveArr[0] : typeof presetArr[0] === "string" ? presetArr[0] : "error";
+  const bySelector = /* @__PURE__ */ new Map();
+  for (const e of presetArr.slice(1)) {
+    const sel = e?.selector;
+    if (sel) bySelector.set(sel, e);
+  }
+  for (const e of liveArr.slice(1)) {
+    const sel = e?.selector;
+    if (sel) bySelector.set(sel, e);
+  }
+  return [severity, ...bySelector.values()];
+}
+function mergeLiveRules(presetRules, liveRules) {
+  const rules = { ...presetRules };
+  const overrideKeys = /* @__PURE__ */ new Set();
+  for (const [id, liveVal] of Object.entries(liveRules)) {
+    if (!RULE_ID_SAFE.test(id)) {
+      console.error(`  \xB7 synth-and-wire: live snippet \u2014 non-conforming rule-id '${id}' rejected`);
+      continue;
+    }
+    if (!Object.hasOwn(presetRules, id)) {
+      rules[id] = liveVal;
+      continue;
+    }
+    const presetVal = presetRules[id];
+    if (Array.isArray(liveVal) && Array.isArray(presetVal)) {
+      rules[id] = unionWrapperSelectors(presetVal, liveVal);
+    } else {
+      rules[id] = liveVal;
+      overrideKeys.add(id);
+    }
+  }
+  return { rules, overrideKeys };
+}
+function readLiveSnippet(snippetPath) {
+  if (!existsSync4(snippetPath)) return {};
+  try {
+    const raw = readFileSync6(snippetPath, "utf8").trim();
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const safe = /* @__PURE__ */ Object.create(null);
+      for (const [id, val] of Object.entries(parsed)) {
+        if (!RULE_ID_SAFE.test(id)) {
+          console.error(`  \xB7 synth-and-wire: live snippet \u2014 non-conforming rule-id '${id}' rejected (must match [A-Za-z0-9@/_-]+)`);
+          continue;
+        }
+        safe[id] = val;
+      }
+      return safe;
+    }
+    console.error(`  \xB7 synth-and-wire: live snippet at ${snippetPath} is not a rules object \u2014 ignored`);
+    return {};
+  } catch (err) {
+    console.error(
+      `  \xB7 synth-and-wire: live snippet at ${snippetPath} unreadable (${err.message}) \u2014 using preset baseline only`
+    );
+    return {};
+  }
+}
 async function main2() {
   const argv = process3.argv.slice(2);
   if (argv.includes("--help") || argv.includes("-h")) {
@@ -9408,42 +10093,60 @@ async function main2() {
   const pathIdx = argv.indexOf("--path");
   const configPath = resolve5(pathIdx >= 0 ? argv[pathIdx + 1] : "./eslint.config.mjs");
   const dryRun = argv.includes("--dry-run");
-  const KNOWN_FLAGS = /* @__PURE__ */ new Set(["--help", "-h", "--stack", "--path", "--dry-run"]);
+  const snippetIdx = argv.indexOf("--snippet");
+  const snippetPath = snippetIdx >= 0 ? resolve5(argv[snippetIdx + 1]) : resolve5(dirname6(configPath), ".ai-factory", "synthesizer-output", "eslint-rules-snippet.json");
+  const KNOWN_FLAGS = /* @__PURE__ */ new Set(["--help", "-h", "--stack", "--path", "--dry-run", "--snippet"]);
   for (let i = 0; i < argv.length; i++) {
     if (argv[i].startsWith("--") || argv[i].startsWith("-")) {
       if (!KNOWN_FLAGS.has(argv[i])) {
         console.error(`  \xB7 synth-and-wire: unrecognised flag '${argv[i]}' \u2014 aborting (known: ${[...KNOWN_FLAGS].join(", ")})`);
         process3.exit(0);
       }
-      if (argv[i] === "--stack" || argv[i] === "--path") i++;
+      if (argv[i] === "--stack" || argv[i] === "--path" || argv[i] === "--snippet") i++;
     }
   }
   const stackDef = STACK_PATTERNS[stack];
-  if (!stackDef) {
-    console.log(`  [synth-wire] stack '${stack}' has no synthesizer pattern set \u2014 skipped (no-op)`);
-    process3.exit(0);
+  let synthRules = {};
+  if (stackDef) {
+    console.debug(`  [synth-wire] DEBUG: synthesizing rules for stack '${stack}' (${stackDef.framework}@${stackDef.version})`);
+    const entries = loadEntries(stackDef.framework, stackDef.version, stackDef.patterns);
+    const plan = synthesize({
+      framework: stackDef.framework,
+      version: stackDef.version,
+      patterns: entries,
+      missing: [],
+      drift: null
+    });
+    synthRules = JSON.parse(plan.eslintConfigSnippet);
+  } else {
+    console.log(`  [synth-wire] stack '${stack}' has no synthesizer pattern set \u2014 preset baseline empty; live-research snippet (if any) still wires`);
   }
-  console.debug(`  [synth-wire] DEBUG: synthesizing rules for stack '${stack}' (${stackDef.framework}@${stackDef.version})`);
-  const entries = loadEntries(stackDef.framework, stackDef.version, stackDef.patterns);
-  const plan = synthesize({
-    framework: stackDef.framework,
-    version: stackDef.version,
-    patterns: entries,
-    missing: [],
-    drift: null
-  });
-  const synthRules = JSON.parse(plan.eslintConfigSnippet);
-  if (Object.keys(synthRules).length === 0) {
+  const liveRules = readLiveSnippet(snippetPath);
+  const { rules: mergedRules, overrideKeys } = mergeLiveRules(synthRules, liveRules);
+  if (Object.keys(liveRules).length > 0) {
+    const newIds = Object.keys(liveRules).filter((id) => !(id in synthRules));
+    const liveSelectors = Array.isArray(liveRules[ESLINT_RESTRICTED_RULE_NAME]) ? liveRules[ESLINT_RESTRICTED_RULE_NAME].length - 1 : 0;
+    console.log(
+      `  [synth-wire] live-research snippet found at ${snippetPath} \u2014 augmenting preset baseline (live precedence; ${newIds.length} new rule-id(s), ${overrideKeys.size} override(s), ${liveSelectors} live selector(s))`
+    );
+  }
+  if (Object.keys(mergedRules).length === 0) {
     console.log(`  [synth-wire] synthesizer emitted no rules for '${stack}' \u2014 no-op`);
     process3.exit(0);
   }
-  console.debug(`  [synth-wire] DEBUG: emitted ${Object.keys(synthRules).length} rule(s): ${Object.keys(synthRules).join(", ")}`);
+  console.debug(`  [synth-wire] DEBUG: emitted ${Object.keys(mergedRules).length} rule(s): ${Object.keys(mergedRules).join(", ")}`);
   if (dryRun) {
     if (!existsSync4(configPath)) {
       console.log(`  [dry-run] [synth-wire] ${configPath} not found \u2014 would skip`);
     } else {
-      const source2 = readFileSync5(configPath, "utf8");
-      const result2 = await wireNRules(source2, synthRules);
+      const source2 = readFileSync6(configPath, "utf8");
+      const result2 = await wireNRules(source2, mergedRules, {
+        overrideKeys,
+        // #829: enable plugin self-registration for presets that don't pre-register `rules-as-tests`
+        // (RN/ts-server). Resolved against the config's own dir → `./eslint-rules-local/index.mjs`
+        // (40-configs.sh provisions it at the root AND per-workspace), so it works for both layouts.
+        customRulesImportPath: customRulesImportSpecifier(configPath, dirname6(configPath))
+      });
       if (result2.status === "already-wired") {
         console.log(`  [dry-run] [synth-wire] all synthesized rules already present in ${configPath} (no change needed)`);
       } else {
@@ -9456,8 +10159,12 @@ async function main2() {
     console.log(`  [synth-wire] ${configPath} not found \u2014 skipped`);
     process3.exit(0);
   }
-  const source = readFileSync5(configPath, "utf8");
-  const result = await wireNRules(source, synthRules);
+  const source = readFileSync6(configPath, "utf8");
+  const result = await wireNRules(source, mergedRules, {
+    overrideKeys,
+    // #829: see the dry-run site above — enables plugin self-registration for presets lacking it.
+    customRulesImportPath: customRulesImportSpecifier(configPath, dirname6(configPath))
+  });
   switch (result.status) {
     case "already-wired":
       console.log(`  [synth-wire] \u2713 all synthesized rules confirmed in ${configPath} (idempotent \u2014 no change)`);
@@ -9487,3 +10194,6 @@ if (process3.argv[1] && (process3.argv[1].endsWith("synth-and-wire.ts") || proce
     process3.exit(0);
   });
 }
+export {
+  mergeLiveRules
+};

@@ -119,6 +119,7 @@ function checkRule(
       failures: [
         {
           ruleId: rule.id,
+          code: 'FF3015',
           reason:
             'ast-grep engine reserved but not wired — deferred per generator-forbid-mvp decision (i)',
         },
@@ -161,6 +162,7 @@ function checkRule(
       failures: [
         {
           ruleId: rule.id,
+          code: 'FF3016',
           reason: `autofix-clean: fixer for '${ruleName}' produced unparseable output — ${parseErrors.map((m) => m.message).join('; ')}`,
         },
       ],
@@ -179,6 +181,7 @@ function checkRule(
       failures: [
         {
           ruleId: rule.id,
+          code: 'FF3017',
           reason: `autofix-clean: fixer for '${ruleName}' left ${remainingViolations.length} violation(s) in fixed output — fix is incomplete or introduces new same-rule violations`,
         },
       ],

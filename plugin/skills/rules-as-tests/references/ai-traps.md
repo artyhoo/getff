@@ -3,7 +3,7 @@
 Read this file when the user mentions AI-generated code drift, Claude Code, Cursor, Copilot, or "code that looks fine but is wrong". This is the playbook for hardening a codebase against AI-driven development.
 
 > **Authoritative for:** AI-agent failure-mode catalog with the rule that catches each; «Lessons learned» section with real-project incidents; trap-to-rule mapping for Vitest/Playwright/ESLint/audit probes.
-> **NOT authoritative for:** framework's project goal — see [../../../README.md#why-this-exists](../../../README.md#why-this-exists). Layer taxonomy — see [overview.md](overview.md). Audit-script pattern — see [self-testing-docs.md](self-testing-docs.md).
+> **NOT authoritative for:** framework's project goal — see [README.md#why-this-exists](https://github.com/artyhoo/rules-as-tests-aif/blob/main/README.md#why-this-exists). Layer taxonomy — see [overview.md](overview.md). Audit-script pattern — see [self-testing-docs.md](self-testing-docs.md).
 
 ---
 

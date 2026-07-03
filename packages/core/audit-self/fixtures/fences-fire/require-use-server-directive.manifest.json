@@ -1,0 +1,10 @@
+{
+  "rule-id": "rules-as-tests/restricted-syntax-audit-exempt",
+  "description": "R20 — async Server Action without 'use server' directive must be rejected (Class 2 declarative recipe)",
+  "rule-options": [
+    {
+      "selector": "Program:not(Program:has(ExpressionStatement:first-child > Literal[value='use server'])) ExportNamedDeclaration > FunctionDeclaration[async=true], Program:not(Program:has(ExpressionStatement:first-child > Literal[value='use server'])) ExportDefaultDeclaration > FunctionDeclaration[async=true]",
+      "message": "Server Action file must start with 'use server' directive at the top of the file (R20)."
+    }
+  ]
+}

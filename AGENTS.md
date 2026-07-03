@@ -39,9 +39,11 @@ Universal format read by Cursor, Codex CLI, Aider, Windsurf, and other non-CC ha
 | [`.claude/rules/parallel-subwave-isolation.md`](.claude/rules/parallel-subwave-isolation.md) | Parallel AI sessions require git worktrees to avoid branch race and shared-workdir contamination |
 | [`.claude/rules/phase-research-coverage.md`](.claude/rules/phase-research-coverage.md) | R-phase research must cover all surfaces with file:line evidence; search-coverage 6-item checklist |
 | [`.claude/rules/recommendation-laziness-discipline.md`](.claude/rules/recommendation-laziness-discipline.md) | Recommendations need at least one evidence-bearing tool call in the same turn; ambiguous forks route via AskUserQuestion |
+| [`.claude/rules/research-source-trust.md`](.claude/rules/research-source-trust.md) | Rule-research provenance is gated by a tiered trust model (builtin / derived / consumer-acked); extend trust via data, not framework source |
 | [`.claude/rules/reviewer-discipline.md`](.claude/rules/reviewer-discipline.md) | Reviewer sessions surface decision-needed forks; they do not choose project strategy |
 | [`.claude/rules/rule-enforcement-channel-selection.md`](.claude/rules/rule-enforcement-channel-selection.md) | Every rule fails at the earliest reachable channel; CI is the last resort, not the primary gate |
 | [`.claude/rules/skill-description-quality.md`](.claude/rules/skill-description-quality.md) | SKILL.md `description`-field quality discipline (deferred Class C); promotion at ≥3 misrouting incidents / 6 months |
+| [`.claude/rules/source-before-shape.md`](.claude/rules/source-before-shape.md) | Before creating a capability (skill/agent/module) or scoping a dispatch, read the authoritative source (SSOT/existing skills, or the spec) first as an input to the shape — not a post-hoc trailer; edit-time reminder via the rule injector |
 
 ## Key files for contributors
 

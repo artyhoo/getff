@@ -27,6 +27,14 @@
 #     60
 # (the test cmd runs from REPO_ROOT; vitest resolves hooks/<name> via the root config)
 #
+# Contract for <test-cmd>: it runs with BASHMUT_HOOK exported = absolute path of
+# the temp SHADOW copy each mutant is swapped into (the tracked hook is never
+# written — see the shadow block below). A test that spawns the hook must spawn
+# "$BASHMUT_HOOK" (falling back to the tracked path when unset) so mutants are
+# actually exercised; a test that ignores it keeps passing against the untouched
+# original, kills nothing, and FAILs the ≥floor gate loudly — never a silent
+# false-green.
+#
 # Prerequisite (one-time, local):  pipx install universalmutator
 #   (or: pip install universalmutator) — see CONTRIBUTING.md «Bash mutation testing».
 
@@ -60,6 +68,20 @@ MUT_DIR="$(mktemp -d)"
 WORK_DIR="$(mktemp -d)"   # mutants + killed.txt/notkilled.txt land here, not in the repo
 trap 'rm -rf "$MUT_DIR" "$WORK_DIR"' EXIT   # no temp-dir accumulation across runs
 
+# --- shadow the target: mutants are swapped into a temp COPY, never the repo ---
+# analyze_mutants overwrites whatever path it is given, once per mutant, and
+# restores content-only at the end. Handing it the tracked hook path serialises
+# fine in a single run but LEAKS under concurrency: two suite instances
+# interleave their swap/restore cycles and a mutant — plus a 644 mode from the
+# content-only restore — survives in the working tree (incident 2026-07-02:
+# .claude/hooks/check-hook-marker.sh left with a broken glob + flipped exit).
+# So the swap target is this WORK_DIR shadow; the test command reads its path
+# via BASHMUT_HOOK (header contract above).
+SHADOW_DIR="$WORK_DIR/shadow"
+mkdir -p "$SHADOW_DIR"
+SHADOW_HOOK="$SHADOW_DIR/$(basename "$HOOK_ABS")"
+cp "$HOOK_ABS" "$SHADOW_HOOK"
+
 echo "=== bash mutation: $(basename "$HOOK_ABS") ==="
 echo "rules:  $RULES"
 echo "test:   $TEST_CMD"
@@ -73,8 +95,8 @@ echo
 # engine skip every subsequent line → silent under-count or zero mutants (the Trail-
 # of-Bits regexp-engine limitation, B.1 §B.1.3). We neutralise the openers in a
 # line-count-preserving copy used ONLY for mutant generation; the byte we insert is
-# a space inside a comment, behaviourally inert. analyze_mutants still swaps the
-# mutant into the REAL hook path, restoring the untouched original afterwards.
+# a space inside a comment, behaviourally inert. analyze_mutants swaps each mutant
+# into the SHADOW copy (above) — the tracked hook is never written.
 SAN_HOOK="$WORK_DIR/$(basename "$HOOK_ABS")"
 sed -e 's@/\*@/ *@g' -e 's@{-@{ -@g' "$HOOK_ABS" > "$SAN_HOOK"
 
@@ -93,13 +115,16 @@ echo "generated $N_MUT mutants → running paired-negative test against each…"
 echo
 
 # --- run the paired-negative test against each mutant ------------------------
-# analyze_mutants: swaps each mutant into $HOOK_ABS, runs <testscript> (non-zero
-# exit = mutant KILLED), restores the source, writes killed.txt + notkilled.txt,
-# prints MUTATION SCORE. --noShuffle for deterministic ordering.
+# analyze_mutants: swaps each mutant into $SHADOW_HOOK (mutant↔source matching
+# is by basename, so mutants generated from $SAN_HOOK apply to the same-named
+# shadow), runs <testscript> (non-zero exit = mutant KILLED), restores the
+# shadow, writes killed.txt + notkilled.txt, prints MUTATION SCORE.
+# --noShuffle for deterministic ordering.
 ANALYZE_LOG="$WORK_DIR/analyze.log"
 (
   cd "$WORK_DIR" || exit 2
-  analyze_mutants "$HOOK_ABS" "cd '$REPO_ROOT' && { $TEST_CMD ; } >/dev/null 2>&1" \
+  analyze_mutants "$SHADOW_HOOK" \
+    "cd '$REPO_ROOT' && { export BASHMUT_HOOK='$SHADOW_HOOK'; $TEST_CMD ; } >/dev/null 2>&1" \
     --mutantDir "$MUT_DIR" --noShuffle 2>&1 | tee "$ANALYZE_LOG"
 )
 

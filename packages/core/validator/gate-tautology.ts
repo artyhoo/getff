@@ -76,6 +76,7 @@ export function runTautologyGate(plan: SynthesisPlan): GateOutcome {
       if (violating.length > 0) {
         failures.push({
           ruleId: rule.id,
+          code: 'FF3007',
           reason: `tautology — rule '${ruleName}' fires on negative-corpus/${file.name}: ${violating
             .map((m) => m.message)
             .join('; ')}`,

@@ -39,6 +39,88 @@ if command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; 
   fi
 fi
 
+# ─── #827 B3: per-workspace live-research synth-wire for multi-stack monorepos ──
+# The root synth-wire block above wires $PROJECT_ROOT/eslint.config.mjs and is gated on that root
+# config existing — correct for flat repos. A multi-stack monorepo has NO root config, so the
+# live-research snippet (emitted by 80-rule-bootstrap for the install's $STACK) would wire NOWHERE.
+# Mirror the R2 per-workspace loop (§13.5 I-2 L2 below): for each detected workspace whose stack
+# matches the install $STACK, wire the (single, stack-keyed) root snippet into that workspace's
+# eslint.config.mjs.
+#
+# Routing (simplest correct; matches the dogfood layout): research is ROOT-level + stack-keyed
+# ($PROJECT_ROOT/.ai-factory/rules-research/<stack>.{research,selection}.json — the same convention
+# 80-rule-bootstrap reads), and 80-rule-bootstrap emits ONE snippet for the install's $STACK. We
+# route that snippet to workspaces whose DETECTED stack == $STACK. A multi-stack monorepo runs
+# ./setup <stack> --full once per stack (install.sh takes a single --stack arg); each run delivers
+# that stack's live rule into its matching workspaces. Snippet is passed EXPLICITLY (--snippet)
+# because the CLI default derives it from the config's own dir, which a workspace config lacks.
+# Gated on NO root config (mutually exclusive with the root block above — no double-wire).
+# Honours --dry-run; rc=0 on every branch — install must not abort on wirer failure.
+if command -v node >/dev/null 2>&1 && [ "$DRY_RUN" != "--dry-run" ] \
+   && [ ! -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
+  _synth_wirer_ws="$PKG_ROOT/packages/core/install/synth-and-wire.bundle.mjs"
+  _ws_snippet="$PROJECT_ROOT/.ai-factory/synthesizer-output/eslint-rules-snippet.json"
+  if [ ! -f "$_synth_wirer_ws" ]; then
+    : # bundle absent — nothing to wire (the root block already echoes this for flat repos)
+  elif [ ! -f "$_ws_snippet" ]; then
+    : # no live snippet emitted (80-rule-bootstrap degraded / not --full) — presets are the fence
+  else
+    _ws_map_synth=$(_detect_stacks_per_workspace "$PROJECT_ROOT")
+    if [ -n "$_ws_map_synth" ]; then
+      echo "▶ synth-wire per-workspace: routing ${STACK:-ts-server} live-research snippet to matching workspace configs"
+      while IFS=$'\t' read -r _sw_dir _sw_stack; do
+        [ -n "$_sw_dir" ] || continue
+        # Only wire the snippet into workspaces matching the install's $STACK — the snippet IS that
+        # stack's live rule. Other-stack workspaces are delivered on their own ./setup <stack> run.
+        [ "$_sw_stack" = "${STACK:-ts-server}" ] || continue
+        while IFS= read -r -d '' _sw_cfg; do
+          echo "  · synth-wire (live): $_sw_cfg"
+          ( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" \
+              node "$_synth_wirer_ws" \
+                --stack "${STACK:-ts-server}" \
+                --path "$_sw_cfg" \
+                --snippet "$_ws_snippet" 2>&1 ) || true
+        done < <(find "$PROJECT_ROOT/$_sw_dir" \
+          -name 'eslint.config.mjs' \
+          ! -path '*/node_modules/*' \
+          -print0 2>/dev/null)
+      done <<< "$_ws_map_synth"
+    fi
+  fi
+fi
+
+# ─── D3: presets-are-fallback notice (live-research-default-delivery) ───────────
+# Live-research is the DEFAULT stack-rule delivery; presets are the FALLBACK baseline. When the
+# consumer has NOT authored rules-research artefacts for this stack, the live path (80-rule-bootstrap
+# → synth-wire snippet merge above) produced nothing, so the shipped preset rules are the only
+# stack fence. Surface that + point at the live-research protocol. Deps-free echo; exit stays 0.
+# Mirrors the R7/R8-arming WARN style below; --dry-run-aware.
+_rr_dir="$PROJECT_ROOT/.ai-factory/rules-research"
+_rr_plan="$_rr_dir/${STACK:-ts-server}.research.json"
+_rr_sel="$_rr_dir/${STACK:-ts-server}.selection.json"
+if [ "$DRY_RUN" = "--dry-run" ]; then
+  echo "  [dry-run] would check ${STACK:-ts-server} rules-research artefacts for the presets-are-fallback notice"
+elif [ ! -f "$_rr_plan" ] || [ ! -f "$_rr_sel" ]; then
+  echo ""
+  echo "ℹ  Presets are the FALLBACK baseline — prefer live-research for fresh, stack-specific rules."
+  echo "   No .ai-factory/rules-research/${STACK:-ts-server}.{research,selection}.json found, so the shipped"
+  echo "   preset rules are your only stack fence this install. Run the rule-research protocol"
+  echo "   (agents/rule-researcher.md or the rule-research skill), then re-run ./setup --full to"
+  echo "   deliver live-researched rules into eslint.config.mjs (they augment + override the presets)."
+fi
+
+# ─── D4 (#811): preset staleness guard — frozen-snapshot vs installed-major WARN ───
+# The shipped preset is a frozen Next-15 snapshot (packages/preset-next-15-canonical/preset.meta.json
+# pins). When the consumer's installed framework/tool major differs, WARN + steer to live-research.
+# Deps-free (warn_preset_staleness greps package.json text); scoped to react-next (the preset's stack);
+# --dry-run-aware; exit stays 0.
+_preset_meta="$PKG_ROOT/packages/preset-next-15-canonical/preset.meta.json"
+if [ "$DRY_RUN" = "--dry-run" ]; then
+  echo "  [dry-run] would compare installed tool majors vs $_preset_meta for the #811 staleness WARN"
+elif [ "${STACK:-}" = "react-next" ]; then
+  warn_preset_staleness "$_preset_meta" "$PROJECT_ROOT/package.json"
+fi
+
 # ─── 6b-bis-L2. GH #547 Layer 2: AST-wire R2 into consumer per-package configs ─
 # Runs AFTER §8 dep-install so ts-morph is resolvable when --full is set.
 # Option A (migration-ast Stage 4): gated on --full; ensure-then-use; degrade
@@ -155,6 +237,70 @@ fi
 # Runs after ALL copy_safe calls so SKIPPED is complete, and after the static .prettierignore merge.
 ignore_shipped_configs
 
+# ─── install-self-verification capstone (FULL only) ─────────────────────────
+# Runs at the end of --full install to PROVE — not just assert — that:
+#   1. Installed ESLint fences FIRE on deliberately-bad input (D1)
+#   2. Husky shields are wired and active (D2)
+#   3. Generated rule tests are non-vacuous: kill ≥60% of selector mutations (D5)
+# MUST NOT run on CI self-install path (FULL unset). Degrades gracefully (rc=0) when
+# eslint/deps are absent. Mirrors 80-rule-bootstrap.sh FULL guard (lines 25-27).
+if [ -z "${FULL:-}" ]; then
+  : # not a --full install — skip self-verification
+elif [ "${DRY_RUN:-}" = "--dry-run" ]; then
+  echo "· install-self-verify: [dry-run] would run fences-fire + shields-up + mutation gates"
+else
+  echo ""
+  echo "▶ install-self-verify: proving fences fire, shields are up, generated tests non-vacuous"
+
+  _ISV_PASS=0; _ISV_FAIL=0
+
+  # D1: fences fire
+  _FF_SCRIPT="$PROJECT_ROOT/scripts/check-fences-fire.sh"
+  if [ -x "$_FF_SCRIPT" ]; then
+    if AIF_PROJECT_ROOT="$PROJECT_ROOT" bash "$_FF_SCRIPT"; then
+      _ISV_PASS=$((_ISV_PASS+1))
+    else
+      _ISV_FAIL=$((_ISV_FAIL+1))
+      echo "  ✗ fences-fire FAILED — some installed ESLint rules are silent on bad input"
+    fi
+  else
+    echo "  · fences-fire: script not found at $_FF_SCRIPT (40-configs.sh copy skipped?) — skipped"
+  fi
+
+  # D2: shields up
+  _SU_SCRIPT="$PROJECT_ROOT/scripts/check-shields-up.sh"
+  if [ -x "$_SU_SCRIPT" ]; then
+    if AIF_PROJECT_ROOT="$PROJECT_ROOT" bash "$_SU_SCRIPT"; then
+      _ISV_PASS=$((_ISV_PASS+1))
+    else
+      _ISV_FAIL=$((_ISV_FAIL+1))
+      echo "  ✗ shields-up FAILED — Husky hooks not fully wired (see above)"
+    fi
+  else
+    echo "  · shields-up: script not found at $_SU_SCRIPT — skipped"
+  fi
+
+  # D5: mutation gate (install-time, framework-side — not shipped to consumer)
+  _MUT_SCRIPT="$PKG_ROOT/packages/core/audit-self/check-generated-rule-mutation.sh"
+  if [ -x "$_MUT_SCRIPT" ]; then
+    if AIF_PROJECT_ROOT="$PROJECT_ROOT" bash "$_MUT_SCRIPT" "$PROJECT_ROOT"; then
+      _ISV_PASS=$((_ISV_PASS+1))
+    else
+      _ISV_FAIL=$((_ISV_FAIL+1))
+      echo "  ✗ generated-rule-mutation FAILED — some generated tests are selector-blind (theatre)"
+    fi
+  else
+    echo "  · generated-rule-mutation: script not at $_MUT_SCRIPT — skipped"
+  fi
+
+  echo ""
+  if [ "$_ISV_FAIL" -eq 0 ]; then
+    echo "✓ self-verify: $_ISV_PASS/3 checks passed — fences fire, shields active, generated tests non-vacuous"
+  else
+    echo "⚠  self-verify: $_ISV_PASS/3 passed, $_ISV_FAIL FAILED — review output above before committing"
+  fi
+fi
+
 # ─── Done ───────────────────────────────────────────────
 if [ ${#SKIPPED[@]} -gt 0 ]; then
   echo ""
@@ -176,7 +322,7 @@ fi
 echo ""
 echo "Next steps:"
 echo "  1. Edit .ai-factory/DESCRIPTION.template.md → save as .ai-factory/DESCRIPTION.md"
-echo "  2. Edit .ai-factory/ARCHITECTURE.ts-server.md (or ARCHITECTURE.react-next.md) → save as .ai-factory/ARCHITECTURE.md"
+echo "  2. Edit .ai-factory/ARCHITECTURE.${STACK:-ts-server}.md → save as .ai-factory/ARCHITECTURE.md"
 echo "  3. Edit AGENTS.md placeholders to match your project"
 if [ "${DEPS_INSTALLED:-}" = "1" ]; then
   echo "  4. ✓ Dev-dependencies installed into node_modules/ — nothing to do."
