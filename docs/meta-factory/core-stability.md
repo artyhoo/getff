@@ -25,6 +25,8 @@
 
 ### 7.2 Тесты на core stability
 
+> **Design-target note (§7.2 + §7.3):** the CI job `core-stability` + `core.lock` artifact (§7.2) and the `core/principles.test.ts` principle-immutability gate (§7.3) are the *target* design from PROPOSAL.md §7 — **not yet built** (git grep confirms no `core-stability` job in `.github/workflows/`, no `core.lock`, no `core/principles.test.ts`). This is the intended stability boundary, tracked for future implementation; do not treat it as a currently-active CI gate. (Same design-target caveat as the `core/...` paths in §7.1.)
+
 CI job `core-stability`:
 1. Hash content всех `core/**` файлов → `core.lock`.
 2. На каждом PR: пересчитывает hash. Если что-то изменилось в `core/` без явного флага `core-change: approved` в PR description — CI падает.

@@ -5,6 +5,8 @@
 >
 > **Authoritative for:** installer failure-mode taxonomy + stateful pause/resume mechanism (`.meta-factory-state.json` schema, `resume`/`restart`/`status` commands, offline-mode behavior).
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists).
+>
+> **Implementation status** — this doc describes the *target* installer design (declared in the PROPOSAL.md §5 split), NOT a claim that it is currently built. The §5.1 installer state-machine, the `.meta-factory-state.json` persistent-state file, and the `npx meta-factory install / --resume / --restart / status / --verify` CLI verbs are **DESIGN-TARGET, not yet implemented** — the `meta-factory` bin is a placeholder stub. This is the intended design, tracked for future implementation; do not treat it as current runtime.
 
 ---
 
@@ -37,7 +39,7 @@
 
 ### 5.2 Команды
 
-```
+```bash
 npx meta-factory install                  # начать или продолжить с last state
 npx meta-factory install --resume         # явно продолжить
 npx meta-factory install --restart        # начать с нуля

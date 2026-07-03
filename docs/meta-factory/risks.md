@@ -5,6 +5,8 @@
 >
 > **Authoritative for:** risk mitigations summary table — reproducibility, prompt injection defense, best-practices decay, self-bootstrapping recursion, `--no-verify` bypass.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists).
+>
+> **Implementation status** — the mitigation table below mixes **SHIPPED** protections (e.g. `rules-lock.json` — real) with **DESIGN-TARGET** ones that are the intended design but **NOT yet built**: the shared `research-cache.json`, the TTL cache + auto-regen, and the `rules:upgrade` script do not currently exist. The table states the *target* defence set from the PROPOSAL.md §11 split; do not read an un-built mitigation as a currently-active protection.
 
 ---
 

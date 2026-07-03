@@ -30,6 +30,8 @@ Self-application gap — это **не технический долг**. Это
 
 Self-application — **не отдельный шаг**, а cross-cutting invariant. Каждый слой мета-фабрики должен иметь explicit self-application clause и measurable acceptance criteria.
 
+> **Design-target note (L5 self-diagnose):** the L5 row's *closure signal* «(c) `framework-self-diagnose` CI gate green; `diagnostics-log.json` valid against schema» — and the identical clause in the §7 Acceptance table — is **DESIGN-TARGET, not yet closed**: no `framework-self-diagnose` job exists in `.github/workflows/` (only `framework-self-install*` / `audit-self` / `discipline-self-check` / `framework-self-template-render` are wired), and no `diagnostics-log.json` emission is built. The L5 (a)/(b) install-verification signals are shipped; the (c) self-diagnostics signal is the intended design, tracked for future implementation — L5 is **not** to be read as fully closed on the strength of (c). The L5 self-diagnose aspiration stands; only its *achieved* status is corrected here.
+
 | Слой | Self-application clause | Acceptance criteria |
 |---|---|---|
 | **L0 Invariant Core** | Принципы прогоняются как тесты против собственного `rules-manifest.json` в pre-commit/pre-push/CI | Автор не может закоммитить нарушение принципа; попытка блокируется `.husky/pre-commit` |

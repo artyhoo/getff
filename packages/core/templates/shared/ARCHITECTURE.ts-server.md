@@ -91,4 +91,4 @@ Files without these suffixes are not considered tests — meta-tests will flag a
 | OTel span on application functions | `audit-ai-docs.sh` probe `R8`                                               |
 | Tests for new public exports       | `audit-ai-docs.sh` probe `R4`                                               |
 
-See `.ai-factory/RULES.md` for full list R1–R11 and `references/checks-map.md` for the full enforcement layer map.
+See `.ai-factory/RULES.md` for full list R1–R11.

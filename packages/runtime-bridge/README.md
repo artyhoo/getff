@@ -1,7 +1,11 @@
 # runtime-bridge — CLI reference
 
+> **Authoritative for:** the `packages/runtime-bridge` CLI command reference — one section per
+> entrypoint under `packages/runtime-bridge/src/cli/`, each with Usage, Flags, and Example.
+> **NOT authoritative for:** architecture and design rationale — see [`DESIGN.md`](./DESIGN.md).
+
 `packages/runtime-bridge/` bridges this repo's orchestrator to the
-[`aif-handoff`](https://github.com/lee-to/aif-handoff) autonomous agent runtime. It exposes six
+[`aif-handoff`](https://github.com/lee-to/aif-handoff) autonomous agent runtime. It exposes seven
 CLI entrypoints under `packages/runtime-bridge/src/cli/`. This is the operator-facing reference
 manual: one section per command (ordered by name), each with **Usage**, **Flags**, and **Example**.
 
@@ -16,6 +20,7 @@ All commands are pure TypeScript run via `tsx`. Run them from the repo root.
 - [`answer`](#answer) — push the resolved answer back and resume the agent.
 - [`await`](#await) — watch a dispatched task to a terminal state and print the result.
 - [`dispatch`](#dispatch) — send a kickoff to the agent runtime (creates a task).
+- [`ensure-parallel`](#ensure-parallel) — self-heal a project's `parallelEnabled` DB flag.
 - [`harvest`](#harvest) — push the agent's committed branch, open a PR, arm auto-merge.
 - [`park`](#park) — agent-side: stop on a hard fork and ask the operator.
 - [`questions`](#questions) — list parked questions awaiting an operator answer.
@@ -51,12 +56,12 @@ Config (env): `RUNTIME_BRIDGE_AIF_URL` — base URL (default `http://localhost:3
 
 ### Flags
 
-| Flag | Description |
-| --- | --- |
-| `--task <id>` | **Required.** The parked task to resolve. |
+| Flag              | Description                                                                      |
+| ----------------- | -------------------------------------------------------------------------------- |
+| `--task <id>`     | **Required.** The parked task to resolve.                                        |
 | `--answer <text>` | The resolution text; **required** for `request_changes` (attached as a comment). |
-| `--decision <d>` | `request_changes` (default) \| `approve` \| `retry`. |
-| `--json` | Print the result as a JSON object. |
+| `--decision <d>`  | `request_changes` (default) \| `approve` \| `retry`.                             |
+| `--json`          | Print the result as a JSON object.                                               |
 
 Exit codes: `0` — answer pushed + task resumed; `1` — missing/invalid args, or a REST error
 (message on stderr).
@@ -100,11 +105,11 @@ tsx packages/runtime-bridge/src/cli/await.ts <taskId> --once
 
 ### Flags
 
-| Flag | Description |
-| --- | --- |
-| `<taskId>` | **Required (positional).** The dispatched task to watch. |
-| `--timeout-ms N` | Bound the wait in default (await) mode. |
-| `--once` | Non-blocking snapshot: print the current status and exit. |
+| Flag             | Description                                               |
+| ---------------- | --------------------------------------------------------- |
+| `<taskId>`       | **Required (positional).** The dispatched task to watch.  |
+| `--timeout-ms N` | Bound the wait in default (await) mode.                   |
+| `--once`         | Non-blocking snapshot: print the current status and exit. |
 
 Exit codes:
 
@@ -153,8 +158,8 @@ tsx packages/runtime-bridge/src/cli/dispatch.ts <kickoff-path>
 
 ### Flags
 
-| Flag | Description |
-| --- | --- |
+| Flag             | Description                                                      |
+| ---------------- | ---------------------------------------------------------------- |
 | `<kickoff-path>` | **Required (positional).** Path to the kickoff file to dispatch. |
 
 Exit codes: `0` always — non-blocking injection per the
@@ -164,6 +169,46 @@ Exit codes: `0` always — non-blocking injection per the
 
 ```bash
 tsx packages/runtime-bridge/src/cli/dispatch.ts /tmp/qloop-battletest/kickoff.md
+```
+
+---
+
+## ensure-parallel
+
+The self-heal half of Finding A (`dirty_worktree`). `aif` creates a per-task git worktree only
+when a 3-gate AND holds (`AIF_TASK_WORKTREES_ENABLED` env && `project.parallelEnabled` DB flag &&
+`projectSupportsTaskWorktrees`). `parallelEnabled` is a project-level DB flag settable only via the
+web UI / raw DB — no env or config.yaml knob — so a freshly-provisioned instance has it `0` and
+every task runs in-place on the shared checkout, dirtying it and 409-ing the next dispatch on
+`dirty_worktree`. This guard re-applies the fix on any instance.
+
+It does a full-project round-trip rather than a minimal PUT: `aif` exposes no targeted
+`parallelEnabled` write (only `PATCH /:id/auto-queue-mode` exists), and the sole `parallelEnabled`
+path is the full `PUT /projects/:id`, whose handler NULLs any omitted `*MaxBudgetUsd` field. So the
+guard reads the full project back from `GET /projects` and writes every field, flipping only
+`parallelEnabled` — a minimal PUT would silently wipe any UI-set budget.
+
+### Usage
+
+```bash
+tsx packages/runtime-bridge/src/cli/ensure-parallel.ts --project <id>
+# --project defaults to $RUNTIME_BRIDGE_AIF_PROJECT_ID.
+```
+
+### Flags
+
+| Flag             | Description                                                          |
+| ---------------- | -------------------------------------------------------------------- |
+| `--project <id>` | The project to enable. Defaults to `$RUNTIME_BRIDGE_AIF_PROJECT_ID`. |
+| `--json`         | Print the result as a JSON object.                                   |
+
+Exit codes: `0` — already-enabled or enabled-now; `1` — bad args / project missing / REST error
+(message on stderr).
+
+### Example
+
+```bash
+tsx packages/runtime-bridge/src/cli/ensure-parallel.ts --project "$RUNTIME_BRIDGE_AIF_PROJECT_ID"
 ```
 
 ---
@@ -190,12 +235,12 @@ tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> \
 
 ### Flags
 
-| Flag | Description |
-| --- | --- |
-| `<taskId>` | **Required (positional).** The task whose committed branch to harvest. |
-| `--base <branch>` | PR base branch (default `staging`). |
-| `--body-file <path>` | File whose contents become the PR body. |
-| `--no-auto-merge` | Do not arm GitHub native auto-merge. |
+| Flag                 | Description                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------------- |
+| `<taskId>`           | **Required (positional).** The task whose committed branch to harvest.                            |
+| `--base <branch>`    | PR base branch (default `staging`).                                                               |
+| `--body-file <path>` | File whose contents become the PR body.                                                           |
+| `--no-auto-merge`    | Do not arm GitHub native auto-merge.                                                              |
 | `--container <name>` | aif container to push from (default `$RUNTIME_BRIDGE_AIF_CONTAINER`, else `aif-handoff-agent-1`). |
 
 Exit codes: `0` = branch pushed + PR opened; `1` = guard failed / push or PR error (the operator runs
@@ -233,11 +278,11 @@ Config (env): `RUNTIME_BRIDGE_AIF_URL` (default `http://localhost:3009`).
 
 ### Flags
 
-| Flag | Description |
-| --- | --- |
-| `--task <id>` | The task to park. Defaults to `$HANDOFF_TASK_ID`. |
+| Flag                | Description                                                             |
+| ------------------- | ----------------------------------------------------------------------- |
+| `--task <id>`       | The task to park. Defaults to `$HANDOFF_TASK_ID`.                       |
 | `--question <text>` | **Required.** The fork plus its options (the operator-facing question). |
-| `--json` | Print the result as a JSON object. |
+| `--json`            | Print the result as a JSON object.                                      |
 
 Exit codes: `0` parked; `1` bad args or REST error (message on stderr).
 
@@ -277,10 +322,10 @@ Config (env): `RUNTIME_BRIDGE_AIF_URL` — base URL (default `http://localhost:3
 
 ### Flags
 
-| Flag | Description |
-| --- | --- |
+| Flag             | Description                                                             |
+| ---------------- | ----------------------------------------------------------------------- |
 | `--project <id>` | Filter to one `projectId` (overrides `$RUNTIME_BRIDGE_AIF_PROJECT_ID`). |
-| `--json` | Print the selected tasks as a JSON array (for piping into a chat). |
+| `--json`         | Print the selected tasks as a JSON array (for piping into a chat).      |
 
 Exit codes: `0` — success, even when zero tasks are parked; `1` — fetch/parse error (message on
 stderr).
@@ -344,7 +389,12 @@ Or use `AifFireBackend` directly in TypeScript:
 import { AifFireBackend } from '@rules-as-tests-aif/runtime-bridge';
 
 const backend = new AifFireBackend(); // reads env vars
-const handle = await backend.dispatch({ filePath, content, umbrellaName, contentHash });
+const handle = await backend.dispatch({
+  filePath,
+  content,
+  umbrellaName,
+  contentHash,
+});
 // handle.sessionUrl — open this in a browser
 const result = await backend.awaitDone(handle);
 // result.success === false, result.finalStatus === 'dispatched_no_readback'
@@ -362,10 +412,10 @@ When the agent finishes, it creates a PR in the linked repository. Review and me
 
 ### Cost policy (DN-2)
 
-| Usage pattern | Verdict |
-| --- | --- |
-| Operator-manual `/fire` (subscription-bundled) | **OK** — draws from the operator's Claude Max subscription, no per-call API billing beyond subscription overage. |
-| Committed-CI `/fire` in `.github/workflows/*` | **DEFER-permanent** — classified as `#paid-llm-creep` under [`.claude/rules/no-paid-llm-in-ci.md §3`](../../.claude/rules/no-paid-llm-in-ci.md). Each CI invocation draws subscription usage + possible metered overage silently. No CI workflow may call `/fire` or `routines/*/fire`. |
+| Usage pattern                                  | Verdict                                                                                                                                                                                                                                                                                 |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Operator-manual `/fire` (subscription-bundled) | **OK** — draws from the operator's Claude Max subscription, no per-call API billing beyond subscription overage.                                                                                                                                                                        |
+| Committed-CI `/fire` in `.github/workflows/*`  | **DEFER-permanent** — classified as `#paid-llm-creep` under [`.claude/rules/no-paid-llm-in-ci.md §3`](../../.claude/rules/no-paid-llm-in-ci.md). Each CI invocation draws subscription usage + possible metered overage silently. No CI workflow may call `/fire` or `routines/*/fire`. |
 
 This is the DN-2 resolution from the F2 brainstorm (2026-06-01). The DEFER-permanent verdict for
 committed-CI usage is permanent under the project's no-paid-LLM-in-CI policy; it is not
