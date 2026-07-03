@@ -27,6 +27,7 @@ export default defineConfig({
       'skills/**/*.test.ts',
       'scenario-generator/**/*.test.ts',
       'ir/**/*.test.ts',
+      'backends/**/*.test.ts',
     ],
     exclude: [
       '**/node_modules/**',

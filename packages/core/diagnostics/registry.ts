@@ -10,12 +10,13 @@
 // Ranges (tsc diagnosticMessages.json pattern): FF1xxx schema/shape,
 // FF2xxx provenance/trust, FF3xxx L4 semantic gates, FF4xxx installer/wiring
 // (reserved), FF5xxx CLI/config (reserved), FF6xxx IR grammar gates (seeded
-// S1), FF7xxx render outcomes (reserved, seeded by cargo-v0 S2). FF = fitness
+// S1), FF7xxx render outcomes (seeded by cargo-v0 S2). FF = fitness
 // functions (getff brand). This file seeds FF1001, the 15 FF2xxx codes, and
 // the 20 FF3xxx codes (Task 4, DN-D1-4 — one code per failure kind per gate,
 // spec-literal per-gate allocation; see decisions.md DN-D1-4 for the full
-// derivation), plus 3 FF6xxx codes (MT umbrella S1 — IR grammar gate).
-// FF4xxx/FF5xxx/FF7xxx are D2/S2 at-touch (reserved, not seeded here).
+// derivation), plus 3 FF6xxx codes (MT umbrella S1 — IR grammar gate) and
+// 3 FF7xxx codes (MT umbrella S2 — cargo backend v0 render outcomes).
+// FF4xxx/FF5xxx are D2+ at-touch (reserved, not seeded here).
 //
 // Registry is append-only: never remove or renumber an existing code (see
 // registry.test.ts test (d), pinned against registry.codes.snapshot.json).
@@ -287,6 +288,32 @@ export const REGISTRY: Readonly<Record<string, RegistryEntry>> = Object.freeze({
     explanation:
       'IR grammar gate (coverage/broken-ref class, principle-08 pattern generalized): an anchor ' +
       'in node.anchors does not resolve to a key in the diagnostics REGISTRY. ir/gates/grammar.ts.',
+  },
+
+  // --- FF7xxx: render outcomes (MT umbrella S2 — backends/cargo/render-clippy.ts) ---
+  FF7001: {
+    template: 'not expressible in {backend}: selectorClass {selectorClass} (node {nodeId})',
+    defaultSeverity: 'warning',
+    explanation:
+      'Backend render refusal (capability class): the node\'s selectorClass has no ' +
+      'representation in this backend\'s render target at v0 (e.g. syntax-class or ' +
+      'dep-graph-class nodes against the cargo clippy.toml backend). backends/cargo/render-clippy.ts.',
+  },
+  FF7002: {
+    template: 'params contract violation for {backend} renderer: node {nodeId} missing/invalid {missing}',
+    defaultSeverity: 'error',
+    explanation:
+      'Backend render refusal (params class): node.params does not satisfy the backend\'s ' +
+      'own params contract (e.g. missing kind/path, or kind outside the backend\'s known set). ' +
+      'backends/cargo/render-clippy.ts.',
+  },
+  FF7003: {
+    template: 'severity {requested} not projected by {backend} at v0 (node {nodeId})',
+    defaultSeverity: 'note',
+    explanation:
+      'Backend render degradation (severity class): the node\'s defaultSeverity has no ' +
+      'projection in this backend\'s render target at v0 (rendered-with-loss, not dropped — ' +
+      'the content is still emitted). backends/cargo/render-clippy.ts.',
   },
 });
 
