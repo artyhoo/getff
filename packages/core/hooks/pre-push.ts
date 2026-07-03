@@ -798,6 +798,34 @@ async function main(): Promise<void> {
     emit(r);
   }
 
+  // ── 5b. IR grammar-gate tests (MT S1) — stage gate at the pre-push channel ────
+  // Lifts the ir/ suite from CI (last-resort) to pre-push (earlier channel), per
+  // README#why-this-exists "earliest reachable channel". Fast, no toolchain.
+  {
+    const r = run('npm', ['--prefix', CORE, 'run', 'test:ir']);
+    if (r.notFound) {
+      die('❌ npm/npx not found. Install Node.js to enable IR meta-tests.');
+    }
+    if (r.exitCode !== 0)
+      die('❌ IR grammar-gate tests failed — fix before push', r);
+    emit(r);
+  }
+
+  // ── 5c. Backend tests (MT S2) — stage gate at the pre-push channel ────────────
+  // Live-fire (cargo) self-gates via skipIf in firing.test.ts: it runs when a
+  // rust toolchain is present, skips loudly otherwise; the always-on matrix /
+  // render / parse / self-application tests always run regardless.
+  {
+    const r = run('npm', ['--prefix', CORE, 'run', 'test:backends']);
+    if (r.notFound) {
+      die(
+        '❌ npm/npx not found. Install Node.js to enable backend meta-tests.',
+      );
+    }
+    if (r.exitCode !== 0) die('❌ backend tests failed — fix before push', r);
+    emit(r);
+  }
+
   // ── 6. Spec discipline (Phase 1.C) — dormant defensive guard ─────────────────
   // .claude/orchestrator-prompts/ is gitignored; this fires only if such a file
   // is force-added past gitignore. Now routed through the resolved base (F1):
