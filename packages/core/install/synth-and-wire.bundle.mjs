@@ -8780,6 +8780,22 @@ var REGISTRY = Object.freeze({
     template: "require-vacuity direction B \u2014 selector fires on good example ({count} violation{plural}); rule fires unconditionally",
     defaultSeverity: "error",
     explanation: "requireVacuity gate: selector fires on the good example too (always-red false positive). gate-require-vacuity.ts."
+  },
+  // --- FF6xxx: IR grammar gates (MT umbrella S1 — ir/gates/grammar.ts) ---
+  FF6001: {
+    template: "degenerate pairedExamples: positive === negative for node {nodeId}",
+    defaultSeverity: "error",
+    explanation: "IR grammar gate (tautology class): pairedExamples.positive and pairedExamples.negative are byte-identical, so the pair cannot discriminate the convention it claims to test. ir/gates/grammar.ts."
+  },
+  FF6002: {
+    template: "duplicate ConventionNode id {id} ({count} occurrences)",
+    defaultSeverity: "error",
+    explanation: "IR grammar gate (conflict class): two or more nodes in the set share the same id, breaking id-addressability. ir/gates/grammar.ts."
+  },
+  FF6003: {
+    template: "dangling anchor {anchor} on node {nodeId}: not a REGISTRY code",
+    defaultSeverity: "error",
+    explanation: "IR grammar gate (coverage/broken-ref class, principle-08 pattern generalized): an anchor in node.anchors does not resolve to a key in the diagnostics REGISTRY. ir/gates/grammar.ts."
   }
 });
 function lookup(code) {

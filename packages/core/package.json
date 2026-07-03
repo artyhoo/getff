@@ -27,6 +27,7 @@
     "test": "vitest run --reporter=default",
     "test:principles": "vitest run principles/",
     "test:hooks": "vitest run hooks/",
+    "test:ir": "vitest run ir/",
     "test:render": "vitest run render/",
     "test:template-render": "vitest run audit-self/template-render.audit.ts",
     "guard-liveness:fullsweep": "tsx hooks/checks/guard-liveness-fullsweep.ts",

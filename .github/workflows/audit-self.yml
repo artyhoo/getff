@@ -206,6 +206,11 @@ jobs:
         run: npm ci --prefix packages/core --silent
       - name: Run principles meta-tests
         run: npm --prefix packages/core run test:principles
+      # MT umbrella S1: packages/core/ir/ (Convention IR grammar gate) is a new vitest
+      # include-allowlist entry (vitest.config.ts) — gate it here, reusing the
+      # `npm ci --prefix packages/core` install above (same job, no new job/npm-ci).
+      - name: Run packages/core/ir tests (MT S1)
+        run: npm --prefix packages/core run test:ir
       # CI-gap option C (hook-test-suite-rot): the packages/core/hooks/ vitest suite was
       # never gated — only principles/ was — which is how a real cross-platform regression
       # (priority-score-synthetic.sh xargs) accumulated 15 failures unnoticed. Gate it here.

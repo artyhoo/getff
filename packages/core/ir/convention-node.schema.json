@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ConventionNode",
+  "description": "IR plane 2 node (MT umbrella S1). Spec: docs/superpowers/specs/2026-07-03-multi-toolchain-convention-compiler-design.md §3.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "claim",
+    "anchors",
+    "selectorClass",
+    "params",
+    "defaultSeverity",
+    "provenance",
+    "pairedExamples"
+  ],
+  "properties": {
+    "id": { "type": "string" },
+    "claim": { "type": "string" },
+    "anchors": {
+      "type": "array",
+      "minItems": 0,
+      "items": { "type": "string", "pattern": "^FF\\d{4}$" }
+    },
+    "selectorClass": { "enum": ["syntax", "type-aware", "dep-graph"] },
+    "params": {
+      "type": "object",
+      "additionalProperties": { "type": ["string", "number"] }
+    },
+    "defaultSeverity": { "enum": ["error", "warning", "note"] },
+    "provenance": {
+      "type": "array",
+      "minItems": 0,
+      "items": { "$ref": "#/definitions/Provenance" }
+    },
+    "pairedExamples": { "$ref": "#/definitions/PairedExamples" }
+  },
+  "definitions": {
+    "Provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "allowlistKey", "fetchedAt"],
+      "properties": {
+        "url": { "type": "string" },
+        "allowlistKey": { "type": "string" },
+        "fetchedAt": { "type": "string" },
+        "packageName": { "type": "string" },
+        "finalUrl": { "type": "string" }
+      }
+    },
+    "PairedExamples": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["positive", "negative"],
+      "properties": {
+        "positive": { "type": "string", "minLength": 1 },
+        "negative": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
