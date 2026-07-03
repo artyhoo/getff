@@ -299,7 +299,10 @@ do_refresh() {
     "packages/core/audit-self/detect-r2-boundary.sh:scripts/detect-r2-boundary.sh" \
     "packages/core/audit-self/r2-na-marker.sh:scripts/r2-na-marker.sh" \
     "packages/core/audit-self/check-arch-boundaries.sh:scripts/check-arch-boundaries.sh" \
-    "packages/core/audit-self/check-lintstaged-resolves.sh:scripts/check-lintstaged-resolves.sh"; do
+    "packages/core/audit-self/check-lintstaged-resolves.sh:scripts/check-lintstaged-resolves.sh" \
+    "packages/core/audit-self/check-fences-fire.sh:scripts/check-fences-fire.sh" \
+    "packages/core/audit-self/check-shields-up.sh:scripts/check-shields-up.sh" \
+    "packages/core/synthesizer/run-generated-rule-mutation.sh:scripts/run-generated-rule-mutation.sh"; do
     _s="${_pair%%:*}"; _d="${_pair##*:}"
     refresh_safe "$PKG_ROOT/$_s" "$PROJECT_ROOT/$_d"
     case "$_d" in
@@ -363,6 +366,34 @@ do_refresh() {
                  "$PROJECT_ROOT/packages/core/eslint-rules/$_esl"
   done
 
+  # ── Custom ESLint rules plugin → eslint-rules-local/ (#869-class: framework-owned) ──
+  # 40-configs.sh copy_safe's framework-authored rules into eslint-rules-local/ as PRE-COMPILED
+  # .mjs + .d.ts + .ts (fix #752): the CORE rules (always) PLUS the stack's PRESET rules
+  # (react-next → no-server-imports-in-client; react-spa → require-error-boundary). All are
+  # framework-namespace files a consumer never owns (setup.d/lib.sh:194) — DISTINCT from the
+  # packages/core/eslint-rules/ copy above (guard-liveness dep). A rule-logic fix must reach a
+  # brownfield consumer non-destructively; copy_safe skip-if-exists cannot deliver it. Iterate the
+  # SAME source dirs (core + per-stack presets) the _copy_rule delivery uses at 40-configs.sh:128-157
+  # so the refresh set tracks delivery — the refresh-covers-full-delivery gate Check 3 enforces this
+  # source-dir parity (a core-only refresh silently stranded preset rules on react-next/react-spa
+  # consumers before this — the exact #869 class, verified live).
+  echo "▶ Custom ESLint rules → eslint-rules-local/"
+  _rule_dirs="packages/core/eslint-rules"
+  if [ "$STACK" = "react-next" ]; then _rule_dirs="$_rule_dirs packages/preset-next-15-canonical/eslint-rules"; fi
+  if [ "$STACK" = "react-spa" ];  then _rule_dirs="$_rule_dirs packages/preset-react-spa/eslint-rules"; fi
+  for _rdir in $_rule_dirs; do
+    for _rl in "$PKG_ROOT/$_rdir"/*.ts; do
+      case "$_rl" in
+        *.test.ts|*.d.ts|*/index.ts) continue ;;
+      esac
+      [ -e "$_rl" ] || continue   # empty-glob guard (nullglob off → literal *.ts)
+      _rlstem="${_rl%.ts}"; _rlbn="$(basename "$_rlstem")"
+      refresh_safe "$_rl" "$PROJECT_ROOT/eslint-rules-local/$_rlbn.ts"
+      [ -f "$_rlstem.mjs" ]  && refresh_safe "$_rlstem.mjs"  "$PROJECT_ROOT/eslint-rules-local/$_rlbn.mjs"
+      [ -f "$_rlstem.d.ts" ] && refresh_safe "$_rlstem.d.ts" "$PROJECT_ROOT/eslint-rules-local/$_rlbn.d.ts"
+    done
+  done
+
   _fb_src="$PKG_ROOT/packages/core/hooks/pre-push.fallback.sh"
   _fb_dst="$PROJECT_ROOT/packages/core/hooks/pre-push.fallback.sh"
   refresh_safe "$_fb_src" "$_fb_dst"
@@ -375,6 +406,25 @@ do_refresh() {
   # bridge. Same AIF-owned, hooks-scoped marker — cannot collide with a consumer's own package.
   refresh_safe "$PKG_ROOT/packages/core/templates/shared/hooks-package.json" \
                "$PROJECT_ROOT/packages/core/hooks/package.json"
+
+  # ── Husky hook dispatchers → .husky/ (#869-class: framework-owned) ──
+  # 50-hooks.sh:11-12 copy_safe's these framework-authored dispatchers into .husky/ (skip-if-
+  # exists). They are NOT consumer config — husky-pre-push.sh is "the TS-core dispatcher shipped
+  # by install.sh". #636/#638 added a load-bearing tsx-ESM probe to husky-pre-push.sh without
+  # which the hook HARD-CRASHES instead of degrading to the bash fallback on a pnpm monorepo. A
+  # brownfield consumer whose .husky/pre-push predates that fix can only receive it non-
+  # destructively via --refresh — copy_safe never updates it. refresh_safe honours a sibling
+  # .husky/pre-push.override.md for a consumer that has taken Layer-3 ownership.
+  # LITERAL destinations (not a loop var): the delivery in 50-hooks.sh names these two files
+  # literally, so the refresh must too — a per-file refresh-completeness gate can only exact-match
+  # a literal against a literal (a collapsed .husky/ namespace target would let a future
+  # literally-delivered .husky/* file slip through refresh undetected).
+  echo "▶ Husky hooks → .husky/"
+  refresh_safe "$PKG_ROOT/packages/core/templates/shared/husky-pre-commit.sh" "$PROJECT_ROOT/.husky/pre-commit"
+  refresh_safe "$PKG_ROOT/packages/core/templates/shared/husky-pre-push.sh"   "$PROJECT_ROOT/.husky/pre-push"
+  if [ "$DRY_RUN" != "--dry-run" ]; then
+    chmod_safe +x "$PROJECT_ROOT/.husky/pre-commit" "$PROJECT_ROOT/.husky/pre-push" 2>/dev/null || true
+  fi
 
   # ── Skill-context overrides (derived from SHIPPED_DOCS — cannot drift) ──
   echo "▶ Skill-context → .ai-factory/skill-context/"
