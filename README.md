@@ -5,7 +5,7 @@
 [![Audit Self](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/audit-self.yml/badge.svg?branch=staging)](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/audit-self.yml)
 [![Workflow Integrity](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/workflow-integrity.yml/badge.svg?branch=staging)](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/workflow-integrity.yml)
 
-> Companion to AI Factory + aif-handoff + Superpowers (today) — broader AI-runtime integration on roadmap. Deploys into Claude Code / Cursor / Codex via standard project install. Converts every codebase rule into an executable artifact that fails at the earliest reachable channel (edit-time → pre-commit → pre-push → CI → production audit). Adds Living Documentation enforcement and 5-layer framework for AI-resistant codebases — server-side TypeScript and React/Next.js stacks.
+> Companion to AI Factory + aif-handoff + Superpowers (today) — broader AI-runtime integration on roadmap. Deploys into Claude Code / Cursor / Codex via standard project install. Converts every codebase rule into an executable artifact that fails at the earliest reachable channel (edit-time → pre-commit → pre-push → CI → production audit). Adds Living Documentation enforcement and 5-layer framework for AI-resistant codebases — server-side TypeScript and React/Next.js stacks today, with a multi-toolchain roadmap (Rust/cargo next) via the Convention-Compiler design.
 
 ## What this package gives you
 
@@ -243,6 +243,12 @@ cp /tmp/rt/packages/core/templates/shared/tsconfig.json .
 - **`react-native`** — React Native / Expo (Expo or bare-RN baseline). _Experimental baseline — stack scaffold + templates; a dedicated rule-pack is not yet shipped._
 
 Pass the stack to `./setup` (or `install.sh`) as a positional argument — `ts-server` / `react-next` / `react-spa` / `react-native` — or omit it to get an interactive picker. (The legacy `setup.sh` wrapper auto-detected the stack from `next.config.*` / `react` in `package.json`.) All share base configs (tsconfig, husky, lint-staged, RULES R1-R11); the React stacks add R12-R20 + Storybook/Playwright where applicable.
+
+### Multi-toolchain roadmap
+
+The stacks above are all inside the npm toolchain. The framework is being generalized one level up — from `{stack}` to `{toolchain: npm | cargo | go | maven, …, stack}` — via the **Convention Compiler**: a narrow-core intermediate representation plus a per-backend capability matrix (deliberately *not* a union "one IR fits all"). **Rust/cargo is the first non-npm backend.**
+
+This is a **roadmap, not shipped** — no Rust rule-pack exists yet. What is in place today: the design + kickoff ([`docs/superpowers/specs/2026-07-03-multi-toolchain-convention-compiler-design.md`](docs/superpowers/specs/2026-07-03-multi-toolchain-convention-compiler-design.md)), and the trust-tier system's first non-JS provenance adapter (`cargo`, deriving trusted doc-research hosts from `Cargo.toml` metadata — SSOT #197). Live cargo rule-firing needs a Rust toolchain and is not yet verified end-to-end.
 
 ## Forward compatibility note on AIF extensions
 
