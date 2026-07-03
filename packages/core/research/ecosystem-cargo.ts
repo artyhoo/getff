@@ -309,7 +309,20 @@ function resolvedWithinRoot(root: string, ...segments: string[]): string | null 
  *  branches (§5 item 2's 2nd BLOCKER — an in-tree symlink pointing
  *  out-of-tree bypassed the earlier lexical-only isWithinRoot check on
  *  every branch, including vendored, which previously had NO containment
- *  check at all; see resolvedWithinRoot above). */
+ *  check at all; see resolvedWithinRoot above).
+ *
+ *  Manifest name-symmetry (LOW correctness follow-up, final adversarial
+ *  audit, non-security): a manifest is trusted for `pkg` only if its OWN
+ *  `[package] name` field equals `pkg` — on ALL THREE branches, not just
+ *  workspace-member (which already enforced this). Without this check, a
+ *  vendored/path-override manifest declaring a DIFFERENT name than the key
+ *  it was resolved under (vendor/<pkg>/ dir name, or the dep's inline-table
+ *  key) would still have its homepage/repository derived and authorized
+ *  under `pkg`'s Tier-1 scope-lock — a correctness asymmetry, not a
+ *  trust-boundary crossing (the manifest is already in-tree and
+ *  containment-checked either way). Fail-closed: an unreadable manifest or
+ *  a name mismatch on either branch falls through (never returned), exactly
+ *  mirroring the workspace-member branch's existing behaviour. */
 function resolveDepManifestPath(
   root: string,
   pkg: string,
@@ -317,15 +330,23 @@ function resolveDepManifestPath(
 ): string | null {
   if (isUnsafeDepName(pkg)) return null;
 
-  // (b) vendored: vendor/<name>/Cargo.toml
+  // (b) vendored: vendor/<name>/Cargo.toml — trusted only if its own
+  // declared name matches pkg.
   const vendorPath = resolvedWithinRoot(root, 'vendor', pkg, 'Cargo.toml');
-  if (vendorPath !== null) return vendorPath;
+  if (vendorPath !== null) {
+    const vendorParsed = readManifest(vendorPath);
+    if (vendorParsed?.packageFields.get('name') === pkg) return vendorPath;
+  }
 
-  // (a) path dependency: inline-table `path = "..."`, resolved relative to root.
+  // (a) path dependency: inline-table `path = "..."`, resolved relative to
+  // root — trusted only if its own declared name matches pkg.
   const pathOverride = parsedRoot.depPathOverride.get(pkg);
   if (pathOverride !== undefined) {
     const candidate = resolvedWithinRoot(root, pathOverride, 'Cargo.toml');
-    if (candidate !== null) return candidate;
+    if (candidate !== null) {
+      const pathParsed = readManifest(candidate);
+      if (pathParsed?.packageFields.get('name') === pkg) return candidate;
+    }
   }
 
   // (c) workspace member: [workspace] members includes a dir whose Cargo.toml
