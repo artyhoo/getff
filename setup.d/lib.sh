@@ -516,21 +516,38 @@ generate_eslint_barrel() {
     # Fixtures ship unconditionally above (step 5a), but stack-specific rules (e.g. R12
     # no-server-imports-in-client, react-next only) land per-stack — probing a fixture whose
     # rule is absent from the barrel makes linter.verify THROW ("Could not find <rule> in
-    # plugin") → check:fences-fire false-REDs on every non-next stack. Filter is scoped to
-    # the manifests WE ship (iterates the framework source dir), so consumer-authored
-    # fixtures are never touched. Keeps the gate strict where it must be: on react-next the
-    # R12 fixture still ships, so R12 vanishing from the barrel still turns the gate RED.
-    for _m in "$PKG_ROOT"/packages/core/audit-self/fixtures/fences-fire/*.manifest.json; do
-      [ -f "$_m" ] || continue
-      _mstem="$(basename "$_m" .manifest.json)"
-      _rid=$(sed -n 's/.*"rule-id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$_m" | head -1)
-      _rkey="${_rid##*/}"
-      [ -n "$_rkey" ] || continue
-      if ! grep -q "'$_rkey':" "$_barrel"; then
-        rm -f "$PROJECT_ROOT/scripts/fences-fire-fixtures/$_mstem".*
-        echo "  · fences fixture [$_mstem] not shipped — rule '$_rkey' not in this stack's barrel"
-      fi
-    done
+    # plugin") → check:fences-fire false-REDs on every non-next stack. The loop below only
+    # ever targets basenames of the manifests WE ship (it iterates the framework source dir,
+    # never the consumer's own tree), so it can only ever delete FRAMEWORK fixtures — but on
+    # --refresh the fixtures dir itself is framework-owned: refresh_safe replaces the whole
+    # dir unless the consumer sets scripts/fences-fire-fixtures.override.md (the Layer-3
+    # escape hatch), so a consumer file dropped into that dir WITHOUT the override is removed
+    # on refresh regardless of this loop. Keeps the gate strict where it must be: on
+    # react-next the R12 fixture still ships, so R12 vanishing from the barrel still turns
+    # the gate RED.
+    #
+    # Honour that SAME Layer-3 signal here: refresh_safe (setup.d/lib.sh) skips the whole
+    # scripts/fences-fire-fixtures dir when scripts/fences-fire-fixtures.override.md is
+    # present, so the prune below MUST respect the identical signal — else it deletes
+    # framework fixtures inside a consumer-owned dir, contradicting do_refresh's printed
+    # ".override.md preserved" guarantee (adversarial-review Important, post-#876). The
+    # barrel regen above still always runs — it lives in eslint-rules-local/, not the owned
+    # fixtures dir, and #876 requires it to stay in sync regardless of fixture ownership.
+    if [ -e "$PROJECT_ROOT/scripts/fences-fire-fixtures.override.md" ]; then
+      echo "  ⊝ scripts/fences-fire-fixtures prune skipped (.override.md — consumer-owned)"
+    else
+      for _m in "$PKG_ROOT"/packages/core/audit-self/fixtures/fences-fire/*.manifest.json; do
+        [ -f "$_m" ] || continue
+        _mstem="$(basename "$_m" .manifest.json)"
+        _rid=$(sed -n 's/.*"rule-id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$_m" | head -1)
+        _rkey="${_rid##*/}"
+        [ -n "$_rkey" ] || continue
+        if ! grep -q "'$_rkey':" "$_barrel"; then
+          rm -f "$PROJECT_ROOT/scripts/fences-fire-fixtures/$_mstem".*
+          echo "  · fences fixture [$_mstem] not shipped — rule '$_rkey' not in this stack's barrel"
+        fi
+      done
+    fi
   fi
 }
 
