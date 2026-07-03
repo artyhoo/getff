@@ -8,7 +8,7 @@
 > native artifacts across toolchains, Rust first. NOT a goal change — serves
 > [README.md#why-this-exists](../../../README.md#why-this-exists) (every rule stays an executable
 > artifact failing at the earliest reachable channel); it widens the *toolchains* the existing goal
-> covers. Treating MT as product scope is BLOCKED on a maintainer README-widening decision (see §6).
+> covers. Treating MT as product scope was gated on a maintainer README-widening decision — RESOLVED 2026-07-03 (#870, README widened); see the decisions doc.
 > **R-phase status:** DONE — this umbrella's research base is
 > [research-patches/2026-07-02-multi-toolchain-generalization.md](../../../docs/meta-factory/research-patches/2026-07-02-multi-toolchain-generalization.md)
 > (§0 verdict, §2 per-toolchain capability matrix, §8 Convention-Compiler sketch, §9 v0.2 architecture,
@@ -73,7 +73,7 @@ harness shipped as "working" is `#discipline-theatre` (**T15**). Paired negative
 ONLY after L4-npm (existing) + B-research gates (shipped) + cargo-v0 (S2) are three real reference
 backends: factor the shared renderer contract + name the generic IR types (spec §7). **Do NOT build
 the union-IR** the R-phase rejects (MT patch §9 p.1); extracting the frame from <3 backends risks
-exactly that. This stage is gated on S2 landing AND on the README-widening owner decision (§6).
+exactly that. This stage is gated on S2 landing AND on the README-widening owner decision (RESOLVED — #870; see the decisions doc).
 
 **Scope boundaries:** the §9.1 invention gaps (LLM-taint-as-IR-property, convention-lifecycle-as-data,
 dead-convention-detection, unified-suppression) are post-MVP milestones tracked in the design spec's
@@ -82,8 +82,7 @@ invariant is a standing per-backend rule (honored in substance today).
 
 **STOP lines (binding):**
 
-- MT implementation is BLOCKED on the **README-widening owner decision** (decisions doc Owner
-  decision #1) — do not start S1 code until the maintainer resolves it.
+- ~~MT implementation is BLOCKED on the README-widening owner decision~~ — RESOLVED 2026-07-03 (#870): README widened by deliberate maintainer edit; S1 may start. (Original gate recorded in the decisions doc, Owner decision #1.)
 - The cargo backend's live-fire is BLOCKED on a **Rust toolchain** (spec §8) — design in any env,
   claim green only after a real `cargo clippy` run.
 - **Do NOT collapse MT into one commit** — S1/S2/S3 are separate PRs (spec §9 non-goal).
