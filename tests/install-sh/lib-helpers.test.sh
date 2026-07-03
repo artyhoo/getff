@@ -48,6 +48,7 @@ EXPECTED_HELPERS=(
   patch_stryker_package_manager
   copy_skill_with_transform
   refresh_skill_with_transform
+  generate_eslint_barrel
 )
 
 for fn in "${EXPECTED_HELPERS[@]}"; do

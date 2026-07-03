@@ -484,6 +484,7 @@ refresh_skill_with_transform() {
 # install.sh (refresh path, #876) — do not duplicate this logic at either call site.
 # Reads globals: PROJECT_ROOT, PKG_ROOT, DRY_RUN.
 generate_eslint_barrel() {
+  local _barrel _rf _b _camel _m _mstem _rid _rkey
   if [ -z "$DRY_RUN" ]; then
     _barrel="$PROJECT_ROOT/eslint-rules-local/index.mjs"
     {
