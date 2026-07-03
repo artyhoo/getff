@@ -394,6 +394,22 @@ do_refresh() {
     done
   done
 
+  # ── fences-fire fixtures (directory payload) → scripts/ (#873) ──
+  # Directory payload: refresh_safe now replaces (not nests) an existing dir (setup.d/lib.sh, #873).
+  refresh_safe "$PKG_ROOT/packages/core/audit-self/fixtures/fences-fire" "$PROJECT_ROOT/scripts/fences-fire-fixtures"
+
+  # ── Regenerate the eslint-rules-local barrel + prune stack-absent fixtures (#876) ──
+  # do_refresh re-delivers individual rule files above but the GENERATED index.mjs barrel would keep
+  # its old import list → a newly-shipped rule lands unregistered. Regenerate from the on-disk rule
+  # set (matches whatever this stack's refresh loop just delivered). Runs AFTER the fixtures refresh
+  # so the #838 prune inside the helper sees the freshly-delivered fixtures. SSOT helper (setup.d/lib.sh).
+  # Known limitation (documented, not fixed here): --refresh assumes the SAME stack as the original
+  # install — the refresh loop above only adds/overwrites rule files, it never removes a PRIOR
+  # stack's preset rule, so `install.sh <different-stack> --refresh` can leave a stale rule on disk
+  # and the barrel regenerated here will then still register it. Out of scope for #873/#876; removing
+  # stale prior-stack rules is a separate behaviour change.
+  generate_eslint_barrel
+
   _fb_src="$PKG_ROOT/packages/core/hooks/pre-push.fallback.sh"
   _fb_dst="$PROJECT_ROOT/packages/core/hooks/pre-push.fallback.sh"
   refresh_safe "$_fb_src" "$_fb_dst"

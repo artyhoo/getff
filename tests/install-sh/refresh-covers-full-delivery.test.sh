@@ -22,9 +22,9 @@
 # pre-push) stays a literal → exact per-file match (catches a single-file omission). A glob-
 # delivered namespace (eslint-rules-local/$bn.ts, .claude/agents/$(basename …)) collapses to its
 # directory prefix → namespace match, which is SOUND only because delivery and refresh iterate
-# the SAME source glob (so no per-file omission is possible within it). Directory payloads with
-# no extension (scripts/fences-fire-fixtures) are EXCLUDED — refresh_safe's cp -r nests-into an
-# existing directory rather than replacing it (issue #873), a distinct capability.
+# the SAME source glob (so no per-file omission is possible within it). Directory payloads
+# (scripts/fences-fire-fixtures) are now refreshed like any other framework artefact — #873 fixed
+# refresh_safe to REPLACE an existing directory instead of nesting cp -r into it.
 #
 # Deterministic, no network: awk over do_refresh() + grep over setup.d. Paired-negative arm
 # proves the set-difference is non-vacuous (a real omission flips the gate RED).
@@ -39,9 +39,12 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 
 # ── EXCLUDED: copy_safe destinations deliberately NOT refreshed (data-driven escape hatch) ──
 # Each entry is a CONSUMER-OWNED (Layer-3) file that a consumer customises — refreshing it would
-# clobber their edits — OR the one deferred directory payload. install.sh:398 + setup.d/lib.sh:194
-# (framework-namespace vs consumer-ownable split) are the prose this list encodes. A NEW copy_safe
-# destination that is framework-owned must be REFRESHED (added to do_refresh), not added here.
+# clobber their edits. (The one directory payload, scripts/fences-fire-fixtures, was the last
+# deferred entry here — #873 fixed refresh_safe to replace directory payloads instead of nesting,
+# so it is now refreshed like any other framework artefact and no longer lives in this list.)
+# install.sh:398 + setup.d/lib.sh:194 (framework-namespace vs consumer-ownable split) are the prose
+# this list encodes. A NEW copy_safe destination that is framework-owned must be REFRESHED (added
+# to do_refresh), not added here.
 EXCLUDED=$(sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' <<'EXC' | sed '/^$/d'
   # Consumer-owned config files (copy_safe keeps the consumer's own; refresh must not clobber)
   tsconfig.json
@@ -69,8 +72,6 @@ EXCLUDED=$(sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' <<'EXC' | sed 
   .ai-factory/DESCRIPTION.template.md
   .ai-factory/tool-decisions.md
   .ai-factory/rules/integration-rules.md
-  # Deferred: DIRECTORY payload — refresh_safe cp -r nests-into-existing dir (tracked: issue #873)
-  scripts/fences-fire-fixtures
 EXC
 )
 
