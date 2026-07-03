@@ -14,6 +14,7 @@ import {
   declarativeRestrictedConfigEntry,
 } from './compile-declarative-md.ts';
 import { mergeEslintRuleConfig } from './merge-eslint-config.ts';
+import { wireRuleThroughNode } from './to-node.ts';
 import type { SynthesisPlan, SynthesizedRule } from './types.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -86,11 +87,16 @@ export function synthesize(plan: ResearchPlan): SynthesisPlan {
       continue;
     }
     const id = `G${nextId++}`;
-    const rule: SynthesizedRule = {
+    const composed: SynthesizedRule = {
       ...recipe.rule,
       id,
       research: { entryId: entry.id, provenance: entry.provenance },
     };
+    // MT S3b врезка: thread the composed rule through the IR plane — build a ConventionNode
+    // from its backbone, run the grammar gate (throws OUTWARD on failure), and route the
+    // declarative-syntax class through the shipped npm adapter. Byte-identical to `composed`
+    // by construction (enrichment merged back); locked by canonical-regen + snapshot.test.ts.
+    const rule = wireRuleThroughNode(composed);
     rules.push(rule);
     if (rule.check.type === 'declarative') {
       mdFragments.push(compileDeclarativeMd(rule));
