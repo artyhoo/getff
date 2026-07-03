@@ -60,6 +60,16 @@ export function runProvenanceGate(
   ctx?: ResolveCtx,
   entryIdOut?: EntryIdMap,
 ): ResearchGateOutcome {
+  // resolveAllowedSources(ctx) runs unconditionally -- matches today's
+  // unconditional derivation order in checkResearchPlan (validate-plan.ts
+  // pre-Task-4, line 75: `const resolved = ctx ? resolveAllowedSources(ctx)
+  // : undefined;` runs BEFORE the `if (maybePatterns)` guard). An
+  // AckFileError thrown by resolveAllowedSources must propagate here before
+  // the un-iterable-patterns early return, or a corrupt
+  // .ai-factory/research-allowlist.json would be silently swallowed for
+  // shape-invalid plans (DN-B-3, zero-behavior-change / AC-3).
+  const resolved = ctx ? resolveAllowedSources(ctx) : undefined;
+
   const maybePatterns = maybePatternsOf(plan);
   if (!maybePatterns) {
     // Nothing iterable to derive provenance diagnostics from -- matches
@@ -67,7 +77,6 @@ export function runProvenanceGate(
     return { status: 'pass', diagnostics: [] };
   }
 
-  const resolved = ctx ? resolveAllowedSources(ctx) : undefined;
   const diagnostics: Diagnostic[] = [];
 
   for (const entry of maybePatterns) {

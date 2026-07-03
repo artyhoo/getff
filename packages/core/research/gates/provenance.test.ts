@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { runProvenanceGate } from './provenance.ts';
+import { AckFileError } from '../allowlist-resolver.ts';
+
+function corruptAckFile(): string {
+  const p = join(mkdtempSync(join(tmpdir(), 'ack-corrupt-')), 'research-allowlist.json');
+  writeFileSync(p, '{ this is not valid json');
+  return p;
+}
 
 const validProvenance = {
   url: 'https://nextjs.org/docs/app',
@@ -56,5 +66,11 @@ describe('runProvenanceGate — paired negative', () => {
     const outcome = runProvenanceGate({ framework: 'next', version: '16.0.0', missing: [], drift: null });
     expect(outcome.status).toBe('pass');
     expect(outcome.diagnostics).toEqual([]);
+  });
+
+  it('DN-B-3 paired negative: a corrupt ack file throws AckFileError even for an un-iterable-patterns plan (resolve runs unconditionally, matching pre-stage-B checkResearchPlan order)', () => {
+    const uniterablePlan = { framework: 'next', version: '16.0.0', patterns: 'nope', missing: [], drift: null };
+    const ctx = { root: '/tmp/unused', ackFilePath: corruptAckFile() };
+    expect(() => runProvenanceGate(uniterablePlan, ctx)).toThrow(AckFileError);
   });
 });

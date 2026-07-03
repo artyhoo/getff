@@ -15,6 +15,19 @@
 // when the top-level plan.patterns is not iterable at all (a HARD
 // un-iterable shape) -- there is nothing to walk, mirroring today's
 // maybePatterns === undefined guard (validate-plan.ts:71-74).
+//
+// The short-circuit is a REPORTING label only -- it does NOT skip calling
+// runProvenanceGate. runProvenanceGate itself resolves the tier stack
+// unconditionally (before its own un-iterable-patterns early return, see
+// provenance.ts DN-B-3 comment), so an AckFileError from a corrupt
+// .ai-factory/research-allowlist.json must still propagate out of this
+// aggregator for an un-iterable-patterns plan -- exactly as it propagated
+// out of pre-stage-B checkResearchPlan, which derived `resolved` BEFORE its
+// `if (maybePatterns)` guard (validate-plan.ts pre-Task-4, line 75).
+// Calling runProvenanceGate unconditionally and remapping its 'pass' result
+// to 'skip' (only for the un-iterable-patterns case) preserves both DN-B-3
+// (resolve always runs, AckFileError always propagates) and DN-B-4 (the
+// report surfaces 'skip', not 'pass', when there was nothing to walk).
 
 import type { ResolveCtx } from '../allowlist-resolver.ts';
 import { runShapeGate } from './shape.ts';
@@ -28,8 +41,6 @@ export interface ResearchValidationReport {
     provenance: ResearchGateOutcome;
   };
 }
-
-const SKIPPED: ResearchGateOutcome = { status: 'skip', diagnostics: [] };
 
 /** True iff plan.patterns is NOT iterable at the top level -- the hard
  *  short-circuit condition (DN-B-4 Option B). Deliberately does NOT ask
@@ -49,9 +60,15 @@ export function runResearchValidation(
   entryIdOut?: EntryIdMap,
 ): ResearchValidationReport {
   const shape = runShapeGate(plan);
-  const provenance = hasUniterablePatterns(plan)
-    ? SKIPPED
-    : runProvenanceGate(plan, ctx, entryIdOut);
+  // Always run the provenance gate -- it resolves the tier stack
+  // unconditionally (DN-B-3) and lets AckFileError propagate before it
+  // knows whether patterns is iterable. Re-label its 'pass' as 'skip' here
+  // ONLY for the reporting surface, ONLY when there was nothing to walk.
+  const provenanceOutcome = runProvenanceGate(plan, ctx, entryIdOut);
+  const provenance: ResearchGateOutcome =
+    hasUniterablePatterns(plan) && provenanceOutcome.status === 'pass'
+      ? { status: 'skip', diagnostics: [] }
+      : provenanceOutcome;
 
   const ok = shape.status !== 'fail' && provenance.status !== 'fail';
 

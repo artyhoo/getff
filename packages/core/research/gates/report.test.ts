@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { runResearchValidation } from './report.ts';
+import { AckFileError } from '../allowlist-resolver.ts';
+
+function corruptAckFile(): string {
+  const p = join(mkdtempSync(join(tmpdir(), 'ack-corrupt-')), 'research-allowlist.json');
+  writeFileSync(p, '{ this is not valid json');
+  return p;
+}
 
 const validProvenance = {
   url: 'https://nextjs.org/docs/app',
@@ -98,5 +108,11 @@ describe('runResearchValidation — short-circuit paired negative (DN-B-4)', () 
     expect(report.ok).toBe(true);
     expect(report.gates.shape.status).toBe('pass');
     expect(report.gates.provenance.status).toBe('pass');
+  });
+
+  it('DN-B-3 paired negative: a corrupt ack file throws AckFileError even for an un-iterable-patterns plan, at the aggregator level (short-circuit must not swallow the resolve call)', () => {
+    const uniterablePlan = { framework: 'next', version: '16.0.0', patterns: 'nope', missing: [], drift: null };
+    const ctx = { root: '/tmp/unused', ackFilePath: corruptAckFile() };
+    expect(() => runResearchValidation(uniterablePlan, ctx)).toThrow(AckFileError);
   });
 });
