@@ -442,6 +442,25 @@ do_refresh() {
     chmod_safe +x "$PROJECT_ROOT/.husky/pre-commit" "$PROJECT_ROOT/.husky/pre-push" 2>/dev/null || true
   fi
 
+  # ── Prettier ignore (managed block) — #890 ──────────────
+  # The static .prettierignore template's managed block ships via merge_prettierignore (40-configs.sh)
+  # on the --full path only. do_refresh MUST also deliver it, else a new shipped ignore pattern (e.g.
+  # #889's .ai-factory/ARCHITECTURE.*.md) never reaches an already-installed consumer without --force
+  # — the #869 "refresh omits a --full-delivered artefact" class, on the merge-delivered surface.
+  # merge_prettierignore is genuinely idempotent (#890 fix): it inserts only missing patterns into the
+  # existing block (single block preserved). Honour a sibling .prettierignore.override.md (Layer-3
+  # consumer ownership), mirroring refresh_safe's .override.md handling.
+  echo "▶ Prettier ignore → .prettierignore"
+  if [ -e "$PROJECT_ROOT/.prettierignore.override.md" ]; then
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would skip: .prettierignore (.override.md — consumer-owned)"
+    else
+      echo "  ⊝ .prettierignore (.override.md — consumer-owned, keeping)"
+    fi
+  else
+    merge_prettierignore "$PKG_ROOT/packages/core/templates/shared/.prettierignore" "$PROJECT_ROOT/.prettierignore"
+  fi
+
   # ── Skill-context overrides (derived from SHIPPED_DOCS — cannot drift) ──
   echo "▶ Skill-context → .ai-factory/skill-context/"
   for _doc in "${SHIPPED_DOCS[@]}"; do

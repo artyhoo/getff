@@ -134,4 +134,104 @@ else
   ok "#807 neg: consumer-authored (SKIPPED) apps/api config NOT ignored — stays format-checked (non-vacuous)"
 fi
 
+# ── #890: merge_prettierignore is GENUINELY idempotent, not run-once ──────────────────────────
+# THE BUG: once the managed-block marker existed, merge_prettierignore early-returned unconditionally
+# → the block's content was frozen at first-merge. A NEW shipped pattern (e.g. #889's
+# .ai-factory/ARCHITECTURE.*.md) never reached an already-installed consumer via repeat --full or
+# --refresh — only --force (wholesale copy_safe overwrite) delivered it. THE FIX: when the marker is
+# present, diff the shipped source against the whole file and INSERT missing patterns INTO the
+# existing block (single block, no duplicate marker).
+# Unit-level: source lib.sh directly and drive the helper with an OLD then a NEW shipped source.
+# NOT exported — a leaked INSTALL_SH_LIB_ONLY would put the integration arms' `bash install.sh`
+# into lib-only mode (do_refresh would never run). unset right after sourcing for belt-and-braces.
+INSTALL_SH_LIB_ONLY=1
+PROJECT_ROOT="$REPO_ROOT"; FORCE=""; DRY_RUN=""
+# shellcheck source=../../setup.d/lib.sh disable=SC1091
+source "$REPO_ROOT/setup.d/lib.sh"
+unset INSTALL_SH_LIB_ONLY
+
+U=$(mktemp -d)
+OLDSRC="$U/old"; NEWSRC="$U/new"; DSTU="$U/.prettierignore"
+printf '%s\n' '.ai-factory/RULES.md' > "$OLDSRC"
+printf '%s\n' '.ai-factory/RULES.md' '.ai-factory/ARCHITECTURE.react-native.md' '.ai-factory/tool-decisions.md' > "$NEWSRC"
+printf 'dist/\n' > "$DSTU"   # pre-existing consumer file → merge path (creates the managed block)
+
+merge_prettierignore "$OLDSRC" "$DSTU" >/dev/null 2>&1   # first merge: block gets .ai-factory/RULES.md only
+
+# non-vacuity precondition: the NEW pattern is ABSENT after the old-template merge.
+if grep -qxF '.ai-factory/tool-decisions.md' "$DSTU"; then
+  bad "#890 unit non-vacuity: new pattern present BEFORE the 2nd merge → arm is vacuous"
+else
+  ok "#890 unit non-vacuity: new pattern absent after old-template merge (delta is real)"
+fi
+
+merge_prettierignore "$NEWSRC" "$DSTU" >/dev/null 2>&1   # 2nd merge, NOT --force: must deliver the new patterns
+
+# (pos) the new patterns are now delivered even though the marker already existed.
+{ grep -qxF '.ai-factory/ARCHITECTURE.react-native.md' "$DSTU" && grep -qxF '.ai-factory/tool-decisions.md' "$DSTU"; } \
+  && ok "#890 unit: 2nd merge delivered NEW patterns into an existing block (not run-once)" \
+  || bad "#890 unit: NEW patterns NOT delivered — merge_prettierignore is still run-once"
+
+# (single block) the delivery inserted into the existing block — begin-marker count stays 1.
+NMU=$(grep -cF '# >>> rules-as-tests-aif (managed) >>>' "$DSTU")
+[ "$NMU" -eq 1 ] \
+  && ok "#890 unit: new patterns inserted INTO the existing block (begin-marker count == 1)" \
+  || bad "#890 unit: delivery created a duplicate managed block (begin-marker count = $NMU, expected 1)"
+
+# (consumer line preserved) the consumer's own dist/ line survives the in-block insert.
+grep -qxF 'dist/' "$DSTU" \
+  && ok "#890 unit: consumer's original 'dist/' line survives the in-block insert" \
+  || bad "#890 unit: consumer's 'dist/' line was destroyed by the insert"
+
+# (idempotent) a 3rd merge with the SAME new source is a genuine no-op: no new patterns, count stays 1.
+BEFORE_MD5=$(md5 -q "$DSTU" 2>/dev/null || md5sum "$DSTU" | awk '{print $1}')
+merge_prettierignore "$NEWSRC" "$DSTU" >/dev/null 2>&1
+AFTER_MD5=$(md5 -q "$DSTU" 2>/dev/null || md5sum "$DSTU" | awk '{print $1}')
+[ "$BEFORE_MD5" = "$AFTER_MD5" ] \
+  && ok "#890 unit: 3rd merge with unchanged source is a byte-identical no-op (genuinely idempotent)" \
+  || bad "#890 unit: 3rd merge with unchanged source mutated the file (not idempotent)"
+
+# ── #890: --refresh delivers managed-block updates to an ALREADY-INSTALLED consumer ───────────
+# do_refresh() must ALSO call merge_prettierignore, else a stale block on an installed consumer
+# never receives a new template pattern without --force. Simulate a stale block by stripping one
+# pattern out of it, then assert --refresh re-delivers it.
+TR=$(mktemp -d)
+printf '{ "name":"refresh890","version":"0.0.0" }\n' > "$TR/package.json"
+printf 'dist/\n' > "$TR/.prettierignore"   # pre-existing → brownfield merge → managed BLOCK (with markers)
+( cd "$TR" && git init -q && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >/dev/null 2>&1
+PIR="$TR/.prettierignore"
+
+# strip one managed pattern to simulate a block that predates a newer template.
+grep -vxF '.ai-factory/tool-decisions.md' "$PIR" > "$PIR.stale" && mv "$PIR.stale" "$PIR"
+if grep -qxF '.ai-factory/tool-decisions.md' "$PIR"; then
+  bad "#890 refresh precondition: strip failed (pattern still present) → arm vacuous"
+else
+  ok "#890 refresh precondition: pattern stripped from the block (stale-block simulated)"
+fi
+
+( cd "$TR" && bash "$REPO_ROOT/install.sh" ts-server --refresh </dev/null ) >/dev/null 2>&1
+grep -qxF '.ai-factory/tool-decisions.md' "$PIR" \
+  && ok "#890 refresh: --refresh re-delivered the missing managed pattern (do_refresh merges .prettierignore)" \
+  || bad "#890 refresh: --refresh did NOT deliver it (do_refresh omits merge_prettierignore — the #869 class)"
+
+NMR=$(grep -cF '# >>> rules-as-tests-aif (managed) >>>' "$PIR")
+[ "$NMR" -eq 1 ] \
+  && ok "#890 refresh: still a single managed block after --refresh (begin-marker count == 1)" \
+  || bad "#890 refresh: --refresh duplicated the managed block (begin-marker count = $NMR, expected 1)"
+
+# neg (LOAD-BEARING): a consumer with a .prettierignore.override.md (Layer-3 ownership) is NOT touched.
+TRO=$(mktemp -d)
+printf '{ "name":"refresh890o","version":"0.0.0" }\n' > "$TRO/package.json"
+printf 'dist/\n' > "$TRO/.prettierignore"
+( cd "$TRO" && git init -q && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >/dev/null 2>&1
+PIRO="$TRO/.prettierignore"
+grep -vxF '.ai-factory/tool-decisions.md' "$PIRO" > "$PIRO.stale" && mv "$PIRO.stale" "$PIRO"
+printf 'consumer owns this\n' > "$PIRO.override.md"   # Layer-3 opt-out
+( cd "$TRO" && bash "$REPO_ROOT/install.sh" ts-server --refresh </dev/null ) >/dev/null 2>&1
+if grep -qxF '.ai-factory/tool-decisions.md' "$PIRO"; then
+  bad "#890 refresh neg: .override.md present but --refresh still merged → Layer-3 ownership ignored"
+else
+  ok "#890 refresh neg: .prettierignore.override.md present → --refresh left the file untouched (non-vacuous)"
+fi
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

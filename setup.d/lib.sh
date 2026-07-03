@@ -147,19 +147,21 @@ merge_prettierignore() {
     return 0
   fi
 
-  # Consumer file EXISTS → non-destructive merge.
-  # Idempotent: if the managed block is already present, do nothing.
-  if grep -qxF "$PRETTIERIGNORE_BEGIN" "$dst"; then
-    if [ "$DRY_RUN" = "--dry-run" ]; then
-      echo "  [dry-run] would skip merge: $dst (AIF block already present)"
-    else
-      echo "  ⊝ $dst (AIF .prettierignore block already present — skipping merge)"
-    fi
-    return 0
-  fi
+  # Consumer file EXISTS → non-destructive merge. Detect whether the managed block already exists;
+  # the collect-and-deliver logic below is SHARED for both cases — only the WRITE differs (insert
+  # into the existing block vs. append a fresh one).
+  #
+  # GH #890: the marker's presence must NOT short-circuit delivery. The previous early-return made
+  # the block run-once — frozen at whatever the shipped template had the first time it merged, so a
+  # NEW shipped pattern (e.g. #889's .ai-factory/ARCHITECTURE.*.md) could never reach an already-
+  # installed consumer via repeat --full or --refresh (only --force, which overwrites wholesale
+  # above). Genuine idempotency (mirroring the sibling ignore_shipped_configs, which already
+  # re-diffs per line) re-checks for missing patterns on every run and inserts them into the block.
+  local marker_present=0
+  grep -qxF "$PRETTIERIGNORE_BEGIN" "$dst" && marker_present=1
 
-  # Collect shipped entries not already present verbatim in the consumer file. Ignore blank lines
-  # and comments from the shipped source (only real ignore patterns get merged).
+  # Collect shipped entries not already present verbatim ANYWHERE in the consumer file. Ignore blank
+  # lines and comments from the shipped source (only real ignore patterns get merged).
   local missing=()
   local line
   while IFS= read -r line || [ -n "$line" ]; do
@@ -169,7 +171,7 @@ merge_prettierignore() {
     grep -qxF "$line" "$dst" || missing+=("$line")
   done < "$src"
 
-  # Nothing to add (consumer already has every AIF pattern) → no-op.
+  # Nothing to add (consumer already has every AIF pattern) → genuine idempotent no-op.
   if [ "${#missing[@]}" -eq 0 ]; then
     if [ "$DRY_RUN" = "--dry-run" ]; then
       echo "  [dry-run] would skip merge: $dst (already has every AIF pattern)"
@@ -180,18 +182,40 @@ merge_prettierignore() {
   fi
 
   if [ "$DRY_RUN" = "--dry-run" ]; then
-    echo "  [dry-run] would merge ${#missing[@]} AIF pattern(s) into: $dst"
+    if [ "$marker_present" -eq 1 ]; then
+      echo "  [dry-run] would add ${#missing[@]} new AIF pattern(s) into the existing block in: $dst"
+    else
+      echo "  [dry-run] would merge ${#missing[@]} AIF pattern(s) into: $dst"
+    fi
     return 0
   fi
 
-  # Append the marker-delimited block. Ensure a trailing newline before the block.
-  [ -n "$(tail -c1 "$dst")" ] && printf '\n' >> "$dst"
-  {
-    printf '%s\n' "$PRETTIERIGNORE_BEGIN"
-    printf '%s\n' "${missing[@]}"
-    printf '%s\n' "$PRETTIERIGNORE_END"
-  } >> "$dst"
-  echo "  ✓ $dst (merged ${#missing[@]} AIF .prettierignore pattern(s))"
+  if [ "$marker_present" -eq 1 ]; then
+    # GH #890: an existing block → INSERT the missing patterns immediately before the END marker so
+    # the block stays SINGLE (no duplicate marker — the f15 begin-marker-count==1 invariant). Rewrite
+    # via a temp file with a pure read-loop (bash-3.2 / BSD-tool safe: no sed path-escaping, no awk
+    # array-passing). END is guaranteed present — the block is only ever written as a BEGIN/END pair.
+    local _tmp="${dst}.aif-merge.$$"
+    local _emitted=0 _l
+    while IFS= read -r _l || [ -n "$_l" ]; do
+      if [ "$_emitted" -eq 0 ] && [ "$_l" = "$PRETTIERIGNORE_END" ]; then
+        printf '%s\n' "${missing[@]}"
+        _emitted=1
+      fi
+      printf '%s\n' "$_l"
+    done < "$dst" > "$_tmp"
+    mv "$_tmp" "$dst"
+    echo "  ✓ $dst (added ${#missing[@]} new AIF .prettierignore pattern(s) to the existing block)"
+  else
+    # No block yet → append a fresh marker-delimited block. Ensure a trailing newline before it.
+    [ -n "$(tail -c1 "$dst")" ] && printf '\n' >> "$dst"
+    {
+      printf '%s\n' "$PRETTIERIGNORE_BEGIN"
+      printf '%s\n' "${missing[@]}"
+      printf '%s\n' "$PRETTIERIGNORE_END"
+    } >> "$dst"
+    echo "  ✓ $dst (merged ${#missing[@]} AIF .prettierignore pattern(s))"
+  fi
 }
 
 # GH #531 (reopen, config-mismatch): conditionally ignore the framework CONFIG files install
