@@ -26,6 +26,7 @@ Universal format read by Cursor, Codex CLI, Aider, Windsurf, and other non-CC ha
 | Rule file | Enforces |
 |---|---|
 | [`.claude/rules/ai-laziness-traps.md`](.claude/rules/ai-laziness-traps.md) | AI laziness trap catalogue with countermeasures; applied to all R-phases, audits, and open-ended AI tasks |
+| [`.claude/rules/attention-is-not-a-mechanism.md`](.claude/rules/attention-is-not-a-mechanism.md) | A load-bearing check must be a deterministic gate or a named cold-agent protocol; bare human/AI attention is merge authority, never the detection layer |
 | [`.claude/rules/build-first-reuse-default.md`](.claude/rules/build-first-reuse-default.md) | Project-wide default: ADOPT upstream before BUILD; macro-level scope discipline for capability proposals |
 | [`.claude/rules/ci-tool-pinning.md`](.claude/rules/ci-tool-pinning.md) | CI audit tool installs in `.github/workflows/` must use version pins; local dep installs must use `npm ci` (not `npm install`) |
 | [`.claude/rules/companion-install-principle.md`](.claude/rules/companion-install-principle.md) | Companions/external services install via their own official installer; no version pins; no reimplementing steps |

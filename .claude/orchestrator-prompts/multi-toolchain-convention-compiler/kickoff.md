@@ -9,6 +9,8 @@
 > [README.md#why-this-exists](../../../README.md#why-this-exists) (every rule stays an executable
 > artifact failing at the earliest reachable channel); it widens the *toolchains* the existing goal
 > covers. Treating MT as product scope was gated on a maintainer README-widening decision — RESOLVED 2026-07-03 (#870, README widened); see the decisions doc.
+> Surface 3 (AI-doc composition) is IN this umbrella as **Stage S4** (owner decision 2026-07-03) —
+> the final stage; its merge closes the MVP and writes done.md.
 > **R-phase status:** DONE — this umbrella's research base is
 > [research-patches/2026-07-02-multi-toolchain-generalization.md](../../../docs/meta-factory/research-patches/2026-07-02-multi-toolchain-generalization.md)
 > (§0 verdict, §2 per-toolchain capability matrix, §8 Convention-Compiler sketch, §9 v0.2 architecture,
@@ -75,6 +77,20 @@ backends: factor the shared renderer contract + name the generic IR types (spec 
 the union-IR** the R-phase rejects (MT patch §9 p.1); extracting the frame from <3 backends risks
 exactly that. This stage is gated on S2 landing AND on the README-widening owner decision (RESOLVED — #870; see the decisions doc).
 
+**S3 execution split (3a-ii):** S3 runs as (3b) npm-on-IR — ConventionNode→SynthesizedRule adapter +
+the npm backend starts emitting per-node RenderOutcome (importing the type from backends/cargo, no
+copy) — then (3c) the frame extraction hoists `@hoist-at-s3` units into backends/shared **immediately
+after** (the two-copies window must not outlive one stage). Extraction from <2 live IR emitters is the
+union-IR backdoor the STOP line forbids.
+
+**S4 — surface 3: AI-doc composition (final MVP stage).**
+Composition over node SETS per spec §5.1 (DocPlan-as-data; derived enforcement lines;
+fence without hashes — surface 6 stays WI-1). Demo region is injected into the repo root
+AGENTS.md (owner decision 2026-07-03): section «Configuration access», cargo node
+(live-fired) + npm node (RuleTester), counter-run RED transcript in the PR body. Gates
+claim FF8xxx. The session that merges the last S4 PR writes this umbrella's done.md
+(CLAUDE.md umbrella-closure convention) — no earlier stage does.
+
 **Scope boundaries:** the §9.1 invention gaps (LLM-taint-as-IR-property, convention-lifecycle-as-data,
 dead-convention-detection, unified-suppression) are post-MVP milestones tracked in the design spec's
 "Deferred invention milestones" subsection — OUT of cargo-v0 scope; the §9 p.12 cross-pollination
@@ -87,6 +103,7 @@ invariant is a standing per-backend rule (honored in substance today).
   claim green only after a real `cargo clippy` run.
 - **Do NOT collapse MT into one commit** — S1/S2/S3 are separate PRs (spec §9 non-goal).
 - **Do NOT build the union-IR** — narrow-core + capability matrix only.
+- done.md is written ONLY at the S4 final-PR merge — writing it earlier is a closure-convention violation.
 
 ## §3 Discipline
 
