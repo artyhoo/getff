@@ -110,8 +110,8 @@ EDIT-TIME      PRE-COMMIT     PRE-PUSH       PRE-PR         CI on PR        CI o
 | 4 — Pre-PR (`audit-ai-docs.sh` + review-sidecar / living-docs-auditor) | `./scripts/audit-ai-docs.sh` + our `agents/review-sidecar.md` + `agents/living-docs-auditor.md` (+ AIF `rules-sidecar` / `/aif-verify` wrapper, если используете AI-Factory) |
 | 5 — CI on PR                                                           | `templates/ts-server/github-actions-ci.yml` или `packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml`                                                       |
 | 6 — CI on merge                                                        | Расширение `github-actions-ci.yml` для full mutation sweep (см. комментарии в файле)                                                                                         |
-| 7 — Pre-deploy / can-i-deploy                                          | `packages/core/templates/shared/integration-rules.md` (IR2 — Pact + can-i-deploy)                                                                                                             |
-| 8 — Production                                                         | `packages/core/templates/shared/integration-rules.md` (IR5 — observability) — расширения требуют отдельной инфраструктуры (Prometheus, Honeycomb, Argo Rollouts)                              |
+| 7 — Pre-deploy / can-i-deploy                                          | `packages/core/templates/shared/integration-rules.md` (IR2 — Pact + can-i-deploy)                                                                                            |
+| 8 — Production                                                         | `packages/core/templates/shared/integration-rules.md` (IR5 — observability) — расширения требуют отдельной инфраструктуры (Prometheus, Honeycomb, Argo Rollouts)             |
 
 ---
 
