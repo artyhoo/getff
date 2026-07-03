@@ -6,7 +6,7 @@
 Этот документ — единая точка входа. Полная картина: что запускается на каком этапе, что делает, что НЕ делает, какой инструмент используется, и в каком из документов корпуса описано подробно.
 
 > **Authoritative for:** 8-level enforcement-checks map (edit-time → production) — what runs at each level, why, and which corpus doc describes it in depth. Single entry point for navigating the rules-as-tests corpus.
-> **NOT authoritative for:** framework's project goal — see [../../../README.md#why-this-exists](../../../README.md#why-this-exists). Per-level patterns — see [overview.md](overview.md).
+> **NOT authoritative for:** framework's project goal — see [README.md#why-this-exists](https://github.com/artyhoo/rules-as-tests-aif/blob/main/README.md#why-this-exists). Per-level patterns — see [overview.md](overview.md).
 
 ---
 

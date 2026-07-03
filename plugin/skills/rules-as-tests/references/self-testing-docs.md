@@ -7,7 +7,7 @@
 Этот подход разработан в реальной практике (см. аудит-скрипты в проектах sisters-sphere и artyhoo-cv); здесь — обобщённая форма, которую можно переносить.
 
 > **Authoritative for:** «rules-as-tests applied to AI documentation» pattern — `audit-ai-docs.sh` design, code-vs-doc probe pairing, negative-test pairing for AGENTS.md rules.
-> **NOT authoritative for:** framework's project goal — see [../../../README.md#why-this-exists](../../../README.md#why-this-exists). Doc-vs-doc authority drift (separate failure mode) — see [.claude/rules/doc-authority-hierarchy.md](../../../.claude/rules/doc-authority-hierarchy.md). AI-doc organization — see [doc-organization.md](doc-organization.md).
+> **NOT authoritative for:** framework's project goal — see [README.md#why-this-exists](https://github.com/artyhoo/rules-as-tests-aif/blob/main/README.md#why-this-exists). Doc-vs-doc authority drift (separate failure mode) — see [.claude/rules/doc-authority-hierarchy.md](https://github.com/artyhoo/rules-as-tests-aif/blob/main/.claude/rules/doc-authority-hierarchy.md). AI-doc organization — see [doc-organization.md](doc-organization.md).
 
 ---
 
