@@ -8564,7 +8564,7 @@ var require_ajv = __commonJS({
 });
 
 // packages/core/install/synth-and-wire.ts
-import { existsSync as existsSync4, readFileSync as readFileSync6, writeFileSync as writeFileSync2 } from "node:fs";
+import { existsSync as existsSync4, readFileSync as readFileSync7, writeFileSync as writeFileSync2 } from "node:fs";
 import { dirname as dirname6, resolve as resolve5 } from "node:path";
 import process3 from "node:process";
 
@@ -8844,11 +8844,11 @@ function diag(code, params, opts) {
 }
 
 // packages/core/diagnostics/ajv.ts
-function makeSchemaValidator(schemaDoc2, ref) {
+function makeSchemaValidator(schemaDoc3, ref) {
   const ajv2 = new import_ajv.Ajv({ allErrors: true, strict: false });
   const baseId = ref.split("#")[0];
-  const schemaId = typeof schemaDoc2["$id"] === "string" && schemaDoc2["$id"].length > 0 ? schemaDoc2["$id"] : baseId;
-  ajv2.addSchema(schemaDoc2, schemaId);
+  const schemaId = typeof schemaDoc3["$id"] === "string" && schemaDoc3["$id"].length > 0 ? schemaDoc3["$id"] : baseId;
+  ajv2.addSchema(schemaDoc3, schemaId);
   return ajv2.compile({ $ref: ref });
 }
 var errorsTextAjv = new import_ajv.Ajv({ allErrors: true, strict: false });
@@ -9239,8 +9239,8 @@ function loadEntries(framework, version, patterns) {
 }
 
 // packages/core/synthesizer/synthesize.ts
-var import_ajv4 = __toESM(require_ajv(), 1);
-import { existsSync as existsSync2, readFileSync as readFileSync4 } from "node:fs";
+var import_ajv5 = __toESM(require_ajv(), 1);
+import { existsSync as existsSync2, readFileSync as readFileSync5 } from "node:fs";
 import { dirname as dirname4, resolve as resolve3 } from "node:path";
 import { fileURLToPath as fileURLToPath4 } from "node:url";
 
@@ -9391,17 +9391,238 @@ function mergeEslintRuleConfig(acc, next, newSource, ruleSources) {
   }
 }
 
+// packages/core/backends/npm/from-node.ts
+var VALID_PRESENCE = ["forbid", "require"];
+function isValidParams(params) {
+  const selector = params["selector"];
+  const presence = params["presence"];
+  if (typeof selector !== "string" || selector.length === 0) return false;
+  if (typeof presence !== "string" || !VALID_PRESENCE.includes(presence)) return false;
+  return true;
+}
+function missingOrInvalidField(params) {
+  const selector = params["selector"];
+  if (typeof selector !== "string" || selector.length === 0) return "selector";
+  const presence = params["presence"];
+  if (typeof presence !== "string" || !VALID_PRESENCE.includes(presence)) return "presence";
+  return "unknown";
+}
+function nodeToSynthesizedRule(node, enrichment) {
+  if (node.selectorClass !== "syntax") {
+    throw new Error(
+      `nodeToSynthesizedRule(): node ${node.id} has selectorClass '${node.selectorClass}', only 'syntax' maps to a declarative rule`
+    );
+  }
+  if (!isValidParams(node.params)) {
+    throw new Error(
+      `nodeToSynthesizedRule(): node ${node.id} params fail the npm declarative contract (missing/invalid ${missingOrInvalidField(node.params)})`
+    );
+  }
+  const params = node.params;
+  const rule = {
+    id: node.id,
+    title: node.claim,
+    // claim -> title (spec §4: message/title is ALWAYS node.claim)
+    stack: enrichment.stack,
+    ...enrichment.appliesTo !== void 0 ? { "applies-to": enrichment.appliesTo } : {},
+    check: {
+      type: "declarative",
+      engine: "eslint-restricted",
+      selector: params.selector,
+      presence: params.presence,
+      message: node.claim,
+      ...params.messageId !== void 0 ? { messageId: params.messageId } : {}
+    },
+    examples: {
+      bad: node.pairedExamples.negative,
+      // negative example = the violating code
+      good: node.pairedExamples.positive
+      // positive example = the conforming code
+    },
+    research: { entryId: node.id, provenance: node.provenance }
+  };
+  return rule;
+}
+
+// packages/core/ir/gates/grammar.ts
+import { readFileSync as readFileSync4 } from "node:fs";
+var schemaDoc2 = JSON.parse(
+  readFileSync4(new URL("../convention-node.schema.json", import.meta.url), "utf8")
+);
+var validateNode = makeSchemaValidator(schemaDoc2, "ConventionNode");
+function isNodeShape(value) {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value;
+  return typeof v["id"] === "string" && Array.isArray(v["anchors"]) && typeof v["pairedExamples"] === "object" && v["pairedExamples"] !== null;
+}
+function runGrammarGate(nodes) {
+  const diagnostics = [];
+  if (!Array.isArray(nodes)) {
+    const wrapValidate = makeSchemaValidator(
+      { type: "array", items: {} },
+      "ConventionNodeArray"
+    );
+    wrapValidate(nodes);
+    diagnostics.push(...ajvErrorsToDiagnostics(wrapValidate.errors));
+    return { status: "fail", diagnostics };
+  }
+  const idCounts = /* @__PURE__ */ new Map();
+  for (const node of nodes) {
+    if (typeof node === "object" && node !== null && typeof node["id"] === "string") {
+      const id = node["id"];
+      idCounts.set(id, (idCounts.get(id) ?? 0) + 1);
+    }
+  }
+  for (const [id, count] of idCounts) {
+    if (count > 1) {
+      diagnostics.push(diag("FF6002", { id, count }));
+    }
+  }
+  for (let idx = 0; idx < nodes.length; idx++) {
+    const node = nodes[idx];
+    const path = `/nodes/${idx}`;
+    const shapeOk = validateNode(node);
+    if (!shapeOk) {
+      diagnostics.push(
+        ...ajvErrorsToDiagnostics(validateNode.errors).map((d) => ({
+          ...d,
+          path: d.path ? `${path}${d.path}` : path
+        }))
+      );
+      continue;
+    }
+    if (!isNodeShape(node)) continue;
+    const nodeId = node.id;
+    if (node.pairedExamples.positive === node.pairedExamples.negative) {
+      diagnostics.push(diag("FF6001", { nodeId }, { path }));
+    }
+    for (const anchor of node.anchors) {
+      if (!(anchor in REGISTRY)) {
+        diagnostics.push(diag("FF6003", { anchor, nodeId }, { path }));
+      }
+    }
+  }
+  return { status: diagnostics.length > 0 ? "fail" : "pass", diagnostics };
+}
+
+// packages/core/synthesizer/to-node.ts
+var GrammarGateError = class extends Error {
+  constructor(nodeId, diagnostics) {
+    super(`Grammar gate rejected node ${nodeId}: ${diagnostics}`);
+    this.nodeId = nodeId;
+    this.diagnostics = diagnostics;
+    this.name = "GrammarGateError";
+  }
+  nodeId;
+  diagnostics;
+};
+var DEFAULT_NODE_SEVERITY = "error";
+function isSyntaxDeclarative(check) {
+  return check.type === "declarative" && (check.engine === void 0 || check.engine === "eslint-restricted");
+}
+function buildNode(rule, entryId, provenance) {
+  const params = {};
+  if (rule.check.type === "declarative") {
+    params["selector"] = rule.check.selector;
+    params["presence"] = rule.check.presence;
+  }
+  return {
+    id: entryId,
+    claim: rule.title,
+    anchors: [],
+    // For a declarative-syntax rule this is a REAL classification ('syntax' — the adapter
+    // renders it). For a non-syntax rule (eslint/command/script/manual) the node exists ONLY
+    // to stand the grammar gate in the flow (T15/N4) and is then discarded — wireRuleThroughNode
+    // returns the original rule unchanged before the adapter is ever reached, so this value is
+    // NEVER consumed. 'dep-graph' is a throwaway placeholder here, NOT a real dependency-graph
+    // classification of the rule. (Latent trap guard: if a future stage feeds these gate-only
+    // nodes to the npm router in from-node.ts, 'dep-graph' would be refused FF7001 with a
+    // misleading "dependency-level ban" note — at that point give non-syntax nodes a truthful
+    // class or route them away before the router, do not let this placeholder leak.)
+    selectorClass: isSyntaxDeclarative(rule.check) ? "syntax" : "dep-graph",
+    params,
+    defaultSeverity: DEFAULT_NODE_SEVERITY,
+    provenance,
+    pairedExamples: {
+      // negative example = the violating code; positive = the conforming code (spec §4)
+      negative: rule.examples.bad,
+      positive: rule.examples.good
+    }
+  };
+}
+function wireRuleThroughNode(rule) {
+  const entryId = rule.research.entryId;
+  const provenance = rule.research.provenance;
+  const node = buildNode(rule, entryId, provenance);
+  const gate = runGrammarGate([node]);
+  if (gate.status !== "pass") {
+    throw new GrammarGateError(node.id, gate.diagnostics.map((d) => `${d.code}: ${d.message}`).join("; "));
+  }
+  if (!isSyntaxDeclarative(rule.check)) {
+    return rule;
+  }
+  const enrichment = {
+    stack: rule.stack,
+    ...rule["applies-to"] !== void 0 ? { appliesTo: rule["applies-to"] } : {}
+  };
+  const projected = nodeToSynthesizedRule(node, enrichment);
+  return mergeEnrichment(projected, rule);
+}
+function mergeEnrichment(projected, original) {
+  const resolve6 = (key) => {
+    switch (key) {
+      case "title":
+        return projected.title;
+      // node backbone owns the claim -> title
+      case "examples":
+        return projected.examples;
+      // node backbone owns pairedExamples -> examples
+      case "stack":
+        return projected.stack;
+      // adapter re-emits from enrichment.stack (round-trip used)
+      case "applies-to":
+        return projected["applies-to"];
+      // adapter re-emits from enrichment.appliesTo
+      case "check":
+        return mergeCheck(projected.check, original.check);
+      default:
+        return original[key];
+    }
+  };
+  const merged = {};
+  for (const key of Object.keys(original)) {
+    merged[key] = resolve6(key);
+  }
+  return merged;
+}
+function mergeCheck(projectedCheck, originalCheck) {
+  if (originalCheck.type !== "declarative" || projectedCheck.type !== "declarative") {
+    return originalCheck;
+  }
+  const rebuilt = {};
+  for (const key of Object.keys(originalCheck)) {
+    if (key === "selector") {
+      rebuilt[key] = projectedCheck.selector;
+    } else if (key === "presence") {
+      rebuilt[key] = projectedCheck.presence;
+    } else {
+      rebuilt[key] = originalCheck[key];
+    }
+  }
+  return rebuilt;
+}
+
 // packages/core/synthesizer/synthesize.ts
 var HERE3 = dirname4(fileURLToPath4(import.meta.url));
 var _pkgCore3 = process.env["AIF_SYNTH_PKG_ROOT"];
 var RECIPES_ROOT = _pkgCore3 ? resolve3(_pkgCore3, "synthesizer", "recipes") : resolve3(HERE3, "recipes");
 var SCHEMA_PATH2 = _pkgCore3 ? resolve3(_pkgCore3, "synthesizer", "synthesis-plan.schema.json") : resolve3(HERE3, "synthesis-plan.schema.json");
 var RECIPE_SCHEMA_PATH = _pkgCore3 ? resolve3(_pkgCore3, "synthesizer", "recipe.schema.json") : resolve3(HERE3, "recipe.schema.json");
-var ajv = new import_ajv4.Ajv({ allErrors: true, strict: false });
-var schema = JSON.parse(readFileSync4(SCHEMA_PATH2, "utf8"));
+var ajv = new import_ajv5.Ajv({ allErrors: true, strict: false });
+var schema = JSON.parse(readFileSync5(SCHEMA_PATH2, "utf8"));
 ajv.addSchema(schema, "synthesis-plan");
 var validatePlan = ajv.compile({ $ref: "synthesis-plan" });
-var recipeSchema = JSON.parse(readFileSync4(RECIPE_SCHEMA_PATH, "utf8"));
+var recipeSchema = JSON.parse(readFileSync5(RECIPE_SCHEMA_PATH, "utf8"));
 var validateRecipe = ajv.compile(recipeSchema);
 var SynthesisPlanError = class extends Error {
   constructor(errors) {
@@ -9424,7 +9645,7 @@ var RecipeError = class extends Error {
 function loadRecipe(patternId) {
   const path = resolve3(RECIPES_ROOT, `${patternId}.json`);
   if (!existsSync2(path)) return null;
-  const raw = JSON.parse(readFileSync4(path, "utf8"));
+  const raw = JSON.parse(readFileSync5(path, "utf8"));
   if (!validateRecipe(raw)) {
     throw new RecipeError(path, ajv.errorsText(validateRecipe.errors));
   }
@@ -9443,11 +9664,12 @@ function synthesize(plan) {
       continue;
     }
     const id = `G${nextId++}`;
-    const rule = {
+    const composed = {
       ...recipe.rule,
       id,
       research: { entryId: entry.id, provenance: entry.provenance }
     };
+    const rule = wireRuleThroughNode(composed);
     rules.push(rule);
     if (rule.check.type === "declarative") {
       mdFragments.push(compileDeclarativeMd(rule));
@@ -9486,7 +9708,7 @@ function synthesize(plan) {
 
 // packages/core/install/wire-eslint-r2.ts
 import { execFileSync } from "node:child_process";
-import { existsSync as existsSync3, readFileSync as readFileSync5, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync as existsSync3, readFileSync as readFileSync6, unlinkSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname as dirname5, join as join2, relative, resolve as resolve4 } from "node:path";
 import process2 from "node:process";
@@ -9905,7 +10127,7 @@ ${stderr.slice(0, 400)}`);
 }
 async function resolveAndWire(args) {
   const { configPath, cwd, runProbe, scope } = args;
-  const original = readFileSync5(configPath, "utf8");
+  const original = readFileSync6(configPath, "utf8");
   if (original.includes(R2_RULE_ID)) {
     return { status: "already-wired", original, modified: original };
   }
@@ -9960,7 +10182,7 @@ async function main() {
     console.log(`\xB7 wire-eslint-r2: ${configPath} not found \u2014 skipped`);
     process2.exit(0);
   }
-  const source = readFileSync5(configPath, "utf8");
+  const source = readFileSync6(configPath, "utf8");
   const result = await wireConfigSource(source);
   switch (result.status) {
     case "already-wired":
@@ -10079,7 +10301,7 @@ function mergeLiveRules(presetRules, liveRules) {
 function readLiveSnippet(snippetPath) {
   if (!existsSync4(snippetPath)) return {};
   try {
-    const raw = readFileSync6(snippetPath, "utf8").trim();
+    const raw = readFileSync7(snippetPath, "utf8").trim();
     if (!raw) return {};
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
@@ -10171,7 +10393,7 @@ async function main2() {
     if (!existsSync4(configPath)) {
       console.log(`  [dry-run] [synth-wire] ${configPath} not found \u2014 would skip`);
     } else {
-      const source2 = readFileSync6(configPath, "utf8");
+      const source2 = readFileSync7(configPath, "utf8");
       const result2 = await wireNRules(source2, mergedRules, {
         overrideKeys,
         // #829: enable plugin self-registration for presets that don't pre-register `rules-as-tests`
@@ -10191,7 +10413,7 @@ async function main2() {
     console.log(`  [synth-wire] ${configPath} not found \u2014 skipped`);
     process3.exit(0);
   }
-  const source = readFileSync6(configPath, "utf8");
+  const source = readFileSync7(configPath, "utf8");
   const result = await wireNRules(source, mergedRules, {
     overrideKeys,
     // #829: see the dry-run site above — enables plugin self-registration for presets lacking it.
