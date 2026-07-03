@@ -75,6 +75,11 @@ backends: factor the shared renderer contract + name the generic IR types (spec 
 the union-IR** the R-phase rejects (MT patch §9 p.1); extracting the frame from <3 backends risks
 exactly that. This stage is gated on S2 landing AND on the README-widening owner decision (§6).
 
+**Scope boundaries:** the §9.1 invention gaps (LLM-taint-as-IR-property, convention-lifecycle-as-data,
+dead-convention-detection, unified-suppression) are post-MVP milestones tracked in the design spec's
+"Deferred invention milestones" subsection — OUT of cargo-v0 scope; the §9 p.12 cross-pollination
+invariant is a standing per-backend rule (honored in substance today).
+
 **STOP lines (binding):**
 
 - MT implementation is BLOCKED on the **README-widening owner decision** (decisions doc Owner
@@ -103,12 +108,10 @@ exactly that. This stage is gated on S2 landing AND on the README-widening owner
 Per [.claude/rules/ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md) (trap catalogue) and §3
 (kickoff-author obligations), the traps active for an MT design/impl umbrella:
 
-**Active traps: T1, T4, T5, T11, T12, T13, T15, T16** (one-line why each):
+**Active traps: T1, T5, T11, T12, T13, T15, T16** (one-line why each):
 
 - **T1** («3 examples clean → done») — the capability matrix has 5 toolchains × many selectorClasses;
   sampling 3 cells clean is a sampling artifact. Depth floor = 5 cells per claim, per §2 of the rule.
-- **T4** (closing R-phase prematurely) — the R-phase is DONE (MT patch), but each stage's *design*
-  step must hit all declared surfaces, not stop at "looks comprehensive".
 - **T5** (bundling impl findings into design) — this is a planning/design umbrella; do not edit
   `packages/` code while authoring. Surface findings, propose mechanisms, leave the fix to the stage.
 - **T11** (custom solution without prior-art check) — every renderer/harness decision consults the
@@ -140,6 +143,12 @@ Per [.claude/rules/ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md) (
 - **T-MT-C** — «marking the cargo backend green from a designed-but-unfired harness». Counter: spec §8
   — `cargo`/`clippy` are ABSENT in the authoring env; live-fire is deferred to a Rust-toolchain env
   and MUST run before any green claim. Faking a pass here is the exact failure T15/T-MT-A guard.
+- **T-MT-D** — «a stage's design step declares completeness before hitting all its declared surfaces».
+  Repurposes canonical T4's shape ("closing R-phase prematurely") for THIS umbrella's I-phase: the
+  R-phase itself is DONE (MT patch), but each of S1/S2/S3's own *design* step must hit every surface
+  §1/§2 declares for that stage, not stop at "looks comprehensive". Counter: cross-check the stage's
+  output against its own declared surface list (spec §5 for S1's IR fields, §7 for S3's three
+  reference backends) before calling the design step done.
 
 ## §5 See also
 

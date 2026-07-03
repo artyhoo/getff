@@ -1,6 +1,6 @@
 # Multi-Toolchain "Convention Compiler" (MT) — decision resolutions
 
-> **Authoritative for:** MT-umbrella decision resolutions — Decision #3 (the four tier-vocabulary
+> **Authoritative for:** MT-umbrella decision resolutions — Decision #1 (the four tier-vocabulary
 > names, RESOLVED provisional) + the two surfaced owner decisions (README widening; AGENTS.md
 > fenced-block ownership) that BLOCK MT implementation.
 > **NOT authoritative for:** the MT design/architecture — see the
@@ -14,7 +14,7 @@ MT-dispatch time (README/INSTALL-FOR-AI line numbers drift).
 
 ---
 
-## Decision #3 — the four tier-vocabulary names (RESOLVED — provisional)
+## Decision #1 — the four tier-vocabulary names (RESOLVED — provisional)
 
 **Decision:** adopt the [MT patch §9 p.10](../../meta-factory/research-patches/2026-07-02-multi-toolchain-generalization.md)
 names as canonical. Four **orthogonal** vocabularies, four names — naming them now (rather than
@@ -24,7 +24,7 @@ and the kickoff STOP line "use these names, not placeholders".
 | Name | One-line definition | Populates / governs |
 |---|---|---|
 | **`provenance-tier`** | the doc-source trust level of a convention's evidence: Tier 0 curated / Tier 1 derived-from-installed-metadata / Tier 2 human-acked | `ConventionNode.provenance[]`; rides the trust-tiers resolver (S1/S2) |
-| **`confidence-tier`** | a clippy-style per-rule false-positive contract — deny-by-default rules must be FP-free | whether a rule may render as a gate-blocking rule vs a warning |
+| **`confidence-tier`** | a clippy-style per-rule false-positive contract, ordered by clippy's own multi-level lint ladder (`allow → warn → deny → deny-by-default`) — deny-by-default rules must be FP-free | whether a rule may render as a gate-blocking rule vs a warning |
 | **`capability-class`** | selector expressibility: `syntax \| type-aware \| dep-graph` | `ConventionNode.selectorClass`; each backend's matrix maps class → `yes/partial/no` |
 | **`assert-tier`** | the doc-test ladder: `compile_fail → no_run → run → should_panic`; Go `Output` tier | the (post-MVP) doc-test render surface only |
 
@@ -78,7 +78,8 @@ it is reproduced here so the decision is concrete, not hand-wavy:
 @@ -8 +8 @@
 -> Companion to AI Factory + aif-handoff + Superpowers (today) — broader AI-runtime integration on roadmap. Deploys into Claude Code / Cursor / Codex via standard project install. Converts every codebase rule into an executable artifact that fails at the earliest reachable channel (edit-time → pre-commit → pre-push → CI → production audit). Adds Living Documentation enforcement and 5-layer framework for AI-resistant codebases — server-side TypeScript and React/Next.js stacks.
 +> Companion to AI Factory + aif-handoff + Superpowers (today) — broader AI-runtime integration on roadmap. Deploys into Claude Code / Cursor / Codex via standard project install. Converts every codebase rule into an executable artifact that fails at the earliest reachable channel (edit-time → pre-commit → pre-push → CI → production audit). Adds Living Documentation enforcement and 5-layer framework for AI-resistant codebases — server-side TypeScript and React/Next.js stacks today, with a multi-toolchain roadmap (Rust/cargo next) via the Convention-Compiler design.
-@@ What stack does it support? (§237) — append after the react-native bullet @@
+@@ What stack does it support? (§237) — illustrative only: hand-apply after the react-native
+   bullet; NOT a `git apply`-able hunk (non-standard header, insertion point named in prose) @@
 +
 +### Multi-toolchain roadmap
 +

@@ -116,7 +116,7 @@ From one IR node, a backend renders up to six surfaces:
 | 3 | **AI-doc** | AGENTS.md/CLAUDE.md section — **composition over node SETS, not 1:1** (MT patch §9 p.4); every rendered paragraph carries anchor + enforcement-status line («Enforced: eslint ✅ · clippy ✅») | **IN** (the composition form; P1-validated) |
 | 4 | **doc-test** | rustdoc / Go Example / pytest-doctest / twoslash wrapper where native (§4.5 tier ladder) | **CUT from MVP** — negotiated extension |
 | 5 | **wiring** | hooks / CI at the toolchain's earliest reachable channel | **CUT from MVP** — negotiated extension |
-| 6 | **lockfile/detector** | fenced framework-owned blocks inside consumer-owned files + per-surface hashes; honest claim = «drift detected within one regenerate cycle», never «impossible» (MT patch §9 p.5) | **post-MVP milestone** — P3 proved it load-bearing (zero current tool reads the fenced content) |
+| 6 | **lockfile/detector** | fenced framework-owned blocks inside consumer-owned files + per-surface hashes; honest claim = «drift detected within one regenerate cycle», never «impossible» (MT patch §9 p.5) | **post-MVP milestone** — P3 proved it load-bearing (no current tool reads the `Enforces` assertion column) |
 
 **Surface 3 is composition, not projection** — the decisive P1 finding (MT patch §10 P1): the
 CLAUDE.md reverse-compile measured a 1:1 doc→node ratio of only 7.5% and an N:1 (composition) ratio
@@ -136,7 +136,7 @@ Owner decision #2 — the fenced-block ownership fork is an unresolved maintaine
 
 The IR node and its backends reference four **distinct** tier vocabularies. Naming them before the
 MT umbrella (rather than leaving placeholders) is a §9 p.10 obligation — the canonical names are
-resolved in the [decisions doc Decision #3](../plans/2026-07-03-multi-toolchain-convention-compiler.decisions.md):
+resolved in the [decisions doc Decision #1](../plans/2026-07-03-multi-toolchain-convention-compiler.decisions.md):
 
 - **`provenance-tier`** — the S1/S2 doc-source trust level (Tier 0 curated / Tier 1 derived /
   Tier 2 acked). Rides the trust-tiers resolver; populates `ConventionNode.provenance[]`.
@@ -171,8 +171,9 @@ one or two backends — risks the union-IR the R-phase rejected (MT patch §9 p.
 ## §8 Honest environment caveat (P4)
 
 The cargo firing harness can be **authored** in the MT umbrella but **not live-verified** until a
-Rust toolchain is present. Verified this session: `cargo`, `rustc`, `clippy-driver`, `ruff`, `go`
-are ABSENT; only `ast-grep 0.44.0` is installed. The P4 firing-test contract
+Rust toolchain is present. Verified this session (MT patch §10 P4): the Rust toolchain (`cargo`,
+`rustc`, `clippy`) is ABSENT in the current dev env; only `ast-grep 0.44.0` is installed. The P4
+firing-test contract
 (`{command: "cargo clippy --message-format=json", jsonPath: "$.message.code.code", expectedCode:
 "clippy::disallowed_methods"}`) is **grounded in documentation** (MT patch §2 JSON-diagnostics row +
 rustc `DiagnosticCode`), not invented — but no `cargo clippy` run has confirmed the JSON path
@@ -194,6 +195,43 @@ render) WERE live/demonstrated this session and need no re-run.
   README widening (TS/React pin → multi-toolchain), which is a deliberate maintainer edit
   (Artifact Ownership Contract) — surfaced, not decided, in the decisions doc.
 - **NOT `doc-level | process` selectors at v0** — deferred to the self-hosting milestone (§3).
+
+### Deferred invention milestones (patch §9.1 — "do not lose")
+
+MT patch §9.1 names four inventions under a verbatim "do not lose" banner — no ecosystem has them,
+getff would be building genuinely new ground. None of the four are v0 scope; each is dispositioned
+here explicitly so a future stage session does not have to guess deferred-vs-dropped:
+
+- **(a) LLM-taint as a typed IR property** — **NOT** a v0 `ConventionNode` field. The v0 node (§3)
+  stays minimal per MT patch §9 p.2, which fixes the v0 node shape and descopes `doc-level|process`;
+  adding a taint field now would be exactly the kind of union-IR scope creep §2 rejects. At v0, taint
+  stays a **frontend-boundary provenance concern** — the existing taint banner (frontends emit LLM
+  output only behind a provenance gate, §~44 above) — not an IR-level typed property. It becomes a
+  typed IR property only at this post-MVP milestone, if/when triggered.
+- **(b) Convention-lifecycle-as-data** — post-MVP milestone. The repo's own Class A/B/C practice
+  ([reviewer-discipline.md §5](../../../.claude/rules/reviewer-discipline.md),
+  [ci-tool-pinning.md §6](../../../.claude/rules/ci-tool-pinning.md)) exported to consumers as
+  promotion/demotion/retirement-with-evidence-triggers data, once a real consumer need surfaces it.
+  Out of cargo-v0 scope.
+- **(c) Dead-convention detection** — post-MVP milestone, knip/deptry-shaped (rule never fires across
+  the consumer corpus in N months ⇒ retirement signal). Out of cargo-v0 scope.
+- **(d) Unified suppression discipline** — post-MVP milestone, RUF100/`--report-unused-disable-
+  directives`-shaped (one suppression IR object rendering to `//nolint` / `# noqa` /
+  `eslint-disable` + one unused-suppression audit). Out of cargo-v0 scope.
+
+All four are **tracked, not v0** — the same "post-MVP milestone" status as render surface 6 (§5).
+They are not re-litigated per stage; a stage that wants to pull one forward must do so as an explicit,
+separate scope decision, not by osmosis during S1/S2/S3.
+
+**§9 p.12 cross-pollination invariant — a standing rule, not a deferred item.** MT patch §9 p.12
+records a maintainer directive: when toolchain X lacks a mechanism, the backend ports the
+best-of-class mechanism from another ecosystem rather than dropping the capability. Unlike (a)-(d)
+above, this is **already honored in substance today**, not something deferred: the ast-grep escape
+hatch fills the Rust/Python declarative-rule gap (§2 "Python enters via ast-grep escape hatch by
+default"; MT patch §9 p.8/P5), and `assert-tier` (§6) generalizes Go's `Output` tier + rustdoc
+`compile_fail` across every doc-test backend. This invariant is **standing** — every current and
+future backend (S2's cargo-v0 included) MUST follow it when it hits a per-toolchain gap; it is not a
+milestone to schedule.
 
 ## §10 See also
 
