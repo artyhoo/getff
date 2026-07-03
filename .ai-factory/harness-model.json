@@ -1,0 +1,79 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-session-bootstrap.sh\""
+      },
+      {
+        "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/deps-hash-check.sh\""
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "AskUserQuestion",
+        "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/ask-question-reminder.sh\""
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/validate-prompt.sh\""
+      },
+      {
+        "matcher": "Edit|Write",
+        "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-doc-authority.sh\""
+      },
+      {
+        "matcher": "Edit|Write",
+        "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh\""
+      },
+      {
+        "matcher": "Edit|Write",
+        "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-kickoff-traps.sh\""
+      },
+      {
+        "matcher": "Edit|Write",
+        "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-hook-marker.sh\""
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/runtime-bridge-dispatch.sh\""
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-worker-dispatch-channel.sh\""
+      }
+    ],
+    "Stop": [
+      {
+        "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/end-of-turn-reminder.sh\""
+      }
+    ],
+    "SubagentStart": [
+      {
+        "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-subagent-digest.sh\""
+      }
+    ],
+    "SubagentStop": [
+      {
+        "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/warn-subagent-report.sh\""
+      }
+    ],
+    "SessionStart": [
+      {
+        "command": "bash \"$CLAUDE_PROJECT_DIR/scripts/link-coordination.sh\" >/dev/null 2>&1 || true"
+      }
+    ]
+  },
+  "mcpServers": {
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp"
+    },
+    "deepwiki": {
+      "type": "http",
+      "url": "https://mcp.deepwiki.com/mcp"
+    }
+  },
+  "skillsDir": ".claude/skills"
+}
