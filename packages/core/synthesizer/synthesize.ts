@@ -14,6 +14,7 @@ import {
   declarativeRestrictedConfigEntry,
 } from './compile-declarative-md.ts';
 import { mergeEslintRuleConfig } from './merge-eslint-config.ts';
+import { wireRuleThroughNode } from './to-node.ts';
 import type { SynthesisPlan, SynthesizedRule } from './types.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -86,11 +87,19 @@ export function synthesize(plan: ResearchPlan): SynthesisPlan {
       continue;
     }
     const id = `G${nextId++}`;
-    const rule: SynthesizedRule = {
+    const composed: SynthesizedRule = {
       ...recipe.rule,
       id,
       research: { entryId: entry.id, provenance: entry.provenance },
     };
+    // MT S3b врезка: thread the composed rule through the IR plane — build a ConventionNode
+    // from its backbone, run the grammar gate (throws OUTWARD on failure), and route the
+    // declarative-syntax class through the shipped npm adapter. The output is reconstructed in
+    // `composed`'s own key iteration order so it is byte-EXACT (key order included) with the
+    // producer's rule. Corpus regen (canonical-regen: R14/R20 are declarative, so the adapter IS
+    // exercised) + snapshot.test.ts cover semantics via order-INSENSITIVE metrics; the
+    // ORDER-SENSITIVE byte lock is the JSON.stringify assertion in synthesizer/to-node.test.ts.
+    const rule = wireRuleThroughNode(composed);
     rules.push(rule);
     if (rule.check.type === 'declarative') {
       mdFragments.push(compileDeclarativeMd(rule));
