@@ -184,16 +184,30 @@ export function nonPortableShippedAgents(
   return out;
 }
 
+// The conformance harness (~1s) is deterministic — it reads the same rules/hooks/
+// docs and writes the same conformance-record.tsv every run. Two tests below each
+// consumed it, and both used to `execSync(bash HARNESS)` independently, so it ran
+// twice (~2s). Memoize LAZILY: the first consumer to run pays the single harness
+// pass and caches its TSV; the second reads the cache. The synthetic paired-negative
+// tests never call this, so they stay independent of the harness (and of each other).
+let _harnessTsv: string | null = null;
+function runHarnessOnce(): string {
+  if (_harnessTsv === null) {
+    execSync(`bash "${HARNESS}"`, { cwd: REPO_ROOT, stdio: 'pipe' });
+    _harnessTsv = readFileSync(RECORD_FILE, 'utf8');
+  }
+  return _harnessTsv;
+}
+
 describe('Principle 21 — agnosticism conformance', () => {
   it('runs the conformance harness (harness file must exist)', () => {
     expect(existsSync(HARNESS), `harness not found: ${HARNESS}`).toBe(true);
   });
 
   it('produces a conformance-record.tsv with at least 6 deterministic rows (population sentinel)', () => {
-    execSync(`bash "${HARNESS}"`, { cwd: REPO_ROOT, stdio: 'pipe' });
+    const tsv = runHarnessOnce();
     expect(existsSync(RECORD_FILE), `record file not produced: ${RECORD_FILE}`).toBe(true);
 
-    const tsv = readFileSync(RECORD_FILE, 'utf8');
     const dataRows = tsv
       .split('\n')
       .filter((line) => line.trim() !== '')
@@ -207,9 +221,7 @@ describe('Principle 21 — agnosticism conformance', () => {
   });
 
   it('all deterministic conformance probes report PORTABLE (zero non-PORTABLE findings)', () => {
-    // Harness already ran in the previous test; re-run to get a fresh record.
-    execSync(`bash "${HARNESS}"`, { cwd: REPO_ROOT, stdio: 'pipe' });
-    const tsv = readFileSync(RECORD_FILE, 'utf8');
+    const tsv = runHarnessOnce();
     const nonPortable = nonPortableFindings(tsv);
     expect(
       nonPortable,
