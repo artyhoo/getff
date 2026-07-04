@@ -18,6 +18,8 @@ e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/ru
 3ebcbeec56d57cb639db931b36a1d9dc69c7636b45935c0e74f7c7bad5dd7804  .claude/agents/rule-researcher.md
 2d9259521f752780d0a7fe6df7fc089d35907f3080280af8c264e5e61b96fec8  .claude/hooks/deps-hash-check.sh
 f6159ab2c6b5c23b937b439f181a7a5489973f51dc8267f4304d128c48eee567  .claude/settings.json
+707371153a072eb963ae4e3ecbcc0c1903fb620e7a671224e50a4815b577041e  .claude/skills/ai-doc/SKILL.md
+63e2db9eddec389a06822f8091a83737bfce8e2749de6af3a0be22132d0152e6  .claude/skills/ai-doc/anthropic-and-aif-residue.md
 bb9063836143c3e56c05175037c26e25121a2db821357d98728de4431c585c6d  .claude/skills/aif-doctor/SKILL.md
 a61194b1eb8ea92372cee7ad053b797d08f36d6d62f51c992aac015f4f97181b  .claude/skills/aif-doctor/helpers/heal.sh
 feb8117af8ed47e7651475cc8174fc49705538274c7c9fa200dda45d95616235  .claude/skills/aif-doctor/helpers/refresh-aif-base.sh
@@ -26,6 +28,8 @@ e3c6086efb6dbafaac285132c61c3da1f17ada581d1efe84986c1589ed1b905a  .claude/skills
 f8ff7a734f8f4d3a9367ea45a61e17f1cde292327596c300e41ac8bf276f9e66  .claude/skills/dispatcher/helpers/monitor-classify.sh
 e1784c032fb6366007c76da0dcbba0f9db6a6816e4d3d9d27e0128554838d0a0  .claude/skills/dispatcher/helpers/notify-gate.sh
 5d21f0757512eafe17f0be69a891dea8ddee4627b3bf71871e8a71536e3dab7f  .claude/skills/dispatcher/helpers/tg-notify.sh
+88ab675f245a2104586bf2548660cea941ef2f9c862d2fee79bcc0450c282d4f  .claude/skills/harvest/SKILL.md
+6e781c1ac5ad5a092d510a219fc88e2eec67618c56268970c28282f8690fdc52  .claude/skills/night-mode/SKILL.md
 0ae11367d1727717acc54fdc66dbffe4d2d2a26a9f99564f34f2a311dac1713c  .claude/skills/pipeline/SKILL.md
 7b016aef242405688029efd80b2e24dccabf3d03060a64cd019e522601fd990f  .claude/skills/pipeline/evals/RESULTS.md
 29731fcb8f314d897b786fbf6b840302bf7eb4dcc27e18d7cd5cb855b3341fee  .claude/skills/pipeline/evals/evals.json
@@ -69,12 +73,15 @@ dc81b0178b42ad6b120d92eeaa65de0bb60b0a0744c9205dcb6d7d7814d9bf5d  .claude/skills
 1eec4cec44402238c004dbcef2a953b0e19b0fbdd01f344e8ff46b87e3923bda  .claude/skills/pipeline/references/red-flags.md
 099f646a8f53b2faff048ac0404ebdfa8b42a12b5a610d74c68dcca499f4f39c  .claude/skills/pipeline/templates/meta-kickoff.template.md
 e279a989947be84b0fd28929640037ed4c5753b2d7adcb158129af3fa62d129d  .claude/skills/pipeline/templates/state.md.template
+6af6bdf809884e2e8451a39de3fcdab20a011b73c3b7dd112ee39ae6b737529a  .claude/skills/rule-research/SKILL.md
 1962fe3aa388ace8647ff1848257cfa2f0ed3c24450cda68f571a75fcc68b865  .claude/skills/rules-as-tests/SKILL.md
 9cf60a06f9448d9666799a640dc4d5a93aa7c24292adc85b00f20af914e7ecc7  .claude/skills/rules-as-tests/references/ai-traps.md
 b3f5b64d19c56b0803992419cb9bf8d04fd4a12db88f25484342fe1a583e42f5  .claude/skills/rules-as-tests/references/checks-map.md
 421649209ad31993e1ea89bb6e2a813254f2effd9a948da0798cadf11a7ddc93  .claude/skills/rules-as-tests/references/doc-organization.md
 e2bad837ee42f3c61cdbe440461721477d4761c6bfae24209b1504d3e673998f  .claude/skills/rules-as-tests/references/overview.md
 ab0683e5cdcdad176740a3a2a58a14d9fedd0aa75aa01cea83125d0ebe7d27d7  .claude/skills/rules-as-tests/references/self-testing-docs.md
+591d963e29b75df4c85bb9cea51bbbeab693d307fec4a63aded431ebb81a3f2c  .claude/skills/story/SKILL.md
+fb8f0e3ff1ff4ac63f0e8b27b9988e253ad797b29dd36116123b55d1f0c16874  .claude/skills/story/helpers/emit-story-prompt.sh
 a4a1d9a97e0c5b6e202a28735269056269a7668299c67a719bef9605117b8d55  .claude/skills/template-audit/SKILL.md
 5e6b0ef8592298f302c55be3ba5e6f08b3bde16796498851c3dbbfa49181d434  .claude/skills/tool-bootstrapping/SKILL.md
 18971ed38cd6a928cd9965ea202cb8fd0981d753aad6e57092603b33308d57bc  .claude/skills/tool-bootstrapping/references/decision-format.md
