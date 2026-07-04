@@ -44,9 +44,20 @@ CONSUMER_ROOT="${1:-${AIF_PROJECT_ROOT:-$(pwd)}}"
 MANIFEST="$CONSUMER_ROOT/.ai-factory/synthesizer-output/rules-manifest-additions.json"
 
 # ─── Degrade: manifest absent ─────────────────────────────────────────────────
+# Distinguish the two causes (issue #910): research artefacts genuinely absent vs present-
+# but-synthesis-emitted-nothing. Conflating them sent debugging down the wrong path when a
+# symlinked framework checkout silently skipped rule-bootstrap-cli's main().
 if [ ! -f "$MANIFEST" ]; then
   echo "  · check-generated-rule-mutation: manifest absent at $MANIFEST"
-  echo "    (80-rule-bootstrap skipped or no research artefacts — zero generated rules; skipped)"
+  _research_dir="$CONSUMER_ROOT/.ai-factory/rules-research"
+  if ls "$_research_dir"/*.research.json >/dev/null 2>&1; then
+    echo "    (research artefacts PRESENT under $_research_dir but synthesis emitted no manifest —"
+    echo "     rule-bootstrap ran and produced nothing; inspect the 80-rule-bootstrap step output,"
+    echo "     NOT the artefacts; skipped)"
+  else
+    echo "    (80-rule-bootstrap skipped or no research artefacts under $_research_dir —"
+    echo "     zero generated rules; skipped)"
+  fi
   exit 0
 fi
 
