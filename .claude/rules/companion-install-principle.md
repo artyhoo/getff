@@ -10,6 +10,7 @@ paths:
 <!-- inject: Companion/external-service install: detect-first, official installer only, NO version pin, free-on-subscription default. See §1-§3. -->
 
 > **Class:** B — compensating mechanism without CI test: an edit-time reminder injected by [`inject-matching-rule.sh`](../hooks/inject-matching-rule.sh) via the `<!-- globs: -->` marker above, paired with the CC-native `paths:` frontmatter sibling (read-time, whole-rule) — delivery channel per [rule-enforcement-channel-selection.md §3-§4](rule-enforcement-channel-selection.md). No CI gate yet — the no-version-pin principle is mechanically detectable but not yet enough manifest rows to warrant a gate (§4). Promotion to A (grep gate: no version pin in [`setup.d/companions.manifest`](../../setup.d/companions.manifest) + official-installer-only) in §4.
+> **Fires:** editing `setup.d/**` (companion install manifest/engine).
 > **Authoritative for:** how this project installs companions/external services — §1 the principle, §2 trigger, §3 the manifest mechanism, §4 promotion / retirement.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Build-vs-reuse macro discipline — see [build-first-reuse-default.md](build-first-reuse-default.md). No-paid-LLM-in-CI policy — see [no-paid-llm-in-ci.md](no-paid-llm-in-ci.md).
 

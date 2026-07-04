@@ -785,6 +785,21 @@ async function main(): Promise<void> {
     emit(r);
   }
 
+  // ── 4b. Rule-index render drift (CTX Stage 1) ────────────────────────────────
+  // .claude/rules/00-rule-index.md + the AGENTS.md `rule-index` fenced region must
+  // stay in sync with each rule's own Class:/Fires:/paths:/globs: header metadata.
+  // Earliest reachable channel for this ratchet (README#why-this-exists).
+  if (existsSync(resolve(REPO_ROOT, 'scripts/render-rule-index.mjs'))) {
+    const r = run('npx', ['tsx', 'scripts/render-rule-index.mjs', '--check']);
+    if (r.notFound) {
+      die(
+        '❌ npx/tsx not found. Install Node.js + tsx to enable rule-index drift check.',
+      );
+    }
+    if (r.exitCode !== 0) die('❌ rule-index drift detected:', r);
+    emit(r);
+  }
+
   // ── 5. Principles meta-tests (Phase 2) ───────────────────────────────────────
   {
     const r = run('npm', ['--prefix', CORE, 'run', 'test:principles']);

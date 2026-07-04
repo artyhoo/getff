@@ -12,6 +12,7 @@ paths:
 # Dual-implementation discipline — discipline rule
 
 > **Class:** A — the §5 drift-check + §6 marker-presence sketches ship as an executable check: [tests/agnosticism/probes/channel-coverage.sh](../../tests/agnosticism/probes/channel-coverage.sh) (Surface 8, CI-run by [packages/core/principles/21-agnosticism-conformance.test.ts](../../packages/core/principles/21-agnosticism-conformance.test.ts); seeded-break paired-negative in [tests/agnosticism/harness-self.test.sh](../../tests/agnosticism/harness-self.test.sh)) + the edit-time gate [.claude/hooks/check-hook-marker.sh](../hooks/check-hook-marker.sh) (§6, PostToolUse). The §8 *semantic* anti-patterns (`#two-prompts-drift` ≥3-line divergence, `#sync-by-copy-paste`, `#brand-name-detection`) remain reviewer-time judgment, not gated. Promotion history: §9.
+> **Fires:** shipping a new CC-native hook + choosing its delivery channel(s).
 > **Authoritative for:** dual-implementation discipline rule — §1 problem, §2 triggers + non-triggers, §3 audience triage, §4 detection mechanism, §5 drift check, §6 CC-bias mitigation, §7 single source of truth, §8 anti-patterns, §9 promotion / retirement, §10 see also.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Build-vs-reuse (upstream adoption vs build) — see [build-first-reuse-default.md](build-first-reuse-default.md). Search-coverage discipline — see [phase-research-coverage.md](phase-research-coverage.md).
 

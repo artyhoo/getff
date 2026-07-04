@@ -1,6 +1,9 @@
 # Egress no-API-bypass — host-push-default discipline rule
 
+<!-- channel: skill-embed .claude/skills/harvest/SKILL.md#egress -->
+
 > **Class:** B — compensating mechanism without a CI test: the discipline is about **egress channel choice at harvest time** (which `git push` channel a finished aif-agent branch lands through), and a branch-scoped CI run cannot assert "this branch was landed via the host pre-push hook rather than the Git-Data-API". The compensating mechanism is the [/harvest](../skills/harvest/SKILL.md) §1 procedure (host-push default, API break-glass) + the existing [`scripts/run-local-ci-sweep.sh`](../../scripts/run-local-ci-sweep.sh) gate-substitute on the break-glass path. Promotion criterion in §4.
+> **Fires:** harvesting/egressing a finished aif-agent branch to a PR.
 > **Authoritative for:** the egress channel-preference rule — §1 the two channels (host-push default / API break-glass), §2 trigger, §3 mechanism + why the container cannot push, §4 promotion / retirement, §5 §1.7 self-reflexive note.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). The egress primitives themselves (`harvest.ts`, `harvest-via-api.sh`) — owned by `packages/runtime-bridge` + [/dispatcher](../skills/dispatcher/SKILL.md). The harvest procedure surface — owned by [/harvest §1](../skills/harvest/SKILL.md) (this rule sets the channel preference that §1 implements). CI tool-pinning (a different egress surface) — see [ci-tool-pinning.md](ci-tool-pinning.md).
 

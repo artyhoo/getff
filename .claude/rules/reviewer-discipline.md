@@ -1,6 +1,9 @@
 # Reviewer discipline — discipline rule
 
+<!-- channel: agent agents/reviewer-discipline.md#reviewer-discipline -->
+
 > **Class:** C — prose-only, no current compensating mechanism (reclassed from B per Track 3 §3.3, commit 4d52a72). Promotion criterion in §4.
+> **Fires:** review sessions (`/review`, `/ultrareview`, or a prose "проверь"/verdict ask).
 > **Authoritative for:** reviewer-discipline rule — §1 reviewer/orchestrator role separation, §2 surface-as-decision-needed pattern, §3 anti-patterns (`#role-swap-mid-session`, `#strategy-decided-by-reviewer`), §4 promotion / retirement triggers.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Companion to orchestrator skill — global skill at `~/.claude/skills/reviewer/SKILL.md` may reference this rule but is not required for the rule to apply (project rule is self-contained).
 
@@ -13,6 +16,8 @@ When acting as reviewer (after `/review`, `/ultrareview`, or any explicit «пр
 Specifically: if a review finding requires choosing project strategy (e.g. «is this v2 future spec or v1 active requirement?», «should we adopt approach A or B?»), surface it as **decision-needed** with both legitimate options described, and let the maintainer either confirm explicitly or start a separate `/orchestrator` session.
 
 The reviewer can describe what each path implies; **the reviewer cannot pick between them.**
+
+**CTX Stage 1 alt-channel note:** this rule's run-moment protocol is condensed in [`agents/reviewer-discipline.md`](../../agents/reviewer-discipline.md) — a review session should read it at review time. A prose `проверь`/review ask that bypasses this agent protocol entirely is accepted partial coverage (not gated) and counts against the [§4](reviewer-discipline.md) incident counter if a role-swap results.
 
 ## §2 Surface-as-decision-needed pattern
 

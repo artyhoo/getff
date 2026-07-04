@@ -23,28 +23,32 @@ Universal format read by Cursor, Codex CLI, Aider, Windsurf, and other non-CC ha
 **On Claude Code:** `.claude/rules/*.md` auto-load at session start — no manual action needed.
 **On other harnesses (Cursor, Codex, Aider, Windsurf):** these rules do NOT auto-load. Read the ones relevant to your task from the list below before starting.
 
-| Rule file | Enforces |
-|---|---|
-| [`.claude/rules/ai-laziness-traps.md`](.claude/rules/ai-laziness-traps.md) | AI laziness trap catalogue with countermeasures; applied to all R-phases, audits, and open-ended AI tasks |
-| [`.claude/rules/attention-is-not-a-mechanism.md`](.claude/rules/attention-is-not-a-mechanism.md) | A load-bearing check must be a deterministic gate or a named cold-agent protocol; bare human/AI attention is merge authority, never the detection layer |
-| [`.claude/rules/build-first-reuse-default.md`](.claude/rules/build-first-reuse-default.md) | Project-wide default: ADOPT upstream before BUILD; macro-level scope discipline for capability proposals |
-| [`.claude/rules/ci-tool-pinning.md`](.claude/rules/ci-tool-pinning.md) | CI audit tool installs in `.github/workflows/` must use version pins; local dep installs must use `npm ci` (not `npm install`) |
-| [`.claude/rules/companion-install-principle.md`](.claude/rules/companion-install-principle.md) | Companions/external services install via their own official installer; no version pins; no reimplementing steps |
-| [`.claude/rules/doc-authority-hierarchy.md`](.claude/rules/doc-authority-hierarchy.md) | Every canonical doc declares its authority scope (Authoritative-for header) to prevent goal-redefinition drift |
-| [`.claude/rules/dual-implementation-discipline.md`](.claude/rules/dual-implementation-discipline.md) | CC-native and portable fallback delivery channels; when each applies; how to prevent drift between them |
-| [`.claude/rules/egress-no-api-bypass.md`](.claude/rules/egress-no-api-bypass.md) | Aif-agent branch egress lands via host `git push` by default (runs the real pre-push gate); Git-Data-API land is break-glass only |
-| [`.claude/rules/kickoff-staging-placement.md`](.claude/rules/kickoff-staging-placement.md) | Dispatch-input kickoffs must be merged to staging before `/pipeline`/aif dispatch; edit-time reminder via the rule injector |
-| [`.claude/rules/language-discipline.md`](.claude/rules/language-discipline.md) | Internal machinery is English-only; human-facing output is Russian when AIF_HOOK_LANG=ru, else English; match-metadata stays bilingual |
-| [`.claude/rules/memory-codification.md`](.claude/rules/memory-codification.md) | Durable behavioural conventions must be codified in the repo; memory is a pointer, not the source of truth |
-| [`.claude/rules/no-paid-llm-in-ci.md`](.claude/rules/no-paid-llm-in-ci.md) | No API-billed LLM calls in CI/GH Actions; AI checks run via subscription sessions only |
-| [`.claude/rules/parallel-subwave-isolation.md`](.claude/rules/parallel-subwave-isolation.md) | Parallel AI sessions require git worktrees to avoid branch race and shared-workdir contamination |
-| [`.claude/rules/phase-research-coverage.md`](.claude/rules/phase-research-coverage.md) | R-phase research must cover all surfaces with file:line evidence; search-coverage 6-item checklist |
-| [`.claude/rules/recommendation-laziness-discipline.md`](.claude/rules/recommendation-laziness-discipline.md) | Recommendations need at least one evidence-bearing tool call in the same turn; ambiguous forks route via AskUserQuestion |
-| [`.claude/rules/research-source-trust.md`](.claude/rules/research-source-trust.md) | Rule-research provenance is gated by a tiered trust model (builtin / derived / consumer-acked); extend trust via data, not framework source |
-| [`.claude/rules/reviewer-discipline.md`](.claude/rules/reviewer-discipline.md) | Reviewer sessions surface decision-needed forks; they do not choose project strategy |
-| [`.claude/rules/rule-enforcement-channel-selection.md`](.claude/rules/rule-enforcement-channel-selection.md) | Every rule fails at the earliest reachable channel; CI is the last resort, not the primary gate |
-| [`.claude/rules/skill-description-quality.md`](.claude/rules/skill-description-quality.md) | SKILL.md `description`-field quality discipline (deferred Class C); promotion at ≥3 misrouting incidents / 6 months |
-| [`.claude/rules/source-before-shape.md`](.claude/rules/source-before-shape.md) | Before creating a capability (skill/agent/module) or scoping a dispatch, read the authoritative source (SSOT/existing skills, or the spec) first as an input to the shape — not a post-hoc trailer; edit-time reminder via the rule injector |
+<!-- getff:begin section=rule-index plan=scripts/render-rule-index.mjs -->
+One line per rule — full text: read `.claude/rules/<name>.md` (index: `.claude/rules/00-rule-index.md`).
+
+| Rule | Class | Fires | Channel(s) |
+|---|---|---|---|
+| `ai-laziness-traps.md` | A | any R-phase, audit, sample-based investigation, or open-ended AI task. | always-on core |
+| `attention-is-not-a-mechanism.md` | C | designing any load-bearing check (gate vs. bare human/AI attention). | always-on core |
+| `build-first-reuse-default.md` | A | any capability commit / new-capability proposal. | always-on core |
+| `ci-tool-pinning.md` | A | editing `.github/workflows/**`. | paths:(2), edit-time inject |
+| `companion-install-principle.md` | B | editing `setup.d/**` (companion install manifest/engine). | paths:(1), edit-time inject |
+| `doc-authority-hierarchy.md` | A | creating/editing any canonical or shipped consumer-facing doc. | paths:(4), edit-time inject |
+| `dual-implementation-discipline.md` | A | shipping a new CC-native hook + choosing its delivery channel(s). | paths:(3), edit-time inject |
+| `egress-no-api-bypass.md` | B | harvesting/egressing a finished aif-agent branch to a PR. | skill-embed |
+| `kickoff-staging-placement.md` | B | editing/creating any file under `.claude/orchestrator-prompts/<umbrella>/`. | paths:(1), edit-time inject |
+| `language-discipline.md` | A | writing any internal machinery or human-facing output. | paths:(3), edit-time inject |
+| `memory-codification.md` | B | writing a durable behavioural convention to agent memory. | hook |
+| `no-paid-llm-in-ci.md` | A | editing `.github/workflows/**` or `.github/actions/**`. | paths:(2), edit-time inject |
+| `parallel-subwave-isolation.md` | C | dispatching parallel sub-wave / batch AI sessions. | paths:(1), edit-time inject |
+| `phase-research-coverage.md` | A | phase entry research, prior-art lookups, or closing a negative-existence claim. | paths:(4) |
+| `recommendation-laziness-discipline.md` | C | before issuing an inline-chat verdict/recommendation or hitting an ambiguous fork. | digest |
+| `research-source-trust.md` | A | authoring a rule-research provenance entry / resolving allowed sources. | paths:(2), edit-time inject, skill-embed |
+| `reviewer-discipline.md` | C | review sessions (`/review`, `/ultrareview`, or a prose "проверь"/verdict ask). | agent |
+| `rule-enforcement-channel-selection.md` | B | codifying any new rule / choosing its enforcement channel. | paths:(2), edit-time inject |
+| `skill-description-quality.md` | C | authoring/updating any SKILL.md `description` field. | paths:(1), edit-time inject |
+| `source-before-shape.md` | B | creating a new SKILL.md/agent/module, or authoring a dispatch/kickoff. | paths:(3), edit-time inject |
+<!-- getff:end section=rule-index -->
 
 ## Key files for contributors
 

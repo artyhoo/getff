@@ -8,6 +8,7 @@ paths:
 # Rule-enforcement channel selection — discipline rule
 
 > **Class:** B — compensating mechanism shipped: [`.claude/hooks/inject-matching-rule.sh`](../hooks/inject-matching-rule.sh) (PostToolUse path-scoped rule-injector, the §4 mechanism) + a deterministic self-test (`packages/core/hooks/inject-matching-rule.test.ts`). **Activation confirmed** — PostToolUse `Edit|Write` entry wired at `.claude/settings.json:114`. Promotion to A (principle test on rule-channel-declaration) in §6. (Codified Class C 2026-05-22; promoted to B the same wave when the injector shipped — no longer "prose-only".)
+> **Fires:** codifying any new rule / choosing its enforcement channel.
 > **Authoritative for:** rule-enforcement-channel-selection discipline — §1 the two-axis principle, §2 triggers/non-triggers, §3 the selection procedure, §4 channel catalogue (this repo), §5 anti-patterns, §6 promotion/retirement.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Enforcement *ordering in time* (edit→pre-commit→pre-push→CI→audit) — that is the README "earliest reachable channel" invariant; this rule is its *delivery-scope* companion. No-paid-LLM constraint on any proposed mechanism — see [no-paid-llm-in-ci.md](no-paid-llm-in-ci.md).
 

@@ -1,6 +1,7 @@
 # Attention is not a mechanism — discipline rule
 
 > **Class:** C — prose-only; promotion criterion in §3.
+> **Fires:** designing any load-bearing check (gate vs. bare human/AI attention).
 > **Authoritative for:** the attention-is-not-a-mechanism discipline — §1 the rule (human/AI
 > attention may be merge AUTHORITY, never the DETECTION layer), §2 anti-patterns, §3 promotion.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Reviewer role

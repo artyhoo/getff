@@ -29,7 +29,12 @@ allowed-tools:
 
 ---
 
-## §1 — Egress (push the committed work, never the dirty tree)
+## §1 — Egress (push the committed work, never the dirty tree) {#egress}
+
+<!-- CTX Stage 1 skill-embed anchor: .claude/rules/egress-no-api-bypass.md carries a
+     "channel: skill-embed" token pointing here. This §1 already IS the run-moment
+     procedure implementing that rule's §1 channel preference (host-push default,
+     API break-glass) — see step 4/5 below. -->
 
 Harvest the **committed** in-scope work only. aif worktrees arrive polluted (out-of-scope dirty files) on a stale base — the real work is in the commits, not the working tree.
 

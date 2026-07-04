@@ -7,10 +7,12 @@ paths:
 
 <!-- globs: packages/core/research/**, .ai-factory/research-allowlist.json -->
 <!-- inject: Rule: research source trust requires Tier 0/1/2 provenance; new trust grants are data changes (.ai-factory/research-allowlist.json), never source edits. See research-source-trust.md §1. -->
+<!-- channel: skill-embed .claude/skills/rule-research/SKILL.md#research-run -->
 
 # Research-source trust tiers — discipline rule
 
 > **Class:** A — companion principle test shipped at [packages/core/principles/30-research-source-trust.test.ts](../../packages/core/principles/30-research-source-trust.test.ts).
+> **Fires:** authoring a rule-research provenance entry / resolving allowed sources.
 > **Authoritative for:** the trust-tier discipline for rule-research provenance — §1 the tier model (pointer, not a copy), §2 the §4.5 re-tightening trigger, §3 anti-patterns, §4 ecosystem-prefix parsing (shipped in S4), §5 promotion / retirement.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). The resolver implementation — see [packages/core/research/allowlist-resolver.ts](../../packages/core/research/allowlist-resolver.ts). Full tier architecture + threat model — see the umbrella kickoff (below).
 
