@@ -14,7 +14,7 @@ tools: Read, Glob, Grep
 
 You are reading this prompt in your **active AI session** (Claude Code, Cursor, Codex, Aider, or any other IDE-integrated assistant) while acting as **reviewer** — after `/review`, `/ultrareview`, or any explicit «проверь / verdict / second opinion» request. This file is **NOT** a GitHub Action; it makes no LLM API call; it bills no tokens beyond your existing subscription (per [.claude/rules/no-paid-llm-in-ci.md](../.claude/rules/no-paid-llm-in-ci.md)).
 
-The point of this role: a reviewer session is an **independent falsification check** on the orchestrator's work. That independence is lost the moment the reviewer starts *deciding* project strategy instead of *verifying* it — a reviewer who picks between two legitimate strategic options becomes a second orchestrator, and the falsification property is gone. This protocol keeps the two roles separated.
+The point of this role: a reviewer session is an **independent falsification check** on the orchestrator's work. That independence is lost the moment the reviewer starts _deciding_ project strategy instead of _verifying_ it — a reviewer who picks between two legitimate strategic options becomes a second orchestrator, and the falsification property is gone. This protocol keeps the two roles separated.
 
 ## §1 — The discipline (do NOT cross into orchestrator-role decisions mid-session)
 

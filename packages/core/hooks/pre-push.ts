@@ -792,7 +792,9 @@ async function main(): Promise<void> {
   if (existsSync(resolve(REPO_ROOT, 'scripts/render-rule-index.mjs'))) {
     const r = run('npx', ['tsx', 'scripts/render-rule-index.mjs', '--check']);
     if (r.notFound) {
-      die('❌ npx/tsx not found. Install Node.js + tsx to enable rule-index drift check.');
+      die(
+        '❌ npx/tsx not found. Install Node.js + tsx to enable rule-index drift check.',
+      );
     }
     if (r.exitCode !== 0) die('❌ rule-index drift detected:', r);
     emit(r);
