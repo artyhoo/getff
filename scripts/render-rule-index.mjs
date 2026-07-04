@@ -27,10 +27,17 @@
  * `node` cannot load it on Node <22.6). Precedent: scripts/render-harness-config.mjs --write/--check.
  */
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
 import { join, dirname, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { findRegions, injectRegion, regionsMatch } from '../packages/core/composition/fence.ts';
+import {
+  checkPathsGlobsParity as sharedCheckPathsGlobsParity,
+  extractHeaderField as sharedExtractHeaderField,
+  extractFrontmatterPaths as sharedExtractFrontmatterPaths,
+  extractGlobsMarker as sharedExtractGlobsMarker,
+  extractChannelMarkers as sharedExtractChannelMarkers,
+  extractLivenessExemptions as sharedExtractLivenessExemptions,
+} from '../packages/core/principles/rule-channel-glob.ts';
 
 const RULE_INDEX_SECTION_ID = 'rule-index';
 // This renderer is its own "plan" — there is no DocPlan JSON backing the rule index; the fence
@@ -46,11 +53,6 @@ const TIER0_CORE = new Set([
   'attention-is-not-a-mechanism',
   'ai-laziness-traps',
 ]);
-
-// Subset grammar mirrors inject-matching-rule.sh:44-51 glob_match: `prefix/**` (prefix may
-// contain slashes, e.g. ".github/workflows/**"), `*.ext` (suffix match), or an exact path —
-// each alternative is anchored so a pattern must be wholly one shape, never a mix.
-const GLOB_SUBSET_RE = /^(?:[^*]+\/\*\*|\*\.[^*/]+|[^*]+)$/; // prefix/** | *.ext | exact
 
 function findRoot(start) {
   let d = resolve(start);
@@ -70,101 +72,10 @@ function listRuleFiles(root) {
     .map((f) => join(dir, f));
 }
 
-/** Extract the first `> **Key:** value` line's value (may span the rest of that single line). */
-function extractHeaderField(source, key) {
-  const re = new RegExp(`^>\\s*\\*\\*${key}:\\*\\*\\s*(.+)$`, 'm');
-  const m = source.match(re);
-  return m ? m[1].trim() : null;
-}
-
-/** Parse YAML frontmatter `paths:` list (simple `- "..."` / `- '...'` / `- ...` lines only). */
-function extractFrontmatterPaths(source) {
-  const fmMatch = source.match(/^---\n([\s\S]*?)\n---/);
-  if (!fmMatch) return null;
-  const fm = fmMatch[1];
-  const pathsMatch = fm.match(/^paths:\n((?:\s*-\s*.+\n?)+)/m);
-  if (!pathsMatch) return null;
-  return pathsMatch[1]
-    .split('\n')
-    .map((l) => l.trim())
-    .filter((l) => l.startsWith('-'))
-    .map((l) => l.replace(/^-\s*/, '').replace(/^['"]|['"]$/g, '').trim())
-    .filter(Boolean);
-}
-
-/** Parse the `<!-- globs: a, b, c -->` marker (comma-separated glob subset). */
-function extractGlobsMarker(source) {
-  const m = source.match(/^[ \t]*<!--[ \t]*globs:(.*?)-->/m);
-  if (!m) return null;
-  return m[1]
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
-/** Parse ALL `<!-- channel: <mechanism> <artifact>#<anchor> -->` markers (a rule may carry several). */
-function extractChannelMarkers(source) {
-  const out = [];
-  const re = /^[ \t]*<!--[ \t]*channel:(.*?)-->/gm;
-  let m;
-  while ((m = re.exec(source)) !== null) {
-    const val = m[1].trim();
-    if (val) out.push(val);
-  }
-  return out;
-}
-
-/** One glob-subset token check: prefix/** | *.ext | exact (mirrors inject-matching-rule.sh:19-20). */
-function isSubsetGlob(pattern) {
-  return GLOB_SUBSET_RE.test(pattern);
-}
-
-/** Parse `<!-- glob-liveness: allow <pattern> <reason> -->` escape-hatch markers (mirrors the
- *  ci-tool-pinning.md §3 `# ci-tool-pin: allow <reason>` idiom): a rule author declares — inline,
- *  visibly, with a reason — that a specific paths:/globs: pattern is intentionally forward-scoped
- *  (e.g. a directory that will hold files once a feature ships) and should not fail the liveness
- *  check today. Keyed by the exact pattern string so the exemption is scoped, not blanket. */
-function extractLivenessExemptions(source) {
-  const out = new Set();
-  const re = /^[ \t]*<!--[ \t]*glob-liveness:[ \t]*allow[ \t]+(\S+)(?:[ \t]+.*)?-->/gm;
-  let m;
-  while ((m = re.exec(source)) !== null) out.add(m[1]);
-  return out;
-}
-
-/** An exact-path pattern that is deliberately gitignored (a per-consumer scaffold file this repo
- *  never creates, e.g. `.ai-factory/research-allowlist.json` per .gitignore:42) is not "dead" in
- *  the typo/broken-reference sense — it is a legitimate target that will only exist post-install.
- *  Detected via `git check-ignore` (deterministic, no hardcoded allowlist) rather than assumed. */
-function isDeliberatelyGitignoredExact(root, pattern) {
-  if (pattern.includes('*')) return false; // only applies to exact-path patterns
-  try {
-    execFileSync('git', ['check-ignore', '-q', pattern], { cwd: root });
-    return true; // exit 0 = ignored
-  } catch (e) {
-    return false; // exit 1 = not ignored, or git unavailable
-  }
-}
-
-/** Does `pattern` (prefix/** | *.ext | exact) match at least one tracked file? */
-function globHasLiveMatch(root, pattern) {
-  let tracked;
-  try {
-    tracked = execFileSync('git', ['ls-files'], { cwd: root, encoding: 'utf8' }).split('\n').filter(Boolean);
-  } catch {
-    return true; // no git available — cannot assert liveness; do not false-fail
-  }
-  if (pattern.endsWith('/**')) {
-    const prefix = pattern.slice(0, -2); // keep trailing '/'
-    return tracked.some((f) => f.startsWith(prefix));
-  }
-  if (pattern.startsWith('*.')) {
-    const ext = pattern.slice(1);
-    return tracked.some((f) => f.endsWith(ext));
-  }
-  if (tracked.includes(pattern)) return true;
-  return isDeliberatelyGitignoredExact(root, pattern);
-}
+// Header-marker parsers (extractHeaderField, extractFrontmatterPaths, extractGlobsMarker,
+// extractChannelMarkers, extractLivenessExemptions) now live in the shared module
+// (packages/core/principles/rule-channel-glob.ts) — imported above as sharedExtract* — so the
+// renderer and principle 31's gate parse the SAME markers with the SAME regexes.
 
 /** Derive the rule's rendered channel string(s) for the index line. */
 function deriveChannels(name, fields) {
@@ -185,42 +96,30 @@ function deriveChannels(name, fields) {
 function parseRule(path, root) {
   const source = readFileSync(path, 'utf8');
   const name = path.split('/').pop().replace(/\.md$/, '');
-  const classField = extractHeaderField(source, 'Class');
-  const fires = extractHeaderField(source, 'Fires');
+  const classField = sharedExtractHeaderField(source, 'Class');
+  const fires = sharedExtractHeaderField(source, 'Fires');
   if (!classField) throw new Error(`${relative(root, path)}: missing "> **Class:**" header line`);
   if (!fires) throw new Error(`${relative(root, path)}: missing "> **Fires:**" header line`);
   const classLetter = (classField.match(/^([ABC])\b/) || [])[1] ?? '?';
 
-  const paths = extractFrontmatterPaths(source);
-  const globsMarker = extractGlobsMarker(source);
-  const channelMarkers = extractChannelMarkers(source);
-  const livenessExemptions = extractLivenessExemptions(source);
+  const paths = sharedExtractFrontmatterPaths(source);
+  const globsMarker = sharedExtractGlobsMarker(source);
+  const channelMarkers = sharedExtractChannelMarkers(source);
+  const livenessExemptions = sharedExtractLivenessExemptions(source);
 
   return { name, path, source, classField, classLetter, fires, paths, globsMarker, channelMarkers, livenessExemptions };
 }
 
 /** §(iii) cross-check: paths: vs <!-- globs: --> must be SET-EQUAL, subset-grammar, and LIVE
- *  (unless a per-pattern `<!-- glob-liveness: allow <pattern> <reason> -->` escape hatch is present). */
+ *  (unless a per-pattern `<!-- glob-liveness: allow <pattern> <reason> -->` escape hatch is present).
+ *  Delegates to the shared module (packages/core/principles/rule-channel-glob.ts) — the SAME
+ *  function principle 31 imports, so the renderer and the gate can never drift apart
+ *  (#sync-by-copy-paste, dual-implementation-discipline.md §8). */
 function checkPathsGlobsParity(rule, root) {
-  const errs = [];
-  if (!rule.paths || !rule.globsMarker) return errs; // only applies when BOTH present
-  const a = new Set(rule.paths);
-  const b = new Set(rule.globsMarker);
-  if (a.size !== b.size || [...a].some((p) => !b.has(p))) {
-    errs.push(
-      `${rule.name}.md: paths: [${rule.paths.join(', ')}] != globs: [${rule.globsMarker.join(', ')}] — the two glob sets must be identical (rule-enforcement-channel-selection.md §4 dual-pair invariant)`,
-    );
-  }
-  for (const pat of new Set([...rule.paths, ...rule.globsMarker])) {
-    if (!isSubsetGlob(pat)) {
-      errs.push(`${rule.name}.md: pattern "${pat}" is not in the supported subset (prefix/**, *.ext, or exact)`);
-      continue;
-    }
-    if (!globHasLiveMatch(root, pat) && !rule.livenessExemptions.has(pat)) {
-      errs.push(`${rule.name}.md: pattern "${pat}" matches NO tracked file (dead glob) — add <!-- glob-liveness: allow ${pat} <reason> --> if intentionally forward-scoped`);
-    }
-  }
-  return errs;
+  return sharedCheckPathsGlobsParity(
+    { name: rule.name, paths: rule.paths, globsMarker: rule.globsMarker, livenessExemptions: rule.livenessExemptions },
+    root,
+  );
 }
 
 function renderIndexBlock(rows) {
