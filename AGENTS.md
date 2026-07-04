@@ -59,3 +59,23 @@ Universal format read by Cursor, Codex CLI, Aider, Windsurf, and other non-CC ha
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for full contributor details (hook setup, bypass policy, PR strategy).
+
+## Configuration access
+
+<!-- getff:begin section=configuration-access plan=packages/core/composition/fixtures/root-agents-demo.docplan.json -->
+_Generated demo region (MT stage 4): fixture conventions rendered from Convention IR; enforcement lines are derived from live RenderOutcomes — see spec §5.1._
+
+### Configuration access
+
+Read configuration through the injected config accessor, never std::env::var directly
+<!-- @nodes: no-direct-env-var -->
+> Enforced: cargo-clippy-toml ✅, npm-eslint-declarative — FF7001 (typed rules are not expressible in the no-restricted-syntax declarative class; route to a type-aware backend (post-v0))
+> Never (fires): fn main() { let _ = std::env::var("HOME"); }
+> Always (clean): fn main() { let _ = app_config::env_var("HOME"); }
+
+Read configuration through the injected config accessor, never process.env directly
+<!-- @nodes: no-direct-process-env -->
+> Enforced: cargo-clippy-toml — FF7001 (not expressible in clippy.toml; route to the ast-grep escape-hatch backend (post-v0)), npm-eslint-declarative ✅
+> Never (fires): const url = process.env.DATABASE_URL;
+> Always (clean): const url = config.get('databaseUrl');
+<!-- getff:end section=configuration-access -->
