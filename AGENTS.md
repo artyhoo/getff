@@ -69,13 +69,13 @@ _Generated demo region (MT stage 4): fixture conventions rendered from Conventio
 
 Read configuration through the injected config accessor, never std::env::var directly
 <!-- @nodes: no-direct-env-var -->
-> Enforced: cargo-clippy-toml ✅, npm-eslint-declarative — FF7001 (typed rules are not expressible in the no-restricted-syntax declarative class; route to a type-aware backend (post-v0))
+> Enforced: cargo-clippy-toml ✅ · npm-eslint-declarative — FF7001 (typed rules are not expressible in the no-restricted-syntax declarative class; route to a type-aware backend (post-v0))
 > Never (fires): fn main() { let _ = std::env::var("HOME"); }
 > Always (clean): fn main() { let _ = app_config::env_var("HOME"); }
 
 Read configuration through the injected config accessor, never process.env directly
 <!-- @nodes: no-direct-process-env -->
-> Enforced: cargo-clippy-toml — FF7001 (not expressible in clippy.toml; route to the ast-grep escape-hatch backend (post-v0)), npm-eslint-declarative ✅
+> Enforced: cargo-clippy-toml — FF7001 (not expressible in clippy.toml; route to the ast-grep escape-hatch backend (post-v0)) · npm-eslint-declarative ✅
 > Never (fires): const url = process.env.DATABASE_URL;
 > Always (clean): const url = config.get('databaseUrl');
 <!-- getff:end section=configuration-access -->

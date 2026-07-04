@@ -33,9 +33,9 @@ const ROOT_AGENTS_MD = join(HERE, '..', '..', '..', '..', 'AGENTS.md');
 // hardcoded into compose(). These goldens are what the shipped code emits from the live facts;
 // the ratchet below proves the committed doc carries exactly them.
 const GOLDEN_CARGO_NODE_ENFORCED =
-  '> Enforced: cargo-clippy-toml ✅, npm-eslint-declarative — FF7001 (typed rules are not expressible in the no-restricted-syntax declarative class; route to a type-aware backend (post-v0))';
+  '> Enforced: cargo-clippy-toml ✅ · npm-eslint-declarative — FF7001 (typed rules are not expressible in the no-restricted-syntax declarative class; route to a type-aware backend (post-v0))';
 const GOLDEN_NPM_NODE_ENFORCED =
-  '> Enforced: cargo-clippy-toml — FF7001 (not expressible in clippy.toml; route to the ast-grep escape-hatch backend (post-v0)), npm-eslint-declarative ✅';
+  '> Enforced: cargo-clippy-toml — FF7001 (not expressible in clippy.toml; route to the ast-grep escape-hatch backend (post-v0)) · npm-eslint-declarative ✅';
 
 describe('root-AGENTS.md demo — ratchet (T15 self-application: byte-gate our own root doc)', () => {
   it('the committed ROOT AGENTS.md region is BYTE-equal to the re-composed demo region', () => {
