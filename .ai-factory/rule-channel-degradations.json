@@ -1,0 +1,116 @@
+{
+  "degradations": [
+    {
+      "rule": "ai-laziness-traps",
+      "harness": "zcode",
+      "status": "degraded",
+      "target": "session-start-hook",
+      "reason": "zcode has no rulesAutoload/paths: primitive (P1 fact); Tier-0 core text delivered via a SessionStart hook fallback instead of always-on rule auto-load."
+    },
+    {
+      "rule": "attention-is-not-a-mechanism",
+      "harness": "zcode",
+      "status": "degraded",
+      "target": "session-start-hook",
+      "reason": "zcode has no rulesAutoload/paths: primitive (P1 fact); Tier-0 core text delivered via a SessionStart hook fallback instead of always-on rule auto-load."
+    },
+    {
+      "rule": "build-first-reuse-default",
+      "harness": "zcode",
+      "status": "degraded",
+      "target": "session-start-hook",
+      "reason": "zcode has no rulesAutoload/paths: primitive (P1 fact); Tier-0 core text delivered via a SessionStart hook fallback instead of always-on rule auto-load."
+    },
+    {
+      "rule": "ci-tool-pinning",
+      "harness": "zcode",
+      "status": "degraded",
+      "target": "edit-time-inject",
+      "reason": "zcode has no pathScoping primitive (P1 fact); path-scoped delivery falls back to the PostToolUse edit-time-inject channel (inject-matching-rule.sh shim, #897), not native read-time paths: scoping."
+    },
+    {
+      "rule": "companion-install-principle",
+      "harness": "zcode",
+      "status": "degraded",
+      "target": "edit-time-inject",
+      "reason": "zcode has no pathScoping primitive (P1 fact); path-scoped delivery falls back to the PostToolUse edit-time-inject channel (inject-matching-rule.sh shim, #897), not native read-time paths: scoping."
+    },
+    {
+      "rule": "doc-authority-hierarchy",
+      "harness": "zcode",
+      "status": "degraded",
+      "target": "edit-time-inject",
+      "reason": "zcode has no pathScoping primitive (P1 fact); path-scoped delivery falls back to the PostToolUse edit-time-inject channel (inject-matching-rule.sh shim, #897), not native read-time paths: scoping."
+    },
+    {
+      "rule": "dual-implementation-discipline",
+      "harness": "zcode",
+      "status": "degraded",
+      "target": "edit-time-inject",
+      "reason": "zcode has no pathScoping primitive (P1 fact); path-scoped delivery falls back to the PostToolUse edit-time-inject channel (inject-matching-rule.sh shim, #897), not native read-time paths: scoping."
+    },
+    {
+      "rule": "kickoff-staging-placement",
+      "harness": "zcode",
+      "status": "degraded",
+      "target": "edit-time-inject",
+      "reason": "zcode has no pathScoping primitive (P1 fact); path-scoped delivery falls back to the PostToolUse edit-time-inject channel (inject-matching-rule.sh shim, #897), not native read-time paths: scoping."
+    },
+    {
+      "rule": "language-discipline",
+      "harness": "zcode",
+      "status": "degraded",
+      "target": "edit-time-inject",
+      "reason": "zcode has no pathScoping primitive (P1 fact); path-scoped delivery falls back to the PostToolUse edit-time-inject channel (inject-matching-rule.sh shim, #897), not native read-time paths: scoping."
+    },
+    {
+      "rule": "no-paid-llm-in-ci",
+      "harness": "zcode",
+      "status": "degraded",
+      "target": "edit-time-inject",
+      "reason": "zcode has no pathScoping primitive (P1 fact); path-scoped delivery falls back to the PostToolUse edit-time-inject channel (inject-matching-rule.sh shim, #897), not native read-time paths: scoping."
+    },
+    {
+      "rule": "parallel-subwave-isolation",
+      "harness": "zcode",
+      "status": "degraded",
+      "target": "edit-time-inject",
+      "reason": "zcode has no pathScoping primitive (P1 fact); path-scoped delivery falls back to the PostToolUse edit-time-inject channel (inject-matching-rule.sh shim, #897), not native read-time paths: scoping."
+    },
+    {
+      "rule": "phase-research-coverage",
+      "harness": "zcode",
+      "status": "degraded",
+      "target": "edit-time-inject",
+      "reason": "zcode has no pathScoping primitive (P1 fact); path-scoped delivery falls back to the PostToolUse edit-time-inject channel (inject-matching-rule.sh shim, #897), not native read-time paths: scoping."
+    },
+    {
+      "rule": "research-source-trust",
+      "harness": "zcode",
+      "status": "degraded",
+      "target": "edit-time-inject",
+      "reason": "zcode has no pathScoping primitive (P1 fact); path-scoped delivery falls back to the PostToolUse edit-time-inject channel (inject-matching-rule.sh shim, #897), not native read-time paths: scoping."
+    },
+    {
+      "rule": "rule-enforcement-channel-selection",
+      "harness": "zcode",
+      "status": "degraded",
+      "target": "edit-time-inject",
+      "reason": "zcode has no pathScoping primitive (P1 fact); path-scoped delivery falls back to the PostToolUse edit-time-inject channel (inject-matching-rule.sh shim, #897), not native read-time paths: scoping."
+    },
+    {
+      "rule": "skill-description-quality",
+      "harness": "zcode",
+      "status": "degraded",
+      "target": "edit-time-inject",
+      "reason": "zcode has no pathScoping primitive (P1 fact); path-scoped delivery falls back to the PostToolUse edit-time-inject channel (inject-matching-rule.sh shim, #897), not native read-time paths: scoping."
+    },
+    {
+      "rule": "source-before-shape",
+      "harness": "zcode",
+      "status": "degraded",
+      "target": "edit-time-inject",
+      "reason": "zcode has no pathScoping primitive (P1 fact); path-scoped delivery falls back to the PostToolUse edit-time-inject channel (inject-matching-rule.sh shim, #897), not native read-time paths: scoping."
+    }
+  ]
+}
