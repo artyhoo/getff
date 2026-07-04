@@ -70,8 +70,8 @@ These are structurally incompatible; no single unparameterized body could serve 
 PR #901 body honestly disclosed this divergence under the "DoD §3.1" section — the
 extractIdentity parameterization was acknowledged as the correct consolidation approach.
 
-**Executable truth:** `packages/core/backends/shared/validate-matrix.ts` (the actual
-implementation as shipped).
+**Executable truth:** `packages/core/backends/shared/capability-matrix.ts` (the actual
+implementation as shipped — `validateMatrix`, parameterized via `extractIdentity`).
 
 **Supersession pointer:** this note, not a kickoff edit. The MT kickoff is a closed
 artifact (per `docs/meta-factory/retros/` append-only convention and CLAUDE.md Artifact

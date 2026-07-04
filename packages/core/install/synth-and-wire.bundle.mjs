@@ -8830,9 +8830,9 @@ var REGISTRY = Object.freeze({
     explanation: "Composition gate (contradiction class): the plan and the render facts disagree \u2014 a node placed in BOTH a section and excluded[], OR a backend segment with no RenderOutcome in the outcomes Map (a doc claiming enforcement a backend never produced). composition/gates/composition-gate.ts."
   },
   FF8004: {
-    template: "node {nodeId} rendered \u2705 for backend {backend} without live-fired evidence in its matrix",
+    template: 'matrix incoherence for node {nodeId} backend {backend}: the cell for its selectorClass carries live-fired evidence while its status is "no" (evidence of firing in a cell marked not-applicable)',
     defaultSeverity: "error",
-    explanation: `Composition gate (honesty class, T-S4-A): a \u2705 enforcement claim is not backed by a live-fired capability-matrix cell for the node's selectorClass. An \u2705 MUST be a fact (status !== "no" && evidence.kind === "live-fired"), never asserted. composition/gates/composition-gate.ts.`
+    explanation: `Composition gate (honesty class, T-S4-A / DN-4): the capability-matrix cell for the node's selectorClass is internally incoherent \u2014 status is "no" (the rule does not apply) yet evidence.kind === "live-fired" (it was fired). The two honesty sources contradict. A rendered-not-fired \u{1F7E1} (status "no", no evidence) is spec-legal and is NOT FF8004. composition/gates/composition-gate.ts.`
   }
 });
 function lookup(code) {

@@ -14,8 +14,10 @@
 //   FF8003 — contradiction: node in BOTH a section and excluded[]; OR a ✅-eligible node whose
 //            RenderOutcome is 'refused' for a backend (a doc claiming what a backend refused);
 //            OR a backend that has NO RenderOutcome entry for a placed node (silent drop).
-//   FF8004 — a placed+rendered node whose matrix cell for its selectorClass carries NO
-//            live-fired evidence (a ✅ that is asserted, not proven — T-S4-A).
+//   FF8004 — matrix incoherence: a placed+rendered node whose matrix cell for its selectorClass
+//            carries 'live-fired' evidence while its status is 'no' (evidence of firing in a cell
+//            marked not-applicable — the two honesty sources contradict; T-S4-A / DN-4). The
+//            spec-legal 🟡 (rendered, not fired) case is NOT FF8004.
 
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
