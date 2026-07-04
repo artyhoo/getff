@@ -30,6 +30,7 @@ import { describe, it, expect, afterAll } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import {
   copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync, rmSync,
+  existsSync,
 } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -39,9 +40,11 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const GEN = resolve(REPO_ROOT, 'scripts/render-rule-channels.mjs');
 // GEN imports a .ts module (rule-channel-glob.ts) → must run under tsx, not plain node
-// (node <22.6 => ERR_UNKNOWN_FILE_EXTENSION on CI). Resolve tsx by its local binary path
-// rather than `npx tsx` (npx resolution is flaky in nested CI contexts — see the probe).
-const TSX = resolve(REPO_ROOT, 'node_modules/.bin/tsx');
+// (node <22.6 => ERR_UNKNOWN_FILE_EXTENSION on CI). tsx is a packages/core devDep: CI installs
+// it at packages/core/node_modules/.bin (via `npm ci --prefix packages/core`); a hoisted local
+// checkout has it at root. Resolve packages/core first, then root. (npx tsx was flaky nested.)
+const TSX_CORE = resolve(REPO_ROOT, 'packages/core/node_modules/.bin/tsx');
+const TSX = existsSync(TSX_CORE) ? TSX_CORE : resolve(REPO_ROOT, 'node_modules/.bin/tsx');
 
 function run(root: string, ...args: string[]): { status: number; out: string } {
   const r = spawnSync(TSX, [GEN, ...args, '--root', root], { encoding: 'utf8' });

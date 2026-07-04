@@ -34,11 +34,13 @@ unset GIT_DIR GIT_COMMON_DIR GIT_WORK_TREE
 
 GEN="$REPO_ROOT/scripts/render-rule-channels.mjs"
 # render-rule-channels.mjs imports a .ts module (rule-channel-glob.ts), so it must run under
-# tsx, not plain node (node <22.6 => ERR_UNKNOWN_FILE_EXTENSION). Resolve tsx by its local
-# binary path rather than `npx tsx`: npx resolution is flaky in this nested vitest->bash->cmd
-# context on CI (it silently produced empty stdout there, tripping the fallback below). The
-# local .bin/tsx is present whenever devDeps are installed; if absent, the fallback fires loudly.
-TSX="$REPO_ROOT/node_modules/.bin/tsx"
+# tsx, not plain node (node <22.6 => ERR_UNKNOWN_FILE_EXTENSION). tsx is a `packages/core`
+# devDep: the CI Principles job runs `npm ci --prefix packages/core`, so tsx lands in
+# packages/core/node_modules/.bin (NOT root); a hoisted local dev checkout has it at root
+# instead. Resolve packages/core first, then root. (npx tsx was flaky in this nested
+# vitest->bash->cmd context.) If neither exists, the --json-empty fallback below fires loudly.
+TSX="$REPO_ROOT/packages/core/node_modules/.bin/tsx"
+[ -x "$TSX" ] || TSX="$REPO_ROOT/node_modules/.bin/tsx"
 
 # --json is a probe-only reporting mode: emit the raw computeMatrix() rows as JSON on stdout,
 # so this bash probe can grep for "refused" without duplicating computeVerdict()'s logic.

@@ -96,7 +96,11 @@ printf '{"degradations":[]}\n' > "$RCROOT/.ai-factory/rule-channel-degradations.
 # execFileSync — mirrors channel-coverage's own git-repo seed requirement above.
 ( unset GIT_DIR GIT_COMMON_DIR GIT_WORK_TREE; cd "$RCROOT" && git init -q && git add -A ) >/dev/null 2>&1
 
-rc_out=$("$REPO_ROOT/node_modules/.bin/tsx" "$REPO_ROOT/scripts/render-rule-channels.mjs" --json --root "$RCROOT" 2>&1)
+# tsx is a packages/core devDep (CI installs it there via `npm ci --prefix packages/core`);
+# a hoisted local checkout has it at root. Resolve packages/core first, then root.
+RC_TSX="$REPO_ROOT/packages/core/node_modules/.bin/tsx"
+[ -x "$RC_TSX" ] || RC_TSX="$REPO_ROOT/node_modules/.bin/tsx"
+rc_out=$("$RC_TSX" "$REPO_ROOT/scripts/render-rule-channels.mjs" --json --root "$RCROOT" 2>&1)
 echo "$rc_out" | grep -q '"rule":"ai-laziness-traps".*"verdict":"refused"' \
   && ok "rule-channel-readability data: Tier-0 rule computes refused when every fallback is stripped" \
   || bad "rule-channel-readability data MISSED the Tier-0 refusal — seeded-break not reaching computeVerdict()"
