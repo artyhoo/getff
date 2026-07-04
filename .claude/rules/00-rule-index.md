@@ -14,16 +14,16 @@ One line per rule — full text: read `.claude/rules/<name>.md` (index: `.claude
 | `companion-install-principle.md` | B | editing `setup.d/**` (companion install manifest/engine). | paths:(1), edit-time inject |
 | `doc-authority-hierarchy.md` | A | creating/editing any canonical or shipped consumer-facing doc. | paths:(4), edit-time inject |
 | `dual-implementation-discipline.md` | A | shipping a new CC-native hook + choosing its delivery channel(s). | paths:(3), edit-time inject |
-| `egress-no-api-bypass.md` | B | harvesting/egressing a finished aif-agent branch to a PR. | gate-only |
+| `egress-no-api-bypass.md` | B | harvesting/egressing a finished aif-agent branch to a PR. | skill-embed |
 | `kickoff-staging-placement.md` | B | editing/creating any file under `.claude/orchestrator-prompts/<umbrella>/`. | paths:(1), edit-time inject |
 | `language-discipline.md` | A | writing any internal machinery or human-facing output. | paths:(3), edit-time inject |
-| `memory-codification.md` | B | writing a durable behavioural convention to agent memory. | gate-only |
+| `memory-codification.md` | B | writing a durable behavioural convention to agent memory. | hook |
 | `no-paid-llm-in-ci.md` | A | editing `.github/workflows/**` or `.github/actions/**`. | paths:(2), edit-time inject |
 | `parallel-subwave-isolation.md` | C | dispatching parallel sub-wave / batch AI sessions. | paths:(1), edit-time inject |
 | `phase-research-coverage.md` | A | phase entry research, prior-art lookups, or closing a negative-existence claim. | paths:(4) |
-| `recommendation-laziness-discipline.md` | C | before issuing an inline-chat verdict/recommendation or hitting an ambiguous fork. | gate-only |
-| `research-source-trust.md` | A | authoring a rule-research provenance entry / resolving allowed sources. | paths:(2), edit-time inject |
-| `reviewer-discipline.md` | C | review sessions (`/review`, `/ultrareview`, or a prose "проверь"/verdict ask). | gate-only |
+| `recommendation-laziness-discipline.md` | C | before issuing an inline-chat verdict/recommendation or hitting an ambiguous fork. | digest |
+| `research-source-trust.md` | A | authoring a rule-research provenance entry / resolving allowed sources. | paths:(2), edit-time inject, skill-embed |
+| `reviewer-discipline.md` | C | review sessions (`/review`, `/ultrareview`, or a prose "проверь"/verdict ask). | agent |
 | `rule-enforcement-channel-selection.md` | B | codifying any new rule / choosing its enforcement channel. | paths:(2), edit-time inject |
 | `skill-description-quality.md` | C | authoring/updating any SKILL.md `description` field. | paths:(1), edit-time inject |
 | `source-before-shape.md` | B | creating a new SKILL.md/agent/module, or authoring a dispatch/kickoff. | paths:(3), edit-time inject |

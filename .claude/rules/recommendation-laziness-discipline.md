@@ -1,5 +1,7 @@
 # Recommendation-laziness discipline — mechanism layer
 
+<!-- channel: digest .claude/hooks/inject-session-bootstrap.sh#H1 -->
+
 > **Class:** C — prose-only, no companion executable artifact. Promotion criterion in §6.
 > **Fires:** before issuing an inline-chat verdict/recommendation or hitting an ambiguous fork.
 > **Authoritative for:** mechanism layer + named anti-pattern catalogue entry for inline-chat verdict-without-evidence pattern; promotion criterion in §6.

@@ -1,5 +1,7 @@
 # Memory codification — discipline rule
 
+<!-- channel: hook .claude/hooks/inject-memory-codification.sh -->
+
 > **Class:** B — compensating mechanism without CI test (AI-agnostic auditor agent + local-audit grep). Class A (CI principle test) is **structurally unreachable**: the corpus is user-scope agent memory, which lives outside the repo and outside CI by construction (see §1 hard constraint). Promotion ceiling = B; retirement criterion in §6.
 > **Fires:** writing a durable behavioural convention to agent memory.
 > **Authoritative for:** memory-codification discipline rule — §2 what counts as a *durable convention* (trigger + non-triggers), §3 the write-time codify-then-pointer discipline, §4 compensating mechanisms (local-audit grep + auditor agent; no CI by constraint), §5 anti-patterns, §6 promotion / retirement.
@@ -42,7 +44,11 @@ When a session writes a durable convention to memory, **in the same step**:
 
 ## §4 Compensating mechanisms (no CI by constraint)
 
-Per §1, no CI test is possible. Two session/local mechanisms compensate:
+Per §1, no CI test is possible. Two session/local mechanisms compensate; a third, write-time mechanism (CTX Stage 1) is shipped but pending activation:
+
+**(0) Write-time hook (CTX Stage 1, PENDING settings.json WIRING).** [`.claude/hooks/inject-memory-codification.sh`](../hooks/inject-memory-codification.sh) — a PostToolUse hook that fires the instant a `Write` targets a path with a `/memory/` segment, injecting this rule's §3 codify-then-pointer one-liner as additionalContext. The hook file is shipped and self-tested ([`inject-memory-codification.test.ts`](../../packages/core/hooks/inject-memory-codification.test.ts)), but its `.claude/settings.json` PostToolUse registration is deferred to a maintainer-applied handoff patch (`.claude/settings.json` is agent-deny-listed for edits — see [CLAUDE.md `Artifact Ownership Contract`](../../CLAUDE.md)). Until the maintainer lands that patch, this channel is dormant; (a)/(b) below remain the active mechanisms.
+
+
 
 **(a) Local-audit grep** — deterministic, run in a session with memory access (never CI):
 

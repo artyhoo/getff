@@ -6,6 +6,11 @@
 #   maintainer's own environment; no portable hook fires at prompt-submit. The digest
 #   content lives in .claude/session-bootstrap.md, readable by any harness.
 
+# #H1 anchor — CTX Stage 1 channel token for .claude/rules/recommendation-laziness-discipline.md
+# (`<!-- channel: digest .claude/hooks/inject-session-bootstrap.sh#H1 -->`) points HERE: the
+# "Recommendation discipline (H1):" line in the heredoc below is that rule's always-on alt-channel
+# (the rule itself is evicted from always-on rule context per CTX Stage 1; this digest line +
+# ai-laziness-traps T20 (Tier-0 core) are what still fires at every prompt).
 cat <<'DIGEST'
 [session-bootstrap digest — auto-injected at prompt submit]
 Goal: AI agents can't silently bypass undocumented conventions. Every rule is an executable artifact that fails at the earliest reachable channel — edit-time → pre-commit → pre-push → CI → production audit. CI = last-resort gate. (README.md#why-this-exists)

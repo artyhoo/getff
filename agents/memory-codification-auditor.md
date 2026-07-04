@@ -5,6 +5,12 @@ tools: Read, Glob, Grep
 ---
 
 <!-- spec: .claude/rules/memory-codification.md -->
+<!-- @dual-pair: memory-codification-writemoment -->
+<!-- This anchor pairs with .claude/hooks/inject-memory-codification.sh (CC PostToolUse
+     write-time reminder). Both deliver the memory-codification.md discipline at different
+     moments: the hook fires the instant a Write targets a user-scope agent-memory file;
+     this agent is read by a session doing a periodic semantic sweep of the whole memory
+     store. Keep in sync per .claude/rules/dual-implementation-discipline.md §7. -->
 
 # memory-codification-auditor
 
