@@ -219,6 +219,12 @@ jobs:
       # the renderer/routing/registry/matrix-honesty tests still run and gate for real.
       - name: Run packages/core/backends tests (MT S2)
         run: npm --prefix packages/core run test:backends
+      # MT umbrella S4: packages/core/composition/ (executable-AI-doc plane — DocPlan
+      # compose + composition-gate FF8001-8004) is a new vitest include-allowlist entry
+      # (vitest.config.ts) — gate it here, reusing the `npm ci --prefix packages/core`
+      # install above (same job, no new job/npm-ci). Deterministic, no toolchain.
+      - name: Run packages/core/composition tests (MT S4)
+        run: npm --prefix packages/core run test:composition
       # CI-gap option C (hook-test-suite-rot): the packages/core/hooks/ vitest suite was
       # never gated — only principles/ was — which is how a real cross-platform regression
       # (priority-score-synthetic.sh xargs) accumulated 15 failures unnoticed. Gate it here.
