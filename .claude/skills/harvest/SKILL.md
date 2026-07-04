@@ -36,7 +36,6 @@ allowed-tools:
      procedure implementing that rule's §1 channel preference (host-push default,
      API break-glass) — see step 4/5 below. -->
 
-
 Harvest the **committed** in-scope work only. aif worktrees arrive polluted (out-of-scope dirty files) on a stale base — the real work is in the commits, not the working tree.
 
 1. **Inspect first.** `docker exec <agent> git -C <worktree> status --porcelain` + `git log origin/staging..HEAD`. Push the committed HEAD; never `git add -A` (gotcha 1).
