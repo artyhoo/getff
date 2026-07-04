@@ -1,6 +1,7 @@
 # Memory codification — discipline rule
 
 > **Class:** B — compensating mechanism without CI test (AI-agnostic auditor agent + local-audit grep). Class A (CI principle test) is **structurally unreachable**: the corpus is user-scope agent memory, which lives outside the repo and outside CI by construction (see §1 hard constraint). Promotion ceiling = B; retirement criterion in §6.
+> **Fires:** writing a durable behavioural convention to agent memory.
 > **Authoritative for:** memory-codification discipline rule — §2 what counts as a *durable convention* (trigger + non-triggers), §3 the write-time codify-then-pointer discipline, §4 compensating mechanisms (local-audit grep + auditor agent; no CI by constraint), §5 anti-patterns, §6 promotion / retirement.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Memory *file format / index* — that is the harness/global memory-instructions block. Doc-authority header spec — see [doc-authority-hierarchy.md](doc-authority-hierarchy.md).
 

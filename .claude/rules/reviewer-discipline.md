@@ -1,6 +1,7 @@
 # Reviewer discipline — discipline rule
 
 > **Class:** C — prose-only, no current compensating mechanism (reclassed from B per Track 3 §3.3, commit 4d52a72). Promotion criterion in §4.
+> **Fires:** review sessions (`/review`, `/ultrareview`, or a prose "проверь"/verdict ask).
 > **Authoritative for:** reviewer-discipline rule — §1 reviewer/orchestrator role separation, §2 surface-as-decision-needed pattern, §3 anti-patterns (`#role-swap-mid-session`, `#strategy-decided-by-reviewer`), §4 promotion / retirement triggers.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Companion to orchestrator skill — global skill at `~/.claude/skills/reviewer/SKILL.md` may reference this rule but is not required for the rule to apply (project rule is self-contained).
 

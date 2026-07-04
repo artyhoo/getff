@@ -13,6 +13,7 @@ paths:
 # Doc authority hierarchy — discipline rule
 
 > **Class:** A — companion principle test shipped at [packages/core/principles/09-doc-authority-hierarchy.test.ts](../../packages/core/principles/09-doc-authority-hierarchy.test.ts).
+> **Fires:** creating/editing any canonical or shipped consumer-facing doc.
 > **Authoritative for:** doc-authority-hierarchy discipline rule — §2 doc categorisation, §3 header format spec, §4 four anti-patterns, §5 folder-level authority pattern, §6 promotion / demotion / retirement triggers.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Companion principle test — see [packages/core/principles/09-doc-authority-hierarchy.test.ts](../../packages/core/principles/09-doc-authority-hierarchy.test.ts).
 

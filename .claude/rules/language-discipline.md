@@ -11,6 +11,7 @@ paths:
 <!-- inject: Internal machinery (hooks/skills/scripts) is English-only; human-facing output follows AIF_HOOK_LANG (ru→Russian, else English); match-data (triggers, detection patterns) stays bilingual. See §1-§2. -->
 
 > **Class:** A — companion principle test shipped at [packages/core/principles/22-internal-english.test.ts](../../packages/core/principles/22-internal-english.test.ts) (2026-06-16).
+> **Fires:** writing any internal machinery or human-facing output.
 > **Authoritative for:** the language-discipline rule — §1 the 3-category model, §2 the human-facing language gate, §3 the keep-list, §4 enforcement channels, §5 anti-patterns, §6 promotion / retirement.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). The i18n pack mechanism — see [docs/superpowers/specs/2026-06-01-hook-lang-i18n-design.md](../../docs/superpowers/specs/2026-06-01-hook-lang-i18n-design.md). Doc-authority header spec — see [doc-authority-hierarchy.md](doc-authority-hierarchy.md).
 
