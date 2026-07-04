@@ -47,6 +47,13 @@ packages/*/reports/
 # .ai-factory/ entry (installer scaffolding) ignored so aif's dirty-worktree guard
 # stays satisfied; only this one committed file is negated back in.
 !/.ai-factory/harness-model.json
+# Exception: the CTX Stage 3 "channel-as-data" tracked pair — the per-harness
+# capability matrix (+ its ajv schema) and the honest-degradation manifest that
+# scripts/render-rule-channels.mjs computes verdicts against. Same rationale as
+# harness-model.json above: framework-owned SSOT data, NOT installer scaffolding.
+!/.ai-factory/rule-channel-capabilities.json
+!/.ai-factory/rule-channel-capabilities.schema.json
+!/.ai-factory/rule-channel-degradations.json
 # zcode (a CC fork) reads config from zcode.json / .zcode/ (NOT .claude/). Both are
 # operator-env shims rendered by scripts/render-harness-config.mjs --write from the
 # .ai-factory/harness-model.json SSOT — maintainer-env only, never shipped (a

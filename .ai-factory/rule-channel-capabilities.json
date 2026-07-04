@@ -1,0 +1,28 @@
+{
+  "harnesses": {
+    "cc": {
+      "support": "supported",
+      "rulesAutoload": true,
+      "pathScoping": true,
+      "claudeMdExcludes": true,
+      "postToolUseInject": true,
+      "sessionStartHook": true
+    },
+    "zcode": {
+      "support": "supported",
+      "rulesAutoload": false,
+      "pathScoping": false,
+      "claudeMdExcludes": false,
+      "postToolUseInject": true,
+      "sessionStartHook": true
+    },
+    "cursor": {
+      "support": "reference",
+      "rulesAutoload": "agents-md",
+      "pathScoping": "globs",
+      "claudeMdExcludes": false,
+      "postToolUseInject": false,
+      "sessionStartHook": false
+    }
+  }
+}
