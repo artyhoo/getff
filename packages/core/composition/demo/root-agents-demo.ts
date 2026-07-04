@@ -32,7 +32,8 @@ const BACKENDS = join(HERE, '..', '..', 'backends');
 
 /** The section id + plan path the demo region uses in the ROOT AGENTS.md fence markers. */
 export const DEMO_SECTION_ID = 'configuration-access';
-export const DEMO_PLAN_PATH = 'packages/core/composition/fixtures/root-agents-demo.docplan.json';
+export const DEMO_PLAN_PATH =
+  'packages/core/composition/fixtures/root-agents-demo.docplan.json';
 
 /** Read a backend's committed capability-matrix.json (the SAME shape validateMatrix checks). */
 function readMatrix(backend: 'cargo' | 'npm'): CapabilityMatrix {
@@ -107,11 +108,19 @@ export function buildDemoRenderFacts(): {
  * only frames them with the template preamble. Same inputs → byte-identical output.
  */
 export function buildDemoRegion(): string {
-  const { nodes, outcomesByBackend, matricesByBackend } = buildDemoRenderFacts();
-  const regions = compose(demoPlan(), nodes, outcomesByBackend, matricesByBackend);
+  const { nodes, outcomesByBackend, matricesByBackend } =
+    buildDemoRenderFacts();
+  const regions = compose(
+    demoPlan(),
+    nodes,
+    outcomesByBackend,
+    matricesByBackend,
+  );
   const body = regions.get(DEMO_SECTION_ID);
   if (body === undefined) {
-    throw new Error(`buildDemoRegion(): compose() produced no region for "${DEMO_SECTION_ID}"`);
+    throw new Error(
+      `buildDemoRegion(): compose() produced no region for "${DEMO_SECTION_ID}"`,
+    );
   }
   return `${renderPreamble()}\n\n${body}`;
 }

@@ -42,12 +42,16 @@ describe('root-AGENTS.md demo — ratchet (T15 self-application: byte-gate our o
     const source = readFileSync(ROOT_AGENTS_MD, 'utf8');
     const expected = buildDemoRegion();
     // regionsMatch is the shipped byte-check (body === `\n${content}\n`). A drifted doc → false.
-    expect(regionsMatch(source, new Map([[DEMO_SECTION_ID, expected]]))).toBe(true);
+    expect(regionsMatch(source, new Map([[DEMO_SECTION_ID, expected]]))).toBe(
+      true,
+    );
   });
 
   it('the committed region body equals buildDemoRegion() exactly (explicit toBe on the body)', () => {
     const source = readFileSync(ROOT_AGENTS_MD, 'utf8');
-    const region = findRegions(source).find((r) => r.sectionId === DEMO_SECTION_ID);
+    const region = findRegions(source).find(
+      (r) => r.sectionId === DEMO_SECTION_ID,
+    );
     expect(region).toBeDefined();
     // findRegions returns body wrapped as `\n${content}\n` (the injector's framing).
     expect((region as { body: string }).body).toBe(`\n${buildDemoRegion()}\n`);
