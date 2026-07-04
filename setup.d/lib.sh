@@ -51,7 +51,12 @@ PRETTIERIGNORE_CFG_END='# <<< rules-as-tests-aif shipped-configs (managed) <<<'
 # transform_internal_refs <markdown-file>
 # Rewrites markdown links `](../../../{docs,packages}/...)` and `](../../../README.md...)`
 # in-place to `](${UPSTREAM_BLOB_URL}/...)`. Leaves consumer-resolvable refs intact
-# (e.g. `](../../rules/...)` resolves to consumer's .claude/rules/ post-install).
+# (e.g. `](../../rules/...)` and `](../../hooks/...)` stay relative — deemed consumer-local by
+# convention, enforced by tests/install-sh/transform-internal-refs.test.sh #4/#5).
+# NOTE (2026-07-04, flagged not fixed): a real install shows `.claude/rules/` is NOT currently
+# shipped, so relative rules/ links dangle for consumers — a latent inconsistency between this
+# convention and the installer. Resolving it (ship rules/ vs blob-ify rules/ links) is a
+# maintainer decision, out of scope here; the transform stays as tested.
 # Uses `-i.bak` for BSD-sed/GNU-sed portability, then removes the backup.
 transform_internal_refs() {
   local f="$1"

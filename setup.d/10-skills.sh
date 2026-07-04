@@ -45,10 +45,22 @@ fi
 #                     through the aif-control loop the ./setup runtime-bridge step installs.
 #   - aif-doctor    — diagnoses that same aif-handoff runtime when a task stalls / runtime breaks.
 #   - template-audit — local advisory audit of the rendered templates this installer ships.
-# self-reflection + ai-doc are intentionally NOT shipped: they are repo-internal (reference
-# THIS repo's rules / docs paths a consumer does not have) — see the build-vs-reuse shipped-axis
-# default in .claude/rules/build-first-reuse-default.md §1.1 + dual-implementation-discipline.md §3.
-for _skill in pipeline dispatcher aif-doctor template-audit; do
+#   - night-mode     — overnight-autonomous orchestration over SDD (executor + dual-reviewer +
+#                      on-demand top-tier advisor); harness-agnostic, relative model tiers,
+#                      graceful degradation on non-CC / sequential-only / single-tier harnesses.
+#   - ai-doc         — AI-doc authoring standard (channel selection, doc-authority header,
+#                      rule-as-test, AI-agnostic authoring) — reusable by consumers who author
+#                      their own skills/rules.
+#   - rule-research  — bootstrap stack-aware ESLint rules from LIVE docs (consumer-facing by design).
+#   - harvest        — egress a finished aif-agent branch into a PR (host-push default, API
+#                      break-glass) for consumers running aif-handoff.
+#   - story          — plain-language, by-act recap of a session's work (AIF_HOOK_LANG-gated output).
+# Only self-reflection is intentionally NOT shipped: it is the §1.7 self-review discipline specific to
+# THIS repo's own development process (not a reusable consumer capability) — see the build-vs-reuse
+# shipped-axis default in .claude/rules/build-first-reuse-default.md §1.1 + dual-implementation-discipline.md §3.
+# Repo-internal cross-refs (docs/packages/scripts/.claude/rules/README) are rewritten to GitHub blob
+# URLs by copy_skill_with_transform → transform_internal_refs; sibling-skill links stay relative (sibling ships too).
+for _skill in pipeline dispatcher aif-doctor template-audit night-mode ai-doc rule-research harvest story; do
   copy_skill_with_transform "$_skill"
 done
 

@@ -9,7 +9,7 @@
 //
 // Node-shape discipline (T-MT-B): NOTHING beyond this contract. Grouping nodes into sections
 // is judgment → it lives in committed, reviewable DocPlan data (prior art unanimous: DITA maps,
-// Redoc x-tagGroups, Sphinx toctree — SSOT #201). NO connectiveProse / order / provenance on a
+// Redoc x-tagGroups, Sphinx toctree — SSOT #202). NO connectiveProse / order / provenance on a
 // section: a field read by only one backend is a REJECT. v1 has NO free prose inside a region.
 
 /** One themed section of the composed doc: a title + the node ids it renders, in order. */
