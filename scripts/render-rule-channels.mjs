@@ -42,7 +42,7 @@
  * unit is whole-file translation with warnings that nobody is forced to read; ours is
  * a per-(rule×harness) refusal-as-gate-failure, deterministic, zero-dep offline).
  */
-import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync, realpathSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -237,11 +237,32 @@ function findManifestDrift(rows, manifestDoc) {
 const DEFAULT_MANIFEST = { degradations: [] };
 
 function run(argv) {
-  const mode = argv.includes('--check') ? 'check' : argv.includes('--write') ? 'write' : null;
-  if (!mode) { console.error('usage: render-rule-channels.mjs (--write | --check) [--root <dir>]'); return 2; }
+  const mode = argv.includes('--check')
+    ? 'check'
+    : argv.includes('--write')
+      ? 'write'
+      : argv.includes('--json')
+        ? 'json'
+        : null;
+  if (!mode) { console.error('usage: render-rule-channels.mjs (--write | --check | --json) [--root <dir>]'); return 2; }
   const rootFlag = argv.indexOf('--root');
   const root = rootFlag !== -1 ? resolve(argv[rootFlag + 1]) : findRoot(process.cwd());
   const manifestPath = join(root, '.ai-factory/rule-channel-degradations.json');
+
+  // --json: raw computeMatrix() rows as JSON on stdout, no manifest comparison. Consumed by
+  // tests/agnosticism/probes/rule-channel-readability.sh (the off-CC readability probe) so it
+  // does not have to reimplement computeVerdict()'s logic in bash (#sync-by-copy-paste guard).
+  if (mode === 'json') {
+    let jsonRows;
+    try {
+      jsonRows = computeMatrix(root);
+    } catch (e) {
+      console.error(`✗ ${e.message}`);
+      return 1;
+    }
+    console.log(JSON.stringify(jsonRows));
+    return 0;
+  }
 
   let rows;
   try {
@@ -297,9 +318,18 @@ function run(argv) {
   return 0;
 }
 
+// Entry-point guard: canonicalize BOTH sides through realpathSync. `import.meta.url` is
+// already symlink-resolved by Node, but `process.argv[1]` is NOT — so a bare resolve()-only
+// compare (this repo's own render-rule-index.mjs pattern) silently no-ops when the script is
+// invoked via a symlinked path (e.g. this repo's own worktrees + this script's test harness,
+// which symlinks scripts/ into a sandbox root — verified live: without this fix, --json
+// produced ZERO output and exit 0 under a symlinked invocation, a silent false-green).
+// Canonicalizing both sides makes the guard fire regardless of symlinks; the try/catch keeps
+// import-as-module (argv[1] = the test runner, no match) from throwing on realpathSync.
+// Precedent: scripts/render-harness-config.mjs's isMainEntry() (#894), same fix, same reason.
 function isMainEntry() {
   try {
-    return fileURLToPath(import.meta.url) === resolve(process.argv[1] ?? '');
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1] ?? '');
   } catch {
     return false;
   }
