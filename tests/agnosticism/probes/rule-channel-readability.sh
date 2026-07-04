@@ -38,7 +38,7 @@ GEN="$REPO_ROOT/scripts/render-rule-channels.mjs"
 # so this bash probe can grep for "refused" without duplicating computeVerdict()'s logic.
 # Falls back to a plain --check invocation's exit code if --json is unavailable (defensive —
 # keeps this probe from silently reporting false-PORTABLE if the script's CLI surface changes).
-rows_json=$(node "$GEN" --json --root "$REPO_ROOT" 2>/dev/null || true)
+rows_json=$(npx tsx "$GEN" --json --root "$REPO_ROOT" 2>/dev/null || true)
 
 if [ -z "$rows_json" ]; then
   # Fallback: no --json support detected. Use --check's exit status as a coarser signal —
@@ -46,7 +46,7 @@ if [ -z "$rows_json" ]; then
   # "some rule is invisible" (an honest, declared refusal is STILL invisible on that harness).
   # This branch should not normally fire; recorded loudly if it does (T-S9-A: never silently
   # downgrade to a weaker check without saying so).
-  node "$GEN" --check --root "$REPO_ROOT" >/tmp/rule-channel-readability-fallback.$$ 2>&1
+  npx tsx "$GEN" --check --root "$REPO_ROOT" >/tmp/rule-channel-readability-fallback.$$ 2>&1
   check_status=$?
   record rule-channel-readability fallback-check-mode \
     "render-rule-channels.mjs --json unavailable; used --check exit=${check_status} as coarse signal" \

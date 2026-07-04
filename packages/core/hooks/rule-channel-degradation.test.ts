@@ -40,7 +40,7 @@ const REPO_ROOT = resolve(HERE, '../../..');
 const GEN = resolve(REPO_ROOT, 'scripts/render-rule-channels.mjs');
 
 function run(root: string, ...args: string[]): { status: number; out: string } {
-  const r = spawnSync('node', [GEN, ...args, '--root', root], { encoding: 'utf8' });
+  const r = spawnSync('npx', ['tsx', GEN, ...args, '--root', root], { encoding: 'utf8' });
   return { status: r.status ?? -1, out: `${r.stdout ?? ''}${r.stderr ?? ''}` };
 }
 
