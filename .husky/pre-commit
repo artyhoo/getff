@@ -81,6 +81,18 @@ if [ -n "$STAGED_MD" ]; then
   fi
 fi
 
+# ── Prettier on staged SHIPPED files (mirrors CI «Shipped artifacts are Prettier-clean») ──
+#   Change-scoped: scripts/format-shipped.sh intersects the staged list with the shipped
+#   surface (same enumeration + same pinned prettier as the CI gate), so commits that do
+#   not touch shipped files never invoke prettier. GH #531 dogfood, moved to the earliest
+#   reachable channel (commit-time) — was CI-only, ~18 red runs in July 2026.
+STAGED_ALL=$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)
+if [ -n "$STAGED_ALL" ] && command -v npx &>/dev/null; then
+  # shellcheck disable=SC2086
+  bash "$REPO_ROOT/scripts/format-shipped.sh" --check $STAGED_ALL \
+    || { echo "❌ staged shipped files are not Prettier-clean — fix: npm run format (= scripts/format-shipped.sh --write)"; fail=1; }
+fi
+
 # ── Spec discipline (Phase 1.C) — soft warn for staged orchestrator-prompts ──
 SPEC_FILES=$(echo "$CHANGED" | grep '^\.claude/orchestrator-prompts/.*\.md$' || true)
 if [ -n "$SPEC_FILES" ]; then
