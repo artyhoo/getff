@@ -1,0 +1,9 @@
+{
+  "sections": [
+    {
+      "sectionId": "configuration",
+      "title": "Configuration access",
+      "nodeIds": "no-direct-process-env"
+    }
+  ]
+}

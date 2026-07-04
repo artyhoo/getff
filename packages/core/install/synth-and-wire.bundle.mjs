@@ -8812,6 +8812,27 @@ var REGISTRY = Object.freeze({
     template: "severity {requested} not projected by {backend} at v0 (node {nodeId})",
     defaultSeverity: "note",
     explanation: "Backend render degradation (severity class): the node's defaultSeverity has no projection in this backend's render target at v0 (rendered-with-loss, not dropped \u2014 the content is still emitted). backends/cargo/render-clippy.ts."
+  },
+  // --- FF8xxx: composition/doc plane (MT umbrella S4 — composition/gates/composition-gate.ts) ---
+  FF8001: {
+    template: "dangling node reference: id {nodeId} in {where} has no matching ConventionNode",
+    defaultSeverity: "error",
+    explanation: "Composition gate (broken-ref class): a DocPlan section nodeId or an excluded[] nodeId points at a ConventionNode id that is not in the node set. A plan cannot document a node that does not exist. composition/gates/composition-gate.ts."
+  },
+  FF8002: {
+    template: "node {nodeId} is neither placed in a section nor a valid excluded[] entry ({reason})",
+    defaultSeverity: "error",
+    explanation: "Composition gate (coverage class, attention-is-not-a-mechanism): a scoped node is silently absent from the doc \u2014 it appears in no section AND has no valid excluded[] opt-out (missing, or reason under 20 chars). Silence about an undocumented node is impossible: it must be documented or explicitly, reasonedly excluded. composition/gates/composition-gate.ts."
+  },
+  FF8003: {
+    template: "composition contradiction for node {nodeId}: {detail}",
+    defaultSeverity: "error",
+    explanation: "Composition gate (contradiction class): the plan and the render facts disagree \u2014 a node placed in BOTH a section and excluded[], OR a backend segment with no RenderOutcome in the outcomes Map (a doc claiming enforcement a backend never produced). composition/gates/composition-gate.ts."
+  },
+  FF8004: {
+    template: "node {nodeId} rendered \u2705 for backend {backend} without live-fired evidence in its matrix",
+    defaultSeverity: "error",
+    explanation: `Composition gate (honesty class, T-S4-A): a \u2705 enforcement claim is not backed by a live-fired capability-matrix cell for the node's selectorClass. An \u2705 MUST be a fact (status !== "no" && evidence.kind === "live-fired"), never asserted. composition/gates/composition-gate.ts.`
   }
 });
 function lookup(code) {

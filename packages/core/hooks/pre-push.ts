@@ -826,6 +826,22 @@ async function main(): Promise<void> {
     emit(r);
   }
 
+  // ── 5d. Composition tests (MT S4) — stage gate at the pre-push channel ────────
+  // The executable-AI-doc plane: DocPlan → rendered region, composition-gate
+  // FF8001-8004. Deterministic (no toolchain), lifted from CI to the earlier
+  // channel like 5b/5c.
+  {
+    const r = run('npm', ['--prefix', CORE, 'run', 'test:composition']);
+    if (r.notFound) {
+      die(
+        '❌ npm/npx not found. Install Node.js to enable composition meta-tests.',
+      );
+    }
+    if (r.exitCode !== 0)
+      die('❌ composition tests failed — fix before push', r);
+    emit(r);
+  }
+
   // ── 6. Spec discipline (Phase 1.C) — dormant defensive guard ─────────────────
   // .claude/orchestrator-prompts/ is gitignored; this fires only if such a file
   // is force-added past gitignore. Now routed through the resolved base (F1):

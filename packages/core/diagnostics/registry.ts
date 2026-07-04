@@ -10,13 +10,14 @@
 // Ranges (tsc diagnosticMessages.json pattern): FF1xxx schema/shape,
 // FF2xxx provenance/trust, FF3xxx L4 semantic gates, FF4xxx installer/wiring
 // (reserved), FF5xxx CLI/config (reserved), FF6xxx IR grammar gates (seeded
-// S1), FF7xxx render outcomes (seeded by cargo-v0 S2). FF = fitness
-// functions (getff brand). This file seeds FF1001, the 15 FF2xxx codes, and
-// the 20 FF3xxx codes (Task 4, DN-D1-4 — one code per failure kind per gate,
-// spec-literal per-gate allocation; see decisions.md DN-D1-4 for the full
-// derivation), plus 3 FF6xxx codes (MT umbrella S1 — IR grammar gate) and
-// 3 FF7xxx codes (MT umbrella S2 — cargo backend v0 render outcomes).
-// FF4xxx/FF5xxx are D2+ at-touch (reserved, not seeded here).
+// S1), FF7xxx render outcomes (seeded by cargo-v0 S2), FF8xxx composition/doc
+// plane (seeded S4 — DocPlan composition gate). FF = fitness functions (getff
+// brand). This file seeds FF1001, the 15 FF2xxx codes, and the 20 FF3xxx codes
+// (Task 4, DN-D1-4 — one code per failure kind per gate, spec-literal per-gate
+// allocation; see decisions.md DN-D1-4 for the full derivation), plus 3 FF6xxx
+// codes (MT umbrella S1 — IR grammar gate), 3 FF7xxx codes (MT umbrella S2 —
+// cargo backend v0 render outcomes), and 4 FF8xxx codes (MT umbrella S4 —
+// DocPlan composition gate). FF4xxx/FF5xxx are D2+ at-touch (reserved, not seeded here).
 //
 // Registry is append-only: never remove or renumber an existing code (see
 // registry.test.ts test (d), pinned against registry.codes.snapshot.json).
@@ -314,6 +315,46 @@ export const REGISTRY: Readonly<Record<string, RegistryEntry>> = Object.freeze({
       'Backend render degradation (severity class): the node\'s defaultSeverity has no ' +
       'projection in this backend\'s render target at v0 (rendered-with-loss, not dropped — ' +
       'the content is still emitted). backends/cargo/render-clippy.ts.',
+  },
+
+  // --- FF8xxx: composition/doc plane (MT umbrella S4 — composition/gates/composition-gate.ts) ---
+  FF8001: {
+    template: 'dangling node reference: id {nodeId} in {where} has no matching ConventionNode',
+    defaultSeverity: 'error',
+    explanation:
+      'Composition gate (broken-ref class): a DocPlan section nodeId or an excluded[] nodeId ' +
+      'points at a ConventionNode id that is not in the node set. A plan cannot document a ' +
+      'node that does not exist. composition/gates/composition-gate.ts.',
+  },
+  FF8002: {
+    template:
+      'node {nodeId} is neither placed in a section nor a valid excluded[] entry ({reason})',
+    defaultSeverity: 'error',
+    explanation:
+      'Composition gate (coverage class, attention-is-not-a-mechanism): a scoped node is ' +
+      'silently absent from the doc — it appears in no section AND has no valid excluded[] ' +
+      'opt-out (missing, or reason under 20 chars). Silence about an undocumented node is ' +
+      'impossible: it must be documented or explicitly, reasonedly excluded. ' +
+      'composition/gates/composition-gate.ts.',
+  },
+  FF8003: {
+    template: 'composition contradiction for node {nodeId}: {detail}',
+    defaultSeverity: 'error',
+    explanation:
+      'Composition gate (contradiction class): the plan and the render facts disagree — a node ' +
+      'placed in BOTH a section and excluded[], OR a backend segment with no RenderOutcome in ' +
+      'the outcomes Map (a doc claiming enforcement a backend never produced). ' +
+      'composition/gates/composition-gate.ts.',
+  },
+  FF8004: {
+    template:
+      'node {nodeId} rendered ✅ for backend {backend} without live-fired evidence in its matrix',
+    defaultSeverity: 'error',
+    explanation:
+      'Composition gate (honesty class, T-S4-A): a ✅ enforcement claim is not backed by a ' +
+      'live-fired capability-matrix cell for the node\'s selectorClass. An ✅ MUST be a fact ' +
+      '(status !== "no" && evidence.kind === "live-fired"), never asserted. ' +
+      'composition/gates/composition-gate.ts.',
   },
 });
 

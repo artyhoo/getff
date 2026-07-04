@@ -28,6 +28,7 @@ export default defineConfig({
       'scenario-generator/**/*.test.ts',
       'ir/**/*.test.ts',
       'backends/**/*.test.ts',
+      'composition/**/*.test.ts',
     ],
     exclude: [
       '**/node_modules/**',
