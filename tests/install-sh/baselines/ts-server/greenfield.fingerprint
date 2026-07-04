@@ -9,6 +9,7 @@ e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/ru
 8ec70c8c3df7f0759cf74d12785a316e449b21da6434d649883ca236e66f1471  .claude/agents/aif-init.md
 99b95958c677c0690ff7620b1ae75dedcabf6d3d63bff38d431be86539fc3487  .claude/agents/capability-reuse-auditor.md
 926fd65546506a7a62651839ed5028527bbe95395b86367005c6ef9f9471ba9f  .claude/agents/compliance-verifier.md
+5bb43f4c3b61896165bb081a8c1f03c9b3971432d3089d8cdd0873b4d9da3369  .claude/agents/docplan-auditor.md
 0964a4d3deb5e15e916c599f375874785af96e935bec9efbc7488e600cee719d  .claude/agents/living-docs-auditor.md
 9d8c397a7f9d8f4d0d791297beb21e69d244968e80c729f46d4a0c4f89412ff0  .claude/agents/memory-codification-auditor.md
 13b5439e8244c58ddf5f27cbef58a79bfbc9625c4fb68033f228bca446f83f60  .claude/agents/orchestrator-worker-discipline.md
