@@ -150,6 +150,15 @@
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-worker-dispatch-channel.sh\""
           }
         ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-memory-codification.sh\""
+          }
+        ]
       }
     ],
     "Stop": [
@@ -192,5 +201,11 @@
         ]
       }
     ]
-  }
+  },
+  "claudeMdExcludes": [
+    ".claude/rules/egress-no-api-bypass.md",
+    ".claude/rules/memory-codification.md",
+    ".claude/rules/recommendation-laziness-discipline.md",
+    ".claude/rules/reviewer-discipline.md"
+  ]
 }
