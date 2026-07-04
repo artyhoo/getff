@@ -49,9 +49,13 @@ PRETTIERIGNORE_CFG_END='# <<< rules-as-tests-aif shipped-configs (managed) <<<'
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 # transform_internal_refs <markdown-file>
-# Rewrites markdown links `](../../../{docs,packages}/...)` and `](../../../README.md...)`
-# in-place to `](${UPSTREAM_BLOB_URL}/...)`. Leaves consumer-resolvable refs intact
-# (e.g. `](../../rules/...)` resolves to consumer's .claude/rules/ post-install).
+# Rewrites markdown links to repo-internal paths in-place to `](${UPSTREAM_BLOB_URL}/...)`:
+#   `](../../../{docs,packages,scripts}/...)`, `](../../rules/...)` (→ .claude/rules/), and
+#   `](../../../README.md...)`. A consumer tree has NONE of docs/packages/scripts/.claude/rules/
+#   README, so every such ref would otherwise dangle — all are rewritten to the upstream GitHub
+#   blob URL. (2026-07-04: added scripts/ + rules/ — the earlier "rules/ resolves post-install"
+#   assumption was false; .claude/rules/ is not shipped, verified by a real install. Sibling-skill
+#   links like `](../aif-doctor/SKILL.md)` are intentionally NOT rewritten — the sibling ships too.)
 # Uses `-i.bak` for BSD-sed/GNU-sed portability, then removes the backup.
 transform_internal_refs() {
   local f="$1"
@@ -59,6 +63,8 @@ transform_internal_refs() {
   sed -E -i.bak \
     -e "s#\]\((\.\./)+docs/#](${UPSTREAM_BLOB_URL}/docs/#g" \
     -e "s#\]\((\.\./)+packages/#](${UPSTREAM_BLOB_URL}/packages/#g" \
+    -e "s#\]\((\.\./)+scripts/#](${UPSTREAM_BLOB_URL}/scripts/#g" \
+    -e "s#\]\((\.\./)+rules/#](${UPSTREAM_BLOB_URL}/.claude/rules/#g" \
     -e "s#\]\((\.\./)+README\.md#](${UPSTREAM_BLOB_URL}/README.md#g" \
     "$f"
   rm -f "${f}.bak"

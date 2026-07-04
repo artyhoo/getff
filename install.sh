@@ -11,10 +11,10 @@
 #   ./install.sh ts-server --wire-ci            # also auto-wire missing CI gates via yq (opt-in, detect-first)
 #
 # What it does:
-#   1. Copies skills/ + .claude/skills/{pipeline,dispatcher,aif-doctor,template-audit}/ → .claude/skills/
+#   1. Copies skills/ + .claude/skills/{pipeline,dispatcher,aif-doctor,template-audit,night-mode,ai-doc,rule-research,harvest,story}/ → .claude/skills/
 #      (the meta-orchestrator pipeline + its orchestration companions are shipped from
-#       .claude/skills/ as single source of truth; self-reflection + ai-doc are intentionally
-#       NOT shipped — repo-internal per build-first-reuse-default.md §1.1 shipped-axis;
+#       .claude/skills/ as single source of truth; ONLY self-reflection is intentionally
+#       NOT shipped — repo-internal §1.7 self-review discipline per build-first-reuse-default.md §1.1 shipped-axis;
 #       cross-refs to repo-internal paths get sed-transformed to GitHub blob URLs —
 #       see UPSTREAM_BLOB_URL + transform_internal_refs() below;
 #       per .claude/rules/dual-implementation-discipline.md §7 SSOT)
@@ -270,7 +270,7 @@ do_refresh() {
 
   # ── Orchestration skills (with internal-ref transform) ──
   echo "▶ Orchestration skills → .claude/skills/"
-  for _skill in pipeline dispatcher aif-doctor template-audit; do
+  for _skill in pipeline dispatcher aif-doctor template-audit night-mode ai-doc rule-research harvest story; do
     refresh_skill_with_transform "$_skill"
   done
   _AIF_HELPERS="$PROJECT_ROOT/.claude/skills/aif-doctor/helpers"
