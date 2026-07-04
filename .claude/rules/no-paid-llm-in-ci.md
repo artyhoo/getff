@@ -8,6 +8,7 @@ paths:
 
 <!-- globs: .github/workflows/**, .github/actions/** -->
 <!-- inject: No paid LLM in CI. API-billed calls in .github/workflows/ violate policy. See §4 escape hatch for authorized override. -->
+<!-- glob-liveness: allow .github/actions/** no composite action exists yet in this repo; scope is forward-declared for when one ships (CTX Stage 1 render-rule-index.mjs liveness check) -->
 
 > **Class:** A — companion principle test shipped at [packages/core/principles/17-no-paid-llm-in-ci.test.ts](../../packages/core/principles/17-no-paid-llm-in-ci.test.ts) (#132/#133, 2026-05-22); deterministic grep over `.github/workflows/*.yml` for paid-API-LLM usage (Track 3 §3.4 mechanism, DN-6).
 > **Fires:** editing `.github/workflows/**` or `.github/actions/**`.

@@ -7,6 +7,7 @@ paths:
 
 <!-- globs: .github/workflows/**, .github/actions/** -->
 <!-- inject: Rule: pin bare run: tool installs (pip install pkg==ver, npm install -g pkg@ver); use npm ci --prefix, not npm install. See ci-tool-pinning.md §1. -->
+<!-- glob-liveness: allow .github/actions/** no composite action exists yet in this repo; scope is forward-declared for when one ships (CTX Stage 1 render-rule-index.mjs liveness check) -->
 
 # CI tool pinning — discipline rule
 
