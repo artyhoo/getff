@@ -42,6 +42,10 @@
       {
         "matcher": "Edit|Write|MultiEdit",
         "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-worker-dispatch-channel.sh\""
+      },
+      {
+        "matcher": "Write",
+        "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-memory-codification.sh\""
       }
     ],
     "Stop": [
