@@ -24,6 +24,6 @@ One line per rule — full text: read `.claude/rules/<name>.md` (index: `.claude
 | `recommendation-laziness-discipline.md` | C | before issuing an inline-chat verdict/recommendation or hitting an ambiguous fork. | digest |
 | `research-source-trust.md` | A | authoring a rule-research provenance entry / resolving allowed sources. | paths:(2), edit-time inject, skill-embed |
 | `reviewer-discipline.md` | C | review sessions (`/review`, `/ultrareview`, or a prose "проверь"/verdict ask). | agent |
-| `rule-enforcement-channel-selection.md` | B | codifying any new rule / choosing its enforcement channel. | paths:(2), edit-time inject |
+| `rule-enforcement-channel-selection.md` | A | codifying any new rule / choosing its enforcement channel. | paths:(2), edit-time inject |
 | `skill-description-quality.md` | C | authoring/updating any SKILL.md `description` field. | paths:(1), edit-time inject |
 | `source-before-shape.md` | B | creating a new SKILL.md/agent/module, or authoring a dispatch/kickoff. | paths:(3), edit-time inject |
