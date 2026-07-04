@@ -1,3 +1,15 @@
+---
+description: Doc authority hierarchy — Authoritative-for header spec for canonical docs
+paths:
+  - ".claude/rules/**"
+  - "agents/**"
+  - ".claude/skills/**"
+  - "packages/core/templates/**"
+---
+
+<!-- globs: .claude/rules/**, agents/**, .claude/skills/**, packages/core/templates/** -->
+<!-- inject: Rule: every canonical doc must carry an Authoritative-for header. Rule files also need a Class: field. See doc-authority-hierarchy.md §2-§3. -->
+
 # Doc authority hierarchy — discipline rule
 
 > **Class:** A — companion principle test shipped at [packages/core/principles/09-doc-authority-hierarchy.test.ts](../../packages/core/principles/09-doc-authority-hierarchy.test.ts).

@@ -1,3 +1,12 @@
+---
+description: SKILL.md description quality — routing-load-bearing description discipline
+paths:
+  - ".claude/skills/**"
+---
+
+<!-- globs: .claude/skills/** -->
+<!-- inject: Rule: SKILL.md description must be specific enough to distinguish the skill from peers; when_to_use must enumerate ≥1 concrete trigger. See skill-description-quality.md §2. -->
+
 # SKILL.md description quality — discipline rule
 
 > **Class:** C — prose-only; no current executable artifact. Promotion criterion in §3. Deferred per the R4b decision in the research-application-fixes umbrella (2026-06-27): «no misrouting incidents yet; a structural length/non-empty proxy would be `#discipline-theatre`; defer is explicitly valid when the trigger is recorded».

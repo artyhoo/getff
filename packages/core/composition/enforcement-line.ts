@@ -94,11 +94,11 @@ export function computeEnforcementLine(
       const code = e.outcome.kind === 'refused' ? e.outcome.code : '';
       return `${e.backend}: ${code}`;
     });
-    return `Enforced: — not machine-enforced yet (${parts.join(', ')})`;
+    return `Enforced: — not machine-enforced yet (${parts.join(' · ')})`;
   }
 
   const segments = perBackend.map((e) =>
     computeSegment(e.backend, node, e.outcome, matricesByBackend.get(e.backend)),
   );
-  return `Enforced: ${segments.join(', ')}`;
+  return `Enforced: ${segments.join(' · ')}`;
 }

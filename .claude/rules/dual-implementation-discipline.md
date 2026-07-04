@@ -1,3 +1,14 @@
+---
+description: Dual-implementation discipline — delivery-channel triage for hooks/agents/skills
+paths:
+  - ".claude/hooks/**"
+  - "agents/**"
+  - ".claude/skills/**"
+---
+
+<!-- globs: .claude/hooks/**, agents/**, .claude/skills/** -->
+<!-- inject: Rule: every CC hook must carry @dual-pair or @cc-only-rationale; agents/skills with a CC hook counterpart declare the same anchor. See dual-implementation-discipline.md §6. -->
+
 # Dual-implementation discipline — discipline rule
 
 > **Class:** A — the §5 drift-check + §6 marker-presence sketches ship as an executable check: [tests/agnosticism/probes/channel-coverage.sh](../../tests/agnosticism/probes/channel-coverage.sh) (Surface 8, CI-run by [packages/core/principles/21-agnosticism-conformance.test.ts](../../packages/core/principles/21-agnosticism-conformance.test.ts); seeded-break paired-negative in [tests/agnosticism/harness-self.test.sh](../../tests/agnosticism/harness-self.test.sh)) + the edit-time gate [.claude/hooks/check-hook-marker.sh](../hooks/check-hook-marker.sh) (§6, PostToolUse). The §8 *semantic* anti-patterns (`#two-prompts-drift` ≥3-line divergence, `#sync-by-copy-paste`, `#brand-name-detection`) remain reviewer-time judgment, not gated. Promotion history: §9.

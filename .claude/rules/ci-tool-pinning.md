@@ -1,3 +1,13 @@
+---
+description: CI tool pinning — version-pin bare run: installs; lockfile-aware --prefix
+paths:
+  - ".github/workflows/**"
+  - ".github/actions/**"
+---
+
+<!-- globs: .github/workflows/**, .github/actions/** -->
+<!-- inject: Rule: pin bare run: tool installs (pip install pkg==ver, npm install -g pkg@ver); use npm ci --prefix, not npm install. See ci-tool-pinning.md §1. -->
+
 # CI tool pinning — discipline rule
 
 > **Class:** A — companion principle test (paired-negative) shipped at `packages/core/hooks/unpinned-tool-install.test.ts` (issue #654, 2026-06-22); pre-push gate at `packages/core/hooks/pre-push.ts` (unpinnedToolInstallSection).

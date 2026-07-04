@@ -348,12 +348,13 @@ export const REGISTRY: Readonly<Record<string, RegistryEntry>> = Object.freeze({
   },
   FF8004: {
     template:
-      'node {nodeId} rendered ✅ for backend {backend} without live-fired evidence in its matrix',
+      'matrix incoherence for node {nodeId} backend {backend}: the cell for its selectorClass carries live-fired evidence while its status is "no" (evidence of firing in a cell marked not-applicable)',
     defaultSeverity: 'error',
     explanation:
-      'Composition gate (honesty class, T-S4-A): a ✅ enforcement claim is not backed by a ' +
-      'live-fired capability-matrix cell for the node\'s selectorClass. An ✅ MUST be a fact ' +
-      '(status !== "no" && evidence.kind === "live-fired"), never asserted. ' +
+      'Composition gate (honesty class, T-S4-A / DN-4): the capability-matrix cell for the ' +
+      'node\'s selectorClass is internally incoherent — status is "no" (the rule does not apply) ' +
+      'yet evidence.kind === "live-fired" (it was fired). The two honesty sources contradict. A ' +
+      'rendered-not-fired 🟡 (status "no", no evidence) is spec-legal and is NOT FF8004. ' +
       'composition/gates/composition-gate.ts.',
   },
 });

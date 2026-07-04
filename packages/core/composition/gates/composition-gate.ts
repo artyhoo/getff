@@ -14,8 +14,10 @@
 //   FF8003 — contradiction: node in BOTH a section and excluded[]; OR a ✅-eligible node whose
 //            RenderOutcome is 'refused' for a backend (a doc claiming what a backend refused);
 //            OR a backend that has NO RenderOutcome entry for a placed node (silent drop).
-//   FF8004 — a placed+rendered node whose matrix cell for its selectorClass carries NO
-//            live-fired evidence (a ✅ that is asserted, not proven — T-S4-A).
+//   FF8004 — matrix incoherence: a placed+rendered node whose matrix cell for its selectorClass
+//            carries 'live-fired' evidence while its status is 'no' (evidence of firing in a cell
+//            marked not-applicable — the two honesty sources contradict; T-S4-A / DN-4). The
+//            spec-legal 🟡 (rendered, not fired) case is NOT FF8004.
 
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -139,10 +141,20 @@ export function runCompositionGate(input: CompositionGateInput): CompositionGate
       const fired = hasFiringEvidence(node, matrix);
 
       if (outcome.kind === 'rendered') {
-        // A ✅-eligible claim. It is honest ONLY if the matrix cell carries live-fired
-        // evidence; otherwise the ✅ is asserted, not proven → FF8004 (T-S4-A).
-        if (!fired) {
-          diagnostics.push(diag('FF8004', { nodeId: id, backend }));
+        // DN-4: FF8004 fires ONLY on actual matrix incoherence — a cell whose status is 'no'
+        // (claims the rule does not apply) but whose evidence carries 'live-fired' (claims it
+        // actually was fired). This internal contradiction is the load-bearing honesty failure.
+        //
+        // The spec-legal 🟡 case (rendered but no firing evidence — status:'no', no evidence)
+        // is explicitly listed in spec §5.1 and must NOT be flagged as FF8004. The renderer
+        // already emits `🟡 (rendered, not fired)` honestly; the gate is silent on it.
+        if (matrix !== undefined) {
+          const cell = matrix.cells[node.selectorClass];
+          const hasLiveFiredEvidence = cell?.evidence?.kind === 'live-fired';
+          const statusIsNo = cell?.status === 'no';
+          if (hasLiveFiredEvidence && statusIsNo) {
+            diagnostics.push(diag('FF8004', { nodeId: id, backend }));
+          }
         }
         continue;
       }

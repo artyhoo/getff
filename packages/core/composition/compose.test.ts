@@ -88,7 +88,7 @@ describe('computeEnforcementLine — truth table', () => {
     );
     // Lexicographic: cargo-clippy-toml before npm-eslint-declarative.
     expect(line).toBe(
-      `Enforced: ${CARGO_BACKEND} — FF7001 (not expressible in clippy.toml), ${NPM_BACKEND} ✅`,
+      `Enforced: ${CARGO_BACKEND} — FF7001 (not expressible in clippy.toml) · ${NPM_BACKEND} ✅`,
     );
   });
 
@@ -103,7 +103,7 @@ describe('computeEnforcementLine — truth table', () => {
       matricesByBackend([]),
     );
     expect(line).toBe(
-      `Enforced: — not machine-enforced yet (${CARGO_BACKEND}: FF7001, ${NPM_BACKEND}: FF7001)`,
+      `Enforced: — not machine-enforced yet (${CARGO_BACKEND}: FF7001 · ${NPM_BACKEND}: FF7001)`,
     );
   });
 
@@ -170,7 +170,7 @@ describe('compose — region render shape', () => {
     expect(r).toContain(`> Always (clean): ${node.pairedExamples.positive}`);
     // Enforced line is COMPUTED (npm ✅, cargo —), not hand-written.
     expect(r).toContain(
-      `> Enforced: ${CARGO_BACKEND} — FF7001 (not expressible in clippy.toml), ${NPM_BACKEND} ✅`,
+      `> Enforced: ${CARGO_BACKEND} — FF7001 (not expressible in clippy.toml) · ${NPM_BACKEND} ✅`,
     );
   });
 
@@ -215,5 +215,28 @@ describe('compose — region render shape', () => {
     expect(region).toContain(
       `> Enforced: ${CARGO_BACKEND} ⚠️ FF7003 (clippy.toml carries no severity)`,
     );
+  });
+
+  it('A12-pin: enforcement segments are separated by " · " (middle dot), not comma', () => {
+    // Pin test: ensures the ` · ` separator cannot silently revert to `, `.
+    // Uses the multi-backend case (cargo refused, npm rendered) from the test above.
+    const line = computeEnforcementLine(
+      node,
+      [NPM_BACKEND, CARGO_BACKEND],
+      byBackend([
+        [NPM_BACKEND, [[node.id, RENDERED]]],
+        [CARGO_BACKEND, [[node.id, REFUSED_SYNTAX]]],
+      ]),
+      matricesByBackend([
+        [NPM_BACKEND, npmMatrix()],
+        [CARGO_BACKEND, cargoMatrix()],
+      ]),
+    );
+    // Must contain the middle-dot separator.
+    expect(line).toContain(' · ');
+    // Must NOT contain comma-space as an inter-segment separator at the outer level.
+    // (Commas inside parenthesized notes are fine — the regex checks for comma-space at segment boundaries.)
+    const withoutNotes = line.replace(/\([^)]*\)/g, '()');
+    expect(withoutNotes).not.toMatch(/, /);
   });
 });

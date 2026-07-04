@@ -20,6 +20,8 @@ on:
       - 'templates/**/*.md'
       - 'packages/core/templates/**/*.md'
       - 'packages/core/templates/**/*.template.md'
+      - 'packages/core/backends/**'
+      - 'packages/core/synthesizer/**'
 
 permissions:
   contents: read
