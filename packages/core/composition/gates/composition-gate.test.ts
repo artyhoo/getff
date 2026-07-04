@@ -77,13 +77,26 @@ describe('runCompositionGate — paired negatives', () => {
     expect(codes(out.diagnostics)).toContain('FF8001');
   });
 
-  it('N3: rendered ✅ with NO live-fired matrix evidence → FF8004', () => {
-    // Node placed + rendered by cargo, but cargo's syntax cell is 'no' (no firing evidence).
+  it('N3: matrix incoherence (status:no + evidence.kind:live-fired) → FF8004 (DN-4)', () => {
+    // DN-4 spec: FF8004 fires ONLY on actual matrix incoherence — a cell claiming status:'no'
+    // (rule does not apply) while simultaneously carrying evidence.kind:'live-fired' (was fired).
+    // NOTE: rendered-but-no-firing-evidence (🟡) is a spec-legal state per §5.1 — NOT FF8004.
+    const incoherentMatrix = {
+      backend: CARGO_BACKEND,
+      contract: 'firing-contract.json',
+      cells: {
+        syntax: {
+          status: 'no' as const,
+          refusedCode: 'FF7001',
+          evidence: { kind: 'live-fired', date: '2026-07-04', toolchain: 'rustc 1.96.1' },
+        },
+      },
+    };
     const input = {
       plan: { sections: [{ sectionId: 's', title: 'S', nodeIds: [NODE.id] }] },
       nodes: [NODE],
       outcomesByBackend: byBackend([[CARGO_BACKEND, [[NODE.id, RENDERED]]]]),
-      matricesByBackend: matricesByBackend([[CARGO_BACKEND, cargoMatrix()]]),
+      matricesByBackend: matricesByBackend([[CARGO_BACKEND, incoherentMatrix]]),
     };
     const out = runCompositionGate(input);
     expect(out.status).toBe('fail');
@@ -224,6 +237,64 @@ describe('runCompositionGate — paired negatives', () => {
     const out = runCompositionGate(input);
     expect(out.status).toBe('pass');
     expect(out.diagnostics).toHaveLength(0);
+  });
+});
+
+// --- N-S0: DN-4 paired negatives — FF8004 narrowed to matrix incoherence only -----------
+// DN-4 fix: FF8004 fires ONLY when matrix cell has status:'no' AND evidence.kind:'live-fired'
+// (the matrix is internally incoherent: it claims the rule does NOT apply while also claiming
+// it was live-fired). The spec-legal 🟡 case (rendered but no firing evidence) is NOT FF8004.
+//
+// RED-first evidence:
+//   N-S0-a: BEFORE fix, old code fires FF8004 on rendered+live-fired (wrong — this is a
+//            matrix-incoherence case that should fire; but old code fires it for the WRONG reason).
+//   N-S0-b: BEFORE fix (old code), rendered+no-firing-evidence → FF8004 (WRONG — this is
+//            spec-legal 🟡). AFTER fix → gate silent (correct: 🟡 is not FF8004).
+describe('DN-4 — FF8004 narrowed to matrix incoherence only (N-S0-a, N-S0-b)', () => {
+  it('N-S0-a: matrix incoherence (status:no + evidence.kind:live-fired) → FF8004 fires', () => {
+    // An anomalous matrix: the cell has status:'no' (claims rule does not apply) but ALSO
+    // carries evidence.kind:'live-fired' (claims it was actually fired). This internal
+    // contradiction is the matrix-incoherence case that DN-4 targets.
+    const incoherentMatrix = {
+      backend: CARGO_BACKEND,
+      contract: 'firing-contract.json',
+      cells: {
+        syntax: {
+          status: 'no' as const,
+          refusedCode: 'FF7001',
+          evidence: { kind: 'live-fired', date: '2026-07-04', toolchain: 'rustc 1.96.1' },
+        },
+      },
+    };
+    const input = {
+      plan: { sections: [{ sectionId: 's', title: 'S', nodeIds: [NODE.id] }] },
+      nodes: [NODE],
+      outcomesByBackend: byBackend([[CARGO_BACKEND, [[NODE.id, RENDERED]]]]),
+      matricesByBackend: matricesByBackend([[CARGO_BACKEND, incoherentMatrix]]),
+    };
+    const out = runCompositionGate(input);
+    // FF8004 must fire: matrix has live-fired evidence on a status:'no' cell (incoherent).
+    expect(out.status).toBe('fail');
+    expect(codes(out.diagnostics)).toContain('FF8004');
+  });
+
+  it('N-S0-b: rendered + no live-fired evidence (spec-legal 🟡) → gate is silent, NO FF8004', () => {
+    // The cargo matrix's syntax cell is status:'no', no evidence — hasFiringEvidence() returns
+    // false. The node is rendered (🟡 case per spec §5.1 truth-table). The gate must NOT emit
+    // FF8004: 🟡 is a legitimate honest state, not an asserted-but-unproven ✅.
+    // OLD code (before DN-4 fix): rendered && !fired → FF8004 (WRONG).
+    // NEW code (after DN-4 fix): only matrix incoherence → FF8004; 🟡 is silent.
+    const input = {
+      plan: { sections: [{ sectionId: 's', title: 'S', nodeIds: [NODE.id] }] },
+      nodes: [NODE],
+      outcomesByBackend: byBackend([[CARGO_BACKEND, [[NODE.id, RENDERED]]]]),
+      matricesByBackend: matricesByBackend([[CARGO_BACKEND, cargoMatrix()]]),  // syntax cell: status:'no', no evidence
+    };
+    const out = runCompositionGate(input);
+    // Gate must be silent: 🟡 rendered-not-fired is spec-legal, not FF8004.
+    expect(out.status).toBe('pass');
+    expect(out.diagnostics).toHaveLength(0);
+    expect(codes(out.diagnostics)).not.toContain('FF8004');
   });
 });
 

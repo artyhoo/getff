@@ -139,10 +139,20 @@ export function runCompositionGate(input: CompositionGateInput): CompositionGate
       const fired = hasFiringEvidence(node, matrix);
 
       if (outcome.kind === 'rendered') {
-        // A ✅-eligible claim. It is honest ONLY if the matrix cell carries live-fired
-        // evidence; otherwise the ✅ is asserted, not proven → FF8004 (T-S4-A).
-        if (!fired) {
-          diagnostics.push(diag('FF8004', { nodeId: id, backend }));
+        // DN-4: FF8004 fires ONLY on actual matrix incoherence — a cell whose status is 'no'
+        // (claims the rule does not apply) but whose evidence carries 'live-fired' (claims it
+        // actually was fired). This internal contradiction is the load-bearing honesty failure.
+        //
+        // The spec-legal 🟡 case (rendered but no firing evidence — status:'no', no evidence)
+        // is explicitly listed in spec §5.1 and must NOT be flagged as FF8004. The renderer
+        // already emits `🟡 (rendered, not fired)` honestly; the gate is silent on it.
+        if (matrix !== undefined) {
+          const cell = matrix.cells[node.selectorClass];
+          const hasLiveFiredEvidence = cell?.evidence?.kind === 'live-fired';
+          const statusIsNo = cell?.status === 'no';
+          if (hasLiveFiredEvidence && statusIsNo) {
+            diagnostics.push(diag('FF8004', { nodeId: id, backend }));
+          }
         }
         continue;
       }
