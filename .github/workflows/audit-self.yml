@@ -188,6 +188,11 @@ jobs:
         run: npm install --silent
       - name: Render & diff
         run: npx tsx packages/core/render/render-rules.ts --check
+      # CTX Stage 1: .claude/rules/00-rule-index.md + the AGENTS.md `rule-index` fenced
+      # region must stay in sync with each rule's own Class:/Fires:/paths:/globs:
+      # header metadata. Same job (node already set up); zero-dep node script, no tsx.
+      - name: Rule-index render & diff (CTX Stage 1)
+        run: node scripts/render-rule-index.mjs --check
 
   principles-meta-tests:
     name: Principles as meta-tests (Phase 2)
