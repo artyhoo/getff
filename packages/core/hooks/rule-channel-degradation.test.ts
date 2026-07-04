@@ -38,9 +38,13 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const GEN = resolve(REPO_ROOT, 'scripts/render-rule-channels.mjs');
+// GEN imports a .ts module (rule-channel-glob.ts) → must run under tsx, not plain node
+// (node <22.6 => ERR_UNKNOWN_FILE_EXTENSION on CI). Resolve tsx by its local binary path
+// rather than `npx tsx` (npx resolution is flaky in nested CI contexts — see the probe).
+const TSX = resolve(REPO_ROOT, 'node_modules/.bin/tsx');
 
 function run(root: string, ...args: string[]): { status: number; out: string } {
-  const r = spawnSync('npx', ['tsx', GEN, ...args, '--root', root], { encoding: 'utf8' });
+  const r = spawnSync(TSX, [GEN, ...args, '--root', root], { encoding: 'utf8' });
   return { status: r.status ?? -1, out: `${r.stdout ?? ''}${r.stderr ?? ''}` };
 }
 
