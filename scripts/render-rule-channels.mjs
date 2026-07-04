@@ -46,7 +46,17 @@ import { readFileSync, writeFileSync, existsSync, readdirSync, realpathSync } fr
 import { execFileSync } from 'node:child_process';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Ajv } from 'ajv';
+// ajv is a `packages/core` dep, NOT root. This script lives in scripts/, so a bare
+// `import 'ajv'` resolves from scripts/ up to ROOT node_modules — absent in the CI
+// Principles job (`npm ci --prefix packages/core` installs only packages/core deps).
+// Route ajv through the packages/core factory instead: its own `import 'ajv'` resolves
+// from packages/core/diagnostics/ (walk-up finds packages/core/node_modules/ajv in CI,
+// or the hoisted root ajv locally). This also REUSES the shared factory rather than
+// re-constructing Ajv inline (build-first-reuse / dual-implementation §8).
+import {
+  makeSchemaValidator,
+  errorsText,
+} from '../packages/core/diagnostics/ajv.ts';
 import {
   extractHeaderField,
   extractFrontmatterPaths,
@@ -118,15 +128,13 @@ function loadJson(p) {
   return JSON.parse(readFileSync(p, 'utf8'));
 }
 
-/** Minimal, dependency-light ajv validator — same {allErrors:true, strict:false} config as
- *  packages/core/diagnostics/ajv.ts's makeSchemaValidator, applied inline here rather than
- *  importing that .ts module from a plain .mjs CLI script (mirrors render-harness-config.mjs's
- *  own hand-rolled validateModel() precedent for schema-shape checks in a script context). */
+/** Validate `doc` against `schema` via the shared packages/core Ajv factory
+ *  ({allErrors:true, strict:false}). makeSchemaValidator creates its own Ajv per call, so a
+ *  fixed internal ref id is safe across the matrix + degradations schemas. */
 function validateAgainstSchema(doc, schema, label) {
-  const ajv = new Ajv({ allErrors: true, strict: false });
-  const validate = ajv.compile(schema);
+  const validate = makeSchemaValidator(schema, 'rule-channel-doc');
   if (!validate(doc)) {
-    throw new Error(`${label}: ${ajv.errorsText(validate.errors)}`);
+    throw new Error(`${label}: ${errorsText(validate.errors)}`);
   }
 }
 
