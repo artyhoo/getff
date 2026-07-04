@@ -21,13 +21,16 @@
  *       WITHOUT `paths:` (it is delivered by the hook's globs marker alone), OR
  *   (c) is named in ALWAYS_ON_CORE (asserted length <= 4 — the Tier-0 core, always resident), OR
  *   (d) carries a `<!-- channel: <mechanism> <artifact-path>#<anchor> -->` marker whose
- *       artifact-path resolves to a real, existstsSync-confirmed in-repo file, with the anchor
+ *       artifact-path resolves to a real, existsSync-confirmed in-repo file, with the anchor
  *       (when present) actually found (grepped) inside that file — fix D2: a free-prose
  *       exception ("delivered elsewhere") is unfalsifiable; naming + verifying the artifact
  *       catches an eviction-without-delivery mechanically.
  *
- * Mirrors the enumerator+paired-negative+fixture shape of principles 12/15/30 (see the
- * rule-channel-declaration.md sibling sweep in this PR's §1.7 backward-check).
+ * Mirrors the enumerator+paired-negative+fixture shape of principles 12/15/30. Its doctrine
+ * home is `.claude/rules/rule-enforcement-channel-selection.md` §6 (the Class B->A promotion
+ * record for this principle); the §1.7 backward-check enumeration of those siblings lives in
+ * the shipping PR body, not in a companion rule file (this principle has no `rules/*.md` of its
+ * own — the channel-selection doctrine already owns the convention it gates).
  */
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -62,7 +65,7 @@ export const ALWAYS_ON_CORE: readonly string[] = [
 if (ALWAYS_ON_CORE.length > 4) {
   throw new Error(
     `ALWAYS_ON_CORE grew past its asserted ceiling of 4 (currently ${ALWAYS_ON_CORE.length}) — ` +
-      'this defeats CTX Stage 0/1\'s always-on-context shrink. Revisit before adding entries.',
+      "this defeats CTX Stage 0/1's always-on-context shrink. Revisit before adding entries.",
   );
 }
 
@@ -85,9 +88,13 @@ export function enumerateRuleFiles(repoRoot: string): string[] {
   const rulesDir = `${repoRoot}/.claude/rules`;
   let tracked: Set<string> | null;
   try {
-    const out = execFileSync('git', ['-C', repoRoot, 'ls-files', '--', '.claude/rules'], {
-      encoding: 'utf8',
-    });
+    const out = execFileSync(
+      'git',
+      ['-C', repoRoot, 'ls-files', '--', '.claude/rules'],
+      {
+        encoding: 'utf8',
+      },
+    );
     tracked = new Set(out.split('\n').filter(Boolean));
   } catch {
     tracked = null;
@@ -104,7 +111,10 @@ export function enumerateRuleFiles(repoRoot: string): string[] {
 }
 
 /** Parse one rule file's channel-declaration fields (paths/globs/channel markers). */
-export function parseRuleChannelFields(relPath: string, repoRoot: string): RuleChannelFields {
+export function parseRuleChannelFields(
+  relPath: string,
+  repoRoot: string,
+): RuleChannelFields {
   const abs = `${repoRoot}/${relPath}`;
   const source = readFileSync(abs, 'utf8');
   const name = relPath.split('/').pop()!;
@@ -140,18 +150,24 @@ export function checkChannelMarkersLive(
   for (const raw of fields.channelMarkers) {
     const parsed = parseChannelMarker(raw);
     if (!parsed) {
-      reasons.push(`${fields.name}: channel marker "${raw}" does not name an artifact-path (must be "<mechanism> <artifact-path>[#anchor]")`);
+      reasons.push(
+        `${fields.name}: channel marker "${raw}" does not name an artifact-path (must be "<mechanism> <artifact-path>[#anchor]")`,
+      );
       continue;
     }
     const artifactAbs = `${repoRoot}/${parsed.artifactPath}`;
     if (!existsSync(artifactAbs)) {
-      reasons.push(`${fields.name}: channel marker "${raw}" — artifact "${parsed.artifactPath}" does not exist (dangling)`);
+      reasons.push(
+        `${fields.name}: channel marker "${raw}" — artifact "${parsed.artifactPath}" does not exist (dangling)`,
+      );
       continue;
     }
     if (parsed.anchor) {
       const artifactSource = readFileSync(artifactAbs, 'utf8');
       if (!artifactSource.includes(parsed.anchor)) {
-        reasons.push(`${fields.name}: channel marker "${raw}" — anchor "#${parsed.anchor}" not found in "${parsed.artifactPath}"`);
+        reasons.push(
+          `${fields.name}: channel marker "${raw}" — anchor "#${parsed.anchor}" not found in "${parsed.artifactPath}"`,
+        );
         continue;
       }
     }
@@ -177,7 +193,8 @@ export function evaluateRuleChannel(
   if (fields.paths && fields.paths.length > 0) return { ok: true, reasons };
 
   // (b) <!-- globs: --> marker (fix D1 — no paths: needed, e.g. kickoff-staging-placement.md)
-  if (fields.globsMarker && fields.globsMarker.length > 0) return { ok: true, reasons };
+  if (fields.globsMarker && fields.globsMarker.length > 0)
+    return { ok: true, reasons };
 
   // (c) ALWAYS_ON_CORE membership
   if (ALWAYS_ON_CORE.includes(fields.name)) return { ok: true, reasons };
@@ -202,7 +219,10 @@ export function evaluateRuleChannel(
  * — the SAME function scripts/render-rule-index.mjs's --check uses. Returns [] when either
  * side is absent (only applies when BOTH paths: and globs: are present, per shared module doc).
  */
-export function checkGlobParity(fields: RuleChannelFields, repoRoot: string): string[] {
+export function checkGlobParity(
+  fields: RuleChannelFields,
+  repoRoot: string,
+): string[] {
   return checkPathsGlobsParity(
     {
       name: fields.name.replace(/\.md$/, ''),
@@ -257,7 +277,9 @@ export function checkExclusionConsistency(
   for (const excludedPath of excludes) {
     const fields = ruleFieldsByPath.get(excludedPath);
     if (!fields) {
-      errs.push(`claudeMdExcludes lists "${excludedPath}" but that file is not an enumerated rule (typo or removed?)`);
+      errs.push(
+        `claudeMdExcludes lists "${excludedPath}" but that file is not an enumerated rule (typo or removed?)`,
+      );
       continue;
     }
     const channelResult = checkChannelMarkersLive(fields, repoRoot);
