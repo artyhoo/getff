@@ -94,15 +94,14 @@ describe('Principle 31 — every rule declares a delivery channel (4-branch PASS
       expect(violations, `Glob-parity violations:\n${violations.join('\n')}`).toHaveLength(0);
     });
 
-    it('real .claude/settings.json claudeMdExcludes is empty today — exclusion-consistency check passes VACUOUSLY', () => {
-      // Load-bearing reality-reconciliation: claudeMdExcludes is agent-deny-listed and the 4
-      // CTX-Stage-1 evictions are a maintainer-handoff patch NOT yet applied. This assertion
-      // pins that fact so a future settings.json edit that silently adds excludes is noticed
-      // (the exclusion-consistency check below would then have real work to do).
-      const settingsSource = existsSync(REAL_SETTINGS_PATH) ? readFileSync(REAL_SETTINGS_PATH, 'utf8') : '{}';
-      const parsed = JSON.parse(settingsSource);
-      expect(parsed.claudeMdExcludes ?? []).toEqual([]);
-
+    it('real .claude/settings.json exclusion-consistency: every claudeMdExcludes entry is a token-backed rule', () => {
+      // The permanent principle-31 invariant (the temporary "excludes are empty, vacuous" pin was
+      // retired when the CTX Stage 1 eviction was maintainer-applied): the maintainer MAY list rules
+      // in claudeMdExcludes to drop them from always-on auto-load, but each excluded rule MUST still
+      // carry a LIVE channel token (its alt-channel) — so a rule is never evicted without a delivery
+      // path (T-CTX-B). The exact contents of claudeMdExcludes are an operational choice, not a
+      // principle invariant, so this asserts CONSISTENCY, not a fixed list. N31-6 (below) proves the
+      // check has teeth: a token-less excluded rule is flagged RED.
       const files = enumerateRuleFiles(REPO_ROOT);
       const fieldsByPath = new Map<string, RuleChannelFields>();
       for (const rel of files) fieldsByPath.set(rel, parseRuleChannelFields(rel, REPO_ROOT));
