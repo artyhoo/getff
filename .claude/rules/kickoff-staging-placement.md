@@ -1,3 +1,9 @@
+---
+description: Kickoff staging-placement — dispatch-input merge-timing discipline
+paths:
+  - ".claude/orchestrator-prompts/**"
+---
+
 # Kickoff staging-placement — dispatch-input discipline
 
 <!-- globs: .claude/orchestrator-prompts/** -->

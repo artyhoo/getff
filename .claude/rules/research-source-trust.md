@@ -1,3 +1,13 @@
+---
+description: Research-source trust tiers — provenance allowlist discipline for rule research
+paths:
+  - "packages/core/research/**"
+  - ".ai-factory/research-allowlist.json"
+---
+
+<!-- globs: packages/core/research/**, .ai-factory/research-allowlist.json -->
+<!-- inject: Rule: research source trust requires Tier 0/1/2 provenance; new trust grants are data changes (.ai-factory/research-allowlist.json), never source edits. See research-source-trust.md §1. -->
+
 # Research-source trust tiers — discipline rule
 
 > **Class:** A — companion principle test shipped at [packages/core/principles/30-research-source-trust.test.ts](../../packages/core/principles/30-research-source-trust.test.ts).
