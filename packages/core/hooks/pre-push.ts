@@ -790,9 +790,9 @@ async function main(): Promise<void> {
   // stay in sync with each rule's own Class:/Fires:/paths:/globs: header metadata.
   // Earliest reachable channel for this ratchet (README#why-this-exists).
   if (existsSync(resolve(REPO_ROOT, 'scripts/render-rule-index.mjs'))) {
-    const r = run('node', ['scripts/render-rule-index.mjs', '--check']);
+    const r = run('npx', ['tsx', 'scripts/render-rule-index.mjs', '--check']);
     if (r.notFound) {
-      die('❌ node not found. Install Node.js to enable rule-index drift check.');
+      die('❌ npx/tsx not found. Install Node.js + tsx to enable rule-index drift check.');
     }
     if (r.exitCode !== 0) die('❌ rule-index drift detected:', r);
     emit(r);

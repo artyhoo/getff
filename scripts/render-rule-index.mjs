@@ -23,7 +23,8 @@
  *
  * Modes: `--write` (emit both) | `--check` (drift + validity, exit 1 on any failure).
  * `--root <dir>` overrides the search root (default: walk up from cwd, like render-harness-config).
- * Node, zero deps. Precedent: scripts/render-harness-config.mjs --write/--check.
+ * Run via `tsx` (imports packages/core/composition/fence.ts — a .ts module, so plain
+ * `node` cannot load it on Node <22.6). Precedent: scripts/render-harness-config.mjs --write/--check.
  */
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -254,7 +255,7 @@ function buildRows(root) {
 function renderIndexFileContent(block) {
   return `# Rule index — generated, do not hand-edit
 
-> **Authoritative for:** rendered rule digest. Regen: \`node scripts/render-rule-index.mjs --write\`.
+> **Authoritative for:** rendered rule digest. Regen: \`npx tsx scripts/render-rule-index.mjs --write\`.
 > **NOT authoritative for:** project goal — see [README.md](../../README.md#why-this-exists). Full rule text — read \`.claude/rules/<name>.md\`.
 
 ${block}
@@ -315,7 +316,7 @@ function run(argv) {
 
   if (drift.length) {
     console.error('✗ rule-index drift:\n' + drift.map((d) => `    - ${d}`).join('\n'));
-    console.error('  Fix: node scripts/render-rule-index.mjs --write');
+    console.error('  Fix: npx tsx scripts/render-rule-index.mjs --write');
     return 1;
   }
   console.log('✓ rule-index up-to-date (00-rule-index.md + AGENTS.md region)');

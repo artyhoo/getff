@@ -1,6 +1,6 @@
 # Rule index — generated, do not hand-edit
 
-> **Authoritative for:** rendered rule digest. Regen: `node scripts/render-rule-index.mjs --write`.
+> **Authoritative for:** rendered rule digest. Regen: `npx tsx scripts/render-rule-index.mjs --write`.
 > **NOT authoritative for:** project goal — see [README.md](../../README.md#why-this-exists). Full rule text — read `.claude/rules/<name>.md`.
 
 One line per rule — full text: read `.claude/rules/<name>.md` (index: `.claude/rules/00-rule-index.md`).
