@@ -31,11 +31,13 @@ const plan = (overrides: Partial<ResearchPlan> = {}): ResearchPlan => ({
   ...overrides,
 });
 
+// Lock name is stack-scoped (GH #915 obs 2): rules-lock.<framework>.json for a
+// framework plan, legacy rules-lock.json only when framework is null.
 const ARTIFACTS = [
   'rules-manifest-additions.json',
   'RULES-additions.md',
   'eslint-rules-snippet.json',
-  'rules-lock.json',
+  'rules-lock.next.json',
 ];
 
 describe('install — L5 v1 consumer disk write', () => {
@@ -77,7 +79,7 @@ describe('install — L5 v1 consumer disk write', () => {
       plan({ patterns: [entry('nextjs-app-router')] }),
     );
     install(synthPlan, { consumerRoot });
-    const lockPath = resolve(consumerRoot, '.ai-factory', 'synthesizer-output', 'rules-lock.json');
+    const lockPath = resolve(consumerRoot, '.ai-factory', 'synthesizer-output', 'rules-lock.next.json');
     const lock = JSON.parse(readFileSync(lockPath, 'utf8')) as RulesLock;
     expect(lock.schemaVersion).toBe(1);
     expect(lock.framework).toBe('next');
@@ -153,7 +155,7 @@ describe('install — L5 v1 consumer disk write', () => {
     );
     install(synthPlan, { consumerRoot });
     // Tamper: rewrite lock with mismatched ruleIds.
-    const lockPath = resolve(consumerRoot, '.ai-factory', 'synthesizer-output', 'rules-lock.json');
+    const lockPath = resolve(consumerRoot, '.ai-factory', 'synthesizer-output', 'rules-lock.next.json');
     const tampered = {
       schemaVersion: 1,
       framework: 'next',
@@ -178,5 +180,43 @@ describe('install — L5 v1 consumer disk write', () => {
     const lock = JSON.parse(readFileSync(lockPath, 'utf8')) as RulesLock;
     expect(lock.ruleIds).toEqual([]);
     expect(lock.framework).toBeNull();
+  });
+
+  // GH #915 obs 2 — the motivating multi-stack scenario: two stacks synthesized against the
+  // SAME consumerRoot must leave BOTH machine records on disk (react-native previously
+  // overwrote the ts-server lock; only the last-synthesized stack survived).
+  it('multi-stack: a second stack against the same consumerRoot does not clobber the first lock', () => {
+    const nextPlan = synthesize(plan({ patterns: [entry('nextjs-app-router')] }));
+    const first = install(nextPlan, { consumerRoot });
+    expect(first.ok).toBe(true);
+
+    const emptyOtherStack = synthesize(plan({ framework: null }));
+    const second = install(emptyOtherStack, { consumerRoot, force: true });
+    expect(second.ok).toBe(true);
+
+    const outDir = resolve(consumerRoot, '.ai-factory', 'synthesizer-output');
+    const nextLock = JSON.parse(
+      readFileSync(resolve(outDir, 'rules-lock.next.json'), 'utf8'),
+    ) as RulesLock;
+    const nullLock = JSON.parse(
+      readFileSync(resolve(outDir, 'rules-lock.json'), 'utf8'),
+    ) as RulesLock;
+    // Both records coexist; each drift-checks against ITS OWN plan.
+    expect(nextLock.framework).toBe('next');
+    expect(nextLock.ruleIds).toEqual(['G1']);
+    expect(nullLock.framework).toBeNull();
+    expect(nullLock.ruleIds).toEqual([]);
+  });
+
+  // paired-negative: without stack-scoping both plans would target ONE path — prove the
+  // two lock paths are genuinely distinct files (non-vacuous: delete one, other survives).
+  it('multi-stack neg: deleting the framework lock leaves the null-framework lock intact', () => {
+    const nextPlan = synthesize(plan({ patterns: [entry('nextjs-app-router')] }));
+    install(nextPlan, { consumerRoot });
+    install(synthesize(plan({ framework: null })), { consumerRoot, force: true });
+    const outDir = resolve(consumerRoot, '.ai-factory', 'synthesizer-output');
+    rmSync(resolve(outDir, 'rules-lock.next.json'));
+    expect(existsSync(resolve(outDir, 'rules-lock.next.json'))).toBe(false);
+    expect(existsSync(resolve(outDir, 'rules-lock.json'))).toBe(true);
   });
 });
