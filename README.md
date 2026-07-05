@@ -1,9 +1,9 @@
 # getff — rules as tests
 
 [![License: FSL-1.1-ALv2](https://img.shields.io/badge/license-FSL--1.1--ALv2-blue.svg)](LICENSE.md)
-[![Discipline Self-Check](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/discipline-self-check.yml/badge.svg?branch=staging)](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/discipline-self-check.yml)
-[![Audit Self](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/audit-self.yml/badge.svg?branch=staging)](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/audit-self.yml)
-[![Workflow Integrity](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/workflow-integrity.yml/badge.svg?branch=staging)](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/workflow-integrity.yml)
+[![Discipline Self-Check](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/discipline-self-check.yml/badge.svg?branch=main)](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/discipline-self-check.yml)
+[![Audit Self](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/audit-self.yml/badge.svg?branch=main)](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/audit-self.yml)
+[![Workflow Integrity](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/workflow-integrity.yml/badge.svg?branch=main)](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/workflow-integrity.yml)
 
 getff compiles your conventions into native toolchain gates (ESLint/husky for npm, clippy/cargo-deny for cargo). Its own [AGENTS.md](AGENTS.md) is executable — every claim carries a live-fired enforcement status; the gate fails when a claim drifts from reality. Docs lie; tests don't.
 
