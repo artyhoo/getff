@@ -33,7 +33,7 @@ function freshConsumerRoot(): string {
   return dir;
 }
 function lockPathOf(root: string): string {
-  return resolve(root, '.ai-factory', 'synthesizer-output', 'rules-lock.json');
+  return resolve(root, '.ai-factory', 'synthesizer-output', 'rules-lock.react-next.json');
 }
 afterEach(() => {
   for (const d of tmpDirs.splice(0)) rmSync(d, { recursive: true, force: true });

@@ -32,7 +32,7 @@ function freshConsumerRoot(): string {
   return dir;
 }
 function lockPathOf(consumerRoot: string): string {
-  return resolve(consumerRoot, '.ai-factory', 'synthesizer-output', 'rules-lock.json');
+  return resolve(consumerRoot, '.ai-factory', 'synthesizer-output', 'rules-lock.react-next.json');
 }
 
 afterEach(() => {
