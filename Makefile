@@ -6,8 +6,7 @@ demo: ## Regenerate the two README demo GIFs (needs: brew install vhs)
 	@bash demo/setup-sandbox.sh
 	@vhs demo/violation-blocked.tape
 	@cp .claude/rules/ci-tool-pinning.md /tmp/ci-tool-pinning.md.bak
-	@vhs demo/doc-drift-gate.tape
-	@cp /tmp/ci-tool-pinning.md.bak .claude/rules/ci-tool-pinning.md
+	@trap 'cp /tmp/ci-tool-pinning.md.bak .claude/rules/ci-tool-pinning.md' EXIT; vhs demo/doc-drift-gate.tape
 
 # guard-liveness v2 — periodic FULL-SWEEP over the entire manifest (last-resort
 # backstop; the change-scoped pre-push gates cover the per-PR delta). Run before
