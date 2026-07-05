@@ -10,7 +10,7 @@ getff compiles your conventions into native toolchain gates (ESLint/husky for np
 **Honest framing:** today the executable AGENTS.md is this repo's own — [open it](AGENTS.md), every statement has an enforcement line. `getff init` (via `./setup`, see [Installation](#installation)) installs the enforcement layer (ESLint/husky/CI gates) into your TypeScript project; generating *your* executable AGENTS.md is the next milestone, not shipped yet.
 
 ![Adding `as any` gets blocked at the git hook, before CI even sees it](demo/violation-blocked.gif)
-![A drifted claim in AGENTS.md fails `make self-audit` with the exact line that lied](demo/doc-drift-gate.gif)
+![A rule's own claim drifts from the generated index; the check `make self-audit` runs catches it and names the fix](demo/doc-drift-gate.gif)
 
 ## What you get today
 
