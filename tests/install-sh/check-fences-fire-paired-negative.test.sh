@@ -124,6 +124,42 @@ else
   echo "    gate output: $(echo "$POS_OUTPUT" | head -8 | tr '\n' '|')"
 fi
 
+# ─── Arm (iv/v/vi): strict mode — SKIP is a failure where deps are required (GH #915 obs 1) ──
+# A dep-missing SKIP whose only consumer is "someone reads the log" is #warning-nobody-reads
+# (attention-is-not-a-mechanism.md §1). Strict mode (explicit FENCES_FIRE_STRICT=1, or CI set)
+# promotes SKIP>=1 to rc=1, with FENCES_FIRE_ALLOW_SKIP='<rationale >=20 chars>' as the escape.
+EMPTY_ROOT=$(mktemp -d)   # no fixtures/deps at all → the gate can only SKIP
+
+# (iv) strict: SKIP → rc=1
+env -u CI FENCES_FIRE_STRICT=1 AIF_PROJECT_ROOT="$EMPTY_ROOT" bash "$GATE_SCRIPT" >/dev/null 2>&1
+if [ $? -eq 1 ]; then
+  ok "(iv) strict arm: dep/fixture-missing SKIP exits 1 under FENCES_FIRE_STRICT=1"
+else
+  bad "(iv) strict arm: SKIP did NOT fail under FENCES_FIRE_STRICT=1 — silent-degrade leak"
+fi
+
+# (v, paired-positive) degrade default preserved: same run WITHOUT strict/CI → rc=0
+env -u CI AIF_PROJECT_ROOT="$EMPTY_ROOT" bash "$GATE_SCRIPT" >/dev/null 2>&1
+if [ $? -eq 0 ]; then
+  ok "(v) degrade arm: same SKIP exits 0 without strict/CI (install-must-not-abort preserved)"
+else
+  bad "(v) degrade arm: non-strict SKIP exited non-zero — consumer install would abort"
+fi
+
+# (vi) escape token: strict + rationale >=20 chars → rc=0; too-short rationale → still rc=1
+env -u CI FENCES_FIRE_STRICT=1 FENCES_FIRE_ALLOW_SKIP='consumer sandbox intentionally has no tsx' \
+  AIF_PROJECT_ROOT="$EMPTY_ROOT" bash "$GATE_SCRIPT" >/dev/null 2>&1
+RC_LONG=$?
+env -u CI FENCES_FIRE_STRICT=1 FENCES_FIRE_ALLOW_SKIP='short' \
+  AIF_PROJECT_ROOT="$EMPTY_ROOT" bash "$GATE_SCRIPT" >/dev/null 2>&1
+RC_SHORT=$?
+if [ "$RC_LONG" -eq 0 ] && [ "$RC_SHORT" -eq 1 ]; then
+  ok "(vi) escape arm: >=20-char rationale bypasses strict (rc=0); short rationale rejected (rc=1)"
+else
+  bad "(vi) escape arm: expected long-rationale rc=0 + short-rationale rc=1, got $RC_LONG/$RC_SHORT"
+fi
+rm -rf "$EMPTY_ROOT"
+
 # ─── Scratch: isolated fixture environment ────────────────────────────────────
 SCRATCH=$(mktemp -d)
 

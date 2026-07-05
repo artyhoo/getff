@@ -16,7 +16,15 @@
 #   2. bad.ts → rule MUST fire (probe exits 0 ⇒ PASS; exits 1 ⇒ FAIL "fence silent").
 #   3. good.ts → rule MUST NOT fire (probe exits 0 ⇒ PASS; exits 2 ⇒ FAIL "false-positive").
 #
-# SKIP GRACEFULLY when tsx or eslint binaries are absent (rc=0 — degrade, never fabricate fail).
+# SKIP GRACEFULLY when tsx or eslint binaries are absent (rc=0 — degrade, never fabricate fail)
+# — EXCEPT in strict mode (GH #915 obs 1): a SKIP whose only consumer is "someone reads the
+# log" is #warning-nobody-reads (.claude/rules/attention-is-not-a-mechanism.md §1). Strict mode
+# promotes SKIP≥1 to rc=1 where deps are REQUIRED to be present:
+#   FENCES_FIRE_STRICT=1  → force strict;  FENCES_FIRE_STRICT=0 → force degrade;
+#   unset                 → auto-strict when CI is set (CI installs deps; a dep-missing SKIP
+#                           there means the gate's own firing proof silently did not run).
+#   Escape token: FENCES_FIRE_ALLOW_SKIP='<rationale ≥20 chars>' (precedent: ci-tool-pinning §3).
+# Interactive/local consumer installs stay degrade (install must not abort).
 # NEVER run the ESLint CLI with the full flat config (ERR_REQUIRE_CYCLE_MODULE).
 #
 # CONSUMER PATH: scripts/check-fences-fire.sh (copied by setup.d/40-configs.sh).
@@ -49,15 +57,33 @@ for _d in \
   [ -d "$_d" ] && FIXTURE_DIR="$_d" && break
 done
 
-if [ -z "$FIXTURE_DIR" ]; then
-  echo "  · check-fences-fire: fixture dir not found (expected $PROJECT_ROOT/scripts/fences-fire-fixtures) — skipped"
-  exit 0
-fi
-
 PASS=0; FAIL=0; SKIP=0
 ok()   { PASS=$((PASS+1)); echo "  ✓ $1"; }
 bad()  { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 skip() { SKIP=$((SKIP+1)); echo "  · $1"; }
+
+# Single exit seam — every termination path routes here so strict mode sees ALL skips
+# (including the early fixture-dir / no-manifest paths). See header for the mode contract.
+finish() {
+  echo ""
+  echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP"
+  local strict="${FENCES_FIRE_STRICT:-}"
+  if [ -z "$strict" ] && [ -n "${CI:-}" ]; then strict=1; fi
+  if [ "$strict" = "1" ] && [ "$SKIP" -gt 0 ]; then
+    if [ -n "${FENCES_FIRE_ALLOW_SKIP:-}" ] && [ "${#FENCES_FIRE_ALLOW_SKIP}" -ge 20 ]; then
+      echo "  · strict: $SKIP skip(s) allowed by FENCES_FIRE_ALLOW_SKIP: $FENCES_FIRE_ALLOW_SKIP"
+    else
+      echo "  ✗ strict mode: $SKIP skip(s) are failures — the gate's own firing proof did not run (dep missing / fixtures absent). Escape: FENCES_FIRE_ALLOW_SKIP='<rationale ≥20 chars>'. (GH #915 obs 1)"
+      exit 1
+    fi
+  fi
+  [ "$FAIL" -eq 0 ] && exit 0 || exit 1
+}
+
+if [ -z "$FIXTURE_DIR" ]; then
+  skip "check-fences-fire: fixture dir not found (expected $PROJECT_ROOT/scripts/fences-fire-fixtures) — skipped"
+  finish
+fi
 
 # ─── Locate binaries ──────────────────────────────────────────────────────────
 TSX_BIN=""
@@ -80,7 +106,7 @@ done
 
 if [ -z "$TSX_BIN" ] || [ -z "$ESLINT_BIN" ]; then
   skip "check-fences-fire SKIP — tsx ($([ -n "$TSX_BIN" ] && echo found || echo missing)) or eslint ($([ -n "$ESLINT_BIN" ] && echo found || echo missing)) not available; run npm install first"
-  echo ""; echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP"; exit 0
+  finish
 fi
 
 NM_SRC="$(dirname "$(dirname "$ESLINT_BIN")")"
@@ -96,7 +122,7 @@ done
 
 if [ -z "$LOCAL_BARREL" ]; then
   skip "check-fences-fire SKIP — eslint-rules-local/index.mjs not found (run install.sh first to generate the barrel)"
-  echo ""; echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP"; exit 0
+  finish
 fi
 
 BARREL_DIR="$(dirname "$LOCAL_BARREL")"
@@ -241,7 +267,7 @@ done < <(find "$FIXTURE_DIR" -maxdepth 1 -name '*.manifest.json' -print0 2>/dev/
 
 if [ "${#MANIFESTS[@]}" -eq 0 ]; then
   skip "check-fences-fire: no fixture manifests found in $FIXTURE_DIR"
-  echo ""; echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP"; exit 0
+  finish
 fi
 
 echo "▶ check-fences-fire: probing ${#MANIFESTS[@]} fence(s) from $FIXTURE_DIR"
@@ -249,6 +275,4 @@ for _m in "${MANIFESTS[@]}"; do
   _run_fixture "$_m"
 done
 
-echo ""
-echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP"
-[ "$FAIL" -eq 0 ]
+finish
