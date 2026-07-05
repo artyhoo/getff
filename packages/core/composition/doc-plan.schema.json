@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "doc-plan",
+  "title": "DocPlan",
+  "description": "Composition plane doc-as-data (MT umbrella S4, Surface 3). Spec: docs/superpowers/specs/2026-07-03-multi-toolchain-convention-compiler-design.md §5.1.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["sections"],
+  "properties": {
+    "sections": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/Section" }
+    },
+    "excluded": {
+      "type": "array",
+      "minItems": 0,
+      "items": { "$ref": "#/definitions/ExcludedNode" }
+    }
+  },
+  "definitions": {
+    "Section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sectionId", "title", "nodeIds"],
+      "properties": {
+        "sectionId": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+        "title": { "type": "string", "minLength": 1 },
+        "nodeIds": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "ExcludedNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodeId", "reason"],
+      "properties": {
+        "nodeId": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

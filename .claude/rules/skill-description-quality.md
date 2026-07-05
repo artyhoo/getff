@@ -1,6 +1,16 @@
+---
+description: SKILL.md description quality — routing-load-bearing description discipline
+paths:
+  - ".claude/skills/**"
+---
+
+<!-- globs: .claude/skills/** -->
+<!-- inject: Rule: SKILL.md description must be specific enough to distinguish the skill from peers; when_to_use must enumerate ≥1 concrete trigger. See skill-description-quality.md §2. -->
+
 # SKILL.md description quality — discipline rule
 
 > **Class:** C — prose-only; no current executable artifact. Promotion criterion in §3. Deferred per the R4b decision in the research-application-fixes umbrella (2026-06-27): «no misrouting incidents yet; a structural length/non-empty proxy would be `#discipline-theatre`; defer is explicitly valid when the trigger is recorded».
+> **Fires:** authoring/updating any SKILL.md `description` field.
 > **Authoritative for:** SKILL.md `description` field quality discipline — §1 the problem and evidence, §2 the deferred discipline and its rationale, §3 promotion criterion (≥3 misrouting incidents / 6 months), §4 §1.7 self-reflexive note, §5 see-also.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Structural presence checks on SKILL.md files — see [packages/core/principles/15-skill-paired-negative.test.ts](../../packages/core/principles/15-skill-paired-negative.test.ts) (paired-negative) and [packages/core/principles/14-skill-drift-detection.test.ts](../../packages/core/principles/14-skill-drift-detection.test.ts) (frontmatter drift). SSOT entry for SkillRouter — see [docs/meta-factory/prior-art-evaluations.md #179](../../docs/meta-factory/prior-art-evaluations.md).
 

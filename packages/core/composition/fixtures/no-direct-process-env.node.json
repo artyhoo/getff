@@ -1,0 +1,16 @@
+{
+  "id": "no-direct-process-env",
+  "claim": "Read configuration through the injected config accessor, never process.env directly",
+  "anchors": [],
+  "selectorClass": "syntax",
+  "params": {
+    "selector": "MemberExpression[object.name='process'][property.name='env']",
+    "presence": "forbid"
+  },
+  "defaultSeverity": "error",
+  "provenance": [],
+  "pairedExamples": {
+    "negative": "const url = process.env.DATABASE_URL;",
+    "positive": "const url = config.get('databaseUrl');"
+  }
+}

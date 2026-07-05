@@ -29,7 +29,12 @@ allowed-tools:
 
 ---
 
-## §1 — Egress (push the committed work, never the dirty tree)
+## §1 — Egress (push the committed work, never the dirty tree) {#egress}
+
+<!-- CTX Stage 1 skill-embed anchor: .claude/rules/egress-no-api-bypass.md carries a
+     "channel: skill-embed" token pointing here. This §1 already IS the run-moment
+     procedure implementing that rule's §1 channel preference (host-push default,
+     API break-glass) — see step 4/5 below. -->
 
 Harvest the **committed** in-scope work only. aif worktrees arrive polluted (out-of-scope dirty files) on a stale base — the real work is in the commits, not the working tree.
 
@@ -66,7 +71,7 @@ The sweep auto-scopes via `git merge-base`, escalates to `--full` on any unmappe
 
 ## Without this skill
 
-The operator hand-runs the harvest from memory: inspects the container, picks a push channel, hand-reconciles shared-file collisions, and runs *whichever* gates come to mind before pushing. The recurring outcome (PR #724) is a push that reddens CI on a gate that was never re-run locally — and a round-trip per red. The 9 egress gotchas live only in user-scope memory, invisible to a fresh session or a different machine.
+The operator hand-runs the harvest from memory: inspects the container, picks a push channel, hand-reconciles shared-file collisions, and runs _whichever_ gates come to mind before pushing. The recurring outcome (PR #724) is a push that reddens CI on a gate that was never re-run locally — and a round-trip per red. The 9 egress gotchas live only in user-scope memory, invisible to a fresh session or a different machine.
 
 ## With this skill
 

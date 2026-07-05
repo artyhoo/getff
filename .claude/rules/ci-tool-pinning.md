@@ -1,6 +1,18 @@
+---
+description: CI tool pinning — version-pin bare run: installs; lockfile-aware --prefix
+paths:
+  - ".github/workflows/**"
+  - ".github/actions/**"
+---
+
+<!-- globs: .github/workflows/**, .github/actions/** -->
+<!-- inject: Rule: pin bare run: tool installs (pip install pkg==ver, npm install -g pkg@ver); use npm ci --prefix, not npm install. See ci-tool-pinning.md §1. -->
+<!-- glob-liveness: allow .github/actions/** no composite action exists yet in this repo; scope is forward-declared for when one ships (CTX Stage 1 render-rule-index.mjs liveness check) -->
+
 # CI tool pinning — discipline rule
 
 > **Class:** A — companion principle test (paired-negative) shipped at `packages/core/hooks/unpinned-tool-install.test.ts` (issue #654, 2026-06-22); pre-push gate at `packages/core/hooks/pre-push.ts` (unpinnedToolInstallSection).
+> **Fires:** editing `.github/workflows/**`.
 > **Authoritative for:** CI tool pinning discipline — §1 the two rules (version pin + lockfile-aware install), §2 scope (this repo's `.github/workflows/`), §3 escape hatch, §4 relationship to companion-install-principle.md, §5 promotion / retirement.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Consumer companion installs — see [companion-install-principle.md](companion-install-principle.md) (different surface, no contradiction with this rule — see §4).
 

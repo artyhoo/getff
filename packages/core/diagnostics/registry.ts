@@ -9,11 +9,15 @@
 //
 // Ranges (tsc diagnosticMessages.json pattern): FF1xxx schema/shape,
 // FF2xxx provenance/trust, FF3xxx L4 semantic gates, FF4xxx installer/wiring
-// (reserved), FF5xxx CLI/config (reserved). FF = fitness functions (getff
-// brand). This file seeds FF1001, the 15 FF2xxx codes, and the 20 FF3xxx
-// codes (Task 4, DN-D1-4 — one code per failure kind per gate, spec-literal
-// per-gate allocation; see decisions.md DN-D1-4 for the full derivation).
-// FF4xxx/FF5xxx are D2 at-touch (reserved, not seeded here).
+// (reserved), FF5xxx CLI/config (reserved), FF6xxx IR grammar gates (seeded
+// S1), FF7xxx render outcomes (seeded by cargo-v0 S2), FF8xxx composition/doc
+// plane (seeded S4 — DocPlan composition gate). FF = fitness functions (getff
+// brand). This file seeds FF1001, the 15 FF2xxx codes, and the 20 FF3xxx codes
+// (Task 4, DN-D1-4 — one code per failure kind per gate, spec-literal per-gate
+// allocation; see decisions.md DN-D1-4 for the full derivation), plus 3 FF6xxx
+// codes (MT umbrella S1 — IR grammar gate), 3 FF7xxx codes (MT umbrella S2 —
+// cargo backend v0 render outcomes), and 4 FF8xxx codes (MT umbrella S4 —
+// DocPlan composition gate). FF4xxx/FF5xxx are D2+ at-touch (reserved, not seeded here).
 //
 // Registry is append-only: never remove or renumber an existing code (see
 // registry.test.ts test (d), pinned against registry.codes.snapshot.json).
@@ -262,6 +266,96 @@ export const REGISTRY: Readonly<Record<string, RegistryEntry>> = Object.freeze({
     template: 'require-vacuity direction B — selector fires on good example ({count} violation{plural}); rule fires unconditionally',
     defaultSeverity: 'error',
     explanation: 'requireVacuity gate: selector fires on the good example too (always-red false positive). gate-require-vacuity.ts.',
+  },
+
+  // --- FF6xxx: IR grammar gates (MT umbrella S1 — ir/gates/grammar.ts) ---
+  FF6001: {
+    template: 'degenerate pairedExamples: positive === negative for node {nodeId}',
+    defaultSeverity: 'error',
+    explanation:
+      'IR grammar gate (tautology class): pairedExamples.positive and pairedExamples.negative ' +
+      'are byte-identical, so the pair cannot discriminate the convention it claims to test. ir/gates/grammar.ts.',
+  },
+  FF6002: {
+    template: 'duplicate ConventionNode id {id} ({count} occurrences)',
+    defaultSeverity: 'error',
+    explanation:
+      'IR grammar gate (conflict class): two or more nodes in the set share the same id, ' +
+      'breaking id-addressability. ir/gates/grammar.ts.',
+  },
+  FF6003: {
+    template: 'dangling anchor {anchor} on node {nodeId}: not a REGISTRY code',
+    defaultSeverity: 'error',
+    explanation:
+      'IR grammar gate (coverage/broken-ref class, principle-08 pattern generalized): an anchor ' +
+      'in node.anchors does not resolve to a key in the diagnostics REGISTRY. ir/gates/grammar.ts.',
+  },
+
+  // --- FF7xxx: render outcomes (MT umbrella S2 — backends/cargo/render-clippy.ts) ---
+  FF7001: {
+    template: 'not expressible in {backend}: selectorClass {selectorClass} (node {nodeId})',
+    defaultSeverity: 'warning',
+    explanation:
+      'Backend render refusal (capability class): the node\'s selectorClass has no ' +
+      'representation in this backend\'s render target at v0 (e.g. syntax-class or ' +
+      'dep-graph-class nodes against the cargo clippy.toml backend). backends/cargo/render-clippy.ts.',
+  },
+  FF7002: {
+    template: 'params contract violation for {backend} renderer: node {nodeId} missing/invalid {missing}',
+    defaultSeverity: 'error',
+    explanation:
+      'Backend render refusal (params class): node.params does not satisfy the backend\'s ' +
+      'own params contract (e.g. missing kind/path, or kind outside the backend\'s known set). ' +
+      'backends/cargo/render-clippy.ts.',
+  },
+  FF7003: {
+    template: 'severity {requested} not projected by {backend} at v0 (node {nodeId})',
+    defaultSeverity: 'note',
+    explanation:
+      'Backend render degradation (severity class): the node\'s defaultSeverity has no ' +
+      'projection in this backend\'s render target at v0 (rendered-with-loss, not dropped — ' +
+      'the content is still emitted). backends/cargo/render-clippy.ts.',
+  },
+
+  // --- FF8xxx: composition/doc plane (MT umbrella S4 — composition/gates/composition-gate.ts) ---
+  FF8001: {
+    template: 'dangling node reference: id {nodeId} in {where} has no matching ConventionNode',
+    defaultSeverity: 'error',
+    explanation:
+      'Composition gate (broken-ref class): a DocPlan section nodeId or an excluded[] nodeId ' +
+      'points at a ConventionNode id that is not in the node set. A plan cannot document a ' +
+      'node that does not exist. composition/gates/composition-gate.ts.',
+  },
+  FF8002: {
+    template:
+      'node {nodeId} is neither placed in a section nor a valid excluded[] entry ({reason})',
+    defaultSeverity: 'error',
+    explanation:
+      'Composition gate (coverage class, attention-is-not-a-mechanism): a scoped node is ' +
+      'silently absent from the doc — it appears in no section AND has no valid excluded[] ' +
+      'opt-out (missing, or reason under 20 chars). Silence about an undocumented node is ' +
+      'impossible: it must be documented or explicitly, reasonedly excluded. ' +
+      'composition/gates/composition-gate.ts.',
+  },
+  FF8003: {
+    template: 'composition contradiction for node {nodeId}: {detail}',
+    defaultSeverity: 'error',
+    explanation:
+      'Composition gate (contradiction class): the plan and the render facts disagree — a node ' +
+      'placed in BOTH a section and excluded[], OR a backend segment with no RenderOutcome in ' +
+      'the outcomes Map (a doc claiming enforcement a backend never produced). ' +
+      'composition/gates/composition-gate.ts.',
+  },
+  FF8004: {
+    template:
+      'matrix incoherence for node {nodeId} backend {backend}: the cell for its selectorClass carries live-fired evidence while its status is "no" (evidence of firing in a cell marked not-applicable)',
+    defaultSeverity: 'error',
+    explanation:
+      'Composition gate (honesty class, T-S4-A / DN-4): the capability-matrix cell for the ' +
+      'node\'s selectorClass is internally incoherent — status is "no" (the rule does not apply) ' +
+      'yet evidence.kind === "live-fired" (it was fired). The two honesty sources contradict. A ' +
+      'rendered-not-fired 🟡 (status "no", no evidence) is spec-legal and is NOT FF8004. ' +
+      'composition/gates/composition-gate.ts.',
   },
 });
 

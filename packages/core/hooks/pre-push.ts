@@ -785,6 +785,21 @@ async function main(): Promise<void> {
     emit(r);
   }
 
+  // ── 4b. Rule-index render drift (CTX Stage 1) ────────────────────────────────
+  // .claude/rules/00-rule-index.md + the AGENTS.md `rule-index` fenced region must
+  // stay in sync with each rule's own Class:/Fires:/paths:/globs: header metadata.
+  // Earliest reachable channel for this ratchet (README#why-this-exists).
+  if (existsSync(resolve(REPO_ROOT, 'scripts/render-rule-index.mjs'))) {
+    const r = run('npx', ['tsx', 'scripts/render-rule-index.mjs', '--check']);
+    if (r.notFound) {
+      die(
+        '❌ npx/tsx not found. Install Node.js + tsx to enable rule-index drift check.',
+      );
+    }
+    if (r.exitCode !== 0) die('❌ rule-index drift detected:', r);
+    emit(r);
+  }
+
   // ── 5. Principles meta-tests (Phase 2) ───────────────────────────────────────
   {
     const r = run('npm', ['--prefix', CORE, 'run', 'test:principles']);
@@ -795,6 +810,50 @@ async function main(): Promise<void> {
     }
     if (r.exitCode !== 0)
       die('❌ principles meta-tests failed — fix before push', r);
+    emit(r);
+  }
+
+  // ── 5b. IR grammar-gate tests (MT S1) — stage gate at the pre-push channel ────
+  // Lifts the ir/ suite from CI (last-resort) to pre-push (earlier channel), per
+  // README#why-this-exists "earliest reachable channel". Fast, no toolchain.
+  {
+    const r = run('npm', ['--prefix', CORE, 'run', 'test:ir']);
+    if (r.notFound) {
+      die('❌ npm/npx not found. Install Node.js to enable IR meta-tests.');
+    }
+    if (r.exitCode !== 0)
+      die('❌ IR grammar-gate tests failed — fix before push', r);
+    emit(r);
+  }
+
+  // ── 5c. Backend tests (MT S2) — stage gate at the pre-push channel ────────────
+  // Live-fire (cargo) self-gates via skipIf in firing.test.ts: it runs when a
+  // rust toolchain is present, skips loudly otherwise; the always-on matrix /
+  // render / parse / self-application tests always run regardless.
+  {
+    const r = run('npm', ['--prefix', CORE, 'run', 'test:backends']);
+    if (r.notFound) {
+      die(
+        '❌ npm/npx not found. Install Node.js to enable backend meta-tests.',
+      );
+    }
+    if (r.exitCode !== 0) die('❌ backend tests failed — fix before push', r);
+    emit(r);
+  }
+
+  // ── 5d. Composition tests (MT S4) — stage gate at the pre-push channel ────────
+  // The executable-AI-doc plane: DocPlan → rendered region, composition-gate
+  // FF8001-8004. Deterministic (no toolchain), lifted from CI to the earlier
+  // channel like 5b/5c.
+  {
+    const r = run('npm', ['--prefix', CORE, 'run', 'test:composition']);
+    if (r.notFound) {
+      die(
+        '❌ npm/npx not found. Install Node.js to enable composition meta-tests.',
+      );
+    }
+    if (r.exitCode !== 0)
+      die('❌ composition tests failed — fix before push', r);
     emit(r);
   }
 

@@ -291,19 +291,45 @@ export function assertF3(relPath: string, rationale: string): void {
   }
 }
 
+// ── Shared capability scan (perf memo) ─────────────────────────────────────────
+// F1 and F3 each walk every capability file's introducing commit through git —
+// getPriorArtTrailer() is pure, deterministic git reads (up to 3 subprocess
+// spawns per file). Running that scan twice (once per test) doubled wall-time to
+// ~25s for ~180 files. Memoize LAZILY (not beforeAll): the first of F1/F3 to run
+// pays the single ~12s scan and the second reuses the cache, while tests that do
+// NOT need the scan (F2, anti-tautology, schema, positive-F1) never trigger it —
+// keeping their independence from the git layer (a beforeAll would couple them).
+interface CapabilityScan {
+  ssotContent: string;
+  files: string[];
+  trailers: Map<string, TrailerResult>;
+}
+let _capabilityScan: CapabilityScan | null = null;
+function scanCapabilities(): CapabilityScan {
+  if (_capabilityScan) return _capabilityScan;
+  const grandfatherDate = getGrandfatherDate();
+  const ssotContent = readFile(SSOT_PATH);
+  const files = getCapabilityFiles();
+  const trailers = new Map<string, TrailerResult>();
+  for (const f of files) trailers.set(f, getPriorArtTrailer(f, grandfatherDate));
+  _capabilityScan = { ssotContent, files, trailers };
+  return _capabilityScan;
+}
+
 // ── Test suite ────────────────────────────────────────────────────────────────
 
 describe('Principle 11 — build-first reuse-default', () => {
-  it('F1: all post-grandfather capability artifacts have SSOT match or Prior-art trailer', { timeout: 15000 }, () => {
-    const grandfatherDate = getGrandfatherDate();
-    const ssotContent = readFile(SSOT_PATH);
-    const files = getCapabilityFiles();
+  // 30s (not 15s): F1 runs first, so scanCapabilities()'s single git pass over
+  // ~180 files (~13s standalone, more under full-suite load) is paid inside F1's
+  // budget; F3 then hits the cache. Sized to the scan, not the assertions.
+  it('F1: all post-grandfather capability artifacts have SSOT match or Prior-art trailer', { timeout: 30000 }, () => {
+    const { ssotContent, files, trailers } = scanCapabilities();
     expect(files.length, 'capability set must be non-empty').toBeGreaterThan(0);
 
     const violations: string[] = [];
     for (const filePath of files) {
       const relPath = relative(REPO_ROOT, filePath);
-      const trailerResult = getPriorArtTrailer(filePath, grandfatherDate);
+      const trailerResult = trailers.get(filePath) as TrailerResult;
       const ssot = hasSsotMatch(filePath, ssotContent);
       try {
         assertF1(relPath, trailerResult, ssot);
@@ -330,14 +356,15 @@ describe('Principle 11 — build-first reuse-default', () => {
     expect(violations, `F2 violations:\n${violations.join('\n')}`).toHaveLength(0);
   });
 
-  it('F3: all Post-grandfather Prior-art trailers are valid (≥20 chars, non-placeholder)', { timeout: 15000 }, () => {
-    const grandfatherDate = getGrandfatherDate();
-    const files = getCapabilityFiles();
+  // 30s for reorder-safety: normally a ~3ms cache hit, but if F3 ran before F1
+  // it would carry the scan instead — size its budget for that case too.
+  it('F3: all Post-grandfather Prior-art trailers are valid (≥20 chars, non-placeholder)', { timeout: 30000 }, () => {
+    const { files, trailers } = scanCapabilities();
     const violations: string[] = [];
 
     for (const filePath of files) {
       const relPath = relative(REPO_ROOT, filePath);
-      const trailerResult = getPriorArtTrailer(filePath, grandfatherDate);
+      const trailerResult = trailers.get(filePath) as TrailerResult;
       if (
         trailerResult === '__grandfathered__' ||
         trailerResult === '__no-introducing-commit__' ||

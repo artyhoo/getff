@@ -11,10 +11,10 @@
 #   ./install.sh ts-server --wire-ci            # also auto-wire missing CI gates via yq (opt-in, detect-first)
 #
 # What it does:
-#   1. Copies skills/ + .claude/skills/{pipeline,dispatcher,aif-doctor,template-audit}/ → .claude/skills/
+#   1. Copies skills/ + .claude/skills/{pipeline,dispatcher,aif-doctor,template-audit,night-mode,ai-doc,rule-research,harvest,story}/ → .claude/skills/
 #      (the meta-orchestrator pipeline + its orchestration companions are shipped from
-#       .claude/skills/ as single source of truth; self-reflection + ai-doc are intentionally
-#       NOT shipped — repo-internal per build-first-reuse-default.md §1.1 shipped-axis;
+#       .claude/skills/ as single source of truth; ONLY self-reflection is intentionally
+#       NOT shipped — repo-internal §1.7 self-review discipline per build-first-reuse-default.md §1.1 shipped-axis;
 #       cross-refs to repo-internal paths get sed-transformed to GitHub blob URLs —
 #       see UPSTREAM_BLOB_URL + transform_internal_refs() below;
 #       per .claude/rules/dual-implementation-discipline.md §7 SSOT)
@@ -270,7 +270,7 @@ do_refresh() {
 
   # ── Orchestration skills (with internal-ref transform) ──
   echo "▶ Orchestration skills → .claude/skills/"
-  for _skill in pipeline dispatcher aif-doctor template-audit; do
+  for _skill in pipeline dispatcher aif-doctor template-audit night-mode ai-doc rule-research harvest story; do
     refresh_skill_with_transform "$_skill"
   done
   _AIF_HELPERS="$PROJECT_ROOT/.claude/skills/aif-doctor/helpers"
@@ -403,11 +403,11 @@ do_refresh() {
   # its old import list → a newly-shipped rule lands unregistered. Regenerate from the on-disk rule
   # set (matches whatever this stack's refresh loop just delivered). Runs AFTER the fixtures refresh
   # so the #838 prune inside the helper sees the freshly-delivered fixtures. SSOT helper (setup.d/lib.sh).
-  # Known limitation (documented, not fixed here): --refresh assumes the SAME stack as the original
-  # install — the refresh loop above only adds/overwrites rule files, it never removes a PRIOR
-  # stack's preset rule, so `install.sh <different-stack> --refresh` can leave a stale rule on disk
-  # and the barrel regenerated here will then still register it. Out of scope for #873/#876; removing
-  # stale prior-stack rules is a separate behaviour change.
+  # #882 (fixed): --refresh with a DIFFERENT stack than the original install used to leave a PRIOR
+  # stack's preset rule stranded on disk, silently re-registered into the regenerated barrel. Fixed
+  # inside generate_eslint_barrel() itself (setup.d/lib.sh) — it now prunes any eslint-rules-local/*.ts
+  # not valid for the CURRENT $STACK before generating barrel content, so this call covers both the
+  # --force and --refresh paths without any change needed here.
   generate_eslint_barrel
 
   _fb_src="$PKG_ROOT/packages/core/hooks/pre-push.fallback.sh"
@@ -440,6 +440,25 @@ do_refresh() {
   refresh_safe "$PKG_ROOT/packages/core/templates/shared/husky-pre-push.sh"   "$PROJECT_ROOT/.husky/pre-push"
   if [ "$DRY_RUN" != "--dry-run" ]; then
     chmod_safe +x "$PROJECT_ROOT/.husky/pre-commit" "$PROJECT_ROOT/.husky/pre-push" 2>/dev/null || true
+  fi
+
+  # ── Prettier ignore (managed block) — #890 ──────────────
+  # The static .prettierignore template's managed block ships via merge_prettierignore (40-configs.sh)
+  # on the --full path only. do_refresh MUST also deliver it, else a new shipped ignore pattern (e.g.
+  # #889's .ai-factory/ARCHITECTURE.*.md) never reaches an already-installed consumer without --force
+  # — the #869 "refresh omits a --full-delivered artefact" class, on the merge-delivered surface.
+  # merge_prettierignore is genuinely idempotent (#890 fix): it inserts only missing patterns into the
+  # existing block (single block preserved). Honour a sibling .prettierignore.override.md (Layer-3
+  # consumer ownership), mirroring refresh_safe's .override.md handling.
+  echo "▶ Prettier ignore → .prettierignore"
+  if [ -e "$PROJECT_ROOT/.prettierignore.override.md" ]; then
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would skip: .prettierignore (.override.md — consumer-owned)"
+    else
+      echo "  ⊝ .prettierignore (.override.md — consumer-owned, keeping)"
+    fi
+  else
+    merge_prettierignore "$PKG_ROOT/packages/core/templates/shared/.prettierignore" "$PROJECT_ROOT/.prettierignore"
   fi
 
   # ── Skill-context overrides (derived from SHIPPED_DOCS — cannot drift) ──

@@ -3,7 +3,7 @@
 // Decisions: docs/superpowers/plans/2026-07-02-diagnostics-core-impl.decisions.md
 //
 // Assertions:
-//  (a) code format ^FF[1-5]\d{3}$
+//  (a) code format ^FF[1-8]\d{3}$
 //  (b) uniqueness — checked against the RAW SOURCE TEXT of registry.ts, not
 //      Object.keys(REGISTRY). A JS object literal silently collapses a
 //      duplicate key before Object.keys() ever runs (the parser keeps only
@@ -39,7 +39,7 @@ const registrySource = readFileSync(new URL('./registry.ts', import.meta.url), '
 // Matches top-level `FFxxxx: {` key declarations inside the REGISTRY object
 // literal, e.g. "  FF2001: {" — the exact shape every entry in registry.ts
 // uses (see registry.ts:31, :40, etc.).
-const REGISTRY_KEY_DECL_RE = /^\s{2}(FF[1-5]\d{3}):\s*\{/gm;
+const REGISTRY_KEY_DECL_RE = /^\s{2}(FF[1-8]\d{3}):\s*\{/gm;
 
 function extractRegistryKeyDeclarations(source: string): string[] {
   const keys: string[] = [];
@@ -52,9 +52,9 @@ function extractRegistryKeyDeclarations(source: string): string[] {
 describe('diagnostics registry — structural invariants', () => {
   const codes = Object.keys(REGISTRY);
 
-  it('(a) every code matches ^FF[1-5]\\d{3}$', () => {
+  it('(a) every code matches ^FF[1-8]\\d{3}$', () => {
     for (const code of codes) {
-      expect(code, `code "${code}" does not match ^FF[1-5]\\d{3}$`).toMatch(/^FF[1-5]\d{3}$/);
+      expect(code, `code "${code}" does not match ^FF[1-8]\\d{3}$`).toMatch(/^FF[1-8]\d{3}$/);
     }
   });
 
@@ -135,6 +135,19 @@ const CODE_FIXTURES: Record<string, Record<string, string | number>> = {
   FF3018: {},
   FF3019: {},
   FF3020: { count: 1, plural: '' },
+  // --- FF6xxx: IR grammar gates (MT umbrella S1) ---
+  FF6001: { nodeId: 'n1' },
+  FF6002: { id: 'n1', count: 2 },
+  FF6003: { anchor: 'FF9999', nodeId: 'n1' },
+  // --- FF7xxx: render outcomes (MT umbrella S2 — cargo backend v0) ---
+  FF7001: { backend: 'cargo-clippy-toml', selectorClass: 'syntax', nodeId: 'n1' },
+  FF7002: { backend: 'cargo-clippy-toml', nodeId: 'n1', missing: 'path' },
+  FF7003: { backend: 'cargo-clippy-toml', requested: 'error', nodeId: 'n1' },
+  // --- FF8xxx: composition/doc plane (MT umbrella S4 — DocPlan composition gate) ---
+  FF8001: { nodeId: 'ghost-1', where: 'section "intro"' },
+  FF8002: { nodeId: 'n1', reason: 'reason under 20 chars' },
+  FF8003: { nodeId: 'n1', detail: 'placed in both a section and excluded[]' },
+  FF8004: { nodeId: 'n1', backend: 'npm-eslint-declarative' },
 };
 
 describe('diagnostics registry — (c) placeholder coverage per code', () => {

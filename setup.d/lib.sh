@@ -51,7 +51,12 @@ PRETTIERIGNORE_CFG_END='# <<< rules-as-tests-aif shipped-configs (managed) <<<'
 # transform_internal_refs <markdown-file>
 # Rewrites markdown links `](../../../{docs,packages}/...)` and `](../../../README.md...)`
 # in-place to `](${UPSTREAM_BLOB_URL}/...)`. Leaves consumer-resolvable refs intact
-# (e.g. `](../../rules/...)` resolves to consumer's .claude/rules/ post-install).
+# (e.g. `](../../rules/...)` and `](../../hooks/...)` stay relative — deemed consumer-local by
+# convention, enforced by tests/install-sh/transform-internal-refs.test.sh #4/#5).
+# NOTE (2026-07-04, flagged not fixed): a real install shows `.claude/rules/` is NOT currently
+# shipped, so relative rules/ links dangle for consumers — a latent inconsistency between this
+# convention and the installer. Resolving it (ship rules/ vs blob-ify rules/ links) is a
+# maintainer decision, out of scope here; the transform stays as tested.
 # Uses `-i.bak` for BSD-sed/GNU-sed portability, then removes the backup.
 transform_internal_refs() {
   local f="$1"
@@ -147,19 +152,21 @@ merge_prettierignore() {
     return 0
   fi
 
-  # Consumer file EXISTS → non-destructive merge.
-  # Idempotent: if the managed block is already present, do nothing.
-  if grep -qxF "$PRETTIERIGNORE_BEGIN" "$dst"; then
-    if [ "$DRY_RUN" = "--dry-run" ]; then
-      echo "  [dry-run] would skip merge: $dst (AIF block already present)"
-    else
-      echo "  ⊝ $dst (AIF .prettierignore block already present — skipping merge)"
-    fi
-    return 0
-  fi
+  # Consumer file EXISTS → non-destructive merge. Detect whether the managed block already exists;
+  # the collect-and-deliver logic below is SHARED for both cases — only the WRITE differs (insert
+  # into the existing block vs. append a fresh one).
+  #
+  # GH #890: the marker's presence must NOT short-circuit delivery. The previous early-return made
+  # the block run-once — frozen at whatever the shipped template had the first time it merged, so a
+  # NEW shipped pattern (e.g. #889's .ai-factory/ARCHITECTURE.*.md) could never reach an already-
+  # installed consumer via repeat --full or --refresh (only --force, which overwrites wholesale
+  # above). Genuine idempotency (mirroring the sibling ignore_shipped_configs, which already
+  # re-diffs per line) re-checks for missing patterns on every run and inserts them into the block.
+  local marker_present=0
+  grep -qxF "$PRETTIERIGNORE_BEGIN" "$dst" && marker_present=1
 
-  # Collect shipped entries not already present verbatim in the consumer file. Ignore blank lines
-  # and comments from the shipped source (only real ignore patterns get merged).
+  # Collect shipped entries not already present verbatim ANYWHERE in the consumer file. Ignore blank
+  # lines and comments from the shipped source (only real ignore patterns get merged).
   local missing=()
   local line
   while IFS= read -r line || [ -n "$line" ]; do
@@ -169,7 +176,7 @@ merge_prettierignore() {
     grep -qxF "$line" "$dst" || missing+=("$line")
   done < "$src"
 
-  # Nothing to add (consumer already has every AIF pattern) → no-op.
+  # Nothing to add (consumer already has every AIF pattern) → genuine idempotent no-op.
   if [ "${#missing[@]}" -eq 0 ]; then
     if [ "$DRY_RUN" = "--dry-run" ]; then
       echo "  [dry-run] would skip merge: $dst (already has every AIF pattern)"
@@ -180,18 +187,50 @@ merge_prettierignore() {
   fi
 
   if [ "$DRY_RUN" = "--dry-run" ]; then
-    echo "  [dry-run] would merge ${#missing[@]} AIF pattern(s) into: $dst"
+    if [ "$marker_present" -eq 1 ]; then
+      echo "  [dry-run] would add ${#missing[@]} new AIF pattern(s) into the existing block in: $dst"
+    else
+      echo "  [dry-run] would merge ${#missing[@]} AIF pattern(s) into: $dst"
+    fi
     return 0
   fi
 
-  # Append the marker-delimited block. Ensure a trailing newline before the block.
-  [ -n "$(tail -c1 "$dst")" ] && printf '\n' >> "$dst"
-  {
-    printf '%s\n' "$PRETTIERIGNORE_BEGIN"
-    printf '%s\n' "${missing[@]}"
-    printf '%s\n' "$PRETTIERIGNORE_END"
-  } >> "$dst"
-  echo "  ✓ $dst (merged ${#missing[@]} AIF .prettierignore pattern(s))"
+  if [ "$marker_present" -eq 1 ]; then
+    # GH #890: an existing block → INSERT the missing patterns immediately before the END marker so
+    # the block stays SINGLE (no duplicate marker — the f15 begin-marker-count==1 invariant). Rewrite
+    # via a temp file with a pure read-loop (bash-3.2 / BSD-tool safe: no sed path-escaping, no awk
+    # array-passing).
+    local _tmp="${dst}.aif-merge.$$"
+    local _emitted=0 _l
+    while IFS= read -r _l || [ -n "$_l" ]; do
+      if [ "$_emitted" -eq 0 ] && [ "$_l" = "$PRETTIERIGNORE_END" ]; then
+        printf '%s\n' "${missing[@]}"
+        _emitted=1
+      fi
+      printf '%s\n' "$_l"
+    done < "$dst" > "$_tmp"
+    # Fallback: BEGIN present but END absent (corrupt file, or a prior install interrupted between the
+    # BEGIN/patterns/END printfs of the append path below — that write is NOT atomic). Never lose the
+    # patterns silently (which would also make the ✓ echo a lie); append them + a fresh END so the
+    # block self-heals and the next run is a clean no-op.
+    if [ "$_emitted" -eq 0 ]; then
+      {
+        printf '%s\n' "${missing[@]}"
+        printf '%s\n' "$PRETTIERIGNORE_END"
+      } >> "$_tmp"
+    fi
+    mv "$_tmp" "$dst"
+    echo "  ✓ $dst (added ${#missing[@]} new AIF .prettierignore pattern(s) to the existing block)"
+  else
+    # No block yet → append a fresh marker-delimited block. Ensure a trailing newline before it.
+    [ -n "$(tail -c1 "$dst")" ] && printf '\n' >> "$dst"
+    {
+      printf '%s\n' "$PRETTIERIGNORE_BEGIN"
+      printf '%s\n' "${missing[@]}"
+      printf '%s\n' "$PRETTIERIGNORE_END"
+    } >> "$dst"
+    echo "  ✓ $dst (merged ${#missing[@]} AIF .prettierignore pattern(s))"
+  fi
 }
 
 # GH #531 (reopen, config-mismatch): conditionally ignore the framework CONFIG files install
@@ -479,14 +518,57 @@ refresh_skill_with_transform() {
 # Precondition: call AFTER the eslint-rules-local/ rule files AND the scripts/fences-fire-fixtures/
 # directory are in place — it reads the on-disk rule set and prunes fixtures whose rule is not in
 # this stack's barrel.
+# #882: also prunes eslint-rules-local/*.ts files that don't belong to the CURRENT $STACK before
+# regenerating barrel content — closes the gap where a prior install/refresh with a DIFFERENT
+# --stack left a stray preset-rule file that got silently re-registered into the barrel. Fix
+# lives here (not in the copy loops in setup.d/40-configs.sh / install.sh's do_refresh) — see
+# docs/superpowers/specs/2026-07-03-eslint-barrel-stack-prune-design.md "Rejected: consolidate
+# the stack→dirs mapping into a new shared function" for why this stays a small, isolated
+# mapping rather than a shared helper touching those two working call sites.
 # Self-no-ops on --dry-run (the `if [ -z "$DRY_RUN" ]; then … fi` guard is INSIDE the helper, so
 # callers don't need to guard). Called by BOTH setup.d/40-configs.sh (copy path) and do_refresh in
 # install.sh (refresh path, #876) — do not duplicate this logic at either call site.
-# Reads globals: PROJECT_ROOT, PKG_ROOT, DRY_RUN.
+# Reads globals: PROJECT_ROOT, PKG_ROOT, DRY_RUN, STACK.
 generate_eslint_barrel() {
   local _barrel _rf _b _camel _m _mstem _rid _rkey
+  local _valid_dirs _vd _vf _valid_basenames _ef _eb
   if [ -z "$DRY_RUN" ]; then
     _barrel="$PROJECT_ROOT/eslint-rules-local/index.mjs"
+
+    # #882: prune stray rule files from a DIFFERENT stack before generating barrel content below,
+    # so a stranded rule from a prior install/refresh isn't re-registered. Small, isolated mapping
+    # (not shared with the copy loops) — see design doc note above.
+    _valid_dirs="packages/core/eslint-rules"
+    # STACK is install.sh's global stack selector (set before this file is sourced), unrelated
+    # to the lowercase `stack` local in _detect_stacks_per_workspace() above; shellcheck flags it
+    # only because this is $STACK's first reference in THIS file, with no local assignment to see.
+    # shellcheck disable=SC2153
+    case "$STACK" in
+      react-next) _valid_dirs="$_valid_dirs packages/preset-next-15-canonical/eslint-rules" ;;
+      react-spa)  _valid_dirs="$_valid_dirs packages/preset-react-spa/eslint-rules" ;;
+    esac
+    _valid_basenames=" "
+    for _vd in $_valid_dirs; do
+      for _vf in "$PKG_ROOT/$_vd"/*.ts; do
+        [ -e "$_vf" ] || continue
+        case "$_vf" in *.test.ts|*.d.ts|*/index.ts) continue ;; esac
+        _valid_basenames="$_valid_basenames $(basename "$_vf" .ts) "
+      done
+    done
+    for _ef in "$PROJECT_ROOT"/eslint-rules-local/*.ts; do
+      [ -e "$_ef" ] || continue
+      case "$_ef" in *.d.ts) continue ;; esac
+      _eb=$(basename "$_ef" .ts); [ "$_eb" = "index" ] && continue
+      case "$_valid_basenames" in
+        *" $_eb "*) ;;  # valid for this stack — keep
+        *)
+          rm -f "$PROJECT_ROOT/eslint-rules-local/$_eb.ts" \
+                "$PROJECT_ROOT/eslint-rules-local/$_eb.mjs" \
+                "$PROJECT_ROOT/eslint-rules-local/$_eb.d.ts"
+          echo "  · pruned stale rule [$_eb] — not part of the $STACK stack"
+          ;;
+      esac
+    done
     {
       echo "// AUTO-GENERATED by install.sh — re-exports the compiled sibling rule files as one ESLint"
       echo "// plugin. Regenerated each install to match the shipped rule set; do not hand-edit."

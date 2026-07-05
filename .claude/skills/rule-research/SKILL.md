@@ -15,6 +15,10 @@ This skill is a thin entry point. The full protocol — detect stack → researc
 
 Provenance for every researched practice is gated by the tiered trust model — see [`.claude/rules/research-source-trust.md`](../../rules/research-source-trust.md) for the discipline (Tier 0 builtin / Tier 1 derived from a direct dependency's own metadata / Tier 2 consumer-acked) and `agents/rule-researcher.md`'s "Trust tiers" table for the per-practice mechanics.
 
+## Run-moment provenance check {#research-run}
+
+Before authoring a provenance entry against a live research source, re-check `resolveAllowedSources`/`validateProvenance` (`packages/core/research/allowlist-resolver.ts`) resolves it — a source that fails Tier 0/1/2 fails closed, it does not silently pass through.
+
 To run: open `agents/rule-researcher.md` and execute its numbered protocol against the current project, then run `./setup --full` to synthesize the researched rules.
 
 ## Without this skill

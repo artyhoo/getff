@@ -39,8 +39,28 @@ packages/*/reports/
 # sees the installer's own files as uncommitted work and refuses to create/switch
 # task branches (BranchIsolationError "dirty_worktree"). Root-anchored to avoid
 # touching the framework's own tracked .claude/skills/* entries.
-/.ai-factory/
+/.ai-factory/*
 /.ai-factory.json
+# Exception: harness-model.json is the framework's OWN tracked SSOT — the neutral
+# harness-config model that scripts/render-harness-config.mjs derives CC + zcode
+# config from (#894). NOT installer output. The `/*` glob above keeps every OTHER
+# .ai-factory/ entry (installer scaffolding) ignored so aif's dirty-worktree guard
+# stays satisfied; only this one committed file is negated back in.
+!/.ai-factory/harness-model.json
+# Exception: the CTX Stage 3 "channel-as-data" tracked pair — the per-harness
+# capability matrix (+ its ajv schema) and the honest-degradation manifest that
+# scripts/render-rule-channels.mjs computes verdicts against. Same rationale as
+# harness-model.json above: framework-owned SSOT data, NOT installer scaffolding.
+!/.ai-factory/rule-channel-capabilities.json
+!/.ai-factory/rule-channel-capabilities.schema.json
+!/.ai-factory/rule-channel-degradations.json
+# zcode (a CC fork) reads config from zcode.json / .zcode/ (NOT .claude/). Both are
+# operator-env shims rendered by scripts/render-harness-config.mjs --write from the
+# .ai-factory/harness-model.json SSOT — maintainer-env only, never shipped (a
+# consumer-facing per-harness emitter is a parked fork, #894 §7). Drift-gated by
+# packages/core/hooks/harness-config-drift.test.ts. Root-anchored.
+/zcode.json
+/.zcode/
 /.codex/
 /.opencode/*
 !/.opencode/INSTALL.md

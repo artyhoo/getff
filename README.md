@@ -1,13 +1,18 @@
-# rules-as-tests-aif
+# getff — rules as tests
 
 [![License: FSL-1.1-ALv2](https://img.shields.io/badge/license-FSL--1.1--ALv2-blue.svg)](LICENSE.md)
 [![Discipline Self-Check](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/discipline-self-check.yml/badge.svg?branch=staging)](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/discipline-self-check.yml)
 [![Audit Self](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/audit-self.yml/badge.svg?branch=staging)](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/audit-self.yml)
 [![Workflow Integrity](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/workflow-integrity.yml/badge.svg?branch=staging)](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/workflow-integrity.yml)
 
-> Companion to AI Factory + aif-handoff + Superpowers (today) — broader AI-runtime integration on roadmap. Deploys into Claude Code / Cursor / Codex via standard project install. Converts every codebase rule into an executable artifact that fails at the earliest reachable channel (edit-time → pre-commit → pre-push → CI → production audit). Adds Living Documentation enforcement and 5-layer framework for AI-resistant codebases — server-side TypeScript and React/Next.js stacks today, with a multi-toolchain roadmap (Rust/cargo next) via the Convention-Compiler design.
+getff compiles your conventions into native toolchain gates (ESLint/husky for npm, clippy/cargo-deny for cargo). Its own [AGENTS.md](AGENTS.md) is executable — every claim carries a live-fired enforcement status; the gate fails when a claim drifts from reality. Docs lie; tests don't.
 
-## What this package gives you
+**Honest framing:** today the executable AGENTS.md is this repo's own — [open it](AGENTS.md), every statement has an enforcement line. `getff init` (via `./setup`, see [Installation](#installation)) installs the enforcement layer (ESLint/husky/CI gates) into your TypeScript project; generating *your* executable AGENTS.md is the next milestone, not shipped yet.
+
+![Adding `as any` gets blocked at the git hook, before CI even sees it](demo/violation-blocked.gif)
+![A rule's own claim drifts from the generated index; the check `make self-audit` runs catches it and names the fix](demo/doc-drift-gate.gif)
+
+## What you get today
 
 After install, your project has:
 
@@ -324,14 +329,18 @@ ai-factory extension update rules-as-tests-aif      # Path A
 
 ## License
 
-Licensed under the [Functional Source License, Version 1.1, Apache 2.0 Future License](LICENSE.md)
+**Source-available, not permissively licensed** — said here first, not left for someone else to point out. Licensed under the [Functional Source License, Version 1.1, Apache 2.0 Future License](LICENSE.md)
 (FSL-1.1-ALv2). Use, copy, modification, and redistribution are permitted for any
 **Permitted Purpose** — internal use, non-commercial education, and non-commercial
 research — but **Competing Use** (offering a product or service that substitutes for or
 provides substantially the same functionality as this software) is not.
 
+Why FSL instead of MIT/Apache from day one: a single-maintainer project competing against well-funded
+forks of its own code has no recourse under a permissive license. FSL keeps the Competing-Use restriction
+only while the project needs it — read source, self-host, use internally, all permitted from day one.
+
 Each version automatically converts to [Apache License 2.0](http://www.apache.org/licenses/LICENSE-2.0)
-on the **second anniversary** of its release. See [LICENSE.md](LICENSE.md) for full terms.
+on the **second anniversary** of its release — so this restriction has a hard expiry, not an open-ended one. See [LICENSE.md](LICENSE.md) for full terms.
 
 ## Inspirations & sources
 

@@ -15,11 +15,18 @@
 # to Prettier-handled extensions, then run prettier on that explicit list — this avoids the
 # "No files matching the pattern" error that per-extension globs hit when a dir has none of an ext.
 #
-# Usage: format-shipped.sh --check   (default; CI gate — fails if any shipped source is unformatted)
-#        format-shipped.sh --write   (fix in place)
+# Usage: format-shipped.sh --check [files...]   (default; CI gate — fails if any shipped source is unformatted)
+#        format-shipped.sh --write [files...]   (fix in place)
+#
+# Optional [files...] (repo-relative, e.g. from `git diff --cached --name-only`): intersect the
+# enumerated shipped surface with this list — check ONLY shipped files among them. Non-shipped
+# arguments are ignored; if nothing intersects, exits 0 without invoking prettier. This is the
+# change-scoped entry used by .husky/pre-commit (mirrors CI: same enumeration, same pinned prettier).
 set -uo pipefail
 MODE="${1:---check}"
-case "$MODE" in --write | --check) ;; *) echo "usage: $0 --write|--check" >&2; exit 2 ;; esac
+case "$MODE" in --write | --check) ;; *) echo "usage: $0 --write|--check [files...]" >&2; exit 2 ;; esac
+[ "$#" -gt 0 ] && shift
+FILTER=("$@") # optional: restrict to these repo-relative paths (empty = full shipped surface)
 cd "$(git rev-parse --show-toplevel)"
 
 # Shipped paths (dirs + the exact pre-push closure — NOT the whole hooks/ dir, which is mostly
@@ -52,6 +59,27 @@ done < <(git ls-files -- "${PATHSPECS[@]}")
 # format them AS markdown — it cannot infer a parser from the `.template` extension.
 TEMPLATES=()
 while IFS= read -r f; do TEMPLATES+=("$f"); done < <(git ls-files -- '*.template' | grep -E '(^|/)(AGENTS|CLAUDE|tool-decisions)\.md\.template$')
+
+# Intersect with the optional [files...] filter (bash-3.2-safe: no assoc arrays; guard set -u
+# against empty-array expansion — see memory installsh_set_u_empty_array).
+if [ "${#FILTER[@]}" -gt 0 ]; then
+  KEEP=()
+  if [ "${#FILES[@]}" -gt 0 ]; then
+    for f in "${FILES[@]}"; do
+      for g in "${FILTER[@]}"; do [ "$f" = "$g" ] && { KEEP+=("$f"); break; }; done
+    done
+  fi
+  FILES=()
+  [ "${#KEEP[@]}" -gt 0 ] && FILES=("${KEEP[@]}")
+  KEEP=()
+  if [ "${#TEMPLATES[@]}" -gt 0 ]; then
+    for f in "${TEMPLATES[@]}"; do
+      for g in "${FILTER[@]}"; do [ "$f" = "$g" ] && { KEEP+=("$f"); break; }; done
+    done
+  fi
+  TEMPLATES=()
+  [ "${#KEEP[@]}" -gt 0 ] && TEMPLATES=("${KEEP[@]}")
+fi
 
 FLAG="--check"
 [ "$MODE" = "--write" ] && FLAG="--write"

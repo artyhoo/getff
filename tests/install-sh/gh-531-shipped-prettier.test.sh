@@ -275,4 +275,80 @@ else
   echo "  · consumer-owned-config arm skipped (npx prettier@3.8.3 unreachable)"
 fi
 
+# ── Arm 8 (GH #884 — .ai-factory doc family, config-mismatch via EMBEDDED CODE-FENCE): a
+# react-native install ships .ai-factory/ARCHITECTURE.react-native.md, which embeds a JS code
+# fence. Prettier reflows FENCED CODE by printWidth (markdown PROSE/TABLES do not — proseWrap
+# defaults to "preserve"), so a consumer's own printWidth:100 .prettierrc reflows the fence and
+# `prettier --check .` goes RED. Arm 6 above structurally cannot catch this: it blanket-excludes
+# `*.md` from its own assertion (isolating the non-md vendored surface only) AND installs
+# ts-server, which never ships ARCHITECTURE.react-native.md at all (preset-specific file). This
+# arm is the md-family counterpart, modeling the actual #884 reopener (timeliner, react-native
+# preset). ──
+if npx --yes prettier@3.8.3 --version >/dev/null 2>&1; then
+  TRN=$(mktemp -d)
+  printf '{"name":"g884","version":"0.0.0"}\n' > "$TRN/package.json"
+  printf '{"singleQuote":true,"printWidth":100,"trailingComma":"es5"}\n' > "$TRN/.prettierrc.json"
+  # NO --force: copy_safe must take the skip-if-exists path so the consumer's pre-existing
+  # .prettierrc.json (printWidth:100) survives install — --force would overwrite it with the
+  # framework's own singleQuote-only config, silently defeating this arm's whole premise.
+  ( cd "$TRN" && git init -q && bash "$REPO_ROOT/install.sh" react-native </dev/null ) >/dev/null 2>&1
+  RNMD="$TRN/.ai-factory/ARCHITECTURE.react-native.md"
+  [ -f "$RNMD" ] \
+    && ok "#884 pos: react-native install ships .ai-factory/ARCHITECTURE.react-native.md" \
+    || bad "#884 pos: .ai-factory/ARCHITECTURE.react-native.md not shipped (test setup broken)"
+
+  # SOFT sanity, NOT load-bearing: the real shipped content is clean under the consumer's config
+  # today. TWO separate CI runs on this PR showed prettier's markdown-embedded-code-fence reflow
+  # is unreliable on the runner used here — not just the subtle printWidth 80-vs-100 threshold
+  # Arm 6's own comment above already flags, but even a GROSSLY-minified planted fence (the exact
+  # technique Arm 6 uses successfully on a plain .ts FILE) failed to reflow at all when embedded
+  # inside a markdown fence on this runner, with AND without the ignore entry. Root cause not
+  # pinned down (network/npx-cache/markdown-parser difference are candidates, none confirmed) —
+  # not worth the dig when Arm 9 below already gives a fully reliable, environment-independent
+  # non-vacuity proof for the SAME claim via pure text grep (no prettier invocation at all). Do
+  # NOT re-add a prettier-behavioral neg here; extend Arm 9's population set instead if more
+  # coverage is needed.
+  n884=$( ( cd "$TRN" && npx --yes prettier@3.8.3 --check .ai-factory/ARCHITECTURE.react-native.md 2>&1 ) | grep -c '\[warn\]' )
+  [ "$n884" -eq 0 ] \
+    && ok "#884: ARCHITECTURE.react-native.md is Prettier-clean under consumer's printWidth-100 config" \
+    || bad "#884: ARCHITECTURE.react-native.md is NOT clean under consumer's printWidth-100 config (#884 not closed)"
+else
+  echo "  · #884 arm skipped (npx prettier@3.8.3 unreachable)"
+fi
+
+# ── Arm 9 (GH #884 — population-completeness guard, mirrors Arm 1d for the .ai-factory doc family):
+# EVERY framework-shipped .ai-factory/**/*.md doc (a copy_safe target under $PROJECT_ROOT/.ai-
+# factory/) MUST appear in the static managed .prettierignore block — else a FUTURE preset's
+# ARCHITECTURE/DESCRIPTION/rules doc silently escapes the ignore the same way
+# ARCHITECTURE.react-native.md did (Arm 8), reopening #884 one preset at a time. Excludes the
+# already-separately-covered RULES.*.md family (generated tables, own comment block, Arm F15) and
+# skill-context/*/SKILL.md docs (not yet observed to embed printWidth-sensitive code fences —
+# tracked open, not blanket-ignored, per the "format authored content, don't hide it" default). ──
+_ign_884="$REPO_ROOT/packages/core/templates/shared/.prettierignore"
+shipped_aif_md=$(grep -ohE 'copy_safe "\$PKG_ROOT/[^"]+" "\$PROJECT_ROOT/\.ai-factory/[^"]+\.md"' "$REPO_ROOT"/setup.d/*.sh 2>/dev/null \
+  | sed -E 's#.*"\$PROJECT_ROOT/(\.ai-factory/[^"]+)".*#\1#' \
+  | grep -vE '^\.ai-factory/RULES(\.[a-z-]+)?\.md$|^\.ai-factory/skill-context/' \
+  | sort -u)
+[ -n "$shipped_aif_md" ] \
+  && ok "#884 population: discovered $(printf '%s\n' "$shipped_aif_md" | wc -l | tr -d ' ') shipped .ai-factory/*.md doc(s) to check" \
+  || bad "#884 population: discovery found ZERO .ai-factory/*.md copy_safe targets (grep pattern broken?)"
+aif_miss=""
+for f in $shipped_aif_md; do
+  grep -qxF "$f" "$_ign_884" || aif_miss="$aif_miss $f"
+done
+[ -z "$aif_miss" ] \
+  && ok "#884 population: every shipped .ai-factory/*.md doc is in the static .prettierignore managed block" \
+  || bad "#884 population: doc(s) MISSING from .prettierignore →$aif_miss (config-mismatch escapes ignore)"
+
+# neg (LOAD-BEARING, non-vacuity): the completeness guard must actually FLIP when a real entry is
+# dropped from the managed block — proves it isn't vacuously green from a broken discovery regex.
+_ign_884_neg=$(grep -vxF '.ai-factory/DESCRIPTION.template.md' "$_ign_884")
+neg884_caught=0
+for f in $shipped_aif_md; do
+  printf '%s\n' "$_ign_884_neg" | grep -qxF "$f" || neg884_caught=1
+done
+[ "$neg884_caught" -eq 1 ] \
+  && ok "#884 neg: dropping DESCRIPTION.template.md from the block flips the population guard to fail (non-vacuous)" \
+  || bad "#884 neg: dropping an entry did not flip the population guard → VACUOUS"
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

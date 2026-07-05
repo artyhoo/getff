@@ -1,0 +1,9 @@
+{
+  "sections": [
+    {
+      "sectionId": "configuration",
+      "title": "Configuration access",
+      "nodeIds": ["ghost-1"]
+    }
+  ]
+}

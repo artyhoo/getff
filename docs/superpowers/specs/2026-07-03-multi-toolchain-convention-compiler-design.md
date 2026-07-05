@@ -2,8 +2,9 @@
 
 > **Status:** design authored in the MT-umbrella planning session (2026-07-03), on the R-phase base
 > [research-patches/2026-07-02-multi-toolchain-generalization.md](../../meta-factory/research-patches/2026-07-02-multi-toolchain-generalization.md)
-> (v0.2 architecture, §8/§9). Implementation is BLOCKED on two owner decisions (README widening +
-> AGENTS.md fenced-block ownership) and on a Rust toolchain for live firing — see §7 and the
+> (v0.2 architecture, §8/§9). Implementation gating: Owner decision #2 (AGENTS.md fenced-block)
+> RESOLVED — Option A (2026-07-03); README widening APPLIED on staging (#870, 832118b7b). Remaining
+> live gate: a Rust toolchain for cargo live-fire (§8) — see the
 > [decisions doc](../plans/2026-07-03-multi-toolchain-convention-compiler.decisions.md).
 > **Authoritative for:** the MT Convention-Compiler design — the three-plane shape (narrow-core IR
 > + per-backend capability matrix), the IR v0 node shape, the four tier vocabularies, the six
@@ -83,9 +84,34 @@ Two v0 scoping decisions carried verbatim from the R-phase (MT patch §9 p.2):
 - **`anchors` are FF-rule-ID namespace only** (not arbitrary symbols). This keeps the anchor a
   machine-resolvable reference into the diagnostics registry (D1 FF codes), not a prose pointer —
   the principle-08 broken-ref pattern generalizes to dangling anchors = CI failure.
+
+  > **Clarification (3a-i, 2026-07-03):** `anchors` ≠ doc-anchor. `anchors` resolves into the
+  > diagnostics REGISTRY (FF-diagnostic-**class** codes — per-rule FF codes are rejected: they would
+  > explode the append-only registry) and is meaningful only as an «enforced-by» back-pointer for
+  > **self-hosting** conventions; a consumer convention carries `anchors: []`. The surface-3
+  > transitive resolution (paragraph → rule → firing test, §5) binds by **`node.id`**, NOT by
+  > `anchors`. Read «FF-rule-ID namespace» above as «FF-diagnostic-code namespace». Decision record:
+  > MT-ANCHORS-DECISION (planning workspace, 2026-07-03); the resolution chain node.id →
+  > RenderOutcome already exists mechanically in S2 (`render-clippy.ts` keys outcomes by `n.id`).
 - **`pairedExamples` is MANDATORY.** A node without a paired positive+negative is a schema violation
   at the grammar-gate plane. The framework's own paired-negative discipline becomes an IR invariant,
   not a per-backend convention.
+
+> **Node-id stability invariant (3a-i):** `node.id` MUST be a deterministic function of the
+> convention's identity, never of generation order. v0 (authored/fixture nodes): a stable human slug
+> (precedent: `no-direct-env-var`). Frontend-compiled nodes (npm-on-IR stage onward): id is derived —
+> `<research entryId>` plus `#<slug(params.path)>` for multi-node splits. A mechanical gate (FF6004
+> «id does not match deterministic derivation») is deferred to the frontend-compiler stage — for
+> authored nodes no derivation function exists, so a gate now would be theatre; the stage-4 failure
+> surface for orphaned doc keys is FF8001 (dangling nodeId).
+
+> **IR-schema versioning policy (3a-ii):** `ConventionNode` nodes outlive the code in frozen
+> snapshots (presets-as-frozen-IR, MT patch §8 p.2; the strict grammar `schema.json` from S1 is that
+> snapshot-oracle format — JSON-serializable + diff-stable). Policy: **additive** schema changes (a
+> new optional field) are free; a **breaking** change (renamed / removed / retyped field) requires
+> regenerating every `store/` + preset snapshot AND a schema ratchet test (the FF-registry
+> append-only pattern applied to the grammar schema). A silent breaking change that skips snapshot
+> regen is the failure this policy forbids.
 
 ## §4 RenderOutcome — nothing silent (MT patch §9 p.3)
 
@@ -105,6 +131,11 @@ the IR-level error language — MT patch §8 p.4). "Nothing silent — including
 `degraded(FF)` on the ruff backend rather than silently downgrading. The `ErrorGuaranteed`
 discipline reduces to this cheap end-of-render assert (MT patch §9 p.3).
 
+> **Runner semantics note (3a-ii):** per-toolchain firing runners carry runner-plane constants —
+> e.g. the cargo runner filters NDJSON lines by `reason === "compiler-message"` and null-guards
+> `message?.code?.code` — these are runner constants implied by the contract's `command`, NOT IR
+> fields; the contract stays 3-field.
+
 ## §5 The six render surfaces (MT patch §8 p.3 + §9 p.4/p.5) — with MVP cut lines
 
 From one IR node, a backend renders up to six surfaces:
@@ -113,7 +144,7 @@ From one IR node, a backend renders up to six surfaces:
 |---|---|---|---|
 | 1 | **rule** | native config: eslint config / `clippy.toml`+`deny.toml` / golangci yaml / ruff toml / PMD xml / ast-grep YAML | **IN** — per-node projection |
 | 2 | **firing test** | contract `{command, jsonPath, expectedCode}` + paired positive; runners borrowed (RuleTester / `cargo clippy --message-format=json` / `go test` / pytest / JUnit) — **we build no runner** | **IN** — per-node projection |
-| 3 | **AI-doc** | AGENTS.md/CLAUDE.md section — **composition over node SETS, not 1:1** (MT patch §9 p.4); every rendered paragraph carries anchor + enforcement-status line («Enforced: eslint ✅ · clippy ✅») | **IN** (the composition form; P1-validated) |
+| 3 | **AI-doc** | AGENTS.md/CLAUDE.md section — **composition over node SETS, not 1:1** (MT patch §9 p.4); every rendered paragraph carries its **node.id list** (machine key; plus optional FF enforced-by anchors for self-hosting conventions) + enforcement-status line («Enforced: eslint ✅ · clippy ✅») | **IN** (the composition form; P1-validated) |
 | 4 | **doc-test** | rustdoc / Go Example / pytest-doctest / twoslash wrapper where native (§4.5 tier ladder) | **CUT from MVP** — negotiated extension |
 | 5 | **wiring** | hooks / CI at the toolchain's earliest reachable channel | **CUT from MVP** — negotiated extension |
 | 6 | **lockfile/detector** | fenced framework-owned blocks inside consumer-owned files + per-surface hashes; honest claim = «drift detected within one regenerate cycle», never «impossible» (MT patch §9 p.5) | **post-MVP milestone** — P3 proved it load-bearing (no current tool reads the `Enforces` assertion column) |
@@ -131,6 +162,36 @@ across the shipped tree = zero hits) — so the drift detector fills an unoccupi
 authority model** (INSTALL-FOR-AI three-layer model), so drift can only be "detected within one
 regenerate cycle", never made impossible. See the [decisions doc](../plans/2026-07-03-multi-toolchain-convention-compiler.decisions.md)
 Owner decision #2 — the fenced-block ownership fork is an unresolved maintainer call.
+
+### §5.1 Surface-3 v1 contract (composition; design record: MT-AIDOC-COMPOSITION-DESIGN, 2026-07-03)
+
+- **DocPlan-as-data.** Grouping of nodes into themed sections is judgment → it lives in
+  committed, reviewable data, never in runtime heuristics (prior art unanimous: DITA maps,
+  Redoc x-tagGroups, Sphinx toctree). Schema (ajv, additionalProperties:false):
+  `{ sections: [{ sectionId (slug, unique), title, nodeIds: string[] }], excluded?: [{ nodeId,
+  reason (≥20 chars) }] }` — three section fields plus an explicit, reasoned opt-out list
+  (attention-is-not-a-mechanism: silence about an undocumented node is impossible).
+  An LLM may draft a DocPlan session-side (provenance-gated); CI only ever re-renders it.
+- **Render = pure function** `compose(DocPlan, nodes, per-backend outcomes, matrices) →
+  fenced regions`; byte-identical on re-run (P6 class); section = title + per-node blocks
+  (claim verbatim + `<!-- @nodes: <id> -->` + enforcement line + Never/Always from
+  pairedExamples). No connective prose at v1.
+- **Enforcement line is DERIVED, per node × backend** (lexicographic backend order,
+  additive `·`-separated segments): `✅` = rendered + node-level firing evidence;
+  `🟡 (rendered, not fired)`; `⚠️ FF7003 (note)` = degraded; `— FF7001/FF7002 (note)` =
+  refused; refused-by-all → derived «not machine-enforced yet» aggregate (computed, never
+  hand-written).
+- **Fence:** `<!-- getff:begin section=<sectionId> plan=<path> -->` … `<!-- getff:end
+  section=<sectionId> -->`; attributes are extensible `key=value` (WI-1 will add `hash=`
+  without format break); idempotent re-injection; multiple regions per file. NO hash at
+  this surface (surface 6 = WI-1).
+- **Composition gate (FF8xxx):** FF8001 dangling nodeId (error) · FF8002 in-scope node
+  absent from every section AND from `excluded[]` (**error** — intentional off-doc is an
+  explicit excluded entry, never silence) · FF8003 line↔outcome contradiction (error) ·
+  FF8004 ✅ without live-fired/RuleTester evidence (error — the anti-theatre check). Plus re-render
+  byte-equality of committed regions (canonical-regen class — generation-time correctness
+  of OUR artifacts in OUR CI; the moment a stored hash is compared against a
+  consumer-mutated file, that is WI-1, not this gate).
 
 ## §6 The four tier vocabularies (MT patch §9 p.10)
 
@@ -161,8 +222,14 @@ backends"). The three data points:
 | Backend | Status | Maps to the frame as |
 |---|---|---|
 | **L4-npm** | **existing** — today's L1–L5 pipeline IS the npm backend + npm frontend already | the reference backend; its `SynthesizedRule` shape (`packages/core/synthesizer/types.ts`, the `ManifestCheck` union already carries `engine?: 'eslint-restricted' \| 'ast-grep'`) is the embryo of the IR node's rule surface |
-| **B-research gates** | **just shipped** (`packages/core/research/gates/report.ts`, `shape.ts`, `provenance.ts`) | the IR-level grammar-gate plane made concrete: named gates (`shape` → FF1xxx, `provenance` → FF2xxx) returning `GateOutcome`-shaped results — the "grammar-level gates run HERE, once" plane (§2) |
+| **B-research gates** | **just shipped** (`packages/core/research/gates/report.ts`, `shape.ts`, `provenance.ts`) | the IR-level grammar-gate plane made concrete: named gates (`shape` → FF1xxx, `provenance` → FF2xxx) returning `ResearchGateOutcome`-shaped (DN-B-2 twin) results — the "grammar-level gates run HERE, once" plane (§2) |
 | **cargo-backend-v0** | **MT's first deliverable** — `clippy.toml` renderer + firing harness (MT patch §8 stage 3 / P4 contract) | the second *rendering* backend, the one that forces the capability matrix to be real (clippy.toml caps out fast — no new lints — so ast-grep escape-hatch negotiation gets exercised) |
+
+**Note (3a-ii):** the three rows are reference **embryos of different planes**, not three IR-fed
+render backends — B-gates return `ResearchGateOutcome` (not `RenderOutcome`; DN-B-2 twin), and L4-npm
+consumes `SynthesizedRule` until npm-on-IR lands. npm-on-IR is therefore the precondition of the S3
+extraction (frame from TWO live IR emitters — eslint-config + clippy.toml; nativeness > headcount, the
+ast-grep hatch comes only post-extraction).
 
 Only with L4-npm + B-research + cargo-v0 as three real reference points does the generic frame get
 extracted (name the IR types, factor the shared renderer contract). Extracting it earlier — from
@@ -177,6 +244,8 @@ firing-test contract
 (`{command: "cargo clippy --message-format=json", jsonPath: "$.message.code.code", expectedCode:
 "clippy::disallowed_methods"}`) is **grounded in documentation** (MT patch §2 JSON-diagnostics row +
 rustc `DiagnosticCode`), not invented — but no `cargo clippy` run has confirmed the JSON path
+end-to-end. **Superseded at S2 (2026-07-03, PR #886):** live-fire executed — `capability-matrix.json`
+carries a captured `clippy::disallowed_methods` diagnostic (rustc 1.96.1); the JSON path is confirmed
 end-to-end. The MT umbrella MUST run P4's live-fire on a Rust-toolchain env before claiming the
 cargo backend green; a designed-but-unfired firing harness is `#discipline-theatre` if shipped as
 "working" (T15 — the frame's own firing tests must actually fire). P5 (ast-grep) and P6 (status-line

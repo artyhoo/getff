@@ -1,9 +1,16 @@
+---
+description: Kickoff staging-placement — dispatch-input merge-timing discipline
+paths:
+  - ".claude/orchestrator-prompts/**"
+---
+
 # Kickoff staging-placement — dispatch-input discipline
 
 <!-- globs: .claude/orchestrator-prompts/** -->
 <!-- inject: Kickoffs are read from `staging` by /pipeline + aif. Author → MERGE the kickoff to staging → only THEN hand out `/pipeline <umbrella>` or an aif dispatch. A worktree-branch-only kickoff is invisible to dispatch sessions (coordination CANON syncs only gitignored files, not tracked kickoffs). -->
 
 > **Class:** B — compensating mechanism without CI test: an edit-time reminder injected by [`inject-matching-rule.sh`](../hooks/inject-matching-rule.sh) via the `globs:` marker above. No CI gate — the convention is about *merge timing* (author-on-branch → merge-to-staging → dispatch), which a branch-scoped CI run cannot assert. Promotion criterion in §4.
+> **Fires:** editing/creating any file under `.claude/orchestrator-prompts/<umbrella>/`.
 > **Authoritative for:** where dispatch-input kickoffs must live before a `/pipeline` or aif dispatch is initiated, and why; the edit-time reminder mechanism.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Kickoff §3 authoring obligations (T-enumeration) — see [ai-laziness-traps.md §3](ai-laziness-traps.md). Coordination symlink sync — see [`scripts/link-coordination.sh`](../../scripts/link-coordination.sh).
 

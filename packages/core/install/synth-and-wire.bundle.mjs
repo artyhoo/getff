@@ -4975,7 +4975,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve6.call(this, root, ref);
+      let _sch = resolve7.call(this, root, ref);
       if (_sch === void 0) {
         const schema2 = (_a = root.localRefs) === null || _a === void 0 ? void 0 : _a[ref];
         const { schemaId } = this.opts;
@@ -5002,7 +5002,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve6(root, ref) {
+    function resolve7(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -5633,7 +5633,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve6(baseURI, relativeURI, options) {
+    function resolve7(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const resolved = resolveComponent(parse(baseURI, schemelessOptions), parse(relativeURI, schemelessOptions), schemelessOptions, true);
       schemelessOptions.skipEscape = true;
@@ -5891,7 +5891,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve6,
+      resolve: resolve7,
       resolveComponent,
       equal,
       serialize,
@@ -8564,8 +8564,8 @@ var require_ajv = __commonJS({
 });
 
 // packages/core/install/synth-and-wire.ts
-import { existsSync as existsSync4, readFileSync as readFileSync6, writeFileSync as writeFileSync2 } from "node:fs";
-import { dirname as dirname6, resolve as resolve5 } from "node:path";
+import { existsSync as existsSync4, readFileSync as readFileSync7, writeFileSync as writeFileSync2 } from "node:fs";
+import { dirname as dirname7, resolve as resolve6 } from "node:path";
 import process3 from "node:process";
 
 // packages/core/research/load.ts
@@ -8780,6 +8780,59 @@ var REGISTRY = Object.freeze({
     template: "require-vacuity direction B \u2014 selector fires on good example ({count} violation{plural}); rule fires unconditionally",
     defaultSeverity: "error",
     explanation: "requireVacuity gate: selector fires on the good example too (always-red false positive). gate-require-vacuity.ts."
+  },
+  // --- FF6xxx: IR grammar gates (MT umbrella S1 — ir/gates/grammar.ts) ---
+  FF6001: {
+    template: "degenerate pairedExamples: positive === negative for node {nodeId}",
+    defaultSeverity: "error",
+    explanation: "IR grammar gate (tautology class): pairedExamples.positive and pairedExamples.negative are byte-identical, so the pair cannot discriminate the convention it claims to test. ir/gates/grammar.ts."
+  },
+  FF6002: {
+    template: "duplicate ConventionNode id {id} ({count} occurrences)",
+    defaultSeverity: "error",
+    explanation: "IR grammar gate (conflict class): two or more nodes in the set share the same id, breaking id-addressability. ir/gates/grammar.ts."
+  },
+  FF6003: {
+    template: "dangling anchor {anchor} on node {nodeId}: not a REGISTRY code",
+    defaultSeverity: "error",
+    explanation: "IR grammar gate (coverage/broken-ref class, principle-08 pattern generalized): an anchor in node.anchors does not resolve to a key in the diagnostics REGISTRY. ir/gates/grammar.ts."
+  },
+  // --- FF7xxx: render outcomes (MT umbrella S2 — backends/cargo/render-clippy.ts) ---
+  FF7001: {
+    template: "not expressible in {backend}: selectorClass {selectorClass} (node {nodeId})",
+    defaultSeverity: "warning",
+    explanation: "Backend render refusal (capability class): the node's selectorClass has no representation in this backend's render target at v0 (e.g. syntax-class or dep-graph-class nodes against the cargo clippy.toml backend). backends/cargo/render-clippy.ts."
+  },
+  FF7002: {
+    template: "params contract violation for {backend} renderer: node {nodeId} missing/invalid {missing}",
+    defaultSeverity: "error",
+    explanation: "Backend render refusal (params class): node.params does not satisfy the backend's own params contract (e.g. missing kind/path, or kind outside the backend's known set). backends/cargo/render-clippy.ts."
+  },
+  FF7003: {
+    template: "severity {requested} not projected by {backend} at v0 (node {nodeId})",
+    defaultSeverity: "note",
+    explanation: "Backend render degradation (severity class): the node's defaultSeverity has no projection in this backend's render target at v0 (rendered-with-loss, not dropped \u2014 the content is still emitted). backends/cargo/render-clippy.ts."
+  },
+  // --- FF8xxx: composition/doc plane (MT umbrella S4 — composition/gates/composition-gate.ts) ---
+  FF8001: {
+    template: "dangling node reference: id {nodeId} in {where} has no matching ConventionNode",
+    defaultSeverity: "error",
+    explanation: "Composition gate (broken-ref class): a DocPlan section nodeId or an excluded[] nodeId points at a ConventionNode id that is not in the node set. A plan cannot document a node that does not exist. composition/gates/composition-gate.ts."
+  },
+  FF8002: {
+    template: "node {nodeId} is neither placed in a section nor a valid excluded[] entry ({reason})",
+    defaultSeverity: "error",
+    explanation: "Composition gate (coverage class, attention-is-not-a-mechanism): a scoped node is silently absent from the doc \u2014 it appears in no section AND has no valid excluded[] opt-out (missing, or reason under 20 chars). Silence about an undocumented node is impossible: it must be documented or explicitly, reasonedly excluded. composition/gates/composition-gate.ts."
+  },
+  FF8003: {
+    template: "composition contradiction for node {nodeId}: {detail}",
+    defaultSeverity: "error",
+    explanation: "Composition gate (contradiction class): the plan and the render facts disagree \u2014 a node placed in BOTH a section and excluded[], OR a backend segment with no RenderOutcome in the outcomes Map (a doc claiming enforcement a backend never produced). composition/gates/composition-gate.ts."
+  },
+  FF8004: {
+    template: 'matrix incoherence for node {nodeId} backend {backend}: the cell for its selectorClass carries live-fired evidence while its status is "no" (evidence of firing in a cell marked not-applicable)',
+    defaultSeverity: "error",
+    explanation: `Composition gate (honesty class, T-S4-A / DN-4): the capability-matrix cell for the node's selectorClass is internally incoherent \u2014 status is "no" (the rule does not apply) yet evidence.kind === "live-fired" (it was fired). The two honesty sources contradict. A rendered-not-fired \u{1F7E1} (status "no", no evidence) is spec-legal and is NOT FF8004. composition/gates/composition-gate.ts.`
   }
 });
 function lookup(code) {
@@ -8812,11 +8865,11 @@ function diag(code, params, opts) {
 }
 
 // packages/core/diagnostics/ajv.ts
-function makeSchemaValidator(schemaDoc2, ref) {
+function makeSchemaValidator(schemaDoc3, ref) {
   const ajv2 = new import_ajv.Ajv({ allErrors: true, strict: false });
   const baseId = ref.split("#")[0];
-  const schemaId = typeof schemaDoc2["$id"] === "string" && schemaDoc2["$id"].length > 0 ? schemaDoc2["$id"] : baseId;
-  ajv2.addSchema(schemaDoc2, schemaId);
+  const schemaId = typeof schemaDoc3["$id"] === "string" && schemaDoc3["$id"].length > 0 ? schemaDoc3["$id"] : baseId;
+  ajv2.addSchema(schemaDoc3, schemaId);
   return ajv2.compile({ $ref: ref });
 }
 var errorsTextAjv = new import_ajv.Ajv({ allErrors: true, strict: false });
@@ -9207,10 +9260,10 @@ function loadEntries(framework, version, patterns) {
 }
 
 // packages/core/synthesizer/synthesize.ts
-var import_ajv4 = __toESM(require_ajv(), 1);
-import { existsSync as existsSync2, readFileSync as readFileSync4 } from "node:fs";
-import { dirname as dirname4, resolve as resolve3 } from "node:path";
-import { fileURLToPath as fileURLToPath4 } from "node:url";
+var import_ajv5 = __toESM(require_ajv(), 1);
+import { existsSync as existsSync2, readFileSync as readFileSync5 } from "node:fs";
+import { dirname as dirname5, resolve as resolve4 } from "node:path";
+import { fileURLToPath as fileURLToPath5 } from "node:url";
 
 // packages/core/synthesizer/compile-declarative-md.ts
 var ESLINT_RESTRICTED_RULE_NAME = "rules-as-tests/restricted-syntax-audit-exempt";
@@ -9359,17 +9412,241 @@ function mergeEslintRuleConfig(acc, next, newSource, ruleSources) {
   }
 }
 
-// packages/core/synthesizer/synthesize.ts
+// packages/core/backends/npm/from-node.ts
+var VALID_PRESENCE = ["forbid", "require"];
+function isValidParams(params) {
+  const selector = params["selector"];
+  const presence = params["presence"];
+  if (typeof selector !== "string" || selector.length === 0) return false;
+  if (typeof presence !== "string" || !VALID_PRESENCE.includes(presence)) return false;
+  return true;
+}
+function missingOrInvalidField(params) {
+  const selector = params["selector"];
+  if (typeof selector !== "string" || selector.length === 0) return "selector";
+  const presence = params["presence"];
+  if (typeof presence !== "string" || !VALID_PRESENCE.includes(presence)) return "presence";
+  return "unknown";
+}
+function nodeToSynthesizedRule(node, enrichment) {
+  if (node.selectorClass !== "syntax") {
+    throw new Error(
+      `nodeToSynthesizedRule(): node ${node.id} has selectorClass '${node.selectorClass}', only 'syntax' maps to a declarative rule`
+    );
+  }
+  if (!isValidParams(node.params)) {
+    throw new Error(
+      `nodeToSynthesizedRule(): node ${node.id} params fail the npm declarative contract (missing/invalid ${missingOrInvalidField(node.params)})`
+    );
+  }
+  const params = node.params;
+  const rule = {
+    id: node.id,
+    title: node.claim,
+    // claim -> title (spec §4: message/title is ALWAYS node.claim)
+    stack: enrichment.stack,
+    ...enrichment.appliesTo !== void 0 ? { "applies-to": enrichment.appliesTo } : {},
+    check: {
+      type: "declarative",
+      engine: "eslint-restricted",
+      selector: params.selector,
+      presence: params.presence,
+      message: node.claim,
+      ...params.messageId !== void 0 ? { messageId: params.messageId } : {}
+    },
+    examples: {
+      bad: node.pairedExamples.negative,
+      // negative example = the violating code
+      good: node.pairedExamples.positive
+      // positive example = the conforming code
+    },
+    research: { entryId: node.id, provenance: node.provenance }
+  };
+  return rule;
+}
+
+// packages/core/ir/gates/grammar.ts
+import { readFileSync as readFileSync4 } from "node:fs";
+import { dirname as dirname4, resolve as resolve3 } from "node:path";
+import { fileURLToPath as fileURLToPath4 } from "node:url";
 var HERE3 = dirname4(fileURLToPath4(import.meta.url));
 var _pkgCore3 = process.env["AIF_SYNTH_PKG_ROOT"];
-var RECIPES_ROOT = _pkgCore3 ? resolve3(_pkgCore3, "synthesizer", "recipes") : resolve3(HERE3, "recipes");
-var SCHEMA_PATH2 = _pkgCore3 ? resolve3(_pkgCore3, "synthesizer", "synthesis-plan.schema.json") : resolve3(HERE3, "synthesis-plan.schema.json");
-var RECIPE_SCHEMA_PATH = _pkgCore3 ? resolve3(_pkgCore3, "synthesizer", "recipe.schema.json") : resolve3(HERE3, "recipe.schema.json");
-var ajv = new import_ajv4.Ajv({ allErrors: true, strict: false });
-var schema = JSON.parse(readFileSync4(SCHEMA_PATH2, "utf8"));
+var SCHEMA_PATH2 = _pkgCore3 ? resolve3(_pkgCore3, "ir", "convention-node.schema.json") : resolve3(HERE3, "..", "convention-node.schema.json");
+var schemaDoc2 = JSON.parse(readFileSync4(SCHEMA_PATH2, "utf8"));
+var validateNode = makeSchemaValidator(schemaDoc2, "ConventionNode");
+function isNodeShape(value) {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value;
+  return typeof v["id"] === "string" && Array.isArray(v["anchors"]) && typeof v["pairedExamples"] === "object" && v["pairedExamples"] !== null;
+}
+function runGrammarGate(nodes) {
+  const diagnostics = [];
+  if (!Array.isArray(nodes)) {
+    const wrapValidate = makeSchemaValidator(
+      { type: "array", items: {} },
+      "ConventionNodeArray"
+    );
+    wrapValidate(nodes);
+    diagnostics.push(...ajvErrorsToDiagnostics(wrapValidate.errors));
+    return { status: "fail", diagnostics };
+  }
+  const idCounts = /* @__PURE__ */ new Map();
+  for (const node of nodes) {
+    if (typeof node === "object" && node !== null && typeof node["id"] === "string") {
+      const id = node["id"];
+      idCounts.set(id, (idCounts.get(id) ?? 0) + 1);
+    }
+  }
+  for (const [id, count] of idCounts) {
+    if (count > 1) {
+      diagnostics.push(diag("FF6002", { id, count }));
+    }
+  }
+  for (let idx = 0; idx < nodes.length; idx++) {
+    const node = nodes[idx];
+    const path = `/nodes/${idx}`;
+    const shapeOk = validateNode(node);
+    if (!shapeOk) {
+      diagnostics.push(
+        ...ajvErrorsToDiagnostics(validateNode.errors).map((d) => ({
+          ...d,
+          path: d.path ? `${path}${d.path}` : path
+        }))
+      );
+      continue;
+    }
+    if (!isNodeShape(node)) continue;
+    const nodeId = node.id;
+    if (node.pairedExamples.positive === node.pairedExamples.negative) {
+      diagnostics.push(diag("FF6001", { nodeId }, { path }));
+    }
+    for (const anchor of node.anchors) {
+      if (!(anchor in REGISTRY)) {
+        diagnostics.push(diag("FF6003", { anchor, nodeId }, { path }));
+      }
+    }
+  }
+  return { status: diagnostics.length > 0 ? "fail" : "pass", diagnostics };
+}
+
+// packages/core/synthesizer/to-node.ts
+var GrammarGateError = class extends Error {
+  constructor(nodeId, diagnostics) {
+    super(`Grammar gate rejected node ${nodeId}: ${diagnostics}`);
+    this.nodeId = nodeId;
+    this.diagnostics = diagnostics;
+    this.name = "GrammarGateError";
+  }
+  nodeId;
+  diagnostics;
+};
+var DEFAULT_NODE_SEVERITY = "error";
+function isSyntaxDeclarative(check) {
+  return check.type === "declarative" && (check.engine === void 0 || check.engine === "eslint-restricted");
+}
+function buildNode(rule, entryId, provenance) {
+  const params = {};
+  if (rule.check.type === "declarative") {
+    params["selector"] = rule.check.selector;
+    params["presence"] = rule.check.presence;
+  }
+  return {
+    id: entryId,
+    claim: rule.title,
+    anchors: [],
+    // For a declarative-syntax rule this is a REAL classification ('syntax' — the adapter
+    // renders it). For a non-syntax rule (eslint/command/script/manual) the node exists ONLY
+    // to stand the grammar gate in the flow (T15/N4) and is then discarded — wireRuleThroughNode
+    // returns the original rule unchanged before the adapter is ever reached, so this value is
+    // NEVER consumed. 'dep-graph' is a throwaway placeholder here, NOT a real dependency-graph
+    // classification of the rule. (Latent trap guard: if a future stage feeds these gate-only
+    // nodes to the npm router in from-node.ts, 'dep-graph' would be refused FF7001 with a
+    // misleading "dependency-level ban" note — at that point give non-syntax nodes a truthful
+    // class or route them away before the router, do not let this placeholder leak.)
+    selectorClass: isSyntaxDeclarative(rule.check) ? "syntax" : "dep-graph",
+    params,
+    defaultSeverity: DEFAULT_NODE_SEVERITY,
+    provenance,
+    pairedExamples: {
+      // negative example = the violating code; positive = the conforming code (spec §4)
+      negative: rule.examples.bad,
+      positive: rule.examples.good
+    }
+  };
+}
+function wireRuleThroughNode(rule) {
+  const entryId = rule.research.entryId;
+  const provenance = rule.research.provenance;
+  const node = buildNode(rule, entryId, provenance);
+  const gate = runGrammarGate([node]);
+  if (gate.status !== "pass") {
+    throw new GrammarGateError(node.id, gate.diagnostics.map((d) => `${d.code}: ${d.message}`).join("; "));
+  }
+  if (!isSyntaxDeclarative(rule.check)) {
+    return rule;
+  }
+  const enrichment = {
+    stack: rule.stack,
+    ...rule["applies-to"] !== void 0 ? { appliesTo: rule["applies-to"] } : {}
+  };
+  const projected = nodeToSynthesizedRule(node, enrichment);
+  return mergeEnrichment(projected, rule);
+}
+function mergeEnrichment(projected, original) {
+  const resolve7 = (key) => {
+    switch (key) {
+      case "title":
+        return projected.title;
+      // node backbone owns the claim -> title
+      case "examples":
+        return projected.examples;
+      // node backbone owns pairedExamples -> examples
+      case "stack":
+        return projected.stack;
+      // adapter re-emits from enrichment.stack (round-trip used)
+      case "applies-to":
+        return projected["applies-to"];
+      // adapter re-emits from enrichment.appliesTo
+      case "check":
+        return mergeCheck(projected.check, original.check);
+      default:
+        return original[key];
+    }
+  };
+  const merged = {};
+  for (const key of Object.keys(original)) {
+    merged[key] = resolve7(key);
+  }
+  return merged;
+}
+function mergeCheck(projectedCheck, originalCheck) {
+  if (originalCheck.type !== "declarative" || projectedCheck.type !== "declarative") {
+    return originalCheck;
+  }
+  const rebuilt = {};
+  for (const key of Object.keys(originalCheck)) {
+    if (key === "selector") {
+      rebuilt[key] = projectedCheck.selector;
+    } else if (key === "presence") {
+      rebuilt[key] = projectedCheck.presence;
+    } else {
+      rebuilt[key] = originalCheck[key];
+    }
+  }
+  return rebuilt;
+}
+
+// packages/core/synthesizer/synthesize.ts
+var HERE4 = dirname5(fileURLToPath5(import.meta.url));
+var _pkgCore4 = process.env["AIF_SYNTH_PKG_ROOT"];
+var RECIPES_ROOT = _pkgCore4 ? resolve4(_pkgCore4, "synthesizer", "recipes") : resolve4(HERE4, "recipes");
+var SCHEMA_PATH3 = _pkgCore4 ? resolve4(_pkgCore4, "synthesizer", "synthesis-plan.schema.json") : resolve4(HERE4, "synthesis-plan.schema.json");
+var RECIPE_SCHEMA_PATH = _pkgCore4 ? resolve4(_pkgCore4, "synthesizer", "recipe.schema.json") : resolve4(HERE4, "recipe.schema.json");
+var ajv = new import_ajv5.Ajv({ allErrors: true, strict: false });
+var schema = JSON.parse(readFileSync5(SCHEMA_PATH3, "utf8"));
 ajv.addSchema(schema, "synthesis-plan");
 var validatePlan = ajv.compile({ $ref: "synthesis-plan" });
-var recipeSchema = JSON.parse(readFileSync4(RECIPE_SCHEMA_PATH, "utf8"));
+var recipeSchema = JSON.parse(readFileSync5(RECIPE_SCHEMA_PATH, "utf8"));
 var validateRecipe = ajv.compile(recipeSchema);
 var SynthesisPlanError = class extends Error {
   constructor(errors) {
@@ -9390,9 +9667,9 @@ var RecipeError = class extends Error {
   errors;
 };
 function loadRecipe(patternId) {
-  const path = resolve3(RECIPES_ROOT, `${patternId}.json`);
+  const path = resolve4(RECIPES_ROOT, `${patternId}.json`);
   if (!existsSync2(path)) return null;
-  const raw = JSON.parse(readFileSync4(path, "utf8"));
+  const raw = JSON.parse(readFileSync5(path, "utf8"));
   if (!validateRecipe(raw)) {
     throw new RecipeError(path, ajv.errorsText(validateRecipe.errors));
   }
@@ -9411,11 +9688,12 @@ function synthesize(plan) {
       continue;
     }
     const id = `G${nextId++}`;
-    const rule = {
+    const composed = {
       ...recipe.rule,
       id,
       research: { entryId: entry.id, provenance: entry.provenance }
     };
+    const rule = wireRuleThroughNode(composed);
     rules.push(rule);
     if (rule.check.type === "declarative") {
       mdFragments.push(compileDeclarativeMd(rule));
@@ -9454,9 +9732,9 @@ function synthesize(plan) {
 
 // packages/core/install/wire-eslint-r2.ts
 import { execFileSync } from "node:child_process";
-import { existsSync as existsSync3, readFileSync as readFileSync5, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync as existsSync3, readFileSync as readFileSync6, unlinkSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname as dirname5, join as join2, relative, resolve as resolve4 } from "node:path";
+import { dirname as dirname6, join as join2, relative, resolve as resolve5 } from "node:path";
 import process2 from "node:process";
 import { pathToFileURL } from "node:url";
 var R2_RULE_ID = "rules-as-tests/no-unsafe-zod-parse";
@@ -9465,8 +9743,8 @@ function r2Element(variant, scope) {
   return variant === "self-contained" ? `{ ${filesPart}plugins: { 'rules-as-tests': customRules }, rules: { '${R2_RULE_ID}': 'error' } }` : `{ ${filesPart}rules: { '${R2_RULE_ID}': 'error' } }`;
 }
 function customRulesImportSpecifier(configPath, cwd) {
-  const target = resolve4(cwd, "eslint-rules-local/index.mjs");
-  let rel = relative(dirname5(resolve4(configPath)), target);
+  const target = resolve5(cwd, "eslint-rules-local/index.mjs");
+  let rel = relative(dirname6(resolve5(configPath)), target);
   if (!rel.startsWith(".")) rel = `./${rel}`;
   return rel;
 }
@@ -9503,7 +9781,7 @@ async function wireConfigSource(source, opts = {}) {
   let Project;
   let SyntaxKind;
   try {
-    const requireFromCwd = createRequire(resolve4(process2.cwd(), "package.json"));
+    const requireFromCwd = createRequire(resolve5(process2.cwd(), "package.json"));
     const tsMorphPath = requireFromCwd.resolve("ts-morph");
     const mod = await import(pathToFileURL(tsMorphPath).href);
     Project = mod.Project;
@@ -9729,7 +10007,7 @@ async function wireNRules(source, synthRules, opts = {}) {
   let Project;
   let SyntaxKind;
   try {
-    const requireFromCwd = createRequire(resolve4(process2.cwd(), "package.json"));
+    const requireFromCwd = createRequire(resolve5(process2.cwd(), "package.json"));
     const tsMorphPath = requireFromCwd.resolve("ts-morph");
     const mod = await import(pathToFileURL(tsMorphPath).href);
     Project = mod.Project;
@@ -9833,27 +10111,27 @@ async function wireNRules(source, synthRules, opts = {}) {
   return { status: "wired", original: source, modified };
 }
 function synthProbeTarget(configDir) {
-  const p = resolve4(configDir, "__aif_r2_probe__.ts");
+  const p = resolve5(configDir, "__aif_r2_probe__.ts");
   writeFileSync(p, "export const __aif_probe = 1;\n", "utf8");
   return p;
 }
 async function probeViaEslint(configPath, cwd) {
   let eslintBin;
   try {
-    const reqd = createRequire(resolve4(cwd, "package.json"));
+    const reqd = createRequire(resolve5(cwd, "package.json"));
     const pj = reqd.resolve("eslint/package.json");
-    eslintBin = join2(dirname5(pj), "bin", "eslint.js");
+    eslintBin = join2(dirname6(pj), "bin", "eslint.js");
     if (!existsSync3(eslintBin)) return "unavailable";
   } catch {
     return "unavailable";
   }
   const nodeArgs = [];
   try {
-    createRequire(resolve4(cwd, "package.json")).resolve("tsx");
+    createRequire(resolve5(cwd, "package.json")).resolve("tsx");
     nodeArgs.push("--import", "tsx");
   } catch {
   }
-  const dir = dirname5(resolve4(configPath));
+  const dir = dirname6(resolve5(configPath));
   const target = synthProbeTarget(dir);
   try {
     execFileSync(process2.execPath, [...nodeArgs, eslintBin, "--print-config", target], { cwd: dir, stdio: "pipe" });
@@ -9873,7 +10151,7 @@ ${stderr.slice(0, 400)}`);
 }
 async function resolveAndWire(args) {
   const { configPath, cwd, runProbe, scope } = args;
-  const original = readFileSync5(configPath, "utf8");
+  const original = readFileSync6(configPath, "utf8");
   if (original.includes(R2_RULE_ID)) {
     return { status: "already-wired", original, modified: original };
   }
@@ -9913,7 +10191,7 @@ async function main() {
     process2.exit(0);
   }
   const pathIdx = argv.indexOf("--path");
-  const configPath = resolve4(pathIdx >= 0 ? argv[pathIdx + 1] : "./eslint.config.mjs");
+  const configPath = resolve5(pathIdx >= 0 ? argv[pathIdx + 1] : "./eslint.config.mjs");
   const scopeIdx = argv.indexOf("--scope");
   const scopeStr = scopeIdx >= 0 ? argv[scopeIdx + 1] : void 0;
   const scope = scopeStr ? { files: [scopeStr] } : void 0;
@@ -9928,7 +10206,7 @@ async function main() {
     console.log(`\xB7 wire-eslint-r2: ${configPath} not found \u2014 skipped`);
     process2.exit(0);
   }
-  const source = readFileSync5(configPath, "utf8");
+  const source = readFileSync6(configPath, "utf8");
   const result = await wireConfigSource(source);
   switch (result.status) {
     case "already-wired":
@@ -10047,7 +10325,7 @@ function mergeLiveRules(presetRules, liveRules) {
 function readLiveSnippet(snippetPath) {
   if (!existsSync4(snippetPath)) return {};
   try {
-    const raw = readFileSync6(snippetPath, "utf8").trim();
+    const raw = readFileSync7(snippetPath, "utf8").trim();
     if (!raw) return {};
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
@@ -10091,10 +10369,10 @@ async function main2() {
   }
   const stack = argv[stackIdx + 1];
   const pathIdx = argv.indexOf("--path");
-  const configPath = resolve5(pathIdx >= 0 ? argv[pathIdx + 1] : "./eslint.config.mjs");
+  const configPath = resolve6(pathIdx >= 0 ? argv[pathIdx + 1] : "./eslint.config.mjs");
   const dryRun = argv.includes("--dry-run");
   const snippetIdx = argv.indexOf("--snippet");
-  const snippetPath = snippetIdx >= 0 ? resolve5(argv[snippetIdx + 1]) : resolve5(dirname6(configPath), ".ai-factory", "synthesizer-output", "eslint-rules-snippet.json");
+  const snippetPath = snippetIdx >= 0 ? resolve6(argv[snippetIdx + 1]) : resolve6(dirname7(configPath), ".ai-factory", "synthesizer-output", "eslint-rules-snippet.json");
   const KNOWN_FLAGS = /* @__PURE__ */ new Set(["--help", "-h", "--stack", "--path", "--dry-run", "--snippet"]);
   for (let i = 0; i < argv.length; i++) {
     if (argv[i].startsWith("--") || argv[i].startsWith("-")) {
@@ -10139,13 +10417,13 @@ async function main2() {
     if (!existsSync4(configPath)) {
       console.log(`  [dry-run] [synth-wire] ${configPath} not found \u2014 would skip`);
     } else {
-      const source2 = readFileSync6(configPath, "utf8");
+      const source2 = readFileSync7(configPath, "utf8");
       const result2 = await wireNRules(source2, mergedRules, {
         overrideKeys,
         // #829: enable plugin self-registration for presets that don't pre-register `rules-as-tests`
         // (RN/ts-server). Resolved against the config's own dir → `./eslint-rules-local/index.mjs`
         // (40-configs.sh provisions it at the root AND per-workspace), so it works for both layouts.
-        customRulesImportPath: customRulesImportSpecifier(configPath, dirname6(configPath))
+        customRulesImportPath: customRulesImportSpecifier(configPath, dirname7(configPath))
       });
       if (result2.status === "already-wired") {
         console.log(`  [dry-run] [synth-wire] all synthesized rules already present in ${configPath} (no change needed)`);
@@ -10159,11 +10437,11 @@ async function main2() {
     console.log(`  [synth-wire] ${configPath} not found \u2014 skipped`);
     process3.exit(0);
   }
-  const source = readFileSync6(configPath, "utf8");
+  const source = readFileSync7(configPath, "utf8");
   const result = await wireNRules(source, mergedRules, {
     overrideKeys,
     // #829: see the dry-run site above — enables plugin self-registration for presets lacking it.
-    customRulesImportPath: customRulesImportSpecifier(configPath, dirname6(configPath))
+    customRulesImportPath: customRulesImportSpecifier(configPath, dirname7(configPath))
   });
   switch (result.status) {
     case "already-wired":
