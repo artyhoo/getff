@@ -32,10 +32,14 @@ function buildUserPrompt(menu: Menu): string {
     `{"rules": [{"entryId": "<candidate-id>", "ruleId": "<existing-eslint-rule-id>", ` +
     `"title": "<short title>", "stack": ["${menu.framework ?? 'software'}"], ` +
     `"eslintConfig": {"<existing-eslint-rule-id>": ["error", ...]}, ` +
-    `"examples": {"bad": "<code>", "good": "<code>"}, ` +
+    `"examples": {"bad": "<code>", "good": "<code>", "safeForms": ["<code (optional)>"]}, ` +
     `"negativeTest": {"input": ["<code>"], "expect-violation": "<existing-eslint-rule-id>"}}]}\n` +
     `Use only entryId values from the candidate list above. Omit eslintConfig and ` +
-    `negativeTest for rules that need a plugin not configurable via a built-in ESLint rule.`
+    `negativeTest for rules that need a plugin not configurable via a built-in ESLint rule. ` +
+    `examples.safeForms (optional, GH #915 obs 4): known-SAFE forms of the forbidden construct ` +
+    `the rule must NOT flag (e.g. Object.prototype.hasOwnProperty.call(o,k) for a hasOwnProperty ` +
+    `ban); include them when the source docs name an accepted variant — validation fails the ` +
+    `rule if a safe form fires.`
   );
 }
 
