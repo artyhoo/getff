@@ -124,41 +124,71 @@ else
   echo "    gate output: $(echo "$POS_OUTPUT" | head -8 | tr '\n' '|')"
 fi
 
-# ─── Arm (iv/v/vi): strict mode — SKIP is a failure where deps are required (GH #915 obs 1) ──
+# ─── Arm (iv/v/vi): strict mode — SKIP is a failure where DEPS are required (GH #915 obs 1) ──
 # A dep-missing SKIP whose only consumer is "someone reads the log" is #warning-nobody-reads
 # (attention-is-not-a-mechanism.md §1). Strict mode (explicit FENCES_FIRE_STRICT=1, or CI set)
-# promotes SKIP>=1 to rc=1, with FENCES_FIRE_ALLOW_SKIP='<rationale >=20 chars>' as the escape.
-EMPTY_ROOT=$(mktemp -d)   # no fixtures/deps at all → the gate can only SKIP
+# promotes a DEP-CLASS SKIP (tsx/eslint absent) to rc=1 — NOT a structural skip (barrel not yet
+# generated, fixture dir absent), which stays non-failing even under CI (a fresh consumer's own
+# CI legitimately runs `validate` before install.sh generates the barrel).
+#
+# To genuinely exercise the dep-missing path in framework CI (where tsx/eslint DO exist), copy
+# the gate to an isolated location with NO node_modules anywhere in its ancestor chain — the
+# gate's binary search is entirely path-relative (PROJECT_ROOT + SCRIPT_DIR-relative fallbacks),
+# so this reliably makes it "not find" tsx/eslint without touching the real installation.
+ISOLATED_GATE_DIR=$(mktemp -d)/deeply/nested/isolated/audit-self
+mkdir -p "$ISOLATED_GATE_DIR"
+cp "$GATE_SCRIPT" "$ISOLATED_GATE_DIR/check-fences-fire.sh"
+ISOLATED_GATE="$ISOLATED_GATE_DIR/check-fences-fire.sh"
+DEP_MISSING_ROOT=$(mktemp -d)   # AIF_PROJECT_ROOT with a fixture dir so it reaches the binary check
+mkdir -p "$DEP_MISSING_ROOT/scripts/fences-fire-fixtures"
+cp "$FIXTURE_SRC/no-unsafe-zod-parse.manifest.json" "$DEP_MISSING_ROOT/scripts/fences-fire-fixtures/" 2>/dev/null || true
 
-# (iv) strict: SKIP → rc=1
-env -u CI FENCES_FIRE_STRICT=1 AIF_PROJECT_ROOT="$EMPTY_ROOT" bash "$GATE_SCRIPT" >/dev/null 2>&1
+# (iv) strict: dep-missing SKIP → rc=1
+env -u CI FENCES_FIRE_STRICT=1 AIF_PROJECT_ROOT="$DEP_MISSING_ROOT" bash "$ISOLATED_GATE" >/dev/null 2>&1
 if [ $? -eq 1 ]; then
-  ok "(iv) strict arm: dep/fixture-missing SKIP exits 1 under FENCES_FIRE_STRICT=1"
+  ok "(iv) strict arm: dep-missing SKIP exits 1 under FENCES_FIRE_STRICT=1"
 else
-  bad "(iv) strict arm: SKIP did NOT fail under FENCES_FIRE_STRICT=1 — silent-degrade leak"
+  bad "(iv) strict arm: dep-missing SKIP did NOT fail under FENCES_FIRE_STRICT=1 — silent-degrade leak"
 fi
 
 # (v, paired-positive) degrade default preserved: same run WITHOUT strict/CI → rc=0
-env -u CI AIF_PROJECT_ROOT="$EMPTY_ROOT" bash "$GATE_SCRIPT" >/dev/null 2>&1
+env -u CI AIF_PROJECT_ROOT="$DEP_MISSING_ROOT" bash "$ISOLATED_GATE" >/dev/null 2>&1
 if [ $? -eq 0 ]; then
-  ok "(v) degrade arm: same SKIP exits 0 without strict/CI (install-must-not-abort preserved)"
+  ok "(v) degrade arm: same dep-missing SKIP exits 0 without strict/CI (install-must-not-abort preserved)"
 else
-  bad "(v) degrade arm: non-strict SKIP exited non-zero — consumer install would abort"
+  bad "(v) degrade arm: non-strict dep-missing SKIP exited non-zero — consumer install would abort"
 fi
 
 # (vi) escape token: strict + rationale >=20 chars → rc=0; too-short rationale → still rc=1
 env -u CI FENCES_FIRE_STRICT=1 FENCES_FIRE_ALLOW_SKIP='consumer sandbox intentionally has no tsx' \
-  AIF_PROJECT_ROOT="$EMPTY_ROOT" bash "$GATE_SCRIPT" >/dev/null 2>&1
+  AIF_PROJECT_ROOT="$DEP_MISSING_ROOT" bash "$ISOLATED_GATE" >/dev/null 2>&1
 RC_LONG=$?
 env -u CI FENCES_FIRE_STRICT=1 FENCES_FIRE_ALLOW_SKIP='short' \
-  AIF_PROJECT_ROOT="$EMPTY_ROOT" bash "$GATE_SCRIPT" >/dev/null 2>&1
+  AIF_PROJECT_ROOT="$DEP_MISSING_ROOT" bash "$ISOLATED_GATE" >/dev/null 2>&1
 RC_SHORT=$?
 if [ "$RC_LONG" -eq 0 ] && [ "$RC_SHORT" -eq 1 ]; then
   ok "(vi) escape arm: >=20-char rationale bypasses strict (rc=0); short rationale rejected (rc=1)"
 else
   bad "(vi) escape arm: expected long-rationale rc=0 + short-rationale rc=1, got $RC_LONG/$RC_SHORT"
 fi
-rm -rf "$EMPTY_ROOT"
+rm -rf "$DEP_MISSING_ROOT" "$(dirname "$(dirname "$(dirname "$(dirname "$ISOLATED_GATE_DIR")")")")"
+
+# (vii, paired-negative) STRUCTURAL skip (barrel absent, deps present) stays non-strict even
+# under strict+CI — proves strict mode targets dep-class only, not every SKIP (the D6
+# install-self-verification regression this arm guards against: a fresh consumer's own CI runs
+# `validate` before install.sh generates the barrel — that must keep degrading, not fail).
+BARREL_ABSENT_ROOT=$(mktemp -d)
+mkdir -p "$BARREL_ABSENT_ROOT/scripts/fences-fire-fixtures"
+cp "$FIXTURE_SRC/no-unsafe-zod-parse.manifest.json" "$BARREL_ABSENT_ROOT/scripts/fences-fire-fixtures/" 2>/dev/null || true
+cp "$FIXTURE_SRC"/no-unsafe-zod-parse.bad.* "$BARREL_ABSENT_ROOT/scripts/fences-fire-fixtures/" 2>/dev/null || true
+cp "$FIXTURE_SRC"/no-unsafe-zod-parse.good.* "$BARREL_ABSENT_ROOT/scripts/fences-fire-fixtures/" 2>/dev/null || true
+CI=1 FENCES_FIRE_STRICT=1 AIF_PROJECT_ROOT="$BARREL_ABSENT_ROOT" bash "$GATE_SCRIPT" >/dev/null 2>&1
+if [ $? -eq 0 ]; then
+  ok "(vii) structural-skip arm: barrel-absent SKIP stays rc=0 even under strict+CI (only dep-class skips fail)"
+else
+  bad "(vii) structural-skip arm: barrel-absent SKIP wrongly failed under strict+CI — over-broad strict promotion"
+fi
+rm -rf "$BARREL_ABSENT_ROOT"
 
 # ─── Scratch: isolated fixture environment ────────────────────────────────────
 SCRATCH=$(mktemp -d)
