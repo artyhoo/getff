@@ -25,7 +25,7 @@ This is "tool-bootstrapping, but for RULES": the provisioned MCP channels (conte
 
 ## Output contract — two committed files
 
-You write exactly two files under the consumer repo (committed, team-shared, auditable — the human-readable input record; `rules-lock.json` is the machine output record):
+You write exactly two files under the consumer repo (committed, team-shared, auditable — the human-readable input record; `rules-lock.<framework>.json` (stack-scoped since GH #915 obs 2; legacy `rules-lock.json` when framework is null) is the machine output record):
 
 - `.ai-factory/rules-research/<stack>.research.json` — a **`ResearchPlan`**.
 - `.ai-factory/rules-research/<stack>.selection.json` — a **`GenerateSelection`**.
