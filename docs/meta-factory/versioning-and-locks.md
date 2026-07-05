@@ -22,15 +22,17 @@
 - Validator metadata: что прошло, что было отклонено
 
 **Поведение:**
-- Первый запуск: research + generation + validation → `rules-lock.json` создаётся, коммитится в репо.
+- Первый запуск: research + generation + validation → lock-файл создаётся, коммитится в репо.
 - Последующие запуски: read-only из lock'а. Воспроизводимо.
 - Регенерация: только по явной команде `npm run rules:upgrade`, которая показывает diff и требует подтверждения.
+
+**Имя файла — stack-scoped (GH #915 obs 2, #927):** `rules-lock.<framework>.json` (например `rules-lock.ts-server.json`, `rules-lock.react-native.json`); legacy-имя `rules-lock.json` используется только при `framework: null` (own-repo / empty-plan путь). Multi-stack consumer, прогоняющий bootstrap по стэку на один и тот же корень, получает кумулятивную машинную запись — по одному lock'у на стэк, каждый drift-check'ается строго против своего плана (`packages/core/installer/install.ts`, `lockNameOf`). До #927 единый `rules-lock.json` перезаписывался последним синтезированным стэком.
 
 ### 4.3 TTL и автоматический regen
 
 При апгрейде версии в `package.json` (Next 16.2 → 16.3) postinstall hook замечает смену версии и предлагает:
 
-```
+```text
 ℹ Next.js обновился: 16.2.1 → 16.3.0
 ℹ Запустить research diff и предложить актуализацию правил? [Y/n]
 ```

@@ -91,14 +91,14 @@ function postInstallChecks(
       if (JSON.stringify(lock.ruleIds) !== JSON.stringify(expected)) {
         failures.push({
           stage: 'post-validate',
-          reason: `rules-lock.json ruleIds drift: lock=${JSON.stringify(lock.ruleIds)} plan=${JSON.stringify(expected)}`,
+          reason: `${lockNameOf(plan)} ruleIds drift: lock=${JSON.stringify(lock.ruleIds)} plan=${JSON.stringify(expected)}`,
         });
       }
     }
   } catch (err) {
     failures.push({
       stage: 'post-validate',
-      reason: `rules-lock.json failed to parse: ${(err as Error).message}`,
+      reason: `${lockNameOf(plan)} failed to parse: ${(err as Error).message}`,
     });
   }
   return { ok: failures.length === 0, failures };

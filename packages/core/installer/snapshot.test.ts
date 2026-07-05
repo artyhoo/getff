@@ -40,11 +40,19 @@ function deterministicShape(
   report: InstallReport,
   consumerRoot: string,
 ): InstallSnapshot {
+  // Lock filename is stack-scoped since GH #915 obs 2 (rules-lock.<framework>.json;
+  // legacy rules-lock.json only when framework is null) — derive it from the report's
+  // artifact list instead of hardcoding the legacy name, so this harness stays correct
+  // for framework plans too (self-install here is framework:null, but don't rely on it).
+  const lockName =
+    report.artifacts
+      .map((p) => basename(p))
+      .find((n) => /^rules-lock(\..+)?\.json$/.test(n)) ?? 'rules-lock.json';
   const lockPath = resolve(
     consumerRoot,
     '.ai-factory',
     'synthesizer-output',
-    'rules-lock.json',
+    lockName,
   );
   const lock = JSON.parse(readFileSync(lockPath, 'utf8')) as RulesLock;
   return {
