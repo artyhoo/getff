@@ -277,6 +277,7 @@ ignore_shipped_configs() {
     candidates+=("$_wsrel")
   done < <(
     find "$PROJECT_ROOT" -name node_modules -prune -o -name .git -prune -o \
+         -path "$PROJECT_ROOT/.claude/worktrees" -prune -o \
          \( -name 'eslint.config.mjs' -o -name 'eslint.config.rn-common.mjs' \) -print 2>/dev/null
   )
   local fresh=() rel

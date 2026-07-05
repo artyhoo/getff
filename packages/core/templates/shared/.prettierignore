@@ -57,6 +57,13 @@ scripts/audit-r4.ts
 pnpm-lock.yaml
 **/drizzle/**/meta/**
 
+# Claude Code harness worktrees — nested duplicate checkouts of this same repo that the CC
+# harness creates under .claude/worktrees/. Each worktree is format-checked in its OWN root;
+# recursing into them from the primary checkout re-flags every file N times over (a real
+# consumer run showed 470/488 format:check hits coming from stale worktrees). A consumer
+# never authors code at this path, so a blanket ignore hides nothing. (GH #915 obs 3)
+.claude/worktrees/
+
 # Build output / deps (consumers may extend this file)
 dist/
 coverage/

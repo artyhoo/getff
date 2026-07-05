@@ -250,4 +250,35 @@ else
   ok "#890 refresh neg: .prettierignore.override.md present → --refresh left the file untouched (non-vacuous)"
 fi
 
+# ── GH #915 obs 3: CC harness worktrees are blanket-ignored, not enumerated per-worktree ──
+# THE BUG: .claude/worktrees/ (nested duplicate checkouts) was not in the shipped template, and
+# ignore_shipped_configs' find recursed into it — format:check went chronically RED on stale
+# worktrees (470/488 hits in a real consumer run) and per-worktree eslint.config.mjs paths were
+# enumerated one-by-one into .prettierignore. THE FIX: blanket `.claude/worktrees/` template
+# entry + a -prune in the ignore_shipped_configs discovery find.
+grep -qx '.claude/worktrees/' "$PI" \
+  && ok "#915 pos: shipped .prettierignore blanket-ignores .claude/worktrees/" \
+  || bad "#915 pos: .claude/worktrees/ missing from shipped .prettierignore (stale worktrees re-flag format:check)"
+
+# neg (LOAD-BEARING): strip the entry from a copy → grep MUST miss
+grep -v '^\.claude/worktrees/$' "$PI" > "$PI.neg915"
+if grep -qx '.claude/worktrees/' "$PI.neg915"; then
+  bad "#915 neg: stripped the entry but grep still matched → VACUOUS"
+else
+  ok "#915 neg: removing the entry flips the grep to miss (non-vacuous)"
+fi
+rm -f "$PI.neg915"
+
+# ignore_shipped_configs must NOT enumerate configs found under .claude/worktrees/ (pruned find).
+TW=$(mktemp -d)
+printf '{ "name":"wtprune","version":"0.0.0" }\n' > "$TW/package.json"
+mkdir -p "$TW/.claude/worktrees/stale-wt/apps/api"
+printf 'export default [];\n' > "$TW/.claude/worktrees/stale-wt/apps/api/eslint.config.mjs"
+( cd "$TW" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1
+if grep -q 'worktrees/stale-wt' "$TW/.prettierignore"; then
+  bad "#915 prune: ignore_shipped_configs enumerated a .claude/worktrees/ config (find not pruned)"
+else
+  ok "#915 prune: no per-worktree config path enumerated in .prettierignore (find pruned)"
+fi
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
