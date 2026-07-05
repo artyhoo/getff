@@ -158,6 +158,25 @@ function runEslintRoundtrip(
     });
   }
 
+  // safeForms: KNOWN-SAFE multi-token idioms of the forbidden construct (e.g.
+  // Object.prototype.hasOwnProperty.call(o,k), the `x == null` null-check). examples.good
+  // cannot carry them — gate-single-token-diff constrains good to ~1 token from bad — so an
+  // over-broad selector matching a safe form was previously invisible to every gate (GH #915
+  // obs 4). Each safe form must verify violation-free, exactly like examples.good.
+  for (const [idx, safeForm] of (rule.examples.safeForms ?? []).entries()) {
+    const safeMessages = linter.verify(safeForm, config, {
+      filename: `example-safe-form-${idx}.tsx`,
+    });
+    const safeViolation = safeMessages.find((m) => m.ruleId === ruleName);
+    if (safeViolation) {
+      failures.push({
+        ruleId: rule.id,
+        code: 'FF3021',
+        reason: `examples.safeForms[${idx}] produced unexpected violation — selector is broader than its rationale (matches a known-safe form): rule='${safeViolation.ruleId}' message='${safeViolation.message}'`,
+      });
+    }
+  }
+
   return failures;
 }
 

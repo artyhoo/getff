@@ -76,6 +76,15 @@ You write exactly two files under the consumer repo (committed, team-shared, aud
       "selector": "JSXOpeningElement[name.name='head']", // ESQuery selector matching the bad construct
       "message": "Use the Next.js Metadata API or next/head <Head> instead of a raw <head> element.",
       "examples": { "bad": "<head />", "good": "<Head />" }, // SINGLE-TOKEN diff (head -> Head)
+      // safeForms (optional, RECOMMENDED): known-SAFE forms of the forbidden construct the
+      // selector must NOT match. `good` is single-token-diff-constrained, so multi-token safe
+      // idioms live here — e.g. for a hasOwnProperty ban: ["Object.prototype.hasOwnProperty.call(obj, key);"],
+      // for a loose-equality ban: ["if (x == null) {}"] when the docs treat `== null` as accepted.
+      // L4 verifies each is violation-free (FF3021): an over-broad selector fails instead of
+      // shipping a rule that flags the safe idiom its own message recommends. While researching,
+      // ASK: "does the source doc itself name a safe/accepted variant of this construct?" —
+      // if yes, encode it. (GH #915 obs 4)
+      // "safeForms": ["Object.prototype.hasOwnProperty.call(obj, key);"],
       "negativeTest": {
         "input": ["<head />"],
         "expect-violation": "no-restricted-syntax",

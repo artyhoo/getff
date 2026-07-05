@@ -267,6 +267,11 @@ export const REGISTRY: Readonly<Record<string, RegistryEntry>> = Object.freeze({
     defaultSeverity: 'error',
     explanation: 'requireVacuity gate: selector fires on the good example too (always-red false positive). gate-require-vacuity.ts.',
   },
+  FF3021: {
+    template: 'examples.safeForms[{idx}] produced unexpected violation — selector is broader than its rationale (matches a known-safe form): rule=\'{ruleId}\' message=\'{message}\'',
+    defaultSeverity: 'error',
+    explanation: 'Gate 2 (ruleTester): a declared known-safe form of the forbidden construct fired the rule — over-broad selector (GH #915 obs 4: hasOwnProperty.call / x == null class). gate-rule-tester.ts.',
+  },
 
   // --- FF6xxx: IR grammar gates (MT umbrella S1 — ir/gates/grammar.ts) ---
   FF6001: {
