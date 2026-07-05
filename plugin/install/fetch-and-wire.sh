@@ -29,7 +29,7 @@ set -euo pipefail
 # v0.3.0) lag staging by weeks, so pinning the fetch to `v<plugin-version>` would ship a stale
 # install.sh missing the hardening fixes (#531/#551/#635/#636). We track `main` instead; a
 # reproducible per-plugin release tag is a future maintainer release action (see done.md).
-RAT_PLUGIN_VERSION="0.1.0"
+RAT_PLUGIN_VERSION="0.2.0"
 
 STACK="ts-server"
 APPLY=""
