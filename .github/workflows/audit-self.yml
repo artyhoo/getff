@@ -294,151 +294,209 @@ jobs:
         run: bash tests/hooks/prepush-fallback-base-ref.test.sh
       - name: Run runtime-bridge dispatch opt-IN gate paired-negative (one-click-installer kickoff §7)
         run: bash tests/hooks/runtime-bridge-dispatch-optin.test.sh
+
+  install-sh-a:
+    name: install-sh battery (shard A)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0  # install-sh tests copy the repo; full history is the safe default
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '20'
+      - name: Install packages/core deps
+        run: npm ci --prefix packages/core --silent
+      - name: Install workspace deps (hoists tsx to root)
+        run: npm install --silent
       - name: Run install-sh no-companion-blocks test (one-click-installer S1)
         run: bash tests/install-sh/no-companion-blocks.test.sh
-      - name: Run install-sh manifest-parse test (one-click-installer S2)
-        run: bash tests/install-sh/manifest-parse.test.sh
-      - name: Run install-sh engine test (one-click-installer S2)
-        run: bash tests/install-sh/engine.test.sh
       - name: Run install-sh bridge-guided test (one-click-installer S2)
         run: bash tests/install-sh/bridge-guided.test.sh
-      - name: Run install-sh setup-orchestrator test (one-click-installer S3)
-        run: bash tests/install-sh/setup-orchestrator.test.sh
-      - name: Run install-sh preset-staleness test (live-research-default-delivery #811 D4)
-        run: bash tests/install-sh/preset-staleness.test.sh
       - name: Run install-sh B1 stack-research-lookup test (multistack-augment-first #827 B1)
         run: bash tests/install-sh/b1-stack-research-lookup.test.sh
+      - name: Run live-snippet wire oracle + override tests (live-research-default-delivery D1/D2/§6)
+        run: npx --prefix packages/core vitest run --reporter=default packages/core/install/wire-live-snippet.test.ts packages/core/install/wire-synth-rules.test.ts
+      - name: Run local-ci-sweep paired-negative (harvest sweep aggregator)
+        run: bash scripts/run-local-ci-sweep.test.sh
+      - name: Run install-sh audit-r4 shipped test (consumer-install-hardening F6)
+        run: bash tests/install-sh/audit-r4-shipped.test.sh
+      - name: Run install-sh hook-activation test (consumer-install-hardening F2)
+        run: bash tests/install-sh/f2-hook-activation.test.sh
+      - name: Run install-sh AGENTS scripts-shipped test (consumer-install-hardening F8)
+        run: bash tests/install-sh/f8-agents-scripts-shipped.test.sh
+      - name: Run install-sh no-husky-init-advice test (consumer-install-hardening F8c)
+        run: bash tests/install-sh/f8c-no-husky-init-advice.test.sh
+      - name: Run install-sh prettierignore-generated-docs test (consumer-install-hardening F15)
+        run: bash tests/install-sh/f15-prettierignore.test.sh
+      - name: Run install-sh runtime-arming WARN test (consumer-install-hardening S3 V2)
+        run: bash tests/install-sh/v2-strict-runtime-armed.test.sh
+      - name: Run install-sh .nvmrc↔CI node-version drift WARN test (GH #509)
+        run: bash tests/install-sh/nvmrc-ci-drift.test.sh
+      - name: Run install-sh arch-boundaries shipped-config test (GH #534 — was present-but-unwired)
+        run: bash tests/install-sh/gh-534-arch-boundaries.test.sh
+      - name: Run install-sh C1 skill-context wiring test (was present-but-unwired)
+        run: bash tests/install-sh/c1-wiring.test.sh
+      - name: Run install-sh ship-orchestration-skills test (#500 — was present-but-unwired)
+        run: bash tests/install-sh/ship-orchestration-skills.test.sh
+      - name: install-sh — r2-na-marker (GH #547 C4 two-gates-one-marker)
+        run: bash tests/install-sh/r2-na-marker.test.sh
+      - name: install-sh — consumer-upgrade-path (--refresh acceptance gate — stale-refreshed + customise-survives)
+        run: bash tests/install-sh/consumer-upgrade-path.test.sh
+      - name: "install-sh — refresh regenerates eslint barrel (#876: --refresh re-derives index.mjs so a new rule isn't stranded)"
+        run: bash tests/install-sh/refresh-regenerates-barrel.test.sh
+      - name: install-sh — gh-636 ensure-tsx-root (install guarantees tsx resolves from workspace root; --full/offer/warn)
+        run: bash tests/install-sh/gh-636-ensure-tsx-root.test.sh
+      - name: install-sh — f17 lint rules planted-violation (post-install liveness smoke Check3 Arm ii)
+        run: bash tests/install-sh/f17-lint-rules-planted-violation.test.sh
+      - name: "install-sh — check-fences-fire FULL barrel (#838: R12 ACTIVE on react-next; neutered-R12 teeth; partial-barrel stacks not false-RED)"
+        run: bash tests/install-sh/check-fences-fire-full-barrel.test.sh
+      - name: install-sh — lib-helpers unit test (O1 guard regression + all helpers exposed)
+        run: bash tests/install-sh/lib-helpers.test.sh
+      - name: "install-sh — tool-decisions seed integration (S3: deps-hash loop fires on seeded state)"
+        run: bash tests/install-sh/tool-decisions-seed-integration.test.sh
+      - name: "install-sh — per-workspace stack detect (§13.5 multi-stack monorepo I-2 Layer 1: {dir→stack} map, neither stack dropped)"
+        run: bash tests/install-sh/workspace-stack-detect.test.sh
+      - name: Run install-sh meta-gate — every install-sh test is wired in CI (closes armed-but-not-fired)
+        run: bash tests/install-sh/meta-all-wired.test.sh
+
+  install-sh-b:
+    name: install-sh battery (shard B)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0  # install-sh tests copy the repo; full history is the safe default
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '20'
+      - name: Install packages/core deps
+        run: npm ci --prefix packages/core --silent
+      - name: Install workspace deps (hoists tsx to root)
+        run: npm install --silent
+      - name: Run install-sh manifest-parse test (one-click-installer S2)
+        run: bash tests/install-sh/manifest-parse.test.sh
+      - name: Run install-sh setup-orchestrator test (one-click-installer S3)
+        run: bash tests/install-sh/setup-orchestrator.test.sh
       - name: Run install-sh B3 monorepo per-workspace wire test (multistack-augment-first #827 B3)
         run: bash tests/install-sh/b3-monorepo-per-workspace-wire.test.sh
+      - name: Run ci-success aggregate-gate paired-negative
+        run: bash scripts/ci-success-gate.test.sh
+      - name: Run install.sh internal-refs transform test (Item 12 mirror-sync, SSOT)
+        run: bash tests/install-sh/transform-internal-refs.test.sh
+      - name: Run install-sh pre-push TS-arm closure test (consumer-install-hardening F1)
+        run: bash tests/install-sh/f1-ts-arm.test.sh
+      - name: Run install-sh stryker packageManager detect test (consumer-install-hardening F13)
+        run: bash tests/install-sh/f13-stryker-pm.test.sh
+      - name: Run install-sh /aif-* command honesty test (consumer-install-hardening F9)
+        run: bash tests/install-sh/f9-aif-commands-honesty.test.sh
+      - name: Run install-sh rule-glob liveness test (consumer-install-hardening F3/F7/V)
+        run: bash tests/install-sh/f3-f7-rule-globs.test.sh
+      - name: Run install-sh gh-531 shipped-prettier test (GH #531 reopen — prettier pin + .prettierignore merge)
+        run: bash tests/install-sh/gh-531-shipped-prettier.test.sh
+      - name: Run install-sh dev-dep install test (consumer-install-completeness S3 one-button #483)
+        run: bash tests/install-sh/cic-s3-dep-install.test.sh
+      - name: Run install-sh R2 glob-reach test — CI-orphan WARN + per-package shadow + globals (GH #507 reopen)
+        run: bash tests/install-sh/r2-glob-reach.test.sh
+      - name: Run install-sh rule-enforced print-config test (GH #535 — was present-but-unwired)
+        run: bash tests/install-sh/gh-535-rule-enforced.test.sh
+      - name: Run install-sh react-spa eslint-rules wiring test (PR #708 cold-review gap)
+        run: bash tests/install-sh/react-spa-wiring.test.sh
+      - name: install-sh — detect-r2-boundary (GH #547 C1 classifier)
+        run: bash tests/install-sh/detect-r2-boundary.test.sh
+      - name: install-sh — r2-auto-wire (GH #547 C2/C3 fixtures + self-probe)
+        run: bash tests/install-sh/r2-auto-wire.test.sh
+      - name: "install-sh — refresh-covers-full-delivery (#869 do_refresh ⊇ --full scripts/*.{sh,ts} delivery)"
+        run: bash tests/install-sh/refresh-covers-full-delivery.test.sh
+      - name: "install-sh — different-stack switch prunes barrel (#882: --force/--refresh with a NEW stack removes the prior stack's stray preset rule)"
+        run: bash tests/install-sh/refresh-different-stack-prunes-barrel.test.sh
+      - name: install-sh — wire-eslint-r2 (GH #547 Layer 2 AST wirer degrade fixtures D+F)
+        run: bash tests/install-sh/wire-eslint-r2.test.sh
+      - name: "install-sh — install-self-verification structural + degrade test (D6: gates shipped, graceful-degrade, wired)"
+        run: bash tests/install-sh/install-self-verification.test.sh
+      - name: "install-sh — check-shields-up paired-negative (#831: husky v9 .husky/_ accepted; positive + negative arms)"
+        run: bash tests/install-sh/check-shields-up-paired-negative.test.sh
+      - name: install-sh — layer-units (per-layer sourcing + structural integrity checks)
+        run: bash tests/install-sh/layer-units.test.sh
+      - name: "install-sh — setup -y yes-path (S4: forward --full, fail-loud no-hang, 4-stack, no self/consumer branch)"
+        run: bash tests/install-sh/setup-yes-path.test.sh
+      - name: install-sh — t6-synth-wire-planted-violation (generator-install-wiring T-GIW-A liveness test)
+        run: bash tests/install-sh/t6-synth-wire-planted-violation.test.sh
+      - name: Run agnosticism harness self-test (Umbrella-1 anti-theatre gate — harness must fail on a seeded CC-break)
+        run: bash tests/agnosticism/harness-self.test.sh
+
+  install-sh-c:
+    name: install-sh battery (shard C)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0  # install-sh tests copy the repo; full history is the safe default
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '20'
+      - name: Install packages/core deps
+        run: npm ci --prefix packages/core --silent
+      - name: Install workspace deps (hoists tsx to root)
+        run: npm install --silent
+      - name: Run install-sh engine test (one-click-installer S2)
+        run: bash tests/install-sh/engine.test.sh
+      - name: Run install-sh preset-staleness test (live-research-default-delivery #811 D4)
+        run: bash tests/install-sh/preset-staleness.test.sh
       - name: Run install-sh B4 worktree workspace-resolve test (multistack-augment-first #827 B4)
         run: bash tests/install-sh/b4-worktree-workspace-resolve.test.sh
       # live-research-default-delivery §6 oracle: the live-snippet wiring + live-wins override
       # proof must FIRE in CI (the install/ vitest dir is otherwise un-gated — armed-but-not-fired,
       # PR #796 lesson). Targeted to the two new specs (no full install/ dir gate — scope).
-      - name: Run live-snippet wire oracle + override tests (live-research-default-delivery D1/D2/§6)
-        run: npx --prefix packages/core vitest run --reporter=default packages/core/install/wire-live-snippet.test.ts packages/core/install/wire-synth-rules.test.ts
-      - name: Run ci-success aggregate-gate paired-negative
-        run: bash scripts/ci-success-gate.test.sh
       - name: Run harvest-via-api mode/ref paired-negative (Git Data API push fallback)
         run: bash tests/dispatcher/harvest-via-api.test.sh
-      - name: Run local-ci-sweep paired-negative (harvest sweep aggregator)
-        run: bash scripts/run-local-ci-sweep.test.sh
-      - name: Run install.sh internal-refs transform test (Item 12 mirror-sync, SSOT)
-        run: bash tests/install-sh/transform-internal-refs.test.sh
       - name: Run audit-ai-docs consumer-mode paired-negative (D3/D5 skip on consumer installs)
         run: bash tests/install-sh/audit-consumer-mode.test.sh
-      - name: Run install-sh audit-r4 shipped test (consumer-install-hardening F6)
-        run: bash tests/install-sh/audit-r4-shipped.test.sh
-      - name: Run install-sh pre-push TS-arm closure test (consumer-install-hardening F1)
-        run: bash tests/install-sh/f1-ts-arm.test.sh
       - name: Run install-sh workflow-integrity shipped test (consumer-install-hardening F12)
         run: bash tests/install-sh/f12-workflow-integrity-shipped.test.sh
-      - name: Run install-sh hook-activation test (consumer-install-hardening F2)
-        run: bash tests/install-sh/f2-hook-activation.test.sh
-      - name: Run install-sh stryker packageManager detect test (consumer-install-hardening F13)
-        run: bash tests/install-sh/f13-stryker-pm.test.sh
       - name: Run install-sh CI node-version-file test (consumer-install-hardening F11)
         run: bash tests/install-sh/f11-ci-node-version.test.sh
-      - name: Run install-sh AGENTS scripts-shipped test (consumer-install-hardening F8)
-        run: bash tests/install-sh/f8-agents-scripts-shipped.test.sh
-      - name: Run install-sh /aif-* command honesty test (consumer-install-hardening F9)
-        run: bash tests/install-sh/f9-aif-commands-honesty.test.sh
       - name: Run install-sh RuleCreator doc-URL honesty test (consumer-install-hardening F8b)
         run: bash tests/install-sh/f8b-rulecreator-doc-urls.test.sh
-      - name: Run install-sh no-husky-init-advice test (consumer-install-hardening F8c)
-        run: bash tests/install-sh/f8c-no-husky-init-advice.test.sh
-      - name: Run install-sh rule-glob liveness test (consumer-install-hardening F3/F7/V)
-        run: bash tests/install-sh/f3-f7-rule-globs.test.sh
       - name: Run install-sh stryker-globs layout-agnostic test (consumer-install-hardening F5)
         run: bash tests/install-sh/f5-stryker-globs.test.sh
-      - name: Run install-sh prettierignore-generated-docs test (consumer-install-hardening F15)
-        run: bash tests/install-sh/f15-prettierignore.test.sh
-      - name: Run install-sh gh-531 shipped-prettier test (GH #531 reopen — prettier pin + .prettierignore merge)
-        run: bash tests/install-sh/gh-531-shipped-prettier.test.sh
       - name: Run install-sh lint-staged binary-resolution test (consumer-install-hardening F14)
         run: bash tests/install-sh/f14-lintstaged-resolves.test.sh
-      - name: Run install-sh runtime-arming WARN test (consumer-install-hardening S3 V2)
-        run: bash tests/install-sh/v2-strict-runtime-armed.test.sh
-      - name: Run install-sh dev-dep install test (consumer-install-completeness S3 one-button #483)
-        run: bash tests/install-sh/cic-s3-dep-install.test.sh
       - name: Run install-sh arch:check monorepo-target test (GH #508)
         run: bash tests/install-sh/arch-target-monorepo.test.sh
-      - name: Run install-sh .nvmrc↔CI node-version drift WARN test (GH #509)
-        run: bash tests/install-sh/nvmrc-ci-drift.test.sh
-      - name: Run install-sh R2 glob-reach test — CI-orphan WARN + per-package shadow + globals (GH #507 reopen)
-        run: bash tests/install-sh/r2-glob-reach.test.sh
       - name: Run install-sh --wire-ci opt-in yq auto-wirer test (universalization-fix-s3 Stage P, GH #521)
         run: bash tests/install-sh/s3-wire-ci.test.sh
-      - name: Run install-sh arch-boundaries shipped-config test (GH #534 — was present-but-unwired)
-        run: bash tests/install-sh/gh-534-arch-boundaries.test.sh
-      - name: Run install-sh rule-enforced print-config test (GH #535 — was present-but-unwired)
-        run: bash tests/install-sh/gh-535-rule-enforced.test.sh
       - name: Run install-sh R2 zod-scope test (gh-730)
         run: bash tests/install-sh/gh-730-r2-zod-scope.test.sh
-      - name: Run install-sh C1 skill-context wiring test (was present-but-unwired)
-        run: bash tests/install-sh/c1-wiring.test.sh
-      - name: Run install-sh react-spa eslint-rules wiring test (PR #708 cold-review gap)
-        run: bash tests/install-sh/react-spa-wiring.test.sh
       - name: Run install-sh react-native wiring test (multi-stack umbrella #646 Stage 1)
         run: bash tests/install-sh/react-native-wiring.test.sh
-      - name: Run install-sh ship-orchestration-skills test (#500 — was present-but-unwired)
-        run: bash tests/install-sh/ship-orchestration-skills.test.sh
-      - name: install-sh — detect-r2-boundary (GH #547 C1 classifier)
-        run: bash tests/install-sh/detect-r2-boundary.test.sh
       - name: Run install-sh multi-stack monorepo per-workspace scoping test (§13.5 I-2 L2)
         run: bash tests/install-sh/multi-stack-monorepo.test.sh
-      - name: install-sh — r2-na-marker (GH #547 C4 two-gates-one-marker)
-        run: bash tests/install-sh/r2-na-marker.test.sh
-      - name: install-sh — r2-auto-wire (GH #547 C2/C3 fixtures + self-probe)
-        run: bash tests/install-sh/r2-auto-wire.test.sh
       - name: install-sh — consumer-pipeline (GH #482 consumer-usable /pipeline acceptance + T15 dogfood)
         run: bash tests/install-sh/consumer-pipeline.test.sh
-      - name: install-sh — consumer-upgrade-path (--refresh acceptance gate — stale-refreshed + customise-survives)
-        run: bash tests/install-sh/consumer-upgrade-path.test.sh
-      - name: "install-sh — refresh-covers-full-delivery (#869 do_refresh ⊇ --full scripts/*.{sh,ts} delivery)"
-        run: bash tests/install-sh/refresh-covers-full-delivery.test.sh
       - name: "install-sh — refresh-safe dir-payload (#873: refresh_safe replaces directory payloads, not nests)"
         run: bash tests/install-sh/refresh-safe-dir-payload.test.sh
-      - name: "install-sh — refresh regenerates eslint barrel (#876: --refresh re-derives index.mjs so a new rule isn't stranded)"
-        run: bash tests/install-sh/refresh-regenerates-barrel.test.sh
-      - name: "install-sh — different-stack switch prunes barrel (#882: --force/--refresh with a NEW stack removes the prior stack's stray preset rule)"
-        run: bash tests/install-sh/refresh-different-stack-prunes-barrel.test.sh
       - name: install-sh — gh-636 dispatcher tsx probe (degrade to fallback, never crash on unresolvable tsx)
         run: bash tests/install-sh/gh-636-dispatcher-tsx-probe.test.sh
-      - name: install-sh — gh-636 ensure-tsx-root (install guarantees tsx resolves from workspace root; --full/offer/warn)
-        run: bash tests/install-sh/gh-636-ensure-tsx-root.test.sh
-      - name: install-sh — wire-eslint-r2 (GH #547 Layer 2 AST wirer degrade fixtures D+F)
-        run: bash tests/install-sh/wire-eslint-r2.test.sh
       - name: install-sh — f16 stryker live-mutants (post-install liveness smoke #549 class)
         run: bash tests/install-sh/f16-stryker-live-mutants.test.sh
-      - name: install-sh — f17 lint rules planted-violation (post-install liveness smoke Check3 Arm ii)
-        run: bash tests/install-sh/f17-lint-rules-planted-violation.test.sh
-      - name: "install-sh — install-self-verification structural + degrade test (D6: gates shipped, graceful-degrade, wired)"
-        run: bash tests/install-sh/install-self-verification.test.sh
       - name: "install-sh — check-fences-fire paired-negative (D4: probe is falsifiable; FENCE SILENT + FALSE POSITIVE arms)"
         run: bash tests/install-sh/check-fences-fire-paired-negative.test.sh
-      - name: "install-sh — check-fences-fire FULL barrel (#838: R12 ACTIVE on react-next; neutered-R12 teeth; partial-barrel stacks not false-RED)"
-        run: bash tests/install-sh/check-fences-fire-full-barrel.test.sh
-      - name: "install-sh — check-shields-up paired-negative (#831: husky v9 .husky/_ accepted; positive + negative arms)"
-        run: bash tests/install-sh/check-shields-up-paired-negative.test.sh
       - name: "install-sh — byte-identical snapshot compare: all 4 stacks × {greenfield,brownfield} (modular-install-fullpack S1)"
         run: SNAPSHOT_MODE=compare bash tests/install-sh/byte-identical.test.sh
-      - name: install-sh — lib-helpers unit test (O1 guard regression + all helpers exposed)
-        run: bash tests/install-sh/lib-helpers.test.sh
-      - name: install-sh — layer-units (per-layer sourcing + structural integrity checks)
-        run: bash tests/install-sh/layer-units.test.sh
       - name: "install-sh — mcp-layer empirical test (S2: .mcp.json shape + kind=mcp + D2 gate)"
         run: bash tests/install-sh/mcp-layer.test.sh
-      - name: "install-sh — tool-decisions seed integration (S3: deps-hash loop fires on seeded state)"
-        run: bash tests/install-sh/tool-decisions-seed-integration.test.sh
-      - name: "install-sh — setup -y yes-path (S4: forward --full, fail-loud no-hang, 4-stack, no self/consumer branch)"
-        run: bash tests/install-sh/setup-yes-path.test.sh
       - name: "install-sh — stack auto-detect (GH #780: no-arg → detect from package.json, fail-loud only on unknown)"
         run: bash tests/install-sh/stack-autodetect.test.sh
-      - name: "install-sh — per-workspace stack detect (§13.5 multi-stack monorepo I-2 Layer 1: {dir→stack} map, neither stack dropped)"
-        run: bash tests/install-sh/workspace-stack-detect.test.sh
-      - name: install-sh — t6-synth-wire-planted-violation (generator-install-wiring T-GIW-A liveness test)
-        run: bash tests/install-sh/t6-synth-wire-planted-violation.test.sh
       - name: "install-sh — shellcheck gate: setup.d/*.sh + install.sh (pinned 0.9.0)"
         run: |
           if command -v shellcheck >/dev/null 2>&1; then
@@ -447,10 +505,6 @@ jobs:
           else
             echo "⊝ shellcheck not available in CI runner — skipping (install shellcheck >= 0.9.0 to enable)"
           fi
-      - name: Run install-sh meta-gate — every install-sh test is wired in CI (closes armed-but-not-fired)
-        run: bash tests/install-sh/meta-all-wired.test.sh
-      - name: Run agnosticism harness self-test (Umbrella-1 anti-theatre gate — harness must fail on a seeded CC-break)
-        run: bash tests/agnosticism/harness-self.test.sh
 
   # Static type gate. Closes the missing edit-time→CI typecheck channel: `tsc
   # --noEmit` was a local-only `package.json` script, never gated, so a type
@@ -1152,6 +1206,9 @@ jobs:
       - probe-tests
       - manifest-render-check
       - principles-meta-tests
+      - install-sh-a
+      - install-sh-b
+      - install-sh-c
       - typecheck
       - pr-commit-trailers
       - enforce-husky-presence
