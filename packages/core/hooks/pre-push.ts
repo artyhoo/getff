@@ -635,8 +635,16 @@ async function main(): Promise<void> {
   }
 
   // ── 3. Self-test pipeline ─────────────────────────────────────────────────────
-  // audit-ai-docs.test.ts (Wave 10.4): run via vitest (replaces audit-ai-docs.test.sh)
-  {
+  // audit-ai-docs.test.ts (Wave 10.4): run via vitest (replaces audit-ai-docs.test.sh).
+  // Consumer-skip guard (same as 3b–3f/4b): the audit-self/ suite is maintainer-only —
+  // a consumer receives packages/core/{hooks,eslint-rules} only, and audit-self scripts
+  // land under scripts/ (install.sh), never packages/core/audit-self/. Absent → vitest
+  // would exit 1 ("No test files found") and hard-block the consumer's push (#920/#921).
+  if (
+    existsSync(
+      resolve(REPO_ROOT, 'packages/core/audit-self/audit-ai-docs.test.ts'),
+    )
+  ) {
     const r = run('npx', [
       'vitest',
       'run',
@@ -770,7 +778,10 @@ async function main(): Promise<void> {
   }
 
   // ── 4. Manifest render drift ──────────────────────────────────────────────────
-  {
+  // Consumer-skip guard (same family as 3b–3f/4b): packages/core/render/ is
+  // maintainer-only (not in install.sh's consumer copy-list). Absent → tsx would
+  // ERR_MODULE_NOT_FOUND and hard-block the consumer's push (#920/#921).
+  if (existsSync(resolve(REPO_ROOT, 'packages/core/render/render-rules.ts'))) {
     const r = run('npx', [
       'tsx',
       'packages/core/render/render-rules.ts',
@@ -801,7 +812,13 @@ async function main(): Promise<void> {
   }
 
   // ── 5. Principles meta-tests (Phase 2) ───────────────────────────────────────
-  {
+  // Sections 5–5d shell out to `npm --prefix packages/core run test:*`. That needs
+  // packages/core/package.json + the meta-test suites, both maintainer-only — a
+  // consumer receives packages/core/{hooks,eslint-rules} only (install.sh), so the
+  // package.json is absent and npm would exit ENOENT and hard-block the push
+  // (#920/#921). One consumer-skip guard (same family as 3b–3f/4b) covers all four.
+  const coreMetaTestsAvailable = existsSync(resolve(CORE, 'package.json'));
+  if (coreMetaTestsAvailable) {
     const r = run('npm', ['--prefix', CORE, 'run', 'test:principles']);
     if (r.notFound) {
       die(
@@ -816,7 +833,7 @@ async function main(): Promise<void> {
   // ── 5b. IR grammar-gate tests (MT S1) — stage gate at the pre-push channel ────
   // Lifts the ir/ suite from CI (last-resort) to pre-push (earlier channel), per
   // README#why-this-exists "earliest reachable channel". Fast, no toolchain.
-  {
+  if (coreMetaTestsAvailable) {
     const r = run('npm', ['--prefix', CORE, 'run', 'test:ir']);
     if (r.notFound) {
       die('❌ npm/npx not found. Install Node.js to enable IR meta-tests.');
@@ -830,7 +847,7 @@ async function main(): Promise<void> {
   // Live-fire (cargo) self-gates via skipIf in firing.test.ts: it runs when a
   // rust toolchain is present, skips loudly otherwise; the always-on matrix /
   // render / parse / self-application tests always run regardless.
-  {
+  if (coreMetaTestsAvailable) {
     const r = run('npm', ['--prefix', CORE, 'run', 'test:backends']);
     if (r.notFound) {
       die(
@@ -845,7 +862,7 @@ async function main(): Promise<void> {
   // The executable-AI-doc plane: DocPlan → rendered region, composition-gate
   // FF8001-8004. Deterministic (no toolchain), lifted from CI to the earlier
   // channel like 5b/5c.
-  {
+  if (coreMetaTestsAvailable) {
     const r = run('npm', ['--prefix', CORE, 'run', 'test:composition']);
     if (r.notFound) {
       die(
@@ -866,7 +883,18 @@ async function main(): Promise<void> {
     const specFiles = getChangedFiles(rb.base, 'ACM', rb.head).filter((f) =>
       /^\.claude\/orchestrator-prompts\/.*\.md$/.test(f),
     );
-    if (specFiles.length > 0) {
+    // Consumer-skip guard: the batch-spec validator is maintainer-only (not in
+    // install.sh's consumer copy-list). A consumer force-adding an orchestrator-prompt
+    // past gitignore must not hard-block on tsx ERR_MODULE_NOT_FOUND (#920/#921).
+    if (
+      specFiles.length > 0 &&
+      existsSync(
+        resolve(
+          REPO_ROOT,
+          'packages/core/spec-validation/validate-batch-spec.ts',
+        ),
+      )
+    ) {
       process.stdout.write(
         'Validating force-added orchestrator-prompts in this push...\n',
       );
@@ -883,26 +911,48 @@ async function main(): Promise<void> {
     warnSkip('§6', 'no resolvable base for the spec-discipline diff');
   }
 
+  // The Prior-art / §1.7 trailer checks are framework-authoring conventions: §7
+  // cites entries in the SSOT register, and §1.7 is a CONTRIBUTING.md discipline.
+  // Both are unsatisfiable on a consumer — the SSOT register (docs/meta-factory/)
+  // never ships (install.sh) — so a capability/rule-introducing consumer commit
+  // would be blocked by a gate it cannot satisfy (#921 class 2). The SSOT register's
+  // presence is the framework-repo signal; absent → both checks are structurally N/A.
+  const isFrameworkRepo = existsSync(resolve(REPO_ROOT, SSOT_REL));
+
   // ── 7. Prior-art trailer (§7) — TS-native since Wave 10.2 ────────────────────
   // Capability-commit detection + `Prior-art:` trailer validation. Ported from
   // pa_* functions in the former legacy-trailer-checks.sh (now §1.7-only).
-  priorArtSection(rb);
+  if (isFrameworkRepo) priorArtSection(rb);
 
   // ── §1.7. Discipline trailer — TS-native since Wave 10.3 ─────────────────────
   // Ported from s17_* in the (now deleted) legacy-trailer-checks.sh. Both arms
   // enforce (blocking) by default since 2026-05-21; S17_WARN_ONLY=true downgrades.
-  s17Section(rb);
+  if (isFrameworkRepo) s17Section(rb);
+
+  // Both liveness gates are change-scoped over packages/core/manifest/rules-manifest.json
+  // (guard-liveness.ts:238, cmd-script-liveness.ts:610 readFileSync it unconditionally).
+  // That manifest is maintainer-only — a consumer receives packages/core/{hooks,eslint-rules}
+  // only (install.sh), so it is absent, the readFileSync throws ENOENT OUTSIDE each section's
+  // import-guarding try/catch, and the raw error bubbles to main().catch → "pre-push hook
+  // crashed" (#921 blocker 5). A consumer has no manifest rules to check, so this guard is
+  // semantically a no-op for them; it also keeps guard-liveness's ESLint-stack import off the
+  // consumer path entirely (#921 blocker 8 — the pnpm-strict @typescript-eslint/parser
+  // non-hoist), while the maintainer repo (manifest present) still runs both gates fully and
+  // loud-dies on a real stack breakage.
+  const hasRulesManifest = existsSync(
+    resolve(REPO_ROOT, 'packages/core/manifest/rules-manifest.json'),
+  );
 
   // ── guard-liveness. Change-scoped ESLint liveness gate (Wave guard-liveness v1) ─
   // For each ESLint manifest rule changed in this push, proves negative-test.input
   // trips the rule and examples.good stays clean. Skips when no base is resolvable.
-  await guardLivenessSection(rb);
+  if (hasRulesManifest) await guardLivenessSection(rb);
 
   // ── cmd-script-liveness. Change-scoped command/script liveness gate (v1.5) ────
   // For each command/script manifest rule changed in this push, runs the rule's
   // check against its violating fixture and asserts it exits non-zero. Skips when
   // no base is resolvable or the check binary/workflow/script is unavailable.
-  await cmdScriptLivenessSection(rb);
+  if (hasRulesManifest) await cmdScriptLivenessSection(rb);
 
   // ── 8. lychee offline link check on changed *.md ─────────────────────────────
   if (rb.base !== null) {
