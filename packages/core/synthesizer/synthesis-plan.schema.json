@@ -91,7 +91,12 @@
           "required": ["bad", "good"],
           "properties": {
             "bad": { "type": "string" },
-            "good": { "type": "string" }
+            "good": { "type": "string" },
+            "safeForms": {
+              "description": "Additional KNOWN-SAFE forms of the forbidden construct that the rule must NOT fire on (e.g. Object.prototype.hasOwnProperty.call(o,k) for a hasOwnProperty ban, x == null for a loose-equality ban). Unlike examples.good, these are NOT single-token-diff constrained — they carry the multi-token safe idioms gate-single-token-diff structurally excludes from `good`. L4 gate 2 verifies each is violation-free (FF3021). GH #915 obs 4.",
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            }
           }
         },
         "negative-test": {

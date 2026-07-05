@@ -57,7 +57,14 @@ export interface SynthesizedRule {
   stack: string[];
   'applies-to'?: string[];
   check: ManifestCheck;
-  examples: { bad: string; good: string };
+  /**
+   * `safeForms` (optional): KNOWN-SAFE forms of the forbidden construct the rule must NOT
+   * fire on (e.g. `Object.prototype.hasOwnProperty.call(o, k)` for a hasOwnProperty ban,
+   * `x == null` for a loose-equality ban). Unlike `good`, safeForms are NOT constrained by
+   * gate-single-token-diff — they carry the multi-token safe idioms that gate structurally
+   * excludes from `good`. Each is verified violation-free by L4 gate 2 (FF3021). GH #915 obs 4.
+   */
+  examples: { bad: string; good: string; safeForms?: string[] };
   'negative-test'?: NegativeTest;
   fixture?: Fixture;
   'liveness-mode'?: LivenessModeOverride;

@@ -215,3 +215,84 @@ describe('L4 gate 2 — declarative check type (S2-A)', () => {
     expect(result.status).toBe('n/a');
   });
 });
+
+describe('L4 gate 2 — examples.safeForms probe (GH #915 obs 4)', () => {
+  // The motivating incident: MemberExpression[property.name='hasOwnProperty'] also matches the
+  // KNOWN-SAFE Object.prototype.hasOwnProperty.call(obj, key) idiom — a multi-token safe form
+  // that examples.good structurally cannot carry (gate-single-token-diff constrains good to
+  // ~1 token from bad), so no gate saw the over-broad selector before safeForms existed.
+  const hasOwnPropertyPlan = (safeForms?: string[]): SynthesisPlan => ({
+    framework: 'ts-server',
+    version: null,
+    rules: [
+      {
+        id: 'G1',
+        title: 'Prefer Object.hasOwn over direct hasOwnProperty',
+        stack: ['ts-server'],
+        check: {
+          type: 'declarative',
+          engine: 'eslint-restricted',
+          selector: "MemberExpression[property.name='hasOwnProperty']",
+          message: 'use Object.hasOwn(obj, key) — direct .hasOwnProperty can be shadowed',
+          presence: 'forbid',
+        } as never,
+        examples: {
+          bad: 'obj.hasOwnProperty(key);',
+          good: 'Object.hasOwn(obj, key);',
+          ...(safeForms ? { safeForms } : {}),
+        },
+        'negative-test': {
+          input: ['obj.hasOwnProperty(key);'],
+          'expect-violation': 'rules-as-tests/restricted-syntax-audit-exempt',
+        },
+        research: { entryId: 'no-direct-hasownproperty', provenance: [] },
+      },
+    ],
+    rulesMd: '',
+    eslintConfigSnippet: JSON.stringify({
+      'rules-as-tests/restricted-syntax-audit-exempt': [
+        'error',
+        {
+          selector: "MemberExpression[property.name='hasOwnProperty']",
+          message: 'use Object.hasOwn(obj, key) — direct .hasOwnProperty can be shadowed',
+        },
+      ],
+    }),
+  });
+
+  it('passes when no safeForms are declared (field is optional — pre-#915 plans unaffected)', () => {
+    const result = runRuleTesterGate(hasOwnPropertyPlan());
+    expect(result.status).toBe('pass');
+  });
+
+  it('passes when declared safeForms do not match the selector (non-firing safe form)', () => {
+    const result = runRuleTesterGate(
+      hasOwnPropertyPlan(['Object.hasOwn(other, key);', 'const hasOwnProperty = 1;']),
+    );
+    expect(result.failures).toEqual([]);
+    expect(result.status).toBe('pass');
+  });
+
+  it('fails with FF3021 when a safe form fires — the motivating hasOwnProperty.call over-broad selector', () => {
+    const result = runRuleTesterGate(
+      hasOwnPropertyPlan(['Object.prototype.hasOwnProperty.call(obj, key);']),
+    );
+    expect(result.status).toBe('fail');
+    expect(result.failures).toHaveLength(1);
+    expect(result.failures[0].code).toBe('FF3021');
+    expect(result.failures[0].reason).toMatch(/safeForms\[0\]/);
+    expect(result.failures[0].reason).toMatch(/broader than its rationale/);
+  });
+
+  it('reports the failing index when only one of several safeForms fires', () => {
+    const result = runRuleTesterGate(
+      hasOwnPropertyPlan([
+        'Object.hasOwn(obj, key);',
+        'Object.prototype.hasOwnProperty.call(obj, key);',
+      ]),
+    );
+    expect(result.status).toBe('fail');
+    expect(result.failures).toHaveLength(1);
+    expect(result.failures[0].reason).toMatch(/safeForms\[1\]/);
+  });
+});
