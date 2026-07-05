@@ -12,6 +12,7 @@ import { Linter } from 'eslint';
 import * as tseslintParser from '@typescript-eslint/parser';
 import { synthesizeGenerate } from './generate.ts';
 import { stubGenerateRN, stubGenerateBad, stubGenerateForbid } from './generate-stubs.ts';
+import type { GenerateClient, GenerateSelection, Menu } from './generate-port.ts';
 import { validate } from '../validator/validate.ts';
 import type { ResearchPlan } from '../research/types.ts';
 
@@ -97,6 +98,42 @@ describe('synthesizeGenerate — Stage 4 recipe-less generate-path (React Native
     expect(report.gates.ruleTester.status).toBe('pass');
     expect(report.gates.singleTokenDiff.status).toBe('pass');
     expect(report.gates.messageIdCoverage.status).toBe('pass');
+  });
+
+  // (e/f) GH #915 obs 4 — PIPELINE-level safeForms coverage (generate → IR wire → validate).
+  // The unit tests in gate-rule-tester.test.ts call the gate directly; these prove safeForms
+  // SURVIVES the declarative IR round-trip (to-node.ts mergeEnrichment previously dropped it —
+  // the probe was dead on the real path) and that the verdict flows through validate().
+  const forbidWithSafeForms = (safeForms: string[]): GenerateClient => ({
+    async generate(_menu: Menu): Promise<GenerateSelection> {
+      const base = await stubGenerateForbid.generate(_menu);
+      return {
+        rules: [
+          {
+            ...base.rules[0],
+            examples: { ...base.rules[0].examples, safeForms },
+          },
+        ],
+      };
+    },
+  });
+
+  it('(e) safeForms survives the declarative IR round-trip and a clean safe form passes L4', async () => {
+    const plan = await synthesizeGenerate(rnPlan, forbidWithSafeForms(['const foo = 1;']));
+    // Round-trip proof: the wired declarative rule still carries safeForms.
+    expect(plan.rules[0].examples.safeForms).toEqual(['const foo = 1;']);
+    const report = validate(plan);
+    expect(report.ok).toBe(true);
+    expect(report.gates.ruleTester.status).toBe('pass');
+  });
+
+  it('(f, paired-negative) a FIRING safe form fails validate() with FF3021 on the real pipeline', async () => {
+    // 'foo()' matches the forbid selector — an over-broad-selector stand-in.
+    const plan = await synthesizeGenerate(rnPlan, forbidWithSafeForms(['foo()']));
+    const report = validate(plan);
+    expect(report.ok).toBe(false);
+    expect(report.gates.ruleTester.status).toBe('fail');
+    expect(report.gates.ruleTester.failures.some((f) => f.code === 'FF3021')).toBe(true);
   });
 });
 

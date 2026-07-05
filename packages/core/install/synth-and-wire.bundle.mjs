@@ -9604,8 +9604,7 @@ function mergeEnrichment(projected, original) {
         return projected.title;
       // node backbone owns the claim -> title
       case "examples":
-        return projected.examples;
-      // node backbone owns pairedExamples -> examples
+        return original.examples.safeForms !== void 0 ? { ...projected.examples, safeForms: original.examples.safeForms } : projected.examples;
       case "stack":
         return projected.stack;
       // adapter re-emits from enrichment.stack (round-trip used)
