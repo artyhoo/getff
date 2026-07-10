@@ -250,7 +250,9 @@ elif [ "${DRY_RUN:-}" = "--dry-run" ]; then
   echo "· install-self-verify: [dry-run] would run fences-fire + shields-up + mutation gates"
 else
   echo ""
-  echo "▶ install-self-verify: proving fences fire, shields are up, generated tests non-vacuous"
+  # "probing", not "proving": this line prints BEFORE any check ran — announcing intent, not a
+  # verdict. The verdict lines below carry the actual (form-scoped) claims.
+  echo "▶ install-self-verify: probing — do fences fire, are shields wired, are generated tests non-vacuous"
 
   _ISV_PASS=0; _ISV_FAIL=0; _ISV_SKIP=0; _ISV_SKIPPED_NAMES=""
   # A SKIP is a check that DID NOT RUN (its script is absent) — it is NOT a pass. Counting it
@@ -330,7 +332,11 @@ else
     # are unproven, not proven-good.
     echo "⚠  self-verify: ✓ $_ISV_PASS passed · ⚠ $_ISV_SKIP skipped ($_ISV_SKIPPED_NAMES) — skipped checks are NOT proven"
   else
-    echo "✓ self-verify: $_ISV_PASS/3 checks passed — fences fire, shields active, generated tests non-vacuous"
+    # "shields WIRED (form)", not "active": the D2 pass comes from check-shields-up.sh, a
+    # form-only check (hook present + references its dispatcher) that never RUNS the hook —
+    # the capstone must not upgrade a form verdict into a behavioural claim (same P0.4 class
+    # the leaf script already fixed; behavioural push probe is the planned P1.2 gate).
+    echo "✓ self-verify: $_ISV_PASS/3 checks passed — fences fire, shields wired (form check), generated tests non-vacuous"
   fi
 fi
 
