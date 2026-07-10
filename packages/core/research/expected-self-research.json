@@ -11,9 +11,9 @@
   ],
   "drift": {
     "sources": [
-      "skills/rules-as-tests/SKILL.md",
-      "skills/rules-as-tests/references/overview.md",
-      "skills/rules-as-tests/references/ai-traps.md"
+      "skills/getff/SKILL.md",
+      "skills/getff/references/overview.md",
+      "skills/getff/references/ai-traps.md"
     ],
     "mismatches": []
   }

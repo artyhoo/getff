@@ -1,4 +1,4 @@
-# rules-as-tests — plugin payload
+# getff — plugin payload
 
 This subtree is the **Claude-Code plugin payload** consumed via the in-repo marketplace
 (`.claude-plugin/marketplace.json` → `"source": "./plugin"`). It ships ONLY the
@@ -15,7 +15,7 @@ Install:
 Layout (built stage-by-stage per the plan):
 
 - `hooks/`    — `hooks.json` + extensionless session hooks via `run-hook.cmd` (S2)
-- `skills/`   — `using-rules-as-tests` bootstrap + consumer-facing skills (S3)
+- `skills/`   — `using-getff` bootstrap + consumer-facing skills (S3)
 - `agents/`   — consumer-facing sub-agent subset (S4)
 - `commands/` — `/install-enforcement` (S5)
 - `install/`  — bundled `install.sh` + templates, the hard-layer payload (S5)

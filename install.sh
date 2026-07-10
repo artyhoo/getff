@@ -251,8 +251,8 @@ do_refresh() {
   done
 
   # ── Skills (plain copy, no internal-ref transform) ──────
-  echo "▶ Skills (rules-as-tests, tool-bootstrapping) → .claude/skills/"
-  for _slug in rules-as-tests tool-bootstrapping; do
+  echo "▶ Skills (getff, tool-bootstrapping) → .claude/skills/"
+  for _slug in getff tool-bootstrapping; do
     _src="$PKG_ROOT/skills/$_slug"
     _dst="$PROJECT_ROOT/.claude/skills/$_slug"
     _override="${_dst}.override.md"

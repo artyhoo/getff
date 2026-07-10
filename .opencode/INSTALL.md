@@ -1,7 +1,7 @@
 <!-- scope:plugin-packaging -->
-# Installing rules-as-tests for OpenCode
+# Installing getff for OpenCode
 
-> **Authoritative for:** the off-CC (OpenCode) install path for the rules-as-tests plugin's **soft layer** — fetch-and-follow, the shared `plugin/skills/` body, the accepted SessionStart degradation, and the tool mapping.
+> **Authoritative for:** the off-CC (OpenCode) install path for the getff plugin's **soft layer** — fetch-and-follow, the shared `plugin/skills/` body, the accepted SessionStart degradation, and the tool mapping.
 > **NOT authoritative for:** the project goal — see [README.md#why-this-exists](../README.md#why-this-exists). The Claude Code install — see [INSTALL.md](../INSTALL.md) / the in-repo marketplace. The hard-layer installer mechanics — see [`install.sh`](../install.sh).
 
 Claude Code gets the full plugin (skills auto-trigger via a SessionStart hook, sub-agents, the
@@ -30,12 +30,12 @@ Add the repo's `plugin/skills/` to your `opencode.json` `skills.paths` (global o
 }
 ```
 
-Restart OpenCode. The skills (`using-rules-as-tests`, `rules-as-tests`, `installing-enforcement`)
+Restart OpenCode. The skills (`using-getff`, `getff`, `installing-enforcement`)
 are now discoverable via OpenCode's native `skill` tool.
 
 ## The one accepted degradation — read the bootstrap on demand
 
-On Claude Code, a `SessionStart` hook injects the `using-rules-as-tests` bootstrap automatically,
+On Claude Code, a `SessionStart` hook injects the `using-getff` bootstrap automatically,
 so the skills **auto-trigger** without you doing anything. **OpenCode has no equivalent
 same-moment session-hook auto-injection** ([dual-implementation-discipline.md §3](../.claude/rules/dual-implementation-discipline.md)).
 
@@ -43,7 +43,7 @@ This is a **documented degradation, not a portability gap** — the skill conten
 only the auto-fire trigger is CC-native. The workaround is one line at the start of a session:
 
 ```text
-use the skill tool to load using-rules-as-tests
+use the skill tool to load using-getff
 ```
 
 Read it once per session and it establishes the same instruction-priority ladder + "invoke the
@@ -62,7 +62,7 @@ The skills are authored against Claude Code tool names. On OpenCode:
 
 ## The hard layer (git hooks + CI) — also portable
 
-The `/rules-as-tests:install-enforcement` slash command is Claude-Code sugar, but the seam it
+The `/getff:install-enforcement` slash command is Claude-Code sugar, but the seam it
 runs is plain bash and works anywhere:
 
 ```bash

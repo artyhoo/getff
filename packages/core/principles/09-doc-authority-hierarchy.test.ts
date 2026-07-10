@@ -108,7 +108,7 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
   // not flagged (i.e. the rule's failure detection still functions outside the
   // exempt scope).
   it('positive: file under exempt glob is recognised as exempt', () => {
-    expect(isExempt('packages/core/research/fixtures/drift/with-drift/skills/rules-as-tests/SKILL.md')).toBe(true);
+    expect(isExempt('packages/core/research/fixtures/drift/with-drift/skills/getff/SKILL.md')).toBe(true);
     expect(isExempt('packages/core/detector/fixtures/with-aif/.ai-factory/ARCHITECTURE.md')).toBe(true);
   });
 
@@ -124,7 +124,7 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
     // exempt scope. Pick a fixture path that matches the exempt glob — if its
     // file exists and lacks a header, exemption is the only reason it does
     // not appear in the canonical violations list.
-    const fixtureRel = 'packages/core/research/fixtures/drift/with-drift/skills/rules-as-tests/SKILL.md';
+    const fixtureRel = 'packages/core/research/fixtures/drift/with-drift/skills/getff/SKILL.md';
     const fullPath = resolve(REPO_ROOT, fixtureRel);
     if (!existsSync(fullPath)) return; // skip if fixture relocated; sentinel-only assertion
     const content = readFileSync(fullPath, 'utf8');
@@ -232,7 +232,7 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
   it('bin shim: exits 0 when exempt path passed', () => {
     // Exempt fixture paths survive the filter (so callers can pass mixed lists)
     // and then are skipped inside checkDocsHaveAuthorityHeader → no violation.
-    const exemptPath = 'packages/core/research/fixtures/drift/with-drift/skills/rules-as-tests/SKILL.md';
+    const exemptPath = 'packages/core/research/fixtures/drift/with-drift/skills/getff/SKILL.md';
     const filtered = selectRequiredPaths([exemptPath]);
     expect(filtered).toEqual([exemptPath]);
     const result = checkDocsHaveAuthorityHeader(filtered, REPO_ROOT);
@@ -243,7 +243,7 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
     expect(EXEMPT_PATTERNS.length).toBeGreaterThan(0);
     expect(
       EXEMPT_PATTERNS.some((re) =>
-        re.test('packages/core/research/fixtures/drift/with-drift/skills/rules-as-tests/SKILL.md'),
+        re.test('packages/core/research/fixtures/drift/with-drift/skills/getff/SKILL.md'),
       ),
     ).toBe(true);
   });
@@ -270,7 +270,7 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
       expect(enumerated).toContain('.claude/skills/tool-bootstrapping/SKILL.md');
       expect(enumerated).toContain('.claude/skills/pipeline/references/red-flags.md');
       expect(enumerated).toContain('.claude/skills/story/SKILL.md');
-      expect(enumerated).toContain('skills/rules-as-tests/SKILL.md');
+      expect(enumerated).toContain('skills/getff/SKILL.md');
       expect(enumerated.length).toBeGreaterThanOrEqual(20);
     });
 
@@ -289,8 +289,8 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
     it('positive: patterns match skill primary docs + cold references in both roots', () => {
       expect(matchesRequiredPattern('.claude/skills/story/SKILL.md')).toBe(true);
       expect(matchesRequiredPattern('.claude/skills/pipeline/references/red-flags.md')).toBe(true);
-      expect(matchesRequiredPattern('skills/rules-as-tests/SKILL.md')).toBe(true);
-      expect(matchesRequiredPattern('skills/rules-as-tests/references/ai-traps.md')).toBe(true);
+      expect(matchesRequiredPattern('skills/getff/SKILL.md')).toBe(true);
+      expect(matchesRequiredPattern('skills/getff/references/ai-traps.md')).toBe(true);
     });
 
     it('negative: patterns do NOT match helpers, fixtures, non-md, or nested extras', () => {
@@ -299,7 +299,7 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
       // fixture copies live under packages/** — EXEMPT territory, never required
       expect(
         matchesRequiredPattern(
-          'packages/core/research/fixtures/drift/with-drift/skills/rules-as-tests/SKILL.md',
+          'packages/core/research/fixtures/drift/with-drift/skills/getff/SKILL.md',
         ),
       ).toBe(false);
       // non-markdown and root-level files

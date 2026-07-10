@@ -6,7 +6,7 @@
 Этот документ — единая точка входа. Полная картина: что запускается на каком этапе, что делает, что НЕ делает, какой инструмент используется, и в каком из документов корпуса описано подробно.
 
 > **Authoritative for:** 8-level enforcement-checks map (edit-time → production) — what runs at each level, why, and which corpus doc describes it in depth. Single entry point for navigating the rules-as-tests corpus.
-> **NOT authoritative for:** framework's project goal — see [../../../README.md#why-this-exists](../../../README.md#why-this-exists). Per-level patterns — see [overview.md](overview.md).
+> **NOT authoritative for:** framework's project goal — see [README.md#why-this-exists](https://github.com/artyhoo/getff/blob/main/README.md#why-this-exists). Per-level patterns — see [overview.md](overview.md).
 
 ---
 
@@ -205,7 +205,7 @@ EDIT-TIME      PRE-COMMIT     PRE-PUSH       PRE-PR         CI on PR        CI o
 
 Этот документ — навигационная карта. Каждый компонент пакета покрывает свою часть:
 
-- **`skills/rules-as-tests/SKILL.md`** + `references/overview.md` — общая 5-слойная рамка (применима к уровням 4, 5).
+- **`skills/getff/SKILL.md`** + `references/overview.md` — общая 5-слойная рамка (применима к уровням 4, 5).
 - **`templates/ts-server/`** — конфиги для серверного TS-стека (уровни 2, 3, 5, 6).
 - **`packages/preset-next-15-canonical/templates/`** — React/Next.js конфиги (уровни 2, 3, 5, 6).
 - **`agents/review-sidecar.md`** + **`living-docs-auditor.md`** (ours) + AIF's own **`rules-sidecar`** (reads `RULES.md`) — sub-agents для уровня 4. На этом уровне всегда работает `./scripts/audit-ai-docs.sh` + наши sub-agents; `/aif-verify` — обёртка AI-Factory поверх них, если вы её используете. (`best-practices-sidecar` is AIF's — KEEP-AIF; R-rule residue rides the `aif-rules-check` skill-context.)
