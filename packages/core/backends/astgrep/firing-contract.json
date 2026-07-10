@@ -1,0 +1,5 @@
+{
+  "command": "npx -y -p @ast-grep/cli@0.44.1 ast-grep scan --json",
+  "jsonPath": "$.ruleId",
+  "expectedCode": "no-datetime-now"
+}
