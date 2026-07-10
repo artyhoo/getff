@@ -42,9 +42,9 @@
 # job) runs `npx concurrently` / `npx http-server` / `npx wait-on`. When the package is absent from
 # the consumer's node_modules, non-TTY npx silently fetches <pkg>@latest from the registry on EVERY
 # consumer CI run — zero lockfile coverage, floats with upstream majors.
-#   - Arm H: react-next --full → the three template npx tools land PINNED in the devDep argv
-#     (pins mirror packages/core/templates/react-next/storybook-package-additions.json; node-20
-#     compatible — concurrently@10 needs node >=22 while the shipped .nvmrc is 20.19.0).
+#   - Arm H: react-next --full → the template npx tools + storybook toolchain land PINNED in the
+#     devDep argv (REACT_DEVDEPS is the canonical pin source; INSTALL.md mirrors it — two-way
+#     parity below; node-20 compatible — concurrently@10 needs node >=22, .nvmrc is 20.19.0).
 #   - Arm I: static sweep — every `npx <tool>` in EVERY shipped CI workflow template maps to a
 #     package present in that stack's DEVDEPS arrays (bin→pkg: playwright→@playwright/test,
 #     stryker→@stryker-mutator/core). Paired-negative: a synthetic template with an uncovered
@@ -256,11 +256,20 @@ printf '{ "name":"h","version":"0.0.0" }\n' > "$H/package.json"
 ( cd "$H" && git init -q && git config user.email t@t && git config user.name t )
 run_install "$H" react-next --force --full < /dev/null
 
-for _spec in 'concurrently@\^9\.0\.0' 'http-server@\^14\.1\.0' 'wait-on@\^8\.0\.0'; do
+for _spec in 'concurrently@\^9\.0\.0' 'http-server@\^14\.1\.0' 'wait-on@\^8\.0\.0' \
+             'storybook@\^10\.5\.0' '@storybook/nextjs-vite@\^10\.5\.0' '@storybook/test-runner@\^0\.24\.4' \
+             'vite@\^8\.0\.0'; do
   grep -q "$_spec" "$AIF_PM_LOG" \
     && ok "H: react-next devDep install carries $_spec (template npx tool covered)" \
     || bad "H: $_spec absent from react-next devDep argv — template npx registry-fetches @latest"
 done
+
+# INSTALL.md §4 declares @testing-library/user-event for React stacks (INSTALL.md parity class,
+# same as P0.2) — the install must actually deliver it (unpinned, like its @testing-library
+# siblings; loud-fail class: a missing module breaks the consumer's interaction tests at import).
+grep -q '@testing-library/user-event' "$AIF_PM_LOG" \
+  && ok "H: react-next devDep install carries @testing-library/user-event (INSTALL.md §4 parity)" \
+  || bad "H: @testing-library/user-event absent from react-next devDep argv — INSTALL.md declares it"
 
 # ════ Arm I (npx-float) — every `npx <tool>` in a shipped CI workflow template is covered by ════
 # the DEVDEPS arrays the installer delivers for that stack. Static grep, no install.sh execution.
@@ -330,7 +339,9 @@ esac
 # Cheap, deterministic, no install.sh execution: neither side can drift without failing this.
 # npx-float: the three react-next storybook-CI npx tools joined the list 2026-07-10.
 for _pkg_spec in 'typescript@\^5\.7\.0' '@types/node@\^22\.10\.0' 'zod@\^3\.24\.0' \
-                 'concurrently@\^9\.0\.0' 'http-server@\^14\.1\.0' 'wait-on@\^8\.0\.0'; do
+                 'concurrently@\^9\.0\.0' 'http-server@\^14\.1\.0' 'wait-on@\^8\.0\.0' \
+                 'storybook@\^10\.5\.0' '@storybook/nextjs-vite@\^10\.5\.0' '@storybook/test-runner@\^0\.24\.4' \
+                 'vite@\^8\.0\.0'; do
   _in_docs=""; _in_installer=""
   grep -q "$_pkg_spec" "$REPO_ROOT/INSTALL.md" && _in_docs="yes"
   grep -q "$_pkg_spec" "$REPO_ROOT/setup.d/70-deps.sh" && _in_installer="yes"
@@ -341,19 +352,16 @@ for _pkg_spec in 'typescript@\^5\.7\.0' '@types/node@\^22\.10\.0' 'zod@\^3\.24\.
   fi
 done
 
-# ════ Three-way parity (npx-float) — REACT_DEVDEPS pins ↔ storybook-package-additions.json ════
-# The same three pins also live in the sibling react-next template (formerly merged by the
-# retired setup.sh; still shipped). All pin copies must declare the SAME ranges, or a future
-# re-wiring installs different majors than REACT_DEVDEPS (#two-prompts-drift, third copy).
+# ════ No third pin copy (npx-float follow-up) — storybook-package-additions.json stays retired ════
+# The former sibling template (merged by retired setup.sh Batch K, #946) duplicated these pins —
+# and pinned @storybook/addon-essentials@^10.3.3, a version that does not exist (the addon died
+# at 8.x, merged into SB core). REACT_DEVDEPS + INSTALL.md (two-way parity above) are now the
+# only pin copies. If the JSON reappears, a third drifting copy is back (#two-prompts-drift).
 _SB_JSON="$REPO_ROOT/packages/core/templates/react-next/storybook-package-additions.json"
-while IFS='|' read -r _pkg _range; do
-  grep -qF "\"$_pkg\": \"$_range\"" "$_SB_JSON" \
-    && ok "parity3: $_pkg $_range matches storybook-package-additions.json" \
-    || bad "parity3: $_pkg $_range NOT in storybook-package-additions.json — pin copies drifted"
-done <<'PINS'
-concurrently|^9.0.0
-http-server|^14.1.0
-wait-on|^8.0.0
-PINS
+if [ ! -f "$_SB_JSON" ]; then
+  ok "parity3: storybook-package-additions.json stays retired (no third pin copy)"
+else
+  bad "parity3: storybook-package-additions.json resurrected — third pin copy will drift; fold pins into REACT_DEVDEPS instead"
+fi
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

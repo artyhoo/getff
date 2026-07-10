@@ -42,7 +42,7 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
     if [ -z "$AIF_ARCH_TARGET" ]; then
       if [ -d "$PROJECT_ROOT/src" ]; then AIF_ARCH_TARGET="src"; else AIF_ARCH_TARGET="."; fi
     fi
-    AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" node -e '
+    AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" AIF_STACK="$STACK" node -e '
       const fs = require("fs");
       const p = process.env.AIF_PKG;
       const pkg = JSON.parse(fs.readFileSync(p, "utf8"));
@@ -71,6 +71,15 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
         "validate": "npm-run-all2 --parallel typecheck lint format:check arch:check audit:docs check:globs check:enforced check:arch-boundaries check:lintstaged check:fences-fire check:shields-up test",
         "prepare": "husky"
       };
+      // react-next only: the shipped ci.yml test-storybook job calls build-storybook +
+      // test-storybook (github-actions-ci-ui.yml:152-157). Scripts were historically merged by
+      // retired setup.sh Batch K (storybook-package-additions.json, #946) — this is that merge,
+      // relocated to the live path. Same non-destructive guard as the rest of `want`.
+      if (process.env.AIF_STACK === "react-next") {
+        want["storybook"] = "storybook dev -p 6006";
+        want["build-storybook"] = "storybook build";
+        want["test-storybook"] = "test-storybook";
+      }
       let added = 0;
       for (const [k, v] of Object.entries(want)) if (!(k in pkg.scripts)) { pkg.scripts[k] = v; added++; }
       // cih-s1 F2: also merge the devDeps the SHIPPED HOOKS need so they run, not just exist.
@@ -137,23 +146,40 @@ CORE_DEVDEPS=(
 # github-actions-ci-ui.yml, test-storybook job). The installer delivered none of the three, so
 # non-TTY npx silently registry-fetched <pkg>@latest on every consumer CI run — no lockfile
 # coverage, floats with upstream majors (the P0.2 typescript@7.0.2 failure class on a new
-# surface). Pins mirror packages/core/templates/react-next/storybook-package-additions.json
-# (sibling react-next template declaring the same toolchain — the retired setup.sh used to merge
-# it; three-way parity in the test keeps the pin copies aligned) and stay node-20 compatible
-# (concurrently@10 needs node >=22; the shipped .nvmrc is 20.19.0). Guarded by
+# surface). Pins stay node-20 compatible (concurrently@10 needs node >=22; the shipped .nvmrc
+# is 20.19.0) and this array is the single canonical pin source now that the orphaned Batch-K
+# storybook-package-additions.json template is retired (its only consumer was setup.sh, deleted
+# in #946); INSTALL.md §4 mirrors these pins (two-way parity). Guarded by
 # tests/install-sh/cic-s3-dep-install.test.sh Arms H+I.
+#
+# Storybook toolchain (same job): build-storybook + test-storybook need storybook itself, the
+# Next.js framework pkg, and the test runner — ship them or that job is red-on-arrival.
+# SB 10.x: nextjs-vite is the canonical Next.js framework pkg; addon-essentials/-interactions
+# no longer exist past 8.x (merged into core — the retired JSON pinned them at ^10.3.3, a
+# version that does not exist). Same pin discipline: majors pinned, node-20 compatible.
+# vite is @storybook/nextjs-vite's declared peer (^5||^6||^7||^8) and NOT its direct dep; a
+# Next.js consumer has no vite of its own, so without this pin build-storybook resolves vite
+# only via vitest's transitive hoist — declare it explicitly (cold-review MAJOR, PR #953).
+# ^8 not ^7: the unpinned @vitejs/plugin-react above resolves to 6.x which peers vite@^8 —
+# vite@^7 ERESOLVEs against it (PR #956 CI smoke); ^8 satisfies plugin-react 6.x, vitest 4.x
+# (^6||^7||^8), nextjs-vite, and node-20 (engines ^20.19.0||>=22.12.0 = shipped .nvmrc).
+# @testing-library/user-event: INSTALL.md §4 declares it for React stacks but no array delivered
+# it (same INSTALL.md↔installer parity class as P0.2; loud-fail — consumer interaction tests die
+# at import). Unpinned like its @testing-library siblings; also in REACT_SPA_DEVDEPS below.
 REACT_DEVDEPS=(
   @vitejs/plugin-react jsdom @testing-library/react
-  @testing-library/jest-dom @next/eslint-plugin-next
+  @testing-library/jest-dom @testing-library/user-event @next/eslint-plugin-next
   eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-jsx-a11y
   eslint-plugin-testing-library @playwright/test
   concurrently@^9.0.0 http-server@^14.1.0 wait-on@^8.0.0
+  storybook@^10.5.0 @storybook/nextjs-vite@^10.5.0 @storybook/test-runner@^0.24.4
+  vite@^8.0.0
 )
 # react-spa (Vite SPA): de-Next-ified — drop @next/eslint-plugin-next, add eslint-plugin-boundaries
 # (Feature-Sliced Design layering the shipped SPA eslint.config enforces). Mirrors REACT_DEVDEPS otherwise.
 REACT_SPA_DEVDEPS=(
   @vitejs/plugin-react jsdom @testing-library/react
-  @testing-library/jest-dom eslint-plugin-boundaries
+  @testing-library/jest-dom @testing-library/user-event eslint-plugin-boundaries
   eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-jsx-a11y
   eslint-plugin-testing-library @playwright/test
 )
