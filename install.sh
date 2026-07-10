@@ -9,12 +9,17 @@
 #   ./install.sh ts-server --full               # also auto-install dev-deps (no prompts; stack required)
 #   ./setup -y ts-server                        # recommended one-shot path (wrapper: --full + companions)
 #   ./install.sh ts-server --wire-ci            # also auto-wire missing CI gates via yq (opt-in, detect-first)
+#   ./install.sh ts-server --with-aif-suite     # also ship the AIF operator suite (aif-handoff runtime required)
 #
 # What it does:
-#   1. Copies skills/ + .claude/skills/{pipeline,dispatcher,aif-doctor,template-audit,night-mode,ai-doc,rule-research,harvest,story}/ → .claude/skills/
-#      (the meta-orchestrator pipeline + its orchestration companions are shipped from
-#       .claude/skills/ as single source of truth; ONLY self-reflection is intentionally
-#       NOT shipped — repo-internal §1.7 self-review discipline per build-first-reuse-default.md §1.1 shipped-axis;
+#   1. Copies skills/ + the consumer-facing core skill set
+#      .claude/skills/{template-audit,ai-doc,rule-research}/ → .claude/skills/ (always).
+#      With --with-aif-suite, also ships the AIF operator suite
+#      {pipeline,dispatcher,aif-doctor,harvest,night-mode,story}/ (F7, owner GO 2026-07-10) —
+#      those presuppose the aif-handoff operator runtime + `story`'s lang-pack (#934), so they
+#      are opt-in, not default (see setup.d/10-skills.sh + --with-aif-suite below).
+#      (all shipped from .claude/skills/ as single source of truth; ONLY self-reflection is
+#       intentionally NOT shipped — repo-internal §1.7 self-review discipline per build-first-reuse-default.md §1.1 shipped-axis;
 #       cross-refs to repo-internal paths get sed-transformed to GitHub blob URLs —
 #       see UPSTREAM_BLOB_URL + transform_internal_refs() below;
 #       per .claude/rules/dual-implementation-discipline.md §7 SSOT)
@@ -30,6 +35,10 @@
 # Use --wire-ci to also auto-wire any CI-orphan rule-enforcement gate (§6c) into your existing
 # workflow via yq (used-if-present, never installed by us; default is the non-destructive WARN +
 # paste-block — wiring edits your kept workflow in place, so it is opt-in). No effect in --dry-run.
+# Use --with-aif-suite to also ship the AIF operator suite (pipeline, dispatcher, aif-doctor,
+# harvest, night-mode, story). Those presuppose the aif-handoff operator runtime and story's
+# lang-pack (#934); default installs only the consumer-facing core set. Opt-in + reversible
+# (delete the six .claude/skills/ dirs to undo) — same posture as the companions.manifest flow.
 
 set -euo pipefail
 
@@ -63,6 +72,14 @@ DRY_RUN=""
 FULL=""
 WIRE_CI=""
 REFRESH=""
+# F7 (owner GO 2026-07-10): the AIF operator suite (pipeline dispatcher aif-doctor harvest
+# night-mode story) ships ONLY under this explicit opt-in. Those five presuppose the aif-handoff
+# operator runtime and `story` crashes on landing until its lang-pack ships (#934) — a consumer
+# without that runtime should not get them by default. Opt-in + reversible, same posture as the
+# companions.manifest flow (.claude/rules/companion-install-principle.md; BFR §1.1 integrate-
+# never-hard-depend). The consumer-facing core set (template-audit ai-doc rule-research) stays
+# default. See setup.d/10-skills.sh for the split.
+WITH_AIF_SUITE=""
 for arg in "$@"; do
   case "$arg" in
     --dry-run)              DRY_RUN="--dry-run" ;;
@@ -70,6 +87,7 @@ for arg in "$@"; do
     --full)                 FULL="--full" ;;
     --wire-ci)              WIRE_CI="--wire-ci" ;;
     --refresh)              REFRESH="--refresh" ;;
+    --with-aif-suite)       WITH_AIF_SUITE="--with-aif-suite" ;;
     ts-server|react-next|react-spa|react-native)   STACK="$arg"; STACK_EXPLICIT="1" ;;
     *)                      ;;
   esac
@@ -275,9 +293,18 @@ do_refresh() {
   done
 
   # ── Orchestration skills (with internal-ref transform) ──
+  # Consumer-facing core set: always refreshed. AIF operator suite (F7): refreshed ONLY when
+  # already present on disk (presence = prior --with-aif-suite opt-in) OR the flag is passed now.
+  # Absence + no flag = never installed → refresh must NOT create it (else refresh silently
+  # opts a consumer into the runtime-dependent suite). See setup.d/10-skills.sh for the split.
   echo "▶ Orchestration skills → .claude/skills/"
-  for _skill in pipeline dispatcher aif-doctor template-audit night-mode ai-doc rule-research harvest story; do
+  for _skill in template-audit ai-doc rule-research; do
     refresh_skill_with_transform "$_skill"
+  done
+  for _skill in pipeline dispatcher aif-doctor harvest night-mode story; do
+    if [ -n "$WITH_AIF_SUITE" ] || [ -e "$PROJECT_ROOT/.claude/skills/$_skill" ]; then
+      refresh_skill_with_transform "$_skill"
+    fi
   done
   _AIF_HELPERS="$PROJECT_ROOT/.claude/skills/aif-doctor/helpers"
   if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$_AIF_HELPERS" ]; then

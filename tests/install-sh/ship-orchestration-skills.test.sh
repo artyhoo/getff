@@ -25,7 +25,10 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 
 T=$(mktemp -d)
 printf '{"name":"ship-orch","version":"0.0.0"}\n' > "$T/package.json"
-( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1
+# --with-aif-suite: the transform check targets the AIF operator suite (dispatcher, aif-doctor,
+# night-mode, harvest, story), which the F7 split gates behind this flag. The default set no
+# longer ships them — the flag installs the full nine so this transform assertion stays reachable.
+( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force --with-aif-suite ) >/dev/null 2>&1
 
 # ── pos: the orchestration companion skills land ─────────────────────────────
 for s in dispatcher aif-doctor template-audit night-mode ai-doc rule-research harvest story; do

@@ -295,7 +295,7 @@ bash /path/to/getff/install.sh --refresh
 Framework-owned artefacts the consumer is **not** expected to edit in place:
 
 - `.claude/agents/*.md` — sub-agent prompts
-- `.claude/skills/` — pipeline, dispatcher, aif-doctor, template-audit, rules-as-tests, tool-bootstrapping
+- `.claude/skills/` — core set (template-audit, ai-doc, rule-research) + rules-as-tests, tool-bootstrapping. The AIF operator suite (pipeline, dispatcher, aif-doctor, harvest, night-mode, story) ships only under `--with-aif-suite`; `--refresh` keeps refreshing it when already present on disk (prior opt-in), never creates it otherwise.
 - `.claude/hooks/deps-hash-check.sh` — session hook
 - `scripts/*.sh`, `scripts/audit-r4.ts` — audit gate scripts
 - `packages/core/hooks/` — TS pre-push pipeline
