@@ -217,12 +217,26 @@ jobs:
       # `npm ci --prefix packages/core` install above (same job, no new job/npm-ci).
       - name: Run packages/core/ir tests (MT S1)
         run: npm --prefix packages/core run test:ir
+      # MT umbrella S1 (python-backend-v0): the astgrep-python-yaml backend's live-fire tests
+      # (packages/core/backends/astgrep/firing.test.ts + capability-matrix.test.ts) fire the bare
+      # PATH `ast-grep` binary FOR REAL in CI (owner STOP-line: no `!isCI` guard). The tool is NOT
+      # a package.json dependency — it comes via this hard, exact-pinned global install. A pin (not
+      # a float/`latest`) keeps the fired toolchain deterministic and matched to the committed
+      # capability-matrix evidence (ast-grep 0.44.1); a hard install fails loud-red on a registry
+      # flake rather than loud-skipping CI green (which an npx-resolved pin would do). Pinned per
+      # .claude/rules/ci-tool-pinning.md Rule A. zizmor adhoc-packages is suppressed on this line:
+      # the audit wants lockfile-backed installs, but a global CLI tool has no lockfile surface —
+      # the exact `@0.44.1` pin is the determinism mechanism here (same posture as the pinned
+      # `pip install zizmor==` install below).
+      - name: Install pinned ast-grep for astgrep backend live-fire (MT S1)
+        run: npm install -g @ast-grep/cli@0.44.1 # zizmor: ignore[adhoc-packages]
       # MT umbrella S2: packages/core/backends/ (cargo-backend-v0 renderer + firing harness
       # + capability matrix) is a new vitest include-allowlist entry (vitest.config.ts) —
       # gate it here, reusing the `npm ci --prefix packages/core` install above. No Rust
-      # toolchain is installed on this runner, so the live-fire tests (R7/R8) loudly
+      # toolchain is installed on this runner, so the cargo live-fire tests (R7/R8) loudly
       # describe.skipIf(!cargoPresent) and warn rather than silently passing (T-MT-C) —
-      # the renderer/routing/registry/matrix-honesty tests still run and gate for real.
+      # the renderer/routing/registry/matrix-honesty tests still run and gate for real. The
+      # astgrep backend's live-fire, by contrast, fires for real via the pinned install above.
       - name: Run packages/core/backends tests (MT S2)
         run: npm --prefix packages/core run test:backends
       # MT umbrella S4: packages/core/composition/ (executable-AI-doc plane — DocPlan
