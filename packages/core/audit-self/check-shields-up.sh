@@ -76,7 +76,7 @@ if [ ! -f "$PRE_COMMIT" ]; then
 elif [ ! -x "$PRE_COMMIT" ]; then
   bad "$PRE_COMMIT exists but is not executable — chmod +x .husky/pre-commit to activate"
 elif grep -q 'lint-staged' "$PRE_COMMIT" 2>/dev/null; then
-  ok "pre-commit: present, executable, references lint-staged gate — commit shield ACTIVE"
+  ok "pre-commit: present, executable, references lint-staged gate — commit shield WIRED (form check: hook present + references lint-staged; behavioural commit probe is a planned gate)"
 else
   bad "pre-commit: present + executable but does not reference 'lint-staged' — shield content unexpected (check $PRE_COMMIT)"
 fi
@@ -90,7 +90,7 @@ elif [ ! -x "$PRE_PUSH" ]; then
 else
   # The shipped pre-push must reference the TS-core dispatcher (pre-push.ts) or the fallback
   if grep -qE '(pre-push\.ts|pre-push\.fallback\.sh)' "$PRE_PUSH" 2>/dev/null; then
-    ok "pre-push: present, executable, references pre-push dispatcher — push shield ACTIVE"
+    ok "pre-push: present, executable, references pre-push dispatcher — push shield WIRED (form check: hook present + references dispatcher; behavioural push probe is a planned gate)"
   else
     bad "pre-push: present + executable but does not reference pre-push.ts or pre-push.fallback.sh — shield may be empty stub (check $PRE_PUSH)"
   fi
