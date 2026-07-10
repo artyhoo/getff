@@ -2,13 +2,13 @@
   "$comment": "AIF extension manifest (best-effort format as of May 2026). The official extension.json schema is in draft (PR #34 in lee-to/ai-factory). When the schema lands, update this file accordingly. For now, install.sh provides a guaranteed fallback path.",
   "$plugin-packaging": "The same shippable set is also packaged as a Claude Code plugin under plugin/ (in-repo marketplace: .claude-plugin/marketplace.json). OpenCode adapter: .opencode/INSTALL.md. The skill/agent paths below are SOURCE paths read by install.sh; the plugin payload mirrors this set (the plugin ships the curated consumer-facing subset).",
 
-  "name": "rules-as-tests-aif",
+  "name": "getff",
   "version": "0.1.0",
   "description": "Rules-as-Tests framework for AI Factory: 5-layer enforcement (architecture, meta-tests, spec-by-example, mutation, living docs) + AI-documentation audit. Server TS + React/Next stacks.",
 
-  "author": "rules-as-tests-aif contributors",
-  "license": "MIT",
-  "homepage": "https://github.com/<org>/rules-as-tests-aif",
+  "author": "getff contributors",
+  "license": "FSL-1.1-ALv2",
+  "homepage": "https://github.com/artyhoo/getff",
 
   "compatibility": {
     "ai-factory": ">=2.0.0",

@@ -11,7 +11,7 @@ import { ESLintUtils } from '@typescript-eslint/utils';
 //
 // Options shape mirrors `no-restricted-syntax`: a variadic list of {selector, message}
 // entries. Reports under messageId `restrictedSyntax` with the entry's message.
-const createRule = ESLintUtils.RuleCreator(() => `https://github.com/Yhooi2/rules-as-tests-aif/blob/main/packages/core/eslint-rules/restricted-syntax-audit-exempt.ts`);
+const createRule = ESLintUtils.RuleCreator(() => `https://github.com/artyhoo/getff/blob/main/packages/core/eslint-rules/restricted-syntax-audit-exempt.ts`);
 const EXEMPT_TOKEN = 'audit:exempt';
 export const restrictedSyntaxAuditExempt = createRule({
     name: 'restricted-syntax-audit-exempt',

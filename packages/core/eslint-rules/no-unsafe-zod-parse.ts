@@ -3,7 +3,7 @@ import type { TSESLint, TSESTree } from '@typescript-eslint/utils';
 
 const createRule = ESLintUtils.RuleCreator(
   (_name) =>
-    `https://github.com/Yhooi2/rules-as-tests-aif/blob/main/packages/preset-next-15-canonical/RULES.md#r2--validation-at-boundaries`,
+    `https://github.com/artyhoo/getff/blob/main/packages/preset-next-15-canonical/RULES.md#r2--validation-at-boundaries`,
 );
 
 // Returns true if node is (or contains) a direct z.* call/member chain.

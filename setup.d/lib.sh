@@ -40,7 +40,7 @@
 # Repo-internal cross-refs (paths to docs/, packages/, README.md) get rewritten to
 # GitHub blob URLs at install time. One source of truth: .claude/skills/<skill>/SKILL.md
 # Override via env var if forking to a different repo.
-UPSTREAM_BLOB_URL="${UPSTREAM_BLOB_URL:-https://github.com/Yhooi2/rules-as-tests-aif/blob/main}"
+UPSTREAM_BLOB_URL="${UPSTREAM_BLOB_URL:-https://github.com/artyhoo/getff/blob/main}"
 
 PRETTIERIGNORE_BEGIN='# >>> rules-as-tests-aif (managed) >>>'
 PRETTIERIGNORE_END='# <<< rules-as-tests-aif (managed) <<<'
