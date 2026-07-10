@@ -8,7 +8,7 @@ description: Use when treating any codebase rule (architectural, naming, depende
 A unified framework for treating **every codebase rule as an executable test**. Documents lie; tests don't. This becomes critical when AI agents write the code, because LLMs reliably violate undocumented conventions and generate plausible-but-vacuous tests.
 
 > **Authoritative for:** skill activation conditions (frontmatter `description`); 5-layer framework summary; reference index (when to read which `references/*.md`); enforcement-extension surfaces (shift-left to AIF, shift-right to production, sideways via Pact).
-> **NOT authoritative for:** project-host goal — see consumer's own `README.md` (this skill is shipped to consumer projects via [`install.sh`](../../install.sh)). For the framework's authoring repo: see [README.md#why-this-exists](../../README.md#why-this-exists). Per-layer technical detail is in [references/overview.md](references/overview.md).
+> **NOT authoritative for:** project-host goal — see consumer's own `README.md` (this skill is shipped to consumer projects via [`install.sh`](../../../install.sh)). For the framework's authoring repo: see [README.md#why-this-exists](../../../README.md#why-this-exists). Per-layer technical detail is in [references/overview.md](references/overview.md).
 
 ## When this skill is relevant
 
