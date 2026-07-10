@@ -207,15 +207,33 @@ function workflowYmlFiles(): string[] {
  * `failHint` (optional) is appended to the abort output when the tool ran but
  * reported problems (exitCode !== 0) — used to hand the operator a concrete
  * remediation path. Callers that omit it keep the original behaviour verbatim.
+ * `onMissing` (default `'die'`) controls the TOOL-ABSENCE axis only (#923 follow-up):
+ *   - `'die'`      — fail-closed on `notFound` (framework repo; ci-tool-pinning).
+ *   - `'warn-skip'`— consumer layout: a missing OPTIONAL workflow-security scanner
+ *                    must DEGRADE loudly and continue, never DoS the consumer's push.
+ * A tool that IS present but reports findings (exitCode !== 0) still dies in BOTH
+ * modes — real findings are real; only absence is downgraded on a consumer.
  */
 function requireTool(
   cmd: string,
   args: readonly string[],
   installHint: string,
   failHint?: string,
+  onMissing: 'die' | 'warn-skip' = 'die',
 ): void {
   const r = run(cmd, args);
-  if (r.notFound) die(`❌ ${cmd} not found in PATH.\n${installHint}`);
+  if (r.notFound) {
+    if (onMissing === 'warn-skip') {
+      // stdout (not stderr) to match the closest tool-absence-skip precedent — the
+      // lychee "not found → skip" path below (§8) writes its degradation notice to
+      // stdout. Keeps the consumer-degrade convention consistent across sections.
+      process.stdout.write(
+        `⚠ DEGRADED: ${cmd} not found — workflow security lint SKIPPED\n${installHint}\n`,
+      );
+      return;
+    }
+    die(`❌ ${cmd} not found in PATH.\n${installHint}`);
+  }
   if (r.exitCode !== 0) {
     if (failHint) {
       // Emit the tool's findings first, then the remediation hint, then abort.
@@ -585,6 +603,16 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
+  // Framework-vs-consumer layout signal (SSOT-register presence) — the SAME detector
+  // §7/§1.7 use below (reused, not re-invented; declared here so §1/§2 can read it).
+  // Drives the TOOL-ABSENCE policy split (#923 follow-up): the framework repo stays
+  // fail-closed on a missing workflow linter (ci-tool-pinning); a consumer without the
+  // optional scanner installed DEGRADES loudly instead of being DoS'd on every push.
+  const isFrameworkRepo = existsSync(resolve(REPO_ROOT, SSOT_REL));
+  const onMissingTool: 'die' | 'warn-skip' = isFrameworkRepo
+    ? 'die'
+    : 'warn-skip';
+
   // ── 1. actionlint ──────────────────────────────────────────────────────────
   const workflows = workflowYmlFiles();
   if (workflows.length > 0) {
@@ -593,6 +621,8 @@ async function main(): Promise<void> {
       workflows,
       '   Install: brew install actionlint   (macOS)\n' +
         '         or: go install github.com/rhysd/actionlint/cmd/actionlint@latest',
+      undefined,
+      onMissingTool,
     );
   }
 
@@ -606,13 +636,20 @@ async function main(): Promise<void> {
     '   Fix: `zizmor --fix=all <file>` auto-fixes artipacked + template-injection.\n' +
     '        unpinned-uses is NOT auto-fixable — SHA-pin each action (e.g. via `pinact` or Dependabot).\n' +
     '   Audit docs: https://docs.zizmor.sh/audits/';
-  // Scan the repo's / consumer's live workflows (the brownfield path).
-  requireTool(
-    'zizmor',
-    ['--format', 'plain', '.github/workflows/'],
-    '   Install: pip install zizmor',
-    ZIZMOR_FIX_HINT,
-  );
+  // Scan the repo's / consumer's live workflows (the brownfield path). Gated on the
+  // SAME `workflows.length > 0` condition §1 actionlint uses: a CI-less consumer has
+  // no `.github/workflows/` for zizmor to scan, so both sections no-op there (without
+  // this guard zizmor scanned a missing path → nonzero → hard-blocked the push). #923
+  // fixed the maintainer PATH guards; this closes the remaining TOOL-absence axis.
+  if (workflows.length > 0) {
+    requireTool(
+      'zizmor',
+      ['--format', 'plain', '.github/workflows/'],
+      '   Install: pip install zizmor',
+      ZIZMOR_FIX_HINT,
+      onMissingTool,
+    );
+  }
   // Regression guard (#637): also scan the SHIPPED CI templates so they can't
   // silently drift past the gate. NOTE the existsSync direction is INVERTED vs
   // 3c/3d below: there the scripts live elsewhere in the maintainer repo, so the
@@ -917,7 +954,8 @@ async function main(): Promise<void> {
   // never ships (install.sh) — so a capability/rule-introducing consumer commit
   // would be blocked by a gate it cannot satisfy (#921 class 2). The SSOT register's
   // presence is the framework-repo signal; absent → both checks are structurally N/A.
-  const isFrameworkRepo = existsSync(resolve(REPO_ROOT, SSOT_REL));
+  // (`isFrameworkRepo` is computed once above §1, where the §1/§2 tool-absence split
+  // also reads it — same detector, declared before its first use.)
 
   // ── 7. Prior-art trailer (§7) — TS-native since Wave 10.2 ────────────────────
   // Capability-commit detection + `Prior-art:` trailer validation. Ported from
