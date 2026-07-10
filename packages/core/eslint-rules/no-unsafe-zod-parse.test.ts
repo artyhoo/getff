@@ -74,5 +74,21 @@ ruleTester.run('no-unsafe-zod-parse', noUnsafeZodParse, {
       code: `const c = ConfigSchema.parse(\`port=\${input}\`);`,
       errors: [{ messageId: 'useSafeParse' }],
     },
+    // Mutation-killers for the remaining isStaticLiteral branches (cold-review MAJOR):
+    // UnaryExpression over a NON-static operand must stay non-static…
+    {
+      code: `const n = NumSchema.parse(-input);`,
+      errors: [{ messageId: 'useSafeParse' }],
+    },
+    // …as-const over an identifier must stay non-static…
+    {
+      code: `const c = ConfigSchema.parse(input as const);`,
+      errors: [{ messageId: 'useSafeParse' }],
+    },
+    // …and a getter smuggling external input through an "object literal" must fire.
+    {
+      code: `const c = ConfigSchema.parse({ get port() { return req.query.port; } });`,
+      errors: [{ messageId: 'useSafeParse' }],
+    },
   ],
 });
