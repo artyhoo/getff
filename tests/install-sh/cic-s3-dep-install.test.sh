@@ -28,6 +28,14 @@
 #     old REACT_NATIVE_DEVDEPS bare `typescript` entry must not duplicate CORE_DEVDEPS' pinned one).
 #   - Parity check: INSTALL.md's §4 pins and setup.d/70-deps.sh's arrays are grepped independently
 #     (two-sided) so neither can drift alone.
+#
+# #two-prompts-drift (printed manual fallback vs automated install):
+#   - Arm F: react-native + npm, NO --full → the Next-steps manual commands (devDep AND runtime)
+#     carry --legacy-peer-deps, mirroring the §8 npm arms' $NPM_PEER_FLAG (the a11y-peer ERESOLVE
+#     workaround) — a consumer who declined the automated install and copy-pastes must not hit
+#     the very ERESOLVE abort the automated path avoids.
+#   - Arm G (paired-negative): ts-server + npm, NO --full → NEITHER printed npm command carries
+#     --legacy-peer-deps (the flag is react-native-scoped, not blanket).
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 PASS=0; FAIL=0
@@ -181,6 +189,50 @@ fi
 grep -q 'typescript@\^5\.7\.0' <<< "$_rn_devdep_line" \
   && ok "E: the surviving react-native typescript spec is the pinned typescript@^5.7.0 (not the old bare entry)" \
   || bad "E: react-native devDep line missing the pinned typescript@^5.7.0"
+
+# ════ Arm F (#two-prompts-drift) — react-native + npm, NO --full → printed fallback carries --legacy-peer-deps ════
+# The automated §8 npm arms (setup.d/70-deps.sh devDep + runtime installs) pass $NPM_PEER_FLAG
+# (--legacy-peer-deps) for react-native because eslint-plugin-react-native-a11y peer-deps
+# eslint ^3..^8 while the preset ships eslint ^9 → npm 7+ ERESOLVE hard-fail. The Next-steps
+# manual fallback (setup.d/99-finalize.sh) is built from the same DEVDEPS/RUNTIME_DEPS arrays but
+# used to drop the flag — an RN consumer who declined the automated install and copy-pasted the
+# printed command got the exact ERESOLVE abort the automated path avoids. Both printed npm lines
+# (devDep + runtime) must carry the flag.
+F=$(mktemp -d); export AIF_PM_LOG="$F.log"; : > "$AIF_PM_LOG"
+printf '{ "name":"f","version":"0.0.0" }\n' > "$F/package.json"
+( cd "$F" && git init -q )
+F_OUT=$( cd "$F" && bash "$REPO_ROOT/install.sh" react-native --force < /dev/null 2>&1 )
+
+_f_dev_line=$(printf '%s\n' "$F_OUT" | grep -E '^ *npm install --save-dev' || true)
+_f_rt_line=$(printf '%s\n' "$F_OUT" | grep -E '^ *npm install' | grep -v -- '--save-dev' || true)
+[ -n "$_f_dev_line" ] \
+  && ok "F: no --full → Next-steps prints the manual 'npm install --save-dev' fallback" \
+  || bad "F: printed devDep fallback command missing from install output"
+case "$_f_dev_line" in
+  *--legacy-peer-deps*) ok "F: printed RN devDep command carries --legacy-peer-deps (mirrors §8 npm arm)" ;;
+  *) bad "F: printed RN devDep command LACKS --legacy-peer-deps → copy-paste ERESOLVE abort ($_f_dev_line)" ;;
+esac
+case "$_f_rt_line" in
+  *--legacy-peer-deps*) ok "F: printed RN runtime-dep command carries --legacy-peer-deps (mirrors §8 npm arm)" ;;
+  *) bad "F: printed RN runtime-dep command LACKS --legacy-peer-deps ($_f_rt_line)" ;;
+esac
+
+# ════ Arm G (paired-negative for F) — ts-server + npm, NO --full → NO --legacy-peer-deps ════
+# Proves the printed flag is react-native-scoped: every other stack keeps strict peer resolution,
+# so a blanket flag (weakening peer checks for everyone) would be its own defect.
+G=$(mktemp -d); export AIF_PM_LOG="$G.log"; : > "$AIF_PM_LOG"
+printf '{ "name":"g","version":"0.0.0" }\n' > "$G/package.json"
+( cd "$G" && git init -q )
+G_OUT=$( cd "$G" && bash "$REPO_ROOT/install.sh" ts-server --force < /dev/null 2>&1 )
+
+_g_npm_lines=$(printf '%s\n' "$G_OUT" | grep -E '^ *npm install' || true)
+[ -n "$_g_npm_lines" ] \
+  && ok "G: ts-server no --full → Next-steps prints the manual npm fallback" \
+  || bad "G: printed npm fallback commands missing from ts-server install output"
+case "$_g_npm_lines" in
+  *--legacy-peer-deps*) bad "G neg: ts-server printed command carries --legacy-peer-deps (flag not RN-scoped): $_g_npm_lines" ;;
+  *) ok "G neg: ts-server printed commands carry NO --legacy-peer-deps (flag is RN-scoped)" ;;
+esac
 
 # ════ Parity check (P0.2) — INSTALL.md §4 pins vs setup.d/70-deps.sh arrays (two-sided) ════
 # Cheap, deterministic, no install.sh execution: neither side can drift without failing this.
