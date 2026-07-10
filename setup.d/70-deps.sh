@@ -106,14 +106,22 @@ fi
 # Shells out to the consumer's own PM — adds NO dependency to the framework (per §3 scope fence /
 # BFR). DEVDEPS is the single source for both the install command and the Next-steps fallback echo
 # (so "what we install" and "what we tell you to install" can't drift — #two-prompts-drift).
+# P0.2 (ultrareview): typescript + @types/node were DECLARED required by INSTALL.md §4 but never
+# actually in CORE_DEVDEPS, so a fresh --full flat-npm install left `tsc --noEmit` with no Node
+# globals ("Cannot find name 'console'") and let typescript free-float to an unvalidated major via
+# the typescript-eslint peer (verified: unpinned resolves to 6.0.3, incompatible with the shipped
+# tsconfig even WITH @types/node present). typescript@^5.7.0 satisfies typescript-eslint's own peer
+# range (>=4.8.4 <6.1.0) and matches the INSTALL.md pin exactly — INSTALL.md and this array are the
+# two sides of the #two-prompts-drift check (tests/install-sh/cic-s3-dep-install.test.sh).
 CORE_DEVDEPS=(
   eslint@^9 typescript-eslint@^8.59 @eslint/js@^9 @typescript-eslint/utils globals
   prettier@3.8.3 eslint-config-prettier @vitest/eslint-plugin
+  typescript@^5.7.0
   vitest@^4.1.5 @vitest/coverage-v8@^4.1.5
   @stryker-mutator/core @stryker-mutator/vitest-runner @stryker-mutator/typescript-checker
   dependency-cruiser fast-check glob ts-morph tsx
   husky lint-staged sort-package-json
-  npm-run-all2
+  npm-run-all2 @types/node@^22.10.0
 )
 REACT_DEVDEPS=(
   @vitejs/plugin-react jsdom @testing-library/react
@@ -134,24 +142,42 @@ REACT_SPA_DEVDEPS=(
 # @eslint/eslintrc (bare-RN baseline via FlatCompat), and the RN lint plugins. Ship BOTH baselines'
 # deps so a consumer can switch Expo↔bare without a reinstall.
 #
-# `typescript` is listed EXPLICITLY for react-native ONLY (GH #779 lint follow-up). The bare-RN
-# baseline resolves `@react-native/eslint-config#overrides[3]` → `@typescript-eslint/parser`, which
-# require()s a standalone `typescript` module at parse time (Expo's eslint-config-expo needs it too).
-# Other stacks get `typescript` auto-installed as a peer of `typescript-eslint`/the parser (verified:
-# a react-spa consumer carries node_modules/typescript with NO package.json entry); RN can't, because
-# the RN install runs with `--legacy-peer-deps` (the a11y-peer ERESOLVE workaround above), which
-# SUPPRESSES npm's peer auto-install. Without this line `npm run lint` dies on a fresh RN consumer:
-# "Cannot find module 'typescript'". Unpinned — consistent with the bare entries in these arrays; the
-# parser's `typescript >=4.8.4 <6.1.0` peer is satisfied by the current registry latest.
+# `typescript` USED TO BE listed EXPLICITLY for react-native ONLY (GH #779 lint follow-up). The
+# bare-RN baseline resolves `@react-native/eslint-config#overrides[3]` → `@typescript-eslint/parser`,
+# which require()s a standalone `typescript` module at parse time (Expo's eslint-config-expo needs
+# it too). At the time, CORE_DEVDEPS pinned no `typescript` at all — every OTHER stack got it only
+# via peer auto-install (a transitive peer of typescript-eslint/the parser), but RN's install runs
+# with `--legacy-peer-deps` (the a11y-peer ERESOLVE workaround below), which SUPPRESSES npm's peer
+# auto-install — so RN alone needed its own bare entry, or `npm run lint` died on a fresh RN
+# consumer: "Cannot find module 'typescript'".
+#
+# P0.2: CORE_DEVDEPS now pins `typescript@^5.7.0` directly (INSTALL.md parity, see above) — an
+# EXPLICIT devDependency, not a peer, so `--legacy-peer-deps` no longer suppresses it. RN gets
+# typescript from CORE_DEVDEPS like every other stack now, so the RN-local bare entry is removed:
+# keeping it would put TWO conflicting `typescript` specs (`^5.7.0` from core vs. unpinned here) in
+# the SAME install command for the react-native stack.
 REACT_NATIVE_DEVDEPS=(
   eslint-config-expo @react-native/eslint-config @eslint/eslintrc
   eslint-plugin-react-native eslint-plugin-react-native-a11y
-  typescript
 )
 DEVDEPS=( "${CORE_DEVDEPS[@]}" )
 [ "$STACK" = "react-next" ] && DEVDEPS+=( "${REACT_DEVDEPS[@]}" )
 [ "$STACK" = "react-spa" ] && DEVDEPS+=( "${REACT_SPA_DEVDEPS[@]}" )
 [ "$STACK" = "react-native" ] && DEVDEPS+=( "${REACT_NATIVE_DEVDEPS[@]}" )
+
+# P0.2: runtime deps — installed as regular `dependencies`, NEVER as -D/--save-dev. zod is the
+# boundary-parsing library INSTALL.md §4 documents as "the runtime dep that's used everywhere" and
+# that R2 (no-unsafe-zod-parse, packages/core/eslint-rules/no-unsafe-zod-parse.ts) assumes consumer
+# boundary code imports. It was previously undeclared anywhere in the installer: a consumer following
+# INSTALL.md/the shipped R2 rule and importing zod at an HTTP boundary tripped dependency-cruiser's
+# `no-non-package-json` rule on `npm run arch:check` (real, undeclared dep — not a false positive).
+# Fix the delivery gap, don't mask it: no arch:check exemption (that would hide a genuine missing
+# dependency, exactly the form-over-behavior failure this repo exists to prevent). Same single-source
+# discipline as CORE_DEVDEPS: this array feeds BOTH the actual install (below) and the Next-steps
+# fallback echo in setup.d/99-finalize.sh (#two-prompts-drift) — currently core-only (no stack ever
+# adds to it), unconditional so it is never empty (bash 3.2 `set -u` + an empty array is unsafe).
+CORE_RUNTIME_DEPS=( zod@^3.24.0 )
+RUNTIME_DEPS=( "${CORE_RUNTIME_DEPS[@]}" )
 
 # react-native only: eslint-plugin-react-native-a11y peer-deps eslint ^3..^8 (no eslint-9-compatible
 # release exists), while the preset ships eslint ^9. npm 7+ strict peer resolution aborts the whole
@@ -167,13 +193,13 @@ NPM_PEER_FLAG=""
 DEPS_INSTALLED=""
 _do_dep_install=""
 if [ "$DRY_RUN" = "--dry-run" ]; then
-  echo "▶ dev-deps → [dry-run] would offer to install ${#DEVDEPS[@]} dev-deps with $(detect_pm)"
+  echo "▶ dev-deps → [dry-run] would offer to install ${#DEVDEPS[@]} dev-dep(s) + ${#RUNTIME_DEPS[@]} runtime dep(s) with $(detect_pm)"
 elif [ ! -f "$PROJECT_ROOT/package.json" ]; then
   :   # no package.json to install into — nothing to do
 elif [ -n "$FULL" ]; then
   _do_dep_install="yes"
 elif [ -t 0 ]; then
-  printf "▶ Install %s dev-dependencies now with %s? [y/N] " "${#DEVDEPS[@]}" "$(detect_pm)"
+  printf "▶ Install %s dev-dependencies + %s runtime dependency(ies) now with %s? [y/N] " "${#DEVDEPS[@]}" "${#RUNTIME_DEPS[@]}" "$(detect_pm)"
   read -r _ans || _ans=""
   case "$_ans" in [yY]|[yY][eE][sS]) _do_dep_install="yes" ;; esac
 else
@@ -209,11 +235,33 @@ if [ "$_do_dep_install" = "yes" ]; then
         # Unquoted so an empty value expands to no arg (bash 3.2 + `set -u` safe).
         if ( cd "$PROJECT_ROOT" && npm install --save-dev $NPM_PEER_FLAG "${DEVDEPS[@]}" ); then _ok="yes"; fi ;;
     esac
+
+    # P0.2: runtime deps (zod) — SAME consent gate as the devDep install above (one prompt covers
+    # both), but a SEPARATE PM invocation WITHOUT -D/--save-dev (regular `dependencies`, never
+    # devDependencies). Only attempted when the devDep install above succeeded, so a failed devDep
+    # install can't produce a misleading "runtime deps landed, devDeps didn't" half-state.
+    _ok_rt=""
     if [ -n "$_ok" ]; then
+      echo "▶ Installing ${#RUNTIME_DEPS[@]} runtime dependency(ies) with $_pm …"
+      case "$_pm" in
+        pnpm)
+          if [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ]; then
+            if ( cd "$PROJECT_ROOT" && pnpm add -w "${RUNTIME_DEPS[@]}" ); then _ok_rt="yes"; fi
+          else
+            if ( cd "$PROJECT_ROOT" && pnpm add "${RUNTIME_DEPS[@]}" ); then _ok_rt="yes"; fi
+          fi ;;
+        yarn)
+          if ( cd "$PROJECT_ROOT" && yarn add "${RUNTIME_DEPS[@]}" ); then _ok_rt="yes"; fi ;;
+        *)
+          if ( cd "$PROJECT_ROOT" && npm install $NPM_PEER_FLAG "${RUNTIME_DEPS[@]}" ); then _ok_rt="yes"; fi ;;
+      esac
+    fi
+
+    if [ -n "$_ok" ] && [ -n "$_ok_rt" ]; then
       DEPS_INSTALLED="1"
-      echo "  ✓ dev-dependencies installed → node_modules/ (wired hooks now have their tools)"
+      echo "  ✓ dev + runtime dependencies installed → node_modules/ (wired hooks now have their tools)"
     else
-      echo "  ⚠  dev-dep install failed — run it manually (see Next steps)."
+      echo "  ⚠  dep install incomplete — run the remainder manually (see Next steps)."
     fi
   fi
 fi
