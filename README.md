@@ -1,9 +1,9 @@
 # getff — rules as tests
 
 [![License: FSL-1.1-ALv2](https://img.shields.io/badge/license-FSL--1.1--ALv2-blue.svg)](LICENSE.md)
-[![Discipline Self-Check](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/discipline-self-check.yml/badge.svg?branch=staging)](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/discipline-self-check.yml)
-[![Audit Self](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/audit-self.yml/badge.svg?branch=staging)](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/audit-self.yml)
-[![Workflow Integrity](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/workflow-integrity.yml/badge.svg?branch=staging)](https://github.com/Yhooi2/rules-as-tests-aif/actions/workflows/workflow-integrity.yml)
+[![Discipline Self-Check](https://github.com/artyhoo/getff/actions/workflows/discipline-self-check.yml/badge.svg?branch=main)](https://github.com/artyhoo/getff/actions/workflows/discipline-self-check.yml)
+[![Audit Self](https://github.com/artyhoo/getff/actions/workflows/audit-self.yml/badge.svg?branch=main)](https://github.com/artyhoo/getff/actions/workflows/audit-self.yml)
+[![Workflow Integrity](https://github.com/artyhoo/getff/actions/workflows/workflow-integrity.yml/badge.svg?branch=main)](https://github.com/artyhoo/getff/actions/workflows/workflow-integrity.yml)
 
 getff compiles your conventions into native toolchain gates (ESLint/husky for npm, clippy/cargo-deny for cargo). Its own [AGENTS.md](AGENTS.md) is executable — every claim carries a live-fired enforcement status; the gate fails when a claim drifts from reality. Docs lie; tests don't.
 
@@ -111,7 +111,7 @@ For details, see `skills/rules-as-tests/references/`:
 ### Quick start — one command (recommended)
 
 ```bash
-git clone https://github.com/Yhooi2/rules-as-tests-aif /tmp/rt
+git clone https://github.com/artyhoo/getff /tmp/rt
 cd /your/project
 bash /tmp/rt/setup ts-server                 # or react-next; omit to get a stack picker
 ```
@@ -137,8 +137,8 @@ It runs four steps:
 The **soft layer** (skills, sub-agents, session hooks) also ships as a Claude Code plugin from an in-repo marketplace:
 
 ```text
-/plugin marketplace add Yhooi2/rules-as-tests-aif
-/plugin install rules-as-tests@rules-as-tests-aif
+/plugin marketplace add artyhoo/getff
+/plugin install getff@getff
 ```
 
 One install and the skills **auto-trigger** (a `SessionStart` hook injects a `using-rules-as-tests` bootstrap — no manual `Skill` call), the consumer-facing sub-agents resolve, and the path-scoped rule-injector fires on edits.
@@ -146,7 +146,7 @@ One install and the skills **auto-trigger** (a `SessionStart` hook injects a `us
 **The honest boundary (soft vs hard).** A plugin **never** silently mutates your git/CI, so the plugin delivers only the soft layer. The **hard** layer — `.husky` pre-commit/pre-push hooks + the CI workflow that actually *fail the build* — is opt-in via one command:
 
 ```text
-/rules-as-tests:install-enforcement
+/getff:install-enforcement
 ```
 
 It previews the changes (dry-run, writes nothing), asks for `[y/N]`, then fetches the project's own official `install.sh` and wires `.husky` + CI into the current repo. Same installer, reached honestly.
@@ -195,13 +195,13 @@ After the framework deploy (`./setup` step 2 — or `bash install.sh <stack>` di
 Paste this into Claude Code, Cursor, or any AI agent with file access in your project's directory:
 
 ```text
-Install rules-as-tests-aif into this project.
+Install getff into this project.
 
 1. Detect stack: `ts-server` (default) or `react-next` (next.config.* present, or
    "next"/"react" in package.json).
-2. Run: bash /path/to/rules-as-tests-aif/setup <detected>
+2. Run: bash /path/to/getff/setup <detected>
    (clone the repo to /tmp/rt first if not on disk; the package is at
-   github.com/Yhooi2/rules-as-tests-aif — needs SSH/HTTPS access.
+   github.com/artyhoo/getff — needs SSH/HTTPS access.
    With non-tty stdin the companion/bridge prompts default to N, so this
    deploys the framework files only.)
 3. After setup completes, do these in sequence and report results:

@@ -7,7 +7,7 @@
 #   .claude/rules/companion-install-principle.md  (install via the official top-level installer)
 #
 # The plugin already delivers the SOFT layer (skills/agents/session hooks). This script is the
-# opt-in bridge to the HARD layer, invoked by /rules-as-tests:install-enforcement. It NEVER
+# opt-in bridge to the HARD layer, invoked by /getff:install-enforcement. It NEVER
 # wires anything on its own: dry-run is the default; --apply does the real run; consent is
 # orchestrated by the command (plugin/commands/install-enforcement.md), not assumed here.
 #
@@ -42,7 +42,7 @@ for arg in "$@"; do
 done
 
 TARGET="${CLAUDE_PROJECT_DIR:-$PWD}"
-SOURCE="${RAT_INSTALL_SOURCE:-https://github.com/Yhooi2/rules-as-tests-aif.git}"
+SOURCE="${RAT_INSTALL_SOURCE:-https://github.com/artyhoo/getff.git}"
 REF="${RAT_INSTALL_REF:-main}"
 
 [ -d "$TARGET" ] || { printf 'fetch-and-wire: target %s is not a directory\n' "$TARGET" >&2; exit 1; }

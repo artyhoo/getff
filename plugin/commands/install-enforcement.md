@@ -2,7 +2,7 @@
 description: Opt-in — wire the HARD enforcement layer (git hooks + CI) into THIS repo by fetching and running the project's official installer. Dry-run first, consent-gated. The plugin's soft layer (skills/agents/session hooks) is already live; this is the separate bridge to the part a plugin can never silently install.
 ---
 
-# /rules-as-tests:install-enforcement
+# /getff:install-enforcement
 
 Wire the **hard** enforcement layer — `.husky` pre-commit/pre-push git hooks, the CI workflow,
 and the dev-deps they need — into the user's current repository (`$CLAUDE_PROJECT_DIR`).

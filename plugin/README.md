@@ -7,9 +7,9 @@ consumer-facing soft layer; the maintainer-internal `.claude/` dev harness is ne
 Install:
 
 ```text
-/plugin marketplace add Yhooi2/rules-as-tests-aif
-/plugin install rules-as-tests@rules-as-tests-aif
-/rules-as-tests:install-enforcement      # opt-in: wires git-hooks + CI into THIS repo
+/plugin marketplace add artyhoo/getff
+/plugin install getff@getff
+/getff:install-enforcement      # opt-in: wires git-hooks + CI into THIS repo
 ```
 
 Layout (built stage-by-stage per the plan):

@@ -31,12 +31,12 @@ Access skills with the **Skill tool** (Claude Code) / your harness's skill mecha
 | Skill | Invoke when |
 |---|---|
 | `rules-as-tests` | The user is setting up or reasoning about enforcement: linting, CI, pre-commit/pre-push hooks, architecture/dependency rules, meta-tests, spec-by-example, mutation testing (Stryker), contract testing (Pact), living documentation, fitness functions, or "make my codebase resist AI agents breaking conventions". This is the core methodology skill. |
-| `installing-enforcement` | The user wants to actually **wire** the hard layer (git hooks + CI) into their repo — see the `/rules-as-tests:install-enforcement` command. (Ships in S5.) |
+| `installing-enforcement` | The user wants to actually **wire** the hard layer (git hooks + CI) into their repo — see the `/getff:install-enforcement` command. (Ships in S5.) |
 
 ## What the plugin delivers (and what it honestly does not)
 
 - **Soft layer (this plugin):** skills, sub-agents, and session hooks that run *inside the agent session* — advice, rule-injection, review sidecars. Installed by `/plugin install`.
-- **Hard layer (a command, not the plugin):** the git-hook + CI enforcement that actually fails the build lives in the consumer's git/CI infra. A plugin must never silently mutate a repo's git/CI, so it is reached **only** through the opt-in `/rules-as-tests:install-enforcement` command. A plugin that claimed to install the 5-channel enforcement by itself would be lying — exactly the failure this project's thesis exists to prevent.
+- **Hard layer (a command, not the plugin):** the git-hook + CI enforcement that actually fails the build lives in the consumer's git/CI infra. A plugin must never silently mutate a repo's git/CI, so it is reached **only** through the opt-in `/getff:install-enforcement` command. A plugin that claimed to install the 5-channel enforcement by itself would be lying — exactly the failure this project's thesis exists to prevent.
 
 ## Red flags (you are rationalizing — stop and invoke the skill)
 
@@ -45,7 +45,7 @@ Access skills with the **Skill tool** (Claude Code) / your harness's skill mecha
 | "This is just a quick lint/CI question" | Questions are tasks. Invoke `rules-as-tests`. |
 | "I know how ESLint/Stryker/Pact works" | Knowing the tool ≠ applying this framework's layer model. Invoke it. |
 | "Let me read the codebase first" | The skill tells you *how* to read it for enforcement gaps. Invoke first. |
-| "The plugin can set up the git hooks for me" | No — the hard layer is opt-in via `/rules-as-tests:install-enforcement`. Don't promise what the soft layer can't do. |
+| "The plugin can set up the git hooks for me" | No — the hard layer is opt-in via `/getff:install-enforcement`. Don't promise what the soft layer can't do. |
 | "I'll add a test that passes" | A test that can't fail is theatre. The skill's mutation layer exists to catch exactly that. |
 
 ## Skill priority when several could apply

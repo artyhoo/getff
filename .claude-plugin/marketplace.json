@@ -1,13 +1,13 @@
 {
-  "name": "rules-as-tests-aif",
-  "owner": { "name": "rules-as-tests-aif contributors" },
+  "name": "getff",
+  "owner": { "name": "getff contributors" },
   "metadata": {
     "description": "Rules-as-Tests plugin — executable-artifact discipline for AI coding agents",
     "version": "0.2.0"
   },
   "plugins": [
     {
-      "name": "rules-as-tests",
+      "name": "getff",
       "source": "./plugin",
       "description": "Compiles your conventions into native toolchain gates (ESLint, clippy). Deterministic, local-first, $0 LLM in CI.",
       "version": "0.2.0",
