@@ -1,0 +1,62 @@
+name: release-drafter
+
+# Continuously-updated draft release notes from conventional-commit PR titles.
+#
+# Two jobs, one upstream action pair (release-drafter v7 split the autolabeler
+# into a subpath action), one shared config (.github/release-drafter.yml):
+#   - autolabel (pull_request): maps the PR title's conventional-commit prefix
+#     (feat/fix/docs/test/ci/chore, `!` = breaking) to a `type: *` label.
+#   - update_release_draft (push to staging): regroups all labelled changes
+#     since the last published release into a DRAFT release, categorized per
+#     config. Draft only — publishing stays a deliberate maintainer click.
+#
+# `pull_request` (not `pull_request_target`) is deliberate: this repo takes
+# no fork PRs today, and pull_request keeps the read-only default-token
+# posture on PR events (zizmor dangerous-triggers hygiene). If fork PRs ever
+# become a thing, autolabeler needs pull_request_target per upstream README —
+# make that a deliberate reviewed change, not a default.
+#
+# No checkout step in either job: release-drafter fetches its config via the
+# GitHub API (upstream README «You do not need to checkout your repository
+# beforehand») — no repo contents ever touch the runner, so there is nothing
+# for artipacked to leak.
+
+on:
+  push:
+    branches: [staging]
+  pull_request:
+    types: [opened, reopened, synchronize, edited] # `edited`: re-label when a PR title is fixed up
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-drafter-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  autolabel:
+    name: autolabel PR from conventional-commit title
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write # adds `type: *` labels to the PR
+    steps:
+      - uses: release-drafter/release-drafter/autolabeler@4d75298e00d9e34c483e5ff8c68d0ea1c1940c1e # v7.5.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  update_release_draft:
+    name: update draft release notes
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write # creates/updates the draft release
+      pull-requests: read
+    steps:
+      - uses: release-drafter/release-drafter@4d75298e00d9e34c483e5ff8c68d0ea1c1940c1e # v7.5.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
