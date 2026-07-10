@@ -224,9 +224,12 @@ jobs:
       # a float/`latest`) keeps the fired toolchain deterministic and matched to the committed
       # capability-matrix evidence (ast-grep 0.44.1); a hard install fails loud-red on a registry
       # flake rather than loud-skipping CI green (which an npx-resolved pin would do). Pinned per
-      # .claude/rules/ci-tool-pinning.md Rule A.
+      # .claude/rules/ci-tool-pinning.md Rule A. zizmor adhoc-packages is suppressed on this line:
+      # the audit wants lockfile-backed installs, but a global CLI tool has no lockfile surface —
+      # the exact `@0.44.1` pin is the determinism mechanism here (same posture as the pinned
+      # `pip install zizmor==` install below).
       - name: Install pinned ast-grep for astgrep backend live-fire (MT S1)
-        run: npm install -g @ast-grep/cli@0.44.1
+        run: npm install -g @ast-grep/cli@0.44.1 # zizmor: ignore[adhoc-packages]
       # MT umbrella S2: packages/core/backends/ (cargo-backend-v0 renderer + firing harness
       # + capability matrix) is a new vitest include-allowlist entry (vitest.config.ts) —
       # gate it here, reusing the `npm ci --prefix packages/core` install above. No Rust
