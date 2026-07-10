@@ -325,19 +325,23 @@ echo "  1. Edit .ai-factory/DESCRIPTION.template.md → save as .ai-factory/DESC
 echo "  2. Edit .ai-factory/ARCHITECTURE.${STACK:-ts-server}.md → save as .ai-factory/ARCHITECTURE.md"
 echo "  3. Edit AGENTS.md placeholders to match your project"
 if [ "${DEPS_INSTALLED:-}" = "1" ]; then
-  echo "  4. ✓ Dev-dependencies installed into node_modules/ — nothing to do."
+  echo "  4. ✓ Dev + runtime dependencies installed into node_modules/ — nothing to do."
 else
-  # step 4 fallback: the manual dep-install (run only when --full/[y/N] consent was not given).
-  # Built from the same DEVDEPS array the installer uses → list cannot drift from what we install.
+  # step 4 fallback: the manual dep-install (run only when --full/[y/N] consent was not given, or
+  # the install ran but didn't fully succeed). Built from the SAME DEVDEPS/RUNTIME_DEPS arrays the
+  # installer uses (setup.d/70-deps.sh) → the list cannot drift from what we install (#two-prompts-drift).
   case "$(detect_pm)" in
-    pnpm) _add="pnpm add -D" ;;
-    yarn) _add="yarn add -D" ;;
-    *)    _add="npm install --save-dev" ;;
+    pnpm) _add="pnpm add -D"; _add_rt="pnpm add" ;;
+    yarn) _add="yarn add -D"; _add_rt="yarn add" ;;
+    *)    _add="npm install --save-dev"; _add_rt="npm install" ;;
   esac
-  echo "  4. Install dev-dependencies (or re-run: ./install.sh ${STACK:-ts-server} --full):"
+  echo "  4. Install dependencies (or re-run: ./install.sh ${STACK:-ts-server} --full):"
   echo ""
   echo "     $_add \\"
   printf '       %s\n' "${DEVDEPS[*]}"
+  echo ""
+  echo "     $_add_rt \\"
+  printf '       %s\n' "${RUNTIME_DEPS[*]}"
 fi
 echo "  5. Verify git hooks: 'git config core.hooksPath' should print .husky (install activated it; do NOT run 'npx husky init' — it would clobber the shipped .husky/pre-commit + pre-push)"
 echo "  6. Run: ./scripts/audit-ai-docs.sh — should PASS"
