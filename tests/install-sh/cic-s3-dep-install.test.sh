@@ -257,7 +257,8 @@ printf '{ "name":"h","version":"0.0.0" }\n' > "$H/package.json"
 run_install "$H" react-next --force --full < /dev/null
 
 for _spec in 'concurrently@\^9\.0\.0' 'http-server@\^14\.1\.0' 'wait-on@\^8\.0\.0' \
-             'storybook@\^10\.5\.0' '@storybook/nextjs-vite@\^10\.5\.0' '@storybook/test-runner@\^0\.24\.4'; do
+             'storybook@\^10\.5\.0' '@storybook/nextjs-vite@\^10\.5\.0' '@storybook/test-runner@\^0\.24\.4' \
+             'vite@\^7\.0\.0'; do
   grep -q "$_spec" "$AIF_PM_LOG" \
     && ok "H: react-next devDep install carries $_spec (template npx tool covered)" \
     || bad "H: $_spec absent from react-next devDep argv — template npx registry-fetches @latest"
@@ -332,7 +333,8 @@ esac
 # npx-float: the three react-next storybook-CI npx tools joined the list 2026-07-10.
 for _pkg_spec in 'typescript@\^5\.7\.0' '@types/node@\^22\.10\.0' 'zod@\^3\.24\.0' \
                  'concurrently@\^9\.0\.0' 'http-server@\^14\.1\.0' 'wait-on@\^8\.0\.0' \
-                 'storybook@\^10\.5\.0' '@storybook/nextjs-vite@\^10\.5\.0' '@storybook/test-runner@\^0\.24\.4'; do
+                 'storybook@\^10\.5\.0' '@storybook/nextjs-vite@\^10\.5\.0' '@storybook/test-runner@\^0\.24\.4' \
+                 'vite@\^7\.0\.0'; do
   _in_docs=""; _in_installer=""
   grep -q "$_pkg_spec" "$REPO_ROOT/INSTALL.md" && _in_docs="yes"
   grep -q "$_pkg_spec" "$REPO_ROOT/setup.d/70-deps.sh" && _in_installer="yes"

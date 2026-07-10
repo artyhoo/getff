@@ -157,6 +157,9 @@ CORE_DEVDEPS=(
 # SB 10.x: nextjs-vite is the canonical Next.js framework pkg; addon-essentials/-interactions
 # no longer exist past 8.x (merged into core — the retired JSON pinned them at ^10.3.3, a
 # version that does not exist). Same pin discipline: majors pinned, node-20 compatible.
+# vite is @storybook/nextjs-vite's declared peer (^5||^6||^7||^8) and NOT its direct dep; a
+# Next.js consumer has no vite of its own, so without this pin build-storybook resolves vite
+# only via vitest's transitive hoist — declare it explicitly (cold-review MAJOR, PR #953).
 REACT_DEVDEPS=(
   @vitejs/plugin-react jsdom @testing-library/react
   @testing-library/jest-dom @next/eslint-plugin-next
@@ -164,6 +167,7 @@ REACT_DEVDEPS=(
   eslint-plugin-testing-library @playwright/test
   concurrently@^9.0.0 http-server@^14.1.0 wait-on@^8.0.0
   storybook@^10.5.0 @storybook/nextjs-vite@^10.5.0 @storybook/test-runner@^0.24.4
+  vite@^7.0.0
 )
 # react-spa (Vite SPA): de-Next-ified — drop @next/eslint-plugin-next, add eslint-plugin-boundaries
 # (Feature-Sliced Design layering the shipped SPA eslint.config enforces). Mirrors REACT_DEVDEPS otherwise.
