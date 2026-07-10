@@ -28,6 +28,19 @@
 #     old REACT_NATIVE_DEVDEPS bare `typescript` entry must not duplicate CORE_DEVDEPS' pinned one).
 #   - Parity check: INSTALL.md's §4 pins and setup.d/70-deps.sh's arrays are grepped independently
 #     (two-sided) so neither can drift alone.
+#
+# npx-float (2026-07-10, same failure class as P0.2's typescript@7.0.2): the shipped react-next CI
+# template (packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml, test-storybook
+# job) runs `npx concurrently` / `npx http-server` / `npx wait-on`. When the package is absent from
+# the consumer's node_modules, non-TTY npx silently fetches <pkg>@latest from the registry on EVERY
+# consumer CI run — zero lockfile coverage, floats with upstream majors.
+#   - Arm F: react-next --full → the three template npx tools land PINNED in the devDep argv
+#     (pins mirror packages/core/templates/react-next/storybook-package-additions.json; node-20
+#     compatible — concurrently@10 needs node >=22 while the shipped .nvmrc is 20.19.0).
+#   - Arm G: static sweep — every `npx <tool>` in EVERY shipped CI workflow template maps to a
+#     package present in that stack's DEVDEPS arrays (bin→pkg: playwright→@playwright/test,
+#     stryker→@stryker-mutator/core). Paired-negative: a synthetic template with an uncovered
+#     tool IS flagged (the checker is non-vacuous).
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 PASS=0; FAIL=0
@@ -182,9 +195,80 @@ grep -q 'typescript@\^5\.7\.0' <<< "$_rn_devdep_line" \
   && ok "E: the surviving react-native typescript spec is the pinned typescript@^5.7.0 (not the old bare entry)" \
   || bad "E: react-native devDep line missing the pinned typescript@^5.7.0"
 
+# ════ Arm F (npx-float) — react-next --full → storybook-CI npx toolchain lands as devDeps ════
+# The shipped react-next CI template runs `npx concurrently/http-server/wait-on`; without these in
+# the devDep install, non-TTY npx registry-fetches @latest on every consumer CI run (no lockfile
+# coverage — the P0.2 typescript@7.0.2 failure class on a new surface).
+F=$(mktemp -d); export AIF_PM_LOG="$F.log"; : > "$AIF_PM_LOG"
+printf '{ "name":"f","version":"0.0.0" }\n' > "$F/package.json"
+( cd "$F" && git init -q && git config user.email t@t && git config user.name t )
+run_install "$F" react-next --force --full < /dev/null
+
+for _spec in 'concurrently@\^9\.0\.0' 'http-server@\^14\.1\.0' 'wait-on@\^8\.0\.0'; do
+  grep -q "$_spec" "$AIF_PM_LOG" \
+    && ok "F: react-next devDep install carries $_spec (template npx tool covered)" \
+    || bad "F: $_spec absent from react-next devDep argv — template npx registry-fetches @latest"
+done
+
+# ════ Arm G (npx-float) — every `npx <tool>` in a shipped CI workflow template is covered by ════
+# the DEVDEPS arrays the installer delivers for that stack. Static grep, no install.sh execution.
+# Extraction is a per-line heuristic (second token after `npx`, including inside quoted
+# concurrently sub-commands); the arrays contain no comments inside the parens, so array-block
+# membership means the installer actually delivers the package.
+extract_array() { sed -n "/^$1=(/,/^)/p" "$REPO_ROOT/setup.d/70-deps.sh"; }
+map_bin_to_pkg() {
+  case "$1" in
+    playwright) echo "@playwright/test" ;;      # @playwright/test ships the `playwright` bin
+    stryker)    echo "@stryker-mutator/core" ;; # @stryker-mutator/core ships the `stryker` bin
+    *)          echo "$1" ;;
+  esac
+}
+check_template_npx() {  # $1=template  $2..=array names → echoes space-separated uncovered pkgs
+  local _tpl="$1"; shift
+  local _allowed="" _a
+  for _a in "$@"; do _allowed="$_allowed
+$(extract_array "$_a")"; done
+  local _bins _bin _pkg _missing=""
+  _bins=$(grep -oE 'npx +[@a-zA-Z][@a-zA-Z0-9/_.-]*' "$_tpl" | awk '{print $2}' | sort -u)
+  for _bin in $_bins; do
+    _pkg=$(map_bin_to_pkg "$_bin")
+    printf '%s\n' "$_allowed" | grep -qE "(^|[[:space:](])${_pkg}(@|[[:space:])]|$)" \
+      || _missing="$_missing $_pkg"
+  done
+  echo "$_missing"
+}
+
+while IFS='|' read -r _tpl _arrays; do
+  _missing=$(check_template_npx "$REPO_ROOT/$_tpl" $_arrays)
+  if [ -z "${_missing// /}" ]; then
+    ok "G: $_tpl — every npx tool covered by [$_arrays]"
+  else
+    bad "G: $_tpl — npx tool(s) NOT delivered by installer devDeps:$_missing (registry-fetch @latest at consumer CI run)"
+  fi
+done <<'TPLS'
+packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml|CORE_DEVDEPS REACT_DEVDEPS
+packages/preset-react-spa/templates/github-actions-ci-ui.yml|CORE_DEVDEPS REACT_SPA_DEVDEPS
+packages/preset-react-native/templates/github-actions-ci-ui.yml|CORE_DEVDEPS REACT_NATIVE_DEVDEPS
+templates/ts-server/github-actions-ci.yml|CORE_DEVDEPS
+templates/ts-server/github-actions-workflow-integrity.yml|CORE_DEVDEPS
+TPLS
+
+# G paired-negative: a template invoking a tool NO array delivers must be flagged (non-vacuous).
+_G_NEG=$(mktemp)
+printf '      - run: npx left-pad-enterprise --port 1\n' > "$_G_NEG"
+_neg_missing=$(check_template_npx "$_G_NEG" CORE_DEVDEPS)
+case "$_neg_missing" in
+  *left-pad-enterprise*)
+    ok "G neg: uncovered npx tool in a synthetic template IS flagged (checker non-vacuous)" ;;
+  *)
+    bad "G neg: synthetic uncovered npx tool NOT flagged — the G sweep is vacuous" ;;
+esac
+
 # ════ Parity check (P0.2) — INSTALL.md §4 pins vs setup.d/70-deps.sh arrays (two-sided) ════
 # Cheap, deterministic, no install.sh execution: neither side can drift without failing this.
-for _pkg_spec in 'typescript@\^5\.7\.0' '@types/node@\^22\.10\.0' 'zod@\^3\.24\.0'; do
+# npx-float: the three react-next storybook-CI npx tools joined the list 2026-07-10.
+for _pkg_spec in 'typescript@\^5\.7\.0' '@types/node@\^22\.10\.0' 'zod@\^3\.24\.0' \
+                 'concurrently@\^9\.0\.0' 'http-server@\^14\.1\.0' 'wait-on@\^8\.0\.0'; do
   _in_docs=""; _in_installer=""
   grep -q "$_pkg_spec" "$REPO_ROOT/INSTALL.md" && _in_docs="yes"
   grep -q "$_pkg_spec" "$REPO_ROOT/setup.d/70-deps.sh" && _in_installer="yes"
