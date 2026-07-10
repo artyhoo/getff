@@ -328,6 +328,8 @@ jobs:
         run: bash tests/install-sh/f2-hook-activation.test.sh
       - name: Run install-sh AGENTS scripts-shipped test (consumer-install-hardening F8)
         run: bash tests/install-sh/f8-agents-scripts-shipped.test.sh
+      - name: Run install-sh .ai-factory SoT-materialized test (consumer-install-hardening F8d)
+        run: bash tests/install-sh/f8d-ai-factory-sot-materialized.test.sh
       - name: Run install-sh no-husky-init-advice test (consumer-install-hardening F8c)
         run: bash tests/install-sh/f8c-no-husky-init-advice.test.sh
       - name: Run install-sh prettierignore-generated-docs test (consumer-install-hardening F15)

@@ -20,6 +20,11 @@
 .ai-factory/ARCHITECTURE.react-spa.md
 .ai-factory/ARCHITECTURE.react-native.md
 .ai-factory/DESCRIPTION.template.md
+# The install-materialized SoT copies (30-templates.sh) — shipped framework-formatted, same class as
+# their template siblings above; a consumer with a different .prettierrc would otherwise fail
+# `prettier --check .` on landing with zero consumer edit. (P0-adjacent SoT materialization)
+.ai-factory/ARCHITECTURE.md
+.ai-factory/DESCRIPTION.md
 .ai-factory/rules/integration-rules.md
 .ai-factory/tool-decisions.md
 

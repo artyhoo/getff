@@ -354,8 +354,8 @@ else
 fi
 echo ""
 echo "Next steps:"
-echo "  1. Edit .ai-factory/DESCRIPTION.template.md → save as .ai-factory/DESCRIPTION.md"
-echo "  2. Edit .ai-factory/ARCHITECTURE.${STACK:-ts-server}.md → save as .ai-factory/ARCHITECTURE.md"
+echo "  1. Review/edit the generated .ai-factory/DESCRIPTION.md (project domain, stack, constraints)"
+echo "  2. Review/edit the generated .ai-factory/ARCHITECTURE.md (layer structure, dependency direction)"
 echo "  3. Edit AGENTS.md placeholders to match your project"
 if [ "${DEPS_INSTALLED:-}" = "1" ]; then
   echo "  4. ✓ Dev + runtime dependencies installed into node_modules/ — nothing to do."

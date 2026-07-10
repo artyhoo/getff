@@ -54,6 +54,24 @@ if [ "$STACK" = "react-native" ]; then
   copy_safe "$PKG_ROOT/packages/preset-react-native/RULES.react-native.md" "$PROJECT_ROOT/.ai-factory/RULES.react-native.md"
 fi
 
+# ─── Materialize the AGENTS.md-referenced SoT (.ai-factory/DESCRIPTION.md + ARCHITECTURE.md) ──
+# AGENTS.md.template sends the very first agent session to `.ai-factory/DESCRIPTION.md` and
+# `.ai-factory/ARCHITECTURE.md`. Historically the installer shipped only DESCRIPTION.template.md +
+# ARCHITECTURE.<stack>.md and asked the HUMAN to manually rename — so on landing the referenced
+# files did not exist (dangling references as the framework's first impression). Materialize them
+# here with copy_safe semantics: NEVER clobber a consumer-edited DESCRIPTION.md/ARCHITECTURE.md on
+# re-run (--refresh early-exits before this file is sourced, so only the normal install path runs).
+# Source the stack-appropriate ARCHITECTURE variant directly from $PKG_ROOT (order-independent).
+# Stack→source map + header rewrite are the SSOT helpers in setup.d/lib.sh (shared with do_refresh,
+# #949) — this delivery must never diverge from the --refresh delivery.
+_arch_sot_src="$(arch_sot_src_for_stack)"
+copy_safe "$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md" "$PROJECT_ROOT/.ai-factory/DESCRIPTION.md"
+
+_arch_sot_dst="$PROJECT_ROOT/.ai-factory/ARCHITECTURE.md"
+_arch_sot_existed=0; [ -e "$_arch_sot_dst" ] && _arch_sot_existed=1
+copy_safe "$_arch_sot_src" "$_arch_sot_dst"
+rewrite_arch_sot_header "$_arch_sot_dst" "$_arch_sot_existed"
+
 # ── aif-handoff integration note ─────────────────────────
 # Per Stage 2 v3 §4.6 — single informational note, no prompt needed;
 # our Phase 3 skill-context files ARE the client-side aif-handoff integration.
