@@ -669,7 +669,7 @@ jobs:
           git config user.email "ci@example.com"
           git config user.name "CI"
           echo '{"name":"fake-consumer-rn","version":"0.0.0","private":true}' > package.json
-          # next.config.js triggers auto-detection in setup.sh; also pass explicit stack to install.sh
+          # next.config.js marks the consumer as react-next; explicit stack passed to install.sh
           echo 'module.exports = {};' > next.config.js
           bash "$GITHUB_WORKSPACE/install.sh" react-next
       - name: Run framework own audits (Wave 10.4 — vitest, react-next)
@@ -884,17 +884,22 @@ jobs:
             exit 1
           fi
           echo "✓ self-detect snapshot stable"
-      - name: Verify setup.sh --stack=$(detect) --dry-run idempotent
+      # install.sh replaced the retired setup.sh wrapper here (2026-07-10); it refuses to run
+      # inside the package dir, so the probe targets a minimal tmp consumer instead.
+      - name: Verify install.sh --dry-run idempotent (stack from detect)
         run: |
           DETECTED=$(npm --prefix packages/core run detect --silent -- "$GITHUB_WORKSPACE" | jq -r .stack)
-          bash setup.sh --stack="$DETECTED" --dry-run --skip-aif-init --skip-deps > /tmp/run1.txt 2>&1
-          bash setup.sh --stack="$DETECTED" --dry-run --skip-aif-init --skip-deps > /tmp/run2.txt 2>&1
+          mkdir -p /tmp/dryrun-consumer && cd /tmp/dryrun-consumer
+          git init --quiet
+          echo '{"name":"dryrun-consumer","version":"0.0.0","private":true}' > package.json
+          bash "$GITHUB_WORKSPACE/install.sh" "$DETECTED" --dry-run > /tmp/run1.txt 2>&1
+          bash "$GITHUB_WORKSPACE/install.sh" "$DETECTED" --dry-run > /tmp/run2.txt 2>&1
           if ! diff /tmp/run1.txt /tmp/run2.txt > /dev/null; then
-            echo "::error::setup.sh --dry-run is not idempotent — L1 acceptance (a) violated"
+            echo "::error::install.sh --dry-run is not idempotent — L1 acceptance (a) violated"
             diff /tmp/run1.txt /tmp/run2.txt
             exit 1
           fi
-          echo "✓ setup.sh --dry-run idempotent (L1 acceptance a)"
+          echo "✓ install.sh --dry-run idempotent (L1 acceptance a)"
 
   framework-self-research:
     name: Research Agent v1 — self-application snapshot (L2 invariant)

@@ -44,7 +44,7 @@ Rules 1-4 are AIF `/aif` reuse (SSOT #31 ADOPT). Building a parallel surface for
 
 ## §3 Recursive bootstrap (D3=b)
 
-Chicken-and-egg: rule 2 needs `context7` MCP to research what MCPs exist, but `context7` is itself a rule 2 candidate. Resolution: `setup.sh` installs `context7` unconditionally as «stage 1 of tool bootstrapping» (GCC stage1 / `rustc` self-host analogue — cited in [README.md `Methodology`](../../../README.md)). `context7` is never proposed by rule 2; it is assumed present. Wave 5.2 implements the `setup.sh` hook.
+Chicken-and-egg: rule 2 needs `context7` MCP to research what MCPs exist, but `context7` is itself a rule 2 candidate. Resolution: the installer seeds `context7` unconditionally as «stage 1 of tool bootstrapping» — the `05-mcp` layer (`setup.d/05-mcp.sh`, run inside `install.sh` on the full path) merges it into `.mcp.json` (GCC stage1 / `rustc` self-host analogue — cited in [README.md `Methodology`](../../../README.md)). `context7` is never proposed by rule 2; it is assumed present. (Originally a Wave 5.2 `setup.sh` hook; ported to `05-mcp` when the legacy wrapper was retired, 2026-07-10.)
 
 ## §4 Cross-references
 
