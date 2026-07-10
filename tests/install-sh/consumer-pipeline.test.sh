@@ -11,7 +11,10 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 C=$(mktemp -d)
 # Minimal consumer package.json — install.sh requires one (mirrors r2-auto-wire.test.sh).
 printf '{"name":"consumer","version":"0.0.0"}\n' > "$C/package.json"
-( cd "$C" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force </dev/null ) >"$C/.install.log" 2>&1
+# --with-aif-suite: /pipeline is part of the F7-gated AIF operator suite (it drives the aif-handoff
+# dispatch loop). A consumer who wants a usable shipped /pipeline opts into the suite; this test
+# exercises the shipped pipeline helper, so it installs with the flag.
+( cd "$C" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force --with-aif-suite </dev/null ) >"$C/.install.log" 2>&1
 rc=$?
 [ "$rc" = "0" ] || bad "install rc=$rc (tail: $(tail -3 "$C/.install.log" | tr '\n' '|'))"
 

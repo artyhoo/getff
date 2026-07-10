@@ -18,13 +18,16 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
-MODE="interactive"; DRY=""; STACK=""; FULL=""
+MODE="interactive"; DRY=""; STACK=""; FULL=""; WITH_AIF_SUITE=""
 for a in "$@"; do
   case "$a" in
-    -y|--yes)   MODE="yes"; FULL="--full" ;;
-    --all)      MODE="all"; FULL="--full" ;;
-    --full)     MODE="yes"; FULL="--full" ;;
-    --dry-run)  DRY="--dry-run"; MODE="dry-run" ;;
+    -y|--yes)          MODE="yes"; FULL="--full" ;;
+    --all)             MODE="all"; FULL="--full" ;;
+    --full)            MODE="yes"; FULL="--full" ;;
+    --dry-run)         DRY="--dry-run"; MODE="dry-run" ;;
+    # F7: opt-in AIF operator suite — forward to install.sh (default omits it). This is the
+    # operator's recommended path, so the flag must survive the wrapper (setup.d/10-skills.sh).
+    --with-aif-suite)  WITH_AIF_SUITE="--with-aif-suite" ;;
     ts-server|react-next|react-spa|react-native) STACK="$a" ;;
   esac
 done
@@ -35,7 +38,7 @@ for tool in bash git python3 curl; do
 done
 
 echo "▶ Framework (install.sh)"
-bash "$HERE/install.sh" ${STACK:+$STACK} ${DRY:+$DRY} ${FULL:+$FULL}
+bash "$HERE/install.sh" ${STACK:+$STACK} ${DRY:+$DRY} ${FULL:+$FULL} ${WITH_AIF_SUITE:+$WITH_AIF_SUITE}
 
 echo "▶ Companions"
 source "$HERE/setup.d/engine.sh"
