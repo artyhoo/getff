@@ -252,19 +252,44 @@ else
   echo ""
   echo "▶ install-self-verify: proving fences fire, shields are up, generated tests non-vacuous"
 
-  _ISV_PASS=0; _ISV_FAIL=0
+  _ISV_PASS=0; _ISV_FAIL=0; _ISV_SKIP=0; _ISV_SKIPPED_NAMES=""
+  # A SKIP is a check that DID NOT RUN (its script is absent) — it is NOT a pass. Counting it
+  # separately keeps the success banner from claiming a property the run never proved
+  # (attention-is-not-a-mechanism.md §1: a check nobody ran is not a mechanism).
+  _isv_skip() {  # $1 = check name
+    _ISV_SKIP=$((_ISV_SKIP+1))
+    if [ -z "$_ISV_SKIPPED_NAMES" ]; then
+      _ISV_SKIPPED_NAMES="$1"
+    else
+      _ISV_SKIPPED_NAMES="$_ISV_SKIPPED_NAMES, $1"
+    fi
+  }
 
-  # D1: fences fire
+  # D1: fences fire.
+  # Deps landed in THIS run (70-deps → DEPS_INSTALLED=1), so a dep-missing SKIP inside the probe
+  # now is a real delivery gap, not a benign pre-install degrade: promote it to rc=1 via
+  # FENCES_FIRE_STRICT=1 (#932 semantics live inside check-fences-fire.sh) so a silently-degraded
+  # probe cannot be counted as a pass here. When deps were NOT installed this run, leave the env
+  # untouched — the gate's own default (auto-strict only under CI) applies.
   _FF_SCRIPT="$PROJECT_ROOT/scripts/check-fences-fire.sh"
   if [ -x "$_FF_SCRIPT" ]; then
-    if AIF_PROJECT_ROOT="$PROJECT_ROOT" bash "$_FF_SCRIPT"; then
+    if [ "${DEPS_INSTALLED:-}" = "1" ]; then
+      AIF_PROJECT_ROOT="$PROJECT_ROOT" FENCES_FIRE_STRICT=1 bash "$_FF_SCRIPT" && _ff_rc=0 || _ff_rc=$?
+    else
+      AIF_PROJECT_ROOT="$PROJECT_ROOT" bash "$_FF_SCRIPT" && _ff_rc=0 || _ff_rc=$?
+    fi
+    if [ "$_ff_rc" -eq 0 ]; then
       _ISV_PASS=$((_ISV_PASS+1))
     else
       _ISV_FAIL=$((_ISV_FAIL+1))
-      echo "  ✗ fences-fire FAILED — some installed ESLint rules are silent on bad input"
+      # Two distinct causes land here and rc alone cannot tell them apart; the specific reason is
+      # in check-fences-fire.sh's own line above. Under FENCES_FIRE_STRICT=1 a dep-missing SKIP is
+      # promoted to rc=1 (a real delivery gap post-install), which is NOT "rules are silent".
+      echo "  ✗ fences-fire FAILED — see check-fences-fire.sh output above (a rule was silent on bad input, or strict mode promoted a dep-missing SKIP to a failure)"
     fi
   else
     echo "  · fences-fire: script not found at $_FF_SCRIPT (40-configs.sh copy skipped?) — skipped"
+    _isv_skip "fences-fire"
   fi
 
   # D2: shields up
@@ -278,6 +303,7 @@ else
     fi
   else
     echo "  · shields-up: script not found at $_SU_SCRIPT — skipped"
+    _isv_skip "shields-up"
   fi
 
   # D5: mutation gate (install-time, framework-side — not shipped to consumer)
@@ -291,13 +317,20 @@ else
     fi
   else
     echo "  · generated-rule-mutation: script not at $_MUT_SCRIPT — skipped"
+    _isv_skip "generated-rule-mutation"
   fi
 
   echo ""
-  if [ "$_ISV_FAIL" -eq 0 ]; then
-    echo "✓ self-verify: $_ISV_PASS/3 checks passed — fences fire, shields active, generated tests non-vacuous"
+  if [ "$_ISV_FAIL" -gt 0 ]; then
+    _isv_fail_tail=""
+    [ "$_ISV_SKIP" -gt 0 ] && _isv_fail_tail=", $_ISV_SKIP skipped"
+    echo "⚠  self-verify: $_ISV_PASS/3 passed, $_ISV_FAIL FAILED$_isv_fail_tail — review output above before committing"
+  elif [ "$_ISV_SKIP" -gt 0 ]; then
+    # No failures, but ≥1 check never ran — DO NOT claim the three properties. Skipped checks
+    # are unproven, not proven-good.
+    echo "⚠  self-verify: ✓ $_ISV_PASS passed · ⚠ $_ISV_SKIP skipped ($_ISV_SKIPPED_NAMES) — skipped checks are NOT proven"
   else
-    echo "⚠  self-verify: $_ISV_PASS/3 passed, $_ISV_FAIL FAILED — review output above before committing"
+    echo "✓ self-verify: $_ISV_PASS/3 checks passed — fences fire, shields active, generated tests non-vacuous"
   fi
 fi
 
