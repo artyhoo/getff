@@ -4,9 +4,12 @@ paths:
   - ".github/workflows/**"
   - ".github/actions/**"
   - "*.sh"
+  - "setup"
+  - ".husky/**"
+  - "plugin/hooks/**"
 ---
 
-<!-- globs: .github/workflows/**, .github/actions/**, *.sh -->
+<!-- globs: .github/workflows/**, .github/actions/**, *.sh, setup, .husky/**, plugin/hooks/** -->
 <!-- inject: Rule: pin bare tool installs (pip install pkg==ver, npm install -g pkg@ver) in workflows AND repo shell scripts; use npm ci --prefix, not npm install. See ci-tool-pinning.md §1-§2. -->
 <!-- glob-liveness: allow .github/actions/** no composite action exists yet in this repo; scope is forward-declared for when one ships (CTX Stage 1 render-rule-index.mjs liveness check) -->
 
@@ -58,6 +61,7 @@ Rule B applies to `.github/workflows/*.yml` only (enforced by zizmor, §1).
 - `pip install -e .` — explicit editable flag
 - Already-pinned installs: `==` present for pip; `@` present for npm global
 - Comment lines (lines starting with `#`)
+- Printed hints — lines whose leading command is `echo` or `printf` (a printed manual-install fallback is a message, not an install; shell-script surfaces made this carve-out load-bearing, 2026-07-10)
 - Lines carrying the escape hatch token (see §3)
 
 ## §3 Escape hatch

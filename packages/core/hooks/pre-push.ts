@@ -214,11 +214,12 @@ function workflowYmlFiles(): string[] {
  * script, and is excluded by construction).
  */
 function shellScriptFiles(): string[] {
-  const r = run('git', ['ls-files']);
+  // -z: NUL-delimited, unquoted — non-ASCII paths would otherwise arrive
+  // quoted+escaped and break the extension match (cold-review m2).
+  const r = run('git', ['ls-files', '-z']);
   if (r.exitCode !== 0) return [];
   return r.stdout
-    .split('\n')
-    .map((l) => l.trim())
+    .split('\0')
     .filter((l) => l.length > 0 && isShellScriptPopulationFile(l));
 }
 

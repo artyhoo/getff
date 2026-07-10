@@ -31,7 +31,7 @@ One line per rule — full text: read `.claude/rules/<name>.md` (index: `.claude
 | `ai-laziness-traps.md` | A | any R-phase, audit, sample-based investigation, or open-ended AI task. | always-on core |
 | `attention-is-not-a-mechanism.md` | C | designing any load-bearing check (gate vs. bare human/AI attention). | always-on core |
 | `build-first-reuse-default.md` | A | any capability commit / new-capability proposal. | always-on core |
-| `ci-tool-pinning.md` | A | editing `.github/workflows/**` or any repo shell script (`*.sh`, `setup`, `install.sh`). | paths:(3), edit-time inject |
+| `ci-tool-pinning.md` | A | editing `.github/workflows/**` or any repo shell script (`*.sh`, `setup`, `install.sh`). | paths:(6), edit-time inject |
 | `companion-install-principle.md` | B | editing `setup.d/**` (companion install manifest/engine). | paths:(1), edit-time inject |
 | `doc-authority-hierarchy.md` | A | creating/editing any canonical or shipped consumer-facing doc. | paths:(4), edit-time inject |
 | `dual-implementation-discipline.md` | A | shipping a new CC-native hook + choosing its delivery channel(s). | paths:(3), edit-time inject |

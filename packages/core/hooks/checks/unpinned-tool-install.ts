@@ -42,21 +42,29 @@ export interface UnpinnedFinding {
  * (ci-tool-pinning.md §2, scope widening 2026-07-10).
  *
  * True for repo-relative paths that are executable shell scripts: any `*.sh`
- * file, plus the extensionless installer entrypoints `setup` and `install.sh`
- * (root-level). False for everything else — notably
+ * file (covers `install.sh`, `setup.d/*.sh`, hook/helper scripts at any
+ * depth), the root extensionless `setup` entrypoint, and extensionless files
+ * under `.husky/` (excluding husky-internal `.husky/_/`) and `plugin/hooks/`.
+ * False for everything else — notably
  * `setup.d/companions.manifest`, which engine.sh EXECUTES (install_cmd column)
  * but which is a data file: the companion no-pin policy
  * (companion-install-principle.md §1) must never be flagged, and exclusion here
  * is by construction, not by carve-out.
  */
 export function isShellScriptPopulationFile(relPath: string): boolean {
+  // husky-internal shims are upstream-managed, not our scripts.
+  if (relPath.startsWith('.husky/_/')) return false;
   if (relPath.endsWith('.sh')) return true;
   // Extensionless root installer entrypoint.
   if (relPath === 'setup') return true;
   // Extensionless shell scripts under known executable-hook dirs (backward-sweep
   // 2026-07-10: shebang'd but not *.sh — .husky/pre-push etc., plugin hooks).
-  if (relPath.startsWith('.husky/')) return true;
-  if (relPath.startsWith('plugin/hooks/')) return true;
+  // Only extensionless files: hooks.json / run-hook.cmd in the same dirs are
+  // not shell scripts and stay out of the population.
+  if (relPath.startsWith('.husky/') || relPath.startsWith('plugin/hooks/')) {
+    const base = relPath.slice(relPath.lastIndexOf('/') + 1);
+    return !base.includes('.');
+  }
   return false;
 }
 
@@ -67,6 +75,17 @@ const ESCAPE_HATCH_RE = /\bci-tool-pin:\s+allow\b/;
 const COMMENT_LINE_RE = /^\s*#/;
 
 /**
+ * Printed-hint line: `echo` / `printf` as the line's leading command. In shell
+ * scripts (installers, test fixtures) printing a manual-install fallback like
+ * `echo "npm install -g <pkg>"` is a MESSAGE, not an install — flagging it
+ * would hard-block pushes on help-text edits (cold-review M2, 2026-07-10).
+ * Heuristic, not a shell parser: an install command chained AFTER an echo on
+ * the same line (`echo hi && pip install x`) slips through — acceptable, no
+ * repo site hits it, and the §3 escape hatch covers intentional cases.
+ */
+const PRINT_LINE_RE = /^\s*(?:echo|printf)\b/;
+
+/**
  * Per-line pip-install check. Returns the hint string if the line is a
  * flaggable bare pip install, or null if it is clean / exempt.
  *
@@ -75,6 +94,9 @@ const COMMENT_LINE_RE = /^\s*#/;
 export function checkPipLine(rawLine: string): string | null {
   // Comment lines are not shell commands — skip.
   if (COMMENT_LINE_RE.test(rawLine)) return null;
+
+  // Printed hints (echo/printf-led lines) are messages, not installs — skip.
+  if (PRINT_LINE_RE.test(rawLine)) return null;
 
   // Escape hatch: exact token on the same line → skip.
   if (ESCAPE_HATCH_RE.test(rawLine)) return null;
@@ -102,6 +124,7 @@ export function checkPipLine(rawLine: string): string | null {
  */
 export function checkNpmGlobalLine(rawLine: string): string | null {
   if (COMMENT_LINE_RE.test(rawLine)) return null;
+  if (PRINT_LINE_RE.test(rawLine)) return null;
   if (ESCAPE_HATCH_RE.test(rawLine)) return null;
 
   if (!/\bnpm\s+(?:install|i)\s+-g\b/.test(rawLine)) return null;

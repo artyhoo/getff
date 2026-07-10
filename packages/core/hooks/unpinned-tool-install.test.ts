@@ -253,6 +253,19 @@ describe('unpinned-tool-install check — shell-script content', () => {
     expect(checkUnpinnedToolInstalls(sh, 'setup.sh')).toHaveLength(0);
   });
 
+  it('echo-printed install hint does NOT trip (printed-hint carve-out, cold-review M2)', () => {
+    const sh = [
+      'echo "Manual fallback: npm install -g ai-factory"',
+      '  printf "or: pip install some-tool\\n"',
+    ].join('\n');
+    expect(checkUnpinnedToolInstalls(sh, 'install.sh')).toHaveLength(0);
+  });
+
+  it('a real install after an echo line still trips (carve-out is line-leading only)', () => {
+    const sh = ['echo "installing..."', 'npm install -g ai-factory'].join('\n');
+    expect(checkUnpinnedToolInstalls(sh, 'install.sh')).toHaveLength(1);
+  });
+
   it('escape hatch token works in shell scripts too', () => {
     const sh = 'pip install some-tool  # ci-tool-pin: allow no stable release\n';
     expect(checkUnpinnedToolInstalls(sh, 'scripts/x.sh')).toHaveLength(0);
@@ -277,6 +290,13 @@ describe('isShellScriptPopulationFile — population boundaries', () => {
     expect(isShellScriptPopulationFile('.husky/pre-push')).toBe(true);
     expect(isShellScriptPopulationFile('.husky/pre-commit')).toBe(true);
     expect(isShellScriptPopulationFile('plugin/hooks/session-start')).toBe(true);
+  });
+
+  it('non-script files under the hook dirs are NOT in the population (negative — cold-review m1)', () => {
+    expect(isShellScriptPopulationFile('plugin/hooks/hooks.json')).toBe(false);
+    expect(isShellScriptPopulationFile('plugin/hooks/run-hook.cmd')).toBe(false);
+    expect(isShellScriptPopulationFile('.husky/_/husky.sh')).toBe(false); // husky-internal shim
+    expect(isShellScriptPopulationFile('.husky/_/pre-push')).toBe(false);
   });
 
   it('setup.d/companions.manifest is NOT in the population (negative — companion no-pin surface, companion-install-principle.md §1)', () => {
