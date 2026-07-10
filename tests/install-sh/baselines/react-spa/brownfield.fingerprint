@@ -50,8 +50,8 @@ d163649b204e0ea27669c9feccac0c6b82a8263cef38b745f0383fdb6530abe0  .nvmrc
 49d271a67220d37ac42809d9242fa938e280eed8342f4e9abbcc573298d858b7  eslint-rules-local/no-direct-time-randomness.mjs
 ce1b30260c67f072f5abd658c3b542464eb2f9f67322b2ea13ff198a2ae2d472  eslint-rules-local/no-direct-time-randomness.ts
 7753f59628dd5065af6054791589635da49507214d70c9c212d52b499cabb408  eslint-rules-local/no-unsafe-zod-parse.d.ts
-24a016bfc8a24ee9e206e178a70021a2e2e9ca589d716df76093a011c96fc77c  eslint-rules-local/no-unsafe-zod-parse.mjs
-38021ac9f780f2b6a064db9c18cc4d0a9767c0ea4943308927c0b58950231d13  eslint-rules-local/no-unsafe-zod-parse.ts
+83bd489f61a2eab5945b308326842b15caa28d1baac900729f6c3aabb15bedb7  eslint-rules-local/no-unsafe-zod-parse.mjs
+cbfca83cc97960807bf49cbd03523d875b933913fcc9558eeeaf16b514c97570  eslint-rules-local/no-unsafe-zod-parse.ts
 0f68247eec155627b3834c9c3853902a2762c8b9b7cb9a5016b82aa36296e21c  eslint-rules-local/require-error-boundary.d.ts
 695ea2e2e35ccff9df48b2b0afc3fb665648cb1b225d19ab4ca1eca35b4a3d50  eslint-rules-local/require-error-boundary.mjs
 bd9fc61ee1c2ac3b53ab9fa0205f8caa561b8fc4d2e1b519365729e010ce5200  eslint-rules-local/require-error-boundary.ts
@@ -66,7 +66,7 @@ a380122e42347b23290ad0113bb2a733aece7b2d76672ed13d44fdff389651c2  eslint-rules-l
 32873e46c5c0cd2312304afec72126d1a04e56bf682dc9a7e847fe6f2377ec45  package.json
 ec7f6c81bb09221c53a972d0c0f8e6d1a4f080da92548a1461a37cb87a603ffd  packages/core/eslint-rules/index.ts
 ce1b30260c67f072f5abd658c3b542464eb2f9f67322b2ea13ff198a2ae2d472  packages/core/eslint-rules/no-direct-time-randomness.ts
-38021ac9f780f2b6a064db9c18cc4d0a9767c0ea4943308927c0b58950231d13  packages/core/eslint-rules/no-unsafe-zod-parse.ts
+cbfca83cc97960807bf49cbd03523d875b933913fcc9558eeeaf16b514c97570  packages/core/eslint-rules/no-unsafe-zod-parse.ts
 a380122e42347b23290ad0113bb2a733aece7b2d76672ed13d44fdff389651c2  packages/core/eslint-rules/require-otel-span.ts
 526b32ffb896fcba11e16378ef5b87f8bc261ddeb5d17dca69164c9409a8e814  packages/core/eslint-rules/restricted-syntax-audit-exempt.ts
 d03a610b21ee13e6dd3efedfed90e1a3a8e5722bcb998358c7aa3e163926b001  packages/core/hooks/checks/cmd-script-liveness.ts

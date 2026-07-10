@@ -24,6 +24,16 @@ ruleTester.run('no-unsafe-zod-parse', noUnsafeZodParse, {
     `const r = JSON.parse(text);`,
     `const d = Date.parse(str);`,
     `const p = path.parse(str);`,
+    // Fully-static literal argument: no external input can flow through it, so a throwing
+    // .parse() is a legitimate fail-fast pattern (e.g. config defaults), not a boundary
+    // validation gap. Live incident: ConfigSchema.parse({port: 3000}) in src/index.ts fired
+    // R2 on a fresh ts-server install (false-positive arm of P1.1(e)).
+    `const config = ConfigSchema.parse({ port: 3000 });`,
+    `const config = ConfigSchema.parse({ port: 3000, name: 'api', flags: { debug: false } });`,
+    `const list = ItemsSchema.parse([1, 2, 'three', null]);`,
+    `const n = NumSchema.parse(-42);`,
+    `const s = StrSchema.parse(\`static\`);`,
+    `const config = ConfigSchema.parse({ port: 3000 } as const);`,
   ],
   invalid: [
     // *Schema naming convention: identifiers suffixed with Schema are treated as Zod schemas
@@ -44,6 +54,24 @@ ruleTester.run('no-unsafe-zod-parse', noUnsafeZodParse, {
     // Scope-resolved z.* init: const S = z.object({...}); S.parse(input)
     {
       code: `const S = z.object({ id: z.string() }); const r = S.parse(input);`,
+      errors: [{ messageId: 'useSafeParse' }],
+    },
+    // Paired-negative for the static-literal skip: an argument that LOOKS literal but
+    // carries external input anywhere inside must still fire.
+    {
+      code: `const c = ConfigSchema.parse({ port: process.env.PORT });`,
+      errors: [{ messageId: 'useSafeParse' }],
+    },
+    {
+      code: `const c = ConfigSchema.parse({ port: 3000, ...overrides });`,
+      errors: [{ messageId: 'useSafeParse' }],
+    },
+    {
+      code: `const c = ConfigSchema.parse([1, input]);`,
+      errors: [{ messageId: 'useSafeParse' }],
+    },
+    {
+      code: `const c = ConfigSchema.parse(\`port=\${input}\`);`,
       errors: [{ messageId: 'useSafeParse' }],
     },
   ],
