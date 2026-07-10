@@ -189,6 +189,7 @@ For React/Next, also add:
 ```json
 {
   "scripts": {
+    "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "test-storybook": "test-storybook",
     "test:e2e": "playwright test"
@@ -233,8 +234,8 @@ npm install --save-dev \
   eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-jsx-a11y \
   eslint-plugin-testing-library \
   @playwright/test \
-  @storybook/react-vite @storybook/test \
-  @storybook/test-runner concurrently@^9.0.0 wait-on@^8.0.0 http-server@^14.1.0
+  storybook@^10.5.0 @storybook/nextjs-vite@^10.5.0 \
+  @storybook/test-runner@^0.24.4 concurrently@^9.0.0 wait-on@^8.0.0 http-server@^14.1.0
 ```
 
 Also: `import 'server-only'` and `import 'client-only'` packages — bundled with Next.js, no install needed.
