@@ -330,6 +330,8 @@ jobs:
         run: bash tests/install-sh/f8-agents-scripts-shipped.test.sh
       - name: Run install-sh .ai-factory SoT-materialized test (consumer-install-hardening F8d)
         run: bash tests/install-sh/f8d-ai-factory-sot-materialized.test.sh
+      - name: Run install-sh with-aif-suite flag test (F7 — operator-suite skills gated behind explicit opt-in)
+        run: bash tests/install-sh/with-aif-suite-flag.test.sh
       - name: Run install-sh no-husky-init-advice test (consumer-install-hardening F8c)
         run: bash tests/install-sh/f8c-no-husky-init-advice.test.sh
       - name: Run install-sh prettierignore-generated-docs test (consumer-install-hardening F15)
