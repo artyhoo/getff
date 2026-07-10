@@ -224,7 +224,10 @@ function requireTool(
   const r = run(cmd, args);
   if (r.notFound) {
     if (onMissing === 'warn-skip') {
-      process.stderr.write(
+      // stdout (not stderr) to match the closest tool-absence-skip precedent — the
+      // lychee "not found → skip" path below (§8) writes its degradation notice to
+      // stdout. Keeps the consumer-degrade convention consistent across sections.
+      process.stdout.write(
         `⚠ DEGRADED: ${cmd} not found — workflow security lint SKIPPED\n${installHint}\n`,
       );
       return;

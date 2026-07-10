@@ -207,17 +207,27 @@ function runHook(
  * (zizmor, actionlint) and lychee wherever the runner happens to install them.
  * This simulates a consumer/CI box that never installed the optional scanners, so
  * the TOOL-ABSENCE axis (#923 follow-up) is exercised rather than the runner's luck.
+ *
+ * `presentStubs` optionally seeds exit-0 stubs into the allowlist dir for tools that
+ * SHOULD be present — used to make §1 actionlint pass so execution reaches §2 zizmor
+ * (otherwise §1 dies first and §2's onMissing wiring is never exercised).
  */
 function runHookStrippedTools(
   dir: string,
   hook: string,
   baseRef: string,
+  presentStubs: readonly string[] = [],
 ): { status: number; stdout: string; stderr: string } {
   const toolsBin = join(dir, '.tools-bin');
   mkdirSync(toolsBin, { recursive: true });
   symlinkSync(process.execPath, join(toolsBin, 'node'));
   const gitPath = execSync('command -v git').toString().trim();
   symlinkSync(gitPath, join(toolsBin, 'git'));
+  for (const tool of presentStubs) {
+    const p = join(toolsBin, tool);
+    writeFileSync(p, '#!/bin/sh\nexit 0\n');
+    chmodSync(p, 0o755);
+  }
 
   const r = spawnSync('node', ['--import', TSX_LOADER, hook], {
     encoding: 'utf8',
@@ -236,15 +246,12 @@ function runHookStrippedTools(
   };
 }
 
-/** Write a minimal (contents irrelevant — the scanners are absent) workflow file so
- *  §1/§2's `workflows.length > 0` guard engages. */
-function writeWorkflow(dir: string): void {
-  mkdirSync(join(dir, '.github/workflows'), { recursive: true });
-  writeFileSync(
-    join(dir, '.github/workflows/ci.yml'),
-    'name: ci\non: [push]\njobs:\n  x:\n    runs-on: ubuntu-latest\n    steps: [{ run: "true" }]\n',
-  );
-}
+/** Minimal workflow file body (contents irrelevant — the scanners are absent); the
+ *  file's mere presence flips §1/§2's `workflows.length > 0` guard on. Shared by the
+ *  addConsumerCommit calls that plant a workflow (no separate pre-write needed —
+ *  addConsumerCommit writes + commits this same path). */
+const WORKFLOW_YML =
+  'name: ci\non: [push]\njobs:\n  x:\n    runs-on: ubuntu-latest\n    steps: [{ run: "true" }]\n';
 
 describe('pre-push.ts — consumer-layout push shield (#920/#921)', { timeout: SLOW_SHELL_MS }, () => {
   it('POSITIVE — maintainer-only paths absent → a real consumer push reaches exit 0', () => {
@@ -385,13 +392,7 @@ describe('pre-push.ts — consumer-layout push shield (#920/#921)', { timeout: S
 
   it('P0.1c — consumer WITH a workflow + scanners absent → exit 0 AND a LOUD DEGRADED line for EACH missing scanner', () => {
     const { dir, baseSha, hook } = makeConsumerSandbox();
-    writeWorkflow(dir);
-    addConsumerCommit(
-      dir,
-      '.github/workflows/ci.yml',
-      'name: ci\non: [push]\njobs:\n  x:\n    runs-on: ubuntu-latest\n    steps: [{ run: "true" }]\n',
-      'ci: add workflow',
-    );
+    addConsumerCommit(dir, '.github/workflows/ci.yml', WORKFLOW_YML, 'ci: add workflow');
 
     const r = runHookStrippedTools(dir, hook, baseSha);
     const out = `${r.stdout}\n${r.stderr}`;
@@ -416,21 +417,38 @@ describe('pre-push.ts — consumer-layout push shield (#920/#921)', { timeout: S
       join(dir, 'docs/meta-factory/prior-art-evaluations.md'),
       '# Prior-art SSOT\n\n| ID | Capability | Verdict |\n|---|---|---|\n',
     );
-    writeWorkflow(dir);
-    addConsumerCommit(
-      dir,
-      '.github/workflows/ci.yml',
-      'name: ci\non: [push]\njobs:\n  x:\n    runs-on: ubuntu-latest\n    steps: [{ run: "true" }]\n',
-      'ci: add workflow',
-    );
+    addConsumerCommit(dir, '.github/workflows/ci.yml', WORKFLOW_YML, 'ci: add workflow');
 
     const r = runHookStrippedTools(dir, hook, baseSha);
     const out = `${r.stdout}\n${r.stderr}`;
 
     // ci-tool-pinning discipline preserved: on the framework repo a missing workflow
-    // linter is a hard fail (die), NOT a soft DEGRADE.
+    // linter is a hard fail (die), NOT a soft DEGRADE. §1 actionlint dies first here.
     expect(r.status, out).toBe(1);
     expect(out, out).toMatch(/actionlint not found in PATH/);
+    expect(out, out).not.toMatch(/DEGRADED/);
+  });
+
+  it('P0.1c — FRAMEWORK layout, actionlint present+passing, zizmor absent → §2 zizmor fail-closed (nonzero, die not DEGRADE)', () => {
+    // Distinct from the arm above: there §1 actionlint dies FIRST, so §2 zizmor's
+    // onMissing='die' wiring is never reached. Here actionlint is stubbed present+
+    // passing so execution flows past §1 into §2 — proving the zizmor requireTool
+    // call actually carries onMissingTool='die' in the framework layout (a wrong 5th
+    // arg on that call would let this arm DEGRADE and exit 0, reddening the suite).
+    const { dir, baseSha, hook } = makeConsumerSandbox();
+    mkdirSync(join(dir, 'docs/meta-factory'), { recursive: true });
+    writeFileSync(
+      join(dir, 'docs/meta-factory/prior-art-evaluations.md'),
+      '# Prior-art SSOT\n\n| ID | Capability | Verdict |\n|---|---|---|\n',
+    );
+    addConsumerCommit(dir, '.github/workflows/ci.yml', WORKFLOW_YML, 'ci: add workflow');
+
+    const r = runHookStrippedTools(dir, hook, baseSha, ['actionlint']);
+    const out = `${r.stdout}\n${r.stderr}`;
+
+    // §1 actionlint passed (stubbed exit 0); §2 zizmor is absent → die, NOT DEGRADE.
+    expect(r.status, out).toBe(1);
+    expect(out, out).toMatch(/zizmor not found in PATH/);
     expect(out, out).not.toMatch(/DEGRADED/);
   });
 });
