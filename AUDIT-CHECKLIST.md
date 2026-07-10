@@ -52,13 +52,14 @@ done
 # NOTE: scripts/audit-ai-docs.sh is the CONSUMER-installed path (absent in this source repo
 # by design — see agents/living-docs-auditor.md). The source-repo canonical lives under
 # packages/core/audit-self/.
-[ -x setup.sh ] && [ -x install.sh ] && [ -x packages/core/audit-self/audit-ai-docs.sh ] || echo "FAIL: missing +x"
+[ -x setup ] && [ -x install.sh ] && [ -x packages/core/audit-self/audit-ai-docs.sh ] || echo "FAIL: missing +x"
 # EXPECTED: silent (no output = pass).
-# KNOWN FINDING (2026-05-21): setup.sh is git mode 100644 (not +x) while install.sh is 100755.
-# packages/core/audit-self/audit-ai-docs.sh is ALSO git mode 100644 (verify:
-# git ls-files -s packages/core/audit-self/audit-ai-docs.sh). This probe FAILs on both —
-# a real inconsistency finding, not a stale-probe artifact. Both scripts are invoked via
-# `bash <script>` so they work, but the bit is inconsistent. Surface, do not fix here.
+# KNOWN FINDING (2026-05-21): packages/core/audit-self/audit-ai-docs.sh is git mode 100644
+# (verify: git ls-files -s packages/core/audit-self/audit-ai-docs.sh) while setup and
+# install.sh are 100755. This probe FAILs on it — a real inconsistency finding, not a
+# stale-probe artifact. The script is invoked via `bash <script>` so it works, but the bit
+# is inconsistent. Surface, do not fix here. (The legacy setup.sh, retired 2026-07-10, had
+# the same 100644 finding.)
 ```
 
 ---
@@ -274,14 +275,14 @@ Apply selected R-rules to this very package:
 
 ## Section 5 — Setup and install verification (~5 min, requires test env)
 
-### 5.1 In a fresh project, setup.sh succeeds
+### 5.1 In a fresh project, install.sh succeeds
 
 ```bash
 mkdir /tmp/rat-test && cd /tmp/rat-test
 git init && npm init -y
 
-# Run setup
-bash /path/to/rules-as-tests-aif/setup.sh --stack=ts-server --skip-deps
+# Run the installer (file deploy only — no npm install; `./setup -y` is the full path)
+bash /path/to/getff/install.sh ts-server
 
 # Verify
 ls -la .ai-factory/ .claude/agents/ scripts/ 2>/dev/null
@@ -291,10 +292,10 @@ ls -la .ai-factory/ .claude/agents/ scripts/ 2>/dev/null
 ### 5.2 install.sh handles existing files gracefully
 
 ```bash
-# Run setup TWICE in same project — should not corrupt
-bash /path/to/setup.sh --skip-deps
-bash /path/to/setup.sh --skip-deps  # second run
-# EXPECTED: warns about existing files, does not crash
+# Run the installer TWICE in same project — should not corrupt
+bash /path/to/getff/install.sh ts-server
+bash /path/to/getff/install.sh ts-server  # second run
+# EXPECTED: skips/warns on existing files, does not crash
 ```
 
 ### 5.3 audit-ai-docs.sh runs on empty project without crashing
