@@ -52,6 +52,12 @@ if [ "${INSTALL_SH_LIB_ONLY:-}" = "1" ]; then
 fi
 
 STACK=""
+# P0.3 (ultrareview): distinguish an EXPLICIT positional stack (the user typed `./setup ts-server`)
+# from a stack that was auto-detected or menu-picked. The multi-stack monorepo config placement
+# (setup.d/40-configs.sh via _resolve_workspace_stacks) consults this to honor the explicit choice
+# for signal-free workspaces — the observed pnpm-hoisting bug ignored the positional arg entirely.
+# Set ONLY on the positional-arg branch below; the auto-detect + interactive-menu paths leave it "".
+STACK_EXPLICIT=""
 FORCE=""
 DRY_RUN=""
 FULL=""
@@ -64,7 +70,7 @@ for arg in "$@"; do
     --full)                 FULL="--full" ;;
     --wire-ci)              WIRE_CI="--wire-ci" ;;
     --refresh)              REFRESH="--refresh" ;;
-    ts-server|react-next|react-spa|react-native)   STACK="$arg" ;;
+    ts-server|react-next|react-spa|react-native)   STACK="$arg"; STACK_EXPLICIT="1" ;;
     *)                      ;;
   esac
 done

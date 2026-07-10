@@ -179,27 +179,43 @@ generate_eslint_barrel
 mkdir_safe "$PROJECT_ROOT/.github/workflows"
 
 # §13.5 I-2 L2: per-workspace eslint.config.mjs placement (SSOT #182).
-# _detect_stacks_per_workspace (lib.sh) echoes "dir<TAB>stack" per workspace dir and nothing for
-# flat / single-root repos — the empty-output case falls through to the single-root path below,
-# preserving the original single-stack behavior unchanged (no regression).
-_ws_lines=$(_detect_stacks_per_workspace "$PROJECT_ROOT")
+# P0.3 (ultrareview): _resolve_workspace_stacks (lib.sh) wraps the pure _detect_stacks_per_workspace
+# map and applies the config-placement precedence (own signal > explicit positional STACK arg > root
+# package.json signal > unknown), echoing "dir<TAB>stack<TAB>provenance" per workspace and nothing
+# for flat / single-root repos — the empty-output case falls through to the single-root path below,
+# preserving the original single-stack behavior unchanged (no regression). Root fallback is what fixes
+# the pnpm-hoisting case (shared `typescript` hoisted to root → every workspace's own package.json is
+# signal-free → `unknown`), which previously placed ZERO configs and silently exited 0.
+_ws_lines=$(_resolve_workspace_stacks "$PROJECT_ROOT")
 if [ -n "$_ws_lines" ]; then
   # ── Multi-stack monorepo: place per-workspace eslint configs + eslint-rules-local stubs ──────
   echo "▶ Multi-stack monorepo: placing per-workspace ESLint configs"
-  while IFS=$'\t' read -r _ws_dir _ws_stack; do
+  _ws_placed=0            # count of workspaces that received a config (aggregate loud-fail gate below)
+  _ws_unknown_report=""   # accumulate still-unknown workspaces to name in the loud-fail message
+  while IFS=$'\t' read -r _ws_dir _ws_stack _ws_prov; do
     [ -n "$_ws_dir" ] || continue
     _ws_abs="$PROJECT_ROOT/$_ws_dir"
-    echo "▶ Per-workspace config: $_ws_dir → $_ws_stack preset"
+    # Provenance suffix: show WHY this workspace got its stack (own signal is silent; the fallbacks
+    # announce themselves so a hoisting monorepo's install output is self-explaining).
+    case "$_ws_prov" in
+      explicit-arg)  _ws_prov_note=" (explicit stack arg)" ;;
+      root-fallback) _ws_prov_note=" (root package.json fallback)" ;;
+      *)             _ws_prov_note="" ;;
+    esac
+    echo "▶ Per-workspace config: $_ws_dir → $_ws_stack preset$_ws_prov_note"
     mkdir_safe "$_ws_abs"
     case "$_ws_stack" in
       ts-server)
         copy_safe "$PKG_ROOT/templates/ts-server/eslint.config.mjs" "$_ws_abs/eslint.config.mjs"
+        _ws_placed=$((_ws_placed + 1))
         ;;
       react-next)
         copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/eslint.config.react.mjs" "$_ws_abs/eslint.config.mjs"
+        _ws_placed=$((_ws_placed + 1))
         ;;
       react-spa)
         copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/eslint.config.react.mjs" "$_ws_abs/eslint.config.mjs"
+        _ws_placed=$((_ws_placed + 1))
         ;;
       react-native)
         # RN ships TWO baselines + a shared base; detect Expo vs bare-RN per workspace package.json.
@@ -210,9 +226,14 @@ if [ -n "$_ws_lines" ]; then
         fi
         copy_safe "$PKG_ROOT/packages/preset-react-native/templates/$_rn_eslint" "$_ws_abs/eslint.config.mjs"
         copy_safe "$PKG_ROOT/packages/preset-react-native/templates/eslint.config.rn-common.mjs" "$_ws_abs/eslint.config.rn-common.mjs"
+        _ws_placed=$((_ws_placed + 1))
         ;;
       unknown)
-        echo "  ⚠ $_ws_dir: unknown stack — no eslint config placed (re-checkable marker; not exit 1)"
+        # Still-unknown after own + explicit-arg + root fallback: KEEP as a re-checkable marker per
+        # the §13.5 fork-2 default (never a PER-workspace exit 1). The AGGREGATE all-unknown case is
+        # caught by the loud-fail after the loop — a silent zero-config install is the observed DoS.
+        echo "  ⚠ $_ws_dir: unknown stack (own package.json, explicit arg, and root package.json all signal-free) — no eslint config placed (re-checkable marker; not exit 1)"
+        _ws_unknown_report="${_ws_unknown_report}     - ${_ws_dir} (unknown — no dependency signal)\n"
         continue
         ;;
     esac
@@ -226,6 +247,24 @@ if [ -n "$_ws_lines" ]; then
       echo "  ✓ $_ws_dir/eslint-rules-local/index.mjs stub → root"
     fi
   done <<< "$_ws_lines"
+  # P0.3 (ultrareview) AGGREGATE loud-fail: the multi-stack path ran but placed ZERO configs — every
+  # workspace stayed `unknown` after own-signal + explicit-arg + root-fallback. A silent zero-config
+  # install is the observed commit-DoS (lint finds no eslint config → crashes rc=2 → pre-commit blocks
+  # EVERY commit while the installer exits 0). Fail LOUD and instructively instead. Distinct from the
+  # per-workspace `unknown` marker default above: this is the whole-repo no-config-anywhere case.
+  if [ "$_ws_placed" -eq 0 ]; then
+    {
+      echo ""
+      echo "❌ Multi-stack monorepo: ZERO per-workspace ESLint configs were placed."
+      echo "   Every workspace classified 'unknown' — no dependency signal in its own package.json,"
+      echo "   no explicit stack arg, and the root package.json carries no stack signal either:"
+      printf '%b' "$_ws_unknown_report"
+      echo "   A zero-config install would make 'lint' crash (rc=2) and block EVERY commit."
+      echo "   Re-run naming your stack explicitly so signal-free workspaces inherit it, e.g.:"
+      echo "     ./setup ts-server        # or react-next | react-spa | react-native"
+    } >&2
+    exit 1
+  fi
   # GH #807: the multi-stack branch placed per-workspace ESLint configs but no root
   # .dependency-cruiser.cjs, so `arch:check` (depcruise --config .dependency-cruiser.cjs) exited 1
   # and validate went RED. Unlike ESLint's per-config (nearest-config) scoping, dependency-cruiser

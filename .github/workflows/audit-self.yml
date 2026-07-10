@@ -386,6 +386,8 @@ jobs:
         run: bash tests/install-sh/setup-orchestrator.test.sh
       - name: Run install-sh B3 monorepo per-workspace wire test (multistack-augment-first #827 B3)
         run: bash tests/install-sh/b3-monorepo-per-workspace-wire.test.sh
+      - name: Run install-sh monorepo stack-fallback test (P0.3 ultrareview — root fallback + explicit arg + loud all-unknown)
+        run: bash tests/install-sh/monorepo-stack-fallback.test.sh
       - name: Run ci-success aggregate-gate paired-negative
         run: bash scripts/ci-success-gate.test.sh
       - name: Run install.sh internal-refs transform test (Item 12 mirror-sync, SSOT)
