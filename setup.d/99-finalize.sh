@@ -252,19 +252,44 @@ else
   echo ""
   echo "▶ install-self-verify: proving fences fire, shields are up, generated tests non-vacuous"
 
-  _ISV_PASS=0; _ISV_FAIL=0
+  _ISV_PASS=0; _ISV_FAIL=0; _ISV_SKIP=0; _ISV_SKIPPED_NAMES=""
+  # A SKIP is a check that DID NOT RUN (its script is absent) — it is NOT a pass. Counting it
+  # separately keeps the success banner from claiming a property the run never proved
+  # (attention-is-not-a-mechanism.md §1: a check nobody ran is not a mechanism).
+  _isv_skip() {  # $1 = check name
+    _ISV_SKIP=$((_ISV_SKIP+1))
+    if [ -z "$_ISV_SKIPPED_NAMES" ]; then
+      _ISV_SKIPPED_NAMES="$1"
+    else
+      _ISV_SKIPPED_NAMES="$_ISV_SKIPPED_NAMES, $1"
+    fi
+  }
 
-  # D1: fences fire
+  # D1: fences fire.
+  # Deps landed in THIS run (70-deps → DEPS_INSTALLED=1), so a dep-missing SKIP inside the probe
+  # now is a real delivery gap, not a benign pre-install degrade: promote it to rc=1 via
+  # FENCES_FIRE_STRICT=1 (#932 semantics live inside check-fences-fire.sh) so a silently-degraded
+  # probe cannot be counted as a pass here. When deps were NOT installed this run, leave the env
+  # untouched — the gate's own default (auto-strict only under CI) applies.
   _FF_SCRIPT="$PROJECT_ROOT/scripts/check-fences-fire.sh"
   if [ -x "$_FF_SCRIPT" ]; then
-    if AIF_PROJECT_ROOT="$PROJECT_ROOT" bash "$_FF_SCRIPT"; then
+    if [ "${DEPS_INSTALLED:-}" = "1" ]; then
+      AIF_PROJECT_ROOT="$PROJECT_ROOT" FENCES_FIRE_STRICT=1 bash "$_FF_SCRIPT" && _ff_rc=0 || _ff_rc=$?
+    else
+      AIF_PROJECT_ROOT="$PROJECT_ROOT" bash "$_FF_SCRIPT" && _ff_rc=0 || _ff_rc=$?
+    fi
+    if [ "$_ff_rc" -eq 0 ]; then
       _ISV_PASS=$((_ISV_PASS+1))
     else
       _ISV_FAIL=$((_ISV_FAIL+1))
-      echo "  ✗ fences-fire FAILED — some installed ESLint rules are silent on bad input"
+      # Two distinct causes land here and rc alone cannot tell them apart; the specific reason is
+      # in check-fences-fire.sh's own line above. Under FENCES_FIRE_STRICT=1 a dep-missing SKIP is
+      # promoted to rc=1 (a real delivery gap post-install), which is NOT "rules are silent".
+      echo "  ✗ fences-fire FAILED — see check-fences-fire.sh output above (a rule was silent on bad input, or strict mode promoted a dep-missing SKIP to a failure)"
     fi
   else
     echo "  · fences-fire: script not found at $_FF_SCRIPT (40-configs.sh copy skipped?) — skipped"
+    _isv_skip "fences-fire"
   fi
 
   # D2: shields up
@@ -278,6 +303,7 @@ else
     fi
   else
     echo "  · shields-up: script not found at $_SU_SCRIPT — skipped"
+    _isv_skip "shields-up"
   fi
 
   # D5: mutation gate (install-time, framework-side — not shipped to consumer)
@@ -291,13 +317,20 @@ else
     fi
   else
     echo "  · generated-rule-mutation: script not at $_MUT_SCRIPT — skipped"
+    _isv_skip "generated-rule-mutation"
   fi
 
   echo ""
-  if [ "$_ISV_FAIL" -eq 0 ]; then
-    echo "✓ self-verify: $_ISV_PASS/3 checks passed — fences fire, shields active, generated tests non-vacuous"
+  if [ "$_ISV_FAIL" -gt 0 ]; then
+    _isv_fail_tail=""
+    [ "$_ISV_SKIP" -gt 0 ] && _isv_fail_tail=", $_ISV_SKIP skipped"
+    echo "⚠  self-verify: $_ISV_PASS/3 passed, $_ISV_FAIL FAILED$_isv_fail_tail — review output above before committing"
+  elif [ "$_ISV_SKIP" -gt 0 ]; then
+    # No failures, but ≥1 check never ran — DO NOT claim the three properties. Skipped checks
+    # are unproven, not proven-good.
+    echo "⚠  self-verify: ✓ $_ISV_PASS passed · ⚠ $_ISV_SKIP skipped ($_ISV_SKIPPED_NAMES) — skipped checks are NOT proven"
   else
-    echo "⚠  self-verify: $_ISV_PASS/3 passed, $_ISV_FAIL FAILED — review output above before committing"
+    echo "✓ self-verify: $_ISV_PASS/3 checks passed — fences fire, shields active, generated tests non-vacuous"
   fi
 fi
 
@@ -330,10 +363,13 @@ else
   # step 4 fallback: the manual dep-install (run only when --full/[y/N] consent was not given, or
   # the install ran but didn't fully succeed). Built from the SAME DEVDEPS/RUNTIME_DEPS arrays the
   # installer uses (setup.d/70-deps.sh) → the list cannot drift from what we install (#two-prompts-drift).
+  # The npm arm mirrors §8's $NPM_PEER_FLAG (react-native a11y-peer ERESOLVE workaround, set in
+  # 70-deps.sh) for the same reason: a copy-pasted RN command without it aborts on the very
+  # ERESOLVE the automated install avoids. `:+` expansion keeps set -u safety + no trailing space.
   case "$(detect_pm)" in
     pnpm) _add="pnpm add -D"; _add_rt="pnpm add" ;;
     yarn) _add="yarn add -D"; _add_rt="yarn add" ;;
-    *)    _add="npm install --save-dev"; _add_rt="npm install" ;;
+    *)    _add="npm install --save-dev${NPM_PEER_FLAG:+ $NPM_PEER_FLAG}"; _add_rt="npm install${NPM_PEER_FLAG:+ $NPM_PEER_FLAG}" ;;
   esac
   echo "  4. Install dependencies (or re-run: ./install.sh ${STACK:-ts-server} --full):"
   echo ""

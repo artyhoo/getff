@@ -125,15 +125,14 @@ CORE_DEVDEPS=(
 )
 # npx-float (2026-07-10): concurrently/http-server/wait-on are invoked via bare `npx` by the
 # shipped react-next CI template (packages/preset-next-15-canonical/templates/
-# github-actions-ci-ui.yml, test-storybook job). The legacy setup.sh path (Batch K) already
-# merges the same pins into the consumer's package.json via
-# packages/core/templates/react-next/storybook-package-additions.json — but the ./setup →
-# install.sh path delivered NOTHING, so for those consumers non-TTY npx silently registry-fetched
-# <pkg>@latest on every CI run — no lockfile coverage, floats with upstream majors (the P0.2
-# typescript@7.0.2 failure class on a new surface). Pins mirror storybook-package-additions.json
-# (keeps both delivery paths on the same majors; three-way parity in the test) and stay node-20
-# compatible (concurrently@10 needs node >=22; the shipped .nvmrc is 20.19.0). Guarded by
-# tests/install-sh/cic-s3-dep-install.test.sh Arms F+G.
+# github-actions-ci-ui.yml, test-storybook job). The installer delivered none of the three, so
+# non-TTY npx silently registry-fetched <pkg>@latest on every consumer CI run — no lockfile
+# coverage, floats with upstream majors (the P0.2 typescript@7.0.2 failure class on a new
+# surface). Pins mirror packages/core/templates/react-next/storybook-package-additions.json
+# (sibling react-next template declaring the same toolchain — the retired setup.sh used to merge
+# it; three-way parity in the test keeps the pin copies aligned) and stay node-20 compatible
+# (concurrently@10 needs node >=22; the shipped .nvmrc is 20.19.0). Guarded by
+# tests/install-sh/cic-s3-dep-install.test.sh Arms H+I.
 REACT_DEVDEPS=(
   @vitejs/plugin-react jsdom @testing-library/react
   @testing-library/jest-dom @next/eslint-plugin-next

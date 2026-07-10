@@ -329,7 +329,7 @@ export function probeD4(cwd: string): { result: 'pass' | 'warn'; message: string
     return { result: 'pass', message: `${RULE} (no package.json — skipped)` };
   }
   if (!existsSync(decPath)) {
-    return { result: 'warn', message: `${RULE} — .ai-factory/tool-decisions.md missing; run setup.sh or /tool-bootstrapping to seed` };
+    return { result: 'warn', message: `${RULE} — .ai-factory/tool-decisions.md missing; re-run install.sh (auto-seeds it) or /tool-bootstrapping` };
   }
   const pkgMtime = statSync(pkgPath).mtimeMs;
   const decMtime = statSync(decPath).mtimeMs;

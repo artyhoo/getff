@@ -29,15 +29,23 @@
 #   - Parity check: INSTALL.md's §4 pins and setup.d/70-deps.sh's arrays are grepped independently
 #     (two-sided) so neither can drift alone.
 #
+# #two-prompts-drift (printed manual fallback vs automated install):
+#   - Arm F: react-native + npm, NO --full → the Next-steps manual commands (devDep AND runtime)
+#     carry --legacy-peer-deps, mirroring the §8 npm arms' $NPM_PEER_FLAG (the a11y-peer ERESOLVE
+#     workaround) — a consumer who declined the automated install and copy-pastes must not hit
+#     the very ERESOLVE abort the automated path avoids.
+#   - Arm G (paired-negative): ts-server + npm, NO --full → NEITHER printed npm command carries
+#     --legacy-peer-deps (the flag is react-native-scoped, not blanket).
+#
 # npx-float (2026-07-10, same failure class as P0.2's typescript@7.0.2): the shipped react-next CI
 # template (packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml, test-storybook
 # job) runs `npx concurrently` / `npx http-server` / `npx wait-on`. When the package is absent from
 # the consumer's node_modules, non-TTY npx silently fetches <pkg>@latest from the registry on EVERY
 # consumer CI run — zero lockfile coverage, floats with upstream majors.
-#   - Arm F: react-next --full → the three template npx tools land PINNED in the devDep argv
+#   - Arm H: react-next --full → the three template npx tools land PINNED in the devDep argv
 #     (pins mirror packages/core/templates/react-next/storybook-package-additions.json; node-20
 #     compatible — concurrently@10 needs node >=22 while the shipped .nvmrc is 20.19.0).
-#   - Arm G: static sweep — every `npx <tool>` in EVERY shipped CI workflow template maps to a
+#   - Arm I: static sweep — every `npx <tool>` in EVERY shipped CI workflow template maps to a
 #     package present in that stack's DEVDEPS arrays (bin→pkg: playwright→@playwright/test,
 #     stryker→@stryker-mutator/core). Paired-negative: a synthetic template with an uncovered
 #     tool IS flagged (the checker is non-vacuous).
@@ -195,22 +203,66 @@ grep -q 'typescript@\^5\.7\.0' <<< "$_rn_devdep_line" \
   && ok "E: the surviving react-native typescript spec is the pinned typescript@^5.7.0 (not the old bare entry)" \
   || bad "E: react-native devDep line missing the pinned typescript@^5.7.0"
 
-# ════ Arm F (npx-float) — react-next --full → storybook-CI npx toolchain lands as devDeps ════
+# ════ Arm F (#two-prompts-drift) — react-native + npm, NO --full → printed fallback carries --legacy-peer-deps ════
+# The automated §8 npm arms (setup.d/70-deps.sh devDep + runtime installs) pass $NPM_PEER_FLAG
+# (--legacy-peer-deps) for react-native because eslint-plugin-react-native-a11y peer-deps
+# eslint ^3..^8 while the preset ships eslint ^9 → npm 7+ ERESOLVE hard-fail. The Next-steps
+# manual fallback (setup.d/99-finalize.sh) is built from the same DEVDEPS/RUNTIME_DEPS arrays but
+# used to drop the flag — an RN consumer who declined the automated install and copy-pasted the
+# printed command got the exact ERESOLVE abort the automated path avoids. Both printed npm lines
+# (devDep + runtime) must carry the flag.
+F=$(mktemp -d); export AIF_PM_LOG="$F.log"; : > "$AIF_PM_LOG"
+printf '{ "name":"f","version":"0.0.0" }\n' > "$F/package.json"
+( cd "$F" && git init -q )
+F_OUT=$( cd "$F" && bash "$REPO_ROOT/install.sh" react-native --force < /dev/null 2>&1 )
+
+_f_dev_line=$(printf '%s\n' "$F_OUT" | grep -E '^ *npm install --save-dev' || true)
+_f_rt_line=$(printf '%s\n' "$F_OUT" | grep -E '^ *npm install' | grep -v -- '--save-dev' || true)
+[ -n "$_f_dev_line" ] \
+  && ok "F: no --full → Next-steps prints the manual 'npm install --save-dev' fallback" \
+  || bad "F: printed devDep fallback command missing from install output"
+case "$_f_dev_line" in
+  *--legacy-peer-deps*) ok "F: printed RN devDep command carries --legacy-peer-deps (mirrors §8 npm arm)" ;;
+  *) bad "F: printed RN devDep command LACKS --legacy-peer-deps → copy-paste ERESOLVE abort ($_f_dev_line)" ;;
+esac
+case "$_f_rt_line" in
+  *--legacy-peer-deps*) ok "F: printed RN runtime-dep command carries --legacy-peer-deps (mirrors §8 npm arm)" ;;
+  *) bad "F: printed RN runtime-dep command LACKS --legacy-peer-deps ($_f_rt_line)" ;;
+esac
+
+# ════ Arm G (paired-negative for F) — ts-server + npm, NO --full → NO --legacy-peer-deps ════
+# Proves the printed flag is react-native-scoped: every other stack keeps strict peer resolution,
+# so a blanket flag (weakening peer checks for everyone) would be its own defect.
+G=$(mktemp -d); export AIF_PM_LOG="$G.log"; : > "$AIF_PM_LOG"
+printf '{ "name":"g","version":"0.0.0" }\n' > "$G/package.json"
+( cd "$G" && git init -q )
+G_OUT=$( cd "$G" && bash "$REPO_ROOT/install.sh" ts-server --force < /dev/null 2>&1 )
+
+_g_npm_lines=$(printf '%s\n' "$G_OUT" | grep -E '^ *npm install' || true)
+[ -n "$_g_npm_lines" ] \
+  && ok "G: ts-server no --full → Next-steps prints the manual npm fallback" \
+  || bad "G: printed npm fallback commands missing from ts-server install output"
+case "$_g_npm_lines" in
+  *--legacy-peer-deps*) bad "G neg: ts-server printed command carries --legacy-peer-deps (flag not RN-scoped): $_g_npm_lines" ;;
+  *) ok "G neg: ts-server printed commands carry NO --legacy-peer-deps (flag is RN-scoped)" ;;
+esac
+
+# ════ Arm H (npx-float) — react-next --full → storybook-CI npx toolchain lands as devDeps ════
 # The shipped react-next CI template runs `npx concurrently/http-server/wait-on`; without these in
 # the devDep install, non-TTY npx registry-fetches @latest on every consumer CI run (no lockfile
 # coverage — the P0.2 typescript@7.0.2 failure class on a new surface).
-F=$(mktemp -d); export AIF_PM_LOG="$F.log"; : > "$AIF_PM_LOG"
-printf '{ "name":"f","version":"0.0.0" }\n' > "$F/package.json"
-( cd "$F" && git init -q && git config user.email t@t && git config user.name t )
-run_install "$F" react-next --force --full < /dev/null
+H=$(mktemp -d); export AIF_PM_LOG="$H.log"; : > "$AIF_PM_LOG"
+printf '{ "name":"h","version":"0.0.0" }\n' > "$H/package.json"
+( cd "$H" && git init -q && git config user.email t@t && git config user.name t )
+run_install "$H" react-next --force --full < /dev/null
 
 for _spec in 'concurrently@\^9\.0\.0' 'http-server@\^14\.1\.0' 'wait-on@\^8\.0\.0'; do
   grep -q "$_spec" "$AIF_PM_LOG" \
-    && ok "F: react-next devDep install carries $_spec (template npx tool covered)" \
-    || bad "F: $_spec absent from react-next devDep argv — template npx registry-fetches @latest"
+    && ok "H: react-next devDep install carries $_spec (template npx tool covered)" \
+    || bad "H: $_spec absent from react-next devDep argv — template npx registry-fetches @latest"
 done
 
-# ════ Arm G (npx-float) — every `npx <tool>` in a shipped CI workflow template is covered by ════
+# ════ Arm I (npx-float) — every `npx <tool>` in a shipped CI workflow template is covered by ════
 # the DEVDEPS arrays the installer delivers for that stack. Static grep, no install.sh execution.
 # Extraction is a per-line heuristic (second token after `npx`, including inside quoted
 # concurrently sub-commands); the arrays contain no comments inside the parens, so array-block
@@ -243,9 +295,9 @@ $(extract_array "$_a")"; done
 while IFS='|' read -r _tpl _arrays; do
   _missing=$(check_template_npx "$REPO_ROOT/$_tpl" $_arrays)
   if [ -z "${_missing// /}" ]; then
-    ok "G: $_tpl — every npx tool covered by [$_arrays]"
+    ok "I: $_tpl — every npx tool covered by [$_arrays]"
   else
-    bad "G: $_tpl — npx tool(s) NOT delivered by installer devDeps:$_missing (registry-fetch @latest at consumer CI run)"
+    bad "I: $_tpl — npx tool(s) NOT delivered by installer devDeps:$_missing (registry-fetch @latest at consumer CI run)"
   fi
 done <<'TPLS'
 packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml|CORE_DEVDEPS REACT_DEVDEPS
@@ -255,23 +307,23 @@ templates/ts-server/github-actions-ci.yml|CORE_DEVDEPS
 templates/ts-server/github-actions-workflow-integrity.yml|CORE_DEVDEPS
 TPLS
 
-# G paired-negative: a template invoking a tool NO array delivers must be flagged (non-vacuous).
+# I paired-negative: a template invoking a tool NO array delivers must be flagged (non-vacuous).
 # Second shape: flag-prefixed `npx -y <tool>` / `npx --no-install <tool>` (both live in this repo:
-# setup.sh:227, setup.d/99-finalize.sh) must not slip past the extractor.
-_G_NEG=$(mktemp)
-printf '      - run: npx left-pad-enterprise --port 1\n      - run: npx -y flag-prefixed-tool\n' > "$_G_NEG"
-_neg_missing=$(check_template_npx "$_G_NEG" CORE_DEVDEPS)
+# setup.d/99-finalize.sh) must not slip past the extractor.
+_I_NEG=$(mktemp)
+printf '      - run: npx left-pad-enterprise --port 1\n      - run: npx -y flag-prefixed-tool\n' > "$_I_NEG"
+_neg_missing=$(check_template_npx "$_I_NEG" CORE_DEVDEPS)
 case "$_neg_missing" in
   *left-pad-enterprise*)
-    ok "G neg: uncovered npx tool in a synthetic template IS flagged (checker non-vacuous)" ;;
+    ok "I neg: uncovered npx tool in a synthetic template IS flagged (checker non-vacuous)" ;;
   *)
-    bad "G neg: synthetic uncovered npx tool NOT flagged — the G sweep is vacuous" ;;
+    bad "I neg: synthetic uncovered npx tool NOT flagged — the I sweep is vacuous" ;;
 esac
 case "$_neg_missing" in
   *flag-prefixed-tool*)
-    ok "G neg: flag-prefixed \`npx -y <tool>\` shape IS extracted and flagged" ;;
+    ok "I neg: flag-prefixed \`npx -y <tool>\` shape IS extracted and flagged" ;;
   *)
-    bad "G neg: \`npx -y <tool>\` slips past the extractor — flag-prefixed invocations unswept" ;;
+    bad "I neg: \`npx -y <tool>\` slips past the extractor — flag-prefixed invocations unswept" ;;
 esac
 
 # ════ Parity check (P0.2) — INSTALL.md §4 pins vs setup.d/70-deps.sh arrays (two-sided) ════
@@ -290,14 +342,14 @@ for _pkg_spec in 'typescript@\^5\.7\.0' '@types/node@\^22\.10\.0' 'zod@\^3\.24\.
 done
 
 # ════ Three-way parity (npx-float) — REACT_DEVDEPS pins ↔ storybook-package-additions.json ════
-# The same three pins also live in the legacy setup.sh Batch-K merge source. The two delivery
-# paths (setup.sh JSON-merge vs ./setup → install.sh REACT_DEVDEPS) must install the SAME ranges,
-# or consumers get different majors depending on entry point (#two-prompts-drift, third copy).
+# The same three pins also live in the sibling react-next template (formerly merged by the
+# retired setup.sh; still shipped). All pin copies must declare the SAME ranges, or a future
+# re-wiring installs different majors than REACT_DEVDEPS (#two-prompts-drift, third copy).
 _SB_JSON="$REPO_ROOT/packages/core/templates/react-next/storybook-package-additions.json"
 while IFS='|' read -r _pkg _range; do
   grep -qF "\"$_pkg\": \"$_range\"" "$_SB_JSON" \
     && ok "parity3: $_pkg $_range matches storybook-package-additions.json" \
-    || bad "parity3: $_pkg $_range NOT in storybook-package-additions.json — setup.sh vs install.sh delivery paths drift"
+    || bad "parity3: $_pkg $_range NOT in storybook-package-additions.json — pin copies drifted"
 done <<'PINS'
 concurrently|^9.0.0
 http-server|^14.1.0

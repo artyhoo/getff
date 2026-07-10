@@ -130,7 +130,7 @@ It runs four steps:
 
 `./setup` deploys files; it does **not** run `npm install`. When it finishes, the installer prints the remaining wiring steps — the exact `npm install -D` dev-dependency list, the `package.json` scripts to add (`INSTALL.md §3`), and `npx husky init`.
 
-> `setup.sh` (the previous end-to-end wrapper: `ai-factory init` + `npm install` + husky init + npm scripts via `jq`) is **legacy** — superseded by `./setup` and will be absorbed by it.
+> The previous end-to-end wrapper `setup.sh` (`ai-factory init` + `npm install` + husky init + npm scripts via `jq`) has been **retired** (2026-07-10) — `./setup` supersedes it. It also ran an unpinned `npm install -g ai-factory`; companions now install detect-first via the manifest below. If older instructions point you at `bash setup.sh`, use `./setup` instead.
 
 ### As a Claude Code plugin (per-harness)
 
@@ -166,7 +166,7 @@ Companion installs run as `./setup` step 3, driven by a manifest (`setup.d/compa
 
 Each `cc-plugin` companion is installed via `claude plugin install` — this is **administrative file-management** (file copy + manifest registration into `~/.claude/`), **not** an API-billed LLM call. Verified VERIFIED-FREE per Stage 2 v3 §4.8.
 
-TaskMaster is no longer an offered companion — its marketplace plugin slug does not resolve, and the install offer was withdrawn in the one-click rework. The `COMPANIONS=...` env var belonged to the legacy `setup.sh` flow and is gone — use the manifest + flags above.
+TaskMaster is no longer an offered companion — its marketplace plugin slug does not resolve, and the install offer was withdrawn in the one-click rework. The `COMPANIONS=...` env var belonged to the retired `setup.sh` wrapper and is gone — use the manifest + flags above.
 
 ### What gets installed automatically
 
@@ -188,7 +188,7 @@ After the framework deploy (`./setup` step 2 — or `bash install.sh <stack>` di
 
 > **† Layout-honesty caveat.** The shipped audits (`scripts/audit-ai-docs.sh` / `.react-next.sh`, and the `ci.yml` that runs them) assume the canonical `src/` + DDD layout. Several layout-specific probes are hardcoded to that layout, so on a non-`src/` project (`app/`, `lib/`, `apps/*/src/`, or a flat tree) they currently report **PASS while checking zero files** — green that means "the rule could not run on your layout", not "the rule ran and found nothing wrong". Two concrete examples at current HEAD: **R4** (`packages/core/audit-self/audit-ai-docs.ts`, `probeR4`) returns `pass` with `(skipped: no src/domain)` when `src/domain` is absent; **R17** (`audit-ai-docs.react-next.sh`, `for f in $(find src/shared/ui src/features/*/ui …)`) iterates zero times when those dirs don't exist and then unconditionally passes. So "works as-is" is accurate **on** the canonical layout, but a consumer on another layout must not read green from these audits as a real pass — extend or repoint the probes to your own paths first.
 
-**Manual work after install:** the three project-specific items above (DESCRIPTION placeholders, RULES.md trimming, AGENTS.md review), plus the wiring steps the installer prints — `npm install -D` dev-deps, `package.json` scripts (`INSTALL.md §3`), `npx husky init`, and `npx depcruise --init` to generate `.dependency-cruiser.cjs` (the legacy `setup.sh` wrapper automated these). Typically 5-10 minutes — or zero, if you delegate it to an AI (next section).
+**Manual work after install:** the three project-specific items above (DESCRIPTION placeholders, RULES.md trimming, AGENTS.md review), plus the wiring steps the installer prints — `npm install -D` dev-deps, `package.json` scripts (`INSTALL.md §3`), `npx husky init`, and `npx depcruise --init` to generate `.dependency-cruiser.cjs` (the retired `setup.sh` wrapper used to automate these). Typically 5-10 minutes — or zero, if you delegate it to an AI (next section).
 
 ### For AI agents — let Claude/Cursor do the install
 
@@ -232,7 +232,7 @@ If you already have `ai-factory` set up or want partial install:
 bash /tmp/rt/install.sh ts-server     # or react-next; --force to overwrite
 
 # Path A — AIF extension (forward-compat, schema landing soon):
-ai-factory extension add ./rules-as-tests-aif
+ai-factory extension add ./getff
 
 # Path C — cherry-pick configs only (no skill, no sub-agents, no audit):
 cp /tmp/rt/templates/ts-server/eslint.config.mjs .
@@ -247,7 +247,7 @@ cp /tmp/rt/packages/core/templates/shared/tsconfig.json .
 - **`react-spa`** — React 19 + Vite SPA (Feature-Sliced Design). _Early — ships the `require-error-boundary` rule; the rule-pack is still growing._
 - **`react-native`** — React Native / Expo (Expo or bare-RN baseline). _Experimental baseline — stack scaffold + templates; a dedicated rule-pack is not yet shipped._
 
-Pass the stack to `./setup` (or `install.sh`) as a positional argument — `ts-server` / `react-next` / `react-spa` / `react-native` — or omit it to get an interactive picker. (The legacy `setup.sh` wrapper auto-detected the stack from `next.config.*` / `react` in `package.json`.) All share base configs (tsconfig, husky, lint-staged, RULES R1-R11); the React stacks add R12-R20 + Storybook/Playwright where applicable.
+Pass the stack to `./setup` (or `install.sh`) as a positional argument — `ts-server` / `react-next` / `react-spa` / `react-native` — or omit it to get an interactive picker. All share base configs (tsconfig, husky, lint-staged, RULES R1-R11); the React stacks add R12-R20 + Storybook/Playwright where applicable.
 
 ### Multi-toolchain roadmap
 
@@ -322,7 +322,7 @@ Each lesson includes the **rule that came from it** — typically a specific che
 ## Updating
 
 ```bash
-ai-factory extension update rules-as-tests-aif      # Path A
+ai-factory extension update getff                   # Path A
 ./install.sh <stack> --force                        # Path B (overwrites configs)
 # Path C: cherry-pick changes manually
 ```

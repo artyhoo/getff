@@ -1,6 +1,6 @@
 # Installation guide for AI agents (Claude Code, Cursor, etc.)
 
-> Paste the prompt below into your AI agent. It will install getff on top of AI Factory in your current project, with full transparency about what it's doing.
+> Paste the prompt below into your AI agent. It will install getff in your current project (AI Factory is an optional companion, not a prerequisite), with full transparency about what it's doing.
 
 > **Authoritative for:** AI-driven installation prompt + per-step actions the AI agent must take + transparency expectations (what to report, what to ask for confirmation before).
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](README.md#why-this-exists). Human-driven installation — see [INSTALL.md](INSTALL.md).
@@ -49,18 +49,22 @@ Install getff into this project. Follow these steps exactly:
    - Node.js 20.19+ (`node --version`)
    - npm available
    - git initialized in this project
-   - If `ai-factory` CLI is not installed globally → run `npm install -g ai-factory`
 
 2. Detect the project stack by checking:
    - If `next.config.{js,ts,mjs}` exists OR package.json contains "next" → stack = "react-next"
    - Otherwise → stack = "ts-server"
    Show me the detection result and ask if I want to override.
 
-3. Run `ai-factory init --agents claude` ONLY if .ai-factory/ doesn't already exist.
-   Show output. If it fails, stop and ask me what to do.
+3. Optional — AI Factory companion: ONLY if the `ai-factory` CLI is already installed
+   and .ai-factory/ doesn't exist yet, you may run `ai-factory init --agents claude`.
+   Do NOT install ai-factory globally as part of this setup — the installer creates
+   .ai-factory/ itself. If I want the companion later, I'll add it via its official
+   installer myself.
 
-4. From the getff package directory, run:
-   `bash setup -y <detected-stack>`
+4. From THIS project's directory (not the framework checkout — the installer
+   refuses to run inside the package directory itself), run:
+   `bash /tmp/getff/setup -y <detected-stack>`
+   (adjust the path if Step 0 cloned the framework elsewhere)
 
    This installs:
    - .claude/agents/{review-sidecar,living-docs-auditor,compliance-verifier,memory-codification-auditor,orchestrator-worker-discipline,aif-init,rule-researcher,capability-reuse-auditor}.md (best-practices-sidecar is KEEP-AIF — not shipped by us; review-sidecar default-skips when AIF's exists)
@@ -134,7 +138,7 @@ The setup encountered issues. Please:
 
 2. Diagnose the cause:
    - Missing dependency? Permission issue? File conflict?
-   - Was ai-factory init successful?
+   - If the optional ai-factory init step ran: was it successful?
    - Did install.sh complete?
 
 3. Suggest a fix without making changes yet. Wait for my approval.
@@ -149,25 +153,21 @@ The setup encountered issues. Please:
 ## Manual installation (if AI agents are unavailable)
 
 ```bash
-# 1. Install AI Factory globally (one-time)
-npm install -g ai-factory
+# 1. Get the framework
+git clone https://github.com/artyhoo/getff /tmp/getff
 
-# 2. In your project:
+# 2. In your project, run the installer
 cd your-project
-ai-factory init --agents claude
+bash /tmp/getff/setup -y ts-server
+# (stack: ts-server / react-next / react-spa / react-native; omit for auto-detect;
+#  add --dry-run to preview; or `bash /tmp/getff/install.sh ts-server` for the
+#  framework files only — no dev-deps, no companions)
 
-# 3. Apply rules-as-tests overlay
-unzip path/to/getff.zip
-cd getff
-bash setup.sh
-# (auto-detects stack; or use --stack=ts-server / --stack=react-next)
+# 3. Edit placeholders manually
+$EDITOR .ai-factory/DESCRIPTION.template.md
+mv .ai-factory/DESCRIPTION.template.md .ai-factory/DESCRIPTION.md
 
-# 4. Edit placeholders manually
-$EDITOR ../my-project/.ai-factory/DESCRIPTION.template.md
-mv ../my-project/.ai-factory/DESCRIPTION.template.md ../my-project/.ai-factory/DESCRIPTION.md
-
-# 5. Verify
-cd ../my-project
+# 4. Verify
 npm run validate
 npm run audit:docs
 ```
@@ -231,7 +231,7 @@ project/
 
 ## Tool bootstrapping — MCP and skill recommendations at install time
 
-`setup.sh` Step 2d seeds `.ai-factory/tool-decisions.md` with a baseline entry for **context7** (the doc-fetching MCP that powers the `/aif-*` commands) and adds it to your `.mcp.json`. This file is **committed** — it serves as the team-shared record of which tools are accepted, rejected, or pending.
+`install.sh` seeds `.ai-factory/tool-decisions.md` (the `30-templates` layer) with a baseline entry recommending **context7** (the doc-fetching MCP that powers the `/aif-*` commands), and the `05-mcp` layer merges a context7 server entry into your `.mcp.json` on the full install path (`./setup -y` / `--full`). This file is **committed** — it serves as the team-shared record of which tools are accepted, rejected, or pending.
 
 The **`tool-bootstrapping`** skill (auto-loaded via `.claude/skills/tool-bootstrapping/SKILL.md`) extends this at runtime: when your `package.json` deps change, the UserPromptSubmit hook injects a one-line warning prompting re-evaluation. Use `/tool-bootstrapping` to trigger the full AIF `/aif` analysis → proposal → confirmation loop.
 
