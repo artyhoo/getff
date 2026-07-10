@@ -9,7 +9,7 @@ import type { TSESTree } from '@typescript-eslint/utils';
 
 const createRule = ESLintUtils.RuleCreator(
   () =>
-    `https://github.com/Yhooi2/rules-as-tests-aif/blob/main/packages/preset-react-spa/RULES.react-spa.md#r-spa-eb-error-boundary-presence`,
+    `https://github.com/artyhoo/getff/blob/main/packages/preset-react-spa/RULES.react-spa.md#r-spa-eb-error-boundary-presence`,
 );
 
 function isErrorBoundaryLike(name: string): boolean {

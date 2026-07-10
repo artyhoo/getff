@@ -28,7 +28,7 @@ cd /tmp/getff
 ai-factory extension add ./path/to/getff
 
 # Or from a git URL
-ai-factory extension add https://github.com/<org>/getff
+ai-factory extension add https://github.com/artyhoo/getff
 
 # Verify
 ai-factory extension list
@@ -380,7 +380,7 @@ bash /path/to/getff/install.sh --refresh
 
 Consumer-owned files (`AGENTS.md`, `RULES.md`, `eslint.config.mjs`, `ci.yml`, etc.) are never touched. Files with a sibling `.override.md` are also skipped. See [INSTALL-FOR-AI.md §Refreshing framework artefacts](INSTALL-FOR-AI.md#refreshing-framework-artefacts-after-an-upgrade) for the full boundary table.
 
-**Path B (AIF extension):** `ai-factory extension update rules-as-tests-aif`
+**Path B (AIF extension):** `ai-factory extension update getff`
 
 **Path C (force overwrite):** re-run `./install.sh <stack> --force` to overwrite. **Will overwrite ALL configs including your customizations** — back up first.
 

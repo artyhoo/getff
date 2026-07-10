@@ -15,7 +15,7 @@ shared skills body.
 - [OpenCode](https://opencode.ai) installed.
 - A local checkout of this repo (the skills travel with the repo):
   ```bash
-  git clone https://github.com/Yhooi2/rules-as-tests-aif.git
+  git clone https://github.com/artyhoo/getff.git
   ```
 
 ## Install — point OpenCode at the shared skills body
@@ -25,7 +25,7 @@ Add the repo's `plugin/skills/` to your `opencode.json` `skills.paths` (global o
 ```json
 {
   "skills": {
-    "paths": ["/abs/path/to/rules-as-tests-aif/plugin/skills"]
+    "paths": ["/abs/path/to/getff/plugin/skills"]
   }
 }
 ```
@@ -67,8 +67,8 @@ runs is plain bash and works anywhere:
 
 ```bash
 # preview (writes nothing), then apply:
-bash /abs/path/to/rules-as-tests-aif/plugin/install/fetch-and-wire.sh ts-server
-bash /abs/path/to/rules-as-tests-aif/plugin/install/fetch-and-wire.sh ts-server --apply
+bash /abs/path/to/getff/plugin/install/fetch-and-wire.sh ts-server
+bash /abs/path/to/getff/plugin/install/fetch-and-wire.sh ts-server --apply
 ```
 
 It fetches the project's official `install.sh` and wires `.husky` + CI into the current repo —

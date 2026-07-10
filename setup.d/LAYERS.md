@@ -87,7 +87,7 @@ All layers share the dispatcher shell scope. These globals are initialised in `i
 
 | Constant | Value / Source | Purpose |
 |----------|---------------|---------|
-| `UPSTREAM_BLOB_URL` | `${UPSTREAM_BLOB_URL:-https://github.com/Yhooi2/rules-as-tests-aif/blob/main}` | Base URL for `transform_internal_refs` rewrites |
+| `UPSTREAM_BLOB_URL` | `${UPSTREAM_BLOB_URL:-https://github.com/artyhoo/getff/blob/main}` | Base URL for `transform_internal_refs` rewrites |
 | `PRETTIERIGNORE_BEGIN_MARKER` | `# --- BEGIN aif-managed ---` | Idempotency fence for `.prettierignore` merge |
 | `PRETTIERIGNORE_END_MARKER` | `# --- END aif-managed ---` | Idempotency fence for `.prettierignore` merge |
 
