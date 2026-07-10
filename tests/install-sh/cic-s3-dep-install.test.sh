@@ -258,11 +258,18 @@ run_install "$H" react-next --force --full < /dev/null
 
 for _spec in 'concurrently@\^9\.0\.0' 'http-server@\^14\.1\.0' 'wait-on@\^8\.0\.0' \
              'storybook@\^10\.5\.0' '@storybook/nextjs-vite@\^10\.5\.0' '@storybook/test-runner@\^0\.24\.4' \
-             'vite@\^7\.0\.0'; do
+             'vite@\^8\.0\.0'; do
   grep -q "$_spec" "$AIF_PM_LOG" \
     && ok "H: react-next devDep install carries $_spec (template npx tool covered)" \
     || bad "H: $_spec absent from react-next devDep argv — template npx registry-fetches @latest"
 done
+
+# INSTALL.md §4 declares @testing-library/user-event for React stacks (INSTALL.md parity class,
+# same as P0.2) — the install must actually deliver it (unpinned, like its @testing-library
+# siblings; loud-fail class: a missing module breaks the consumer's interaction tests at import).
+grep -q '@testing-library/user-event' "$AIF_PM_LOG" \
+  && ok "H: react-next devDep install carries @testing-library/user-event (INSTALL.md §4 parity)" \
+  || bad "H: @testing-library/user-event absent from react-next devDep argv — INSTALL.md declares it"
 
 # ════ Arm I (npx-float) — every `npx <tool>` in a shipped CI workflow template is covered by ════
 # the DEVDEPS arrays the installer delivers for that stack. Static grep, no install.sh execution.
@@ -334,7 +341,7 @@ esac
 for _pkg_spec in 'typescript@\^5\.7\.0' '@types/node@\^22\.10\.0' 'zod@\^3\.24\.0' \
                  'concurrently@\^9\.0\.0' 'http-server@\^14\.1\.0' 'wait-on@\^8\.0\.0' \
                  'storybook@\^10\.5\.0' '@storybook/nextjs-vite@\^10\.5\.0' '@storybook/test-runner@\^0\.24\.4' \
-                 'vite@\^7\.0\.0'; do
+                 'vite@\^8\.0\.0'; do
   _in_docs=""; _in_installer=""
   grep -q "$_pkg_spec" "$REPO_ROOT/INSTALL.md" && _in_docs="yes"
   grep -q "$_pkg_spec" "$REPO_ROOT/setup.d/70-deps.sh" && _in_installer="yes"

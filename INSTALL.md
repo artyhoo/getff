@@ -234,7 +234,7 @@ npm install --save-dev \
   eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-jsx-a11y \
   eslint-plugin-testing-library \
   @playwright/test \
-  storybook@^10.5.0 @storybook/nextjs-vite@^10.5.0 vite@^7.0.0 \
+  storybook@^10.5.0 @storybook/nextjs-vite@^10.5.0 vite@^8.0.0 \
   @storybook/test-runner@^0.24.4 concurrently@^9.0.0 wait-on@^8.0.0 http-server@^14.1.0
 ```
 
