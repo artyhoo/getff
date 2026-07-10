@@ -11,6 +11,15 @@
  * zizmor's `adhoc-packages` audit, which targets npm/gem/pip via `setup-python`
  * action inputs only (T16 verified against docs.zizmor.sh + live 1.26.1 run;
  * SSOT #153b, 2026-06-22).
+ *
+ * Scope widening (2026-07-10, backward-sweep incident): the same problem class
+ * exists in repo shell scripts — the retired setup.sh ran a bare
+ * `npm install -g ai-factory` (fixed in PR #946) that a workflows-only scan
+ * could never see. The gate now also scans executable shell scripts in the
+ * framework repo (`*.sh`, `setup`, `install.sh`); population predicate below.
+ * `setup.d/companions.manifest` is DATA, not a script — excluded by
+ * construction (it is not `*.sh`), so the companion-install-principle.md §1
+ * no-pin surface is never flagged (ci-tool-pinning.md §4 reconciliation).
  */
 
 /** A single line-level finding: file, 1-based line, the line text, and a hint. */
@@ -27,6 +36,29 @@ export interface UnpinnedFinding {
 // are pinned may slip the unpinned one through; an install command embedded in a
 // quoted string (echo "pip install x") may be flagged. Carve-outs below handle
 // the real-world workflow forms.
+
+/**
+ * Population predicate for the shell-script slice of the gate
+ * (ci-tool-pinning.md §2, scope widening 2026-07-10).
+ *
+ * True for repo-relative paths that are executable shell scripts: any `*.sh`
+ * file, plus the extensionless installer entrypoints `setup` and `install.sh`
+ * (root-level). False for everything else — notably
+ * `setup.d/companions.manifest`, which engine.sh EXECUTES (install_cmd column)
+ * but which is a data file: the companion no-pin policy
+ * (companion-install-principle.md §1) must never be flagged, and exclusion here
+ * is by construction, not by carve-out.
+ */
+export function isShellScriptPopulationFile(relPath: string): boolean {
+  if (relPath.endsWith('.sh')) return true;
+  // Extensionless root installer entrypoint.
+  if (relPath === 'setup') return true;
+  // Extensionless shell scripts under known executable-hook dirs (backward-sweep
+  // 2026-07-10: shebang'd but not *.sh — .husky/pre-push etc., plugin hooks).
+  if (relPath.startsWith('.husky/')) return true;
+  if (relPath.startsWith('plugin/hooks/')) return true;
+  return false;
+}
 
 /** Escape hatch token — exact match required on the same line. */
 const ESCAPE_HATCH_RE = /\bci-tool-pin:\s+allow\b/;
