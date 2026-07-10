@@ -1,10 +1,10 @@
 {
-  "name": "rules-as-tests",
+  "name": "getff",
   "description": "Rules-as-Tests: turn any codebase convention into an executable test that fails at the earliest reachable channel. Skills, sub-agents, session hooks + an opt-in command to wire git-hook/CI enforcement into your repo.",
   "version": "0.2.0",
-  "author": { "name": "rules-as-tests-aif contributors" },
-  "homepage": "https://github.com/Yhooi2/rules-as-tests-aif",
-  "repository": "https://github.com/Yhooi2/rules-as-tests-aif",
+  "author": { "name": "getff contributors" },
+  "homepage": "https://github.com/artyhoo/getff",
+  "repository": "https://github.com/artyhoo/getff",
   "license": "FSL-1.1-ALv2",
   "keywords": ["rules", "tests", "enforcement", "eslint", "discipline", "ai-agnostic"]
 }

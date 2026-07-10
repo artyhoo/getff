@@ -5,7 +5,7 @@
 Этот документ — про организацию AI-документации в проекте. Что класть в `AGENTS.md` (или `CLAUDE.md`), что — в `.claude/skills/`, что — в `.claude/rules/`. Как избежать drift'а. Применяется поверх AGENTS.md-стандарта (Linux Foundation, 60k+ projects).
 
 > **Authoritative for:** AI-doc organization conventions — hot/cold split between AGENTS.md / CLAUDE.md / .claude/skills/ / .claude/rules/; drift-detection guidance for AI docs; token-economy heuristics for what earns its line in always-loaded files.
-> **NOT authoritative for:** framework's project goal — see [README.md#why-this-exists](https://github.com/artyhoo/rules-as-tests-aif/blob/main/README.md#why-this-exists). Doc-authority hierarchy (Authoritative-for header convention used in framework's own repo) — see [.claude/rules/doc-authority-hierarchy.md](https://github.com/artyhoo/rules-as-tests-aif/blob/main/.claude/rules/doc-authority-hierarchy.md).
+> **NOT authoritative for:** framework's project goal — see [README.md#why-this-exists](https://github.com/artyhoo/getff/blob/main/README.md#why-this-exists). Doc-authority hierarchy (Authoritative-for header convention used in framework's own repo) — see [.claude/rules/doc-authority-hierarchy.md](https://github.com/artyhoo/getff/blob/main/.claude/rules/doc-authority-hierarchy.md).
 
 ---
 

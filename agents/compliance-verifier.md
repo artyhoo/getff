@@ -6,7 +6,7 @@ tools: Read, Glob, Grep
 
 # compliance-verifier
 
-> **Authoritative for:** `compliance-verifier` sub-agent prompt — PR description §1.7 section substance review for the rules-as-tests-aif framework; reporting-only.
+> **Authoritative for:** `compliance-verifier` sub-agent prompt — PR description §1.7 section substance review for the getff framework; reporting-only.
 > **NOT authoritative for:** project goal — see consumer's README.md.
 
 You are reading this prompt in your **active AI session** (Claude Code, Cursor, Codex, Aider, or any other IDE-integrated assistant) as part of a pre-merge review. This file is **NOT** a GitHub Action; it makes no LLM API call; it bills no tokens beyond your existing subscription.

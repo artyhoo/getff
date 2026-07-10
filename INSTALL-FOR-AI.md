@@ -1,6 +1,6 @@
 # Installation guide for AI agents (Claude Code, Cursor, etc.)
 
-> Paste the prompt below into your AI agent. It will install rules-as-tests-aif on top of AI Factory in your current project, with full transparency about what it's doing.
+> Paste the prompt below into your AI agent. It will install getff on top of AI Factory in your current project, with full transparency about what it's doing.
 
 > **Authoritative for:** AI-driven installation prompt + per-step actions the AI agent must take + transparency expectations (what to report, what to ask for confirmation before).
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](README.md#why-this-exists). Human-driven installation — see [INSTALL.md](INSTALL.md).
@@ -10,8 +10,8 @@
 ## Step 0 — Get the framework
 
 ```bash
-git clone https://github.com/Yhooi2/rules-as-tests-aif /tmp/rules-as-tests-aif
-cd /tmp/rules-as-tests-aif
+git clone https://github.com/artyhoo/getff /tmp/getff
+cd /tmp/getff
 ```
 
 (An npm package is not yet published. Use Path B — `install.sh` — as the current install method.)
@@ -43,7 +43,7 @@ cd /tmp/rules-as-tests-aif
 ## Quick install — copy-paste prompt
 
 ```text
-Install rules-as-tests-aif into this project. Follow these steps exactly:
+Install getff into this project. Follow these steps exactly:
 
 1. Verify prerequisites:
    - Node.js 20.19+ (`node --version`)
@@ -59,7 +59,7 @@ Install rules-as-tests-aif into this project. Follow these steps exactly:
 3. Run `ai-factory init --agents claude` ONLY if .ai-factory/ doesn't already exist.
    Show output. If it fails, stop and ask me what to do.
 
-4. From the rules-as-tests-aif package directory, run:
+4. From the getff package directory, run:
    `bash setup -y <detected-stack>`
 
    This installs:
@@ -157,8 +157,8 @@ cd your-project
 ai-factory init --agents claude
 
 # 3. Apply rules-as-tests overlay
-unzip path/to/rules-as-tests-aif.zip
-cd rules-as-tests-aif
+unzip path/to/getff.zip
+cd getff
 bash setup.sh
 # (auto-detects stack; or use --stack=ts-server / --stack=react-next)
 
@@ -284,10 +284,10 @@ When the framework ships a fix (e.g. a corrected `agents/*.md`, an updated hook,
 
 ```bash
 # Preview what would change (writes nothing)
-bash /path/to/rules-as-tests-aif/install.sh --refresh --dry-run
+bash /path/to/getff/install.sh --refresh --dry-run
 
 # Apply (overwrites framework-owned files; consumer files untouched)
-bash /path/to/rules-as-tests-aif/install.sh --refresh
+bash /path/to/getff/install.sh --refresh
 ```
 
 ### What `--refresh` updates

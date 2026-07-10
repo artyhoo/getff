@@ -1,11 +1,11 @@
 ---
 name: installing-enforcement
-description: Use when the user wants to actually WIRE the hard enforcement layer (git pre-commit/pre-push hooks + CI) into their repo, or asks "how do I make these rules actually fail the build / block a commit / run in CI", or wants to turn the rules-as-tests methodology from advice into a build-failing gate. Explains the soft-vs-hard boundary and points at the /rules-as-tests:install-enforcement command.
+description: Use when the user wants to actually WIRE the hard enforcement layer (git pre-commit/pre-push hooks + CI) into their repo, or asks "how do I make these rules actually fail the build / block a commit / run in CI", or wants to turn the rules-as-tests methodology from advice into a build-failing gate. Explains the soft-vs-hard boundary and points at the /getff:install-enforcement command.
 ---
 
 # Installing Enforcement
 
-> **Authoritative for:** when and how to wire the plugin's hard enforcement layer (git hooks + CI) — the soft-vs-hard split and the `/rules-as-tests:install-enforcement` flow.
+> **Authoritative for:** when and how to wire the plugin's hard enforcement layer (git hooks + CI) — the soft-vs-hard split and the `/getff:install-enforcement` flow.
 > **NOT authoritative for:** the installer's deploy mechanics (those live in the project's `install.sh`); the project goal (see the consumer's own README / the framework `README#why-this-exists`).
 
 The rules-as-tests plugin ships in **two layers**. Knowing which one a request needs is the
@@ -16,7 +16,7 @@ whole job of this skill.
 | Layer | What it is | How it ships |
 |---|---|---|
 | **Soft** (session-scoped) | skills, sub-agents, advisory/inject session hooks — they run *inside the agent session* and *advise* | **already live** the moment `/plugin install` finishes |
-| **Hard** (repo-scoped) | `.husky` pre-commit/pre-push git hooks, the CI workflow, dev-deps, ESLint/vitest/Stryker configs — they *fail the build* | **opt-in**, via `/rules-as-tests:install-enforcement` |
+| **Hard** (repo-scoped) | `.husky` pre-commit/pre-push git hooks, the CI workflow, dev-deps, ESLint/vitest/Stryker configs — they *fail the build* | **opt-in**, via `/getff:install-enforcement` |
 
 A plugin can **never** silently wire a consumer's git/CI — so the hard layer is deliberately
 behind an explicit command, not the install. This is the project's own thesis applied to its
@@ -34,7 +34,7 @@ that) or is just exploring.
 
 ## How to wire it
 
-Run **`/rules-as-tests:install-enforcement`**. It:
+Run **`/getff:install-enforcement`**. It:
 
 1. detects/confirms the stack (`ts-server` | `react-next`),
 2. **previews** the changes (dry-run — writes nothing),

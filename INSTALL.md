@@ -1,4 +1,4 @@
-# Installation guide — rules-as-tests-aif
+# Installation guide — getff
 
 > **Authoritative for:** human-driven installation paths (A/B/C), per-path step-by-step instructions, version verification procedure, post-install validation steps.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](README.md#why-this-exists). AI-driven installation — see [INSTALL-FOR-AI.md](INSTALL-FOR-AI.md). Quick start (recommended path) — see [README.md#installation](README.md#installation).
@@ -11,8 +11,8 @@ Three ways to install. Pick one.
 ## Step 0 — Get the framework
 
 ```bash
-git clone https://github.com/Yhooi2/rules-as-tests-aif /tmp/rules-as-tests-aif
-cd /tmp/rules-as-tests-aif
+git clone https://github.com/artyhoo/getff /tmp/getff
+cd /tmp/getff
 ```
 
 (An npm package is not yet published. Use Path B — `install.sh` — as the current install method.)
@@ -25,10 +25,10 @@ cd /tmp/rules-as-tests-aif
 
 ```bash
 # In your project, after `ai-factory init`
-ai-factory extension add ./path/to/rules-as-tests-aif
+ai-factory extension add ./path/to/getff
 
 # Or from a git URL
-ai-factory extension add https://github.com/<org>/rules-as-tests-aif
+ai-factory extension add https://github.com/<org>/getff
 
 # Verify
 ai-factory extension list
@@ -42,7 +42,7 @@ If AIF doesn't recognize the manifest format yet, fall back to Path B.
 
 ```bash
 # 1. Clone or download the package
-git clone https://github.com/<org>/rules-as-tests-aif
+git clone https://github.com/<org>/getff
 # OR: download and unpack the .zip
 
 # 2. cd to your target project
@@ -52,16 +52,16 @@ cd /path/to/your-project
 ai-factory init --agents claude
 
 # 4. Run the installer (one-shot recommended):
-/path/to/rules-as-tests-aif/setup -y ts-server       # non-interactive: all layers + dev-deps + companions
-/path/to/rules-as-tests-aif/setup -y react-next      # for React/Next
-/path/to/rules-as-tests-aif/setup -y react-spa       # for React + Vite SPA
-/path/to/rules-as-tests-aif/setup -y react-native    # for React Native / Expo
+/path/to/getff/setup -y ts-server       # non-interactive: all layers + dev-deps + companions
+/path/to/getff/setup -y react-next      # for React/Next
+/path/to/getff/setup -y react-spa       # for React + Vite SPA
+/path/to/getff/setup -y react-native    # for React Native / Expo
 
 # Or framework-only (install.sh, interactive stack picker):
-/path/to/rules-as-tests-aif/install.sh ts-server
+/path/to/getff/install.sh ts-server
 
 # To overwrite existing files:
-/path/to/rules-as-tests-aif/install.sh react-next --force
+/path/to/getff/install.sh react-next --force
 ```
 
 The installer:
@@ -372,10 +372,10 @@ your-project/
 
 ```bash
 # Preview what would change
-bash /path/to/rules-as-tests-aif/install.sh --refresh --dry-run
+bash /path/to/getff/install.sh --refresh --dry-run
 
 # Apply
-bash /path/to/rules-as-tests-aif/install.sh --refresh
+bash /path/to/getff/install.sh --refresh
 ```
 
 Consumer-owned files (`AGENTS.md`, `RULES.md`, `eslint.config.mjs`, `ci.yml`, etc.) are never touched. Files with a sibling `.override.md` are also skipped. See [INSTALL-FOR-AI.md §Refreshing framework artefacts](INSTALL-FOR-AI.md#refreshing-framework-artefacts-after-an-upgrade) for the full boundary table.
