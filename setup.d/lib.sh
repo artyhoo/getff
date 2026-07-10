@@ -126,6 +126,37 @@ refresh_safe() {
   echo "  ✓ $dst (refreshed)"
 }
 
+# ─── .ai-factory SoT (DESCRIPTION.md + ARCHITECTURE.md) materialization helpers ──────────────
+# SSOT for the divergence-prone parts of materializing the AGENTS.md-referenced SoT pair, shared
+# by the --full path (setup.d/30-templates.sh) and the --refresh path (install.sh do_refresh, #949).
+# Both call sites keep their own copy_safe delivery lines (so the refresh-covers-full-delivery gate
+# sees real per-file write-intent), but the stack→source map and the header rewrite live here once.
+# Requires globals: STACK, PKG_ROOT (arch_sot_src_for_stack); DRY_RUN, FORCE (rewrite_arch_sot_header).
+
+# arch_sot_src_for_stack — echo the ARCHITECTURE.md source template for the current $STACK.
+# Unknown/empty stack falls back to the shared ts-server variant (never guesses a react-* preset).
+arch_sot_src_for_stack() {
+  case "$STACK" in
+    react-next)   printf '%s\n' "$PKG_ROOT/packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md" ;;
+    react-spa)    printf '%s\n' "$PKG_ROOT/packages/preset-react-spa/templates/ARCHITECTURE.react-spa.md" ;;
+    react-native) printf '%s\n' "$PKG_ROOT/packages/preset-react-native/templates/ARCHITECTURE.react-native.md" ;;
+    *)            printf '%s\n' "$PKG_ROOT/packages/core/templates/shared/ARCHITECTURE.ts-server.md" ;;
+  esac
+}
+
+# rewrite_arch_sot_header <dst> <existed_flag> — rewrite the ts-server "Drop into …" first line on
+# the freshly-materialized .ai-factory/ARCHITECTURE.md COPY only (source templates serve other flows).
+# Guard mirrors copy_safe's WRITE condition (not dry-run; freshly created OR --force-overwritten) so
+# a consumer-edited ARCHITECTURE.md is never mutated. No-op for react-* variants (no "Drop into" line).
+# sed -i.bak for BSD/GNU portability.
+rewrite_arch_sot_header() {
+  local dst="$1" existed="$2"
+  if [ "$DRY_RUN" != "--dry-run" ] && { [ "$existed" -eq 0 ] || [ "$FORCE" = "--force" ]; }; then
+    sed -i.bak -e 's#^> Drop into `.ai-factory/ARCHITECTURE.md` and override only what your project needs\. #> This install-generated starter IS your `.ai-factory/ARCHITECTURE.md` — edit it to match your project. #' "$dst"
+    rm -f "${dst}.bak"
+  fi
+}
+
 # GH #531 (reopen): non-destructive .prettierignore merge. copy_safe skips-if-exists, so a
 # BROWNFIELD consumer with a pre-existing .prettierignore never received the AIF exclusions →
 # generated .ai-factory/RULES.md (+ RULES.react-next.md, .claude/settings.json, the eslint-rules-

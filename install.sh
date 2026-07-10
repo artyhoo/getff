@@ -467,6 +467,24 @@ do_refresh() {
     merge_prettierignore "$PKG_ROOT/packages/core/templates/shared/.prettierignore" "$PROJECT_ROOT/.prettierignore"
   fi
 
+  # ── .ai-factory SoT pair (DESCRIPTION.md + ARCHITECTURE.md) → .ai-factory/ (#949) ──
+  # AGENTS.md points the very first agent session at .ai-factory/DESCRIPTION.md + ARCHITECTURE.md.
+  # The --full path materializes them (setup.d/30-templates.sh); a brownfield consumer whose install
+  # predates that feature has DANGLING references until they run --refresh. copy_safe (no-clobber)
+  # semantics — NOT refresh_safe — because these are consumer-EDITABLE content docs: a fresh install
+  # that never wrote them (or a consumer who deleted one) gets the starter, but an edited
+  # DESCRIPTION.md/ARCHITECTURE.md is NEVER overwritten (copy_safe skips-if-exists). $STACK is always
+  # resolved on the --refresh path (install.sh stack inference defaults to ts-server), so the arch
+  # variant is chosen, never guessed. SSOT helpers (arch_sot_src_for_stack / rewrite_arch_sot_header,
+  # setup.d/lib.sh) shared with the --full delivery so the two paths cannot diverge.
+  echo "▶ .ai-factory SoT → .ai-factory/"
+  copy_safe "$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md" "$PROJECT_ROOT/.ai-factory/DESCRIPTION.md"
+  _arch_sot_src="$(arch_sot_src_for_stack)"
+  _arch_sot_dst="$PROJECT_ROOT/.ai-factory/ARCHITECTURE.md"
+  _arch_sot_existed=0; [ -e "$_arch_sot_dst" ] && _arch_sot_existed=1
+  copy_safe "$_arch_sot_src" "$_arch_sot_dst"
+  rewrite_arch_sot_header "$_arch_sot_dst" "$_arch_sot_existed"
+
   # ── Skill-context overrides (derived from SHIPPED_DOCS — cannot drift) ──
   echo "▶ Skill-context → .ai-factory/skill-context/"
   for _doc in "${SHIPPED_DOCS[@]}"; do
