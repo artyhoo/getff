@@ -42,7 +42,7 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
     if [ -z "$AIF_ARCH_TARGET" ]; then
       if [ -d "$PROJECT_ROOT/src" ]; then AIF_ARCH_TARGET="src"; else AIF_ARCH_TARGET="."; fi
     fi
-    AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" node -e '
+    AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" AIF_STACK="$STACK" node -e '
       const fs = require("fs");
       const p = process.env.AIF_PKG;
       const pkg = JSON.parse(fs.readFileSync(p, "utf8"));
@@ -71,6 +71,15 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
         "validate": "npm-run-all2 --parallel typecheck lint format:check arch:check audit:docs check:globs check:enforced check:arch-boundaries check:lintstaged check:fences-fire check:shields-up test",
         "prepare": "husky"
       };
+      // react-next only: the shipped ci.yml test-storybook job calls build-storybook +
+      // test-storybook (github-actions-ci-ui.yml:152-157). Scripts were historically merged by
+      // retired setup.sh Batch K (storybook-package-additions.json, #946) — this is that merge,
+      // relocated to the live path. Same non-destructive guard as the rest of `want`.
+      if (process.env.AIF_STACK === "react-next") {
+        want["storybook"] = "storybook dev -p 6006";
+        want["build-storybook"] = "storybook build";
+        want["test-storybook"] = "test-storybook";
+      }
       let added = 0;
       for (const [k, v] of Object.entries(want)) if (!(k in pkg.scripts)) { pkg.scripts[k] = v; added++; }
       // cih-s1 F2: also merge the devDeps the SHIPPED HOOKS need so they run, not just exist.
@@ -128,6 +137,14 @@ REACT_DEVDEPS=(
   @testing-library/jest-dom @next/eslint-plugin-next
   eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-jsx-a11y
   eslint-plugin-testing-library @playwright/test
+  # Storybook toolchain: the shipped react-next ci.yml has a test-storybook job
+  # (github-actions-ci-ui.yml) that runs build-storybook + test-storybook via
+  # http-server/wait-on/concurrently — ship the deps it needs or that job is red-on-arrival.
+  # SB 10.x: nextjs-vite is the canonical Next.js framework pkg; addon-essentials/-interactions
+  # no longer exist past 8.x (merged into core). Was the orphaned Batch-K
+  # storybook-package-additions.json merge in retired setup.sh (#946).
+  storybook @storybook/nextjs-vite @storybook/test-runner
+  concurrently wait-on http-server
 )
 # react-spa (Vite SPA): de-Next-ified — drop @next/eslint-plugin-next, add eslint-plugin-boundaries
 # (Feature-Sliced Design layering the shipped SPA eslint.config enforces). Mirrors REACT_DEVDEPS otherwise.

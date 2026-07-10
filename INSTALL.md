@@ -189,6 +189,7 @@ For React/Next, also add:
 ```json
 {
   "scripts": {
+    "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "test-storybook": "test-storybook",
     "test:e2e": "playwright test"
@@ -233,7 +234,7 @@ npm install --save-dev \
   eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-jsx-a11y \
   eslint-plugin-testing-library \
   @playwright/test \
-  @storybook/react-vite @storybook/test \
+  storybook @storybook/nextjs-vite \
   @storybook/test-runner concurrently wait-on http-server
 ```
 
