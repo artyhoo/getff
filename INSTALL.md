@@ -234,7 +234,7 @@ npm install --save-dev \
   eslint-plugin-testing-library \
   @playwright/test \
   @storybook/react-vite @storybook/test \
-  @storybook/test-runner concurrently wait-on http-server
+  @storybook/test-runner concurrently@^9.0.0 wait-on@^8.0.0 http-server@^14.1.0
 ```
 
 Also: `import 'server-only'` and `import 'client-only'` packages — bundled with Next.js, no install needed.

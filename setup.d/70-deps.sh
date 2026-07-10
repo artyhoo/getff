@@ -123,11 +123,22 @@ CORE_DEVDEPS=(
   husky lint-staged sort-package-json
   npm-run-all2 @types/node@^22.10.0
 )
+# npx-float (2026-07-10): concurrently/http-server/wait-on are invoked via bare `npx` by the
+# shipped react-next CI template (packages/preset-next-15-canonical/templates/
+# github-actions-ci-ui.yml, test-storybook job). The installer delivered none of the three, so
+# non-TTY npx silently registry-fetched <pkg>@latest on every consumer CI run — no lockfile
+# coverage, floats with upstream majors (the P0.2 typescript@7.0.2 failure class on a new
+# surface). Pins mirror packages/core/templates/react-next/storybook-package-additions.json
+# (sibling react-next template declaring the same toolchain — the retired setup.sh used to merge
+# it; three-way parity in the test keeps the pin copies aligned) and stay node-20 compatible
+# (concurrently@10 needs node >=22; the shipped .nvmrc is 20.19.0). Guarded by
+# tests/install-sh/cic-s3-dep-install.test.sh Arms H+I.
 REACT_DEVDEPS=(
   @vitejs/plugin-react jsdom @testing-library/react
   @testing-library/jest-dom @next/eslint-plugin-next
   eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-jsx-a11y
   eslint-plugin-testing-library @playwright/test
+  concurrently@^9.0.0 http-server@^14.1.0 wait-on@^8.0.0
 )
 # react-spa (Vite SPA): de-Next-ified — drop @next/eslint-plugin-next, add eslint-plugin-boundaries
 # (Feature-Sliced Design layering the shipped SPA eslint.config enforces). Mirrors REACT_DEVDEPS otherwise.
