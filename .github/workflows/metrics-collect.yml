@@ -1,0 +1,137 @@
+name: metrics-collect
+
+# Daily promo-metrics snapshot: stars, forks, and 14-day traffic aggregates
+# (clones + views), appended to an append-only CSV on a DEDICATED `data/metrics`
+# branch — deliberately NOT `staging`/`main`. Bot commits on a cron to a
+# protected branch are noise (review overhead, PR-template §1.7 gate friction,
+# pollutes `git log` on the branches that matter); a dedicated data branch is
+# the standard low-friction home for machine-written time series data (same
+# shape as GitHub Pages `gh-pages` / benchmark-action `gh-pages` history, and
+# jgehrcke/github-repo-stats's own `data_branch` convention — see prior-art
+# note in the PR body for why that specific action was not adopted here).
+#
+# Token requirements (verified live via GitHub REST docs + community reports
+# during authoring, 2026-07):
+#   - stars/forks: `GET /repos/{owner}/{repo}` is PUBLIC data — the default
+#     GITHUB_TOKEN (or even no auth) is sufficient.
+#   - traffic (`/traffic/clones`, `/traffic/views`): GitHub's own docs state
+#     these endpoints work "for repositories that you have write access to".
+#     In practice the default GITHUB_TOKEN (an app-installation token scoped
+#     to Actions, not a collaborator identity) does NOT satisfy this — traffic
+#     calls 403 with GITHUB_TOKEN. A collaborator PAT with `repo` scope is
+#     required. This job wires `secrets.METRICS_PAT` and SKIPS the traffic
+#     step gracefully (with a loud `::warning::`) when the secret is absent,
+#     so the workflow is safe to merge before the owner adds the secret.
+#
+# OWNER ACTION REQUIRED: add a repo secret `METRICS_PAT` — a classic PAT with
+# the `repo` scope (or a fine-grained PAT with "Administration: read" is NOT
+# sufficient; traffic requires the classic `repo` scope per GitHub's own
+# traffic-API docs) — to enable clones/views collection. Until then, stars
+# and forks are still collected every run.
+
+on:
+  schedule:
+    - cron: '17 6 * * *' # daily, 06:17 UTC (off-the-hour to avoid GH Actions cron congestion)
+  workflow_dispatch: {} # manual run / backfill
+
+permissions:
+  contents: read
+
+concurrency:
+  group: metrics-collect
+  cancel-in-progress: false # never cancel a partially-written commit mid-push
+
+jobs:
+  collect:
+    name: collect stars/forks/traffic → data/metrics
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write # pushes to the dedicated data/metrics branch
+    env:
+      METRICS_PAT: ${{ secrets.METRICS_PAT }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: true
+          fetch-depth: 1
+
+      - name: Collect stars + forks (public data, GITHUB_TOKEN sufficient)
+        id: repo_stats
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          repo_json="$(gh api "repos/${{ github.repository }}")"
+          {
+            echo "stars=$(echo "$repo_json" | jq -r '.stargazers_count')"
+            echo "forks=$(echo "$repo_json" | jq -r '.forks_count')"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Collect traffic — clones + views, 14-day window (requires METRICS_PAT)
+        id: traffic
+        if: ${{ env.METRICS_PAT != '' }}
+        env:
+          GH_TOKEN: ${{ env.METRICS_PAT }}
+        run: |
+          set -euo pipefail
+          clones_json="$(gh api "repos/${{ github.repository }}/traffic/clones")"
+          views_json="$(gh api "repos/${{ github.repository }}/traffic/views")"
+          {
+            echo "clones_count=$(echo "$clones_json" | jq -r '.count')"
+            echo "clones_uniques=$(echo "$clones_json" | jq -r '.uniques')"
+            echo "views_count=$(echo "$views_json" | jq -r '.count')"
+            echo "views_uniques=$(echo "$views_json" | jq -r '.uniques')"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Notice — METRICS_PAT not configured, traffic skipped
+        if: ${{ env.METRICS_PAT == '' }}
+        run: |
+          echo "::warning::secrets.METRICS_PAT is not set — traffic (clones/views) skipped this run. Stars/forks were still collected via GITHUB_TOKEN. Add a classic PAT with 'repo' scope as the repo secret METRICS_PAT to enable traffic collection (see workflow header for why GITHUB_TOKEN is insufficient)."
+
+      - name: Append snapshot row to data/metrics.csv on the data/metrics branch
+        env:
+          STARS: ${{ steps.repo_stats.outputs.stars }}
+          FORKS: ${{ steps.repo_stats.outputs.forks }}
+          CLONES_COUNT: ${{ steps.traffic.outputs.clones_count }}
+          CLONES_UNIQUES: ${{ steps.traffic.outputs.clones_uniques }}
+          VIEWS_COUNT: ${{ steps.traffic.outputs.views_count }}
+          VIEWS_UNIQUES: ${{ steps.traffic.outputs.views_uniques }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          HEADER="date,stars,forks,clones_count_14d,clones_uniques_14d,views_count_14d,views_uniques_14d"
+          TODAY="$(date -u +%F)"
+          ROW="${TODAY},${STARS},${FORKS},${CLONES_COUNT:-},${CLONES_UNIQUES:-},${VIEWS_COUNT:-},${VIEWS_UNIQUES:-}"
+
+          if git ls-remote --exit-code --heads origin data/metrics >/dev/null 2>&1; then
+            git fetch origin data/metrics --depth=1
+            git checkout -B data/metrics origin/data/metrics
+          else
+            git checkout --orphan data/metrics
+            git rm -rf . >/dev/null 2>&1 || true
+            mkdir -p data
+            echo "$HEADER" > data/metrics.csv
+            git add data/metrics.csv
+            git commit -q -m "chore(metrics): initialize data/metrics branch"
+          fi
+
+          mkdir -p data
+          [ -f data/metrics.csv ] || echo "$HEADER" > data/metrics.csv
+
+          # Idempotent re-runs (e.g. manual workflow_dispatch same day): drop
+          # any existing row for today before appending the fresh one instead
+          # of duplicating it.
+          grep -v "^${TODAY}," data/metrics.csv > data/metrics.csv.tmp || true
+          mv data/metrics.csv.tmp data/metrics.csv
+          echo "$ROW" >> data/metrics.csv
+
+          git add data/metrics.csv
+          if git diff --cached --quiet; then
+            echo "No metrics change to commit."
+          else
+            git commit -q -m "chore(metrics): snapshot ${TODAY}"
+            git push origin data/metrics
+          fi
