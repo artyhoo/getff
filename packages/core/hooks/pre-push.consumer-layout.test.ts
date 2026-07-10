@@ -62,6 +62,12 @@ const REAL_NODE_MODULES = TSX_LOADER.replace(
   '',
 );
 
+// Each case spawns `node --import tsx` against a real git fixture (and the
+// TOOL-absence arms re-spawn under a stripped PATH), so the default 5s ceiling is
+// too tight on a loaded CI box. Mirrors the SLOW_SHELL_MS convention in the
+// principles hook tests (e.g. 20-bundle-classification.test.ts).
+const SLOW_SHELL_MS = 30_000;
+
 const sandboxes: string[] = [];
 afterEach(() => {
   for (const d of sandboxes.splice(0))
@@ -194,7 +200,53 @@ function runHook(
   };
 }
 
-describe('pre-push.ts — consumer-layout push shield (#920/#921)', () => {
+/**
+ * Run the hook with a PATH that carries ONLY the binaries the hook legitimately
+ * needs to run (node + git, symlinked into a fresh allowlist dir) plus the repo's
+ * node_modules/.bin — deliberately EXCLUDING the workflow-security scanners
+ * (zizmor, actionlint) and lychee wherever the runner happens to install them.
+ * This simulates a consumer/CI box that never installed the optional scanners, so
+ * the TOOL-ABSENCE axis (#923 follow-up) is exercised rather than the runner's luck.
+ */
+function runHookStrippedTools(
+  dir: string,
+  hook: string,
+  baseRef: string,
+): { status: number; stdout: string; stderr: string } {
+  const toolsBin = join(dir, '.tools-bin');
+  mkdirSync(toolsBin, { recursive: true });
+  symlinkSync(process.execPath, join(toolsBin, 'node'));
+  const gitPath = execSync('command -v git').toString().trim();
+  symlinkSync(gitPath, join(toolsBin, 'git'));
+
+  const r = spawnSync('node', ['--import', TSX_LOADER, hook], {
+    encoding: 'utf8',
+    cwd: dir,
+    env: {
+      ...process.env,
+      NODE_PATH: REAL_NODE_MODULES,
+      PATH: `${toolsBin}:${resolve(REAL_NODE_MODULES, '.bin')}`,
+      PREPUSH_UPSTREAM_REF: baseRef,
+    },
+  });
+  return {
+    status: r.status ?? -1,
+    stdout: r.stdout ?? '',
+    stderr: r.stderr ?? '',
+  };
+}
+
+/** Write a minimal (contents irrelevant — the scanners are absent) workflow file so
+ *  §1/§2's `workflows.length > 0` guard engages. */
+function writeWorkflow(dir: string): void {
+  mkdirSync(join(dir, '.github/workflows'), { recursive: true });
+  writeFileSync(
+    join(dir, '.github/workflows/ci.yml'),
+    'name: ci\non: [push]\njobs:\n  x:\n    runs-on: ubuntu-latest\n    steps: [{ run: "true" }]\n',
+  );
+}
+
+describe('pre-push.ts — consumer-layout push shield (#920/#921)', { timeout: SLOW_SHELL_MS }, () => {
   it('POSITIVE — maintainer-only paths absent → a real consumer push reaches exit 0', () => {
     const { dir, baseSha, hook } = makeConsumerSandbox();
     addConsumerCommit(dir, 'src/app.ts', 'export const x = 1;\n', 'feat: app');
@@ -309,5 +361,76 @@ describe('pre-push.ts — consumer-layout push shield (#920/#921)', () => {
     // proving the §6 existsSync guard genuinely gates the section.
     expect(r.status, out).toBe(1);
     expect(out).toMatch(/spec-validate findings/);
+  });
+
+  // ── TOOL-ABSENCE axis (P0.1b/c, #923 follow-up) ────────────────────────────
+  // #923 fixed the maintainer-only PATH guards; these arms cover the remaining
+  // TOOL-absence axis: a consumer whose zizmor/actionlint are simply not installed.
+
+  it('P0.1b — consumer with NO .github/workflows/ + scanners absent → §1/§2 skip, exit 0 (RED today: unguarded zizmor scans a missing path and dies notFound)', () => {
+    const { dir, baseSha, hook } = makeConsumerSandbox();
+    // No workflow dir at all (the CI-less consumer). Scanners stripped from PATH.
+    addConsumerCommit(dir, 'src/app.ts', 'export const x = 1;\n', 'feat: app');
+
+    const r = runHookStrippedTools(dir, hook, baseSha);
+    const out = `${r.stdout}\n${r.stderr}`;
+
+    // Pre-fix: the first zizmor requireTool ran unconditionally, hit notFound on the
+    // stripped PATH, and die()d — this assertion caught exactly that death.
+    expect(out, out).not.toMatch(/zizmor not found in PATH/);
+    // No workflows → §1/§2 no-op entirely (not even a DEGRADED line for them).
+    expect(out, out).not.toMatch(/DEGRADED/);
+    expect(r.status, out).toBe(0);
+  });
+
+  it('P0.1c — consumer WITH a workflow + scanners absent → exit 0 AND a LOUD DEGRADED line for EACH missing scanner', () => {
+    const { dir, baseSha, hook } = makeConsumerSandbox();
+    writeWorkflow(dir);
+    addConsumerCommit(
+      dir,
+      '.github/workflows/ci.yml',
+      'name: ci\non: [push]\njobs:\n  x:\n    runs-on: ubuntu-latest\n    steps: [{ run: "true" }]\n',
+      'ci: add workflow',
+    );
+
+    const r = runHookStrippedTools(dir, hook, baseSha);
+    const out = `${r.stdout}\n${r.stderr}`;
+
+    // Paired assertion: the DEGRADED marker must be PRESENT for BOTH scanners, not
+    // merely a silent exit 0. A consumer must not be DoS'd, but must be told loudly.
+    expect(out, out).toMatch(
+      /⚠ DEGRADED: actionlint not found — workflow security lint SKIPPED/,
+    );
+    expect(out, out).toMatch(
+      /⚠ DEGRADED: zizmor not found — workflow security lint SKIPPED/,
+    );
+    // Degraded, not dead: the push still completes.
+    expect(r.status, out).toBe(0);
+  });
+
+  it('P0.1c — FRAMEWORK layout (SSOT present) WITH a workflow + scanners absent → fail-closed (nonzero, die not DEGRADE)', () => {
+    const { dir, baseSha, hook } = makeConsumerSandbox();
+    // Flip the framework-repo signal: the SSOT register exists → onMissing = 'die'.
+    mkdirSync(join(dir, 'docs/meta-factory'), { recursive: true });
+    writeFileSync(
+      join(dir, 'docs/meta-factory/prior-art-evaluations.md'),
+      '# Prior-art SSOT\n\n| ID | Capability | Verdict |\n|---|---|---|\n',
+    );
+    writeWorkflow(dir);
+    addConsumerCommit(
+      dir,
+      '.github/workflows/ci.yml',
+      'name: ci\non: [push]\njobs:\n  x:\n    runs-on: ubuntu-latest\n    steps: [{ run: "true" }]\n',
+      'ci: add workflow',
+    );
+
+    const r = runHookStrippedTools(dir, hook, baseSha);
+    const out = `${r.stdout}\n${r.stderr}`;
+
+    // ci-tool-pinning discipline preserved: on the framework repo a missing workflow
+    // linter is a hard fail (die), NOT a soft DEGRADE.
+    expect(r.status, out).toBe(1);
+    expect(out, out).toMatch(/actionlint not found in PATH/);
+    expect(out, out).not.toMatch(/DEGRADED/);
   });
 });
