@@ -1,0 +1,26 @@
+{
+  "backend": "ruff-tidy-imports-toml",
+  "contract": "firing-contract.json",
+  "cells": {
+    "syntax": {
+      "status": "partial",
+      "caps": [
+        "Only the flake8-tidy-imports slice fires: kind 'import' renders TID253 banned-module-level-imports, kind 'attribute' renders TID251 banned-api. kind 'call' (call-with-args ban) is refused FF7001 (ruff bans a qualified name, not a call site; ast-grep is the catch-all, #212)."
+      ],
+      "evidence": {
+        "kind": "live-fired",
+        "date": "2026-07-11",
+        "toolchain": "ruff 0.15.21",
+        "capturedDiagnostic": "{\"cell\": null, \"code\": \"TID251\", \"end_location\": {\"column\": 16, \"row\": 4}, \"filename\": \"backends/ruff/fixtures/firing/invalid/src.py\", \"fix\": null, \"location\": {\"column\": 8, \"row\": 4}, \"message\": \"`requests` is banned: Use httpx, not the requests library\", \"name\": \"banned-api\", \"noqa_row\": 4, \"severity\": \"error\", \"url\": \"https://docs.astral.sh/ruff/rules/banned-api\"}"
+      }
+    },
+    "type-aware": {
+      "status": "no",
+      "refusedCode": "FF7001"
+    },
+    "dep-graph": {
+      "status": "no",
+      "refusedCode": "FF7001"
+    }
+  }
+}

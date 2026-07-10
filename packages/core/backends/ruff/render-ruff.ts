@@ -208,20 +208,26 @@ function renderToml(bannedModules: string[], bannedApi: BanApiEntry[]): string {
   lines.push('[lint]');
   lines.push(`select = [${codes.map((c) => `"${c}"`).join(', ')}]`);
 
-  // TID253 — banned-module-level-imports (sorted, deduped-order-stable).
+  // TID253 — banned-module-level-imports (sorted, then deduped: two nodes banning the same module
+  // would otherwise emit the same string twice in the array — harmless-but-noisy — so collapse to a
+  // stable set). Sort-first makes dupes adjacent; the Set preserves that sorted order.
   if (bannedModules.length > 0) {
-    const sorted = [...bannedModules].sort((a, b) => a.localeCompare(b));
+    const sorted = [...new Set([...bannedModules].sort((a, b) => a.localeCompare(b)))];
     lines.push('');
     lines.push('[lint.flake8-tidy-imports]');
     lines.push(`banned-module-level-imports = [${sorted.map((m) => `"${escapeTomlString(m)}"`).join(', ')}]`);
   }
 
-  // TID251 — banned-api (sorted by qualified-name key).
+  // TID251 — banned-api (sorted by qualified-name key, then deduped BY KEY). Two nodes banning the
+  // same qualified name would emit the same `"<key>".msg` TOML key twice = INVALID TOML (duplicate
+  // key). Collapse to one entry per key, keeping the first (post-sort) occurrence's message.
   if (bannedApi.length > 0) {
     const sorted = [...bannedApi].sort((a, b) => a.key.localeCompare(b.key));
+    const seen = new Set<string>();
+    const deduped = sorted.filter((e) => (seen.has(e.key) ? false : (seen.add(e.key), true)));
     lines.push('');
     lines.push('[lint.flake8-tidy-imports.banned-api]');
-    for (const e of sorted) {
+    for (const e of deduped) {
       lines.push(`"${escapeTomlString(e.key)}".msg = "${escapeTomlString(e.msg)}"`);
     }
   }

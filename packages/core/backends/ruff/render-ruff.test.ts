@@ -216,6 +216,26 @@ describe('renderRuff — toml shape + mapping details', () => {
     expect(idxA).toBeLessThan(idxZ);
   });
 
+  it('TID253 duplicate module bans collapse to ONE array entry (deduped-order-stable)', () => {
+    const a = node({ id: 'a', params: { kind: 'import', pattern: 'import torch' } });
+    const b = node({ id: 'b', params: { kind: 'import', pattern: 'torch' } }); // same module, bare form
+    const { toml } = renderRuff([a, b]);
+    expect(toml).toContain('banned-module-level-imports = ["torch"]');
+    // Exactly one occurrence of the module string inside the array (no `["torch", "torch"]`).
+    expect(toml.match(/"torch"/g)?.length).toBe(1);
+  });
+
+  it('TID251 duplicate qualified-name bans collapse to ONE key — NO invalid duplicate TOML key', () => {
+    // Two nodes banning the same qualified name would otherwise emit `"requests".msg = ...` twice,
+    // which is invalid TOML (duplicate key). Dedup-by-key keeps the first (post-sort) message.
+    const a = node({ id: 'a', claim: 'first message', params: { kind: 'attribute', pattern: 'requests' } });
+    const b = node({ id: 'b', claim: 'second message', params: { kind: 'attribute', pattern: 'requests' } });
+    const { toml } = renderRuff([a, b]);
+    expect(toml.match(/^"requests"\.msg =/gm)?.length).toBe(1);
+    expect(toml).toContain('"requests".msg = "first message"');
+    expect(toml).not.toContain('second message');
+  });
+
   it('R-assert: outcomes missing a node -> assertEveryNodeResolved throws', () => {
     expect(() => assertEveryNodeResolved(['missing-1'], new Map<string, RenderOutcome>())).toThrow();
   });
