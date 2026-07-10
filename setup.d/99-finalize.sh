@@ -282,7 +282,10 @@ else
       _ISV_PASS=$((_ISV_PASS+1))
     else
       _ISV_FAIL=$((_ISV_FAIL+1))
-      echo "  ✗ fences-fire FAILED — some installed ESLint rules are silent on bad input"
+      # Two distinct causes land here and rc alone cannot tell them apart; the specific reason is
+      # in check-fences-fire.sh's own line above. Under FENCES_FIRE_STRICT=1 a dep-missing SKIP is
+      # promoted to rc=1 (a real delivery gap post-install), which is NOT "rules are silent".
+      echo "  ✗ fences-fire FAILED — see check-fences-fire.sh output above (a rule was silent on bad input, or strict mode promoted a dep-missing SKIP to a failure)"
     fi
   else
     echo "  · fences-fire: script not found at $_FF_SCRIPT (40-configs.sh copy skipped?) — skipped"
