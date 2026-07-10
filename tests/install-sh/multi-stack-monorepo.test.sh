@@ -124,13 +124,22 @@ grep -qi 'expo\|react-native\|React Native' "$T/apps/mobile/eslint.config.mjs" 2
   || bad "neg: apps/mobile has ts-server content — stacks are cross-contaminated"
 
 echo ""
-echo "▶ §6 Unknown workspace: re-checkable marker emitted, rc=0 (not exit 1)"
-# packages/config has no stack signal → 40-configs.sh echoes the re-checkable marker warning
-grep -qi "re-checkable\|unknown stack" "$T/.install.log" 2>/dev/null \
-  && ok "unknown workspace: re-checkable marker emitted in install log (not silently dropped, rc=0)" \
-  || bad "unknown workspace: no re-checkable marker in install log ($(tail -5 "$T/.install.log" 2>/dev/null | tr '\n' '|'))"
-# NEG: unknown must NOT cause exit 1 (install_into already asserts rc=0; this NEG proves it's not
-# because the unknown path was silently skipped — the warning IS there)
+echo "▶ §6 Signal-free workspace inherits the explicit stack arg (P0.3: no stranded config gap), rc=0"
+# packages/config has no stack signal. Pre-P0.3 the multi-stack branch IGNORED the explicit
+# `./setup ts-server` arg and stranded it as 'unknown' → no eslint config → lint DoS on that package.
+# Under the P0.3 precedence (own signal > explicit arg > root signal > unknown) the signal-free
+# workspace inherits the explicit ts-server arg, so it IS configured (and the install stays rc=0).
+[ -f "$T/packages/config/eslint.config.mjs" ] \
+  && ok "packages/config inherits ts-server via the explicit arg (signal-free workspace not stranded)" \
+  || bad "packages/config got NO eslint config — signal-free workspace stranded (P0.3 regression)"
+grep -qF 'packages/config → ts-server preset (explicit stack arg)' "$T/.install.log" 2>/dev/null \
+  && ok "install output shows WHY: packages/config → ts-server (explicit stack arg provenance)" \
+  || bad "no explicit-arg provenance for packages/config ($(grep -i 'packages/config' "$T/.install.log" 2>/dev/null | tr '\n' '|'))"
+# NEG (load-bearing): the pre-P0.3 40-configs 'no eslint config placed' stranding marker for
+# packages/config must be GONE — proving the explicit arg is honored, not silently skipped.
+! grep -qi 'packages/config: unknown stack.*no eslint config placed' "$T/.install.log" 2>/dev/null \
+  && ok "neg: packages/config no longer stranded config-less (explicit arg honored, not skipped)" \
+  || bad "neg: packages/config still stranded 'no eslint config placed' despite explicit arg (P0.3 unfixed)"
 
 # R2 scoped wiring: ts-morph availability gates the stronger assertion
 if [ -f "$T/node_modules/ts-morph/package.json" ]; then
