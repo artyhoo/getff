@@ -54,6 +54,35 @@ if [ "$STACK" = "react-native" ]; then
   copy_safe "$PKG_ROOT/packages/preset-react-native/RULES.react-native.md" "$PROJECT_ROOT/.ai-factory/RULES.react-native.md"
 fi
 
+# ─── Materialize the AGENTS.md-referenced SoT (.ai-factory/DESCRIPTION.md + ARCHITECTURE.md) ──
+# AGENTS.md.template sends the very first agent session to `.ai-factory/DESCRIPTION.md` and
+# `.ai-factory/ARCHITECTURE.md`. Historically the installer shipped only DESCRIPTION.template.md +
+# ARCHITECTURE.<stack>.md and asked the HUMAN to manually rename — so on landing the referenced
+# files did not exist (dangling references as the framework's first impression). Materialize them
+# here with copy_safe semantics: NEVER clobber a consumer-edited DESCRIPTION.md/ARCHITECTURE.md on
+# re-run (--refresh early-exits before this file is sourced, so only the normal install path runs).
+# Source the stack-appropriate ARCHITECTURE variant directly from $PKG_ROOT (order-independent).
+case "$STACK" in
+  react-next)   _arch_sot_src="$PKG_ROOT/packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md" ;;
+  react-spa)    _arch_sot_src="$PKG_ROOT/packages/preset-react-spa/templates/ARCHITECTURE.react-spa.md" ;;
+  react-native) _arch_sot_src="$PKG_ROOT/packages/preset-react-native/templates/ARCHITECTURE.react-native.md" ;;
+  *)            _arch_sot_src="$PKG_ROOT/packages/core/templates/shared/ARCHITECTURE.ts-server.md" ;;
+esac
+copy_safe "$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md" "$PROJECT_ROOT/.ai-factory/DESCRIPTION.md"
+
+_arch_sot_dst="$PROJECT_ROOT/.ai-factory/ARCHITECTURE.md"
+_arch_sot_existed=0; [ -e "$_arch_sot_dst" ] && _arch_sot_existed=1
+copy_safe "$_arch_sot_src" "$_arch_sot_dst"
+# The ts-server template header says "Drop into `.ai-factory/ARCHITECTURE.md` and override …", which
+# reads wrong once the file IS ARCHITECTURE.md. Rewrite that first sentence on the COPY only (source
+# templates serve other flows). Guard mirrors copy_safe's own WRITE condition (not dry-run; freshly
+# created OR --force-overwritten) so a consumer-edited ARCHITECTURE.md is never mutated. sed -i.bak
+# for BSD/GNU portability; no-op for react-* variants (their header carries no "Drop into" line).
+if [ "$DRY_RUN" != "--dry-run" ] && { [ "$_arch_sot_existed" -eq 0 ] || [ "$FORCE" = "--force" ]; }; then
+  sed -i.bak -e 's#^> Drop into `.ai-factory/ARCHITECTURE.md` and override only what your project needs\. #> This install-generated starter IS your `.ai-factory/ARCHITECTURE.md` — edit it to match your project. #' "$_arch_sot_dst"
+  rm -f "${_arch_sot_dst}.bak"
+fi
+
 # ── aif-handoff integration note ─────────────────────────
 # Per Stage 2 v3 §4.6 — single informational note, no prompt needed;
 # our Phase 3 skill-context files ARE the client-side aif-handoff integration.
