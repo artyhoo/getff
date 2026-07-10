@@ -330,10 +330,13 @@ else
   # step 4 fallback: the manual dep-install (run only when --full/[y/N] consent was not given, or
   # the install ran but didn't fully succeed). Built from the SAME DEVDEPS/RUNTIME_DEPS arrays the
   # installer uses (setup.d/70-deps.sh) → the list cannot drift from what we install (#two-prompts-drift).
+  # The npm arm mirrors §8's $NPM_PEER_FLAG (react-native a11y-peer ERESOLVE workaround, set in
+  # 70-deps.sh) for the same reason: a copy-pasted RN command without it aborts on the very
+  # ERESOLVE the automated install avoids. `:+` expansion keeps set -u safety + no trailing space.
   case "$(detect_pm)" in
     pnpm) _add="pnpm add -D"; _add_rt="pnpm add" ;;
     yarn) _add="yarn add -D"; _add_rt="yarn add" ;;
-    *)    _add="npm install --save-dev"; _add_rt="npm install" ;;
+    *)    _add="npm install --save-dev${NPM_PEER_FLAG:+ $NPM_PEER_FLAG}"; _add_rt="npm install${NPM_PEER_FLAG:+ $NPM_PEER_FLAG}" ;;
   esac
   echo "  4. Install dependencies (or re-run: ./install.sh ${STACK:-ts-server} --full):"
   echo ""
