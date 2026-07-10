@@ -1,0 +1,51 @@
+# lychee.toml — config for the weekly LIVE link-checker CI job
+# (.github/workflows/link-checker.yml). Scope: README.md, INSTALL*.md,
+# docs/**, plugin/README.md — the project's public-facing showcase docs.
+#
+# Complements — does NOT duplicate — the existing OFFLINE, changed-file-only
+# check in packages/core/hooks/pre-push.ts §8 (`lychee --offline` on the
+# diff's *.md files, every push). That pre-push gate is the primary/earliest
+# channel (rule-enforcement-channel-selection.md); this config backs the
+# periodic full-sweep companion (same shape as guard-liveness-fullsweep.yml).
+
+# Hosts that are structurally unreachable from a CI runner, are
+# placeholder/example domains, or are verified (live, 2026-07) to block
+# non-browser clients unconditionally (bot-detection 403 on HEAD *and* GET,
+# with or without a browser User-Agent — confirmed via curl against several
+# real, currently-live npm package pages) rather than actually being broken.
+exclude = [
+  '^https?://localhost',
+  '^https?://127\.0\.0\.1',
+  '^https?://0\.0\.0\.0',
+  '^wss?://',
+  '^https?://([a-zA-Z0-9-]+\.)?example\.(com|org|net)',
+  '^https?://(www\.)?npmjs\.com', # confirmed 403 on HEAD+GET regardless of UA — bot-block, not dead links
+  '^https?://gptlint\.dev', # TLS handshake fails from non-browser clients (verified live 2026-07-10, curl exit 35)
+]
+
+# Closed historical artifacts (CLAUDE.md «Artifact Ownership Contract»):
+# research-patches are append-only one-patch-per-gap records; retros are
+# «closed historical artifact post-merge»; superpowers specs/plans and phase
+# research files are design-history records; generator-forbid-mvp is a closed
+# umbrella's design folder. Their links describe repo state AT WRITE TIME —
+# link rot in them is expected archaeology, not showcase drift, and «fixing»
+# them would violate their append-only/frozen ownership. The LIVE operational
+# docs (EXECUTION-PLAN.md, prior-art-evaluations.md, open-questions.md,
+# docs/audits/**, runtime-bridge-setup.md, …) remain fully checked.
+exclude_path = [
+  'docs/meta-factory/research-patches/',
+  'docs/meta-factory/retros/',
+  'docs/meta-factory/generator-forbid-mvp/',
+  'docs/meta-factory/phase-8-research\.md',
+  'docs/superpowers/',
+]
+
+# GitHub's own hosts appear ~340 times across the scoped docs (github.com,
+# raw.githubusercontent.com); authenticating via the action's `token` input
+# raises the rate limit substantially, but transient 429s/5xxs still happen
+# under network flakiness unrelated to actual link rot — retry before failing.
+# (lychee already falls back HEAD → GET by default when a host rejects HEAD,
+# so no explicit `method` override is needed here.)
+max_retries = 3
+retry_wait_time = 5
+timeout = 20

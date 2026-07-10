@@ -1,0 +1,63 @@
+name: link-checker
+
+# Weekly LIVE link-integrity audit over the project's public-facing docs
+# (README.md, INSTALL*.md, docs/**, plugin/README.md).
+#
+# Complements — does NOT duplicate — the existing OFFLINE, changed-file-only
+# check in packages/core/hooks/pre-push.ts §8 (`lychee --offline` on the
+# diff's *.md files only, every push — the primary/earliest channel per
+# rule-enforcement-channel-selection.md). This job is the opposite trade-off:
+# LIVE HTTP checks (real network calls) over the FULL scoped doc set, on a
+# schedule — the periodic full-sweep companion (same shape as
+# guard-liveness-fullsweep.yml) that catches link rot in files nobody touched
+# this week, which the changed-file pre-push gate structurally cannot see.
+#
+# Product-thesis note: "Docs lie; tests don't" (README#why-this-exists)
+# extends to hyperlinks in the showcase docs — a stale link is exactly the
+# kind of drift this project exists to catch. Broken links FAIL the job on
+# purpose (not just a warning) — see lychee.toml for the (small, deliberate)
+# exclude list of structurally-unreachable-from-CI hosts.
+
+on:
+  schedule:
+    - cron: '38 5 * * 1' # weekly, Monday 05:38 UTC
+  workflow_dispatch: {}
+  pull_request:
+    paths:
+      - 'lychee.toml'
+      - '.github/workflows/link-checker.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: link-checker-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  link-check:
+    name: lychee — live link audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Run lychee link checker
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          args: >-
+            --no-progress
+            --config lychee.toml
+            './README.md'
+            './INSTALL*.md'
+            './docs/**/*.md'
+            './plugin/README.md'
+          fail: true
+          failIfEmpty: true
+          format: markdown
+          jobSummary: true
+          token: ${{ secrets.GITHUB_TOKEN }}
