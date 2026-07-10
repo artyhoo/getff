@@ -8781,6 +8781,11 @@ var REGISTRY = Object.freeze({
     defaultSeverity: "error",
     explanation: "requireVacuity gate: selector fires on the good example too (always-red false positive). gate-require-vacuity.ts."
   },
+  FF3021: {
+    template: "examples.safeForms[{idx}] produced unexpected violation \u2014 selector is broader than its rationale (matches a known-safe form): rule='{ruleId}' message='{message}'",
+    defaultSeverity: "error",
+    explanation: "Gate 2 (ruleTester): a declared known-safe form of the forbidden construct fired the rule \u2014 over-broad selector (GH #915 obs 4: hasOwnProperty.call / x == null class). gate-rule-tester.ts."
+  },
   // --- FF6xxx: IR grammar gates (MT umbrella S1 — ir/gates/grammar.ts) ---
   FF6001: {
     template: "degenerate pairedExamples: positive === negative for node {nodeId}",
@@ -9599,8 +9604,7 @@ function mergeEnrichment(projected, original) {
         return projected.title;
       // node backbone owns the claim -> title
       case "examples":
-        return projected.examples;
-      // node backbone owns pairedExamples -> examples
+        return original.examples.safeForms !== void 0 ? { ...projected.examples, safeForms: original.examples.safeForms } : projected.examples;
       case "stack":
         return projected.stack;
       // adapter re-emits from enrichment.stack (round-trip used)

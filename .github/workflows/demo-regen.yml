@@ -1,0 +1,100 @@
+name: demo-regen
+
+# Regenerate the two README demo GIFs (demo/*.gif) whenever a release is
+# published, so the public showcase never demos a stale version of the gates.
+#
+# What `make demo` needs (verified from Makefile + demo/ before authoring):
+#   - a root `npm ci` (the doc-drift recording runs `npx tsx
+#     scripts/render-rule-index.mjs --check` against this repo itself);
+#   - VHS + its runtime deps ttyd and ffmpeg, plus fonts — all four installed
+#     by charmbracelet's official CI mechanism, vhs-action (verified from its
+#     src/main.ts at v2.1.0: fonts.install() + deps.install() [ttyd, ffmpeg]
+#     + installer.install(version); with no `path` input it is install-only);
+#   - node + git + bash for demo/setup-sandbox.sh (builds the throwaway
+#     consumer project at /tmp/getff-demo via `./setup -y ts-server` — the
+#     same self-install flow audit-self.yml already exercises on ubuntu).
+#
+# Commit-back path: a PR against the release's target branch, never a direct
+# push. Deliberate: staging's required `ci-success` status check blocks
+# direct pushes anyway, and repo convention treats bot commits to protected
+# branches as noise (metrics-collect.yml routes to a data branch for the same
+# reason) — a reviewable PR with the refreshed GIFs is the least-surprising
+# path. peter-evans/create-pull-request is the production-standard action for
+# exactly this commit-back-as-PR shape.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch: {} # manual regen without cutting a release
+
+permissions:
+  contents: read
+
+concurrency:
+  group: demo-regen
+  cancel-in-progress: false
+
+jobs:
+  regen:
+    name: regenerate demo GIFs + open PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write # pushes the regen branch
+      pull-requests: write # opens the PR with refreshed GIFs
+    env:
+      # Branch the release points at (branch name for branch-cut releases);
+      # 'staging' covers workflow_dispatch runs.
+      TARGET_BRANCH: ${{ github.event.release.target_commitish || 'staging' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          # The job pushes a branch via create-pull-request below, which
+          # reuses the checkout credentials — persisting them is the point.
+          persist-credentials: true
+
+      # zizmor cache-poisoning (Low confidence) is a false positive here:
+      # caching is NOT enabled (setup-node caches only when a `cache:` package
+      # manager is requested — none is), and this workflow publishes nothing
+      # to the release; its only output is a reviewable PR carrying GIFs
+      # recorded from checked-in .tape sources.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0 # zizmor: ignore[cache-poisoning]
+        with:
+          node-version: '20'
+
+      # Root workspace install: the doc-drift tape runs `npx tsx` against
+      # this repo, and the sandbox build shells out to node tooling.
+      - name: Install workspace deps (root)
+        run: npm ci
+
+      # Official charmbracelet CI mechanism: installs vhs (pinned below),
+      # ttyd, ffmpeg, and fonts. No `path` input -> install-only, so the
+      # Makefile stays the single owner of how the tapes are recorded.
+      - name: Install VHS + runtime deps (ttyd, ffmpeg, fonts)
+        uses: charmbracelet/vhs-action@59641cdc7fadf3978db65eb8c6937ea2752f4ec3 # v2.1.0
+        with:
+          version: v0.11.0 # pin vhs itself; bumping is a deliberate edit
+
+      - name: Regenerate demo GIFs
+        run: make demo
+
+      - name: Open PR with refreshed GIFs against the release target branch
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          add-paths: demo/*.gif
+          branch: ci/demo-regen-artifacts
+          base: ${{ env.TARGET_BRANCH }}
+          commit-message: 'chore(demo): regenerate demo GIFs (${{ github.event.release.tag_name || github.event_name }})'
+          title: 'chore(demo): regenerate demo GIFs (${{ github.event.release.tag_name || github.event_name }})'
+          body: |
+            Automated demo-GIF regeneration triggered by `${{ github.event_name }}`
+            (release: `${{ github.event.release.tag_name || 'n/a' }}`) — see
+            `.github/workflows/demo-regen.yml`.
+
+            Recordings are produced by `make demo` from the checked-in
+            `demo/*.tape` sources on an ubuntu runner (VHS v0.11.0). If a GIF
+            looks wrong, fix the `.tape`, not the GIF.
+
+            ### §1.7 Skipped: automated demo-GIF binary refresh from checked-in tape sources; no discipline-bearing file is touched by this PR.
+          delete-branch: true

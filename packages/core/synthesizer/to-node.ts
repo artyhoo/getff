@@ -194,7 +194,14 @@ function mergeEnrichment(projected: SynthesizedRule, original: SynthesizedRule):
       case 'title':
         return projected.title; // node backbone owns the claim -> title
       case 'examples':
-        return projected.examples; // node backbone owns pairedExamples -> examples
+        // Node backbone owns pairedExamples -> bad/good. safeForms is ENRICHMENT the node
+        // cannot carry (multi-token safe idioms, GH #915 obs 4) — without this overlay the
+        // IR round-trip silently DROPPED it for declarative rules and the FF3021 gate probe
+        // never saw it on the real pipeline. Appended after bad/good, matching the producer's
+        // key order (byte-exact contract preserved for safeForms-less rules).
+        return original.examples.safeForms !== undefined
+          ? { ...projected.examples, safeForms: original.examples.safeForms }
+          : projected.examples;
       case 'stack':
         return projected.stack; // adapter re-emits from enrichment.stack (round-trip used)
       case 'applies-to':

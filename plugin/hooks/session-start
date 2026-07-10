@@ -34,7 +34,7 @@ the plugin's skills, which win over default behaviour. The plugin supplies disci
 stays in control.
 
 Honest boundary: this plugin delivers the SOFT layer (skills/agents/session hooks). The HARD
-layer (git hooks + CI that fail the build) is opt-in via /rules-as-tests:install-enforcement —
+layer (git hooks + CI that fail the build) is opt-in via /getff:install-enforcement —
 a plugin never silently mutates your git/CI.
 
 Skills live under: ${PLUGIN_ROOT}/skills/

@@ -22,6 +22,7 @@
 #   _detect_stack_from_pkg
 #   _workspace_pkg_dirs
 #   _detect_stacks_per_workspace
+#   _resolve_workspace_stacks
 #   patch_stryker_package_manager
 #   copy_skill_with_transform <slug>
 #   refresh_skill_with_transform <slug>
@@ -277,6 +278,7 @@ ignore_shipped_configs() {
     candidates+=("$_wsrel")
   done < <(
     find "$PROJECT_ROOT" -name node_modules -prune -o -name .git -prune -o \
+         -path "$PROJECT_ROOT/.claude/worktrees" -prune -o \
          \( -name 'eslint.config.mjs' -o -name 'eslint.config.rn-common.mjs' \) -print 2>/dev/null
   )
   local fresh=() rel
@@ -411,6 +413,43 @@ _detect_stacks_per_workspace() {
     stack=$(_detect_stack_from_pkg "$root/$reldir")
     printf '%s\t%s\n' "$reldir" "$stack"
   done < <(_workspace_pkg_dirs "$root")
+  return 0
+}
+
+# _resolve_workspace_stacks [root] — P0.3 (ultrareview) config-PLACEMENT resolver. Wraps the PURE
+# _detect_stacks_per_workspace map and applies the config-placement precedence per workspace so a
+# dependency-hoisting monorepo (pnpm hoists a shared `typescript` to the ROOT package.json, leaving
+# every workspace's own package.json signal-free → `unknown`) still lands a working eslint config
+# instead of the observed silent zero-config install (lint crashes rc=2 → pre-commit blocks every
+# commit). This is DELIBERATELY separate from _detect_stacks_per_workspace, which stays a pure
+# detector: the 99-finalize synth-wire routing + R2 scoping consume the raw own-signal map and must
+# NOT inherit placement fallbacks (routing a stack's live rule into a signal-free workspace is a
+# different, wider decision). Precedence per workspace (verbatim from the brief):
+#   own package.json signal  >  explicit positional $STACK ($STACK_EXPLICIT=1)  >  root signal  >  unknown
+# Emits `dir<TAB>stack<TAB>provenance` per workspace, provenance ∈ {own, explicit-arg, root-fallback,
+# unknown}, so the caller can show WHY each workspace got its stack. A still-unknown workspace (own
+# unknown AND no explicit arg AND root unknown) stays `unknown` — the §13.5 fork-2 KEPT re-checkable
+# marker, never a per-workspace exit 1 (the _detect_stacks_per_workspace doc above is binding); the
+# AGGREGATE zero-configs-placed loud-fail lives in the caller (setup.d/40-configs.sh), not here.
+# NODE-FREE (delegates to the grep-based _detect_stack_from_pkg). Reads globals STACK + STACK_EXPLICIT
+# (both optional — guarded with :- so lib-only / test callers under `set -u` don't abort).
+_resolve_workspace_stacks() {
+  local root="${1:-$PROJECT_ROOT}" reldir stack prov rootstack
+  rootstack=$(_detect_stack_from_pkg "$root")
+  while IFS=$'\t' read -r reldir stack; do
+    [ -n "$reldir" ] || continue
+    if [ "$stack" != "unknown" ]; then
+      prov="own"                                                   # 1. workspace's own signal wins
+    elif [ "${STACK_EXPLICIT:-}" = "1" ] && [ -n "${STACK:-}" ]; then
+      # shellcheck disable=SC2153  # STACK is install.sh's global stack selector (set before sourcing)
+      stack="$STACK"; prov="explicit-arg"                          # 2. user typed `./setup <stack>`
+    elif [ "$rootstack" != "unknown" ]; then
+      stack="$rootstack"; prov="root-fallback"                     # 3. hoisting-aware root signal
+    else
+      stack="unknown"; prov="unknown"                              # 4. still-unknown → kept marker
+    fi
+    printf '%s\t%s\t%s\n' "$reldir" "$stack" "$prov"
+  done < <(_detect_stacks_per_workspace "$root")
   return 0
 }
 

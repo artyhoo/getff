@@ -16,6 +16,26 @@
 #     stays ABSENT (the dead/declared-only state) → gate works AND declare≠install is real.
 #   - Arm D: a FLAT pnpm consumer → `pnpm add -D` is emitted WITHOUT the workspace `-w` flag
 #     (Arm C's monorepo arm proves -w IS added) → the -w branch is non-vacuous.
+#
+# P0.2 (ultrareview): CORE_DEVDEPS omitted typescript/@types/node (INSTALL.md declares both
+# required) and the installer never installed zod despite INSTALL.md documenting it as a required
+# RUNTIME dep — 3/6 validate gates went red on a clean --full flat-npm install (tsc had no Node
+# globals, typescript free-floated to an unvalidated major, arch:check flagged zod as undeclared).
+#   - Arm A (extended): the devDep install line now also carries typescript@^5.7.0 +
+#     @types/node@^22.10.0, and a SEPARATE runtime-dep install line carries zod@^3.24.0 WITHOUT
+#     -D/--save-dev (paired-negative: runtime deps must not land as devDependencies).
+#   - Arm E: react-native --full → typescript appears EXACTLY ONCE in the devDep install line (the
+#     old REACT_NATIVE_DEVDEPS bare `typescript` entry must not duplicate CORE_DEVDEPS' pinned one).
+#   - Parity check: INSTALL.md's §4 pins and setup.d/70-deps.sh's arrays are grepped independently
+#     (two-sided) so neither can drift alone.
+#
+# #two-prompts-drift (printed manual fallback vs automated install):
+#   - Arm F: react-native + npm, NO --full → the Next-steps manual commands (devDep AND runtime)
+#     carry --legacy-peer-deps, mirroring the §8 npm arms' $NPM_PEER_FLAG (the a11y-peer ERESOLVE
+#     workaround) — a consumer who declined the automated install and copy-pastes must not hit
+#     the very ERESOLVE abort the automated path avoids.
+#   - Arm G (paired-negative): ts-server + npm, NO --full → NEITHER printed npm command carries
+#     --legacy-peer-deps (the flag is react-native-scoped, not blanket).
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 PASS=0; FAIL=0
@@ -72,6 +92,29 @@ else
   bad "A: first commit failed — wired hook could not find its tool"
 fi
 
+# P0.2: INSTALL.md-declared devDeps must actually be in the install argv (not just documented).
+grep -q 'typescript@\^5\.7\.0' "$AIF_PM_LOG" \
+  && ok "A: devDep install carries typescript@^5.7.0 (INSTALL.md pin)" \
+  || bad "A: typescript@^5.7.0 absent from devDep install argv"
+grep -q '@types/node@\^22\.10\.0' "$AIF_PM_LOG" \
+  && ok "A: devDep install carries @types/node@^22.10.0 (INSTALL.md pin)" \
+  || bad "A: @types/node@^22.10.0 absent from devDep install argv"
+
+# P0.2: zod is a RUNTIME dep (INSTALL.md §4 "runtime dep that's used everywhere") — it must land via
+# a SEPARATE install invocation WITHOUT -D/--save-dev, never folded into the devDep -D command.
+_zod_line=$(grep 'zod@\^3\.24\.0' "$AIF_PM_LOG" || true)
+if [ -z "$_zod_line" ]; then
+  bad "A: zod@^3.24.0 absent from the install log entirely"
+else
+  ok "A: zod@^3.24.0 present in the install log"
+  case "$_zod_line" in
+    *--save-dev*|*' -D'*|*' -D '*)
+      bad "A neg: zod install line carries -D/--save-dev — zod must be a runtime dep, not a devDep ($_zod_line)" ;;
+    *)
+      ok "A neg: zod install line carries NO -D/--save-dev (correctly a runtime dep)" ;;
+  esac
+fi
+
 # ════ Arm B (paired-negative) — flat, NO --full, non-interactive → NO install (gate + declare≠install) ════
 B=$(mktemp -d); export AIF_PM_LOG="$B.log"; : > "$AIF_PM_LOG"
 printf '{ "name":"b","version":"0.0.0" }\n' > "$B/package.json"
@@ -126,5 +169,82 @@ if grep -qx 'install' "$AIF_PM_LOG"; then
 else
   ok "D neg: flat pnpm → NO bare 'pnpm install' follow-up (link-completion is workspace-scoped)"
 fi
+
+# ════ Arm E (P0.2) — react-native --full → NO duplicate/conflicting typescript spec ════
+# GH #779 gave REACT_NATIVE_DEVDEPS a bare `typescript` entry because CORE_DEVDEPS pinned none;
+# now that CORE_DEVDEPS pins typescript@^5.7.0 (INSTALL.md parity), a leftover RN-local bare entry
+# would put TWO `typescript` specs in the SAME devDep install command for the react-native stack.
+E=$(mktemp -d); export AIF_PM_LOG="$E.log"; : > "$AIF_PM_LOG"
+printf '{ "name":"e","version":"0.0.0" }\n' > "$E/package.json"
+( cd "$E" && git init -q && git config user.email t@t && git config user.name t )
+run_install "$E" react-native --force --full < /dev/null
+
+_rn_devdep_line=$(sed -n '1p' "$AIF_PM_LOG")
+_rn_ts_tokens=$(printf '%s\n' "$_rn_devdep_line" | tr ' ' '\n' | grep -cE '^typescript(@.*)?$' || true)
+if [ "$_rn_ts_tokens" -eq 1 ]; then
+  ok "E: react-native devDep install carries exactly ONE typescript spec (deduped)"
+else
+  bad "E: react-native devDep install carries $_rn_ts_tokens typescript spec(s) (want 1) — line: $_rn_devdep_line"
+fi
+grep -q 'typescript@\^5\.7\.0' <<< "$_rn_devdep_line" \
+  && ok "E: the surviving react-native typescript spec is the pinned typescript@^5.7.0 (not the old bare entry)" \
+  || bad "E: react-native devDep line missing the pinned typescript@^5.7.0"
+
+# ════ Arm F (#two-prompts-drift) — react-native + npm, NO --full → printed fallback carries --legacy-peer-deps ════
+# The automated §8 npm arms (setup.d/70-deps.sh devDep + runtime installs) pass $NPM_PEER_FLAG
+# (--legacy-peer-deps) for react-native because eslint-plugin-react-native-a11y peer-deps
+# eslint ^3..^8 while the preset ships eslint ^9 → npm 7+ ERESOLVE hard-fail. The Next-steps
+# manual fallback (setup.d/99-finalize.sh) is built from the same DEVDEPS/RUNTIME_DEPS arrays but
+# used to drop the flag — an RN consumer who declined the automated install and copy-pasted the
+# printed command got the exact ERESOLVE abort the automated path avoids. Both printed npm lines
+# (devDep + runtime) must carry the flag.
+F=$(mktemp -d); export AIF_PM_LOG="$F.log"; : > "$AIF_PM_LOG"
+printf '{ "name":"f","version":"0.0.0" }\n' > "$F/package.json"
+( cd "$F" && git init -q )
+F_OUT=$( cd "$F" && bash "$REPO_ROOT/install.sh" react-native --force < /dev/null 2>&1 )
+
+_f_dev_line=$(printf '%s\n' "$F_OUT" | grep -E '^ *npm install --save-dev' || true)
+_f_rt_line=$(printf '%s\n' "$F_OUT" | grep -E '^ *npm install' | grep -v -- '--save-dev' || true)
+[ -n "$_f_dev_line" ] \
+  && ok "F: no --full → Next-steps prints the manual 'npm install --save-dev' fallback" \
+  || bad "F: printed devDep fallback command missing from install output"
+case "$_f_dev_line" in
+  *--legacy-peer-deps*) ok "F: printed RN devDep command carries --legacy-peer-deps (mirrors §8 npm arm)" ;;
+  *) bad "F: printed RN devDep command LACKS --legacy-peer-deps → copy-paste ERESOLVE abort ($_f_dev_line)" ;;
+esac
+case "$_f_rt_line" in
+  *--legacy-peer-deps*) ok "F: printed RN runtime-dep command carries --legacy-peer-deps (mirrors §8 npm arm)" ;;
+  *) bad "F: printed RN runtime-dep command LACKS --legacy-peer-deps ($_f_rt_line)" ;;
+esac
+
+# ════ Arm G (paired-negative for F) — ts-server + npm, NO --full → NO --legacy-peer-deps ════
+# Proves the printed flag is react-native-scoped: every other stack keeps strict peer resolution,
+# so a blanket flag (weakening peer checks for everyone) would be its own defect.
+G=$(mktemp -d); export AIF_PM_LOG="$G.log"; : > "$AIF_PM_LOG"
+printf '{ "name":"g","version":"0.0.0" }\n' > "$G/package.json"
+( cd "$G" && git init -q )
+G_OUT=$( cd "$G" && bash "$REPO_ROOT/install.sh" ts-server --force < /dev/null 2>&1 )
+
+_g_npm_lines=$(printf '%s\n' "$G_OUT" | grep -E '^ *npm install' || true)
+[ -n "$_g_npm_lines" ] \
+  && ok "G: ts-server no --full → Next-steps prints the manual npm fallback" \
+  || bad "G: printed npm fallback commands missing from ts-server install output"
+case "$_g_npm_lines" in
+  *--legacy-peer-deps*) bad "G neg: ts-server printed command carries --legacy-peer-deps (flag not RN-scoped): $_g_npm_lines" ;;
+  *) ok "G neg: ts-server printed commands carry NO --legacy-peer-deps (flag is RN-scoped)" ;;
+esac
+
+# ════ Parity check (P0.2) — INSTALL.md §4 pins vs setup.d/70-deps.sh arrays (two-sided) ════
+# Cheap, deterministic, no install.sh execution: neither side can drift without failing this.
+for _pkg_spec in 'typescript@\^5\.7\.0' '@types/node@\^22\.10\.0' 'zod@\^3\.24\.0'; do
+  _in_docs=""; _in_installer=""
+  grep -q "$_pkg_spec" "$REPO_ROOT/INSTALL.md" && _in_docs="yes"
+  grep -q "$_pkg_spec" "$REPO_ROOT/setup.d/70-deps.sh" && _in_installer="yes"
+  if [ -n "$_in_docs" ] && [ -n "$_in_installer" ]; then
+    ok "parity: $_pkg_spec declared in BOTH INSTALL.md and setup.d/70-deps.sh"
+  else
+    bad "parity: $_pkg_spec — INSTALL.md=${_in_docs:-NO} setup.d/70-deps.sh=${_in_installer:-NO} (drifted)"
+  fi
+done
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

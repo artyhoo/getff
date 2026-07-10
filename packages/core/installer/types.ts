@@ -11,7 +11,12 @@ import type { ValidationReport } from '../validator/types.ts';
 export interface InstallOptions {
   /** Consumer project root. Synthesized output is written under <consumerRoot>/.ai-factory/synthesizer-output/. */
   consumerRoot: string;
-  /** Overwrite existing rules-lock.json. Default false — collision is treated as authoring error. */
+  /**
+   * Overwrite an existing lock. Default false — collision is treated as authoring error.
+   * Lock filename is stack-scoped (GH #915 obs 2): rules-lock.<framework>.json for a
+   * framework plan, legacy rules-lock.json when framework is null — so multi-stack runs
+   * against one consumerRoot keep a cumulative per-stack machine record.
+   */
   force?: boolean;
   /** Compute artifacts + run pre-validation but skip disk writes. */
   dryRun?: boolean;

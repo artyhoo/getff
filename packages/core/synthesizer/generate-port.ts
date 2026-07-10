@@ -23,7 +23,15 @@ export interface GenerateCandidate {
    * Absent or empty → synthesizeGenerate emits check.type:'manual' (plugin rule not in L4 harness registry).
    */
   eslintConfig?: Record<string, unknown>;
-  examples: { bad: string; good: string };
+  /**
+   * `safeForms` (optional, RECOMMENDED for forbid-class candidates): known-safe forms of the
+   * forbidden construct the selector must NOT match. gate-single-token-diff forces `good` to
+   * differ from `bad` by ~1 token, so multi-token safe idioms (e.g.
+   * `Object.prototype.hasOwnProperty.call(o, k)`, the `x == null` null-check idiom) can ONLY
+   * be expressed here. L4 gate 2 verifies each is violation-free (FF3021) — an over-broad
+   * selector that also matches a safe form fails the gate instead of shipping. GH #915 obs 4.
+   */
+  examples: { bad: string; good: string; safeForms?: string[] };
   /**
    * Required when eslintConfig is present — L4 gate-2 enforces presence at runtime for check.type:'eslint'.
    * Absent for manual-type rules. MANDATORY for forbid candidates — declarative needs it (gate-schema).

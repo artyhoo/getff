@@ -1,0 +1,76 @@
+# release-drafter config — consumed by .github/workflows/release-drafter.yml
+# (release-drafter/release-drafter v7, SHA-pinned there).
+#
+# This repo titles PRs (and squash-commits) with conventional-commit prefixes
+# (feat/fix/docs/test/ci/chore). Release-drafter v7 categorizes by LABELS, not
+# titles, so the embedded autolabeler (same config file, `autolabeler:` key,
+# runs on pull_request events) maps each conventional prefix in the PR TITLE
+# to a `type: *` label; the drafter (runs on push to staging) then groups the
+# release notes by those labels. Unlabelled PRs fall into "Other changes"
+# (the one no-`when` changelog category below).
+
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+
+autolabeler:
+  # `!` after the type/scope marks a breaking change in conventional commits.
+  - label: 'type: breaking'
+    title:
+      - '/^[a-z]+(\([^)]*\))?!:/'
+  - label: 'type: feature'
+    title:
+      - '/^feat(\([^)]*\))?!?:/'
+  - label: 'type: fix'
+    title:
+      - '/^fix(\([^)]*\))?!?:/'
+  - label: 'type: docs'
+    title:
+      - '/^docs(\([^)]*\))?!?:/'
+  - label: 'type: test'
+    title:
+      - '/^test(\([^)]*\))?!?:/'
+  - label: 'type: ci'
+    title:
+      - '/^ci(\([^)]*\))?!?:/'
+  - label: 'type: chore'
+    title:
+      - '/^chore(\([^)]*\))?!?:/'
+
+categories:
+  - title: 'Features'
+    semver-increment: 'minor'
+    when:
+      label: 'type: feature'
+  - title: 'Bug fixes'
+    when:
+      label: 'type: fix'
+  - title: 'Documentation'
+    when:
+      label: 'type: docs'
+  - title: 'Tests'
+    when:
+      label: 'type: test'
+  - title: 'CI'
+    when:
+      label: 'type: ci'
+  - title: 'Maintenance'
+    when:
+      label: 'type: chore'
+  # The single no-`when` changelog category — bucket for PRs the autolabeler
+  # could not classify (non-conventional titles).
+  - title: 'Other changes'
+  # Version resolution only (renders no changelog section): a breaking-change
+  # marker bumps major. Features bump minor (via the category above); all
+  # other matched changes contribute the default patch increment.
+  - type: 'version-resolver'
+    semver-increment: 'major'
+    when:
+      label: 'type: breaking'
+
+change-template: '- $TITLE (#$NUMBER) @$AUTHOR'
+change-title-escapes: '\<*_&'
+
+template: |
+  ## What changed
+
+  $CHANGES

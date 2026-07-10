@@ -92,7 +92,12 @@
           "required": ["bad", "good"],
           "properties": {
             "bad": { "type": "string" },
-            "good": { "type": "string" }
+            "good": { "type": "string" },
+            "safeForms": {
+              "description": "Additional KNOWN-SAFE forms of the forbidden construct that the rule must NOT fire on. Not single-token-diff constrained (unlike good). Verified violation-free by L4 gate 2 (FF3021). GH #915 obs 4.",
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            }
           }
         },
         "negative-test": {

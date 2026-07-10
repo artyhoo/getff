@@ -16,15 +16,34 @@ import type {
 } from './types.ts';
 
 const OUTPUT_SUBPATH = ['.ai-factory', 'synthesizer-output'] as const;
-const ARTIFACTS = [
+const SHARED_ARTIFACTS = [
   'rules-manifest-additions.json',
   'RULES-additions.md',
   'eslint-rules-snippet.json',
-  'rules-lock.json',
 ] as const;
 
 function outputDirOf(consumerRoot: string): string {
   return resolve(consumerRoot, ...OUTPUT_SUBPATH);
+}
+
+/**
+ * Stack-scoped lock filename (GH #915 obs 2). A multi-stack consumer runs the
+ * bootstrap once per stack against the SAME consumerRoot; a single
+ * `rules-lock.json` recorded only the last-synthesized stack (react-native
+ * overwrote the ts-server G1–G5 record). Scoping the lock by plan.framework —
+ * `rules-lock.<framework>.json`, the same per-stack suffix convention as
+ * `.ai-factory/RULES.<stack>.md` — makes the machine record cumulative across
+ * stacks while keeping each lock's ruleIds drift-check (postInstallChecks)
+ * exact against ITS OWN plan. framework:null keeps the legacy unsuffixed name.
+ */
+function lockNameOf(plan: SynthesisPlan): string {
+  return plan.framework === null
+    ? 'rules-lock.json'
+    : `rules-lock.${plan.framework}.json`;
+}
+
+function artifactsOf(plan: SynthesisPlan): string[] {
+  return [...SHARED_ARTIFACTS, lockNameOf(plan)];
 }
 
 function fingerprint(plan: SynthesisPlan): string {
@@ -54,7 +73,7 @@ function postInstallChecks(
   outputDir: string,
 ): { ok: boolean; failures: InstallReport['failures'] } {
   const failures: InstallReport['failures'] = [];
-  for (const name of ARTIFACTS) {
+  for (const name of artifactsOf(plan)) {
     const path = resolve(outputDir, name);
     if (!existsSync(path)) {
       failures.push({
@@ -65,21 +84,21 @@ function postInstallChecks(
   }
   // Lock content must round-trip and ruleIds must match the plan.
   try {
-    const lockPath = resolve(outputDir, 'rules-lock.json');
+    const lockPath = resolve(outputDir, lockNameOf(plan));
     if (existsSync(lockPath)) {
       const lock = JSON.parse(readFileSync(lockPath, 'utf8')) as RulesLock;
       const expected = plan.rules.map((r) => r.id);
       if (JSON.stringify(lock.ruleIds) !== JSON.stringify(expected)) {
         failures.push({
           stage: 'post-validate',
-          reason: `rules-lock.json ruleIds drift: lock=${JSON.stringify(lock.ruleIds)} plan=${JSON.stringify(expected)}`,
+          reason: `${lockNameOf(plan)} ruleIds drift: lock=${JSON.stringify(lock.ruleIds)} plan=${JSON.stringify(expected)}`,
         });
       }
     }
   } catch (err) {
     failures.push({
       stage: 'post-validate',
-      reason: `rules-lock.json failed to parse: ${(err as Error).message}`,
+      reason: `${lockNameOf(plan)} failed to parse: ${(err as Error).message}`,
     });
   }
   return { ok: failures.length === 0, failures };
@@ -87,7 +106,7 @@ function postInstallChecks(
 
 export function install(plan: SynthesisPlan, opts: InstallOptions): InstallReport {
   const outputDir = outputDirOf(opts.consumerRoot);
-  const expectedArtifacts = ARTIFACTS.map((n) => resolve(outputDir, n));
+  const expectedArtifacts = artifactsOf(plan).map((n) => resolve(outputDir, n));
 
   const preValidation = validate(plan);
   if (!preValidation.ok) {
@@ -105,7 +124,7 @@ export function install(plan: SynthesisPlan, opts: InstallOptions): InstallRepor
     };
   }
 
-  const lockPath = resolve(outputDir, 'rules-lock.json');
+  const lockPath = resolve(outputDir, lockNameOf(plan));
   if (!opts.dryRun && !opts.force && existsSync(lockPath)) {
     return {
       ok: false,
@@ -115,7 +134,7 @@ export function install(plan: SynthesisPlan, opts: InstallOptions): InstallRepor
       failures: [
         {
           stage: 'lock-collision',
-          reason: `rules-lock.json already exists at ${lockPath}; pass force: true to overwrite`,
+          reason: `${lockNameOf(plan)} already exists at ${lockPath}; pass force: true to overwrite`,
         },
       ],
     };
