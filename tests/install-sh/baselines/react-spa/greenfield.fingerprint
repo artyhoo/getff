@@ -30,6 +30,12 @@ e3c6086efb6dbafaac285132c61c3da1f17ada581d1efe84986c1589ed1b905a  .claude/skills
 f8ff7a734f8f4d3a9367ea45a61e17f1cde292327596c300e41ac8bf276f9e66  .claude/skills/dispatcher/helpers/monitor-classify.sh
 e1784c032fb6366007c76da0dcbba0f9db6a6816e4d3d9d27e0128554838d0a0  .claude/skills/dispatcher/helpers/notify-gate.sh
 5d21f0757512eafe17f0be69a891dea8ddee4627b3bf71871e8a71536e3dab7f  .claude/skills/dispatcher/helpers/tg-notify.sh
+72be25e9351b9d9dcbeaffb413020ac01b2ceebd70501d4f0a917b7c3f931e67  .claude/skills/getff/SKILL.md
+9cf60a06f9448d9666799a640dc4d5a93aa7c24292adc85b00f20af914e7ecc7  .claude/skills/getff/references/ai-traps.md
+ab03736c08131d26db29f227579369c0531e76c707ac335f167ecc1c4184cd28  .claude/skills/getff/references/checks-map.md
+421649209ad31993e1ea89bb6e2a813254f2effd9a948da0798cadf11a7ddc93  .claude/skills/getff/references/doc-organization.md
+e2bad837ee42f3c61cdbe440461721477d4761c6bfae24209b1504d3e673998f  .claude/skills/getff/references/overview.md
+ab0683e5cdcdad176740a3a2a58a14d9fedd0aa75aa01cea83125d0ebe7d27d7  .claude/skills/getff/references/self-testing-docs.md
 6aa369af4b3ad1cbabaf1acc941c912d087dbda8b036d5f660615ca377b45282  .claude/skills/harvest/SKILL.md
 6e781c1ac5ad5a092d510a219fc88e2eec67618c56268970c28282f8690fdc52  .claude/skills/night-mode/SKILL.md
 0ae11367d1727717acc54fdc66dbffe4d2d2a26a9f99564f34f2a311dac1713c  .claude/skills/pipeline/SKILL.md
@@ -76,12 +82,6 @@ dc81b0178b42ad6b120d92eeaa65de0bb60b0a0744c9205dcb6d7d7814d9bf5d  .claude/skills
 099f646a8f53b2faff048ac0404ebdfa8b42a12b5a610d74c68dcca499f4f39c  .claude/skills/pipeline/templates/meta-kickoff.template.md
 e279a989947be84b0fd28929640037ed4c5753b2d7adcb158129af3fa62d129d  .claude/skills/pipeline/templates/state.md.template
 c7119a7323d5f02163fb0d0a2f1d60db4f82b9657d3b9b09d58ba1fe68f49329  .claude/skills/rule-research/SKILL.md
-1962fe3aa388ace8647ff1848257cfa2f0ed3c24450cda68f571a75fcc68b865  .claude/skills/rules-as-tests/SKILL.md
-9cf60a06f9448d9666799a640dc4d5a93aa7c24292adc85b00f20af914e7ecc7  .claude/skills/rules-as-tests/references/ai-traps.md
-b3f5b64d19c56b0803992419cb9bf8d04fd4a12db88f25484342fe1a583e42f5  .claude/skills/rules-as-tests/references/checks-map.md
-421649209ad31993e1ea89bb6e2a813254f2effd9a948da0798cadf11a7ddc93  .claude/skills/rules-as-tests/references/doc-organization.md
-e2bad837ee42f3c61cdbe440461721477d4761c6bfae24209b1504d3e673998f  .claude/skills/rules-as-tests/references/overview.md
-ab0683e5cdcdad176740a3a2a58a14d9fedd0aa75aa01cea83125d0ebe7d27d7  .claude/skills/rules-as-tests/references/self-testing-docs.md
 591d963e29b75df4c85bb9cea51bbbeab693d307fec4a63aded431ebb81a3f2c  .claude/skills/story/SKILL.md
 fb8f0e3ff1ff4ac63f0e8b27b9988e253ad797b29dd36116123b55d1f0c16874  .claude/skills/story/helpers/emit-story-prompt.sh
 a4a1d9a97e0c5b6e202a28735269056269a7668299c67a719bef9605117b8d55  .claude/skills/template-audit/SKILL.md

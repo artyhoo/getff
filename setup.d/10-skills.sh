@@ -9,19 +9,19 @@
 # ─── 1. Skills ──────────────────────────────────────────
 echo "▶ Skills → .claude/skills/"
 mkdir_safe "$PROJECT_ROOT/.claude/skills"
-if [ -e "$PROJECT_ROOT/.claude/skills/rules-as-tests" ] && [ "$FORCE" != "--force" ]; then
-  SKIPPED+=("$PROJECT_ROOT/.claude/skills/rules-as-tests")
+if [ -e "$PROJECT_ROOT/.claude/skills/getff" ] && [ "$FORCE" != "--force" ]; then
+  SKIPPED+=("$PROJECT_ROOT/.claude/skills/getff")
   if [ "$DRY_RUN" = "--dry-run" ]; then
-    echo "  [dry-run] would skip: .claude/skills/rules-as-tests (exists)"
+    echo "  [dry-run] would skip: .claude/skills/getff (exists)"
   else
-    echo "  ⊝ .claude/skills/rules-as-tests (exists — skipping)"
+    echo "  ⊝ .claude/skills/getff (exists — skipping)"
   fi
 elif [ "$DRY_RUN" = "--dry-run" ]; then
-  echo "  [dry-run] would copy: $PKG_ROOT/skills/rules-as-tests → $PROJECT_ROOT/.claude/skills/rules-as-tests"
+  echo "  [dry-run] would copy: $PKG_ROOT/skills/getff → $PROJECT_ROOT/.claude/skills/getff"
 else
-  rm -rf "$PROJECT_ROOT/.claude/skills/rules-as-tests"
-  cp -r "$PKG_ROOT/skills/rules-as-tests" "$PROJECT_ROOT/.claude/skills/rules-as-tests"
-  echo "  ✓ .claude/skills/rules-as-tests/"
+  rm -rf "$PROJECT_ROOT/.claude/skills/getff"
+  cp -r "$PKG_ROOT/skills/getff" "$PROJECT_ROOT/.claude/skills/getff"
+  echo "  ✓ .claude/skills/getff/"
 fi
 if [ -e "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" ] && [ "$FORCE" != "--force" ]; then
   SKIPPED+=("$PROJECT_ROOT/.claude/skills/tool-bootstrapping")
