@@ -2,17 +2,18 @@
 // Spec: docs/superpowers/specs/2026-07-03-multi-toolchain-convention-compiler-design.md §5.
 //
 // This is the RED of TDD for a rule: it fires a REAL `ast-grep scan --json` against the
-// committed fixture projects and parses the actual ruleIds out of stdout. The tool is invoked
-// via the version pin baked into firing-contract.json's `command`
-// (`npx -y -p @ast-grep/cli@0.44.1 ...`), so the resolving ast-grep is deterministic regardless
-// of any stray PATH build.
+// committed fixture projects and parses the actual ruleIds out of stdout. The tool is the bare
+// PATH binary (firing-contract.json's `command` = `ast-grep scan --json`); it is NOT a
+// package.json dependency and NOT npx-resolved — CI installs it into PATH via a hard, exact-
+// pinned `npm install -g @ast-grep/cli@<ver>` workflow step (audit-self.yml). An npx-pin would
+// convert a registry flake into a loud-skip (CI green without firing); a hard install fails
+// loud-red instead, preserving the owner's "CI fires for real" STOP-line.
 //
-// Loud-skip when the tool is unavailable (offline / npx cannot fetch the pin) — NEVER a silent
-// pass: the astgrep backend must not be claimed green on live-fire from a run that never fired
-// it. There is deliberately NO `!isCI` guard (owner decision): unlike the cargo backend — whose
-// fixtures pin a toolchain the CI runner does not match — the ast-grep tool is version-pinned in
-// the command itself, so CI fires it FOR REAL. The always-on self-application drift block below
-// runs everywhere (CI included), so fixture drift is gated regardless of tool presence.
+// Loud-skip when the tool is unavailable (not on PATH — local machine without ast-grep) — NEVER
+// a silent pass: the astgrep backend must not be claimed green on live-fire from a run that never
+// fired it. There is deliberately NO `!isCI` guard (owner decision): the CI install step puts a
+// pinned ast-grep on PATH, so CI fires it FOR REAL. The always-on self-application drift block
+// below runs everywhere (CI included), so fixture drift is gated regardless of tool presence.
 
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -31,12 +32,13 @@ const INVALID_DIR = join(__dirname, 'fixtures/firing/invalid');
 const VALID_DIR = join(__dirname, 'fixtures/firing/valid');
 const VALID_CLEAN_DIR = join(__dirname, 'fixtures/firing/valid-clean');
 
-// npx cold-fetch of the pinned tool can exceed vitest's 5s default — give the live-fire block
-// generous headroom (the first spawn warms the npx cache; later spawns are fast).
+// Spawning the PATH binary is fast, but keep generous headroom so a cold first spawn on a busy
+// runner never trips vitest's 5s default.
 const LIVE_TIMEOUT_MS = 120_000;
 
-// Presence = can the pinned ast-grep actually be invoked here? deriveToolVersion returns
-// undefined when npx cannot fetch/run it (offline). No `!isCI` — CI must fire for real.
+// Presence = is the pinned ast-grep on PATH here? deriveToolVersion returns undefined when the
+// binary is absent (CI install step missing / local machine without ast-grep). No `!isCI` — CI
+// installs it and must fire for real.
 const resolvedVersion = deriveToolVersion(CONTRACT.command);
 const toolPresent = resolvedVersion !== undefined;
 
@@ -45,9 +47,10 @@ const toolPresent = resolvedVersion !== undefined;
 // did not actually fire it.
 if (!toolPresent) {
   console.warn(
-    '⚠ live ast-grep firing SKIPPED (pinned @ast-grep/cli could not be invoked — offline?); ' +
-      'the astgrep backend MUST NOT be claimed green on live-fire from this run alone. The ' +
-      'always-on self-application drift block still gates fixture drift.',
+    '⚠ live ast-grep firing SKIPPED (ast-grep not on PATH — CI install step missing or local ' +
+      'machine without the pinned binary); the astgrep backend MUST NOT be claimed green on ' +
+      'live-fire from this run alone. The always-on self-application drift block still gates ' +
+      'fixture drift.',
   );
 }
 

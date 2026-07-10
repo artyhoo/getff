@@ -6,11 +6,15 @@
 // shared parser, backends/shared/json-array-parse.ts). Only fireContract()/deriveToolVersion()
 // spawn; the parse-core is pure and lives in the shared module (unit-tested without ast-grep).
 //
-// The contract `command` carries the EXACT version pin (`npx -y -p @ast-grep/cli@0.44.1 ...`),
-// so the tool that runs is deterministic on any machine — immune to a stray PATH `ast-grep`
-// (e.g. a homebrew build at a different patch level). deriveToolVersion re-runs that same pinned
-// invocation with `--version`, so a pin bump in firing-contract.json moves the derived version
-// and forces the capability-matrix evidence to be regenerated (attention-is-not-a-mechanism).
+// The contract `command` invokes the bare PATH binary (`ast-grep scan --json`). The tool is NOT
+// a package.json dependency and NOT an npx-resolved pin: it is installed into the CI runner's PATH
+// by a hard, exact-pinned `npm install -g @ast-grep/cli@<ver>` workflow step (audit-self.yml). An
+// npx-pin would silently loud-skip on a registry flake (CI green without firing) — a hard install
+// step fails loud-red instead, keeping the "CI fires for real" STOP-line honest. deriveToolVersion
+// re-runs the same bare invocation with `--version`, so a version drift between the installed PATH
+// binary and the capability-matrix evidence turns the freshness gate RED (attention-is-not-a-
+// mechanism). Locally a stray PATH `ast-grep` at a different patch level surfaces as that same RED,
+// not a silent mismatch.
 
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
@@ -69,9 +73,10 @@ export function parseAstgrepVersion(versionOutput: string): string | undefined {
 
 /**
  * Derive the version of the ast-grep that `contract.command` actually resolves, by re-running
- * the SAME pinned invocation with `--version`. Returns undefined when the tool is unavailable
- * (offline / npx cannot fetch the pin) — the caller then loud-skips rather than asserting on a
- * version it could not observe. NO version literal lives in this code path.
+ * the SAME invocation with `--version`. Returns undefined when the tool is unavailable (not on
+ * PATH — CI install step missing / local machine without ast-grep) — the caller then loud-skips
+ * rather than asserting on a version it could not observe. NO version literal lives in this code
+ * path.
  */
 export function deriveToolVersion(command: string): string | undefined {
   const tokens = command.split(' ');

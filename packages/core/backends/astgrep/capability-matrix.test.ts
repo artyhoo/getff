@@ -11,8 +11,9 @@
 // shape checks gate the COMMITTED capability-matrix.json — any cell claiming more than 'no' MUST
 // carry live-fired evidence (an artefact, not a claim). The toolchain-freshness check DERIVES the
 // resolving ast-grep version at run time (NO version literal in this file) and compares it to the
-// evidence's claimed version; it is gated on the pinned tool being invocable, and loud-skips
-// otherwise — so a version bump turns it RED, but an offline run does not false-RED.
+// evidence's claimed version; it is gated on the PATH ast-grep binary being present, and loud-
+// skips otherwise — so a version bump (or a mismatched PATH binary) turns it RED, but a run on a
+// machine without ast-grep does not false-RED. CI installs the pinned binary, so it fires there.
 
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -191,8 +192,9 @@ describe('capability-matrix.json — the committed file passes the honesty contr
   });
 
   // Toolchain freshness derives the resolving version at run time (no literal in this file). It
-  // requires the pinned tool to be invocable; loud-skip when absent (offline) rather than
-  // false-RED. In CI (tool present) a pin bump without evidence-regen turns this RED.
+  // requires the PATH ast-grep binary to be present; loud-skip when absent rather than false-RED.
+  // In CI (install step puts the pinned binary on PATH) a pin bump without evidence-regen turns
+  // this RED.
   const resolvedVersion = deriveToolVersion(CONTRACT.command);
   it.skipIf(resolvedVersion === undefined)(
     'toolchain freshness: the evidence ast-grep version equals the ast-grep that actually resolves here',
@@ -203,8 +205,9 @@ describe('capability-matrix.json — the committed file passes the honesty contr
   );
   if (resolvedVersion === undefined) {
     console.warn(
-      '⚠ ast-grep toolchain-freshness check SKIPPED (pinned @ast-grep/cli could not be invoked — ' +
-        'offline?); the committed evidence version was not verified against a live --version this run.',
+      '⚠ ast-grep toolchain-freshness check SKIPPED (ast-grep not on PATH — CI install step ' +
+        'missing or local machine without the pinned binary); the committed evidence version was ' +
+        'not verified against a live --version this run.',
     );
   }
 });
