@@ -16,6 +16,18 @@
 #     stays ABSENT (the dead/declared-only state) → gate works AND declare≠install is real.
 #   - Arm D: a FLAT pnpm consumer → `pnpm add -D` is emitted WITHOUT the workspace `-w` flag
 #     (Arm C's monorepo arm proves -w IS added) → the -w branch is non-vacuous.
+#
+# P0.2 (ultrareview): CORE_DEVDEPS omitted typescript/@types/node (INSTALL.md declares both
+# required) and the installer never installed zod despite INSTALL.md documenting it as a required
+# RUNTIME dep — 3/6 validate gates went red on a clean --full flat-npm install (tsc had no Node
+# globals, typescript free-floated to an unvalidated major, arch:check flagged zod as undeclared).
+#   - Arm A (extended): the devDep install line now also carries typescript@^5.7.0 +
+#     @types/node@^22.10.0, and a SEPARATE runtime-dep install line carries zod@^3.24.0 WITHOUT
+#     -D/--save-dev (paired-negative: runtime deps must not land as devDependencies).
+#   - Arm E: react-native --full → typescript appears EXACTLY ONCE in the devDep install line (the
+#     old REACT_NATIVE_DEVDEPS bare `typescript` entry must not duplicate CORE_DEVDEPS' pinned one).
+#   - Parity check: INSTALL.md's §4 pins and setup.d/70-deps.sh's arrays are grepped independently
+#     (two-sided) so neither can drift alone.
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 PASS=0; FAIL=0
@@ -72,6 +84,29 @@ else
   bad "A: first commit failed — wired hook could not find its tool"
 fi
 
+# P0.2: INSTALL.md-declared devDeps must actually be in the install argv (not just documented).
+grep -q 'typescript@\^5\.7\.0' "$AIF_PM_LOG" \
+  && ok "A: devDep install carries typescript@^5.7.0 (INSTALL.md pin)" \
+  || bad "A: typescript@^5.7.0 absent from devDep install argv"
+grep -q '@types/node@\^22\.10\.0' "$AIF_PM_LOG" \
+  && ok "A: devDep install carries @types/node@^22.10.0 (INSTALL.md pin)" \
+  || bad "A: @types/node@^22.10.0 absent from devDep install argv"
+
+# P0.2: zod is a RUNTIME dep (INSTALL.md §4 "runtime dep that's used everywhere") — it must land via
+# a SEPARATE install invocation WITHOUT -D/--save-dev, never folded into the devDep -D command.
+_zod_line=$(grep 'zod@\^3\.24\.0' "$AIF_PM_LOG" || true)
+if [ -z "$_zod_line" ]; then
+  bad "A: zod@^3.24.0 absent from the install log entirely"
+else
+  ok "A: zod@^3.24.0 present in the install log"
+  case "$_zod_line" in
+    *--save-dev*|*' -D'*|*' -D '*)
+      bad "A neg: zod install line carries -D/--save-dev — zod must be a runtime dep, not a devDep ($_zod_line)" ;;
+    *)
+      ok "A neg: zod install line carries NO -D/--save-dev (correctly a runtime dep)" ;;
+  esac
+fi
+
 # ════ Arm B (paired-negative) — flat, NO --full, non-interactive → NO install (gate + declare≠install) ════
 B=$(mktemp -d); export AIF_PM_LOG="$B.log"; : > "$AIF_PM_LOG"
 printf '{ "name":"b","version":"0.0.0" }\n' > "$B/package.json"
@@ -126,5 +161,38 @@ if grep -qx 'install' "$AIF_PM_LOG"; then
 else
   ok "D neg: flat pnpm → NO bare 'pnpm install' follow-up (link-completion is workspace-scoped)"
 fi
+
+# ════ Arm E (P0.2) — react-native --full → NO duplicate/conflicting typescript spec ════
+# GH #779 gave REACT_NATIVE_DEVDEPS a bare `typescript` entry because CORE_DEVDEPS pinned none;
+# now that CORE_DEVDEPS pins typescript@^5.7.0 (INSTALL.md parity), a leftover RN-local bare entry
+# would put TWO `typescript` specs in the SAME devDep install command for the react-native stack.
+E=$(mktemp -d); export AIF_PM_LOG="$E.log"; : > "$AIF_PM_LOG"
+printf '{ "name":"e","version":"0.0.0" }\n' > "$E/package.json"
+( cd "$E" && git init -q && git config user.email t@t && git config user.name t )
+run_install "$E" react-native --force --full < /dev/null
+
+_rn_devdep_line=$(sed -n '1p' "$AIF_PM_LOG")
+_rn_ts_tokens=$(printf '%s\n' "$_rn_devdep_line" | tr ' ' '\n' | grep -cE '^typescript(@.*)?$' || true)
+if [ "$_rn_ts_tokens" -eq 1 ]; then
+  ok "E: react-native devDep install carries exactly ONE typescript spec (deduped)"
+else
+  bad "E: react-native devDep install carries $_rn_ts_tokens typescript spec(s) (want 1) — line: $_rn_devdep_line"
+fi
+grep -q 'typescript@\^5\.7\.0' <<< "$_rn_devdep_line" \
+  && ok "E: the surviving react-native typescript spec is the pinned typescript@^5.7.0 (not the old bare entry)" \
+  || bad "E: react-native devDep line missing the pinned typescript@^5.7.0"
+
+# ════ Parity check (P0.2) — INSTALL.md §4 pins vs setup.d/70-deps.sh arrays (two-sided) ════
+# Cheap, deterministic, no install.sh execution: neither side can drift without failing this.
+for _pkg_spec in 'typescript@\^5\.7\.0' '@types/node@\^22\.10\.0' 'zod@\^3\.24\.0'; do
+  _in_docs=""; _in_installer=""
+  grep -q "$_pkg_spec" "$REPO_ROOT/INSTALL.md" && _in_docs="yes"
+  grep -q "$_pkg_spec" "$REPO_ROOT/setup.d/70-deps.sh" && _in_installer="yes"
+  if [ -n "$_in_docs" ] && [ -n "$_in_installer" ]; then
+    ok "parity: $_pkg_spec declared in BOTH INSTALL.md and setup.d/70-deps.sh"
+  else
+    bad "parity: $_pkg_spec — INSTALL.md=${_in_docs:-NO} setup.d/70-deps.sh=${_in_installer:-NO} (drifted)"
+  fi
+done
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
