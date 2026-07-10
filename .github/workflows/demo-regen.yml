@@ -54,7 +54,12 @@ jobs:
           # reuses the checkout credentials — persisting them is the point.
           persist-credentials: true
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      # zizmor cache-poisoning (Low confidence) is a false positive here:
+      # caching is NOT enabled (setup-node caches only when a `cache:` package
+      # manager is requested — none is), and this workflow publishes nothing
+      # to the release; its only output is a reviewable PR carrying GIFs
+      # recorded from checked-in .tape sources.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0 # zizmor: ignore[cache-poisoning]
         with:
           node-version: '20'
 
