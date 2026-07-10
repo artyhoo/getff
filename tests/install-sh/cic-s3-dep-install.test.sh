@@ -229,7 +229,9 @@ check_template_npx() {  # $1=template  $2..=array names → echoes space-separat
   for _a in "$@"; do _allowed="$_allowed
 $(extract_array "$_a")"; done
   local _bins _bin _pkg _missing=""
-  _bins=$(grep -oE 'npx +[@a-zA-Z][@a-zA-Z0-9/_.-]*' "$_tpl" | awk '{print $2}' | sort -u)
+  # Flag-prefixed shapes (`npx -y <tool>`, `npx --no-install <tool>`) are skipped over so the
+  # package token is always the LAST field of the -o match.
+  _bins=$(grep -oE 'npx +(--?[a-zA-Z-]+ +)*[@a-zA-Z][@a-zA-Z0-9/_.-]*' "$_tpl" | awk '{print $NF}' | sort -u)
   for _bin in $_bins; do
     _pkg=$(map_bin_to_pkg "$_bin")
     printf '%s\n' "$_allowed" | grep -qE "(^|[[:space:](])${_pkg}(@|[[:space:])]|$)" \
@@ -254,14 +256,22 @@ templates/ts-server/github-actions-workflow-integrity.yml|CORE_DEVDEPS
 TPLS
 
 # G paired-negative: a template invoking a tool NO array delivers must be flagged (non-vacuous).
+# Second shape: flag-prefixed `npx -y <tool>` / `npx --no-install <tool>` (both live in this repo:
+# setup.sh:227, setup.d/99-finalize.sh) must not slip past the extractor.
 _G_NEG=$(mktemp)
-printf '      - run: npx left-pad-enterprise --port 1\n' > "$_G_NEG"
+printf '      - run: npx left-pad-enterprise --port 1\n      - run: npx -y flag-prefixed-tool\n' > "$_G_NEG"
 _neg_missing=$(check_template_npx "$_G_NEG" CORE_DEVDEPS)
 case "$_neg_missing" in
   *left-pad-enterprise*)
     ok "G neg: uncovered npx tool in a synthetic template IS flagged (checker non-vacuous)" ;;
   *)
     bad "G neg: synthetic uncovered npx tool NOT flagged — the G sweep is vacuous" ;;
+esac
+case "$_neg_missing" in
+  *flag-prefixed-tool*)
+    ok "G neg: flag-prefixed \`npx -y <tool>\` shape IS extracted and flagged" ;;
+  *)
+    bad "G neg: \`npx -y <tool>\` slips past the extractor — flag-prefixed invocations unswept" ;;
 esac
 
 # ════ Parity check (P0.2) — INSTALL.md §4 pins vs setup.d/70-deps.sh arrays (two-sided) ════
@@ -278,5 +288,20 @@ for _pkg_spec in 'typescript@\^5\.7\.0' '@types/node@\^22\.10\.0' 'zod@\^3\.24\.
     bad "parity: $_pkg_spec — INSTALL.md=${_in_docs:-NO} setup.d/70-deps.sh=${_in_installer:-NO} (drifted)"
   fi
 done
+
+# ════ Three-way parity (npx-float) — REACT_DEVDEPS pins ↔ storybook-package-additions.json ════
+# The same three pins also live in the legacy setup.sh Batch-K merge source. The two delivery
+# paths (setup.sh JSON-merge vs ./setup → install.sh REACT_DEVDEPS) must install the SAME ranges,
+# or consumers get different majors depending on entry point (#two-prompts-drift, third copy).
+_SB_JSON="$REPO_ROOT/packages/core/templates/react-next/storybook-package-additions.json"
+while IFS='|' read -r _pkg _range; do
+  grep -qF "\"$_pkg\": \"$_range\"" "$_SB_JSON" \
+    && ok "parity3: $_pkg $_range matches storybook-package-additions.json" \
+    || bad "parity3: $_pkg $_range NOT in storybook-package-additions.json — setup.sh vs install.sh delivery paths drift"
+done <<'PINS'
+concurrently|^9.0.0
+http-server|^14.1.0
+wait-on|^8.0.0
+PINS
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
