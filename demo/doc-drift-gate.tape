@@ -15,7 +15,11 @@ Type "grep -n 'Fires:' .claude/rules/ci-tool-pinning.md"
 Enter
 Sleep 1s
 
-Type "sed -i '' 's/editing .*workflows\/\*\*.*\./editing any workflow file./' .claude/rules/ci-tool-pinning.md"
+# perl -pi (not `sed -i ''`): BSD-sed-only syntax breaks on the Linux CI
+# runner that regenerates this GIF (demo-regen workflow) — the mutation would
+# silently no-op and the recording would show a green gate instead of the
+# drift failure. perl -pi is byte-identical in effect on macOS and Linux.
+Type "perl -pi -e 's/editing .*workflows\/\*\*.*\./editing any workflow file./' .claude/rules/ci-tool-pinning.md"
 Enter
 Sleep 1s
 
