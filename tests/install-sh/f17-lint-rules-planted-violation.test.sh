@@ -128,13 +128,15 @@ fi
 # avoid the ESM/CJS cycle issue in eslint v9's --import tsx/esm config loading.
 
 # POSITIVE arm script: violation → rule fires → exit 0
+# Planted violation carries EXTERNAL input (req.body) — a static-literal argument is a
+# deliberate non-boundary parse the rule must NOT flag (Arm iv below).
 # Note: no configType option — works with both ESLint v9 (flat default) and v10 (flat only)
 cat > "$E/f17-pos.mts" << 'SCRIPT'
 import { Linter } from 'eslint';
 import { default as plugin } from './eslint-rules-local/index.mjs';
 const linter = new Linter();
 const cfg = [{ plugins: { rat: plugin }, rules: { 'rat/no-unsafe-zod-parse': 'error' }, languageOptions: { ecmaVersion: 2022 } }];
-const msgs = linter.verify("const bodySchema={parse:x=>x};const r=bodySchema.parse('x');", cfg, { filename: 'test.js' });
+const msgs = linter.verify("const bodySchema={parse:x=>x};const r=bodySchema.parse(req.body);", cfg, { filename: 'test.js' });
 process.exit(msgs.some(m => m.ruleId === 'rat/no-unsafe-zod-parse') ? 0 : 1);
 SCRIPT
 
@@ -144,7 +146,22 @@ import { Linter } from 'eslint';
 import { default as plugin } from './eslint-rules-local/index.mjs';
 const linter = new Linter();
 const cfg = [{ plugins: { rat: plugin }, rules: { 'rat/no-unsafe-zod-parse': 'error' }, languageOptions: { ecmaVersion: 2022 } }];
-const msgs = linter.verify("const bodySchema={parse:x=>x};const r=bodySchema.parse('x'); // audit:exempt", cfg, { filename: 'test.js' });
+const msgs = linter.verify("const bodySchema={parse:x=>x};const r=bodySchema.parse(req.body); // audit:exempt", cfg, { filename: 'test.js' });
+process.exit(msgs.some(m => m.ruleId === 'rat/no-unsafe-zod-parse') ? 1 : 0);
+SCRIPT
+
+# STATIC-LITERAL arm script (Arm iv): literal config parse → rule silent → exit 0.
+# Live incident (ultrareview P1.1(e) false-positive arm + 2026-07-10 night smoke): after a
+# fresh ts-server install the auto-wire widened RULE_GLOBS.boundary to **/src/**, and R2
+# fired on a legitimate `ConfigSchema.parse({port: 3000})` in src/index.ts — a fail-fast
+# config parse with NO external input. A rule that cries on clean code gets disabled by
+# the consumer — same death of the shield as a silent rule.
+cat > "$E/f17-lit.mts" << 'SCRIPT'
+import { Linter } from 'eslint';
+import { default as plugin } from './eslint-rules-local/index.mjs';
+const linter = new Linter();
+const cfg = [{ plugins: { rat: plugin }, rules: { 'rat/no-unsafe-zod-parse': 'error' }, languageOptions: { ecmaVersion: 2022 } }];
+const msgs = linter.verify("const ConfigSchema={parse:x=>x};const config=ConfigSchema.parse({ port: 3000, name: 'api' });", cfg, { filename: 'src/index.js' });
 process.exit(msgs.some(m => m.ruleId === 'rat/no-unsafe-zod-parse') ? 1 : 0);
 SCRIPT
 
@@ -168,6 +185,19 @@ elif [ "$neg_rc" -eq 0 ]; then
   ok "Check3 Arm(ii) neg: audit:exempt → rule skips line (non-vacuous: shipped rule is live + exempt path works)"
 else
   bad "Check3 Arm(ii) neg: exempt line still flagged OR error (rc=$neg_rc; out=$(echo "$neg_out" | head -3 | tr '\n' '|'))"
+fi
+
+# ── PAIRED FALSE-POSITIVE GUARD (Arm iv): static-literal config parse stays silent ──
+# Pairs with the positive arm above: external-input parse FIRES (b), literal parse is
+# SILENT (a). Both must hold or the shield dies — silent rule and crying rule alike.
+lit_out=$(cd "$E" && "$TSX_BIN" f17-lit.mts 2>&1)
+lit_rc=$?
+if echo "$lit_out" | grep -qiE 'cannot find module|cannot find package|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH'; then
+  skip "Check3 Arm(iv) SKIP — tsx module load failed (same infrastructure issue as positive arm)"
+elif [ "$lit_rc" -eq 0 ]; then
+  ok "Check3 Arm(iv): literal ConfigSchema.parse({...}) NOT flagged (false-positive guard: non-boundary fail-fast config parse stays clean)"
+else
+  bad "Check3 Arm(iv): shipped rule FLAGGED a fully-literal config parse (rc=$lit_rc; out=$(echo "$lit_out" | head -3 | tr '\n' '|')) — false-positive arm regressed (P1.1(e): a rule that cries on clean code gets disabled)"
 fi
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

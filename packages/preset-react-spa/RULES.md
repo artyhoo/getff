@@ -35,7 +35,7 @@ automated check. Bypass via `/aif-rules` (with rationale), never via `--no-verif
 
 ## R2 — Validation at boundaries
 
-**Policy:** `.parse() is forbidden` in API boundary code. Use `.safeParse()` and branch on `.success`.
+**Policy:** `.parse() is forbidden` in API boundary code. Use `.safeParse()` and branch on `.success`. A `.parse()` whose argument is a **fully-static literal** (e.g. `ConfigSchema.parse({ port: 3000 })`) is **not** flagged — no external input can flow through it, so a throwing parse is deliberate fail-fast.
 
 **Path-scoped enforcement:** the ESLint rule `rules-as-tests/no-unsafe-zod-parse` is enabled only for these globs (configured in `eslint.config.mjs`):
 - `src/features/*/api/**`

@@ -60,13 +60,47 @@ function isZodishReceiver(
   return false;
 }
 
+// A fully-static literal expression cannot carry external input, so a throwing .parse()
+// on it is deliberate fail-fast (e.g. ConfigSchema.parse({port: 3000}) at startup), not a
+// boundary-validation gap. Conservative by construction: any identifier, member access,
+// call, spread, or computed key inside makes the argument non-static and the rule fires.
+function isStaticLiteral(node: TSESTree.Node): boolean {
+  switch (node.type) {
+    case 'Literal':
+      return true;
+    case 'TemplateLiteral':
+      return node.expressions.length === 0;
+    case 'UnaryExpression':
+      // -42, +1, !0, ~0 over a static operand
+      return isStaticLiteral(node.argument);
+    case 'ObjectExpression':
+      return node.properties.every(
+        (p) =>
+          p.type === 'Property' &&
+          !p.computed &&
+          (p.key.type === 'Identifier' || p.key.type === 'Literal') &&
+          isStaticLiteral(p.value),
+      );
+    case 'ArrayExpression':
+      return node.elements.every(
+        (el) =>
+          el !== null && el.type !== 'SpreadElement' && isStaticLiteral(el),
+      );
+    case 'TSAsExpression': // { ... } as const
+    case 'TSSatisfiesExpression':
+      return isStaticLiteral(node.expression);
+    default:
+      return false;
+  }
+}
+
 export const noUnsafeZodParse = createRule({
   name: 'no-unsafe-zod-parse',
   meta: {
     type: 'problem',
     docs: {
       description:
-        'Forbid Zod schema `.parse()` in HTTP boundary files; require `.safeParse()`. Stdlib `.parse()` (JSON, Date, path) is not flagged.',
+        'Forbid Zod schema `.parse()` in HTTP boundary files; require `.safeParse()`. Stdlib `.parse()` (JSON, Date, path) and fully-static literal arguments (fail-fast config parses) are not flagged.',
     },
     messages: {
       useSafeParse:
@@ -88,6 +122,16 @@ export const noUnsafeZodParse = createRule({
 
         const callee = node.callee as TSESTree.MemberExpression;
         if (!isZodishReceiver(callee.object, sourceCode.getScope(node))) return;
+
+        // Static-literal argument → not a boundary parse; skip (false-positive arm of
+        // ultrareview P1.1(e): a rule that cries on clean code gets disabled).
+        const firstArg = node.arguments[0];
+        if (
+          firstArg &&
+          firstArg.type !== 'SpreadElement' &&
+          isStaticLiteral(firstArg)
+        )
+          return;
 
         context.report({ node, messageId: 'useSafeParse' });
       },
