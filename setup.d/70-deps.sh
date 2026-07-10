@@ -109,10 +109,19 @@ fi
 # P0.2 (ultrareview): typescript + @types/node were DECLARED required by INSTALL.md §4 but never
 # actually in CORE_DEVDEPS, so a fresh --full flat-npm install left `tsc --noEmit` with no Node
 # globals ("Cannot find name 'console'") and let typescript free-float to an unvalidated major via
-# the typescript-eslint peer (verified: unpinned resolves to 6.0.3, incompatible with the shipped
+# the typescript-eslint peer (at the time, unpinned resolved to 6.0.3, incompatible with the shipped
 # tsconfig even WITH @types/node present). typescript@^5.7.0 satisfies typescript-eslint's own peer
 # range (>=4.8.4 <6.1.0) and matches the INSTALL.md pin exactly — INSTALL.md and this array are the
 # two sides of the #two-prompts-drift check (tests/install-sh/cic-s3-dep-install.test.sh).
+#
+# The `<6.1.0` upper bound is LOAD-BEARING, not cosmetic: on 2026-07-08 typescript@7.0.2 (the
+# Go-native rewrite) became the registry `latest`, and its JS API dropped `ts.Extension`, so an
+# unpinned resolve crashes @typescript-eslint/typescript-estree at module load
+# (create-program/shared.js:59 — "Cannot read properties of undefined (reading 'Cjs')"), taking down
+# `npm run lint` on every fresh consumer. The react-native arm was the first to hit this because it
+# installs under --legacy-peer-deps (see REACT_NATIVE_DEVDEPS below), which suppresses the peer-RANGE
+# check that shields the strict-peer stacks — so its typescript spec must carry its own cap. Revisit
+# this pin (and the RN one) when typescript-eslint's peer range admits TS 7.
 CORE_DEVDEPS=(
   eslint@^9 typescript-eslint@^8.59 @eslint/js@^9 @typescript-eslint/utils globals
   prettier@3.8.3 eslint-config-prettier @vitest/eslint-plugin
