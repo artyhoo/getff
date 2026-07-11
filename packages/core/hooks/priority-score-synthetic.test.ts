@@ -68,6 +68,12 @@ const HELPER = resolve(
   '.claude/skills/pipeline/helpers/priority-score.sh',
 );
 
+// Each case spawns priority-score.sh against a real git fixture, so the default 5s
+// ceiling is too tight under a fully parallel `npm run test` on a loaded box
+// (observed 14-51s). Mirrors the SLOW_SHELL_MS convention (PR #848, e.g.
+// pre-push.consumer-layout.test.ts).
+const SLOW_SHELL_MS = 30_000;
+
 const sandboxes: string[] = [];
 afterEach(() => {
   for (const d of sandboxes.splice(0)) rmSync(d, { recursive: true, force: true });
@@ -199,7 +205,7 @@ function runHelper(
 // priority-score.sh lines ~210-215 (find + while loop, section "(a)")
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('synthetic surface (a) — cold-review-fixes.md', () => {
+describe('synthetic surface (a) — cold-review-fixes.md', { timeout: SLOW_SHELL_MS }, () => {
   it('POSITIVE: cold-review-fixes.md present → emits "<umbrella>-cold-review-fixes type=cleanup" line', () => {
     // Targets priority-score.sh section (a):
     //   find "${PROMPTS_DIR}" -mindepth 2 -maxdepth 2 -name 'cold-review-fixes.md'
@@ -238,7 +244,7 @@ describe('synthetic surface (a) — cold-review-fixes.md', () => {
 // priority-score.sh lines ~218-223 (section "(b)")
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('synthetic surface (b) — state.md PENDING marker', () => {
+describe('synthetic surface (b) — state.md PENDING marker', { timeout: SLOW_SHELL_MS }, () => {
   it('POSITIVE: state.md contains PENDING → emits "<umbrella>-state-pending type=state-followup" line', () => {
     // Targets priority-score.sh section (b):
     //   find ... -name 'state.md' | xargs grep -l -iE 'PENDING|TODO|AWAITING|REVIEW-PENDING'
@@ -306,7 +312,7 @@ describe('synthetic surface (b) — state.md PENDING marker', () => {
 // priority-score.sh lines ~251-259 (section "(e)")
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('synthetic surface (e) — wave-plan 🟡 rows', () => {
+describe('synthetic surface (e) — wave-plan 🟡 rows', { timeout: SLOW_SHELL_MS }, () => {
   it('POSITIVE: wave plan has 🟡 table row → emits "wave-plan-<id> type=plan-followup" line', () => {
     // Targets priority-score.sh section (e):
     //   grep -E '^\|' "${MO_WAVE_PLAN}" | grep -E '🟡|🔲...' | sed row_id extraction
@@ -400,7 +406,7 @@ describe('synthetic surface (e) — wave-plan 🟡 rows', () => {
 // priority-score.sh lines ~262-268 (section "(f)")
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('synthetic surface (f) — open-questions.md §13.x entries', () => {
+describe('synthetic surface (f) — open-questions.md §13.x entries', { timeout: SLOW_SHELL_MS }, () => {
   it('POSITIVE: open-questions.md has "### 13.42" heading → emits "openq-§13-42 type=open-question"', () => {
     // Targets priority-score.sh section (f):
     //   grep -nE '^### 13\.[0-9]+' "${MO_OPEN_QUESTIONS}"
@@ -475,7 +481,7 @@ describe('synthetic surface (f) — open-questions.md §13.x entries', () => {
 // priority-score.sh lines ~271-280 (section "(g)")
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('synthetic surface (g) — TODO/FIXME/XXX in .ts files', () => {
+describe('synthetic surface (g) — TODO/FIXME/XXX in .ts files', { timeout: SLOW_SHELL_MS }, () => {
   it('POSITIVE: .ts file with "// TODO: fix this" → emits "todo-<path>-<lineno> type=code-todo" line', () => {
     // Targets priority-score.sh section (g):
     //   grep -rnE '//[[:space:]]*(TODO|FIXME|XXX):' "${MO_PACKAGES_DIR}" --include='*.ts' ...
@@ -591,7 +597,7 @@ describe('synthetic surface (g) — TODO/FIXME/XXX in .ts files', () => {
 // Cross-surface: script always emits the synthetic section header
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('synthetic section header always present', () => {
+describe('synthetic section header always present', { timeout: SLOW_SHELL_MS }, () => {
   it('script emits the synthetic section header even with empty sandbox', () => {
     // Verifies priority-score.sh line ~207:
     //   echo "=== priority-score: synthetic candidates (synthetic-candidate extension) ==="
