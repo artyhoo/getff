@@ -83,3 +83,18 @@ Read configuration through the injected config accessor, never process.env direc
 > Never (fires): const url = process.env.DATABASE_URL;
 > Always (clean): const url = config.get('databaseUrl');
 <!-- getff:end section=configuration-access -->
+
+## Time handling
+
+<!-- getff:begin section=time-handling plan=packages/core/composition/fixtures/root-agents-demo.docplan.json -->
+_Generated demo region (MT stage 4): fixture conventions rendered from Convention IR; enforcement lines are derived from live RenderOutcomes — see spec §5.1._
+
+### Time handling
+
+Use an injected clock, not datetime.datetime.now() directly
+<!-- @nodes: no-datetime-now -->
+> Enforced: astgrep-python-yaml ✅ · cargo-clippy-toml — FF7001 (not expressible in clippy.toml; route to the ast-grep escape-hatch backend (post-v0)) · npm-eslint-declarative — FF7002 (params contract violation: missing/invalid selector) · ruff-tidy-imports-toml — FF7001 (call-with-args ban not expressible in ruff (bans a qualified name, not a call site); route to the ast-grep backend (#212))
+> Never (fires): import datetime
+x = datetime.datetime.now()
+> Always (clean): x = clock.now()
+<!-- getff:end section=time-handling -->
