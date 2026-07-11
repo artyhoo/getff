@@ -244,7 +244,7 @@ cp /tmp/rt/packages/core/templates/shared/tsconfig.json .
 
 ## What stack does it support?
 
-- **`ts-server`** — Node.js 20.19+ server-only (Fastify, Hono, Express, plain HTTP).
+- **`ts-server`** — Node.js 22.23+ server-only (Fastify, Hono, Express, plain HTTP).
 - **`react-next`** — React 19 + Next.js 15 (App Router) + TypeScript.
 - **`react-spa`** — React 19 + Vite SPA (Feature-Sliced Design). _Early — ships the `require-error-boundary` rule; the rule-pack is still growing._
 - **`react-native`** — React Native / Expo (Expo or bare-RN baseline). _Experimental baseline — stack scaffold + templates; a dedicated rule-pack is not yet shipped._

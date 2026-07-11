@@ -122,7 +122,7 @@ Template (fill all `${DETECTED_*}` slots with detected values or `[GUESSED — v
 
 ## Stack
 
-- **Runtime:** Node.js 20+
+- **Runtime:** Node.js 22+
 - **Language:** TypeScript (strict)
 - **Framework:** ${DETECTED_FRAMEWORK or "[GUESSED — verify]"}
 - **Database:** ${DETECTED_DATABASE or "[GUESSED — verify]"} + ${DETECTED_ORM or "[GUESSED — verify]"}
