@@ -33,47 +33,52 @@
     }
   },
 
+  "$paths-comment": "All paths below are SOURCE paths relative to this repo root, matching what install.sh + setup.d/ actually copy (the guaranteed fallback path). The base RULES.md is the manifest-rendered multi-stack doc shared by ts-server/react-next (setup.d/30-templates.sh); react-spa/react-native stacks exist in packages/preset-*/ but are not yet listed here — extend when the upstream schema lands.",
+
   "factory": {
     "templates": {
-      "DESCRIPTION.md": "factory/DESCRIPTION.template.md",
-      "ARCHITECTURE.md": "factory/ARCHITECTURE.ts-server.md",
-      "RULES.md": "factory/RULES.md"
+      "DESCRIPTION.md": "packages/core/templates/shared/DESCRIPTION.template.md",
+      "ARCHITECTURE.md": "packages/core/templates/shared/ARCHITECTURE.ts-server.md",
+      "RULES.md": "packages/preset-next-15-canonical/RULES.md"
     },
     "react-next": {
-      "ARCHITECTURE.react-next.md": "factory/ARCHITECTURE.react-next.md",
-      "RULES.react-next.md": "factory/RULES.react-next.md"
+      "ARCHITECTURE.react-next.md": "packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md",
+      "RULES.react-next.md": "packages/preset-next-15-canonical/RULES.react-next.md"
     },
     "rules": {
-      "rules/integration-rules.md": "factory/rules/integration-rules.md"
+      "rules/integration-rules.md": "packages/core/templates/shared/integration-rules.md"
     }
   },
 
   "scripts": [
-    "scripts/audit-ai-docs.sh",
-    "scripts/audit-ai-docs.react-next.sh"
+    "packages/core/audit-self/audit-ai-docs.sh",
+    "packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh"
   ],
 
   "templates": {
     "shared": [
-      "templates/shared/AGENTS.md.template",
-      "templates/shared/tsconfig.json",
-      "templates/shared/.nvmrc",
-      "templates/shared/.lintstagedrc.json",
-      "templates/shared/husky-pre-commit.sh",
-      "templates/shared/husky-pre-push.sh"
+      "packages/core/templates/shared/AGENTS.md.template",
+      "packages/core/templates/shared/tsconfig.json",
+      "packages/core/templates/shared/.nvmrc",
+      "packages/core/templates/shared/.lintstagedrc.json",
+      "packages/core/templates/shared/husky-pre-commit.sh",
+      "packages/core/templates/shared/husky-pre-push.sh"
     ],
     "ts-server": [
       "templates/ts-server/eslint.config.mjs",
       "templates/ts-server/vitest.config.ts",
       "templates/ts-server/dependency-cruiser.cjs",
       "templates/ts-server/stryker.config.json",
-      "templates/ts-server/github-actions-ci.yml"
+      "templates/ts-server/github-actions-ci.yml",
+      "templates/ts-server/github-actions-workflow-integrity.yml"
     ],
     "react-next": [
-      "templates/react-next/eslint.config.react.mjs",
-      "templates/react-next/vitest.config.ts",
-      "templates/react-next/playwright.config.ts",
-      "templates/react-next/github-actions-ci-ui.yml"
+      "packages/preset-next-15-canonical/templates/eslint.config.react.mjs",
+      "packages/preset-next-15-canonical/templates/vitest.config.ts",
+      "packages/preset-next-15-canonical/templates/playwright.config.ts",
+      "packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml",
+      "packages/core/templates/react-next/.storybook/main.ts",
+      "packages/core/templates/react-next/.storybook/preview.ts"
     ]
   },
 
