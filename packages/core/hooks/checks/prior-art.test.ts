@@ -124,6 +124,72 @@ describe('isNewDepAdded()', () => {
     ].join('\n');
     expect(isNewDepAdded(diff)).toBe(true);
   });
+
+  // ── overrides / resolutions blocks are NOT dependencies (PR #980 incident:
+  //    security `overrides` keys were flagged as new explicit deps) ──────────
+  it('returns false for keys added inside a new "overrides" block', () => {
+    const diff = [
+      '+  "overrides": {',
+      '+    "qs": "^6.15.2",',
+      '+    "js-yaml": "4.2.0",',
+      '+    "markdown-it": "^14.2.0"',
+      '+  },',
+    ].join('\n');
+    expect(isNewDepAdded(diff)).toBe(false);
+  });
+
+  it('returns false for keys added inside a "resolutions" block', () => {
+    const diff = [
+      '+  "resolutions": {',
+      '+    "lodash": "^4.17.21"',
+      '+  }',
+    ].join('\n');
+    expect(isNewDepAdded(diff)).toBe(false);
+  });
+
+  it('returns false for keys inside a "pnpm" config block (pnpm.overrides)', () => {
+    const diff = [
+      '+  "pnpm": {',
+      '+    "overrides": {',
+      '+      "qs": "^6.15.2"',
+      '+    }',
+      '+  }',
+    ].join('\n');
+    expect(isNewDepAdded(diff)).toBe(false);
+  });
+
+  it('paired negative: still detects a new dep ADDED AFTER an overrides block closes', () => {
+    const diff = [
+      '+  "overrides": {',
+      '+    "qs": "^6.15.2"',
+      '+  },',
+      '+  "brand-new-dep": "^1.0.0"',
+    ].join('\n');
+    expect(isNewDepAdded(diff)).toBe(true);
+  });
+
+  it('paired negative: nested closing braces inside overrides do not end the skip early', () => {
+    const diff = [
+      '+  "overrides": {',
+      '+    "parent-pkg": {',
+      '+      "qs": "^6.15.2"',
+      '+    },',
+      '+    "handlebars": "4.7.9"',
+      '+  }',
+    ].join('\n');
+    expect(isNewDepAdded(diff)).toBe(false);
+  });
+
+  it('hunk boundary (@@) resets overrides tracking (context lost across hunks)', () => {
+    const diff = [
+      '+  "overrides": {',
+      '+    "qs": "^6.15.2"',
+      '+  },',
+      '@@ -40,3 +44,4 @@',
+      '+    "new-dep": "^1.0.0"',
+    ].join('\n');
+    expect(isNewDepAdded(diff)).toBe(true);
+  });
 });
 
 // ─── detectCapabilityReason() ─────────────────────────────────────────────────
