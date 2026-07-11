@@ -110,6 +110,12 @@ automated check. Bypass via `/aif-rules` (with rationale), never via `--no-verif
 2. `/aif-fix` is invoked automatically on flagged items.
 3. If the rule is genuinely incompatible with the task — `/aif-rules` to discuss updating the rule (with rationale), not to silently bypass it.
 
+## Push channel (pre-push) — thin by contract
+
+The pre-push hook is a **thin** channel for a consumer: it does **not** re-run per-file lint. Per-file lint is enforced at the earliest reachable channel — edit-time ESLint and the pre-commit `lint-staged` gate — so re-running it at push would be a slower, redundant duplicate that also risks blocking a push over a pre-existing issue in an unrelated touched file.
+
+What the push channel *does* run is framework **enforcement-integrity** that per-file pre-commit cannot see: rule-glob liveness (an active rule whose globs match zero files), lint-staged binary resolution, and offline link integrity on Markdown *changed in this push*. It does **not** scan your own workflows or shell scripts — workflow-security linting (actionlint / zizmor / action-pinning) is your **CI**'s job (the shipped workflow-integrity CI runs it), never a hard block on your first `git push` over pre-existing `@v6` action refs (per `ci-tool-pinning.md §2` — a consumer's own files are not gated by the framework's discipline). A clean-tree `git push` is **allowed**; a shipped-rule violation is blocked at edit-time + pre-commit + `npx eslint .`, with CI the backstop for a deliberate `git commit --no-verify` bypass. (Structure: the owner-tagged section registry in `packages/core/hooks/pre-push.ts`.)
+
 ## Rule maintenance
 
 - Each rule has a measurable check. If the check is missing — the rule is a wish, not a rule.
