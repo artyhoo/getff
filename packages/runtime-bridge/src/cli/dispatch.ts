@@ -30,6 +30,8 @@
  *   so also callable from portable test harness.
  */
 import { spawnSync } from 'node:child_process';
+import { realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { buildKickoffSpec } from '../kickoff.js';
 import { checkDedup, recordDispatch } from '../idempotency.js';
 import { resolveBackend } from '../resolver.js';
@@ -224,7 +226,26 @@ function outputContext(message: string): void {
   process.stdout.write(JSON.stringify(output) + '\n');
 }
 
-main().catch((err) => {
-  process.stderr.write(`[runtime-bridge] Unhandled dispatch error: ${err}\n`);
-  process.exit(0);
-});
+/**
+ * True only when this file is the executed script (tsx/node dispatch.ts …),
+ * not when imported for its named exports (tests import runPreflight etc.;
+ * an import must be side-effect-free — under vitest a top-level main() hits
+ * process.exit(0), which the runner turns into an unhandled rejection).
+ * realpath both sides: worktrees/macOS /tmp reach this file via symlinks.
+ */
+function isDirectCliInvocation(): boolean {
+  const argv1 = process.argv[1];
+  if (!argv1) return false;
+  try {
+    return realpathSync(argv1) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+if (isDirectCliInvocation()) {
+  main().catch((err) => {
+    process.stderr.write(`[runtime-bridge] Unhandled dispatch error: ${err}\n`);
+    process.exit(0);
+  });
+}
