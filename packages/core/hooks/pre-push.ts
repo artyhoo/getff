@@ -647,9 +647,10 @@ function unpinnedToolInstallSection(): void {
 //                    pre-existing `@v6` action refs (S1 finding F-push, R3 ky) — the
 //                    exact adoption-hostile DoS this umbrella exists to kill. The
 //                    workflow slice now matches the shell slice: NOT gated on a
-//                    consumer. A consumer's workflow-security is enforced at their CI
-//                    channel (the shipped workflow-integrity CI template runs zizmor),
-//                    the correct channel since no earlier consumer-side YAML gate exists.
+//                    consumer. Workflow-security linting of a consumer's OWN
+//                    workflows is out of the framework's scope — neither this hook nor
+//                    any shipped CI template runs it; a consumer adds it to their own
+//                    CI if they want that enforcement (RULES.md push-channel section).
 //   • 'both'       — runs on either layout: lychee link-check on *changed* Markdown
 //                    (diff-scoped to this push; degrades if lychee absent). The only
 //                    consumer-appropriate push check over the consumer's own changes —
@@ -717,8 +718,9 @@ function actionlintSection(ctx: SectionCtx): void {
 // CONSUMER's own pre-existing workflows hard-blocked their FIRST `git push` on
 // pre-existing `@v6` action refs (S1 finding F-push) — the adoption-hostile DoS this
 // umbrella exists to kill, and a leak of ci-tool-pinning.md §2 ("a consumer's own
-// scripts must not be gated by our discipline"). The consumer's workflow-security is
-// enforced at their CI channel (shipped workflow-integrity template), not at push.
+// scripts must not be gated by our discipline"). Workflow-security linting of a
+// consumer's OWN workflows is out of the framework's scope — neither this hook nor any
+// shipped CI template runs it; a consumer adds it to their own CI if they want it.
 // On the maintainer layout the scan stays full-repo fail-closed (ctx.onMissingTool
 // is 'die' when isFrameworkRepo); the `workflows.length > 0` guard still no-ops a
 // framework checkout that somehow has no workflows.
