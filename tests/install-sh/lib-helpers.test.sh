@@ -94,9 +94,9 @@ echo "$OUT" | grep -qF "https://example.test/blob/main/README.md#anchor" \
   && ok "transform: README.md#anchor preserved through rewrite" \
   || bad "transform: README.md#anchor NOT preserved"
 
-echo "$OUT" | grep -qF "](../../rules/no-paid-llm-in-ci.md)" \
-  && ok "transform: rules/ left intact (consumer-resolvable)" \
-  || bad "transform: rules/ was modified (leak)"
+echo "$OUT" | grep -qF "https://example.test/blob/main/.claude/rules/no-paid-llm-in-ci.md" \
+  && ok "transform: rules/ rewritten to blob URL (.claude/rules/ not shipped to consumers)" \
+  || bad "transform: rules/ NOT rewritten; got: $(echo "$OUT" | grep 'no-paid')"
 
 # ── 3. detect_pm returns one of: npm | pnpm | yarn ───────────────────────────
 PROJECT_ROOT="$TMPDIR"

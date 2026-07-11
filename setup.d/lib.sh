@@ -50,14 +50,13 @@ PRETTIERIGNORE_CFG_END='# <<< rules-as-tests-aif shipped-configs (managed) <<<'
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 # transform_internal_refs <markdown-file>
-# Rewrites markdown links `](../../../{docs,packages}/...)` and `](../../../README.md...)`
-# in-place to `](${UPSTREAM_BLOB_URL}/...)`. Leaves consumer-resolvable refs intact
-# (e.g. `](../../rules/...)` and `](../../hooks/...)` stay relative — deemed consumer-local by
-# convention, enforced by tests/install-sh/transform-internal-refs.test.sh #4/#5).
-# NOTE (2026-07-04, flagged not fixed): a real install shows `.claude/rules/` is NOT currently
-# shipped, so relative rules/ links dangle for consumers — a latent inconsistency between this
-# convention and the installer. Resolving it (ship rules/ vs blob-ify rules/ links) is a
-# maintainer decision, out of scope here; the transform stays as tested.
+# Rewrites markdown links `](../../../{docs,packages}/...)`, `](../../../README.md...)`,
+# and `.claude/rules/` refs (both the skill shape `](../../rules/...)` and the agent shape
+# `](../.claude/rules/...)`) in-place to `](${UPSTREAM_BLOB_URL}/...)`. `.claude/rules/` is
+# NOT shipped to consumers, so relative rules/ links dangle post-install — on the consumer's
+# FIRST push, pre-push §8 (`lychee --offline` over changed *.md) went red on ~87 such links
+# (flat-install smoke 2026-07-10). Leaves genuinely consumer-resolvable refs intact
+# (e.g. `](../../hooks/...)` — tests/install-sh/transform-internal-refs.test.sh #5).
 # Uses `-i.bak` for BSD-sed/GNU-sed portability, then removes the backup.
 transform_internal_refs() {
   local f="$1"
@@ -66,6 +65,9 @@ transform_internal_refs() {
     -e "s#\]\((\.\./)+docs/#](${UPSTREAM_BLOB_URL}/docs/#g" \
     -e "s#\]\((\.\./)+packages/#](${UPSTREAM_BLOB_URL}/packages/#g" \
     -e "s#\]\((\.\./)+README\.md#](${UPSTREAM_BLOB_URL}/README.md#g" \
+    -e "s#\]\((\.\./)+\.claude/rules/#](${UPSTREAM_BLOB_URL}/.claude/rules/#g" \
+    -e "s#\]\((\.\./)+rules/#](${UPSTREAM_BLOB_URL}/.claude/rules/#g" \
+    -e "s#\]\((\.\./)+install\.sh#](${UPSTREAM_BLOB_URL}/install.sh#g" \
     "$f"
   rm -f "${f}.bak"
 }

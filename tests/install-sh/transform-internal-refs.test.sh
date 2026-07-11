@@ -5,12 +5,15 @@
 # Single source of truth: install.sh:39-47 — sourced in lib-only mode (INSTALL_SH_LIB_ONLY=1)
 # so the function definition is available without running the install pipeline.
 #
-# 7 sub-tests covering the 5 transform classes + idempotency:
+# Sub-tests covering the transform classes + idempotency:
 #   1.  transforms ](../../../docs/x.md) → ](${URL}/docs/x.md)
 #   1b. transforms ](../../../../docs/y.md) → ](${URL}/docs/y.md) — 4-deep depth
 #   2.  transforms ](../../../packages/y.ts) → ](${URL}/packages/y.ts)
 #   3.  transforms ](../../../../README.md#anchor) → ](${URL}/README.md#anchor) — preserves #anchor
-#   4.  LEAVES ](../../rules/foo.md) intact (consumer has .claude/rules/ post-install)
+#   4.  transforms ](../../rules/foo.md) → ](${URL}/.claude/rules/foo.md) — rules/ NOT shipped
+#       to consumers (2026-07-10 flat-install smoke: 87 dangling links → first push RED on lychee)
+#   4b. transforms ](../.claude/rules/foo.md#a) → ](${URL}/.claude/rules/foo.md#a) — agents/*.md shape
+#   4c. transforms ](../../install.sh) → ](${URL}/install.sh) — skills/rules-as-tests shape
 #   5.  LEAVES ](../../../hooks/bar.sh) intact (consumer has .claude/hooks/ post-install)
 #   6.  idempotent — second pass produces no further change
 #
@@ -44,7 +47,9 @@ cat > "$FIXTURE" <<'EOF'
 - [deep docs](../../../../docs/meta-factory/bar.md) — should TRANSFORM (4-deep)
 - [pkg link](../../../packages/core/principles/x.test.ts) — should TRANSFORM
 - [readme](../../../../README.md#why-this-exists) — should TRANSFORM
-- [rule link](../../rules/no-paid-llm-in-ci.md) — should STAY
+- [rule link](../../rules/no-paid-llm-in-ci.md) — should TRANSFORM (rules/ not shipped)
+- [agent rule link](../.claude/rules/ai-laziness-traps.md#2-canonical-trap-catalogue) — should TRANSFORM
+- [installer link](../../install.sh) — should TRANSFORM (framework file, not shipped)
 - [hook link](../../../hooks/end-of-turn-reminder.sh) — should STAY
 EOF
 
@@ -71,10 +76,23 @@ grep -qF "${UPSTREAM_BLOB_URL}/README.md#why-this-exists" <<<"$OUT" \
   && ok "3: README.md#anchor preserved through rewrite" \
   || bad "3: README.md rewrite failed; got: $(grep -F 'why-this-exists' <<<"$OUT")"
 
-# Sub-test 4: rules/ left intact (consumer has .claude/rules/)
-grep -qF "](../../rules/no-paid-llm-in-ci.md)" <<<"$OUT" \
-  && ok "4: ../../rules/ left intact (consumer-resolvable)" \
-  || bad "4: rules/ link was modified — leak; got: $(grep -F 'rules/no-paid' <<<"$OUT")"
+# Sub-test 4: rules/ rewritten to blob URL (.claude/rules/ is NOT shipped to consumers)
+grep -qF "](${UPSTREAM_BLOB_URL}/.claude/rules/no-paid-llm-in-ci.md)" <<<"$OUT" \
+  && ! grep -qF "](../../rules/no-paid-llm-in-ci.md)" <<<"$OUT" \
+  && ok "4: ../../rules/ → ${UPSTREAM_BLOB_URL}/.claude/rules/" \
+  || bad "4: rules/ rewrite failed; got: $(grep -F 'rules/no-paid' <<<"$OUT")"
+
+# Sub-test 4b: agents-shape ../.claude/rules/ rewritten, #anchor preserved
+grep -qF "](${UPSTREAM_BLOB_URL}/.claude/rules/ai-laziness-traps.md#2-canonical-trap-catalogue)" <<<"$OUT" \
+  && ! grep -qF "](../.claude/rules/ai-laziness-traps.md" <<<"$OUT" \
+  && ok "4b: ../.claude/rules/ → ${UPSTREAM_BLOB_URL}/.claude/rules/ (#anchor preserved)" \
+  || bad "4b: .claude/rules/ rewrite failed; got: $(grep -F 'ai-laziness-traps' <<<"$OUT")"
+
+# Sub-test 4c: install.sh rewritten (framework installer, not shipped to consumers)
+grep -qF "](${UPSTREAM_BLOB_URL}/install.sh)" <<<"$OUT" \
+  && ! grep -qF "](../../install.sh)" <<<"$OUT" \
+  && ok "4c: ../../install.sh → ${UPSTREAM_BLOB_URL}/install.sh" \
+  || bad "4c: install.sh rewrite failed; got: $(grep -F 'install.sh' <<<"$OUT")"
 
 # Sub-test 5: hooks/ left intact (consumer has .claude/hooks/)
 grep -qF "](../../../hooks/end-of-turn-reminder.sh)" <<<"$OUT" \
