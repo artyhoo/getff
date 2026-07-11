@@ -21,7 +21,14 @@ elif [ "$DRY_RUN" = "--dry-run" ]; then
 else
   rm -rf "$PROJECT_ROOT/.claude/skills/rules-as-tests"
   cp -r "$PKG_ROOT/skills/rules-as-tests" "$PROJECT_ROOT/.claude/skills/rules-as-tests"
-  echo "  ✓ .claude/skills/rules-as-tests/"
+  # rules-as-tests ships from repo-root skills/ (not .claude/skills/), so it bypasses
+  # copy_skill_with_transform — its ](../../../README.md), ](../../install.sh) and
+  # ](../../../.claude/rules/…) refs dangle on a consumer tree without this pass
+  # (2026-07-10 flat-install smoke: first consumer push red on pre-push §8 lychee).
+  while IFS= read -r -d '' mdfile; do
+    transform_internal_refs "$mdfile"
+  done < <(find "$PROJECT_ROOT/.claude/skills/rules-as-tests" -name '*.md' -print0)
+  echo "  ✓ .claude/skills/rules-as-tests/ (cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
 fi
 if [ -e "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" ] && [ "$FORCE" != "--force" ]; then
   SKIPPED+=("$PROJECT_ROOT/.claude/skills/tool-bootstrapping")
@@ -35,6 +42,11 @@ elif [ "$DRY_RUN" = "--dry-run" ]; then
 else
   rm -rf "$PROJECT_ROOT/.claude/skills/tool-bootstrapping"
   cp -r "$PKG_ROOT/skills/tool-bootstrapping" "$PROJECT_ROOT/.claude/skills/tool-bootstrapping"
+  # No up-dir repo refs in tool-bootstrapping today (transform is a no-op) — run it anyway for
+  # install/refresh parity with do_refresh and so a future added ref cannot dangle silently.
+  while IFS= read -r -d '' mdfile; do
+    transform_internal_refs "$mdfile"
+  done < <(find "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" -name '*.md' -print0)
   echo "  ✓ .claude/skills/tool-bootstrapping/"
 fi
 # meta-orchestrator + its orchestration companions: shipped from authoring location
