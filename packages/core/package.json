@@ -36,6 +36,8 @@
     "typecheck": "tsc --noEmit",
     "render-rules": "tsx render/render-rules.ts",
     "render-rules:check": "tsx render/render-rules.ts --check",
+    "render:python": "tsx python-starter/render-python-templates.ts",
+    "render:python:check": "tsx python-starter/render-python-templates.ts --check",
     "detect": "tsx detector/cli.ts",
     "detect:install-rules": "tsx detector-v0/detect-applicable-rules.ts",
     "research": "tsx research/cli.ts",
@@ -63,5 +65,8 @@
     "remark": "^15.0.1",
     "remark-parse": "^11.0.0",
     "semver": "^7.8.1"
+  },
+  "overrides": {
+    "qs": "^6.15.2"
   }
 }

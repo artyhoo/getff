@@ -72,13 +72,38 @@ function stripPunctLower(word: string): string {
  * A package.json diff adds a NEW dependency (not a version bump) when a dep key
  * appears on a `+` line but no matching `-` line. Semver-prefix coverage mirrors
  * the bash: caret / tilde / range / digit / wildcard (dist-tags + URL specs slip).
+ *
+ * Keys inside `overrides` / `resolutions` / `pnpm` blocks are NOT dependencies —
+ * they force versions of packages already in the tree (PR #980 incident: security
+ * `overrides` entries were flagged as new explicit deps). Tracking is indent-based
+ * over the diff text and resets at each `@@` hunk header; a hunk that edits deep
+ * inside an existing overrides block without its opening line in context can still
+ * false-positive — accepted residual, the escape-hatch trailer covers it.
  */
 export function isNewDepAdded(packageJsonDiff: string): boolean {
   if (!packageJsonDiff) return false;
   const added = new Set<string>();
   const removed = new Set<string>();
   const re = /^([+-])\s+"([^"]+)":\s*"(\^|~|>=?|<=?|=|[0-9*])/;
+  const nonDepBlockRe = /^[+\- ]\s*"(overrides|resolutions|pnpm)"\s*:\s*\{/;
+  let skipIndent: number | null = null; // indent of the open non-dep block, if any
   for (const line of packageJsonDiff.split('\n')) {
+    if (line.startsWith('@@')) {
+      skipIndent = null; // new hunk — block context is lost
+      continue;
+    }
+    const body = line.slice(1); // strip the +/-/space diff marker
+    const indent = body.length - body.trimStart().length;
+    if (skipIndent !== null) {
+      // Inside overrides/resolutions/pnpm: nothing here is a dependency. The
+      // block ends at a closing brace back at (or above) the opening indent.
+      if (indent <= skipIndent && /^\s*[}\]]/.test(body)) skipIndent = null;
+      continue;
+    }
+    if (nonDepBlockRe.test(line)) {
+      skipIndent = indent;
+      continue;
+    }
     const m = re.exec(line);
     if (!m) continue;
     (m[1] === '+' ? added : removed).add(m[2]);

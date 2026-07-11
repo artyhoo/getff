@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # GH #509 — post-install WARN on .nvmrc ↔ pre-existing CI Node-version drift.
 #
-# THE CASE: install ships .nvmrc (20.19.0) but copy_safe does NOT overwrite an existing CI
+# THE CASE: install ships .nvmrc (22.23.1) but copy_safe does NOT overwrite an existing CI
 # workflow. A consumer whose own CI hardcodes a different `node-version: NN` then has local
 # `nvm use` (.nvmrc) ≠ CI. It's the consumer's own CI, nothing is broken → WARN only (never
 # a failure). A workflow that uses `node-version-file: '.nvmrc'` reads .nvmrc → cannot drift.
@@ -34,13 +34,13 @@ HARDCODE_22=$'jobs:\n  build:\n    steps:\n      - uses: actions/setup-node@v4\n
 HARDCODE_20=$'jobs:\n  build:\n    steps:\n      - uses: actions/setup-node@v4\n        with:\n          node-version: 20'
 USES_FILE=$'jobs:\n  build:\n    steps:\n      - uses: actions/setup-node@v4\n        with:\n          node-version-file: \'.nvmrc\''
 
-# ── POS: pre-existing CI hardcodes Node 22, .nvmrc pins 20 → drift WARN fires ──
-T=$(mktemp -d); LOG=$(mktemp); seed_and_install "$T" "$HARDCODE_22" "$LOG"; RC=$?
+# ── POS: pre-existing CI hardcodes Node 20, .nvmrc pins 22 → drift WARN fires ──
+T=$(mktemp -d); LOG=$(mktemp); seed_and_install "$T" "$HARDCODE_20" "$LOG"; RC=$?
 [ "$RC" = "0" ] && ok "POS: install exited 0 (warn never aborts)" || bad "POS: install exited $RC (warn block aborted install)"
-grep -q "pins Node 20.* hardcodes node-version: 22" "$LOG" \
-  && ok "POS: hardcoded node-version: 22 vs .nvmrc 20 → drift WARN printed" \
-  || bad "POS: no drift warn for 22 vs 20 (saw: $(grep -i nvmrc "$LOG" | head -1))"
-grep -q "node-version: 22" "$T/.github/workflows/ci.yml" \
+grep -q "pins Node 22.* hardcodes node-version: 20" "$LOG" \
+  && ok "POS: hardcoded node-version: 20 vs .nvmrc 22 → drift WARN printed" \
+  || bad "POS: no drift warn for 20 vs 22 (saw: $(grep -i nvmrc "$LOG" | head -1))"
+grep -q "node-version: 20" "$T/.github/workflows/ci.yml" \
   && ok "POS: pre-existing CI left intact (warn is non-destructive)" \
   || bad "POS: install mutated the consumer's CI (must be advisory only)"
 
@@ -52,11 +52,11 @@ grep -q "pins Node" "$LOG2" \
   && bad "NEG1: warned despite node-version-file (cannot drift) → false positive" \
   || ok "NEG1: node-version-file → no warn (correct — reads .nvmrc directly)"
 
-# ── NEG2: pre-existing CI hardcodes the SAME major (20) → no drift → silent ──
-T3=$(mktemp -d); LOG3=$(mktemp); seed_and_install "$T3" "$HARDCODE_20" "$LOG3"; RC3=$?
+# ── NEG2: pre-existing CI hardcodes the SAME major (22) → no drift → silent ──
+T3=$(mktemp -d); LOG3=$(mktemp); seed_and_install "$T3" "$HARDCODE_22" "$LOG3"; RC3=$?
 [ "$RC3" = "0" ] && ok "NEG2: install exited 0" || bad "NEG2: install exited $RC3"
 grep -q "pins Node" "$LOG3" \
-  && bad "NEG2: warned on matching major 20 vs 20 → unconditional warn" \
-  || ok "NEG2: matching major (20 vs 20) → no warn (warn is conditional)"
+  && bad "NEG2: warned on matching major 22 vs 22 → unconditional warn" \
+  || ok "NEG2: matching major (22 vs 22) → no warn (warn is conditional)"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

@@ -107,7 +107,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       # The framework never ran its own authored shipped artifacts (skill docs, agent prompts,
       # ESLint-rule sources, config templates) through Prettier, so install delivered ~50 files
       # that fail a consumer's first `prettier --check .` (#531). This gate fails when any shipped
@@ -160,7 +160,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install packages/core deps (remark + vitest for audit-ai-docs.test.ts)
         run: npm ci --prefix packages/core --silent
       - name: Run packages/core/audit-self/audit-ai-docs.test.ts (Wave 10.4 — vitest)
@@ -183,7 +183,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install workspace deps (hoists tsx to root)
         run: npm install --silent
       - name: Render & diff
@@ -207,7 +207,7 @@ jobs:
           fetch-depth: 0  # principle 11 needs full git history for introducing-commit detection
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install packages/core deps
         run: npm ci --prefix packages/core --silent
       - name: Run principles meta-tests
@@ -331,7 +331,7 @@ jobs:
           fetch-depth: 0  # install-sh tests copy the repo; full history is the safe default
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install packages/core deps
         run: npm ci --prefix packages/core --silent
       - name: Install workspace deps (hoists tsx to root)
@@ -411,7 +411,7 @@ jobs:
           fetch-depth: 0  # install-sh tests copy the repo; full history is the safe default
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install packages/core deps
         run: npm ci --prefix packages/core --silent
       - name: Install workspace deps (hoists tsx to root)
@@ -483,7 +483,7 @@ jobs:
           fetch-depth: 0  # install-sh tests copy the repo; full history is the safe default
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install packages/core deps
         run: npm ci --prefix packages/core --silent
       - name: Install workspace deps (hoists tsx to root)
@@ -537,6 +537,8 @@ jobs:
         run: bash tests/install-sh/mcp-layer.test.sh
       - name: "install-sh — stack auto-detect (GH #780: no-arg → detect from package.json, fail-loud only on unknown)"
         run: bash tests/install-sh/stack-autodetect.test.sh
+      - name: "install-sh — Python delivery layer + collision matrix + live-fire (python-delivery-v0 S1 T5)"
+        run: bash tests/install-sh/python-delivery.test.sh
       - name: "install-sh — shellcheck gate: setup.d/*.sh + install.sh (pinned 0.9.0)"
         run: |
           if command -v shellcheck >/dev/null 2>&1; then
@@ -561,7 +563,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install workspace deps
         run: npm install --silent
       - name: Typecheck all workspaces (tsc --noEmit)
@@ -594,7 +596,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}  # PR tip, not the synthetic merge commit
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install workspace deps (hoists tsx to root)
         run: npm install --silent
       - name: Ensure PR base ref is present
@@ -665,7 +667,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install python pyyaml (required by audit probes)
         run: pip install pyyaml==6.0.2
       - name: Install packages/core deps (remark + vitest for audit-ai-docs.test.ts)
@@ -695,7 +697,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install python pyyaml (required by audit probes)
         run: pip install pyyaml==6.0.2
       - name: Install packages/core deps (remark + vitest for audit-ai-docs.test.ts)
@@ -757,7 +759,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: "Fresh ./setup -y install (install.sh --full) into a tmp consumer"
         # STACK via env (not inline ${{…}} in run:) to avoid template-injection (zizmor). The
         # value is a GitHub-controlled matrix token from the allowlist above.
@@ -847,7 +849,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: "Fresh install.sh ts-server --full into a multi-stack monorepo consumer"
         run: |
           CONSUMER=$(mktemp -d)
@@ -910,7 +912,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install workspace deps (hoists tsx + transitive semver)
         run: npm install --silent
       - name: Detect this repo and diff against frozen snapshot
@@ -950,7 +952,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install workspace deps (hoists tsx + transitive semver + ajv)
         run: npm install --silent
       - name: Run research --self and diff against frozen snapshot
@@ -984,7 +986,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install workspace deps
         run: npm install --silent
       - name: Synth on own repo and diff against frozen snapshot
@@ -1019,7 +1021,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install workspace deps (hoists eslint + ts-eslint)
         run: npm install --silent
       - name: Validate own repo synth output and diff against frozen snapshot
@@ -1067,7 +1069,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install workspace deps
         run: npm install --silent
       - name: Synth → install → diff deterministic shape vs frozen snapshot
@@ -1106,7 +1108,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install workspace deps
         run: npm install --silent
       - name: Emit a declarative forbid bundle, verify clean, then prove it reds on a hand-edit
@@ -1158,7 +1160,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install workspace deps
         run: npm install --silent
       - name: Run canonical regen acceptance test (similarity ≥0.95)

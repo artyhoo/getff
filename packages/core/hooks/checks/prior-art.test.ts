@@ -124,6 +124,140 @@ describe('isNewDepAdded()', () => {
     ].join('\n');
     expect(isNewDepAdded(diff)).toBe(true);
   });
+
+  // ── overrides / resolutions blocks are NOT dependencies (PR #980 incident:
+  //    security `overrides` keys were flagged as new explicit deps) ──────────
+  it('returns false for keys added inside a new "overrides" block', () => {
+    const diff = [
+      '+  "overrides": {',
+      '+    "qs": "^6.15.2",',
+      '+    "js-yaml": "4.2.0",',
+      '+    "markdown-it": "^14.2.0"',
+      '+  },',
+    ].join('\n');
+    expect(isNewDepAdded(diff)).toBe(false);
+  });
+
+  it('returns false for keys added inside a "resolutions" block', () => {
+    const diff = [
+      '+  "resolutions": {',
+      '+    "lodash": "^4.17.21"',
+      '+  }',
+    ].join('\n');
+    expect(isNewDepAdded(diff)).toBe(false);
+  });
+
+  it('returns false for keys inside a "pnpm" config block (pnpm.overrides)', () => {
+    const diff = [
+      '+  "pnpm": {',
+      '+    "overrides": {',
+      '+      "qs": "^6.15.2"',
+      '+    }',
+      '+  }',
+    ].join('\n');
+    expect(isNewDepAdded(diff)).toBe(false);
+  });
+
+  it('paired negative: still detects a new dep ADDED AFTER an overrides block closes', () => {
+    const diff = [
+      '+  "overrides": {',
+      '+    "qs": "^6.15.2"',
+      '+  },',
+      '+  "brand-new-dep": "^1.0.0"',
+    ].join('\n');
+    expect(isNewDepAdded(diff)).toBe(true);
+  });
+
+  it('paired negative: nested closing braces inside overrides do not end the skip early', () => {
+    const diff = [
+      '+  "overrides": {',
+      '+    "parent-pkg": {',
+      '+      "qs": "^6.15.2"',
+      '+    },',
+      '+    "handlebars": "4.7.9"',
+      '+  }',
+    ].join('\n');
+    expect(isNewDepAdded(diff)).toBe(false);
+  });
+
+  it('hunk boundary (@@) resets overrides tracking (context lost across hunks)', () => {
+    const diff = [
+      '+  "overrides": {',
+      '+    "qs": "^6.15.2"',
+      '+  },',
+      '@@ -40,3 +44,4 @@',
+      '+    "new-dep": "^1.0.0"',
+    ].join('\n');
+    expect(isNewDepAdded(diff)).toBe(true);
+  });
+});
+
+// ─── CLAUDE.md prose ↔ hook sync (executable, was attention-only) ─────────────
+//
+// CLAUDE.md «What is a capability commit?» promises «the prose definition and
+// the hook stay in sync» (CLAUDE.md:36) — until this test, that promise was
+// enforced by nobody (#hope-as-gate, attention-is-not-a-mechanism.md §1).
+// These tests make the overrides-exclusion clause of the sync executable: the
+// non-dep block names skipped by isNewDepAdded() must each be named in the
+// CLAUDE.md explicit-dependency bullet, and vice versa.
+
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = resolve(HERE, '..', '..', '..', '..');
+
+/** Block names in the hook's non-dep-block regex alternation. */
+function extractCodeBlockNames(source: string): string[] {
+  const m = /"\((.*?)\)"\\s\*:\\s\*\\\{/.exec(source.replace(/\n/g, ' '));
+  // Fallback: match the regex literal directly.
+  const lit = /nonDepBlockRe = \/[^/]*"\(([^)]+)\)"/.exec(source);
+  const alt = (lit ?? m)?.[1];
+  if (!alt) throw new Error('nonDepBlockRe alternation not found in prior-art.ts');
+  return alt.split('|');
+}
+
+/** The CLAUDE.md explicit-dependency bullet (single line starting `- Adds a new **explicit dependency**`). */
+function extractProseBullet(claudeMd: string): string {
+  const line = claudeMd
+    .split('\n')
+    .find((l) => l.startsWith('- Adds a new **explicit dependency**'));
+  if (!line) throw new Error('explicit-dependency bullet not found in CLAUDE.md');
+  return line;
+}
+
+describe('CLAUDE.md prose ↔ isNewDepAdded() sync (capability-commit definition)', () => {
+  const hookSource = readFileSync(resolve(HERE, 'prior-art.ts'), 'utf8');
+  const claudeMd = readFileSync(resolve(REPO_ROOT, 'CLAUDE.md'), 'utf8');
+
+  it('every non-dep block the hook skips is named in the CLAUDE.md bullet', () => {
+    const bullet = extractProseBullet(claudeMd);
+    for (const name of extractCodeBlockNames(hookSource)) {
+      expect(bullet).toContain(`\`${name}\``);
+    }
+  });
+
+  it('hook skips ≥ the canonical trio (guards against silently narrowing the regex)', () => {
+    const names = extractCodeBlockNames(hookSource);
+    for (const expected of ['overrides', 'resolutions', 'pnpm']) {
+      expect(names).toContain(expected);
+    }
+  });
+
+  it('paired negative: a prose bullet missing a code block name FAILS the containment check', () => {
+    const staleBullet =
+      '- Adds a new **explicit dependency** in `package.json` (… `overrides` / `pnpm` blocks do NOT count …)';
+    // 'resolutions' is skipped by the code but absent from this stale prose.
+    expect(staleBullet).not.toContain('`resolutions`');
+    expect(extractCodeBlockNames(hookSource)).toContain('resolutions');
+  });
+
+  it('paired negative: extractor throws when the bullet is absent (prose moved/renamed → loud, not silent-pass)', () => {
+    expect(() => extractProseBullet('# CLAUDE\n\nno bullet here\n')).toThrow(
+      /bullet not found/,
+    );
+  });
 });
 
 // ─── detectCapabilityReason() ─────────────────────────────────────────────────

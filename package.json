@@ -16,6 +16,9 @@
   },
   "devDependencies": {
     "esbuild": "0.28.1",
-    "markdownlint-cli2": "^0.22.1"
+    "markdownlint-cli2": "^0.23.0"
+  },
+  "overrides": {
+    "qs": "^6.15.2"
   }
 }

@@ -12,7 +12,7 @@
 
 ## Stack
 
-- **Runtime:** Node.js 20.19+
+- **Runtime:** Node.js 22.23+
 - **Language:** TypeScript 5.7+ (strict + noUncheckedIndexedAccess)
 - **Framework:** <Fastify | Hono | Express | Next.js 15 App Router>
 - **Database:** <Postgres | MySQL | SQLite> + <Drizzle | Prisma | Kysely>

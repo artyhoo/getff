@@ -628,8 +628,10 @@ export async function probeViaEslint(configPath: string, cwd: string): Promise<P
   } catch {
     return 'unavailable';
   }
-  // tsx loader lets eslint load a config that imports a `.ts` barrel on ANY Node (the shipped
-  // .nvmrc is 20.x — no native type-stripping; plain node → ERR_UNKNOWN_FILE_EXTENSION). tsx is a
+  // tsx loader lets eslint load a config that imports a `.ts` barrel on ANY Node (a brownfield
+  // consumer's own .nvmrc may pin 20.x/22.0-22.17 — no native type-stripping there; plain node →
+  // ERR_UNKNOWN_FILE_EXTENSION. The shipped default .nvmrc is 22.23.1, which strips types natively,
+  // but tsx keeps the path uniform across consumer Node versions). tsx is a
   // consumer devDep + the pre-push-hook pattern (build-first-reuse). Absent → plain node (works on
   // Node >=22.18, degrades on 20 — same as the consumer's own `eslint .` would).
   const nodeArgs: string[] = [];
