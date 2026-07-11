@@ -9,7 +9,7 @@
 # integrate-never-hard-depend; same opt-in posture as companions.manifest). This asserts via
 # the REAL install pipeline (mirror f8/ship-orchestration) that:
 #   (a-default)  default install → the 6 gated suite skills ABSENT; core set + the two
-#                separately-copied skills (rules-as-tests, tool-bootstrapping) PRESENT.
+#                separately-copied skills (getff, tool-bootstrapping) PRESENT.
 #   (b-flag)     --with-aif-suite → all nine skills present.
 #   (c-refresh)  refresh over an existing suite install WITHOUT the flag → the suite files
 #                are still present and refreshed (presence on disk = prior opt-in), not deleted.
@@ -21,7 +21,7 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 
 CORE_SET="template-audit ai-doc rule-research"
 GATED_SET="pipeline dispatcher aif-doctor harvest night-mode story"
-ALWAYS_COPIED="rules-as-tests tool-bootstrapping"
+ALWAYS_COPIED="getff tool-bootstrapping"
 
 # ── (a) default install: gated suite absent, core set present ────────────────
 T=$(mktemp -d)
