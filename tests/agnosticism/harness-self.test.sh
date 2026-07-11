@@ -82,6 +82,7 @@ cat > "$RCROOT/.ai-factory/rule-channel-capabilities.json" <<'EOF'
   "harnesses": {
     "seeded-broken": {
       "support": "supported",
+      "axis": "shipped",
       "rulesAutoload": false,
       "pathScoping": false,
       "claudeMdExcludes": false,
