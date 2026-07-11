@@ -116,7 +116,9 @@ function detectMobile(deps: DepMap): string | null {
 function detectUiLayer(deps: DepMap): string | null {
   if (
     '@storybook/nextjs' in deps ||
+    '@storybook/nextjs-vite' in deps ||
     '@storybook/react' in deps ||
+    '@storybook/react-vite' in deps ||
     'storybook' in deps
   )
     return 'Storybook';
