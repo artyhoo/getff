@@ -350,7 +350,9 @@ jobs:
         # Pinned release install (ci-tool-pinning.md §1): without lychee on PATH the test
         # self-skips, which would make this CI arm vacuous (#hope-as-gate).
         run: |
-          curl -sSfL https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz | tar -xz -C "$RUNNER_TEMP"
+          curl -sSfL https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz -o "$RUNNER_TEMP/lychee.tgz"
+          echo "1f4e0ef7f6554a6ed33dd7ac144fb2e1bbed98598e7af973042fc5cd43951c9a  $RUNNER_TEMP/lychee.tgz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/lychee.tgz" -C "$RUNNER_TEMP"
           PATH="$RUNNER_TEMP:$PATH" bash tests/install-sh/lychee-shipped-md-offline.test.sh
       - name: install-sh — r2-na-marker (GH #547 C4 two-gates-one-marker)
         run: bash tests/install-sh/r2-na-marker.test.sh

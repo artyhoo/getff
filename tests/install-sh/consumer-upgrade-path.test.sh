@@ -58,12 +58,13 @@ else
   ok "stale-refreshed pos: stale marker gone after --refresh (file was refreshed)"
 fi
 
-# Assert: file now matches the current framework source
-CURRENT_SOURCE=$(cat "$REPO_ROOT/agents/compliance-verifier.md")
-if [ "$(cat "$AGENT_DST")" = "$CURRENT_SOURCE" ]; then
-  ok "stale-refreshed pos: refreshed content matches framework source (not a truncated stub)"
+# Assert: file now matches what a FRESH INSTALL ships (install/refresh parity). Not raw
+# framework source: shipped agents are transform_internal_refs-rewritten at install AND
+# refresh time (blob-URL links; 2026-07-11), so source bytes ≠ shipped bytes by design.
+if [ "$(cat "$AGENT_DST")" = "$CURRENT_CONTENT" ]; then
+  ok "stale-refreshed pos: refreshed content matches fresh-install content (install/refresh parity)"
 else
-  bad "stale-refreshed pos: refreshed content does NOT match framework source"
+  bad "stale-refreshed pos: refreshed content does NOT match fresh-install content"
 fi
 
 # neg (LOAD-BEARING): WITHOUT refresh, stale content persists — proves assertion is non-vacuous.

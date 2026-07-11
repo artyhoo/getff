@@ -67,7 +67,7 @@ transform_internal_refs() {
     -e "s#\]\((\.\./)+README\.md#](${UPSTREAM_BLOB_URL}/README.md#g" \
     -e "s#\]\((\.\./)+\.claude/rules/#](${UPSTREAM_BLOB_URL}/.claude/rules/#g" \
     -e "s#\]\((\.\./)+rules/#](${UPSTREAM_BLOB_URL}/.claude/rules/#g" \
-    -e "s#\]\((\.\./)+install\.sh#](${UPSTREAM_BLOB_URL}/install.sh#g" \
+    -e "s|\]\((\.\./)+install\.sh([#)])|](${UPSTREAM_BLOB_URL}/install.sh\2|g" \
     "$f"
   rm -f "${f}.bak"
 }
@@ -281,7 +281,12 @@ _prettierignore_in_skipped() {
   # Guard the empty-array expansion: under `set -u` on bash 3.2 (macOS), "${SKIPPED[@]}" with an
   # empty SKIPPED throws "unbound variable" and aborts install. ${#SKIPPED[@]} (length) is safe.
   [ "${#SKIPPED[@]}" -gt 0 ] || return 1
-  for s in "${SKIPPED[@]}"; do [ "$s" = "$needle" ] && return 0; done
+  for s in "${SKIPPED[@]}"; do
+    [ "$s" = "$needle" ] && return 0
+    # Prefix match: SKIPPED may hold a DIRECTORY (e.g. a consumer-owned skill dir kept by
+    # copy_skill_with_transform) — any file inside it is consumer-owned too.
+    case "$needle" in "$s"/*) return 0 ;; esac
+  done
   return 1
 }
 
@@ -314,6 +319,28 @@ ignore_shipped_configs() {
          -path "$PROJECT_ROOT/.claude/worktrees" -prune -o \
          \( -name 'eslint.config.mjs' -o -name 'eslint.config.rn-common.mjs' \) -print 2>/dev/null
   )
+  # Shipped .claude agents/skills markdown (2026-07-11): transform_internal_refs rewrites their
+  # repo-relative links to blob URLs at install time, which shifts markdown TABLE cell widths —
+  # the installed copies are no longer prettier-format-stable under ANY config (fresh-install
+  # validate smoke went RED on .claude/agents/capability-reuse-auditor.md with zero consumer
+  # edit). Same framework-vendored class as GH #531/#884. Enumerate ONLY from OUR shipping
+  # sources ($PKG_ROOT agents/ + skill dirs), never a blanket .claude/** find — a consumer's own
+  # custom agent/skill must stay format-checked. The fresh-vs-SKIPPED guard below (now
+  # dir-prefix-aware) keeps consumer-owned same-name copies checked too.
+  local _src _slug
+  for _src in "$PKG_ROOT"/agents/*.md; do
+    [ -f "$_src" ] || continue
+    candidates+=(".claude/agents/$(basename "$_src")")
+  done
+  for _src in "$PKG_ROOT"/.claude/skills/*/ "$PKG_ROOT"/skills/*/; do
+    [ -d "$_src" ] || continue
+    _slug=$(basename "$_src")
+    [ -d "$PROJECT_ROOT/.claude/skills/$_slug" ] || continue
+    while IFS= read -r _abs; do
+      [ -n "$_abs" ] || continue
+      candidates+=("${_abs#"$PROJECT_ROOT"/}")
+    done < <(find "$PROJECT_ROOT/.claude/skills/$_slug" -name '*.md' -print 2>/dev/null)
+  done
   local fresh=() rel
   for rel in "${candidates[@]}"; do
     [ -e "$PROJECT_ROOT/$rel" ] || continue                       # not shipped for this stack/preset

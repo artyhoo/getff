@@ -42,6 +42,11 @@ elif [ "$DRY_RUN" = "--dry-run" ]; then
 else
   rm -rf "$PROJECT_ROOT/.claude/skills/tool-bootstrapping"
   cp -r "$PKG_ROOT/skills/tool-bootstrapping" "$PROJECT_ROOT/.claude/skills/tool-bootstrapping"
+  # No up-dir repo refs in tool-bootstrapping today (transform is a no-op) — run it anyway for
+  # install/refresh parity with do_refresh and so a future added ref cannot dangle silently.
+  while IFS= read -r -d '' mdfile; do
+    transform_internal_refs "$mdfile"
+  done < <(find "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" -name '*.md' -print0)
   echo "  ✓ .claude/skills/tool-bootstrapping/"
 fi
 # meta-orchestrator + its orchestration companions: shipped from authoring location

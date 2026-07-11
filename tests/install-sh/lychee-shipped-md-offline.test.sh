@@ -26,7 +26,8 @@ fi
 T=$(mktemp -d)
 trap 'rm -rf "$T"' EXIT
 printf '{"name":"lychee-fixture","version":"0.0.0"}\n' > "$T/package.json"
-( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --full --force ) >/dev/null 2>&1
+( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --full --force ) >/dev/null 2>&1 \
+  || { bad "install.sh exited non-zero — fixture install failed"; echo "PASS=$PASS FAIL=$FAIL"; exit 1; }
 
 # Whole installed tree (minus node_modules) — the first consumer push runs lychee over
 # EVERY shipped .md (AGENTS.md, .ai-factory/*.md, .claude/**), not just .claude/**.
@@ -48,9 +49,22 @@ OUT=$(run_lychee); RC=$?
 if [ "$RC" -eq 0 ]; then
   ok "pos: lychee --offline clean over $N_MD installed *.md files (whole tree minus node_modules)"
 else
-  BROKEN=$(grep -cE 'ERROR|✗' <<<"$OUT" || true)
   bad "pos: lychee found broken links (rc=$RC) over $N_MD files — first consumer push would be RED"
   grep -E 'ERROR|✗' <<<"$OUT" | head -15 | sed 's/^/      /'
+fi
+
+# ── refresh arm: --refresh must not reintroduce dangling links ────────────────
+# do_refresh (install.sh) re-copies agents + plain-copy skills on a separate code path
+# (@sync-with-layers hand-sync); cold-review of 081447838 caught it bypassing the transform —
+# a consumer's first push AFTER an upgrade went red again (35 broken links reproduced).
+( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server --refresh ) >/dev/null 2>&1 \
+  || { bad "refresh: install.sh --refresh exited non-zero"; echo "PASS=$PASS FAIL=$FAIL"; exit 1; }
+OUT_R=$(run_lychee); RC_R=$?
+if [ "$RC_R" -eq 0 ]; then
+  ok "refresh: lychee still clean after --refresh (refresh path transforms too)"
+else
+  bad "refresh: --refresh reintroduced broken links (rc=$RC_R) — next consumer push after upgrade RED"
+  grep -E 'ERROR|✗' <<<"$OUT_R" | head -10 | sed 's/^/      /'
 fi
 
 # ── neg (probe bites) ────────────────────────────────────────────────────────

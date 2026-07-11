@@ -50,6 +50,8 @@ cat > "$FIXTURE" <<'EOF'
 - [rule link](../../rules/no-paid-llm-in-ci.md) — should TRANSFORM (rules/ not shipped)
 - [agent rule link](../.claude/rules/ai-laziness-traps.md#2-canonical-trap-catalogue) — should TRANSFORM
 - [installer link](../../install.sh) — should TRANSFORM (framework file, not shipped)
+- [installer anchor](../../install.sh#usage) — should TRANSFORM (anchor form)
+- [shim dir](../../install.shim/x.md) — should STAY (right boundary: not install.sh)
 - [hook link](../../../hooks/end-of-turn-reminder.sh) — should STAY
 EOF
 
@@ -88,10 +90,13 @@ grep -qF "](${UPSTREAM_BLOB_URL}/.claude/rules/ai-laziness-traps.md#2-canonical-
   && ok "4b: ../.claude/rules/ → ${UPSTREAM_BLOB_URL}/.claude/rules/ (#anchor preserved)" \
   || bad "4b: .claude/rules/ rewrite failed; got: $(grep -F 'ai-laziness-traps' <<<"$OUT")"
 
-# Sub-test 4c: install.sh rewritten (framework installer, not shipped to consumers)
+# Sub-test 4c: install.sh rewritten (framework installer, not shipped to consumers);
+# right-boundary: only `install.sh)` / `install.sh#…` forms — install.shim/ stays.
 grep -qF "](${UPSTREAM_BLOB_URL}/install.sh)" <<<"$OUT" \
+  && grep -qF "](${UPSTREAM_BLOB_URL}/install.sh#usage)" <<<"$OUT" \
   && ! grep -qF "](../../install.sh)" <<<"$OUT" \
-  && ok "4c: ../../install.sh → ${UPSTREAM_BLOB_URL}/install.sh" \
+  && grep -qF "](../../install.shim/x.md)" <<<"$OUT" \
+  && ok "4c: ../../install.sh → ${UPSTREAM_BLOB_URL}/install.sh (anchor kept; .shim/ untouched)" \
   || bad "4c: install.sh rewrite failed; got: $(grep -F 'install.sh' <<<"$OUT")"
 
 # Sub-test 5: hooks/ left intact (consumer has .claude/hooks/)

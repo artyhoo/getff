@@ -265,10 +265,18 @@ do_refresh() {
       shipped-agent-liveness-prober.md) continue ;;
       backward-sweep-auditor.md) continue ;;  # authoring-only tool (§1.7 backward-check cold-sweep, T21)
     esac
-    refresh_safe "$f" "$PROJECT_ROOT/.claude/agents/$(basename "$f")"
+    _dst="$PROJECT_ROOT/.claude/agents/$(basename "$f")"
+    refresh_safe "$f" "$_dst"
+    # Transform freshly-refreshed copies only (override-kept files untouched) — parity with
+    # setup.d/20-agents.sh. Without this, --refresh reintroduces dangling rules/ links and the
+    # consumer's next push after an upgrade goes red on pre-push §8 lychee (cold-review of
+    # 081447838, reproduced: 35 broken links post-refresh).
+    if [ "$DRY_RUN" != "--dry-run" ] && [ ! -e "${_dst%.md}.override.md" ] && [ -f "$_dst" ]; then
+      transform_internal_refs "$_dst"
+    fi
   done
 
-  # ── Skills (plain copy, no internal-ref transform) ──────
+  # ── Skills (plain copy + internal-ref transform) ────────
   echo "▶ Skills (rules-as-tests, tool-bootstrapping) → .claude/skills/"
   for _slug in rules-as-tests tool-bootstrapping; do
     _src="$PKG_ROOT/skills/$_slug"
@@ -289,7 +297,11 @@ do_refresh() {
     fi
     rm -rf "$_dst"
     cp -r "$_src" "$_dst"
-    echo "  ✓ .claude/skills/$_slug/ (refreshed)"
+    # Same transform pass as the install path (setup.d/10-skills.sh) — install/refresh parity.
+    while IFS= read -r -d '' _mdfile; do
+      transform_internal_refs "$_mdfile"
+    done < <(find "$_dst" -name '*.md' -print0)
+    echo "  ✓ .claude/skills/$_slug/ (refreshed, cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
   done
 
   # ── Orchestration skills (with internal-ref transform) ──
