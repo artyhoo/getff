@@ -78,6 +78,7 @@ CONTENT_LAYERS=(
   "20-agents.sh"
   "30-templates.sh"
   "40-configs.sh"
+  "45-python.sh"
   "50-hooks.sh"
   "60-ci.sh"
   "70-deps.sh"
