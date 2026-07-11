@@ -846,6 +846,28 @@ async function main(): Promise<void> {
     }
   }
 
+  // ── 3g. Shipped-rule compiled-artifact drift + orphan gate (#752 family) ─────
+  // Committed eslint-rule .mjs/.d.ts must match a fresh recompile of their .ts
+  // sources, and every artifact must still HAVE a source (orphan walk — deleting
+  // a rule source must not leave its compiled output shipping silently). Same
+  // family as 3f; previously CI-only (audit-self.yml), pre-push is the earlier
+  // reachable channel. exit 2 = tsc absent (no npm install yet) → skip, not fail.
+  if (existsSync(resolve(REPO_ROOT, 'scripts/build-shipped-eslint-rules.sh'))) {
+    const r = run('bash', ['scripts/build-shipped-eslint-rules.sh', '--check']);
+    if (r.exitCode === 2) {
+      process.stderr.write(
+        '⚠️  shipped-rule drift gate skipped — tsc not installed (run: npm install at repo root)\n',
+      );
+    } else if (r.exitCode !== 0) {
+      die(
+        '❌ shipped-rule drift/orphan detected — run: bash scripts/build-shipped-eslint-rules.sh (and delete orphaned .mjs/.d.ts)',
+        r,
+      );
+    } else {
+      emit(r);
+    }
+  }
+
   // ── 4. Manifest render drift ──────────────────────────────────────────────────
   // Consumer-skip guard (same family as 3b–3f/4b): packages/core/render/ is
   // maintainer-only (not in install.sh's consumer copy-list). Absent → tsx would
