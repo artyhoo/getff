@@ -73,13 +73,28 @@ _Generated demo region (MT stage 4): fixture conventions rendered from Conventio
 
 Read configuration through the injected config accessor, never std::env::var directly
 <!-- @nodes: no-direct-env-var -->
-> Enforced: cargo-clippy-toml ✅ · npm-eslint-declarative — FF7001 (typed rules are not expressible in the no-restricted-syntax declarative class; route to a type-aware backend (post-v0))
+> Enforced: astgrep-python-yaml — FF7001 (type-aware bans need a type checker; route to the mypy backend (deferred, post-v0)) · cargo-clippy-toml ✅ · npm-eslint-declarative — FF7001 (typed rules are not expressible in the no-restricted-syntax declarative class; route to a type-aware backend (post-v0)) · ruff-tidy-imports-toml — FF7001 (type-aware bans need a type checker; route to the mypy backend (deferred, post-v0))
 > Never (fires): fn main() { let _ = std::env::var("HOME"); }
 > Always (clean): fn main() { let _ = app_config::env_var("HOME"); }
 
 Read configuration through the injected config accessor, never process.env directly
 <!-- @nodes: no-direct-process-env -->
-> Enforced: cargo-clippy-toml — FF7001 (not expressible in clippy.toml; route to the ast-grep escape-hatch backend (post-v0)) · npm-eslint-declarative ✅
+> Enforced: astgrep-python-yaml — FF7002 (params contract violation: missing/invalid kind) · cargo-clippy-toml — FF7001 (not expressible in clippy.toml; route to the ast-grep escape-hatch backend (post-v0)) · npm-eslint-declarative ✅ · ruff-tidy-imports-toml — FF7002 (params contract violation: missing/invalid kind)
 > Never (fires): const url = process.env.DATABASE_URL;
 > Always (clean): const url = config.get('databaseUrl');
 <!-- getff:end section=configuration-access -->
+
+## Time handling
+
+<!-- getff:begin section=time-handling plan=packages/core/composition/fixtures/root-agents-demo.docplan.json -->
+_Generated demo region (MT stage 4): fixture conventions rendered from Convention IR; enforcement lines are derived from live RenderOutcomes — see spec §5.1._
+
+### Time handling
+
+Use an injected clock, not datetime.datetime.now() directly
+<!-- @nodes: no-datetime-now -->
+> Enforced: astgrep-python-yaml ✅ · cargo-clippy-toml — FF7001 (not expressible in clippy.toml; route to the ast-grep escape-hatch backend (post-v0)) · npm-eslint-declarative — FF7002 (params contract violation: missing/invalid selector) · ruff-tidy-imports-toml — FF7001 (call-with-args ban not expressible in ruff (bans a qualified name, not a call site); route to the ast-grep backend (#212))
+> Never (fires): import datetime
+x = datetime.datetime.now()
+> Always (clean): x = clock.now()
+<!-- getff:end section=time-handling -->
