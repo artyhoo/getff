@@ -29,6 +29,7 @@ export default defineConfig({
       'ir/**/*.test.ts',
       'backends/**/*.test.ts',
       'composition/**/*.test.ts',
+      'python-starter/**/*.test.ts',
     ],
     exclude: [
       '**/node_modules/**',
