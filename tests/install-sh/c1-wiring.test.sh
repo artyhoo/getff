@@ -18,10 +18,12 @@ printf '{ "name": "c1t", "version": "0.0.0", "scripts": { "test": "echo keep" } 
 # P1 — seed lands so deps-hash-check.sh no longer short-circuits to silent exit 0
 [ -f "$T/.ai-factory/tool-decisions.md" ] && ok "P1: tool-decisions.md seeded" || bad "P1: tool-decisions.md missing"
 
-# P2 — all 3 skill-context land (verify-list ↔ copy-list single-sourced)
+# P2 — the 2 default skill-context land (verify-list ↔ copy-list single-sourced);
+# aif-orchestrator-discipline is AIF-suite-gated (F7 agents arm) — absent by default,
+# flag-gated presence asserted in with-aif-suite-flag.test.sh.
 n=$(find "$T/.ai-factory/skill-context" -name SKILL.md 2>/dev/null | wc -l | tr -d ' ')
-[ "$n" = "3" ] && ok "P2: 3/3 skill-context landed" || bad "P2: only $n/3 skill-context"
-[ -f "$T/.ai-factory/skill-context/aif-orchestrator-discipline/SKILL.md" ] && ok "P2: aif-orchestrator-discipline present (was the dropped one)" || bad "P2: aif-orchestrator-discipline missing"
+[ "$n" = "2" ] && ok "P2: 2/2 default skill-context landed" || bad "P2: $n/2 default skill-context"
+[ ! -f "$T/.ai-factory/skill-context/aif-orchestrator-discipline/SKILL.md" ] && ok "P2: aif-orchestrator-discipline absent by default (suite-gated)" || bad "P2: aif-orchestrator-discipline leaked into default install"
 
 # W1 — compiled ESM barrel generated, valid, covers every landed rule file (eslint.config imports it)
 [ -f "$T/eslint-rules-local/index.mjs" ] && ok "W1: eslint ESM barrel generated" || bad "W1: eslint ESM barrel missing (S2 fix)"

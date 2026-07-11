@@ -10,6 +10,7 @@
 #   ./setup -y ts-server                        # recommended one-shot path (wrapper: --full + companions)
 #   ./install.sh ts-server --wire-ci            # also auto-wire missing CI gates via yq (opt-in, detect-first)
 #   ./install.sh ts-server --with-aif-suite     # also ship the AIF operator suite (aif-handoff runtime required)
+#   ./install.sh ts-server --all                # everything: --full + --with-aif-suite (operator machines)
 #
 # What it does:
 #   1. Copies skills/ + the consumer-facing core skill set
@@ -23,7 +24,8 @@
 #       cross-refs to repo-internal paths get sed-transformed to GitHub blob URLs —
 #       see UPSTREAM_BLOB_URL + transform_internal_refs() below;
 #       per .claude/rules/dual-implementation-discipline.md §7 SSOT)
-#   2. Copies agents/  → .claude/agents/
+#   2. Copies agents/  → .claude/agents/ (consumer-facing set; orchestrator-worker-discipline +
+#      reviewer-discipline are AIF-suite-gated — F7 agents arm; authoring-only probers never ship)
 #   3. Copies factory templates → .ai-factory/  (templates: as-is, you fill in placeholders)
 #   4. Copies packages/core/audit-self/ + packages/preset-*/audit-self/ → scripts/
 #   5. Copies packages/core/templates/shared/ + packages/preset-*/templates/ → project root
@@ -35,10 +37,13 @@
 # Use --wire-ci to also auto-wire any CI-orphan rule-enforcement gate (§6c) into your existing
 # workflow via yq (used-if-present, never installed by us; default is the non-destructive WARN +
 # paste-block — wiring edits your kept workflow in place, so it is opt-in). No effect in --dry-run.
-# Use --with-aif-suite to also ship the AIF operator suite (pipeline, dispatcher, aif-doctor,
-# harvest, night-mode, story). Those presuppose the aif-handoff operator runtime and story's
-# lang-pack (#934); default installs only the consumer-facing core set. Opt-in + reversible
-# (delete the six .claude/skills/ dirs to undo) — same posture as the companions.manifest flow.
+# Use --with-aif-suite to also ship the AIF operator suite: the six skills (pipeline, dispatcher,
+# aif-doctor, harvest, night-mode, story) PLUS the two suite agents (orchestrator-worker-discipline,
+# reviewer-discipline) and their aif-orchestrator-discipline skill-context. Those presuppose the
+# aif-handoff operator runtime and story's lang-pack (#934); default installs only the
+# consumer-facing core set. Opt-in + reversible (delete the six .claude/skills/ dirs, the two
+# .claude/agents/ files and the skill-context dir to undo) — same posture as companions.manifest.
+# Use --all as the operator shorthand for --full + --with-aif-suite («everything»).
 
 set -euo pipefail
 
@@ -88,6 +93,9 @@ for arg in "$@"; do
     --wire-ci)              WIRE_CI="--wire-ci" ;;
     --refresh)              REFRESH="--refresh" ;;
     --with-aif-suite)       WITH_AIF_SUITE="--with-aif-suite" ;;
+    # --all = everything: --full (dev-deps, no prompts) + the AIF operator suite. Operator
+    # convenience alias (owner directive 2026-07-11); consumer default (-y/--full) stays curated.
+    --all)                  FULL="--full"; WITH_AIF_SUITE="--with-aif-suite" ;;
     ts-server|react-next|react-spa|react-native)   STACK="$arg"; STACK_EXPLICIT="1" ;;
     *)                      ;;
   esac
@@ -264,6 +272,10 @@ do_refresh() {
       manual-rule-liveness-prober.md) continue ;;
       shipped-agent-liveness-prober.md) continue ;;
       backward-sweep-auditor.md) continue ;;  # authoring-only tool (§1.7 backward-check cold-sweep, T21)
+      orchestrator-worker-discipline.md|reviewer-discipline.md)
+        # F7 companion split (agents arm) — parity with setup.d/20-agents.sh: suite-only,
+        # or keep refreshing a copy already on disk (presence = prior --with-aif-suite opt-in).
+        if [ -z "${WITH_AIF_SUITE:-}" ] && [ ! -e "$PROJECT_ROOT/.claude/agents/$(basename "$f")" ]; then continue; fi ;;
     esac
     _dst="$PROJECT_ROOT/.claude/agents/$(basename "$f")"
     refresh_safe "$f" "$_dst"
@@ -530,6 +542,9 @@ do_refresh() {
     case "$_doc" in
       packages/core/templates/shared/skill-context/*/SKILL.md)
         _sc="${_doc#packages/core/templates/shared/skill-context/}"; _sc="${_sc%/SKILL.md}"
+        # F7 companion split (skill-context arm) — parity with setup.d/20-agents.sh §3c.
+        if [ "$_sc" = "aif-orchestrator-discipline" ] && [ -z "${WITH_AIF_SUITE:-}" ] \
+          && [ ! -e "$PROJECT_ROOT/.ai-factory/skill-context/$_sc/SKILL.md" ]; then continue; fi
         refresh_safe "$PKG_ROOT/$_doc" "$PROJECT_ROOT/.ai-factory/skill-context/$_sc/SKILL.md" ;;
     esac
   done

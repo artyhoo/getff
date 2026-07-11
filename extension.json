@@ -15,11 +15,33 @@
     "agents": ["claude", "codex", "cursor"]
   },
 
+  "$suite-comment": "This manifest lists the CONSUMER-DEFAULT payload only. The AIF operator suite (skills pipeline/dispatcher/aif-doctor/harvest/night-mode/story + agents orchestrator-worker-discipline/reviewer-discipline + skill-context aif-orchestrator-discipline) ships via install.sh --with-aif-suite (or --all) and is deliberately not listed here — Path A has no flag channel in the draft schema.",
+
   "skills": [
     {
       "name": "getff",
       "path": "skills/getff",
       "description": "Convert any codebase rule into an executable test. AI-driven code drift defense."
+    },
+    {
+      "name": "tool-bootstrapping",
+      "path": "skills/tool-bootstrapping",
+      "description": "Analyse the project stack and propose MCP servers / skills; records decisions in .ai-factory/tool-decisions.md."
+    },
+    {
+      "name": "template-audit",
+      "path": ".claude/skills/template-audit",
+      "description": "Local advisory audit of the rendered templates this framework ships (paraphrase / cue-placement checks)."
+    },
+    {
+      "name": "ai-doc",
+      "path": ".claude/skills/ai-doc",
+      "description": "AI-doc authoring standard: channel selection, doc-authority header, rule-as-test, AI-agnostic authoring."
+    },
+    {
+      "name": "rule-research",
+      "path": ".claude/skills/rule-research",
+      "description": "Bootstrap stack-aware ESLint rules from LIVE documentation (rule-bootstrapping bridge)."
     }
   ],
 
@@ -28,7 +50,12 @@
       "files": [
         "agents/review-sidecar.md",
         "agents/living-docs-auditor.md",
-        "agents/compliance-verifier.md"
+        "agents/compliance-verifier.md",
+        "agents/memory-codification-auditor.md",
+        "agents/aif-init.md",
+        "agents/rule-researcher.md",
+        "agents/capability-reuse-auditor.md",
+        "agents/docplan-auditor.md"
       ]
     }
   },
