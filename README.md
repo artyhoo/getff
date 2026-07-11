@@ -5,7 +5,7 @@
 [![Audit Self](https://github.com/artyhoo/getff/actions/workflows/audit-self.yml/badge.svg?branch=main)](https://github.com/artyhoo/getff/actions/workflows/audit-self.yml)
 [![Workflow Integrity](https://github.com/artyhoo/getff/actions/workflows/workflow-integrity.yml/badge.svg?branch=main)](https://github.com/artyhoo/getff/actions/workflows/workflow-integrity.yml)
 
-getff compiles your conventions into native toolchain gates (ESLint/husky for npm, clippy/cargo-deny for cargo). Its own [AGENTS.md](AGENTS.md) is executable — every claim carries a live-fired enforcement status; the gate fails when a claim drifts from reality. Docs lie; tests don't.
+getff compiles your conventions into native toolchain gates (ESLint/husky for npm, clippy for cargo — cargo-deny dependency bans are on the roadmap). Its own [AGENTS.md](AGENTS.md) is executable — every claim carries a live-fired enforcement status; the gate fails when a claim drifts from reality. Docs lie; tests don't.
 
 **Honest framing:** today the executable AGENTS.md is this repo's own — [open it](AGENTS.md), every statement has an enforcement line. `getff init` (via `./setup`, see [Installation](#installation)) installs the enforcement layer (ESLint/husky/CI gates) into your TypeScript project; generating *your* executable AGENTS.md is the next milestone, not shipped yet.
 

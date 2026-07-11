@@ -32,6 +32,7 @@
     "test:render": "vitest run render/",
     "test:template-render": "vitest run audit-self/template-render.audit.ts",
     "guard-liveness:fullsweep": "tsx hooks/checks/guard-liveness-fullsweep.ts",
+    "demo:cargo": "bash backends/cargo/demo/run-demo.sh",
     "typecheck": "tsc --noEmit",
     "render-rules": "tsx render/render-rules.ts",
     "render-rules:check": "tsx render/render-rules.ts --check",
