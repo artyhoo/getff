@@ -58,7 +58,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       # Root workspace install — the v1 ESLint arm imports the preset eslint-rules
       # package via the workspace symlink, which only exists after a root-level install
       # (see guard-liveness.ts header). `npm ci` is exact + reproducible from the lockfile.
