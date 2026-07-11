@@ -46,7 +46,7 @@ cd /tmp/getff
 Install getff into this project. Follow these steps exactly:
 
 1. Verify prerequisites:
-   - Node.js 20.19+ (`node --version`)
+   - Node.js 22.23+ (`node --version`)
    - npm available
    - git initialized in this project
 

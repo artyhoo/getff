@@ -44,7 +44,7 @@
 # consumer CI run — zero lockfile coverage, floats with upstream majors.
 #   - Arm H: react-next --full → the template npx tools + storybook toolchain land PINNED in the
 #     devDep argv (REACT_DEVDEPS is the canonical pin source; INSTALL.md mirrors it — two-way
-#     parity below; node-20 compatible — concurrently@10 needs node >=22, .nvmrc is 20.19.0).
+#     parity below; node-20-and-up compatible — concurrently@10 needs node >=22; pins chosen to also serve brownfield consumers on 20.x, shipped .nvmrc is 22.23.1).
 #   - Arm I: static sweep — every `npx <tool>` in EVERY shipped CI workflow template maps to a
 #     package present in that stack's DEVDEPS arrays (bin→pkg: playwright→@playwright/test,
 #     stryker→@stryker-mutator/core). Paired-negative: a synthetic template with an uncovered

@@ -71,7 +71,8 @@ fi
 # The barrel + its sibling rule files must load via a RAW `node` import — NO tsx, NO
 # NODE_OPTIONS — the exact path that CRASHED with the old `.ts` barrel
 # (`ERR_UNKNOWN_FILE_EXTENSION ".ts"`) on a Node without native type-stripping: Node 20.x
-# (the consumer's own .nvmrc = 20.19.0) and Node 22.0–22.17. This is the REAL consumer
+# (a brownfield consumer's own .nvmrc; the shipped default is now 22.23.1) and Node 22.0–22.17.
+# This is the REAL consumer
 # exposure — raw pre-commit/lint-staged + manual `npx eslint` — distinct from Arm (ii)'s
 # tsx Linter-API path which always worked and so never proved the fix (S1 #744). Under the
 # CI Node 20+22 matrix (audit-self.yml f17-node-compat) this arm is the honest "green stops
