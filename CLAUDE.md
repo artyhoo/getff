@@ -35,7 +35,7 @@ For the **consumer-side authority model** governing how shipped artefacts may be
 
 A commit that does **any** of the following (mirrors `packages/core/hooks/checks/prior-art.ts` detection — the prose definition and the hook stay in sync):
 
-- Adds a new **explicit dependency** in `package.json` (transitive deps don't count; detected as a dependency key present on an added `+` line with no matching removed `-` line for the same key, across common semver-prefix forms `^ ~ >= <= = *`, in the package.json diff).
+- Adds a new **explicit dependency** in `package.json` (transitive deps don't count; detected as a dependency key present on an added `+` line with no matching removed `-` line for the same key, across common semver-prefix forms `^ ~ >= <= = *`, in the package.json diff). Keys inside `overrides` / `resolutions` / `pnpm` blocks do NOT count — they force versions of packages already in the tree, adding no capability (PR #980 incident).
 - Adds a new file **≥50 LOC** under a new subdirectory of `packages/core/<new-dir>/`.
 - Adds a new file **≥80 LOC** anywhere under `packages/`.
 
