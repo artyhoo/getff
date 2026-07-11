@@ -29,12 +29,18 @@
  * dead/always-skip code (RED-before-GREEN, per T15). §5 uses a failing `test:principles`,
  * §7 uses the SSOT register, §6 uses a failing batch-spec validator.
  *
- * S3 push-channel contract (F-push): the workflow-security scanners (actionlint §1,
- * zizmor §2, the ci-tool-pinning unpinned-install gate) are `owner: maintainer` — a
- * consumer's OWN workflows/scripts are NOT gated at push (ci-tool-pinning.md §2). The
- * only external tool the consumer push channel still runs is lychee (§8, on *changed*
- * Markdown). The stubs below (zizmor/actionlint/lychee → exit 0) keep the framework-
- * layout arms hermetic; on the consumer layout the workflow scanners are never composed.
+ * S3 push-channel contract (F-push): the workflow-SECURITY/SYNTAX scanners (actionlint
+ * §1, zizmor §2) are `owner: maintainer` — a consumer's OWN workflows are NOT scanned
+ * for zizmor `unpinned-uses` at push, so a first push is never blocked on pre-existing
+ * `@v6` action refs. The ci-tool-pinning unpinned-install gate is DIFFERENT: its WORKFLOW
+ * population is `owner: both` (ci-tool-pinning.md §2 pop 1 — "scanned on every push,
+ * framework and consumer repos alike"), so a consumer's own workflows ARE gated for
+ * un-pinned bare `run: pip install` / `npm install -g` (narrow, §3 escape hatch); only
+ * its SHELL-SCRIPT population (pop 2) is framework-only (within-body isFrameworkRepo
+ * guard). External tools the consumer channel runs: lychee (§8, on *changed* Markdown)
+ * plus the deterministic (no-tool) ci-tool-pinning workflow regex scan. The stubs below
+ * (zizmor/actionlint/lychee → exit 0) keep the framework-layout arms hermetic; on the
+ * consumer layout the SECURITY scanners are never composed but the pop-1 regex scan is.
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { spawnSync, execSync } from 'node:child_process';
@@ -427,15 +433,17 @@ describe(
       expect(out).toMatch(/spec-validate findings/);
     });
 
-    // ── S3 push-channel contract — F-push adjudication (workflow scanners not on the
+    // ── S3 push-channel contract — F-push adjudication (SECURITY scanners not on the
     //    consumer channel) ────────────────────────────────────────────────────────
     // S1 finding F-push (R3 ky): the consumer pre-push ran a FULL zizmor audit over the
     // consumer's OWN `.github/workflows/*.yml` and hard-blocked their FIRST `git push`
-    // on pre-existing `@v6` action refs. The S3 contract makes actionlint/zizmor/the
-    // ci-tool-pinning gate `owner: maintainer` — NOT gated on a consumer (ci-tool-
-    // pinning.md §2: "a consumer's own scripts must not be gated by our discipline").
-    // These arms lock that in: the scanners must NOT run on the consumer layout, so a
-    // consumer's own workflows — even ones a PRESENT scanner would reject — never block.
+    // on pre-existing `@v6` action refs. The S3 contract makes actionlint/zizmor
+    // `owner: maintainer` — NOT gated on a consumer. These arms lock that in: the
+    // SECURITY scanners must NOT run on the consumer layout, so a consumer's own
+    // workflows — even ones a PRESENT scanner would reject — never block.
+    // NOTE: this is the zizmor `unpinned-uses` (@v6) surface ONLY. The ci-tool-pinning
+    // unpinned-install regex gate is DISTINCT and stays `owner: both` on its WORKFLOW
+    // population (ci-tool-pinning.md §2 pop 1) — see the dedicated pop-1 arms further down.
 
     it('P0.1b — consumer with NO .github/workflows/ + scanners absent → exit 0 (workflow scanners not composed on a consumer)', () => {
       const { dir, baseSha, hook } = makeConsumerSandbox();
@@ -542,6 +550,68 @@ describe(
       expect(r.status, out).toBe(1);
       expect(out, out).toMatch(/zizmor not found in PATH/);
       expect(out, out).not.toMatch(/DEGRADED/);
+    });
+
+    // ── ci-tool-pinning §2 WORKFLOW population (pop 1) — owner:'both', gated on a
+    //    consumer (rework-round finding) ───────────────────────────────────────────
+    // ci-tool-pinning.md §2 pop 1: `.github/workflows/*.yml` is "Scanned on every push,
+    // framework and consumer repos alike, via workflowYmlFiles()". Only pop 2 (shell
+    // scripts) is framework-only. The first S3 draft over-reached by tagging the whole
+    // unpinned-install section owner:'maintainer', silently dropping pop-1 enforcement
+    // from every consumer push — corrected to owner:'both'. These arms lock pop-1 back
+    // ON for consumers. RED under the buggy owner:'maintainer' (exit 0, gate not
+    // composed); GREEN (this expected exit 1) under the corrected owner:'both'.
+
+    it('pop-1 NEGATIVE (F-finding) — CONSUMER layout, workflow with an UNPINNED bare `run: pip install` → ci-tool-pinning Rule A FIRES on the consumer (exit 1)', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      // A consumer's own workflow carrying an un-pinned bare tool install (pop 1). This
+      // is DISTINCT from the F-push @v6 `uses:` case (that is zizmor, maintainer-only).
+      addConsumerCommit(
+        dir,
+        '.github/workflows/ci.yml',
+        'name: ci\non: [push]\njobs:\n  x:\n    runs-on: ubuntu-latest\n    steps:\n      - run: pip install pyyaml\n',
+        'ci: add workflow',
+      );
+
+      const r = runHook(dir, hook, baseSha);
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      // The workflow-population gate must run on the consumer and block the un-pinned install.
+      expect(r.status, out).toBe(1);
+      expect(out, out).toMatch(/Unpinned bare-run tool install/);
+      expect(out, out).toMatch(/ci\.yml:7: - run: pip install pyyaml/);
+    });
+
+    it('pop-1 POSITIVE — CONSUMER layout, workflow with a PINNED install → exit 0 (gate is not always-failing)', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      addConsumerCommit(
+        dir,
+        '.github/workflows/ci.yml',
+        'name: ci\non: [push]\njobs:\n  x:\n    runs-on: ubuntu-latest\n    steps:\n      - run: pip install pyyaml==6.0.2\n',
+        'ci: add workflow',
+      );
+
+      const r = runHook(dir, hook, baseSha);
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      expect(out, out).not.toMatch(/Unpinned bare-run tool install/);
+      expect(r.status, out).toBe(0);
+    });
+
+    it('pop-1 escape-hatch — CONSUMER layout, unpinned install carrying `# ci-tool-pin: allow` → exit 0 (§3 hatch honoured on a consumer)', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      addConsumerCommit(
+        dir,
+        '.github/workflows/ci.yml',
+        'name: ci\non: [push]\njobs:\n  x:\n    runs-on: ubuntu-latest\n    steps:\n      - run: pip install pyyaml  # ci-tool-pin: allow no stable release\n',
+        'ci: add workflow',
+      );
+
+      const r = runHook(dir, hook, baseSha);
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      expect(out, out).not.toMatch(/Unpinned bare-run tool install/);
+      expect(r.status, out).toBe(0);
     });
 
     // ── S3 deliverable 2: consumer-topology smoke ──────────────────────────────

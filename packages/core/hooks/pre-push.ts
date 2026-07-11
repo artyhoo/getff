@@ -557,18 +557,23 @@ async function cmdScriptLivenessSection(rb: ResolvedBase): Promise<void> {
  * npm/gem/pip via setup-python action inputs only — SSOT #153b, 2026-06-22),
  * and zizmor never sees shell scripts outside workflows at all (the retired
  * setup.sh's bare `npm install -g ai-factory`, PR #946, motivated the shell
- * slice). The shell slice is framework-repo-gated (SSOT-register presence,
- * same detector as the #923 tool-absence split): ci-tool-pinning.md §2 scopes
- * the rule to THIS repository — a consumer's own scripts must not be gated by
- * our discipline. Deterministic regex scan; zero API calls
- * (no-paid-llm-in-ci.md compliant).
+ * slice). Deterministic regex scan; zero API calls (no-paid-llm-in-ci.md compliant).
  *
- * S3 push-channel contract: this whole section is now `owner: maintainer` in the
- * registry — the WORKFLOW slice, like the shell slice, is not gated on a consumer
- * (F-push: it hard-blocked a consumer's first push on pre-existing `@v6` workflows).
- * The internal `isFrameworkRepo` check below is retained as a defensive within-body
- * guard for the PREPUSH_ONLY test seam (which invokes this fn regardless of layout);
- * under normal composition it is always true (the section only composes on maintainer).
+ * S3 push-channel contract — TWO populations with DIFFERENT owners (ci-tool-pinning.md §2):
+ *   • WORKFLOW population (`.github/workflows/*.yml`, pop 1) — "Scanned on every push,
+ *     framework and consumer repos alike, via `workflowYmlFiles()`". This section is
+ *     therefore `owner: 'both'` in the registry: a consumer's own workflows ARE gated
+ *     for un-pinned bare `run: pip install` / `npm install -g` (with the §3 escape
+ *     hatch `# ci-tool-pin: allow`). This is NARROW and DISTINCT from the zizmor
+ *     `unpinned-uses` @v6 check (S1 finding F-push) — zizmor/actionlint stay
+ *     `owner: maintainer` so a consumer's first push is never blocked on pre-existing
+ *     `@v6` action refs; Rule A only fires on an un-pinned bare *tool install*, which
+ *     is far rarer and carries an escape hatch. Bundling this pop-1 scan into the
+ *     zizmor F-push exclusion was the over-reach corrected in the S3 rework round.
+ *   • SHELL-SCRIPT population (`*.sh`, `setup`, pop 2) — framework-repo-only (SSOT-register
+ *     presence, same detector as the #923 tool-absence split): "A consumer's own scripts
+ *     are NOT gated". The internal `isFrameworkRepo` check below scopes THIS population
+ *     alone (`: []` on a consumer), leaving the workflow population unconditional.
  */
 function unpinnedToolInstallSection(): void {
   const isFrameworkRepo = existsSync(resolve(REPO_ROOT, SSOT_REL));
@@ -636,26 +641,32 @@ function unpinnedToolInstallSection(): void {
 //                    scripts/, absent in the maintainer repo).
 //   • 'maintainer' — runs on the framework repo only (SSOT-register present): the
 //                    authoring conventions + meta-tests + render/drift gates, PLUS the
-//                    workflow-security scanners (actionlint, zizmor live-scan, the
-//                    ci-tool-pinning unpinned-install gate). Those are maintainer-only
-//                    by the S3 push-channel CONTRACT (F-push adjudication, launch-
-//                    preannounce-track S3 §3): ci-tool-pinning.md §2 already scopes the
-//                    rule to THIS repository — "a consumer's own scripts must not be
-//                    gated by our discipline" (the shell-script slice is `: []` on a
-//                    consumer, unpinnedToolInstallSection). Scanning a consumer's OWN
-//                    pre-existing workflows hard-blocked their first `git push` on
-//                    pre-existing `@v6` action refs (S1 finding F-push, R3 ky) — the
-//                    exact adoption-hostile DoS this umbrella exists to kill. The
-//                    workflow slice now matches the shell slice: NOT gated on a
-//                    consumer. Workflow-security linting of a consumer's OWN
-//                    workflows is out of the framework's scope — neither this hook nor
-//                    any shipped CI template runs it; a consumer adds it to their own
-//                    CI if they want that enforcement (RULES.md push-channel section).
-//   • 'both'       — runs on either layout: lychee link-check on *changed* Markdown
-//                    (diff-scoped to this push; degrades if lychee absent). The only
-//                    consumer-appropriate push check over the consumer's own changes —
-//                    it gates broken links in files THIS push touches, not pre-existing
-//                    repo content (contrast the workflow scanners above).
+//                    workflow-SECURITY/SYNTAX scanners (actionlint, zizmor live-scan).
+//                    Those are maintainer-only by the S3 push-channel CONTRACT (F-push
+//                    adjudication, launch-preannounce-track S3 §3): scanning a consumer's
+//                    OWN pre-existing workflows for zizmor `unpinned-uses` hard-blocked
+//                    their first `git push` on pre-existing `@v6` action refs (S1 finding
+//                    F-push, R3 ky) — the adoption-hostile DoS this umbrella exists to
+//                    kill. Workflow-security linting of a consumer's OWN workflows is out
+//                    of the framework's scope — neither this hook nor any shipped CI
+//                    template runs it; a consumer adds it to their own CI if they want it.
+//                    NOTE: the ci-tool-pinning unpinned-install gate is NOT in this bucket
+//                    — it is `owner: 'both'` (see below). Bundling it here in the first S3
+//                    draft over-reached the F-push scope (a rework-round finding): F-push
+//                    was the zizmor `unpinned-uses` surface only, and ci-tool-pinning.md §2
+//                    explicitly keeps its WORKFLOW population on consumers.
+//   • 'both'       — runs on either layout:
+//                    (1) lychee link-check on *changed* Markdown (diff-scoped to this push;
+//                        degrades if lychee absent) — gates broken links in files THIS push
+//                        touches, not pre-existing repo content;
+//                    (2) the ci-tool-pinning unpinned-install gate's WORKFLOW population
+//                        (`.github/workflows/*.yml`, ci-tool-pinning.md §2 pop 1 —
+//                        "scanned on every push, framework and consumer repos alike").
+//                        A consumer's own workflows ARE gated for un-pinned bare
+//                        `run: pip install` / `npm install -g` (narrow, §3 escape hatch
+//                        `# ci-tool-pin: allow`), DISTINCT from the @v6 zizmor check above.
+//                        The gate's SHELL-SCRIPT population (pop 2) stays framework-only,
+//                        scoped by the within-body isFrameworkRepo guard, not the owner tag.
 export type SectionOwner = 'consumer' | 'maintainer' | 'both';
 export const VALID_OWNERS: readonly SectionOwner[] = [
   'consumer',
@@ -694,10 +705,13 @@ const ZIZMOR_FIX_HINT =
   '   Audit docs: https://docs.zizmor.sh/audits/';
 
 // ── 1. actionlint (maintainer) ───────────────────────────────────────────────
-// Workflow-syntax lint. Maintainer-only by the S3 push-channel contract: a
-// consumer's own workflows must not be gated by our discipline (ci-tool-pinning.md
-// §2; see the Owner-semantics block above). On the maintainer layout it stays
-// fail-closed (ctx.onMissingTool is 'die' when isFrameworkRepo).
+// Workflow-syntax lint. Maintainer-only by the S3 push-channel contract (F-push
+// adjudication): actionlint is a workflow-SYNTAX audit over the consumer's ENTIRE
+// pre-existing workflow set — consumer repo content the framework never authored,
+// not framework enforcement-integrity. Scoped OUT on a consumer (see the
+// Owner-semantics block above). NB: distinct from the ci-tool-pinning Rule A gate,
+// which stays owner:'both' on its workflow population. On the maintainer layout it
+// stays fail-closed (ctx.onMissingTool is 'die' when isFrameworkRepo).
 function actionlintSection(ctx: SectionCtx): void {
   const workflows = workflowYmlFiles();
   if (workflows.length > 0) {
@@ -715,12 +729,15 @@ function actionlintSection(ctx: SectionCtx): void {
 // ── 2. zizmor — live workflow scan (maintainer) ──────────────────────────────
 // Workflow supply-chain audit (unpinned-uses, artipacked, template-injection).
 // Maintainer-only by the S3 push-channel contract (F-push adjudication): scanning a
-// CONSUMER's own pre-existing workflows hard-blocked their FIRST `git push` on
-// pre-existing `@v6` action refs (S1 finding F-push) — the adoption-hostile DoS this
-// umbrella exists to kill, and a leak of ci-tool-pinning.md §2 ("a consumer's own
-// scripts must not be gated by our discipline"). Workflow-security linting of a
-// consumer's OWN workflows is out of the framework's scope — neither this hook nor any
-// shipped CI template runs it; a consumer adds it to their own CI if they want it.
+// CONSUMER's own pre-existing workflows for `unpinned-uses` hard-blocked their FIRST
+// `git push` on pre-existing `@v6` action refs (S1 finding F-push) — the adoption-
+// hostile DoS this umbrella exists to kill (nearly every real workflow uses `@vN` tag
+// refs). This supply-chain audit is consumer repo content, not framework enforcement-
+// integrity → scoped OUT on a consumer. NB: this is DISTINCT from the ci-tool-pinning
+// Rule A unpinned-*install* gate — that stays owner:'both' (ci-tool-pinning.md §2 keeps
+// its workflow population on consumers). Workflow-security linting of a consumer's OWN
+// workflows is out of the framework's scope — neither this hook nor any shipped CI
+// template runs it; a consumer adds it to their own CI if they want it.
 // On the maintainer layout the scan stays full-repo fail-closed (ctx.onMissingTool
 // is 'die' when isFrameworkRepo); the `workflows.length > 0` guard still no-ops a
 // framework checkout that somehow has no workflows.
@@ -1161,8 +1178,12 @@ const SECTIONS: readonly PrePushSection[] = [
   },
   { id: 'lychee', owner: 'both', run: (c) => lycheeSection(c) },
   {
+    // owner: 'both' — the WORKFLOW population (ci-tool-pinning.md §2 pop 1) is
+    // "scanned on every push, framework and consumer repos alike"; the SHELL-SCRIPT
+    // population (pop 2) is framework-only, gated inside the section body by
+    // isFrameworkRepo. See the section docstring + owner-semantics block above.
     id: 'unpinned-tool-install',
-    owner: 'maintainer',
+    owner: 'both',
     run: () => unpinnedToolInstallSection(),
   },
 ];
