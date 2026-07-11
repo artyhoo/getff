@@ -7,7 +7,7 @@
 #   ./setup ts-server               # interactive install; explicit stack; companions optional
 #   ./setup -y ts-server            # non-interactive full install (all layers + dev-deps auto)
 #   ./setup --yes ts-server         # alias for -y
-#   ./setup --all ts-server         # alias for -y
+#   ./setup --all ts-server         # EVERYTHING: -y + the AIF operator suite (operator machines)
 #   ./setup --full ts-server        # alias for -y (wrapper alias; forwards --full to install.sh)
 #   ./setup --dry-run ts-server     # preview without writing
 #
@@ -22,7 +22,9 @@ MODE="interactive"; DRY=""; STACK=""; FULL=""; WITH_AIF_SUITE=""
 for a in "$@"; do
   case "$a" in
     -y|--yes)          MODE="yes"; FULL="--full" ;;
-    --all)             MODE="all"; FULL="--full" ;;
+    # --all = everything: the -y full path PLUS the AIF operator suite (owner directive
+    # 2026-07-11). Consumer defaults (-y/--full) stay curated; --all is the operator switch.
+    --all)             MODE="all"; FULL="--full"; WITH_AIF_SUITE="--with-aif-suite" ;;
     --full)            MODE="yes"; FULL="--full" ;;
     --dry-run)         DRY="--dry-run"; MODE="dry-run" ;;
     # F7: opt-in AIF operator suite — forward to install.sh (default omits it). This is the

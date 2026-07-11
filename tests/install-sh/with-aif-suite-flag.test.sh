@@ -22,6 +22,10 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 CORE_SET="template-audit ai-doc rule-research"
 GATED_SET="pipeline dispatcher aif-doctor harvest night-mode story"
 ALWAYS_COPIED="getff tool-bootstrapping"
+# F7 agents arm (owner GO 2026-07-11): the two aif-handoff-presupposing agents + their
+# @dual-pair skill-context are gated behind the same flag as the suite skills.
+GATED_AGENTS="orchestrator-worker-discipline reviewer-discipline"
+GATED_SC=".ai-factory/skill-context/aif-orchestrator-discipline/SKILL.md"
 
 # ── (a) default install: gated suite absent, core set present ────────────────
 T=$(mktemp -d)
@@ -41,6 +45,12 @@ for s in $CORE_SET $ALWAYS_COPIED; do
     bad "default install: core skill MISSING: $s"
   fi
 done
+for a in $GATED_AGENTS; do
+  [ ! -e "$T/.claude/agents/$a.md" ] && ok "default install: gated agent absent: $a" || bad "default install shipped gated agent: $a"
+done
+[ ! -e "$T/$GATED_SC" ] && ok "default install: aif-orchestrator-discipline skill-context absent" || bad "default install shipped gated skill-context"
+[ -e "$T/.claude/agents/review-sidecar.md" ] && ok "default install: consumer agent present: review-sidecar" || bad "default install: review-sidecar MISSING"
+[ -e "$T/.claude/agents/docplan-auditor.md" ] && ok "default install: consumer agent present: docplan-auditor" || bad "default install: docplan-auditor MISSING"
 rm -rf "$T"
 
 # ── (b) --with-aif-suite: all nine present ───────────────────────────────────
@@ -60,6 +70,10 @@ if [ -e "$T2/.claude/skills/aif-doctor/helpers/heal.sh" ]; then
 else
   bad "--with-aif-suite: aif-doctor helpers MISSING"
 fi
+for a in $GATED_AGENTS; do
+  [ -e "$T2/.claude/agents/$a.md" ] && ok "--with-aif-suite: gated agent present: $a" || bad "--with-aif-suite: gated agent MISSING: $a"
+done
+[ -e "$T2/$GATED_SC" ] && ok "--with-aif-suite: aif-orchestrator-discipline skill-context present" || bad "--with-aif-suite: gated skill-context MISSING"
 rm -rf "$T2"
 
 # ── (c) refresh over an existing suite install WITHOUT the flag keeps the suite ──
@@ -78,6 +92,10 @@ for s in $GATED_SET; do
     bad "refresh (no flag) DELETED prior-opt-in suite skill: $s"
   fi
 done
+for a in $GATED_AGENTS; do
+  [ -e "$T3/.claude/agents/$a.md" ] && ok "refresh (no flag) kept prior-opt-in gated agent: $a" || bad "refresh (no flag) LOST prior-opt-in gated agent: $a"
+done
+[ -e "$T3/$GATED_SC" ] && ok "refresh (no flag) kept prior-opt-in gated skill-context" || bad "refresh (no flag) LOST prior-opt-in gated skill-context"
 if [ -f "$DISP" ] && ! grep -q 'LOCAL-EDIT-SENTINEL' "$DISP"; then
   ok "refresh re-copied dispatcher over the prior install (sentinel gone)"
 else
@@ -97,6 +115,27 @@ for s in $GATED_SET; do
     ok "refresh (no prior opt-in, no flag): gated skill stays absent: $s"
   fi
 done
+for a in $GATED_AGENTS; do
+  [ ! -e "$T4/.claude/agents/$a.md" ] && ok "refresh (no prior opt-in): gated agent stays absent: $a" || bad "refresh (no prior opt-in) CREATED gated agent: $a"
+done
+[ ! -e "$T4/$GATED_SC" ] && ok "refresh (no prior opt-in): gated skill-context stays absent" || bad "refresh (no prior opt-in) CREATED gated skill-context"
 rm -rf "$T4"
+
+# ── (e) --all = --full + --with-aif-suite (operator shorthand, owner directive 2026-07-11) ──
+# NO REAL INSTALL / NO NETWORK: --all implies --full, whose 70-deps layer invokes npm — stub the
+# PM on PATH (same tactic as cic-s3-dep-install.test.sh) so this arm asserts only the suite arm.
+T5=$(mktemp -d)
+STUB=$(mktemp -d)
+printf '#!/bin/sh\nexit 0\n' > "$STUB/npm"; chmod +x "$STUB/npm"
+printf '{"name":"f7-all","version":"0.0.0"}\n' > "$T5/package.json"
+( cd "$T5" && git init -q && PATH="$STUB:$PATH" bash "$REPO_ROOT/install.sh" ts-server --force --all ) >/dev/null 2>&1
+for s in $GATED_SET; do
+  [ -e "$T5/.claude/skills/$s/SKILL.md" ] && ok "--all: suite skill present: $s" || bad "--all: suite skill MISSING: $s"
+done
+for a in $GATED_AGENTS; do
+  [ -e "$T5/.claude/agents/$a.md" ] && ok "--all: gated agent present: $a" || bad "--all: gated agent MISSING: $a"
+done
+[ -e "$T5/$GATED_SC" ] && ok "--all: gated skill-context present" || bad "--all: gated skill-context MISSING"
+rm -rf "$T5" "$STUB"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
