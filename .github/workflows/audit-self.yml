@@ -537,6 +537,8 @@ jobs:
         run: bash tests/install-sh/mcp-layer.test.sh
       - name: "install-sh — stack auto-detect (GH #780: no-arg → detect from package.json, fail-loud only on unknown)"
         run: bash tests/install-sh/stack-autodetect.test.sh
+      - name: "install-sh — Python delivery layer + collision matrix + live-fire (python-delivery-v0 S1 T5)"
+        run: bash tests/install-sh/python-delivery.test.sh
       - name: "install-sh — shellcheck gate: setup.d/*.sh + install.sh (pinned 0.9.0)"
         run: |
           if command -v shellcheck >/dev/null 2>&1; then

@@ -37,6 +37,19 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 
 [ -f "$INSTALL" ] || { echo "FATAL: $INSTALL not found"; exit 1; }
 
+# ── npm-lane layers only ─────────────────────────────────────────────────────────────────────────
+# do_refresh() is the npm-flow refresh. The Python-lane layer (setup.d/45-python.sh) is gated on
+# GETFF_TOOLCHAIN=python and INERT on the npm flow (byte-identical.test.sh proves it), so its
+# copy_safe deliveries are NOT part of the npm --full delivery do_refresh mirrors — the Python lane
+# has its own (S2) refresh semantics. Same "own-refresh-semantics → out of this gate's population"
+# rationale as the refresh_skill_with_transform / merge_prettierignore / yq exclusions in the SCOPE
+# note above. Scan npm-lane layers only.
+NPM_LANE_LAYERS=()
+for _lyr in "$REPO_ROOT"/setup.d/[0-9]*.sh; do
+  case "$_lyr" in */45-python.sh) continue ;; esac
+  NPM_LANE_LAYERS+=("$_lyr")
+done
+
 # ── EXCLUDED: copy_safe destinations deliberately NOT refreshed (data-driven escape hatch) ──
 # Each entry is a CONSUMER-OWNED (Layer-3) file that a consumer customises — refreshing it would
 # clobber their edits. (The one directory payload, scripts/fences-fire-fixtures, was the last
@@ -83,13 +96,13 @@ EXC
 # Scan ALL setup.d/*.sh (not just 40-configs.sh), skip comment lines (a commented-out copy_safe is
 # not a live delivery). Normalize each dst to the literal prefix up to the first $-expansion.
 # shellcheck disable=SC2016  # single-quoted regex matches the literal '$PROJECT_ROOT' in source; no expansion intended
-FULL=$(grep -hE 'copy_safe' "$REPO_ROOT"/setup.d/*.sh 2>/dev/null | grep -vE '^[[:space:]]*#' \
+FULL=$(grep -hE 'copy_safe' "${NPM_LANE_LAYERS[@]}" 2>/dev/null | grep -vE '^[[:space:]]*#' \
   | grep -oE '\$PROJECT_ROOT/[A-Za-z0-9._/-]*' | sed -E 's#\$PROJECT_ROOT/##' | sort -u)
 
 # Fail loud if a copy_safe dst begins with an immediate variable ("$PROJECT_ROOT/$x") — it would
 # normalize to the empty string and silently escape FULL (a false-GREEN hole). None exist today.
 # shellcheck disable=SC2016
-if grep -hE 'copy_safe' "$REPO_ROOT"/setup.d/*.sh 2>/dev/null | grep -vE '^[[:space:]]*#' \
+if grep -hE 'copy_safe' "${NPM_LANE_LAYERS[@]}" 2>/dev/null | grep -vE '^[[:space:]]*#' \
    | grep -qE '"\$PROJECT_ROOT/\$'; then
   echo "FATAL: a copy_safe dst starts with an immediate \$var after \$PROJECT_ROOT/ — unparseable; extend the gate"; exit 1
 fi
