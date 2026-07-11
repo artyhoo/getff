@@ -120,11 +120,14 @@ export function renderCargoClippy(nodes: ConventionNode[]): { toml: string; outc
       outcomes.set(n.id, { kind: 'rendered', surfaces: [{ surface: 'rule', content: table }] });
     } else {
       // 'error' | 'note' — clippy.toml carries no severity; degraded = rendered-with-loss,
-      // NOT dropped. The entry is still emitted into the toml below.
+      // NOT dropped. The entry is still emitted into the toml below. clippy.toml genuinely has
+      // no severity field, so this degrade STAYS on the clippy.toml plane; the build-failing
+      // severity is projected on a SEPARATE plane (Cargo.toml [lints.clippy] deny — surface-5,
+      // shipped in write-clippy.ts, launch-preannounce-track S4).
       outcomes.set(n.id, {
         kind: 'degraded',
         code: 'FF7003',
-        note: 'clippy.toml carries no severity; [lints.clippy] emission is surface-5 (post-MVP)',
+        note: 'clippy.toml carries no severity; build-failing severity is projected via Cargo.toml [lints.clippy] (write-clippy.ts)',
       });
       diag('FF7003', { backend: BACKEND_NAME, nodeId: n.id, requested: n.defaultSeverity });
     }

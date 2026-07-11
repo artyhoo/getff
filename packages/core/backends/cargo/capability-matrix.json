@@ -12,7 +12,7 @@
         "no per-impl trait-method bans",
         "no higher-order calls (rust-clippy#8849)",
         "no generic-instantiation match",
-        "severity not projected at v0 (clippy.toml carries none)"
+        "clippy.toml carries no severity; error-severity bans are projected to a build-failing gate via the Cargo.toml [lints.clippy] deny surface (write-clippy.ts, launch-preannounce-track S4)"
       ],
       "evidence": {
         "kind": "live-fired",

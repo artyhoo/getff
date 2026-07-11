@@ -1,0 +1,14 @@
+[package]
+name = "getff-cargo-demo"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+# Severity projection (launch-preannounce-track S4): render-clippy.ts's clippy.toml carries no
+# severity, so a banned call is only a WARNING and `cargo clippy` exits 0 over it. This
+# `[lints.clippy]` table is the second surface — it projects the demo node's error severity onto
+# clippy's deny level, turning the ban into a build-FAILING gate. Byte-checked against
+# renderClippyLints([DEMO_NODE]) by demo.test.ts (self-application, T15).
+[lints.clippy]
+disallowed_methods = "deny"
