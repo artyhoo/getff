@@ -56,4 +56,27 @@ out=$(cd /tmp && bridge_guided_run); rc=$?
 case "$out" in *"STUB-BRIDGE-SETUP-RAN"*) ok "framework (script present): setup-runtime-bridge.sh executed via absolute path (cwd=/tmp)" ;; *) bad "framework (script present): stub not executed: $out" ;; esac
 rm -rf "$TMP_POS"
 
+# --- Suite/runtime cross-layer warning (owner GO 2026-07-11) ---
+# Run against a temp-root COPY with a stubbed setup-runtime-bridge.sh (TMP_POS pattern above)
+# so the state=up arm never executes the real bridge-setup script.
+TMP_WARN=$(mktemp -d)
+mkdir -p "$TMP_WARN/setup.d" "$TMP_WARN/packages/runtime-bridge/scripts"
+cp "$REPO_ROOT/setup.d/bridge-guided.sh" "$TMP_WARN/setup.d/"
+echo 'echo "STUB-BRIDGE-SETUP-RAN"' > "$TMP_WARN/packages/runtime-bridge/scripts/setup-runtime-bridge.sh"
+BRIDGE_LIB_ONLY=1 source "$TMP_WARN/setup.d/bridge-guided.sh"
+# Positive: runtime not reachable + WITH_AIF_SUITE set → warning line present.
+curl() { return 1; }  # nothing responds → state != up (docker|native|absent, machine-dependent)
+export -f curl
+out=$(WITH_AIF_SUITE="--with-aif-suite" bridge_guided_run)
+case "$out" in *"suite skills"*"dead-end"*) ok "suite flag + runtime down → cross-layer warning shown" ;; *) bad "suite flag + runtime down: warning missing: $out" ;; esac
+# Paired-negative 1: no suite flag → no warning.
+out=$(WITH_AIF_SUITE="" bridge_guided_run)
+case "$out" in *"dead-end"*) bad "no suite flag: warning leaked: $out" ;; *) ok "no suite flag + runtime down → no warning (consumer path unchanged)" ;; esac
+# Paired-negative 2: suite flag + runtime UP → no warning.
+curl() { case "$*" in *"/health"*) return 0 ;; *) return 1 ;; esac; }
+export -f curl
+out=$(WITH_AIF_SUITE="--with-aif-suite" bridge_guided_run)
+case "$out" in *"dead-end"*) bad "suite flag + runtime up: warning misfired: $out" ;; *) ok "suite flag + runtime up → no warning" ;; esac
+rm -rf "$TMP_WARN"
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
