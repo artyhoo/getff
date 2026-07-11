@@ -20,7 +20,6 @@
     "./detector": "./detector/index.ts",
     "./research": "./research/index.ts",
     "./synthesizer": "./synthesizer/index.ts",
-    "./validator": "./validator/index.ts",
     "./installer": "./installer/index.ts"
   },
   "scripts": {
