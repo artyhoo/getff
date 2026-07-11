@@ -29,7 +29,10 @@ import { fileURLToPath } from 'node:url';
 import { runCheck, type CheckResult } from './utils/run-check.ts';
 import { runPriorArtCheck, loadSsotIds } from './checks/prior-art.ts';
 import { runS17Check } from './checks/s17.ts';
-import { checkUnpinnedToolInstalls } from './checks/unpinned-tool-install.ts';
+import {
+  checkUnpinnedToolInstalls,
+  isShellScriptPopulationFile,
+} from './checks/unpinned-tool-install.ts';
 // NOTE: checks/guard-liveness.ts is intentionally NOT imported statically — see
 // guardLivenessSection. Its import chain (eslint → @typescript-eslint/parser →
 // core+preset plugins → @typescript-eslint/utils) only resolves after a
@@ -200,6 +203,24 @@ function workflowYmlFiles(): string[] {
   return readdirSync(dir)
     .filter((f) => f.endsWith('.yml'))
     .map((f) => `.github/workflows/${f}`);
+}
+
+/**
+ * Git-tracked executable shell scripts — the second population of the
+ * unpinned-tool-install gate (ci-tool-pinning.md §2, scope widening
+ * 2026-07-10). Tracked-only (`git ls-files`) so vendored/ignored scripts never
+ * gate a push; the population predicate lives in checks/unpinned-tool-install.ts
+ * (unit-tested paired-negative — `setup.d/companions.manifest` is data, not a
+ * script, and is excluded by construction).
+ */
+function shellScriptFiles(): string[] {
+  // -z: NUL-delimited, unquoted — non-ASCII paths would otherwise arrive
+  // quoted+escaped and break the extension match (cold-review m2).
+  const r = run('git', ['ls-files', '-z']);
+  if (r.exitCode !== 0) return [];
+  return r.stdout
+    .split('\0')
+    .filter((l) => l.length > 0 && isShellScriptPopulationFile(l));
 }
 
 /**
@@ -528,16 +549,27 @@ async function cmdScriptLivenessSection(rb: ResolvedBase): Promise<void> {
 
 /**
  * Unpinned bare-run tool install gate (.claude/rules/ci-tool-pinning.md §1 Rule A).
- * Scans every .github/workflows/*.yml for bare `run:` pip/npm-global install
- * commands that lack an explicit version pin.
+ * Scans every .github/workflows/*.yml — plus, on the FRAMEWORK repo only,
+ * every git-tracked shell script (`*.sh`, `setup`) — for bare pip/npm-global
+ * install commands that lack an explicit version pin.
  *
  * This slice is NOT covered by zizmor's `adhoc-packages` audit (which targets
- * npm/gem/pip via setup-python action inputs only — SSOT #153b, 2026-06-22).
- * Deterministic regex scan; zero API calls (no-paid-llm-in-ci.md compliant).
+ * npm/gem/pip via setup-python action inputs only — SSOT #153b, 2026-06-22),
+ * and zizmor never sees shell scripts outside workflows at all (the retired
+ * setup.sh's bare `npm install -g ai-factory`, PR #946, motivated the shell
+ * slice). The shell slice is framework-repo-gated (SSOT-register presence,
+ * same detector as the #923 tool-absence split): ci-tool-pinning.md §2 scopes
+ * the rule to THIS repository — a consumer's own scripts must not be gated by
+ * our discipline. Deterministic regex scan; zero API calls
+ * (no-paid-llm-in-ci.md compliant).
  */
 function unpinnedToolInstallSection(): void {
-  const workflows = workflowYmlFiles();
-  if (workflows.length === 0) return;
+  const isFrameworkRepo = existsSync(resolve(REPO_ROOT, SSOT_REL));
+  const population = [
+    ...workflowYmlFiles(),
+    ...(isFrameworkRepo ? shellScriptFiles() : []),
+  ];
+  if (population.length === 0) return;
 
   const allFindings: Array<{
     file: string;
@@ -546,7 +578,7 @@ function unpinnedToolInstallSection(): void {
     hint: string;
   }> = [];
 
-  for (const relPath of workflows) {
+  for (const relPath of population) {
     const absPath = resolve(REPO_ROOT, relPath);
     if (!existsSync(absPath)) continue;
     const content = readFileSync(absPath, 'utf8');
@@ -558,7 +590,7 @@ function unpinnedToolInstallSection(): void {
 
   process.stdout.write(
     '\n❌ Unpinned bare-run tool install(s) found in .github/workflows/ ' +
-      '(.claude/rules/ci-tool-pinning.md §1 Rule A):\n',
+      'or repo shell scripts (.claude/rules/ci-tool-pinning.md §1 Rule A):\n',
   );
   for (const f of allFindings) {
     process.stdout.write(`  ${f.file}:${f.line}: ${f.text}\n`);
@@ -1021,10 +1053,12 @@ async function main(): Promise<void> {
   }
 
   // ── ci-tool-pinning. Unpinned bare-run tool install gate ─────────────────────
-  // Scan .github/workflows/*.yml for bare `run: pip install <pkg>` / `npm i -g
-  // <pkg>` without a version pin. Slice not covered by zizmor adhoc-packages
-  // (which targets action inputs only — SSOT #153b). No base required: full scan
-  // every push (fast; <1ms per file). (.claude/rules/ci-tool-pinning.md §1 Rule A)
+  // Scan .github/workflows/*.yml — plus tracked shell scripts on the framework
+  // repo — for bare `pip install <pkg>` / `npm i -g <pkg>` without a version
+  // pin. Slice not covered by zizmor adhoc-packages (action inputs only — SSOT
+  // #153b; shell scripts outside workflows not covered at all). No base
+  // required: full scan every push (fast; <1ms per file).
+  // (.claude/rules/ci-tool-pinning.md §1 Rule A + §2 two populations)
   unpinnedToolInstallSection();
 
   process.exit(0);

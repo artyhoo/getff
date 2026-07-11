@@ -232,7 +232,7 @@ If you already have `ai-factory` set up or want partial install:
 bash /tmp/rt/install.sh ts-server     # or react-next; --force to overwrite
 
 # Path A — AIF extension (forward-compat, schema landing soon):
-ai-factory extension add ./rules-as-tests-aif
+ai-factory extension add ./getff
 
 # Path C — cherry-pick configs only (no skill, no sub-agents, no audit):
 cp /tmp/rt/templates/ts-server/eslint.config.mjs .
@@ -322,7 +322,7 @@ Each lesson includes the **rule that came from it** — typically a specific che
 ## Updating
 
 ```bash
-ai-factory extension update rules-as-tests-aif      # Path A
+ai-factory extension update getff                   # Path A
 ./install.sh <stack> --force                        # Path B (overwrites configs)
 # Path C: cherry-pick changes manually
 ```

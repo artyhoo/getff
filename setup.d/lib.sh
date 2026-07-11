@@ -40,7 +40,7 @@
 # Repo-internal cross-refs (paths to docs/, packages/, README.md) get rewritten to
 # GitHub blob URLs at install time. One source of truth: .claude/skills/<skill>/SKILL.md
 # Override via env var if forking to a different repo.
-UPSTREAM_BLOB_URL="${UPSTREAM_BLOB_URL:-https://github.com/Yhooi2/rules-as-tests-aif/blob/main}"
+UPSTREAM_BLOB_URL="${UPSTREAM_BLOB_URL:-https://github.com/artyhoo/getff/blob/main}"
 
 PRETTIERIGNORE_BEGIN='# >>> rules-as-tests-aif (managed) >>>'
 PRETTIERIGNORE_END='# <<< rules-as-tests-aif (managed) <<<'
@@ -50,14 +50,13 @@ PRETTIERIGNORE_CFG_END='# <<< rules-as-tests-aif shipped-configs (managed) <<<'
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 # transform_internal_refs <markdown-file>
-# Rewrites markdown links `](../../../{docs,packages}/...)` and `](../../../README.md...)`
-# in-place to `](${UPSTREAM_BLOB_URL}/...)`. Leaves consumer-resolvable refs intact
-# (e.g. `](../../rules/...)` and `](../../hooks/...)` stay relative — deemed consumer-local by
-# convention, enforced by tests/install-sh/transform-internal-refs.test.sh #4/#5).
-# NOTE (2026-07-04, flagged not fixed): a real install shows `.claude/rules/` is NOT currently
-# shipped, so relative rules/ links dangle for consumers — a latent inconsistency between this
-# convention and the installer. Resolving it (ship rules/ vs blob-ify rules/ links) is a
-# maintainer decision, out of scope here; the transform stays as tested.
+# Rewrites markdown links `](../../../{docs,packages}/...)`, `](../../../README.md...)`,
+# and `.claude/rules/` refs (both the skill shape `](../../rules/...)` and the agent shape
+# `](../.claude/rules/...)`) in-place to `](${UPSTREAM_BLOB_URL}/...)`. `.claude/rules/` is
+# NOT shipped to consumers, so relative rules/ links dangle post-install — on the consumer's
+# FIRST push, pre-push §8 (`lychee --offline` over changed *.md) went red on ~87 such links
+# (flat-install smoke 2026-07-10). Leaves genuinely consumer-resolvable refs intact
+# (e.g. `](../../hooks/...)` — tests/install-sh/transform-internal-refs.test.sh #5).
 # Uses `-i.bak` for BSD-sed/GNU-sed portability, then removes the backup.
 transform_internal_refs() {
   local f="$1"
@@ -66,6 +65,9 @@ transform_internal_refs() {
     -e "s#\]\((\.\./)+docs/#](${UPSTREAM_BLOB_URL}/docs/#g" \
     -e "s#\]\((\.\./)+packages/#](${UPSTREAM_BLOB_URL}/packages/#g" \
     -e "s#\]\((\.\./)+README\.md#](${UPSTREAM_BLOB_URL}/README.md#g" \
+    -e "s#\]\((\.\./)+\.claude/rules/#](${UPSTREAM_BLOB_URL}/.claude/rules/#g" \
+    -e "s#\]\((\.\./)+rules/#](${UPSTREAM_BLOB_URL}/.claude/rules/#g" \
+    -e "s|\]\((\.\./)+install\.sh([#)])|](${UPSTREAM_BLOB_URL}/install.sh\2|g" \
     "$f"
   rm -f "${f}.bak"
 }
@@ -124,6 +126,37 @@ refresh_safe() {
   [ -d "$src" ] && rm -rf "$dst"   # #873: replace directory payloads (cp -r nests into an existing dir)
   cp -r "$src" "$dst"
   echo "  ✓ $dst (refreshed)"
+}
+
+# ─── .ai-factory SoT (DESCRIPTION.md + ARCHITECTURE.md) materialization helpers ──────────────
+# SSOT for the divergence-prone parts of materializing the AGENTS.md-referenced SoT pair, shared
+# by the --full path (setup.d/30-templates.sh) and the --refresh path (install.sh do_refresh, #949).
+# Both call sites keep their own copy_safe delivery lines (so the refresh-covers-full-delivery gate
+# sees real per-file write-intent), but the stack→source map and the header rewrite live here once.
+# Requires globals: STACK, PKG_ROOT (arch_sot_src_for_stack); DRY_RUN, FORCE (rewrite_arch_sot_header).
+
+# arch_sot_src_for_stack — echo the ARCHITECTURE.md source template for the current $STACK.
+# Unknown/empty stack falls back to the shared ts-server variant (never guesses a react-* preset).
+arch_sot_src_for_stack() {
+  case "$STACK" in
+    react-next)   printf '%s\n' "$PKG_ROOT/packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md" ;;
+    react-spa)    printf '%s\n' "$PKG_ROOT/packages/preset-react-spa/templates/ARCHITECTURE.react-spa.md" ;;
+    react-native) printf '%s\n' "$PKG_ROOT/packages/preset-react-native/templates/ARCHITECTURE.react-native.md" ;;
+    *)            printf '%s\n' "$PKG_ROOT/packages/core/templates/shared/ARCHITECTURE.ts-server.md" ;;
+  esac
+}
+
+# rewrite_arch_sot_header <dst> <existed_flag> — rewrite the ts-server "Drop into …" first line on
+# the freshly-materialized .ai-factory/ARCHITECTURE.md COPY only (source templates serve other flows).
+# Guard mirrors copy_safe's WRITE condition (not dry-run; freshly created OR --force-overwritten) so
+# a consumer-edited ARCHITECTURE.md is never mutated. No-op for react-* variants (no "Drop into" line).
+# sed -i.bak for BSD/GNU portability.
+rewrite_arch_sot_header() {
+  local dst="$1" existed="$2"
+  if [ "$DRY_RUN" != "--dry-run" ] && { [ "$existed" -eq 0 ] || [ "$FORCE" = "--force" ]; }; then
+    sed -i.bak -e 's#^> Drop into `.ai-factory/ARCHITECTURE.md` and override only what your project needs\. #> This install-generated starter IS your `.ai-factory/ARCHITECTURE.md` — edit it to match your project. #' "$dst"
+    rm -f "${dst}.bak"
+  fi
 }
 
 # GH #531 (reopen): non-destructive .prettierignore merge. copy_safe skips-if-exists, so a
@@ -248,7 +281,12 @@ _prettierignore_in_skipped() {
   # Guard the empty-array expansion: under `set -u` on bash 3.2 (macOS), "${SKIPPED[@]}" with an
   # empty SKIPPED throws "unbound variable" and aborts install. ${#SKIPPED[@]} (length) is safe.
   [ "${#SKIPPED[@]}" -gt 0 ] || return 1
-  for s in "${SKIPPED[@]}"; do [ "$s" = "$needle" ] && return 0; done
+  for s in "${SKIPPED[@]}"; do
+    [ "$s" = "$needle" ] && return 0
+    # Prefix match: SKIPPED may hold a DIRECTORY (e.g. a consumer-owned skill dir kept by
+    # copy_skill_with_transform) — any file inside it is consumer-owned too.
+    case "$needle" in "$s"/*) return 0 ;; esac
+  done
   return 1
 }
 
@@ -281,6 +319,31 @@ ignore_shipped_configs() {
          -path "$PROJECT_ROOT/.claude/worktrees" -prune -o \
          \( -name 'eslint.config.mjs' -o -name 'eslint.config.rn-common.mjs' \) -print 2>/dev/null
   )
+  # Shipped .claude agents/skills markdown (2026-07-11): transform_internal_refs rewrites their
+  # repo-relative links to blob URLs at install time, which shifts markdown TABLE cell widths —
+  # the installed copies are no longer prettier-format-stable under ANY config (fresh-install
+  # validate smoke went RED on .claude/agents/capability-reuse-auditor.md with zero consumer
+  # edit). Same framework-vendored class as GH #531/#884. Enumerate ONLY from OUR shipping
+  # sources ($PKG_ROOT agents/ + skill dirs), never a blanket .claude/** find — a consumer's own
+  # custom agent/skill must stay format-checked. The fresh-vs-SKIPPED guard below (now
+  # dir-prefix-aware) keeps consumer-owned same-name copies checked too.
+  local _src _slug
+  for _src in "$PKG_ROOT"/agents/*.md; do
+    [ -f "$_src" ] || continue
+    candidates+=(".claude/agents/$(basename "$_src")")
+  done
+  for _src in "$PKG_ROOT"/.claude/skills/*/ "$PKG_ROOT"/skills/*/; do
+    [ -d "$_src" ] || continue
+    _slug=$(basename "$_src")
+    [ -d "$PROJECT_ROOT/.claude/skills/$_slug" ] || continue
+    while IFS= read -r _abs; do
+      [ -n "$_abs" ] || continue
+      candidates+=("${_abs#"$PROJECT_ROOT"/}")
+    done < <(find "$PROJECT_ROOT/.claude/skills/$_slug" -name '*.md' -print 2>/dev/null | LC_ALL=C sort)
+    # LC_ALL=C sort: find's output order is filesystem-dependent (macOS APFS vs Linux ext4
+    # return different orders) — unsorted entries made the generated .prettierignore hash
+    # differ between the local snapshot capture and CI's byte-identical compare.
+  done
   local fresh=() rel
   for rel in "${candidates[@]}"; do
     [ -e "$PROJECT_ROOT/$rel" ] || continue                       # not shipped for this stack/preset

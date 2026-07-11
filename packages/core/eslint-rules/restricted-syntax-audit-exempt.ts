@@ -16,7 +16,7 @@ import type { TSESTree } from '@typescript-eslint/utils';
 
 const createRule = ESLintUtils.RuleCreator(
   () =>
-    `https://github.com/Yhooi2/rules-as-tests-aif/blob/main/packages/core/eslint-rules/restricted-syntax-audit-exempt.ts`,
+    `https://github.com/artyhoo/getff/blob/main/packages/core/eslint-rules/restricted-syntax-audit-exempt.ts`,
 );
 
 interface RestrictedEntry {

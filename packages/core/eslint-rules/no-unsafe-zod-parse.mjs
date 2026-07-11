@@ -1,5 +1,5 @@
 import { ESLintUtils } from '@typescript-eslint/utils';
-const createRule = ESLintUtils.RuleCreator((_name) => `https://github.com/Yhooi2/rules-as-tests-aif/blob/main/packages/preset-next-15-canonical/RULES.md#r2--validation-at-boundaries`);
+const createRule = ESLintUtils.RuleCreator((_name) => `https://github.com/artyhoo/getff/blob/main/packages/preset-next-15-canonical/RULES.md#r2--validation-at-boundaries`);
 // Returns true if node is (or contains) a direct z.* call/member chain.
 // Handles z.object({}).parse(x), z.string().nullable().parse(x), etc.
 function isZodChain(node) {
@@ -48,12 +48,39 @@ function isZodishReceiver(receiver, scope) {
     }
     return false;
 }
+// A fully-static literal expression cannot carry external input, so a throwing .parse()
+// on it is deliberate fail-fast (e.g. ConfigSchema.parse({port: 3000}) at startup), not a
+// boundary-validation gap. Conservative by construction: any identifier, member access,
+// call, spread, or computed key inside makes the argument non-static and the rule fires.
+function isStaticLiteral(node) {
+    switch (node.type) {
+        case 'Literal':
+            return true;
+        case 'TemplateLiteral':
+            return node.expressions.length === 0;
+        case 'UnaryExpression':
+            // -42, +1, !0, ~0 over a static operand
+            return isStaticLiteral(node.argument);
+        case 'ObjectExpression':
+            return node.properties.every((p) => p.type === 'Property' &&
+                !p.computed &&
+                (p.key.type === 'Identifier' || p.key.type === 'Literal') &&
+                isStaticLiteral(p.value));
+        case 'ArrayExpression':
+            return node.elements.every((el) => el !== null && el.type !== 'SpreadElement' && isStaticLiteral(el));
+        case 'TSAsExpression': // { ... } as const
+        case 'TSSatisfiesExpression':
+            return isStaticLiteral(node.expression);
+        default:
+            return false;
+    }
+}
 export const noUnsafeZodParse = createRule({
     name: 'no-unsafe-zod-parse',
     meta: {
         type: 'problem',
         docs: {
-            description: 'Forbid Zod schema `.parse()` in HTTP boundary files; require `.safeParse()`. Stdlib `.parse()` (JSON, Date, path) is not flagged.',
+            description: 'Forbid Zod schema `.parse()` in HTTP boundary files; require `.safeParse()`. Stdlib `.parse()` (JSON, Date, path) and fully-static literal arguments (fail-fast config parses) are not flagged.',
         },
         messages: {
             useSafeParse: 'Use `.safeParse()` instead of `.parse()` in HTTP boundaries — `.parse()` throws and bypasses structured error handling (R2).',
@@ -72,6 +99,13 @@ export const noUnsafeZodParse = createRule({
                     return;
                 const callee = node.callee;
                 if (!isZodishReceiver(callee.object, sourceCode.getScope(node)))
+                    return;
+                // Static-literal argument → not a boundary parse; skip (false-positive arm of
+                // ultrareview P1.1(e): a rule that cries on clean code gets disabled).
+                const firstArg = node.arguments[0];
+                if (firstArg &&
+                    firstArg.type !== 'SpreadElement' &&
+                    isStaticLiteral(firstArg))
                     return;
                 context.report({ node, messageId: 'useSafeParse' });
             },

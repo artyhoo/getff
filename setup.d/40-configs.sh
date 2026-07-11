@@ -63,6 +63,13 @@ chmod_safe +x "$PROJECT_ROOT/scripts/run-generated-rule-mutation.sh" 2>/dev/null
 if [ "$STACK" = "react-next" ]; then
   copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh" "$PROJECT_ROOT/scripts/audit-ai-docs.react-next.sh"
   chmod_safe +x "$PROJECT_ROOT/scripts/audit-ai-docs.react-next.sh" 2>/dev/null || true
+  # Storybook scaffold: the shipped react-next ci.yml has a test-storybook job that needs a
+  # .storybook config to build. Static template copy (SB 10.x, @storybook/nextjs-vite) replaces
+  # retired setup.sh Batch K's `npx storybook init` (#946) — no network; copy_safe honours
+  # --dry-run/--force and never overwrites a consumer's existing files. Deps + scripts: 70-deps.
+  mkdir_safe "$PROJECT_ROOT/.storybook"
+  copy_safe "$PKG_ROOT/packages/core/templates/react-next/.storybook/main.ts" "$PROJECT_ROOT/.storybook/main.ts"
+  copy_safe "$PKG_ROOT/packages/core/templates/react-next/.storybook/preview.ts" "$PROJECT_ROOT/.storybook/preview.ts"
 fi
 if [ "$STACK" = "react-spa" ]; then
   copy_safe "$PKG_ROOT/packages/preset-react-spa/audit-self/audit-ai-docs.react-spa.sh" "$PROJECT_ROOT/scripts/audit-ai-docs.react-spa.sh"

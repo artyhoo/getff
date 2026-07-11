@@ -27,7 +27,16 @@ for f in "$PKG_ROOT"/agents/*.md; do
     shipped-agent-liveness-prober.md) continue ;;  # authoring-only tool (M2 probe, #552 sibling)
     backward-sweep-auditor.md) continue ;;  # authoring-only tool (§1.7 backward-check cold-sweep, T21)
   esac
-  copy_safe "$f" "$PROJECT_ROOT/.claude/agents/$(basename "$f")"
+  _dst="$PROJECT_ROOT/.claude/agents/$(basename "$f")"
+  # Agents carry ](../docs/…) + ](../.claude/rules/…) refs that dangle on a consumer tree
+  # (rules/ is not shipped) — transform freshly-written copies only, never a skipped
+  # consumer-owned file (2026-07-10 flat-install smoke: first push red on lychee §8).
+  _writes=1
+  if [ -e "$_dst" ] && [ "$FORCE" != "--force" ]; then _writes=0; fi
+  copy_safe "$f" "$_dst"
+  if [ "$_writes" = 1 ] && [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_dst" ]; then
+    transform_internal_refs "$_dst"
+  fi
 done
 
 # ─── §3c: skill-context overrides ───────────────────────

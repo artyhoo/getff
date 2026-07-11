@@ -67,7 +67,7 @@ const x = data as unknown as User;
 
 ## R2 — Validation at boundaries
 
-**Policy:** Zod schema `.parse()` is forbidden in HTTP boundary code. Use `.safeParse()` and branch on `.success`. Stdlib `.parse()` (`JSON.parse`, `Date.parse`, `path.parse`) is **not** flagged — the rule targets Zod schema `.parse()` only.
+**Policy:** Zod schema `.parse()` is forbidden in HTTP boundary code. Use `.safeParse()` and branch on `.success`. Stdlib `.parse()` (`JSON.parse`, `Date.parse`, `path.parse`) is **not** flagged — the rule targets Zod schema `.parse()` only. A `.parse()` whose argument is a **fully-static literal** (e.g. `ConfigSchema.parse({ port: 3000 })`) is also **not** flagged — no external input can flow through it, so a throwing parse is deliberate fail-fast; any identifier, member access, call, or spread inside the argument makes it non-static and the rule fires.
 
 **Path-scoped enforcement:** the ESLint rule `rules-as-tests/no-unsafe-zod-parse` is enabled only for these globs (configured in `eslint.config.mjs`):
 

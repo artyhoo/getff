@@ -4,6 +4,11 @@
       "sectionId": "configuration-access",
       "title": "Configuration access",
       "nodeIds": ["no-direct-env-var", "no-direct-process-env"]
+    },
+    {
+      "sectionId": "time-handling",
+      "title": "Time handling",
+      "nodeIds": ["no-datetime-now"]
     }
   ]
 }

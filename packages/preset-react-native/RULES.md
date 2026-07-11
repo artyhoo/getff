@@ -36,7 +36,7 @@ Bypass via `/aif-rules` (with rationale), never via `--no-verify`.
 
 ## R2 — Validation at boundaries
 
-**Policy:** `.parse()` is forbidden in network/IPC boundary code. Use `.safeParse()` and branch on `.success`.
+**Policy:** `.parse()` is forbidden in network/IPC boundary code. Use `.safeParse()` and branch on `.success`. A `.parse()` whose argument is a **fully-static literal** (e.g. `ConfigSchema.parse({ port: 3000 })`) is **not** flagged — no external input can flow through it, so a throwing parse is deliberate fail-fast.
 
 **Check:** ESLint `rules-as-tests/no-unsafe-zod-parse` (where wired) or manual sidecar review.
 

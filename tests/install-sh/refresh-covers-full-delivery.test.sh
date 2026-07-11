@@ -55,6 +55,10 @@ EXCLUDED=$(sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' <<'EXC' | sed 
   stryker.config.json
   vitest.config.ts
   playwright.config.ts
+  # Storybook scaffold (react-next): starter configs the consumer customises (addons, decorators)
+  # — same class as vitest/playwright configs above; seeded once, never clobbered by refresh.
+  .storybook/main.ts
+  .storybook/preview.ts
   eslint.config.mjs
   eslint.config.rn-common.mjs
   .github/workflows/ci.yml

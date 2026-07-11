@@ -21,7 +21,14 @@ elif [ "$DRY_RUN" = "--dry-run" ]; then
 else
   rm -rf "$PROJECT_ROOT/.claude/skills/getff"
   cp -r "$PKG_ROOT/skills/getff" "$PROJECT_ROOT/.claude/skills/getff"
-  echo "  ✓ .claude/skills/getff/"
+  # getff ships from repo-root skills/ (not .claude/skills/), so it bypasses
+  # copy_skill_with_transform — its ](../../../README.md), ](../../install.sh) and
+  # ](../../../.claude/rules/…) refs dangle on a consumer tree without this pass
+  # (2026-07-10 flat-install smoke: first consumer push red on pre-push §8 lychee).
+  while IFS= read -r -d '' mdfile; do
+    transform_internal_refs "$mdfile"
+  done < <(find "$PROJECT_ROOT/.claude/skills/getff" -name '*.md' -print0)
+  echo "  ✓ .claude/skills/getff/ (cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
 fi
 if [ -e "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" ] && [ "$FORCE" != "--force" ]; then
   SKIPPED+=("$PROJECT_ROOT/.claude/skills/tool-bootstrapping")
@@ -35,40 +42,67 @@ elif [ "$DRY_RUN" = "--dry-run" ]; then
 else
   rm -rf "$PROJECT_ROOT/.claude/skills/tool-bootstrapping"
   cp -r "$PKG_ROOT/skills/tool-bootstrapping" "$PROJECT_ROOT/.claude/skills/tool-bootstrapping"
+  # No up-dir repo refs in tool-bootstrapping today (transform is a no-op) — run it anyway for
+  # install/refresh parity with do_refresh and so a future added ref cannot dangle silently.
+  while IFS= read -r -d '' mdfile; do
+    transform_internal_refs "$mdfile"
+  done < <(find "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" -name '*.md' -print0)
   echo "  ✓ .claude/skills/tool-bootstrapping/"
 fi
 # meta-orchestrator + its orchestration companions: shipped from authoring location
 # .claude/skills/ as single source of truth (no separate mirror under skills/). Repo-internal
 # cross-refs in .md files get rewritten to GitHub blob URLs via transform_internal_refs().
-#   - pipeline      — the planner (/pipeline): umbrella triage, priority ranking, plan/state.md.
-#   - dispatcher    — pipeline's execution companion: dispatches a chosen umbrella's stages
-#                     through the aif-control loop the ./setup runtime-bridge step installs.
-#   - aif-doctor    — diagnoses that same aif-handoff runtime when a task stalls / runtime breaks.
+#
+# F7 split (owner GO 2026-07-10): the set divides into a consumer-facing CORE set (always shipped)
+# and an AIF operator SUITE (shipped ONLY under --with-aif-suite). The suite presupposes the
+# aif-handoff operator runtime; on a consumer without it those triggers fire into a dead end, and
+# `story` crashes on landing until its lang-pack ships (#934). Gating is opt-in + reversible (BFR
+# §1.1 integrate-never-hard-depend; same posture as companions.manifest — companion-install-principle.md).
+#
+# CORE (always — consumer-facing, no aif-handoff runtime assumed):
 #   - template-audit — local advisory audit of the rendered templates this installer ships.
-#   - night-mode     — overnight-autonomous orchestration over SDD (executor + dual-reviewer +
-#                      on-demand top-tier advisor); harness-agnostic, relative model tiers,
-#                      graceful degradation on non-CC / sequential-only / single-tier harnesses.
 #   - ai-doc         — AI-doc authoring standard (channel selection, doc-authority header,
 #                      rule-as-test, AI-agnostic authoring) — reusable by consumers who author
 #                      their own skills/rules.
 #   - rule-research  — bootstrap stack-aware ESLint rules from LIVE docs (consumer-facing by design).
+#
+# AIF operator SUITE (only under --with-aif-suite — presupposes the aif-handoff runtime):
+#   - pipeline      — the planner (/pipeline): umbrella triage, priority ranking, plan/state.md.
+#   - dispatcher    — pipeline's execution companion: dispatches a chosen umbrella's stages
+#                     through the aif-control loop the ./setup runtime-bridge step installs.
+#   - aif-doctor    — diagnoses that same aif-handoff runtime when a task stalls / runtime breaks.
 #   - harvest        — egress a finished aif-agent branch into a PR (host-push default, API
 #                      break-glass) for consumers running aif-handoff.
-#   - story          — plain-language, by-act recap of a session's work (AIF_HOOK_LANG-gated output).
-# Only self-reflection is intentionally NOT shipped: it is the §1.7 self-review discipline specific to
-# THIS repo's own development process (not a reusable consumer capability) — see the build-vs-reuse
-# shipped-axis default in .claude/rules/build-first-reuse-default.md §1.1 + dual-implementation-discipline.md §3.
+#   - night-mode     — overnight-autonomous orchestration over SDD (executor + dual-reviewer +
+#                      on-demand top-tier advisor); harness-agnostic, relative model tiers,
+#                      graceful degradation on non-CC / sequential-only / single-tier harnesses.
+#   - story          — plain-language, by-act recap of a session's work (AIF_HOOK_LANG-gated
+#                      output). Stays in the gated set until its lang-pack delivery is fixed
+#                      (#934) — it crashes on landing without the pack.
+#
+# Only self-reflection is intentionally NOT shipped at all: it is the §1.7 self-review discipline
+# specific to THIS repo's own development process (not a reusable consumer capability) — see the
+# build-vs-reuse shipped-axis default in .claude/rules/build-first-reuse-default.md §1.1 +
+# dual-implementation-discipline.md §3.
 # Repo-internal cross-refs (docs/packages/scripts/.claude/rules/README) are rewritten to GitHub blob
 # URLs by copy_skill_with_transform → transform_internal_refs; sibling-skill links stay relative (sibling ships too).
-for _skill in pipeline dispatcher aif-doctor template-audit night-mode ai-doc rule-research harvest story; do
+for _skill in template-audit ai-doc rule-research; do
   copy_skill_with_transform "$_skill"
 done
+if [ -n "${WITH_AIF_SUITE:-}" ]; then
+  echo "  ▶ AIF operator suite (--with-aif-suite): pipeline dispatcher aif-doctor harvest night-mode story"
+  for _skill in pipeline dispatcher aif-doctor harvest night-mode story; do
+    copy_skill_with_transform "$_skill"
+  done
+fi
 
 # aif-doctor ships portable base-refresh ("heal") helpers under helpers/ — a consumer runs
 # aif-handoff too, so their container base can go stale and false-`done` off-scope diffs
 # (aif-doctor SKILL §3.4). The recursive `cp -r` in copy_skill_with_transform already lands
 # helpers/*.sh; here we just keep them executable and surface the OPT-IN auto-heal seam. Keep
 # it opt-in + degrading — making a companion mandatory is a goal change (build-first-reuse-default.md §1.1).
+# Guarded on the aif-doctor dir existing (present only under --with-aif-suite) — its skill is in the
+# gated suite, so its helpers surface only when the suite was installed.
 _AIF_HELPERS="$PROJECT_ROOT/.claude/skills/aif-doctor/helpers"
 if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$_AIF_HELPERS" ]; then
   chmod_safe +x "$_AIF_HELPERS/heal.sh" "$_AIF_HELPERS/refresh-aif-base.sh" 2>/dev/null || true

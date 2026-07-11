@@ -28,7 +28,7 @@ cd /tmp/getff
 ai-factory extension add ./path/to/getff
 
 # Or from a git URL
-ai-factory extension add https://github.com/<org>/getff
+ai-factory extension add https://github.com/artyhoo/getff
 
 # Verify
 ai-factory extension list
@@ -73,7 +73,7 @@ The installer:
 
 By default it **never overwrites** existing files. Use `--force` to overwrite.
 
-Two further opt-in flags (see `install.sh` header for exact semantics): `--full` — also auto-installs the shipped dev-deps via the consumer's package manager (mutating, no prompts; stack arg required); `--wire-ci` — also auto-wires missing CI gates into an existing workflow via `yq` (detect-first). The recommended `./setup -y <stack>` one-shot path already implies `--full` + companions.
+Three further opt-in flags (see `install.sh` header for exact semantics): `--full` — also auto-installs the shipped dev-deps via the consumer's package manager (mutating, no prompts; stack arg required); `--wire-ci` — also auto-wires missing CI gates into an existing workflow via `yq` (detect-first); `--with-aif-suite` — also ships the AIF operator suite skills (pipeline, dispatcher, aif-doctor, harvest, night-mode, story), which presuppose the aif-handoff operator runtime (default installs only the consumer-facing core skills). The recommended `./setup -y <stack>` one-shot path already implies `--full` + companions.
 
 ---
 
@@ -189,6 +189,7 @@ For React/Next, also add:
 ```json
 {
   "scripts": {
+    "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "test-storybook": "test-storybook",
     "test:e2e": "playwright test"
@@ -233,8 +234,8 @@ npm install --save-dev \
   eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-jsx-a11y \
   eslint-plugin-testing-library \
   @playwright/test \
-  @storybook/react-vite @storybook/test \
-  @storybook/test-runner concurrently wait-on http-server
+  storybook@^10.5.0 @storybook/nextjs-vite@^10.5.0 vite@^8.0.0 \
+  @storybook/test-runner@^0.24.4 concurrently@^9.0.0 wait-on@^8.0.0 http-server@^14.1.0
 ```
 
 Also: `import 'server-only'` and `import 'client-only'` packages — bundled with Next.js, no install needed.
@@ -380,7 +381,7 @@ bash /path/to/getff/install.sh --refresh
 
 Consumer-owned files (`AGENTS.md`, `RULES.md`, `eslint.config.mjs`, `ci.yml`, etc.) are never touched. Files with a sibling `.override.md` are also skipped. See [INSTALL-FOR-AI.md §Refreshing framework artefacts](INSTALL-FOR-AI.md#refreshing-framework-artefacts-after-an-upgrade) for the full boundary table.
 
-**Path B (AIF extension):** `ai-factory extension update rules-as-tests-aif`
+**Path B (AIF extension):** `ai-factory extension update getff`
 
 **Path C (force overwrite):** re-run `./install.sh <stack> --force` to overwrite. **Will overwrite ALL configs including your customizations** — back up first.
 

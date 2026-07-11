@@ -70,7 +70,7 @@ All layers share the dispatcher shell scope. These globals are initialised in `i
 
 | Helper | Signature | Purpose |
 |--------|-----------|---------|
-| `transform_internal_refs` | `<file>` | Rewrites `](../../../{docs,packages}/…)` + `](../../../README.md…)` links in-place to `$UPSTREAM_BLOB_URL/…` GitHub blob URLs. Leaves consumer-resolvable refs intact. |
+| `transform_internal_refs` | `<file>` | Rewrites `](../../../{docs,packages}/…)`, `](../../../README.md…)`, `](../../install.sh…)`, and `.claude/rules/` refs (`](../../rules/…)` skill shape + `](../.claude/rules/…)` agent shape — rules/ is not shipped) in-place to `$UPSTREAM_BLOB_URL/…` GitHub blob URLs. Leaves genuinely consumer-resolvable refs (e.g. `hooks/`) intact. |
 | `copy_safe` | `<src> <dst>` | Copies `<src>` to `<dst>` unless `<dst>` already exists (skip if exists, unless `--force`). Appends to `SKIPPED` on skip. Respects `--dry-run`. |
 | `refresh_safe` | `<src> <dst>` | Overwrites `<dst>` unless a sibling `<dst%.md>.override.md` exists (Layer-3 consumer ownership signal). Used by `--refresh` path. |
 | `merge_prettierignore` | `<src> <dst>` | Non-destructive `.prettierignore` merge (GH #531): greenfield → copy; existing file → append marker-delimited block of missing AIF entries; idempotent. |
@@ -87,7 +87,7 @@ All layers share the dispatcher shell scope. These globals are initialised in `i
 
 | Constant | Value / Source | Purpose |
 |----------|---------------|---------|
-| `UPSTREAM_BLOB_URL` | `${UPSTREAM_BLOB_URL:-https://github.com/Yhooi2/rules-as-tests-aif/blob/main}` | Base URL for `transform_internal_refs` rewrites |
+| `UPSTREAM_BLOB_URL` | `${UPSTREAM_BLOB_URL:-https://github.com/artyhoo/getff/blob/main}` | Base URL for `transform_internal_refs` rewrites |
 | `PRETTIERIGNORE_BEGIN_MARKER` | `# --- BEGIN aif-managed ---` | Idempotency fence for `.prettierignore` merge |
 | `PRETTIERIGNORE_END_MARKER` | `# --- END aif-managed ---` | Idempotency fence for `.prettierignore` merge |
 

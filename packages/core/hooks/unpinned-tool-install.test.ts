@@ -12,6 +12,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   checkUnpinnedToolInstalls,
+  isShellScriptPopulationFile,
   type UnpinnedFinding,
 } from './checks/unpinned-tool-install.ts';
 
@@ -226,6 +227,88 @@ jobs:
       - run: pip install zizmor==1.26.1
 `;
     expect(passes(yml)).toBe(true);
+  });
+});
+
+// ── Shell-script slice (ci-tool-pinning.md §2 scope widening, 2026-07-10) ─────
+// The per-line checks are content-agnostic, so the same pure function covers
+// shell-script content. Paired-negative per principle 02: one .sh fixture that
+// TRIPS, one that PASSES.
+
+describe('unpinned-tool-install check — shell-script content', () => {
+  it('bare npm install -g in a shell script trips (the retired setup.sh gap, PR #946)', () => {
+    const sh = [
+      '#!/usr/bin/env bash',
+      'set -euo pipefail',
+      'npm install -g ai-factory',
+    ].join('\n');
+    const findings = checkUnpinnedToolInstalls(sh, 'setup.sh');
+    expect(findings.length).toBe(1);
+    expect(findings[0].file).toBe('setup.sh');
+    expect(findings[0].text).toContain('npm install -g ai-factory');
+  });
+
+  it('pinned npm install -g in a shell script passes', () => {
+    const sh = 'npm install -g ai-factory@1.2.3\n';
+    expect(checkUnpinnedToolInstalls(sh, 'setup.sh')).toHaveLength(0);
+  });
+
+  it('echo-printed install hint does NOT trip (printed-hint carve-out, cold-review M2)', () => {
+    const sh = [
+      'echo "Manual fallback: npm install -g ai-factory"',
+      '  printf "or: pip install some-tool\\n"',
+    ].join('\n');
+    expect(checkUnpinnedToolInstalls(sh, 'install.sh')).toHaveLength(0);
+  });
+
+  it('a real install after an echo line still trips (carve-out is line-leading only)', () => {
+    const sh = ['echo "installing..."', 'npm install -g ai-factory'].join('\n');
+    expect(checkUnpinnedToolInstalls(sh, 'install.sh')).toHaveLength(1);
+  });
+
+  it('escape hatch token works in shell scripts too', () => {
+    const sh = 'pip install some-tool  # ci-tool-pin: allow no stable release\n';
+    expect(checkUnpinnedToolInstalls(sh, 'scripts/x.sh')).toHaveLength(0);
+  });
+});
+
+// ── Population predicate (shell slice) — paired-negative ─────────────────────
+
+describe('isShellScriptPopulationFile — population boundaries', () => {
+  it('*.sh files are in the population (positive)', () => {
+    expect(isShellScriptPopulationFile('scripts/build-synth-bundle.sh')).toBe(true);
+    expect(isShellScriptPopulationFile('setup.d/engine.sh')).toBe(true);
+    expect(isShellScriptPopulationFile('install.sh')).toBe(true);
+    expect(isShellScriptPopulationFile('.claude/hooks/worktree-setup.sh')).toBe(true);
+  });
+
+  it('root extensionless `setup` entrypoint is in the population (positive)', () => {
+    expect(isShellScriptPopulationFile('setup')).toBe(true);
+  });
+
+  it('extensionless shell scripts under .husky/ and plugin/hooks/ are in the population (positive — backward-sweep siblings)', () => {
+    expect(isShellScriptPopulationFile('.husky/pre-push')).toBe(true);
+    expect(isShellScriptPopulationFile('.husky/pre-commit')).toBe(true);
+    expect(isShellScriptPopulationFile('plugin/hooks/session-start')).toBe(true);
+  });
+
+  it('non-script files under the hook dirs are NOT in the population (negative — cold-review m1)', () => {
+    expect(isShellScriptPopulationFile('plugin/hooks/hooks.json')).toBe(false);
+    expect(isShellScriptPopulationFile('plugin/hooks/run-hook.cmd')).toBe(false);
+    expect(isShellScriptPopulationFile('.husky/_/husky.sh')).toBe(false); // husky-internal shim
+    expect(isShellScriptPopulationFile('.husky/_/pre-push')).toBe(false);
+  });
+
+  it('setup.d/companions.manifest is NOT in the population (negative — companion no-pin surface, companion-install-principle.md §1)', () => {
+    expect(isShellScriptPopulationFile('setup.d/companions.manifest')).toBe(false);
+  });
+
+  it('non-script files are NOT in the population (negative)', () => {
+    expect(isShellScriptPopulationFile('.github/workflows/audit-self.yml')).toBe(false);
+    expect(isShellScriptPopulationFile('README.md')).toBe(false);
+    expect(isShellScriptPopulationFile('packages/core/hooks/pre-push.ts')).toBe(false);
+    // nested `setup` name is not the root entrypoint
+    expect(isShellScriptPopulationFile('docs/setup')).toBe(false);
   });
 });
 
