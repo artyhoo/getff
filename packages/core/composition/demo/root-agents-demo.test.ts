@@ -29,13 +29,19 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 // packages/core/composition/demo -> repo root is four levels up.
 const ROOT_AGENTS_MD = join(HERE, '..', '..', '..', '..', 'AGENTS.md');
 
-// The two-sided honest-refusal Enforced lines — COMPUTED by compose()/enforcement-line.ts, NOT
-// hardcoded into compose(). These goldens are what the shipped code emits from the live facts;
-// the ratchet below proves the committed doc carries exactly them.
+// The honest-refusal Enforced lines — COMPUTED by compose()/enforcement-line.ts, NOT hardcoded
+// into compose(). These goldens are what the shipped code emits from the live facts across ALL
+// FOUR shipped backends (cargo, npm, astgrep #212, ruff #215), lexicographically ordered; the
+// ratchet below proves the committed doc carries exactly them. The Python lane (python-backend-v0
+// S3) enters as TWO segments — one per registered backend (astgrep + ruff), the enforcement-line
+// mechanism has no combined "Python segment" (segment granularity is per-backend). On the cargo
+// type-aware node the Python backends refuse FF7001 (capability-class gap → mypy deferred); on the
+// npm JS-selector syntax node they refuse FF7002 (params-contract gap — neither node is a Python
+// convention).
 const GOLDEN_CARGO_NODE_ENFORCED =
-  '> Enforced: cargo-clippy-toml ✅ · npm-eslint-declarative — FF7001 (typed rules are not expressible in the no-restricted-syntax declarative class; route to a type-aware backend (post-v0))';
+  '> Enforced: astgrep-python-yaml — FF7001 (type-aware bans need a type checker; route to the mypy backend (deferred, post-v0)) · cargo-clippy-toml ✅ · npm-eslint-declarative — FF7001 (typed rules are not expressible in the no-restricted-syntax declarative class; route to a type-aware backend (post-v0)) · ruff-tidy-imports-toml — FF7001 (type-aware bans need a type checker; route to the mypy backend (deferred, post-v0))';
 const GOLDEN_NPM_NODE_ENFORCED =
-  '> Enforced: cargo-clippy-toml — FF7001 (not expressible in clippy.toml; route to the ast-grep escape-hatch backend (post-v0)) · npm-eslint-declarative ✅';
+  '> Enforced: astgrep-python-yaml — FF7002 (params contract violation: missing/invalid kind) · cargo-clippy-toml — FF7001 (not expressible in clippy.toml; route to the ast-grep escape-hatch backend (post-v0)) · npm-eslint-declarative ✅ · ruff-tidy-imports-toml — FF7002 (params contract violation: missing/invalid kind)';
 
 describe('root-AGENTS.md demo — ratchet (T15 self-application: byte-gate our own root doc)', () => {
   it('the committed ROOT AGENTS.md region is BYTE-equal to the re-composed demo region', () => {
@@ -66,6 +72,29 @@ describe('root-AGENTS.md demo — ratchet (T15 self-application: byte-gate our o
 
   it('emits NO `hash=` bytes anywhere in the composed demo region (T-END-B)', () => {
     expect(buildDemoRegion()).not.toContain('hash=');
+  });
+
+  it('T-PY-D: the multi-backend Enforced lines join segments with " · ", never ", "', () => {
+    // A12-separator pin (#905, enforcement-line.ts:97/103) against regression, ON THE DEMO's own
+    // now-4-backend goldens (python-backend-v0 S3). Both demo nodes yield ≥3 segments, so the
+    // inter-segment separator is exercised for real here (not just a synthetic fixture).
+    const region = buildDemoRegion();
+    const enforcedLines = region.split('\n').filter((l) => l.startsWith('> Enforced:'));
+    expect(enforcedLines).toHaveLength(2);
+    for (const line of enforcedLines) {
+      // Must carry the middle-dot separator between per-backend segments.
+      expect(line).toContain(' · ');
+      // Must NOT reintroduce comma-space at a SEGMENT boundary. Commas inside the parenthesized
+      // refusal notes are legitimate, so blank the notes before the negative check (same
+      // technique as compose.test.ts A12-pin).
+      const withoutNotes = line.replace(/\([^)]*\)/g, '()');
+      expect(withoutNotes).not.toMatch(/, /);
+    }
+    // Explicit: the astgrep + ruff Python-lane segments are both present (S3 wiring).
+    for (const line of enforcedLines) {
+      expect(line).toContain('astgrep-python-yaml');
+      expect(line).toContain('ruff-tidy-imports-toml');
+    }
   });
 });
 
