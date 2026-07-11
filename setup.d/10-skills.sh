@@ -9,26 +9,26 @@
 # ─── 1. Skills ──────────────────────────────────────────
 echo "▶ Skills → .claude/skills/"
 mkdir_safe "$PROJECT_ROOT/.claude/skills"
-if [ -e "$PROJECT_ROOT/.claude/skills/rules-as-tests" ] && [ "$FORCE" != "--force" ]; then
-  SKIPPED+=("$PROJECT_ROOT/.claude/skills/rules-as-tests")
+if [ -e "$PROJECT_ROOT/.claude/skills/getff" ] && [ "$FORCE" != "--force" ]; then
+  SKIPPED+=("$PROJECT_ROOT/.claude/skills/getff")
   if [ "$DRY_RUN" = "--dry-run" ]; then
-    echo "  [dry-run] would skip: .claude/skills/rules-as-tests (exists)"
+    echo "  [dry-run] would skip: .claude/skills/getff (exists)"
   else
-    echo "  ⊝ .claude/skills/rules-as-tests (exists — skipping)"
+    echo "  ⊝ .claude/skills/getff (exists — skipping)"
   fi
 elif [ "$DRY_RUN" = "--dry-run" ]; then
-  echo "  [dry-run] would copy: $PKG_ROOT/skills/rules-as-tests → $PROJECT_ROOT/.claude/skills/rules-as-tests"
+  echo "  [dry-run] would copy: $PKG_ROOT/skills/getff → $PROJECT_ROOT/.claude/skills/getff"
 else
-  rm -rf "$PROJECT_ROOT/.claude/skills/rules-as-tests"
-  cp -r "$PKG_ROOT/skills/rules-as-tests" "$PROJECT_ROOT/.claude/skills/rules-as-tests"
-  # rules-as-tests ships from repo-root skills/ (not .claude/skills/), so it bypasses
+  rm -rf "$PROJECT_ROOT/.claude/skills/getff"
+  cp -r "$PKG_ROOT/skills/getff" "$PROJECT_ROOT/.claude/skills/getff"
+  # getff ships from repo-root skills/ (not .claude/skills/), so it bypasses
   # copy_skill_with_transform — its ](../../../README.md), ](../../install.sh) and
   # ](../../../.claude/rules/…) refs dangle on a consumer tree without this pass
   # (2026-07-10 flat-install smoke: first consumer push red on pre-push §8 lychee).
   while IFS= read -r -d '' mdfile; do
     transform_internal_refs "$mdfile"
-  done < <(find "$PROJECT_ROOT/.claude/skills/rules-as-tests" -name '*.md' -print0)
-  echo "  ✓ .claude/skills/rules-as-tests/ (cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
+  done < <(find "$PROJECT_ROOT/.claude/skills/getff" -name '*.md' -print0)
+  echo "  ✓ .claude/skills/getff/ (cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
 fi
 if [ -e "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" ] && [ "$FORCE" != "--force" ]; then
   SKIPPED+=("$PROJECT_ROOT/.claude/skills/tool-bootstrapping")

@@ -1,5 +1,5 @@
 ---
-name: rules-as-tests
+name: getff
 description: Use when treating any codebase rule (architectural, naming, dependency, test-quality, contract, SLO) as an executable test that fails the build when violated, or when the user asks about enforcing code quality, fighting AI-generated code drift, setting up linters/tests/CI/pre-commit hooks, designing review processes, mutation testing, contract testing, fitness functions, observability-driven development, SLO-as-code, or any version of "how do I make my codebase resistant to AI agents breaking my conventions". Also trigger on any mention of ArchUnit, Stryker, Pact, dependency-cruiser, AI Factory (aif), Husky, lint-staged, ESLint flat config, Zod validation strategy, or shift-left/shift-right testing. Strongly trigger when the user mentions Claude Code, Cursor, or Copilot writing code that "looks fine but is wrong" — that is the core problem this skill addresses.
 ---
 
@@ -8,7 +8,7 @@ description: Use when treating any codebase rule (architectural, naming, depende
 A unified framework for treating **every codebase rule as an executable test**. Documents lie; tests don't. This becomes critical when AI agents write the code, because LLMs reliably violate undocumented conventions and generate plausible-but-vacuous tests.
 
 > **Authoritative for:** skill activation conditions (frontmatter `description`); 5-layer framework summary; reference index (when to read which `references/*.md`); enforcement-extension surfaces (shift-left to AIF, shift-right to production, sideways via Pact).
-> **NOT authoritative for:** project-host goal — see consumer's own `README.md` (this skill is shipped to consumer projects via [`install.sh`](../../install.sh)). For the framework's authoring repo: see [README.md#why-this-exists](../../README.md#why-this-exists). Per-layer technical detail is in [references/overview.md](references/overview.md).
+> **NOT authoritative for:** project-host goal — see consumer's own `README.md` (this skill is shipped to consumer projects via [`install.sh`](../../../install.sh)). For the framework's authoring repo: see [README.md#why-this-exists](../../../README.md#why-this-exists). Per-layer technical detail is in [references/overview.md](references/overview.md).
 
 ## When this skill is relevant
 

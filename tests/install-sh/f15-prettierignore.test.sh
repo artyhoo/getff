@@ -297,9 +297,9 @@ PIC="$TC/.prettierignore"
 grep -qx '.claude/agents/capability-reuse-auditor.md' "$PIC" \
   && ok "claude-md pos: shipped transformed agent md is prettier-ignored" \
   || bad "claude-md pos: .claude/agents/capability-reuse-auditor.md NOT ignored (consumer format:check goes RED on landing)"
-grep -qx '.claude/skills/rules-as-tests/SKILL.md' "$PIC" \
-  && ok "claude-md pos: shipped rules-as-tests SKILL.md is prettier-ignored" \
-  || bad "claude-md pos: .claude/skills/rules-as-tests/SKILL.md NOT ignored"
+grep -qx '.claude/skills/getff/SKILL.md' "$PIC" \
+  && ok "claude-md pos: shipped getff SKILL.md is prettier-ignored" \
+  || bad "claude-md pos: .claude/skills/getff/SKILL.md NOT ignored"
 
 # guard-neg (LOAD-BEARING): a consumer-OWNED same-name agent (pre-existing, install without
 # --force → copy_safe SKIPPED) must stay format-checked — NOT silently hidden.

@@ -16,7 +16,7 @@ getff compiles your conventions into native toolchain gates (ESLint/husky for np
 
 After install, your project has:
 
-1. **A skill** (`.claude/skills/rules-as-tests/`) — auto-activates in Claude Code on questions about lint, tests, CI, mutation testing, contracts, AI-driven code drift.
+1. **A skill** (`.claude/skills/getff/`) — auto-activates in Claude Code on questions about lint, tests, CI, mutation testing, contracts, AI-driven code drift.
 2. **Sub-agents** (`.claude/agents/`) — 8 shipped: `review-sidecar`, `living-docs-auditor`, `compliance-verifier`, `memory-codification-auditor`, `orchestrator-worker-discipline`, `aif-init`, `rule-researcher`, `capability-reuse-auditor`:
    - `review-sidecar` — two-AI tautology review of tests (our differentiator; no earlier deterministic channel — its cousin Stryker is CI-only).
    - `living-docs-auditor` — runs `audit-ai-docs.sh` and interprets results (backward Living-Documentation drift).
@@ -99,7 +99,7 @@ Plus extensions:
 - **Between services**: Pact contract testing with `can-i-deploy --to production`.
 - **Between code and AI docs**: `audit-ai-docs.sh` with drift detection + code-vs-docs probes.
 
-For details, see `skills/rules-as-tests/references/`:
+For details, see `skills/getff/references/`:
 - `checks-map.md` — map of all 8 enforcement levels (edit-time → production)
 - `overview.md` — 5 layers with patterns and anti-patterns
 - `ai-traps.md` — what AI violates most + Lessons learned (real grabli)
@@ -141,7 +141,7 @@ The **soft layer** (skills, sub-agents, session hooks) also ships as a Claude Co
 /plugin install getff@getff
 ```
 
-One install and the skills **auto-trigger** (a `SessionStart` hook injects a `using-rules-as-tests` bootstrap — no manual `Skill` call), the consumer-facing sub-agents resolve, and the path-scoped rule-injector fires on edits.
+One install and the skills **auto-trigger** (a `SessionStart` hook injects a `using-getff` bootstrap — no manual `Skill` call), the consumer-facing sub-agents resolve, and the path-scoped rule-injector fires on edits.
 
 **The honest boundary (soft vs hard).** A plugin **never** silently mutates your git/CI, so the plugin delivers only the soft layer. The **hard** layer — `.husky` pre-commit/pre-push hooks + the CI workflow that actually *fail the build* — is opt-in via one command:
 
@@ -174,7 +174,7 @@ After the framework deploy (`./setup` step 2 — or `bash install.sh <stack>` di
 
 | Path | Source | Edit needed? |
 |---|---|---|
-| `.claude/skills/rules-as-tests/` | skill + 5 references, on-demand | No — auto-activates in Claude Code |
+| `.claude/skills/getff/` | skill + 5 references, on-demand | No — auto-activates in Claude Code |
 | `.claude/agents/review-sidecar.md`, `living-docs-auditor.md` | sub-agents for `/aif-verify` (R1–R20 validation is earlier-channel: ESLint + pre-push + AIF `rules-sidecar`) | No |
 | `.ai-factory/skill-context/aif-review/SKILL.md`, `aif-rules-check/SKILL.md` | overrides injected into AIF's own sidecars (anti-tautology review + R10/test-existence residue) | No |
 | `.ai-factory/RULES.md` | R1-R11 (or +R12-R20 for react-next) | **Yes — review and trim per project** |

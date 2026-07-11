@@ -78,12 +78,12 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   'docs/meta-factory/research-patches/README.md',
 
   // skills/ — primary doc + cold references
-  'skills/rules-as-tests/SKILL.md',
-  'skills/rules-as-tests/references/ai-traps.md',
-  'skills/rules-as-tests/references/checks-map.md',
-  'skills/rules-as-tests/references/doc-organization.md',
-  'skills/rules-as-tests/references/overview.md',
-  'skills/rules-as-tests/references/self-testing-docs.md',
+  'skills/getff/SKILL.md',
+  'skills/getff/references/ai-traps.md',
+  'skills/getff/references/checks-map.md',
+  'skills/getff/references/doc-organization.md',
+  'skills/getff/references/overview.md',
+  'skills/getff/references/self-testing-docs.md',
   'skills/tool-bootstrapping/SKILL.md',
   'skills/tool-bootstrapping/references/decision-format.md',
 

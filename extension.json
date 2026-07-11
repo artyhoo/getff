@@ -17,8 +17,8 @@
 
   "skills": [
     {
-      "name": "rules-as-tests",
-      "path": "skills/rules-as-tests",
+      "name": "getff",
+      "path": "skills/getff",
       "description": "Convert any codebase rule into an executable test. AI-driven code drift defense."
     }
   ],
