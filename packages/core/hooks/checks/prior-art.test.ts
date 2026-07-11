@@ -192,6 +192,74 @@ describe('isNewDepAdded()', () => {
   });
 });
 
+// ─── CLAUDE.md prose ↔ hook sync (executable, was attention-only) ─────────────
+//
+// CLAUDE.md «What is a capability commit?» promises «the prose definition and
+// the hook stay in sync» (CLAUDE.md:36) — until this test, that promise was
+// enforced by nobody (#hope-as-gate, attention-is-not-a-mechanism.md §1).
+// These tests make the overrides-exclusion clause of the sync executable: the
+// non-dep block names skipped by isNewDepAdded() must each be named in the
+// CLAUDE.md explicit-dependency bullet, and vice versa.
+
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = resolve(HERE, '..', '..', '..', '..');
+
+/** Block names in the hook's non-dep-block regex alternation. */
+function extractCodeBlockNames(source: string): string[] {
+  const m = /"\((.*?)\)"\\s\*:\\s\*\\\{/.exec(source.replace(/\n/g, ' '));
+  // Fallback: match the regex literal directly.
+  const lit = /nonDepBlockRe = \/[^/]*"\(([^)]+)\)"/.exec(source);
+  const alt = (lit ?? m)?.[1];
+  if (!alt) throw new Error('nonDepBlockRe alternation not found in prior-art.ts');
+  return alt.split('|');
+}
+
+/** The CLAUDE.md explicit-dependency bullet (single line starting `- Adds a new **explicit dependency**`). */
+function extractProseBullet(claudeMd: string): string {
+  const line = claudeMd
+    .split('\n')
+    .find((l) => l.startsWith('- Adds a new **explicit dependency**'));
+  if (!line) throw new Error('explicit-dependency bullet not found in CLAUDE.md');
+  return line;
+}
+
+describe('CLAUDE.md prose ↔ isNewDepAdded() sync (capability-commit definition)', () => {
+  const hookSource = readFileSync(resolve(HERE, 'prior-art.ts'), 'utf8');
+  const claudeMd = readFileSync(resolve(REPO_ROOT, 'CLAUDE.md'), 'utf8');
+
+  it('every non-dep block the hook skips is named in the CLAUDE.md bullet', () => {
+    const bullet = extractProseBullet(claudeMd);
+    for (const name of extractCodeBlockNames(hookSource)) {
+      expect(bullet).toContain(`\`${name}\``);
+    }
+  });
+
+  it('hook skips ≥ the canonical trio (guards against silently narrowing the regex)', () => {
+    const names = extractCodeBlockNames(hookSource);
+    for (const expected of ['overrides', 'resolutions', 'pnpm']) {
+      expect(names).toContain(expected);
+    }
+  });
+
+  it('paired negative: a prose bullet missing a code block name FAILS the containment check', () => {
+    const staleBullet =
+      '- Adds a new **explicit dependency** in `package.json` (… `overrides` / `pnpm` blocks do NOT count …)';
+    // 'resolutions' is skipped by the code but absent from this stale prose.
+    expect(staleBullet).not.toContain('`resolutions`');
+    expect(extractCodeBlockNames(hookSource)).toContain('resolutions');
+  });
+
+  it('paired negative: extractor throws when the bullet is absent (prose moved/renamed → loud, not silent-pass)', () => {
+    expect(() => extractProseBullet('# CLAUDE\n\nno bullet here\n')).toThrow(
+      /bullet not found/,
+    );
+  });
+});
+
 // ─── detectCapabilityReason() ─────────────────────────────────────────────────
 
 describe('detectCapabilityReason()', () => {
