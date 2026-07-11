@@ -119,7 +119,8 @@ bash /tmp/rt/setup ts-server                 # or react-next; omit to get a stac
 
 `./setup` is the one-click orchestrator (framework + companions + runtime-bridge). Flags:
 
-- `--yes` / `--all` — non-interactive: skip the prompts, install missing companions, run the bridge step.
+- `--yes` — non-interactive consumer default: skip the prompts, install missing companions, run the bridge step; ships the curated consumer set only.
+- `--all` — everything: `--yes` PLUS the AIF operator suite (6 skills + 2 agents + their skill-context — presupposes the aif-handoff runtime; operator machines).
 - `--dry-run` — print the full plan, write nothing.
 
 It runs four steps:
@@ -161,7 +162,7 @@ Companion installs run as `./setup` step 3, driven by a manifest (`setup.d/compa
 
 - **Detect-first:** a companion that is already present is skipped.
 - **Consent per companion (interactive):** `Install <name>? [y/N]` — default is N; no companion is mandatory. When stdin is not a tty (piped / CI), prompts fall through to N automatically.
-- **Headless:** `--yes` / `--all` install every missing manifest companion without prompting; `--dry-run` prints what would be installed.
+- **Headless:** `--yes` / `--all` install every missing manifest companion without prompting (for companions the two are equivalent; `--all` additionally ships the AIF operator suite — see Installation flags above); `--dry-run` prints what would be installed.
 - **Official installers only, no version pin** — currently Superpowers via `claude plugin install superpowers@claude-plugins-official`, and ast-grep (structural code search: CLI via `npm install -g @ast-grep/cli`, then the official `ast-grep/agent-skill` plugin).
 - **External services** (manifest kind `external-service` — the aif-handoff runtime-bridge) are not plain installs; they route to the guided-detect bridge step (`./setup` step 4) instead.
 

@@ -66,6 +66,12 @@ Install getff into this project. Follow these steps exactly:
    `bash /tmp/getff/setup -y <detected-stack>`
    (adjust the path if Step 0 cloned the framework elsewhere)
 
+   `-y` installs the curated consumer set — the right default. Use
+   `bash /tmp/getff/setup --all <detected-stack>` INSTEAD only if I explicitly
+   tell you this machine runs the aif-handoff operator runtime: --all
+   additionally ships the AIF operator suite (6 skills + 2 agents +
+   skill-context) that dead-ends without that runtime. When unsure, use -y.
+
    This installs:
    - .claude/agents/{review-sidecar,living-docs-auditor,compliance-verifier,memory-codification-auditor,aif-init,rule-researcher,capability-reuse-auditor,docplan-auditor}.md (best-practices-sidecar is KEEP-AIF — not shipped by us; review-sidecar default-skips when AIF's exists; orchestrator-worker-discipline + reviewer-discipline ship only under --with-aif-suite / --all)
    - .claude/skills/rules-as-tests/ — skill + 5 reference files in references/
@@ -295,7 +301,7 @@ bash /path/to/getff/install.sh --refresh
 Framework-owned artefacts the consumer is **not** expected to edit in place:
 
 - `.claude/agents/*.md` — sub-agent prompts
-- `.claude/skills/` — core set (template-audit, ai-doc, rule-research) + rules-as-tests, tool-bootstrapping. The AIF operator suite (pipeline, dispatcher, aif-doctor, harvest, night-mode, story) ships only under `--with-aif-suite`; `--refresh` keeps refreshing it when already present on disk (prior opt-in), never creates it otherwise.
+- `.claude/skills/` — core set (template-audit, ai-doc, rule-research) + rules-as-tests, tool-bootstrapping. The AIF operator suite — 6 skills (pipeline, dispatcher, aif-doctor, harvest, night-mode, story) + 2 agents (orchestrator-worker-discipline, reviewer-discipline) + their aif-orchestrator-discipline skill-context — ships only under `--with-aif-suite` / `--all`; `--refresh` keeps refreshing it when already present on disk (prior opt-in), never creates it otherwise.
 - `.claude/hooks/deps-hash-check.sh` — session hook
 - `scripts/*.sh`, `scripts/audit-r4.ts` — audit gate scripts
 - `packages/core/hooks/` — TS pre-push pipeline
