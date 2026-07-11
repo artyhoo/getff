@@ -165,6 +165,24 @@ else
   bad "(ii) re-run changed sgconfig.yml (not idempotent): $(diff <(echo "$before") <(echo "$after") | tr '\n' '|')"
 fi
 
+# ── Cell (ii-comment): pre-existing sgconfig.yml entry has a trailing comment ─────────────────
+# Reproduces the review-round-1 idempotency bug: a consumer-added trailing comment on our entry
+# (`  - .getff/astgrep-rules  # our rules`) must still be recognised as already-present — else a
+# re-run inserts a DUPLICATE entry, which trips ast-grep exit 8 on the consumer's next scan.
+echo ""; echo "  ── cell (ii): pre-existing sgconfig.yml entry has a trailing comment (idempotency) ──"
+P=$(mktemp -d); printf '{"name":"c2c","version":"0.0.0"}\n' > "$P/package.json"
+printf 'ruleDirs:\n  - .getff/astgrep-rules  # our rules\n  - consumer_rules\n' > "$P/sgconfig.yml"
+before=$(cat "$P/sgconfig.yml")
+run_delivery "$P" >/dev/null 2>&1
+after=$(cat "$P/sgconfig.yml")
+n=$(grep -cE '^[[:space:]]*-[[:space:]]+\.getff/astgrep-rules([[:space:]]|$)' "$P/sgconfig.yml")
+[ "$n" -eq 1 ] \
+  && ok "(ii-comment) exactly ONE .getff/astgrep-rules entry survives a trailing-comment pre-existing entry (no duplicate)" \
+  || bad "(ii-comment) found $n .getff/astgrep-rules entries — trailing-comment entry not recognised as already-present (duplicate inserted)"
+[ "$before" = "$after" ] \
+  && ok "(ii-comment) sgconfig.yml left byte-identical (already-present entry recognised, no rewrite)" \
+  || bad "(ii-comment) sgconfig.yml was rewritten even though our entry (with trailing comment) was already present"
+
 # ── Cell (ii-refuse): pre-existing sgconfig.yml (flow list) → refuse loudly ───
 echo ""; echo "  ── cell (ii): pre-existing sgconfig.yml (flow-list → REFUSE, STOP-line) ──"
 P=$(mktemp -d); printf '{"name":"c2r","version":"0.0.0"}\n' > "$P/package.json"
@@ -207,6 +225,28 @@ out=$(run_delivery "$P" 2>&1)
 echo "$out" | grep -qiE 'scalar|already sets' \
   && ok "(iii) consumer already uses extend → scalar-one-per-file caveat surfaced" \
   || bad "(iii) extend-scalar caveat not surfaced: $(echo "$out" | tr '\n' '|')"
+
+# sub-case: consumer has a DOTFILE .ruff.toml (no ruff.toml) → same REFUSE path (:153 collision
+# trigger — was untested until now).
+P=$(mktemp -d); printf '{"name":"c3d","version":"0.0.0"}\n' > "$P/package.json"
+printf '[lint]\nselect = ["E"]\n' > "$P/.ruff.toml"
+before=$(cat "$P/.ruff.toml")
+out=$(run_delivery "$P" 2>&1)
+[ ! -e "$P/ruff.toml" ] \
+  && ok "(iii-dotfile) no ruff.toml written when consumer has .ruff.toml (dotfile variant)" \
+  || bad "(iii-dotfile) ruff.toml written next to consumer .ruff.toml — silent-clobber STOP-line violation"
+[ "$before" = "$(cat "$P/.ruff.toml")" ] \
+  && ok "(iii-dotfile) consumer .ruff.toml left byte-identical" \
+  || bad "(iii-dotfile) consumer .ruff.toml was overwritten"
+cmp -s "$TPL/ruff.toml" "$P/getff-ruff.toml" \
+  && ok "(iii-dotfile) shipped getff-ruff.toml reference copy (== template bytes)" \
+  || bad "(iii-dotfile) getff-ruff.toml missing or differs from template"
+echo "$out" | grep -qi 'REFUSE' && echo "$out" | grep -qF 'extend' && echo "$out" | grep -qF 'getff-ruff.toml' \
+  && ok "(iii-dotfile) printed REFUSE + extend manual instructions" \
+  || bad "(iii-dotfile) refusal/extend instructions not printed: $(echo "$out" | tr '\n' '|')"
+grep -qi 'REFUSE' "$P/$LOG_NAME" \
+  && ok "(iii-dotfile) refusal recorded in $LOG_NAME (degrade path logged)" \
+  || bad "(iii-dotfile) refusal not in audit log"
 
 # ── Cell (iv): pre-existing pyproject [tool.ruff], no ruff.toml → refuse ──────
 echo ""; echo "  ── cell (iv): pre-existing pyproject.toml [tool.ruff] (REFUSE — silent override) ──"

@@ -80,7 +80,18 @@ _py_sgconfig_merge() {
   local indent="${next%%-*}"
 
   # Idempotency: our entry already listed → no-op (a duplicate entry would trip exit 8, Probe 7).
-  if grep -qE '^[[:space:]]*-[[:space:]]+\.getff/astgrep-rules[[:space:]]*$' "$dst"; then
+  # Strip trailing #-comments before comparing (same shape as the ruleDirs: inline-value check
+  # above, rest="${rest%%#*}") — a consumer-added comment on our entry (`- .getff/astgrep-rules
+  # # our rules`) must still be recognised as already-present, else a re-run inserts a duplicate.
+  local _found=0 _cl _cl_stripped
+  while IFS= read -r _cl || [ -n "$_cl" ]; do
+    _cl_stripped="${_cl%%#*}"
+    if printf '%s' "$_cl_stripped" | grep -qE '^[[:space:]]*-[[:space:]]+\.getff/astgrep-rules[[:space:]]*$'; then
+      _found=1
+      break
+    fi
+  done < "$dst"
+  if [ "$_found" -eq 1 ]; then
     _py_log "⊝ sgconfig.yml already lists .getff/astgrep-rules — no merge needed (idempotent)"
     return 0
   fi
