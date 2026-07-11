@@ -51,6 +51,7 @@ while IFS= read -r f; do
     *.test.ts | *.test.tsx) continue ;;  # framework-internal tests do not ship
     */eslint-rules/*.mjs | */eslint-rules/*.d.ts) continue ;; # compiled rule artifacts (raw tsc output, baseline-identical, generated — ship as-is, #752 Variant A)
     */install/*.bundle.mjs) continue ;;  # esbuild-generated zero-dep bundle (#755, raw esbuild output, drift-gated by build-synth-bundle.sh --check — Prettier would break byte-reproducibility)
+    packages/core/templates/python/*) continue ;; # getff-rendered Python delivery templates (S1 T4): verbatim backend-renderer output, byte-drift-gated (packages/core/backends/python-templates-drift.test.ts) — Prettier would break byte-reproducibility, same class as *.bundle.mjs above
     *.md | *.mjs | *.cjs | *.json | *.yml | *.yaml | *.ts | *.tsx) FILES+=("$f") ;;
   esac
 done < <(git ls-files -- "${PATHSPECS[@]}")
