@@ -1,0 +1,20 @@
+== zcode version ==
+0.15.0
+== running config-acceptance probes (real zcode Zod validation) ==
+--- probe A (shim flat shape) verdict line ---
+{"timestamp":"2026-07-11T07:06:56.082Z","level":"warn","event":"config.file.invalid","module":"adapters.config","message":"Config file failed to load","context":{"configPath":"/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s5-zcode-probe.ufhSUB/A/zcode.json","configScope":"project","diagnosticCode":"config_file_invalid","diagnosticMessage":"hooks: Unrecognized keys: \"SessionStart\", \"PostToolUse\"","severity":"error"}}
+--- probe B (events wrapper)  verdict line ---
+<none: config accepted, no invalid event logged>
+--- probe C (bogus event)     verdict line ---
+{"timestamp":"2026-07-11T07:06:57.365Z","level":"warn","event":"config.file.invalid","module":"adapters.config","message":"Config file failed to load","context":{"configPath":"/var/folders/03/tk988ft10_92gfb989p1wrn40000gn/T/s5-zcode-probe.ufhSUB/C/zcode.json","configScope":"project","diagnosticCode":"config_file_invalid","diagnosticMessage":"hooks.events: Unrecognized key: \"NotARealEvent\"","severity":"error"}}
+== assertions ==
+  PASS: sessionStartHook/postToolUseInject: framework shim FLAT shape is REJECTED by zcode 0.15.0 (delivery-drift RED)
+  PASS: sessionStartHook + postToolUseInject: 'events'-wrapper config with SessionStart+PostToolUse is ACCEPTED (no config.file.invalid) — events exist as recognized hook primitives
+  PASS: strict vocabulary: a bogus event under events: is REJECTED — acceptance in probe B is meaningful, not permissive
+== runtime code-path evidence (bundle inspection) ==
+  PASS: runtime — runSessionStartHooks defined
+  PASS: runtime — runPostToolUseHooks defined
+  PASS: runtime — additionalContext injected for SessionStart
+  PASS: runtime — additionalContext switch includes PostToolUse
+
+PASS=7 FAIL=0

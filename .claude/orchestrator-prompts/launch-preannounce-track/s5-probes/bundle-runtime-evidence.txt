@@ -1,0 +1,15 @@
+# Verbatim runtime evidence extracted from /Applications/ZCode.app/Contents/Resources/glm/zcode.cjs
+# zcode 0.15.0 bundle. Captured for S5 probe. Line offsets are byte positions in the minified bundle.
+
+## SessionStart hooks fire at session bootstrap (startup)  (@byte 1383914)
+(s),en(m);let y=await this.runSessionStartHooks("startup",s,m);this.injectHookAdditionalContextIntoMessageHistory(qr.SessionStart,y.additionalContexts);let k=VDt(e);if(k!==null)return this.executeManualCompact(e,k,o,s,m,r?.inputId
+
+## Hook additionalContext injected into message history (SessionStart)  (@byte 1306784)
+this.injectHookAdditionalContextIntoMessageHistory(qr.SessionStart,y.additionalContexts),o.length>0&&f.length===0&&this.logger?.warn("Sessio
+
+## additionalContext-collection switch — PostToolUse IS included  (@byte 1026001)
+on);break;case qr.PostToolUse:case qr.PostToolUseFailure:case qr.UserPromptSubmit:case qr.SessionStart:case qr.Stop:t.additionalContext&&e.additionalContexts.push(t.additionalContext);break}}function Vpn(e,t){return e==="deny"||t=
+
+## accepted hooks config schema (events wrapper, .strict())  (@byte 575328)
+events:C.object({SessionStart:C.array(b_).optional(),UserPromptSubmit:C.array(b_).optional(),PreToolUse:C.array(b_).optional(),PermissionRequest:C.array(b_).optional(),PostToolUse:C.array(b_).optional(),PostToolUseFailure:C.array(b_).optional(),Stop:C.array(b_).optional()}).strict().optional()})});var r4t=w(()=>{"use s
+
