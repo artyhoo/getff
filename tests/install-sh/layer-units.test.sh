@@ -27,11 +27,15 @@ _setup_dispatcher_scope() {
   export WIRE_CI=""
   export REFRESH=""
   export STACK="ts-server"
-  export SHIPPED_DOCS=()
-  export SKIPPED=()
+  # Arrays: plain assignment, NOT `export arr=()` — on bash 3.2 (macOS) an export+array
+  # assignment inside a function is silently function-local, leaving the var UNSET in the
+  # caller, so layers crashed on `${#SKIPPED[@]}` under set -u. Export is meaningless for
+  # arrays anyway (layers are sourced into this same shell, and bash cannot export arrays).
+  SHIPPED_DOCS=()
+  SKIPPED=()
+  DEVDEPS=()
   export _r2_verdict=""
   export DEPS_INSTALLED=""
-  export DEVDEPS=()
 }
 
 # ── 1. lib.sh sources cleanly and exposes all helpers ────────────────────────

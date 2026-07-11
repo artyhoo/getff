@@ -53,7 +53,8 @@ done
 # aif-rules-check gets the R10-naming + test-existence residue of the removed best-practices-sidecar.
 # Derive the skill-context copy set from SHIPPED_DOCS (single source — FQA P2 fix). Every
 # skill-context entry that is header-verified above is copied here; the two lists cannot drift.
-for _doc in "${SHIPPED_DOCS[@]}"; do
+# `${arr[@]+"${arr[@]}"}` = bash-3.2-safe empty-array expansion under set -u (macOS ships 3.2).
+for _doc in ${SHIPPED_DOCS[@]+"${SHIPPED_DOCS[@]}"}; do
   case "$_doc" in
     packages/core/templates/shared/skill-context/*/SKILL.md)
       _sc="${_doc#packages/core/templates/shared/skill-context/}"; _sc="${_sc%/SKILL.md}"

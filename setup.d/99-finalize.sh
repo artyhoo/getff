@@ -379,11 +379,14 @@ else
   esac
   echo "  4. Install dependencies (or re-run: ./install.sh ${STACK:-ts-server} --full):"
   echo ""
+  # `[*]-` (default-empty) = bash-3.2-safe under set -u when the array is empty/unset (macOS
+  # ships 3.2); non-empty output is byte-identical. Real installs always reach here with both
+  # arrays populated by 70-deps.sh — the guard covers minimal-scope sourcing (layer-units test).
   echo "     $_add \\"
-  printf '       %s\n' "${DEVDEPS[*]}"
+  printf '       %s\n' "${DEVDEPS[*]-}"
   echo ""
   echo "     $_add_rt \\"
-  printf '       %s\n' "${RUNTIME_DEPS[*]}"
+  printf '       %s\n' "${RUNTIME_DEPS[*]-}"
 fi
 echo "  5. Verify git hooks: 'git config core.hooksPath' should print .husky (install activated it; do NOT run 'npx husky init' — it would clobber the shipped .husky/pre-commit + pre-push)"
 echo "  6. Run: ./scripts/audit-ai-docs.sh — should PASS"
