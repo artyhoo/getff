@@ -7,6 +7,7 @@ export const KNOWN_PACKAGES: readonly string[] = [
   '@playwright/test',
   'vitest',
   '@storybook/nextjs',
+  '@storybook/nextjs-vite',
   'tailwindcss',
 ] as const;
 

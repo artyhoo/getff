@@ -7,6 +7,7 @@
     "@playwright/test",
     "vitest",
     "@storybook/nextjs",
+    "@storybook/nextjs-vite",
     "tailwindcss"
   ],
   "drift": {
