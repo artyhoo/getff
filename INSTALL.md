@@ -73,7 +73,7 @@ The installer:
 
 By default it **never overwrites** existing files. Use `--force` to overwrite.
 
-Three further opt-in flags (see `install.sh` header for exact semantics): `--full` — also auto-installs the shipped dev-deps via the consumer's package manager (mutating, no prompts; stack arg required); `--wire-ci` — also auto-wires missing CI gates into an existing workflow via `yq` (detect-first); `--with-aif-suite` — also ships the AIF operator suite skills (pipeline, dispatcher, aif-doctor, harvest, night-mode, story), which presuppose the aif-handoff operator runtime (default installs only the consumer-facing core skills). The recommended `./setup -y <stack>` one-shot path already implies `--full` + companions.
+Four further opt-in flags (see `install.sh` header for exact semantics): `--full` — also auto-installs the shipped dev-deps via the consumer's package manager (mutating, no prompts; stack arg required); `--wire-ci` — also auto-wires missing CI gates into an existing workflow via `yq` (detect-first); `--with-aif-suite` — also ships the AIF operator suite: the six skills (pipeline, dispatcher, aif-doctor, harvest, night-mode, story) plus the two suite agents (orchestrator-worker-discipline, reviewer-discipline) and their aif-orchestrator-discipline skill-context — all presuppose the aif-handoff operator runtime (default installs only the consumer-facing set); `--all` — operator shorthand for `--full` + `--with-aif-suite` («everything»). The recommended `./setup -y <stack>` one-shot path already implies `--full` + companions and stays curated; `./setup --all <stack>` is the operator-machine equivalent that also pulls the suite.
 
 ---
 
