@@ -339,7 +339,10 @@ ignore_shipped_configs() {
     while IFS= read -r _abs; do
       [ -n "$_abs" ] || continue
       candidates+=("${_abs#"$PROJECT_ROOT"/}")
-    done < <(find "$PROJECT_ROOT/.claude/skills/$_slug" -name '*.md' -print 2>/dev/null)
+    done < <(find "$PROJECT_ROOT/.claude/skills/$_slug" -name '*.md' -print 2>/dev/null | LC_ALL=C sort)
+    # LC_ALL=C sort: find's output order is filesystem-dependent (macOS APFS vs Linux ext4
+    # return different orders) — unsorted entries made the generated .prettierignore hash
+    # differ between the local snapshot capture and CI's byte-identical compare.
   done
   local fresh=() rel
   for rel in "${candidates[@]}"; do
