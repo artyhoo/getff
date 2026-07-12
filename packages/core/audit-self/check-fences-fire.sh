@@ -286,4 +286,53 @@ for _m in "${MANIFESTS[@]}"; do
   _run_fixture "$_m"
 done
 
+# ─── Placed-config load-probe (GH #976) ─────────────────────────────────────────
+# The fixture probe above proves rule LOGIC via a SYNTHETIC in-memory Linter config
+# (fence-probe.mts lines "const cfg = [...]") + a barrel resolved from packages/core.
+# It NEVER loads the eslint.config.mjs files install.sh actually placed into the
+# consumer. So after a PARTIAL dep-install (e.g. #974 pnpm trust-downgrade, or any PM
+# hiccup) it stays GREEN while every placed config is non-loadable
+# (ERR_MODULE_NOT_FOUND '@eslint/js') — the consumer's real `npx eslint .` channel is
+# dead but self-verify says the rule-firing axis passed (#discipline-theatre on the
+# install self-verify). Independently load-probe each PLACED config: a delivered
+# artefact that cannot even `import()` is a real delivery gap. A module-not-found
+# failure is a dep-class SKIP (skip_dep) — so under the self-verify capstone's
+# FENCES_FIRE_STRICT=1 (99-finalize.sh: DEPS_INSTALLED=1 ⇒ deps were supposed to land)
+# it is PROMOTED to a hard FAIL, exactly the honest RED #976 asks for; on a plain
+# no-deps authoring run it degrades like the fixture dep-skips.
+# EXCLUDES: node_modules (installed deps), templates/ (source templates import a
+# relative barrel that only exists post-install → would false-fail), and scratch/build
+# dirs. In the framework repo (no active root eslint.config.mjs, only the template) this
+# finds nothing → structural skip.
+_PLACED_CONFIGS=()
+while IFS= read -r -d '' _c; do _PLACED_CONFIGS+=("$_c"); done < <(
+  find "$PROJECT_ROOT" -maxdepth 4 -name 'eslint.config.mjs' \
+    -not -path '*/node_modules/*' \
+    -not -path '*/templates/*' \
+    -not -path '*/.git/*' \
+    -not -path '*/.stryker-tmp/*' \
+    -not -path '*/dist/*' \
+    -not -path '*/.next/*' \
+    -not -path '*/reports/*' \
+    -print0 2>/dev/null | sort -z)
+
+if [ "${#_PLACED_CONFIGS[@]}" -eq 0 ]; then
+  skip "load-probe: no placed eslint.config.mjs found under $PROJECT_ROOT — skipped (pre-install/authoring, or framework repo)"
+else
+  for _cfg in "${_PLACED_CONFIGS[@]}"; do
+    _rel="${_cfg#"$PROJECT_ROOT"/}"
+    _lp_out=$(FENCE_CFG="file://$_cfg" node --input-type=module -e "
+      import(process.env.FENCE_CFG).then(() => process.exit(0)).catch((e) => { process.stderr.write(String((e && e.message) || e)); process.exit(1); });
+    " 2>&1)
+    _lp_rc=$?
+    if [ "$_lp_rc" -eq 0 ]; then
+      ok "load-probe: placed $_rel loads (imports resolve — real \`eslint .\` channel wired)"
+    elif echo "$_lp_out" | grep -qiE 'cannot find (module|package)|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH|Cannot find package'; then
+      skip_dep "load-probe: placed $_rel NON-LOADABLE ($(echo "$_lp_out" | head -1 | tr -d '\n')) — a plugin dep is absent; the consumer's \`eslint .\` is dead (#976)"
+    else
+      bad "load-probe: placed $_rel failed to load (non-dep error): $(echo "$_lp_out" | head -2 | tr '\n' '|')"
+    fi
+  done
+fi
+
 finish
