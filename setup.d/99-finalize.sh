@@ -368,9 +368,27 @@ if [ ${#SKIPPED[@]} -gt 0 ]; then
   echo ""
 fi
 
+# GH #974: a --full install that FAILED to land its dependencies (e.g. pnpm
+# `trustPolicy: no-downgrade` aborting the devdep batch — #974's trust-downgrade case, or any
+# PM hiccup) must NOT print an unqualified "✅ Installation complete". The install CLAIMED to
+# deliver a usable ESLint/test toolchain but did not — a silent rc0 there is the exact
+# form-over-behaviour false-green the project exists to prevent. `--full` is the only mode that
+# promises deps (FULL set ⇒ deps were attempted); DEPS_INSTALLED=1 iff BOTH dev + runtime deps
+# landed (70-deps.sh). So FULL-set + DEPS_INSTALLED≠1 = an honestly-degraded install → downgrade
+# the banner AND exit non-zero so automation/CI sees the failure, not a green install.
+_deps_incomplete=""
+if [ -n "${FULL:-}" ] && [ "${DEPS_INSTALLED:-}" != "1" ] && [ "$DRY_RUN" != "--dry-run" ]; then
+  _deps_incomplete=1
+fi
+
 echo ""
 if [ "$DRY_RUN" = "--dry-run" ]; then
   echo "✅ Dry-run complete. Nothing was written."
+elif [ -n "$_deps_incomplete" ]; then
+  echo "⚠  Installation finished, but dependencies did NOT fully install — the shipped ESLint/test"
+  echo "    toolchain is not usable yet. This is NOT a full success (see step 4 below to complete it,"
+  echo "    or re-run \`./install.sh ${STACK:-ts-server} --full\`). Exiting non-zero so this is not"
+  echo "    mistaken for a green install."
 else
   echo "✅ Installation complete."
 fi
@@ -409,3 +427,9 @@ echo "  6. Run: ./scripts/audit-ai-docs.sh — should PASS"
 echo "  7. Run: npm run validate"
 echo ""
 echo "For full guide: see INSTALL.md"
+
+# GH #974: honest non-zero exit on a --full install whose deps did not fully land (banner above
+# already said so). The dispatcher sources this file last, so this is install.sh's final rc.
+if [ -n "${_deps_incomplete:-}" ]; then
+  exit 1
+fi
