@@ -820,6 +820,43 @@ ensure_workspace_pkg_links() {
   _workspace_pkg_resolves "$_root" && echo "  · workspace-link self-heal: linked @rules-as-tests/* in $_nm (#827 B4)"
 }
 
+# reassert_husky_shields PKG_ROOT PROJECT_ROOT (GH #975)
+# 50-hooks copies .husky/pre-{commit,push} + sets core.hooksPath BEFORE 70-deps. A consumer
+# whose package.json declares a `prepare`-driven git-hooks manager (simple-git-hooks, or husky
+# re-init) has that lifecycle FIRE during 70-deps' package-manager install — regenerating
+# `.husky/` from ITS config and, having no pre-push entry, REMOVING the framework's
+# `.husky/pre-push` (and replacing pre-commit). The framework push shield is then gone before
+# self-verify runs. Re-assert the framework shields AFTER deps: force-overwrite each hook only
+# when its content differs from the shipped template (idempotent), re-chmod, and re-pin
+# core.hooksPath (a competing manager may have repointed it). Echoes an honest WARN naming the
+# competing manager when it actually re-asserted (a FUTURE install may re-clobber). Callers gate
+# this on DEPS_INSTALLED=1 (a --force/no-deps install never runs the prepare lifecycle).
+reassert_husky_shields() {
+  # NB: local is `fw_root`, NOT `pkg_root` — a `pkg_root` local is a case-variant of the
+  # global PKG_ROOT and trips shellcheck 0.9.0 SC2153 on the pre-existing PKG_ROOT uses.
+  local fw_root="$1" proj="$2"
+  local reasserted=0 pair src dst
+  for pair in \
+    "packages/core/templates/shared/husky-pre-commit.sh:.husky/pre-commit" \
+    "packages/core/templates/shared/husky-pre-push.sh:.husky/pre-push"; do
+    src="$fw_root/${pair%%:*}"; dst="$proj/${pair##*:}"
+    [ -f "$src" ] || continue
+    if [ ! -f "$dst" ] || ! cmp -s "$src" "$dst"; then
+      mkdir -p "$(dirname "$dst")"
+      cp "$src" "$dst"
+      chmod +x "$dst" 2>/dev/null || true
+      reasserted=1
+    fi
+  done
+  git -C "$proj" config core.hooksPath .husky 2>/dev/null || true
+  if [ "$reasserted" = "1" ]; then
+    local mgr=""
+    grep -q '"simple-git-hooks"' "$proj/package.json" 2>/dev/null && mgr="simple-git-hooks"
+    echo "⚠  re-asserted framework .husky/pre-push + pre-commit after dep-install${mgr:+ (a competing \"$mgr\" prepare hook had clobbered them)} — a future package-manager install may re-clobber them; keep core.hooksPath=.husky or remove the competing manager's hooks. (GH #975)"
+  fi
+  return 0
+}
+
 # ── O1 fix: INSTALL_SH_LIB_ONLY guard is LAST (after all helpers are defined) ──
 # When sourced directly with INSTALL_SH_LIB_ONLY=1, expose all helpers and stop here.
 # When sourced by install.sh, this guard fires and returns from the `source setup.d/lib.sh`

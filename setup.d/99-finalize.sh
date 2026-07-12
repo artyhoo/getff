@@ -237,6 +237,16 @@ fi
 # Runs after ALL copy_safe calls so SKIPPED is complete, and after the static .prettierignore merge.
 ignore_shipped_configs
 
+# ─── GH #975: re-assert .husky/* AFTER the dep-install lifecycle ────────────────
+# A consumer `prepare`-driven git-hooks manager (simple-git-hooks / husky re-init) fires during
+# 70-deps' package-manager install and clobbers the framework's .husky/pre-push (+ pre-commit)
+# that 50-hooks copied BEFORE deps. Restore the shields here so the push shield survives before
+# self-verify checks it. Gated on DEPS_INSTALLED (a --force/no-deps install never ran the
+# lifecycle, so its hooks are intact). Logic lives in lib.sh (SSOT).
+if [ "${DEPS_INSTALLED:-}" = "1" ] && [ "${DRY_RUN:-}" != "--dry-run" ]; then
+  reassert_husky_shields "$PKG_ROOT" "$PROJECT_ROOT"
+fi
+
 # ─── install-self-verification capstone (FULL only) ─────────────────────────
 # Runs at the end of --full install to PROVE — not just assert — that:
 #   1. Installed ESLint fences FIRE on deliberately-bad input (D1)
