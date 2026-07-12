@@ -42,18 +42,19 @@ printf '{"name":"f19","version":"0.0.0","type":"module"}\n' > "$T/package.json"
 printf "import js from '@eslint/js';\nexport default [js.configs.recommended];\n" > "$T/eslint.config.mjs"
 
 # ── ARM GREEN — full node_modules → config loads → rc=0 ────────────────────────
+# FENCES_FIRE_LOAD_PROBE=1 is the self-verify capstone's opt-in (99-finalize sets it on FULL).
 ln -sfn "$FULL_NM" "$T/node_modules"
-if AIF_PROJECT_ROOT="$T" FENCES_FIRE_STRICT=1 bash "$FF" >"$T/.green" 2>&1; then
+if AIF_PROJECT_ROOT="$T" FENCES_FIRE_STRICT=1 FENCES_FIRE_LOAD_PROBE=1 bash "$FF" >"$T/.green" 2>&1; then
   if grep -q 'load-probe: placed eslint.config.mjs loads' "$T/.green"; then
-    ok "GREEN: loadable placed config → load-probe ok, self-verify STRICT passes (rc=0)"
+    ok "GREEN: loadable placed config → load-probe ok, self-verify passes (rc=0)"
   else
     bad "GREEN: rc=0 but load-probe line absent — the arm did not run (tail: $(tail -2 "$T/.green" | tr '\n' '|'))"
   fi
 else
-  bad "GREEN: STRICT run failed on a loadable config (rc!=0) — false positive (tail: $(tail -3 "$T/.green" | tr '\n' '|'))"
+  bad "GREEN: run failed on a loadable config (rc!=0) — false positive (tail: $(tail -3 "$T/.green" | tr '\n' '|'))"
 fi
 
-# ── ARM RED (paired-negative) — node_modules WITHOUT @eslint/js → NON-LOADABLE → FAIL ─
+# Break the toolchain: node_modules WITHOUT @eslint/js (the minimal config's only ext import).
 rm -f "$T/node_modules"
 mkdir -p "$T/node_modules/.bin"
 for entry in "$FULL_NM"/*; do
@@ -68,14 +69,29 @@ done
 ln -sfn "$FULL_NM/.bin/tsx" "$T/node_modules/.bin/tsx"
 ln -sfn "$FULL_NM/.bin/eslint" "$T/node_modules/.bin/eslint"
 
-if AIF_PROJECT_ROOT="$T" FENCES_FIRE_STRICT=1 bash "$FF" >"$T/.red" 2>&1; then
-  bad "RED: STRICT run PASSED with @eslint/js absent — the load-probe did not catch the non-loadable placed config (the #976 bug would reland)"
+# ── ARM RED (paired-negative) — non-loadable + FENCES_FIRE_LOAD_PROBE=1 → hard FAIL ─
+if AIF_PROJECT_ROOT="$T" FENCES_FIRE_LOAD_PROBE=1 bash "$FF" >"$T/.red" 2>&1; then
+  bad "RED: LOAD_PROBE=1 run PASSED with @eslint/js absent — the load-probe did not catch the non-loadable placed config (the #976 bug would reland)"
 else
   if grep -q 'load-probe: placed eslint.config.mjs NON-LOADABLE' "$T/.red"; then
-    ok "RED: @eslint/js absent → load-probe NON-LOADABLE → STRICT promotes to FAIL (rc!=0), honest RED"
+    ok "RED: @eslint/js absent + FENCES_FIRE_LOAD_PROBE=1 → NON-LOADABLE → hard FAIL (rc!=0), honest RED"
   else
     bad "RED: rc!=0 but not via the load-probe (tail: $(tail -3 "$T/.red" | tr '\n' '|'))"
   fi
+fi
+
+# ── ARM GATE (regression guard for the full-barrel false-fail) — same non-loadable
+#    config WITHOUT the flag, even under CI-auto-strict → INFORMATIONAL skip, NOT a fail.
+#    This is exactly the check-fences-fire-full-barrel context (installs consumers without
+#    the full plugin set; relies on CI-auto-strict for the FIXTURE arm only). ─────────────
+if CI=1 AIF_PROJECT_ROOT="$T" bash "$FF" >"$T/.gate" 2>&1; then
+  if grep -qi 'load-probe:.*non-loadable' "$T/.gate"; then
+    ok "GATE: non-loadable config WITHOUT the flag (CI-auto-strict) → informational skip, run still rc=0 (full-barrel not false-failed)"
+  else
+    bad "GATE: rc=0 but the load-probe line is missing (tail: $(tail -2 "$T/.gate" | tr '\n' '|'))"
+  fi
+else
+  bad "GATE: non-loadable config WITHOUT FENCES_FIRE_LOAD_PROBE still failed under CI-auto-strict — the #976 fix would reland the full-barrel regression (tail: $(tail -3 "$T/.gate" | tr '\n' '|'))"
 fi
 
 rm -rf "$T"

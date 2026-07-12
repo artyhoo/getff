@@ -275,10 +275,16 @@ else
   # untouched — the gate's own default (auto-strict only under CI) applies.
   _FF_SCRIPT="$PROJECT_ROOT/scripts/check-fences-fire.sh"
   if [ -x "$_FF_SCRIPT" ]; then
+    # GH #976: this is a --full install self-verify (the capstone only runs on FULL), so a
+    # PLACED eslint.config.mjs that cannot `import()` is a real delivery gap even when the
+    # dep-install was only PARTIAL (#974 trust-downgrade → DEPS_INSTALLED unset) — the install
+    # still CLAIMED success. FENCES_FIRE_LOAD_PROBE=1 promotes the load-probe to a hard FAIL
+    # here (and ONLY here) so it does not fire in the check-fences-fire-full-barrel test / plain
+    # CI runs, which legitimately probe fences without a full plugin install.
     if [ "${DEPS_INSTALLED:-}" = "1" ]; then
-      AIF_PROJECT_ROOT="$PROJECT_ROOT" FENCES_FIRE_STRICT=1 bash "$_FF_SCRIPT" && _ff_rc=0 || _ff_rc=$?
+      AIF_PROJECT_ROOT="$PROJECT_ROOT" FENCES_FIRE_STRICT=1 FENCES_FIRE_LOAD_PROBE=1 bash "$_FF_SCRIPT" && _ff_rc=0 || _ff_rc=$?
     else
-      AIF_PROJECT_ROOT="$PROJECT_ROOT" bash "$_FF_SCRIPT" && _ff_rc=0 || _ff_rc=$?
+      AIF_PROJECT_ROOT="$PROJECT_ROOT" FENCES_FIRE_LOAD_PROBE=1 bash "$_FF_SCRIPT" && _ff_rc=0 || _ff_rc=$?
     fi
     if [ "$_ff_rc" -eq 0 ]; then
       _ISV_PASS=$((_ISV_PASS+1))
