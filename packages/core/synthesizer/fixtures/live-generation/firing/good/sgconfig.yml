@@ -1,0 +1,4 @@
+# ast-grep project config for the getff-researched-no-yaml-load CLEAN firing fixture.
+# Same shared ../rules dir as the bad fixture — the SAME committed rule scans both, so the
+# RED-vs-clean split is a property of the source, not of two divergent rule copies.
+ruleDirs: [../rules]
