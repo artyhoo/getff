@@ -19,10 +19,18 @@
 #                                           would win entirely + silently disable theirs). Write a
 #                                           non-discovered getff-ruff.toml reference copy + print
 #                                           `extend` instructions (extend is a scalar — flagged if
-#                                           they already use it).
+#                                           they already use it). The getff bans are ALSO always
+#                                           written to a stable .getff/ruff-bans.toml (see (bans)).
 #   (iv)  pre-existing pyproject.toml      → REFUSE-LOUDLY. A sibling ruff.toml SILENTLY overrides
 #         [tool.ruff] (and no ruff.toml)     their [tool.ruff] (probe-proven). Write getff-ruff.toml
 #                                           + print merge-into-[tool.ruff.lint] instructions.
+#   (bans) getff ruff bans                → ALWAYS written to .getff/ruff-bans.toml (fresh + every
+#         (python-delivery-v0 S2-T2 fix)    collision cell) — the single cell-independent target the
+#                                           shipped CI workflow points a `ruff check . --config
+#                                           .getff/ruff-bans.toml` gate at. Without it, a ruff-collision
+#                                           consumer's own config is what bare `ruff check .` discovers,
+#                                           so the getff bans go SILENTLY unenforced (probe-proven). See
+#                                           the top of _py_deliver_ruff.
 #   (v)   re-run                          → zero diff on the delivered CONFIG artefacts (idempotent).
 #   (ci)  consumer CI workflow            → ship pinned ast-grep + ruff gates as a getff-NAMESPACED
 #         (python-delivery-v0 S2 Task 2)    .github/workflows/getff-python.yml (never the consumer's
@@ -181,6 +189,19 @@ _py_deliver_ruff() {
   local ruff_dst="$PROJECT_ROOT/ruff.toml"
   local getff_ref="$PROJECT_ROOT/getff-ruff.toml"
 
+  # Stable, cell-INDEPENDENT getff-bans config → ALWAYS delivered (fresh dir AND every ruff-collision
+  # cell) at a predictable getff-owned path. This is the single target the shipped CI workflow points a
+  # `ruff check . --config .getff/ruff-bans.toml --no-cache` gate at, so the getff TID bans fire in EVERY
+  # cell. Load-bearing on the collision cells (iii/iv): there the consumer's OWN ruff config is what
+  # `ruff check .` discovers, so it NEVER sees our TID bans — probe-proven silent-unenforcement (S2-T2
+  # review; .superpowers/sdd/s2-task-2-report.md §Fix round 1). `--config` makes ruff REPLACE discovery
+  # (probe-proven), so the CI gate lints the tree against ONLY our bans regardless of the consumer's
+  # config. Framework-owned + getff-header-marked (never a consumer file — the consumer never authors
+  # .getff/ruff-bans.toml), refresh-aware. Its source token `$tpl/ruff.toml` already carries copy+refresh
+  # parity (refresh-covers-full-delivery Check 4), so no new source enters that gate's population.
+  _py_copy_or_refresh "$tpl/ruff.toml" "$PROJECT_ROOT/.getff/ruff-bans.toml"
+  _py_log "ruff bans → .getff/ruff-bans.toml (stable getff-owned CI-gate target; enforced in every cell)"
+
   # Idempotency: a ruff.toml WE already delivered (carries the getff header) is not a consumer
   # collision — no-op on re-run. This MUST precede the cell-(iii) refuse so our own fresh-install
   # output is not mistaken for a consumer's file on the second run. On --refresh it is framework-owned
@@ -290,10 +311,15 @@ _py_deliver_ci() {
       return 0
     fi
     # A NON-getff file occupies our namespaced path → a consumer authored it. REFUSE, never clobber.
+    # NOTE: the two pins below intentionally MIRROR github-actions-ci.yml (the delivered template) — a
+    # printed manual-wiring hint cannot `--config`-dedupe against a YAML file without a parser we do not
+    # assume in pure bash; the CI-template pins are the SSOT and these strings restate them for the
+    # refuse path. Keep the two in sync on any pin bump (both bump together per ci-tool-pinning.md Rule A).
     _py_log "⚠ REFUSE CI: .github/workflows/getff-python.yml exists and is NOT getff-generated."
-    _py_log "  NOT overwriting your workflow. To wire the getff Python gates, add two jobs running:"
+    _py_log "  NOT overwriting your workflow. To wire the getff Python gates, add jobs running:"
     _py_log "      npm install -g @ast-grep/cli@0.44.1 && ast-grep scan"
-    _py_log "      pip install ruff==0.15.21 && ruff check ."
+    _py_log "      pip install ruff==0.15.21 && ruff check .                                 # your config"
+    _py_log "      pip install ruff==0.15.21 && ruff check . --config .getff/ruff-bans.toml  # getff bans (isolated)"
     return 0
   fi
 
@@ -340,8 +366,12 @@ _py_firing_self_check() {
   fi
 
   # ── ruff lane (fast-path) ──
+  # Prefer the stable getff-bans config — the EXACT file the shipped CI gate points a --config at — so the
+  # self-check proves the same artefact CI relies on. Fall back to the discovered ruff.toml (fresh cell)
+  # or the getff-ruff.toml reference copy (collision cell) on an older delivery that predates the bans file.
   local _ruff_mode="" _ruffcfg=""
-  [ -f "$PROJECT_ROOT/ruff.toml" ]       && _ruffcfg="$PROJECT_ROOT/ruff.toml"
+  [ -f "$PROJECT_ROOT/.getff/ruff-bans.toml" ] && _ruffcfg="$PROJECT_ROOT/.getff/ruff-bans.toml"
+  [ -z "$_ruffcfg" ] && [ -f "$PROJECT_ROOT/ruff.toml" ]       && _ruffcfg="$PROJECT_ROOT/ruff.toml"
   [ -z "$_ruffcfg" ] && [ -f "$PROJECT_ROOT/getff-ruff.toml" ] && _ruffcfg="$PROJECT_ROOT/getff-ruff.toml"
   if   command -v ruff >/dev/null 2>&1; then _ruff_mode="ruff"
   elif command -v uvx  >/dev/null 2>&1; then _ruff_mode="uvx"; fi

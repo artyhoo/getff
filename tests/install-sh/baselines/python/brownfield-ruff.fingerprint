@@ -2,7 +2,8 @@
 d1a2da707951d05af07efeb13eb1f0efbe55353a2b3c5959ae7ce5d075a789c3  .getff/astgrep-rules/getff-no-datetime-now.yml
 28c3b74073ff6a3beb0c87a081589f72bc44d0a96e46942520d5f86a46651d5e  .getff/astgrep-rules/getff-no-eval.yml
 fca5ac5056b74ac9d09c742ad6f3db8edd6480f9aad14585105e80819f3b6ba0  .getff/astgrep-rules/getff-no-os-system.yml
-923e4d3d97bb24f32fbf2c1c4d9077cb460fde2b0726abb85520d7add7f7087c  .github/workflows/getff-python.yml
+9d5ff2ab4d83c639deacf1d0f2400000b9a80d71385b5528522978533e77d514  .getff/ruff-bans.toml
+6112c774cc308133d776751d283861a5c34bd217b9bc355ae44cbfe155689b79  .github/workflows/getff-python.yml
 9d5ff2ab4d83c639deacf1d0f2400000b9a80d71385b5528522978533e77d514  getff-ruff.toml
 411775d52a1bfdc488515b5a4d1bf2d3c3e508244c19e65f855c9519a5c122b4  pyproject.toml
 2842839301d8d9b23712d580a82fb8da42d94b6e7de5f02950e858bcba8cfdba  ruff.toml

@@ -64,7 +64,18 @@ jobs:
       # Pinned per ci-tool-pinning.md Rule A — matches the getff framework CI pin.
       - name: Install ruff (pinned)
         run: pip install ruff==0.15.21
-      # Fails RED when a getff ruff ban fires (config = ruff.toml, or getff-ruff.toml if you kept
-      # your own ruff config — point --config at whichever getff config the lane delivered).
-      - name: ruff check
+      # STEP 1 — discovered-config lint. In a FRESH consumer (no prior ruff config) ruff discovers the
+      # getff ruff.toml the lane delivered, so the getff TID bans fire here. In a ruff-COLLISION consumer
+      # (you kept your own ruff.toml / pyproject [tool.ruff]) ruff discovers YOUR config — getff never
+      # clobbers it — so this step runs your own rules.
+      - name: ruff check (discovered config)
         run: ruff check .
+      # STEP 2 — getff bans gate (cell-INDEPENDENT). Enforces the getff TID import bans REGARDLESS of your
+      # own ruff config: `--config` makes ruff REPLACE config discovery (not merge), so this lints your
+      # tree against ONLY .getff/ruff-bans.toml (select = TID251/TID253). Without this step a ruff-
+      # collision repo would discover only YOUR config in step 1 and the getff bans would be SILENTLY
+      # unenforced — a green gate that enforces nothing (attention-is-not-a-mechanism.md §1, the exact
+      # #discipline-theatre this project exists to prevent). The getff lane delivers .getff/ruff-bans.toml
+      # in EVERY cell (fresh + collision); commit it so this CI job can read it (same as .getff/astgrep-rules).
+      - name: ruff check (getff bans — isolated --config)
+        run: ruff check . --config .getff/ruff-bans.toml --no-cache
