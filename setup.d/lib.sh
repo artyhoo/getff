@@ -832,12 +832,14 @@ ensure_workspace_pkg_links() {
 # competing manager when it actually re-asserted (a FUTURE install may re-clobber). Callers gate
 # this on DEPS_INSTALLED=1 (a --force/no-deps install never runs the prepare lifecycle).
 reassert_husky_shields() {
-  local pkg_root="$1" proj="$2"
+  # NB: local is `fw_root`, NOT `pkg_root` — a `pkg_root` local is a case-variant of the
+  # global PKG_ROOT and trips shellcheck 0.9.0 SC2153 on the pre-existing PKG_ROOT uses.
+  local fw_root="$1" proj="$2"
   local reasserted=0 pair src dst
   for pair in \
     "packages/core/templates/shared/husky-pre-commit.sh:.husky/pre-commit" \
     "packages/core/templates/shared/husky-pre-push.sh:.husky/pre-push"; do
-    src="$pkg_root/${pair%%:*}"; dst="$proj/${pair##*:}"
+    src="$fw_root/${pair%%:*}"; dst="$proj/${pair##*:}"
     [ -f "$src" ] || continue
     if [ ! -f "$dst" ] || ! cmp -s "$src" "$dst"; then
       mkdir -p "$(dirname "$dst")"
