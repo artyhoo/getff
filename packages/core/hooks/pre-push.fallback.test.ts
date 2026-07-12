@@ -52,7 +52,10 @@ afterEach(() => {
  * serves as the "base ref" (i.e. PREPUSH_UPSTREAM_REF points at it).
  * Returns { dir, baseSha }.
  */
-function makeSandbox(): { dir: string; baseSha: string } {
+function makeSandbox(opts: { consumer?: boolean } = {}): {
+  dir: string;
+  baseSha: string;
+} {
   const dir = mkdtempSync(join(tmpdir(), 'prepush-fallback-test-'));
   sandboxes.push(dir);
 
@@ -61,6 +64,19 @@ function makeSandbox(): { dir: string; baseSha: string } {
   execSync('git config user.name Test', { cwd: dir });
   // Needed in CI environments where no global git identity is configured.
   execSync('git config commit.gpgsign false', { cwd: dir });
+
+  // GH #985 framework/consumer scope: the fallback's framework-authoring checks
+  // (Prior-art §7, §1.7 presence) are gated on the SSOT-register's presence, mirroring
+  // pre-push.ts's `isFrameworkRepo`. Plant the register by default so the framework-layout
+  // cases below actually reach those checks; `consumer: true` omits it to exercise the guard.
+  if (!opts.consumer) {
+    mkdirSync(join(dir, 'docs/meta-factory'), { recursive: true });
+    writeFileSync(
+      join(dir, 'docs/meta-factory/prior-art-evaluations.md'),
+      '# Prior-art register (test fixture)\n',
+    );
+    execSync('git add docs/meta-factory/prior-art-evaluations.md', { cwd: dir });
+  }
 
   writeFileSync(join(dir, 'README.md'), 'base\n');
   execSync('git add README.md', { cwd: dir });
@@ -299,5 +315,35 @@ describe('pre-push.fallback.sh — paired-negative contract', () => {
     const r = run(dir, baseSha);
     expect(r.status).toBe(1);
     expect(r.stdout).toContain('§7 Prior-art: trailer MISSING');
+  });
+
+  // =========================================================================
+  // Case 6 — consumer-layout scope guard (GH #985)
+  // =========================================================================
+  // The fallback's §7 Prior-art + §1.7 presence arms are FRAMEWORK-AUTHORING
+  // conventions. On a consumer repo (no SSOT register) they must NOT fire — else
+  // every ordinary consumer commit without a `Prior-art:` line hard-blocks the
+  // consumer's first `git push` on the reduced (tsx-unresolvable) fallback path.
+  // Guard targets the `[ ! -f "${_top}/${SSOT_REGISTER}" ]` block added for #985.
+
+  it('Case 6 POSITIVE — CONSUMER layout (no SSOT register) + trailer-less commit → exit 0 (guard skips)', () => {
+    const { dir, baseSha } = makeSandbox({ consumer: true });
+    // An ordinary consumer commit: NO Prior-art:, NO §1.7 — would fail on the framework layout.
+    addCommit(dir, 'src/app.ts', 'export const x = 1;\n', 'feat: consumer feature');
+    const r = run(dir, baseSha);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain('REDUCED, consumer');
+    expect(r.stdout).not.toContain('§7 Prior-art: trailer MISSING');
+  });
+
+  it('Case 6 NEGATIVE — FRAMEWORK layout (SSOT register present) + same trailer-less commit → exit 1 (checks fire)', () => {
+    // Paired-negative: identical commit, register PRESENT → the guard does NOT skip,
+    // proving it gates on the register's presence and is not dead always-skip code.
+    const { dir, baseSha } = makeSandbox(); // framework layout (register planted)
+    addCommit(dir, 'src/app.ts', 'export const x = 1;\n', 'feat: consumer feature');
+    const r = run(dir, baseSha);
+    expect(r.status).toBe(1);
+    expect(r.stdout).toContain('§7 Prior-art: trailer MISSING');
+    expect(r.stdout).not.toContain('REDUCED, consumer');
   });
 });
