@@ -466,6 +466,8 @@ jobs:
         run: bash tests/install-sh/check-shields-up-paired-negative.test.sh
       - name: "install-sh — gh-975 husky re-assert after deps (prepare-driven manager clobber; @aif-shield marker gate)"
         run: bash tests/install-sh/gh-975-husky-reassert.test.sh
+      - name: "install-sh — gh-974 honest incomplete-deps banner (--full + failed dep-install → degraded banner + rc!=0, not silent ✅)"
+        run: bash tests/install-sh/gh-974-honest-incomplete-deps.test.sh
       - name: "install-sh — self-verify banner honesty (P0.4: SKIP accounting withholds property claim + strict D1 under DEPS_INSTALLED)"
         run: bash tests/install-sh/install-self-verify-banner-honesty.test.sh
       - name: install-sh — layer-units (per-layer sourcing + structural integrity checks)
