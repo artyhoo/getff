@@ -27,18 +27,15 @@
 //      (mutable-default-arg, bare-except, == None) are genuinely inexpressible, not just unhandled.
 //   2. The bridge validates provenance ITSELF (the grammar gate does NOT check the provenance host —
 //      grammar.ts validates only shape/degenerate-pair/dup-id/dangling-anchor). A practice whose
-//      provenance does not resolve to a trusted source (Tier-0 by default; Tier-1/2 when a ResolveCtx
-//      is supplied) is a research-only finding, never a trusted node.
+//      provenance does not resolve to a trusted Tier-0 source is a research-only finding, never a
+//      trusted node. (The Tier-1 consumer-package adapter is DEFERRED to LG-S4/rust per §Qc — this
+//      bridge ships the Tier-0 path only; a package-scoped Tier-1 seam is added there with a package
+//      field + Tier-1-reachable tests, not speculatively here.)
 
 import type { Severity } from '../diagnostics/types.ts';
 import type { ConventionNode } from '../ir/types.ts';
 import { runGrammarGate } from '../ir/gates/grammar.ts';
 import { validateProvenance } from '../research/allowlist.ts';
-import {
-  resolveAllowedSources,
-  validateProvenance as validateProvenanceTiered,
-  type ResolveCtx,
-} from '../research/allowlist-resolver.ts';
 import type { Provenance } from '../research/types.ts';
 
 /** The frozen-IR-expressible ast-grep node kinds (render-astgrep.ts:44). A practice whose `kind`
@@ -73,7 +70,7 @@ export interface AstgrepResearchedPractice {
   replacement?: string;
   /** Paired examples — become ConventionNode.pairedExamples (bad → negative, good → positive). */
   examples: { bad: string; good: string };
-  /** Provenance chain — VALIDATED by the bridge's resolver call (Tier-0 by default). */
+  /** Provenance chain — VALIDATED by the bridge's Tier-0 validateProvenance call. */
   provenance: Provenance[];
   /** Rendered-rule severity; defaults to 'error' (required for `ast-grep scan` to exit 1). */
   defaultSeverity?: Severity;
@@ -85,12 +82,6 @@ export type ResearchOnlyReason = 'not-expressible' | 'provenance-rejected' | 'ga
 export type ResearchToNodeResult =
   | { status: 'node'; node: ConventionNode }
   | { status: 'research-only'; entryId: string; reason: ResearchOnlyReason; detail: string };
-
-export interface ResearchToNodeOptions {
-  /** When supplied, provenance resolves through the full tiered resolver (Tier 0→1→2) against this
-   *  consumer context; absent ⇒ Tier-0-only (zero fs), the default for the $0 firing-fixture path. */
-  resolveCtx?: ResolveCtx;
-}
 
 /**
  * §Qb MAJOR-1 expressibility filter: true iff the practice reduces to a single literal ast-grep
@@ -114,7 +105,6 @@ export function isSinglePatternExpressible(p: AstgrepResearchedPractice): boolea
  */
 export function researchedPracticeToNode(
   practice: AstgrepResearchedPractice,
-  opts: ResearchToNodeOptions = {},
 ): ResearchToNodeResult {
   // 1. Degrade-not-inert (MAJOR-1 §Qb) — BEFORE node construction.
   if (!isSinglePatternExpressible(practice)) {
@@ -130,7 +120,7 @@ export function researchedPracticeToNode(
   }
 
   // 2. Trust gate — the bridge validates provenance itself (grammar gate does NOT check host).
-  const provReject = firstProvenanceRejection(practice.provenance, opts.resolveCtx);
+  const provReject = firstProvenanceRejection(practice.provenance);
   if (provReject !== null) {
     return {
       status: 'research-only',
@@ -187,23 +177,12 @@ function buildAstgrepNode(practice: AstgrepResearchedPractice): ConventionNode {
 
 /**
  * Return the first provenance rejection reason, or null if every record resolves to a trusted
- * source. A practice with ZERO provenance cannot be trusted (fail-closed). Tier-0 by default
- * (validateProvenance, allowlist.ts — zero fs); tiered when a ResolveCtx is supplied.
+ * source. A practice with ZERO provenance cannot be trusted (fail-closed). Tier-0 only
+ * (validateProvenance, allowlist.ts — zero fs).
  */
-function firstProvenanceRejection(
-  provenance: Provenance[],
-  resolveCtx?: ResolveCtx,
-): string | null {
+function firstProvenanceRejection(provenance: Provenance[]): string | null {
   if (provenance.length === 0) {
     return 'no provenance record — cannot resolve a trusted documentation source';
-  }
-  if (resolveCtx) {
-    const resolved = resolveAllowedSources(resolveCtx);
-    for (const p of provenance) {
-      const d = validateProvenanceTiered(p, resolved);
-      if (d !== null) return d.message;
-    }
-    return null;
   }
   for (const p of provenance) {
     const v = validateProvenance(p);

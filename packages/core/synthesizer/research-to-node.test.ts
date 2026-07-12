@@ -7,11 +7,12 @@
 // HOST mis-used as a key — else AC4 would reject for the wrong reason (unknown-key, not host-tier).
 
 import { describe, expect, it } from 'vitest';
-import { renderAstgrep } from '../backends/astgrep/render-astgrep.ts';
+import { renderAstgrep, VALID_KINDS } from '../backends/astgrep/render-astgrep.ts';
 import { runGrammarGate } from '../ir/gates/grammar.ts';
 import type { ConventionNode } from '../ir/types.ts';
 import { validateProvenance } from '../research/allowlist.ts';
 import {
+  EXPRESSIBLE_KINDS,
   isSinglePatternExpressible,
   researchedPracticeToNode,
   type AstgrepResearchedPractice,
@@ -109,6 +110,31 @@ const UNTRUSTED_HOST_PRACTICE: AstgrepResearchedPractice = {
     {
       url: 'https://evil.example.com/blog/python-tips',
       allowlistKey: 'python.official', // KNOWN key ⇒ NOT an unknown-key failure; the HOST is the miss
+      fetchedAt: '2026-07-11T00:00:00.000Z',
+    },
+  ],
+};
+
+/** FIX 2 — the third honesty line (reason:'gate-failed'). EXPRESSIBLE (call-kind forbid ban) AND its
+ *  provenance is a valid python Tier-0 host, so it clears BOTH earlier gates — but its paired examples
+ *  are degenerate (bad === good), so the built node trips the grammar gate's FF6001 (degenerate-pair).
+ *  Non-vacuous: the same practice with distinct examples becomes a node (asserted below), which
+ *  isolates the degenerate pair — not something else about the fixture — as the gate-failed cause. */
+const DEGENERATE_PAIR_PRACTICE: AstgrepResearchedPractice = {
+  entryId: 'getff-degenerate-pair',
+  title: 'Do not use yaml.load(); use yaml.safe_load()',
+  stack: ['python'],
+  kind: 'call',
+  presence: 'forbid',
+  pattern: 'yaml.load($$$ARGS)',
+  examples: {
+    bad: 'import yaml\ndata = yaml.load(raw)',
+    good: 'import yaml\ndata = yaml.load(raw)', // IDENTICAL to bad ⇒ FF6001 degenerate-pair
+  },
+  provenance: [
+    {
+      url: 'https://pyyaml.org/wiki/PyYAMLDocumentation',
+      allowlistKey: 'pyyaml',
       fetchedAt: '2026-07-11T00:00:00.000Z',
     },
   ],
@@ -234,5 +260,43 @@ describe('AC4 — untrusted-host provenance → REJECTED by the bridge resolver 
     expect(result.status).toBe('research-only');
     if (result.status !== 'research-only') throw new Error('unreachable');
     expect(result.reason).toBe('provenance-rejected');
+  });
+});
+
+// ── FIX 2: the THIRD degrade path — gate-failed (built node fails the IR grammar gate) ──────────
+
+describe('gate-failed — expressible + trusted provenance, but the built node fails the grammar gate', () => {
+  it('degenerate paired examples (bad === good) → research-only, reason gate-failed, FF6001 in detail', () => {
+    // Pre-conditions: it clears BOTH earlier gates, so the ONLY reason left is the grammar gate.
+    expect(isSinglePatternExpressible(DEGENERATE_PAIR_PRACTICE)).toBe(true);
+    expect(validateProvenance(DEGENERATE_PAIR_PRACTICE.provenance[0]!).ok).toBe(true);
+
+    const result = researchedPracticeToNode(DEGENERATE_PAIR_PRACTICE);
+    expect(result.status).toBe('research-only');
+    if (result.status !== 'research-only') throw new Error('unreachable');
+    expect(result.reason).toBe('gate-failed');
+    // The detail carries the grammar-gate diagnostic that fired (FF6001 degenerate-pair), proving
+    // the degrade is the grammar gate, not the expressibility or provenance line.
+    expect(result.detail).toContain('FF6001');
+    expect(nodesOf(result)).toHaveLength(0);
+  });
+
+  it('non-vacuity: the SAME practice with distinct examples becomes a node (isolates the pair)', () => {
+    const withDistinctPair: AstgrepResearchedPractice = {
+      ...DEGENERATE_PAIR_PRACTICE,
+      examples: { bad: 'yaml.load(raw)', good: 'yaml.safe_load(raw)' },
+    };
+    expect(researchedPracticeToNode(withDistinctPair).status).toBe('node');
+  });
+});
+
+// ── FIX 3: drift guard — EXPRESSIBLE_KINDS (bridge) must set-equal VALID_KINDS (renderer) ────────
+
+describe('drift guard — the bridge ceiling set-equals the renderer accepted kinds', () => {
+  it('EXPRESSIBLE_KINDS === VALID_KINDS as sets (a kind added to one but not the other = FF7002 drift)', () => {
+    // If a kind is added to the bridge's EXPRESSIBLE_KINDS but not the renderer's VALID_KINDS, the
+    // node BUILDS then renderAstgrep refuses it FF7002 (a silent node→refusal gap). Pin set-equality
+    // so that drift fails HERE at assert time, at the earliest reachable channel, not at render time.
+    expect(new Set(EXPRESSIBLE_KINDS)).toEqual(new Set(VALID_KINDS));
   });
 });

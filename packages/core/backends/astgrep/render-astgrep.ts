@@ -41,7 +41,10 @@ interface AstgrepBackendParams {
   replacement?: string;
 }
 
-const VALID_KINDS: readonly string[] = ['call', 'attribute', 'import'];
+// Exported so upstream authors (e.g. the research-to-node bridge's EXPRESSIBLE_KINDS) can assert
+// set-equality against the ONE accepted-kind list — a drift where a kind is added to the bridge but
+// not here (node builds, then FF7002-refuses) is then caught by a test, not at render time.
+export const VALID_KINDS: readonly string[] = ['call', 'attribute', 'import'];
 
 const BACKEND_NAME = 'astgrep-python-yaml';
 
