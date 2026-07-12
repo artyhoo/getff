@@ -36,9 +36,14 @@ fi
 # excluding .git and node_modules. Uses sha256sum or md5/md5sum for portability.
 compute_fingerprint() {
   local dir="$1"
+  # .getff-python-install.log carries a `date -u` timestamp header (setup.d/45-python.sh) → its bytes
+  # differ every run. It is an audit trail, NOT a delivered config artefact (the layer excludes it
+  # from its own (v) idempotency checksum), so it is excluded here too — else the python row would be
+  # non-deterministic. No-op for npm stacks (they never write this file).
   find "$dir" -type f \
     -not -path '*/.git/*' \
     -not -path '*/node_modules/*' -not -name '*.tmp' \
+    -not -name '.getff-python-install.log' \
     | sort \
     | while IFS= read -r f; do
         local h
@@ -55,16 +60,30 @@ compute_fingerprint() {
       done
 }
 
-# install_into_fixture <fixture_dir> <stack> [--brownfield]
-# Installs from the current install.sh into <fixture_dir>.
-# If --brownfield: pre-seeds the fixture with a package.json + some existing files.
+# install_into_fixture <fixture_dir> <stack> <mode_label>
+# Installs from the current install.sh into <fixture_dir>, seeded per <mode_label>.
+# The npm stacks (ts-server/react-next/react-spa/react-native) seed npm-shaped (package.json) exactly
+# as before — greenfield | brownfield — so their baselines stay byte-identical. The `python` toolchain
+# lane seeds ITS OWN shape (pyproject.toml + per-collision-cell variants), NOT a package.json, because
+# the python lane bypasses the package.json precondition (install.sh do_python_lane) and exercises the
+# setup.d/45-python.sh augment-first collision cells that npm seeding cannot reach.
 install_into_fixture() {
   local fixture="$1"
   local stack="$2"
-  local brownfield="${3:-}"
+  local mode_label="$3"
 
-  # Always start with a minimal package.json
-  if [ "$brownfield" = "--brownfield" ]; then
+  if [ "$stack" = "python" ]; then
+    _seed_python_fixture "$fixture" "$mode_label"
+    # Initialize as a git repo (parity with the npm path; the python lane does not require it, and
+    # .git/ is excluded from the fingerprint — harmless).
+    ( cd "$fixture" && git init -q && git config user.email "test@test.com" && git config user.name "Test" ) >/dev/null 2>&1
+    # Explicit `python` positional → the python toolchain lane (no package.json precondition, no prompt).
+    ( cd "$fixture" && bash "$REPO_ROOT/install.sh" python --force < /dev/null ) >/dev/null 2>&1 || true
+    return 0
+  fi
+
+  # ── npm stacks (unchanged seeding — byte-identical baselines) ──
+  if [ "$mode_label" = "brownfield" ]; then
     # Pre-seed with realistic brownfield state: existing package.json + some files
     cat > "$fixture/package.json" <<'EOF'
 {
@@ -91,6 +110,45 @@ EOF
   ( cd "$fixture" && bash "$REPO_ROOT/install.sh" "$stack" --force < /dev/null ) >/dev/null 2>&1 || true
 }
 
+# _seed_python_fixture <fixture_dir> <mode_label>
+# Python-lane seeding. Every variant carries a pyproject.toml (the lane's detect signal + a repo a
+# real python consumer would have) and NO package.json. The brownfield variants pre-plant a consumer
+# config to exercise a specific setup.d/45-python.sh collision cell deterministically:
+#   greenfield          — bare pyproject.toml → fresh whole-file copies of every getff artefact (cell i).
+#   brownfield-ruff     — + a consumer ruff.toml (no getff header) → ruff lane REFUSES, ships
+#                         getff-ruff.toml, leaves the consumer ruff.toml untouched (cell iii).
+#   brownfield-sgconfig — + a consumer block-list sgconfig.yml → ast-grep lane structurally MERGES our
+#                         .getff/astgrep-rules entry into the existing ruleDirs list (cell ii).
+_seed_python_fixture() {
+  local fixture="$1"
+  local mode_label="$2"
+
+  cat > "$fixture/pyproject.toml" <<'EOF'
+[project]
+name = "brownfield-python-consumer"
+version = "1.0.0"
+EOF
+
+  case "$mode_label" in
+    brownfield-ruff)
+      # Consumer-authored ruff.toml (no getff header) → cell (iii) REFUSE.
+      cat > "$fixture/ruff.toml" <<'EOF'
+line-length = 100
+
+[lint]
+select = ["E", "F"]
+EOF
+      ;;
+    brownfield-sgconfig)
+      # Consumer-authored block-list sgconfig.yml (no getff header) → cell (ii) structural merge.
+      cat > "$fixture/sgconfig.yml" <<'EOF'
+ruleDirs:
+  - my-existing-rules
+EOF
+      ;;
+  esac
+}
+
 # run_one_capture <stack> <mode_label>  (mode_label = greenfield | brownfield)
 run_one_capture() {
   local stack="$1"
@@ -99,11 +157,8 @@ run_one_capture() {
   fixture=$(mktemp -d)
   trap 'rm -rf "$fixture"' RETURN
 
-  local brownfield_flag=""
-  [ "$mode_label" = "brownfield" ] && brownfield_flag="--brownfield"
-
   echo "  Capturing $stack/$mode_label ..."
-  install_into_fixture "$fixture" "$stack" "$brownfield_flag"
+  install_into_fixture "$fixture" "$stack" "$mode_label"
 
   local baseline="$BASELINE_DIR/$stack/${mode_label}.fingerprint"
   mkdir -p "$(dirname "$baseline")"
@@ -126,10 +181,7 @@ run_one_compare() {
   fixture=$(mktemp -d)
   trap 'rm -rf "$fixture"' RETURN
 
-  local brownfield_flag=""
-  [ "$mode_label" = "brownfield" ] && brownfield_flag="--brownfield"
-
-  install_into_fixture "$fixture" "$stack" "$brownfield_flag"
+  install_into_fixture "$fixture" "$stack" "$mode_label"
 
   local current
   current=$(mktemp)
@@ -150,8 +202,13 @@ run_one_compare() {
   fi
 }
 
+# The npm stacks share one seeding shape (package.json) and the {greenfield,brownfield} mode pair.
+# The `python` TOOLCHAIN lane is decoupled: its own seeding (pyproject.toml) and its own mode set
+# (greenfield + two collision-cell brownfield variants) — NOT a naive append to STACKS, because the
+# npm modes cannot seed a pyproject / exercise the 45-python.sh augment-first cells (kickoff §2 S2).
 STACKS=(ts-server react-next react-spa react-native)
 MODES=(greenfield brownfield)
+PYTHON_MODES=(greenfield brownfield-ruff brownfield-sgconfig)
 
 OVERALL_PASS=0
 OVERALL_FAIL=0
@@ -159,6 +216,10 @@ OVERALL_FAIL=0
 echo "▶ Snapshot harness: SNAPSHOT_MODE=$MODE"
 echo ""
 
+# Dispatch is inlined (not wrapped in a helper) on purpose: run_one_capture/run_one_compare set a
+# `trap ... RETURN` on their local $fixture, and an extra wrapper function-return layer would re-fire
+# that trap with $fixture out of scope (unbound under set -u). The npm stacks and the python row share
+# this single dispatch shape; only the stack list + mode set differ.
 for stack in "${STACKS[@]}"; do
   for mode_label in "${MODES[@]}"; do
     if [ "$MODE" = "capture" ]; then
@@ -173,9 +234,22 @@ for stack in "${STACKS[@]}"; do
   done
 done
 
+# ── Python toolchain row (own seeding + collision-cell variants) ──
+for mode_label in "${PYTHON_MODES[@]}"; do
+  if [ "$MODE" = "capture" ]; then
+    run_one_capture "python" "$mode_label"
+  else
+    if run_one_compare "python" "$mode_label"; then
+      OVERALL_PASS=$((OVERALL_PASS + 1))
+    else
+      OVERALL_FAIL=$((OVERALL_FAIL + 1))
+    fi
+  fi
+done
+
 echo ""
 if [ "$MODE" = "capture" ]; then
-  echo "✅ Baselines captured for all 4 stacks × {greenfield,brownfield}"
+  echo "✅ Baselines captured: 4 npm stacks × {greenfield,brownfield} + python × {greenfield,brownfield-ruff,brownfield-sgconfig}"
   echo "   Location: $BASELINE_DIR/"
 else
   echo "Result: $OVERALL_PASS pass / $OVERALL_FAIL fail"
