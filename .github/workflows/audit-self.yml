@@ -1236,6 +1236,34 @@ jobs:
       - name: "f17 lint-rules planted-violation (Node ${{ matrix.node }})"
         run: bash tests/install-sh/f17-lint-rules-planted-violation.test.sh
 
+  consumer-matrix-start-cell:
+    # launch-preannounce-track S2: the consumer-matrix acceptance gate START CELL. Runs the real
+    # `install.sh ts-server --full` into a FRESH pnpm workspace monorepo fixture (the fixture
+    # installs its OWN deps — T-LPT-A) and asserts the umbrella §1 acceptance through the real
+    # channels: self-verify verdict honesty (a), in-fixture toolchain + placed-config load (b), the
+    # deterministic per-workspace validation gates green-on-clean (c), a planted R2 violation blocked
+    # via scoped eslint + the lint-staged pre-commit shield + check:fences-fire (d), the false-positive
+    # arm (e), and a clean-tree real git push (i). XFAIL #973 (root `eslint .` on a per-workspace
+    # monorepo) is pinned as reproducing. Fail-closed: a missing tool is RED, never SKIP. Fixture is
+    # S1-calibrated (s1-calibration-report.md §4). Deterministic + API-free per no-paid-llm-in-ci.md.
+    name: "Consumer-matrix start cell — pnpm workspace monorepo (launch-preannounce-track S2)"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '22'
+      - name: Enable pnpm via corepack (the fixture is a pnpm workspace monorepo)
+        run: corepack enable
+      - name: Run the consumer-matrix start cell
+        run: bash tests/consumer-matrix/pnpm-monorepo-cell.sh
+        env:
+          FRAMEWORK_ROOT: ${{ github.workspace }}
+
   # Single aggregate context for branch protection. `needs:` every other
   # audit-self PR job — including actionlint + zizmor above — so requiring just
   # `ci-success` gates them all, and stays correct as jobs are added/removed (vs
@@ -1270,6 +1298,7 @@ jobs:
       - framework-provenance-anti-hand-edit
       - phase-8-canonical-regen-acceptance
       - f17-node-compat
+      - consumer-matrix-start-cell
     runs-on: ubuntu-latest
     permissions:
       contents: read
