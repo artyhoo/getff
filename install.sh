@@ -79,11 +79,12 @@ WIRE_CI=""
 REFRESH=""
 # python-delivery-v0 S2: the getff Python toolchain lane. TOOLCHAIN="" = the default npm lane;
 # TOOLCHAIN="python" routes to the pure-bash Python delivery (setup.d/45-python.sh) instead of the
-# npm stack pipeline. Set by an explicit `install.sh python` positional (TOOLCHAIN_EXPLICIT=1, always
-# wins) OR by auto-detect (pyproject.toml present + no package.json → OFFER; non-interactive declines).
-# The npm flow is untouched when TOOLCHAIN stays "" (byte-identical baselines are the gate).
+# npm stack pipeline. Set by an explicit `install.sh python` positional (always wins — the
+# auto-detect block below is gated on `[ -z "$TOOLCHAIN" ]`, so a non-empty TOOLCHAIN already IS the
+# "explicit wins" signal; no separate _EXPLICIT flag needed) OR by auto-detect (pyproject.toml
+# present + no package.json → OFFER; non-interactive declines). The npm flow is untouched when
+# TOOLCHAIN stays "" (byte-identical baselines are the gate).
 TOOLCHAIN=""
-TOOLCHAIN_EXPLICIT=""
 # F7 (owner GO 2026-07-10): the AIF operator suite (pipeline dispatcher aif-doctor harvest
 # night-mode story) ships ONLY under this explicit opt-in. Those five presuppose the aif-handoff
 # operator runtime and `story` crashes on landing until its lang-pack ships (#934) — a consumer
@@ -107,7 +108,7 @@ for arg in "$@"; do
     # python = a TOOLCHAIN lane, not a fifth npm stack. Explicit positional → always wins over
     # auto-detect (python-delivery-v0 S2 §1). Routed to do_python_lane below, before the npm
     # package.json precondition + stack pick, then early-exits (never touches the npm layer loop).
-    python)                 TOOLCHAIN="python"; TOOLCHAIN_EXPLICIT="1" ;;
+    python)                 TOOLCHAIN="python" ;;
     *)                      ;;
   esac
 done
@@ -222,19 +223,30 @@ do_python_lane() {
 
 # Python-lane detection (before the npm package.json precondition, which a python repo cannot satisfy):
 #   (a) explicit `install.sh python` positional → TOOLCHAIN already "python" (always wins).
-#   (b) --refresh of a PRIOR python install (marker: .getff-python-install.log or .getff/astgrep-rules).
+#   (b) --refresh of a PRIOR python install (marker: .getff-python-install.log or .getff/astgrep-rules) —
+#       ONLY when no explicit npm STACK arg was given (STACK_EXPLICIT). Review fix (S2 round 1): an
+#       explicit `install.sh ts-server --refresh` on a repo that carries BOTH package.json and a stale
+#       python marker must refresh the npm stack, not silently reroute to the python-only refresh and
+#       exit 0 — that used to skip the npm refresh entirely with no error. An explicit stack/toolchain
+#       arg now always takes precedence over the marker auto-detect.
 #   (c) fresh auto-detect: pyproject.toml present + NO package.json → OFFER. Interactive prompt defaults
 #       No; the non-interactive (-y/--full) and --dry-run paths DECLINE (npm lane) — the explicit
 #       `python` positional is the non-interactive opt-in (kickoff §1 detect order).
 if [ -z "$TOOLCHAIN" ]; then
-  if [ -n "$REFRESH" ] && { [ -f "$PROJECT_ROOT/.getff-python-install.log" ] || [ -d "$PROJECT_ROOT/.getff/astgrep-rules" ]; }; then
+  if [ -n "$REFRESH" ] && [ -z "$STACK_EXPLICIT" ] && { [ -f "$PROJECT_ROOT/.getff-python-install.log" ] || [ -d "$PROJECT_ROOT/.getff/astgrep-rules" ]; }; then
     TOOLCHAIN="python"
   elif [ -z "$REFRESH" ] && [ ! -f "$PROJECT_ROOT/package.json" ] && [ -f "$PROJECT_ROOT/pyproject.toml" ]; then
     if [ -n "$FULL" ] || [ "$DRY_RUN" = "--dry-run" ]; then
       : # non-interactive / dry-run → decline (npm lane). Explicit `python` arg is the opt-in.
     else
       echo "▶ Detected a Python project (pyproject.toml present, no package.json)."
-      read -rp "  Install the getff Python toolchain lane (ast-grep + ruff rules)? [y/N]: " _py_ans
+      # Review fix (S2 round 1): a bare `read` returns non-zero at EOF (non-tty invocation with a
+      # closed stdin, e.g. this script run without -y in CI or a scripted harness) — under
+      # `set -euo pipefail` that used to abort the whole script right here with a message-less
+      # `exit 1`, instead of falling through to the documented "decline → npm lane → clean
+      # no-package.json abort" behaviour. `|| _py_ans=""` makes the read EOF-safe: a closed stdin is
+      # treated as an empty (declining) answer, same as an explicit empty Enter-press.
+      read -rp "  Install the getff Python toolchain lane (ast-grep + ruff rules)? [y/N]: " _py_ans || _py_ans=""
       case "$_py_ans" in [yY]|[yY][eE][sS]) TOOLCHAIN="python" ;; esac
     fi
   fi

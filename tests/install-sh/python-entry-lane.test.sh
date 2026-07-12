@@ -78,15 +78,26 @@ printf '[project]\nname="m"\n' > "$P/pyproject.toml"
   || bad "(3) python bundle delivered on a package.json repo without the explicit python arg"
 
 # ── (4) pure-python auto-detect: interactive OFFER, default No (declined via EOF) → no python ──────
+# Review fix 1 (S2 round 1): a bare `read` at EOF (closed stdin, non-tty) returns non-zero. install.sh
+# runs under `set -euo pipefail`, so BEFORE the fix that killed the script right there with a
+# message-less `exit 1` — never reaching the documented "decline → npm lane → clean no-package.json
+# abort" path. RED against pre-fix code: rc was still 1, but the "No package.json found" message was
+# ABSENT (the script died silently at the `read` line). GREEN (this arm): the message IS present.
 echo ""; echo "  ── (4) auto-detect OFFER default No: install.sh (no arg, EOF) on pyproject-only ──"
 P=$(py_fixture)
-out=$( cd "$P" && bash "$INSTALL" < /dev/null 2>&1 ) || true
+out=$( cd "$P" && bash "$INSTALL" < /dev/null 2>&1 ); rc=$?
 [ ! -e "$P/sgconfig.yml" ] \
   && ok "(4) OFFER declined on EOF (default No) → python bundle NOT delivered (npm lane, then no-package.json abort)" \
   || bad "(4) python bundle delivered despite a declined OFFER"
 echo "$out" | grep -qi 'Detected a Python project' \
   && ok "(4) the OFFER prompt was shown (auto-detect fired on pyproject + no package.json)" \
   || bad "(4) OFFER prompt not shown: $(echo "$out" | tr '\n' '|' | cut -c1-160)"
+[ "$rc" -eq 1 ] \
+  && ok "(4) exit code 1 (clean abort at the npm no-package.json precondition, not an arbitrary crash)" \
+  || bad "(4) unexpected exit code $rc (expected 1): $(echo "$out" | tr '\n' '|' | cut -c1-160)"
+echo "$out" | grep -qF 'No package.json found' \
+  && ok "(4) EOF-safe read fell through to the clean 'No package.json found' message (fix 1: bare EOF read no longer set-e-aborts message-less)" \
+  || bad "(4) 'No package.json found' message MISSING — a bare \`read\` at EOF likely set-e-aborted the script silently before reaching the npm lane: $(echo "$out" | tr '\n' '|' | cut -c1-200)"
 
 # ── (5) pure-python auto-detect: OFFER accepted (y) → delivers ────────────────────────────────────
 echo ""; echo "  ── (5) auto-detect OFFER accepted (y) → delivers ──"
@@ -118,6 +129,34 @@ printf 'TAMPER2\n' >> "$P/.getff/astgrep-rules/getff-no-os-system.yml"
 grep -q TAMPER2 "$P/.getff/astgrep-rules/getff-no-os-system.yml" \
   && bad "(7) bare --refresh missed the python lane (marker not honoured)" \
   || ok "(7) bare --refresh auto-detected the python lane via marker + re-delivered"
+
+# ── (7b) EXPLICIT npm-stack arg beats the python-marker auto-detect on --refresh (fix 3) ───────────
+# Review fix 3 (S2 round 1): a repo carrying BOTH package.json AND a stale/prior .getff/astgrep-rules
+# marker used to route `install.sh ts-server --refresh` to the python-only refresh (exit 0), silently
+# SKIPPING the npm refresh the user explicitly asked for — no error, no npm artefacts touched. Fixed
+# by gating the marker branch on `[ -z "$STACK_EXPLICIT" ]`: an explicit npm stack/toolchain positional
+# now always wins over the marker auto-route. Pre-seed .claude/agents + .claude/skills so the npm
+# do_refresh() completes cleanly (a pre-existing, unrelated "--refresh on a repo that was never
+# installed" edge case would otherwise die partway through on an unrelated `cp` — out of this fix's
+# scope; seeding sidesteps it without masking the fix-3 assertion).
+echo ""; echo "  ── (7b) explicit npm-stack arg + python marker present → npm refresh, not python-only ──"
+P=$(mktemp -d)
+printf '{"name":"m","version":"0.0.0","dependencies":{"typescript":"^5"}}\n' > "$P/package.json"
+mkdir -p "$P/.getff/astgrep-rules" "$P/.claude/agents" "$P/.claude/skills"
+printf 'ruleDirs: []\n' > "$P/.getff/astgrep-rules/marker.yml"
+out=$( cd "$P" && bash "$INSTALL" ts-server --refresh < /dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] \
+  && ok "(7b) exit 0 — npm refresh completed" \
+  || bad "(7b) unexpected exit $rc: $(echo "$out" | tail -5 | tr '\n' '|')"
+echo "$out" | grep -qF 'Refreshing rules-as-tests-aif framework artefacts' \
+  && ok "(7b) npm refresh banner shown (explicit ts-server arg took precedence over the python marker)" \
+  || bad "(7b) npm refresh banner MISSING: $(echo "$out" | head -5 | tr '\n' '|')"
+echo "$out" | grep -qF 'Refreshing getff Python toolchain' \
+  && bad "(7b) WRONGLY routed to the python-only refresh despite an explicit npm stack arg (marker auto-detect beat the explicit arg)" \
+  || ok "(7b) did NOT reroute to the python-only refresh (explicit stack arg precedence holds)"
+[ -f "$P/.claude/agents/aif-init.md" ] \
+  && ok "(7b) an actual npm artefact (.claude/agents/aif-init.md) was refreshed — the npm lane genuinely ran" \
+  || bad "(7b) no npm artefact delivered — npm refresh did not actually run"
 
 # ── (8) firing self-check: FIRES when tools present, else DEGRADES loudly (tool-gated, never green) ─
 echo ""; echo "  ── (8) firing self-check on install (tool-gated fire; loud degrade otherwise) ──"
