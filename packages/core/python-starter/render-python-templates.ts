@@ -64,6 +64,21 @@ export const PYTHON_TEMPLATE_DIR = resolve(HERE, '../templates/python');
  */
 export const RULES_DIR = '.getff/astgrep-rules';
 
+/**
+ * Hand-authored files committed under {@link PYTHON_TEMPLATE_DIR} that are NOT starter-node
+ * renders and so live OUTSIDE this byte-drift gate's render plan. `github-actions-ci.yml` is the
+ * S2 consumer CI workflow template — authored directly (a GitHub Actions workflow, not a lint-rule
+ * render from PYTHON_STARTER_NODES). Its byte-integrity is guarded by the install fingerprint gate
+ * (tests/install-sh/byte-identical.test.sh — the delivered `.github/workflows/getff-python.yml`
+ * hash) + tests/install-sh/python-delivery.test.sh (`cmp` template↔delivered), so the render
+ * pipeline neither produces it nor should flag it as an orphan. Registered here so the orphan
+ * check does not false-positive on it AND so `checkPythonTemplateDrift()` still asserts it EXISTS
+ * (a silent deletion surfaces as a `missing` finding — the exclusion is not a blind pass).
+ */
+export const NON_RENDERED_TEMPLATE_FILES: readonly string[] = [
+  'github-actions-ci.yml',
+];
+
 /** A single template file, `path` relative to {@link PYTHON_TEMPLATE_DIR}. */
 export interface TemplateFile {
   path: string;
@@ -197,9 +212,20 @@ export function checkPythonTemplateDrift(): DriftFinding[] {
       findings.push({ path: f.path, reason: 'byte-mismatch' });
     }
   }
+  // Hand-authored (non-rendered) files are guarded elsewhere (see NON_RENDERED_TEMPLATE_FILES),
+  // but we still assert they EXIST here so a silent deletion surfaces — the exclusion is not a
+  // blind pass.
+  for (const p of NON_RENDERED_TEMPLATE_FILES) {
+    if (!existsSync(join(PYTHON_TEMPLATE_DIR, p))) {
+      findings.push({ path: p, reason: 'missing' });
+    }
+  }
+
   // Orphan: a committed file the current plan no longer produces (e.g. a removed node's rule file).
+  // Hand-authored non-rendered files are allowlisted so they are not mistaken for stray orphans.
+  const allowed = new Set([...plannedPaths, ...NON_RENDERED_TEMPLATE_FILES]);
   for (const committed of listTemplateFiles(PYTHON_TEMPLATE_DIR)) {
-    if (!plannedPaths.has(committed)) {
+    if (!allowed.has(committed)) {
       findings.push({ path: committed, reason: 'orphan' });
     }
   }

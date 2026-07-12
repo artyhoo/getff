@@ -15,6 +15,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  NON_RENDERED_TEMPLATE_FILES,
   PYTHON_TEMPLATE_DIR,
   checkPythonTemplateDrift,
   listTemplateFiles,
@@ -34,11 +35,15 @@ describe('python templates — committed == fresh render (byte-drift gate)', () 
     }
   });
 
-  it('the committed file set is exactly the planned set (no stray files under templates/python)', () => {
-    const planned = planPythonTemplates()
-      .map((f) => f.path)
-      .sort();
-    expect(listTemplateFiles(PYTHON_TEMPLATE_DIR)).toEqual(planned);
+  it('the committed file set is exactly the planned set + known non-rendered files (no strays under templates/python)', () => {
+    // The dir holds the rendered starter-node artefacts PLUS the hand-authored non-rendered files
+    // (the S2 consumer CI workflow template — guarded by the install fingerprint gate, not the
+    // render pipeline). Anything else under templates/python/ is a genuine stray.
+    const expected = [
+      ...planPythonTemplates().map((f) => f.path),
+      ...NON_RENDERED_TEMPLATE_FILES,
+    ].sort();
+    expect(listTemplateFiles(PYTHON_TEMPLATE_DIR)).toEqual(expected);
   });
 });
 

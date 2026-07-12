@@ -37,13 +37,14 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 
 [ -f "$INSTALL" ] || { echo "FATAL: $INSTALL not found"; exit 1; }
 
-# ── npm-lane layers only ─────────────────────────────────────────────────────────────────────────
+# ── npm-lane layers only (the Python lane is covered separately by Check 4 below) ──────────────────
 # do_refresh() is the npm-flow refresh. The Python-lane layer (setup.d/45-python.sh) is gated on
-# GETFF_TOOLCHAIN=python and INERT on the npm flow (byte-identical.test.sh proves it), so its
-# copy_safe deliveries are NOT part of the npm --full delivery do_refresh mirrors — the Python lane
-# has its own (S2) refresh semantics. Same "own-refresh-semantics → out of this gate's population"
-# rationale as the refresh_skill_with_transform / merge_prettierignore / yq exclusions in the SCOPE
-# note above. Scan npm-lane layers only.
+# GETFF_TOOLCHAIN=python and INERT on the npm flow (byte-identical.test.sh proves it); its copy_safe
+# deliveries are NOT mirrored by the npm do_refresh() — the Python lane has its OWN (S2) refresh path
+# (GETFF_TOOLCHAIN_REFRESH → refresh_safe, inside 45-python.sh). The S1-era blanket exclusion ("out of
+# this gate's population") is REPLACED (S2) by the real python-lane refresh-parity assertion in Check 4
+# below: 45-python.sh is no longer un-covered, it is scanned against its own refresh path. Here we scan
+# only the npm-lane layers so Checks 1-3 (npm FULL ⊆ do_refresh) are not polluted by the python lane.
 NPM_LANE_LAYERS=()
 for _lyr in "$REPO_ROOT"/setup.d/[0-9]*.sh; do
   case "$_lyr" in */45-python.sh) continue ;; esac
@@ -182,6 +183,47 @@ if [ -z "${missing_dirs// }" ]; then
 else
   bad "eslint-rules-local: delivery ships from source dir(s) do_refresh never refreshes → preset rules stranded:$missing_dirs"
 fi
+
+# ── Check 4 (python-lane refresh parity — replaces the S1 blanket exclusion of 45-python.sh) ─────
+# The python delivery layer (setup.d/45-python.sh) has its OWN refresh path (S2), separate from the
+# npm-lane do_refresh() — so it is scanned HERE, not folded into the npm FULL/REFRESH sets above.
+# Every framework-owned artefact it delivers (identified by its `$tpl/<x>` TEMPLATE SOURCE — everything
+# copied FROM the template dir is framework-owned) MUST also be re-delivered on --refresh, or a
+# brownfield python consumer never receives updated ast-grep rules (the #869 refresh-drift class, on
+# the python surface). Source-token parity (not dst) because the ruff.toml template feeds two dsts
+# (ruff.toml + getff-ruff.toml) — the source is the unambiguous key. `_py_copy_or_refresh` call sites
+# deliver on BOTH paths, so they count for copy AND refresh; explicit copy_safe / refresh_safe lines
+# count for their own side only.
+PY_LAYER="$REPO_ROOT/setup.d/45-python.sh"
+[ -f "$PY_LAYER" ] || { echo "FATAL: $PY_LAYER not found"; exit 1; }
+# shellcheck disable=SC2016
+PY_COPY_SRC=$(grep -hE 'copy_safe|_py_copy_or_refresh' "$PY_LAYER" | grep -vE '^[[:space:]]*#' \
+  | grep -oE '\$tpl/[A-Za-z0-9._/-]*' | sort -u)
+# shellcheck disable=SC2016
+PY_REFRESH_SRC=$(grep -hE 'refresh_safe|_py_copy_or_refresh' "$PY_LAYER" | grep -vE '^[[:space:]]*#' \
+  | grep -oE '\$tpl/[A-Za-z0-9._/-]*' | sort -u)
+[ -n "$PY_COPY_SRC" ] || { echo "FATAL: PY_COPY_SRC empty — 45-python.sh copy_safe \$tpl extraction broke"; exit 1; }
+py_missing=""
+for s in $PY_COPY_SRC; do
+  printf '%s\n' "$PY_REFRESH_SRC" | grep -qxF "$s" || py_missing="$py_missing $s"
+done
+if [ -z "${py_missing// }" ]; then
+  ok "python-lane: every framework-owned delivery in 45-python.sh has a --refresh path (no python refresh drift)"
+else
+  bad "python-lane: framework artefact(s) delivered on install but with NO --refresh path → brownfield python consumers can't get updated rules:$py_missing"
+fi
+
+# neg (LOAD-BEARING): drop one delivery source from the REFRESH set → Check 4 MUST flag it.
+py_probe=$(printf '%s\n' "$PY_COPY_SRC" | head -1)
+PY_REFRESH_BROKEN=$(printf '%s\n' "$PY_REFRESH_SRC" | grep -vxF "$py_probe")
+py_neg_missing=""
+for s in $PY_COPY_SRC; do
+  printf '%s\n' "$PY_REFRESH_BROKEN" | grep -qxF "$s" || py_neg_missing="$py_neg_missing $s"
+done
+case " $py_neg_missing " in
+  *" $py_probe "*) ok "neg (python): removing '$py_probe' from the refresh set flips the gate to flag it (non-vacuous)" ;;
+  *) bad "neg (python): gate stayed green with '$py_probe' dropped → python parity check is VACUOUS" ;;
+esac
 
 # ── neg (LOAD-BEARING): drop one known-present entry from REFRESH → Check 1 MUST flag it ─────────
 # probe MUST be a FULL∩REFRESH entry — dropping it from REFRESH then creates a REAL gap

@@ -31,6 +31,11 @@ for a in "$@"; do
     # operator's recommended path, so the flag must survive the wrapper (setup.d/10-skills.sh).
     --with-aif-suite)  WITH_AIF_SUITE="--with-aif-suite" ;;
     ts-server|react-next|react-spa|react-native) STACK="$a" ;;
+    # python = the getff Python toolchain lane (python-delivery-v0 S2). Forwarded verbatim to
+    # install.sh, which routes it to the pure-bash Python delivery + firing self-check and early-exits.
+    # The companion step below still offers @ast-grep/cli (the python lane's own linter); the
+    # runtime-bridge step stays opt-in [y/N] as usual.
+    python) STACK="$a" ;;
   esac
 done
 
