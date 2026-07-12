@@ -10,8 +10,11 @@
 #   ./setup --all ts-server         # EVERYTHING: -y + the AIF operator suite (operator machines)
 #   ./setup --full ts-server        # alias for -y (wrapper alias; forwards --full to install.sh)
 #   ./setup --dry-run ts-server     # preview without writing
+#   ./setup python                  # Python toolchain lane (non-npm; see "Toolchain lanes" below)
 #
 # Stack: ts-server | react-next | react-spa | react-native
+# Toolchain lanes: python — a separate non-npm delivery (ast-grep + ruff, no package.json
+# required), forwarded verbatim to `install.sh python`. See INSTALL-FOR-AI.md#python-toolchain-lane-installsh-python.
 # When omitted, the stack is auto-detected from the consumer's package.json (GH #780). On the
 # yes-path (-y/--yes/--all/--full) the dispatcher fails loud (never an interactive prompt) only
 # when detection is genuinely unknown; an explicit positional stack always wins.

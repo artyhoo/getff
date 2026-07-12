@@ -11,6 +11,7 @@
 #   ./install.sh ts-server --wire-ci            # also auto-wire missing CI gates via yq (opt-in, detect-first)
 #   ./install.sh ts-server --with-aif-suite     # also ship the AIF operator suite (aif-handoff runtime required)
 #   ./install.sh ts-server --all                # everything: --full + --with-aif-suite (operator machines)
+#   ./install.sh python                         # Python toolchain lane (non-npm; ast-grep + ruff, no package.json — see INSTALL-FOR-AI.md)
 #
 # What it does:
 #   1. Copies skills/ + the consumer-facing core skill set
