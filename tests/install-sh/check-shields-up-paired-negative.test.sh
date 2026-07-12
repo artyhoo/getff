@@ -53,6 +53,7 @@ git -C "$SCRATCH" init -q
 mkdir -p "$SCRATCH/.husky"
 cat > "$SCRATCH/.husky/pre-commit" << 'EOF'
 #!/usr/bin/env sh
+# @aif-shield: pre-commit — framework-owned (GH #975)
 npx lint-staged
 EOF
 cat > "$SCRATCH/.husky/pre-push" << 'EOF'

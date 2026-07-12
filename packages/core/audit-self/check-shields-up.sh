@@ -75,10 +75,12 @@ if [ ! -f "$PRE_COMMIT" ]; then
   bad "pre-commit hook missing at $PRE_COMMIT — commit-time shield not installed"
 elif [ ! -x "$PRE_COMMIT" ]; then
   bad "$PRE_COMMIT exists but is not executable — chmod +x .husky/pre-commit to activate"
+elif grep -q '@aif-shield' "$PRE_COMMIT" 2>/dev/null; then
+  ok "pre-commit: present, executable, carries the @aif-shield marker — framework commit shield WIRED (form check: framework-owned hook present; behavioural commit probe is a planned gate)"
 elif grep -q 'lint-staged' "$PRE_COMMIT" 2>/dev/null; then
-  ok "pre-commit: present, executable, references lint-staged gate — commit shield WIRED (form check: hook present + references lint-staged; behavioural commit probe is a planned gate)"
+  bad "pre-commit: runs lint-staged but LACKS the @aif-shield marker — a competing git-hooks manager (e.g. simple-git-hooks via a 'prepare' script) has replaced the framework hook; the sibling pre-push was likely clobbered too. Re-run install (re-asserts .husky/*) or restore .husky/pre-commit. (GH #975)"
 else
-  bad "pre-commit: present + executable but does not reference 'lint-staged' — shield content unexpected (check $PRE_COMMIT)"
+  bad "pre-commit: present + executable but is not the framework shield (no @aif-shield marker, no lint-staged) — shield content unexpected (check $PRE_COMMIT)"
 fi
 
 # ─── Check 3: .husky/pre-push ─────────────────────────────────────────────────
