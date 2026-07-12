@@ -31,6 +31,10 @@ install-hooks:
 	@git config core.hooksPath .husky
 	@echo "✓ Hooks installed (git config core.hooksPath .husky)"
 
+consumer-matrix: ## Run the consumer-matrix acceptance cells locally (launch-preannounce-track S2)
+	@echo "▶ consumer-matrix: pnpm workspace monorepo start cell (real install.sh --full into a fresh fixture)"
+	@FRAMEWORK_ROOT="$(CURDIR)" bash tests/consumer-matrix/pnpm-monorepo-cell.sh
+
 validate-prompts: ## Validate all orchestrator batch-prompt files against spec
 	@find .claude/orchestrator-prompts -name '*.md' -not -name 'README.md' | \
 	  sort | \
