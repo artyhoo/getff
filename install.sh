@@ -77,6 +77,13 @@ DRY_RUN=""
 FULL=""
 WIRE_CI=""
 REFRESH=""
+# python-delivery-v0 S2: the getff Python toolchain lane. TOOLCHAIN="" = the default npm lane;
+# TOOLCHAIN="python" routes to the pure-bash Python delivery (setup.d/45-python.sh) instead of the
+# npm stack pipeline. Set by an explicit `install.sh python` positional (TOOLCHAIN_EXPLICIT=1, always
+# wins) OR by auto-detect (pyproject.toml present + no package.json → OFFER; non-interactive declines).
+# The npm flow is untouched when TOOLCHAIN stays "" (byte-identical baselines are the gate).
+TOOLCHAIN=""
+TOOLCHAIN_EXPLICIT=""
 # F7 (owner GO 2026-07-10): the AIF operator suite (pipeline dispatcher aif-doctor harvest
 # night-mode story) ships ONLY under this explicit opt-in. Those five presuppose the aif-handoff
 # operator runtime and `story` crashes on landing until its lang-pack ships (#934) — a consumer
@@ -97,6 +104,10 @@ for arg in "$@"; do
     # convenience alias (owner directive 2026-07-11); consumer default (-y/--full) stays curated.
     --all)                  FULL="--full"; WITH_AIF_SUITE="--with-aif-suite" ;;
     ts-server|react-next|react-spa|react-native)   STACK="$arg"; STACK_EXPLICIT="1" ;;
+    # python = a TOOLCHAIN lane, not a fifth npm stack. Explicit positional → always wins over
+    # auto-detect (python-delivery-v0 S2 §1). Routed to do_python_lane below, before the npm
+    # package.json precondition + stack pick, then early-exits (never touches the npm layer loop).
+    python)                 TOOLCHAIN="python"; TOOLCHAIN_EXPLICIT="1" ;;
     *)                      ;;
   esac
 done
@@ -176,6 +187,63 @@ if [ "$verify_fail" -ne 0 ]; then
   exit 1
 fi
 echo "  ✓ all ${#SHIPPED_DOCS[@]} shipped artefacts carry valid headers"
+
+# ─── getff Python toolchain lane (python-delivery-v0 S2) ─────────────────────
+# A NON-npm entry: delivers the pre-rendered ast-grep + ruff lint bundle (setup.d/45-python.sh) into a
+# consumer PYTHON project, then proves it fires. Runs the pure-bash delivery under the env-var contract
+# GETFF_TOOLCHAIN=python and EXITS — it never enters the npm package.json precondition, stack pick, or
+# the setup.d layer loop, so no npm-assuming step fires on this lane. do_python_lane is defined here so
+# it is in scope for the detection block just below (which runs before the npm package.json require).
+do_python_lane() {
+  export GETFF_TOOLCHAIN=python
+  [ -n "$REFRESH" ] && export GETFF_TOOLCHAIN_REFRESH=1
+  if [ -n "$REFRESH" ]; then
+    echo "▶ Refreshing getff Python toolchain artefacts in $PROJECT_ROOT"
+  else
+    echo "▶ Installing getff Python toolchain into $PROJECT_ROOT"
+  fi
+  # Source the delivery layer: its activation guard (GETFF_TOOLCHAIN=python) runs
+  # deliver_python_toolchain, reusing copy_safe/refresh_safe from lib.sh (already in scope). The layer
+  # also DEFINES _py_firing_self_check (helper) without auto-running it — we call it below so the
+  # firing proof is an install-flow concern (parity with 99-finalize.sh's capstone self-verify).
+  # shellcheck source=setup.d/45-python.sh
+  source "$PKG_ROOT/setup.d/45-python.sh"
+  # Post-install firing self-check: always-run with graceful degrade (matches the 99-finalize.sh
+  # capstone UX — no separate opt-in flag; an absent tool degrades loudly, never silently green).
+  # Skipped only under --dry-run (nothing was written to fire against).
+  if [ "$DRY_RUN" != "--dry-run" ]; then
+    _py_firing_self_check
+  else
+    echo "  [dry-run] would run the getff firing self-check (plant a violation in an OS temp dir → assert ast-grep + ruff fire RED)"
+  fi
+  echo ""
+  echo "✅ getff Python toolchain ${REFRESH:+re-}delivery complete."
+}
+
+# Python-lane detection (before the npm package.json precondition, which a python repo cannot satisfy):
+#   (a) explicit `install.sh python` positional → TOOLCHAIN already "python" (always wins).
+#   (b) --refresh of a PRIOR python install (marker: .getff-python-install.log or .getff/astgrep-rules).
+#   (c) fresh auto-detect: pyproject.toml present + NO package.json → OFFER. Interactive prompt defaults
+#       No; the non-interactive (-y/--full) and --dry-run paths DECLINE (npm lane) — the explicit
+#       `python` positional is the non-interactive opt-in (kickoff §1 detect order).
+if [ -z "$TOOLCHAIN" ]; then
+  if [ -n "$REFRESH" ] && { [ -f "$PROJECT_ROOT/.getff-python-install.log" ] || [ -d "$PROJECT_ROOT/.getff/astgrep-rules" ]; }; then
+    TOOLCHAIN="python"
+  elif [ -z "$REFRESH" ] && [ ! -f "$PROJECT_ROOT/package.json" ] && [ -f "$PROJECT_ROOT/pyproject.toml" ]; then
+    if [ -n "$FULL" ] || [ "$DRY_RUN" = "--dry-run" ]; then
+      : # non-interactive / dry-run → decline (npm lane). Explicit `python` arg is the opt-in.
+    else
+      echo "▶ Detected a Python project (pyproject.toml present, no package.json)."
+      read -rp "  Install the getff Python toolchain lane (ast-grep + ruff rules)? [y/N]: " _py_ans
+      case "$_py_ans" in [yY]|[yY][eE][sS]) TOOLCHAIN="python" ;; esac
+    fi
+  fi
+fi
+
+if [ "$TOOLCHAIN" = "python" ]; then
+  do_python_lane
+  exit 0
+fi
 
 # Must be a project (has package.json) — but in dry-run we just warn so the user can preview.
 if [ ! -f "$PROJECT_ROOT/package.json" ]; then
