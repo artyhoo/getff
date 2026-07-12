@@ -57,6 +57,9 @@ ai-factory init --agents claude
 /path/to/getff/setup -y react-spa       # for React + Vite SPA
 /path/to/getff/setup -y react-native    # for React Native / Expo
 
+# For a Python project (no package.json — a separate non-npm lane):
+/path/to/getff/setup python             # ast-grep + ruff, no Node dependency on the consumer machine
+
 # Or framework-only (install.sh, interactive stack picker):
 /path/to/getff/install.sh ts-server
 
@@ -72,6 +75,11 @@ The installer:
 - Copies stack-specific configs (eslint, vitest, stryker, dependency-cruiser, CI workflow) to project root
 
 By default it **never overwrites** existing files. Use `--force` to overwrite.
+
+`./setup python` / `./install.sh python` is a separate, non-npm delivery lane (no `package.json`
+required) — see [INSTALL-FOR-AI.md — Python toolchain lane](INSTALL-FOR-AI.md#python-toolchain-lane-installsh-python)
+for what it ships and how the firing proof works. The rest of this section (`--force`, `--full`,
+`--wire-ci`, etc.) describes the npm-stack path (`ts-server`/`react-next`/`react-spa`/`react-native`).
 
 Four further opt-in flags (see `install.sh` header for exact semantics): `--full` — also auto-installs the shipped dev-deps via the consumer's package manager (mutating, no prompts; stack arg required); `--wire-ci` — also auto-wires missing CI gates into an existing workflow via `yq` (detect-first); `--with-aif-suite` — also ships the AIF operator suite: the six skills (pipeline, dispatcher, aif-doctor, harvest, night-mode, story) plus the two suite agents (orchestrator-worker-discipline, reviewer-discipline) and their aif-orchestrator-discipline skill-context — all presuppose the aif-handoff operator runtime (default installs only the consumer-facing set); `--all` — operator shorthand for `--full` + `--with-aif-suite` («everything»). The recommended `./setup -y <stack>` one-shot path already implies `--full` + companions and stays curated; `./setup --all <stack>` is the operator-machine equivalent that also pulls the suite.
 

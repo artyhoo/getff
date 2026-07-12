@@ -180,6 +180,62 @@ npm run audit:docs
 
 ---
 
+## Python toolchain lane (`install.sh python`)
+
+The stacks above (`ts-server` / `react-next` / `react-spa` / `react-native`) are all **npm**
+toolchains and require a `package.json`. A **Python** consumer takes a separate lane — a pure-bash
+delivery that ships a pre-rendered lint bundle (ast-grep structural rules + a ruff fast-path) into
+the repo, with **no Node dependency on the consumer machine**.
+
+**How an AI agent (or consumer) runs it — no `package.json`, no npm:**
+
+```bash
+# From the Python project's root (it has pyproject.toml, no package.json):
+bash /tmp/getff/install.sh python          # explicit lane — always wins over auto-detect
+# or `bash /tmp/getff/setup python`. Auto-detect: pyproject.toml present + no package.json → OFFER.
+# Re-sync framework-owned artefacts after an upgrade: add --refresh.
+```
+
+**What lands (fresh consumer):**
+
+```text
+project/
+├── sgconfig.yml                          ← ast-grep project config (resolves .getff/astgrep-rules)
+├── ruff.toml                             ← ruff fast-path config (TID251/TID253 import bans)
+├── .getff/
+│   ├── astgrep-rules/*.yml               ← getff structural rules (no-eval, no-os-system,
+│   │                                       no-datetime[.datetime].now) — framework-owned
+│   └── ruff-bans.toml                    ← stable getff-bans config the CI gate points --config at
+├── .github/workflows/getff-python.yml    ← pinned CI gate (getff-namespaced — never your ci.yml)
+└── .getff-python-install.log             ← delivery audit trail (every action + degrade path)
+```
+
+**Firing proof (the «works», not just «installed»):** the install ends with a self-check that plants
+a violating `.py` **in an OS temp dir only** (never your tracked tree), runs the delivered ast-grep
+rules + ruff config against it, and asserts **both fire RED** — then removes it. A tool that is absent
+degrades **loudly** (prints the exact manual command), never silently green
+([attention-is-not-a-mechanism.md §1](.claude/rules/attention-is-not-a-mechanism.md)). A green install
+that never proved firing is not done.
+
+**CI gate:** `getff-python.yml` runs two jobs — `ast-grep scan` and `ruff check` — as **failing**
+gates on push / PR. Tool installs are **version-pinned** ([ci-tool-pinning.md](.claude/rules/ci-tool-pinning.md)
+Rule A): `@ast-grep/cli@0.44.1` + `ruff==0.15.21`, matching what the getff framework CI itself fires.
+The ruff job runs twice: once on your discovered config, once with `--config .getff/ruff-bans.toml`
+so the getff import bans fire **regardless** of any ruff config you already have.
+
+**Collision policy (augment-first — never a silent clobber):** on a fresh dir the whole files are
+written; a pre-existing `sgconfig.yml` gets our `ruleDirs` entry **structurally merged** (or a loud
+refuse with manual instructions if the shape is unprovable); a pre-existing `ruff.toml` **or**
+`pyproject.toml [tool.ruff]` is **never** overwritten — getff ships a non-discovered `getff-ruff.toml`
+reference copy plus printed `extend`/merge instructions, and always writes the isolated
+`.getff/ruff-bans.toml` so the bans still enforce; a re-run is byte-idempotent (zero config diff).
+Every degrade path is printed **and** logged to `.getff-python-install.log`.
+
+**Scope note:** the Python lane ships a curated starter rule-set (not live-researched rules); mypy /
+import-linter backends and the rule-research live adapter for Python are out of scope for this lane.
+
+---
+
 ## What gets installed — file by file
 
 After successful setup, your project has:

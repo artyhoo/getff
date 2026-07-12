@@ -9,7 +9,7 @@
     {
       "name": "getff",
       "source": "./plugin",
-      "description": "Compiles your conventions into native toolchain gates (ESLint, clippy). Deterministic, local-first, $0 LLM in CI.",
+      "description": "Compiles your conventions into native toolchain gates (ESLint, clippy, ruff). Deterministic, local-first, $0 LLM in CI.",
       "version": "0.2.0",
       "strict": true
     }
