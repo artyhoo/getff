@@ -39,6 +39,21 @@ Assert (i) encodes the S3 thin push-channel contract by making the fixture workf
 
 **Surfaced finding (observation, per CLAUDE.md PR strategy — not fixed here):** the S3 owner-split `SECTIONS` registry ([`packages/core/hooks/pre-push.ts`](../../../packages/core/hooks/pre-push.ts) ~line 1143) is **data-only — `main()` does not compose from it**. `main()` calls the zizmor section directly ([pre-push.ts:677](../../../packages/core/hooks/pre-push.ts)) gated only on `workflows.length > 0` + the tool-absence degrade, NOT on `owner`. Consequence: F-push is resolved ONLY when zizmor is ABSENT (CI ubuntu → `warn-skip` degrade → push allowed); a consumer WITH zizmor installed + pre-existing un-pinned workflows is STILL blocked on first push. `grep -n "SECTIONS" pre-push.ts` shows the registry is defined but never consumed. This is an **S3 follow-up** (wire the registry into `main()` with an owner filter, or delete the dead registry), filed as #993. The start cell therefore asserts the clean-consumer push path and does not encode the (still-unfixed) un-pinned-workflow contract.
 
+## §3b Real shipped bug the gate caught + FIXED (dash pre-push DoS)
+
+The first ubuntu CI run of `consumer-matrix-start-cell` RED-flagged assert (i) with
+`.husky/pre-push: 16: set: Illegal option -o pipefail` → `husky - pre-push script failed (code 2)`.
+Root cause: the shipped dispatcher [`packages/core/templates/shared/husky-pre-push.sh`](../../../packages/core/templates/shared/husky-pre-push.sh)
+carried `set -euo pipefail`, but husky v9 invokes the hook via `sh` on Debian/Ubuntu (`/bin/sh` = dash),
+which ignores the bash shebang — the bashism `set -o pipefail` aborts the hook and **hard-blocks EVERY
+consumer push on the most common consumer/CI OS**. It passed locally only because macOS `/bin/sh` is
+bash-in-posix-mode. This is a real MAJOR consumer bug the gate caught on its first real-OS run — exactly
+its purpose. **FIXED in this PR** (`set -euo pipefail` → POSIX `set -eu`; the only pipe, `node_major`,
+already carries `|| echo 0`); verified `sh -n` + `dash -n` clean; byte-identical install baselines regen'd.
+**Surfaced for the maintainer (NOT edited — `.husky/` is agent-deny-listed, owner=maintainers):** the
+framework's OWN `.husky/pre-push:13` carries the same `set -euo pipefail` and needs the identical one-line
+fix.
+
 ## §4 Deferred cells (enumerated, NOT silently dropped)
 
 Per the "start with a SINGLE cell, grow incrementally" kickoff directive, these S1-calibrated cells are follow-ups:
