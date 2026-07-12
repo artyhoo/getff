@@ -35,6 +35,11 @@ build_repo() {
   git -C "$tmp" config user.name "test"
   echo '{"name":"test","version":"0.0.0"}' > "$tmp/package.json"
   git -C "$tmp" add package.json
+  # GH #985: plant the SSOT register so the fallback's §7 Prior-art check engages
+  # (framework layout). Without it the #985 consumer-scope guard skips §7 → these
+  # base-ref FB cases, which drive C2 THROUGH the §7-presence flag, would exit 0.
+  mkdir -p "$tmp/docs/meta-factory"; echo '# register' > "$tmp/docs/meta-factory/prior-art-evaluations.md"
+  git -C "$tmp" add docs/meta-factory/prior-art-evaluations.md
   git -C "$tmp" -c commit.gpgsign=false commit -q -m "init" -m "Prior-art: skipped — bootstrap fixture base."
   git -C "$tmp" update-ref refs/remotes/origin/main HEAD       # C1
   git -C "$tmp" update-ref refs/remotes/origin/staging HEAD    # C1 — fallback default
@@ -85,6 +90,9 @@ build_cross_repo() {
   git -C "$tmp" config user.name "test"
   echo '{"name":"test","version":"0.0.0"}' > "$tmp/package.json"
   git -C "$tmp" add package.json
+  # GH #985: plant the SSOT register so the fallback runs in framework layout (see build_repo).
+  mkdir -p "$tmp/docs/meta-factory"; echo '# register' > "$tmp/docs/meta-factory/prior-art-evaluations.md"
+  git -C "$tmp" add docs/meta-factory/prior-art-evaluations.md
   git -C "$tmp" -c commit.gpgsign=false commit -q -m "init" -m "Prior-art: skipped — bootstrap fixture base, no capability."
   git -C "$tmp" update-ref refs/remotes/origin/feat HEAD   # remote_sha for the feat push = C1
 

@@ -67,6 +67,23 @@ resolve_commits() {
 resolve_commits || exit 0
 [ -z "${COMMITS}" ] && echo "✅ fallback: no new commits." && exit 0
 
+# Framework-repo scope guard (GH #985). The two checks below — §7 "Prior-art:" trailer
+# PRESENCE and §1.7 discipline-trailer PRESENCE — are FRAMEWORK-AUTHORING conventions,
+# NOT consumer obligations. The full TS hook already scopes them via `isFrameworkRepo`
+# (pre-push.ts: `existsSync(REPO_ROOT/docs/meta-factory/prior-art-evaluations.md)`), but
+# this reduced bash fallback (reached exactly on the pnpm-monorepo layout where tsx does
+# not resolve from the repo root) ran them UNCONDITIONALLY — so every normal consumer
+# commit dated after the cutoff and lacking a `Prior-art:` line set fail=1 → exit 1,
+# hard-blocking the consumer's first `git push`. Mirror the TS signal (SSOT-register
+# presence) here: on a consumer layout (no register) neither check applies → skip both
+# arms with a visible message (not a silent pass) and exit 0.
+SSOT_REGISTER="docs/meta-factory/prior-art-evaluations.md"
+_top="$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
+if [ ! -f "${_top}/${SSOT_REGISTER}" ]; then
+  echo "⚠ fallback [REDUCED, consumer]: framework-authoring checks (Prior-art §7 + §1.7 presence) do not apply to a consumer repo (no SSOT register at ${SSOT_REGISTER}) — skipped. Install Node ≥20 + tsx for the full pre-push hook (substance arms)."
+  exit 0
+fi
+
 while IFS= read -r sha; do
   [ -z "${sha}" ] && continue
   body="$(git show -s --format='%B' "${sha}")"
