@@ -922,6 +922,31 @@ function synthBundleSection(): void {
   }
 }
 
+// ── 3g. Shipped-rule compiled-artifact drift + orphan gate (maintainer, #752/#990) ──
+// Committed eslint-rule .mjs/.d.ts must match a fresh recompile of their .ts
+// sources, and every artifact must still HAVE a source (orphan walk — deleting
+// a rule source must not leave its compiled output shipping silently). Owner =
+// maintainer: the build script + rule .ts sources live in the framework repo only
+// (consumers receive compiled .mjs per #752); the existsSync guard stays as
+// belt-and-suspenders on top of owner routing. exit 2 = tsc absent → skip, not fail.
+function shippedRuleDriftSection(): void {
+  if (existsSync(resolve(REPO_ROOT, 'scripts/build-shipped-eslint-rules.sh'))) {
+    const r = run('bash', ['scripts/build-shipped-eslint-rules.sh', '--check']);
+    if (r.exitCode === 2) {
+      process.stderr.write(
+        '⚠️  shipped-rule drift gate skipped — tsc not installed (run: npm install at repo root)\n',
+      );
+    } else if (r.exitCode !== 0) {
+      die(
+        '❌ shipped-rule drift/orphan detected — run: bash scripts/build-shipped-eslint-rules.sh (and delete orphaned .mjs/.d.ts)',
+        r,
+      );
+    } else {
+      emit(r);
+    }
+  }
+}
+
 // ── 4. Manifest render drift (maintainer) ────────────────────────────────────
 // packages/core/render/ is maintainer-only (not in install.sh's consumer copy-list).
 function manifestRenderSection(): void {
@@ -1133,6 +1158,11 @@ const SECTIONS: readonly PrePushSection[] = [
     run: () => kickoffPortabilitySection(),
   },
   { id: 'synth-bundle', owner: 'maintainer', run: () => synthBundleSection() },
+  {
+    id: 'shipped-rule-drift',
+    owner: 'maintainer',
+    run: () => shippedRuleDriftSection(),
+  },
   {
     id: 'manifest-render',
     owner: 'maintainer',
