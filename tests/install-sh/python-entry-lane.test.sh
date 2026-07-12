@@ -185,11 +185,27 @@ fi
 echo ""; echo "  ── (9) degrade path (stripped PATH, no ast-grep/ruff/uvx) ──"
 P=$(py_fixture)
 ( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1   # deliver with tools available
+# Build a coreutils-only PATH that EXCLUDES every research tool, so `command -v ast-grep|sg|ruff|uvx`
+# genuinely fails regardless of WHERE the runner installed them. A plain PATH="/usr/bin:/bin" is
+# environment-fragile: some CI runners ship ast-grep in /usr/bin, so the strip left it reachable and
+# the ast-grep lane FIRED instead of degrading — arm 9 then never exercised the both-tools-absent
+# degrade summary it exists to prove (python-delivery-v0 S2 CI-only failure, 2026-07-12; passed on
+# macOS where node/ast-grep live in homebrew, outside /usr/bin).
+_notools="$P/.no-tools-bin"; mkdir -p "$_notools"
+for _d in /usr/bin /bin /usr/local/bin /opt/homebrew/bin; do
+  [ -d "$_d" ] || continue
+  for _f in "$_d"/*; do
+    [ -e "$_f" ] || continue
+    _b=${_f##*/}
+    case "$_b" in ast-grep|sg|ruff|uvx|npx|node|nodejs|pip|pip3) continue ;; esac
+    [ -e "$_notools/$_b" ] || ln -s "$_f" "$_notools/$_b" 2>/dev/null || true
+  done
+done
 deg=$(
-  PROJECT_ROOT="$P" PKG_ROOT="$REPO_ROOT" INSTALL_SH_LIB_ONLY=1 bash -c '
+  PROJECT_ROOT="$P" PKG_ROOT="$REPO_ROOT" INSTALL_SH_LIB_ONLY=1 NOTOOLS="$_notools" bash -c '
     source "'"$REPO_ROOT"'/setup.d/lib.sh"
     PY_LAYER_LIB_ONLY=1 source "'"$REPO_ROOT"'/setup.d/45-python.sh"
-    PATH="/usr/bin:/bin" _py_firing_self_check
+    PATH="$NOTOOLS" _py_firing_self_check
   ' 2>&1
 )
 echo "$deg" | grep -qF 'ast-grep not on PATH' && echo "$deg" | grep -qF 'ruff not on PATH' \
