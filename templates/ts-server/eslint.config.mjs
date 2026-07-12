@@ -76,6 +76,17 @@ export default defineConfig(
   ...tseslint.configs.strictTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
 
+  // 3b. Plain JS/CJS/MJS files (config files, scripts, examples) have no type
+  // information under `projectService` (only §4's `.{ts,tsx}` block enables it),
+  // so the unscoped type-aware spread above would fatal-error (`await-thenable`
+  // et al. throw "requires type information") on any `.js`/`.cjs`/`.mjs` walked
+  // by `eslint .` that lives outside the tsconfig `include`. Disable type-aware
+  // rules for them. Must come AFTER the spread so it wins for matching files. (GH #973)
+  {
+    files: ['**/*.{js,cjs,mjs}'],
+    ...tseslint.configs.disableTypeChecked,
+  },
+
   // 4. TypeScript files
   {
     files: ['**/*.{ts,tsx}'],
