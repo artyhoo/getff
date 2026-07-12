@@ -25,6 +25,13 @@ export const ALLOWED_SOURCES = {
   'tailwind.official': ['tailwindcss.com'],
   'mdn': ['developer.mozilla.org'],
   'typescript.official': ['typescriptlang.org', 'www.typescriptlang.org'],
+  // Python Tier-0 hosts (live-generation umbrella, LG-S1 — data change, NOT a resolver-source
+  // edit; the #allowlist-as-code-not-data discipline, research-source-trust.md §3, parallel to
+  // how react-native/expo were added). Canonical Python-language docs + the PEP index.
+  'python.official': ['docs.python.org', 'peps.python.org'],
+  // PyYAML's own documentation host — the canonical source for the `yaml.load` security guidance
+  // (use `safe_load`) that the `getff-no-yaml-load` flagship rule cites. Single-tenant apex.
+  'pyyaml': ['pyyaml.org'],
 } as const satisfies Record<string, readonly string[]>;
 
 export type AllowlistKey = keyof typeof ALLOWED_SOURCES;
