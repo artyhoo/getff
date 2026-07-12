@@ -388,6 +388,8 @@ jobs:
         run: bash tests/install-sh/gh-636-ensure-tsx-root.test.sh
       - name: install-sh — f17 lint rules planted-violation (post-install liveness smoke Check3 Arm ii)
         run: bash tests/install-sh/f17-lint-rules-planted-violation.test.sh
+      - name: "install-sh — f18 eslint non-TS no-crash (#973: strictTypeChecked must not fatal on .js/.cjs/.mjs outside tsconfig)"
+        run: bash tests/install-sh/f18-eslint-nonts-no-crash.test.sh
       - name: "install-sh — check-fences-fire FULL barrel (#838: R12 ACTIVE on react-next; neutered-R12 teeth; partial-barrel stacks not false-RED)"
         run: bash tests/install-sh/check-fences-fire-full-barrel.test.sh
       - name: install-sh — lib-helpers unit test (O1 guard regression + all helpers exposed)
