@@ -3,7 +3,7 @@
 854cfb38f3d4acfd40245b5b490e5163658e2e98b0573239c15dd5802d16f5cb  .ai-factory/ARCHITECTURE.ts-server.md
 35d047948e3287ab254f4abc4de1f6ea32161dea0fc1d48965041a0967100b84  .ai-factory/DESCRIPTION.md
 35d047948e3287ab254f4abc4de1f6ea32161dea0fc1d48965041a0967100b84  .ai-factory/DESCRIPTION.template.md
-5a9317ff2e3ab67f09e137ff9f2ea48e21373cf758c8763f76943018bed30cc2  .ai-factory/RULES.md
+cd05e605ec7874fd1c233b80f623a173087a27dade26ec5b399e76c5a01005a3  .ai-factory/RULES.md
 652ed1ee550c21951637c7f3590fb4c157d634547accb5076962ac00d5060e7f  .ai-factory/RULES.react-spa.md
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
@@ -73,7 +73,7 @@ a5fd46853e3fd267bbd7fc41f9a1bd908ab58edb935381c6cd9c51f317f8d332  packages/core/
 662aa2caf562365b0e02b4bde2a5bac22ab7154439bbf089b17b9440ae82ed35  packages/core/hooks/checks/unpinned-tool-install.ts
 3ca9d4afd21425087cf31893b8f9f63c81b0b8408db5e343ca76e5f8aa26ab9a  packages/core/hooks/package.json
 9e5f454a273ff59cc113bb92cc4857503859cb3e4087ec3ad6c8ab8cd03d8672  packages/core/hooks/pre-push.fallback.sh
-d7bf6fce7906e53e736f924926198864a816553195f00d3470e368543657f43e  packages/core/hooks/pre-push.ts
+4838da5dd6b8448b428c437ead1810aab6ca97a58c12c4e187775da8f041a2b2  packages/core/hooks/pre-push.ts
 5936a22abeec8ad0d5f99285155c90b03d08befcdf960b24291df5ca728f9fc0  packages/core/hooks/utils/git.ts
 3138a1f52bc9f04f83a70d31793efb0eda355c1cbf1a13276f1ac4017f2c8fc2  packages/core/hooks/utils/run-check.ts
 4fc444c5d3de5dec76c7f01b8ec85076735c9dafa7f48df91e5d04689f3cc43e  playwright.config.ts
