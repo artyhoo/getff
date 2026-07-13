@@ -206,3 +206,21 @@ if [ -f "$IMR_SRC" ]; then
     register_cc_hook "$SETTINGS" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh"' "inject-matching-rule" "Edit|Write"
   fi
 fi
+
+# ─── 1f. Output-language UserPromptSubmit hook (GH #934 batch B) ──────────────
+# The consumer-generic slice EXTRACTED from the maintainer-only inject-session-bootstrap.sh: when the
+# operator pins AIF_HOOK_LANG, tell the model to address them in that language (repo artefacts stay
+# English). The framework-self-referential goal/invariants digest is NOT shipped — it stays INTERNAL.
+# Consumer-safe: pure bash, no jq, no framework-internal dependency; en/unset → no-op (zero-setup).
+# Registered as UserPromptSubmit (no matcher — not a tool-scoped event), non-destructive/idempotent.
+OLH_SRC="$PKG_ROOT/.claude/hooks/inject-output-language.sh"
+OLH_DST="$PROJECT_ROOT/.claude/hooks/inject-output-language.sh"
+if [ -f "$OLH_SRC" ]; then
+  copy_safe "$OLH_SRC" "$OLH_DST"
+  chmod_safe +x "$OLH_DST" 2>/dev/null || true
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would: register inject-output-language as a UserPromptSubmit hook in .claude/settings.json"
+  else
+    register_cc_hook "$SETTINGS" "UserPromptSubmit" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-output-language.sh"' "inject-output-language"
+  fi
+fi

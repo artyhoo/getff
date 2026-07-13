@@ -21,10 +21,11 @@ c96ba6e4c52288f0b77a2edaeb6170ecad03e699360d79fe7794fd3e205717e8  .claude/agents
 2d9259521f752780d0a7fe6df7fc089d35907f3080280af8c264e5e61b96fec8  .claude/hooks/deps-hash-check.sh
 778130188d08c542c5cecd318e995b278bb0ad52edd896f9149afd0496b6cd3e  .claude/hooks/end-of-turn-reminder.sh
 e1f96e6e99b8d3d2c4371e7415555cb321392274469714502e6c37336da8b718  .claude/hooks/inject-matching-rule.sh
+7eebffabd3c2e5a264cd02e4c733ff583c976b096a24e604f8cece0f791ed7f8  .claude/hooks/inject-output-language.sh
 d24e7c291d55c3c9d7420cc8bfdab60a2d90cda7486d321cb81aa6889edd55d5  .claude/hooks/lang/check-parity.sh
 541301a86347f3650c66400395942d55547fb57fa701d03b7d4633b4dced08ae  .claude/hooks/lang/en.sh
 d8defdf0c17d54faa73fb53b5d6999d8e0f4d951c884f3c6447707f504423764  .claude/hooks/lang/ru.sh
-ee7920ecb0aa735148e2728663e5a92aea3a3342dd077fc4b263c74d1271601c  .claude/settings.json
+08fe4c4fec2a4c6c0979ee530e473f551add657771454893c1e2787935d4ded2  .claude/settings.json
 f89d11f5a44bb56e85001ac029c22d3618bbf52bdf3d3a4f4922f1abdb724edb  .claude/skills/ai-doc/SKILL.md
 63e2db9eddec389a06822f8091a83737bfce8e2749de6af3a0be22132d0152e6  .claude/skills/ai-doc/anthropic-and-aif-residue.md
 6bf27e6d8a7efd020199643e65db909a96a074babe1cc10d8c18ffde18128c2b  .claude/skills/getff/SKILL.md
