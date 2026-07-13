@@ -255,6 +255,21 @@ jobs:
       # install above (same job, no new job/npm-ci). Deterministic, no toolchain.
       - name: Run packages/core/composition tests (MT S4)
         run: npm --prefix packages/core run test:composition
+      # live-generation umbrella: its synthesizer/ tests — the live-research → ConventionNode bridges
+      # (research-to-node / research-to-clippy-node), the Model A′ byte-drift gates, and the rust
+      # always-on capability-evidence validator — were never gated by a CI step (only the astgrep
+      # firing tests landed under backends/, test:backends). A test-that-does-not-gate is the
+      # #discipline-theatre this project exists to prevent. Gate the umbrella's OWN tests here,
+      # reusing the `npm ci --prefix packages/core` install above (same job, deterministic).
+      # SCOPED (not `vitest run synthesizer/`): the broader synthesizer/ suite includes ~6
+      # pre-existing tests (generate*/menu-pick/rule-bootstrap*) that import the workspace eslint
+      # preset `@rules-as-tests/preset-next-15-canonical`, which is not built in this per-dir job →
+      # they fail to COLLECT here. Those are a pre-existing CI-coverage gap (flagged in the LG-S3 PR
+      # §1.7 backward-check), NOT this umbrella's tests — wiring them in is a separate task. As with
+      # the cargo backend, no Rust toolchain is on this runner, so the rust clippy live-fire is
+      # describe.skipIf(!runLiveFire) and loud-skips; the render/drift/evidence-validator tests gate.
+      - name: Run live-generation umbrella tests (bridges + render + rust evidence)
+        run: npm --prefix packages/core run test:live-generation
       # CI-gap option C (hook-test-suite-rot): the packages/core/hooks/ vitest suite was
       # never gated — only principles/ was — which is how a real cross-platform regression
       # (priority-score-synthetic.sh xargs) accumulated 15 failures unnoticed. Gate it here.

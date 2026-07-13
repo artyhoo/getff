@@ -1,0 +1,24 @@
+{
+  "_comment": "LG-owned committed live-fire evidence for the rust researched flagship (mem-forget → clippy::disallowed_methods), live-generation LG-S3 Inc 2. DISTINCT from #977's backends/cargo/capability-matrix.json (NEVER edited by this increment). Shaped as a CapabilityMatrix so the SAME validateMatrix mechanized-honesty contract (backends/shared/capability-matrix.ts) verifies it. Captured on a dev machine (cargo 1.96.1 + clippy 0.1.96) by firing `cargo clippy --message-format=json` on firing/bad against the session-rendered clippy.toml; the capturedDiagnostic below is the REAL clippy compiler-message. The always-on validator test (live-generation-clippy.test.ts) checks THIS committed evidence — no fresh live-fire, so it holds in CI (Model A' / no-paid-llm-in-ci.md — rust CI = render/drift/committed-evidence; dev-machine = the live `cargo clippy` RED).",
+  "ruleId": "mem-forget",
+  "command": "cargo clippy --message-format=json",
+  "jsonPath": "$.message.code.code",
+  "firedAt": "2026-07-13",
+  "firedOn": "firing/bad (RED) — the session-rendered clippy.toml disallowed-methods ban on std::mem::forget",
+  "backend": "cargo-clippy-toml",
+  "contract": "in-test FiringContract { command: 'cargo clippy --message-format=json', jsonPath: '$.message.code.code', expectedCode: 'clippy::disallowed_methods' } — the LG rust firing contract (mirrors backends/cargo/firing-contract.json, not loaded from a committed file here).",
+  "cells": {
+    "type-aware": {
+      "status": "partial",
+      "caps": [
+        "clippy disallowed-methods matches by fully-qualified path only — it cannot see through higher-order calls and cannot match generic instantiations (rust-clippy#8849). The evidence claims exactly the single-path std::mem::forget ban it live-fired, not more (render-clippy.ts honesty bound)."
+      ],
+      "evidence": {
+        "kind": "live-fired",
+        "date": "2026-07-13",
+        "toolchain": "cargo 1.96.1 (356927216 2026-06-26) / clippy 0.1.96 (31fca3adb2 2026-06-26)",
+        "capturedDiagnostic": "{\"reason\":\"compiler-message\",\"message\":{\"code\":{\"code\":\"clippy::disallowed_methods\",\"explanation\":null},\"level\":\"warning\",\"message\":\"use of a disallowed method `std::mem::forget`\"}}"
+      }
+    }
+  }
+}
