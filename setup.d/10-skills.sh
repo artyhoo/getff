@@ -166,3 +166,43 @@ if [ -f "$EOT_SRC" ]; then
     register_cc_hook "$SETTINGS" "Stop" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/end-of-turn-reminder.sh"' "end-of-turn-reminder"
   fi
 fi
+
+# ─── 1d. Pre-question fork-challenge PreToolUse hook (GH #934) ────────────────
+# Generic session-UX nudge (companion class of the §1c Stop recap): a PreToolUse:AskUserQuestion
+# challenge that fires the moment the model is about to ask the operator. Consumer-safe: no
+# framework-internal dependency; reuses the §1c-delivered lang pack (aif_msg_question_challenge)
+# and self-guards on jq. Registered with the "AskUserQuestion" matcher (parity with the framework's
+# own settings.json). Non-destructive + idempotent via register_cc_hook.
+# Delivery coupling (by design): the lang/ pack this hook sources under `set -e` is delivered by the
+# §1c end-of-turn block above — the two hooks always ship together from the same source dir, so §1c
+# always runs first when §1d does. Keep them co-delivered; do not ship ask-question-reminder without
+# §1c's lang pack.
+AQR_SRC="$PKG_ROOT/.claude/hooks/ask-question-reminder.sh"
+AQR_DST="$PROJECT_ROOT/.claude/hooks/ask-question-reminder.sh"
+if [ -f "$AQR_SRC" ]; then
+  copy_safe "$AQR_SRC" "$AQR_DST"
+  chmod_safe +x "$AQR_DST" 2>/dev/null || true
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would: register ask-question-reminder as a PreToolUse:AskUserQuestion hook in .claude/settings.json"
+  else
+    register_cc_hook "$SETTINGS" "PreToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/ask-question-reminder.sh"' "ask-question-reminder" "AskUserQuestion"
+  fi
+fi
+
+# ─── 1e. Path-scoped rule-injector PostToolUse hook (GH #934) ─────────────────
+# Consumers DO get .claude/rules/* installed; without this hook that rules channel is cold-load
+# only. This edit-time injector delivers the matching rule's `inject:` summary the moment a scoped
+# path is edited. Consumer-safe: the only runtime path is the consumer's own .claude/rules/ (no
+# framework-internal artefact), and it degrades to exit 0 when the rules dir or jq is absent.
+# Registered with the "Edit|Write" matcher (parity with the framework's own settings.json).
+IMR_SRC="$PKG_ROOT/.claude/hooks/inject-matching-rule.sh"
+IMR_DST="$PROJECT_ROOT/.claude/hooks/inject-matching-rule.sh"
+if [ -f "$IMR_SRC" ]; then
+  copy_safe "$IMR_SRC" "$IMR_DST"
+  chmod_safe +x "$IMR_DST" 2>/dev/null || true
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would: register inject-matching-rule as a PostToolUse:Edit|Write hook in .claude/settings.json"
+  else
+    register_cc_hook "$SETTINGS" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh"' "inject-matching-rule" "Edit|Write"
+  fi
+fi

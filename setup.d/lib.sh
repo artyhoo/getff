@@ -857,7 +857,7 @@ reassert_husky_shields() {
   return 0
 }
 
-# register_cc_hook SETTINGS EVENT CMD MARKER (GH #934)
+# register_cc_hook SETTINGS EVENT CMD MARKER [MATCHER] (GH #934)
 # Idempotently register a Claude Code hook in .claude/settings.json under EVENT
 # (Stop / UserPromptSubmit / PostToolUse / …), NON-DESTRUCTIVELY: appends to any
 # existing hooks on that event (never clobbers a consumer-authored hook), and no-ops
@@ -866,21 +866,35 @@ reassert_husky_shields() {
 # share one implementation (dual-implementation-discipline §7). Requires jq for the
 # JSON-safe merge (the shipped commands carry embedded quotes for $CLAUDE_PROJECT_DIR);
 # degrades to explicit manual guidance when jq is absent — never a silent skip.
+#
+# Optional 5th arg MATCHER: for tool-scoped events (PreToolUse / PostToolUse) pass the
+# tool-name matcher (e.g. "AskUserQuestion", "Edit|Write") so the entry gets a `matcher`
+# field — parity with the framework's own settings.json shape. When MATCHER is empty
+# (Stop / UserPromptSubmit — no tool scope) the entry is written matcher-less, byte-for-byte
+# as before (the #1003 Stop path is unchanged).
 register_cc_hook() {
-  local settings="$1" event="$2" cmd="$3" marker="$4"
+  local settings="$1" event="$2" cmd="$3" marker="$4" matcher="${5:-}"
   if ! command -v jq >/dev/null 2>&1; then
     echo "  ⚠ jq not found — add manually to .claude/settings.json under \"$event\" a command hook running: $cmd"
     return 0
   fi
+  # Build the single hook-group object once (with or without a matcher field) so the
+  # create + append paths share one shape (no drift between the two branches).
+  local group_filter
+  if [ -n "$matcher" ]; then
+    group_filter='{matcher:$m, hooks:[{"type":"command","command":$c}]}'
+  else
+    group_filter='{"hooks":[{"type":"command","command":$c}]}'
+  fi
   if [ ! -f "$settings" ]; then
-    jq -n --arg e "$event" --arg c "$cmd" \
-      '{hooks: {($e): [{"hooks":[{"type":"command","command":$c}]}]}}' > "$settings"
+    jq -n --arg e "$event" --arg c "$cmd" --arg m "$matcher" \
+      "{hooks: {(\$e): [$group_filter]}}" > "$settings"
     echo "  ✓ .claude/settings.json created with $event hook ($marker)"
   elif grep -q "$marker" "$settings" 2>/dev/null; then
     echo "  ⊝ $marker already registered in .claude/settings.json"
   else
-    jq --arg e "$event" --arg c "$cmd" \
-      '.hooks[$e] = ((.hooks[$e] // []) + [{"hooks":[{"type":"command","command":$c}]}])' \
+    jq --arg e "$event" --arg c "$cmd" --arg m "$matcher" \
+      ".hooks[\$e] = ((.hooks[\$e] // []) + [$group_filter])" \
       "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings"
     echo "  ✓ $marker registered as a $event hook in .claude/settings.json"
   fi

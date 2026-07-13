@@ -470,6 +470,8 @@ jobs:
         run: bash tests/install-sh/gh-974-honest-incomplete-deps.test.sh
       - name: "install-sh — gh-934 ship end-of-turn Stop hook + lang (delivery + settings-merge + firing EN/RU + jq-guard)"
         run: bash tests/install-sh/gh-934-ship-eot-hook.test.sh
+      - name: "install-sh — gh-934 ship session-UX hooks (ask-question PreToolUse + inject-matching PostToolUse: delivery + non-destructive matcher-merge + firing + jq-guard)"
+        run: bash tests/install-sh/gh-934-ship-session-ux-hooks.test.sh
       - name: "install-sh — self-verify banner honesty (P0.4: SKIP accounting withholds property claim + strict D1 under DEPS_INSTALLED)"
         run: bash tests/install-sh/install-self-verify-banner-honesty.test.sh
       - name: install-sh — layer-units (per-layer sourcing + structural integrity checks)

@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
-# @cc-only-rationale: internal dev tooling — pre-question fork-challenge for the maintainer's CC session; not shipped to consumer projects via install.sh
+# @cc-only-rationale: CC-specific PreToolUse:AskUserQuestion hook — it can only fire inside a
+#   Claude Code session (the deny/permissionDecision contract is CC-native), so there is no
+#   portable counterpart by nature (the @dual-pair below is the internal en/ru i18n split, not a
+#   portability pair). NOW SHIPPED to consumer CC projects (GH #934): a generic pre-question
+#   fork-challenge nudge — session UX, not framework-bound. Consumer-safe: no framework-internal
+#   artefact dependency, reuses the already-shipped lang pack (aif_msg_question_challenge), and
+#   degrades to exit 0 when jq is absent.
 #
 # Companion to .claude/hooks/end-of-turn-reminder.sh (Stop hook). Division of labour:
 #   • end-of-turn-reminder.sh (Stop)      → END-OF-TURN recap + goal-drift verdict.
@@ -19,6 +25,11 @@
 # challenged afresh. Worst case if any assumption is wrong: malformed JSON → CC falls back
 # to normal flow → the question proceeds (benign, no block).
 set -euo pipefail
+
+# Consumer-skip guard (GH #934): the hook parses stdin + emits its decision via jq. Absent jq →
+# no work possible → exit 0 silently (never error-spam a consumer's every AskUserQuestion). The
+# framework session always has jq; a minimal consumer may not.
+command -v jq >/dev/null 2>&1 || exit 0
 
 # Language pack (payload prose). Default en (canonical, public repo); operator sets
 # AIF_HOOK_LANG=ru in ~/.claude/settings.json env. Missing pack → en fallback.
