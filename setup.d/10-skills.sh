@@ -224,3 +224,25 @@ if [ -f "$OLH_SRC" ]; then
     register_cc_hook "$SETTINGS" "UserPromptSubmit" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-output-language.sh"' "inject-output-language"
   fi
 fi
+
+# ─── 1g. Doc-authority-header PostToolUse gate (GH #934 per-hook audit follow-up) ─
+# Zero-dep bash REIMPLEMENTATION of the framework-internal check-doc-authority.sh (which delegates to
+# tsx + packages/core — both absent in consumers, so that hook is a DEAD no-op there). This consumer
+# version enforces the doc-authority-header discipline on the two surfaces a consumer authors:
+# .claude/rules/*.md + .claude/skills/*/SKILL.md. A scoped doc missing the "> **Authoritative for:**"
+# header gets exit 2 (PostToolUse feedback → the model adds it). Default-on gate (GH #934 maintainer
+# decision); opt out repo-wide with AIF_DOC_AUTHORITY=0, or per-file with a
+# `<!-- doc-authority: exempt <reason 20+> -->` line. Consumer-safe: pure bash + jq, no
+# framework-internal dependency; degrades to exit 0 when jq is absent. Registered with the "Edit|Write"
+# matcher (parity with the framework's own check-doc-authority.sh registration).
+DAH_SRC="$PKG_ROOT/.claude/hooks/check-doc-authority-header.sh"
+DAH_DST="$PROJECT_ROOT/.claude/hooks/check-doc-authority-header.sh"
+if [ -f "$DAH_SRC" ]; then
+  copy_safe "$DAH_SRC" "$DAH_DST"
+  chmod_safe +x "$DAH_DST" 2>/dev/null || true
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would: register check-doc-authority-header as a PostToolUse:Edit|Write hook in .claude/settings.json"
+  else
+    register_cc_hook "$SETTINGS" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/check-doc-authority-header.sh"' "check-doc-authority-header" "Edit|Write"
+  fi
+fi

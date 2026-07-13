@@ -481,6 +481,19 @@ do_refresh() {
     fi
   fi
 
+  # GH #934 (per-hook audit follow-up): refresh coverage for the doc-authority-header PostToolUse gate
+  # (setup.d/10-skills.sh §1g parity). A brownfield consumer installed before this batch gets the hook +
+  # the Edit|Write registration via --refresh (closes the refresh-drift class #869/#890).
+  _DAH_SRC="$PKG_ROOT/.claude/hooks/check-doc-authority-header.sh"
+  _DAH_DST="$PROJECT_ROOT/.claude/hooks/check-doc-authority-header.sh"
+  if [ -f "$_DAH_SRC" ]; then
+    refresh_safe "$_DAH_SRC" "$_DAH_DST"
+    if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_DAH_DST" ]; then chmod_safe +x "$_DAH_DST" 2>/dev/null || true; fi
+    if [ "$DRY_RUN" != "--dry-run" ]; then
+      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/check-doc-authority-header.sh"' "check-doc-authority-header" "Edit|Write"
+    fi
+  fi
+
   # ── Scripts ─────────────────────────────────────────────
   echo "▶ Scripts → scripts/"
   for _pair in \
