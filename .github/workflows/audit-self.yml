@@ -255,6 +255,18 @@ jobs:
       # install above (same job, no new job/npm-ci). Deterministic, no toolchain.
       - name: Run packages/core/composition tests (MT S4)
         run: npm --prefix packages/core run test:composition
+      # live-generation umbrella: packages/core/synthesizer/ (the live-research → rule bridges +
+      # session-side render drivers + committed-evidence validators for js/python/rust) was never
+      # gated by a CI step — only the astgrep firing tests landed under backends/ (test:backends).
+      # The bridge unit tests (research-to-node / research-to-clippy-node), the Model A′ byte-drift
+      # gates, and the rust always-on capability-evidence validator therefore did not fire in CI —
+      # a test-that-does-not-gate is the #discipline-theatre this project exists to prevent. Gate it
+      # here, reusing the `npm ci --prefix packages/core` install above (same job, deterministic).
+      # As with the cargo backend, no Rust toolchain is on this runner, so the rust clippy live-fire
+      # is describe.skipIf(!runLiveFire) and loud-skips; the render/drift/evidence-validator tests
+      # still run and gate for real (rust CI = render+drift+committed-evidence, not fresh live-fire).
+      - name: Run packages/core/synthesizer tests (live-generation bridges + render + evidence)
+        run: npm --prefix packages/core run test:synthesizer
       # CI-gap option C (hook-test-suite-rot): the packages/core/hooks/ vitest suite was
       # never gated — only principles/ was — which is how a real cross-platform regression
       # (priority-score-synthetic.sh xargs) accumulated 15 failures unnoticed. Gate it here.
