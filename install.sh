@@ -469,6 +469,17 @@ do_refresh() {
       register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh"' "inject-matching-rule" "Edit|Write"
     fi
   fi
+  # GH #934 batch B: refresh coverage for the output-language UserPromptSubmit hook (setup.d/10-skills.sh
+  # §1f parity). A brownfield consumer installed before batch B gets it + the registration via --refresh.
+  _OLH_SRC="$PKG_ROOT/.claude/hooks/inject-output-language.sh"
+  _OLH_DST="$PROJECT_ROOT/.claude/hooks/inject-output-language.sh"
+  if [ -f "$_OLH_SRC" ]; then
+    refresh_safe "$_OLH_SRC" "$_OLH_DST"
+    if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_OLH_DST" ]; then chmod_safe +x "$_OLH_DST" 2>/dev/null || true; fi
+    if [ "$DRY_RUN" != "--dry-run" ]; then
+      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "UserPromptSubmit" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-output-language.sh"' "inject-output-language"
+    fi
+  fi
 
   # ── Scripts ─────────────────────────────────────────────
   echo "▶ Scripts → scripts/"
