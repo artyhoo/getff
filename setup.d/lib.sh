@@ -857,6 +857,35 @@ reassert_husky_shields() {
   return 0
 }
 
+# register_cc_hook SETTINGS EVENT CMD MARKER (GH #934)
+# Idempotently register a Claude Code hook in .claude/settings.json under EVENT
+# (Stop / UserPromptSubmit / PostToolUse / …), NON-DESTRUCTIVELY: appends to any
+# existing hooks on that event (never clobbers a consumer-authored hook), and no-ops
+# when MARKER is already present (re-run adds nothing). Creates a minimal settings.json
+# if absent. SSOT for the settings hooks-merge so install (setup.d) + refresh (do_refresh)
+# share one implementation (dual-implementation-discipline §7). Requires jq for the
+# JSON-safe merge (the shipped commands carry embedded quotes for $CLAUDE_PROJECT_DIR);
+# degrades to explicit manual guidance when jq is absent — never a silent skip.
+register_cc_hook() {
+  local settings="$1" event="$2" cmd="$3" marker="$4"
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "  ⚠ jq not found — add manually to .claude/settings.json under \"$event\" a command hook running: $cmd"
+    return 0
+  fi
+  if [ ! -f "$settings" ]; then
+    jq -n --arg e "$event" --arg c "$cmd" \
+      '{hooks: {($e): [{"hooks":[{"type":"command","command":$c}]}]}}' > "$settings"
+    echo "  ✓ .claude/settings.json created with $event hook ($marker)"
+  elif grep -q "$marker" "$settings" 2>/dev/null; then
+    echo "  ⊝ $marker already registered in .claude/settings.json"
+  else
+    jq --arg e "$event" --arg c "$cmd" \
+      '.hooks[$e] = ((.hooks[$e] // []) + [{"hooks":[{"type":"command","command":$c}]}])' \
+      "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings"
+    echo "  ✓ $marker registered as a $event hook in .claude/settings.json"
+  fi
+}
+
 # ── O1 fix: INSTALL_SH_LIB_ONLY guard is LAST (after all helpers are defined) ──
 # When sourced directly with INSTALL_SH_LIB_ONLY=1, expose all helpers and stop here.
 # When sourced by install.sh, this guard fires and returns from the `source setup.d/lib.sh`

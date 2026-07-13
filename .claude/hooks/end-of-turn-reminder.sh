@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
-# @cc-only-rationale: internal dev tooling — end-of-turn reminder injection for maintainer's CC session; not shipped to consumer projects via install.sh
+# @cc-only-rationale: CC-specific Stop hook (session-recap) — a Stop hook only runs INSIDE a
+#   Claude Code session, so there is no portable counterpart by nature (the @dual-pair below is
+#   the internal en/ru i18n split, not a portability pair). NOW SHIPPED to consumer CC projects
+#   (GH #934): companion of the shipped /story skill (SKILL.md SSOT names "the Stop-hook
+#   aif_msg_eot_branch_story branch"), delivered by install.sh + do_refresh. Consumer-safe: no
+#   framework-internal artefact dependency (the only path refs are comment-citations); degrades
+#   to exit 0 when jq or a transcript is absent.
 set -euo pipefail
+
+# Consumer-skip guard (GH #934): the hook parses the transcript with jq. Absent jq → no work
+# possible → exit 0 silently (never error-spam a consumer's every turn). The framework session
+# always has jq; a minimal consumer may not.
+command -v jq >/dev/null 2>&1 || exit 0
 
 # Language pack (payload prose). Default en (canonical, public repo); operator sets
 # AIF_HOOK_LANG=ru in ~/.claude/settings.json env. Missing pack → en fallback.

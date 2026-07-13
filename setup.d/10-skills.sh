@@ -141,3 +141,28 @@ else
   echo "  ⚠ jq not found — add manually to .claude/settings.json:"
   echo "    UserPromptSubmit: [{\"hooks\":[{\"type\":\"command\",\"command\":\"$HOOK_CMD\"}]}]"
 fi
+
+# ─── 1c. End-of-turn session-recap Stop hook + lang pack (GH #934) ────────────
+# The shipped /story skill is SSOT "shared with the Stop-hook aif_msg_eot_branch_story branch"
+# (SKILL.md) — but that Stop hook was never delivered, so the consumer got a skill whose ambient
+# end-of-turn nudge silently did not exist. Ship the hook + its lang pack, and register it as a
+# Stop hook (non-destructive, idempotent — reuses register_cc_hook / lib.sh). Consumer-safe: the
+# hook has no framework-internal dependency and self-guards on jq.
+EOT_SRC="$PKG_ROOT/.claude/hooks/end-of-turn-reminder.sh"
+EOT_DST="$PROJECT_ROOT/.claude/hooks/end-of-turn-reminder.sh"
+if [ -f "$EOT_SRC" ]; then
+  copy_safe "$EOT_SRC" "$EOT_DST"
+  chmod_safe +x "$EOT_DST" 2>/dev/null || true
+  # Lang pack: en (canonical, zero-setup default) + ru (via AIF_HOOK_LANG) + parity check.
+  mkdir_safe "$PROJECT_ROOT/.claude/hooks/lang"
+  for _lp in en.sh ru.sh check-parity.sh; do
+    [ -f "$PKG_ROOT/.claude/hooks/lang/$_lp" ] && copy_safe "$PKG_ROOT/.claude/hooks/lang/$_lp" "$PROJECT_ROOT/.claude/hooks/lang/$_lp"
+  done
+  chmod_safe +x "$PROJECT_ROOT/.claude/hooks/lang/check-parity.sh" 2>/dev/null || true
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would: register end-of-turn-reminder as a Stop hook in .claude/settings.json"
+  else
+    # $CLAUDE_PROJECT_DIR-relative (matches the framework's own settings.json — worktree-safe).
+    register_cc_hook "$SETTINGS" "Stop" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/end-of-turn-reminder.sh"' "end-of-turn-reminder"
+  fi
+fi

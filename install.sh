@@ -427,6 +427,26 @@ do_refresh() {
     fi
   fi
 
+  # GH #934: refresh coverage for the end-of-turn session-recap Stop hook + lang pack (parity with
+  # the fresh-install delivery in setup.d/10-skills.sh §1c — closes the refresh-drift class #869/#890).
+  # A brownfield consumer that installed before #934 gets the hook + the Stop registration via --refresh.
+  _EOT_SRC="$PKG_ROOT/.claude/hooks/end-of-turn-reminder.sh"
+  _EOT_DST="$PROJECT_ROOT/.claude/hooks/end-of-turn-reminder.sh"
+  if [ -f "$_EOT_SRC" ]; then
+    refresh_safe "$_EOT_SRC" "$_EOT_DST"
+    # if-then (not `A && B || true`) to stay SC2015-clean under the pinned shellcheck 0.9.0 gate
+    # — parity with the deps-hash block above.
+    if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_EOT_DST" ]; then chmod_safe +x "$_EOT_DST" 2>/dev/null || true; fi
+    mkdir_safe "$PROJECT_ROOT/.claude/hooks/lang"
+    for _lp in en.sh ru.sh check-parity.sh; do
+      [ -f "$PKG_ROOT/.claude/hooks/lang/$_lp" ] && refresh_safe "$PKG_ROOT/.claude/hooks/lang/$_lp" "$PROJECT_ROOT/.claude/hooks/lang/$_lp"
+    done
+    if [ "$DRY_RUN" != "--dry-run" ]; then chmod_safe +x "$PROJECT_ROOT/.claude/hooks/lang/check-parity.sh" 2>/dev/null || true; fi
+    if [ "$DRY_RUN" != "--dry-run" ]; then
+      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "Stop" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/end-of-turn-reminder.sh"' "end-of-turn-reminder"
+    fi
+  fi
+
   # ── Scripts ─────────────────────────────────────────────
   echo "▶ Scripts → scripts/"
   for _pair in \
