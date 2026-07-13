@@ -448,7 +448,7 @@ do_refresh() {
   fi
 
   # GH #934: refresh coverage for the two session-UX hooks (setup.d/10-skills.sh §1d/§1e parity) —
-  # ask-question-reminder (PreToolUse:AskUserQuestion) + inject-matching-rule (PostToolUse:Edit|Write).
+  # ask-question-reminder (PreToolUse:AskUserQuestion) + inject-matching-rule (PostToolUse:Edit|Write|MultiEdit).
   # A brownfield consumer installed before #934 gets both hooks + their matcher-scoped registration
   # via --refresh (not --force-only). ask-question-reminder reuses the lang pack refreshed above.
   _AQR_SRC="$PKG_ROOT/.claude/hooks/ask-question-reminder.sh"
@@ -466,7 +466,7 @@ do_refresh() {
     refresh_safe "$_IMR_SRC" "$_IMR_DST"
     if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_IMR_DST" ]; then chmod_safe +x "$_IMR_DST" 2>/dev/null || true; fi
     if [ "$DRY_RUN" != "--dry-run" ]; then
-      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh"' "inject-matching-rule" "Edit|Write"
+      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh"' "inject-matching-rule" "Edit|Write|MultiEdit"
     fi
   fi
   # GH #934 batch B: refresh coverage for the output-language UserPromptSubmit hook (setup.d/10-skills.sh
@@ -483,14 +483,14 @@ do_refresh() {
 
   # GH #934 (per-hook audit follow-up): refresh coverage for the doc-authority-header PostToolUse gate
   # (setup.d/10-skills.sh §1g parity). A brownfield consumer installed before this batch gets the hook +
-  # the Edit|Write registration via --refresh (closes the refresh-drift class #869/#890).
+  # the Edit|Write|MultiEdit registration via --refresh (closes the refresh-drift class #869/#890).
   _DAH_SRC="$PKG_ROOT/.claude/hooks/check-doc-authority-header.sh"
   _DAH_DST="$PROJECT_ROOT/.claude/hooks/check-doc-authority-header.sh"
   if [ -f "$_DAH_SRC" ]; then
     refresh_safe "$_DAH_SRC" "$_DAH_DST"
     if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_DAH_DST" ]; then chmod_safe +x "$_DAH_DST" 2>/dev/null || true; fi
     if [ "$DRY_RUN" != "--dry-run" ]; then
-      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/check-doc-authority-header.sh"' "check-doc-authority-header" "Edit|Write"
+      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/check-doc-authority-header.sh"' "check-doc-authority-header" "Edit|Write|MultiEdit"
     fi
   fi
 

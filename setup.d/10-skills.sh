@@ -194,16 +194,19 @@ fi
 # only. This edit-time injector delivers the matching rule's `inject:` summary the moment a scoped
 # path is edited. Consumer-safe: the only runtime path is the consumer's own .claude/rules/ (no
 # framework-internal artefact), and it degrades to exit 0 when the rules dir or jq is absent.
-# Registered with the "Edit|Write" matcher (parity with the framework's own settings.json).
+# Registered with the "Edit|Write|MultiEdit" matcher: the hook's own `case "$TOOL"` already handles
+# all three tools, so MultiEdit here ensures a batch edit to a rules-globbed path still triggers rule
+# injection instead of silently no-op'ing (a MultiEdit does NOT also fire an Edit/Write PostToolUse
+# event, so an Edit|Write-only matcher would never wake this hook on a batch edit).
 IMR_SRC="$PKG_ROOT/.claude/hooks/inject-matching-rule.sh"
 IMR_DST="$PROJECT_ROOT/.claude/hooks/inject-matching-rule.sh"
 if [ -f "$IMR_SRC" ]; then
   copy_safe "$IMR_SRC" "$IMR_DST"
   chmod_safe +x "$IMR_DST" 2>/dev/null || true
   if [ "$DRY_RUN" = "--dry-run" ]; then
-    echo "  [dry-run] would: register inject-matching-rule as a PostToolUse:Edit|Write hook in .claude/settings.json"
+    echo "  [dry-run] would: register inject-matching-rule as a PostToolUse:Edit|Write|MultiEdit hook in .claude/settings.json"
   else
-    register_cc_hook "$SETTINGS" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh"' "inject-matching-rule" "Edit|Write"
+    register_cc_hook "$SETTINGS" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh"' "inject-matching-rule" "Edit|Write|MultiEdit"
   fi
 fi
 
@@ -233,16 +236,18 @@ fi
 # header gets exit 2 (PostToolUse feedback → the model adds it). Default-on gate (GH #934 maintainer
 # decision); opt out repo-wide with AIF_DOC_AUTHORITY=0, or per-file with a
 # `<!-- doc-authority: exempt <reason 20+> -->` line. Consumer-safe: pure bash + jq, no
-# framework-internal dependency; degrades to exit 0 when jq is absent. Registered with the "Edit|Write"
-# matcher (parity with the framework's own check-doc-authority.sh registration).
+# framework-internal dependency; degrades to exit 0 when jq is absent. Registered with the
+# "Edit|Write|MultiEdit" matcher — MultiEdit included so a batch edit that strips the required header
+# cannot silently bypass this gate (a MultiEdit does NOT also fire an Edit/Write PostToolUse event, so
+# an Edit|Write-only matcher would leave a blind spot for batch edits).
 DAH_SRC="$PKG_ROOT/.claude/hooks/check-doc-authority-header.sh"
 DAH_DST="$PROJECT_ROOT/.claude/hooks/check-doc-authority-header.sh"
 if [ -f "$DAH_SRC" ]; then
   copy_safe "$DAH_SRC" "$DAH_DST"
   chmod_safe +x "$DAH_DST" 2>/dev/null || true
   if [ "$DRY_RUN" = "--dry-run" ]; then
-    echo "  [dry-run] would: register check-doc-authority-header as a PostToolUse:Edit|Write hook in .claude/settings.json"
+    echo "  [dry-run] would: register check-doc-authority-header as a PostToolUse:Edit|Write|MultiEdit hook in .claude/settings.json"
   else
-    register_cc_hook "$SETTINGS" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/check-doc-authority-header.sh"' "check-doc-authority-header" "Edit|Write"
+    register_cc_hook "$SETTINGS" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/check-doc-authority-header.sh"' "check-doc-authority-header" "Edit|Write|MultiEdit"
   fi
 fi

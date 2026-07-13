@@ -476,6 +476,8 @@ jobs:
         run: bash tests/install-sh/gh-934-ship-output-language-hook.test.sh
       - name: "install-sh — gh-934 ship doc-authority-header gate (PostToolUse: zero-dep reimpl, non-destructive same-event merge, firing miss/pass, escape valves, jq-degrade, refresh)"
         run: bash tests/install-sh/gh-934-ship-doc-authority-hook.test.sh
+      - name: "install-sh — MultiEdit gate coverage (every shipped PostToolUse Edit hook also lists MultiEdit; paired-negative non-vacuity + Write-only no-false-positive)"
+        run: bash tests/install-sh/multiedit-gate-coverage.test.sh
       - name: "install-sh — self-verify banner honesty (P0.4: SKIP accounting withholds property claim + strict D1 under DEPS_INSTALLED)"
         run: bash tests/install-sh/install-self-verify-banner-honesty.test.sh
       - name: install-sh — layer-units (per-layer sourcing + structural integrity checks)
