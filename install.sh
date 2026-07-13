@@ -447,6 +447,29 @@ do_refresh() {
     fi
   fi
 
+  # GH #934: refresh coverage for the two session-UX hooks (setup.d/10-skills.sh §1d/§1e parity) —
+  # ask-question-reminder (PreToolUse:AskUserQuestion) + inject-matching-rule (PostToolUse:Edit|Write).
+  # A brownfield consumer installed before #934 gets both hooks + their matcher-scoped registration
+  # via --refresh (not --force-only). ask-question-reminder reuses the lang pack refreshed above.
+  _AQR_SRC="$PKG_ROOT/.claude/hooks/ask-question-reminder.sh"
+  _AQR_DST="$PROJECT_ROOT/.claude/hooks/ask-question-reminder.sh"
+  if [ -f "$_AQR_SRC" ]; then
+    refresh_safe "$_AQR_SRC" "$_AQR_DST"
+    if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_AQR_DST" ]; then chmod_safe +x "$_AQR_DST" 2>/dev/null || true; fi
+    if [ "$DRY_RUN" != "--dry-run" ]; then
+      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "PreToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/ask-question-reminder.sh"' "ask-question-reminder" "AskUserQuestion"
+    fi
+  fi
+  _IMR_SRC="$PKG_ROOT/.claude/hooks/inject-matching-rule.sh"
+  _IMR_DST="$PROJECT_ROOT/.claude/hooks/inject-matching-rule.sh"
+  if [ -f "$_IMR_SRC" ]; then
+    refresh_safe "$_IMR_SRC" "$_IMR_DST"
+    if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_IMR_DST" ]; then chmod_safe +x "$_IMR_DST" 2>/dev/null || true; fi
+    if [ "$DRY_RUN" != "--dry-run" ]; then
+      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh"' "inject-matching-rule" "Edit|Write"
+    fi
+  fi
+
   # ── Scripts ─────────────────────────────────────────────
   echo "▶ Scripts → scripts/"
   for _pair in \

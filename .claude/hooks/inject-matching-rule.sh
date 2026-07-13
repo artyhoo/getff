@@ -18,6 +18,11 @@
 #
 # Glob subset (deterministic, no glob engine): `prefix/**` (path starts with prefix/),
 # `*.ext` (path ends with .ext), or an exact repo-relative path.
+#
+# SHIP status (GH #934): NOW SHIPPED to consumer CC projects — consumers DO get .claude/rules/*
+# installed, and without this hook that rules channel is cold-load only. Consumer-safe: the only
+# runtime path is the consumer's own $RULES_DIR (no framework-internal artefact), and it degrades
+# to exit 0 when the rules dir or jq is absent. Delivered by install.sh + do_refresh (setup.d).
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
