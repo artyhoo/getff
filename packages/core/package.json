@@ -30,7 +30,7 @@
     "test:backends": "vitest run backends/",
     "test:composition": "vitest run composition/",
     "test:render": "vitest run render/",
-    "test:synthesizer": "vitest run synthesizer/",
+    "test:live-generation": "vitest run synthesizer/research-to-node.test.ts synthesizer/research-to-clippy-node.test.ts synthesizer/live-generation-clippy.test.ts",
     "test:template-render": "vitest run audit-self/template-render.audit.ts",
     "guard-liveness:fullsweep": "tsx hooks/checks/guard-liveness-fullsweep.ts",
     "demo:cargo": "bash backends/cargo/demo/run-demo.sh",
