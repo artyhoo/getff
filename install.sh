@@ -480,6 +480,17 @@ do_refresh() {
       register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "UserPromptSubmit" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-output-language.sh"' "inject-output-language"
     fi
   fi
+  # GH #934 batch C: refresh coverage for the doc authority-header check hook (setup.d/10-skills.sh
+  # §1g parity). A brownfield consumer installed before batch C gets it + the registration via --refresh.
+  _CAH_SRC="$PKG_ROOT/.claude/hooks/check-authority-header.sh"
+  _CAH_DST="$PROJECT_ROOT/.claude/hooks/check-authority-header.sh"
+  if [ -f "$_CAH_SRC" ]; then
+    refresh_safe "$_CAH_SRC" "$_CAH_DST"
+    if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_CAH_DST" ]; then chmod_safe +x "$_CAH_DST" 2>/dev/null || true; fi
+    if [ "$DRY_RUN" != "--dry-run" ]; then
+      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/check-authority-header.sh"' "check-authority-header" "Edit|Write"
+    fi
+  fi
 
   # ── Scripts ─────────────────────────────────────────────
   echo "▶ Scripts → scripts/"

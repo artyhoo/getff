@@ -224,3 +224,21 @@ if [ -f "$OLH_SRC" ]; then
     register_cc_hook "$SETTINGS" "UserPromptSubmit" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-output-language.sh"' "inject-output-language"
   fi
 fi
+
+# ─── 1g. Doc authority-header edit-time check (GH #934 batch C) ───────────────
+# Zero-dep consumer port of the maintainer-only check-doc-authority.sh (which needs a tsx bin + the
+# framework's own REQUIRED_HEADER_DOCS list → dead no-op in a consumer). Edit-time PostToolUse check
+# that a consumer-authored rule/skill/agent doc carries the `> **Authoritative for:**` header — the
+# exact convention the shipped /ai-doc skill teaches. Consumer-safe: pure bash + grep + awk, no tsx/
+# node/framework-internal artefact; non-blocking (exit 1 surfaces, never blocks); jq-guarded.
+CAH_SRC="$PKG_ROOT/.claude/hooks/check-authority-header.sh"
+CAH_DST="$PROJECT_ROOT/.claude/hooks/check-authority-header.sh"
+if [ -f "$CAH_SRC" ]; then
+  copy_safe "$CAH_SRC" "$CAH_DST"
+  chmod_safe +x "$CAH_DST" 2>/dev/null || true
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would: register check-authority-header as a PostToolUse:Edit|Write hook in .claude/settings.json"
+  else
+    register_cc_hook "$SETTINGS" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/check-authority-header.sh"' "check-authority-header" "Edit|Write"
+  fi
+fi
