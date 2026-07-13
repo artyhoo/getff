@@ -28,8 +28,9 @@
 #       proves R2 fires; scoped `eslint` in the boundary workspace flags it directly
 #   (e) false-positive arm: the rule's own VALID shape (static-literal ConfigSchema.parse) produces
 #       ZERO rules-as-tests errors under the scoped workspace eslint
-#   (i) clean-tree real git push to a local bare remote → allowed (encodes the S3 thin push-channel
-#       contract: tag-pinned @v6 workflow allowed, zizmor owner:maintainer, no un-pinned bare install)
+#   (i) clean-tree real git push with an UN-PINNED (@v6) workflow → allowed — proves F-push is
+#       resolved: the consumer composition excludes zizmor (owner:maintainer) so a pre-existing
+#       un-pinned action never DoS's the first push
 #   XFAIL #973 (S1 D2): root `eslint .` crashes on a per-workspace monorepo (no root flat-config /
 #       project-service on out-of-tsconfig files) — asserted as REPRODUCING; flips loud when fixed.
 #   XFAIL #975 (S1 D4): a consumer prepare=simple-git-hooks install clobbers the framework hooks —
@@ -114,28 +115,25 @@ cat > packages/lib/package.json <<'JSON'
 { "name": "@consumer/lib", "version": "0.0.0", "main": "index.js" }
 JSON
 printf 'module.exports = { version: "0.0.0" };\n' > packages/lib/index.js
-# Consumer workflow: fully zizmor-CLEAN (SHA-pinned action + persist-credentials:false +
-# least-privilege permissions + no un-pinned bare tool install). Assert (i) tests the honest
-# clean-tree-push path. S1 §4 explicitly requires the fixture workflow be SHA-pinned "or assert
-# (i) fails on F-push": the shipped pre-push runs zizmor whenever the tool is present (CI ubuntu
-# has no zizmor → warn-skip degrade; a dev machine with zizmor installed → real scan), so an
-# un-pinned action here would block the push where zizmor exists. NOTE (surfaced in the stage
-# report, NOT asserted here): the S3 owner-split SECTIONS registry is data-only — main() still
-# calls zizmor directly (pre-push.ts:677), so a consumer WITH zizmor + pre-existing un-pinned
-# workflows is still blocked (F-push only degrades when zizmor is ABSENT). That gap is an S3
-# follow-up; this cell stays green-on-a-clean-consumer rather than encoding the unfixed contract.
+# Consumer workflow with an UN-PINNED action (@v6) — deliberately the F-push trigger. Assert (i)
+# proves the S3 push-channel contract is actually resolved: the shipped pre-push composes ONLY
+# consumer/both-owned sections for a consumer (isFrameworkRepo=false via composeSections in
+# pre-push.ts), and zizmor is owner:'maintainer' → EXCLUDED from the consumer composition, so a
+# consumer's first push is NOT blocked on a pre-existing un-pinned workflow. Verified empirically
+# on current staging (a fresh consumer install + real `git push` with this exact @v6 workflow →
+# rc=0, zizmor not run), which is why S1 §4's "SHA-pin or (i) fails on F-push" caveat no longer
+# applies: the owner-split closes F-push at the composition layer, not by fixture SHA-pinning.
+# (This corrects an earlier note here that claimed the SECTIONS registry was data-only — it is
+# consumed by main() via activeSections(); the earlier "still blocked" observation was a stale
+# install, disproven by the current-staging repro. See #993.)
 cat > .github/workflows/ci.yml <<'YML'
 name: consumer-ci
 on: [push]
-permissions:
-  contents: read
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          persist-credentials: false
+      - uses: actions/checkout@v6
       - run: echo ok
 YML
 git add -A
@@ -230,7 +228,7 @@ grep -q "no-unsafe-zod-parse.*ACTIVE\|fence fires.*no-unsafe-zod-parse" "$WORK/f
   || fail "(d-3) check:fences-fire did not confirm R2 fires: $(tail -4 "$WORK/fences.log")"
 echo "  ✓ (d-3) check:fences-fire confirms R2 fires on bad input / passes good input"
 
-step "(i) push channel: clean-tree real push to a bare remote → allowed (S3 thin-contract encode)"
+step "(i) push channel: clean-tree real push with an UN-PINNED workflow → allowed (F-push resolved)"
 # Restore tracked files to the committed baseline (discard the (c) format-normalization edits —
 # they are not committed and are irrelevant to what a push transmits) so the push exercises a
 # genuinely clean tree. node_modules is gitignored, so it stays untracked and out of the way.
@@ -244,9 +242,9 @@ PUSH_RC=$?
 set -e
 if [ "$PUSH_RC" -ne 0 ]; then
   echo "$PUSH_OUT" | tail -20 | sed 's/^/      /'
-  fail "(i) clean-tree push blocked (rc=$PUSH_RC) — breaks the S3 thin push-channel contract (tag-pinned @v6 allowed; zizmor owner:maintainer; no un-pinned bare installs present)"
+  fail "(i) push blocked (rc=$PUSH_RC) on a consumer with an un-pinned workflow — F-push NOT resolved: the consumer composition must exclude zizmor (owner:maintainer) so a pre-existing @v6 never DoS's the first push"
 fi
-echo "  ✓ clean-tree push allowed (pre-push consumer entrypoint did not block)"
+echo "  ✓ clean-tree push allowed with an un-pinned @v6 workflow present — F-push resolved (zizmor owner:maintainer, excluded from the consumer composition)"
 
 step "XFAIL #973 (S1 D2): root 'eslint .' crashes on a per-workspace monorepo — assert it REPRODUCES"
 set +e
