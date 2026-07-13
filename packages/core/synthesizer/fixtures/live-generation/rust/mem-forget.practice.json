@@ -1,0 +1,38 @@
+{
+  "_comment": "Committed researched-rust-practice record (ClippyResearchedPractice input) — live-generation LG-S3 Inc 1. The rust flagship: ban std::mem::forget on a Drop value (clippy restriction-lint mem_forget), distinct from #977's std::env::var firing convention. Rendered by the ADOPTED cargo clippy.toml backend (renderCargoClippy, #977-owned) into a disallowed-methods entry — kind:'method', path:'std::mem::forget', defaultSeverity:'warning' (the only severity render-clippy renders rather than degrades). Session-side render + local `cargo clippy` RED live-fire = LG-S3 Inc 2. LIVE-RESEARCHED, not asserted from memory (§Qc, T3/T12).",
+  "_provenance_excerpts": {
+    "rust.official": {
+      "url": "https://doc.rust-lang.org/std/mem/fn.forget.html",
+      "fetchedAt": "2026-07-13T00:00:00.000Z",
+      "excerpt": "Takes ownership and \"forgets\" about the value without running its destructor. Any resources the value manages, such as heap memory or a file handle, will linger forever in an unreachable state. `forget` is not marked as `unsafe`, because Rust's safety guarantees do not include a guarantee that destructors will always run."
+    },
+    "clippy": {
+      "url": "https://rust-lang.github.io/rust-clippy/master/index.html#mem_forget",
+      "fetchedAt": "2026-07-13T00:00:00.000Z",
+      "excerpt": "clippy restriction-group lint `mem_forget`: checks for usage of std::mem::forget(t) where t implements Drop; discouraged because forgetting a Drop value skips its destructor, leaking the resources it manages (confirmed via rust-lang.github.io; the lint index is a JS-rendered SPA so the machine-readable body is captured here from the confirmed lint semantics rather than a raw-markdown scrape)."
+    }
+  },
+  "entryId": "mem-forget",
+  "title": "Do not use std::mem::forget() on a Drop value; it skips the destructor and leaks the resource — drop explicitly or use ManuallyDrop",
+  "stack": ["rust"],
+  "kind": "method",
+  "presence": "forbid",
+  "path": "std::mem::forget",
+  "examples": {
+    "bad": "fn main() {\n    let f = std::fs::File::open(\"/tmp/x\").unwrap();\n    std::mem::forget(f);\n}",
+    "good": "fn main() {\n    let f = std::fs::File::open(\"/tmp/x\").unwrap();\n    drop(f);\n}"
+  },
+  "provenance": [
+    {
+      "url": "https://doc.rust-lang.org/std/mem/fn.forget.html",
+      "allowlistKey": "rust.official",
+      "fetchedAt": "2026-07-13T00:00:00.000Z"
+    },
+    {
+      "url": "https://rust-lang.github.io/rust-clippy/master/index.html#mem_forget",
+      "allowlistKey": "clippy",
+      "fetchedAt": "2026-07-13T00:00:00.000Z"
+    }
+  ],
+  "defaultSeverity": "warning"
+}
