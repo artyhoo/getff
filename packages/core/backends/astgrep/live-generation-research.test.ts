@@ -13,7 +13,7 @@
 // NEVER a live MCP/research call. The render ran session-side (Model A′); CI only drift-checks the
 // committed artifact (AC2) and fires it (AC3) — it never renders-from-research.
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -103,12 +103,46 @@ describe('AC2 — committed rendered artifact is byte-for-byte renderAstgrep([no
     expect(readFileSync(ARTIFACT_ABS, 'utf8')).toBe(yaml);
   });
 
-  it('the drift gate has teeth: the committed bytes do NOT equal a mutated render', () => {
-    // Paired-negative — proves the byte comparison discriminates (not a vacuous always-true assert).
-    const committed = readFileSync(ARTIFACT_ABS, 'utf8');
-    const mutated = committed.replace('yaml.load($$$ARGS)', 'yaml.load($$$OOPS)');
-    expect(mutated).not.toBe(committed);
-    expect(committed).not.toBe(mutated);
+  it('the drift gate has teeth: a mutated committed artifact → a byte-mismatch finding (bytes restored after)', () => {
+    // REAL non-vacuity: mutate the committed artifact ON DISK, run the ACTUAL drift gate
+    // (checkResearchedAstgrepDrift → planFromCommittedRecords → renderAstgrep), and assert it
+    // reports the mismatch. A `finally` restores the verbatim bytes even if the assertion throws, so
+    // the committed tree is left byte-identical. (This replaces a prior vacuous `String.replace` +
+    // `not.toBe` assertion that never called any drift code and passed even if the gate were deleted
+    // — exactly the attention-is-not-a-mechanism / #discipline-theatre failure the project catches.)
+    const original = readFileSync(ARTIFACT_ABS, 'utf8');
+    try {
+      writeFileSync(
+        ARTIFACT_ABS,
+        original.replace('yaml.load($$$ARGS)', 'yaml.load($$$OOPS)'),
+      );
+      const drift = checkResearchedAstgrepDrift();
+      expect(drift).toContainEqual({
+        path: renderedRulePath(RULE_ID),
+        reason: 'byte-mismatch',
+      });
+    } finally {
+      writeFileSync(ARTIFACT_ABS, original);
+    }
+    // Restored: the gate is empty again — proves the finally left the committed bytes pristine.
+    expect(checkResearchedAstgrepDrift()).toEqual([]);
+  });
+
+  it('the drift gate reports `missing` when the committed artifact is absent (bytes restored after)', () => {
+    // Covers the second drift reason: a deleted/absent committed artifact must be caught, not
+    // silently treated as up-to-date. Restore in `finally` keeps the tree byte-identical.
+    const original = readFileSync(ARTIFACT_ABS, 'utf8');
+    try {
+      unlinkSync(ARTIFACT_ABS);
+      const drift = checkResearchedAstgrepDrift();
+      expect(drift).toContainEqual({
+        path: renderedRulePath(RULE_ID),
+        reason: 'missing',
+      });
+    } finally {
+      writeFileSync(ARTIFACT_ABS, original);
+    }
+    expect(checkResearchedAstgrepDrift()).toEqual([]);
   });
 });
 
@@ -157,6 +191,20 @@ describe('AC4 — the driver degrades a non-expressible practice (never inert-em
   it('non-vacuity: the expressibility predicate is false for the drop and true for the flagship', () => {
     expect(isSinglePatternExpressible(NON_EXPRESSIBLE)).toBe(false);
     expect(isSinglePatternExpressible(loadPracticeRecord(RECORD_ABS))).toBe(true);
+  });
+});
+
+// ── Driver guard: two practices sharing an entryId → loud throw, never a silent clobber ───────────
+
+describe('driver guard — duplicate entryId in a plan fails loud (no silent clobber)', () => {
+  it('two practices sharing an entryId render to the same path → planResearchedAstgrep throws', () => {
+    // Two identical flagship records both project to id RULE_ID → the same firing/rules/<id>.yml
+    // path. Without the guard, writeResearchedAstgrep would silently clobber the first. Sibling of
+    // planPythonTemplates' lane guard (render-python-templates.ts:127-133).
+    const flagship = loadPracticeRecord(RECORD_ABS);
+    expect(() => planResearchedAstgrep([flagship, flagship])).toThrow(
+      /duplicate rendered entryId/,
+    );
   });
 });
 

@@ -130,11 +130,28 @@ export function planResearchedAstgrep(
     });
   }
 
+  // Loud dup guard: two practices sharing an entryId (hence output path) both land in `rendered` at
+  // the SAME committed artifact path, and writeResearchedAstgrep would silently clobber the first —
+  // write order alone would decide which rule survives. Fail LOUD, mirroring the fail-loud throw
+  // above and the sibling lane guard in render-python-templates.ts planPythonTemplates (:127-133).
+  const seenIds = new Set<string>();
+  const seenPaths = new Set<string>();
+  for (const rule of rendered) {
+    if (seenIds.has(rule.entryId) || seenPaths.has(rule.path)) {
+      throw new Error(
+        `planResearchedAstgrep(): duplicate rendered entryId "${rule.entryId}" → ${rule.path} ` +
+          `(two practices render to the same committed artifact; writeResearchedAstgrep would clobber one)`,
+      );
+    }
+    seenIds.add(rule.entryId);
+    seenPaths.add(rule.path);
+  }
+
   return { rendered, researchOnly };
 }
 
-/** PURE. Load the committed records + plan. The single entry the writer AND the drift gate call,
- *  so the two can never disagree about the bytes. */
+/** PURE (read-only fs). Load the committed records + plan. The single entry the writer AND the drift
+ *  gate call, so the two can never disagree about the bytes. */
 export function planFromCommittedRecords(): ResearchedAstgrepPlan {
   const practices = PRACTICE_RECORDS.map((r) =>
     loadPracticeRecord(join(LIVE_GEN_DIR, r)),
