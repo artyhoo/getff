@@ -242,3 +242,42 @@ if [ -f "$CAH_SRC" ]; then
     register_cc_hook "$SETTINGS" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/check-authority-header.sh"' "check-authority-header" "Edit|Write"
   fi
 fi
+
+# ─── 1h. Project-anchor digest injector (GH #934 batch D) ────────────────────
+# Project-agnostic adaptation of the maintainer-only inject-session-bootstrap + inject-subagent-digest
+# pair (which hard-code the FRAMEWORK's own goal/invariants digest). This ONE hook injects the
+# CONSUMER's own anchor — the digest block of THEIR .claude/session-bootstrap.md — into BOTH the main
+# session (UserPromptSubmit) and every subagent (SubagentStart). We also ship a starter template
+# (copy_safe → .claude/session-bootstrap.md, non-destructive) that ships EMPTY, so nothing is injected
+# until the consumer fills it (zero-setup, zero token cost by default).
+PDG_SRC="$PKG_ROOT/.claude/hooks/inject-project-digest.sh"
+PDG_DST="$PROJECT_ROOT/.claude/hooks/inject-project-digest.sh"
+if [ -f "$PDG_SRC" ]; then
+  copy_safe "$PDG_SRC" "$PDG_DST"
+  chmod_safe +x "$PDG_DST" 2>/dev/null || true
+  # Starter template → consumer's .claude/session-bootstrap.md (never overwrite a filled one).
+  [ -f "$PKG_ROOT/.claude/templates/session-bootstrap.md" ] && copy_safe "$PKG_ROOT/.claude/templates/session-bootstrap.md" "$PROJECT_ROOT/.claude/session-bootstrap.md"
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would: register inject-project-digest as UserPromptSubmit + SubagentStart hooks"
+  else
+    register_cc_hook "$SETTINGS" "UserPromptSubmit" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-project-digest.sh"' "inject-project-digest"
+    register_cc_hook "$SETTINGS" "SubagentStart" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-project-digest.sh"' "inject-project-digest"
+  fi
+fi
+
+# ─── 1i. Memory-codification write-time reminder (GH #934 batch D) ───────────
+# Generic nudge: wrote a durable behavioural rule to agent memory → codify it into the repo (don't
+# leave conventions only in unreliable memory — the project's own thesis). Fires on a Write to any
+# */memory/* path. Its companion agents/memory-codification-auditor.md is ALREADY shipped, so this
+# closes a half-shipped gap. Consumer-safe: message is generic (no framework-internal doc ref), jq-guarded.
+MCF_SRC="$PKG_ROOT/.claude/hooks/inject-memory-codification.sh"
+MCF_DST="$PROJECT_ROOT/.claude/hooks/inject-memory-codification.sh"
+if [ -f "$MCF_SRC" ]; then
+  copy_safe "$MCF_SRC" "$MCF_DST"
+  chmod_safe +x "$MCF_DST" 2>/dev/null || true
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would: register inject-memory-codification as a PostToolUse:Write hook"
+  else
+    register_cc_hook "$SETTINGS" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-memory-codification.sh"' "inject-memory-codification" "Write"
+  fi
+fi

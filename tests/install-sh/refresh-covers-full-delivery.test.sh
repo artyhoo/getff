@@ -83,6 +83,9 @@ EXCLUDED=$(sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' <<'EXC' | sed 
   .github/workflows/ci.yml
   .github/workflows/workflow-integrity.yml
   AGENTS.md
+  # Project-anchor digest (GH #934 batch D): shipped EMPTY as a starter; the consumer fills it with
+  # their own project digest → consumer-owned, refresh must never clobber their content.
+  .claude/session-bootstrap.md
   # Generated / consumer-customisable .ai-factory docs (per-consumer content; not framework code)
   .ai-factory/RULES.md
   .ai-factory/RULES.react-next.md

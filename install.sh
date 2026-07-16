@@ -491,6 +491,30 @@ do_refresh() {
       register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/check-authority-header.sh"' "check-authority-header" "Edit|Write"
     fi
   fi
+  # GH #934 batch D: refresh coverage for the project-anchor digest injector (setup.d/10-skills.sh §1h)
+  # + the memory-codification reminder (§1i). The HOOKS are framework-owned → refresh_safe (overwrite).
+  # The .claude/session-bootstrap.md TEMPLATE is a consumer-owned seed → copy_safe (never clobber a
+  # filled anchor); it is on the refresh-covers EXCLUDED list.
+  _PDG_SRC="$PKG_ROOT/.claude/hooks/inject-project-digest.sh"
+  _PDG_DST="$PROJECT_ROOT/.claude/hooks/inject-project-digest.sh"
+  if [ -f "$_PDG_SRC" ]; then
+    refresh_safe "$_PDG_SRC" "$_PDG_DST"
+    if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_PDG_DST" ]; then chmod_safe +x "$_PDG_DST" 2>/dev/null || true; fi
+    [ -f "$PKG_ROOT/.claude/templates/session-bootstrap.md" ] && copy_safe "$PKG_ROOT/.claude/templates/session-bootstrap.md" "$PROJECT_ROOT/.claude/session-bootstrap.md"
+    if [ "$DRY_RUN" != "--dry-run" ]; then
+      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "UserPromptSubmit" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-project-digest.sh"' "inject-project-digest"
+      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "SubagentStart" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-project-digest.sh"' "inject-project-digest"
+    fi
+  fi
+  _MCF_SRC="$PKG_ROOT/.claude/hooks/inject-memory-codification.sh"
+  _MCF_DST="$PROJECT_ROOT/.claude/hooks/inject-memory-codification.sh"
+  if [ -f "$_MCF_SRC" ]; then
+    refresh_safe "$_MCF_SRC" "$_MCF_DST"
+    if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_MCF_DST" ]; then chmod_safe +x "$_MCF_DST" 2>/dev/null || true; fi
+    if [ "$DRY_RUN" != "--dry-run" ]; then
+      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-memory-codification.sh"' "inject-memory-codification" "Write"
+    fi
+  fi
 
   # ── Scripts ─────────────────────────────────────────────
   echo "▶ Scripts → scripts/"
