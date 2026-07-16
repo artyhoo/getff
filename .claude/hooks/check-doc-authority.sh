@@ -47,5 +47,6 @@ if [[ $STATUS -ne 0 ]] && _is_zcode; then
 $BIN_ERR"
   exit 0
 fi
-printf '%s\n' "$BIN_ERR" >&2
+# Guard: emit only when non-empty (otherwise success-path emits a stray \n).
+[[ -n "$BIN_ERR" ]] && printf '%s\n' "$BIN_ERR" >&2
 exit $STATUS

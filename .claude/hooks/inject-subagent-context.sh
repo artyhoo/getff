@@ -47,6 +47,14 @@ DIGEST="$(env -u ZCODE_PROJECT_DIR bash "$HOOK_DIR/inject-session-bootstrap.sh" 
 # preserves every other field (description, subagent_type, model, run_in_background) — required,
 # because the host re-validates updatedInput against the Agent runtimeInputSchema and silently
 # reverts to the original if a required field (description/prompt) is missing.
+#
+# Type guard: the Agent runtimeInputSchema requires prompt as a string. If tool_input.prompt is
+# absent or non-string (number/null/array — malformed dispatch), jq's `+` would throw a type
+# error and the hook would exit 0 with empty stdout (no updatedInput → host reverts to original,
+# digest silently undelivered). Guard explicitly: skip on non-string prompt (graceful no-op, same
+# outcome as the fR revert but without stderr noise).
+PROMPT_TYPE="$(printf '%s' "$INPUT" | jq -r '.tool_input.prompt | type' 2>/dev/null || echo error)"
+[[ "$PROMPT_TYPE" == "string" ]] || exit 0
 printf '%s' "$INPUT" | jq -c --arg d "$DIGEST" \
   '{hookSpecificOutput:{hookEventName:"PreToolUse",
      updatedInput:(.tool_input | .prompt = (.prompt + "\n\n---\n[subagent context anchor]\n" + $d))}}'

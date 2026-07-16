@@ -133,9 +133,10 @@ export function emitClaude(model) {
  *
  *  HONEST DEGRADATION: zcode supports 7 hook events (ZCODE_EVENTS) — CC-only
  *  SubagentStart/SubagentStop are DROPPED and declared LOUDLY via a note op. Separately, tool
- *  matchers naming CC tools with no zcode alias (ZCODE_UNSUPPORTED_TOOLS: AskUserQuestion,
- *  MultiEdit) are kept but flagged INERT — they register yet never fire. Both gaps are surfaced
- *  as notes (attention-is-not-a-mechanism.md §1 — silent narrowing declared, not hidden). */
+ *  matchers naming CC tools with no zcode alias (ZCODE_UNSUPPORTED_TOOLS: MultiEdit — note:
+ *  AskUserQuestion is a NATIVE zcode tool, NOT inert) are kept but flagged INERT — they register
+ *  yet never fire. Both gaps are surfaced as notes (attention-is-not-a-mechanism.md §1 — silent
+ *  narrowing declared, not hidden). */
 export function emitZcode(model) {
   const kept = {};
   const dropped = [];

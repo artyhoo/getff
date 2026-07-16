@@ -50,5 +50,7 @@ $VALIDATOR_OUT"
   exit 0
 fi
 # CC path: re-emit captured stderr so the model sees it, then propagate the exit code.
-printf '%s\n' "$VALIDATOR_OUT" >&2
+# Guard: emit only when non-empty (otherwise success-path would emit a stray \n, falsifying
+# the "byte-for-byte unchanged" contract — old hooks emitted nothing on success).
+[[ -n "$VALIDATOR_OUT" ]] && printf '%s\n' "$VALIDATOR_OUT" >&2
 exit $STATUS

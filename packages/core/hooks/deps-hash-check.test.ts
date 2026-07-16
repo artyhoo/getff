@@ -81,10 +81,16 @@ function makeFixtureDir(opts: {
 /** Run the hook with cwd set to the fixture dir. Returns { status, stdout, stderr }.
  *  env is merged onto process.env (used to simulate ZCODE_PROJECT_DIR for the ZCode JSON path). */
 function runHook(cwd: string, env: Record<string, string> = {}): { status: number; stdout: string; stderr: string } {
+  // Default-scrub ZCODE_PROJECT_DIR: the runner may execute inside zcode (the framework's own dev
+  // harness), which would flip _emit_warn to the JSON branch and break the plain-text assertions
+  // below. The ZCode-JSON case passes ZCODE_PROJECT_DIR explicitly. Mirrors inject-subagent-context.test.ts.
+  const fullEnv = { ...process.env };
+  if (env.ZCODE_PROJECT_DIR === undefined) delete fullEnv.ZCODE_PROJECT_DIR;
+  else fullEnv.ZCODE_PROJECT_DIR = env.ZCODE_PROJECT_DIR;
   const r = spawnSync('bash', [HOOK], {
     cwd,
     encoding: 'utf8',
-    env: { ...process.env, ...env },
+    env: fullEnv,
     // Hook is UserPromptSubmit — does not read stdin for dispatch logic.
     // Provide empty object as stdin to match CC harness pattern.
     input: JSON.stringify({}),

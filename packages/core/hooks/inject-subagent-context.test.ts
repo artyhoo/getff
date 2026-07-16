@@ -129,7 +129,27 @@ describe('inject-subagent-context.sh — CC-first backup gated by _is_zcode', ()
     expect(stdout).toBe('');
   });
 
-  it('SSOT: the digest appended === inject-session-bootstrap.sh plain output (no drift)', () => {
+  it('non-string prompt (number/null/missing/array tool_input): graceful exit 0, no updatedInput, no stderr noise', () => {
+    // The Agent runtimeInputSchema requires prompt:string. A malformed dispatch (prompt:123,
+    // prompt:null, missing prompt, array tool_input) must NOT crash jq (type error) nor emit
+    // updatedInput (fR would revert anyway, but we guard to avoid stderr noise). Silent exit 0.
+    const cases = [
+      { description: 'x', prompt: 123 },
+      { description: 'x', prompt: null },
+      { description: 'x' }, // missing prompt
+      [1, 2, 3], // array tool_input
+    ];
+    for (const tool_input of cases) {
+      const { status, stdout } = runHookStatus(
+        { tool_name: 'Agent', tool_input },
+        { ZCODE_PROJECT_DIR: REPO_ROOT },
+      );
+      expect(status).toBe(0);
+      expect(stdout).toBe(''); // no updatedInput emitted on bad prompt type
+    }
+  });
+
+    it('SSOT: the digest appended === inject-session-bootstrap.sh plain output (no drift)', () => {
     const { stdout } = runHook(agentPayload(), { ZCODE_PROJECT_DIR: REPO_ROOT });
     const appended = JSON.parse(stdout).hookSpecificOutput.updatedInput.prompt as string;
     const sourcePlain = execFileSync(
