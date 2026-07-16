@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # PostToolUse memory-codification reminder — path-scoped just-in-time delivery of the
-# .claude/rules/memory-codification.md §3 codify-then-pointer discipline.
+# codify-then-pointer discipline (codify durable conventions into the repo, not just agent memory).
 # @dual-pair: memory-codification-writemoment
 #   Two channels deliver this discipline at different moments: this hook (write-time, fires
 #   the instant a Write targets a user-scope agent-memory file) and the AI-agnostic
 #   agents/memory-codification-auditor.md (session-read, semantic audit of the whole memory
 #   store — a periodic sweep, not a per-write nudge). This hook is CC-only (PostToolUse);
-#   the portable contract is the discipline itself (§3 of the rule), readable by any harness
-#   that wants to build its own write-time injector against the same "/memory/" path signal.
-# spec: .claude/rules/memory-codification.md §3 (write-time discipline) + §4(b) (auditor agent)
+#   the portable contract is the discipline itself, readable by any harness that wants to
+#   build its own write-time injector against the same "/memory/" path signal.
+# spec: the codify-then-pointer discipline (write-time) + the auditor agent (session-read sweep).
 #
 # CAPABILITY-CHECK BY PATH, NOT BRAND NAME (dual-implementation-discipline.md §4): fires only
 # when the Write's target path contains a "/memory/" path segment under a user-scope Claude
