@@ -32,7 +32,7 @@ Stop — you are about to ask a question. First check the question itself, prima
 1. Is this a real fork — or are you offloading a decision you could make yourself? If one option is clearly better on the merits (by the session's goals and the project's discipline) — do NOT ask: do it and say what you did.
 2. If it is a real fork — lead with YOUR reasoned recommendation first: "I recommend <option>, because <reason against the goals and trade-offs>", then the alternatives briefly. The human decides.
 3. In plain words: what exactly are we deciding and why does it block — on a concrete example, not a restatement of the question text.
-4. If this is a DESIGN/STRATEGY fork (not a quick A/B over facts) — open `superpowers:brainstorming` instead of a bare card: explore → recommend with arguments, then ask. A bare card on a design fork reads as "AI punted".
+4. If this is a DESIGN/STRATEGY fork (not a quick A/B over facts) — run a structured brainstorm (e.g. the `superpowers:brainstorming` skill, if available) instead of a bare card: explore → recommend with arguments, then ask. A bare card on a design fork reads as "AI punted".
 If all of this is already done in your answer — just ask the question again: the repeat is not blocked.
 EOF
 }
@@ -83,7 +83,7 @@ Then for your own sake, point by point, with names (file/function/decision), no 
 • What I am least sure of — name ONE thing worth re-checking.
 • The next step and why it is next.
 • If in this turn you recommended something, or said "you decide" / "waiting for your call" / "PR is ready, awaiting your click" — check yourself: were the alternatives really weighed, or did you take the first that came to mind? If there is a clearly better option on the merits (by goals and discipline) — do NOT offload, do it and say what you did. Handing off a decision = reserved for real forks.
-• The inverse: did you in this turn decide a fork SILENTLY — by a direct action/command/dispatch, without surfacing it as a question? If it is ambiguous (no clearly better option by the project's measures) — that is #fork-decided-by-silent-action: surface it NOW via AskUserQuestion, do not leave it silently decided. The operator must see both open and closed forks.
+• The inverse: did you in this turn decide a fork SILENTLY — by a direct action/command/dispatch, without surfacing it as a question? If it is ambiguous (no clearly better option by the project's measures) — that is a silently-decided fork: surface it NOW via AskUserQuestion, do not leave it silently decided. The operator must see both open and closed forks.
 If any point does not come out concrete → say so plainly, do not pad with water.
 EOF
 }

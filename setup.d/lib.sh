@@ -890,8 +890,12 @@ register_cc_hook() {
     jq -n --arg e "$event" --arg c "$cmd" --arg m "$matcher" \
       "{hooks: {(\$e): [$group_filter]}}" > "$settings"
     echo "  ✓ .claude/settings.json created with $event hook ($marker)"
-  elif grep -q "$marker" "$settings" 2>/dev/null; then
-    echo "  ⊝ $marker already registered in .claude/settings.json"
+  elif jq -e --arg e "$event" --arg m "$marker" \
+      '((.hooks[$e] // []) | map(.hooks[].command) | any(test($m)))' "$settings" >/dev/null 2>&1; then
+    # Idempotence is PER-EVENT (not whole-file): the same hook may register on two events
+    # (e.g. inject-project-digest on UserPromptSubmit AND SubagentStart) — a whole-file grep
+    # would false-match the first event's entry and skip the second. GH #934 batch D.
+    echo "  ⊝ $marker already registered on $event in .claude/settings.json"
   else
     jq --arg e "$event" --arg c "$cmd" --arg m "$matcher" \
       ".hooks[\$e] = ((.hooks[\$e] // []) + [$group_filter])" \
