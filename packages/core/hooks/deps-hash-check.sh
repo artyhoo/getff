@@ -122,6 +122,10 @@ _python_current() {
     tier2_hex=""
   fi
   combined="${tier1_hex}${tier2_hex}"
+  # Note: an empty extraction (no recognized Tier-1 tables + Tier-2 absent/failed) still
+  # hashes to sha256("") under _sha256_only_hex — it is NOT empty here. This guard only fires
+  # when BOTH tier hashes are empty, which happens only when no hash tool is on PATH (then
+  # _sha256_only_hex emits nothing). In that all-tool-absent case, skip this stack silently.
   [ -n "$combined" ] || { printf ''; return; }
   _sha256 "$combined"
 }
@@ -167,8 +171,8 @@ ${msg}"
 
 NPM_STORED=$(_read_stored deps-hash-npm deps-hash)
 PY_STORED=$(_read_stored deps-hash-python)
-# (deps-hash-cargo is read but the rust stack is DETECT-ONLY in DH-S2; DH-S1 leaves it
-# uncomputed so a stored cargo baseline simply never drifts until DH-S2 lands detection.)
+# (deps-hash-cargo is a RESERVED key — not read in DH-S1. The rust stack is DETECT-ONLY and
+# lands in DH-S2; until then a stored cargo baseline simply sits unread, so it never drifts.)
 
 # Hash each stack's current deps-extraction before comparing to the stored sha256 baseline.
 # (_npm_current/_python_current return either a normalized string (npm: the deps JSON) or a
