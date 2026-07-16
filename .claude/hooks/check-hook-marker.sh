@@ -21,6 +21,15 @@
 # Graceful no-op (exit 0) without jq, off-path, or for a deleted file.
 set -uo pipefail
 
+# Harness-portable output (inline — this hook is copied standalone to test sandboxes, so no
+# lib/ sibling to source). CC: exit 1 + stderr is advisory feedback. ZCode: JSON
+# additionalContext (plain exit 1 is swallowed); exit 0 (non-blocking, = CC advisory).
+_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
+_emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
+    jq -n --arg e "$1" --arg c "$2" '{hookEventName:$e, additionalContext:$c}'
+  else printf '%s\n' "$2"; fi; }
+_adv_violation() { if _is_zcode; then _emit_ctx "PostToolUse" "$1"; else printf '%s\n' "$1" >&2; exit 1; fi; }
+
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 command -v jq >/dev/null 2>&1 || exit 0   # graceful no-op without jq
 
@@ -46,9 +55,9 @@ if grep -qE '^# @(dual-pair|cc-only-rationale):' "$ABS_PATH"; then
   exit 0
 fi
 
-printf '❌ hook-marker: %s has no delivery-channel marker.\n' "$REL_PATH" >&2
-printf '   Add ONE of (own comment line, near the top):\n' >&2
-printf '     # @cc-only-rationale: <why CC-only — no portable counterpart>\n' >&2
-printf '     # @dual-pair: <anchor shared with the portable agent/skill>\n' >&2
-printf '   Per dual-implementation-discipline.md §6 (prevents silent CC vendor-lock-in).\n' >&2
-exit 1
+_adv_violation "❌ hook-marker: $REL_PATH has no delivery-channel marker.
+   Add ONE of (own comment line, near the top):
+     # @cc-only-rationale: <why CC-only — no portable counterpart>
+     # @dual-pair: <anchor shared with the portable agent/skill>
+   Per dual-implementation-discipline.md §6 (prevents silent CC vendor-lock-in)."
+exit 0

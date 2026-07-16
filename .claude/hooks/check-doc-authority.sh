@@ -8,6 +8,13 @@
 #   @dual-pair per dual-implementation-discipline.md §9; no portable hook fires at edit-time.
 set -uo pipefail
 
+# Harness-portable output (inline — standalone in test sandboxes). ZCode swallows plain
+# exit 1; JSON additionalContext reaches the model. CC preserves stderr + exit 1 byte-for-byte.
+_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
+_emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
+    jq -n --arg e "$1" --arg c "$2" '{hookEventName:$e, additionalContext:$c}'
+  else printf '%s\n' "$2"; fi; }
+
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 BIN="$REPO_ROOT/packages/core/principles/09-doc-authority-hierarchy.bin.ts"
 TSX="$REPO_ROOT/node_modules/.bin/tsx"
@@ -30,4 +37,15 @@ if [[ ! -x "$TSX" ]]; then
   printf '⚠ check-doc-authority: tsx not found — skipping\n' >&2; exit 0
 fi
 
-"$TSX" "$BIN" "$REL_PATH"
+# Delegate; capture output so under ZCode a violation reaches the model (plain exit 1 + stderr
+# is swallowed by ZCode — JSON additionalContext is merged into the tool result). Under CC the
+# bin's stderr + non-zero exit is preserved byte-for-byte.
+BIN_ERR="$("$TSX" "$BIN" "$REL_PATH" 2>&1 1>/dev/null)"
+STATUS=$?
+if [[ $STATUS -ne 0 ]] && _is_zcode; then
+  _emit_ctx "PostToolUse" "❌ check-doc-authority: principle-09 authority-header check failed for $REL_PATH.
+$BIN_ERR"
+  exit 0
+fi
+printf '%s\n' "$BIN_ERR" >&2
+exit $STATUS

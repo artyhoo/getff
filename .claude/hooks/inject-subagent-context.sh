@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Backup digest-injection for harnesses WITHOUT the SubagentStart hook event (zcode).
+#
+# @cc-only-rationale: SubagentDigest zcode-fallback backup — CC+ZCode dual-harness via inline
+#   _is_zcode gate. The CC-first primary (inject-subagent-digest.sh on SubagentStart) is a
+#   distinct mechanism, not a portable-counterpart artifact, so @dual-pair does not apply;
+#   this hook is the best-available backup that fires only when the primary's event is absent.
+#   • PRIMARY (CC-first): SubagentStart event → inject-subagent-digest.sh (additionalContext on
+#     the subagent lifecycle). This is the CC-native, persistent path — registered unchanged in
+#     harness-model.json.
+#   • BACKUP (this hook): PreToolUse:Agent + updatedInput. Fires ONLY when the primary's event
+#     is absent — gated by _is_zcode so it stays silent on CC (no double injection; the primary
+#     handles CC). On zcode SubagentStart does not exist (0 occurrences in the host bundle), so
+#     this backup is the active path.
+#
+# Declared degradation (attention-is-not-a-mechanism §1 — not hidden): on zcode the digest is
+# one-shot — it becomes the subagent's FIRST user message via updatedInput.prompt, not a
+# persistent-lifecycle context as on CC. This is the best-available mechanism; SubagentStart has
+# no zcode equivalent. The single remaining CC-only hook with no backup is warn-subagent-report
+# (SubagentStop, post-dispatch report check — no updatedInput analogue).
+#
+# spec: reuses .claude/hooks/inject-session-bootstrap.sh as the single digest source (SSOT,
+# dual-implementation-discipline §7 — same source as the CC primary, no #two-prompts-drift).
+# Output contract: PreToolUse updatedInput is applied by the host before dispatch (verified
+# empirically in zcode.cjs: updatedInput applied pre-handler; fR re-validates, silent revert
+# to original on invalid — non-fatal).
+set -uo pipefail
+
+_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
+_is_zcode || exit 0   # CC: the SubagentStart primary handles digest injection; stay silent here
+command -v jq >/dev/null 2>&1 || exit 0   # graceful no-op without jq
+
+INPUT="$(cat)"
+TOOL_NAME="$(printf '%s' "$INPUT" | jq -r '.tool_name // ""' 2>/dev/null || true)"
+# Defensive: the matcher (Agent|Task) already restricts this, but never act on another tool
+# if the matcher is ever broadened (cf. ask-question-reminder.sh:46).
+case "$TOOL_NAME" in Agent | Task) ;; *) exit 0 ;; esac
+
+HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Plain digest, deterministic across harnesses: unset ZCODE_PROJECT_DIR so
+# inject-session-bootstrap returns its PLAIN digest (NOT the ZCode-JSON shape it emits under
+# ZCode after the Stage-2 harness-portable refactor). The subagent gets plain anchor text.
+DIGEST="$(env -u ZCODE_PROJECT_DIR bash "$HOOK_DIR/inject-session-bootstrap.sh" 2>/dev/null || true)"
+[ -z "$DIGEST" ] && exit 0
+
+# Echo back the FULL tool_input with prompt augmented. jq's `.tool_input | .prompt = ...`
+# preserves every other field (description, subagent_type, model, run_in_background) — required,
+# because the host re-validates updatedInput against the Agent runtimeInputSchema and silently
+# reverts to the original if a required field (description/prompt) is missing.
+printf '%s' "$INPUT" | jq -c --arg d "$DIGEST" \
+  '{hookSpecificOutput:{hookEventName:"PreToolUse",
+     updatedInput:(.tool_input | .prompt = (.prompt + "\n\n---\n[subagent context anchor]\n" + $d))}}'
+exit 0

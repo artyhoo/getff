@@ -2,13 +2,18 @@
 # Plugin SessionStart bootstrap — injects the getff entry-point context so the
 # using-getff skill auto-triggers without a manual Skill invocation.
 # Invoked via run-hook.cmd from plugin/hooks/hooks.json (matcher: startup|clear|compact).
-# @cc-only-rationale: SessionStart stdout-injection is a CC-native fire-point with no portable
-#   equivalent that fires at the same moment. Off-CC (OpenCode et al.) the using-getff
-#   skill is read on demand instead — the accepted degradation documented in S7
-#   (.opencode/INSTALL.md) / dual-implementation-discipline.md §3.
+# @cc-only-rationale: SessionStart is a CC-native fire-point; this plugin hook is CC+ZCode
+#   dual-harness (inline _emit_bootstrap branches on ZCODE_PROJECT_DIR), but has no SEPARATE
+#   portable counterpart artifact — one file serves both harnesses via inline branching, so
+#   @dual-pair (which requires a distinct counterpart) does not apply. The dual-harness logic
+#   is the portability; the CC-first rationale records why no pair artifact exists.
+# Under CC, plain SessionStart stdout is auto-injected into session context. Under ZCode,
+# stdout must be strict-JSON {additionalContext} (plain is discarded + the run is marked
+# failed). _emit_bootstrap branches on ZCODE_PROJECT_DIR (ZCode injects it; CC does not) so
+# one file serves both harnesses. Off-CC/off-ZCode (OpenCode et al.) the using-getff skill is
+# read on demand — the accepted degradation documented in S7 / dual-implementation-discipline §3.
 # spec: docs/superpowers/specs/2026-06-22-cc-plugin-packaging-design.md §3 (#4, ADAPT of using-superpowers)
 #
-# SessionStart contract: plain stdout is injected into the session context by Claude Code.
 # Keep it short — progressive disclosure: the directive lives here, the full protocol in the skill.
 set -uo pipefail
 
@@ -16,7 +21,18 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 
-cat <<BOOTSTRAP
+# Harness-portable output: CC auto-injects plain stdout; ZCode needs JSON. Inlined (not sourced
+# from lib/) because plugin hooks ship standalone inside the plugin payload (no lib/ sibling).
+_emit_bootstrap() {
+  local text="$1"
+  if [ -n "${ZCODE_PROJECT_DIR:-}" ] && command -v jq >/dev/null 2>&1; then
+    jq -n --arg c "$text" '{hookEventName:"SessionStart", additionalContext:$c}'
+  else
+    printf '%s\n' "$text"
+  fi
+}
+
+read -r -d '' BOOTSTRAP <<BOOTSTRAP
 [getff plugin — session bootstrap]
 This repo has the getff plugin: turn every codebase convention into an executable
 artifact that fails at the earliest reachable channel (edit-time → pre-commit → pre-push → CI
@@ -40,3 +56,5 @@ a plugin never silently mutates your git/CI.
 Skills live under: ${PLUGIN_ROOT}/skills/
 [/getff plugin]
 BOOTSTRAP
+
+_emit_bootstrap "$BOOTSTRAP"

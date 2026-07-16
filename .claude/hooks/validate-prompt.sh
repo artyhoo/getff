@@ -9,6 +9,13 @@
 
 set -uo pipefail
 
+# Harness-portable output (inline — standalone in test sandboxes). ZCode swallows plain
+# exit 1; JSON additionalContext reaches the model. CC preserves stderr + exit 1 byte-for-byte.
+_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
+_emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
+    jq -n --arg e "$1" --arg c "$2" '{hookEventName:$e, additionalContext:$c}'
+  else printf '%s\n' "$2"; fi; }
+
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 TSX="$REPO_ROOT/node_modules/.bin/tsx"
 VALIDATOR="$REPO_ROOT/packages/core/spec-validation/validate-batch-spec.ts"
@@ -30,8 +37,18 @@ if [[ ! -x "$TSX" ]]; then
   printf '⚠ validate-prompt: tsx not found at %s — skipping spec-validation\n' "$TSX" >&2; exit 0
 fi
 
-# exit 2 = gh CLI unavailable (soft-skip by validate-batch-spec.ts); treat as 0 here
-"$TSX" "$VALIDATOR" "$FILE_PATH"
+# exit 2 = gh CLI unavailable (soft-skip by validate-batch-spec.ts); treat as 0 here.
+# Capture output so that under ZCode a violation reaches the model (plain exit 1 + stderr is
+# swallowed by ZCode; JSON additionalContext is merged into the tool result). Under CC the
+# validator's stderr + non-zero exit is preserved byte-for-byte.
+VALIDATOR_OUT="$("$TSX" "$VALIDATOR" "$FILE_PATH" 2>&1 1>/dev/null)"
 STATUS=$?
 [[ $STATUS -eq 2 ]] && exit 0
+if [[ $STATUS -ne 0 ]] && _is_zcode; then
+  _emit_ctx "PostToolUse" "❌ validate-prompt: batch-spec validation failed for ${FILE_PATH#${REPO_ROOT}/}
+$VALIDATOR_OUT"
+  exit 0
+fi
+# CC path: re-emit captured stderr so the model sees it, then propagate the exit code.
+printf '%s\n' "$VALIDATOR_OUT" >&2
 exit $STATUS

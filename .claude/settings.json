@@ -85,6 +85,15 @@
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/ask-question-reminder.sh\""
           }
         ]
+      },
+      {
+        "matcher": "Agent|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-subagent-context.sh\""
+          }
+        ]
       }
     ],
     "PostToolUse": [

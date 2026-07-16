@@ -78,11 +78,13 @@ function makeFixtureDir(opts: {
   return dir;
 }
 
-/** Run the hook with cwd set to the fixture dir. Returns { status, stdout, stderr }. */
-function runHook(cwd: string): { status: number; stdout: string; stderr: string } {
+/** Run the hook with cwd set to the fixture dir. Returns { status, stdout, stderr }.
+ *  env is merged onto process.env (used to simulate ZCODE_PROJECT_DIR for the ZCode JSON path). */
+function runHook(cwd: string, env: Record<string, string> = {}): { status: number; stdout: string; stderr: string } {
   const r = spawnSync('bash', [HOOK], {
     cwd,
     encoding: 'utf8',
+    env: { ...process.env, ...env },
     // Hook is UserPromptSubmit — does not read stdin for dispatch logic.
     // Provide empty object as stdin to match CC harness pattern.
     input: JSON.stringify({}),
@@ -124,6 +126,23 @@ describe('deps-hash-check.sh — UserPromptSubmit deps-drift context injector', 
     expect(stdout).toContain('⚠');
     expect(stdout).toContain('package.json deps changed since last tool-bootstrap');
     expect(stdout).toContain('/tool-bootstrapping');
+  });
+
+  it('ZCODE: under ZCODE_PROJECT_DIR the warning is emitted as strict-JSON {additionalContext}, not plain text', () => {
+    // ZCode parses hook stdout as JSON (HookJSONOutput schema); plain stdout is discarded.
+    // _emit_warn branches on ZCODE_PROJECT_DIR. This guards the JSON branch.
+    const pkg = { dependencies: { react: '^18.0.0' }, devDependencies: { vitest: '^4.0.0' } };
+    const staleHash = `sha256-${'0'.repeat(64)}`;
+    const cwd = makeFixtureDir({
+      packageJson: pkg,
+      toolDecisions: `---\ndeps-hash: ${staleHash}\n---\n# tool decisions\n`,
+    });
+    const { status, stdout } = runHook(cwd, { ZCODE_PROJECT_DIR: cwd });
+    expect(status).toBe(0);
+    // Must be valid JSON with the HookJSONOutput shape.
+    const parsed = JSON.parse(stdout);
+    expect(parsed.hookEventName).toBe('UserPromptSubmit');
+    expect(parsed.additionalContext).toContain('package.json deps changed since last tool-bootstrap');
   });
 
   it('UNBASELINED: <pending> placeholder (not a sha256- baseline) → honest "not yet baselined" warning, NOT "deps changed" (GH #548)', () => {
