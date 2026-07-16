@@ -45,7 +45,7 @@ touch "$CACHE" 2>/dev/null || CACHE=""
 if [[ -n "$CACHE" ]] && grep -qxF "fired" "$CACHE" 2>/dev/null; then exit 0; fi
 [[ -n "$CACHE" ]] && printf 'fired\n' >> "$CACHE"
 
-MSG='📎 Memory-codification reminder — writing a durable behavioural convention ("always/never do X", "How to apply:") to agent memory? Codify it into the repo in the SAME step (CLAUDE.md / .claude/rules/*.md / docs/meta-factory/), then reduce this memory entry to a one-line pointer: "See <repo-path> — codified at <SHA>". Ephemeral state, identity, and reference-fact pointers are fine to leave as-is. See .claude/rules/memory-codification.md §2-§3.'
+MSG='📎 Memory-codification reminder — writing a durable behavioural convention ("always/never do X", "How to apply:") to agent memory? Codify it into the repo in the SAME step (e.g. CLAUDE.md or a .claude/rules/*.md rule), then reduce this memory entry to a one-line pointer: "See <repo-path> — codified at <SHA>". Ephemeral state, identity, and reference-fact pointers are fine to leave as-is.'
 
 jq -n --arg ctx "$MSG" \
   '{hookSpecificOutput:{hookEventName:"PostToolUse",additionalContext:$ctx}}'
