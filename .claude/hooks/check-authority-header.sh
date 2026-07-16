@@ -9,9 +9,9 @@
 #   node, no framework-internal artefact); non-blocking (exit 1 surfaces to the user, mirrors the
 #   framework's own edit-time hook — never exit 2, never blocks the edit); degrades to exit 0 without jq.
 #
-# What it checks (mirrors packages/core/principles/09-doc-authority-hierarchy.ts): a doc on the policy
-# surface must carry a `> **Authoritative for:**` line (fenced code blocks are stripped first so a
-# documented example does not count). See the /ai-doc skill for the full authority-header convention.
+# What it checks: a doc on the policy surface must carry a `> **Authoritative for:**` line
+# (fenced code blocks are stripped first so a documented example does not count). See the
+# /ai-doc skill for the full authority-header convention.
 set -uo pipefail
 
 command -v jq >/dev/null 2>&1 || exit 0   # graceful no-op without jq
