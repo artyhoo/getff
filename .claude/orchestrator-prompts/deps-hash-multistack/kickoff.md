@@ -84,7 +84,7 @@ Per [.claude/rules/ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md) a
 ## §5 See also
 
 - [docs/meta-factory/research-patches/2026-07-16-deps-hash-multistack.md](../../../docs/meta-factory/research-patches/2026-07-16-deps-hash-multistack.md) — this umbrella's R-phase (ground truth §0, deps-surface map §1, node-free ladder §2, architecture fork §3, storage §4, scoping §5).
-- [../live-generation/kickoff.md](../live-generation/kickoff.md) — the three-stack generation this umbrella keeps fresh (LG-S1/S2/S3 merged; the staleness hook is generation's watchdog).
+- [../live-generation/kickoff.md](../live-generation/kickoff.md) — the three-stack generation this umbrella keeps fresh (LG-S1/S2/S3 merged; the staleness hook is generation's watchdog). **This umbrella EXTRACTS and SUPERSEDES the deps-hash-staleness scope originally written into live-generation's LG-S4** (the LG-S4 kickoff §2 was updated to point here — PR #1016 + the LG-S4 desync-fix); do not implement staleness inside LG-S4.
 - [../python-delivery-v0/done.md](../python-delivery-v0/done.md) (#997, CLOSED) — the node-free python delivery lane whose constraint this hook must honor.
 - [packages/core/hooks/deps-hash-check.sh](../../../packages/core/hooks/deps-hash-check.sh) — the substrate (single-stack today); [packages/core/hooks/deps-hash-check.test.ts](../../../packages/core/hooks/deps-hash-check.test.ts) — the dual-pair oracle (#382).
 - [setup.d/45-python.sh](../../../setup.d/45-python.sh) `:85-145` `_py_sgconfig_merge` — the repo's BSD-safe bash text-transform idiom to mirror.
