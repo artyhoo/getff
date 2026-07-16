@@ -13,7 +13,7 @@
 #   (A) delivery — both hooks + the .claude/session-bootstrap.md template present + hooks executable
 #   (B) template ships EMPTY (digest block whitespace-only) → the injector is a zero-setup no-op
 #   (C) settings-merge — project-digest on UserPromptSubmit AND SubagentStart; memory-codification on
-#       PostToolUse matcher Write; pre-existing deps-hash (UPS) + check-authority (PostToolUse) survive
+#       PostToolUse matcher Write; pre-existing deps-hash (UPS) + check-doc-authority-header (PostToolUse) survive
 #   (D) idempotent — a second install adds no duplicate entry
 #   (E) firing project-digest (UserPromptSubmit) — a filled anchor → plain stdout carries it
 #   (F) firing project-digest (SubagentStart) — → JSON additionalContext carries it
@@ -63,8 +63,8 @@ echo "$_ups" | grep -q 'inject-project-digest' && echo "$_sas" | grep -q 'inject
   && ok "(C) inject-project-digest registered on BOTH UserPromptSubmit + SubagentStart" \
   || bad "(C) project-digest not on both events (ups=$_ups sas=$_sas)"
 [ "$_mcf_m" = "Write" ] && ok "(C) inject-memory-codification registered PostToolUse matcher=Write" || bad "(C) memory-codification matcher wrong ('$_mcf_m')"
-{ echo "$_ups" | grep -q 'deps-hash-check' && echo "$_post" | grep -q 'check-authority-header'; } \
-  && ok "(C) pre-existing deps-hash (UPS) + check-authority (PostToolUse) SURVIVED the merge" \
+{ echo "$_ups" | grep -q 'deps-hash-check' && echo "$_post" | grep -q 'check-doc-authority-header'; } \
+  && ok "(C) pre-existing deps-hash (UPS) + check-doc-authority (PostToolUse) SURVIVED the merge" \
   || bad "(C) a sibling hook was clobbered (ups=$_ups post=$_post)"
 
 # ── ARM (D): idempotency ──────────────────────────────────────────────────────
