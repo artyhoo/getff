@@ -32,7 +32,7 @@ Two-question filter before committing to any proposal: (a) is the capability cod
 
 ### Rule 5 — Incrementality
 
-At each session start, a UserPromptSubmit hook compares `sha256(package.json deps section)` with the last-known hash in `.ai-factory/tool-decisions.md`. Mismatch → inject one-line WARN into session context: `⚠ package.json deps changed since last tool-bootstrap — run /tool-bootstrapping to re-evaluate`. Hook implementation landed in Wave 5.3; `deps-hash:` frontmatter in [references/decision-format.md](references/decision-format.md) is the anchor field.
+At each session start, a UserPromptSubmit hook compares the current deps hash **per stack** with the last-known baseline in `.ai-factory/tool-decisions.md`. Mismatch on any present stack → inject one WARN into session context naming the drifted stack: `⚠ <stack> deps changed since last tool-bootstrap — run /tool-bootstrapping to re-evaluate`. The hook (`packages/core/hooks/deps-hash-check.sh`) covers JS (`package.json`), python (`pyproject.toml`), and rust (`Cargo.toml`, detection in DH-S2); each stack has its own baseline key (`deps-hash-npm` / `deps-hash-python` / `deps-hash-cargo`), and the legacy bare `deps-hash:` key is read backward-compatibly as the npm slot. Anchor schema: [references/decision-format.md](references/decision-format.md) §2. (Multistack landed in DH-S1, kickoff #1016; the original Wave 5.3 JS-only hook is the substrate.)
 
 ### Rule 6 — Persistence
 

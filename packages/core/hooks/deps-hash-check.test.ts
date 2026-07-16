@@ -122,6 +122,9 @@ function computePythonHash(opts: {
     if (hasPython3) {
       // ONE try around import+load+print so any error (malformed TOML, no tomllib) → empty
       // stdout (design §3a R4). json.dumps compact mirrors the JS-friendly deterministic shape.
+      // IMPORTANT: join with "\n" (NOT ";") — Python try:/except blocks are newline-delimited,
+      // a ";" join would be a SyntaxError and silently yield empty tier2 (a prior helper bug
+      // that mismatched the hook). This must byte-match the hook's _PY_TIER2_SCRIPT.
       const py = [
         'import sys',
         'try:',
@@ -133,7 +136,7 @@ function computePythonHash(opts: {
         '  print(hashlib.sha256(payload.encode()).hexdigest())',
         'except Exception:',
         '  pass',
-      ].join(';');
+      ].join('\n');
       const tier2Raw = spawnSync('python3', ['-c', py, tmpFile], { encoding: 'utf8' });
       tier2Hex = (tier2Raw.stdout ?? '').trim();
     }
