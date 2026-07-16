@@ -58,8 +58,12 @@ describe.skipIf(!JQ)('inject-memory-codification.sh — PostToolUse memory-codif
     );
     const json = JSON.parse(out);
     expect(json.hookSpecificOutput.hookEventName).toBe('PostToolUse');
-    expect(json.hookSpecificOutput.additionalContext).toContain('memory-codification.md');
+    // GH #934 batch D: the message is now GENERIC — points at the consumer's own repo
+    // (CLAUDE.md / .claude/rules/*.md), no framework-internal doc ref (the old
+    // `memory-codification.md` pointer was a maintainer-only artefact, wrong at a consumer's).
     expect(json.hookSpecificOutput.additionalContext).toContain('Codify');
+    expect(json.hookSpecificOutput.additionalContext).toContain('CLAUDE.md');
+    expect(json.hookSpecificOutput.additionalContext).not.toContain('docs/meta-factory');
   });
 
   it('Write to a normal (non-memory) path → silent (empty stdout)', () => {
