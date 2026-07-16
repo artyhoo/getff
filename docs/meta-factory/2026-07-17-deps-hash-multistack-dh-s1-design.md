@@ -108,9 +108,21 @@ in_t
 ```
 (extracted exactly 6 blocks; `[[other-nondeps]]` array-of-tables excluded by the `^\[` single-bracket toggle; `[project]` deliberately absent so its metadata cannot leak.)
 
-**Tier-2 enrichment** (`python3 -c tomllib`, ≥3.11 — covers `[project]` precisely): reads `project.dependencies` (array) + `project.optional-dependencies` (dict-of-arrays), hashes `repr(sorted(deps)) + repr({k:sorted(v) for k,v in sorted(opt)})`. No `name`/`version`/`requires-python` in the payload → no cry-wolf. Fails closed (malformed TOML → `tomllib` raises → one `try` → empty Tier-2 contribution, Tier-1 hash stands for the other 6 tables).
+**Tier-2 enrichment** (`python3 -c tomllib`, ≥3.11 — covers `[project]` precisely): reads `project.dependencies` (array) + `project.optional-dependencies` (dict-of-arrays), hashes the deterministic compact-JSON payload `json.dumps(sorted(deps), separators=(",",":")) + json.dumps([[k,sorted(v)] for k,v in sorted(opt.items())], separators=(",",":"))`. **JSON, NOT python `repr()`** — `repr()` (single-quotes, `{}` dicts) is not byte-portable to a test oracle written in JS and not deterministic across language boundaries; compact-JSON is. (Round-3.5 review caught the repr/JSON divergence empirically: `repr` → `f1ba6fd4…`, compact-json → `5ffa5303…`; the hook MUST use compact-json to match the test oracle.) No `name`/`version`/`requires-python` in the payload → no cry-wolf. Fails closed (malformed TOML → `tomllib` raises → one `try/except` → empty Tier-2 contribution, Tier-1 hash stands for the other 6 tables). The verbatim `python3 -c` the hook uses:
+```python
+import sys
+try:
+  import tomllib, json, hashlib
+  d = tomllib.load(open(sys.argv[1], "rb"))
+  p = d.get("project", {})
+  deps = p.get("dependencies", []); opt = p.get("optional-dependencies", {})
+  payload = json.dumps(sorted(deps), separators=(",", ":")) + json.dumps([[k, sorted(v)] for k, v in sorted(opt.items())], separators=(",", ":"))
+  print(hashlib.sha256(payload.encode()).hexdigest())
+except Exception:
+  pass
+```
 
-**Hashes (full sha256, live re-run this session):**
+**Hashes (full sha256, live re-run this session — compact-JSON Tier-2 shape):**
 
 Tier-1 (6-table, `awk … | shasum -a 256`):
 | mutation | hash | drift? |
@@ -119,12 +131,12 @@ Tier-1 (6-table, `awk … | shasum -a 256`):
 | project own `version` `0.1.0`→`0.2.0` | `sha256-c728568418a37cbfaeaabadf218d856522cd4b950f3b7b3db99fa2d10853fc12` | **unchanged ✓** (C-resolved: no cry-wolf) |
 | `requests>=2.0`→`>=2.32` in `[project].dependencies` | `sha256-c728568418a37cbfaeaabadf218d856522cd4b950f3b7b3db99fa2d10853fc12` | unchanged → Tier-1 is blind to `[project]` (EXPECTED — that is Tier-2's job) |
 
-Tier-2 (`[project]` deps-only, tomllib):
+Tier-2 (`[project]` deps-only, tomllib compact-JSON):
 | mutation | hash | drift? |
 |---|---|---|
-| baseline | `sha256-f1ba6fd4a057fd2006f589776bc60bb6a6a2916c837fa96ad2012e8d32f51b90` | — |
-| project own `version` `0.1.0`→`0.2.0` | `sha256-f1ba6fd4a057fd2006f589776bc60bb6a6a2916c837fa96ad2012e8d32f51b90` | **unchanged ✓** (deps-only payload, metadata excluded) |
-| `requests>=2.0`→`>=2.32` in `[project].dependencies` | `sha256-9d156bdef40043636dce1be109863d84435734ecbaff3941d5412bbebf69c072` | **detected ✓** (real dep bump) |
+| baseline | `sha256-5ffa5303314d742a3c33a3a7b8a14cfa7094f5f23ef19830555387db5c8a4192` | — |
+| project own `version` `0.1.0`→`0.2.0` | `sha256-5ffa5303314d742a3c33a3a7b8a14cfa7094f5f23ef19830555387db5c8a4192` | **unchanged ✓** (deps-only payload, metadata excluded) |
+| `requests>=2.0`→`>=2.32` in `[project].dependencies` | `sha256-a321cd2d771d9b32168fdb9e180dbaec32a53f751c882b807d186fabc4d3b456` | **detected ✓** (real dep bump) |
 
 **Confirms the C-resolution end-to-end:** (a) a project release (own `version` bump) does NOT fire either Tier — no cry-wolf; (b) a real `[project].dependencies` bump fires via Tier-2 — no silent-miss; (c) the 6 other tables are covered by Tier-1 as before; (d) PEP 508 extras (`pytest[pytest]`) are safe — tomllib parses them, no bracket-fragility. The combined `deps-hash-python` = a hash over (Tier-1 bytes) concatenated with (Tier-2 dep-arrays) — deterministic, and if `python3`/`tomllib` are absent, Tier-2 contributes "" so the python hash covers only the 6 Tier-1 tables (documented gap, §6).
 

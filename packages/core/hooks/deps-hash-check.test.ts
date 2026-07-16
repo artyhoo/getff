@@ -74,125 +74,83 @@ function buildDepsJson(pkg: {
 }
 
 /**
- * Compute the deps-hash-python value the hook produces, mirroring its two tiers
- * (design §4 C-resolution). Tier-1 hashes the byte-range of the 6 non-[project] dep
- * tables via awk; Tier-2 hashes [project].dependencies + [project].optional-dependencies
- * via python3 tomllib (deps-only, deterministic sort). The python hash is sha256 over the
- * concatenation of the two tier outputs (or "" for an absent tier). If python3/tomllib are
- * unavailable, Tier-2 contributes "" (only Tier-1 is hashed). This helper assumes python3 ≥3.11
- * is available (the test env has it); the node-free degrade case asserts Tier-1-only behavior.
+ * Compute the deps-hash-python value by RUNNING the exact commands the hook runs (Tier-1
+ * awk + Tier-2 python3 tomllib), against a temp file holding pyprojectContent. This is a
+ * TRUE ORACLE, not a parallel reimplementation — it eliminates any helper/hook drift by
+ * construction (design §4). The two tiers are assembled exactly as the hook will assemble
+ * them: tier1 = sha256(awk 6-table byte-range), tier2 = sha256(python3 json.dumps compact
+ * of sorted [project] deps arrays), combined = sha256(tier1hex + tier2hex).
+ *
+ * Round-2 review caught that a JS reimplementation drifted from the hook on TWO axes:
+ * (B-Tier2) python repr() vs JS JSON.stringify single/double-quote + dict/array shape;
+ * (M1) JS header regex /^\\[([^\\]]+)\\]$/ does not treat [[array-table]] as a boundary,
+ * leaking Poetry [[tool.poetry.source]] blocks that awk correctly excludes. Delegating to
+ * the real awk + python3 closes both. hasPython3:false simulates the node-free-no-python3
+ * lane (Tier-2 contributes "" exactly as the hook's missing-python3 branch does).
  */
 function computePythonHash(opts: {
   pyprojectContent: string;
   hasPython3?: boolean; // default true; false simulates node-free-no-python3 (Tier-2 → "")
 }): string {
   const hasPython3 = opts.hasPython3 ?? true;
-  // Tier-1: the 6-table awk matcher (design §4). Implemented in node for test determinism
-  // (the hook uses the equivalent BSD-awk). Tables: project.optional-dependencies,
-  // dependency-groups, tool.poetry.dependencies, tool.poetry.dev-dependencies,
-  // tool.poetry.group.<name>.dependencies (glob), tool.hatch.envs.<name> (glob).
-  const lines = opts.pyprojectContent.split('\n');
-  const wantHeader = (h: string): boolean =>
-    h === 'project.optional-dependencies' ||
-    h === 'dependency-groups' ||
-    h === 'tool.poetry.dependencies' ||
-    h === 'tool.poetry.dev-dependencies' ||
-    /^tool\.poetry\.group\.[^.]+\.dependencies$/.test(h) ||
-    /^tool\.hatch\.envs\.[^.]+$/.test(h);
-  const tier1Lines: string[] = [];
-  let inTable = false;
-  for (const raw of lines) {
-    const line = raw.trim();
-    const headerMatch = /^\[([^\]]+)\]$/.exec(line);
-    if (headerMatch) {
-      inTable = wantHeader(headerMatch[1]!.trim());
-      if (inTable) tier1Lines.push(raw);
-      continue;
+  // Write the content to a temp file so awk/python3 read the same bytes the hook will.
+  const tmpFile = join(tmpdir(), `deps-hash-py-${process.pid}-${Math.random().toString(36).slice(2)}.toml`);
+  writeFileSync(tmpFile, opts.pyprojectContent, 'utf8');
+  tmpFiles.push(tmpFile);
+  try {
+    // Tier-1: the 6-table awk matcher (design §4). Identical to the hook's awk — tables:
+    // project.optional-dependencies, dependency-groups, tool.poetry.dependencies,
+    // tool.poetry.dev-dependencies, tool.poetry.group.<name>.dependencies (glob),
+    // tool.hatch.envs.<name> (glob). [project] deliberately excluded (D1 C-resolution).
+    const awkProg =
+      'function want(h){' +
+      'if(h=="project.optional-dependencies")return 1;' +
+      'if(h=="dependency-groups")return 1;' +
+      'if(h=="tool.poetry.dependencies")return 1;' +
+      'if(h=="tool.poetry.dev-dependencies")return 1;' +
+      'if(h~/^tool\\.poetry\\.group\\.[^.]+\\.dependencies$/)return 1;' +
+      'if(h~/^tool\\.hatch\\.envs\\.[^.]+$/)return 1;' +
+      'return 0}' +
+      '/^\\[/{in_t=want(substr($0,2,length($0)-2))}in_t';
+    const tier1Raw = spawnSync('awk', [awkProg, tmpFile], { encoding: 'utf8' });
+    const tier1Hex = tier1Raw.status === 0
+      ? crypto.createHash('sha256').update(tier1Raw.stdout).digest('hex')
+      : '';
+    // Tier-2: [project] deps-only via tomllib, deterministic compact-json payload. If no
+    // python3 (hasPython3:false), tier2 contributes "" (the hook's missing-python3 branch).
+    let tier2Hex = '';
+    if (hasPython3) {
+      // ONE try around import+load+print so any error (malformed TOML, no tomllib) → empty
+      // stdout (design §3a R4). json.dumps compact mirrors the JS-friendly deterministic shape.
+      const py = [
+        'import sys',
+        'try:',
+        '  import tomllib,json,hashlib',
+        '  d=tomllib.load(open(sys.argv[1],"rb"))',
+        '  p=d.get("project",{})',
+        '  deps=p.get("dependencies",[]);opt=p.get("optional-dependencies",{})',
+        '  payload=json.dumps(sorted(deps),separators=(",",":"))+json.dumps([[k,sorted(v)] for k,v in sorted(opt.items())],separators=(",",":"))',
+        '  print(hashlib.sha256(payload.encode()).hexdigest())',
+        'except Exception:',
+        '  pass',
+      ].join(';');
+      const tier2Raw = spawnSync('python3', ['-c', py, tmpFile], { encoding: 'utf8' });
+      tier2Hex = (tier2Raw.stdout ?? '').trim();
     }
-    if (inTable) tier1Lines.push(raw);
+    // Combined python hash = sha256(tier1hex + tier2hex). Mirrors the hook's assembly.
+    return `sha256-${crypto.createHash('sha256').update(tier1Hex + tier2Hex).digest('hex')}`;
+  } finally {
+    // tmpFiles cleaned in afterEach; the try/finally keeps the oracle robust if crypto throws.
   }
-  const tier1 = crypto.createHash('sha256').update(tier1Lines.join('\n')).digest('hex');
-  // Tier-2: [project] deps-only via tomllib. If no python3, contributes "".
-  let tier2 = '';
-  if (hasPython3) {
-    // Parse the TOML with the same tomllib the hook uses, then hash deps arrays deterministically.
-    // (Test parses inline rather than shelling to python3, to keep the helper pure-sync; the
-    // shape mirrors tomllib's output: project.dependencies array + project.optional-dependencies dict.)
-    const projDeps = extractProjectDeps(opts.pyprojectContent);
-    if (projDeps) {
-      const payload =
-        JSON.stringify([...projDeps.dependencies].sort()) +
-        JSON.stringify(
-          Object.keys(projDeps.optional)
-            .sort()
-            .map((k) => [k, [...projDeps.optional[k]].sort()]),
-        );
-      tier2 = crypto.createHash('sha256').update(payload).digest('hex');
-    }
-  }
-  // Combined python hash = sha256(tier1 + tier2). Mirrors the hook's assembly.
-  return `sha256-${crypto.createHash('sha256').update(tier1 + tier2).digest('hex')}`;
-}
-
-/** Minimal [project] deps extractor for the test helper (PEP 621 subset — dependencies array
- *  + optional-dependencies dict). Returns null if [project] is absent. Not a general parser. */
-function extractProjectDeps(toml: string): { dependencies: string[]; optional: Record<string, string[]> } | null {
-  // Find the [project] table block (from [project] up to the next ^[ header).
-  const lines = toml.split('\n');
-  let inProj = false;
-  let hasProj = false;
-  const block: string[] = [];
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (/^\[project\]$/.test(line)) { inProj = true; hasProj = true; continue; }
-    if (/^\[/.test(line)) { inProj = false; continue; }
-    if (inProj) block.push(line);
-  }
-  if (!hasProj) return null;
-  const dependencies: string[] = [];
-  const optional: Record<string, string[]> = {};
-  for (const line of block) {
-    const m = /^dependencies\s*=\s*(.+)$/.exec(line);
-    if (m) {
-      // parse a string-array literal like ["a>=1", "b"] (single-line only; test fixtures stay single-line)
-      const arr = parseStringArray(m[1]!);
-      dependencies.push(...arr);
-    }
-  }
-  // optional-dependencies is a sub-TABLE [project.optional-dependencies], parsed separately below by caller
-  // — but for the helper we also scan that block. Re-scan the toml for it.
-  let inOpt = false;
-  let currentGroup: string | null = null;
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (/^\[project\.optional-dependencies\]$/.test(line)) { inOpt = true; continue; }
-    if (/^\[/.test(line)) { inOpt = false; currentGroup = null; continue; }
-    if (!inOpt) continue;
-    const grp = /^([A-Za-z0-9_.-]+)\s*=/.exec(line);
-    if (grp) currentGroup = grp[1]!;
-    if (currentGroup) {
-      const arr = parseStringArray(line.replace(/^[A-Za-z0-9_.-]+\s*=\s*/, ''));
-      if (arr.length && !optional[currentGroup]) optional[currentGroup] = [];
-      optional[currentGroup]?.push(...arr);
-    }
-  }
-  return { dependencies, optional };
-}
-
-function parseStringArray(s: string): string[] {
-  const match = /\[[\s\S]*\]/.exec(s);
-  if (!match) return [];
-  const inner = match[0].slice(1, -1);
-  const out: string[] = [];
-  const re = /"([^"]+)"/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(inner)) !== null) out.push(m[1]!);
-  return out;
 }
 
 const tmpDirs: string[] = [];
+const tmpFiles: string[] = []; // single-line temp files for computePythonHash's awk/python invocations
 afterEach(() => {
   for (const d of tmpDirs.splice(0)) rmSync(d, { recursive: true, force: true });
+  for (const f of tmpFiles.splice(0)) {
+    try { rmSync(f, { force: true }); } catch { /* already gone */ }
+  }
 });
 
 /** Create a temp dir with optional fixtures. Returns the temp dir path. */
@@ -475,6 +433,30 @@ describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen
     expect(stdout).toBe(''); // matches → silent. Would FAIL if hook spread the string.
   });
 
+  it('JS-WIDEN-ALL-FIELDS: all 7 object-typed widened fields contribute to the npm hash (design §1-E; round-2 M3)', () => {
+    // Coverage for the 4 fields JS-WIDEN/GUARD don't exercise: optionalDependencies, resolutions,
+    // pnpm.overrides, AND overrides-as-object. A hook that spread only {deps,devDeps,peerDeps} would
+    // compute a different hash → stored (7-field) hash mismatches → WARN. Silent here = all included.
+    const pkg = {
+      dependencies: { react: '^18.0.0' },
+      devDependencies: { vitest: '^1.0.0' },
+      peerDependencies: { react: '^18.0.0' },
+      optionalDependencies: { fsevents: '^2.0.0' },
+      overrides: { react: '^18.2.0' },
+      resolutions: { lodash: '^4.17.21' },
+      pnpm: { overrides: { some: '1.0.0' } },
+    };
+    const depsJson = buildDepsJson(pkg);
+    const correctHash = computeHash(depsJson);
+    const cwd = makeFixtureDir({
+      packageJson: pkg,
+      toolDecisions: `---\ndeps-hash-npm: ${correctHash}\n---\n`,
+    });
+    const { status, stdout } = runHook(cwd);
+    expect(status).toBe(0);
+    expect(stdout).toBe(''); // all 7 fields hashed → match → silent
+  });
+
   // ---- (b) python Tier-1 6-table: a Poetry deps drift fires deps-hash-python WARN ----
   it('PYTHON-TIER1: [tool.poetry.dependencies] version drift → deps-hash-python WARN (design §4 Tier-1)', () => {
     const pyproject = [
@@ -495,7 +477,6 @@ describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen
     const { status, stdout } = runHook(cwd);
     expect(status).toBe(0);
     expect(stdout).toContain('⚠');
-    expect(stdout).toLowerCase();
     // the WARN should name the python stack (per-stack WARN, design §1-D)
     expect(stdout.toLowerCase()).toMatch(/python/);
   });
@@ -560,23 +541,25 @@ describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen
   });
 
   // ---- (c) node-free python lane: Tier-1 hashes without node/python3; no manifests → silent ----
-  it('NODE-FREE-PYTHON-TIER1: pyproject + no node + no python3 → Tier-1 still hashes the 6 tables, warns on drift (design §3a, §5 c1)', () => {
-    // Simulate no-python3 by telling the helper Tier-2 contributes "". The hook's python3 gate
-    // means Tier-2 is skipped, so only the 6 Tier-1 tables are hashed.
-    const pyproject = [
-      '[tool.poetry.dependencies]',
-      'flask = "^2.0"',
-      '',
-    ].join('\n');
-    const correctHash = computePythonHash({ pyprojectContent: pyproject, hasPython3: false });
+  it('NODE-FREE-PYTHON-TIER1: pyproject (Tier-1-only table, no [project]) → Tier-1 detects drift with NO node on PATH (design §3a, §5 c1)', () => {
+    // This fixture has ONLY a Tier-1 table ([tool.poetry.dependencies]) and NO [project], so
+    // Tier-2 (tomllib for [project].deps) contributes nothing regardless of python3 availability.
+    // The contract under test: Tier-1 bash hashing needs NO node and NO python3 — it detects the
+    // drift via awk+sha alone. We scrub node from PATH (the JS lane's toolchain) to prove the
+    // python Tier-1 path is independent of it. (Scrubbing python3 itself is machine-fragile — on
+    // macOS /usr/bin/python3 is a CLT stub — so the fixture carries no [project], making python3
+    // presence irrelevant to the asserted WARN. design §6 documents the [project]-coverage cost.)
+    const pyproject = ['[tool.poetry.dependencies]', 'flask = "^2.0"', ''].join('\n');
     const cwd = makeFixtureDir({
       pyprojectToml: pyproject,
       toolDecisions: `---\ndeps-hash-python: sha256-${'0'.repeat(64)}\n---\n`,
     });
-    // Scrub PATH of node+python3 to prove Tier-1 needs neither (best-effort: scrub python3).
+    // PATH keeps awk/grep/shasum (Tier-1 needs them) but drops /opt/homebrew/bin (node lives
+    // there). node absence is the load-bearing scrub; python3 may or may not resolve but the
+    // fixture has no [project] so it cannot change the outcome.
     const { status, stdout } = runHook(cwd, { PATH: '/usr/bin:/bin' });
     expect(status).toBe(0);
-    // Tier-1 still detects the drift (stored all-zeros != real hash) → WARN
+    // Tier-1 detects the drift (stored all-zeros != real Tier-1 hash) → WARN
     expect(stdout).toContain('⚠');
   });
 
