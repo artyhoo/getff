@@ -491,6 +491,8 @@ jobs:
         run: bash tests/install-sh/gh-934-ship-output-language-hook.test.sh
       - name: "install-sh — gh-934 ship doc authority-header hook (PostToolUse: zero-dep port, firing FAIL/pass + fence-strip + off-policy scope, non-destructive merge, jq-guard, refresh)"
         run: bash tests/install-sh/gh-934-ship-doc-authority-hook.test.sh
+      - name: "install-sh — gh-934 ship project-agnostic hooks (batch D: digest UPS+SubagentStart + memory-codification generic, template-empty no-op, both-events merge, per-event idempotence, firing, refresh-non-clobber, lang-pack A fix)"
+        run: bash tests/install-sh/gh-934-ship-project-agnostic-hooks.test.sh
       - name: "install-sh — self-verify banner honesty (P0.4: SKIP accounting withholds property claim + strict D1 under DEPS_INSTALLED)"
         run: bash tests/install-sh/install-self-verify-banner-honesty.test.sh
       - name: install-sh — layer-units (per-layer sourcing + structural integrity checks)
