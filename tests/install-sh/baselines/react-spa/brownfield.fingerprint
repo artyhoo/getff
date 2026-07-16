@@ -18,6 +18,7 @@ c96ba6e4c52288f0b77a2edaeb6170ecad03e699360d79fe7794fd3e205717e8  .claude/agents
 69f3259d89f153fecdd70754b7e5728f0e285fd15dd7b6d6a3b4df473e058a8c  .claude/agents/review-sidecar.md
 48239ef36ed73d01561636d67d2c75947729879a14accae7d667feccc5616215  .claude/agents/rule-researcher.md
 9808e32b096cee71f5971bd6c3aa6ec1bddd748c58d84aa93198d05fb5f7b106  .claude/hooks/ask-question-reminder.sh
+90f137820011119b642957710a4e624c7a2d5472fee2b44967890282f12fddd9  .claude/hooks/check-doc-authority-header.sh
 2d9259521f752780d0a7fe6df7fc089d35907f3080280af8c264e5e61b96fec8  .claude/hooks/deps-hash-check.sh
 778130188d08c542c5cecd318e995b278bb0ad52edd896f9149afd0496b6cd3e  .claude/hooks/end-of-turn-reminder.sh
 e1f96e6e99b8d3d2c4371e7415555cb321392274469714502e6c37336da8b718  .claude/hooks/inject-matching-rule.sh
