@@ -7,12 +7,24 @@
 # Compares sha256 of current package.json deps against deps-hash stored in
 # .ai-factory/tool-decisions.md. On mismatch → prints one-line WARN to stdout
 # (Claude Code harness injects stdout into session context automatically).
+# Under ZCode, stdout must be strict-JSON {additionalContext} (plain is discarded);
+# _emit_warn inlines that so one byte-identical file serves both harnesses.
 # Always exits 0 — non-blocking, context injection only.
 #
 # Register in consumer's .claude/settings.json:
 #   "UserPromptSubmit": [{"hooks":[{"type":"command","command":"bash .claude/hooks/deps-hash-check.sh"}]}]
 
 set -uo pipefail
+
+# Harness-portable output: CC auto-injects plain stdout; ZCode needs JSON. Inlined (not
+# sourced from lib/) because install.sh ships this file standalone to consumers (no lib/).
+_emit_warn() {
+  if [ -n "${ZCODE_PROJECT_DIR:-}" ] && command -v jq >/dev/null 2>&1; then
+    jq -n --arg c "$1" '{hookEventName:"UserPromptSubmit", additionalContext:$c}'
+  else
+    printf '⚠ %s\n' "$1"
+  fi
+}
 
 DECISIONS=".ai-factory/tool-decisions.md"
 
@@ -49,10 +61,10 @@ if [ "$CURRENT_HASH" != "$STORED_HASH" ]; then
   # nudge, fix only the wording).
   case "$STORED_HASH" in
     sha256-*)
-      printf '⚠ package.json deps changed since last tool-bootstrap — run /tool-bootstrapping to re-evaluate\n'
+      _emit_warn "package.json deps changed since last tool-bootstrap — run /tool-bootstrapping to re-evaluate"
       ;;
     *)
-      printf '⚠ tool decisions not yet baselined — run /tool-bootstrapping to record current package.json deps\n'
+      _emit_warn "tool decisions not yet baselined — run /tool-bootstrapping to record current package.json deps"
       ;;
   esac
 fi

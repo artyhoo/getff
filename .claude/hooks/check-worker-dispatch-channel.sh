@@ -31,6 +31,13 @@
 # repo PostToolUse-gate convention (cf. check-doc-authority.sh).
 set -uo pipefail
 
+# Harness-portable output (inline — standalone in test sandboxes). ZCode swallows plain
+# exit 1; JSON additionalContext reaches the model. CC preserves stderr + exit 1 byte-for-byte.
+_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
+_emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
+    jq -n --arg e "$1" --arg c "$2" '{hookEventName:$e, additionalContext:$c}'
+  else printf '%s\n' "$2"; fi; }
+
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 BIN="$REPO_ROOT/packages/core/principles/29-worker-dispatch-channel.bin.ts"
 TSX="$REPO_ROOT/node_modules/.bin/tsx"
@@ -56,5 +63,16 @@ esac
 [[ ! -f "$BIN" ]] && exit 0               # bin shim absent — graceful no-op
 [[ ! -x "$TSX" ]] && exit 0               # tsx unavailable — graceful no-op
 
-# Delegate to the single shared matcher; its exit code IS this hook's exit code.
-"$TSX" "$BIN" "$REL_PATH"
+# Delegate to the single shared matcher; its exit code IS this hook's exit code (under CC).
+# Under ZCode a plain non-zero exit is swallowed — capture output and emit JSON additionalContext
+# so the model sees the violation (merged into the tool result). CC behaviour is byte-identical.
+BIN_ERR="$("$TSX" "$BIN" "$REL_PATH" 2>&1 1>/dev/null)"
+STATUS=$?
+if [[ $STATUS -ne 0 ]] && _is_zcode; then
+  _emit_ctx "PostToolUse" "❌ check-worker-dispatch-channel: #worker-dispatch-via-subagent violation in $REL_PATH.
+$BIN_ERR"
+  exit 0
+fi
+# Guard: emit only when non-empty (otherwise success-path emits a stray \n).
+[[ -n "$BIN_ERR" ]] && printf '%s\n' "$BIN_ERR" >&2
+exit $STATUS

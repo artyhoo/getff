@@ -17,6 +17,14 @@
 # or on a kickoff that has not yet engaged the rule.
 set -uo pipefail
 
+# Harness-portable output (inline — standalone in test sandboxes). CC: exit 1 + stderr is
+# advisory feedback. ZCode: JSON additionalContext (plain exit 1 swallowed); exit 0.
+_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
+_emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
+    jq -n --arg e "$1" --arg c "$2" '{hookEventName:$e, additionalContext:$c}'
+  else printf '%s\n' "$2"; fi; }
+_adv_violation() { if _is_zcode; then _emit_ctx "PostToolUse" "$1"; else printf '%s\n' "$1" >&2; exit 1; fi; }
+
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 command -v jq >/dev/null 2>&1 || exit 0   # graceful no-op without jq
 
@@ -46,9 +54,9 @@ printf '%s' "$CONTENT" | grep -q 'ai-laziness-traps' || exit 0
 DISTINCT="$(printf '%s' "$CONTENT" | grep -oE '\bT[0-9]+\b' | sort -u | grep -c .)"
 
 if [[ "$DISTINCT" -lt 3 ]]; then
-  printf '❌ kickoff-traps: %s engages ai-laziness-traps but enumerates only %s distinct T-number(s) (floor: 3).\n' "$REL_PATH" "$DISTINCT" >&2
-  printf '   §3 obligation #2: list the active traps, e.g. "Active traps for this R-phase: T1, T3, T7".\n' >&2
-  printf '   Citing the rule without naming ≥3 traps = #trap-catalogue-blanket-reference.\n' >&2
-  exit 1
+  _adv_violation "❌ kickoff-traps: $REL_PATH engages ai-laziness-traps but enumerates only $DISTINCT distinct T-number(s) (floor: 3).
+   §3 obligation #2: list the active traps, e.g. \"Active traps for this R-phase: T1, T3, T7\".
+   Citing the rule without naming ≥3 traps = #trap-catalogue-blanket-reference."
+  exit 0
 fi
 exit 0

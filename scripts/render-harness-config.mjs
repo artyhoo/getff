@@ -40,6 +40,15 @@ const ZCODE_EVENTS = new Set([
   'PostToolUse', 'PostToolUseFailure', 'Stop',
 ]);
 
+// ── Tool matchers that exist on Claude Code but have NO equivalent / alias on zcode.
+// Verified against the bundle 2026-07-16: zcode's native tool registry (tyn, 30 tools) INCLUDES
+// AskUserQuestion (native, handler Dgn @1038931, needsApproval, runtimeInputSchema C5) — so a
+// PreToolUse:"AskUserQuestion" matcher fires and works verbatim (smoke-tested: emits a valid
+// deny-JSON). It is NOT inert. The ONLY inert matcher is MultiEdit: zcode aliases are
+// Task↔Agent and Write/Edit←ApplyPatch ONLY — there is no MultiEdit alias, so a matcher naming
+// it registers but never matches. Declared LOUDLY via a note op (attention-is-not-a-mechanism §1). ──
+const ZCODE_UNSUPPORTED_TOOLS = new Set(['MultiEdit']);
+
 const MODEL_KEYS = new Set(['hooks', 'mcpServers', 'skillsDir']);
 const HOOK_ENTRY_KEYS = new Set(['matcher', 'command']);
 const MCP_ENTRY_KEYS = new Set(['type', 'command', 'url', 'args', 'env']);
@@ -108,39 +117,76 @@ export function emitClaude(model) {
   ];
 }
 
-/** zcode backend: zcode.json {hooks(1:1 CC schema, supported events only), mcp.servers}
- *  + idempotent symlink .zcode/skills -> ../<skillsDir>. zcode's MCP schema is
- *  `.strict()`: http/sse = {name,type,url,headers[]}, stdio = {name,command,args[],env[{name,value}]}.
- *  zcode's Zod additionally allows an optional per-server `timeoutMs` (schema-verified
- *  2026-07-04); the neutral model omits it UNEXPRESSED-BY-DESIGN (no consumer needs a
- *  per-server MCP timeout yet — widen validateModel's MCP_ENTRY_KEYS when one does).
- *  Emitting without it is `.strict()`-valid since `timeoutMs` is optional. */
+/** zcode backend: .zcode/config.json — the ONE workspace config file ZCode reads.
+ *  + idempotent symlink .zcode/skills -> ../<skillsDir>.
+ *
+ *  SCHEMA-VERIFIED against zcode-host bundle 2026-07-16 (zcode.cjs, Zod schemas):
+ *   • config-file hooks require the WRAPPER form { hooks: { enabled, events: { <Event>: [...] } } }
+ *     (NOT the plugin/bare-CC shape hooks.<Event>). Both the outer object and events are .strict().
+ *     enabled is OPTIONAL in schema but defaults to falsy -> the hook runner is DISABLED unless
+ *     enabled: true is set. So we set it explicitly. (The CC-plugin shape hooks.<Event> is valid
+ *     ONLY for plugin hooks/hooks.json, which auto-enable the runner via a different code path.)
+ *   • MCP server: name is the MAP KEY (mcp.servers.<name>), NOT a field. The http/sse .strict()
+ *     schema is {type,url,headers?,oauth?,timeoutMs?,enabled?} — a name field inside it FAILS
+ *     validation. (headers is optional; omitted is .strict()-valid.)
+ *   • events.<Event>[] inner structure is identical to CC: {matcher?, hooks:[{type:'command',command}]}.
+ *
+ *  HONEST DEGRADATION: zcode supports 7 hook events (ZCODE_EVENTS) — CC-only
+ *  SubagentStart/SubagentStop are DROPPED and declared LOUDLY via a note op. Separately, tool
+ *  matchers naming CC tools with no zcode alias (ZCODE_UNSUPPORTED_TOOLS: MultiEdit — note:
+ *  AskUserQuestion is a NATIVE zcode tool, NOT inert) are kept but flagged INERT — they register
+ *  yet never fire. Both gaps are surfaced as notes (attention-is-not-a-mechanism.md §1 — silent
+ *  narrowing declared, not hidden). */
 export function emitZcode(model) {
   const kept = {};
   const dropped = [];
   for (const [event, entries] of Object.entries(model.hooks ?? {})) {
     if (ZCODE_EVENTS.has(event)) kept[event] = entries; else dropped.push(event);
   }
+  // Detect dead matchers: tool names CC has but zcode does not (no alias). The hook registers
+  // but never fires. Surfaced as a separate loud note so the gap is visible, not a silent no-op.
+  const deadMatchers = new Set();
+  for (const entries of Object.values(kept)) {
+    for (const e of entries) {
+      if (e.matcher) for (const alt of e.matcher.split('|')) {
+        const t = alt.trim();
+        if (ZCODE_UNSUPPORTED_TOOLS.has(t)) deadMatchers.add(t);
+      }
+    }
+  }
   const servers = {};
   for (const [name, s] of Object.entries(model.mcpServers ?? {})) {
     servers[name] = s.url
-      ? { name, type: s.type ?? 'http', url: s.url, headers: [] }
-      : { name, command: s.command, args: s.args ?? [], env: envMapToPairs(s.env) };
+      ? { type: s.type ?? 'http', url: s.url }
+      : { command: s.command, args: s.args ?? [], env: envMapToPairs(s.env) };
   }
   const skillsDir = model.skillsDir ?? '.claude/skills';
   const ops = [
-    { kind: 'json', path: 'zcode.json', optional: true, value: { hooks: toCCHooks(kept), mcp: { servers } } },
+    { kind: 'json', path: '.zcode/config.json', optional: true,
+      value: { hooks: { enabled: true, events: toCCHooks(kept) }, mcp: { servers } } },
     { kind: 'symlink', path: '.zcode/skills', optional: true, target: `../${skillsDir}` },
   ];
   if (dropped.length) {
-    ops.push({ kind: 'note', message: `emitZcode: ${dropped.length} event(s) NOT expressed on zcode (unsupported by its event set): ${dropped.join(', ')} — these hooks run on CC only.` });
+    // Declared degradations (attention-is-not-a-mechanism §1): for each dropped event, state
+    // whether a backup path exists or it is CC-only with no zcode equivalent.
+    const backup = {
+      SubagentStart: 'backup: PreToolUse:Agent+updatedInput (inject-subagent-context.sh) delivers the digest one-shot as the subagent\'s first message — NOT persistent-lifecycle as on CC',
+      SubagentStop: 'NO backup: warn-subagent-report is post-dispatch (scans the finished report); no updatedInput analogue exists on zcode — CC-only',
+    };
+    const lines = dropped.map((ev) => backup[ev]
+      ? `${ev} — ${backup[ev]}`
+      : `${ev} — CC-only`);
+    ops.push({ kind: 'note', message: `emitZcode: ${dropped.length} event(s) NOT expressed on zcode (unsupported by its event set):\n    ${lines.join('\n    ')}` });
+  }
+  if (deadMatchers.size) {
+    ops.push({ kind: 'note', message: `emitZcode: matcher(s) name tool(s) zcode has no alias for — registered but INERT on zcode: ${[...deadMatchers].join(', ')}. These hooks fire on CC only.` });
   }
   return ops;
 }
 
 const EMITTERS = [
   { name: 'claude', emit: emitClaude },
-  { name: 'zcode', presenceProbe: 'zcode.json', emit: emitZcode },
+  { name: 'zcode', presenceProbe: '.zcode/config.json', emit: emitZcode },
 ];
 
 const renderJson = (value) => JSON.stringify(value, null, 2) + '\n';
@@ -157,6 +203,10 @@ function mergedJson(root, op) {
 function applyOp(root, op) {
   if (op.kind === 'note') { console.error(`  ⚠ ${op.message}`); return; }
   const abs = join(root, op.path);
+  // Ensure the parent dir exists for nested paths (e.g. .zcode/config.json). The symlink branch
+  // already did this; the json branch relied on root-only paths and ENOENT'd once emitZcode moved
+  // to .zcode/config.json (harness-config-drift N*/shape tests).
+  if (op.kind === 'json' || op.kind === 'merge-json') mkdirSync(dirname(abs), { recursive: true });
   if (op.kind === 'json') writeFileSync(abs, renderJson(op.value));
   else if (op.kind === 'merge-json') writeFileSync(abs, mergedJson(root, op));
   else if (op.kind === 'symlink') {

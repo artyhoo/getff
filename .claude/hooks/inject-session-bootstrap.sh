@@ -2,16 +2,27 @@
 # Wave 7 sub-wave 7.2.a — UserPromptSubmit hook: inject session-bootstrap digest.
 # stdout is injected into Claude Code's prompt context by the harness automatically.
 # Full bootstrap: .claude/session-bootstrap.md (Step 0 read-first file).
-# @cc-only-rationale: internal dev tooling — UserPromptSubmit digest injection for the
-#   maintainer's own environment; no portable hook fires at prompt-submit. The digest
-#   content lives in .claude/session-bootstrap.md, readable by any harness.
+# @cc-only-rationale: UserPromptSubmit digest injection — CC+ZCode dual-harness via inline
+#   _emit_ctx branching on ZCODE_PROJECT_DIR. No separate portable counterpart artifact (one
+#   file serves both harnesses), so @dual-pair does not apply; the inline branch IS the
+#   portability. The digest content itself lives identically in .claude/session-bootstrap.md.
+# Under CC, plain stdout is auto-injected; under ZCode, stdout must be strict-JSON
+# {additionalContext} (plain is discarded + run marked failed). _emit_ctx (inlined below)
+# branches on ZCODE_PROJECT_DIR so CC behaviour is unchanged.
+
+# Harness-portable output (inlined — this hook is copied standalone to test sandboxes, no lib/
+# sibling to source). CC: plain stdout auto-injected. ZCode: JSON additionalContext.
+_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
+_emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
+    jq -n --arg e "$1" --arg c "$2" '{hookEventName:$e, additionalContext:$c}'
+  else printf '%s' "$2"; case "$2" in *$'\n') : ;; *) printf '\n' ;; esac; fi; }
 
 # #H1 anchor — CTX Stage 1 channel token for .claude/rules/recommendation-laziness-discipline.md
 # (`<!-- channel: digest .claude/hooks/inject-session-bootstrap.sh#H1 -->`) points HERE: the
 # "Recommendation discipline (H1):" line in the heredoc below is that rule's always-on alt-channel
 # (the rule itself is evicted from always-on rule context per CTX Stage 1; this digest line +
 # ai-laziness-traps T20 (Tier-0 core) are what still fires at every prompt).
-cat <<'DIGEST'
+read -r -d '' DIGEST <<'DIGEST'
 [session-bootstrap digest — auto-injected at prompt submit]
 Goal: AI agents can't silently bypass undocumented conventions. Every rule is an executable artifact that fails at the earliest reachable channel — edit-time → pre-commit → pre-push → CI → production audit. CI = last-resort gate. (README.md#why-this-exists)
 Invariants: (1) build-vs-reuse SSOT consult before capability commit + build-first-reuse-default discipline (.claude/rules/build-first-reuse-default.md); (2) recursive self-application green (make self-audit); (3) search-coverage 6-item checklist on negative-existence claims; (4) multi-channel enforcement — every rule fails at earliest reachable channel (CI = last resort).
@@ -27,11 +38,11 @@ DIGEST
 case "${AIF_HOOK_LANG:-en}" in
   en|'') : ;;  # English default — nothing to inject
   ru)
-    cat <<'LANGRU'
-[output-language] Address the operator in Russian — chat explanations, recaps, narration, questions. Keep ALL repo artifacts and machinery in English: code, comments, commit/PR/issue bodies, kickoffs, specs, tool arguments, file contents. (AIF_HOOK_LANG=ru)
-LANGRU
+    DIGEST="$DIGEST"$'\n[output-language] Address the operator in Russian — chat explanations, recaps, narration, questions. Keep ALL repo artifacts and machinery in English: code, comments, commit/PR/issue bodies, kickoffs, specs, tool arguments, file contents. (AIF_HOOK_LANG=ru)'
     ;;
   *)
-    printf '[output-language] Address the operator in language "%s"; keep repo artifacts and machinery in English. (AIF_HOOK_LANG=%s)\n' "$AIF_HOOK_LANG" "$AIF_HOOK_LANG"
+    DIGEST="$DIGEST"$'\n'"$(printf '[output-language] Address the operator in language "%s"; keep repo artifacts and machinery in English. (AIF_HOOK_LANG=%s)' "$AIF_HOOK_LANG" "$AIF_HOOK_LANG")"
     ;;
 esac
+
+_emit_ctx "UserPromptSubmit" "$DIGEST"
