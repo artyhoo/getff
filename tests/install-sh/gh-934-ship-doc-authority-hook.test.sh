@@ -10,7 +10,7 @@
 #
 # ARMS:
 #   (A) delivery — hook present + executable
-#   (B) settings-merge — PostToolUse has BOTH check-doc-authority-header (matcher Edit|Write) AND the
+#   (B) settings-merge — PostToolUse has BOTH check-doc-authority-header (matcher Edit|Write|MultiEdit) AND the
 #       pre-existing §1e inject-matching-rule (append, not clobber — same event)
 #   (C) idempotent — a second install adds no duplicate PostToolUse entry
 #   (D) firing (missing) — a scoped .claude/rules/*.md WITHOUT the header → exit 2 + stderr names it
@@ -53,7 +53,7 @@ if echo "$_dah_cmd" | grep -q 'check-doc-authority-header' && echo "$_dah_cmd" |
 else
   bad "(B) check-doc-authority-header PostToolUse entry missing/mis-shaped (got: '$_dah_cmd')"
 fi
-[ "$_matcher" = "Edit|Write" ] && ok "(B) registered with the Edit|Write matcher" || bad "(B) wrong matcher (got: '$_matcher')"
+[ "$_matcher" = "Edit|Write|MultiEdit" ] && ok "(B) registered with the Edit|Write|MultiEdit matcher" || bad "(B) wrong matcher (got: '$_matcher')"
 if echo "$_post" | grep -q 'inject-matching-rule'; then
   ok "(B) pre-existing §1e inject-matching-rule PostToolUse hook SURVIVED (non-destructive, same event)"
 else

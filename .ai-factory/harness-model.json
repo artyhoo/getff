@@ -20,23 +20,23 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|MultiEdit",
         "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/validate-prompt.sh\""
       },
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|MultiEdit",
         "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-doc-authority.sh\""
       },
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|MultiEdit",
         "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh\""
       },
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|MultiEdit",
         "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-kickoff-traps.sh\""
       },
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|MultiEdit",
         "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-hook-marker.sh\""
       },
       {
