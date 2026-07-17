@@ -34,3 +34,106 @@ describe('extractPep508Name', () => {
     expect(extractPep508Name('package (>=1.0)')).toBeNull();
   });
 });
+
+import { pipAdapter } from './ecosystem-python.ts';
+import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+function makePyprojectRoot(pyprojectText: string): string {
+  const root = mkdtempSync(join(tmpdir(), 'pip-adapter-'));
+  writeFileSync(join(root, 'pyproject.toml'), pyprojectText);
+  return root;
+}
+
+describe('pipAdapter.listDirectDeps — PEP 621', () => {
+  it('extracts names from [project] dependencies array (single-line)', () => {
+    const root = makePyprojectRoot(`[project]
+name = "myproj"
+dependencies = ["requests>=2.0", "click", "django[bcrypt]>=5.0; python_version>='3.10'"]
+`);
+    expect(pipAdapter.listDirectDeps(root)).toEqual(new Set(['requests', 'click', 'django']));
+  });
+
+  it('extracts names from [project.optional-dependencies] (each value an array)', () => {
+    const root = makePyprojectRoot(`[project]
+name = "myproj"
+dependencies = ["click"]
+[project.optional-dependencies]
+test = ["pytest>=8.0", "pytest-mock"]
+dev = ["ruff"]
+`);
+    const deps = pipAdapter.listDirectDeps(root);
+    expect(deps.has('pytest')).toBe(true);
+    expect(deps.has('pytest-mock')).toBe(true);
+    expect(deps.has('ruff')).toBe(true);
+    expect(deps.has('click')).toBe(true);
+  });
+
+  it('returns empty set when pyproject.toml is absent', () => {
+    const root = mkdtempSync(join(tmpdir(), 'pip-adapter-'));
+    expect(pipAdapter.listDirectDeps(root)).toEqual(new Set());
+  });
+
+  it('returns empty set when pyproject.toml is malformed (fail-closed)', () => {
+    const root = makePyprojectRoot(`this is not valid toml [[[`);
+    expect(pipAdapter.listDirectDeps(root)).toEqual(new Set());
+  });
+
+  it('DROPS multi-line arrays (documented limitation, fail-closed)', () => {
+    const root = makePyprojectRoot(`[project]
+dependencies = [
+  "requests>=2.0",
+  "click",
+]
+`);
+    expect(pipAdapter.listDirectDeps(root)).toEqual(new Set());
+  });
+});
+
+describe('pipAdapter.listDirectDeps — Poetry', () => {
+  it('extracts KEYS from [tool.poetry.dependencies] (excludes python)', () => {
+    const root = makePyprojectRoot(`[tool.poetry.dependencies]
+python = "^3.11"
+requests = "^2.31"
+click = "^8.1"
+`);
+    const deps = pipAdapter.listDirectDeps(root);
+    expect(deps.has('requests')).toBe(true);
+    expect(deps.has('click')).toBe(true);
+    expect(deps.has('python')).toBe(false);
+  });
+
+  it('extracts from [tool.poetry.group.<g>.dependencies] (Poetry 1.2+)', () => {
+    const root = makePyprojectRoot(`[tool.poetry.group.dev.dependencies]
+ruff = "^0.1.0"
+[tool.poetry.group.test.dependencies]
+pytest = "^8.0"
+`);
+    const deps = pipAdapter.listDirectDeps(root);
+    expect(deps.has('ruff')).toBe(true);
+    expect(deps.has('pytest')).toBe(true);
+  });
+
+  it('DROPS quoted-key deps (documented limitation)', () => {
+    const root = makePyprojectRoot(`[tool.poetry.dependencies]
+"odd-pkg" = "^1.0"
+normal = "^2.0"
+`);
+    const deps = pipAdapter.listDirectDeps(root);
+    expect(deps.has('odd-pkg')).toBe(false);
+    expect(deps.has('normal')).toBe(true);
+  });
+
+  it('DROPS multi-line inline tables (documented limitation)', () => {
+    const root = makePyprojectRoot(`[tool.poetry.dependencies]
+complex = {
+  version = "^1.0",
+}
+simple = "^2.0"
+`);
+    const deps = pipAdapter.listDirectDeps(root);
+    expect(deps.has('complex')).toBe(false);
+    expect(deps.has('simple')).toBe(true);
+  });
+});
