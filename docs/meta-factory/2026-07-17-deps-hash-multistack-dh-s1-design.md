@@ -1,7 +1,7 @@
 <!-- scope:deps-hash-multistack -->
 # deps-hash-multistack DH-S1 — synthesized design-spec (grounded in kickoff #1016 + R-phase, with dual-review refinements)
 
-> **Scope:** the design for the **DH-S1 stage** of the `deps-hash-multistack` umbrella (kickoff [#1016](https://github.com/.../pull/1016), merged). This spec does NOT re-derive the umbrella's architecture — that is FIXED by the merged kickoff §1 + R-phase [`2026-07-16-deps-hash-multistack.md`](research-patches/2026-07-16-deps-hash-multistack.md). This spec is the **DH-S1 implementor's design**: it restates the binding decisions, folds in empirical refinements from a dual (top-down + bottom-up) design review, and sequences the I-phase. I-phase is BLOCKED on maintainer GO. NOT authoritative for project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists).
+> **Scope:** the design for the **DH-S1 stage** of the `deps-hash-multistack` umbrella (kickoff [#1016](https://github.com/.../pull/1016), merged). This spec does NOT re-derive the umbrella's architecture — that is FIXED by the merged kickoff §1 + R-phase [`2026-07-16-deps-hash-multistack.md`](research-patches/2026-07-16-deps-hash-multistack.md). This spec is the **DH-S1 implementor's design**: it restates the binding decisions, folds in empirical refinements from a dual (top-down + bottom-up) design review, and sequences the I-phase. I-phase is BLOCKED on maintainer GO. NOT authoritative for project goal — see [README.md#why-this-exists](../../README.md#why-this-exists).
 > **Status:** DRAFT (post dual-review synthesis) — awaiting GO.
 > **Binding sources (do not re-derive):** kickoff §1 (target design), R-phase §1–§5.
 > **Date:** 2026-07-17.
