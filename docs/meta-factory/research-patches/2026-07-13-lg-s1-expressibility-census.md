@@ -3,7 +3,7 @@
 
 > **Scope:** the LG-S1 sub-deliverable 7 (kickoff §2) — measure, on real python conventions, whether the FROZEN `ConventionNode` IR can express live-researched rules, to feed OWNER-FORK-1 (unfreeze the IR or stay narrow). DATA ONLY — the fork is the owner's; this patch decides nothing. NOT authoritative for project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists).
 > **Status:** LANDED on `claude/live-generation-s1-python-a52650` as the OWNER-FORK-1 durable record. The unfreeze decision itself is a separate MT-plane umbrella (STOP line, kickoff §2), decided by the owner on this data.
-> **Method:** 15 real python conventions (stratified across security / correctness / typing / imports / style — T9 counter), each classified by a subagent that authored a candidate ast-grep rule and fired it **for real** against `@ast-grep/cli@0.44.1` in an OS temp dir (every row carries an actual `ast-grep scan` exit code — no prose-only claim, T3/T15), with an adversarial relational-collapse pass challenging each non-expressible verdict. Ran as a session-side Workflow (no paid LLM in CI — [no-paid-llm-in-ci.md](../../../.claude/rules/no-paid-llm-in-ci.md)). Full working ledger: `.superpowers/sdd/lg-s1-census.md` (gitignored per-machine).
+> **Method:** 15 real python conventions (stratified across security / correctness / typing / imports / style — T9 counter), each classified by a subagent that authored a candidate ast-grep rule and fired it **for real** against `@ast-grep/cli@0.44.1` in an OS temp dir (every row carries an actual `ast-grep scan` exit code — no prose-only claim, T3/T15), with an adversarial relational-collapse pass challenging each non-expressible verdict. Ran as a session-side Workflow (no paid LLM in CI — [no-paid-llm-in-ci.md](../../../.claude/rules/no-paid-llm-in-ci.md)). Full working ledger: `.superpowers/sdd/lg-s1-census.md` (untracked — excluded via `.git/info/exclude`, not a shared `.gitignore`, so not reproducible across machines; the bucket counts + rate arithmetic above are reproducible from staging artifacts, the per-row exit codes are corroborating detail in the ledger only).
 > **Date:** 2026-07-13.
 
 ---
@@ -18,9 +18,9 @@
 | d-doc-conformance | only checkable semantically vs prose docs — session-time Living-Documentation, NOT a CI lint gate (no-paid-llm) | 0 | 0.0% |
 
 - **% expressible (a+b) = 14/15 = 93.3%.**
-- **Flat-only (frozen IR) = 40.0%** → BELOW the §Qb ~50% «product-death band» threshold.
+- **Flat-only (frozen IR) = 40.0%** → BELOW the §Qb ~50% shippable threshold — i.e. worse than even the start of the §Qb 50-70% «product-death band» (Option B unfreeze is justified by measured need per the §Qb decider rule).
 - **Flat + relational = 93.3%** → well above, BUT reachable only via a **relational-params unfreeze** (`kind` + `not:/has:/all:/any:`) — the concrete, minimal IR change, NOT a «require polarity» field.
-- **The decision-relevant delta (+53.3 pts, 8 conventions) is exactly the set gated behind that relational unfreeze**, including all 5 «require-via-ban» cases.
+- **The decision-relevant delta (+53.3 pts, 8 conventions) is exactly the set gated behind that relational unfreeze**, including all 3 «require-via-ban» cases (the positive-polarity conventions named in §2 — require-type-hints, require-future-annotations, require-docstring; if the author intended a wider 5-case set, the additional 2 must be enumerated here explicitly, since the §2 list is the named source of truth).
 
 ## §2 The «require via ban» finding (owner hypothesis, CONFIRMED)
 
