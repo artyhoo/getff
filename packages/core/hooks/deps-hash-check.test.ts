@@ -102,7 +102,10 @@ function computePythonHash(opts: {
     // project.optional-dependencies, dependency-groups, tool.poetry.dependencies,
     // tool.poetry.dev-dependencies, tool.poetry.group.<name>.dependencies (glob),
     // tool.hatch.envs.<name> (glob). [project] deliberately excluded (D1 C-resolution).
+    // The leading {gsub(/\r/,"")} strips Windows CRLF — mirrors the hook (round-3.5 review B1:
+    // without it, substr on `[hdr]\r` leaks `]` and silently drops 5/6 tables on Windows).
     const awkProg =
+      '{gsub(/\\r/,"")}' +
       'function want(h){' +
       'if(h=="project.optional-dependencies")return 1;' +
       'if(h=="dependency-groups")return 1;' +
@@ -116,9 +119,13 @@ function computePythonHash(opts: {
     const tier1Hex = tier1Raw.status === 0
       ? crypto.createHash('sha256').update(tier1Raw.stdout).digest('hex')
       : '';
-    // Tier-2: [project] deps-only via tomllib, deterministic compact-json payload. If no
-    // python3 (hasPython3:false), tier2 contributes "" (the hook's missing-python3 branch).
-    let tier2Hex = '';
+    // Tier-2 sentinel: sha256("[][]") — the EXACT Tier-2 value tomllib produces for a pyproject
+    // with no [project] deps. Used when tomllib is unavailable (hasPython3:false) so a python
+    // 3.10→3.11 upgrade does NOT shift the baseline for a pyproject without [project] deps
+    // (round-3.5 review B2). Mirrors the hook's _PY_TIER2_SENTINEL.
+    const TIER2_SENTINEL = crypto.createHash('sha256').update('[][]').digest('hex');
+    // Tier-2: real tomllib hash if hasPython3; else the sentinel (NOT "") per B2.
+    let tier2Hex = TIER2_SENTINEL;
     if (hasPython3) {
       // ONE try around import+load+print so any error (malformed TOML, no tomllib) → empty
       // stdout (design §3a R4). json.dumps compact mirrors the JS-friendly deterministic shape.
@@ -138,7 +145,10 @@ function computePythonHash(opts: {
         '  pass',
       ].join('\n');
       const tier2Raw = spawnSync('python3', ['-c', py, tmpFile], { encoding: 'utf8' });
-      tier2Hex = (tier2Raw.stdout ?? '').trim();
+      const raw = (tier2Raw.stdout ?? '').trim();
+      // Mirrors the hook: tomllib parse failure / no tomllib → use the sentinel (NOT ""), so
+      // a pyproject without [project] deps hashes identically whether tomllib ran or not (B2).
+      tier2Hex = raw.length > 0 ? raw : TIER2_SENTINEL;
     }
     // Combined python hash = sha256(tier1hex + tier2hex). Mirrors the hook's assembly.
     return `sha256-${crypto.createHash('sha256').update(tier1Hex + tier2Hex).digest('hex')}`;
@@ -564,6 +574,58 @@ describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen
     expect(status).toBe(0);
     // Tier-1 detects the drift (stored all-zeros != real Tier-1 hash) → WARN
     expect(stdout).toContain('⚠');
+  });
+
+  it('PYTHON-CRLF: identical pyproject content under CRLF (Windows) hashes the SAME as LF — no cross-platform spurious drift (round-3.5 review B1)', () => {
+    // Round-3.5 review B1: the awk's substr($0,2,length-2) on `[hdr]\r` leaked `]`, silently
+    // dropping 5/6 tables and producing a different hash. Fix: {gsub(/\r/,"")} in the awk.
+    // This test is non-vacuous: removing the gsub makes it FAIL (CRLF → different hash).
+    const lfContent = ['[tool.poetry.dependencies]', 'flask = "^2.0"', ''].join('\n');
+    const crlfContent = lfContent.replace(/\n/g, '\r\n'); // identical bytes modulo line endings
+    const lfHash = computePythonHash({ pyprojectContent: lfContent });
+    const crlfHash = computePythonHash({ pyprojectContent: crlfContent });
+    // The oracle hashes the same regardless of line endings (both go through the gsub awk).
+    expect(crlfHash).toBe(lfHash);
+    // And the hook, given a baselined CRLF pyproject and an LF baseline, stays silent:
+    const cwd = makeFixtureDir({
+      pyprojectToml: crlfContent,
+      toolDecisions: `---\ndeps-hash-python: ${lfHash}\n---\n`,
+    });
+    const { status, stdout } = runHook(cwd);
+    expect(status).toBe(0);
+    expect(stdout).toBe(''); // CRLF content matches LF-stored baseline → no spurious drift
+  });
+
+  it('PYTHON-UPGRADE-STABLE: a pyproject WITHOUT [project] deps hashes the SAME whether tomllib is present or absent (round-3.5 review B2)', () => {
+    // Round-3.5 review B2: python 3.10→3.11 upgrade shifted the baseline for an unchanged
+    // pyproject because Tier-2 (tomllib) went from "" to populated. Fix: when tomllib is
+    // unavailable, Tier-2 contributes the sentinel sha256("[][]") — the EXACT value tomllib
+    // produces for a no-[project] pyproject — so the upgrade does not shift such baselines.
+    const pyproject = ['[tool.poetry.dependencies]', 'flask = "^2.0"', ''].join('\n'); // no [project]
+    const withTomllib = computePythonHash({ pyprojectContent: pyproject, hasPython3: true });
+    const withoutTomllib = computePythonHash({ pyprojectContent: pyproject, hasPython3: false });
+    expect(withoutTomllib).toBe(withTomllib); // sentinel makes them equal → no upgrade drift
+  });
+
+  it('PYTHON-FRESH-INSTALL: python-only consumer with <pending> deps-hash-python → onboarding WARN (round-3.5 review M1)', () => {
+    // Round-3.5 review M1: a fresh-install python-only consumer (pyproject, no package.json)
+    // got ZERO nudge because the install template seeded only legacy deps-hash: (read as the
+    // npm slot), leaving the python slot empty → _drifted silently skipped. Fix: the template
+    // now seeds deps-hash-python: <pending> too; the <pending> value (non-sha256-*) hits the
+    // honest "not yet baselined" case branch (NOT "deps changed"). decision-format.md:27 contract.
+    const pyproject = ['[tool.poetry.dependencies]', 'flask = "^2.0"', ''].join('\n');
+    const cwd = makeFixtureDir({
+      pyprojectToml: pyproject,
+      // The fresh-install seed: all three keys present (npm/python/legacy), all <pending>.
+      toolDecisions: `---\ndeps-hash-npm: <pending — populated on first tool-bootstrap>\ndeps-hash-python: <pending — populated on first tool-bootstrap>\ndeps-hash: <pending — populated on first tool-bootstrap>\n---\n`,
+    });
+    const { status, stdout } = runHook(cwd);
+    expect(status).toBe(0);
+    expect(stdout).toContain('⚠');
+    expect(stdout.toLowerCase()).toContain('python');
+    // Honest wording: "not yet baselined", NOT the misleading "deps changed".
+    expect(stdout.toLowerCase()).toContain('baselined');
+    expect(stdout.toLowerCase()).not.toContain('deps changed');
   });
 
   it('NO-MANIFESTS: no package.json + no pyproject.toml → silent exit 0 (design §5 c2)', () => {
