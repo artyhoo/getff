@@ -41,25 +41,125 @@ function computeHash(depsJson: string): string {
   return `sha256-${hash}`;
 }
 
-/** Build the deps JSON in the same way node -e does in the hook (line 26-29). */
+/**
+ * The widened JS deps surface (kickoff §1 line 30, design §1-E): 7 fields merged.
+ * `overrides`/`resolutions` can be a STRING in real package.json (npm `$REACT` reference
+ * syntax); spreading a string produces integer-indexed char keys and corrupts the hash —
+ * so the hook (and this helper) guard each non-deps/devDeps field with `typeof === 'object'`
+ * (design §3a m1). Mirrors the hook's `node -e` extraction exactly so expected hashes match.
+ */
 function buildDepsJson(pkg: {
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
+  optionalDependencies?: Record<string, string>;
+  overrides?: Record<string, string> | string;
+  resolutions?: Record<string, string> | string;
+  pnpm?: { overrides?: Record<string, string> };
 }): string {
+  // Guard each widened field: only spread if present AND object-shaped (string `overrides`
+  // like "$REACT" → dropped, matching the hook's typeof check). deps/devDeps are always
+  // objects in valid package.json so no guard needed (but the ?? {} handles absence).
+  const obj = (v: unknown): Record<string, string> =>
+    v && typeof v === 'object' ? (v as Record<string, string>) : {};
   return JSON.stringify({
     ...(pkg.dependencies ?? {}),
     ...(pkg.devDependencies ?? {}),
+    ...obj(pkg.peerDependencies),
+    ...obj(pkg.optionalDependencies),
+    ...obj(pkg.overrides),
+    ...obj(pkg.resolutions),
+    ...obj(pkg.pnpm?.overrides),
   });
 }
 
+/**
+ * Compute the deps-hash-python value by RUNNING the exact commands the hook runs (Tier-1
+ * awk + Tier-2 python3 tomllib), against a temp file holding pyprojectContent. This is a
+ * TRUE ORACLE, not a parallel reimplementation — it eliminates any helper/hook drift by
+ * construction (design §4). The two tiers are assembled exactly as the hook will assemble
+ * them: tier1 = sha256(awk 6-table byte-range), tier2 = sha256(python3 json.dumps compact
+ * of sorted [project] deps arrays), combined = sha256(tier1hex + tier2hex).
+ *
+ * Round-2 review caught that a JS reimplementation drifted from the hook on TWO axes:
+ * (B-Tier2) python repr() vs JS JSON.stringify single/double-quote + dict/array shape;
+ * (M1) JS header regex /^\\[([^\\]]+)\\]$/ does not treat [[array-table]] as a boundary,
+ * leaking Poetry [[tool.poetry.source]] blocks that awk correctly excludes. Delegating to
+ * the real awk + python3 closes both. hasPython3:false simulates the node-free-no-python3
+ * lane (Tier-2 contributes "" exactly as the hook's missing-python3 branch does).
+ */
+function computePythonHash(opts: {
+  pyprojectContent: string;
+  hasPython3?: boolean; // default true; false simulates node-free-no-python3 (Tier-2 → "")
+}): string {
+  const hasPython3 = opts.hasPython3 ?? true;
+  // Write the content to a temp file so awk/python3 read the same bytes the hook will.
+  const tmpFile = join(tmpdir(), `deps-hash-py-${process.pid}-${Math.random().toString(36).slice(2)}.toml`);
+  writeFileSync(tmpFile, opts.pyprojectContent, 'utf8');
+  tmpFiles.push(tmpFile);
+  try {
+    // Tier-1: the 6-table awk matcher (design §4). Identical to the hook's awk — tables:
+    // project.optional-dependencies, dependency-groups, tool.poetry.dependencies,
+    // tool.poetry.dev-dependencies, tool.poetry.group.<name>.dependencies (glob),
+    // tool.hatch.envs.<name> (glob). [project] deliberately excluded (D1 C-resolution).
+    const awkProg =
+      'function want(h){' +
+      'if(h=="project.optional-dependencies")return 1;' +
+      'if(h=="dependency-groups")return 1;' +
+      'if(h=="tool.poetry.dependencies")return 1;' +
+      'if(h=="tool.poetry.dev-dependencies")return 1;' +
+      'if(h~/^tool\\.poetry\\.group\\.[^.]+\\.dependencies$/)return 1;' +
+      'if(h~/^tool\\.hatch\\.envs\\.[^.]+$/)return 1;' +
+      'return 0}' +
+      '/^\\[/{in_t=want(substr($0,2,length($0)-2))}in_t';
+    const tier1Raw = spawnSync('awk', [awkProg, tmpFile], { encoding: 'utf8' });
+    const tier1Hex = tier1Raw.status === 0
+      ? crypto.createHash('sha256').update(tier1Raw.stdout).digest('hex')
+      : '';
+    // Tier-2: [project] deps-only via tomllib, deterministic compact-json payload. If no
+    // python3 (hasPython3:false), tier2 contributes "" (the hook's missing-python3 branch).
+    let tier2Hex = '';
+    if (hasPython3) {
+      // ONE try around import+load+print so any error (malformed TOML, no tomllib) → empty
+      // stdout (design §3a R4). json.dumps compact mirrors the JS-friendly deterministic shape.
+      // IMPORTANT: join with "\n" (NOT ";") — Python try:/except blocks are newline-delimited,
+      // a ";" join would be a SyntaxError and silently yield empty tier2 (a prior helper bug
+      // that mismatched the hook). This must byte-match the hook's _PY_TIER2_SCRIPT.
+      const py = [
+        'import sys',
+        'try:',
+        '  import tomllib,json,hashlib',
+        '  d=tomllib.load(open(sys.argv[1],"rb"))',
+        '  p=d.get("project",{})',
+        '  deps=p.get("dependencies",[]);opt=p.get("optional-dependencies",{})',
+        '  payload=json.dumps(sorted(deps),separators=(",",":"))+json.dumps([[k,sorted(v)] for k,v in sorted(opt.items())],separators=(",",":"))',
+        '  print(hashlib.sha256(payload.encode()).hexdigest())',
+        'except Exception:',
+        '  pass',
+      ].join('\n');
+      const tier2Raw = spawnSync('python3', ['-c', py, tmpFile], { encoding: 'utf8' });
+      tier2Hex = (tier2Raw.stdout ?? '').trim();
+    }
+    // Combined python hash = sha256(tier1hex + tier2hex). Mirrors the hook's assembly.
+    return `sha256-${crypto.createHash('sha256').update(tier1Hex + tier2Hex).digest('hex')}`;
+  } finally {
+    // tmpFiles cleaned in afterEach; the try/finally keeps the oracle robust if crypto throws.
+  }
+}
+
 const tmpDirs: string[] = [];
+const tmpFiles: string[] = []; // single-line temp files for computePythonHash's awk/python invocations
 afterEach(() => {
   for (const d of tmpDirs.splice(0)) rmSync(d, { recursive: true, force: true });
+  for (const f of tmpFiles.splice(0)) {
+    try { rmSync(f, { force: true }); } catch { /* already gone */ }
+  }
 });
 
 /** Create a temp dir with optional fixtures. Returns the temp dir path. */
 function makeFixtureDir(opts: {
   packageJson?: object;
+  pyprojectToml?: string; // full pyproject.toml content; omitted = don't create
   toolDecisions?: string; // full file content; null = don't create
 } = {}): string {
   const dir = mkdtempSync(join(tmpdir(), 'deps-hash-test-'));
@@ -67,6 +167,10 @@ function makeFixtureDir(opts: {
 
   if (opts.packageJson !== undefined) {
     writeFileSync(join(dir, 'package.json'), JSON.stringify(opts.packageJson), 'utf8');
+  }
+
+  if (opts.pyprojectToml !== undefined) {
+    writeFileSync(join(dir, 'pyproject.toml'), opts.pyprojectToml, 'utf8');
   }
 
   if (opts.toolDecisions !== undefined) {
@@ -289,5 +393,256 @@ describe('deps-hash-check.sh — source/dogfood byte-identity (@dual-pair: deps-
     const source = readFileSync(HOOK_SOURCE, 'utf8');
     const dogfood = readFileSync(HOOK, 'utf8');
     expect(dogfood).toBe(source);
+  });
+});
+
+// =============================================================================
+// DH-S1 multistack (kickoff #1016) — per-stack baselines + JS-widen + python Tier-1/2.
+// Design: docs/meta-factory/2026-07-17-deps-hash-multistack-dh-s1-design.md.
+// These are RED against the pre-DH-S1 hook (JS-only, single deps-hash: key) and turn
+// GREEN once the hook is rewritten (commit B). Each case names its design-spec §ref.
+// =============================================================================
+
+describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen, python tiers)', () => {
+  // ---- (a) JS-widen: peerDependencies/overrides change the npm hash ----
+  it('JS-WIDEN: a package.json with peerDependencies only → npm hash differs from legacy 2-field surface; matching stored deps-hash-npm → silent (design §1-E, §3a m1)', () => {
+    const pkg = { peerDependencies: { react: '^18.0.0' } };
+    const depsJson = buildDepsJson(pkg); // widened helper → {"react":"^18.0.0"}
+    const correctHash = computeHash(depsJson);
+    const cwd = makeFixtureDir({
+      packageJson: pkg,
+      toolDecisions: `---\ndeps-hash-npm: ${correctHash}\n---\n`,
+    });
+    const { status, stdout } = runHook(cwd);
+    expect(status).toBe(0);
+    expect(stdout).toBe(''); // silent when the widened hash matches the stored deps-hash-npm
+  });
+
+  it('JS-WIDEN-GUARD: string-typed overrides ("$REACT") is dropped, NOT spread into char keys (design §3a m1)', () => {
+    // npm allows overrides as a string reference. A naive {...p.overrides} on a string produces
+    // {"0":"$","1":"R",...} — corrupts the hash. The hook guards with typeof === 'object'.
+    const pkg = {
+      dependencies: { react: '^18.0.0' },
+      overrides: '$REACT' as unknown as Record<string, string>, // string, must be dropped
+    };
+    const depsJson = buildDepsJson(pkg); // → {"react":"^18.0.0"} (overrides string dropped)
+    const correctHash = computeHash(depsJson);
+    const cwd = makeFixtureDir({
+      packageJson: pkg,
+      toolDecisions: `---\ndeps-hash-npm: ${correctHash}\n---\n`,
+    });
+    const { status, stdout } = runHook(cwd);
+    expect(status).toBe(0);
+    expect(stdout).toBe(''); // matches → silent. Would FAIL if hook spread the string.
+  });
+
+  it('JS-WIDEN-ALL-FIELDS: all 7 object-typed widened fields contribute to the npm hash (design §1-E; round-2 M3)', () => {
+    // Coverage for the 4 fields JS-WIDEN/GUARD don't exercise: optionalDependencies, resolutions,
+    // pnpm.overrides, AND overrides-as-object. A hook that spread only {deps,devDeps,peerDeps} would
+    // compute a different hash → stored (7-field) hash mismatches → WARN. Silent here = all included.
+    const pkg = {
+      dependencies: { react: '^18.0.0' },
+      devDependencies: { vitest: '^1.0.0' },
+      peerDependencies: { react: '^18.0.0' },
+      optionalDependencies: { fsevents: '^2.0.0' },
+      overrides: { react: '^18.2.0' },
+      resolutions: { lodash: '^4.17.21' },
+      pnpm: { overrides: { some: '1.0.0' } },
+    };
+    const depsJson = buildDepsJson(pkg);
+    const correctHash = computeHash(depsJson);
+    const cwd = makeFixtureDir({
+      packageJson: pkg,
+      toolDecisions: `---\ndeps-hash-npm: ${correctHash}\n---\n`,
+    });
+    const { status, stdout } = runHook(cwd);
+    expect(status).toBe(0);
+    expect(stdout).toBe(''); // all 7 fields hashed → match → silent
+  });
+
+  // ---- (b) python Tier-1 6-table: a Poetry deps drift fires deps-hash-python WARN ----
+  it('PYTHON-TIER1: [tool.poetry.dependencies] version drift → deps-hash-python WARN (design §4 Tier-1)', () => {
+    const pyproject = [
+      '[project]',
+      'name = "demo"',
+      'version = "0.1.0"',
+      'dependencies = ["click"]',
+      '[tool.poetry.dependencies]',
+      'flask = "^2.0"',
+      '',
+    ].join('\n');
+    const correctHash = computePythonHash({ pyprojectContent: pyproject });
+    // store a deliberately-wrong (drifted) python hash → WARN expected
+    const cwd = makeFixtureDir({
+      pyprojectToml: pyproject,
+      toolDecisions: `---\ndeps-hash-python: sha256-${'0'.repeat(64)}\n---\n`,
+    });
+    const { status, stdout } = runHook(cwd);
+    expect(status).toBe(0);
+    expect(stdout).toContain('⚠');
+    // the WARN should name the python stack (per-stack WARN, design §1-D)
+    expect(stdout.toLowerCase()).toMatch(/python/);
+  });
+
+  it('PYTHON-TIER1-MATCH: [tool.poetry.dependencies] matching stored deps-hash-python → silent', () => {
+    const pyproject = [
+      '[project]',
+      'name = "demo"',
+      'version = "0.1.0"',
+      '[tool.poetry.dependencies]',
+      'flask = "^2.0"',
+      '',
+    ].join('\n');
+    const correctHash = computePythonHash({ pyprojectContent: pyproject });
+    const cwd = makeFixtureDir({
+      pyprojectToml: pyproject,
+      toolDecisions: `---\ndeps-hash-python: ${correctHash}\n---\n`,
+    });
+    const { status, stdout } = runHook(cwd);
+    expect(status).toBe(0);
+    expect(stdout).toBe('');
+  });
+
+  // ---- (b') [project] is Tier-2-only (D1 C-resolution): own-version bump does NOT fire; deps bump DOES (via tomllib) ----
+  it('PYTHON-PROJECT-NO-FP: bumping project OWN version does NOT fire (no cry-wolf) (design §4/§7 C)', () => {
+    const pyproject = [
+      '[project]',
+      'name = "demo"',
+      'version = "0.1.0"',
+      'dependencies = ["requests>=2.0"]',
+      '',
+    ].join('\n');
+    const correctHash = computePythonHash({ pyprojectContent: pyproject });
+    const cwd = makeFixtureDir({
+      pyprojectToml: pyproject,
+      toolDecisions: `---\ndeps-hash-python: ${correctHash}\n---\n`,
+    });
+    const { status, stdout } = runHook(cwd);
+    expect(status).toBe(0);
+    expect(stdout).toBe(''); // own-version is not a dep → no drift
+  });
+
+  it('PYTHON-PROJECT-DRIFT: bumping [project].dependencies version FIRES via Tier-2 tomllib (design §4/§7 C)', () => {
+    const pyproject = [
+      '[project]',
+      'name = "demo"',
+      'version = "0.1.0"',
+      'dependencies = ["requests>=2.32"]', // bumped from a prior 2.0 baseline
+      '',
+    ].join('\n');
+    // store the PRIOR (2.0) hash → current is 2.32 → drift expected
+    const priorPyproject = pyproject.replace('requests>=2.32', 'requests>=2.0');
+    const priorHash = computePythonHash({ pyprojectContent: priorPyproject });
+    const cwd = makeFixtureDir({
+      pyprojectToml: pyproject,
+      toolDecisions: `---\ndeps-hash-python: ${priorHash}\n---\n`,
+    });
+    const { status, stdout } = runHook(cwd);
+    expect(status).toBe(0);
+    expect(stdout).toContain('⚠');
+    expect(stdout.toLowerCase()).toMatch(/python/);
+  });
+
+  // ---- (c) node-free python lane: Tier-1 hashes without node/python3; no manifests → silent ----
+  it('NODE-FREE-PYTHON-TIER1: pyproject (Tier-1-only table, no [project]) → Tier-1 detects drift with NO node on PATH (design §3a, §5 c1)', () => {
+    // This fixture has ONLY a Tier-1 table ([tool.poetry.dependencies]) and NO [project], so
+    // Tier-2 (tomllib for [project].deps) contributes nothing regardless of python3 availability.
+    // The contract under test: Tier-1 bash hashing needs NO node and NO python3 — it detects the
+    // drift via awk+sha alone. We scrub node from PATH (the JS lane's toolchain) to prove the
+    // python Tier-1 path is independent of it. (Scrubbing python3 itself is machine-fragile — on
+    // macOS /usr/bin/python3 is a CLT stub — so the fixture carries no [project], making python3
+    // presence irrelevant to the asserted WARN. design §6 documents the [project]-coverage cost.)
+    const pyproject = ['[tool.poetry.dependencies]', 'flask = "^2.0"', ''].join('\n');
+    const cwd = makeFixtureDir({
+      pyprojectToml: pyproject,
+      toolDecisions: `---\ndeps-hash-python: sha256-${'0'.repeat(64)}\n---\n`,
+    });
+    // PATH keeps awk/grep/shasum (Tier-1 needs them) but drops /opt/homebrew/bin (node lives
+    // there). node absence is the load-bearing scrub; python3 may or may not resolve but the
+    // fixture has no [project] so it cannot change the outcome.
+    const { status, stdout } = runHook(cwd, { PATH: '/usr/bin:/bin' });
+    expect(status).toBe(0);
+    // Tier-1 detects the drift (stored all-zeros != real Tier-1 hash) → WARN
+    expect(stdout).toContain('⚠');
+  });
+
+  it('NO-MANIFESTS: no package.json + no pyproject.toml → silent exit 0 (design §5 c2)', () => {
+    const cwd = makeFixtureDir({
+      toolDecisions: `---\ndeps-hash-npm: sha256-deadbeef\ndeps-hash-python: sha256-deadbeef\n---\n`,
+    });
+    const { status, stdout } = runHook(cwd);
+    expect(status).toBe(0);
+    expect(stdout).toBe('');
+  });
+
+  // ---- (d) Tier-2 degrade: malformed pyproject → tomllib raises → empty Tier-2, Tier-1 stands ----
+  it('PYTHON-TIER2-DEGRADE: malformed pyproject (unbalanced bracket) → tomllib raises → empty Tier-2, Tier-1 hash still stands, no crash (design §3a R4, §6)', () => {
+    const malformed = [
+      '[project]',
+      'dependencies = [', // unbalanced — tomllib.load raises
+      '  "click"',
+      '[tool.poetry.dependencies]',
+      'flask = "^2.0"',
+      '',
+    ].join('\n');
+    // The hook must not crash; it computes Tier-1 only (tomllib failed) and compares.
+    // Store a deliberately-drifted python hash → WARN from Tier-1 path.
+    const cwd = makeFixtureDir({
+      pyprojectToml: malformed,
+      toolDecisions: `---\ndeps-hash-python: sha256-${'0'.repeat(64)}\n---\n`,
+    });
+    const { status, stdout, stderr } = runHook(cwd);
+    expect(status).toBe(0); // never crashes — always exit 0 (non-blocking contract)
+    expect(stderr).toBe(''); // no traceback leaks to stderr
+    // Tier-1 over [tool.poetry.dependencies] still differs from all-zeros → WARN
+    expect(stdout).toContain('⚠');
+  });
+
+  // ---- (e) ZCode combined-WARN: npm + python both drift → ONE valid JSON object (design §3a M2) ----
+  it('ZCODE-COMBINED-WARN: npm AND python both drift under ZCODE_PROJECT_DIR → ONE JSON object, parses cleanly (design §3a M2)', () => {
+    const pkg = { dependencies: { react: '^18.0.0' } };
+    const pyproject = '[tool.poetry.dependencies]\nflask = "^2.0"\n';
+    const cwd = makeFixtureDir({
+      packageJson: pkg,
+      pyprojectToml: pyproject,
+      toolDecisions: `---\ndeps-hash-npm: sha256-${'0'.repeat(64)}\ndeps-hash-python: sha256-${'0'.repeat(64)}\n---\n`,
+    });
+    const { status, stdout } = runHook(cwd, { ZCODE_PROJECT_DIR: cwd });
+    expect(status).toBe(0);
+    // CRITICAL: must be a SINGLE parseable JSON object (two objects → JSON.parse throws).
+    const parsed = JSON.parse(stdout); // throws if two objects concatenated
+    expect(parsed.hookEventName).toBe('UserPromptSubmit');
+    // both stacks mentioned in the single additionalContext
+    expect(parsed.additionalContext).toMatch(/npm|package\.json|js/i);
+    expect(parsed.additionalContext).toMatch(/python|pyproject/i);
+  });
+
+  // ---- (f) legacy-key precedence: deps-hash-npm wins over deps-hash (design §3a M1) ----
+  it('LEGACY-PRECEDENCE: tool-decisions.md with BOTH deps-hash: and deps-hash-npm: → npm slot reads deps-hash-npm (design §3a M1)', () => {
+    const pkg = { dependencies: { react: '^18.0.0' } };
+    const correctHash = computeHash(buildDepsJson(pkg));
+    const cwd = makeFixtureDir({
+      packageJson: pkg,
+      // legacy deps-hash: is deliberately WRONG (drifted); deps-hash-npm: is CORRECT.
+      // If precedence is right, npm reads deps-hash-npm → match → silent.
+      // If precedence is wrong (legacy shadows), npm reads drifted deps-hash: → WARN.
+      toolDecisions: `---\ndeps-hash: sha256-${'0'.repeat(64)}\ndeps-hash-npm: ${correctHash}\n---\n`,
+    });
+    const { status, stdout } = runHook(cwd);
+    expect(status).toBe(0);
+    expect(stdout).toBe(''); // deps-hash-npm wins → match → silent
+  });
+
+  // ---- backward-compat: legacy-only deps-hash: still reads as npm slot (no regression) ----
+  it('LEGACY-BACKCOMPAT: tool-decisions.md with ONLY legacy deps-hash: → still read as npm slot (design §1-C)', () => {
+    const pkg = { dependencies: { react: '^18.0.0' } };
+    const correctHash = computeHash(buildDepsJson(pkg));
+    const cwd = makeFixtureDir({
+      packageJson: pkg,
+      toolDecisions: `---\ndeps-hash: ${correctHash}\n---\n`,
+    });
+    const { status, stdout } = runHook(cwd);
+    expect(status).toBe(0);
+    expect(stdout).toBe(''); // legacy key read as npm → match → silent
   });
 });
