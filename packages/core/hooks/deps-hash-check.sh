@@ -91,10 +91,13 @@ _npm_current() {
 # ── Python stack (pyproject.toml) — two-tier ladder (design §4) ────────────
 # Tier-1: bash/awk table-boundary hash of the 6 non-[project] dep tables. [project] is
 # deliberately excluded (its metadata would cry-wolf on every release; covered by Tier-2).
-_PY_TIER1_AWK='function want(h){if(h=="project.optional-dependencies")return 1;if(h=="dependency-groups")return 1;if(h=="tool.poetry.dependencies")return 1;if(h=="tool.poetry.dev-dependencies")return 1;if(h~/^tool\.poetry\.group\.[^.]+\.dependencies$/)return 1;if(h~/^tool\.hatch\.envs\.[^.]+$/)return 1;return 0}/^\[/{in_t=want(substr($0,2,length($0)-2))}in_t'
+# The leading {gsub(/\r/,"")} strips Windows CRLF line endings before the header parse —
+# without it, substr($0,2,length($0)-2) on a `[hdr]\r` line yields `hdr]` (leaked `]`),
+# silently dropping 5/6 dep tables and producing a different hash vs LF (round-3.5 review B1).
+_PY_TIER1_AWK='{gsub(/\r/,"")}function want(h){if(h=="project.optional-dependencies")return 1;if(h=="dependency-groups")return 1;if(h=="tool.poetry.dependencies")return 1;if(h=="tool.poetry.dev-dependencies")return 1;if(h~/^tool\.poetry\.group\.[^.]+\.dependencies$/)return 1;if(h~/^tool\.hatch\.envs\.[^.]+$/)return 1;return 0}/^\[/{in_t=want(substr($0,2,length($0)-2))}in_t'
 # Tier-2: python3 tomllib hashes [project].dependencies + [project].optional-dependencies,
 # deps-only, deterministic compact-JSON payload (design §4). ONE try around import+load+print
-# so any error (no tomllib, malformed TOML) → empty stdout → Tier-2 contributes "".
+# so any error (no tomllib, malformed TOML) → empty stdout.
 _PY_TIER2_SCRIPT='import sys
 try:
   import tomllib, json, hashlib
@@ -105,6 +108,13 @@ try:
   print(hashlib.sha256(payload.encode()).hexdigest())
 except Exception:
   pass'
+# Sentinel Tier-2 contribution when tomllib is unavailable (python3 <3.11, or python3 absent):
+# sha256("[][]") — the EXACT Tier-2 value tomllib produces for a pyproject with no [project]
+# deps. Using this constant (not "") means a pyproject WITHOUT [project] deps hashes IDENTICALLY
+# whether tomllib is present or absent → python 3.10→3.11 upgrade does NOT shift its baseline
+# (round-3.5 review B2). A pyproject WITH [project].deps still drifts on upgrade (real coverage
+# change → honest re-baseline), documented in design §6.
+_PY_TIER2_SENTINEL='821bf06b4dcb406ea508a4a992eadc22f29850cd208ba24aea7c29148de8ccf1'
 
 _python_current() {
   [ -f pyproject.toml ] || { printf ''; return; }
@@ -115,11 +125,13 @@ _python_current() {
   else
     tier1_hex=""
   fi
-  # Tier-2 (only if python3 present; ≥3.11 has tomllib, else the try degrades to empty).
+  # Tier-2: real tomllib hash if python3+tomllib present; else the sentinel (NOT "") so a
+  # python-upgrade does not shift the baseline for a pyproject without [project] deps (B2).
   if command -v python3 >/dev/null 2>&1; then
     tier2_hex=$(python3 -c "$_PY_TIER2_SCRIPT" pyproject.toml 2>/dev/null)
+    [ -n "$tier2_hex" ] || tier2_hex="$_PY_TIER2_SENTINEL"
   else
-    tier2_hex=""
+    tier2_hex="$_PY_TIER2_SENTINEL"
   fi
   combined="${tier1_hex}${tier2_hex}"
   # Note: an empty extraction (no recognized Tier-1 tables + Tier-2 absent/failed) still
