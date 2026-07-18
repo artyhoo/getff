@@ -7,7 +7,7 @@
       "evidence": {
         "kind": "live-fired",
         "date": "2026-07-04",
-        "toolchain": "node v24.3.0 / eslint 10.4.0",
+        "toolchain": "node v24.3.0 / eslint 9.39.4",
         "capturedDiagnostic": "{\"ruleId\":\"no-restricted-syntax\",\"severity\":2,\"message\":\"Read configuration through a typed config module, never process.env directly\",\"line\":1,\"column\":13,\"messageId\":\"restrictedSyntax\",\"endLine\":1,\"endColumn\":24}"
       }
     },
