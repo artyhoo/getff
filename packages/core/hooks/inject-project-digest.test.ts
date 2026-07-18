@@ -248,3 +248,134 @@ describe.skipIf(!JQ)(
     });
   },
 );
+
+// =============================================================================
+// B1 source-level fix (zcode-parity-step1, plan-v3 §"B1"): env-first REPO_ROOT.
+// Pre-fix: REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)" — $0-relative only. Correct
+// when install.sh copies the hook INTO the consumer repo (.claude/hooks/depth-2); WRONG
+// for a future plugin-twin payload ($0 = ${CLAUDE_PLUGIN_ROOT}/hooks/, resolves to the
+// plugin payload dir, NOT the consumer root). The `$(cd …)` is a subshell — cwd change is
+// discarded, only the path string is captured — so the deps-hash-check cd-guard form is
+// inapplicable (T16).
+// Post-fix: REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}" — env-first
+// with $0-relative fallback. Matches the 7 already-fixed plugin twins (verified Mode A).
+//
+// §1.7 Backward contract (strengthened vs v2): "fixture IS read WITH rewrite; fixture is
+// NOT read WITHOUT rewrite" — the test below simulates the plugin-twin scenario where
+// $0-relative resolves to the WRONG dir (a fake payload dir) but CLAUDE_PROJECT_DIR points
+// to the consumer root holding the fixture. With the rewrite: fixture read. Without: silent
+// exit 0 ($0-relative lands in the payload dir, no session-bootstrap.md there).
+// =============================================================================
+describe('inject-project-digest.sh — B1 env-first REPO_ROOT resolution (zcode-parity-step1)', () => {
+  /**
+   * Build the plugin-twin scenario: hook at <payload>/.claude/hooks/inject-project-digest.sh
+   * (a SEPARATE temp dir from the consumer root), fixture at <consumer>/.claude/session-bootstrap.md.
+   * With the B1 rewrite + CLAUDE_PROJECT_DIR=<consumer>: fixture IS read.
+   * Without the rewrite: $0-relative resolves to <payload>/../.. = a temp parent with no
+   * .claude/session-bootstrap.md → silent exit 0.
+   */
+  function makePluginTwinScenario(sessionBootstrapBody: string): {
+    hookAbs: string;
+    consumerRoot: string;
+    payloadRoot: string;
+  } {
+    const consumerRoot = mkdtempSync(join(tmpdir(), 'ipd-b1-consumer-'));
+    const payloadRoot = mkdtempSync(join(tmpdir(), 'ipd-b1-payload-'));
+    tmpRepos.push(consumerRoot, payloadRoot);
+    mkdirSync(join(consumerRoot, '.claude'), { recursive: true });
+    writeFileSync(
+      join(consumerRoot, '.claude', 'session-bootstrap.md'),
+      sessionBootstrapBody,
+      'utf8',
+    );
+    // Place the hook at <payload>/.claude/hooks/ — depth-2 mirroring the real layout, but
+    // under a SEPARATE root from the consumer. $0-relative REPO_ROOT computation resolves to
+    // <payload> (NOT <consumerRoot>), so without the env-first arm the fixture is invisible.
+    mkdirSync(join(payloadRoot, '.claude', 'hooks'), { recursive: true });
+    const hookAbs = join(
+      payloadRoot,
+      '.claude',
+      'hooks',
+      'inject-project-digest.sh',
+    );
+    copyFileSync(HOOK_SOURCE, hookAbs);
+    return { hookAbs, consumerRoot, payloadRoot };
+  }
+
+  it('env_var_first_resolution_reads_consumer_root: CLAUDE_PROJECT_DIR set → fixture at consumer root IS read', () => {
+    // plan-v3 §1.7 Forward row 11: with the rewrite, the env-first arm wins and the fixture
+    // at $CLAUDE_PROJECT_DIR/.claude/session-bootstrap.md is read.
+    const { hookAbs, consumerRoot } = makePluginTwinScenario(DIGEST_BODY);
+    const r = runHookWithEnv(hookAbs, { hook_event_name: 'UserPromptSubmit' }, {
+      CLAUDE_PROJECT_DIR: consumerRoot,
+    });
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    // The fixture's digest content reaches stdout — proves env-first resolution read it.
+    expect(r.stdout).toContain("consumer's project anchor");
+    expect(r.stdout).toContain('edit-time');
+  });
+
+  it('dogfood_fallback_when_env_unset: CLAUDE_PROJECT_DIR unset → $0-relative fallback resolves correctly', () => {
+    // plan-v3 §1.7 Forward row 12: the fallback arm preserves dogfood behaviour (hook copied
+    // into the consumer repo at .claude/hooks/depth-2 — $0-relative resolves to consumer root).
+    // We use makeTempRepo (hook + fixture under the SAME temp root) and UNSET the env var.
+    const { hookAbs } = makeTempRepo(DIGEST_BODY);
+    const r = runHookWithEnv(
+      hookAbs,
+      { hook_event_name: 'UserPromptSubmit' },
+      { CLAUDE_PROJECT_DIR: '' },  // explicit unset (process.env may leak it)
+    );
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    // Fallback resolves correctly: $0-relative computation lands at the temp repo root,
+    // fixture IS read, digest content reaches stdout.
+    expect(r.stdout).toContain("consumer's project anchor");
+  });
+
+  it('backward_plugin_twin_fixture_not_read_without_rewrite: simulated pre-fix behaviour → silent exit 0', () => {
+    // plan-v3 §1.7 Backward row "B1 rewrite absent": WITHOUT the env-first arm, the plugin-twin
+    // scenario resolves REPO_ROOT to the payload dir (no session-bootstrap.md there) → silent exit 0.
+    // We SIMULATE the pre-fix behaviour by UNSETTING CLAUDE_PROJECT_DIR in the plugin-twin
+    // scenario (where hook and fixture live under DIFFERENT temp roots). This is the
+    // "fixture is NOT read without rewrite" half of the strengthened backward contract.
+    const { hookAbs } = makePluginTwinScenario(DIGEST_BODY);
+    const r = runHookWithEnv(
+      hookAbs,
+      { hook_event_name: 'UserPromptSubmit' },
+      { CLAUDE_PROJECT_DIR: '' },  // simulate pre-fix: env-first arm absent
+    );
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    // $0-relative resolves to <payload>/../.. (a temp parent) — no session-bootstrap.md there.
+    // Hook hits the `[ -f "$DIGEST_FILE" ] || exit 0` guard at hook:20 and stays silent.
+    expect(r.stdout, 'pre-fix plugin-twin path: fixture absent under $0-relative → silent').toBe('');
+  });
+});
+
+/**
+ * Run the hook with an explicit env override (so we can unset CLAUDE_PROJECT_DIR by setting
+ * it to '' — Node's spawnSync env replaces process.env entirely when provided).
+ */
+function runHookWithEnv(
+  hookAbs: string,
+  stdin: object | null,
+  envOverride: Record<string, string>,
+): { status: number; stdout: string; stderr: string } {
+  // Build a fresh env: start from a clean baseline (PATH + HOME + tmpdir essentials),
+  // then apply the override. This PREVENTS process.env.CLAUDE_PROJECT_DIR leaking in
+  // when the test wants it unset.
+  const cleanEnv: Record<string, string> = {
+    PATH: process.env.PATH ?? '/usr/bin:/bin',
+    HOME: process.env.HOME ?? '/tmp',
+    TMPDIR: process.env.TMPDIR ?? '/tmp',
+    ...envOverride,
+  };
+  const r = spawnSync('bash', [hookAbs], {
+    input: stdin === null ? '' : JSON.stringify(stdin),
+    encoding: 'utf8',
+    env: cleanEnv,
+  });
+  return {
+    status: r.status ?? -1,
+    stdout: r.stdout ?? '',
+    stderr: r.stderr ?? '',
+  };
+}
