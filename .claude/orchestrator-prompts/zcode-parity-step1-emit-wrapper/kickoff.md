@@ -106,6 +106,26 @@ Ship three concrete deliverables from plan-v3: (1) `_zcode-emit` additive helper
 - **STOP + surface** if a test stubbornly refuses to pass after 2 reasonable fix attempts — likely a plan gap, not impl bug.
 - **STOP + surface** if `<CHECK_ALL>` is red at end of Stage 6 with no clear path — do NOT ship red.
 
-## §7 Post-implementation review task
+## §7 Active AI-traps (per `.claude/rules/ai-laziness-traps.md §2`)
+
+Worker executing §2 must hold these T-numbers active throughout (T7 anti-pattern: blanket «see ai-laziness-traps.md» without enumeration is itself the violation):
+
+- **T3** — re-verify every plan-v3 "verified Mode A" fact the Worker relies on for a test assertion (CC transcript shape, zcode.cjs offsets, twin byte-divergences). Stage 1 step 4 already does this for 4 assumptions.
+- **T7** — the `grep -E '"(type|role)"'` alternation is load-bearing BOTH arms; a Worker reasoning loosely may collapse to `"type"` only because it looks more standard. The plan explicitly forbids this.
+- **T15** — recursive self-application: every hook edit must pass the project's own `make self-audit`. Skipping on a «small hook fix» is the canonical T15.
+- **T16** — B1 fix is subshell-aware env-first, NOT byte-identical cd-guard (the plan-v3 §0 already carries this as a settled correction; do not regress by pattern-matching on `deps-hash-check.sh:55`).
+- **T19** — Stage 6 self-audit + sibling post-review kickoff together satisfy cold-QA; CI green alone ≠ design review.
+- **T20** — every `[x]` checkbox in the PR body must cite a specific tool-call output (file:line, test result, grep output).
+- **T21** — B1 sibling-sweep over 8 plugin twins (case (h) `repo_root_resolution_form`) is the T21 counter-pattern done right: assert invariant across siblings, not just the edited file.
+
+**Domain-specific traps (NOT in canonical catalogue):**
+
+- **T-ZP-A** — `plugin/hooks/end-of-turn-reminder` twin MUST be byte-identical to `.claude/hooks/end-of-turn-reminder.sh` source changes; twin drift = silent CC/ZCode parity regression.
+- **T-ZP-B** — Stop-hook `decision:block` delivers the nudge via the `reason` field, NOT `additionalContext` (PostToolUse/PreToolUse field). Pattern-matching on other hooks' `additionalContext` emits regresses here.
+- **T-ZP-C** — `_zcode-emit` is a *sourced helper*, not a hook — belongs in the `tests/plugin/hook-paths.test.sh` skip-list, NOT subject to the `@dual-pair`/`@cc-only-rationale` marker gate.
+
+---
+
+## §8 Post-implementation review task
 
 A separate kickoff exists at `.claude/orchestrator-prompts/zcode-parity-step1-emit-wrapper/post-review-kickoff.md` — it runs AFTER this umbrella's PR is merged (or after Stage 6 push, at operator discretion). It verifies plan-adherence + test quality + gate effectiveness on the shipped code.

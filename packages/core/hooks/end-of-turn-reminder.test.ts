@@ -673,3 +673,180 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     });
   });
 });
+
+// =============================================================================
+// zcode-parity-step1 — Bespoke #1 Part A (grep alternation) + Part B (thin-recap).
+// plan-v3 §"Bespoke #1". Fixtures: tests/fixtures/{zcode-synthetic,cc-transcript-legacy}
+// -transcript.jsonl (byte-pinned shapes — see fixture file headers / generation script).
+//
+// Part A: the `grep -E '"(type|role)":"assistant"'` alternation is load-bearing BOTH arms:
+//   - CC legacy transcript: outer `"type":"assistant"` per entry → type arm matches.
+//   - ZCode synthetic transcript: `{message:{…,role:"assistant"}}` with NO outer type →
+//     role arm matches (type arm returns 0 → pre-fix hook was runtime-DEAD on ZCode).
+// Both arms are tested in ISOLATION so a future edit collapsing to `"type"` only is caught.
+//
+// Part B: a ZCode-gated thin-recap branch emits `{decision:"block", reason, systemMessage}`
+// (T-ZP-B: `reason` field, NOT `additionalContext`) when last text > 500 chars AND
+// markdown-dense. Non-ZCode env must NOT fire (CC dogfood byte-for-byte unchanged).
+// =============================================================================
+describe.skipIf(!JQ)('end-of-turn-reminder.sh — zcode-parity Bespoke #1 (Part A grep + Part B thin-recap)', () => {
+  const ZCODE_FIXTURE = resolve(REPO_ROOT, 'tests/fixtures/zcode-synthetic-transcript.jsonl');
+  const CC_FIXTURE = resolve(REPO_ROOT, 'tests/fixtures/cc-transcript-legacy.jsonl');
+
+  // ---- Part A: grep alternation — both arms load-bearing, tested in isolation ----------
+
+  it('zcode_synthetic_transcript_last_line_extracted_via_role: synthetic line has no outer type → matched via role arm', () => {
+    // plan-v3 §1.7 Forward row 7 + Backward "role arm dropped" row.
+    // Pre-fix: grep '"type":"assistant"' alone returned 0 lines on this fixture →
+    // last_line empty → hook exit 0 (runtime-DEAD on ZCode).
+    // Post-fix: the `role` arm of the alternation matches → last_line non-empty → hook proceeds.
+    const r = runHook(
+      { transcript_path: ZCODE_FIXTURE, stop_hook_active: false },
+      // NOTE: ZCODE_PROJECT_DIR UNSET here — we want to exercise Part A's last_line extraction
+      // IN ISOLATION from Part B. Part B fires later; with ZCODE_PROJECT_DIR unset, Part B is
+      // skipped and the existing cascade runs. The cascade emits its own decision:block on the
+      // long markdown fixture, proving last_line was extracted (non-empty) — which is the
+      // Part A contract. The point of THIS test is: the hook did NOT exit-0-early at hook:54.
+      { AIF_HOOK_LANG: 'en' },
+    );
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    expect(
+      r.stdout,
+      'Part A role-arm: synthetic ZCode line must produce non-empty last_line (hook did NOT exit at :54)',
+    ).not.toBe('');
+    // If last_line was empty, the hook would have exited 0 silent at hook:54 and stdout
+    // would be ''. Non-empty stdout proves the role arm matched.
+    const parsed = JSON.parse(r.stdout);
+    expect(parsed.decision).toBe('block');
+  });
+
+  it('cc_transcript_last_line_extracted_via_type: CC fixture outer type → matched via type arm', () => {
+    // plan-v3 §1.7 Forward row 8 + Backward "type arm dropped" row.
+    // CC legacy shape carries an OUTER "type":"assistant" field (verified Mode A on
+    // ~/.claude/projects/-Users-art-code-BDDS/0b42f1ff-*.jsonl). The type arm of the
+    // alternation matches it. CC fixture has a SHORT assistant reply ("Short CC assistant
+    // reply.") so the cascade stays silent — but the role-line extraction must NOT have
+    // bailed out at hook:54 (which would happen if BOTH arms missed). We assert exit 0
+    // AND that the hook did not crash on jq parsing of the extracted line.
+    const r = runHook(
+      { transcript_path: CC_FIXTURE, stop_hook_active: false },
+      { AIF_HOOK_LANG: 'en' },
+    );
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    // CC short reply → no recap branch fires → silent exit 0 (the hook ran cleanly through
+    // the last_line extraction + text parsing without erroring). A jq failure on the parsed
+    // last_line would surface as non-zero exit under `set -euo pipefail`.
+    expect(r.stdout).toBe('');
+    // Direct grep proof of the asymmetry (re-asserted here so the test is self-documenting
+    // and fails loudly if the fixture drifts).
+    const typeMatches = execSync(
+      `grep -cE '"type":"assistant"' "${CC_FIXTURE}" 2>/dev/null || echo 0`,
+    ).toString().trim();
+    expect(parseInt(typeMatches, 10), 'CC fixture must have outer "type":"assistant"').toBeGreaterThan(0);
+  });
+
+  it('Part A both arms proven asymmetric via direct grep on fixtures (load-bearing alternation)', () => {
+    // T7 anti-pattern guard: a future edit collapsing the alternation to `"type"` only is the
+    // canonical regression. This test pins the asymmetry directly so it cannot drift.
+    // ZCode fixture MUST NOT match the type arm (only role); CC fixture matches both.
+    // We use single-quoted grep patterns (no shell escaping of the inner doubles).
+    const zcodeTypeCount = parseInt(
+      execSync(`grep -cE '"type":"assistant"' "${ZCODE_FIXTURE}" || true`).toString().trim() || '0',
+      10,
+    );
+    const zcodeRoleCount = parseInt(
+      execSync(`grep -cE '"role":"assistant"' "${ZCODE_FIXTURE}" || true`).toString().trim() || '0',
+      10,
+    );
+    // The alternation pattern: shell-single-quote wraps the whole pattern so the inner
+    // double-quotes pass through literally to grep.
+    const zcodeAltCount = parseInt(
+      execSync(`grep -cE '"(type|role)":"assistant"' "${ZCODE_FIXTURE}" || true`).toString().trim() || '0',
+      10,
+    );
+    expect(zcodeTypeCount, 'ZCode fixture must have ZERO outer "type":"assistant" (only role)').toBe(0);
+    expect(zcodeRoleCount, 'ZCode fixture must match the role arm').toBeGreaterThan(0);
+    expect(zcodeAltCount, 'ZCode fixture must match the full alternation').toBeGreaterThan(0);
+  });
+
+  // ---- Part B: thin-recap branch (ZCode-gated, reason field) --------------------------
+
+  it('zcode_long_markdown_emits_block_decision_with_reason_field: >500 chars markdown under _is_zcode → {decision:block, reason}', () => {
+    // plan-v3 §1.7 Forward row 9 + Backward "branch absent" + "additionalContext instead of reason" rows.
+    // The thin-recap branch fires when _is_zcode AND text > 500 AND markdown-dense.
+    // The fixture's assistant text is 676 chars with ## headings + ** bold + blank lines.
+    const r = runHook(
+      { transcript_path: ZCODE_FIXTURE, stop_hook_active: false },
+      { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en' },
+    );
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    expect(r.stdout, 'Part B must fire on ZCode + long markdown').not.toBe('');
+    const parsed = JSON.parse(r.stdout);
+    expect(parsed.decision).toBe('block');
+    expect(typeof parsed.reason).toBe('string');
+    expect(parsed.reason.length, 'reason must be a substantive nudge, not empty').toBeGreaterThan(100);
+    // The Branch A instruction begins with the recap marker — pin it so a future edit
+    // pointing Part B at the wrong message function is caught.
+    expect(parsed.reason).toContain('## 🟢');
+    // systemMessage is the user-UI glance line (optional but emitted).
+    expect(parsed.systemMessage).toMatch(/^🎯 /);
+  });
+
+  it('thin_recap_emits_reason_not_additional_context: emitted JSON has reason, NOT additionalContext (T-ZP-B)', () => {
+    // plan-v3 §1.7 Backward "Part B uses additionalContext instead of reason" row.
+    // Stop-hook field for delivering the nudge to the MODEL is `reason` (NOT additionalContext,
+    // which is a PostToolUse/PreToolUse field — comment at hook:227 documents this).
+    // This test fails if anyone swaps the field by pattern-matching on other hooks.
+    const r = runHook(
+      { transcript_path: ZCODE_FIXTURE, stop_hook_active: false },
+      { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en' },
+    );
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    const parsed = JSON.parse(r.stdout);
+    expect(parsed.reason, 'reason field MUST be present (Stop-hook model-bound delivery)').toBeDefined();
+    expect(parsed.additionalContext, 'additionalContext MUST NOT appear on Stop-hook emit (wrong channel)').toBeUndefined();
+  });
+
+  it('non_zcode_skips_thin_recap: under non-ZCode env, Part B branch does not fire', () => {
+    // plan-v3 §1.7 Forward row 10 + Backward "_is_zcode gate absent" row.
+    // Without ZCODE_PROJECT_DIR, Part B MUST be skipped — otherwise CC dogfood would get
+    // a duplicate nudge (Part B + the existing cascade both firing).
+    // We use a SHORT markdown turn here so the cascade ALSO stays silent — that way a
+    // non-empty stdout can ONLY mean Part B fired (isolating the gate).
+    const shortMarkdown = '## short\n\n- a\n- b\n- c\n';  // <500 chars, has ##
+    const tr = writeTranscript([
+      { type: 'ai-title', aiTitle: 'goal' },
+      { type: 'user', message: { content: 'do something' } },
+      assistantText(shortMarkdown),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false },
+      { AIF_HOOK_LANG: 'en' },  // NO ZCODE_PROJECT_DIR
+    );
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    expect(
+      r.stdout,
+      'Part B must NOT fire without ZCODE_PROJECT_DIR (short text → all branches silent)',
+    ).toBe('');
+  });
+
+  it('non_zcode_long_markdown_still_uses_existing_cascade: Part B skipped, Branch A still fires on long markdown', () => {
+    // Paired-negative companion: a long-markdown turn on non-ZCode MUST still trigger the
+    // existing Branch A cascade (proving Part B is additive, not a replacement). This is
+    // the "byte-for-byte unchanged on CC dogfood" contract.
+    const tr = writeTranscript([
+      { type: 'ai-title', aiTitle: 'goal' },
+      { type: 'user', message: { content: 'do something' } },
+      assistantText(longMarkdownText()),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false },
+      { AIF_HOOK_LANG: 'en' },  // NO ZCODE_PROJECT_DIR
+    );
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    expect(r.stdout, 'existing Branch A cascade must still fire on long markdown (CC dogfood unchanged)').not.toBe('');
+    const parsed = JSON.parse(r.stdout);
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason).toBeDefined();
+  });
+});

@@ -20,11 +20,11 @@ c96ba6e4c52288f0b77a2edaeb6170ecad03e699360d79fe7794fd3e205717e8  .claude/agents
 9808e32b096cee71f5971bd6c3aa6ec1bddd748c58d84aa93198d05fb5f7b106  .claude/hooks/ask-question-reminder.sh
 1ccf9923ce00ab57d5214d9f4688654fa96b177266ca1f7de3f73b641d1cebf5  .claude/hooks/check-doc-authority-header.sh
 d52524a81688119abbd74786d406454faed980e15e109bbf39ca9048ee02958c  .claude/hooks/deps-hash-check.sh
-778130188d08c542c5cecd318e995b278bb0ad52edd896f9149afd0496b6cd3e  .claude/hooks/end-of-turn-reminder.sh
+d8372eb46734240a2930092f0394464bca6dbf3a30b5a811e020b8369a2cddf4  .claude/hooks/end-of-turn-reminder.sh
 e1f96e6e99b8d3d2c4371e7415555cb321392274469714502e6c37336da8b718  .claude/hooks/inject-matching-rule.sh
 d783e618156d9dc26dad1627281e44ea10a128cee9c29a91cea273b37251e47c  .claude/hooks/inject-memory-codification.sh
 7eebffabd3c2e5a264cd02e4c733ff583c976b096a24e604f8cece0f791ed7f8  .claude/hooks/inject-output-language.sh
-76ec37e29ae69e9761b3a515c0541f34cd803acdaedf2f08f895b83722f44f02  .claude/hooks/inject-project-digest.sh
+58189f77c2bbfbe67f550ca6f090c25503fbbe7bb398c6142b21c05fdb85c914  .claude/hooks/inject-project-digest.sh
 d24e7c291d55c3c9d7420cc8bfdab60a2d90cda7486d321cb81aa6889edd55d5  .claude/hooks/lang/check-parity.sh
 b6098596547239daa6c720dff390a321cc0a8d921acc54222f75e2fd325b3a17  .claude/hooks/lang/en.sh
 4d45cc97e71c1f58182036d6fc13c5e53cf414008b4366a4fbfc599a9b16db32  .claude/hooks/lang/ru.sh

@@ -1,0 +1,2 @@
+{"type":"user","message":{"content":"first task"}}
+{"type":"assistant","message":{"type":"message","role":"assistant","content":[{"type":"text","text":"Short CC assistant reply."}]},"uuid":"cc-fixture-0001","timestamp":"2026-07-18T10:00:00.000Z"}

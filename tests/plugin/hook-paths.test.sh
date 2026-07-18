@@ -4,7 +4,7 @@
 #       docs/superpowers/plans/plugin-hook-triage.md (the per-hook triage)
 #
 # Asserts, for every relocated hook script under plugin/hooks/ (i.e. every file that is
-# NOT run-hook.cmd, NOT *.json, NOT *.md):
+# NOT run-hook.cmd, NOT *.json, NOT *.md, NOT a _zcode-* helper):
 #   (a) extensionless filename            — dodges CC's Windows ".sh → prepend bash" quirk
 #   (b) carries a delivery-channel marker — @dual-pair | @cc-only-rationale (dual-impl §6)
 #   (c) no plugin-data path hardcodes "$CLAUDE_PROJECT_DIR/.claude/hooks/" (relocation bug)
@@ -13,6 +13,9 @@
 # Plus manifest sanity:
 #   (f) plugin/hooks/hooks.json parses
 #   (g) every command target named in hooks.json exists under plugin/hooks/
+# Plus repo-root resolution sweep (plan-v3 §"Sibling-sweep T21 (final, corrected)"):
+#   (h) every twin that reads repo files resolves the repo via CLAUDE_PROJECT_DIR (env-first
+#       OR cd-guard form). Skips non-repo-reading twins (CAT-B sibling-source, no file reads).
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 HOOKS_DIR="$REPO_ROOT/plugin/hooks"
@@ -26,7 +29,11 @@ scripts=()
 for f in "$HOOKS_DIR"/*; do
   base=$(basename "$f")
   case "$base" in
-    run-hook.cmd|*.json|*.md) continue ;;
+    # run-hook.cmd = polyglot dispatcher (Windows+Unix); *.json/*.md = manifest/prose.
+    # _zcode-* = SOURCED HELPERS (e.g. _zcode-emit, plan-v3 Mechanism 1), not delivery-channel
+    # artifacts — neither @dual-pair nor @cc-only-rationale applies semantically. The gate's
+    # purpose is delivery-channel discipline on HOOKS, not on internal infrastructure (T-ZP-C).
+    run-hook.cmd|*.json|*.md|_zcode-*) continue ;;
   esac
   [ -f "$f" ] && scripts+=("$f")
 done
@@ -94,6 +101,47 @@ for f in ${scripts[@]+"${scripts[@]}"}; do
     else
       bad "$base sources siblings without self-resolving its dir"
     fi
+  fi
+done
+
+# (h) repo_root_resolution_form — T21 sibling-sweep (plan-v3 §"Sibling-sweep T21 (final, corrected)")
+# Every twin that READS REPO FILES must resolve the repo via CLAUDE_PROJECT_DIR. Two valid forms:
+#   Form A (env-first, 7 twins): (REPO_ROOT|PROJECT_DIR)="${CLAUDE_PROJECT_DIR:-<fallback>}"
+#   Form B (cd-guard,    1 twin): [ -n "${CLAUDE_PROJECT_DIR:-}" ] && { cd "$CLAUDE_PROJECT_DIR" …
+# The 8 in-sweep twins are enumerated by NAME below; the 6 non-sweep twins (no repo-file reads —
+# CAT-B sibling-source via HOOK_DIR, or only an orchestration-mode marker-file prefix) are skipped
+# by name so a future contributor adding a new repo-reading twin WITHOUT the guard is caught.
+# Verified invariant across plugin/hooks/ at plan-v3 finalisation (8 in-sweep + 6 skip = 14 total).
+in_sweep_twins=(
+  check-doc-authority
+  check-hook-marker
+  check-kickoff-traps
+  check-worker-dispatch-channel
+  inject-matching-rule
+  runtime-bridge-dispatch
+  validate-prompt
+  deps-hash-check
+)
+# Non-sweep twins (do NOT read repo files; documented for completeness so the enumeration stays honest):
+#   ask-question-reminder, inject-memory-codification, inject-session-bootstrap (CAT-B sibling-source),
+#   inject-subagent-context (CAT-B sibling-source), session-start, end-of-turn-reminder
+#   (CLAUDE_PROJECT_DIR used only as orchestration-mode marker-file prefix at end-of-turn-reminder:85,
+#    not a repo-file read).
+for name in "${in_sweep_twins[@]}"; do
+  f="$HOOKS_DIR/$name"
+  if [ ! -f "$f" ]; then
+    bad "(h) $name: in-sweep twin missing under plugin/hooks/ (list drift)"
+    continue
+  fi
+  # Form A: env-first REPO_ROOT/PROJECT_DIR assignment. The fallback shape $(cd "$(dirname "$0")/.." && pwd)
+  #         can have any depth (/../.. for .claude/hooks/, /.. for plugin/hooks/), so we anchor on the
+  #         CLAUDE_PROJECT_DIR prefix only.
+  # Form B: cd-guard that pins cwd to the consumer root when env is set.
+  if grep -qE '(REPO_ROOT|PROJECT_DIR)="\$\{CLAUDE_PROJECT_DIR' "$f" \
+  || grep -q '\[ -n "\${CLAUDE_PROJECT_DIR' "$f"; then
+    ok "(h) $name resolves repo via CLAUDE_PROJECT_DIR (Form A env-first OR Form B cd-guard)"
+  else
+    bad "(h) $name reads repo files but lacks CLAUDE_PROJECT_DIR-first resolution (T16 regression)"
   fi
 done
 

@@ -13,6 +13,12 @@ set -euo pipefail
 # always has jq; a minimal consumer may not.
 command -v jq >/dev/null 2>&1 || exit 0
 
+# ZCode predicate (canonical form — verified across 7 plugin twins + end-of-turn-reminder
+# per plan-v3 §"Codebase convention"). ZCODE_PROJECT_DIR is the SSOT env var the ZCode client
+# sets in every plugin-hook subprocess; _is_zcode is the derived sugar. Introduced here for
+# the B2-C thin-recap branch below (Part B) — previously this hook had no ZCode gate at all.
+_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
+
 # Language pack (payload prose). Default en (canonical, public repo); operator sets
 # AIF_HOOK_LANG=ru in ~/.claude/settings.json env. Missing pack → en fallback.
 # Provides AIF_RECAP_MARKER (the recap heading, used by the guard below AND embedded
@@ -49,7 +55,18 @@ fi
 # Last assistant line. `grep ... | tail -1` (portable: equivalent to BSD `tail -r |
 # grep -m1` on macOS, and works on Linux/CI where `tail -r` is unavailable — lets the
 # companion test exercise this hook in CI).
-last_line=$(grep '"type":"assistant"' "$transcript" 2>/dev/null | tail -1 || true)
+#
+# B2 Part A (zcode-parity-step1): the alternation `"(type|role)"` is REQUIRED — both arms
+# are load-bearing. CC transcripts carry an OUTER `"type":"assistant"` field per entry; the
+# ZCode synthetic-transcript producer ($_n at zcode.cjs:~1072550) emits only
+# `{message:{content:[…],role:"assistant"}}` with NO outer type field. Dropping the `role`
+# arm makes this hook runtime-DEAD on ZCode (the pre-fix state); dropping the `type` arm
+# would miss the CC outer-type shape. Verified Mode A on a real CC transcript
+# (~/.claude/projects/-Users-art-code-BDDS/0b42f1ff-*.jsonl) + the synthetic producer shape.
+# Both arms are exercised in isolation by end-of-turn-reminder.test.ts:
+#   zcode_synthetic_transcript_last_line_extracted_via_role
+#   cc_transcript_last_line_extracted_via_type
+last_line=$(grep -E '"(type|role)":"assistant"' "$transcript" 2>/dev/null | tail -1 || true)
 if [ -z "$last_line" ]; then
   exit 0
 fi
@@ -74,6 +91,43 @@ if [ -z "$text" ] && [ "$has_askuserquestion" != "true" ] && [ -z "$story_signal
 fi
 
 text_length=${#text}
+
+# -- B2 Part C — anchor degradation under ZCode (honest, non-plan-breaking) -------
+# L43 (ai-title grep) and L45 (user-message grep) below both assume CC's outer "type"
+# field. ZCode's synthetic transcript has no ai-title AND likely no outer type on user
+# turns → anchor falls through to aif_msg_eot_anchor_fallback. Part B (thin-recap) does
+# NOT depend on the anchor quality, so this is documented degradation, not a fix target.
+# Plan-v3 §"Part C" defers restoration to a follow-up.
+
+# -- B2 Part B — ZCode thin-recap branch (plan-v3 §"Bespoke #1 Part B") -----------
+# On ZCode the full recap cascade below (Branch A/B/C via systemMessage+reason) reaches
+# the model only through the `reason` field (the comment at the bottom documents that
+# systemMessage is user-UI-only and does NOT reach the model). The cascade still fires
+# correctly on ZCode post-Part-A — but we additionally surface a thin ZCode-only recap
+# nudge EARLIER, on the long-markdown case, so the model gets a clean per-turn recap
+# instruction without competing with the cascade's heavier whole-session recap.
+# Branch fires when: _is_zcode AND last assistant text > 500 chars AND markdown-dense
+# (heuristic: contains ## or ** or a blank line — same density signal as the cascade).
+# Field shape: {decision:"block", reason:<nudge>, systemMessage:<optional glance>} —
+# the proven Stop-hook emit shape (T-ZP-B: reason, NOT additionalContext). Emitting
+# `reason` is load-bearing: that is the field delivered to the MODEL on Stop decision:block.
+if _is_zcode && [ "$text_length" -gt 500 ]; then
+  # markdown-dense check: ## heading, ** bold, or a blank line (paragraph break).
+  # The blank-line check uses an ANSI-C quoted $'\n\n' literal — portable across bash 3.2+.
+  if printf '%s' "$text" | grep -qE '\*\*|^##?[[:space:]]' \
+     || printf '%s' "$text" | grep -qF $'\n\n'; then
+    # Reuse the Branch A lighter per-turn recap instruction (same anchor interpolation).
+    _ze_reason="$(aif_msg_eot_branch_a)"
+    _ze_glance="🎯 $(printf '%s' "${anchor}" | head -c 60 | tr '\n' ' ')"
+    jq -n --arg msg "$_ze_reason" --arg gl "$_ze_glance" '{
+      decision: "block",
+      reason: $msg,
+      systemMessage: $gl
+    }'
+    exit 0
+  fi
+fi
+unset _ze_reason _ze_glance 2>/dev/null || true
 
 # -- orchestration-mode marker (deterministic; normal mode = marker absent) ----
 # In orchestration mode (driving aif-handoff, relaying state every turn) two
@@ -173,7 +227,7 @@ if [ "$asked" = "true" ] && [ "$long_text" = "false" ]; then
   if [ -z "$text" ] || [ "$has_askuserquestion" = "true" ]; then
     idle_suppress=false
   else
-    prev_line=$(grep '"type":"assistant"' "$transcript" 2>/dev/null | tail -2 | head -1 || true)
+    prev_line=$(grep -E '"(type|role)":"assistant"' "$transcript" 2>/dev/null | tail -2 | head -1 || true)
     if [ -n "$prev_line" ] && [ "$prev_line" != "$last_line" ]; then
       prev_text=$(printf '%s' "$prev_line" | jq -r '.message.content[]? | select(.type=="text") | .text' 2>/dev/null || true)
       if printf '%s\n' "${prev_text}" | grep -q '## 🟢'; then

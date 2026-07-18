@@ -15,7 +15,16 @@
 # main session AND every dispatched subagent get the same project anchor from ONE source of truth.
 set -uo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+# B1 fix (zcode-parity-step1, plan-v3 §"B1"): subshell-aware env-first resolution.
+# `$(cd … && pwd)` is command substitution in a SUBSHELL — cwd change is discarded, only
+# the path string is captured. Pre-fix this read $0-relative (correct only when the hook is
+# copied INTO the consumer repo by install.sh at .claude/hooks/depth-2); as a plugin-twin
+# payload file ($0 = ${CLAUDE_PLUGIN_ROOT}/hooks/), the $0-relative path resolved to the
+# plugin payload dir, NOT the consumer root. Env-first matches the 7 already-fixed plugin
+# twins (check-doc-authority:18, validate-prompt:19, etc — verified Mode A) + deps-hash-check
+# cd-guard form. Source-level fix prepares for future plugin-channel shipping (declared
+# follow-up umbrella — the twin is NOT shipped in this umbrella).
+REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
 DIGEST_FILE="$REPO_ROOT/.claude/session-bootstrap.md"
 [ -f "$DIGEST_FILE" ] || exit 0   # no anchor authored — nothing to inject (zero-setup default)
 
