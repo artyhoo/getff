@@ -201,12 +201,16 @@ export function checkPluginIntegrity(pluginDir: string, marketplaceDir: string):
   // V7/V8 — relocated hook scripts (non-run-hook.cmd, non-json): no mis-rooted plugin-data
   // path; carry a delivery-channel marker. Skip subdirectories (e.g. lang/) — only top-level
   // hook scripts carry these markers; subdirs hold support files (lang packs, etc.).
+  // Skip _zcode-* SOURCED HELPERS (e.g. _zcode-emit, plan-v3 Mechanism 1): they are internal
+  // infrastructure, not delivery-channel artifacts — neither @dual-pair nor @cc-only-rationale
+  // applies semantically. Parallels the same skip in tests/plugin/hook-paths.test.sh (T-ZP-C).
   // V7 checks EXECUTABLE paths only: comment lines (starting with optional whitespace + #) may
   // contain documentation examples of the dogfood wiring ($CLAUDE_PROJECT_DIR/.claude/hooks/...)
   // which are NOT executable in the plugin twin — strip them before the path check.
   if (existsSync(hooksDir)) {
     for (const f of readdirSync(hooksDir)) {
       if (f === 'run-hook.cmd' || f.endsWith('.json') || f.endsWith('.md')) continue;
+      if (f.startsWith('_zcode-')) continue;  // sourced helper, not a delivery-channel hook
       const abs = resolve(hooksDir, f);
       if (!statSync(abs).isFile()) continue;  // skip subdirectories (lang/, etc.)
       const c = readFileSync(abs, 'utf8');
