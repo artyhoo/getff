@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Plugin twin of .claude/hooks/inject-output-language.sh.
+# @cc-only-rationale: CC-specific UserPromptSubmit hook — its stdout is auto-injected into the
+#   Claude Code prompt context by the harness, a CC-native fire-point with no portable counterpart.
+#   The plugin twin exists ONLY to serve the plugin distribution channel (ZCode-aware via inline
+#   _emit_ctx); the .claude/hooks/ original stays the SSOT and remains shipped to consumer CC
+#   projects via install.sh. The two files are dual-channel (plugin + repo) but ONE logic — see
+#   dual-implementation-discipline.md §7. Drift between them is `#two-prompts-drift`.
+#
+# TWIN DIVERGENCE from .claude/hooks/inject-output-language.sh:
+#   1. Extensionless filename (plugin/hooks/ convention — hook-paths.test.sh (a)).
+#   2. Inline `_is_zcode` + `_emit_ctx` adapter (per inject-session-bootstrap:15-18 convention —
+#      Stage-2 harness-portable refactor). On ZCode, stdout must be strict-JSON
+#      {additionalContext:<text>} (plain is discarded + run marked failed); on CC, plain stdout
+#      is auto-injected unchanged. The .claude/hooks/ source does NOT carry this adapter because
+#      it only fires on CC.
+#
+# Purpose: when the operator pins a non-English human-facing language via AIF_HOOK_LANG, tell the
+# model — every turn, all skills — so chat/recaps/narration follow that language while ALL repo
+# artefacts + machinery stay English. Precisely scoped: this injects an instruction to the model,
+# not a translation of anything. See .claude/rules/language-discipline.md §2 (category 2, human-facing).
+#
+# Consumer setup: export AIF_HOOK_LANG in your shell, or add an `env` block to .claude/settings.json:
+#   { "env": { "AIF_HOOK_LANG": "ru" } }
+# Unset / "en" → nothing is injected (English is the zero-setup default).
+#
+# No repo-file reads — uses only the env var AIF_HOOK_LANG. Not in the T21 sweep list (matches
+# the ask-question-reminder non-sweep pattern — plan D3).
+set -uo pipefail
+
+# Harness-portable output (inlined — this hook is copied standalone to test sandboxes, no lib/
+# sibling to source). CC: plain stdout auto-injected. ZCode: JSON additionalContext.
+_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
+_emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
+    jq -n --arg c "$2" '{additionalContext:$c}'
+  else printf '%s' "$2"; case "$2" in *$'\n') : ;; *) printf '\n' ;; esac; fi; }
+
+OUT=""
+case "${AIF_HOOK_LANG:-en}" in
+  en|'') : ;;  # English default — nothing to inject
+  ru)
+    OUT='[output-language] Address the operator in Russian — chat explanations, recaps, narration, questions. Keep ALL repo artifacts and machinery in English: code, comments, commit/PR/issue bodies, kickoffs, specs, tool arguments, file contents. (AIF_HOOK_LANG=ru)'
+    ;;
+  *)
+    OUT="$(printf '[output-language] Address the operator in language "%s"; keep repo artifacts and machinery in English. (AIF_HOOK_LANG=%s)' "$AIF_HOOK_LANG" "$AIF_HOOK_LANG")"
+    ;;
+esac
+
+# Empty OUT (en/default) → exit 0 with no stdout (matches .claude/hooks/ source: plain `case`
+# branch with no echo). Non-empty → emit harness-portably.
+[ -z "$OUT" ] || _emit_ctx "UserPromptSubmit" "$OUT"
+exit 0
