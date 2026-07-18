@@ -93,51 +93,124 @@ function writeHook(body: string, ext = '.sh'): string {
   return abs;
 }
 
-function runHook(tool: string, absPath: string): number {
+function runHook(
+  tool: string,
+  absPath: string,
+  env: Record<string, string> = {},
+): { status: number; stdout: string; stderr: string } {
+  // Default-scrub ZCODE_PROJECT_DIR: the runner may execute inside zcode (the framework's own
+  // dev harness), which would flip _adv_violation to the JSON branch and break the exit-code
+  // assertions below. The ZCode-JSON case passes ZCODE_PROJECT_DIR explicitly. Mirrors
+  // deps-hash-check.test.ts:106.
+  const fullEnv = { ...process.env };
+  if (env.ZCODE_PROJECT_DIR === undefined) delete fullEnv.ZCODE_PROJECT_DIR;
+  else fullEnv.ZCODE_PROJECT_DIR = env.ZCODE_PROJECT_DIR;
   const r = spawnSync('bash', [HOOK], {
-    input: JSON.stringify({ tool_name: tool, tool_input: { file_path: absPath } }),
+    input: JSON.stringify({
+      tool_name: tool,
+      tool_input: { file_path: absPath },
+    }),
     encoding: 'utf8',
+    env: fullEnv,
   });
-  return r.status ?? -1;
+  return {
+    status: r.status ?? -1,
+    stdout: r.stdout ?? '',
+    stderr: r.stderr ?? '',
+  };
 }
 
-describe.skipIf(!JQ)('check-hook-marker.sh — PostToolUse delivery-channel marker gate', () => {
-  it('PAIRED-NEGATIVE: hook with no marker → exit 1', () => {
-    const abs = writeHook('#!/usr/bin/env bash\n# just a comment, no marker\nexit 0\n');
-    expect(runHook('Write', abs)).toBe(1);
-  });
+describe.skipIf(!JQ)(
+  'check-hook-marker.sh — PostToolUse delivery-channel marker gate',
+  () => {
+    it('PAIRED-NEGATIVE: hook with no marker → exit 1', () => {
+      const abs = writeHook(
+        '#!/usr/bin/env bash\n# just a comment, no marker\nexit 0\n',
+      );
+      expect(runHook('Write', abs).status).toBe(1);
+    });
 
-  it('PAIRED-POSITIVE: @cc-only-rationale present → exit 0', () => {
-    const abs = writeHook('#!/usr/bin/env bash\n# @cc-only-rationale: edit-time gate, no portable equivalent\nexit 0\n');
-    expect(runHook('Write', abs)).toBe(0);
-  });
+    it('PAIRED-POSITIVE: @cc-only-rationale present → exit 0', () => {
+      const abs = writeHook(
+        '#!/usr/bin/env bash\n# @cc-only-rationale: edit-time gate, no portable equivalent\nexit 0\n',
+      );
+      expect(runHook('Write', abs).status).toBe(0);
+    });
 
-  it('PAIRED-POSITIVE: @dual-pair present → exit 0', () => {
-    const abs = writeHook('#!/usr/bin/env bash\n# @dual-pair: some-anchor-slug\nexit 0\n');
-    expect(runHook('Edit', abs)).toBe(0);
-  });
+    it('PAIRED-POSITIVE: @dual-pair present → exit 0', () => {
+      const abs = writeHook(
+        '#!/usr/bin/env bash\n# @dual-pair: some-anchor-slug\nexit 0\n',
+      );
+      expect(runHook('Edit', abs).status).toBe(0);
+    });
 
-  it('marker must be on its own comment line: prose mention in a heredoc does NOT count → exit 1', () => {
-    // The string "@cc-only-rationale:" appears, but not as a leading "# " comment line.
-    const abs = writeHook('#!/usr/bin/env bash\necho "add a @cc-only-rationale: marker"\nexit 0\n');
-    expect(runHook('Write', abs)).toBe(1);
-  });
+    it('marker must be on its own comment line: prose mention in a heredoc does NOT count → exit 1', () => {
+      // The string "@cc-only-rationale:" appears, but not as a leading "# " comment line.
+      const abs = writeHook(
+        '#!/usr/bin/env bash\necho "add a @cc-only-rationale: marker"\nexit 0\n',
+      );
+      expect(runHook('Write', abs).status).toBe(1);
+    });
 
-  it('wrong tool (Read) → exit 0 even on a marker-less hook', () => {
-    const abs = writeHook('#!/usr/bin/env bash\n# no marker\nexit 0\n');
-    expect(runHook('Read', abs)).toBe(0);
-  });
+    it('wrong tool (Read) → exit 0 even on a marker-less hook', () => {
+      const abs = writeHook('#!/usr/bin/env bash\n# no marker\nexit 0\n');
+      expect(runHook('Read', abs).status).toBe(0);
+    });
 
-  it('off-path: a .sh outside .claude/hooks/ → exit 0', () => {
-    const dir = join(SANDBOX, 'offpath');
-    mkdirSync(dir, { recursive: true });
-    const abs = join(dir, 'random.sh');
-    writeFileSync(abs, '#!/usr/bin/env bash\n# no marker\n', 'utf8');
-    expect(runHook('Write', abs)).toBe(0);
-  });
+    it('off-path: a .sh outside .claude/hooks/ → exit 0', () => {
+      const dir = join(SANDBOX, 'offpath');
+      mkdirSync(dir, { recursive: true });
+      const abs = join(dir, 'random.sh');
+      writeFileSync(abs, '#!/usr/bin/env bash\n# no marker\n', 'utf8');
+      expect(runHook('Write', abs).status).toBe(0);
+    });
 
-  it('off-path: a non-.sh file under .claude/hooks/ → exit 0', () => {
-    const abs = writeHook('# no marker, but markdown\n', '.md');
-    expect(runHook('Write', abs)).toBe(0);
-  });
-});
+    it('off-path: a non-.sh file under .claude/hooks/ → exit 0', () => {
+      const abs = writeHook('# no marker, but markdown\n', '.md');
+      expect(runHook('Write', abs).status).toBe(0);
+    });
+
+    it('ZCODE: marker-less hook under ZCODE_PROJECT_DIR → schema-valid {additionalContext} JSON, exit 0 (advisory, not gate)', () => {
+      // ZCode parses hook stdout against the HookJSONOutput schema (CCt at zcode.cjs:~577900),
+      // which is `.strict()` — unknown top-level keys are REJECTED (→ hook.run.failed, output
+      // discarded). The ZCode branch (_adv_violation at hook line 31) emits schema-valid
+      // `{additionalContext}` and exits 0 — PostToolUse cannot block on ZCode (schema Uan rejects
+      // permissionDecision for PostToolUse; post-mutation by definition), so the violation
+      // surfaces as advisory context, not a hard gate. This test guards BOTH the JSON branch AND
+      // schema compliance — catches the exact regression where a prior shape emitted
+      // `{hookEventName, additionalContext}` at top level and was silently rejected by ZCode.
+      const abs = writeHook('#!/usr/bin/env bash\n# no marker\nexit 0\n');
+      const r = runHook('Write', abs, { ZCODE_PROJECT_DIR: SANDBOX });
+      // On ZCode: exit 0 (advisory), output = JSON additionalContext.
+      expect(r.status, 'ZCode path exits 0 (advisory, non-blocking)').toBe(0);
+      expect(r.stdout.trim(), 'ZCode path emits non-empty JSON').not.toBe('');
+      const allowedTopLevel = new Set([
+        'additionalContext',
+        'additional_context',
+        'continue',
+        'decision',
+        'hookSpecificOutput',
+        'reason',
+        'stopReason',
+        'suppressOutput',
+        'systemMessage',
+      ]);
+      const parsed = JSON.parse(r.stdout);
+      const unknownKeys = Object.keys(parsed).filter(
+        (k) => !allowedTopLevel.has(k),
+      );
+      expect(
+        unknownKeys,
+        `ZCode CCt.strict() rejects unknown top-level keys: ${unknownKeys.join(', ')}`,
+      ).toEqual([]);
+      expect(
+        parsed.additionalContext,
+        'violation text rides inside additionalContext',
+      ).toContain('hook-marker');
+      expect(
+        parsed.hookEventName,
+        'hookEventName must NOT be at top level (CCt.strict rejects it)',
+      ).toBeUndefined();
+    });
+  },
+);

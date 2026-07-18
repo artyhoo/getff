@@ -16,9 +16,10 @@ _emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
     jq -n --arg c "$2" '{additionalContext:$c}'
   else printf '%s\n' "$2"; fi; }
 
-REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
 TSX="$REPO_ROOT/node_modules/.bin/tsx"
 VALIDATOR="$REPO_ROOT/packages/core/spec-validation/validate-batch-spec.ts"
+[[ ! -f "$VALIDATOR" ]] && exit 0   # T-PLUG-A: framework-internal artefact; consumer plugins lack packages/core/
 
 # Graceful skip if jq unavailable
 if ! command -v jq >/dev/null 2>&1; then

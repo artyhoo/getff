@@ -26,7 +26,7 @@ PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 _emit_bootstrap() {
   local text="$1"
   if [ -n "${ZCODE_PROJECT_DIR:-}" ] && command -v jq >/dev/null 2>&1; then
-    jq -n --arg c "$text" '{hookEventName:"SessionStart", additionalContext:$c}'
+    jq -n --arg c "$text" '{additionalContext:$c}'
   else
     printf '%s\n' "$text"
   fi

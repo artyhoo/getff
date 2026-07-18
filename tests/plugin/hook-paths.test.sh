@@ -53,8 +53,12 @@ for f in ${scripts[@]+"${scripts[@]}"}; do
   fi
 
   # (c) no plugin-data path rooted at $CLAUDE_PROJECT_DIR/.claude/hooks/
-  if grep -qE 'CLAUDE_PROJECT_DIR[^[:space:]]*/\.claude/hooks/' "$f"; then
-    bad "$base hardcodes \$CLAUDE_PROJECT_DIR/.claude/hooks/ (relocation bug)"
+  # Real relocation bug = an ACTIVE command-string `bash "$CLAUDE_PROJECT_DIR/.claude/hooks/X.sh"`
+  # (the install-copy form, wrong under the plugin channel). A COMMENT showing the old form as
+  # documentation (e.g. an example JSON command in a header) is NOT a bug — strip comment lines
+  # before grepping so prose examples don't trip the check (T-PLUG-A spec item #6/#8/#10).
+  if grep -vE '^[[:space:]]*#' "$f" | grep -qE 'CLAUDE_PROJECT_DIR[^[:space:]]*/\.claude/hooks/'; then
+    bad "$base hardcodes \$CLAUDE_PROJECT_DIR/.claude/hooks/ in active code (relocation bug)"
   else
     ok "$base has no mis-rooted plugin-data path"
   fi
@@ -63,7 +67,17 @@ for f in ${scripts[@]+"${scripts[@]}"}; do
   # Two arms so the check is not satisfied by a stray CLAUDE_PROJECT_DIR mention elsewhere:
   #   (d1) the var must appear at all; (d2) consumer rules must NOT be rooted at the plugin root
   #   (the T-PLUG-A *inverse* mis-rooting: `${CLAUDE_PLUGIN_ROOT}/…/.claude/rules`).
-  if grep -qE '\.claude/rules' "$f"; then
+  # Trigger only on ACTIVE, genuine bash read-constructs targeting .claude/rules — not on
+  # prose mentions inside heredocs, digest text, or MSG single-quoted strings (citation
+  # strings, not reads: e.g. inject-session-bootstrap digest, inject-memory-codification MSG).
+  # A genuine read has a bash read-construct immediately adjacent to a .claude/rules path:
+  #   RULES_DIR=…/.claude/rules | for x in …/.claude/rules/*.md | cat …/.claude/rules…
+  #   [ -f …/.claude/rules… ] | grep … .claude/rules | ls …/.claude/rules | <(… .claude/rules)
+  has_rules_read=0
+  if grep -vE '^[[:space:]]*#' "$f" | grep -qE '(RULES_DIR=|for[[:space:]]+[A-Za-z_]+[[:space:]]+in[[:space:]].*|cat[[:space:]]|[[:space:]]-f[[:space:]]|grep[[:space:]]|ls[[:space:]]|<\()[^#]*\.claude/rules'; then
+    has_rules_read=1
+  fi
+  if [ "$has_rules_read" = "1" ]; then
     if ! grep -qE 'CLAUDE_PROJECT_DIR' "$f"; then
       bad "$base reads .claude/rules but never references CLAUDE_PROJECT_DIR (project-data misrooted)"
     elif grep -qE 'CLAUDE_PLUGIN_ROOT[^[:space:]]*/?\.claude/rules' "$f"; then

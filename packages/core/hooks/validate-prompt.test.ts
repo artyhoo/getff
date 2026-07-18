@@ -115,13 +115,23 @@ function writeOrchestratorPrompt(content: string, name = 'kickoff.md'): string {
 /**
  * Run validate-prompt.sh with the given stdin JSON. Returns exit code.
  * Uses `spawnSync` identical to the check-hook-marker.test.ts reference pattern.
+ * env merged onto process.env; default-scrubs ZCODE_PROJECT_DIR so CC-arms stay in the
+ * exit-code branch (mirrors deps-hash-check.test.ts:106). Pass ZCODE_PROJECT_DIR to
+ * exercise the JSON additionalContext branch (hook:47-50).
  */
-function runHook(stdinJson: object): { status: number; stderr: string; stdout: string } {
+function runHook(
+  stdinJson: object,
+  env: Record<string, string> = {},
+): { status: number; stderr: string; stdout: string } {
+  const fullEnv = { ...process.env };
+  if (env.ZCODE_PROJECT_DIR === undefined) delete fullEnv.ZCODE_PROJECT_DIR;
+  else fullEnv.ZCODE_PROJECT_DIR = env.ZCODE_PROJECT_DIR;
   const r = spawnSync('bash', [HOOK], {
     input: JSON.stringify(stdinJson),
     encoding: 'utf8',
     // Allow up to 15s — validator may make gh API calls
     timeout: 15_000,
+    env: fullEnv,
   });
   return {
     status: r.status ?? -1,
@@ -280,6 +290,53 @@ describe.skipIf(!JQ || !GH || !TSX)(
       const result = runHook({ tool_input: { file_path: abs } });
       // exit 1: validator found non-resolvable SHA → hook propagates it (hook:34)
       expect(result.status).toBe(1);
+    });
+
+    it('ZCODE: violating orchestrator-prompt under ZCODE_PROJECT_DIR → schema-valid {additionalContext} JSON, exit 0 (advisory, not gate)', () => {
+      // ZCode parses hook stdout against the HookJSONOutput schema (CCt at zcode.cjs:~577900),
+      // which is `.strict()` — unknown top-level keys are REJECTED (→ hook.run.failed, output
+      // discarded). PostToolUse cannot block on ZCode (schema Uan rejects permissionDecision;
+      // exit 1 is swallowed as HookRunFailed, not surfaced). The ZCode branch (hook:47-50) emits
+      // schema-valid `{additionalContext}` JSON and exits 0 — advisory, the best available
+      // mechanism. Regression guard: catches the prior shape that emitted
+      // `{hookEventName, additionalContext}` at top level and was silently rejected by ZCode.
+      const fakeRef =
+        'uses: actions/checkout@0000000000000000000000000000000000000000 # v-fake';
+      const content = `# Kickoff with bad SHA\n\n${fakeRef}\n`;
+      const abs = writeOrchestratorPrompt(content);
+      const r = runHook(
+        { tool_input: { file_path: abs } },
+        { ZCODE_PROJECT_DIR: REPO_ROOT },
+      );
+      expect(r.status, 'ZCode path exits 0 (advisory, non-blocking)').toBe(0);
+      expect(r.stdout.trim(), 'ZCode path emits non-empty JSON').not.toBe('');
+      const allowedTopLevel = new Set([
+        'additionalContext',
+        'additional_context',
+        'continue',
+        'decision',
+        'hookSpecificOutput',
+        'reason',
+        'stopReason',
+        'suppressOutput',
+        'systemMessage',
+      ]);
+      const parsed = JSON.parse(r.stdout);
+      const unknownKeys = Object.keys(parsed).filter(
+        (k) => !allowedTopLevel.has(k),
+      );
+      expect(
+        unknownKeys,
+        `ZCode CCt.strict() rejects unknown top-level keys: ${unknownKeys.join(', ')}`,
+      ).toEqual([]);
+      expect(
+        parsed.additionalContext,
+        'violation text rides inside additionalContext',
+      ).toContain('validate-prompt');
+      expect(
+        parsed.hookEventName,
+        'hookEventName must NOT be at top level (CCt.strict rejects it)',
+      ).toBeUndefined();
     });
   },
 );

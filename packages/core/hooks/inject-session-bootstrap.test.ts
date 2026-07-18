@@ -36,8 +36,18 @@ const HOOK = resolve(REPO_ROOT, '.claude/hooks/inject-session-bootstrap.sh');
  * Run the hook with a simulated UserPromptSubmit stdin payload.
  * The hook ignores stdin (pure stdout emitter, line 6-14) but we send
  * realistic input matching CC's UserPromptSubmit shape for accuracy.
+ *
+ * env is merged onto process.env (used to simulate ZCODE_PROJECT_DIR for the ZCode JSON path —
+ * mirrors deps-hash-check.test.ts:106). Default-scrub ZCODE_PROJECT_DIR so the CC-plain-text
+ * assertions below do not flip to the ZCode-JSON branch when the suite runs inside ZCode itself.
  */
-function runHook(session_id = 'test-session'): { stdout: string; status: number } {
+function runHook(
+  session_id = 'test-session',
+  env: Record<string, string> = {},
+): { stdout: string; status: number } {
+  const fullEnv = { ...process.env };
+  if (env.ZCODE_PROJECT_DIR === undefined) delete fullEnv.ZCODE_PROJECT_DIR;
+  else fullEnv.ZCODE_PROJECT_DIR = env.ZCODE_PROJECT_DIR;
   const r = spawnSync('bash', [HOOK], {
     input: JSON.stringify({
       hook_event_name: 'UserPromptSubmit',
@@ -46,6 +56,7 @@ function runHook(session_id = 'test-session'): { stdout: string; status: number 
       transcript_path: '/tmp/test-transcript.jsonl',
     }),
     encoding: 'utf8',
+    env: fullEnv,
   });
   return {
     stdout: r.stdout ?? '',
@@ -54,12 +65,12 @@ function runHook(session_id = 'test-session'): { stdout: string; status: number 
 }
 
 // sentinel tags from hook source lines 7 and 13
-const OPENING_TAG = '[session-bootstrap digest — auto-injected at prompt submit]';
+const OPENING_TAG =
+  '[session-bootstrap digest — auto-injected at prompt submit]';
 const CLOSING_TAG = '[/session-bootstrap digest]';
 
 // key goal anchor phrase from hook source line 8
-const GOAL_ANCHOR =
-  "AI agents can't silently bypass undocumented conventions";
+const GOAL_ANCHOR = "AI agents can't silently bypass undocumented conventions";
 
 describe('inject-session-bootstrap.sh — UserPromptSubmit bootstrap injection', () => {
   it('PAIRED-NEGATIVE: output MUST NOT be empty (core injection contract, hook line 6-14)', () => {
@@ -129,5 +140,49 @@ describe('inject-session-bootstrap.sh — UserPromptSubmit bootstrap injection',
     }
     // The output is plain text, not a JSON envelope.
     expect(parsed).toBeNull();
+  });
+
+  it('ZCODE: under ZCODE_PROJECT_DIR the digest is emitted as schema-valid {additionalContext} (CCt.strict compliant)', () => {
+    // ZCode parses hook stdout against the HookJSONOutput schema (CCt at zcode.cjs:~577900),
+    // which is `.strict()` — unknown top-level keys are REJECTED (→ hook.run.failed, output
+    // discarded, no digest reaches the session). The ZCode branch (_emit_ctx at hook line 16-18)
+    // MUST emit the schema-valid `{additionalContext}` shape: only `additionalContext` at top
+    // level, NO `hookEventName` (it is rejected by .strict() — a prior shape emitted
+    // `{hookEventName, additionalContext}` and was silently rejected by ZCode, caught via
+    // bundle re-inspection 2026-07-18). This test guards both the JSON branch AND schema
+    // compliance — catches the exact regression that broke live ZCode delivery.
+    const { stdout, status } = runHook('zcode-test', {
+      ZCODE_PROJECT_DIR: REPO_ROOT,
+    });
+    expect(status).toBe(0);
+    // Must parse as JSON. CCt.strict() allows ONLY these top-level keys:
+    const allowedTopLevel = new Set([
+      'additionalContext',
+      'additional_context',
+      'continue',
+      'decision',
+      'hookSpecificOutput',
+      'reason',
+      'stopReason',
+      'suppressOutput',
+      'systemMessage',
+    ]);
+    const parsed = JSON.parse(stdout);
+    const unknownKeys = Object.keys(parsed).filter(
+      (k) => !allowedTopLevel.has(k),
+    );
+    expect(
+      unknownKeys,
+      `ZCode CCt.strict() rejects unknown top-level keys: ${unknownKeys.join(', ')}`,
+    ).toEqual([]);
+    // The digest content rides inside additionalContext:
+    expect(parsed.additionalContext).toContain(OPENING_TAG);
+    expect(parsed.additionalContext).toContain(CLOSING_TAG);
+    expect(parsed.additionalContext).toContain(GOAL_ANCHOR);
+    // hookEventName MUST NOT appear at top level (regression guard):
+    expect(
+      parsed.hookEventName,
+      'hookEventName must NOT be emitted at top level (CCt.strict rejects it)',
+    ).toBeUndefined();
   });
 });

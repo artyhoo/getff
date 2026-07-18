@@ -106,7 +106,12 @@ function snapshotGuardPaths(): string | null {
   try {
     return execSync(
       `git --no-optional-locks status --porcelain=v1 -- ${GUARD_PATHSPECS.join(' ')}`,
-      { cwd: REPO_ROOT, encoding: 'utf8', env, stdio: ['ignore', 'pipe', 'ignore'] },
+      {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+        env,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      },
     );
   } catch {
     return null;
@@ -131,23 +136,40 @@ const HOOK = join(SANDBOX, '.claude', 'hooks', 'check-doc-authority.sh');
 copyFileSync(REAL_HOOK, HOOK);
 copyFileSync(
   REAL_BIN,
-  join(SANDBOX, 'packages', 'core', 'principles', '09-doc-authority-hierarchy.bin.ts'),
+  join(
+    SANDBOX,
+    'packages',
+    'core',
+    'principles',
+    '09-doc-authority-hierarchy.bin.ts',
+  ),
 );
 copyFileSync(
   REAL_MODULE,
-  join(SANDBOX, 'packages', 'core', 'principles', '09-doc-authority-hierarchy.ts'),
+  join(
+    SANDBOX,
+    'packages',
+    'core',
+    'principles',
+    '09-doc-authority-hierarchy.ts',
+  ),
 );
 // The hook resolves tsx at $REPO_ROOT/node_modules/.bin/tsx (line 13); symlink
 // the whole tree so the sandbox needs no install. Chains through the worktree
 // symlink when the checkout itself symlinks node_modules.
-symlinkSync(join(REPO_ROOT, 'node_modules'), join(SANDBOX, 'node_modules'), 'dir');
+symlinkSync(
+  join(REPO_ROOT, 'node_modules'),
+  join(SANDBOX, 'node_modules'),
+  'dir',
+);
 
 /** Extra tempdirs created by individual tests (outside-repo fixtures). */
 const extraTmpDirs: string[] = [];
 
 afterAll(() => {
   rmSync(SANDBOX, { recursive: true, force: true });
-  for (const d of extraTmpDirs.splice(0)) rmSync(d, { recursive: true, force: true });
+  for (const d of extraTmpDirs.splice(0))
+    rmSync(d, { recursive: true, force: true });
 });
 
 function hasJq(): boolean {
@@ -180,13 +202,31 @@ const TSX = existsSync(resolve(REPO_ROOT, 'node_modules/.bin/tsx'));
  * resolves file paths relative to process.cwd() (09-doc-authority-hierarchy.ts
  * line 275: `repoRoot: string = process.cwd()`).
  */
-function runHook(absPath: string): { status: number; stderr: string } {
+function runHook(
+  absPath: string,
+  env: Record<string, string> = {},
+): { status: number; stderr: string; stdout: string } {
+  // Default-scrub ZCODE_PROJECT_DIR: the runner may execute inside zcode (the framework's own
+  // dev harness), which would flip _emit_ctx to the JSON branch and break the CC exit-code
+  // assertions below. The ZCode-JSON case passes ZCODE_PROJECT_DIR explicitly. Mirrors
+  // deps-hash-check.test.ts:106.
+  const fullEnv = { ...process.env };
+  if (env.ZCODE_PROJECT_DIR === undefined) delete fullEnv.ZCODE_PROJECT_DIR;
+  else fullEnv.ZCODE_PROJECT_DIR = env.ZCODE_PROJECT_DIR;
   const r = spawnSync('bash', [HOOK], {
-    input: JSON.stringify({ tool_name: 'Edit', tool_input: { file_path: absPath } }),
+    input: JSON.stringify({
+      tool_name: 'Edit',
+      tool_input: { file_path: absPath },
+    }),
     encoding: 'utf8',
     cwd: SANDBOX,
+    env: fullEnv,
   });
-  return { status: r.status ?? -1, stderr: r.stderr ?? '' };
+  return {
+    status: r.status ?? -1,
+    stderr: r.stderr ?? '',
+    stdout: r.stdout ?? '',
+  };
 }
 
 /**
@@ -215,127 +255,178 @@ const MISSING_HEADER = `# Test fixture
 Some body text with no authority header.
 `;
 
-describe.skipIf(!JQ || !TSX)('check-doc-authority.sh — PostToolUse authority header gate', () => {
-  // ──────────────────────────────────────────────────────────────────────────
-  // PAIRED-NEGATIVE: the core contract
-  // ──────────────────────────────────────────────────────────────────────────
+describe.skipIf(!JQ || !TSX)(
+  'check-doc-authority.sh — PostToolUse authority header gate',
+  () => {
+    // ──────────────────────────────────────────────────────────────────────────
+    // PAIRED-NEGATIVE: the core contract
+    // ──────────────────────────────────────────────────────────────────────────
 
-  it('PAIRED-NEGATIVE: REQUIRED_HEADER_DOC written WITHOUT `> **Authoritative for:**` → exit 1 + diagnostic', () => {
-    // check-doc-authority.sh line 33: `"$TSX" "$BIN" "$REL_PATH"` — delegates to bin
-    // 09-doc-authority-hierarchy.bin.ts line 37-42: exits 1 when violations found
-    // 09-doc-authority-hierarchy.ts line 15: AUTHORITY_HEADER_RE = /^> \*\*Authoritative for:\*\*/m
-    // Doubles as the sandbox-integrity canary: a mis-built sandbox trips the
-    // hook's graceful skips (lines 27, 29-31) → exit 0 → this test fails loud.
-    const abs = writeFixtureDoc(MISSING_HEADER);
-    const { status, stderr } = runHook(abs);
-    expect(status).toBe(1);
-    // 09-doc-authority-hierarchy.bin.ts line 39: `process.stderr.write(\`FAIL  ${v.path}: ${v.reason}\n\`)`
-    expect(stderr).toMatch(/FAIL/);
-    expect(stderr).toMatch(/missing.*Authoritative for/i);
-  });
-
-  it('PAIRED-POSITIVE: same REQUIRED_HEADER_DOC WITH `> **Authoritative for:**` → exit 0', () => {
-    // check-doc-authority.sh line 33: delegates to tsx "$BIN" "$REL_PATH"
-    // 09-doc-authority-hierarchy.ts line 252-254: hasAuthorityHeader returns true
-    // 09-doc-authority-hierarchy.bin.ts line 44-46: exits 0 with OK message on stdout
-    const abs = writeFixtureDoc(VALID_HEADER);
-    const { status } = runHook(abs);
-    expect(status).toBe(0);
-  });
-
-  // ──────────────────────────────────────────────────────────────────────────
-  // OFF-PATH skips
-  // ──────────────────────────────────────────────────────────────────────────
-
-  it('off-path: a non-REQUIRED file inside repo → exit 0', () => {
-    // check-doc-authority.sh line 23: REL_PATH = strip REPO_ROOT prefix
-    // 09-doc-authority-hierarchy.ts line 237-242: selectRequiredPaths returns [] for non-required paths
-    // empty filtered list → 09-doc-authority-hierarchy.bin.ts line 31-33: process.exit(0) silently
-    const abs = join(SANDBOX, 'packages', 'core', `test-tmp-check-doc-${Date.now()}.ts`);
-    writeFileSync(abs, '// no authority header\n', 'utf8');
-    const { status } = runHook(abs);
-    expect(status).toBe(0);
-  });
-
-  it('off-path: a path outside repo entirely → exit 0', () => {
-    // check-doc-authority.sh line 24: `[[ "$REL_PATH" = "$ABS_PATH" ]] && exit 0`
-    // When the absolute path has no REPO_ROOT (= sandbox) prefix, the bash strip
-    // is a no-op so REL_PATH == ABS_PATH → early exit 0 before even reaching the bin
-    const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), 'check-doc-auth-offpath-')));
-    extraTmpDirs.push(tmpDir);
-    const abs = join(tmpDir, 'CLAUDE.md'); // named like a required doc, but outside the sandbox repo
-    writeFileSync(abs, MISSING_HEADER, 'utf8');
-    const { status } = runHook(abs);
-    expect(status).toBe(0);
-  });
-
-  it('off-path: empty stdin file_path → exit 0', () => {
-    // check-doc-authority.sh line 20: `[[ -z "$ABS_PATH" ]] && exit 0`
-    // jq -r '.tool_input.file_path // ""' on a payload without file_path key returns ""
-    const r = spawnSync('bash', [HOOK], {
-      input: JSON.stringify({ tool_name: 'Edit', tool_input: {} }),
-      encoding: 'utf8',
-      cwd: SANDBOX,
+    it('PAIRED-NEGATIVE: REQUIRED_HEADER_DOC written WITHOUT `> **Authoritative for:**` → exit 1 + diagnostic', () => {
+      // check-doc-authority.sh line 33: `"$TSX" "$BIN" "$REL_PATH"` — delegates to bin
+      // 09-doc-authority-hierarchy.bin.ts line 37-42: exits 1 when violations found
+      // 09-doc-authority-hierarchy.ts line 15: AUTHORITY_HEADER_RE = /^> \*\*Authoritative for:\*\*/m
+      // Doubles as the sandbox-integrity canary: a mis-built sandbox trips the
+      // hook's graceful skips (lines 27, 29-31) → exit 0 → this test fails loud.
+      const abs = writeFixtureDoc(MISSING_HEADER);
+      const { status, stderr } = runHook(abs);
+      expect(status).toBe(1);
+      // 09-doc-authority-hierarchy.bin.ts line 39: `process.stderr.write(\`FAIL  ${v.path}: ${v.reason}\n\`)`
+      expect(stderr).toMatch(/FAIL/);
+      expect(stderr).toMatch(/missing.*Authoritative for/i);
     });
-    expect(r.status).toBe(0);
-  });
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // Boundary: mid-prose mention does NOT satisfy the blockquote regex
-  // ──────────────────────────────────────────────────────────────────────────
+    it('PAIRED-POSITIVE: same REQUIRED_HEADER_DOC WITH `> **Authoritative for:**` → exit 0', () => {
+      // check-doc-authority.sh line 33: delegates to tsx "$BIN" "$REL_PATH"
+      // 09-doc-authority-hierarchy.ts line 252-254: hasAuthorityHeader returns true
+      // 09-doc-authority-hierarchy.bin.ts line 44-46: exits 0 with OK message on stdout
+      const abs = writeFixtureDoc(VALID_HEADER);
+      const { status } = runHook(abs);
+      expect(status).toBe(0);
+    });
 
-  it('boundary: `Authoritative for:` in mid-prose (no blockquote) → exit 1', () => {
-    // 09-doc-authority-hierarchy.ts line 15: AUTHORITY_HEADER_RE = /^> \*\*Authoritative for:\*\*/m
-    // Only `> **Authoritative for:**` at line-start (after `>`) matches.
-    // Plain prose "Authoritative for:" does NOT match → FAIL
-    const content =
-      '# Test fixture\n\nThis doc is authoritative for certain things but lacks the blockquote form.\n';
-    const abs = writeFixtureDoc(content);
-    const { status, stderr } = runHook(abs);
-    expect(status).toBe(1);
-    expect(stderr).toMatch(/FAIL/);
-  });
+    // ──────────────────────────────────────────────────────────────────────────
+    // OFF-PATH skips
+    // ──────────────────────────────────────────────────────────────────────────
 
-  it('boundary: `Authoritative for:` inside a fenced code block → exit 1 (stripped)', () => {
-    // 09-doc-authority-hierarchy.ts line 248-250: stripFencedCodeBlocks() removes ``` blocks
-    // before AUTHORITY_HEADER_RE is tested. Content inside ``` does not satisfy the check.
-    const content = [
-      '# Test fixture',
-      '',
-      'Some prose.',
-      '',
-      '```markdown',
-      '> **Authoritative for:** inside a code block — stripped out',
-      '```',
-      '',
-    ].join('\n');
-    const abs = writeFixtureDoc(content);
-    const { status, stderr } = runHook(abs);
-    expect(status).toBe(1);
-    expect(stderr).toMatch(/FAIL/);
-  });
+    it('off-path: a non-REQUIRED file inside repo → exit 0', () => {
+      // check-doc-authority.sh line 23: REL_PATH = strip REPO_ROOT prefix
+      // 09-doc-authority-hierarchy.ts line 237-242: selectRequiredPaths returns [] for non-required paths
+      // empty filtered list → 09-doc-authority-hierarchy.bin.ts line 31-33: process.exit(0) silently
+      const abs = join(
+        SANDBOX,
+        'packages',
+        'core',
+        `test-tmp-check-doc-${Date.now()}.ts`,
+      );
+      writeFileSync(abs, '// no authority header\n', 'utf8');
+      const { status } = runHook(abs);
+      expect(status).toBe(0);
+    });
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // Sanity: our fixture doc IS in REQUIRED_HEADER_DOCS
-  // ──────────────────────────────────────────────────────────────────────────
+    it('off-path: a path outside repo entirely → exit 0', () => {
+      // check-doc-authority.sh line 24: `[[ "$REL_PATH" = "$ABS_PATH" ]] && exit 0`
+      // When the absolute path has no REPO_ROOT (= sandbox) prefix, the bash strip
+      // is a no-op so REL_PATH == ABS_PATH → early exit 0 before even reaching the bin
+      const tmpDir = realpathSync(
+        mkdtempSync(join(tmpdir(), 'check-doc-auth-offpath-')),
+      );
+      extraTmpDirs.push(tmpDir);
+      const abs = join(tmpDir, 'CLAUDE.md'); // named like a required doc, but outside the sandbox repo
+      writeFileSync(abs, MISSING_HEADER, 'utf8');
+      const { status } = runHook(abs);
+      expect(status).toBe(0);
+    });
 
-  it('sanity: FIXTURE_REQUIRED_DOC is actually in REQUIRED_HEADER_DOCS', () => {
-    // T3: verify our fixture choice against the canonical list
-    // (09-doc-authority-hierarchy.ts line 38: '.claude/rules/doc-authority-hierarchy.md')
-    expect(REQUIRED_HEADER_DOCS).toContain(FIXTURE_REQUIRED_DOC);
-  });
+    it('off-path: empty stdin file_path → exit 0', () => {
+      // check-doc-authority.sh line 20: `[[ -z "$ABS_PATH" ]] && exit 0`
+      // jq -r '.tool_input.file_path // ""' on a payload without file_path key returns ""
+      const r = spawnSync('bash', [HOOK], {
+        input: JSON.stringify({ tool_name: 'Edit', tool_input: {} }),
+        encoding: 'utf8',
+        cwd: SANDBOX,
+      });
+      expect(r.status).toBe(0);
+    });
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // Tree-guard: the real tracked docs stayed untouched (runs last — vitest
-  // executes tests in registration order within a file)
-  // ──────────────────────────────────────────────────────────────────────────
+    // ──────────────────────────────────────────────────────────────────────────
+    // Boundary: mid-prose mention does NOT satisfy the blockquote regex
+    // ──────────────────────────────────────────────────────────────────────────
 
-  it('tree-guard: real tracked doc paths show no git delta after this suite', () => {
-    // Regression tripwire for the pre-sandbox hazard: fixture content leaking
-    // into the real .claude/rules/doc-authority-hierarchy.md / CLAUDE.md.
-    // Delta vs the module-load snapshot, so pre-existing developer edits pass.
-    const after = snapshotGuardPaths();
-    if (TREE_BEFORE === null || after === null) return; // advisory without git
-    expect(after).toBe(TREE_BEFORE);
-  });
-});
+    it('boundary: `Authoritative for:` in mid-prose (no blockquote) → exit 1', () => {
+      // 09-doc-authority-hierarchy.ts line 15: AUTHORITY_HEADER_RE = /^> \*\*Authoritative for:\*\*/m
+      // Only `> **Authoritative for:**` at line-start (after `>`) matches.
+      // Plain prose "Authoritative for:" does NOT match → FAIL
+      const content =
+        '# Test fixture\n\nThis doc is authoritative for certain things but lacks the blockquote form.\n';
+      const abs = writeFixtureDoc(content);
+      const { status, stderr } = runHook(abs);
+      expect(status).toBe(1);
+      expect(stderr).toMatch(/FAIL/);
+    });
+
+    it('boundary: `Authoritative for:` inside a fenced code block → exit 1 (stripped)', () => {
+      // 09-doc-authority-hierarchy.ts line 248-250: stripFencedCodeBlocks() removes ``` blocks
+      // before AUTHORITY_HEADER_RE is tested. Content inside ``` does not satisfy the check.
+      const content = [
+        '# Test fixture',
+        '',
+        'Some prose.',
+        '',
+        '```markdown',
+        '> **Authoritative for:** inside a code block — stripped out',
+        '```',
+        '',
+      ].join('\n');
+      const abs = writeFixtureDoc(content);
+      const { status, stderr } = runHook(abs);
+      expect(status).toBe(1);
+      expect(stderr).toMatch(/FAIL/);
+    });
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Sanity: our fixture doc IS in REQUIRED_HEADER_DOCS
+    // ──────────────────────────────────────────────────────────────────────────
+
+    it('sanity: FIXTURE_REQUIRED_DOC is actually in REQUIRED_HEADER_DOCS', () => {
+      // T3: verify our fixture choice against the canonical list
+      // (09-doc-authority-hierarchy.ts line 38: '.claude/rules/doc-authority-hierarchy.md')
+      expect(REQUIRED_HEADER_DOCS).toContain(FIXTURE_REQUIRED_DOC);
+    });
+
+    it('ZCODE: violation under ZCODE_PROJECT_DIR → schema-valid {additionalContext} JSON, exit 0 (advisory)', () => {
+      // ZCode parses hook stdout against the HookJSONOutput schema (CCt at zcode.cjs:~577900),
+      // which is `.strict()` — unknown top-level keys are REJECTED (→ hook.run.failed, output
+      // discarded). The ZCode branch (_emit_ctx at hook line 14-16) emits schema-valid
+      // `{additionalContext}` and exits 0 — PostToolUse cannot block on ZCode (schema Uan rejects
+      // permissionDecision for PostToolUse; post-mutation by definition), so the violation surfaces
+      // as advisory context. Regression guard: a prior shape emitted
+      // `{hookEventName, additionalContext}` at top level and was silently rejected by ZCode.
+      const abs = writeFixtureDoc(MISSING_HEADER);
+      const r = runHook(abs, { ZCODE_PROJECT_DIR: SANDBOX });
+      expect(r.status, 'ZCode path exits 0 (advisory, non-blocking)').toBe(0);
+      expect(r.stdout.trim(), 'ZCode path emits non-empty JSON').not.toBe('');
+      const allowedTopLevel = new Set([
+        'additionalContext',
+        'additional_context',
+        'continue',
+        'decision',
+        'hookSpecificOutput',
+        'reason',
+        'stopReason',
+        'suppressOutput',
+        'systemMessage',
+      ]);
+      const parsed = JSON.parse(r.stdout);
+      const unknownKeys = Object.keys(parsed).filter(
+        (k) => !allowedTopLevel.has(k),
+      );
+      expect(
+        unknownKeys,
+        `ZCode CCt.strict() rejects unknown top-level keys: ${unknownKeys.join(', ')}`,
+      ).toEqual([]);
+      expect(
+        parsed.additionalContext,
+        'violation text rides inside additionalContext',
+      ).toContain('check-doc-authority');
+      expect(
+        parsed.hookEventName,
+        'hookEventName must NOT be at top level (CCt.strict rejects it)',
+      ).toBeUndefined();
+    });
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Tree-guard: the real tracked docs stayed untouched (runs last — vitest
+    // executes tests in registration order within a file)
+    // ──────────────────────────────────────────────────────────────────────────
+
+    it('tree-guard: real tracked doc paths show no git delta after this suite', () => {
+      // Regression tripwire for the pre-sandbox hazard: fixture content leaking
+      // into the real .claude/rules/doc-authority-hierarchy.md / CLAUDE.md.
+      // Delta vs the module-load snapshot, so pre-existing developer edits pass.
+      const after = snapshotGuardPaths();
+      if (TREE_BEFORE === null || after === null) return; // advisory without git
+      expect(after).toBe(TREE_BEFORE);
+    });
+  },
+);

@@ -120,6 +120,39 @@ describe('inject-subagent-context.sh — CC-first backup gated by _is_zcode', ()
     expect(JSON.parse(stdoutTask).hookSpecificOutput.hookEventName).toBe('PreToolUse');
   });
 
+  it('ZCode schema-compliance: top-level keys match CCt.strict() (hookSpecificOutput wrapper)', () => {
+    // ZCode parses hook stdout against the HookJSONOutput schema (CCt at zcode.cjs:~577900),
+    // which is `.strict()` — unknown top-level keys are REJECTED (→ hook.run.failed, output
+    // discarded). This hook uses the valid `{hookSpecificOutput:{hookEventName, updatedInput}}`
+    // shape (hookEventName INSIDE hookSpecificOutput is allowed by the discriminated union Uan;
+    // top-level hookEventName is NOT). Regression guard: catches anyone flattening the wrapper
+    // or leaking hookEventName to top level (a prior shape emitted it top-level and was silently
+    // rejected by ZCode). Precedent: inject-matching-rule.test.ts:72-105.
+    const { stdout } = runHook(agentPayload(), { ZCODE_PROJECT_DIR: REPO_ROOT });
+    const json = JSON.parse(stdout);
+    const allowedTopLevel = new Set([
+      'additionalContext',
+      'additional_context',
+      'continue',
+      'decision',
+      'hookSpecificOutput',
+      'reason',
+      'stopReason',
+      'suppressOutput',
+      'systemMessage',
+    ]);
+    const unknownKeys = Object.keys(json).filter((k) => !allowedTopLevel.has(k));
+    expect(
+      unknownKeys,
+      `ZCode CCt.strict() rejects unknown top-level keys: ${unknownKeys.join(', ')}`,
+    ).toEqual([]);
+    expect(
+      json.hookEventName,
+      'hookEventName must NOT be at top level — only inside hookSpecificOutput',
+    ).toBeUndefined();
+    expect(json.hookSpecificOutput.hookEventName).toBe('PreToolUse');
+  });
+
   it('non-Agent/Task tool: silent exit 0 even under zcode (defensive tool filter)', () => {
     const { status, stdout } = runHookStatus(
       { tool_name: 'Bash', tool_input: { command: 'ls' } },

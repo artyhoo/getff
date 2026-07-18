@@ -27,7 +27,7 @@
  * the principle-02 paired-negative discipline that makes the gate non-tautological.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
@@ -199,12 +199,19 @@ export function checkPluginIntegrity(pluginDir: string, marketplaceDir: string):
   }
 
   // V7/V8 — relocated hook scripts (non-run-hook.cmd, non-json): no mis-rooted plugin-data
-  // path; carry a delivery-channel marker.
+  // path; carry a delivery-channel marker. Skip subdirectories (e.g. lang/) — only top-level
+  // hook scripts carry these markers; subdirs hold support files (lang packs, etc.).
+  // V7 checks EXECUTABLE paths only: comment lines (starting with optional whitespace + #) may
+  // contain documentation examples of the dogfood wiring ($CLAUDE_PROJECT_DIR/.claude/hooks/...)
+  // which are NOT executable in the plugin twin — strip them before the path check.
   if (existsSync(hooksDir)) {
     for (const f of readdirSync(hooksDir)) {
       if (f === 'run-hook.cmd' || f.endsWith('.json') || f.endsWith('.md')) continue;
-      const c = readFileSync(resolve(hooksDir, f), 'utf8');
-      if (/CLAUDE_PROJECT_DIR[^\s]*\/\.claude\/hooks\//.test(c)) v.push({ code: 'V7', detail: `hook ${f}: mis-rooted plugin-data path ($CLAUDE_PROJECT_DIR/.claude/hooks/)` });
+      const abs = resolve(hooksDir, f);
+      if (!statSync(abs).isFile()) continue;  // skip subdirectories (lang/, etc.)
+      const c = readFileSync(abs, 'utf8');
+      const codeLinesOnly = c.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
+      if (/CLAUDE_PROJECT_DIR[^\s]*\/\.claude\/hooks\//.test(codeLinesOnly)) v.push({ code: 'V7', detail: `hook ${f}: mis-rooted plugin-data path ($CLAUDE_PROJECT_DIR/.claude/hooks/)` });
       if (!/^# @(dual-pair|cc-only-rationale):/m.test(c)) v.push({ code: 'V8', detail: `hook ${f}: missing @dual-pair/@cc-only-rationale marker` });
     }
   }
