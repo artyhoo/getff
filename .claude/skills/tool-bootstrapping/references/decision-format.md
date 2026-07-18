@@ -13,13 +13,18 @@ Repository root: `.ai-factory/tool-decisions.md`. **Committed** — not gitignor
 
 ```yaml
 ---
-deps-hash: <sha256 of package.json "dependencies"+"devDependencies" sections>
+# Per-stack deps-hash baselines (DH-S1 multistack, kickoff #1016). One line per detected
+# stack; each stores sha256-<hex> of that stack's declared deps. A stack's line is omitted
+# when the consumer has no manifest for it.
+deps-hash-npm:    <sha256 of package.json deps surface — dependencies + devDependencies + peerDependencies + optionalDependencies + overrides + resolutions + pnpm.overrides (each if present, object-guarded)>
+deps-hash-python: <sha256 of pyproject.toml deps surface — Tier-1 6 non-[project] tables + Tier-2 tomllib [project].dependencies/optional-dependencies>
+deps-hash-cargo:  <sha256 of Cargo.toml deps surface — DH-S2; reserved key, populated by later stage>
 last-bootstrap: <ISO date of last full tool-bootstrap run, e.g. 2026-05-11>
 aif-version: <AIF semver at time of last bootstrap, e.g. 2.1.0>
 ---
 ```
 
-The `deps-hash` field is the rule 5 incrementality trigger. The UserPromptSubmit hook (Wave 5.3) recomputes the hash at session start and injects a WARN if it differs from this recorded value.
+The `deps-hash-*` fields are the rule 5 incrementality triggers. The UserPromptSubmit hook (`packages/core/hooks/deps-hash-check.sh`, DH-S1) recomputes each present stack's hash at session start and injects a WARN if any differs from its recorded value. **Backward compatibility:** the legacy bare `deps-hash:` key is read as the `npm` slot, so existing JS-only consumers keep working without re-baseline. If BOTH `deps-hash:` and `deps-hash-npm:` are present, `deps-hash-npm:` wins (migration-safe). A consumer with none of these keys recorded is "unbaselined" — the hook still warns (the install-time nudge) but with honest wording ("not yet baselined"), not "deps changed" (GH #548).
 
 ### `## Accepted` section
 
@@ -37,7 +42,8 @@ Free-form markdown list of tools proposed but undecided, or tools due for re-eva
 
 ```markdown
 ---
-deps-hash: sha256-a1b2c3d4e5f6
+deps-hash-npm:    sha256-a1b2c3d4e5f6...
+deps-hash-python: sha256-fedcba987654...
 last-bootstrap: 2026-05-11
 aif-version: 2.1.0
 ---

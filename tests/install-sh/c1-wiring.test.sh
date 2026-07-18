@@ -77,8 +77,14 @@ if [ -x "$HOOK_C548" ]; then
     # syntax — BSD reads the next token as a backup suffix, so `sed -i 's/…/…/' file` errors
     # and never mutates the file, making this negative arm VACUOUS on macOS (spurious FAIL).
     # Write to a sibling temp file and move it back — works identically on both seds.
+    # NOTE (DH-S1 round-3.5): the install template now seeds BOTH deps-hash-npm: AND the legacy
+    # bare deps-hash:; the hook reads deps-hash-npm: with precedence (design §3a M1). To prove
+    # real-drift detection non-vacuously, BOTH keys must carry the mismatched sha256 — otherwise
+    # the <pending>-seeded deps-hash-npm: shadows the drifted legacy key and the WARN wording is
+    # "not yet baselined" (honest for unbaselined), not "deps changed". Replace both lines.
     TDM_NEG="$C548/.ai-factory/tool-decisions.md"
-    sed 's/^deps-hash:.*/deps-hash: sha256-0000000000000000000000000000000000000000000000000000000000000000/' \
+    sed -e 's/^deps-hash-npm:.*/deps-hash-npm: sha256-0000000000000000000000000000000000000000000000000000000000000000/' \
+        -e 's/^deps-hash:.*/deps-hash: sha256-0000000000000000000000000000000000000000000000000000000000000000/' \
       "$TDM_NEG" > "$TDM_NEG.tmp" && mv "$TDM_NEG.tmp" "$TDM_NEG"
     out_c548_neg=$( cd "$C548" && bash "$HOOK_C548" 2>&1 )
     if echo "$out_c548_neg" | grep -q 'deps changed'; then
