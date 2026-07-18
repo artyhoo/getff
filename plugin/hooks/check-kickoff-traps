@@ -25,7 +25,7 @@ _emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
   else printf '%s\n' "$2"; fi; }
 _adv_violation() { if _is_zcode; then _emit_ctx "PostToolUse" "$1"; else printf '%s\n' "$1" >&2; exit 1; fi; }
 
-REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
 command -v jq >/dev/null 2>&1 || exit 0   # graceful no-op without jq
 
 INPUT="$(cat)"

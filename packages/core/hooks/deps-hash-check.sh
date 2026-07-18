@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # @dual-pair: deps-hash-check-dogfood
 # spec: packages/core/hooks/deps-hash-check.sh — packages/ copy is the SOURCE shipped by
-# install.sh:261; .claude/ copy is this repo's dogfood instance wired in settings.json.
-# The two are kept byte-identical; drift is guarded by deps-hash-check.test.ts (#382 §6).
+# install.sh:261; .claude/ copy is this repo's dogfood instance wired in settings.json;
+# plugin/hooks/deps-hash-check is the consumer-plugin twin (T-PLUG-A). All three are kept
+# byte-identical; drift is guarded by deps-hash-check.test.ts (#382 §6).
 # Consumer-facing UserPromptSubmit hook — D7=a (Wave 5.3).
 # Compares sha256 of current package.json deps against deps-hash stored in
 # .ai-factory/tool-decisions.md. On mismatch → prints one-line WARN to stdout
@@ -16,11 +17,18 @@
 
 set -uo pipefail
 
+# T-PLUG-A: plugin channel sets CLAUDE_PROJECT_DIR; pin cwd there so the bare-relative
+# package.json / .ai-factory/tool-decisions.md reads below resolve to the CONSUMER root (not the
+# plugin payload dir). When CLAUDE_PROJECT_DIR is unset (dogfood / install-copy / tests), rely on
+# invocation-cwd unchanged from pre-relocation behaviour. One byte-identical file serves all three
+# instances (packages/ SSOT, .claude/ dogfood, plugin/ twin) — guarded by deps-hash-check.test.ts.
+[ -n "${CLAUDE_PROJECT_DIR:-}" ] && { cd "$CLAUDE_PROJECT_DIR" 2>/dev/null || exit 0; }
+
 # Harness-portable output: CC auto-injects plain stdout; ZCode needs JSON. Inlined (not
 # sourced from lib/) because install.sh ships this file standalone to consumers (no lib/).
 _emit_warn() {
   if [ -n "${ZCODE_PROJECT_DIR:-}" ] && command -v jq >/dev/null 2>&1; then
-    jq -n --arg c "$1" '{hookEventName:"UserPromptSubmit", additionalContext:$c}'
+    jq -n --arg c "$1" '{additionalContext:$c}'
   else
     printf '⚠ %s\n' "$1"
   fi

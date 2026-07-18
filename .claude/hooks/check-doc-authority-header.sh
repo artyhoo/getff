@@ -58,10 +58,23 @@ if printf '%s\n' "$STRIPPED" | grep -qE '^> \*\*Authoritative for:\*\*'; then
   exit 0
 fi
 
-# ── Missing header → gate (exit 2 feeds stderr back to the model) ─────────────
-{
-  printf '✗ doc-authority: %s is missing the "> **Authoritative for:**" header.\n' "$REL_PATH"
-  printf '  Add it (see .claude/rules/doc-authority-hierarchy.md §3), OR exempt this file with a\n'
-  printf '  <!-- doc-authority: exempt <reason 20+ chars> --> line, OR set AIF_DOC_AUTHORITY=0 to disable.\n'
-} >&2
+# ── Missing header → gate ─────────────────────────────────────────────────────
+# Under CC: exit 2 feeds stderr back to the model as PostToolUse blocking feedback (the model
+#   sees the diagnostic and adds the header).
+# Under ZCode: PostToolUse is schema-bound to `additionalContext` only (CCt.strict @ zcode.cjs:
+#   ~577900 rejects unknown top-level keys; exit 2 is swallowed as HookRunFailed, stderr never
+#   reaches the model — verified via bundle inspection 2026-07-18, lRt @ zcode.cjs:541 +
+#   b_n() excludes PostToolUse from preventContinuation). So under ZCode we emit the diagnostic
+#   as schema-valid `{additionalContext}` JSON and exit 0 — advisory, not blocking. Post-mutation
+#   gates cannot block on ZCode by construction (the file is already changed), so advisory is the
+#   best available mechanism; the JSON shape at least surfaces the violation to the model rather
+#   than silently discarding it.
+_msg="$(printf '✗ doc-authority: %s is missing the "> **Authoritative for:**" header.\n' "$REL_PATH")
+  Add it (see .claude/rules/doc-authority-hierarchy.md §3), OR exempt this file with a
+  <!-- doc-authority: exempt <reason 20+ chars> --> line, OR set AIF_DOC_AUTHORITY=0 to disable."
+if [ -n "${ZCODE_PROJECT_DIR:-}" ] && command -v jq >/dev/null 2>&1; then
+  jq -n --arg c "$_msg" '{additionalContext:$c}'
+  exit 0
+fi
+printf '%s\n' "$_msg" >&2
 exit 2

@@ -182,6 +182,46 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     expect(payload.reason).toMatch(/рекомендовал|жду твоего решения|перекладывай/i);
   });
 
+  it('ZCode schema-compliance: top-level keys match CCt.strict() — no stray hookEventName', () => {
+    // ZCode parses hook stdout against the HookJSONOutput schema (CCt at zcode.cjs:~577900),
+    // which is `.strict()` — unknown top-level keys are REJECTED (→ hook.run.failed, output
+    // discarded). This Stop hook emits `{decision, reason, systemMessage}` UNCONDITIONALLY
+    // (hook:233-237) — all three are in the allowed set today, but there is NO guard against a
+    // future edit adding `hookEventName` (or any other key) at top level, which ZCode would
+    // silently reject. Regression guard (cold backward-sweep finding GAP-1): pin the allowed
+    // top-level set so any added key fails this test. Precedent: ask-question-reminder.test.ts:139.
+    const tr = writeTranscript([
+      aiTitle('Тестовая цель сессии'),
+      userTurn('первое задание'),
+      assistantText(longMarkdownText() + '\n\nИтог: всё описано.'),
+    ]);
+    const r = runHook({ transcript_path: tr, stop_hook_active: false });
+    expect(r.stdout, 'reminder must fire to exercise the JSON path').not.toBe('');
+    const parsed = JSON.parse(r.stdout);
+    const allowedTopLevel = new Set([
+      'additionalContext',
+      'additional_context',
+      'continue',
+      'decision',
+      'hookSpecificOutput',
+      'reason',
+      'stopReason',
+      'suppressOutput',
+      'systemMessage',
+    ]);
+    const unknownKeys = Object.keys(parsed).filter(
+      (k) => !allowedTopLevel.has(k),
+    );
+    expect(
+      unknownKeys,
+      `ZCode CCt.strict() rejects unknown top-level keys: ${unknownKeys.join(', ')}`,
+    ).toEqual([]);
+    expect(
+      parsed.hookEventName,
+      'hookEventName must NOT be at top level (CCt.strict rejects it)',
+    ).toBeUndefined();
+  });
+
   // ── orchestration-mode (marker-gated; normal mode byte-for-byte) ──────────────
   describe('orchestration-mode — Bug A: decision-mention no longer false-fires in-mode', () => {
     it('IN-MODE — short "я выбрал Option A." (decision mention, no ?) → silent', () => {

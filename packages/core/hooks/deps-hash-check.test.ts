@@ -23,7 +23,13 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync, readFileSync } from 'node:fs';
+import {
+  mkdtempSync,
+  writeFileSync,
+  mkdirSync,
+  rmSync,
+  readFileSync,
+} from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -33,7 +39,13 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HOOK = resolve(REPO_ROOT, '.claude/hooks/deps-hash-check.sh');
 /** The shipped SOURCE copy (install.sh:261). HOOK above is the dogfood copy. */
-const HOOK_SOURCE = resolve(REPO_ROOT, 'packages/core/hooks/deps-hash-check.sh');
+const HOOK_SOURCE = resolve(
+  REPO_ROOT,
+  'packages/core/hooks/deps-hash-check.sh',
+);
+/** The consumer-plugin twin (T-PLUG-A real copy under plugin/hooks/). All three must stay
+ *  byte-identical — the SSOT, the dogfood copy, and the plugin twin (3-way guard). */
+const HOOK_PLUGIN = resolve(REPO_ROOT, 'plugin/hooks/deps-hash-check');
 
 /** Compute the same sha256 the hook computes for a given deps JSON string. */
 function computeHash(depsJson: string): string {
@@ -54,19 +66,26 @@ function buildDepsJson(pkg: {
 
 const tmpDirs: string[] = [];
 afterEach(() => {
-  for (const d of tmpDirs.splice(0)) rmSync(d, { recursive: true, force: true });
+  for (const d of tmpDirs.splice(0))
+    rmSync(d, { recursive: true, force: true });
 });
 
 /** Create a temp dir with optional fixtures. Returns the temp dir path. */
-function makeFixtureDir(opts: {
-  packageJson?: object;
-  toolDecisions?: string; // full file content; null = don't create
-} = {}): string {
+function makeFixtureDir(
+  opts: {
+    packageJson?: object;
+    toolDecisions?: string; // full file content; null = don't create
+  } = {},
+): string {
   const dir = mkdtempSync(join(tmpdir(), 'deps-hash-test-'));
   tmpDirs.push(dir);
 
   if (opts.packageJson !== undefined) {
-    writeFileSync(join(dir, 'package.json'), JSON.stringify(opts.packageJson), 'utf8');
+    writeFileSync(
+      join(dir, 'package.json'),
+      JSON.stringify(opts.packageJson),
+      'utf8',
+    );
   }
 
   if (opts.toolDecisions !== undefined) {
@@ -80,7 +99,10 @@ function makeFixtureDir(opts: {
 
 /** Run the hook with cwd set to the fixture dir. Returns { status, stdout, stderr }.
  *  env is merged onto process.env (used to simulate ZCODE_PROJECT_DIR for the ZCode JSON path). */
-function runHook(cwd: string, env: Record<string, string> = {}): { status: number; stdout: string; stderr: string } {
+function runHook(
+  cwd: string,
+  env: Record<string, string> = {},
+): { status: number; stdout: string; stderr: string } {
   // Default-scrub ZCODE_PROJECT_DIR: the runner may execute inside zcode (the framework's own dev
   // harness), which would flip _emit_warn to the JSON branch and break the plain-text assertions
   // below. The ZCode-JSON case passes ZCODE_PROJECT_DIR explicitly. Mirrors inject-subagent-context.test.ts.
@@ -110,7 +132,10 @@ describe('deps-hash-check.sh — UserPromptSubmit deps-drift context injector', 
   it('PAIRED-NEGATIVE: stale stored hash → warning printed to stdout, exit 0', () => {
     // Hook line 40-42: if CURRENT_HASH != STORED_HASH → printf warning.
     // Hook line 44: always exit 0.
-    const pkg = { dependencies: { react: '^18.0.0' }, devDependencies: { vitest: '^4.0.0' } };
+    const pkg = {
+      dependencies: { react: '^18.0.0' },
+      devDependencies: { vitest: '^4.0.0' },
+    };
     // Deliberately store a wrong but well-formed `sha256-` baseline so the hook sees a real
     // drift (a stored sha256 that no longer matches) — distinct from the unbaselined
     // `<pending>` placeholder case below (GH #548). A real sha256 of these deps is never
@@ -130,14 +155,25 @@ describe('deps-hash-check.sh — UserPromptSubmit deps-drift context injector', 
     expect(status).toBe(0);
     // Warning MUST be present when hash is stale (line 41).
     expect(stdout).toContain('⚠');
-    expect(stdout).toContain('package.json deps changed since last tool-bootstrap');
+    expect(stdout).toContain(
+      'package.json deps changed since last tool-bootstrap',
+    );
     expect(stdout).toContain('/tool-bootstrapping');
   });
 
-  it('ZCODE: under ZCODE_PROJECT_DIR the warning is emitted as strict-JSON {additionalContext}, not plain text', () => {
-    // ZCode parses hook stdout as JSON (HookJSONOutput schema); plain stdout is discarded.
-    // _emit_warn branches on ZCODE_PROJECT_DIR. This guards the JSON branch.
-    const pkg = { dependencies: { react: '^18.0.0' }, devDependencies: { vitest: '^4.0.0' } };
+  it('ZCODE: under ZCODE_PROJECT_DIR the warning is emitted as strict-JSON {additionalContext}, matching ZCode CCt.strict() schema', () => {
+    // ZCode parses hook stdout against the HookJSONOutput schema (CCt at zcode.cjs:~577900),
+    // which is `.strict()` — unknown top-level keys are REJECTED (→ hook.run.failed, output
+    // discarded). The only top-level key this hook may emit is `additionalContext`; in particular
+    // `hookEventName` MUST NOT appear at the top level (it's allowed only INSIDE `hookSpecificOutput`,
+    // which this hook doesn't use for the UserPromptSubmit advisory path). _emit_warn branches on
+    // ZCODE_PROJECT_DIR and emits the schema-valid `{additionalContext}` shape. This test guards
+    // both the JSON branch and the schema-compliance (regression: a prior shape emitted
+    // `{hookEventName, additionalContext}` at top level and was silently rejected by ZCode).
+    const pkg = {
+      dependencies: { react: '^18.0.0' },
+      devDependencies: { vitest: '^4.0.0' },
+    };
     const staleHash = `sha256-${'0'.repeat(64)}`;
     const cwd = makeFixtureDir({
       packageJson: pkg,
@@ -145,10 +181,34 @@ describe('deps-hash-check.sh — UserPromptSubmit deps-drift context injector', 
     });
     const { status, stdout } = runHook(cwd, { ZCODE_PROJECT_DIR: cwd });
     expect(status).toBe(0);
-    // Must be valid JSON with the HookJSONOutput shape.
+    // Must be valid JSON. CCt.strict() rejects unknown top-level keys — assert the ONLY top-level
+    // key is `additionalContext` (no `hookEventName`, which belongs inside hookSpecificOutput).
     const parsed = JSON.parse(stdout);
-    expect(parsed.hookEventName).toBe('UserPromptSubmit');
-    expect(parsed.additionalContext).toContain('package.json deps changed since last tool-bootstrap');
+    const allowedTopLevel = new Set([
+      'additionalContext',
+      'additional_context',
+      'continue',
+      'decision',
+      'hookSpecificOutput',
+      'reason',
+      'stopReason',
+      'suppressOutput',
+      'systemMessage',
+    ]);
+    const unknownKeys = Object.keys(parsed).filter(
+      (k) => !allowedTopLevel.has(k),
+    );
+    expect(
+      unknownKeys,
+      `ZCode CCt.strict() rejects unknown top-level keys: ${unknownKeys.join(', ')}`,
+    ).toEqual([]);
+    expect(parsed.additionalContext).toContain(
+      'package.json deps changed since last tool-bootstrap',
+    );
+    expect(
+      parsed.hookEventName,
+      'hookEventName must NOT be emitted at top level (CCt.strict rejects it)',
+    ).toBeUndefined();
   });
 
   it('UNBASELINED: <pending> placeholder (not a sha256- baseline) → honest "not yet baselined" warning, NOT "deps changed" (GH #548)', () => {
@@ -156,7 +216,10 @@ describe('deps-hash-check.sh — UserPromptSubmit deps-drift context injector', 
     // install.sh:566). The placeholder is non-empty, so the hook STILL warns every prompt
     // (the deliberate onboarding nudge) — but it must NOT claim deps "changed": nothing
     // changed and there was never a prior baseline.
-    const pkg = { dependencies: { react: '^18.0.0' }, devDependencies: { vitest: '^4.0.0' } };
+    const pkg = {
+      dependencies: { react: '^18.0.0' },
+      devDependencies: { vitest: '^4.0.0' },
+    };
 
     const cwd = makeFixtureDir({
       packageJson: pkg,
@@ -181,7 +244,10 @@ describe('deps-hash-check.sh — UserPromptSubmit deps-drift context injector', 
 
   it('PAIRED-POSITIVE: matching stored hash → no stdout, exit 0', () => {
     // Hook lines 40-42: only prints if CURRENT_HASH != STORED_HASH.
-    const pkg = { dependencies: { react: '^18.0.0' }, devDependencies: { vitest: '^4.0.0' } };
+    const pkg = {
+      dependencies: { react: '^18.0.0' },
+      devDependencies: { vitest: '^4.0.0' },
+    };
     const depsJson = buildDepsJson(pkg);
     const correctHash = computeHash(depsJson);
 
@@ -279,15 +345,23 @@ describe('deps-hash-check.sh — UserPromptSubmit deps-drift context injector', 
   });
 });
 
-describe('deps-hash-check.sh — source/dogfood byte-identity (@dual-pair: deps-hash-check-dogfood)', () => {
-  // Drift-check from #382 §6: the shipped SOURCE (packages/core/hooks/) and this repo's
-  // DOGFOOD copy (.claude/hooks/) must stay byte-identical. This test fails the moment
-  // one copy is edited without the other — the mechanical guard that closes the silent-
-  // drift hole the D.6 R-phase confirmed (the functional tests above run only the dogfood
-  // copy via HOOK, so they would stay green even if the source diverged).
-  it('packages/ source copy and .claude/ dogfood copy are byte-identical', () => {
+describe('deps-hash-check.sh — source/dogfood/plugin byte-identity (@dual-pair: deps-hash-check-dogfood)', () => {
+  // Drift-check from #382 §6: the shipped SOURCE (packages/core/hooks/), this repo's
+  // DOGFOOD copy (.claude/hooks/), and the consumer-plugin twin (plugin/hooks/) must all stay
+  // byte-identical (3-way). One file serves three delivery channels: SSOT shipped by
+  // install.sh, dogfood instance wired in settings.json, plugin twin wired in
+  // plugin/hooks/hooks.json (the only zcode-working path). A divergence fails here — the
+  // mechanical guard that closes the silent-drift hole (functional tests above run only the
+  // dogfood copy via HOOK, so they stay green even if the source/plugin twin diverges).
+  it('packages/ source, .claude/ dogfood, and plugin/hooks/ twin are byte-identical (3-way)', () => {
     const source = readFileSync(HOOK_SOURCE, 'utf8');
     const dogfood = readFileSync(HOOK, 'utf8');
-    expect(dogfood).toBe(source);
+    const pluginTwin = readFileSync(HOOK_PLUGIN, 'utf8');
+    expect(dogfood, '.claude/ dogfood must match packages/ source').toBe(
+      source,
+    );
+    expect(pluginTwin, 'plugin/hooks/ twin must match packages/ source').toBe(
+      source,
+    );
   });
 });

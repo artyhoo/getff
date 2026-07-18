@@ -9,10 +9,41 @@ zcode (a Claude Code fork the framework is developed inside) **does not read `.c
 
 Bundle evidence (direct inspection, `/Applications/ZCode.app/Contents/Resources/glm/zcode.cjs`, 2026-07-03, T3):
 - Hook config source = `zcode.json` (project, walk cwd→git-root) + `~/.zcode/cli/config.json` (user); **`.claude/settings.json` unread** (0 refs).
-- `hookCount = Σ entry.hooks.length` over the CC hooks shape `{Event:[{matcher?,hooks:[{type,command}]}]}` (bundle @8793167) → zcode uses the **identical CC hooks schema**; `CLAUDE_PROJECT_DIR` is set for hook commands → the hook *scripts* run unchanged once registered.
+- `hookCount = Σ entry.hooks.length` over the CC hooks shape `{Event:[{matcher?,hooks:[{type,command}]}]}` (bundle @8793167) → zcode uses the **identical CC hooks schema**. `CLAUDE_PROJECT_DIR` IS set for hook commands (verified 2026-07-17, `uRt` @ zcode.cjs:1073004, alongside `ZCODE_PROJECT_DIR` — both = session cwd) → hook *scripts* run unchanged **once registered**.
+  - **CORRECTION (2026-07-17, bundle re-inspection T3e/TTn @ zcode.cjs:2047000):** «once registered» was the load-bearing gap. zcode STRIPS the `hooks` key from project-scope config (`zcode.json` AND `.zcode/config.json`) under `config_project_hooks_ignored` (a security policy). Writing hooks to `.zcode/config.json` is a SILENT NO-OP for hooks (MCP + skills load fine). The original claim above was true for the plugin channel (verified live: `superpowers` SessionStart fires) but FALSE for project-config. **Hooks reach zcode ONLY via the plugin channel** (`plugin/hooks/hooks.json`, loaded by the separate `EAo` merge path @ zcode.cjs:8897587, security-policy-exempt). emitPlugin renders this file from the same SSOT; emitZcode no longer emits hooks (MCP + skills only).
 - MCP source = `mcp.servers` (nested; **not** top-level `mcpServers`, **not** `.mcp.json`); per-server Zod is `.strict()`: http/sse = `{name,type,url,headers[]}`, stdio = `{name,command,args[],env[{name,value}]}` (bundle @352443). `mcpServerCount = Object.keys(mcp.servers).length`.
 - Event set = `{SessionStart,UserPromptSubmit,PreToolUse,PermissionRequest,PostToolUse,PostToolUseFailure,Stop}` (bundle @571313) — **no `SubagentStart`/`SubagentStop`**.
 - Workspace resolution (operator-facing): headless `--prompt` reopens the *persisted* workspace, unsteerable by `cwd`/`--cwd`/`--user-data-dir` — so the shim's `zcode.json` must live at the repo root the operator actually opens.
+
+## Correction (2026-07-17): plugin channel is the only zcode-working hook path
+
+The original BUILD shipped `emitZcode` writing hooks to `.zcode/config.json` — assuming the
+line-12 claim «hooks run unchanged once registered» covered project-config. Bundle re-inspection
+(T3e/TTn @ zcode.cjs:2047000) refuted this for project scope: zcode strips `hooks` from BOTH
+project candidates (`zcode.json`, `.zcode/config.json`) via `config_project_hooks_ignored`
+(security policy), emitting a warning diagnostic. **Only the plugin channel** (plugin/hooks/hooks.json,
+merged via `EAo` @ zcode.cjs:8897587) is security-policy-exempt and actually fires hooks on zcode.
+
+**Fix (Variant 2: additive emitPlugin):** a third `HarnessEmitter` backend renders
+`plugin/hooks/hooks.json` from the same `.ai-factory/harness-model.json` SSOT, with T-PLUG-A
+relocated hook twins under `plugin/hooks/` (precedent: session-start, inject-matching-rule).
+`.claude/settings.json` (CC primary) is untouched — zero CC-consumer regression. `.zcode/config.json`
+now carries MCP + skills only; its hooks-branch was a silent no-op anyway.
+
+**Documented degradation (not a fixable gap — inherent, declared loudly via emitZcode note ops):**
+4 PostToolUse gate hooks (`check-doc-authority`, `check-hook-marker`, `check-kickoff-traps`,
+`check-worker-dispatch-channel`) are ADVISORY-ONLY on zcode. Schema `Uan` (zcode.cjs:53) accepts
+`permissionDecision:"deny"` ONLY for PreToolUse; PostToolUse consumes `additionalContext` alone.
+Post-mutation checks cannot block on ANY harness (the file is already changed — causality), but
+CC surfaces `exit 1 + stderr` loudly while zcode's `additionalContext` is a quieter channel.
+Relocation to PreToolUse is semantically impossible (the file has not mutated yet at PreToolUse).
+The hooks' existing `_adv_violation → additionalContext` branches (already ZCode-targeted) are
+preserved verbatim in the plugin twins — they deliver the advisory context, not a block.
+
+**Live install** requires `/plugin marketplace add artyhoo/getff` + `/plugin install getff@getff`
+(the documented SOFT-layer path). The plugin tarball then carries the full hook set; on zcode it
+is the only live path. On CC the plugin is a parallel SOFT layer (the HARD layer via install.sh
+remains the primary, untouched).
 
 ## Root Cause
 
