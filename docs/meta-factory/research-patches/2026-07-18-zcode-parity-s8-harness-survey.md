@@ -1,3 +1,4 @@
+<!-- scope:zcode-parity-s8-harness-survey -->
 # zcode-parity Stage 8 — non-CC/ZCode harness agnosticism survey
 
 > **Authoritative for:** Stage 8 of `zcode-full-parity-mega-umbrella` — per-harness verdicts (SUPPORTED / FEASIBLE / OUT-OF-SCOPE) on hook-system support for Cursor, Codex CLI, Aider, and Windsurf; the CC/ZCode-vs-harness delta table; the parked agnosticism-claim fork.
