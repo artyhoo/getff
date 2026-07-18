@@ -1,4 +1,4 @@
-<!-- Rule: phase-research-coverage.md §1.7 (this patch is in scope of that rule: research-patch under docs/meta-factory/research-patches/**). -->
+<!-- scope:zcode-parity-s7-subagentstart -->
 # zcode-parity S7 — SubagentStart coverage research (R-phase)
 
 > **Authoritative for:** Stage 7 research output for the `zcode-full-parity-mega-umbrella` — answers R1-R3 with file:line evidence and analyzes the three design forks. The fork decision is **PARKED** (operator decides); this patch does NOT implement.
