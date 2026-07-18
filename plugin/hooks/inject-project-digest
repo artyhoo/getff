@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# Plugin twin of .claude/hooks/inject-project-digest.sh.
+# @cc-only-rationale: CC-specific context-injection hook — its output is consumed by CC-native
+#   fire-points (UserPromptSubmit stdout auto-injection + SubagentStart additionalContext), with
+#   no portable counterpart. The plugin twin exists ONLY to serve the plugin distribution channel
+#   (ZCode-aware via inline _emit_ctx); the .claude/hooks/ original stays the SSOT and remains
+#   shipped to consumer CC projects that install via install.sh (.claude/hooks/depth-2 form).
+#   The two files are dual-channel (plugin + repo) but ONE logic — see dual-implementation-
+#   discipline.md §7. Drift between them is `#two-prompts-drift`.
+#
+# TWIN DIVERGENCE from .claude/hooks/inject-project-digest.sh:
+#   1. Extensionless filename (plugin/hooks/ convention — hook-paths.test.sh (a)).
+#   2. Inline `_is_zcode` + `_emit_ctx` adapter (per inject-session-bootstrap:15-18 convention —
+#      Stage-2 harness-portable refactor). On ZCode, stdout must be strict-JSON
+#      {additionalContext:<text>} (plain is discarded + run marked failed); on CC, plain stdout
+#      is auto-injected unchanged. The .claude/hooks/ source does NOT carry this adapter because
+#      it only fires on CC.
+#   3. SubagentStart branch keeps its JSON hookSpecificOutput shape on BOTH harnesses (the
+#      additionalContext key is the CC contract; ZCode's stricter {additionalContext:<text>} is
+#      the UserPromptSubmit-only adaptation). CC's SubagentStart reader accepts either shape.
+#
+# Source-of-truth: .claude/hooks/inject-project-digest.sh (B1 latent fix merged via PR #1031 —
+# env-first REPO_ROOT resolution is present at the source AND mirrored here).
+set -uo pipefail
+
+# Harness-portable output (inlined — this hook is copied standalone to test sandboxes, no lib/
+# sibling to source). CC: plain stdout auto-injected. ZCode: JSON additionalContext.
+_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
+_emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
+    jq -n --arg c "$2" '{additionalContext:$c}'
+  else printf '%s' "$2"; case "$2" in *$'\n') : ;; *) printf '\n' ;; esac; fi; }
+
+# B1 fix (zcode-parity-step1, plan-v3 §"B1"): subshell-aware env-first resolution.
+# `$(cd … && pwd)` is command substitution in a SUBSHELL — cwd change is discarded, only
+# the path string is captured. Pre-fix this read $0-relative (correct only when the hook is
+# copied INTO the consumer repo by install.sh at .claude/hooks/depth-2); as a plugin-twin
+# payload file ($0 = ${CLAUDE_PLUGIN_ROOT}/hooks/), the $0-relative path resolved to the
+# plugin payload dir, NOT the consumer root. Env-first matches the 7 already-fixed plugin
+# twins (check-doc-authority:18, validate-prompt:19, etc — verified Mode A) + deps-hash-check
+# cd-guard form.
+REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
+DIGEST_FILE="$REPO_ROOT/.claude/session-bootstrap.md"
+[ -f "$DIGEST_FILE" ] || exit 0   # no anchor authored — nothing to inject (zero-setup default)
+
+INPUT="$(cat 2>/dev/null || true)"
+
+# Extract the content between the digest markers (awk, no jq — works even without jq for the
+# UserPromptSubmit path). Markers must be on their own lines.
+BLOCK="$(awk '/<!--[[:space:]]*digest:start[[:space:]]*-->/{f=1;next} /<!--[[:space:]]*digest:end[[:space:]]*-->/{f=0} f' "$DIGEST_FILE" 2>/dev/null || true)"
+# No-op when the block is empty / whitespace-only (the shipped template ships empty on purpose).
+[ -z "$(printf '%s' "$BLOCK" | tr -d '[:space:]')" ] && exit 0
+
+# Detect the firing event (jq if available; absent → treat as the plain-stdout path).
+EVENT=""
+if command -v jq >/dev/null 2>&1; then
+  EVENT="$(printf '%s' "$INPUT" | jq -r '.hook_event_name // ""' 2>/dev/null || true)"
+fi
+
+if [ "$EVENT" = "SubagentStart" ]; then
+  # SubagentStart: plain stdout is a silent no-op on CC — must emit JSON hookSpecificOutput
+  # (jq required; if jq were absent EVENT would be "" and we would not reach here). ZCode has
+  # no SubagentStart event (0 occurrences in the host bundle — see inject-subagent-context:14),
+  # so this branch only fires on CC and emits the CC-native JSON shape directly (no _emit_ctx —
+  # _emit_ctx would double-wrap a JSON-string payload as {additionalContext:"<json>"}).
+  jq -n --arg ctx "$BLOCK" '{hookSpecificOutput:{hookEventName:"SubagentStart",additionalContext:$ctx}}'
+else
+  # UserPromptSubmit (or jq-absent fallback): plain stdout is auto-injected on CC; ZCode wraps
+  # via _emit_ctx into {additionalContext:<text>}.
+  _emit_ctx "UserPromptSubmit" "$BLOCK"
+fi
+exit 0
