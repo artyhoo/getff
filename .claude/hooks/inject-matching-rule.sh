@@ -25,7 +25,6 @@
 # to exit 0 when the rules dir or jq is absent. Delivered by install.sh + do_refresh (setup.d).
 set -uo pipefail
 
-# @plugin-transform: manual — plugin twin carries T-PLUG-A relocation comment block (~30 lines of prose documenting plugin-channel path resolution). Not mechanically transformable; semantic prose divergence stays hand-maintained.
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 RULES_DIR="$REPO_ROOT/.claude/rules"
 

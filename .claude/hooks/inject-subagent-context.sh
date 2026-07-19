@@ -26,7 +26,6 @@
 # to original on invalid — non-fatal).
 set -uo pipefail
 
-# @plugin-transform: manual — plugin twin carries a 4-line TWIN DIVERGENCE comment block + extensionless sibling call (.sh dropped). Comment block is prose, not mechanically transformable.
 _is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
 _is_zcode || exit 0   # CC: the SubagentStart primary handles digest injection; stay silent here
 command -v jq >/dev/null 2>&1 || exit 0   # graceful no-op without jq

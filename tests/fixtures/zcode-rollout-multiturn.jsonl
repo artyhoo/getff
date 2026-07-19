@@ -1,3 +1,0 @@
-{"message":{"content":[{"type":"text","text":"first user prompt — start the task"}],"role":"user"}}
-{"message":{"content":[{"type":"text","text":"## 🟢 In plain words\n\nClosed step X. Should we proceed with step Y?"}],"role":"assistant"}}
-{"message":{"content":[{"type":"text","text":"Should we proceed with step Y?"}],"role":"assistant"}}

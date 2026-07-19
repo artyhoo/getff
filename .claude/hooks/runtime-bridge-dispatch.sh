@@ -80,7 +80,8 @@ first=$(head -n1 "$FILE_PATH" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//
 [ "$first" = '<!-- bridge: auto -->' ] || exit 0
 
 # ── Locate repo root + entrypoint ────────────────────────────────────────────
-REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 DISPATCH_TS="$REPO_ROOT/packages/runtime-bridge/src/cli/dispatch.ts"
 
 if [[ ! -f "$DISPATCH_TS" ]]; then

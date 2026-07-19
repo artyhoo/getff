@@ -19,8 +19,8 @@
 # IGNORED; context must be JSON additionalContext.
 set -uo pipefail
 
-REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
-RULES_DIR="$REPO_ROOT/.claude/rules"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
+RULES_DIR="$PROJECT_DIR/.claude/rules"
 
 command -v jq >/dev/null 2>&1 || exit 0   # graceful no-op without jq
 
@@ -33,7 +33,7 @@ case "$TOOL" in Edit|Write|MultiEdit) ;; *) exit 0 ;; esac
 [[ -z "$ABS_PATH" ]] && exit 0
 [[ -d "$RULES_DIR" ]] || exit 0
 
-REL_PATH="${ABS_PATH#"$REPO_ROOT/"}"
+REL_PATH="${ABS_PATH#"$PROJECT_DIR/"}"
 [[ "$REL_PATH" = "$ABS_PATH" ]] && exit 0   # outside project — skip
 
 CACHE="${TMPDIR:-/tmp}/cc-rule-injector-${SESSION//[^A-Za-z0-9_-]/_}.txt"

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# AUTO-GENERATED from .claude/hooks/inject-session-bootstrap.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)
 # Wave 7 sub-wave 7.2.a — UserPromptSubmit hook: inject session-bootstrap digest.
 # stdout is injected into Claude Code's prompt context by the harness automatically.
 # Full bootstrap: .claude/session-bootstrap.md (Step 0 read-first file).

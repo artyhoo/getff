@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# AUTO-GENERATED from .claude/hooks/inject-memory-codification.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)
 # PostToolUse memory-codification reminder — path-scoped just-in-time delivery of the
 # codify-then-pointer discipline (codify durable conventions into the repo, not just agent memory).
 # @dual-pair: memory-codification-writemoment

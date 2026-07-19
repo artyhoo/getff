@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# AUTO-GENERATED from .claude/hooks/check-kickoff-traps.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)
 # PostToolUse gate — kickoff T-enumeration floor (Wave N8 C2, ai-laziness-traps §3).
 # @cc-only-rationale: PostToolUse edit-time gate — kickoffs are authored and
 #   dispatched before any pre-push/CI channel runs on their content; edit-time is the earliest (and only) gate.

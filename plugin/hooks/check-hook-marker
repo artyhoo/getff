@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# AUTO-GENERATED from .claude/hooks/check-hook-marker.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)
 # PostToolUse gate — delivery-channel marker on touched hooks (Wave N8 C4).
 # @cc-only-rationale: PostToolUse edit-time gate — fires at the moment a hook file
 #   is written; no portable hook fires then. Edit-time IS the "at next touch"

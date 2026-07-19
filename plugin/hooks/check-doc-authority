@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# AUTO-GENERATED from .claude/hooks/check-doc-authority.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)
 # Wave 7 7.2.c — PostToolUse: principle-09 authority header quick-check.
 # Delegates to 09-doc-authority-hierarchy.bin.ts (Batch A, sub-wave 7.1.c).
 # Input: hook JSON via stdin. CLI filters to REQUIRED_HEADER_DOCS; exits 0 for other paths.

@@ -9,7 +9,6 @@
 
 set -uo pipefail
 
-# @plugin-transform: manual — plugin twin adds T-PLUG-A $VALIDATOR guard (consumer plugins lack packages/core/); source-side guard is a no-op (framework repo always has packages/core)
 # Harness-portable output (inline — standalone in test sandboxes). ZCode swallows plain
 # exit 1; JSON additionalContext reaches the model. CC preserves stderr + exit 1 byte-for-byte.
 _is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
@@ -17,7 +16,7 @@ _emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
     jq -n --arg c "$2" '{additionalContext:$c}'
   else printf '%s\n' "$2"; fi; }
 
-REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 TSX="$REPO_ROOT/node_modules/.bin/tsx"
 VALIDATOR="$REPO_ROOT/packages/core/spec-validation/validate-batch-spec.ts"
 
