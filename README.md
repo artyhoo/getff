@@ -266,6 +266,24 @@ The AIF `extension.json` schema is **in active development** as of May 2026 (PR 
 
 When the schema finalizes, `extension.json` may need updates. `install.sh` will continue to work regardless.
 
+## Compatibility
+
+The framework is **AI-agnostic by design** — any harness with a CC-compatible hook system works. Per-hook coverage and dogfood depth vary; the doctrine lives at [`.claude/rules/zcode-parity-doctrine.md`](.claude/rules/zcode-parity-doctrine.md).
+
+**Supported today:**
+- **Claude Code** — primary dogfood harness; deepest coverage (all 20 hooks).
+- **ZCode** — full parity via plugin channel + `_zcode-emit` helper. Three CC-only events (`SubagentStart`, `SubagentStop`, `WorktreeCreate`) have documented fallbacks or accepted CC-only rationale per the doctrine §4.
+- **Cursor** — high CC-overlap (native `SubagentStart`/`Stop`, lifecycle hooks). Listed based on docs-verification in the [S8 agnosticism survey](docs/meta-factory/research-patches/2026-07-18-zcode-parity-s8-harness-survey.md); live end-to-end testing is a follow-up.
+
+**Roadmap (FEASIBLE-WITH-WORK — adapter needed):**
+- **Codex CLI** — lifecycle hooks present; per-tool matcher adapter needed.
+- **Windsurf** — Cascade Hooks present; taxonomy adapter needed.
+
+**Out-of-scope:**
+- **Aider** — no hook system (upstream issues `aider#2045`, `aider#2557`).
+
+**Wave B rollout status:** Stages 5 (`warn-subagent-report` ZCode variant), 6 (9-twin migration + generator), 7B (`inject-subagent-context` extension for full `SubagentStart` payload parity), 9C (`end-of-turn-reminder` ZCode multi-turn arm) are decided ([decisions.md](docs/meta-factory/zcode-parity-mega.decisions.md) §Wave A brainstorm resolutions) and implementation-pending. See doctrine §3 for live merge status.
+
 ## Verified versions (May 6, 2026)
 
 All versions in `INSTALL.md §4` were verified via `npm view <pkg> version` on installation date. Re-verify before deploying to your project — versions move.
