@@ -19,16 +19,19 @@
 # no zcode equivalent. The single remaining CC-only hook with no backup is warn-subagent-report
 # (SubagentStop, post-dispatch report check — no updatedInput analogue).
 #
-# spec: reuses .claude/hooks/inject-session-bootstrap.sh as the single digest source (SSOT,
-# dual-implementation-discipline §7 — same source as the CC primary, no #two-prompts-drift).
+# spec: mirrors the SubagentStart arm of .claude/hooks/inject-project-digest.sh — same digest
+# source (the `<!-- digest:start -->…<!-- digest:end -->` block of $REPO_ROOT/.claude/
+# session-bootstrap.md), same awk pipeline, same no-op-on-empty semantics. Payload parity
+# (not just role parity) with the CC-primary SubagentStart path; closes doctrine §3 Stage 7B.
 # Output contract: PreToolUse updatedInput is applied by the host before dispatch (verified
 # empirically in zcode.cjs: updatedInput applied pre-handler; fR re-validates, silent revert
 # to original on invalid — non-fatal).
 set -uo pipefail
 
-# TWIN DIVERGENCE: the .claude/hooks/ source calls inject-session-bootstrap.sh (with .sh);
-# this plugin twin calls inject-session-bootstrap (extensionless) because plugin siblings are
-# extensionless per hook-paths.test.sh (a). One-char divergence, documented here.
+# TWIN DIVERGENCE: the .claude/hooks/ source and this plugin twin now share identical logic
+# (no sibling-call divergence remains after Stage 7B — both read session-bootstrap.md directly).
+# The marker block is retained for traceability and to keep `wc -l` diff-mirroring honest; if
+# the two files diverge again, document the divergence here.
 
 _is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
 _is_zcode || exit 0   # CC: the SubagentStart primary handles digest injection; stay silent here
@@ -40,12 +43,24 @@ TOOL_NAME="$(printf '%s' "$INPUT" | jq -r '.tool_name // ""' 2>/dev/null || true
 # if the matcher is ever broadened (cf. ask-question-reminder.sh:46).
 case "$TOOL_NAME" in Agent | Task) ;; *) exit 0 ;; esac
 
-HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
-# Plain digest, deterministic across harnesses: unset ZCODE_PROJECT_DIR so
-# inject-session-bootstrap returns its PLAIN digest (NOT the ZCode-JSON shape it emits under
-# ZCode after the Stage-2 harness-portable refactor). The subagent gets plain anchor text.
-DIGEST="$(env -u ZCODE_PROJECT_DIR bash "$HOOK_DIR/inject-session-bootstrap" 2>/dev/null || true)"
-[ -z "$DIGEST" ] && exit 0
+# B1 fix: env-first REPO_ROOT resolution — `$0`-relative breaks when invoked as a plugin twin
+# ($0 = ${CLAUDE_PLUGIN_ROOT}/hooks/, NOT the consumer root). Mirrors inject-project-digest.sh:28.
+REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
+DIGEST_FILE="$REPO_ROOT/.claude/session-bootstrap.md"
+
+# Extract the digest block (awk pipeline mirrored from inject-project-digest.sh:36). No-op when
+# the file is absent or the block is empty/whitespace-only (zero-setup default — same semantics
+# as inject-project-digest.sh:30,38).
+if [ ! -f "$DIGEST_FILE" ]; then
+  [ "${LOG_LEVEL:-}" = "DEBUG" ] && printf '[DEBUG] inject-subagent-context: no digest file, no-op\n' >&2
+  exit 0
+fi
+DIGEST="$(awk '/<!--[[:space:]]*digest:start[[:space:]]*-->/{f=1;next} /<!--[[:space:]]*digest:end[[:space:]]*-->/{f=0} f' "$DIGEST_FILE" 2>/dev/null || true)"
+if [ -z "$(printf '%s' "$DIGEST" | tr -d '[:space:]')" ]; then
+  [ "${LOG_LEVEL:-}" = "DEBUG" ] && printf '[DEBUG] inject-subagent-context: no digest block, no-op\n' >&2
+  exit 0
+fi
+[ "${LOG_LEVEL:-}" = "DEBUG" ] && printf '[DEBUG] inject-subagent-context: digest source=session-bootstrap.md bytes=%d\n' "${#DIGEST}" >&2
 
 # Echo back the FULL tool_input with prompt augmented. jq's `.tool_input | .prompt = ...`
 # preserves every other field (description, subagent_type, model, run_in_background) — required,
