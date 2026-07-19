@@ -1,0 +1,287 @@
+#!/usr/bin/env bash
+# warn-subagent-report-zcode — ZCode-functional twin of .claude/hooks/warn-subagent-report.sh
+#
+# @dual-pair: warn-subagent-report
+#   The CC source (.claude/hooks/warn-subagent-report.sh) is the portable-spec pair — it owns
+#   the REPORT-section grammar SSOT (line 78: REPORT_CUE_RE, lines 89/92/95: section regexes).
+#   This twin mirrors that grammar VERBATIM (no shared include file — extensionless plugin
+#   hooks under plugin/hooks/ follow the standalone-script convention observed across
+#   check-doc-authority, end-of-turn-reminder, inject-session-bootstrap). A comment block
+#   at the top of each arm cites the CC source by file:line as the grammar SSOT.
+#
+# Operator decision (docs/meta-factory/zcode-parity-mega.decisions.md §Fork 2): ADOPT 4D —
+#   PostToolUse:Agent (Arm A, real-time) + Stop (Arm B, completeness) hybrid.
+#   Rejected: 4A (Stop-only, latency penalty), 4B (Post-only, completeness gap on >120 KB
+#   payloads), 4C (CC-only, breaks parity).
+#
+# Evidence base: docs/meta-factory/research-patches/2026-07-18-zcode-parity-s4-warn-subagent.md
+#   R1 — ZCode Stop hook receives `transcript_path` pointing at rollout JSONL.
+#   R2 — Agent tool_use entries in rollout carry `toolCallId` field → enables dedup.
+#   R3 — Stop fires AFTER subagent results flushed to transcript → no race.
+#   R4 — ZCode PostToolUse:Agent bundle ships up to 120 KB payload; tool_result text
+#        readable from `.tool_input` (schema-drift fallbacks: .tool_result, .tool_response).
+#   R5 — env vars ZCODE_PROJECT_DIR + CLAUDE_PROJECT_DIR confirmed.
+#
+# WARN hook — exits 0 always. Maintainer chose WARN over block (exit 2): judgment target,
+# not mechanically gateable (#gate-where-judgment-needed, see .claude/hooks/warn-subagent-report.sh:4).
+set -uo pipefail
+
+# --- ZCode predicate (canonical form, verified across 7 plugin twins + end-of-turn-reminder) ---
+_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
+
+# Source the universal emit-wrapper (provides _ze_emit). On ZCode it wraps the payload as
+# strict JSON {additionalContext:<text>}; on CC it is a plain `cat` (preserves stderr semantics).
+# shellcheck source=/dev/null
+. "$(dirname "$0")/_zcode-emit"
+
+# _warn <arm-name> <text>
+# Emits a warning line via _ze_emit so output reaches both CC operators (plain stderr) and
+# ZCode operators ({additionalContext}). Tagged with the arm name for log traceability.
+_warn() {
+  local arm="$1" text="$2"
+  printf '⚠ %s: subagent REPORT %s\n' "$arm" "$text" | _ze_emit >&2
+}
+
+# _required_sections_check <text>
+# Mirrors .claude/hooks/warn-subagent-report.sh:74-97 VERBATIM (grammar SSOT):
+#   - noise guard: REPORT_CUE_RE — must contain a REPORT-cue label at line start
+#   - required sections: VERIFY, Confidence:, ATTN
+# Returns 0 if REPORT shape is recognized AND all sections present.
+# Returns 1 if REPORT shape is recognized BUT a section is missing; populates MISSING_LIST.
+# Returns 2 (silent) if not REPORT-shaped (noise guard: not a REPORT at all).
+_required_sections_check() {
+  local text="$1"
+  local REPORT_CUE_RE='^(#{1,3} *VERIFY|VERIFY:|Confidence:|ATTN:|Commit:)'
+  if ! printf '%s' "$text" | grep -qE "$REPORT_CUE_RE"; then
+    return 2   # noise guard: not a REPORT
+  fi
+  local -a missing=()
+  if ! printf '%s' "$text" | grep -qE '^(#{1,3} *VERIFY|VERIFY:)'; then
+    missing+=("VERIFY")
+  fi
+  if ! printf '%s' "$text" | grep -qE '^Confidence:'; then
+    missing+=("Confidence")
+  fi
+  if ! printf '%s' "$text" | grep -qE '^(#{1,3} *ATTN|ATTN:)'; then
+    missing+=("ATTN")
+  fi
+  if [ "${#missing[@]}" -gt 0 ]; then
+    MISSING_LIST="$(IFS=', '; echo "${missing[*]}")"
+    return 1
+  fi
+  return 0
+}
+
+# _dedup_key <text> <payload-jsonv>
+# Prefers toolCallId/tool_call_id from payload; falls back to sha256 of text; final fallback cksum.
+# Echoes the key (stdout).
+_dedup_key() {
+  local text="$1" payload="$2" key=""
+  key="$(printf '%s' "$payload" | jq -r '.toolCallId // .tool_call_id // .toolCallID // ""' 2>/dev/null || true)"
+  if [ -z "$key" ]; then
+    # Derive from text: prefer sha256, fallback cksum (cksum output is "<sum> <bytes>" — take col 1).
+    key="$(printf '%s' "$text" | (sha256sum 2>/dev/null || shasum -a 256 2>/dev/null || cksum) | cut -d' ' -f1)"
+  fi
+  printf '%s' "$key"
+}
+
+# _state_file <session-id>
+# Session-scoped dedup state. OS tmp rotation handles cleanup.
+_state_file() {
+  printf '%s/warn-subagent-zcode-%s.lst' "${TMPDIR:-/tmp}" "$1"
+}
+
+# _record_key <state-file> <key>
+# Appends the key if not already present (idempotent).
+_record_key() {
+  local sf="$1" key="$2"
+  [ -f "$sf" ] && grep -qxF "$key" "$sf" && return 0
+  printf '%s\n' "$key" >>"$sf" 2>/dev/null || true
+}
+
+# _have_key <state-file> <key>
+_have_key() {
+  local sf="$1" key="$2"
+  [ -f "$sf" ] && grep -qxF "$key" "$sf"
+}
+
+# jq is required (every hook here depends on it). Graceful no-op without jq — matches
+# end-of-turn-reminder:14 and warn-subagent-report.sh:41 consumer-safe pattern.
+command -v jq >/dev/null 2>&1 || exit 0
+
+# =============================================================================
+# Arm A — PostToolUse:Agent (real-time payload read)
+# =============================================================================
+# Per R4: ZCode PostToolUse:Agent bundle ships up to 120 KB of Agent tool_result readable
+# directly from `.tool_input`. Schema-drift fallbacks: .tool_result, .tool_response (handles
+# ZCode version variance + CC PostToolUse shape). Reads payload, applies the REPORT grammar
+# from .claude/hooks/warn-subagent-report.sh:74-97, dedups against session state, emits a
+# warning per missing section.
+_arm_a_post() {
+  # Extract the tool_result text. Try .tool_input first (R4: ZCode primary path).
+  local TOOL_INPUT
+  TOOL_INPUT="$(printf '%s' "$INPUT" | jq -r '.tool_input // ""' 2>/dev/null || true)"
+
+  # If .tool_input is empty or looks like an object (CC shape), try the alternation chain.
+  # jq -r on an object yields a flattened JSON string — detect via type check.
+  local TI_TYPE
+  TI_TYPE="$(printf '%s' "$INPUT" | jq -r '.tool_input | type' 2>/dev/null || echo string)"
+  if [ "$TI_TYPE" = "object" ] || [ -z "$TOOL_INPUT" ]; then
+    # Schema-drift fallbacks: .tool_result.content[].text (CC shape), .tool_response, .tool_result (string)
+    TOOL_INPUT="$(printf '%s' "$INPUT" | jq -r '
+      (.tool_result.content[]? | select(.type=="text") | .text) //
+      (.tool_result.text // "") //
+      (.tool_response // "") //
+      (.tool_result // "")
+    ' 2>/dev/null | head -c 200000 || true)"
+  fi
+
+  [ -z "$TOOL_INPUT" ] && exit 0
+
+  # Noise guard + section check.
+  MISSING_LIST=""
+  _required_sections_check "$TOOL_INPUT"
+  local rc=$?
+  # rc=2: noise guard held (not REPORT-shaped) → silent exit.
+  [ "$rc" -eq 2 ] && exit 0
+
+  # Dedup key: prefer toolCallId from payload, else sha256/cksum of text.
+  local KEY
+  KEY="$(_dedup_key "$TOOL_INPUT" "$INPUT")"
+
+  if _have_key "$STATE_FILE" "$KEY"; then
+    # Already warned (or already known-good) — silent exit.
+    exit 0
+  fi
+
+  if [ "$rc" -eq 1 ]; then
+    _warn "PostToolUse:Agent" "missing section(s): $MISSING_LIST"
+  fi
+  # Record key regardless (warned OR known-good) so Arm B skips.
+  _record_key "$STATE_FILE" "$KEY"
+  exit 0
+}
+
+# =============================================================================
+# Arm B — Stop (completeness transcript sweep)
+# =============================================================================
+# Fires at main-session turn end. Reads `transcript_path`, scans every Agent
+# tool_result entry in the JSONL, applies the same grammar, dedups against Arm A's state.
+# Catches truncation (>120 KB) and Arm A skipped fires.
+#
+# Honors `.stop_hook_active=true` (matches end-of-turn-reminder:35-38) → exit 0 to avoid
+# second-fire after StopHook.
+_arm_b_stop() {
+  local STOP_ACTIVE
+  STOP_ACTIVE="$(printf '%s' "$INPUT" | jq -r '.stop_hook_active // false' 2>/dev/null || echo false)"
+  if [ "$STOP_ACTIVE" = "true" ]; then
+    exit 0
+  fi
+
+  local TRANSCRIPT
+  TRANSCRIPT="$(printf '%s' "$INPUT" | jq -r '.transcript_path // ""' 2>/dev/null || true)"
+  if [ -z "$TRANSCRIPT" ] || [ ! -f "$TRANSCRIPT" ]; then
+    exit 0
+  fi
+
+  # Candidate lines: assistant entries carrying Agent tool_use. Use the alternation pattern
+  # from end-of-turn-reminder:69 — handles both CC outer-"type":"assistant" and ZCode's
+  # role-arm transcripts. We then look INSIDE each assistant line for tool_use entries
+  # whose name is Agent|Task — the tool_use entry's toolCallId anchors dedup.
+  #
+  # Per R2: Agent tool_use entries carry `toolCallId` (camelCase) in ZCode rollout JSONL.
+  # Per CC transcripts: tool_use entries carry `id` (the tool_use ID) and the corresponding
+  # tool_result entry carries `tool_use_id` linking back. We extract the tool_result text
+  # by scanning for content items of type=="tool_result" within the same assistant message
+  # OR sibling user-message tool_result blocks. The simplest robust path is to jq-scan
+  # every line in the transcript for tool_result text where the linked tool_use name is
+  # Agent|Task.
+  #
+  # Cheap grep prefilter: only lines containing tool_result OR Agent/Task (avoids full
+  # jq slurp on large transcripts — matches end-of-turn-reminder:49,51,69 pattern).
+  local CANDIDATES
+  CANDIDATES="$(grep -E '"(type|role)"|"tool_(use|result)"|"Agent"|"Task"' "$TRANSCRIPT" 2>/dev/null || true)"
+  [ -z "$CANDIDATES" ] && exit 0
+
+  # Dedup + check loop. Iterate over jq-extracted records via process substitution.
+  # Each record is NUL-delimited and shaped as `tool_use_id<TAB>text` so the dedup-key
+  # can prefer the transcript's id field (per R2: toolCallId in ZCode, tool_use_id in CC).
+  # This matches Arm A's `_dedup_key` extraction from `.tool_call_id` — when the transcript
+  # id equals the PostToolUse tool_call_id (same Agent invocation), cross-arm dedup holds.
+  # When the transcript id is absent, both arms fall back to sha256(text) — same hash.
+  local -a flagged=()
+  local total=0
+  local rc k rec_id rec_text
+  while IFS= read -r -d '' rec; do
+    [ -z "$rec" ] && continue
+    total=$((total+1))
+    # Split record into id<TAB>text. If no TAB, treat whole record as text with empty id.
+    rec_id="${rec%%$'\t'*}"
+    if [ "$rec_id" = "$rec" ]; then
+      rec_text="$rec"
+      rec_id=""
+    else
+      rec_text="${rec#*$'\t'}"
+    fi
+    # Noise guard inside the loop — skip non-REPORT entries silently.
+    _required_sections_check "$rec_text"
+    rc=$?
+    [ "$rc" -eq 2 ] && continue   # noise guard held
+    # Build dedup-key: prefer transcript id, else sha256/cksum of text.
+    if [ -n "$rec_id" ]; then
+      k="$rec_id"
+    else
+      k="$(_dedup_key "$rec_text" "{}")"
+    fi
+    if _have_key "$STATE_FILE" "$k"; then
+      continue
+    fi
+    if [ "$rc" -eq 1 ]; then
+      flagged+=("$MISSING_LIST")
+    fi
+    _record_key "$STATE_FILE" "$k"
+  done < <(printf '%s\n' "$CANDIDATES" | while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    # Emit each tool_result as `id<TAB>text<NUL>`. id from tool_use_id / toolCallId / id;
+    # text from content/text. jq -j (no trailing newline) + NUL delimiter.
+    printf '%s' "$line" | jq -r -j '
+      (.message.content // .content // []) | if type == "array" then
+        .[] | select(.type == "tool_result") |
+        ((.tool_use_id // .toolCallId // .id // "") + "\t" +
+         ((.content // .text // "") | tostring) + "\u0000")
+      else empty end
+    ' 2>/dev/null || true
+  done)
+
+  if [ "${#flagged[@]}" -gt 0 ]; then
+    if [ "${#flagged[@]}" -eq 1 ]; then
+      _warn "Stop" "missing section(s): ${flagged[0]}"
+    else
+      # Aggregate: count occurrences of each missing-section signature.
+      local summary
+      summary="$(printf '%s\n' "${flagged[@]}" | sort | uniq -c | sort -rn \
+        | awk '{ s=($1>1) ? sprintf("%s (%dx)", $2, $1) : $2; printf (NR>1?", ":"") "%s", s }')"
+      _warn "Stop" "missing section(s): $summary (${#flagged[@]} entries)"
+    fi
+  fi
+  exit 0
+}
+
+# =============================================================================
+# Main dispatch — runs after function definitions
+# =============================================================================
+INPUT="$(cat)"
+
+# Resolve session ID for dedup state scoping. Falls back to PID when payload lacks session_id.
+SESSION_ID="$(printf '%s' "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || true)"
+[ -z "$SESSION_ID" ] && SESSION_ID="pid-$$"
+STATE_FILE="$(_state_file "$SESSION_ID")"
+
+# Dispatch on hook event name. Unknown event → exit 0 (defensive — WARN hook never blocks).
+EVENT="$(printf '%s' "$INPUT" | jq -r '.hook_event_name // ""' 2>/dev/null || true)"
+case "$EVENT" in
+  PostToolUse) _arm_a_post ;;
+  Stop)        _arm_b_stop ;;
+  *)           exit 0 ;;
+esac
+exit 0
