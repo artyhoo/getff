@@ -16,6 +16,7 @@
 # Unset / "en" → nothing is injected (English is the zero-setup default).
 set -uo pipefail
 
+# @plugin-transform: manual — plugin twin carries inline _is_zcode/_emit_ctx adapter trio + TWIN DIVERGENCE comment block. Source-side trio migration is follow-up Stage 6.5.
 case "${AIF_HOOK_LANG:-en}" in
   en|'') : ;;  # English default — nothing to inject
   ru)
