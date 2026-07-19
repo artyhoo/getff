@@ -49,6 +49,7 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   '.claude/rules/language-discipline.md',
   '.claude/rules/ci-tool-pinning.md',
   '.claude/rules/egress-no-api-bypass.md',
+  '.claude/rules/zcode-parity-doctrine.md',
   '.claude/rules/skill-description-quality.md',
   '.claude/rules/research-source-trust.md',
   '.claude/rules/source-before-shape.md',
