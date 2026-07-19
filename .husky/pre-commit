@@ -151,4 +151,18 @@ if (bad.length) {
 ' "$REPO_ROOT/packages/core/manifest/rules-manifest.json" || { fail=1; }
 fi
 
+
+# ── Plugin twin regeneration ──────────────────────────────────────────
+# When .claude/hooks/*.sh changes, regenerate plugin twins and re-stage.
+# Spec: .ai-factory/plans/zcode-parity-s6-twin-generator.md (Stage 6).
+HOOKS_STAGED=$(echo "$CHANGED" | grep '^\.claude/hooks/.*\.sh$' || true)
+if [ -n "$HOOKS_STAGED" ]; then
+  if bash "$REPO_ROOT/scripts/generate-plugin-twins.sh"; then
+    git add plugin/hooks/ 2>/dev/null || true
+  else
+    echo "❌ generate-plugin-twins.sh failed"
+    fail=1
+  fi
+fi
+
 exit "$fail"

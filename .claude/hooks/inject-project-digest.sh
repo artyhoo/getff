@@ -15,6 +15,7 @@
 # main session AND every dispatched subagent get the same project anchor from ONE source of truth.
 set -uo pipefail
 
+# @plugin-transform: manual — plugin twin carries inline _is_zcode/_emit_ctx adapter trio + TWIN DIVERGENCE comment block. Source-side trio migration is follow-up Stage 6.5.
 # B1 fix (zcode-parity-step1, plan-v3 §"B1"): subshell-aware env-first resolution.
 # `$(cd … && pwd)` is command substitution in a SUBSHELL — cwd change is discarded, only
 # the path string is captured. Pre-fix this read $0-relative (correct only when the hook is
