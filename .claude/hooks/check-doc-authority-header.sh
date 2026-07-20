@@ -4,6 +4,9 @@
 #   DEAD no-op in every consumer). No portable hook fires at edit-time; the portable enforcement of the
 #   same rule is principle 09's CI test (rule+test lifecycle, excluded from @dual-pair per
 #   dual-implementation-discipline.md §9). GH #934 per-hook audit follow-up.
+# @file-content-gate: this hook validates a file's content (path-only — no internal
+#   tool_name filter), so its registration matcher MUST be Edit|Write|MultiEdit (else a
+#   MultiEdit that strips an authority header slips past silently). Enforced by check-hook-marker.sh.
 #
 # What it checks: a consumer-authored doc-authority-bearing doc must declare its scope with a
 #   `> **Authoritative for:**` header (see .claude/rules/doc-authority-hierarchy.md §3). Scope is the

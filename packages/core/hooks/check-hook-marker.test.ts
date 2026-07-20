@@ -38,6 +38,7 @@ import {
   mkdirSync,
   mkdtempSync,
   realpathSync,
+  renameSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -211,6 +212,79 @@ describe.skipIf(!JQ)(
         parsed.hookEventName,
         'hookEventName must NOT be at top level (CCt.strict rejects it)',
       ).toBeUndefined();
+    });
+
+    // ── @file-content-gate invariant (matcher-widening, GH #934 follow-up) ──────
+    // A hook that validates file content (path-only, no internal tool_name filter) MUST be
+    // registered with matcher Edit|Write|MultiEdit — else a MultiEdit bypasses it silently.
+    // The gate reads $REPO_ROOT/.claude/settings.json; in the sandbox REPO_ROOT = SANDBOX,
+    // so we stage a sandbox settings.json to drive the matcher lookup.
+
+    function writeSandboxSettings(matcher: string, hookName: string): void {
+      const settingsDir = join(SANDBOX, '.claude');
+      mkdirSync(settingsDir, { recursive: true });
+      const settings = {
+        hooks: {
+          PostToolUse: [
+            {
+              matcher,
+              hooks: [
+                {
+                  type: 'command',
+                  command: `bash "$CLAUDE_PROJECT_DIR/.claude/hooks/${hookName}"`,
+                },
+              ],
+            },
+          ],
+        },
+      };
+      writeFileSync(
+        join(settingsDir, 'settings.json'),
+        JSON.stringify(settings),
+        'utf8',
+      );
+    }
+
+    it('PAIRED-NEGATIVE: @file-content-gate hook registered Edit|Write (no MultiEdit) → exit 1', () => {
+      const name = `zzz-fcg-neg-${Date.now()}.sh`;
+      const abs = writeHook(
+        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n`,
+      );
+      // Rename the sandbox hook to match the name the settings.json will reference.
+      const renamed = join(SANDBOX_HOOKS, name);
+      renameSync(abs, renamed);
+      writeSandboxSettings('Edit|Write', name);
+      expect(runHook('Edit', renamed).status).toBe(1);
+    });
+
+    it('PAIRED-POSITIVE: @file-content-gate hook registered Edit|Write|MultiEdit → exit 0', () => {
+      const name = `zzz-fcg-pos-${Date.now()}.sh`;
+      const abs = writeHook(
+        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n`,
+      );
+      const renamed = join(SANDBOX_HOOKS, name);
+      renameSync(abs, renamed);
+      writeSandboxSettings('Edit|Write|MultiEdit', name);
+      expect(runHook('Edit', renamed).status).toBe(0);
+    });
+
+    it('shipped-only @file-content-gate hook (absent from settings.json) → exit 0 (tolerated)', () => {
+      // A hook shipped solely via setup.d/install.sh (not in framework-self settings.json)
+      // e.g. check-doc-authority-header: the gate has no framework-side matcher to check → skip.
+      const abs = writeHook(
+        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n`,
+      );
+      // No writeSandboxSettings — settings.json absent or has no entry for this hook.
+      // (Sandbox settings.json from a prior test may exist; ensure this hook is NOT in it.)
+      const settingsPath = join(SANDBOX, '.claude', 'settings.json');
+      if (existsSync(settingsPath)) {
+        writeFileSync(
+          settingsPath,
+          JSON.stringify({ hooks: { PostToolUse: [] } }),
+          'utf8',
+        );
+      }
+      expect(runHook('Edit', abs).status).toBe(0);
     });
   },
 );

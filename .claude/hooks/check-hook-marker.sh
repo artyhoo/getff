@@ -51,13 +51,42 @@ esac
 
 # Marker MUST be on its own comment line (anchored ^# ) so prose documenting the
 # syntax (e.g. inside a heredoc or a backtick) is not mis-counted.
-if grep -qE '^# @(dual-pair|cc-only-rationale):' "$ABS_PATH"; then
-  exit 0
-fi
-
-_adv_violation "❌ hook-marker: $REL_PATH has no delivery-channel marker.
+grep -qE '^# @(dual-pair|cc-only-rationale):' "$ABS_PATH" \
+  || _adv_violation "❌ hook-marker: $REL_PATH has no delivery-channel marker.
    Add ONE of (own comment line, near the top):
      # @cc-only-rationale: <why CC-only — no portable counterpart>
      # @dual-pair: <anchor shared with the portable agent/skill>
    Per dual-implementation-discipline.md §6 (prevents silent CC vendor-lock-in)."
+
+# @file-content-gate invariant: a hook that validates a file's content (path-only, no
+# internal tool_name filter) MUST be registered with matcher Edit|Write|MultiEdit — else a
+# MultiEdit that violates the rule slips past silently (the matcher is its only tool-filter).
+# Catches the body↔registration drift class (3 of 6 hooks were registered Edit|Write while
+# their bodies already accepted MultiEdit). CI-backstop: tests/agnosticism/probes/channel-coverage.sh.
+#
+# Scope: checks the FRAMEWORK-self registration in .claude/settings.json (rendered from
+# harness-model.json). A shipped-only hook (e.g. check-doc-authority-header — registered
+# solely via setup.d/install.sh for consumers, absent from the framework's own settings.json)
+# is SKIPPED here: its matcher is enforced by the install-sh firing tests (gh-934-ship-*) and
+# the CI channel-coverage probe, not by this edit-time gate (which has no framework-side
+# matcher to read for it).
+if grep -qE '^# @file-content-gate:' "$ABS_PATH"; then
+  HOOK_BASE="$(basename "$REL_PATH")"
+  SETTINGS="$REPO_ROOT/.claude/settings.json"
+  if [ -f "$SETTINGS" ]; then
+    REG_MATCHER="$(jq -r --arg hook "$HOOK_BASE" '
+      (.hooks.PostToolUse // []) | map(select(any(.hooks[].command; test($hook)))) | .[0].matcher // ""
+    ' "$SETTINGS" 2>/dev/null || true)"
+    if [ -n "$REG_MATCHER" ]; then
+      case "$REG_MATCHER" in
+        *Edit*Write*MultiEdit*) ;;  # Edit|Write|MultiEdit or Write|Edit|MultiEdit — both fine
+        *) _adv_violation "❌ hook-marker: $REL_PATH declares @file-content-gate but its PostToolUse
+   matcher is '$REG_MATCHER' (must include Edit, Write, AND MultiEdit — a path-only gate's
+   matcher is its ONLY tool-filter; without MultiEdit a MultiEdit edit bypasses it silently).
+   Fix the matcher in .ai-factory/harness-model.json + run 'node scripts/render-harness-config.mjs --write'." ;;
+      esac
+    fi
+  fi
+fi
+
 exit 0
