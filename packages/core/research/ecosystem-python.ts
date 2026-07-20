@@ -142,6 +142,42 @@ function extractPoetryDeps(sectionBody: string[]): Set<string> {
   return names;
 }
 
+/** Rejects a dependency name containing path-traversal or separator segments
+ *  before it is ever joined into a filesystem path. Mirrors the per-adapter
+ *  `isUnsafeDepName` in ecosystem-npm.ts:21 / ecosystem-cargo.ts:252 (each
+ *  adapter carries its own private copy — cargo's is NOT exported). */
+function isUnsafeDepName(name: string): boolean {
+  return name.includes('..') || name.includes('/') || name.includes(sep) || name.includes('\\');
+}
+
+/** Lexical within-root check on already-absolute paths. Low-level primitive;
+ *  the containment gate is `resolvedWithinRoot` (realpath both sides). */
+function isWithinRoot(candidateAbs: string, root: string): boolean {
+  const base = root.endsWith(sep) ? root : root + sep;
+  return candidateAbs === root || candidateAbs.startsWith(base);
+}
+
+/** Resolves `resolve(root, ...segments)` and returns it ONLY if (a) it exists
+ *  and (b) its REALPATH (symlink-resolved) lies within root's OWN realpath.
+ *  Canonicalizes BOTH sides before comparison (canonicalizing only the
+ *  candidate would false-reject legitimate in-tree paths when root itself sits
+ *  under a symlinked ancestor, e.g. macOS /tmp → /private/tmp). Fail-closed on
+ *  any realpath error. Mirrors ecosystem-cargo.ts:289 resolvedWithinRoot. */
+function resolvedWithinRoot(root: string, ...segments: string[]): string | null {
+  const candidate = resolve(root, ...segments);
+  if (!isWithinRoot(candidate, root)) return null;
+  if (!existsSync(candidate)) return null;
+  let real: string;
+  let realRoot: string;
+  try {
+    real = realpathSync(candidate);
+    realRoot = realpathSync(root);
+  } catch {
+    return null;
+  }
+  return isWithinRoot(real, realRoot) ? candidate : null;
+}
+
 export const pipAdapter: EcosystemAdapter = {
   ecosystem: 'pip',
 

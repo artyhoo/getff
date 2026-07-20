@@ -137,3 +137,15 @@ simple = "^2.0"
     expect(deps.has('simple')).toBe(true);
   });
 });
+
+describe('pipAdapter — traversal-guard contract (research-source-trust.md §5 item 2)', () => {
+  it('listDirectDeps does not throw on a pyproject with path-traversal-shaped keys (they are just names, not joined here)', () => {
+    // Dep NAMES that contain `..` are captured by the parser as names; they fail later
+    // in readInstalledMeta (Task 4). listDirectDeps itself is pure-string on names.
+    const root = makePyprojectRoot(`[tool.poetry.dependencies]
+"../evil" = "^1.0"
+`);
+    // Does not throw; the quoted-key drop means ../evil is NOT captured anyway.
+    expect(() => pipAdapter.listDirectDeps(root)).not.toThrow();
+  });
+});
