@@ -52,9 +52,25 @@ committed state) `node scripts/render-harness-config.mjs --check` reports:
 ```
 
 i.e. staging's committed `plugin/hooks/hooks.json` is NOT reproducible from its own SSOT
-(`harness-model.json`) — the zcode-parity twins were added directly to the rendered file. This
-is a real discipline gap for a rules-as-tests project (an SSOT-render whose output has diverged
-from the SSOT). It is **not CI-gated**: `.github/workflows/audit-self.yml` runs
+(`harness-model.json`).
+
+**Precise mechanism (corrected after finding the second generator).** There are TWO plugin
+generators, and the drift is only in the seam between them:
+
+- `scripts/generate-plugin-twins.sh` generates the plugin **sidecar SCRIPTS**
+  (`plugin/hooks/<name>`) from `.claude/hooks/<name>.sh` (identity / sed / manual modes). It
+  IS gated — `.husky/pre-commit` (lines 158-166) regenerates + `git add`s them whenever a
+  `.claude/hooks/*.sh` source is staged. (Side effect observed this session: committing an
+  edited hook also re-synced a pre-existing stale twin, `plugin/hooks/end-of-turn-reminder`,
+  because the hook `git add`s the whole `plugin/hooks/` dir — deterministic, benign.)
+- `scripts/render-harness-config.mjs` (`emitPlugin`) generates the `hooks.json`
+  **REGISTRATION** (matchers + which hooks are wired), but only from harness-model model-hooks
+  + a `session-start` internal. The three ZCode-parity twin **entries** in `hooks.json`
+  (`inject-project-digest`, `inject-output-language`, `warn-subagent-report-zcode`) are NOT in
+  the model and NOT produced by `emitPlugin` → they are hand-maintained in `hooks.json`.
+
+So the drift is specifically: the `hooks.json` twin-entry **registration** is not
+render-reproducible. It is **not CI-gated**: `.github/workflows/audit-self.yml` runs
 `render-rules.ts --check` and `render-rule-index.mjs --check`, but NOT
 `render-harness-config.mjs --check`. That is why staging is green despite the drift, and why
 the kickoff's Task-D "render --check must be green" gate is **stale** (it was green at STEP-1's
