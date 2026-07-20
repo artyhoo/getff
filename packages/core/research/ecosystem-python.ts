@@ -178,6 +178,42 @@ function resolvedWithinRoot(root: string, ...segments: string[]): string | null 
   return isWithinRoot(real, realRoot) ? candidate : null;
 }
 
+/** Reads the `Name:` field from RFC 822 METADATA. Returns null if absent
+ *  (fail-closed — spec §4.2 / research §5 Edge 4). Does NOT use the dir name. */
+function readMetadataName(text: string): string | null {
+  for (const line of text.split('\n')) {
+    if (line === '') break; // end of headers
+    const m = /^Name:\s*(.*)$/.exec(line);
+    if (m) return m[1]!.trim();
+  }
+  return null;
+}
+
+/** Reads homepage from METADATA: prefers `Project-URL: Homepage, <url>`,
+ *  falls back to deprecated `Home-page: <url>`. RFC 822 line folding is
+ *  UNSUPPORTED and fail-closed (spec §4.2 step 4): a matched field whose NEXT
+ *  line is a continuation (starts with whitespace, non-empty) is DROPPED —
+ *  a truncated first-line value is never returned (a guess), the field is
+ *  discarded entirely. */
+function readHomepageFromMetadata(text: string): string | undefined {
+  const lines = text.split('\n');
+  let homePage: string | undefined;
+  let projectUrlHomepage: string | undefined;
+  const isFolded = (i: number): boolean => {
+    const next = lines[i + 1];
+    return next !== undefined && next !== '' && /^[ \t]/.test(next);
+  };
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    if (line === '') break;
+    const hp = /^Home-page:\s*(.*)$/.exec(line);
+    if (hp) { if (!isFolded(i)) homePage = hp[1]!.trim(); continue; }
+    const pu = /^Project-URL:\s*Homepage\s*,\s*(.*)$/i.exec(line);
+    if (pu) { if (!isFolded(i)) projectUrlHomepage = pu[1]!.trim(); continue; }
+  }
+  return projectUrlHomepage ?? homePage;
+}
+
 export const pipAdapter: EcosystemAdapter = {
   ecosystem: 'pip',
 
@@ -213,8 +249,51 @@ export const pipAdapter: EcosystemAdapter = {
     return names;
   },
 
-  readInstalledMeta(_root: string, _pkg: string): InstalledMeta | null {
-    // Implemented in Task 4.
-    return null;
+  readInstalledMeta(root: string, pkg: string): InstalledMeta | null {
+    if (isUnsafeDepName(pkg)) return null;
+    const normalizedPkg = normalizePep503(pkg);
+
+    // Candidate venv roots inside root only: .venv/ and venv/.
+    for (const venvName of ['.venv', 'venv']) {
+      const venvLib = resolvedWithinRoot(root, venvName, 'lib');
+      if (venvLib === null) continue;
+      let pythonDirs: string[];
+      try {
+        pythonDirs = readdirSync(venvLib, { withFileTypes: true })
+          .filter((e) => e.isDirectory() && e.name.startsWith('python'))
+          .map((e) => e.name);
+      } catch {
+        continue;
+      }
+      for (const pyDir of pythonDirs) {
+        const sitePackages = resolvedWithinRoot(root, venvName, 'lib', pyDir, 'site-packages');
+        if (sitePackages === null) continue;
+        let distInfoDirs: string[];
+        try {
+          distInfoDirs = readdirSync(sitePackages, { withFileTypes: true })
+            .filter((e) => e.isDirectory() && e.name.endsWith('.dist-info'))
+            .map((e) => e.name);
+        } catch {
+          continue;
+        }
+        for (const diName of distInfoDirs) {
+          const metadataPath = resolvedWithinRoot(root, venvName, 'lib', pyDir, 'site-packages', diName, 'METADATA');
+          if (metadataPath === null) continue;
+          let text: string;
+          try {
+            text = readFileSync(metadataPath, 'utf8');
+          } catch {
+            continue;
+          }
+          // Read the Name: field (NOT the dir name — see spec §4.2 / research §5 Edge 4).
+          const nameField = readMetadataName(text);
+          if (nameField === null) continue; // no Name: header — fail-closed
+          if (normalizePep503(nameField) !== normalizedPkg) continue;
+          // Matched — extract homepage/repository.
+          return { homepage: readHomepageFromMetadata(text), repository: undefined };
+        }
+      }
+    }
+    return null; // no venv under root, or no matching dist-info
   },
 };

@@ -36,7 +36,7 @@ describe('extractPep508Name', () => {
 });
 
 import { pipAdapter } from './ecosystem-python.ts';
-import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -147,5 +147,146 @@ describe('pipAdapter — traversal-guard contract (research-source-trust.md §5 
 `);
     // Does not throw; the quoted-key drop means ../evil is NOT captured anyway.
     expect(() => pipAdapter.listDirectDeps(root)).not.toThrow();
+  });
+});
+
+function makeVenvRoot(opts: {
+  pyproject?: string;
+  venvDir?: string; // default '.venv'
+  pythonVersion?: string; // default '3.14'
+  distInfos?: Record<string, { metadata: string; dirName: string }>; // dirName → METADATA text
+}): string {
+  const root = mkdtempSync(join(tmpdir(), 'pip-adapter-'));
+  if (opts.pyproject) writeFileSync(join(root, 'pyproject.toml'), opts.pyproject);
+  const venv = opts.venvDir ?? '.venv';
+  const pyVer = opts.pythonVersion ?? '3.14';
+  const sp = join(root, venv, 'lib', `python${pyVer}`, 'site-packages');
+  mkdirSync(sp, { recursive: true });
+  for (const [, info] of Object.entries(opts.distInfos ?? {})) {
+    const di = join(sp, info.dirName);
+    mkdirSync(di, { recursive: true });
+    writeFileSync(join(di, 'METADATA'), info.metadata);
+  }
+  return root;
+}
+
+describe('pipAdapter.readInstalledMeta — happy path + Name: method', () => {
+  it('extracts Homepage from Project-URL (preferred form)', () => {
+    const root = makeVenvRoot({
+      distInfos: {
+        django: {
+          dirName: 'Django-5.0.dist-info',
+          metadata: 'Metadata-Version: 2.1\nName: Django\nProject-URL: Homepage, https://www.djangoproject.com/\n',
+        },
+      },
+    });
+    const meta = pipAdapter.readInstalledMeta(root, 'django');
+    expect(meta?.homepage).toBe('https://www.djangoproject.com/');
+  });
+
+  it('matches a HYPHENATED package by Name: field (not dir-name) — django-stubs', () => {
+    const root = makeVenvRoot({
+      distInfos: {
+        ds: {
+          dirName: 'django_stubs-5.0.2.dist-info',
+          metadata: 'Metadata-Version: 2.1\nName: django-stubs\nProject-URL: Homepage, https://github.com/typeddjango/django-stubs\n',
+        },
+      },
+    });
+    const meta = pipAdapter.readInstalledMeta(root, 'django-stubs');
+    expect(meta?.homepage).toBe('https://github.com/typeddjango/django-stubs');
+  });
+
+  it('matches a DIGIT-LEADING-NAME package by Name: — foo-1', () => {
+    const root = makeVenvRoot({
+      distInfos: {
+        f: {
+          dirName: 'foo-1-1.0.dist-info',
+          metadata: 'Metadata-Version: 2.1\nName: foo-1\nProject-URL: Homepage, https://foo.example\n',
+        },
+      },
+    });
+    expect(pipAdapter.readInstalledMeta(root, 'foo-1')?.homepage).toBe('https://foo.example');
+  });
+
+  it('falls back to deprecated Home-page: header', () => {
+    const root = makeVenvRoot({
+      distInfos: {
+        x: {
+          dirName: 'x-1.0.dist-info',
+          metadata: 'Metadata-Version: 2.1\nName: x\nHome-page: https://x.example\n',
+        },
+      },
+    });
+    expect(pipAdapter.readInstalledMeta(root, 'x')?.homepage).toBe('https://x.example');
+  });
+});
+
+describe('pipAdapter.readInstalledMeta — gaps & fail-closed', () => {
+  it('returns null when no venv exists under root', () => {
+    const root = mkdtempSync(join(tmpdir(), 'pip-adapter-'));
+    expect(pipAdapter.readInstalledMeta(root, 'anything')).toBeNull();
+  });
+
+  it('returns null when venv exists but package is absent', () => {
+    const root = makeVenvRoot({ distInfos: {} });
+    expect(pipAdapter.readInstalledMeta(root, 'missing')).toBeNull();
+  });
+
+  it('returns null when dist-info exists but METADATA has NO Name: header', () => {
+    const root = makeVenvRoot({
+      distInfos: {
+        bad: { dirName: 'bad-1.0.dist-info', metadata: 'Metadata-Version: 2.1\nVersion: 1.0\n' },
+      },
+    });
+    expect(pipAdapter.readInstalledMeta(root, 'bad')).toBeNull();
+  });
+
+  it('rejects a traversal pkg name (isUnsafeDepName) before any path join', () => {
+    const root = makeVenvRoot({ distInfos: {} });
+    expect(pipAdapter.readInstalledMeta(root, '../evil')).toBeNull();
+  });
+
+  it('searches a second python* dir when multiple exist (edge case)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'pip-adapter-'));
+    const sp1 = join(root, '.venv', 'lib', 'python3.14', 'site-packages');
+    const sp2 = join(root, '.venv', 'lib', 'python3.99', 'site-packages');
+    mkdirSync(sp1, { recursive: true });
+    mkdirSync(sp2, { recursive: true });
+    const di = join(sp2, 'Django-5.0.dist-info');
+    mkdirSync(di, { recursive: true });
+    writeFileSync(join(di, 'METADATA'), 'Metadata-Version: 2.1\nName: Django\nProject-URL: Homepage, https://www.djangoproject.com/\n');
+    expect(pipAdapter.readInstalledMeta(root, 'django')?.homepage).toBe('https://www.djangoproject.com/');
+  });
+
+  it('rejects a venv lib symlinked OUT-OF-TREE (VALUE containment via realpath both sides) — spec §5 item 5', () => {
+    const root = mkdtempSync(join(tmpdir(), 'pip-adapter-'));
+    // Attacker-controlled tree OUTSIDE root, shaped like a real venv lib dir.
+    const outside = mkdtempSync(join(tmpdir(), 'pip-evil-'));
+    const outSp = join(outside, 'python3.14', 'site-packages', 'Evil-1.0.dist-info');
+    mkdirSync(outSp, { recursive: true });
+    writeFileSync(join(outSp, 'METADATA'), 'Metadata-Version: 2.1\nName: evil\nProject-URL: Homepage, https://evil.example/\n');
+    // In-tree symlink `.venv/lib` -> the out-of-tree attacker dir. The candidate
+    // path is LEXICALLY within root (root/.venv/lib), so a lexical-only check
+    // would pass; realpath-both-sides in resolvedWithinRoot must reject it.
+    mkdirSync(join(root, '.venv'), { recursive: true });
+    symlinkSync(outside, join(root, '.venv', 'lib'));
+    expect(pipAdapter.readInstalledMeta(root, 'evil')).toBeNull();
+  });
+
+  it('drops a FOLDED (RFC 822 line-continuation) homepage field — fail-closed, never a truncated guess (spec §4.2 step 4)', () => {
+    const root = makeVenvRoot({
+      distInfos: {
+        f: {
+          dirName: 'folded-1.0.dist-info',
+          // The Project-URL Homepage value is folded onto a continuation line.
+          metadata: 'Metadata-Version: 2.1\nName: folded\nProject-URL: Homepage, https://ex.example/very/\n  long/continued/path\n',
+        },
+      },
+    });
+    const meta = pipAdapter.readInstalledMeta(root, 'folded');
+    // Matched by Name:, but the folded homepage is dropped → homepage undefined.
+    expect(meta).not.toBeNull();
+    expect(meta?.homepage).toBeUndefined();
   });
 });
