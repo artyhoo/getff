@@ -4,7 +4,7 @@ description: Use when an in-aif Claude coordinator (Opus or Sonnet, e.g. `implem
 ---
 
 > **Authoritative for:** the **input-prompt contract** for an in-aif Claude coordinator (Opus/Sonnet) → GLM-5.2 worker dispatch edge, and the **GLM-5.2-specific behavioural deltas** (verified facts only — text-only I/O, `reasoning_effort` value-collapse, Anthropic-compat endpoint mechanics) that distinguish such a handoff from an intra-Claude worker dispatch.
-> **NOT authoritative for:** the executor + dual-reviewer dispatch **loop** — that is `superpowers:subagent-driven-development` (SSOT #64). The **relative-tier model posture** (Opus/Sonnet/GLM as an instantiation of "top/mid/cheaper" tier roles) — that is [`night-mode/SKILL.md`](../night-mode/SKILL.md) §1; this skill assumes the instantiation without restating it. The **REPORT output schema** (`Status: DONE|BLOCKED|PARTIAL`, `Deliverable`, `Evidence`, `BLOCKER`, `MINOR`) — that is [`agents/orchestrator-worker-discipline.md`](../../../agents/orchestrator-worker-discipline.md). **Dispatch mechanics** (REST, worktrees, agent-definition loading) — that is `dispatcher` + `runtime-bridge`. Project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists).
+> **NOT authoritative for:** the executor + dual-reviewer dispatch **loop** — that is `superpowers:subagent-driven-development` (SSOT #64). The **relative-tier model posture** (Opus/Sonnet/GLM as an instantiation of "top/mid/cheaper" tier roles) — that is [`night-mode/SKILL.md`](../night-mode/SKILL.md) («Overnight model posture» paragraph); this skill assumes the instantiation without restating it. The **REPORT output schema** (`Status: DONE|BLOCKED|PARTIAL`, `Deliverable`, `Evidence`, `BLOCKER`, `MINOR`) — that is [`agents/orchestrator-worker-discipline.md`](../../../agents/orchestrator-worker-discipline.md). **Dispatch mechanics** (REST, worktrees, agent-definition loading) — that is `dispatcher` + `runtime-bridge`. Project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists).
 
 # Claude → GLM executor handoff (in-aif, cross-model edge)
 
@@ -20,7 +20,7 @@ A **thin adapter** for the narrow case where an in-aif Claude coordinator dispat
 **Does NOT apply** to:
 
 - **Claude→Claude worker dispatch** inside aif (Opus coordinator → Sonnet worker, etc.) — same provider, similar distribution; SDD + `night-mode` cover this directly. The contract below is overkill for intra-Claude edges.
-- **Tier selection** — which model fills which role is owned by `night-mode` §1.
+- **Tier selection** — which model fills which role is owned by `night-mode` («Overnight model posture» paragraph).
 - **aif dispatch mechanics** (worktrees, REST, agent spawning) — owned by `dispatcher` + `runtime-bridge`.
 
 If you catch yourself applying this to a Claude→Claude edge, stop — you are doing `#parallel-evolution-creep` on SDD.
@@ -88,7 +88,7 @@ If GLM does not emit a parseable status, treat as `BLOCKED` (not as `DONE` — n
 When the GLM worker returns a non-`DONE` status:
 
 - **`PARTIAL`** → bottom-up reviewer (per `orchestrator-worker-discipline.md` reviewer-discipline layer) triages: is the gap mechanical (re-dispatch with sharper `<verify>`) or architectural (escalate to top-down reviewer for re-plan)? Cap re-dispatch at **2 iterations**; on the 3rd, escalate. This cap is stricter than `night-mode`'s per-increment 4-iteration cap (delta item 2) because cross-provider re-dispatch carries round-trip latency the intra-provider case does not.
-- **`BLOCKED: <spec quote>`** → top-down reviewer (Opus tier per `night-mode` §1) re-plans the dispatch. The blocker is a signal that the original prompt was ambiguous, not that GLM is "dumb" — fix the prompt, do not repeat it. Cap clarification cycles at **2**; on the 3rd, the task is genuinely under-specified and needs a human.
+- **`BLOCKED: <spec quote>`** → top-down reviewer (Opus tier per `night-mode` «Overnight model posture» paragraph) re-plans the dispatch. The blocker is a signal that the original prompt was ambiguous, not that GLM is "dumb" — fix the prompt, do not repeat it. Cap clarification cycles at **2**; on the 3rd, the task is genuinely under-specified and needs a human.
 - **`BLOCKED` (other)** → escalate to human or re-plan at the pipeline level. Do not retry blindly.
 
 **Hard caps** (per-task, recorded in dispatch state):
