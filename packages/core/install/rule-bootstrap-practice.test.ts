@@ -43,6 +43,20 @@ const RENDERED_FIXTURE = resolve(
 );
 const RULE_ID = 'getff-researched-no-yaml-load';
 
+/** Resolve the tsx binary across CI install layouts. Sibling to the same helper in
+ *  backends/astgrep/researched-live-path.test.ts: the per-dir CI jobs install packages/core deps
+ *  only (`npm ci --prefix packages/core`), so tsx lands in packages/core/node_modules/.bin/tsx
+ *  before any repo-root hoist (`npm install`). `npx --no-install tsx` from REPO_ROOT walks up from
+ *  the root bin only and can miss the core-local bin (exiting non-zero). Spawn the resolved bin
+ *  directly: prefer the core-local bin, fall back to a root hoist, then PATH. Never skips. */
+function tsxBin(): string {
+  const candidates = [
+    join(REPO_ROOT, 'packages/core/node_modules/.bin/tsx'),
+    join(REPO_ROOT, 'node_modules/.bin/tsx'),
+  ];
+  return candidates.find((c) => existsSync(c)) ?? 'tsx';
+}
+
 const tmpDirs: string[] = [];
 function freshConsumer(): string {
   const dir = mkdtempSync(join(tmpdir(), 'rb-practice-'));
@@ -210,8 +224,8 @@ describe('rule-bootstrap-cli --from-practice — real CLI invocation', () => {
   it('renders + writes via the real entrypoint (exit 0, JSON summary on stdout)', { timeout: 120_000 }, () => {
     const consumer = freshConsumer();
     const r = spawnSync(
-      'npx',
-      ['--no-install', 'tsx', CLI, '--consumer-root', consumer, '--from-practice', PRACTICE_FIXTURE],
+      tsxBin(),
+      [CLI, '--consumer-root', consumer, '--from-practice', PRACTICE_FIXTURE],
       { cwd: REPO_ROOT, encoding: 'utf8' },
     );
     expect(r.status).toBe(0);
@@ -229,8 +243,8 @@ describe('rule-bootstrap-cli --from-practice — real CLI invocation', () => {
     writeFileSync(rec, JSON.stringify(practice));
 
     const r = spawnSync(
-      'npx',
-      ['--no-install', 'tsx', CLI, '--consumer-root', consumer, '--from-practice', rec],
+      tsxBin(),
+      [CLI, '--consumer-root', consumer, '--from-practice', rec],
       { cwd: REPO_ROOT, encoding: 'utf8' },
     );
     // The degrade contract (rc=0, never abort install) does NOT apply to an attack-shaped input:
@@ -243,9 +257,9 @@ describe('rule-bootstrap-cli --from-practice — real CLI invocation', () => {
   it('refuses --from-practice combined with --from-research/--from-selection (authoring error)', { timeout: 120_000 }, () => {
     const consumer = freshConsumer();
     const r = spawnSync(
-      'npx',
+      tsxBin(),
       [
-        '--no-install', 'tsx', CLI,
+        CLI,
         '--consumer-root', consumer,
         '--from-practice', PRACTICE_FIXTURE,
         '--from-research', PRACTICE_FIXTURE,
