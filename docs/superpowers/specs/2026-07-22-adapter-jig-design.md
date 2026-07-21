@@ -1,7 +1,8 @@
 # Adapter-factory conformance jig — design
 
-> **Status:** DRAFT binding design, authored 2026-07-22 in the pipeline-ecosystem-wiring meta
-> session from three synthesis inputs: a read-only contract census (this worktree, branch =
+> **Status:** BINDING design — cold-reviewed GO×2 (/arch §2 two-altitude, round 2: top-down
+> Fable + bottom-up executor, 2026-07-22; round-1 findings folded in `a7e0b59c1`). Authored
+> 2026-07-22 in the pipeline-ecosystem-wiring meta session from three synthesis inputs: a read-only contract census (this worktree, branch =
 > staging + `ffa571149`), a conformance-arm catalogue built from the four ecosystem-wiring PRs
 > (W1 #1074, W2 #1076, W3 #1078, W4 #1080 — repo-of-record `artyhoo/getff`, whose merge
 > commits are present in this repo's shared history; all MERGED 2026-07-21),
@@ -89,7 +90,7 @@ is a conformance-arm pointer, never a second change-control authority over the s
 | F8 | Firing self-check shape: plant violation in `mktemp -d` ONLY, assert delivered gates fire RED, absent tool ⇒ LOUD degrade with exact manual command, rc=0 always | `setup.d/45-python.sh:340-412`; wired at `install.sh:217` | The proof-of-enforcement cell ([attention-is-not-a-mechanism.md §1](../../../.claude/rules/attention-is-not-a-mechanism.md)). Every lane ships an equivalent. |
 | F9 | Snapshot byte-identity harness + per-stack baselines; volatile artefacts excluded per-file — INHERITED (authority = the snapshot harness itself) | `tests/install-sh/snapshot.sh:38-62`, python rows `:239-250` | The fingerprint format and the exclusion discipline (§3 arm C3). New lane = one dispatch block + captured baselines. |
 | F10 | CI-arm exact-pin posture, framework + consumer mirrored pin strings bump together — INHERITED (authority = [ci-tool-pinning.md] Rule A) | `.github/workflows/audit-self.yml:231-232`, `:241-242`; `setup.d/45-python.sh:320-322` | The two-surface pin-sync invariant (§3 arm P1). |
-| F11 | rules-lock schema parity: the JS/TS `RulesLock` field set `{schemaVersion, framework, version, ruleIds, <tool-bans>, emittedAt, sourceFingerprint}` is the cross-lane schema | W3 #1078 + W4 #1080 PR bodies («schema parity») | Schema FROZEN-by-parity across lanes; PLACEMENT stays FREE per §2.2. Gate = arm D3 (parses the emitted locks — PR-body authority alone was attention-dependent). |
+| F11 | rules-lock schema parity: the CROSS-LANE core field set `{schemaVersion, framework, version, ruleIds, emittedAt, sourceFingerprint}` (= the exported TS `RulesLock`, `installer/types.ts:36-43`) plus per-lane-named tool-ban fields (e.g. python `ruffBans`) — a cross-lane synthesis from the W3/W4 lock writers, NOT the TS type verbatim | W3 #1078 + W4 #1080 PR bodies («schema parity»); `installer/types.ts:36-43` | Core set FROZEN-by-parity across lanes; tool-ban fields per-lane-named (may be absent in a lane); PLACEMENT stays FREE per §2.2. Gate = arm D3. |
 
 ### §2.2 FREE rows (vary per family; stage-delegable)
 
@@ -160,7 +161,7 @@ the append-only loop stays honest about its one exclusion.
 |---|---|---|---|
 | D1 `lock-never-stale-on-any-pass` | The lock regenerates whenever the DELIVERED set may have changed — every overwrite flag path AND any join/augment path that mutates delivered artefacts on a plain pass. The skip guard must be CONTENT-AWARE (delivered-set fingerprint vs the lock's `sourceFingerprint`), never existence- or flag-only. | W3 #1078 MAJOR (fix `18336846c` — flag-path guard); W5 review MAJOR — reproduced one guard-generation later: a plain-pass researched-rule join changed the delivered set while the flag-only guard skipped | Change a source template ⇒ each overwrite invocation moves the fingerprint (RED stale → GREEN moved); author a new researched rule ⇒ a PLAIN re-run must move the lock too; a true no-change re-run stays byte-stable. |
 | D2 `no-silent-fingerprint-degrade` | Hash tool absent ⇒ documented fallback rungs + LOUD non-authoritative stderr warning; never a silent constant/empty fingerprint. | W3 #1078 MINOR (empty-string degrade; fixed with md5 rungs + `⚠ … non-authoritative`) | Strip all hash tools from PATH; silent stderr or constant fingerprint is RED. Lane-independent (lock writer is shell-level). |
-| D3 `lock-schema-parity` | Every lane's emitted rules-lock carries the F11 field set — parsed from the ACTUAL emitted JSON of each lane's scratch fixture and compared as sets (both lock writers are bash; exported TS types cannot gate them, only this arm can). | Cold top-down review 2026-07-22: F11 froze schema parity on PR-body authority alone — a frozen row with no checked artifact was attention-dependent | Drop or rename a field in one lane's writer ⇒ set-compare RED; the paired positive parses both shipped locks GREEN. |
+| D3 `lock-schema-parity` | Every lane's emitted rules-lock carries the F11 CORE set exactly, parsed from the ACTUAL emitted JSON of each lane's scratch fixture (both lock writers are bash; exported TS types cannot gate them, only this arm can). Tool-ban fields normalize as per-lane-named EXTRAS: allowed to differ/be absent, never to collide with a core name. | Cold top-down review 2026-07-22: F11 froze schema parity on PR-body authority alone — a frozen row with no checked artifact was attention-dependent | Drop or rename a CORE field in one lane's writer ⇒ set-compare RED; the paired positive parses both shipped locks GREEN (extras ignored by the core compare). |
 
 ### §3.5 Firing
 
@@ -308,7 +309,7 @@ test = a shared manifest standard, not brand names.
 | npm | npm, pnpm, yarn-classic | `package.json` | registry.npmjs.org | Wired (default adapter). |
 | python | pip, poetry, pdm, uv | `pyproject.toml` (PEP 621/508) + `.dist-info/METADATA` | pypi.org | Adapter wired W2 #1076; delivery lane shipped (`45-python.sh`, lock W3 #1078). |
 | cargo | cargo | `Cargo.toml` `[package]` | crates.io | Adapter wired W2 #1076; delivery lane W4 #1080. |
-| go | go modules | `go.mod` / `go.sum` | proxy.golang.org | **Cheapest next** (J3): single declarative manifest, machine-decidable deps, one dominant tool (golangci-lint). |
+| go | go modules | `go.mod` / `go.sum` | proxy.golang.org | **DEMANDED — J3 executes** (operator trigger pulled 2026-07-22: strategic top-tier coverage js/ts + python + rust + go). Single declarative manifest, machine-decidable deps, one dominant tool (golangci-lint). |
 | jvm-maven | maven | `pom.xml` (declarative XML) | repo.maven.apache.org | Moderate; checkstyle/spotbugs lane research needed. |
 | ruby / php / dotnet | bundler / composer / nuget | Gemfile.lock, composer.json, `*.csproj` | rubygems.org / packagist.org / nuget.org | Moderate; declarative manifests; unscheduled. |
 | **WALLS** | gradle, bazel, cmake | Turing-complete build programs (Groovy/Kotlin DSL, Starlark, CMake lang) | — | **Flagged, not solved** (operator decision 4). Static `listDirectDeps` is undecidable in general. Research questions, not commitments: lockfile-based reading (`gradle.lockfile`, bazel `MODULE.bazel.lock`) as a partial-metadata path; else the family is refused loudly (§8). No stamping attempt without a dedicated research patch. |
@@ -370,18 +371,17 @@ and the staging-placement rule (no stream dispatches until this spec's PR merges
   meta-check over the arm registry landed in the EXISTING principles suite (population
   sentinel included). Retrofit-run against the three wired lanes (npm/python/cargo) — findings
   expected; each finding lands as a fix + its arm. The retrofit-run DOUBLES as the lane-glue
-  drift probe resolving fork DN-J1 (§6). **J2 close (fork DN-J2, default recorded):** one
-  NON-SHIPPING dry-stamp rehearsal of the go family in a scratch worktree — validates the
-  frozen contract against a genuinely new family BEFORE demand arrives (a too-narrow §2 is
-  discovered at rehearsal cost, not at consumer cost); nothing ships, the J3 demand gate for
-  ACTUAL stamping stands unchanged.
-- **J3 — first stamped family (demand-gated).** Executes when the first new-family demand
-  arrives; **go is the pre-selected candidate** (§7 cost ranking — a ranking, not a demand
-  signal; stamping ahead of demand would be build-ahead-of-need). The jig's own acceptance
-  test: stamp the family end-to-end THROUGH the jig — adapter + delivery lane + pinned
-  native-linter CI arm + scratch red/green pair — with zero skill/IR edits and BASELINE
-  lockstep. If stamping requires touching a frozen row, the jig design failed: STOP and revise
-  this spec first.
+  drift probe resolving fork DN-J1 (§6). *(Fork DN-J2's dry-stamp rehearsal is SUPERSEDED by
+  the J3 demand trigger below — with J3 scheduled immediately after J2, the rehearsal
+  collapses into the stamping run itself; its contract-validation duty transfers to J3's
+  STOP line.)*
+- **J3 — first stamped family: go (demand ARRIVED — operator trigger pulled 2026-07-22,
+  strategic top-tier language coverage js/ts + python + rust + go).** Executes after J2. The
+  jig's own acceptance test: stamp the family end-to-end THROUGH the jig — adapter + delivery
+  lane + pinned native-linter CI arm + scratch red/green pair — with zero skill/IR edits and
+  BASELINE lockstep. If stamping requires touching a frozen row, the jig design failed: STOP
+  and revise this spec first (this STOP line carries the contract-validation duty the
+  superseded rehearsal held).
 
 ## §10 §1.7 self-reflexive note
 
@@ -414,7 +414,7 @@ and the staging-placement rule (no stream dispatches until this spec's PR merges
 
 - [2026-07-21-rule-tests-surface-design.md] Part II §7-§8, §10 — SUBORDINATED, not contradicted:
   delegation criterion inherited (§2 freeze mechanics), D2 promoted to permanent arm G3,
-  prohibitions restated verbatim (§8), collision rule bound on J1-J4 (§9). SWEPT-CLEAN. ✓
+  prohibitions restated verbatim (§8), collision rule bound on J1-J3 (§9). SWEPT-CLEAN. ✓
 - `.claude/orchestrator-prompts/ecosystem-wiring/kickoff.md` — its §2 works-criteria and §5
   STOP lines become standing arms (E1, B1, G3); no contradiction; the umbrella's incident
   yield is this spec's §1 evidence base. SWEPT-CLEAN. ✓
