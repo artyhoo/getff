@@ -47,3 +47,14 @@ Executes [the design spec](../specs/2026-07-21-issue-931-stryker-pnpm-monorepo-d
 ## Verification (whole-branch, before PR)
 - A real-pnpm end-to-end mutation run of an emitted config was already proven by the spike (decisions log TD-0); the CI-level tests here are structural (emitted-file assertions), which is the install-sh test grain (f13/f5). Do NOT add a network `pnpm install` to CI.
 - Own adversarial cold-review (T19) of the whole diff before handoff.
+
+## Amendments (post dual-review, 2026-07-21)
+
+Dual review (spec=opus, quality=sonnet) surfaced a real defect in this plan's own condition design; both verdicts "Needs fixes". Corrections (authoritative over the Task text above):
+
+- **A1 (supersedes Task 2 wiring condition + GC5):** the `test:mutation` wiring in `70-deps.sh` MUST gate on **artifact presence** `[ -f "$PROJECT_ROOT/scripts/run-mutation.sh" ]`, NOT on `pnpm-workspace.yaml`/`"workspaces"`. Reason: the emit gate (`_ws_lines` = `_workspace_pkg_dirs` conventional-dir enumeration, `lib.sh:451-463`) is a DIFFERENT signal from the manifest key. The two diverge both ways (SF-1 unfixed on `packages/*`-no-manifest; working→broken regression on `"workspaces":["client","server"]`). 40-configs runs before 70-deps → the wrapper's presence is the authoritative "configs emitted" signal → wire⟺emit by construction.
+- **A2 (supersedes Task 1 emit placement):** the per-workspace Stryker emit MUST run **before the stack `case`**, unconditionally per workspace — NOT after the `unknown) … continue`, which silently skips emit for stack-`unknown` workspaces that nonetheless have vitest+tsconfig (GC4 conditions emit on vitest+tsconfig ONLY).
+- **A3 (new, C1):** the emit write MUST honour copy_safe's consumer-protection semantics — skip an existing `stryker/<slug>.json` unless `--force` (mirror `rewrite_arch_sot_header`'s guard, `lib.sh:151-156`), never a raw unconditional `fs.writeFileSync`.
+- **A4 (M2):** `packageManager` in the per-package config mirrors the flat branch — substitute `detect_pm` at emit, not a hardcoded `"npm"`.
+
+Full consolidated fix list + file:line + tests: `scratchpad/sdd/task-A-fixes.md` (orchestrator-adjudicated, T3-verified).

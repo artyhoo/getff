@@ -63,3 +63,15 @@ The spike **removed the headline defect** (#1 plugin resolution is a non-bug on 
 
 ## Degradation / deviations taken
 - (none yet)
+
+## Task A dual-review outcome (2026-07-21) — both "Needs fixes"; fix wave dispatched
+
+Spec/top-down (opus) + code-quality/bottom-up (sonnet) reviews of feature commit `e61140671`. Mainline solid (bare plugins, positional invocation, root-relative paths, `__WS_SLUG__` namespacing, wrapper aggregation/nullglob/quoting all correct + independently shellcheck-verified). Findings (orchestrator-adjudicated, T3-verified against code; full list in `scratchpad/sdd/task-A-fixes.md`):
+
+- **C1** (quality Critical) — per-package emit uses raw `fs.writeFileSync` (40-configs.sh:294), no existence/`--force` guard → clobbers consumer's hand-tuned config on re-install, bypassing `copy_safe`. FIX: mirror copy_safe's WRITE guard. CONFIRMED (copy_safe skip-if-exists verified lib.sh:79).
+- **C2** (spec Critical = quality Imp#4 = impl judgment #5) — emit gate (`_ws_lines`=conventional dirs) ≠ wire gate (`AIF_MONOREPO_SIG`=manifest key); diverges both ways incl. working→broken regression on `"workspaces":["client","server"]`. FIX: 70-deps gates on artifact-presence `[ -f scripts/run-mutation.sh ]`. Amends plan GC5/Task2 (A1). CONFIRMED (`_workspace_pkg_dirs` = conventional-dir-only, lib.sh:451-463).
+- **I1** — non-short-circuit aggregation tested by static grep only. FIX: functional stub-stryker test.
+- **I2** — emit sits after `unknown) continue` → skipped for stack-`unknown` workspaces w/ vitest+tsconfig. FIX: hoist emit above the stack `case` (plan A2). CONFIRMED (emit at 268-301, after continue).
+- **I3** — `Prior-art: skipped —` on a capability commit is the anti-pattern (passes gate only because files are under `templates/`). NOT a code fix: handled at Task 3 (SSOT entry) + PR-body citation of TD-1. Branch is local-only.
+- **Minors** M1 (`$schema` `./`→`../`), M2 (packageManager→detect_pm, plan A4), M3 (JSON-escape node substitution), M4 (test coverage: vitest-missing half + `set -euo pipefail` assertion), M5 (f20:48 stray `)`). All batched into the fix wave.
+- **M6** (no CI shellcheck on `run-mutation.sh.tmpl`) — real but a separate `.sh.tmpl`-gating concern → morning observation, not this PR.
