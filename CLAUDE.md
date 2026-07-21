@@ -105,27 +105,29 @@ When working on an agreed scope (a defined umbrella, batch, or single-concern PR
 
 **Who classifies:** the senior interactive session (the top-tier model working with the operator) decides the tier at the moment of dispatch — a judgment, never an automated classifier. Building a «simple vs complex» auto-detector would be `#parallel-evolution-creep` over a judgment call; per [attention-is-not-a-mechanism.md §1](.claude/rules/attention-is-not-a-mechanism.md), a judgment may be the decision AUTHORITY, never faked as a mechanical gate. This section exists so the classification is applied by **fixed criteria**, not re-invented per task.
 
+**Tiers are RELATIVE capability tiers, not hard-coded models** (same posture as [night-mode/SKILL.md §1](.claude/skills/night-mode/SKILL.md), the SSOT for the tier→model instantiation — the window slides to whatever the active harness offers, so this stays AI-agnostic). This section owns the *criteria*; night-mode + the aif runtime profile config own *which model fills which tier*. Roles below: **top tier** = the strongest reasoner (plans complex work, reviews from above); **executor tier** = the cheaper strong-agentic model (plans simple work, implements, reviews from below). *Current instantiation on this operator's stack (2026-07, NOT load-bearing — lives in the profile config, not here): top = Opus, executor = GLM.*
+
 **Two questions, three tiers:**
 
 1. **Is the change ≤~5 lines in a single file at a known exact path?**
    → **TIER 0 — tiny.** The senior does the `Edit` itself. No kickoff, no aif dispatch, no pipeline (forcing one is pure overhead). Mirrors the `orchestrator` skill's own SKIP rule.
 2. Otherwise — **does producing the PLAN require a design/architecture judgment** (choosing between approaches, a non-obvious «how», or an open «will this even work / what's the root cause»)?
-   - **NO — the «how» is already determined; the work is just voluminous/mechanical** → **TIER 1 — bulky-simple.** Dispatch **with** a `<!-- bridge-profile: GLM -->` header marker → the whole aif pipeline (plan + implement + review) runs on GLM.
-   - **YES — the plan itself needs judgment** → **TIER 2 — bulky-complex.** Dispatch **without** the marker → project defaults apply: **Opus plans**, GLM implements, GLM reviews from below.
+   - **NO — the «how» is already determined; the work is just voluminous/mechanical** → **TIER 1 — bulky-simple.** Dispatch **with** an `<!-- bridge-profile: <executor-tier profile name> -->` header marker → the whole aif pipeline (plan + implement + review) runs on the executor tier.
+   - **YES — the plan itself needs judgment** → **TIER 2 — bulky-complex.** Dispatch **without** the marker → project defaults apply: the **top tier plans**, the executor tier implements and reviews from below.
 
 **Criteria table (for fast, repeatable classification):**
 
 | Tier | Trigger (fixed criteria) | Who plans | Mechanic |
 |---|---|---|---|
 | 0 — tiny | ≤~5 lines, 1 file, exact path known, no ambiguity | — (no plan) | senior does `Edit` directly; no dispatch |
-| 1 — bulky-simple | many files/steps BUT the «how» is one determinable sentence: rename/move sweep, apply an established pattern across N sites, tests for already-specified behaviour, mechanical refactor (extract/inline), scaled doc/config edits | GLM | kickoff with `<!-- bridge-profile: GLM -->` |
-| 2 — bulky-complex | the plan requires a design decision: new module/architecture, data-model or API-shape choice, cross-cutting consequences, unknown root cause needing investigation, «is this the right approach» is open | Opus | kickoff, no marker (project defaults) |
+| 1 — bulky-simple | many files/steps BUT the «how» is one determinable sentence: rename/move sweep, apply an established pattern across N sites, tests for already-specified behaviour, mechanical refactor (extract/inline), scaled doc/config edits | executor tier | kickoff with `<!-- bridge-profile: <executor-tier profile name> -->` |
+| 2 — bulky-complex | the plan requires a design decision: new module/architecture, data-model or API-shape choice, cross-cutting consequences, unknown root cause needing investigation, «is this the right approach» is open | top tier | kickoff, no marker (project defaults) |
 
-**Tie-breaker (binding):** when unsure between Tier 1 and Tier 2, default to **Tier 2 (Opus plans)**. A wrong-but-cheap plan from the weaker tier costs a full re-do downstream; over-investing one planning pass is the cheaper error. This matches the project thesis «decisions with a real cost of error route to the stronger tier».
+**Tie-breaker (binding):** when unsure between Tier 1 and Tier 2, default to **Tier 2 (top tier plans)**. A wrong-but-cheap plan from the weaker tier costs a full re-do downstream; over-investing one planning pass is the cheaper error. This matches the project thesis «decisions with a real cost of error route to the stronger tier».
 
 **Discriminator in one line:** if you can state the «how» in a single sentence and the rest is expansion → Tier 1; if stating the «how» forces you to *choose* → Tier 2.
 
-The `bridge-profile` marker mechanic that Tier 1 relies on is shipped in `packages/runtime-bridge` (header-region-only parse in `kickoff.ts`, name→id resolution in `AifHandoffBackend.ts`); the per-mode project defaults Tier 2 relies on live in the aif runtime profile config (Plan→Opus, Review/Task→GLM).
+The `bridge-profile` marker mechanic that Tier 1 relies on is shipped in `packages/runtime-bridge` (header-region-only parse in `kickoff.ts`, name→id resolution in `AifHandoffBackend.ts` — it resolves an arbitrary profile *name*, not a hard-coded model); the per-mode project defaults Tier 2 relies on live in the aif runtime profile config (Plan→top tier, Review/Task→executor tier).
 
 ## Umbrella closure convention
 
