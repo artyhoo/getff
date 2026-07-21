@@ -55,9 +55,6 @@ The spike **removed the headline defect** (#1 plugin resolution is a non-bug on 
 ## Owner-forks (LOGGED, not decided — surfaced in morning report)
 - **OF-1 (surfaced, proceeding with default):** the spike flipped the diagnosis — #931's headline "plugin bug" is a stale-install non-bug; the real gap is the monorepo-emit capability (INC-2). Autonomous default taken: correct the public record + build INC-1/INC-2/INC-3 (all squarely "installer broken on pnpm monorepo" = the issue's actual title). This is a technical finding, not a taste fork, so night-mode says resolve autonomously — but the scope shift from "small bug-fix" to "new installer capability" is material enough that the operator should confirm the appetite in the morning. If the operator prefers minimal (correct record + INC-1 test + tell consumer), INC-2 can be dropped — logged here so the choice is visible, not silently made.
 
-## Owner-forks (LOGGED, not decided — surfaced in morning report)
-- (none yet)
-
 ## BLOCKED increments
 - (none yet)
 
