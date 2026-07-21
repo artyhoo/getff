@@ -210,6 +210,12 @@ do_python_lane() {
   # firing proof is an install-flow concern (parity with 99-finalize.sh's capstone self-verify).
   # shellcheck source=setup.d/45-python.sh
   source "$PKG_ROOT/setup.d/45-python.sh"
+  # Emit the python rules-lock variant (machine-reproducibility record of the DELIVERED rule set —
+  # ledger 2 the rule-tests skill reads: emittedAt/sourceFingerprint). Rides the .getff/ namespace the
+  # seam already owns (NO new delivery channel). Skipped under --dry-run (nothing was written to lock).
+  if [ "$DRY_RUN" != "--dry-run" ]; then
+    _py_write_rules_lock
+  fi
   # Post-install firing self-check: always-run with graceful degrade (matches the 99-finalize.sh
   # capstone UX — no separate opt-in flag; an absent tool degrades loudly, never silently green).
   # Skipped only under --dry-run (nothing was written to fire against).
