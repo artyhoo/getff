@@ -14,6 +14,10 @@ describe('parseEcosystemName', () => {
     expect(parseEcosystemName('npm:foo')).toEqual({ ecosystem: 'npm', bareName: 'foo' });
   });
 
+  it('pip: prefix parses to {ecosystem:"pip", bareName} (LG-S4 — pipAdapter shipped)', () => {
+    expect(parseEcosystemName('pip:requests')).toEqual({ ecosystem: 'pip', bareName: 'requests' });
+  });
+
   it('unprefixed name defaults to {ecosystem:"npm", bareName:name} (implicit back-compat)', () => {
     expect(parseEcosystemName('drizzle-orm')).toEqual({ ecosystem: 'npm', bareName: 'drizzle-orm' });
   });
@@ -27,6 +31,6 @@ describe('parseEcosystemName', () => {
   });
 
   it('a bare name that happens to contain ":" but is not a known-ecosystem prefix is treated as unknown', () => {
-    expect(parseEcosystemName('pip:requests')).toEqual({ ecosystem: 'unknown', bareName: 'pip:requests' });
+    expect(parseEcosystemName('gem:rails')).toEqual({ ecosystem: 'unknown', bareName: 'gem:rails' });
   });
 });
