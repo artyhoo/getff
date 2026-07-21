@@ -11,11 +11,13 @@
  *
  * Why F is BLOCKED today: `ackFilePath` is DECLARED once (the `ResolveCtx` field
  * in allowlist-resolver.ts) and READ once (the `loadAckFile` call there), and
- * NOWHERE else across the research/synthesizer sources. The only two production
- * `ResolveCtx` construction literals — both in the plan-parsing path — construct
- * `{ root, adapter }` and never thread ackFilePath:
- *     synthesizer/cli.ts          validateResearchPlan(parsed, { root: args.root, adapter: npmAdapter })
- *     synthesizer/file-clients.ts validateResearchPlan(parsed, { root: process.cwd(), adapter: npmAdapter })
+ * NOWHERE else across the research/synthesizer sources. Since ecosystem-wiring W2
+ * the sole production `ResolveCtx` construction literals live in ONE factory,
+ * `synthesizer/resolve-ctx.ts` (`resolveCtxForRoot`), which returns
+ * `{ root, adapter: <npm|cargo|pip>Adapter }` and never threads ackFilePath; the
+ * two plan-parsing call sites pass that factory's result verbatim:
+ *     synthesizer/cli.ts          validateResearchPlan(parsed, resolveCtxForRoot(args.root))
+ *     synthesizer/file-clients.ts validateResearchPlan(parsed, resolveCtxForRoot(process.cwd()))
  * and research-plan.schema.json is `additionalProperties:false`, so a plan cannot
  * smuggle an `ackFilePath` key through --from-research either.
  *
@@ -79,10 +81,17 @@ function trackedResearchSynthSources(): { rel: string; abs: string }[] {
     .filter(({ abs }) => existsSync(abs));
 }
 
-/** I2 detector: a ResolveCtx object literal passed to validateResearchPlan that
- *  carries an `ackFilePath:` key. The two production literals are
- *  `{ root, adapter }` only — this matches the moment one grows the seam. */
-const VALIDATE_PLAN_ACKFILEPATH_RE = /validateResearchPlan\s*\([^)]*\{[^}]*\backFilePath\s*:/s;
+/** I2 detector: a ResolveCtx construction object literal that carries an
+ *  `ackFilePath:` key. Keyed on the ctx SHAPE (a brace group carrying BOTH an
+ *  `adapter:` value-key AND an `ackFilePath:` value-key, in either order) rather
+ *  than the enclosing `validateResearchPlan(...)` call — so it catches the W2
+ *  factory return `{ root, adapter: X, ackFilePath: Y }` in resolve-ctx.ts AND a
+ *  future reintroduced inline literal at a call site alike. The `:` (not `?:`)
+ *  requirement is what keeps the `ResolveCtx` interface's own `adapter?:` /
+ *  `ackFilePath?:` optional-property declaration in allowlist-resolver.ts from
+ *  matching (that home file is excluded from the scan below regardless). */
+const RESOLVE_CTX_ACKFILEPATH_RE =
+  /\{(?=[^{}]*\badapter\s*:)(?=[^{}]*\backFilePath\s*:)[^{}]*\}/s;
 
 describe('F-tripwire — ackFilePath plan-containment (research-source-trust.md §5 item 3)', () => {
   const sources = trackedResearchSynthSources();
@@ -99,6 +108,7 @@ describe('F-tripwire — ackFilePath plan-containment (research-source-trust.md 
       expect(rels).toContain('packages/core/research/validate-plan.ts');
       expect(rels).toContain('packages/core/synthesizer/cli.ts');
       expect(rels).toContain('packages/core/synthesizer/file-clients.ts');
+      expect(rels).toContain('packages/core/synthesizer/resolve-ctx.ts');
     },
   );
 
@@ -123,64 +133,65 @@ describe('F-tripwire — ackFilePath plan-containment (research-source-trust.md 
     },
   );
 
-  // ── I2: CONSTRUCTION — no validateResearchPlan(...) ctx literal threads ackFilePath ──
+  // ── I2: CONSTRUCTION — no production ResolveCtx literal threads ackFilePath ──
   it.skipIf(!POPULATED)(
-    'I2: no production validateResearchPlan(parsed, {...}) ctx literal carries an `ackFilePath:` key',
+    'I2: no production ResolveCtx construction literal carries an `ackFilePath:` key',
     () => {
       const offenders: string[] = [];
       for (const { rel, abs } of sources) {
-        if (VALIDATE_PLAN_ACKFILEPATH_RE.test(readFileSync(abs, 'utf8'))) offenders.push(rel);
+        if (rel === ACKFILEPATH_HOME) continue; // the ResolveCtx type-def home legitimately declares both fields (`adapter?:`/`ackFilePath?:`)
+        if (RESOLVE_CTX_ACKFILEPATH_RE.test(readFileSync(abs, 'utf8'))) offenders.push(rel);
       }
       expect(
         offenders,
         `A production ResolveCtx construction threaded a value into ackFilePath in the plan-parsing ` +
           `path:\n  ${offenders.join('\n  ')}\n` +
-          `The two production literals (synthesizer/cli.ts, synthesizer/file-clients.ts) must stay ` +
+          `The production construction literals (synthesizer/resolve-ctx.ts resolveCtxForRoot) must stay ` +
           `{ root, adapter } only. An attacker controls the --from-research plan; ackFilePath is read ` +
           `verbatim into loadAckFile with no path-containment. Add the containment F names first.`,
       ).toHaveLength(0);
     },
   );
 
-  // ── Paired negative — proves I2 DISCRIMINATES on the REAL call-graph shape ──
-  // The positive arm is NOT a synthetic string — it is the REAL synthesizer/cli.ts
-  // construction line read live from the working tree, with `ackFilePath` threaded
-  // in exactly as an attacker-reachable --from-research change would do it.
+  // ── Paired negative — proves I2 DISCRIMINATES on the REAL construction shape ──
+  // The positive arm is NOT a synthetic string — it is the REAL
+  // synthesizer/resolve-ctx.ts construction literal read live from the working
+  // tree (the sole production ResolveCtx literal since W2), with `ackFilePath`
+  // threaded in exactly as an attacker-reachable --from-research change would.
   describe('paired negative — I2 is non-vacuous on the real construction shape', () => {
-    const CLI_REL = 'packages/core/synthesizer/cli.ts';
-    const CLI_ABS = resolve(REPO_ROOT, CLI_REL);
-    const cliPresent = existsSync(CLI_ABS);
+    const CTX_REL = 'packages/core/synthesizer/resolve-ctx.ts';
+    const CTX_ABS = resolve(REPO_ROOT, CTX_REL);
+    const ctxPresent = existsSync(CTX_ABS);
+    const CLEAN_LITERAL = '{ root, adapter: npmAdapter }';
 
-    it.skipIf(!cliPresent)(
-      'sanity: the real synthesizer/cli.ts construction line exists and is currently clean',
+    it.skipIf(!ctxPresent)(
+      'sanity: the real synthesizer/resolve-ctx.ts construction literal exists and is currently clean',
       () => {
-        const text = readFileSync(CLI_ABS, 'utf8');
-        expect(text).toMatch(
-          /validateResearchPlan\(parsed,\s*\{\s*root:\s*args\.root,\s*adapter:\s*npmAdapter\s*\}\)/,
-        );
-        expect(VALIDATE_PLAN_ACKFILEPATH_RE.test(text)).toBe(false); // clean today
+        const text = readFileSync(CTX_ABS, 'utf8');
+        expect(text).toContain(CLEAN_LITERAL);
+        expect(RESOLVE_CTX_ACKFILEPATH_RE.test(text)).toBe(false); // clean today
       },
     );
 
-    it.skipIf(!cliPresent)(
-      'POSITIVE arm: threading ackFilePath into the REAL cli.ts literal trips the detector (RED proof)',
+    it.skipIf(!ctxPresent)(
+      'POSITIVE arm: threading ackFilePath into the REAL resolve-ctx.ts literal trips the detector (RED proof)',
       () => {
-        const text = readFileSync(CLI_ABS, 'utf8');
+        const text = readFileSync(CTX_ABS, 'utf8');
         const attacked = text.replace(
-          'validateResearchPlan(parsed, { root: args.root, adapter: npmAdapter })',
-          'validateResearchPlan(parsed, { root: args.root, adapter: npmAdapter, ackFilePath: (parsed as any).ackFilePath })',
+          CLEAN_LITERAL,
+          '{ root, adapter: npmAdapter, ackFilePath: root }',
         );
-        // Guard: the replace must have matched the real line, else the proof is
-        // vacuous (drift in cli.ts renamed the literal).
+        // Guard: the replace must have matched the real literal, else the proof is
+        // vacuous (drift in resolve-ctx.ts renamed the literal).
         expect(attacked).not.toBe(text);
-        expect(VALIDATE_PLAN_ACKFILEPATH_RE.test(attacked)).toBe(true);
+        expect(RESOLVE_CTX_ACKFILEPATH_RE.test(attacked)).toBe(true);
       },
     );
 
-    it.skipIf(!cliPresent)(
-      'anti-tautology: the untouched real cli.ts literal is NOT flagged (detector is specific)',
+    it.skipIf(!ctxPresent)(
+      'anti-tautology: the untouched real resolve-ctx.ts literal is NOT flagged (detector is specific)',
       () => {
-        expect(VALIDATE_PLAN_ACKFILEPATH_RE.test(readFileSync(CLI_ABS, 'utf8'))).toBe(false);
+        expect(RESOLVE_CTX_ACKFILEPATH_RE.test(readFileSync(CTX_ABS, 'utf8'))).toBe(false);
       },
     );
   });
