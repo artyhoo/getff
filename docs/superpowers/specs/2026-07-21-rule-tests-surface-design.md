@@ -235,6 +235,12 @@ state; the gap is a missing router and a missing reader):
   `rules-lock.<framework>.json` `emittedAt`/`sourceFingerprint` + research-plan `fetchedAt`
   (ledger 2 — all three values are write-only today; this skill is their first reader). On
   consent it routes to the regeneration procedure (rule-research → `./setup --full` → verify).
+  That route COMPOSES with tool-bootstrapping exactly as the existing stack does
+  (agents/rule-researcher.md: "stage 1 acquires the research tools, stage 2 uses them"):
+  tool-bootstrapping provisions the research channels (context7/deepwiki MCP) that rule-research
+  rides, with rule-research's own WebSearch/WebFetch fallback when they are absent. rule-tests
+  itself needs no research channels (write-half works on already-generated material; verify-half
+  is tool verdicts) — pulling them in would duplicate stage 1, against Q2.
   The D3 falsifier flip (consent offers systematically ignored → opt-out auto) is implemented, if
   ever, as a skill-config default — never in the hook.
 - **Honest limits (stated in the shipped protocol doc, quoted at offer time):** the signal covers the deps-drift staleness class
