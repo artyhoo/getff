@@ -199,6 +199,17 @@ if [ -n "$_ws_lines" ]; then
   echo "▶ Multi-stack monorepo: placing per-workspace ESLint configs"
   _ws_placed=0            # count of workspaces that received a config (aggregate loud-fail gate below)
   _ws_unknown_report=""   # accumulate still-unknown workspaces to name in the loud-fail message
+  # #931 PR-2: per-workspace Stryker mutation config, emitted alongside the eslint placement
+  # below (Global Constraints 1/3/4/6 — design plan). mkdir ONCE unconditionally, mirroring the
+  # unconditional mkdir_safe style already used in this file (e.g. scripts/, eslint-rules-local/)
+  # rather than a lazily-created dir — harmless when zero workspaces qualify (the wrapper globs
+  # stryker/*.json and skips gracefully on empty). Node-optional: the emit is a Node string
+  # substitution (consistent with patch_stryker_package_manager below); if node is absent, skip
+  # emission entirely with one WARN rather than per-workspace spam or a crash.
+  mkdir_safe "$PROJECT_ROOT/stryker"
+  _stryker_node_ok=0
+  command -v node >/dev/null 2>&1 && _stryker_node_ok=1
+  [ "$_stryker_node_ok" -eq 1 ] || echo "  ⚠ node not found — skipping per-workspace Stryker config emit (wire stryker/<workspace>.json manually per INSTALL.md)" >&2
   while IFS=$'\t' read -r _ws_dir _ws_stack _ws_prov; do
     [ -n "$_ws_dir" ] || continue
     _ws_abs="$PROJECT_ROOT/$_ws_dir"
@@ -253,6 +264,41 @@ if [ -n "$_ws_lines" ]; then
         > "$_ws_abs/eslint-rules-local/index.mjs"
       echo "  ✓ $_ws_dir/eslint-rules-local/index.mjs stub → root"
     fi
+
+    # #931 PR-2: per-workspace Stryker config — targets this workspace's EXISTING vitest config
+    # + tsconfig.json (Global Constraint 4: never creates them). Detection order vitest.config.ts
+    # → .mts → .js (same constraint). Missing either → skip with a re-checkable stderr marker,
+    # never exit 1 (mirrors the `unknown` stack marker above at the top of this case block).
+    if [ "$_stryker_node_ok" -eq 1 ]; then
+      _stryker_vcfg=""
+      for _svc in vitest.config.ts vitest.config.mts vitest.config.js; do
+        [ -f "$_ws_abs/$_svc" ] && _stryker_vcfg="$_svc" && break
+      done
+      if [ -n "$_stryker_vcfg" ] && [ -f "$_ws_abs/tsconfig.json" ]; then
+        _ws_slug=$(printf '%s' "$_ws_dir" | tr '/' '-')
+        if [ "$DRY_RUN" = "--dry-run" ]; then
+          echo "  [dry-run] would emit: stryker/$_ws_slug.json"
+        else
+          AIF_STRYKER_TMPL="$PKG_ROOT/templates/ts-server/stryker.package.json.tmpl" \
+          AIF_STRYKER_OUT="$PROJECT_ROOT/stryker/$_ws_slug.json" \
+          AIF_WS_DIR="$_ws_dir" \
+          AIF_WS_SLUG="$_ws_slug" \
+          AIF_VITEST_CFG="$_ws_dir/$_stryker_vcfg" \
+          node -e '
+            const fs = require("fs");
+            const tmpl = fs.readFileSync(process.env.AIF_STRYKER_TMPL, "utf8");
+            const out = tmpl
+              .split("__WS_DIR__").join(process.env.AIF_WS_DIR)
+              .split("__VITEST_CONFIG__").join(process.env.AIF_VITEST_CFG)
+              .split("__WS_SLUG__").join(process.env.AIF_WS_SLUG);
+            fs.writeFileSync(process.env.AIF_STRYKER_OUT, out);
+          '
+          echo "  ✓ stryker/$_ws_slug.json (vitest: $_ws_dir/$_stryker_vcfg, tsconfig: $_ws_dir/tsconfig.json)"
+        fi
+      else
+        echo "  ⚠ $_ws_dir: no vitest config (tried vitest.config.ts/.mts/.js) or no tsconfig.json — Stryker config NOT emitted for this workspace (re-checkable marker; not exit 1)" >&2
+      fi
+    fi
   done <<< "$_ws_lines"
   # P0.3 (ultrareview) AGGREGATE loud-fail: the multi-stack path ran but placed ZERO configs — every
   # workspace stayed `unknown` after own-signal + explicit-arg + root-fallback. A silent zero-config
@@ -279,6 +325,12 @@ if [ -n "$_ws_lines" ]; then
   # root, AFTER the per-workspace loop (NOT inside it — that would copy_safe to the same root path N
   # times). Mirrors the flat-path placement at the ts-server/react-* branches below. (kickoff ⚑M2)
   copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
+  # #931 PR-2: the test:mutation runner for the per-workspace stryker/*.json configs emitted
+  # above. Placed ONCE after the loop (mirrors the .dependency-cruiser.cjs placement immediately
+  # above — not inside the per-workspace loop, which would copy_safe to the same root path N
+  # times). setup.d/70-deps.sh wires "test:mutation" to this script on monorepo detection.
+  copy_safe "$PKG_ROOT/templates/ts-server/run-mutation.sh.tmpl" "$PROJECT_ROOT/scripts/run-mutation.sh"
+  chmod_safe +x "$PROJECT_ROOT/scripts/run-mutation.sh" 2>/dev/null || true
 else
   # ── Flat / single-root repo: original single-stack behavior unchanged ──────────────────────────
   echo "▶ Stack-specific templates ($STACK) → project root"

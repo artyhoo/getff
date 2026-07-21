@@ -1,0 +1,58 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "packageManager": "npm",
+  "plugins": [
+    "@stryker-mutator/vitest-runner",
+    "@stryker-mutator/typescript-checker"
+  ],
+  "testRunner": "vitest",
+  "vitest": {
+    "dir": "__WS_DIR__",
+    "configFile": "__VITEST_CONFIG__"
+  },
+  "coverageAnalysis": "perTest",
+  "reporters": ["html", "progress", "clear-text"],
+  "htmlReporter": {
+    "fileName": "reports/mutation/__WS_SLUG__/index.html"
+  },
+  "mutate": [
+    "__WS_DIR__/src/**/*.{ts,tsx}",
+    "!**/*.unit.{ts,tsx}",
+    "!**/*.integration.{ts,tsx}",
+    "!**/*.audit.{ts,tsx}",
+    "!**/*.e2e.{ts,tsx}",
+    "!**/*.stories.{ts,tsx}",
+    "!**/*.{test,spec}.{ts,tsx}",
+    "!**/*.d.ts",
+    "!**/index.ts",
+    "!**/generated/**",
+    "!**/app/**/layout.tsx",
+    "!**/app/**/page.tsx",
+    "!**/app/**/loading.tsx",
+    "!**/app/**/error.tsx",
+    "!**/app/**/not-found.tsx",
+    "!**/server.ts",
+    "!**/config/env.ts"
+  ],
+  "checkers": ["typescript"],
+  "tsconfigFile": "__WS_DIR__/tsconfig.json",
+  "thresholds": {
+    "high": 85,
+    "low": 70,
+    "break": 60
+  },
+  "incremental": true,
+  "incrementalFile": "reports/stryker-incremental-__WS_SLUG__.json",
+  "concurrency": 4,
+  "timeoutMS": 60000,
+  "disableTypeChecks": "__WS_DIR__/{src,tests}/**/*.{ts,tsx}",
+  "ignorePatterns": [
+    "dist/**",
+    "coverage/**",
+    ".stryker-tmp/**",
+    "node_modules/**",
+    ".next/**",
+    "reports/**"
+  ],
+  "logLevel": "info"
+}

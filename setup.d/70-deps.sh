@@ -32,8 +32,17 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
     #   2. else a root src/ present → src
     #   3. else → "." (cwd always exists; never "Can't open"). Exotic-named workspace roots fall to
     #      (2)/(3); a one-line arch:check edit lets the consumer point at their exact roots.
-    AIF_ARCH_TARGET=""
+    # #931 PR-2: test:mutation must route to the per-package wrapper on a pnpm/npm-workspaces
+    # monorepo — setup.d/40-configs.sh's multi-stack branch emits stryker/*.json + scripts/
+    # run-mutation.sh there, never a root stryker.config.json, so a flat `stryker run` would fail
+    # "config not found". Same workspace signal AIF_ARCH_TARGET already tests below — compute
+    # once, reuse for both (SSOT; avoids the two conditions drifting apart).
+    AIF_MONOREPO_SIG=0
     if [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ] || grep -q '"workspaces"' "$PROJECT_ROOT/package.json" 2>/dev/null; then
+      AIF_MONOREPO_SIG=1
+    fi
+    AIF_ARCH_TARGET=""
+    if [ "$AIF_MONOREPO_SIG" = "1" ]; then
       for _d in apps packages services libs modules; do
         [ -d "$PROJECT_ROOT/$_d" ] && AIF_ARCH_TARGET="$AIF_ARCH_TARGET $_d"
       done
@@ -42,11 +51,16 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
     if [ -z "$AIF_ARCH_TARGET" ]; then
       if [ -d "$PROJECT_ROOT/src" ]; then AIF_ARCH_TARGET="src"; else AIF_ARCH_TARGET="."; fi
     fi
-    AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" AIF_STACK="$STACK" node -e '
+    AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" AIF_STACK="$STACK" AIF_MONOREPO="$AIF_MONOREPO_SIG" node -e '
       const fs = require("fs");
       const p = process.env.AIF_PKG;
       const pkg = JSON.parse(fs.readFileSync(p, "utf8"));
       pkg.scripts = pkg.scripts || {};
+      // #931 PR-2: on a pnpm/npm-workspaces monorepo, the multi-stack branch of setup.d/40-configs.sh
+      // emits stryker/*.json + scripts/run-mutation.sh (never a root stryker.config.json) — route
+      // test:mutation to that wrapper there; the flat/single-root branch still ships one root
+      // stryker.config.json, so `stryker run` (no args) stays correct for it.
+      const isMonorepo = process.env.AIF_MONOREPO === "1";
       const want = {
         "lint": "eslint . --max-warnings=0",
         "lint:fix": "eslint . --fix",
@@ -57,8 +71,8 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
         "test:watch": "vitest",
         "test:coverage": "vitest run --coverage",
         "test:integration": "vitest run -- --include 'src/**/*.integration.{ts,tsx}'",
-        "test:mutation": "stryker run",
-        "test:mutation:incremental": "stryker run --incremental",
+        "test:mutation": isMonorepo ? "bash scripts/run-mutation.sh" : "stryker run",
+        "test:mutation:incremental": isMonorepo ? "bash scripts/run-mutation.sh --incremental" : "stryker run --incremental",
         "arch:check": "depcruise --config .dependency-cruiser.cjs " + (process.env.AIF_ARCH_TARGET || "src"),
         "audit:docs": "./scripts/audit-ai-docs.sh",
         "check:globs": "bash scripts/check-rule-globs.sh",
