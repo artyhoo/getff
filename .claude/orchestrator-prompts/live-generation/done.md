@@ -1,6 +1,6 @@
 # live-generation — DONE
 
-- Final PR: #<fill at PR creation>
+- Final PR: #1055
 - Closed: <fill at merge>
 - Summary: WORKING live rule-generation across three render stacks (js/ts · rust · python) as three thin per-stack adapters over one shared generation core. LG-S1 (#1005) built the neutral `live-research→ConventionNode` bridge + the python adapter; LG-S2 (#1006) confirmed-and-framed the shipped js/ts ESLint-direct adapter (#805/#852); LG-S3 (#1010) added the rust clippy adapter (local live-fire RED + CI render/drift). LG-S4 (this PR) closes the umbrella: a third `EcosystemAdapter` (`packages/core/research/ecosystem-python.ts`, `pipAdapter`) deriving python Tier-1 doc-source trust from `pyproject.toml` (PEP 621/508 + Poetry) + a root-local venv's `.dist-info/METADATA` (`Name:`-field match, realpath-contained, fail-closed), UNWIRED like the cargo adapter, with an `ecosystem-unwired-debt.test.ts` tripwire (strict `unwired === BASELINE`, BASELINE=2) making the wiring debt mechanically visible; `'pip'` added to `KNOWN_ECOSYSTEM_PREFIXES`; INSTALL-FOR-AI.md venv-convention note; SSOT #223 (ADAPT #197/#188 onto pyproject/dist-info).
 
