@@ -47,12 +47,14 @@ by adversarial review plus live firing proofs:
   mislabel on the cargo lock (W4, fix `32d52a37d` — excluded from arm-hood with rationale, §3
   preamble).
 
-The loop kept paying within the same session: W5's adversarial review (PR pending at authoring
-time) reproduced two more MAJORs in the same glue class — a delivered-set change on a PLAIN
-pass (a researched-rule join) that the lock's overwrite-flag guard could not see (the lock lied
-again, one guard-generation later), and an unsanitized record-derived id used as a filesystem
-path (arbitrary-write traversal, both attacks reproduced at `rule-bootstrap-cli.ts:167`). Both
-land as arms below (D1 strengthened; B2).
+The loop kept paying within the same session: W5's adversarial review (PR #1082, branch
+`worktree-ecosystem-wiring-w5` — a THIRD citation regime: W5 claims cite that PR/branch, not
+the census and not the merged PRs) reproduced two more MAJORs in the same glue class — a
+delivered-set change on a PLAIN pass (a researched-rule join) that the lock's overwrite-flag
+guard could not see (the lock lied again, one guard-generation later), and an unsanitized
+record-derived id used as a filesystem path (arbitrary-write traversal, both attacks
+reproduced; fixed in #1082 with slug validation + realpath containment). Both land as arms
+below (D1 strengthened; B2).
 
 The economics: defects concentrate in the corners (REFUSE cell, flag paths, degraded hosts,
 polyglot repos), and each new ecosystem re-pays the full adversarial-review cost while still
@@ -80,13 +82,13 @@ is a conformance-arm pointer, never a second change-control authority over the s
 | F2 | `ResolveCtx` — `{ root; adapter?; ackFilePath? }`; absent adapter ⇒ Tier-1 always misses | `allowlist-resolver.ts:164-171`, back-compat `:190-196` | The optional-adapter shape + fail-closed default. |
 | F3 | `tier1For` host-derivation pipeline: prefix dispatch → direct-dep gate → `[homepage, repository]` → https-host extract → canonicalize → reject IP / single-label / punycode / multi-tenant apex | `allowlist-resolver.ts:189-243` | The behavioural contract every adapter's outputs must survive. Adapters feed it; they never re-implement or bypass it. |
 | F4 | `<ecosystem>:<bareName>` naming + `KNOWN_ECOSYSTEM_PREFIXES`; unknown prefix ⇒ `'unknown'` fail-closed | `packages/core/research/ecosystem-name.ts:22`, `:31-45` | The prefix scheme. Adding a family extends the set — a jig checklist item, never an adapter-local parser. |
-| F5 | Typed-const declaration idiom `export const X: EcosystemAdapter = {` | `ecosystem-npm.ts:56`, `ecosystem-cargo.ts:364`, `ecosystem-python.ts:216` | The idiom IS contract: two tripwires regex-detect adapters via it (`ecosystem-adapter-precondition.test.ts:79`; `ecosystem-unwired-debt.test.ts:~57`). A stamped adapter MUST use it verbatim. |
-| F6 | Guard family: `isUnsafeDepName` on the NAME surface (mandatory, every adapter); `resolvedWithinRoot` realpath containment on the VALUE surface (per path-resolving adapter) | precondition test population; gap documented in `research-source-trust.md` §5 item 2 | NAME guard is population-enforced; VALUE guard is adapter-local and must be re-implemented per path-resolving adapter — backed by arm B2 (paired path-escape fixtures per path-resolving surface), no longer a bare checklist item. |
+| F5 | Typed-const declaration idiom `export const X: EcosystemAdapter = {` | `ecosystem-npm.ts:56`, `ecosystem-cargo.ts:364`, `ecosystem-python.ts:216` | The idiom IS contract: two tripwires regex-detect adapters via it (`ecosystem-adapter-precondition.test.ts:79`; `ecosystem-unwired-debt.test.ts:~57`). A stamped adapter MUST use it verbatim (gate = arm H3 population-equality, not prose). |
+| F6 | Guard family: `isUnsafeDepName` on the NAME surface (mandatory, every adapter); `resolvedWithinRoot` realpath containment on the VALUE surface (per path-resolving adapter) | precondition test population; gap documented in `research-source-trust.md` §5 item 2 | NAME guard is population-enforced; VALUE guard is adapter-local and must be re-implemented per path-resolving adapter — backed by arm B2 for KNOWN surfaces; new-surface births are the §5 review protocol's trust dimension (sentinel = recorded gap, B2 row). |
 | F7 | Delivery-cell grammar: fresh copy / structural-merge-or-REFUSE / REFUSE + namespaced reference / always-written bans target / idempotent re-run / namespaced consumer CI workflow / `.override.md` refresh escape | `setup.d/45-python.sh:10-38` (matrix), `:73-79`, `:85-145`, `:148-184`, `:187-258`, `:292-329` | The cell taxonomy and REFUSE-LOUDLY semantics. Cell file names vary per family; the grammar does not. |
 | F8 | Firing self-check shape: plant violation in `mktemp -d` ONLY, assert delivered gates fire RED, absent tool ⇒ LOUD degrade with exact manual command, rc=0 always | `setup.d/45-python.sh:340-412`; wired at `install.sh:217` | The proof-of-enforcement cell ([attention-is-not-a-mechanism.md §1](../../../.claude/rules/attention-is-not-a-mechanism.md)). Every lane ships an equivalent. |
 | F9 | Snapshot byte-identity harness + per-stack baselines; volatile artefacts excluded per-file — INHERITED (authority = the snapshot harness itself) | `tests/install-sh/snapshot.sh:38-62`, python rows `:239-250` | The fingerprint format and the exclusion discipline (§3 arm C3). New lane = one dispatch block + captured baselines. |
 | F10 | CI-arm exact-pin posture, framework + consumer mirrored pin strings bump together — INHERITED (authority = [ci-tool-pinning.md] Rule A) | `.github/workflows/audit-self.yml:231-232`, `:241-242`; `setup.d/45-python.sh:320-322` | The two-surface pin-sync invariant (§3 arm P1). |
-| F11 | rules-lock schema parity: the JS/TS `RulesLock` field set `{schemaVersion, framework, version, ruleIds, <tool-bans>, emittedAt, sourceFingerprint}` is the cross-lane schema | W3 #1078 + W4 #1080 PR bodies («schema parity») | Schema FROZEN-by-parity across lanes; PLACEMENT stays FREE per §2.2. A lane drifting the field set breaks the future lock-reader before it exists. |
+| F11 | rules-lock schema parity: the JS/TS `RulesLock` field set `{schemaVersion, framework, version, ruleIds, <tool-bans>, emittedAt, sourceFingerprint}` is the cross-lane schema | W3 #1078 + W4 #1080 PR bodies («schema parity») | Schema FROZEN-by-parity across lanes; PLACEMENT stays FREE per §2.2. Gate = arm D3 (parses the emitted locks — PR-body authority alone was attention-dependent). |
 
 ### §2.2 FREE rows (vary per family; stage-delegable)
 
@@ -105,7 +107,7 @@ ctx factory `resolveCtxForRoot` (W2 #1076, replacing the inline literals at
 
 ## §3 The conformance suite
 
-Eighteen arms in eight groups. **Universal RED-provability requirement:** every arm MUST be
+Twenty-two arms in eight groups. **Universal RED-provability requirement:** every arm MUST be
 proven discriminating before it counts — RED-before-GREEN against a violating implementation or
 an inverted assertion, with paired positive+negative cases. The pairing is enforced at the jig's
 case-schema level: an arm with only green-path cases is REFUSED (ESLint RuleTester's mandatory
@@ -115,11 +117,12 @@ copy-only stub). **Arms are append-only:** every future incident lands as a perm
 same PR as its fix (operator decision 5).
 
 **Execution contexts** (each arm belongs to a primary context; §4 claims scope to these):
-`standing-CI` — deterministic re-run on every push once landed: A1, A2, B1, B2, C1, C2, C3, D1,
-D2, E1, E2, E3, P1, G1, G2, H1, H2. `per-PR-diff` — evaluated against a PR's changed-file set:
-G3. `consumer-install-time` (additional context) — E1/E2 also re-prove themselves at every
-consumer install as the shipped firing self-check (F8). The stamp-time human obligations (family
-classification, consumer-site census) are §5 advisor consult points, deliberately NOT arms.
+`standing-CI` — deterministic re-run on every push once landed: A1, A2, B1, B2, B3, C1, C2, C3,
+C4, D1, D2, D3, E1, E2, E3, P1, G1, G2, H1, H2, H3. `per-PR-diff` — evaluated against a PR's
+changed-file set: G3. `consumer-install-time` (additional context) — E1/E2 also re-prove
+themselves at every consumer install as the shipped firing self-check (F8). The stamp-time human
+obligations (family classification, consumer-site census) are §5 advisor consult points,
+deliberately NOT arms.
 
 **Excluded-with-rationale:** the W4 prose-mislabel minor (fix `32d52a37d`) is a
 documentation-tense accuracy incident — not deterministically arm-able without a paid-LLM prose
@@ -138,7 +141,8 @@ the append-only loop stays honest about its one exclusion.
 | Arm | Check | Origin | RED-proof |
 |---|---|---|---|
 | B1 `tier1-trust-poisoned-negative` | Adapter-derived Tier-1 host set proven live on the PRODUCTION entrypoint: authorized-host plan exit 0; poisoned-host plan refused exit 1 with the provenance error. | Standing invariant; executed W2 #1076 (scratch python + cargo consumers, both arms live) | The negative arm must actually fire; a trust check whose poisoned arm never runs is vacuous and RED. |
-| B2 `value-guard-containment` | Every record/plan-derived identifier or path used on the filesystem VALUE surface is validated (safe-slug format) AND realpath-contained inside its designated directory before any read/write; unknown ecosystem prefixes hit the F4 fail-closed branch. | `research-source-trust.md` §5 item 2 documented gap; reproduced live in W5 review (unsanitized `entryId` → arbitrary-write traversal, `rule-bootstrap-cli.ts:167`, both attacks reproduced) | Paired path-escape fixtures per path-resolving surface: traversal/separator id refused loudly (RED-provable), safe slug passes; unknown-prefix fixture must land in `'unknown'` fail-closed. |
+| B2 `value-guard-containment` | Every record/plan-derived identifier or path used on the filesystem VALUE surface is validated (safe-slug format) AND realpath-contained inside its designated directory before any read/write; unknown ecosystem prefixes hit the F4 fail-closed branch. **Honest population limit:** fixtures verify KNOWN surfaces; a newly-born path-resolving surface is caught by the §5 review protocol's trust dimension, not by this arm — a textual/registry sentinel for surface births is a recorded gap (`research-source-trust.md` §5 item 2) and a promotion trigger, not a shipped mechanism. | `research-source-trust.md` §5 item 2 documented gap; reproduced live in W5 review (unsanitized `entryId` → arbitrary-write traversal, fixed in PR #1082) | Paired path-escape fixtures per KNOWN path-resolving surface: traversal/separator id refused loudly (RED-provable), safe slug passes; unknown-prefix fixture must land in `'unknown'` fail-closed. |
+| B3 `direct-deps-only` | `listDirectDeps` returns DIRECT dependencies only — never the transitive closure. Transitive exclusion is the load-bearing trust assumption the resolver delegates to the adapter (`allowlist-resolver.ts:209-215`): a closure-listing adapter silently widens Tier-1 trust to every transitive dep's self-declared metadata. Family-specific manifests encode this differently (e.g. go `// indirect` entries / `go.sum` = full closure — verify at stamp time). | Cold top-down review 2026-07-22 (suite gap — no arm covered dep-gate width; B1 tests host trust only) | Paired fixture per family: a transitive-only dep with attacker-friendly metadata ⇒ Tier-1 MISS; listing it is RED. |
 
 ### §3.3 Delivery cells
 
@@ -147,6 +151,7 @@ the append-only loop stays honest about its one exclusion.
 | C1 `delivery-cell-matrix-complete` | Fresh \| idempotent re-run \| REFUSE/namespace cells all implemented AND individually tested; no untested cell. | `45-python.sh` grammar; W4 MAJOR lived precisely in the untested REFUSE corner | Each cell RED-before-GREEN vs a copy-only stub (python-delivery.test.sh precedent). |
 | C2 `no-consumer-manifest-mutation` | Consumer manifest + all pre-existing configs byte-identical before/after install, including under `--force`; integration content lands only under the namespaced dir. | W4 #1080 (`.getff/Cargo.lints.toml` reference file, never auto-edits `Cargo.toml`) | Hash-compare arm; any mutation is RED. |
 | C3 `snapshot-exclusion-no-drift-mask` | Snapshot exclusions listed per-file, never glob-wide; excluding a volatile artefact must not mask drift of deterministic artefacts. | W3 #1078 (lock excluded for `emittedAt`; empirically re-proved `*.yml` still fingerprinted) | Mutate one delivered rule/config byte with the exclusion in place ⇒ snapshot gate still RED; a mutation-swallowing exclusion is itself RED. |
+| C4 `no-orphan-residue` | Upgrading/refreshing a lane leaves no orphaned delivered artefacts: files delivered by a PRIOR version that the current version no longer delivers are swept (or loudly reported), never silently left active. | terraform-plugin-testing post-run residue sweep (§6 ADAPT — the borrowed pattern now has its arm); adjacent field-failure class C1/C2 do not cover | Fixture: deliver v1 with an extra rule, upgrade to v2 without it ⇒ the orphan is gone or loudly reported; a silently-surviving stale rule is RED. |
 
 ### §3.4 Lock integrity
 
@@ -154,6 +159,7 @@ the append-only loop stays honest about its one exclusion.
 |---|---|---|---|
 | D1 `lock-never-stale-on-any-pass` | The lock regenerates whenever the DELIVERED set may have changed — every overwrite flag path AND any join/augment path that mutates delivered artefacts on a plain pass. The skip guard must be CONTENT-AWARE (delivered-set fingerprint vs the lock's `sourceFingerprint`), never existence- or flag-only. | W3 #1078 MAJOR (fix `18336846c` — flag-path guard); W5 review MAJOR — reproduced one guard-generation later: a plain-pass researched-rule join changed the delivered set while the flag-only guard skipped | Change a source template ⇒ each overwrite invocation moves the fingerprint (RED stale → GREEN moved); author a new researched rule ⇒ a PLAIN re-run must move the lock too; a true no-change re-run stays byte-stable. |
 | D2 `no-silent-fingerprint-degrade` | Hash tool absent ⇒ documented fallback rungs + LOUD non-authoritative stderr warning; never a silent constant/empty fingerprint. | W3 #1078 MINOR (empty-string degrade; fixed with md5 rungs + `⚠ … non-authoritative`) | Strip all hash tools from PATH; silent stderr or constant fingerprint is RED. Lane-independent (lock writer is shell-level). |
+| D3 `lock-schema-parity` | Every lane's emitted rules-lock carries the F11 field set — parsed from the ACTUAL emitted JSON of each lane's scratch fixture and compared as sets (both lock writers are bash; exported TS types cannot gate them, only this arm can). | Cold top-down review 2026-07-22: F11 froze schema parity on PR-body authority alone — a frozen row with no checked artifact was attention-dependent | Drop or rename a field in one lane's writer ⇒ set-compare RED; the paired positive parses both shipped locks GREEN. |
 
 ### §3.5 Firing
 
@@ -183,6 +189,7 @@ the append-only loop stays honest about its one exclusion.
 |---|---|---|---|
 | H1 `baseline-debt-lockstep` | Adding an adapter increments the unwired-debt BASELINE; wiring decrements it — both atomically in the same PR, strict `===`. | Standing; executed W2 (2→0 in the wiring commit; `ecosystem-unwired-debt.test.ts:103` + prescription `:112-113`) | Mismatch in EITHER direction (debt re-growth or partial wiring) is RED. |
 | H2 `tripwire-predicate-no-conjunctive-narrowing` | Retargeting a security tripwire never adds conjunctive co-presence terms; it keys on the invariant-bearing token alone; every retarget ships non-vacuous arms proving previously-caught shapes still trip. | W2 #1076 MINOR (`ackFilePath:` ∧ `adapter:` conjunction missed adapter-less construction; broadened + 2 arms) | Replay the tripwire corpus INCLUDING token-absent constructions; an AND-term diff without a paired negative arm is RED. |
+| H3 `tripwire-population-equality` | Detectors that census the same population agree on it: the adapter-precondition IMPL regex (matches `satisfies`/`implements`/typed-const) and the unwired-debt census (typed-const only) must be set-equal over the adapter population — an off-idiom adapter entering one but escaping the other bypasses H1 with zero RED. This is also what makes F5's «MUST use the idiom verbatim» a gate instead of a checklist item. | Cold top-down review 2026-07-22 (`ecosystem-adapter-precondition.test.ts:78-80` vs `ecosystem-unwired-debt.test.ts:~56` populations already diverge in matching breadth) | Plant a `satisfies EcosystemAdapter` off-idiom adapter in a fixture ⇒ set-difference RED; idiom-conforming population GREEN. |
 
 ## §4 The two invocation contexts
 
@@ -279,6 +286,17 @@ pass over the companion pool (CC, AIF, oh-my-openagent) for a harness-agnostic a
 adapter conformance kit — the external sweep's recorded falsifier, not yet probed beyond the
 generic phrasing.
 
+**In-repo alternative architecture (cold-review find, 2026-07-22 — recorded fork DN-J1):**
+[zcode-parity-doctrine.md] §3 «2B-standardize» solved this exact defect class (template-shaped
+twin drift) STRUCTURALLY — single source template + generator, 85% byte-identical twins —
+rather than conformance-testing N hand re-implementations. Applied here: extract the F7/F8
+delivery-cell grammar into one shared shell library so each lane implements only its diffs.
+**Recorded resolution (default, operator veto cheap):** the J2 retrofit-run doubles as the
+drift probe — measure the actual shared-grammar drift between the shipped lanes
+(`45-python.sh` vs `46-cargo.sh`); non-trivial drift ⇒ J2 extracts the shared cell library
+(2B-standardize precedent); trivial drift ⇒ per-lane glue + suite as designed. Evidence-gated,
+not upfront — the decision cost is paid exactly once, at the moment J2 produces the data.
+
 ## §7 Family taxonomy + walls
 
 Adapters are stamped per ecosystem FAMILY, not per tool (operator decision 4). Family membership
@@ -321,6 +339,12 @@ test = a shared manifest standard, not brand names.
   intent is binding; no J-stage ships the machinery.
 - **Consumer-side full-jig runs are self-certified only** — the framework never presents them as
   stamped without the §4 give-back re-run.
+- **Arm maintenance policy** (append-only ≠ unbounded): when the standing battery exceeds ~30
+  arms OR standing-CI wall-clock for the suite exceeds the slowest existing shard, split by
+  group and demote never-fired arms per the peer catalogue-split/retirement criteria
+  ([ai-laziness-traps.md §5] catalogue-split trigger; reviewer-discipline §4 12-month
+  retirement shape). An arm retires to documented-history only after 12 incident-free months
+  AND its frozen row gaining a structural (type/lint-level) guard — never silently.
 
 ## §9 Implementation staging sketch
 
@@ -336,7 +360,7 @@ and the staging-placement rule (no stream dispatches until this spec's PR merges
   at first use, not as prose intent). New SSOT entry (conformance-kit problem class, §6
   negative finding) in the same capability commit, after the DeepWiki companion-pool residual
   runs. No behaviour change.
-- **J2 — conformance-suite assembly (no new runner).** Land the eighteen arms INSIDE the
+- **J2 — conformance-suite assembly (no new runner).** Land the twenty-two arms INSIDE the
   EXISTING suites — vitest under `packages/core/` (research/ + backends/ + principles/) and the
   `tests/install-sh` bash suites — so the §8 «no new runners» prohibition holds literally.
   Assembly inputs: the entry-lane + delivery cell-grid grammar (`python-entry-lane.test.sh`,
@@ -344,7 +368,12 @@ and the staging-placement rule (no stream dispatches until this spec's PR merges
   capability-matrix schema (E3). The universal valid+invalid pairing (§3) is enforced by a
   meta-check over the arm registry landed in the EXISTING principles suite (population
   sentinel included). Retrofit-run against the three wired lanes (npm/python/cargo) — findings
-  expected; each finding lands as a fix + its arm.
+  expected; each finding lands as a fix + its arm. The retrofit-run DOUBLES as the lane-glue
+  drift probe resolving fork DN-J1 (§6). **J2 close (fork DN-J2, default recorded):** one
+  NON-SHIPPING dry-stamp rehearsal of the go family in a scratch worktree — validates the
+  frozen contract against a genuinely new family BEFORE demand arrives (a too-narrow §2 is
+  discovered at rehearsal cost, not at consumer cost); nothing ships, the J3 demand gate for
+  ACTUAL stamping stands unchanged.
 - **J3 — first stamped family (demand-gated).** Executes when the first new-family demand
   arrives; **go is the pre-selected candidate** (§7 cost ranking — a ranking, not a demand
   signal; stamping ahead of demand would be build-ahead-of-need). The jig's own acceptance
@@ -415,5 +444,6 @@ and the staging-placement rule (no stream dispatches until this spec's PR merges
 [build-first-reuse-default.md §4]: ../../../.claude/rules/build-first-reuse-default.md
 [doc-authority-hierarchy]: ../../../.claude/rules/doc-authority-hierarchy.md
 [ai-laziness-traps.md §2]: ../../../.claude/rules/ai-laziness-traps.md
+[ai-laziness-traps.md §5]: ../../../.claude/rules/ai-laziness-traps.md
 [zcode-parity-doctrine.md]: ../../../.claude/rules/zcode-parity-doctrine.md
 [2026-07-21-rule-tests-surface-design.md]: 2026-07-21-rule-tests-surface-design.md
