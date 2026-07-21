@@ -87,6 +87,33 @@ describe('renderNpmDeclarative — routing (brief §2 contract)', () => {
     expect(oc?.kind === 'refused' && oc.code).toBe('FF7002');
   });
 
+  it('Rel-1: a syntax node carrying node.relational -> refused FF7001, no rendered entry leaks (OWNER-FORK-1 Option B, ir-unfreeze S3)', () => {
+    // SYNTAX_NODE has valid {selector,presence} params that would otherwise render — but a
+    // relational tree makes the node MORE than a flat esquery selector. The RelationalRule LEAF
+    // (RelationalHas.pattern) is an ast-grep metavariable pattern over PYTHON AST, not an esquery
+    // selector; there is no faithful ast-grep-pattern -> esquery translator, so refuse honestly
+    // and route to ast-grep (#212). Checked BEFORE isValidParams, so an otherwise-renderable
+    // node is still refused (closes the pre-S3 silent drop where the tree dropped into the config).
+    const node: ConventionNode = {
+      ...SYNTAX_NODE,
+      id: 'rel',
+      relational: { op: 'not', children: [{ op: 'has', pattern: 'x' }] },
+    };
+    const { outcomes, rules } = renderNpmDeclarative([node]);
+    const oc = outcomes.get('rel');
+    expect(oc?.kind).toBe('refused');
+    expect(oc?.kind === 'refused' && oc.code).toBe('FF7001');
+    expect(rules).toHaveLength(0);
+  });
+
+  it('Rel-2: nodeToSynthesizedRule throws on a relational node (exported projection is defense-in-depth against a silent tree-drop)', () => {
+    const node: ConventionNode = {
+      ...SYNTAX_NODE,
+      relational: { op: 'not', children: [{ op: 'has', pattern: 'x' }] },
+    };
+    expect(() => nodeToSynthesizedRule(node, { stack: [] })).toThrow();
+  });
+
   it('P1: a canonical syntax node -> rendered (surface 1 = the no-restricted-syntax config entry)', () => {
     const { outcomes, rules } = renderNpmDeclarative([SYNTAX_NODE]);
     const oc = outcomes.get('no-direct-process-env');

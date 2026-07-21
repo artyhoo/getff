@@ -77,6 +77,28 @@ describe('renderCargoClippy — paired negatives (routing)', () => {
     expect(toml).toContain('std::env::var');
   });
 
+  it('R-rel: node.relational present -> refused FF7001, EVEN when type-aware params look otherwise-bannable (OWNER-FORK-1 Option B, ir-unfreeze S3)', () => {
+    // FIXTURE_NODE is type-aware {kind:'method',path:'std::env::var'} — valid params that
+    // would otherwise render into disallowed-methods. A relational tree makes the node MORE
+    // than a qualified-name ban, which clippy.toml's flat disallowed-methods/-types/-macros
+    // vocabulary has ZERO surface for (no has/not/all/any). Checked BEFORE isValidParams, so
+    // this is a real refusal, not a silently-relational-blind render (the pre-S3 silent drop).
+    const { outcomes } = renderCargoClippy([
+      node({ id: 'r-rel', relational: { op: 'not', children: [{ op: 'has', pattern: 'x' }] } }),
+    ]);
+    const outcome = outcomes.get('r-rel');
+    expect(outcome?.kind).toBe('refused');
+    expect((outcome as Extract<RenderOutcome, { kind: 'refused' }>).code).toBe('FF7001');
+  });
+
+  it('R-rel-b: node.relational present -> refused FF7001, no disallowed-* entry leaks into the toml', () => {
+    const { toml, outcomes } = renderCargoClippy([
+      node({ id: 'r-rel-b', relational: { op: 'not', children: [{ op: 'has', pattern: 'x' }] } }),
+    ]);
+    expect(outcomes.get('r-rel-b')?.kind).toBe('refused');
+    expect(toml).not.toContain('std::env::var');
+  });
+
   it('P5: FIXTURE_NODE (warning severity) -> rendered, toml byte-for-byte == golden', () => {
     const { toml, outcomes } = renderCargoClippy([FIXTURE_NODE]);
     const outcome = outcomes.get('no-direct-env-var');
