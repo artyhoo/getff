@@ -131,6 +131,15 @@ function runCliRender(consumer: string): { status: number | null; stdout: string
     ],
     { cwd: REPO_ROOT, encoding: 'utf8' },
   );
+  if (r.status !== 0) {
+    // Diagnostic (kept): a spawn that hides its subprocess's stderr is un-debuggable in CI.
+    // eslint-disable-next-line no-console
+    console.error(
+      `[runCliRender FAIL] tsxBin=${tsxBin()} tsxExists=${existsSync(tsxBin())} ` +
+        `status=${r.status} error=${r.error?.message ?? ''}\n--- CLI stderr ---\n${r.stderr}\n` +
+        `--- CLI stdout ---\n${r.stdout}`,
+    );
+  }
   return { status: r.status, stdout: r.stdout, stderr: r.stderr };
 }
 
@@ -147,6 +156,10 @@ function runDeliveryFull(
   const r = spawnSync('bash', ['-c', DELIVER_DRIVER, 'deliver', REPO_ROOT, consumer, mode], {
     encoding: 'utf8',
   });
+  if (r.status !== 0) {
+    // eslint-disable-next-line no-console
+    console.error(`[runDelivery FAIL] mode='${mode}' status=${r.status}\n${r.stdout}${r.stderr}`);
+  }
   return { status: r.status, out: `${r.stdout}${r.stderr}` };
 }
 
