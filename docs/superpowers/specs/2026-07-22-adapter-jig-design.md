@@ -3,7 +3,8 @@
 > **Status:** DRAFT binding design, authored 2026-07-22 in the pipeline-ecosystem-wiring meta
 > session from three synthesis inputs: a read-only contract census (this worktree, branch =
 > staging + `ffa571149`), a conformance-arm catalogue built from the four ecosystem-wiring PRs
-> (W1 #1074 in artyhoo/getff; W2 #1076, W3 #1078, W4 #1080 in this repo, all MERGED 2026-07-21),
+> (W1 #1074, W2 #1076, W3 #1078, W4 #1080 — repo-of-record `artyhoo/getff`, whose merge
+> commits are present in this repo's shared history; all MERGED 2026-07-21),
 > and two prior-art sweeps (11 external WebSearch phrasings + full SSOT verdict-column sweep).
 > Five operator decisions recorded 2026-07-22 are binding inputs (§4, §7, §8 restate them).
 > **Branch-lag disclosure:** census file:line citations were verified at `ffa571149`, which
