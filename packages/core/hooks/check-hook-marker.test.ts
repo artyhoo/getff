@@ -328,6 +328,21 @@ describe.skipIf(!JQ)(
       writeSandboxSettings('Write', name);
       expect(runHook('Write', renamed).status).toBe(0);
     });
+
+    it('PARITY comment-immunity: a `case "$TOOL" in …` in PROSE above the real arm is not mis-extracted', () => {
+      // A doc comment mentioning `case "$TOOL" in Read)` sits ABOVE the real code arm
+      // `case "$TOOL" in Write)`. The extraction strips comment lines first, so parity reads
+      // the REAL arm {Write}; matcher Write ⊇ {Write} → exit 0. If comments were NOT stripped,
+      // head -1 would grab the prose {Read}, demand matcher ⊇ {Read}, and wrongly exit 1.
+      const name = `zzz-parity-comment-${Date.now()}.sh`;
+      const abs = writeHook(
+        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# doc: this hook once used \`case "$TOOL" in Read)\` — kept as prose\ncase "$TOOL" in Write) ;; *) exit 0 ;; esac\nexit 0\n`,
+      );
+      const renamed = join(SANDBOX_HOOKS, name);
+      renameSync(abs, renamed);
+      writeSandboxSettings('Write', name);
+      expect(runHook('Write', renamed).status).toBe(0);
+    });
   },
 );
 

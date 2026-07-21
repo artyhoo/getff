@@ -107,7 +107,10 @@ fi
 # Self-calibrating: a Write-only hook (`case "$TOOL" in Write)`, matcher Write) stays GREEN
 # (inject-memory-codification A5) — no hardcoded MultiEdit requirement. CI-backstop: the same
 # CC-config check as @file-content-gate above.
-CASE_ARM="$(grep -oE 'case[[:space:]]+"\$TOOL"[[:space:]]+in[^)]*' "$ABS_PATH" | head -1 || true)"
+# Comment lines are stripped FIRST (^# / leading-whitespace-#) so a `case "$TOOL" in …` written
+# inside prose/documentation (this very hook has such comments above) is never mis-extracted as
+# the real code arm — mirrors the ^#-anchored marker check above.
+CASE_ARM="$(grep -vE '^[[:space:]]*#' "$ABS_PATH" | grep -oE 'case[[:space:]]+"\$TOOL"[[:space:]]+in[^)]*' | head -1 || true)"
 if [ -n "$CASE_ARM" ]; then
   PARITY_MATCHER="$(_reg_matcher "$(basename "$REL_PATH")")"
   if [ -n "$PARITY_MATCHER" ]; then
