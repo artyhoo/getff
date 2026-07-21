@@ -3,8 +3,8 @@
 //   1. .ai-factory/DESCRIPTION.md          → confidence: high
 //   2. .ai-factory/ARCHITECTURE.md         → confidence: high
 //   3. .ai-factory/skill-context/*/SKILL.md → confidence: high
-//   4. package.json deps + lockfile        → confidence: medium
-//   4. pyproject.toml / Cargo.toml          → confidence: medium (non-npm toolchains; W1)
+//   4a. package.json deps + lockfile       → confidence: medium
+//   4b. pyproject.toml / Cargo.toml         → confidence: medium (non-npm toolchains; W1)
 //   5. next.config.* / tsconfig.json       → confidence: low
 
 import { resolve } from 'node:path';

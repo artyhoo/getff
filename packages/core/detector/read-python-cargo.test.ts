@@ -133,3 +133,24 @@ describe('detectStack — manifest precedence (package.json wins over pyproject/
     expect(r.source).toBe('package.json');
   });
 });
+
+describe('detectStack — python/cargo precedence (pyproject.toml wins over Cargo.toml)', () => {
+  beforeEach(() => {
+    rmSync(TMP, { recursive: true, force: true });
+    mkdirSync(TMP, { recursive: true });
+  });
+  afterEach(() => {
+    rmSync(TMP, { recursive: true, force: true });
+  });
+
+  // Real case: PyO3/maturin hybrids ship both pyproject.toml and Cargo.toml and
+  // no package.json. read-python-cargo checks pyproject.toml first → python wins.
+  it('pyproject.toml + Cargo.toml both present, no package.json → python wins (deterministic)', () => {
+    write('pyproject.toml', ['[project]', 'dependencies = ["fastapi"]', ''].join('\n'));
+    write('Cargo.toml', ['[package]', 'name = "svc"', 'version = "0.1.0"', ''].join('\n'));
+    const r = detectStack(TMP);
+    expect(r.stack).toBe('python');
+    expect(r.source).toBe('pyproject.toml');
+    expect(r.framework.name).toBe('fastapi');
+  });
+});
