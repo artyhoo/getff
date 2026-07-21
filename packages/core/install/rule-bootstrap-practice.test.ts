@@ -1,0 +1,188 @@
+// rule-bootstrap-cli `--from-practice` arm — ecosystem-wiring W5 (researched-python live path).
+//
+// The JS live path (FileResearchClient/FileGenerateClient → generate.ts → L4 → install) is
+// eslint-only: `engine:'ast-grep'` is parked in the L4 gates ("reserved but not wired —
+// deferred per generator-forbid-mvp decision (i)", gate-autofix-clean.ts:116) and install()
+// writes `.ai-factory/` which the python lane forbids. The SHIPPED researched-python
+// generation contract is the Model A′ lane instead: an `AstgrepResearchedPractice` record →
+// `researchedPracticeToNode` bridge → `renderAstgrep` (both pure, proven LG-S1 INC-1/2).
+// This arm is the MINIMAL glue making that lane invokable for a CONSUMER: practice JSON →
+// rendered rule YAML at `<consumer>/.getff/rules-research/<entryId>.yml`, which the
+// python delivery seam (setup.d/45-python.sh) then joins into `.getff/astgrep-rules/`
+// on the next install/refresh pass (see backends/astgrep researched-consumer e2e).
+//
+// Render runs SESSION-SIDE (node available in the research session); the consumer INSTALL
+// path stays Node-free — Model A′ §Qa preserved at consumer scope.
+
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
+import { afterEach, describe, expect, it } from 'vitest';
+import { runPracticeRender } from './rule-bootstrap-cli.ts';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = resolve(HERE, '../../..');
+/** The LG-S1 committed practice record — the realistic researched python convention (yaml.load). */
+const PRACTICE_FIXTURE = resolve(
+  HERE,
+  '../synthesizer/fixtures/live-generation/getff-researched-no-yaml-load.practice.json',
+);
+/** The LG-S1 committed rendered artifact — render-parity oracle (same pure plan pipeline). */
+const RENDERED_FIXTURE = resolve(
+  HERE,
+  '../synthesizer/fixtures/live-generation/firing/rules/getff-researched-no-yaml-load.yml',
+);
+const RULE_ID = 'getff-researched-no-yaml-load';
+
+const tmpDirs: string[] = [];
+function freshConsumer(): string {
+  const dir = mkdtempSync(join(tmpdir(), 'rb-practice-'));
+  tmpDirs.push(dir);
+  writeFileSync(join(dir, 'pyproject.toml'), '[project]\nname = "scratch"\nversion = "0"\n');
+  return dir;
+}
+afterEach(() => {
+  for (const d of tmpDirs.splice(0)) rmSync(d, { recursive: true, force: true });
+});
+
+function renderedPathOf(consumer: string): string {
+  return join(consumer, '.getff', 'rules-research', `${RULE_ID}.yml`);
+}
+
+describe('runPracticeRender — practice JSON → rendered rule YAML on the consumer', () => {
+  it('renders the committed yaml.load practice record byte-identical to the committed artifact', () => {
+    const consumer = freshConsumer();
+    const result = runPracticeRender({
+      consumerRoot: consumer,
+      fromPractice: PRACTICE_FIXTURE,
+      log: () => {},
+    });
+
+    expect(result.mode).toBe('practice-render');
+    expect(result.rendered.map((r) => r.entryId)).toEqual([RULE_ID]);
+    expect(result.researchOnly).toEqual([]);
+
+    const written = renderedPathOf(consumer);
+    expect(existsSync(written)).toBe(true);
+    // Render parity: the SAME pure plan pipeline (bridge + renderAstgrep) the framework's
+    // drift gate locks — the consumer-side render can never diverge from the committed lane.
+    expect(readFileSync(written, 'utf8')).toBe(readFileSync(RENDERED_FIXTURE, 'utf8'));
+  });
+
+  it('accepts a DIRECTORY of *.practice.json records (the .getff/rules-research home)', () => {
+    const consumer = freshConsumer();
+    const recDir = join(consumer, '.getff', 'rules-research');
+    mkdirSync(recDir, { recursive: true });
+    writeFileSync(
+      join(recDir, `${RULE_ID}.practice.json`),
+      readFileSync(PRACTICE_FIXTURE, 'utf8'),
+    );
+
+    const result = runPracticeRender({
+      consumerRoot: consumer,
+      fromPractice: recDir,
+      log: () => {},
+    });
+    expect(result.rendered.map((r) => r.entryId)).toEqual([RULE_ID]);
+    expect(readFileSync(renderedPathOf(consumer), 'utf8')).toBe(
+      readFileSync(RENDERED_FIXTURE, 'utf8'),
+    );
+  });
+
+  it('MAJOR-1 degrade-not-inert: a non-expressible practice → research-only finding, NO file written', () => {
+    const consumer = freshConsumer();
+    const practice = JSON.parse(readFileSync(PRACTICE_FIXTURE, 'utf8')) as Record<string, unknown>;
+    practice['entryId'] = 'getff-researched-mutable-default-arg';
+    practice['kind'] = 'def'; // outside EXPRESSIBLE_KINDS — §Qb frozen-IR ceiling
+    const rec = join(consumer, 'bad.practice.json');
+    writeFileSync(rec, JSON.stringify(practice));
+
+    const logged: string[] = [];
+    const result = runPracticeRender({
+      consumerRoot: consumer,
+      fromPractice: rec,
+      log: (m) => logged.push(m),
+    });
+
+    expect(result.rendered).toEqual([]);
+    expect(result.researchOnly).toHaveLength(1);
+    expect(result.researchOnly[0].reason).toBe('not-expressible');
+    expect(existsSync(join(consumer, '.getff', 'rules-research'))).toBe(false);
+    // The degrade is LOUD, never silent (mirrors withManualDrop).
+    expect(logged.join('\n')).toContain('getff-researched-mutable-default-arg');
+  });
+
+  it('trust gate: a practice with non-allowlisted provenance → research-only, NO file written', () => {
+    const consumer = freshConsumer();
+    const practice = JSON.parse(readFileSync(PRACTICE_FIXTURE, 'utf8')) as Record<string, unknown>;
+    practice['provenance'] = [
+      { url: 'https://evil.example.com/docs', allowlistKey: 'pyyaml', fetchedAt: '2026-07-11T00:00:00.000Z' },
+    ];
+    const rec = join(consumer, 'spoofed.practice.json');
+    writeFileSync(rec, JSON.stringify(practice));
+
+    const result = runPracticeRender({
+      consumerRoot: consumer,
+      fromPractice: rec,
+      log: () => {},
+    });
+    expect(result.rendered).toEqual([]);
+    expect(result.researchOnly).toHaveLength(1);
+    expect(result.researchOnly[0].reason).toBe('provenance-rejected');
+    expect(existsSync(renderedPathOf(consumer))).toBe(false);
+  });
+
+  it('throws on a directory with zero *.practice.json (degrade+guidance handled by the CLI catch)', () => {
+    const consumer = freshConsumer();
+    const empty = join(consumer, 'nothing-here');
+    mkdirSync(empty, { recursive: true });
+    expect(() =>
+      runPracticeRender({ consumerRoot: consumer, fromPractice: empty, log: () => {} }),
+    ).toThrow(/practice/i);
+  });
+});
+
+describe('rule-bootstrap-cli --from-practice — real CLI invocation', () => {
+  const CLI = join(REPO_ROOT, 'packages/core/install/rule-bootstrap-cli.ts');
+
+  it('renders + writes via the real entrypoint (exit 0, JSON summary on stdout)', { timeout: 120_000 }, () => {
+    const consumer = freshConsumer();
+    const r = spawnSync(
+      'npx',
+      ['--no-install', 'tsx', CLI, '--consumer-root', consumer, '--from-practice', PRACTICE_FIXTURE],
+      { cwd: REPO_ROOT, encoding: 'utf8' },
+    );
+    expect(r.status).toBe(0);
+    const out = JSON.parse(r.stdout) as { mode: string; rendered: { entryId: string }[] };
+    expect(out.mode).toBe('practice-render');
+    expect(out.rendered.map((x) => x.entryId)).toEqual([RULE_ID]);
+    expect(existsSync(renderedPathOf(consumer))).toBe(true);
+  });
+
+  it('refuses --from-practice combined with --from-research/--from-selection (authoring error)', { timeout: 120_000 }, () => {
+    const consumer = freshConsumer();
+    const r = spawnSync(
+      'npx',
+      [
+        '--no-install', 'tsx', CLI,
+        '--consumer-root', consumer,
+        '--from-practice', PRACTICE_FIXTURE,
+        '--from-research', PRACTICE_FIXTURE,
+        '--strict',
+      ],
+      { cwd: REPO_ROOT, encoding: 'utf8' },
+    );
+    expect(r.status).toBe(1);
+    expect(r.stderr).toMatch(/--from-practice/);
+    expect(existsSync(renderedPathOf(consumer))).toBe(false);
+  });
+});

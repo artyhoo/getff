@@ -28,7 +28,16 @@
  */
 
 import process from 'node:process';
-import { realpathSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runRuleBootstrap } from '../synthesizer/rule-bootstrap.ts';
 import {
@@ -37,6 +46,11 @@ import {
   withManualDrop,
 } from '../synthesizer/file-clients.ts';
 import { ResearchPlanError } from '../research/validate-plan.ts';
+import {
+  planResearchedAstgrep,
+  type ResearchOnlyFinding,
+} from '../synthesizer/render-researched-astgrep.ts';
+import type { AstgrepResearchedPractice } from '../synthesizer/research-to-node.ts';
 
 interface Args {
   consumerRoot: string;
@@ -44,6 +58,7 @@ interface Args {
   strict: boolean;
   fromResearch?: string;
   fromSelection?: string;
+  fromPractice?: string;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -55,9 +70,10 @@ function parseArgs(argv: string[]): Args {
     else if (a === '--strict') args.strict = true;
     else if (a === '--from-research') args.fromResearch = argv[++i];
     else if (a === '--from-selection') args.fromSelection = argv[++i];
+    else if (a === '--from-practice') args.fromPractice = argv[++i];
     else if (a === '-h' || a === '--help') {
       process.stdout.write(
-        'Usage: rule-bootstrap-cli [--consumer-root <path>] [--from-research <plan.json>] [--from-selection <sel.json>] [--no-force] [--strict]\n',
+        'Usage: rule-bootstrap-cli [--consumer-root <path>] [--from-research <plan.json>] [--from-selection <sel.json>] [--from-practice <rec.practice.json|dir>] [--no-force] [--strict]\n',
       );
       process.exit(0);
     } else if (!a.startsWith('-')) args.consumerRoot = a;
@@ -65,8 +81,108 @@ function parseArgs(argv: string[]): Args {
   return args;
 }
 
+// ── --from-practice arm — the researched-python (Model A′) consumer lane — ecosystem-wiring W5 ──
+//
+// The JS live path above (FileResearchClient/FileGenerateClient → generate.ts → L4 → install) is
+// eslint-only: `engine:'ast-grep'` is parked at the L4 gates as error-severity FF3003/FF3010/FF3012
+// («ast-grep engine reserved but not wired — deferred per generator-forbid-mvp decision (i)»,
+// diagnostics/registry.ts:182), and install() writes `.ai-factory/` which the python lane forbids
+// (setup.d/45-python.sh:438 + tests/install-sh/python-entry-lane.test.sh). The SHIPPED researched-
+// python generation contract is the Model A′ lane instead: an `AstgrepResearchedPractice` record →
+// `researchedPracticeToNode` bridge → `renderAstgrep` (both pure, proven LG-S1 INC-1/2).
+//
+// This arm is the MINIMAL glue making that lane invokable for a CONSUMER: practice JSON → rendered
+// rule YAML at `<consumer>/.getff/rules-research/<entryId>.yml` — a consumer-side researched home
+// that SURVIVES `--refresh` (unlike `.getff/astgrep-rules/`, which refresh_safe rm-rf-replaces from
+// the template — lib.sh:126). The python delivery seam (`_py_deliver_astgrep`, setup.d/45-python.sh)
+// then joins `rules-research/*.yml` into `.getff/astgrep-rules/` on every install/refresh pass, so
+// the rendered rule fires via the consumer's existing single `ruleDirs:` entry (§Qd additive).
+//
+// Render runs SESSION-SIDE (node available in the research/framework session); the consumer INSTALL
+// path stays Node-free — Model A′ §Qa preserved at consumer scope. MAJOR-1 honesty is inherited from
+// `planResearchedAstgrep` (bridge filters: not-expressible / provenance-rejected / gate-failed —
+// research-only findings are logged LOUDLY and never written).
+
+/** Where a consumer's researched (rendered) rules live — the durable, refresh-surviving home. */
+export function rulesResearchDirOf(consumerRoot: string): string {
+  return join(consumerRoot, '.getff', 'rules-research');
+}
+
+export interface PracticeRenderOptions {
+  consumerRoot: string;
+  /** A single `*.practice.json` record, or a directory of them (the `.getff/rules-research` home). */
+  fromPractice: string;
+  log?: (msg: string) => void;
+}
+
+export interface PracticeRenderResult {
+  mode: 'practice-render';
+  rendered: { entryId: string; path: string }[];
+  researchOnly: ResearchOnlyFinding[];
+}
+
+/** Load one record, or every `*.practice.json` in a directory (sorted — deterministic order). */
+function loadPracticeRecords(src: string): AstgrepResearchedPractice[] {
+  if (!existsSync(src)) {
+    throw new Error(`practice input not found: ${src}`);
+  }
+  if (statSync(src).isDirectory()) {
+    const files = readdirSync(src)
+      .filter((f) => f.endsWith('.practice.json'))
+      .sort();
+    if (files.length === 0) {
+      throw new Error(`no *.practice.json practice records in directory: ${src}`);
+    }
+    return files.map(
+      (f) => JSON.parse(readFileSync(join(src, f), 'utf8')) as AstgrepResearchedPractice,
+    );
+  }
+  return [JSON.parse(readFileSync(src, 'utf8')) as AstgrepResearchedPractice];
+}
+
+/**
+ * Render researched practice record(s) onto a consumer: each expressible practice becomes
+ * `<consumer>/.getff/rules-research/<entryId>.yml` (byte-identical to the pure
+ * bridge+renderAstgrep plan — the SAME pipeline the framework's drift gate locks). Practices the
+ * bridge degrades are surfaced as research-only findings (logged loudly, NEVER written). The output
+ * dir is created only when something renders — a fully-degraded run leaves the consumer untouched.
+ */
+export function runPracticeRender(opts: PracticeRenderOptions): PracticeRenderResult {
+  const log = opts.log ?? ((m: string) => process.stderr.write(m + '\n'));
+  const records = loadPracticeRecords(opts.fromPractice);
+  const plan = planResearchedAstgrep(records);
+
+  for (const finding of plan.researchOnly) {
+    // The degrade is LOUD, never silent (mirrors withManualDrop).
+    log(
+      `[rule-bootstrap] practice '${finding.entryId}' researched but not rendered ` +
+        `(${finding.reason}): ${finding.detail} — recorded as research-only, NOT shipped as a rule.`,
+    );
+  }
+
+  const outDir = rulesResearchDirOf(opts.consumerRoot);
+  const rendered: { entryId: string; path: string }[] = [];
+  for (const rule of plan.rendered) {
+    mkdirSync(outDir, { recursive: true });
+    const outPath = join(outDir, `${rule.entryId}.yml`);
+    writeFileSync(outPath, rule.yaml);
+    rendered.push({ entryId: rule.entryId, path: outPath });
+  }
+
+  return { mode: 'practice-render', rendered, researchOnly: plan.researchOnly };
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
+
+  // The practice arm is a DIFFERENT lane (Model A′ ast-grep render, no generate.ts/L4/install run);
+  // combining it with the JS live pair is an authoring error — refuse before touching anything.
+  if (args.fromPractice && (args.fromResearch || args.fromSelection)) {
+    process.stderr.write(
+      'rule-bootstrap-cli: --from-practice cannot be combined with --from-research/--from-selection\n',
+    );
+    process.exit(args.strict ? 1 : 0);
+  }
 
   // Live path requires BOTH files; one-only is an authoring error.
   const oneOnly = Boolean(args.fromResearch) !== Boolean(args.fromSelection);
@@ -75,6 +191,27 @@ async function main(): Promise<void> {
       'rule-bootstrap-cli: --from-research and --from-selection must be passed together\n',
     );
     process.exit(args.strict ? 1 : 0);
+  }
+
+  if (args.fromPractice) {
+    try {
+      const result = runPracticeRender({
+        consumerRoot: args.consumerRoot,
+        fromPractice: args.fromPractice,
+      });
+      process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+      if (args.strict && result.rendered.length === 0) process.exit(1);
+      return;
+    } catch (err) {
+      // Decision B parity: a malformed/unreadable practice record degrades with guidance,
+      // never a bad rule.
+      process.stderr.write(
+        `[rule-bootstrap] practice record invalid or unreadable — ${(err as Error).message}\n` +
+          `[rule-bootstrap] author *.practice.json records via the rule-research protocol ` +
+          `(agents/rule-researcher.md or the rule-research skill), then re-run --from-practice.\n`,
+      );
+      process.exit(args.strict ? 1 : 0); // rc=0: never abort install
+    }
   }
 
   const live = Boolean(args.fromResearch && args.fromSelection);
