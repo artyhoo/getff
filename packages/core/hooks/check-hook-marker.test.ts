@@ -37,6 +37,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   realpathSync,
   renameSync,
   rmSync,
@@ -285,6 +286,149 @@ describe.skipIf(!JQ)(
         );
       }
       expect(runHook('Edit', abs).status).toBe(0);
+    });
+
+    // ── @matcher-parity invariant (case-TOOL hooks, matcher-widening GH #934 follow-up) ──
+    // A hook with an internal `case "$TOOL" in <tools>)` filter self-declares the tools it
+    // handles; its registration matcher MUST be a superset. Covers the case-TOOL gates that
+    // carry NO @file-content-gate marker (check-kickoff-traps, check-worker-dispatch-channel,
+    // check-hook-marker itself). Self-calibrating: a Write-only case-arm stays green.
+
+    it('PARITY-NEGATIVE: case-arm Edit|Write|MultiEdit but matcher Edit|Write → exit 1', () => {
+      const name = `zzz-parity-neg-${Date.now()}.sh`;
+      const abs = writeHook(
+        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\ncase "$TOOL" in Edit | Write | MultiEdit) ;; *) exit 0 ;; esac\nexit 0\n`,
+      );
+      const renamed = join(SANDBOX_HOOKS, name);
+      renameSync(abs, renamed);
+      writeSandboxSettings('Edit|Write', name);
+      expect(runHook('Edit', renamed).status).toBe(1);
+    });
+
+    it('PARITY-POSITIVE: case-arm Edit|Write|MultiEdit + matcher Edit|Write|MultiEdit → exit 0', () => {
+      const name = `zzz-parity-pos-${Date.now()}.sh`;
+      const abs = writeHook(
+        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\ncase "$TOOL" in Edit | Write | MultiEdit) ;; *) exit 0 ;; esac\nexit 0\n`,
+      );
+      const renamed = join(SANDBOX_HOOKS, name);
+      renameSync(abs, renamed);
+      writeSandboxSettings('Edit|Write|MultiEdit', name);
+      expect(runHook('Edit', renamed).status).toBe(0);
+    });
+
+    it('PARITY-WRITE-ONLY (A5 self-calibration): case-arm Write + matcher Write → exit 0', () => {
+      // inject-memory-codification precedent: a deliberately Write-only hook stays GREEN — the
+      // parity rule requires matcher ⊇ case-arm, NOT a hardcoded MultiEdit demand.
+      const name = `zzz-parity-wo-${Date.now()}.sh`;
+      const abs = writeHook(
+        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\ncase "$TOOL" in Write) ;; *) exit 0 ;; esac\nexit 0\n`,
+      );
+      const renamed = join(SANDBOX_HOOKS, name);
+      renameSync(abs, renamed);
+      writeSandboxSettings('Write', name);
+      expect(runHook('Write', renamed).status).toBe(0);
+    });
+  },
+);
+
+// ── Layer 2: CI-time population backstop (matcher-widening preventer) ──────────
+// Runs the edit-time gate against EVERY tracked hook at once, against the LIVE settings.json.
+// This is the vector Layer 1 (edit-time) cannot see: a matcher narrowed directly in
+// .ai-factory/harness-model.json / .claude/settings.json while NO hook .sh is edited — the gate
+// only fires on a `.sh` edit, so a settings-only narrowing would slip past it until the next
+// unrelated hook edit. This backstop re-checks the whole population on every CI run.
+//
+// Bucket rationale (why here, not tests/agnosticism/channel-coverage.sh): the requirement
+// "matcher ⊇ {Edit,Write,MultiEdit}" is CC-SPECIFIC — MultiEdit is inert on other harnesses
+// (render-harness-config.mjs notes it). Putting a CC-tool assertion in the harness-agnostic
+// channel-coverage probe would (a) overload its PORTABLE verdict (= "works across harnesses")
+// with a CC-config-consistency meaning, and (b) make a deliberately harness-independent probe
+// assert a CC-only fact. So it lives in the hooks (CC-config) bucket, reusing the edit-time gate
+// verbatim — no parallel population reader, no drift risk.
+describe.skipIf(!JQ)(
+  'check-hook-marker.sh — Layer 2 population backstop (matcher ⊇ @file-content-gate/case-arm)',
+  () => {
+    const realHooksDir = resolve(REPO_ROOT, '.claude/hooks');
+
+    function runRealHook(root: string, tool: string, absPath: string): number {
+      const fullEnv = { ...process.env, CLAUDE_PROJECT_DIR: root };
+      delete fullEnv.ZCODE_PROJECT_DIR;
+      const r = spawnSync('bash', [REAL_HOOK], {
+        input: JSON.stringify({
+          tool_name: tool,
+          tool_input: { file_path: absPath },
+        }),
+        encoding: 'utf8',
+        env: fullEnv,
+      });
+      return r.status ?? -1;
+    }
+
+    // Stage a throwaway CLAUDE_PROJECT_DIR with one hook + a settings.json registering it at
+    // `matcher`, run the REAL gate against it, return the exit code. Root is removed by caller.
+    function runInFixtureRoot(hookBody: string, matcher: string): number {
+      const root = realpathSync(mkdtempSync(join(tmpdir(), 'c4-backstop-')));
+      const hooksDir = join(root, '.claude', 'hooks');
+      mkdirSync(hooksDir, { recursive: true });
+      const hookName = 'zzz-backstop.sh';
+      writeFileSync(join(hooksDir, hookName), hookBody, 'utf8');
+      writeFileSync(
+        join(root, '.claude', 'settings.json'),
+        JSON.stringify({
+          hooks: {
+            PostToolUse: [
+              {
+                matcher,
+                hooks: [
+                  {
+                    type: 'command',
+                    command: `bash "$CLAUDE_PROJECT_DIR/.claude/hooks/${hookName}"`,
+                  },
+                ],
+              },
+            ],
+          },
+        }),
+        'utf8',
+      );
+      const status = runRealHook(root, 'Edit', join(hooksDir, hookName));
+      rmSync(root, { recursive: true, force: true });
+      return status;
+    }
+
+    it('every tracked .claude/hooks/*.sh passes the gate against the LIVE settings.json (all matchers ⊇ requirement)', () => {
+      const hooks = readdirSync(realHooksDir).filter((f) => f.endsWith('.sh'));
+      // Population sentinel (T10): a broken glob returning [] would vacuously pass.
+      expect(
+        hooks.length,
+        'population sentinel: expected ≥5 tracked hooks',
+      ).toBeGreaterThanOrEqual(5);
+      const flagged: string[] = [];
+      for (const h of hooks) {
+        if (runRealHook(REPO_ROOT, 'Edit', resolve(realHooksDir, h)) !== 0) {
+          flagged.push(h);
+        }
+      }
+      expect(
+        flagged,
+        `hooks whose live matcher ⊉ their @file-content-gate/case-arm requirement: ${flagged.join(', ')}`,
+      ).toEqual([]);
+    });
+
+    it('RED fixture: @file-content-gate hook registered with a narrow matcher IS caught (non-vacuous)', () => {
+      const status = runInFixtureRoot(
+        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n`,
+        'Edit|Write',
+      );
+      expect(status).toBe(1);
+    });
+
+    it('RED fixture: case-TOOL hook whose case-arm ⊋ matcher IS caught by the parity rule', () => {
+      const status = runInFixtureRoot(
+        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\ncase "$TOOL" in Edit | Write | MultiEdit) ;; *) exit 0 ;; esac\nexit 0\n`,
+        'Edit|Write',
+      );
+      expect(status).toBe(1);
     });
   },
 );

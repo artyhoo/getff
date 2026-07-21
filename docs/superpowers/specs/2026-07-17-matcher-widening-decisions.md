@@ -5,6 +5,52 @@ resolved autonomously (technical) and findings surfaced out-of-scope.
 
 ---
 
+## D4 — Layer 1 extended with a @matcher-parity rule for case-TOOL hooks [technical, resolved]
+
+**Gap found (cold-review MAJOR).** Layer 1 as first committed only marked the 3 path-only
+content-gates (`validate-prompt`, `check-doc-authority`, `check-doc-authority-header`). The 3
+case-TOOL content-gates (`check-kickoff-traps`, `check-worker-dispatch-channel`, and
+`check-hook-marker` itself) carry an internal `case "$TOOL" in Edit | Write | MultiEdit)` filter
+and NO `@file-content-gate` marker, so they had NO edit-time protection against matcher
+narrowing. Their internal `case` does NOT protect them: a narrowed matcher stops the hook being
+invoked at all, so the `case` never runs. The kickoff (§autonomy) deferred them to "Layer 2
+population sweep", but the design's Layer 2 (sweep `@file-content-gate` markers) would ALSO miss
+them — they are unmarked.
+
+**Resolution.** Added a second Layer-1 invariant, `@matcher-parity`: any hook with a
+`case "$TOOL" in <tools>)` line must have its registered matcher ⊇ that case-arm set. This uses
+each hook's EXISTING author-declaration (the `case` line) — no new marker, no allowlist (round-4
+rejected allowlists). It is **self-calibrating**: `inject-memory-codification` (A5, Write-only)
+has `case "$TOOL" in Write)` + matcher `Write` → parity `{Write} ⊆ {Write}` GREEN, with no
+hardcoded MultiEdit demand. This restores the original `design.md:65` two-rule intent. Verified:
+all 5 real case-arm hooks GREEN (incl. `inject-matching-rule` EWM/EWM — the open item from the
+review is resolved, no pre-existing inconsistency).
+
+## D3 — Layer 2 lives in the CC-config bucket, NOT the agnosticism probe [technical, resolved — operator-flagged]
+
+**Concern (operator).** The kickoff/`design.md:67` put Layer 2 in
+`tests/agnosticism/probes/channel-coverage.sh`. But that probe is **harness-agnostic by design**
+(runs with CC absent; its `PORTABLE` verdict, per principle 21, means "works across harnesses").
+The matcher requirement involves `MultiEdit`, which is **CC-only** (inert on ZCode —
+`render-harness-config.mjs` says so). Adding it there would (a) overload the `PORTABLE` verdict
+with a CC-config-consistency meaning (a hook with a valid `@cc-only-rationale` — portable by the
+probe's definition — could report non-PORTABLE for a matcher bug, which principle 21 misreads as
+"doesn't work across harnesses"), and (b) make a deliberately harness-independent probe assert a
+CC-only fact. The whole matcher-widening is a CC-config concern with zero agnosticism dimension.
+
+**Resolution.** Layer 2 is a vitest describe block in `packages/core/hooks/check-hook-marker.test.ts`
+(the hooks / CC-config bucket), NOT `tests/agnosticism/`. It runs the REAL `check-hook-marker.sh`
+edit-time gate against EVERY tracked `.claude/hooks/*.sh` at once, against the live
+`.claude/settings.json` — catching a matcher narrowed directly in the SSOT/settings.json even
+when no hook `.sh` is edited (the vector Layer 1 cannot see). Reuses the edit-time gate verbatim
+(no parallel population reader → no `#parallel-evolution-creep`), and keeps `MultiEdit` out of
+the agnosticism probe. Two RED fixtures (narrow `@file-content-gate`; narrow case-TOOL parity)
+prove the backstop is non-vacuous; a population sentinel (≥5 hooks) guards a broken glob. This
+supersedes the kickoff Task-C plan (channel-coverage.sh extension + `tests/fixtures/matcher-drift/`
++ a `*.paired-negative.test.ts`) — none of those are created.
+
+---
+
 ## D1 — base moved 28 commits (4a9b508a9 → 2c77e4407): rebased [technical, resolved]
 
 The kickoff was written against base `4a9b508a9`. On resume, `origin/staging` had advanced
