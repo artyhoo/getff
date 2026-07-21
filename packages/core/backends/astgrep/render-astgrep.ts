@@ -195,8 +195,9 @@ function renderRule(e: RuleEntry): string {
 // Emits lines already prefixed with `indent` (caller passes the indent of the ENCLOSING map —
 // '  ' for the top-level sibling under `rule:`, deeper for nested arms). Key order per leaf/
 // composite is FIXED (byte-lock determinism):
-//   has  -> `has:` then (kind first, if present) `kind: <kind>`, `pattern: <dq(pattern)>`,
-//           `stopBy: end` — see stopBy rationale below.
+//   has  -> `has:` then (kind first, if present) `kind: <dq(kind)>`, `pattern: <dq(pattern)>`,
+//           `stopBy: end` — see stopBy rationale below. `kind` is dq()-escaped identically to
+//           `pattern` (schema-unconstrained free-form string; see comment at the call site).
 //   not (1 child)  -> `not:` then nested render(child) — 1:1 native `not:{has:...}` (census
 //                      require-via-ban shape).
 //   not (N children) -> `not:` then nested `any:` list of render(child). NOR semantics:
@@ -222,7 +223,11 @@ function renderRelationalNode(rule: RelationalRule, indent: string): string[] {
   switch (rule.op) {
     case 'has': {
       const lines = [`${indent}has:`];
-      if (rule.kind !== undefined) lines.push(`${inner}kind: ${rule.kind}`);
+      // RelationalHas.kind is a schema-unconstrained free-form string (convention-node.schema.json
+      // has no charset restriction, unlike the metadata `kind:` field above which is a validated
+      // BackendParamKind enum) — it MUST be escaped identically to `pattern:` below, or a
+      // YAML-special value (colon, newline) injects an arbitrary sibling key into the `has:` map.
+      if (rule.kind !== undefined) lines.push(`${inner}kind: ${yamlDq(rule.kind)}`);
       lines.push(`${inner}pattern: ${yamlDq(rule.pattern)}`);
       lines.push(`${inner}stopBy: end`);
       return lines;

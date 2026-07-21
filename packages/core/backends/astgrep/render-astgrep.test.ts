@@ -4,11 +4,19 @@
 // then implement until every case below is GREEN. Mirrors backends/cargo/render-clippy.test.ts.
 
 import { describe, expect, it } from 'vitest';
+import { createRequire } from 'node:module';
 import type { ConventionNode, RelationalRule } from '../../ir/types.ts';
 import { runGrammarGate } from '../../ir/gates/grammar.ts';
 import { assertEveryNodeResolved, type RenderOutcome } from '../shared/render-outcome.ts';
 import { renderAstgrep } from './render-astgrep.ts';
 import { FIXTURE_NODE, RELATIONAL_FIXTURE_NODE } from './test-fixtures.ts';
+
+// Real YAML round-trip parser, same idiom as principles/24-plugin-manifest-integrity.test.ts:39-40
+// (createRequire sidesteps the absent @types/js-yaml so `tsc --noEmit` stays clean; js-yaml is a
+// packages/core dependency — package.json:62). Used ONLY by the kind-escaping regression test
+// below to prove the rendered YAML round-trips to the exact source value, not an injected key.
+const nodeRequire = createRequire(import.meta.url);
+const { load: parseYaml } = nodeRequire('js-yaml') as { load: (s: string) => unknown };
 
 function node(overrides: Partial<ConventionNode> = {}): ConventionNode {
   return { ...FIXTURE_NODE, ...overrides };
@@ -192,10 +200,40 @@ describe('renderAstgrep — relational arm translation (byte-for-byte goldens)',
       HEADER +
         BASE_HEAD +
         '  has:\n' +
-        '    kind: call\n' +
+        '    kind: "call"\n' +
         '    pattern: "x"\n' +
         '    stopBy: end\n',
     );
+  });
+
+  it('has: kind is escaped identically to pattern — a colon/newline in kind cannot inject a sibling YAML key (BLOCKER regression)', () => {
+    // Regression for the reviewed BLOCKER: RelationalHas.kind is schema-unconstrained
+    // (convention-node.schema.json has no charset restriction), so a malformed-upstream or
+    // adversarial kind value MUST be rendered as an opaque double-quoted scalar, never
+    // interpolated raw. BEFORE the fix, rendering this exact `kind` value produced a `has:` map
+    // that js-yaml parsed with an INJECTED `severity: off` sibling key (independently reproduced
+    // against the pre-fix renderer: `{ kind: 'type', severity: 'off', pattern: 'y', stopBy: 'end' }`).
+    const injectedKind = 'type\n    severity: off';
+    const { yaml } = renderAstgrep([sampleNode({ op: 'has', kind: injectedKind, pattern: 'y' })]);
+
+    // Byte-for-byte golden: yamlDq wraps the value in quotes WITHOUT escaping the embedded literal
+    // newline (identical treatment to `pattern:` — same yamlDq() call, see render-astgrep.ts).
+    // YAML double-quoted-scalar line-folding then keeps it inside the SAME logical `kind:` value.
+    expect(yaml).toBe(
+      HEADER +
+        BASE_HEAD +
+        '  has:\n' +
+        `    kind: "${injectedKind}"\n` +
+        '    pattern: "y"\n' +
+        '    stopBy: end\n',
+    );
+
+    // The load-bearing assertion: round-trip through the REAL yaml parser and prove (a) no
+    // `severity` sibling key was injected into `has`, and (b) `kind`/`pattern`/`stopBy` are the
+    // only three keys present — exactly what a well-formed `has:` map must contain.
+    const parsed = parseYaml(yaml) as { rule: { has: Record<string, unknown> } };
+    expect(Object.keys(parsed.rule.has).sort()).toEqual(['kind', 'pattern', 'stopBy']);
+    expect(parsed.rule.has['severity']).toBeUndefined();
   });
 
   it('has: without kind omits the kind line entirely (optional field, not emitted as blank)', () => {
@@ -231,7 +269,7 @@ describe('renderAstgrep — relational arm translation (byte-for-byte goldens)',
         '          pattern: "x"\n' +
         '          stopBy: end\n' +
         '      - has:\n' +
-        '          kind: call\n' +
+        '          kind: "call"\n' +
         '          pattern: "y"\n' +
         '          stopBy: end\n',
     );
@@ -328,7 +366,7 @@ describe('renderAstgrep — relational arm translation (byte-for-byte goldens)',
       '  pattern: "def $NAME($$$ARGS)$$$TAIL: $$$BODY"\n' +
       '  not:\n' +
       '    has:\n' +
-      '      kind: type\n' +
+      '      kind: "type"\n' +
       '      pattern: "$T"\n' +
       '      stopBy: end\n';
     expect(yaml).toBe(golden);
