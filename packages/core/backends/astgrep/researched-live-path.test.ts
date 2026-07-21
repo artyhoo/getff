@@ -33,6 +33,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -119,10 +120,28 @@ function runCliRender(consumer: string): { status: number | null; stdout: string
 
 /** Hop 3 — the delivery seam, DEFAULT template dir. mode 'refresh' runs the S2 refresh pass. */
 function runDelivery(consumer: string, mode: '' | 'refresh' = ''): number | null {
+  return runDeliveryFull(consumer, mode).status;
+}
+
+/** As {@link runDelivery} but also returns the seam's stdout+stderr (for asserting loud logs). */
+function runDeliveryFull(
+  consumer: string,
+  mode: '' | 'refresh' = '',
+): { status: number | null; out: string } {
   const r = spawnSync('bash', ['-c', DELIVER_DRIVER, 'deliver', REPO_ROOT, consumer, mode], {
     encoding: 'utf8',
   });
-  return r.status;
+  return { status: r.status, out: `${r.stdout}${r.stderr}` };
+}
+
+/** Read every delivered scan-dir rule as basename→bytes (byte-identity oracle across passes). */
+function scanDirBytes(consumer: string): Record<string, string> {
+  const dir = join(consumer, '.getff', 'astgrep-rules');
+  const out: Record<string, string> = {};
+  for (const f of readdirSync(dir).filter((n) => n.endsWith('.yml')).sort()) {
+    out[f] = readFileSync(join(dir, f), 'utf8');
+  }
+  return out;
 }
 
 const CONTRACT: AstgrepFiringContract = {
@@ -188,6 +207,58 @@ describe('W5 live path — render + delivery hops (always-on)', () => {
       // Still present after the refresh_safe rm-rf + template re-copy (lib.sh:126) — the join ran.
       expect(existsSync(joined)).toBe(true);
       expect(readFileSync(joined, 'utf8')).toBe(readFileSync(RENDERED_SRC, 'utf8'));
+    },
+  );
+
+  // ── W5 rework (Finding 3): behaviours the kickoff names but the reviewer proved only ad-hoc. ────
+  it(
+    'collision refuse-loudly: a researched basename colliding with a template rule is REFUSE-skipped (template wins, loud log)',
+    { timeout: LIVE_TIMEOUT_MS },
+    () => {
+      const consumer = freshConsumer();
+      // A researched rule whose BASENAME collides with a template-owned starter (getff-no-eval.yml).
+      // Its bytes are DELIBERATELY different from the template so a silent clobber would be visible.
+      const rrDir = join(consumer, '.getff', 'rules-research');
+      mkdirSync(rrDir, { recursive: true });
+      const impostorBytes = '# RESEARCHED IMPOSTOR — must never overwrite the template starter\nid: "getff-no-eval"\n';
+      writeFileSync(join(rrDir, 'getff-no-eval.yml'), impostorBytes);
+
+      const { status, out } = runDeliveryFull(consumer);
+      expect(status).toBe(0);
+      // Loud REFUSE log fired (attention-is-not-a-mechanism: the skip is announced, not silent).
+      expect(out).toMatch(/REFUSE researched join: getff-no-eval\.yml/);
+
+      // The scan-dir copy is the TEMPLATE starter, byte-identical — the impostor did NOT win.
+      const delivered = readFileSync(
+        join(consumer, '.getff', 'astgrep-rules', 'getff-no-eval.yml'),
+        'utf8',
+      );
+      const templateStarter = readFileSync(
+        join(REPO_ROOT, 'packages/core/templates/python/.getff/astgrep-rules/getff-no-eval.yml'),
+        'utf8',
+      );
+      expect(delivered).toBe(templateStarter);
+      expect(delivered).not.toBe(impostorBytes);
+    },
+  );
+
+  it(
+    'byte-stable idempotency: two delivery passes leave the scan dir byte-identical (the join is not perturbing)',
+    { timeout: LIVE_TIMEOUT_MS },
+    () => {
+      const consumer = freshConsumer();
+      authorPracticeRecord(consumer);
+      expect(runCliRender(consumer).status).toBe(0);
+
+      expect(runDelivery(consumer)).toBe(0);
+      const pass1 = scanDirBytes(consumer);
+      expect(runDelivery(consumer)).toBe(0);
+      const pass2 = scanDirBytes(consumer);
+
+      // Same file set AND same bytes per file — including the joined researched rule.
+      expect(Object.keys(pass2).sort()).toEqual(Object.keys(pass1).sort());
+      expect(pass2).toEqual(pass1);
+      expect(Object.keys(pass1)).toContain(`${RULE_ID}.yml`);
     },
   );
 });

@@ -37,7 +37,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runRuleBootstrap } from '../synthesizer/rule-bootstrap.ts';
 import {
@@ -108,6 +108,56 @@ export function rulesResearchDirOf(consumerRoot: string): string {
   return join(consumerRoot, '.getff', 'rules-research');
 }
 
+/**
+ * A practice record's `entryId` failed the filesystem-safety gate. `entryId` is consumer-authored
+ * JSON that this CLI turns into a FILENAME (`<rulesResearchDir>/<entryId>.yml`), so an unvalidated
+ * id is an arbitrary-file-write / clobber primitive (traversal `../`, absolute paths, path
+ * separators). This is a HARD refusal — never the rc=0 "degrade with guidance" contract, which is
+ * reserved for honestly-malformed records, not attack-shaped ones.
+ */
+export class PracticeEntryIdError extends Error {
+  constructor(entryId: string, why: string) {
+    super(
+      `unsafe practice entryId ${JSON.stringify(entryId)}: ${why}. ` +
+        `entryId must be a rule-id slug (^[a-z][a-z0-9-]*$, e.g. 'getff-researched-no-yaml-load') ` +
+        `— it becomes the rendered rule's filename, so path separators, '..', absolute paths and ` +
+        `other non-slug characters are refused.`,
+    );
+    this.name = 'PracticeEntryIdError';
+  }
+}
+
+/**
+ * The shipped rule-id slug convention: lower-kebab, leading letter. Matches every starter
+ * (`getff-no-eval`, `getff-no-os-system`, …) and the researched sub-namespace
+ * (`getff-researched-no-yaml-load`). Deliberately excludes `.` `/` `\` whitespace and any absolute
+ * or `..` form — the exact characters a traversal/clobber id needs.
+ */
+const RULE_ID_SLUG = /^[a-z][a-z0-9-]*$/;
+
+/**
+ * Validate a consumer-authored entryId BEFORE it is used to build any filesystem path, and assert
+ * the RESOLVED output path stays inside the rules-research dir (belt-and-braces containment mirroring
+ * the ecosystem-cargo/-python `resolvedWithinRoot` posture). Throws {@link PracticeEntryIdError} on
+ * any unsafe id; returns the safe absolute output path on success.
+ */
+export function safeRenderedPath(rulesResearchDir: string, entryId: string): string {
+  if (typeof entryId !== 'string' || entryId.length === 0) {
+    throw new PracticeEntryIdError(String(entryId), 'empty or non-string');
+  }
+  if (!RULE_ID_SLUG.test(entryId)) {
+    throw new PracticeEntryIdError(entryId, 'not a rule-id slug (^[a-z][a-z0-9-]*$)');
+  }
+  // Belt-and-braces: even a slug-passing id must resolve strictly inside the rules-research dir.
+  const outPath = resolve(rulesResearchDir, `${entryId}.yml`);
+  const base = rulesResearchDir.endsWith(sep) ? rulesResearchDir : rulesResearchDir + sep;
+  const rel = relative(rulesResearchDir, outPath);
+  if (!outPath.startsWith(base) || rel.startsWith('..') || rel.includes(sep)) {
+    throw new PracticeEntryIdError(entryId, `resolved path escapes ${rulesResearchDir}`);
+  }
+  return outPath;
+}
+
 export interface PracticeRenderOptions {
   consumerRoot: string;
   /** A single `*.practice.json` record, or a directory of them (the `.getff/rules-research` home). */
@@ -161,10 +211,15 @@ export function runPracticeRender(opts: PracticeRenderOptions): PracticeRenderRe
   }
 
   const outDir = rulesResearchDirOf(opts.consumerRoot);
+  // Validate EVERY entryId (attack-shaped input → arbitrary file write / clobber) BEFORE touching the
+  // filesystem — one bad id refuses the whole run with nothing written, no output dir created.
+  const targets = plan.rendered.map((rule) => ({
+    rule,
+    outPath: safeRenderedPath(outDir, rule.entryId),
+  }));
   const rendered: { entryId: string; path: string }[] = [];
-  for (const rule of plan.rendered) {
+  for (const { rule, outPath } of targets) {
     mkdirSync(outDir, { recursive: true });
-    const outPath = join(outDir, `${rule.entryId}.yml`);
     writeFileSync(outPath, rule.yaml);
     rendered.push({ entryId: rule.entryId, path: outPath });
   }
@@ -203,12 +258,21 @@ async function main(): Promise<void> {
       if (args.strict && result.rendered.length === 0) process.exit(1);
       return;
     } catch (err) {
+      // A filesystem-unsafe entryId is an ATTACK-shaped input, not an honest malformed record — it
+      // is refused with a HARD non-zero exit, NOT the rc=0 degrade contract below (a traversal id
+      // must never be swallowed as "just a bad record" that the install continues past).
+      if (err instanceof PracticeEntryIdError) {
+        process.stderr.write(`[rule-bootstrap] REFUSED — ${err.message}\n`);
+        process.exit(1);
+      }
       // Decision B parity: a malformed/unreadable practice record degrades with guidance,
       // never a bad rule.
       process.stderr.write(
         `[rule-bootstrap] practice record invalid or unreadable — ${(err as Error).message}\n` +
-          `[rule-bootstrap] author *.practice.json records via the rule-research protocol ` +
-          `(agents/rule-researcher.md or the rule-research skill), then re-run --from-practice.\n`,
+          `[rule-bootstrap] a valid input is an AstgrepResearchedPractice JSON record (schema: ` +
+          `packages/core/synthesizer/research-to-node.ts; committed example: packages/core/synthesizer/` +
+          `fixtures/live-generation/getff-researched-no-yaml-load.practice.json) — fix or re-author it, ` +
+          `then re-run --from-practice.\n`,
       );
       process.exit(args.strict ? 1 : 0); // rc=0: never abort install
     }

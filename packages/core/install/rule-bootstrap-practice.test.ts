@@ -27,7 +27,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { afterEach, describe, expect, it } from 'vitest';
-import { runPracticeRender } from './rule-bootstrap-cli.ts';
+import { PracticeEntryIdError, runPracticeRender } from './rule-bootstrap-cli.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
@@ -151,6 +151,59 @@ describe('runPracticeRender — practice JSON → rendered rule YAML on the cons
   });
 });
 
+// ── SECURITY (W5 rework, MAJOR): entryId is consumer-authored input that becomes a FILENAME. ──────
+// Before the fix, `writeFileSync(join(outDir, `${entryId}.yml`))` used the record's entryId verbatim:
+// a traversal id (`../..`-segments) wrote OUTSIDE .getff/rules-research (arbitrary file write under
+// the consumer root and beyond), and a crafted id could silently clobber existing files. The fix
+// refuses any entryId not matching the shipped rule-id slug convention (^[a-z][a-z0-9-]*$ —
+// starters `getff-no-eval`…, researched `getff-researched-no-yaml-load`) BEFORE any fs use, plus a
+// belt-and-braces resolved-path containment check (ackfilepath/resolvedWithinRoot posture).
+describe('entryId filesystem safety — traversal/clobber shapes REFUSED before any fs use', () => {
+  function practiceWithId(entryId: string): Record<string, unknown> {
+    const practice = JSON.parse(readFileSync(PRACTICE_FIXTURE, 'utf8')) as Record<string, unknown>;
+    practice['entryId'] = entryId;
+    return practice;
+  }
+
+  it('traversal entryId (`../../pwned`) → REFUSED loudly, NOTHING written anywhere', () => {
+    const consumer = freshConsumer();
+    const rec = join(consumer, 'traversal.practice.json');
+    writeFileSync(rec, JSON.stringify(practiceWithId('../../pwned')));
+
+    expect(() =>
+      runPracticeRender({ consumerRoot: consumer, fromPractice: rec, log: () => {} }),
+    ).toThrow(PracticeEntryIdError);
+    // The traversal target (.getff/rules-research/../../pwned.yml = <consumer>/pwned.yml) must
+    // NOT exist, and the output dir must not have been created either (refuse BEFORE fs use).
+    expect(existsSync(join(consumer, 'pwned.yml'))).toBe(false);
+    expect(existsSync(join(consumer, '.getff', 'rules-research'))).toBe(false);
+  });
+
+  it('path-separator entryId (`evil/nested`) → REFUSED (error names the entryId contract)', () => {
+    const consumer = freshConsumer();
+    const rec = join(consumer, 'separator.practice.json');
+    writeFileSync(rec, JSON.stringify(practiceWithId('evil/nested')));
+
+    // Asserting the MESSAGE (not just any throw): pre-fix this path died with an incidental
+    // fs ENOENT — the refusal must be the deliberate entryId gate, not a filesystem accident.
+    expect(() =>
+      runPracticeRender({ consumerRoot: consumer, fromPractice: rec, log: () => {} }),
+    ).toThrow(/entryId/);
+    expect(existsSync(join(consumer, '.getff', 'rules-research'))).toBe(false);
+  });
+
+  it('valid slug entryId passes the gate unchanged (the committed convention renders)', () => {
+    const consumer = freshConsumer();
+    const result = runPracticeRender({
+      consumerRoot: consumer,
+      fromPractice: PRACTICE_FIXTURE,
+      log: () => {},
+    });
+    expect(result.rendered.map((r) => r.entryId)).toEqual([RULE_ID]);
+    expect(existsSync(renderedPathOf(consumer))).toBe(true);
+  });
+});
+
 describe('rule-bootstrap-cli --from-practice — real CLI invocation', () => {
   const CLI = join(REPO_ROOT, 'packages/core/install/rule-bootstrap-cli.ts');
 
@@ -166,6 +219,25 @@ describe('rule-bootstrap-cli --from-practice — real CLI invocation', () => {
     expect(out.mode).toBe('practice-render');
     expect(out.rendered.map((x) => x.entryId)).toEqual([RULE_ID]);
     expect(existsSync(renderedPathOf(consumer))).toBe(true);
+  });
+
+  it('unsafe entryId → CLI exits NON-ZERO even without --strict (security refusal, not a degrade)', { timeout: 120_000 }, () => {
+    const consumer = freshConsumer();
+    const practice = JSON.parse(readFileSync(PRACTICE_FIXTURE, 'utf8')) as Record<string, unknown>;
+    practice['entryId'] = '../../pwned';
+    const rec = join(consumer, 'traversal.practice.json');
+    writeFileSync(rec, JSON.stringify(practice));
+
+    const r = spawnSync(
+      'npx',
+      ['--no-install', 'tsx', CLI, '--consumer-root', consumer, '--from-practice', rec],
+      { cwd: REPO_ROOT, encoding: 'utf8' },
+    );
+    // The degrade contract (rc=0, never abort install) does NOT apply to an attack-shaped input:
+    // an unsafe entryId is refused with a loud error and a hard non-zero exit.
+    expect(r.status).toBe(1);
+    expect(r.stderr).toMatch(/entryId/);
+    expect(existsSync(join(consumer, 'pwned.yml'))).toBe(false);
   });
 
   it('refuses --from-practice combined with --from-research/--from-selection (authoring error)', { timeout: 120_000 }, () => {
