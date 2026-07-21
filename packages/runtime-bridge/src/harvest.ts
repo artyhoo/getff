@@ -65,6 +65,48 @@ export function scanParkSignals(task: ParkScanInput): string[] {
   return PARK_MARKERS.filter(([, re]) => re.test(haystack)).map(([name]) => name);
 }
 
+/**
+ * Extract aif's SELF-REPORTED affected_files list from a task's `reviewComments`.
+ *
+ * `reviewComments` is markdown prose (## sections) with one or more embedded gate-result
+ * JSON blocks, each of which may carry an `"affected_files": [...]` array (aif's review /
+ * security gates self-report the files they scoped their review to — see
+ * `.claude/skills/aif-review/SKILL.md`). This is NOT a JSON document, so it cannot be
+ * `JSON.parse`d whole; the affected_files arrays are located by pattern and parsed
+ * individually, then unioned across gate blocks.
+ *
+ * Returns:
+ *   • `string[]` — the union of every parseable `affected_files` array (possibly empty
+ *     `[]` when a gate explicitly self-reported no files).
+ *   • `null`     — no parseable affected_files block present (aif did not emit a structured
+ *     self-report for this task). The divergence guard treats null as "nothing to
+ *     cross-check" and proceeds (warn-only), never HOLDing on an unknown/absent format.
+ *
+ * Pure, deterministic, ZERO LLM.
+ */
+export function extractAffectedFiles(reviewComments: string | null | undefined): string[] | null {
+  if (!reviewComments) return null;
+  // Locate each `"affected_files": [ ... ]` array (paths never contain `]`, so the
+  // greedy-to-first-`]` capture is safe) and JSON.parse it individually; skip any
+  // malformed block. `found` distinguishes an explicit empty self-report ([]) from an
+  // absent one (null).
+  const re = /"affected_files"\s*:\s*(\[[^\]]*\])/g;
+  const files = new Set<string>();
+  let found = false;
+  for (let m = re.exec(reviewComments); m !== null; m = re.exec(reviewComments)) {
+    try {
+      const arr: unknown = JSON.parse(m[1]);
+      if (Array.isArray(arr)) {
+        found = true;
+        for (const f of arr) if (typeof f === 'string') files.add(f);
+      }
+    } catch {
+      // malformed affected_files block — not extractable, skip it
+    }
+  }
+  return found ? [...files] : null;
+}
+
 /** The injected side-effects harvest performs, in order. */
 export interface HarvestDeps {
   /**
@@ -100,6 +142,16 @@ export interface HarvestDeps {
   createPr: (opts: { branch: string; base: string; title: string; body: string }) => Promise<string>;
   /** Arm GitHub native auto-merge on the PR (merges itself on green CI). */
   enableAutoMerge: (prUrl: string) => Promise<void>;
+  /**
+   * The mechanical file-list of what the task actually changed vs `base` — the union of the
+   * branch's committed delta from its merge-base (`git diff --name-only <base>...HEAD`,
+   * three-dot, drift-immune) and the uncommitted working-tree changes (`git diff --name-only
+   * HEAD`), so it covers BOTH the committed and the dirty-tree states aif can leave. This is
+   * the ground truth the affected-files divergence guard cross-checks against aif's
+   * self-report. Only consulted when the task carries a structured self-report (see
+   * {@link extractAffectedFiles}).
+   */
+  changedFilesVsBase: (branchName: string, base: string) => Promise<string[]>;
 }
 
 export interface HarvestOpts {
@@ -114,6 +166,11 @@ export interface HarvestOpts {
    *  ambiguous shape is surfaced ({@link HarvestResult.needsConfirm}) instead of silently
    *  auto-committed (false-done guard, 2026-06-23). The ≥1-commit and clean paths ignore it. */
   confirmRework?: boolean;
+  /** Explicit operator confirmation to ship despite files touched-but-not-self-reported by
+   *  aif (the affected-files divergence guard, 2026-07-17). Without it, a non-empty
+   *  `mechanical ∖ self-report` set surfaces ({@link HarvestResult.needsFileConfirm}) instead
+   *  of pushing — those files were never reviewed by aif's gate. */
+  confirmUnreportedFiles?: boolean;
 }
 
 export interface HarvestResult {
@@ -138,6 +195,17 @@ export interface HarvestResult {
    *  {@link scanParkSignals}). Surfaced to make the operator's call actionable; an empty
    *  list does NOT mean "definitely complete". */
   parkSignals?: string[];
+  /** True when harvest STOPPED because aif touched file(s) it did not self-report in
+   *  `affected_files` — the review-gate never reviewed them (2026-07-17 gap). Did NOT
+   *  push/PR. Operator inspects, then re-runs with `confirmUnreportedFiles`. Mutually
+   *  exclusive with `pushed`. Absent on every non-diverging path. */
+  needsFileConfirm?: boolean;
+  /** The `mechanical ∖ self-report` set: files the task changed but aif did not report as
+   *  affected — present with `needsFileConfirm` (the incident's exact signature). */
+  unreportedFiles?: string[];
+  /** The `self-report ∖ mechanical` set: files aif claimed as affected but the task did NOT
+   *  touch. Milder (warn-only, never HOLDs) — surfaced so the CLI can warn. */
+  unmatchedSelfReport?: string[];
 }
 
 /** The subset of an aif task harvest reads. */
@@ -222,6 +290,44 @@ export async function harvestTask(
     }
   }
 
+  // Affected-files divergence guard (2026-07-17 aif review-gate gap — research-patch
+  // docs/meta-factory/research-patches/2026-07-17-aif-review-gate-affected-files-gap.md §7).
+  // aif's review/security gates self-report which files they scoped their review to. When
+  // the agent touches a file it does NOT self-report (the incident's exact signature — a
+  // destructive Edit on an unreported file), that gate never reviewed it, yet the task can
+  // still close `done`. Cross-check the self-report against the mechanical file-list and
+  // HOLD on any unreported-but-touched file. A null self-report (no structured block found)
+  // means "nothing to cross-check" — skip the guard entirely rather than guess a format.
+  let unreportedFiles: string[] = [];
+  let unmatchedSelfReport: string[] = [];
+  const selfReport = extractAffectedFiles(task.reviewComments);
+  if (selfReport !== null) {
+    const mechanical = await deps.changedFilesVsBase(branch, opts.baseBranch);
+    // Normalise both sides before the set-difference: aif's self-report and git's
+    // --name-only output can differ cosmetically for the SAME path (a leading `./`, a
+    // trailing `/`), which would otherwise read as a false divergence and a noisy HOLD.
+    const norm = (p: string): string => p.trim().replace(/^\.\//, '').replace(/\/+$/, '');
+    const selfReportNorm = selfReport.map(norm);
+    const mechanicalNorm = mechanical.map(norm);
+    const selfReportSet = new Set(selfReportNorm);
+    const mechanicalSet = new Set(mechanicalNorm);
+    unreportedFiles = mechanicalNorm.filter((f) => !selfReportSet.has(f));
+    unmatchedSelfReport = selfReportNorm.filter((f) => !mechanicalSet.has(f));
+    if (unreportedFiles.length > 0 && !opts.confirmUnreportedFiles) {
+      return {
+        prUrl: '',
+        branch,
+        pushed: false,
+        autoMerge: false,
+        committed,
+        dirtyTreeLeftBehind,
+        needsFileConfirm: true,
+        unreportedFiles,
+        ...(unmatchedSelfReport.length > 0 ? { unmatchedSelfReport } : {}),
+      };
+    }
+  }
+
   await deps.pushBranch(branch);
   const prUrl = await deps.createPr({ branch, base: opts.baseBranch, title: task.title, body: opts.body });
 
@@ -231,5 +337,13 @@ export async function harvestTask(
     autoMerge = true;
   }
 
-  return { prUrl, branch, pushed: true, autoMerge, committed, dirtyTreeLeftBehind };
+  return {
+    prUrl,
+    branch,
+    pushed: true,
+    autoMerge,
+    committed,
+    dirtyTreeLeftBehind,
+    ...(unmatchedSelfReport.length > 0 ? { unmatchedSelfReport } : {}),
+  };
 }

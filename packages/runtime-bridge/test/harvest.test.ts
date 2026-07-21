@@ -1,6 +1,6 @@
 // packages/runtime-bridge/test/harvest.test.ts
 import { describe, it, expect, vi } from 'vitest';
-import { harvestTask, scanParkSignals } from '../src/harvest.js';
+import { harvestTask, scanParkSignals, extractAffectedFiles } from '../src/harvest.js';
 import type { HarvestDeps } from '../src/harvest.js';
 
 /** A deps double that records call order; each fn resolves successfully by default.
@@ -32,6 +32,13 @@ function makeDeps(over: Partial<HarvestDeps> = {}): { deps: HarvestDeps; calls: 
     }),
     enableAutoMerge: vi.fn(async (url: string) => {
       calls.push(`automerge:${url}`);
+    }),
+    // Mechanical file-list (git diff --name-only <base>). Only consulted when the task
+    // carries a structured self-reported affected_files list; default → [] so tasks
+    // without reviewComments never trigger the divergence guard (existing behavior).
+    changedFilesVsBase: vi.fn(async (b: string, base: string) => {
+      calls.push(`changed?:${b}:${base}`);
+      return [];
     }),
     ...over,
   };
@@ -217,6 +224,125 @@ describe('harvestTask — false-done / internal-park guard (Design A, 2026-06-23
     const res = await harvestTask(DONE_TASK, { baseBranch: 'staging', body: 'B', autoMerge: false }, deps);
     expect(res.needsConfirm).toBeFalsy();
     expect(res.pushed).toBe(true);
+  });
+});
+
+// A reviewComments value in aif's live shape: markdown prose (## sections) with an
+// embedded gate-result JSON block that carries the self-reported affected_files list.
+const rcWithAffected = (files: string[]): string =>
+  `## Code Review\n\n## Blocking Findings\n- none\n\n## Security Audit\n` +
+  `{ "schema_version": 1, "gate": "security", "status": "pass", "blocking": false, ` +
+  `"blockers": [], "affected_files": ${JSON.stringify(files)} }\n`;
+
+describe('extractAffectedFiles — pure self-report extractor', () => {
+  it('positive: pulls affected_files out of an embedded gate-result JSON block', () => {
+    expect(extractAffectedFiles(rcWithAffected(['a.ts', 'b.ts']))).toEqual(['a.ts', 'b.ts']);
+  });
+
+  it('positive: unions affected_files across multiple gate blocks (security + review)', () => {
+    const rc = rcWithAffected(['a.ts', 'b.ts']) + `\n## Review\n{ "gate": "review", "affected_files": ["b.ts", "c.ts"] }\n`;
+    expect(extractAffectedFiles(rc)?.sort()).toEqual(['a.ts', 'b.ts', 'c.ts']);
+  });
+
+  it('null: plain markdown with no affected_files block → not extractable (warn-only, not HOLD)', () => {
+    expect(extractAffectedFiles('## Auto Review Metadata\n- strategy: single\n')).toBeNull();
+  });
+
+  it('null: empty/absent input → null', () => {
+    expect(extractAffectedFiles('')).toBeNull();
+    expect(extractAffectedFiles(null)).toBeNull();
+    expect(extractAffectedFiles(undefined)).toBeNull();
+  });
+
+  it('empty-array block → [] (explicit empty self-report, distinct from null)', () => {
+    expect(extractAffectedFiles(rcWithAffected([]))).toEqual([]);
+  });
+
+  it('malformed block → null (graceful, no throw)', () => {
+    expect(extractAffectedFiles('noise "affected_files": [unquoted, junk more noise')).toBeNull();
+  });
+});
+
+describe('harvestTask — affected-files divergence guard (aif review-gate self-report gap, 2026-07-17)', () => {
+  // The 2026-07-17 DH-S1 incident (research-patch §2/§7): aif's review-gate scoped itself
+  // to a SELF-REPORTED affected_files list; the agent's Edit destructively touched a 4th
+  // file it did not self-report, so the gate never reviewed it and closed `done`. Harvest
+  // cross-checks the self-report against the mechanical git-diff file-list and HOLDs on any
+  // touched-but-unreported file unless the operator confirms.
+  const taskRC = (files: string[]) => ({ ...DONE_TASK, reviewComments: rcWithAffected(files) });
+
+  it('touched-but-unreported (mechanical ∖ self-report ≠ ∅) + no confirm → needsFileConfirm; does NOT push', async () => {
+    const { deps } = makeDeps({
+      changedFilesVsBase: vi.fn(async () => ['a.ts', 'b.ts', 'prior-art.md']), // C = the unreported destructive edit
+    });
+    const res = await harvestTask(taskRC(['a.ts', 'b.ts']), { baseBranch: 'staging', body: 'B', autoMerge: true }, deps);
+    expect(res.needsFileConfirm).toBe(true);
+    expect(res.unreportedFiles).toEqual(['prior-art.md']);
+    expect(res.pushed).toBe(false);
+    expect(deps.pushBranch).not.toHaveBeenCalled();
+    expect(deps.createPr).not.toHaveBeenCalled();
+  });
+
+  it('touched-but-unreported + confirmUnreportedFiles → pushes (override works)', async () => {
+    const { deps } = makeDeps({
+      changedFilesVsBase: vi.fn(async () => ['a.ts', 'b.ts', 'prior-art.md']),
+    });
+    const res = await harvestTask(
+      taskRC(['a.ts', 'b.ts']),
+      { baseBranch: 'staging', body: 'B', autoMerge: true, confirmUnreportedFiles: true },
+      deps,
+    );
+    expect(res.needsFileConfirm).toBeFalsy();
+    expect(res.pushed).toBe(true);
+    expect(deps.pushBranch).toHaveBeenCalledOnce();
+  });
+
+  it('paired-positive: mechanical ⊆ self-report → no HOLD, pushes normally', async () => {
+    const { deps } = makeDeps({
+      changedFilesVsBase: vi.fn(async () => ['a.ts', 'b.ts']), // subset of self-report
+    });
+    const res = await harvestTask(taskRC(['a.ts', 'b.ts', 'c.ts']), { baseBranch: 'staging', body: 'B', autoMerge: false }, deps);
+    expect(res.needsFileConfirm).toBeFalsy();
+    expect(res.pushed).toBe(true);
+  });
+
+  it('no structured self-report (null) → guard skipped, changedFilesVsBase NOT called, pushes (existing behavior)', async () => {
+    const { deps } = makeDeps();
+    const res = await harvestTask(DONE_TASK, { baseBranch: 'staging', body: 'B', autoMerge: false }, deps);
+    expect(res.pushed).toBe(true);
+    expect(deps.changedFilesVsBase).not.toHaveBeenCalled();
+  });
+
+  it('claimed-but-untouched (self-report ∖ mechanical) → milder: no HOLD, pushes, surfaces unmatchedSelfReport', async () => {
+    const { deps } = makeDeps({
+      changedFilesVsBase: vi.fn(async () => ['a.ts', 'b.ts']), // 'x.ts' claimed but not touched
+    });
+    const res = await harvestTask(taskRC(['a.ts', 'b.ts', 'x.ts']), { baseBranch: 'staging', body: 'B', autoMerge: false }, deps);
+    expect(res.needsFileConfirm).toBeFalsy();
+    expect(res.pushed).toBe(true);
+    expect(res.unmatchedSelfReport).toEqual(['x.ts']);
+  });
+
+  it('path normalization: leading ./ and trailing / in self-report do NOT cause a false divergence', async () => {
+    const { deps } = makeDeps({
+      changedFilesVsBase: vi.fn(async () => ['a.ts', 'dir/b.ts']), // clean repo-relative
+    });
+    // aif self-reported the same files but with ./ prefix + trailing-slash noise
+    const res = await harvestTask(taskRC(['./a.ts', 'dir/b.ts/']), { baseBranch: 'staging', body: 'B', autoMerge: false }, deps);
+    expect(res.needsFileConfirm).toBeFalsy();
+    expect(res.pushed).toBe(true);
+  });
+
+  it('HOLD result still surfaces unmatchedSelfReport (full diagnostic, both directions)', async () => {
+    const { deps } = makeDeps({
+      changedFilesVsBase: vi.fn(async () => ['a.ts', 'unreported.ts']),
+    });
+    // self claims x.ts (untouched) AND omits unreported.ts (touched) — HOLD on the omission,
+    // but the claimed-untouched direction must still be reported for the operator.
+    const res = await harvestTask(taskRC(['a.ts', 'x.ts']), { baseBranch: 'staging', body: 'B', autoMerge: false }, deps);
+    expect(res.needsFileConfirm).toBe(true);
+    expect(res.unreportedFiles).toEqual(['unreported.ts']);
+    expect(res.unmatchedSelfReport).toEqual(['x.ts']);
   });
 });
 
