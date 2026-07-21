@@ -268,3 +268,61 @@ describe('Test 5 — buildKickoffSpec opt-in marker contract (kickoff §7)', () 
     expect(spec?.contentHash).toMatch(/^[0-9a-f]{64}$/); // SHA-256 hex
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Test 6: bridge-profile marker — SEPARATE channel from firstLine auto/skip
+// (multi-model-profile-marker, 2026-07-21). Source: kickoff.ts extractProfileHint.
+// ═══════════════════════════════════════════════════════════════════════════════
+describe('Test 6 — extractProfileHint / bridge-profile marker (header-region-only)', () => {
+  function writeKickoff(content: string): string {
+    const sandbox = makeSandbox();
+    const kickoffDir = join(sandbox, 'my-feature-meta-launch');
+    mkdirSync(kickoffDir, { recursive: true });
+    const kickoffPath = join(kickoffDir, 'kickoff.md');
+    writeFileSync(kickoffPath, content, 'utf8');
+    return kickoffPath;
+  }
+
+  it('(a) marker in header region → profileHint set (positive)', async () => {
+    const { extractProfileHint } = await import('../src/kickoff.js');
+    const content =
+      '# Kickoff\n> **Umbrella:** demo\n> <!-- bridge-profile: GLM -->\n\n## §1 Why\nBody.\n';
+    expect(extractProfileHint(content)).toBe('GLM');
+  });
+
+  it('(b) no marker anywhere → undefined (negative)', async () => {
+    const { extractProfileHint } = await import('../src/kickoff.js');
+    expect(extractProfileHint('# Kickoff\n> **Umbrella:** demo\n\n## §1 Why\nBody.\n')).toBeUndefined();
+  });
+
+  it('(c) marker string only in BODY (past first ##) → undefined (self-reference guard, paired-negative)', async () => {
+    // This is the exact shape of multi-model-profile-marker/kickoff.md itself:
+    // it documents `<!-- bridge-profile: GLM -->` in prose under a `##` section,
+    // never as a real header-region directive. A whole-file scan would
+    // false-positive here; the header-region-only scan must not.
+    const { extractProfileHint } = await import('../src/kickoff.js');
+    const content =
+      '# Kickoff\n> **Umbrella:** demo\n\n' +
+      '## §2 Scope\nUse the `<!-- bridge-profile: GLM -->` marker to route this.\n';
+    expect(extractProfileHint(content)).toBeUndefined();
+  });
+
+  it('(d) auto/skip firstLine marker untouched by a bridge-profile marker present too (regression guard)', async () => {
+    const { buildKickoffSpec } = await import('../src/kickoff.js');
+    const content = '<!-- bridge: auto -->\n# Kickoff\n> <!-- bridge-profile: GLM -->\n\n## §1\nBody.\n';
+    const kickoffPath = writeKickoff(content);
+    const spec = buildKickoffSpec(kickoffPath);
+
+    expect(spec).not.toBeNull(); // auto marker still dispatches
+    expect(spec?.profileHint).toBe('GLM');
+  });
+
+  it('(e) buildKickoffSpec omits profileHint when absent (no stray undefined key leaking as "present")', async () => {
+    const { buildKickoffSpec } = await import('../src/kickoff.js');
+    const kickoffPath = writeKickoff('<!-- bridge: auto -->\n# Kickoff\nNo marker here.\n');
+    const spec = buildKickoffSpec(kickoffPath);
+
+    expect(spec).not.toBeNull();
+    expect('profileHint' in (spec as object)).toBe(false);
+  });
+});
