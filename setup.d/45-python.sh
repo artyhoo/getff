@@ -438,9 +438,12 @@ EOF
 # Written to .getff/rules-lock.python.json — NEVER .ai-factory/ (that dir is the npm lane's; the python
 # lane asserts it never appears — tests/install-sh/python-entry-lane.test.sh (1)).
 #
-# Idempotent: skip-if-present on a plain re-run (stable emittedAt), regenerate on --refresh
-# (GETFF_TOOLCHAIN_REFRESH=1) — the same copy_safe/refresh_safe idempotency contract the config lanes
-# use. Its emittedAt is wall-clock → the lock is EXCLUDED from the install byte-identical snapshot
+# Idempotent: skip-if-present ONLY on the plain no-flag re-run (stable emittedAt, copy_safe did NOT
+# overwrite the delivered artefacts). Regenerate on ANY delivery-overwrite path — --force (copy_safe
+# overwrites) AND --refresh (GETFF_TOOLCHAIN_REFRESH=1, refresh_safe overwrites) — so the lock is NEVER
+# stale relative to the delivered .getff/ artefacts (its whole job is to record the DELIVERED set; a lock
+# that lagged a --force re-delivery would LIE about what was delivered). Same copy_safe/refresh_safe
+# idempotency contract the config lanes use. Its emittedAt is wall-clock → the lock is EXCLUDED from the install byte-identical snapshot
 # (tests/install-sh/snapshot.sh compute_fingerprint), exactly as the running audit log is; its
 # deterministic content is gated by tests/install-sh/python-rules-lock.test.sh instead
 # (attention-is-not-a-mechanism §1: a non-deterministic field is not left byte-guarded, it is moved to
@@ -463,9 +466,13 @@ _py_write_rules_lock() {
     return 0
   fi
 
-  # Idempotent: keep the existing lock (stable emittedAt) unless this is an explicit --refresh.
-  if [ -f "$lock" ] && [ "${GETFF_TOOLCHAIN_REFRESH:-}" != "1" ]; then
-    echo "  ⊝ rules-lock.python.json already present — no-op (idempotent)"
+  # Idempotent skip-if-present ONLY on the plain no-flag re-run, where copy_safe (lib.sh) did NOT overwrite
+  # the delivered .getff/ artefacts. On ANY overwrite path — --force (copy_safe overwrites, lib.sh:79) OR
+  # --refresh (refresh_safe overwrites) — the delivered set may have changed, so the lock MUST be
+  # regenerated or it goes STALE and lies about what was delivered. Invariant: the lock is never stale
+  # relative to the delivered .getff/ artefacts.
+  if [ -f "$lock" ] && [ "${GETFF_TOOLCHAIN_REFRESH:-}" != "1" ] && [ "${FORCE:-}" != "--force" ]; then
+    echo "  ⊝ rules-lock.python.json already present — no-op (idempotent, no overwrite this run)"
     return 0
   fi
 
@@ -487,8 +494,17 @@ _py_write_rules_lock() {
     _fp=$(printf '%s' "$_hash_input" | sha256sum | awk '{print $1}')
   elif command -v shasum >/dev/null 2>&1; then
     _fp=$(printf '%s' "$_hash_input" | shasum -a 256 | awk '{print $1}')
+  elif command -v md5 >/dev/null 2>&1; then          # BSD/macOS md5 fallback
+    _fp=$(printf '%s' "$_hash_input" | md5 | awk '{print $NF}')
+  elif command -v md5sum >/dev/null 2>&1; then        # Linux md5sum fallback (was missing → constant on Linux)
+    _fp=$(printf '%s' "$_hash_input" | md5sum | awk '{print $1}')
   else
-    _fp=$(printf '%s' "$_hash_input" | md5 2>/dev/null | awk '{print $NF}' || echo 0000000000000000)
+    # Degrade LOUDLY (attention-is-not-a-mechanism §1 / degrade-loudly): NO sha256/md5 tool on the host, so
+    # the fingerprint below is a FAKE CONSTANT, not an authoritative digest of the delivered rule bytes.
+    # Warn to stderr so the constant is NEVER silently trusted as the lock's auditability primitive. Do NOT
+    # hard-fail — sourceFingerprint is an optional auditability field, not an install precondition.
+    echo "  ⚠ getff: no sha256 tool (sha256sum/shasum/md5/md5sum); rules-lock sourceFingerprint is non-authoritative" >&2
+    _fp=0000000000000000
   fi
   _fp="${_fp:0:16}"
 

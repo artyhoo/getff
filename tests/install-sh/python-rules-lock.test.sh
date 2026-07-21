@@ -96,13 +96,16 @@ fp2=$(lock_field "$P2/$LOCK_REL" sourceFingerprint)
   && ok "(5) identical delivered rule set → identical sourceFingerprint" \
   || bad "(5) fingerprints diverge across identical installs: '$fp1' vs '$fp2'"
 
-# ── (6) idempotency: a plain re-run leaves the lock byte-identical (stable emittedAt) ──────────────
-echo ""; echo "  ── (6) idempotent plain re-run (emittedAt stable) ──"
+# ── (6) idempotency: a plain NO-FLAG re-run leaves the lock byte-identical (skip-if-present) ────────
+# The idempotent skip fires ONLY on the plain no-flag re-run where copy_safe did NOT overwrite the
+# delivered artefacts. --force / --refresh are OVERWRITE paths that DO regenerate (arms (7) + (9)) — so
+# this arm must use a bare `install.sh python`, NOT --force (which now correctly regenerates the lock).
+echo ""; echo "  ── (6) idempotent plain no-flag re-run (emittedAt stable) ──"
 before=$(cat "$LOCK")
-( cd "$P" && bash "$INSTALL" python --force < /dev/null ) >/dev/null 2>&1
+( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
 [ "$before" = "$(cat "$LOCK")" ] \
-  && ok "(6) re-run is idempotent — lock byte-identical (skip-if-present)" \
-  || bad "(6) plain re-run changed the lock (not idempotent)"
+  && ok "(6) plain no-flag re-run is idempotent — lock byte-identical (skip-if-present)" \
+  || bad "(6) plain no-flag re-run changed the lock (not idempotent)"
 
 # ── (7) --refresh regenerates the lock with the SAME fingerprint (rules unchanged) ─────────────────
 echo ""; echo "  ── (7) --refresh regenerates (same rules → same fingerprint) ──"
@@ -134,6 +137,64 @@ if [ -f "$RESEARCHED" ]; then
 else
   skip "(8) researched fixture absent ($RESEARCHED) — teeth arm skipped"
 fi
+
+# ── (9) REGRESSION (W3 rework, MAJOR): --force re-delivery must NOT leave a STALE lock ─────────────
+# copy_safe (lib.sh:79) OVERWRITES the delivered .getff/ artefacts under --force. The lock — whose whole
+# job is to record the DELIVERED set (ruleIds/ruffBans/sourceFingerprint) — must therefore be regenerated
+# on --force too, not only on --refresh. Before the fix _py_write_rules_lock regenerated ONLY on
+# GETFF_TOOLCHAIN_REFRESH=1, so `install.sh python --force` over a prior install whose template CHANGED
+# delivered a NEW ruff-bans.toml but left ruffBans/sourceFingerprint STALE (the lock lied). RED before the
+# fix (fpB==fpA, no TID999 in the lock); GREEN after (lock tracks template B).
+echo ""; echo "  ── (9) regression: --force re-delivery regenerates the lock (no stale ruffBans/fingerprint) ──"
+SRC9=$(mktemp -d); cp -R "$TPL/." "$SRC9/"
+P9=$(py_fixture)
+( cd "$P9" && PY_TEMPLATE_DIR="$SRC9" bash "$INSTALL" python --force < /dev/null ) >/dev/null 2>&1
+L9="$P9/$LOCK_REL"
+fpA=$(lock_field "$L9" sourceFingerprint)
+grep -q '"TID999"' "$L9" && preTID=1 || preTID=0
+# Mutate the template B: the delivered .getff/ruff-bans.toml is a copy of the template ruff.toml — add a ban.
+sed -i.bak -E 's/select = \["TID251", "TID253"\]/select = ["TID251", "TID253", "TID999"]/' "$SRC9/ruff.toml" && rm -f "$SRC9/ruff.toml.bak"
+# Re-install with --force (NOT --refresh) over the SAME consumer → copy_safe overwrites ruff-bans.toml.
+( cd "$P9" && PY_TEMPLATE_DIR="$SRC9" bash "$INSTALL" python --force < /dev/null ) >/dev/null 2>&1
+grep -q 'TID999' "$P9/.getff/ruff-bans.toml" \
+  && ok "(9) --force re-delivery overwrote the delivered ruff-bans.toml (template B reached the consumer)" \
+  || bad "(9) --force did NOT overwrite ruff-bans.toml — repro precondition unmet"
+fpB=$(lock_field "$L9" sourceFingerprint)
+if [ "$preTID" -eq 0 ] && grep -q '"TID999"' "$L9" && [ -n "$fpB" ] && [ "$fpB" != "$fpA" ]; then
+  ok "(9) lock regenerated on --force: ruffBans gained TID999 + fingerprint moved $fpA→$fpB (not stale)"
+else
+  bad "(9) STALE lock after --force: TID999-in-lock=$(grep -c '"TID999"' "$L9") fp $fpA→$fpB (RED before fix)"
+fi
+rm -rf "$SRC9" "$P9"
+
+# ── (10) MINOR (W3 rework): loud degrade when NO sha256/md5 hash tool is on PATH ───────────────────
+# The sourceFingerprint hash ladder falls through to a fake CONSTANT (0000000000000000) when the host has
+# no sha256sum/shasum/md5/md5sum. That constant must NEVER be trusted silently (attention-is-not-a-
+# mechanism §1 / degrade-loudly) → assert the loud stderr warning fires. Driven via the lib-only seam
+# (PY_LAYER_LIB_ONLY=1) under a pruned PATH holding only the coreutils the writer needs — NOT the hash
+# tools — so the no-tool branch is reached deterministically without perturbing the full installer.
+echo ""; echo "  ── (10) loud degrade: no hash tool → stderr warning + non-authoritative fingerprint ──"
+BASHBIN=$(command -v bash)
+BIN=$(mktemp -d)
+for t in cat find sort sed grep awk date mkdir rm head wc; do
+  p=$(command -v "$t" 2>/dev/null) && ln -sf "$p" "$BIN/$t"
+done
+P10=$(py_fixture)
+mkdir -p "$P10/.getff/astgrep-rules"
+cp "$TPL/.getff/astgrep-rules/"*.yml "$P10/.getff/astgrep-rules/"
+cp "$TPL/ruff.toml" "$P10/.getff/ruff-bans.toml"
+warn10=$(
+  PATH="$BIN" PY_LAYER_LIB_ONLY=1 PROJECT_ROOT="$P10" DRY_RUN="" GETFF_TOOLCHAIN_REFRESH="" FORCE="--force" \
+    "$BASHBIN" -c 'source "$1"; _py_write_rules_lock >/dev/null' _ "$REPO_ROOT/setup.d/45-python.sh" 2>&1
+)
+fp10=$(lock_field "$P10/$LOCK_REL" sourceFingerprint)
+printf '%s' "$warn10" | grep -q "non-authoritative" \
+  && ok "(10) loud stderr warning emitted when no hash tool is on PATH (RED before fix — was silent)" \
+  || bad "(10) NO loud warning on the no-hash-tool degrade path (silent fake fingerprint)"
+[ "$fp10" = "0000000000000000" ] \
+  && ok "(10) fingerprint degrades to the documented non-authoritative constant" \
+  || bad "(10) unexpected fingerprint on the degrade path: '$fp10'"
+rm -rf "$BIN" "$P10"
 
 rm -rf "$P" "$P2"
 echo ""
