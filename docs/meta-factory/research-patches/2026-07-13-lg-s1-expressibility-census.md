@@ -5,6 +5,8 @@
 > **Status:** LANDED on `claude/live-generation-s1-python-a52650` as the OWNER-FORK-1 durable record. The unfreeze decision itself is a separate MT-plane umbrella (STOP line, kickoff §2), decided by the owner on this data.
 > **Method:** 15 real python conventions (stratified across security / correctness / typing / imports / style — T9 counter), each classified by a subagent that authored a candidate ast-grep rule and fired it **for real** against `@ast-grep/cli@0.44.1` in an OS temp dir (every row carries an actual `ast-grep scan` exit code — no prose-only claim, T3/T15), with an adversarial relational-collapse pass challenging each non-expressible verdict. Ran as a session-side Workflow (no paid LLM in CI — [no-paid-llm-in-ci.md](../../../.claude/rules/no-paid-llm-in-ci.md)). Full working ledger: `.superpowers/sdd/lg-s1-census.md` (untracked — excluded via `.git/info/exclude`, not a shared `.gitignore`, so not reproducible across machines; the bucket counts + rate arithmetic above are reproducible from staging artifacts, the per-row exit codes are corroborating detail in the ledger only).
 > **Date:** 2026-07-13.
+>
+> **Post-merge note (2026-07-21):** LG-S1 merged to `staging` via #1005; the require-via-ban count was corrected post-merge by #1025 (5→3, now consistent across §1/§2). This census now lives on `staging` as the durable OWNER-FORK-1 record — the "LANDED on `claude/live-generation-s1-python-a52650`" status above is historical (its original feature-branch). Body below is unchanged from the landed record (archival convention). Cited as the DATA source by the `ir-unfreeze` umbrella kickoff (2026-07-21).
 
 ---
 
