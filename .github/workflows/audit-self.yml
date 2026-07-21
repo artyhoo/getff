@@ -562,6 +562,8 @@ jobs:
         run: bash tests/install-sh/gh-636-dispatcher-tsx-probe.test.sh
       - name: install-sh — f16 stryker live-mutants (post-install liveness smoke #549 class)
         run: bash tests/install-sh/f16-stryker-live-mutants.test.sh
+      - name: "install-sh — f20 stryker monorepo emit (#931 PR-2: per-package stryker/*.json + scripts/run-mutation.sh wrapper on a multi-stack monorepo)"
+        run: bash tests/install-sh/f20-stryker-monorepo-emit.test.sh
       - name: "install-sh — check-fences-fire paired-negative (D4: probe is falsifiable; FENCE SILENT + FALSE POSITIVE arms)"
         run: bash tests/install-sh/check-fences-fire-paired-negative.test.sh
       - name: "install-sh — byte-identical snapshot compare: all 4 stacks × {greenfield,brownfield} (modular-install-fullpack S1)"
