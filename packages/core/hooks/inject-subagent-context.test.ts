@@ -21,15 +21,46 @@
  * Declared degradation (asserted): the digest is one-shot on zcode (becomes the subagent's
  * first user message), not persistent-lifecycle as on CC — honest, best-available.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { resolve, dirname } from 'node:path';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { resolve, dirname, join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HOOK = resolve(REPO_ROOT, '.claude/hooks/inject-subagent-context.sh');
 const SOURCE_DIGEST = resolve(REPO_ROOT, '.claude/hooks/inject-session-bootstrap.sh');
+
+// Hermetic fixture (mirrors inject-project-digest.test.ts:makeTempRepo). The hook reads its
+// digest from the `<!-- digest:start -->…<!-- digest:end -->` block of
+// `$CLAUDE_PROJECT_DIR/.claude/session-bootstrap.md` (hook:44-54). The REAL repo's
+// session-bootstrap.md carries no such block by design — the framework's main-session digest is
+// emitted dynamically by inject-session-bootstrap.sh's heredoc, never cached as a static block
+// (a static copy would drift from the heredoc's dynamic AIF_HOOK_LANG line). So the zcode-branch
+// tests MUST supply their own fixture via CLAUDE_PROJECT_DIR instead of relying on the real file.
+// We seed the fixture block with inject-session-bootstrap.sh's own output so the SSOT/no-drift
+// assertion (`appended ⊇ source digest`) stays meaningful (verifies the hook reads + appends the
+// block verbatim, without mangling).
+let FIXTURE_ROOT: string;
+beforeAll(() => {
+  const sourceDigest = execFileSync(
+    'bash',
+    ['-c', `env -u ZCODE_PROJECT_DIR bash "${SOURCE_DIGEST}"`],
+    { encoding: 'utf8' },
+  ).trim();
+  FIXTURE_ROOT = mkdtempSync(join(tmpdir(), 'isc-test-'));
+  mkdirSync(join(FIXTURE_ROOT, '.claude'), { recursive: true });
+  writeFileSync(
+    join(FIXTURE_ROOT, '.claude', 'session-bootstrap.md'),
+    `# Bootstrap\n\n<!-- digest:start -->\n${sourceDigest}\n<!-- digest:end -->\n`,
+    'utf8',
+  );
+});
+afterAll(() => {
+  if (FIXTURE_ROOT) rmSync(FIXTURE_ROOT, { recursive: true, force: true });
+});
 
 /** Run the hook with a PreToolUse:Agent stdin payload and explicit env control. */
 function runHook(
@@ -41,6 +72,9 @@ function runHook(
   const fullEnv = { ...process.env };
   if (env.ZCODE_PROJECT_DIR === undefined) delete fullEnv.ZCODE_PROJECT_DIR;
   else fullEnv.ZCODE_PROJECT_DIR = env.ZCODE_PROJECT_DIR;
+  // CLAUDE_PROJECT_DIR selects the digest-source root (hook:44); zcode-branch tests point it at
+  // the hermetic fixture so the hook reads a populated digest block instead of the real file.
+  if (env.CLAUDE_PROJECT_DIR !== undefined) fullEnv.CLAUDE_PROJECT_DIR = env.CLAUDE_PROJECT_DIR;
   const r = execFileSync('bash', [HOOK], {
     input: JSON.stringify(input),
     encoding: 'utf8',
@@ -58,6 +92,7 @@ function runHookStatus(
   const fullEnv = { ...process.env };
   if (env.ZCODE_PROJECT_DIR === undefined) delete fullEnv.ZCODE_PROJECT_DIR;
   else fullEnv.ZCODE_PROJECT_DIR = env.ZCODE_PROJECT_DIR;
+  if (env.CLAUDE_PROJECT_DIR !== undefined) fullEnv.CLAUDE_PROJECT_DIR = env.CLAUDE_PROJECT_DIR;
   try {
     const stdout = execFileSync('bash', [HOOK], {
       input: JSON.stringify(input),
@@ -91,7 +126,7 @@ describe('inject-subagent-context.sh — CC-first backup gated by _is_zcode', ()
   });
 
   it('zcode branch: emits PreToolUse JSON with updatedInput.prompt enriched by the digest', () => {
-    const { status, stdout } = runHook(agentPayload(), { ZCODE_PROJECT_DIR: REPO_ROOT });
+    const { status, stdout } = runHook(agentPayload(), { ZCODE_PROJECT_DIR: REPO_ROOT, CLAUDE_PROJECT_DIR: FIXTURE_ROOT });
     expect(status).toBe(0);
     const json = JSON.parse(stdout);
     expect(json.hookSpecificOutput.hookEventName).toBe('PreToolUse');
@@ -103,7 +138,7 @@ describe('inject-subagent-context.sh — CC-first backup gated by _is_zcode', ()
   });
 
   it('updatedInput preserves ALL original tool_input fields (fR re-validates)', () => {
-    const { stdout } = runHook(agentPayload(), { ZCODE_PROJECT_DIR: REPO_ROOT });
+    const { stdout } = runHook(agentPayload(), { ZCODE_PROJECT_DIR: REPO_ROOT, CLAUDE_PROJECT_DIR: FIXTURE_ROOT });
     const updated = JSON.parse(stdout).hookSpecificOutput.updatedInput;
     expect(updated.description).toBe('investigate the bundle');
     expect(updated.subagent_type).toBe('Explore');
@@ -112,11 +147,14 @@ describe('inject-subagent-context.sh — CC-first backup gated by _is_zcode', ()
   });
 
   it('Task alias also triggers the hook (matcher Agent|Task)', () => {
-    const { stdout } = runHook(agentPayload(), { ZCODE_PROJECT_DIR: REPO_ROOT });
+    const { stdout } = runHook(agentPayload(), { ZCODE_PROJECT_DIR: REPO_ROOT, CLAUDE_PROJECT_DIR: FIXTURE_ROOT });
     expect(JSON.parse(stdout).hookSpecificOutput.hookEventName).toBe('PreToolUse');
     const taskPayload = agentPayload();
     taskPayload.tool_name = 'Task';
-    const { stdout: stdoutTask } = runHook(taskPayload, { ZCODE_PROJECT_DIR: REPO_ROOT });
+    const { stdout: stdoutTask } = runHook(taskPayload, {
+      ZCODE_PROJECT_DIR: REPO_ROOT,
+      CLAUDE_PROJECT_DIR: FIXTURE_ROOT,
+    });
     expect(JSON.parse(stdoutTask).hookSpecificOutput.hookEventName).toBe('PreToolUse');
   });
 
@@ -128,7 +166,7 @@ describe('inject-subagent-context.sh — CC-first backup gated by _is_zcode', ()
     // top-level hookEventName is NOT). Regression guard: catches anyone flattening the wrapper
     // or leaking hookEventName to top level (a prior shape emitted it top-level and was silently
     // rejected by ZCode). Precedent: inject-matching-rule.test.ts:72-105.
-    const { stdout } = runHook(agentPayload(), { ZCODE_PROJECT_DIR: REPO_ROOT });
+    const { stdout } = runHook(agentPayload(), { ZCODE_PROJECT_DIR: REPO_ROOT, CLAUDE_PROJECT_DIR: FIXTURE_ROOT });
     const json = JSON.parse(stdout);
     const allowedTopLevel = new Set([
       'additionalContext',
@@ -183,7 +221,7 @@ describe('inject-subagent-context.sh — CC-first backup gated by _is_zcode', ()
   });
 
     it('SSOT: the digest appended === inject-session-bootstrap.sh plain output (no drift)', () => {
-    const { stdout } = runHook(agentPayload(), { ZCODE_PROJECT_DIR: REPO_ROOT });
+    const { stdout } = runHook(agentPayload(), { ZCODE_PROJECT_DIR: REPO_ROOT, CLAUDE_PROJECT_DIR: FIXTURE_ROOT });
     const appended = JSON.parse(stdout).hookSpecificOutput.updatedInput.prompt as string;
     const sourcePlain = execFileSync(
       'bash',

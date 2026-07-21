@@ -282,6 +282,75 @@ export function emitZcode(model) {
  *
  *  Shape matches toCCHooks/emitClaude output: { Event: [{matcher?, hooks:[{type,command,async?}]}] }. */
 const PLUGIN_INTERNAL_HOOKS = {
+  // UserPromptSubmit consumer twins: inject-project-digest (the consumer's OWN
+  // session-bootstrap anchor) + inject-output-language. Both are consumer-facing hooks NOT in the
+  // framework model (the framework dogfoods inject-session-bootstrap directly, and neither twin
+  // appears in .claude/settings.json), so they are not model-derived; on ZCode they reach
+  // consumers ONLY via this plugin channel (on CC they also ship via install.sh). Each has a real
+  // plugin sibling under plugin/hooks/. Registered here so emitPlugin is their SSOT — #1036
+  // shipped them into plugin/hooks/hooks.json but omitted this registration, which drifted the gate.
+  UserPromptSubmit: [
+    {
+      hooks: [
+        {
+          type: 'command',
+          command:
+            '"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" inject-project-digest',
+        },
+      ],
+    },
+    {
+      hooks: [
+        {
+          type: 'command',
+          command:
+            '"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" inject-output-language',
+        },
+      ],
+    },
+  ],
+  // SubagentStart is NOT in ZCODE_EVENTS (so model-derived Subagent* mappings are filtered), but
+  // the plugin channel on CC does deliver a SubagentStart plugin hook; inject-project-digest's
+  // SubagentStart arm is the consumer-side subagent anchor (#1036). Plugin-internal so it survives
+  // the ZCODE_EVENTS filter.
+  SubagentStart: [
+    {
+      hooks: [
+        {
+          type: 'command',
+          command:
+            '"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" inject-project-digest',
+        },
+      ],
+    },
+  ],
+  // warn-subagent-report-zcode: the ZCode variant of the SubagentStop report check (4D hybrid,
+  // #1046) — a plugin-only sibling with no model counterpart (the model carries the CC
+  // warn-subagent-report.sh, a distinct script/event). Real-time arm on PostToolUse:Agent|Task +
+  // completeness arm on Stop.
+  PostToolUse: [
+    {
+      matcher: 'Agent|Task',
+      hooks: [
+        {
+          type: 'command',
+          command:
+            '"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" warn-subagent-report-zcode',
+        },
+      ],
+    },
+  ],
+  Stop: [
+    {
+      hooks: [
+        {
+          type: 'command',
+          command:
+            '"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" warn-subagent-report-zcode',
+        },
+      ],
+    },
+  ],
   SessionStart: [
     // session-start bootstrap: injects the using-getff entry-point context so the skill
     // auto-triggers. Plugin-internal (the script + skill ship inside the plugin tarball).
