@@ -9459,6 +9459,11 @@ function nodeToSynthesizedRule(node, enrichment) {
       `nodeToSynthesizedRule(): node ${node.id} has selectorClass '${node.selectorClass}', only 'syntax' maps to a declarative rule`
     );
   }
+  if (node.relational !== void 0) {
+    throw new Error(
+      `nodeToSynthesizedRule(): node ${node.id} carries a relational tree; only non-relational syntax nodes map to a declarative rule (route to the ast-grep backend, #212 \u2014 routing must gate this)`
+    );
+  }
   if (!isValidParams(node.params)) {
     throw new Error(
       `nodeToSynthesizedRule(): node ${node.id} params fail the npm declarative contract (missing/invalid ${missingOrInvalidField(node.params)})`
