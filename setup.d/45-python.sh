@@ -486,12 +486,16 @@ EOF
 # Written to .getff/rules-lock.python.json — NEVER .ai-factory/ (that dir is the npm lane's; the python
 # lane asserts it never appears — tests/install-sh/python-entry-lane.test.sh (1)).
 #
-# Idempotent: skip-if-present ONLY on the plain no-flag re-run (stable emittedAt, copy_safe did NOT
-# overwrite the delivered artefacts). Regenerate on ANY delivery-overwrite path — --force (copy_safe
-# overwrites) AND --refresh (GETFF_TOOLCHAIN_REFRESH=1, refresh_safe overwrites) — so the lock is NEVER
-# stale relative to the delivered .getff/ artefacts (its whole job is to record the DELIVERED set; a lock
-# that lagged a --force re-delivery would LIE about what was delivered). Same copy_safe/refresh_safe
-# idempotency contract the config lanes use. Its emittedAt is wall-clock → the lock is EXCLUDED from the install byte-identical snapshot
+# Idempotent + CONTENT-AWARE (W5 rework): the skip guard compares the freshly-computed
+# sourceFingerprint against the one stored in the existing lock, and skips ONLY on a match — i.e. the
+# delivered set is provably unchanged (stable emittedAt, byte-identical lock on a true no-change
+# re-run). Any pass that CHANGES the delivered .getff/ set regenerates, regardless of flags: --force
+# (copy_safe overwrites), --refresh (refresh_safe overwrites), AND the plain no-flag re-run after
+# _py_join_researched_rules delivered a new consumer-researched rule (the join runs on EVERY pass —
+# the W3-era flag-gated guard assumed «no overwrite flag ⇒ delivered set unchanged», which the join
+# falsified: a plain pass CAN change the set). Invariant: the lock is NEVER stale relative to the
+# delivered .getff/ artefacts, on ANY pass (its whole job is to record the DELIVERED set; a lagging
+# lock would LIE about what was delivered). Its emittedAt is wall-clock → the lock is EXCLUDED from the install byte-identical snapshot
 # (tests/install-sh/snapshot.sh compute_fingerprint), exactly as the running audit log is; its
 # deterministic content is gated by tests/install-sh/python-rules-lock.test.sh instead
 # (attention-is-not-a-mechanism §1: a non-deterministic field is not left byte-guarded, it is moved to
@@ -511,16 +515,6 @@ _py_write_rules_lock() {
 
   if [ "${DRY_RUN:-}" = "--dry-run" ]; then
     echo "  [dry-run] would write .getff/rules-lock.python.json (delivered rule ids + sourceFingerprint)"
-    return 0
-  fi
-
-  # Idempotent skip-if-present ONLY on the plain no-flag re-run, where copy_safe (lib.sh) did NOT overwrite
-  # the delivered .getff/ artefacts. On ANY overwrite path — --force (copy_safe overwrites, lib.sh:79) OR
-  # --refresh (refresh_safe overwrites) — the delivered set may have changed, so the lock MUST be
-  # regenerated or it goes STALE and lies about what was delivered. Invariant: the lock is never stale
-  # relative to the delivered .getff/ artefacts.
-  if [ -f "$lock" ] && [ "${GETFF_TOOLCHAIN_REFRESH:-}" != "1" ] && [ "${FORCE:-}" != "--force" ]; then
-    echo "  ⊝ rules-lock.python.json already present — no-op (idempotent, no overwrite this run)"
     return 0
   fi
 
@@ -555,6 +549,22 @@ _py_write_rules_lock() {
     _fp=0000000000000000
   fi
   _fp="${_fp:0:16}"
+
+  # CONTENT-AWARE idempotent skip (W5 rework): skip ONLY when the existing lock's sourceFingerprint
+  # equals the freshly-computed one — the delivered set is provably unchanged, so the lock (incl. its
+  # emittedAt) stays byte-identical. NOT flag-gated: the delivered set can change on a PLAIN pass too
+  # (_py_join_researched_rules runs on every pass), and a flag-gated skip left the lock STALE there.
+  # The no-hash-tool degrade constant (0000000000000000) can NOT prove «unchanged», so it never
+  # skips — conservative regenerate, already loudly declared non-authoritative above.
+  if [ -f "$lock" ] && [ "$_fp" != "0000000000000000" ]; then
+    local _prev_fp
+    _prev_fp=$(grep -oE '"sourceFingerprint"[[:space:]]*:[[:space:]]*"[^"]*"' "$lock" 2>/dev/null \
+      | head -1 | sed -E 's/.*"([^"]*)"$/\1/')
+    if [ "$_prev_fp" = "$_fp" ]; then
+      echo "  ⊝ rules-lock.python.json fingerprint unchanged ($_fp) — no-op (delivered set identical)"
+      return 0
+    fi
+  fi
 
   local emitted
   emitted=$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)
