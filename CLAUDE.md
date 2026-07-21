@@ -101,6 +101,32 @@ When working on an agreed scope (a defined umbrella, batch, or single-concern PR
 - The `work-without-stopping` user override applies to **clarification within the agreed scope**, not to expanding scope with new shared-state operations.
 - Exception: if maintainer explicitly invited the systemic fix in this session, proceed — but that's an explicit invitation, not autopilot.
 
+## Task-tier routing (which model plans, and whether to use the pipeline at all)
+
+**Who classifies:** the senior interactive session (the top-tier model working with the operator) decides the tier at the moment of dispatch — a judgment, never an automated classifier. Building a «simple vs complex» auto-detector would be `#parallel-evolution-creep` over a judgment call; per [attention-is-not-a-mechanism.md §1](.claude/rules/attention-is-not-a-mechanism.md), a judgment may be the decision AUTHORITY, never faked as a mechanical gate. This section exists so the classification is applied by **fixed criteria**, not re-invented per task.
+
+**Two questions, three tiers:**
+
+1. **Is the change ≤~5 lines in a single file at a known exact path?**
+   → **TIER 0 — tiny.** The senior does the `Edit` itself. No kickoff, no aif dispatch, no pipeline (forcing one is pure overhead). Mirrors the `orchestrator` skill's own SKIP rule.
+2. Otherwise — **does producing the PLAN require a design/architecture judgment** (choosing between approaches, a non-obvious «how», or an open «will this even work / what's the root cause»)?
+   - **NO — the «how» is already determined; the work is just voluminous/mechanical** → **TIER 1 — bulky-simple.** Dispatch **with** a `<!-- bridge-profile: GLM -->` header marker → the whole aif pipeline (plan + implement + review) runs on GLM.
+   - **YES — the plan itself needs judgment** → **TIER 2 — bulky-complex.** Dispatch **without** the marker → project defaults apply: **Opus plans**, GLM implements, GLM reviews from below.
+
+**Criteria table (for fast, repeatable classification):**
+
+| Tier | Trigger (fixed criteria) | Who plans | Mechanic |
+|---|---|---|---|
+| 0 — tiny | ≤~5 lines, 1 file, exact path known, no ambiguity | — (no plan) | senior does `Edit` directly; no dispatch |
+| 1 — bulky-simple | many files/steps BUT the «how» is one determinable sentence: rename/move sweep, apply an established pattern across N sites, tests for already-specified behaviour, mechanical refactor (extract/inline), scaled doc/config edits | GLM | kickoff with `<!-- bridge-profile: GLM -->` |
+| 2 — bulky-complex | the plan requires a design decision: new module/architecture, data-model or API-shape choice, cross-cutting consequences, unknown root cause needing investigation, «is this the right approach» is open | Opus | kickoff, no marker (project defaults) |
+
+**Tie-breaker (binding):** when unsure between Tier 1 and Tier 2, default to **Tier 2 (Opus plans)**. A wrong-but-cheap plan from the weaker tier costs a full re-do downstream; over-investing one planning pass is the cheaper error. This matches the project thesis «decisions with a real cost of error route to the stronger tier».
+
+**Discriminator in one line:** if you can state the «how» in a single sentence and the rest is expansion → Tier 1; if stating the «how» forces you to *choose* → Tier 2.
+
+The `bridge-profile` marker mechanic that Tier 1 relies on is shipped in `packages/runtime-bridge` (header-region-only parse in `kickoff.ts`, name→id resolution in `AifHandoffBackend.ts`); the per-mode project defaults Tier 2 relies on live in the aif runtime profile config (Plan→Opus, Review/Task→GLM).
+
 ## Umbrella closure convention
 
 When the **last stage** of a multi-stage umbrella merges, the merging session writes a `done.md` file at:
