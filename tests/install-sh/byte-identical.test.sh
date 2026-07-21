@@ -2,7 +2,8 @@
 # tests/install-sh/byte-identical.test.sh — byte-identical gate for install.sh refactor.
 #
 # Runs SNAPSHOT_MODE=compare for the 4 npm stacks × {greenfield,brownfield} + the python toolchain
-# row × {greenfield,brownfield-ruff,brownfield-sgconfig} against the tracked golden baselines at
+# row × {greenfield,brownfield-ruff,brownfield-sgconfig} + the cargo toolchain row ×
+# {greenfield,brownfield-clippy} (ecosystem-wiring W4) against the tracked golden baselines at
 # tests/install-sh/baselines/<stack>/<mode>.fingerprint.
 # FAILS with a diff on any non-empty diff — proving byte-identical behaviour is preserved.
 #
@@ -24,7 +25,7 @@ ok()  { PASS=$((PASS+1)); echo "  ✓ $1"; }
 bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 
 # ── Snapshot gate ─────────────────────────────────────────────────────────────
-echo "▶ Byte-identical snapshot compare (4 npm stacks × {greenfield,brownfield} + python × 3 cells)"
+echo "▶ Byte-identical snapshot compare (4 npm stacks × {greenfield,brownfield} + python × 3 cells + cargo × 2 cells)"
 echo ""
 
 SNAPSHOT_MODE=compare bash "$REPO_ROOT/tests/install-sh/snapshot.sh" 2>&1 | while IFS= read -r line; do
@@ -33,7 +34,7 @@ done
 snapshot_rc=${PIPESTATUS[0]}
 
 if [ "${snapshot_rc:-0}" -eq 0 ]; then
-  ok "snapshot compare: all 11 combinations byte-identical (8 npm + 3 python)"
+  ok "snapshot compare: all 13 combinations byte-identical (8 npm + 3 python + 2 cargo)"
 else
   bad "snapshot compare: one or more stacks/modes differ from baseline (see diff above)"
 fi

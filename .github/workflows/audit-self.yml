@@ -607,6 +607,8 @@ jobs:
         run: bash tests/install-sh/python-delivery.test.sh
       - name: "install-sh — Python entry lane: install.sh python detection + no-package.json bypass + --refresh + firing self-check (python-delivery-v0 S2 T1)"
         run: bash tests/install-sh/python-entry-lane.test.sh
+      - name: "install-sh — Cargo entry lane: install.sh cargo detection + no-package.json bypass + --refresh + REFUSE cell + firing self-check (ecosystem-wiring W4)"
+        run: bash tests/install-sh/cargo-entry-lane.test.sh
       - name: "install-sh — shellcheck gate: setup.d/*.sh + install.sh (pinned 0.9.0)"
         run: |
           if command -v shellcheck >/dev/null 2>&1; then
