@@ -23,6 +23,13 @@ Spike (`spike-pnpm-stryker`, 2026-07-21) on a real pnpm isolated store (pnpm 10.
 
 **Honest caveat (untested boundary):** plugins declared ONLY in a nested workspace package (not root devDeps) could still fail bare-name resolution — spike used root devDeps per timeliner's actual layout. Not timeliner's cause; noted for the per-package emit design.
 
+### TD-1 — Build-vs-reuse verdict for the per-package emit: BUILD (no native mode exists to ADOPT)
+Per build-first-reuse-default §3 mechanism (2026-07-21):
+- **DeepWiki `stryker-mutator/stryker-js`** (source-grounded): "StrykerJS does not natively support a single `stryker run` invocation to mutation-test multiple workspace packages… `vitest.dir` and `tsconfigFile` are single [per run]… to mutation-test multiple packages in a monorepo, you would typically use an external loop or script to invoke `stryker run` for each package, each with its own Stryker configuration file." → **no native monorepo mode to ADOPT.**
+- **WebSearch ≥3 phrasings**: surfaced only the Stryker VSCode-extension monorepo *usage* (not a config generator) + generic pnpm plugin guidance — **no installer/tool that emits per-package Stryker wiring for a foreign consumer's monorepo.** Negative-existence holds.
+- **Verdict: BUILD** the per-package emit + wrapper (the only working shape; proven live on timeliner PR #15). **Extends SSOT #39** (StrykerJS ADOPT — the runner is adopted; the installer-side per-package emit orchestration is BUILT). **T16:** upstream class = manual per-package config authoring; ours = installer auto-generates on `pnpm-workspace.yaml` detection → build the orchestration, adopt the runner.
+- **Trigger to revisit:** Stryker ships a native monorepo/workspace mode (single-invocation multi-package) → flip emit to ADOPT + retire the wrapper. **SSOT entry** (new ID = current max+1; grep `prior-art-evaluations.md` at Task 3) records this; the PR `Prior-art:` trailer cites it.
+
 ## Structural findings (confirmed, shape PR-2)
 
 ### SF-1 — the multi-stack monorepo branch ships NO stryker.config.json at all — CONFIRMED
