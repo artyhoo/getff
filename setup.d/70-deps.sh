@@ -32,8 +32,14 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
     #   2. else a root src/ present → src
     #   3. else → "." (cwd always exists; never "Can't open"). Exotic-named workspace roots fall to
     #      (2)/(3); a one-line arch:check edit lets the consumer point at their exact roots.
-    AIF_ARCH_TARGET=""
+    # #508 arch:check target signal — kept as-is (only the mutation-wiring signal below changes,
+    # per plan Amendment A1). AIF_MONOREPO_SIG / AIF_ARCH_TARGET stay the manifest-key-based check.
+    AIF_MONOREPO_SIG=0
     if [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ] || grep -q '"workspaces"' "$PROJECT_ROOT/package.json" 2>/dev/null; then
+      AIF_MONOREPO_SIG=1
+    fi
+    AIF_ARCH_TARGET=""
+    if [ "$AIF_MONOREPO_SIG" = "1" ]; then
       for _d in apps packages services libs modules; do
         [ -d "$PROJECT_ROOT/$_d" ] && AIF_ARCH_TARGET="$AIF_ARCH_TARGET $_d"
       done
@@ -42,11 +48,29 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
     if [ -z "$AIF_ARCH_TARGET" ]; then
       if [ -d "$PROJECT_ROOT/src" ]; then AIF_ARCH_TARGET="src"; else AIF_ARCH_TARGET="."; fi
     fi
-    AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" AIF_STACK="$STACK" node -e '
+    # #931 PR-2 (C2 fix, plan Amendment A1): test:mutation must route to the per-package wrapper
+    # based on ARTIFACT PRESENCE (scripts/run-mutation.sh), NOT the AIF_MONOREPO_SIG manifest
+    # signal above. AIF_MONOREPO_SIG (pnpm-workspace.yaml / "workspaces" key) and the EMIT gate in
+    # setup.d/40-configs.sh (_ws_lines — a conventional-dir enumeration: apps|packages|services|
+    # libs|modules — that does NOT consult the workspace manifest) are two DIFFERENT signals that
+    # diverge both ways: a `packages/*` monorepo with no manifest key would wire "stryker run"
+    # against configs that were never emitted (SF-1 stays unfixed); a
+    # `"workspaces":["client","server"]` repo with non-conventional dirs would wire the wrapper
+    # form even though 40-configs.sh took the FLAT branch (no wrapper ever copied) — a hard error
+    # on first run (working → broken regression). 40-configs.sh runs BEFORE 70-deps.sh (setup.d
+    # numeric order), so the wrapper's on-disk presence is the authoritative "per-workspace
+    # configs were emitted" signal — wire⟺emit by construction.
+    AIF_HAS_MUTATION_WRAPPER=0
+    [ -f "$PROJECT_ROOT/scripts/run-mutation.sh" ] && AIF_HAS_MUTATION_WRAPPER=1
+    AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" AIF_STACK="$STACK" AIF_HAS_MUTATION_WRAPPER="$AIF_HAS_MUTATION_WRAPPER" node -e '
       const fs = require("fs");
       const p = process.env.AIF_PKG;
       const pkg = JSON.parse(fs.readFileSync(p, "utf8"));
       pkg.scripts = pkg.scripts || {};
+      // #931 PR-2 (C2 fix): route test:mutation to the per-package wrapper IFF setup.d/40-configs.sh
+      // actually emitted it (scripts/run-mutation.sh on disk) — see the AIF_HAS_MUTATION_WRAPPER
+      // comment above for why this replaced the AIF_MONOREPO_SIG manifest-key signal.
+      const hasMutationWrapper = process.env.AIF_HAS_MUTATION_WRAPPER === "1";
       const want = {
         "lint": "eslint . --max-warnings=0",
         "lint:fix": "eslint . --fix",
@@ -57,8 +81,8 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
         "test:watch": "vitest",
         "test:coverage": "vitest run --coverage",
         "test:integration": "vitest run -- --include 'src/**/*.integration.{ts,tsx}'",
-        "test:mutation": "stryker run",
-        "test:mutation:incremental": "stryker run --incremental",
+        "test:mutation": hasMutationWrapper ? "bash scripts/run-mutation.sh" : "stryker run",
+        "test:mutation:incremental": hasMutationWrapper ? "bash scripts/run-mutation.sh --incremental" : "stryker run --incremental",
         "arch:check": "depcruise --config .dependency-cruiser.cjs " + (process.env.AIF_ARCH_TARGET || "src"),
         "audit:docs": "./scripts/audit-ai-docs.sh",
         "check:globs": "bash scripts/check-rule-globs.sh",
