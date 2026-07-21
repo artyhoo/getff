@@ -5,23 +5,28 @@
 # install.sh:261; .claude/ copy is this repo's dogfood instance wired in settings.json;
 # plugin/hooks/deps-hash-check is the consumer-plugin twin (T-PLUG-A). All three are kept
 # byte-identical; drift is guarded by deps-hash-check.test.ts (#382 §6, 3-way guard).
-# Consumer-facing UserPromptSubmit hook — DH-S1 multistack (kickoff #1016).
+# Consumer-facing UserPromptSubmit hook — DH-S1/DH-S2 multistack (kickoff #1016).
 #
 # Staleness detector covering three stacks: JS (package.json), python (pyproject.toml),
-# rust (Cargo.toml — DETECTION ONLY in DH-S2; this stage ships JS-widen + python). At each
-# session start it sha256-hashes the consumer's DECLARED deps per present stack and compares
-# against per-stack baselines in .ai-factory/tool-decisions.md; on any mismatch it prints a
-# one-line WARN into session context (the harness auto-injects stdout) telling the agent to
-# re-run tool-bootstrapping. Non-blocking; always exits 0.
+# rust (Cargo.toml — DETECTION ONLY per kickoff §DH-S2: no setup.d/NN-rust.sh delivery lane
+# is built here). At each session start it sha256-hashes the consumer's DECLARED deps per
+# present stack and compares against per-stack baselines in .ai-factory/tool-decisions.md;
+# on any mismatch it prints a one-line WARN into session context (the harness auto-injects
+# stdout) telling the agent to re-run tool-bootstrapping. Non-blocking; always exits 0.
 #
 # Two-tier extraction ladder (design §1-B):
 #   Tier-1 (default, zero deps): bash/awk table-boundary hash of the relevant TOML tables.
 #     For python the 6 non-[project] dep tables (design §4 — [project] is C-resolved to Tier-2
-#     so its own version/name metadata cannot cry-wolf on every release).
+#     so its own version/name metadata cannot cry-wolf on every release). For rust: dependencies
+#     / dev-dependencies / build-dependencies (+ dotted sub-tables of each), target.*.{…}, and
+#     workspace.{dependencies,dev-dependencies,build-dependencies}.
 #   Tier-2 (enrichment, only if toolchain present): python → python3 tomllib (≥3.11), which
 #     covers [project].dependencies + [project].optional-dependencies precisely (deps-only).
-#     3.7-3.10 without tomli → silent Tier-1 degrade (tomli shim is DH-S3). Rust → cargo
-#     metadata in DH-S2. tomllib parse failure → empty Tier-2 (Tier-1 hash stands).
+#     3.7-3.10 without tomli → silent Tier-1 degrade (tomli shim is DH-S3). Rust → `cargo
+#     metadata --no-deps --format-version 1 --offline` (NEVER --frozen/--locked) piped through
+#     python3 to pluck packages[].dependencies[]; any failure (no cargo, no python3, non-zero
+#     exit) → empty Tier-2 contribution, Tier-1 hash stands (no sentinel trick needed — unlike
+#     python, a rust toolchain upgrade does not shift an unrelated baseline).
 #
 # Storage (design §1-C): one line per stack — deps-hash-npm / deps-hash-python / deps-hash-cargo.
 # Legacy bare deps-hash: is read backward-compat as the npm slot; if BOTH deps-hash: and
@@ -162,6 +167,48 @@ _sha256_only_hex() {
   fi
 }
 
+# ── Rust stack (Cargo.toml) — two-tier ladder, DETECT-ONLY (kickoff §DH-S2) ────
+# Tier-1: bash/awk table-boundary hash. Tables: dependencies / dev-dependencies /
+# build-dependencies (+ dotted sub-tables e.g. [dependencies.serde]) / target.*.{…} (+ dotted
+# sub-tables e.g. [target.'cfg(unix)'.dependencies.baz]) / workspace.{dependencies,
+# dev-dependencies,build-dependencies} (+ dotted sub-tables e.g. [workspace.dependencies.qux]
+# — code-review fix: these two prefixes were previously exact-match/$-anchored only, silently
+# dropping the dotted long-form that Cargo treats as identical to the bare-table form). Same
+# {gsub(/\r/,"")} CRLF guard as the python awk (round-3.5 review B1).
+_CARGO_TIER1_AWK='{gsub(/\r/,"")}function want(h){if(h=="dependencies")return 1;if(h=="dev-dependencies")return 1;if(h=="build-dependencies")return 1;if(h~/^dependencies\./)return 1;if(h~/^dev-dependencies\./)return 1;if(h~/^build-dependencies\./)return 1;if(h~/^target\..+\.dependencies$/)return 1;if(h~/^target\..+\.dev-dependencies$/)return 1;if(h~/^target\..+\.build-dependencies$/)return 1;if(h~/^target\..+\.dependencies\./)return 1;if(h~/^target\..+\.dev-dependencies\./)return 1;if(h~/^target\..+\.build-dependencies\./)return 1;if(h=="workspace.dependencies")return 1;if(h=="workspace.dev-dependencies")return 1;if(h=="workspace.build-dependencies")return 1;if(h~/^workspace\.dependencies\./)return 1;if(h~/^workspace\.dev-dependencies\./)return 1;if(h~/^workspace\.build-dependencies\./)return 1;return 0}/^\[/{in_t=want(substr($0,2,length($0)-2))}in_t'
+# Tier-2: plucks packages[].dependencies[] from `cargo metadata` JSON on stdin into a
+# deterministic sorted payload. ONE try around parse+hash so any error → empty stdout.
+_CARGO_TIER2_SCRIPT='import sys,json,hashlib
+try:
+  d=json.load(sys.stdin)
+  deps=[]
+  for p in d.get("packages",[]):
+    for dep in p.get("dependencies",[]):
+      deps.append([dep.get("name",""),dep.get("req",""),dep.get("kind") or "normal",bool(dep.get("optional"))])
+  payload=json.dumps(sorted(deps),separators=(",",":"))
+  print(hashlib.sha256(payload.encode()).hexdigest())
+except Exception:
+  pass'
+
+_cargo_current() {
+  [ -f Cargo.toml ] || { printf ''; return; }
+  local tier1_hex tier2_hex combined
+  if command -v awk >/dev/null 2>&1; then
+    tier1_hex=$(awk "$_CARGO_TIER1_AWK" Cargo.toml 2>/dev/null | _sha256_only_hex)
+  else
+    tier1_hex=""
+  fi
+  # Tier-2: cargo metadata --no-deps --offline (NEVER --frozen/--locked, design §2) piped
+  # through python3. Any failure (no cargo, no python3, non-zero exit) → empty — Tier-1 stands.
+  tier2_hex=""
+  if command -v cargo >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
+    tier2_hex=$(cargo metadata --no-deps --format-version 1 --offline 2>/dev/null | python3 -c "$_CARGO_TIER2_SCRIPT" 2>/dev/null)
+  fi
+  combined="${tier1_hex}${tier2_hex}"
+  [ -n "$combined" ] || { printf ''; return; }
+  _sha256 "$combined"
+}
+
 # ── Drift evaluation + WARN assembly ───────────────────────────────────────
 # Per-stack: compute current hash, compare to stored; collect one message per drifted stack.
 # Emit ONE combined _emit_warn at the end (ZCode JSON.parse breaks on two objects — §3a M2).
@@ -193,8 +240,9 @@ ${msg}"
 
 NPM_STORED=$(_read_stored deps-hash-npm deps-hash)
 PY_STORED=$(_read_stored deps-hash-python)
-# (deps-hash-cargo is a RESERVED key — not read in DH-S1. The rust stack is DETECT-ONLY and
-# lands in DH-S2; until then a stored cargo baseline simply sits unread, so it never drifts.)
+CARGO_STORED=$(_read_stored deps-hash-cargo)
+# (rust has no legacy bare key to fall back to — unlike npm's `deps-hash`, `deps-hash-cargo`
+# is new with DH-S2 and never existed in a pre-multistack form.)
 
 # Hash each stack's current deps-extraction before comparing to the stored sha256 baseline.
 # (_npm_current/_python_current return either a normalized string (npm: the deps JSON) or a
@@ -205,6 +253,8 @@ NPM_CURRENT=$(_npm_current)
 _drifted "package.json" "$NPM_CURRENT" "$NPM_STORED"
 # _python_current already returns sha256-<hex> (it does its own outer hash over tier1hex+tier2hex).
 _drifted "python" "$(_python_current)" "$PY_STORED"
+# _cargo_current already returns sha256-<hex> (same tier1hex+tier2hex outer-hash shape).
+_drifted "Cargo.toml" "$(_cargo_current)" "$CARGO_STORED"
 
 if [ -n "$WARN_MSGS" ]; then
   _emit_warn "${WARN_MSGS} — run /tool-bootstrapping to re-evaluate"

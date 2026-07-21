@@ -157,6 +157,113 @@ function computePythonHash(opts: {
   }
 }
 
+// Tier-1 table-boundary awk program. Mirrors the hook's _CARGO_TIER1_AWK exactly — tables:
+// dependencies / dev-dependencies / build-dependencies (+ dotted sub-tables of each),
+// target.*.{dependencies,dev-dependencies,build-dependencies}, workspace.{dependencies,
+// dev-dependencies,build-dependencies}. The leading {gsub(/\r/,"")} mirrors the python lane's
+// CRLF-safety fix (round-3.5 review B1). Kept as a single module-level constant (not
+// re-declared per-helper) so computeCargoHash and cargoTier1Extract cannot drift from each
+// other — update this ONE constant (in lockstep with the hook's _CARGO_TIER1_AWK) when fixing
+// extraction bugs, never patch computeCargoHash/cargoTier1Extract separately.
+const CARGO_TIER1_AWK_PROG =
+  '{gsub(/\\r/,"")}' +
+  'function want(h){' +
+  'if(h=="dependencies")return 1;' +
+  'if(h=="dev-dependencies")return 1;' +
+  'if(h=="build-dependencies")return 1;' +
+  'if(h~/^dependencies\\./)return 1;' +
+  'if(h~/^dev-dependencies\\./)return 1;' +
+  'if(h~/^build-dependencies\\./)return 1;' +
+  'if(h~/^target\\..+\\.dependencies$/)return 1;' +
+  'if(h~/^target\\..+\\.dev-dependencies$/)return 1;' +
+  'if(h~/^target\\..+\\.build-dependencies$/)return 1;' +
+  'if(h~/^target\\..+\\.dependencies\\./)return 1;' +
+  'if(h~/^target\\..+\\.dev-dependencies\\./)return 1;' +
+  'if(h~/^target\\..+\\.build-dependencies\\./)return 1;' +
+  'if(h=="workspace.dependencies")return 1;' +
+  'if(h=="workspace.dev-dependencies")return 1;' +
+  'if(h=="workspace.build-dependencies")return 1;' +
+  'if(h~/^workspace\\.dependencies\\./)return 1;' +
+  'if(h~/^workspace\\.dev-dependencies\\./)return 1;' +
+  'if(h~/^workspace\\.build-dependencies\\./)return 1;' +
+  'return 0}' +
+  '/^\\[/{in_t=want(substr($0,2,length($0)-2))}in_t';
+
+/**
+ * Run ONLY the Tier-1 awk step against cargoTomlContent and return its raw stdout (the
+ * extracted byte range, unhashed). Used to directly prove which table headers the extractor
+ * captures — the precise regression-test tool for the DH-S2 code-review bug (missing dotted
+ * sub-table branches for the target.* and workspace.* prefixes — the fix lives in
+ * CARGO_TIER1_AWK_PROG above).
+ */
+function cargoTier1Extract(cargoTomlContent: string): string {
+  const dir = mkdtempSync(join(tmpdir(), 'deps-hash-cargo-tier1-'));
+  tmpDirs.push(dir);
+  const manifestPath = join(dir, 'Cargo.toml');
+  writeFileSync(manifestPath, cargoTomlContent, 'utf8');
+  const raw = spawnSync('awk', [CARGO_TIER1_AWK_PROG, manifestPath], { encoding: 'utf8' });
+  return raw.status === 0 ? raw.stdout : '';
+}
+
+/**
+ * Compute the deps-hash-cargo value by RUNNING the exact commands the hook runs (Tier-1 awk
+ * table-boundary hash + Tier-2 `cargo metadata --no-deps --format-version 1 --offline` piped
+ * through python3), against a temp Cargo.toml holding cargoTomlContent. TRUE ORACLE — same
+ * rationale as computePythonHash (design DH-S2): delegating to the real awk/cargo/python3
+ * eliminates any helper/hook reimplementation drift by construction.
+ */
+function computeCargoHash(opts: {
+  cargoTomlContent: string;
+  hasCargo?: boolean; // default true; false simulates no-cargo-on-PATH (Tier-2 → "")
+  hasPython3?: boolean; // default true; false simulates no-python3-on-PATH (Tier-2 → "")
+}): string {
+  const hasCargo = opts.hasCargo ?? true;
+  const hasPython3 = opts.hasPython3 ?? true;
+  // cargo requires the manifest file to be literally named Cargo.toml in its own directory
+  // (verified live: `--manifest-path notcargo.toml` → "the manifest-path must be a path to a
+  // Cargo.toml file") — unlike the python oracle, a single shared-tmpdir file won't do.
+  const dir = mkdtempSync(join(tmpdir(), 'deps-hash-cargo-'));
+  tmpDirs.push(dir);
+  const manifestPath = join(dir, 'Cargo.toml');
+  writeFileSync(manifestPath, opts.cargoTomlContent, 'utf8');
+
+  const tier1Raw = spawnSync('awk', [CARGO_TIER1_AWK_PROG, manifestPath], { encoding: 'utf8' });
+  const tier1Hex = tier1Raw.status === 0
+    ? crypto.createHash('sha256').update(tier1Raw.stdout).digest('hex')
+    : '';
+
+  // Tier-2: cargo metadata --no-deps --format-version 1 --offline | python3 pluck. Empty
+  // (not a sentinel — DH-S2 does not need python's sentinel trick, per kickoff §DH-S2) when
+  // cargo or python3 is absent, or when either step fails (e.g. the fixture has no src/
+  // target — same failure the real hook hits against the same bare-manifest fixture, so
+  // oracle and hook degrade identically).
+  let tier2Hex = '';
+  if (hasCargo && hasPython3) {
+    const py = [
+      'import sys,json,hashlib',
+      'try:',
+      '  d=json.load(sys.stdin)',
+      '  deps=[]',
+      '  for p in d.get("packages",[]):',
+      '    for dep in p.get("dependencies",[]):',
+      '      deps.append([dep.get("name",""),dep.get("req",""),dep.get("kind") or "normal",bool(dep.get("optional"))])',
+      '  payload=json.dumps(sorted(deps),separators=(",",":"))',
+      '  print(hashlib.sha256(payload.encode()).hexdigest())',
+      'except Exception:',
+      '  pass',
+    ].join('\n');
+    const metaRaw = spawnSync('cargo', ['metadata', '--no-deps', '--format-version', '1', '--offline'], {
+      cwd: dir,
+      encoding: 'utf8',
+    });
+    if (metaRaw.status === 0) {
+      const tier2Raw = spawnSync('python3', ['-c', py], { input: metaRaw.stdout, encoding: 'utf8' });
+      tier2Hex = (tier2Raw.stdout ?? '').trim();
+    }
+  }
+  return `sha256-${crypto.createHash('sha256').update(tier1Hex + tier2Hex).digest('hex')}`;
+}
+
 const tmpDirs: string[] = [];
 const tmpFiles: string[] = []; // single-line temp files for computePythonHash's awk/python invocations
 afterEach(() => {
@@ -170,6 +277,7 @@ afterEach(() => {
 function makeFixtureDir(opts: {
   packageJson?: object;
   pyprojectToml?: string; // full pyproject.toml content; omitted = don't create
+  cargoToml?: string; // full Cargo.toml content; omitted = don't create
   toolDecisions?: string; // full file content; null = don't create
 } = {}): string {
   const dir = mkdtempSync(join(tmpdir(), 'deps-hash-test-'));
@@ -181,6 +289,10 @@ function makeFixtureDir(opts: {
 
   if (opts.pyprojectToml !== undefined) {
     writeFileSync(join(dir, 'pyproject.toml'), opts.pyprojectToml, 'utf8');
+  }
+
+  if (opts.cargoToml !== undefined) {
+    writeFileSync(join(dir, 'Cargo.toml'), opts.cargoToml, 'utf8');
   }
 
   if (opts.toolDecisions !== undefined) {
@@ -706,5 +818,243 @@ describe('deps-hash-check.sh — DH-S1 multistack (per-stack baselines, JS-widen
     const { status, stdout } = runHook(cwd);
     expect(status).toBe(0);
     expect(stdout).toBe(''); // legacy key read as npm → match → silent
+  });
+});
+
+// =============================================================================
+// DH-S2 (kickoff §DH-S2) — rust (Cargo.toml) Tier-1 table-boundary + Tier-2 `cargo metadata`
+// enrichment. DETECT-ONLY: no setup.d/NN-rust.sh delivery lane (boundary, kickoff §DH-S2 /
+// STOP lines). These are RED against the pre-DH-S2 hook (deps-hash-cargo is a RESERVED key,
+// never read) and turn GREEN once the hook gains _cargo_current() + the CARGO_STORED wiring.
+// =============================================================================
+
+describe('deps-hash-check.sh — DH-S2 rust (Cargo.toml Tier-1/Tier-2, detect-only)', () => {
+  it('CARGO-TIER1: [dependencies] table-form deps → deps-hash-cargo WARN on drift, silent on match (research-patch §1/§2)', () => {
+    const cargoToml = [
+      '[package]',
+      'name = "demo"',
+      'version = "0.1.0"',
+      '',
+      '[dependencies]',
+      'serde = "1.0"',
+      '',
+    ].join('\n');
+
+    // drift case: stored hash deliberately wrong
+    const drifted = makeFixtureDir({
+      cargoToml,
+      toolDecisions: `---\ndeps-hash-cargo: sha256-${'0'.repeat(64)}\n---\n`,
+    });
+    const driftedResult = runHook(drifted);
+    expect(driftedResult.status).toBe(0);
+    expect(driftedResult.stdout).toContain('⚠');
+    expect(driftedResult.stdout.toLowerCase()).toMatch(/cargo\.toml/);
+
+    // silent case: stored hash matches the real oracle hash
+    const correctHash = computeCargoHash({ cargoTomlContent: cargoToml });
+    const clean = makeFixtureDir({
+      cargoToml,
+      toolDecisions: `---\ndeps-hash-cargo: ${correctHash}\n---\n`,
+    });
+    const cleanResult = runHook(clean);
+    expect(cleanResult.status).toBe(0);
+    expect(cleanResult.stdout).toBe('');
+  });
+
+  it('CARGO-TIER1-INLINE-FORM: [dependencies.serde] dotted sub-table form is ALSO captured by the extractor (research-patch §1 "two equivalent forms")', () => {
+    // Table-boundary hashing hashes literal bytes, so table-form ([dependencies]\nserde="1")
+    // and dotted-form ([dependencies.serde]\nversion="1") are NOT byte-identical and WILL
+    // hash differently — this test proves BOTH forms are captured (non-empty Tier-1 extraction
+    // that changes the hash), not that they hash the same (per kickoff explicit instruction).
+    const tableForm = ['[dependencies]', 'serde = "1.0"', ''].join('\n');
+    const dottedForm = ['[dependencies.serde]', 'version = "1.0"', ''].join('\n');
+    const noDepsAtAll = ['[package]', 'name = "demo"', 'version = "0.1.0"', ''].join('\n');
+
+    const tableHash = computeCargoHash({ cargoTomlContent: tableForm });
+    const dottedHash = computeCargoHash({ cargoTomlContent: dottedForm });
+    const emptyHash = computeCargoHash({ cargoTomlContent: noDepsAtAll });
+
+    // Both forms are captured: each differs from the "no deps tables at all" baseline.
+    expect(tableHash).not.toBe(emptyHash);
+    expect(dottedHash).not.toBe(emptyHash);
+    // The dotted sub-table drifts against a baseline computed from the table-form (proving
+    // the dotted form's content is actually reaching the hash, not being silently dropped).
+    const cwd = makeFixtureDir({
+      cargoToml: dottedForm,
+      toolDecisions: `---\ndeps-hash-cargo: ${tableHash}\n---\n`,
+    });
+    const { status, stdout } = runHook(cwd);
+    expect(status).toBe(0);
+    expect(stdout).toContain('⚠');
+  });
+
+  it('CARGO-WORKSPACE: [workspace.dependencies] table is included in the hash (research-patch §1 "workspace.dependencies (+dev/build variants)")', () => {
+    const withoutWorkspaceDeps = [
+      '[workspace]',
+      'members = ["crates/*"]',
+      '',
+    ].join('\n');
+    const withWorkspaceDeps = [
+      '[workspace]',
+      'members = ["crates/*"]',
+      '',
+      '[workspace.dependencies]',
+      'anyhow = "1.0"',
+      '',
+    ].join('\n');
+
+    const baselineHash = computeCargoHash({ cargoTomlContent: withoutWorkspaceDeps });
+    const cwd = makeFixtureDir({
+      cargoToml: withWorkspaceDeps,
+      toolDecisions: `---\ndeps-hash-cargo: ${baselineHash}\n---\n`,
+    });
+    const { status, stdout } = runHook(cwd);
+    expect(status).toBe(0);
+    // adding [workspace.dependencies] changes the hash vs the no-deps workspace root → WARN
+    expect(stdout).toContain('⚠');
+    expect(stdout.toLowerCase()).toMatch(/cargo\.toml/);
+  });
+
+  it('CARGO-TIER2-DEGRADE: no cargo on PATH → Tier-1 hash still stands, no crash, exit 0 (research-patch §2 "any non-zero exit → degrade to Tier-1")', () => {
+    const cargoToml = [
+      '[package]',
+      'name = "demo"',
+      'version = "0.1.0"',
+      '',
+      '[dev-dependencies]',
+      'mockall = "0.11"',
+      '',
+    ].join('\n');
+    // Oracle with cargo simulated absent (matches what the hook computes when we scrub PATH).
+    const tier1OnlyHash = computeCargoHash({ cargoTomlContent: cargoToml, hasCargo: false });
+
+    const cwd = makeFixtureDir({
+      cargoToml,
+      toolDecisions: `---\ndeps-hash-cargo: ${tier1OnlyHash}\n---\n`,
+    });
+    // Scrub PATH down to a minimal set that keeps awk/shasum but drops cargo (~/.cargo/bin
+    // and /opt/homebrew/bin, where cargo/rustup commonly live).
+    const { status, stdout, stderr } = runHook(cwd, { PATH: '/usr/bin:/bin' });
+    expect(status).toBe(0); // never crashes — always exit 0
+    expect(stderr).toBe(''); // no error leaks to stderr
+    expect(stdout).toBe(''); // Tier-1-only hash matches the stored Tier-1-only baseline → silent
+  });
+
+  it('CARGO-NO-MANIFEST: no Cargo.toml → rust stack contributes nothing, silent (matches NO-MANIFESTS pattern, design §5 c2)', () => {
+    const cwd = makeFixtureDir({
+      // No cargoToml → file not created.
+      toolDecisions: `---\ndeps-hash-cargo: sha256-${'0'.repeat(64)}\n---\n`,
+    });
+    const { status, stdout } = runHook(cwd);
+    expect(status).toBe(0);
+    expect(stdout).toBe('');
+  });
+
+  it('CARGO-POLYGLOT-WARN: a drifted Cargo.toml alongside a clean package.json fires ONLY the cargo WARN (per-stack independence, design §1-D)', () => {
+    const pkg = { dependencies: { react: '^18.0.0' } };
+    const npmHash = computeHash(buildDepsJson(pkg));
+    const cargoToml = ['[dependencies]', 'serde = "1.0"', ''].join('\n');
+    const cwd = makeFixtureDir({
+      packageJson: pkg,
+      cargoToml,
+      toolDecisions: `---\ndeps-hash-npm: ${npmHash}\ndeps-hash-cargo: sha256-${'0'.repeat(64)}\n---\n`,
+    });
+    const { status, stdout } = runHook(cwd);
+    expect(status).toBe(0);
+    expect(stdout).toContain('⚠');
+    expect(stdout.toLowerCase()).toMatch(/cargo\.toml/);
+    // npm did not drift → its label must not appear in the WARN message.
+    expect(stdout).not.toContain('package.json deps changed');
+  });
+
+  it('CARGO-TARGET-TABLE: a [target.<triple>.dependencies] table (target-cfg-gated deps) alone → WARN on drift, silent on match (research-patch §1 "target.*.{dependencies,…}")', () => {
+    // Dedicated coverage: no prior test exercised [target.*.dependencies] content at all
+    // (code-review finding) — only appeared inside the awk-literal string, never a fixture.
+    const cargoToml = [
+      '[package]',
+      'name = "demo"',
+      'version = "0.1.0"',
+      '',
+      '[target.x86_64-unknown-linux-gnu.dependencies]',
+      'libc = "0.2"',
+      '',
+    ].join('\n');
+
+    const drifted = makeFixtureDir({
+      cargoToml,
+      toolDecisions: `---\ndeps-hash-cargo: sha256-${'0'.repeat(64)}\n---\n`,
+    });
+    const driftedResult = runHook(drifted);
+    expect(driftedResult.status).toBe(0);
+    expect(driftedResult.stdout).toContain('⚠');
+
+    const correctHash = computeCargoHash({ cargoTomlContent: cargoToml });
+    const clean = makeFixtureDir({
+      cargoToml,
+      toolDecisions: `---\ndeps-hash-cargo: ${correctHash}\n---\n`,
+    });
+    const cleanResult = runHook(clean);
+    expect(cleanResult.status).toBe(0);
+    expect(cleanResult.stdout).toBe('');
+  });
+
+  it('CARGO-BUILD-DEPENDENCIES: a [build-dependencies] table alone → WARN on drift, silent on match (research-patch §1 dedicated coverage)', () => {
+    // Dedicated discriminating test: prior fixtures only carried [build-dependencies]
+    // incidentally alongside other tables (code-review finding).
+    const withoutBuildDeps = ['[package]', 'name = "demo"', 'version = "0.1.0"', ''].join('\n');
+    const withBuildDeps = withoutBuildDeps + ['[build-dependencies]', 'cc = "1.0"', ''].join('\n');
+
+    const baselineHash = computeCargoHash({ cargoTomlContent: withoutBuildDeps });
+    const drifted = makeFixtureDir({
+      cargoToml: withBuildDeps,
+      toolDecisions: `---\ndeps-hash-cargo: ${baselineHash}\n---\n`,
+    });
+    const driftedResult = runHook(drifted);
+    expect(driftedResult.status).toBe(0);
+    expect(driftedResult.stdout).toContain('⚠');
+
+    const correctHash = computeCargoHash({ cargoTomlContent: withBuildDeps });
+    const clean = makeFixtureDir({
+      cargoToml: withBuildDeps,
+      toolDecisions: `---\ndeps-hash-cargo: ${correctHash}\n---\n`,
+    });
+    const cleanResult = runHook(clean);
+    expect(cleanResult.status).toBe(0);
+    expect(cleanResult.stdout).toBe('');
+  });
+
+  it('CARGO-DOTTED-SUBTABLE-REGRESSION: workspace.dependencies.<crate> and target.<x>.dependencies.<crate> dotted long-form is captured by Tier-1 (code-review bug fix — was silently dropped)', () => {
+    // Confirmed via live tomllib cross-check (code review): `[workspace.dependencies.qux]`
+    // parses to the identical nested structure as `qux` under `[workspace.dependencies]`
+    // directly — same for `[target.<x>.dependencies.<crate>]`. Both are Cargo-accepted
+    // alternate syntax, NOT malformed input, so Tier-1 must capture them. Before the fix, the
+    // want() function only carried the dotted-sub-table carve-out for the three BARE
+    // top-level tables (dependencies/dev-dependencies/build-dependencies) — the target.*/
+    // workspace.* branches were exact-match/$-anchored only, silently dropping this content.
+    const workspaceWithoutDotted = ['[workspace.dependencies]', 'anyhow = "1.0"', ''].join('\n');
+    const workspaceWithDotted =
+      workspaceWithoutDotted + ['[workspace.dependencies.qux]', 'version = "1.0"', ''].join('\n');
+    const targetWithoutDotted = ['[target.x86_64-unknown-linux-gnu.dependencies]', 'foo = "1.0"', ''].join('\n');
+    const targetWithDotted =
+      targetWithoutDotted + ["[target.'cfg(unix)'.dependencies.baz]", 'version = "1.0"', ''].join('\n');
+
+    // Direct proof: the dotted-form table headers must reach the extracted byte range.
+    expect(cargoTier1Extract(workspaceWithDotted)).toContain('workspace.dependencies.qux');
+    expect(cargoTier1Extract(targetWithDotted)).toContain("cfg(unix)'.dependencies.baz");
+    // And the extraction must actually DIFFER once the dotted content is added (not merely
+    // present-but-inert in a byte range that gets discarded downstream).
+    expect(cargoTier1Extract(workspaceWithDotted)).not.toBe(cargoTier1Extract(workspaceWithoutDotted));
+    expect(cargoTier1Extract(targetWithDotted)).not.toBe(cargoTier1Extract(targetWithoutDotted));
+
+    // End-to-end: adding the dotted-form content to an otherwise-unchanged manifest must
+    // drift the stored baseline (a real hook run, not just the raw awk step).
+    const baselineHash = computeCargoHash({ cargoTomlContent: workspaceWithoutDotted });
+    const cwd = makeFixtureDir({
+      cargoToml: workspaceWithDotted,
+      toolDecisions: `---\ndeps-hash-cargo: ${baselineHash}\n---\n`,
+    });
+    const { status, stdout } = runHook(cwd);
+    expect(status).toBe(0);
+    expect(stdout).toContain('⚠');
   });
 });
