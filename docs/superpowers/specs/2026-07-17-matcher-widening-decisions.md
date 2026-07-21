@@ -5,6 +5,23 @@ resolved autonomously (technical) and findings surfaced out-of-scope.
 
 ---
 
+## D5 — second rebase onto staging trunk-restore (8 inherited reds + F1 cleared) [technical, resolved]
+
+During cold-review the branch inherited 8 pre-existing staging test failures (staging trunk was
+red: `harness-config-drift`, `inject-subagent-context` ×5, principle 11, principle 13 — verified
+identical on a pristine `origin/staging` worktree, so NONE were introduced by this PR). Before
+push, `origin/staging` advanced to `4e8da8357`, whose `62d90304d fix(gates): restore green trunk`
+fixes exactly those blockers (+ the F1 render/twin drift). Rebased onto it. One conflict, in
+`plugin/hooks/hooks.json`: staging inserted an `Agent|Task → warn-subagent-report-zcode` entry
+adjacent to `validate-prompt`, colliding with this PR's `validate-prompt` matcher widening.
+Resolved by keeping staging's new entry AND the widened `Edit|Write|MultiEdit` (narrow=0, twins
+intact, valid JSON). Baselines auto-merged (staging's inject-* re-capture and F2's produced
+identical hashes — same source). Post-rebase: full `vitest principles/ hooks/` = **1147/1147
+green**, byte-identical green, `render --check` green (F1 now moot — staging fixed it). This PR
+adds zero red.
+
+---
+
 ## D4 — Layer 1 extended with a @matcher-parity rule for case-TOOL hooks [technical, resolved]
 
 **Gap found (cold-review MAJOR).** Layer 1 as first committed only marked the 3 path-only
