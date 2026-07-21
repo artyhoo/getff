@@ -96,6 +96,33 @@ if [[ -d "$WORKTREE_DIR/packages/core" ]] && [[ ! -e "$WORKTREE_DIR/packages/cor
   fi
 fi
 
+# Self-heal the packages/core toolchain when the symlinks above did NOT surface
+# it. Symlink delivery only works when the primary was already installed at
+# create-time; a cold primary (worktree born mid-install — incident 2026-07-21:
+# the worktree predated the primary's tsx by ~48 min) or a later clobber (vite
+# materialising a real node_modules over the link) leaves tsx unreachable at BOTH
+# probe paths the principle-21 harness checks (packages/core/node_modules/.bin/tsx,
+# then root node_modules/.bin/tsx — tests/agnosticism/probes/rule-channel-readability.sh),
+# so those probes silently degrade to a PORTABLE fallback instead of running.
+# Install standalone IN THE WORKTREE, mirroring CI's `npm ci --prefix packages/core`
+# (audit-self.yml). Non-fatal: an offline/failed install must never block creation.
+# Guarded on a present lockfile + reachable npm: without them the install cannot
+# run, and dropping the delivery symlink (below) would strictly WORSEN the state
+# — so skip entirely and leave the symlink in place.
+if [[ -d "$WORKTREE_DIR/packages/core" ]] \
+   && [[ -f "$WORKTREE_DIR/packages/core/package-lock.json" ]] \
+   && command -v npm >/dev/null 2>&1 \
+   && [[ ! -x "$WORKTREE_DIR/packages/core/node_modules/.bin/tsx" ]] \
+   && [[ ! -x "$WORKTREE_DIR/node_modules/.bin/tsx" ]]; then
+  # Never write THROUGH a delivery symlink into the primary — drop a link that
+  # pointed at a tsx-less primary, then install a real nested dir locally.
+  if [[ -L "$WORKTREE_DIR/packages/core/node_modules" ]]; then
+    rm -f "$WORKTREE_DIR/packages/core/node_modules"
+  fi
+  npm ci --prefix "$WORKTREE_DIR/packages/core" --silent >/dev/null 2>&1 \
+    || printf '⚠ create-worktree: could not ensure packages/core toolchain (tsx); run `npm ci --prefix packages/core` in the worktree\n' >&2
+fi
+
 # Link gitignored orchestrator-prompts to a canonical store outside every
 # worktree so edits in any worktree are live-shared (symlink-to-canonical,
 # SSOT #110). Supersedes the J5 one-way rsync copy (stale snapshot) with a
