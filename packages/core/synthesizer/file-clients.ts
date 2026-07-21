@@ -18,7 +18,7 @@ import process from 'node:process';
 import type { DetectionResult } from '../detector/types.ts';
 import type { ResearchPlan } from '../research/types.ts';
 import { validateResearchPlan } from '../research/validate-plan.ts';
-import { npmAdapter } from '../research/ecosystem-npm.ts';
+import { resolveCtxForRoot } from './resolve-ctx.ts';
 import type { RuleResearchClient } from './rule-research-port.ts';
 import type {
   GenerateCandidate,
@@ -43,7 +43,9 @@ export class FileResearchClient implements RuleResearchClient {
     // path already holds — this CLI's entrypoint (rule-bootstrap-cli.ts)
     // defaults its own consumerRoot to process.cwd() too, so this is the
     // same root the surrounding install-time run targets, not a guess.
-    validateResearchPlan(parsed, { root: process.cwd(), adapter: npmAdapter });
+    // ecosystem-wiring W2: resolveCtxForRoot picks the adapter by detected stack
+    // (was a hardcoded npmAdapter) so a python/cargo consumer gets its Tier-1.
+    validateResearchPlan(parsed, resolveCtxForRoot(process.cwd()));
     return parsed;
   }
 }

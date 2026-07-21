@@ -96,11 +96,15 @@ function isWired(symbol: string): boolean {
 
 describe('unwired-debt tripwire (spec §6)', () => {
   // BASELINE = current count of unwired adapters. Edited in-lockstep with any
-  // wiring change: LG-S4 sets it to 2 (cargo + python unwired; npm wired).
-  // A future wiring-umbrella DECREMENTS per wired adapter (2 → 1 → 0). Strict
-  // equality catches BOTH silent growth (3 vs 2) AND silent partial-wiring
-  // (1 vs 2 without a BASELINE edit).
-  const BASELINE = 2;
+  // wiring change: LG-S4 set it to 2 (cargo + python unwired; npm wired).
+  // ecosystem-wiring W2 DECREMENTED it to 0 — pipAdapter AND cargoAdapter are
+  // both threaded into the production ResolveCtx by resolveCtxForRoot
+  // (synthesizer/resolve-ctx.ts), consumed at synthesizer/cli.ts +
+  // synthesizer/file-clients.ts (both non-JS adapters wired TOGETHER, T-EW-A).
+  // Strict equality still catches BOTH silent growth (a new unwired adapter:
+  // 1 vs 0) AND silent partial-wiring (an adapter unwired again without a
+  // BASELINE edit).
+  const BASELINE = 0;
 
   it('the number of unwired EcosystemAdapters equals BASELINE (strict — no silent debt drift)', () => {
     const impls = adapterImplFiles();
@@ -114,12 +118,16 @@ describe('unwired-debt tripwire (spec §6)', () => {
     ).toBe(BASELINE);
   });
 
-  it('detector sanity: npmAdapter is detected as WIRED (the baseline reference)', () => {
+  it('detector sanity: all three shipped adapters are detected as WIRED (post-W2)', () => {
     expect(isWired('npmAdapter')).toBe(true);
+    expect(isWired('cargoAdapter')).toBe(true);
+    expect(isWired('pipAdapter')).toBe(true);
   });
 
-  it('detector sanity: cargoAdapter + pipAdapter are detected as UNWIRED', () => {
-    expect(isWired('cargoAdapter')).toBe(false);
-    expect(isWired('pipAdapter')).toBe(false);
+  it('detector sanity: a non-existent symbol is detected as UNWIRED (false-branch guard)', () => {
+    // With every real adapter now wired, this preserves coverage of isWired's
+    // false branch — proving the detector still discriminates unwired symbols
+    // (so a future adapter that lands unwired would be caught, not masked).
+    expect(isWired('noSuchAdapter')).toBe(false);
   });
 });
