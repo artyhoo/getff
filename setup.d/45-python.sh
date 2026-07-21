@@ -411,6 +411,113 @@ _py_firing_self_check() {
   return 0
 }
 
+# _py_json_array <newline-separated items> — render a JSON string array. Items are getff rule ids /
+# ruff codes ([A-Za-z0-9-]), so direct double-quoting is safe (no escaping needed). Empty → [].
+_py_json_array() {
+  local items="$1" out="[" first=1 it
+  while IFS= read -r it; do
+    [ -z "$it" ] && continue
+    if [ "$first" -eq 1 ]; then first=0; else out="$out, "; fi
+    out="$out\"$it\""
+  done <<EOF
+$items
+EOF
+  printf '%s]' "$out"
+}
+
+# _py_write_rules_lock — emit the PYTHON RULES-LOCK VARIANT: a machine-reproducibility record of the
+# rule set actually delivered into the consumer's .getff/ tree. Parity with the JS/TS
+# installer/install.ts rules-lock.json (schemaVersion/framework/version/ruleIds/emittedAt/
+# sourceFingerprint), but pure-bash — the Model-A python lane has NO Node at install-time. It records
+# the delivered ast-grep rule ids + ruff ban codes + a deterministic sourceFingerprint (sha256/16 over
+# the sorted delivered rule bytes), so the researched-vs-starter rule set a consumer received is
+# reproducible + auditable. This is the consumer-side "ledger 2" the rule-tests skill reads
+# (emittedAt/sourceFingerprint) — spec 2026-07-21-rule-tests-surface-design.md §6.
+#
+# NO new delivery channel (umbrella trap T-EW-B): rides the .getff/ namespace the seam already owns.
+# Written to .getff/rules-lock.python.json — NEVER .ai-factory/ (that dir is the npm lane's; the python
+# lane asserts it never appears — tests/install-sh/python-entry-lane.test.sh (1)).
+#
+# Idempotent: skip-if-present on a plain re-run (stable emittedAt), regenerate on --refresh
+# (GETFF_TOOLCHAIN_REFRESH=1) — the same copy_safe/refresh_safe idempotency contract the config lanes
+# use. Its emittedAt is wall-clock → the lock is EXCLUDED from the install byte-identical snapshot
+# (tests/install-sh/snapshot.sh compute_fingerprint), exactly as the running audit log is; its
+# deterministic content is gated by tests/install-sh/python-rules-lock.test.sh instead
+# (attention-is-not-a-mechanism §1: a non-deterministic field is not left byte-guarded, it is moved to
+# a targeted deterministic assertion).
+#
+# Defined here (co-located + unit-testable), CALLED from install.sh do_python_lane after delivery — the
+# same defined-in-seam / run-in-install-flow split as _py_firing_self_check (an install-flow concern,
+# not part of the pure deliver_python_toolchain config tree, so the augment-first cell tests are
+# unperturbed).
+_py_write_rules_lock() {
+  local rules_dir="$PROJECT_ROOT/.getff/astgrep-rules"
+  local bans="$PROJECT_ROOT/.getff/ruff-bans.toml"
+  local lock="$PROJECT_ROOT/.getff/rules-lock.python.json"
+
+  # Nothing delivered (no rules dir) → nothing to lock (defensive; delivery precedes this call).
+  [ -d "$rules_dir" ] || { echo "  ⊝ rules-lock: no .getff/astgrep-rules present — skipping"; return 0; }
+
+  if [ "${DRY_RUN:-}" = "--dry-run" ]; then
+    echo "  [dry-run] would write .getff/rules-lock.python.json (delivered rule ids + sourceFingerprint)"
+    return 0
+  fi
+
+  # Idempotent: keep the existing lock (stable emittedAt) unless this is an explicit --refresh.
+  if [ -f "$lock" ] && [ "${GETFF_TOOLCHAIN_REFRESH:-}" != "1" ]; then
+    echo "  ⊝ rules-lock.python.json already present — no-op (idempotent)"
+    return 0
+  fi
+
+  # Delivered ast-grep rule ids (the `id: "…"` field, double-quoted per the renderer), sorted+unique.
+  local ids
+  ids=$(grep -hE '^id:' "$rules_dir"/*.yml 2>/dev/null \
+    | sed -E 's/^id:[[:space:]]*"?([^"]*)"?[[:space:]]*$/\1/' | sort -u)
+
+  # Delivered ruff ban codes (select/extend-select = ["TID…", …]) — the always-delivered bans file.
+  local ban_codes=""
+  [ -f "$bans" ] && ban_codes=$(grep -oE 'TID[0-9]+' "$bans" 2>/dev/null | sort -u)
+
+  # Deterministic sourceFingerprint: sha256/16 over the sorted delivered rule bytes (astgrep ymls +
+  # the always-delivered ruff bans). Same rule set → same fingerprint (reproducibility), independent
+  # of emittedAt. Portable hash ladder (parity with tests/install-sh/snapshot.sh).
+  local _hash_input _fp
+  _hash_input=$( { find "$rules_dir" -name '*.yml' 2>/dev/null | sort | while IFS= read -r f; do cat "$f"; done; [ -f "$bans" ] && cat "$bans"; } )
+  if command -v sha256sum >/dev/null 2>&1; then
+    _fp=$(printf '%s' "$_hash_input" | sha256sum | awk '{print $1}')
+  elif command -v shasum >/dev/null 2>&1; then
+    _fp=$(printf '%s' "$_hash_input" | shasum -a 256 | awk '{print $1}')
+  else
+    _fp=$(printf '%s' "$_hash_input" | md5 2>/dev/null | awk '{print $NF}' || echo 0000000000000000)
+  fi
+  _fp="${_fp:0:16}"
+
+  local emitted
+  emitted=$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)
+
+  mkdir -p "$PROJECT_ROOT/.getff"
+
+  local _json_ids _json_bans
+  _json_ids=$(_py_json_array "$ids")
+  _json_bans=$(_py_json_array "$ban_codes")
+
+  {
+    printf '{\n'
+    printf '  "schemaVersion": 1,\n'
+    printf '  "framework": "python",\n'
+    printf '  "version": null,\n'
+    printf '  "ruleIds": %s,\n' "$_json_ids"
+    printf '  "ruffBans": %s,\n' "$_json_bans"
+    printf '  "emittedAt": "%s",\n' "$emitted"
+    printf '  "sourceFingerprint": "%s"\n' "$_fp"
+    printf '}\n'
+  } > "$lock"
+
+  local _n
+  _n=$(printf '%s\n' "$ids" | grep -c . || true)
+  echo "  ✓ rules-lock.python.json → .getff/ (${_n} ast-grep rule id(s) + ruff bans · fingerprint ${_fp})"
+}
+
 # deliver_python_toolchain — the Python-lane entrypoint (called under the activation guard below).
 deliver_python_toolchain() {
   local tpl="${PY_TEMPLATE_DIR:-$PKG_ROOT/packages/core/templates/python}"

@@ -40,10 +40,17 @@ compute_fingerprint() {
   # differ every run. It is an audit trail, NOT a delivered config artefact (the layer excludes it
   # from its own (v) idempotency checksum), so it is excluded here too — else the python row would be
   # non-deterministic. No-op for npm stacks (they never write this file).
+  # .getff/rules-lock.python.json carries a wall-clock `emittedAt` (setup.d/45-python.sh
+  # _py_write_rules_lock) → its bytes differ every run, same as the audit log. It is a
+  # machine-reproducibility record, NOT a delivered CONFIG artefact; its deterministic content
+  # (ruleIds/ruffBans/sourceFingerprint) is gated by tests/install-sh/python-rules-lock.test.sh, so it
+  # is excluded here too — else the python rows would be non-deterministic. No-op for npm stacks (the
+  # unwired installer/install.ts lock is never produced on the install.sh path).
   find "$dir" -type f \
     -not -path '*/.git/*' \
     -not -path '*/node_modules/*' -not -name '*.tmp' \
     -not -name '.getff-python-install.log' \
+    -not -name 'rules-lock.python.json' \
     | sort \
     | while IFS= read -r f; do
         local h
