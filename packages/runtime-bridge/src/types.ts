@@ -21,6 +21,15 @@ export interface KickoffSpec {
   readonly umbrellaName: string;
   /** SHA-256 hex of the content, for idempotency. */
   readonly contentHash: string;
+  /**
+   * Optional runtime-profile name hint, parsed from a `<!-- bridge-profile: <name> -->`
+   * marker in the kickoff's HEADER REGION ONLY (everything before the first `##`
+   * heading) — never the file body, to avoid false-positiving on kickoffs that merely
+   * document the marker in prose. `undefined` when no marker is present. A backend
+   * resolves this name (substring match) against its own runtime-profile registry;
+   * this field carries only the raw hint, never a resolved id.
+   */
+  readonly profileHint?: string;
 }
 
 /**

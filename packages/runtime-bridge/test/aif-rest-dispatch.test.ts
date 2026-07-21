@@ -181,3 +181,82 @@ describe('AifHandoffBackend.dispatch() — REST 4-step sequence', () => {
     expect(backend.mcpUrl).toBe('http://localhost:3100');
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// bridge-profile resolution (multi-model-profile-marker, 2026-07-21)
+// ═══════════════════════════════════════════════════════════════════════════════
+describe('AifHandoffBackend.dispatch() — profileHint resolution', () => {
+  const KICKOFF_WITH_HINT: KickoffSpec = { ...KICKOFF, profileHint: 'GLM' };
+
+  function mockWithProfiles(profiles: Array<{ id: string; name: string }>) {
+    const calls: Array<{ url: string; method: string; body: Record<string, unknown> | undefined }> =
+      [];
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const method = init?.method ?? 'GET';
+        const body = init?.body
+          ? (JSON.parse(String(init.body)) as Record<string, unknown>)
+          : undefined;
+        calls.push({ url, method, body });
+        if (method === 'GET' && url.endsWith('/projects')) {
+          return Promise.resolve(jsonResponse([{ id: 'proj-uuid', parallelEnabled: true }], 200));
+        }
+        if (method === 'GET' && url.endsWith('/runtime-profiles')) {
+          return Promise.resolve(jsonResponse(profiles, 200));
+        }
+        if (method === 'POST' && url.endsWith('/tasks')) {
+          return Promise.resolve(jsonResponse({ id: 'task-123', status: 'backlog' }, 201));
+        }
+        return Promise.resolve(new Response('', { status: 200 }));
+      },
+    );
+    return calls;
+  }
+
+  it('single case-insensitive substring match → runtimeProfileId included in POST /tasks body', async () => {
+    const calls = mockWithProfiles([
+      { id: 'opus-id', name: 'Claude Opus (plan+review)' },
+      { id: 'glm-id', name: 'Z.AI GLM-5.2' },
+    ]);
+    const backend = new AifHandoffBackend({ baseUrl: 'http://localhost:3009', projectId: 'proj-uuid' });
+    await backend.dispatch(KICKOFF_WITH_HINT);
+
+    const post = calls.find((c) => c.method === 'POST' && c.url.endsWith('/tasks'));
+    expect(post?.body).toMatchObject({ runtimeProfileId: 'glm-id' });
+  });
+
+  it('no profileHint → GET /runtime-profiles is never called, no runtimeProfileId in POST body (regression guard)', async () => {
+    const calls = mockWithProfiles([{ id: 'glm-id', name: 'Z.AI GLM-5.2' }]);
+    const backend = new AifHandoffBackend({ baseUrl: 'http://localhost:3009', projectId: 'proj-uuid' });
+    await backend.dispatch(KICKOFF); // no profileHint
+
+    expect(calls.some((c) => c.url.endsWith('/runtime-profiles'))).toBe(false);
+    const post = calls.find((c) => c.method === 'POST' && c.url.endsWith('/tasks'));
+    expect(post?.body && 'runtimeProfileId' in post.body).toBe(false);
+  });
+
+  it('zero matches → dispatch_failed, loud, naming the empty candidate outcome (no silent fallback)', async () => {
+    mockWithProfiles([{ id: 'opus-id', name: 'Claude Opus (plan+review)' }]);
+    const backend = new AifHandoffBackend({ baseUrl: 'http://localhost:3009', projectId: 'proj-uuid' });
+    const err = await backend.dispatch(KICKOFF_WITH_HINT).catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(BackendError);
+    expect(err).toMatchObject({ code: 'dispatch_failed', backend: 'aif-handoff' });
+    expect((err as Error).message).toContain('GLM');
+  });
+
+  it('ambiguous (>1) matches → dispatch_failed naming BOTH candidates (no guessing)', async () => {
+    mockWithProfiles([
+      { id: 'glm-a', name: 'Z.AI GLM-5.2 (fast)' },
+      { id: 'glm-b', name: 'Z.AI GLM-5.2 (careful)' },
+    ]);
+    const backend = new AifHandoffBackend({ baseUrl: 'http://localhost:3009', projectId: 'proj-uuid' });
+    const err = await backend.dispatch(KICKOFF_WITH_HINT).catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(BackendError);
+    expect(err).toMatchObject({ code: 'dispatch_failed', backend: 'aif-handoff' });
+    expect((err as Error).message).toContain('glm-a');
+    expect((err as Error).message).toContain('glm-b');
+  });
+});
