@@ -77,3 +77,31 @@ export function fireContract(contract: FiringContract, fixtureDir: string): { co
   const codes = parseCodesFromStdout(result.stdout ?? '', contract.jsonPath);
   return { codes };
 }
+
+/**
+ * Extract the rust semver from a `rustc --version` line ("rustc 1.96.1 (31fca3adb 2026-06-26)").
+ * The cargo backend's capability-matrix evidence names its toolchain as a `rustc <semver> (...)`
+ * string, so this is the parse-core both `deriveRustcVersion` (the live PATH binary) and
+ * `checkToolchainFreshness` (the committed evidence string) share — a single source of truth for
+ * what "the rust version" means, exactly as the ruff backend's `parseRuffVersion` does.
+ */
+export function parseRustcVersion(versionOutput: string): string | undefined {
+  const m = /(?:^|\s)rustc\s+(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)\b/.exec(versionOutput);
+  return m?.[1];
+}
+
+/**
+ * Derive the rustc version that actually resolves for the cargo backend here, by running
+ * `rustc --version`. The cargo firing contract command is `cargo clippy ...`, but the toolchain
+ * IDENTITY the evidence records is rustc's (clippy is versioned as a rustc component: the evidence
+ * string is "rustc 1.96.1 (...)"), so the freshness anchor is `rustc --version`, not `cargo --version`.
+ * Returns undefined when rustc is not on PATH (CI install step missing / local machine without the
+ * pinned toolchain) — the caller then loud-skips rather than asserting on a version it could not
+ * observe. NO version literal lives in this code path (attention-is-not-a-mechanism): bumping the
+ * pinned toolchain without regenerating the committed evidence turns the freshness gate RED.
+ */
+export function deriveRustcVersion(): string | undefined {
+  const result = spawnSync('rustc', ['--version'], { encoding: 'utf8', shell: false });
+  if (result.status !== 0 || typeof result.stdout !== 'string') return undefined;
+  return parseRustcVersion(result.stdout);
+}
