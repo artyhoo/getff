@@ -162,11 +162,11 @@ When the **last stage** of a multi-stage umbrella merges, the merging session wr
 
 ### Meta-orchestrator self-review obligation
 
-Before any `/meta-orchestrator` session hands off a meta-kickoff to an orchestrator, spawn a Phase -1 cold-review (read-only Agent, adversarial) on the generated `<umbrella>-meta-launch/kickoff.md` against the umbrella's `kickoff.md`. One REVISE round maximum. The orchestrator's own Phase -1 reviews the dispatch prompt — it does NOT cover meta-synthesis bugs. Evidence: 2026-05-28 — a BLOCKER in §3 stage-gate logic was caught only by meta-level cold-review. Codification target is `~/.claude/skills/meta-orchestrator/SKILL.md §4.5` (agent-uncommittable global skill); interim home: this section. (Codified from memory `feedback_meta_orch_self_reviews_own_kickoff`.)
+Before any `/meta-orchestrator` session hands off a meta-kickoff to an orchestrator, spawn a Phase -1 cold-review (read-only Agent, adversarial) on the generated `<umbrella>-meta-launch/kickoff.md` against the umbrella's `kickoff.md`. One REVISE round maximum. The orchestrator's own Phase -1 reviews the dispatch prompt — it does NOT cover meta-synthesis bugs. Evidence: 2026-05-28 — a BLOCKER in §3 stage-gate logic was caught only by meta-level cold-review. Home note (audited 2026-07-21): no `meta-orchestrator` global skill exists, so this section IS the home until one is created. (Codified from memory `feedback_meta_orch_self_reviews_own_kickoff`.)
 
 ### Phase -1 principle-test allowlist probe
 
-Phase -1 cold-review on any dispatch that ships ≥1 NEW file under principle-test-watched paths MUST include a dimension: «for each NEW path, grep `packages/core/principles/` `EXEMPT_*` allowlists + structural rule; confirm the artefact satisfies the rule OR qualifies for exemption». Watched paths: `.claude/skills/**`, `.claude/rules/**`, `agents/**`, `docs/meta-factory/research-patches/**`, `packages/core/templates/**`. Probe: `grep -rn 'EXEMPT_\|allowlist\|skip' packages/core/principles/ | grep -E '\.(test\.)?ts:' | head -20`. Evidence: PR #264 pushed twice — principle 15 (paired-negative) + principle 10 (scope annotation) both fired after an 11-dimension Phase -1 missed both. Codification target is `~/.claude/skills/orchestrator/SKILL.md` Phase -1 §Critique dimension (l) (agent-uncommittable global skill); interim home: this section. (Codified from memory `feedback_phase_minus_1_probe_exempt_allowlists`.)
+Moved 2026-07-21 to its declared codification target: `~/.claude/skills/orchestrator/SKILL.md` Phase -1 → «Principle-test allowlist probe». This stub stays because in-flight kickoffs cite «CLAUDE.md §Operational conventions» for the probe; new kickoffs should cite the skill directly.
 
 ### Pre-dispatch in-flight probe
 
