@@ -104,12 +104,28 @@ function authorPracticeRecord(consumer: string): void {
   writeFileSync(join(dir, `${RULE_ID}.practice.json`), readFileSync(PRACTICE_SRC, 'utf8'));
 }
 
+/** Resolve the tsx binary across CI install layouts. This file runs in the `test:backends` suite,
+ *  whose job installs packages/core deps ONLY (`npm ci --prefix packages/core`) — so tsx lands in
+ *  packages/core/node_modules/.bin/tsx; the repo-root hoist (`npm install`) runs LATER in that job
+ *  (.github/workflows/audit-self.yml). `npx --no-install tsx` from REPO_ROOT walks up from the root
+ *  bin only, misses the core-local bin, and exits non-zero — the CI-vs-local divergence this test
+ *  hit (green locally where the root is hoisted, red under test:backends). Spawn the resolved bin
+ *  directly instead: prefer the core-local bin, fall back to a root hoist, then PATH. NEVER skips —
+ *  CI always ships one of these, so the live path stays always-on. */
+function tsxBin(): string {
+  const candidates = [
+    join(REPO_ROOT, 'packages/core/node_modules/.bin/tsx'),
+    join(REPO_ROOT, 'node_modules/.bin/tsx'),
+  ];
+  return candidates.find((c) => existsSync(c)) ?? 'tsx';
+}
+
 /** Hop 2 — the REAL CLI entrypoint: --from-practice over the consumer's rules-research dir. */
 function runCliRender(consumer: string): { status: number | null; stdout: string; stderr: string } {
   const r = spawnSync(
-    'npx',
+    tsxBin(),
     [
-      '--no-install', 'tsx', CLI,
+      CLI,
       '--consumer-root', consumer,
       '--from-practice', join(consumer, '.getff', 'rules-research'),
     ],
