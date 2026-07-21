@@ -247,6 +247,15 @@ describe('pipAdapter.readInstalledMeta — gaps & fail-closed', () => {
     expect(pipAdapter.readInstalledMeta(root, '../evil')).toBeNull();
   });
 
+  it('returns null when METADATA is unreadable (a directory, not a file) — readFileSync fail-closed (spec §5 item 3)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'pip-adapter-'));
+    const di = join(root, '.venv', 'lib', 'python3.14', 'site-packages', 'weird-1.0.dist-info');
+    // Make METADATA a DIRECTORY: resolvedWithinRoot succeeds (it exists, in-tree),
+    // then readFileSync throws EISDIR → caught → continue → null (never a guess).
+    mkdirSync(join(di, 'METADATA'), { recursive: true });
+    expect(pipAdapter.readInstalledMeta(root, 'weird')).toBeNull();
+  });
+
   it('searches a second python* dir when multiple exist (edge case)', () => {
     const root = mkdtempSync(join(tmpdir(), 'pip-adapter-'));
     const sp1 = join(root, '.venv', 'lib', 'python3.14', 'site-packages');

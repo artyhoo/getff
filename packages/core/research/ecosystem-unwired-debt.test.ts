@@ -106,13 +106,12 @@ describe('unwired-debt tripwire (spec §6)', () => {
     const impls = adapterImplFiles();
     const unwired = impls.filter((a) => !isWired(a.symbol));
     expect(
-      { total: impls.length, unwired: unwired.length, unwiredSymbols: unwired.map((a) => a.symbol), BASELINE },
-    ).toEqual({
-      total: impls.length,
-      unwired: BASELINE,
-      unwiredSymbols: unwired.map((a) => a.symbol),
-      BASELINE,
-    });
+      unwired.length,
+      `Unwired-adapter count drift: ${unwired.length} unwired (symbols: ${unwired
+        .map((a) => a.symbol)
+        .join(', ')}) vs BASELINE ${BASELINE}. If you WIRED an adapter, DECREMENT BASELINE here; ` +
+        `if you ADDED an adapter, the wiring-umbrella must wire it (or bump BASELINE with rationale).`,
+    ).toBe(BASELINE);
   });
 
   it('detector sanity: npmAdapter is detected as WIRED (the baseline reference)', () => {

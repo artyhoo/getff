@@ -35,9 +35,8 @@ export function extractPep508Name(spec: string): string | null {
   return normalizePep503(m[1]!);
 }
 
-import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync, readdirSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
-import { readdirSync } from 'node:fs';
 import type { EcosystemAdapter, InstalledMeta } from './allowlist-resolver.ts';
 
 /** Strips `#` line comments. Quote-aware: a `#` inside a double-quoted string
