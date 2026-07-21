@@ -118,3 +118,104 @@ describe('runGrammarGate — accumulation (no short-circuit)', () => {
     expect(codes).toContain('FF6003');
   });
 });
+
+// --- OWNER-FORK-1 Option B (ir-unfreeze S1): relational tree grammar ---
+// The relational field is additive-opt-in. A malformed relational SHAPE is caught by ajv (FF1001,
+// via the recursive RelationalRule $ref); the residual cross-child-equality degeneracy — which ajv
+// cannot express — is the new FF6004. Legacy scalar nodes carry no relational field and stay valid.
+describe('runGrammarGate — relational tree (Option B, FF6004 degeneracy + FF1001 shape)', () => {
+  it('N8: composite `all` with two byte-identical children fails with FF6004', () => {
+    const node = validNode({
+      relational: {
+        op: 'all',
+        children: [
+          { op: 'has', pattern: 'yaml.load($$$A)' },
+          { op: 'has', pattern: 'yaml.load($$$A)' },
+        ],
+      },
+    });
+    const outcome = runGrammarGate([node]);
+    expect(outcome.status).toBe('fail');
+    expect(
+      outcome.diagnostics.some(
+        (d) => d.code === 'FF6004' && d.params['op'] === 'all' && d.params['nodeId'] === 'n1',
+      ),
+    ).toBe(true);
+  });
+
+  it('N8b: FF6004 fires on a NESTED degenerate composite (the walk recurses)', () => {
+    const node = validNode({
+      relational: {
+        op: 'not',
+        children: [
+          {
+            op: 'any',
+            children: [
+              { op: 'has', pattern: 'dup' },
+              { op: 'has', pattern: 'dup' },
+            ],
+          },
+        ],
+      },
+    });
+    const outcome = runGrammarGate([node]);
+    expect(outcome.status).toBe('fail');
+    expect(outcome.diagnostics.some((d) => d.code === 'FF6004' && d.params['op'] === 'any')).toBe(true);
+  });
+
+  it('N9: malformed relational SHAPE (`has` missing pattern) fails with FF1001 (ajv deep-validate)', () => {
+    const node = validNode({ relational: { op: 'has', kind: 'call' } });
+    const outcome = runGrammarGate([node]);
+    expect(outcome.status).toBe('fail');
+    expect(outcome.diagnostics.some((d) => d.code === 'FF1001')).toBe(true);
+  });
+
+  it('N9b: unknown relational op fails with FF1001 (oneOf zero-match)', () => {
+    const node = validNode({ relational: { op: 'xor', children: [{ op: 'has', pattern: 'x' }] } });
+    const outcome = runGrammarGate([node]);
+    expect(outcome.status).toBe('fail');
+    expect(outcome.diagnostics.some((d) => d.code === 'FF1001')).toBe(true);
+  });
+
+  it('N9c: empty children array fails with FF1001 (minItems 1)', () => {
+    const node = validNode({ relational: { op: 'all', children: [] } });
+    const outcome = runGrammarGate([node]);
+    expect(outcome.status).toBe('fail');
+    expect(outcome.diagnostics.some((d) => d.code === 'FF1001')).toBe(true);
+  });
+
+  it('P4: a well-formed require-via-ban tree (not:[has]) passes with zero diagnostics', () => {
+    const node = validNode({
+      relational: {
+        op: 'not',
+        children: [{ op: 'has', kind: 'function_definition', pattern: 'return $A' }],
+      },
+    });
+    const outcome = runGrammarGate([node]);
+    expect(outcome.status).toBe('pass');
+    expect(outcome.diagnostics).toEqual([]);
+  });
+
+  it('P4b: a composite with DISTINCT children passes (control for FF6004 always-red)', () => {
+    const node = validNode({
+      relational: {
+        op: 'all',
+        children: [
+          { op: 'has', pattern: 'A' },
+          { op: 'has', pattern: 'B' },
+        ],
+      },
+    });
+    const outcome = runGrammarGate([node]);
+    expect(outcome.status).toBe('pass');
+    expect(outcome.diagnostics).toEqual([]);
+  });
+
+  it('P5: a LEGACY scalar node (no relational field) still passes — additive-opt-in', () => {
+    const node = validNode();
+    expect('relational' in node).toBe(false);
+    const outcome = runGrammarGate([node]);
+    expect(outcome.status).toBe('pass');
+    expect(outcome.diagnostics).toEqual([]);
+  });
+});

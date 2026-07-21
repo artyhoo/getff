@@ -140,6 +140,7 @@ const CODE_FIXTURES: Record<string, Record<string, string | number>> = {
   FF6001: { nodeId: 'n1' },
   FF6002: { id: 'n1', count: 2 },
   FF6003: { anchor: 'FF9999', nodeId: 'n1' },
+  FF6004: { op: 'all', nodeId: 'n1' },
   // --- FF7xxx: render outcomes (MT umbrella S2 — cargo backend v0) ---
   FF7001: { backend: 'cargo-clippy-toml', selectorClass: 'syntax', nodeId: 'n1' },
   FF7002: { backend: 'cargo-clippy-toml', nodeId: 'n1', missing: 'path' },

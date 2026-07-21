@@ -3,7 +3,7 @@
 //
 // Wraps an ajv shape check (convention-node.schema.json, FF1001 via the shared
 // diagnostics/ajv.ts factory — reuse pattern: research/gates/shape.ts) + per-node and
-// set-level semantic checks (FF6001/FF6002/FF6003). Accumulates ALL diagnostics without
+// set-level semantic checks (FF6001/FF6002/FF6003/FF6004). Accumulates ALL diagnostics without
 // short-circuit (the B-gate pattern, same as checkResearchPlan) — status is derived from
 // whether any diagnostic was produced.
 
@@ -14,6 +14,7 @@ import { ajvErrorsToDiagnostics, makeSchemaValidator } from '../../diagnostics/a
 import { diag } from '../../diagnostics/registry.ts';
 import { REGISTRY } from '../../diagnostics/registry.ts';
 import type { Diagnostic } from '../../diagnostics/types.ts';
+import type { RelationalRule } from '../types.ts';
 import type { GrammarGateOutcome } from './types.ts';
 
 // AIF_SYNTH_PKG_ROOT: when this gate runs inside the precompiled synth bundle
@@ -36,6 +37,7 @@ interface NodeShape {
   id: string;
   anchors: string[];
   pairedExamples: { positive: string; negative: string };
+  relational?: RelationalRule; // ajv already deep-validated the tree when present (Option B)
 }
 
 function isNodeShape(value: unknown): value is NodeShape {
@@ -47,6 +49,53 @@ function isNodeShape(value: unknown): value is NodeShape {
     typeof v['pairedExamples'] === 'object' &&
     v['pairedExamples'] !== null
   );
+}
+
+/** Exhaustiveness guard for the RelationalRule discriminated union — unreachable at runtime
+ *  (ajv validated `op` before the walk), a compile-time totality device (design criterion c). */
+function assertNever(x: never): never {
+  throw new Error(`unexpected relational op: ${JSON.stringify(x)}`);
+}
+
+/**
+ * FF6004 — relational-plane degeneracy walk (the FF6001 analog on the relational plane). For each
+ * COMPOSITE arm (all/any/not), if two or more of its `children` are byte-identical (JSON.stringify
+ * equality) the composition adds no discriminating power → FF6004. Recurses into every child so a
+ * NESTED degenerate composite is caught too; the `has` leaf bottoms out. This is the residual
+ * semantic check ajv cannot express (cross-child equality) — the tree SHAPE is already
+ * ajv-validated (FF1001) by the time this runs, so only a present, shape-valid tree reaches here
+ * (never a legacy scalar node → byte-lock-safe).
+ */
+function walkRelational(
+  rule: RelationalRule,
+  nodeId: string,
+  path: string,
+  diagnostics: Diagnostic[],
+): void {
+  switch (rule.op) {
+    case 'has':
+      return; // leaf — no children
+    case 'not':
+    case 'all':
+    case 'any': {
+      const seen = new Set<string>();
+      for (const child of rule.children) {
+        const key = JSON.stringify(child);
+        if (seen.has(key)) {
+          // One FF6004 per degenerate composite is enough to flag it.
+          diagnostics.push(diag('FF6004', { op: rule.op, nodeId }, { path }));
+          break;
+        }
+        seen.add(key);
+      }
+      for (const child of rule.children) {
+        walkRelational(child, nodeId, path, diagnostics);
+      }
+      return;
+    }
+    default:
+      return assertNever(rule);
+  }
 }
 
 /**
@@ -114,6 +163,12 @@ export function runGrammarGate(nodes: unknown): GrammarGateOutcome {
       if (!(anchor in REGISTRY)) {
         diagnostics.push(diag('FF6003', { anchor, nodeId }, { path }));
       }
+    }
+
+    // Relational-plane degeneracy (FF6004). Walks ONLY a present, ajv-shape-valid tree — never
+    // fires on a legacy scalar node (relational absent), keeping the byte-lock legacy path clean.
+    if (node.relational !== undefined) {
+      walkRelational(node.relational, nodeId, path, diagnostics);
     }
   }
 
