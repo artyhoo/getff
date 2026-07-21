@@ -19,7 +19,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { deriveToolVersion, fireContract, type AstgrepFiringContract } from './firing-runner.ts';
-import { RELATIONAL_FIXTURE_NODE } from './test-fixtures.ts';
+import { RELATIONAL_FIXTURE_NODE, MULTI_CHILD_FIXTURE_NODE } from './test-fixtures.ts';
 import { renderAstgrep } from './render-astgrep.ts';
 import type { ConventionNode } from '../../ir/types.ts';
 
@@ -30,6 +30,16 @@ const CONTRACT: AstgrepFiringContract = JSON.parse(
 
 const INVALID_DIR = join(__dirname, 'fixtures/firing/relational-invalid');
 const VALID_DIR = join(__dirname, 'fixtures/firing/relational-valid');
+
+// Multi-child (≥2-child `not`) firing contract + fixture dirs — ir-unfreeze S4 (closes S2 M3).
+// Same bare-PATH `ast-grep scan --json` command as CONTRACT, so `toolPresent` (derived below from
+// CONTRACT.command) gates these blocks too — no second version derivation needed.
+const MULTI_CONTRACT: AstgrepFiringContract = JSON.parse(
+  readFileSync(join(__dirname, 'relational-multichild-firing-contract.json'), 'utf8'),
+) as AstgrepFiringContract;
+
+const MULTI_INVALID_DIR = join(__dirname, 'fixtures/firing/relational-multichild-invalid');
+const MULTI_VALID_DIR = join(__dirname, 'fixtures/firing/relational-multichild-valid');
 
 const LIVE_TIMEOUT_MS = 120_000;
 
@@ -155,6 +165,106 @@ describe.skipIf(!toolPresent)('arm-deleted control — relational arm is load-be
       } finally {
         rmSync(withArmDir, { recursive: true, force: true });
         rmSync(noArmDir, { recursive: true, force: true });
+      }
+    },
+  );
+});
+
+// --- Multi-child relational firing (OWNER-FORK-1 Option B, ir-unfreeze S4) -------------------
+// Closes the S2 carry-forward M3: the multi-child `not:{any:[...]}` fold was previously only
+// RENDER-golden verified (render-astgrep.test.ts:253-277); S1's single-child `not:{has}` was the
+// only committed LIVE-FIRE. This block adds a REAL ast-grep scan for a ≥2-child `not` — the census
+// "require-return-type-or-docstring" NOR (MULTI_CHILD_FIXTURE_NODE): a function is flagged only
+// when it has NEITHER a return-type hint (arm A) NOR a docstring/string descendant (arm B).
+describe.skipIf(!toolPresent)('relational MULTI-child firing — not:{any} NOR (OWNER-FORK-1 Option B, S4)', () => {
+  it(
+    'RED: multichild-invalid (def with NEITHER return-type NOR docstring) -> ruleIds contains expectedCode',
+    { timeout: LIVE_TIMEOUT_MS },
+    () => {
+      const { codes } = fireContract(MULTI_CONTRACT, MULTI_INVALID_DIR);
+      expect(codes.has(MULTI_CONTRACT.expectedCode)).toBe(true);
+    },
+  );
+
+  it(
+    'GREEN: multichild-valid (same def, now with `-> int`) -> ZERO codes (arm A satisfies the any-fold)',
+    { timeout: LIVE_TIMEOUT_MS },
+    () => {
+      const { codes } = fireContract(MULTI_CONTRACT, MULTI_VALID_DIR);
+      expect(codes.has(MULTI_CONTRACT.expectedCode)).toBe(false);
+      expect(codes.size).toBe(0);
+    },
+  );
+});
+
+// --- Always-on self-application (fixture-drift protection), PURE — no tool spawn -------------
+// DRIFT GUARD ONLY: this asserts committed == render(MULTI_CHILD_FIXTURE_NODE), it is explicitly
+// NOT the fire (the fire is the skipIf blocks above/below). Mirrors the single-child block:69-84.
+describe('self-application: committed multichild rule YAML == render(MULTI_CHILD_FIXTURE_NODE)', () => {
+  const RULE_MC = join('rules', 'require-return-type-or-docstring.yml');
+  for (const [label, dir] of [
+    ['relational-multichild-invalid', MULTI_INVALID_DIR],
+    ['relational-multichild-valid', MULTI_VALID_DIR],
+  ] as const) {
+    it(`committed ${label}/${RULE_MC} is byte-for-byte the render of MULTI_CHILD_FIXTURE_NODE`, () => {
+      const { yaml } = renderAstgrep([MULTI_CHILD_FIXTURE_NODE]);
+      const committed = readFileSync(join(dir, RULE_MC), 'utf8');
+      expect(committed).toBe(yaml);
+    });
+  }
+});
+
+// --- Multi-child NOR control — the any-fold is load-bearing, not:{all} is wrong --------------
+//
+// The multi-child analog of the single-child arm-deleted control above (:123-161). This is what
+// makes the multi-child block a REAL fire, not render==fire: it proves BOTH (a) the scan genuinely
+// runs, and (b) the S2-committed NOR decision (`not:{any}` NEVER `not:{all}`, render-astgrep.ts:
+// 205-208 / :256-257) is BEHAVIOURALLY load-bearing, not just a textual golden.
+//
+// One mixed source satisfies EXACTLY arm B (has a docstring string-literal) and NOT arm A (no
+// return type). Under the correct NOR `not:{any:[A,B]}`, arm B matches -> the any-fold matches ->
+// `not` suppresses -> 0 findings. Under the WRONG `not:{all:[A,B]}` (all children must match),
+// arm A fails -> the all-fold fails -> `not` fires -> 1 finding. any->0 / all->1 is the genuine
+// behavioural discriminator. The wrong variant is built by swapping ONLY the combinator token in
+// the rendered YAML (`any:` -> `all:`), so the two rules are otherwise byte-identical.
+//
+// Uses the local raw-count helper countFindings() (needs finding COUNTS, not fireContract's
+// de-duplicated `codes: Set<string>`), same rationale as the single-child control above.
+describe.skipIf(!toolPresent)('multi-child NOR control — the any-fold is load-bearing, not:{all} is wrong', () => {
+  it(
+    'docstring-only def: not:{any} (rendered) -> 0 findings (NOR-correct); not:{all} (wrong swap) -> 1 finding',
+    { timeout: LIVE_TIMEOUT_MS },
+    () => {
+      // Satisfies EXACTLY arm B (docstring string-literal), NOT arm A (no return type).
+      const mixedSrc = 'def documented(x):\n    """doc"""\n    return x + 1\n';
+
+      const anyYaml = renderAstgrep([MULTI_CHILD_FIXTURE_NODE]).yaml; // not:{any:[...]} (correct NOR)
+      // Wrong variant: the ONLY change is the combinator token any -> all (String.replace hits the
+      // single `any:` occurrence — the assertions below prove no residual `any:` remains).
+      const allYaml = anyYaml.replace('any:', 'all:');
+      expect(allYaml).not.toBe(anyYaml); // the swap actually changed the rule
+      expect(anyYaml).toContain('any:');
+      expect(allYaml).toContain('all:');
+      expect(allYaml).not.toContain('any:');
+
+      const anyDir = mkdtempSync(join(tmpdir(), 'astgrep-relational-multichild-any-'));
+      const allDir = mkdtempSync(join(tmpdir(), 'astgrep-relational-multichild-all-'));
+      try {
+        for (const [dir, yaml] of [
+          [anyDir, anyYaml],
+          [allDir, allYaml],
+        ] as const) {
+          mkdirSync(join(dir, 'rules'), { recursive: true });
+          writeFileSync(join(dir, 'sgconfig.yml'), 'ruleDirs: [rules]\n');
+          writeFileSync(join(dir, 'rules', 'require-return-type-or-docstring.yml'), yaml);
+          writeFileSync(join(dir, 'src.py'), mixedSrc);
+        }
+
+        expect(countFindings(anyDir)).toBe(0); // NOR: docstring satisfies the any-fold -> suppressed
+        expect(countFindings(allDir)).toBe(1); // wrong all-fold: arm A fails -> all fails -> `not` fires
+      } finally {
+        rmSync(anyDir, { recursive: true, force: true });
+        rmSync(allDir, { recursive: true, force: true });
       }
     },
   );

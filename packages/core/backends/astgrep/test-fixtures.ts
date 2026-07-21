@@ -72,3 +72,49 @@ export const RELATIONAL_FIXTURE_NODE: ConventionNode = {
     positive: 'def compute(x) -> int:\n    return x + 1',
   },
 };
+
+// --- Multi-child relational fixture (OWNER-FORK-1 Option B, ir-unfreeze S4) ------------------
+// Closes the S2 carry-forward M3: the multi-child `not:{any:[...]}` fold was only RENDER-golden
+// verified (render-astgrep.test.ts:253-277); S1's single-child `not:{has}` was the only committed
+// LIVE-FIRE. This node adds a REAL ≥2-child `not` scan fixture (relational-firing.test.ts).
+//
+// Census-grounded NOR over 2 of the 3 require-via-ban cases (require-return-type-hint +
+// require-docstring): "require-return-type-or-docstring" — every function must carry AT LEAST ONE
+// of {a return-type hint, a docstring}; flag functions with NEITHER. NOR(armA, armB) = ¬(armA ∨
+// armB) = the un-annotated-AND-undocumented function.
+//
+// relational = NOT(any of [HAS return-type annotation, HAS a string descendant]):
+//   arm A — REUSED VERBATIM from RELATIONAL_FIXTURE_NODE (S1-proven): HAS a descendant of AST
+//           kind `type` matching `$T` (tree-sitter-python's return_type node kind).
+//   arm B — HAS a descendant of AST kind `string` matching `$DOC`. `string` is tree-sitter-
+//           python's node kind for a string literal (a docstring is a bare string-literal
+//           expression statement). IMPLEMENTER-PINNED live @ast-grep 0.44.1 (T12): the `string`
+//           kind fires as intended — a docstring-only function satisfies arm B (→ suppressed
+//           under the NOR), an undocumented function does not. (The `{op:'has',pattern:'raise
+//           $$$'}` fallback was NOT needed — the string kind is not finicky.)
+//
+// Renders (render-astgrep.ts N-children branch) to `rule:` → `pattern:"def …"` then `not:` →
+// `any:` → two `- has:` items (byte-shape identical to render-astgrep.test.ts:266-274). The NOR
+// combinator is `any` NEVER `all` — the S2-committed decision, made behaviourally load-bearing by
+// the multi-child control in relational-firing.test.ts.
+export const MULTI_CHILD_FIXTURE_NODE: ConventionNode = {
+  id: 'require-return-type-or-docstring',
+  claim: 'Every function must have a return-type hint or a docstring',
+  anchors: [],
+  selectorClass: 'syntax',
+  params: { kind: 'call', pattern: 'def $NAME($$$ARGS)$$$TAIL: $$$BODY' },
+  relational: {
+    op: 'not',
+    children: [
+      { op: 'has', kind: 'type', pattern: '$T' }, // arm A — return-type hint (S1-proven)
+      { op: 'has', kind: 'string', pattern: '$DOC' }, // arm B — docstring / string-literal descendant
+    ],
+  },
+  // 'error' so `ast-grep scan` exits 1 on the invalid (neither-annotated-nor-documented) fixture.
+  defaultSeverity: 'error',
+  provenance: [],
+  pairedExamples: {
+    negative: 'def compute(x):\n    return x + 1',
+    positive: 'def compute(x) -> int:\n    return x + 1',
+  },
+};
