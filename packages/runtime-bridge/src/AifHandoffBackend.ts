@@ -115,6 +115,40 @@ export class AifHandoffBackend implements RuntimeBackend {
     return httpUrl.replace(/^http(s?):\/\//, (_match: string, s: string) => `ws${s}://`) + '/ws';
   }
 
+  /**
+   * Resolve a profile-name hint (from a kickoff's `<!-- bridge-profile: -->`
+   * marker) to a concrete runtime-profile id via GET /runtime-profiles.
+   * Case-insensitive substring match on the profile `name` field. Throws
+   * loudly on 0 or >1 matches — no silent fallback, no guessing (the
+   * candidate list is included so the operator can fix the marker).
+   */
+  private async _resolveProfileId(hint: string): Promise<string> {
+    const profiles = (await this._rest('GET', '/runtime-profiles')) as Array<{
+      id: string;
+      name: string;
+    }>;
+    const needle = hint.toLowerCase();
+    const matches = profiles.filter((p) => p.name.toLowerCase().includes(needle));
+
+    if (matches.length === 0) {
+      const candidates = profiles.map((p) => p.name).join(', ');
+      throw new BackendError(
+        `bridge-profile hint "${hint}" matched no runtime profile. Available: ${candidates || '(none)'}`,
+        'dispatch_failed',
+        'aif-handoff',
+      );
+    }
+    if (matches.length > 1) {
+      const candidates = matches.map((p) => `${p.name} (${p.id})`).join(', ');
+      throw new BackendError(
+        `bridge-profile hint "${hint}" matched ${matches.length} runtime profiles ambiguously: ${candidates}`,
+        'dispatch_failed',
+        'aif-handoff',
+      );
+    }
+    return matches[0].id;
+  }
+
   async available(): Promise<boolean> {
     // Cheap reachability probe: GET /health (or root) with 1s timeout.
     // Returns true on any 2xx or 4xx (server is up but auth needed is still
@@ -165,6 +199,18 @@ export class AifHandoffBackend implements RuntimeBackend {
       );
     }
 
+    // -- Step 0.5: resolve profileHint (if any) to a concrete runtimeProfileId --
+    // multi-model-profile-marker (2026-07-21): a kickoff carrying
+    // `<!-- bridge-profile: <name> -->` in its header region gets its WHOLE
+    // task pipeline (plan+review+implement) routed to that profile — aif
+    // already supports this via task-level runtimeProfileId, which overrides
+    // every per-mode project default (data/index.ts:2746-2757). Resolution
+    // failure (0 or >1 match) aborts dispatch loudly — no silent fallback.
+    let runtimeProfileId: string | undefined;
+    if (kickoff.profileHint) {
+      runtimeProfileId = await this._resolveProfileId(kickoff.profileHint);
+    }
+
     // -- Step 1: Create the task with the kickoff as its DESCRIPTION --------
     // description carries the kickoff content because that is the planner's
     // INPUT spec (planner.ts:246 `Description: ${task.description}`). We do NOT
@@ -180,6 +226,7 @@ export class AifHandoffBackend implements RuntimeBackend {
       paused: true,
       autoMode: true,
       skipReview: false, // reviewer runs per reviewer-discipline.md §2
+      ...(runtimeProfileId !== undefined ? { runtimeProfileId } : {}),
     });
 
     if (!createResult || typeof createResult !== 'object' || !('id' in createResult)) {
