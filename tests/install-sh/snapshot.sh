@@ -39,17 +39,24 @@ compute_fingerprint() {
   # .getff-python-install.log carries a `date -u` timestamp header (setup.d/45-python.sh) → its bytes
   # differ every run. It is an audit trail, NOT a delivered config artefact (the layer excludes it
   # from its own (v) idempotency checksum), so it is excluded here too — else the python row would be
-  # non-deterministic. No-op for npm stacks (they never write this file). The cargo lane's two
-  # non-deterministic outputs are excluded for the SAME reason (ecosystem-wiring W4): the timestamped
-  # .getff-cargo-install.log audit trail, and rules-lock.cargo.json (its `emittedAt` is a `date -u`
-  # timestamp — a per-run reproducibility record, not a delivered config; the byte-stable config
-  # artefacts, clippy.toml / deny.toml / Cargo.lints.toml / getff-cargo.yml, still fingerprint).
+  # non-deterministic. No-op for npm stacks (they never write this file).
+  # .getff/rules-lock.python.json carries a wall-clock `emittedAt` (setup.d/45-python.sh
+  # _py_write_rules_lock) → its bytes differ every run, same as the audit log. It is a
+  # machine-reproducibility record, NOT a delivered CONFIG artefact; its deterministic content
+  # (ruleIds/ruffBans/sourceFingerprint) is gated by tests/install-sh/python-rules-lock.test.sh, so it
+  # is excluded here too — else the python rows would be non-deterministic.
+  # The cargo lane's two non-deterministic outputs are excluded for the SAME reason
+  # (ecosystem-wiring W4): the timestamped .getff-cargo-install.log audit trail, and
+  # rules-lock.cargo.json (its `emittedAt` is a `date -u` timestamp — a per-run reproducibility
+  # record, not a delivered config; the byte-stable config artefacts, clippy.toml / deny.toml /
+  # Cargo.lints.toml / getff-cargo.yml, still fingerprint; gated by cargo-entry-lane.test.sh).
   find "$dir" -type f \
     -not -path '*/.git/*' \
     -not -path '*/node_modules/*' -not -name '*.tmp' \
     -not -name '.getff-python-install.log' \
     -not -name '.getff-cargo-install.log' \
     -not -name 'rules-lock.cargo.json' \
+    -not -name 'rules-lock.python.json' \
     | sort \
     | while IFS= read -r f; do
         local h

@@ -595,6 +595,8 @@ jobs:
         run: bash tests/install-sh/gh-636-dispatcher-tsx-probe.test.sh
       - name: install-sh — f16 stryker live-mutants (post-install liveness smoke #549 class)
         run: bash tests/install-sh/f16-stryker-live-mutants.test.sh
+      - name: "install-sh — f20 stryker monorepo emit (#931 PR-2: per-package stryker/*.json + scripts/run-mutation.sh wrapper on a multi-stack monorepo)"
+        run: bash tests/install-sh/f20-stryker-monorepo-emit.test.sh
       - name: "install-sh — check-fences-fire paired-negative (D4: probe is falsifiable; FENCE SILENT + FALSE POSITIVE arms)"
         run: bash tests/install-sh/check-fences-fire-paired-negative.test.sh
       - name: "install-sh — byte-identical snapshot compare: all 4 stacks × {greenfield,brownfield} (modular-install-fullpack S1)"
@@ -607,6 +609,8 @@ jobs:
         run: bash tests/install-sh/python-delivery.test.sh
       - name: "install-sh — Python entry lane: install.sh python detection + no-package.json bypass + --refresh + firing self-check (python-delivery-v0 S2 T1)"
         run: bash tests/install-sh/python-entry-lane.test.sh
+      - name: "install-sh — Python rules-lock variant: schema + non-vacuity + determinism + teeth (ecosystem-wiring W3)"
+        run: bash tests/install-sh/python-rules-lock.test.sh
       - name: "install-sh — Cargo entry lane: install.sh cargo detection + no-package.json bypass + --refresh + REFUSE cell + firing self-check (ecosystem-wiring W4)"
         run: bash tests/install-sh/cargo-entry-lane.test.sh
       - name: "install-sh — shellcheck gate: setup.d/*.sh + install.sh (pinned 0.9.0)"

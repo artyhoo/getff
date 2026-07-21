@@ -111,6 +111,25 @@ export function renderRuff(nodes: ConventionNode[]): { toml: string; outcomes: M
       continue;
     }
 
+    // --- relational-tree refusal (FF7001, OWNER-FORK-1 Option B, ir-unfreeze S2) ---
+    // ruff's custom-rule surface is the CLOSED flake8-tidy-imports vocabulary (TID251 banned-api
+    // + TID253 banned-module-level-imports — bans a qualified NAME) with ZERO relational surface
+    // (no has/not/all/any). A relational tree cannot be partially/lossily expressed here (no
+    // FF7003 "rendered-with-loss" path applies to a structural composition, only to severity) —
+    // this is a hard capability gap, refused honestly, same idiom as the call-kind refusal below
+    // (:133-141). Checked BEFORE the kind fast-path so a relational node whose scalar params LOOK
+    // bannable (kind import/attribute) is still refused: the relational constraint makes the node
+    // more than a name-ban, which ruff's vocabulary cannot carry.
+    if (n.relational !== undefined) {
+      outcomes.set(n.id, {
+        kind: 'refused',
+        code: 'FF7001',
+        note: "relational composition not expressible in ruff's flake8-tidy-imports vocabulary; route to the ast-grep backend (#212)",
+      });
+      diag('FF7001', { backend: BACKEND_NAME, selectorClass: n.selectorClass, nodeId: n.id });
+      continue;
+    }
+
     // selectorClass === 'syntax' from here on (the only remaining CapabilityClass).
     const kind = paramStr(n.params, 'kind');
     const pattern = paramStr(n.params, 'pattern');

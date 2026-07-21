@@ -213,6 +213,12 @@ do_python_lane() {
   # firing proof is an install-flow concern (parity with 99-finalize.sh's capstone self-verify).
   # shellcheck source=setup.d/45-python.sh
   source "$PKG_ROOT/setup.d/45-python.sh"
+  # Emit the python rules-lock variant (machine-reproducibility record of the DELIVERED rule set —
+  # ledger 2 the rule-tests skill reads: emittedAt/sourceFingerprint). Rides the .getff/ namespace the
+  # seam already owns (NO new delivery channel). Skipped under --dry-run (nothing was written to lock).
+  if [ "$DRY_RUN" != "--dry-run" ]; then
+    _py_write_rules_lock
+  fi
   # Post-install firing self-check: always-run with graceful degrade (matches the 99-finalize.sh
   # capstone UX — no separate opt-in flag; an absent tool degrades loudly, never silently green).
   # Skipped only under --dry-run (nothing was written to fire against).
@@ -596,6 +602,18 @@ do_refresh() {
               chmod_safe +x "$PROJECT_ROOT/$_d" 2>/dev/null || true; fi ;;
     esac
   done
+  # #931: scripts/run-mutation.sh is monorepo-conditional — setup.d/40-configs.sh only copy_safe's
+  # it inside the per-workspace (multi-stack) branch, never on the flat/single-stack branch. Guard
+  # the refresh with the SAME signal 40-configs.sh uses to decide whether to enter that branch
+  # (_resolve_workspace_stacks non-empty, lib.sh) so a flat-install consumer's --refresh doesn't
+  # plant an orphaned wrapper script it never had. Closes refresh-covers-full-delivery.test.sh.
+  if [ -n "$(_resolve_workspace_stacks "$PROJECT_ROOT")" ]; then
+    _rm_dst="$PROJECT_ROOT/scripts/run-mutation.sh"
+    refresh_safe "$PKG_ROOT/templates/ts-server/run-mutation.sh.tmpl" "$_rm_dst"
+    if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_rm_dst" ]; then
+      chmod_safe +x "$_rm_dst" 2>/dev/null || true
+    fi
+  fi
   if [ "$STACK" = "react-next" ]; then
     _rn_src="$PKG_ROOT/packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh"
     _rn_dst="$PROJECT_ROOT/scripts/audit-ai-docs.react-next.sh"
