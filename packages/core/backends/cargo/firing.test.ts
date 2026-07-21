@@ -2,12 +2,18 @@
 // Spec: docs/superpowers/specs/2026-07-03-multi-toolchain-convention-compiler-design.md §5.
 //
 // This is the RED of TDD for a rule: it fires a REAL `cargo clippy` against the committed
-// fixture crates and parses the actual diagnostic codes out of stdout. Live-fire is a
-// DEVELOPER-MACHINE DoD gate, NOT a CI gate (kickoff §8) — it runs only when cargo is present
-// AND not in CI. When it does not run, a module-level loud warn prints (never a silent pass):
-// the cargo backend must not be claimed green on a run where it was never actually fired
-// (T-MT-C). The always-on blocks below (self-application drift + parseCodesFromStdout) DO run
-// in CI, so fixture-drift and parser regressions are still gated there.
+// fixture crates and parses the actual diagnostic codes out of stdout. Live-fire fires wherever
+// cargo is on PATH — including CI (ecosystem-wiring W4, operator challenge 2026-07-21, superseding
+// the LG-S3-era "dev-machine-only" caveat): audit-self.yml installs the pinned rust toolchain
+// (`rustup toolchain install 1.96.1` + clippy), and the fixtures each pin `rust-toolchain.toml`
+// channel = 1.96.1, so `cargo clippy` resolves the SAME toolchain the committed evidence was
+// fired against — no false-RED from a runner's default rust. The companion rustc toolchain-
+// freshness gate (capability-matrix.test.ts, checkToolchainFreshness) turns RED if the resolving
+// rustc ever drifts from the evidence, so "fires in CI" cannot silently rot. When cargo is absent
+// a module-level loud warn prints (never a silent pass): the cargo backend must not be claimed
+// green on a run where it was never actually fired (T-MT-C). The always-on blocks below
+// (self-application drift + parseCodesFromStdout) DO run everywhere, so fixture-drift and parser
+// regressions are gated regardless of tool presence.
 
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -29,20 +35,22 @@ const VALID_DIR = join(__dirname, 'fixtures/firing/valid');
 const VALID_CLEAN_DIR = join(__dirname, 'fixtures/firing/valid-clean');
 
 const cargoPresent = spawnSync('cargo', ['--version'], { encoding: 'utf8' }).status === 0;
-// Live-fire is a DEVELOPER-MACHINE DoD gate, NOT a CI gate (kickoff/spec §8: "не чинить
-// установкой rust на раннер"). GitHub Actions ubuntu runners ship a Rust toolchain
-// pre-installed, so gating on cargoPresent alone would run the live-fire block in CI against
-// a clippy whose toolchain does not match our pinned 1.96.1 fixtures — a false RED. Gate on
-// cargo present AND not-CI so the live block only runs where the pinned toolchain is real.
-const isCI = !!process.env.CI;
-const runLiveFire = cargoPresent && !isCI;
+// Presence = is cargo on PATH here? There is deliberately NO `!isCI` guard (ecosystem-wiring W4):
+// the CI install step (audit-self.yml) puts the pinned rust toolchain on PATH and the fixtures'
+// rust-toolchain.toml selects 1.96.1, so CI fires FOR REAL — exactly the ast-grep/ruff posture.
+// The always-on self-application drift block below runs everywhere (CI included), so fixture drift
+// is gated regardless of tool presence.
+const runLiveFire = cargoPresent;
 
 // Real module-level loud-skip warning — actually prints (a console.warn inside a skipIf body
 // can never fire). T-MT-C: never let the cargo backend be claimed green on live-fire from a
-// run that did not actually fire it.
+// run that did not actually fire it (only reachable now when cargo is absent).
 if (!runLiveFire) {
   console.warn(
-    `⚠ live cargo firing SKIPPED (${!cargoPresent ? 'cargo absent' : 'CI environment — live-fire is a developer-machine DoD gate, not a CI gate (kickoff §8)'}); the cargo backend MUST NOT be claimed green on live-fire from this run alone (T-MT-C). The always-on capability-matrix test still verifies the committed live-fired evidence.`,
+    '⚠ live cargo firing SKIPPED (cargo not on PATH — CI install step missing or local machine ' +
+      'without the pinned toolchain); the cargo backend MUST NOT be claimed green on live-fire from ' +
+      'this run alone (T-MT-C). The always-on capability-matrix test still verifies the committed ' +
+      'live-fired evidence, and its toolchain-freshness gate verifies the resolving rustc version.',
   );
 }
 

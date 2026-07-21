@@ -212,20 +212,24 @@ const CONTRACT: FiringContract = {
 };
 
 const cargoPresent = spawnSync('cargo', ['--version'], { encoding: 'utf8' }).status === 0;
-// Live-fire is a DEVELOPER-MACHINE DoD gate, NOT a CI gate (mirrors backends/cargo/firing.test.ts:38
-// + spec §8: do not fix by installing rust on the runner). Gate on cargo present AND not-CI so the
-// live block only runs where the pinned toolchain is real — a green CI is a render/drift/evidence
-// proof, NOT a live-fire proof.
-const isCI = !!process.env.CI;
-const runLiveFire = cargoPresent && !isCI;
+// Presence = is cargo on PATH here? NO `!isCI` guard (mirrors backends/cargo/firing.test.ts,
+// ecosystem-wiring W4): audit-self.yml installs the pinned rust toolchain and this fixture pins
+// `rust-toolchain.toml` channel = 1.96.1, so CI fires the researched clippy.toml FOR REAL against
+// the same toolchain the committed evidence was fired against. The always-on AC1 (drift) + AC3
+// (committed evidence) blocks still gate everywhere.
+const runLiveFire = cargoPresent;
 const LIVE_TIMEOUT_MS = 120_000;
 
 if (!runLiveFire) {
   // Real module-level loud-skip (a console.warn inside a skipIf body never fires): the researched
   // clippy artifact must NOT be claimed green on live-fire from a run that never fired it (T-MT-C).
-  // The always-on AC1 (drift) + AC3 (committed evidence) blocks still gate in CI.
+  // The always-on AC1 (drift) + AC3 (committed evidence) blocks still gate (only reachable now when
+  // cargo is absent).
   console.warn(
-    `⚠ live cargo clippy firing SKIPPED for the researched mem-forget rule (${!cargoPresent ? 'cargo absent' : 'CI environment — live-fire is a developer-machine DoD gate, not a CI gate'}); the rendered clippy.toml MUST NOT be claimed green on live-fire from this run alone. AC1 (committed-artifact drift) + AC3 (committed live-fire evidence) still gate.`,
+    '⚠ live cargo clippy firing SKIPPED for the researched mem-forget rule (cargo not on PATH — CI ' +
+      'install step missing or local machine without the pinned toolchain); the rendered clippy.toml ' +
+      'MUST NOT be claimed green on live-fire from this run alone. AC1 (committed-artifact drift) + ' +
+      'AC3 (committed live-fire evidence) still gate.',
   );
 }
 

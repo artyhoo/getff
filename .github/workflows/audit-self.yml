@@ -240,13 +240,45 @@ jobs:
       # do). Pinned per .claude/rules/ci-tool-pinning.md Rule A.
       - name: Install pinned ruff for ruff backend live-fire (MT S2)
         run: pip install ruff==0.15.21
+      # ecosystem-wiring W4 (operator challenge 2026-07-21, superseding the LG-S3-era
+      # "dev-machine-only" caveat): the cargo backend live-fire (backends/cargo/firing.test.ts
+      # R7/R8/R8b) + the researched-cargo live-fire (synthesizer/live-generation-clippy.test.ts
+      # AC2) now fire FOR REAL in CI. The runner is plain ubuntu-latest and the ast-grep/ruff
+      # precedent (hard exact-pinned installs above) extends directly to rust. Cache the pinned
+      # rustup toolchain so the ~200MB install is not re-downloaded every run (first-party cache,
+      # SHA-pinned; correctness-neutral — a miss only makes the next step slower).
+      - name: Cache pinned rust toolchain (ecosystem-wiring W4)
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809  # v4.2.4
+        with:
+          path: |
+            ~/.rustup/toolchains
+            ~/.rustup/update-hashes
+            ~/.rustup/settings.toml
+          key: rust-toolchain-1.96.1-${{ runner.os }}
+      # The cargo fixtures pin rust-toolchain.toml channel=1.96.1; installing that EXACT toolchain
+      # + the clippy component and making it the default makes `cargo clippy` (in a fixture dir)
+      # AND `rustc --version` (the freshness anchor, run from the packages/core cwd) both resolve
+      # rustc 1.96.1 (31fca3adb 2026-06-26) — the SAME toolchain the committed capability-matrix
+      # evidence was fired against, so no false-RED from the runner's default rust. The rustc
+      # toolchain-freshness gate (capability-matrix.test.ts checkToolchainFreshness) turns RED if
+      # the resolving rustc ever drifts from the evidence — the deriveToolVersion analog for rust.
+      # Exact-pinned (1.96.1, not a channel float) per .claude/rules/ci-tool-pinning.md Rule A —
+      # same posture as the ast-grep/ruff pins above; a pin bump is a deliberate edit that bumps
+      # this line + the fixtures' rust-toolchain.toml + the committed evidence in tandem.
+      - name: Install pinned rust toolchain + clippy for cargo backend live-fire (ecosystem-wiring W4)
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.96.1 --profile minimal --component clippy
+          rustup default 1.96.1
+          rustc --version
+          cargo clippy --version
       # MT umbrella S2: packages/core/backends/ (cargo-backend-v0 renderer + firing harness
       # + capability matrix) is a new vitest include-allowlist entry (vitest.config.ts) —
-      # gate it here, reusing the `npm ci --prefix packages/core` install above. No Rust
-      # toolchain is installed on this runner, so the cargo live-fire tests (R7/R8) loudly
-      # describe.skipIf(!cargoPresent) and warn rather than silently passing (T-MT-C) —
-      # the renderer/routing/registry/matrix-honesty tests still run and gate for real. The
-      # astgrep backend's live-fire, by contrast, fires for real via the pinned install above.
+      # gate it here, reusing the `npm ci --prefix packages/core` install above. The cargo
+      # live-fire (R7/R8/R8b) fires FOR REAL against the pinned 1.96.1 toolchain installed above
+      # (ecosystem-wiring W4) — exactly like the astgrep backend's pinned live-fire; the rustc
+      # toolchain-freshness gate keeps that evidence honest. The renderer/routing/registry/matrix-
+      # honesty tests are always-on and gate regardless of tool presence.
       - name: Run packages/core/backends tests (MT S2)
         run: npm --prefix packages/core run test:backends
       # MT umbrella S4: packages/core/composition/ (executable-AI-doc plane — DocPlan
@@ -265,9 +297,10 @@ jobs:
       # pre-existing tests (generate*/menu-pick/rule-bootstrap*) that import the workspace eslint
       # preset `@rules-as-tests/preset-next-15-canonical`, which is not built in this per-dir job →
       # they fail to COLLECT here. Those are a pre-existing CI-coverage gap (flagged in the LG-S3 PR
-      # §1.7 backward-check), NOT this umbrella's tests — wiring them in is a separate task. As with
-      # the cargo backend, no Rust toolchain is on this runner, so the rust clippy live-fire is
-      # describe.skipIf(!runLiveFire) and loud-skips; the render/drift/evidence-validator tests gate.
+      # §1.7 backward-check), NOT this umbrella's tests — wiring them in is a separate task. The
+      # researched-cargo clippy live-fire (live-generation-clippy.test.ts AC2) now fires FOR REAL
+      # here against the pinned 1.96.1 toolchain installed above (ecosystem-wiring W4 — runLiveFire
+      # = cargoPresent, no !isCI); the render/drift/evidence-validator tests remain always-on.
       - name: Run live-generation umbrella tests (bridges + render + rust evidence)
         run: npm --prefix packages/core run test:live-generation
       # CI-gap option C (hook-test-suite-rot): the packages/core/hooks/ vitest suite was
@@ -578,6 +611,8 @@ jobs:
         run: bash tests/install-sh/python-entry-lane.test.sh
       - name: "install-sh — Python rules-lock variant: schema + non-vacuity + determinism + teeth (ecosystem-wiring W3)"
         run: bash tests/install-sh/python-rules-lock.test.sh
+      - name: "install-sh — Cargo entry lane: install.sh cargo detection + no-package.json bypass + --refresh + REFUSE cell + firing self-check (ecosystem-wiring W4)"
+        run: bash tests/install-sh/cargo-entry-lane.test.sh
       - name: "install-sh — shellcheck gate: setup.d/*.sh + install.sh (pinned 0.9.0)"
         run: |
           if command -v shellcheck >/dev/null 2>&1; then
