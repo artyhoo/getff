@@ -366,7 +366,7 @@ describe.skipIf(!JQ)(
     const realHooksDir = resolve(REPO_ROOT, '.claude/hooks');
 
     function runRealHook(root: string, tool: string, absPath: string): number {
-      const fullEnv = { ...process.env, CLAUDE_PROJECT_DIR: root };
+      const fullEnv: NodeJS.ProcessEnv = { ...process.env, CLAUDE_PROJECT_DIR: root };
       delete fullEnv.ZCODE_PROJECT_DIR;
       const r = spawnSync('bash', [REAL_HOOK], {
         input: JSON.stringify({
