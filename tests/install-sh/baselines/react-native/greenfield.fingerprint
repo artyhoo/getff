@@ -18,7 +18,7 @@ c96ba6e4c52288f0b77a2edaeb6170ecad03e699360d79fe7794fd3e205717e8  .claude/agents
 69f3259d89f153fecdd70754b7e5728f0e285fd15dd7b6d6a3b4df473e058a8c  .claude/agents/review-sidecar.md
 48239ef36ed73d01561636d67d2c75947729879a14accae7d667feccc5616215  .claude/agents/rule-researcher.md
 9808e32b096cee71f5971bd6c3aa6ec1bddd748c58d84aa93198d05fb5f7b106  .claude/hooks/ask-question-reminder.sh
-1ccf9923ce00ab57d5214d9f4688654fa96b177266ca1f7de3f73b641d1cebf5  .claude/hooks/check-doc-authority-header.sh
+74a598da4bf7ad6cb4e4354510c3d4c6fb3e291de36c18dba5394a6fc430b302  .claude/hooks/check-doc-authority-header.sh
 d52524a81688119abbd74786d406454faed980e15e109bbf39ca9048ee02958c  .claude/hooks/deps-hash-check.sh
 d8372eb46734240a2930092f0394464bca6dbf3a30b5a811e020b8369a2cddf4  .claude/hooks/end-of-turn-reminder.sh
 8edd7ffedf72c343f0717c44b85f358c9fa7c26b8db7db7ac3d5015d9d893dad  .claude/hooks/inject-matching-rule.sh
@@ -29,7 +29,7 @@ d24e7c291d55c3c9d7420cc8bfdab60a2d90cda7486d321cb81aa6889edd55d5  .claude/hooks/
 b6098596547239daa6c720dff390a321cc0a8d921acc54222f75e2fd325b3a17  .claude/hooks/lang/en.sh
 4d45cc97e71c1f58182036d6fc13c5e53cf414008b4366a4fbfc599a9b16db32  .claude/hooks/lang/ru.sh
 f7c2ec64c5f8769d1c3571ac7dbbdea501ede58f2c68a0b8b2f47e9b02797d2a  .claude/session-bootstrap.md
-1cc5b5e9fbb8b9cfd84b33cd0a402ed5108e03a58c87398f9cf9498fa15f1278  .claude/settings.json
+781828291e9f09647dbb14d06fe9bfa959dd77405340e12364879cb163690431  .claude/settings.json
 f89d11f5a44bb56e85001ac029c22d3618bbf52bdf3d3a4f4922f1abdb724edb  .claude/skills/ai-doc/SKILL.md
 63e2db9eddec389a06822f8091a83737bfce8e2749de6af3a0be22132d0152e6  .claude/skills/ai-doc/anthropic-and-aif-residue.md
 6bf27e6d8a7efd020199643e65db909a96a074babe1cc10d8c18ffde18128c2b  .claude/skills/getff/SKILL.md
