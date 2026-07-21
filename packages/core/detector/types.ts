@@ -2,7 +2,16 @@
 
 import type { Confidence, Severity } from './confidence.ts';
 
-export type Stack = 'react-next' | 'ts-server' | 'unknown';
+// W1 type-shape decision (ecosystem-wiring, spec §7): widen the string-literal
+// union rather than restructure to a `{toolchain, framework}` pair. The pair shape
+// would duplicate the sibling `runtime` (toolchain) and `framework` fields already
+// on DetectionResult — parallel-evolution-creep, against build-first-reuse-default.
+// Census: no consumer exhaustively switches on this value (all four pipeline CLIs
+// pass DetectionResult through to research()/synthesize()); the compiler enumerates
+// every consumer and the change is reversible pre-ship — so the delegation criterion
+// (non-frozen, compiler-enumerated, reversible) holds. 'react-next'/'ts-server' are
+// the JS/TS labels; 'python' and 'cargo' are the widened non-JS toolchain labels.
+export type Stack = 'react-next' | 'ts-server' | 'python' | 'cargo' | 'unknown';
 
 export interface Framework {
   name: string | null;

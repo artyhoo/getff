@@ -3,13 +3,15 @@
 //   1. .ai-factory/DESCRIPTION.md          → confidence: high
 //   2. .ai-factory/ARCHITECTURE.md         → confidence: high
 //   3. .ai-factory/skill-context/*/SKILL.md → confidence: high
-//   4. package.json deps + lockfile        → confidence: medium
+//   4a. package.json deps + lockfile       → confidence: medium
+//   4b. pyproject.toml / Cargo.toml         → confidence: medium (non-npm toolchains; W1)
 //   5. next.config.* / tsconfig.json       → confidence: low
 
 import { resolve } from 'node:path';
 import type { DetectionResult, DetectorOptions } from './types.ts';
 import { readAif } from './read-aif.ts';
 import { readManifest, readAllDepsSet } from './read-manifest.ts';
+import { readPythonCargo } from './read-python-cargo.ts';
 import { readConfig } from './read-config.ts';
 import { toConfidence } from './confidence.ts';
 import { computeMissing } from './known-packages.ts';
@@ -33,6 +35,13 @@ export function detectStack(
 
     const manifest = readManifest(root);
     if (manifest) return manifest;
+
+    // Non-npm toolchain manifests (pyproject.toml → python, Cargo.toml → cargo).
+    // After package.json (JS-first history preserved: a polyglot repo with a
+    // package.json keeps its JS detection) but before the weaker config-presence
+    // signal, since an explicit language manifest outranks next.config/tsconfig.
+    const pythonCargo = readPythonCargo(root);
+    if (pythonCargo) return pythonCargo;
 
     const config = readConfig(root);
     if (config) return config;
