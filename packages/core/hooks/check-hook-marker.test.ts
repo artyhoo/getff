@@ -37,7 +37,9 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   realpathSync,
+  renameSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -211,6 +213,237 @@ describe.skipIf(!JQ)(
         parsed.hookEventName,
         'hookEventName must NOT be at top level (CCt.strict rejects it)',
       ).toBeUndefined();
+    });
+
+    // ── @file-content-gate invariant (matcher-widening, GH #934 follow-up) ──────
+    // A hook that validates file content (path-only, no internal tool_name filter) MUST be
+    // registered with matcher Edit|Write|MultiEdit — else a MultiEdit bypasses it silently.
+    // The gate reads $REPO_ROOT/.claude/settings.json; in the sandbox REPO_ROOT = SANDBOX,
+    // so we stage a sandbox settings.json to drive the matcher lookup.
+
+    function writeSandboxSettings(matcher: string, hookName: string): void {
+      const settingsDir = join(SANDBOX, '.claude');
+      mkdirSync(settingsDir, { recursive: true });
+      const settings = {
+        hooks: {
+          PostToolUse: [
+            {
+              matcher,
+              hooks: [
+                {
+                  type: 'command',
+                  command: `bash "$CLAUDE_PROJECT_DIR/.claude/hooks/${hookName}"`,
+                },
+              ],
+            },
+          ],
+        },
+      };
+      writeFileSync(
+        join(settingsDir, 'settings.json'),
+        JSON.stringify(settings),
+        'utf8',
+      );
+    }
+
+    it('PAIRED-NEGATIVE: @file-content-gate hook registered Edit|Write (no MultiEdit) → exit 1', () => {
+      const name = `zzz-fcg-neg-${Date.now()}.sh`;
+      const abs = writeHook(
+        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n`,
+      );
+      // Rename the sandbox hook to match the name the settings.json will reference.
+      const renamed = join(SANDBOX_HOOKS, name);
+      renameSync(abs, renamed);
+      writeSandboxSettings('Edit|Write', name);
+      expect(runHook('Edit', renamed).status).toBe(1);
+    });
+
+    it('PAIRED-POSITIVE: @file-content-gate hook registered Edit|Write|MultiEdit → exit 0', () => {
+      const name = `zzz-fcg-pos-${Date.now()}.sh`;
+      const abs = writeHook(
+        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n`,
+      );
+      const renamed = join(SANDBOX_HOOKS, name);
+      renameSync(abs, renamed);
+      writeSandboxSettings('Edit|Write|MultiEdit', name);
+      expect(runHook('Edit', renamed).status).toBe(0);
+    });
+
+    it('shipped-only @file-content-gate hook (absent from settings.json) → exit 0 (tolerated)', () => {
+      // A hook shipped solely via setup.d/install.sh (not in framework-self settings.json)
+      // e.g. check-doc-authority-header: the gate has no framework-side matcher to check → skip.
+      const abs = writeHook(
+        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n`,
+      );
+      // No writeSandboxSettings — settings.json absent or has no entry for this hook.
+      // (Sandbox settings.json from a prior test may exist; ensure this hook is NOT in it.)
+      const settingsPath = join(SANDBOX, '.claude', 'settings.json');
+      if (existsSync(settingsPath)) {
+        writeFileSync(
+          settingsPath,
+          JSON.stringify({ hooks: { PostToolUse: [] } }),
+          'utf8',
+        );
+      }
+      expect(runHook('Edit', abs).status).toBe(0);
+    });
+
+    // ── @matcher-parity invariant (case-TOOL hooks, matcher-widening GH #934 follow-up) ──
+    // A hook with an internal `case "$TOOL" in <tools>)` filter self-declares the tools it
+    // handles; its registration matcher MUST be a superset. Covers the case-TOOL gates that
+    // carry NO @file-content-gate marker (check-kickoff-traps, check-worker-dispatch-channel,
+    // check-hook-marker itself). Self-calibrating: a Write-only case-arm stays green.
+
+    it('PARITY-NEGATIVE: case-arm Edit|Write|MultiEdit but matcher Edit|Write → exit 1', () => {
+      const name = `zzz-parity-neg-${Date.now()}.sh`;
+      const abs = writeHook(
+        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\ncase "$TOOL" in Edit | Write | MultiEdit) ;; *) exit 0 ;; esac\nexit 0\n`,
+      );
+      const renamed = join(SANDBOX_HOOKS, name);
+      renameSync(abs, renamed);
+      writeSandboxSettings('Edit|Write', name);
+      expect(runHook('Edit', renamed).status).toBe(1);
+    });
+
+    it('PARITY-POSITIVE: case-arm Edit|Write|MultiEdit + matcher Edit|Write|MultiEdit → exit 0', () => {
+      const name = `zzz-parity-pos-${Date.now()}.sh`;
+      const abs = writeHook(
+        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\ncase "$TOOL" in Edit | Write | MultiEdit) ;; *) exit 0 ;; esac\nexit 0\n`,
+      );
+      const renamed = join(SANDBOX_HOOKS, name);
+      renameSync(abs, renamed);
+      writeSandboxSettings('Edit|Write|MultiEdit', name);
+      expect(runHook('Edit', renamed).status).toBe(0);
+    });
+
+    it('PARITY-WRITE-ONLY (A5 self-calibration): case-arm Write + matcher Write → exit 0', () => {
+      // inject-memory-codification precedent: a deliberately Write-only hook stays GREEN — the
+      // parity rule requires matcher ⊇ case-arm, NOT a hardcoded MultiEdit demand.
+      const name = `zzz-parity-wo-${Date.now()}.sh`;
+      const abs = writeHook(
+        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\ncase "$TOOL" in Write) ;; *) exit 0 ;; esac\nexit 0\n`,
+      );
+      const renamed = join(SANDBOX_HOOKS, name);
+      renameSync(abs, renamed);
+      writeSandboxSettings('Write', name);
+      expect(runHook('Write', renamed).status).toBe(0);
+    });
+
+    it('PARITY comment-immunity: a `case "$TOOL" in …` in PROSE above the real arm is not mis-extracted', () => {
+      // A doc comment mentioning `case "$TOOL" in Read)` sits ABOVE the real code arm
+      // `case "$TOOL" in Write)`. The extraction strips comment lines first, so parity reads
+      // the REAL arm {Write}; matcher Write ⊇ {Write} → exit 0. If comments were NOT stripped,
+      // head -1 would grab the prose {Read}, demand matcher ⊇ {Read}, and wrongly exit 1.
+      const name = `zzz-parity-comment-${Date.now()}.sh`;
+      const abs = writeHook(
+        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# doc: this hook once used \`case "$TOOL" in Read)\` — kept as prose\ncase "$TOOL" in Write) ;; *) exit 0 ;; esac\nexit 0\n`,
+      );
+      const renamed = join(SANDBOX_HOOKS, name);
+      renameSync(abs, renamed);
+      writeSandboxSettings('Write', name);
+      expect(runHook('Write', renamed).status).toBe(0);
+    });
+  },
+);
+
+// ── Layer 2: CI-time population backstop (matcher-widening preventer) ──────────
+// Runs the edit-time gate against EVERY tracked hook at once, against the LIVE settings.json.
+// This is the vector Layer 1 (edit-time) cannot see: a matcher narrowed directly in
+// .ai-factory/harness-model.json / .claude/settings.json while NO hook .sh is edited — the gate
+// only fires on a `.sh` edit, so a settings-only narrowing would slip past it until the next
+// unrelated hook edit. This backstop re-checks the whole population on every CI run.
+//
+// Bucket rationale (why here, not tests/agnosticism/channel-coverage.sh): the requirement
+// "matcher ⊇ {Edit,Write,MultiEdit}" is CC-SPECIFIC — MultiEdit is inert on other harnesses
+// (render-harness-config.mjs notes it). Putting a CC-tool assertion in the harness-agnostic
+// channel-coverage probe would (a) overload its PORTABLE verdict (= "works across harnesses")
+// with a CC-config-consistency meaning, and (b) make a deliberately harness-independent probe
+// assert a CC-only fact. So it lives in the hooks (CC-config) bucket, reusing the edit-time gate
+// verbatim — no parallel population reader, no drift risk.
+describe.skipIf(!JQ)(
+  'check-hook-marker.sh — Layer 2 population backstop (matcher ⊇ @file-content-gate/case-arm)',
+  () => {
+    const realHooksDir = resolve(REPO_ROOT, '.claude/hooks');
+
+    function runRealHook(root: string, tool: string, absPath: string): number {
+      const fullEnv: NodeJS.ProcessEnv = { ...process.env, CLAUDE_PROJECT_DIR: root };
+      delete fullEnv.ZCODE_PROJECT_DIR;
+      const r = spawnSync('bash', [REAL_HOOK], {
+        input: JSON.stringify({
+          tool_name: tool,
+          tool_input: { file_path: absPath },
+        }),
+        encoding: 'utf8',
+        env: fullEnv,
+      });
+      return r.status ?? -1;
+    }
+
+    // Stage a throwaway CLAUDE_PROJECT_DIR with one hook + a settings.json registering it at
+    // `matcher`, run the REAL gate against it, return the exit code. Root is removed by caller.
+    function runInFixtureRoot(hookBody: string, matcher: string): number {
+      const root = realpathSync(mkdtempSync(join(tmpdir(), 'c4-backstop-')));
+      const hooksDir = join(root, '.claude', 'hooks');
+      mkdirSync(hooksDir, { recursive: true });
+      const hookName = 'zzz-backstop.sh';
+      writeFileSync(join(hooksDir, hookName), hookBody, 'utf8');
+      writeFileSync(
+        join(root, '.claude', 'settings.json'),
+        JSON.stringify({
+          hooks: {
+            PostToolUse: [
+              {
+                matcher,
+                hooks: [
+                  {
+                    type: 'command',
+                    command: `bash "$CLAUDE_PROJECT_DIR/.claude/hooks/${hookName}"`,
+                  },
+                ],
+              },
+            ],
+          },
+        }),
+        'utf8',
+      );
+      const status = runRealHook(root, 'Edit', join(hooksDir, hookName));
+      rmSync(root, { recursive: true, force: true });
+      return status;
+    }
+
+    it('every tracked .claude/hooks/*.sh passes the gate against the LIVE settings.json (all matchers ⊇ requirement)', () => {
+      const hooks = readdirSync(realHooksDir).filter((f) => f.endsWith('.sh'));
+      // Population sentinel (T10): a broken glob returning [] would vacuously pass.
+      expect(
+        hooks.length,
+        'population sentinel: expected ≥5 tracked hooks',
+      ).toBeGreaterThanOrEqual(5);
+      const flagged: string[] = [];
+      for (const h of hooks) {
+        if (runRealHook(REPO_ROOT, 'Edit', resolve(realHooksDir, h)) !== 0) {
+          flagged.push(h);
+        }
+      }
+      expect(
+        flagged,
+        `hooks whose live matcher ⊉ their @file-content-gate/case-arm requirement: ${flagged.join(', ')}`,
+      ).toEqual([]);
+    });
+
+    it('RED fixture: @file-content-gate hook registered with a narrow matcher IS caught (non-vacuous)', () => {
+      const status = runInFixtureRoot(
+        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n`,
+        'Edit|Write',
+      );
+      expect(status).toBe(1);
+    });
+
+    it('RED fixture: case-TOOL hook whose case-arm ⊋ matcher IS caught by the parity rule', () => {
+      const status = runInFixtureRoot(
+        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\ncase "$TOOL" in Edit | Write | MultiEdit) ;; *) exit 0 ;; esac\nexit 0\n`,
+        'Edit|Write',
+      );
+      expect(status).toBe(1);
     });
   },
 );

@@ -236,6 +236,33 @@ import-linter backends and the rule-research live adapter for Python are out of 
 
 ---
 
+## Python Tier-1 source trust (LG-S4)
+
+Researched python rules can derive Tier-1 documentation-source trust from an
+installed package's own metadata **when a root-local virtualenv is present**
+(`<root>/.venv/` or `<root>/venv/`). A system-installed python (no project-local
+venv) yields Tier-0 trust only — no regression, but no Tier-1 derivation. Only a
+venv **inside** the project root is read (realpath-contained); an out-of-tree or
+symlink-escaping venv is refused, never guessed.
+
+Supported `pyproject.toml` forms (single-line, fail-closed on others):
+
+- PEP 621 `[project] dependencies = ["..."]`
+- PEP 621 `[project.optional-dependencies]`
+- Poetry `[tool.poetry.dependencies]` and `[tool.poetry.group.<g>.dependencies]`
+
+Known limitations (dropped, fail-closed — documented gaps):
+
+- Multi-line arrays and multi-line inline tables are not parsed.
+- Quoted-key Poetry deps (`"odd-pkg" = "^1.0"`) are not matched.
+- Legacy setuptools parenthesized and URL `@` PEP 508 forms are not parsed.
+
+> **Note:** this adapter is shipped but **unwired** in LG-S4 (no production caller
+> threads it yet — same state as the cargo adapter); wiring python + cargo is a
+> future umbrella, tracked mechanically by the `ecosystem-unwired-debt` tripwire.
+
+---
+
 ## What gets installed — file by file
 
 After successful setup, your project has:

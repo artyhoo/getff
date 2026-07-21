@@ -19,7 +19,7 @@ export interface ParsedEcosystemName {
 /** Ecosystems with a real EcosystemAdapter as of S4. Extend when a new
  *  adapter ships (kickoff §5 S4 reserves the seam; this is the concrete
  *  known-prefix set consulted by the parser). */
-const KNOWN_ECOSYSTEM_PREFIXES: ReadonlySet<string> = new Set(['npm', 'cargo']);
+const KNOWN_ECOSYSTEM_PREFIXES: ReadonlySet<string> = new Set(['npm', 'cargo', 'pip']);
 
 /** Parses an ecosystem-prefixed name. Unprefixed (no ":" at all, OR a ":" that
  *  is not immediately preceded by a known ecosystem keyword — e.g. npm scoped

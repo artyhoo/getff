@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # Wave 7 sub-wave 7.2.b — PostToolUse hook: validate batch-spec on orchestrator-prompts.
-# Fires on Edit|Write tool calls. Input: hook JSON via stdin (tool_input.file_path).
+# Fires on Edit|Write|MultiEdit tool calls. Input: hook JSON via stdin (tool_input.file_path).
 # Exits 0 silently on pass or unmatched path; non-zero + diagnostic on red.
 # Gracefully skips if jq or tsx unavailable (never block tool calls for missing tooling).
 # @cc-only-rationale: edit-time PostToolUse delivery; the validator itself is portable
 #   (packages/core/spec-validation/validate-batch-spec.ts) — the hook is only its CC
 #   fire-point. No portable hook fires at edit-time.
+# @file-content-gate: this hook validates a file's content (path-only — no internal
+#   tool_name filter), so its registration matcher MUST be Edit|Write|MultiEdit (else a
+#   MultiEdit that violates the spec slips past silently). Enforced by check-hook-marker.sh.
 
 set -uo pipefail
 

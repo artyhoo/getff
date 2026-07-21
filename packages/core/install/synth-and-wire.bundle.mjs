@@ -8924,7 +8924,7 @@ import { dirname as dirname2, join, resolve as resolvePath } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 
 // packages/core/research/ecosystem-name.ts
-var KNOWN_ECOSYSTEM_PREFIXES = /* @__PURE__ */ new Set(["npm", "cargo"]);
+var KNOWN_ECOSYSTEM_PREFIXES = /* @__PURE__ */ new Set(["npm", "cargo", "pip"]);
 function parseEcosystemName(name) {
   const idx = name.indexOf(":");
   if (idx === -1) {

@@ -6,6 +6,9 @@
 #   check (delegates to 09-doc-authority-hierarchy.bin.ts). The same rule's portable
 #   enforcement is the principle-09 CI test itself — a rule+test lifecycle, excluded from
 #   @dual-pair per dual-implementation-discipline.md §9; no portable hook fires at edit-time.
+# @file-content-gate: this hook validates a file's content (path-only — no internal
+#   tool_name filter), so its registration matcher MUST be Edit|Write|MultiEdit (else a
+#   MultiEdit that strips an authority header slips past silently). Enforced by check-hook-marker.sh.
 set -uo pipefail
 
 # Harness-portable output (inline — standalone in test sandboxes). ZCode swallows plain
