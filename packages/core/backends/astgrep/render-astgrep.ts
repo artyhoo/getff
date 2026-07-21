@@ -218,6 +218,21 @@ function renderRule(e: RuleEntry): string {
 // every `has` translation is the backend's honesty obligation to the IR's declared descendant
 // semantics — a purely render-time decision, not an IR-shape change (RelationalHas itself
 // carries no stopBy field; ir/types.ts is untouched, per this stage's STOP-line).
+/** Exhaustiveness guard for the RelationalRule discriminated union — mirrors
+ *  ir/gates/grammar.ts:56-58's own `assertNever` over the identical union (ir/types.ts:43's
+ *  doc comment documents this as the expected pattern: "switch (rule.op) over the 4 arms is
+ *  exhaustively checkable (assertNever in the default)"). TS exhaustiveness already rejects a
+ *  5th union member at compile time even without this (the function's explicit `string[]`
+ *  return type means an unhandled case falls through and forces a TS2355 build error), but a
+ *  bypassed type system (e.g. an unvalidated cast, or a caller that skips runGrammarGate —
+ *  synthesizer/render-researched-astgrep.ts's planResearchedAstgrep already calls renderAstgrep
+ *  without an intervening grammar-gate call) would otherwise fall through silently and return
+ *  `undefined`, surfacing as an opaque `TypeError` at the spread call site (renderRule:184) or
+ *  inside renderRelationalList — instead this throws a clear diagnostic. */
+function assertNever(x: never): never {
+  throw new Error(`unexpected relational op: ${JSON.stringify(x)}`);
+}
+
 function renderRelationalNode(rule: RelationalRule, indent: string): string[] {
   const inner = indent + '  ';
   switch (rule.op) {
@@ -245,6 +260,8 @@ function renderRelationalNode(rule: RelationalRule, indent: string): string[] {
       return [`${indent}all:`, ...renderRelationalList(rule.children, inner)];
     case 'any':
       return [`${indent}any:`, ...renderRelationalList(rule.children, inner)];
+    default:
+      return assertNever(rule);
   }
 }
 
