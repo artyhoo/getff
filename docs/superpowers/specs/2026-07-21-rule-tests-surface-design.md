@@ -114,9 +114,11 @@ standing arm, a skipped or theatred protocol run leaves broken material failing 
 (`#hope-as-gate`, against README's earliest-reachable-channel invariant). The umbrella therefore
 ships a **guarded pre-push arm** in the consumer channel: run `test:mutation:generated` when the
 manifest exists (npm) and fire the sidecar samples in single-rule isolation when a sidecar exists
-and the lane's tool is present (astgrep/ruff) — loud-skip otherwise. Cargo is excluded (no
-toolchain guarantee): recorded accepted-degradation; promotion trigger = first incident of
-silently-broken repaired cargo material.
+and the lane's tool is present (astgrep/ruff) — loud-skip otherwise. Cargo is excluded from the
+DEFAULT arm — not for toolchain absence (a Cargo-project consumer has cargo/clippy by
+definition) but for compile cost: `cargo clippy` implies a real compilation on every push. It
+ships as an opt-in guarded arm instead; excluded-by-default is the recorded accepted-degradation,
+promotion trigger = first incident of silently-broken repaired cargo material.
 
 ### §3 Enrichment sidecar (non-npm test material)
 
@@ -204,10 +206,13 @@ lives at composition/gates/composition-gate.ts:143-158, tested in composition-ga
 5. ONE commit: pin-site edit + matrix (+ fixtures/parser if the diagnostic shape moved) — a split
    commit leaves CI RED in the window.
 
-**Cargo arm (honest):** no freshness gate exists for rustc and live-fire is skipIf(CI) — the
-cargo regen is dev-machine-only; the runbook requires quoting the dev-machine run in the PR body
-(T-MT-C discipline). Pin sites enumerated in the runbook: audit-self.yml:232/:242 (astgrep/ruff),
-packages/core/package.json (eslint), `rust-toolchain.toml` in the cargo fixtures (rustc).
+**Cargo arm (interim):** today no freshness gate exists for rustc and live-fire is skipIf(CI) —
+the cargo regen is dev-machine-only and the runbook requires quoting the dev-machine run in the
+PR body (T-MT-C discipline). This is an INTERIM state: ecosystem-wiring W4's CI arm (§7) installs
+the pinned toolchain in CI, un-skips cargo live-fire, and adds the rustc freshness gate — after
+which the cargo arm of this runbook is CI-verified exactly like ruff/astgrep. Pin sites
+enumerated in the runbook: audit-self.yml:232/:242 (astgrep/ruff), packages/core/package.json
+(eslint), `rust-toolchain.toml` in the cargo fixtures (rustc).
 
 This loop is the umbrella's recursive self-application anchor (O1=B): the framework is the
 skill's first consumer — the runbook's first execution regenerates the framework's own matrices.
@@ -282,11 +287,19 @@ The umbrella wires the rest:
   channel. Dedup verified: python-delivery-v0 is CLOSED and its scope boundaries explicitly
   deferred exactly these items behind recorded triggers; the live-adapter trigger ("first
   consumer asks for researched-not-starter Python rules") was pulled by the operator 2026-07-21.
-- **W4 — cargo delivery lane (link 4c).** No setup.d rust slice exists (verified: grep
+- **W4 — cargo delivery lane + CI arm (link 4c).** No setup.d rust slice exists (verified: grep
   rust/cargo/clippy over setup.d + install.sh = empty). A 45-python-style slice delivering
-  clippy.toml/deny surface + the cargo rules-lock variant. Honest env caveat carried from LG-S3:
-  rust live-fire is dev-machine-only (no rust toolchain in CI) — the delivery DoD quotes a
-  dev-machine firing run, per the T-MT-C loud-skip discipline.
+  clippy.toml/deny surface + the cargo rules-lock variant. **CI arm (operator challenge
+  2026-07-21, superseding the LG-S3-era "dev-machine-only" caveat):** rust in CI is feasible and
+  matches the repo's own posture — the audit-self.yml comment "No Rust toolchain is installed on
+  this runner" records an MT-S2-era state, not a physical limit; the runner is plain
+  ubuntu-latest and the ast-grep/ruff precedent (hard exact-pinned installs,
+  audit-self.yml:232/:242, ci-tool-pinning Rule A) extends directly. W4 therefore: installs the
+  pinned toolchain in CI (`rustup toolchain install 1.96.1` + clippy component + cache), un-skips
+  the cargo live-fire there (retiring the skipIf(!cargoPresent) reliance in CI), and adds the
+  missing rustc toolchain-freshness gate (deriveToolVersion analog — closing the "no freshness
+  gate for rustc" hole named in §5). Until W4 lands, the LG-S3 dev-machine + PR-quote discipline
+  (T-MT-C) is the interim, not the end state.
 - **W5 — live-adapter Phase 1 (link 2).** Coordinate with the EXISTING Phase-0 spec + kickoff on
   branch `feat/rule-research-live-adapter` (worktree `rat-rule-research`; Phase 0 recorded DONE
   in operator memory). The umbrella REFERENCES and sequences that work — it does not re-design
@@ -358,7 +371,9 @@ gate.
 - **Standing pre-push arm (§2):** ships with a guarded-skip test (tool absent → loud skip, not
   silent green; tool present + broken material → RED).
 - **Wiring umbrella:** each W-stage carries its own DoD (W2: BASELINE 2→0 same-PR; W3/W4:
-  scratch-consumer install → plant violation → tool fires RED; W4 quotes dev-machine cargo run).
+  scratch-consumer install → plant violation → tool fires RED; W4 additionally lands the CI arm —
+  pinned rust toolchain + un-skipped cargo live-fire + rustc freshness gate green in CI — after
+  which no lane's evidence is dev-machine-only).
 
 ### §12 Non-goals
 
