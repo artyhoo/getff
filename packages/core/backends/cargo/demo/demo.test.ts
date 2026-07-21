@@ -1,11 +1,12 @@
 // Cargo honest demo — live-fire gate (launch-preannounce-track S4, F2a).
 // Spec: docs/superpowers/specs/2026-07-03-multi-toolchain-convention-compiler-design.md §5.
 //
-// Mirrors backends/cargo/firing.test.ts: the live arms fire a REAL `cargo clippy` and are a
-// DEVELOPER-MACHINE DoD gate, NOT a CI gate (GitHub ubuntu runners ship a Rust toolchain that
-// does not match our pinned 1.96.1 fixtures). When the live block does not run, a module-level
-// loud warn prints (never a silent pass). The always-on blocks (self-application byte-check) DO
-// run in CI, so demo-crate drift is still gated there.
+// Mirrors backends/cargo/firing.test.ts: the live arms fire a REAL `cargo clippy` FOR REAL —
+// including CI (ecosystem-wiring W4): audit-self.yml installs the pinned rust toolchain and the
+// demo crate pins `rust-toolchain.toml` channel = 1.96.1, so `cargo clippy` resolves the same
+// toolchain the committed evidence was fired against (no false-RED from a runner's default rust).
+// When cargo is absent a module-level loud warn prints (never a silent pass). The always-on blocks
+// (self-application byte-check) run everywhere, so demo-crate drift is gated regardless of tool presence.
 //
 // The live arms prove the SEVERITY PROJECTION end to end:
 //   GREEN (negative control): the committed conforming crate -> `cargo clippy` exit 0.
@@ -26,12 +27,15 @@ const CRATE = join(__dirname, 'crate');
 const RUN_DEMO = join(__dirname, 'run-demo.sh');
 
 const cargoPresent = spawnSync('cargo', ['--version'], { encoding: 'utf8' }).status === 0;
-const isCI = !!process.env.CI;
-const runLiveFire = cargoPresent && !isCI;
+// No `!isCI` guard (ecosystem-wiring W4): CI installs the pinned toolchain and the demo crate's
+// rust-toolchain.toml selects 1.96.1, so CI fires the demo FOR REAL — parity with firing.test.ts.
+const runLiveFire = cargoPresent;
 
 if (!runLiveFire) {
   console.warn(
-    `⚠ live cargo demo SKIPPED (${!cargoPresent ? 'cargo absent' : 'CI environment — the cargo demo is a developer-machine DoD gate, not a CI gate (kickoff §8)'}); the cargo honest demo MUST NOT be claimed green on live-fire from this run alone. The always-on self-application block below still byte-gates the committed demo crate.`,
+    '⚠ live cargo demo SKIPPED (cargo not on PATH — CI install step missing or local machine ' +
+      'without the pinned toolchain); the cargo honest demo MUST NOT be claimed green on live-fire ' +
+      'from this run alone. The always-on self-application block below still byte-gates the committed demo crate.',
   );
 }
 
