@@ -87,6 +87,29 @@ preserving all twins. Result: narrow=0 wide=6, twins intact (5 refs), valid JSON
 matcher lines only. `.claude/settings.json` (CC channel) IS fully render-reproducible (twins
 are plugin-only), so it stays as STEP-1 rendered it.
 
+## F2 — staging's byte-identical baselines were STALE for zcode-parity inject-* hooks [finding + forced correction]
+
+Re-capturing the install-sh byte-identical baselines (needed because my `check-doc-authority-header.sh`
+marker edit shifts its shipped fingerprint) surfaced that **origin/staging's baselines were already
+stale** for three consumer-shipped hooks it changed via zcode-parity but never re-captured:
+`inject-matching-rule.sh`, `inject-output-language.sh`, `inject-project-digest.sh`. Proof: my
+source for these is byte-identical to staging's (`git diff origin/staging` empty), yet
+staging's baseline records an OLD hash (e.g. inject-matching-rule ts-server/greenfield:
+staging baseline `e1f96e6…` vs actual source `8edd7ff…`). So staging's own byte-identical
+(a bash install-sh test, NOT run by the vitest suite where the other 8 failures live) is
+red/stale too — another facet of the pre-existing staging breakage.
+
+**Forced correction (not scope creep).** `snapshot.sh` captures ALL stacks/hooks in one pass;
+there is no way to re-capture only `check-doc-authority-header` (mine) without also refreshing
+the stale inject-* entries. byte-identical is a gate → it must be green → a full re-capture is
+mandatory. My captured baselines record the CORRECT current source hashes (verified: capture ==
+`shasum` of the source). When the separate staging fix re-captures, it will produce identical
+hashes (same source) → clean converge, no conflict. Baseline delta vs staging = exactly
+{check-doc-authority-header (mine, marker), inject-matching-rule, inject-output-language,
+inject-project-digest (staging-stale, corrected)}. Framework-internal hooks (check-hook-marker,
+check-doc-authority, validate-prompt) are shipped to 0 consumers → my edits to them do not touch
+any baseline.
+
 ## F1 — staging SSOT/render drift is pre-existing and UNGATED [finding, OUT OF SCOPE — surfaced, not fixed]
 
 While resolving D2 I confirmed that on **pristine staging** (all three rendered files at their
