@@ -8802,6 +8802,11 @@ var REGISTRY = Object.freeze({
     defaultSeverity: "error",
     explanation: "IR grammar gate (coverage/broken-ref class, principle-08 pattern generalized): an anchor in node.anchors does not resolve to a key in the diagnostics REGISTRY. ir/gates/grammar.ts."
   },
+  FF6004: {
+    template: "degenerate relational tree: {op} composite on node {nodeId} has duplicate children (no discriminating power)",
+    defaultSeverity: "error",
+    explanation: "IR grammar gate (relational tautology class \u2014 FF6001 analog on the relational plane): a relational composite (all/any/not) carries two or more byte-identical child rules, so the composition adds no discriminating power. The relational tree SHAPE is deep-validated by ajv (FF1001) against the recursive convention-node.schema.json RelationalRule definition; FF6004 is the residual semantic check ajv cannot express (cross-child equality). ir/gates/grammar.ts."
+  },
   // --- FF7xxx: render outcomes (MT umbrella S2 — backends/cargo/render-clippy.ts) ---
   FF7001: {
     template: "not expressible in {backend}: selectorClass {selectorClass} (node {nodeId})",
@@ -9499,6 +9504,35 @@ function isNodeShape(value) {
   const v = value;
   return typeof v["id"] === "string" && Array.isArray(v["anchors"]) && typeof v["pairedExamples"] === "object" && v["pairedExamples"] !== null;
 }
+function assertNever(x) {
+  throw new Error(`unexpected relational op: ${JSON.stringify(x)}`);
+}
+function walkRelational(rule, nodeId, path, diagnostics) {
+  switch (rule.op) {
+    case "has":
+      return;
+    // leaf — no children
+    case "not":
+    case "all":
+    case "any": {
+      const seen = /* @__PURE__ */ new Set();
+      for (const child of rule.children) {
+        const key = JSON.stringify(child);
+        if (seen.has(key)) {
+          diagnostics.push(diag("FF6004", { op: rule.op, nodeId }, { path }));
+          break;
+        }
+        seen.add(key);
+      }
+      for (const child of rule.children) {
+        walkRelational(child, nodeId, path, diagnostics);
+      }
+      return;
+    }
+    default:
+      return assertNever(rule);
+  }
+}
 function runGrammarGate(nodes) {
   const diagnostics = [];
   if (!Array.isArray(nodes)) {
@@ -9544,6 +9578,9 @@ function runGrammarGate(nodes) {
       if (!(anchor in REGISTRY)) {
         diagnostics.push(diag("FF6003", { anchor, nodeId }, { path }));
       }
+    }
+    if (node.relational !== void 0) {
+      walkRelational(node.relational, nodeId, path, diagnostics);
     }
   }
   return { status: diagnostics.length > 0 ? "fail" : "pass", diagnostics };
