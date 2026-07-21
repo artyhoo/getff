@@ -1058,3 +1058,106 @@ describe('deps-hash-check.sh — DH-S2 rust (Cargo.toml Tier-1/Tier-2, detect-on
     expect(stdout).toContain('⚠');
   });
 });
+
+// =============================================================================
+// DH-S3 closure (kickoff #1016 §2 DH-S3) — tomli shim (py3.7-3.10), polyglot
+// cross-stack combined-WARN. Night-prompt STEP 3 deliverables 1-2.
+// The PYTHON-TOMLI-SHIM case is RED against the pre-DH-S3 hook (Tier-2 script has
+// no `tomli` fallback → degrades to empty when tomllib is absent) and turns GREEN
+// once the shim lands (commit B). The POLYGLOT cases lock the design §3a M2
+// single-emit contract at THREE stacks (they pass on the current hook — the
+// combined-WARN assembly is already N-stack; they guard against a future
+// per-stack-emit regression that would break ZCode's JSON.parse).
+// =============================================================================
+
+describe('deps-hash-check.sh — DH-S3 closure (tomli shim, polyglot cross-stack)', () => {
+  it('PYTHON-TOMLI-SHIM: when tomllib is absent (py3.7-3.10) the Tier-2 script falls back to `tomli` and produces the byte-identical hash to tomllib (DH-S3 deliverable 1 — night-prompt "verify byte-match")', () => {
+    // Extract the REAL _PY_TIER2_SCRIPT from the shipped hook (NOT a reimplementation → no
+    // drift by construction). The script body uses only double-quotes internally, so a
+    // non-greedy match up to the first "'" closes on the bash single-quoted heredoc exactly.
+    const hookSrc = readFileSync(HOOK_SOURCE, 'utf8');
+    // `'\r?\n` (not `'\n`) so the extraction survives a CRLF checkout of the hook — the closing
+    // `'` is then followed by `\r\n`, and a bare `'\n` would return null (cold-review MINOR).
+    const m = hookSrc.match(/_PY_TIER2_SCRIPT='([\s\S]*?)'\r?\n/);
+    expect(m).not.toBeNull();
+    const scriptBody = m![1];
+
+    // A pyproject WITH [project].dependencies — Tier-2 (tomllib/tomli) is the tier that parses
+    // these (Tier-1 awk deliberately excludes [project], design §4).
+    const pyproj = ['[project]', 'name = "demo"', 'version = "0.1.0"', 'dependencies = ["requests>=2.32"]', ''].join('\n');
+    const pyFile = join(tmpdir(), `dhs3-tomli-py-${process.pid}-${Math.random().toString(36).slice(2)}.toml`);
+    const scriptFile = join(tmpdir(), `dhs3-tomli-script-${process.pid}-${Math.random().toString(36).slice(2)}.py`);
+    writeFileSync(pyFile, pyproj, 'utf8');
+    writeFileSync(scriptFile, scriptBody, 'utf8');
+    tmpFiles.push(pyFile, scriptFile);
+
+    // H1: the script under the native tomllib path (py3.11+ test env). argv[1] = pyproject.
+    const h1 = (spawnSync('python3', ['-c', scriptBody, pyFile], { encoding: 'utf8' }).stdout ?? '').trim();
+
+    // H2: force the real py3.7-3.10-with-tomli environment and exec the SAME extracted script.
+    // The driver captures the real stdlib parser, re-exposes it under the name `tomli`, then
+    // blocks `tomllib` so the script's first `import tomllib` raises ImportError → its fallback
+    // `import tomli as tomllib` must pick up the (real) parser. This proves the fallback BRANCH
+    // is wired AND yields the tomllib-identical payload — without adding a `tomli` dependency.
+    const driver = [
+      'import sys, types',
+      'import tomllib as _real',              // capture the real parser BEFORE blocking the name
+      "_ft = types.ModuleType('tomli')",
+      '_ft.load = _real.load; _ft.loads = _real.loads',
+      "sys.modules['tomli'] = _ft",           // fallback target = real parser
+      "sys.modules['tomllib'] = None",        // force `import tomllib` → ImportError
+      'exec(compile(open(sys.argv[2]).read(), "<shim>", "exec"))',
+    ].join('\n');
+    const h2 = (spawnSync('python3', ['-c', driver, pyFile, scriptFile], { encoding: 'utf8' }).stdout ?? '').trim();
+
+    // Sanity: the tomllib path must actually produce a hash in this env (else the test is vacuous).
+    expect(h1).not.toBe('');
+    // Byte-match: the fallback path must produce the IDENTICAL hash. Pre-shim the script has no
+    // `tomli` fallback → under H2 `import tomllib` raises → outer except → EMPTY → h2 !== h1 (RED).
+    // Post-shim → h2 === h1 (GREEN).
+    expect(h2).toBe(h1);
+  });
+
+  it('POLYGLOT-THREE-STACK-WARN: package.json + pyproject.toml + Cargo.toml ALL drift → ONE combined ⚠ block naming all three stacks (DH-S3 deliverable 2; design §3a M2 at three stacks)', () => {
+    const pkg = { dependencies: { react: '^18.0.0' } };
+    const pyproject = '[tool.poetry.dependencies]\nflask = "^2.0"\n';
+    const cargo = '[dependencies]\nserde = "1.0"\n';
+    const cwd = makeFixtureDir({
+      packageJson: pkg,
+      pyprojectToml: pyproject,
+      cargoToml: cargo,
+      // all three baselines deliberately stale (all-zeros sha256) → all three drift at once.
+      toolDecisions: `---\ndeps-hash-npm: sha256-${'0'.repeat(64)}\ndeps-hash-python: sha256-${'0'.repeat(64)}\ndeps-hash-cargo: sha256-${'0'.repeat(64)}\n---\n`,
+    });
+    const { status, stdout } = runHook(cwd);
+    expect(status).toBe(0);
+    // EXACTLY ONE ⚠ (the M2 single-emit contract holds across three drifted stacks, not three
+    // separate emissions — three plain lines would still be one hook run, but the ZCode sibling
+    // below is the load-bearing case; here we assert the ⚠ prefix appears once).
+    expect((stdout.match(/⚠/g) ?? []).length).toBe(1);
+    expect(stdout).toContain('package.json');
+    expect(stdout.toLowerCase()).toContain('python');
+    expect(stdout).toContain('Cargo.toml');
+    expect(stdout).toContain('/tool-bootstrapping');
+  });
+
+  it('POLYGLOT-THREE-STACK-ZCODE: all three stacks drift under ZCODE_PROJECT_DIR → ONE JSON object (not three), parses cleanly with all three named (DH-S3 deliverable 2; design §3a M2)', () => {
+    const pkg = { dependencies: { react: '^18.0.0' } };
+    const pyproject = '[tool.poetry.dependencies]\nflask = "^2.0"\n';
+    const cargo = '[dependencies]\nserde = "1.0"\n';
+    const cwd = makeFixtureDir({
+      packageJson: pkg,
+      pyprojectToml: pyproject,
+      cargoToml: cargo,
+      toolDecisions: `---\ndeps-hash-npm: sha256-${'0'.repeat(64)}\ndeps-hash-python: sha256-${'0'.repeat(64)}\ndeps-hash-cargo: sha256-${'0'.repeat(64)}\n---\n`,
+    });
+    const { status, stdout } = runHook(cwd, { ZCODE_PROJECT_DIR: cwd });
+    expect(status).toBe(0);
+    // CRITICAL: must be a SINGLE parseable JSON object — three concatenated objects → throw.
+    const parsed = JSON.parse(stdout);
+    expect(parsed.hookEventName).toBe('UserPromptSubmit');
+    expect(parsed.additionalContext).toMatch(/package\.json|npm/i);
+    expect(parsed.additionalContext).toMatch(/python/i);
+    expect(parsed.additionalContext).toMatch(/cargo/i);
+  });
+});

@@ -103,6 +103,45 @@ else
   ok "deps-hash-check.sh correctly uses 'not yet baselined' path (not 'deps changed') for pending state"
 fi
 
+# ── 3. python-seed variant (DH-S3 backward-sweep sibling of section 2) ─────────────────────
+# The seed template carries deps-hash-python: <pending> (DH-S1), so a fresh PYTHON consumer
+# (pyproject.toml, no package.json) must get the same onboarding nudge the JS consumer gets.
+# Characterization: this already passes on the current template — it locks the python seed→detect
+# chain against a future template regression that drops the python key.
+
+PYDIR="$TMP/py-consumer"
+mkdir -p "$PYDIR/.ai-factory"
+cp "$DECISIONS" "$PYDIR/.ai-factory/tool-decisions.md"
+printf '[tool.poetry.dependencies]\nflask = "^2.0"\n' > "$PYDIR/pyproject.toml"
+
+py_out=$(cd "$PYDIR" && bash "$HOOK" 2>&1) || true
+if echo "$py_out" | grep -qi "not yet baselined"; then
+  ok "python-seed: pyproject-only consumer fires 'not yet baselined' (deps-hash-python: <pending> seeded)"
+else
+  bad "python-seed: pyproject-only consumer did NOT fire 'not yet baselined' — python seed→detect chain broken"
+  echo "    hook output was: $(printf '%s' "$py_out" | head -3)"
+fi
+
+# ── 4. cargo-seed variant (DH-S3 backward-sweep finding — parity gap DH-S2 left) ──────────
+# DH-S2 shipped Cargo.toml DETECTION + the deps-hash-cargo storage key (decision-format.md:21),
+# but the seed template was NOT updated to carry deps-hash-cargo: <pending>. Result: a fresh
+# RUST consumer gets ZERO onboarding nudge — breaking the umbrella mission ("staleness detector
+# covers all three stacks") for the third stack. This assertion is RED until the template gains
+# the deps-hash-cargo: <pending> line (commit C), at which point rust reaches python/JS parity.
+
+CARGODIR="$TMP/cargo-consumer"
+mkdir -p "$CARGODIR/.ai-factory"
+cp "$DECISIONS" "$CARGODIR/.ai-factory/tool-decisions.md"
+printf '[dependencies]\nserde = "1.0"\n' > "$CARGODIR/Cargo.toml"
+
+cargo_out=$(cd "$CARGODIR" && bash "$HOOK" 2>&1) || true
+if echo "$cargo_out" | grep -qi "not yet baselined"; then
+  ok "cargo-seed: Cargo.toml-only consumer fires 'not yet baselined' (deps-hash-cargo: <pending> seeded)"
+else
+  bad "cargo-seed: Cargo.toml-only consumer did NOT fire 'not yet baselined' — deps-hash-cargo missing from seed template (fresh-install parity gap with python/JS)"
+  echo "    hook output was: $(printf '%s' "$cargo_out" | head -3)"
+fi
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

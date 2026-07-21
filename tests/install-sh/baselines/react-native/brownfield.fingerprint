@@ -8,7 +8,7 @@ e43d71c23089705db64a85595800c7f87c79d38f7a39bff48a757b8d5038146e  .ai-factory/RU
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
 7d6b6061459f0939e64358447d0905329ddd4c52abd459ee8d9d201653ffb791  .ai-factory/skill-context/aif-rules-check/SKILL.md
-4240000477684d194384bb3d30fdda835ca982689aca62bcac75b7d9597eaede  .ai-factory/tool-decisions.md
+f93f4a4bd693a0b1920f4e030b5f0d72f2d695fef9d501b3aeb8d02e790a7e24  .ai-factory/tool-decisions.md
 6c7a0b1fe2165db3c4707b2fadf5d0061f757676975f103a5637c3de127886a5  .claude/agents/aif-init.md
 20edf7198c7988d4eb0757706813bd37117c29a6b825ea597662b3c6107fc3ea  .claude/agents/capability-reuse-auditor.md
 392f81bf194e28f35fcc119b96eb39fb374debefd4b5001f832f51060a5f0e14  .claude/agents/compliance-verifier.md
@@ -19,7 +19,7 @@ c96ba6e4c52288f0b77a2edaeb6170ecad03e699360d79fe7794fd3e205717e8  .claude/agents
 48239ef36ed73d01561636d67d2c75947729879a14accae7d667feccc5616215  .claude/agents/rule-researcher.md
 9808e32b096cee71f5971bd6c3aa6ec1bddd748c58d84aa93198d05fb5f7b106  .claude/hooks/ask-question-reminder.sh
 74a598da4bf7ad6cb4e4354510c3d4c6fb3e291de36c18dba5394a6fc430b302  .claude/hooks/check-doc-authority-header.sh
-7a1595b7494442197e6369b5b6c28fa2755fa7fb8411c480cbbe6bd01bc5242c  .claude/hooks/deps-hash-check.sh
+7bbf4746578e485008823f1d13795c445bf8989f8d67132bea1939ba1957aa67  .claude/hooks/deps-hash-check.sh
 d8372eb46734240a2930092f0394464bca6dbf3a30b5a811e020b8369a2cddf4  .claude/hooks/end-of-turn-reminder.sh
 8edd7ffedf72c343f0717c44b85f358c9fa7c26b8db7db7ac3d5015d9d893dad  .claude/hooks/inject-matching-rule.sh
 d783e618156d9dc26dad1627281e44ea10a128cee9c29a91cea273b37251e47c  .claude/hooks/inject-memory-codification.sh
@@ -42,7 +42,7 @@ fc8e3f73f7f9646b3574ff3b56733c633802e948fe32fa07ae65667c8f5b2820  .claude/skills
 2539894c0c1b99df2d20456d4a65f31184a0f3b362cb75fad058f539eec3f379  .claude/skills/template-audit/SKILL.md
 5e6b0ef8592298f302c55be3ba5e6f08b3bde16796498851c3dbbfa49181d434  .claude/skills/tool-bootstrapping/SKILL.md
 18971ed38cd6a928cd9965ea202cb8fd0981d753aad6e57092603b33308d57bc  .claude/skills/tool-bootstrapping/references/decision-format.md
-4240000477684d194384bb3d30fdda835ca982689aca62bcac75b7d9597eaede  .claude/skills/tool-bootstrapping/templates/tool-decisions.md.template
+f93f4a4bd693a0b1920f4e030b5f0d72f2d695fef9d501b3aeb8d02e790a7e24  .claude/skills/tool-bootstrapping/templates/tool-decisions.md.template
 f3667e900f64094ab620580f6cc9a10fc2a75fbcb724ca3a505837aedfa21bff  .dependency-cruiser.cjs
 f393f468f99fb7dba01e6f93394863177b83360276f0eaa3cebc09953395bf45  .github/workflows/ci.yml
 d9f24b9c81f841f865ef28b40001f4817d5a8bcb46b798781007544dfb59408d  .github/workflows/workflow-integrity.yml

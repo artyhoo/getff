@@ -4,6 +4,7 @@
 # warns per-stack when a baseline is <pending> (unbaselined) or drifted (real change).
 deps-hash-npm: <pending — populated on first tool-bootstrap run>
 deps-hash-python: <pending — populated on first tool-bootstrap run>
+deps-hash-cargo: <pending — populated on first tool-bootstrap run>
 # Legacy bare deps-hash: kept for backward-compat with consumers installed before DH-S1
 # (read as the npm slot if deps-hash-npm: is absent). Safe to leave as <pending>.
 deps-hash: <pending — populated on first tool-bootstrap run>
@@ -14,7 +15,7 @@ aif-version: <e.g. 2.1.0>
 <!-- The installer seeds this file at .ai-factory/tool-decisions.md with the deps-hash
      sentinels above; commit it. Run /tool-bootstrapping to populate the first bootstrap
      (stamps the real per-stack deps-hash-N values); the UserPromptSubmit hook then tracks
-     deps-hash changes per stack automatically (JS/python now; cargo lands in DH-S2). -->
+     deps-hash changes per stack automatically (all three stacks: JS/python/cargo). -->
 
 ## Accepted
 

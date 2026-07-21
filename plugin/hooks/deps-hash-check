@@ -22,7 +22,9 @@
 #     workspace.{dependencies,dev-dependencies,build-dependencies}.
 #   Tier-2 (enrichment, only if toolchain present): python → python3 tomllib (≥3.11), which
 #     covers [project].dependencies + [project].optional-dependencies precisely (deps-only).
-#     3.7-3.10 without tomli → silent Tier-1 degrade (tomli shim is DH-S3). Rust → `cargo
+#     py3.7-3.10 fall back to the `tomli` back-port if installed (DH-S3 shim — tomli IS the code
+#     that became stdlib tomllib, PEP 680, so the payload is byte-identical); tomllib AND tomli
+#     both absent → Tier-1 stands + the Tier-2 sentinel (no baseline shift). Rust → `cargo
 #     metadata --no-deps --format-version 1 --offline` (NEVER --frozen/--locked) piped through
 #     python3 to pluck packages[].dependencies[]; any failure (no cargo, no python3, non-zero
 #     exit) → empty Tier-2 contribution, Tier-1 hash stands (no sentinel trick needed — unlike
@@ -36,6 +38,21 @@
 # inlines that so one byte-identical file serves both harnesses. When multiple stacks drift,
 # their messages are accumulated into ONE _emit_warn call (two JSON objects on stdout would
 # break ZCode's JSON.parse — design §3a M2).
+#
+# Documented blind spots (accepted false-negatives — this is a staleness NUDGE, not a lockfile
+# audit; design §6):
+#   - Lockfiles are NOT hashed: an in-range bump (npm/poetry/cargo update) that leaves the
+#     DECLARED manifest text unchanged does not drift the hash (design §1 hashes the manifest,
+#     not the resolved lockfile).
+#   - pnpm v11 relocated `overrides` into pnpm-workspace.yaml, out of the package.json surface
+#     this hook hashes — out-of-band until a pnpm-workspace.yaml lane is added.
+#   - git-deps without a pinned rev (e.g. "foo":"github:org/repo") drift silently: the manifest
+#     text is stable while the upstream ref moves.
+#   - path-deps ({ path = "../local" }) — local-source changes are invisible to a manifest hash.
+#   - CRLF endings are normalised before hashing ({gsub(/\r/,"")}) so Windows checkouts do not
+#     spuriously drift (round-3.5 B1).
+#   - A pyproject WITHOUT [project] deps hashes via the Tier-2 sentinel whether tomllib/tomli is
+#     present or absent, so a python 3.10→3.11 upgrade does not shift its baseline (round-3.5 B2).
 #
 # Register in consumer's .claude/settings.json:
 #   "UserPromptSubmit": [{"hooks":[{"type":"command","command":"bash .claude/hooks/deps-hash-check.sh"}]}]
@@ -110,12 +127,21 @@ _npm_current() {
 # without it, substr($0,2,length($0)-2) on a `[hdr]\r` line yields `hdr]` (leaked `]`),
 # silently dropping 5/6 dep tables and producing a different hash vs LF (round-3.5 review B1).
 _PY_TIER1_AWK='{gsub(/\r/,"")}function want(h){if(h=="project.optional-dependencies")return 1;if(h=="dependency-groups")return 1;if(h=="tool.poetry.dependencies")return 1;if(h=="tool.poetry.dev-dependencies")return 1;if(h~/^tool\.poetry\.group\.[^.]+\.dependencies$/)return 1;if(h~/^tool\.hatch\.envs\.[^.]+$/)return 1;return 0}/^\[/{in_t=want(substr($0,2,length($0)-2))}in_t'
-# Tier-2: python3 tomllib hashes [project].dependencies + [project].optional-dependencies,
-# deps-only, deterministic compact-JSON payload (design §4). ONE try around import+load+print
-# so any error (no tomllib, malformed TOML) → empty stdout.
+# Tier-2: tomllib (py≥3.11) OR the `tomli` back-port (py3.7-3.10) hashes [project].dependencies
+# + [project].optional-dependencies, deps-only, deterministic compact-JSON payload (design §4).
+# The nested try is the DH-S3 tomli shim: `tomli` is the exact upstream code that became stdlib
+# `tomllib` (PEP 680), so tomli.load == tomllib.load byte-for-byte → the fallback keeps the
+# same baseline across the toolchain (verified by the PYTHON-TOMLI-SHIM byte-match test). Catch
+# ImportError (superclass of ModuleNotFoundError) so a genuinely-absent tomllib on 3.10 AND a
+# blocked-name test env both route to the fallback. Both absent → the OUTER except → empty
+# stdout → _python_current substitutes the sentinel (no baseline shift; PYTHON-UPGRADE-STABLE).
 _PY_TIER2_SCRIPT='import sys
 try:
-  import tomllib, json, hashlib
+  import json, hashlib
+  try:
+    import tomllib
+  except ImportError:
+    import tomli as tomllib
   d=tomllib.load(open(sys.argv[1],"rb"))
   p=d.get("project",{})
   deps=p.get("dependencies",[]);opt=p.get("optional-dependencies",{})
