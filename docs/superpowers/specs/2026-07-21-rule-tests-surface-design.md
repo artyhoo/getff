@@ -377,6 +377,14 @@ gate.
 
 ### §12 Non-goals
 
+**CI-host portability (named gap, not silent).** The delivered CI layer is GitHub-Actions-only
+today (`.github/workflows/getff-python.yml`, setup.d/45-python.sh:294-307; no `.gitlab-ci.yml`
+template ships). A GitLab consumer gets every EARLIER channel unchanged — edit-time, pre-commit,
+pre-push, session hooks are git-native and host-agnostic — and loses only the last-resort CI
+backstop, which they must author themselves. Consistent with invariant 4 (CI = last resort), but
+recorded: trigger to ship a `.gitlab-ci.yml` twin = first GitLab consumer. Out of both umbrellas'
+scope.
+
 No per-stack generated skill (D2 / T-UTS-A). No union-IR / new IR fields outside ir-unfreeze. No
 new runners ("we build no runner" — MT §5). No third freshness ledger. No doc-age staleness
 detector (named absent, §6 — a future trigger, not silent scope). No mutation-operator
