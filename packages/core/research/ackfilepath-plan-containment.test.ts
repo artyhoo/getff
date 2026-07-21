@@ -81,17 +81,25 @@ function trackedResearchSynthSources(): { rel: string; abs: string }[] {
     .filter(({ abs }) => existsSync(abs));
 }
 
-/** I2 detector: a ResolveCtx construction object literal that carries an
- *  `ackFilePath:` key. Keyed on the ctx SHAPE (a brace group carrying BOTH an
- *  `adapter:` value-key AND an `ackFilePath:` value-key, in either order) rather
- *  than the enclosing `validateResearchPlan(...)` call — so it catches the W2
- *  factory return `{ root, adapter: X, ackFilePath: Y }` in resolve-ctx.ts AND a
- *  future reintroduced inline literal at a call site alike. The `:` (not `?:`)
- *  requirement is what keeps the `ResolveCtx` interface's own `adapter?:` /
- *  `ackFilePath?:` optional-property declaration in allowlist-resolver.ts from
- *  matching (that home file is excluded from the scan below regardless). */
+/** I2 detector: a construction object literal (brace group) that threads a value
+ *  into an `ackFilePath:` key — REGARDLESS of whether an `adapter:` key is
+ *  co-present. Keyed on the `ackFilePath:` value-key ALONE, not on a co-present
+ *  `adapter:`. This is deliberate: it catches BOTH the W2 factory return
+ *  `{ root, adapter: X, ackFilePath: Y }` in resolve-ctx.ts AND an adapter-LESS
+ *  reintroduction such as
+ *      validateResearchPlan(parsed, { root, ackFilePath: plan.ackFilePath })
+ *  at any call site. That adapter-less shape is exactly what a narrower
+ *  `adapter:`-co-present regex silently missed — restoring it keeps I2 an
+ *  INDEPENDENT defense-in-depth layer over I1 (the containment grep), not a
+ *  single-point dependent on it.
+ *
+ *  The `:` (not `?:`) requirement keeps an optional-property DECLARATION
+ *  (`ackFilePath?:` in the `ResolveCtx` interface) from matching: the `?` breaks
+ *  the `ackFilePath\s*:` adjacency, so a type-def never trips a construction
+ *  detector. (The type-def home, allowlist-resolver.ts, is also excluded from the
+ *  scan below regardless — belt and suspenders.) */
 const RESOLVE_CTX_ACKFILEPATH_RE =
-  /\{(?=[^{}]*\badapter\s*:)(?=[^{}]*\backFilePath\s*:)[^{}]*\}/s;
+  /\{(?=[^{}]*\backFilePath\s*:)[^{}]*\}/s;
 
 describe('F-tripwire — ackFilePath plan-containment (research-source-trust.md §5 item 3)', () => {
   const sources = trackedResearchSynthSources();
@@ -194,5 +202,24 @@ describe('F-tripwire — ackFilePath plan-containment (research-source-trust.md 
         expect(RESOLVE_CTX_ACKFILEPATH_RE.test(readFileSync(CTX_ABS, 'utf8'))).toBe(false);
       },
     );
+
+    // Coverage restoration (W2 rework): the detector must flag an `ackFilePath:`
+    // literal EVEN WHEN no `adapter:` key is co-present. The retargeted
+    // (adapter-co-present) regex silently missed the adapter-less shape below —
+    // e.g. `validateResearchPlan(parsed, { root, ackFilePath: plan.ackFilePath })`
+    // — which the OLD (pre-retarget) regex caught. Broadening I2 to key on
+    // `ackFilePath:` alone restores that independent defense-in-depth over I1.
+    it('POSITIVE arm: an adapter-LESS ackFilePath ctx literal trips the detector (the shape the co-present regex missed)', () => {
+      const adapterLess = 'validateResearchPlan(parsed, { root: args.root, ackFilePath: (parsed as any).ackFilePath });';
+      expect(RESOLVE_CTX_ACKFILEPATH_RE.test(adapterLess)).toBe(true);
+    });
+
+    // The `?:` optional-property DECLARATION syntax must NOT match — it is a
+    // type-def, not a construction that threads a value. `?` breaks the
+    // `ackFilePath\s*:` adjacency the detector keys on.
+    it('anti-tautology: an `ackFilePath?:` optional-property DECLARATION is NOT flagged', () => {
+      const declaration = 'interface ResolveCtx { root: string; adapter?: EcosystemAdapter; ackFilePath?: string; }';
+      expect(RESOLVE_CTX_ACKFILEPATH_RE.test(declaration)).toBe(false);
+    });
   });
 });

@@ -40,9 +40,21 @@ import { pipAdapter } from '../research/ecosystem-python.ts';
  *     preserved for every JS/unknown consumer — a strict superset of prior
  *     behaviour, no regression for the npm path).
  * The `root` is threaded verbatim; this never guesses a different root.
+ *
+ * `skipAif: true` is load-bearing, not an optimisation: adapter selection is a
+ * pure function of the TOOLCHAIN manifest (pyproject.toml → python, Cargo.toml →
+ * cargo, else npm), never of the `.ai-factory` metadata (whose parser only ever
+ * yields 'react-next'/'ts-server' → npmAdapter anyway). Reading `.ai-factory`
+ * here would ADD a throw the pre-W2 resolve path never had: readAif raises
+ * AifSchemaError when a consumer ships a freeform `.ai-factory/DESCRIPTION.md` |
+ * `ARCHITECTURE.md` | skill-context `SKILL.md` that lacks a canonical heading.
+ * Pre-W2 both callers hardcoded `adapter: npmAdapter` and never called
+ * detectStack, so that throw was structurally impossible on `--from-research`.
+ * Skipping the AIF read keeps the strict-superset invariant: a detection with no
+ * toolchain manifest still degrades to the pre-W2 npmAdapter default, never throws.
  */
 export function resolveCtxForRoot(root: string): ResolveCtx {
-  const { stack } = detectStack(root);
+  const { stack } = detectStack(root, { skipAif: true });
   if (stack === 'python') return { root, adapter: pipAdapter };
   if (stack === 'cargo') return { root, adapter: cargoAdapter };
   return { root, adapter: npmAdapter };

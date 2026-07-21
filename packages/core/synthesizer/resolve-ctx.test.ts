@@ -79,6 +79,32 @@ function makeUnknownRoot(): string {
   return mkdtempSync(join(tmpdir(), 'w2-unknown-'));
 }
 
+/** JS consumer with a FREEFORM `.ai-factory/DESCRIPTION.md` that exists but lacks
+ *  any canonical heading. Pre-W2 both call sites hardcoded npmAdapter and never
+ *  read `.ai-factory`, so this shape was inert. If resolveCtxForRoot runs the full
+ *  detectStack (readAif enabled), readAif's parseAifMarkdown returns null for this
+ *  freeform file → AifSchemaError throw on the resolve path (the W2 regression). */
+function makeNpmRootWithFreeformAif(): string {
+  const root = mkdtempSync(join(tmpdir(), 'w2-npm-freeform-aif-'));
+  writeFileSync(
+    join(root, 'package.json'),
+    JSON.stringify({ dependencies: { 'drizzle-orm': '^0.40.0' } }, null, 2),
+  );
+  const nm = join(root, 'node_modules', 'drizzle-orm');
+  mkdirSync(nm, { recursive: true });
+  writeFileSync(
+    join(nm, 'package.json'),
+    JSON.stringify({ name: 'drizzle-orm', homepage: 'https://orm.drizzle.team' }, null, 2),
+  );
+  // Freeform prose — no `# Description` / `## Stack` / etc. canonical heading.
+  mkdirSync(join(root, '.ai-factory'), { recursive: true });
+  writeFileSync(
+    join(root, '.ai-factory', 'DESCRIPTION.md'),
+    `just some freeform notes about this project, no canonical heading here\n`,
+  );
+  return root;
+}
+
 // --- plan builders ------------------------------------------------------------
 
 interface PlanOpts {
@@ -130,6 +156,21 @@ describe('resolveCtxForRoot — adapter selection by detected stack (W2 unit)', 
   it('threads the given root onto the ctx verbatim (never guesses)', () => {
     const root = makePythonRoot();
     expect(resolveCtxForRoot(root).root).toBe(root);
+  });
+
+  // REGRESSION (W2 rework): a JS consumer with a freeform `.ai-factory/DESCRIPTION.md`
+  // (exists, no canonical heading) must NOT throw on the resolve path — it must
+  // degrade to the pre-W2 npmAdapter default. Pre-fix this threw AifSchemaError
+  // because resolveCtxForRoot ran detectStack with readAif enabled; the resolve
+  // path never needed `.ai-factory` metadata for adapter selection.
+  it('npm root with a freeform (headingless) .ai-factory/DESCRIPTION.md → npmAdapter, no throw', () => {
+    const root = makeNpmRootWithFreeformAif();
+    let ctx: ReturnType<typeof resolveCtxForRoot> | undefined;
+    expect(() => {
+      ctx = resolveCtxForRoot(root);
+    }).not.toThrow();
+    expect(ctx!.adapter).toBe(npmAdapter);
+    expect(ctx!.root).toBe(root);
   });
 });
 
