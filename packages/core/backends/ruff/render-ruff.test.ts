@@ -88,6 +88,35 @@ describe('renderRuff — refusal split (routing; narrow fast-path)', () => {
     expect(outcomes.get('r7')?.kind).toBe('refused');
     expect(refused(outcomes.get('r7')).code).toBe('FF7002');
   });
+
+  it('R8: node.relational present -> refused FF7001, EVEN when params look otherwise-bannable (OWNER-FORK-1 Option B, ir-unfreeze S2)', () => {
+    // kind:'attribute' + a bare dotted pattern is exactly the RUFF_TID251_NODE shape (would
+    // otherwise render as a banned-api entry) — but a relational tree makes the node MORE than a
+    // qualified-name ban, which ruff's flake8-tidy-imports vocabulary has no surface for (no
+    // has/not/all/any). Checked BEFORE the kind fast-path, so this is a real refusal, not a
+    // silently-relational-blind render.
+    const { outcomes } = renderRuff([
+      node({
+        id: 'r8',
+        params: { kind: 'attribute', pattern: 'requests' },
+        relational: { op: 'not', children: [{ op: 'has', pattern: 'x' }] },
+      }),
+    ]);
+    expect(outcomes.get('r8')?.kind).toBe('refused');
+    expect(refused(outcomes.get('r8')).code).toBe('FF7001');
+  });
+
+  it('R8b: node.relational present -> refused FF7001, no banned-api/banned-module entry leaks into the toml', () => {
+    const { toml, outcomes } = renderRuff([
+      node({
+        id: 'r8b',
+        params: { kind: 'attribute', pattern: 'requests' },
+        relational: { op: 'not', children: [{ op: 'has', pattern: 'x' }] },
+      }),
+    ]);
+    expect(outcomes.get('r8b')?.kind).toBe('refused');
+    expect(toml).not.toContain('requests');
+  });
 });
 
 describe('renderRuff — rendered goldens (byte-for-byte)', () => {
