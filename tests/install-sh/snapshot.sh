@@ -42,8 +42,8 @@ compute_fingerprint() {
   # non-deterministic. No-op for npm stacks (they never write this file). The cargo lane's two
   # non-deterministic outputs are excluded for the SAME reason (ecosystem-wiring W4): the timestamped
   # .getff-cargo-install.log audit trail, and rules-lock.cargo.json (its `emittedAt` is a `date -u`
-  # timestamp — a staleness ledger, not a delivered config; the byte-stable config artefacts, clippy.toml
-  # / deny.toml / Cargo.lints.toml / getff-cargo.yml, still fingerprint).
+  # timestamp — a per-run reproducibility record, not a delivered config; the byte-stable config
+  # artefacts, clippy.toml / deny.toml / Cargo.lints.toml / getff-cargo.yml, still fingerprint).
   find "$dir" -type f \
     -not -path '*/.git/*' \
     -not -path '*/node_modules/*' -not -name '*.tmp' \

@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # tests/install-sh/cargo-entry-lane.test.sh — the `install.sh cargo` / `./setup cargo` entry lane
 # (ecosystem-wiring W4): arg parsing, detection order, no-package.json bypass, npm flow untouched,
-# --refresh re-delivery, the augment-first clippy REFUSE cell, and the post-install firing self-check
-# (fire + tool-gated degrade). The cargo analog of python-entry-lane.test.sh.
+# --refresh re-delivery, the augment-first clippy REFUSE cell (incl. the delivered-config regression
+# arms 5a/5b: self-check fires on the DELIVERED getff-clippy.toml + the rules-lock fingerprints it,
+# never the consumer's own file), and the post-install firing self-check (fire + tool-gated degrade).
+# The cargo analog of python-entry-lane.test.sh.
 #
 # Drives the REAL install.sh in mktemp -d fixtures (subprocess, like snapshot.sh) — the entry lane
 # lives in install.sh's main flow. The firing self-check's DEGRADE arm is unit-tested directly via the
@@ -20,6 +22,10 @@ TPL="$REPO_ROOT/packages/core/templates/cargo"
 PASS=0; FAIL=0
 ok()   { PASS=$((PASS+1)); echo "  ✓ $1"; }
 bad()  { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
+_sha256() {  # portable sha256 (linux sha256sum / macOS shasum)
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | awk '{print $1}'
+  else shasum -a 256 "$1" | awk '{print $1}'; fi
+}
 
 [ -f "$INSTALL" ] || { echo "FATAL: $INSTALL not found"; exit 1; }
 
@@ -106,6 +112,32 @@ out=$( cd "$C" && bash "$INSTALL" cargo < /dev/null 2>&1 ) || true
 echo "$out" | grep -q "REFUSE clippy.toml" \
   && ok "(5) delivery log announced the REFUSE loudly (attention-is-not-a-mechanism)" \
   || bad "(5) no loud REFUSE announcement in the delivery log"
+# ── Finding-1 regression arms (W4 rework): in the REFUSE cell, the self-check and the rules-lock
+# must target the DELIVERED getff-clippy.toml — never the consumer's own clippy.toml (which lacks
+# our bans, so a self-check against it reports a FALSE «SILENT», and a lock hashing it lies about
+# the delivered set). Tool-gated like arm (6): with cargo present the self-check must FIRE.
+if command -v cargo >/dev/null 2>&1; then
+  echo "$out" | grep -q "fired RED on the planted violation" \
+    && ok "(5a) REFUSE cell: self-check FIRED — it proved the DELIVERED getff-clippy.toml, not the consumer's config" \
+    || bad "(5a) REFUSE cell: self-check did not fire (ran against the consumer's clippy.toml — delivered-config resolution bug)"
+  echo "$out" | grep -q "SILENT (delivery bug)" \
+    && bad "(5a) REFUSE cell: false SILENT verdict — self-check proved the WRONG (consumer) config" \
+    || ok "(5a) REFUSE cell: no false SILENT verdict"
+else
+  echo "$out" | grep -q "firing NOT proven (degrade, NOT green)" \
+    && ok "(5a) REFUSE cell: cargo absent → loud degrade (arm not vacuous)" \
+    || bad "(5a) REFUSE cell: cargo absent but no loud degrade printed"
+fi
+LOCK="$C/.ai-factory/synthesizer-output/rules-lock.cargo.json"
+lock_fp=$(sed -n 's/.*"sourceFingerprint": "sha256:\([0-9a-f]*\)".*/\1/p' "$LOCK" 2>/dev/null)
+delivered_fp=$(_sha256 "$C/getff-clippy.toml")
+consumer_fp=$(_sha256 "$C/clippy.toml")
+{ [ -n "$lock_fp" ] && [ "$lock_fp" = "$delivered_fp" ]; } \
+  && ok "(5b) rules-lock sourceFingerprint = sha256(getff-clippy.toml) — the lock records the DELIVERED set" \
+  || bad "(5b) rules-lock sourceFingerprint (${lock_fp:-<none>}) != sha256(delivered getff-clippy.toml) ($delivered_fp)"
+[ "$lock_fp" != "$consumer_fp" ] \
+  && ok "(5b) rules-lock does NOT hash the consumer's clippy.toml (the lock does not lie)" \
+  || bad "(5b) rules-lock hashes the CONSUMER's clippy.toml — the lock misrepresents the delivered set"
 rm -rf "$C"
 
 # ── (6) firing self-check — tool-gated (FIRE when cargo present, else loud degrade) ────────────────
