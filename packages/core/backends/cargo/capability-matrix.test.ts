@@ -152,6 +152,7 @@ describe('parseRustcVersion + checkToolchainFreshness — paired negatives (pure
     expect(checkToolchainFreshness(freshCell('rustc 1.96.1 (31fca3adb 2026-06-26)'), '1.96.1')).toEqual([]);
   });
 
+  // @arm:E3:neg toolchain-freshness-vs-evidence (fabricated version drift → violation, RED-capable)
   it('a toolchain claiming a DIFFERENT version is a violation', () => {
     const violations = checkToolchainFreshness(freshCell('rustc 1.95.0 (deadbeef 2026-05-01)'), '1.96.1');
     expect(violations.some((v) => v.includes('regenerate the live-fired evidence'))).toBe(true);

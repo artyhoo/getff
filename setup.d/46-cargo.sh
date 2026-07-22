@@ -256,7 +256,7 @@ EOF
 # attention-is-not-a-mechanism.md §1). rc=0 on every branch — a self-check must not abort the install.
 _cargo_firing_self_check() {
   echo ""
-  local _pass=0 _silent=0 _degraded=0
+  local _pass=0 _silent=0 _degraded=0 _overbroad=0
   local _clippy
   _clippy=$(_cargo_delivered_clippy_path)
   echo "▶ getff firing self-check — proving the delivered clippy config ($(basename "$_clippy")) FIRES (planted violation in an OS temp dir)"
@@ -277,6 +277,19 @@ _cargo_firing_self_check() {
       echo "  ✗ cargo clippy did NOT fire on a planted violation — the delivered clippy config is SILENT (delivery bug)"
       _silent=$((_silent+1))
     fi
+    # Paired CLEAN CONTROL (adapter-jig E1): conforming code the delivered config must stay quiet on.
+    # Without it an always-red config (one that flags every crate) prints the same "enforcement is
+    # live" — the RED direction alone cannot discriminate a working config from a broken one.
+    printf 'fn main() {\n    let _ = std::env::args();\n}\n' > "$_t/src/main.rs"
+    local _out_clean
+    _out_clean=$( cd "$_t" && cargo clippy --message-format=json 2>/dev/null )
+    if printf '%s' "$_out_clean" | grep -q '"clippy::disallowed_methods"'; then
+      echo "  ✗ cargo clippy FIRED on the clean control — the delivered clippy config is OVER-BROAD (an always-red config is not enforcement)"
+      _overbroad=$((_overbroad+1))
+    else
+      echo "  ✓ cargo clippy clean control GREEN — no disallowed-methods diagnostic on conforming code (config discriminates)"
+      _pass=$((_pass+1))
+    fi
     rm -rf "$_t"
   else
     echo "  ⚠ cargo not on PATH (or the delivered clippy config missing) — firing NOT proven (degrade, NOT green). Verify manually from your crate root:"
@@ -285,12 +298,12 @@ _cargo_firing_self_check() {
   fi
 
   echo ""
-  if [ "$_silent" -gt 0 ]; then
-    echo "⚠  getff self-check: $_pass fired · $_silent SILENT — the delivered clippy config did NOT fire on bad input; review above before relying on it."
+  if [ "$_silent" -gt 0 ] || [ "$_overbroad" -gt 0 ]; then
+    echo "⚠  getff self-check: $_pass ok · $_silent SILENT · $_overbroad OVER-BROAD — the delivered clippy config failed a direction (SILENT = no fire on bad input; OVER-BROAD = fired on clean input); review above before relying on it."
   elif [ "$_degraded" -gt 0 ]; then
     echo "⚠  getff self-check: $_pass proven-firing · $_degraded NOT proven (tool absent) — a skipped check is NOT green; run the manual command above to prove it."
   else
-    echo "✓ getff self-check: the delivered clippy config fired RED on a planted violation — enforcement is live."
+    echo "✓ getff self-check: the delivered clippy config fired RED on a planted violation and stayed GREEN on the clean control — enforcement is live."
   fi
   return 0
 }

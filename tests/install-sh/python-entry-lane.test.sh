@@ -159,6 +159,7 @@ echo "$out" | grep -qF 'Refreshing getff Python toolchain' \
   || bad "(7b) no npm artefact delivered — npm refresh did not actually run"
 
 # ── (8) firing self-check: FIRES when tools present, else DEGRADES loudly (tool-gated, never green) ─
+# @arm:E1:pos scratch-consumer-red-green-pair (python lane — planted violation RED + clean control GREEN)
 echo ""; echo "  ── (8) firing self-check on install (tool-gated fire; loud degrade otherwise) ──"
 P=$(py_fixture)
 out=$( cd "$P" && bash "$INSTALL" python < /dev/null 2>&1 )
@@ -166,6 +167,11 @@ if command -v ast-grep >/dev/null 2>&1 || command -v sg >/dev/null 2>&1; then
   echo "$out" | grep -qF 'ast-grep fired RED' \
     && ok "(8) ast-grep present → self-check FIRED RED on the planted violation" \
     || bad "(8) ast-grep present but self-check did not report a RED fire: $(echo "$out" | grep -i ast-grep | tr '\n' '|')"
+  # Paired GREEN direction (adapter-jig E1): the self-check must ALSO prove the rules stay quiet on
+  # conforming code — a RED-only harness passes identically under an always-firing rule set.
+  echo "$out" | grep -qF 'ast-grep clean control GREEN' \
+    && ok "(8) ast-grep clean control GREEN reported (rules discriminate, not always-red)" \
+    || bad "(8) no ast-grep clean-control GREEN line — self-check is RED-only (vacuous vs an over-broad rule set)"
 else
   echo "$out" | grep -qF 'ast-grep not on PATH' \
     && ok "(8) ast-grep absent → self-check DEGRADED loudly (not silently green)" \
@@ -175,11 +181,17 @@ if command -v ruff >/dev/null 2>&1 || command -v uvx >/dev/null 2>&1; then
   echo "$out" | grep -qF 'ruff fired RED' \
     && ok "(8) ruff present → self-check FIRED RED on the planted violation" \
     || bad "(8) ruff present but self-check did not report a RED fire: $(echo "$out" | grep -i ruff | tr '\n' '|')"
+  echo "$out" | grep -qF 'ruff clean control GREEN' \
+    && ok "(8) ruff clean control GREEN reported (bans discriminate, not always-red)" \
+    || bad "(8) no ruff clean-control GREEN line — self-check is RED-only (vacuous vs an over-broad config)"
 else
   echo "$out" | grep -qF 'ruff not on PATH' \
     && ok "(8) ruff absent → self-check DEGRADED loudly (not silently green)" \
     || bad "(8) ruff absent but no loud degrade line"
 fi
+echo "$out" | grep -qF 'OVER-BROAD' \
+  && bad "(8) self-check reported OVER-BROAD on a healthy install (false alarm)" \
+  || ok "(8) no OVER-BROAD verdict on the healthy delivered rule set"
 
 # ── (9) DEGRADE path (unit): _py_firing_self_check with NO tools on PATH → loud, never green ───────
 echo ""; echo "  ── (9) degrade path (stripped PATH, no ast-grep/ruff/uvx) ──"
@@ -220,6 +232,130 @@ echo "$deg" | grep -qF '@ast-grep/cli@0.44.1' && echo "$deg" | grep -qF 'ruff@0.
 [ ! -e "$P/.ruff_cache" ] \
   && ok "(9) degrade run wrote nothing under the consumer tree (temp-dir-only STOP line holds)" \
   || bad "(9) .ruff_cache leaked during the degrade run"
+
+# ── helpers for arms (10)-(12): the python lock fingerprint recipe (45-python.sh _py_write_rules_lock)
+# — sha256/16 over the sorted delivered ast-grep rule bytes + the .getff/ruff-bans.toml bytes.
+_sha256_str() {  # portable sha256 of stdin (linux sha256sum / macOS shasum)
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum | awk '{print $1}'
+  else shasum -a 256 | awk '{print $1}'; fi
+}
+_py_lock_fp16() {  # replicate the writer's recipe exactly (incl. command-substitution newline strip)
+  local root="$1" _hi
+  _hi=$( { find "$root/.getff/astgrep-rules" -name '*.yml' 2>/dev/null | sort | while IFS= read -r f; do cat "$f"; done; [ -f "$root/.getff/ruff-bans.toml" ] && cat "$root/.getff/ruff-bans.toml"; } )
+  printf '%s' "$_hi" | _sha256_str | cut -c1-16
+}
+_file_fp16() { local _h; _h=$( cat "$1" ); printf '%s' "$_h" | _sha256_str | cut -c1-16; }
+
+# ── (10) E2 positive — REFUSE cell: self-check + lock resolve the DELIVERED config, never the
+# consumer's same-named ruff.toml (the python twin of cargo arms 5a/5b; adapter-jig E2, W4 finding-1
+# class). Consumer owns a bans-less ruff.toml + pyproject [tool.ruff] → install → the self-check must
+# fire via .getff/ruff-bans.toml (a resolver preferring the consumer's config would report a FALSE
+# SILENT — its config has no TID bans), and the lock fingerprint must hash the DELIVERED set, not the
+# consumer's file.
+# @arm:E2:pos self-check-resolves-delivered-config (python REFUSE cell — fire + lock fp = delivered set)
+echo ""; echo "  ── (10) REFUSE cell: self-check + lock target the DELIVERED config (E2) ──"
+P=$(py_fixture)
+printf '[tool.ruff]\nline-length = 120\n' >> "$P/pyproject.toml"
+printf '[lint]\nselect = ["E9"]\n' > "$P/ruff.toml"   # consumer-owned, NO TID bans
+CONSUMER_RUFF_BEFORE=$(cat "$P/ruff.toml")
+out=$( cd "$P" && bash "$INSTALL" python < /dev/null 2>&1 ) || true
+[ "$(cat "$P/ruff.toml")" = "$CONSUMER_RUFF_BEFORE" ] && [ -f "$P/getff-ruff.toml" ] \
+  && ok "(10) REFUSE cell held: consumer ruff.toml untouched + getff-ruff.toml reference shipped" \
+  || bad "(10) REFUSE cell wrong: consumer ruff.toml modified or getff-ruff.toml missing"
+if command -v ruff >/dev/null 2>&1 || command -v uvx >/dev/null 2>&1; then
+  echo "$out" | grep -qF 'ruff fired RED' \
+    && ok "(10) self-check FIRED via the DELIVERED .getff/ruff-bans.toml (not the consumer's bans-less config)" \
+    || bad "(10) self-check did not fire in the REFUSE cell — delivered-config resolution bug: $(echo "$out" | grep -i ruff | tr '\n' '|')"
+  echo "$out" | grep -qF 'ruff did NOT fire' \
+    && bad "(10) FALSE SILENT verdict — the self-check validated the consumer's config (W4 finding-1 class)" \
+    || ok "(10) no false SILENT verdict in the REFUSE cell"
+fi
+LOCKF="$P/.getff/rules-lock.python.json"
+lock_fp=$(sed -n 's/.*"sourceFingerprint": "\([0-9a-f]*\)".*/\1/p' "$LOCKF" 2>/dev/null)
+want_fp=$(_py_lock_fp16 "$P")
+consumer_fp=$(_file_fp16 "$P/ruff.toml")
+[ -n "$lock_fp" ] && [ "$lock_fp" = "$want_fp" ] \
+  && ok "(10) lock sourceFingerprint = fp16(delivered rules + .getff/ruff-bans.toml) — records the DELIVERED set" \
+  || bad "(10) lock sourceFingerprint (${lock_fp:-<none>}) != recomputed delivered-set fp ($want_fp)"
+[ "$lock_fp" != "$consumer_fp" ] \
+  && ok "(10) lock does NOT hash the consumer's ruff.toml (the lock does not lie)" \
+  || bad "(10) lock hashes the CONSUMER's ruff.toml — the lock misrepresents the delivered set"
+
+# ── (11) E2 discriminating negative — fallback ORDERING, the latent W4-class bug this increment
+# fixes: with .getff/ruff-bans.toml ABSENT (the pre-bans-file older delivery the code comment
+# anticipates), a consumer-first fallback resolves the consumer's bans-less ruff.toml → planted
+# violation does NOT fire → FALSE SILENT. Post-fix the getff-owned getff-ruff.toml reference copy
+# wins the fallback and the self-check fires. Driven via the PY_LAYER_LIB_ONLY seam so the bans file
+# can be genuinely absent (a real install always delivers it at HEAD — the bug is latent, not live).
+# @arm:E2:neg self-check-resolves-delivered-config (bans file absent → getff-ruff.toml must beat consumer ruff.toml)
+if command -v ruff >/dev/null 2>&1 || command -v uvx >/dev/null 2>&1; then
+  echo ""; echo "  ── (11) fallback ordering: getff-ruff.toml beats the consumer's ruff.toml (E2 negative) ──"
+  P=$(py_fixture)
+  printf '[lint]\nselect = ["E9"]\n' > "$P/ruff.toml"          # consumer-owned, NO TID bans
+  cp "$TPL/ruff.toml" "$P/getff-ruff.toml"                     # getff reference copy (has the bans)
+  # NO .getff/ruff-bans.toml — the fallback cascade is what resolves.
+  ordr=$(
+    PROJECT_ROOT="$P" PKG_ROOT="$REPO_ROOT" INSTALL_SH_LIB_ONLY=1 bash -c '
+      source "'"$REPO_ROOT"'/setup.d/lib.sh"
+      PY_LAYER_LIB_ONLY=1 source "'"$REPO_ROOT"'/setup.d/45-python.sh"
+      _py_firing_self_check
+    ' 2>&1
+  )
+  echo "$ordr" | grep -qF 'ruff fired RED' \
+    && ok "(11) self-check resolved the GETFF-owned getff-ruff.toml — planted violation fired" \
+    || bad "(11) FALSE SILENT — fallback resolved the consumer's bans-less ruff.toml (consumer-first ordering bug): $(echo "$ordr" | grep -i ruff | tr '\n' '|')"
+  echo "$ordr" | grep -qF 'ruff did NOT fire' \
+    && bad "(11) explicit false-SILENT verdict printed (delivered-config resolution bug)" \
+    || ok "(11) no false-SILENT verdict (getff-owned-first ordering holds)"
+else
+  echo ""; echo "  ── (11) SKIP fallback-ordering negative (no ruff/uvx on PATH) ──"
+fi
+
+# ── (12) E1 discriminating negative — an OVER-BROAD delivered rule set must be CAUGHT by the clean
+# controls (pre-fix the RED-only self-check printed «enforcement is live» identically): an ast-grep
+# rule matching EVERY expression + a bans config banning the clean control's own import (json).
+# @arm:E1:neg scratch-consumer-red-green-pair (over-broad rules → clean controls RED the self-check)
+if { command -v ast-grep >/dev/null 2>&1 || command -v sg >/dev/null 2>&1; } \
+   && { command -v ruff >/dev/null 2>&1 || command -v uvx >/dev/null 2>&1; }; then
+  echo ""; echo "  ── (12) over-broad delivered rules → clean controls catch them (E1 negative) ──"
+  P=$(py_fixture)
+  mkdir -p "$P/.getff/astgrep-rules"
+  {
+    echo 'id: getff-overbroad-stub'
+    echo 'language: python'
+    echo 'severity: error'
+    echo 'message: over-broad stub — matches every expression'
+    echo 'rule:'
+    echo '  pattern: $A'
+  } > "$P/.getff/astgrep-rules/getff-overbroad-stub.yml"
+  {
+    echo '[lint]'
+    echo 'select = ["TID251", "TID253"]'
+    echo '[lint.flake8-tidy-imports]'
+    echo 'banned-module-level-imports = ["tensorflow", "json"]'
+  } > "$P/.getff/ruff-bans.toml"
+  ovb=$(
+    PROJECT_ROOT="$P" PKG_ROOT="$REPO_ROOT" INSTALL_SH_LIB_ONLY=1 bash -c '
+      source "'"$REPO_ROOT"'/setup.d/lib.sh"
+      PY_LAYER_LIB_ONLY=1 source "'"$REPO_ROOT"'/setup.d/45-python.sh"
+      _py_firing_self_check
+    ' 2>&1
+  )
+  echo "$ovb" | grep -qF 'ast-grep FIRED on the clean control' \
+    && ok "(12) ast-grep clean control FIRED under the over-broad rule → detected" \
+    || bad "(12) over-broad ast-grep rule NOT detected: $(echo "$ovb" | grep -i 'ast-grep' | tr '\n' '|')"
+  echo "$ovb" | grep -qF 'ruff FIRED on the clean control' \
+    && ok "(12) ruff clean control FIRED under the json-banning config → detected" \
+    || bad "(12) over-broad ruff config NOT detected: $(echo "$ovb" | grep -i 'ruff' | tr '\n' '|')"
+  echo "$ovb" | grep -qF 'OVER-BROAD' \
+    && ok "(12) summary refuses the green verdict (OVER-BROAD reported)" \
+    || bad "(12) summary still claimed green under always-red rules (the pre-arm false-green)"
+  echo "$ovb" | grep -qF 'enforcement is live' \
+    && bad "(12) «enforcement is live» printed for over-broad rules (false green)" \
+    || ok "(12) no false «enforcement is live» claim"
+else
+  echo ""; echo "  ── (12) SKIP over-broad negative (ast-grep and/or ruff not on PATH) ──"
+fi
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

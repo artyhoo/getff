@@ -433,6 +433,79 @@ export const ADAPTER_JIG_ARMS: readonly ArmEntry[] = [
       { suite: 'tests/install-sh/rules-lock-schema-parity.test.sh', locator: '@arm:D3:neg' },
     ],
   },
+  // Increment E (J2). Firing group — both real retrofits are the SAME defect class the W4
+  // cargo fix 32d52a37d closed (delivered-config discipline), propagated to (a) the shipped
+  // F8 self-check on BOTH lanes and (b) the python resolver specifically.
+  //
+  // E1 fix+arm atomic (REAL retrofit bug, both lanes): the shipped install-time firing
+  // self-checks (_py_firing_self_check, _cargo_firing_self_check) asserted ONLY the RED
+  // direction — an over-broad/broken delivered config firing on ANY input printed
+  // «enforcement is live» identically (RED-proven live: pre-fix code + an always-firing
+  // config → false green on both lanes). Fixed in the same increment: paired CLEAN CONTROLS
+  // (conforming code must stay quiet) + an OVER-BROAD verdict that refuses the green summary.
+  // pos = entry-lane arm 6 (cargo) / arm 8 (python): clean control GREEN on a healthy install;
+  // neg = arm 9 (cargo) / arm 12 (python): a planted over-broad config (bans the clean
+  // control's own idiom / an $A match-everything rule) MUST be caught — green refused.
+  {
+    id: 'E1',
+    group: 'firing',
+    slug: 'scratch-consumer-red-green-pair',
+    positive: [
+      { suite: 'tests/install-sh/cargo-entry-lane.test.sh', locator: '@arm:E1:pos' },
+      { suite: 'tests/install-sh/python-entry-lane.test.sh', locator: '@arm:E1:pos' },
+    ],
+    negative: [
+      { suite: 'tests/install-sh/cargo-entry-lane.test.sh', locator: '@arm:E1:neg' },
+      { suite: 'tests/install-sh/python-entry-lane.test.sh', locator: '@arm:E1:neg' },
+    ],
+  },
+  // E2 fix+arm atomic (REAL latent bug, python lane — the W4 cargo finding-1 class): the
+  // _ruffcfg fallback (45-python.sh) preferred the CONSUMER-owned ruff.toml over the
+  // getff-owned getff-ruff.toml reference copy. Latent at HEAD (delivery always writes
+  // .getff/ruff-bans.toml, the winning rung) but live on the pre-bans-file older-delivery
+  // scenario the code comment anticipates: REFUSE-cell consumer config has no TID bans →
+  // false SILENT (RED-proven live via the seam with the bans file absent). Fixed by swapping
+  // the fallback to getff-owned-first, mirroring _cargo_delivered_clippy_path.
+  // pos = cargo arms 5a/5b (existing W4 coverage, now registered) + python arm 10 (REFUSE
+  // cell: fire via delivered config + lock fp hashes the delivered set, not the consumer's);
+  // neg = python arm 11 (bans file absent → getff-ruff.toml must beat consumer ruff.toml).
+  {
+    id: 'E2',
+    group: 'firing',
+    slug: 'self-check-resolves-delivered-config',
+    positive: [
+      { suite: 'tests/install-sh/cargo-entry-lane.test.sh', locator: '@arm:E2:pos' },
+      { suite: 'tests/install-sh/python-entry-lane.test.sh', locator: '@arm:E2:pos' },
+    ],
+    negative: [
+      { suite: 'tests/install-sh/python-entry-lane.test.sh', locator: '@arm:E2:neg' },
+    ],
+  },
+  // E3 (recon: honest none-spotted per lane — all four firing lanes already ship
+  // checkToolchainFreshness with a drift paired-negative; the J2 delta is the POPULATION
+  // sentinel preventing a FUTURE delivered lane from skipping the freshness gate).
+  // Population by artifact presence (J2 decisions log #12): backends/<dir> with
+  // firing.test.ts + capability-matrix.json. pos = the sentinel (real-tree wiring complete +
+  // fixture-negative pairing inside the suite); neg = the four per-backend tagged drift
+  // negatives (fabricated version drift → violation; RED-capability re-proven at
+  // registration time via a live inverted assertion on the cargo suite).
+  {
+    id: 'E3',
+    group: 'firing',
+    slug: 'toolchain-freshness-vs-evidence',
+    positive: [
+      {
+        suite: 'packages/core/backends/shared/toolchain-freshness-population.test.ts',
+        locator: '@arm:E3:pos',
+      },
+    ],
+    negative: [
+      { suite: 'packages/core/backends/cargo/capability-matrix.test.ts', locator: '@arm:E3:neg' },
+      { suite: 'packages/core/backends/ruff/capability-matrix.test.ts', locator: '@arm:E3:neg' },
+      { suite: 'packages/core/backends/astgrep/capability-matrix.test.ts', locator: '@arm:E3:neg' },
+      { suite: 'packages/core/backends/npm/capability-matrix.test.ts', locator: '@arm:E3:neg' },
+    ],
+  },
 ];
 
 /** Gate 1 — pairing: a green-only (or red-only) arm is REFUSED. */

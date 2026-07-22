@@ -154,6 +154,7 @@ describe('checkToolchainFreshness — paired negatives (unit test of the functio
     expect(checkToolchainFreshness(freshCell('node v24.3.0 / eslint 10.4.0'), '10.4.0')).toEqual([]);
   });
 
+  // @arm:E3:neg toolchain-freshness-vs-evidence (fabricated version drift → violation, RED-capable)
   it('N8: a STALE toolchain version (evidence eslint != resolving eslint) is a violation', () => {
     const violations = checkToolchainFreshness(freshCell('node v24.3.0 / eslint 9.39.4'), '10.4.0');
     expect(violations.length).toBe(1);
