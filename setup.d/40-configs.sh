@@ -60,6 +60,11 @@ chmod_safe +x "$PROJECT_ROOT/scripts/check-shields-up.sh" 2>/dev/null || true
 # Consumer surface: npm run test:mutation:generated (not in validate — on-demand only).
 copy_safe "$PKG_ROOT/packages/core/synthesizer/run-generated-rule-mutation.sh" "$PROJECT_ROOT/scripts/run-generated-rule-mutation.sh"
 chmod_safe +x "$PROJECT_ROOT/scripts/run-generated-rule-mutation.sh" 2>/dev/null || true
+# rule-tests-surface S5: standing firing check for the non-npm enrichment-sidecar test material
+# (.ai-factory/rule-tests/<backend>.json). Invoked by the guarded consumer pre-push arm
+# (packages/core/hooks/pre-push.ts generatedRuleMaterialSection); also runnable on demand.
+copy_safe "$PKG_ROOT/packages/core/synthesizer/run-rule-tests-firing.sh" "$PROJECT_ROOT/scripts/run-rule-tests-firing.sh"
+chmod_safe +x "$PROJECT_ROOT/scripts/run-rule-tests-firing.sh" 2>/dev/null || true
 if [ "$STACK" = "react-next" ]; then
   copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh" "$PROJECT_ROOT/scripts/audit-ai-docs.react-next.sh"
   chmod_safe +x "$PROJECT_ROOT/scripts/audit-ai-docs.react-next.sh" 2>/dev/null || true
