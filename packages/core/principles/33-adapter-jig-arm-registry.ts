@@ -116,8 +116,11 @@ export interface ArmEntry {
  * append-per-increment keeps the branch green after every commit; a count===22 assertion
  * landed upfront with zero arms would be RED from increment 1). While false, the gate asserts
  * registered ⊆ canonical; once true, it asserts set-EQUALITY with all 22 canonical ids.
+ *
+ * FIN (J2): flipped true — all 22 canonical arms are registered (A1-A2, B1-B3, C1-C4, D1-D3,
+ * E1-E3, P1, G1-G3, H1-H3). The gate now asserts count===22 + zero unregistered canonical ids.
  */
-export const REGISTRY_COMPLETE = false;
+export const REGISTRY_COMPLETE = true;
 
 /**
  * The live arm registry. Populated APPEND-ONLY, one row per landed arm, in the same commit
