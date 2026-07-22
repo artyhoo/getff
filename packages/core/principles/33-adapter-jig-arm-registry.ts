@@ -293,6 +293,76 @@ export const ADAPTER_JIG_ARMS: readonly ArmEntry[] = [
       { suite: 'packages/core/research/ecosystem-unwired-debt.test.ts', locator: '@arm:H3:neg' },
     ],
   },
+  // Increment G (J2). G1 retrofit (CREATE-the-invariant): the Stack union had
+  // ZERO compiler-enumerated consumer — widening it produced no tsc error
+  // anywhere (the sole production brancher, resolve-ctx.ts, ends in a bare npm
+  // fallthrough BY DESIGN). The new detector/stack-exhaustiveness.test.ts
+  // sentinel (assertNever idiom per grammar.ts:56) makes union-widening break
+  // `tsc --noEmit`; the paired negative is a @ts-expect-error-pinned
+  // incomplete switch (trybuild-style — the pairing lives at the typecheck
+  // gate). RED-proven live both ways: directive removed → TS2345 at the
+  // incomplete switch; union widened with 'go' → TS2345 at the sentinel.
+  // Scope limit flagged: the sentinel guards type-enumeration only, NOT
+  // resolve-ctx.ts's by-design npm-default routing.
+  {
+    id: 'G1',
+    group: 'type-shape',
+    slug: 'type-widening-exhaustiveness',
+    positive: [
+      { suite: 'packages/core/detector/stack-exhaustiveness.test.ts', locator: '@arm:G1:pos' },
+    ],
+    negative: [
+      { suite: 'packages/core/detector/stack-exhaustiveness.test.ts', locator: '@arm:G1:neg' },
+    ],
+  },
+  // G2 — the ADAPTER-keyed twin of the ackFilePath I2 tripwire (recon: the W2
+  // «no third site» claim was protected only by the ackFilePath-keyed
+  // detector, which cannot see a rogue `{ root, adapter: npmAdapter }` bypass
+  // that omits ackFilePath). SCAN arm: zero hardcoded default-adapter ctx
+  // literals outside the resolve-ctx.ts factory home; CENSUS arm: production
+  // resolveCtxForRoot callsites set-equal to the frozen W2 pair
+  // {cli.ts, file-clients.ts} (BASELINE-style both-directions prescription).
+  // RED-proven live: pre-W2-style literal planted into the real cli.ts on
+  // disk → SCAN flagged cli.ts AND CENSUS flagged the dropped caller.
+  {
+    id: 'G2',
+    group: 'type-shape',
+    slug: 'all-callsites-migrated-atomically',
+    positive: [
+      {
+        suite: 'packages/core/research/ackfilepath-plan-containment.test.ts',
+        locator: '@arm:G2:pos',
+      },
+    ],
+    negative: [
+      {
+        suite: 'packages/core/research/ackfilepath-plan-containment.test.ts',
+        locator: '@arm:G2:neg',
+      },
+    ],
+  },
+  // G3 — per-PR-diff scope guard, realized per J2 decisions log #9 as a PURE
+  // prefix-set-membership check over a SUPPLIED changed-file list
+  // (hooks/checks/skill-core-edit-scope.ts + GitProvider.changedFiles adapter),
+  // NOT an on-disk existence check: 2 of the 3 spec-named protected surfaces
+  // (.claude/skills/rule-tests/, agents/rule-test-author.md) are
+  // rule-tests-surface S1 FUTURE artifacts absent from this repo by design —
+  // an existence-based guard would be vacuously green for them (T15/T2). The
+  // in-repo RED anchor is packages/core/ir/types.ts (exists); the absent
+  // paths RED as string literals (creating them is an intersection too).
+  // RED-proven live via inverted assertions on both the anchor and an
+  // absent-path prefix hit.
+  {
+    id: 'G3',
+    group: 'type-shape',
+    slug: 'zero-skill-core-edits',
+    positive: [
+      { suite: 'packages/core/hooks/checks/skill-core-edit-scope.test.ts', locator: '@arm:G3:pos' },
+    ],
+    negative: [
+      { suite: 'packages/core/hooks/checks/skill-core-edit-scope.test.ts', locator: '@arm:G3:neg' },
+    ],
+  },
 ];
 
 /** Gate 1 — pairing: a green-only (or red-only) arm is REFUSED. */

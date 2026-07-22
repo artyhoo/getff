@@ -269,3 +269,162 @@ describe('F-tripwire — ackFilePath plan-containment (research-source-trust.md 
     });
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Adapter-jig arm G2 `all-callsites-migrated-atomically` (spec §3.7) — the
+// ADAPTER-keyed twin of the I2 tripwire above.
+//
+// W2 (#1076) migrated BOTH production ctx-construction callsites
+// (synthesizer/cli.ts + synthesizer/file-clients.ts) through the single factory
+// `resolveCtxForRoot` (synthesizer/resolve-ctx.ts) and §1.7-verified «no third
+// site». That claim was protected only by the ackFilePath-keyed I2 detector —
+// which would NOT catch a rogue `{ root, adapter: npmAdapter }` bypass that
+// omits ackFilePath (recon group G, honest coverage-gap finding). G2 closes it:
+//   (1) SCAN — no production research/synthesizer source OTHER than the factory
+//       home constructs a ResolveCtx with a hardcoded `<npm|cargo|pip>Adapter`
+//       literal; every production ResolveCtx comes from resolveCtxForRoot.
+//   (2) CENSUS — the production `resolveCtxForRoot(` call sites are EXACTLY
+//       {cli.ts, file-clients.ts} (mirrors the ecosystem-unwired-debt BASELINE
+//       discipline: a callsite added or dropped must update this census in the
+//       SAME PR — that is the atomic-migration gate, both directions).
+// The detector reuses the H2 lesson directly: a token-alone union predicate
+// (flat-brace prefix ∪ key-position at any nesting depth), never a conjunctive
+// co-presence term.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** The single file allowed to construct a ResolveCtx with an explicit
+ *  `adapter: <symbol>` literal — the W2 factory (analogous to ACKFILEPATH_HOME
+ *  for the I-detectors above). */
+const CTX_FACTORY_HOME = 'packages/core/synthesizer/resolve-ctx.ts';
+
+/** G2 detector: a hardcoded default-adapter ResolveCtx construction —
+ *  `adapter:` key in construction position with a concrete `<npm|cargo|pip>Adapter`
+ *  symbol value. Union of the two H2 shapes (flat-brace prefix tolerating an
+ *  interposed inline comment; key-position after `{`/`,` at any nesting depth —
+ *  closes the nested-brace evasion). A type DECLARATION (`adapter?:`) never
+ *  matches (`?` breaks the `adapter\s*:` adjacency); an import binding
+ *  (`import { npmAdapter }`) has no `adapter:` key; the factory-call form
+ *  (`resolveCtxForRoot(root)`) carries no literal at all. */
+const HARDCODED_ADAPTER_CTX_RE =
+  /\{[^{}]*\badapter\s*:\s*(?:npm|cargo|pip)Adapter\b|[{,]\s*adapter\s*:\s*(?:npm|cargo|pip)Adapter\b/;
+
+/** A production factory call site (definition line excluded via CTX_FACTORY_HOME). */
+const FACTORY_CALL_RE = /\bresolveCtxForRoot\s*\(/;
+
+/** The frozen production callsite census (W2 #1076 «both sites, no third»).
+ *  Adding a legitimate new plan-parsing entrypoint MUST extend this census in
+ *  the same PR that adds the `resolveCtxForRoot` call — atomic, both ways. */
+const EXPECTED_FACTORY_CALLSITES = [
+  'packages/core/synthesizer/cli.ts',
+  'packages/core/synthesizer/file-clients.ts',
+];
+
+describe('G2 — all production ResolveCtx construction routes through the factory (adapter-jig §3.7)', () => {
+  const sources = trackedResearchSynthSources();
+  const POPULATED = sources.length > 0;
+
+  // @arm:G2:pos all-callsites-migrated-atomically (GREEN path: zero hardcoded
+  // default-adapter literals outside the factory home — the W2 migration is
+  // complete and STAYS complete)
+  it.skipIf(!POPULATED)(
+    'SCAN: no production source outside resolve-ctx.ts constructs a ResolveCtx with a hardcoded <npm|cargo|pip>Adapter literal',
+    () => {
+      const offenders: string[] = [];
+      for (const { rel, abs } of sources) {
+        if (rel === CTX_FACTORY_HOME) continue; // the sanctioned construction home
+        if (HARDCODED_ADAPTER_CTX_RE.test(readFileSync(abs, 'utf8'))) offenders.push(rel);
+      }
+      expect(
+        offenders,
+        `A production source constructs a ResolveCtx with a hardcoded adapter literal, bypassing ` +
+          `resolveCtxForRoot:\n  ${offenders.join('\n  ')}\n` +
+          `Since ecosystem-wiring W2 the ONLY sanctioned \`adapter: <symbol>\` construction home is ` +
+          `${CTX_FACTORY_HOME} (resolveCtxForRoot) — a hardcoded literal re-pins one ecosystem's adapter ` +
+          `and silently mis-routes python/cargo consumers down the npm path. Route the callsite through ` +
+          `resolveCtxForRoot(root) instead; if a genuinely new construction home is intended, that is a ` +
+          `spec §2 frozen-contract change, not a drive-by literal.`,
+      ).toHaveLength(0);
+    },
+  );
+
+  // @arm:G2:pos all-callsites-migrated-atomically (census half: BOTH migrated
+  // callsites still call the factory, and NO unexpected third caller exists —
+  // set-equality in both directions, the atomicity gate)
+  it.skipIf(!POPULATED)(
+    'CENSUS: production resolveCtxForRoot call sites are exactly {cli.ts, file-clients.ts}',
+    () => {
+      const callers = sources
+        .filter(({ rel }) => rel !== CTX_FACTORY_HOME) // the defining file, not a call site
+        .filter(({ abs }) => FACTORY_CALL_RE.test(readFileSync(abs, 'utf8')))
+        .map(({ rel }) => rel)
+        .sort();
+      expect(
+        callers,
+        `The production resolveCtxForRoot callsite census drifted from the frozen W2 set ` +
+          `[${EXPECTED_FACTORY_CALLSITES.join(', ')}].\n` +
+          `A NEW caller: extend EXPECTED_FACTORY_CALLSITES in this census (same PR — atomic migration). ` +
+          `A DROPPED caller: that plan-parsing site lost its Tier-1 ctx routing — restore the factory ` +
+          `call or migrate the census consciously, never silently.`,
+      ).toEqual([...EXPECTED_FACTORY_CALLSITES].sort());
+    },
+  );
+
+  // @arm:G2:pos all-callsites-migrated-atomically (anti-vacuity grounding: the
+  // detector regex MATCHES the factory's own real construction literals — the
+  // live positive corpus proving the regex fits the real construction shape)
+  it('sanity: the factory home itself carries the sanctioned literals and the detector recognizes them', () => {
+    const factoryText = readFileSync(resolve(REPO_ROOT, CTX_FACTORY_HOME), 'utf8');
+    expect(factoryText).toContain('{ root, adapter: npmAdapter }');
+    expect(HARDCODED_ADAPTER_CTX_RE.test(factoryText)).toBe(true);
+  });
+
+  describe('paired negative — G2 is non-vacuous on the real callsite shape', () => {
+    const CLI_REL = 'packages/core/synthesizer/cli.ts';
+    const CLI_ABS = resolve(REPO_ROOT, CLI_REL);
+    const cliPresent = existsSync(CLI_ABS);
+    const CLEAN_CALL = 'validateResearchPlan(parsed, resolveCtxForRoot(args.root));';
+
+    // @arm:G2:neg all-callsites-migrated-atomically (RED-proof: reverting the
+    // REAL cli.ts callsite to its pre-W2 hardcoded shape trips the detector —
+    // observed live as a planted on-disk violation failing the SCAN + CENSUS
+    // arms before this in-memory form was committed)
+    it.skipIf(!cliPresent)(
+      'reverting the REAL cli.ts callsite to a hardcoded { root, adapter: npmAdapter } literal trips the detector',
+      () => {
+        const text = readFileSync(CLI_ABS, 'utf8');
+        const attacked = text.replace(
+          CLEAN_CALL,
+          'validateResearchPlan(parsed, { root: args.root, adapter: npmAdapter });',
+        );
+        // Guard: the replace must have matched the real factory call, else the
+        // proof is vacuous (drift in cli.ts renamed the callsite shape).
+        expect(attacked).not.toBe(text);
+        expect(HARDCODED_ADAPTER_CTX_RE.test(attacked)).toBe(true);
+        // ...and the clean text does NOT trip (the discrimination pair).
+        expect(HARDCODED_ADAPTER_CTX_RE.test(text)).toBe(false);
+      },
+    );
+
+    // @arm:G2:neg all-callsites-migrated-atomically (nested-brace evasion shape
+    // — the H2 lesson applied to the adapter key: key-position after `,` at any
+    // nesting depth still trips)
+    it('a NESTED-brace ctx literal with a hardcoded adapter trips the detector', () => {
+      const nested =
+        'validateResearchPlan(parsed, { root, meta: { depth: 1 }, adapter: cargoAdapter })';
+      expect(HARDCODED_ADAPTER_CTX_RE.test(nested)).toBe(true);
+    });
+
+    // @arm:G2:pos all-callsites-migrated-atomically (anti-tautology trio: the
+    // three legitimate `xxxAdapter` / `adapter` shapes production code is
+    // ALLOWED to carry must NOT trip — declaration, import, factory call)
+    it('anti-tautology: a type declaration, an import binding, and the factory-call form are NOT flagged', () => {
+      const declaration =
+        'interface ResolveCtx { root: string; adapter?: EcosystemAdapter; ackFilePath?: string; }';
+      const importBinding = "import { npmAdapter } from '../research/ecosystem-npm.ts';";
+      const factoryCall = 'validateResearchPlan(parsed, resolveCtxForRoot(process.cwd()));';
+      expect(HARDCODED_ADAPTER_CTX_RE.test(declaration)).toBe(false);
+      expect(HARDCODED_ADAPTER_CTX_RE.test(importBinding)).toBe(false);
+      expect(HARDCODED_ADAPTER_CTX_RE.test(factoryCall)).toBe(false);
+    });
+  });
+});
