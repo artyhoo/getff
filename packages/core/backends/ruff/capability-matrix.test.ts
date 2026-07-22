@@ -162,6 +162,7 @@ describe('parseRuffVersion + checkToolchainFreshness — paired negatives (pure,
     expect(checkToolchainFreshness(freshCell('ruff 0.15.21'), '0.15.21')).toEqual([]);
   });
 
+  // @arm:E3:neg toolchain-freshness-vs-evidence (fabricated version drift → violation, RED-capable)
   it('a STALE toolchain version (evidence != resolving) is a violation', () => {
     const violations = checkToolchainFreshness(freshCell('ruff 0.15.20'), '0.15.21');
     expect(violations.length).toBe(1);

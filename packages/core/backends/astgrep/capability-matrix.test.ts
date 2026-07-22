@@ -150,6 +150,7 @@ describe('parseAstgrepVersion + checkToolchainFreshness — paired negatives (pu
     expect(checkToolchainFreshness(freshCell('ast-grep 0.44.1'), '0.44.1')).toEqual([]);
   });
 
+  // @arm:E3:neg toolchain-freshness-vs-evidence (fabricated version drift → violation, RED-capable)
   it('a STALE toolchain version (evidence != resolving) is a violation', () => {
     const violations = checkToolchainFreshness(freshCell('ast-grep 0.44.0'), '0.44.1');
     expect(violations.length).toBe(1);

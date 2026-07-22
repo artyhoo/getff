@@ -172,6 +172,14 @@ describe('runPracticeRender — practice JSON → rendered rule YAML on the cons
 // refuses any entryId not matching the shipped rule-id slug convention (^[a-z][a-z0-9-]*$ —
 // starters `getff-no-eval`…, researched `getff-researched-no-yaml-load`) BEFORE any fs use, plus a
 // belt-and-braces resolved-path containment check (ackfilepath/resolvedWithinRoot posture).
+// @arm:B2:neg value-guard-containment (the arm's ORIGIN surface per spec §3.2 B2:
+// safeRenderedPath in rule-bootstrap-cli.ts — the W5 #1082 unsanitized-entryId
+// arbitrary-write traversal, fixed with the safe-slug gate + resolved-path
+// containment. Traversal `../../pwned` and separator `evil/nested` ids are
+// REFUSED loudly BEFORE any fs use. RED re-observed at jig time via a
+// temporarily-inverted `.not.toThrow()` — observed failing with
+// "PracticeEntryIdError: unsafe practice entryId \"../../pwned\": not a
+// rule-id slug"; inversion reverted.)
 describe('entryId filesystem safety — traversal/clobber shapes REFUSED before any fs use', () => {
   function practiceWithId(entryId: string): Record<string, unknown> {
     const practice = JSON.parse(readFileSync(PRACTICE_FIXTURE, 'utf8')) as Record<string, unknown>;
@@ -206,6 +214,11 @@ describe('entryId filesystem safety — traversal/clobber shapes REFUSED before 
     expect(existsSync(join(consumer, '.getff', 'rules-research'))).toBe(false);
   });
 
+  // @arm:B2:pos value-guard-containment (the safe-slug-format half of the B2
+  // Check on this surface: a valid rule-id slug passes the gate unchanged and
+  // renders inside .getff/rules-research — the pairing control proving the
+  // traversal/separator refusals above are the deliberate gate, not a
+  // gate-everything accident)
   it('valid slug entryId passes the gate unchanged (the committed convention renders)', () => {
     const consumer = freshConsumer();
     const result = runPracticeRender({
@@ -221,6 +234,9 @@ describe('entryId filesystem safety — traversal/clobber shapes REFUSED before 
 describe('rule-bootstrap-cli --from-practice — real CLI invocation', () => {
   const CLI = join(REPO_ROOT, 'packages/core/install/rule-bootstrap-cli.ts');
 
+  // @arm:B2:pos value-guard-containment (CLI-seam positive control: the committed
+  // safe-slug record renders end-to-end through the real entrypoint with exit 0 —
+  // pairs the non-zero traversal refusal below)
   it('renders + writes via the real entrypoint (exit 0, JSON summary on stdout)', { timeout: 120_000 }, () => {
     const consumer = freshConsumer();
     const r = spawnSync(
@@ -235,6 +251,11 @@ describe('rule-bootstrap-cli --from-practice — real CLI invocation', () => {
     expect(existsSync(renderedPathOf(consumer))).toBe(true);
   });
 
+  // @arm:B2:neg value-guard-containment (CLI seam: the same traversal entryId is
+  // a HARD non-zero refusal on the real entrypoint — never the rc=0
+  // degrade-with-guidance contract. RED re-observed at jig time via a
+  // temporarily-inverted `expect(r.status).toBe(0)` — observed failing with
+  // "expected 1 to be +0"; inversion reverted.)
   it('unsafe entryId → CLI exits NON-ZERO even without --strict (security refusal, not a degrade)', { timeout: 120_000 }, () => {
     const consumer = freshConsumer();
     const practice = JSON.parse(readFileSync(PRACTICE_FIXTURE, 'utf8')) as Record<string, unknown>;

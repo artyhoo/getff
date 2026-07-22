@@ -199,22 +199,46 @@ _cargo_write_rules_lock() {
   fi
 
   mkdir -p "$lock_dir"
-  local fp="unknown"
+  # Fingerprint ladder (adapter-jig D2 — no-silent-fingerprint-degrade; mirrors 45-python.sh):
+  # sha256 rungs first, md5 fallback rungs next (value carries its algorithm prefix so a fallback
+  # digest is never mislabelled sha256), and BOTH degrade triggers — no hash tool on PATH AND
+  # delivered-clippy-absent — warn LOUDLY to stderr (attention-is-not-a-mechanism §1 /
+  # degrade-loudly): the "sha256:unknown" constant below is a FAKE fingerprint, not an
+  # authoritative digest, and must never be silently trusted. Do NOT hard-fail — the
+  # sourceFingerprint is an optional auditability field, not an install precondition.
+  local fp="sha256:unknown"
   if [ -e "$clippy" ]; then
     if command -v sha256sum >/dev/null 2>&1; then
-      fp=$(sha256sum "$clippy" | awk '{print $1}')
+      fp="sha256:$(sha256sum "$clippy" | awk '{print $1}')"
     elif command -v shasum >/dev/null 2>&1; then
-      fp=$(shasum -a 256 "$clippy" | awk '{print $1}')
+      fp="sha256:$(shasum -a 256 "$clippy" | awk '{print $1}')"
+    elif command -v md5 >/dev/null 2>&1; then          # BSD/macOS md5 fallback (lane parity: 45-python.sh ladder)
+      fp="md5:$(md5 "$clippy" | awk '{print $NF}')"
+    elif command -v md5sum >/dev/null 2>&1; then        # Linux md5sum fallback
+      fp="md5:$(md5sum "$clippy" | awk '{print $1}')"
+    else
+      echo "  ⚠ getff: no hash tool (sha256sum/shasum/md5/md5sum); cargo rules-lock sourceFingerprint is non-authoritative" >&2
     fi
+  else
+    echo "  ⚠ getff: delivered clippy config missing ($clippy); cargo rules-lock sourceFingerprint is non-authoritative" >&2
   fi
   local now
   now=$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)
+  # Schema (adapter-jig D3 — lock-schema-parity): the F11 CORE set {schemaVersion, framework,
+  # version, ruleIds, emittedAt, sourceFingerprint} (packages/core/installer/types.ts RulesLock)
+  # + per-lane extras (backend, note). ruleIds is [] by contract: cargo's ban surface is clippy
+  # TOML lint config (disallowed-methods entries), not named ast-grep rule ids — the core field
+  # is name-presence parity, its per-lane content may be empty. Gated cross-lane by
+  # tests/install-sh/rules-lock-schema-parity.test.sh.
   cat > "$lock" <<EOF
 {
+  "schemaVersion": 1,
   "framework": "cargo",
+  "version": null,
+  "ruleIds": [],
   "backend": "cargo-clippy-toml",
   "emittedAt": "$now",
-  "sourceFingerprint": "sha256:$fp",
+  "sourceFingerprint": "$fp",
   "note": "getff cargo lane reproducibility record (ecosystem-wiring W4). sourceFingerprint hashes the DELIVERED clippy config (clippy.toml when getff owns it; getff-clippy.toml in the REFUSE cell). A FUTURE rule-tests-surface reader / deps-hash suffix may consume emittedAt/sourceFingerprint (spec §6, unshipped)."
 }
 EOF
@@ -232,7 +256,7 @@ EOF
 # attention-is-not-a-mechanism.md §1). rc=0 on every branch — a self-check must not abort the install.
 _cargo_firing_self_check() {
   echo ""
-  local _pass=0 _silent=0 _degraded=0
+  local _pass=0 _silent=0 _degraded=0 _overbroad=0
   local _clippy
   _clippy=$(_cargo_delivered_clippy_path)
   echo "▶ getff firing self-check — proving the delivered clippy config ($(basename "$_clippy")) FIRES (planted violation in an OS temp dir)"
@@ -253,6 +277,19 @@ _cargo_firing_self_check() {
       echo "  ✗ cargo clippy did NOT fire on a planted violation — the delivered clippy config is SILENT (delivery bug)"
       _silent=$((_silent+1))
     fi
+    # Paired CLEAN CONTROL (adapter-jig E1): conforming code the delivered config must stay quiet on.
+    # Without it an always-red config (one that flags every crate) prints the same "enforcement is
+    # live" — the RED direction alone cannot discriminate a working config from a broken one.
+    printf 'fn main() {\n    let _ = std::env::args();\n}\n' > "$_t/src/main.rs"
+    local _out_clean
+    _out_clean=$( cd "$_t" && cargo clippy --message-format=json 2>/dev/null )
+    if printf '%s' "$_out_clean" | grep -q '"clippy::disallowed_methods"'; then
+      echo "  ✗ cargo clippy FIRED on the clean control — the delivered clippy config is OVER-BROAD (an always-red config is not enforcement)"
+      _overbroad=$((_overbroad+1))
+    else
+      echo "  ✓ cargo clippy clean control GREEN — no disallowed-methods diagnostic on conforming code (config discriminates)"
+      _pass=$((_pass+1))
+    fi
     rm -rf "$_t"
   else
     echo "  ⚠ cargo not on PATH (or the delivered clippy config missing) — firing NOT proven (degrade, NOT green). Verify manually from your crate root:"
@@ -261,12 +298,12 @@ _cargo_firing_self_check() {
   fi
 
   echo ""
-  if [ "$_silent" -gt 0 ]; then
-    echo "⚠  getff self-check: $_pass fired · $_silent SILENT — the delivered clippy config did NOT fire on bad input; review above before relying on it."
+  if [ "$_silent" -gt 0 ] || [ "$_overbroad" -gt 0 ]; then
+    echo "⚠  getff self-check: $_pass ok · $_silent SILENT · $_overbroad OVER-BROAD — the delivered clippy config failed a direction (SILENT = no fire on bad input; OVER-BROAD = fired on clean input); review above before relying on it."
   elif [ "$_degraded" -gt 0 ]; then
     echo "⚠  getff self-check: $_pass proven-firing · $_degraded NOT proven (tool absent) — a skipped check is NOT green; run the manual command above to prove it."
   else
-    echo "✓ getff self-check: the delivered clippy config fired RED on a planted violation — enforcement is live."
+    echo "✓ getff self-check: the delivered clippy config fired RED on a planted violation and stayed GREEN on the clean control — enforcement is live."
   fi
   return 0
 }
@@ -290,6 +327,15 @@ deliver_cargo_toolchain() {
   _cargo_deliver_deny "$tpl"
   _cargo_deliver_ci "$tpl"
   _cargo_write_rules_lock
+
+  # adapter-jig C4 (no-orphan-residue): on a refresh pass, loudly report getff-header-marked
+  # top-level files the CURRENT template set no longer delivers (lib.sh report_getff_orphans).
+  # Report-only — J2 decisions log #8; parity with the python lane.
+  if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
+    report_getff_orphans cargo \
+      clippy.toml getff-clippy.toml deny.toml getff-deny.toml \
+      .getff/Cargo.lints.toml .github/workflows/getff-cargo.yml
+  fi
 
   echo "  ✓ Rust/cargo toolchain delivery complete (see .getff-cargo-install.log for the audit trail)."
 }

@@ -388,23 +388,39 @@ _py_deliver_ci() {
 _py_firing_self_check() {
   echo ""
   echo "▶ getff firing self-check — proving the delivered rules FIRE (planted violation in an OS temp dir)"
-  local _pass=0 _silent=0 _degraded=0
+  local _pass=0 _silent=0 _degraded=0 _overbroad=0
 
   # ── ast-grep lane (primary) ──
+  # The `sg` fallback is ast-grep's short alias, but on Linux `sg` ALSO names the
+  # setgid(1) coreutil (/usr/bin/sg) — a bare `command -v sg` false-positives there.
+  # Guard the alias with an identity probe (`sg --version` prints "ast-grep <ver>")
+  # so a host with the setgid `sg` but no ast-grep DEGRADES honestly instead of
+  # running the wrong binary and mis-reporting the clean control as OVER-BROAD.
   local _sg=""
   if   command -v ast-grep >/dev/null 2>&1; then _sg="ast-grep"
-  elif command -v sg       >/dev/null 2>&1; then _sg="sg"; fi
+  elif command -v sg >/dev/null 2>&1 && sg --version 2>/dev/null | grep -qi 'ast-grep'; then _sg="sg"; fi
   if [ -n "$_sg" ] && [ -d "$PROJECT_ROOT/.getff/astgrep-rules" ]; then
     local _t; _t=$(mktemp -d)
     printf 'import datetime\nx = eval("1+1")\nos.system("echo hi")\na = datetime.now()\nb = datetime.datetime.now()\n' > "$_t/getff_selfcheck.py"
+    # Paired CLEAN CONTROL (adapter-jig E1): conforming code the delivered rules must stay quiet on.
+    # Without it an always-red config (a rule matching every file) prints the same "enforcement is
+    # live" — the RED direction alone cannot discriminate a working config from a broken one.
+    printf 'import json\nx = json.dumps({"ok": 1})\n' > "$_t/getff_selfcheck_clean.py"
     # ABSOLUTE ruleDirs → the rules resolve regardless of cwd (the delivered rules dir, read-only).
     printf 'ruleDirs:\n  - %s\n' "$PROJECT_ROOT/.getff/astgrep-rules" > "$_t/sgconfig.yml"
-    if ( cd "$_t" && "$_sg" scan . ) >/dev/null 2>&1; then
+    if ( cd "$_t" && "$_sg" scan getff_selfcheck.py ) >/dev/null 2>&1; then
       echo "  ✗ ast-grep did NOT fire on a planted violation — the delivered rules are SILENT (delivery bug)"
       _silent=$((_silent+1))
     else
       echo "  ✓ ast-grep fired RED on the planted violation (eval / os.system / datetime.now bans live)"
       _pass=$((_pass+1))
+    fi
+    if ( cd "$_t" && "$_sg" scan getff_selfcheck_clean.py ) >/dev/null 2>&1; then
+      echo "  ✓ ast-grep clean control GREEN — no diagnostics on conforming code (rules discriminate)"
+      _pass=$((_pass+1))
+    else
+      echo "  ✗ ast-grep FIRED on the clean control — the delivered rules are OVER-BROAD (an always-red config is not enforcement)"
+      _overbroad=$((_overbroad+1))
     fi
     rm -rf "$_t"
   else
@@ -415,24 +431,32 @@ _py_firing_self_check() {
 
   # ── ruff lane (fast-path) ──
   # Prefer the stable getff-bans config — the EXACT file the shipped CI gate points a --config at — so the
-  # self-check proves the same artefact CI relies on. Fall back to the discovered ruff.toml (fresh cell)
-  # or the getff-ruff.toml reference copy (collision cell) on an older delivery that predates the bans file.
+  # self-check proves the same artefact CI relies on. On an older delivery that predates the bans file,
+  # fall back GETFF-OWNED-FIRST: the getff-ruff.toml reference copy (REFUSE cell) BEFORE the discovered
+  # ruff.toml (fresh cell, where ruff.toml IS ours). Ordering is load-bearing (adapter-jig E2, the W4
+  # cargo finding-1 class): in the REFUSE cell the consumer's ruff.toml lacks our TID bans, so a
+  # consumer-first fallback validates the WRONG config → false SILENT. Mirrors
+  # _cargo_delivered_clippy_path (getff-owned before consumer-owned, 46-cargo.sh).
   local _ruff_mode="" _ruffcfg=""
   [ -f "$PROJECT_ROOT/.getff/ruff-bans.toml" ] && _ruffcfg="$PROJECT_ROOT/.getff/ruff-bans.toml"
-  [ -z "$_ruffcfg" ] && [ -f "$PROJECT_ROOT/ruff.toml" ]       && _ruffcfg="$PROJECT_ROOT/ruff.toml"
   [ -z "$_ruffcfg" ] && [ -f "$PROJECT_ROOT/getff-ruff.toml" ] && _ruffcfg="$PROJECT_ROOT/getff-ruff.toml"
+  [ -z "$_ruffcfg" ] && [ -f "$PROJECT_ROOT/ruff.toml" ]       && _ruffcfg="$PROJECT_ROOT/ruff.toml"
   if   command -v ruff >/dev/null 2>&1; then _ruff_mode="ruff"
   elif command -v uvx  >/dev/null 2>&1; then _ruff_mode="uvx"; fi
   if [ -n "$_ruff_mode" ] && [ -n "$_ruffcfg" ]; then
     local _t; _t=$(mktemp -d)
     printf 'import tensorflow\nimport datetime\nx = datetime.datetime.utcnow()\n' > "$_t/getff_selfcheck.py"
-    local _rc=0
+    # Paired CLEAN CONTROL (adapter-jig E1) — conforming code the delivered bans must stay quiet on.
+    printf 'import json\nx = json.dumps({"ok": 1})\n' > "$_t/getff_selfcheck_clean.py"
+    local _rc=0 _rc_clean=0
     # Run FROM the temp dir + --no-cache so ruff writes NOTHING under the consumer tree (a stray
     # .ruff_cache/ in $PROJECT_ROOT would break the temp-dir-ONLY STOP line). --config is absolute.
     if [ "$_ruff_mode" = "uvx" ]; then
       ( cd "$_t" && uvx ruff@0.15.21 check --no-cache --config "$_ruffcfg" getff_selfcheck.py ) >/dev/null 2>&1 || _rc=$?
+      ( cd "$_t" && uvx ruff@0.15.21 check --no-cache --config "$_ruffcfg" getff_selfcheck_clean.py ) >/dev/null 2>&1 || _rc_clean=$?
     else
       ( cd "$_t" && ruff check --no-cache --config "$_ruffcfg" getff_selfcheck.py ) >/dev/null 2>&1 || _rc=$?
+      ( cd "$_t" && ruff check --no-cache --config "$_ruffcfg" getff_selfcheck_clean.py ) >/dev/null 2>&1 || _rc_clean=$?
     fi
     if [ "$_rc" -eq 0 ]; then
       echo "  ✗ ruff did NOT fire on a planted violation — the delivered ruff config is SILENT (delivery bug)"
@@ -440,6 +464,13 @@ _py_firing_self_check() {
     else
       echo "  ✓ ruff fired RED on the planted violation (TID251 utcnow / TID253 tensorflow bans live)"
       _pass=$((_pass+1))
+    fi
+    if [ "$_rc_clean" -eq 0 ]; then
+      echo "  ✓ ruff clean control GREEN — no diagnostics on conforming code (bans discriminate)"
+      _pass=$((_pass+1))
+    else
+      echo "  ✗ ruff FIRED on the clean control — the delivered ruff config is OVER-BROAD (an always-red config is not enforcement)"
+      _overbroad=$((_overbroad+1))
     fi
     rm -rf "$_t"
   else
@@ -449,12 +480,12 @@ _py_firing_self_check() {
   fi
 
   echo ""
-  if [ "$_silent" -gt 0 ]; then
-    echo "⚠  getff self-check: $_pass fired · $_silent SILENT — a delivered rule did NOT fire on bad input; review above before relying on it."
+  if [ "$_silent" -gt 0 ] || [ "$_overbroad" -gt 0 ]; then
+    echo "⚠  getff self-check: $_pass ok · $_silent SILENT · $_overbroad OVER-BROAD — a delivered rule failed a direction (SILENT = no fire on bad input; OVER-BROAD = fired on clean input); review above before relying on it."
   elif [ "$_degraded" -gt 0 ]; then
     echo "⚠  getff self-check: $_pass proven-firing · $_degraded NOT proven (tool absent) — a skipped check is NOT green; run the manual command(s) above to prove it."
   else
-    echo "✓ getff self-check: both lanes fired RED on planted violations — enforcement is live."
+    echo "✓ getff self-check: both lanes fired RED on planted violations and stayed GREEN on clean controls — enforcement is live."
   fi
   return 0
 }
@@ -611,6 +642,15 @@ deliver_python_toolchain() {
   _py_deliver_ruff "$tpl"
   _py_deliver_prettierignore
   _py_deliver_ci "$tpl"
+
+  # adapter-jig C4 (no-orphan-residue): on a refresh pass, loudly report getff-header-marked
+  # top-level files the CURRENT template set no longer delivers (lib.sh report_getff_orphans;
+  # in-dir payloads are swept by refresh_safe already). Report-only — J2 decisions log #8.
+  if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
+    report_getff_orphans python \
+      ruff.toml sgconfig.yml getff-ruff.toml \
+      .getff/ruff-bans.toml .github/workflows/getff-python.yml
+  fi
 
   echo "  ✓ Python toolchain delivery complete (see .getff-python-install.log for the audit trail)."
 }
