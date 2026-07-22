@@ -40,6 +40,12 @@
  * smuggling), so it is a documented residual, not a live hole. If a spread-into-ctx
  * shape is ever introduced, add a third detector flagging a `...`-spread inside a
  * `validateResearchPlan` / `resolveAllowedSources` ctx literal.
+ * (Adapter-jig H2 note: the previously UNDOCUMENTED nested-brace evasion of I2 —
+ * a ctx literal whose flat-brace scan was broken by a nested `{ … }` value — is
+ * now CLOSED by the union detector below, no longer a residual. The remaining
+ * exotic textual gap is an inline comment interposed directly before the key
+ * inside a nested-brace literal — that breaks shape 2's `[{,]` adjacency; it is
+ * caught by I1 regardless, since I1 flags the bare token anywhere outside home.)
  *
  * Deterministic: git ls-files + readFileSync + regex. ZERO API-billed calls
  * (no-paid-llm-in-ci). Mirrors principle 30's git-aware trackedStoreFiles idiom.
@@ -81,10 +87,10 @@ function trackedResearchSynthSources(): { rel: string; abs: string }[] {
     .filter(({ abs }) => existsSync(abs));
 }
 
-/** I2 detector: a construction object literal (brace group) that threads a value
- *  into an `ackFilePath:` key — REGARDLESS of whether an `adapter:` key is
- *  co-present. Keyed on the `ackFilePath:` value-key ALONE, not on a co-present
- *  `adapter:`. This is deliberate: it catches BOTH the W2 factory return
+/** I2 detector: a construction that threads a value into an `ackFilePath:` key —
+ *  REGARDLESS of whether an `adapter:` key is co-present. Keyed on the
+ *  `ackFilePath:` value-key ALONE, not on a co-present `adapter:`. This is
+ *  deliberate: it catches BOTH the W2 factory return
  *  `{ root, adapter: X, ackFilePath: Y }` in resolve-ctx.ts AND an adapter-LESS
  *  reintroduction such as
  *      validateResearchPlan(parsed, { root, ackFilePath: plan.ackFilePath })
@@ -93,13 +99,25 @@ function trackedResearchSynthSources(): { rel: string; abs: string }[] {
  *  INDEPENDENT defense-in-depth layer over I1 (the containment grep), not a
  *  single-point dependent on it.
  *
+ *  Union of two shapes (adapter-jig H2 rework — the earlier single flat-brace
+ *  form `\{(?=[^{}]*\backFilePath\s*:)[^{}]*\}` required the key to sit in a
+ *  brace group with NO nested braces, an undocumented structural narrowing: a
+ *  ctx literal carrying a nested-brace value, e.g.
+ *  `{ root, adapter: { ecosystem: 1 }, ackFilePath: root }`, EVADED it entirely.
+ *  Per this arm's own no-conjunctive-narrowing principle the detector now keys
+ *  on the invariant-bearing token in a construction position alone):
+ *    1. `\{[^{}]*\backFilePath\s*:`  — the key inside a flat brace-group prefix
+ *       (tolerates an interposed inline comment between `,` and the key);
+ *    2. `[{,]\s*\backFilePath\s*:`   — the key in key-position after `{` or `,`
+ *       at ANY nesting depth (closes the nested-brace evasion).
+ *
  *  The `:` (not `?:`) requirement keeps an optional-property DECLARATION
  *  (`ackFilePath?:` in the `ResolveCtx` interface) from matching: the `?` breaks
  *  the `ackFilePath\s*:` adjacency, so a type-def never trips a construction
  *  detector. (The type-def home, allowlist-resolver.ts, is also excluded from the
  *  scan below regardless — belt and suspenders.) */
 const RESOLVE_CTX_ACKFILEPATH_RE =
-  /\{(?=[^{}]*\backFilePath\s*:)[^{}]*\}/s;
+  /\{[^{}]*\backFilePath\s*:|[{,]\s*\backFilePath\s*:/;
 
 describe('F-tripwire — ackFilePath plan-containment (research-source-trust.md §5 item 3)', () => {
   const sources = trackedResearchSynthSources();
@@ -172,6 +190,9 @@ describe('F-tripwire — ackFilePath plan-containment (research-source-trust.md 
     const ctxPresent = existsSync(CTX_ABS);
     const CLEAN_LITERAL = '{ root, adapter: npmAdapter }';
 
+    // @arm:H2:pos tripwire-predicate-no-conjunctive-narrowing (GREEN-path control:
+    // the live production literal is clean and the broadened token-alone predicate
+    // does NOT false-fire on it — jig registry semantics: pos = clean state passes)
     it.skipIf(!ctxPresent)(
       'sanity: the real synthesizer/resolve-ctx.ts construction literal exists and is currently clean',
       () => {
@@ -181,6 +202,9 @@ describe('F-tripwire — ackFilePath plan-containment (research-source-trust.md 
       },
     );
 
+    // @arm:H2:neg tripwire-predicate-no-conjunctive-narrowing (RED-proof: the
+    // violating construction — threading the invariant-bearing token into the REAL
+    // production literal — trips the detector; proves the tripwire CAN fire)
     it.skipIf(!ctxPresent)(
       'POSITIVE arm: threading ackFilePath into the REAL resolve-ctx.ts literal trips the detector (RED proof)',
       () => {
@@ -209,17 +233,39 @@ describe('F-tripwire — ackFilePath plan-containment (research-source-trust.md 
     // e.g. `validateResearchPlan(parsed, { root, ackFilePath: plan.ackFilePath })`
     // — which the OLD (pre-retarget) regex caught. Broadening I2 to key on
     // `ackFilePath:` alone restores that independent defense-in-depth over I1.
+    // @arm:H2:neg tripwire-predicate-no-conjunctive-narrowing (the previously-caught
+    // shape the W2 conjunctive `adapter:`-co-present retarget silently missed — the
+    // arm's Origin corpus case: every retarget must keep it tripping)
     it('POSITIVE arm: an adapter-LESS ackFilePath ctx literal trips the detector (the shape the co-present regex missed)', () => {
       const adapterLess = 'validateResearchPlan(parsed, { root: args.root, ackFilePath: (parsed as any).ackFilePath });';
       expect(RESOLVE_CTX_ACKFILEPATH_RE.test(adapterLess)).toBe(true);
     });
 
+    // @arm:H2:pos tripwire-predicate-no-conjunctive-narrowing (GREEN-path control /
+    // anti-tautology: a type-def DECLARATION never trips the construction detector —
+    // proves the broadened predicate still discriminates)
     // The `?:` optional-property DECLARATION syntax must NOT match — it is a
     // type-def, not a construction that threads a value. `?` breaks the
     // `ackFilePath\s*:` adjacency the detector keys on.
     it('anti-tautology: an `ackFilePath?:` optional-property DECLARATION is NOT flagged', () => {
       const declaration = 'interface ResolveCtx { root: string; adapter?: EcosystemAdapter; ackFilePath?: string; }';
       expect(RESOLVE_CTX_ACKFILEPATH_RE.test(declaration)).toBe(false);
+    });
+
+    // @arm:H2:neg tripwire-predicate-no-conjunctive-narrowing (fix+arm atomic: the
+    // pre-fix flat-brace-group detector REQUIRED the key to sit in a brace group
+    // with no nested braces — an undocumented structural narrowing, the exact
+    // failure class this arm exists to catch. RED-proof: this test FAILED against
+    // the pre-fix regex — "expected false to be true" — and went GREEN only with
+    // the token-alone union predicate.)
+    // A ctx literal that ALSO carries a nested-brace value (e.g. an inline
+    // adapter object) must still trip the detector — the flat-brace-group shape
+    // (`[^{}]*`) cannot cross the nested `{ … }`, so this construction EVADED the
+    // detector entirely (probed empirically: flat=true, nested=false).
+    it('a NESTED-brace ctx literal threading ackFilePath trips the detector (the flat-brace evasion shape)', () => {
+      const nested =
+        'validateResearchPlan(parsed, { root, adapter: { ecosystem: 1 }, ackFilePath: root })';
+      expect(RESOLVE_CTX_ACKFILEPATH_RE.test(nested)).toBe(true);
     });
   });
 });

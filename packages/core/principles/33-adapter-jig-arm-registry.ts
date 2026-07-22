@@ -233,6 +233,66 @@ export const ADAPTER_JIG_ARMS: readonly ArmEntry[] = [
       { suite: 'packages/core/research/ecosystem-adapter-precondition.test.ts', locator: '@arm:B3:neg' },
     ],
   },
+  // Increment H (J2). H1+H3 co-located in ecosystem-unwired-debt.test.ts (J2
+  // decisions log #10 — both arms guard the same census seam). The two census
+  // regexes were extracted to packages/core/research/adapter-census.ts (single
+  // source of truth) because both are now needed in BOTH consuming suites — the
+  // decisions-log #10 extraction condition: the broad impl regex serves the
+  // precondition suite AND the H3 equality gate; the narrow idiom regex serves
+  // the unwired-debt census AND the same gate. PRIMARY retrofit finding (H3,
+  // CONFIRMED live pre-extraction): the two private copies had already diverged
+  // in matching breadth (narrow = typed-const idiom only; broad = 5 declaration
+  // forms) — an off-idiom (satisfies-form) adapter entered the precondition
+  // population yet escaped the BASELINE lockstep with zero RED (probed:
+  // narrow=false, broad=true). H3 asserts population set-equality in BOTH
+  // directions, turning spec §2 F5 "MUST use the idiom verbatim" into a gate.
+  {
+    id: 'H1',
+    group: 'tripwire',
+    slug: 'baseline-debt-lockstep',
+    positive: [
+      { suite: 'packages/core/research/ecosystem-unwired-debt.test.ts', locator: '@arm:H1:pos' },
+    ],
+    negative: [
+      { suite: 'packages/core/research/ecosystem-unwired-debt.test.ts', locator: '@arm:H1:neg' },
+    ],
+  },
+  // H2 fix+arm atomic: the I2 construction detector's flat-brace-group shape
+  // (`[^{}]*`) was an UNDOCUMENTED structural narrowing — a nested-brace ctx
+  // literal (`{ root, adapter: { ecosystem: 1 }, ackFilePath: root }`) evaded it
+  // entirely (probed: flat=true, nested=false). Fixed to a token-alone union
+  // predicate (key-position at any nesting depth) in the same increment as the
+  // regression arm, per the arm's own no-conjunctive-narrowing principle; the
+  // W2-rework corpus (adapter-less shape, `?:` declaration anti-tautology, real
+  // production-literal attack) is registered as the arm's standing cases.
+  {
+    id: 'H2',
+    group: 'tripwire',
+    slug: 'tripwire-predicate-no-conjunctive-narrowing',
+    positive: [
+      {
+        suite: 'packages/core/research/ackfilepath-plan-containment.test.ts',
+        locator: '@arm:H2:pos',
+      },
+    ],
+    negative: [
+      {
+        suite: 'packages/core/research/ackfilepath-plan-containment.test.ts',
+        locator: '@arm:H2:neg',
+      },
+    ],
+  },
+  {
+    id: 'H3',
+    group: 'tripwire',
+    slug: 'tripwire-population-equality',
+    positive: [
+      { suite: 'packages/core/research/ecosystem-unwired-debt.test.ts', locator: '@arm:H3:pos' },
+    ],
+    negative: [
+      { suite: 'packages/core/research/ecosystem-unwired-debt.test.ts', locator: '@arm:H3:neg' },
+    ],
+  },
 ];
 
 /** Gate 1 — pairing: a green-only (or red-only) arm is REFUSED. */
