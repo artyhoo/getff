@@ -16,7 +16,19 @@ interface PackageJson {
 function readPkg(projectRoot: string): { pkg: PackageJson; allDeps: Record<string, string> } | null {
   const pkgPath = resolve(projectRoot, 'package.json');
   if (!existsSync(pkgPath)) return null;
-  const pkg: PackageJson = JSON.parse(readFileSync(pkgPath, 'utf8'));
+  // Malformed package.json degrades to null (fail-closed to the no-manifest branch),
+  // never throws — the universal detector idiom (readConfig / patterns.ts / the npm,
+  // cargo and pip adapters all guard their reads). Unguarded, this parse threw
+  // SyntaxError from every detectStack() call (index.ts readManifest + readAllDepsSet),
+  // making resolveCtxForRoot a NEW crash on input that exited 0 pre-wiring — the same
+  // class as the W2 AifSchemaError MAJOR (fix 77ec10daf). Adapter-jig arm A1 regression:
+  // synthesizer/resolve-ctx.test.ts (@arm:A1:neg).
+  let pkg: PackageJson;
+  try {
+    pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
+  } catch {
+    return null;
+  }
   const allDeps: Record<string, string> = {
     ...(pkg.dependencies ?? {}),
     ...(pkg.devDependencies ?? {}),

@@ -79,6 +79,31 @@ function makeUnknownRoot(): string {
   return mkdtempSync(join(tmpdir(), 'w2-unknown-'));
 }
 
+/** npm-shaped consumer whose package.json is PRESENT but malformed JSON (dangling
+ *  value — a truncated hand-edit shape). Exercises read-manifest readPkg's parse on
+ *  the production resolve path (detector index.ts readManifest + readAllDepsSet). */
+function makeNpmRootMalformedPkg(): string {
+  const root = mkdtempSync(join(tmpdir(), 'w2-npm-malformed-'));
+  writeFileSync(join(root, 'package.json'), '{ "dependencies": { "drizzle-orm": } }\n');
+  return root;
+}
+
+/** Polyglot consumer: package.json AND pyproject.toml co-present. The adapter-selection
+ *  seam (resolveCtxForRoot under skipAif:true) must resolve npmAdapter — package.json
+ *  wins per the detector's readManifest→readPythonCargo precedence. */
+function makePolyglotNpmPythonRoot(): string {
+  const root = mkdtempSync(join(tmpdir(), 'w2-poly-npm-py-'));
+  writeFileSync(
+    join(root, 'package.json'),
+    JSON.stringify({ dependencies: { 'drizzle-orm': '^0.40.0' } }, null, 2),
+  );
+  writeFileSync(
+    join(root, 'pyproject.toml'),
+    `[project]\nname = "consumer"\nversion = "0.1.0"\ndependencies = ["requests"]\n`,
+  );
+  return root;
+}
+
 /** JS consumer with a FREEFORM `.ai-factory/DESCRIPTION.md` that exists but lacks
  *  any canonical heading. Pre-W2 both call sites hardcoded npmAdapter and never
  *  read `.ai-factory`, so this shape was inert. If resolveCtxForRoot runs the full
@@ -143,6 +168,8 @@ describe('resolveCtxForRoot — adapter selection by detected stack (W2 unit)', 
     expect(ctx.adapter).toBe(cargoAdapter);
   });
 
+  // @arm:A1:pos no-new-throw-on-prewired-path (paired GREEN control: valid manifest,
+  // same seam — resolveCtxForRoot returns the pre-W2 npmAdapter default, no throw)
   it('npm root (package.json) → npmAdapter (pre-W2 default preserved)', () => {
     const ctx = resolveCtxForRoot(makeNpmRoot());
     expect(ctx.adapter).toBe(npmAdapter);
@@ -158,6 +185,16 @@ describe('resolveCtxForRoot — adapter selection by detected stack (W2 unit)', 
     expect(resolveCtxForRoot(root).root).toBe(root);
   });
 
+  // @arm:A2:pos polyglot-precedence-pinned (adapter-selection seam, J2 decisions log #4:
+  // the production seam A2 judges is resolveCtxForRoot — before this arm it had ZERO
+  // polyglot fixtures, so "co-existing manifests → which adapter wins under skipAif:true"
+  // was unpinned. package.json must beat pyproject.toml → npmAdapter, mirroring the
+  // detector-level precedence pinned in detector/read-python-cargo.test.ts.)
+  it('polyglot root (package.json + pyproject.toml) → npmAdapter (package.json wins at the adapter seam)', () => {
+    const ctx = resolveCtxForRoot(makePolyglotNpmPythonRoot());
+    expect(ctx.adapter).toBe(npmAdapter);
+  });
+
   // REGRESSION (W2 rework): a JS consumer with a freeform `.ai-factory/DESCRIPTION.md`
   // (exists, no canonical heading) must NOT throw on the resolve path — it must
   // degrade to the pre-W2 npmAdapter default. Pre-fix this threw AifSchemaError
@@ -165,6 +202,27 @@ describe('resolveCtxForRoot — adapter selection by detected stack (W2 unit)', 
   // path never needed `.ai-factory` metadata for adapter selection.
   it('npm root with a freeform (headingless) .ai-factory/DESCRIPTION.md → npmAdapter, no throw', () => {
     const root = makeNpmRootWithFreeformAif();
+    let ctx: ReturnType<typeof resolveCtxForRoot> | undefined;
+    expect(() => {
+      ctx = resolveCtxForRoot(root);
+    }).not.toThrow();
+    expect(ctx!.adapter).toBe(npmAdapter);
+    expect(ctx!.root).toBe(root);
+  });
+
+  // @arm:A1:neg no-new-throw-on-prewired-path
+  // REGRESSION (adapter-jig A1 — same class as the W2 AifSchemaError MAJOR, a different
+  // unguarded read): a consumer with a MALFORMED package.json must NOT throw on the
+  // resolve path. Pre-fix, read-manifest.ts readPkg ran an unguarded
+  // `JSON.parse(readFileSync(package.json))`, reached unconditionally from detectStack
+  // (index.ts readManifest + readAllDepsSet), so resolveCtxForRoot threw SyntaxError —
+  // a NEW throw on input that exited 0 pre-wiring (pre-W2 the resolve path never called
+  // detectStack, and npmAdapter.listDirectDeps guards its own read with try/catch).
+  // Post-fix readPkg degrades to null → detection falls through → npmAdapter default
+  // (fail-closed, the universal detector idiom: readConfig / patterns / npm / cargo /
+  // pip adapters all already degrade instead of throwing).
+  it('npm root with MALFORMED package.json → npmAdapter, no throw (pre-fix: SyntaxError)', () => {
+    const root = makeNpmRootMalformedPkg();
     let ctx: ReturnType<typeof resolveCtxForRoot> | undefined;
     expect(() => {
       ctx = resolveCtxForRoot(root);

@@ -123,7 +123,37 @@ export const REGISTRY_COMPLETE = false;
  * The live arm registry. Populated APPEND-ONLY, one row per landed arm, in the same commit
  * as the arm's cases + their `@arm:` markers (spec §3 append-only; J2 decisions log #13).
  */
-export const ADAPTER_JIG_ARMS: readonly ArmEntry[] = [];
+export const ADAPTER_JIG_ARMS: readonly ArmEntry[] = [
+  // Increment A (J2). A1 landed fix+arm atomic: read-manifest.ts readPkg's unguarded
+  // JSON.parse (a REAL live bug — resolveCtxForRoot threw SyntaxError on a malformed
+  // package.json) wrapped try/catch→null in the same commit as the regression arm.
+  {
+    id: 'A1',
+    group: 'parsing',
+    slug: 'no-new-throw-on-prewired-path',
+    positive: [
+      { suite: 'packages/core/synthesizer/resolve-ctx.test.ts', locator: '@arm:A1:pos' },
+    ],
+    negative: [
+      { suite: 'packages/core/synthesizer/resolve-ctx.test.ts', locator: '@arm:A1:neg' },
+    ],
+  },
+  // A2 pins precedence at BOTH seams (J2 decisions log #4): detector level
+  // (read-python-cargo.test.ts — package.json+Cargo and all-three combinations) AND
+  // the production adapter-selection seam (resolve-ctx.test.ts polyglot fixture).
+  {
+    id: 'A2',
+    group: 'parsing',
+    slug: 'polyglot-precedence-pinned',
+    positive: [
+      { suite: 'packages/core/detector/read-python-cargo.test.ts', locator: '@arm:A2:pos' },
+      { suite: 'packages/core/synthesizer/resolve-ctx.test.ts', locator: '@arm:A2:pos' },
+    ],
+    negative: [
+      { suite: 'packages/core/detector/read-python-cargo.test.ts', locator: '@arm:A2:neg' },
+    ],
+  },
+];
 
 /** Gate 1 — pairing: a green-only (or red-only) arm is REFUSED. */
 export function checkArmPairing(arms: readonly ArmEntry[]): string[] {
