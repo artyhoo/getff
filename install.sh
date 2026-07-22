@@ -168,6 +168,7 @@ SHIPPED_DOCS=(
   "agents/aif-init.md"
   "agents/rule-researcher.md"
   "agents/capability-reuse-auditor.md"
+  "agents/rule-test-author.md"
   "skills/tool-bootstrapping/SKILL.md"
   "skills/tool-bootstrapping/references/decision-format.md"
 )
@@ -434,8 +435,8 @@ do_refresh() {
   done
 
   # ── Skills (plain copy + internal-ref transform) ────────
-  echo "▶ Skills (getff, tool-bootstrapping) → .claude/skills/"
-  for _slug in getff tool-bootstrapping; do
+  echo "▶ Skills (getff, tool-bootstrapping, rule-tests) → .claude/skills/"
+  for _slug in getff tool-bootstrapping rule-tests; do
     _src="$PKG_ROOT/skills/$_slug"
     _dst="$PROJECT_ROOT/.claude/skills/$_slug"
     _override="${_dst}.override.md"

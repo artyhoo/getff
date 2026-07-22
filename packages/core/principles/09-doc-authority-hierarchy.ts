@@ -134,6 +134,7 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   'agents/aif-init.md',
   'agents/rule-researcher.md',
   'agents/capability-reuse-auditor.md',
+  'agents/rule-test-author.md',
 ];
 
 /**
