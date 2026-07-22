@@ -206,3 +206,39 @@ export const realGit: GitProvider = {
     gitOut(['show', '-s', '--format=%s', sha]).replace(/\n$/, ''),
   diffForPaths: (sha, paths) => gitOut(['show', sha, '--', ...paths]),
 };
+
+/**
+ * A GitProvider over a PR RANGE (`merge-base(base, head)..head`) instead of a
+ * single commit — the squash-preview view for the PR-body Prior-art gate
+ * (2026-07-22 squash-trailer-loss incident, PR #1094 → #1097): a squash merge
+ * builds ONE commit from exactly this diff, with the PR body as its message,
+ * so capability detection must run over the whole range. The `sha` argument of
+ * each method is ignored; commitBody/authorDate return '' because the message
+ * under check is the PR body, supplied separately by the caller.
+ */
+export function rangeGit(baseSha: string, headSha: string): GitProvider {
+  const mb = gitOut(['merge-base', baseSha, headSha]).trim() || baseSha;
+  return {
+    packageJsonDiff: () => gitOut(['diff', mb, headSha, '--', 'package.json']),
+    changedFiles: () =>
+      parseNameStatus(gitOut(['diff', '--name-status', mb, headSha])),
+    fileContent: (_sha, path) => {
+      const r = runCheck('git', ['show', `${headSha}:${path}`]);
+      return r.exitCode === 0 ? r.stdout : null;
+    },
+    subdirExistedAtParent: (_sha, subdir) =>
+      gitOut([
+        'ls-tree',
+        '-d',
+        '--name-only',
+        mb,
+        '--',
+        `packages/core/${subdir}`,
+      ]).trim().length > 0,
+    commitBody: () => '',
+    authorDate: () => '',
+    commitSubject: () => '',
+    diffForPaths: (_sha, paths) =>
+      gitOut(['diff', mb, headSha, '--', ...paths]),
+  };
+}
