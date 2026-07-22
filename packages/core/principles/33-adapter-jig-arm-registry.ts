@@ -363,6 +363,76 @@ export const ADAPTER_JIG_ARMS: readonly ArmEntry[] = [
       { suite: 'packages/core/hooks/checks/skill-core-edit-scope.test.ts', locator: '@arm:G3:neg' },
     ],
   },
+  // Increment D (J2). Lock-integrity group — overwhelmingly a bring-cargo-up-to-
+  // python-parity exercise (recon group D): the python lane is the mature reference
+  // (11 lock arms), the cargo lane lacked BOTH a lock-degrade and a lock-schema arm.
+  //
+  // D1 registers the EXISTING python-rules-lock arms as the canonical cases (recon:
+  // honest none-spotted — the W5 rework already made the skip guard content-aware,
+  // 45-python.sh:559-567, and cargo's always-write, 46-cargo.sh, cannot go stale):
+  // pos = arm 6 (true no-change re-run byte-stable), neg = arms 9 + 11 (the W3
+  // --force-stale and W5 plain-pass-join-stale pre-fix reproductions — the exact
+  // incidents the spec §3.4 D1 row cites). RED re-proven at registration time by
+  // reverting the guard to the documented W5 flag-only state → arm 11 STALE.
+  // Python-only by recon recommendation (j2.decisions.md #14): the incident class
+  // lives entirely in the python join path; cargo achieves never-stale by
+  // always-write (no skip guard to judge).
+  {
+    id: 'D1',
+    group: 'lock',
+    slug: 'lock-never-stale-on-any-pass',
+    positive: [
+      { suite: 'tests/install-sh/python-rules-lock.test.sh', locator: '@arm:D1:pos' },
+    ],
+    negative: [
+      { suite: 'tests/install-sh/python-rules-lock.test.sh', locator: '@arm:D1:neg' },
+    ],
+  },
+  // D2 fix+arm atomic (REAL retrofit bug, cargo lane): _cargo_write_rules_lock
+  // (setup.d/46-cargo.sh) degraded SILENTLY to "sha256:unknown" — zero stderr on
+  // BOTH triggers (hash-tool-absent ladder fallthrough AND delivered-clippy-absent)
+  // — the exact W3 silent-degrade class the python lane fixed. Fixed in the same
+  // increment: md5/md5sum fallback rungs (algorithm-prefixed so a fallback digest
+  // is never mislabelled sha256) + the loud non-authoritative stderr warning on
+  // both triggers, mirroring 45-python.sh. pos = python arm 4 + cargo arm 5b
+  // (authoritative digest, no warning); neg = python arm 10 (W3 pre-fix repro) +
+  // cargo arm 8 (both triggers + healthy-path no-noise control, RED pre-fix).
+  {
+    id: 'D2',
+    group: 'lock',
+    slug: 'no-silent-fingerprint-degrade',
+    positive: [
+      { suite: 'tests/install-sh/python-rules-lock.test.sh', locator: '@arm:D2:pos' },
+      { suite: 'tests/install-sh/cargo-entry-lane.test.sh', locator: '@arm:D2:pos' },
+    ],
+    negative: [
+      { suite: 'tests/install-sh/python-rules-lock.test.sh', locator: '@arm:D2:neg' },
+      { suite: 'tests/install-sh/cargo-entry-lane.test.sh', locator: '@arm:D2:neg' },
+    ],
+  },
+  // D3 fix+arm atomic (REAL retrofit bug, cargo lane): the shipped cargo lock
+  // violated the frozen F11 core set — {framework, backend, emittedAt,
+  // sourceFingerprint, note} was MISSING schemaVersion/version/ruleIds (F11 froze
+  // schema parity on PR-body authority alone; no checked artifact — the
+  // attention-dependent gap the spec §3.4 D3 Origin flags). Fixed in the same
+  // increment (writer now emits the full core set; ruleIds=[] by contract — cargo
+  // bans are clippy TOML lint config, not named rule ids; j2.decisions.md #15).
+  // The NEW cross-lane suite parses the ACTUAL emitted JSON of both lanes' scratch
+  // installs (both writers are bash — TS types cannot gate them): pos = core ⊆
+  // emitted for python AND cargo + extras tolerated; neg = renamed-core-field stub
+  // discriminator (schemaVersion→schemaVer REDs the compare) + the pre-fix cargo
+  // lock itself (RED-proven: "MISSING core field(s): schemaVersion version ruleIds").
+  {
+    id: 'D3',
+    group: 'lock',
+    slug: 'lock-schema-parity',
+    positive: [
+      { suite: 'tests/install-sh/rules-lock-schema-parity.test.sh', locator: '@arm:D3:pos' },
+    ],
+    negative: [
+      { suite: 'tests/install-sh/rules-lock-schema-parity.test.sh', locator: '@arm:D3:neg' },
+    ],
+  },
 ];
 
 /** Gate 1 — pairing: a green-only (or red-only) arm is REFUSED. */

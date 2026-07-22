@@ -199,22 +199,46 @@ _cargo_write_rules_lock() {
   fi
 
   mkdir -p "$lock_dir"
-  local fp="unknown"
+  # Fingerprint ladder (adapter-jig D2 — no-silent-fingerprint-degrade; mirrors 45-python.sh):
+  # sha256 rungs first, md5 fallback rungs next (value carries its algorithm prefix so a fallback
+  # digest is never mislabelled sha256), and BOTH degrade triggers — no hash tool on PATH AND
+  # delivered-clippy-absent — warn LOUDLY to stderr (attention-is-not-a-mechanism §1 /
+  # degrade-loudly): the "sha256:unknown" constant below is a FAKE fingerprint, not an
+  # authoritative digest, and must never be silently trusted. Do NOT hard-fail — the
+  # sourceFingerprint is an optional auditability field, not an install precondition.
+  local fp="sha256:unknown"
   if [ -e "$clippy" ]; then
     if command -v sha256sum >/dev/null 2>&1; then
-      fp=$(sha256sum "$clippy" | awk '{print $1}')
+      fp="sha256:$(sha256sum "$clippy" | awk '{print $1}')"
     elif command -v shasum >/dev/null 2>&1; then
-      fp=$(shasum -a 256 "$clippy" | awk '{print $1}')
+      fp="sha256:$(shasum -a 256 "$clippy" | awk '{print $1}')"
+    elif command -v md5 >/dev/null 2>&1; then          # BSD/macOS md5 fallback (lane parity: 45-python.sh ladder)
+      fp="md5:$(md5 "$clippy" | awk '{print $NF}')"
+    elif command -v md5sum >/dev/null 2>&1; then        # Linux md5sum fallback
+      fp="md5:$(md5sum "$clippy" | awk '{print $1}')"
+    else
+      echo "  ⚠ getff: no hash tool (sha256sum/shasum/md5/md5sum); cargo rules-lock sourceFingerprint is non-authoritative" >&2
     fi
+  else
+    echo "  ⚠ getff: delivered clippy config missing ($clippy); cargo rules-lock sourceFingerprint is non-authoritative" >&2
   fi
   local now
   now=$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)
+  # Schema (adapter-jig D3 — lock-schema-parity): the F11 CORE set {schemaVersion, framework,
+  # version, ruleIds, emittedAt, sourceFingerprint} (packages/core/installer/types.ts RulesLock)
+  # + per-lane extras (backend, note). ruleIds is [] by contract: cargo's ban surface is clippy
+  # TOML lint config (disallowed-methods entries), not named ast-grep rule ids — the core field
+  # is name-presence parity, its per-lane content may be empty. Gated cross-lane by
+  # tests/install-sh/rules-lock-schema-parity.test.sh.
   cat > "$lock" <<EOF
 {
+  "schemaVersion": 1,
   "framework": "cargo",
+  "version": null,
+  "ruleIds": [],
   "backend": "cargo-clippy-toml",
   "emittedAt": "$now",
-  "sourceFingerprint": "sha256:$fp",
+  "sourceFingerprint": "$fp",
   "note": "getff cargo lane reproducibility record (ecosystem-wiring W4). sourceFingerprint hashes the DELIVERED clippy config (clippy.toml when getff owns it; getff-clippy.toml in the REFUSE cell). A FUTURE rule-tests-surface reader / deps-hash suffix may consume emittedAt/sourceFingerprint (spec §6, unshipped)."
 }
 EOF

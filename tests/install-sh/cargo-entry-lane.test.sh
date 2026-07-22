@@ -129,6 +129,7 @@ else
     || bad "(5a) REFUSE cell: cargo absent but no loud degrade printed"
 fi
 LOCK="$C/.ai-factory/synthesizer-output/rules-lock.cargo.json"
+# @arm:D2:pos no-silent-fingerprint-degrade — hash tool present → authoritative sha256, no warning
 lock_fp=$(sed -n 's/.*"sourceFingerprint": "sha256:\([0-9a-f]*\)".*/\1/p' "$LOCK" 2>/dev/null)
 delivered_fp=$(_sha256 "$C/getff-clippy.toml")
 consumer_fp=$(_sha256 "$C/clippy.toml")
@@ -176,6 +177,64 @@ echo "$deg" | grep -q "a skipped check is NOT green" \
   && ok "(7) degrade run wrote nothing under the consumer tree (temp-dir-only STOP line holds)" \
   || bad "(7) degrade run leaked target/ into the consumer tree"
 rm -rf "$C"
+
+# ── (8) lock-writer fingerprint degrade must be LOUD, never silent (adapter-jig D2) ────────────────
+# @arm:D2:neg no-silent-fingerprint-degrade
+# Both silent-degrade triggers of _cargo_write_rules_lock (setup.d/46-cargo.sh):
+#   (8a) NO hash tool on PATH (sha256sum/shasum/md5/md5sum all absent) → fingerprint falls back to
+#        the documented non-authoritative constant — a LOUD stderr warning MUST accompany it.
+#   (8b) delivered clippy config ABSENT ([ -e "$clippy" ] false) → same constant, same obligation.
+# RED before the fix: the writer emitted "sha256:unknown" with ZERO stderr on both paths (the exact
+# W3-class silent degrade the python lane fixed — 45-python.sh loud else branch, python-rules-lock
+# arm 10). Driven via the CARGO_LAYER_LIB_ONLY seam like arm (7); pruned PATH holds only the
+# coreutils the writer needs — NOT the hash tools — so the no-tool rung is reached deterministically.
+echo "  ── (8) lock-writer degrade: no hash tool / clippy absent → loud non-authoritative warning ──"
+BASHBIN=$(command -v bash)
+BIN8=$(mktemp -d)
+for t in cat awk sed grep date mkdir rm head wc ls; do
+  p=$(command -v "$t" 2>/dev/null) && ln -sf "$p" "$BIN8/$t"
+done
+C=$(cargo_fixture)
+cp "$TPL/clippy.toml" "$C/clippy.toml"   # getff-header copy → delivered path resolves to clippy.toml
+warn8a=$(
+  CARGO_LAYER_LIB_ONLY=1 PROJECT_ROOT="$C" DRY_RUN="" PATH="$BIN8" \
+    "$BASHBIN" -c 'source "$1"; _cargo_write_rules_lock >/dev/null' _ "$LAYER" 2>&1
+)
+fp8a=$(sed -n 's/.*"sourceFingerprint": "\([^"]*\)".*/\1/p' "$C/.ai-factory/synthesizer-output/rules-lock.cargo.json" 2>/dev/null)
+printf '%s' "$warn8a" | grep -q "non-authoritative" \
+  && ok "(8a) no-hash-tool degrade prints the loud stderr warning (RED before fix — was silent)" \
+  || bad "(8a) NO loud warning on the no-hash-tool degrade path (silent fake fingerprint)"
+[ "$fp8a" = "sha256:unknown" ] \
+  && ok "(8a) fingerprint degrades to the documented non-authoritative constant (sha256:unknown)" \
+  || bad "(8a) unexpected fingerprint on the no-hash-tool path: '$fp8a'"
+rm -rf "$C"
+C=$(cargo_fixture)   # NO clippy config at all → the clippy-absent trigger (full PATH, hash tools present)
+warn8b=$(
+  CARGO_LAYER_LIB_ONLY=1 PROJECT_ROOT="$C" DRY_RUN="" \
+    "$BASHBIN" -c 'source "$1"; _cargo_write_rules_lock >/dev/null' _ "$LAYER" 2>&1
+)
+fp8b=$(sed -n 's/.*"sourceFingerprint": "\([^"]*\)".*/\1/p' "$C/.ai-factory/synthesizer-output/rules-lock.cargo.json" 2>/dev/null)
+printf '%s' "$warn8b" | grep -q "non-authoritative" \
+  && ok "(8b) delivered-clippy-absent degrade prints the loud stderr warning (RED before fix — was silent)" \
+  || bad "(8b) NO loud warning on the clippy-absent degrade path (silent fake fingerprint)"
+[ "$fp8b" = "sha256:unknown" ] \
+  && ok "(8b) fingerprint degrades to the documented non-authoritative constant (sha256:unknown)" \
+  || bad "(8b) unexpected fingerprint on the clippy-absent path: '$fp8b'"
+# Positive control (pairs with the @arm:D2:pos integration arm 5b): full PATH + delivered clippy
+# → authoritative sha256:<64hex> and ZERO degrade warning.
+cp "$TPL/clippy.toml" "$C/clippy.toml"
+warn8c=$(
+  CARGO_LAYER_LIB_ONLY=1 PROJECT_ROOT="$C" DRY_RUN="" \
+    "$BASHBIN" -c 'source "$1"; _cargo_write_rules_lock >/dev/null' _ "$LAYER" 2>&1
+)
+fp8c=$(sed -n 's/.*"sourceFingerprint": "\([^"]*\)".*/\1/p' "$C/.ai-factory/synthesizer-output/rules-lock.cargo.json" 2>/dev/null)
+printf '%s' "$fp8c" | grep -qE '^sha256:[0-9a-f]{64}$' \
+  && ok "(8c) hash tool present → authoritative sha256:<64hex> fingerprint" \
+  || bad "(8c) expected sha256:<64hex> with hash tools present, got: '$fp8c'"
+printf '%s' "$warn8c" | grep -q "non-authoritative" \
+  && bad "(8c) degrade warning fired on the healthy path (false-positive noise)" \
+  || ok "(8c) no degrade warning on the healthy path (warning is discriminating, not noise)"
+rm -rf "$C" "$BIN8"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

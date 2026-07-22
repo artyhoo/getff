@@ -81,6 +81,7 @@ grep -q '"TID251"' "$LOCK" && grep -q '"TID253"' "$LOCK" \
   || bad "(3) ruffBans missing TID251/TID253"
 
 # ── (4) sourceFingerprint is a 16-hex digest ───────────────────────────────────────────────────────
+# @arm:D2:pos no-silent-fingerprint-degrade — hash tool present → authoritative digest, no degrade
 echo ""; echo "  ── (4) sourceFingerprint shape ──"
 fp1=$(lock_field "$LOCK" sourceFingerprint)
 printf '%s' "$fp1" | grep -qE '^[0-9a-f]{16}$' \
@@ -100,6 +101,7 @@ fp2=$(lock_field "$P2/$LOCK_REL" sourceFingerprint)
 # The idempotent skip fires ONLY on the plain no-flag re-run where copy_safe did NOT overwrite the
 # delivered artefacts. --force / --refresh are OVERWRITE paths that DO regenerate (arms (7) + (9)) — so
 # this arm must use a bare `install.sh python`, NOT --force (which now correctly regenerates the lock).
+# @arm:D1:pos lock-never-stale-on-any-pass — true no-change re-run stays byte-stable (content-aware skip)
 echo ""; echo "  ── (6) idempotent plain no-flag re-run (emittedAt stable) ──"
 before=$(cat "$LOCK")
 ( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
@@ -145,6 +147,7 @@ fi
 # GETFF_TOOLCHAIN_REFRESH=1, so `install.sh python --force` over a prior install whose template CHANGED
 # delivered a NEW ruff-bans.toml but left ruffBans/sourceFingerprint STALE (the lock lied). RED before the
 # fix (fpB==fpA, no TID999 in the lock); GREEN after (lock tracks template B).
+# @arm:D1:neg lock-never-stale-on-any-pass — W3 pre-fix reproduction: flag-path guard left the lock stale
 echo ""; echo "  ── (9) regression: --force re-delivery regenerates the lock (no stale ruffBans/fingerprint) ──"
 SRC9=$(mktemp -d); cp -R "$TPL/." "$SRC9/"
 P9=$(py_fixture)
@@ -173,6 +176,7 @@ rm -rf "$SRC9" "$P9"
 # mechanism §1 / degrade-loudly) → assert the loud stderr warning fires. Driven via the lib-only seam
 # (PY_LAYER_LIB_ONLY=1) under a pruned PATH holding only the coreutils the writer needs — NOT the hash
 # tools — so the no-tool branch is reached deterministically without perturbing the full installer.
+# @arm:D2:neg no-silent-fingerprint-degrade — W3 pre-fix reproduction: no-hash-tool path was silent
 echo ""; echo "  ── (10) loud degrade: no hash tool → stderr warning + non-authoritative fingerprint ──"
 BASHBIN=$(command -v bash)
 BIN=$(mktemp -d)
@@ -207,6 +211,7 @@ rm -rf "$BIN" "$P10"
 # (researched id present + fingerprint moved). The session-side render hop is vitest-covered
 # (rule-bootstrap-practice.test.ts render-parity oracle) — the committed rendered artifact IS its
 # byte-identical output, so copying it into rules-research is the same consumer state, Node-free.
+# @arm:D1:neg lock-never-stale-on-any-pass — W5 pre-fix reproduction: flag-only skip vs plain-pass join
 echo ""; echo "  ── (11) regression: researched join on a PLAIN re-run regenerates the lock (content-aware) ──"
 if [ -f "$RESEARCHED" ]; then
   P11=$(py_fixture)
