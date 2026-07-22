@@ -17,14 +17,31 @@
 
 import { readFileSync, mkdtempSync, writeFileSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CRATE = join(__dirname, 'crate');
+const CRATE_TARGET = join(CRATE, 'target');
 const RUN_DEMO = join(__dirname, 'run-demo.sh');
+
+// Copy the demo crate into a fixture dir WITHOUT its build cache (`target/`).
+// Copying a pre-built `target/` makes cargo's mtime-based freshness check
+// non-deterministic: cargo picks the copied fingerprint's mtime as its reference and
+// treats the crate as fresh unless an input file out-ranks it. After a recursive copy
+// every file lands in one narrow mtime window, so on a coarse-mtime filesystem (CI's
+// ext4/overlayfs, 1s granularity) the copied clean-build cache can out-rank the
+// rewritten inputs — cargo then reuses the clean result and NEVER compiles the planted
+// violation, so `cargo clippy` exits 0 and the D3 paired-negative flakes RED-then-green.
+// A fresh `target/` per fixture removes the entire stale-cache class. (2026-07-22 flake.)
+function copyCrateFixture(dest: string): void {
+  cpSync(CRATE, dest, {
+    recursive: true,
+    filter: (src) => src !== CRATE_TARGET && !src.startsWith(CRATE_TARGET + sep),
+  });
+}
 
 const cargoPresent = spawnSync('cargo', ['--version'], { encoding: 'utf8' }).status === 0;
 // No `!isCI` guard (ecosystem-wiring W4): CI installs the pinned toolchain and the demo crate's
@@ -66,14 +83,14 @@ describe.skipIf(!runLiveFire)('cargo honest demo — live cargo clippy (RED plan
 
     // WITH the committed [lints.clippy] deny projection -> blocked (exit != 0).
     const withDeny = mkdtempSync(join(tmpdir(), 'getff-demo-deny-'));
-    cpSync(CRATE, withDeny, { recursive: true });
+    copyCrateFixture(withDeny);
     writeFileSync(join(withDeny, 'src/main.rs'), planted, 'utf8');
     const denyRc = clippyExit(withDeny);
 
     // WITHOUT the projection (Cargo.toml stripped of the [lints.clippy] block) -> escapes (exit 0),
     // the pre-S4 FF7003 degrade this stage exists to fix.
     const noDeny = mkdtempSync(join(tmpdir(), 'getff-demo-nodeny-'));
-    cpSync(CRATE, noDeny, { recursive: true });
+    copyCrateFixture(noDeny);
     writeFileSync(join(noDeny, 'src/main.rs'), planted, 'utf8');
     writeFileSync(
       join(noDeny, 'Cargo.toml'),
