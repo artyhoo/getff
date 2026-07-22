@@ -196,6 +196,47 @@ printf '%s' "$warn10" | grep -q "non-authoritative" \
   || bad "(10) unexpected fingerprint on the degrade path: '$fp10'"
 rm -rf "$BIN" "$P10"
 
+# ── (11) REGRESSION (W5 rework, MAJOR): a PLAIN re-run after a researched-rule JOIN must NOT ──────
+# leave a STALE lock. _py_join_researched_rules (setup.d/45-python.sh) runs on EVERY delivery pass —
+# including the plain no-flag re-run — so a consumer-side researched rule rendered into
+# .getff/rules-research/ between passes CHANGES the delivered set with NO overwrite flag in sight.
+# The W3-era flag-gated skip (`lock exists && !REFRESH && !FORCE → skip`) assumed «no overwrite flag
+# ⇒ delivered set unchanged» — false since the join exists. The fix makes the guard CONTENT-AWARE:
+# skip only when the stored sourceFingerprint equals the freshly-computed one. RED before the fix
+# (lock keeps the starter-only ids + fingerprint after the join delivered a 5th rule); GREEN after
+# (researched id present + fingerprint moved). The session-side render hop is vitest-covered
+# (rule-bootstrap-practice.test.ts render-parity oracle) — the committed rendered artifact IS its
+# byte-identical output, so copying it into rules-research is the same consumer state, Node-free.
+echo ""; echo "  ── (11) regression: researched join on a PLAIN re-run regenerates the lock (content-aware) ──"
+if [ -f "$RESEARCHED" ]; then
+  P11=$(py_fixture)
+  ( cd "$P11" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+  L11="$P11/$LOCK_REL"
+  [ -f "$L11" ] || bad "(11) plain fresh install did not emit the lock — precondition unmet"
+  fpP=$(lock_field "$L11" sourceFingerprint)
+  nP=$(grep -oE '"getff-[a-z0-9-]+"' "$L11" | sort -u | grep -c .)
+  grep -q '"getff-researched-no-yaml-load"' "$L11" && preRes=1 || preRes=0
+  [ "$preRes" -eq 0 ] || bad "(11) researched id already in the starter lock — precondition unmet"
+  # The consumer authors a researched rule between passes (rendered home survives --refresh).
+  mkdir -p "$P11/.getff/rules-research"
+  cp "$RESEARCHED" "$P11/.getff/rules-research/"
+  # PLAIN no-flag re-run — the join delivers the researched rule; NO overwrite flag is set.
+  ( cd "$P11" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+  [ -f "$P11/.getff/astgrep-rules/getff-researched-no-yaml-load.yml" ] \
+    && ok "(11) plain re-run joined the researched rule into the scan dir (repro precondition)" \
+    || bad "(11) researched rule did NOT join on the plain re-run — repro precondition unmet"
+  fpQ=$(lock_field "$L11" sourceFingerprint)
+  nQ=$(grep -oE '"getff-[a-z0-9-]+"' "$L11" | sort -u | grep -c .)
+  if grep -q '"getff-researched-no-yaml-load"' "$L11" && [ -n "$fpQ" ] && [ "$fpQ" != "$fpP" ]; then
+    ok "(11) lock regenerated on the PLAIN pass: researched id captured ($nP→$nQ ids) + fingerprint moved $fpP→$fpQ"
+  else
+    bad "(11) STALE lock after the plain-pass join: ids $nP→$nQ fp $fpP→$fpQ researched-in-lock=$(grep -c 'researched-no-yaml-load' "$L11" || true) (RED before fix)"
+  fi
+  rm -rf "$P11"
+else
+  skip "(11) researched fixture absent ($RESEARCHED) — regression arm skipped"
+fi
+
 rm -rf "$P" "$P2"
 echo ""
 echo "── python-rules-lock: $PASS passed, $FAIL failed ──"
