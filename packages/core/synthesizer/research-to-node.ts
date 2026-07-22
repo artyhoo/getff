@@ -22,9 +22,15 @@
 //   1. Degrade-not-inert (MAJOR-1): a practice that does NOT reduce to a single literal ast-grep
 //      `pattern` of kind call/attribute/import is dropped to a RESEARCH-ONLY FINDING *before* node
 //      construction — NEVER emitted as an inert node. Mirrors the JS lane's withManualDrop /
-//      agents/rule-researcher.md §MAJOR-1. The frozen renderer emits only a flat `pattern:` (no
-//      any:/all:/relational surface), so alternation / non-{call,attribute,import} kinds
-//      (mutable-default-arg, bare-except, == None) are genuinely inexpressible, not just unhandled.
+//      agents/rule-researcher.md §MAJOR-1. NOTE (post-ir-unfreeze, PR #1079/#1084): the RENDERER is
+//      no longer frozen — render-astgrep.ts DOES emit any:/all:/not:/has: from ConventionNode.relational.
+//      This BRIDGE, however, deliberately authors only flat-pattern nodes today (buildAstgrepNode sets
+//      no `relational`; AstgrepResearchedPractice carries no relational field) — bridge-side relational
+//      authoring is un-wired follow-through, NOT shipped here. So from THIS lane, alternation /
+//      non-{call,attribute,import} kinds (mutable-default-arg, bare-except, == None) remain research-only.
+//      Note the getff-no-yaml-load bypass forms (aliased receiver / bare import) are a DIFFERENT limit —
+//      import-binding, which relational does not close either; accepted as a deliberate demo limit
+//      (docs/meta-factory/research-patches/2026-07-22-getff-no-yaml-load-coverage-verdict.md).
 //   2. The bridge validates provenance ITSELF (the grammar gate does NOT check the provenance host —
 //      grammar.ts validates only shape/degenerate-pair/dup-id/dangling-anchor). A practice whose
 //      provenance does not resolve to a trusted Tier-0 source is a research-only finding, never a
