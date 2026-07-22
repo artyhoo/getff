@@ -36,6 +36,7 @@ One line per rule — full text: read `.claude/rules/<name>.md` (index: `.claude
 | `doc-authority-hierarchy.md` | A | creating/editing any canonical or shipped consumer-facing doc. | paths:(4), edit-time inject |
 | `dual-implementation-discipline.md` | A | shipping a new CC-native hook + choosing its delivery channel(s). | paths:(3), edit-time inject |
 | `egress-no-api-bypass.md` | B | harvesting/egressing a finished aif-agent branch to a PR. | skill-embed |
+| `evidence-regeneration.md` | B | a per-backend toolchain-freshness gate goes RED (`checkToolchainFreshness` — the committed evidence `toolchain` string ≠ the version resolving at test time), OR a rendered-not-fired matrix cell needs its first live-fired evidence. | paths:(1), edit-time inject |
 | `git-conflict-merge-forward.md` | B | a PR turns CONFLICTING (`mergeable_state: dirty`) because the base branch moved ahead; any urge to `git rebase` and/or `git push --force*` a published PR branch. | claude-md |
 | `kickoff-staging-placement.md` | B | editing/creating any file under `.claude/orchestrator-prompts/<umbrella>/`. | paths:(1), edit-time inject |
 | `language-discipline.md` | A | writing any internal machinery or human-facing output. | paths:(3), edit-time inject |
