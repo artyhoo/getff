@@ -279,6 +279,7 @@ function makeFixtureDir(opts: {
   pyprojectToml?: string; // full pyproject.toml content; omitted = don't create
   cargoToml?: string; // full Cargo.toml content; omitted = don't create
   toolDecisions?: string; // full file content; null = don't create
+  rulesLock?: string; // basename under .ai-factory/synthesizer-output/ (e.g. 'rules-lock.python.json'); omitted = don't create
 } = {}): string {
   const dir = mkdtempSync(join(tmpdir(), 'deps-hash-test-'));
   tmpDirs.push(dir);
@@ -299,6 +300,12 @@ function makeFixtureDir(opts: {
     const aiDir = join(dir, '.ai-factory');
     mkdirSync(aiDir, { recursive: true });
     writeFileSync(join(aiDir, 'tool-decisions.md'), opts.toolDecisions, 'utf8');
+  }
+
+  if (opts.rulesLock !== undefined) {
+    const soDir = join(dir, '.ai-factory', 'synthesizer-output');
+    mkdirSync(soDir, { recursive: true });
+    writeFileSync(join(soDir, opts.rulesLock), '{"schema":"rules-lock@1","rules":[]}\n', 'utf8');
   }
 
   return dir;
@@ -1159,5 +1166,79 @@ describe('deps-hash-check.sh — DH-S3 closure (tomli shim, polyglot cross-stack
     expect(parsed.additionalContext).toMatch(/package\.json|npm/i);
     expect(parsed.additionalContext).toMatch(/python/i);
     expect(parsed.additionalContext).toMatch(/cargo/i);
+  });
+});
+
+// =============================================================================
+// S4 — staleness seam (rule-tests-surface umbrella). A conditional suffix rides
+// the deps-drift WARN when a generated rules-lock exists under
+// .ai-factory/synthesizer-output/, routing the agent to /rule-tests. Spec §6 /
+// kickoff §1 S4. PIGGYBACK is intended: the suffix is only reachable inside the
+// existing `if [ -n "$WARN_MSGS" ]` block (a rules-lock present with NO deps
+// drift produces NO nudge). The suffix is CONCATENATED into the SINGLE existing
+// _emit_warn arg — never a second emission (ZCode single-JSON invariant).
+// =============================================================================
+const RULES_STALE_SUFFIX = 'generated rules may be stale — run /rule-tests to review';
+
+describe('deps-hash-check.sh — S4 rules-lock staleness seam (gated glob → /rule-tests)', () => {
+  it('S4-POSITIVE: rules-lock present + deps drift → the stale-rules suffix rides the deps WARN', () => {
+    // A rules-lock exists under .ai-factory/synthesizer-output/ AND deps drifted, so the
+    // existing WARN fires — the conditional suffix must be appended to that same line.
+    const pkg = { dependencies: { react: '^18.0.0' } };
+    const cwd = makeFixtureDir({
+      packageJson: pkg,
+      toolDecisions: `---\ndeps-hash: sha256-${'0'.repeat(64)}\n---\n`,
+      rulesLock: 'rules-lock.python.json',
+    });
+
+    const { status, stdout } = runHook(cwd);
+
+    expect(status).toBe(0);
+    // Base WARN still present (the suffix rides it, does not replace it).
+    expect(stdout).toContain('package.json deps changed since last tool-bootstrap');
+    expect(stdout).toContain('/tool-bootstrapping');
+    // The conditional suffix is appended.
+    expect(stdout).toContain(RULES_STALE_SUFFIX);
+  });
+
+  it('S4-NEGATIVE: rules-lock ABSENT + deps drift → base WARN only, NO stale-rules suffix (glob gates it)', () => {
+    // Identical drift, but no rules-lock file → the glob finds nothing → suffix stays empty.
+    // Proves the suffix is gated on rules-lock existence, not emitted unconditionally.
+    const pkg = { dependencies: { react: '^18.0.0' } };
+    const cwd = makeFixtureDir({
+      packageJson: pkg,
+      toolDecisions: `---\ndeps-hash: sha256-${'0'.repeat(64)}\n---\n`,
+      // no rulesLock → .ai-factory/synthesizer-output/ absent
+    });
+
+    const { status, stdout } = runHook(cwd);
+
+    expect(status).toBe(0);
+    // Base WARN still fires (deps drifted).
+    expect(stdout).toContain('package.json deps changed since last tool-bootstrap');
+    // But the stale-rules suffix must NOT appear — nothing routes to /rule-tests.
+    expect(stdout).not.toContain(RULES_STALE_SUFFIX);
+    expect(stdout).not.toContain('/rule-tests');
+  });
+
+  it('S4-ZCODE: rules-lock present + drift under ZCODE_PROJECT_DIR → suffix lands INSIDE the single additionalContext (exactly ONE JSON object)', () => {
+    // The single-emission invariant: the suffix is concatenated into the SAME _emit_warn arg,
+    // so stdout must still parse as exactly ONE JSON object (a second emit → two objects → throw).
+    const pkg = { dependencies: { react: '^18.0.0' } };
+    const cwd = makeFixtureDir({
+      packageJson: pkg,
+      toolDecisions: `---\ndeps-hash: sha256-${'0'.repeat(64)}\n---\n`,
+      rulesLock: 'rules-lock.cargo.json',
+    });
+
+    const { status, stdout } = runHook(cwd, { ZCODE_PROJECT_DIR: cwd });
+
+    expect(status).toBe(0);
+    // Exactly ONE JSON object — JSON.parse over two concatenated objects would throw.
+    const parsed = JSON.parse(stdout);
+    expect(parsed.hookEventName).toBe('UserPromptSubmit');
+    // The suffix rides inside the single additionalContext string, alongside the base WARN.
+    expect(parsed.additionalContext).toContain('package.json deps changed since last tool-bootstrap');
+    expect(parsed.additionalContext).toContain(RULES_STALE_SUFFIX);
   });
 });

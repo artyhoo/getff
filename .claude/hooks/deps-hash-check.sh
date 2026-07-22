@@ -281,8 +281,21 @@ _drifted "python" "$(_python_current)" "$PY_STORED"
 # _cargo_current already returns sha256-<hex> (same tier1hex+tier2hex outer-hash shape).
 _drifted "Cargo.toml" "$(_cargo_current)" "$CARGO_STORED"
 
+# Conditional staleness seam (rule-tests-surface S4): if the consumer has generated
+# rules-lock artifacts under .ai-factory/synthesizer-output/, append a suffix routing the
+# agent to /rule-tests. PIGGYBACK is intended (spec §6): the suffix rides the deps-drift WARN
+# only — it is appended INSIDE the SINGLE existing _emit_warn below (never a second emission,
+# which would break ZCode's one-JSON-object-per-run contract; see §3a M2). A rules-lock present
+# with NO deps drift produces NO nudge. Portable glob: NO nullglob — an unmatched pattern stays
+# literal, and the [ -e "$f" ] guard makes that literal fallback safe. Bare-relative, resolved
+# against the consumer root by the cd "$CLAUDE_PROJECT_DIR" above (same convention as DECISIONS).
+RULES_STALE_SUFFIX=""
+for f in .ai-factory/synthesizer-output/rules-lock*.json; do
+  [ -e "$f" ] && { RULES_STALE_SUFFIX=" — generated rules may be stale — run /rule-tests to review"; break; }
+done
+
 if [ -n "$WARN_MSGS" ]; then
-  _emit_warn "${WARN_MSGS} — run /tool-bootstrapping to re-evaluate"
+  _emit_warn "${WARN_MSGS} — run /tool-bootstrapping to re-evaluate${RULES_STALE_SUFFIX}"
 fi
 
 exit 0
