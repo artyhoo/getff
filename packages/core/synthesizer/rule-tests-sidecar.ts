@@ -73,9 +73,11 @@ function assertSampleArray(value: unknown, ruleId: string, field: 'bad' | 'good'
   if (!Array.isArray(value)) {
     throw new Error(`rule-tests sidecar ${label}: entry "${ruleId}" field "${field}" must be an array of code samples`);
   }
-  if (field === 'bad' && value.length === 0) {
-    // A rule-test with no violating sample proves nothing (nothing to fire) — loud, not silent.
-    throw new Error(`rule-tests sidecar ${label}: entry "${ruleId}" field "bad" must be a non-empty array (no violating sample = nothing fires)`);
+  if (value.length === 0) {
+    // Paired-negative discipline at the loader boundary: no violating sample = nothing fires;
+    // no clean counter-sample = no proof the rule does not over-fire. Loud, not silent.
+    const why = field === 'bad' ? 'no violating sample = nothing fires' : 'no clean counter-sample = over-firing unproven';
+    throw new Error(`rule-tests sidecar ${label}: entry "${ruleId}" field "${field}" must be a non-empty array (${why})`);
   }
   for (const sample of value) {
     if (typeof sample !== 'string' || sample.length === 0) {

@@ -99,6 +99,18 @@ describe('parseRuleTestsSidecar / validateRuleTestsSidecar — loud on malformed
     ).toThrow(/"good"/);
   });
 
+  it('THROWS when an entry is missing bad[]', () => {
+    expect(() =>
+      validateRuleTestsSidecar({ 'r-1': { good: ['ok'] } }, 'test'),
+    ).toThrow(/"bad"/);
+  });
+
+  it('THROWS when good[] is empty (no clean counter-sample = over-firing unproven)', () => {
+    expect(() =>
+      validateRuleTestsSidecar({ 'r-1': { bad: ['x'], good: [] } }, 'test'),
+    ).toThrow(/"good".*non-empty|non-empty.*"good"/);
+  });
+
   it('THROWS when bad[] is empty (a rule-test with no violating sample proves nothing)', () => {
     expect(() =>
       validateRuleTestsSidecar({ 'r-1': { bad: [], good: ['ok'] } }, 'test'),
