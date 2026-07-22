@@ -163,7 +163,11 @@ echo "$out" | grep -qF 'Refreshing getff Python toolchain' \
 echo ""; echo "  ── (8) firing self-check on install (tool-gated fire; loud degrade otherwise) ──"
 P=$(py_fixture)
 out=$( cd "$P" && bash "$INSTALL" python < /dev/null 2>&1 )
-if command -v ast-grep >/dev/null 2>&1 || command -v sg >/dev/null 2>&1; then
+# NB: guard the `sg` alias with an ast-grep identity probe — on Linux `sg` also names
+# the setgid(1) coreutil, so a bare `command -v sg` would take the "present" branch on a
+# host that has NO ast-grep (CI install-sh shards), diverging from the self-check's own
+# guarded detection (45-python.sh). Both must agree or the assertions below false-fire.
+if command -v ast-grep >/dev/null 2>&1 || { command -v sg >/dev/null 2>&1 && sg --version 2>/dev/null | grep -qi 'ast-grep'; }; then
   echo "$out" | grep -qF 'ast-grep fired RED' \
     && ok "(8) ast-grep present → self-check FIRED RED on the planted violation" \
     || bad "(8) ast-grep present but self-check did not report a RED fire: $(echo "$out" | grep -i ast-grep | tr '\n' '|')"
@@ -315,7 +319,7 @@ fi
 # controls (pre-fix the RED-only self-check printed «enforcement is live» identically): an ast-grep
 # rule matching EVERY expression + a bans config banning the clean control's own import (json).
 # @arm:E1:neg scratch-consumer-red-green-pair (over-broad rules → clean controls RED the self-check)
-if { command -v ast-grep >/dev/null 2>&1 || command -v sg >/dev/null 2>&1; } \
+if { command -v ast-grep >/dev/null 2>&1 || { command -v sg >/dev/null 2>&1 && sg --version 2>/dev/null | grep -qi 'ast-grep'; }; } \
    && { command -v ruff >/dev/null 2>&1 || command -v uvx >/dev/null 2>&1; }; then
   echo ""; echo "  ── (12) over-broad delivered rules → clean controls catch them (E1 negative) ──"
   P=$(py_fixture)

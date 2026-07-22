@@ -391,9 +391,14 @@ _py_firing_self_check() {
   local _pass=0 _silent=0 _degraded=0 _overbroad=0
 
   # ── ast-grep lane (primary) ──
+  # The `sg` fallback is ast-grep's short alias, but on Linux `sg` ALSO names the
+  # setgid(1) coreutil (/usr/bin/sg) — a bare `command -v sg` false-positives there.
+  # Guard the alias with an identity probe (`sg --version` prints "ast-grep <ver>")
+  # so a host with the setgid `sg` but no ast-grep DEGRADES honestly instead of
+  # running the wrong binary and mis-reporting the clean control as OVER-BROAD.
   local _sg=""
   if   command -v ast-grep >/dev/null 2>&1; then _sg="ast-grep"
-  elif command -v sg       >/dev/null 2>&1; then _sg="sg"; fi
+  elif command -v sg >/dev/null 2>&1 && sg --version 2>/dev/null | grep -qi 'ast-grep'; then _sg="sg"; fi
   if [ -n "$_sg" ] && [ -d "$PROJECT_ROOT/.getff/astgrep-rules" ]; then
     local _t; _t=$(mktemp -d)
     printf 'import datetime\nx = eval("1+1")\nos.system("echo hi")\na = datetime.now()\nb = datetime.datetime.now()\n' > "$_t/getff_selfcheck.py"
