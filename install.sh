@@ -596,7 +596,8 @@ do_refresh() {
     "packages/core/audit-self/check-lintstaged-resolves.sh:scripts/check-lintstaged-resolves.sh" \
     "packages/core/audit-self/check-fences-fire.sh:scripts/check-fences-fire.sh" \
     "packages/core/audit-self/check-shields-up.sh:scripts/check-shields-up.sh" \
-    "packages/core/synthesizer/run-generated-rule-mutation.sh:scripts/run-generated-rule-mutation.sh"; do
+    "packages/core/synthesizer/run-generated-rule-mutation.sh:scripts/run-generated-rule-mutation.sh" \
+    "packages/core/synthesizer/run-rule-tests-firing.sh:scripts/run-rule-tests-firing.sh"; do
     _s="${_pair%%:*}"; _d="${_pair##*:}"
     refresh_safe "$PKG_ROOT/$_s" "$PROJECT_ROOT/$_d"
     case "$_d" in
