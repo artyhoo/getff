@@ -18,7 +18,7 @@ c96ba6e4c52288f0b77a2edaeb6170ecad03e699360d79fe7794fd3e205717e8  .claude/agents
 0599b0189feace36745cc01db3399a76e50ab1b1ddeb9179bc099409cbc6a534  .claude/agents/rule-test-author.md
 9808e32b096cee71f5971bd6c3aa6ec1bddd748c58d84aa93198d05fb5f7b106  .claude/hooks/ask-question-reminder.sh
 74a598da4bf7ad6cb4e4354510c3d4c6fb3e291de36c18dba5394a6fc430b302  .claude/hooks/check-doc-authority-header.sh
-7bbf4746578e485008823f1d13795c445bf8989f8d67132bea1939ba1957aa67  .claude/hooks/deps-hash-check.sh
+e2404b3623a04b6f89e731f32480f26c350503d9c4a6c72c2a706a63a35c544a  .claude/hooks/deps-hash-check.sh
 d8372eb46734240a2930092f0394464bca6dbf3a30b5a811e020b8369a2cddf4  .claude/hooks/end-of-turn-reminder.sh
 8edd7ffedf72c343f0717c44b85f358c9fa7c26b8db7db7ac3d5015d9d893dad  .claude/hooks/inject-matching-rule.sh
 d783e618156d9dc26dad1627281e44ea10a128cee9c29a91cea273b37251e47c  .claude/hooks/inject-memory-codification.sh
