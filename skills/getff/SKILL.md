@@ -44,6 +44,8 @@ Plus a sideways layer:
 
 - **Contract testing (Pact)**: lives in CI by form (fast, deterministic) but solves shift-right problem (production compatibility) via `can-i-deploy` with Pact Broker holding production state.
 
+To (re)generate or repair stack-aware rules and their firing-test material, run `/rule-research` (research → rules regeneration) or `/rule-tests` (repair or verify an existing generated rule's test material).
+
 ## Where to dig in
 
 Read these references **as needed**, not all at once:

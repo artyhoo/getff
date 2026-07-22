@@ -836,6 +836,153 @@ function lintStagedResolvesSection(): void {
   }
 }
 
+// ── 3d2. Generated rule-material firing (consumer, rule-tests-surface S5) ─────
+// Standing consumer channel for the hash-exempt rule-test material a repair touches (spec §2):
+// without it a skipped/theatred /rule-tests run leaves broken material failing at NO channel
+// (`#hope-as-gate`, attention-is-not-a-mechanism.md §1). Three guarded arms, all owner:consumer —
+// the runners live at scripts/ in a consumer repo (framework source packages/core/synthesizer/):
+//   (a) npm mutation — if the generated-rules manifest exists, run the delivered mutation runner.
+//       run-generated-rule-mutation.sh die()s exit 2 when the manifest or tsx/eslint are
+//       unresolvable; the arm PRE-CHECKS tsx/eslint and converts any exit-2 into a LOUD SKIP
+//       (never a push-blocking die, never a silent pass — D-S5-guards).
+//   (b) astgrep/ruff firing — for each backend whose S2 sidecar (.ai-factory/rule-tests/<b>.json)
+//       exists AND whose lane tool is present, fire the samples in single-rule isolation via the
+//       delivered firing runner. Tool absent → LOUD DEGRADE skip; runner exit 1 (broken material)
+//       → die (RED). The section does the tool-presence gating (requireTool warn-skip idiom).
+//   (c) cargo — OPT-IN only (GETFF_PREPUSH_CARGO_FIRE=1; `cargo clippy` compiles on every push);
+//       default OFF → loud one-line skip. Recorded home for the toggle: agents/rule-test-author.md.
+function generatedRuleMaterialSection(): void {
+  // scripts/<name> in a consumer, packages/core/synthesizer/<name> in the framework repo.
+  const resolveRunner = (name: string): string | null => {
+    const consumer = resolve(REPO_ROOT, `scripts/${name}`);
+    if (existsSync(consumer)) return consumer;
+    const framework = resolve(REPO_ROOT, `packages/core/synthesizer/${name}`);
+    return existsSync(framework) ? framework : null;
+  };
+  // Mirror the mutation script's own tsx/eslint resolution (repo-local node_modules/.bin) so the
+  // pre-check matches what would make the script die() exit 2 — deterministic, no spawn.
+  const binResolvable = (bin: string): boolean =>
+    existsSync(resolve(REPO_ROOT, `node_modules/.bin/${bin}`)) ||
+    existsSync(resolve(REPO_ROOT, `packages/core/node_modules/.bin/${bin}`));
+  // Lane tool present? (astgrep: ast-grep|sg; ruff: ruff|uvx; cargo: cargo) — mirrors the runner.
+  const toolPresent = (backend: string): boolean => {
+    if (backend === 'astgrep')
+      return (
+        !run('ast-grep', ['--version']).notFound ||
+        !run('sg', ['--version']).notFound
+      );
+    if (backend === 'ruff')
+      return (
+        !run('ruff', ['--version']).notFound ||
+        !run('uvx', ['--version']).notFound
+      );
+    return !run('cargo', ['--version']).notFound;
+  };
+
+  // ── (a) npm mutation lane ──
+  const manifest = resolve(
+    REPO_ROOT,
+    '.ai-factory/synthesizer-output/rules-manifest-additions.json',
+  );
+  if (existsSync(manifest)) {
+    const runner = resolveRunner('run-generated-rule-mutation.sh');
+    if (!runner) {
+      process.stdout.write(
+        '⚠ DEGRADED: generated-rules manifest present but run-generated-rule-mutation.sh not delivered — mutation check SKIPPED (a skipped check is NOT green).\n',
+      );
+    } else if (!binResolvable('tsx') || !binResolvable('eslint')) {
+      process.stdout.write(
+        '⚠ DEGRADED: tsx/eslint not resolvable — generated-rule mutation check SKIPPED (run npm install; a skipped check is NOT green).\n',
+      );
+    } else {
+      // Pass the manifest path explicitly ($1): the delivered script derives its own REPO_ROOT
+      // from SCRIPT_DIR/../../.. which is wrong in the consumer scripts/ layout — the explicit
+      // arg makes the check layout-independent (matches the manifest we already existsSync'd).
+      const r = run('bash', [runner, manifest]);
+      if (r.notFound || r.timedOut || r.exitCode === 127) {
+        // ENV failure (bash/runner missing or hung), NOT broken material → loud skip, never die.
+        process.stdout.write(
+          `⚠ DEGRADED: generated-rule mutation runner did not execute (${r.timedOut ? 'timed out' : 'not runnable'}) — SKIPPED (a skipped check is NOT green).\n`,
+        );
+      } else if (r.exitCode === 2) {
+        // Script self-reported an unresolvable precondition → loud skip, never block the push.
+        process.stdout.write(
+          '⚠ DEGRADED: generated-rule mutation runner could not resolve its inputs (exit 2) — SKIPPED (a skipped check is NOT green).\n',
+        );
+        emit(r);
+      } else if (r.exitCode !== 0) {
+        die(
+          '❌ generated-rule mutation check failed — npm negative-test material is selector-blind',
+          r,
+        );
+      } else {
+        emit(r);
+      }
+    }
+  }
+
+  // ── (b/c) sidecar firing lanes ──
+  const firingRunner = resolveRunner('run-rule-tests-firing.sh');
+  for (const backend of ['astgrep', 'ruff', 'cargo']) {
+    const sidecar = resolve(
+      REPO_ROOT,
+      `.ai-factory/rule-tests/${backend}.json`,
+    );
+    if (!existsSync(sidecar)) continue;
+    // BLOCKER fix: a malformed sidecar is BROKEN MATERIAL, not an absence — it must RED regardless
+    // of whether the lane tool is installed (the runner would otherwise read zero samples from a
+    // corrupt file and end green). node is always present; this die needs no lane tool on PATH.
+    const jsonProbe = run('node', [
+      '-e',
+      'JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8"))',
+      sidecar,
+    ]);
+    if (jsonProbe.exitCode !== 0) {
+      die(
+        `❌ ${backend} rule-test sidecar is not valid JSON — broken material (.ai-factory/rule-tests/${backend}.json)`,
+        jsonProbe,
+      );
+    }
+    if (
+      backend === 'cargo' &&
+      process.env['GETFF_PREPUSH_CARGO_FIRE'] !== '1'
+    ) {
+      process.stdout.write(
+        '⚠ cargo rule-test firing is opt-in (compile cost) — set GETFF_PREPUSH_CARGO_FIRE=1 to enable; a skipped check is NOT green.\n',
+      );
+      continue;
+    }
+    if (!firingRunner) {
+      process.stdout.write(
+        `⚠ DEGRADED: ${backend} sidecar present but run-rule-tests-firing.sh not delivered — firing SKIPPED (a skipped check is NOT green).\n`,
+      );
+      continue;
+    }
+    if (!toolPresent(backend)) {
+      // Tool-absence loud skip (requireTool warn-skip idiom family) — never a die, never silent.
+      process.stdout.write(
+        `⚠ DEGRADED: ${backend} lane tool not found — rule-test firing SKIPPED (a skipped check is NOT green).\n`,
+      );
+      continue;
+    }
+    const r = run('bash', [firingRunner, REPO_ROOT, backend]);
+    if (r.notFound || r.timedOut || r.exitCode === 127) {
+      // ENV failure (bash/runner missing or hung), NOT broken material → loud skip, never die.
+      process.stdout.write(
+        `⚠ DEGRADED: ${backend} firing runner did not execute (${r.timedOut ? 'timed out' : 'not runnable'}) — SKIPPED (a skipped check is NOT green).\n`,
+      );
+      continue;
+    }
+    if (r.exitCode !== 0) {
+      die(
+        `❌ ${backend} rule-test firing failed — broken sidecar material (a bad[] sample did not fire, or a good[] sample over-fired)`,
+        r,
+      );
+    }
+    emit(r);
+  }
+}
+
 // ── 3e. Kickoff portability (maintainer, D5) ─────────────────────────────────
 // In-flight kickoffs must be git-tracked (SSOT #116). The script lives at
 // packages/core/audit-self/ only in the maintainer repo → owner=maintainer.
@@ -1153,6 +1300,11 @@ const SECTIONS: readonly PrePushSection[] = [
     run: () => lintStagedResolvesSection(),
   },
   {
+    id: 'generated-rule-material',
+    owner: 'consumer',
+    run: () => generatedRuleMaterialSection(),
+  },
+  {
     id: 'kickoff-portability',
     owner: 'maintainer',
     run: () => kickoffPortabilitySection(),
@@ -1276,6 +1428,10 @@ async function main(): Promise<void> {
   }
   if (process.env['PREPUSH_ONLY'] === 'unpinned-tool-install') {
     unpinnedToolInstallSection();
+    process.exit(0);
+  }
+  if (process.env['PREPUSH_ONLY'] === 'generated-rule-material') {
+    generatedRuleMaterialSection();
     process.exit(0);
   }
 
