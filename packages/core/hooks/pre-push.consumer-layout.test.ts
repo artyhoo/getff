@@ -697,5 +697,176 @@ describe(
       expect(out, out).not.toMatch(/could not determine a base ref/);
       expect(r.status ?? -1, out).toBe(0);
     });
+
+    // ── rule-tests-surface S5: generated-rule-material guarded arm ──────────────
+    // The standing consumer channel for hash-exempt sidecar rule-test material (spec §2). Paired
+    // negative (testing.md): POSITIVE = the lane tool is ABSENT → a LOUD skip line + exit 0 (a
+    // silent green would be the failure); NEGATIVE = the tool is PRESENT and the material is
+    // BROKEN (a bad[] sample that does NOT fire) → exit 1 RED. Exercised via the PREPUSH_ONLY
+    // isolation seam so the arm is tested independent of the other sections' tools/deps.
+
+    /** Seed the S5 fixtures into a consumer sandbox: the delivered firing runner at scripts/, one
+     *  delivered astgrep rule config under .getff/, and an astgrep sidecar with the given samples. */
+    function seedRuleTestsFixture(
+      dir: string,
+      bad: string[],
+      good: string[],
+    ): void {
+      mkdirSync(join(dir, 'scripts'), { recursive: true });
+      cpSync(
+        resolve(
+          REPO_ROOT,
+          'packages/core/synthesizer/run-rule-tests-firing.sh',
+        ),
+        join(dir, 'scripts/run-rule-tests-firing.sh'),
+      );
+      chmodSync(join(dir, 'scripts/run-rule-tests-firing.sh'), 0o755);
+      mkdirSync(join(dir, '.getff/astgrep-rules'), { recursive: true });
+      cpSync(
+        resolve(
+          REPO_ROOT,
+          'packages/core/synthesizer/fixtures/live-generation/firing/rules/getff-researched-no-yaml-load.yml',
+        ),
+        join(dir, '.getff/astgrep-rules/getff-researched-no-yaml-load.yml'),
+      );
+      mkdirSync(join(dir, '.ai-factory/rule-tests'), { recursive: true });
+      writeFileSync(
+        join(dir, '.ai-factory/rule-tests/astgrep.json'),
+        `${JSON.stringify(
+          { 'getff-researched-no-yaml-load': { bad, good } },
+          null,
+          2,
+        )}\n`,
+      );
+    }
+
+    /** Run ONLY the generated-rule-material section via the PREPUSH_ONLY seam. `strip` builds a
+     *  PATH with just node+git (no ast-grep, no bash) to exercise the TOOL-ABSENCE axis. */
+    function runMaterialSection(
+      dir: string,
+      hook: string,
+      { strip }: { strip: boolean },
+    ): { status: number; stdout: string; stderr: string } {
+      let PATH: string;
+      if (strip) {
+        const only = join(dir, '.only-bin');
+        mkdirSync(only, { recursive: true });
+        symlinkSync(process.execPath, join(only, 'node'));
+        symlinkSync(
+          execSync('command -v git').toString().trim(),
+          join(only, 'git'),
+        );
+        // ast-grep (and bash) deliberately absent: with the tool gone the section loud-skips
+        // BEFORE it would ever shell to bash — that early skip is the property under test.
+        PATH = `${only}:${resolve(REAL_NODE_MODULES, '.bin')}`;
+      } else {
+        PATH = `${resolve(REAL_NODE_MODULES, '.bin')}:${process.env['PATH']}`;
+      }
+      const r = spawnSync('node', ['--import', TSX_LOADER, hook], {
+        encoding: 'utf8',
+        cwd: dir,
+        input: '',
+        env: {
+          ...process.env,
+          NODE_PATH: REAL_NODE_MODULES,
+          PATH,
+          PREPUSH_ONLY: 'generated-rule-material',
+        },
+      });
+      return {
+        status: r.status ?? -1,
+        stdout: r.stdout ?? '',
+        stderr: r.stderr ?? '',
+      };
+    }
+
+    // Does this runner have ast-grep? The NEGATIVE RED path needs it present; CI installs the
+    // pinned ast-grep before test:hooks. A box without it green-skips (never a false GREEN).
+    const hasAstGrep =
+      !spawnSync('ast-grep', ['--version']).error ||
+      !spawnSync('sg', ['--version']).error;
+
+    it('S5 POSITIVE — astgrep sidecar present, lane tool ABSENT → LOUD skip + exit 0 (NOT a silent green)', () => {
+      const { dir, hook } = makeConsumerSandbox();
+      // Sound material (would fire if ast-grep were present); the point is the tool is absent.
+      seedRuleTestsFixture(
+        dir,
+        ['import yaml\ndata = yaml.load(raw)\n'],
+        ['import yaml\ndata = yaml.safe_load(raw)\n'],
+      );
+
+      const r = runMaterialSection(dir, hook, { strip: true });
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      // Loud DEGRADE, never silent: the honesty wording family + "NOT green".
+      expect(out, out).toMatch(/DEGRADED: astgrep lane tool not found/);
+      expect(out, out).toMatch(/a skipped check is NOT green/);
+      // A skip must NOT block the push.
+      expect(r.status, out).toBe(0);
+    });
+
+    it.skipIf(!hasAstGrep)(
+      'S5 NEGATIVE — astgrep sidecar with BROKEN material (a bad[] sample that does not fire) + tool PRESENT → exit 1 RED',
+      () => {
+        const { dir, hook } = makeConsumerSandbox();
+        // BROKEN: the bad[] sample is actually clean Python (safe_load) — the rule is blind to it,
+        // so the standing arm MUST reject it. good[] stays conforming.
+        seedRuleTestsFixture(
+          dir,
+          ['import yaml\ndata = yaml.safe_load(raw)\n'],
+          ['import yaml\ndata = yaml.safe_load(raw)\n'],
+        );
+
+        const r = runMaterialSection(dir, hook, { strip: false });
+        const out = `${r.stdout}\n${r.stderr}`;
+
+        expect(r.status, out).toBe(1);
+        expect(out, out).toMatch(
+          /rule-test firing failed|bad sample did NOT fire/,
+        );
+      },
+    );
+
+    it.skipIf(!hasAstGrep)(
+      'S5 NEGATIVE-guard GREEN — same layout with SOUND material + tool present → exit 0 (the arm is not always-red)',
+      () => {
+        const { dir, hook } = makeConsumerSandbox();
+        seedRuleTestsFixture(
+          dir,
+          ['import yaml\ndata = yaml.load(raw)\n'],
+          ['import yaml\ndata = yaml.safe_load(raw)\n'],
+        );
+
+        const r = runMaterialSection(dir, hook, { strip: false });
+        const out = `${r.stdout}\n${r.stderr}`;
+
+        expect(out, out).toMatch(/bad sample fired RED/);
+        expect(r.status, out).toBe(0);
+      },
+    );
+
+    // BLOCKER regression: a corrupt sidecar must be BROKEN MATERIAL (RED), not a silent green.
+    // Runs UNGUARDED (strip:true, no lane tool) — the JSON validity check must fire before, and
+    // independent of, tool presence. Without the up-front guard the runner reads zero samples
+    // from the unparseable file and the push sails through green.
+    it('S5 BLOCKER — corrupt sidecar JSON → exit 1 RED (no lane tool needed)', () => {
+      const { dir, hook } = makeConsumerSandbox();
+      seedRuleTestsFixture(
+        dir,
+        ['import yaml\ndata = yaml.load(raw)\n'],
+        ['import yaml\ndata = yaml.safe_load(raw)\n'],
+      );
+      // Corrupt the sidecar AFTER seeding (invalid JSON).
+      writeFileSync(
+        join(dir, '.ai-factory/rule-tests/astgrep.json'),
+        '{ this is : not valid json ]\n',
+      );
+
+      const r = runMaterialSection(dir, hook, { strip: true });
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      expect(r.status, out).toBe(1);
+      expect(out, out).toMatch(/sidecar is not valid JSON/);
+    });
   },
 );

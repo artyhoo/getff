@@ -27,7 +27,14 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+# Resolve the repo root LAYOUT-AWARE (D-S5-mutation-root): the framework source sits at
+# packages/core/synthesizer/ (3 levels deep) but the delivered consumer copy sits at scripts/
+# (1 level deep), so the old fixed `$SCRIPT_DIR/../../..` pointed ABOVE a consumer's root and the
+# script always died exit 2 on-consumer (manifest + tsx/eslint never found — the standing arm was
+# theatre). git's toplevel is correct for BOTH layouts (a consumer's git root = its project root;
+# the framework's = the repo root); fall back to the historical `../../..` for a non-git checkout.
+REPO_ROOT="$(cd "$SCRIPT_DIR" && git rev-parse --show-toplevel 2>/dev/null || true)"
+[ -n "$REPO_ROOT" ] || REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 # ─── Args ────────────────────────────────────────────────────────────────────
 # Optional: explicit manifest path; defaults to consumer root manifest
