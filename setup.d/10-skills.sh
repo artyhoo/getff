@@ -65,6 +65,9 @@ fi
 #                      rule-as-test, AI-agnostic authoring) — reusable by consumers who author
 #                      their own skills/rules.
 #   - rule-research  — bootstrap stack-aware ESLint rules from LIVE docs (consumer-facing by design).
+#   - rule-tests     — write/repair the firing test material for an EXISTING generated rule +
+#                      verify it in single-rule isolation (mirror pair to rule-research; the write
+#                      half is agents/rule-test-author.md). Consumer-facing by design.
 #
 # AIF operator SUITE (only under --with-aif-suite — presupposes the aif-handoff runtime):
 #   - pipeline      — the planner (/pipeline): umbrella triage, priority ranking, plan/state.md.
@@ -86,7 +89,7 @@ fi
 # dual-implementation-discipline.md §3.
 # Repo-internal cross-refs (docs/packages/scripts/.claude/rules/README) are rewritten to GitHub blob
 # URLs by copy_skill_with_transform → transform_internal_refs; sibling-skill links stay relative (sibling ships too).
-for _skill in template-audit ai-doc rule-research; do
+for _skill in template-audit ai-doc rule-research rule-tests; do
   copy_skill_with_transform "$_skill"
 done
 if [ -n "${WITH_AIF_SUITE:-}" ]; then

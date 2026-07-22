@@ -19,7 +19,7 @@ PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); echo "  ✓ $1"; }
 bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 
-CORE_SET="template-audit ai-doc rule-research"
+CORE_SET="template-audit ai-doc rule-research rule-tests"
 GATED_SET="pipeline dispatcher aif-doctor harvest night-mode story"
 ALWAYS_COPIED="getff tool-bootstrapping"
 # F7 agents arm (owner GO 2026-07-11): the two aif-handoff-presupposing agents + their
