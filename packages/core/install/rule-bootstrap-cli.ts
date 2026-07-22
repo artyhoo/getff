@@ -39,7 +39,15 @@ import {
 } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { runRuleBootstrap } from '../synthesizer/rule-bootstrap.ts';
+// NOTE: `runRuleBootstrap` is imported DYNAMICALLY inside main() (the live/synthesis arm), NOT
+// statically here. It transitively reaches `validator/validate.ts` → `gate-conflict.ts` /
+// `gate-tautology.ts`, whose top-level `import … from '@rules-as-tests/preset-next-15-canonical/
+// eslint-rules'` requires the sibling workspace preset to be resolvable AT MODULE LOAD. The
+// lightweight `--from-practice` arm (renderResearchedAstgrep, preset-free) does NOT need any of
+// that — but a static import here would drag the preset into EVERY CLI invocation, so merely
+// LOADING this module in a core-only layout (`npm ci --prefix packages/core`, no sibling
+// packages — the `test:backends` CI job) crashes with ERR_MODULE_NOT_FOUND before parseArgs runs.
+// Keeping the import dynamic lets the render/practice paths run preset-free (ecosystem-wiring W5).
 import {
   FileResearchClient,
   FileGenerateClient,
@@ -285,6 +293,12 @@ async function main(): Promise<void> {
         generateClient: withManualDrop(new FileGenerateClient(args.fromSelection as string)),
       }
     : {};
+
+  // Loaded lazily (see the import note near the top): only the synthesis/live arm needs the L4/L5
+  // validator, which statically requires the sibling `@rules-as-tests/preset-next-15-canonical`
+  // package. The `--from-practice` arm returned above, so it never reaches this import — that arm
+  // stays runnable in a core-only layout with no sibling workspace packages resolvable.
+  const { runRuleBootstrap } = await import('../synthesizer/rule-bootstrap.ts');
 
   try {
     const result = await runRuleBootstrap({
