@@ -37,7 +37,16 @@ echo
 echo "[arm B] planted violation — a real std::env::var call inserted into a copy:"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
-cp -R "$CRATE/." "$WORK/"
+# Copy the crate WITHOUT its build cache (target/). A copied pre-built target/ makes
+# cargo's freshness check non-deterministic: cargo can treat the copied clean-build
+# cache as fresh and skip recompiling the planted violation (it out-ranks the rewritten
+# inputs on coarse-mtime filesystems), so clippy exits 0 and arm B silently passes a
+# violation. A fresh target/ per run is deterministic (mirror of demo.test.ts D3).
+for entry in "$CRATE"/* "$CRATE"/.[!.]*; do
+  [ -e "$entry" ] || continue
+  [ "$(basename "$entry")" = target ] && continue
+  cp -R "$entry" "$WORK/"
+done
 cat > "$WORK/src/main.rs" <<'RS'
 mod app_config {
     pub fn env_var(_key: &str) -> Option<String> {
