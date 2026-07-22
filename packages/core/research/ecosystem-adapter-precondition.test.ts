@@ -146,6 +146,17 @@ describe('D-tripwire — EcosystemAdapter precondition (research-source-trust.md
     expect(cargoAdapter.readInstalledMeta(cargoRoot, '../evil')).toBeNull();
   });
 
+  // @arm:B2:neg value-guard-containment (behavioural VALUE-surface paired
+  // negatives — non-symlink `../` traversal values, complementing the symlink
+  // escapes registered in ecosystem-cargo.test.ts / ecosystem-python.test.ts.
+  // HONEST POPULATION LIMIT (spec §3.2 B2, binding): this arm's fixtures verify
+  // KNOWN path-resolving surfaces only. The textual sentinel above
+  // (hasTraversalGuardSignal) proves the NAME guard per adapter but does NOT
+  // verify the VALUE guard (resolvedWithinRoot) — a future path-resolving
+  // adapter shipped without it would pass this file. That is a recorded gap +
+  // promotion trigger per research-source-trust.md §5 item 2 — caught by the §5
+  // review protocol's trust dimension, deliberately NOT a fabricated
+  // value-guard sentinel here.)
   it('behavioural end-to-end paired-negatives: cargoAdapter rejects a traversing path-override VALUE and a traversing workspace-member VALUE (§5 BLOCKER — distinct surface from the dep-NAME guard above)', () => {
     // The dep-NAME guard (isUnsafeDepName on `pkg`) is necessary but NOT
     // sufficient — the path-override and workspace-member *values* (declared
@@ -192,6 +203,11 @@ describe('D-tripwire — EcosystemAdapter precondition (research-source-trust.md
   });
 
   // ── Part B: the sole adapter's dep source IS the consumer's package.json ──
+  // @arm:B3:pos direct-deps-only (npm lane, declared-dep positive)
+  // @arm:B3:neg direct-deps-only (npm lane, undeclared-in-pkgjson negative — the
+  // positive+negative PAIR lives in this single test's two assertions; sibling
+  // family pairs: ecosystem-python.test.ts (pip) + ecosystem-cargo.test.ts
+  // (cargo) + tier1.test.ts S2-N2 (npm at the tier1For seam).)
   it('npmAdapter derives direct deps ONLY from the consumer package.json (trusted source)', () => {
     const root = mkdtempSync(join(tmpdir(), 'd-tripwire-'));
     // Consumer package.json declares exactly one dep.

@@ -92,6 +92,8 @@ describe('Task 2.3 — Tier-1 derivation (DN #6 lead: A-via-C multi-tenant conta
     });
   });
 
+  // @arm:B3:neg direct-deps-only (npm lane at the tier1For seam: transitive-only
+  // dep with derivable metadata is refused as not-a-direct-dependency)
   it('S2-N2: transitive-only dep derives nothing (in node_modules, NOT in package.json deps)', () => {
     const root = makeConsumerRoot({
       deps: {},

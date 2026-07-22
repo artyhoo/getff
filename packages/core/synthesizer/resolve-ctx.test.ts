@@ -14,7 +14,7 @@ import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { resolveCtxForRoot } from './resolve-ctx.ts';
-import { validateResearchPlan } from '../research/validate-plan.ts';
+import { validateResearchPlan, ResearchPlanError } from '../research/validate-plan.ts';
 import { npmAdapter } from '../research/ecosystem-npm.ts';
 import { cargoAdapter } from '../research/ecosystem-cargo.ts';
 import { pipAdapter } from '../research/ecosystem-python.ts';
@@ -234,6 +234,10 @@ describe('resolveCtxForRoot — adapter selection by detected stack (W2 unit)', 
 
 // --- integration arm: the adapter is INVOKED on the production resolve path ----
 
+// @arm:B1:pos tier1-trust-poisoned-negative (authorized-host plans below pass
+// through the PRODUCTION entrypoint seam: synthesizer/cli.ts:70
+// `validateResearchPlan(parsed, resolveCtxForRoot(args.root))` → exit 0; the
+// paired poisoned-host negatives live in the next describe block.)
 describe('resolveCtxForRoot — adapter is invoked on validateResearchPlan (W2 integration)', () => {
   it('python: a pip: provenance authorizes via pipAdapter Tier-1 (no throw)', () => {
     const root = makePythonRoot();
@@ -257,5 +261,52 @@ describe('resolveCtxForRoot — adapter is invoked on validateResearchPlan (W2 i
     expect(() => validateResearchPlan(plan, { root, adapter: npmAdapter })).toThrow(
       /ecosystem mismatch|provenance violation/,
     );
+  });
+});
+
+// --- adapter-jig B1: poisoned-host negative on the SAME production seam --------
+//
+// Spec §3.2 B1: the adapter-derived Tier-1 host set must be proven live on the
+// PRODUCTION entrypoint — authorized-host plan passes (the @arm:B1:pos describe
+// above), poisoned-host plan is REFUSED with the provenance error. Function-level
+// reading per J2 decisions log #5: the seam is validateResearchPlan, production-
+// wired at synthesizer/cli.ts:70 (`validateResearchPlan(parsed,
+// resolveCtxForRoot(args.root))`) whose throw becomes exit 1 at cli.ts:107
+// (`main().catch(... process.exit(1))`) — so the FF2011 throw below IS the spec's
+// "refused exit 1 with the provenance error", without spawning a process.
+//
+// Retrofit gap this closes: FF2011 (allowlist-resolver.ts:313) had ZERO
+// behavioural coverage in the entire research suite — the exact "dep authorized
+// but URL poisoned" attack (attacker-substituted provenance URL against a
+// legitimately-derived Tier-1 host set) was caught by no test.
+//
+// RED-proof: inverted assertions (`.not.toThrow()`) observed failing —
+//   "ResearchPlanError: Invalid ResearchPlan: pattern[w2-integration] provenance
+//    violation — host not authorized: not in the Tier-1 host set of `pip:requests`"
+// (and the cargo:serde twin) — before landing this GREEN form.
+describe('validateResearchPlan — poisoned-host provenance is REFUSED with FF2011 (adapter-jig B1)', () => {
+  // @arm:B1:neg tier1-trust-poisoned-negative
+  function expectPoisonedRefusal(root: string, packageName: string): void {
+    const plan = planFor({ packageName, url: 'https://evil-poison.example/x' });
+    let thrown: unknown;
+    try {
+      validateResearchPlan(plan, resolveCtxForRoot(root));
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).toBeInstanceOf(ResearchPlanError);
+    const err = thrown as ResearchPlanError;
+    // The wrapper text cli.ts prints to stderr before exit 1 …
+    expect(err.message).toMatch(/provenance violation — host not authorized/);
+    // … and the SPECIFIC poisoned-host diagnostic (not a mismatch/no-host code):
+    expect(err.diagnostics.map((d) => d.code)).toContain('FF2011');
+  }
+
+  it('python: same consumer as the authorized pass, poisoned URL → ResearchPlanError carrying FF2011', () => {
+    expectPoisonedRefusal(makePythonRoot(), 'pip:requests');
+  });
+
+  it('cargo: same consumer as the authorized pass, poisoned URL → ResearchPlanError carrying FF2011', () => {
+    expectPoisonedRefusal(makeCargoRoot(), 'cargo:serde');
   });
 });

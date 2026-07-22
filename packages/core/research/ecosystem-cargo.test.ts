@@ -93,6 +93,42 @@ not-locally-resolvable = "1.0"
     expect(cargoAdapter.listDirectDeps(root).has('not-locally-resolvable')).toBe(false);
   });
 
+  // @arm:B3:neg direct-deps-only (adapter-jig B3, cargo lane — the TRUE
+  // transitive-with-attacker-metadata negative: a crate locally resolvable in
+  // vendor/ with a poisoned homepage but NOT declared in the root manifest must
+  // never be listed, so tier1For (which gates on listDirectDeps FIRST,
+  // allowlist-resolver.ts:211) never reads its metadata. Distinct from the
+  // declared-but-unresolvable exclusion above. RED-proof: inverted assertion
+  // (`has('poison') → toBe(true)`) observed failing ("expected false to be
+  // true") before landing this GREEN form.
+  it('a vendored-but-UNDECLARED crate (attacker metadata) is NOT a direct dep — Tier-1 misses, evil-transitive.example never authorized', () => {
+    const root = makeRoot({
+      rootManifest: `
+[package]
+name = "consumer"
+version = "0.1.0"
+
+[dependencies]
+serde = "1.0"
+`,
+      vendored: {
+        serde: `[package]\nname = "serde"\nversion = "1.0.0"\n`,
+        poison: `[package]\nname = "poison"\nversion = "1.0.0"\nhomepage = "https://evil-transitive.example"\n`,
+      },
+    });
+    const deps = cargoAdapter.listDirectDeps(root);
+    // Control: the declared+vendored dep IS listed (proves the exclusion below
+    // is the undeclared-ness, not a general vendored-branch breakage).
+    expect(deps.has('serde')).toBe(true);
+    expect(deps.has('poison')).toBe(false);
+    const resolved = resolveAllowedSources({ root, adapter: cargoAdapter });
+    const r = resolved.tier1For('cargo:poison');
+    expect(r).toMatchObject({
+      ok: false,
+      reason: expect.stringContaining('not a direct dependency'),
+    });
+  });
+
   it('resolves an in-tree path dependency', () => {
     // FIX A containment (research-source-trust.md §5 BLOCKER): a path
     // dependency must resolve WITHIN root to get Tier-1 derivation. This
@@ -439,6 +475,12 @@ member-a = { path = "crates/member-a" }
 // candidate AND root before comparing (root itself may sit under a symlinked
 // ancestor, e.g. /tmp -> /private/tmp on macOS — one-sided realpath would
 // false-reject legitimate in-tree deps; see the positive-control test below).
+// @arm:B2:neg value-guard-containment (cargo KNOWN surfaces: all three resolution
+// branches — path-override, workspace-member, vendored — escape via in-tree
+// symlink out-of-tree → rejected. Each was observed RED pre-fix per the header
+// above; RED-proof re-observed at jig time: the temporarily-inverted
+// `.not.toBeNull()` on the path-override exploit failed with "expected null not
+// to be null" — the fixtures still discriminate post-fix.)
 describe('cargoAdapter — symlink containment (2nd BLOCKER, realpath-based)', () => {
   it('BLOCKER exploit — path-override through an in-tree symlink to an out-of-tree Cargo.toml is rejected (pre-fix: RED / authorized; post-fix: GREEN / rejected)', () => {
     const root = mkdtempSync(join(tmpdir(), 'cargo-symlink-root-'));
@@ -545,6 +587,8 @@ serde = "1.0"
     expect(diag).not.toBeNull();
   });
 
+  // @arm:B2:pos value-guard-containment (safe in-tree resolution passes — the
+  // containment guard does not over-reject legitimate in-tree symlink aliases)
   it('POSITIVE control — an in-tree symlink whose TARGET is also within root still resolves normally (realpath must not over-reject legitimate in-tree symlinks)', () => {
     // This is the test that would FALSE-FAIL if containment realpath'd only
     // the candidate side and compared it against a lexical (non-realpath'd)

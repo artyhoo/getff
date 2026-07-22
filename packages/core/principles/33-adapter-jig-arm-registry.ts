@@ -153,6 +153,67 @@ export const ADAPTER_JIG_ARMS: readonly ArmEntry[] = [
       { suite: 'packages/core/detector/read-python-cargo.test.ts', locator: '@arm:A2:neg' },
     ],
   },
+  // Increment B (J2). B1 poisoned-host FF2011 negative — retrofit gap: FF2011
+  // (allowlist-resolver.ts:313) had ZERO behavioural coverage in the research
+  // suite (only the diagnostics-registry shape test referenced the code). The
+  // production error fires correctly (no fix needed); the arm pins it on the
+  // production entrypoint seam (function-level per J2 decisions log #5, with the
+  // cli.ts:70 → cli.ts:107 exit-1 wiring cited at the arm).
+  {
+    id: 'B1',
+    group: 'trust',
+    slug: 'tier1-trust-poisoned-negative',
+    positive: [
+      { suite: 'packages/core/synthesizer/resolve-ctx.test.ts', locator: '@arm:B1:pos' },
+    ],
+    negative: [
+      { suite: 'packages/core/synthesizer/resolve-ctx.test.ts', locator: '@arm:B1:neg' },
+    ],
+  },
+  // B2 aggregates the existing KNOWN-surface paired path-escape fixtures (cargo
+  // path-override/workspace-member/vendored symlink branches + python venv lib +
+  // the behavioural `../` VALUE pair) and adds the F4 genuinely-unknown-prefix
+  // fixture (gem: — the prior pip: fixture drifted to the mismatch branch when
+  // pip became a KNOWN prefix). HONEST POPULATION LIMIT (spec §3.2 B2, binding):
+  // fixtures verify KNOWN surfaces only; a newly-born path-resolving surface is
+  // caught by the §5 review protocol's trust dimension — a textual/registry
+  // sentinel for surface births is a recorded gap (research-source-trust.md §5
+  // item 2) and a promotion trigger, NOT a mechanism shipped by this arm.
+  {
+    id: 'B2',
+    group: 'trust',
+    slug: 'value-guard-containment',
+    positive: [
+      { suite: 'packages/core/research/ecosystem-cargo.test.ts', locator: '@arm:B2:pos' },
+      { suite: 'packages/core/research/ecosystem-prefix-dispatch.test.ts', locator: '@arm:B2:pos' },
+    ],
+    negative: [
+      { suite: 'packages/core/research/ecosystem-cargo.test.ts', locator: '@arm:B2:neg' },
+      { suite: 'packages/core/research/ecosystem-python.test.ts', locator: '@arm:B2:neg' },
+      { suite: 'packages/core/research/ecosystem-prefix-dispatch.test.ts', locator: '@arm:B2:neg' },
+      { suite: 'packages/core/research/ecosystem-adapter-precondition.test.ts', locator: '@arm:B2:neg' },
+    ],
+  },
+  // B3 direct-deps-only — per-family transitive-exclusion pairs across the three
+  // wired lanes. npm was covered (tier1.test.ts S2-N2 + precondition Part B
+  // pair — markers added); python was the REAL gap (ecosystem-python.ts:219
+  // listDirectDeps transitive exclusion entirely untested); cargo gains the true
+  // transitive-with-attacker-metadata negative (vendored-but-undeclared).
+  {
+    id: 'B3',
+    group: 'trust',
+    slug: 'direct-deps-only',
+    positive: [
+      { suite: 'packages/core/research/ecosystem-python.test.ts', locator: '@arm:B3:pos' },
+      { suite: 'packages/core/research/ecosystem-adapter-precondition.test.ts', locator: '@arm:B3:pos' },
+    ],
+    negative: [
+      { suite: 'packages/core/research/ecosystem-python.test.ts', locator: '@arm:B3:neg' },
+      { suite: 'packages/core/research/ecosystem-cargo.test.ts', locator: '@arm:B3:neg' },
+      { suite: 'packages/core/research/tier1.test.ts', locator: '@arm:B3:neg' },
+      { suite: 'packages/core/research/ecosystem-adapter-precondition.test.ts', locator: '@arm:B3:neg' },
+    ],
+  },
 ];
 
 /** Gate 1 — pairing: a green-only (or red-only) arm is REFUSED. */

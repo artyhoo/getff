@@ -36,6 +36,7 @@ describe('extractPep508Name', () => {
 });
 
 import { pipAdapter } from './ecosystem-python.ts';
+import { resolveAllowedSources } from './allowlist-resolver.ts';
 import { mkdtempSync, writeFileSync, mkdirSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -268,6 +269,10 @@ describe('pipAdapter.readInstalledMeta — gaps & fail-closed', () => {
     expect(pipAdapter.readInstalledMeta(root, 'django')?.homepage).toBe('https://www.djangoproject.com/');
   });
 
+  // @arm:B2:neg value-guard-containment (python KNOWN surface: venv lib symlink
+  // out-of-tree → readInstalledMeta null. RED-proof re-observed at jig time: the
+  // temporarily-inverted `.not.toBeNull()` failed with "expected null not to be
+  // null" — the fixture still discriminates post-fix.)
   it('rejects a venv lib symlinked OUT-OF-TREE (VALUE containment via realpath both sides) — spec §5 item 5', () => {
     const root = mkdtempSync(join(tmpdir(), 'pip-adapter-'));
     // Attacker-controlled tree OUTSIDE root, shaped like a real venv lib dir.
@@ -297,5 +302,62 @@ describe('pipAdapter.readInstalledMeta — gaps & fail-closed', () => {
     // Matched by Name:, but the folded homepage is dropped → homepage undefined.
     expect(meta).not.toBeNull();
     expect(meta?.homepage).toBeUndefined();
+  });
+});
+
+// --- adapter-jig B3: direct-deps-only (transitive exclusion, pip lane) ---------
+//
+// Spec §3.2 B3: listDirectDeps returns DIRECT dependencies only — never the
+// transitive closure. This is the load-bearing trust assumption the resolver
+// delegates to the adapter (allowlist-resolver.ts:211 gates on
+// `listDirectDeps(root).has(bareName)` BEFORE any metadata read): a
+// closure-listing adapter would silently widen Tier-1 trust to every transitive
+// dep's self-declared metadata. Retrofit gap this closes: the python
+// transitive-exclusion (ecosystem-python.ts:219 reads ONLY pyproject.toml) was
+// entirely untested — a plausible convenience refactor (scan .dist-info dirs to
+// catch deps missing from pyproject) would have widened trust with zero RED.
+//
+// RED-proof: inverted assertion (`has('evil') → toBe(true)`) observed failing
+// ("expected false to be true") before landing this GREEN form.
+describe('pipAdapter — direct-deps-only: transitive exclusion gates Tier-1 (adapter-jig B3)', () => {
+  // @arm:B3:pos direct-deps-only (declared dep passes the full derivation gate)
+  it('a pyproject-declared dep IS a direct dep and derives its Tier-1 host', () => {
+    const root = makeVenvRoot({
+      pyproject: `[project]\nname = "consumer"\ndependencies = ["requests"]\n`,
+      distInfos: {
+        requests: {
+          dirName: 'Requests-2.31.0.dist-info',
+          metadata:
+            'Metadata-Version: 2.1\nName: requests\nProject-URL: Homepage, https://python-requests.org\n',
+        },
+      },
+    });
+    expect(pipAdapter.listDirectDeps(root).has('requests')).toBe(true);
+    const resolved = resolveAllowedSources({ root, adapter: pipAdapter });
+    expect(resolved.tier1For('pip:requests')).toMatchObject({
+      ok: true,
+      hosts: ['python-requests.org'],
+    });
+  });
+
+  // @arm:B3:neg direct-deps-only (transitive-only shape with attacker metadata)
+  it('a package present ONLY in the venv (not declared in pyproject) is NOT a direct dep — Tier-1 misses, evil.example never authorized', () => {
+    const root = makeVenvRoot({
+      pyproject: `[project]\nname = "consumer"\ndependencies = ["requests"]\n`,
+      distInfos: {
+        evil: {
+          dirName: 'Evil-1.0.dist-info',
+          metadata:
+            'Metadata-Version: 2.1\nName: evil\nProject-URL: Homepage, https://evil.example\n',
+        },
+      },
+    });
+    expect(pipAdapter.listDirectDeps(root).has('evil')).toBe(false);
+    const resolved = resolveAllowedSources({ root, adapter: pipAdapter });
+    const r = resolved.tier1For('pip:evil');
+    expect(r).toMatchObject({
+      ok: false,
+      reason: expect.stringContaining('not a direct dependency'),
+    });
   });
 });
