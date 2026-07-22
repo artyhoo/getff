@@ -1,0 +1,11 @@
+{
+  "getff-researched-no-yaml-load": {
+    "bad": [
+      "import yaml\ndata = yaml.load(raw)",
+      "import yaml\ndata = yaml.load(raw, Loader=yaml.FullLoader)"
+    ],
+    "good": [
+      "import yaml\ndata = yaml.safe_load(raw)"
+    ]
+  }
+}
