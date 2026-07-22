@@ -749,6 +749,14 @@ foo = { path = "crates/foo" }
     expect(resolved.tier1For('cargo:foo').ok).toBe(true);
   });
 
+  // @arm:B3:pos direct-deps-only (cargo lane, declared-dep positive: `serde` is
+  // declared in [dependencies] AND vendored, so listDirectDeps lists it and
+  // tier1For derives Tier-1 from its own metadata — the per-family pairing
+  // control for the vendored-but-UNDECLARED negative (@arm:B3:neg above). J2 B
+  // review round 1 MINOR: previously this discrimination existed only as an
+  // untagged in-test control assertion. RED re-observed at jig time via a
+  // temporarily-inverted `.ok → toBe(false)` — observed failing with "expected
+  // true to be false"; inversion reverted.)
   it('positive control: vendored manifest correctly declaring the matching name still resolves (name-symmetry check does not over-reject)', () => {
     const root = makeRoot({
       rootManifest: `

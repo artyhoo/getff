@@ -170,11 +170,24 @@ export const ADAPTER_JIG_ARMS: readonly ArmEntry[] = [
       { suite: 'packages/core/synthesizer/resolve-ctx.test.ts', locator: '@arm:B1:neg' },
     ],
   },
-  // B2 aggregates the existing KNOWN-surface paired path-escape fixtures (cargo
-  // path-override/workspace-member/vendored symlink branches + python venv lib +
-  // the behavioural `../` VALUE pair) and adds the F4 genuinely-unknown-prefix
-  // fixture (gem: — the prior pip: fixture drifted to the mismatch branch when
-  // pip became a KNOWN prefix). HONEST POPULATION LIMIT (spec §3.2 B2, binding):
+  // B2 aggregates the paired path-escape fixtures across ALL KNOWN path-resolving
+  // surfaces: (a) the arm's ORIGIN surface (spec §3.2 B2 Origin — the W5 #1082
+  // unsanitized-entryId arbitrary-write traversal): safeRenderedPath's safe-slug
+  // format gate + resolved-path containment (rule-bootstrap-cli.ts), covered by
+  // rule-bootstrap-practice.test.ts traversal/separator refusals + safe-slug pass
+  // + the CLI-level exit-0/non-zero pair (refs appended in J2 B review round 1 —
+  // the initial B row missed the origin surface); (b) the adapter realpath
+  // surfaces: cargo path-override/workspace-member/vendored symlink branches +
+  // python venv lib + the behavioural `../` VALUE pair; (c) the F4
+  // genuinely-unknown-prefix fixture (gem: — the prior pip: fixture drifted to
+  // the mismatch branch when pip became a KNOWN prefix). CENSUS ADJUDICATION
+  // (J2 B review round 1): renderedRulePath (render-researched-astgrep.ts) also
+  // builds `<id>.yml` paths from record entryIds, but its inputs are the
+  // FRAMEWORK-committed PRACTICE_RECORDS fixtures (PR-reviewed, drift-gated)
+  // writing under the committed LIVE_GEN_DIR — not consumer-authored input —
+  // so it is OUT-OF-SCOPE for this consumer-trust arm; if that lane ever
+  // accepts consumer-authored records, that is a surface BIRTH for the §5
+  // review protocol below. HONEST POPULATION LIMIT (spec §3.2 B2, binding):
   // fixtures verify KNOWN surfaces only; a newly-born path-resolving surface is
   // caught by the §5 review protocol's trust dimension — a textual/registry
   // sentinel for surface births is a recorded gap (research-source-trust.md §5
@@ -186,19 +199,24 @@ export const ADAPTER_JIG_ARMS: readonly ArmEntry[] = [
     positive: [
       { suite: 'packages/core/research/ecosystem-cargo.test.ts', locator: '@arm:B2:pos' },
       { suite: 'packages/core/research/ecosystem-prefix-dispatch.test.ts', locator: '@arm:B2:pos' },
+      { suite: 'packages/core/install/rule-bootstrap-practice.test.ts', locator: '@arm:B2:pos' },
     ],
     negative: [
       { suite: 'packages/core/research/ecosystem-cargo.test.ts', locator: '@arm:B2:neg' },
       { suite: 'packages/core/research/ecosystem-python.test.ts', locator: '@arm:B2:neg' },
       { suite: 'packages/core/research/ecosystem-prefix-dispatch.test.ts', locator: '@arm:B2:neg' },
       { suite: 'packages/core/research/ecosystem-adapter-precondition.test.ts', locator: '@arm:B2:neg' },
+      { suite: 'packages/core/install/rule-bootstrap-practice.test.ts', locator: '@arm:B2:neg' },
     ],
   },
   // B3 direct-deps-only — per-family transitive-exclusion pairs across the three
-  // wired lanes. npm was covered (tier1.test.ts S2-N2 + precondition Part B
-  // pair — markers added); python was the REAL gap (ecosystem-python.ts:219
-  // listDirectDeps transitive exclusion entirely untested); cargo gains the true
-  // transitive-with-attacker-metadata negative (vendored-but-undeclared).
+  // wired lanes, with a REGISTERED positive per family (spec §3.2 B3 "Paired
+  // fixture per family"): npm (tier1.test.ts S2-N2 + precondition Part B pair —
+  // markers added), python (was the REAL gap — ecosystem-python.ts:219
+  // listDirectDeps transitive exclusion entirely untested), cargo (the true
+  // transitive-with-attacker-metadata negative (vendored-but-undeclared) paired
+  // with the declared-serde-derives-Tier-1 positive — registered in J2 B review
+  // round 1; it previously existed only as an untagged in-test control).
   {
     id: 'B3',
     group: 'trust',
@@ -206,6 +224,7 @@ export const ADAPTER_JIG_ARMS: readonly ArmEntry[] = [
     positive: [
       { suite: 'packages/core/research/ecosystem-python.test.ts', locator: '@arm:B3:pos' },
       { suite: 'packages/core/research/ecosystem-adapter-precondition.test.ts', locator: '@arm:B3:pos' },
+      { suite: 'packages/core/research/ecosystem-cargo.test.ts', locator: '@arm:B3:pos' },
     ],
     negative: [
       { suite: 'packages/core/research/ecosystem-python.test.ts', locator: '@arm:B3:neg' },
