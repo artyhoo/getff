@@ -17,7 +17,7 @@ f93f4a4bd693a0b1920f4e030b5f0d72f2d695fef9d501b3aeb8d02e790a7e24  .ai-factory/to
 c96ba6e4c52288f0b77a2edaeb6170ecad03e699360d79fe7794fd3e205717e8  .claude/agents/memory-codification-auditor.md
 69f3259d89f153fecdd70754b7e5728f0e285fd15dd7b6d6a3b4df473e058a8c  .claude/agents/review-sidecar.md
 48239ef36ed73d01561636d67d2c75947729879a14accae7d667feccc5616215  .claude/agents/rule-researcher.md
-eedc7742f0a42ac309c7adb221ec5b34704835b005d74c654ce42fef5007ec56  .claude/agents/rule-test-author.md
+f4f14af7d942496b3814d6b789993b85afed4641cb573137a36b0fa73f0d1cff  .claude/agents/rule-test-author.md
 9808e32b096cee71f5971bd6c3aa6ec1bddd748c58d84aa93198d05fb5f7b106  .claude/hooks/ask-question-reminder.sh
 74a598da4bf7ad6cb4e4354510c3d4c6fb3e291de36c18dba5394a6fc430b302  .claude/hooks/check-doc-authority-header.sh
 7bbf4746578e485008823f1d13795c445bf8989f8d67132bea1939ba1957aa67  .claude/hooks/deps-hash-check.sh
