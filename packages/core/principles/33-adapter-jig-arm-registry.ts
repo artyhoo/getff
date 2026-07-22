@@ -589,6 +589,29 @@ export const ADAPTER_JIG_ARMS: readonly ArmEntry[] = [
       { suite: 'tests/install-sh/lane-orphan-residue.test.sh', locator: '@arm:C4:neg' },
     ],
   },
+  // Increment P (J2). CI-pinning group — P1 pins the F10 TWO-SURFACE mirror invariant that the
+  // per-line unpinned-tool-install gate (ci-tool-pinning.md §1 Rule A, Class A, at
+  // hooks/checks/unpinned-tool-install.ts) STRUCTURALLY cannot see: that gate asserts each install
+  // is pinned, never that the FRAMEWORK pin equals the CONSUMER pin. P1 adds exactly that missing
+  // mirror (spec §3.6 / §2.1 F10), scoped to the getff-shipped-and-pinned tools present on BOTH
+  // surfaces — ast-grep + ruff (J2 decisions log #11); rustc/cargo 1.96.1 is framework-pinned only
+  // (46-cargo.sh leaves the consumer toolchain version unpinned), so a two-surface claim for it
+  // would fabricate an invariant F10 does not state. NO fix (honest none-spotted): the real surfaces
+  // already mirror (framework audit-self.yml ast-grep 0.44.1 == consumer 45-python.sh 0.44.1; ruff
+  // 0.15.21 == 0.15.21). RED-proven live at registration by drifting a real consumer ruff pin to
+  // 0.15.22 → one "ruff: pin divergence" violation; and a stubbed non-discriminating checkPinParity
+  // fails all three paired negatives (divergence / consumer-float / framework-drop) — RED-before-GREEN.
+  {
+    id: 'P1',
+    group: 'ci',
+    slug: 'pinned-toolchain-in-ci',
+    positive: [
+      { suite: 'packages/core/hooks/pin-parity.test.ts', locator: '@arm:P1:pos' },
+    ],
+    negative: [
+      { suite: 'packages/core/hooks/pin-parity.test.ts', locator: '@arm:P1:neg' },
+    ],
+  },
 ];
 
 /** Gate 1 — pairing: a green-only (or red-only) arm is REFUSED. */
