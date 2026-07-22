@@ -283,6 +283,170 @@ else
   echo "  ── (9) SKIP over-broad negative (cargo not on PATH — covered by degrade arm 7) ──"
 fi
 
+# ── sourced-delivery driver for the stub-discriminator arms below ──────────────────────────────────
+# Mirrors python-delivery.test.sh's PY_LAYER_UNDER_TEST TDD seam, lifted to cargo (adapter-jig C1):
+# source lib.sh + a cargo layer (the REAL 46-cargo.sh by default, or a violating stub) with
+# CARGO_LAYER_LIB_ONLY=1 and run deliver_cargo_toolchain against a fixture. The stub arms point this
+# at naive/violating layers to PROVE the cell assertions discriminate (RED-provability, spec §3).
+run_cargo_delivery() {  # <project_root> <layer_path>
+  local _root="$1" _layer="${2:-${CARGO_LAYER_UNDER_TEST:-$LAYER}}"
+  (
+    export INSTALL_SH_LIB_ONLY=1
+    PKG_ROOT="$REPO_ROOT"; PROJECT_ROOT="$_root"; FORCE=""; DRY_RUN=""; SKIPPED=()
+    # shellcheck source=/dev/null
+    source "$REPO_ROOT/setup.d/lib.sh"
+    export CARGO_LAYER_LIB_ONLY=1
+    # shellcheck source=/dev/null
+    source "$_layer"
+    deliver_cargo_toolchain 2>&1
+  )
+}
+
+# ── (10) cell (iii): consumer-authored deny.toml → REFUSE, ship getff-deny.toml ────────────────────
+# @arm:C1:pos delivery-cell-matrix-complete (cargo deny REFUSE cell — was individually untested;
+# the W4 MAJOR class lived precisely in an untested REFUSE corner)
+echo "  ── (10) REFUSE cell (iii): consumer deny.toml kept, ours shipped as getff-deny.toml ──"
+C=$(cargo_fixture)
+printf '[bans]\nmultiple-versions = "warn"\n' > "$C/deny.toml"
+DENY_BEFORE=$(cat "$C/deny.toml")
+out=$( cd "$C" && bash "$INSTALL" cargo < /dev/null 2>&1 ) || true
+[ "$(cat "$C/deny.toml")" = "$DENY_BEFORE" ] \
+  && ok "(10) consumer deny.toml left byte-identical (cell iii REFUSE — no silent clobber)" \
+  || bad "(10) consumer deny.toml was modified — REFUSE cell broken"
+cmp -s "$TPL/deny.toml" "$C/getff-deny.toml" \
+  && ok "(10) our starter shipped as getff-deny.toml (byte-identical to template)" \
+  || bad "(10) getff-deny.toml missing or differs from template"
+echo "$out" | grep -q "REFUSE deny.toml" \
+  && ok "(10) delivery log announced the deny REFUSE loudly (cell iii)" \
+  || bad "(10) no loud REFUSE deny.toml announcement"
+rm -rf "$C"
+
+# ── (11) CI REFUSE cell: non-getff file at our namespaced workflow path → REFUSE loudly ───────────
+# @arm:C1:pos delivery-cell-matrix-complete (cargo CI REFUSE cell — was individually untested)
+echo "  ── (11) CI REFUSE cell: non-getff getff-cargo.yml preserved + loud REFUSE ──"
+C=$(cargo_fixture)
+mkdir -p "$C/.github/workflows"
+printf 'name: consumer-authored cargo wf\n' > "$C/.github/workflows/getff-cargo.yml"
+out=$( cd "$C" && bash "$INSTALL" cargo < /dev/null 2>&1 ) || true
+grep -qxF 'name: consumer-authored cargo wf' "$C/.github/workflows/getff-cargo.yml" \
+  && ok "(11) non-getff getff-cargo.yml NOT clobbered (consumer workflow preserved)" \
+  || bad "(11) non-getff getff-cargo.yml was overwritten — STOP-line breach"
+echo "$out" | grep -q "REFUSE CI" \
+  && ok "(11) printed a loud REFUSE CI with manual wiring instructions" \
+  || bad "(11) no loud REFUSE CI on a pre-existing non-getff workflow at our path"
+echo "$out" | grep -q "cargo clippy" \
+  && ok "(11) REFUSE CI includes the manual clippy-gate command (consumer can self-wire)" \
+  || bad "(11) REFUSE CI missing the manual wiring command"
+rm -rf "$C"
+
+# ── (12) cell (v): idempotent re-run — delivered config artefacts byte-identical ──────────────────
+# @arm:C1:pos delivery-cell-matrix-complete (cargo idempotent re-run cell — was untested; python
+# precedent python-delivery.test.sh cell v)
+echo "  ── (12) cell (v): re-run idempotency (configs byte-identical; log + rules-lock excluded) ──"
+cargo_config_fingerprint() {  # volatile-excluded per 46-cargo.sh delivery-log contract
+  find "$1" -type f -not -name '.getff-cargo-install.log' -not -name 'rules-lock.cargo.json' \
+    2>/dev/null | LC_ALL=C sort | while IFS= read -r f; do
+      printf '%s  %s\n' "$(_sha256 "$f")" "${f#"$1/"}"
+    done
+}
+C=$(cargo_fixture)
+( cd "$C" && bash "$INSTALL" cargo < /dev/null ) >/dev/null 2>&1
+fp1=$(cargo_config_fingerprint "$C")
+( cd "$C" && bash "$INSTALL" cargo < /dev/null ) >/dev/null 2>&1
+fp2=$(cargo_config_fingerprint "$C")
+{ [ -n "$fp1" ] && [ "$fp1" = "$fp2" ]; } \
+  && ok "(12) second run left the delivered config tree byte-identical (cell v idempotent)" \
+  || bad "(12) second run changed the config tree: $(diff <(echo "$fp1") <(echo "$fp2") | tr '\n' '|' | cut -c1-300)"
+rm -rf "$C"
+
+# ── (13) C1 discriminating negative: a naive copy-only stub layer MUST violate the REFUSE cells ────
+# The python-delivery.test.sh:24-26 PY_LAYER_UNDER_TEST copy-only-stub precedent lifted to cargo:
+# a green-only cell matrix that never runs against a clobbering stub is REFUSED (spec §3). The stub
+# unconditionally cp's every template (no getff-header guard, no existence guard); the REFUSE-cell
+# byte-identity assertions of arms (5)/(10)/(11) MUST detect it — proving they discriminate.
+# @arm:C1:neg delivery-cell-matrix-complete (copy-only stub clobbers all three REFUSE cells)
+echo "  ── (13) copy-only stub violates REFUSE cells (C1 negative — assertions discriminate) ──"
+STUBDIR=$(mktemp -d)
+cat > "$STUBDIR/stub-46-cargo.sh" <<'STUB_EOF'
+# naive copy-only cargo delivery stub — the adapter-jig C1 discriminating negative.
+# No getff-header guard, no existence guard: clobbers every REFUSE cell unconditionally.
+deliver_cargo_toolchain() {
+  local tpl="${CARGO_TEMPLATE_DIR:-$PKG_ROOT/packages/core/templates/cargo}"
+  mkdir -p "$PROJECT_ROOT/.getff" "$PROJECT_ROOT/.github/workflows"
+  cp "$tpl/clippy.toml" "$PROJECT_ROOT/clippy.toml"
+  cp "$tpl/deny.toml" "$PROJECT_ROOT/deny.toml"
+  cp "$tpl/Cargo.lints.toml" "$PROJECT_ROOT/.getff/Cargo.lints.toml"
+  cp "$tpl/github-actions-ci.yml" "$PROJECT_ROOT/.github/workflows/getff-cargo.yml"
+}
+STUB_EOF
+C=$(cargo_fixture)
+printf 'cognitive-complexity-threshold = 30\n' > "$C/clippy.toml"
+printf '[bans]\nmultiple-versions = "warn"\n' > "$C/deny.toml"
+mkdir -p "$C/.github/workflows"
+printf 'name: consumer-authored cargo wf\n' > "$C/.github/workflows/getff-cargo.yml"
+run_cargo_delivery "$C" "$STUBDIR/stub-46-cargo.sh" >/dev/null 2>&1
+STUB_HITS=0
+cmp -s "$TPL/clippy.toml" "$C/clippy.toml" && STUB_HITS=$((STUB_HITS+1))
+cmp -s "$TPL/deny.toml" "$C/deny.toml" && STUB_HITS=$((STUB_HITS+1))
+cmp -s "$TPL/github-actions-ci.yml" "$C/.github/workflows/getff-cargo.yml" && STUB_HITS=$((STUB_HITS+1))
+[ "$STUB_HITS" -eq 3 ] \
+  && ok "(13) copy-only stub clobbered clippy.toml + deny.toml + getff-cargo.yml — the (5)/(10)/(11) byte-identity assertions would go RED against it (discriminating, not vacuous)" \
+  || bad "(13) stub clobbered only $STUB_HITS/3 REFUSE surfaces — the stub is not a valid discriminator (or a guard leaked into it)"
+rm -rf "$C" "$STUBDIR"
+
+# ── (14) C2: consumer manifest (Cargo.toml) byte-identical across install AND --force ──────────────
+# Zero prior coverage (recon C2): the lane's read-only-manifest contract (46-cargo.sh:19-23 — NEVER
+# auto-edit Cargo.toml; deliver .getff/Cargo.lints.toml instead) was asserted nowhere; a future
+# "helpful auto-merge" of [lints.clippy] would have passed every cargo test.
+# @arm:C2:pos no-consumer-manifest-mutation (hash-compare across plain install + --force)
+echo "  ── (14) C2: Cargo.toml byte-identical after install and --force (manifest never mutated) ──"
+C=$(cargo_fixture)
+printf '\n[lints.rust]\nunsafe_code = "forbid"\n' >> "$C/Cargo.toml"   # real consumer content incl. a [lints] table
+MANIFEST_SHA_BEFORE=$(_sha256 "$C/Cargo.toml")
+( cd "$C" && bash "$INSTALL" cargo < /dev/null ) >/dev/null 2>&1
+[ "$(_sha256 "$C/Cargo.toml")" = "$MANIFEST_SHA_BEFORE" ] \
+  && ok "(14) Cargo.toml byte-identical after plain install (read-only manifest contract)" \
+  || bad "(14) Cargo.toml MUTATED by plain install — the lane wrote into the consumer manifest"
+( cd "$C" && bash "$INSTALL" cargo --force < /dev/null ) >/dev/null 2>&1
+[ "$(_sha256 "$C/Cargo.toml")" = "$MANIFEST_SHA_BEFORE" ] \
+  && ok "(14) Cargo.toml byte-identical after --force too (overwrite flag never reaches the manifest)" \
+  || bad "(14) Cargo.toml MUTATED under --force"
+! grep -q '\[lints\.clippy\]' "$C/Cargo.toml" \
+  && ok "(14) [lints.clippy] deny projection NOT merged into Cargo.toml (lands only at .getff/Cargo.lints.toml)" \
+  || bad "(14) [lints.clippy] appeared inside the consumer Cargo.toml — forbidden auto-merge"
+[ -f "$C/.getff/Cargo.lints.toml" ] \
+  && ok "(14) deny projection delivered at the namespaced .getff/Cargo.lints.toml reference" \
+  || bad "(14) .getff/Cargo.lints.toml missing — projection not delivered anywhere"
+rm -rf "$C"
+
+# ── (15) C2 discriminating negative: a manifest-mutating stub MUST be caught by the hash-compare ───
+# The "helpful auto-merge" the W4 design explicitly forbade (46-cargo.sh:19-23): a stub that appends
+# the [lints.clippy] deny block into the consumer's Cargo.toml. The before/after hash-compare of
+# arm (14) MUST detect it — without this violating stub the arm is green-only → REFUSED (spec §3).
+# @arm:C2:neg no-consumer-manifest-mutation (auto-merge stub → hash-compare goes RED)
+echo "  ── (15) manifest-mutating stub caught by the hash-compare (C2 negative) ──"
+STUBDIR=$(mktemp -d)
+cat > "$STUBDIR/stub-mutating-46-cargo.sh" <<'STUB_EOF'
+# manifest-mutating cargo delivery stub — the adapter-jig C2 discriminating negative:
+# the forbidden "helpful auto-merge" of the deny projection into the consumer's Cargo.toml.
+deliver_cargo_toolchain() {
+  local tpl="${CARGO_TEMPLATE_DIR:-$PKG_ROOT/packages/core/templates/cargo}"
+  mkdir -p "$PROJECT_ROOT/.getff"
+  cp "$tpl/Cargo.lints.toml" "$PROJECT_ROOT/.getff/Cargo.lints.toml"
+  printf '\n[lints.clippy]\ndisallowed_methods = "deny"\n' >> "$PROJECT_ROOT/Cargo.toml"
+}
+STUB_EOF
+C=$(cargo_fixture)
+MANIFEST_SHA_BEFORE=$(_sha256 "$C/Cargo.toml")
+run_cargo_delivery "$C" "$STUBDIR/stub-mutating-46-cargo.sh" >/dev/null 2>&1
+[ "$(_sha256 "$C/Cargo.toml")" != "$MANIFEST_SHA_BEFORE" ] \
+  && ok "(15) mutating stub CHANGED the Cargo.toml hash — arm (14)'s hash-compare discriminates the forbidden auto-merge" \
+  || bad "(15) mutating stub left the hash unchanged — the stub is not a valid discriminator"
+grep -q '\[lints\.clippy\]' "$C/Cargo.toml" \
+  && ok "(15) stub's merged [lints.clippy] block is exactly what arm (14)'s grep assertion catches" \
+  || bad "(15) stub did not merge [lints.clippy] — fixture does not reproduce the forbidden mutation"
+rm -rf "$C" "$STUBDIR"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

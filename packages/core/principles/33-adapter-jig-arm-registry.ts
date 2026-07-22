@@ -506,6 +506,89 @@ export const ADAPTER_JIG_ARMS: readonly ArmEntry[] = [
       { suite: 'packages/core/backends/npm/capability-matrix.test.ts', locator: '@arm:E3:neg' },
     ],
   },
+  // Increment C (J2). Delivery-cell group — bring the cargo cell matrix up to the python
+  // precedent + close the two structural gaps no cell test could see (snapshot-exclusion
+  // masking; orphan residue on refresh).
+  //
+  // C1 retrofit (REAL gap): the cargo delivery-cell matrix was materially under-tested vs
+  // python-delivery.test.sh — the deny.toml REFUSE cell (iii), the getff-cargo.yml CI REFUSE
+  // cell, and the idempotent re-run (cell v) had NO individual test, and cargo had no
+  // copy-only-stub discriminating seam (the W4 MAJOR class lived precisely in an untested
+  // REFUSE corner). pos = new arms 10/11/12 (deny REFUSE + CI REFUSE + cell-v idempotency,
+  // driven through the REAL install.sh); neg = arm 13: a naive copy-only stub layer
+  // (python-delivery.test.sh:24-26 PY_LAYER_UNDER_TEST precedent lifted to cargo via the
+  // in-test run_cargo_delivery seam) clobbers all three REFUSE surfaces — RED-proven live
+  // (the (5)/(10)/(11)/(14) positive assertions all ✗ against the stubs pre-landing).
+  {
+    id: 'C1',
+    group: 'delivery',
+    slug: 'delivery-cell-matrix-complete',
+    positive: [
+      { suite: 'tests/install-sh/cargo-entry-lane.test.sh', locator: '@arm:C1:pos' },
+    ],
+    negative: [
+      { suite: 'tests/install-sh/cargo-entry-lane.test.sh', locator: '@arm:C1:neg' },
+    ],
+  },
+  // C2 retrofit (REAL gap): ZERO assertions guarded the consumer MANIFEST (Cargo.toml)
+  // byte-identity — the lane's read-only-manifest contract (46-cargo.sh:19-23, integration
+  // lands only at .getff/Cargo.lints.toml) was asserted nowhere, and no --force variant of
+  // any manifest-untouched check existed on either lane. pos = arm 14 (sha256 hash-compare
+  // across plain install AND --force + the [lints.clippy] non-merge grep); neg = arm 15
+  // (the forbidden «helpful auto-merge» stub appends [lints.clippy] into Cargo.toml — the
+  // hash-compare MUST move; RED-proven live pre-landing).
+  {
+    id: 'C2',
+    group: 'delivery',
+    slug: 'no-consumer-manifest-mutation',
+    positive: [
+      { suite: 'tests/install-sh/cargo-entry-lane.test.sh', locator: '@arm:C2:pos' },
+    ],
+    negative: [
+      { suite: 'tests/install-sh/cargo-entry-lane.test.sh', locator: '@arm:C2:neg' },
+    ],
+  },
+  // C3 (recon: honest mostly-none-spotted — the live exclusions are correctly per-filename;
+  // the single glob is the benign '*.tmp', now pinned by the sentinel arm). Behavioral
+  // realization per J2 decisions log #7: the NEW suite extracts the REAL compute_fingerprint
+  // from snapshot.sh (never a re-typed copy), proves volatile-only mutation invisible (pos),
+  // one-byte deterministic-artefact drift still caught (neg), and that a deliberately
+  // glob-broadened exclusion ('*/.getff/*') swallows the SAME mutation — the drift-mask C3
+  // forbids, RED-proven live (assertion (2) ✗ under the broadened pipeline).
+  {
+    id: 'C3',
+    group: 'delivery',
+    slug: 'snapshot-exclusion-no-drift-mask',
+    positive: [
+      { suite: 'tests/install-sh/snapshot-exclusion-guard.test.sh', locator: '@arm:C3:pos' },
+    ],
+    negative: [
+      { suite: 'tests/install-sh/snapshot-exclusion-guard.test.sh', locator: '@arm:C3:neg' },
+    ],
+  },
+  // C4 fix+arm atomic (REAL gap): orphan residue was handled ONLY for directory-payload
+  // deliveries (.getff/astgrep-rules via refresh_safe rm-rf, lib.sh #873); individually
+  // delivered top-level files (deny.toml, getff-*.yml/toml, .getff/Cargo.lints.toml, …) had
+  // NO sweep and NO report — a file dropped by a future template silently survived a
+  // brownfield --refresh (same root cause as the #882 npm barrel prune, on lanes that test
+  // never reaches; RED-proven live: pre-fix --refresh printed nothing for a planted
+  // getff-header-marked stale file on BOTH lanes). Fixed in the same increment per J2
+  // decisions log #8 (loud-report minimum, report-only — deletion is the irreversible
+  // branch): lib.sh report_getff_orphans + refresh-path call in both lanes. pos = arm 1
+  // (in-dir orphan swept) ; neg = arm 2 (copy_safe discriminator — orphan survives) + arm 3
+  // (the pre-fix silent-survival reproduction, now the loud-report assertion) with arm 4 as
+  // the false-positive control (clean refresh + headerless consumer file → zero reports).
+  {
+    id: 'C4',
+    group: 'delivery',
+    slug: 'no-orphan-residue',
+    positive: [
+      { suite: 'tests/install-sh/lane-orphan-residue.test.sh', locator: '@arm:C4:pos' },
+    ],
+    negative: [
+      { suite: 'tests/install-sh/lane-orphan-residue.test.sh', locator: '@arm:C4:neg' },
+    ],
+  },
 ];
 
 /** Gate 1 — pairing: a green-only (or red-only) arm is REFUSED. */

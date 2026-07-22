@@ -328,6 +328,15 @@ deliver_cargo_toolchain() {
   _cargo_deliver_ci "$tpl"
   _cargo_write_rules_lock
 
+  # adapter-jig C4 (no-orphan-residue): on a refresh pass, loudly report getff-header-marked
+  # top-level files the CURRENT template set no longer delivers (lib.sh report_getff_orphans).
+  # Report-only — J2 decisions log #8; parity with the python lane.
+  if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
+    report_getff_orphans cargo \
+      clippy.toml getff-clippy.toml deny.toml getff-deny.toml \
+      .getff/Cargo.lints.toml .github/workflows/getff-cargo.yml
+  fi
+
   echo "  ✓ Rust/cargo toolchain delivery complete (see .getff-cargo-install.log for the audit trail)."
 }
 
