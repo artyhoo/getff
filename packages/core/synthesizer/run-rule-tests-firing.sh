@@ -62,22 +62,50 @@ _degrade() {
   _degraded=$((_degraded + 1))
 }
 
-# _valid_json <file> — true (exit 0) iff the file parses as JSON. A malformed sidecar is BROKEN
-# MATERIAL, not an absence (BLOCKER fix): _emit_samples would otherwise throw to stderr, the loop
-# would read zero lines, and the run would end green — a corrupt sidecar sailing through the push.
-_valid_json() {
-  node -e 'JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8"))' "$1" 2>/dev/null
+# _validate_sidecar <file> — mirror of the S2 loader validateRuleTestsSidecar
+# (packages/core/synthesizer/rule-tests-sidecar.ts:96-123 — keep in sync). SHAPE, not just parse:
+# a malformed OR mis-shaped sidecar is BROKEN MATERIAL, not an absence (BLOCKER: `_emit_samples`
+# coerces a missing/typo'd/empty field to zero samples, so a `badd` typo or empty `bad[]` would
+# sail through green). Prints the first violation reason to stderr and exits non-zero; exit 0 on a
+# fully-valid file. Rules (verbatim from the loader): top = object keyed by ruleId; each entry =
+# object with keys ⊆ {bad,good}; `bad` AND `good` present; each = non-empty array of non-empty
+# strings. NOT shipped to consumers is the loader itself (packages/core/synthesizer/ is unshipped),
+# so the runner re-implements it inline rather than importing it.
+_validate_sidecar() {
+  node -e '
+    const fs = require("node:fs");
+    let m;
+    try { m = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); }
+    catch (e) { console.error("not valid JSON — " + e.message); process.exit(1); }
+    const fail = (msg) => { console.error(msg); process.exit(1); };
+    if (typeof m !== "object" || m === null || Array.isArray(m)) fail("top level must be an object keyed by ruleId");
+    for (const [id, s] of Object.entries(m)) {
+      if (typeof s !== "object" || s === null || Array.isArray(s)) fail("entry \"" + id + "\" must be an object { bad: string[], good: string[] }");
+      for (const k of Object.keys(s)) if (k !== "bad" && k !== "good") fail("entry \"" + id + "\" has an unexpected key \"" + k + "\" (only \"bad\" and \"good\" are allowed)");
+      if (!("bad" in s)) fail("entry \"" + id + "\" is missing \"bad\"");
+      if (!("good" in s)) fail("entry \"" + id + "\" is missing \"good\"");
+      for (const f of ["bad", "good"]) {
+        const v = s[f];
+        if (!Array.isArray(v)) fail("entry \"" + id + "\" field \"" + f + "\" must be an array of code samples");
+        if (v.length === 0) fail("entry \"" + id + "\" field \"" + f + "\" must be a non-empty array (" + (f === "bad" ? "no violating sample = nothing fires" : "no clean counter-sample = over-firing unproven") + ")");
+        for (const x of v) if (typeof x !== "string" || x.length === 0) fail("entry \"" + id + "\" field \"" + f + "\" each sample must be a non-empty string");
+      }
+    }
+    process.exit(0);
+  ' "$1"
 }
 
-# _fail_corrupt <lane> <file> — record a malformed sidecar as a per-file RED (same class as
-# bad-not-firing), never a silent skip.
-_fail_corrupt() {
-  echo "  ✗ FAIL [$1] sidecar is not valid JSON — broken material ($2)"
+# _fail_shape <lane> <file> <reason> — record a malformed/mis-shaped sidecar as a per-file RED
+# (same class as bad-not-firing), never a silent skip.
+_fail_shape() {
+  echo "  ✗ FAIL [$1] sidecar is not valid rule-test material — broken material ($2)"
+  echo "      reason: $3"
   _overall_fail=$((_overall_fail + 1))
 }
 
 # _emit_samples <sidecar.json> — stream `<ruleId>\t<bad|good>\t<base64-sample>` lines. Callers
-# MUST _valid_json the file first; on a malformed file this prints nothing and node exits non-zero.
+# MUST _validate_sidecar the file first (the shape guard is what makes zero-samples impossible on a
+# lane that reaches here); on a malformed file this prints nothing and node exits non-zero.
 _emit_samples() {
   node -e '
     const fs = require("node:fs");
@@ -117,7 +145,8 @@ _fire_astgrep() {
   local sidecar="$RT_DIR/astgrep.json"
   [ -f "$sidecar" ] || return 0
   _any_lane=1
-  if ! _valid_json "$sidecar"; then _fail_corrupt astgrep "$sidecar"; return 0; fi
+  local _why
+  if ! _why="$(_validate_sidecar "$sidecar" 2>&1)"; then _fail_shape astgrep "$sidecar" "$_why"; return 0; fi
   local sg=""
   if   command -v ast-grep >/dev/null 2>&1; then sg="ast-grep"
   elif command -v sg       >/dev/null 2>&1; then sg="sg"; fi
@@ -166,7 +195,8 @@ _fire_ruff() {
   local sidecar="$RT_DIR/ruff.json"
   [ -f "$sidecar" ] || return 0
   _any_lane=1
-  if ! _valid_json "$sidecar"; then _fail_corrupt ruff "$sidecar"; return 0; fi
+  local _why
+  if ! _why="$(_validate_sidecar "$sidecar" 2>&1)"; then _fail_shape ruff "$sidecar" "$_why"; return 0; fi
   local ruff_mode=""
   if   command -v ruff >/dev/null 2>&1; then ruff_mode="ruff"
   elif command -v uvx  >/dev/null 2>&1; then ruff_mode="uvx"; fi
@@ -215,7 +245,8 @@ _fire_cargo() {
   local sidecar="$RT_DIR/cargo.json"
   [ -f "$sidecar" ] || return 0
   _any_lane=1
-  if ! _valid_json "$sidecar"; then _fail_corrupt cargo "$sidecar"; return 0; fi
+  local _why
+  if ! _why="$(_validate_sidecar "$sidecar" 2>&1)"; then _fail_shape cargo "$sidecar" "$_why"; return 0; fi
   if [ "$CARGO_TOGGLE" != "1" ]; then
     echo "  ⚠ cargo firing arm is opt-in (compile cost) — set GETFF_PREPUSH_CARGO_FIRE=1 to enable; a skipped check is NOT green."
     _degraded=$((_degraded + 1))

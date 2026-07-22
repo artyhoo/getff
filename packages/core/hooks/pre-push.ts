@@ -836,6 +836,34 @@ function lintStagedResolvesSection(): void {
   }
 }
 
+// SHAPE probe (BLOCKER fix, whole-work round): a node `-e` mirror of the S2 loader
+// validateRuleTestsSidecar (packages/core/synthesizer/rule-tests-sidecar.ts:96-123 — keep in sync;
+// that module is NOT shipped to consumers, so the check is re-implemented inline). Parse-only was
+// insufficient: a `badd` typo or an empty `bad[]` is valid JSON but yields zero samples → the
+// firing runner would end green. This RED's the arm even if the runner is bypassed. Exits non-zero
+// with the first violation reason on stderr; exit 0 on a fully-valid file.
+const SIDECAR_SHAPE_PROBE = `
+  const fs = require('node:fs');
+  let m;
+  try { m = JSON.parse(fs.readFileSync(process.argv[1], 'utf8')); }
+  catch (e) { console.error('not valid JSON — ' + e.message); process.exit(1); }
+  const fail = (msg) => { console.error(msg); process.exit(1); };
+  if (typeof m !== 'object' || m === null || Array.isArray(m)) fail('top level must be an object keyed by ruleId');
+  for (const [id, s] of Object.entries(m)) {
+    if (typeof s !== 'object' || s === null || Array.isArray(s)) fail('entry "' + id + '" must be an object { bad: string[], good: string[] }');
+    for (const k of Object.keys(s)) if (k !== 'bad' && k !== 'good') fail('entry "' + id + '" has an unexpected key "' + k + '" (only "bad" and "good" are allowed)');
+    if (!('bad' in s)) fail('entry "' + id + '" is missing "bad"');
+    if (!('good' in s)) fail('entry "' + id + '" is missing "good"');
+    for (const f of ['bad', 'good']) {
+      const v = s[f];
+      if (!Array.isArray(v)) fail('entry "' + id + '" field "' + f + '" must be an array of code samples');
+      if (v.length === 0) fail('entry "' + id + '" field "' + f + '" must be a non-empty array (' + (f === 'bad' ? 'no violating sample = nothing fires' : 'no clean counter-sample = over-firing unproven') + ')');
+      for (const x of v) if (typeof x !== 'string' || x.length === 0) fail('entry "' + id + '" field "' + f + '" each sample must be a non-empty string');
+    }
+  }
+  process.exit(0);
+`;
+
 // ── 3d2. Generated rule-material firing (consumer, rule-tests-surface S5) ─────
 // Standing consumer channel for the hash-exempt rule-test material a repair touches (spec §2):
 // without it a skipped/theatred /rule-tests run leaves broken material failing at NO channel
@@ -929,18 +957,14 @@ function generatedRuleMaterialSection(): void {
       `.ai-factory/rule-tests/${backend}.json`,
     );
     if (!existsSync(sidecar)) continue;
-    // BLOCKER fix: a malformed sidecar is BROKEN MATERIAL, not an absence — it must RED regardless
-    // of whether the lane tool is installed (the runner would otherwise read zero samples from a
-    // corrupt file and end green). node is always present; this die needs no lane tool on PATH.
-    const jsonProbe = run('node', [
-      '-e',
-      'JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8"))',
-      sidecar,
-    ]);
-    if (jsonProbe.exitCode !== 0) {
+    // BLOCKER fix: a malformed OR mis-shaped sidecar is BROKEN MATERIAL, not an absence — it must
+    // RED regardless of whether the lane tool is installed (the runner would otherwise coerce a
+    // typo'd/empty field to zero samples and end green). node is always present; needs no lane tool.
+    const shapeProbe = run('node', ['-e', SIDECAR_SHAPE_PROBE, sidecar]);
+    if (shapeProbe.exitCode !== 0) {
       die(
-        `❌ ${backend} rule-test sidecar is not valid JSON — broken material (.ai-factory/rule-tests/${backend}.json)`,
-        jsonProbe,
+        `❌ ${backend} rule-test sidecar is not valid rule-test material — broken material (.ai-factory/rule-tests/${backend}.json)`,
+        shapeProbe,
       );
     }
     if (
@@ -948,7 +972,8 @@ function generatedRuleMaterialSection(): void {
       process.env['GETFF_PREPUSH_CARGO_FIRE'] !== '1'
     ) {
       process.stdout.write(
-        '⚠ cargo rule-test firing is opt-in (compile cost) — set GETFF_PREPUSH_CARGO_FIRE=1 to enable; a skipped check is NOT green.\n',
+        // Unified wording with the runner (run-rule-tests-firing.sh) so drift breaks a test.
+        '⚠ cargo firing arm is opt-in (compile cost) — set GETFF_PREPUSH_CARGO_FIRE=1 to enable; a skipped check is NOT green.\n',
       );
       continue;
     }
