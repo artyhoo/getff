@@ -259,6 +259,37 @@ export type SsotIdsSource =
  * the C1 broken-citation arm; when omitted the existence check is skipped and
  * `brokenCitations` stays empty.
  */
+/** Result of the PR-body arm: ok, plus why the PR is a capability change. */
+export interface PrBodyPriorArtResult {
+  ok: boolean;
+  /** Capability reason, or null when the PR range is not a capability change. */
+  reason: string | null;
+  message: string;
+}
+
+/**
+ * PR-body arm of the §7 check (2026-07-22 squash-trailer-loss incident,
+ * PR #1094 → #1097 on artyhoo/getff): a squash merge writes ONE commit whose
+ * diff is the whole PR range and whose message the agent merge path takes from
+ * the PR BODY — branch-commit `Prior-art:` trailers do NOT survive, so the F1
+ * gate (principle 11) goes red on the next unrelated PR. Counter: a capability
+ * PR must carry a valid `Prior-art:` line in the PR body itself.
+ *
+ * `g` is a range provider (utils/git.ts `rangeGit`) viewing merge-base..head
+ * as one synthetic commit. authorDate is passed '' — a PR merging today is
+ * never pre-cutoff, so the historical bypass must not fire.
+ */
+export function checkPrBodyPriorArt(
+  prBody: string,
+  g: GitProvider,
+  ssotIds?: ReadonlySet<number>,
+): PrBodyPriorArtResult {
+  const reason = detectCapabilityReason('PR_RANGE', g);
+  if (reason === null) return { ok: true, reason: null, message: '' };
+  const { code, message } = checkTrailerBody(prBody, '', undefined, ssotIds);
+  return { ok: code === 0, reason, message };
+}
+
 export function runPriorArtCheck(
   commits: readonly string[],
   g: GitProvider,

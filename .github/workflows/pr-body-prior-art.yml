@@ -1,0 +1,47 @@
+name: pr-body-prior-art
+
+# PR-body arm of the §7 Prior-art trailer gate (CLAUDE.md «Prior-art trailer
+# syntax» + packages/core/hooks/checks/prior-art.ts).
+#
+# Why this exists (2026-07-22 squash-trailer-loss incident, PR #1094 → #1097):
+# a squash merge writes ONE commit whose message the agent merge path takes
+# from the PR BODY — branch-commit `Prior-art:` trailers do not survive, so
+# principle 11 F1 went red on the NEXT unrelated PR. This gate requires the
+# trailer in the PR body itself (exactly what survives the squash), at the
+# earliest reachable in-repo channel: PR-time CI, before any merge.
+# Consistent with the promote-mechanics trailer backstop (audit-self.yml §7)
+# — same trailer-loss class, this is the PR-side counterpart.
+#
+# Deterministic (no paid LLM per .claude/rules/no-paid-llm-in-ci.md); re-fires
+# on `edited` so fixing the PR body re-runs the gate. Paired positive/negative
+# tests: packages/core/hooks/checks/pr-body-prior-art.test.ts (gated by the
+# audit-self hooks-suite job).
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  prior-art-in-pr-body:
+    name: capability PR carries Prior-art line in PR body (squash-survival)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0  # capability detection needs base + head history
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '22'
+      - name: Install packages/core deps (tsx runtime)
+        run: npm ci --prefix packages/core --silent
+      - name: Check PR body Prior-art line against the squash-preview diff
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: npx --prefix packages/core tsx packages/core/hooks/checks/pr-body-prior-art-bin.ts
