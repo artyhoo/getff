@@ -1,1 +1,0 @@
-/Users/art/.claude-coordination/rules-as-tests-aif/adapter-jig-meta-launch/state.md
