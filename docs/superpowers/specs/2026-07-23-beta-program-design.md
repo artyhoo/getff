@@ -1,6 +1,13 @@
 # Beta program — delivery & usage convenience for human and AI (design)
 
-> **Status:** DRAFT r1 — /arch phase-1 output, pre cold two-altitude review (2026-07-23).
+> **Status:** r2 after cold two-altitude review round 1 (/arch §2, both seats Opus per
+> the operator model ladder): bottom-up **GO** (0 BLOCKER/MAJOR; 4 MINORs folded — all
+> anchors «verified clean», negative skills-probe claim held under grep); top-down
+> **REVISE ×5 MAJOR** — all folded in r2: D1 amendment content specified + separate-
+> commit ownership; §8 row for open U3-U7 install umbrellas; §1 goal-SSOT
+> reconciliation; D7 maintainer-owned carve-out; §5 cross-repo governance model; plus
+> both seats' MINORs (§9 dispatch preflights, A2 degradation honesty, Cursor wording).
+> Round-2 top-down re-review pending.
 > **Date:** 2026-07-23
 > **Authoritative for:** the beta-program design — north star (§1), binding operator
 > decisions D1-D9 (§2), program done-criterion (§3), umbrella A/B/C designs (§4-§6),
@@ -32,20 +39,42 @@ program packages the environment into a product and prepares the public beta.
 3. **AI performs the setup** («the second AI is connected by an AI»): smart defaults, humans asked only for the non-derivable (keys, subscriptions).
 4. **AI DX** (operator directive 2026-07-23): every artifact must be cheap and reliable for an AI to install / use / maintain — including technology choices (model-corpus familiarity), config shapes (declarative files over interactive wizards), and the development of this repo itself. AI DX is also the public positioning term (§5, README/landing tagline; README §Why edits are maintainer-owned per the Artifact Ownership Contract).
 
+**Goal-SSOT reconciliation (r2, review finding):** README#why-this-exists remains the
+unchanged goal SSOT — the goal product is the killer layer (conventions AI agents can't
+bypass). The environment layer ships as an **experimental, opt-in companion suite**
+around it, never as a silent goal redefinition. The «two-layer public product» framing
+is the operator/maintainer's own design-kickoff mandate (2026-07-21/23); its expression
+in README §Why is a maintainer-authored deliberate edit scheduled at phase 2 — until it
+lands, all public claims label the environment layer experimental and README's goal
+statement stands as-is.
+
 ## §2 Binding operator decisions (2026-07-23, this session)
 
 Recorded per /arch §1 with falsifiers. Future sessions must not silently reopen these.
 
-- **D1 — Absorb the getff-to-prod tail.** This program supersedes U8/U10/U11/U12 of
-  [getff-to-prod-meta-launch](../../../.claude/orchestrator-prompts/getff-to-prod-meta-launch/kickoff.md):
-  U8 (honest README) → umbrella B; U10+U11 (npm publish + name freeze) → release phase 2
-  mechanics prepared in umbrella A stage R1; U12 (public launch) → release phase 3.
-  U9 (repo split) is deferred post-announce per the operator's plan-v2 F1 hybrid-lite
-  verdict (single-package publish from the monorepo; S6→U10 handoff checklist is the
-  binding input). The meta-launch kickoff is amended in the same PR that lands this spec's
-  kickoffs — two contradictory dispatch inputs must not coexist on staging.
-  *Falsifier: single-package publish from the monorepo hits an unresolvable blocker
-  (e.g. meta-factory shims in exports) → a U9-lite subset returns into phase 2.*
+- **D1 — Absorb the getff-to-prod tail (amendment content specified; r2).** This program
+  supersedes U8/U10/U11/U12 of
+  [getff-to-prod-meta-launch](../../../.claude/orchestrator-prompts/getff-to-prod-meta-launch/kickoff.md)
+  and reconciles the open install-track umbrellas. The amendment makes EXACTLY these
+  edits to the meta-launch kickoff (an executing author needs no further judgment):
+  (1) U8 stub → `superseded-by: beta-docs-showcase (umbrella B)`; (2) U10: the dependency
+  line «depends on U9, U11, U8» is REWRITTEN to «depends on U11 + beta-delivery-ux R1 +
+  release-frame phase-1 exit» — the U9 edge is REMOVED (hybrid-lite single-package
+  publish from the monorepo per plan-v2 F1; S6→U10 handoff stays the binding checklist),
+  and the «U9 НЕОБРАТИМОЕ — последним» ordering note gains «U9 post-announce; no longer
+  gates U10»; (3) U12 stub → `superseded-by: release-frame phase 3`; (4) U3
+  `modular-install-fullpack` (S2 merged #723; S3 stalled — `mif-s3-integ` 5 commits
+  ahead, last 2026-06-26) → `absorbed-by: beta-delivery-ux A1`, PRECEDED by a
+  preserved-residue sweep of the stalled branches (T17/T18: harvest or explicitly park
+  the 5 commits before supersession); (5) U4/U6/U7 stubs (no merged stages) → each gets a
+  one-line disposition in the amendment: superseded-by-A / superseded-by-track-1 /
+  parked-with-owner — U4 `generator-into-install` is checked against track-1 W2/W3 scope
+  before disposition. **Ownership:** the amendment lands as a SEPARATE atomic commit
+  (cross-owner handoff + rationale per the CLAUDE.md Artifact Ownership Contract — never
+  a side-effect of other changes) inside the landing PR, and the PR body flags it for
+  maintainer sign-off. *Falsifier: single-package publish from the monorepo hits an
+  unresolvable blocker (e.g. meta-factory shims in exports) → a U9-lite subset returns
+  into phase 2.*
 - **D2 — Publish only what is ready.** The beta goes public only after (a) track 1
   finishes the hard part (any-stack trace + honest signals; adapter-jig J3 adds the go
   family), (b) the acceptance contour is implemented, and (c) the operator has
@@ -97,10 +126,17 @@ Recorded per /arch §1 with falsifiers. Future sessions must not silently reopen
   is reserved for judgments and guides. Applies to the consumer payload AND to this repo's
   own docs (operator directive; live evidence of the gap: zcode-parity-doctrine §3 still
   says «impl pending Wave B» while Wave B merged as #1043-#1047; README vs INSTALL-FOR-AI
-  contradict on Cursor; INSTALL-FOR-AI agent lists drifted). Mechanism: the existing
+  carry cross-doc drift on the Cursor story — different-altitude framings, not a flat
+  contradiction (r2 wording); INSTALL-FOR-AI agent lists drifted). Mechanism: the existing
   `<!-- getff:begin section=... -->` generated-section pattern + regen checks
-  (render-rule-index.mjs precedent). *Falsifier: a doc class proves non-derivable →
-  it stays prose with an owner and a review trigger, recorded per class.*
+  (render-rule-index.mjs precedent). **Ownership carve-out (r2, review finding):
+  generated-section automation NEVER touches the maintainer-owned goal artifacts —
+  README.md, CLAUDE.md, PROPOSAL.md (frozen), `.claude/session-bootstrap.md`, or any doc
+  the Artifact Ownership Contract lists as maintainer-deliberate-edit.** Automation
+  applies to non-goal-bearing derivable surfaces: AGENTS.md rule-index (existing
+  precedent), rule/doctrine status tables, INSTALL-FOR-AI rosters, coverage matrices.
+  *Falsifier: a doc class proves non-derivable → it stays prose with an owner and a
+  review trigger, recorded per class.*
 - **D8 — Memory & context hygiene.** The framework must not write to a consumer AI's
   memory and must not bloat always-on context: thin standing layer (AGENTS.md + moment-
   scoped hook hints), everything else on-demand (the repo's hot/cold ai-doc standard).
@@ -149,7 +185,10 @@ rehearsal; the one-beat pattern established by track-1 §9.3 is the precedent).
   Task/Review→executor), run a validation ping, ship the glm-handoff skill. Executor of
   the flow: an AI session driven by an INSTALL-FOR-AI step + a bash helper; no GUI/wizard
   (BFR cost gate). REFERENCE claude-code-router + LiteLLM as mapping-layer precedents —
-  we do not rebuild routing.
+  we do not rebuild routing. **Degradation honesty (r2, review finding):** if the REST
+  automation fails and the flow degrades to guided manual steps, that is a north-star
+  measure-3 MISS, not a neutral fallback — phase 1 exits only with the automated
+  one-key path proven end-to-end (§7).
 - **A3 — Tier-criteria home + degradation matrix.** A shipped, AI-agnostic doc (payload
   home chosen at stage planning: `.ai-factory/` doc or skill-context) carrying the Tier
   0/1/2 criteria and the explicit degradation table: no aif → in-session SDD; no GLM
@@ -203,6 +242,17 @@ until true). README changes route through maintainer handoff (Artifact Ownership
 Current-site facts (recon): getff.ai = Astro 7 + Starlight 0.41, GH Pages + CNAME,
 content mentions neither rule generation nor the environment layer — the showcase debt is
 content, not only stack.
+
+**Cross-repo governance (r2, review finding).** B's kickoff lives in THIS repo on
+staging (dispatch input; kickoff-staging-placement + principle-12 traps apply to it),
+but execution targets `getff-landing`, which has NO CI enforcement of this repo's
+disciplines. Honest model (Class-C, not theater): (1) stage discipline is
+kickoff-encoded — per-stage checklists including the F5 claim gates and the prototype
+gate; (2) the landing repo works PR-based with the checklist as the review artifact;
+(3) the phase-2 assembly gate in THIS repo cross-checks every shipped site claim against
+repo reality (the enforcement backstop). No new CI is built in the landing repo (YAGNI).
+*Falsifier: the assembly gate finds repeated claim drift → promote a deterministic
+claims-check into the landing repo's CI.*
 
 ## §6 Umbrella C — AI docs + agnosticism
 
@@ -269,6 +319,7 @@ Paradigm boundaries (each side keeps its own; interfaces are files/gates/convent
 | adapter-jig (J3/go) | conformance jig for backends | go lane existence → D6 universal entry covers it; jig arms feed C5 coverage matrices | read-only; J3 owns `setup.d/47-go.sh` — A1 profiles list it only after J3 merges |
 | acceptance contour (D1-D9, pending merge) | boundary-judgment acceptance; fail-closed fidelity gate | D1 marker rule (A4 `economy`/`aif` presets emit it); D5 park routing (A5 status renders parked classes); D4 PR package (R1 release notes read it); D3 gate applies to this program's own stage PRs once live | its implementation is in-session by its own D9; A3's CLAUDE.md pointer-ization lands AFTER their D1 amendment; /arch SKILL.md edits: theirs (D1 §3 obligation) land first, A8 ships content as-is from staging |
 | operator-global configs (~/.claude, aif app) | operator-owned, agent-uncommittable | GLM wiring facts (profile name, envs) | A2 writes only via aif REST + consumer-side files; ~/.claude and container .env stay operator-manual |
+| open getff-to-prod install umbrellas (U3 modular-install-fullpack S3-stalled; U4/U6/U7 stubs) (r2, review finding) | meta-launch program, currently dormant (U3: S2 merged #723, `mif-s3-integ` 5 commits ahead, last 2026-06-26; U4/U6/U7: no merged stages) | their surfaces ARE umbrella A's surfaces (`install.sh`, `setup.d/`, plugin) | D1 amendment dispositions each (absorb/supersede/park) BEFORE any A-stage dispatch; U3 residue swept per T17/T18; until the amendment lands, A does not dispatch — no off-contract contention on install.sh |
 
 **Assembly checklist (phase-2 gate, executable where possible):** entry commands resolve
 on a clean machine per ecosystem (js/python/cargo/go cells); profiles ship the merged
@@ -290,6 +341,15 @@ Process (binding): spec + kickoffs + the D1 meta-launch amendment merge to stagi
 any dispatch (kickoff-staging-placement); each kickoff carries the principle-12 traps
 section; one PR per stage; umbrella closure writes done.md; dispatch is operator-run
 /pipeline. This authoring session stops at written kickoffs.
+
+**Dispatch preflights (binding, r2, review findings):** (1) no A/C stage that touches a
+neighbor-contract surface (A3 tier-home pointer, A4 marker semantics, the go assembly
+cell) dispatches until the corresponding neighbor artifact is ON staging — such stages
+are marked `blocked-pending-neighbor` in the kickoffs, not startable at dispatch;
+(2) every stage re-verifies its file:line anchors live at stage entry (this spec's line
+citations are measurement-time snapshots, staging moves fast — tip was already
+`d534019b3` at review time); (3) A dispatches only after the D1 amendment has landed
+(no off-contract contention with U3-U7 surfaces).
 
 ## §10 Non-goals (this program)
 
