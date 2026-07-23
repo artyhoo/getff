@@ -1,0 +1,55 @@
+name: pr-body-fidelity
+
+# Acceptance gate (spec D3, docs/superpowers/specs/2026-07-23-acceptance-contour-
+# design.md) — fail-closed on its own subject (a missing/ malformed/ non-GO section fails
+# the run), and merge-blocking ONLY once registered as a required check, which CI cannot
+# verify (see the promote-flow note below):
+# every base=staging PR carries a `## Fidelity verdict` section —
+# either a GO block from agents/fidelity-auditor.md (Audited-SHA must equal PR head)
+# or `FIDELITY: skipped — <rationale >=20 chars>`. Deterministic (no paid LLM per
+# .claude/rules/no-paid-llm-in-ci.md); unfiltered events on the pr-body-prior-art.yml
+# model (#1098) — a paths: filter would un-fail-close tier-0/docs PRs.
+# Promote-flow safety: base=main PRs never run this job (workflow if:) AND the check
+# MUST be registered as required ONLY in the staging branch-protection set (primary
+# exemption — spec D3/m3). That registration is an OPERATOR responsibility and CI cannot
+# verify it: workflow-integrity.yml lists the context in REQUIRED_CONTEXTS, but
+# GITHUB_TOKEN cannot read branches/*/protection (no workflow permission scope grants
+# admin read), so that check degrades to a warning and exits 0 — measured on PR #1102,
+# 2026-07-23. Do not read a green CI as proof the context is registered; see the spec's
+# Known limitations (docs/superpowers/specs/2026-07-23-acceptance-contour-design.md §7).
+# Paired tests: pr-body-fidelity.test.ts.
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  fidelity-verdict-in-pr-body:
+    # name == job id, deliberately (same reason as `ci-success` in audit-self.yml):
+    # GitHub reports the status-check context under `name:`, so this exact string is what
+    # the operator must register in staging branch protection (and what
+    # workflow-integrity.yml lists in REQUIRED_CONTEXTS). A display name here would invite
+    # registering the job id instead — deadlocking every staging PR on a context that
+    # never reports.
+    name: fidelity-verdict-in-pr-body
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.base.ref == 'staging'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '22'
+      - name: Install packages/core deps (tsx runtime)
+        run: npm ci --prefix packages/core --silent
+      - name: Validate Fidelity verdict section against PR head
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: npx --prefix packages/core tsx packages/core/hooks/checks/pr-body-fidelity-bin.ts

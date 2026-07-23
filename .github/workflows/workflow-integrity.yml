@@ -19,24 +19,43 @@ jobs:
   # actionlint + zizmor moved to audit-self.yml so the single required context
   # `ci-success` can `needs:`-aggregate them (cross-file `needs:` is impossible,
   # and a path-filtered required check deadlocks non-workflow PRs). This workflow
-  # now carries only the R11 branch-protection self-assertion.
+  # now carries only the R11 branch-protection check — best-effort, see the
+  # KNOWN LIMITATION note on the job below.
   branch-protection-assertion:
+    # NOTE: this job's `name:` is itself a reported status-check context string —
+    # do not rename it casually (REQUIRED_CONTEXTS below lists what it checks for).
     name: ci-success required-check assertion
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      # KNOWN LIMITATION (measured on PR #1102, 2026-07-23 — do not "fix" by guessing):
+      # reading `branches/*/protection` needs admin rights, and there is NO workflow
+      # permission scope that grants them (`administration` is not a valid scope —
+      # actionlint rejects it). With GITHUB_TOKEN the API 404s, so the run falls to the
+      # UNDETERMINED arm below and exits 0 even when protection really exists — observed
+      # on that PR with contexts ["ci-success"] live while the job reported it could not
+      # read them. Consequence: this job is BEST-EFFORT, not a gate — it can only become
+      # a real mechanism via a PAT secret with admin:repo scope, which is an operator
+      # decision (adds a long-lived credential to CI). Until then the required-context
+      # registration is an operator responsibility, and this job's green does NOT prove
+      # the contexts are registered.
     steps:
-      - name: Assert ci-success is a required status check on staging
+      - name: Check REQUIRED_CONTEXTS against staging branch protection (best-effort)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Tri-state semantics:
-          #   - protection or rulesets configured AND include ci-success → pass
-          #   - protection or rulesets configured but ci-success missing → fail (R11 violated)
-          #   - no protection AND no rulesets → warn (R11 not yet adopted), pass
-          # Rationale: don't block PRs in repos that haven't yet configured branch
-          # protection. Once configured, R11 enforcement kicks in automatically.
+          # Tri-state semantics (read the KNOWN LIMITATION above first — with GITHUB_TOKEN
+          # the third arm is the NORMAL outcome, not the exception):
+          #   - state READABLE and includes every REQUIRED_CONTEXTS entry → pass
+          #   - state READABLE but an entry is missing → fail (R11 violated)
+          #   - state UNREADABLE (no admin scope) or genuinely unconfigured → warn, pass;
+          #     these two are indistinguishable from here, so the warning says UNDETERMINED
+          # Rationale for passing on the third arm: a repo that has not configured branch
+          # protection must not be blocked. The cost is that R11 enforcement does NOT
+          # "kick in automatically" once protection is configured — the API stays
+          # unreadable to this token, so the check keeps warn-passing (measured, PR #1102).
+          # Making it real requires an admin-scoped PAT secret (operator decision).
 
           protection_json="$(gh api "repos/${{ github.repository }}/branches/staging/protection" 2>/dev/null || echo 'null')"
           rulesets_json="$(gh api "repos/${{ github.repository }}/rulesets" 2>/dev/null || echo '[]')"
@@ -44,21 +63,39 @@ jobs:
           has_protection=$(echo "$protection_json" | jq 'if . == null or (type=="object" and has("message")) then false else true end')
           has_rulesets=$(echo "$rulesets_json" | jq 'if type=="array" then [.[] | select(.enforcement == "active")] | length > 0 else false end')
 
+          # REQUIRED_CONTEXTS: every check whose fail-closed property rests on being
+          # a REQUIRED status check on staging. `fidelity-verdict-in-pr-body` joined
+          # 2026-07-23 (acceptance contour, spec D3): it lives in its own workflow file
+          # so it cannot needs:-aggregate into ci-success, which means branch protection
+          # is its ONLY fail-closed transport. Listing it here does NOT make that
+          # precondition a mechanism — with GITHUB_TOKEN this check cannot read the
+          # protection state (KNOWN LIMITATION above), so the precondition remains
+          # operator-enforced (`#hope-as-gate`) until an admin-scoped credential exists.
+          # The list is kept because it is correct wherever the state IS readable, and
+          # because it is the single place recording which contexts must be registered.
+          required_contexts='["ci-success", "fidelity-verdict-in-pr-body"]'
+
           if [ "$has_protection" = "true" ]; then
-            if echo "$protection_json" | jq -e '.required_status_checks.contexts | contains(["ci-success"])' > /dev/null; then
-              echo "✅ ci-success is required on staging (classic branch protection)"
+            missing="$(echo "$protection_json" | jq -r --argjson want "$required_contexts" \
+              '($want - (.required_status_checks.contexts // [])) | join(", ")')"
+            if [ -z "$missing" ]; then
+              echo "✅ required checks present on staging (classic branch protection): $required_contexts"
               exit 0
             fi
-            echo "::error::Branch protection exists on staging but ci-success is NOT in required status checks (R11 violated)."
-            echo "::error::Settings → Branches → staging → Require status checks → ci-success"
+            echo "::error::Branch protection exists on staging but these required status checks are MISSING: ${missing} (R11 violated)."
+            echo "::error::Settings → Branches → staging → Require status checks → add: ${missing}"
             exit 1
           fi
 
           if [ "$has_rulesets" = "true" ]; then
-            echo "✅ rulesets active — manually verify ci-success in https://github.com/${{ github.repository }}/settings/rules"
+            echo "✅ rulesets active — manually verify ${required_contexts} in https://github.com/${{ github.repository }}/settings/rules"
             exit 0
           fi
 
-          echo "::warning::No branch protection or active rulesets on staging. R11 not yet adopted in this repo."
-          echo "::warning::Configure: Settings → Branches → staging → Require status checks → ci-success"
+          # Reaching here means the API returned nothing readable. With GITHUB_TOKEN that
+          # is the NORMAL case even when protection exists (admin read is unavailable to
+          # any workflow permission scope — measured PR #1102), so this must NOT claim
+          # protection is absent: it cannot tell "absent" from "unreadable".
+          echo "::warning::UNDETERMINED: cannot read staging branch protection with this token (admin read is not grantable to GITHUB_TOKEN), so R11 compliance is UNVERIFIED — this job's success does NOT mean the required contexts are registered."
+          echo "::warning::Verify manually: gh api repos/<owner>/<repo>/branches/staging/protection --jq '.required_status_checks.contexts' → must contain ${required_contexts}"
           exit 0
