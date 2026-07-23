@@ -1,5 +1,7 @@
 # honest-readme-demo — umbrella kickoff (U8) — STUB
 
+> **Status (2026-07-23 amendment):** superseded-by `beta-docs-showcase` (umbrella B) — honest-claims scope travels there under the F5 formulas. Do not dispatch. See [beta-program spec §2 D1](../../../docs/superpowers/specs/2026-07-23-beta-program-design.md).
+
 > **Class:** operational kickoff (dispatch input) — **STUB**.
 > **Authoritative for:** scope-набросок умбреллы U8; до диспатча развернуть в полный `kickoff.md` (§1–§9 per [getff-to-prod-meta-launch §D](../getff-to-prod-meta-launch/kickoff.md)).
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). Программа/очередность — [getff-to-prod-meta-launch/kickoff.md](../getff-to-prod-meta-launch/kickoff.md).

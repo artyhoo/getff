@@ -1,5 +1,7 @@
 # Umbrella kickoff — `modular-install-fullpack` (READY)
 
+> **Status (2026-07-23 amendment):** absorbed-by `beta-delivery-ux` A1 — after a T17/T18 preserved-residue sweep of the stalled `mif-s3-integ` branches. Do not dispatch from this kickoff. See [beta-program spec §2 D1](../../../docs/superpowers/specs/2026-07-23-beta-program-design.md).
+
 > **Class:** operational kickoff (dispatch input). **Status:** READY — §7-развилки закрыты brainstorm-сессией 2026-06-24.
 > **Authoritative for:** scope + стадии умбреллы «личный фулпак одной командой через модуляризацию install»; зафиксированные решения; вынесенные-вне-умбреллы пункты (§9).
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md). Последовательность фаз / Поток L — ROADMAP.md (planning workspace `rules-as-tests`). Фактаудит — plans-check.md (planning workspace).
