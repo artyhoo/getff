@@ -300,8 +300,11 @@ name: pr-body-fidelity
 # .claude/rules/no-paid-llm-in-ci.md); unfiltered events on the pr-body-prior-art.yml
 # model (#1098) — a paths: filter would un-fail-close tier-0/docs PRs.
 # Promote-flow safety: base=main PRs never run this job (workflow if:) AND the check
-# is registered as required ONLY in the staging branch-protection set (primary
-# exemption — spec D3/m3). Paired tests: pr-body-fidelity.test.ts.
+# MUST be registered as required ONLY in the staging branch-protection set (primary
+# exemption — spec D3/m3). That registration is an OPERATOR responsibility that CI
+# cannot verify: GITHUB_TOKEN cannot read branches/*/protection (no workflow permission
+# scope grants admin read — measured PR #1102), so do not read a green CI as proof it is
+# registered. See the spec's Known limitations. Paired tests: pr-body-fidelity.test.ts.
 
 on:
   pull_request:

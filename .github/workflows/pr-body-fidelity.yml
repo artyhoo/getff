@@ -27,11 +27,11 @@ permissions:
 jobs:
   fidelity-verdict-in-pr-body:
     # name == job id, deliberately (same reason as `ci-success` in audit-self.yml):
-    # GitHub reports the status-check context under `name:`, and that exact string is
-    # what workflow-integrity.yml asserts in the staging branch-protection contexts.
-    # A display name here would make that assertion unsatisfiable and, if the operator
-    # registered the job id instead, deadlock every staging PR on a context that never
-    # reports.
+    # GitHub reports the status-check context under `name:`, so this exact string is what
+    # the operator must register in staging branch protection (and what
+    # workflow-integrity.yml lists in REQUIRED_CONTEXTS). A display name here would invite
+    # registering the job id instead — deadlocking every staging PR on a context that
+    # never reports.
     name: fidelity-verdict-in-pr-body
     runs-on: ubuntu-latest
     if: github.event.pull_request.base.ref == 'staging'

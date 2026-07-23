@@ -45,12 +45,17 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Tri-state semantics:
-          #   - protection or rulesets configured AND include ci-success → pass
-          #   - protection or rulesets configured but ci-success missing → fail (R11 violated)
-          #   - no protection AND no rulesets → warn (R11 not yet adopted), pass
-          # Rationale: don't block PRs in repos that haven't yet configured branch
-          # protection. Once configured, R11 enforcement kicks in automatically.
+          # Tri-state semantics (read the KNOWN LIMITATION above first — with GITHUB_TOKEN
+          # the third arm is the NORMAL outcome, not the exception):
+          #   - state READABLE and includes every REQUIRED_CONTEXTS entry → pass
+          #   - state READABLE but an entry is missing → fail (R11 violated)
+          #   - state UNREADABLE (no admin scope) or genuinely unconfigured → warn, pass;
+          #     these two are indistinguishable from here, so the warning says UNDETERMINED
+          # Rationale for passing on the third arm: a repo that has not configured branch
+          # protection must not be blocked. The cost is that R11 enforcement does NOT
+          # "kick in automatically" once protection is configured — the API stays
+          # unreadable to this token, so the check keeps warn-passing (measured, PR #1102).
+          # Making it real requires an admin-scoped PAT secret (operator decision).
 
           protection_json="$(gh api "repos/${{ github.repository }}/branches/staging/protection" 2>/dev/null || echo 'null')"
           rulesets_json="$(gh api "repos/${{ github.repository }}/rulesets" 2>/dev/null || echo '[]')"
