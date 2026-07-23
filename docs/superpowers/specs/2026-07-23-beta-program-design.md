@@ -293,9 +293,10 @@ rehearsal; the one-beat pattern established by track-1 §9.3 is the precedent).
   <name>`; final name at stage planning) composes: worktree creation (REUSE
   `scripts/create-worktree.sh` — verified portable, configurable base-ref, dual-pair
   with the CC hook — but NOT shipped today, zero install.sh/setup.d references) + dep
-  wiring + per-detected-harness session start: CC → defer to native `claude -w`;
-  ZCode → launch/print the ready command in the worktree dir; unknown harness → print
-  the exact next command. Flag-first/non-TTY prints instead of launching (AI DX).
+  wiring + per-detected-harness session start: CC → DEFER entirely to the native flow
+  (desktop app has its own worktree UX — no wrapper involvement; CLI → `claude -w`;
+  operator correction 2026-07-23); ZCode → launch/print the ready command in the
+  worktree dir; unknown harness → print the exact next command. Flag-first/non-TTY prints instead of launching (AI DX).
   Ships in `env`+. The Superset recipe (A1 satellite verdict) becomes the OPTIONAL
   comfort-UI layer above this, not the load-bearing path. *Falsifier: per-harness
   launch detection proves brittle → the command always prints (never launches), which
