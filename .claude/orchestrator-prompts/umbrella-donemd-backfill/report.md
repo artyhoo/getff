@@ -184,10 +184,12 @@ dirs do not pollute the `/pipeline` panel today, regardless of done.md.
 
 ## §7 Acceptance gate self-check (Stage 1)
 
-- ✅ Every done.md in §3 corresponds to a row with cited PR + merge SHA (verifiable via `git show <sha>` on origin/staging).
-- ✅ ZERO done.md files written under any exclusion-list dir (the 12 target dirs are all in the candidate bucket, not the excluded bucket; the 16 explicit-list dirs and 50 live-signal dirs were never touched).
-- ✅ `bash .claude/skills/pipeline/helpers/priority-score.sh` runs clean — verified locally (Task 6 below).
-- ✅ Report UNCLEAR section present (§6 above) with 22 rows; T14 compliance confirmed.
+- ✅ Every done.md in §3 corresponds to a row with cited PR + merge SHA (verifiable via `git show <sha>` on origin/staging). 12 of 12 present in §3 table.
+- ✅ ZERO done.md files **written by this umbrella** under any exclusion-list dir (the 12 target dirs are all in the candidate bucket, not the excluded bucket; the 16 explicit-list dirs and 50 live-signal dirs were never touched). **Note (pre-existing state, not a leak):** 5 dirs in the kickoff's explicit exclusion list (`multi-model-pipeline-pilot`, `launch-preannounce-track`, `python-delivery-v0`, `generation-live-delivery`, `meta-orchestrator-prior-art`) DO carry `done.md` files — these were authored by **other maintainers' past PRs** that legitimately closed those umbrellas (#1113, #995, #997, #813, cf246c2 respectively), NOT by this umbrella's Commit A/C. `git log --author=Yhooi2 --since=2026-07-23` confirms zero of my commits today touched any of these 5 files. The exclusion list guards against **new work by this umbrella**, which is verified clean.
+- ✅ `bash .claude/skills/pipeline/helpers/priority-score.sh` runs clean — exit 0, 367 lines of output, no parse breakage. New done.md files land in dirs the script already skips at line 144 (`kickoff=missing → continue`) — they add documentation value (visible closure marker) without changing panel output.
+- ✅ Report UNCLEAR section present (§6 above) with 22 rows; T14 compliance confirmed (absence of closure findings is a stated result, not an omission).
+- ✅ **Population enumeration** present (§1 above) with exact command + 100-dir count + structural split.
+- ✅ **Schema check** on all 12 new done.md files: every file carries `# <name> — DONE` title line, `- Final PR:`, `- Closed:`, `- Summary:` (with backfill trailer `done.md backfilled 2026-07 by umbrella-donemd-backfill`). 0 schema failures.
 
 ## §8 Follow-ups (out of Stage 1 scope)
 
