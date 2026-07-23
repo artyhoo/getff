@@ -44,21 +44,31 @@ jobs:
           has_protection=$(echo "$protection_json" | jq 'if . == null or (type=="object" and has("message")) then false else true end')
           has_rulesets=$(echo "$rulesets_json" | jq 'if type=="array" then [.[] | select(.enforcement == "active")] | length > 0 else false end')
 
+          # REQUIRED_CONTEXTS: every check whose fail-closed property rests on being
+          # a REQUIRED status check on staging. `fidelity-verdict-in-pr-body` joined
+          # 2026-07-23 (acceptance contour, spec D3): it lives in its own workflow file
+          # so it cannot needs:-aggregate into ci-success, which means branch protection
+          # is its ONLY fail-closed transport — asserting it here is what keeps that
+          # precondition a mechanism rather than #hope-as-gate.
+          required_contexts='["ci-success", "fidelity-verdict-in-pr-body"]'
+
           if [ "$has_protection" = "true" ]; then
-            if echo "$protection_json" | jq -e '.required_status_checks.contexts | contains(["ci-success"])' > /dev/null; then
-              echo "✅ ci-success is required on staging (classic branch protection)"
+            missing="$(echo "$protection_json" | jq -r --argjson want "$required_contexts" \
+              '($want - (.required_status_checks.contexts // [])) | join(", ")')"
+            if [ -z "$missing" ]; then
+              echo "✅ required checks present on staging (classic branch protection): $required_contexts"
               exit 0
             fi
-            echo "::error::Branch protection exists on staging but ci-success is NOT in required status checks (R11 violated)."
-            echo "::error::Settings → Branches → staging → Require status checks → ci-success"
+            echo "::error::Branch protection exists on staging but these required status checks are MISSING: ${missing} (R11 violated)."
+            echo "::error::Settings → Branches → staging → Require status checks → add: ${missing}"
             exit 1
           fi
 
           if [ "$has_rulesets" = "true" ]; then
-            echo "✅ rulesets active — manually verify ci-success in https://github.com/${{ github.repository }}/settings/rules"
+            echo "✅ rulesets active — manually verify ${required_contexts} in https://github.com/${{ github.repository }}/settings/rules"
             exit 0
           fi
 
           echo "::warning::No branch protection or active rulesets on staging. R11 not yet adopted in this repo."
-          echo "::warning::Configure: Settings → Branches → staging → Require status checks → ci-success"
+          echo "::warning::Configure: Settings → Branches → staging → Require status checks → ${required_contexts}"
           exit 0

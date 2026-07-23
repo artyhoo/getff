@@ -62,3 +62,11 @@ Findings: each graded BLOCKER | MAJOR | MINOR, with file:line
 Verdict rule: any BLOCKER → STOP. Any MAJOR missing/diverged → REVISE. Only MINOR or
 clean → GO. `extra` findings grade at most MAJOR (scope creep is rework, not stop).
 Do not pad: an empty drift list is reported as empty, not filled.
+
+**Single-block invariant (enforced by the gate).** The PR body carries exactly ONE
+`## Fidelity verdict` section containing exactly ONE `FIDELITY:` line. A rework round
+**replaces** the previous block — never appends below it. Round history belongs in
+`## Review findings` or the task comments, not in this section: an appended block would
+either neutralise a recorded non-GO verdict or be shadowed by it, and the gate rejects
+both shapes (`packages/core/hooks/checks/pr-body-fidelity.ts`). The verdict tokens are
+case-sensitive.

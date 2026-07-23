@@ -37,7 +37,10 @@ FIDELITY: skipped — <fill>
 <!-- The default above FAILS the pr-body-fidelity gate on purpose (<20 chars).
 Non-stage PR: complete the rationale (>=20 chars), e.g. "docs-only change, no kickoff applies".
 Stage PR: replace with the agents/fidelity-auditor.md output block:
-FIDELITY: GO / Basis: <path> / Round: <n> / Audited-SHA: <PR head sha> / Evidence: <file.ext:N> -->
+FIDELITY: GO / Basis: <path> / Round: <n> / Audited-SHA: <PR head sha> / Evidence: <file.ext:N>
+Single-block invariant: exactly ONE `## Fidelity verdict` section with exactly ONE FIDELITY:
+line — a rework round REPLACES this block, it never appends below it (round history goes in
+`## Review findings`). Evidence must sit on a line other than `Basis:`. Tokens are case-sensitive. -->
 
 ## Parked questions
 
