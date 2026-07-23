@@ -1,7 +1,7 @@
 # multi-model-profile-marker — kickoff
 
 > **Umbrella:** `multi-model-profile-marker`. **Status:** DRAFT — authored in the 2026-07-21 design session; awaiting operator GO to land on staging + dispatch.
-> **Goal:** light tasks run their WHOLE aif pipeline (plan+review+implement) on the cheap executor profile without a manual UI click — a `<!-- bridge-profile: <name> -->` HTML-comment marker in the kickoff makes our dispatcher set the task-level profile override at task creation.
+> **Goal:** light tasks run their WHOLE aif pipeline (plan+review+implement) on the cheap executor profile without a manual UI click — a `bridge-profile` HTML-comment marker in the kickoff makes our dispatcher set the task-level profile override at task creation. (The literal marker syntax is spelled out in §2; it is deliberately NOT written out here — the header region is exactly what `extractProfileHint` scans, so a documentation mention in this blockquote would be parsed as a directive and abort this kickoff's own dispatch.)
 
 ## §1 Why (verified facts)
 
