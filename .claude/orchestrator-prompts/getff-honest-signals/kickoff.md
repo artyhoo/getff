@@ -1,4 +1,4 @@
-<!-- bridge-profile: glm-5.2 -->
+<!-- bridge-profile: Z.AI GLM-5.2 SDK -->
 <!-- scope: kickoff — getff-honest-signals umbrella. Design base (BINDING): docs/superpowers/specs/2026-07-23-getff-any-stack-closure-design.md §8 (W5.1-W5.6) + §1 wall 7. Cold-reviewed GO r2 (/arch §2 two-altitude, 2026-07-23). Tier 1 — bridge-profile marker above: whole pipeline (plan+implement+review) on the executor profile. All six semantics are PRE-DECIDED in the spec; stages are expansion, not design. -->
 
 # getff-honest-signals — kickoff
