@@ -114,6 +114,13 @@ bash scripts/run-local-ci-sweep.sh        # diff-aware; escalates to --full on u
 
 A **branch-introduced** red ⇒ HALT harvest, surface it, do NOT push (interpret against the merge-base — a red on `origin/staging` too is pre-existing, not the harvest's).
 
+**Unattended runs:** the standing authorization for dispatching the cold auditor below, driving
+the `REVISE` cycle via `answer.ts`, and pushing/opening/squash-merging to `staging` without a
+confirmation round is stated once in [`night-mode/SKILL.md` delta item 8](../night-mode/SKILL.md)
+— with its escalation set (`base=main`, second consecutive `REVISE`, `STOP`, parked forks) and its
+honest Class-C classification. Not restated here (`#two-prompts-drift`); this section keeps owning
+the mechanics.
+
 **Pre-egress fidelity gate (design altitude — spec D2/D6).** `harvest.ts` creates the PR and
 queues auto-merge inside one binary, so the fidelity seam is HERE, before invoking it.
 Dispatch [`agents/fidelity-auditor.md`](../../../agents/fidelity-auditor.md) cold: inputs = the

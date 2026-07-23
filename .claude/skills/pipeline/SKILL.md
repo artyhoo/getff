@@ -387,6 +387,8 @@ This section is **prose enforcement** — the `!shell` injection surfaces the PR
 
 **Trigger:** after each stage completes (all sub-wave PRs merged, §6 gate confirmed green).
 
+**Unattended runs:** the standing authorization that lets this dispatch (and the harvest/merge steps downstream) proceed without a confirmation round is stated once in [`night-mode/SKILL.md` delta item 8](../night-mode/SKILL.md) — including its escalation set and its honest Class-C classification. Not restated here (`#two-prompts-drift`).
+
 **Dispatch via Agent tool:**
 
 ```text
