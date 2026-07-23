@@ -21,13 +21,15 @@ jobs:
   # and a path-filtered required check deadlocks non-workflow PRs). This workflow
   # now carries only the R11 branch-protection self-assertion.
   branch-protection-assertion:
+    # NOTE: this job's `name:` is itself a reported status-check context string —
+    # do not rename it casually (see REQUIRED_CONTEXTS below for what it asserts).
     name: ci-success required-check assertion
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - name: Assert ci-success is a required status check on staging
+      - name: Assert every REQUIRED_CONTEXTS check is required on staging
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
