@@ -59,7 +59,10 @@ is the code-review altitude, already covered elsewhere.
 ## Inputs (paths/text only — never chat context, never implementation logs)
 
 1. The kickoff/spec path (the sole statement of intent — if something was agreed but is
-   not in this file, you cannot and must not know it).
+   not in this file, you cannot and must not know it). For multi-phase plans the
+   dispatching session passes the SCOPED section text as the intent statement (a
+   legitimate scoping act, not a cold-ness violation); `Basis:` then cites
+   `<path>#<section>`.
 2. The full 3-dot diff vs the base branch (text or a command to produce it).
 3. The audited commit SHA (for the `Audited-SHA:` line) and the round number.
 
@@ -76,6 +79,8 @@ is the code-review altitude, already covered elsewhere.
 4. If a drift's root cause is the kickoff itself (ambiguous, self-contradictory, or
    missing a descope decision the diff clearly assumes), flag `KICKOFF-AMBIGUOUS`
    instead of grading the drift — that routes to re-design, not rework.
+5. The audit is stateless and idempotent (spec D10): a verdict counts only once recorded
+   in the PR body / task comment — after a session crash, simply re-run on the same SHA.
 
 ## Output grammar (mandatory, machine-consumed)
 
@@ -376,7 +381,7 @@ git add .github/pull_request_template.md docs/meta-factory/prior-art-evaluations
 git commit -m "feat(acceptance): PR template acceptance-package sections + SSOT entry (spec D4)"
 ```
 
-- [ ] **Step 5: PR-A.** Run `bash scripts/run-local-ci-sweep.sh`; expected: green (branch-introduced reds ⇒ STOP and fix). **Dogfood:** dispatch `agents/fidelity-auditor.md` (cold subagent) with **Basis = this plan's «Phase A» section** (the PR's declared scope — NOT the full spec: a cold auditor handed the whole spec would flag Phase B deliverables as missing and could never honestly GO; scope-match the Basis to the PR), diff `git diff origin/staging...HEAD`, Round 1, current HEAD sha → paste the GO block into the PR body `## Fidelity verdict`. PR body also carries: `Prior-art:` line citing the Task A4 SSOT entry (voluntary BFR trail), §1.7 **Forward+Backward pair** (PR-A introduces a discipline-bearing agent + CI gate: Forward — compliance with attention-is-not-a-mechanism §1, no-paid-llm-in-ci §1, ci-tool-pinning §1, each with file:line; Backward — sweep the sibling PR-body-gate family: `pr-body-prior-art.yml`, `discipline-self-check.yml`, `pull_request_template.md`, each SWEPT-CLEAN or extended, with file:line). `gh pr create --base staging` + auto-merge per convention. **Operator items surfaced in the PR body:** register `fidelity-verdict-in-pr-body` as required ONLY in staging branch protection AFTER verifying skipped-conclusion behavior on a throwaway PR (spec D3/m3); grandfather in-flight PRs with a one-line `FIDELITY: skipped — pre-gate PR, opened before fidelity gate landed`.
+- [ ] **Step 5: PR-A.** Run `bash scripts/run-local-ci-sweep.sh`; expected: green (branch-introduced reds ⇒ STOP and fix). **Dogfood:** dispatch `agents/fidelity-auditor.md` (cold subagent) with **Basis = this plan's «Phase A» section** (pass the Phase-A section TEXT as the intent statement — do not hand the whole plan path for full reading; `Basis:` cites `docs/superpowers/plans/2026-07-23-acceptance-contour.md#phase-a`. Rationale: a cold auditor handed the whole spec/plan would flag Phase B deliverables as missing and could never honestly GO), diff `git diff origin/staging...HEAD`, Round 1, current HEAD sha → paste the GO block into the PR body `## Fidelity verdict`. PR body also carries: `Prior-art:` line citing the Task A4 SSOT entry (voluntary BFR trail), §1.7 **Forward+Backward pair** (PR-A introduces a discipline-bearing agent + CI gate: Forward — compliance with attention-is-not-a-mechanism §1, no-paid-llm-in-ci §1, ci-tool-pinning §1, each with file:line; Backward — sweep the sibling PR-body-gate family: `pr-body-prior-art.yml`, `discipline-self-check.yml`, `pull_request_template.md`, each SWEPT-CLEAN or extended, with file:line). `gh pr create --base staging` + auto-merge per convention. **Operator items surfaced in the PR body:** register `fidelity-verdict-in-pr-body` as required ONLY in staging branch protection AFTER verifying skipped-conclusion behavior on a throwaway PR (spec D3/m3); grandfather in-flight PRs with a one-line `FIDELITY: skipped — pre-gate PR, opened before fidelity gate landed`.
 
 ---
 
@@ -441,6 +446,9 @@ docker exec aif-handoff-agent-1 git -C <worktree> diff origin/staging...HEAD
 - Calibration window (spec D1): while merged staging PRs whose `## Review findings` contains
   `Plan spot-check:` number <5, also run a top-tier read-only spot-check of the task's plan
   (`GET /tasks/:id` → `plan`) and record it in `## Review findings`.
+- Restart safety (spec D10): all rework state above lives in durable stores (aif task
+  comments, PR body, git) — a fresh dispatcher session resumes by re-probing (§2.0/§2.2);
+  never carry contour state only in session memory (`#state-in-session-memory`).
 ````
 
 - [ ] **Step 2: Add to §3**, right after the Park-type taxonomy table:
@@ -469,7 +477,7 @@ git commit -m "feat(acceptance): /dispatcher pre-egress fidelity gate + Q&A rout
 - Modify: `.claude/skills/night-mode/SKILL.md:33`
 - Modify: `.claude/skills/arch/SKILL.md:59` (§3 factory-bound row)
 
-- [ ] **Step 1: night-mode.** In the line-33 "Loop until:" sentence, extend the PR-body-gates parenthetical: after `a new capability file needs a \`Prior-art:\` trailer — principle 11 F1 enforces it at pre-push` append `; a stage PR additionally carries the \`## Fidelity verdict\` GO block from a cold [\`agents/fidelity-auditor.md\`](../../../agents/fidelity-auditor.md) run on spec+diff before \`gh pr create\` — the completeness-critic stays the deep in-loop check; the fidelity run is the cold boundary gate-grammar producer (spec D2); fidelity rework is session-local — cap 2 rounds (a counter separate from SDD's per-increment rework), Round tracked by the session, round-2 REVISE → STOP + a BLOCKED item in the morning report (spec D6 in-session column)`.
+- [ ] **Step 1: night-mode.** In the line-33 "Loop until:" sentence, extend the PR-body-gates parenthetical: after `a new capability file needs a \`Prior-art:\` trailer — principle 11 F1 enforces it at pre-push` append `; a stage PR additionally carries the \`## Fidelity verdict\` GO block from a cold [\`agents/fidelity-auditor.md\`](../../../agents/fidelity-auditor.md) run on spec+diff before \`gh pr create\` — the completeness-critic stays the deep in-loop check; the fidelity run is the cold boundary gate-grammar producer (spec D2); fidelity rework is session-local — cap 2 rounds (a counter separate from SDD's per-increment rework), Round tracked by the session, round-2 REVISE → STOP + a BLOCKED item in the morning report (spec D6 in-session column); on session crash the local Round resets — accepted gap (spec D10), the cap still bounds spend`.
 
 - [ ] **Step 2: /arch §3.** In the factory-bound route row, replace `classify Tier 1 vs Tier 2 per [CLAUDE.md «Task-tier routing»](../../../CLAUDE.md) and author the kickoff accordingly (traps section per principle 12; the Tier-1 profile marker per that table)` with: `classify per [CLAUDE.md «Task-tier routing»](../../../CLAUDE.md) and author the kickoff (traps per principle 12). A kickoff that passed this contour's §2 review carries the \`<!-- bridge-profile: <executor-profile-name> -->\` marker REGARDLESS of tier — the design judgment was spent here — PROVIDED it is plan-complete: it encodes the decomposition-relevant decisions AND every descope from the dialogue (the fidelity auditor's sole truth — spec D1/D2). Not plan-complete → no marker (top tier plans in aif). Marker value = the UNIQUE profile display name. The always-marker exception is ACTIVE only while the \`fidelity-verdict-in-pr-body\` required check is registered in staging branch protection (fail-closed precondition — spec D1/D3); before registration, dispatch without the marker`.
 

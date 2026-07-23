@@ -110,6 +110,24 @@ Bottom altitude inside the factory (aif GLM review) + at harvest (cold code revi
 - **Run 1 (acceptance loop):** one real, small `/arch`-produced plan-complete task through the full contour: dispatch → all-GLM → parks routed per D5 → pre-egress fidelity → PR with package → D3 gate → autonomous merge. Success: `FIDELITY: GO`, zero manual unblocking outside designed seams. Failure attribution is clean because run 0 already cleared transport/marker/pipeline.
 - The no-marker fallback path (top-tier plans in aif) is validated later by any direct-dispatch task — deliberately separate.
 
+### D10 — Resilience: crash-safe by durable state (operator requirement, 2026-07-23)
+
+**Principle:** no contour step may keep its progress ONLY in session memory. Every step must be resumable by re-deriving state from durable stores — git (commits/branches/container worktrees), the aif task record (REST), the PR body. A session death (network drop, CC quota window, z.ai limit) costs at most the current in-flight step, never completed work. Named anti-pattern: `#state-in-session-memory`.
+
+Per-surface inventory (mostly existing mechanisms — cited, not rebuilt):
+
+| Surface | Durable store | On crash / outage |
+|---|---|---|
+| aif task execution | commits in container worktree + aif DB task record | provider outage/quota → task stalls → monitor → `/aif-doctor` (existing rule); resume when the window reopens |
+| dispatcher loop | none needed — stateless by design | fresh session re-derives from `GET /tasks` + git + `gh pr` (§2.0 probe exists for exactly this) |
+| dispatch | `exit 0` contract + ManualBackend fallback file (existing) | retry after blocker clears |
+| harvest egress | pushed branch; push is retryable; §2.4b API path for dead transport (existing) | death between push and PR-create → re-run continues |
+| fidelity audit | verdict counts only once recorded (PR body / task comment) | stateless + idempotent → re-run on the same SHA, cheap |
+| Round counter (factory) | aif task comments + PR body | survives |
+| Round counter (in-session) | session-local — **accepted gap**: resets on crash; worst case one extra audit round, cap still bounds spend | note in morning report |
+| implementing this very design | per-task TDD commits (plan discipline) | lose only the uncommitted step |
+| CC quota overnight | night-mode's existing quota-backoff delta (that skill owns it — not re-described) | backoff + resume |
+
 ## §4 Config actions (operator, alongside implementation)
 
 1. aif internal review cap 3 → 5 (`env.ts:113` env knob; exact var name verified at apply time). Cheap insurance for unattended nights; diminishing returns acknowledged (same-reviewer blind spots persist past round 3) — the real quality lever is D2/D6.
