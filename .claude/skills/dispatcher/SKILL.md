@@ -124,9 +124,13 @@ established §2.4/harvest-§1 inspect pattern; 3-dot tolerates a stale base):
 docker exec aif-handoff-agent-1 git -C <worktree> diff origin/staging...HEAD
 ```
 
-- `GO` → record the block (Basis/Round/Audited-SHA = container HEAD/Evidence) into the
-  prepared PR body (pass via `--body-file` — without the section the `pr-body-fidelity`
-  gate holds the PR red) and proceed to `harvest.ts`.
+- `GO` → record the block (Basis/Round/Audited-SHA/Evidence) into the prepared PR body
+  (pass via `--body-file` — without the section the `pr-body-fidelity` gate holds the PR
+  red) and proceed to `harvest.ts`. **`Audited-SHA` = container HEAD is correct ONLY on
+  this stock path**, because `harvest.ts` pushes the container commit as-is, so its SHA
+  survives to become PR head. It is WRONG on the §2.4b API path, which mints a new commit
+  — see the ordering note there (`pr-body-fidelity` requires `Audited-SHA` to prefix PR
+  head, `packages/core/hooks/checks/pr-body-fidelity.ts:165`).
 - `REVISE` → **no egress, no PR**: `tsx packages/runtime-bridge/src/cli/answer.ts --task <id> --answer "<auditor findings>" --decision request_changes` → task returns to `implementing`;
   the next harvest attempt audits as `Round: 2`. **Cap 2 CONSECUTIVE REVISE rounds on unchanged scope**
   (spec D6 «What the cap counts» — the counter resets on any GO or scope addition; the
@@ -161,6 +165,27 @@ gh pr merge <prUrl> --auto --squash
 ```
 
 It reads the file from the container worktree (uncommitted ok), and **append-merges** onto the current `staging` version (never `git add -A`, never clobber — fixes the stale-overwrite hazard where a worker's stale full-file copy silently reverts newer rounds). Proven 2026-06-05 (PRs #427/#429/#431). Single-file; multi-file needs the Git Data API.
+
+**Fidelity ordering on THIS path (differs from §2.4 — load-bearing).** `harvest-via-api.sh`
+mints a NEW commit (blobs→tree→commit), so the container commit the cold auditor judged
+never becomes PR head — and, never being pushed, CI cannot resolve it either. Running the
+§2.4 audit _before_ this helper therefore yields an `Audited-SHA` the gate MUST reject
+([`pr-body-fidelity.ts:165`](../../../packages/core/hooks/checks/pr-body-fidelity.ts) requires it to prefix PR head). Unlike stock `harvest.ts`, this
+path **has a seam**: the helper only creates the branch commit, and `gh pr create` is a
+separate command. So here the audit runs **between** them, on the pushed commit — whose SHA
+IS the PR head:
+
+1. `harvest-via-api.sh …` → note the emitted `commit=<sha>`
+2. cold [`agents/fidelity-auditor.md`](../../../agents/fidelity-auditor.md) on kickoff-scope + that commit → `Audited-SHA: <sha>`
+3. `GO` → `gh pr create --body-file <body carrying the block>`; `REVISE` → **no PR**
+   (`answer.ts --decision request_changes`) — a branch with no PR releases nothing.
+
+The D2 «pre-egress» intent is preserved in substance: the seam exists so the verdict lands
+before the PR **and** auto-merge, and it still does. Pre-egress _placement_ on the stock path
+is a consequence of `harvest.ts` being atomic (push+PR+merge in one binary — no seam inside),
+not a rule that a branch may never exist un-audited. Incident: PR #1111 (2026-07-23) — the
+gate fail-closed twice and the operator re-anchored the SHA by hand; a manual re-anchor is a
+workaround, not the fix.
 
 **§2.4c — Notification discipline for unattended runs (3-tier).** Routine ticks are SILENT (journal only). A heartbeat fires at most once per ~30min via `helpers/notify-gate.sh` (so the operator sees "alive" without per-tick spam). Only genuine human-decisions/blockers ping immediately. aif's own notifier sends a TG per status-change with no verbosity knob; to filter to **done / stalled / question only**, silence aif's raw channel (unset `TELEGRAM_BOT_TOKEN` in the container on a between-runs restart) and let the dispatcher send the filtered set via `helpers/tg-notify.sh <done|stalled|question|blocker> "<msg>"`. The operator does not go dark — they get the important events, deduped.
 
