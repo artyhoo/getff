@@ -1,7 +1,10 @@
 name: pr-body-fidelity
 
-# Fail-closed acceptance gate (spec D3, docs/superpowers/specs/2026-07-23-acceptance-
-# contour-design.md): every base=staging PR carries a `## Fidelity verdict` section —
+# Acceptance gate (spec D3, docs/superpowers/specs/2026-07-23-acceptance-contour-
+# design.md) — fail-closed on its own subject (a missing/ malformed/ non-GO section fails
+# the run), and merge-blocking ONLY once registered as a required check, which CI cannot
+# verify (see the promote-flow note below):
+# every base=staging PR carries a `## Fidelity verdict` section —
 # either a GO block from agents/fidelity-auditor.md (Audited-SHA must equal PR head)
 # or `FIDELITY: skipped — <rationale >=20 chars>`. Deterministic (no paid LLM per
 # .claude/rules/no-paid-llm-in-ci.md); unfiltered events on the pr-body-prior-art.yml
@@ -11,7 +14,7 @@ name: pr-body-fidelity
 # exemption — spec D3/m3). That registration is an OPERATOR responsibility and CI cannot
 # verify it: workflow-integrity.yml lists the context in REQUIRED_CONTEXTS, but
 # GITHUB_TOKEN cannot read branches/*/protection (no workflow permission scope grants
-# admin read), so that assertion degrades to a warning and exits 0 — measured on PR #1102,
+# admin read), so that check degrades to a warning and exits 0 — measured on PR #1102,
 # 2026-07-23. Do not read a green CI as proof the context is registered; see the spec's
 # Known limitations (docs/superpowers/specs/2026-07-23-acceptance-contour-design.md §7).
 # Paired tests: pr-body-fidelity.test.ts.
