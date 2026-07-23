@@ -124,4 +124,60 @@ echo "$probe_out" | grep -qE 'no-invisible-core-rules.*CC-ONLY' \
   || bad "rule-channel-readability probe MISSED the seeded invisible rules — probe is blind (T2 harness-theatre gap)"
 rm -rf "$RCROOT"
 
+# ── ANTI-THEATRE (N-S9-c): rule-channel-readability must resolve tsx the way .husky/pre-push:28
+# already does, and must blame the ENVIRONMENT — not the rule channels — when tsx is genuinely
+# absent. Incident 2026-07-23: in a git worktree under .claude/worktrees/<name>/ whose node_modules
+# symlinks were never provisioned, BOTH hard-coded tsx paths missed and the probe recorded
+# `fallback-check-mode ... --check exit=127 ... DEGRADED:no-json-mode` — a RED rule-channel verdict
+# for a purely environmental cause (63 of 125 live worktrees were in that state). The probe was
+# loud, but about the wrong thing. c1 pins the attribution; c2 pins the resolution (red->green).
+#
+# Both seeds deliberately OMIT the `node_modules` symlink that the N-S3-b seed above installs —
+# that absence IS the seeded break. `packages` is symlinked one level DEEPER than N-S3-b does
+# (only the two subdirs render-rule-channels.mjs imports), because a whole-`packages` symlink
+# would expose packages/core/node_modules/.bin/tsx — which EXISTS in CI after
+# `npm ci --prefix packages/core` — and would silently un-seed the break (false-green in CI only).
+seed_s9_root() {                       # $1 = target dir
+  local R="$1"
+  mkdir -p "$R/.ai-factory" "$R/.claude/rules" "$R/tests/agnosticism/probes" "$R/packages/core"
+  cp "$REPO_ROOT/tests/agnosticism/_cc-absent-lib.sh"                 "$R/tests/agnosticism/"
+  cp "$REPO_ROOT/tests/agnosticism/probes/rule-channel-readability.sh" "$R/tests/agnosticism/probes/"
+  cp "$REPO_ROOT/.ai-factory/rule-channel-capabilities.schema.json"    "$R/.ai-factory/"
+  cp "$REPO_ROOT/.claude/rules/ai-laziness-traps.md"                   "$R/.claude/rules/"
+  printf '{"harnesses":{"seeded-ok":{"support":"supported","axis":"shipped","rulesAutoload":true,"pathScoping":true,"claudeMdExcludes":true,"postToolUseInject":true,"sessionStartHook":true}}}\n' \
+    > "$R/.ai-factory/rule-channel-capabilities.json"
+  printf '{"degradations":[]}\n' > "$R/.ai-factory/rule-channel-degradations.json"
+  ln -sfn "$REPO_ROOT/scripts"                      "$R/scripts"
+  ln -sfn "$REPO_ROOT/packages/core/principles"     "$R/packages/core/principles"
+  ln -sfn "$REPO_ROOT/packages/core/diagnostics"    "$R/packages/core/diagnostics"
+  ( unset GIT_DIR GIT_COMMON_DIR GIT_WORK_TREE; cd "$R" && git init -q && git add -A ) >/dev/null 2>&1
+}
+
+# c1 — seeded OUTSIDE the repo, so Node's upward module resolution cannot reach any install
+# either: tsx is unreachable by every route. The probe must name THAT, not a channel verdict.
+S9A=$(mktemp -d)
+seed_s9_root "$S9A"
+s9a_out=$(cd "$S9A/tests/agnosticism/probes" && RECORD_FILE=/dev/stdout bash rule-channel-readability.sh)
+rm -rf "$S9A"
+echo "$s9a_out" | grep -q 'tsx-unresolvable' \
+  && ok "rule-channel-readability attributes an unreachable tsx to the ENVIRONMENT (tsx-unresolvable)" \
+  || bad "rule-channel-readability did NOT report tsx-unresolvable — environment failure is being misattributed"
+echo "$s9a_out" | grep -q 'fallback-check-mode' \
+  && bad "rule-channel-readability laundered a missing toolchain into a rule-channel verdict (fallback-check-mode) — incident 2026-07-23 regression" \
+  || ok "rule-channel-readability does NOT emit a rule-channel verdict for a missing toolchain"
+
+# c2 — seeded INSIDE the repo, reproducing the incident's shape: both hard-coded tsx paths miss,
+# but Node's own upward walk reaches the primary checkout's install (exactly what .husky/pre-push:28
+# relies on). Pre-fix this recorded DEGRADED:no-json-mode; post-fix it must compute a real verdict.
+S9B="$REPO_ROOT/.s9-nested-probe-$$"
+seed_s9_root "$S9B"
+s9b_out=$(cd "$S9B/tests/agnosticism/probes" && RECORD_FILE=/dev/stdout bash rule-channel-readability.sh)
+rm -rf "$S9B"
+echo "$s9b_out" | grep -q 'no-invisible-core-rules' \
+  && ok "rule-channel-readability computes a real verdict in an unprovisioned nested worktree (node-loader resolution)" \
+  || bad "rule-channel-readability could NOT run in an unprovisioned nested worktree — incident 2026-07-23 regression"
+echo "$s9b_out" | grep -qE 'fallback-check-mode|tsx-unresolvable' \
+  && bad "rule-channel-readability degraded in a nested worktree where Node CAN resolve tsx upward" \
+  || ok "rule-channel-readability does not degrade when tsx is reachable via the node loader"
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
