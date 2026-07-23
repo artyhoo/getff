@@ -215,7 +215,13 @@ rehearsal; the one-beat pattern established by track-1 §9.3 is the precedent).
   upgrade = re-run with a deeper profile (our stateless `--refresh` regen semantics, not
   rustup's additive components). Selection: `--profile` flag (agents/CI) + TTY menu
   (humans) + AI-dialog smart default in INSTALL-FOR-AI. Extends the operator's F7
-  (consumer/operator) to three steps. *Falsifier: the middle step finds no users through
+  (consumer/operator) to three steps. The per-profile payload inventory explicitly
+  includes the **convenience + guard hook set** already shipping today (operator
+  requirement 2026-07-23): end-of-turn recap, ask-question reminder,
+  inject-matching-rule, deps-hash staleness (install.sh:486-525) + the .husky
+  pre-commit/pre-push gate chain — no shipped comfort/shield may be lost between
+  profiles; non-CC coverage of these hooks is verified by C3 probes (16 zcode twins
+  exist). *Falsifier: the middle step finds no users through
   phases 1-3 → collapse to two.*
 - **A2 — GLM one-button.** ADAPT the aider onboarding pattern: detect missing executor
   profile → one explanation (z.ai subscription, $18/mo Coding Plan) → human pastes ONE
