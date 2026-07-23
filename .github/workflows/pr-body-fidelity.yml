@@ -8,9 +8,12 @@ name: pr-body-fidelity
 # model (#1098) — a paths: filter would un-fail-close tier-0/docs PRs.
 # Promote-flow safety: base=main PRs never run this job (workflow if:) AND the check
 # MUST be registered as required ONLY in the staging branch-protection set (primary
-# exemption — spec D3/m3). That registration is itself asserted by
-# workflow-integrity.yml (REQUIRED_CONTEXTS) — until the operator registers it, that
-# assertion is red, which is the intended fail-closed behaviour, not a bug.
+# exemption — spec D3/m3). That registration is an OPERATOR responsibility and CI cannot
+# verify it: workflow-integrity.yml lists the context in REQUIRED_CONTEXTS, but
+# GITHUB_TOKEN cannot read branches/*/protection (no workflow permission scope grants
+# admin read), so that assertion degrades to a warning and exits 0 — measured on PR #1102,
+# 2026-07-23. Do not read a green CI as proof the context is registered; see the spec's
+# Known limitations (docs/superpowers/specs/2026-07-23-acceptance-contour-design.md §7).
 # Paired tests: pr-body-fidelity.test.ts.
 
 on:

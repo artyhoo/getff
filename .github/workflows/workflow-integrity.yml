@@ -83,6 +83,10 @@ jobs:
             exit 0
           fi
 
-          echo "::warning::No branch protection or active rulesets on staging. R11 not yet adopted in this repo."
-          echo "::warning::Configure: Settings → Branches → staging → Require status checks → ${required_contexts}"
+          # Reaching here means the API returned nothing readable. With GITHUB_TOKEN that
+          # is the NORMAL case even when protection exists (admin read is unavailable to
+          # any workflow permission scope — measured PR #1102), so this must NOT claim
+          # protection is absent: it cannot tell "absent" from "unreadable".
+          echo "::warning::UNDETERMINED: cannot read staging branch protection with this token (admin read is not grantable to GITHUB_TOKEN), so R11 compliance is UNVERIFIED — this job's success does NOT mean the required contexts are registered."
+          echo "::warning::Verify manually: gh api repos/<owner>/<repo>/branches/staging/protection --jq '.required_status_checks.contexts' → must contain ${required_contexts}"
           exit 0
