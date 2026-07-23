@@ -21,6 +21,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { execFileSync, execSync } from 'node:child_process';
 import {
+  copyFileSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -88,6 +89,14 @@ function setupTempRepo(): string {
   // Primary node_modules — symlink target.
   mkdirSync(resolve(dir, 'node_modules'), { recursive: true });
   writeFileSync(resolve(dir, 'node_modules/.keep'), '');
+  // The hook delegates provisioning to scripts/worktree-node-modules.sh (single source of
+  // truth shared with scripts/create-worktree.sh). The fixture must ship that dependency or
+  // the hook silently no-ops on its `|| true` and every symlink assertion below fails.
+  mkdirSync(resolve(dir, 'scripts'), { recursive: true });
+  copyFileSync(
+    resolve(REPO_ROOT, 'scripts/worktree-node-modules.sh'),
+    resolve(dir, 'scripts/worktree-node-modules.sh'),
+  );
   return dir;
 }
 

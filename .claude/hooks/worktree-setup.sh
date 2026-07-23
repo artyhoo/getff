@@ -65,8 +65,11 @@ fi
 WORKTREE_DIR="$PROJECT_DIR/.claude/worktrees/$NAME"
 BRANCH="worktree-$NAME"
 
-# Idempotent: pre-existing worktree → reuse.
+# Idempotent: pre-existing worktree → reuse. Still RE-PROVISION before returning: a worktree
+# reused after any vitest run holds real node_modules/.vite cache dirs where the symlinks
+# belong, and returning early left it permanently unprovisioned (incident 2026-07-23).
 if [[ -d "$WORKTREE_DIR" ]]; then
+  bash "$PROJECT_DIR/scripts/worktree-node-modules.sh" --apply "$WORKTREE_DIR" "$PROJECT_DIR" >&2 || true
   printf '%s\n' "$WORKTREE_DIR"
   exit 0
 fi
@@ -105,25 +108,13 @@ if ! git -C "$PROJECT_DIR" worktree add "$WORKTREE_DIR" -b "$BRANCH" "$BASE_REF"
   fi
 fi
 
-# Project-specific D2 customisation: symlink node_modules from the primary
-# checkout. Skip if no primary node_modules exists (fresh clone before install).
-if [[ -e "$PROJECT_DIR/node_modules" ]] && [[ ! -e "$WORKTREE_DIR/node_modules" ]]; then
-  ln -sfn "$PROJECT_DIR/node_modules" "$WORKTREE_DIR/node_modules"
-fi
-# packages/core/node_modules must point at the primary's REAL nested dir when it
-# exists: the root lock plans nested dep versions (packages/core/node_modules/<dep>)
-# that diverge from the root layer, and a ../../node_modules link SHADOWS the
-# nested layer — esbuild then bundles the root versions and
-# `scripts/build-synth-bundle.sh --check` false-fails with "synth-bundle drift"
-# in every fresh worktree (incident 2026-07-02). Fallback to ../../node_modules
-# only when the primary has no nested dir (fresh clone before install).
-if [[ -d "$WORKTREE_DIR/packages/core" ]] && [[ ! -e "$WORKTREE_DIR/packages/core/node_modules" ]]; then
-  if [[ -d "$PROJECT_DIR/packages/core/node_modules" ]]; then
-    ln -sfn "$PROJECT_DIR/packages/core/node_modules" "$WORKTREE_DIR/packages/core/node_modules"
-  else
-    ln -sfn ../../node_modules "$WORKTREE_DIR/packages/core/node_modules"
-  fi
-fi
+# Project-specific D2 customisation: symlink node_modules from the primary checkout.
+# The logic lives in scripts/worktree-node-modules.sh — ONE canonical implementation shared
+# with scripts/create-worktree.sh, the portable half of this @dual-pair. Both channels used to
+# carry byte-identical copies of this block, which is #sync-by-copy-paste
+# (.claude/rules/dual-implementation-discipline.md §8); §7 requires the shared logic to have a
+# single home. Non-fatal: a failed provisioning must never block worktree creation.
+bash "$PROJECT_DIR/scripts/worktree-node-modules.sh" --apply "$WORKTREE_DIR" "$PROJECT_DIR" >&2 || true
 
 # Self-heal the packages/core toolchain when the symlinks above did NOT surface
 # it. Symlink delivery only works when the primary was already installed at
