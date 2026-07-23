@@ -28,6 +28,18 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      # KNOWN LIMITATION (measured on PR #1102, 2026-07-23 — do not "fix" by guessing):
+      # reading `branches/*/protection` needs admin rights, and there is NO workflow
+      # permission scope that grants them (`administration` is not a valid scope —
+      # actionlint rejects it). With GITHUB_TOKEN the API 404s, the tri-state below
+      # classifies the repo as "no protection configured", and the job exits 0 with a
+      # ::warning:: even though protection really exists (observed: contexts were
+      # ["ci-success"] while the job printed "No branch protection or active rulesets").
+      # Consequence: this assertion is BEST-EFFORT, not a gate — it can only ever
+      # strengthen to a real mechanism via a PAT secret with admin:repo scope, which is
+      # an operator decision (adds a long-lived credential to CI). Until then the
+      # required-context registration is an operator responsibility, and this job's green
+      # does NOT prove the contexts are registered.
     steps:
       - name: Assert every REQUIRED_CONTEXTS check is required on staging
         env:
