@@ -88,10 +88,14 @@ Recorded per /arch §1 with falsifiers. Future sessions must not silently reopen
     already closed detect→wire→deliver→fire end-to-end (#1086) and any-stack W2/W3 own
     the agent surface + one-beat continuation; the npm-lane synth-at-install residue
     belongs to track-1's js-convergence follow-on, not umbrella A.
-  - **U5** `generator-catalog-expansion` → `parked-with-owner: maintainer` — pre-baked
-    catalog growth conflicts with the live-generation direction (universal-skill panel
-    D2: «a generated skill is a preset, and presets rot»); re-evaluate after the live
-    path matures.
+  - **U5** `generator-catalog-expansion` → `superseded-by: live-generation direction`
+    (r3.1, operator-clarified wording — this PROTECTS live generation, it does not
+    abandon it): hand-growing a PRE-BAKED recipe catalog is the pre-live-generation
+    plan and conflicts with the chosen direction (universal-skill panel D2: «a
+    generated skill is a preset, and presets rot»; live path: rule-research LIVE
+    adapter #805 → 3-stack core #1005/#1006/#1010 → track-1 reachability).
+    Re-trigger: only if, after the live path matures, a small pre-baked seed set
+    proves needed for first-impression offline start.
   - **U6** `install-hardening-finish` → layer-selection scope (`--only/--skip`)
     `absorbed-by: beta-delivery-ux A1` (profiles are the selection surface); rollback +
     test-matrix residue `parked` — reopened by phase-1 self-testing evidence of install
