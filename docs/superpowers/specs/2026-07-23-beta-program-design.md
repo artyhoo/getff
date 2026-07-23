@@ -221,7 +221,20 @@ rehearsal; the one-beat pattern established by track-1 §9.3 is the precedent).
   inject-matching-rule, deps-hash staleness (install.sh:486-525) + the .husky
   pre-commit/pre-push gate chain — no shipped comfort/shield may be lost between
   profiles; non-CC coverage of these hooks is verified by C3 probes (16 zcode twins
-  exist). Companion satellites ride the existing `companions.manifest` consent
+  exist). The inventory RE-TRIAGES today's dogfood-vs-consumer hook split instead of
+  inheriting it (operator correction 2026-07-23): at `env`/`factory` depth the consumer
+  authors their OWN kickoffs and AI docs, so contour-guard hooks (`check-kickoff-traps`,
+  doc-authority checks) become consumer-relevant shields there — per-hook verdict
+  recorded per profile, not assumed. Satellite verdicts recorded in the same re-triage
+  (operator-confirmed 2026-07-23): **AI Factory** — its FILE CONVENTION (`.ai-factory/`
+  passport) stays core-shipped and load-bearing; the TOOL (`/aif-*` commands) is
+  deliberately NOT shipped (SSOT #66 REFERENCE, ~14% problem-class match; our contour
+  superseded its plan/implement/verify scope; falsifier: beta testers request the
+  workflow → optional manifest row). **Superset** — recommendation + setup recipe only
+  (C1 AI Usage Guide + tool-decisions seed), never a default install: parallelism is
+  already covered by the factory (default) and the agnostic `create-worktree.sh`
+  (manual); falsifier: ≥2 non-CC beta testers report parallel-workspace pain → promote
+  to an optional consent manifest row. Companion satellites ride the existing `companions.manifest` consent
   mechanism (superpowers, ast-grep, deepwiki already there); the `factory` profile
   UPGRADES the aif-handoff row from detect+instruct to a consented guided INSTALL
   (official repo path, docker compose; detect-first; decline → graceful `env`-level
@@ -321,6 +334,14 @@ claims-check into the landing repo's CI.*
   naming split (getff vs rules-as-tests), Cursor story reconciliation, npm path once
   live. The human and AI First-Steps guides are two renders of ONE source of truth
   (operator requirement 2026-07-23) — same steps, same claims, different voice.
+  Two C1 additions (operator-confirmed 2026-07-23): (a) **ai-factory doc sweep** — the
+  shipped docs keep the `.ai-factory/` convention but drop/reframe every mention of the
+  ai-factory TOOL as a usage path (e.g. the AGENTS.md template's «optional /aif-*
+  commands» line) per the A1 satellite verdict; (b) **AGENTS.md co-ownership** — the
+  root AGENTS.md may have OTHER writers on consumer machines (DeepWiki-verified:
+  ai-factory generates + auto-updates root AGENTS.md), so our template contribution is
+  section-scoped via the `getff:begin` fence pattern — co-ownership by construction,
+  never whole-file ownership.
 - **C2 — ai-doc standard applied** to every new contour artifact (tier-home, presets
   data, glm-handoff, /arch shipping surfaces): channel selection, doc-authority headers
   (principle 09 enforces dynamically), hot/cold split, D8 hygiene.
