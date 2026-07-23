@@ -139,6 +139,8 @@
 - Gate: `claude plugin install` = рабочий; self-test зелёный; принцип 24. T: T13,T15,T19; Domain **T-PLG-A** «payload в дереве → плагин рабочий» (кейс #673).
 
 ## U8 — `honest-readme-demo` (Волна 2) — STUB, не опционально перед U12
+
+> **2026-07-23 amendment:** superseded-by `beta-docs-showcase` (umbrella B) — see the AMENDMENT block above; do not dispatch from this stub.
 - **В scope:** публичная поверхность README на ветке, что пойдёт в паблик — бейдж/секция License → FSL (на устаревших ветках ещё «Proprietary», это блокирует adoption); «one-click»→«guided»; overclaim про mutation точечно — «incremental on PR» правда (шипнутый `templates/*/github-actions-ci.yml` несёт реальный `mutation:` джоб), не подтверждена только «full sweep nightly» (нет `cron`) — убрать или завести scheduled; человеческий README; демо-GIF.
 - **Gate (механический):** каждое утверждение README имеет backing (file:line/команда), overclaim-sweep проходит; бейдж=FSL; GIF показывает блок нарушения.
 
@@ -152,9 +154,13 @@
 - **Зависит/Gate (2026-07-23 amendment, supersedes U9+U11+U8):** beta-delivery-ux R1 + release-frame phase-1 exit. Gate: `npx getff init` → первое падение. Domain **T-NPI-A** «опубликовано → ставится чисто» без прогона на свежей машине.
 
 ## U11 — `naming-family` (Волна 3, doc) — STUB
+
+> **2026-07-23 amendment:** absorbed-by `beta-delivery-ux` R1 — the gate «имена заморожены ДО публикации» travels with it; see the AMENDMENT block above; do not dispatch separately.
 - N1 архитектура имён; ТМ — по сигналу после publish. Gate: имена заморожены ДО U10. T: T8,T15.
 
 ## U12 — `public-launch` (Волна 4) — STUB
+
+> **2026-07-23 amendment:** superseded-by release-frame phase 3 (beta-program spec §7) — see the AMENDMENT block above; do not dispatch from this stub.
 - EN (Show HN + README + PH); RU (Habr + Product Radar); сообщества; трекинг НАСТОЯЩих метрик (зависимые, форк/звезда).
 - **Зависит/Gate:** U8, U10, догфуд. Gate: реальные зависимые проекты ИЛИ входящие «интегрировать/нанять?». T: T6,T15.
 

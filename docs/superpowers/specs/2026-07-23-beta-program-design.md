@@ -428,7 +428,7 @@ the detection layer).
 
 | Umbrella | Scope | Tier | Gate |
 |---|---|---|---|
-| `beta-delivery-ux` (A) | A1-A8, stages ordered A1/A4/A5 → A2/A3/A7/A8 → R1(A6) | **Tier 2** (design decisions per stage: profile payloads, preset data model, aif API shapes) | kickoff on staging; discipline-bearing stages (10-skills.sh, CLAUDE.md pointer, INSTALL-FOR-AI) in-session; the A3 CLAUDE.md pointer-ization is a cross-owner edit → separate atomic commit + maintainer sign-off, same treatment as the meta-launch amendment (r3); pre-dispatch probe incl. track-1 umbrellas mandatory per stage |
+| `beta-delivery-ux` (A) | A1-A9, staged per the umbrella kickoff: S1(A1) → S2(A4/A5/A9) ∥ S3(A3) ∥ S4(A2) ∥ S5(A7/A8) → R1(A6) (r2 — kickoff grouping is the binding one) | **Tier 2** (design decisions per stage: profile payloads, preset data model, aif API shapes) | kickoff on staging; discipline-bearing stages (10-skills.sh, CLAUDE.md pointer, INSTALL-FOR-AI) in-session; the A3 CLAUDE.md pointer-ization is a cross-owner edit → separate atomic commit + maintainer sign-off, same treatment as the meta-launch amendment (r3); pre-dispatch probe incl. track-1 umbrellas mandatory per stage |
 | `beta-docs-showcase` (B) | own /arch run from the authored prompt; prototype stage first | classified by its own run (expected Tier 2) | /arch prompt authored by this session; landing repo work is outside this repo's CI — its kickoff lives here, execution targets getff-landing |
 | `beta-ai-docs-agnosticism` (C) | C1-C5 | **Tier 2** (probe design + doc-class judgments) | kickoff on staging; C3/C5 gated on A3 (tier-home exists); C1 template edits gated on A1 (profile names final) |
 

@@ -40,6 +40,15 @@ written to consumer-AI memory).
 
 Order: S1 → S2 ∥ S3 → S4. One PR per stage onto staging; closure writes `done.md`.
 
+**Cross-cutting obligation — spec §6 C2 (applies to EVERY stage; r2, review finding):**
+every new or edited doc artifact this umbrella touches ships per the ai-doc standard —
+channel selection FIRST (rule-enforcement-channel-selection), doc-authority
+Class/Authoritative-for headers (principle-09 dynamic enforcement is the mechanical
+floor; the standard is wider than the header check), hot/cold split, D8
+memory/context hygiene. Each stage's gate includes an ai-doc conformance pass over the
+stage's own artifacts — C2 is not a separate stage precisely because it must not fall
+between stages.
+
 ## §3 Out of scope
 
 Human-facing site content (umbrella B); tier-home authoring (A S3 owns; C1 points);
