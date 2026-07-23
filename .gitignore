@@ -16,6 +16,11 @@ packages/*/node_modules
 .claude/orchestrator-prompts/*/*
 !.claude/orchestrator-prompts/*/done.md
 !.claude/orchestrator-prompts/*/kickoff.md
+# Umbrella backfill reports (e.g. umbrella-donemd-backfill/report.md) are durable
+# committed audit artefacts: population enumeration + per-verdict evidence + the
+# UNCLEAR table. Same durable-committed class as done.md/kickoff.md. Per-umbrella
+# glob mirrors the done.md/kickoff.md exceptions.
+!.claude/orchestrator-prompts/*/report.md
 # Stage dispatch chain for the modular-install-fullpack umbrella (S0 boundary
 # blueprint + S1-S5 dispatch inputs). Same durable-committed-design-doc class as
 # kickoff.md; tracked so kickoff-s0.md reaches `staging` for aif/S1 to read from
