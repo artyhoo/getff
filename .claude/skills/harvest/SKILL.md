@@ -16,7 +16,7 @@ allowed-tools:
 ---
 
 > **Class:** C — prose-only wiring skill; the executable artefact it gates is [`scripts/run-local-ci-sweep.sh`](../../../scripts/run-local-ci-sweep.sh) (paired-negative test wired in CI). Promotion criterion: a harvest reddens CI **after** this skill ships (skill skipped or a gate missing) → promote the sweep to a pre-push gate (spec §Promotion).
-> **Authoritative for:** the standalone post-aif-acceptance harvest procedure — §1 egress (incl. the codified egress gotchas), §2 cross-stage integration, §3 the sweep gate, §4 cold-review + PR.
+> **Authoritative for:** the standalone post-aif-acceptance harvest procedure — §1 egress (incl. the codified egress gotchas), §2 cross-stage integration, §3 the sweep gate, §4 cold-review + fidelity + PR.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). The egress primitives themselves (`harvest.ts`, `harvest-via-api.sh`) — owned by `packages/runtime-bridge` + [/dispatcher](../dispatcher/SKILL.md). The local gate set — owned by [`scripts/run-local-ci-sweep.sh`](../../../scripts/run-local-ci-sweep.sh) (this skill calls it, does not redefine it). The full dispatch loop — see [/dispatcher](../dispatcher/SKILL.md).
 
 > Build-vs-reuse: **ADAPT** — reuses `harvest.ts` / `harvest-via-api.sh` egress (SSOT #111) + `scripts/run-local-ci-sweep.sh` (SSOT #176, change-scoped sweep, ADAPT of #114) + `superpowers:requesting-code-review` (verify posture). No new dependency, no new code beyond the sweep.
@@ -61,11 +61,20 @@ bash scripts/run-local-ci-sweep.sh --full     # explicit full CI-equivalent (~5 
 
 The sweep auto-scopes via `git merge-base`, escalates to `--full` on any unmapped path, runs cheapest-first with fail-fast. **Interpret reds against the merge-base:** a gate red on your branch AND on `origin/staging` is pre-existing (e.g. `layer-units`) — surface it, do NOT attribute it to the harvest. A **branch-introduced** red ⇒ **STOP, do not push** — fix it first. Whole-tree markdown gates (md-line / dead-links) and the `framework-self-*` self-install matrix are CI-only (see spec §Known gaps) — the sweep flags them as advisory, rely on CI for those.
 
-## §4 — Cold-review + PR
+## §4 — Cold-review + fidelity + PR
 
 1. **Own cold-QA before handoff** (T19) — CI checks form, not design. Invoke `superpowers:requesting-code-review` on the 3-dot diff (`git diff origin/staging...HEAD`).
-2. Assemble a **§1.7-compliant PR body** (Forward/Backward sections, each with file:line). Open the PR with base `staging` (`gh pr create --base staging`), optionally `gh pr merge --auto --squash` per the dispatcher convention.
-3. Confirm the PR diff is exactly the intended files, **0 unintended deletions**, before merge.
+2. **Fidelity verdict (design altitude — spec D2).** Dispatch
+   [`agents/fidelity-auditor.md`](../../../agents/fidelity-auditor.md) as a cold read-only
+   subagent: inputs = the stage kickoff/spec path + the same 3-dot diff, current HEAD sha,
+   round number — nothing else (no chat, no logs). `REVISE`/`STOP` → do NOT open the PR;
+   factory task → route the findings per [/dispatcher §2.4 rework loop](../dispatcher/SKILL.md),
+   in-session work → fix and re-audit (Round 2); cap 2 rounds → escalate to the operator.
+   `KICKOFF-AMBIGUOUS` → escalate to `/arch` §4 office hours without burning a round.
+   `GO` → the verdict block (Basis/Round/Audited-SHA = current HEAD/Evidence) goes into the
+   PR body `## Fidelity verdict` section — the `pr-body-fidelity` CI gate blocks merge without it.
+3. Assemble a **§1.7-compliant PR body** (Forward/Backward sections, each with file:line) **plus the acceptance-package sections (Provenance / Review findings / Fidelity verdict / Parked questions — spec D4)**. Open the PR with base `staging` (`gh pr create --base staging`), optionally `gh pr merge --auto --squash` per the dispatcher convention.
+4. Confirm the PR diff is exactly the intended files, **0 unintended deletions**, before merge.
 
 ---
 
