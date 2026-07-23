@@ -301,6 +301,8 @@ Each entry is a row in the table at §4 below. The row schema:
 
 ---
 
+| 228 | **PR-body fidelity acceptance gate** (`pr-body-fidelity.yml` + `packages/core/hooks/checks/pr-body-fidelity.ts` + `agents/fidelity-auditor.md`) | fail-closed WHAT-conformance acceptance at the stage-PR merge boundary (spec [2026-07-23-acceptance-contour-design.md](../superpowers/specs/2026-07-23-acceptance-contour-design.md) D2/D3) | 2026-07-23 | 2026-07-23 | BUILD | Upstream PR-body validators (danger-js class) check FORM only and cannot host the semantic half: a session-bound cold agent under [no-paid-llm-in-ci.md](../../.claude/rules/no-paid-llm-in-ci.md) — REJECT as host. The deterministic arm (~57 LOC) reuses the in-repo #1098 `pr-body-prior-art` pattern (same checks/ family, same unfiltered-events workflow shape); the semantic arm is an `agents/*.md` protocol, disjoint from night-mode completeness-critic (context-ful in-loop) per spec D2 grep evidence. | GitHub ships a native required-review-artifact primitive; OR the form check outgrows ~80 LOC (capability-commit status flips) |
+
 ## 5. Staleness policy
 
 Entries with `Last reviewed` >180 days surface as candidates for re-evaluation during the next phase entry research session (manual review during [§5.5 Step 1.5](EXECUTION-PLAN.md)). The 180-day threshold reflects the typical cadence between major framework releases — Next.js / Fastify / etc. ship breaking changes on roughly that scale, and a SSOT entry whose «last reviewed» predates the release window is presumed stale until re-verified.

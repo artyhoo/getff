@@ -22,6 +22,27 @@
 - [ ] If hook code touched: `bash tests/hooks/prior-art-trailer-hook.test.sh` green
 - [ ] Manual smoke per change <list specific scenarios>
 
+## Provenance
+
+<stage PRs: kickoff/spec path · base SHA · substrate (aif task <id> + bridge-profile <name> | in-session) · models per stage · fidelity Round. Non-stage PRs: n/a>
+
+## Review findings
+
+<stage PRs: factory review outcome + cold code-review summary (+ plan spot-check during the D1 calibration window). Non-stage PRs: n/a>
+
+## Fidelity verdict
+
+FIDELITY: skipped — <fill>
+
+<!-- The default above FAILS the pr-body-fidelity gate on purpose (<20 chars).
+Non-stage PR: complete the rationale (>=20 chars), e.g. "docs-only change, no kickoff applies".
+Stage PR: replace with the agents/fidelity-auditor.md output block:
+FIDELITY: GO / Basis: <path> / Round: <n> / Audited-SHA: <PR head sha> / Evidence: <file.ext:N> -->
+
+## Parked questions
+
+<stage PRs: each parked question + resolution, or `none`. Non-stage PRs: n/a>
+
 ## §1.7 Self-discipline check (REQUIRED if PR touches discipline-bearing files)
 
 > **DEFAULT:** mechanical maintenance — fill the Skipped line below. Replace with Forward+Backward H3 sections only if you are introducing or extending a discipline rule. See HTML comment for full guidance.
