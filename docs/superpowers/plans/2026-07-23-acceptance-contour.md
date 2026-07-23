@@ -15,7 +15,7 @@
 - All artifacts English (`.claude/rules/language-discipline.md`).
 - New `agents/*.md` MUST carry doc-authority `Class:`/`Authoritative-for:` header (principle 09, dynamic).
 - Markdown files ≤600 lines (pre-commit gate).
-- PR-A commit adding `packages/core/hooks/checks/pr-body-fidelity*.ts` is a capability commit → `Prior-art:` trailer required (Task A4 step 5).
+- `pr-body-fidelity.ts` is **NOT** a capability commit by the mechanical detector (~57 LOC < 80; `checks/` pre-exists; no new dependency — `prior-art.ts:124,134`): the SSOT entry + `Prior-art:` line in Tasks A2/A4 are **voluntary BFR documentation**; no gate will demand them, do not block on their absence. If the file grows ≥80 LOC during implementation, the trailer requirement becomes real.
 - Both PRs carry a REAL `## Fidelity verdict` GO block (dogfood; spec D3 rollout) + §1.7 sections (CLAUDE.md edit in PR-B ⇒ Forward+Backward pair, not Skipped).
 
 ---
@@ -119,7 +119,7 @@ git commit -m "feat(acceptance): fidelity-auditor cold agent — WHAT-conformanc
 
 ```ts
 import { describe, expect, it } from 'vitest';
-import { checkPrBodyFidelity } from './pr-body-fidelity.js';
+import { checkPrBodyFidelity } from './pr-body-fidelity.ts';
 
 const HEAD = 'a1b2c3d4e5f6a7b8c9d0a1b2c3d4e5f6a7b8c9d0';
 const goBody = (sha: string) => `## Summary\nx\n\n## Fidelity verdict\n\nFIDELITY: GO\nBasis: .claude/orchestrator-prompts/u/kickoff.md\nRound: 1\nAudited-SHA: ${sha}\nEvidence: packages/core/hooks/pre-push.ts:42\n\n## Parked questions\nnone\n`;
@@ -161,7 +161,7 @@ describe('checkPrBodyFidelity', () => {
 - [ ] **Step 2: Run to verify it fails**
 
 Run: `npm test --workspace=@rules-as-tests/core --run -- pr-body-fidelity`
-Expected: FAIL — `Cannot find module './pr-body-fidelity.js'`.
+Expected: FAIL — `Cannot find module './pr-body-fidelity.ts'`.
 
 - [ ] **Step 3: Implement** (`pr-body-fidelity.ts`):
 
@@ -170,7 +170,7 @@ Expected: FAIL — `Cannot find module './pr-body-fidelity.js'`.
  * PR-body arm of the acceptance-contour fidelity gate (spec:
  * docs/superpowers/specs/2026-07-23-acceptance-contour-design.md D3).
  * Deterministic form check — the semantic verdict is produced in-session by
- * agents/fidelity-auditor.md (no-paid-llm-in-ci). Sibling of pr-body-prior-art.ts.
+ * agents/fidelity-auditor.md (no-paid-llm-in-ci). Sibling of prior-art.ts / pr-body-prior-art-bin.ts.
  */
 export interface FidelityCheckInput { body: string; headSha: string; }
 export interface FidelityCheckResult { ok: boolean; errors: string[]; }
@@ -229,7 +229,7 @@ export function checkPrBodyFidelity({ body, headSha }: FidelityCheckInput): Fide
 Run: `npm test --workspace=@rules-as-tests/core --run -- pr-body-fidelity`
 Expected: 8 passed.
 
-- [ ] **Step 5: Commit** (module + test together; the `Prior-art:` trailer rides the Task A4 squash-surviving PR body AND this commit):
+- [ ] **Step 5: Commit** (module + test together; the `Prior-art:` line is voluntary BFR documentation — see Global Constraints, no gate demands it):
 
 ```bash
 git add packages/core/hooks/checks/pr-body-fidelity.ts packages/core/hooks/checks/pr-body-fidelity.test.ts
@@ -251,7 +251,7 @@ Prior-art: <see Task A4 step 5 — cite the SSOT entry id resolved there>"
 
 ```ts
 /** CI entrypoint — env in, exit code out (sibling of pr-body-prior-art-bin.ts). */
-import { checkPrBodyFidelity } from './pr-body-fidelity.js';
+import { checkPrBodyFidelity } from './pr-body-fidelity.ts';
 
 const baseRef = process.env.BASE_REF ?? '';
 if (baseRef !== 'staging') {
@@ -367,7 +367,7 @@ FIDELITY: GO / Basis: <path> / Round: <n> / Audited-SHA: <PR head sha> / Evidenc
 
 - [ ] **Step 2: Verify the §1.7 awk boundary is untouched** — the four new `##` H2 sections sit before the `### §1.7` H3 headers, so `discipline-self-check.yml:62-66` capture semantics are unchanged. Run: `grep -n '^## \|^### §1.7' .github/pull_request_template.md` and confirm all four new H2 lines appear before both `### §1.7` lines.
 
-- [ ] **Step 3: SSOT entry.** In `docs/meta-factory/prior-art-evaluations.md`, per its §3 append convention, add the next-numbered entry: capability = "PR-body fidelity acceptance gate"; Verdict **BUILD** (in-repo reuse of the #1098 pr-body gate pattern; upstream CI plugins for PR-body validation exist but cannot host the cold-agent semantic layer — the deterministic arm is trivially small and pattern-locked to the repo's §1.7/Prior-art gate family); Rationale + Trigger to revisit ("a GitHub-native required-review-artifact primitive ships"). Then amend the Task A2 commit's `Prior-art:` line via the PR body (squash-surviving) to cite this entry id.
+- [ ] **Step 3: SSOT entry.** In `docs/meta-factory/prior-art-evaluations.md`, per its §3 append convention, add the next-numbered entry: capability = "PR-body fidelity acceptance gate"; Verdict **BUILD** (in-repo reuse of the #1098 pr-body gate pattern; upstream CI plugins for PR-body validation exist but cannot host the cold-agent semantic layer — the deterministic arm is trivially small and pattern-locked to the repo's §1.7/Prior-art gate family); Rationale + Trigger to revisit ("a GitHub-native required-review-artifact primitive ships"). Cite this entry id in the PR body's `Prior-art:` line (voluntary BFR audit trail — the #1098 gate detects no capability in this diff and will not demand it).
 
 - [ ] **Step 4: Commit**
 
@@ -376,7 +376,7 @@ git add .github/pull_request_template.md docs/meta-factory/prior-art-evaluations
 git commit -m "feat(acceptance): PR template acceptance-package sections + SSOT entry (spec D4)"
 ```
 
-- [ ] **Step 5: PR-A.** Run `bash scripts/run-local-ci-sweep.sh`; expected: green (branch-introduced reds ⇒ STOP and fix). **Dogfood:** dispatch `agents/fidelity-auditor.md` (cold subagent) with Basis = the spec path + diff `git diff origin/staging...HEAD`, Round 1, current HEAD sha → paste the GO block into the PR body `## Fidelity verdict`. PR body also carries: `Prior-art:` line citing the Task A4 SSOT entry (the squash-surviving arm, #1098 gate will check it), §1.7 **Skipped** line (Phase A adds a gate implementation, not a new rule text — mechanical arm of an already-specced discipline; if the reviewer disagrees, switch to the Forward+Backward pair citing spec D3). `gh pr create --base staging` + auto-merge per convention. **Operator items surfaced in the PR body:** register `fidelity-verdict-in-pr-body` as required ONLY in staging branch protection AFTER verifying skipped-conclusion behavior on a throwaway PR (spec D3/m3); grandfather in-flight PRs with a one-line `FIDELITY: skipped — pre-gate PR, opened before fidelity gate landed`.
+- [ ] **Step 5: PR-A.** Run `bash scripts/run-local-ci-sweep.sh`; expected: green (branch-introduced reds ⇒ STOP and fix). **Dogfood:** dispatch `agents/fidelity-auditor.md` (cold subagent) with **Basis = this plan's «Phase A» section** (the PR's declared scope — NOT the full spec: a cold auditor handed the whole spec would flag Phase B deliverables as missing and could never honestly GO; scope-match the Basis to the PR), diff `git diff origin/staging...HEAD`, Round 1, current HEAD sha → paste the GO block into the PR body `## Fidelity verdict`. PR body also carries: `Prior-art:` line citing the Task A4 SSOT entry (voluntary BFR trail), §1.7 **Forward+Backward pair** (PR-A introduces a discipline-bearing agent + CI gate: Forward — compliance with attention-is-not-a-mechanism §1, no-paid-llm-in-ci §1, ci-tool-pinning §1, each with file:line; Backward — sweep the sibling PR-body-gate family: `pr-body-prior-art.yml`, `discipline-self-check.yml`, `pull_request_template.md`, each SWEPT-CLEAN or extended, with file:line). `gh pr create --base staging` + auto-merge per convention. **Operator items surfaced in the PR body:** register `fidelity-verdict-in-pr-body` as required ONLY in staging branch protection AFTER verifying skipped-conclusion behavior on a throwaway PR (spec D3/m3); grandfather in-flight PRs with a one-line `FIDELITY: skipped — pre-gate PR, opened before fidelity gate landed`.
 
 ---
 
@@ -385,7 +385,7 @@ git commit -m "feat(acceptance): PR template acceptance-package sections + SSOT 
 ### Task B1: `/harvest` §4 restructure
 
 **Files:**
-- Modify: `.claude/skills/harvest/SKILL.md:64-68` (§4)
+- Modify: `.claude/skills/harvest/SKILL.md:19` (Authoritative-for header) + `:64-68` (§4)
 
 - [ ] **Step 1: Replace §4** — retitle to `## §4 — Cold-review + fidelity + PR` and renumber steps: keep step 1 (cold-QA via `superpowers:requesting-code-review`) verbatim; insert new step 2:
 
@@ -469,9 +469,9 @@ git commit -m "feat(acceptance): /dispatcher pre-egress fidelity gate + Q&A rout
 - Modify: `.claude/skills/night-mode/SKILL.md:33`
 - Modify: `.claude/skills/arch/SKILL.md:59` (§3 factory-bound row)
 
-- [ ] **Step 1: night-mode.** In the line-33 "Loop until:" sentence, extend the PR-body-gates parenthetical: after `a new capability file needs a \`Prior-art:\` trailer — principle 11 F1 enforces it at pre-push` append `; a stage PR additionally carries the \`## Fidelity verdict\` GO block from a cold [\`agents/fidelity-auditor.md\`](../../../agents/fidelity-auditor.md) run on spec+diff before \`gh pr create\` — the completeness-critic stays the deep in-loop check; the fidelity run is the cold boundary gate-grammar producer (spec D2)`.
+- [ ] **Step 1: night-mode.** In the line-33 "Loop until:" sentence, extend the PR-body-gates parenthetical: after `a new capability file needs a \`Prior-art:\` trailer — principle 11 F1 enforces it at pre-push` append `; a stage PR additionally carries the \`## Fidelity verdict\` GO block from a cold [\`agents/fidelity-auditor.md\`](../../../agents/fidelity-auditor.md) run on spec+diff before \`gh pr create\` — the completeness-critic stays the deep in-loop check; the fidelity run is the cold boundary gate-grammar producer (spec D2); fidelity rework is session-local — cap 2 rounds (a counter separate from SDD's per-increment rework), Round tracked by the session, round-2 REVISE → STOP + a BLOCKED item in the morning report (spec D6 in-session column)`.
 
-- [ ] **Step 2: /arch §3.** In the factory-bound route row, replace `classify Tier 1 vs Tier 2 per [CLAUDE.md «Task-tier routing»](../../../CLAUDE.md) and author the kickoff accordingly (traps section per principle 12; the Tier-1 profile marker per that table)` with: `classify per [CLAUDE.md «Task-tier routing»](../../../CLAUDE.md) and author the kickoff (traps per principle 12). A kickoff that passed this contour's §2 review carries the \`<!-- bridge-profile: <executor-profile-name> -->\` marker REGARDLESS of tier — the design judgment was spent here — PROVIDED it is plan-complete: it encodes the decomposition-relevant decisions AND every descope from the dialogue (the fidelity auditor's sole truth — spec D1/D2). Not plan-complete → no marker (top tier plans in aif). Marker value = the UNIQUE profile display name`.
+- [ ] **Step 2: /arch §3.** In the factory-bound route row, replace `classify Tier 1 vs Tier 2 per [CLAUDE.md «Task-tier routing»](../../../CLAUDE.md) and author the kickoff accordingly (traps section per principle 12; the Tier-1 profile marker per that table)` with: `classify per [CLAUDE.md «Task-tier routing»](../../../CLAUDE.md) and author the kickoff (traps per principle 12). A kickoff that passed this contour's §2 review carries the \`<!-- bridge-profile: <executor-profile-name> -->\` marker REGARDLESS of tier — the design judgment was spent here — PROVIDED it is plan-complete: it encodes the decomposition-relevant decisions AND every descope from the dialogue (the fidelity auditor's sole truth — spec D1/D2). Not plan-complete → no marker (top tier plans in aif). Marker value = the UNIQUE profile display name. The always-marker exception is ACTIVE only while the \`fidelity-verdict-in-pr-body\` required check is registered in staging branch protection (fail-closed precondition — spec D1/D3); before registration, dispatch without the marker`.
 
 - [ ] **Step 3: Commit**
 
@@ -485,9 +485,9 @@ git commit -m "feat(acceptance): night-mode fidelity PR-gate + /arch always-mark
 **Files:**
 - Modify: `CLAUDE.md` («Task-tier routing» section)
 
-- [ ] **Step 1: Amend the criteria table row** for Tier 2 — replace `| 2 — bulky-complex | the plan requires a design decision: new module/architecture, data-model or API-shape choice, cross-cutting consequences, unknown root cause needing investigation, «is this the right approach» is open | top tier | kickoff, no marker (project defaults) |` with `| 2 — bulky-complex | the plan requires a design decision: new module/architecture, data-model or API-shape choice, cross-cutting consequences, unknown root cause needing investigation, «is this the right approach» is open | top tier — unless the kickoff came through /arch plan-complete (judgment already spent) → executor tier | /arch-reviewed plan-complete kickoff → WITH marker (see [/arch §3](.claude/skills/arch/SKILL.md)); otherwise kickoff, no marker (project defaults) |`
+- [ ] **Step 1: Amend the criteria table row** for Tier 2 — replace `| 2 — bulky-complex | the plan requires a design decision: new module/architecture, data-model or API-shape choice, cross-cutting consequences, unknown root cause needing investigation, «is this the right approach» is open | top tier | kickoff, no marker (project defaults) |` with `| 2 — bulky-complex | the plan requires a design decision: new module/architecture, data-model or API-shape choice, cross-cutting consequences, unknown root cause needing investigation, «is this the right approach» is open | top tier — unless the kickoff came through /arch plan-complete (judgment already spent) → executor tier | /arch-reviewed plan-complete kickoff → WITH marker (see [/arch §3](.claude/skills/arch/SKILL.md)); exception active only with the fidelity required-check registered (see prose); otherwise kickoff, no marker (project defaults) |`
 
-- [ ] **Step 2: Amend the prose** — in the «Two questions, three tiers» item 2 YES-branch, after `→ **TIER 2 — bulky-complex.** Dispatch **without** the marker → project defaults apply: the **top tier plans**, the executor tier implements and reviews from below.` append: ` **Exception (acceptance-contour spec D1):** a Tier-2 kickoff produced by `/arch` AND plan-complete (decomposition decisions + all descopes encoded) dispatches **with** the marker — the whole pipeline runs on the executor tier; the fail-closed fidelity gate at the exit boundary covers the WHAT, and the first-5-tasks calibration spot-check covers the plan HOW.`
+- [ ] **Step 2: Amend the prose** — in the «Two questions, three tiers» item 2 YES-branch, after `→ **TIER 2 — bulky-complex.** Dispatch **without** the marker → project defaults apply: the **top tier plans**, the executor tier implements and reviews from below.` append: ` **Exception (acceptance-contour spec D1):** a Tier-2 kickoff produced by `/arch` AND plan-complete (decomposition decisions + all descopes encoded) dispatches **with** the marker — the whole pipeline runs on the executor tier; the fail-closed fidelity gate at the exit boundary covers the WHAT, and the first-5-tasks calibration spot-check covers the plan HOW. **Precondition:** this exception is active ONLY while \`fidelity-verdict-in-pr-body\` is a REQUIRED check in staging branch protection; if it is not (yet or anymore) registered, dispatch without the marker — a routing rule without its fail-closed gate violates the spec D1 precondition.`
 
 - [ ] **Step 3: Length check + commit**
 
@@ -497,13 +497,13 @@ git add CLAUDE.md
 git commit -m "feat(acceptance): Tier-2 routing amendment — /arch plan-complete kickoffs run executor-tier pipeline (spec D1)"
 ```
 
-- [ ] **Step 4: PR-B.** `bash scripts/run-local-ci-sweep.sh` green + `make self-audit` green. Dogfood: cold `agents/fidelity-auditor.md` run (Basis = the spec, diff = 3-dot, Round 1, HEAD sha) → GO block into PR body. PR body: §1.7 **Forward+Backward pair** (CLAUDE.md + skills are discipline-bearing; cite spec D1 file:lines + the swept sibling surfaces: harvest/dispatcher/night-mode/arch SKILL.md edits), acceptance-package sections filled for real (Provenance: in-session, this plan; Review findings: the two-altitude spec review verdicts; Parked questions: none). `gh pr create --base staging`.
+- [ ] **Step 4: PR-B.** `bash scripts/run-local-ci-sweep.sh` green + `make self-audit` green. Dogfood: cold `agents/fidelity-auditor.md` run (**Basis = this plan's «Phase B» section** — scope-matched to the PR, not the full spec, same rationale as Task A4 step 5; diff = 3-dot, Round 1, HEAD sha) → GO block into PR body. PR body: §1.7 **Forward+Backward pair** (CLAUDE.md + skills are discipline-bearing; cite spec D1 file:lines + the swept sibling surfaces: harvest/dispatcher/night-mode/arch SKILL.md edits), acceptance-package sections filled for real (Provenance: in-session, this plan; Review findings: the two-altitude spec review verdicts; Parked questions: none). `gh pr create --base staging`.
 
 ---
 
 ## Post-merge operator items (not tasks — surfaced in both PR bodies)
 
-1. Register `fidelity-verdict-in-pr-body` as required in **staging** branch protection only, after the throwaway-PR skipped-behavior check (spec D3/m3).
+1. Register `fidelity-verdict-in-pr-body` as required in **staging** branch protection only, after the throwaway-PR skipped-behavior check (spec D3/m3). **Ordering: do this BEFORE first use of the /arch always-marker route** — the D1 exception self-deactivates until registration (caveat baked into the CLAUDE.md + /arch §3 texts, Tasks B3/B4).
 2. aif review cap 3→5 (`env.ts:113` env knob in the aif deployment).
 3. Optional `~/.claude/hooks/git-safety.sh` Fidelity mirror (operator-owned global).
 4. Validation runs per spec D9: Run 0 (tiny Tier-1 marker task — SDK transport + marker), then Run 1 (full acceptance loop).
