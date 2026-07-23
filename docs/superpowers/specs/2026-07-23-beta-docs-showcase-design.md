@@ -1,12 +1,14 @@
 # beta-docs-showcase (umbrella B) — content/IA design
 
-> **Status:** r2 — /arch §2 cold two-altitude review round 1 done (both seats Opus per the
-> operator model ladder): bottom-up **GO** (0 BLOCKER/MAJOR; census + cross-refs verified
-> against the live clone; 1 MINOR wording fix folded), top-down **REVISE** (2 MAJOR —
-> pre-cutover claims gate, SSOT authoring race — + 4 MINOR; all folded in r2, see the
-> per-finding markers below). Source prompt: the ARCH-PREP form of
-> [beta-docs-showcase/kickoff.md](../../../.claude/orchestrator-prompts/beta-docs-showcase/kickoff.md)
-> (rewritten to a dispatch kickoff in this PR).
+> **Status:** r3 — B-D6 execution model REVISED by operator directive (2026-07-23,
+> post-merge of r2 as #1104): CC-subscription limits must not be spent on B → execution
+> is **deferred to the aif factory AFTER A7** (beta-delivery-ux S5) makes foreign-project
+> dispatch real; new stage BS-pre (factory wiring for `getff-landing`) added; kickoff
+> carries the binding Dispatch gate. r2 review history: /arch §2 round 1 — bottom-up
+> **GO** (census + cross-refs verified against the live clone; 1 MINOR folded), top-down
+> **REVISE** (2 MAJOR — pre-cutover claims gate, SSOT authoring race — + 4 MINOR; all
+> folded); round 2 top-down **GO**. Source prompt: the ARCH-PREP form of
+> [beta-docs-showcase/kickoff.md](../../../.claude/orchestrator-prompts/beta-docs-showcase/kickoff.md).
 > **Date:** 2026-07-23
 > **Authoritative for:** umbrella B's content/IA design — current-site census (§0), decisions
 > B-D1..B-D6 (§1), stage plan BS0-BS3 (§2), risks (§3).
@@ -160,25 +162,36 @@ present tense** — «clippy demo, deny roadmap»; (5) everything environment-la
   coordination point. *Falsifier: two-render drift found twice by the auditor → promote a
   deterministic vendor-sync check into the landing repo (parent §5 falsifier).*
 
-- **B-D6 — Execution model: in-session per stage, no factory.** Stages run as CC sessions
-  (SDD; night-mode allowed for BS1's bulky port) with cwd `~/code/getff-landing`; BS2
-  additionally lands two small PRs in `artyhoo/getff` (First-Steps SSOT if C1 hasn't;
-  issue templates). The aif factory is NOT used — runtime-bridge is not vendored into the
-  landing repo (parent A7 is future work), so the kickoff keeps `<!-- bridge: skip -->`
-  and is dispatched by the operator opening stage sessions, not by /pipeline→aif.
-  Governance per parent §5: kickoff-encoded per-stage checklists + PR flow in the landing
-  repo + the phase-2 assembly gate as backstop. Tier: umbrella = **Tier 2** (IA/claims
-  judgment); BS1 alone is Tier-1-shaped (port with a proven skeleton) and may run on the
-  executor tier once BS0 is green. *Falsifier: first stage session shows the checklist
-  can't carry discipline without hooks → surface to operator; candidate = vendor the
-  minimal hook set (parent falsifier: promote claims-check into landing CI).*
+- **B-D6 (r3) — Execution model: aif factory AFTER A7; deferred, never CC-in-session.**
+  Operator directive (2026-07-23): B must not consume CC-subscription limits, so the r2
+  «operator-opened in-session sessions» model is RETIRED. B executes through the aif
+  factory once parent A7 (beta-delivery-ux S5 — foreign-project dispatch: runtime-bridge
+  subset vendored into the consumer repo, per-project dedup-log) is merged; **umbrella B
+  is its first consumer**. New stage **BS-pre** instantiates A7 for `~/code/getff-landing`
+  (vendor bridge subset, aif project with landing container base,
+  `RUNTIME_BRIDGE_AIF_PROJECT_ID`, per-mode defaults Plan→top / Task/Review→executor) and
+  smokes ONE no-op task end-to-end. The kickoff carries a binding **Dispatch gate**
+  (A7-merged probe + BS-pre green) — until it passes, B is blocked-pending-neighbor and
+  nobody opens CC stage sessions for it. Operator-only steps (BS0 DNS, BS3 sign-off) are
+  parked via runtime-bridge park/answer. BS2's two framework-repo PRs (First-Steps SSOT,
+  issue templates) ride this repo's normal aif flow. `<!-- bridge: skip -->` stays: this
+  repo's auto-dispatch targets THIS repo's project; B dispatches via
+  `/pipeline beta-docs-showcase` against the landing-side wiring. Governance per parent
+  §5 unchanged (checklists + PR flow + assembly-gate backstop). Tier: umbrella **Tier 2**
+  (factory defaults); BS1 is Tier-1-shaped — executor-tier line via bridge-profile marker
+  on its stage dispatch. *Falsifiers: (1) A7 slips long enough to make B the critical
+  path of the parent release frame (§7 phase 2 needs the site) → operator re-opens the
+  in-session option as an explicit priority call; (2) A7's shipped form can't wire a
+  non-Node-identical repo like the landing → STOP, surface — that finding feeds A7, B
+  does not fork a parallel wiring.*
 
 ## §2 Stage plan (BS0-BS3; one PR per stage in the target repo; each stage re-verifies
 anchors live at entry — parent R5)
 
 | Stage | Scope | Gate (evidence per T3/T19: command + output in the stage report) | Deps |
 |---|---|---|---|
-| **BS0 — prototype** (mandatory, parent D5) | Scratch repo `getff-docs-smoke`: Fumadocs skeleton (2-3 pages incl. ONE real ported page for realistic search), Tailwind v4 co-install probe, static export, GH Pages deploy, `beta.getff.ai` DNS (operator step). Prototype ships site-wide `noindex` (robots meta + robots.txt) — it must never compete with getff.ai in indexes (r2, MINOR-3) | fetched deployed URL; Orama search query returning the ported page; `curl` of `/llms.txt`, `/llms-full.txt`, `/docs/<page>.md`; HTTPS on the subdomain; noindex present in the fetched HTML. **FAIL → STOP: Starlight rollback per parent D5 falsifier-1; umbrella re-plans.** Teardown: scratch deployment + DNS record are removed at BS3 close (tracked in BS3 checklist) | none — startable at kickoff merge |
+| **BS-pre — factory wiring** (r3, B-D6) | Instantiate A7 for `~/code/getff-landing`: vendor runtime-bridge subset via the A7 mechanism (never a parallel reimplementation), aif project with landing container base, env + per-mode defaults | ONE no-op smoke task dispatched → completed → harvested in `getff-landing`; wiring facts recorded in the stage report | **A7 merged** (beta-delivery-ux S5) — hard blocked-pending-neighbor; operator env/key steps parked |
+| **BS0 — prototype** (mandatory, parent D5) | Scratch repo `getff-docs-smoke`: Fumadocs skeleton (2-3 pages incl. ONE real ported page for realistic search), Tailwind v4 co-install probe, static export, GH Pages deploy, `beta.getff.ai` DNS (operator step). Prototype ships site-wide `noindex` (robots meta + robots.txt) — it must never compete with getff.ai in indexes (r2, MINOR-3) | fetched deployed URL; Orama search query returning the ported page; `curl` of `/llms.txt`, `/llms-full.txt`, `/docs/<page>.md`; HTTPS on the subdomain; noindex present in the fetched HTML. **FAIL → STOP: Starlight rollback per parent D5 falsifier-1; umbrella re-plans.** Teardown: scratch deployment + DNS record are removed at BS3 close (tracked in BS3 checklist) | BS-pre (r3) |
 | **BS1 — port skeleton** | Branch `fumadocs-migration` in `getff-landing`: Next + Fumadocs + Tailwind v4 app; port 5 docs pages (same slugs), landing rebuild from `redesign-terminal-gates` assets (B-D2), consulting, blog + `/rss.xml` (B-D3), sitemap/og/favicons/CNAME parity; deploy workflow updated on the branch, `main` untouched | local `next build` static export green; URL census (§0.2) resolves on preview serve; landing renders the two-layer panel; Fumadocs specifics read from live docs at build (T12) | BS0 green |
 | **BS2 — content** | Two-layer showcase pages (both «Daily cycle» pages, factory Overview, «What is getff»), First Steps ×3 (B-D5), python quickstart, beta page, issue templates (PR in `artyhoo/getff`), announcement draft (draft:true), **F5 claim pass: per-claim ledger** (claim → formula → evidence-or-experimental-label); README honest-claims **patch PROPOSAL** routed via maintainer handoff (Artifact Ownership) — the U8 scope parent D1 absorbed into B | ledger complete over every public capability claim on the site (T7: claim-by-claim, not a section tick); First-Steps human render mirrors the SSOT 1:1; python quickstart wording matches the live matrix state | BS1; First Steps blocked-pending A1 profile names; Degradations page blocked-pending A3; C1 coordination probe |
 | **BS3 — cutover** | Merge `fumadocs-migration` → `main`; deploy; production parity census; announcement stays draft; BS0 scratch teardown | **pre-merge: independent cold claims audit PASS** — a fresh-session cold agent (`claims-conformance-auditor` once umbrella C ships it; until then an equivalent compliance-verifier-class run over the BS2 ledger, claim-by-claim against shipped reality) — the F5 ledger's author never self-certifies the cutover (r2, top-down MAJOR-1; the parent §8 phase-2 assembly gate remains the SECOND, later backstop); every §0.2 URL returns 200 with expected content on getff.ai; `/rss.xml` validates; llms routes live; search live; **operator visual sign-off on the landing (genuine fork — look & feel is operator judgment)** | BS2; cold claims audit PASS; operator GO |
