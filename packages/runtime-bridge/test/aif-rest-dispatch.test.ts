@@ -259,4 +259,54 @@ describe('AifHandoffBackend.dispatch() — profileHint resolution', () => {
     expect((err as Error).message).toContain('glm-a');
     expect((err as Error).message).toContain('glm-b');
   });
+
+  // Regression: `Z.AI GLM-5.2` is a strict PREFIX of `Z.AI GLM-5.2 SDK`, so pure
+  // substring matching made the correct, unambiguous marker value throw
+  // dispatch_failed — the exact name was unusable. Observed live 2026-07-23.
+  it('exact name match wins over a longer superset name (prefix-related profiles stay usable)', async () => {
+    const calls = mockWithProfiles([
+      { id: 'glm-api', name: 'Z.AI GLM-5.2' },
+      { id: 'glm-sdk', name: 'Z.AI GLM-5.2 SDK' },
+    ]);
+    const backend = new AifHandoffBackend({
+      baseUrl: 'http://localhost:3009',
+      projectId: 'proj-uuid',
+    });
+    await backend.dispatch({ ...KICKOFF, profileHint: 'Z.AI GLM-5.2' });
+
+    const post = calls.find((c) => c.method === 'POST' && c.url.endsWith('/tasks'));
+    expect(post?.body).toMatchObject({ runtimeProfileId: 'glm-api' });
+  });
+
+  it('exact match stays case-insensitive', async () => {
+    const calls = mockWithProfiles([
+      { id: 'glm-api', name: 'Z.AI GLM-5.2' },
+      { id: 'glm-sdk', name: 'Z.AI GLM-5.2 SDK' },
+    ]);
+    const backend = new AifHandoffBackend({
+      baseUrl: 'http://localhost:3009',
+      projectId: 'proj-uuid',
+    });
+    await backend.dispatch({ ...KICKOFF, profileHint: 'z.ai glm-5.2' });
+
+    const post = calls.find((c) => c.method === 'POST' && c.url.endsWith('/tasks'));
+    expect(post?.body).toMatchObject({ runtimeProfileId: 'glm-api' });
+  });
+
+  it('a non-exact hint matching several profiles still throws (exact-match short-circuit did NOT weaken the ambiguity guard)', async () => {
+    mockWithProfiles([
+      { id: 'glm-api', name: 'Z.AI GLM-5.2' },
+      { id: 'glm-sdk', name: 'Z.AI GLM-5.2 SDK' },
+    ]);
+    const backend = new AifHandoffBackend({
+      baseUrl: 'http://localhost:3009',
+      projectId: 'proj-uuid',
+    });
+    const err = await backend.dispatch({ ...KICKOFF, profileHint: 'GLM' }).catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(BackendError);
+    expect(err).toMatchObject({ code: 'dispatch_failed', backend: 'aif-handoff' });
+    expect((err as Error).message).toContain('glm-api');
+    expect((err as Error).message).toContain('glm-sdk');
+  });
 });

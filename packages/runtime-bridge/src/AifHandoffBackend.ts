@@ -118,9 +118,15 @@ export class AifHandoffBackend implements RuntimeBackend {
   /**
    * Resolve a profile-name hint (from a kickoff's `<!-- bridge-profile: -->`
    * marker) to a concrete runtime-profile id via GET /runtime-profiles.
-   * Case-insensitive substring match on the profile `name` field. Throws
-   * loudly on 0 or >1 matches — no silent fallback, no guessing (the
-   * candidate list is included so the operator can fix the marker).
+   * An exact (case-insensitive) name match wins outright; otherwise falls back
+   * to case-insensitive substring match. Throws loudly on 0 or >1 matches — no
+   * silent fallback, no guessing (the candidate list is included so the
+   * operator can fix the marker).
+   *
+   * The exact-match short-circuit is load-bearing because prefix-related profile
+   * names are real: `Z.AI GLM-5.2` is a strict prefix of `Z.AI GLM-5.2 SDK`, so
+   * under pure substring matching a marker naming the former matched BOTH and
+   * threw `dispatch_failed` — i.e. the correct, unambiguous name was unusable.
    */
   private async _resolveProfileId(hint: string): Promise<string> {
     const profiles = (await this._rest('GET', '/runtime-profiles')) as Array<{
@@ -128,7 +134,11 @@ export class AifHandoffBackend implements RuntimeBackend {
       name: string;
     }>;
     const needle = hint.toLowerCase();
-    const matches = profiles.filter((p) => p.name.toLowerCase().includes(needle));
+    // Exact name match wins: a profile whose name IS the hint is never ambiguous,
+    // even when that name is also a prefix of other profile names.
+    const exact = profiles.filter((p) => p.name.toLowerCase() === needle);
+    const matches =
+      exact.length > 0 ? exact : profiles.filter((p) => p.name.toLowerCase().includes(needle));
 
     if (matches.length === 0) {
       const candidates = profiles.map((p) => p.name).join(', ');
