@@ -181,3 +181,39 @@ describe('checkPrBodyFidelity — skipped is unavailable to a stage PR', () => {
     expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
   });
 });
+
+describe('checkPrBodyFidelity — stage detector cannot be decoyed', () => {
+  const skipLine = 'FIDELITY: skipped — deliberately bypassing the stage gate';
+  it('rejects skipped when a decoy placeholder Provenance precedes the real one', () => {
+    const body = `## Provenance\n\n<stage PRs: placeholder>\n\n## Provenance\n\n- Substrate: aif task 42\n\n## Fidelity verdict\n${skipLine}\n`;
+    const r = checkPrBodyFidelity({ body, headSha: HEAD });
+    expect(r.ok).toBe(false);
+    expect(r.errors.join()).toMatch(/not available to a stage PR/);
+  });
+  it('rejects skipped when the real Provenance comes after the verdict section', () => {
+    const body = `## Fidelity verdict\n${skipLine}\n\n## Provenance\n\n- Substrate: in-session, umbrella stage 2\n`;
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(false);
+  });
+});
+
+describe('checkPrBodyFidelity — fenced blocks do not truncate the section', () => {
+  it('reads Evidence that follows a fenced block containing a # comment', () => {
+    const body = `## Fidelity verdict\nFIDELITY: GO\nBasis: docs/spec.md\nRound: 1\nAudited-SHA: ${HEAD}\n\n\`\`\`bash\n# regenerate baselines\nbash tests/install-sh/snapshot.sh\n\`\`\`\n\nEvidence: packages/core/hooks/pre-push.ts:42\n`;
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
+  it('still closes the section on a real heading after a fenced block', () => {
+    const body = `## Fidelity verdict\nFIDELITY: GO\nBasis: docs/spec.md\nRound: 1\nAudited-SHA: ${HEAD}\n\n\`\`\`bash\n# noise\n\`\`\`\n\n### §1.7 Forward-check applied\nper packages/core/hooks/pre-push.ts:42\n`;
+    const r = checkPrBodyFidelity({ body, headSha: HEAD });
+    expect(r.ok).toBe(false);
+    expect(r.errors.join()).toMatch(/file:line evidence/);
+  });
+});
+
+describe('checkPrBodyFidelity — evidence exclusion is case-insensitive', () => {
+  it('does not accept a lowercase basis: path as evidence', () => {
+    const body = `## Fidelity verdict\nFIDELITY: GO\nbasis: docs/spec.md:12\nRound: 1\nAudited-SHA: ${HEAD}\n`;
+    const r = checkPrBodyFidelity({ body, headSha: HEAD });
+    expect(r.ok).toBe(false);
+    expect(r.errors.join()).toMatch(/other than `Basis:`/);
+  });
+});

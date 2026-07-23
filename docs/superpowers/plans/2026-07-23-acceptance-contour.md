@@ -15,7 +15,7 @@
 - All artifacts English (`.claude/rules/language-discipline.md`).
 - New `agents/*.md` MUST carry doc-authority `Class:`/`Authoritative-for:` header (principle 09, dynamic).
 - Markdown files ≤600 lines (pre-commit gate).
-- `pr-body-fidelity.ts` started below the capability threshold (~57 LOC < 80; `checks/` pre-exists; no new dependency — `prior-art.ts:124,134`), so the SSOT entry + `Prior-art:` line were planned as voluntary BFR documentation — **with a forward-guard: if the file grows ≥80 LOC, the trailer requirement becomes real. It did** (103 LOC shipped, test 145), the `pr-body-prior-art` CI gate demanded the trailer, and SSOT #228 is now a real requirement, not a courtesy.
+- `pr-body-fidelity.ts` started below the capability threshold (~57 LOC < 80; `checks/` pre-exists; no new dependency — `prior-art.ts:124,134`), so the SSOT entry + `Prior-art:` line were planned as voluntary BFR documentation — **with a forward-guard: if the file grows ≥80 LOC, the trailer requirement becomes real. It did** (165 LOC shipped, test 219 — the figure moved twice as review findings landed, so treat it as measured-at-merge, not fixed), the `pr-body-prior-art` CI gate demanded the trailer, and SSOT #228 is now a real requirement, not a courtesy.
 - Both PRs carry a REAL `## Fidelity verdict` GO block (dogfood; spec D3 rollout) + §1.7 sections (CLAUDE.md edit in PR-B ⇒ Forward+Backward pair, not Skipped).
 
 ---

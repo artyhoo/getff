@@ -20,9 +20,9 @@
  *     declares a substrate must carry a real verdict. The detector is self-declared
  *     (weaker than the sibling prior-art gate, whose detector reads the diff — see
  *     pr-body-prior-art-bin.ts) because "is this a stage PR" is a property of the
- *     process, not of the diff. It still removes the silent default: bypassing now
- *     requires deleting your own Provenance, which is a visible lie in the PR body
- *     rather than an unremarkable omission.
+ *     process, not of the diff. It still removes the silent default: bypassing requires
+ *     writing a PR body that denies its own substrate — every Provenance section is
+ *     inspected, so a decoy placeholder cannot absorb the check.
  */
 export interface FidelityCheckInput { body: string; headSha: string; }
 export interface FidelityCheckResult { ok: boolean; errors: string[]; }
@@ -54,15 +54,24 @@ function stripComments(text: string): string {
 
 interface SectionResult { section: string | null; error?: string; }
 
-/** Extract the body of a section by its heading regex (first match wins; null if absent). */
-function sectionBody(lines: string[], headingRe: RegExp): string | null {
-  const start = lines.findIndex((l) => headingRe.test(l));
-  if (start === -1) return null;
-  let end = lines.length;
-  for (let i = start + 1; i < lines.length; i++) {
-    if (SECTION_END_RE.test(lines[i])) { end = i; break; }
+/** True for a line that closes a section — a heading NOT inside a fenced code block. */
+function sectionEndAt(lines: string[], from: number): number {
+  let fenced = false;
+  for (let i = from; i < lines.length; i++) {
+    if (/^[ \t]*(```|~~~)/.test(lines[i])) { fenced = !fenced; continue; }
+    if (!fenced && SECTION_END_RE.test(lines[i])) return i;
   }
-  return lines.slice(start + 1, end).join('\n');
+  return lines.length;
+}
+
+/** Bodies of EVERY section with this heading — not just the first (a decoy would hide the rest). */
+function sectionBodies(lines: string[], headingRe: RegExp): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (!headingRe.test(lines[i])) continue;
+    out.push(lines.slice(i + 1, sectionEndAt(lines, i + 1)).join('\n'));
+  }
+  return out;
 }
 
 /**
@@ -71,15 +80,19 @@ function sectionBody(lines: string[], headingRe: RegExp): string | null {
  * unfilled or explicitly-n/a Provenance does NOT make a PR a stage PR.
  */
 function declaresProvenance(lines: string[]): boolean {
-  const body = sectionBody(lines, PROVENANCE_HEADING_RE);
-  if (body === null) return false;
-  const meaningful = body
-    .split('\n')
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0)
-    .filter((l) => !/^</.test(l))            // template placeholder `<stage PRs: …>`
-    .filter((l) => !/^n\/a\b/i.test(l));     // explicit "not applicable"
-  return meaningful.length > 0;
+  // EVERY Provenance section is inspected: a decoy placeholder heading placed above the
+  // real one would otherwise absorb the check while the true substrate stays visible —
+  // a bypass that deletes nothing and so is invisible to the threat model this guard
+  // documents (verified as a real false pass before this was fixed).
+  return sectionBodies(lines, PROVENANCE_HEADING_RE).some((body) =>
+    body
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0)
+      .filter((l) => !/^</.test(l))          // template placeholder `<stage PRs: …>`
+      .filter((l) => !/^n\/a\b/i.test(l))    // explicit "not applicable"
+      .length > 0,
+  );
 }
 
 function extractSection(body: string): SectionResult {
@@ -92,18 +105,18 @@ function extractSection(body: string): SectionResult {
     return { section: null, error: `found ${starts.length} \`## Fidelity verdict\` sections — exactly one is allowed (replace the prior round's block, do not append)` };
   }
   const start = starts[0];
-  let end = lines.length;
-  for (let i = start + 1; i < lines.length; i++) {
-    if (SECTION_END_RE.test(lines[i])) { end = i; break; }
-  }
-  return { section: lines.slice(start + 1, end).join('\n') };
+  return { section: lines.slice(start + 1, sectionEndAt(lines, start + 1)).join('\n') };
 }
 
-/** Evidence must not be satisfied by the `Basis:` path alone. */
+/**
+ * Evidence must not be satisfied by the `Basis:` path alone. The exclusion is
+ * case-INSENSITIVE on purpose: the verdict tokens are case-sensitive grammar, but this
+ * is a guard, and `basis:` in lowercase must not smuggle the Basis path in as evidence.
+ */
 function hasEvidence(section: string): boolean {
   return section
     .split('\n')
-    .filter((l) => !/^Basis:/.test(l.trim()))
+    .filter((l) => !/^basis:/i.test(l.trim()))
     .some((l) => FILE_LINE_RE.test(l));
 }
 
