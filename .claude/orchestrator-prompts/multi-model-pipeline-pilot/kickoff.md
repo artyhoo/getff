@@ -1,6 +1,6 @@
 # multi-model-pipeline-pilot — kickoff (RE-SCOPED 2026-07-23, r2: self-referential carrier + full-pipeline contour)
 
-<!-- bridge-profile: Z.AI GLM-5.2 -->
+<!-- bridge-profile: Z.AI GLM-5.2 SDK -->
 
 > **Umbrella:** `multi-model-pipeline-pilot`. **Status:** GO received (operator, 2026-07-23) — dispatch OFF-PEAK only (§5 quota discipline).
 > **Re-scope note:** re-pointed 2026-07-23 from the P3/P1/P2 GLM-**quality** probes to a **whole-pipeline mechanism-parity audit**. The quality-probe design is preserved in the decision record [§3 Fork-5/6](../../../docs/meta-factory/research-patches/2026-07-21-multi-model-pipeline-decisions.md) for future revival (T17). r2 (same day, operator directive): the carrier task **IS the audit** — no throwaway diff — and the audited contour extends to the **entire pipeline from `/arch`**, with a mandatory **root-cause** for every failing row.
@@ -47,7 +47,7 @@ The audited contour starts at `/arch`, and its first legs already ran live while
 
 - **`/arch` §2 two-altitude cold review** — FIRED × HONORED: the two-subagent review (top-down Opus + bottom-up Sonnet) returned REVISE and the bottom-up seat caught a real factual error in this very kickoff (the false «settings.json never travels via git» claim, refuted by `git ls-files`; fixed in r1). The review channel demonstrably detects author-blind defects.
 - **`/pipeline` plan-currency + dup-detect leg** — FIRED: the operator's `/pipeline` invocation (this session) ran priority-score/dup-detect/inflight helpers; dup-detect correctly flagged `multi-model-pipeline-pilot` as `deliverable-on-staging` overlap (the pre-re-scope decision record) — evidence the dedup layer reads real state.
-- **Tier routing D1 marker leg** — pending S2: this kickoff carries `<!-- bridge-profile: Z.AI GLM-5.2 -->` under the ACTIVE D1 exception (required-check registered 2026-07-23); the S2 dispatch proves (or fails) name→id resolution and whole-pipeline executor-tier routing.
+- **Tier routing D1 marker leg** — FIRST FINDING already banked at preflight (2026-07-23): the r2 marker initially read `Z.AI GLM-5.2`, which the substring resolver (`AifHandoffBackend.ts:131` — case-insensitive `includes`, no exact-match priority) matches against BOTH live profiles `Z.AI GLM-5.2` and `Z.AI GLM-5.2 SDK` → guaranteed `dispatch_failed` ambiguity throw. Verdict for the checklist: marker channel FIRED × MISSERVES (loud-throw behavior worked as designed, but the obvious marker value is a foot-gun); root-cause: two similarly-named profiles + substring matching; fix applied: marker now names the unique `Z.AI GLM-5.2 SDK` (the project-default task profile, SDK transport — the D9 Run-0 target); fix-pointer for the resolver: exact-match short-circuit before substring. Remaining S2 proof: name→id resolution success + whole-pipeline executor-tier routing.
 - **Acceptance-contour self-test leg** — partially banked: the `pr-body-fidelity` gate already ran GREEN on real PRs (#1106 GO-block; #1108 skipped-with-rationale) — the GREEN direction is proven; S3 adds the RED direction.
 
 ## §4 The deliverable — two-axis parity checklist + root-cause (binding)
