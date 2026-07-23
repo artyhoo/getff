@@ -6,7 +6,7 @@
 # wired NON-DESTRUCTIVELY into the consumer's .claude/settings.json alongside the §1e inject-matching-rule
 # PostToolUse hook. Delivery ≠ liveness (#551): the test PROVES the delivered hook FIRES (flags a
 # header-less scoped doc with exit 2, passes a compliant one), honours its escape valves, and degrades
-# to a silent no-op without jq.
+# to a once-per-session announced no-op without jq (refined 2026-07-24, aif-parity F1).
 #
 # ARMS:
 #   (A) delivery — hook present + executable
@@ -17,7 +17,8 @@
 #   (E) compliant — a scoped doc WITH the header (rule + SKILL.md) → exit 0, empty output
 #   (F) escape valves — repo opt-out (AIF_DOC_AUTHORITY=0), per-file exempt token (≥20 chars), and a
 #       non-scoped path all → exit 0; a <20-char exempt reason still GATES (exit 2)
-#   (G) degrades without dep — jq absent from PATH → exit 0, no output (no per-turn error-spam)
+#   (G1-G3) degrades without dep — jq absent → announced ONCE per session on an in-scope path,
+#           silent on repeat + out-of-scope (GH #934 no-per-turn-spam preserved literally)
 #   (H) --refresh restores the hook + registration for a brownfield consumer missing it
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
@@ -121,17 +122,43 @@ if [ "$_rc_ex" -eq 0 ] && [ -z "$_out2" ]; then ok "(F) per-file exempt token (�
 if [ "$_rc_ns" -eq 0 ] && [ -z "$_out3" ]; then ok "(F) non-scoped path (src/app.ts) → exit 0, silent"; else bad "(F) non-scoped path not skipped (rc=$_rc_ns out='$_out3')"; fi
 if [ "$_rc_short" -eq 2 ]; then ok "(F) exempt token with <20-char reason still GATES (exit 2) — no trivial bypass"; else bad "(F) short-reason exempt wrongly passed (rc=$_rc_short)"; fi
 
-# ── ARM (G): degrades without dep — jq absent → exit 0, no output ──────────────
+# ── ARM (G): degrades without dep — jq absent → exit 0; announced ONCE per session ─
+# Contract refined 2026-07-24 (aif-parity F1): a registered-but-dependency-less gate that
+# skips in TOTAL silence is indistinguishable from a passing one — the consumer never learns
+# the gate is dead (#warning-nobody-reads; the same defect the aif-parity audit found live
+# in the aif container, research-patches/2026-07-24-posttooluse-channel-verification.md).
+# GH #934's actual requirement — no per-TURN error-spam — is preserved literally: the notice
+# fires at most once per session, and only on an in-scope path. Both halves are asserted.
 JQLESS=$(mktemp -d)
 for _t in bash sh grep cat tail head cut tr sed printf env dirname basename awk; do
   _p=$(command -v "$_t" 2>/dev/null) && ln -sf "$_p" "$JQLESS/$_t" 2>/dev/null
 done
+# Session-scoped flag lives under TMPDIR; isolate it so a rerun starts fresh.
+G_TMP=$(mktemp -d)
 _payload='{"tool_name":"Write","session_id":"g934da","tool_input":{"file_path":"'"$T/.claude/rules/g934da-missing.md"'"}}'
-_gout=$(printf '%s' "$_payload" | PATH="$JQLESS" CLAUDE_PROJECT_DIR="$T" bash "$HOOK" 2>&1); _grc=$?
-if [ "$_grc" -eq 0 ] && [ -z "$_gout" ]; then
-  ok "(G) degrades: jq absent → exit 0, no output (no per-turn error-spam)"
+_gout=$(printf '%s' "$_payload" | PATH="$JQLESS" TMPDIR="$G_TMP" CLAUDE_PROJECT_DIR="$T" bash "$HOOK" 2>/dev/null); _grc=$?
+if [ "$_grc" -eq 0 ] && printf '%s' "$_gout" | grep -q 'DID NOT RUN'; then
+  ok "(G1) degrades LOUDLY once: jq absent + in-scope path → exit 0 + additionalContext saying the check did not run"
 else
-  bad "(G) did not degrade without jq (rc=$_grc out='$(printf '%s' "$_gout" | head -c 60)')"
+  bad "(G1) first jq-less edit did not announce the dead gate (rc=$_grc out='$(printf '%s' "$_gout" | head -c 80)')"
+fi
+
+# Second edit in the SAME session → silent (this is the "no per-turn error-spam" half).
+_gout2=$(printf '%s' "$_payload" | PATH="$JQLESS" TMPDIR="$G_TMP" CLAUDE_PROJECT_DIR="$T" bash "$HOOK" 2>&1); _grc2=$?
+if [ "$_grc2" -eq 0 ] && [ -z "$_gout2" ]; then
+  ok "(G2) no per-turn spam: a second jq-less edit in the same session → exit 0, no output"
+else
+  bad "(G2) repeated jq-less edit spammed (rc=$_grc2 out='$(printf '%s' "$_gout2" | head -c 60)')"
+fi
+
+# Out-of-scope path in a fresh session → silent even on the first edit.
+G_TMP2=$(mktemp -d)
+_payload_ns='{"tool_name":"Write","session_id":"g934da-ns","tool_input":{"file_path":"'"$T/src/app.ts"'"}}'
+_gout3=$(printf '%s' "$_payload_ns" | PATH="$JQLESS" TMPDIR="$G_TMP2" CLAUDE_PROJECT_DIR="$T" bash "$HOOK" 2>&1); _grc3=$?
+if [ "$_grc3" -eq 0 ] && [ -z "$_gout3" ]; then
+  ok "(G3) scoped: a jq-less edit OUTSIDE the gate's own paths stays silent"
+else
+  bad "(G3) out-of-scope jq-less edit was not silent (rc=$_grc3 out='$(printf '%s' "$_gout3" | head -c 60)')"
 fi
 
 # ── ARM (H): --refresh restores a brownfield consumer missing the hook ────────
@@ -146,5 +173,5 @@ else
   bad "(H) --refresh did not restore (post=$_post2, $(ls "$H" 2>/dev/null | tr '\n' ' '))"
 fi
 
-rm -rf "$T" "$JQLESS"
+rm -rf "$T" "$JQLESS" "$G_TMP" "$G_TMP2"
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
