@@ -127,8 +127,7 @@ docker exec aif-handoff-agent-1 git -C <worktree> diff origin/staging...HEAD
 - `GO` → record the block (Basis/Round/Audited-SHA = container HEAD/Evidence) into the
   prepared PR body (pass via `--body-file` — without the section the `pr-body-fidelity`
   gate holds the PR red) and proceed to `harvest.ts`.
-- `REVISE` → **no egress, no PR**: `tsx packages/runtime-bridge/src/cli/answer.ts --task <id>
---answer "<auditor findings>" --decision request_changes` → task returns to `implementing`;
+- `REVISE` → **no egress, no PR**: `tsx packages/runtime-bridge/src/cli/answer.ts --task <id> --answer "<auditor findings>" --decision request_changes` → task returns to `implementing`;
   the next harvest attempt audits as `Round: 2`. **Cap 2 CONSECUTIVE REVISE rounds on unchanged scope**
   (spec D6 «What the cap counts» — the counter resets on any GO or scope addition; the
   Audited-SHA guard forces a re-audit after every new commit, so audits themselves are not
