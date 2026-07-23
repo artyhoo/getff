@@ -77,4 +77,6 @@ Do not pad: an empty drift list is reported as empty, not filled.
 `## Review findings` or the task comments, not in this section: an appended block would
 either neutralise a recorded non-GO verdict or be shadowed by it, and the gate rejects
 both shapes (`packages/core/hooks/checks/pr-body-fidelity.ts`). The verdict tokens are
-case-sensitive.
+case-sensitive. Any heading closes the section, so every line of the block — including
+the `Evidence:` file:line — must sit inside it; and on a stage PR (one whose
+`## Provenance` declares a substrate) `FIDELITY: skipped` is rejected outright.

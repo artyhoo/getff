@@ -3,7 +3,7 @@
 854cfb38f3d4acfd40245b5b490e5163658e2e98b0573239c15dd5802d16f5cb  .ai-factory/ARCHITECTURE.ts-server.md
 35d047948e3287ab254f4abc4de1f6ea32161dea0fc1d48965041a0967100b84  .ai-factory/DESCRIPTION.md
 35d047948e3287ab254f4abc4de1f6ea32161dea0fc1d48965041a0967100b84  .ai-factory/DESCRIPTION.template.md
-a2c532bc8f3e474d67940dab3d4520c54604585d56c1474d04b704fab70b9e6e  .ai-factory/RULES.md
+5c035eb3e19c73eb255ee25bb4475e6b876b30a94bfe6dfa0f450dee80f47f1b  .ai-factory/RULES.md
 2e0b9b443b6159c73df29ec499cf7df12953b5139b197f77fb0f141c97b471b0  .ai-factory/RULES.react-next.md
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
@@ -13,7 +13,7 @@ f93f4a4bd693a0b1920f4e030b5f0d72f2d695fef9d501b3aeb8d02e790a7e24  .ai-factory/to
 20edf7198c7988d4eb0757706813bd37117c29a6b825ea597662b3c6107fc3ea  .claude/agents/capability-reuse-auditor.md
 392f81bf194e28f35fcc119b96eb39fb374debefd4b5001f832f51060a5f0e14  .claude/agents/compliance-verifier.md
 13edaf4bab2e5c2e2f5eadf2b2df1ea4befea997a924c38017f5505fc11f99c6  .claude/agents/docplan-auditor.md
-df17d6cf2761dabf3fbd171d414152e2207ed4b283a0ffb28b526efcc36d1168  .claude/agents/fidelity-auditor.md
+495177d812845ece05ce731ba24de16f0d4c26cab832672f6cbe98a4a2bac37d  .claude/agents/fidelity-auditor.md
 0964a4d3deb5e15e916c599f375874785af96e935bec9efbc7488e600cee719d  .claude/agents/living-docs-auditor.md
 c96ba6e4c52288f0b77a2edaeb6170ecad03e699360d79fe7794fd3e205717e8  .claude/agents/memory-codification-auditor.md
 69f3259d89f153fecdd70754b7e5728f0e285fd15dd7b6d6a3b4df473e058a8c  .claude/agents/review-sidecar.md

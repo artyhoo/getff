@@ -14,14 +14,29 @@
  *     GitHub must not pass on the strength of commented-out template text;
  *   - the file:line evidence must come from a line other than `Basis:` (a
  *     `Basis: spec.md:12` path would otherwise satisfy the evidence requirement
- *     vacuously).
+ *     vacuously), and from inside the section: ANY heading closes it, so evidence
+ *     cannot be borrowed from a neighbouring `### §1.7 …` block;
+ *   - `skipped` is NOT available to a stage PR. A PR whose `## Provenance` section
+ *     declares a substrate must carry a real verdict. The detector is self-declared
+ *     (weaker than the sibling prior-art gate, whose detector reads the diff — see
+ *     pr-body-prior-art-bin.ts) because "is this a stage PR" is a property of the
+ *     process, not of the diff. It still removes the silent default: bypassing now
+ *     requires deleting your own Provenance, which is a visible lie in the PR body
+ *     rather than an unremarkable omission.
  */
 export interface FidelityCheckInput { body: string; headSha: string; }
 export interface FidelityCheckResult { ok: boolean; errors: string[]; }
 
 const HEADING_RE = /^##[ \t]+Fidelity verdict[ \t]*$/;
-/** Any heading level 1-2 terminates the section (`# H1` closes it too). */
-const SECTION_END_RE = /^#{1,2}[ \t]/;
+/**
+ * ANY heading terminates the section. The verdict grammar produces no sub-headings,
+ * so a `### …` inside the region can only belong to a neighbouring block (`### §1.7
+ * Forward-check applied` is the common case) — and letting the region run into it
+ * would satisfy the file:line evidence requirement with someone else's citation.
+ */
+const SECTION_END_RE = /^#{1,6}[ \t]/;
+/** A stage PR declares its substrate here; `skipped` is not available to it. */
+const PROVENANCE_HEADING_RE = /^##[ \t]+Provenance[ \t]*$/;
 /** ASCII hyphen, en/em/figure/horizontal dashes — all accepted as the `skipped —` separator. */
 const SKIPPED_RE = /^FIDELITY:[ \t]*skipped[ \t]*[-–—‒―]+[ \t]*(.+)$/m;
 const GO_RE = /^FIDELITY:[ \t]*GO[ \t]*$/m;
@@ -38,6 +53,34 @@ function stripComments(text: string): string {
 }
 
 interface SectionResult { section: string | null; error?: string; }
+
+/** Extract the body of a section by its heading regex (first match wins; null if absent). */
+function sectionBody(lines: string[], headingRe: RegExp): string | null {
+  const start = lines.findIndex((l) => headingRe.test(l));
+  if (start === -1) return null;
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i++) {
+    if (SECTION_END_RE.test(lines[i])) { end = i; break; }
+  }
+  return lines.slice(start + 1, end).join('\n');
+}
+
+/**
+ * A stage PR = one whose `## Provenance` section actually declares something.
+ * The shipped template ships that section with a placeholder + `n/a` guidance, so an
+ * unfilled or explicitly-n/a Provenance does NOT make a PR a stage PR.
+ */
+function declaresProvenance(lines: string[]): boolean {
+  const body = sectionBody(lines, PROVENANCE_HEADING_RE);
+  if (body === null) return false;
+  const meaningful = body
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0)
+    .filter((l) => !/^</.test(l))            // template placeholder `<stage PRs: …>`
+    .filter((l) => !/^n\/a\b/i.test(l));     // explicit "not applicable"
+  return meaningful.length > 0;
+}
 
 function extractSection(body: string): SectionResult {
   const lines = stripComments(body).split(/\r?\n/);
@@ -84,6 +127,12 @@ export function checkPrBodyFidelity({ body, headSha }: FidelityCheckInput): Fide
   }
   const skipped = section.match(SKIPPED_RE);
   if (skipped) {
+    if (declaresProvenance(stripComments(body).split(/\r?\n/))) {
+      return {
+        ok: false,
+        errors: ['`FIDELITY: skipped` is not available to a stage PR — this PR\'s `## Provenance` section declares a substrate, so it must carry a real verdict from agents/fidelity-auditor.md'],
+      };
+    }
     if (skipped[1].trim().length < 20) errors.push('skipped rationale must be >=20 chars');
     return { ok: errors.length === 0, errors };
   }

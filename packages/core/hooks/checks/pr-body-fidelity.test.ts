@@ -143,3 +143,41 @@ describe('two-file contract: the shipped PR template matches the checker', () =>
     expect(checkPrBodyFidelity({ body: tpl, headSha: HEAD }).ok).toBe(false);
   });
 });
+
+describe('checkPrBodyFidelity — section boundary (any heading closes it)', () => {
+  it('does not borrow file:line evidence from a neighbouring §1.7 block', () => {
+    const body = `## Fidelity verdict\nFIDELITY: GO\nBasis: docs/spec.md\nRound: 1\nAudited-SHA: ${HEAD}\n\n### §1.7 Forward-check applied\ncomplies with foo per packages/core/hooks/pre-push.ts:42\n`;
+    const r = checkPrBodyFidelity({ body, headSha: HEAD });
+    expect(r.ok).toBe(false);
+    expect(r.errors.join()).toMatch(/file:line evidence/);
+  });
+  it('is not confused by a FIDELITY line living under a later H3', () => {
+    const body = `## Fidelity verdict\n${goSection()}\n\n### Appendix\nFIDELITY: REVISE\n`;
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
+});
+
+describe('checkPrBodyFidelity — skipped is unavailable to a stage PR', () => {
+  const skipLine = 'FIDELITY: skipped — docs-only change, no kickoff applies';
+  it('rejects skipped when Provenance declares a substrate', () => {
+    const body = `## Provenance\n\n- Substrate: aif task 7f3a-1 + bridge-profile Z.AI GLM-5.2 SDK\n\n## Fidelity verdict\n${skipLine}\n`;
+    const r = checkPrBodyFidelity({ body, headSha: HEAD });
+    expect(r.ok).toBe(false);
+    expect(r.errors.join()).toMatch(/not available to a stage PR/);
+  });
+  it('allows skipped when Provenance is the unfilled template placeholder', () => {
+    const body = `## Provenance\n\n<stage PRs: kickoff/spec path · base SHA · substrate>\n\n## Fidelity verdict\n${skipLine}\n`;
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
+  it('allows skipped when Provenance is explicitly n/a', () => {
+    const body = `## Provenance\n\nn/a — hotfix, no kickoff\n\n## Fidelity verdict\n${skipLine}\n`;
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
+  it('allows skipped when there is no Provenance section at all', () => {
+    expect(checkPrBodyFidelity({ body: `## Fidelity verdict\n${skipLine}\n`, headSha: HEAD }).ok).toBe(true);
+  });
+  it('still accepts a real GO on a stage PR', () => {
+    const body = `## Provenance\n\n- Substrate: in-session, umbrella stage 3\n\n## Fidelity verdict\n${goSection()}\n`;
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
+});

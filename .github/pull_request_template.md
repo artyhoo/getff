@@ -26,6 +26,9 @@
 
 <stage PRs: kickoff/spec path · base SHA · substrate (aif task <id> + bridge-profile <name> | in-session) · models per stage · fidelity Round. Non-stage PRs: n/a>
 
+<!-- Filling this in marks the PR as a stage PR: `FIDELITY: skipped` is then rejected and a
+real verdict is required. Leave the placeholder or write `n/a` for non-stage PRs. -->
+
 ## Review findings
 
 <stage PRs: factory review outcome + cold code-review summary (+ plan spot-check during the D1 calibration window). Non-stage PRs: n/a>

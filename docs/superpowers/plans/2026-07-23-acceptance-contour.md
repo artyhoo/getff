@@ -15,10 +15,17 @@
 - All artifacts English (`.claude/rules/language-discipline.md`).
 - New `agents/*.md` MUST carry doc-authority `Class:`/`Authoritative-for:` header (principle 09, dynamic).
 - Markdown files ≤600 lines (pre-commit gate).
-- `pr-body-fidelity.ts` is **NOT** a capability commit by the mechanical detector (~57 LOC < 80; `checks/` pre-exists; no new dependency — `prior-art.ts:124,134`): the SSOT entry + `Prior-art:` line in Tasks A2/A4 are **voluntary BFR documentation**; no gate will demand them, do not block on their absence. If the file grows ≥80 LOC during implementation, the trailer requirement becomes real.
+- `pr-body-fidelity.ts` started below the capability threshold (~57 LOC < 80; `checks/` pre-exists; no new dependency — `prior-art.ts:124,134`), so the SSOT entry + `Prior-art:` line were planned as voluntary BFR documentation — **with a forward-guard: if the file grows ≥80 LOC, the trailer requirement becomes real. It did** (103 LOC shipped, test 145), the `pr-body-prior-art` CI gate demanded the trailer, and SSOT #228 is now a real requirement, not a courtesy.
 - Both PRs carry a REAL `## Fidelity verdict` GO block (dogfood; spec D3 rollout) + §1.7 sections (CLAUDE.md edit in PR-B ⇒ Forward+Backward pair, not Skipped).
 
 ---
+
+> **Code blocks in Tasks A2/A3 are the FIRST-CUT versions, not the shipped ones.**
+> Cold code review + 10 fidelity rounds hardened them substantially (single-block verdict
+> semantics, HTML-comment stripping, any-heading section boundary, non-`Basis:` evidence,
+> conditional `skipped`, fail-closed env contract in the bin). A verbatim re-execution
+> reproduces defects this PR already fixed — read `packages/core/hooks/checks/pr-body-fidelity*.ts`
+> as the source of truth and treat these blocks as the plan's original intent.
 
 ## Phase A — the mechanical gate (PR-A)
 
@@ -316,7 +323,11 @@ permissions:
 
 jobs:
   fidelity-verdict-in-pr-body:
-    name: staging PR carries Fidelity verdict (fail-closed acceptance)
+    # name == job id, deliberately: GitHub reports the status-check context under
+    # `name:`, so this exact string is what the operator registers in branch
+    # protection. A display name here deadlocks every staging PR on a context that
+    # never reports (found by fidelity round 2; same pin as `ci-success`).
+    name: fidelity-verdict-in-pr-body
     runs-on: ubuntu-latest
     if: github.event.pull_request.base.ref == 'staging'
     steps:
