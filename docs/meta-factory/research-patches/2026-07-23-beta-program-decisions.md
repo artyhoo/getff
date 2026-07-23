@@ -1,3 +1,4 @@
+<!-- scope:beta-program -->
 # Beta-program design session — decision record (2026-07-23)
 
 > **Scope:** decision provenance for the beta-program design
@@ -64,3 +65,38 @@ AI-performs-setup precedent), #179 (SkillRouter), #196 (source-before-shape), #2
   time before it enters shipped docs.
 - Acceptance-contour spec is on its authoring branch, not staging — §8 contract treats
   it as pending; re-verify on merge (spec R6).
+
+## §1.7 Self-review (research-only patch — no rule/discipline introduced)
+
+This patch records decision provenance; it introduces no new rule, principle, or gate, so
+a **forward-check** suffices (no paired backward-check obligation per
+[phase-research-coverage.md §1.7](../../../.claude/rules/phase-research-coverage.md), arm (f')).
+Both directions are stated for substance.
+
+**Forward-check (this patch complies with active disciplines):**
+
+- [no-paid-llm-in-ci.md](../../../.claude/rules/no-paid-llm-in-ci.md): patch is markdown —
+  no CI gate, no API call, no paid LLM. ✓
+- [build-first-reuse-default.md](../../../.claude/rules/build-first-reuse-default.md): no
+  capability commit here — §3 records that new SSOT rows land WITH the executing umbrellas'
+  capability commits (Fumadocs → umbrella B site PR; context7/skills-probe/presets/status →
+  A/C stages), each citing this patch. Verdicts in §2 each carry decisive evidence, not vibe. ✓
+- [doc-authority-hierarchy.md](../../../.claude/rules/doc-authority-hierarchy.md): the binding
+  artifact is the [spec](../../superpowers/specs/2026-07-23-beta-program-design.md) (carries
+  its own Class/Authoritative headers); this patch carries the `<!-- scope:beta-program -->`
+  first-line annotation (principle 10) + folder-level research-patches authority. ✓
+- [phase-research-coverage.md §1.7](../../../.claude/rules/phase-research-coverage.md): this
+  section IS the self-review; §1 records the search coverage (3 research passes, ≥3 phrasings
+  per BFR agent). ✓
+
+**Backward-check (sibling-surface sweep).** Class of this change = *design-decision-provenance
+record for an in-flight umbrella*. Surfaces where this class occurs on staging:
+`docs/meta-factory/research-patches/2026-07-23-getff-any-stack-closure-design.md` (parallel
+track-1 provenance) — NOT touched, no verdict here supersedes it (SWEPT-CLEAN); the
+getff-to-prod meta-launch kickoff — its U8-U12 tail is absorbed by the meta-launch AMENDMENT
+commit (separate artifact, not this patch). No existing decision record is superseded or
+contradicted by §2's verdicts. GAP-FOUND: none.
+
+**Self-application (T15):** the framework's own build-vs-reuse + search-coverage disciplines
+were applied to this design session's own verdicts — §2 every row cites decisive evidence and
+§3 defers SSOT rows to the executing capability commits rather than front-loading them here.
