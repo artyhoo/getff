@@ -1,15 +1,21 @@
 # Beta program — delivery & usage convenience for human and AI (design)
 
-> **Status:** r2 after cold two-altitude review round 1 (/arch §2, both seats Opus per
-> the operator model ladder): bottom-up **GO** (0 BLOCKER/MAJOR; 4 MINORs folded — all
-> anchors «verified clean», negative skills-probe claim held under grep); top-down
-> **REVISE ×5 MAJOR** — all folded in r2: D1 amendment content specified + separate-
-> commit ownership; §8 row for open U3-U7 install umbrellas; §1 goal-SSOT
-> reconciliation; D7 maintainer-owned carve-out; §5 cross-repo governance model; plus
-> both seats' MINORs (§9 dispatch preflights, A2 degradation honesty, Cursor wording).
-> Round-2 top-down re-review pending.
+> **Status:** r3 after TWO cold two-altitude review rounds (/arch §2 cap reached; both
+> seats Opus per the operator model ladder). Round 1: bottom-up **GO** (0 BLOCKER/MAJOR;
+> all anchors «verified clean», negative skills-probe claim held under grep); top-down
+> REVISE ×5 MAJOR → folded in r2. Round 2 (top-down): 3/5 MAJORs confirmed CLOSED
+> (integration map, goal-SSOT reconciliation, cross-repo governance); remaining findings
+> folded in r3 — D1 rewritten cold-executable (U11 dispositioned `absorbed-by R1`,
+> U3-U7 dispositions decided in-session incl. U5, RU-source quotes + occurrence map);
+> D7 premise corrected (doctrine §3 = recorded deferral whose trigger fired — Wave B
+> #1043-#1047 git-verified merged; the round-2 reviewer's «NOT merged» counter-claim is
+> refuted by staging log) + `.claude/rules/*` carve-out (patch proposals only);
+> «north star» term retired for «design objectives»; meta-launch-amendment vs
+> acceptance-D1 disambiguated; A3 CLAUDE.md edit routed via maintainer handoff; §8
+> claims check named (`claims-conformance-auditor`). Per /arch §2 cap, further
+> acceptance is the operator's review gate, not a third cold round.
 > **Date:** 2026-07-23
-> **Authoritative for:** the beta-program design — north star (§1), binding operator
+> **Authoritative for:** the beta-program design — design objectives (§1), binding operator
 > decisions D1-D9 (§2), program done-criterion (§3), umbrella A/B/C designs (§4-§6),
 > release frame (§7), integration contract with parallel tracks (§8), umbrella
 > decomposition + tier routing (§9), non-goals (§10), open forks (§11), risks (§12).
@@ -23,7 +29,7 @@
 > Tier criteria SSOT — [CLAUDE.md «Task-tier routing»](../../../CLAUDE.md) (A3 re-homes the
 > shipped rendering; CLAUDE.md stays the operator-repo SSOT until that stage lands).
 
-## §1 Context + north star
+## §1 Context + design objectives
 
 The product has two layers. The **killer layer** (stack-aware rule+test generation from
 live docs) is being finished by track 1 (any-stack closure W1-W6 + adapter-jig J3/go).
@@ -32,7 +38,7 @@ executor → tier routing → night-mode → acceptance) exists as repo artifact
 config, and reproducing it costs days of manual pain (GLM onboarding precedent). This
 program packages the environment into a product and prepares the public beta.
 
-**North star — four measures, every design decision is judged against all four:**
+**Design objectives — four measures, every design decision is judged against all four** (deliberately NOT called a «north star» — that term is the flagged goal-drift vocabulary per the Artifact Ownership Contract origin incident):
 
 1. **Time-to-working + questions-to-human** at install (GLM benchmark: days+manual → minutes+one API key).
 2. **Zero forgettability** in daily use: at any moment there is ONE obvious next command and the system proposes it (the origin session asked «how does this launch?» three times and switched models six times — that class of question must disappear).
@@ -52,29 +58,52 @@ statement stands as-is.
 
 Recorded per /arch §1 with falsifiers. Future sessions must not silently reopen these.
 
-- **D1 — Absorb the getff-to-prod tail (amendment content specified; r2).** This program
-  supersedes U8/U10/U11/U12 of
+- **D1 — Absorb the getff-to-prod tail (meta-launch amendment; r3 — cold-executable).**
+  This program absorbs/supersedes U8/U10/U11/U12 of
   [getff-to-prod-meta-launch](../../../.claude/orchestrator-prompts/getff-to-prod-meta-launch/kickoff.md)
-  and reconciles the open install-track umbrellas. The amendment makes EXACTLY these
-  edits to the meta-launch kickoff (an executing author needs no further judgment):
-  (1) U8 stub → `superseded-by: beta-docs-showcase (umbrella B)`; (2) U10: the dependency
-  line «depends on U9, U11, U8» is REWRITTEN to «depends on U11 + beta-delivery-ux R1 +
-  release-frame phase-1 exit» — the U9 edge is REMOVED (hybrid-lite single-package
-  publish from the monorepo per plan-v2 F1; S6→U10 handoff stays the binding checklist),
-  and the «U9 НЕОБРАТИМОЕ — последним» ordering note gains «U9 post-announce; no longer
-  gates U10»; (3) U12 stub → `superseded-by: release-frame phase 3`; (4) U3
-  `modular-install-fullpack` (S2 merged #723; S3 stalled — `mif-s3-integ` 5 commits
-  ahead, last 2026-06-26) → `absorbed-by: beta-delivery-ux A1`, PRECEDED by a
-  preserved-residue sweep of the stalled branches (T17/T18: harvest or explicitly park
-  the 5 commits before supersession); (5) U4/U6/U7 stubs (no merged stages) → each gets a
-  one-line disposition in the amendment: superseded-by-A / superseded-by-track-1 /
-  parked-with-owner — U4 `generator-into-install` is checked against track-1 W2/W3 scope
-  before disposition. **Ownership:** the amendment lands as a SEPARATE atomic commit
-  (cross-owner handoff + rationale per the CLAUDE.md Artifact Ownership Contract — never
-  a side-effect of other changes) inside the landing PR, and the PR body flags it for
-  maintainer sign-off. *Falsifier: single-package publish from the monorepo hits an
-  unresolvable blocker (e.g. meta-factory shims in exports) → a U9-lite subset returns
-  into phase 2.*
+  and dispositions the dormant install umbrellas U3-U7. **All judgment calls are made
+  HERE; the amendment commit executes them mechanically.** Occurrences to edit: the wave
+  graph (kickoff.md:46-54), the launch table (:79-88), the Part-2 stubs (:124-152), and
+  the four stub kickoff files — locate by U-number heading if lines move (anchors
+  measured at staging `d534019b3`). Dispositions:
+  - **U8** → `superseded-by: beta-docs-showcase (umbrella B)` (stub + graph note; its
+    honest-README scope is B's F5 claims work).
+  - **U10** → stays the publish node, re-gated. Its THREE dependency occurrences — the
+    RU graph text «← зависит от U9, U11, U8 🔒НЕОБРАТИМО» (:50), the launch-table deps
+    cell «U9, U11, U8» (:81), the stub line «Зависит/Gate: U9 + U11 + U8» (:135) — are
+    ALL rewritten to «beta-delivery-ux R1 + release-frame phase-1 exit (this supersedes
+    the former U9/U11/U8 edges)». The U9 edge is REMOVED (hybrid-lite single-package
+    publish from the monorepo per plan-v2 F1; S6→U10 handoff stays the binding
+    checklist); «U9 … НЕОБРАТИМОЕ — последним» (:128) gains «post-announce; no longer
+    gates U10».
+  - **U11** → `absorbed-by: beta-delivery-ux R1` — the name-freeze IS R1's first step;
+    R1 inherits U11's gate («имена заморожены ДО публикации»). U11 disappears as a live
+    dependency node (this resolves the r2 inconsistency where U11 was simultaneously
+    superseded and a live edge).
+  - **U12** → `superseded-by: release-frame phase 3 (this spec §7)`.
+  - **U3** `modular-install-fullpack` (S2 merged #723; S3 stalled — `mif-s3-integ`
+    5 commits ahead, last 2026-06-26) → `absorbed-by: beta-delivery-ux A1`, PRECEDED by
+    a preserved-residue sweep of the stalled branches (T17/T18).
+  - **U4** `generator-into-install` → `superseded-by: track-1` — ecosystem-wiring
+    already closed detect→wire→deliver→fire end-to-end (#1086) and any-stack W2/W3 own
+    the agent surface + one-beat continuation; the npm-lane synth-at-install residue
+    belongs to track-1's js-convergence follow-on, not umbrella A.
+  - **U5** `generator-catalog-expansion` → `parked-with-owner: maintainer` — pre-baked
+    catalog growth conflicts with the live-generation direction (universal-skill panel
+    D2: «a generated skill is a preset, and presets rot»); re-evaluate after the live
+    path matures.
+  - **U6** `install-hardening-finish` → layer-selection scope (`--only/--skip`)
+    `absorbed-by: beta-delivery-ux A1` (profiles are the selection surface); rollback +
+    test-matrix residue `parked` — reopened by phase-1 self-testing evidence of install
+    failures.
+  - **U7** `plugin-finish` → self-test + docs scope `absorbed-by: beta-delivery-ux A1`
+    (plugin = secondary entry channel); OpenCode-adapter residue `parked` under the
+    agnosticism roadmap (C3).
+  **Ownership:** the amendment lands as a SEPARATE atomic commit (cross-owner handoff +
+  rationale per the CLAUDE.md Artifact Ownership Contract — never a side-effect of other
+  changes) inside the landing PR, and the PR body flags it for maintainer sign-off.
+  *Falsifier: single-package publish from the monorepo hits an unresolvable blocker
+  (e.g. meta-factory shims in exports) → a U9-lite subset returns into phase 2.*
 - **D2 — Publish only what is ready.** The beta goes public only after (a) track 1
   finishes the hard part (any-stack trace + honest signals; adapter-jig J3 adds the go
   family), (b) the acceptance contour is implemented, and (c) the operator has
@@ -124,17 +153,26 @@ Recorded per /arch §1 with falsifiers. Future sessions must not silently reopen
 - **D7 — Self-generating docs on BOTH sides.** Reference documentation is generated from
   sources (Zod schemas, JSDoc/TSDoc, registries, probe results) with CI drift gates; prose
   is reserved for judgments and guides. Applies to the consumer payload AND to this repo's
-  own docs (operator directive; live evidence of the gap: zcode-parity-doctrine §3 still
-  says «impl pending Wave B» while Wave B merged as #1043-#1047; README vs INSTALL-FOR-AI
-  carry cross-doc drift on the Cursor story — different-altitude framings, not a flat
+  own docs (operator directive; live evidence of the gap-CLASS, r3 precision:
+  zcode-parity-doctrine §3 status columns were a RECORDED deferral («intentionally NOT
+  updated … defers to the Wave B implementation PR», doctrine §4/plan §0) whose trigger
+  has since FIRED — Wave B merged as #1043-#1047, git-verified on staging — so the
+  columns are now legitimately due for their deferred sync; this is exactly the
+  update-on-trigger class D7 mechanizes, NOT silent drift; plus README vs INSTALL-FOR-AI
+  cross-doc drift on the Cursor story — different-altitude framings, not a flat
   contradiction (r2 wording); INSTALL-FOR-AI agent lists drifted). Mechanism: the existing
   `<!-- getff:begin section=... -->` generated-section pattern + regen checks
   (render-rule-index.mjs precedent). **Ownership carve-out (r2, review finding):
   generated-section automation NEVER touches the maintainer-owned goal artifacts —
   README.md, CLAUDE.md, PROPOSAL.md (frozen), `.claude/session-bootstrap.md`, or any doc
-  the Artifact Ownership Contract lists as maintainer-deliberate-edit.** Automation
-  applies to non-goal-bearing derivable surfaces: AGENTS.md rule-index (existing
-  precedent), rule/doctrine status tables, INSTALL-FOR-AI rosters, coverage matrices.
+  the Artifact Ownership Contract lists as maintainer-deliberate-edit. Enforcement-layer
+  files (`.claude/rules/*` — also maintainer-owned) are never auto-rewritten by
+  sessions: generated sections there exist only via maintainer-landed render plans (the
+  `00-rule-index.md` precedent — a generated file inside `.claude/rules/`), and C5
+  emits patch PROPOSALS for maintainer sign-off on such files, never autonomous
+  rewrites (r3, review finding).** Automation applies directly to non-goal-bearing
+  derivable surfaces: AGENTS.md rule-index (existing precedent), INSTALL-FOR-AI
+  rosters, coverage matrices, shipped-template status tables.
   *Falsifier: a doc class proves non-derivable → it stays prose with an owner and a
   review trigger, recorded per class.*
 - **D8 — Memory & context hygiene.** The framework must not write to a consumer AI's
@@ -186,8 +224,7 @@ rehearsal; the one-beat pattern established by track-1 §9.3 is the precedent).
   the flow: an AI session driven by an INSTALL-FOR-AI step + a bash helper; no GUI/wizard
   (BFR cost gate). REFERENCE claude-code-router + LiteLLM as mapping-layer precedents —
   we do not rebuild routing. **Degradation honesty (r2, review finding):** if the REST
-  automation fails and the flow degrades to guided manual steps, that is a north-star
-  measure-3 MISS, not a neutral fallback — phase 1 exits only with the automated
+  automation fails and the flow degrades to guided manual steps, that is an objective-3 MISS (AI-performs-setup), not a neutral fallback — phase 1 exits only with the automated
   one-key path proven end-to-end (§7).
 - **A3 — Tier-criteria home + degradation matrix.** A shipped, AI-agnostic doc (payload
   home chosen at stage planning: `.ai-factory/` doc or skill-context) carrying the Tier
@@ -287,7 +324,10 @@ claims-check into the landing repo's CI.*
 - **C5 — Self-generating docs, repo side (D7).** Inventory of derivable prose in our own
   docs (status tables ← git/PR facts; skill/agent/hook rosters ← filesystem; coverage
   matrices ← probe output) → migrate to `getff:begin` generated sections with drift
-  gates. Prose remains only where judgment lives.
+  gates, honoring the D7 ownership carve-out (maintainer-owned + `.claude/rules/*` files
+  get patch proposals / maintainer-landed plans only). Prose remains only where judgment
+  lives. C also authors `agents/claims-conformance-auditor.md` — the named cold auditor
+  the §8 assembly gate runs over docs-site claims (r3).
 
 ## §7 Release frame
 
@@ -326,14 +366,17 @@ on a clean machine per ecosystem (js/python/cargo/go cells); profiles ship the m
 skill set including track-1's rule-tests surface; presets emit a marker that resolves
 against a live profile list; acceptance D3 check is green on a probe PR; AGENTS.md +
 tier-home + degradation matrix reference only artifacts that exist on staging; C3 probes
-green over the merged skill population; docs site claims cross-checked against shipped
-reality (F5).
+green over the merged skill population; docs-site claims cross-checked against shipped
+reality (F5) by a NAMED cold auditor — `claims-conformance-auditor`
+(compliance-verifier class `agents/*.md`, authored in umbrella C; r3, per
+attention-is-not-a-mechanism §1: the checklist is merge authority, the named agent is
+the detection layer).
 
 ## §9 Umbrella decomposition, tier routing, gates
 
 | Umbrella | Scope | Tier | Gate |
 |---|---|---|---|
-| `beta-delivery-ux` (A) | A1-A8, stages ordered A1/A4/A5 → A2/A3/A7/A8 → R1(A6) | **Tier 2** (design decisions per stage: profile payloads, preset data model, aif API shapes) | kickoff on staging; discipline-bearing stages (10-skills.sh, CLAUDE.md pointer, INSTALL-FOR-AI) in-session; pre-dispatch probe incl. track-1 umbrellas mandatory per stage |
+| `beta-delivery-ux` (A) | A1-A8, stages ordered A1/A4/A5 → A2/A3/A7/A8 → R1(A6) | **Tier 2** (design decisions per stage: profile payloads, preset data model, aif API shapes) | kickoff on staging; discipline-bearing stages (10-skills.sh, CLAUDE.md pointer, INSTALL-FOR-AI) in-session; the A3 CLAUDE.md pointer-ization is a cross-owner edit → separate atomic commit + maintainer sign-off, same treatment as the meta-launch amendment (r3); pre-dispatch probe incl. track-1 umbrellas mandatory per stage |
 | `beta-docs-showcase` (B) | own /arch run from the authored prompt; prototype stage first | classified by its own run (expected Tier 2) | /arch prompt authored by this session; landing repo work is outside this repo's CI — its kickoff lives here, execution targets getff-landing |
 | `beta-ai-docs-agnosticism` (C) | C1-C5 | **Tier 2** (probe design + doc-class judgments) | kickoff on staging; C3/C5 gated on A3 (tier-home exists); C1 template edits gated on A1 (profile names final) |
 
@@ -348,7 +391,8 @@ cell) dispatches until the corresponding neighbor artifact is ON staging — suc
 are marked `blocked-pending-neighbor` in the kickoffs, not startable at dispatch;
 (2) every stage re-verifies its file:line anchors live at stage entry (this spec's line
 citations are measurement-time snapshots, staging moves fast — tip was already
-`d534019b3` at review time); (3) A dispatches only after the D1 amendment has landed
+`d534019b3` at review time); (3) A dispatches only after the meta-launch amendment (this spec §2 D1 — NOT the
+acceptance-contour's D1 marker rule; distinct artifacts, r3 disambiguation) has landed
 (no off-contract contention with U3-U7 surfaces).
 
 ## §10 Non-goals (this program)
