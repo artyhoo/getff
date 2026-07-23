@@ -1,6 +1,6 @@
 # umbrella-donemd-backfill — close stale umbrellas with evidence-backed done.md
 
-<!-- bridge-profile: glm-5.2 -->
+<!-- bridge-profile: Z.AI GLM-5.2 SDK -->
 
 > **Umbrella:** umbrella-donemd-backfill (single-stage, Tier 1 — the «how» is one
 > sentence: for every umbrella dir without `done.md`, gather merge-signals mechanically
