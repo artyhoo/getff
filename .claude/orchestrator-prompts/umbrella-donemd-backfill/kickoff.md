@@ -16,6 +16,27 @@
 > **Why factory:** operator directive 2026-07-23 — token economy; whole line on the
 > executor profile (marker above).
 
+## This dispatch = Stage 1 only
+
+Deliverables 1 + 2 below (`done.md` for proven closures + `report.md`). The
+OBSOLETE-CANDIDATE table is **proposed, never applied** in this run, and this
+umbrella's own `done.md` is NOT written here — both belong to the gated follow-up
+(Deliverable 3), which starts only after the operator answers the proposal.
+
+**aif agent — fork discipline (non-negotiable):** On ANY genuine fork or ambiguity
+(two defensible implementations, an undecided design choice, a missing spec detail
+that changes behaviour) — **do NOT pick.** Park it as a question (set the task to
+`manualReviewRequired` / `blocked_external` with the fork stated as «Option A →
+consequence X / Option B → consequence Y») and **stop that task.** Proceed only on
+the unambiguous parts. Guessing a fork to "keep moving" is the failure this loop
+exists to prevent.
+
+Umbrella-specific: a candidate whose closure signal is weak is an **UNCLEAR row**,
+never a park and never a `done.md` — that fork is already decided below. Park
+instead when the exclusion list is ambiguous for a dir, when a merged PR plausibly
+covers *some but not all* stages of an umbrella, or when the measured population
+disagrees with the number below by more than a handful.
+
 ## Scope + hard exclusions
 
 Population = every `.claude/orchestrator-prompts/<name>/` WITHOUT `done.md`. Enumerate it
@@ -108,3 +129,8 @@ Active traps for this run: T1, T3, T7, T10, T14.
 - **T-UDB-B (domain):** an exclusion-list umbrella that LOOKS finished stays untouched —
   its closure belongs to its own closing session (single-owner-per-stage), not to this
   backfill.
+- **T-UDB-C (domain):** a PR-title slug match is NOT closure evidence. `gh pr list
+  --search "<slug>"` matches any PR naming the slug, including the umbrella's own
+  *kickoff-authoring* PR — live example: PR #1107 is this very umbrella's kickoff and
+  would self-match. S1 requires the matched PR to plausibly deliver the umbrella's
+  **final stage**, not merely to mention its name.
