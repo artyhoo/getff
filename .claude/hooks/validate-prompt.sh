@@ -14,8 +14,28 @@ set -uo pipefail
 
 # @plugin-transform: manual — plugin twin adds T-PLUG-A $VALIDATOR guard (consumer plugins lack packages/core/); source-side guard is a no-op (framework repo always has packages/core)
 # Harness-portable output (inline — standalone in test sandboxes). ZCode swallows plain
-# exit 1; JSON additionalContext reaches the model. CC preserves stderr + exit 1 byte-for-byte.
+# exit 1; JSON additionalContext reaches the model. CC preserves stderr + exit 1 byte-for-byte
+# on the VIOLATION path.
+#
+# Graceful-SKIP paths differ: they exit 0, and on an exit-0 PostToolUse the model receives
+# ONLY JSON hookSpecificOutput — plain stdout/stderr reaches nobody (inject-matching-rule.sh
+# :17 + :89-90). A dependency-missing skip on stderr is therefore indistinguishable from a
+# pass. Sibling of the check-doc-authority.sh fix; same defect class, swept 2026-07-24
+# (docs/meta-factory/research-patches/2026-07-23-aif-parity-s4-synthesis.md §3 item 1).
 _is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
+# JSON-escape WITHOUT jq — jq is precisely the dependency that may be missing here.
+_json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n' ' '; }
+# Announce a skip on the channel the model actually receives on an exit-0 path, and keep
+# the human/log channel too.
+_emit_skip() {
+  if _is_zcode; then
+    printf '{"additionalContext":"%s"}\n' "$(_json_escape "$1")"
+  else
+    printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' \
+      "$(_json_escape "$1")"
+  fi
+  printf '%s\n' "$1" >&2
+}
 _emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
     jq -n --arg c "$2" '{additionalContext:$c}'
   else printf '%s\n' "$2"; fi; }
@@ -26,7 +46,8 @@ VALIDATOR="$REPO_ROOT/packages/core/spec-validation/validate-batch-spec.ts"
 
 # Graceful skip if jq unavailable
 if ! command -v jq >/dev/null 2>&1; then
-  printf '⚠ validate-prompt: jq unavailable — skipping\n' >&2; exit 0
+  _emit_skip '⚠ validate-prompt: jq unavailable — batch-spec validation DID NOT RUN for this edit. This is a SKIP, not a pass; install jq to restore enforcement.'
+  exit 0
 fi
 
 FILE_PATH="$(cat | jq -r '.tool_input.file_path // ""' 2>/dev/null || true)"
@@ -38,7 +59,8 @@ fi
 
 # Graceful skip if tsx unavailable
 if [[ ! -x "$TSX" ]]; then
-  printf '⚠ validate-prompt: tsx not found at %s — skipping spec-validation\n' "$TSX" >&2; exit 0
+  _emit_skip "⚠ validate-prompt: tsx not found at $TSX — batch-spec validation DID NOT RUN for this edit. This is a SKIP, not a pass."
+  exit 0
 fi
 
 # exit 2 = gh CLI unavailable (soft-skip by validate-batch-spec.ts); treat as 0 here.

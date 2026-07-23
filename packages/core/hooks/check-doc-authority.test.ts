@@ -430,3 +430,77 @@ describe.skipIf(!JQ || !TSX)(
     });
   },
 );
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Dependency-missing SKIP must reach the model, not just stderr.
+//
+// On an exit-0 PostToolUse the model receives ONLY JSON hookSpecificOutput —
+// plain stdout/stderr reaches nobody (inject-matching-rule.sh:17,89-90). So a
+// stderr-only "jq unavailable — skipping" is indistinguishable from a PASS: the
+// gate reads as alive in a settings audit while enforcing nothing. Observed live
+// in the aif container (jq absent) on 2026-07-23 —
+// docs/meta-factory/research-patches/2026-07-23-aif-parity-s4-synthesis.md §3 item 1.
+// ═══════════════════════════════════════════════════════════════════════════════
+describe('check-doc-authority.sh — dependency-missing skip is announced, not silent', () => {
+  /**
+   * Run the hook with `jq` genuinely absent from PATH. sed/tr/cat are symlinked in
+   * because the jq-free JSON escaper needs them — masking those too would test the
+   * harness, not the hook.
+   */
+  function runWithoutJq(extraEnv: Record<string, string> = {}): {
+    status: number;
+    stdout: string;
+    stderr: string;
+  } {
+    const binDir = mkdtempSync(join(tmpdir(), 'nojq-'));
+    for (const tool of ['sed', 'tr', 'cat']) {
+      const real = spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
+      if (real) symlinkSync(real, join(binDir, tool));
+    }
+    const fullEnv: Record<string, string> = { ...process.env, PATH: binDir } as Record<
+      string,
+      string
+    >;
+    delete fullEnv.ZCODE_PROJECT_DIR;
+    Object.assign(fullEnv, extraEnv);
+    // Absolute bash path: the masked PATH cannot resolve `bash` itself.
+    const r = spawnSync('/bin/bash', [HOOK], {
+      input: JSON.stringify({ tool_name: 'Edit', tool_input: { file_path: join(SANDBOX, 'x.md') } }),
+      encoding: 'utf8',
+      cwd: SANDBOX,
+      env: fullEnv,
+    });
+    return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+  }
+
+  it('CC: jq missing → hookSpecificOutput.additionalContext states the check DID NOT RUN (exit 0)', () => {
+    const { status, stdout } = runWithoutJq();
+
+    expect(status).toBe(0);
+    const parsed = JSON.parse(stdout.trim()) as {
+      hookSpecificOutput: { hookEventName: string; additionalContext: string };
+    };
+    expect(parsed.hookSpecificOutput.hookEventName).toBe('PostToolUse');
+    expect(parsed.hookSpecificOutput.additionalContext).toMatch(/DID NOT RUN/);
+    // The load-bearing half: a skip must not be readable as a pass.
+    expect(parsed.hookSpecificOutput.additionalContext).toMatch(/not a pass/i);
+  });
+
+  it('ZCode: jq missing → bare additionalContext (harness parity preserved)', () => {
+    const { status, stdout } = runWithoutJq({ ZCODE_PROJECT_DIR: '/tmp' });
+
+    expect(status).toBe(0);
+    const parsed = JSON.parse(stdout.trim()) as {
+      additionalContext: string;
+      hookSpecificOutput?: unknown;
+    };
+    expect(parsed.additionalContext).toMatch(/DID NOT RUN/);
+    expect(parsed.hookSpecificOutput).toBeUndefined();
+  });
+
+  it('the human/log channel is kept as well (stderr still carries the notice)', () => {
+    const { stderr } = runWithoutJq();
+
+    expect(stderr).toMatch(/jq unavailable/);
+  });
+});

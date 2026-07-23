@@ -13,8 +13,29 @@
 set -uo pipefail
 
 # Harness-portable output (inline — standalone in test sandboxes). ZCode swallows plain
-# exit 1; JSON additionalContext reaches the model. CC preserves stderr + exit 1 byte-for-byte.
+# exit 1; JSON additionalContext reaches the model. CC preserves stderr + exit 1 byte-for-byte
+# on the VIOLATION path (that contract is locked by check-doc-authority.test.ts).
+#
+# Graceful-SKIP paths are a different case: they exit 0, and on an exit-0 PostToolUse the
+# model receives ONLY JSON hookSpecificOutput — plain stdout/stderr reaches nobody
+# (inject-matching-rule.sh:17 + :89-90, the proven channel). A dependency-missing skip
+# announced on stderr is therefore indistinguishable from a pass. Observed live in the aif
+# container on 2026-07-23, where `jq` is absent and the notice reached no one:
+# docs/meta-factory/research-patches/2026-07-23-aif-parity-s4-synthesis.md §3 item 1.
 _is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
+# JSON-escape WITHOUT jq — jq is precisely the dependency that may be missing here.
+_json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n' ' '; }
+# Announce a skip on the channel the model actually receives on an exit-0 path, and keep
+# the human/log channel too (stderr stays for terminal + CI readers).
+_emit_skip() {
+  if _is_zcode; then
+    printf '{"additionalContext":"%s"}\n' "$(_json_escape "$1")"
+  else
+    printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' \
+      "$(_json_escape "$1")"
+  fi
+  printf '%s\n' "$1" >&2
+}
 _emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
     jq -n --arg c "$2" '{additionalContext:$c}'
   else printf '%s\n' "$2"; fi; }
@@ -24,7 +45,8 @@ BIN="$REPO_ROOT/packages/core/principles/09-doc-authority-hierarchy.bin.ts"
 TSX="$REPO_ROOT/node_modules/.bin/tsx"
 
 if ! command -v jq >/dev/null 2>&1; then
-  printf '⚠ check-doc-authority: jq unavailable — skipping\n' >&2; exit 0
+  _emit_skip '⚠ check-doc-authority: jq unavailable — the principle-09 authority-header check DID NOT RUN for this edit. This is a SKIP, not a pass; install jq to restore enforcement.'
+  exit 0
 fi
 
 ABS_PATH="$(cat | jq -r '.tool_input.file_path // ""' 2>/dev/null || true)"
@@ -38,7 +60,8 @@ REL_PATH="${ABS_PATH#"$REPO_ROOT/"}"
 [[ ! -f "$BIN" ]] && exit 0
 
 if [[ ! -x "$TSX" ]]; then
-  printf '⚠ check-doc-authority: tsx not found — skipping\n' >&2; exit 0
+  _emit_skip '⚠ check-doc-authority: tsx not found — the principle-09 authority-header check DID NOT RUN for this edit. This is a SKIP, not a pass.'
+  exit 0
 fi
 
 # Delegate; capture output so under ZCode a violation reaches the model (plain exit 1 + stderr
