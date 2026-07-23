@@ -439,8 +439,11 @@ docker exec aif-handoff-agent-1 git -C <worktree> diff origin/staging...HEAD
   gate holds the PR red) and proceed to `harvest.ts`.
 - `REVISE` → **no egress, no PR**: `tsx packages/runtime-bridge/src/cli/answer.ts --task <id>
   --answer "<auditor findings>" --decision request_changes` → task returns to `implementing`;
-  the next harvest attempt audits as `Round: 2`. **Cap 2 rounds:** round-2 REVISE → STOP —
-  do not resume; emit an escalation block (task id + both rounds' findings) in the report.
+  the next harvest attempt audits as `Round: 2`. **Cap 2 CONSECUTIVE REVISE rounds on unchanged scope**
+  (spec D6 «What the cap counts» — the counter resets on any GO or scope addition; the
+  Audited-SHA guard forces a re-audit after every new commit, so audits themselves are not
+  what is capped): the second consecutive REVISE → STOP — do not resume; emit an escalation
+  block (task id + both rounds' findings) in the report.
 - `KICKOFF-AMBIGUOUS` → escalate to `/arch` §4 office hours immediately (a broken kickoff
   wastes both rework rounds). `STOP` → escalate immediately.
 - Calibration window (spec D1): while merged staging PRs whose `## Review findings` contains
