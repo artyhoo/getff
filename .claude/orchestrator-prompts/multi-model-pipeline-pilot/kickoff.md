@@ -1,110 +1,112 @@
-# multi-model-pipeline-pilot — kickoff (RE-SCOPED 2026-07-23)
+# multi-model-pipeline-pilot — kickoff (RE-SCOPED 2026-07-23, r2: self-referential carrier + full-pipeline contour)
 
-> **Umbrella:** `multi-model-pipeline-pilot`. **Status:** authored — awaiting operator GO (S2/S3 spend z.ai Coding-Plan quota; do NOT dispatch without explicit GO).
-> **Re-scope note (2026-07-23, operator directive):** this umbrella was re-pointed from the P3/P1/P2 GLM-**quality** probe pilot to an **inside-aif mechanism-parity audit**. The original quality-probe design (paired Sonnet-vs-GLM rubric scoring) is **preserved intact** in the decision record [§3 Fork-5/6](../../../docs/meta-factory/research-patches/2026-07-21-multi-model-pipeline-decisions.md) for future revival — nothing is lost, only deferred (T17). The decision record's F-A…F-F ground-truth facts remain the binding input for this audit's mechanics.
-> **Goal:** run the smallest real task through the whole factory pipeline (`/pipeline → /dispatcher → aif/GLM → acceptance contour`) and produce a **two-axis parity checklist**: for every hook / shield / skill / inject / acceptance-gate, record — inside the aif container under the GLM executor — (A) whether it **engaged** (wiring axis) and (B) how **GLM handled it** (behavioral axis), each with evidence, so the exact failure mode is always recoverable.
-> **Binding inputs:** decision record F-B (GLM is the sole prod aif profile; 17 tasks done across all workflow kinds) + F-C (aif runs the CC harness with one process-global `ANTHROPIC_BASE_URL`); the hook census in [zcode-parity-doctrine.md §2](../../rules/zcode-parity-doctrine.md) (**row-set source only** — see T-AIP-D); the shipped acceptance contour ([agents/fidelity-auditor.md](../../../agents/fidelity-auditor.md) + `pr-body-fidelity` gate, PRs #1102/#1106).
+<!-- bridge-profile: Z.AI GLM-5.2 -->
 
-## §1 Why an inside-aif parity audit (not a quality probe)
+> **Umbrella:** `multi-model-pipeline-pilot`. **Status:** GO received (operator, 2026-07-23) — dispatch OFF-PEAK only (§5 quota discipline).
+> **Re-scope note:** re-pointed 2026-07-23 from the P3/P1/P2 GLM-**quality** probes to a **whole-pipeline mechanism-parity audit**. The quality-probe design is preserved in the decision record [§3 Fork-5/6](../../../docs/meta-factory/research-patches/2026-07-21-multi-model-pipeline-decisions.md) for future revival (T17). r2 (same day, operator directive): the carrier task **IS the audit** — no throwaway diff — and the audited contour extends to the **entire pipeline from `/arch`**, with a mandatory **root-cause** for every failing row.
+> **Goal:** one self-referential run — dispatch ONE aif task whose *work product is the in-container audit evidence itself* — exercising every leg of the pipeline (`/arch` design+review → tier routing (D1 marker) → `/pipeline` → `/dispatcher` → aif/GLM execution → shields at commit/push → harvest → fidelity acceptance → PR gates), and produce a **two-axis parity checklist + root-cause map**: per channel, (A) did it **engage** (wiring), (B) how did **GLM handle it** (behavioral), (C) for every non-SAME row — **why**, diagnosed while the evidence is fresh.
+> **Binding inputs:** decision record F-B (GLM `Z.AI GLM-5.2` is the prod aif profile; 17 tasks done) + F-C (aif runs the CC harness, one process-global `ANTHROPIC_BASE_URL`); hook census [zcode-parity-doctrine.md §2](../../rules/zcode-parity-doctrine.md) (**row-set source only** — T-AIP-D); the acceptance contour ([agents/fidelity-auditor.md](../../../agents/fidelity-auditor.md) + `pr-body-fidelity` gate, PRs #1102/#1106; required-check registered in staging protection 2026-07-23 → the [CLAUDE.md «Task-tier routing»](../../../CLAUDE.md) D1 always-marker exception is ACTIVE, which this kickoff's own `bridge-profile` marker exercises).
 
-F-B proved GLM **completes** 17 aif tasks end-to-end — but "reached `done`" says nothing about **which CC-native mechanisms actually engaged inside the container**, or whether GLM **honored** them the way Claude does. Nobody has mapped, channel by channel, what survives the trip into aif. That map is the missing artifact this umbrella now produces.
+## §1 Design: the carrier IS the audit (self-referential economy)
+
+Two birds, one dispatch. The aif worker's task is not a stub — it is **the S2 in-container audit protocol** (§2b). Its diff is the audit's own evidence file (a real research patch that MERGES, not a throwaway); its journey through the pipeline is itself the test of every pipeline leg. Nothing is spent twice: the run tests the machine AND collects the map. Root-cause comes with it almost free — the worker diagnoses *why* a channel is silent while it is still inside the container (re-deriving that later from outside costs far more).
 
 ## §2 The parity question (two independent axes — frame precisely, avoid T16)
 
-aif runs the **Claude Code harness** (`claude` CLI) in a Docker container, with the model swapped to GLM-5.2 via a process-global `ANTHROPIC_BASE_URL` (F-C, aif-handoff `packages/runtime/src/adapters/claude/options.ts:266-272`). So "does aif support hook X?" is the **wrong** question — the harness is CC, so the event *type* exists. The **right** question has **two independent axes**, and the deliverable (§4) keeps them separate so a verdict never hides which one failed:
+aif runs the **Claude Code harness** (`claude` CLI) in a Docker container, model swapped to GLM-5.2 via a process-global `ANTHROPIC_BASE_URL` (F-C, aif-handoff `packages/runtime/src/adapters/claude/options.ts:266-272`). So "does aif support hook X?" is the **wrong** question — the harness is CC, the event *type* exists. The right question has **two independent axes**, kept separate in the deliverable (§4) so a verdict never hides which failed:
 
-1. **Wiring axis — did the mechanism engage in the container?** Two things can stop it even though the hook file ships in the repo: (a) it may not be **registered** in the container's `.claude/settings.json`. That file **is** git-tracked and travels to the staging-synced container — but it is **maintainer-authored** (agents are deny-listed from editing it, `.claude/settings.json:52`), and a shipped hook file can go **unwired** in `settings.json` (CLAUDE.md:183 records exactly this: `WorktreeCreate` shipped in PR #279 yet was never registered). (b) the container's `claude` runtime must actually load `settings.json` and have the hook's deps (node/tsx/PATH) present. So VERIFY against the container's **actual** settings + runtime — never infer "wired" from repo file-presence.
-2. **Behavioral axis — how did GLM handle it once engaged?** When a rule is injected / a shield reddens / a skill is invoked, does **GLM-the-model** act on it as Claude would — honor the rule, fix on shield feedback rather than bypass? This is the load-bearing axis: "engaged" ≠ "handled well". A third, non-obvious sub-mode lives here too (see §4 `MISSERVES`): the mechanism engages and GLM "obeys", yet the CC-tuned mechanism is **counterproductive** under GLM (a Claude-calibrated shield false-reddens correct GLM output; an inject GLM obeys into a wrong reading).
+1. **Wiring axis — did the mechanism engage in the container?** Two stoppers even when the hook file ships in the repo: (a) not **registered** in the container's `.claude/settings.json` — the file **is** git-tracked and travels to the staging-synced container, but it is maintainer-authored (agents deny-listed from editing it, `.claude/settings.json:52`), and a shipped hook can go **unwired** (CLAUDE.md:183: `WorktreeCreate` shipped in PR #279, never registered); (b) the container runtime must load it and have its deps (node/tsx/PATH). VERIFY against the container's **actual** settings + runtime — never infer from repo file-presence.
+2. **Behavioral axis — how did GLM handle it once engaged?** Honors the injected rule? Fixes on shield feedback rather than bypassing? "Engaged" ≠ "handled well". A third sub-mode lives here (§4 `MISSERVES`): mechanism engages, GLM "obeys", yet the CC-tuned mechanism is counterproductive under GLM.
 
-The axes are orthogonal: a channel can be wired-but-ignored, unwired-but-would-be-honored, engaged-and-degraded, etc. Collapsing them into one label destroys the map (§4).
+## §2b aif-task scope — the in-container worker protocol (what the dispatched task actually does)
+
+The dispatched worker executes ONLY this (S0/S1/S3/S4 are host-side — see §3; do not attempt them from inside):
+
+1. **Wiring dump (read-only):** from the task worktree — `jq '.hooks' .claude/settings.json` (registered set), `ls .claude/hooks/*.sh` (shipped set), `command -v node npx tsx jq gh` + `echo $PATH` (deps). Diff registered-vs-shipped: every shipped-but-unregistered hook is a `NOT-REGISTERED` row with root-cause "absent from container settings.json".
+2. **Injection self-report:** quote VERBATIM every injected context block visible in your session (session-bootstrap digest, output-language line, any `📎 Path-relevant rule` PostToolUse injects, subagent-context). For each expected inject that is absent — record absent. (Honest limitation: self-report; flagged as such in evidence.)
+3. **Paired-negative shield probe (RED before GREEN, then revert):** stage a deliberate cheap violation and attempt to commit it — e.g. a markdown file pushed past 600 lines (pre-commit md-gate) AND an `.claude/rules/`-style file missing its `Authoritative-for:` header (edit-time/`check-doc-authority` surface). Record the hook's actual output (or its silence — a silent gate on a violating input is a `FIRED`-expected-but-silent finding with root-cause). REVERT the probe artifacts completely before the real commit.
+4. **Behavioral trace:** when any gate reddens during your real work — record what you did in response (fix vs bypass), verbatim gate output included.
+5. **Evidence deliverable:** write `docs/meta-factory/research-patches/2026-07-23-aif-parity-s2-container-evidence.md`, first line `<!-- scope:aif-parity-s2-container-evidence -->` (principle 10), containing the raw outputs of 1-4 with per-item root-cause for every silent/missing channel. Commit it. That commit+push is itself the live shield test.
+6. **Fork discipline:** on ANY genuine ambiguity — park as a question (`manualReviewRequired` / blocked with «Option A → X / Option B → Y»), do NOT guess (the park event itself becomes evidence for the Q&A-routing leg).
 
 ## §3 Stages
 
-**S0 — channel inventory + carrier-reachability tagging (no model spend).** Derive the row set from SSOTs, not memory (source-before-shape):
+**S0 — channel inventory + carrier-reachability tagging (host-side, no model spend).** Derive rows from SSOTs, not memory: the 20-row hook census (row set only — T-AIP-D); pre-push shields (`packages/core/hooks/pre-push.ts` + `checks/*.ts`); the acceptance-contour gates; the coordinator skills (`/harvest`, `/dispatcher`); **the project's own invariant gates** (build-vs-reuse/capability consult, `make self-audit`, §1.7, prior-art trailer, 6-item search) — else they drop upstream of the no-silent-rows guard; **and the pipeline legs themselves** (§3b). Tag each row `{inject | shield | skill | acceptance-gate | invariant-gate | pipeline-leg}`, its CC event, and its **reachability by this carrier**: `reachable` vs `unreachable-by-carrier` (with the carrier shape that WOULD reach it). Deliverable: the frozen, reachability-tagged skeleton.
 
-- the 20-row hook census [zcode-parity-doctrine.md §2](../../rules/zcode-parity-doctrine.md) (row set only — T-AIP-D);
-- the pre-push shields in `packages/core/hooks/pre-push.ts` + `packages/core/hooks/checks/*.ts`;
-- the acceptance-contour gate (`pr-body-fidelity` + `agents/fidelity-auditor.md`);
-- the skills the coordinator runs (`/harvest`, `/dispatcher`);
-- **the project's own binding invariant gates** (else they drop upstream of the "no silent rows" guard): build-vs-reuse / capability-commit consult, recursive self-audit (`make self-audit`), §1.7 forward/backward, prior-art trailer, the 6-item search-coverage check — from the session-bootstrap invariants + [CLAUDE.md](../../../CLAUDE.md).
+**S1 — CC-side baseline (host-side).** Per row: expected CC behavior (what engages, when, what the model should do). Do NOT copy the census's ZCode column (T-AIP-D).
 
-Tag each row `{inject | shield | skill | acceptance-gate | invariant-gate}`, its CC event, AND its **reachability by the chosen S2 carrier**: `reachable` (the carrier's shape triggers it) vs `unreachable-by-carrier` (structurally cannot fire on this carrier — e.g. a subagent-lifecycle hook on a task that spawns no subagent; a capability-commit / §1.7 / prior-art gate on a docs-only diff). For every `unreachable-by-carrier` row, name the **carrier shape that WOULD reach it**. Deliverable: the frozen, reachability-tagged row list (the checklist skeleton).
+**S2 — the ONE live aif run = the §2b worker protocol.** Dispatch THIS kickoff via the runtime bridge (`/pipeline multi-model-pipeline-pilot → /dispatcher`); the `bridge-profile` marker routes the whole task pipeline (plan+implement+review) to `Z.AI GLM-5.2` — the dispatch itself is the live test of the marker resolution (`AifHandoffBackend.ts:119-146`) and of the D1 Tier-2 exception route. Host-side observers gather what the worker cannot: aif usage events (which model actually served each stage), task state transitions, park/answer round-trips if any.
 
-**S1 — CC-side baseline (no aif spend).** For each row, state the **expected CC behavior** (what engages, when, what the model is expected to do). This is the "same as CC" reference column. Do NOT copy the census's ZCode classification as the baseline (T-AIP-D).
+**S3 — harvest + acceptance contour (host-side, on the REAL evidence PR).** `/dispatcher §2.4`: pre-egress cold `agents/fidelity-auditor.md` on kickoff+container-diff → FIDELITY block into the PR body → `pr-body-fidelity` gate validates. Prove RED too: momentarily edit the PR body to a stale `Audited-SHA`, confirm the gate reds, restore (paired-negative on the acceptance layer). The PR is **real** — the S2 evidence patch — and merges on GO.
 
-**S2 — one live aif carrier run (quota spend — the core).** Design ONE trivial-but-real throwaway task (e.g. a docs stub / one-line scratch fix from the real backlog). Dispatch it through `/pipeline multi-model-pipeline-pilot → /dispatcher` into aif on the GLM profile. Gather per-channel evidence for **both axes** from inside the container — and note that output alone proves *behavioral* facts, not *wiring* facts (see the evidence rule below):
+**S4 — synthesize (host-side).** One research patch: the full two-axis checklist + root-cause map, merging container evidence (S2) + host observations (S2/S3) + banked pipeline-leg evidence (§3b). Split **exercised** vs **structurally-unreachable-by-carrier** (each with its would-reach-it carrier). `done.md` at merge.
 
-- **Wiring evidence** (did it engage?): the container's **actual** `.claude/settings.json` wired-hook set; the container's hook/runtime logs; the session transcript — NOT just commits. A hook that produced no observable effect may have been unregistered, not merely silent.
-- **Behavioral evidence** (how did GLM handle it?): the task plan/comments, the container worktree, the worker's own commits — did GLM's output reflect an injected rule (e.g. English machinery)? On a reddened shield, did GLM **fix on feedback** or bypass?
+## §3b Pipeline-leg rows — evidence already banked this session (2026-07-23)
 
-Cover, at minimum: injects (rule-injection, session-bootstrap, subagent-context, project-digest, output-language), shields (pre-push sections at the worker's commit/push), skills (did the coordinator actually run `/harvest` / `/dispatcher` steps). `unreachable-by-carrier` rows are NOT run — they are carried to S4 as `COVERAGE-LIMITED` with their would-reach-it carrier.
+The audited contour starts at `/arch`, and its first legs already ran live while authoring THIS kickoff — bank them as checklist rows, do not re-run:
 
-**S3 — acceptance-contour check (the just-shipped Phase A/B).** At the pre-egress seam (`/dispatcher §2.4`): did the cold `agents/fidelity-auditor.md` run on kickoff+diff, did the FIDELITY block land in the PR body, did the `fidelity-verdict-in-pr-body` gate validate it? Prove the RED direction too (a PR body with a stale `Audited-SHA` must red the gate). First live exercise of the contour on a real aif task.
+- **`/arch` §2 two-altitude cold review** — FIRED × HONORED: the two-subagent review (top-down Opus + bottom-up Sonnet) returned REVISE and the bottom-up seat caught a real factual error in this very kickoff (the false «settings.json never travels via git» claim, refuted by `git ls-files`; fixed in r1). The review channel demonstrably detects author-blind defects.
+- **`/pipeline` plan-currency + dup-detect leg** — FIRED: the operator's `/pipeline` invocation (this session) ran priority-score/dup-detect/inflight helpers; dup-detect correctly flagged `multi-model-pipeline-pilot` as `deliverable-on-staging` overlap (the pre-re-scope decision record) — evidence the dedup layer reads real state.
+- **Tier routing D1 marker leg** — pending S2: this kickoff carries `<!-- bridge-profile: Z.AI GLM-5.2 -->` under the ACTIVE D1 exception (required-check registered 2026-07-23); the S2 dispatch proves (or fails) name→id resolution and whole-pipeline executor-tier routing.
+- **Acceptance-contour self-test leg** — partially banked: the `pr-body-fidelity` gate already ran GREEN on real PRs (#1106 GO-block; #1108 skipped-with-rationale) — the GREEN direction is proven; S3 adds the RED direction.
 
-**S4 — synthesize the two-axis parity checklist (the deliverable).** One research patch: per S0 row, both axes + the derived overall label (§4) with evidence, cited by file:line / command output. Split the report into **exercised-this-run** vs **structurally-unreachable-by-carrier** (each of the latter with its would-reach-it carrier). Honest coverage per T14.
+## §4 The deliverable — two-axis parity checklist + root-cause (binding)
 
-## §4 The deliverable — two-axis parity checklist (binding)
+One row per S0 channel. **Two independent axes** (never collapsed), a derived overall label (recoverable to the axes), and a **root-cause cell for every non-SAME/ALTERNATIVE row**:
 
-A markdown table, one row per S0 channel. **Two independent axes** (never collapsed), plus a derived overall label that is recoverable back to the axes:
+**Wiring axis** (every row): `FIRED` — registered AND ran on this carrier · `NOT-REGISTERED` — ships in repo, not wired in container settings / dep missing · `UNREACHABLE-BY-CARRIER` — registered, but this carrier's shape cannot trigger it (record the would-reach-it carrier).
 
-**Wiring axis** (every row gets exactly one):
+**Behavioral axis** (only when FIRED; else `n/a`): `HONORED` · `DIVERGENT-OK` (different path, acceptable) · `DEGRADED` (weaker reaction — partial compliance, extra rework rounds) · `IGNORED` · `MISSERVES` (engaged + obeyed, but the CC-tuned mechanism is counterproductive under GLM — false-red on correct output, obeyed-into-wrong-reading; subject = the mechanism).
 
-- `FIRED` — registered in the container AND ran on this carrier.
-- `NOT-REGISTERED` — hook ships in the repo but is not wired in the container's settings / its runtime dep is missing → did not run though it could have.
-- `UNREACHABLE-BY-CARRIER` — registered, but this carrier's task shape structurally cannot trigger it (record the would-reach-it carrier).
-
-**Behavioral axis** (only when wiring = `FIRED`; else `n/a`):
-
-- `HONORED` — GLM acted on it equivalently to Claude.
-- `DIVERGENT-OK` — handled via a different path but acceptably (e.g. a ZCode-style one-shot inject vs CC persistent-lifecycle).
-- `DEGRADED` — GLM's reaction weaker (ignored part of an injection, needed more rework rounds, weaker fix).
-- `IGNORED` — GLM did not act on it at all.
-- `MISSERVES` — engaged AND GLM obeyed, but the CC-tuned mechanism is counterproductive under GLM (false-red on correct output; obeyed inject → wrong reading). Subject = the mechanism, not GLM.
-
-**Derived overall label** (deterministic function of the two axes — this is the "same / alternatively / worse / broken / not-covered" summary the operator asked for; the two axis-columns above are what make *which failure* recoverable):
+**Derived overall label** (deterministic from the axes):
 
 | Overall | Definition (wiring × behavioral) |
 |---|---|
 | ✅ SAME | FIRED × HONORED |
 | 🔀 ALTERNATIVE | FIRED × DIVERGENT-OK |
 | ⚠️ WORSE | FIRED × (DEGRADED or MISSERVES) — note which |
-| ❌ BROKEN | NOT-REGISTERED, **or** FIRED × IGNORED — the wiring column says which sub-cause |
-| ◻️ COVERAGE-LIMITED | UNREACHABLE-BY-CARRIER (structural), or a reachable row that simply did not fire this run — carry the would-reach-it carrier, never a silent drop |
+| ❌ BROKEN | NOT-REGISTERED, **or** FIRED × IGNORED — wiring column says which |
+| ◻️ COVERAGE-LIMITED | UNREACHABLE-BY-CARRIER (structural), or reachable-but-unfired this run — with the would-reach-it carrier; never a silent drop |
 
-This is collectively exhaustive (every wiring value maps; COVERAGE-LIMITED absorbs the unexercised rows T14 forbids from SAME) and mutually exclusive (the wiring value disambiguates BROKEN's two sub-causes; MISSERVES gives the third failure mode a home).
+Collectively exhaustive (COVERAGE-LIMITED absorbs what T14 forbids from SAME) and mutually exclusive (the wiring value disambiguates BROKEN's sub-causes; MISSERVES homes the third failure mode).
 
-Columns: `channel | type | CC-baseline (S1) | wiring | behavioral | overall | evidence (file:line / cmd output)`. End with a rollup: counts per overall label + the single most-uncertain row + the full `UNREACHABLE-BY-CARRIER` list with would-reach-it carriers (no silent drops).
+**Root-cause cell (mandatory for every ❌ / ⚠️ / unexpected ◻️ row):** the diagnosed WHY with evidence — e.g. `absent from container settings.json (jq output)`, `tsx not on PATH (command -v)`, `hook ran, GLM ignored output-language line (verbatim quote)`, `quota stall misread (cycle timestamp)` — plus a one-line **fix-pointer** (what would flip it to SAME). Diagnosed at observation time (in-container where possible), not reconstructed later.
+
+Columns: `channel | type | CC-baseline (S1) | wiring | behavioral | overall | root-cause+fix (non-SAME) | evidence (file:line / cmd)`. Rollup: counts per label + most-uncertain row + full UNREACHABLE-BY-CARRIER list.
 
 ## §5 Constraints
 
-- **Quota discipline (decision record F-E):** schedule GLM runs OFF-PEAK (peak 14:00-18:00 UTC+8 = 3× multiplier; off-peak 2×; promo 1× through end of September). Record dispatch timestamps + prompts consumed per stage. If quota-blocked, WAIT for the cycle (Fork-4 verdict) — never switch providers mid-audit.
-- **[no-paid-llm-in-ci.md](../../rules/no-paid-llm-in-ci.md):** all observation runs in aif/session context; nothing audit-related enters CI.
-- **Token economy:** ONE live aif run only. Everything provable host-side (S0 inventory, S1 baseline, local shield RED/GREEN probes) is proved without aif spend. GLM is already the cheap tier — no model changes. A single carrier reaches only its `reachable` rows by shape — this is a **structural** coverage bound, not a sampling-size one (more identical carriers add zero coverage); the `UNREACHABLE-BY-CARRIER` split in §4 makes the bound explicit and names what a follow-up carrier would need to reach.
-- **One stage = one executor session** + the pre-dispatch in-flight probe per [CLAUDE.md](../../../CLAUDE.md) «Pre-dispatch in-flight probe».
-- **Worker dispatch channel:** the carrier task is dispatched through the aif runtime (kickoff-consuming coordinator), not via in-session write-capable subagents — per the project's channel-discipline gate.
-- **Carrier PR:** throwaway — closed after acceptance is proven; auto-merge verified at the "engaged" level, not force-merged into staging (operator may override → let a genuinely useful micro-fix merge).
-- **aif preflight:** `RUNTIME_BRIDGE_AIF_PROJECT_ID` set + `refresh-aif-base.sh` before dispatch; keep-awake vs Mac idle-sleep; on ANY aif symptom → first action is `/aif-doctor`, never fix-by-fix `docker exec`.
+- **Quota (F-E):** GLM runs OFF-PEAK only (peak 14:00-18:00 UTC+8 = 3×; off-peak 2×; promo 1× through September). Record timestamps + prompts per stage. Quota-blocked → WAIT for the cycle (Fork-4), never switch providers mid-audit.
+- **[no-paid-llm-in-ci.md](../../rules/no-paid-llm-in-ci.md):** all observation is session/aif-bound; nothing audit-related enters CI.
+- **Token economy:** ONE live aif run; everything host-provable is proved host-side; the single-carrier bound is **structural** (identical extra carriers add zero coverage) — §4 COVERAGE-LIMITED makes it explicit.
+- **One stage = one executor session** + pre-dispatch in-flight probe per [CLAUDE.md](../../../CLAUDE.md).
+- **Dispatch channel:** through the aif runtime (this kickoff = the task), not in-session write-capable subagents.
+- **The evidence PR is REAL** — it merges (it is the audit's data). No throwaway diff exists in this design.
+- **aif preflight:** `RUNTIME_BRIDGE_AIF_PROJECT_ID` + `refresh-aif-base.sh` before dispatch; keep-awake; any aif symptom → `/aif-doctor` first.
 
 ## §6 Acceptance criteria
 
-1. The S4 checklist covers every S0 row with **both** axis values (wiring always; behavioral when FIRED, else `n/a`) plus the derived overall label, each backed by command output or file:line (T3 — no prose-only rows).
-2. Behavioral parity is scored, not just wiring: for every FIRED inject/shield row, the checklist states what GLM **did** in response, not only that it engaged.
-3. The `UNREACHABLE-BY-CARRIER` rows are listed explicitly, each with the carrier shape that would reach it — distinguished from reachable-but-unfired rows (both land under COVERAGE-LIMITED but for different reasons).
-4. The acceptance contour (S3) is exercised in both directions on a real aif task — GREEN on a valid verdict, RED on a stale `Audited-SHA`.
-5. Coverage is honest: the structural single-carrier bound stated as structural (not "n=1 sample"); every unexercised channel surfaced as COVERAGE-LIMITED, never omitted.
-6. `done.md` written at S4 merge per [CLAUDE.md](../../../CLAUDE.md) «Umbrella closure convention».
+1. Every S0 row carries both axis values (+behavioral `n/a` only when not FIRED), the derived label, and evidence (T3 — no prose-only cells).
+2. Every ❌/⚠️ row (and every unexpectedly-silent ◻️) carries a root-cause + fix-pointer, diagnosed from primary evidence.
+3. Behavioral parity scored, not just wiring: each FIRED inject/shield row states what GLM **did**.
+4. UNREACHABLE-BY-CARRIER rows listed with would-reach-it carriers; distinguished from reachable-but-unfired.
+5. Acceptance contour exercised both directions on the real evidence PR (GREEN valid block / RED stale `Audited-SHA`).
+6. Pipeline-leg rows (§3b) present: `/arch` review, `/pipeline` dedup, D1 marker routing, `/dispatcher` monitor/harvest, fidelity gate — each with its banked or S2/S3 evidence.
+7. Coverage honesty: structural bound stated as structural; nothing silently dropped.
+8. `done.md` at S4 merge per [CLAUDE.md](../../../CLAUDE.md) «Umbrella closure convention».
 
 ## §7 Out of scope
 
-The original P3/P1/P2 GLM-**quality** probes (paired Sonnet-vs-GLM rubric scoring) — deferred, preserved in the decision record §3 Fork-5/6 for future revival; CAS/versioning (Fork-2 armed trigger); any new escalation protocol (Fork-1 REUSE); automatic provider fallback (Fork-4); self-hosting GLM; edits to README/goal-bearing docs; consumer-shipped artifacts (this is operator-axis work per [build-first-reuse-default.md §1.1](../../rules/build-first-reuse-default.md)).
+P3/P1/P2 quality probes (preserved, decision record §3 Fork-5/6); CAS/versioning (Fork-2 armed trigger); new escalation protocols (Fork-1 REUSE); provider fallback (Fork-4); self-hosting GLM; README/goal-doc edits; consumer-shipped artifacts (operator-axis work, [build-first-reuse-default.md §1.1](../../rules/build-first-reuse-default.md)).
 
 ## §8 AI-traps (per [ai-laziness-traps.md §3](../../rules/ai-laziness-traps.md))
 
-Active traps for this umbrella: **T2** (designing ≠ running — the parity claims must come from an actual aif dispatch, not "would fire" reasoning), **T3** (every checklist cell needs command+output or file:line), **T6** (confidence as predicates — counts + coverage + calibration, not "high"), **T14** (a reachable-but-unfired row is COVERAGE-LIMITED, never "SAME"), **T15** (the audit audits its own carrier — did S2 actually observe the container's settings + logs, or infer from output?), **T20** (no verdict without evidence-bearing tool output in the same turn).
+Active: **T2** (parity claims come from the actual dispatch, not "would fire" reasoning), **T3** (every cell: command+output or file:line), **T6** (confidence as predicates), **T14** (reachable-but-unfired = COVERAGE-LIMITED, never SAME), **T15** (the audit audits its own carrier — did S2 observe settings+logs, or infer from output?), **T20** (no verdict without same-turn evidence).
 
 Domain-specific:
 
-- **T-AIP-A — CC-event-exists ⇒ works-in-aif (the T16 specialization).** aif is the CC harness, so every hook *file* is present; concluding "SAME" from file-presence skips both §2 axes (engaged? GLM-honored?). Counter: no row is SAME without `FIRED` wiring evidence from inside the container AND behavioral evidence.
-- **T-AIP-B — registered-in-repo ≠ wired-in-container.** A hook file shipping in the repo does not prove it is registered in the container's `.claude/settings.json` (which **is** git-tracked but maintainer-authored — agents can't edit it, and a shipped hook may go unwired, per CLAUDE.md:183) or that the container runtime loaded it. Verify against the container's **actual** settings + runtime, not the repo's file list. (The `settings.json` file travels via git; do not claim it does not.)
-- **T-AIP-C — quota-blindness misread as BROKEN.** A GLM run that stalls on an exhausted weekly cap (peak 3× multipliers silently burn it) can look like "mechanism doesn't work". Record cycle timestamps + per-stage quota; a quota stall is an environment state (→ `/aif-doctor`), not a parity verdict.
-- **T-AIP-D — importing the ZCode column of the census.** [zcode-parity-doctrine.md §2](../../rules/zcode-parity-doctrine.md) classifies each hook CC-vs-**ZCode**; aif runs the **CC** harness, so its `cc-only` / `impossible` rows (SubagentStart/Stop/WorktreeCreate) are NOT impossible in aif. Use the census only for the **row set**; derive every aif verdict fresh from container observation — never copy the ZCode classification into the aif column.
+- **T-AIP-A — CC-event-exists ⇒ works-in-aif** (T16 specialization). Hook *file* presence proves neither axis. Counter: SAME requires FIRED wiring evidence from inside the container AND behavioral evidence.
+- **T-AIP-B — registered-in-repo ≠ wired-in-container.** `settings.json` IS git-tracked but maintainer-authored; a shipped hook can be unregistered (CLAUDE.md:183). Verify the container's actual settings + runtime. (Do not claim the file "does not travel via git" — it does.)
+- **T-AIP-C — quota-blindness misread as BROKEN.** An exhausted weekly cap looks like "mechanism dead". Record cycle timestamps; a quota stall is environment (→ `/aif-doctor`), not a parity verdict.
+- **T-AIP-D — importing the census's ZCode column.** The census classifies CC-vs-**ZCode**; aif runs CC, so its `cc-only` rows are NOT impossible in aif. Census = row set only; every aif verdict derives from container observation.
+- **T-AIP-E — self-observation contamination.** The carrier task audits its own environment: keep observation steps read-only, keep the shield probe (§2b.3) explicit and fully reverted, and never let "produce a clean checklist" pressure the worker into under-reporting silent channels — a silent channel IS the finding, not a blemish on the run.
