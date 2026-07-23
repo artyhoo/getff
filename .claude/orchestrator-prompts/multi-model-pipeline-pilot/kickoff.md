@@ -1,55 +1,78 @@
-# multi-model-pipeline-pilot — kickoff
+# multi-model-pipeline-pilot — kickoff (RE-SCOPED 2026-07-23)
 
-> **Umbrella:** `multi-model-pipeline-pilot`. **Status:** authored — awaiting operator GO (stages S1-S3 and S5 spend z.ai Coding-Plan quota; do NOT dispatch without explicit GO).
-> **Goal:** empirically close the designed-not-proven contract sections of [.claude/skills/claude-glm-executor-handoff/SKILL.md](../../skills/claude-glm-executor-handoff/SKILL.md) §5 by running the pre-registered probes **P3 → P1 → P2** (+ optional S5 mixed-container probe), recording each result as a research patch, and promoting or revising the contract per the predefined gates.
-> **Decision record (binding input):** [docs/meta-factory/research-patches/2026-07-21-multi-model-pipeline-decisions.md](../../../docs/meta-factory/research-patches/2026-07-21-multi-model-pipeline-decisions.md) — this pilot executes its Fork-5 and Fork-6 verdicts; Forks 1-4 verdicts constrain the mechanics below.
-> **Probe specs SSOT:** [docs/meta-factory/research-patches/2026-07-18-claude-glm-executor-handoff-facts.md](../../../docs/meta-factory/research-patches/2026-07-18-claude-glm-executor-handoff-facts.md) «Probes (4)» section (P1 :59, P2 :60, P3 :61, ordering :64, promotion criterion :68-74). Do not re-derive the specs — cite them.
+> **Umbrella:** `multi-model-pipeline-pilot`. **Status:** authored — awaiting operator GO (S2/S3 spend z.ai Coding-Plan quota; do NOT dispatch without explicit GO).
+> **Re-scope note (2026-07-23, operator directive):** this umbrella was re-pointed from the P3/P1/P2 GLM-**quality** probe pilot to an **inside-aif mechanism-parity audit**. The original quality-probe design (paired Sonnet-vs-GLM rubric scoring) is **preserved intact** in the decision record [§3 Fork-5/6](../../../docs/meta-factory/research-patches/2026-07-21-multi-model-pipeline-decisions.md) for future revival — nothing is lost, only deferred (T17). The decision record's F-A…F-F ground-truth facts remain the binding input for this audit's mechanics.
+> **Goal:** run the smallest real task through the whole factory pipeline (`/pipeline → /dispatcher → aif/GLM → acceptance contour`) and produce a **parity checklist**: for every hook / shield / skill / inject / acceptance-gate, record whether — inside the aif container under the GLM executor — it behaves **the same as in Claude Code**, works **alternatively**, works **worse**, or **does not work at all**, each with evidence.
+> **Binding inputs:** decision record F-B (GLM is the sole prod aif profile; 17 tasks done across all workflow kinds) + F-C (aif runs the CC harness with one process-global `ANTHROPIC_BASE_URL`); the hook census in [zcode-parity-doctrine.md §2](../../rules/zcode-parity-doctrine.md) (row source for the checklist); the shipped acceptance contour ([agents/fidelity-auditor.md](../../../agents/fidelity-auditor.md) + `pr-body-fidelity` gate, PRs #1102/#1106).
 
-## §1 Why probes, not infrastructure
+## §1 Why an inside-aif parity audit (not a quality probe)
 
-The infrastructure already exists and is in production: the aif runtime's sole profile is `Z.AI GLM-5.2` (default for this project, live since 2026-07-16, 17 tasks done across all workflow kinds — decision record F-B); the park/answer escalation stack is e2e-proven (umbrella `aif-question-loop`, final PR #352); the cross-model contract is shipped designed-not-proven (PR #1032). The ONLY missing artifact class is probe results. Building anything before the probes land inverts the skill's own promotion criterion.
+F-B proved GLM **completes** 17 aif tasks end-to-end — but "reached `done`" says nothing about **which CC-native mechanisms actually fired inside the container**, or whether GLM **honored** them the way Claude does. Nobody has mapped, channel by channel, what survives the trip into aif. That map is the missing artifact this umbrella now produces.
 
-## §2 Stages
+## §2 The parity question (frame precisely — avoid T16 `#pattern-matching-on-name`)
 
-**S0 — rubric + task pre-registration (no model spend).**
-Define and FREEZE, before any run: (a) the P3 rubric axes (proposal to beat: correctness-vs-spec / test-pass / convention-compliance via existing repo gates / diff minimality / review-finding count from the standard SDD reviewer pair) with a per-axis 0-2 score; (b) the three paired task classes per spec (mechanical bug fix / new feature / refactor) drawn from the real backlog; (c) blind scoring protocol — the scorer receives both outputs unlabeled (which-model-is-which stripped), as a cold reviewer-class session per [reviewer-discipline.md](../../rules/reviewer-discipline.md). Deliverable: `docs/meta-factory/research-patches/2026-07-XX-mmp-s0-rubric-preregistration.md` (frozen BEFORE S1 dispatch; any later rubric edit = restart P3).
+aif runs the **Claude Code harness** (`claude` CLI) in a Docker container, with the model swapped to GLM-5.2 via a process-global `ANTHROPIC_BASE_URL` (F-C, aif-handoff `packages/runtime/src/adapters/claude/options.ts:266-272`). So "does aif support hook X?" is the **wrong** question — the harness is CC, so the event exists. The **right** two-part question per channel:
 
-**S1 — P3 paired capability probe (runs FIRST, per facts-patch :64).**
-3 task pairs, same prompt to Sonnet and GLM-5.2 independently. **Arm parity (binding):** only the EXECUTOR model may differ between arms — all non-executor roles (coordinator, reviewers) stay model-constant across both arms; record the coordinator model per arm in the probe patch. If today's runtime cannot hold non-executor roles constant (a single-profile run remaps the WHOLE pipeline via alias mapping `sonnet→glm-5.2`, `opus→GLM-4.7` — decision record F-B), then: (a) drop the reviewer-finding-count axis from the S0 rubric and score only via the blind cold scorer; (b) flag in the probe patch that the GLM arm ran a GLM coordinator — outside the worker-only envelope ([agents/orchestrator-worker-discipline.md](../../../agents/orchestrator-worker-discipline.md):74) — so the gate verdict reads on the executor delta only with that caveat attached. Score per S0 rubric. Apply the P3 decision gate — the probe patch must QUOTE the facts-patch :61 gate row verbatim and record which branch fired (Sonnet>GLM on ≥2/3 → 3-tier justified; ≈ → peer-review collapse per the night-mode posture paragraph, [night-mode SKILL.md](../../skills/night-mode/SKILL.md):15; GLM> on any axis → routing inverts per-task, flag in contract). Deliverable: probe-result patch + gate verdict.
+1. **Wiring parity** — is the mechanism actually live in the container? `.claude/settings.json` is agent-uncommittable (never travels via git); a container base may or may not have hooks registered. A hook whose file exists but is not wired **does not fire**. VERIFY it fires, do not assume.
+2. **Behavioral parity** — when the mechanism fires (a rule injected, a shield reddened, a skill invoked), does **GLM-the-model** act on it as well as Claude would? Honors the injected rule? Fixes on shield feedback rather than bypassing? This is the load-bearing axis — "hook fired" ≠ "GLM handled it well".
 
-**S2 — P1 status-field probe.** 5 GLM dispatches carrying the REPORT schema ([agents/orchestrator-worker-discipline.md](../../../agents/orchestrator-worker-discipline.md):30-37). Count parse failures; gate ≤1/5. Include ≥1 dispatch engineered to hit a genuine judgment fork, to observe whether `BLOCKER: advisor-consult:` is emitted in the wild (Fork-1 falsifier data).
+A checklist row that only proves the file exists is **T3-nonconformant** (no behavioral evidence) and must be marked coverage-limited, not "SAME".
 
-**S3 — P2 tool-loop convergence probe.** 3 agentic handoffs (read→edit→test); measure tool-call count; gate median ≤5.
+## §3 Stages
 
-**S4 — synthesis + skill update (one PR).** Fold probe verdicts into [claude-glm-executor-handoff SKILL.md](../../skills/claude-glm-executor-handoff/SKILL.md) §5 honest-gaps (promote proven sections, revise failed ones); fold the z.ai doc deltas from decision record F-E (weekly quota layer, peak multipliers, `/api/coding/paas/v4`) into the skill's facts; add SSOT trigger-review note on #222.
+**S0 — channel inventory (no model spend).** Derive the row set from SSOTs, not memory (source-before-shape): the 20-row hook census [zcode-parity-doctrine.md §2](../../rules/zcode-parity-doctrine.md); the pre-push shields in `packages/core/hooks/pre-push.ts` + `packages/core/hooks/checks/*.ts`; the acceptance-contour gate (`pr-body-fidelity` + `agents/fidelity-auditor.md`); the skills the coordinator runs (`/harvest`, `/dispatcher`). Tag each row `{inject | shield | skill | acceptance-gate}` and note its CC event. Deliverable: the frozen row list (the checklist skeleton).
 
-**S5 (optional, operator call) — mixed-models-one-container probe.** One aif container, two agents on different `model:` frontmatter values, both invoked in one run (skill §5 #4 precondition — the last designed-not-proven substrate claim). Cheap if S1-S3 already green.
+**S1 — CC-side baseline (no aif spend).** For each row, state the **expected CC behavior** (what fires, when, what the model is expected to do). Reuse the zcode-parity census where it already documents CC-vs-alternative-harness behavior — do not re-derive. This is the "same as CC" reference column.
 
-## §3 Constraints
+**S2 — one live aif carrier run (quota spend — the core).** Design ONE trivial-but-real throwaway task (e.g. a docs stub / one-line scratch fix drawn from the real backlog). Dispatch it through `/pipeline multi-model-pipeline-pilot → /dispatcher` into aif on the GLM profile. While the GLM worker runs, gather per-channel evidence **from inside the container** (task plan/comments, the container worktree, the worker's own commits):
 
-- **Quota discipline:** schedule all GLM runs OFF-PEAK (peak = 14:00-18:00 UTC+8 → 3× quota multiplier; off-peak 2×, promo 1× through end of September). Record per-stage: dispatch timestamps + prompts consumed. Weekly cap on Lite ≈ 400 prompts — the full pilot budget (≈11 dispatches + retries) must fit comfortably; if quota-blocked, WAIT for the cycle (Fork-4 verdict), never switch providers mid-probe.
-- **[no-paid-llm-in-ci.md](../../rules/no-paid-llm-in-ci.md):** all probes run in aif/session context; nothing probe-related enters CI.
-- **Fork policy (Fork-1 verdict):** owner-strategy forks → park via the runtime-bridge park/answer flow (the e2e-proven channel); executor judgment-calls → `BLOCKER: advisor-consult:` sub-form, caps per [agents/orchestrator-worker-discipline.md](../../../agents/orchestrator-worker-discipline.md):86 (max 2 cycles).
-- **One stage = one executor session** + pre-dispatch in-flight probe per [CLAUDE.md](../../../CLAUDE.md) «Pre-dispatch in-flight probe» (gh PR probe + ahead-commits + parallel-session scan + re-probe after any review).
-- **Worker dispatch channel:** stages are dispatched through the aif runtime (kickoff-consuming coordinator), not via in-session write-capable subagents — per the project's channel-discipline gate.
+- **Injects** (rule-injection, session-bootstrap, subagent-context, project-digest, output-language) — did the rule/context reach the GLM session? Did GLM's output reflect it (e.g. wrote English machinery, followed an injected rule)?
+- **Shields** (pre-push sections at the worker's commit/push inside the container) — did they run? When a shield reddened, did GLM **fix on feedback** or try to bypass? A shield that should have fired on the worker's diff and didn't = a BROKEN/WORSE row.
+- **Skills** — did the coordinator actually invoke `/harvest` / `/dispatcher` steps, or degrade?
 
-## §4 Acceptance criteria
+**S3 — acceptance-contour check (the just-shipped Phase A/B).** At the pre-egress seam (`/dispatcher §2.4`): did the cold `agents/fidelity-auditor.md` run on kickoff+diff, did the FIDELITY block land in the PR body, did the `fidelity-verdict-in-pr-body` gate validate it? Prove the RED direction too (a PR body with a stale `Audited-SHA` must red the gate). This is the first live exercise of the contour on a real aif task.
 
-1. Each probe stage lands exactly one research patch (scope-annotated per principle 10) containing: raw per-run numbers, the gate applied verbatim with PASS/FAIL, quota consumed, and T6-style confidence predicates (counts + coverage + calibration; a clean low-n result is reported as «coverage-limited», never «proven» — T14).
-2. S4's skill-update PR cites every probe patch by path and updates §5 honest-gaps to match runtime-verified reality (no doc-lies — [zcode-parity-doctrine.md §3](../../rules/zcode-parity-doctrine.md) status-column pattern).
-3. The decision record's Fork-1/4/6 falsifiers are each explicitly checked against probe outcomes in S4 (fired / not fired, with evidence).
-4. done.md written at S4 merge per [CLAUDE.md](../../../CLAUDE.md) «Umbrella closure convention» (S5 optional — if skipped, done.md records the skip + rationale).
+**S4 — synthesize the parity checklist (the deliverable).** One research patch: per S0 row, the verdict from §4 with evidence. Cite the S2/S3 observations by file:line / command output. Honest coverage per T14 (n=1 carrier task is a sample, not a distribution).
 
-## §5 Out of scope
+## §4 The deliverable — parity checklist (four categories, binding)
 
-CAS/versioning (Fork-2: deferred, armed trigger recorded in the decision record); any new escalation protocol (Fork-1: REUSE verdict); automatic provider fallback (Fork-4); self-hosting GLM; edits to README/goal-bearing docs; consumer-shipped artifacts (this is operator-axis work per [build-first-reuse-default.md §1.1](../../rules/build-first-reuse-default.md)).
+A markdown table, one row per S0 channel, verdict ∈ exactly one of:
 
-## §6 AI-traps (per [ai-laziness-traps.md §3](../../rules/ai-laziness-traps.md))
+- **✅ SAME** — fires in the container AND GLM acts on it equivalently to Claude-in-CC (rule honored / shield fixed-on-feedback / skill invoked correctly), with evidence.
+- **🔀 ALTERNATIVE** — fires, but via a different path or GLM handles it differently yet acceptably (e.g. a ZCode-style one-shot inject vs CC's persistent-lifecycle; a documented fallback). Note the divergence.
+- **⚠️ WORSE** — fires, but GLM's reaction is degraded (ignores part of an injection, needs more rework rounds, weaker fix) OR the mechanism is only partially wired. Note the gap.
+- **❌ BROKEN** — not wired in the container / CC-only event absent with no fallback / GLM ignores it entirely.
 
-Active traps for this umbrella: **T2** (designing ≠ running — the probes must actually dispatch, not be «would-pass» reasoned), **T3** (every probe claim needs command+output or file:line), **T6** (confidence as predicates, not «high»), **T7** (run the adversarial counter-prompt on each gate verdict), **T14** (clean low-n ≠ clean), **T15** (the pilot audits its own methodology — S0 pre-registration is itself an artifact to review), **T20** (no verdict without evidence-bearing tool output in the same turn).
+Columns: `channel | type | CC-baseline (S1) | aif/GLM observed (S2/S3, evidence) | verdict | note`. End with a rollup: counts per category + the single most-uncertain row + every `coverage-limited` (unexercised) channel listed explicitly (no silent drops).
+
+## §5 Constraints
+
+- **Quota discipline (decision record F-E):** schedule GLM runs OFF-PEAK (peak 14:00-18:00 UTC+8 = 3× multiplier; off-peak 2×; promo 1× through end of September). Record dispatch timestamps + prompts consumed per stage. If quota-blocked, WAIT for the cycle (Fork-4 verdict) — never switch providers mid-audit.
+- **[no-paid-llm-in-ci.md](../../rules/no-paid-llm-in-ci.md):** all observation runs in aif/session context; nothing audit-related enters CI.
+- **Token economy:** ONE live aif run only. Everything provable host-side (S0 inventory, S1 baseline, local shield RED/GREEN probes) is proved without aif spend. GLM is already the cheap tier — no model changes.
+- **One stage = one executor session** + the pre-dispatch in-flight probe per [CLAUDE.md](../../../CLAUDE.md) «Pre-dispatch in-flight probe».
+- **Worker dispatch channel:** the carrier task is dispatched through the aif runtime (kickoff-consuming coordinator), not via in-session write-capable subagents — per the project's channel-discipline gate.
+- **Carrier PR:** throwaway — closed after acceptance is proven; auto-merge verified at the "engaged" level, not force-merged into staging (operator may override → let a genuinely useful micro-fix merge).
+- **aif preflight:** `RUNTIME_BRIDGE_AIF_PROJECT_ID` set + `refresh-aif-base.sh` before dispatch; keep-awake vs Mac idle-sleep; on ANY aif symptom → first action is `/aif-doctor`, never fix-by-fix `docker exec`.
+
+## §6 Acceptance criteria
+
+1. The S4 checklist covers every S0 row with a verdict in exactly one of the four categories, each backed by command output or file:line (T3 — no prose-only rows).
+2. Behavioral parity is scored, not just wiring: for every inject/shield row, the checklist states what GLM **did** in response, not only that the mechanism fired.
+3. The acceptance contour (S3) is exercised in both directions on a real aif task — GREEN on a valid verdict, RED on a stale `Audited-SHA`.
+4. Coverage is honest: n=1 carrier task stated as a sample; every unexercised channel listed as `coverage-limited`, never omitted.
+5. `done.md` written at S4 merge per [CLAUDE.md](../../../CLAUDE.md) «Umbrella closure convention».
+
+## §7 Out of scope
+
+The original P3/P1/P2 GLM-**quality** probes (paired Sonnet-vs-GLM rubric scoring) — deferred, preserved in the decision record §3 Fork-5/6 for future revival; CAS/versioning (Fork-2 armed trigger); any new escalation protocol (Fork-1 REUSE); automatic provider fallback (Fork-4); self-hosting GLM; edits to README/goal-bearing docs; consumer-shipped artifacts (this is operator-axis work per [build-first-reuse-default.md §1.1](../../rules/build-first-reuse-default.md)).
+
+## §8 AI-traps (per [ai-laziness-traps.md §3](../../rules/ai-laziness-traps.md))
+
+Active traps for this umbrella: **T2** (designing ≠ running — the parity claims must come from an actual aif dispatch, not "would fire" reasoning), **T3** (every checklist row needs command+output or file:line), **T6** (confidence as predicates — counts + coverage + calibration, not "high"), **T14** (a clean low-n row is `coverage-limited`, never "SAME"), **T15** (the audit audits its own carrier — did S2 actually observe the container, or infer?), **T20** (no verdict without evidence-bearing tool output in the same turn).
 
 Domain-specific:
 
-- **T-MMP-A** — treating the 17 GLM-only zcode-parity completions (aif DB, 2026-07-16→19) as P3 evidence. They have no paired Sonnet control and no rubric; observational completions ≠ controlled comparison. P3 must run its own paired design regardless of how convincing the observational record looks.
-- **T-MMP-B** — quota-blindness: peak-hour 3× multipliers silently burn the weekly cap; a probe session that ignores scheduling can exhaust the Lite weekly quota (~400 prompts) and misread it as «GLM unavailability» (contaminating the Fork-4 falsifier data). Record cycle timestamps + per-stage quota consumption in every probe patch.
-- **T-MMP-C** — rubric-drift: adjusting the S0 rubric after seeing S1 outputs converts a pre-registered comparison into `#discipline-theatre`. Any rubric change after first dispatch = declared restart of P3, recorded in the probe patch.
+- **T-AIP-A — CC-event-exists ⇒ works-in-aif (the T16 specialization for this audit).** aif is the CC harness, so every hook *file* is present; concluding "SAME" from file-presence skips the two real questions (§2: wired-and-fired? GLM-honored?). Counter: no row is "SAME" without behavioral evidence from inside the container.
+- **T-AIP-B — settings.json blind spot.** `.claude/settings.json` is agent-uncommittable and never travels via git; a container may run with hooks *unregistered*. Do NOT assume the container's wired hook set equals the operator's. Verify against the container's actual settings, not the repo.
+- **T-AIP-C — quota-blindness misread as BROKEN.** A GLM run that stalls on an exhausted weekly cap (peak 3× multipliers silently burn it) can look like "mechanism doesn't work". Record cycle timestamps + per-stage quota; a quota stall is an environment state (→ `/aif-doctor`), not a parity verdict.
