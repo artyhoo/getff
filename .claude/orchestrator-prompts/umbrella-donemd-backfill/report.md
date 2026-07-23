@@ -197,3 +197,53 @@ dirs do not pollute the `/pipeline` panel today, regardless of done.md.
 - **`umbrella-donemd-backfill` own done.md:** per kickoff §«Deliverables» §3, this Stage 1 run does NOT write done.md for `umbrella-donemd-backfill` itself — that waits for the follow-up obsolete-close batch (Deliverable 3). Since §5 proposes zero obsolete closures, the follow-up decision reduces to "is §1's structural finding + §6's UNCLEAR accounting acceptable as Stage 1 output?" If yes, the operator can either (a) author `umbrella-donemd-backfill/done.md` directly citing this Stage 1 PR as the closure, or (b) declare the umbrella's goal partially-met (panel-cleanup unchanged because the live-program-with-kickoff population had no actionable closures) and schedule a deeper sweep.
 - **Structural-fix follow-up (operator decides):** the §1 finding (35 of 100 no-done dirs are runtime-only slots priority-score.sh already skips) suggests the `/pipeline` panel's "open umbrella" count is inflated only by real-umbrella-with-kickoff activity (the 65 currently-excluded live ones), not by these stale runtime slots. If the goal is "make the count match actual open work", the lever is closing/completing the live-program umbrellas themselves, not backfilling done.md for runtime slots. That decision is above Stage 1's pay grade — surfaced here for operator awareness.
 
+
+## §9 Closure measurement (post-merge, 2026-07-24 — operator-requested)
+
+Stage 1's §1 structural finding was re-tested empirically against the live panel after
+PR #1117 merged, at HEAD `ee4c3ee03`. The finding holds, and the umbrella's premise is
+disproved with line-level evidence rather than reasoning.
+
+**What `priority-score.sh` actually emits (366 candidate lines):**
+
+| bucket | count |
+|---|---|
+| synthetic candidates (open-questions, code-TODOs — not umbrellas) | 78 |
+| `kickoff=missing` — never reach classification | 40 |
+| real umbrellas (`kickoff=exists`) | 248 |
+| ├─ of those, classified DONE | 193 (183 `basis=done-md`, 9 `basis=jaccard`, 1 `basis=branch`) |
+| └─ **open — what the panel shows** | **55** |
+
+**The premise error.** The kickoff's «~99 open umbrellas» was `287 dirs − 187 done.md`
+computed over *all* directories. The panel counts umbrellas with a `kickoff.md`, not
+directories. The real figure was **55** both before and after this umbrella ran.
+
+**Net effect of the 12 done.md written by Stage 1: zero, verified 12/12.** Every one of
+the twelve target dirs emits `<name> kickoff=missing` and the line terminates there — no
+status field is produced, and the C3 `done.md` layer is never consulted for them
+(`priority-score.sh:177-192`, with the pre-filter at `:139`). This is not «helped little»;
+it is mechanically incapable of helping. That is the `KICKOFF-AMBIGUOUS` the cold fidelity
+auditor raised at Round 1: the kickoff's Goal (Layer-C3 panel-hiding) and its population
+definition (every dir without `done.md`) cannot both be satisfied.
+
+**Incidental finding — T-UDB-C fires inside the C2 layer, not only in human reasoning.**
+Before this closure, the panel already reported both umbrella dirs as DONE on *false*
+evidence: `umbrella-donemd-backfill … status=DONE done_pr=1107 basis=jaccard score=100%`
+— PR #1107 is this umbrella's own **kickoff-authoring** PR. The `-meta-launch` slot was
+likewise matched to the unrelated PR #1109. The jaccard title-overlap layer reproduces
+exactly the defect trap T-UDB-C names. Writing these two `done.md` files replaces the
+false match with real evidence, and the `:139` pre-filter now short-circuits both dirs
+before the expensive C2 pass ever runs.
+
+**What would actually shrink the panel (not this umbrella's job).** The 55 open rows are
+live work, but they are not 55 independent threads: roughly 22 rows are the fan-out of
+seven programs across multiple dirs — `shipped-artifact-liveness-gap*` (5 rows),
+`install-*` (4), `getff-*` (4), `beta-*` (3), plus `plan-currency-reconcile-*`, `r2-*`
+and `preset-react-*` pairs. The lever is per-program grouping in the panel, or closing
+those programs — not `done.md` backfill.
+
+**Closure verdict.** Stage 2 (obsolete-close) has an empty confirmation queue (§5), and
+the panel-cleanup goal is unreachable by this mechanism. The umbrella closes here with
+its honest result: premise disproved by measurement, 12 legacy runtime slots documented
+as closed, and two rule defects handed to a follow-up (the kickoff Goal-vs-population
+contradiction above, and the live-signal rule's missing squash-merge carve-out, §7).
