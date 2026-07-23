@@ -112,7 +112,38 @@ Timeout: track invocation count; after operator-configured ceiling → surface *
 bash scripts/run-local-ci-sweep.sh        # diff-aware; escalates to --full on unmapped paths
 ```
 
-A **branch-introduced** red ⇒ HALT harvest, surface it, do NOT push (interpret against the merge-base — a red on `origin/staging` too is pre-existing, not the harvest's). Then push:
+A **branch-introduced** red ⇒ HALT harvest, surface it, do NOT push (interpret against the merge-base — a red on `origin/staging` too is pre-existing, not the harvest's).
+
+**Pre-egress fidelity gate (design altitude — spec D2/D6).** `harvest.ts` creates the PR and
+queues auto-merge inside one binary, so the fidelity seam is HERE, before invoking it.
+Dispatch [`agents/fidelity-auditor.md`](../../../agents/fidelity-auditor.md) cold: inputs = the
+stage kickoff path + the container diff (read-only; in-container `origin/staging` is the
+established §2.4/harvest-§1 inspect pattern; 3-dot tolerates a stale base):
+
+```bash
+docker exec aif-handoff-agent-1 git -C <worktree> diff origin/staging...HEAD
+```
+
+- `GO` → record the block (Basis/Round/Audited-SHA = container HEAD/Evidence) into the
+  prepared PR body (pass via `--body-file` — without the section the `pr-body-fidelity`
+  gate holds the PR red) and proceed to `harvest.ts`.
+- `REVISE` → **no egress, no PR**: `tsx packages/runtime-bridge/src/cli/answer.ts --task <id>
+--answer "<auditor findings>" --decision request_changes` → task returns to `implementing`;
+  the next harvest attempt audits as `Round: 2`. **Cap 2 CONSECUTIVE REVISE rounds on unchanged scope**
+  (spec D6 «What the cap counts» — the counter resets on any GO or scope addition; the
+  Audited-SHA guard forces a re-audit after every new commit, so audits themselves are not
+  what is capped): the second consecutive REVISE → STOP — do not resume; emit an escalation
+  block (task id + both rounds' findings) in the report.
+- `KICKOFF-AMBIGUOUS` → escalate to `/arch` §4 office hours immediately (a broken kickoff
+  wastes both rework rounds). `STOP` → escalate immediately.
+- Calibration window (spec D1): while merged staging PRs whose `## Review findings` contains
+  `Plan spot-check:` number <5, also run a top-tier read-only spot-check of the task's plan
+  (`GET /tasks/:id` → `plan`) and record it in `## Review findings`.
+- Restart safety (spec D10): all rework state above lives in durable stores (aif task
+  comments, PR body, git) — a fresh dispatcher session resumes by re-probing (§2.0/§2.2);
+  never carry contour state only in session memory (`#state-in-session-memory`).
+
+Then push:
 
 ```bash
 tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --base staging
@@ -179,6 +210,14 @@ When §2.2 detects a parked signal, identify the park type from the taxonomy tab
 | A-park: `paused:true + OPEN_QUESTION_ANCHOR` in plan | `questions.ts` conjunction check | `answer.ts --decision resume` (PUT, bypasses events API) | `resume`                       |
 
 Sources: `questions.ts:85-93` (detection), `answer.ts:207-212` (A-park resume).
+
+### Routing seats (who answers which class — spec D5)
+
+| Question class                                                     | Day                                                                                                                                        | Night (unattended)                                                            |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| technical / in-scope (implementation choice within kickoff bounds) | this dispatcher session resolves autonomously (brainstorm → `answer.ts`); decision recorded in the task comment + PR `## Parked questions` | same — autonomous                                                             |
+| intent / goal / design (changes WHAT to build)                     | `/arch` §4 office hours, top seat                                                                                                          | **stay parked — never guess**; morning batch sweep (`questions.ts --project`) |
+| environment (container/tooling broken)                             | `/aif-doctor`                                                                                                                              | `/aif-doctor` non-destructive arm; else stay parked                           |
 
 ### Type 1 — Technical fork (HOW to implement; no taste involved)
 
