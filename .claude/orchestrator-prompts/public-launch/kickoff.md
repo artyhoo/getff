@@ -1,5 +1,7 @@
 # public-launch — umbrella kickoff (U12) — STUB
 
+> **Status (2026-07-23 amendment):** superseded-by release-frame phase 3 (invited testers; happy-path + feedback channel). Do not dispatch from this kickoff. See [beta-program spec §2 D1](../../../docs/superpowers/specs/2026-07-23-beta-program-design.md).
+
 > **Class:** operational kickoff (dispatch input) — **STUB**.
 > **Authoritative for:** scope-набросок умбреллы U12; до диспатча развернуть в полный `kickoff.md` (§1–§9 per [getff-to-prod-meta-launch §D](../getff-to-prod-meta-launch/kickoff.md)).
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). Программа/очередность — [getff-to-prod-meta-launch/kickoff.md](../getff-to-prod-meta-launch/kickoff.md).

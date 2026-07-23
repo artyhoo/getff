@@ -7,6 +7,23 @@
 > **Base branch:** `staging` (НЕ `main` — main = прод, промоут вручную).
 > **Status:** размещён на staging. Полностью развёрнут только U2 (HARD BLOCKER, соседняя папка); U1 и U3–U17 — стабы, развернуть в полный `kickoff.md` перед диспатчем каждой.
 
+
+> **AMENDMENT (2026-07-23, beta-program absorption — separate handoff commit, maintainer sign-off requested in PR):**
+> the beta program ([spec](../../../docs/superpowers/specs/2026-07-23-beta-program-design.md) §2 D1)
+> absorbs/supersedes the program tail and dispositions the dormant install umbrellas.
+> Binding dispositions: U3 → absorbed-by `beta-delivery-ux` A1 (T17/T18 residue sweep of
+> `mif-s3-integ` first); U4 → superseded-by track-1 (ecosystem-wiring #1086 + any-stack
+> W2/W3; npm-lane synth-at-install residue → track-1 js-convergence follow-on); U5 →
+> superseded-by the live-generation direction (re-trigger: pre-baked seed set proves
+> needed after the live path matures); U6 → `--only/--skip` scope absorbed-by
+> `beta-delivery-ux` A1, rollback+test-matrix residue parked (re-trigger: phase-1
+> install failures); U7 → self-test+docs scope absorbed-by `beta-delivery-ux` A1,
+> OpenCode-adapter residue parked (agnosticism roadmap); U8 → superseded-by
+> `beta-docs-showcase` (umbrella B); U9 → post-announce, NO LONGER gates U10; U10 →
+> re-gated on `beta-delivery-ux` R1 + release-frame phase-1 exit (publish stays an
+> operator act, 🔒 irreversible); U11 → absorbed-by `beta-delivery-ux` R1 (its
+> name-freeze gate travels with it); U12 → superseded-by release-frame phase 3.
+
 ---
 
 # ЧАСТЬ 1 — Программа и очередность
@@ -41,17 +58,17 @@
 Волна 2 — Довести моат до юзера + продуктовую поверхность
   ├─ U4 generator-into-install           (G6: synth→eslint консьюмера)   ← зависит от U2 + U3 догфуд-сигнал (done.md)
   ├─ U5 generator-catalog-expansion      (∥, низкий риск)                 ← gated by U3 догфуд-сигнал
-  ├─ U6 install-hardening-finish         (rollback, --only/--skip, тест-матрица)
-  ├─ U7 plugin-finish                    (self-test, OpenCode, docs, publish-в-каталог)
-  └─ U8 honest-readme-demo               (честный нарратив + лицензия→FSL + закрыть mutation-overclaim + README/GIF)
+  ├─ U6 install-hardening-finish         (rollback, --only/--skip, тест-матрица) → split: selection absorbed-by beta-delivery-ux A1; rest parked (2026-07-23)
+  ├─ U7 plugin-finish                    (self-test, OpenCode, docs, publish-в-каталог) → split: self-test+docs absorbed-by beta-delivery-ux A1; OpenCode parked (2026-07-23)
+  └─ U8 honest-readme-demo               (честный нарратив + лицензия→FSL + закрыть mutation-overclaim + README/GIF) → superseded-by beta-docs-showcase (2026-07-23)
 
 Волна 3 — Продуктизация для рынка (НЕОБРАТИМОЕ — после доказанного продукта)
-  ├─ U9 repo-split-3-storefronts         (границы→changesets→principle-kit→@getff→маркировка R3 последней)
-  ├─ U10 npm-publish-getff-init          (publish @getff + npx getff init)        ← зависит от U9, U11, U8 🔒НЕОБРАТИМО
-  └─ U11 naming-family                   (архитектура имён; ТМ — по сигналу)
+  ├─ U9 repo-split-3-storefronts         (границы→changesets→principle-kit→@getff→маркировка R3 последней) → post-announce; no longer gates U10 (2026-07-23)
+  ├─ U10 npm-publish-getff-init          (publish @getff + npx getff init)        ← зависит от beta-delivery-ux R1 + release-frame phase-1 exit (2026-07-23 amendment supersedes the U9/U11/U8 edges) 🔒НЕОБРАТИМО
+  └─ U11 naming-family                   (архитектура имён; ТМ — по сигналу) → absorbed-by beta-delivery-ux R1 (2026-07-23)
 
 Волна 4 — Запуск + traction
-  └─ U12 public-launch                   (Show HN/Habr/сообщества + НАСТОЯЩие метрики)  ← зависит от U8, U10, догфуда
+  └─ U12 public-launch                   (Show HN/Habr/сообщества + НАСТОЯЩие метрики)  ← superseded-by release-frame phase 3 (2026-07-23; было: U8, U10, догфуд)
 
 По сигналу (operator-gated, НЕ авто-диспатч)
   ├─ U13 money-demand-gate
@@ -71,16 +88,16 @@
 |---|---|---|---|---|---|---|
 | U1 plan-currency-reconcile | 0 | R/doc | — | U2 | трекеры = main; ACTION-PLAN Apache→FSL | S |
 | U2 enforcement-liveness-fix | 0 | build 🔴 | — | U1 | planted-violation зелёный Node 20+22 (Node 22 в CI-матрице); `done.md` блокирует Волну 1+ | M |
-| U3 modular-install-fullpack | 1 | build (в работе) | U2 | — | S5: `--full` ставит всё + правило падает | L |
-| U4 generator-into-install | 2 | build | U2, install-слои, **U3 догфуд** | U5–U8 | сгенер. правило в живом конфиге падает | M |
-| U5 generator-catalog-expansion | 2 | build | **U3 догфуд** | U4,U6–U8 | N рецептов, каждый с paired-негативом + messageId-coverage, ноль пустышек | S–M |
-| U6 install-hardening-finish | 2 | build | install-слои | U4,U5,U7,U8 | rollback+`--only/--skip`+матрица зелёные | M |
-| U7 plugin-finish | 2 | build | плагин-payload | U4–U6,U8 | `claude plugin install` = рабочий | M |
-| U8 honest-readme-demo | 2 | doc/build | — | U4–U7 | README честный (бейдж=FSL) + демо-GIF | S |
-| U9 repo-split-3-storefronts | 3 | build | U6 | U11 | 3 витрины независимо + self-audit/17/21 зелёные | XL |
-| U10 npm-publish-getff-init | 3 | build 🔒НЕОБРАТИМО | U9, U11, U8 | — | `npx getff init` → первое падение | M |
-| U11 naming-family | 3 | doc | — | U9 | архитектура имён заморожена ДО U10 | S |
-| U12 public-launch | 4 | go-to-market | U8,U10,догфуд | — | реальные зависимые проекты | M |
+| U3 modular-install-fullpack | 1 | build → **absorbed-by beta-delivery-ux A1** (2026-07-23; T17/T18 residue sweep of `mif-s3-integ` first) | U2 | — | S5: `--full` ставит всё + правило падает | L |
+| U4 generator-into-install | 2 | build → **superseded-by track-1** (2026-07-23; #1086 + any-stack W2/W3) | U2, install-слои, **U3 догфуд** | U5–U8 | сгенер. правило в живом конфиге падает | M |
+| U5 generator-catalog-expansion | 2 | build → **superseded-by live-generation direction** (2026-07-23) | **U3 догфуд** | U4,U6–U8 | N рецептов, каждый с paired-негативом + messageId-coverage, ноль пустышек | S–M |
+| U6 install-hardening-finish | 2 | build → **split: selection absorbed-by A1; rest parked** (2026-07-23) | install-слои | U4,U5,U7,U8 | rollback+`--only/--skip`+матрица зелёные | M |
+| U7 plugin-finish | 2 | build → **split: self-test+docs absorbed-by A1; OpenCode parked** (2026-07-23) | плагин-payload | U4–U6,U8 | `claude plugin install` = рабочий | M |
+| U8 honest-readme-demo | 2 | doc/build → **superseded-by beta-docs-showcase** (2026-07-23) | — | U4–U7 | README честный (бейдж=FSL) + демо-GIF | S |
+| U9 repo-split-3-storefronts | 3 | build → **post-announce; no longer gates U10** (2026-07-23) | U6 | — | 3 витрины независимо + self-audit/17/21 зелёные | XL |
+| U10 npm-publish-getff-init | 3 | build 🔒НЕОБРАТИМО | **beta-delivery-ux R1 + release-frame phase-1 exit** (2026-07-23 amendment supersedes U9/U11/U8) | — | `npx getff init` → первое падение | M |
+| U11 naming-family | 3 | doc → **absorbed-by beta-delivery-ux R1** (2026-07-23; gate travels with it) | — | — | архитектура имён заморожена ДО U10 | S |
+| U12 public-launch | 4 | go-to-market → **superseded-by release-frame phase 3** (2026-07-23) | U8,U10,догфуд | — | реальные зависимые проекты | M |
 | U13 money-demand-gate | signal | operator | traction | — | ⏸ operator-решение | — |
 | U14 exit-prep-and-deal | signal | operator | traction | — | ⏸ operator-решение | — |
 | U15 living-docs-layer | гориз. | build | U9 | U16 | drift-слой шипится | L |
@@ -122,22 +139,28 @@
 - Gate: `claude plugin install` = рабочий; self-test зелёный; принцип 24. T: T13,T15,T19; Domain **T-PLG-A** «payload в дереве → плагин рабочий» (кейс #673).
 
 ## U8 — `honest-readme-demo` (Волна 2) — STUB, не опционально перед U12
+
+> **2026-07-23 amendment:** superseded-by `beta-docs-showcase` (umbrella B) — see the AMENDMENT block above; do not dispatch from this stub.
 - **В scope:** публичная поверхность README на ветке, что пойдёт в паблик — бейдж/секция License → FSL (на устаревших ветках ещё «Proprietary», это блокирует adoption); «one-click»→«guided»; overclaim про mutation точечно — «incremental on PR» правда (шипнутый `templates/*/github-actions-ci.yml` несёт реальный `mutation:` джоб), не подтверждена только «full sweep nightly» (нет `cron`) — убрать или завести scheduled; человеческий README; демо-GIF.
 - **Gate (механический):** каждое утверждение README имеет backing (file:line/команда), overclaim-sweep проходит; бейдж=FSL; GIF показывает блок нарушения.
 
-## U9 — `repo-split-3-storefronts` (Волна 3, НЕОБРАТИМОЕ — последним) — STUB
+## U9 — `repo-split-3-storefronts` (Волна 3, НЕОБРАТИМОЕ — последним; 2026-07-23: post-announce, no longer gates U10) — STUB
 - R0 границы; Changesets (`fixed` core+preset) + развилка npm vs pnpm; вынести `principle-kit`; скоуп `@rules-as-tests-aif/*`→`@getff/*` + снять `private`; **R3 маркировка поверхности — НЕОБРАТИМО, в конце**.
 - **Gate:** 3 витрины независимо **+ инвариант-гейт: `make self-audit` зелёный, принцип 17 + 21 проходят после разреза.** T: T11,T17,T5,T15; Domain **T-RSP-A** «развилка npm/pnpm решена кодом» (она открыта).
 
 ## U10 — `npm-publish-getff-init` (Волна 3) — STUB
 - **🔒 НЕОБРАТИМО:** публикация `@getff/*` — точка невозврата. Имя-семейство (U11) **заморожено ДО** публикации.
 - publish `@getff/*`; бин `getff` + команда `init`; 3–5 витринных рецептов.
-- **Зависит/Gate:** U9 + U11 + U8. Gate: `npx getff init` → первое падение. Domain **T-NPI-A** «опубликовано → ставится чисто» без прогона на свежей машине.
+- **Зависит/Gate (2026-07-23 amendment, supersedes U9+U11+U8):** beta-delivery-ux R1 + release-frame phase-1 exit. Gate: `npx getff init` → первое падение. Domain **T-NPI-A** «опубликовано → ставится чисто» без прогона на свежей машине.
 
 ## U11 — `naming-family` (Волна 3, doc) — STUB
+
+> **2026-07-23 amendment:** absorbed-by `beta-delivery-ux` R1 — the gate «имена заморожены ДО публикации» travels with it; see the AMENDMENT block above; do not dispatch separately.
 - N1 архитектура имён; ТМ — по сигналу после publish. Gate: имена заморожены ДО U10. T: T8,T15.
 
 ## U12 — `public-launch` (Волна 4) — STUB
+
+> **2026-07-23 amendment:** superseded-by release-frame phase 3 (beta-program spec §7) — see the AMENDMENT block above; do not dispatch from this stub.
 - EN (Show HN + README + PH); RU (Habr + Product Radar); сообщества; трекинг НАСТОЯЩих метрик (зависимые, форк/звезда).
 - **Зависит/Gate:** U8, U10, догфуд. Gate: реальные зависимые проекты ИЛИ входящие «интегрировать/нанять?». T: T6,T15.
 

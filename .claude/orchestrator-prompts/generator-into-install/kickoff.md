@@ -1,5 +1,7 @@
 # generator-into-install — umbrella kickoff (U4) — STUB
 
+> **Status (2026-07-23 amendment):** superseded-by track-1 (ecosystem-wiring #1086 closed detect→wire→deliver→fire; any-stack W2/W3 own the agent surface + one-beat). npm-lane synth-at-install residue → track-1 js-convergence follow-on. Do not dispatch. See [beta-program spec §2 D1](../../../docs/superpowers/specs/2026-07-23-beta-program-design.md).
+
 > **Class:** operational kickoff (dispatch input) — **STUB**.
 > **Authoritative for:** scope-набросок умбреллы U4; до диспатча развернуть в полный `kickoff.md` (§1–§9 per [getff-to-prod-meta-launch §D](../getff-to-prod-meta-launch/kickoff.md)).
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). Программа/очередность — [getff-to-prod-meta-launch/kickoff.md](../getff-to-prod-meta-launch/kickoff.md).
