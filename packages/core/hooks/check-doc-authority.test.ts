@@ -8,11 +8,11 @@
  * (vitest + spawnSync + tempdir sandbox + jq-availability skip).
  *
  * Paired-negative contract:
- *   ❌ a REQUIRED_HEADER_DOCS file edited WITHOUT `Authoritative for:` → exit 1
+ *   ❌ a REQUIRED_HEADER_DOCS file edited WITHOUT `Authoritative for:` → exit 2
  *   ✅ same file WITH `> **Authoritative for:**` header              → exit 0
  *   ✅ a non-required file edited (e.g. packages/foo.ts)             → exit 0
- *   ✅ boundary: `Authoritative for:` appears mid-prose (not in blockquote) → exit 1
- *   ✅ boundary: `Authoritative for:` only inside fenced code block → exit 1 (stripped)
+ *   ✅ boundary: `Authoritative for:` appears mid-prose (not in blockquote) → exit 2
+ *   ✅ boundary: `Authoritative for:` only inside fenced code block → exit 2 (stripped)
  *
  * Sandbox isolation (real-docs-overwrite hazard — same class as the 2026-07-02
  * .claude/hooks seeded-break leak, PR #844): this suite previously overwrote the
@@ -262,7 +262,7 @@ describe.skipIf(!JQ || !TSX)(
     // PAIRED-NEGATIVE: the core contract
     // ──────────────────────────────────────────────────────────────────────────
 
-    it('PAIRED-NEGATIVE: REQUIRED_HEADER_DOC written WITHOUT `> **Authoritative for:**` → exit 1 + diagnostic', () => {
+    it('PAIRED-NEGATIVE: REQUIRED_HEADER_DOC written WITHOUT `> **Authoritative for:**` → exit 2 + diagnostic', () => {
       // check-doc-authority.sh line 33: `"$TSX" "$BIN" "$REL_PATH"` — delegates to bin
       // 09-doc-authority-hierarchy.bin.ts line 37-42: exits 1 when violations found
       // 09-doc-authority-hierarchy.ts line 15: AUTHORITY_HEADER_RE = /^> \*\*Authoritative for:\*\*/m
@@ -270,7 +270,7 @@ describe.skipIf(!JQ || !TSX)(
       // hook's graceful skips (lines 27, 29-31) → exit 0 → this test fails loud.
       const abs = writeFixtureDoc(MISSING_HEADER);
       const { status, stderr } = runHook(abs);
-      expect(status).toBe(1);
+      expect(status).toBe(2);
       // 09-doc-authority-hierarchy.bin.ts line 39: `process.stderr.write(\`FAIL  ${v.path}: ${v.reason}\n\`)`
       expect(stderr).toMatch(/FAIL/);
       expect(stderr).toMatch(/missing.*Authoritative for/i);
@@ -333,7 +333,7 @@ describe.skipIf(!JQ || !TSX)(
     // Boundary: mid-prose mention does NOT satisfy the blockquote regex
     // ──────────────────────────────────────────────────────────────────────────
 
-    it('boundary: `Authoritative for:` in mid-prose (no blockquote) → exit 1', () => {
+    it('boundary: `Authoritative for:` in mid-prose (no blockquote) → exit 2', () => {
       // 09-doc-authority-hierarchy.ts line 15: AUTHORITY_HEADER_RE = /^> \*\*Authoritative for:\*\*/m
       // Only `> **Authoritative for:**` at line-start (after `>`) matches.
       // Plain prose "Authoritative for:" does NOT match → FAIL
@@ -341,11 +341,11 @@ describe.skipIf(!JQ || !TSX)(
         '# Test fixture\n\nThis doc is authoritative for certain things but lacks the blockquote form.\n';
       const abs = writeFixtureDoc(content);
       const { status, stderr } = runHook(abs);
-      expect(status).toBe(1);
+      expect(status).toBe(2);
       expect(stderr).toMatch(/FAIL/);
     });
 
-    it('boundary: `Authoritative for:` inside a fenced code block → exit 1 (stripped)', () => {
+    it('boundary: `Authoritative for:` inside a fenced code block → exit 2 (stripped)', () => {
       // 09-doc-authority-hierarchy.ts line 248-250: stripFencedCodeBlocks() removes ``` blocks
       // before AUTHORITY_HEADER_RE is tested. Content inside ``` does not satisfy the check.
       const content = [
@@ -360,7 +360,7 @@ describe.skipIf(!JQ || !TSX)(
       ].join('\n');
       const abs = writeFixtureDoc(content);
       const { status, stderr } = runHook(abs);
-      expect(status).toBe(1);
+      expect(status).toBe(2);
       expect(stderr).toMatch(/FAIL/);
     });
 

@@ -8,7 +8,7 @@
  * "at next touch" semantics §9 wants (legacy hooks never flagged unless edited).
  *
  * Paired-negative contract:
- *   ❌ a .claude/hooks/*.sh with NO marker → exit 1 (the silent-CC-lock-in gap)
+ *   ❌ a .claude/hooks/*.sh with NO marker → exit 2 (the silent-CC-lock-in gap)
  *   ✅ @cc-only-rationale present          → exit 0
  *   ✅ @dual-pair present                  → exit 0
  *   ✅ non-hook path / wrong tool          → exit 0 (off-path skip)
@@ -125,11 +125,11 @@ function runHook(
 describe.skipIf(!JQ)(
   'check-hook-marker.sh — PostToolUse delivery-channel marker gate',
   () => {
-    it('PAIRED-NEGATIVE: hook with no marker → exit 1', () => {
+    it('PAIRED-NEGATIVE: hook with no marker → exit 2', () => {
       const abs = writeHook(
         '#!/usr/bin/env bash\n# just a comment, no marker\nexit 0\n',
       );
-      expect(runHook('Write', abs).status).toBe(1);
+      expect(runHook('Write', abs).status).toBe(2);
     });
 
     it('PAIRED-POSITIVE: @cc-only-rationale present → exit 0', () => {
@@ -146,12 +146,12 @@ describe.skipIf(!JQ)(
       expect(runHook('Edit', abs).status).toBe(0);
     });
 
-    it('marker must be on its own comment line: prose mention in a heredoc does NOT count → exit 1', () => {
+    it('marker must be on its own comment line: prose mention in a heredoc does NOT count → exit 2', () => {
       // The string "@cc-only-rationale:" appears, but not as a leading "# " comment line.
       const abs = writeHook(
         '#!/usr/bin/env bash\necho "add a @cc-only-rationale: marker"\nexit 0\n',
       );
-      expect(runHook('Write', abs).status).toBe(1);
+      expect(runHook('Write', abs).status).toBe(2);
     });
 
     it('wrong tool (Read) → exit 0 even on a marker-less hook', () => {
@@ -246,7 +246,7 @@ describe.skipIf(!JQ)(
       );
     }
 
-    it('PAIRED-NEGATIVE: @file-content-gate hook registered Edit|Write (no MultiEdit) → exit 1', () => {
+    it('PAIRED-NEGATIVE: @file-content-gate hook registered Edit|Write (no MultiEdit) → exit 2', () => {
       const name = `zzz-fcg-neg-${Date.now()}.sh`;
       const abs = writeHook(
         `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n`,
@@ -255,7 +255,7 @@ describe.skipIf(!JQ)(
       const renamed = join(SANDBOX_HOOKS, name);
       renameSync(abs, renamed);
       writeSandboxSettings('Edit|Write', name);
-      expect(runHook('Edit', renamed).status).toBe(1);
+      expect(runHook('Edit', renamed).status).toBe(2);
     });
 
     it('PAIRED-POSITIVE: @file-content-gate hook registered Edit|Write|MultiEdit → exit 0', () => {
@@ -294,7 +294,7 @@ describe.skipIf(!JQ)(
     // carry NO @file-content-gate marker (check-kickoff-traps, check-worker-dispatch-channel,
     // check-hook-marker itself). Self-calibrating: a Write-only case-arm stays green.
 
-    it('PARITY-NEGATIVE: case-arm Edit|Write|MultiEdit but matcher Edit|Write → exit 1', () => {
+    it('PARITY-NEGATIVE: case-arm Edit|Write|MultiEdit but matcher Edit|Write → exit 2', () => {
       const name = `zzz-parity-neg-${Date.now()}.sh`;
       const abs = writeHook(
         `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\ncase "$TOOL" in Edit | Write | MultiEdit) ;; *) exit 0 ;; esac\nexit 0\n`,
@@ -302,7 +302,7 @@ describe.skipIf(!JQ)(
       const renamed = join(SANDBOX_HOOKS, name);
       renameSync(abs, renamed);
       writeSandboxSettings('Edit|Write', name);
-      expect(runHook('Edit', renamed).status).toBe(1);
+      expect(runHook('Edit', renamed).status).toBe(2);
     });
 
     it('PARITY-POSITIVE: case-arm Edit|Write|MultiEdit + matcher Edit|Write|MultiEdit → exit 0', () => {
@@ -435,7 +435,7 @@ describe.skipIf(!JQ)(
         `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n`,
         'Edit|Write',
       );
-      expect(status).toBe(1);
+      expect(status).toBe(2);
     });
 
     it('RED fixture: case-TOOL hook whose case-arm ⊋ matcher IS caught by the parity rule', () => {
@@ -443,7 +443,55 @@ describe.skipIf(!JQ)(
         `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\ncase "$TOOL" in Edit | Write | MultiEdit) ;; *) exit 0 ;; esac\nexit 0\n`,
         'Edit|Write',
       );
-      expect(status).toBe(1);
+      expect(status).toBe(2);
     });
   },
 );
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Dependency-missing SKIP must reach the model, not just stderr (aif-parity F1,
+// criterion (a) — silent `command -v jq || exit 0` guards; sibling of the
+// check-doc-authority.sh fix shipped in #1116). Channel semantics live-verified
+// 2026-07-24: research-patches/2026-07-24-posttooluse-channel-verification.md.
+// ═══════════════════════════════════════════════════════════════════════════════
+import { mkdtempSync as _mkdtempSync, symlinkSync as _symlinkSync } from 'node:fs';
+import { join as _join } from 'node:path';
+import { tmpdir as _tmpdir } from 'node:os';
+import { spawnSync as _spawnSync } from 'node:child_process';
+
+describe('dependency-missing skip is announced on the model channel', () => {
+  function runNoJq(filePath: string): { status: number; stdout: string; stderr: string } {
+    const binDir = _mkdtempSync(_join(_tmpdir(), 'nojq-'));
+    // sed/tr/head back the jq-free escaper + crude path parse; masking them too would
+    // test the harness, not the hook. dirname backs the REPO_ROOT fallback line.
+    for (const tool of ['sed', 'tr', 'cat', 'head', 'dirname', 'grep', 'sort', 'awk', 'stat', 'date', 'touch']) {
+      const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
+      if (real) _symlinkSync(real, _join(binDir, tool));
+    }
+    const env: Record<string, string> = { ...process.env, PATH: binDir } as Record<string, string>;
+    delete env.ZCODE_PROJECT_DIR;
+    const r = _spawnSync('/bin/bash', [REAL_HOOK], {
+      input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: filePath } }),
+      encoding: 'utf8',
+      env,
+    });
+    return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+  }
+
+  it('jq missing + in-scope path → hookSpecificOutput.additionalContext says DID NOT RUN (exit 0)', () => {
+    const { status, stdout } = runNoJq('/x/.claude/hooks/foo.sh');
+    expect(status).toBe(0);
+    const parsed = JSON.parse(stdout.trim()) as {
+      hookSpecificOutput: { hookEventName: string; additionalContext: string };
+    };
+    expect(parsed.hookSpecificOutput.hookEventName).toBe('PostToolUse');
+    expect(parsed.hookSpecificOutput.additionalContext).toMatch(/DID NOT RUN/);
+    expect(parsed.hookSpecificOutput.additionalContext).toMatch(/not a pass/i);
+  });
+
+  it('jq missing + OUT-of-scope path → silent exit 0 (no per-edit spam in a jq-less env)', () => {
+    const { status, stdout } = runNoJq('/x/README.md');
+    expect(status).toBe(0);
+    expect(stdout.trim()).toBe('');
+  });
+});

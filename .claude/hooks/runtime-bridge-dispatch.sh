@@ -37,9 +37,29 @@
 #   consent — it is not bound by the agent tool-permission deny-list.
 set -uo pipefail
 
-# ── Dependency guard ─────────────────────────────────────────────────────────
-command -v jq  >/dev/null 2>&1 || exit 0
-command -v node >/dev/null 2>&1 || exit 0
+# ── Dependency guard — loud when it actually swallows work ───────────────────
+# A silent exit here on an auto-marked bridge kickoff means a dispatch the author asked
+# for never happened and nobody was told (the dependency-skip defect class, aif-parity S4
+# §3 item 1). jq-less best-effort parse (sed) recovers the path; the notice fires ONLY
+# when the file carries the `<!-- bridge: auto -->` opt-in — every other edit stays
+# silent (this hook is an injection, never a gate).
+_json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n' ' '; }
+_emit_dep_skip() {
+  printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' \
+    "$(_json_escape "$1")"
+  printf '%s\n' "$1" >&2
+}
+if ! command -v jq >/dev/null 2>&1 || ! command -v node >/dev/null 2>&1; then
+  _RAW_PATH="$(sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+  case "$_RAW_PATH" in
+    *.claude/orchestrator-prompts/*/kickoff.md)
+      if [ -f "$_RAW_PATH" ] \
+         && [ "$(head -1 "$_RAW_PATH" | tr -d '[:space:]')" = '<!--bridge:auto-->' ]; then
+        _emit_dep_skip '⚠ runtime-bridge-dispatch: jq/node unavailable — the auto-dispatch this kickoff opted into DID NOT RUN. Dispatch manually: tsx packages/runtime-bridge/src/cli/dispatch.ts <kickoff-path>.'
+      fi ;;
+  esac
+  exit 0
+fi
 
 # ── Parse stdin ──────────────────────────────────────────────────────────────
 INPUT="$(cat)"

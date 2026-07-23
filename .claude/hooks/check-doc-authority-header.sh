@@ -19,14 +19,34 @@
 #     - per-file exemption: a line `<!-- doc-authority: exempt <reason 20+ chars> -->` in the doc
 #
 # Input: PostToolUse hook JSON via stdin (.tool_input.file_path). Non-scoped paths exit 0 silently.
-# Consumer-safe: pure bash + jq, no framework-internal dependency; degrades to exit 0 when jq is absent.
+# Consumer-safe: pure bash + jq, no framework-internal dependency; degrades LOUDLY (scoped
+# JSON skip-notice) when jq is absent — a silent skip is indistinguishable from a pass, the
+# exact defect class this gate exists to prevent (aif-parity S4 §3 item 1, 2026-07-23).
 set -uo pipefail
 
 # ── Repo-wide opt-out ─────────────────────────────────────────────────────────
 [[ "${AIF_DOC_AUTHORITY:-1}" == "0" ]] && exit 0
 
-# ── Dependency guard: no jq → degrade to a silent no-op (never error-spam) ─────
-command -v jq >/dev/null 2>&1 || exit 0
+# ── Dependency guard: no jq → LOUD skip, scoped to this gate's own paths ──────
+# jq-less best-effort path extraction (sed on raw stdin) — used only to decide whether the
+# edit is in scope, so consumers without jq (stock macOS) hear about the dead gate exactly
+# when editing a doc it should have checked, not on every Edit/Write.
+_json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n' ' '; }
+if ! command -v jq >/dev/null 2>&1; then
+  _RAW_PATH="$(sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+  case "$_RAW_PATH" in
+    *.claude/rules/*.md | *.claude/skills/*/SKILL.md | "")
+      _MSG='⚠ doc-authority-header: jq unavailable — the authority-header check DID NOT RUN for this edit. This is a SKIP, not a pass; install jq to restore enforcement.'
+      if [ -n "${ZCODE_PROJECT_DIR:-}" ]; then
+        printf '{"additionalContext":"%s"}\n' "$(_json_escape "$_MSG")"
+      else
+        printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' \
+          "$(_json_escape "$_MSG")"
+      fi
+      printf '%s\n' "$_MSG" >&2 ;;
+  esac
+  exit 0
+fi
 
 ABS_PATH="$(cat | jq -r '.tool_input.file_path // ""' 2>/dev/null || true)"
 [[ -z "$ABS_PATH" ]] && exit 0

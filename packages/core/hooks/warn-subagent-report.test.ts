@@ -170,7 +170,17 @@ describe.skipIf(!JQ)('warn-subagent-report.sh — SubagentStop REPORT-schema WAR
     // T-108-A: MUST warn (not silent)
     expect(result.exitCode).toBe(0); // ALWAYS non-blocking
     expect(result.stderr).toContain('ATTN'); // missing section named
-    expect(result.stderr).toMatch(/⚠ SubagentStop: REPORT missing section/);
+    expect(result.stderr).toMatch(/⚠ SubagentStop: subagent REPORT missing section/);
+
+    // The warning's consumer is the ORCHESTRATOR — stderr on exit 0 reaches only the
+    // operator, so the same warning MUST go out as model-visible JSON additionalContext
+    // (channel live-verified 2026-07-24 — see
+    // research-patches/2026-07-24-posttooluse-channel-verification.md).
+    const parsed = JSON.parse(result.stdout.trim()) as {
+      hookSpecificOutput: { hookEventName: string; additionalContext: string };
+    };
+    expect(parsed.hookSpecificOutput.hookEventName).toBe('SubagentStop');
+    expect(parsed.hookSpecificOutput.additionalContext).toContain('ATTN');
 
     // VERIFY and Confidence are present in the fixture — must NOT appear in missing list
     expect(result.stderr).not.toContain('VERIFY');
@@ -186,7 +196,11 @@ describe.skipIf(!JQ)('warn-subagent-report.sh — SubagentStop REPORT-schema WAR
       // T-108-A: MUST warn (path 2 actually read the file)
       expect(result.exitCode).toBe(0); // ALWAYS non-blocking
       expect(result.stderr).toContain('Confidence'); // missing section named
-      expect(result.stderr).toMatch(/⚠ SubagentStop: REPORT missing section/);
+      expect(result.stderr).toMatch(/⚠ SubagentStop: subagent REPORT missing section/);
+      // Model-visible channel carries the same warning (see positive-A rationale).
+      expect(JSON.parse(result.stdout.trim()).hookSpecificOutput.additionalContext).toContain(
+        'Confidence',
+      );
 
       // VERIFY and ATTN are present in the fixture — must NOT appear in missing list
       expect(result.stderr).not.toContain('VERIFY');
@@ -234,5 +248,40 @@ describe.skipIf(!JQ)('warn-subagent-report.sh — SubagentStop REPORT-schema WAR
       payloadWithMessage('general-purpose', 'VERIFY:\nSomething checked.\n\nCommit: xyz')
     );
     expect(result.exitCode).toBe(0);
+  });
+});
+// ═══════════════════════════════════════════════════════════════════════════════
+// Dependency-missing SKIP must reach the orchestrator model (aif-parity F1
+// criterion (a)). SubagentStop fires once per finished subagent — a loud notice
+// is low-noise, and a silent one makes a skipped completeness check read as a
+// pass. Channel verified 2026-07-24 —
+// research-patches/2026-07-24-posttooluse-channel-verification.md.
+// ═══════════════════════════════════════════════════════════════════════════════
+import { mkdtempSync as _mkdtempSync, symlinkSync as _symlinkSync } from 'node:fs';
+import { join as _join } from 'node:path';
+import { tmpdir as _tmpdir } from 'node:os';
+import { spawnSync as _spawnSync } from 'node:child_process';
+
+describe('dependency-missing skip is announced on the model channel', () => {
+  it('jq missing → SubagentStop JSON additionalContext says DID NOT RUN (exit 0)', () => {
+    const binDir = _mkdtempSync(_join(_tmpdir(), 'nojq-'));
+    for (const tool of ['sed', 'tr', 'cat', 'grep', 'head']) {
+      const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
+      if (real) _symlinkSync(real, _join(binDir, tool));
+    }
+    const env: Record<string, string> = { ...process.env, PATH: binDir } as Record<string, string>;
+    delete env.ZCODE_PROJECT_DIR;
+    const r = _spawnSync('/bin/bash', [HOOK], {
+      input: JSON.stringify({ agent_type: 'general-purpose', last_assistant_message: 'VERIFY: x' }),
+      encoding: 'utf8',
+      env,
+    });
+    expect(r.status).toBe(0);
+    const parsed = JSON.parse((r.stdout ?? '').trim()) as {
+      hookSpecificOutput: { hookEventName: string; additionalContext: string };
+    };
+    expect(parsed.hookSpecificOutput.hookEventName).toBe('SubagentStop');
+    expect(parsed.hookSpecificOutput.additionalContext).toMatch(/DID NOT RUN/);
+    expect(parsed.hookSpecificOutput.additionalContext).toMatch(/not a pass/i);
   });
 });

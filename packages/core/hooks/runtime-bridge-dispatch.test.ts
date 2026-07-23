@@ -389,3 +389,61 @@ console.log(JSON.stringify({
     });
   },
 );
+// ═══════════════════════════════════════════════════════════════════════════════
+// Dependency-missing guard: silent for ordinary edits, LOUD when it swallows an
+// auto-dispatch the kickoff opted into (aif-parity F1 criterion (a); channel
+// verified 2026-07-24 — research-patches/2026-07-24-posttooluse-channel-verification.md).
+// ═══════════════════════════════════════════════════════════════════════════════
+import { mkdtempSync as _mkdtempSync, symlinkSync as _symlinkSync, writeFileSync as _writeFileSync, mkdirSync as _mkdirSync } from 'node:fs';
+import { join as _join } from 'node:path';
+import { tmpdir as _tmpdir } from 'node:os';
+import { spawnSync as _spawnSync } from 'node:child_process';
+
+describe('dependency-missing skip fires only for auto-marked bridge kickoffs', () => {
+  function runNoJq(filePath: string): { status: number; stdout: string } {
+    const binDir = _mkdtempSync(_join(_tmpdir(), 'nojq-'));
+    for (const tool of ['sed', 'tr', 'cat', 'head', 'dirname']) {
+      const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
+      if (real) _symlinkSync(real, _join(binDir, tool));
+    }
+    const env: Record<string, string> = { ...process.env, PATH: binDir } as Record<string, string>;
+    delete env.ZCODE_PROJECT_DIR;
+    const r = _spawnSync('/bin/bash', [HOOK], {
+      input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: filePath } }),
+      encoding: 'utf8',
+      env,
+    });
+    return { status: r.status ?? -1, stdout: r.stdout ?? '' };
+  }
+
+  function kickoffWith(firstLine: string): string {
+    const dir = _join(_mkdtempSync(_join(_tmpdir(), 'rbd-')), '.claude/orchestrator-prompts/w1');
+    _mkdirSync(dir, { recursive: true });
+    const abs = _join(dir, 'kickoff.md');
+    _writeFileSync(abs, `${firstLine}\n# Kickoff\n`, 'utf8');
+    return abs;
+  }
+
+  it('jq missing + auto-marked kickoff → JSON notice that the dispatch DID NOT RUN (exit 0)', () => {
+    const { status, stdout } = runNoJq(kickoffWith('<!-- bridge: auto -->'));
+    expect(status).toBe(0);
+    const parsed = JSON.parse(stdout.trim()) as {
+      hookSpecificOutput: { hookEventName: string; additionalContext: string };
+    };
+    expect(parsed.hookSpecificOutput.hookEventName).toBe('PostToolUse');
+    expect(parsed.hookSpecificOutput.additionalContext).toMatch(/DID NOT RUN/);
+    expect(parsed.hookSpecificOutput.additionalContext).toMatch(/dispatch manually/i);
+  });
+
+  it('jq missing + kickoff WITHOUT the auto marker → silent exit 0 (injection stays quiet)', () => {
+    const { status, stdout } = runNoJq(kickoffWith('# plain kickoff, no bridge marker'));
+    expect(status).toBe(0);
+    expect(stdout.trim()).toBe('');
+  });
+
+  it('jq missing + non-kickoff path → silent exit 0', () => {
+    const { status, stdout } = runNoJq('/x/src/app.ts');
+    expect(status).toBe(0);
+    expect(stdout.trim()).toBe('');
+  });
+});

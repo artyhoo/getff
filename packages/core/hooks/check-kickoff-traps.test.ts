@@ -9,7 +9,7 @@
  * check (presence-of-any-one-pattern) misses.
  *
  * Paired-negative contract:
- *   ❌ kickoff engages the rule + <3 distinct T-numbers → exit 1 (the gap C2 closes)
+ *   ❌ kickoff engages the rule + <3 distinct T-numbers → exit 2 (the gap C2 closes)
  *   ✅ kickoff engages the rule + ≥3 distinct T-numbers  → exit 0
  *   ✅ kickoff that never mentions the rule              → exit 0 (engagement guard)
  *   ✅ non-kickoff path / wrong tool                      → exit 0 (off-path skip)
@@ -87,18 +87,18 @@ const CITE = 'See .claude/rules/ai-laziness-traps.md §2.';
 describe.skipIf(!JQ)(
   'check-kickoff-traps.sh — PostToolUse kickoff T-enumeration gate',
   () => {
-    it('PAIRED-NEGATIVE: engages rule but enumerates <3 distinct T-numbers → exit 1', () => {
+    it('PAIRED-NEGATIVE: engages rule but enumerates <3 distinct T-numbers → exit 2', () => {
       const abs = writeKickoff(
         `# Wave N kickoff\n${CITE}\nActive traps: T1, T3.\n`,
       );
-      expect(runHook('Write', abs).status).toBe(1);
+      expect(runHook('Write', abs).status).toBe(2);
     });
 
-    it('blanket reference (cites rule, names ZERO traps) → exit 1', () => {
+    it('blanket reference (cites rule, names ZERO traps) → exit 2', () => {
       const abs = writeKickoff(
         `# Wave N kickoff\n${CITE}\nNo traps enumerated here.\n`,
       );
-      expect(runHook('Edit', abs).status).toBe(1);
+      expect(runHook('Edit', abs).status).toBe(2);
     });
 
     it('PAIRED-POSITIVE: engages rule + ≥3 distinct T-numbers → exit 0', () => {
@@ -115,11 +115,11 @@ describe.skipIf(!JQ)(
       expect(runHook('Write', abs).status).toBe(0);
     });
 
-    it('counts DISTINCT, not occurrences: T1 repeated 3× + nothing else → exit 1', () => {
+    it('counts DISTINCT, not occurrences: T1 repeated 3× + nothing else → exit 2', () => {
       const abs = writeKickoff(
         `# Wave N kickoff\n${CITE}\nT1 matters. T1 again. T1 once more.\n`,
       );
-      expect(runHook('Write', abs).status).toBe(1);
+      expect(runHook('Write', abs).status).toBe(2);
     });
 
     it('engagement guard: kickoff that never mentions the rule → exit 0 (not C2 territory)', () => {
@@ -129,13 +129,13 @@ describe.skipIf(!JQ)(
       expect(runHook('Write', abs).status).toBe(0);
     });
 
-    it('domain-label-only (T-Wave9-A) does NOT satisfy the canonical-T floor → exit 1', () => {
+    it('domain-label-only (T-Wave9-A) does NOT satisfy the canonical-T floor → exit 2', () => {
       // T-Wave9-A is the §3 #3 domain trap, not a canonical T-number; the \bT[0-9]+\b
       // count must not credit it. Two canonical + one domain label = 2 distinct → fail.
       const abs = writeKickoff(
         `# Wave N kickoff\n${CITE}\nActive traps: T1, T3, plus T-Wave9-A.\n`,
       );
-      expect(runHook('Write', abs).status).toBe(1);
+      expect(runHook('Write', abs).status).toBe(2);
     });
 
     it('off-path: a non-kickoff .md under orchestrator-prompts → exit 0', () => {
@@ -206,3 +206,51 @@ describe.skipIf(!JQ)(
     });
   },
 );
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Dependency-missing SKIP must reach the model, not just stderr (aif-parity F1,
+// criterion (a) — silent `command -v jq || exit 0` guards; sibling of the
+// check-doc-authority.sh fix shipped in #1116). Channel semantics live-verified
+// 2026-07-24: research-patches/2026-07-24-posttooluse-channel-verification.md.
+// ═══════════════════════════════════════════════════════════════════════════════
+import { mkdtempSync as _mkdtempSync, symlinkSync as _symlinkSync } from 'node:fs';
+import { join as _join } from 'node:path';
+import { tmpdir as _tmpdir } from 'node:os';
+import { spawnSync as _spawnSync } from 'node:child_process';
+
+describe('dependency-missing skip is announced on the model channel', () => {
+  function runNoJq(filePath: string): { status: number; stdout: string; stderr: string } {
+    const binDir = _mkdtempSync(_join(_tmpdir(), 'nojq-'));
+    // sed/tr/head back the jq-free escaper + crude path parse; masking them too would
+    // test the harness, not the hook. dirname backs the REPO_ROOT fallback line.
+    for (const tool of ['sed', 'tr', 'cat', 'head', 'dirname', 'grep', 'sort', 'awk', 'stat', 'date', 'touch']) {
+      const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
+      if (real) _symlinkSync(real, _join(binDir, tool));
+    }
+    const env: Record<string, string> = { ...process.env, PATH: binDir } as Record<string, string>;
+    delete env.ZCODE_PROJECT_DIR;
+    const r = _spawnSync('/bin/bash', [HOOK], {
+      input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: filePath } }),
+      encoding: 'utf8',
+      env,
+    });
+    return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+  }
+
+  it('jq missing + in-scope path → hookSpecificOutput.additionalContext says DID NOT RUN (exit 0)', () => {
+    const { status, stdout } = runNoJq('/x/.claude/orchestrator-prompts/wave-1/kickoff.md');
+    expect(status).toBe(0);
+    const parsed = JSON.parse(stdout.trim()) as {
+      hookSpecificOutput: { hookEventName: string; additionalContext: string };
+    };
+    expect(parsed.hookSpecificOutput.hookEventName).toBe('PostToolUse');
+    expect(parsed.hookSpecificOutput.additionalContext).toMatch(/DID NOT RUN/);
+    expect(parsed.hookSpecificOutput.additionalContext).toMatch(/not a pass/i);
+  });
+
+  it('jq missing + OUT-of-scope path → silent exit 0 (no per-edit spam in a jq-less env)', () => {
+    const { status, stdout } = runNoJq('/x/README.md');
+    expect(status).toBe(0);
+    expect(stdout.trim()).toBe('');
+  });
+});

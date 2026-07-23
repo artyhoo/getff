@@ -14,8 +14,10 @@ set -uo pipefail
 
 # @plugin-transform: manual — plugin twin adds T-PLUG-A $VALIDATOR guard (consumer plugins lack packages/core/); source-side guard is a no-op (framework repo always has packages/core)
 # Harness-portable output (inline — standalone in test sandboxes). ZCode swallows plain
-# exit 1; JSON additionalContext reaches the model. CC preserves stderr + exit 1 byte-for-byte
-# on the VIOLATION path.
+# non-zero exits; JSON additionalContext reaches the model. CC VIOLATION path: exit 2 +
+# stderr — the only non-JSON channel the model receives on PostToolUse; exit-1 stderr
+# reaches the operator transcript but NOT the model (live-verified 2026-07-24 — see
+# docs/meta-factory/research-patches/2026-07-24-posttooluse-channel-verification.md).
 #
 # Graceful-SKIP paths differ: they exit 0, and on an exit-0 PostToolUse the model receives
 # ONLY JSON hookSpecificOutput — plain stdout/stderr reaches nobody (inject-matching-rule.sh
@@ -44,9 +46,15 @@ REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
 TSX="$REPO_ROOT/node_modules/.bin/tsx"
 VALIDATOR="$REPO_ROOT/packages/core/spec-validation/validate-batch-spec.ts"
 
-# Graceful skip if jq unavailable
+# Graceful-but-loud skip if jq unavailable. jq-less best-effort path extraction (sed on
+# raw stdin) scopes the notice to orchestrator-prompts *.md edits (or unparseable stdin —
+# conservative) instead of announcing on every Edit/Write in a jq-less environment.
 if ! command -v jq >/dev/null 2>&1; then
-  _emit_skip '⚠ validate-prompt: jq unavailable — batch-spec validation DID NOT RUN for this edit. This is a SKIP, not a pass; install jq to restore enforcement.'
+  _RAW_PATH="$(sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+  case "$_RAW_PATH" in
+    *.claude/orchestrator-prompts/*.md | "")
+      _emit_skip '⚠ validate-prompt: jq unavailable — batch-spec validation DID NOT RUN for this edit. This is a SKIP, not a pass; install jq to restore enforcement.' ;;
+  esac
   exit 0
 fi
 
@@ -63,20 +71,25 @@ if [[ ! -x "$TSX" ]]; then
   exit 0
 fi
 
-# exit 2 = gh CLI unavailable (soft-skip by validate-batch-spec.ts); treat as 0 here.
-# Capture output so that under ZCode a violation reaches the model (plain exit 1 + stderr is
-# swallowed by ZCode; JSON additionalContext is merged into the tool result). Under CC the
-# validator's stderr + non-zero exit is preserved byte-for-byte.
+# Validator exit 2 = gh CLI unavailable (soft-skip inside validate-batch-spec.ts). A silent
+# exit 0 here is the same dependency-skip defect class as the jq/tsx guards above — in the
+# aif container gh IS absent, so the gh-dependent cross-checks never ran and nobody knew.
+# Capture output so that under ZCode a violation reaches the model (non-zero exit + stderr is
+# swallowed by ZCode; JSON additionalContext is merged into the tool result).
 VALIDATOR_OUT="$("$TSX" "$VALIDATOR" "$FILE_PATH" 2>&1 1>/dev/null)"
 STATUS=$?
-[[ $STATUS -eq 2 ]] && exit 0
+if [[ $STATUS -eq 2 ]]; then
+  _emit_skip '⚠ validate-prompt: gh CLI unavailable — the gh-dependent spec cross-checks DID NOT RUN for this edit (soft-skip by validate-batch-spec.ts). This is a partial SKIP, not a pass; install gh to restore full validation.'
+  exit 0
+fi
 if [[ $STATUS -ne 0 ]] && _is_zcode; then
   _emit_ctx "PostToolUse" "❌ validate-prompt: batch-spec validation failed for ${FILE_PATH#${REPO_ROOT}/}
 $VALIDATOR_OUT"
   exit 0
 fi
-# CC path: re-emit captured stderr so the model sees it, then propagate the exit code.
-# Guard: emit only when non-empty (otherwise success-path would emit a stray \n, falsifying
-# the "byte-for-byte unchanged" contract — old hooks emitted nothing on success).
+# CC path: re-emit captured stderr, then exit 2 on violation — the only non-JSON channel
+# the model receives on PostToolUse (exit-1 stderr reaches the operator only; live-verified
+# 2026-07-24). Guard: emit only when non-empty (success-path emits nothing).
 [[ -n "$VALIDATOR_OUT" ]] && printf '%s\n' "$VALIDATOR_OUT" >&2
-exit $STATUS
+[[ $STATUS -ne 0 ]] && exit 2
+exit 0

@@ -172,3 +172,51 @@ describe.skipIf(!JQ)(
     });
   },
 );
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Dependency-missing SKIP must reach the model, not just stderr (aif-parity F1,
+// criterion (a) — silent `command -v jq || exit 0` guards; sibling of the
+// check-doc-authority.sh fix shipped in #1116). Channel semantics live-verified
+// 2026-07-24: research-patches/2026-07-24-posttooluse-channel-verification.md.
+// ═══════════════════════════════════════════════════════════════════════════════
+import { mkdtempSync as _mkdtempSync, symlinkSync as _symlinkSync } from 'node:fs';
+import { join as _join } from 'node:path';
+import { tmpdir as _tmpdir } from 'node:os';
+import { spawnSync as _spawnSync } from 'node:child_process';
+
+describe('dependency-missing skip is announced on the model channel', () => {
+  function runNoJq(filePath: string): { status: number; stdout: string; stderr: string } {
+    const binDir = _mkdtempSync(_join(_tmpdir(), 'nojq-'));
+    // sed/tr/head back the jq-free escaper + crude path parse; masking them too would
+    // test the harness, not the hook. dirname backs the REPO_ROOT fallback line.
+    for (const tool of ['sed', 'tr', 'cat', 'head', 'dirname', 'grep', 'sort', 'awk', 'stat', 'date', 'touch']) {
+      const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
+      if (real) _symlinkSync(real, _join(binDir, tool));
+    }
+    const env: Record<string, string> = { ...process.env, PATH: binDir } as Record<string, string>;
+    delete env.ZCODE_PROJECT_DIR;
+    const r = _spawnSync('/bin/bash', [HOOK], {
+      input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: filePath } }),
+      encoding: 'utf8',
+      env,
+    });
+    return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+  }
+
+  it('jq missing + in-scope path → hookSpecificOutput.additionalContext says DID NOT RUN (exit 0)', () => {
+    const { status, stdout } = runNoJq('/x/.claude/rules/some-rule.md');
+    expect(status).toBe(0);
+    const parsed = JSON.parse(stdout.trim()) as {
+      hookSpecificOutput: { hookEventName: string; additionalContext: string };
+    };
+    expect(parsed.hookSpecificOutput.hookEventName).toBe('PostToolUse');
+    expect(parsed.hookSpecificOutput.additionalContext).toMatch(/DID NOT RUN/);
+    expect(parsed.hookSpecificOutput.additionalContext).toMatch(/not a pass/i);
+  });
+
+  it('jq missing + OUT-of-scope path → silent exit 0 (no per-edit spam in a jq-less env)', () => {
+    const { status, stdout } = runNoJq('/x/docs/guide.md');
+    expect(status).toBe(0);
+    expect(stdout.trim()).toBe('');
+  });
+});

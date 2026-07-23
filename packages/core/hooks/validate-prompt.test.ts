@@ -12,7 +12,7 @@
  *   - Exit 2 from validate-batch-spec.ts → hook maps to exit 0 (hook:33)
  *
  * Paired-negative contract:
- *   ❌ orchestrator-prompt .md with a FAKE action SHA → exit 1 (blocked by validator)
+ *   ❌ orchestrator-prompt .md with a FAKE action SHA → exit 2 (blocked by validator)
  *   ✅ orchestrator-prompt .md with NO action SHAs → exit 0 (nothing to validate)
  *   ✅ path outside .claude/orchestrator-prompts/ → exit 0 (off-path skip, hook:21)
  *   ✅ path matching but non-.md extension → exit 0 (off-path skip, hook:21)
@@ -27,8 +27,8 @@
  * validate-batch-spec.ts which calls the gh CLI for SHA verification. When gh
  * is absent or returns exit 2 (tooling unavailable), the hook maps that to 0.
  * Tests that depend on the validator being called use a fixture .md with a
- * clearly fake SHA — which gh will report as 404 → exit 1 from the validator
- * → propagated as exit 1 by the hook.
+ * clearly fake SHA — which gh will report as 404 → exit 2 from the validator
+ * → surfaced as exit 2 by the hook (the model-visible PostToolUse channel).
  * If gh is entirely unavailable, the validator exits 2 → hook exits 0 → those
  * tests are skipped with `.skipIf(!GH)`.
  */
@@ -278,7 +278,7 @@ describe.skipIf(!JQ || !GH || !TSX)(
       expect(result.status).toBe(0);
     });
 
-    it('PAIRED-NEGATIVE: orchestrator-prompt with a clearly fake action SHA → exit 1 (hook:34 propagates validator exit 1)', () => {
+    it('PAIRED-NEGATIVE: orchestrator-prompt with a clearly fake action SHA → exit 2 (validator exit 1 → hook exit 2, the model-visible channel)', () => {
       // Uses a plausible-looking but certainly non-existent SHA so gh API returns 404,
       // making validate-batch-spec.ts emit exit 1 which the hook propagates unchanged.
       // 40-char hex string that will never resolve to a real commit.
@@ -288,8 +288,9 @@ describe.skipIf(!JQ || !GH || !TSX)(
       const content = `# Kickoff with bad SHA\n\n${fakeRef}\n`;
       const abs = writeOrchestratorPrompt(content);
       const result = runHook({ tool_input: { file_path: abs } });
-      // exit 1: validator found non-resolvable SHA → hook propagates it (hook:34)
-      expect(result.status).toBe(1);
+      // validator exits 1 (non-resolvable SHA) → hook maps it to exit 2 (exit-2 stderr is
+      // the only non-JSON channel the model receives on PostToolUse; verified 2026-07-24)
+      expect(result.status).toBe(2);
     });
 
     it('ZCODE: violating orchestrator-prompt under ZCODE_PROJECT_DIR → schema-valid {additionalContext} JSON, exit 0 (advisory, not gate)', () => {
@@ -340,3 +341,89 @@ describe.skipIf(!JQ || !GH || !TSX)(
     });
   },
 );
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Dependency-missing SKIP must reach the model, not just stderr (aif-parity F1,
+// criterion (a) — silent `command -v jq || exit 0` guards; sibling of the
+// check-doc-authority.sh fix shipped in #1116). Channel semantics live-verified
+// 2026-07-24: research-patches/2026-07-24-posttooluse-channel-verification.md.
+// ═══════════════════════════════════════════════════════════════════════════════
+import { mkdtempSync as _mkdtempSync, symlinkSync as _symlinkSync } from 'node:fs';
+import { join as _join } from 'node:path';
+import { tmpdir as _tmpdir } from 'node:os';
+import { spawnSync as _spawnSync } from 'node:child_process';
+
+describe('dependency-missing skip is announced on the model channel', () => {
+  function runNoJq(filePath: string): { status: number; stdout: string; stderr: string } {
+    const binDir = _mkdtempSync(_join(_tmpdir(), 'nojq-'));
+    // sed/tr/head back the jq-free escaper + crude path parse; masking them too would
+    // test the harness, not the hook. dirname backs the REPO_ROOT fallback line.
+    for (const tool of ['sed', 'tr', 'cat', 'head', 'dirname', 'grep', 'sort', 'awk', 'stat', 'date', 'touch']) {
+      const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
+      if (real) _symlinkSync(real, _join(binDir, tool));
+    }
+    const env: Record<string, string> = { ...process.env, PATH: binDir } as Record<string, string>;
+    delete env.ZCODE_PROJECT_DIR;
+    const r = _spawnSync('/bin/bash', [HOOK], {
+      input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: filePath } }),
+      encoding: 'utf8',
+      env,
+    });
+    return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+  }
+
+  it('jq missing + in-scope path → hookSpecificOutput.additionalContext says DID NOT RUN (exit 0)', () => {
+    const { status, stdout } = runNoJq('/x/.claude/orchestrator-prompts/wave-1/batch-2.md');
+    expect(status).toBe(0);
+    const parsed = JSON.parse(stdout.trim()) as {
+      hookSpecificOutput: { hookEventName: string; additionalContext: string };
+    };
+    expect(parsed.hookSpecificOutput.hookEventName).toBe('PostToolUse');
+    expect(parsed.hookSpecificOutput.additionalContext).toMatch(/DID NOT RUN/);
+    expect(parsed.hookSpecificOutput.additionalContext).toMatch(/not a pass/i);
+  });
+
+  it('jq missing + OUT-of-scope path → silent exit 0 (no per-edit spam in a jq-less env)', () => {
+    const { status, stdout } = runNoJq('/x/src/index.ts');
+    expect(status).toBe(0);
+    expect(stdout.trim()).toBe('');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Manual-twin drift guard (V3, 2026-07-24). plugin/hooks/validate-prompt is a
+// hand-maintained twin (`@plugin-transform: manual`) — the generator counts it but
+// never rewrites it, so fixes applied to the source can silently miss the twin
+// (observed: #1116 fixed the source's silent skips; the twin kept the old
+// stderr-only skip until 2026-07-24). ZCode consumers reach hooks ONLY via the
+// plugin channel (zcode-parity-doctrine.md §4), so a drifted twin = unfixed on
+// ZCode. These assertions lock the fix-invariants both files must share; a
+// sync-touch of the twin is required whenever they change in the source.
+// ═══════════════════════════════════════════════════════════════════════════════
+import { readFileSync as _readFileSync } from 'node:fs';
+import { resolve as _resolve } from 'node:path';
+
+describe('manual plugin twin carries the same channel fixes as the source', () => {
+  const twinPath = _resolve(REPO_ROOT, 'plugin/hooks/validate-prompt');
+  const twin = _readFileSync(twinPath, 'utf8');
+  const source = _readFileSync(HOOK, 'utf8');
+
+  it('twin announces dependency-missing skips via _emit_skip (not bare stderr)', () => {
+    expect(twin).toContain('_emit_skip');
+    expect(twin).not.toMatch(/jq unavailable — skipping/);
+  });
+
+  it('twin routes CC violations to exit 2 (the model-visible channel)', () => {
+    expect(twin).toMatch(/\[\[ \$STATUS -ne 0 \]\] && exit 2/);
+  });
+
+  it('twin keeps its declared divergence (T-PLUG-A validator guard)', () => {
+    expect(twin).toContain('T-PLUG-A');
+  });
+
+  it('source and twin share the same skip-notice wording (drift tell)', () => {
+    const notice = /batch-spec validation DID NOT RUN/;
+    expect(source).toMatch(notice);
+    expect(twin).toMatch(notice);
+  });
+});

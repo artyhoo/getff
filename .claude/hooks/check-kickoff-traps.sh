@@ -12,21 +12,47 @@
 # misses — and reaches edit-time, where principle 12 (CI-skipped, gitignored) cannot.
 # Whether the named traps are the RIGHT ones stays judgment → review-time, not gated.
 #
-# Exit 1 on violation (repo PostToolUse-gate convention: check-doc-authority.sh /
-# 09-doc-authority-hierarchy.bin.ts). Graceful no-op (exit 0) without jq, off-path,
-# or on a kickoff that has not yet engaged the rule.
+# Exit 2 on violation — on a PostToolUse hook, exit-2 stderr is the ONLY non-JSON channel
+# the model receives; exit-1 stderr reaches the operator transcript but NOT the model
+# (live-verified 2026-07-24 — see
+# docs/meta-factory/research-patches/2026-07-24-posttooluse-channel-verification.md).
+# Graceful-but-LOUD skip without jq (guard below); silent exit 0 off-path or on a kickoff
+# that has not yet engaged the rule.
 set -uo pipefail
 
-# Harness-portable output (inline — standalone in test sandboxes). CC: exit 1 + stderr is
-# advisory feedback. ZCode: JSON additionalContext (plain exit 1 swallowed); exit 0.
+# Harness-portable output (inline — standalone in test sandboxes). CC: exit 2 + stderr =
+# feedback the model receives (advisory in effect — PostToolUse cannot block). ZCode: JSON
+# additionalContext (exit 2 swallowed as HookRunFailed); exit 0.
 _is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
+# JSON-escape WITHOUT jq — jq is precisely the dependency that may be missing here.
+_json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n' ' '; }
+# Announce a dependency-missing skip on the channel the model actually receives on an
+# exit-0 path (JSON hookSpecificOutput), keeping stderr for terminal/CI readers.
+_emit_skip() {
+  if _is_zcode; then
+    printf '{"additionalContext":"%s"}\n' "$(_json_escape "$1")"
+  else
+    printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' \
+      "$(_json_escape "$1")"
+  fi
+  printf '%s\n' "$1" >&2
+}
 _emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
     jq -n --arg c "$2" '{additionalContext:$c}'
   else printf '%s\n' "$2"; fi; }
-_adv_violation() { if _is_zcode; then _emit_ctx "PostToolUse" "$1"; else printf '%s\n' "$1" >&2; exit 1; fi; }
+_adv_violation() { if _is_zcode; then _emit_ctx "PostToolUse" "$1"; else printf '%s\n' "$1" >&2; exit 2; fi; }
 
 REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
-command -v jq >/dev/null 2>&1 || exit 0   # graceful no-op without jq
+if ! command -v jq >/dev/null 2>&1; then
+  # jq-less best-effort path extraction (sed on raw stdin) — scope the skip notice to
+  # kickoff.md edits (or unparseable stdin — conservative), not every Edit/Write.
+  _RAW_PATH="$(sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+  case "$_RAW_PATH" in
+    *.claude/orchestrator-prompts/*/kickoff.md | "")
+      _emit_skip '⚠ check-kickoff-traps: jq unavailable — the kickoff T-enumeration check DID NOT RUN for this edit. This is a SKIP, not a pass; install jq to restore enforcement.' ;;
+  esac
+  exit 0
+fi
 
 INPUT="$(cat)"
 TOOL="$(printf '%s' "$INPUT" | jq -r '.tool_name // ""' 2>/dev/null || true)"
