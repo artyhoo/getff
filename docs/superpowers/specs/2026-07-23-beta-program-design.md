@@ -221,7 +221,14 @@ rehearsal; the one-beat pattern established by track-1 §9.3 is the precedent).
   inject-matching-rule, deps-hash staleness (install.sh:486-525) + the .husky
   pre-commit/pre-push gate chain — no shipped comfort/shield may be lost between
   profiles; non-CC coverage of these hooks is verified by C3 probes (16 zcode twins
-  exist). *Falsifier: the middle step finds no users through
+  exist). Companion satellites ride the existing `companions.manifest` consent
+  mechanism (superpowers, ast-grep, deepwiki already there); the `factory` profile
+  UPGRADES the aif-handoff row from detect+instruct to a consented guided INSTALL
+  (official repo path, docker compose; detect-first; decline → graceful `env`-level
+  degradation) — per the mandate «the whole multi-model contour in the payload» and
+  companion-install-principle (opt-in, official installer, never a hard dependency;
+  operator-only satellites like Superset stay out of the shipped axis per SSOT #86/#99).
+  *Falsifier: the middle step finds no users through
   phases 1-3 → collapse to two.*
 - **A2 — GLM one-button.** ADAPT the aider onboarding pattern: detect missing executor
   profile → one explanation (z.ai subscription, $18/mo Coding Plan) → human pastes ONE
