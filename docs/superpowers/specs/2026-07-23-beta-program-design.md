@@ -287,6 +287,19 @@ rehearsal; the one-beat pattern established by track-1 §9.3 is the precedent).
   consumer repo — the layout the hook already assumes; dedup-log path becomes
   per-project. npm packaging of the bridge is deferred with U9. *Falsifier: first foreign
   tester blocked by vendoring → raise bridge packaging priority.*
+- **A9 — Parallel-workspace one-command (operator requirement 2026-07-23).** Outside CC
+  the «how do I start a session in a worktree?» question must not exist — the flow is
+  automated to the `claude -w`/Superset bar. One command (working name `getff work
+  <name>`; final name at stage planning) composes: worktree creation (REUSE
+  `scripts/create-worktree.sh` — verified portable, configurable base-ref, dual-pair
+  with the CC hook — but NOT shipped today, zero install.sh/setup.d references) + dep
+  wiring + per-detected-harness session start: CC → defer to native `claude -w`;
+  ZCode → launch/print the ready command in the worktree dir; unknown harness → print
+  the exact next command. Flag-first/non-TTY prints instead of launching (AI DX).
+  Ships in `env`+. The Superset recipe (A1 satellite verdict) becomes the OPTIONAL
+  comfort-UI layer above this, not the load-bearing path. *Falsifier: per-harness
+  launch detection proves brittle → the command always prints (never launches), which
+  still kills the question.*
 - **A8 — Ship the contour skills.** Wiring-only additions of `/arch` and
   `claude-glm-executor-handoff` to the shipped sets in `setup.d/10-skills.sh` (env/factory
   profiles). Content of `/arch` is NOT edited here — three parallel sessions touch it
