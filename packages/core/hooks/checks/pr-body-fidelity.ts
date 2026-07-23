@@ -20,9 +20,14 @@
  *     declares a substrate must carry a real verdict. The detector is self-declared
  *     (weaker than the sibling prior-art gate, whose detector reads the diff — see
  *     pr-body-prior-art-bin.ts) because "is this a stage PR" is a property of the
- *     process, not of the diff. It still removes the silent default: bypassing requires
- *     writing a PR body that denies its own substrate — every Provenance section is
- *     inspected, so a decoy placeholder cannot absorb the check.
+ *     process, not of the diff. It still removes the silent default: every Provenance
+ *     section is inspected, so a decoy placeholder cannot absorb the check, and bypassing
+ *     requires either denying the substrate or altering the shipped `## Provenance`
+ *     heading (`## Provenance (in-session)` / `### Provenance` evade the exact-match
+ *     regex) — both are visible deviations from the template. Note the asymmetry:
+ *     renaming the verdict heading fails CLOSED (missing-section error), renaming
+ *     Provenance fails OPEN. That is inherent to a self-declared, heading-matched
+ *     detector; the guard raises the cost of bypass, it does not make it impossible.
  */
 export interface FidelityCheckInput { body: string; headSha: string; }
 export interface FidelityCheckResult { ok: boolean; errors: string[]; }
