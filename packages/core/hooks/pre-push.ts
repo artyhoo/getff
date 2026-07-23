@@ -23,7 +23,13 @@
  *   - section output is captured and re-emitted after each check rather than
  *     streamed live (acceptable for sub-second checks).
  */
-import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+} from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runCheck, type CheckResult } from './utils/run-check.ts';
@@ -823,6 +829,44 @@ function ruleGlobsSection(): void {
   }
 }
 
+// ── 3c-bis. worktree node_modules provisioning (maintainer, incident 2026-07-23) ──────
+// Self-healing preflight. A worktree created outside `claude -w` — the desktop app, an agent
+// container, a hand-run `git worktree add` — never runs .claude/hooks/worktree-setup.sh, so it
+// starts with no node_modules symlinks. Two concrete consequences downstream in THIS very hook:
+// packages/core/node_modules then resolves to the wrong layer and `build-synth-bundle.sh --check`
+// false-fails with "synth-bundle drift" (incident 2026-07-02); and the principles section below
+// runs vitest, which materialises node_modules/.vite — after which the path exists and NO channel
+// can ever provision the worktree again (32 of 125 worktrees were already in that state).
+//
+// It therefore runs FIRST (position 0 in ALL_SECTIONS — composeSections() is order-preserving)
+// so the symlinks land BEFORE vitest can plant the cache that would freeze them out.
+//
+// Heals rather than blocks: the only write is a gitignored symlink, and the shared helper
+// refuses any path holding a real install. Blocks ONLY when healing is impossible (the primary
+// checkout itself has no node_modules), and then names the exact remediation. Per the operator
+// directive — worktree symlink provisioning is a blocking check of the setup hook, not a manual
+// habit — and .claude/rules/attention-is-not-a-mechanism.md §1 (a gate, not a warning nobody reads).
+function worktreeProvisioningSection(): void {
+  const helper = resolve(REPO_ROOT, 'scripts/worktree-node-modules.sh');
+  // A worktree's .git is a FILE; the primary's is a directory. No git call needed.
+  if (!existsSync(helper) || !statSync(resolve(REPO_ROOT, '.git')).isFile())
+    return;
+
+  if (run('bash', [helper, '--check', REPO_ROOT]).exitCode === 0) return;
+
+  const applied = run('bash', [helper, '--apply', REPO_ROOT]);
+  if (applied.exitCode !== 0) {
+    die(
+      '❌ this worktree has no node_modules and cannot be provisioned automatically.\n' +
+        '   Run `npm install` in the primary checkout, then `bash scripts/worktree-doctor.sh --fix`.',
+      applied,
+    );
+  }
+  process.stdout.write(
+    '✓ worktree node_modules provisioned (symlinks were missing — healed before the test sections)\n',
+  );
+}
+
 // ── 3d. lint-staged binary resolution (consumer, universalization-fix-s2) ────
 // Shipped consumer gate (install.sh → scripts/check-lintstaged-resolves.sh): FAILS
 // if a lint-staged command's binary cannot resolve in the consumer's layout (e.g. a
@@ -1309,6 +1353,14 @@ function lycheeSection(ctx: SectionCtx): void {
  * order among the surviving consumer/both entries is unchanged.
  */
 const SECTIONS: readonly PrePushSection[] = [
+  // FIRST by design: must land the symlinks before any section shells out to vitest, which
+  // would otherwise plant node_modules/.vite and freeze this worktree out of provisioning
+  // permanently (incident 2026-07-23). composeSections() filters, preserving this order.
+  {
+    id: 'worktree-provisioning',
+    owner: 'maintainer',
+    run: () => worktreeProvisioningSection(),
+  },
   { id: 'actionlint', owner: 'maintainer', run: (c) => actionlintSection(c) },
   { id: 'zizmor-live', owner: 'maintainer', run: (c) => zizmorLiveSection(c) },
   {
