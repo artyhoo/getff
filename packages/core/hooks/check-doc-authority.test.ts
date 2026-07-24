@@ -165,8 +165,14 @@ symlinkSync(
 
 /** Extra tempdirs created by individual tests (outside-repo fixtures). */
 const extraTmpDirs: string[] = [];
+/** Extra git repos created by tier tests (worktree cleanup before dir removal). */
+const extraGitRepos: string[] = [];
 
 afterAll(() => {
+  for (const repo of extraGitRepos.splice(0)) {
+    try { execSync(`git -C "${repo}" worktree remove --all --force 2>/dev/null`, { stdio: 'ignore' }); } catch {}
+    rmSync(repo, { recursive: true, force: true });
+  }
   rmSync(SANDBOX, { recursive: true, force: true });
   for (const d of extraTmpDirs.splice(0))
     rmSync(d, { recursive: true, force: true });
@@ -502,5 +508,244 @@ describe('check-doc-authority.sh — dependency-missing skip is announced, not s
     const { stderr } = runWithoutJq();
 
     expect(stderr).toMatch(/jq unavailable/);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TSX RESOLUTION TIERS — linked worktrees carry no node_modules, so the hook must
+// resolve tsx through: 1. repo-local  2. main-worktree via git --git-common-dir
+// 3. tsx on PATH.  Kickoff §3 criteria 1-5.
+//
+// The defect (kickoff §1): TSX was hard-coded to $REPO_ROOT/node_modules/.bin/tsx,
+// which is ABSENT in linked worktrees → the gate was structurally inert there.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** PATH with all tsx-containing directories removed — isolates tiers 1/2 from tier 3. */
+function pathWithoutTsx(): string {
+  return (process.env.PATH || '')
+    .split(':')
+    .filter((dir) => !existsSync(join(dir, 'tsx')))
+    .join(':');
+}
+
+describe.skipIf(!JQ || !TSX)(
+  'check-doc-authority.sh — tsx resolution tiers',
+  () => {
+    /**
+     * Build a minimal git repo mirroring the repo-root layout the hook expects.
+     * node_modules is symlinked AFTER the initial commit so linked worktrees
+     * checked out from this repo do NOT inherit it (linked worktrees carry no
+     * node_modules — the exact defect condition).
+     */
+    function makeGitRepo(opts: { nodeModules: boolean }): string {
+      const root = realpathSync(mkdtempSync(join(tmpdir(), 'tier-git-')));
+      execSync('git init -q && git config user.email t@t && git config user.name T', { cwd: root });
+      mkdirSync(join(root, '.claude', 'hooks'), { recursive: true });
+      mkdirSync(join(root, '.claude', 'rules'), { recursive: true });
+      mkdirSync(join(root, 'packages', 'core', 'principles'), { recursive: true });
+      copyFileSync(REAL_HOOK, join(root, '.claude', 'hooks', 'check-doc-authority.sh'));
+      copyFileSync(
+        REAL_BIN,
+        join(root, 'packages', 'core', 'principles', '09-doc-authority-hierarchy.bin.ts'),
+      );
+      copyFileSync(
+        REAL_MODULE,
+        join(root, 'packages', 'core', 'principles', '09-doc-authority-hierarchy.ts'),
+      );
+      writeFileSync(join(root, '.gitignore'), 'node_modules\n');
+      writeFileSync(join(root, 'README'), 'init\n');
+      execSync('git add -A && git commit -qm init', { cwd: root });
+      if (opts.nodeModules) {
+        symlinkSync(join(REPO_ROOT, 'node_modules'), join(root, 'node_modules'), 'dir');
+      }
+      return root;
+    }
+
+    // ── Criterion 1: TIER 2 resolves in linked worktree ──────────────────────
+
+    it('tier 2: linked worktree resolves tsx from main worktree — check RUNS (exit 2)', () => {
+      // _resolve_tsx tier 2: git rev-parse --git-common-dir → main worktree root
+      const main = makeGitRepo({ nodeModules: true });
+      extraGitRepos.push(main);
+
+      // Linked worktree: checked out from commit → has hook+bin but NOT node_modules
+      const wt = join(
+        tmpdir(),
+        `tier2-wt-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      );
+      execSync(`git -C "${main}" worktree add --detach -q "${wt}"`);
+
+      // Fixture: required doc WITHOUT authority header
+      // (mkdir: git doesn't track empty dirs → .claude/rules/ absent in worktree checkout)
+      mkdirSync(join(wt, '.claude', 'rules'), { recursive: true });
+      const docPath = join(wt, '.claude', 'rules', 'doc-authority-hierarchy.md');
+      writeFileSync(docPath, MISSING_HEADER, 'utf8');
+
+      // PATH stripped of tsx so tier 3 cannot rescue — tier 2 is the ONLY path
+      const fullEnv = { ...process.env, PATH: pathWithoutTsx() } as Record<string, string>;
+      delete fullEnv.CLAUDE_PROJECT_DIR;
+      delete fullEnv.ZCODE_PROJECT_DIR;
+      const r = spawnSync('bash', [join(wt, '.claude', 'hooks', 'check-doc-authority.sh')], {
+        input: JSON.stringify({ tool_name: 'Edit', tool_input: { file_path: docPath } }),
+        encoding: 'utf8',
+        cwd: wt,
+        env: fullEnv,
+      });
+
+      expect(r.status, `stderr: ${r.stderr}`).toBe(2);
+      expect(r.stderr ?? '').toMatch(/FAIL/);
+      expect(r.stderr ?? '').toMatch(/missing.*Authoritative for/i);
+    });
+
+    // ── Criterion 2: PRECEDENCE — tier 1 wins over PATH ──────────────────────
+
+    it('tier 1 precedence: repo-local tsx used even when PATH has a different tsx', () => {
+      // Fake tsx on PATH — would produce wrong output if tier 3 were used
+      const fakeDir = mkdtempSync(join(tmpdir(), 'fake-tsx-'));
+      extraTmpDirs.push(fakeDir);
+      writeFileSync(
+        join(fakeDir, 'tsx'),
+        '#!/usr/bin/env bash\necho "FAKE_PATH_TSX_INVOKED" >&2\nexit 99\n',
+      );
+      execSync(`chmod +x "${join(fakeDir, 'tsx')}"`);
+
+      // SANDBOX has real node_modules → tier 1. Fake tsx placed FIRST on PATH.
+      const abs = writeFixtureDoc(MISSING_HEADER);
+      const fullEnv = {
+        ...process.env,
+        PATH: `${fakeDir}:${process.env.PATH}`,
+      } as Record<string, string>;
+      delete fullEnv.ZCODE_PROJECT_DIR;
+      const r = spawnSync('bash', [HOOK], {
+        input: JSON.stringify({ tool_name: 'Edit', tool_input: { file_path: abs } }),
+        encoding: 'utf8',
+        cwd: SANDBOX,
+        env: fullEnv,
+      });
+
+      // Tier 1 used → real check runs → /FAIL/.  Tier 3 used (bug) → /FAKE_PATH_TSX/.
+      expect(r.status, `stderr: ${r.stderr}`).toBe(2);
+      expect(r.stderr ?? '').toMatch(/FAIL/);
+      expect(r.stderr ?? '').not.toMatch(/FAKE_PATH_TSX_INVOKED/);
+    });
+
+    // ── Criterion 3: TIER 3 (PATH) works when tiers 1/2 absent ───────────────
+
+    it('tier 3: tsx on PATH resolves when repo-local and main-worktree absent', () => {
+      // Non-git sandbox, no node_modules → tiers 1+2 miss, tier 3 must resolve
+      const box = realpathSync(mkdtempSync(join(tmpdir(), 'tier3-')));
+      extraTmpDirs.push(box);
+      mkdirSync(join(box, '.claude', 'hooks'), { recursive: true });
+      mkdirSync(join(box, '.claude', 'rules'), { recursive: true });
+      mkdirSync(join(box, 'packages', 'core', 'principles'), { recursive: true });
+      copyFileSync(REAL_HOOK, join(box, '.claude', 'hooks', 'check-doc-authority.sh'));
+      copyFileSync(
+        REAL_BIN,
+        join(box, 'packages', 'core', 'principles', '09-doc-authority-hierarchy.bin.ts'),
+      );
+      copyFileSync(
+        REAL_MODULE,
+        join(box, 'packages', 'core', 'principles', '09-doc-authority-hierarchy.ts'),
+      );
+
+      const docPath = join(box, '.claude', 'rules', 'doc-authority-hierarchy.md');
+      writeFileSync(docPath, MISSING_HEADER, 'utf8');
+
+      const fullEnv = { ...process.env } as Record<string, string>;
+      delete fullEnv.CLAUDE_PROJECT_DIR;
+      delete fullEnv.ZCODE_PROJECT_DIR;
+      const r = spawnSync('bash', [join(box, '.claude', 'hooks', 'check-doc-authority.sh')], {
+        input: JSON.stringify({ tool_name: 'Edit', tool_input: { file_path: docPath } }),
+        encoding: 'utf8',
+        cwd: box,
+        env: fullEnv,
+      });
+
+      expect(r.status, `stderr: ${r.stderr}`).toBe(2);
+      expect(r.stderr ?? '').toMatch(/FAIL/);
+    });
+
+    // ── Criterion 5: non-git dir → tier 2 skipped quietly ────────────────────
+
+    it('criterion 5: non-git dir → tier 2 skipped quietly, no git error on model channel', () => {
+      // Non-git sandbox, no node_modules. Tier 2 calls git rev-parse which fails
+      // outside a repo → must be swallowed, not leaked to stderr/stdout.
+      const box = realpathSync(mkdtempSync(join(tmpdir(), 'nogit-')));
+      extraTmpDirs.push(box);
+      mkdirSync(join(box, '.claude', 'hooks'), { recursive: true });
+      mkdirSync(join(box, '.claude', 'rules'), { recursive: true });
+      mkdirSync(join(box, 'packages', 'core', 'principles'), { recursive: true });
+      copyFileSync(REAL_HOOK, join(box, '.claude', 'hooks', 'check-doc-authority.sh'));
+      copyFileSync(
+        REAL_BIN,
+        join(box, 'packages', 'core', 'principles', '09-doc-authority-hierarchy.bin.ts'),
+      );
+      copyFileSync(
+        REAL_MODULE,
+        join(box, 'packages', 'core', 'principles', '09-doc-authority-hierarchy.ts'),
+      );
+
+      const docPath = join(box, '.claude', 'rules', 'doc-authority-hierarchy.md');
+      writeFileSync(docPath, MISSING_HEADER, 'utf8');
+
+      const fullEnv = { ...process.env } as Record<string, string>;
+      delete fullEnv.CLAUDE_PROJECT_DIR;
+      delete fullEnv.ZCODE_PROJECT_DIR;
+      const r = spawnSync('bash', [join(box, '.claude', 'hooks', 'check-doc-authority.sh')], {
+        input: JSON.stringify({ tool_name: 'Edit', tool_input: { file_path: docPath } }),
+        encoding: 'utf8',
+        cwd: box,
+        env: fullEnv,
+      });
+
+      // Tier 3 resolved → check ran
+      expect(r.status, `stderr: ${r.stderr}`).toBe(2);
+      // No git error leaked to either channel
+      expect(r.stderr ?? '').not.toMatch(/fatal:.*not a git repository/i);
+      expect(r.stdout ?? '').not.toMatch(/fatal:.*not a git repository/i);
+    });
+  },
+);
+
+// ── Criterion 4: no tsx anywhere → existing skip notice ──────────────────────
+
+describe('check-doc-authority.sh — tsx not found (all tiers miss) → existing skip', () => {
+  it('all tiers miss → _emit_skip notice on model channel, exit 0', () => {
+    // No node_modules (tier 1 miss), not a git repo (tier 2 miss),
+    // PATH stripped of tsx (tier 3 miss) → must hit the existing _emit_skip.
+    const box = realpathSync(mkdtempSync(join(tmpdir(), 'all-miss-')));
+    extraTmpDirs.push(box);
+    mkdirSync(join(box, '.claude', 'hooks'), { recursive: true });
+    mkdirSync(join(box, 'packages', 'core', 'principles'), { recursive: true });
+    copyFileSync(REAL_HOOK, join(box, '.claude', 'hooks', 'check-doc-authority.sh'));
+    copyFileSync(
+      REAL_BIN,
+      join(box, 'packages', 'core', 'principles', '09-doc-authority-hierarchy.bin.ts'),
+    );
+    copyFileSync(
+      REAL_MODULE,
+      join(box, 'packages', 'core', 'principles', '09-doc-authority-hierarchy.ts'),
+    );
+
+    const fullEnv = { ...process.env, PATH: pathWithoutTsx() } as Record<string, string>;
+    delete fullEnv.CLAUDE_PROJECT_DIR;
+    delete fullEnv.ZCODE_PROJECT_DIR;
+    const r = spawnSync('/bin/bash', [join(box, '.claude', 'hooks', 'check-doc-authority.sh')], {
+      input: JSON.stringify({
+        tool_name: 'Edit',
+        tool_input: { file_path: join(box, 'CLAUDE.md') },
+      }),
+      encoding: 'utf8',
+      cwd: box,
+      env: fullEnv,
+    });
+
+    expect(r.status).toBe(0);
+    const parsed = JSON.parse(r.stdout.trim()) as {
+      hookSpecificOutput: { hookEventName: string; additionalContext: string };
+    };
+    expect(parsed.hookSpecificOutput.hookEventName).toBe('PostToolUse');
+    expect(parsed.hookSpecificOutput.additionalContext).toMatch(/DID NOT RUN/);
+    expect(parsed.hookSpecificOutput.additionalContext).toMatch(/not a pass/i);
   });
 });
