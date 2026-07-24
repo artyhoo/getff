@@ -12,6 +12,7 @@ One line per rule — full text: read `.claude/rules/<name>.md` (index: `.claude
 | `build-first-reuse-default.md` | A | any capability commit / new-capability proposal. | always-on core |
 | `ci-tool-pinning.md` | A | editing `.github/workflows/**` or any repo shell script (`*.sh`, `setup`, `install.sh`). | paths:(6), edit-time inject |
 | `companion-install-principle.md` | B | editing `setup.d/**` (companion install manifest/engine). | paths:(1), edit-time inject |
+| `destination-environment-verification.md` | B | authoring any kickoff under `.claude/orchestrator-prompts/<umbrella>/`; accepting work produced by a dispatched (container-executing) worker. | paths:(1), edit-time inject |
 | `doc-authority-hierarchy.md` | A | creating/editing any canonical or shipped consumer-facing doc. | paths:(4), edit-time inject |
 | `dual-implementation-discipline.md` | A | shipping a new CC-native hook + choosing its delivery channel(s). | paths:(3), edit-time inject |
 | `egress-no-api-bypass.md` | B | harvesting/egressing a finished aif-agent branch to a PR. | skill-embed |

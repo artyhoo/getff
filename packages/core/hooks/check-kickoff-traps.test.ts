@@ -79,10 +79,22 @@ function runHook(
     encoding: 'utf8',
     env: fullEnv,
   });
-  return { status: r.status ?? -1, stdout: r.stdout ?? '' };
+  // stderr is returned too: on CC the violation text rides on stderr (exit 2), so a test
+  // that only checks the exit code cannot tell WHICH arm fired.
+  return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
 }
 
 const CITE = 'See .claude/rules/ai-laziness-traps.md §2.';
+
+/**
+ * Arm-1 (destination-environment contract) opt-out, appended to the arm-2 fixtures that
+ * assert exit 0. The hook accumulates violations across BOTH arms, so an arm-2 fixture
+ * must satisfy arm 1 to isolate what it is actually testing. Arm 1 has its own paired
+ * tests in the `host-verification contract` describe block below — this constant does not
+ * hide it. Rationale is ≥20 chars, as the gate requires.
+ */
+const HV_OPTOUT =
+  '<!-- host-verify: none — fixture exercises the trap-enumeration arm only -->';
 
 describe.skipIf(!JQ)(
   'check-kickoff-traps.sh — PostToolUse kickoff T-enumeration gate',
@@ -103,14 +115,14 @@ describe.skipIf(!JQ)(
 
     it('PAIRED-POSITIVE: engages rule + ≥3 distinct T-numbers → exit 0', () => {
       const abs = writeKickoff(
-        `# Wave N kickoff\n${CITE}\nActive traps: T1, T3, T7, T15.\n`,
+        `# Wave N kickoff\n${CITE}\nActive traps: T1, T3, T7, T15.\n${HV_OPTOUT}\n`,
       );
       expect(runHook('Write', abs).status).toBe(0);
     });
 
     it('boundary: exactly 3 distinct T-numbers → exit 0', () => {
       const abs = writeKickoff(
-        `# Wave N kickoff\n${CITE}\nActive traps for this R-phase: T1, T4, T10.\n`,
+        `# Wave N kickoff\n${CITE}\nActive traps for this R-phase: T1, T4, T10.\n${HV_OPTOUT}\n`,
       );
       expect(runHook('Write', abs).status).toBe(0);
     });
@@ -124,7 +136,7 @@ describe.skipIf(!JQ)(
 
     it('engagement guard: kickoff that never mentions the rule → exit 0 (not C2 territory)', () => {
       const abs = writeKickoff(
-        '# Wave N kickoff\n\nA plan with no trap discipline at all.\n',
+        `# Wave N kickoff\n\nA plan with no trap discipline at all.\n${HV_OPTOUT}\n`,
       );
       expect(runHook('Write', abs).status).toBe(0);
     });
@@ -252,5 +264,72 @@ describe('dependency-missing skip is announced on the model channel', () => {
     const { status, stdout } = runNoJq('/x/README.md');
     expect(status).toBe(0);
     expect(stdout.trim()).toBe('');
+  });
+});
+
+/**
+ * Arm 1 — destination-environment verification contract.
+ * spec: .claude/rules/destination-environment-verification.md §1
+ *
+ * The gate delegates contract RECOGNITION to scripts/host-verify.sh --list, so the hook and
+ * the runner cannot disagree about what counts as a contract. These tests therefore also
+ * pin the shared grammar: the marker is matched on the fence INFO-STRING, so neither a
+ * prose mention nor an unmarked block opens one.
+ */
+describe('check-kickoff-traps.sh — destination-environment contract arm', () => {
+  it('PAIRED-NEGATIVE: kickoff with no contract and no opt-out → exit 2', () => {
+    const abs = writeKickoff('# Wave N kickoff\n\nA plan with no host contract.\n');
+    const r = runHook('Write', abs);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/declares no host-verification contract/);
+  });
+
+  it('PAIRED-POSITIVE: a host-verify fenced block → exit 0', () => {
+    const abs = writeKickoff(
+      '# Wave N kickoff\n\n```bash host-verify\nnpx vitest run packages/core/principles\n```\n',
+    );
+    expect(runHook('Write', abs).status).toBe(0);
+  });
+
+  it('opt-out with a ≥20-char rationale → exit 0', () => {
+    const abs = writeKickoff(`# Wave N kickoff\n${HV_OPTOUT}\n`);
+    expect(runHook('Write', abs).status).toBe(0);
+  });
+
+  it('opt-out with a too-short rationale → exit 2 (no bare escape token)', () => {
+    const abs = writeKickoff('# Wave N kickoff\n<!-- host-verify: none — too short -->\n');
+    const r = runHook('Write', abs);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/floor: 20/);
+  });
+
+  it('a PROSE mention of host-verify does not satisfy the contract → exit 2', () => {
+    const abs = writeKickoff(
+      '# Wave N kickoff\n\nThe orchestrator will host-verify this on the host, honest.\n',
+    );
+    expect(runHook('Write', abs).status).toBe(2);
+  });
+
+  it('an UNMARKED fenced block does not satisfy the contract → exit 2', () => {
+    const abs = writeKickoff('# Wave N kickoff\n\n```bash\nnpx vitest run foo\n```\n');
+    expect(runHook('Write', abs).status).toBe(2);
+  });
+
+  it('a marked block containing only comments/blanks is NOT a contract → exit 2', () => {
+    // T-BATCH-A shape: an empty contract would make the gate look satisfied while
+    // committing the worker to nothing. The runner strips comments and blanks, so an
+    // all-comment block resolves to zero commands and must fail exactly like no block.
+    const abs = writeKickoff(
+      '# Wave N kickoff\n\n```bash host-verify\n# TODO: fill this in later\n\n```\n',
+    );
+    expect(runHook('Write', abs).status).toBe(2);
+  });
+
+  it('BOTH arms violated → both messages are reported in one pass (no round-trip per rule)', () => {
+    const abs = writeKickoff(`# Wave N kickoff\n${CITE}\nOnly T1 here.\n`);
+    const r = runHook('Write', abs);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/declares no host-verification contract/);
+    expect(r.stderr).toMatch(/floor: 3/);
   });
 });

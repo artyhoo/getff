@@ -72,18 +72,73 @@ esac
 [[ -f "$ABS_PATH" ]] || exit 0
 CONTENT="$(cat "$ABS_PATH" 2>/dev/null || true)"
 
+# Violations accumulate — a kickoff can breach both arms, and reporting one at a time
+# costs the author a round-trip per rule. (Same posture as validate_s17 in the operator's
+# git-safety.sh, which loops over Forward AND Backward and joins every error.)
+VIOLATIONS=()
+
+# ── Arm 1 — destination-environment verification contract ─────────────────────
+# spec: .claude/rules/destination-environment-verification.md §1
+# Every kickoff under orchestrator-prompts is a dispatch input, and a dispatched worker
+# executes in the aif container while the artefact is accepted on the HOST. The kickoff
+# must therefore name the commands the orchestrator runs on the host, or explicitly
+# declare that none apply. Grammar + extraction live in ONE place — scripts/host-verify.sh
+# (`--list` exits 0 when a contract block resolves, 2 when it does not), so this gate and
+# the runner can never disagree about what counts as a contract (#sync-by-copy-paste).
+# Resolve the runner by TIER, and announce a miss LOUDLY rather than skipping in silence.
+# Same defect class as the 2026-07-24 tsx-resolution incident: three gates resolved their
+# runner from one hard-coded repo-local path and went inert wherever that path was absent —
+# one of them silently. Tier 1 = the project root the harness reports; tier 2 = this hook's
+# own checkout (correct even when CLAUDE_PROJECT_DIR points elsewhere, e.g. a test sandbox).
+HV_RUNNER=""
+for _cand in \
+  "$REPO_ROOT/scripts/host-verify.sh" \
+  "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." 2>/dev/null && pwd)/scripts/host-verify.sh"; do
+  if [[ -f "$_cand" ]]; then HV_RUNNER="$_cand"; break; fi
+done
+# Opt-out: an explicit token with a real rationale (≥20 chars), never bare silence.
+# Precedent: ci-tool-pinning.md §3 error-with-escape-token.
+HV_OPTOUT="$(printf '%s' "$CONTENT" | sed -n 's/.*<!--[[:space:]]*host-verify:[[:space:]]*none[[:space:]]*[—-][[:space:]]*\(.*\)-->.*/\1/p' | head -1)"
+HV_OPTOUT="${HV_OPTOUT%"${HV_OPTOUT##*[![:space:]]}"}"
+if [[ -n "$HV_OPTOUT" ]]; then
+  if [[ "${#HV_OPTOUT}" -lt 20 ]]; then
+    VIOLATIONS+=("❌ kickoff host-verify: $REL_PATH opts out with a ${#HV_OPTOUT}-char rationale (floor: 20).
+   Say WHY no host command applies, e.g. <!-- host-verify: none — prose-only kickoff, no executable deliverable -->")
+  fi
+elif [[ -z "$HV_RUNNER" ]]; then
+  _emit_skip '⚠ check-kickoff-traps: scripts/host-verify.sh not found — the host-verification contract check DID NOT RUN for this edit. This is a SKIP, not a pass.'
+else
+  if ! bash "$HV_RUNNER" --list "$ABS_PATH" >/dev/null 2>&1; then
+    VIOLATIONS+=("❌ kickoff host-verify: $REL_PATH declares no host-verification contract.
+   The worker runs in the aif container; the work is accepted on the HOST. Four incidents on
+   2026-07-24 were this one class (docker absent, cat elsewhere, tsx absent, a timing budget
+   sized to the container that fails 3/3 on the host).
+   Add the commands the orchestrator will run on the host:
+     \`\`\`bash host-verify
+     npx vitest run <the test this kickoff changes>
+     \`\`\`
+   or opt out explicitly: <!-- host-verify: none — <why, ≥20 chars> -->
+   Verify with: bash scripts/host-verify.sh <umbrella>
+   spec: .claude/rules/destination-environment-verification.md §1")
+  fi
+fi
+
+# ── Arm 2 — ai-laziness-traps T-enumeration floor ─────────────────────────────
 # Engagement guard: only enforce the floor once the author engages the rule. A
 # kickoff that never mentions ai-laziness-traps is principle-12 / review territory.
-printf '%s' "$CONTENT" | grep -q 'ai-laziness-traps' || exit 0
-
-# Count DISTINCT canonical T-numbers (T1, T12, …). Domain labels (T-Wave9-A) are a
-# separate §3 #3 obligation and excluded from this count.
-DISTINCT="$(printf '%s' "$CONTENT" | grep -oE '\bT[0-9]+\b' | sort -u | grep -c .)"
-
-if [[ "$DISTINCT" -lt 3 ]]; then
-  _adv_violation "❌ kickoff-traps: $REL_PATH engages ai-laziness-traps but enumerates only $DISTINCT distinct T-number(s) (floor: 3).
+if printf '%s' "$CONTENT" | grep -q 'ai-laziness-traps'; then
+  # Count DISTINCT canonical T-numbers (T1, T12, …). Domain labels (T-Wave9-A) are a
+  # separate §3 #3 obligation and excluded from this count.
+  DISTINCT="$(printf '%s' "$CONTENT" | grep -oE '\bT[0-9]+\b' | sort -u | grep -c .)"
+  if [[ "$DISTINCT" -lt 3 ]]; then
+    VIOLATIONS+=("❌ kickoff-traps: $REL_PATH engages ai-laziness-traps but enumerates only $DISTINCT distinct T-number(s) (floor: 3).
    §3 obligation #2: list the active traps, e.g. \"Active traps for this R-phase: T1, T3, T7\".
-   Citing the rule without naming ≥3 traps = #trap-catalogue-blanket-reference."
+   Citing the rule without naming ≥3 traps = #trap-catalogue-blanket-reference.")
+  fi
+fi
+
+if [[ "${#VIOLATIONS[@]}" -gt 0 ]]; then
+  _adv_violation "$(printf '%s\n' "${VIOLATIONS[@]}")"
   exit 0
 fi
 exit 0
