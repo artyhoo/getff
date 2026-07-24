@@ -127,9 +127,55 @@ fi
 #     a paragraph, so … a fenced code block can have ≤3 spaces indentation."
 #   - A fence opened inside an HTML comment does not count (the bytes are invisible to humans).
 #   - Inline code spans on prose lines are stripped before HTML-comment scanning, so a `<!--`
-#     inside backticks is text, not a comment opener.
+#     inside backticks is text, not a comment opener. The stripper is CommonMark-correct:
+#     a span opens with a run of N backticks and closes with the next run of EQUAL length N
+#     (runs of different length inside are content, not closers). A single-backtick-only
+#     regex was defeated by any multi-backtick run earlier on the same line (the delimiter
+#     scan mis-paired and left the following single-backtick span unstripped), turning a
+#     QUOTED opt-out token into a live one and silently skipping the contract — regression
+#     of 2026-07-25 on this repository's own kickoff.
 #   - Trailing `\r` (CRLF kickoff) is stripped at the top, before every other check.
 AWK_PARSER='
+# Strip every inline code span from `line`, honoring CommonMark multi-backtick spans.
+# A span opens with a run of N>=1 backticks and closes with the next run of EQUAL length N.
+# Runs of any other length inside the span are content. Returns the line with every span
+# removed, so the subsequent HTML-comment scan never sees a token that was wrapped in
+# backticks of any length.
+function strip_code_spans(line,    out, i, n, rest, j, m, close_pos, close_len) {
+  out = ""
+  i = 1
+  while (i <= length(line)) {
+    if (substr(line, i, 1) != "`") {
+      out = out substr(line, i, 1)
+      i++
+      continue
+    }
+    n = 0
+    while (substr(line, i + n, 1) == "`") n++
+    rest = substr(line, i + n)
+    close_pos = 0; close_len = 0; j = 1
+    while (j <= length(rest)) {
+      if (substr(rest, j, 1) == "`") {
+        m = 0
+        while (substr(rest, j + m, 1) == "`") m++
+        if (m == n) { close_pos = j; close_len = m; break }
+        j += m
+      } else {
+        j++
+      }
+    }
+    if (close_pos == 0) {
+      # No equal-length closing run — opening backticks are literal text.
+      out = out substr(line, i, n)
+      i += n
+    } else {
+      # Skip opening run + content + closing run.
+      i = i + n + (close_pos - 1) + close_len
+    }
+  }
+  return out
+}
+
 BEGIN {
   in_html = 0; in_fence = 0; fc = ""; fl = 0; collect = 0
   optout_buf = ""; optout_found = ""
@@ -200,13 +246,11 @@ in_fence {
   # Indented (lc >= 4): treat as indented code block — no fence, no opt-out scan.
   if (lc >= 4) next
 
-  # Prose line. Strip inline code spans before HTML-comment detection so a `<!--` inside
-  # backticks is text, not a comment opener. Handles single-backtick spans only; multi-backtick
-  # spans are rare in practice and not load-bearing for any named bypass.
-  work = $0
-  while (match(work, /`[^`]*`/)) {
-    work = substr(work, 1, RSTART - 1) substr(work, RSTART + RLENGTH)
-  }
+  # Prose line. Strip ALL inline code spans before HTML-comment detection so a `<!--` inside
+  # backticks is text, not a comment opener. Multi-backtick spans are honored: a quoted opt-out
+  # token must never be visible to the HTML-comment scan, regardless of how many backticks
+  # wrap it or what other spans appear earlier on the same line.
+  work = strip_code_spans($0)
 
   # Scan for HTML comments (possibly several on one line).
   while (index(work, "<!--") > 0) {
@@ -253,10 +297,32 @@ if [ "$AWK_RC" -eq 3 ]; then
   exit 2
 fi
 
+# ── Extract contract + opt-out, then enforce precedence ───────────────────────
+# Both are pulled from the same single awk pass, then dispatched on precedence:
+# a real opt-out alone exits 0; a contract alone runs; BOTH present is internally
+# inconsistent and fails loudly. The "opt-out-wins" amplifier of the 2026-07-25
+# regression — a parser bug surfaced a quoted token and the runner silently
+# skipped the contract — is closed: a surviving token AND a contract block
+# is no longer "exit 0 either way".
+COMMANDS="$(printf '%s\n' "$AWK_OUTPUT" | sed -n 's/^CONTRACT //p')"
+# Drop blank and comment-only lines.
+COMMANDS="$(printf '%s\n' "$COMMANDS" | grep -vE '^[[:space:]]*(#|$)' || true)"
+OPTOUT_RATIONALE="$(printf '%s\n' "$AWK_OUTPUT" | sed -n 's/^OPTOUT //p' | head -1)"
+
+# Precedence: both present → internally inconsistent → exit 2.
+# With correct fence/code-span stripping a quoted token is never seen at all, so
+# this guard fires only for a real opt-out alongside a real contract — which is
+# genuinely inconsistent and should not silently resolve to "exit 0 either way".
+if [ -n "$OPTOUT_RATIONALE" ] && [ -n "$COMMANDS" ]; then
+  printf '❌ host-verify: %s declares BOTH a contract block AND an opt-out — internally inconsistent.\n' \
+    "${KICKOFF#"$REPO_ROOT/"}" >&2
+  printf '   Either remove the opt-out token or remove the contract block.\n' >&2
+  exit 2
+fi
+
 # ── Opt-out branch ─────────────────────────────────────────────────────────────
 # A valid opt-out (≥20 chars, locale-independent count) exits 0 with the rationale printed.
 # A too-short opt-out exits 2 with the measured length. No opt-out → fall through to contract.
-OPTOUT_RATIONALE="$(printf '%s\n' "$AWK_OUTPUT" | sed -n 's/^OPTOUT //p' | head -1)"
 if [ -n "$OPTOUT_RATIONALE" ]; then
   # Locale-independent character count: strip UTF-8 continuation bytes (0x80-0xBF = \200-\277),
   # then count bytes. Each UTF-8 character leaves exactly one byte (its leading byte), so the
@@ -279,11 +345,7 @@ if [ -n "$OPTOUT_RATIONALE" ]; then
   exit 0
 fi
 
-# ── Contract branch ────────────────────────────────────────────────────────────
-COMMANDS="$(printf '%s\n' "$AWK_OUTPUT" | sed -n 's/^CONTRACT //p')"
-# Drop blank and comment-only lines.
-COMMANDS="$(printf '%s\n' "$COMMANDS" | grep -vE '^[[:space:]]*(#|$)' || true)"
-
+# ── Contract branch (COMMANDS extracted above) ────────────────────────────────
 if [ -z "$COMMANDS" ]; then
   printf '❌ host-verify: %s declares no `host-verify` contract block.\n' "${KICKOFF#"$REPO_ROOT/"}" >&2
   printf '   A missing contract is a FAIL, not a pass — see .claude/rules/destination-environment-verification.md §1.\n' >&2

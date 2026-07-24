@@ -508,4 +508,117 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/kickoff host-verify:/);
   });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 2026-07-25 rework: four variants the acceptance mandate names, plus the
+  // precedence rule that closes the "opt-out-wins" amplifier of the regression.
+  // Each variant pairs the quoted opt-out with a REAL contract block — the shape
+  // the regression silently skipped. With correct code-span stripping the quoted
+  // token is invisible, the contract is recognised, and rc=0 with commands listed.
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  it('B1 variant 1: opt-out in a single-backtick span ONLY + real contract → ignored, contract runs (rc=0)', () => {
+    // Control: single-backtick stripping was already correct when no other span
+    // appeared earlier on the same line. The contract must be recognised.
+    const abs = writeKickoff(
+      '# k\n\nUse this `<!-- host-verify: none — valid-looking rationale here -->` to disable.\n\n```bash host-verify\nnpx vitest run nothing\n```\n',
+    );
+    expect(runHook('Write', abs).status).toBe(0);
+  });
+
+  it('B1 variant 2 (THE REGRESSION): opt-out in a single-backtick span on a line with a >=2-backtick span earlier + real contract → runner does NOT see opt-out, lists commands (rc=0)', () => {
+    // 2026-07-25 regression: a single-backtick regex `/`[^`]*`/` mis-pairs when a
+    // multi-backtick run appears earlier on the same line — the delimiter scan
+    // leaves the quoted opt-out unstripped, the HTML-comment scanner then treats
+    // it as live, and (with opt-out-wins) the runner silently exited 0 printing
+    // an "opt-out" line and skipping the contract. This is the exact shape of
+    // this repository's own kickoff.md:16 — ```` ```bash host-verify ```` earlier
+    // on the line, then `<!-- host-verify: none ... -->` later. CommonMark-correct
+    // stripping honours the equal-length closer rule, so the quoted token stays
+    // text-in-backticks regardless of what other spans appear earlier on the line.
+    //
+    // Direct runner invocation is the discriminator: through the gate alone the
+    // exit code is 0 either way (gate accepts whatever the runner says). The
+    // runner's stdout reveals whether it saw a contract or an opt-out, and that
+    // is what the buggy commit got wrong.
+    const body = [
+      '# k',
+      '',
+      'See ```` ```bash host-verify ```` block, or `<!-- host-verify: none — valid-looking rationale here -->`.',
+      '',
+      '```bash host-verify',
+      'npx vitest run nothing',
+      '```',
+      '',
+    ].join('\n');
+    const abs = writeKickoff(body);
+    // Gate accepts (exit 0) on both buggy and fixed runner — the gate only sees
+    // the runner's exit code, and a silent opt-out + a real contract both return 0.
+    expect(runHook('Write', abs).status).toBe(0);
+    // Runner must list the contract command and must NOT print an opt-out line.
+    // On the buggy commit this fails twice: the runner prints "opt-out (N chars)"
+    // and lists zero commands — exactly the silent-skip amplifier.
+    const r = spawnSync('bash', [
+      resolve(REPO_ROOT, 'scripts/host-verify.sh'),
+      '--list',
+      abs,
+    ], { encoding: 'utf8' });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toMatch(/• npx vitest run nothing/);
+    expect(r.stdout).not.toMatch(/opt-out/);
+  });
+
+  it('B1 variant 3: opt-out inside a ```text fence + real contract → ignored, contract runs (rc=0)', () => {
+    // The fence parser already treats the opt-out inside a code fence as content,
+    // not a token. Paired with a real contract, the runner must execute the contract.
+    const abs = writeKickoff(
+      '# k\n\n```text\n<!-- host-verify: none — valid-looking rationale here -->\n```\n\n```bash host-verify\nnpx vitest run nothing\n```\n',
+    );
+    expect(runHook('Write', abs).status).toBe(0);
+  });
+
+  it('B1 variant 4 (regression fixture): this repository\'s own autonomy-mechanisms-hardening kickoff.md lists 8 commands at rc=0 and does NOT print an opt-out line', () => {
+    // The actual kickoff.md that surfaced the regression. Its line 16 contains
+    // the multi-backtick + single-backtick shape exactly. A buggy parser left
+    // the quoted opt-out visible and silently skipped the 8-command contract;
+    // a correct parser strips the span and the contract runs. This fixture pins
+    // the runner's behaviour on the real file so any future regression of the
+    // parser is caught immediately rather than at operator verification time.
+    const r = spawnSync(
+      'bash',
+      [
+        resolve(REPO_ROOT, 'scripts/host-verify.sh'),
+        '--list',
+        '.claude/orchestrator-prompts/autonomy-mechanisms-hardening/kickoff.md',
+      ],
+      { encoding: 'utf8', cwd: REPO_ROOT },
+    );
+    expect(r.status).toBe(0);
+    const bullets = r.stdout.match(/^ {3}• /gm) || [];
+    expect(bullets.length).toBe(8);
+    expect(r.stdout).not.toMatch(/opt-out/);
+  });
+
+  it('precedence rule: a REAL opt-out AND a REAL contract both present → exit 2 (internally inconsistent)', () => {
+    // The "opt-out-wins" rule was the amplifier of the 2026-07-25 regression:
+    // a parser bug surfaced a quoted token and the runner silently skipped the
+    // contract. The precedence guard fires whenever a real (visible) opt-out
+    // accompanies a real contract block — that is an internally inconsistent
+    // kickoff and must FAIL loudly rather than silently resolve to exit 0.
+    const body = [
+      '# k',
+      '',
+      '<!-- host-verify: none — prose-only kickoff, no executable deliverable -->',
+      '',
+      '```bash host-verify',
+      'npx vitest run nothing',
+      '```',
+      '',
+    ].join('\n');
+    const abs = writeKickoff(body);
+    const r = runHook('Write', abs);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/kickoff host-verify:/);
+    expect(r.stderr).toMatch(/BOTH a contract block AND an opt-out/);
+  });
 });
