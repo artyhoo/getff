@@ -735,7 +735,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     expect(r.status, `C5: status must be 0 (skip + exit 0), got ${r.status}`).toBe(0);
     expect(r.stdout.trim(), `C5 FAIL: stdout empty (silent skip — the defect). stdout="${r.stdout}"`).not.toBe('');
     const parsed = JSON.parse(r.stdout.trim()) as {
-      hookSpecificOutput?: { additionalContext?: string };
+      hookSpecificOutput?: { hookEventName?: string; additionalContext?: string };
     };
     expect(parsed.hookSpecificOutput?.hookEventName ?? parsed.hookSpecificOutput?.additionalContext).toBeTruthy();
     const ctx =

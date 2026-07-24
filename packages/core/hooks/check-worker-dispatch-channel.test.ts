@@ -281,7 +281,7 @@ import {
   writeFileSync as _writeFileSync,
 } from 'node:fs';
 import { execSync as _execSync, spawnSync as _spawnSync } from 'node:child_process';
-import { join as _join, tmpdir as _tmpdir } from 'node:path';
+import { join as _join } from 'node:path';
 import { tmpdir as _osTmpdir } from 'node:os';
 
 const tierWorktrees: string[] = [];
