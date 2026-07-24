@@ -63,6 +63,8 @@ The sweep auto-scopes via `git merge-base`, escalates to `--full` on any unmappe
 
 ## §4 — Cold-review + fidelity + PR
 
+**Unattended runs:** the standing authorization for dispatching the cold subagents in steps 1-2 and for opening/squash-merging the PR in step 3 without a confirmation round is stated once in [`night-mode/SKILL.md` delta item 8](../night-mode/SKILL.md), with its escalation set and its honest Class-C classification. Not restated here (`#two-prompts-drift`).
+
 1. **Own cold-QA before handoff** (T19) — CI checks form, not design. Invoke `superpowers:requesting-code-review` on the 3-dot diff (`git diff origin/staging...HEAD`).
 2. **Fidelity verdict (design altitude — spec D2).** Dispatch
    [`agents/fidelity-auditor.md`](../../../agents/fidelity-auditor.md) as a cold read-only
