@@ -60,17 +60,18 @@ function writeKickoff(body: string): string {
   return abs;
 }
 
-/** Run the hook with a PostToolUse payload. Returns status + stdout (stdout used by the ZCode
- *  schema arm below). env merged onto process.env; default-scrubs ZCODE_PROJECT_DIR so CC-arms
- *  below stay in the exit-code branch (mirrors deps-hash-check.test.ts:106). */
+/** Run the hook with a PostToolUse payload. Returns status + stdout + stderr. The `env`
+ *  parameter is merged onto process.env (ALL keys, not just ZCODE_PROJECT_DIR — a prior
+ *  version silently dropped CLAUDE_PROJECT_DIR and LC_ALL overrides, so tests that set them
+ *  were no-ops). ZCODE_PROJECT_DIR is default-scrubbed from process.env so CC-arms stay in
+ *  the exit-code branch unless the caller explicitly sets it (mirrors deps-hash-check.test.ts). */
 function runHook(
   tool: string,
   absPath: string,
   env: Record<string, string> = {},
 ): { status: number; stdout: string; stderr: string } {
-  const fullEnv = { ...process.env };
+  const fullEnv = { ...process.env, ...env };
   if (env.ZCODE_PROJECT_DIR === undefined) delete fullEnv.ZCODE_PROJECT_DIR;
-  else fullEnv.ZCODE_PROJECT_DIR = env.ZCODE_PROJECT_DIR;
   const r = spawnSync('bash', [HOOK], {
     input: JSON.stringify({
       tool_name: tool,
@@ -79,12 +80,6 @@ function runHook(
     encoding: 'utf8',
     env: fullEnv,
   });
-  // stderr is returned too: on CC the violation text rides on stderr (exit 2), so a test
-  // that only checks the exit code cannot tell WHICH arm fired. The declared return type
-  // below must list it — this file is outside the typechecked program (`tsc --noEmit -p
-  // tsconfig.json --listFiles` does not include it), so an excess-property return and a
-  // read of an undeclared field are both invisible to the compiler and were caught only by
-  // review. Keep the annotation honest by hand.
   return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
 }
 
@@ -285,7 +280,8 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
     const abs = writeKickoff('# Wave N kickoff\n\nA plan with no host contract.\n');
     const r = runHook('Write', abs);
     expect(r.status).toBe(2);
-    expect(r.stderr).toMatch(/declares no host-verification contract/);
+    expect(r.stderr).toMatch(/kickoff host-verify:/);
+    expect(r.stderr).toMatch(/declares no/);
   });
 
   it('PAIRED-POSITIVE: a host-verify fenced block → exit 0', () => {
@@ -333,7 +329,7 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
     const abs = writeKickoff(`# Wave N kickoff\n${CITE}\nOnly T1 here.\n`);
     const r = runHook('Write', abs);
     expect(r.status).toBe(2);
-    expect(r.stderr).toMatch(/declares no host-verification contract/);
+    expect(r.stderr).toMatch(/kickoff host-verify:/);
     expect(r.stderr).toMatch(/floor: 3/);
   });
 
@@ -393,6 +389,123 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
     const abs = writeKickoff('# Wave N kickoff\n\nNo contract at all.\n');
     const r = runHook('Write', abs, { CLAUDE_PROJECT_DIR: '/nonexistent/other/checkout' });
     expect(r.status).toBe(2);
-    expect(r.stderr).toMatch(/declares no host-verification contract/);
+    expect(r.stderr).toMatch(/kickoff host-verify:/);
+    expect(r.stderr).toMatch(/declares no/);
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // B1-B8 bypass corpus — 2026-07-24/25 cold audit of PR #1137.
+  // Each fixture is arm-2-clean (no ai-laziness-traps mention) to isolate arm 1.
+  // Every NEGATIVE case asserts BOTH exit 2 AND arm-1 stderr (grep 'kickoff host-verify:')
+  // — the exit code alone is insufficient because arm 2 also exits 2, and a fixture that
+  // trips arm 2 while arm 1 stays inert is the exact "green suite, dead mechanism"
+  // failure this PR repairs. PAIRED-POSITIVE cases assert exit 0.
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  it('B1 text-fence: opt-out quoted inside a ```text fence is NOT an opt-out → exit 2', () => {
+    // Rationale is ≥20 chars so that WITHOUT fence-aware parsing the opt-out would be ACCEPTED
+    // (false-negative exit 0); with fence-aware parsing the token is inside a code fence → exit 2.
+    const abs = writeKickoff('# k\n\n```text\n<!-- host-verify: none — valid-looking rationale here -->\n```\n');
+    const r = runHook('Write', abs);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/kickoff host-verify:/);
+  });
+
+  it('B1 inline-code-span: opt-out inside backticks is NOT an opt-out → exit 2', () => {
+    // Rationale is ≥20 chars so that WITHOUT code-span stripping the opt-out would be ACCEPTED
+    // (false-negative exit 0); with code-span stripping the token is text inside backticks → exit 2.
+    const abs = writeKickoff('# k\n\nUse this: `<!-- host-verify: none — valid-looking rationale here -->` to disable.\n');
+    const r = runHook('Write', abs);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/kickoff host-verify:/);
+  });
+
+  it('B2 greedy regex: multiple --> on one line → FIRST close used, short rationale rejected', () => {
+    // The old greedy `.*` ran to the LAST `-->`, measuring a 2-char rationale as 48.
+    const abs = writeKickoff('# k\n\n<!-- host-verify: none - no --> <!-- TODO: fill in later -->\n');
+    const r = runHook('Write', abs);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/kickoff host-verify:/);
+  });
+
+  // B3 — six no-op contract variants. `:` is already tested above; the remaining five here.
+  for (const noop of ['true;', 'exit 00', '{ :; }', 'cd .', 'echo']) {
+    it(`B3 no-op guard rejects: \`${noop}\` → exit 2`, () => {
+      const abs = writeKickoff(`# k\n\n\`\`\`bash host-verify\n${noop}\n\`\`\`\n`);
+      const r = runHook('Write', abs);
+      expect(r.status).toBe(2);
+      expect(r.stderr).toMatch(/kickoff host-verify:/);
+    });
+  }
+
+  it('B3 positive: `test -f package.json` is substantive (has arguments) → exit 0', () => {
+    const abs = writeKickoff('# k\n\n```bash host-verify\ntest -f package.json\n```\n');
+    expect(runHook('Write', abs).status).toBe(0);
+  });
+
+  it('B4 tilde-fence: contract inside a ~~~~ wrapper is NOT a contract → exit 2', () => {
+    const abs = writeKickoff('# k\n\n~~~~\n```bash host-verify\nnpx vitest run nothing\n```\n~~~~\n');
+    const r = runHook('Write', abs);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/kickoff host-verify:/);
+  });
+
+  it('B4 four-space indent: a fence at 4+ cols indent is an indented code block → exit 2', () => {
+    const abs = writeKickoff('# k\n\n    ```bash host-verify\n    npx vitest run nothing\n    ```\n');
+    const r = runHook('Write', abs);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/kickoff host-verify:/);
+  });
+
+  it('B5 HTML-comment: a fence inside <!-- … --> is invisible to humans → exit 2', () => {
+    const abs = writeKickoff('# k\n\n<!--\n```bash host-verify\nnpx vitest run nothing\n```\n-->\n');
+    const r = runHook('Write', abs);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/kickoff host-verify:/);
+  });
+
+  it('B6 byte-vs-char under LC_ALL=C: 10-char Cyrillic rationale rejected (was 20 bytes ≥ floor)', () => {
+    // проверкате = 10 Cyrillic chars = 20 bytes. Under byte-counting (LC_ALL=C, ${#var})
+    // this measured 20 ≥ floor. The locale-independent tr-based count measures 10 < floor.
+    const abs = writeKickoff('# k\n\n<!-- host-verify: none — проверкате -->\n');
+    const r = runHook('Write', abs, { LC_ALL: 'C' });
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/kickoff host-verify:/);
+  });
+
+  it('B6 byte-vs-char under LC_ALL=C.utf8: same 10-char rationale also rejected', () => {
+    const abs = writeKickoff('# k\n\n<!-- host-verify: none — проверкате -->\n');
+    const r = runHook('Write', abs, { LC_ALL: 'C.utf8' });
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/kickoff host-verify:/);
+  });
+
+  it('PAIRED-POSITIVE: B7 validly opted-out kickoff → exit 0 (gate and runner agree)', () => {
+    const abs = writeKickoff('# k\n\n<!-- host-verify: none — prose-only kickoff, no executable deliverable -->\n');
+    expect(runHook('Write', abs).status).toBe(0);
+  });
+
+  it('B8 tab-indented fence: a tab counts as 4 columns → indented code block → exit 2', () => {
+    // A tab + ``` = 4 cols of indent → CommonMark indented code block, NOT a fence.
+    const abs = writeKickoff('# k\n\n\t```bash host-verify\n\tnpx vitest run nothing\n\t```\n');
+    const r = runHook('Write', abs);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/kickoff host-verify:/);
+  });
+
+  it('CRLF kickoff: trailing \\r stripped, valid contract parses → exit 0', () => {
+    // A CRLF-encoded kickoff must be parsed the same as LF; the parser strips \\r at the top.
+    const body = '# k\r\n\r\n```bash host-verify\r\nnpx vitest run nothing\r\n```\r\n';
+    const abs = writeKickoff(body);
+    const r = runHook('Write', abs);
+    expect(r.status).toBe(0);
+  });
+
+  it('blockquote control: a fence inside > blockquote is NOT a contract (already fail-closed)', () => {
+    // Verified 2026-07-25 as the known-good control — must stay fail-closed.
+    const abs = writeKickoff('# k\n\n> ```bash host-verify\n> npx vitest run nothing\n> ```\n');
+    const r = runHook('Write', abs);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/kickoff host-verify:/);
   });
 });

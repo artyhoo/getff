@@ -45,9 +45,16 @@ function runHook(
   session_id = 'test-session',
   env: Record<string, string> = {},
 ): { stdout: string; status: number } {
-  const fullEnv = { ...process.env };
+  // Spread `env` — it used to be dropped except for ZCODE_PROJECT_DIR, so any
+  // case passing another variable silently tested the ambient environment
+  // instead of the one it asked for. A test that cannot set a variable cannot
+  // test a variable-gated branch; the `env-plumbing sanity` case below pins this
+  // so it cannot rot back.
+  const fullEnv = { ...process.env, ...env };
+  // ZCODE_PROJECT_DIR keeps its scrub-by-default semantics: the CC-plain-text
+  // assertions must not flip to the ZCode-JSON branch when the suite itself runs
+  // inside ZCode.
   if (env.ZCODE_PROJECT_DIR === undefined) delete fullEnv.ZCODE_PROJECT_DIR;
-  else fullEnv.ZCODE_PROJECT_DIR = env.ZCODE_PROJECT_DIR;
   const r = spawnSync('bash', [HOOK], {
     input: JSON.stringify({
       hook_event_name: 'UserPromptSubmit',

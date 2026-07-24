@@ -84,66 +84,49 @@ CONTENT="$(cat "$ABS_PATH" 2>/dev/null || true)"
 # git-safety.sh, which loops over Forward AND Backward and joins every error.)
 VIOLATIONS=()
 
+
 # ── Arm 1 — destination-environment verification contract ─────────────────────
 # spec: .claude/rules/destination-environment-verification.md §1
 # Every kickoff under orchestrator-prompts is a dispatch input, and a dispatched worker
 # executes in the aif container while the artefact is accepted on the HOST. The kickoff
 # must therefore name the commands the orchestrator runs on the host, or explicitly
-# declare that none apply. Grammar + extraction live in ONE place — scripts/host-verify.sh
-# (`--list` exits 0 when a contract block resolves, 2 when it does not), so this gate and
-# the runner can never disagree about what counts as a contract (#sync-by-copy-paste).
+# declare that none apply via an opt-out comment with a ≥20-char rationale.
+#
+# ALL recognition logic lives in scripts/host-verify.sh — contract extraction, opt-out
+# detection, no-op guard, fence/code-span awareness, locale-independent char counting.
+# This gate is a thin caller: it runs the runner in --list mode, captures its stderr
+# verbatim, and surfaces it in the violation text. Keeping a parallel in-gate opt-out
+# scan was the source of bypasses B1-B8 (gate and runner disagreed on what counts as
+# a contract vs opt-out). One implementation, one answer.
+#
+# Sequencing: the runner-missing check fires BEFORE any opt-out acceptance. A kickoff
+# with a valid opt-out but no runner available is a LOUD "DID NOT RUN" skip, never an
+# acceptance — the gate cannot verify what it cannot run.
+#
 # Resolve the runner by TIER, and announce a miss LOUDLY rather than skipping in silence.
 # Same defect class as the 2026-07-24 tsx-resolution incident: three gates resolved their
-# runner from one hard-coded repo-local path and went inert wherever that path was absent —
-# one of them silently. Tier 1 = the project root the harness reports; tier 2 = this hook's
-# own checkout (correct even when CLAUDE_PROJECT_DIR points elsewhere, e.g. a test sandbox).
+# runner from one hard-coded repo-local path and went inert wherever that path was absent.
+# Tier 1 = the project root the harness reports; tier 2 = this hook's own checkout.
 HV_RUNNER=""
 for _cand in \
   "$REPO_ROOT/scripts/host-verify.sh" \
   "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." 2>/dev/null && pwd)/scripts/host-verify.sh"; do
   if [[ -f "$_cand" ]]; then HV_RUNNER="$_cand"; break; fi
 done
-# Opt-out: an explicit token with a real rationale (≥20 chars), never bare silence.
-# Precedent: ci-tool-pinning.md §3 error-with-escape-token.
-# Capture everything between `host-verify: none` and the comment close, THEN strip the
-# separator in the shell. Do NOT put the separator in a sed bracket expression: a bracket
-# matches one BYTE, and the em-dash the rule recommends is three bytes (E2 80 94), so
-# `[—-]` consumed only 0xE2 and left two orphan continuation bytes in the capture — the
-# measured length ran +3 high (documented floor 20 accepted a 17-char rationale, and the
-# rejection message reported a wrong count), while the bracket also silently matched any
-# of 0x80 / 0x94 / '-', so an en-dash, an ellipsis or an arrow all opened the opt-out.
-HV_OPTOUT="$(printf '%s' "$CONTENT" | sed -n 's/.*<!--[[:space:]]*host-verify:[[:space:]]*none[[:space:]]*\(.*\)-->.*/\1/p' | head -1)"
-# Strip a leading separator token (em-dash, en-dash, ASCII hyphen or colon) plus spaces.
-HV_OPTOUT="${HV_OPTOUT#"${HV_OPTOUT%%[![:space:]]*}"}"
-case "$HV_OPTOUT" in
-  '—'*) HV_OPTOUT="${HV_OPTOUT#—}" ;;
-  '–'*) HV_OPTOUT="${HV_OPTOUT#–}" ;;
-  -*) HV_OPTOUT="${HV_OPTOUT#-}" ;;
-  :*) HV_OPTOUT="${HV_OPTOUT#:}" ;;
-esac
-# Trim both ends.
-HV_OPTOUT="${HV_OPTOUT#"${HV_OPTOUT%%[![:space:]]*}"}"
-HV_OPTOUT="${HV_OPTOUT%"${HV_OPTOUT##*[![:space:]]}"}"
-if [[ -n "$HV_OPTOUT" ]]; then
-  if [[ "${#HV_OPTOUT}" -lt 20 ]]; then
-    VIOLATIONS+=("❌ kickoff host-verify: $REL_PATH opts out with a ${#HV_OPTOUT}-char rationale (floor: 20).
-   Say WHY no host command applies, e.g. <!-- host-verify: none — prose-only kickoff, no executable deliverable -->")
-  fi
-elif [[ -z "$HV_RUNNER" ]]; then
-  _emit_skip '⚠ check-kickoff-traps: scripts/host-verify.sh not found — the host-verification contract check DID NOT RUN for this edit. This is a SKIP, not a pass.'
+if [[ -z "$HV_RUNNER" ]]; then
+  _emit_skip '⚠ check-kickoff-traps: scripts/host-verify.sh not found — the host-verification contract check DID NOT RUN for this edit. This is a SKIP, not a pass; the runner must be present for either a contract or an opt-out to be accepted.'
 else
-  if ! bash "$HV_RUNNER" --list "$ABS_PATH" >/dev/null 2>&1; then
-    VIOLATIONS+=("❌ kickoff host-verify: $REL_PATH declares no host-verification contract.
-   The worker runs in the aif container; the work is accepted on the HOST. Four incidents on
-   2026-07-24 were this one class (docker absent, cat elsewhere, tsx absent, a timing budget
-   sized to the container that fails 3/3 on the host).
-   Add the commands the orchestrator will run on the host:
-     \`\`\`bash host-verify
-     npx vitest run <the test this kickoff changes>
-     \`\`\`
-   or opt out explicitly: <!-- host-verify: none — <why, ≥20 chars> -->
-   Verify with: bash scripts/host-verify.sh <umbrella>
-   spec: .claude/rules/destination-environment-verification.md §1")
+  # Capture runner output (stderr+stdout merged) and exit code. The runner's --list mode
+  # exits 0 for both "contract found" and "valid opt-out found" (both print a summary);
+  # exits 2 for missing contract, too-short opt-out, no-op-only contract, or usage error.
+  # Surface the runner's output VERBATIM in the violation text — the exit code alone
+  # cannot distinguish a missing-contract from a too-short-opt-out, and the message
+  # carries the measured rationale length (B6) and the specific failure class.
+  HV_OUTPUT="$(bash "$HV_RUNNER" --list "$ABS_PATH" 2>&1)"
+  HV_RC=$?
+  if [[ "$HV_RC" -ne 0 ]]; then
+    VIOLATIONS+=("❌ kickoff host-verify: $REL_PATH
+$HV_OUTPUT")
   fi
 fi
 

@@ -40,13 +40,18 @@ The rationale must be ≥20 characters and say *why* no host command applies (pr
 `Prior-art: skipped — …` hatch in [CLAUDE.md](../../CLAUDE.md)).
 
 **Running it:** `bash scripts/host-verify.sh <umbrella>` (or a kickoff path). Exit 0 = every
-declared command passed on this host; 1 = one failed; **2 = no contract found**. A missing
+declared command passed on this host, OR a valid opt-out was found; 1 = one failed;
+**2 = no contract found, a no-op-only contract, or a too-short opt-out**. A missing
 contract is a FAIL, not a pass — fail-closed, because "nobody declared anything" is precisely
 the state this rule exists to end.
 
-**Grammar lives in one place.** The edit-time gate does not re-implement the extraction — it
-shells out to `host-verify.sh --list`, so the gate and the runner cannot disagree about what
-counts as a contract (`#sync-by-copy-paste`, [dual-implementation-discipline.md §8](dual-implementation-discipline.md)).
+**Grammar lives in one place.** Both contract extraction AND opt-out recognition live in
+`host-verify.sh`. The edit-time gate does not re-implement either — it shells out to
+`host-verify.sh --list` and surfaces the runner's stderr verbatim in its violation text, so the
+gate and the runner cannot disagree about what counts as a contract or an opt-out
+(`#sync-by-copy-paste`, [dual-implementation-discipline.md §8](dual-implementation-discipline.md)).
+The runner's fence-aware, code-span-aware, locale-independent parser is the single implementation
+for both recognition paths; the gate is a thin caller.
 
 ## §2 The incident base (2026-07-24, four in one day)
 

@@ -21,10 +21,16 @@ not yet harvested, an open item you own. Stop only when genuinely finished, or w
 a decision that is the operator's.
 
 **Mechanism, not exhortation.** Under `AIF_AUTONOMOUS=1` the Stop hook probes `GET /tasks` and,
-when any task is un-paused and in `planning` / `implementing` / `review` / `blocked_external`,
-returns `decision:block` with the continuation directive as `reason` — the field that reaches
+when any un-paused task has a status that is NOT terminal (`done` / `verified`), returns
+`decision:block` with the continuation directive as `reason` — the field that reaches
 the model. The turn does not end. This is the only channel that fires at the exact moment of
-the failure; a rule file cannot, because by then the model has already decided to stop.
+the failure; a rule file cannot, because by then the model has already decided to stop. The
+exclude-terminal predicate is deliberately broader than an enumeration (`backlog`,
+`plan_ready`, `blocked_external` all count): any future upstream status is in-flight by
+default — fail-closed. This differs from [`heal.sh`](../skills/aif-doctor/helpers/heal.sh)'s
+`planning|implementing|review` + un-paused `plan_ready` predicate, which answers a different
+question («is it safe to mutate the base?», not «is any dispatched work outstanding?»); the two
+need not be identical.
 
 **Three properties that make it safe rather than clever:**
 
@@ -130,7 +136,9 @@ verified byte-identical output with `AIF_AUTONOMOUS` unset. (c) [`await.ts`](../
 recorded** (§2 residual: reconnect handled, idle stall not) rather than silently left; the fix is
 scoped in §4, not bundled. (d) [`heal.sh`](../skills/aif-doctor/helpers/heal.sh) — **SWEPT-CLEAN**:
 already reads `GET /tasks` and fails closed on a fetch/parse error (finding F1, merged #1129), the
-same posture §1 property 2 adopts — consistent, nothing superseded. (e) [`night-mode/SKILL.md`](../skills/night-mode/SKILL.md)
+same posture §1 property 2 adopts. The two predicates differ by design (§1: exclude-terminal → «any
+work outstanding?»; heal.sh: `planning|implementing|review` + un-paused `plan_ready` → «safe to
+mutate the base?») — consistent posture, intentionally different scope, nothing superseded. (e) [`night-mode/SKILL.md`](../skills/night-mode/SKILL.md)
 — **SWEPT-CLEAN, complementary**: it owns the overnight loop's shape and already carries an
 honestly-labelled prose paragraph about the server-delivered dispatch default; this rule owns the
 stop-moment and the wait, does not restate the loop, and its §1 mechanism is what that paragraph
