@@ -69,7 +69,17 @@ docs/meta-factory/research-patches/2026-07-24-container-channel-probe.md:42 erro
 ```
 Exit code 1. Commit did not land. Per task instructions ("fix only what the gate names"), applied MD040 fix — added `text` language specifier to all five fenced code blocks. No other content changes.
 
-**Round 2 — retry pending** (output to be appended once retry runs).
+**Round 2 — accepted.** Pre-commit hook re-ran markdownlint-cli2 (already cached). Full output:
+```text
+markdownlint-cli2 v0.23.1 (markdownlint v0.41.1)
+Finding: docs/meta-factory/research-patches/2026-07-24-container-channel-probe.md
+Linting: 1 file
+Summary: 0 issues in 0 files
+[feature/container-channel-probe-0cedb6 65b0e83861] docs(research-patches): container-channel-probe 2026-07-24 — verbatim gate-reach report
+ 1 file changed, 91 insertions(+)
+ create mode 100644 docs/meta-factory/research-patches/2026-07-24-container-channel-probe.md
+```
+Commit landed: `65b0e83861` on `feature/container-channel-probe-0cedb6`. (This follow-up commit appends the round-2 capture to the report — without it, the §D log would have been incomplete inside the very file the gate just accepted.)
 
 ## §E — Per-channel verdict
 
