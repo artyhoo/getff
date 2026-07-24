@@ -331,6 +331,49 @@ echo "$PR_BODY" | grep -cE '[^[:space:]]+\.[a-z]+:[0-9]+'   # ≥2
 Use `--body-file` (not `--body`) so the local git-safety hook can validate the §1.7 sections
 reliably. If the hook blocks — fix the body per its message; never route around it via the API.
 
+### §4b.1 `## Fidelity verdict` — REQUIRED on every stage PR (acceptance-contour D3)
+
+**Discovered live during this meta-launch (PR #1122, 2026-07-24):**
+`fidelity-verdict-in-pr-body` is a **REQUIRED status check** on `staging` — it is the same
+gate whose registration unblocks S2's marker-emitting presets (§1.3). Every `base=staging` PR
+must carry exactly ONE `## Fidelity verdict` section with exactly ONE `FIDELITY:` line.
+Enforcement: [`packages/core/hooks/checks/pr-body-fidelity.ts`](../../../packages/core/hooks/checks/pr-body-fidelity.ts)
+via [`.github/workflows/pr-body-fidelity.yml`](../../../.github/workflows/pr-body-fidelity.yml).
+
+**`FIDELITY: skipped` is NOT available to a stage PR.** The checker's `declaresProvenance()`
+reads the PR body's `## Provenance` section: any non-placeholder, non-`n/a` content there makes
+the PR a stage PR, and a stage PR MUST carry a real verdict produced by
+[`agents/fidelity-auditor.md`](../../../agents/fidelity-auditor.md). **All six stages of this
+umbrella are stage PRs** — plan for the GO block, not the escape hatch.
+
+**Required GO grammar (all four, case-sensitive tokens):**
+
+```markdown
+## Fidelity verdict
+
+FIDELITY: GO
+Basis: .claude/orchestrator-prompts/beta-delivery-ux/kickoff.md
+Round: 1
+Audited-SHA: <PR head SHA, 12-40 hex — MUST equal the head at merge time>
+
+<≥1 file:line evidence reference on a line OTHER than `Basis:`>
+```
+
+**Failure modes that will bite (each is an explicit fail-closed branch in the checker):**
+
+1. **`Audited-SHA` must match the CURRENT PR head.** Any push after the audit invalidates it —
+   re-run the audit and update the SHA. This is the most likely repeat failure on a stage that
+   takes review rounds.
+2. **A rework round REPLACES the block, never appends.** Two `## Fidelity verdict` sections, or
+   two `FIDELITY:` lines in one section, is a hard fail — so an appended `GO` cannot shadow a
+   round-1 `REVISE`.
+3. **A recorded `FIDELITY: REVISE` / `STOP` is terminal** — resolve the rework loop and replace
+   the block before merge.
+4. **Evidence cannot be borrowed.** ANY heading closes the section, so a `file:line` living in a
+   neighbouring `### §1.7 …` block does not count; and the `Basis:` path itself is excluded from
+   satisfying the evidence requirement.
+5. **HTML comments are stripped before parsing** — commented-out template text never passes.
+
 ---
 
 ## §4c Autonomous aif-handoff dispatch — park-don't-guess contract
