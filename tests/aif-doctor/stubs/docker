@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Stub: docker — translates docker exec/cp/ps to local equivalents for fixture tests.
+# Used by refresh-aif-base.test.sh to exercise the helper against a throwaway git repo
+# without a real aif-handoff agent container (kickoff §3 final paragraph).
+#
+# Mapping:
+#   docker exec <C> <cmd> <args...>  ->  <cmd> <args...>          (run locally)
+#   docker cp <src> <C>:<dst>        ->  cp <src> <dst>            (local copy)
+#   docker ps --filter ...            ->  echo "aif-test-agent"     (fake container name)
+set -euo pipefail
+
+if [ "${1:-}" = "exec" ]; then
+  shift            # remove "exec"
+  shift            # remove container name ($C)
+  exec "$@"
+elif [ "${1:-}" = "cp" ]; then
+  shift            # remove "cp"
+  src="$1"
+  dst="$2"
+  dst="${dst#*:}"  # strip "container:" prefix
+  cp "$src" "$dst"
+  exit 0
+elif [ "${1:-}" = "ps" ]; then
+  echo "aif-test-agent"
+  exit 0
+fi
+exit 0
