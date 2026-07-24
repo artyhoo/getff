@@ -64,17 +64,39 @@ function hasGh(): boolean {
 }
 
 /**
- * Check whether the hook's own tsx resolution will succeed.
- * The hook computes REPO_ROOT as: cd "$(dirname "$0")/../.." (hook:9).
- * dirname($0) = .claude/hooks → ../.. = repo root.
- * tsx must be at $REPO_ROOT/node_modules/.bin/tsx (hook:10).
- * In a git worktree, node_modules may be absent unless symlinked from the main repo.
- * HERE is packages/core/hooks/ → ../../.. = repo root — same computation.
+ * Check whether the hook's own tsx resolution will succeed. Post-fix the hook resolves tsx
+ * through a 3-tier list (`_resolve_tsx`, mirroring check-doc-authority.sh:48-62): repo-local,
+ * main-worktree via `git --git-common-dir`, then `command -v tsx` on PATH. This guard must
+ * mirror that tier list or every test under describe.skipIf(!TSX) silently skips when the
+ * suite happens to run in a linked worktree (the very defect class this sweep closes — the
+ * container itself is one: tsx at /app/node_modules/.bin/tsx, not REPO_ROOT/node_modules/...).
  */
 function hasTsxForHook(): boolean {
-  const tsxPath = resolve(REPO_ROOT, 'node_modules/.bin/tsx');
+  // Tier 1: repo-local.
   try {
-    execSync(`test -x "${tsxPath}"`, { stdio: 'ignore' });
+    execSync(`test -x "${resolve(REPO_ROOT, 'node_modules/.bin/tsx')}"`, { stdio: 'ignore' });
+    return true;
+  } catch {
+    // fall through
+  }
+  // Tier 2: main worktree via git --git-common-dir.
+  try {
+    const common = execSync(`git -C "${REPO_ROOT}" rev-parse --git-common-dir`, {
+      stdio: ['ignore', 'pipe', 'ignore'],
+      encoding: 'utf8',
+    }).trim();
+    if (common) {
+      const abs = common.startsWith('/') ? common : resolve(REPO_ROOT, common);
+      const mainRoot = abs.split('/').slice(0, -1).join('/');
+      execSync(`test -x "${mainRoot}/node_modules/.bin/tsx"`, { stdio: 'ignore' });
+      return true;
+    }
+  } catch {
+    // fall through
+  }
+  // Tier 3: tsx on PATH.
+  try {
+    execSync('command -v tsx', { stdio: 'ignore' });
     return true;
   } catch {
     return false;
@@ -197,20 +219,33 @@ describe.skipIf(!JQ)('validate-prompt.sh — off-path skip conditions (jq requir
 
 describe.skipIf(!JQ)('validate-prompt.sh — tsx-unavailable graceful skip (hook:26-27)', () => {
   /**
-   * Run a copy of the (possibly mutation-swapped) hook from an isolated temp dir
-   * where REPO_ROOT/node_modules/.bin/tsx cannot resolve → forces hook:26 to fire.
+   * Run a copy of the (possibly mutation-swapped) hook from an isolated temp dir where
+   * REPO_ROOT/node_modules/.bin/tsx cannot resolve AND tsx is scrubbed from PATH → forces
+   * the tsx-tier resolution to miss on every tier (hook now resolves via `_resolve_tsx`,
+   * not a single literal path). The PATH scrub is mandatory post-fix: tier 3 (`command -v
+   * tsx`) would otherwise find the test env's tsx and the graceful skip would not fire.
    */
-  function runHookNoTsx(stdinJson: object): { status: number; stderr: string } {
+  function runHookNoTsx(stdinJson: object): { status: number; stderr: string; stdout: string } {
     const dir = mkdtempSync(join(tmpdir(), 'vp-notsx-'));
     tmpFiles.push(dir);
     const hookCopy = join(dir, 'validate-prompt.sh');
     copyFileSync(HOOK, hookCopy);
-    const r = spawnSync('bash', [hookCopy], {
+    // Scrub tsx from PATH so tier 3 misses too (post-fix the hook has a tier list).
+    const binDir = mkdtempSync(join(tmpdir(), 'vp-notsx-bin-'));
+    tmpFiles.push(binDir);
+    for (const tool of ['sed', 'tr', 'cat', 'head', 'dirname', 'grep', 'sort', 'awk', 'git', 'jq', 'printf']) {
+      const real = spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
+      if (real) symlinkSync(real, join(binDir, tool));
+    }
+    const env: Record<string, string> = { ...process.env, PATH: binDir } as Record<string, string>;
+    delete env.ZCODE_PROJECT_DIR;
+    const r = spawnSync('/bin/bash', [hookCopy], {
       input: JSON.stringify(stdinJson),
       encoding: 'utf8',
       timeout: 15_000,
+      env,
     });
-    return { status: r.status ?? -1, stderr: r.stderr ?? '' };
+    return { status: r.status ?? -1, stderr: r.stderr ?? '', stdout: r.stdout ?? '' };
   }
 
   it('PAIRED-POSITIVE: matching .md path but tsx unavailable → exit 0 (graceful skip, never block)', () => {
@@ -425,5 +460,287 @@ describe('manual plugin twin carries the same channel fixes as the source', () =
     const notice = /batch-spec validation DID NOT RUN/;
     expect(source).toMatch(notice);
     expect(twin).toMatch(notice);
+  });
+
+  it('twin carries _resolve_tsx (drift tell for the tier fix, T-SWEEP-B)', () => {
+    // Locks the 2026-07-24 tier-resolution sweep: the manual twin must carry the SAME
+    // _resolve_tsx function as the source, or ZCode consumers (who reach the hook via the
+    // plugin channel only) keep silently no-op'ing in linked worktrees.
+    expect(source).toContain('_resolve_tsx');
+    expect(twin).toContain('_resolve_tsx');
+    // Both must have retired the pre-fix single-literal-path resolution.
+    expect(source).not.toMatch(/^TSX="\$REPO_ROOT\/node_modules\/\.bin\/tsx"$/m);
+    expect(twin).not.toMatch(/^TSX="\$REPO_ROOT\/node_modules\/\.bin\/tsx"$/m);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Tier-based tsx resolution — paired-negative for the linked-worktree defect class
+// (kickoff §3 criteria 1-5; plan Phase C Task 3). The defect: a PostToolUse hook
+// resolved tsx from a single hard-coded path `$REPO_ROOT/node_modules/.bin/tsx`,
+// which misses in every linked worktree → silent skip → gate inert. The fix: a tier
+// list (repo-local → main-worktree via git --git-common-dir → PATH). Each test below
+// would have observed silent-exit-0 pre-fix (the defect), and observes a meaningful
+// outcome post-fix (check runs OR loud skip notice).
+// ═══════════════════════════════════════════════════════════════════════════════
+import { execSync as _execSync } from 'node:child_process';
+import {
+  copyFileSync as _copyFileSync,
+  rmSync as _rmSync,
+  writeFileSync as _writeFileSync,
+  mkdirSync as _mkdirSync,
+} from 'node:fs';
+
+const tmpWorktrees: string[] = [];
+afterEach(() => {
+  // Remove worktrees first (git-tracked), then any leftover temp dirs.
+  for (const wt of tmpWorktrees.splice(0)) {
+    try {
+      _execSync(`git worktree remove --force "${wt}" 2>&1`, { stdio: 'pipe' });
+    } catch {
+      _rmSync(wt, { recursive: true, force: true });
+    }
+  }
+});
+
+/**
+ * Build a minimal PATH bin dir containing core utils but NOT tsx — so tier 3
+ * (`command -v tsx`) deterministically misses. Pre-fix the hook only checked
+ * REPO_ROOT/node_modules/.bin/tsx; post-fix the tier list also consults PATH, so
+ * PATH must be scrubbed to isolate tier-1 / tier-2 behaviour.
+ */
+function scrubbedPathBin(): string {
+  const binDir = _mkdtempSync(_join(_tmpdir(), 'vp-scrubbed-bin-'));
+  for (const tool of ['sed', 'tr', 'cat', 'head', 'dirname', 'grep', 'sort', 'awk', 'git', 'jq', 'printf', 'bash', 'sh', 'node']) {
+    const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
+    if (real) _symlinkSync(real, _join(binDir, tool));
+  }
+  return binDir;
+}
+
+/**
+ * Write a violating orchestrator-prompt .md under <repoRoot>/.claude/orchestrator-prompts/
+ * so the hook's path filter fires. Returns the absolute path. Uses a clearly-fake SHA so
+ * the validator (when it runs) reports exit 1 → hook maps to exit 2.
+ */
+function writeViolatingOrchestratorPrompt(repoRoot: string): string {
+  const sub = _join(repoRoot, '.claude', 'orchestrator-prompts', 'tier-test');
+  _mkdirSync(sub, { recursive: true });
+  const abs = _join(sub, 'kickoff.md');
+  _writeFileSync(
+    abs,
+    '# Tier-test kickoff\n\nuses: actions/checkout@0000000000000000000000000000000000000000 # v-fake\n',
+    'utf8',
+  );
+  return abs;
+}
+
+describe('tier-based tsx resolution (paired-negative for the worktree defect class)', () => {
+  it('C1: linked worktree (no local node_modules, main has tsx, PATH scrubbed) → hook runs check (NOT silent exit 0)', () => {
+    // Setup: real linked worktree of REPO_ROOT. The worktree has NO node_modules (git
+    // worktree add doesn't copy it); the main worktree at <repo-root>/../.. DOES have
+    // node_modules/.bin/tsx (this repo's dev dep). Scrub tsx from PATH so tier 3 misses.
+    // Tier 2 is the only path that can resolve tsx — exactly the defect class scenario.
+    const wt = _mkdtempSync(_join(_tmpdir(), 'vp-c1-wt-'));
+    _rmSync(wt, { recursive: true, force: true });
+    _execSync(`git worktree add --detach "${wt}" 2>&1`, { stdio: 'pipe' });
+    tmpWorktrees.push(wt);
+    // Overwrite the worktree's checked-out hook with the FIXED working-tree version
+    // (HEAD's hook is the pre-fix version; the worktree checks out HEAD).
+    const wtHook = _join(wt, '.claude/hooks/validate-prompt.sh');
+    _copyFileSync(HOOK, wtHook);
+
+    const binDir = scrubbedPathBin();
+    const abs = writeViolatingOrchestratorPrompt(wt);
+    const env: Record<string, string> = {
+      ...process.env,
+      CLAUDE_PROJECT_DIR: wt,
+      PATH: binDir,
+    } as Record<string, string>;
+    delete env.ZCODE_PROJECT_DIR;
+    const r = _spawnSync('/bin/bash', [wtHook], {
+      input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: abs } }),
+      encoding: 'utf8',
+      timeout: 30_000,
+      env,
+    });
+    // POST-FIX: tier 2 resolved tsx → hook ran the validator. Three observable outcomes:
+    //   - status 2 (gh verified the SHA as fake) — the violation reached the model
+    //   - status 0 + stdout has "gh CLI unavailable" (gh missing → soft-skip, but the
+    //     hook RAN past tsx resolution)
+    //   - status 0 + stdout has "validate-prompt" (any other validator-driven output)
+    // The DEFECT shape (silent exit 0 + empty stdout) is asserted AGAINST.
+    const out = (r.stdout ?? '').trim();
+    const err = (r.stderr ?? '').trim();
+    const ranCheck =
+      r.status === 2 || /gh CLI unavailable/i.test(out) || /validate-prompt/i.test(out);
+    expect(
+      ranCheck,
+      `C1 FAIL: expected hook to run check, got status=${r.status} stdout="${out.slice(0, 200)}" stderr="${err.slice(0, 200)}". ` +
+        `If status=0 + empty stdout, the tier-2 resolution missed (the defect).`,
+    ).toBe(true);
+    // Specifically: NO tsx-skip-notice (would prove tier miss, the defect).
+    expect(out).not.toMatch(/tsx not found/i);
+  });
+
+  it('C2: precedence held — repo-local tsx wins when present (structural; verified by tier-1 hit)', () => {
+    // Structural test (plan: "precedence tests don't have a clean pre-fix RED; criterion 2
+    // is verified by the test existing + passing"). Setup: REPO_ROOT with a sentinel tsx
+    // at $REPO_ROOT/node_modules/.bin/tsx that echoes a marker; tier 2 also available.
+    // Assert: sentinel invoked (marker visible) → tier 1 precedence held.
+    const dir = _mkdtempSync(_join(_tmpdir(), 'vp-c2-'));
+    const nmBin = _join(dir, 'node_modules', '.bin');
+    _mkdirSync(nmBin, { recursive: true });
+    // Sentinel: prints a marker to stderr, then exits 0 (so the hook proceeds; we only
+    // need to prove THIS binary was invoked, not what it does to the validator path).
+    const sentinel = _join(nmBin, 'tsx');
+    _writeFileSync(
+      sentinel,
+      '#!/bin/sh\necho "TIER1_SENTINEL_INVOKED" >&2\nexit 0\n',
+      'utf8',
+    );
+    _execSync(`chmod +x "${sentinel}"`);
+    // Make the dir look like a linked worktree too (so tier 2 also has a candidate),
+    // to actually exercise the precedence. Simplest: also place a real tsx shim at the
+    // main-worktree path via a fake .git file.
+    const fakeMain = _mkdtempSync(_join(_tmpdir(), 'vp-c2-main-'));
+    const fakeMainNm = _join(fakeMain, 'node_modules', '.bin');
+    _mkdirSync(fakeMainNm, { recursive: true });
+    _writeFileSync(
+      _join(fakeMainNm, 'tsx'),
+      '#!/bin/sh\necho "TIER2_INVOKED_WRONG" >&2\nexit 0\n',
+      'utf8',
+    );
+    _execSync(`chmod +x "${fakeMainNm}/tsx"`);
+    // Write .git file pointing at a fake gitdir under fakeMain
+    _writeFileSync(_join(dir, '.git'), `gitdir: ${fakeMain}/.git\n`, 'utf8');
+    _mkdirSync(_join(fakeMain, '.git'), { recursive: true });
+
+    const abs = writeViolatingOrchestratorPrompt(dir);
+    const binDir = scrubbedPathBin();
+    // ALSO put a wrong-tier sentinel on PATH (tier 3)
+    _writeFileSync(
+      _join(binDir, 'tsx'),
+      '#!/bin/sh\necho "TIER3_INVOKED_WRONG" >&2\nexit 0\n',
+      'utf8',
+    );
+    _execSync(`chmod +x "${binDir}/tsx"`);
+    const env: Record<string, string> = {
+      ...process.env,
+      CLAUDE_PROJECT_DIR: dir,
+      PATH: binDir,
+    } as Record<string, string>;
+    delete env.ZCODE_PROJECT_DIR;
+    const hookCopy = _join(dir, 'validate-prompt.sh');
+    _copyFileSync(HOOK, hookCopy);
+    const r = _spawnSync('/bin/bash', [hookCopy], {
+      input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: abs } }),
+      encoding: 'utf8',
+      timeout: 30_000,
+      env,
+    });
+    expect(
+      r.stderr,
+      `C2 FAIL: expected TIER1_SENTINEL_INVOKED in stderr; got status=${r.status} stderr="${(r.stderr ?? '').slice(0, 300)}"`,
+    ).toContain('TIER1_SENTINEL_INVOKED');
+    expect(r.stderr).not.toContain('TIER2_INVOKED_WRONG');
+    expect(r.stderr).not.toContain('TIER3_INVOKED_WRONG');
+  });
+
+  it('C3: non-git REPO_ROOT, tsx on PATH → tier 3 resolves → hook runs check', () => {
+    // Setup: temp dir NOT a git repo (tier 2 `git rev-parse` fails silently); no
+    // node_modules (tier 1 misses); real tsx available on PATH (tier 3 hits).
+    // Pre-fix: only REPO_ROOT/node_modules/.bin/tsx was checked → exit 0 silent (defect).
+    const dir = _mkdtempSync(_join(_tmpdir(), 'vp-c3-'));
+    const abs = writeViolatingOrchestratorPrompt(dir);
+    const binDir = scrubbedPathBin();
+    // Place the REAL tsx (resolved via the existing test env's PATH) into binDir.
+    const realTsx = _spawnSync('/usr/bin/which', ['tsx'], { encoding: 'utf8' }).stdout?.trim();
+    if (realTsx) _symlinkSync(realTsx, _join(binDir, 'tsx'));
+    const hookCopy = _join(dir, 'validate-prompt.sh');
+    _copyFileSync(HOOK, hookCopy);
+    const env: Record<string, string> = {
+      ...process.env,
+      CLAUDE_PROJECT_DIR: dir,
+      PATH: binDir,
+    } as Record<string, string>;
+    delete env.ZCODE_PROJECT_DIR;
+    const r = _spawnSync('/bin/bash', [hookCopy], {
+      input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: abs } }),
+      encoding: 'utf8',
+      timeout: 30_000,
+      env,
+    });
+    // Hook ran past tsx resolution. Same observable contract as C1: NOT silent exit 0.
+    const out = (r.stdout ?? '').trim();
+    const ranCheck =
+      r.status === 2 || /gh CLI unavailable/i.test(out) || /validate-prompt/i.test(out);
+    expect(
+      ranCheck,
+      `C3 FAIL: expected hook to run via tier 3, got status=${r.status} stdout="${out.slice(0, 200)}"`,
+    ).toBe(true);
+    expect(out).not.toMatch(/tsx not found/i);
+  });
+
+  it('C4: non-git REPO_ROOT, no tier resolves → no crash, no git error leaked on model channel', () => {
+    // Setup: temp dir NOT under any git repo; tsx scrubbed from PATH; no node_modules.
+    // Criterion 4: must degrade safely — no hang, no crash, no git error reaching the model.
+    const dir = _mkdtempSync(_join(_tmpdir(), 'vp-c4-'));
+    const abs = writeViolatingOrchestratorPrompt(dir);
+    const binDir = scrubbedPathBin();
+    const hookCopy = _join(dir, 'validate-prompt.sh');
+    _copyFileSync(HOOK, hookCopy);
+    const env: Record<string, string> = {
+      ...process.env,
+      CLAUDE_PROJECT_DIR: dir,
+      PATH: binDir,
+    } as Record<string, string>;
+    delete env.ZCODE_PROJECT_DIR;
+    const r = _spawnSync('/bin/bash', [hookCopy], {
+      input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: abs } }),
+      encoding: 'utf8',
+      timeout: 30_000,
+      env,
+    });
+    expect(r.status, `C4: status must be 0 (graceful skip), got ${r.status}`).toBe(0);
+    // Critical assertion: no `fatal: not a git repository` or similar leaked to model.
+    const combined = `${r.stdout ?? ''}${r.stderr ?? ''}`;
+    expect(
+      combined,
+      `C4 FAIL: git error leaked. stdout+stderr was: "${combined.slice(0, 300)}"`,
+    ).not.toMatch(/fatal: not a git repository|fatal: this operation must be run in a work tree/i);
+  });
+
+  it('C5: no tier resolves → skip notice fires on model channel + exit 0 (criterion 5)', () => {
+    // Same setup as C4; the load-bearing assertion here is the SKIP NOTICE reaches the
+    // model (hookSpecificOutput.additionalContext), not just stderr. This is the
+    // paired-negative for "silent exit 0 = defect".
+    const dir = _mkdtempSync(_join(_tmpdir(), 'vp-c5-'));
+    const abs = writeViolatingOrchestratorPrompt(dir);
+    const binDir = scrubbedPathBin();
+    const hookCopy = _join(dir, 'validate-prompt.sh');
+    _copyFileSync(HOOK, hookCopy);
+    const env: Record<string, string> = {
+      ...process.env,
+      CLAUDE_PROJECT_DIR: dir,
+      PATH: binDir,
+    } as Record<string, string>;
+    delete env.ZCODE_PROJECT_DIR;
+    const r = _spawnSync('/bin/bash', [hookCopy], {
+      input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: abs } }),
+      encoding: 'utf8',
+      timeout: 30_000,
+      env,
+    });
+    expect(r.status, `C5: status must be 0 (skip + exit 0), got ${r.status}`).toBe(0);
+    expect(r.stdout.trim(), `C5 FAIL: stdout empty (silent skip — the defect). stdout="${r.stdout}"`).not.toBe('');
+    const parsed = JSON.parse(r.stdout.trim()) as {
+      hookSpecificOutput?: { additionalContext?: string };
+    };
+    expect(parsed.hookSpecificOutput?.hookEventName ?? parsed.hookSpecificOutput?.additionalContext).toBeTruthy();
+    const ctx =
+      parsed.hookSpecificOutput?.additionalContext ?? JSON.stringify(parsed);
+    expect(ctx).toMatch(/DID NOT RUN/);
+    expect(ctx).toMatch(/not a pass/i);
   });
 });
