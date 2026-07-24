@@ -61,21 +61,19 @@ expect(total).toBe(items.reduce(...));     // expected computed by same logic as
 **Mirror assertion** — the sharpest form, because it reads as rigorous and survives review:
 
 ```ts
-// ❌ both sides computed by the SUT — true by construction, whatever buildSearchQuery does
-const expected = buildSearchQuery({ tag: 'urgent' });
-expect(buildSearchQuery({ tag: 'urgent' })).toBe(expected);
+// ❌ both sides produced by the SUT — passes no matter what formatBytes returns
+const expected = formatBytes(1536);
+expect(formatBytes(1536)).toBe(expected);
 
-// ✅ expectation derived by hand, independent of the implementation
-expect(buildSearchQuery({ tag: 'urgent' })).toBe('tag:"urgent"');
+// ✅ expectation written down by hand, without running the implementation
+expect(formatBytes(1536)).toBe('1.5 KB');
 ```
 
 **Why:** AI generates tests that "look like tests" but assert what's already true by construction.
 
-**Authoring-time criterion.** Before writing the test body, answer one question: _which production change would make this test fail — and is that change a bug or a decision?_ Three outcomes:
+**Authoring-time criterion.** A test pays rent by catching a realistic defect — name that defect first, then write the assertion. Two failure smells: no nameable defect means the assertion is decoration (rebuild it around an observable outcome); and when the only thing that can break it is a deliberate edit — a config constant, a message's exact text, an internal layout — it is a **change detector**: red on every intentional redesign, green while real bugs ship. Assert what the decision causes, not the decision itself: for a retry limit of 5, check that a flaky call stops being retried after the fifth attempt, rather than `expect(MAX_RETRIES).toBe(5)`.
 
-- **Cannot name one** → nothing is being caught. Redesign the test around an observable behavior.
-- **Only a deliberate decision would fail it** — a constant's value, exact message wording, a private structure → it is a **change detector**: it fires on every intentional redesign and sleeps through real bugs. Test the behavior that depends on the decision instead. Not `expect(MAX_RETRIES).toBe(5)`, but "a failing call is retried 5 times and a 6th attempt never happens".
-- **A plausible bug would fail it** → the test earns its place.
+The fuller authoring workflow behind this criterion — hand-derived expectations, mock hygiene, red-green sequencing — is the `superpowers:test-driven-development` companion skill's territory (`writing-good-tests.md`); reach for it where that companion is installed. The trap statement here stands on its own where it is not.
 
 **Caught by:**
 
@@ -268,15 +266,15 @@ This catches tautological tests, always-green assertions, and shallow coverage t
 - PR-blocking when below
 - Surfaced in PR comment
 
-**Where no mutator reaches — the manual mutation check.** Stryker mutates TypeScript and JavaScript; shell scripts, config and prompt artifacts have no equivalent in most setups. Before finishing a test file, mutate the production code in your head and confirm at least one test fails for each class:
+**Where no mutator reaches — the manual mutation check.** Stryker mutates TypeScript and JavaScript; shell scripts, config and prompt artifacts have no equivalent in most setups. Before finishing a test file, break the production code in your head and check that each break trips at least one assertion. The break classes are the classic mutation-operator families — the same ones an automated mutator applies:
 
-1. **Wrong constant or argument** — an off-by-one bound, swapped parameter order, a different default.
-2. **Wrong branch taken** — the `else` arm runs where `then` should, or a guard is inverted.
-3. **Missing side effect or state change** — the value is computed and returned but never written, emitted, or logged.
-4. **Empty or default return** — the function short-circuits to `null` / `0` / `[]` / `""`.
-5. **Missing validation** — zero, empty, nil, unauthorized, or malformed input walks straight through.
+1. A constant, bound, or argument nudged to a near neighbour (off-by-one, swapped parameters, a different default).
+2. Control flow routed through the wrong arm, or a guard flipped.
+3. A side effect dropped — the value is computed but never written, emitted, or logged.
+4. A body short-circuited to a trivial return (`null` / `0` / `[]` / `""`).
+5. Input checking deleted — empty, absent, hostile, or garbled input sails through untouched.
 
-A mutation that no test catches means one of two things: the behavior is unprotected, or the test is tautological. Both are findings.
+A break that no test catches means one of two things: the behavior is unprotected, or the test is tautological. Both are findings. (The same walk-through ships as the closing step of the `superpowers:test-driven-development` companion skill, where it is installed.)
 
 Be clear-eyed about what this is: a discipline that depends on the author actually running it, not a gate. It is attention, so pair it with the two-AI review below rather than treating it as equivalent to a mutator run. For shell specifically, this framework's own repo carries an on-demand mutator — `packages/core/audit-self/run-bash-mutation.sh`, a wrapper over `universalmutator` that swaps generated mutants into a shadow copy of a hook and runs the hook's paired-negative test against each, reporting a kill rate against a floor. It is a local developer tool invoked like `npx stryker run`, not a CI job and not part of the consumer install — so in your project the checklist above is the layer you actually have for shell.
 
@@ -470,7 +468,7 @@ This is the foundational principle of the entire Rules-as-Tests framework. AI do
 
 The material in §3, §12 and the manual mutation check converges with two independent sources. Neither is reproduced here; both are cited because independent arrival at the same rule is the strongest evidence that the rule is real and not local folklore.
 
-- **`obra/superpowers`, `skills/test-driven-development/writing-good-tests.md`** (v6.2.0, MIT) — <https://github.com/obra/superpowers>. Reaches the same three conclusions from a different starting point: name the production break a test catches before writing its body, derive expected values without the code under test, and assert behavior rather than source text. Its own mutation check enumerates the same five mutation classes listed above. The difference is framing, and it is worth stating: that document is prose discipline for a TDD workflow, where the enforcement is the author's adherence. This document maps each trap to the layer that catches it — the "Caught by" line is the part that makes a trap enforceable rather than merely known.
+- **`obra/superpowers`, `skills/test-driven-development/writing-good-tests.md`** (v6.2.0, MIT) — <https://github.com/obra/superpowers>. Reaches the same conclusions from a different starting point: name the production break a test catches before writing its body, derive expected values without the code under test, assert behavior rather than source text, and close with a mutation walk-through over the same operator families. The division of labour is deliberate, not accidental: superpowers owns the authoring _workflow_ (its enforcement is the author following the skill), while this document owns the trap-to-enforcement-layer mapping — the "Caught by" line is what makes a trap checkable rather than merely known. Superpowers is also an opt-in companion of this framework (`setup.d/companions.manifest`), so where the operator accepted that install the `superpowers:test-driven-development` pointers in §3 and the mutation check resolve to the live skill; nothing in this document depends on it being present.
 - **Alex Eagle, "Testing on the Toilet: Change-Detector Tests Considered Harmful"**, Google Testing Blog, 2015-01-27 — <https://testing.googleblog.com/2015/01/testing-on-toilet-change-detector-tests.html>. The original statement of the failure mode named in §3: a test that fails on every intentional change while passing through real defects imposes maintenance cost and buys no protection. The authoring-time criterion in §3 is that idea restated as a question you can answer before writing the assertion.
 
 ---
