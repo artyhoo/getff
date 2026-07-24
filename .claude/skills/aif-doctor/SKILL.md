@@ -36,7 +36,7 @@ allowed-tools:
 **Two decisions baked in (Q1/Q2, do not re-litigate):**
 
 1. **Separate skill, not `dispatcher §4`.** `/dispatcher` owns the happy-path loop and is `disable-model-invocation:true`; its NOT-authoritative-for header names only planning/pipeline/orchestrator — operational-environment health was left implicit, and this skill makes it explicit. Operational triage has a distinct trigger and must be invokable when the dispatcher is NOT running.
-2. **Diagnose autonomously, mutate only on operator GO.** Read-only probing (curl `/tasks`+`/agent/status`, `docker ps/logs`, `claude --version`, mode classification, emitting the exact fix command) runs without asking. **Any mutation** — delete a task, free a slot, `npm install`/`install.cjs` in-container, image rebuild, bump `COORDINATOR_MAX_CONCURRENT_TASKS` — is surfaced with **evidence + reversibility**, then waits for GO. Rationale: [`operator-control-not-decide-everything`], [`stop-surface-not-hack-on-dispatch-fail`], [recommendation-laziness-discipline.md §3](../../rules/recommendation-laziness-discipline.md).
+2. **Diagnose autonomously, mutate only on operator GO.** Read-only probing (curl `/tasks`+`/agent/status`, `docker ps/logs`, `claude --version`, mode classification, emitting the exact fix command) runs without asking. **Any mutation** — delete a task, free a slot, `npm install`/`install.cjs` in-container, image rebuild, bump `COORDINATOR_MAX_CONCURRENT_TASKS_PER_PROJECT` — is surfaced with **evidence + reversibility**, then waits for GO. Rationale: [`operator-control-not-decide-everything`], [`stop-surface-not-hack-on-dispatch-fail`], [recommendation-laziness-discipline.md §3](../../rules/recommendation-laziness-discipline.md).
 
 ---
 
@@ -95,10 +95,12 @@ Three modes `bridge-health.sh` does **not** cover (confirmed by reading its sour
 
 - **Detect (read-only):**
   - New task stays `backlog`; coordinator log: `docker logs aif-handoff-agent-1 --tail 60 | grep -i capacity` → `"active":N,"limit":N,"msg":"Auto-queue: project pipeline at capacity, skipping"` (note: cap is **per-project** when `parallelEnabled`; the log names the `projectId`).
-  - `docker exec aif-handoff-agent-1 sh -c 'echo ${COORDINATOR_MAX_CONCURRENT_TASKS:-unset}'` → `unset` means default **3** (range 1–10).
+  - `docker exec aif-handoff-agent-1 sh -c 'echo ${COORDINATOR_MAX_CONCURRENT_TASKS_PER_PROJECT:-unset}'` → `unset` means default **3** (range 1–10). **Read the name carefully — `COORDINATOR_MAX_CONCURRENT_TASKS` (no `_PER_PROJECT`) is a DIFFERENT, global knob and setting it does nothing to the per-project lane count.** Source: `packages/agent/dist/coordinator.js:571` in the running image — `const limit = project.parallelEnabled && !usesSharedBranchIsolation ? env.COORDINATOR_MAX_CONCURRENT_TASKS_PER_PROJECT : 1`. Verified live 2026-07-24: a `docker-compose.override.yml` carrying `COORDINATOR_MAX_CONCURRENT_TASKS: "5"` (added 2026-06-27 under operator GO) left the coordinator logging `"limit":3` for a month, and survived a container restart unchanged; adding `COORDINATOR_MAX_CONCURRENT_TASKS_PER_PROJECT: "5"` + `docker compose up -d agent` moved it to `"limit":5`.
+  - **Never take the limit from the env var — take it from the coordinator's own log** (`grep -oE '"active":[0-9]+,"limit":[0-9]+'`). The env is what someone intended; the log is what the process decided. That is what caught the wrong-name bug.
   - `curl -s :3009/tasks` → find the N occupiers; a true zombie is `plan_ready`/`review` whose sibling umbrella is already verified/merged.
+  - **A `paused` task still consumes a slot — this is an upstream deadlock, not a misreading.** `countActivePipelineTasksForProject` filters only on `projectId` + non-terminal status, with **no** `paused` predicate, while `findCoordinatorTaskCandidates` carries `eq(tasks.paused, false)`. So a `plan_ready` + `paused=true` task is counted as in-flight forever and is never eligible to advance. Verified live 2026-07-24 (two such tasks held 2 of 3 lanes; `activeTaskCount` reported **0** throughout). There is no reaper for this state: it is terminal in practice, non-terminal in schema. Sweep for it whenever the log shows capacity pressure that the task list does not explain.
 - **Fix 1 — free a slot via the official route (operator GO):** `curl -s -X DELETE http://localhost:3009/tasks/<id>` (same REST route the web UI uses; upstream `lee-to/aif-handoff api/src/routes/tasks.ts` `DELETE /tasks/:id`, in the aif image — not this repo) on a **verified** zombie. **MUST verify zombie status first** (T-AIFDOC-A) — `implementationLog:false` AND sibling umbrella verified/merged; never delete on name/jaccard match alone. **Reversibility:** DELETE is destructive (task record gone) → this is exactly why it needs GO + verification.
-- **Fix 2 — raise the cap (operator GO, reversible):** bump `COORDINATOR_MAX_CONCURRENT_TASKS` (1–10) in compose env + `docker compose up -d agent`. **Reversibility:** trivially revert the env value. Prefer this over DELETE when the occupiers are legitimately in-flight.
+- **Fix 2 — raise the cap (operator GO, reversible):** bump `COORDINATOR_MAX_CONCURRENT_TASKS_PER_PROJECT` (1–10) in compose env + `docker compose up -d agent`. **The `_PER_PROJECT` suffix is the whole fix** — the bare `COORDINATOR_MAX_CONCURRENT_TASKS` is a different knob and a bump written against it is inert (see the detector above; that exact mistake sat in `docker-compose.override.yml` for a month). Confirm from the coordinator log, not the env. **Reversibility:** trivially revert the env value. Prefer this over DELETE when the occupiers are legitimately in-flight.
 
 ### §3.3 Host↔npm-registry proxy block (flaky tunnel) — DISCRIMINATE first, then NAME or MIRROR
 
@@ -167,7 +169,7 @@ Fixes that delete records or interrupt running processes:
 
 - `DELETE /tasks/:id` — task record gone, irreversible
 - `docker compose build/up` — interrupts the active agent container
-- Cap bump (`COORDINATOR_MAX_CONCURRENT_TASKS` + `docker compose up -d agent`) — restarts the agent, interrupts in-flight tasks
+- Cap bump (`COORDINATOR_MAX_CONCURRENT_TASKS_PER_PROJECT` + `docker compose up -d agent`) — restarts the agent, interrupts in-flight tasks
 - Transport switch to API (Fix C) — paid path, requires explicit authorization
 
 For Tier 2, the skill prints and **stops**:

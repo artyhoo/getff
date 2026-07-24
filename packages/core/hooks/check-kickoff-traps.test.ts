@@ -67,7 +67,7 @@ function runHook(
   tool: string,
   absPath: string,
   env: Record<string, string> = {},
-): { status: number; stdout: string } {
+): { status: number; stdout: string; stderr: string } {
   const fullEnv = { ...process.env };
   if (env.ZCODE_PROJECT_DIR === undefined) delete fullEnv.ZCODE_PROJECT_DIR;
   else fullEnv.ZCODE_PROJECT_DIR = env.ZCODE_PROJECT_DIR;
@@ -79,10 +79,26 @@ function runHook(
     encoding: 'utf8',
     env: fullEnv,
   });
-  return { status: r.status ?? -1, stdout: r.stdout ?? '' };
+  // stderr is returned too: on CC the violation text rides on stderr (exit 2), so a test
+  // that only checks the exit code cannot tell WHICH arm fired. The declared return type
+  // below must list it — this file is outside the typechecked program (`tsc --noEmit -p
+  // tsconfig.json --listFiles` does not include it), so an excess-property return and a
+  // read of an undeclared field are both invisible to the compiler and were caught only by
+  // review. Keep the annotation honest by hand.
+  return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
 }
 
 const CITE = 'See .claude/rules/ai-laziness-traps.md §2.';
+
+/**
+ * Arm-1 (destination-environment contract) opt-out, appended to the arm-2 fixtures that
+ * assert exit 0. The hook accumulates violations across BOTH arms, so an arm-2 fixture
+ * must satisfy arm 1 to isolate what it is actually testing. Arm 1 has its own paired
+ * tests in the `host-verification contract` describe block below — this constant does not
+ * hide it. Rationale is ≥20 chars, as the gate requires.
+ */
+const HV_OPTOUT =
+  '<!-- host-verify: none — fixture exercises the trap-enumeration arm only -->';
 
 describe.skipIf(!JQ)(
   'check-kickoff-traps.sh — PostToolUse kickoff T-enumeration gate',
@@ -103,14 +119,14 @@ describe.skipIf(!JQ)(
 
     it('PAIRED-POSITIVE: engages rule + ≥3 distinct T-numbers → exit 0', () => {
       const abs = writeKickoff(
-        `# Wave N kickoff\n${CITE}\nActive traps: T1, T3, T7, T15.\n`,
+        `# Wave N kickoff\n${CITE}\nActive traps: T1, T3, T7, T15.\n${HV_OPTOUT}\n`,
       );
       expect(runHook('Write', abs).status).toBe(0);
     });
 
     it('boundary: exactly 3 distinct T-numbers → exit 0', () => {
       const abs = writeKickoff(
-        `# Wave N kickoff\n${CITE}\nActive traps for this R-phase: T1, T4, T10.\n`,
+        `# Wave N kickoff\n${CITE}\nActive traps for this R-phase: T1, T4, T10.\n${HV_OPTOUT}\n`,
       );
       expect(runHook('Write', abs).status).toBe(0);
     });
@@ -124,7 +140,7 @@ describe.skipIf(!JQ)(
 
     it('engagement guard: kickoff that never mentions the rule → exit 0 (not C2 territory)', () => {
       const abs = writeKickoff(
-        '# Wave N kickoff\n\nA plan with no trap discipline at all.\n',
+        `# Wave N kickoff\n\nA plan with no trap discipline at all.\n${HV_OPTOUT}\n`,
       );
       expect(runHook('Write', abs).status).toBe(0);
     });
@@ -252,5 +268,131 @@ describe('dependency-missing skip is announced on the model channel', () => {
     const { status, stdout } = runNoJq('/x/README.md');
     expect(status).toBe(0);
     expect(stdout.trim()).toBe('');
+  });
+});
+
+/**
+ * Arm 1 — destination-environment verification contract.
+ * spec: .claude/rules/destination-environment-verification.md §1
+ *
+ * The gate delegates contract RECOGNITION to scripts/host-verify.sh --list, so the hook and
+ * the runner cannot disagree about what counts as a contract. These tests therefore also
+ * pin the shared grammar: the marker is matched on the fence INFO-STRING, so neither a
+ * prose mention nor an unmarked block opens one.
+ */
+describe('check-kickoff-traps.sh — destination-environment contract arm', () => {
+  it('PAIRED-NEGATIVE: kickoff with no contract and no opt-out → exit 2', () => {
+    const abs = writeKickoff('# Wave N kickoff\n\nA plan with no host contract.\n');
+    const r = runHook('Write', abs);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/declares no host-verification contract/);
+  });
+
+  it('PAIRED-POSITIVE: a host-verify fenced block → exit 0', () => {
+    const abs = writeKickoff(
+      '# Wave N kickoff\n\n```bash host-verify\nnpx vitest run packages/core/principles\n```\n',
+    );
+    expect(runHook('Write', abs).status).toBe(0);
+  });
+
+  it('opt-out with a ≥20-char rationale → exit 0', () => {
+    const abs = writeKickoff(`# Wave N kickoff\n${HV_OPTOUT}\n`);
+    expect(runHook('Write', abs).status).toBe(0);
+  });
+
+  it('opt-out with a too-short rationale → exit 2 (no bare escape token)', () => {
+    const abs = writeKickoff('# Wave N kickoff\n<!-- host-verify: none — too short -->\n');
+    const r = runHook('Write', abs);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/floor: 20/);
+  });
+
+  it('a PROSE mention of host-verify does not satisfy the contract → exit 2', () => {
+    const abs = writeKickoff(
+      '# Wave N kickoff\n\nThe orchestrator will host-verify this on the host, honest.\n',
+    );
+    expect(runHook('Write', abs).status).toBe(2);
+  });
+
+  it('an UNMARKED fenced block does not satisfy the contract → exit 2', () => {
+    const abs = writeKickoff('# Wave N kickoff\n\n```bash\nnpx vitest run foo\n```\n');
+    expect(runHook('Write', abs).status).toBe(2);
+  });
+
+  it('a marked block containing only comments/blanks is NOT a contract → exit 2', () => {
+    // T-BATCH-A shape: an empty contract would make the gate look satisfied while
+    // committing the worker to nothing. The runner strips comments and blanks, so an
+    // all-comment block resolves to zero commands and must fail exactly like no block.
+    const abs = writeKickoff(
+      '# Wave N kickoff\n\n```bash host-verify\n# TODO: fill this in later\n\n```\n',
+    );
+    expect(runHook('Write', abs).status).toBe(2);
+  });
+
+  it('BOTH arms violated → both messages are reported in one pass (no round-trip per rule)', () => {
+    const abs = writeKickoff(`# Wave N kickoff\n${CITE}\nOnly T1 here.\n`);
+    const r = runHook('Write', abs);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/declares no host-verification contract/);
+    expect(r.stderr).toMatch(/floor: 3/);
+  });
+
+  /**
+   * Regressions for the bypasses a cold review found in the first cut. Each one made the
+   * gate report green while the kickoff committed to nothing; each is pinned here so the
+   * fix cannot silently rot.
+   */
+  it('a host-verify block QUOTED inside a wider documentation fence does not open a contract', () => {
+    // The 4-backtick wrapper owns everything until a >=4-backtick close, so the inner
+    // 3-backtick fence is content. Without CommonMark fence-length tracking, a kickoff that
+    // merely quotes the rule's §1 example — or pastes this gate's own error text, which
+    // embeds a ```bash host-verify block — satisfied the gate while declaring nothing.
+    const abs = writeKickoff(
+      '# Wave N kickoff\n\n````text\n```bash host-verify\nrm -rf /tmp/should-not-run\n```\n````\n',
+    );
+    expect(runHook('Write', abs).status).toBe(2);
+  });
+
+  it('an UNTERMINATED fence is an error, not "the rest of the file is commands"', () => {
+    const abs = writeKickoff(
+      '# Wave N kickoff\n\n```bash host-verify\nnpx vitest run foo\n\nThen the orchestrator reviews the diff.\n',
+    );
+    expect(runHook('Write', abs).status).toBe(2);
+  });
+
+  it('a contract of no-ops only is rejected (cheaper bypass than the documented opt-out)', () => {
+    const abs = writeKickoff('# Wave N kickoff\n\n```bash host-verify\n:\n```\n');
+    expect(runHook('Write', abs).status).toBe(2);
+  });
+
+  it('the em-dash opt-out floor is measured on the RATIONALE, not on the separator bytes', () => {
+    // The em-dash is 3 bytes; a sed bracket expression matches one byte, so the old form
+    // left 2 orphan continuation bytes in the capture and measured +3 too long — the
+    // documented 20-char floor accepted 17 visible characters.
+    const seventeen = 'x'.repeat(17); // under the floor, was wrongly accepted
+    const twenty = 'y'.repeat(20); // exactly the floor
+    expect(
+      runHook('Write', writeKickoff(`# k\n<!-- host-verify: none — ${seventeen} -->\n`)).status,
+    ).toBe(2);
+    expect(
+      runHook('Write', writeKickoff(`# k\n<!-- host-verify: none — ${twenty} -->\n`)).status,
+    ).toBe(0);
+  });
+
+  it('an ASCII-hyphen opt-out measures the same as the em-dash form (no separator drift)', () => {
+    const twenty = 'z'.repeat(20);
+    expect(
+      runHook('Write', writeKickoff(`# k\n<!-- host-verify: none - ${twenty} -->\n`)).status,
+    ).toBe(0);
+  });
+
+  it('a kickoff OUTSIDE the resolved repo root is still gated (no silent root-mismatch skip)', () => {
+    // Worktrees nest inside the repo here, so a primary-rooted session's CLAUDE_PROJECT_DIR
+    // never prefixed a worktree kickoff's absolute path; the anchored REL_PATH pattern then
+    // missed and the hook exited 0 in silence — the very defect class arm 1 exists to close.
+    const abs = writeKickoff('# Wave N kickoff\n\nNo contract at all.\n');
+    const r = runHook('Write', abs, { CLAUDE_PROJECT_DIR: '/nonexistent/other/checkout' });
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/declares no host-verification contract/);
   });
 });
