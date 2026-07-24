@@ -58,13 +58,31 @@ expect(mock).toHaveBeenCalled();           // without verifying behavioral outco
 expect(total).toBe(items.reduce(...));     // expected computed by same logic as SUT
 ```
 
+**Mirror assertion** — the sharpest form, because it reads as rigorous and survives review:
+
+```ts
+// ❌ both sides computed by the SUT — true by construction, whatever buildSearchQuery does
+const expected = buildSearchQuery({ tag: 'urgent' });
+expect(buildSearchQuery({ tag: 'urgent' })).toBe(expected);
+
+// ✅ expectation derived by hand, independent of the implementation
+expect(buildSearchQuery({ tag: 'urgent' })).toBe('tag:"urgent"');
+```
+
 **Why:** AI generates tests that "look like tests" but assert what's already true by construction.
+
+**Authoring-time criterion.** Before writing the test body, answer one question: _which production change would make this test fail — and is that change a bug or a decision?_ Three outcomes:
+
+- **Cannot name one** → nothing is being caught. Redesign the test around an observable behavior.
+- **Only a deliberate decision would fail it** — a constant's value, exact message wording, a private structure → it is a **change detector**: it fires on every intentional redesign and sleeps through real bugs. Test the behavior that depends on the decision instead. Not `expect(MAX_RETRIES).toBe(5)`, but "a failing call is retried 5 times and a 6th attempt never happens".
+- **A plausible bug would fail it** → the test earns its place.
 
 **Caught by:**
 
 - **Mutation testing (Layer 4)** — the canonical defense. Tautological test never kills a mutant.
 - AI Factory `review-sidecar` — second AI without code context reads the test and flags suspicious patterns.
 - AST meta-test: assertion's compared values must transitively depend on a call to the SUT, not just literals/types.
+- The authoring-time criterion above is judgment, not a gate — it has no deterministic layer. It belongs in the test-authoring prompt and in review, and it is the reason the two defenses above exist.
 
 ### 4. Always-passing tests
 
@@ -186,22 +204,54 @@ expect(value !== undefined).toBe(true); // always true for required field
 - `eslint-plugin-testing-library` strict rules
 - `review-sidecar` two-AI review
 
+### 12. String-presence assertions on scripts, skills, and prompts
+
+**Pattern:** a "test" that greps a non-code artifact for the text it is supposed to contain.
+
+```ts
+expect(readFileSync('scripts/deploy.sh', 'utf8')).toContain(
+  'set -euo pipefail',
+);
+expect(readFileSync('.claude/skills/x/SKILL.md', 'utf8')).toMatch(
+  /never commit secrets/,
+);
+```
+
+**Why:** shell scripts, skill files, agent prompts and config are exactly the surfaces where AI most wants a test and least has an obvious one to write. Grepping the file is the path of least resistance and it produces a green check.
+
+**Why it proves nothing:** the expected value and the actual value have the same origin — the source file. The assertion restates the source back to itself, which is the mirror assertion of §3 wearing different clothes. It survives every mutation that keeps the string while breaking the behavior (`set -euo pipefail` present on line 2 but overridden on line 5; a skill instruction present in one section and contradicted in the next), and it fails on every benign rewording. Tautology and change detector at once.
+
+**The observable instead:**
+
+- **Scripts** — run the script against controlled inputs in a temp fixture. Assert its exit code, its stdout/stderr, and the files it created or refused to create.
+- **Skills, agent prompts, instruction docs** — the observable is the _consuming agent's behavior_, not the text. Dispatch a fresh agent with the artifact and again without it, and assert the two outputs diverge in the specific way the artifact claims to cause.
+- **Prose written for humans** — no test. Do not manufacture one.
+
+**Caught by:**
+
+- **Nothing deterministic — this is an honest gap.** No lint rule or AST check here flags a string-presence assertion on a `.md` or `.sh` target, because separating "greps its own source" from "asserts a legitimate contract" is a judgment call. Both defenses below are judgment-bearing.
+- **RED→GREEN behavioral fixtures** — `tests/fixtures/shipped-agent-liveness/` runs each shipped agent prompt twice: once for a tool-less subagent (RED — fabricated findings, hallucinated `file:line`) and once for a tool-using one (GREEN — citations reachable only through real tool calls), then asserts the two diverge. This is the behavioral form for prompt artifacts, and it is the only automated arm.
+- **`review-sidecar` two-AI review** — its core heuristic ("for each assertion: if I removed this, what bug could now ship?") answers "none" for every string-presence assertion, so the judgment transfers directly. Note the shipped pattern list is code-shaped and does not yet name this trap by example, so it depends on the reviewer generalizing.
+- **`compliance-verifier` sub-agent** — the same hollow-form judgment ("is the cited evidence real or merely plausible-looking?") applied to a neighbouring surface: its declared scope is PR-description evidence sections, not test assertions. Reach for it when the artifact under review is a claim about coverage rather than the assertion itself.
+
 ---
 
 ## Defense matrix: layer × AI violation
 
-| Violation              | Layer 1 (Arch)           | Layer 2 (Meta) | Layer 3 (Spec)          | Layer 4 (Mutation) | Layer 5 (Docs)       | AIF Sub-agent      |
-| ---------------------- | ------------------------ | -------------- | ----------------------- | ------------------ | -------------------- | ------------------ |
-| `as any`               | ESLint                   | —              | —                       | —                  | —                    | best-practices     |
-| Lodash import          | ESLint                   | —              | —                       | —                  | —                    | best-practices     |
-| Tautological test      | —                        | AST scan       | —                       | **Stryker**        | —                    | **review-sidecar** |
-| Layer violation        | dep-cruiser              | —              | —                       | —                  | —                    | best-practices     |
-| Floating promise       | ESLint                   | —              | —                       | —                  | —                    | best-practices     |
-| Forbidden runtime      | ESLint                   | —              | —                       | —                  | —                    | best-practices     |
-| Public API inflation   | dep-cruiser              | —              | —                       | —                  | API snapshot         | best-practices     |
-| Bug reintroduced       | —                        | —              | regression test density | Stryker            | test name discipline | review-sidecar     |
-| React hooks deps       | ESLint                   | —              | —                       | —                  | —                    | best-practices     |
-| `'use client'` mistake | ESLint + server-only pkg | —              | —                       | —                  | —                    | review-sidecar     |
+| Violation              | Layer 1 (Arch)           | Layer 2 (Meta) | Layer 3 (Spec)          | Layer 4 (Mutation) | Layer 5 (Docs)       | AIF Sub-agent       |
+| ---------------------- | ------------------------ | -------------- | ----------------------- | ------------------ | -------------------- | ------------------- |
+| `as any`               | ESLint                   | —              | —                       | —                  | —                    | best-practices      |
+| Lodash import          | ESLint                   | —              | —                       | —                  | —                    | best-practices      |
+| Tautological test      | —                        | AST scan       | —                       | **Stryker**        | —                    | **review-sidecar**  |
+| Layer violation        | dep-cruiser              | —              | —                       | —                  | —                    | best-practices      |
+| Floating promise       | ESLint                   | —              | —                       | —                  | —                    | best-practices      |
+| Forbidden runtime      | ESLint                   | —              | —                       | —                  | —                    | best-practices      |
+| Public API inflation   | dep-cruiser              | —              | —                       | —                  | API snapshot         | best-practices      |
+| Bug reintroduced       | —                        | —              | regression test density | Stryker            | test name discipline | review-sidecar      |
+| React hooks deps       | ESLint                   | —              | —                       | —                  | —                    | best-practices      |
+| `'use client'` mistake | ESLint + server-only pkg | —              | —                       | —                  | —                    | review-sidecar      |
+| Change-detector test   | —                        | —              | —                       | — (mutants die)    | —                    | **review-sidecar**  |
+| String-presence "test" | —                        | —              | —                       | — (no mutator)     | RED→GREEN fixtures   | compliance-verifier |
 
 ---
 
@@ -217,6 +267,18 @@ This catches tautological tests, always-green assertions, and shallow coverage t
 - Threshold: 70% kill rate on changed lines
 - PR-blocking when below
 - Surfaced in PR comment
+
+**Where no mutator reaches — the manual mutation check.** Stryker mutates TypeScript and JavaScript; shell scripts, config and prompt artifacts have no equivalent in most setups. Before finishing a test file, mutate the production code in your head and confirm at least one test fails for each class:
+
+1. **Wrong constant or argument** — an off-by-one bound, swapped parameter order, a different default.
+2. **Wrong branch taken** — the `else` arm runs where `then` should, or a guard is inverted.
+3. **Missing side effect or state change** — the value is computed and returned but never written, emitted, or logged.
+4. **Empty or default return** — the function short-circuits to `null` / `0` / `[]` / `""`.
+5. **Missing validation** — zero, empty, nil, unauthorized, or malformed input walks straight through.
+
+A mutation that no test catches means one of two things: the behavior is unprotected, or the test is tautological. Both are findings.
+
+Be clear-eyed about what this is: a discipline that depends on the author actually running it, not a gate. It is attention, so pair it with the two-AI review below rather than treating it as equivalent to a mutator run. For shell specifically, this framework's own repo carries an on-demand mutator — `packages/core/audit-self/run-bash-mutation.sh`, a wrapper over `universalmutator` that swaps generated mutants into a shadow copy of a hook and runs the hook's paired-negative test against each, reporting a kill rate against a floor. It is a local developer tool invoked like `npx stryker run`, not a CI job and not part of the consumer install — so in your project the checklist above is the layer you actually have for shell.
 
 ### 2. Two-AI review (AIF `review-sidecar`)
 
@@ -401,6 +463,15 @@ Conflicting trigger → designate one skill as owner, remove from others, replac
 **Lesson:** **every rule has a measurable check, or it doesn't exist**. If you can't write a probe (ESLint, awk, dependency-cruiser, mutation, contract test) — it's a wish, not a rule. Either implement the check or delete the rule.
 
 This is the foundational principle of the entire Rules-as-Tests framework. AI documentation is no exception.
+
+---
+
+## Prior art for the test-quality traps
+
+The material in §3, §12 and the manual mutation check converges with two independent sources. Neither is reproduced here; both are cited because independent arrival at the same rule is the strongest evidence that the rule is real and not local folklore.
+
+- **`obra/superpowers`, `skills/test-driven-development/writing-good-tests.md`** (v6.2.0, MIT) — <https://github.com/obra/superpowers>. Reaches the same three conclusions from a different starting point: name the production break a test catches before writing its body, derive expected values without the code under test, and assert behavior rather than source text. Its own mutation check enumerates the same five mutation classes listed above. The difference is framing, and it is worth stating: that document is prose discipline for a TDD workflow, where the enforcement is the author's adherence. This document maps each trap to the layer that catches it — the "Caught by" line is the part that makes a trap enforceable rather than merely known.
+- **Alex Eagle, "Testing on the Toilet: Change-Detector Tests Considered Harmful"**, Google Testing Blog, 2015-01-27 — <https://testing.googleblog.com/2015/01/testing-on-toilet-change-detector-tests.html>. The original statement of the failure mode named in §3: a test that fails on every intentional change while passing through real defects imposes maintenance cost and buys no protection. The authoring-time criterion in §3 is that idea restated as a question you can answer before writing the assertion.
 
 ---
 
