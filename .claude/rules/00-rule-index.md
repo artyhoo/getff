@@ -9,6 +9,7 @@ One line per rule — full text: read `.claude/rules/<name>.md` (index: `.claude
 |---|---|---|---|
 | `ai-laziness-traps.md` | A | any R-phase, audit, sample-based investigation, or open-ended AI task. | always-on core |
 | `attention-is-not-a-mechanism.md` | C | designing any load-bearing check (gate vs. bare human/AI attention). | always-on core |
+| `autonomous-loop-continuity.md` | B | any unattended / overnight orchestrator run (`AIF_AUTONOMOUS=1`); any moment a turn is about to end while dispatched work is still running; any load-bearing wait on an external runtime. | hook |
 | `build-first-reuse-default.md` | A | any capability commit / new-capability proposal. | always-on core |
 | `ci-tool-pinning.md` | A | editing `.github/workflows/**` or any repo shell script (`*.sh`, `setup`, `install.sh`). | paths:(6), edit-time inject |
 | `companion-install-principle.md` | B | editing `setup.d/**` (companion install manifest/engine). | paths:(1), edit-time inject |

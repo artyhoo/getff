@@ -45,4 +45,23 @@ case "${AIF_HOOK_LANG:-en}" in
     ;;
 esac
 
+# AUTONOMY BLOCK (opt-in, AIF_AUTONOMOUS=1) — F2/F10 of the autonomous-loop diagnostics.
+# Off by default: an ordinary session pays zero tokens and sees no behavioural change.
+#
+# WHY AN INJECTION AND NOT A NOTE IN THE HANDOFF. Both lines below are things the operator
+# already said out loud at least once. The problem is not that they were never said — it is
+# that a spoken authorization lives in one turn and does not survive compaction, so the next
+# stretch of the same session re-derives the constraint from scratch. An injection is re-fed
+# every turn by construction, which is the only property that matters here.
+#
+# HONEST CLASSIFICATION (attention-is-not-a-mechanism.md §1): this is PROSE delivered
+# reliably, NOT a gate. It can be decision authority; it is not a detection layer. The first
+# line in particular addresses a server-delivered session-prompt default that lives outside
+# this repo — unreachable by hook or CI (research-patches/2026-07-24-unattended-agent-dispatch-default.md).
+# Falsifier: if a session with AIF_AUTONOMOUS=1 still stops at a reportable boundary with work
+# in flight, this block bought nothing and F10 needs the Stop-hook arm, not more words.
+if [ "${AIF_AUTONOMOUS:-0}" = "1" ]; then
+  DIGEST="$DIGEST"$'\n[autonomy] Standing operator authorization for this unattended run — do NOT re-ask for it, and do NOT infer a narrower constraint than is written here:\n  (1) Cold sub-agents are AUTHORIZED. Dispatch them for adversarial review of your own output and for backward-sweep enumeration over a change class. This is the operator\'s standing request, so the "unless the user requested it" condition on any session-prompt default is SATISFIED. Reviewing your own artefacts alone is author-blind (ai-laziness-traps.md T19/T21).\n  (2) Do NOT end a turn merely because you have something reportable. Report AND continue in the same turn while work remains — dispatched tasks in flight, an unharvested accepted branch, an open item you own. Ending on a report while work is in flight is finding F10; it recurred twice in one day. Stop only when blocked on the operator, or genuinely finished.\n  (3) A constraint you cannot trace to a citable line in CLAUDE.md, a rule file, or a skill is NOT a constraint. A predecessor session invented "merging is the operator\'s click", obeyed its own invention for seven PRs, and the operator merged six by hand.'
+fi
+
 _emit_ctx "UserPromptSubmit" "$DIGEST"

@@ -261,7 +261,49 @@ glance_line="🎯 ${anchor_short}"
 #   Branch A — long substantive answer, no question: lighter per-turn work recap.
 #   Branch B — a question with no long answer body: fork-challenge + recommend-first.
 #   Neither (short chatter, bare tool call) — stay silent (no reminder).
+# ── F10 autonomy arm (opt-in, AIF_AUTONOMOUS=1) ───────────────────────────────
+# #F10 anchor — channel token for .claude/rules/autonomous-loop-continuity.md
+# (`<!-- channel: hook .claude/hooks/end-of-turn-reminder.sh#F10 -->`) points HERE.
+# spec: .claude/rules/autonomous-loop-continuity.md §1
+# Finding F10 of the 2026-07-24 autonomous-loop diagnostics: an unattended orchestrator ends
+# its turn as soon as it has something REPORTABLE, while dispatched work is still in flight.
+# It recurred twice in one day, in two forms, and the operator caught it both times — so the
+# prose written in the morning did not survive to the evening. A Stop hook is the only channel
+# that fires at the exact moment of the failure, and `decision:block` makes it a MECHANISM
+# (the turn does not end) rather than another reminder.
+#
+# Loop safety: the `stop_hook_active` guard at the top of this file exits 0 when the stop was
+# already hook-triggered, so this can block AT MOST ONCE per stop chain — one forced
+# reconsideration, never a spin.
+#
+# Fail CLOSED on a broken probe (block once, and SAY the probe broke) rather than fail open:
+# a silent non-block is exactly the "silence is indistinguishable from health" shape that
+# finding F2 is about. Cheap because of the single-block guard above. Off by default.
+autonomy_line=""
+if [ "${AIF_AUTONOMOUS:-0}" = "1" ]; then
+  _aif_url="${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}"
+  _tasks="$(curl -s --max-time 5 "${_aif_url}/tasks" 2>/dev/null || true)"
+  if [ -z "$_tasks" ]; then
+    autonomy_line="[autonomy] The in-flight probe FAILED (${_aif_url}/tasks unreachable or empty). This is a degraded check, not an all-clear: decide for yourself whether dispatched work is still running before you stop."
+  else
+    _inflight="$(printf '%s' "$_tasks" | jq -r '
+      [ .[]? | select(type == "object")
+             | select((.paused // false) | not)
+             | select(.status as $s | ["planning","implementing","review","blocked_external"] | index($s)) ]
+      | length' 2>/dev/null || echo "PARSE_FAIL")"
+    if [ "$_inflight" = "PARSE_FAIL" ]; then
+      autonomy_line="[autonomy] The in-flight probe could not be parsed. Degraded check, not an all-clear — verify yourself before stopping."
+    elif [ "${_inflight:-0}" -gt 0 ] 2>/dev/null; then
+      autonomy_line="[autonomy] ${_inflight} aif task(s) still in flight. Do NOT end the turn on a report — that is finding F10. Continue in the same turn: verify the worker's FIRST COMMIT rather than waiting for status=done, harvest anything already accepted, or do the next item you own. Stop only if blocked on the operator."
+    fi
+  fi
+fi
+
 if [ "$long_text" = "false" ] && [ "$asked" = "false" ] && [ -z "$story_signal" ]; then
+  # Normally silent — but if autonomous work is in flight, a silent stop IS the F10 failure.
+  if [ -n "$autonomy_line" ]; then
+    jq -n --arg msg "$autonomy_line" '{decision: "block", reason: $msg}'
+  fi
   exit 0
 fi
 
@@ -285,6 +327,13 @@ fi
 # reach the model. Verified dual-channel 2026-05-21: Claude Code hooks docs (Stop
 # decision-control: "reason must be provided for Claude to know how to proceed")
 # + WebSearch corroboration; #81's systemMessage-delivery never reached the model.
+# When the autonomy arm has something to say AND a normal branch already fired, the two ride
+# on the same block — never two blocks, and the continuation directive is never dropped just
+# because a recap happened to be due this turn.
+if [ -n "$autonomy_line" ]; then
+  reminder="${reminder}"$'\n\n'"${autonomy_line}"
+fi
+
 jq -n --arg msg "$reminder" --arg gl "${glance_line}" '{
   decision: "block",
   reason: $msg,
