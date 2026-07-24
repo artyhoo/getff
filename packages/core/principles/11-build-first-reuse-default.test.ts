@@ -188,8 +188,10 @@ type TrailerResult = '__grandfathered__' | '__no-introducing-commit__' | null | 
 // with ONE `git log --diff-filter=A --format='%H%n%ai%n%B' -1 -- <path>` that
 // returns sha, date, and body in a single walk. The expensive part (the walk
 // itself, with pathspec history-simplification) is unchanged; the savings come
-// from eliminating 2 of 3 subprocess spawns × 228 files ≈ 3-4s wall-clock.
-// Measured 2026-07-24: ~5.0s single-call vs ~8.5s legacy-3-call (1.7× speedup).
+// from eliminating 2 of 3 subprocess spawns × 228 files. Container timing
+// (Linux overlayfs): ~5.0s single-call vs ~8.5s legacy-3-call (1.7×); on the
+// operator's macOS host: ~17.7s vs ~26s (1.47×). The host is the gate's
+// destination environment — see the F1 budget note below.
 //
 // Why NOT batched-map (one `git log --diff-filter=A --name-only` walk for all
 // files at once)? `git log --diff-filter=A --name-only` (no pathspec) produces
@@ -203,7 +205,8 @@ type TrailerResult = '__grandfathered__' | '__no-introducing-commit__' | null | 
 // with the single-call approach. There is no way to replicate git's
 // pathspec-simplification semantics in a single non-pathspec walk without
 // re-implementing git's history-walk algorithm in JS — not worth the complexity
-// for a 1.7× vs theoretical-higher speedup delta. The single-call approach is
+// for a modest (~1.5-1.7×, environment-dependent) vs theoretical-higher speedup
+// delta. The single-call approach is
 // correct by construction (it IS the same `git log -- <path>` walk, just with
 // a different output format).
 //
@@ -378,7 +381,7 @@ export function assertF3(relPath: string, rationale: string): void {
 // Cost model (post-single-call, 2026-07-24): scanCapabilities() walks each
 // capability file ONCE via `getPriorArtTrailer` → `git log --diff-filter=A
 // --format='%H%n%ai%n%B' -1 -- <path>` (one subprocess per file, down from
-// three). Measured ~5.0s for 228 files on this machine (was ~8.5s pre-fix).
+// three). Container: ~5.0s for 228 files; host: ~17.7s (was ~26s pre-fix).
 // F1 runs first and pays the full walk cost; F3 hits the cached trailers map.
 // The legacy 3-call reference (`getPriorArtTrailerLegacy3Calls` above) is
 // retained for the EQUIV_VERIFY=1 equivalence test only.
@@ -404,13 +407,20 @@ function scanCapabilities(): CapabilityScan {
 describe('Principle 11 — build-first reuse-default', () => {
   // Cost model (post-single-call, 2026-07-24): scanCapabilities() does ONE
   // `git log --diff-filter=A --format='%H%n%ai%n%B' -1 -- <path>` per file
-  // (down from 3 git spawns per file in the legacy implementation). Measured
-  // ~5.0s for 228 files on this machine (was ~8.5s pre-fix — 1.7× speedup).
-  // The budget is 15s: ~3× headroom over the measured cost, covering CI-runner
-  // variance and history-depth growth (~10 commits/month adds ~50ms/month).
-  // A regression past 15s means the per-file walk degraded — investigate
+  // (down from 3 git spawns per file in the legacy implementation).
+  // Timing depends heavily on environment — the container (Linux overlayfs)
+  // is ~3× faster than the operator's macOS host at this workload:
+  //   container: ~5.0s for 228 files
+  //   host:      ~17.7s for 228 files  (the gate runs here at push time)
+  // The budget is sized to the HOST: 30s gives ~41% margin over 17.7s.
+  // Host speedup vs the legacy 3-call baseline (~26s) is 1.47× — under 2×,
+  // an honest small win. NOTE: the expensive part (the per-file walk with
+  // pathspec history-simplification) is unchanged, so cost still grows with
+  // repository age (1481 commits today, ~365 in the last 30 days) — this
+  // fix lowered the constant, not the exponent.
+  // A regression past 30s means the per-file walk degraded — investigate
   // before raising this. F3 then hits the cached trailers map (sub-ms).
-  it('F1: all post-grandfather capability artifacts have SSOT match or Prior-art trailer', { timeout: 15000 }, () => {
+  it('F1: all post-grandfather capability artifacts have SSOT match or Prior-art trailer', { timeout: 30000 }, () => {
     const { ssotContent, files, trailers } = scanCapabilities();
     expect(files.length, 'capability set must be non-empty').toBeGreaterThan(0);
 
@@ -445,8 +455,8 @@ describe('Principle 11 — build-first reuse-default', () => {
   });
 
   // Reorder-safety: normally a sub-ms cache hit, but if F3 ran before F1 it
-  // would carry the full walk — size for that case. 15s matches F1.
-  it('F3: all Post-grandfather Prior-art trailers are valid (≥20 chars, non-placeholder)', { timeout: 15000 }, () => {
+  // would carry the full walk — size for that case. 30s matches F1 (host-sized).
+  it('F3: all Post-grandfather Prior-art trailers are valid (≥20 chars, non-placeholder)', { timeout: 30000 }, () => {
     const { files, trailers } = scanCapabilities();
     const violations: string[] = [];
 
@@ -543,7 +553,8 @@ describe('Principle 11 — build-first reuse-default', () => {
    * AND the single-call lookup over the FULL population and assert byte-identical
    * TrailerResult per file. A bug in the single-call format/parser that drops
    * or mis-attributes trailers is caught here. Gated on EQUIV_VERIFY=1 because
-   * the legacy 3-call walk is the slow ~8.5s path the single-call replaces —
+   * the legacy 3-call walk is the slow path the single-call replaces
+   * (container ~8.5s, host ~26s for 228 files) —
    * running it in every CI would defeat the purpose. Run once per PR that
    * touches the lookup (paste output into the PR body).
    */
