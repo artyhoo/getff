@@ -13,9 +13,20 @@
 # helper (sync-branch-from-api.sh) is OPTIONAL + operator-local — its absence degrades with a
 # clear message, never a hard dependency. The primary fetch path stands alone (T-HEAL-A).
 #
-# Idempotent + reversible: fast no-op (2 calls) when already current; prints the OLD SHA for a
+# TWO-PART CURRENCY: the fast no-op requires BOTH the branch ref AND the working tree HEAD
+# to equal the live tip. A base clone whose ref is current but whose working tree is on
+# another branch is the exact broken state this helper exists to detect — the working tree
+# is the overlay source for task worktrees (.claude/ is copied from it). See aif-doctor SKILL
+# §3.4 + research-patches/2026-07-24-aif-stale-claude-overlay.md.
+#
+# CHECKED-OUT BRANCH: when $BRANCH is already checked out (the normal state after this
+# helper runs once), `git branch -f` is refused by git. We use `merge --ff-only` (fast-forward)
+# or detach→`branch -f`→re-attach (non-FF) instead.
+#
+# Idempotent + reversible: fast no-op when already current; prints the OLD SHA for a
 # one-command revert. Non-destructive to task records / worktrees. Composes existing tools only
 # (git / docker / gh api / git bundle) — no new dependency, no API-billed call.
+# Never uses `git reset --hard` — a banned operation in this project.
 #
 # Usage: bash refresh-aif-base.sh [branch]            (branch defaults to staging)
 #        run from inside the framework/consumer git repo (any worktree).
@@ -44,23 +55,105 @@ REAL="$(gh api "repos/$REPO/git/refs/heads/$BRANCH" --jq '.object.sha' 2>/dev/nu
 [ -n "$REAL" ] || { echo "[refresh-aif-base] gh api unreachable for repos/$REPO ($BRANCH) — cannot resolve live tip; skip."; exit 1; }
 echo "repo=$REPO branch=$BRANCH  real_tip=${REAL:0:7}  container=$C  repo_path=$REPO_PATH"
 
-# Fast no-op when the container base is already the live tip.
-CUR="$(docker exec "$C" git -C "$REPO_PATH" rev-parse "$BRANCH" 2>/dev/null || echo none)"
-if [ "$CUR" = "$REAL" ]; then echo "✅ container $BRANCH already current (${REAL:0:7}) — no-op."; exit 0; fi
-echo "container $BRANCH = ${CUR:0:7}  ->  ${REAL:0:7}  (refresh needed)"
-OLD="$CUR"
+# ── Shorthand for in-container git ──────────────────────────────────────────────────
+icg() { docker exec "$C" git -C "$REPO_PATH" "$@"; }
 
-# Force-set the container base + tracking ref to $1, then confirm it landed.
-apply_and_verify() {
-  docker exec "$C" git -C "$REPO_PATH" branch -f "$BRANCH" "$1" 2>/dev/null || return 1
-  docker exec "$C" git -C "$REPO_PATH" update-ref "refs/remotes/origin/$BRANCH" "$1" 2>/dev/null || true
-  local now; now="$(docker exec "$C" git -C "$REPO_PATH" rev-parse "$BRANCH" 2>/dev/null || echo none)"
-  [ "$now" = "$1" ]
+# ── Refuse dirty tracked changes (never stash silently, never reset --hard) ─────────
+refuse_if_dirty() {
+  local dirty; dirty="$(icg status --porcelain 2>/dev/null | grep -vE '^\?\?' || true)"
+  if [ -n "$dirty" ]; then
+    echo "[refresh-aif-base] ABORT: container $BRANCH checkout has uncommitted tracked changes:"
+    echo "$dirty" | sed 's/^/   /'
+    echo "   → stash by name (docker exec $C git -C $REPO_PATH stash push -m 'refresh-aif-base') and re-run."
+    echo "   → this script never stashes silently and never runs git reset --hard."
+    return 1
+  fi
+  return 0
 }
 
+# ── Force-set the container base ref AND working tree to $1, then confirm both landed ─
+# Handles checked-out $BRANCH (merge --ff-only or detach→branch-f→re-attach) and non-checked-out
+# (branch -f + checkout). Verifies BOTH ref and HEAD equal the target before reporting success.
+apply_and_verify() {
+  local target="$1"
+
+  local head_branch; head_branch="$(icg rev-parse --abbrev-ref HEAD 2>/dev/null || echo '')"
+
+  if [ "$head_branch" = "$BRANCH" ]; then
+    # Branch is checked out — git branch -f would be refused. Use FF merge or detach+reattach.
+    if icg merge --ff-only "$target" >/dev/null 2>&1; then
+      :  # fast-forward succeeded — ref and HEAD both advanced
+    else
+      # Non-FF or merge refused: detach to target, move branch pointer, re-attach.
+      icg checkout --detach "$target" >/dev/null 2>&1 || return 1
+      icg branch -f "$BRANCH" "$target" 2>/dev/null || return 1
+      icg checkout "$BRANCH" >/dev/null 2>&1 || return 1
+    fi
+  else
+    # Branch is NOT checked out — safe to force-move the pointer, then check it out.
+    icg branch -f "$BRANCH" "$target" 2>/dev/null || return 1
+    icg checkout "$BRANCH" >/dev/null 2>&1 || return 1
+  fi
+
+  # Update tracking ref so future fetches compare against the right baseline.
+  icg update-ref "refs/remotes/origin/$BRANCH" "$target" 2>/dev/null || true
+
+  # Verify BOTH the branch ref and the working tree HEAD equal the target.
+  local now_ref now_head
+  now_ref="$(icg rev-parse "$BRANCH" 2>/dev/null || echo none)"
+  now_head="$(icg rev-parse HEAD 2>/dev/null || echo none)"
+  if [ "$now_ref" != "$target" ] || [ "$now_head" != "$target" ]; then
+    echo "[refresh-aif-base] verify FAILED: ref=${now_ref:0:7} HEAD=${now_head:0:7} != target=${target:0:7}"
+    return 1
+  fi
+  return 0
+}
+
+# ── Warn if .claude/ has uncommitted edits (those get copied into every new worktree) ─
+warn_claude_dirty() {
+  local claude_dirty; claude_dirty="$(icg status --porcelain -- .claude/ 2>/dev/null || true)"
+  if [ -n "$claude_dirty" ]; then
+    echo "⚠ container .claude/ has uncommitted edits — these are copied into every new task worktree:"
+    echo "$claude_dirty" | sed 's/^/   /'
+    echo "   → commit or stash them inside the container to avoid drift."
+  fi
+}
+
+# ── Two-part fast no-op: requires BOTH ref AND HEAD at the live tip ─────────────────
+CUR_REF="$(icg rev-parse "$BRANCH" 2>/dev/null || echo none)"
+CUR_HEAD="$(icg rev-parse HEAD 2>/dev/null || echo none)"
+
+if [ "$CUR_REF" = "$REAL" ] && [ "$CUR_HEAD" = "$REAL" ]; then
+  echo "✅ container $BRANCH already current — ref and working tree both match (${REAL:0:7}), no-op."
+  exit 0
+fi
+
+OLD="$CUR_REF"
+
+# ── Refuse dirty tracked changes before any refresh attempt (never stash, never reset) ─
+refuse_if_dirty || exit 1
+
+# ── Parked state: ref is current but working tree is on another branch ──────────────
+if [ "$CUR_REF" = "$REAL" ] && [ "$CUR_HEAD" != "$REAL" ]; then
+  PARKED="$(icg rev-parse --abbrev-ref HEAD 2>/dev/null || echo detached)"
+  echo "⚠ container $BRANCH ref is current (${REAL:0:7}) BUT the base working tree is on '$PARKED' @ ${CUR_HEAD:0:7}"
+  echo "   → .claude/ is copied from the working tree, so this is the stale-overlay state."
+  echo "   → realigning working tree to $BRANCH @ ${REAL:0:7} ..."
+  if apply_and_verify "$REAL"; then
+    echo "✅ container $BRANCH realigned from '$PARKED' @ ${CUR_HEAD:0:7} -> ${REAL:0:7}  (parked-state recovery)"
+    echo "   revert: docker exec $C git -C $REPO_PATH checkout $PARKED"
+    warn_claude_dirty
+    exit 0
+  fi
+  echo "[refresh-aif-base] parked-state realign FAILED — see verify output above."
+  exit 1
+fi
+
+echo "container $BRANCH = ${CUR_REF:0:7}  ->  ${REAL:0:7}  (refresh needed)"
+
 # ── PRIMARY (portable): the container fetches GitHub directly ────────────────────────
-if docker exec "$C" git -C "$REPO_PATH" fetch origin "$BRANCH" >/dev/null 2>&1; then
-  FETCHED="$(docker exec "$C" git -C "$REPO_PATH" rev-parse "origin/$BRANCH" 2>/dev/null || echo none)"
+if icg fetch origin "$BRANCH" >/dev/null 2>&1; then
+  FETCHED="$(icg rev-parse "origin/$BRANCH" 2>/dev/null || echo none)"
   # Accept the primary path only if the fetch actually advanced the base off the stale OLD
   # (a container whose origin points elsewhere / is itself stale falls through to the fallback,
   #  which forces the exact gh-api tip). A benign race where origin moved past REAL is fine.
@@ -68,7 +161,8 @@ if docker exec "$C" git -C "$REPO_PATH" fetch origin "$BRANCH" >/dev/null 2>&1; 
     if apply_and_verify "$FETCHED"; then
       [ "$FETCHED" = "$REAL" ] || echo "[refresh-aif-base] note: container origin tip ${FETCHED:0:7} != gh-api snapshot ${REAL:0:7} (benign race / origin ahead)."
       echo "✅ container $BRANCH ${OLD:0:7} -> ${FETCHED:0:7}  (primary: in-container git fetch)"
-      echo "   revert: docker exec $C git -C $REPO_PATH branch -f $BRANCH $OLD"
+      echo "   revert: docker exec $C git -C $REPO_PATH checkout --detach && docker exec $C git -C $REPO_PATH branch -f $BRANCH $OLD && docker exec $C git -C $REPO_PATH checkout $BRANCH"
+      warn_claude_dirty
       exit 0
     fi
     echo "[refresh-aif-base] primary fetch landed but branch-set failed — trying host-bundle fallback."
@@ -105,12 +199,13 @@ echo "bundle $(du -h "$BUNDLE" | cut -f1) -> $C"
 docker cp "$BUNDLE" "$C:/tmp/aif-base.bundle"
 # '+' forces past the non-FF (old base is a divergent synthetic commit); the fetch imports the
 # objects, then apply_and_verify sets the local base to the exact live tip.
-docker exec "$C" git -C "$REPO_PATH" fetch /tmp/aif-base.bundle "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" >/dev/null 2>&1 || true
+icg fetch /tmp/aif-base.bundle "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" >/dev/null 2>&1 || true
 docker exec "$C" rm -f /tmp/aif-base.bundle 2>/dev/null || true
 if apply_and_verify "$REAL"; then
   echo "✅ container $BRANCH ${OLD:0:7} -> ${REAL:0:7}  (fallback: host bundle import)"
-  echo "   revert: docker exec $C git -C $REPO_PATH branch -f $BRANCH $OLD"
-  docker exec "$C" git -C "$REPO_PATH" log --oneline -1 "$BRANCH" 2>/dev/null || true
+  echo "   revert: docker exec $C git -C $REPO_PATH checkout --detach && docker exec $C git -C $REPO_PATH branch -f $BRANCH $OLD && docker exec $C git -C $REPO_PATH checkout $BRANCH"
+  icg log --oneline -1 "$BRANCH" 2>/dev/null || true
+  warn_claude_dirty
   exit 0
 fi
 echo "[refresh-aif-base] verify failed after fallback (container $BRANCH != ${REAL:0:7}) — skip."
