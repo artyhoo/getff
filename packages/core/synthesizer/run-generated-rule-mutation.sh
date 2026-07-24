@@ -22,7 +22,10 @@
 #   NODE-2    Suffix first node type            '<NodeType>_Y'
 #   LOGIC-1   Negate first attribute            [attr='val'] → [attr!='val']
 #
-# exit 0 = all rules ≥60% kill; exit 1 = below floor (surviving mutants indicate gaps).
+# exit 0 = all rules ≥60% kill; exit 1 = below floor OR all-skipped (rules present but
+# none testable — selector-blind negative-test; the #skip-reported-as-green defect class).
+# Skips are tracked in OVERALL_SKIPPED and surface in the summary line + final verdict;
+# the summary never vanishes when rules were present (RULE_COUNT>0).
 # @cc-only-rationale: local dev tool, same axis as run-bash-mutation.sh.
 set -uo pipefail
 
@@ -149,7 +152,7 @@ echo "=== generated rule mutation: ${RULE_COUNT} rule(s), floor=${MIN_KILL}% ===
 echo "manifest: $MANIFEST"
 echo
 
-OVERALL_KILLED=0; OVERALL_TOTAL=0; OVERALL_FAIL=0
+OVERALL_KILLED=0; OVERALL_TOTAL=0; OVERALL_FAIL=0; OVERALL_SKIPPED=0
 
 # Iterate rules
 IDX=0
@@ -166,7 +169,11 @@ while true; do
   RULE_SEL=$(node --input-type=module -e "const c=[]; process.stdin.on('data',d=>c.push(d)); process.stdin.on('end',()=>process.stdout.write(JSON.parse(c.join('')).selector||''));" <<< "$RULE_DATA" 2>/dev/null || echo '')
   RULE_INPUT=$(node --input-type=module -e "const c=[]; process.stdin.on('data',d=>c.push(d)); process.stdin.on('end',()=>{ const r=JSON.parse(c.join('')); process.stdout.write((r.inputs||[])[0]||''); });" <<< "$RULE_DATA" 2>/dev/null || echo '')
 
-  [ -z "$RULE_ID" ] || [ -z "$RULE_SEL" ] || [ -z "$RULE_INPUT" ] && { IDX=$((IDX+1)); continue; }
+  if [ -z "$RULE_ID" ] || [ -z "$RULE_SEL" ] || [ -z "$RULE_INPUT" ]; then
+    echo "  WARN: rule at index $IDX has empty id/selector/input — skipping (malformed)"
+    OVERALL_SKIPPED=$((OVERALL_SKIPPED+1))
+    IDX=$((IDX+1)); continue
+  fi
 
   echo "--- $RULE_ID ---"
   echo "selector: $RULE_SEL"
@@ -174,6 +181,7 @@ while true; do
   # Verify original fires
   if ! _probe "$RULE_SEL" "$RULE_INPUT"; then
     echo "  WARN: original selector did NOT fire on negative-test input — skipping rule"
+    OVERALL_SKIPPED=$((OVERALL_SKIPPED+1))
     IDX=$((IDX+1)); continue
   fi
 
@@ -189,7 +197,11 @@ while true; do
   done < <(_mutate "$RULE_SEL")
 
   TOTAL=$((KILLED+SURVIVED))
-  [ "$TOTAL" -eq 0 ] && { IDX=$((IDX+1)); continue; }
+  if [ "$TOTAL" -eq 0 ]; then
+    echo "  WARN: zero mutations probed for $RULE_ID — skipping (perturbations produced no candidates)"
+    OVERALL_SKIPPED=$((OVERALL_SKIPPED+1))
+    IDX=$((IDX+1)); continue
+  fi
 
   KILL_PCT=$((KILLED * 100 / TOTAL))
   OVERALL_KILLED=$((OVERALL_KILLED+KILLED))
@@ -215,13 +227,28 @@ while true; do
 done
 
 # ─── Summary ─────────────────────────────────────────────────────────────────
-if [ "$OVERALL_TOTAL" -gt 0 ]; then
-  OVERALL_PCT=$((OVERALL_KILLED * 100 / OVERALL_TOTAL))
-  echo "=== overall: kill=$OVERALL_KILLED/$OVERALL_TOTAL (${OVERALL_PCT}%) floor=${MIN_KILL}% ==="
+# Print unconditionally when rules were present (RULE_COUNT>0). The all-skipped
+# case (OVERALL_TOTAL=0) is the one that most needs a printed verdict — never let
+# the summary vanish. Mirrors pre-push.ts generatedRuleMaterialSection LOUD-DEGRADE
+# idiom: never a silent pass, never a vanishing verdict.
+if [ "$RULE_COUNT" -gt 0 ]; then
+  if [ "$OVERALL_TOTAL" -gt 0 ]; then
+    OVERALL_PCT=$((OVERALL_KILLED * 100 / OVERALL_TOTAL))
+    echo "=== overall: kill=$OVERALL_KILLED/$OVERALL_TOTAL (${OVERALL_PCT}%) skipped=$OVERALL_SKIPPED floor=${MIN_KILL}% ==="
+  else
+    echo "=== overall: skipped=$OVERALL_SKIPPED — NOT green (rules present, none tested) ==="
+  fi
 fi
 
 if [ "$OVERALL_FAIL" -gt 0 ]; then
   echo "FAIL — $OVERALL_FAIL rule(s) below kill-rate floor"
+  exit 1
+elif [ "$OVERALL_TOTAL" -eq 0 ] && [ "$RULE_COUNT" -gt 0 ]; then
+  # Rules were present but none were actually tested (all skipped). This is MATERIAL
+  # failure (negative-test selector doesn't fire / rule data malformed / zero mutations
+  # probed) — NOT ENV failure. Exit 1 matches the pre-push caller's "below-floor" arm:
+  # the rule's negative-test material is selector-blind, push-blocking on the consumer.
+  echo "$OVERALL_SKIPPED skipped — NOT green (rules present, none actually tested)"
   exit 1
 else
   echo "PASS — all generated rules ≥${MIN_KILL}% kill rate"
