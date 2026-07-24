@@ -172,3 +172,81 @@ describe.skipIf(!JQ)(
     });
   },
 );
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Dependency-missing SKIP must reach the model, not just stderr (aif-parity F1,
+// criterion (a) — silent `command -v jq || exit 0` guards; sibling of the
+// check-doc-authority.sh fix shipped in #1116). Channel semantics live-verified
+// 2026-07-24: research-patches/2026-07-24-posttooluse-channel-verification.md.
+// ═══════════════════════════════════════════════════════════════════════════════
+import { mkdtempSync as _mkdtempSync, symlinkSync as _symlinkSync } from 'node:fs';
+import { join as _join } from 'node:path';
+import { tmpdir as _tmpdir } from 'node:os';
+import { spawnSync as _spawnSync } from 'node:child_process';
+
+describe('dependency-missing skip is announced on the model channel', () => {
+  /**
+   * Run the hook with jq genuinely absent.
+   *
+   * TMPDIR is redirected to a fresh dir per call because the hook's notice is
+   * once-per-session, keyed by a flag file under TMPDIR (GH #934's «no per-turn
+   * error-spam» requirement, preserved literally). Sharing the real TMPDIR would
+   * make the first run announce and every later run silent — a self-poisoning,
+   * order-dependent test. Caller controls the session via `tmpDir`/`sessionId`.
+   */
+  function runNoJq(
+    filePath: string,
+    opts: { tmpDir?: string; sessionId?: string } = {},
+  ): { status: number; stdout: string; stderr: string } {
+    const binDir = _mkdtempSync(_join(_tmpdir(), 'nojq-'));
+    // sed/tr/head back the jq-free escaper + crude path parse; masking them too would
+    // test the harness, not the hook. dirname backs the REPO_ROOT fallback line.
+    for (const tool of ['sed', 'tr', 'cat', 'head', 'dirname', 'grep', 'sort', 'awk', 'stat', 'date']) {
+      const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
+      if (real) _symlinkSync(real, _join(binDir, tool));
+    }
+    const env: Record<string, string> = {
+      ...process.env,
+      PATH: binDir,
+      TMPDIR: opts.tmpDir ?? _mkdtempSync(_join(_tmpdir(), 'dahsess-')),
+    } as Record<string, string>;
+    delete env.ZCODE_PROJECT_DIR;
+    const r = _spawnSync('/bin/bash', [HOOK], {
+      input: JSON.stringify({
+        tool_name: 'Write',
+        session_id: opts.sessionId ?? 'test-session',
+        tool_input: { file_path: filePath },
+      }),
+      encoding: 'utf8',
+      env,
+    });
+    return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+  }
+
+  it('jq missing + in-scope path → hookSpecificOutput.additionalContext says DID NOT RUN (exit 0)', () => {
+    const { status, stdout } = runNoJq('/x/.claude/rules/some-rule.md');
+    expect(status).toBe(0);
+    const parsed = JSON.parse(stdout.trim()) as {
+      hookSpecificOutput: { hookEventName: string; additionalContext: string };
+    };
+    expect(parsed.hookSpecificOutput.hookEventName).toBe('PostToolUse');
+    expect(parsed.hookSpecificOutput.additionalContext).toMatch(/DID NOT RUN/);
+    expect(parsed.hookSpecificOutput.additionalContext).toMatch(/not a pass/i);
+  });
+
+  it('the notice is once per session — a second in-scope edit is silent (GH #934 no per-turn spam)', () => {
+    const session = _mkdtempSync(_join(_tmpdir(), 'dahsess-'));
+    const first = runNoJq('/x/.claude/rules/some-rule.md', { tmpDir: session });
+    expect(first.stdout).toMatch(/DID NOT RUN/);
+
+    const second = runNoJq('/x/.claude/rules/other-rule.md', { tmpDir: session });
+    expect(second.status).toBe(0);
+    expect(second.stdout.trim()).toBe('');
+  });
+
+  it('jq missing + OUT-of-scope path → silent exit 0 (no per-edit spam in a jq-less env)', () => {
+    const { status, stdout } = runNoJq('/x/docs/guide.md');
+    expect(status).toBe(0);
+    expect(stdout.trim()).toBe('');
+  });
+});

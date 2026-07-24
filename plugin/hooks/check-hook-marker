@@ -18,18 +18,36 @@
 # population-wide, off-CC counterpart — it checks the whole hook set at once AND resolves
 # @dual-pair anchors (§5). This edit-time gate stays the earliest reachable channel.
 #
-# Exit 1 on violation (repo PostToolUse-gate convention: check-doc-authority.sh).
-# Graceful no-op (exit 0) without jq, off-path, or for a deleted file.
+# Exit 2 on violation — on a PostToolUse hook, exit-2 stderr is the ONLY non-JSON channel
+# the model receives; exit-1 stderr reaches the operator transcript but NOT the model
+# (live-verified from the model's own vantage 2026-07-24, both directions — see
+# docs/meta-factory/research-patches/2026-07-24-posttooluse-channel-verification.md).
+# Graceful-but-LOUD skip without jq (see the dependency guard below); silent exit 0 only
+# off-path or for a deleted file.
 set -uo pipefail
 
 # Harness-portable output (inline — this hook is copied standalone to test sandboxes, so no
-# lib/ sibling to source). CC: exit 1 + stderr is advisory feedback. ZCode: JSON
-# additionalContext (plain exit 1 is swallowed); exit 0 (non-blocking, = CC advisory).
+# lib/ sibling to source). CC: exit 2 + stderr = feedback the model receives (advisory in
+# effect — PostToolUse cannot block, the tool already ran). ZCode: JSON additionalContext
+# (exit 2 is swallowed as HookRunFailed); exit 0.
 _is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
+# JSON-escape WITHOUT jq — jq is precisely the dependency that may be missing here.
+_json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n' ' '; }
+# Announce a dependency-missing skip on the channel the model actually receives on an
+# exit-0 path (JSON hookSpecificOutput), keeping stderr for terminal/CI readers.
+_emit_skip() {
+  if _is_zcode; then
+    printf '{"additionalContext":"%s"}\n' "$(_json_escape "$1")"
+  else
+    printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' \
+      "$(_json_escape "$1")"
+  fi
+  printf '%s\n' "$1" >&2
+}
 _emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
     jq -n --arg c "$2" '{additionalContext:$c}'
   else printf '%s\n' "$2"; fi; }
-_adv_violation() { if _is_zcode; then _emit_ctx "PostToolUse" "$1"; else printf '%s\n' "$1" >&2; exit 1; fi; }
+_adv_violation() { if _is_zcode; then _emit_ctx "PostToolUse" "$1"; else printf '%s\n' "$1" >&2; exit 2; fi; }
 
 # Framework-self PostToolUse matcher registered for a hook (empty = not registered, i.e. a
 # shipped-only hook wired solely via setup.d/install.sh — tolerated: no framework-side matcher
@@ -44,7 +62,17 @@ _reg_matcher() {
 }
 
 REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
-command -v jq >/dev/null 2>&1 || exit 0   # graceful no-op without jq
+if ! command -v jq >/dev/null 2>&1; then
+  # jq-less best-effort path extraction (sed on raw stdin) — used ONLY to decide whether
+  # this edit is in scope, so the skip notice fires on .claude/hooks/*.sh edits (or when
+  # stdin is unparseable — conservative) instead of on every Edit/Write in a jq-less env.
+  _RAW_PATH="$(sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+  case "$_RAW_PATH" in
+    *.claude/hooks/*.sh | "")
+      _emit_skip '⚠ check-hook-marker: jq unavailable — the delivery-channel marker check DID NOT RUN for this edit. This is a SKIP, not a pass; install jq to restore enforcement.' ;;
+  esac
+  exit 0
+fi
 
 INPUT="$(cat)"
 TOOL="$(printf '%s' "$INPUT" | jq -r '.tool_name // ""' 2>/dev/null || true)"

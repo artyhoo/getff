@@ -12,8 +12,12 @@
 set -uo pipefail
 
 # Harness-portable output (inline — standalone in test sandboxes). ZCode swallows plain
-# exit 1; JSON additionalContext reaches the model. CC preserves stderr + exit 1 byte-for-byte
-# on the VIOLATION path (that contract is locked by check-doc-authority.test.ts).
+# non-zero exits; JSON additionalContext reaches the model. CC VIOLATION path: exit 2 +
+# stderr — the only non-JSON channel the model receives on PostToolUse. Exit-1 stderr
+# reaches the operator transcript but NOT the model (live-verified both directions from
+# the model's own vantage 2026-07-24 — see
+# docs/meta-factory/research-patches/2026-07-24-posttooluse-channel-verification.md; the
+# earlier "exit 1 byte-for-byte" contract locked a channel the model never received).
 #
 # Graceful-SKIP paths are a different case: they exit 0, and on an exit-0 PostToolUse the
 # model receives ONLY JSON hookSpecificOutput — plain stdout/stderr reaches nobody
@@ -75,4 +79,6 @@ $BIN_ERR"
 fi
 # Guard: emit only when non-empty (otherwise success-path emits a stray \n).
 [[ -n "$BIN_ERR" ]] && printf '%s\n' "$BIN_ERR" >&2
-exit $STATUS
+# CC violation → exit 2 (stderr feeds the model); success → 0.
+[[ $STATUS -ne 0 ]] && exit 2
+exit 0

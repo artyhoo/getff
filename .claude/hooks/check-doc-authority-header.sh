@@ -19,14 +19,46 @@
 #     - per-file exemption: a line `<!-- doc-authority: exempt <reason 20+ chars> -->` in the doc
 #
 # Input: PostToolUse hook JSON via stdin (.tool_input.file_path). Non-scoped paths exit 0 silently.
-# Consumer-safe: pure bash + jq, no framework-internal dependency; degrades to exit 0 when jq is absent.
+# Consumer-safe: pure bash + jq, no framework-internal dependency; degrades LOUDLY (scoped
+# JSON skip-notice) when jq is absent — a silent skip is indistinguishable from a pass, the
+# exact defect class this gate exists to prevent (aif-parity S4 §3 item 1, 2026-07-23).
 set -uo pipefail
 
 # ── Repo-wide opt-out ─────────────────────────────────────────────────────────
 [[ "${AIF_DOC_AUTHORITY:-1}" == "0" ]] && exit 0
 
-# ── Dependency guard: no jq → degrade to a silent no-op (never error-spam) ─────
-command -v jq >/dev/null 2>&1 || exit 0
+# ── Dependency guard: no jq → announce ONCE PER SESSION, then degrade silently ─
+# GH #934 chose silent degradation to avoid per-turn error-spam on a consumer whose machine
+# has no jq (stock macOS). That posture left a worse hole: the gate is registered — so it
+# reads as alive in any settings audit — while enforcing nothing, and the consumer is never
+# told (#warning-nobody-reads, the exact defect the aif-parity audit found in-container,
+# S4 §3 item 1). Resolution keeps BOTH properties: the notice fires at most once per session
+# AND only on an in-scope path, so «no per-turn spam» holds literally while a dead gate stops
+# passing for a live one. Once-per-session precedent: inject-matching-rule.sh session cache.
+# All parsing here is jq-less by necessity (sed on raw stdin); the flag write uses a shell
+# redirect, not `touch`, so it works on a minimal PATH.
+_json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n' ' '; }
+if ! command -v jq >/dev/null 2>&1; then
+  _RAW="$(cat)"
+  _RAW_PATH="$(printf '%s' "$_RAW" | sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+  case "$_RAW_PATH" in
+    *.claude/rules/*.md | *.claude/skills/*/SKILL.md | "")
+      _SID="$(printf '%s' "$_RAW" | sed -n 's/.*"session_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+      _FLAG="${TMPDIR:-/tmp}/aif-dah-jqskip-${_SID:-nosession}"
+      if [ ! -f "$_FLAG" ]; then
+        : > "$_FLAG" 2>/dev/null || true
+        _MSG='⚠ doc-authority-header: jq unavailable — the authority-header check DID NOT RUN for this edit (and will not run this session). This is a SKIP, not a pass; install jq to restore enforcement. Announced once per session.'
+        if [ -n "${ZCODE_PROJECT_DIR:-}" ]; then
+          printf '{"additionalContext":"%s"}\n' "$(_json_escape "$_MSG")"
+        else
+          printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' \
+            "$(_json_escape "$_MSG")"
+        fi
+        printf '%s\n' "$_MSG" >&2
+      fi ;;
+  esac
+  exit 0
+fi
 
 ABS_PATH="$(cat | jq -r '.tool_input.file_path // ""' 2>/dev/null || true)"
 [[ -z "$ABS_PATH" ]] && exit 0
