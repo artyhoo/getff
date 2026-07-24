@@ -98,6 +98,30 @@ const VERDICTS = new Set([
 /** Placeholder words for F3 validation — mirrors pre-push hook pa_check_trailer logic. */
 const PLACEHOLDER_WORDS = new Set(['todo', 'later', 'tbd', 'fixme', 'na', 'placeholder', 'skipped']);
 
+/**
+ * Git-hook-safe environment: a copy of process.env with the git dir/work-tree
+ * variables removed. Under `.husky/pre-push` git exports GIT_DIR (and friends),
+ * which override `cwd` in execSync — so any subprocess that must act on a
+ * DIFFERENT repository (the throwaway repos in the awkward-case tests, or
+ * `getPriorArtTrailerAt(repoRoot, ...)` pointed elsewhere) would silently target
+ * the outer repo. Scrubbing these variables restores the cwd-honouring behaviour.
+ */
+const GIT_ENV_SCRUB = (() => {
+  const env = { ...process.env };
+  for (const k of [
+    'GIT_DIR',
+    'GIT_WORK_TREE',
+    'GIT_INDEX_FILE',
+    'GIT_OBJECT_DIRECTORY',
+    'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+    'GIT_COMMON_DIR',
+    'GIT_NAMESPACE',
+  ]) {
+    delete env[k];
+  }
+  return env;
+})();
+
 function readFile(p: string): string {
   return readFileSync(p, 'utf8');
 }
@@ -245,7 +269,7 @@ export function getPriorArtTrailerAt(
   const relPath = relative(repoRoot, filePath);
   const out = execSync(
     `git log --diff-filter=A --format='%H%n%ai%n%B' -1 -- "${relPath}"`,
-    { encoding: 'utf8', cwd: repoRoot, maxBuffer: 50 * 1024 * 1024 },
+    { encoding: 'utf8', cwd: repoRoot, maxBuffer: 50 * 1024 * 1024, env: GIT_ENV_SCRUB },
   );
   const parsed = parseSingleCallGitLog(out);
   if (!parsed || !parsed.sha) return '__no-introducing-commit__';
@@ -604,9 +628,9 @@ describe('Principle 11 — single-call lookup awkward cases', () => {
   // Helper: create a temp git repo, return its path. Caller cleans up.
   function makeTempRepo(): string {
     const dir = mkdtempSync(join(tmpdir(), 'p11-equiv-'));
-    execSync('git init -q', { cwd: dir, encoding: 'utf8' });
-    execSync('git config user.email test@example.com', { cwd: dir, encoding: 'utf8' });
-    execSync('git config user.name Test', { cwd: dir, encoding: 'utf8' });
+    execSync('git init -q', { cwd: dir, encoding: 'utf8', env: GIT_ENV_SCRUB });
+    execSync('git config user.email test@example.com', { cwd: dir, encoding: 'utf8', env: GIT_ENV_SCRUB });
+    execSync('git config user.name Test', { cwd: dir, encoding: 'utf8', env: GIT_ENV_SCRUB });
     return dir;
   }
 
@@ -618,7 +642,7 @@ describe('Principle 11 — single-call lookup awkward cases', () => {
       `git add ${files.map((f) => `'${f.name}'`).join(' ')} && ` +
         `GIT_AUTHOR_DATE='${dateIso}' GIT_COMMITTER_DATE='${dateIso}' ` +
         `git commit -q --allow-empty -m '${msg.replace(/'/g, "'\\''")}'`,
-      { cwd: dir, encoding: 'utf8' },
+      { cwd: dir, encoding: 'utf8', env: GIT_ENV_SCRUB },
     );
   }
 
@@ -634,7 +658,7 @@ describe('Principle 11 — single-call lookup awkward cases', () => {
         { name: 'f.txt', content: 'v1' },
       ]);
       // Commit 2: delete file.
-      execSync('git rm -q f.txt && git commit -q -m delete', { cwd: dir, encoding: 'utf8' });
+      execSync('git rm -q f.txt && git commit -q -m delete', { cwd: dir, encoding: 'utf8', env: GIT_ENV_SCRUB });
       // Commit 3 (new): re-add file with a different trailer.
       commit(dir, 're-add v2\n\nPrior-art: new-trailer', '2025-06-01T00:00:00 +0000', [
         { name: 'f.txt', content: 'v2' },
