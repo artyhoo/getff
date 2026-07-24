@@ -35,12 +35,20 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(HERE, '../..');
+// HERE = <repo>/packages/core/synthesizer/ → repo root is 3 levels up.
+// Mirrors the runner's own REPO_ROOT resolution (run-generated-rule-mutation.sh:39-40
+// via git rev-parse --show-toplevel) and pre-push.ts:60 (same '../../..' climb from
+// packages/core/hooks/). The previous '../..' resolved to <repo>/packages/, causing
+// PROBES_AVAILABLE=false in standard CI (deps at <repo>/node_modules/.bin/ via root
+// `npm ci` or <repo>/packages/core/node_modules/.bin/ via `npm ci --prefix packages/core`
+// in audit-self.yml) → describe.skipIf silently skipped the suite → zero regression
+// protection (review blocking finding 457dd734421c, T14 inside the fix's own evidence).
+const REPO_ROOT = resolve(HERE, '../../..');
 const RUNNER = resolve(HERE, 'run-generated-rule-mutation.sh');
 
-// Mirror the runner's own bin resolution (run-generated-rule-mutation.sh :50-65) +
-// pre-push.ts generatedRuleMaterialSection pre-check. Skip the whole suite when
-// tsx/eslint are absent — the runner would die exit 2 ("tsx/eslint not found")
+// Mirror the runner's own bin resolution (run-generated-rule-mutation.sh :54-65) +
+// pre-push.ts generatedRuleMaterialSection pre-check (:937). Skip the whole suite
+// when tsx/eslint are absent — the runner would die exit 2 ("tsx/eslint not found")
 // before reaching the skip logic under test, and we cannot distinguish that from a
 // real regression. CI environments with `npm install` will have both; minimal
 // consumer checkouts may not.
