@@ -33,14 +33,49 @@ set -uo pipefail
 
 # Harness-portable output (inline — standalone in test sandboxes). ZCode swallows plain
 # exit 1; JSON additionalContext reaches the model. CC preserves stderr + exit 1 byte-for-byte.
+# Graceful-SKIP paths differ: they exit 0, and on an exit-0 PostToolUse the model receives
+# ONLY JSON hookSpecificOutput — plain stdout/stderr reaches nobody (inject-matching-rule.sh
+# :17 + :89-90). A dependency-missing skip on stderr is therefore indistinguishable from a
+# pass. Sibling of the check-doc-authority.sh fix; same defect class, swept 2026-07-24.
 _is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
+# JSON-escape WITHOUT jq — jq is precisely the dependency that may be missing here.
+_json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n' ' '; }
+# Announce a skip on the channel the model actually receives on an exit-0 path, and keep
+# the human/log channel too (stderr stays for terminal + CI readers).
+_emit_skip() {
+  if _is_zcode; then
+    printf '{"additionalContext":"%s"}\n' "$(_json_escape "$1")"
+  else
+    printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' \
+      "$(_json_escape "$1")"
+  fi
+  printf '%s\n' "$1" >&2
+}
 _emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
     jq -n --arg c "$2" '{additionalContext:$c}'
   else printf '%s\n' "$2"; fi; }
 
+# Resolve the tsx runner through a tier list (linked worktrees carry no node_modules):
+#   1. repo-local  2. main worktree via git --git-common-dir  3. tsx on PATH
+# Reference: .claude/hooks/check-doc-authority.sh _resolve_tsx (PR #1126).
+_resolve_tsx() {
+  local candidate="$REPO_ROOT/node_modules/.bin/tsx"
+  [[ -x "$candidate" ]] && { printf '%s' "$candidate"; return 0; }
+  local common_dir
+  common_dir="$(git -C "$REPO_ROOT" rev-parse --git-common-dir 2>/dev/null || true)"
+  if [[ -n "$common_dir" ]]; then
+    [[ "$common_dir" != /* ]] && common_dir="$REPO_ROOT/$common_dir"
+    local main_root="${common_dir%/*}"
+    candidate="$main_root/node_modules/.bin/tsx"
+    [[ -x "$candidate" ]] && { printf '%s' "$candidate"; return 0; }
+  fi
+  local on_path; on_path="$(command -v tsx 2>/dev/null || true)"
+  [[ -n "$on_path" ]] && { printf '%s' "$on_path"; return 0; }
+  return 1
+}
+
 REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
 BIN="$REPO_ROOT/packages/core/principles/29-worker-dispatch-channel.bin.ts"
-TSX="$REPO_ROOT/node_modules/.bin/tsx"
 
 command -v jq >/dev/null 2>&1 || exit 0   # graceful no-op without jq
 
@@ -61,7 +96,16 @@ case "$REL_PATH" in
 esac
 
 [[ ! -f "$BIN" ]] && exit 0               # bin shim absent — graceful no-op
-[[ ! -x "$TSX" ]] && exit 0               # tsx unavailable — graceful no-op
+
+# Resolve tsx through tiers: repo-local, main-worktree (git --git-common-dir), PATH.
+# Ordered after the path filter so off-path edits do NOT trigger a tsx-miss notice.
+# Tier-miss is announced on the model channel via _emit_skip (NEVER silent — silent exit 0
+# is indistinguishable from a pass; live-evidenced 2026-07-24 container audit PROBE 3:
+# docs/meta-factory/research-patches/2026-07-24-container-gate-reachability.md:109).
+TSX="$(_resolve_tsx)" || {
+  _emit_skip '⚠ check-worker-dispatch-channel: tsx not found — the #worker-dispatch-via-subagent check DID NOT RUN for this edit. This is a SKIP, not a pass.'
+  exit 0
+}
 
 # Delegate to the single shared matcher; its exit code IS this hook's exit code (under CC).
 # Under ZCode a plain non-zero exit is swallowed — capture output and emit JSON additionalContext

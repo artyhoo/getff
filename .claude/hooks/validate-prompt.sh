@@ -42,8 +42,26 @@ _emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
     jq -n --arg c "$2" '{additionalContext:$c}'
   else printf '%s\n' "$2"; fi; }
 
+# Resolve the tsx runner through a tier list (linked worktrees carry no node_modules):
+#   1. repo-local  2. main worktree via git --git-common-dir  3. tsx on PATH
+# Reference: .claude/hooks/check-doc-authority.sh _resolve_tsx (PR #1126).
+_resolve_tsx() {
+  local candidate="$REPO_ROOT/node_modules/.bin/tsx"
+  [[ -x "$candidate" ]] && { printf '%s' "$candidate"; return 0; }
+  local common_dir
+  common_dir="$(git -C "$REPO_ROOT" rev-parse --git-common-dir 2>/dev/null || true)"
+  if [[ -n "$common_dir" ]]; then
+    [[ "$common_dir" != /* ]] && common_dir="$REPO_ROOT/$common_dir"
+    local main_root="${common_dir%/*}"
+    candidate="$main_root/node_modules/.bin/tsx"
+    [[ -x "$candidate" ]] && { printf '%s' "$candidate"; return 0; }
+  fi
+  local on_path; on_path="$(command -v tsx 2>/dev/null || true)"
+  [[ -n "$on_path" ]] && { printf '%s' "$on_path"; return 0; }
+  return 1
+}
+
 REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
-TSX="$REPO_ROOT/node_modules/.bin/tsx"
 VALIDATOR="$REPO_ROOT/packages/core/spec-validation/validate-batch-spec.ts"
 
 # Graceful-but-loud skip if jq unavailable. jq-less best-effort path extraction (sed on
@@ -65,11 +83,14 @@ if [[ -z "$FILE_PATH" ]] || [[ "$FILE_PATH" != *".claude/orchestrator-prompts/"*
   exit 0
 fi
 
-# Graceful skip if tsx unavailable
-if [[ ! -x "$TSX" ]]; then
-  _emit_skip "⚠ validate-prompt: tsx not found at $TSX — batch-spec validation DID NOT RUN for this edit. This is a SKIP, not a pass."
+# Resolve tsx through tiers: repo-local, main-worktree (git --git-common-dir), PATH.
+# Ordered after the jq check so a missing-jq skip fires first (matches pre-fix ordering).
+# Tier-miss is announced on the model channel via _emit_skip (NEVER silent — silent exit 0
+# is indistinguishable from a pass, the defect class this sweep closes).
+TSX="$(_resolve_tsx)" || {
+  _emit_skip '⚠ validate-prompt: tsx not found — batch-spec validation DID NOT RUN for this edit. This is a SKIP, not a pass.'
   exit 0
-fi
+}
 
 # Validator exit 2 = gh CLI unavailable (soft-skip inside validate-batch-spec.ts). A silent
 # exit 0 here is the same dependency-skip defect class as the jq/tsx guards above — in the
