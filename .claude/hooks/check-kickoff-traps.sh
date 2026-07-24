@@ -49,7 +49,7 @@ if ! command -v jq >/dev/null 2>&1; then
   _RAW_PATH="$(sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
   case "$_RAW_PATH" in
     *.claude/orchestrator-prompts/*/kickoff.md | "")
-      _emit_skip '⚠ check-kickoff-traps: jq unavailable — the kickoff T-enumeration check DID NOT RUN for this edit. This is a SKIP, not a pass; install jq to restore enforcement.' ;;
+      _emit_skip '⚠ check-kickoff-traps: jq unavailable — BOTH kickoff checks DID NOT RUN for this edit (the host-verification contract arm and the T-enumeration arm). This is a SKIP, not a pass; install jq to restore enforcement.' ;;
   esac
   exit 0
 fi
@@ -61,12 +61,20 @@ ABS_PATH="$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // ""' 2>/dev/nu
 case "$TOOL" in Edit | Write | MultiEdit) ;; *) exit 0 ;; esac
 [[ -z "$ABS_PATH" ]] && exit 0
 
-REL_PATH="${ABS_PATH#"$REPO_ROOT/"}"
 # Narrow: only kickoff.md under orchestrator-prompts (one path segment for <wave>).
-case "$REL_PATH" in
-  .claude/orchestrator-prompts/*/kickoff.md) ;;
+# Match on the ABSOLUTE path's suffix, NOT on a REPO_ROOT-relative path. The older form
+# stripped a "$REPO_ROOT/" prefix and matched an anchored pattern, so any kickoff NOT under
+# the resolved root — a linked worktree (they nest inside the repo here, so a primary-rooted
+# session never matched a worktree kickoff), or a session whose CLAUDE_PROJECT_DIR points at
+# a different checkout — kept an absolute REL_PATH, missed the pattern, and exited 0 in
+# SILENCE. That is the exact defect class this hook's arm 1 exists to close, reintroduced in
+# the dispatcher itself. Suffix-matching is root-independent, so it cannot recur.
+case "$ABS_PATH" in
+  */.claude/orchestrator-prompts/*/kickoff.md) ;;
   *) exit 0 ;;
 esac
+# Display path only — never load-bearing for the scope decision above.
+REL_PATH="${ABS_PATH#"$REPO_ROOT/"}"
 
 [[ -f "$ABS_PATH" ]] || exit 0
 CONTENT="$(cat "$ABS_PATH" 2>/dev/null || true)"
@@ -97,7 +105,24 @@ for _cand in \
 done
 # Opt-out: an explicit token with a real rationale (≥20 chars), never bare silence.
 # Precedent: ci-tool-pinning.md §3 error-with-escape-token.
-HV_OPTOUT="$(printf '%s' "$CONTENT" | sed -n 's/.*<!--[[:space:]]*host-verify:[[:space:]]*none[[:space:]]*[—-][[:space:]]*\(.*\)-->.*/\1/p' | head -1)"
+# Capture everything between `host-verify: none` and the comment close, THEN strip the
+# separator in the shell. Do NOT put the separator in a sed bracket expression: a bracket
+# matches one BYTE, and the em-dash the rule recommends is three bytes (E2 80 94), so
+# `[—-]` consumed only 0xE2 and left two orphan continuation bytes in the capture — the
+# measured length ran +3 high (documented floor 20 accepted a 17-char rationale, and the
+# rejection message reported a wrong count), while the bracket also silently matched any
+# of 0x80 / 0x94 / '-', so an en-dash, an ellipsis or an arrow all opened the opt-out.
+HV_OPTOUT="$(printf '%s' "$CONTENT" | sed -n 's/.*<!--[[:space:]]*host-verify:[[:space:]]*none[[:space:]]*\(.*\)-->.*/\1/p' | head -1)"
+# Strip a leading separator token (em-dash, en-dash, ASCII hyphen or colon) plus spaces.
+HV_OPTOUT="${HV_OPTOUT#"${HV_OPTOUT%%[![:space:]]*}"}"
+case "$HV_OPTOUT" in
+  '—'*) HV_OPTOUT="${HV_OPTOUT#—}" ;;
+  '–'*) HV_OPTOUT="${HV_OPTOUT#–}" ;;
+  -*) HV_OPTOUT="${HV_OPTOUT#-}" ;;
+  :*) HV_OPTOUT="${HV_OPTOUT#:}" ;;
+esac
+# Trim both ends.
+HV_OPTOUT="${HV_OPTOUT#"${HV_OPTOUT%%[![:space:]]*}"}"
 HV_OPTOUT="${HV_OPTOUT%"${HV_OPTOUT##*[![:space:]]}"}"
 if [[ -n "$HV_OPTOUT" ]]; then
   if [[ "${#HV_OPTOUT}" -lt 20 ]]; then

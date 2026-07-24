@@ -82,23 +82,64 @@ if [ ! -f "$KICKOFF" ]; then
   exit 2
 fi
 
-# Extract every line inside ```<lang> host-verify … ``` blocks. The marker is matched on the
-# fence INFO-STRING only, so a `host-verify` mention in prose or in a nested example cannot
-# open a block. Multiple blocks concatenate in document order.
+# Extract every line inside a fenced block whose info-string carries `host-verify`.
+#
+# Fence handling follows CommonMark, and the details are load-bearing (a cold review found
+# each of these as a live bypass):
+#   - The opening fence's backtick RUN LENGTH is remembered; only a fence of at least that
+#     length AND with no info string closes it. So a ```` ```bash host-verify ```` block
+#     quoted INSIDE a 4-backtick documentation wrapper stays content of the wrapper and does
+#     NOT open a contract. Without this, a kickoff that merely QUOTES the rule's §1 example —
+#     or pastes the gate's own error text — would satisfy the gate while declaring nothing.
+#   - A block is only collected when its own info string carries `host-verify` as a word, so
+#     a prose mention cannot open one.
+#   - An UNTERMINATED fence is an error (exit 2), never "everything after it is a command":
+#     one typo'd fence would otherwise hand kickoff narrative to `bash -c`.
+# Multiple contract blocks concatenate in document order.
 COMMANDS="$(
   awk '
-    /^[[:space:]]*```/ {
-      if (inblock) { inblock = 0; next }
-      if ($0 ~ /(^|[[:space:]])host-verify([[:space:]]|$)/) { inblock = 1 }
-      next
+    match($0, /^[ \t]*`+/) {
+      run = substr($0, RSTART, RLENGTH); sub(/^[ \t]*/, "", run)
+      n = length(run); rest = substr($0, RSTART + RLENGTH)
+      if (!inblock) {
+        if (n >= 3) {
+          inblock = 1; openlen = n
+          collect = (rest ~ /(^|[ \t])host-verify([ \t]|$)/) ? 1 : 0
+        }
+        next
+      }
+      probe = rest; gsub(/[ \t]/, "", probe)
+      if (n >= openlen && probe == "") { inblock = 0; collect = 0; next }
+      # shorter fence, or one carrying an info string: content of the outer block
     }
-    inblock { print }
-  ' "$KICKOFF" | grep -vE '^[[:space:]]*(#|$)' || true
-)"
+    inblock && collect { print }
+    END { if (inblock) exit 3 }
+  ' "$KICKOFF"
+)" || {
+  AWK_RC=$?
+  if [ "$AWK_RC" -eq 3 ]; then
+    printf '❌ host-verify: %s has an UNTERMINATED fenced block.\n' "${KICKOFF#"$REPO_ROOT/"}" >&2
+    printf '   Refusing to guess where it ends — an unclosed fence would turn prose into commands.\n' >&2
+    exit 2
+  fi
+  exit 2
+}
+COMMANDS="$(printf '%s\n' "$COMMANDS" | grep -vE '^[[:space:]]*(#|$)' || true)"
 
 if [ -z "$COMMANDS" ]; then
   printf '❌ host-verify: %s declares no `host-verify` contract block.\n' "${KICKOFF#"$REPO_ROOT/"}" >&2
   printf '   A missing contract is a FAIL, not a pass — see .claude/rules/destination-environment-verification.md §1.\n' >&2
+  exit 2
+fi
+
+# A contract made only of no-ops is not a contract. This does NOT judge substance (that is
+# review-time judgment, rule §4 `#optout-as-reflex`) — it closes the one bypass that is
+# cheaper than the documented opt-out: the opt-out costs a >=20-char rationale a reviewer
+# reads, whereas `:` would cost one character and leave no reviewable marker at all.
+SUBSTANTIVE="$(printf '%s\n' "$COMMANDS" | grep -vE '^[[:space:]]*(:|true|exit[[:space:]]+0)[[:space:]]*$' || true)"
+if [ -z "$SUBSTANTIVE" ]; then
+  printf '❌ host-verify: %s declares a contract of no-ops only (`:`/`true`/`exit 0`).\n' "${KICKOFF#"$REPO_ROOT/"}" >&2
+  printf '   Declare the real host commands, or opt out explicitly with a rationale.\n' >&2
   exit 2
 fi
 
@@ -111,6 +152,19 @@ if [ "$LIST_ONLY" = true ]; then
   exit 0
 fi
 
+# Per-command wall-clock bound. Without one, a watch-mode runner or a lock/network wait
+# stalls forever, and in an unattended run a stall is indistinguishable from "still working"
+# — the same silence-vs-death confusion this repo tracks as finding F2.
+HV_TIMEOUT="${HOST_VERIFY_TIMEOUT:-900}"
+TIMEOUT_BIN=""
+for _t in timeout gtimeout; do
+  if command -v "$_t" >/dev/null 2>&1; then TIMEOUT_BIN="$_t"; break; fi
+done
+if [ -z "$TIMEOUT_BIN" ]; then
+  printf '⚠ host-verify: no `timeout`/`gtimeout` on PATH — commands run UNBOUNDED.\n' >&2
+  printf '   This is a degraded run, not a safe one: a hung command will stall instead of failing.\n' >&2
+fi
+
 FAILED=0
 TOTAL=0
 # Read from a here-string, not a pipe: a piped `while` runs in a subshell on some shells and
@@ -119,8 +173,11 @@ while IFS= read -r CMD; do
   [ -n "$CMD" ] || continue
   TOTAL=$((TOTAL + 1))
   printf '\n▶ [%d] %s\n' "$TOTAL" "$CMD"
+  # `-o pipefail` INSIDE the child: this script's own `set -o pipefail` does not propagate
+  # across `bash -c`, so without it a declared `npx vitest run x | tee log` would report the
+  # exit status of `tee` and a real test failure would pass the contract.
   # `</dev/null` so a declared command can never block the gate waiting on stdin.
-  if (cd "$REPO_ROOT" && bash -c "$CMD" </dev/null); then
+  if (cd "$REPO_ROOT" && ${TIMEOUT_BIN:+$TIMEOUT_BIN "$HV_TIMEOUT"} bash -o pipefail -c "$CMD" </dev/null); then
     printf '✅ [%d] PASS — %s\n' "$TOTAL" "$CMD"
   else
     RC=$?

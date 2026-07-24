@@ -106,6 +106,18 @@ tested). Its *execution* is a command the orchestrator runs, not yet a gate — 
   where a declared contract existed and was simply not run.
 - **Strengthening trigger:** a fifth incident of the §2 class *after* this rule ships means the
   contract is being declared but not exercised → promote, do not re-word.
+- **Known population gap — the rule is narrower than the defect class it names.** The gate reaches
+  **kickoffs only** (`.claude/orchestrator-prompts/*/kickoff.md`). A cold backward sweep of the
+  `#budget-sized-to-the-wrong-machine` shape (§4) enumerated 62 hard-coded budgets repo-wide and
+  found **16** stating a measurement with no environment named — none of them reachable by this
+  gate or its runner: e.g. `.github/workflows/guard-liveness-fullsweep.yml:31` («measured
+  **locally**», enforced on a GitHub runner), `packages/core/hooks/done-md-completion-filter.test.ts:64`
+  («observed 14-51s» justifying a 30s budget — the evidence exceeds the budget it supports),
+  `.husky/pre-push:25` and its shipped consumer twin `packages/core/templates/shared/husky-pre-push.sh:34`
+  («~130ms/push», no machine). Closing that population is a **separate** change, deliberately not
+  bundled here (one concern per PR); the shape to enforce is already demonstrated by the reference
+  instance at `packages/core/principles/11-build-first-reuse-default.test.ts:413-421`, which names
+  both environments, both numbers, the destination, the margin, and the falsifier.
 - **Retirement:** 12 consecutive months with zero §2-class incidents AND no dispatched-worker
   runtime in use → archive to prose in [CLAUDE.md](../../CLAUDE.md). Peer criteria:
   [reviewer-discipline.md §4](reviewer-discipline.md).
@@ -157,11 +169,19 @@ and no rule previously claimed authority over destination-environment verificati
 `host verif|destination environment|container ≠ host` over `.claude/rules/**` returned nothing
 before this file).
 
-**Self-application (T15).** This rule's own deliverable is executable, so it declares its own
-contract and passes it — the origin PR's kickoff carries a `host-verify` block naming
-`npx vitest run packages/core/hooks/check-kickoff-traps.test.ts`, and the rule was not accepted
-until that command was run **on the host** (21/21). A rule about verifying in the destination
-environment that had been verified only in the container would be `#discipline-theatre`.
+**Self-application (T15).** The rule's own deliverable is executable, and it was accepted only
+after `npx vitest run packages/core/hooks/check-kickoff-traps.test.ts` ran **on the host**
+(27/27) — not in a container, and not inferred from a green CI. The contract mechanism itself
+was dogfooded against §2 incident 4 before being believed: `host-verify.sh` was fired at that
+incident's actual defective commit (EXIT=1, work rejected) and at the same commit repaired
+(EXIT=0, work accepted), so the gate is shown to **discriminate**, not merely to refuse.
+
+*Honest limit, stated rather than papered over:* the origin umbrella's own kickoff predates
+this rule and carries no contract, so the rule did not gate the PR that introduced it. Arm 1 is
+forward-going — it fires on the next edit of any kickoff. An earlier draft of this section
+claimed the origin kickoff carried a contract; a cold review ran the runner against it, got
+exit 2, and the claim was false. That is exactly the `#discipline-theatre` this section warns
+about, caught by a reviewer who had not written the rule.
 
 ## See also
 
