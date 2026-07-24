@@ -293,7 +293,18 @@ if skip_unless D5; then : ; else
     D5_ROOT_SOURCE_PATTERNS='(^README\.md$)'
     # GITIGNORED — transient operational prompts; gitignored per .gitignore:2 and
     # explicitly «out of project doc surface» per CLAUDE.md §doc-authority-hierarchy.
-    D5_GITIGNORED_PATTERNS='(^\.claude/orchestrator-prompts/)'
+    D5_GITIGNORED_PATTERNS='(^\.claude/orchestrator-prompts/|^\.stryker-tmp/|^\.stryker/)'
+    # GENERATED_TWIN — plugin/hooks/<name> twins are emitted from
+    # .claude/hooks/<name>.sh by scripts/generate-plugin-twins.sh. The phrase
+    # reaches the twin only because the generator copied it from the source, and
+    # that source carries the enrollment (DOWNSTREAM_DOCS). Enrolling the twin
+    # too would track one claim in two places and drift the moment the generator
+    # runs. Content-gated, not path-gated: the generator also supports a `manual`
+    # mode whose twins are hand-maintained and DO deserve independent tracking,
+    # so only a twin carrying the generator's own header is exempt.
+    # Mirrors isGeneratedTwin() in the .ts implementation.
+    D5_GENERATED_TWIN_PATH_PATTERNS='(^plugin/hooks/)'
+    D5_GENERATED_TWIN_MARKER='AUTO-GENERATED from .claude/hooks/'
     # FALSE-POSITIVE allowlist removed Wave 8.5 — was dead per Wave 8.2 audit:
     # packages/preset-next-15-canonical/RULES.md never matched either canon phrase
     # (grep -F confirmed 0 matches); exemption was pre-emptive and unnecessary.
@@ -322,6 +333,9 @@ if skip_unless D5; then : ; else
       if echo "$file" | grep -qE "$D5_ROOT_SOURCE_PATTERNS"; then continue; fi
       # Gitignored transient prompts?
       if echo "$file" | grep -qE "$D5_GITIGNORED_PATTERNS"; then continue; fi
+      # Generated plugin twin whose source is separately enrolled?
+      if echo "$file" | grep -qE "$D5_GENERATED_TWIN_PATH_PATTERNS" \
+        && grep -qF "$D5_GENERATED_TWIN_MARKER" "$file" 2>/dev/null; then continue; fi
       # Orphan — coverage gap.
       D5_ORPHANS="$D5_ORPHANS"$'\n'"  $file: contains canonical phrase but not in DOWNSTREAM_DOCS or any exemption"
     done <<< "$D5_FOUND"

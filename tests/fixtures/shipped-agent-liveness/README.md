@@ -1,4 +1,4 @@
-# agents/fixtures/shipped-agent-liveness — M2 probe fixtures
+# tests/fixtures/shipped-agent-liveness — M2 probe fixtures
 
 > **Authoritative for:** per-shipped-agent RED→GREEN fixture scenarios consumed by
 > `agents/shipped-agent-liveness-prober.md` (the M2 behavioural liveness probe). Individual

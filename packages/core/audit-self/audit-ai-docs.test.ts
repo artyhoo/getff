@@ -847,6 +847,30 @@ describe('test_D5 — D5: inverse-completeness (orphan file detection)', () => {
     expect(strykerFinding).toBeUndefined();
   });
 
+  // D5_GENERATED_TWIN — paired arms. The exemption is content-gated on the
+  // generator's own header, so a hand-written plugin/hooks/* file still counts
+  // as an orphan. Without the negative arm the exemption could widen to the
+  // whole directory and nothing would notice.
+  it('PASS (D5_GENERATED_TWIN): generated plugin twin carrying the generator header is exempt', () => {
+    const twin = 'plugin/hooks/inject-session-bootstrap';
+    writeFile(
+      dir,
+      twin,
+      `#!/usr/bin/env bash\n# AUTO-GENERATED from .claude/hooks/inject-session-bootstrap.sh — do not edit\n# ${CANON_PHRASE}\n`,
+    );
+    const findings = probeD5(dir);
+    expect(findings.find((f) => f.file === twin)).toBeUndefined();
+  });
+
+  it('FAIL (D5_GENERATED_TWIN negative arm): hand-written plugin/hooks file without the generator header IS flagged', () => {
+    const handWritten = 'plugin/hooks/hand-maintained-twin';
+    writeFile(dir, handWritten, `#!/usr/bin/env bash\n# ${CANON_PHRASE}\n`);
+    const findings = probeD5(dir);
+    const finding = findings.find((f) => f.file === handWritten);
+    expect(finding).toBeDefined();
+    expect(finding!.reason).toMatch(/not in DOWNSTREAM_DOCS/);
+  });
+
   it('PASS: research-patches files are exempt (D5_FROZEN)', () => {
     writeFile(dir, 'docs/meta-factory/research-patches/2026-01-01-some-patch.md',
       `# Patch\n\n${CANON_PHRASE}\n`);
@@ -2486,7 +2510,11 @@ describe('main() — CLI entrypoint', () => {
   it('prints "WARN:" prefix for warn probes (not "PASS:" for WARN results)', () => {
     // D1: no AGENTS.md → warn; D4: package.json but no tool-decisions → warn
     writeFile(dir, 'package.json', '{"name":"test"}\n');
-    for (const doc of DOWNSTREAM_DOCS) {
+    // AGENTS.md is skipped deliberately: this case exercises the D1 warn arm,
+    // which fires precisely when AGENTS.md is absent. The exclusion used to be
+    // implicit (AGENTS.md was missing from DOWNSTREAM_DOCS, so this loop never
+    // created it); enrolling it there made the omission explicit instead.
+    for (const doc of DOWNSTREAM_DOCS.filter((d) => d !== 'AGENTS.md')) {
       writeFile(dir, doc, `${CANON_PHRASE}\n`);
     }
     writeFile(dir, 'README.md', `${CANON_PHRASE}\n`);
