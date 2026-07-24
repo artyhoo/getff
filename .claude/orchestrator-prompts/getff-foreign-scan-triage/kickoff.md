@@ -52,6 +52,60 @@ for this umbrella: T2, T3, T7, T14.**
   the close-branch (b) is only legal AFTER the fixture-repo reproduction ran the full shipped
   check-set and stayed clean — absence of evidence must be evidenced.
 
+## §4c Autonomous aif-handoff dispatch — park-don't-guess contract (BINDING when dispatched via runtime-bridge)
+
+> **When live:** any dispatch of this kickoff through
+> `npx tsx packages/runtime-bridge/src/cli/dispatch.ts` instead of a maintainer-paste tab.
+> Inert if a maintainer pastes the kickoff into a CC tab.
+
+**Why (verified `coordinator.ts:398-476` + `reviewGate.ts`):** aif-handoff agents have no
+mid-implementation «pause and ask» primitive. They implement — *guessing* on any ambiguity —
+then auto-review post-hoc, and auto-close fires when the review finds no blocking findings,
+which means «review found no blockers», NOT «a human is sure it is right». A genuine design
+fork is not recognised as a question. Without the levers below, aif decides forks wrong,
+silently — the exact failure mode this investigate-class umbrella exists to prevent.
+
+**Lever 1 — conservative aif config (host env, set BEFORE dispatch):**
+
+```bash
+export AGENT_MAX_REVIEW_ITERATIONS=1        # not converged in 1 pass → hand to human
+export AGENT_AUTO_REVIEW_STRATEGY=closure_first
+export AGENT_SKIP_REVIEW=false
+```
+
+**Lever 2 — fork discipline (addressed to the aif agent, non-negotiable):**
+
+> **aif agent — fork discipline (non-negotiable):** On ANY genuine fork or ambiguity — two
+> defensible implementations, an undecided design choice, or a missing spec detail that
+> changes behaviour — **do NOT pick.** Park it as a question (set the task to
+> `manualReviewRequired` / `blocked_external`, stating the fork as «Option A → consequence X /
+> Option B → consequence Y») and **stop that task.** Proceed only on the unambiguous parts.
+> Guessing a fork to «keep moving» is the failure this loop exists to prevent.
+>
+> **Forks specific to this umbrella that MUST be parked, never guessed:**
+>
+> - **Branch selection (a) vs (b).** «The walker is hard to find» is NOT evidence for
+>   branch (b). If the fixture-repo reproduction ran the full shipped check-set and you still
+>   cannot attribute the 280 nested-scan lines, park it — do not close as environment-artifact
+>   (T-FST-A, §3).
+> - **Exclusion scope, if branch (a) fires.** Whether the exclusion covers only
+>   `.claude/worktrees/**` + `.stryker-tmp/**` or generalises to a foreign-dir class is a
+>   design choice with consumer-visible consequences. State both options, park.
+> - **Walker located in `packages/core/hooks/pre-push.ts`.** That file is edited by
+>   `getff-honest-signals` S1/S2 (§0). Do not edit it unilaterally — park with the collision
+>   stated.
+> - **Fixture shape.** If the reproduction needs a fixture the spec does not define, park with
+>   the proposed shape rather than inventing one that makes the check pass.
+
+**Pre-dispatch gate:** `grep -qi 'park it as a question' <this-kickoff>` (case-insensitive —
+the contract text capitalizes «Park») AND `echo "$AGENT_MAX_REVIEW_ITERATIONS"` non-empty.
+Either missing → STOP, do not dispatch autonomously.
+
+**Egress gate (mandatory after `status=done`/`verified`):** aif does not push or open PRs by
+design — `npx tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --base staging`.
+Verify the deliverable before harvest (`git -C <worktreePath> log staging..HEAD`); a task on a
+stale container base can false-mark itself done.
+
 ## See also
 
 - Spec (BINDING): [2026-07-23-getff-any-stack-closure-design.md](../../../docs/superpowers/specs/2026-07-23-getff-any-stack-closure-design.md) §8 item 7.
