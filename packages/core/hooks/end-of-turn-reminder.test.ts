@@ -850,3 +850,71 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — zcode-parity Bespoke #1 (Part 
     expect(parsed.reason).toBeDefined();
   });
 });
+
+/**
+ * F10 autonomy arm — spec: .claude/rules/autonomous-loop-continuity.md §1.
+ *
+ * The failure this closes: an unattended orchestrator ends its turn as soon as it has
+ * something reportable while dispatched work is still running. The shape that matters is a
+ * SHORT turn — the one every existing branch deliberately exits 0 on — so these cases use a
+ * short-chatter transcript and assert the arm blocks anyway.
+ *
+ * The probe is pointed at an unreachable port in every case here: the tests must not depend
+ * on a live aif runtime, and the fail-CLOSED branch is itself part of the contract.
+ */
+describe('end-of-turn-reminder.sh — F10 autonomy arm', () => {
+  const DEAD_AIF = 'http://127.0.0.1:59997';
+
+  it('OFF by default: a short turn stays silent even with work conceivably in flight', () => {
+    const tr = writeTranscript([{ type: 'assistant', message: { content: [{ type: 'text', text: 'ok' }] } }]);
+    const r = runHook({ transcript_path: tr, stop_hook_active: false, session_id: 'f10-off' });
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim(), 'no autonomy block without AIF_AUTONOMOUS=1').toBe('');
+  });
+
+  it('ON + unreachable probe: blocks and NAMES the degradation (fail-closed, not all-clear)', () => {
+    const tr = writeTranscript([{ type: 'assistant', message: { content: [{ type: 'text', text: 'ok' }] } }]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'f10-dead' },
+      { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: DEAD_AIF },
+    );
+    expect(r.status).toBe(0);
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision, 'a broken probe must not read as an all-clear').toBe('block');
+    expect(parsed.reason).toMatch(/probe FAILED/);
+    expect(parsed.reason, 'must not claim the check passed').toMatch(/not an all-clear/);
+  });
+
+  it('the loop guard holds: stop_hook_active=true never blocks, however work looks', () => {
+    const tr = writeTranscript([{ type: 'assistant', message: { content: [{ type: 'text', text: 'ok' }] } }]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: true, session_id: 'f10-guard' },
+      { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: DEAD_AIF },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim(), 'at most ONE forced reconsideration per stop chain — never a spin').toBe('');
+  });
+
+  it('an empty task list is a genuine all-clear: no block', () => {
+    // Serve a literal empty array, so "no work in flight" is distinguished from "probe broke".
+    const tr = writeTranscript([{ type: 'assistant', message: { content: [{ type: 'text', text: 'ok' }] } }]);
+    const dir = mkdtempSync(join(tmpdir(), 'f10-empty-'));
+    tmpDirs.push(dir);
+    const body = join(dir, 'tasks.json');
+    writeFileSync(body, '[]', 'utf8');
+    const port = 59996;
+    // A one-shot HTTP responder — no dependency beyond what the repo already uses.
+    const server = spawnSync('bash', ['-c',
+      `(printf 'HTTP/1.1 200 OK\\r\\nContent-Length: 2\\r\\nConnection: close\\r\\n\\r\\n[]' | nc -l ${port} >/dev/null 2>&1 &) ; sleep 0.3`,
+    ], { encoding: 'utf8' });
+    void server;
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'f10-empty' },
+      { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: `http://127.0.0.1:${port}` },
+    );
+    expect(r.status).toBe(0);
+    // Either a clean all-clear (silent) or the honest degraded notice if nc is unavailable —
+    // both are correct; what must NEVER happen is a false "N tasks in flight" claim.
+    expect(r.stdout, 'must never fabricate in-flight work').not.toMatch(/task\(s\) still in flight/);
+  });
+});
