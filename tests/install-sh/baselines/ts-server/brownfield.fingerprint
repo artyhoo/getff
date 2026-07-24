@@ -33,7 +33,7 @@ d069eb1cabf8a67875ee885b180c6cced2e5787b96e32a19cdef5cf0dde2a7ec  .claude/settin
 f89d11f5a44bb56e85001ac029c22d3618bbf52bdf3d3a4f4922f1abdb724edb  .claude/skills/ai-doc/SKILL.md
 63e2db9eddec389a06822f8091a83737bfce8e2749de6af3a0be22132d0152e6  .claude/skills/ai-doc/anthropic-and-aif-residue.md
 059cfe995e80b171118132f02cfe3013760b213d0d900ecdaa3e933bec2faacb  .claude/skills/getff/SKILL.md
-7ffef359eb5284d8c600a855a6a6e5fea2315055e0958e7b26418d72796fd218  .claude/skills/getff/references/ai-traps.md
+7321c9c7bd5c2e941260c0a1863dacca362c5a8bbaedac37462a2f4d110f8094  .claude/skills/getff/references/ai-traps.md
 39b442a2f5ff9c8c74ccd079cdd6a592e3e8b82a4cf54071e00f00af5451ca45  .claude/skills/getff/references/checks-map.md
 4285a8c3c2e7402f0d8b404349edbb10f9c6d2ade1a1a2867581a6c00d24e857  .claude/skills/getff/references/doc-organization.md
 b251433d67f62c8fe9ae410971a894aa4291b9d8215dd7b7c761c29e8f0677a6  .claude/skills/getff/references/overview.md
@@ -85,7 +85,7 @@ a5fd46853e3fd267bbd7fc41f9a1bd908ab58edb935381c6cd9c51f317f8d332  packages/core/
 c0da41b37337e54a022765a0e5fd368d4c841c986c62528a8f051e41bd06feda  packages/core/hooks/pre-push.ts
 7175731fe5144e1ae9cf1bfe98df2256beded6cfa31fc56732d8b70a700f371d  packages/core/hooks/utils/git.ts
 3138a1f52bc9f04f83a70d31793efb0eda355c1cbf1a13276f1ac4017f2c8fc2  packages/core/hooks/utils/run-check.ts
-abd2f84e553cce9120cfa6d6bd4cd94f1f9559d20f282a6ad55a499fd3ed5b03  scripts/audit-ai-docs.sh
+1de2d3933a2636f031fcd842dcab851dbdea1b4cbc3e05efb290d5b822501370  scripts/audit-ai-docs.sh
 64902bcaedea1fb1ed26271359a5c7f2bb0a1b7c5e0d46cee28df55d8a0a3d2d  scripts/audit-r4.ts
 b047a1fde5a9f274f116435389d72b9b4d74adbac1af5469cce33bceb70a7175  scripts/check-arch-boundaries.sh
 25aa0084c3519fa7a0d93c008c98bcd25e089881616b9a4dbee18b7f30f744cf  scripts/check-fences-fire.sh

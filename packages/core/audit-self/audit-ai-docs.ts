@@ -44,6 +44,9 @@ export const DOWNSTREAM_DOCS: readonly string[] = [
   'CLAUDE.md',
   '.claude/hooks/inject-session-bootstrap.sh',
   'docs/meta-factory/EXECUTION-PLAN.md',
+  // AGENTS.md was enrolled in the .sh probe by #867 and never mirrored here,
+  // so this implementation reported the repo's own AGENTS.md as an orphan.
+  'AGENTS.md',
 ];
 
 /**
@@ -356,9 +359,34 @@ export interface D5Finding {
 
 /** Patterns for paths that are exempt from D5 (not coverage gaps). */
 const D5_FROZEN_RE        = /^(docs\/meta-factory\/research-patches\/|docs\/audits\/)/;
-const D5_TEST_INFRA_RE    = /^packages\/core\/audit-self\/audit-ai-docs\.(ts|test\.ts|sh|test\.sh)|^packages\/core\/audit-self\/template-render\.audit\.ts/;
+const D5_TEST_INFRA_RE    = /^packages\/core\/audit-self\/audit-ai-docs\.(ts|test\.ts|sh|test\.sh)|^packages\/core\/audit-self\/template-render\.audit\.ts|^packages\/core\/hooks\/inject-session-bootstrap\.test\.ts/;
 const D5_ROOT_SOURCE_RE   = /^README\.md$/;
 const D5_GITIGNORED_RE    = /^(\.claude\/orchestrator-prompts\/|\.stryker-tmp\/|\.stryker\/)/;
+/**
+ * GENERATED_TWIN — `plugin/hooks/<name>` twins are emitted from
+ * `.claude/hooks/<name>.sh` by scripts/generate-plugin-twins.sh. The phrase
+ * reaches the twin only because the generator copied it from the source, and
+ * that source carries the enrollment (DOWNSTREAM_DOCS). Enrolling the twin too
+ * would track one claim in two places and drift the moment the generator runs.
+ *
+ * Deliberately content-gated, not path-gated: the generator also supports a
+ * `manual` mode whose twins are hand-maintained and therefore DO deserve
+ * independent tracking. Only a twin carrying the generator's own header is
+ * exempt, so a hand-written `plugin/hooks/*` still surfaces as a finding.
+ */
+const D5_GENERATED_TWIN_PATH_RE = /^plugin\/hooks\//;
+const D5_GENERATED_TWIN_MARKER  = 'AUTO-GENERATED from .claude/hooks/';
+
+function isGeneratedTwin(cwd: string, file: string): boolean {
+  if (!D5_GENERATED_TWIN_PATH_RE.test(file)) return false;
+  try {
+    return readFileSync(resolve(cwd, file), 'utf8').includes(
+      D5_GENERATED_TWIN_MARKER,
+    );
+  } catch {
+    return false;
+  }
+}
 
 export function probeD5(cwd: string): D5Finding[] {
   // Build the enrollment set from DOWNSTREAM_DOCS
@@ -378,6 +406,7 @@ export function probeD5(cwd: string): D5Finding[] {
     if (D5_TEST_INFRA_RE.test(file)) continue;
     if (D5_ROOT_SOURCE_RE.test(file)) continue;
     if (D5_GITIGNORED_RE.test(file)) continue;
+    if (isGeneratedTwin(cwd, file)) continue;
     findings.push({
       file,
       reason: `contains canonical phrase but not in DOWNSTREAM_DOCS or any exemption`,
