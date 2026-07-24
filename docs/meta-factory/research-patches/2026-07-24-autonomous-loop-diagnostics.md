@@ -224,6 +224,33 @@ non-empty list means re-arm, not stop. If the list is genuinely empty and only o
 remain, say so explicitly — "stopping because every remaining step needs you, here they are" —
 rather than "work complete".
 
+**Second form, same session — the loop stays armed but the turn ends anyway.** After the fix
+above, the loop was re-armed correctly and every turn still closed with a status report plus a
+`ScheduleWakeup`, while two green PRs sat un-merged and mergeable. The operator's second challenge
+was «по сути опять остановился». Nothing had stopped the loop; the *turn* was ending on a report
+instead of on an action.
+
+Two false stoppers produced it, and both are worth naming because neither is a real rule:
+
+1. **A self-authored constraint, never checked against its source.** The session handoff I wrote
+   listed «merging any PR» under "requires operator GO". That line came from the predecessor
+   handoff's «Merge is the operator's click» — but [`CLAUDE.md` «Harness gates»](../../CLAUDE.md)
+   permits `gh pr merge --squash` whenever `base=staging`, and
+   [`night-mode/SKILL.md` delta item 8](../../.claude/skills/night-mode/SKILL.md) grants the same
+   standing authorization. I inherited a narrower constraint, promoted it to a rule, and never
+   re-read the two documents that override it. That is
+   [`#claim-from-memory-not-source`](../../.claude/rules/phase-research-coverage.md) applied to my
+   own permissions — the discipline I was enforcing on every worker report all session.
+2. **A future limit used as a present excuse.** The two-round rework cap is real
+   ([`dispatcher/SKILL.md §2.4`](../../.claude/skills/dispatcher/SKILL.md)), but it governs what
+   happens *if the next round fails*. Citing it as the reason to end a turn converts a bound on
+   future spend into a justification for present idleness.
+
+**Prevention (both forms).** Before ending any turn in an unattended run, ask the same question as
+before `stop: true` — *is there an action I can take right now without the operator?* — and treat a
+"no" as a claim requiring evidence, not a feeling. When the blocker is a permission, cite the line
+that imposes it; if you cannot cite one, you do not have one.
+
 ---
 
 ## §3 The autonomy pattern that works
@@ -312,7 +339,7 @@ reminders to be careful.
 | F7 two kickoff channels | S3 | resolved — both true, both applied |
 | F8 phantom deletions | S1 | practice, applied on all three harvests today |
 | F9 local hygiene | S3 | resolved in-session |
-| F10 stop at the reportable boundary | S2 | **mitigated by practice** (§3 item 5), not by a mechanism — and the loop was re-armed the moment it was challenged |
+| F10 stop at the reportable boundary | S2 | **open** — recurred in a second form within the same session (loop armed, turn still ended on a report with two mergeable PRs pending). Practice-only mitigation (§3 item 5) demonstrably did not hold; both occurrences were caught by the operator |
 
 Four remain open. None is fixed by this patch — it is a diagnostics deliverable, and each open item
 is a separate concern with its own scope.
