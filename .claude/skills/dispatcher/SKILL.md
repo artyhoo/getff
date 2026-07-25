@@ -139,7 +139,15 @@ docker exec aif-handoff-agent-1 git -C <worktree> diff origin/staging...HEAD
   — see the ordering note there (`pr-body-fidelity` requires `Audited-SHA` to prefix PR
   head, `packages/core/hooks/checks/pr-body-fidelity.ts:165`).
 - `REVISE` → **no egress, no PR**: `tsx packages/runtime-bridge/src/cli/answer.ts --task <id> --answer "<auditor findings>" --decision request_changes` → task returns to `implementing`;
-  the next harvest attempt audits as `Round: 2`. **Cap 2 CONSECUTIVE REVISE rounds on unchanged scope**
+  the next harvest attempt audits as `Round: 2`. **Deliver rework ONLY via `answer.ts` — never a
+  bare events-API POST.** A raw `POST /tasks/:id/events {"event":"request_changes"}` (curl) flips
+  the task to `implementing` but **silently drops your findings**: the rework prompt consumes the
+  LATEST human comment, and the bare event posts none, so the worker reworks blind against
+  internal-review advisories and returns with zero changes. `answer.ts` posts the comment AND the
+  event as one step — that is the whole reason it exists. (Incident: task `dfaf72a5`, 2026-07-25 —
+  one full rework round burned; cross-model side: `.claude/skills/claude-glm-executor-handoff/SKILL.md`
+  §4 — plain path, not a link: that skill does not ship, a relative link here would dangle on an
+  aif-suite consumer tree.) **Cap 2 CONSECUTIVE REVISE rounds on unchanged scope**
   (spec D6 «What the cap counts» — the counter resets on any GO or scope addition; the
   Audited-SHA guard forces a re-audit after every new commit, so audits themselves are not
   what is capped): the second consecutive REVISE → STOP — do not resume; emit an escalation

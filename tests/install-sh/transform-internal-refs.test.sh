@@ -28,6 +28,11 @@
 #       to consumers (the only install action is mkdir_safe "$PROJECT_ROOT/.ai-factory/
 #       orchestrator-prompts" at setup.d/30-templates.sh:17 — note: .ai-factory/, not
 #       .claude/). One leak surfaced in .claude/skills/aif-doctor/SKILL.md:26.
+#   4h. transforms ](../.claude/skills/foo/SKILL.md) → ](${URL}/.claude/skills/foo/SKILL.md)
+#       — 2026-07-25 handoff item 5: agents/*.md at repo root reach skills via
+#       ../.claude/skills/...; shipped to <consumer>/.claude/agents/ that ref resolves to
+#       <consumer>/.claude/.claude/skills/... (doubled segment). Blob URL, not relative:
+#       the target skill may be absent (aif-suite–gated). Leak: agents/fidelity-auditor.md:22.
 #   5.  LEAVES ](../../../hooks/bar.sh) intact (consumer has .claude/hooks/ post-install)
 #   6.  idempotent — second pass produces no further change
 #
@@ -70,6 +75,7 @@ cat > "$FIXTURE" <<'EOF'
 - [tests fixture](../tests/fixtures/foo/README.md) — should TRANSFORM (S2: tests/ not shipped)
 - [orchestrator-prompts](../../orchestrator-prompts/aif-doctor-skill/kickoff.md) — should TRANSFORM (S2: never delivered to consumers)
 - [scripts link](../../../scripts/run-local-ci-sweep.sh) — should STAY (S2 park: scripts/ partial-ship)
+- [agent skill link](../.claude/skills/dispatcher/SKILL.md) — should TRANSFORM (agent shape: doubles to .claude/.claude on consumer)
 - [hook link](../../../hooks/end-of-turn-reminder.sh) — should STAY
 EOF
 
@@ -150,6 +156,16 @@ grep -qF "](${UPSTREAM_BLOB_URL}/.claude/orchestrator-prompts/aif-doctor-skill/k
   && ! grep -qF "](../../orchestrator-prompts/aif-doctor-skill/kickoff.md)" <<<"$OUT" \
   && ok "4g: ../../orchestrator-prompts/ → ${UPSTREAM_BLOB_URL}/.claude/orchestrator-prompts/ (S2 rework: never delivered to consumer)" \
   || bad "4g: orchestrator-prompts/ rewrite failed; got: $(grep -F 'orchestrator-prompts/' <<<"$OUT")"
+
+# Sub-test 4h: agent-shape .claude/skills/ rewritten (2026-07-25 handoff item 5).
+# agents/*.md live at repo root and reach skills via ](../.claude/skills/...); shipped to
+# <consumer>/.claude/agents/ the same ref resolves to <consumer>/.claude/.claude/skills/...
+# — a doubled segment that does not exist. Blob URL, not a relative rewrite: the target
+# skill may be absent on the consumer (aif-suite–gated, e.g. dispatcher).
+grep -qF "](${UPSTREAM_BLOB_URL}/.claude/skills/dispatcher/SKILL.md)" <<<"$OUT" \
+  && ! grep -qF "](../.claude/skills/dispatcher/SKILL.md)" <<<"$OUT" \
+  && ok "4h: ../.claude/skills/ → ${UPSTREAM_BLOB_URL}/.claude/skills/ (agent shape: doubled-segment fix)" \
+  || bad "4h: .claude/skills/ rewrite failed; got: $(grep -F '.claude/skills/dispatcher' <<<"$OUT")"
 
 # Sub-test 5: hooks/ left intact (consumer has .claude/hooks/)
 grep -qF "](../../../hooks/end-of-turn-reminder.sh)" <<<"$OUT" \
