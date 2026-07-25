@@ -542,6 +542,46 @@ do_refresh() {
   fi
   unset _LEGACY_SKILL_DIR _MODERN_SKILL_DIR _LEGACY_OVERRIDE _CONSUMER_TRACKED _legacy_file _rel
 
+  # ── Stale `.lintstagedrc.json` reconciliation (consumer-owned — OFFER ONLY) ─
+  # getff-honest-signals S5 / kickoff §1 + §2: the shipped `.lintstagedrc.json`
+  # template evolves; a consumer who diverged must NOT be silently overwritten
+  # (T-S5-A — destroys consumer work irreversibly). Print a migration offer; the
+  # consumer decides whether to apply it.
+  #
+  # LOAD-BEARING GUARDRAIL (T-S5-A): this block is READ-ONLY against the consumer
+  # file. It MUST NOT call cp/mv/rm/> redirect (or any other mutation) against
+  # $PROJECT_ROOT/.lintstagedrc.json. The asymmetry vs the skill-reclaim block
+  # above is the entire point of this stage — framework-owned vs consumer-owned.
+  echo "▶ Stale .lintstagedrc reconciliation (consumer-owned — offer only, never overwrite)"
+  _CONSUMER_LINTSTAGED="$PROJECT_ROOT/.lintstagedrc.json"
+  _TEMPLATE_LINTSTAGED="$PKG_ROOT/packages/core/templates/shared/.lintstagedrc.json"
+  if [ ! -f "$_CONSUMER_LINTSTAGED" ]; then
+    echo "  · no consumer .lintstagedrc.json — skipping (consumer may have opted out of lint-staged)"
+  elif [ ! -f "$_TEMPLATE_LINTSTAGED" ]; then
+    # Defensive: framework template missing — don't even attempt the comparison.
+    echo "  · framework template $_TEMPLATE_LINTSTAGED not found — skipping reconciliation"
+  else
+    if cmp -s "$_CONSUMER_LINTSTAGED" "$_TEMPLATE_LINTSTAGED"; then
+      echo "  ✓ .lintstagedrc.json matches framework template — no offer needed"
+    else
+      # PARK-P-2: migration-offer wording fork (kickoff §4c names this explicitly).
+      # The spec does not fix the format. Two defensible shapes:
+      #   Option A (verbose, instructive): print the literal diff + a cp command.
+      #   Option B (terse, advisory): one-line INFO + pointer to docs.
+      # Implementer MUST NOT pick — surface to maintainer via blocked_external.
+      # Until P-2 resolves, print a NEUTRAL placeholder that:
+      #   (a) honestly labels itself as a placeholder (not a real offer);
+      #   (b) names the consumer-owned file by absolute path (consumer can act);
+      #   (c) names the framework template by absolute path (consumer can compare);
+      #   (d) does NOT embed a recommended action (would tacitly pick A).
+      echo "  ⚠ $_CONSUMER_LINTSTAGED differs from framework template"
+      echo "    framework template: $_TEMPLATE_LINTSTAGED"
+      echo "    consumer-owned — never overwritten; review the diff and decide."
+      echo "    # PARK-P-2: wording fork — placeholder until maintainer picks Option A (verbose diff)"
+      echo "    # or Option B (terse pointer). See .ai-factory/plans/feature-getff-honest-signals-s5-d3a93a.md Task B1."
+    fi
+  fi
+  unset _CONSUMER_LINTSTAGED _TEMPLATE_LINTSTAGED
 
   # ── Claude hooks ────────────────────────────────────────
   echo "▶ Claude hooks → .claude/hooks/"
