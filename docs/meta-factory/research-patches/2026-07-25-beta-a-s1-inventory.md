@@ -389,8 +389,9 @@ The host run is the authoritative acceptance.
       core payload. No profile-gate needed.
     - `.github/workflows/audit-self.yml` — UNTOUCHED per operator pre-start constraint (parallel
       track-1 task `032181b3` live on that file).
-    - `mif-s3-integ` / `origin/mif-s3-revive-toolbootstrap` — OUT-OF-SCOPE-PARKED §4.2 (unreachable
-      from container; DECISION-NEEDED for maintainer).
+    - `mif-s3-integ` / `origin/mif-s3-revive-toolbootstrap` — OUT-OF-SCOPE-PARKED §4.2 (local
+      branch `mif-s3-integ` empirically swept; remote `origin/mif-s3-revive-toolbootstrap` still
+      unreachable from container via TLS. Per-commit verdicts in §4.2; DECISION-NEEDED for maintainer).
     - `feature/modular-install-fullpack-f6366e` — SUPERSEDED §4.1.
 - **Self-application (T15):** the inventory is itself bound by the population-enumeration
   requirement (T10) — §1 IS that enumeration; an inventory assembled from artefacts happened-to-open
