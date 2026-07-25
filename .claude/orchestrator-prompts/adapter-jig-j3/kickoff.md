@@ -87,7 +87,7 @@ container network:              https://proxy.golang.org/ → 200
 `cargo` absent from this same container: its firing self-check degrades LOUDLY —
 `setup.d/46-cargo.sh:295` prints «cargo not on PATH … firing NOT proven (degrade, NOT green)»
 and `:304` reports «a skipped check is NOT green» — while the *authoritative* red/green proof
-lands on the **GitHub runner**, where `audit-self.yml:250-273` installs an exact-pinned toolchain.
+lands on the **GitHub runner**, where `audit-self.yml:250-274` installs an exact-pinned toolchain.
 
 **Therefore, binding for J3:**
 
@@ -114,12 +114,18 @@ restated here because a stage worker reads this file, not the spec's preamble:
    PR existed at `264109608`. **Re-probe anyway before you start** — `gh pr list --state open`
    plus `git ls-remote --heads origin | grep -iE 'jig|go'` — because the window between authoring
    and dispatch is exactly where collisions have historically materialised.
-2. **Serialization with `rule-tests-surface` S4.** J3 IS lock-shape-touching (it ships a
-   fingerprint ladder and a rules-lock variant, deliverable 3 + F11). Per umbrella
-   [§3](../adapter-jig/kickoff.md) — marked BINDING — the lock-touching arms (D1/D2/D3) and S4
-   **serialize**: whichever reaches merge second merges the other's landed state and re-fires its
-   DoD against the CURRENT lock behaviour. S4 was NOT in flight at authoring; if it has opened by
-   the time you push, serialize — do not race.
+2. **Serialization with `rule-tests-surface` S4 — you are the SECOND mover; this is active, not
+   conditional.** J3 IS lock-shape-touching (it ships a fingerprint ladder and a rules-lock
+   variant, deliverable 3 + F11). Per umbrella [§3](../adapter-jig/kickoff.md) — marked BINDING —
+   the lock-touching arms (D1/D2/D3) and S4 **serialize**: whichever reaches merge second merges
+   the other's landed state and re-fires its DoD against the CURRENT lock behaviour. **S4 already
+   merged** (#1092, 2026-07-22) and its whole umbrella is closed
+   (`.claude/orchestrator-prompts/rule-tests-surface/done.md`, final PR #1093) — so J3 is
+   unconditionally the second mover. Practically: branch off post-S4 `staging` (satisfies «merges
+   the landed state» by construction) and validate your lock arms against the **current,
+   post-S4** deps-hash/staleness behaviour, not against what the design spec described before
+   S4 landed. A brand-new lane has no pre-S4 firing to re-fire, so there is no rework here — but
+   do not read this row as «no interaction».
 3. **Merge-forward, never rebase.** If this PR turns CONFLICTING because staging moved, merge
    `origin/staging` INTO the branch and plain-push. `git rebase` + force-push is a dead end here
    (force-push is blocked for agent sessions in every form). Recipe:
@@ -299,8 +305,9 @@ See [.claude/rules/ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md).
 
 **Domain-specific traps (NOT in the canonical catalogue):**
 
-- **T-AJ-A (carried verbatim from the umbrella, [§4](../adapter-jig/kickoff.md)) — «the arm passes
-  because it tests the fixture, not the lane».** An arm wired only to a synthetic go fixture and
+- **T-AJ-A (carried from the umbrella [§4](../adapter-jig/kickoff.md) and SPECIALISED for J3 — the
+  umbrella's wording targets J2's retrofit-run; the substance below is unchanged, the surfaces are
+  go's) — «the arm passes because it tests the fixture, not the lane».** An arm wired only to a synthetic go fixture and
   never exercised against the REAL delivered lane artefacts is theatre. This is live for J3, whose
   arms are all newly authored against fresh fixtures. Counter: every arm cites the REAL lane
   file/output it judged — the delivered `setup.d/47-go.sh` output, the emitted lock, the installed
