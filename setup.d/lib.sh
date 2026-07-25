@@ -70,6 +70,13 @@ PRETTIERIGNORE_CFG_END='# <<< rules-as-tests-aif shipped-configs (managed) <<<'
 # scripts/ is INTENTIONALLY UNHANDLED — partially shipped (subset via 40-configs.sh),
 # per-file ambiguity is a §4 park trigger (kickoff getff-honest-signals-s2). Extend only with a
 # shipped-scripts allowlist if a future scripts/ ref to a non-shipped script re-breaks a push.
+#
+# 2026-07-25 added the agent-shape `.claude/skills/` arm: agents/*.md live at repo root, so
+# in-repo they reach skills via ](../.claude/skills/...); shipped to `<consumer>/.claude/agents/`
+# that same ref resolves to `<consumer>/.claude/.claude/skills/...` — a doubled segment that
+# does not exist (lychee-shipped-md-offline RED on agents/fidelity-auditor.md:22 → dispatcher).
+# Blob URL, not a relative rewrite: the target skill may be absent (aif-suite–gated) — same
+# verdict as the agents/ arm above.
 # Uses `-i.bak` for BSD-sed/GNU-sed portability, then removes the backup.
 transform_internal_refs() {
   local f="$1"
@@ -79,6 +86,7 @@ transform_internal_refs() {
     -e "s#\]\((\.\./)+packages/#](${UPSTREAM_BLOB_URL}/packages/#g" \
     -e "s#\]\((\.\./)+README\.md#](${UPSTREAM_BLOB_URL}/README.md#g" \
     -e "s#\]\((\.\./)+\.claude/rules/#](${UPSTREAM_BLOB_URL}/.claude/rules/#g" \
+    -e "s#\]\((\.\./)+\.claude/skills/#](${UPSTREAM_BLOB_URL}/.claude/skills/#g" \
     -e "s#\]\((\.\./)+rules/#](${UPSTREAM_BLOB_URL}/.claude/rules/#g" \
     -e "s|\]\((\.\./)+install\.sh([#)])|](${UPSTREAM_BLOB_URL}/install.sh\2|g" \
     -e "s#\]\((\.\./)+agents/#](${UPSTREAM_BLOB_URL}/agents/#g" \
