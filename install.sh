@@ -412,8 +412,20 @@ fi
 # (existing flag back-compat) and breaking the diff's own claim at
 # INSTALL-FOR-AI.md:83 ("Every flag that worked before still works"). The flag
 # LAYERS OVER the menu; it does not replace it.
+#
+# Round-3 gate (rework MAJOR): the menu MUST also skip when a positional stack
+# arg was supplied (STACK_EXPLICIT=1). Per the reviewer's binding constraint
+# («existing interactive prompt order must keep working»), the §8 dev-deps →
+# §8b tsx prompts in setup.d/70-deps.sh:269/374 are the existing interactive
+# flow for `install.sh <stack>`; inserting the profile menu in front of them
+# intercepts the first positional answer meant for §8 (e.g. 'n') and exits 1
+# at the `*)` branch below. tests/install-sh/gh-636-ensure-tsx-root.test.sh
+# Arm D feeds `n` then `y` under a real pty — the menu ate `n` → exit 1 (16/3
+# red). A positional stack signals the user is already on the existing flow;
+# depth selection via `--profile <name>` still works as a flag in that case.
+# The menu only fires for the no-stack-arg path (`./install.sh` bare at a TTY).
 if [ -z "$PROFILE" ]; then
-  if [ -t 0 ] && [ -z "$DRY_RUN" ] && [ -z "$FULL" ]; then
+  if [ -t 0 ] && [ -z "$DRY_RUN" ] && [ -z "$FULL" ] && [ -z "$STACK_EXPLICIT" ]; then
     echo "What install depth do you want?"
     echo "  1) core    — rules + tests + guard hooks + killer payload; today's default. No AIF operator runtime."
     echo "  2) env     — core + multi-model contour surface (/arch, presets, status, night-mode/SDD) as placeholders; no AIF runtime."
