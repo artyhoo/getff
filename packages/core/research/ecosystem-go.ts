@@ -120,24 +120,6 @@ function parseGoModDirectDeps(text: string): Set<string> {
   return names;
 }
 
-/** Returns the first path segment of a go module path — the host-bearing
- *  portion for a module like `github.com/user/repo`. For `internal/foo` returns
- *  `internal`; for `example` (no `/`) returns `example`. */
-function firstSegment(modPath: string): string {
-  const idx = modPath.indexOf('/');
-  return idx === -1 ? modPath : modPath.slice(0, idx);
-}
-
-/** Returns true if a string is plausibly a hostname (contains a `.`). Used to
- *  distinguish a module path whose first segment is a real host
- *  (`github.com/...`, `golang.org/...`, `evil.example.com/...`) from one whose
- *  first segment is single-label (`internal/foo`, `example`) — single-label has
- *  no host semantics, so the adapter returns null and tier1For's miss path
- *  falls through to Tier-0 / Tier-2. */
-function segmentLooksLikeHost(seg: string): boolean {
-  return seg.includes('.');
-}
-
 export const goAdapter: EcosystemAdapter = {
   ecosystem: 'go',
 
@@ -155,7 +137,9 @@ export const goAdapter: EcosystemAdapter = {
 
   readInstalledMeta(_root: string, pkg: string): InstalledMeta | null {
     // Reject path-traversal names before any URL synthesis — `..` is not
-    // legitimate in a go module path (spec disallows it).
+    // legitimate in a go module path (spec disallows it). This is the NAME-
+    // surface guard (F6 legitimately adapter-local); all HOST-shape
+    // rejection stays in tier1For.
     if (isUnsafeDepName(pkg)) return null;
 
     // §2.1 hard node: go has NO registry metadata document. Synthesize a
@@ -163,19 +147,14 @@ export const goAdapter: EcosystemAdapter = {
     // the unchanged tier1For pipeline (F3 frozen — adapters FEED it; never
     // bypass). Do NOT short-circuit tier1For's rejection chain — no
     // pre-canonicalization, no pre-rejection inside the adapter (T-AJ3-A).
-    const first = firstSegment(pkg);
-    if (!segmentLooksLikeHost(first)) {
-      // Single-label first segment (e.g. `internal/foo`, `example`) — no
-      // plausible host ⇒ Tier-1 miss. Returning null here is the honest "no
-      // metadata" answer; tier1For will fall through to Tier-0 / Tier-2
-      // (mirrors cargo's registry-only gap posture).
-      return null;
-    }
-    // Hand the RAW URL to tier1For. Multi-tenant hosts (github.com etc.) WILL
-    // be rejected downstream by tier1For's multi-tenant-apex reject stage —
-    // NOT by this adapter. Single-tenant hosts (golang.org, evil.example.com)
-    // pass through; whether they pass tier1For is a function of the
-    // multi-tenant-hosts.json set, NOT a function of this adapter's logic.
+    //
+    // MINOR 3 fix (pre-egress fidelity audit 2026-07-25): an earlier version
+    // returned null for a single-label first segment (`internal/foo`,
+    // `example`), but that single-label rejection is one of the stages frozen
+    // INSIDE tier1For (allowlist-resolver.ts: `if (!host.includes('.')) continue;`).
+    // Returning null here would bypass that stage — partial F3 bypass. Now we
+    // hand the URL through unconditionally and let tier1For reject. The
+    // poisoned-path B1 case is also passed through raw (T-AJ3-A falsifier).
     const url = `https://${pkg}`;
     return { homepage: url, repository: url };
   },

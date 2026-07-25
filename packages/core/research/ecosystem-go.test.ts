@@ -147,11 +147,28 @@ describe('goAdapter.readInstalledMeta', () => {
     expect(meta!.homepage).not.toContain('github.com');
   });
 
-  it('returns null for a single-label first segment (no plausible host)', () => {
+  // MINOR 3 fix (pre-egress fidelity audit 2026-07-25): single-label rejection
+  // is one of the stages frozen INSIDE tier1For (`if (!host.includes('.')) continue;`
+  // at allowlist-resolver.ts:243). Returning null here for a single-label first
+  // segment was a partial F3 bypass — the adapter's job is to FEED, not reject.
+  // The adapter now passes single-label URLs through RAW; tier1For rejects them.
+  it('passes single-label module paths through RAW (single-label rejection lives in tier1For, not the adapter)', () => {
     const root = mkdtempSync(join(tmpdir(), 'go-adapter-single-label-'));
-    expect(goAdapter.readInstalledMeta(root, 'internal')).toBeNull();
-    expect(goAdapter.readInstalledMeta(root, 'example')).toBeNull();
-    expect(goAdapter.readInstalledMeta(root, 'internal/foo')).toBeNull();
+    const a = goAdapter.readInstalledMeta(root, 'internal');
+    expect(a).not.toBeNull();
+    expect(a!.homepage).toBe('https://internal');
+    expect(a!.repository).toBe('https://internal');
+    const b = goAdapter.readInstalledMeta(root, 'example');
+    expect(b).not.toBeNull();
+    expect(b!.homepage).toBe('https://example');
+    const c = goAdapter.readInstalledMeta(root, 'internal/foo');
+    expect(c).not.toBeNull();
+    expect(c!.homepage).toBe('https://internal/foo');
+    // Sanity: every synthesized URL has a single-label hostname — tier1For's
+    // `!host.includes('.')` stage (allowlist-resolver.ts:243) will reject each.
+    for (const m of [a, b, c]) {
+      expect(new URL(m!.homepage).hostname.includes('.')).toBe(false);
+    }
   });
 
   // @arm:B1:neg poisoned-host-negative-design (go lane — the falsifier the
