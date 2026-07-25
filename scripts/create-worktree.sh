@@ -119,6 +119,14 @@ fi
 # live-shared identity: one file, N symlinks.
 # `>&2` keeps helper output off this script's stdout (stdout = worktree path only).
 # `|| true` prevents a link conflict from aborting worktree creation (set -euo pipefail).
+# LOUD miss (handoff item 2, 2026-07-25 — @dual-pair parity with worktree-setup.sh):
+# PROJECT_DIR may be caller-supplied or cwd-derived, i.e. a tree without the helper —
+# previously the `|| true` swallowed that silently and the worktree stayed unlinked.
+# The call stays a standalone literal line: the hydration paired-negative strips it
+# by regex and the remaining script must stay valid bash.
+if [[ ! -f "$PROJECT_DIR/scripts/link-coordination.sh" ]]; then
+  printf '⚠ create-worktree: %s/scripts/link-coordination.sh not found — orchestrator-prompts NOT linked to the canonical store; files created under .claude/orchestrator-prompts/ in this worktree are sole-copy until scripts/link-coordination.sh is run manually\n' "$PROJECT_DIR" >&2
+fi
 bash "$PROJECT_DIR/scripts/link-coordination.sh" "$WORKTREE_DIR" "$PROJECT_DIR" >&2 || true
 
 # Print path — the ONLY thing on stdout (orchestration contract).

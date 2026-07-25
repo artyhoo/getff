@@ -149,6 +149,20 @@ fi
 # live-shared identity: one file, N symlinks.
 # `>&2` keeps helper output off this hook's stdout (stdout = worktree path only).
 # `|| true` prevents a link conflict from blocking worktree creation.
+# LOUD miss (stderr — stdout stays path-only per the WorktreeCreate contract): the
+# previous call swallowed a missing helper via `|| true`, leaving the new worktree
+# silently unlinked from the canonical store (handoff item 2, 2026-07-25; same class
+# as the 2026-07-24 tsx-resolution incident). Deliberately NOT tiered to this hook's
+# own checkout (unlike adopt-orchestrator-prompts.sh): the helper is project-local by
+# contract — $PROJECT_DIR is the project being provisioned, and borrowing another
+# checkout's copy would run coordination-linking a foreign project never opted into.
+# The call stays a standalone literal line (not folded into the if/else): the
+# worktree-setup-hydration.test.ts paired-negative strips exactly that line by regex
+# and the remaining script must stay valid bash. On a miss the call still runs and
+# no-ops under `|| true` — the warning above is the load-bearing signal.
+if [[ ! -f "$PROJECT_DIR/scripts/link-coordination.sh" ]]; then
+  printf '⚠ worktree-setup: %s/scripts/link-coordination.sh not found — orchestrator-prompts NOT linked to the canonical store; files created under .claude/orchestrator-prompts/ in this worktree are sole-copy until scripts/link-coordination.sh is run manually\n' "$PROJECT_DIR" >&2
+fi
 bash "$PROJECT_DIR/scripts/link-coordination.sh" "$WORKTREE_DIR" "$PROJECT_DIR" >&2 || true
 
 # Print path — the ONLY thing on stdout per CC command-hook contract.

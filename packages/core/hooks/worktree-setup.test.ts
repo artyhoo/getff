@@ -19,13 +19,14 @@
  * is absent — exercising only the jq-missing path would yield no signal).
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { execFileSync, execSync } from 'node:child_process';
+import { execFileSync, execSync, spawnSync } from 'node:child_process';
 import {
   copyFileSync,
   existsSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   readlinkSync,
   rmSync,
   writeFileSync,
@@ -322,6 +323,41 @@ describe.skipIf(!JQ)('worktree-setup.sh — WorktreeCreate hook', () => {
     });
     expect(r.status).toBe(0);
     expect(r.stdout).toBe(`${repo}/.claude/worktrees/env-precedes`);
+  });
+
+  // ── Coordination-link helper: loud on miss, silent-run on hit ─────────────
+  // Regression (handoff item 2, 2026-07-25): a missing scripts/link-coordination.sh
+  // was swallowed by `|| true` — the worktree stayed silently unlinked from the
+  // canonical store. Now the miss is announced on stderr (stdout stays path-only).
+
+  it('LOUD-WARN: missing link-coordination.sh → stderr notice, stdout still path-only, exit 0', () => {
+    // The fixture repo ships no scripts/link-coordination.sh — the miss path.
+    const r = spawnSync('bash', [HOOK], {
+      input: JSON.stringify(payload('loud-warn', repo)),
+      encoding: 'utf8',
+      env: { ...process.env, CLAUDE_PROJECT_DIR: repo },
+    });
+    expect(r.status).toBe(0);
+    expect((r.stderr ?? '')).toContain('link-coordination.sh not found');
+    const out = (r.stdout ?? '').trim();
+    expect(out.split('\n').length, 'warning must NOT leak onto stdout').toBe(1);
+    expect(out.startsWith('/')).toBe(true);
+  });
+
+  it('helper present → invoked with (worktree, project) args, no missing-helper warning', () => {
+    const stub = resolve(repo, 'scripts/link-coordination.sh');
+    const marker = resolve(repo, 'link-ran.txt');
+    writeFileSync(stub, `#!/usr/bin/env bash\nprintf '%s %s\\n' "$1" "$2" > "${marker}"\n`, { mode: 0o755 });
+    const r = spawnSync('bash', [HOOK], {
+      input: JSON.stringify(payload('helper-hit', repo)),
+      encoding: 'utf8',
+      env: { ...process.env, CLAUDE_PROJECT_DIR: repo },
+    });
+    rmSync(stub, { force: true }); // keep the shared fixture helper-less for other tests
+    expect(r.status).toBe(0);
+    expect((r.stderr ?? '')).not.toContain('link-coordination.sh not found');
+    expect(existsSync(marker), 'helper must have run').toBe(true);
+    expect(readFileSync(marker, 'utf8')).toBe(`${repo}/.claude/worktrees/helper-hit ${repo}\n`);
   });
 
   // ── Paired-negative scenarios: failure modes the hook is paid to detect ──
