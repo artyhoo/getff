@@ -62,6 +62,19 @@ printf '1\tdoc\t.md\ttrue\n4\tbyte\tSHIPPED\ttouch %s/BYTE2\n' "$TMP" >"$TMP/gat
 SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="skills/foo/SKILL.md" bash "$SWEEP" >"$TMP/o5" 2>&1
 has_file "shipped path selected SHIPPED gate" "$TMP/BYTE2"
 
+# --- (self-truncation) a gate command carrying its own `exit 1` (the real
+# install-sh-suite row shape: `for t in …; do bash "$t" || exit 1; done`) must fail
+# THAT gate with the FAIL + stopped-at lines — not kill the sweep mid-loop.
+# Regression: handoff item 3, 2026-07-25 — sweep rc=1 with 8 PASS lines and nothing
+# else; the eval ran the gate's `exit 1` in the sweep's own shell. ---
+rm -f "$TMP/LATER"
+printf '1\tsuite\tALWAYS\tfor t in a b; do false || exit 1; done\n2\tlater\tALWAYS\ttouch %s/LATER\n' "$TMP" >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="x.txt" bash "$SWEEP" --full >"$TMP/o9" 2>&1
+check "exit-in-gate-cmd exits 1" 1 $?
+grep_out "exit-in-gate-cmd reports FAIL (no self-truncation)" "[sweep] FAIL suite" "$TMP/o9"
+grep_out "exit-in-gate-cmd reports stopped-at" "SWEEP: stopped at suite" "$TMP/o9"
+no_file "exit-in-gate-cmd keeps fail-fast (later gate skipped)" "$TMP/LATER"
+
 # --- (comma-trigger) a gate with a comma-joined trigger list matches ANY listed path ---
 rm -f "$TMP/MULTI_A" "$TMP/MULTI_B"
 printf '1\tmulti\ttests/install-sh/,.github/workflows/\ttouch %s/MULTI_A\n' "$TMP" >"$TMP/gates.tsv"

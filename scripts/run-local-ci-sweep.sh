@@ -125,13 +125,17 @@ EOF
 }
 
 # --- run selected gates, cheapest-first, fail-fast ---
+# eval runs in a SUBSHELL: a gate command carrying its own `exit 1` (install-sh-suite's
+# per-test loop) must fail THAT gate, not kill the sweep mid-loop. Without the subshell the
+# sweep self-truncated: rc=1 with no `[sweep] FAIL` / `SWEEP: stopped at` lines and the
+# rank-6 gates silently never ran (handoff item 3, 2026-07-25).
 ran=0
 SORTED="$(gate_table | sort -t"$TAB" -k1,1n)"
 while IFS="$TAB" read -r _ name trigger cmd; do
   [ -z "${name:-}" ] && continue
   gate_selected "$trigger" || continue
   ran=$((ran + 1))
-  if eval "$cmd" >/dev/null 2>&1; then
+  if (eval "$cmd") >/dev/null 2>&1; then
     echo "[sweep] PASS $name"
   else
     echo "[sweep] FAIL $name"
