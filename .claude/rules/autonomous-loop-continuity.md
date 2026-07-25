@@ -94,7 +94,10 @@ optional timeout at `:264-265`, no heartbeat). Until that is closed, **always pa
   arrives for N ms, reconcile against a REST `GET /tasks/:id`; resolve on a moved state, fail
   loudly if REST is unreachable too. Trigger: the first wait that hangs with the socket open.
   Deliberately not built here — one concern per PR, and the reachable mitigation
-  (`--timeout-ms` always) costs nothing today.
+  (`--timeout-ms` always) costs nothing today. Verified STALE-absent at origin/staging
+  `fab189d09e`: `git show origin/staging:packages/runtime-bridge/src/aifWsStatus.ts | grep -iE
+  'heartbeat|idle|watchdog'` → empty (file is 341 lines; reconnect at `:234-248`, optional
+  `--timeout-ms` at `:264-265`, no heartbeat).
 - **Strengthening trigger:** a third F10 recurrence *with the arm live* means the block is
   firing and being talked past → the arm's `reason` is not landing; revise the wording and
   count incidents. A recurrence with the arm *not* live is an enablement problem, not a rule
