@@ -228,8 +228,15 @@ do_python_lane() {
   else
     echo "  [dry-run] would run the getff firing self-check (plant a violation in an OS temp dir → assert ast-grep + ruff fire RED)"
   fi
+  # D8 / getff-any-stack-trace S2: deliver the curated agent surface (skills / agents / hooks /
+  # .mcp.json / AGENTS.md / .ai-factory/) the npm-lane setup.d layer loop would have delivered.
+  # install.sh EXITS at this point (exit 0 below) BEFORE the layer loop, so the python lane would
+  # otherwise ship rules without a runnable agent — the one-beat loop S3 depends on has nothing to
+  # run against. _py_deliver_agent_surface (defined in setup.d/45-python.sh, sourced above)
+  # replicates the curated subset of the layer list — see its docstring for the per-layer mapping.
+  _py_deliver_agent_surface
   echo ""
-  echo "✅ getff Python toolchain ${REFRESH:+re-}delivery complete."
+  echo "✅ getff Python toolchain + agent surface ${REFRESH:+re-}delivery complete."
 }
 
 # ─── getff Rust/cargo toolchain lane (ecosystem-wiring W4) ───────────────────
