@@ -1,5 +1,5 @@
-794935fbaacb5fc958dc0772cc986a1606723528c703214e73e86745d08842d1  .getff/astgrep-rules/getff-no-datetime-datetime-now.yml
-d1a2da707951d05af07efeb13eb1f0efbe55353a2b3c5959ae7ce5d075a789c3  .getff/astgrep-rules/getff-no-datetime-now.yml
+bf24cbbc3d2dc7b19b35bfe3fc93930925070b2e13082b3273d1fb117a8c55c2  .getff/astgrep-rules/getff-no-datetime-datetime-now.yml
+e8c7e0045250bc00050ff28f10004e8acf14dcdf6333507e97d1d472cda244ee  .getff/astgrep-rules/getff-no-datetime-now.yml
 28c3b74073ff6a3beb0c87a081589f72bc44d0a96e46942520d5f86a46651d5e  .getff/astgrep-rules/getff-no-eval.yml
 fca5ac5056b74ac9d09c742ad6f3db8edd6480f9aad14585105e80819f3b6ba0  .getff/astgrep-rules/getff-no-os-system.yml
 9d5ff2ab4d83c639deacf1d0f2400000b9a80d71385b5528522978533e77d514  .getff/ruff-bans.toml
