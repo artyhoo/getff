@@ -33,6 +33,23 @@
   research-patch note (`docs/meta-factory/research-patches/`) with the reproduction attempt
   transcript and the actual culprit, and close. Umbrella `done.md` in the same PR.
 
+## §1a Host-verify contract ([destination-environment-verification.md §1](../../rules/destination-environment-verification.md))
+
+The worker runs in the aif container; acceptance happens on the HOST. These commands decide it:
+
+```bash host-verify
+npm --prefix packages/core run test:hooks
+npm --prefix packages/core run test:principles
+bash packages/core/audit-self/fixtures/foreign-scan-triage/repro.sh
+```
+
+Both hook/principle suites are branch-invariant: whichever branch fires, they must stay green
+on the host. The third line is the paired-fixture command (branch (a)): a sandbox over-walk
+sweep + a paired-negative existence-guard assertion. A fixture whose command is not declared
+here is not covered by the gate, and a green container run is not evidence about the host.
+
+Run before accepting: `bash scripts/host-verify.sh getff-foreign-scan-triage`.
+
 ## §2 «Works» (explicit + testable)
 
 Either branch produces quoted evidence: (a) fixture output before/after the exclusion, or
