@@ -402,9 +402,18 @@ elif [ -n "$WITH_AIF_SUITE" ] && [ "$PROFILE" != "factory" ]; then
   echo "   --profile wins (explicit depth signal); --with-aif-suite is ignored for depth routing." >&2
   echo "   (The AIF suite will still be installed only if your profile is factory.)" >&2
 fi
-# No --profile flag at all → TTY menu or non-TTY default.
+# No --profile flag at all → TTY menu (interactive human) or non-TTY default.
+# The TTY menu is the HUMAN surface. The non-interactive contract used everywhere
+# else in this script (--full/-y at install.sh:468 fail-loud instead of showing
+# the stack menu; --full/--dry-run at :316 and :348 decline the python/cargo
+# toolchain prompts) MUST also skip this menu. Otherwise `bash /tmp/getff/setup
+# -y <stack>` attached to a terminal — the exact invocation INSTALL-FOR-AI.md:66
+# tells an AI to run — hangs on `read -rp` here, regressing kickoff §4 item 3
+# (existing flag back-compat) and breaking the diff's own claim at
+# INSTALL-FOR-AI.md:83 ("Every flag that worked before still works"). The flag
+# LAYERS OVER the menu; it does not replace it.
 if [ -z "$PROFILE" ]; then
-  if [ -t 0 ] && [ -z "$DRY_RUN" ]; then
+  if [ -t 0 ] && [ -z "$DRY_RUN" ] && [ -z "$FULL" ]; then
     echo "What install depth do you want?"
     echo "  1) core    — rules + tests + guard hooks + killer payload; today's default. No AIF operator runtime."
     echo "  2) env     — core + multi-model contour surface (/arch, presets, status, night-mode/SDD) as placeholders; no AIF runtime."
@@ -418,9 +427,10 @@ if [ -z "$PROFILE" ]; then
       *) echo "❌ Invalid choice (use 1, 2, or 3)"; exit 1 ;;
     esac
   else
-    # Non-TTY (piped stdin, --dry-run, or closed stdin): default to core with a
-    # one-line `[profile] core` notice. Never blocks; CI / agents / `./install.sh
-    # < /dev/null` always proceed. The deeper depths are explicit opt-ins.
+    # Non-TTY (piped stdin, --dry-run, or closed stdin) OR non-interactive flag
+    # (-y/--full): default to core with a one-line `[profile] core` notice.
+    # Never blocks; CI / agents / `./install.sh < /dev/null` / `./setup -y` always
+    # proceed. The deeper depths are explicit opt-ins (--profile env|factory).
     PROFILE="core"
     echo "[profile] core (non-interactive default; re-run with --profile env|factory to deepen)"
   fi
