@@ -9045,7 +9045,7 @@ function resolveAllowedSources(ctx) {
         };
       }
       const meta = ctx.adapter.readInstalledMeta(ctx.root, bareName);
-      const candidateFields = [meta?.homepage, meta?.repository];
+      const candidateFields = [meta?.homepage, meta?.documentation, meta?.repository];
       const hosts = [];
       for (const field of candidateFields) {
         const rawHost = extractHttpsHostFromMeta(field);
