@@ -1333,10 +1333,20 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
 //       the consumer-DESTINATION shipped set from setup.d copy_safe commands.
 // FRAMEWORK_SHIPPED_MD_PREFIXES below is predicate (1)'s PATHSPECS translated to
 // consumer-destination path prefixes via the copy_safe destinations enumerated in
-// setup.d/{10-skills,20-agents,30-templates}.sh (the predicate-(4) derivation). Keep
-// this list in lockstep with setup.d copy_safe'd .md destinations — the S2 §3 POSITIVE
-// fixture + the framework-side dogfood (run-fixed-transform-against-own-corpus) surface
-// drift; new setup.d copy_safe'd .md destinations MUST be added here in the same PR.
+// setup.d/{10-skills,20-agents,30-templates}.sh (the predicate-(4) derivation).
+//
+// DRIFT RISK IS NOT MECHANISED — stated plainly rather than implied away. New
+// setup.d copy_safe'd .md destinations MUST be added here in the same PR, and
+// nothing currently FAILS if they are not: the S2 §3 POSITIVE fixture exercises
+// only `AGENTS.md`, so it would not surface a newly-added destination. Until a
+// derivation check exists (compare this list against the copy_safe'd .md
+// destinations enumerated from setup.d/*.sh, the predicate-(4) shape), the
+// lockstep above is author attention, not a gate — see
+// .claude/rules/attention-is-not-a-mechanism.md §1. A stale list degrades safely
+// in the consumer-blocking direction this stage exists to fix (an un-listed
+// shipped file is treated as consumer-authored, so lychee still walks it and a
+// dangling framework ref can still block a consumer push) — it never silently
+// disables the gate.
 const FRAMEWORK_SHIPPED_MD_PREFIXES: readonly string[] = [
   '.claude/skills/', // 10-skills.sh — copy_skill_with_transform + skills/{getff,tool-bootstrapping}
   '.claude/agents/', // 20-agents.sh:37 — copy_safe agents/*.md → .claude/agents/
