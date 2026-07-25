@@ -142,14 +142,21 @@ npx vitest run packages/core/synthesizer
 Run via `bash scripts/host-verify.sh getff-any-stack-trace-s1` before accepting; quote the
 host output in the PR body.
 
-**§1.7 sections:** this stage's diff is expected to land in `packages/core/research/**` +
-`packages/core/synthesizer/**` + `packages/core/install/**`, none of which are in the §4b
-path list (`.claude/rules/**`, `packages/core/principles/**`, `packages/core/templates/**`,
-`.claude/skills/**`, `agents/**`, `CLAUDE.md`, `docs/meta-factory/EXECUTION-PLAN.md`,
-`docs/meta-factory/prior-art-evaluations.md`) — so §1.7 Forward/Backward are **not** required.
-**If your diff does reach one of those paths** (e.g. a new SSOT row in
-`prior-art-evaluations.md` for a BFR verdict), §4b applies in full — see the meta-launch
-kickoff §4b for the exact shape and the pre-flight grep.
+**§1.7 sections are REQUIRED for this stage.** The diff lands in
+`packages/core/synthesizer/**`, which **is** a trigger path of
+[`.github/workflows/discipline-self-check.yml`](../../../.github/workflows/discipline-self-check.yml)
+(`:24`) — the `§1.7 forward+backward sections present in PR description` job fires and goes RED
+without them. Use the exact shape + pre-flight grep in the meta-launch kickoff §4b.
+
+> **Trap (this stage almost shipped it):** the operator-local `~/.claude/hooks/git-safety.sh`
+> mirror carries an older path list that omits `packages/core/synthesizer/**`, so a local
+> `gh pr create` passes while CI fails. Read the trigger paths from the **workflow file**, never
+> from the hook or from a transcribed copy.
+
+**T21 note for the Backward-check:** your sibling surfaces are the other lanes —
+`npmAdapter` in the same `resolve-ctx.ts` switch, `cargoAdapter`, and the clippy bridge. Name
+each SWEPT-CLEAN or GAP-FOUND with evidence. A surface list equal to your own diff is
+non-conformant by format.
 
 `staging` additionally requires the `fidelity-verdict-in-pr-body` check — the PR carries its
 `## Fidelity verdict` block.
