@@ -18,6 +18,10 @@ describe('parseEcosystemName', () => {
     expect(parseEcosystemName('pip:requests')).toEqual({ ecosystem: 'pip', bareName: 'requests' });
   });
 
+  it('go: prefix parses to {ecosystem:"go", bareName} (J3 — goAdapter shipped; module-path identity, see ecosystem-go.ts §2.1)', () => {
+    expect(parseEcosystemName('go:github.com/user/repo')).toEqual({ ecosystem: 'go', bareName: 'github.com/user/repo' });
+  });
+
   it('unprefixed name defaults to {ecosystem:"npm", bareName:name} (implicit back-compat)', () => {
     expect(parseEcosystemName('drizzle-orm')).toEqual({ ecosystem: 'npm', bareName: 'drizzle-orm' });
   });
