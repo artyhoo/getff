@@ -83,12 +83,21 @@ if [ -d "$REPO_ROOT/setup.d" ]; then
 else
   _search_files="$REPO_ROOT/install.sh"
 fi
-shipped_root=$(grep -ohE 'copy_safe [^|]*"\$PROJECT_ROOT/[^"/]+\.(ts|tsx|mjs|cjs|js|json|yml|yaml)"' \
+# S4 (getff-honest-signals): workflow deliveries moved from copy_safe onto deliver_getff_workflow.
+# The verb alternation `(copy_safe|deliver_getff_workflow)` MUST include both verbs, with the
+# parentheses — `copy_safe|deliver_getff_workflow [^|]*...` without them would bind the alternation
+# wrongly. Bare verb (no env prefix) is correct on BOTH sides here because this gate iterates the
+# union (FRESH ∪ REFRESH) — there is no FRESH/REFRESH asymmetry to preserve.
+shipped_root=$(grep -ohE '(copy_safe|deliver_getff_workflow) [^|]*"\$PROJECT_ROOT/[^"/]+\.(ts|tsx|mjs|cjs|js|json|yml|yaml)"' \
   $REPO_ROOT/install.sh $REPO_ROOT/setup.d/*.sh 2>/dev/null \
   | sed -E 's#.*"\$PROJECT_ROOT/([^"]+)".*#\1#' | grep -vx '.prettierrc.json' | sort -u)
-shipped_wf=$(grep -ohE 'copy_safe [^|]*"\$PROJECT_ROOT/\.github/workflows/[^"]+\.ya?ml"' \
+shipped_wf=$(grep -ohE '(copy_safe|deliver_getff_workflow) [^|]*"\$PROJECT_ROOT/\.github/workflows/[^"]+\.ya?ml"' \
   $REPO_ROOT/install.sh $REPO_ROOT/setup.d/*.sh 2>/dev/null \
   | sed -E 's#.*"\$PROJECT_ROOT/([^"]+)".*#\1#' | sort -u)
+# Non-empty guard: without this, the NEXT verb change silently blinds this gate again — exactly as
+# S4's copy_safe → deliver_getff_workflow swap did (shipped_wf went 5 → 0 entries, gate stayed 42/0
+# green). A derived set with no non-empty guard is a green that can mean "nothing was checked".
+[ -n "$shipped_wf" ] || { echo "FATAL: shipped_wf empty — workflow copy verb extraction broke"; exit 1; }
 cand_miss=""
 for c in $shipped_root $shipped_wf; do
   printf '%s\n' "$cand_block" | grep -qF "\"$c\"" || cand_miss="$cand_miss $c"
