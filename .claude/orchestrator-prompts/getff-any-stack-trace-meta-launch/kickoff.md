@@ -41,8 +41,11 @@ The spec is authoritative for *what* each stage means. This kickoff is authorita
   - `packages/core/research/ecosystem-python.ts` — reads `Project-URL: Homepage` +
     deprecated `Home-page` **only**; no `Documentation` key → the D7 gap is real.
   - `install.sh:~203` — `do_python_lane` exits before the agent-surface layers.
-  - `setup.d/45-python.sh:~517` + `tests/install-sh/python-entry-lane.test.sh:51-52` — the
-    `.ai-factory` ban is encoded in BOTH; D8 lifts both in the same stage (S2).
+  - `setup.d/45-python.sh:~517` (now `:526`) + `tests/install-sh/python-entry-lane.test.sh:51-52`
+    — `.ai-factory` ban encodings. **Correction (2026-07-25, found by the S2 cold review):** there
+    are **THREE**, not two — the third is `tests/install-sh/python-rules-lock.test.sh:63-65`,
+    which is CI-wired at `audit-self.yml:613`. D8 lifts all three in S2; see the S2 dispatch
+    input §1.
   - `agents/rule-researcher.md` — 0 mentions of `python`.
   - **T-AST-A precondition HOLDS:** `packages/core/research/allowlist.ts` contains 0 matches
     for `tiangolo|sqlalchemy` — the accept-fixture hosts are absent from the Tier-0 list, so a
@@ -86,25 +89,37 @@ session + a Phase -1 cold reviewer before the next stage is admitted.
 templates + `ruff.toml`) and **S4** (`github-actions-ci.yml` default-branch substitution) —
 MUST be merged to `staging` before S2 rewrites the same region.
 
-**Status at 2026-07-25 (`264109608`) — HALF-CLEAR:**
-
-- honest-signals **S3 MERGED** — PR #1150 `fix(python): narrow datetime rules to zero-arg`.
-- honest-signals **S4 NOT MERGED** — the file-level probe is the authority, and it is RED:
-  `packages/core/templates/python/github-actions-ci.yml:17,19` still read `branches: [main]`.
-
-Re-run BOTH probes before every S2 dispatch attempt (a merge can land between turns):
+**Status at 2026-07-25 (`a6a5eb46cc`) — CLEAR.** Both python-lane stages of honest-signals are
+merged: **S3** = PR #1150 (`fix(python): narrow datetime rules to zero-arg`), **S4** = PR #1167
+(`fix(setup.d): delivered CI workflow targets the consumer's real default branch`).
 
 ```bash
+# The ONLY authoritative probe: are the python-lane honest-signals stages merged?
 gh pr list --state merged --limit 40 --json number,title 2>/dev/null \
   | jq -r '.[] | select(.title|test("honest-signals";"i")) | "\(.number) \(.title)"'
-# File-level backstop — the authority for S4 (its deliverable is observable in the tree):
-grep -n 'branches:' packages/core/templates/python/github-actions-ci.yml
 ```
 
-S4 unmerged (`branches: [main]` still present) → **S2 is BLOCKED.** Do NOT dispatch it. S1 is
-unaffected (disjoint files: `packages/core/synthesizer` + `packages/core/research` vs
-`setup.d/` + `packages/core/templates/python/`) and may proceed. Escalate the ordering to the
-operator rather than reordering the umbrella yourself.
+> **Retracted probe — do NOT reinstate it.** An earlier revision of this section declared a
+> «file-level backstop», `grep -n 'branches:' packages/core/templates/python/github-actions-ci.yml`,
+> and called it *the authority* for S4 on the theory that S4 would rewrite the template. **It did
+> not.** S4 fixed the defect at **delivery** time — `deliver_getff_workflow`
+> ([`setup.d/lib.sh:194`](../../../setup.d/lib.sh), called at `setup.d/45-python.sh:384`)
+> substitutes the consumer's real default branch — deliberately leaving `branches: [main]` in the template as the literal being
+> substituted (`packages/core/templates/python/github-actions-ci.yml:17,19`, still present on
+> `a6a5eb46cc` **by design**). The probe therefore reports RED forever and would have blocked S2
+> indefinitely. The lesson is general and worth carrying: a file-level proxy encodes an assumption
+> about *how* a sibling stage will fix something; when that assumption is wrong the proxy does not
+> degrade to «unknown», it degrades to a **confident false negative**. Probe the merge, not your
+> guess about the shape of the fix.
+
+**Collision note for S2 (load-bearing):** S4 landed inside `setup.d/45-python.sh` — the very file
+S2 must edit. Re-verify every S2 anchor against post-#1167 `staging`, not against this kickoff's
+transcribed line numbers (the `.ai-factory` ban prose moved `:517` → `:526`). **Do NOT read S4's
+`deliver_getff_workflow` as the precedent shape for S2's delivery phase** — an earlier revision of
+this note did, and it is wrong: that helper (`setup.d/lib.sh:194`, called at
+`setup.d/45-python.sh:384`) is a single-file `sed`-substitution wrapper that neither iterates nor
+handles directories. The mechanism spec §5 actually names is «the python lane consumes a curated
+subset of the layer list» — see the S2 dispatch input §2 for the specific layer shapes to reuse.
 
 ### Stage 1 → Stage 2
 
@@ -347,15 +362,17 @@ See `.claude/rules/ai-laziness-traps.md §2` for the full catalogue.
   sources or this kickoff in context and calling it a cold run. **Counter:** the protocol agent
   receives ONLY the consumer project path; its prompt is part of the shipped artifact and says
   so explicitly.
-- **T-AST-C (meta-launch-specific) — dispatching S2 on the assumption that honest-signals
-  «will land first».** The §3 cross-umbrella gate is a real check, not an expectation — and its
-  state moves under you: between this kickoff's first draft (2026-07-24) and its re-grounding
-  (2026-07-25) honest-signals went from «no python-lane stage merged» to «S3 merged; S4 not
-  merged — no S4 PR exists in any state yet».
-  **Counter:** run BOTH §3 probes and read their output before every S2 dispatch attempt —
-  never carry a remembered verdict across turns. The **file-level** probe is the authority: a
-  PR-title search can false-negative (it did on 2026-07-24, when a `headRefName` filter missed
-  merged honest-signals PRs). S4 unmerged → S2 stays blocked and the ordering is escalated.
+- **T-AST-C (meta-launch-specific) — trusting a remembered gate verdict, or a proxy for it,
+  instead of re-probing.** The §3 cross-umbrella gate is a real check whose state moved twice in
+  two days: 2026-07-24 «no python-lane honest-signals stage merged» → 2026-07-25 morning «S3
+  merged, S4 not» → 2026-07-25 evening «both merged, gate CLEAR». A verdict carried across turns
+  is stale by default.
+  **Counter, in the order the incidents taught it:** (1) re-probe before every dispatch attempt,
+  never reuse a remembered result; (2) probe the **merge state**, not a file-level proxy —
+  this kickoff shipped such a proxy and it was a confident false negative (see the retracted-probe
+  block in §3), while a `headRefName`-filtered PR search produced the opposite error on 2026-07-24
+  by missing merged PRs. Two probe designs, two failure directions, same root cause: an indirect
+  question standing in for the direct one. Ask the direct one.
 
 > **Anti-pattern warning:** a blanket «see ai-laziness-traps.md» without the enumeration above
 > is itself a T7 violation.
