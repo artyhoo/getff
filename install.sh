@@ -488,6 +488,61 @@ do_refresh() {
     chmod_safe +x "$_AIF_HELPERS/heal.sh" "$_AIF_HELPERS/refresh-aif-base.sh" 2>/dev/null || true
   fi
 
+  # ── Skill-rename orphan reclaim (framework-owned) ───────
+  # getff-honest-signals S5 / kickoff §1 + §2: a consumer that installed before the
+  # `rules-as-tests` → `getff` rename ends up with BOTH `.claude/skills/rules-as-tests/`
+  # (stale, framework-owned) AND `.claude/skills/getff/` (modern) after refresh. The
+  # superseded dir looks like a live skill but isn't — an "honest signals" defect.
+  # Asymmetry (load-bearing, T-S5-A): this RECLAIMS a framework-owned dir ONLY.
+  # The consumer-owned `.lintstagedrc.json` reconciliation (next block) is OFFER-ONLY.
+  echo "▶ Skill-rename orphan reclaim → .claude/skills/rules-as-tests/ (framework-owned)"
+  _LEGACY_SKILL_DIR="$PROJECT_ROOT/.claude/skills/rules-as-tests"
+  _MODERN_SKILL_DIR="$PROJECT_ROOT/.claude/skills/getff"
+  _LEGACY_OVERRIDE="${_LEGACY_SKILL_DIR}.override.md"
+  if [ -d "$_MODERN_SKILL_DIR" ] && [ -d "$_LEGACY_SKILL_DIR" ]; then
+    # Power-user opt-out: a consumer who genuinely wants to keep the legacy skill
+    # drops a `.override.md` sibling. Layer-3 ownership honoured (same seam as
+    # copy_safe / refresh_safe).
+    if [ -e "$_LEGACY_OVERRIDE" ]; then
+      echo "  ⊝ $_LEGACY_SKILL_DIR (.override.md — consumer-owned opt-out, keeping)"
+    else
+      # Ownership probe (T17/T18 — deletion is the irreversible branch): if ANY file
+      # inside the legacy dir is `git ls-files --error-unmatch`-tracked in the consumer's
+      # repo, the consumer has adopted + tracked the legacy dir = treat as theirs, KEEP,
+      # print migration hint. We do NOT delete consumer-tracked content.
+      _CONSUMER_TRACKED=0
+      if [ -d "$PROJECT_ROOT/.git" ] || git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+        while IFS= read -r -d '' _legacy_file; do
+          _rel=${_legacy_file#"$PROJECT_ROOT/"}
+          if git -C "$PROJECT_ROOT" ls-files --error-unmatch "$_rel" >/dev/null 2>&1; then
+            _CONSUMER_TRACKED=1
+            break
+          fi
+        done < <(find "$_LEGACY_SKILL_DIR" -type f -print0 2>/dev/null)
+      fi
+      if [ "$_CONSUMER_TRACKED" = "1" ]; then
+        echo "  ⊝ $_LEGACY_SKILL_DIR (consumer-tracked — treat as consumer-owned, keeping)"
+        echo "    migration hint: rm -rf \"$_LEGACY_SKILL_DIR\" once you've migrated to $_MODERN_SKILL_DIR"
+      else
+        if [ "$DRY_RUN" = "--dry-run" ]; then
+          echo "  [dry-run] would reclaim: $_LEGACY_SKILL_DIR (renamed → getff; superseded)"
+        else
+          rm -rf "$_LEGACY_SKILL_DIR"
+          echo "  ♻ reclaimed superseded framework skill dir $_LEGACY_SKILL_DIR (renamed → getff)"
+        fi
+      fi
+    fi
+  elif [ -d "$_LEGACY_SKILL_DIR" ] && [ ! -d "$_MODERN_SKILL_DIR" ]; then
+    # Do NOT remove the legacy dir if the modern dir is absent — that would leave
+    # the consumer with NO skill at all (T17: preserve future-value content).
+    echo "  · $_LEGACY_SKILL_DIR kept ($_MODERN_SKILL_DIR/ not delivered — removal would leave no skill)"
+    echo "    migration hint: this looks like a pre-rename install that has not yet received getff/; refresh after upgrading the framework to also receive getff/"
+  else
+    echo "  · no legacy $_LEGACY_SKILL_DIR present (fresh install or already reclaimed)"
+  fi
+  unset _LEGACY_SKILL_DIR _MODERN_SKILL_DIR _LEGACY_OVERRIDE _CONSUMER_TRACKED _legacy_file _rel
+
+
   # ── Claude hooks ────────────────────────────────────────
   echo "▶ Claude hooks → .claude/hooks/"
   _HOOK_SRC="$PKG_ROOT/packages/core/hooks/deps-hash-check.sh"
