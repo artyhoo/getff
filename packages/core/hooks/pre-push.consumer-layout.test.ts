@@ -614,6 +614,102 @@ describe(
       expect(r.status, out).toBe(0);
     });
 
+    // ── S2 §3 binding pair — Part 1 narrowing live + gate still catches consumer-side leaks ──
+    // S2 (getff-honest-signals) §3 binding contract: "a consumer-clean diff PLUS a shipped
+    // file carrying a dangling framework ref → push passes" (PRIMARY, POSITIVE arm) AND
+    // "Add coverage that the section still fails when the consumer's own changed markdown
+    // has a real dangling link — otherwise part 1 has silently disabled the gate, which is
+    // this umbrella's defect class wearing the opposite mask." (SECONDARY, NEGATIVE arm).
+    // T-HS-A: assert EXIT CODE first, message wording second.
+
+    it('S2 §3 PRIMARY (POSITIVE) — CONSUMER-clean diff + SHIPPED file with a dangling framework ref → §8 narrows to consumer-authored only → push passes (exit 0)', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      // Override the consumer-sandbox's exit-0 lychee stub to REJECT if and only if a
+      // framework-shipped file reaches its argv. Mimics a real shipped markdown carrying
+      // a framework-internal ref that resolves in this repo but dangles in a consumer
+      // checkout (the getff-honest-signals defect class). With Part 1 narrowing live,
+      // §8 excludes AGENTS.md before invoking lychee → lychee sees only the clean
+      // consumer file → exit 0. Without Part 1, lycheee would receive AGENTS.md and
+      // reject → §8 would die. The stub differentiates the two states deterministically.
+      const stubBin = join(dir, '.stub-bin');
+      writeFileSync(
+        join(stubBin, 'lychee'),
+        '#!/bin/sh\nfor a in "$@"; do\n' +
+          '  case "$a" in\n' +
+          '    --offline|--no-progress) ;;\n' +
+          // FRAMEWORK_SHIPPED_MD_PREFIXES (mirror of pre-push.ts) — these are the paths
+        // Part 1 must exclude. If any reaches lychee's argv, REJECT to surface a
+        // narrowing regression (T7/T14 — skip-reported-as-green is the trap this stub
+        // exists to catch: a stub that always exit-0 cannot distinguish narrowed from
+        // un-narrowed, so the §3 POSITIVE shape becomes a tautology).
+        '    AGENTS.md|.claude/agents/*|.claude/skills/*|.ai-factory/*|.claude/session-bootstrap.md)' +
+          '      echo "✗ would-block-shipped: $a"; exit 1 ;;\n' +
+          '  esac\n' +
+          'done\n' +
+          'exit 0\n',
+        );
+      chmodSync(join(stubBin, 'lychee'), 0o755);
+
+      // A SHIPPED file (AGENTS.md is the canonical framework-shipped top-level starter,
+      // 30-templates.sh:81) carrying a dangling framework-internal ref — the exact shape
+      // that blocked a consumer's first push before Part 1.
+      addConsumerCommit(
+        dir,
+        'AGENTS.md',
+        '# Agents\n\n[dangling-framework-ref](docs/meta-factory/nonexistent.md)\n',
+        'agents: framework-shipped starter with a dangling framework ref',
+      );
+      // A CONSUMER-clean changed markdown file — what the consumer actually authored.
+      addConsumerCommit(
+        dir,
+        'docs/consumer-page.md',
+        '# Page\n\n[valid](./README.md)\n',
+        'docs: add a consumer page with a valid link',
+      );
+
+      const r = runHook(dir, hook, baseSha);
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      // §3 PRIMARY binding (T-HS-A): exit code FIRST, wording second. exit 0 = narrowing
+      // excluded the shipped file → consumer push not blocked by our shipped content.
+      expect(r.status, out).toBe(0);
+      // The narrowing diagnostic surfaces in §8's output (count of excluded files).
+      expect(out, out).toMatch(/excluded 1 framework-shipped \*\.md/);
+      // The shipped file must NOT have been passed to lychee (the stub's reject arm).
+      expect(out, out).not.toMatch(/would-block-shipped: AGENTS\.md/);
+    });
+
+    it('S2 §3 SECONDARY (NEGATIVE) — CONSUMER-owned markdown with a real broken link + lychee REJECTS → §8 lycheeSection blocks (gate is live, not silently disabled)', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      // Override the consumer-sandbox's exit-0 lychee stub to REJECT — mimics a real
+      // dangling link in a consumer-authored file. The §8 lycheeSection shells out to
+      // this binary; its non-zero exit + stderr bubbles via die().
+      const stubBin = join(dir, '.stub-bin');
+      writeFileSync(
+        join(stubBin, 'lychee'),
+        '#!/bin/sh\necho "✗ bad-link-in-consumer-file.md: broken link"\nexit 1\n',
+      );
+      chmodSync(join(stubBin, 'lychee'), 0o755);
+      // A CONSUMER's OWN markdown file (NOT framework-shipped — it lives at the
+      // consumer's own docs/ path, never touched by install.sh's copy-list). The §8
+      // walk covers all changed *.md regardless of owner; this one would trip a real
+      // offline lychee run.
+      addConsumerCommit(
+        dir,
+        'docs/consumer-page.md',
+        '# Page\n\n[broken](./does-not-exist.md)\n',
+        'docs: add a page with a broken link',
+      );
+
+      const r = runHook(dir, hook, baseSha);
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      // §3 binding (T-HS-A): exit code FIRST, wording second. exit 1 = gate lived.
+      expect(r.status, out).toBe(1);
+      expect(out, out).toMatch(/bad-link-in-consumer-file\.md/);
+      expect(out, out).toMatch(/lychee found broken links/);
+    });
+
     // ── S3 deliverable 2: consumer-topology smoke ──────────────────────────────
     // The kickoff's explicit smoke: a tmp repo whose default branch is `main`, only the
     // consumer copy-list installed (no maintainer packages/core parts, no SSOT register),

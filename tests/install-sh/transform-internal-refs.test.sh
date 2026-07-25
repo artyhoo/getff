@@ -14,6 +14,20 @@
 #       to consumers (2026-07-10 flat-install smoke: 87 dangling links → first push RED on lychee)
 #   4b. transforms ](../.claude/rules/foo.md#a) → ](${URL}/.claude/rules/foo.md#a) — agents/*.md shape
 #   4c. transforms ](../../install.sh) → ](${URL}/install.sh) — skills/rules-as-tests shape
+#   4d. transforms ](../../../agents/foo.md) → ](${URL}/agents/foo.md) — S2 2026-07-25:
+#       agents/ DOES ship to .claude/agents/, but the relative path from a skill file at
+#       depth 3 resolves to <consumer>/agents/ (wrong) instead of <consumer>/.claude/agents/.
+#       Six such leaks surfaced in the S2 corpus sweep (harvest/dispatcher/night-mode).
+#   4e. transforms ](../tests/fixtures/foo/README.md) → ](${URL}/tests/fixtures/foo/README.md)
+#       — S2 2026-07-25: tests/ is never shipped; one leak in shipped-agent-liveness-prober.md.
+#   4f. LEAVES ](../../../scripts/foo.sh) intact — scripts/ is PARTIALLY shipped
+#       (subset via setup.d/40-configs.sh); per-file ambiguity is a §4 park trigger
+#       (kickoff getff-honest-signals-s2 §4). Boundary documented, not blanket-rewritten.
+#   4g. transforms ](../../orchestrator-prompts/foo/kickoff.md) → ](${URL}/.claude/orchestrator-prompts/foo/kickoff.md)
+#       — S2 2026-07-25 round-1 rework: .claude/orchestrator-prompts/ is NEVER delivered
+#       to consumers (the only install action is mkdir_safe "$PROJECT_ROOT/.ai-factory/
+#       orchestrator-prompts" at setup.d/30-templates.sh:17 — note: .ai-factory/, not
+#       .claude/). One leak surfaced in .claude/skills/aif-doctor/SKILL.md:26.
 #   5.  LEAVES ](../../../hooks/bar.sh) intact (consumer has .claude/hooks/ post-install)
 #   6.  idempotent — second pass produces no further change
 #
@@ -52,6 +66,10 @@ cat > "$FIXTURE" <<'EOF'
 - [installer link](../../install.sh) — should TRANSFORM (framework file, not shipped)
 - [installer anchor](../../install.sh#usage) — should TRANSFORM (anchor form)
 - [shim dir](../../install.shim/x.md) — should STAY (right boundary: not install.sh)
+- [agent file link](../../../agents/fidelity-auditor.md) — should TRANSFORM (S2: wrong path on consumer)
+- [tests fixture](../tests/fixtures/foo/README.md) — should TRANSFORM (S2: tests/ not shipped)
+- [orchestrator-prompts](../../orchestrator-prompts/aif-doctor-skill/kickoff.md) — should TRANSFORM (S2: never delivered to consumers)
+- [scripts link](../../../scripts/run-local-ci-sweep.sh) — should STAY (S2 park: scripts/ partial-ship)
 - [hook link](../../../hooks/end-of-turn-reminder.sh) — should STAY
 EOF
 
@@ -98,6 +116,40 @@ grep -qF "](${UPSTREAM_BLOB_URL}/install.sh)" <<<"$OUT" \
   && grep -qF "](../../install.shim/x.md)" <<<"$OUT" \
   && ok "4c: ../../install.sh → ${UPSTREAM_BLOB_URL}/install.sh (anchor kept; .shim/ untouched)" \
   || bad "4c: install.sh rewrite failed; got: $(grep -F 'install.sh' <<<"$OUT")"
+
+# Sub-test 4d: agents/ rewritten (S2 2026-07-25). agents/ ships to .claude/agents/ but
+# the relative path from a skill file at depth 3 lands at <consumer>/agents/ (wrong).
+grep -qF "](${UPSTREAM_BLOB_URL}/agents/fidelity-auditor.md)" <<<"$OUT" \
+  && ! grep -qF "](../../../agents/fidelity-auditor.md)" <<<"$OUT" \
+  && ok "4d: ../../../agents/ → ${UPSTREAM_BLOB_URL}/agents/ (S2: depth-mismatch fix)" \
+  || bad "4d: agents/ rewrite failed; got: $(grep -F 'agents/fidelity' <<<"$OUT")"
+
+# Sub-test 4e: tests/ rewritten (S2 2026-07-25). tests/ never ships to consumers.
+grep -qF "](${UPSTREAM_BLOB_URL}/tests/fixtures/foo/README.md)" <<<"$OUT" \
+  && ! grep -qF "](../tests/fixtures/foo/README.md)" <<<"$OUT" \
+  && ok "4e: ../tests/ → ${UPSTREAM_BLOB_URL}/tests/ (S2: tests/ never shipped)" \
+  || bad "4e: tests/ rewrite failed; got: $(grep -F 'tests/fixtures' <<<"$OUT")"
+
+# Sub-test 4f: scripts/ NOT rewritten (S2 park). scripts/ is partially shipped
+# (subset via setup.d/40-configs.sh); the per-file ambiguity is a §4 park trigger.
+# Documents the boundary — extend with a shipped-scripts allowlist if a future
+# scripts/ ref to a non-shipped script re-breaks a consumer push.
+grep -qF "](../../../scripts/run-local-ci-sweep.sh)" <<<"$OUT" \
+  && ok "4f: ../../../scripts/ left intact (S2 park: scripts/ partial-ship ambiguity)" \
+  || bad "4f: scripts/ was rewritten — park violated; got: $(grep -F 'scripts/run' <<<"$OUT")"
+
+# Sub-test 4g: orchestrator-prompts/ rewritten (S2 2026-07-25 round-1 rework).
+# .claude/orchestrator-prompts/ is never delivered to consumers — the only install
+# action is mkdir_safe "$PROJECT_ROOT/.ai-factory/orchestrator-prompts" at
+# setup.d/30-templates.sh:17 (note: .ai-factory/, NOT .claude/). A skill file's
+# ](../../orchestrator-prompts/...) resolves to <consumer>/.claude/orchestrator-prompts/...
+# — a path that does not exist. The rewrite targets the framework blob URL under
+# .claude/orchestrator-prompts/ (the framework-source path), matching the getff
+# install-time mapping for repo-internal refs.
+grep -qF "](${UPSTREAM_BLOB_URL}/.claude/orchestrator-prompts/aif-doctor-skill/kickoff.md)" <<<"$OUT" \
+  && ! grep -qF "](../../orchestrator-prompts/aif-doctor-skill/kickoff.md)" <<<"$OUT" \
+  && ok "4g: ../../orchestrator-prompts/ → ${UPSTREAM_BLOB_URL}/.claude/orchestrator-prompts/ (S2 rework: never delivered to consumer)" \
+  || bad "4g: orchestrator-prompts/ rewrite failed; got: $(grep -F 'orchestrator-prompts/' <<<"$OUT")"
 
 # Sub-test 5: hooks/ left intact (consumer has .claude/hooks/)
 grep -qF "](../../../hooks/end-of-turn-reminder.sh)" <<<"$OUT" \

@@ -1315,12 +1315,83 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
 }
 
 // ── 8. lychee offline link check on changed *.md (both) ──────────────────────
+//
+// S2 §2 Part 1 (getff-honest-signals, 2026-07-25): on a CONSUMER layout the walk is
+// narrowed to CONSUMER-authored changed *.md — framework-shipped markdown is excluded
+// so a consumer's first push is not blocked by shipped content carrying framework-
+// internal refs that resolve inside this repo but dangle on a consumer checkout. The
+// narrowing fires ONLY on consumer layouts; on the framework repo the same paths are
+// authoring locations whose refs resolve against framework files (we want lychee to
+// cover them there). §3 NEGATIVE arm (pre-push.consumer-layout.test.ts) guards that
+// the gate is still live on consumer-owned .md; §3 POSITIVE arm guards the narrowing
+// actually excludes shipped content.
+//
+// SSOT for the shipped surface (predicate reuse, BFR):
+//   (1) scripts/format-shipped.sh:34-44 — PATHSPECS = framework-SOURCE shipped paths
+//       (the files install.sh copies into consumer projects).
+//   (4) tests/install-sh/refresh-covers-full-delivery.test.sh:106-108 — derivation of
+//       the consumer-DESTINATION shipped set from setup.d copy_safe commands.
+// FRAMEWORK_SHIPPED_MD_PREFIXES below is predicate (1)'s PATHSPECS translated to
+// consumer-destination path prefixes via the copy_safe destinations enumerated in
+// setup.d/{10-skills,20-agents,30-templates}.sh (the predicate-(4) derivation).
+//
+// DRIFT RISK IS NOT MECHANISED — stated plainly rather than implied away. New
+// setup.d copy_safe'd .md destinations MUST be added here in the same PR, and
+// nothing currently FAILS if they are not: the S2 §3 POSITIVE fixture exercises
+// only `AGENTS.md`, so it would not surface a newly-added destination. Until a
+// derivation check exists (compare this list against the copy_safe'd .md
+// destinations enumerated from setup.d/*.sh, the predicate-(4) shape), the
+// lockstep above is author attention, not a gate — see
+// .claude/rules/attention-is-not-a-mechanism.md §1. A stale list degrades safely
+// in the consumer-blocking direction this stage exists to fix (an un-listed
+// shipped file is treated as consumer-authored, so lychee still walks it and a
+// dangling framework ref can still block a consumer push) — it never silently
+// disables the gate.
+const FRAMEWORK_SHIPPED_MD_PREFIXES: readonly string[] = [
+  '.claude/skills/', // 10-skills.sh — copy_skill_with_transform + skills/{getff,tool-bootstrapping}
+  '.claude/agents/', // 20-agents.sh:37 — copy_safe agents/*.md → .claude/agents/
+  '.ai-factory/skill-context/', // 20-agents.sh:67 — copy_safe skill-context overrides
+  'AGENTS.md', // 30-templates.sh:81 — top-level starter (exact match)
+  '.ai-factory/DESCRIPTION.md',
+  '.ai-factory/DESCRIPTION.template.md',
+  '.ai-factory/ARCHITECTURE.md',
+  '.ai-factory/ARCHITECTURE.', // stack variants: ARCHITECTURE.<stack>.md + ARCHITECTURE.ts-server.md
+  '.ai-factory/RULES.md',
+  '.ai-factory/RULES.', // stack variants: RULES.<stack>.md
+  '.ai-factory/rules/', // 30-templates.sh:31 — integration-rules.md
+  '.ai-factory/tool-decisions.md', // 30-templates.sh:41
+  '.claude/session-bootstrap.md', // 10-skills.sh:266 — starter template (conditional)
+];
+
+function isFrameworkShippedMarkdown(p: string): boolean {
+  return FRAMEWORK_SHIPPED_MD_PREFIXES.some(
+    (prefix) => p === prefix || p.startsWith(prefix),
+  );
+}
+
 function lycheeSection(ctx: SectionCtx): void {
   const { rb } = ctx;
   if (rb.base !== null) {
-    const changedMd = getChangedFiles(rb.base, 'ACMR', rb.head).filter((f) =>
+    let changedMd = getChangedFiles(rb.base, 'ACMR', rb.head).filter((f) =>
       f.endsWith('.md'),
     );
+    // S2 §2 Part 1: on a consumer layout, exclude framework-shipped markdown so a
+    // consumer's push is not blocked by shipped content's framework-internal refs
+    // (which resolve here but dangle in a consumer checkout). Scoped to consumer
+    // layouts via isFrameworkRepo — on the framework repo these same paths are
+    // authoring locations whose refs resolve against framework files (lychee covers
+    // them there). Closes the getff-honest-signals defect class: a consumer whose
+    // own changed markdown is clean still got blocked by our shipped content.
+    if (!existsSync(resolve(REPO_ROOT, SSOT_REL))) {
+      const before = changedMd.length;
+      changedMd = changedMd.filter((f) => !isFrameworkShippedMarkdown(f));
+      const excluded = before - changedMd.length;
+      if (excluded > 0) {
+        process.stdout.write(
+          `  · §8 lychee: excluded ${excluded} framework-shipped *.md (S2 Part 1 narrowing; consumer-authored only)\n`,
+        );
+      }
+    }
     if (changedMd.length > 0) {
       const r = run('lychee', ['--offline', '--no-progress', ...changedMd]);
       if (r.notFound) {
