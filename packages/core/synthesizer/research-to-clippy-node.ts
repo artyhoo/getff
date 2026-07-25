@@ -35,7 +35,18 @@
 import type { Severity } from '../diagnostics/types.ts';
 import type { ConventionNode } from '../ir/types.ts';
 import { runGrammarGate } from '../ir/gates/grammar.ts';
-import { validateProvenance } from '../research/allowlist.ts';
+// S1 getff-any-stack-trace: the clippy bridge switches from the one-arg Tier-0-only wrapper
+// (`allowlist.ts:validateProvenance`) to the exported two-arg resolved-aware validator
+// (`allowlist-resolver.ts:validateProvenance`) — the same SSOT, called with a manifest-derived
+// `ResolvedSources` so a practice whose provenance host matches a direct dependency's
+// `homepage`/`documentation`/`repository` metadata is admitted at Tier-1 instead of dropped.
+// Mechanical mirror of the astgrep bridge's threading (research-to-node.ts).
+import {
+  resolveAllowedSources,
+  validateProvenance,
+  type ResolveCtx,
+  type ResolvedSources,
+} from '../research/allowlist-resolver.ts';
 import type { Provenance } from '../research/types.ts';
 import type { ResearchOnlyReason, ResearchToNodeResult } from './research-to-node.ts';
 
@@ -113,9 +124,19 @@ export function isClippyExpressible(p: ClippyResearchedPractice): boolean {
  * finding. Order matters (Phase -1): expressibility (§Qb) → provenance host-tier (the bridge's own
  * resolver call) → grammar-gate shape. Each failure is an honest research-only finding, never an
  * inert node.
+ *
+ * `ctx` (S1 getff-any-stack-trace, spec §4 W1-1): the manifest-derived `ResolveCtx` from the
+ * resolve-ctx.ts factory (`resolveCtxForRoot`). When passed, a practice whose provenance host
+ * matches a direct dependency's `homepage`/`documentation`/`repository` metadata is admitted at Tier-1
+ * (the two-arg `validateProvenance(p, resolved)` form, the SSOT). When omitted, the bridge
+ * degrades to the Tier-0-only back-compat path (the resolver materialises an empty ctx) —
+ * preserving every existing call site that has no consumer manifest in scope (framework-side
+ * drift gates, internal renders, every test that pre-dates this threading). Mechanical mirror
+ * of the astgrep bridge's threading (research-to-node.ts).
  */
 export function researchedPracticeToClippyNode(
   practice: ClippyResearchedPractice,
+  ctx?: ResolveCtx,
 ): ResearchToNodeResult {
   // 1. Degrade-not-inert (MAJOR-1 §Qb) — BEFORE node construction.
   if (!isClippyExpressible(practice)) {
@@ -131,7 +152,11 @@ export function researchedPracticeToClippyNode(
   }
 
   // 2. Trust gate — the bridge validates provenance itself (grammar gate does NOT check host).
-  const provReject = firstProvenanceRejection(practice.provenance);
+  //    Materialise `ResolvedSources` ONCE here (the ack-file load is fs IO); pass it down to
+  //    `firstProvenanceRejection` so a multi-record practice reuses the same resolved view
+  //    instead of re-loading per record. No ctx ⇒ resolveAllowedSources() returns Tier-0-only.
+  const resolved = resolveAllowedSources(ctx);
+  const provReject = firstProvenanceRejection(practice.provenance, resolved);
   if (provReject !== null) {
     return {
       status: 'research-only',
@@ -189,17 +214,44 @@ function buildClippyNode(practice: ClippyResearchedPractice): ConventionNode {
 
 /**
  * Return the first provenance rejection reason, or null if every record resolves to a trusted source.
- * A practice with ZERO provenance cannot be trusted (fail-closed). Tier-0 only (validateProvenance,
- * allowlist.ts — zero fs). Re-implemented locally because the astgrep bridge's `firstProvenanceRejection`
- * is module-private (research-to-node.ts:183) — a ~10-line loop, cheaper to mirror than to export.
+ * A practice with ZERO provenance cannot be trusted (fail-closed).
+ *
+ * Tier model (S1 getff-any-stack-trace, spec §4 W1-1): the validator runs in its two-arg
+ * resolved-aware form. When the caller threads a `ResolveCtx`, `resolved` carries Tier-0,
+ * Tier-1 (the manifest-derived hosts), and Tier-2 (the ack file); otherwise `resolved` is
+ * Tier-0-only and the validator falls back to the historical behaviour. Either way the
+ * validator is the SSOT — the bridge never re-implements the host-tier call.
+ *
+ * `entryPackage` opt (S1): the validator's Tier-1 branch is gated on `opts.entryPackage`
+ * (allowlist-resolver.ts:316). The clippy bridge's input shape has no separate `package`
+ * field (mirror of the astgrep lane): a single-practice record IS scoped to whatever its
+ * provenance records declare — the practice's package IS `p.packageName`. We therefore
+ * thread `{ entryPackage: p.packageName }` so the Tier-1 branch activates for manifest-
+ * derived admission. The scope-lock check becomes a self-check (trivially satisfied); the
+ * multi-entry scope-lock is the plan-level validator's concern (gates/provenance.ts), not
+ * the bridge's.
+ *
+ * Operational consequence (FF2010 is structurally unreachable from the bridge): because
+ * `entryPackage === p.packageName` by construction, the validator's `packageName !==
+ * opts.entryPackage` branch (FF2010) can NEVER fire from a bridge call. The effective
+ * scope-lock on the bridge's single-practice path is the `tier1For` direct-dep gate
+ * (FF2007, allowlist-resolver.ts:206). FF2010 remains the scope-lock for the plan-level
+ * validator, where `entry.package` and `provenance.packageName` are independent claims.
+ *
+ * Re-implemented locally (mirroring research-to-node.ts) because the astgrep bridge's
+ * version is module-private.
  */
-function firstProvenanceRejection(provenance: Provenance[]): string | null {
+function firstProvenanceRejection(
+  provenance: Provenance[],
+  resolved: ResolvedSources,
+): string | null {
   if (provenance.length === 0) {
     return 'no provenance record — cannot resolve a trusted documentation source';
   }
   for (const p of provenance) {
-    const v = validateProvenance(p);
-    if (!v.ok) return v.reason ?? 'provenance rejected';
+    const opts = p.packageName !== undefined ? { entryPackage: p.packageName } : undefined;
+    const d = validateProvenance(p, resolved, opts);
+    if (d !== null) return d.message;
   }
   return null;
 }

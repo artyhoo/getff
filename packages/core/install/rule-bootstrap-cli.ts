@@ -58,6 +58,7 @@ import {
   planResearchedAstgrep,
   type ResearchOnlyFinding,
 } from '../synthesizer/render-researched-astgrep.ts';
+import { resolveCtxForRoot } from '../synthesizer/resolve-ctx.ts';
 import type { AstgrepResearchedPractice } from '../synthesizer/research-to-node.ts';
 
 interface Args {
@@ -204,11 +205,18 @@ function loadPracticeRecords(src: string): AstgrepResearchedPractice[] {
  * bridge+renderAstgrep plan — the SAME pipeline the framework's drift gate locks). Practices the
  * bridge degrades are surfaced as research-only findings (logged loudly, NEVER written). The output
  * dir is created only when something renders — a fully-degraded run leaves the consumer untouched.
+ *
+ * S1 getff-any-stack-trace (spec §4 W1-1): threads `resolveCtxForRoot(consumerRoot)` so a practice
+ * whose provenance host is a direct dependency's `homepage`/`documentation`/`repository` metadata
+ * is admitted at Tier-1 — the same SSOT two-arg validator the bridge runs. Without ctx, the
+ * bridge degrades to the Tier-0-only back-compat path (resolver materialises an empty ctx) —
+ * preserving every pre-S1 caller that has no consumer manifest in scope.
  */
 export function runPracticeRender(opts: PracticeRenderOptions): PracticeRenderResult {
   const log = opts.log ?? ((m: string) => process.stderr.write(m + '\n'));
   const records = loadPracticeRecords(opts.fromPractice);
-  const plan = planResearchedAstgrep(records);
+  const ctx = resolveCtxForRoot(opts.consumerRoot);
+  const plan = planResearchedAstgrep(records, ctx);
 
   for (const finding of plan.researchOnly) {
     // The degrade is LOUD, never silent (mirrors withManualDrop).
