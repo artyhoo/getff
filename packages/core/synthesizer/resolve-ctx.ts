@@ -30,6 +30,7 @@ import type { ResolveCtx } from '../research/allowlist-resolver.ts';
 import { npmAdapter } from '../research/ecosystem-npm.ts';
 import { cargoAdapter } from '../research/ecosystem-cargo.ts';
 import { pipAdapter } from '../research/ecosystem-python.ts';
+import { goAdapter } from '../research/ecosystem-go.ts';
 
 /**
  * Builds the production ResolveCtx for a consumer `root`, selecting the
@@ -57,5 +58,6 @@ export function resolveCtxForRoot(root: string): ResolveCtx {
   const { stack } = detectStack(root, { skipAif: true });
   if (stack === 'python') return { root, adapter: pipAdapter };
   if (stack === 'cargo') return { root, adapter: cargoAdapter };
+  if (stack === 'go') return { root, adapter: goAdapter };
   return { root, adapter: npmAdapter };
 }

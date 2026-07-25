@@ -1,9 +1,10 @@
-// Priority 4 (non-npm toolchains): pyproject.toml → python, Cargo.toml → cargo.
-// Sibling to read-manifest.ts (package.json). Widens detection beyond JS/TS so a
-// python or cargo consumer repo detects as its real stack, not `unknown`
-// (ecosystem-wiring W1). Framework detection is python-only by design — rust
-// framework expressibility is out of W1's depth (T14: detect the stack, make no
-// rust framework claim).
+// Priority 4 (non-npm toolchains): pyproject.toml → python, Cargo.toml → cargo,
+// go.mod → go. Sibling to read-manifest.ts (package.json). Widens detection
+// beyond JS/TS so a python / cargo / go consumer repo detects as its real
+// stack, not `unknown` (ecosystem-wiring W1 added python+cargo; adapter-jig J3
+// added go). Framework detection is python-only by design — rust/go framework
+// expressibility is out of scope (T14: detect the stack, make no rust/go
+// framework claim).
 
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -66,6 +67,23 @@ export function readPythonCargo(projectRoot: string): DetectionResult | null {
       runtime: { name: 'cargo', major: null },
       ...tuple,
       source: 'Cargo.toml',
+      rules: baseRules,
+      missing: [],
+    };
+  }
+
+  // go.mod → go (adapter-jig J3). No go framework detection (T14: detect the
+  // stack only — no echo/gin/chi claim; go's toolchain-direct stdlib suffices).
+  // Precedence: pyproject > Cargo > go.mod > package.json (manifest, weaker
+  // than config presence). A polyglot repo (e.g. one shipping both Cargo.toml
+  // and go.mod) detects deterministically as cargo by the order above.
+  if (existsSync(resolve(projectRoot, 'go.mod'))) {
+    return {
+      stack: 'go',
+      framework: { name: null, version: null, major: null },
+      runtime: { name: 'go', major: null },
+      ...tuple,
+      source: 'go.mod',
       rules: baseRules,
       missing: [],
     };
