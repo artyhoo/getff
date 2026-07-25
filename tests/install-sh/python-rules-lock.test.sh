@@ -13,10 +13,12 @@
 #
 # DETERMINISTIC arms (always run — the CI signal): schema shape, ruleIds ↔ delivered files (non-vacuity),
 # ruffBans, 16-hex fingerprint, reproducibility (same rule set → same fingerprint across consumers),
-# idempotency (plain re-run byte-identical), --refresh regenerate, .ai-factory NEVER created, and the
-# TEETH arm — a DIFFERENT delivered rule set (a live-generated researched rule rides the seam via
-# PY_TEMPLATE_DIR) yields a DIFFERENT fingerprint + the extra ruleId (proves the lock reflects the
-# actual delivered set, not a constant).
+# idempotency (plain re-run byte-identical), --refresh regenerate, lock lives under .getff/ (D8:
+# .ai-factory/ is now an expected agent-surface home, not a npm-leak signal — arm (2) asserts the
+# lock's HOME is .getff/, not the now-obsolete .ai-factory absence), and the TEETH arm — a DIFFERENT
+# delivered rule set (a live-generated researched rule rides the seam via PY_TEMPLATE_DIR) yields a
+# DIFFERENT fingerprint + the extra ruleId (proves the lock reflects the actual delivered set, not a
+# constant).
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 INSTALL="$REPO_ROOT/install.sh"
@@ -58,11 +60,12 @@ grep -q '"version"[[:space:]]*:[[:space:]]*null' "$LOCK" && ok "(1) version=null
 grep -q '"ruleIds"'  "$LOCK" && ok "(1) ruleIds array present"  || bad "(1) ruleIds missing"
 grep -q '"ruffBans"' "$LOCK" && ok "(1) ruffBans array present" || bad "(1) ruffBans missing"
 
-# ── (2) NEVER under .ai-factory/ (the npm lane's dir; the python lane forbids it) ──────────────────
-echo ""; echo "  ── (2) lock lives under .getff/ (no .ai-factory/ fabricated) ──"
-[ ! -e "$P/.ai-factory" ] \
-  && ok "(2) no .ai-factory/ — lock rides the .getff/ namespace (no new channel)" \
-  || bad "(2) .ai-factory/ appeared on the python lane (wrong home / npm leak)"
+# ── (2) lock lives under .getff/ (the python TOOLCHAIN home; D8 split: agent-surface rides .ai-factory/) ─
+echo ""; echo "  ── (2) lock rides the .getff/ namespace (.ai-factory/ is the agent-surface home post-D8) ──"
+LOCK_DIR=$(dirname "$LOCK")
+[ "$LOCK_DIR" = "$P/.getff" ] \
+  && ok "(2) lock lives under .getff/ (the python toolchain home — lock + inputs co-located)" \
+  || bad "(2) lock NOT under .getff/ (lock dir=$LOCK_DIR; the lock must live with its inputs)"
 
 # ── (3) non-vacuity: ruleIds ↔ the delivered ast-grep rule files; ruffBans = TID251/TID253 ─────────
 echo ""; echo "  ── (3) ruleIds match delivered files; ruffBans match delivered bans ──"

@@ -48,8 +48,12 @@ cmp -s "$TPL/sgconfig.yml" "$P/sgconfig.yml" \
 [ ! -e "$P/package.json" ] \
   && ok "(1) no package.json fabricated on the python lane" \
   || bad "(1) package.json appeared (npm lane leaked)"
-if [ ! -e "$P/eslint.config.mjs" ] && [ ! -e "$P/.husky" ] && [ ! -e "$P/.ai-factory" ]; then
-  ok "(1) NO npm artefacts (eslint.config.mjs / .husky / .ai-factory) — npm layer loop never ran"
+# D8 (getff-any-stack-trace S2) narrowed this arm: .ai-factory/ is now an EXPECTED agent-surface
+# home on the python lane (_py_deliver_agent_surface ships skills/agents/hooks/.mcp.json/AGENTS.md
+# .ai-factory/), so it is no longer a npm-leak signal. eslint.config.mjs + .husky remain genuine
+# npm-layer-leak signals — the npm setup.d layer loop is the only thing that delivers them.
+if [ ! -e "$P/eslint.config.mjs" ] && [ ! -e "$P/.husky" ]; then
+  ok "(1) NO npm artefacts (eslint.config.mjs / .husky) — npm layer loop never ran"
 else
   bad "(1) npm artefact(s) leaked onto the python lane"
 fi

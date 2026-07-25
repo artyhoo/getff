@@ -523,8 +523,10 @@ EOF
 # (emittedAt/sourceFingerprint) — spec 2026-07-21-rule-tests-surface-design.md §6.
 #
 # NO new delivery channel (umbrella trap T-EW-B): rides the .getff/ namespace the seam already owns.
-# Written to .getff/rules-lock.python.json — NEVER .ai-factory/ (that dir is the npm lane's; the python
-# lane asserts it never appears — tests/install-sh/python-entry-lane.test.sh (1)).
+# Written to .getff/rules-lock.python.json — the python TOOLCHAIN home. D8 (getff-any-stack-trace S2)
+# split the two surfaces: toolchain artefacts (astgrep rules, sgconfig, ruff config, this lock) stay
+# under .getff/; the AGENT-SURFACE subtree (skills/agents/hooks/.mcp.json/AGENTS.md/.ai-factory/) now
+# ships under .ai-factory/ via _py_deliver_agent_surface. The lock lives where its inputs live.
 #
 # Idempotent + CONTENT-AWARE (W5 rework): the skip guard compares the freshly-computed
 # sourceFingerprint against the one stored in the existing lock, and skips ONLY on a match — i.e. the
