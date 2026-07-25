@@ -1,3 +1,4 @@
+<!-- scope:beta-delivery-ux -->
 # beta-delivery-ux S1 (A1) — per-profile payload inventory
 
 > **Authoritative for:** the per-profile payload inventory that ships under
