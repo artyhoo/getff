@@ -53,7 +53,10 @@ seed_fixture() {
 JSON
 }
 
-# ── Arm 1 (pos): legacy + modern both present → legacy reclaimed, modern intact ─
+# ── Arm 1 (pos): legacy + modern both present, NO .override.md → legacy reclaimed ─
+# Kickoff §2 DECIDES ownership (no per-consumer probe); reclaim fires when the
+# consumer has not placed the `.override.md` opt-out sibling. Arm 2 covers the
+# override-present case (kept). Together arm1+arm2 form the override discriminator.
 F1="$SCRATCH/arm1"
 seed_fixture "$F1"
 mkdir -p "$F1/.claude/skills/rules-as-tests/references" \
@@ -125,59 +128,6 @@ if [ -d "$F3/.claude/skills/getff" ] && [ ! -d "$F3/.claude/skills/rules-as-test
   ok "arm3: modern present, legacy never created (no false reclaim)"
 else
   bad "arm3: unexpected state — getff present=$([ -d "$F3/.claude/skills/getff" ] && echo y || echo n), legacy present=$([ -d "$F3/.claude/skills/rules-as-tests" ] && echo y || echo n)"
-fi
-
-# ── Arm 4 (pos): consumer-tracked legacy dir → KEPT (T17/T18 preservation) ────
-# Realistic safety scenario: a consumer has `git add`ed the legacy skill dir,
-# adopting it as their own. The T17/T18 ownership probe must detect this and KEEP
-# the dir rather than delete consumer-tracked content (deletion is the irreversible
-# branch). This is the load-bearing preservation guard for the destructive half.
-F4="$SCRATCH/arm4"
-seed_fixture "$F4"
-mkdir -p "$F4/.claude/skills/rules-as-tests" "$F4/.claude/skills/getff"
-echo "# legacy the consumer adopted" > "$F4/.claude/skills/rules-as-tests/SKILL.md"
-echo "# modern" > "$F4/.claude/skills/getff/SKILL.md"
-# Make the fixture a git repo and TRACK the legacy skill body — the reclaim block's
-# ownership probe (`git ls-files --error-unmatch`) must detect this and skip removal.
-git -C "$F4" init -q
-git -C "$F4" add ".claude/skills/rules-as-tests/SKILL.md"
-git -C "$F4" -c user.email=t@t -c user.name=t commit -q -m "track legacy skill"
-
-out4=$(run_refresh "$F4"); rc4=$(printf '%s\n' "$out4" | tail -1)
-case "$rc4" in
-  EXIT=0) ok "arm4: refresh exit 0 with consumer-tracked legacy dir"
-           ;;
-  *)      bad "arm4: refresh exit non-zero ($rc4); output: $out4"
-           ;;
-esac
-
-if [ -d "$F4/.claude/skills/rules-as-tests" ] && [ -f "$F4/.claude/skills/rules-as-tests/SKILL.md" ]; then
-  ok "arm4: consumer-tracked legacy dir KEPT (T17/T18 ownership probe — no destructive reclaim)"
-else
-  bad "arm4: consumer-tracked legacy dir MISSING — ownership probe bypassed, consumer work destroyed"
-fi
-
-# ── Arm 4b (neg / teeth): NON-tracked legacy dir → reclaim DOES fire (prove non-vacuous) ─
-# Same setup as arm4 but WITHOUT git-tracking the legacy dir. The ownership probe
-# must NOT find a tracked file → reclaim proceeds. This proves arm4's "kept"
-# assertion is a real discriminator (the gate actually distinguishes tracked vs not).
-F4B="$SCRATCH/arm4b"
-seed_fixture "$F4B"
-mkdir -p "$F4B/.claude/skills/rules-as-tests" "$F4B/.claude/skills/getff"
-echo "# legacy NOT tracked" > "$F4B/.claude/skills/rules-as-tests/SKILL.md"
-echo "# modern" > "$F4B/.claude/skills/getff/SKILL.md"
-git -C "$F4B" init -q  # repo exists but legacy file is NOT added
-
-out4b=$(run_refresh "$F4B"); rc4b=$(printf '%s\n' "$out4b" | tail -1)
-case "$rc4b" in
-  EXIT=0) ;;
-  *)      bad "arm4b: refresh exit non-zero ($rc4b); output: $out4b" ;;
-esac
-
-if [ ! -d "$F4B/.claude/skills/rules-as-tests" ]; then
-  ok "arm4b (teeth): non-tracked legacy dir RECLAIMED — arm4's tracked-dir preservation is non-vacuous"
-else
-  bad "arm4b (teeth): non-tracked legacy dir KEPT — ownership probe is firing on empty repos (false-preserve)"
 fi
 
 # ── Arm 5 (T15 self-application, static): framework source ships no legacy dir ─

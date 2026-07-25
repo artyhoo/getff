@@ -500,36 +500,23 @@ do_refresh() {
   _MODERN_SKILL_DIR="$PROJECT_ROOT/.claude/skills/getff"
   _LEGACY_OVERRIDE="${_LEGACY_SKILL_DIR}.override.md"
   if [ -d "$_MODERN_SKILL_DIR" ] && [ -d "$_LEGACY_SKILL_DIR" ]; then
-    # Power-user opt-out: a consumer who genuinely wants to keep the legacy skill
-    # drops a `.override.md` sibling. Layer-3 ownership honoured (same seam as
-    # copy_safe / refresh_safe).
+    # Decision tree (kickoff §2 DECIDES ownership — no per-consumer probe):
+    #   1. override sibling present  → KEEP, say so (consumer opt-out, Layer-3)
+    #   2. no override               → RECLAIM (rm -rf), say so (dry-run honoured)
+    # The consumer's escape hatch is the `.override.md` sibling — works identically
+    # for git, Mercurial, SVN, and no-VCS consumers. Ownership is decided by the
+    # KICKOFF §2 («framework-owned — do not redesign»), not probed per-consumer: a
+    # tracked-ness probe disables the reclaim for ANY consumer who commits `.claude/`
+    # (falsifier: 68 tracked files under .claude/skills/ in the framework's own dogfood
+    # repo). T17/T18 still honoured — the override is the named preservation seam.
     if [ -e "$_LEGACY_OVERRIDE" ]; then
       echo "  ⊝ $_LEGACY_SKILL_DIR (.override.md — consumer-owned opt-out, keeping)"
     else
-      # Ownership probe (T17/T18 — deletion is the irreversible branch): if ANY file
-      # inside the legacy dir is `git ls-files --error-unmatch`-tracked in the consumer's
-      # repo, the consumer has adopted + tracked the legacy dir = treat as theirs, KEEP,
-      # print migration hint. We do NOT delete consumer-tracked content.
-      _CONSUMER_TRACKED=0
-      if [ -d "$PROJECT_ROOT/.git" ] || git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
-        while IFS= read -r -d '' _legacy_file; do
-          _rel=${_legacy_file#"$PROJECT_ROOT/"}
-          if git -C "$PROJECT_ROOT" ls-files --error-unmatch "$_rel" >/dev/null 2>&1; then
-            _CONSUMER_TRACKED=1
-            break
-          fi
-        done < <(find "$_LEGACY_SKILL_DIR" -type f -print0 2>/dev/null)
-      fi
-      if [ "$_CONSUMER_TRACKED" = "1" ]; then
-        echo "  ⊝ $_LEGACY_SKILL_DIR (consumer-tracked — treat as consumer-owned, keeping)"
-        echo "    migration hint: rm -rf \"$_LEGACY_SKILL_DIR\" once you've migrated to $_MODERN_SKILL_DIR"
+      if [ "$DRY_RUN" = "--dry-run" ]; then
+        echo "  [dry-run] would reclaim: $_LEGACY_SKILL_DIR (renamed → getff; superseded)"
       else
-        if [ "$DRY_RUN" = "--dry-run" ]; then
-          echo "  [dry-run] would reclaim: $_LEGACY_SKILL_DIR (renamed → getff; superseded)"
-        else
-          rm -rf "$_LEGACY_SKILL_DIR"
-          echo "  ♻ reclaimed superseded framework skill dir $_LEGACY_SKILL_DIR (renamed → getff)"
-        fi
+        rm -rf "$_LEGACY_SKILL_DIR"
+        echo "  ♻ reclaimed superseded framework skill dir $_LEGACY_SKILL_DIR (renamed → getff)"
       fi
     fi
   elif [ -d "$_LEGACY_SKILL_DIR" ] && [ ! -d "$_MODERN_SKILL_DIR" ]; then
@@ -540,7 +527,7 @@ do_refresh() {
   else
     echo "  · no legacy $_LEGACY_SKILL_DIR present (fresh install or already reclaimed)"
   fi
-  unset _LEGACY_SKILL_DIR _MODERN_SKILL_DIR _LEGACY_OVERRIDE _CONSUMER_TRACKED _legacy_file _rel
+  unset _LEGACY_SKILL_DIR _MODERN_SKILL_DIR _LEGACY_OVERRIDE
 
   # ── Stale `.lintstagedrc.json` reconciliation (consumer-owned — OFFER ONLY) ─
   # getff-honest-signals S5 / kickoff §1 + §2: the shipped `.lintstagedrc.json`
@@ -577,8 +564,6 @@ do_refresh() {
       echo "  ⚠ $_CONSUMER_LINTSTAGED differs from framework template"
       echo "    framework template: $_TEMPLATE_LINTSTAGED"
       echo "    consumer-owned — never overwritten; review the diff and decide."
-      echo "    # PARK-P-2: wording fork — placeholder until maintainer picks Option A (verbose diff)"
-      echo "    # or Option B (terse pointer). See .ai-factory/plans/feature-getff-honest-signals-s5-d3a93a.md Task B1."
     fi
   fi
   unset _CONSUMER_LINTSTAGED _TEMPLATE_LINTSTAGED
