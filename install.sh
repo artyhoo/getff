@@ -488,6 +488,86 @@ do_refresh() {
     chmod_safe +x "$_AIF_HELPERS/heal.sh" "$_AIF_HELPERS/refresh-aif-base.sh" 2>/dev/null || true
   fi
 
+  # ── Skill-rename orphan reclaim (framework-owned) ───────
+  # getff-honest-signals S5 / kickoff §1 + §2: a consumer that installed before the
+  # `rules-as-tests` → `getff` rename ends up with BOTH `.claude/skills/rules-as-tests/`
+  # (stale, framework-owned) AND `.claude/skills/getff/` (modern) after refresh. The
+  # superseded dir looks like a live skill but isn't — an "honest signals" defect.
+  # Asymmetry (load-bearing, T-S5-A): this RECLAIMS a framework-owned dir ONLY.
+  # The consumer-owned `.lintstagedrc.json` reconciliation (next block) is OFFER-ONLY.
+  echo "▶ Skill-rename orphan reclaim → .claude/skills/rules-as-tests/ (framework-owned)"
+  _LEGACY_SKILL_DIR="$PROJECT_ROOT/.claude/skills/rules-as-tests"
+  _MODERN_SKILL_DIR="$PROJECT_ROOT/.claude/skills/getff"
+  _LEGACY_OVERRIDE="${_LEGACY_SKILL_DIR}.override.md"
+  if [ -d "$_MODERN_SKILL_DIR" ] && [ -d "$_LEGACY_SKILL_DIR" ]; then
+    # Decision tree (kickoff §2 DECIDES ownership — no per-consumer probe):
+    #   1. override sibling present  → KEEP, say so (consumer opt-out, Layer-3)
+    #   2. no override               → RECLAIM (rm -rf), say so (dry-run honoured)
+    # The consumer's escape hatch is the `.override.md` sibling — works identically
+    # for git, Mercurial, SVN, and no-VCS consumers. Ownership is decided by the
+    # KICKOFF §2 («framework-owned — do not redesign»), not probed per-consumer: a
+    # tracked-ness probe disables the reclaim for ANY consumer who commits `.claude/`
+    # (falsifier: 68 tracked files under .claude/skills/ in the framework's own dogfood
+    # repo). T17/T18 still honoured — the override is the named preservation seam.
+    if [ -e "$_LEGACY_OVERRIDE" ]; then
+      echo "  ⊝ $_LEGACY_SKILL_DIR (.override.md — consumer-owned opt-out, keeping)"
+    else
+      if [ "$DRY_RUN" = "--dry-run" ]; then
+        echo "  [dry-run] would reclaim: $_LEGACY_SKILL_DIR (renamed → getff; superseded)"
+      else
+        rm -rf "$_LEGACY_SKILL_DIR"
+        echo "  ♻ reclaimed superseded framework skill dir $_LEGACY_SKILL_DIR (renamed → getff)"
+      fi
+    fi
+  elif [ -d "$_LEGACY_SKILL_DIR" ] && [ ! -d "$_MODERN_SKILL_DIR" ]; then
+    # Do NOT remove the legacy dir if the modern dir is absent — that would leave
+    # the consumer with NO skill at all (T17: preserve future-value content).
+    echo "  · $_LEGACY_SKILL_DIR kept ($_MODERN_SKILL_DIR/ not delivered — removal would leave no skill)"
+    echo "    migration hint: this looks like a pre-rename install that has not yet received getff/; refresh after upgrading the framework to also receive getff/"
+  else
+    echo "  · no legacy $_LEGACY_SKILL_DIR present (fresh install or already reclaimed)"
+  fi
+  unset _LEGACY_SKILL_DIR _MODERN_SKILL_DIR _LEGACY_OVERRIDE
+
+  # ── Stale `.lintstagedrc.json` reconciliation (consumer-owned — OFFER ONLY) ─
+  # getff-honest-signals S5 / kickoff §1 + §2: the shipped `.lintstagedrc.json`
+  # template evolves; a consumer who diverged must NOT be silently overwritten
+  # (T-S5-A — destroys consumer work irreversibly). Print a migration offer; the
+  # consumer decides whether to apply it.
+  #
+  # LOAD-BEARING GUARDRAIL (T-S5-A): this block is READ-ONLY against the consumer
+  # file. It MUST NOT call cp/mv/rm/> redirect (or any other mutation) against
+  # $PROJECT_ROOT/.lintstagedrc.json. The asymmetry vs the skill-reclaim block
+  # above is the entire point of this stage — framework-owned vs consumer-owned.
+  echo "▶ Stale .lintstagedrc reconciliation (consumer-owned — offer only, never overwrite)"
+  _CONSUMER_LINTSTAGED="$PROJECT_ROOT/.lintstagedrc.json"
+  _TEMPLATE_LINTSTAGED="$PKG_ROOT/packages/core/templates/shared/.lintstagedrc.json"
+  if [ ! -f "$_CONSUMER_LINTSTAGED" ]; then
+    echo "  · no consumer .lintstagedrc.json — skipping (consumer may have opted out of lint-staged)"
+  elif [ ! -f "$_TEMPLATE_LINTSTAGED" ]; then
+    # Defensive: framework template missing — don't even attempt the comparison.
+    echo "  · framework template $_TEMPLATE_LINTSTAGED not found — skipping reconciliation"
+  else
+    if cmp -s "$_CONSUMER_LINTSTAGED" "$_TEMPLATE_LINTSTAGED"; then
+      echo "  ✓ .lintstagedrc.json matches framework template — no offer needed"
+    else
+      # PARK-P-2: migration-offer wording fork (kickoff §4c names this explicitly).
+      # The spec does not fix the format. Two defensible shapes:
+      #   Option A (verbose, instructive): print the literal diff + a cp command.
+      #   Option B (terse, advisory): one-line INFO + pointer to docs.
+      # Implementer MUST NOT pick — surface to maintainer via blocked_external.
+      # Until P-2 resolves, print a NEUTRAL placeholder that:
+      #   (a) honestly labels itself as a placeholder (not a real offer);
+      #   (b) names the consumer-owned file by absolute path (consumer can act);
+      #   (c) names the framework template by absolute path (consumer can compare);
+      #   (d) does NOT embed a recommended action (would tacitly pick A).
+      echo "  ⚠ $_CONSUMER_LINTSTAGED differs from framework template"
+      echo "    framework template: $_TEMPLATE_LINTSTAGED"
+      echo "    consumer-owned — never overwritten; review the diff and decide."
+    fi
+  fi
+  unset _CONSUMER_LINTSTAGED _TEMPLATE_LINTSTAGED
+
   # ── Claude hooks ────────────────────────────────────────
   echo "▶ Claude hooks → .claude/hooks/"
   _HOOK_SRC="$PKG_ROOT/packages/core/hooks/deps-hash-check.sh"
