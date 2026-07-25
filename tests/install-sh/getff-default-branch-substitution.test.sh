@@ -234,6 +234,52 @@ else
 fi
 rm -rf "$P"
 
+# ── Cell (6): preset lane (react-spa) via real install.sh — class-sweep coverage ──────────────
+# Round-1 rework MAJOR 1: the initial sweep covered 2 of 5 templates. Cell (6) proves the preset
+# lane fix end-to-end via a REAL install.sh run (not just a template assertion) — the fixture
+# must exercise setup.d/40-configs.sh's `deliver_getff_workflow` swap, not bypass it. Mirrors the
+# `install_consumer` pattern in check-fences-fire-full-barrel.test.sh:70-76.
+# Covers react-spa explicitly; preset-next-15-canonical and preset-react-native ship byte-identical
+# templates at the same line numbers (5,7,11) — proven by symmetry. Also implicitly covers the
+# ts-server github-actions-ci.yml swap (same shape, same line numbers).
+echo ""; echo "  ── cell (6): react-spa install.sh → delivered ci.yml carries [master] ──"
+P=$(mktemp -d)
+printf '{"name":"c6-react-spa","version":"0.0.0"}\n' > "$P/package.json"
+init_consumer "$P" master
+# Real install.sh run — exercises the 40-configs.sh swap end-to-end. </dev/null so any prompt
+# (e.g. companions) gets a "no" instead of hanging the test.
+( cd "$P" && bash "$REPO_ROOT/install.sh" react-spa --force </dev/null ) >"$P/.install.log" 2>&1
+if [ -f "$P/.github/workflows/ci.yml" ]; then
+  ok "(6) react-spa install delivered .github/workflows/ci.yml"
+else
+  bad "(6) react-spa install did not deliver ci.yml (install log tail: $(tail -3 "$P/.install.log" | tr '\n' '|'))"
+fi
+# Same assertions as cell (1) — 3 master refs, 0 main refs.
+n_master_spa=$(grep -cE 'branches: \[master\]|refs/heads/master' "$P/.github/workflows/ci.yml" 2>/dev/null || true)
+n_master_spa=${n_master_spa:-0}
+[ "$n_master_spa" -eq 3 ] \
+  && ok "(6) react-spa delivered ci.yml: 3 master refs (2× branches + 1× refs/heads; pre-fix would be 0)" \
+  || bad "(6) react-spa delivered ci.yml: expected 3 master refs, got $n_master_spa"
+if grep -qE 'branches: \[main\]|refs/heads/main' "$P/.github/workflows/ci.yml" 2>/dev/null; then
+  bad "(6) react-spa delivered ci.yml still carries [main] (40-configs.sh swap no-op'd)"
+else
+  ok "(6) react-spa delivered ci.yml: NO [main] refs remain (substitution replaced all three sites)"
+fi
+# workflow-integrity.yml also shipped via the same swap — its single `branches: [main]` on the
+# push: arm must be substituted too (narrower defect, same class). Optional assertion: proves
+# the swap covers both templates a preset lane delivers, not just ci.yml.
+if [ -f "$P/.github/workflows/workflow-integrity.yml" ]; then
+  if grep -qE 'branches: \[master\]' "$P/.github/workflows/workflow-integrity.yml" 2>/dev/null \
+     && ! grep -qE 'branches: \[main\]' "$P/.github/workflows/workflow-integrity.yml" 2>/dev/null; then
+    ok "(6) react-spa delivered workflow-integrity.yml: push arm substituted ([master], no [main])"
+  else
+    bad "(6) react-spa delivered workflow-integrity.yml: push arm NOT substituted (still [main] or no [master])"
+  fi
+else
+  bad "(6) react-spa install did not deliver workflow-integrity.yml"
+fi
+rm -rf "$P"
+
 echo ""
 echo "Result: $PASS pass / $FAIL fail"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1
