@@ -49,6 +49,21 @@ RED pre-fix, GREEN post-fix, **both runs quoted** in the PR body.
 - Keep a case proving the hook still fires normally when a corpus **is** present — the no-op path must not
   have disabled the real behaviour.
 
+## §4b ⚠ Baseline regeneration — same PR, non-negotiable
+
+`inject-matching-rule.sh` is a **shipped** file: `install.sh:528` and `setup.d/10-skills.sh:201-209` deliver it into the consumer's `.claude/hooks/` and register it as a PostToolUse hook. Its hash is therefore part of the install fingerprints (it appears in `tests/install-sh/baselines/*/*.fingerprint`). Editing it **will** shift those baselines.
+
+Regenerate **in this same PR**, then verify:
+
+```bash
+SNAPSHOT_MODE=capture bash tests/install-sh/snapshot.sh
+SNAPSHOT_MODE=compare bash tests/install-sh/snapshot.sh   # expect N pass / 0 fail
+```
+
+Quote the compare run in the PR body. Pre-push `test:principles` does **not** cover the install-sh bash tests — run them locally; CI (`install-sh battery`) is the last-resort gate, not the first.
+
+> **Why this section exists:** S1 shipped without it and went red on `install-sh battery (shard C)`. Its kickoff had asserted the surface was framework-internal **without checking the delivery map**. Before claiming any path is exempt, run `grep -n "<basename>" install.sh setup.d/*.sh` and believe the result, not the intuition.
+
 ## §5 Umbrella closure (this PR only — S6 is the last stage)
 
 Write `.claude/orchestrator-prompts/getff-honest-signals/done.md` per the [CLAUDE.md](../../../CLAUDE.md)

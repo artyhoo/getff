@@ -63,7 +63,13 @@ S1 and S6 ARE structurally disjoint from everything else (`run-generated-rule-mu
 
 ## §3 Stage gates (real git checks — NOT in-memory FIFO)
 
-Branch convention: `fix/getff-honest-signals-s<N>`.
+> **⚠ CORRECTED 2026-07-24 (live, during the S1 run).** The `fix/getff-honest-signals-s<N>` convention below is **aspirational, not what aif produces.** aif names task branches **`feature/<umbrella>-<short-taskid>`** — S1 actually landed on `feature/getff-honest-signals-s1-8cab19` (PR #1140). Every gate command in this section is therefore written against a branch name that **will not exist**, and `gh pr list --search "… head:fix/…"` returns an **empty** result — which reads identically to «nothing merged». That is this umbrella's own defect class (an empty result that means «wrong query», not «no work») occurring inside its own orchestration.
+>
+> **Binding correction:** resolve the real branch from the task before gating —
+> `curl -s "$RUNTIME_BRIDGE_AIF_URL/tasks/<taskId>"` → `branchName` — and substitute it into the
+> `head:` filter. Per §6 and §8, an **errored or mis-queried** gate is a HALT, never an empty gate.
+
+Branch convention (as originally written — see the correction above before using it): `fix/getff-honest-signals-s<N>`.
 
 ### Stage 1 → Stage 2
 
