@@ -205,12 +205,21 @@ deliver_getff_workflow() {
   # Temp lives in mktemp (NOT next to $dst) — the delegate creates dirname($dst)
   # itself, so a sibling temp would race the mkdir. mktemp also avoids polluting
   # the consumer tree with `.getff-sub.*` residue if the delegate aborts.
+  #
+  # Sed delimiter choice: `~` (tilde) — forbidden in git branch names per `git
+  # check-ref-format` rule 5 («cannot have ... tilde ~ ... anywhere»), so the
+  # delimiter can never collide with the substituted value. Earlier draft used `#`
+  # with a wrong claim that `#` is git-forbidden — it is NOT (only ~, ^, :, space,
+  # \, *, ?, [, control chars are forbidden). `&` is also git-permitted but
+  # sed-special in the replacement (means «entire match»); escape it via parameter
+  # expansion. `\` is git-forbidden so no backslash-escape needed.
   local src_to_use="$tpl_src" _tmp=""
   if [ -n "$detected_branch" ] && [ "$detected_branch" != "main" ] && [ "$DRY_RUN" != "--dry-run" ]; then
+    local esc_branch="${detected_branch//&/\\&}"
     _tmp=$(mktemp) || { echo "  ⚠ getff: mktemp failed — delivering template byte-identical (no substitution)" >&2; _tmp=""; }
     if [ -n "$_tmp" ]; then
-      sed -e "s#branches: \[main\]#branches: [${detected_branch}]#g" \
-          -e "s#refs/heads/main#refs/heads/${detected_branch}#g" \
+      sed -e "s~branches: \[main\]~branches: [${esc_branch}]~g" \
+          -e "s~refs/heads/main~refs/heads/${esc_branch}~g" \
           "$tpl_src" > "$_tmp"
       src_to_use="$_tmp"
     fi

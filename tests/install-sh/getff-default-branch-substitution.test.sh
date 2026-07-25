@@ -199,6 +199,41 @@ echo "$py_out" | grep -qiE 'could not detect default branch|origin/HEAD unset' \
   || bad "(4) python lane did NOT warn about origin/HEAD unset"
 rm -rf "$P"
 
+# ── Cell (5): branch name with sed-special chars ('&') — escape regression coverage ────────────
+# '&' is git-permitted in branch names ('git checkout -b release/a&b' succeeds) but
+# sed-special in the replacement (means «entire match»). Without escaping, '&' in the
+# detected branch corrupts the substituted YAML: 'branches: [release/abranches: [main]b]'.
+# '#' is also git-permitted and would collide with the '#' delimiter in a prior draft — the
+# helper now uses '~' (git-forbidden per 'git check-ref-format' rule 5) as delimiter AND
+# escapes '&' via bash parameter expansion. This cell catches both regression classes.
+echo ""; echo "  ── cell (5): branch with sed-special char ('&') → escape works ──"
+P=$(mktemp -d)
+printf '{"name":"c5-amp","version":"0.0.0"}\n' > "$P/package.json"
+init_consumer "$P" "release/a&b"
+run_python_delivery "$P" >/dev/null
+run_cargo_delivery  "$P" >/dev/null
+# Expected per file: 2× 'branches: [release/a&b]' + 1× 'refs/heads/release/a&b' = 3 hits.
+# Pre-fix (no escape): the '&' expands to the entire match → the delivered file contains
+# 'branches: [release/abranches: [main]b]' instead, 0 literal 'release/a&b' matches.
+n_amp_py=$(grep -cE 'branches: \[release/a&b\]|refs/heads/release/a&b' "$P/.github/workflows/getff-python.yml" 2>/dev/null || true)
+n_amp_cargo=$(grep -cE 'branches: \[release/a&b\]|refs/heads/release/a&b' "$P/.github/workflows/getff-cargo.yml" 2>/dev/null || true)
+n_amp_py=${n_amp_py:-0}
+n_amp_cargo=${n_amp_cargo:-0}
+[ "$n_amp_py" -eq 3 ] \
+  && ok "(5) python delivered workflow: 3 literal release/a&b refs (sed &-escape works)" \
+  || bad "(5) python delivered workflow: expected 3 release/a&b refs, got $n_amp_py (sed &-corruption)"
+[ "$n_amp_cargo" -eq 3 ] \
+  && ok "(5) cargo delivered workflow: 3 literal release/a&b refs (sed &-escape works)" \
+  || bad "(5) cargo delivered workflow: expected 3 release/a&b refs, got $n_amp_cargo (sed &-corruption)"
+# Negative assertion: the corruption signature is 'branches: [release/a' followed by the
+# original 'branches: [main]' literal — that exact doubled-output shape is the regression.
+if grep -qE 'branches: \[release/abranches' "$P/.github/workflows/getff-python.yml" 2>/dev/null; then
+  bad "(5) python: sed &-corruption detected (output contains 'branches: [release/abranches')"
+else
+  ok "(5) python: NO sed &-corruption (escape consumed the backref)"
+fi
+rm -rf "$P"
+
 echo ""
 echo "Result: $PASS pass / $FAIL fail"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1
