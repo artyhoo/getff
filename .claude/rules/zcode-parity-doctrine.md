@@ -110,7 +110,7 @@ The Cursor caveat (docs-verified, not live-tested) is the load-bearing honest di
 - **Step-1 patch:** [`docs/meta-factory/research-patches/2026-07-18-zcode-parity-step1.md`](../../docs/meta-factory/research-patches/2026-07-18-zcode-parity-step1.md) — emit-wrapper infra, B1 latent fix, Bespoke #2 REJECT.
 - **Wave A research patches:** [`s2-mech2-alt`](../../docs/meta-factory/research-patches/2026-07-18-zcode-parity-s2-mech2-alt.md), [`s4-warn-subagent`](../../docs/meta-factory/research-patches/2026-07-18-zcode-parity-s4-warn-subagent.md), [`s7-subagentstart`](../../docs/meta-factory/research-patches/2026-07-18-zcode-parity-s7-subagentstart.md), [`s8-harness-survey`](../../docs/meta-factory/research-patches/2026-07-18-zcode-parity-s8-harness-survey.md), [`s9-multiturn-anchor`](../../docs/meta-factory/research-patches/2026-07-18-zcode-parity-s9-multiturn-anchor.md).
 - **Renderer SSOT:** [`scripts/render-harness-config.mjs`](../../scripts/render-harness-config.mjs) — `ZCODE_EVENTS` (lines 46-54), `ZCODE_UNSUPPORTED_TOOLS` (line 63), backup-path loud-declarations (lines 256-268).
-- **Plan §0 (split rationale):** [`.ai-factory/plans/zcode-parity-s10-doctrine-doc.md`](../../.ai-factory/plans/zcode-parity-s10-doctrine-doc.md) §0 — why D3 (runtime loud-declaration sync) is deferred to follow-up PR landing with Wave B implementation.
+- **Plan §0 (split rationale):** the S10 plan lived at a gitignored local path (`.ai-factory/plans/zcode-parity-s10-doctrine-doc.md`, never tracked — dangling as a link since S10 merged); its §0 rationale — defer the D3 runtime loud-declaration sync to the Wave B implementation PR — is restated in §3's header note above (D3 is the sole outstanding deferral, deliberately parked).
 
 ## §7 §1.7 self-reflexive note
 
