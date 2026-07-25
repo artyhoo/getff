@@ -6,4 +6,4 @@ message: "Use an injected clock, not datetime.datetime.now() directly — a bare
 metadata:
   kind: call
 rule:
-  pattern: "datetime.datetime.now($$$ARGS)"
+  pattern: "datetime.datetime.now()"

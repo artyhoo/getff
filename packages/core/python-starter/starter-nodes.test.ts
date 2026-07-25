@@ -60,9 +60,12 @@ describe('PYTHON_STARTER_NODES — routes to the astgrep backend (#212)', () => 
     // `datetime.datetime.now()`. The frozen renderer emits a single `pattern:` per rule (no `any:`
     // block), so both forms are covered by two literal-pattern nodes -> the rendered YAML must carry
     // BOTH patterns. A single-form ban (regression) fails this test.
+    //
+    // S3 narrow (getff-honest-signals §8.3): patterns are zero-arg only — `$$$ARGS` was removed
+    // because it caught the ruff-recommended `datetime.now(timezone.utc)` form. See S3 §1.
     const { yaml } = renderAstgrep(PYTHON_STARTER_NODES);
-    expect(yaml).toContain('pattern: "datetime.now($$$ARGS)"');
-    expect(yaml).toContain('pattern: "datetime.datetime.now($$$ARGS)"');
+    expect(yaml).toContain('pattern: "datetime.now()"');
+    expect(yaml).toContain('pattern: "datetime.datetime.now()"');
   });
 
   it('the rendered datetime rules match the probe-proven firing shape (id/language/severity/metadata/rule)', () => {
