@@ -108,7 +108,12 @@ tested). Its *execution* is a command the orchestrator runs, not yet a gate — 
   (aif names branches `feature/<umbrella>-<taskid>`, but harvested branches are renamed), and a
   gate that mis-identifies the umbrella would either run the wrong contract or block a correct
   push. Shipping the honest half now beats shipping a mis-firing gate. Trigger: the first incident
-  where a declared contract existed and was simply not run.
+  where a declared contract existed and was simply not run. **Verified STALE-absent at
+  origin/staging `fab189d09e`:** `git show origin/staging:packages/core/hooks/pre-push.ts |
+  grep -niE 'umbrella|destination-contract'` returns only two hits (`:664`, `:749`), both
+  comments about the S3 push-channel umbrella DoS concern — **no branch→umbrella gate function
+  exists**. The trigger («first incident where a declared contract existed and was simply not
+  run») has not fired.
 - **Strengthening trigger:** a fifth incident of the §2 class *after* this rule ships means the
   contract is being declared but not exercised → promote, do not re-word.
 - **Known population gap — the rule is narrower than the defect class it names.** The gate reaches

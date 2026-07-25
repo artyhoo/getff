@@ -28,7 +28,7 @@ CC-first today (full features) + analogous for others (ZCode today; Cursor/Codex
 |---|---|---|---|---|
 | 1 | `adopt-orchestrator-prompts` | PostToolUse | works (PostToolUse ∈ `ZCODE_EVENTS`); unregistered by default | `framework-internal` |
 | 2 | `ask-question-reminder` | PreToolUse:AskUserQuestion | works | `parity` |
-| 3 | `check-doc-authority-header` | PostToolUse:Edit\|Write | works; no plugin twin shipped → unreachable on ZCode via plugin channel | `plugin-gap` |
+| 3 | `check-doc-authority-header` | PostToolUse:Edit\|Write | works; plugin twin shipped via Stage 6 (#1043) → reachable on ZCode via plugin channel | `parity` |
 | 4 | `check-doc-authority` | PostToolUse:Edit\|Write | works; CC-dogfood only (consumer surface is row 3) | `framework-internal` |
 | 5 | `check-hook-marker` | PostToolUse:Edit\|Write | works | `parity` |
 | 6 | `check-kickoff-traps` | PostToolUse:Edit\|Write | works | `parity` |
@@ -37,21 +37,21 @@ CC-first today (full features) + analogous for others (ZCode today; Cursor/Codex
 | 9 | `end-of-turn-reminder` | Stop | works (step-1 added `_is_zcode` thin-recap branch; proven on ZCode synthetic transcripts) | `parity` |
 | 10 | `inject-matching-rule` | PostToolUse:Edit\|Write | works | `parity` |
 | 11 | `inject-memory-codification` | PostToolUse:Write | works | `parity` |
-| 12 | `inject-output-language` | UserPromptSubmit | works; no plugin twin → unreachable on ZCode via plugin channel | `plugin-gap` |
+| 12 | `inject-output-language` | UserPromptSubmit | works; plugin twin shipped via Stage 6 (#1043) → reachable on ZCode via plugin channel | `parity` |
 | 13 | `inject-project-digest` | UserPromptSubmit **AND** SubagentStart | mixed: UserPromptSubmit arm works; SubagentStart arm impossible (event ∉ `ZCODE_EVENTS`); fallback = row 15 | `zcode-gap` |
 | 14 | `inject-session-bootstrap` | UserPromptSubmit | works | `parity` |
 | 15 | `inject-subagent-context` | PreToolUse:Agent\|Task | works (Agent aliases to Task on ZCode); documented role = ZCode's SubagentStart fallback | `parity` (with role annotation) |
 | 16 | `inject-subagent-digest` | SubagentStart | impossible (event ∉ `ZCODE_EVENTS`); role replaced on ZCode by row 15 | `cc-only` |
 | 17 | `runtime-bridge-dispatch` | PostToolUse:Write\|Edit\|MultiEdit | degraded (`MultiEdit` matcher inert; Write+Edit fire) | `zcode-gap` |
 | 18 | `validate-prompt` | PostToolUse:Edit\|Write | works | `parity` |
-| 19 | `warn-subagent-report` | SubagentStop | impossible (event ∉ `ZCODE_EVENTS`); no backup path — post-dispatch scanner | `cc-only` → **parity-pending Wave B Stage 5** (4D Stop arm closes the gap) |
+| 19 | `warn-subagent-report` | SubagentStop | works via 4D hybrid (#1046): PostToolUse:Agent real-time arm + Stop completeness arm deliver the report the SubagentStop event would have carried | `parity` (4D hybrid variant) |
 | 20 | `worktree-setup` | WorktreeCreate | impossible (event ∉ `ZCODE_EVENTS`); CC harness feature, not in default settings | `cc-only` (maintainer-applied scaffolding) |
 
-**Classification rollup:** `parity` (strict) = 9 rows (2, 5, 6, 8, 9, 10, 11, 14, 18); `parity` with role annotation = 1 (15); `framework-internal` = 2 (1, 4); `plugin-gap` = 2 (3, 12); `zcode-gap` = 3 (7, 13, 17); `cc-only` = 3 (16, 19, 20). Total = 20 = `ls .claude/hooks/*.sh \| wc -l` (verified at census time, [census.md §Population enumeration](../../docs/meta-factory/research-patches/2026-07-18-zcode-full-parity-census.md)).
+**Classification rollup:** `parity` (strict) = 12 rows (2, 3, 5, 6, 8, 9, 10, 11, 12, 14, 18, 19); `parity` with role annotation = 1 (15); `framework-internal` = 2 (1, 4); `plugin-gap` = 0; `zcode-gap` = 3 (7, 13, 17); `cc-only` = 2 (16, 20). Total = 20 = `ls .claude/hooks/*.sh \| wc -l` (census baseline at [census.md §Population enumeration](../../docs/meta-factory/research-patches/2026-07-18-zcode-full-parity-census.md)); Wave B (#1043/#1044/#1046/#1047) flipped rows 3/12/19 since census time.
 
 ## §3 Per-stage decisions
 
-All 5 strategic forks decided 2026-07-18 in [decisions.md §Wave A brainstorm resolutions](../../docs/meta-factory/zcode-parity-mega.decisions.md). **Status column is load-bearing** — see [plan §0](../../.ai-factory/plans/zcode-parity-s10-doctrine-doc.md): stages marked `Decided; impl pending Wave B` describe **design intent**, not runtime reality; runtime loud-declaration sync (D3) is intentionally deferred until the implementation merges to avoid doc-lies.
+All 5 strategic forks decided 2026-07-18 in [decisions.md §Wave A brainstorm resolutions](../../docs/meta-factory/zcode-parity-mega.decisions.md). **Status column reflects runtime reality** for all Wave B stages (5/6/7B/9C merged via #1043/#1044/#1046/#1047). The sole outstanding deferral is D3 — runtime loud-declaration sync in [`scripts/render-harness-config.mjs:256-268`](../../scripts/render-harness-config.mjs), still emitting `NO backup: warn-subagent-report … CC-only` despite Stage 5's merge; that sync is **deliberately parked** (§3 PARK-1) because the renderer edit has its own wording + snapshot consequences.
 
 | Stage | Decision | Status | PR | Notes |
 |---|---|---|---|---|
@@ -64,27 +64,27 @@ All 5 strategic forks decided 2026-07-18 in [decisions.md §Wave A brainstorm re
 | 8 | Cursor/Codex/Aider/Windsurf agnosticism survey | Implemented (research only) | #1039 | F3-with-Cursor framing applied here in §5 |
 | 9 | multi-turn + ai-anchor ZCode research | Implemented (research only) | #1040 | parked for Wave B Stage 9C |
 | Wave B brainstorm | 5 fork resolutions for Wave B dispatch | Implemented (decisions doc) | #1042 | binding input for Wave B Stages 5/6/7B/9C |
-| 2 / 6 | **2B-standardize** — single source template + generator + minimal marker | Decided; impl pending Wave B Stage 6 | — | 85% of twins byte-identical after env-first `REPO_ROOT` standardization; generator ~20 LOC bash |
-| 5 | **4D hybrid** — `warn-subagent-report` ZCode variant (PostToolUse:Agent real-time arm + Stop completeness arm) | Decided; impl pending Wave B Stage 5 | — | closes row 19 `cc-only` (ZCode has 120KB payload vs CC 4KB — ZCode is better) |
-| 7B | **extend `inject-subagent-context`** for full `SubagentStart` payload parity | Decided; impl pending Wave B | — | closes row 13 SubagentStart gap (real parity, not minimal backup) |
-| 9C | **synthetic-transcript anchor + rollout multi-turn guard** for `end-of-turn-reminder` ZCode arm | Decided; impl pending Wave B | — | ZCode-only branch addition; CC arm unchanged |
+| 2 / 6 | **2B-standardize** — single source template + generator + minimal marker | Implemented | #1043 | 85% of twins byte-identical after env-first `REPO_ROOT` standardization; generator ~20 LOC bash |
+| 5 | **4D hybrid** — `warn-subagent-report` ZCode variant (PostToolUse:Agent real-time arm + Stop completeness arm) | Implemented | #1046 | closed row 19 `cc-only` (ZCode has 120KB payload vs CC 4KB — ZCode is better) |
+| 7B | **extend `inject-subagent-context`** for full `SubagentStart` payload parity | Implemented | #1047 | closed row 13 SubagentStart gap (real parity, not minimal backup) |
+| 9C | **synthetic-transcript anchor + rollout multi-turn guard** for `end-of-turn-reminder` ZCode arm | Implemented | #1044 | ZCode-only branch addition; CC arm unchanged |
 | 10 | doctrine doc + README F3 framing (this artefact) | Implemented (this PR) | (this PR) | §5 agnosticism tier + §3 status column |
 
 ## §4 Per-degradation rationale
 
 For each row classified `cc-only` in §2, the design intent and the closing-evidence status.
 
-**Row 16 — `inject-subagent-digest` (SubagentStart):** CC dogfood-only; SubagentStart is inexpressible on ZCode (`ZCODE_EVENTS` excludes it). The role is replaced on ZCode by row 15 `inject-subagent-context` via the [`render-harness-config.mjs:264-265`](../../scripts/render-harness-config.mjs) backup path — `PreToolUse:Agent+updatedInput` delivers the digest one-shot as the subagent's first message, NOT persistent-lifecycle as on CC. **Wave B Stage 7B** upgrades this fallback from minimal backup to full payload parity. **Status (this PR):** design verdict recorded; runtime parity is `Decided; impl pending Wave B`.
+**Row 16 — `inject-subagent-digest` (SubagentStart):** CC dogfood-only; SubagentStart is inexpressible on ZCode (`ZCODE_EVENTS` excludes it). The role is replaced on ZCode by row 15 `inject-subagent-context` via the [`render-harness-config.mjs:264-265`](../../scripts/render-harness-config.mjs) backup path — `PreToolUse:Agent+updatedInput` delivers the digest one-shot as the subagent's first message, NOT persistent-lifecycle as on CC. **Stage 7B (#1047)** upgraded this fallback from minimal backup to full payload parity. **Status:** parity via `PreToolUse:Agent+updatedInput` full-payload delivery.
 
-**Row 19 — `warn-subagent-report` (SubagentStop):** post-dispatch scanner with no `updatedInput` analogue on ZCode; declared CC-only at step-1 patch §"Bespoke #2 — REJECTED" ([`2026-07-18-zcode-parity-step1.md`](../../docs/meta-factory/research-patches/2026-07-18-zcode-parity-step1.md)). **Wave B Stage 5 (4D hybrid)** closes this: the Stop hook arm receives `transcript_path` (R3 verified) and reads the finished report via rollout scan; PostToolUse:Agent arm reads the 120KB payload directly (R4 verified — ZCode is *better* than CC's 4KB). **Status (this PR):** `cc-only today → parity-pending Wave B (Stage 5)`. Until Stage 5 merges, [`render-harness-config.mjs:267`](../../scripts/render-harness-config.mjs) still emits the LOUD `NO backup: warn-subagent-report … CC-only` declaration — that runtime declaration is intentionally NOT updated in this PR (defers to the Wave B implementation PR per plan §0).
+**Row 19 — `warn-subagent-report` (SubagentStop):** declared CC-only at step-1 patch §"Bespoke #2 — REJECTED" ([`2026-07-18-zcode-parity-step1.md`](../../docs/meta-factory/research-patches/2026-07-18-zcode-parity-step1.md)). **Stage 5 (4D hybrid, #1046)** closed this: the Stop hook arm receives `transcript_path` (R3 verified) and reads the finished report via rollout scan; PostToolUse:Agent arm reads the 120KB payload directly (R4 verified — ZCode is *better* than CC's 4KB). **Status:** `parity via 4D hybrid (#1046)`. The runtime loud-declaration in [`scripts/render-harness-config.mjs:256-268`](../../scripts/render-harness-config.mjs) still reads `NO backup: warn-subagent-report … CC-only` and is **deliberately out of scope for this doc-sweep** — the renderer sync (PARK-1) is owned by a follow-up that updates both the renderer text and its snapshots in lockstep.
 
 **Row 20 — `worktree-setup` (WorktreeCreate):** maintainer-applied CC scaffolding, not in default `.claude/settings.json`, not shipped via plugin, not consumer-relevant. `WorktreeCreate` is a CC harness feature not in `ZCODE_EVENTS` by design. **Status:** closed — accepted-degradation, no Wave B action.
 
-**Row 13 — `inject-project-digest` SubagentStart arm (mixed):** UserPromptSubmit arm works on ZCode (row 13 §2 classification `zcode-gap`); SubagentStart arm is impossible and falls back to row 15. **Wave B Stage 7B** upgrades the fallback to full parity (closes the gap).
+**Row 13 — `inject-project-digest` SubagentStart arm (mixed):** UserPromptSubmit arm works on ZCode (row 13 §2 classification `zcode-gap`); SubagentStart arm is impossible and falls back to row 15. **Stage 7B (#1047)** upgraded the fallback to full parity (closes the gap).
 
 **Rows 7, 17 — `MultiEdit` matcher inert branch:** `MultiEdit` is the only ZCode-inert tool matcher ([`render-harness-config.mjs:63`](../../scripts/render-harness-config.mjs)); Edit/Write/Task/Agent/AskUserQuestion all alias correctly. The MultiEdit branch is silently inert — Edit/Write branches fire. **Status:** degraded, documented; not in Wave B scope (acceptable degradation per Meta-fork C: «пусть слабее работает пофиг»).
 
-**Rows 3, 12 — `plugin-gap`:** CC ships via `setup.d/10-skills.sh` `register_cc_hook`, but no plugin twin exists. ZCode reaches hooks ONLY via the plugin channel ([`render-harness-config.mjs:241-244`](../../scripts/render-harness-config.mjs)), so these hooks are unreachable on ZCode today. Row 12 (`inject-output-language`) is load-bearing for [language-discipline.md §2](language-discipline.md). **Wave B Stage 6** (9-twin migration) is the natural place to ship the remaining twins.
+**Rows 3, 12 — `plugin-gap` (closed):** CC ships via `setup.d/10-skills.sh` `register_cc_hook`. ZCode reaches hooks ONLY via the plugin channel ([`render-harness-config.mjs:241-244`](../../scripts/render-harness-config.mjs)). **Stage 6 (#1043)** shipped both plugin twins — verified live: `ls plugin/hooks/{check-doc-authority,inject-output-language}` returns both. Row 12 (`inject-output-language`) is load-bearing for [language-discipline.md §2](language-discipline.md). Both rows are now `parity` (§2 census).
 
 ## §5 Agnosticism tier table
 
@@ -93,7 +93,7 @@ Per [Meta-fork C](../../docs/meta-factory/zcode-parity-mega.decisions.md) + [For
 | Tier | Harness | Coverage | Evidence |
 |---|---|---|---|
 | **Supported today** | Claude Code | Primary dogfood harness; deepest coverage (all 20 hooks; principle tests + 4-layer enforcement) | [README.md#why-this-exists](../../README.md); §2 census |
-| **Supported today** | ZCode | Full parity via plugin channel + `_zcode-emit` helper; 13 framework hook twins shipped. Three CC-only events (`SubagentStart`/`SubagentStop`/`WorktreeCreate`) have documented fallbacks (rows 13/15/16/19/20) or accepted-degradation rationale per §4 | §2 census; [`scripts/render-harness-config.mjs:46-54`](../../scripts/render-harness-config.mjs); step-1 patch #1031 |
+| **Supported today** | ZCode | Full parity via plugin channel + `_zcode-emit` helper; 16 framework hook twins shipped (re-counted live: `ls plugin/hooks/ \| grep -vE '^_zcode-emit|^hooks.json|^lang|^run-hook.cmd|^session-start' \| wc -l` → 16, post-Stage 6). Two rows remain `cc-only` (16, 20); the three CC-only *events* (`SubagentStart`/`SubagentStop`/`WorktreeCreate`) are still inexpressible on ZCode, but SubagentStop now has a parity variant via row 19's 4D hybrid (Stage 5, #1046) — accepted-degradation rationale for rows 16/20 per §4 | §2 census; [`scripts/render-harness-config.mjs:46-54`](../../scripts/render-harness-config.mjs); step-1 patch #1031 |
 | **Supported today** | Cursor | High CC-overlap (native `SubagentStart`/`Stop`, lifecycle hooks, 4 rule-activation types). Listed based on docs-verification in [S8 agnosticism survey](../../docs/meta-factory/research-patches/2026-07-18-zcode-parity-s8-harness-survey.md); **live end-to-end testing is a follow-up** | #1039 |
 | **Roadmap (FEASIBLE-WITH-WORK)** | Codex CLI | Lifecycle hooks present; per-tool matcher adapter needed | #1039 |
 | **Roadmap (FEASIBLE-WITH-WORK)** | Windsurf | Cascade Hooks present; taxonomy adapter needed | #1039 |
@@ -119,7 +119,7 @@ The Cursor caveat (docs-verified, not live-tested) is the load-bearing honest di
 - [`build-first-reuse-default.md`](build-first-reuse-default.md): REFERENCE verdict — no new capability proposed. The doctrine aggregates existing decisions + census into a SSOT pointer-doc; no BUILD/ADOPT call. ✓
 - [`dual-implementation-discipline.md`](dual-implementation-discipline.md): no new dual-channel artefact shipped — the doctrine describes existing dual-channel state and cites `@dual-pair` / `@cc-only-rationale` markers already on the hooks. ✓
 - [`phase-research-coverage.md §1.7`](phase-research-coverage.md): this §7 IS the forward+backward self-check. ✓
-- [`phase-research-coverage.md §1.11`](phase-research-coverage.md): Wave B merge status verified via `git log origin/staging --oneline | grep -iE "zcode"` before drafting — confirmed only Wave A research PRs + step-1 + S3 twins are merged; Wave B Stages 5/6/7B/9C are NOT merged. This drove the §0 split-decision in the plan. ✓
+- [`phase-research-coverage.md §1.11`](phase-research-coverage.md): Wave B merge status re-verified at this sweep's authoring time via `git log origin/staging --oneline | grep -iE "zcode"` — Wave B Stages 5/6/7B/9C (#1043/#1044/#1046/#1047) ARE merged; the §0 split-decision's premise («not merged → defer D3») is itself now stale at the premise level and is corrected inline above (§3 header note + §4 Row 19). ✓
 - [`recommendation-laziness-discipline.md §3`](recommendation-laziness-discipline.md): split-decision (defer D3) is a clear-on-merits call (avoid doc-lies), surfaced in the plan + this doctrine's §3 status column. ✓
 - [`ai-laziness-traps.md §2`](ai-laziness-traps.md): T3 (every census row cites census.md anchor — evidence column drops but the binding SSOT is the cited census); T15 (this §7 is self-application; §2 census table is the framework's own parity discipline applied to itself); T7 (didn't pattern-match on kickoff's "all upstream merged" claim — verified against `git log`). ✓
 
