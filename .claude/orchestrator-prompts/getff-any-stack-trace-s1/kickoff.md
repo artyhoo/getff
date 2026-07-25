@@ -148,10 +148,11 @@ host output in the PR body.
 (`:24`) — the `§1.7 forward+backward sections present in PR description` job fires and goes RED
 without them. Use the exact shape + pre-flight grep in the meta-launch kickoff §4b.
 
-> **Trap (this stage almost shipped it):** the operator-local `~/.claude/hooks/git-safety.sh`
-> mirror carries an older path list that omits `packages/core/synthesizer/**`, so a local
-> `gh pr create` passes while CI fails. Read the trigger paths from the **workflow file**, never
-> from the hook or from a transcribed copy.
+> **Trap (this stage almost shipped it):** the two enforcement channels carry DIFFERENT path
+> lists. The operator-local `~/.claude/hooks/git-safety.sh` (which blocks `gh pr create`) omits
+> `packages/core/synthesizer/**`, so a local create succeeds while the CI job goes RED. §1.7 is
+> owed on the **union** of both lists — see meta-launch §4b. Re-read the workflow file at entry;
+> never trust a transcribed copy.
 
 **T21 note for the Backward-check:** your sibling surfaces are the other lanes —
 `npmAdapter` in the same `resolve-ctx.ts` switch, `cargoAdapter`, and the clippy bridge. Name

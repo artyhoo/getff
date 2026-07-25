@@ -200,20 +200,27 @@ read; F-A decision recorded. S4 — cell v1 green in CI; one-beat protocol run q
 **S1, S3 and S4 all carry §1.7** (S1 lands in `packages/core/synthesizer/**` — a trigger path;
 S3 touches `agents/**`; S4 touches `packages/core/principles/**`). S2 self-evaluates.
 
-**Triggering paths — the AUTHORITY is the CI workflow, not the local hook.** Read them from
-[`.github/workflows/discipline-self-check.yml`](../../../.github/workflows/discipline-self-check.yml)
-`on.pull_request.paths` at stage entry; as of `264109608` (`:15-24`) that list is:
+**Triggering paths = the UNION of TWO channels — neither list alone is sufficient.** §1.7 is
+owed if the diff touches a path in **either** set, because each set is enforced by a different
+mechanism and they are not in sync:
 
-`.claude/rules/**` · `packages/core/principles/**` · `docs/meta-factory/EXECUTION-PLAN.md` ·
-`docs/meta-factory/prior-art-evaluations.md` · `CLAUDE.md` · `templates/**/*.md` ·
-`packages/core/templates/**/*.md` · `packages/core/templates/**/*.template.md` ·
-`packages/core/backends/**` · **`packages/core/synthesizer/**`**
+- **CI-RED channel** — [`.github/workflows/discipline-self-check.yml`](../../../.github/workflows/discipline-self-check.yml)
+  `on.pull_request.paths` (`:15-24` at `264109608`): `.claude/rules/**` ·
+  `packages/core/principles/**` · `docs/meta-factory/EXECUTION-PLAN.md` ·
+  `docs/meta-factory/prior-art-evaluations.md` · `CLAUDE.md` · `templates/**/*.md` ·
+  `packages/core/templates/**/*.md` · `packages/core/templates/**/*.template.md` ·
+  `packages/core/backends/**` · **`packages/core/synthesizer/**`**
+- **Create-time-block channel** — the operator-local `~/.claude/hooks/git-safety.sh` TRIGGERS
+  list, which blocks `gh pr create` outright. It carries `.claude/skills/**` and **`agents/**`**
+  — which the workflow does NOT — and omits `packages/core/synthesizer/**` and
+  `packages/core/backends/**` — which the workflow DOES enforce.
 
-> **Do NOT copy the list from `~/.claude/hooks/git-safety.sh`.** The operator-local `gh pr create`
-> mirror carries an older, shorter list (it omits `packages/core/synthesizer/**` and
-> `packages/core/backends/**`), so a PR can pass the local hook and still go RED on the CI job.
-> The workflow file is the SSOT; re-read it rather than trusting any transcribed copy — including
-> this one.
+Consequences per stage: **S1** is owed §1.7 by the CI channel (`synthesizer`); **S3** by the
+create-time channel (`agents/**`); **S4** by both (`packages/core/principles/**` is in the
+workflow, `agents/**` in the hook). **S2** self-evaluates against the **union**, not either half.
+
+> **Do not transcribe either list and trust it — including this one.** Re-read the workflow file
+> at stage entry; the local hook is outside this repo and can drift without a commit here.
 
 **Required PR body sections (verbatim shape — the CI substance gate is strict):**
 
@@ -343,7 +350,8 @@ See `.claude/rules/ai-laziness-traps.md §2` for the full catalogue.
 - **T-AST-C (meta-launch-specific) — dispatching S2 on the assumption that honest-signals
   «will land first».** The §3 cross-umbrella gate is a real check, not an expectation — and its
   state moves under you: between this kickoff's first draft (2026-07-24) and its re-grounding
-  (2026-07-25) honest-signals went from «no python-lane stage merged» to «S3 merged, S4 open».
+  (2026-07-25) honest-signals went from «no python-lane stage merged» to «S3 merged; S4 not
+  merged — no S4 PR exists in any state yet».
   **Counter:** run BOTH §3 probes and read their output before every S2 dispatch attempt —
   never carry a remembered verdict across turns. The **file-level** probe is the authority: a
   PR-title search can false-negative (it did on 2026-07-24, when a `headRefName` filter missed
