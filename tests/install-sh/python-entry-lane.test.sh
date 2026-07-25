@@ -365,6 +365,70 @@ else
   echo ""; echo "  ── (12) SKIP over-broad negative (ast-grep and/or ruff not on PATH) ──"
 fi
 
+# ── (13) D8 / S2 positive — agent surface delivered on the python lane ──────────
+# Kickoff §7 host-verify contract: this arm fails when the delivered agent surface is missing.
+# Without it, the lane test stays green on an S2 that ships an empty agent surface (the host-verify
+# commands would all be negative/bookkeeping checks). Each assertion names a CURATED-SUBSET artefact
+# from kickoff §2 item 1; failure here is the fail-closed signal the contract requires.
+# @arm:D8:pos agent-surface-delivery (python lane — fail-closed when the curated subset is missing)
+echo ""; echo "  ── (13) D8 agent surface delivered (skills / agents / hooks / .mcp.json / AGENTS.md / .ai-factory/) ──"
+P=$(py_fixture)
+( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+_d8_fail=0
+# Skills (4-skill curated subset — kickoff §2 item 1)
+for _s in getff tool-bootstrapping rule-research rule-tests; do
+  [ -f "$P/.claude/skills/$_s/SKILL.md" ] \
+    && ok "(13) skill $_s/SKILL.md delivered" \
+    || { bad "(13) MISSING skill: .claude/skills/$_s/SKILL.md"; _d8_fail=1; }
+done
+# Agents (2-agent curated subset — kickoff §2 item 1)
+for _a in rule-researcher rule-test-author; do
+  [ -f "$P/.claude/agents/${_a}.md" ] \
+    && ok "(13) agent ${_a}.md delivered" \
+    || { bad "(13) MISSING agent: .claude/agents/${_a}.md"; _d8_fail=1; }
+done
+# Hooks (deps-hash-check + inject-matching-rule — kickoff §2 item 1)
+for _h in deps-hash-check.sh inject-matching-rule.sh; do
+  [ -f "$P/.claude/hooks/$_h" ] \
+    && ok "(13) hook $_h delivered" \
+    || { bad "(13) MISSING hook: .claude/hooks/$_h"; _d8_fail=1; }
+done
+# .claude/settings.json with both hook registrations
+_d8_s="$P/.claude/settings.json"
+if [ ! -f "$_d8_s" ]; then
+  bad "(13) MISSING .claude/settings.json"; _d8_fail=1
+else
+  ok "(13) .claude/settings.json present"
+  grep -q 'deps-hash-check' "$_d8_s" \
+    && ok "(13) deps-hash-check registered in settings.json" \
+    || { bad "(13) deps-hash-check NOT registered in settings.json"; _d8_fail=1; }
+  grep -q 'inject-matching-rule' "$_d8_s" \
+    && ok "(13) inject-matching-rule registered in settings.json" \
+    || { bad "(13) inject-matching-rule NOT registered in settings.json"; _d8_fail=1; }
+fi
+# .mcp.json with context7
+[ -f "$P/.mcp.json" ] && grep -q '"context7"' "$P/.mcp.json" \
+  && ok "(13) .mcp.json present with context7" \
+  || { bad "(13) MISSING .mcp.json or context7 entry"; _d8_fail=1; }
+# AGENTS.md
+[ -f "$P/AGENTS.md" ] \
+  && ok "(13) AGENTS.md delivered" \
+  || { bad "(13) MISSING AGENTS.md"; _d8_fail=1; }
+# .ai-factory/ agent-surface subtree (the artefacts AGENTS.md.template references + skill-context overrides)
+for _f in .ai-factory/DESCRIPTION.md .ai-factory/ARCHITECTURE.md .ai-factory/RULES.md \
+          .ai-factory/rules/integration-rules.md .ai-factory/tool-decisions.md \
+          .ai-factory/skill-context/aif-review/SKILL.md .ai-factory/skill-context/aif-rules-check/SKILL.md; do
+  [ -f "$P/$_f" ] \
+    && ok "(13) $_f delivered" \
+    || { bad "(13) MISSING: $_f"; _d8_fail=1; }
+done
+# Self-verifying TEETH assertion: arm (13) is fail-closed — the host-verify contract requires it.
+# Verified separately by T-S2-B: a delivery WITHOUT _py_deliver_agent_surface MUST make arm (13) RED.
+[ "$_d8_fail" = "0" ] \
+  && ok "(13) full curated agent surface delivered — fail-closed arm held GREEN" \
+  || bad "(13) agent surface incomplete — see MISSING items above (the host-verify contract fires here)"
+rm -rf "$P"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
