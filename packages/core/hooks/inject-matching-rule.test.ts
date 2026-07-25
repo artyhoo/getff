@@ -10,12 +10,20 @@
  *   - session-cache → at most once per session_id
  *   - prose that documents the marker syntax is NOT mis-detected (own-line anchor)
  *
+ * S6 honest-no-op paired fixture (kickoff §4): when the consumer has NO rules corpus
+ * (RULES_DIR missing OR empty of .md files), the hook reports ONCE per session loudly,
+ * then stays quiet. Both halves asserted: first call emits, second call is silent.
+ * Control: hook still fires normally when a corpus IS present. Test seam: RULES_DIR_OVERRIDE.
+ *
  * Skips gracefully when `jq` is unavailable (the hook itself no-ops without jq).
  */
 import { describe, it, expect } from 'vitest';
 import { execSync, execFileSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
@@ -31,11 +39,13 @@ function hasJq(): boolean {
 }
 const JQ = hasJq();
 
-/** Run the hook with a stdin payload; return trimmed stdout. */
-function runHook(input: Record<string, unknown>): string {
+/** Run the hook with a stdin payload; return trimmed stdout. Optional env overrides for the
+ * S6 test seam (RULES_DIR_OVERRIDE). */
+function runHook(input: Record<string, unknown>, env?: NodeJS.ProcessEnv): string {
   return execFileSync('bash', [HOOK], {
     input: JSON.stringify(input),
     encoding: 'utf8',
+    env: env ? { ...process.env, ...env } : undefined,
   }).trim();
 }
 
@@ -136,6 +146,110 @@ describe.skipIf(!JQ)(
       expect(() =>
         runHook(payload('Edit', '.claude/rules/c.md', uniq())),
       ).not.toThrow();
+    });
+  },
+);
+
+/**
+ * S6 honest-no-op paired fixture (kickoff §4). When RULES_DIR has no .md corpus
+ * (directory missing OR empty), the hook reports ONCE per session loudly, then stays
+ * quiet. Both halves asserted; control proves the hook still fires normally with a corpus.
+ *
+ * T-HS-A binding: PRIMARY assertions are output presence / exit code / JSON shape;
+ * wording checks are SECONDARY (non-load-bearing). Test seam = RULES_DIR_OVERRIDE env
+ * (kickoff §2 planner decision 2, option a).
+ */
+describe.skipIf(!JQ)(
+  'inject-matching-rule.sh — S6 honest no-op (corpus absent → report once, then quiet)',
+  () => {
+    /** Build a unique non-existent RULES_DIR path → triggers corpus-absent branch. */
+    function absentRulesPath(): string {
+      return join(tmpdir(), `no-rules-${uniq()}`);
+    }
+
+    /** Build a real temp RULES_DIR containing one fake rule with globs+inject markers. */
+    function presentRulesPathWithFakeRule(): string {
+      const dir = mkdtempSync(join(tmpdir(), `with-rules-${uniq()}-`));
+      writeFileSync(
+        join(dir, 'fake-rule.md'),
+        [
+          '<!-- globs: .claude/rules/** -->',
+          '<!-- inject: Fake-rule-summary -->',
+          '# Fake rule for S6 control test',
+          '',
+        ].join('\n'),
+      );
+      return dir;
+    }
+
+    it('corpus absent (RULES_DIR missing) → emits JSON report on first call (T-HS-A primary)', () => {
+      const out = runHook(
+        payload('Edit', '.claude/rules/some-rule.md', uniq()),
+        { RULES_DIR_OVERRIDE: absentRulesPath() },
+      );
+      // PRIMARY (T-HS-A): observable output presence first.
+      expect(out).not.toBe('');
+      const json = JSON.parse(out);
+      expect(json.hookSpecificOutput.hookEventName).toBe('PostToolUse');
+      // SECONDARY (wording — non-load-bearing per T-HS-A).
+      expect(json.hookSpecificOutput.additionalContext).toContain('inject-matching-rule');
+      expect(json.hookSpecificOutput.additionalContext).toContain('no rules corpus');
+    });
+
+    it('corpus absent → second call with same session_id is silent (once-per-session)', () => {
+      const empty = absentRulesPath();
+      const session = uniq();
+      const first = runHook(
+        payload('Edit', '.claude/rules/a.md', session),
+        { RULES_DIR_OVERRIDE: empty },
+      );
+      const second = runHook(
+        payload('Edit', '.claude/rules/b.md', session),
+        { RULES_DIR_OVERRIDE: empty },
+      );
+      // Both halves asserted (kickoff §4): first reports, second does not repeat.
+      expect(first).not.toBe('');
+      expect(second).toBe('');
+    });
+
+    it('corpus absent + new session → reports again (cache is per-session, not per-install)', () => {
+      const empty = absentRulesPath();
+      const firstSession = uniq();
+      const secondSession = uniq();
+      const first = runHook(
+        payload('Edit', '.claude/rules/a.md', firstSession),
+        { RULES_DIR_OVERRIDE: empty },
+      );
+      const second = runHook(
+        payload('Edit', '.claude/rules/b.md', secondSession),
+        { RULES_DIR_OVERRIDE: empty },
+      );
+      expect(first).not.toBe('');
+      expect(second).not.toBe('');
+    });
+
+    it('corpus absent → exit 0 (non-blocking, even when reporting)', () => {
+      expect(() =>
+        runHook(
+          payload('Edit', '.claude/rules/c.md', uniq()),
+          { RULES_DIR_OVERRIDE: absentRulesPath() },
+        ),
+      ).not.toThrow();
+    });
+
+    it('corpus present (control) → hook still fires normal injection, no-op path did not disable it', () => {
+      const rules = presentRulesPathWithFakeRule();
+      try {
+        const out = runHook(
+          payload('Edit', '.claude/rules/x.md', uniq()),
+          { RULES_DIR_OVERRIDE: rules },
+        );
+        const json = JSON.parse(out);
+        expect(json.hookSpecificOutput.hookEventName).toBe('PostToolUse');
+        expect(json.hookSpecificOutput.additionalContext).toContain('Fake-rule-summary');
+      } finally {
+        rmSync(rules, { recursive: true, force: true });
+      }
     });
   },
 );
