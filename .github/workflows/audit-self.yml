@@ -613,6 +613,8 @@ jobs:
         run: bash tests/install-sh/python-rules-lock.test.sh
       - name: "install-sh — Cargo entry lane: install.sh cargo detection + no-package.json bypass + --refresh + REFUSE cell + firing self-check (ecosystem-wiring W4)"
         run: bash tests/install-sh/cargo-entry-lane.test.sh
+      - name: "install-sh — getff default-branch substitution: delivered CI workflow triggers on the consumer's real default branch (getff-honest-signals S4)"
+        run: bash tests/install-sh/getff-default-branch-substitution.test.sh
       - name: "install-sh — rules-lock schema parity: F11 core set ⊆ each lane's ACTUAL emitted lock JSON (adapter-jig D3)"
         run: bash tests/install-sh/rules-lock-schema-parity.test.sh
       - name: "install-sh — snapshot exclusion guard: volatile-only exclusions never mask deterministic drift (adapter-jig C3)"
