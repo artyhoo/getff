@@ -51,9 +51,9 @@ this execution environment (see §1.3). Mirror its shape, do not invent a new on
 | Unwired-adapter tripwire | `packages/core/research/ecosystem-unwired-debt.test.ts:106` — `const BASELINE = 0` | **Arm H1 lockstep.** BASELINE is 0 and MUST STAY 0: an adapter that lands unwired pushes the count above BASELINE and the tripwire goes RED. Wire in the same PR. |
 | Adapter precondition tripwire | `packages/core/research/ecosystem-adapter-precondition.test.ts` | Arm H3 population-equality — a new adapter joins this population automatically |
 | Delivery-cell grammar | `setup.d/45-python.sh:10-38` (matrix), `:73-79`, `:85-145` | **F7 FROZEN** — cell taxonomy + REFUSE-LOUDLY semantics; cell *file names* vary per family, the grammar does not |
-| Firing self-check shape | `setup.d/45-python.sh:340-412`, wired at `install.sh:217` | **F8 FROZEN** — plant violation in `mktemp -d` ONLY; absent tool ⇒ LOUD degrade printing the exact manual command; **rc=0 always** |
+| Firing self-check shape | `setup.d/45-python.sh:388` (`_py_firing_self_check`), wired at `install.sh:216` (source) + `install.sh:227` (call) | **F8 FROZEN** — plant violation in `mktemp -d` ONLY; absent tool ⇒ LOUD degrade printing the exact manual command; **rc=0 always**. ⚠ Do NOT use the census pair `45-python.sh:340-412` / `install.sh:217`: the contract itself marks it «DRIFTED from census, corrected» (`docs/superpowers/specs/2026-07-22-adapter-jig-contract.md:63`), and `:340` is `_py_deliver_ci()` — a different cell. |
 | Snapshot byte-identity harness | `tests/install-sh/snapshot.sh` | **F9** — a new lane shifts install fingerprints; baselines are re-captured in this same PR |
-| Two-surface CI pin parity | `.github/workflows/audit-self.yml:250-273` (the pinned rust toolchain arm) | **F10 FROZEN** + arm P1 — copy this arm's shape for go |
+| Two-surface CI pin parity | framework: `.github/workflows/audit-self.yml:257` (cache key) + `:271-272` (the exact-pinned rustup install) inside the arm at `:250-274`; consumer mirror: `packages/core/templates/{python,cargo}/github-actions-ci.yml` | **F10 FROZEN** + arm P1 — parity is **two-surface**: the go arm and a `packages/core/templates/go/github-actions-ci.yml` mirror bump together. The contract records the framework anchors as corrected-from-census (`contract.md:65`); use the ones in this row, not the census pair. |
 | rules-lock core field set | `packages/core/installer/types.ts:36-43` | **F11 FROZEN** — `{schemaVersion, framework, version, ruleIds, emittedAt, sourceFingerprint}` cross-lane; tool-ban fields are per-lane-named |
 | Lane numbering | `setup.d/40-configs.sh`, `45-python.sh`, `46-cargo.sh` | the go lane is `setup.d/47-go.sh`; wire it in `install.sh` mirroring the cargo block at `install.sh:236-252` |
 
@@ -63,6 +63,14 @@ this execution environment (see §1.3). Mirror its shape, do not invent a new on
 (ids + slugs: [`33-adapter-jig-arm-registry.ts:63-93`](../../../packages/core/principles/33-adapter-jig-arm-registry.ts)). Read each arm's registered
 implementation before claiming your family satisfies it. **Arm G3 is `zero-skill-core-edits` —
 it gates this very stage.**
+
+**Map all 22 → your family explicitly**, and report the mapping in the PR body: for each arm,
+either the go-side evidence, or «not applicable — <reason>». Do NOT silently drop an arm. If an
+arm's *applicability* to a new family is genuinely ambiguous (E3 `toolchain-freshness-vs-evidence`
+is the likely one — cargo implements it through a backend capability-matrix at
+`packages/core/backends/cargo/capability-matrix.json` + `firing-runner.ts`, and whether a stamped
+family owes the same structure is not settled by the umbrella), **park it** (§3) rather than
+deciding it — that call sizes the stage and is not yours to make silently.
 
 ### §1.3 LOAD-BEARING ENVIRONMENT FACT — `go` is absent; this changes what you may claim, not what you build
 
@@ -91,6 +99,34 @@ lands on the **GitHub runner**, where `audit-self.yml:250-273` installs an exact
 - Where the E1 red/green proof actually lands: the **pinned go CI arm on the runner**. The PR
   body links that workflow run (T-EW-C posture). Until it is green on the runner, E1 is
   unproven — say so plainly in the PR body.
+- **«Insufficient (tool absent)» is an honest REPORTING label, never a DoD exit.** It is how you
+  describe a local run; it does not let the stage finish. The stage finishes when the runner arm
+  is green and linked (§4).
+
+### §1.4 Pre-dispatch obligations carried from the binding spec (§9) — do not skip
+
+The spec's stage-kickoff clause ([design spec §9](../../../docs/superpowers/specs/2026-07-22-adapter-jig-design.md), the paragraph opening «Implementation
+is a FUTURE umbrella») binds **every** stage kickoff of this umbrella to four things. They are
+restated here because a stage worker reads this file, not the spec's preamble:
+
+1. **In-flight probe naming `ir-unfreeze` + `ecosystem-wiring`.** Both were DONE at authoring
+   (`ir-unfreeze` #1084, `ecosystem-wiring` #1086, both carrying `done.md`), and no J3 branch or
+   PR existed at `264109608`. **Re-probe anyway before you start** — `gh pr list --state open`
+   plus `git ls-remote --heads origin | grep -iE 'jig|go'` — because the window between authoring
+   and dispatch is exactly where collisions have historically materialised.
+2. **Serialization with `rule-tests-surface` S4.** J3 IS lock-shape-touching (it ships a
+   fingerprint ladder and a rules-lock variant, deliverable 3 + F11). Per umbrella
+   [§3](../adapter-jig/kickoff.md) — marked BINDING — the lock-touching arms (D1/D2/D3) and S4
+   **serialize**: whichever reaches merge second merges the other's landed state and re-fires its
+   DoD against the CURRENT lock behaviour. S4 was NOT in flight at authoring; if it has opened by
+   the time you push, serialize — do not race.
+3. **Merge-forward, never rebase.** If this PR turns CONFLICTING because staging moved, merge
+   `origin/staging` INTO the branch and plain-push. `git rebase` + force-push is a dead end here
+   (force-push is blocked for agent sessions in every form). Recipe:
+   [`git-conflict-merge-forward.md §2`](../../rules/git-conflict-merge-forward.md).
+4. **Staging-placement.** This kickoff is on `staging` before dispatch — that is the precondition
+   you inherit, and the same rule applies to anything you author: nothing dispatches off a
+   branch-only artefact ([`kickoff-staging-placement.md §1`](../../rules/kickoff-staging-placement.md)).
 
 ---
 
@@ -107,8 +143,14 @@ lands on the **GitHub runner**, where `audit-self.yml:250-273` installs an exact
    fingerprint ladder with **no silent degrade** (arm D2 — `46-cargo.sh:202-206`). Wire it into
    `install.sh` mirroring the cargo block at `install.sh:236-252`.
 4. **Pinned CI arm** in `.github/workflows/audit-self.yml` — an exact-pinned go toolchain +
-   `golangci-lint`, cached, mirroring `:250-273`. **F10 two-surface pin parity**: the workflow
-   pin string and the lane/consumer-template pin string bump together (arm P1).
+   `golangci-lint`, cached, mirroring the rust arm at `:250-274` (`:257` cache key, `:271-272`
+   the exact-pinned install). **Installing the toolchain is not the deliverable — FIRING under it
+   is.** The rust arm exists so that the cargo live-fire (`packages/core/backends/cargo/firing.test.ts`
+   via `firing-runner.ts`) resolves the pinned `rustc` when the suite runs on the runner. Your arm
+   must likewise make the go firing path actually execute there; an arm that installs go and fires
+   nothing is trap T-AJ3-C. **F10 two-surface pin parity (arm P1):** the framework pin string and
+   the consumer mirror `packages/core/templates/go/github-actions-ci.yml` (mirroring the existing
+   `templates/python/` + `templates/cargo/` pair) bump together.
 5. **BASELINE + snapshot lockstep, same PR** — `ecosystem-unwired-debt.test.ts:106` stays `0`
    because the adapter is wired here; re-capture install fingerprints
    (`SNAPSHOT_MODE=capture bash tests/install-sh/snapshot.sh`) and commit the baselines.
@@ -171,11 +213,25 @@ Three park triggers named in advance, so they are recognised rather than guessed
 
 ## §4 «Works» — acceptance
 
+This list IS the DoD. It restates the umbrella's «Works» sentence for J3
+([`adapter-jig/kickoff.md` §2](../adapter-jig/kickoff.md)) — if anything below looks weaker than
+that sentence, the umbrella wins and this list is the defect.
+
 - All five §2 deliverables in ONE PR; nothing go-related outside it.
+- **The scratch consumer red/green pair is demonstrated: fresh dir + `go.mod` → install → plant
+  violation → `golangci-lint` fires RED, and a clean control stays GREEN.**
+- **The CI arm is green ON THE RUNNER and the workflow run is LINKED in the PR body** (T-EW-C
+  posture — the umbrella requires the linked run, not the arm's existence). This is the exit
+  criterion for arm E1: because the toolchain is absent locally (§1.3), the runner is where the
+  red/green above is actually observed. **A stage whose runner arm is red, absent, or unlinked is
+  NOT done** — «insufficient (tool absent)» describes a local run honestly, it does not close the
+  stage.
 - BASELINE at `ecosystem-unwired-debt.test.ts:106` still `0` and the tripwire GREEN.
 - Snapshot baselines re-captured and `SNAPSHOT_MODE=compare` clean.
-- Each touched arm has its RED-before-GREEN quoted in the PR body; arms that cannot run here are
-  reported as **insufficient (tool absent)** with the exact manual command — never as clean.
+- All 22 arms mapped to the family in the PR body (§1.2), each with go-side evidence or an
+  explicit «not applicable — <reason>»; each arm you touched has its RED-before-GREEN quoted.
+  Arms that could not run locally are labelled **insufficient (tool absent)** with the exact
+  manual command — never as clean — and are settled by the linked runner result above.
 - Zero edits to `packages/core/ir/`, `.claude/skills/rule-tests/`, `agents/rule-test-author.md`
   (arm G3), and zero frozen-row edits.
 - PR body carries §1.7 Forward-check + Backward-check (`###` H3 headings, the word «applied»,
@@ -219,8 +275,11 @@ See [.claude/rules/ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md).
 
 - **T2 / T20** — «the arm exists» ≠ «the arm is proven». Every arm needs its RED observed and the
   output quoted. No verdict sentence without its evidence anchor.
-- **T3** — §1.1 anchors are re-verified at `264109608`; re-check any line you rely on before
-  citing it, and cite `file:line`, never prose-only.
+- **T3** — §1.1 anchors were re-verified against the working tree at `264109608`; re-check any
+  line you rely on before citing it, and cite `file:line`, never prose-only. Concretely: an
+  earlier draft of this kickoff copied the F8 census pair (`45-python.sh:340-412` /
+  `install.sh:217`) that the J1 contract had already corrected — a stale anchor survives being
+  «cited from an authoritative doc». Trust the file, not the citation.
 - **T11** — extending a family adds no new SSOT-class capability (the conformance-kit entry is
   SSOT #226, landed with J1). If you find yourself proposing a NEW mechanism, run the prior-art
   consult first rather than inventing.
@@ -235,6 +294,12 @@ See [.claude/rules/ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md).
 
 **Domain-specific traps (NOT in the canonical catalogue):**
 
+- **T-AJ-A (carried verbatim from the umbrella, [§4](../adapter-jig/kickoff.md)) — «the arm passes
+  because it tests the fixture, not the lane».** An arm wired only to a synthetic go fixture and
+  never exercised against the REAL delivered lane artefacts is theatre. This is live for J3, whose
+  arms are all newly authored against fresh fixtures. Counter: every arm cites the REAL lane
+  file/output it judged — the delivered `setup.d/47-go.sh` output, the emitted lock, the installed
+  config — not only the fixture it was developed on.
 - **T-AJ3-A — «synthesized the host by bypassing F3».** Building the Tier-1 host inside the go
   adapter and handing `tier1For` a finished answer *looks* like feeding it and is actually a
   bypass — the canonicalize/reject stages never run, and the poisoned-module-path negative (arm
