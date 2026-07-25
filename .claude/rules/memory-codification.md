@@ -44,7 +44,7 @@ When a session writes a durable convention to memory, **in the same step**:
 
 ## §4 Compensating mechanisms (no CI by constraint)
 
-Per §1, no CI test is possible. Two session/local mechanisms compensate; a third, write-time mechanism (CTX Stage 1) is shipped but pending activation:
+Per §1, no CI test is possible. Two session/local mechanisms compensate; a third, write-time mechanism (CTX Stage 1) is shipped and activated:
 
 **(0) Write-time hook (CTX Stage 1, WIRED).** [`.claude/hooks/inject-memory-codification.sh`](../hooks/inject-memory-codification.sh) — a PostToolUse hook that fires the instant a `Write` targets a path with a `/memory/` segment, injecting this rule's §3 codify-then-pointer one-liner as additionalContext. The hook file is shipped and self-tested ([`inject-memory-codification.test.ts`](../../packages/core/hooks/inject-memory-codification.test.ts)), and its `.claude/settings.json` PostToolUse:Write registration is **live** (`.claude/settings.json:168`, verified by `jq '.hooks.PostToolUse' .claude/settings.json` → 8 entries, index 7 = `matcher:"Write" → inject-memory-codification.sh`). This channel is **live** alongside (a)/(b) below: a session that `Write`s to a `/memory/` path receives the §3 codify-then-pointer one-liner as `additionalContext` at the moment of the write. (`.claude/settings.json` remains agent-deny-listed for edits — see [CLAUDE.md `Artifact Ownership Contract`](../../CLAUDE.md) — so any future re-registration requires a maintainer-applied patch.)
 
