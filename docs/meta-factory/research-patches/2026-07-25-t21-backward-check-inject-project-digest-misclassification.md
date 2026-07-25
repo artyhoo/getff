@@ -1,3 +1,5 @@
+<!-- scope:t21-inject-project-digest-misclassification -->
+
 # T21 backward-check misclassification — `inject-project-digest.sh` wrongly dismissed as framework-internal
 
 > **Class:** research patch — incident record feeding the [`ai-laziness-traps.md §2 T21`](../../rules/ai-laziness-traps.md) → Class A principle-test promotion criterion (counter now 2/3).
@@ -58,3 +60,7 @@ This patch does not:
 - [`research-patches/2026-07-03-pr857-t21-backward-check-restates-not-sweeps.md`](2026-07-03-pr857-t21-backward-check-restates-not-sweeps.md) — incident 1/3 (if tracked; otherwise reference in T21 trap text).
 - `agents/backward-sweep-auditor.md` — the cold-agent that catches this class; the reviewer's sweep here is a live instance.
 - Kickoff `.claude/orchestrator-prompts/getff-honest-signals-meta-launch/kickoff.md` §7 — the elevation of T21 to load-bearing for S6.
+
+## §1.7 Self-application note
+
+Self-application: a patch about a T21 backward-check miss must not itself skip the sweep (T15) — the corrected enumeration in §3-§5 above IS the sweep, re-run with per-surface verdicts; the misclassified surface (`inject-project-digest.sh`) is re-classified with delivery-map evidence rather than intuition, the exact counter the S1 incident taught. Forward: consistent with `ai-laziness-traps.md §2 T21` and its incident counter. Backward: no other patch in this series claims the old classification (checked both S6 patches). Added at harvest time by the accepting session.

@@ -1,3 +1,5 @@
+<!-- scope:getff-honest-signals-s6-done-md-correction -->
+
 # `done.md` closure-record correction payload — getff-honest-signals S6
 
 > **Class:** research patch — incident record feeding the umbrella-closure-honesty discipline (a sibling of [ai-laziness-traps.md §2 T21](../../rules/ai-laziness-traps.md) applied to the durable closure artefact itself).
@@ -75,3 +77,7 @@ For any umbrella-closure PR where the `done.md` summary is subject to a rework:
 - [CLAUDE.md «Umbrella closure convention»](../../CLAUDE.md) — defines the `done.md` schema and its role as `priority-score.sh` Layer C3 input.
 - [`.claude/rules/ai-laziness-traps.md §2 T21`](../../rules/ai-laziness-traps.md) — the trap this incident evidences (counter advances to 3/3 → promotion criterion for a Class A principle test now MET; per the rule's §5 promotion triggers, future maintainer work).
 - [.ai-factory/plans/getff-honest-signals-s6.md «Rework round 2»](../../../.ai-factory/plans/getff-honest-signals-s6.md) — the implementation-log view of this rework round (gitignored; supplementary, not load-bearing).
+
+## §1.7 Self-application note
+
+Self-application: this patch documents a closure-record correction inside the umbrella whose subject is honest closure signals — the correction itself is the discipline applied recursively (T15). Forward: complies with the CLAUDE.md umbrella-closure schema it corrects toward. Backward: the sibling patch below carries the corrected T21 sweep; no other closure artefact of this umbrella is affected (enumerated: done.md + CANON copy only). Added at harvest time by the accepting session — the in-container worker could not touch `.claude/**` to run the full check itself.
