@@ -13,6 +13,13 @@ function makeDeps(over: Partial<HarvestDeps> = {}): { deps: HarvestDeps; calls: 
       calls.push(`dirty?:${b}`);
       return false;
     }),
+    // Default: no tracked-file modifications (untracked-only dirt) — the routine container
+    // residue. Only consulted on the dirty + ≥1-ahead leg; tests exercising the D12 guard
+    // override this to a non-empty list.
+    trackedDirtyFiles: vi.fn(async (b: string) => {
+      calls.push(`trackedDirty?:${b}`);
+      return [];
+    }),
     // Default: 0 commits ahead → the true-rework leg (branch == base HEAD). Only
     // consulted when the tree is dirty; tests that exercise the stale-residue leg
     // override this to ≥1.
@@ -101,10 +108,11 @@ describe('harvestTask — rework-commit gap (dirty tree disambiguated by commits
     ]);
   });
 
-  it('dirty tree + ≥1 commit ahead (stale residue) → does NOT commit; pushes the existing commit only; dirtyTreeLeftBehind:true', async () => {
+  it('dirty tree (untracked-only) + ≥1 commit ahead (stale residue) → does NOT commit; pushes the existing commit only; dirtyTreeLeftBehind:true', async () => {
     // The 2026-06-11 incident (aif task d037c54d, F2): aif committed the real work,
     // then left ~7 stale base-state files dirty. Old code `git add -A`'d them into the
     // PR. Now the branch's commits ARE the deliverable → push them; leave the tree.
+    // Default trackedDirtyFiles → [] models untracked-only dirt (`?? .claude/worktrees/`).
     const { deps, calls } = makeDeps({
       hasUncommittedChanges: vi.fn(async (b: string) => {
         calls.push(`dirty?:${b}`);
@@ -124,10 +132,49 @@ describe('harvestTask — rework-commit gap (dirty tree disambiguated by commits
     expect(calls).toEqual([
       'dirty?:feature/thing-abc',
       'aheadOf:staging',
+      'trackedDirty?:feature/thing-abc',
       'push:feature/thing-abc',
       'pr:feature/thing-abc->staging',
       'automerge:https://github.com/x/y/pull/42',
     ]);
+  });
+
+  it('D12 guard: TRACKED files modified + ≥1 commit ahead → HOLDs (needsResidueConfirm), nothing pushed', async () => {
+    // The 2026-07-25 incident class (tasks 06394a7f round-1 rework, dbe542d8 initial run):
+    // aif's review gate passed the task to `done` while the (part of the) deliverable sat
+    // modified-but-uncommitted on top of existing commits. Pushing the commits alone would
+    // silently drop that work — HOLD instead of the old warn-and-proceed.
+    const { deps } = makeDeps({
+      hasUncommittedChanges: vi.fn(async () => true),
+      commitsAhead: vi.fn(async () => 2),
+      trackedDirtyFiles: vi.fn(async () => ['.claude/rules/zcode-parity-doctrine.md']),
+    });
+    const res = await harvestTask(DONE_TASK, { baseBranch: 'staging', body: 'B', autoMerge: true }, deps);
+    expect(res.needsResidueConfirm).toBe(true);
+    expect(res.trackedDirtyFiles).toEqual(['.claude/rules/zcode-parity-doctrine.md']);
+    expect(res.pushed).toBe(false);
+    expect(deps.commitAll).not.toHaveBeenCalled();
+    expect(deps.pushBranch).not.toHaveBeenCalled();
+    expect(deps.createPr).not.toHaveBeenCalled();
+  });
+
+  it('D12 guard escape: confirmDirtyResidue ships the commits and leaves the tracked modifications behind', async () => {
+    // Paired-negative for the guard: the explicit escape restores the old behavior —
+    // push existing commits, dirtyTreeLeftBehind:true, tracked modifications abandoned.
+    const { deps } = makeDeps({
+      hasUncommittedChanges: vi.fn(async () => true),
+      commitsAhead: vi.fn(async () => 2),
+      trackedDirtyFiles: vi.fn(async () => ['.claude/rules/zcode-parity-doctrine.md']),
+    });
+    const res = await harvestTask(
+      DONE_TASK,
+      { baseBranch: 'staging', body: 'B', autoMerge: true, confirmDirtyResidue: true },
+      deps,
+    );
+    expect(res.needsResidueConfirm).toBeUndefined();
+    expect(res.dirtyTreeLeftBehind).toBe(true);
+    expect(res.pushed).toBe(true);
+    expect(deps.commitAll).not.toHaveBeenCalled(); // still never add -A'd
   });
 
   it('clean tree → no ahead-check, no commit (commitsAhead + commitAll never called)', async () => {

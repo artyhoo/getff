@@ -79,6 +79,7 @@ interface ParsedArgs {
   container: string;
   confirmRework: boolean;
   confirmUnreportedFiles: boolean;
+  confirmDirtyResidue: boolean;
 }
 
 function parseArgs(argv: string[]): ParsedArgs {
@@ -95,6 +96,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     container: flag('--container') ?? process.env['RUNTIME_BRIDGE_AIF_CONTAINER'] ?? 'aif-handoff-agent-1',
     confirmRework: argv.includes('--confirm-rework'),
     confirmUnreportedFiles: argv.includes('--confirm-unreported-files'),
+    confirmDirtyResidue: argv.includes('--confirm-dirty-residue'),
   };
 }
 
@@ -130,6 +132,15 @@ function realDeps(container: string): HarvestDeps {
       // The container's checkout is the one aif left dirty on the rework path.
       // `git status --porcelain` is empty iff the tree is clean.
       return dockerGit(container, ['status', '--porcelain']).length > 0;
+    },
+    trackedDirtyFiles: async (_branch) => {
+      // Porcelain lines NOT starting with `??` = tracked-file modifications (index or
+      // worktree). Untracked residue like `?? .claude/worktrees/` is excluded — that is
+      // the routine container leftover, not the D12 uncommitted-deliverable shape.
+      return dockerGit(container, ['status', '--porcelain'])
+        .split('\n')
+        .filter((l) => l.length > 0 && !l.startsWith('??'))
+        .map((l) => l.slice(3));
     },
     commitsAhead: async (_branch, base) => {
       // How many commits HEAD carries ahead of base (git rev-list --count base..HEAD).
@@ -221,6 +232,7 @@ async function main(): Promise<void> {
         autoMerge: args.autoMerge,
         confirmRework: args.confirmRework,
         confirmUnreportedFiles: args.confirmUnreportedFiles,
+        confirmDirtyResidue: args.confirmDirtyResidue,
       },
       realDeps(args.container),
     );
@@ -253,6 +265,24 @@ async function main(): Promise<void> {
             : `[harvest]   no park markers in the log, but 0-ahead+dirty is still ambiguous — inspect the diff.\n`) +
           `[harvest]   inspect:  docker exec ${args.container} git -C ${AIF_REPO_PATH} diff\n` +
           `[harvest]   ship only if it IS a complete rework:  tsx packages/runtime-bridge/src/cli/harvest.ts ${args.taskId} --confirm-rework\n`,
+      );
+      process.exit(2);
+    }
+    if (res.needsResidueConfirm) {
+      // D12 guard (2×2026-07-25): the branch carries commits AND tracked files sit
+      // modified-but-uncommitted on top of them — indistinguishable from an uncommitted
+      // rework aif's review gate wrongly passed to `done`. Held deliberately — nothing
+      // pushed. Preferred fix: a request_changes round telling the worker to commit;
+      // --confirm-dirty-residue ships the commits and abandons the modifications.
+      process.stderr.write(
+        `[harvest] HELD: task '${args.taskId}' is DONE, branch '${res.branch}' carries commits ahead of ` +
+          `'${args.base}', but ${res.trackedDirtyFiles?.length ?? 0} TRACKED file(s) are modified and ` +
+          `uncommitted on top of them: ${(res.trackedDirtyFiles ?? []).join(', ')}. This is the ` +
+          `done-with-dirty-tree shape (D12) — the modifications may BE the deliverable (uncommitted ` +
+          `rework). Nothing pushed.\n` +
+          `[harvest]   inspect:  docker exec ${args.container} git -C ${AIF_REPO_PATH} diff\n` +
+          `[harvest]   preferred: deliver a request_changes round so the worker commits its own work\n` +
+          `[harvest]   ship WITHOUT them (discardable residue only):  tsx packages/runtime-bridge/src/cli/harvest.ts ${args.taskId} --confirm-dirty-residue\n`,
       );
       process.exit(2);
     }

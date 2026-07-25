@@ -119,6 +119,18 @@ export interface HarvestDeps {
    */
   hasUncommittedChanges: (branchName: string) => Promise<boolean>;
   /**
+   * TRACKED-file modifications in the checkout (`git status --porcelain` lines NOT
+   * starting with `??`), as repo-relative paths. Discriminates the two dirty shapes
+   * on the ≥1-commits-ahead leg: untracked-only dirt is the routine container residue
+   * (`?? .claude/worktrees/`) and stays a warn-and-proceed; a MODIFIED tracked file on
+   * top of existing commits is the D12 shape — aif's review gate passed the task to
+   * `done` with the (part of the) deliverable uncommitted, observed twice on
+   * 2026-07-25 (tasks 06394a7f round-1 rework, dbe542d8 initial run). Pushing the
+   * commits alone would silently drop that work, so harvest HOLDs instead
+   * ({@link HarvestResult.needsResidueConfirm}).
+   */
+  trackedDirtyFiles: (branchName: string) => Promise<string[]>;
+  /**
    * How many commits the branch carries ahead of `base`
    * (`git rev-list --count <base>..HEAD`). This is the disambiguator the dirty-tree
    * check needs:
@@ -171,6 +183,12 @@ export interface HarvestOpts {
    *  `mechanical ∖ self-report` set surfaces ({@link HarvestResult.needsFileConfirm}) instead
    *  of pushing — those files were never reviewed by aif's gate. */
   confirmUnreportedFiles?: boolean;
+  /** Explicit operator confirmation that tracked-file modifications left uncommitted on
+   *  top of ≥1 commits are genuinely discardable residue — NOT an uncommitted rework
+   *  (the D12 done-with-dirty-tree shape, 2×2026-07-25). Without it that shape surfaces
+   *  ({@link HarvestResult.needsResidueConfirm}) instead of pushing the commits and
+   *  silently leaving the modifications behind. Untracked-only dirt never needs it. */
+  confirmDirtyResidue?: boolean;
 }
 
 export interface HarvestResult {
@@ -206,6 +224,16 @@ export interface HarvestResult {
   /** The `self-report ∖ mechanical` set: files aif claimed as affected but the task did NOT
    *  touch. Milder (warn-only, never HOLDs) — surfaced so the CLI can warn. */
   unmatchedSelfReport?: string[];
+  /** True when harvest STOPPED on the D12 shape: branch carries ≥1 commit ahead of base AND
+   *  tracked files are modified-but-uncommitted on top of them. Mechanically indistinguishable
+   *  from discardable residue vs an uncommitted rework the review gate wrongly passed to
+   *  `done` (observed 2×2026-07-25) — so nothing is pushed. The operator inspects the diff:
+   *  either drive a `request_changes` round so the worker commits, or re-run with
+   *  `confirmDirtyResidue` to push the commits and leave the modifications behind.
+   *  Mutually exclusive with `pushed`. Absent on every clean or untracked-only path. */
+  needsResidueConfirm?: boolean;
+  /** The tracked-modified file list — present with `needsResidueConfirm`. */
+  trackedDirtyFiles?: string[];
 }
 
 /** The subset of an aif task harvest reads. */
@@ -230,10 +258,12 @@ export interface HarvestableTask {
  *  2. guard branchName present — else throw BEFORE opening a PR.
  *  3. dirty-tree disambiguation: a dirty tree is committed ONLY on the true-rework
  *     leg (0 commits ahead of base, i.e. branch == base HEAD). When the branch
- *     already carries commits, the dirty tree is stale base-state residue — push the
- *     existing commit(s), leave the tree behind (dirtyTreeLeftBehind), never
- *     `add -A`. If the rework commit throws, nothing is pushed (operator gets the
- *     printed fallback).
+ *     already carries commits: untracked-only dirt is stale base-state residue —
+ *     push the existing commit(s), leave the tree behind (dirtyTreeLeftBehind),
+ *     never `add -A`; MODIFIED tracked files on top of commits are the D12 shape
+ *     (uncommitted rework passed to `done`, 2×2026-07-25) — HOLD
+ *     (needsResidueConfirm) unless confirmDirtyResidue. If the rework commit
+ *     throws, nothing is pushed (operator gets the printed fallback).
  *  4. push → createPr → (optional) enableAutoMerge. If createPr throws, auto-merge
  *     is never armed (no half-merged state).
  */
@@ -286,6 +316,24 @@ export async function harvestTask(
       await deps.commitAll(branch, `chore(harvest): commit reworked aif task ${task.id} — ${task.title}`);
       committed = true;
     } else {
+      // ≥1 ahead + dirty. Untracked-only dirt is the routine container residue → warn and
+      // proceed (historic behavior). MODIFIED tracked files on top of commits are the D12
+      // shape (uncommitted rework passed to `done` — 2×2026-07-25): pushing the commits
+      // alone silently drops that work, and a stderr warning is attention, not a mechanism
+      // (attention-is-not-a-mechanism.md §1 corollary) — so HOLD unless explicitly confirmed.
+      const tracked = await deps.trackedDirtyFiles(branch);
+      if (tracked.length > 0 && !opts.confirmDirtyResidue) {
+        return {
+          prUrl: '',
+          branch,
+          pushed: false,
+          autoMerge: false,
+          committed: false,
+          dirtyTreeLeftBehind: false,
+          needsResidueConfirm: true,
+          trackedDirtyFiles: tracked,
+        };
+      }
       dirtyTreeLeftBehind = true;
     }
   }
