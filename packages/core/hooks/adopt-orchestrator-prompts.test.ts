@@ -198,6 +198,37 @@ describe.skipIf(!JQ)('adopt-orchestrator-prompts.sh — PostToolUse adopt-on-wri
     expect(existsSync(resolve(canon, 'my-umbrella')), '$CANON untouched').toBe(false);
   });
 
+  // ── (negative) LOUD-SKIP: missing helper is announced, never silent ─────────
+  // Regression (handoff item 2, 2026-07-25): the hook resolved the helper from ONE
+  // hard-coded path and `exit 0`'d silently when absent — inert with zero signal.
+  // Now: tiered resolution (project root → own checkout → written-file worktree) and
+  // a LOUD DID-NOT-RUN notice on the additionalContext channel when every tier misses.
+  it('LOUD-SKIP: helper absent in every tier → DID-NOT-RUN notice on stdout+stderr, exit 0, no adoption', () => {
+    // Copy the hook into a bare fake root so tier 2 ($0-based) has no scripts/ dir;
+    // point tier 1 (CLAUDE_PROJECT_DIR) at the same bare root; the temp worktree
+    // (tier 3) has no scripts/ either.
+    const fakeRoot = track(mkdtempSync(resolve(tmpdir(), 'adopt-hook-fakeroot-')));
+    mkdirSync(resolve(fakeRoot, '.claude/hooks'), { recursive: true });
+    const hookCopy = resolve(fakeRoot, '.claude/hooks/adopt-orchestrator-prompts.sh');
+    writeFileSync(hookCopy, readFileSync(HOOK, 'utf8'), { mode: 0o755 });
+
+    const wt = track(makeWorktree('loudskip'));
+    const foo = promptFile(wt, 'my-umbrella/foo.md');
+    writeFileSync(foo, '# kickoff\n');
+
+    const r = spawnSync('bash', [hookCopy], {
+      input: JSON.stringify({ tool_input: { file_path: foo } }),
+      encoding: 'utf8',
+      env: { ...process.env, CLAUDE_COORDINATION_DIR: canon, CLAUDE_PROJECT_DIR: fakeRoot },
+    });
+
+    expect(r.status, `hook stderr: ${r.stderr}`).toBe(0); // still never a gate
+    expect(r.stdout ?? '').toContain('DID NOT RUN'); // additionalContext JSON reaches the model
+    expect(r.stderr ?? '').toContain('link-coordination.sh not found'); // terminal reader channel
+    expect(lstatSync(foo).isSymbolicLink(), 'no adoption ran').toBe(false);
+    expect(readdirSync(canon).length, '$CANON stays empty').toBe(0);
+  });
+
   // ── (guard) FLUSH-GUARD: a not-yet-flushed (absent) file is a clean no-op ────
   it('FLUSH-GUARD: an absent file path is a no-op (exit 0, no $CANON writes)', () => {
     const wt = track(makeWorktree('flush'));

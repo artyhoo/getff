@@ -22,8 +22,17 @@ set -uo pipefail
 # CC hooks run with a stripped PATH; jq may live under Homebrew on the operator's mac.
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
-REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-HELPER="$REPO_ROOT/scripts/link-coordination.sh"
+REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
+
+# Announce a dependency-missing skip on the channel the model actually receives on an
+# exit-0 path (JSON hookSpecificOutput additionalContext), keeping stderr for terminal
+# readers — mirror of check-kickoff-traps.sh `_emit_skip` (loud-skip pattern).
+_json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n' ' '; }
+_emit_skip() {
+  printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' \
+    "$(_json_escape "$1")"
+  printf '%s\n' "$1" >&2
+}
 
 if ! command -v jq >/dev/null 2>&1; then
   printf '⚠ adopt-orchestrator-prompts: jq unavailable — skipping\n' >&2; exit 0
@@ -47,8 +56,24 @@ esac
 # and lets the unit test isolate to a temp worktree without touching the real $CANON.
 WT_DIR="${ABS_PATH%%/.claude/orchestrator-prompts/*}"
 
-# Runtime dependency: the existing adopt-then-link helper; graceful no-op if absent.
-[[ -f "$HELPER" ]] || exit 0
+# Resolve the adopt-then-link helper by TIER, and announce a miss LOUDLY rather than
+# skipping in silence. Same defect class as the 2026-07-24 tsx-resolution incident and
+# the check-kickoff-traps.sh host-verify runner: a single hard-coded path + silent
+# `exit 0` left this hook inert wherever that path was absent — the sole-copy-file-loss
+# gap it exists to close stayed open with zero signal (handoff item 2, 2026-07-25).
+# Tier 1 = the project root the harness reports; tier 2 = this hook's own checkout;
+# tier 3 = the worktree the file was written into.
+HELPER=""
+for _cand in \
+  "$REPO_ROOT/scripts/link-coordination.sh" \
+  "$(cd "$(dirname "$0")/../.." 2>/dev/null && pwd)/scripts/link-coordination.sh" \
+  "$WT_DIR/scripts/link-coordination.sh"; do
+  if [[ -f "$_cand" ]]; then HELPER="$_cand"; break; fi
+done
+if [[ -z "$HELPER" ]]; then
+  _emit_skip '⚠ adopt-orchestrator-prompts: scripts/link-coordination.sh not found in any tier — the write-time adoption of this orchestrator-prompt file DID NOT RUN. The file is sole-copy in this worktree until the next session-start adoption sweep; run scripts/link-coordination.sh manually or restore the helper.'
+  exit 0
+fi
 
 # Trigger the EXISTING adopt-then-link arm. Default --on-conflict=skip never clobbers;
 # any non-zero (e.g. conflict) is swallowed — this hook is injection, never a gate.

@@ -71,7 +71,7 @@ Run these in order; each is $0 and read-only. **Reuse, do not reimplement.**
 
 ## §3 Failure-mode catalogue (empirically observed only — T-AIFDOC-B)
 
-Three modes `bridge-health.sh` does **not** cover (confirmed by reading its source 2026-06-03: it checks container-present / dirty_worktree / park-code+net / dedup). Grow this list on incidence, never speculatively.
+Modes `bridge-health.sh` does **not** cover (confirmed by reading its source 2026-06-03: it checks container-present / dirty_worktree / park-code+net / dedup; count-free wording — the list grows on incidence, never speculatively).
 
 > The commands below hard-code `aif-handoff-agent-1`. If the compose project was renamed, resolve the real name first (same logic `bridge-health.sh` uses): `C=$(docker ps --filter name=agent --format '{{.Names}}' | grep -i aif | head -1)` and substitute `$C`, or set `RUNTIME_BRIDGE_AGENT_CONTAINER`.
 
@@ -137,6 +137,16 @@ Three modes `bridge-health.sh` does **not** cover (confirmed by reading its sour
   2. **Repair the live primary checkout:** restore each wrongly-symlinked tracked file to a real file — `docker exec <agent> sh -c 'cd <repo>; rm -f <path>'` then restore content from `git show origin/<branch>:<path>` (host) `| docker exec -i <agent> sh -c "cat > <repo>/<path>"`. **Reversibility:** content is in git; non-destructive to task records.
 - **Do NOT** try to delete the dup from `/home/node/.claude-coordination/` inside the container — it is a **read-only host bind-mount** (`mount | grep claude-coordination` → `ro`); the source lives on the host (`~/.claude-coordination/…`) but removing it there is futile while the unfixed `link-coordination.sh` re-seeds it. The durable fix is #759, not pruning CANON.
 - **Pairs with — stale-base contamination (§3.4):** tasks dispatched before the base carried #758/#759 produce diffs that _revert_ recent staging — re-dispatch them from a refreshed base, do not harvest the stale-base commit.
+
+### §3.6 Silent-inert hook — helper resolved from ONE hard-coded path + silent exit (verdicted 2026-07-25, backward-check GAP-FOUND on 2 hooks; class incident: 2026-07-24 tsx-resolution)
+
+- **The failure class:** a hook resolves a runtime helper from a single hard-coded path and exits 0 silently when it is absent — the hook is **inert with zero signal** wherever that path does not resolve (container base clones, partial checkouts, renamed roots). Pre-fix carriers: `adopt-orchestrator-prompts.sh:26,51` (single `$REPO_ROOT/scripts/link-coordination.sh` + `[[ -f … ]] || exit 0`) and `worktree-setup.sh:152` (missing helper swallowed by `|| true`). Fixed 2026-07-25: tiered resolution + LOUD `DID NOT RUN` skip (mirror of `check-kickoff-traps.sh` host-verify runner).
+- **Detect (read-only):**
+  - **Symptom shape:** the hook's expected side effect is absent AND nothing announced it. Concretely: a file written under `.claude/orchestrator-prompts/<umbrella>/` in a worktree stays a **real file** (`ls -la` → no symlink to `~/.claude-coordination/…`) with no adoption notice in the transcript; or a fresh worktree has no coordination symlinks and the creation output carried no `link-coordination.sh not found` warning.
+  - **Version discriminator:** `grep -n 'DID NOT RUN\|not found' <checkout>/.claude/hooks/adopt-orchestrator-prompts.sh <checkout>/.claude/hooks/worktree-setup.sh` — no hits = pre-fix hook (silent-inert possible); hits = fixed hook, so **silence + missing links means the hook never fired at all** (registration/matcher problem — different diagnosis, check `.claude/settings.json` wiring).
+  - **Container angle:** a stale container base (§3.4) keeps shipping the pre-fix hooks to every dispatched task's worktree overlay — the same silent gap re-opens inside aif even after the host is fixed.
+- **Fix (Tier 1, reversible):** refresh the container base so the fixed hooks land — `bash .claude/skills/aif-doctor/helpers/refresh-aif-base.sh` (§3.4); for an already-orphaned prompt file, run the helper manually: `bash scripts/link-coordination.sh <worktree> <project-root>` (idempotent, never clobbers). No GO needed — both are the existing Tier-1 heals; nothing destructive.
+- **Class rule for new hooks:** any helper-invoking hook must resolve by tier and announce a miss loudly ([attention-is-not-a-mechanism.md §1](../../rules/attention-is-not-a-mechanism.md) — a skip whose only consumer is «nobody looked» is not a mechanism); the reference implementation is `check-kickoff-traps.sh:111-125`.
 
 ---
 
