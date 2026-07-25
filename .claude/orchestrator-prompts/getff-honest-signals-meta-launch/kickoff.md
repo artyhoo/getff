@@ -1,4 +1,5 @@
 <!-- bridge-profile: Z.AI GLM-5.2 SDK -->
+<!-- host-verify: none — orchestration document, no executable deliverable of its own: it emits the launch-table, the stage gates and the dispatch instructions, and every line of code this umbrella ships is produced under a per-stage kickoff (getff-honest-signals-s1..s6), each of which carries its own host contract. A contract here would either duplicate the stage contracts or assert nothing. The §3 gate commands ARE host commands, but they are per-stage preconditions run by the dispatching session between stages, not an acceptance check on this file's own diff. -->
 
 # KICKOFF — getff-honest-signals (meta-launch)
 
@@ -63,18 +64,29 @@ S1 and S6 ARE structurally disjoint from everything else (`run-generated-rule-mu
 
 ## §3 Stage gates (real git checks — NOT in-memory FIFO)
 
-> **⚠ CORRECTED 2026-07-24 (live, during the S1 run).** The `fix/getff-honest-signals-s<N>` convention below is **aspirational, not what aif produces.** aif names task branches **`feature/<umbrella>-<short-taskid>`** — S1 actually landed on `feature/getff-honest-signals-s1-8cab19` (PR #1140). Every gate command in this section is therefore written against a branch name that **will not exist**, and `gh pr list --search "… head:fix/…"` returns an **empty** result — which reads identically to «nothing merged». That is this umbrella's own defect class (an empty result that means «wrong query», not «no work») occurring inside its own orchestration.
+> **⚠ FIXED 2026-07-25 — the commands below now carry the real prefix.** History: on 2026-07-24 (during
+> the S1 run) this section was found to be written against `fix/getff-honest-signals-s<N>`, which **aif never
+> produces** — it names task branches `feature/<umbrella>-s<N>-<short-taskid>` (S1 landed on
+> `feature/getff-honest-signals-s1-8cab19`, PR #1140). A warning was added here, but **the five gate commands
+> were left broken**, so every one of them returned an empty result that reads identically to «nothing merged»
+> — this umbrella's own defect class, inside its own orchestration, with a prose warning as the only guard.
+> Relying on the reader to mentally substitute the prefix is attention, not a mechanism
+> ([attention-is-not-a-mechanism.md §1](../../rules/attention-is-not-a-mechanism.md)).
 >
-> **Binding correction:** resolve the real branch from the task before gating —
-> `curl -s "$RUNTIME_BRIDGE_AIF_URL/tasks/<taskId>"` → `branchName` — and substitute it into the
-> `head:` filter. Per §6 and §8, an **errored or mis-queried** gate is a HALT, never an empty gate.
+> The commands are now corrected in place and run verbatim: S1/S2/S3 resolve to #1140/#1145/#1150; S4/S5
+> return empty because they are genuinely unmerged. The signal is truthful in **both** directions.
+>
+> **Still binding:** an **errored or mis-queried** gate is a HALT, never an empty gate (§6, §8). If a gate
+> that should be green comes back empty, resolve the real branch from the task —
+> `curl -s "$RUNTIME_BRIDGE_AIF_URL/tasks/<taskId>"` → `branchName` — and re-query before concluding anything.
 
-Branch convention (as originally written — see the correction above before using it): `fix/getff-honest-signals-s<N>`.
+Branch convention (what aif actually produces): `feature/getff-honest-signals-s<N>-<short-taskid>`. The
+`head:` filter below matches on prefix, so the task-id suffix does not need to be known in advance.
 
 ### Stage 1 → Stage 2
 
 ```bash
-gh pr list --search "is:merged head:fix/getff-honest-signals-s1 base:staging" --json number,title,mergedAt,headRefName --limit 10
+gh pr list --state merged --search "head:feature/getff-honest-signals-s1 base:staging" --json number,title,mergedAt,headRefName --limit 10
 ```
 
 Expected: non-empty JSON. If empty → halt. Do NOT dispatch Stage 2.
@@ -82,13 +94,13 @@ Expected: non-empty JSON. If empty → halt. Do NOT dispatch Stage 2.
 ### Stage 2 → Stage 3
 
 ```bash
-gh pr list --search "is:merged head:fix/getff-honest-signals-s2 base:staging" --json number,title,mergedAt,headRefName --limit 10
+gh pr list --state merged --search "head:feature/getff-honest-signals-s2 base:staging" --json number,title,mergedAt,headRefName --limit 10
 ```
 
 ### Stage 3 → Stage 4
 
 ```bash
-gh pr list --search "is:merged head:fix/getff-honest-signals-s3 base:staging" --json number,title,mergedAt,headRefName --limit 10
+gh pr list --state merged --search "head:feature/getff-honest-signals-s3 base:staging" --json number,title,mergedAt,headRefName --limit 10
 ```
 
 **Extra gate (S3→S4 only, baseline collision):** after S3 merges, confirm the baselines on `staging` are the S3-regenerated ones before S4 regenerates on top:
@@ -102,13 +114,13 @@ Expected: N pass / 0 fail on a clean `origin/staging` checkout. Non-zero fail �
 ### Stage 4 → Stage 5
 
 ```bash
-gh pr list --search "is:merged head:fix/getff-honest-signals-s4 base:staging" --json number,title,mergedAt,headRefName --limit 10
+gh pr list --state merged --search "head:feature/getff-honest-signals-s4 base:staging" --json number,title,mergedAt,headRefName --limit 10
 ```
 
 ### Stage 5 → Stage 6
 
 ```bash
-gh pr list --search "is:merged head:fix/getff-honest-signals-s5 base:staging" --json number,title,mergedAt,headRefName --limit 10
+gh pr list --state merged --search "head:feature/getff-honest-signals-s5 base:staging" --json number,title,mergedAt,headRefName --limit 10
 ```
 
 **Re-probe before EVERY stage dispatch (umbrella kickoff §0 ordering rule):**
