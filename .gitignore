@@ -28,6 +28,14 @@ packages/*/node_modules
 # stay portable across sessions/worktrees (SSOT #116). Per-umbrella glob (not the
 # migration-ast per-file form) because this chain has five dispatch stages, not one.
 !.claude/orchestrator-prompts/modular-install-fullpack/kickoff-s*.md
+# beta-delivery-ux per-stage dispatch inputs (S1-S5 + R1). Same rationale as the
+# modular-install-fullpack glob above: `dispatch.ts:207` refuses a `-meta-launch`
+# kickoff (a meta-plan yields no code), so each stage needs its OWN buildable
+# kickoff, and it must be tracked to reach `staging` for the aif container base to
+# read (.claude/rules/kickoff-staging-placement.md §1). Per-umbrella glob — this
+# umbrella has six dispatch stages.
+!.claude/orchestrator-prompts/beta-delivery-ux/kickoff-s*.md
+!.claude/orchestrator-prompts/beta-delivery-ux/kickoff-r*.md
 *.log
 .DS_Store
 *.tgz
