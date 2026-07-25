@@ -80,7 +80,14 @@ done
 # ── 4. Dedup store: stale manual-fallback entries (Finding B) ────────────────
 hdr "4. Dedup store hygiene"
 if [[ -f "$DEDUP_PATH" ]]; then
-  MANUAL="$(grep -c '"backend":"manual"' "$DEDUP_PATH" 2>/dev/null || echo 0)"
+  # `grep -c` prints the count AND exits 1 when the count is zero, so a `|| echo 0`
+  # fallback appends a SECOND line: MANUAL becomes "0\n0" and the arithmetic test below
+  # dies with `[[: 0\n0: syntax error in expression`. The count is already on stdout, so
+  # swallow the exit status instead of substituting a value, and default only for the
+  # genuinely-empty case (file unreadable). Observed live 2026-07-25 during an /aif-doctor
+  # sweep: section 4 printed the syntax error and then reported PASS from the else branch.
+  MANUAL="$(grep -c '"backend":"manual"' "$DEDUP_PATH" 2>/dev/null || true)"
+  MANUAL="${MANUAL:-0}"
   if [[ "$MANUAL" -gt 0 ]]; then
     warn "$MANUAL manual-fallback dedup entr(y/ies) in $DEDUP_PATH — these can block a legit retry for 24h. Re-dispatch with --force, or prune with bridge-cleanup.sh."
   else
