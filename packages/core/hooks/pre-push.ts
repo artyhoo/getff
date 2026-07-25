@@ -297,8 +297,15 @@ function ssotIdsAt(sha: string): ReadonlySet<number> | undefined {
 function priorArtSection(rb: ResolvedBase): void {
   const commits = commitsToCheck(rb, '§7');
   if (commits === null) return;
+  // Enforcing by default since 2026-07-25 (handoff item 4): the wave-8 retro
+  // promised BOTH substance arms auto-flip at the 2026-06-10 calibration close,
+  // but only the S17 arm (s17Section below) flipped — the asymmetry produced a
+  // live doc error (fixed in #1144). The server-side pr-body gate stays the
+  // backstop; this restores the earlier local channel per the
+  // earliest-reachable-channel invariant. PA_SUBSTANCE_WARN_ONLY=true is the
+  // explicit local opt-in downgrade, mirroring S17_SUBSTANCE_WARN_ONLY.
   const substanceWarnOnly =
-    (process.env['PA_SUBSTANCE_WARN_ONLY'] ?? 'true') !== 'false';
+    (process.env['PA_SUBSTANCE_WARN_ONLY'] ?? 'false') !== 'false';
   const report = runPriorArtCheck(commits, realGit, undefined, ssotIdsAt);
 
   if (report.failures.length > 0) {
@@ -343,7 +350,7 @@ function priorArtSection(rb: ResolvedBase): void {
         process.stdout.write(`  ${f.sha}  reason: ${f.reason}; ${f.message}\n`);
       }
       process.stdout.write(
-        '\nCalibration window: warn-only through 2026-06-10.\n' +
+        '\nWarn-only via explicit PA_SUBSTANCE_WARN_ONLY=true (enforcing is the default since 2026-07-25).\n' +
           'Fix: replace `Prior-art: skipped — …` with `Prior-art: prior-art-evaluations.md#N (verdict X — rationale)`.\n\n',
       );
     } else {

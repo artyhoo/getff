@@ -20,7 +20,9 @@
 # Sub-tests:
 #   1. positive: new dep + valid trailer    → exit 0
 #   2. negative: new dep + no trailer       → exit 1 (capability flagged)
-#   3. positive: new dep + valid escape hatch → exit 0 (PA_SUBSTANCE_WARN_ONLY=true warns, no block)
+#   3. negative: new dep + valid escape hatch → exit 1 (substance arm ENFORCING by
+#      default since 2026-07-25, handoff item 4 — matches the S17 arm)
+#   3b. positive: same commit + explicit PA_SUBSTANCE_WARN_ONLY=true → exit 0 (local opt-in downgrade)
 #   4. negative: short escape hatch ("Prior-art: skipped — TODO") → exit 1
 #   5. anti-tautology: trailer-matching load-bearing — verified by Stryker mutation
 #      score ≥80% on prior-art.ts (checkTrailerBody paired-negative in vitest).
@@ -103,13 +105,16 @@ TSX_LOADER="$REAL_NODE_MODULES/tsx/dist/esm/index.mjs"
 # sections 1–6 (actionlint/zizmor/self-tests/manifest/principles) and their deps.
 # NODE_PATH resolves tsx; PATH override keeps any residual stub binaries ahead.
 run_hook() {
+  # Extra args (e.g. PA_SUBSTANCE_WARN_ONLY=true) are passed to `env` as
+  # KEY=VALUE overrides for the hook process.
   local repo="$1" rc
+  shift
   (
     cd "$repo"
     NODE_PATH="$REAL_NODE_MODULES" \
     PREPUSH_ONLY="prior-art" \
     PATH="$repo/_stub_bin:$PATH" \
-      node --import "$TSX_LOADER" "$TS_HOOK" >"$repo/_hook_out.log" 2>&1
+      env "$@" node --import "$TSX_LOADER" "$TS_HOOK" >"$repo/_hook_out.log" 2>&1
   )
   rc=$?
   # Diagnostic on non-zero exit: a silent FAIL hides the actual hook error
@@ -240,9 +245,11 @@ test_2_negative_dep_no_trailer() {
   rm -rf "$repo"
 }
 
-# Test 3: capability change + escape-hatch trailer → exit 0
-# (PA_SUBSTANCE_WARN_ONLY=true by default → warn-only, does not block)
-test_3_positive_escape_hatch() {
+# Test 3: capability change + escape-hatch trailer → exit NON-ZERO.
+# Substance arm ENFORCING by default since 2026-07-25 (handoff item 4): the
+# wave-8 retro promised both substance arms auto-flip at the 2026-06-10
+# calibration close; only S17 flipped. This paired-negative pins the new default.
+test_3_negative_escape_hatch_enforcing_default() {
   local repo
   repo=$(make_test_repo)
   add_capability_commit "$repo" \
@@ -250,9 +257,26 @@ test_3_positive_escape_hatch() {
     "Body." \
     "Prior-art: skipped — refactor only, no new capability"
   if run_hook "$repo"; then
-    record pass "3 — escape hatch (warn-only mode default) → exit 0"
+    record fail "3 — escape hatch on capability commit should BLOCK by default (enforcing since 2026-07-25) but exited 0"
   else
-    record fail "3 — escape hatch in warn-only mode expected exit 0, got non-zero"
+    record pass "3 — escape hatch on capability commit → exit non-zero (enforcing default)"
+  fi
+  rm -rf "$repo"
+}
+
+# Test 3b: same commit + explicit PA_SUBSTANCE_WARN_ONLY=true → exit 0 (the
+# local opt-in downgrade still works, mirroring S17_SUBSTANCE_WARN_ONLY).
+test_3b_positive_escape_hatch_explicit_warnonly() {
+  local repo
+  repo=$(make_test_repo)
+  add_capability_commit "$repo" \
+    "chore: bump dep" \
+    "Body." \
+    "Prior-art: skipped — refactor only, no new capability"
+  if run_hook "$repo" PA_SUBSTANCE_WARN_ONLY=true; then
+    record pass "3b — escape hatch + explicit PA_SUBSTANCE_WARN_ONLY=true → exit 0 (opt-in downgrade)"
+  else
+    record fail "3b — explicit warn-only opt-in expected exit 0, got non-zero"
   fi
   rm -rf "$repo"
 }
@@ -327,7 +351,8 @@ test_8_new_dep_with_tilde_version_caught_with_trailer() {
 
 test_1_positive_dep_with_trailer
 test_2_negative_dep_no_trailer
-test_3_positive_escape_hatch
+test_3_negative_escape_hatch_enforcing_default
+test_3b_positive_escape_hatch_explicit_warnonly
 test_4_negative_short_escape
 test_5_antitautology_covered_by_vitest
 test_6_antitautology_covered_by_vitest
