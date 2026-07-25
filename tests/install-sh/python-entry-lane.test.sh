@@ -370,7 +370,10 @@ fi
 # Without it, the lane test stays green on an S2 that ships an empty agent surface (the host-verify
 # commands would all be negative/bookkeeping checks). Each assertion names a CURATED-SUBSET artefact
 # from kickoff §2 item 1; failure here is the fail-closed signal the contract requires.
-# @arm:D8:pos agent-surface-delivery (python lane — fail-closed when the curated subset is missing)
+# D8 positive arm: agent-surface delivery (python lane — fail-closed when the curated subset is
+# missing). NOTE deliberately NOT an `@arm:` marker: that locator grammar belongs to the
+# adapter-jig conformance registry (principle 33, frozen F1-F11 contract per SSOT #226) — a D8
+# marker here obligates a foreign registry and fails its pairing gate. Plain-comment label only.
 echo ""; echo "  ── (13) D8 agent surface delivered (skills / agents / hooks / .mcp.json / AGENTS.md / .ai-factory/) ──"
 P=$(py_fixture)
 ( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
