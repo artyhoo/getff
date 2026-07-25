@@ -45,12 +45,16 @@ import type { ConventionNode } from '../ir/types.ts';
 export const PYTHON_STARTER_NODES: ConventionNode[] = [
   // ── datetime safety — ban a direct wall-clock read (untestable + often naive/tz-unaware). ──
   // Flagship P5 ban. Single-module form: `from datetime import datetime; datetime.now()`.
+  // S3 narrow (getff-honest-signals §8.3): pattern matches ONLY zero-arg `datetime.now()` — the
+  // untestable naive read. The tz-aware form `datetime.now(timezone.utc)` (the remedy ruff.toml:9
+  // names) does NOT match a zero-arg literal pattern, so it stays GREEN. $$ARGS wildcard would
+  // re-catch the recommended form; do NOT re-add it.
   {
     id: 'getff-no-datetime-now',
     claim: 'Use an injected clock, not datetime.now() directly — a bare now() read is untestable and often naive/tz-unaware',
     anchors: [],
     selectorClass: 'syntax',
-    params: { kind: 'call', pattern: 'datetime.now($$$ARGS)' },
+    params: { kind: 'call', pattern: 'datetime.now()' },
     defaultSeverity: 'error',
     provenance: [],
     pairedExamples: {
@@ -60,12 +64,13 @@ export const PYTHON_STARTER_NODES: ConventionNode[] = [
   },
   // Two-module form: `import datetime; datetime.datetime.now()`. Distinct AST from the form above
   // (see DATETIME CAVEAT) — a second literal-pattern node so BOTH forms are covered, no overshoot.
+  // S3 narrow: zero-arg only; see getff-no-datetime-now above for the rationale.
   {
     id: 'getff-no-datetime-datetime-now',
     claim: 'Use an injected clock, not datetime.datetime.now() directly — a bare now() read is untestable and often naive/tz-unaware',
     anchors: [],
     selectorClass: 'syntax',
-    params: { kind: 'call', pattern: 'datetime.datetime.now($$$ARGS)' },
+    params: { kind: 'call', pattern: 'datetime.datetime.now()' },
     defaultSeverity: 'error',
     provenance: [],
     pairedExamples: {

@@ -407,6 +407,27 @@ PY
       && ok "live-fire: ast-grep rule $rid fired RED on planted violation" \
       || bad "live-fire: ast-grep rule $rid did NOT fire (out: $(echo "$sg_out" | tr '\n' '|' | cut -c1-200))"
   done
+
+  # ── LIVE-FIRE (GREEN): narrowed datetime rules stay silent on the tz-aware recommended form ──
+  # T7/T14 counter (getff-honest-signals S3): proves the pattern narrow did not over-narrow into
+  # "fires on nothing". The RED arm above proves the naive form still bites; this arm proves the
+  # ruff.toml:9 recommended form (`datetime.now(timezone.utc)`) is unblocked post-fix.
+  P=$(mktemp -d); printf '{"name":"lfg","version":"0.0.0"}\n' > "$P/package.json"
+  run_delivery "$P" >/dev/null 2>&1
+  cat > "$P/sample-green.py" <<'PY'
+import datetime
+from datetime import timezone
+# ruff.toml:9 names this as the recommended form — ast-grep rules must NOT fire on it
+a = datetime.now(timezone.utc)
+b = datetime.datetime.now(timezone.utc)
+PY
+  sg_green_out=$(cd "$P" && npx --yes -p @ast-grep/cli@0.44.1 ast-grep scan . 2>&1)
+  sg_green_rc=$?
+  if [ "$sg_green_rc" -eq 0 ] && ! echo "$sg_green_out" | grep -qE 'getff-no-datetime-(datetime-)?now'; then
+    ok "live-fire: narrowed datetime rules stay GREEN on tz-aware recommended form (rc=$sg_green_rc; ruff remedy unblocked)"
+  else
+    bad "live-fire: GREEN arm FAILED — narrowed rules fired on tz-aware form or scan crashed (rc=$sg_green_rc; out: $(echo "$sg_green_out" | tr '\n' '|' | cut -c1-200))"
+  fi
 else
   skip "live-fire ast-grep SKIP — @ast-grep/cli@0.44.1 not obtainable (npx/network absent); deterministic copy assertions carry CI"
 fi
