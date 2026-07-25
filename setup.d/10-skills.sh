@@ -92,8 +92,8 @@ fi
 for _skill in template-audit ai-doc rule-research rule-tests; do
   copy_skill_with_transform "$_skill"
 done
-if [ -n "${WITH_AIF_SUITE:-}" ]; then
-  echo "  ▶ AIF operator suite (--with-aif-suite): pipeline dispatcher aif-doctor harvest night-mode story"
+if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
+  echo "  ▶ AIF operator suite (profile=factory OR --with-aif-suite): pipeline dispatcher aif-doctor harvest night-mode story"
   for _skill in pipeline dispatcher aif-doctor harvest night-mode story; do
     copy_skill_with_transform "$_skill"
   done

@@ -30,9 +30,11 @@ for f in "$PKG_ROOT"/agents/*.md; do
     orchestrator-worker-discipline.md|reviewer-discipline.md)
       # F7 companion split (agents arm): these two presuppose the aif-handoff operator runtime
       # (runtime-bridge dispatch / reviewer-session protocol) — same class as the gated suite
-      # skills in 10-skills.sh. Ship only under --with-aif-suite, or keep refreshing a copy
-      # already on disk (presence = prior opt-in; parity with the skills gate in install.sh).
-      if [ -z "${WITH_AIF_SUITE:-}" ] && [ ! -e "$PROJECT_ROOT/.claude/agents/$(basename "$f")" ]; then continue; fi ;;
+      # skills in 10-skills.sh. Ship only under --profile factory (or the legacy --with-aif-suite
+      # escape), or keep refreshing a copy already on disk (presence = prior opt-in; parity with
+      # the skills gate in 10-skills.sh).
+      if [ "${PROFILE:-core}" != "factory" ] && [ -z "${WITH_AIF_SUITE:-}" ] \
+        && [ ! -e "$PROJECT_ROOT/.claude/agents/$(basename "$f")" ]; then continue; fi ;;
   esac
   _dst="$PROJECT_ROOT/.claude/agents/$(basename "$f")"
   # Agents carry ](../docs/…) + ](../.claude/rules/…) refs that dangle on a consumer tree
@@ -60,8 +62,10 @@ for _doc in ${SHIPPED_DOCS[@]+"${SHIPPED_DOCS[@]}"}; do
     packages/core/templates/shared/skill-context/*/SKILL.md)
       _sc="${_doc#packages/core/templates/shared/skill-context/}"; _sc="${_sc%/SKILL.md}"
       # F7 companion split (skill-context arm): aif-orchestrator-discipline pairs with the
-      # gated orchestrator-worker-discipline agent (@dual-pair) — suite-only, or present = prior opt-in.
-      if [ "$_sc" = "aif-orchestrator-discipline" ] && [ -z "${WITH_AIF_SUITE:-}" ] \
+      # gated orchestrator-worker-discipline agent (@dual-pair) — factory-only (or legacy
+      # --with-aif-suite escape), or present = prior opt-in.
+      if [ "$_sc" = "aif-orchestrator-discipline" ] && [ "${PROFILE:-core}" != "factory" ] \
+        && [ -z "${WITH_AIF_SUITE:-}" ] \
         && [ ! -e "$PROJECT_ROOT/.ai-factory/skill-context/$_sc/SKILL.md" ]; then continue; fi
       mkdir_safe "$PROJECT_ROOT/.ai-factory/skill-context/$_sc"
       copy_safe "$PKG_ROOT/$_doc" "$PROJECT_ROOT/.ai-factory/skill-context/$_sc/SKILL.md" ;;
