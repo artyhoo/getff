@@ -614,6 +614,46 @@ describe(
       expect(r.status, out).toBe(0);
     });
 
+    // ── S2 §3 negative case — lychee gate still catches consumer-side broken links ──
+    // S2 (getff-honest-signals) §3 binding contract: "Add coverage that the section still
+    // fails when the consumer's own changed markdown has a real dangling link — otherwise
+    // part 1 has silently disabled the gate, which is this umbrella's defect class wearing
+    // the opposite mask." Part 1 (gate narrowing) is PARKED per the S2 plan §Park block;
+    // Part 2 only extends transform_internal_refs (setup.d/lib.sh) — it does NOT touch
+    // §8 lycheeSection. This test guards the gate's liveness regardless of Part 1's park:
+    // a consumer-owned .md with a broken link → lychee REJECTS → §8 dies (exit 1).
+    // T-HS-A: assert EXIT CODE first, message wording second.
+    it('S2 §3 NEGATIVE — CONSUMER-owned markdown with a real broken link + lychee REJECTS → §8 lycheeSection blocks (gate is live, not silently disabled)', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      // Override the consumer-sandbox's exit-0 lychee stub to REJECT — mimics a real
+      // dangling link in a consumer-authored file. The §8 lycheeSection shells out to
+      // this binary; its non-zero exit + stderr bubbles via die().
+      const stubBin = join(dir, '.stub-bin');
+      writeFileSync(
+        join(stubBin, 'lychee'),
+        '#!/bin/sh\necho "✗ bad-link-in-consumer-file.md: broken link"\nexit 1\n',
+      );
+      chmodSync(join(stubBin, 'lychee'), 0o755);
+      // A CONSUMER's OWN markdown file (NOT framework-shipped — it lives at the
+      // consumer's own docs/ path, never touched by install.sh's copy-list). The §8
+      // walk covers all changed *.md regardless of owner; this one would trip a real
+      // offline lychee run.
+      addConsumerCommit(
+        dir,
+        'docs/consumer-page.md',
+        '# Page\n\n[broken](./does-not-exist.md)\n',
+        'docs: add a page with a broken link',
+      );
+
+      const r = runHook(dir, hook, baseSha);
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      // §3 binding (T-HS-A): exit code FIRST, wording second. exit 1 = gate lived.
+      expect(r.status, out).toBe(1);
+      expect(out, out).toMatch(/bad-link-in-consumer-file\.md/);
+      expect(out, out).toMatch(/lychee found broken links/);
+    });
+
     // ── S3 deliverable 2: consumer-topology smoke ──────────────────────────────
     // The kickoff's explicit smoke: a tmp repo whose default branch is `main`, only the
     // consumer copy-list installed (no maintainer packages/core parts, no SSOT register),

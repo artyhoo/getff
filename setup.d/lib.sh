@@ -57,6 +57,12 @@ PRETTIERIGNORE_CFG_END='# <<< rules-as-tests-aif shipped-configs (managed) <<<'
 # FIRST push, pre-push §8 (`lychee --offline` over changed *.md) went red on ~87 such links
 # (flat-install smoke 2026-07-10). Leaves genuinely consumer-resolvable refs intact
 # (e.g. `](../../hooks/...)` — tests/install-sh/transform-internal-refs.test.sh #5).
+#
+# S2 (2026-07-25) added `agents/` and `tests/` arms: agents/ refs from skill files land at the
+# WRONG path on a consumer (`<consumer>/agents/` vs shipped `.claude/agents/`); tests/ never
+# ships. scripts/ is INTENTIONALLY UNHANDLED — partially shipped (subset via 40-configs.sh),
+# per-file ambiguity is a §4 park trigger (kickoff getff-honest-signals-s2). Extend only with a
+# shipped-scripts allowlist if a future scripts/ ref to a non-shipped script re-breaks a push.
 # Uses `-i.bak` for BSD-sed/GNU-sed portability, then removes the backup.
 transform_internal_refs() {
   local f="$1"
@@ -68,6 +74,8 @@ transform_internal_refs() {
     -e "s#\]\((\.\./)+\.claude/rules/#](${UPSTREAM_BLOB_URL}/.claude/rules/#g" \
     -e "s#\]\((\.\./)+rules/#](${UPSTREAM_BLOB_URL}/.claude/rules/#g" \
     -e "s|\]\((\.\./)+install\.sh([#)])|](${UPSTREAM_BLOB_URL}/install.sh\2|g" \
+    -e "s#\]\((\.\./)+agents/#](${UPSTREAM_BLOB_URL}/agents/#g" \
+    -e "s#\]\((\.\./)+tests/#](${UPSTREAM_BLOB_URL}/tests/#g" \
     "$f"
   rm -f "${f}.bak"
 }
