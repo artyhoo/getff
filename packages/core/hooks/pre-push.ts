@@ -361,7 +361,9 @@ function priorArtSection(rb: ResolvedBase): void {
         process.stdout.write(`  ${f.sha}  reason: ${f.reason}; ${f.message}\n`);
       }
       process.stdout.write(
-        '\nSet PA_SUBSTANCE_WARN_ONLY=true to downgrade locally (calibration window expired).\n\n',
+        '\nA capability commit must cite the SSOT, not take the escape hatch:\n' +
+          '  Prior-art: prior-art-evaluations.md#N (verdict X — rationale)\n' +
+          'Enforcing by default since 2026-07-25; PA_SUBSTANCE_WARN_ONLY=true downgrades locally.\n\n',
       );
       process.exit(1);
     }

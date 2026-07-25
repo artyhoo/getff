@@ -706,8 +706,14 @@ jobs:
           S17_SUBSTANCE_WARN_ONLY: 'false'
           PREPUSH_UPSTREAM_REF: origin/${{ github.base_ref }}
         run: PREPUSH_ONLY=s17 npx tsx packages/core/hooks/pre-push.ts
-      - name: §7 Prior-art trailer check over PR commits (base blocks; substance warn-only per Option B)
+      - name: §7 Prior-art trailer check over PR commits (base + substance both block)
         # Same promotion exemption as the §1.7 step above (head=staging && base=main).
+        # Substance arm: warn-only until 2026-07-25 (Option B calibration), enforcing since —
+        # the default in pre-push.ts priorArtSection flipped, and this step deliberately does
+        # NOT pin PA_SUBSTANCE_WARN_ONLY so it tracks that default (unlike the §1.7 step above,
+        # which pins its arms explicitly). Population note: this arm checks EACH branch commit,
+        # while pr-body-prior-art.yml checks the PR body — a granular branch commit carrying
+        # `Prior-art: skipped` now fails here even when the PR body carries a positive trailer.
         continue-on-error: ${{ github.base_ref == 'main' && github.head_ref == 'staging' }}
         env:
           PREPUSH_UPSTREAM_REF: origin/${{ github.base_ref }}
