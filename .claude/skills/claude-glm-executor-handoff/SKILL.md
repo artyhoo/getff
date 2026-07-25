@@ -99,6 +99,13 @@ When the GLM worker returns a non-`DONE` status:
 
 A task that exceeds its cap is marked `BLOCKED` at the pipeline level and surfaced in the morning report (per `night-mode` terminal condition).
 
+**Rework-feedback delivery (aif REST edge).** When the re-dispatch happens through the aif task
+state-machine (not an in-session subagent), the corrective findings MUST travel via
+`answer.ts --decision request_changes` — a bare events-API POST flips the task to `implementing`
+but silently drops the feedback text, so the GLM worker reworks blind and returns unchanged
+(incident: task `dfaf72a5`, 2026-07-25). Mechanics + full warning: [`dispatcher/SKILL.md` §2.4
+REVISE bullet](../dispatcher/SKILL.md) — owned there; this is a pointer, not a restatement.
+
 ## §5 Honest gaps — designed-not-proven
 
 Per `night-mode` §5 (empirical-over-inferred) — the following claims about GLM-5.2-as-executor are **plausible but not yet probed end-to-end in this repo**:
