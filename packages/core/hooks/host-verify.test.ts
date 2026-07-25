@@ -50,14 +50,19 @@ function runRunner(
   return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
 }
 
-describe.skipIf(
-  // Skip gracefully if `timeout` is unavailable — the runner degrades but tests
-  // that depend on the timeout arm cannot assert its contract.
-  (() => {
-    try { execSync('command -v timeout', { stdio: 'ignore' }); return false; }
-    catch { return true; }
-  })()
-)('host-verify.sh — runner contract', () => {
+// Mirror the runner's own binary resolution: scripts/host-verify.sh:415 probes
+// `for _t in timeout gtimeout` and uses whichever it finds first. A skip-probe that
+// checks only `timeout` would silently skip the timeout case on a host with only
+// `gtimeout` (e.g. macOS with Homebrew coreutils) even though the runner would
+// actually run the test successfully. Match the runner's resolution exactly.
+const HAS_TIMEOUT_BIN = (() => {
+  for (const bin of ['timeout', 'gtimeout']) {
+    try { execSync(`command -v ${bin}`, { stdio: 'ignore' }); return true; } catch { /* keep scanning */ }
+  }
+  return false;
+})();
+
+describe('host-verify.sh — runner contract', () => {
   it('a failing substantive command → exit 1', () => {
     // `test -f` with args is substantive (passes the no-op guard) but fails here.
     const { kickoff, repoRoot } = writeKickoffInTempRepo(
@@ -77,7 +82,13 @@ describe.skipIf(
     expect(r.status).toBe(1);
   });
 
-  it('timeout kills a hung command before the default 900s', () => {
+  it.skipIf(
+    // Skip ONLY the timeout case when neither binary is available. The other six
+    // tests do not depend on `timeout`/`gtimeout` and were previously dropped
+    // by the `describe.skipIf` wrapper when only `timeout` (not `gtimeout`) was
+    // probed on a host that had `gtimeout` instead.
+    !HAS_TIMEOUT_BIN,
+  )('timeout kills a hung command before the default 900s', () => {
     // `sleep 5` under a 1s timeout must be killed → non-zero exit.
     const { kickoff, repoRoot } = writeKickoffInTempRepo(
       '# k\n\n```bash host-verify\nsleep 5\n```\n',

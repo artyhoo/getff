@@ -346,19 +346,27 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
     const abs = writeKickoff(
       '# Wave N kickoff\n\n````text\n```bash host-verify\nrm -rf /tmp/should-not-run\n```\n````\n',
     );
-    expect(runHook('Write', abs).status).toBe(2);
+    const r = runHook('Write', abs);
+    expect(r.status).toBe(2);
+    // Arm-1 stderr assertion: this fixture must trip arm 1 (the host-verify contract check),
+    // NOT arm 2. The exit code alone cannot distinguish — both arms exit 2.
+    expect(r.stderr).toMatch(/kickoff host-verify:/);
   });
 
   it('an UNTERMINATED fence is an error, not "the rest of the file is commands"', () => {
     const abs = writeKickoff(
       '# Wave N kickoff\n\n```bash host-verify\nnpx vitest run foo\n\nThen the orchestrator reviews the diff.\n',
     );
-    expect(runHook('Write', abs).status).toBe(2);
+    const r = runHook('Write', abs);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/kickoff host-verify:/);
   });
 
   it('a contract of no-ops only is rejected (cheaper bypass than the documented opt-out)', () => {
     const abs = writeKickoff('# Wave N kickoff\n\n```bash host-verify\n:\n```\n');
-    expect(runHook('Write', abs).status).toBe(2);
+    const r = runHook('Write', abs);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/kickoff host-verify:/);
   });
 
   it('the em-dash opt-out floor is measured on the RATIONALE, not on the separator bytes', () => {
@@ -367,9 +375,9 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
     // documented 20-char floor accepted 17 visible characters.
     const seventeen = 'x'.repeat(17); // under the floor, was wrongly accepted
     const twenty = 'y'.repeat(20); // exactly the floor
-    expect(
-      runHook('Write', writeKickoff(`# k\n<!-- host-verify: none — ${seventeen} -->\n`)).status,
-    ).toBe(2);
+    const r1 = runHook('Write', writeKickoff(`# k\n<!-- host-verify: none — ${seventeen} -->\n`));
+    expect(r1.status).toBe(2);
+    expect(r1.stderr).toMatch(/kickoff host-verify:/);
     expect(
       runHook('Write', writeKickoff(`# k\n<!-- host-verify: none — ${twenty} -->\n`)).status,
     ).toBe(0);
@@ -428,8 +436,11 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
     expect(r.stderr).toMatch(/kickoff host-verify:/);
   });
 
-  // B3 — six no-op contract variants. `:` is already tested above; the remaining five here.
-  for (const noop of ['true;', 'exit 00', '{ :; }', 'cd .', 'echo']) {
+  // B3 — six no-op contract variants. `:` is already tested above as a standalone
+  // regression guard; the remaining six variants here, including `:;` (the cheapest
+  // bypass of all — a true no-op even under bash's special-builtin rules) which was
+  // missing from the original loop and surfaced by the 2026-07-25 round-2 rework.
+  for (const noop of ['true;', 'exit 00', '{ :; }', 'cd .', 'echo', ':;']) {
     it(`B3 no-op guard rejects: \`${noop}\` → exit 2`, () => {
       const abs = writeKickoff(`# k\n\n\`\`\`bash host-verify\n${noop}\n\`\`\`\n`);
       const r = runHook('Write', abs);
@@ -620,5 +631,38 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/kickoff host-verify:/);
     expect(r.stderr).toMatch(/BOTH a contract block AND an opt-out/);
+  });
+
+  it('env-plumbing sanity: a non-ZCODE variable reaches the hook (pins runHook env-spread fix)', () => {
+    // Pins the `{ ...process.env, ...env }` spread at line 73. The prior version
+    // silently dropped every `env` key except ZCODE_PROJECT_DIR, so the B6 LC_ALL
+    // legs above were the ONLY tests passing another variable, and they could not
+    // detect a spread reversion: the runner's locale-independent `tr -d '\200-\277'`
+    // count is invariant across LC_ALL (verified at scripts/host-verify.sh:328-332),
+    // so removing the spread leaves them passing. The sibling
+    // inject-session-bootstrap.test.ts:196 case uses AIF_HOOK_LANG because that
+    // hook echoes it; this hook does not echo any var, so the observable side
+    // effect is REL_PATH — `.claude/hooks/check-kickoff-traps.sh:45` reads
+    // CLAUDE_PROJECT_DIR into REPO_ROOT, and line 77 computes REL_PATH as
+    // `ABS_PATH#"$REPO_ROOT/"`. A foreign CLAUDE_PROJECT_DIR (one that is NOT a
+    // prefix of ABS_PATH) leaves REL_PATH equal to ABS_PATH unchanged; that
+    // absolute path is then printed verbatim in the violation text.
+    //
+    // Choice of variable: CLAUDE_PROJECT_DIR is read at hook line 45 — the same
+    // hook that handles the foreign-checkout case (lines 65-71) where the prior
+    // REPO_ROOT-relative scope match silently exited 0. The absolute-ABS_PATH
+    // shape in stderr appears ONLY if the value we passed reached the hook.
+    //
+    // Falsifier: revert line 73 to `{ ...process.env }` (omitting `...env`) —
+    // CLAUDE_PROJECT_DIR reverts to ambient (unset in this container, so REPO_ROOT
+    // resolves via `$(cd "$(dirname "$0")/../.." && pwd)` = real repo root, which
+    // IS a prefix of ABS_PATH), REL_PATH becomes a relative path, and the
+    // `toContain(abs)` assertion below goes RED because the absolute path no
+    // longer appears in the violation text.
+    const abs = writeKickoff(`# Wave N kickoff\n${CITE}\nActive traps: T1, T3.\n`);
+    const foreign = '/nonexistent-env-plumbing-marker';
+    const r = runHook('Write', abs, { CLAUDE_PROJECT_DIR: foreign });
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain(abs);
   });
 });

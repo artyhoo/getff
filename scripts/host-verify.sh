@@ -114,6 +114,45 @@ fi
 #   B6 — byte-vs-char counting under non-UTF-8 locale → char count is locale-independent
 #   B8 — tab-indented fence (tab = 4 columns, meets the ≥4 rule) → NOT a contract opener
 #
+# KNOWN LIMITS — fences inside CommonMark HTML blocks (§4.6) are NOT modeled.
+#   Per CommonMark §4.6 the content of an HTML block is raw HTML — a fence inside `<pre>`,
+#   `<details>`, `<script>`, `<style>`, `<table>`, `<blockquote>`, `<dl>`, `<ul>`, `<ol>` (and
+#   the other §4.6 type-1/type-6 block tags) renders LITERALLY to a human reader. This parser
+#   treats the fence as live and extracts its body as a contract — the exact class T-AutonomyHardening-A
+#   names ("markup the parser does not model"). Recorded as a known limit rather than fixed inline
+#   because the §4.6 surface is wide (7 block types, each with its own close condition) and HTML
+#   blocks are vanishingly rare in real kickoffs (zero occurrences across the tracked corpus at
+#   audit time 2026-07-25). Two representative fixtures that demonstrate the limit:
+#
+#     fixture 1 — `<pre>` (§4.6 type 1, raw-HTML-until-close-tag):
+#       ```md
+#       <pre>
+#       ```bash host-verify
+#       npx vitest run SHOULD-NOT-RUN
+#       ```
+#       </pre>
+#       ```
+#       Measured: bash host-verify.sh <fixture> --list extracts `npx vitest run SHOULD-NOT-RUN`
+#       as a LIVE contract (rc=1 because the file is missing — the extraction is the bug, the
+#       failure is incidental). A human reader sees the fence rendered as literal text inside
+#       the <pre> block, NOT as a contract.
+#
+#     fixture 2 — `<details>` (§4.6 type 6, block-level-until-blank-line):
+#       ```md
+#       <details><summary>example</summary>
+#       ```bash host-verify
+#       npx vitest run SHOULD-NOT-RUN
+#       ```
+#       </details>
+#       ```
+#       Measured: same extraction behaviour; same human/parser divergence.
+#
+#   Compensating discipline: review-time — a kickoff that uses an HTML block to wrap what it
+#   intends as a contract is malformed by CommonMark rules, and the rendered-form mismatch
+#   (fence visible as text inside a <pre>, not as a syntax-coloured contract block) is itself
+#   the reviewable signal. The parser's correct handling of every other bypass class (B1-B8)
+#   is unchanged.
+#
 # The parser is a single awk script that emits one tagged line per record:
 #   `CONTRACT <line>` — a command inside a host-verify fenced block
 #   `OPTOUT <rationale>` — the rationale captured from a valid `<!-- host-verify: none … -->`
