@@ -125,6 +125,37 @@ function runHook(
   return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
 }
 
+/**
+ * Make `body` the payload the hook's probe reads, for the duration of `fn`.
+ *
+ * The F10 arm's entire contract is a function of what GET /tasks returns, so a
+ * test that cannot control that body cannot test the arm at all — which is why
+ * the arm shipped with zero in-flight coverage.
+ *
+ * The fixture is a `file://` base URL rather than an HTTP server, and both
+ * rejected alternatives are worth recording because each looks correct:
+ *   - a one-shot `nc -l` (the original) serves a single connection, spells its
+ *     flags differently on BSD and GNU, and when `nc` is absent degrades into a
+ *     test that silently asserts nothing.
+ *   - an in-process `node:http` server CANNOT work here: runHook uses
+ *     spawnSync, which blocks the event loop, so the server never accepts the
+ *     connection and every case fails as "probe unreachable".
+ * The hook only ever consumes curl's stdout, so `file://<dir>` + a file named
+ * `tasks` exercises the identical code path (curl → jq → predicate) with no
+ * port, process or platform dependency.
+ */
+function withTasks<T>(body: string, fn: (url: string) => T): T {
+  const dir = mkdtempSync(join(tmpdir(), 'f10-tasks-'));
+  tmpDirs.push(dir);
+  writeFileSync(join(dir, 'tasks'), body, 'utf8');
+  return fn(`file://${dir}`);
+}
+
+/** A minimal aif task object — only the fields the arm's filter reads. */
+function task(status: string): Record<string, unknown> {
+  return { id: `t-${status}`, title: `task ${status}`, status, paused: false };
+}
+
 /** Write a fresh orchestration-mode marker file; returns its path. */
 function writeMarker(): string {
   const dir = mkdtempSync(join(tmpdir(), 'm4-5-marker-'));
@@ -898,23 +929,237 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', () => {
   it('an empty task list is a genuine all-clear: no block', () => {
     // Serve a literal empty array, so "no work in flight" is distinguished from "probe broke".
     const tr = writeTranscript([{ type: 'assistant', message: { content: [{ type: 'text', text: 'ok' }] } }]);
-    const dir = mkdtempSync(join(tmpdir(), 'f10-empty-'));
-    tmpDirs.push(dir);
-    const body = join(dir, 'tasks.json');
-    writeFileSync(body, '[]', 'utf8');
-    const port = 59996;
-    // A one-shot HTTP responder — no dependency beyond what the repo already uses.
-    const server = spawnSync('bash', ['-c',
-      `(printf 'HTTP/1.1 200 OK\\r\\nContent-Length: 2\\r\\nConnection: close\\r\\n\\r\\n[]' | nc -l ${port} >/dev/null 2>&1 &) ; sleep 0.3`,
-    ], { encoding: 'utf8' });
-    void server;
-    const r = runHook(
-      { transcript_path: tr, stop_hook_active: false, session_id: 'f10-empty' },
-      { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: `http://127.0.0.1:${port}` },
+    const r = withTasks('[]', (url) =>
+      runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'f10-empty' },
+        { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+      ),
     );
     expect(r.status).toBe(0);
-    // Either a clean all-clear (silent) or the honest degraded notice if nc is unavailable —
-    // both are correct; what must NEVER happen is a false "N tasks in flight" claim.
     expect(r.stdout, 'must never fabricate in-flight work').not.toMatch(/task\(s\) still in flight/);
+    expect(r.stdout.trim(), 'an empty queue is a real all-clear, not a degraded probe').toBe('');
+  });
+
+  // ── In-flight contract ──────────────────────────────────────────────────────
+  // Everything above this line points the probe at a DEAD port, so until these
+  // were added the arm's entire reason to exist — "there is work in flight, do
+  // not stop" — had zero coverage. A 2026-07-24 mutation campaign proved it:
+  // inverting the comparison, deleting the `paused` filter, dropping a status
+  // from the list, and muting the in-flight branch outright ALL left the suite
+  // green. A suite that stays green with the mechanism disabled is not a gate.
+
+  it('PAIRED-POSITIVE: an in-flight task blocks the stop and names the count', () => {
+    const tr = writeTranscript([assistantText('ok')]);
+    const r = withTasks(JSON.stringify([task('implementing')]), (url) =>
+      runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'f10-live' },
+        { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+      ),
+    );
+    expect(r.status).toBe(0);
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision, 'work in flight must not let the turn end').toBe('block');
+    expect(parsed.reason).toMatch(/1 aif task\(s\) still in flight/);
+    expect(parsed.reason, 'the directive is the payload, not just the fact').toMatch(/Do NOT end the turn on a report/);
+  });
+
+  it('counts every NON-TERMINAL status, not a hand-maintained subset', () => {
+    // The shipped predicate enumerated {planning, implementing, review,
+    // blocked_external} — a strict subset of the real vocabulary in
+    // packages/runtime-bridge/src/types.ts. `backlog` was the sharp miss: at
+    // coordinator cap, dispatched tasks queue there, so the arm went silent with
+    // work about to run. Enumerating terminal statuses instead makes any status
+    // added upstream count as in-flight by default.
+    for (const status of ['backlog', 'planning', 'plan_ready', 'implementing', 'review', 'blocked_external']) {
+      const tr = writeTranscript([assistantText('ok')]);
+      const r = withTasks(JSON.stringify([task(status)]), (url) =>
+        runHook(
+          { transcript_path: tr, stop_hook_active: false, session_id: `f10-st-${status}` },
+          { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+        ),
+      );
+      expect(r.stdout, `status "${status}" is non-terminal and MUST count as in flight`)
+        .toMatch(/still in flight/);
+    }
+  });
+
+  it('PAIRED-NEGATIVE: terminal statuses are not in flight (or every turn would block forever)', () => {
+    for (const status of ['done', 'verified']) {
+      const tr = writeTranscript([assistantText('ok')]);
+      const r = withTasks(JSON.stringify([task(status)]), (url) =>
+        runHook(
+          { transcript_path: tr, stop_hook_active: false, session_id: `f10-term-${status}` },
+          { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+        ),
+      );
+      expect(r.stdout.trim(), `"${status}" is terminal — counting it would block every turn forever`).toBe('');
+    }
+  });
+
+  it('PAIRED-NEGATIVE: a PAUSED task does not count (it cannot advance)', () => {
+    const tr = writeTranscript([assistantText('ok')]);
+    const r = withTasks(JSON.stringify([{ ...task('implementing'), paused: true }]), (url) =>
+      runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'f10-paused' },
+        { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+      ),
+    );
+    expect(r.stdout.trim(), 'a paused task is not progressing; blocking on it would spin').toBe('');
+  });
+
+  // ── Guard-shadowing regression (the 2026-07-24 cold-audit BLOCKER) ──────────
+  // The arm used to sit at the BOTTOM of the hook, behind six `exit 0` guards.
+  // The already-recapped guard exits when the turn carries $AIF_RECAP_MARKER —
+  // and an orchestrator that "ends its turn on a report" is emitting exactly
+  // that, using the marker this hook's own payloads instruct it to use. So the
+  // mechanism was silent in precisely its motivating case, and got worse the
+  // longer a session ran. These two are the regression guards.
+
+  it('a RECAP-MARKED turn still receives the continuation directive', () => {
+    const tr = writeTranscript([assistantText(`${'детали '.repeat(120)}\n\n## 🟢 Простыми словами\nвсё готово`)]);
+    const r = withTasks(JSON.stringify([task('implementing')]), (url) =>
+      runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'f10-recap' },
+        { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+      ),
+    );
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason, 'the recap guard must suppress the RECAP, never the autonomy directive')
+      .toMatch(/still in flight/);
+  });
+
+  it('an IDLE-SUPPRESSED re-ping still receives the continuation directive', () => {
+    // idle_suppress fires when the previous turn already recapped and the current
+    // turn repeats it verbatim (a re-ping). Suppressing the recap is right;
+    // suppressing the autonomy directive is not — an idle re-ping while work is
+    // dispatched is the F10 shape almost by definition.
+    const q = 'Продолжать со следующим этапом?';
+    const tr = writeTranscript([
+      aiTitle('goal'),
+      userTurn('go'),
+      assistantText(`## 🟢 Простыми словами\nсделано.\n${q}`),
+      assistantText(q),
+    ]);
+    const r = withTasks(JSON.stringify([task('planning')]), (url) =>
+      runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'f10-idle' },
+        { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+      ),
+    );
+    expect(r.stdout, 'idle-suppression must suppress the RE-PING, not the autonomy directive')
+      .toMatch(/still in flight/);
+  });
+
+  it('a STORY-TOLD turn still receives the continuation directive', () => {
+    // The story-debounce guard suppresses re-telling the same PR's story. Like the
+    // recap guard, its bare exit also swallowed the autonomy directive — and this
+    // one fires right after `gh pr create`, i.e. at a moment when dispatched work
+    // very plausibly is still running.
+    const tr = writeTranscript([
+      assistantBashToolUse(`## 🎬 Как это было\nоткрыл PR`, 'gh pr create --fill'),
+    ]);
+    const r = withTasks(JSON.stringify([task('implementing')]), (url) =>
+      runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'f10-story' },
+        { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+      ),
+    );
+    expect(r.stdout, 'story debounce must suppress the STORY, not the autonomy directive')
+      .toMatch(/still in flight/);
+  });
+
+  it('a TOOL-ONLY turn still receives the continuation directive', () => {
+    const tr = writeTranscript([
+      { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Bash', input: { command: 'ls' } }] } },
+    ]);
+    const r = withTasks(JSON.stringify([task('implementing')]), (url) =>
+      runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'f10-toolonly' },
+        { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+      ),
+    );
+    expect(r.stdout, 'a turn ending on a tool call with work in flight is still F10').toMatch(/still in flight/);
+  });
+
+  // ── Shape fail-closed ──────────────────────────────────────────────────────
+  // Malformed BYTES were already handled. Well-formed JSON of the wrong SHAPE
+  // was not: the filter yields a legitimate-looking 0 and the arm reports a
+  // clean all-clear forever. `{"tasks":[…]}` is the most plausible upstream
+  // evolution of this endpoint, which is what makes it worth a gate.
+
+  it('PAIRED-NEGATIVE: a non-array payload is a DEGRADED probe, not an all-clear', () => {
+    const tr = writeTranscript([assistantText('ok')]);
+    const r = withTasks(JSON.stringify({ tasks: [task('implementing')] }), (url) =>
+      runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'f10-envelope' },
+        { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+      ),
+    );
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision, 'a shape change must never read as "nothing in flight"').toBe('block');
+    expect(parsed.reason).toMatch(/NON-ARRAY payload/);
+    expect(parsed.reason).toMatch(/not an all-clear/);
+  });
+
+  it('PAIRED-NEGATIVE: an array of non-task elements is a DEGRADED probe', () => {
+    const tr = writeTranscript([assistantText('ok')]);
+    const r = withTasks(JSON.stringify(['a', 'b']), (url) =>
+      runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'f10-nonobj' },
+        { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+      ),
+    );
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision, 'an array of non-objects silently counted 0 before').toBe('block');
+    expect(parsed.reason).toMatch(/non-task element/);
+  });
+
+  it('the autonomy line rides ALONG with a normal recap block, never replacing it', () => {
+    // A long substantive turn triggers Branch A. The continuation directive must
+    // be appended, not swap the recap out — dropping either loses information the
+    // model needs in the same turn.
+    const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantText(longMarkdownText())]);
+    const r = withTasks(JSON.stringify([task('review')]), (url) =>
+      runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'f10-both' },
+        { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+      ),
+    );
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string; systemMessage?: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason, 'recap half').toMatch(/🟢/);
+    expect(parsed.reason, 'autonomy half').toMatch(/still in flight/);
+  });
+
+  // ── ZCode thin-recap arm autonomy append ─────────────────────────────────
+  // The ZCode thin-recap branch (hook ~line 219) builds `_ze_reason` from
+  // `aif_msg_eot_branch_a` and then appends `autonomy_line` separately. M8 of
+  // this PR's mutation campaign proved the append had ZERO coverage — stripping
+  // it left the suite GREEN. A ZCode path needs an explicit ZCode test.
+
+  it('PAIRED-NEGATIVE: ZCode thin-recap arm appends autonomy_line to its own reason', () => {
+    // Triggers the thin-recap branch: ZCODE_PROJECT_DIR set + >500 char markdown-dense text.
+    // A dispatched task is in flight, so the autonomy directive MUST reach the model
+    // on the SAME channel as the ZCode recap (single block decision, not two).
+    const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantText(longMarkdownText())]);
+    const r = withTasks(JSON.stringify([task('implementing')]), (url) =>
+      runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'f10-zcode-append' },
+        {
+          AIF_AUTONOMOUS: '1',
+          RUNTIME_BRIDGE_AIF_URL: url,
+          ZCODE_PROJECT_DIR: '/fake-zcode-root',
+          AIF_HOOK_LANG: 'en',
+        },
+      ),
+    );
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision, 'ZCode thin-recap arm must block when work is in flight').toBe('block');
+    // The recap half (Branch A instruction begins with the recap marker):
+    expect(parsed.reason, 'ZCode arm recap half must still be delivered').toMatch(/🟢/);
+    // The autonomy half — the M8 mutation strips exactly this; without a test that
+    // asserts it under ZCODE_PROJECT_DIR, the append can be removed silently.
+    expect(parsed.reason, 'ZCode arm autonomy half must be appended, not dropped').toMatch(/still in flight/);
   });
 });

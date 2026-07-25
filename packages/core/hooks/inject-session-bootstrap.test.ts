@@ -45,9 +45,16 @@ function runHook(
   session_id = 'test-session',
   env: Record<string, string> = {},
 ): { stdout: string; status: number } {
-  const fullEnv = { ...process.env };
+  // Spread `env` — it used to be dropped except for ZCODE_PROJECT_DIR, so any
+  // case passing another variable silently tested the ambient environment
+  // instead of the one it asked for. A test that cannot set a variable cannot
+  // test a variable-gated branch; the `env-plumbing sanity` case below pins this
+  // so it cannot rot back.
+  const fullEnv = { ...process.env, ...env };
+  // ZCODE_PROJECT_DIR keeps its scrub-by-default semantics: the CC-plain-text
+  // assertions must not flip to the ZCode-JSON branch when the suite itself runs
+  // inside ZCode.
   if (env.ZCODE_PROJECT_DIR === undefined) delete fullEnv.ZCODE_PROJECT_DIR;
-  else fullEnv.ZCODE_PROJECT_DIR = env.ZCODE_PROJECT_DIR;
   const r = spawnSync('bash', [HOOK], {
     input: JSON.stringify({
       hook_event_name: 'UserPromptSubmit',
@@ -184,5 +191,32 @@ describe('inject-session-bootstrap.sh — UserPromptSubmit bootstrap injection',
       parsed.hookEventName,
       'hookEventName must NOT be emitted at top level (CCt.strict rejects it)',
     ).toBeUndefined();
+  });
+
+  it('env-plumbing sanity: a non-ZCODE variable reaches the hook (pins runHook env-spread fix)', () => {
+    // Pins the `{ ...process.env, ...env }` spread at line 53. A prior version of
+    // runHook silently dropped every `env` key except ZCODE_PROJECT_DIR, so any
+    // test passing another variable was a no-op — it asserted ambient process.env
+    // instead of the variable it asked for, and a regression that re-restricted
+    // the spread would be invisible to every existing test (the CLAUDE_PROJECT_DIR
+    // foreign-root test in the sibling check-kickoff-traps suite exercises
+    // ZCODE-only plumbing; the ZCODE test above exercises ZCODE explicitly).
+    //
+    // Choice of variable: AIF_HOOK_LANG is read at hook line 38 and, for any
+    // non-en/non-empty value, the * branch at hook line 44 echoes the value back
+    // in the digest as `(AIF_HOOK_LANG=<value>)`. Using a sentinel rather than
+    // `ru` makes the test robust against an ambient AIF_HOOK_LANG=ru in
+    // process.env (the operator's live setting per kickoff §1) — the sentinel
+    // appears in output ONLY if the value we passed reached the hook.
+    //
+    // Falsifier: revert line 53 to `{ ...process.env }` (omitting `...env`) or
+    // to the old ZCODE-only form — this assertion goes RED because the sentinel
+    // never reaches the hook, so the `[output-language]` line is absent.
+    const sentinel = 'env-plumbing-test-marker';
+    const { stdout } = runHook('env-plumbing-sanity', {
+      AIF_HOOK_LANG: sentinel,
+    });
+    expect(stdout).toContain('[output-language]');
+    expect(stdout).toContain(`AIF_HOOK_LANG=${sentinel}`);
   });
 });
