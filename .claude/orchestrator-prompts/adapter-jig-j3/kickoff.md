@@ -195,9 +195,14 @@ failed and the **spec** is revised first, in its own change.
 ## §3 Park-don't-guess contract (non-negotiable)
 
 On ANY genuine fork — two defensible implementations with different consequences, an undecided
-design choice, or a missing spec detail that changes behaviour — **do NOT pick.** **Park it as a
-question**: state it as «Option A → consequence X / Option B → consequence Y», stop that thread,
-and proceed only on the unambiguous parts.
+design choice, or a missing spec detail that changes behaviour — **do NOT pick.**
+**Park it as a question** — state it as «Option A → consequence X / Option B → consequence Y»,
+stop that thread, and proceed only on the unambiguous parts.
+
+> The phrase «Park it as a question» above is kept on ONE line deliberately: the autonomous
+> pre-dispatch gate is a literal `grep -qi 'park it as a question'` over this file
+> ([`pipeline/SKILL.md §5`](../../skills/pipeline/SKILL.md) `#autonomous-dispatch-without-park`),
+> and a line-wrap through the phrase makes the gate report a missing contract. Do not re-flow it.
 
 Three park triggers named in advance, so they are recognised rather than guessed through:
 
