@@ -374,9 +374,17 @@ else
     copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
     copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json"
     patch_stryker_package_manager
-    copy_safe "$PKG_ROOT/templates/ts-server/github-actions-ci.yml" "$PROJECT_ROOT/.github/workflows/ci.yml"
+    # getff-honest-signals S4 — deliver via deliver_getff_workflow so the consumer's actual
+    # default branch is substituted for the template's hard-coded `main` at install time.
+    # Byte-identical when (a) default IS main, or (b) detection fails (PARK Option A — see
+    # helper docstring in setup.d/lib.sh).
+    deliver_getff_workflow "$PKG_ROOT/templates/ts-server/github-actions-ci.yml" "$PROJECT_ROOT/.github/workflows/ci.yml"
     # R11 branch-protection self-assertion (the executable arm RULES.md#r11 names alongside ci-success).
-    copy_safe "$PKG_ROOT/templates/ts-server/github-actions-workflow-integrity.yml" "$PROJECT_ROOT/.github/workflows/workflow-integrity.yml"
+    # workflow-integrity.yml carries one `branches: [main]` on its push: arm — same defect class,
+    # narrower observable impact (PR arm has no branch filter, runtime assertion already uses
+    # github.event.repository.default_branch dynamically). Routed through the same substitution
+    # for symmetry; a push to a non-main default touching .github/workflows/** now triggers it.
+    deliver_getff_workflow "$PKG_ROOT/templates/ts-server/github-actions-workflow-integrity.yml" "$PROJECT_ROOT/.github/workflows/workflow-integrity.yml"
   elif [ "$STACK" = "react-next" ]; then
     copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/eslint.config.react.mjs" "$PROJECT_ROOT/eslint.config.mjs"
     copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
@@ -386,9 +394,11 @@ else
     copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
     copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json"
     patch_stryker_package_manager
-    copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml" "$PROJECT_ROOT/.github/workflows/ci.yml"
+    # getff-honest-signals S4 — deliver_getff_workflow substitutes the consumer's actual
+    # default branch for the template's hard-coded `main` (kickoff §2 item 2 — class sweep).
+    deliver_getff_workflow "$PKG_ROOT/packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml" "$PROJECT_ROOT/.github/workflows/ci.yml"
     # R11 branch-protection self-assertion (stack-agnostic — asserts ci-success stays required).
-    copy_safe "$PKG_ROOT/templates/ts-server/github-actions-workflow-integrity.yml" "$PROJECT_ROOT/.github/workflows/workflow-integrity.yml"
+    deliver_getff_workflow "$PKG_ROOT/templates/ts-server/github-actions-workflow-integrity.yml" "$PROJECT_ROOT/.github/workflows/workflow-integrity.yml"
   elif [ "$STACK" = "react-spa" ]; then
     copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/eslint.config.react.mjs" "$PROJECT_ROOT/eslint.config.mjs"
     copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
@@ -399,9 +409,11 @@ else
     copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
     copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json"
     patch_stryker_package_manager
-    copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/github-actions-ci-ui.yml" "$PROJECT_ROOT/.github/workflows/ci.yml"
+    # getff-honest-signals S4 — deliver_getff_workflow substitutes the consumer's actual
+    # default branch for the template's hard-coded `main` (kickoff §2 item 2 — class sweep).
+    deliver_getff_workflow "$PKG_ROOT/packages/preset-react-spa/templates/github-actions-ci-ui.yml" "$PROJECT_ROOT/.github/workflows/ci.yml"
     # R11 branch-protection self-assertion (stack-agnostic — asserts ci-success stays required).
-    copy_safe "$PKG_ROOT/templates/ts-server/github-actions-workflow-integrity.yml" "$PROJECT_ROOT/.github/workflows/workflow-integrity.yml"
+    deliver_getff_workflow "$PKG_ROOT/templates/ts-server/github-actions-workflow-integrity.yml" "$PROJECT_ROOT/.github/workflows/workflow-integrity.yml"
   elif [ "$STACK" = "react-native" ]; then
     # RN ships TWO baselines (Expo vs bare-RN) + a shared base BOTH import. Pick the baseline by
     # detecting the consumer's deps (`"expo"` present → Expo baseline; else bare-RN), then ALWAYS land
@@ -420,8 +432,10 @@ else
     copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
     copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json"
     patch_stryker_package_manager
-    copy_safe "$PKG_ROOT/packages/preset-react-native/templates/github-actions-ci-ui.yml" "$PROJECT_ROOT/.github/workflows/ci.yml"
+    # getff-honest-signals S4 — deliver_getff_workflow substitutes the consumer's actual
+    # default branch for the template's hard-coded `main` (kickoff §2 item 2 — class sweep).
+    deliver_getff_workflow "$PKG_ROOT/packages/preset-react-native/templates/github-actions-ci-ui.yml" "$PROJECT_ROOT/.github/workflows/ci.yml"
     # R11 branch-protection self-assertion (stack-agnostic — asserts ci-success stays required).
-    copy_safe "$PKG_ROOT/templates/ts-server/github-actions-workflow-integrity.yml" "$PROJECT_ROOT/.github/workflows/workflow-integrity.yml"
+    deliver_getff_workflow "$PKG_ROOT/templates/ts-server/github-actions-workflow-integrity.yml" "$PROJECT_ROOT/.github/workflows/workflow-integrity.yml"
   fi
 fi

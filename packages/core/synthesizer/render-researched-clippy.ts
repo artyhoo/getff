@@ -48,6 +48,7 @@ import {
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { renderCargoClippy } from '../backends/cargo/render-clippy.ts';
+import type { ResolveCtx } from '../research/allowlist-resolver.ts';
 import {
   researchedPracticeToClippyNode,
   type ClippyResearchedPractice,
@@ -105,15 +106,25 @@ export function loadPracticeRecord(absPath: string): ClippyResearchedPractice {
  * bridge; MAJOR-1 + Tier-0 provenance filters applied THERE) → the pure `renderCargoClippy` backend.
  * ALL surviving nodes render into ONE clippy.toml. A practice the bridge degrades is pushed to
  * `researchOnly` and NEVER rendered. NO fs writes here.
+ *
+ * `ctx` (S1 getff-any-stack-trace, spec §4 W1-1): optional manifest-derived `ResolveCtx`. The
+ * CONSUMER render path threads the factory-built ctx (resolve-ctx.ts `resolveCtxForRoot`) so a
+ * practice whose provenance host is a direct dependency's documentation/homepage/repository is
+ * admitted at Tier-1. The
+ * FRAMEWORK-side render paths (`planFromCommittedRecords`, `writeResearchedClippy`,
+ * `checkResearchedClippyDrift`) omit it — those paths have no consumer manifest in scope, so
+ * they correctly stay on the Tier-0-only back-compat path the bridge always used pre-S1.
+ * Mechanical mirror of the astgrep driver's threading (render-researched-astgrep.ts).
  */
 export function planResearchedClippy(
   practices: ClippyResearchedPractice[],
+  ctx?: ResolveCtx,
 ): ResearchedClippyPlan {
   const nodes = [];
   const researchOnly: ResearchOnlyFinding[] = [];
 
   for (const practice of practices) {
-    const result = researchedPracticeToClippyNode(practice);
+    const result = researchedPracticeToClippyNode(practice, ctx);
     if (result.status !== 'node') {
       researchOnly.push({
         entryId: result.entryId,

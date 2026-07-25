@@ -13,6 +13,7 @@
 #   transform_internal_refs <file>
 #   copy_safe <src> <dst>
 #   refresh_safe <src> <dst>
+#   deliver_getff_workflow <tpl-src> <dst>      # getff-honest-signals S4 — branch substitution
 #   merge_prettierignore <src> <dst>
 #   _prettierignore_in_skipped <needle>
 #   ignore_shipped_configs
@@ -150,6 +151,102 @@ refresh_safe() {
   [ -d "$src" ] && rm -rf "$dst"   # #873: replace directory payloads (cp -r nests into an existing dir)
   cp -r "$src" "$dst"
   echo "  ✓ $dst (refreshed)"
+}
+
+# deliver_getff_workflow <tpl-src> <dst>
+# Delivers a getff CI workflow template (.github/workflows/getff-{python,cargo}.yml),
+# substituting the consumer's actual default branch for the template's hard-coded `main`
+# at install time. Closes the getff-honest-signals S4 defect class — a consumer whose
+# default branch is `master` (or anything else) gets a workflow that actually triggers,
+# not one that installs and silently never runs.
+#
+# Three detection branches:
+#  1. Detection succeeds AND branch ≠ main → stream-substitute `branches: [main]` (×2:
+#     push + pull_request) and `refs/heads/main` (×1: cancel-in-progress) into a temp,
+#     then delegate the write to copy_safe/refresh_safe with the temp as the source.
+#  2. Detection succeeds AND branch == main → byte-identical copy (no substitution; the
+#     template is already correct for this consumer).
+#  3. Detection fails (no remote / not a git repo / origin/HEAD unset) → PARK case
+#     (getff-honest-signals-s4 kickoff §5). Recommended resolution A: loud stderr warning
+#     + byte-identical to template. This is the architecturally-forced default — the
+#     snapshot fingerprint invariant requires byte-identical no-remote bytes (mktemp-d
+#     fixtures in tests/install-sh/snapshot.sh have no `origin` remote; Options B/C
+#     would perturb the 13/0 baseline). Maintainer may flip to B (refuse) or C (env var
+#     override) in review; the LOUD stderr warning surfaces the choice to the consumer
+#     at install time (NOT a silent fallback — silent fallback IS the defect this stage
+#     removes). [handoff:park:S4-no-remote — Option A implemented; review-flippable.]
+#
+# Detection mechanism: `git symbolic-ref refs/remotes/origin/HEAD` — the canonical
+# git-native default-branch signal (set by `git remote set-head` or auto-set on clone).
+# Zero new deps, no API calls (REUSE per build-first-reuse-default.md §1.1 own-stack-first).
+#
+# Delegate semantics: the helper routes its write through copy_safe (fresh path) or
+# refresh_safe (refresh path, gated on GETFF_TOOLCHAIN_REFRESH=1), preserving every
+# existing guarantee — skip-if-exists default, FORCE override, `.override.md` Layer-3
+# consumer-ownership escape hatch, DRY_RUN, mkdir -p the parent. The caller has already
+# filtered to one of the two paths via its outer if/else (REFUSE-LOUDLY for non-getff
+# files at our namespaced destination fires BEFORE this helper runs).
+#
+# BSD/GNU-sed portable: writes to a temp file (no `-i`); uses `#` delimiter to avoid
+# conflict with `/` in branch names (git ref-name charset excludes `#` so the delimiter
+# is safe). Substitution patterns are LITERAL strings (`branches: \[main\]` with brackets
+# escaped for BRE), not regexes — the three sites are stable across template bumps.
+deliver_getff_workflow() {
+  local tpl_src="$1" dst="$2"
+  local detected_branch=""
+
+  # Detect default branch — pure read; safe under --dry-run and offline.
+  if command -v git >/dev/null 2>&1 && [ -d "${PROJECT_ROOT:-.}" ]; then
+    detected_branch=$(git -C "$PROJECT_ROOT" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@') || detected_branch=""
+  fi
+
+  # Prepare the source for the underlying delegate. Substitution needed ONLY when
+  # detection succeeded AND branch differs from main; otherwise byte-identical.
+  # Temp lives in mktemp (NOT next to $dst) — the delegate creates dirname($dst)
+  # itself, so a sibling temp would race the mkdir. mktemp also avoids polluting
+  # the consumer tree with `.getff-sub.*` residue if the delegate aborts.
+  #
+  # Sed delimiter choice: `~` (tilde) — forbidden in git branch names per `git
+  # check-ref-format` rule 5 («cannot have ... tilde ~ ... anywhere»), so the
+  # delimiter can never collide with the substituted value. Earlier draft used `#`
+  # with a wrong claim that `#` is git-forbidden — it is NOT (only ~, ^, :, space,
+  # \, *, ?, [, control chars are forbidden). `&` is also git-permitted but
+  # sed-special in the replacement (means «entire match»); escape it via parameter
+  # expansion. `\` is git-forbidden so no backslash-escape needed.
+  local src_to_use="$tpl_src" _tmp=""
+  if [ -n "$detected_branch" ] && [ "$detected_branch" != "main" ] && [ "$DRY_RUN" != "--dry-run" ]; then
+    local esc_branch="${detected_branch//&/\\&}"
+    _tmp=$(mktemp) || { echo "  ⚠ getff: mktemp failed — delivering template byte-identical (no substitution)" >&2; _tmp=""; }
+    if [ -n "$_tmp" ]; then
+      sed -e "s~branches: \[main\]~branches: [${esc_branch}]~g" \
+          -e "s~refs/heads/main~refs/heads/${esc_branch}~g" \
+          "$tpl_src" > "$_tmp"
+      src_to_use="$_tmp"
+    fi
+  fi
+
+  # Delegate the write — preserves copy_safe/refresh_safe semantics (skip-if-exists,
+  # FORCE, .override.md, DRY_RUN). The caller's outer if/else has already filtered
+  # to fresh-only or refresh-only; GETFF_TOOLCHAIN_REFRESH selects which delegate runs.
+  if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
+    refresh_safe "$src_to_use" "$dst"
+  else
+    copy_safe "$src_to_use" "$dst"
+  fi
+
+  # Clean up the substituted temp file (if any). Template bytes are NEVER mutated.
+  [ -n "$_tmp" ] && rm -f "$_tmp"
+
+  # Emit a branch-context log line (complements the delegate's ✓/⊝/dry-run line).
+  if [ -n "$detected_branch" ] && [ "$detected_branch" != "main" ]; then
+    echo "    (getff: default branch '$detected_branch' substituted from template 'main')"
+  elif [ -n "$detected_branch" ]; then
+    echo "    (getff: default branch 'main', byte-identical to template)"
+  else
+    # PARK case (kickoff §5): loud stderr warning — Option A (recommended).
+    echo "  ⚠ getff: could not detect default branch (no origin remote or origin/HEAD unset);" >&2
+    echo "    delivered workflow uses 'main' — edit $dst if your default differs" >&2
+  fi
 }
 
 # report_getff_orphans <lane> <expected-rel-path>... — adapter-jig C4 (no-orphan-residue).
