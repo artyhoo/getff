@@ -1,8 +1,8 @@
 # Design — Role-Based Context Budget (Progressive Disclosure per Role)
 
-> **Status:** research / pre-codification (rev 2 — 2026-07-26, after wave 2 audit). This doc prepares material for a fabla / brainstorm on whether and how to codify "role-based context shaping" in this repo. It is **not** an implementation spec — no rule is proposed for adoption yet. Decision options are laid out in §6.
+> **Status:** research / pre-codification (rev 3 — 2026-07-26, after wave 3 in-flight compatibility + scratchpad discovery). This doc prepares material for a fabla / brainstorm on whether and how to codify "role-based context shaping" in this repo. It is **not** an implementation spec — no rule is proposed for adoption yet. Decision options are laid out in §6; GLM-authored hypotheses for Opus in §10.5.
 >
-> **Author:** orchestrator session (delegated research: 8 subagent waves across 2 audits + DeepWiki + web)
+> **Author:** orchestrator session (GLM-5.2; delegated research: 8 subagent waves across 3 audits + DeepWiki + web + scratchpad discovery)
 > **Date:** 2026-07-26
 > **Branch:** `feat/prune-worktrees` (local, HEAD `e76dcb0c05`)
 > **Source repo:** superpowers = [`obra/superpowers`](https://github.com/obra/superpowers) v6.1.1
@@ -13,22 +13,28 @@
 
 The thesis: different agent roles (worker, planner, reviewer, brainstormer) need **different context payloads**, not the full project context. A worker only needs *WHERE + WHAT*; a planner needs *GOAL + ARCHITECTURE*; a reviewer needs *CRITERIA + DIFF*; a brainstormer needs *IDEA + CONSTRAINTS*. Dumping the full project context into every role causes **context pollution** and **lost-in-the-middle** degradation.
 
-### Wave 2 changed the picture — three corrections to the wave-1 framing
+### Wave 3 changed the picture again — three new discoveries
 
-1. **The user was *half-right* about superpowers — but not in the way hypothesized.** Wave 1 said "no per-role injection." Wave 2 confirmed: superpowers *does* ship a real injection hook (`hooks/session-start`, file `hooks/hooks.json:3-15`), and the dispatcher/wrapper skills *do* name roles. But: (a) the injection is **one flat `using-superpowers/SKILL.md` dump at SessionStart, identical for every session and every role** — not per-role; (b) the wrapper skills name roles but prescribe the **same context payload per role** (differentiation is by *question* + *model tier*, not by *context shape*). The substrate exists; the per-role axis does not.
-2. **Progressive disclosure + injection are NOT a deliberate pair in superpowers.** They are two independent mechanisms that happen to coexist. Progressive disclosure is mentioned only as **prose describing the host harness's Skill-filesystem mechanism** (`writing-skills/anthropic-best-practices.md:235,1049,1099`) — superpowers relies on it but does not implement it. Injection is one flat bootstrap. No skill or hook cross-references the two as a designed pair.
-3. **New design candidate surfaced: Option E (§6) — extend the SessionStart hook to be per-role.** Wave 1 missed this because we hadn't audited the `hooks/` directory of the plugin. The plumbing partially exists; the gap is purely in hook logic + content sourcing.
+1. **The operator already commissioned a parallel umbrella today (`session-start-token-audit`)** that owns the "context budget" vocabulary: it measures the ~140 KB ≈ 36-40k tokens the repo injects at session start, attributes each artifact to its channel, and trims by re-scoping channels (target ≤20-25k). It is the **natural host** for role-context-budget work — see §10.1.
+2. **An AIF scratchpad review seat (Seat B) already answered the operator's exact question** — VERDICT: REVISE. Seat B found 4 of 5 per-role-context axes already match SDD; the **only honest gap is axis 5 (ambient context injection is uniform across roles)**. But Seat B's load-bearing finding (F2): the uniform digest is **deliberate anti-drift machinery**, not an oversight — splitting it trades drift-prevention for context hygiene. This is the real tradeoff. See §10.2.
+3. **Wave 3 adds Option F (hybrid one-line anchor)** = Seat B's Option C: keep the uniform digest (preserve anti-drift) + add a one-line per-role prime. This is a genuine third path neither wave-1 nor wave-2 had. The 6 options are now A/B/C/D/E/F (§6).
+
+### Wave 2 — three earlier corrections (still valid)
+
+1. **The user was *half-right* about superpowers.** Wave 1 said "no per-role injection." Wave 2 confirmed: superpowers *does* ship a real injection hook (`hooks/session-start`, `hooks/hooks.json:3-15`), but it's **one flat dump, identical for every role, no other hook events**. The substrate exists; the per-role axis does not.
+2. **Progressive disclosure + injection are NOT a deliberate pair** in either superpowers (prose only) or this repo. They are coincidental mechanisms.
+3. **The 3 wrapper skills (arch/pipeline/dispatcher) add verdict + routing, NOT context-shaping.** All three consume SDD templates as-is.
 
 ### What the full research found
 
-1. **The principle is real and externally authoritative.** Anthropic, LangChain, and arXiv converge on it. The established term is **"progressive disclosure"** (Anthropic) / **"context isolation"** (LangChain's "Isolate" strategy). Anti-pattern names: **context pollution**, **context rot** (Anthropic official); **lost in the middle** (Liu et al., TACL 2024, 5300+ citations — the canonical mechanism-level citation).
-2. **The repo already implements progressive disclosure for *paths* and *sessions*, but NOT for *roles*.** The path-scoped `inject-matching-rule.sh` (PostToolUse, once-per-session) is the existing mechanism. There is **zero** per-role branching in any hook today (verified by grep — see §3.6).
-3. **SDD (superpowers:subagent-driven-development) has strong *categorical* discipline but zero *quantitative* discipline.** The brief-as-file / report-as-file / diff-as-file pattern keeps bulk out of the dispatch; the reviewer template has the strictest scope-limit ("don't crawl broader codebase" — `task-reviewer-prompt.md:38-50`). But: no token/char budget anywhere, no bound on the `## Context` slot, no enforcement script — the famous "42k-char dispatch of which 99% was pasted history" warning (`SKILL.md:189-193`) is **prose only**, no checker.
-4. **Superpowers ships exactly ONE hook** — `SessionStart`, flat-injects the full `using-superpowers/SKILL.md` body, no per-role branching, no other hook events (no PreToolUse / PostToolUse / SubagentStart). See §3.7.
-5. **The 3 wrapper skills (arch / pipeline / dispatcher) add verdict + routing disciplines on top of SDD — they do NOT add context-shaping.** All three consume SDD's templates as-is; none overrides `implementer-prompt.md` or `task-reviewer-prompt.md`. See §4.7.
-6. **The principle is fragmented across 3 repo artifacts** (6-block input contract in `claude-glm-executor-handoff`; brief-as-file in SDD; one per-role trim rule in `phase-research-coverage.md:37`) but **not codified as a rule**, and **has no entry in the prior-art SSOT** (`docs/meta-factory/prior-art-evaluations.md` — negative-existence confirmed by 12-phrase grep).
+1. **The principle is real and externally authoritative.** Anthropic, LangChain, arXiv converge. Established term: **"progressive disclosure"** / **"context isolation"**. Anti-patterns: **context pollution**, **context rot** (Anthropic official); **lost in the middle** (Liu et al., TACL 2024, 5300+ citations).
+2. **The repo already implements progressive disclosure for *paths* and *sessions*, but NOT for *roles*.** The path-scoped `inject-matching-rule.sh` (PostToolUse, once-per-session) is the existing mechanism. Zero per-role branching in any hook.
+3. **SDD has strong *categorical* discipline but zero *quantitative* discipline** (no token/char budget; unbounded `## Context` slot; the 42k-char warning is prose only). Superpowers ships exactly ONE hook — `SessionStart`, flat inject. The 3 wrapper skills add verdict/routing, NOT context-shaping.
+4. **The principle is fragmented across 3 artifacts** but **not codified as a rule**, and **has no prior-art SSOT entry**.
+5. **(Wave 3) The uniform session-bootstrap digest is deliberate anti-drift machinery** — splitting it weakens drift-prevention. The tradeoff is real, not just a hygiene improvement.
+6. **(Wave 3) Two proven per-role delivery paths already exist** — `.ai-factory/skill-context/<skill>/SKILL.md` (probed 2026-05-21) for aif sidecars, and the SubagentStart hook for CC-native sessions. Don't invent a third.
 
-**The decision in front of us** (laid out in §6): codify as a rule + templates (full), spike as a rule only, surgically extend one skill, **extend the superpowers SessionStart hook (new)**, or defer entirely.
+**The decision in front of us** (§6): codify as rule+templates (A), spike as rule only (B), surgical doc-only (C), defer (D), extend hook per-role (E), **hybrid one-line anchor (F — new)**. Plus: absorb into `session-start-token-audit` (H3) vs run separately. GLM's 4 hypotheses for Opus in the wave-3 dossier §10.5.
 
 ---
 
@@ -179,25 +185,15 @@ Verified by grep across `.claude/hooks/`, `.claude/rules/`, `.zcode/skills/`:
 
 ### 3.7 What superpowers (the plugin) itself ships — wave 2 finding
 
-Source: [`obra/superpowers`](https://github.com/obra/superpowers) v6.1.1, cached at `/Users/art/.zcode/cli/plugins/cache/claude-plugins-official/superpowers/6.1.1/`. This corrects a wave-1盲点: the plugin's own `hooks/` directory was not audited. Wave 2 audited it.
+> **Full table + falsifier moved to the wave-3 dossier §10.8** to respect the repo's 600-line markdown limit. Summary below.
 
-**The plugin ships exactly ONE hook — a SessionStart injector.** Files: `hooks/hooks.json:3-15` (Claude Code registration), `hooks/session-start` (the bash injector), `hooks/run-hook.cmd` (cross-platform polyglot wrapper). Plus a Cursor variant `hooks-cursor.json`.
+Source: [`obra/superpowers`](https://github.com/obra/superpowers) v6.1.1. Wave 2 audited the plugin's own `hooks/` directory (a wave-1 blind spot).
 
-| Aspect | Implementation | Citation |
-|---|---|---|
-| Event | `SessionStart` only (matcher `startup\|clear\|compact`) | `hooks/hooks.json:3-15` |
-| What it injects | The full body of `using-superpowers/SKILL.md` (62 lines), wrapped in `<EXTREMELY_IMPORTANT>` tags | `hooks/session-start:11, 27` |
-| Output shape | Platform-branched: `additional_context` (Cursor), `hookSpecificOutput.additionalContext` (Claude Code), top-level `additionalContext` (Copilot CLI/SDK) | `hooks/session-start:38-47` |
-| Per-role? | **NO** — identical payload for every session | (no branching logic in `hooks/session-start`) |
-| Other hook events | **NONE** — no PreToolUse, no PostToolUse, no SubagentStart, no UserPromptSubmit, no Stop | exhaustive grep of `hooks/` and `skills/` |
+**The plugin ships exactly ONE hook — a SessionStart injector.** Files: `hooks/hooks.json:3-15`, `hooks/session-start:11, 27, 38-47`. It flat-injects the full `using-superpowers/SKILL.md` body (62 lines, `<EXTREMELY_IMPORTANT>`-wrapped, platform-branched output) into every session. **No per-role branching, no other hook events** (no PreToolUse / PostToolUse / SubagentStart / UserPromptSubmit / Stop — exhaustive grep confirmed).
 
-**Three implications:**
+**Three implications:** (1) the plugin's entire context-injection surface is one flat dump — after SessionStart, the plugin does zero injection; all shaping is manual by the coordinator. (2) Progressive disclosure in the plugin is prose describing the host harness's Skill-filesystem mechanism (`writing-skills/anthropic-best-practices.md:235, 408, 1049, 1099, 1115`), not a mechanism the plugin implements. (3) **The two are NOT a deliberate pair** — coincidental coexistence, never cross-referenced.
 
-1. **The plugin's entire context-injection surface is one flat SessionStart dump.** It does not inject per-role, per-path, per-event, or on-demand. After SessionStart, the plugin does zero context injection — all subsequent context shaping is done by the coordinator (main agent) manually constructing dispatch prompts per the SDD templates.
-2. **Progressive disclosure in superpowers is prose about the host harness, not a mechanism the plugin implements.** Every mention of "progressive disclosure" lives in `writing-skills/anthropic-best-practices.md:235, 408, 1049, 1099, 1115` — and it describes Anthropic's Skill-filesystem mechanism (the host loads `SKILL.md` + bundled reference files on demand via the Skill tool), not anything superpowers ships. Zero hits for "progressive discovery" or "context isolation" as terms.
-3. **The two are NOT a deliberate pair.** No skill or hook in the plugin cross-references injection + progressive disclosure as a designed pair. They are coincidental: one flat bootstrap inject (plugin-shipped) + one inherited host capability (filesystem-Skill loading). The wave-1 framing "the repo implements progressive disclosure via `inject-matching-rule.sh`" was about *this repo's* hooks, not the plugin's — and this repo's hooks (§3.1) are strictly more sophisticated than the plugin's single SessionStart dump.
-
-**Falsifier for "the pair is deliberate in superpowers":** would require (a) any skill or hook cross-referencing the two as a designed pair, (b) the SessionStart hook emitting a per-role digest rather than one flat document, or (c) a `PreToolUse`/`UserPromptSubmit`/`SubagentStart` hook existing that loaded skill content on demand. **All three FALSIFIED** in 6.1.1. The only non-SessionStart hook events appear in a future-design spec (`docs/superpowers/specs/2026-04-06-worktree-rototill-design.md:31, 341`) as unimplemented Phase-4 work.
+**Falsifier** (full detail in dossier §10.8): all three conditions for "deliberate pair" (cross-reference in a skill/hook; per-role digest; non-SessionStart loading hook) are FALSIFIED in 6.1.1.
 
 ---
 
@@ -369,14 +365,7 @@ These are role-specific *documentation*, delivered by the agent reading its own 
 
 ### 5.5 The "deliberate pair" question — answered
 
-The user's framing implied progressive disclosure + injection are (or should be) a **deliberate pair**. Wave 2 confirms: they are **NOT** a deliberate pair in either superpowers or this repo.
-
-| Layer | Progressive disclosure | Injection | Pair deliberate? |
-|---|---|---|---|
-| superpowers plugin | Prose only — describes host harness's Skill-filesystem mechanism (`anthropic-best-practices.md:235, 1049`) | One flat SessionStart dump (`hooks/session-start`) | **NO** — never cross-referenced |
-| this repo | Path-gated rule summaries (`inject-matching-rule.sh`) | Path-gated + session-gated injectors + SubagentStart digest | **Partially** — `inject-matching-rule.sh` is itself both the disclosure and the injection (the summary IS the injected content), but it's path-gated, not role-gated |
-| wrapper skills | None prescribed | None prescribed | N/A |
-| SDD | File-handoff pattern (brief/report/diff as files) | None — coordinator constructs prompts manually | **NO** — file-handoff is disclosure-by-artifact; no injection |
+The user's framing implied progressive disclosure + injection are (or should be) a **deliberate pair**. Wave 2 confirms: they are **NOT** a deliberate pair in either superpowers or this repo. Full 4-layer table (plugin / repo / wrapper / SDD) moved to wave-3 dossier §10.9.
 
 **This is the gap a codification would close:** make the pair *deliberate* and add the *per-role axis*.
 
@@ -388,26 +377,11 @@ Four options, ordered by scope. Each is a *candidate shape* — none is recommen
 
 ### Option A — Full codification (rule + templates + agent extension)
 
-**Shape:**
+**Shape:** new rule `.claude/rules/role-context-budget.md` (Class A, paths: `.claude/orchestrator-prompts/**, agents/**, .zcode/skills/**`); SSOT prior-art entry (cites Anthropic + LangChain + Liu et al.); firing test `scripts/role-context-budget.test.sh`; inject-hook extension on kickoff/dispatch paths; four templates `.claude/orchestrator-prompts/templates/{worker,planner,reviewer,brainstorm}.md`; agent extension `agents/orchestrator-worker-discipline.md` (input-shape per role, today only output schema).
 
-- New rule: `.claude/rules/role-context-budget.md` (Class A, paths: `.claude/orchestrator-prompts/**, agents/**, .zcode/skills/**`).
-- SSOT prior-art entry: `docs/meta-factory/prior-art-evaluations.md` row #N (cites Anthropic + LangChain + Liu et al.).
-- Firing test: `scripts/role-context-budget.test.sh` (a paired-negative test, per repo convention).
-- Inject hook extension: extend `inject-matching-rule.sh` (or add a sibling) to fire on kickoff/dispatch authoring paths.
-- Four templates: `.claude/orchestrator-prompts/templates/{worker,planner,reviewer,brainstorm}.md` with pre-baked section structures.
-- Agent extension: extend `agents/orchestrator-worker-discipline.md` with input-shape per role (today it defines only output schema).
+**Pros:** aligns with invariant #4 (full enforcement surface); recursive-self-application green; generalizes the fragmented artifacts into one principle.
 
-**Pros:**
-
-- Aligns with repo invariant #4 ("every rule fails at earliest reachable channel") — full enforcement surface.
-- Recursive-self-application green: the framework validates itself with its own logic.
-- Generalizes the fragmented artifacts into one principle.
-
-**Cons:**
-
-- ~2× the work of a spike.
-- Risk: if the principle's formulation is wrong, templates get redone too.
-- Adds always-on context cost (the rule itself) unless carefully scoped.
+**Cons:** ~2× the work of a spike; formulation risk propagates to templates; adds always-on context cost (the rule itself) unless carefully scoped.
 
 **Estimated effort:** 1 medium wave (3-4 sub-tasks).
 
@@ -505,15 +479,43 @@ This option surfaced from the wave-2 audit of the plugin's `hooks/session-start`
 
 **Estimated effort:** 1 small-medium wave (1 hook extension + 1 content file + 1 firing test).
 
+### Option F — Hybrid one-line anchor (wave 3 new, = Seat B's Option C)
+
+Surfaced by wave-3 discovery of AIF scratchpad Seat B (§10.2). Resolves the F2 tradeoff (uniform digest = deliberate anti-drift) by keeping the anti-drift content and adding only a per-role prime line.
+
+**Shape:**
+
+- Keep `.claude/session-bootstrap.md` digest unchanged (preserves the anti-drift property documented after the 2026-05-09 incident — see §10.2 F2).
+- Add a one-line role-tag prime at the top of the digest when injected: e.g. `[role: worker — context for WHERE+WHAT only; goal/invariants below are anti-drift anchors, not your task spec]`.
+- Modify `inject-subagent-digest.sh` + `inject-subagent-context.sh` to read `subagent_type`/`description` and prepend the matching prime line.
+- No content trimming, no per-role digest split, no new rule.
+
+**Pros:**
+
+- **Resolves the F2 tradeoff directly.** Worker gets the "WHERE+WHAT only" framing the user asked for, without losing the drift-prevention property Seat B identified as load-bearing.
+- **Smallest possible change.** One line per role × N roles; no file splits, no new mechanism.
+- **Composes cleanly with `session-start-token-audit`** — it doesn't touch the file/channel trims S2 performs.
+- **Doesn't trip the `inject-layer-extension` re-trigger** (H4 risk) — no new markers, no new paths: frontmatter.
+
+**Cons:**
+
+- **Doesn't actually reduce token cost.** If the operator's underlying concern is the 100k session-start load (the token-audit's thesis), Option F doesn't help — it adds a line, not removes one. The benefit is *priming/framing*, not *budget*.
+- **The prime line itself could be ignored.** A worker that already ignores the digest won't behave differently because of one extra line.
+- **Role detection is fuzzy.** `subagent_type`/`description` may not cleanly map to worker/planner/reviewer (e.g. a `general-purpose` agent dispatched to implement). The prime line may mismatch the actual role.
+- **Doesn't address the planner-role gap** (SDD treats planning as inline).
+
+**Estimated effort:** tiny — 1 hook edit + 1 mapping table + 1 firing test.
+
 ### 6.x Comparison matrix
 
-| Option | New rule? | Templates? | Hook enforcement? | SSOT entry? | Effort | Risk | Aligns with invariant #4? |
-|---|---|---|---|---|---|---|---|
-| A — Full | ✓ | ✓ (4) | ✓ (inject + test) | ✓ | medium | medium (formulation risk) | ✓ fully |
-| B — Spike | ✓ | ✗ | ✓ (inject + test) | ✓ | small | low | ✓ partially (no templates) |
-| C — Surgical | ✗ | ✗ | ✗ (doc only) | ✗ | tiny | low | ✗ violates |
-| D — Defer | ✗ | ✗ | ✗ | ✗ | zero | zero | ✗ violates |
-| **E — Hook-per-role (new)** | ✗ | ✗ (digest blocks instead) | ✓ (hook IS enforcement) | optional | small-medium | medium (content + bloat) | ✓ via hook channel |
+| Option | New rule? | Templates? | Hook enforcement? | SSOT entry? | Effort | Risk | Aligns with invariant #4? | Resolves F2 tradeoff? |
+|---|---|---|---|---|---|---|---|---|
+| A — Full | ✓ | ✓ (4) | ✓ (inject + test) | ✓ | medium | medium (formulation risk) | ✓ fully | partial (new content; doesn't preserve digest) |
+| B — Spike | ✓ | ✗ | ✓ (inject + test) | ✓ | small | low | ✓ partially (no templates) | partial |
+| C — Surgical | ✗ | ✗ | ✗ (doc only) | ✗ | tiny | low | ✗ violates | n/a (no change) |
+| D — Defer | ✗ | ✗ | ✗ | ✗ | zero | zero | ✗ violates | n/a |
+| E — Hook-per-role | ✗ | ✗ (digest blocks) | ✓ (hook IS enforcement) | optional | small-medium | medium (content + bloat) | ✓ via hook channel | **no — weakens anti-drift** (Seat B F2) |
+| **F — Hybrid anchor (new)** | ✗ | ✗ | ✓ (hook IS enforcement) | optional | tiny | low | ✓ via hook channel | **yes — preserves digest + adds prime** |
 
 ---
 
@@ -574,3 +576,20 @@ These are the genuine forks that need a human decision before any implementation
 This document (rev 2) is the deliverable for the fabla / brainstorm. The next action is **a human review of this doc**, then a decision on Option A/B/C/D/**E** (§6) and the open questions (§7). No implementation work begins until that decision.
 
 **Wave 2 changed the option set**: Option E (extend the SessionStart/SubagentStart hook to be per-role) is now on the table because the wave-2 audit found the plugin ships a real injection hook with partial plumbing for per-role branching. If the fabla's answer to open question #4 is "earliest reachable channel," Option E is the strongest candidate.
+
+---
+
+## 10. Wave 3 — in-flight compatibility + parallel-work discovery
+
+> **Full content in a companion file** to respect the repo's 600-line markdown limit (`.husky/pre-commit:64`): [`2026-07-26-role-context-budget-wave3-dossier.md`](./2026-07-26-role-context-budget-wave3-dossier.md).
+
+**Wave-3 summary** (the dossier has the detail): the user pointed at two live threads the wave-1/2 research missed.
+
+1. **`session-start-token-audit` umbrella** (operator-commissioned today, branch `claude/session-start-token-audit-77d224`) — owns the context-budget vocabulary; measures ~140 KB ≈ 36-40k tokens injected at session start; S2 trims by re-scoping channels (target ≤20-25k). **Natural host** for role-context-budget work.
+2. **AIF scratchpad Seat B** (`feature-scratchpad-d49985`) — already answered the operator's exact question. VERDICT: REVISE. Found 4 of 5 per-role-context axes already match SDD; only gap is axis 5 (ambient injection uniform). **Load-bearing finding (F2): the uniform digest is DELIBERATE anti-drift machinery** (2026-05-09 incident: reviewers pattern-matched on EXECUTION-PLAN «north star» and reinforced the wrong goal across cycles). Splitting it trades drift-prevention for hygiene.
+
+**Wave-3 added Option F** (hybrid one-line anchor = Seat B's Option C): keep uniform digest (preserve anti-drift) + add per-role prime line. Resolves the F2 tradeoff that Option E ignores. 6 options now A/B/C/D/E/F.
+
+**§10.5 of the dossier carries 4 GLM hypotheses for Opus to cold-verify** (H1: drift-incident is the real constraint; H2: Option F strongest; H3: absorb into token-audit as S4; H4: skill-context + SubagentStart are the proven delivery paths). Each has evidence + falsifier + GLM confidence. **§10.6 honestly discloses what GLM did NOT verify.**
+
+**Sequencing constraints** (from §10.4 of the dossier): do not touch `inject-matching-rule.sh` surface until PR #1175 merges; do not start role-context-budget work until `session-start-token-audit` S2 lands.
