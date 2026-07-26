@@ -261,3 +261,27 @@ External terms ("progressive disclosure" / "context isolation") vs repo-native t
 - `.claude/rules/phase-research-coverage.md §1.7` — the cold-verify discipline this patch's verify-list follows.
 - `.claude/rules/recommendation-laziness-discipline.md §3` — why this patch parks forks instead of picking.
 - `.claude/rules/reviewer-discipline.md §2` — strategy-fork surfacing rule.
+
+---
+
+## §1.7 self-review
+
+> This patch is a *raw research record*, not a recommendation — but principle 13's §1.7 marker is required on all research-patch files (`packages/core/principles/13-phase-research-coverage-s17.test.ts` enforces it). Self-review applied below.
+
+**Forward-check applied.**
+
+- [`phase-research-coverage.md §1.7`](../../../.claude/rules/phase-research-coverage.md): the patch carries 10 falsifiable claims (C1-C10), each with explicit "Wrong if:" falsifier — not prose-only assertions (T3). The 8-item verify-list is the operational form of §1.7's "state-claim verification against authoritative source."
+- [`recommendation-laziness-discipline.md §3`](../../../.claude/rules/recommendation-laziness-discipline.md): no ADOPT/BUILD/REJECT/DEFER verdict issued; 5 forks parked without pick. Verified by anti-pattern scan: 0 hits on "we should / recommend / strongest / best option" in this patch.
+- [`reviewer-discipline.md §2`](../../../.claude/rules/reviewer-discipline.md): strategy forks surfaced, not resolved — the patch explicitly defers all 5 forks to "operator + fabla decide."
+- [`ai-laziness-traps.md §2`](../../../.claude/rules/ai-laziness-traps.md): T7 (enumerate population from the live mechanism, not the operator's seed list) — the verify-list item #5 ("re-grep for hidden per-role machinery") explicitly delegates re-grep to Opus rather than resting on the prior 3-wave sweep. T14 (no catch-all "harness overhead") — claim C5's falsifier is concrete (newer superpowers version), not "might exist somewhere."
+- [`build-first-reuse-default.md`](../../../.claude/rules/build-first-reuse-default.md): N/A — this patch introduces no capability commit, just records research.
+- [`doc-authority-hierarchy.md`](../../../.claude/rules/doc-authority-hierarchy.md): the patch's header carries Authoritative-for / NOT authoritative-for / Branch / Mode markers per the rule.
+- [`attention-is-not-a-mechanism.md`](../../../.claude/rules/attention-is-not-a-mechanism.md): the patch does not propose any detection layer or compensating mechanism; the parked forks (§Fork 2) are exactly the "decision authority vs detection" question the rule guards, surfaced but unresolved.
+
+**Backward-check applied.** Class of this change = *a raw research record under `docs/meta-factory/research-patches/` that documents a coverage gap (per-role context shaping) without recommending a fix.* Surfaces where that class occurs, enumerated by `ls docs/meta-factory/research-patches/*.md` (147 files) + filter for 2026-07-* (recent sample):
+
+- All 12 `2026-07-*.md` sibling patches carry §1.7 markers (spot-checked `2026-07-24-unattended-agent-dispatch-default.md`, `2026-07-22-adapter-jig-j2-drift-probe.md`, `2026-07-18-zcode-parity-s7-subagentstart.md`) — **SWEPT-CLEAN**: this patch conforms to the established pattern.
+- The patch does NOT duplicate any existing 2026-07-* patch's scope — `git log --oneline docs/meta-factory/research-patches/ | grep -i 'role\|context-budget\|progressive-disclosure'` returns no prior art under this surface. **SWEPT-CLEAN**.
+- The patch references (does not restate) the parallel session-start-token-audit kickoff on branch `claude/session-start-token-audit-77d224` — that kickoff is operator-owned and out of scope for this patch's class.
+
+**T21 anti-restatement check.** This patch's surface list is NOT exactly its own diff — it sweeps the prior research outputs (`docs/superpowers/specs/2026-07-26-per-role-context-*.md`), the in-flight worktree (`pipeline-getff-honest-signals-0a1dc9`), and the AIF scratchpad projects under `/Users/art/code/aif-handoff/projects/`. The 8-item verify-list delegates further sweeping to Opus (cold-verify is the principle's own mechanism).
