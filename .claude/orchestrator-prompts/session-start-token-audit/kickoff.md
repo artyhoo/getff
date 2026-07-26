@@ -72,7 +72,16 @@
   (ours-to-trim / settings-recommendation / uncontrollable). If our injected set is <40% of
   the measured session-start total, the patch MUST say so and S2's scope shifts to: apply the
   rule-channel trims anyway (cheap, already decided) + emit a harness-settings recommendation
-  section instead of pretending file-trims solve the 100k.
+  section instead of pretending file-trims solve the 100k. (iv) **Per-environment attribution
+  (operator input 2026-07-26, BINDING):** the aif-container executor runs a DIFFERENT harness
+  environment — its session-start injection set is NOT the host CC set (no operator
+  `~/.claude/CLAUDE.md` / MEMORY.md; and it is unverified whether that harness honors `paths:`
+  frontmatter or `claudeMdExcludes` at all). The attribution table carries an environment
+  column (`host-cc` / `aif-container`); container rows are attributed from a live probe inside
+  the container (e.g. `docker exec` into `aif-handoff-agent-1` reading the harness's actual
+  injected set or session log), never by assuming host semantics. If the container harness
+  ignores a lever, the table says so — that changes which S2 moves pay off in which
+  environment, and S2's works-criteria must be re-checked per environment.
 - **S2 — channel re-scoping (all moves PRE-DECIDED; execute, don't re-design).**
   | artifact | move | mechanism |
   |---|---|---|
@@ -129,6 +138,9 @@ for this umbrella: T3, T7, T10, T14, T15, T19.**
 - **T-TOK-B (domain)** — attributing an injection to a mechanism from doc claims instead of a
   live probe. The repo's own index declared zcode as edit-time-inject while reality injected it
   every session. Counter: at least one live session-start observation per channel claim.
+- **T-TOK-C (domain)** — assuming the host-CC injection semantics hold in the aif container
+  (different harness, different injected set, levers possibly ignored). Counter: S1 (iv)
+  per-environment column with an in-container live probe; never extrapolate host → container.
 
 ```bash host-verify
 bash scripts/measure-session-start-tokens.sh
