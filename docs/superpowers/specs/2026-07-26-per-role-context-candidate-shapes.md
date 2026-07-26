@@ -566,7 +566,7 @@ These are tensions the research surfaced. They are NOT questions for GLM to answ
 
 ## 10. Wave 3 — in-flight compatibility + parallel-work discovery
 
-> **Full content in a companion file** to respect the repo's 600-line markdown limit (`.husky/pre-commit:64`): [`2026-07-26-role-context-budget-wave3-dossier.md`](./2026-07-26-role-context-budget-wave3-dossier.md).
+> **Full content in a companion file** to respect the repo's 600-line markdown limit (`.husky/pre-commit:64`): [`2026-07-26-per-role-context-inflight-context.md`](./2026-07-26-per-role-context-inflight-context.md).
 
 **Wave-3 summary** (the dossier has the detail): the user pointed at two live threads the wave-1/2 research missed.
 

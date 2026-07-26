@@ -1,6 +1,6 @@
 # Wave 3 Dossier — In-flight context (raw material, not analysis)
 
-> **Companion to:** [`2026-07-26-role-context-budget-design.md`](./2026-07-26-role-context-budget-design.md) (the candidate-shapes catalogue). This file holds §10 of that doc, split out to respect the repo's 600-line markdown limit (`.husky/pre-commit:64`).
+> **Companion to:** [`2026-07-26-per-role-context-candidate-shapes.md`](./2026-07-26-per-role-context-candidate-shapes.md) (the candidate-shapes catalogue). This file holds §10 of that doc, split out to respect the repo's 600-line markdown limit (`.husky/pre-commit:64`).
 >
 > **What this is:** raw in-flight context the fabla may want to know about — what else is moving on the same surface. **Not analysis, not recommendation.** §10.5 contains 4 GLM-authored hypotheses (H1-H4) — these are speculation for the fabla to react to, not findings it should trust.
 > **Author:** orchestrator session (GLM-5.2).
