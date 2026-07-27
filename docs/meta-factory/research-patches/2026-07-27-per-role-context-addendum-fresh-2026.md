@@ -23,8 +23,10 @@
 ## R1 — Actual worker payload measurement (the verbatim answer)
 
 > Operator question: «важно чтобы инжектили только нужное а не весь контекст — так ли это?»
+>
+> **Measurement caveat (BINDING):** the numbers below are from a **GLM-5.2 host-session calculation** (sum of `wc -c` on the always-on load components) cross-checked by the **aif-handoff container runtime-probe task `f164e807`** (which captured live SubagentStart + PostToolUse payloads inside a Claude Code 2.1.218 container). **Neither is a measurement of an actual CC host session.** A real CC session on the operator's host may behave differently — the only way to know is to cold-verify in CC. The runtime-probe P4 finding (claudeMdExcludes ignored for `.claude/rules/*.md`) was observed inside the container; whether CC host honors the same loader semantics is unverified.
 
-**Answer: NO.** A worker session in this repo receives the same ~236 KB always-on context as a planner or reviewer session. There is no per-role filtering of the always-on load. The ONLY role-differentiation is the kickoff file's content (which is role-specific text, not context filtering).
+**Measurement result (as observed in GLM host calculation + aif container probe): NO per-role filtering detected.** A worker session receives the same always-on context as a planner or reviewer session — no per-role filtering of the always-on load was observed. The ONLY role-differentiation observed is the kickoff file's content (which is role-specific text, not context filtering).
 
 ### R1.a What a worker session actually loads at start
 
@@ -46,10 +48,10 @@ Measured 2026-07-27 in `/Users/art/code/rules-as-tests-aif`:
 - A worker dispatched to "edit one line in `prune-worktrees.sh`" sees 131 KB of rules (ai-laziness-traps, zcode-parity-doctrine, autonomous-loop-continuity, etc.) plus 27 KB of CLAUDE.md plus 75 KB of MEMORY.md plus the digest. None of that is filtered by the fact that this is a worker.
 - The Anthropic path (Agent Skills) would filter this via load-on-demand — but the repo's `claudeMdExcludes` mechanism that the 2026-07-26 patch leaned on **does not actually filter rules** (only CLAUDE.md imports).
 
-### Claim C11 (NEW, falsifiable)
-**The repo's always-on context load is ~236 KB and is identical for every agent role.** No per-role filtering exists at any layer (hook, rule, dispatcher, kickoff).
+### Claim C11 (NEW, falsifiable — measurement-grounded, NOT CC-verified)
+**The repo's always-on context load is ~236 KB and is identical for every agent role** — as observed by GLM host calculation + aif-container runtime-probe, NOT by a real CC host session. No per-role filtering was detected at any layer (hook, rule, dispatcher, kickoff).
 
-- **Wrong if:** Opus finds a mechanism the runtime-probe didn't exercise (e.g. a CC-internal filter that drops rules for Explore-type subagents — Claude Code docs say Explore/Plan omit CLAUDE.md and git status, but say nothing about rules).
+- **Wrong if (HIGH LOAD-BEARING):** a real CC host session behaves differently — for example, a CC-internal filter that drops rules for Explore-type subagents (Claude Code docs say Explore/Plan omit CLAUDE.md and git status, but say nothing about rules — needs direct CC verification). Or: the always-on load figure differs on the host (different `~/.claude/CLAUDE.md`/`MEMORY.md` content; different CC version's loader semantics). **Opus/fabla should cold-verify in a real CC host session before treating this as settled.**
 
 ---
 
@@ -167,7 +169,7 @@ Anthropic Agent Skills docs (now at [platform.claude.com/docs/en/agents-and-tool
 The 2026-07-26 patch parked 5 forks. The 2026-07-27 evidence updates the fork surface:
 
 - **Fork 1 (forcing function):** unchanged. No incident proven; uniform digest = deliberate anti-drift (per CLAUDE.md AOC citation, still unverified in specifics).
-- **Fork 2 (delivery channel):** the new evidence narrows this. **The dominant 2026 pattern is fresh-context spawn + role-specific prompt**, not per-role filtering of shared context. If the fabla picks a shape, the spawn+prompt path (α-rule + η-templates + κ-upstream-SDD-contribution) is the ecosystem-aligned direction; the hook-per-role path (ε, ζ, μ) goes against the grain of how every major vendor does it.
+- **Fork 2 (delivery channel):** the 2026 evidence surfaces a pattern observation — **fresh-context spawn + role-specific prompt** is widely adopted across vendors (Claude Code, Cursor, Devin, LangChain); per-role filtering of shared context is rarer (Google ADK `include_contents` is the clearest example). Both patterns are observed; **no verdict on which the fabla should pick** — that is the fabla's call after brainstorm with Opus. The 18 candidate shapes (α-σ) cover both patterns (spawn-side: α, β, η, κ; filter-side: ε, ζ, μ, ν).
 - **Fork 3 (absorb into token-audit):** unchanged.
 - **Fork 4 (sequencing):** unchanged. PR #1175 still gating the `inject-matching-rule.sh` surface.
 - **Fork 5 (vocabulary):** refined. "Progressive disclosure" remains canonical, BUT the 2026 sources distinguish it from "context routing" (Towards AI) and from "context isolation" (LangChain). The fabla may want to pick the most precise term.
@@ -200,7 +202,7 @@ The operator's verbatim question implied filtering ("inject only needed"). The 2
 **Forward-check applied.**
 
 - [`phase-research-coverage.md §1.7`](../../../.claude/rules/phase-research-coverage.md): this patch carries 3 NEW falsifiable claims (C11, C12, C13) with explicit "Wrong if:" falsifiers. No prose-only assertions.
-- [`recommendation-laziness-discipline.md §3`](../../../.claude/rules/recommendation-laziness-discipline.md): no ADOPT/BUILD/REJECT/DEFER verdict. 7 forks surfaced (5 inherited + 2 new), none picked. The "ecosystem-aligned direction" note in Fork 2 is an observation about industry direction, not a verdict — fabla still decides.
+- [`recommendation-laziness-discipline.md §3`](../../../.claude/rules/recommendation-laziness-discipline.md): no ADOPT/BUILD/REJECT/DEFER verdict. 7 forks surfaced (5 inherited + 2 new), none picked. Fork 2 reports an industry-pattern observation (spawn+prompt widely adopted; per-role filtering rarer) — both patterns are surfaced as candidate-shape categories; **no recommendation on which the fabla should pursue** (that is the fabla's call after brainstorm with Opus).
 - [`reviewer-discipline.md §2`](../../../.claude/rules/reviewer-discipline.md): forks surfaced, not resolved.
 - [`ai-laziness-traps.md §2`](../../../.claude/rules/ai-laziness-traps.md): T3 (the R1.a payload table is `wc -c` command output, not recall); T7 (the 11 no-paths rules are enumerated from the live mechanism, not from a seed list); T14 (the "Anthropic has no summer-2026 post" finding is concrete — date-stamped enumeration of anthropic.com/engineering — not a catch-all).
 - [`attention-is-not-a-mechanism.md`](../../../.claude/rules/attention-is-not-a-mechanism.md): no detection layer or compensating mechanism proposed; the parked forks remain surface-only.
