@@ -1,5 +1,15 @@
 # Per-role context — FINAL BUNDLE for Opus in CC
 
+> **STATUS 2026-07-31 — REVIEWED. Read the review before acting on this bundle.**
+> The Opus review this bundle was assembled for is complete:
+> [`docs/meta-factory/research-patches/2026-07-31-per-role-context-opus-cold-verify.md`](../../meta-factory/research-patches/2026-07-31-per-role-context-opus-cold-verify.md).
+> All 7 contradictions are resolved and the 8-item verify-list is run there. Parts of this bundle are
+> now known stale: the §Reachability audit (all 4 substrate docs ARE readable on `origin/staging` — the
+> "operator pastes into CC" instruction is obsolete), §5 rows 1 and 5 (layer confusion, not
+> contradictions), and §3.1 P4 + §3.2's C10-derived framing (corrected by ID in the review's §3). The
+> bundle is left byte-unmodified below apart from this pointer; corrections live in the review, per the
+> append-only convention.
+
 > **Authoritative for:** assembled bundle of per-role-context research material for Opus review (substrate docs, 3 verification task outputs, DeepWiki cross-check, contradictions table). The bundle is *not* a filter — it preserves both sides of every contradiction; Opus + fabla decide.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists); per-role-context design decisions — Opus + fabla decide; prior-deliverable content (bundle cites paths and copies findings read-only, never modifies originals).
 
