@@ -332,19 +332,23 @@ completed check. This patch is an Opus cold-verify of *substance*; it is not tha
    or only the always-on load? Only the operator can settle this; it is `/arch §1` material.
 5. **The 18 candidate shapes** — untouched by this review, all still on the table.
 
-**Ready-to-dispatch aif work (the runtime was down at review time — see §6):**
+**Dispatched aif work — task `4e1056d2-9198-419f-b13d-d980ec99e80a`, 2026-07-31:**
 [`.claude/orchestrator-prompts/per-role-context-cold-verify/kickoff.md`](../../../.claude/orchestrator-prompts/per-role-context-cold-verify/kickoff.md)
 — two tasks: (T1) the never-run 8-dimension cold-review, now that its inputs exist on staging;
 (T2) a sweep of the aif-handoff runtime's own agent definitions, the L3 layer nobody has surveyed.
+Routed to the `Z.AI GLM-5.2 SDK` executor profile via the kickoff's `bridge-profile` marker (resolved
+`53eca24c-a85d-491c-97be-11b1abf38c83` — unique match, no `dispatch_failed`). Its results are **not**
+inputs to this patch; they land as their own deliverables.
 
 ---
 
 ## §6 Honest disclosures
 
-- **aif runtime was DOWN** for this review (Docker daemon socket absent; `$RUNTIME_BRIDGE_AIF_URL`
-  `/runtime-profiles` and `/tasks` both `HTTP 000`). Nothing was dispatched; the kickoff in §5 is written
-  and staged instead. Read-only diagnosis only, per `aif-doctor` — no repair attempted. The three aif task
-  output files were readable on disk and were read as primary sources.
+- **aif runtime was DOWN for the whole review body** (Docker daemon socket absent; `$RUNTIME_BRIDGE_AIF_URL`
+  `/runtime-profiles` and `/tasks` both `HTTP 000`). Read-only diagnosis only, per `aif-doctor` — no repair
+  attempted, and none needed: it recovered on its own after this patch merged, and the §5 kickoff was then
+  dispatched. **Every finding in §1-§4 was therefore reached without the runtime** — the three aif task
+  output files were read from disk as primary sources, and no conclusion here depends on a live probe of it.
 - **The §1 #7 host measurement is a self-observation from inside a subagent context.** Per
   [docs/en/sub-agents](https://code.claude.com/docs/en/sub-agents), «Explore and Plan skip your CLAUDE.md
   files … Every other built-in and custom subagent loads both» — this seat is not Explore/Plan, so it

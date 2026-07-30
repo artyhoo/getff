@@ -9,9 +9,10 @@
 > (do NOT re-litigate its §1 resolutions or §2 verify-list).
 
 **Base:** `origin/staging`. **Mode:** R-phase, read-only sweep + markdown deliverables.
-**Status when authored (2026-07-31):** NOT dispatched — the aif runtime was down (Docker socket absent,
-`/runtime-profiles` and `/tasks` both `HTTP 000`). Dispatch when the runtime is back:
-`npx tsx packages/runtime-bridge/src/cli/dispatch.ts .claude/orchestrator-prompts/per-role-context-cold-verify/kickoff.md`
+**Status:** DISPATCHED 2026-07-31 as task `4e1056d2-9198-419f-b13d-d980ec99e80a`, routed to the
+`Z.AI GLM-5.2 SDK` executor profile by the header marker above. (It was authored while the aif runtime
+was down and dispatched once it recovered.) Re-dispatch, if ever needed:
+`npx tsx packages/runtime-bridge/src/cli/dispatch.ts .claude/orchestrator-prompts/per-role-context-cold-verify/kickoff.md --force`
 
 ## §0 Read first (inputs now exist — this is the change since the last attempt)
 
