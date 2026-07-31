@@ -134,11 +134,25 @@ cold agent, a skill, or a kickoff section, and where it hooks into aif dispatch,
 decision the spec does not fix. Under the binding tie-breaker («when unsure between Tier 1 and
 Tier 2, default to Tier 2»), Tier 2.
 
+**Design input (added 2026-07-31, post-S-A, operator-approved):** the ledger gains a sibling
+artifact to design here — the cold-seat **watch-list** (continuity handoff per
+[`.claude/rules/cold-seat-economy.md` §3](../../rules/cold-seat-economy.md)): at round 1 the
+seat records compactly why each acceptance criterion exists and where defects previously lived;
+follow-up rounds hand a FRESH narrow seat the incremental diff + scope sections + this list,
+inlined in the dispatch prompt, instead of resuming a transcript-replaying agent. The rule's
+§3 table carries the measurements: a fresh seat that still makes 7 file-reading turns lands at
+177,105 tokens — within ~7% of the resumed 164,995 — so turn count, not input narrowness,
+dominates; the protocol therefore inlines the inputs («answer without reading files»). S-B
+decides the watch-list's format and durable home (PR-body section vs task comment vs ledger
+row) alongside the calibration ledger it already owns.
+
 **Acceptance.** Contract artefact exists with five equal classes and the K6 split stated including
 its known false-negative class (priority labels without verdict words defeat the lexicon);
 ledger file exists with the pre-registered threshold and the `shadow=absent` convention; the
 protocol names who runs the shadow arm and what happens when Opus is unavailable (the run does
-NOT count toward the 5); §1.7 self-check.
+NOT count toward the 5); the watch-list decision from the Design-input paragraph is made and
+recorded — format + durable home chosen (PR-body section vs task comment vs ledger row), with
+`cold-seat-economy.md §3` updated to point at the chosen home; §1.7 self-check.
 
 ### S-C — L2 verdict stage
 
