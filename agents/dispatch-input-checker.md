@@ -67,13 +67,13 @@ exactly the classes the split demoted. A split MAY be re-derived after ≥10 run
 ledger data (per the ADR-6 re-derivation gate in the ledger header) — until then all
 five classes are equal.
 
-| Class | What the seat checks                                                                                                                                                                                                          |
-| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| K1    | anchors exist — every cited path/section/line in the dispatch input resolves                                                                                                                                                  |
-| K2    | quoted outputs reproduce — re-run the quoted command, compare                                                                                                                                                                 |
-| K3    | sibling-pattern consistency — the input matches how sibling artefacts of its class are built                                                                                                                                  |
-| K4    | format mechanics incl. **silent** failure modes (a check that skips quietly is a defect — see [destination-environment-verification.md §4 `#silent-contract-skip`](../.claude/rules/destination-environment-verification.md)) |
-| K5    | external-state preconditions — required-check registrations, live profile names (re-verify against `curl -s "$RUNTIME_BRIDGE_AIF_URL/runtime-profiles"                                                                        | jq -r '.[].name'`), env vars |
+| Class | What the seat checks                                                                                                                                                                                                                                          |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| K1    | anchors exist — every cited path/section/line in the dispatch input resolves                                                                                                                                                                                  |
+| K2    | quoted outputs reproduce — re-run the quoted command, compare                                                                                                                                                                                                 |
+| K3    | sibling-pattern consistency — the input matches how sibling artefacts of its class are built                                                                                                                                                                  |
+| K4    | format mechanics incl. **silent** failure modes (a check that skips quietly is a defect — see [destination-environment-verification.md §4 `#silent-contract-skip`](../.claude/rules/destination-environment-verification.md))                                 |
+| K5    | external-state preconditions — required-check registrations, live profile names (re-verify against `curl -s "$RUNTIME_BRIDGE_AIF_URL/runtime-profiles"                                                                        \| jq -r '.[].name'`), env vars |
 
 Each K-class finding carries a one-line DEBUG rationale inline («why this is a K<N>
 finding»). No prose-only findings — every claim carries a command + output, or a
