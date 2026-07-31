@@ -2,23 +2,24 @@
 
 # S-A round 2 — rework from acceptance (arch-v2-context-pipeline)
 
-> **DRAFT — NOT DISPATCH-READY. Do not dispatch this kickoff as it stands.**
-> Two things are owed before it goes out, both flagged by the operator 2026-07-31:
+> **SUPERSEDED — round 2 was executed in-session, not dispatched. Do NOT dispatch this file.**
+> Operator directive 2026-07-31: run the rework here rather than through aif a second time. The
+> reasoning is a cost one and worth recording — the two MAJORs amounted to one sentence and one
+> ~50-line test function, against roughly a million tokens for a full factory task cycle
+> (dispatch → plan → implement → dual review → harvest). The routing table's Tier-0/Tier-1 split
+> ([CLAUDE.md «Task-tier routing»](../../../CLAUDE.md)) is about the *plan's* difficulty; this
+> round had no plan left to make — the acceptance report had already specified every fix.
 >
-> 1. **The cross-model edge is unaccounted for.** This input will be executed by a **GLM** worker
->    inside aif, not by Claude Code. GLM-5.2 has documented behavioural deltas (text-only I/O,
->    reasoning-effort modes, function-calling shape) and this repo owns a skill for exactly this
->    contract: [`claude-glm-executor-handoff`](../../skills/claude-glm-executor-handoff/SKILL.md).
->    Run it over this file and adapt the prompt before dispatch. Round 1's own failure mode is
->    suggestive: the M1 fix passed a grep on a **hyphen** — a literal-match reading of an
->    instruction, which is the class of divergence a cross-model contract exists to pre-empt.
-> 2. **The gates have not been run on this file.** `check-kickoff-traps.sh` and
->    `scripts/host-verify.sh arch-v2-context-pipeline-s-a-r2 --list` were never executed
->    (the authoring session stopped first). Run both; fix what they flag.
+> **The two debts this file carried are therefore closed by disposal, not by discharge:**
+> the `claude-glm-executor-handoff` cross-model pass is moot with no GLM worker in the loop, and
+> both gates were run anyway before this remark landed — `check-kickoff-traps.sh` EXIT=0 and
+> `scripts/host-verify.sh arch-v2-context-pipeline-s-a-r2` 4/4 PASS on Darwin.
 >
-> Everything below is drafted from the acceptance report
-> ([`docs/superpowers/specs/2026-07-31-arch-v2-s-a-acceptance.md`](../../../docs/superpowers/specs/2026-07-31-arch-v2-s-a-acceptance.md))
-> and is substantively complete — it needs the two passes above, not a rewrite.
+> **Kept, not deleted, deliberately** ([ai-laziness-traps.md §2 T18](../../rules/ai-laziness-traps.md)):
+> deletion is the irreversible branch, and this file is the only place the round-2 scope was stated
+> as an *instruction* rather than as findings. Its evidence base is the acceptance report
+> ([`docs/superpowers/specs/2026-07-31-arch-v2-s-a-acceptance.md`](../../../docs/superpowers/specs/2026-07-31-arch-v2-s-a-acceptance.md));
+> what actually shipped is in the PR body. Everything below is the input as it stood at supersession.
 
 ## §0 Dispatch facts (binding)
 

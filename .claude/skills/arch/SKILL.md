@@ -43,11 +43,7 @@ When the idea touches a **new capability**, an **unfamiliar domain**, or needs a
 
 **Seats as relative tiers, never model names** (handoff decision 2; same posture as [night-mode/SKILL.md](../night-mode/SKILL.md) «Overnight model posture», the tier→model instantiation SSOT — point at it, do not restate it).
 
-### 1. Trigger + explicit skip
-
-Fires on: new capability, unfamiliar domain, or a needed BFR verdict. Tier-0/Tier-1 work skips explicitly (one line in the artefact), never silently.
-
-### 2. Research-spec template (verifier seat authors BEFORE dispatch)
+### 1. Research-spec template (verifier seat authors BEFORE dispatch)
 
 Two fields are REQUIRED and the template says so:
 - **pre-mortem paragraph** — «what would have to be true for this idea to fail»
@@ -55,19 +51,19 @@ Two fields are REQUIRED and the template says so:
 
 Both before any code exists.
 
-### 3. Execution + freshness bar (binding)
+### 2. Execution + freshness bar (binding)
 
 The research runs on the executor tier in aif. **Freshness bar:** every source dated, freshest first; no stale source enters the distillate without fresh confirmation.
 
-### 4. Distillation + idea verdict
+### 3. Distillation + idea verdict
 
 The verifier seat **spot-checks sources** (not curation only), distills, carries a «current as of `<date>`» line, and issues `GO | rework | kill`. Killed ideas land in the prior-art SSOT ([docs/meta-factory/prior-art-evaluations.md](../../../docs/meta-factory/prior-art-evaluations.md)) with their reasons.
 
-### 5. Membrane + K-pass + bounded drill-down (ADR-4)
+### 4. Membrane + K-pass + bounded drill-down (ADR-4)
 
 The ideation seat consumes distillates; the executor seat consumes specs/kickoffs; the verifier seat sees both directions. This is a **default with bounded recourse, not epistemic isolation** — state it explicitly, because the earlier framing implied isolation.
 
-**K-pass station.** A K1/K2 pass (anchors exist as claimed · quoted outputs reproduce) runs **on each distillate before it is consumed**, so the distiller's defects die at the distiller's channel. Evidence: a verifier seat shipped two non-reproducing quotes inside a confirmed-findings cold review. On failure the distillate goes back to the distiller (rework); **2+ consecutive rework rounds → surface to the operator**.
+**K-pass station.** A K1/K2 pass (anchors exist as claimed · quoted outputs reproduce) runs **on each distillate before it is consumed**, by a seat **cold for that distillate** (cold as defined in §2), so the distiller's defects die at the distiller's channel. Evidence: a verifier seat shipped two non-reproducing quotes inside a confirmed-findings cold review. On failure the distillate goes back to the distiller (rework); **2+ consecutive rework rounds → surface to the operator**.
 
 **Drill-down, bounded and symmetric** for both consuming seats: first choice is «ask the producing seat to re-verify claim X» (one round-trip, membrane intact); direct opening of a cited source is capped at **≤3 per artifact**; **every** drill-down is recorded IN the resulting artifact, naming the claim and what changed. The next verification look (critique or acceptance) treats an **unrecorded** drill-down as a finding — without a named consumer this is `#warning-nobody-reads` ([attention-is-not-a-mechanism.md §2](../../rules/attention-is-not-a-mechanism.md)).
 
@@ -80,7 +76,7 @@ Dispatch **two read-only subagents** (Agent tool), each handed ONLY artifact pat
 - **Top-down** — `model:` top tier. Question: does the design serve the stated goal; is it feasible; are the architectural choices sound; what did the authors not consider?
 - **Bottom-up** — `model:` executor tier. Question: do the named files/APIs/patterns actually exist as claimed; does this assemble from the real bricks; which claims lack file:line evidence?
 
-**Unique-filenames dispatch contract (handoff decision 13).** When two or more subagents are dispatched in parallel and share one scratchpad directory, each dispatch prompt names a **unique output filename** (e.g. `<seat>-<topic>.md`), assigned by the dispatching session, never chosen by the subagent. The two §2 seats' prompts each carry a distinct filename.
+**Unique-filenames dispatch contract (handoff decision 13).** When two or more subagents are dispatched in parallel and share one scratchpad directory, each dispatch prompt names a **unique output filename** (e.g. `<seat>-<topic>.md`), assigned by the dispatching session, never chosen by the subagent — e.g. `top-down-<topic>.md` and `bottom-up-<topic>.md` for the two §2 seats.
 
 **Seat instantiation — operator model ladder (fixed 2026-07-23). Relative tiers, not hard-coded model names** (same posture as [night-mode/SKILL.md](../night-mode/SKILL.md) «Overnight model posture» — the window slides to whatever the active harness offers): the contour runs a three-role ladder — _top tier designs · mid tier verifies · executor tier builds_. When the authoring session itself occupies the top tier, BOTH §2 review seats default to the **mid tier** (Claude today: Fable authors → Opus reviews; on a harness without a third tier the seats collapse to a fresh-context same-tier second opinion, per night-mode's degradation rule). Rationale: a cold review's power is cold-by-construction (artifact-only input, no authoring dialogue), not the reviewer's tier — and top-tier tokens are not spent on volume verification. The **executor tier** side of the ladder is owned by [CLAUDE.md «Task-tier routing»](../../../CLAUDE.md), not this skill. The operator may explicitly request a top-tier review seat for an unusually hard design.
 
@@ -88,7 +84,7 @@ Both report in the **verdict grammar this skill's dispatch prompts specify** (ow
 
 ## §3 Phase 3 — exit routing (delta #2)
 
-**Kill channels, enumerated with their cost ordering.** An idea can die at: the research-spec (pre-mortem) → the distillate (idea verdict) → the critique (REVISE/STOP) → acceptance. Each cheaper than the next. The contour's job is to make the cheap deaths *reachable* — the project's «fails at the earliest reachable channel» thesis ([README.md#why-this-exists](../../../README.md#why-this-exists)) applied to ideas.
+**Kill channels, enumerated with their cost ordering.** An idea can die at: the research-spec (pre-mortem) → the distillate (idea verdict) → the critique (REVISE/STOP) → acceptance. Every channel from the distillate onward is judged by a seat **cold as defined in §2** — that is what makes a kill trustworthy rather than a re-read by the author. Each cheaper than the next. The contour's job is to make the cheap deaths *reachable* — the project's «fails at the earliest reachable channel» thesis ([README.md#why-this-exists](../../../README.md#why-this-exists)) applied to ideas.
 
 Two decisions, in order — this is the contour's boundary:
 
@@ -116,7 +112,7 @@ One entry point runs the whole contour in one top-tier session: brainstorming un
 
 ## See also
 
-- `superpowers:brainstorming` — the wrapped phase-1 engine (ADOPT; its spec self-review + user gate stand unchanged). Upstream's capability: brainstorming dispatches an author-side spec-document reviewer (`spec-document-reviewer-prompt.md`). Our delta: two cold seats at fixed altitudes with a verdict grammar and a routed exit.
+- `superpowers:brainstorming` — the wrapped phase-1 engine (ADOPT; its spec self-review + user gate stand unchanged). Upstream's capability: brainstorming dispatches an author-side spec-document reviewer. Our delta: two cold seats at fixed altitudes with a verdict grammar and a routed exit.
 - [reviewer-discipline.md](../../rules/reviewer-discipline.md) — reviewer ROLE discipline both §2 seats point to (surface, never decide).
 - [CLAUDE.md «Task-tier routing»](../../../CLAUDE.md) — the §3 factory-path classification criteria (fixed, judgment-applied).
 - [pipeline/SKILL.md](../pipeline/SKILL.md) — the internal-contour entry `/arch` hands umbrellas to.

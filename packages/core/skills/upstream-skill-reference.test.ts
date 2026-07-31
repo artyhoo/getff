@@ -30,10 +30,14 @@
 // exist on a CI runner or in the aif container (verified 2026-07-31). A
 // silently-skipping load-bearing check is `#warning-nobody-reads`. Therefore:
 //   - discover upstream roots by glob (NEVER hard-code a version directory —
-//     that would be the version pin W4 removes);
+//     that would be the version pin W4 removes — nor the marketplace directory);
 //   - when at least one root is found, every reference must resolve or the test
 //     FAILS;
-//   - when no root is found, the test emits an explicit SKIPPED line and passes.
+//   - when an install BASE is present but yields zero usable roots, or any
+//     readdir throws, the test FAILS loudly (BROKEN) — a corrupted, relocated,
+//     or permission-denied install must never read as «not installed»;
+//   - only when NO install base exists at all does the test emit an explicit
+//     SKIPPED line (naming the globs searched) and pass.
 //
 // Meaningful in: an environment with the upstream plugins installed (operator
 // host; some containers with cached plugins). CI runners without plugins →
@@ -76,7 +80,8 @@ export interface CheckResult {
 // Check that every reference resolves to a directory under at least one upstream
 // root. Pure: takes the reference list and the list of upstream roots (each root
 // is a directory whose direct children are skill directories). Empty roots →
-// SKIPPED (with the searched globs in the message).
+// SKIPPED; the caller supplies the searched-globs context when printing (the
+// pure function cannot know where discovery looked).
 export function checkReferences(refs: readonly Ref[], upstreamRoots: readonly string[]): CheckResult {
   if (upstreamRoots.length === 0) {
     return {
@@ -92,8 +97,9 @@ export function checkReferences(refs: readonly Ref[], upstreamRoots: readonly st
         if (entry.isDirectory()) available.add(entry.name);
       }
     } catch {
-      // unreadable root — skip silently; the empty-set case is covered by the
-      // roots-length-zero branch above when ALL roots are unreadable
+      // unreadable root: nothing is added to `available`, so with ALL roots
+      // unreadable every ref fails to resolve and the result is FAIL —
+      // deliberately fail-closed (an unreadable install never reads as clean)
     }
   }
   const failures: string[] = [];
@@ -114,26 +120,58 @@ export function checkReferences(refs: readonly Ref[], upstreamRoots: readonly st
 
 // ── Real-environment discovery ──
 
-// Discover upstream skill roots by glob — NEVER hard-code a version directory.
-// Returns all `<ver>/skills/` directories under the operator's superpowers
-// cache. Empty array when the cache is absent (CI runner, container without
-// plugins).
-function discoverUpstreamRoots(): string[] {
-  const home = process.env.HOME || process.env.USERPROFILE || '';
-  if (!home) return [];
-  const base = join(home, '.claude', 'plugins', 'cache', 'superpowers-dev', 'superpowers');
-  if (!existsSync(base)) return [];
-  const roots: string[] = [];
+export interface UpstreamDiscovery {
+  // `<ver>/skills/` directories, one per installed version, across ALL
+  // marketplace directories (the marketplace segment is a real variable — the
+  // operator host carries more than one — so it is globbed, never frozen).
+  roots: string[];
+  // Glob-shaped description of where discovery looked, for the SKIPPED line —
+  // the one field that DOES distinguish «not installed» from «looked in the
+  // wrong place».
+  searchedGlob: string;
+  // True when at least one `<marketplace>/superpowers/` base directory exists:
+  // an install is PRESENT even if it yields no usable skills root. Present +
+  // zero roots must NEVER read as «not installed».
+  baseFound: boolean;
+  // readdir failures (permission errors etc.) — surfaced to the caller as
+  // failures, never swallowed into an empty array.
+  errors: string[];
+}
+
+// Discover upstream skill roots by glob — NEVER hard-code a version directory
+// (that would be the version pin W4 removes) NOR the marketplace directory
+// (a differently-sourced install would be permanently, silently skipped).
+export function discoverUpstreamRoots(homeOverride?: string): UpstreamDiscovery {
+  const home = homeOverride ?? (process.env.HOME || process.env.USERPROFILE || '');
+  const searchedGlob = join(home || '<HOME unset>', '.claude', 'plugins', 'cache', '*', 'superpowers', '*', 'skills');
+  const out: UpstreamDiscovery = { roots: [], searchedGlob, baseFound: false, errors: [] };
+  if (!home) return out;
+  const cacheDir = join(home, '.claude', 'plugins', 'cache');
+  if (!existsSync(cacheDir)) return out;
+  let marketplaces: string[];
   try {
-    for (const entry of readdirSync(base, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-      const skillsDir = join(base, entry.name, 'skills');
-      if (existsSync(skillsDir)) roots.push(skillsDir);
-    }
-  } catch {
-    return [];
+    marketplaces = readdirSync(cacheDir, { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name);
+  } catch (err) {
+    out.errors.push(`${cacheDir}: ${String(err)}`);
+    return out;
   }
-  return roots;
+  for (const marketplace of marketplaces) {
+    const base = join(cacheDir, marketplace, 'superpowers');
+    if (!existsSync(base)) continue;
+    out.baseFound = true;
+    try {
+      for (const entry of readdirSync(base, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        const skillsDir = join(base, entry.name, 'skills');
+        if (existsSync(skillsDir)) out.roots.push(skillsDir);
+      }
+    } catch (err) {
+      out.errors.push(`${base}: ${String(err)}`);
+    }
+  }
+  return out;
 }
 
 // Extract every `superpowers:<name>` reference from a markdown blob.
@@ -264,6 +302,50 @@ describe('Upstream skill-reference smoke — pure function (paired-negative)', (
   });
 });
 
+describe('discoverUpstreamRoots — synthetic HOME (broken-install regression)', () => {
+  let fakeHome: string;
+
+  beforeEach(() => {
+    fakeHome = mkdtempSync(join(tmpdir(), 'usref-home-'));
+  });
+
+  afterEach(() => {
+    try {
+      rmSync(fakeHome, { recursive: true, force: true });
+    } catch {
+      /* best-effort cleanup */
+    }
+  });
+
+  it('no plugins cache at all → not installed (baseFound=false, no roots, no errors)', () => {
+    const disc = discoverUpstreamRoots(fakeHome);
+    expect(disc.baseFound).toBe(false);
+    expect(disc.roots).toHaveLength(0);
+    expect(disc.errors).toHaveLength(0);
+    expect(disc.searchedGlob).toContain(join('cache', '*', 'superpowers', '*', 'skills'));
+  });
+
+  it('install base present but version dir has no skills/ child → baseFound=true, zero roots (the M2 probe-(a) shape)', () => {
+    // This is the broken-install shape the integration test must report as
+    // BROKEN, byte-distinguishable from «not installed».
+    mkdirSync(join(fakeHome, '.claude', 'plugins', 'cache', 'some-market', 'superpowers', '9.9.9'), { recursive: true });
+    const disc = discoverUpstreamRoots(fakeHome);
+    expect(disc.baseFound).toBe(true);
+    expect(disc.roots).toHaveLength(0);
+  });
+
+  it('healthy install → roots discovered across a non-frozen marketplace segment', () => {
+    // Two DIFFERENT marketplace directory names — proves the marketplace
+    // segment is globbed, not frozen to `superpowers-dev`.
+    mkdirSync(join(fakeHome, '.claude', 'plugins', 'cache', 'market-a', 'superpowers', '1.0.0', 'skills'), { recursive: true });
+    mkdirSync(join(fakeHome, '.claude', 'plugins', 'cache', 'market-b', 'superpowers', '2.0.0', 'skills'), { recursive: true });
+    const disc = discoverUpstreamRoots(fakeHome);
+    expect(disc.baseFound).toBe(true);
+    expect(disc.roots).toHaveLength(2);
+    expect(disc.errors).toHaveLength(0);
+  });
+});
+
 describe('Upstream skill-reference smoke — integration (real upstream required)', () => {
   it('every tracked skill ref resolves, OR SKIPPED', () => {
     const skills = enumerateSkills();
@@ -275,18 +357,37 @@ describe('Upstream skill-reference smoke — integration (real upstream required
     }
     expect(refs.length, 'expected at least one superpowers: reference').toBeGreaterThan(0);
 
-    const roots = discoverUpstreamRoots();
-    const res = checkReferences(refs, roots);
+    const disc = discoverUpstreamRoots();
+
+    // BROKEN is a distinct, loud verdict — never the same signal as «absent».
+    // Fires when an install base is present but yields zero usable roots
+    // (corrupted / relocated install), or when any readdir failed (permission
+    // error). A broken install must not silently pass as SKIPPED.
+    expect(
+      disc.errors,
+      `BROKEN — upstream discovery hit readdir failure(s) (searched ${disc.searchedGlob})`,
+    ).toHaveLength(0);
+    if (disc.baseFound) {
+      expect(
+        disc.roots.length,
+        `BROKEN — a superpowers install base exists but contains no <ver>/skills/ root (searched ${disc.searchedGlob}); a present-but-unshaped install must NOT read as «not installed»`,
+      ).toBeGreaterThan(0);
+    }
+
+    const res = checkReferences(refs, disc.roots);
 
     const envNote =
-      roots.length === 0
-        ? `SKIPPED — no upstream install discovered (HOME=${process.env.HOME ?? '<unset>'})`
-        : `checked against ${roots.length} upstream root(s): ${roots.join(', ')}`;
+      disc.roots.length === 0
+        ? `SKIPPED — no upstream install discovered at ${disc.searchedGlob}`
+        : `checked against ${disc.roots.length} upstream root(s): ${disc.roots.join(', ')}`;
 
     if (res.status === 'SKIPPED') {
       // eslint-disable-next-line no-console
       console.log(`[upstream-skill-reference] ${envNote}`);
-      expect(res.status).toBe('SKIPPED');
+      // Assert the emitted line's shape: it must name the searched globs — the
+      // information that lets an operator tell «not installed» from «looked in
+      // the wrong place».
+      expect(envNote).toMatch(/^SKIPPED — no upstream install discovered at .+[/\\]cache[/\\]\*[/\\]superpowers[/\\]\*[/\\]skills$/);
     } else {
       expect(res.failures ?? [], `Violations:\n${(res.failures ?? []).join('\n')}\n(${envNote})`).toHaveLength(0);
     }
