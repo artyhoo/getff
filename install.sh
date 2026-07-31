@@ -425,6 +425,7 @@ do_refresh() {
       shipped-agent-liveness-prober.md) continue ;;
       backward-sweep-auditor.md) continue ;;  # authoring-only tool (§1.7 backward-check cold-sweep, T21)
       adapter-jig-reviewer.md) continue ;;  # authoring-only tool (framework-side adapter-wiring conformance review, adapter-jig J1)
+      dispatch-input-checker.md) continue ;;  # authoring-only station (arch-v2 S-B contract v2, dispatch-input reality-check)
       orchestrator-worker-discipline.md|reviewer-discipline.md)
         # F7 companion split (agents arm) — parity with setup.d/20-agents.sh: suite-only,
         # or keep refreshing a copy already on disk (presence = prior --with-aif-suite opt-in).

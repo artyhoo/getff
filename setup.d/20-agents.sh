@@ -27,6 +27,7 @@ for f in "$PKG_ROOT"/agents/*.md; do
     shipped-agent-liveness-prober.md) continue ;;  # authoring-only tool (M2 probe, #552 sibling)
     backward-sweep-auditor.md) continue ;;  # authoring-only tool (§1.7 backward-check cold-sweep, T21)
     adapter-jig-reviewer.md) continue ;;  # authoring-only tool (framework-side adapter-wiring conformance review, adapter-jig J1)
+    dispatch-input-checker.md) continue ;;  # authoring-only station (arch-v2 S-B contract v2, dispatch-input reality-check)
     orchestrator-worker-discipline.md|reviewer-discipline.md)
       # F7 companion split (agents arm): these two presuppose the aif-handoff operator runtime
       # (runtime-bridge dispatch / reviewer-session protocol) — same class as the gated suite
