@@ -10,9 +10,11 @@
 > ([.claude/orchestrator-prompts/session-start-token-audit/kickoff.md](../../../.claude/orchestrator-prompts/session-start-token-audit/kickoff.md));
 > any cited rule — each rule owns itself.
 > **Current as of 2026-07-31.** Evidence chain: research distillate (Opus, spot-checked) →
-> corrected idea (Fable) → cold critique (Opus, GO-WITH-PATCHES). Citations A1-A8/B1-B5 = the
-> distillate; CR-B1..B3/CR-M1..M7 = the critique (both preserved in the track's session
-> artifacts; load-bearing claims restated here with their primary sources).
+> corrected idea (Fable) → cold critique (Opus, GO-WITH-PATCHES). Citations A1-A8/B1-B5 =
+> [the distillate](2026-07-31-arch-v2-research-distillate.md); CR-B1..B3/CR-M1..M7 =
+> [the critique](2026-07-31-arch-v2-opus-critique.md); the corrected idea is
+> [preserved verbatim](2026-07-31-arch-v2-corrected-idea.md). Load-bearing claims are
+> restated here with their primary sources.
 
 ## §0 Requirements and constraints
 
