@@ -52,7 +52,7 @@ One line per rule — full text: read `.claude/rules/<name>.md` (index: `.claude
 | `rule-enforcement-channel-selection.md` | A | codifying any new rule / choosing its enforcement channel. | paths:(2), edit-time inject |
 | `skill-description-quality.md` | C | authoring/updating any SKILL.md `description` field. | paths:(1), edit-time inject |
 | `source-before-shape.md` | B | creating a new SKILL.md/agent/module, or authoring a dispatch/kickoff. | paths:(3), edit-time inject |
-| `zcode-parity-doctrine.md` | A | editing `.claude/hooks/**`, `plugin/hooks/**`, or `scripts/render-harness-config.mjs`; authoring Wave B stage kickoffs or research patches under `docs/meta-factory/zcode-parity-mega.*.md` / `docs/meta-factory/research-patches/2026-07-18-zcode-parity-*.md`. | edit-time inject |
+| `zcode-parity-doctrine.md` | A | editing `.claude/hooks/**`, `plugin/hooks/**`, or `scripts/render-harness-config.mjs`; authoring Wave B stage kickoffs or research patches under `docs/meta-factory/zcode-parity-mega.*.md` / `docs/meta-factory/research-patches/2026-07-18-zcode-parity-*.md`. | paths:(10), edit-time inject |
 <!-- getff:end section=rule-index -->
 
 ## Key files for contributors
