@@ -38,7 +38,8 @@
   and `.claude/settings.json` are likewise off-limits.
 - **Ceilings.** A pre-commit hook blocks any markdown file past **600 lines** — run `wc -l` before
   adding. Any new `agents/*.md` needs the mandatory frontmatter or the pre-push skill-drift gate
-  rejects it (S-A hit exactly this: commit `80623c0b79`).
+  rejects it (precedent: commit `80623c0b79`, acceptance-contour Phase A, 2026-07-23 — one agent
+  frontmatter fix).
 - **Fingerprint consequence of a new agent (mechanical, will bite).** `install.sh` copies
   `agents/*.md` **by glob** with a per-file skip-list (authoring-only agents like
   backward-sweep-auditor are skipped), so a new agent file either (i) ships to consumers and shifts
