@@ -83,11 +83,17 @@ if ! jq -e '.claudeMdExcludes' "$SETTINGS" >/dev/null 2>&1; then
   exit 5
 fi
 
-# Read claudeMdExcludes into an associative set.
-declare -A EXCLUDES_SET=()
-while IFS= read -r line; do
-  [[ -n "$line" ]] && EXCLUDES_SET["$line"]=1
-done < <(jq -r '.claudeMdExcludes[]? // empty' "$SETTINGS")
+# Read claudeMdExcludes into a newline-delimited set.
+#
+# NOT an associative array: macOS ships bash 3.2, which has no `declare -A`. There the
+# subscript `${SET[$rel]+_}` is evaluated as an ARITHMETIC expression, so a path subscript
+# aborts with `syntax error: operand expected` under `set -e` — the rule-enumeration loop
+# dies and Sections B/C silently print empty. That is the worst possible failure for this
+# script: it is the audit's own executable proof, and host-cc is the environment whose
+# numbers the budget is about. Verified 2026-07-31 on `GNU bash 3.2.57 (arm64-apple-darwin25)`.
+# Membership is tested with `grep -Fxq`, which is exact-line and bash-3.2-safe.
+EXCLUDES_SET=$(jq -r '.claudeMdExcludes[]? // empty' "$SETTINGS")
+excludes_has() { printf '%s\n' "$EXCLUDES_SET" | grep -Fxq -- "$1"; }
 
 # ---- totals ------------------------------------------------------------------
 GRAND_BYTES=0
@@ -176,7 +182,7 @@ while IFS= read -r rf; do
     CONDITIONAL_RULES+=( "$rf" )
     continue
   fi
-  if [[ -n "${EXCLUDES_SET[$rel]+_}" ]]; then
+  if excludes_has "$rel"; then
     printf '#   excluded (claudeMdExcludes): %s\n' "$rel"
     continue
   fi
@@ -230,7 +236,8 @@ fi
 printf '\n## Section B — Excluded by claudeMdExcludes (NOT injected at session start; recorded for attribution)\n'
 excludes_line=$(grep -n '"claudeMdExcludes"' "$SETTINGS" | head -1 | cut -d: -f1)
 if [[ -z "$excludes_line" ]]; then excludes_line="?"; fi
-for rel in "${!EXCLUDES_SET[@]}"; do
+printf '%s\n' "$EXCLUDES_SET" | while IFS= read -r rel; do
+  [[ -n "$rel" ]] || continue
   if [[ -f "$REPO_ROOT/$rel" ]]; then
     read -r b r t < <(compute_tokens "$REPO_ROOT/$rel")
     printf '%-58s | %-8s | %8s | %s | %7s | claudeMdExcludes-entry (%s:%s)\n' \
@@ -264,14 +271,21 @@ print_row "hook_event:matcher" "env" "bytes" "ratio" "tokens" "injecting_channel
 
 # Hooks that are NOT safely invocable side-effect-free (mutate state / dispatch / network-probe).
 # These are marked unmeasured regardless of registration.
-declare -A UNSAFE_HOOKS=(
-  ["runtime-bridge-dispatch.sh"]="dispatches a runtime-bridge task on Write/Edit of kickoff.md"
-  ["link-coordination.sh"]="SessionStart linker with filesystem side effects"
-  ["end-of-turn-reminder.sh"]="Stop hook; probes GET /tasks and may block under AIF_AUTONOMOUS=1"
-  ["inject-subagent-context.sh"]="PreToolUse:Agent|Task; rewrites subagent input — mutates tool call"
-  ["inject-subagent-digest.sh"]="SubagentStart; mutates subagent launch payload"
-  ["warn-subagent-report.sh"]="SubagentStop; reads transcript, emits report"
-)
+# A `case` table, not `declare -A`: same bash-3.2 constraint as EXCLUDES_SET above. Under 3.2
+# this literal aborted the script outright with `runtime: unbound variable` (the `[key]=value`
+# form parsed as an array assignment whose subscript was evaluated arithmetically), taking
+# Section D with it.
+unsafe_hook_reason() {
+  case "$1" in
+    runtime-bridge-dispatch.sh) printf 'dispatches a runtime-bridge task on Write/Edit of kickoff.md' ;;
+    link-coordination.sh)       printf 'SessionStart linker with filesystem side effects' ;;
+    end-of-turn-reminder.sh)    printf 'Stop hook; probes GET /tasks and may block under AIF_AUTONOMOUS=1' ;;
+    inject-subagent-context.sh) printf 'PreToolUse:Agent|Task; rewrites subagent input — mutates tool call' ;;
+    inject-subagent-digest.sh)  printf 'SubagentStart; mutates subagent launch payload' ;;
+    warn-subagent-report.sh)    printf 'SubagentStop; reads transcript, emits report' ;;
+    *) return 1 ;;
+  esac
+}
 
 enumerate_event() {
   # enumerate_event <event_name> [use_matcher(0|1)] -> prints "matcher<TAB>command" per arm
@@ -293,8 +307,9 @@ probe_hook_bytes() {
   local hook_path="$1"
   local base
   base=$(basename "$hook_path")
-  if [[ -n "${UNSAFE_HOOKS[$base]+_}" ]]; then
-    printf 'UNMEASURED:not-safely-invocable (%s)' "${UNSAFE_HOOKS[$base]}"
+  local unsafe_reason
+  if unsafe_reason=$(unsafe_hook_reason "$base"); then
+    printf 'UNMEASURED:not-safely-invocable (%s)' "$unsafe_reason"
     return
   fi
   if [[ ! -f "$hook_path" ]]; then
