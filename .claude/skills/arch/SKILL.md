@@ -84,7 +84,7 @@ Both report in the **verdict grammar this skill's dispatch prompts specify** (ow
 
 ## §3 Phase 3 — exit routing (delta #2)
 
-**Kill channels, enumerated with their cost ordering.** An idea can die at: the research-spec (pre-mortem) → the distillate (idea verdict) → the critique (REVISE/STOP) → acceptance. Every channel from the distillate onward is judged by a seat **cold as defined in §2** — that is what makes a kill trustworthy rather than a re-read by the author. Each cheaper than the next. The contour's job is to make the cheap deaths *reachable* — the project's «fails at the earliest reachable channel» thesis ([README.md#why-this-exists](../../../README.md#why-this-exists)) applied to ideas.
+**Kill channels, enumerated with their cost ordering.** An idea can die at: the research-spec (pre-mortem) → the distillate (idea verdict) → the critique (REVISE/STOP) → acceptance. Each cheaper than the next. The last two are judged by a seat **cold as defined in §2**; the distillate verdict is not — §1.5 step 3 has the verifier seat distil *and* rule on its own distillate, which is exactly why §1.5 step 4 puts a **cold** K-pass over that artifact before anything consumes it. The contour's job is to make the cheap deaths *reachable* — the project's «fails at the earliest reachable channel» thesis ([README.md#why-this-exists](../../../README.md#why-this-exists)) applied to ideas.
 
 Two decisions, in order — this is the contour's boundary:
 

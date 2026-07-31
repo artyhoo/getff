@@ -34,10 +34,25 @@
 //   - when at least one root is found, every reference must resolve or the test
 //     FAILS;
 //   - when an install BASE is present but yields zero usable roots, or any
-//     readdir throws, the test FAILS loudly (BROKEN) — a corrupted, relocated,
-//     or permission-denied install must never read as «not installed»;
+//     probe fails with anything other than ENOENT, the test FAILS loudly
+//     (BROKEN) — a corrupted, relocated, or permission-denied install must
+//     never read as «not installed». This is why discovery probes with
+//     `statSync` rather than `existsSync`: `existsSync` returns false for BOTH
+//     «absent» and «EACCES», which is precisely the conflation being fixed;
 //   - only when NO install base exists at all does the test emit an explicit
 //     SKIPPED line (naming the globs searched) and pass.
+//
+// ── Known limit of «installed», stated rather than implied ──
+// Discovery unions EVERY cached `<ver>/skills/` directory. The plugin manager
+// may keep versions in the cache after retiring them (on the author's host,
+// 2026-07-31: `superpowers/{5.1.0,6.1.1}` both carry a `.orphaned_at` marker
+// while `installed_plugins.json` lists only 6.2.0). Discovery does not read
+// that manifest, so a reference that resolves ONLY via an orphaned version
+// still passes. The check is therefore «resolves in some cached upstream»,
+// which is weaker than «resolves in the active install» — deliberately not
+// tightened here (it is a new work item, not a defect of this round). Falsifier
+// for the weaker claim: upstream deletes a skill in the active version, our
+// reference keeps resolving through an orphaned one, and this test stays green.
 //
 // Meaningful in: an environment with the upstream plugins installed (operator
 // host; some containers with cached plugins). CI runners without plugins →
@@ -50,7 +65,7 @@
 // exercises the SKIPPED path. The integration test below these is the one that
 // is only meaningful with a real upstream.
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { readFileSync, readdirSync, existsSync, mkdtempSync, mkdirSync, rmSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, statSync, mkdtempSync, mkdirSync, rmSync, symlinkSync, chmodSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
@@ -60,6 +75,33 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 
 // ── Pure helpers (exported for paired-negative reuse) ──
+
+/** errno code if the throw carries one, else the stringified error. */
+function errCode(err: unknown): string {
+  return (err as NodeJS.ErrnoException | null)?.code ?? String(err);
+}
+
+/**
+ * Probe a path for «is this a readable directory?», keeping the three answers
+ * DISTINCT — absent, present-as-a-directory, and present-but-unreadable.
+ *
+ * `existsSync` cannot do this: it returns `false` for BOTH «no such path» and
+ * «EACCES on the parent», so a permission-denied install is indistinguishable
+ * from an absent one — the exact conflation this file exists to end.
+ * `statSync` also FOLLOWS symlinks, where `Dirent.isDirectory()` reports false
+ * for a symlinked directory and would hide a healthy install behind a symlinked
+ * marketplace or version directory.
+ */
+function probeDir(path: string): { isDir: boolean; error?: string } {
+  try {
+    return { isDir: statSync(path).isDirectory() };
+  } catch (err) {
+    const code = errCode(err);
+    // ENOENT is a real answer: the path is genuinely absent.
+    if (code === 'ENOENT') return { isDir: false };
+    return { isDir: false, error: `${path}: ${code}` };
+  }
+}
 
 export interface Ref {
   // The bare skill name (no `superpowers:` prefix).
@@ -91,21 +133,24 @@ export function checkReferences(refs: readonly Ref[], upstreamRoots: readonly st
     };
   }
   const available = new Set<string>();
+  const failures: string[] = [];
   for (const root of upstreamRoots) {
     try {
       for (const entry of readdirSync(root, { withFileTypes: true })) {
-        if (entry.isDirectory()) available.add(entry.name);
+        // statSync follows symlinks; Dirent.isDirectory() is false for a
+        // symlinked skill directory, which would silently hide a real skill.
+        if (probeDir(join(root, entry.name)).isDir) available.add(entry.name);
       }
-    } catch {
-      // unreadable root: nothing is added to `available`, so with ALL roots
-      // unreadable every ref fails to resolve and the result is FAIL —
-      // deliberately fail-closed (an unreadable install never reads as clean)
+    } catch (err) {
+      // An unreadable root is reported, never swallowed: without this the
+      // reference failures below would blame the references for a defect that
+      // is really a permission/IO problem on our side.
+      failures.push(`${root} — upstream root unreadable (${errCode(err)}); references cannot be verified against it`);
     }
   }
-  const failures: string[] = [];
   for (const ref of refs) {
     if (!available.has(ref.name)) {
-      failures.push(`${ref.source}: superpowers:${ref.name} — not found in any installed upstream`);
+      failures.push(`${ref.source}: superpowers:${ref.name} — not found in any readable installed upstream`);
     }
   }
   if (failures.length > 0) {
@@ -147,28 +192,51 @@ export function discoverUpstreamRoots(homeOverride?: string): UpstreamDiscovery 
   const out: UpstreamDiscovery = { roots: [], searchedGlob, baseFound: false, errors: [] };
   if (!home) return out;
   const cacheDir = join(home, '.claude', 'plugins', 'cache');
-  if (!existsSync(cacheDir)) return out;
+  const cacheProbe = probeDir(cacheDir);
+  if (cacheProbe.error) {
+    out.errors.push(cacheProbe.error);
+    return out;
+  }
+  if (!cacheProbe.isDir) return out;
   let marketplaces: string[];
   try {
-    marketplaces = readdirSync(cacheDir, { withFileTypes: true })
-      .filter((e) => e.isDirectory())
-      .map((e) => e.name);
+    marketplaces = readdirSync(cacheDir);
   } catch (err) {
-    out.errors.push(`${cacheDir}: ${String(err)}`);
+    out.errors.push(`${cacheDir}: ${errCode(err)}`);
     return out;
   }
   for (const marketplace of marketplaces) {
     const base = join(cacheDir, marketplace, 'superpowers');
-    if (!existsSync(base)) continue;
+    const baseProbe = probeDir(base);
+    if (baseProbe.error) {
+      // A marketplace directory we cannot read may well HOLD an install. Record
+      // it so the caller fails loudly instead of reporting «not installed».
+      out.errors.push(baseProbe.error);
+      continue;
+    }
+    if (!baseProbe.isDir) continue;
     out.baseFound = true;
+    let versions: string[];
     try {
-      for (const entry of readdirSync(base, { withFileTypes: true })) {
-        if (!entry.isDirectory()) continue;
-        const skillsDir = join(base, entry.name, 'skills');
-        if (existsSync(skillsDir)) out.roots.push(skillsDir);
-      }
+      versions = readdirSync(base);
     } catch (err) {
-      out.errors.push(`${base}: ${String(err)}`);
+      out.errors.push(`${base}: ${errCode(err)}`);
+      continue;
+    }
+    for (const version of versions) {
+      const versionProbe = probeDir(join(base, version));
+      if (versionProbe.error) {
+        out.errors.push(versionProbe.error);
+        continue;
+      }
+      if (!versionProbe.isDir) continue;
+      const skillsDir = join(base, version, 'skills');
+      const skillsProbe = probeDir(skillsDir);
+      if (skillsProbe.error) {
+        out.errors.push(skillsProbe.error);
+        continue;
+      }
+      if (skillsProbe.isDir) out.roots.push(skillsDir);
     }
   }
   return out;
@@ -280,6 +348,33 @@ describe('Upstream skill-reference smoke — pure function (paired-negative)', (
     expect(res.message).toMatch(/SKIPPED/);
   });
 
+  it('unreadable root is reported as its own failure, not blamed on the references', () => {
+    if (typeof process.getuid === 'function' && process.getuid() === 0) return;
+    chmodSync(emptyDir, 0o000);
+    try {
+      const refs: Ref[] = [{ name: 'brainstorming', source: 'demo/SKILL.md' }];
+      const res = checkReferences(refs, [upstreamA, emptyDir]);
+      expect(res.status).toBe('FAIL');
+      // The point: the message names the unreadable ROOT. Before this, the
+      // throw was swallowed and the only signal was a reference failure that
+      // blamed the reference for an IO problem.
+      expect(res.failures?.join('\n')).toMatch(/upstream root unreadable/);
+    } finally {
+      chmodSync(emptyDir, 0o755);
+    }
+  });
+
+  it('symlinked skill dir under a root still resolves', () => {
+    const target = mkdtempSync(join(tmpdir(), 'usref-skill-'));
+    try {
+      symlinkSync(target, join(upstreamB, 'writing-skills'), 'dir');
+      const refs: Ref[] = [{ name: 'writing-skills', source: 'demo/SKILL.md' }];
+      expect(checkReferences(refs, [upstreamB]).status).toBe('PASS');
+    } finally {
+      rmSync(target, { recursive: true, force: true });
+    }
+  });
+
   it('empty upstream dir (no skill subdirs) yields FAIL not SKIPPED', () => {
     // An upstream root that exists but has zero skill subdirectories is treated
     // as a real (and broken) upstream, not a skip: the roots array was non-empty,
@@ -332,6 +427,41 @@ describe('discoverUpstreamRoots — synthetic HOME (broken-install regression)',
     const disc = discoverUpstreamRoots(fakeHome);
     expect(disc.baseFound).toBe(true);
     expect(disc.roots).toHaveLength(0);
+  });
+
+  // chmod-based probes are meaningless as root (root bypasses mode bits) — the
+  // container runs as root, the operator host does not.
+  const asRoot = typeof process.getuid === 'function' && process.getuid() === 0;
+
+  it.skipIf(asRoot)('marketplace dir unreadable (EACCES) → recorded as an error, NOT read as «not installed»', () => {
+    // The B1 shape: a HEALTHY install sitting behind a directory we cannot
+    // read. `existsSync` reported false here, so this passed as SKIPPED.
+    const mkt = join(fakeHome, '.claude', 'plugins', 'cache', 'mkt');
+    mkdirSync(join(mkt, 'superpowers', '6.2.0', 'skills', 'brainstorming'), { recursive: true });
+    chmodSync(mkt, 0o000);
+    try {
+      const disc = discoverUpstreamRoots(fakeHome);
+      expect(disc.errors.length, 'an unreadable marketplace dir must be surfaced').toBeGreaterThan(0);
+      expect(disc.errors.join(' ')).toMatch(/EACCES|EPERM/);
+    } finally {
+      chmodSync(mkt, 0o755);
+    }
+  });
+
+  it('symlinked marketplace and version dirs → still discovered (Dirent.isDirectory would miss them)', () => {
+    const real = mkdtempSync(join(tmpdir(), 'usref-real-'));
+    try {
+      mkdirSync(join(real, 'superpowers', '6.2.0', 'skills', 'brainstorming'), { recursive: true });
+      const cache = join(fakeHome, '.claude', 'plugins', 'cache');
+      mkdirSync(cache, { recursive: true });
+      symlinkSync(real, join(cache, 'mkt'), 'dir');
+      const disc = discoverUpstreamRoots(fakeHome);
+      expect(disc.baseFound).toBe(true);
+      expect(disc.roots).toHaveLength(1);
+      expect(disc.errors).toHaveLength(0);
+    } finally {
+      rmSync(real, { recursive: true, force: true });
+    }
   });
 
   it('healthy install → roots discovered across a non-frozen marketplace segment', () => {
