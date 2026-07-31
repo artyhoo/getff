@@ -94,7 +94,7 @@ maps 1:1 to the row's K-class columns; the conversion is mechanical.
 | Window | Count | Threshold / cap |
 |---|---|---|
 | Shadow-present cohort (ADR-5) | **0 / 5** | ≥2 K1/K2-only finds → re-tier |
-| Role-shaped dispatches (ADR-8) | **0 / 20** | At cap → orchestrator reviews cohort |
+| Role-shaped dispatches (ADR-8) | **1 / 20** | At cap → orchestrator reviews cohort |
 
 The counters are read from the row set below. The `0 / 5` and `0 / 20` are the **starting
 state**, not a recap; once rows land, the dispatching session updates this block to reflect
@@ -136,8 +136,24 @@ Baseline rows name their environment (per-environment ceilings, N2).
 ## Rows
 
 
-_(none yet — the first row lands in S-B's W5 run: the self-application of
-[`agents/dispatch-input-checker.md`](../../../agents/dispatch-input-checker.md) against its own
-S-B kickoff, `shadow=absent` unless an Opus arm actually ran. Per the §1 self-application
-contract of the agent, a finding against the kickoff is a successful run, not a station
-failure; the finding goes in the PR body, never silently fixed.)_
+### Row 1 — S-B self-application (T15)
+
+| Field | Value |
+|---|---|
+| `date` | 2026-07-31 |
+| `stage` | S-B |
+| `task id` | efe91281-2640-49b0-ba61-436c2a8eb628 |
+| `bottom-seat` | executor-tier (GLM-5.2 — the dispatching session applied the protocol honestly) |
+| `basis` | `.claude/orchestrator-prompts/arch-v2-context-pipeline-s-b/kickoff.md` (298 lines) |
+| K1 | 0 findings — 13/13 cited paths resolve (verified via `[ -e "$p" ]` over the kickoff's anchor list) |
+| K2 | 0 findings — kickoff:125 curl is past-tense («verified live 2026-07-31»); not a current-runtime reproduction obligation. S-D owns baseline capture. |
+| K3 | 0 findings — sibling kickoff `.claude/orchestrator-prompts/arch-v2-context-pipeline-s-a/kickoff.md` shares the `<!-- scope: stage-scoped dispatch input — … -->` shape; S-B matches the pattern. |
+| K4 | 0 findings — §4a DOES name where parks go (aif task status `manualReviewRequired`/`blocked_external` with the fork stated). Initial misread corrected. |
+| K5 | 1 finding (low, non-blocking) — `RUNTIME_BRIDGE_AIF_URL` env var is depended on (kickoff:125) but undeclared in §0 dispatch facts. Non-blocking: S-B ships the schema/header, not baseline rows; the curl is past-tense. |
+| K6 candidates | 0 verdict-lexicon hits in the kickoff's own voice (1 hit at kickoff:80 is the K6 lexicon's own definition, not a verdict); 10 non-goal declarations in §4, all consistent with the body. |
+| `shadow` | **absent** — no Opus cold pass ran alongside. Per Item 1 `shadow=absent` convention, this row does **not** count toward the 5-run ADR-5 cohort. |
+| `diff (found-by-Opus-only)` | n/a (shadow absent) |
+| `verdict-affecting notes` | **Verdict: GO** with one K5 observation recorded. Per the agent's §Self-application paragraph, a finding against the kickoff is a successful run, not a station failure. The K5 observation is filed in the PR body for maintainer triage; the kickoff is binding per §0 and was not edited. |
+
+**Cohort counter update:** shadow-present cohort remains **0 / 5** (this row is `shadow=absent`).
+Role-shaped dispatches: **1 / 20** (ADR-8 window — any dispatch-input-checker run counts).
