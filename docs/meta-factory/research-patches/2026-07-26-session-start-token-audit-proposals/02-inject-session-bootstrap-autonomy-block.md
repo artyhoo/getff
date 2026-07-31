@@ -42,7 +42,7 @@ item (3) and the closing quote. The diff touches ONE physical line (the `DIGEST=
 diff --git a/.claude/hooks/inject-session-bootstrap.sh b/.claude/hooks/inject-session-bootstrap.sh
 --- a/.claude/hooks/inject-session-bootstrap.sh
 +++ b/.claude/hooks/inject-session-bootstrap.sh
-@@ -61,7 +61,7 @@ esac
+@@ -61,5 +61,5 @@ esac
  # Falsifier: if a session with AIF_AUTONOMOUS=1 still stops at a reportable boundary with work
  # in flight, this block bought nothing and F10 needs the Stop-hook arm, not more words.
  if [ "${AIF_AUTONOMOUS:-0}" = "1" ]; then

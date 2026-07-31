@@ -74,18 +74,24 @@ host-cc session-start (S1 §2 totals: 140,216 bytes / ~39,021 tokens → project
 | 1 — zcode paths: frontmatter | 22,177 | ~5,544 | Pure removal |
 | 2 + 3 — claudeMdExcludes (`autonomous-loop-continuity.md`) + §2 hook line | 13,459 − ~600 = ~12,859 (autonomous); 13,459 (interactive) | ~3,365 autonomous / ~3,365 interactive | The §2 hook-line addition costs ~600 bytes per `AIF_AUTONOMOUS=1` session (zero for interactive). Note B pairing. |
 | 3 — settings claudeMdExcludes (`git-conflict-merge-forward.md`) | 9,285 | ~2,321 | Pure removal |
-| 4 — MEMORY.en index rewrite (RU → EN, content files unchanged) | ~13,000 | ~5,909 | RU byte-cost 2× per token vs EN; content files stay RU |
-| **TOTAL projected** | **~57,321 bytes** | **~17,139 tokens** | |
+| 4 — MEMORY.en index rewrite (RU → EN, content files unchanged) | ~13,000 | ~7,219 | RU byte-cost 2× per token vs EN; the saving is the byte delta weighted by the RU→EN ratio change, not byte-delta/2.2 (corrected in S3 — see S3 §10.1) |
+| **TOTAL projected** | **~57,321 bytes** | **~18,449 tokens** | |
 
-S1 host-cc baseline 39,021 → projected ~21,882 tokens (within the ≤25k budget). The container
+S1 host-cc baseline 39,021 → projected ~20,572 tokens (within the ≤25k budget). The container
 (aif-container) baseline is 29,589 tokens (no operator MEMORY.md); proposals 1+2+3 apply
 without operator-local artefacts, projecting ~18,560 tokens (also within budget). Re-measurement
 closes this in S3.
 
+> **Baseline note (added in follow-up to S3):** this projection uses the S1 pre-Task-7 baseline
+> (39,021). S3 §10.1 reports the post-Task-7 baseline (38,325 — Task 7's CLAUDE.md hot/cold split
+> saves ~696 tokens host-cc) and the corresponding post-application projection of 19,876 tokens
+> (38,325 − 18,449). The two projections differ by exactly Task 7's saving; both are GREEN within
+> the ≤25k budget.
+
 **Autonomous-session overhead note:** the only proposal that ADDS bytes anywhere is proposal 2
 (§2 hook line, ~600 bytes per autonomous turn). All other proposals are pure-removal. The
-net for autonomous sessions is therefore the same ~17,139 token reduction minus the ~150 tokens
-the §2 hook line costs per autonomous turn. Interactive sessions see the full ~17,139 token
+net for autonomous sessions is therefore the same ~18,449 token reduction minus the ~150 tokens
+the §2 hook line costs per autonomous turn. Interactive sessions see the full ~18,449 token
 reduction with zero offset.
 
 ## See also
