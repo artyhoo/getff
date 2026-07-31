@@ -46,7 +46,8 @@
 **Target:** `.claude/skills/arch/SKILL.md`, a new section between the current §1 (ideate + design)
 and §2 (cold two-altitude review).
 
-Codify, per spec §2 and handoff decision 4:
+Codify, per spec §2 and handoff decision 4 (the freshness bar in item 3 below is handoff
+decision **8**, not 4):
 
 1. **Trigger + explicit skip.** The contour fires on a new capability, an unfamiliar domain, or a
    needed BFR verdict. Tier-0/Tier-1 work skips it **explicitly** (one line in the artefact saying
@@ -69,8 +70,11 @@ contour`, `research-spec`, `distillate`, `исследовательский к�
 
 **How to verify:** `grep -nE '§1\.5|pre-mortem|acceptance-criteria|current as of' .claude/skills/arch/SKILL.md`
 returns all four; `awk '/^description: /{print length($0)-13}' .claude/skills/arch/SKILL.md` < 1536;
-`npx vitest run packages/core/principles/09-doc-authority-hierarchy.test.ts` green (the header's
-Authoritative-for line must grow to cover §1.5).
+`npx vitest run packages/core/principles/09-doc-authority-hierarchy.test.ts` green — note this
+asserts header **presence** only (`09-doc-authority-hierarchy.test.ts:75-86`, `hasAuthorityHeader`;
+`arch/SKILL.md` is covered dynamically via `SKILL_DOC_ROOTS`). Growing the Authoritative-for line
+to cover §1.5 is therefore a **review-time obligation**, not something 09 can detect — state in the
+PR body what you added to that line and why.
 
 ### W2 — membrane + K-pass + bounded drill-down (ADR-4)
 
@@ -143,11 +147,25 @@ a line range.
 
 ```text
 grep -nE 'v[0-9]+\.[0-9]+\.[0-9]+|SDD lines|through v' .claude/skills/arch/SKILL.md .claude/skills/night-mode/SKILL.md
+grep -n 'spec-reviewer\|code-quality-reviewer' .claude/skills/night-mode/SKILL.md
 ```
 
-must return **no hit at the three fixed sites**. A fix that swaps a stale version pin for a fresh
-one, or a stale line number for a fresh one, is a REJECT at review — it re-arms the identical drift
-on the next upstream release (see T-SA-B).
+The first must return **no hit at sites (a) and (c)**. The second must return **empty** — it is the
+only mechanical check that reaches site **(b)**: verified at Phase -1 that the version/line-number
+regex does **not** match `night-mode/SKILL.md:15` even while the drift is present, so without this
+second grep an executor could fix (a) and (c), skip (b), and still satisfy every stated criterion.
+
+A fix that swaps a stale version pin for a fresh one, or a stale line number for a fresh one, is a
+REJECT at review — it re-arms the identical drift on the next upstream release (see T-SA-B).
+
+**Environment (binding — read before starting W4).** The upstream install lives under the
+operator's `~/.claude/plugins/**`, which does **not** exist in the aif container. If you are the
+container executor: do **not** attempt to re-verify the upstream-side facts in the table above, and
+do **not** fabricate a quoted output for them. Write, verbatim:
+`upstream absent in this environment — W4 upstream claims taken as given from the kickoff table`.
+The re-verification is a HOST step: the orchestrator runs it and quotes the output in the PR body
+before acceptance. Every **in-repo** claim (the three site line numbers, the grep results above)
+IS re-verifiable in your environment and MUST be quoted — that half of T3 stands unchanged.
 
 ### W5 — upstream-reference smoke (honest scope)
 
@@ -170,10 +188,15 @@ resolve or the test FAILS; when not found, the test emits an explicit, quoted
 `SKIPPED — no upstream install discovered at <globs searched>` line and passes. The test's own
 header states which environment it is meaningful in.
 
-**How to verify:** `npx vitest run packages/core/skills/upstream-skill-reference.test.ts` green on
-the host with upstream present; the paired negative (a fixture referencing
-`superpowers:does-not-exist`) observed **RED before GREEN** — quote both runs in the PR body (T2);
-and one run with the upstream glob pointed at an empty temp dir showing the SKIPPED line verbatim.
+**How to verify (split by environment — see the W4 environment note).** In **your** environment
+(container, upstream absent): the paired negative observed **RED before GREEN** — quote both runs
+in the PR body (T2) — and one run with the upstream glob pointed at an empty temp dir showing the
+`SKIPPED` line verbatim. Both are reproducible without upstream, because the negative fixture and
+the empty-glob case do not need it.
+
+The **upstream-present GREEN run is a HOST step**: the orchestrator runs
+`npx vitest run packages/core/skills/upstream-skill-reference.test.ts` on the host and quotes it
+before acceptance. Do not claim it from the container.
 
 ### W6 — unique-filenames convention for parallel subagents
 
@@ -191,9 +214,12 @@ dispatch-prompt contract; the two §2 seats' prompts each carry a distinct filen
 
 1. W1-W6 present with the verification command outputs quoted in the PR body — command + output,
    never prose (T3).
-2. `grep -nE 'v[0-9]+\.[0-9]+\.[0-9]+|SDD lines|through v'` returns no hit at the three W4 sites.
-3. The smoke exists, was observed RED on the paired negative and GREEN on the real tree, and its
-   SKIPPED path was exercised once.
+2. `grep -nE 'v[0-9]+\.[0-9]+\.[0-9]+|SDD lines|through v'` returns no hit at W4 sites (a) and (c),
+   **and** `grep -n 'spec-reviewer\|code-quality-reviewer' .claude/skills/night-mode/SKILL.md`
+   returns empty — the second grep is the only mechanical reach into site (b).
+3. The smoke exists, was observed RED on the paired negative, and its SKIPPED path was exercised
+   once — both quotable from the container. The upstream-present GREEN run is quoted by the
+   orchestrator from the **host** (W5 environment note); the executor does not claim it.
 4. `/arch` SKILL.md still declares itself a **thin wrapper** — the rewrite adds the contour and the
    membrane; it does **not** re-describe the brainstorming loop, the reviewer protocol, or SDD
    (`#parallel-evolution-creep`; the skill's own opening paragraph is the standard it is held to).
@@ -240,6 +266,19 @@ channel build, no budget gate, no small-fixes items. No edits to maintainer-owne
 No new hooks, no CI workflow changes, no `.claude/settings.json` registration. No retro sweep of
 existing kickoffs. No upstream version pins anywhere in the diff.
 
+## §4a Park-don't-guess contract (non-negotiable)
+
+If any instruction here is ambiguous, contradicts what you find in the tree, or names a fact you
+cannot verify where you run — **park and report; never guess and never fabricate**. Write in your
+report: the instruction, what you found instead, and the two or more readings you are choosing
+between. A parked item with a precise question costs one round-trip; a guessed item that looks
+finished costs a full re-do and may ship a false claim into a discipline-bearing skill.
+
+This is expected to fire at least once on this stage: the W4/W5 environment split (upstream absent
+in the container) is a known boundary, and «I could not verify X here» is a **correct** outcome
+there, not a failure. Do not manufacture a quoted command output for anything outside your
+environment.
+
 ## §5 AI-laziness traps
 
 See [.claude/rules/ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md). **Active traps for
@@ -247,9 +286,11 @@ this stage: T2, T3, T7, T15, T16, T19, T21.**
 
 - **T2** — the smoke is not «shipped» because it is written: fire it at the paired negative,
   observe RED, then GREEN, and quote both. Same for the SKIPPED path.
-- **T3** — every W4 claim about upstream is re-verified in **your** environment before you edit,
-  with the command and its output quoted. Do not inherit this kickoff's table as fact (it is dated
-  2026-07-31 evidence, not a standing truth).
+- **T3** — every **in-repo** claim (the three site line numbers, every grep in §2) is re-verified in
+  **your** environment before you edit, with the command and its output quoted. The **upstream-side**
+  half of the W4 table is NOT re-verifiable where you run (upstream is absent in the container):
+  say so verbatim per the W4 environment note instead of quoting anything — a fabricated quote here
+  is the exact defect T3 exists to prevent. The orchestrator re-verifies that half on the host.
 - **T7** — the §2 acceptance list is not a checklist to tick: run each command and paste output.
 - **T15** — self-application: this stage rewrites the contour that produced it. State in the PR
   body which kill channel this stage's own work would have hit under the new §1.5, and whether the
@@ -278,3 +319,4 @@ this stage: T2, T3, T7, T15, T16, T19, T21.**
 - [`.claude/skills/night-mode/SKILL.md`](../../skills/night-mode/SKILL.md) — W4(b)/(c) sites; also the tier→model instantiation SSOT that §1.5 must point at rather than restate.
 - [ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md) · [attention-is-not-a-mechanism.md](../../rules/attention-is-not-a-mechanism.md) · [kickoff-staging-placement.md](../../rules/kickoff-staging-placement.md) · [doc-authority-hierarchy.md](../../rules/doc-authority-hierarchy.md).
 - [`agents/backward-sweep-auditor.md`](../../../agents/backward-sweep-auditor.md) — the cold sweep §3 requires.
+- [`docs/superpowers/specs/2026-07-31-arch-v2-context-pipeline-handoff.md`](../../../docs/superpowers/specs/2026-07-31-arch-v2-context-pipeline-handoff.md) §2 — resolves every «handoff decision N» citation above (2, 4, 8, 11, 13). Read only if you need the decision's original wording; this kickoff restates everything you need to execute.
