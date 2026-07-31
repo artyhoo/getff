@@ -123,7 +123,8 @@ the mechanics.
 
 **Pre-egress fidelity gate (design altitude — spec D2/D6).** `harvest.ts` creates the PR and
 queues auto-merge inside one binary, so the fidelity seam is HERE, before invoking it.
-Dispatch [`agents/fidelity-auditor.md`](../../../agents/fidelity-auditor.md) cold: inputs = the
+Dispatch [`agents/fidelity-auditor.md`](../../../agents/fidelity-auditor.md) cold, **with an
+explicit `name`** (so a follow-up round can resume it): inputs = the
 stage kickoff path + the container diff (read-only; in-container `origin/staging` is the
 established §2.4/harvest-§1 inspect pattern; 3-dot tolerates a stale base):
 

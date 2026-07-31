@@ -69,7 +69,8 @@ The sweep auto-scopes via `git merge-base`, escalates to `--full` on any unmappe
 1. **Own cold-QA before handoff** (T19) — CI checks form, not design. Invoke `superpowers:requesting-code-review` on the 3-dot diff (`git diff origin/staging...HEAD`).
 2. **Fidelity verdict (design altitude — spec D2).** Dispatch
    [`agents/fidelity-auditor.md`](../../../agents/fidelity-auditor.md) as a cold read-only
-   subagent: inputs = the stage kickoff/spec path + the same 3-dot diff, current HEAD sha,
+   subagent **with an explicit `name`** (so a follow-up round can resume it): inputs = the
+   stage kickoff/spec path + the same 3-dot diff, current HEAD sha,
    round number — nothing else (no chat, no logs). `REVISE`/`STOP` → do NOT open the PR;
    factory task → route the findings per [/dispatcher §2.4 rework loop](../dispatcher/SKILL.md),
    in-session work → fix and re-audit (Round 2); cap 2 rounds → escalate to the operator.

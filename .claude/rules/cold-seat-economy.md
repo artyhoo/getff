@@ -33,7 +33,9 @@ seat**:
   kickoff's permitted-file list), then re-establish the verdict with a **narrow cold delta
   check**: hand a cold agent only the incremental diff plus the kickoff's scope sections.
   Thousands of tokens, not hundreds of thousands. The refreshed block records the new HEAD as
-  `Audited-SHA`.
+  `Audited-SHA`. **This applies only to refreshing a standing `GO`.** A commit answering a
+  `REVISE` is rework on exactly what the seat judged non-conformant — it earns a real
+  `Round: n+1` audit, and the file-list check cannot tell the two apart.
 - **Deliverables, permitted files, or descopes actually moved** → that is substance; a full
   re-audit is earned.
 - **Never self-issue the verdict to dodge the cost.** The seat is cold by construction; a
@@ -54,7 +56,8 @@ refresh goes last — plan around the constraint instead of fighting it.
 
 When a cold seat must look again at work it already judged, **resume that agent** (SendMessage
 by name) instead of spawning a fresh one — it still holds the kickoff, the acceptance criteria,
-and what it previously verified.
+and what it previously verified. **Give the seat an explicit `name` at dispatch**, so a
+follow-up round has a stable handle to resume rather than an opaque agent id.
 
 Measured (S-A round 2→3, 2026-07-31), so the reason is stated correctly:
 
