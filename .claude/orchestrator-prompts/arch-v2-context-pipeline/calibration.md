@@ -78,6 +78,7 @@ are **equal** — no primary/background tiering inside this ledger.
 | `bottom-seat findings by K-class` | structured | K1..K6 counts + file:line evidence per class |
 | `shadow-arm findings by K-class` | structured | K1..K6 counts at Opus altitude; `absent` if arm unavailable |
 | `diff (found-by-Opus-only)` | structured | K-class + one-line finding for each defect the bottom seat missed |
+| `Coverage` | structured | Surfaces reached of surfaces in scope, carried over verbatim from the station's mandatory `Coverage:` output line ([`agents/dispatch-input-checker.md`](../../../agents/dispatch-input-checker.md) output grammar). A row with zero findings and no coverage statement converts a shallow pass into apparent evidence — log «coverage insufficient» with the unreached surfaces, never «input clean» (T14) |
 | `shadow` | enum: `present` / `absent` | `absent` runs do NOT count toward the 5-run cohort (Item 1) |
 | `verdict-affecting notes` | free-form | Cohort-window status; defects fixed inline; etc. |
 
@@ -96,10 +97,13 @@ maps 1:1 to the row's K-class columns; the conversion is mechanical.
 | Shadow-present cohort (ADR-5) | **0 / 5** | ≥2 K1/K2-only finds → re-tier |
 | Role-shaped dispatches (ADR-8) | **1 / 20** | At cap → orchestrator reviews cohort |
 
-The counters are read from the row set below. The `0 / 5` and `0 / 20` are the **starting
-state**, not a recap; once rows land, the dispatching session updates this block to reflect
-the live count. A counter that disagrees with the row set is a ledger bug — fix the counter,
-never paper over a row.
+The counters are **live state read from the row set below**, not a recap and not a fixed
+starting value: the dispatching session updates this block every time a row lands. They read
+`0 / 5` and `1 / 20` at this SHA because Row 1 is `shadow=absent` — it counts toward the ADR-8
+role-shaped window and **not** toward the ADR-5 shadow-present cohort. That asymmetry is the
+whole point of the two counters (T-SB-A): a ledger full of `shadow=absent` rows must never
+read as cohort progress. A counter that disagrees with the row set is a ledger bug — fix the
+counter, never paper over a row.
 
 ---
 
@@ -151,6 +155,7 @@ Baseline rows name their environment (per-environment ceilings, N2).
 | K4 | 0 findings — §4a DOES name where parks go (aif task status `manualReviewRequired`/`blocked_external` with the fork stated). Initial misread corrected. |
 | K5 | 1 finding (low, non-blocking) — `RUNTIME_BRIDGE_AIF_URL` env var is depended on (kickoff:125) but undeclared in §0 dispatch facts. Non-blocking: S-B ships the schema/header, not baseline rows; the curl is past-tense. |
 | K6 candidates | 0 verdict-lexicon hits in the kickoff's own voice (1 hit at kickoff:80 is the K6 lexicon's own definition, not a verdict); 10 non-goal declarations in §4, all consistent with the body. |
+| `Coverage` | **5 of 6 K-classes reached mechanically** (K1 anchors, K2 quoted outputs, K3 sibling pattern, K4 format mechanics, K5 external state). K6 reached only at its **candidate-generator** half — the Opus adjudication arm did not run, so framing bias is **unassessed, not clean**. Per the station's own verdict rule this is `coverage-insufficient` on K6, never «input clean» (T14). |
 | `shadow` | **absent** — no Opus cold pass ran alongside. Per Item 1 `shadow=absent` convention, this row does **not** count toward the 5-run ADR-5 cohort. |
 | `diff (found-by-Opus-only)` | n/a (shadow absent) |
 | `verdict-affecting notes` | **Verdict: GO** with one K5 observation recorded. Per the agent's §Self-application paragraph, a finding against the kickoff is a successful run, not a station failure. The K5 observation is filed in the PR body for maintainer triage; the kickoff is binding per §0 and was not edited. |

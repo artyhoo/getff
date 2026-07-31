@@ -35,8 +35,8 @@ real verdict is required. Leave the placeholder or write `n/a` for non-stage PRs
 
 <!-- Stage PRs also carry the round-1 seat's `### Watch-list` sub-block here, pasted unedited,
 plus one `Round N: <id> CLEAN | REINTRODUCED | N/A` line per follow-up round. Format + field set:
-.claude/orchestrator-prompts/arch-v2-context-pipeline/watch-list.md §3. It is what a fresh cold
-seat is handed instead of a resumed transcript (.claude/rules/cold-seat-economy.md §3). -->
+agents/fidelity-auditor.md, section "Watch-list". It is what a fresh cold seat is handed instead
+of a resumed transcript (.claude/rules/cold-seat-economy.md §3). -->
 
 ## Fidelity verdict
 
