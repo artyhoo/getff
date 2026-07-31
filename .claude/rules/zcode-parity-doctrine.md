@@ -1,11 +1,25 @@
+---
+paths:
+  - .claude/hooks/**
+  - scripts/render-harness-config.mjs
+  - plugin/hooks/**
+  - docs/meta-factory/zcode-parity-mega.decisions.md
+  - docs/meta-factory/research-patches/2026-07-18-zcode-parity-step1.md
+  - docs/meta-factory/research-patches/2026-07-18-zcode-parity-s2-mech2-alt.md
+  - docs/meta-factory/research-patches/2026-07-18-zcode-parity-s4-warn-subagent.md
+  - docs/meta-factory/research-patches/2026-07-18-zcode-parity-s7-subagentstart.md
+  - docs/meta-factory/research-patches/2026-07-18-zcode-parity-s8-harness-survey.md
+  - docs/meta-factory/research-patches/2026-07-18-zcode-parity-s9-multiturn-anchor.md
+---
+
 # ZCode parity doctrine — discipline rule
 
 > **Class:** A — companion principle test shipped at [packages/core/principles/09-doc-authority-hierarchy.test.ts](../../packages/core/principles/09-doc-authority-hierarchy.test.ts) (doctrine registered in `REQUIRED_HEADER_DOCS`; the doctrine itself is a SSOT pointer-aggregator, the enforcement lives in existing gates per §6).
-> **Fires:** editing `.claude/hooks/**`, `plugin/hooks/**`, or `scripts/render-harness-config.mjs`; authoring Wave B stage kickoffs or research patches under `docs/meta-factory/zcode-parity-mega.*.md` / `docs/meta-factory/research-patches/2026-07-18-zcode-parity-*.md`.
+> **Fires:** editing `.claude/hooks/**`, `plugin/hooks/**`, or `scripts/render-harness-config.mjs`; authoring the zcode-parity decisions doc or a `2026-07-18-zcode-parity-*` research patch (exact set: the rule's `paths:` frontmatter).
 > **Authoritative for:** the canonical ZCode-parity SSOT — §2 per-hook census (binding, extends [census.md](../../docs/meta-factory/research-patches/2026-07-18-zcode-full-parity-census.md)), §3 per-stage decision rollup (binding, extends [decisions.md](../../docs/meta-factory/zcode-parity-mega.decisions.md)), §4 degradation rationale per CC-only hook, §5 agnosticism tier table.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Per-stage implementation detail — see merged stage PRs (Wave A: #1031/#1034/#1035/#1036/#1037/#1038/#1039/#1040; Wave B dispatch plan: [decisions.md §Wave B dispatch plan](../../docs/meta-factory/zcode-parity-mega.decisions.md)). Maintenance philosophy — see [dual-implementation-discipline.md](dual-implementation-discipline.md). Build-vs-reuse verdicts — see [build-first-reuse-default.md](build-first-reuse-default.md).
 
-<!-- globs: .claude/hooks/**, scripts/render-harness-config.mjs, plugin/hooks/**, docs/meta-factory/zcode-parity-mega.*.md, docs/meta-factory/research-patches/2026-07-18-zcode-parity-*.md -->
+<!-- globs: .claude/hooks/**, scripts/render-harness-config.mjs, plugin/hooks/**, docs/meta-factory/zcode-parity-mega.decisions.md, docs/meta-factory/research-patches/2026-07-18-zcode-parity-step1.md, docs/meta-factory/research-patches/2026-07-18-zcode-parity-s2-mech2-alt.md, docs/meta-factory/research-patches/2026-07-18-zcode-parity-s4-warn-subagent.md, docs/meta-factory/research-patches/2026-07-18-zcode-parity-s7-subagentstart.md, docs/meta-factory/research-patches/2026-07-18-zcode-parity-s8-harness-survey.md, docs/meta-factory/research-patches/2026-07-18-zcode-parity-s9-multiturn-anchor.md -->
 <!-- inject: ZCode parity doctrine — full parity is the goal (CC-first + AI-agnostic by design). Before editing hooks or render-harness-config, check §2 census for whether the hook has ZCode parity / plugin twin / CC-only rationale, and §3 for whether a Wave B stage changes its classification. -->
 
 ## §1 Goal statement
