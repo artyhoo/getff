@@ -8,7 +8,7 @@
 > K6 candidate/adjudicate split, the output grammar) — see
 > [`agents/dispatch-input-checker.md`](../../../agents/dispatch-input-checker.md). The umbrella
 > stage sequence + acceptance + dispatch choreography — see
-> [`.claude/orchestrator-prompts/arch-v2-context-pipeline/kickoff.md`](../kickoff.md). Project
+> [`.claude/orchestrator-prompts/arch-v2-context-pipeline/kickoff.md`](kickoff.md). Project
 > goal — see [README.md#why-this-exists](../../../README.md#why-this-exists).
 
 > **Origin:** arch-v2-context-pipeline S-B (ADR-5, ADR-6, ADR-8; design spec
