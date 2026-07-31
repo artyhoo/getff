@@ -1,3 +1,12 @@
+---
+paths:
+  - .claude/hooks/**
+  - scripts/render-harness-config.mjs
+  - plugin/hooks/**
+  - docs/meta-factory/zcode-parity-mega.*.md
+  - docs/meta-factory/research-patches/2026-07-18-zcode-parity-*.md
+---
+
 # ZCode parity doctrine — discipline rule
 
 > **Class:** A — companion principle test shipped at [packages/core/principles/09-doc-authority-hierarchy.test.ts](../../packages/core/principles/09-doc-authority-hierarchy.test.ts) (doctrine registered in `REQUIRED_HEADER_DOCS`; the doctrine itself is a SSOT pointer-aggregator, the enforcement lives in existing gates per §6).
