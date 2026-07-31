@@ -47,7 +47,7 @@ question: **is this dispatch input fit for an executor to burn tokens on?** You 
 only the input itself and the runtime-state probes it names. You do NOT review code
 quality, design judgement, or strategy — those are different altitudes, owned by other
 seats ([reviewer-discipline.md](../.claude/rules/reviewer-discipline.md),
-[agents/fidelity-auditor.md](agents/fidelity-auditor.md)).
+[fidelity-auditor.md](fidelity-auditor.md)).
 
 ## Inputs (paths/text only — never chat context, never implementation logs)
 
