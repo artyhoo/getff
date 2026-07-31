@@ -28,7 +28,10 @@ them.
 **Non-functional.** (N1) Net always-on bytes go down or stay flat — binding, per Anthropic's
 2026-07-24 subtractive result (A4); any stage increasing net always-on load must justify it in
 its kickoff. (N2) Every budget assertion names its environment — host-cc and aif-container
-numbers diverge (A7: 90,699 B vs 131,408 B for the same channel). (N3) ZCode parity per
+numbers diverge, in magnitude AND direction depending on the set measured (token-audit S1,
+run 2026-07-30, script-reproducible: always-on set 140,216 B host-cc vs 118,374 B
+aif-container — the operator's user-CLAUDE.md and RU MEMORY.md exist only on host; earlier
+A7 channel-level numbers showed the opposite direction for a different set). (N3) ZCode parity per
 [zcode-parity-doctrine.md §1](../../../.claude/rules/zcode-parity-doctrine.md): degraded is
 acceptable, undocumented degradation is not. (N4) No paid LLM in CI; all semantic checks ride
 in session-read agents ([no-paid-llm-in-ci.md](../../../.claude/rules/no-paid-llm-in-ci.md)).
@@ -143,6 +146,16 @@ earlier. **Grounds:** the distillate's own lever table calls `InstructionsLoaded
 K5 defect (CR-M4) — the same class the pipeline checks for.
 **Falsifier:** measurement shows session-start load is dominated by channels the S1 script
 cannot see → the gate is asserting a minority share; re-scope measurement before enforcing.
+**Status 2026-07-31 — this falsifier FIRED at S1 acceptance:** the S1 run measured the
+repo-owned always-on set at ~29,589 tokens (aif-container) / ~39,021 (host-cc) against a
+~100k observed session-start total — 29-39%, under the kickoff's own <40% clause; the
+remainder (tool schemas, MCP instructions, skills listings, plugin session-start injects) is
+invisible to the script (S1 patch §5, T14 «coverage insufficient» verdict). Consequence,
+binding for S-E: the gate's asserted quantity is the **repo-owned always-on share**,
+explicitly labelled as such — never «session-start total»; the harness remainder is
+addressed by settings-recommendations (S1 §5.1), not gated; and the
+`InstructionsLoaded`-verification task doubles as the measurement-extension probe (it is the
+only channel that could see the full loaded set).
 
 ### ADR-4 — membrane: default + K-pass on the distillate + bounded drill-down (absorbs CR-M2, CR-m4)
 
