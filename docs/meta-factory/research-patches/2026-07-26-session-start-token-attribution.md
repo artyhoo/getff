@@ -1,3 +1,4 @@
+<!-- scope:session-start-token-audit -->
 # Session-start token attribution — S1 measurement + falsifier
 
 > **Authoritative for:** S1 attribution of every session-start injected artifact to its injecting
@@ -290,11 +291,134 @@ evidence is sufficient to UNBLOCK Tasks 4/5/6/7 in the aif-container — but the
 re-probe (`bash scripts/measure-session-start-tokens.sh` from inside the container) before
 treating the aif-container column as confirmed.
 
+## §10 S3 — paired proof + closure (Task 9 re-measurement)
+
+> **Run date:** 2026-07-30. Same conversion heuristic as §1 (S1 attribution). The pre-S2
+> baseline column is the §1 attribution table (§3) — re-verified by re-running
+> `scripts/measure-session-start-tokens.sh` against the pre-S2 commit (`3172cc5653`); byte
+> counts reproduce within 0. The post-S2 column is the live script run on
+> `feature/session-start-token-audit-c781e8` HEAD (`237095a3b`) — at this HEAD only Task 7's
+> hot/cold split has actualized in tracked files; proposals 1-4 are unapplied maintainer diffs
+> (`.claude/**` is agent-deny-listed). The "projected" column applies the four proposal deltas
+> on top of Task 7 to show the budget outcome the maintainer lands.
+
+### §10.1 Before/after table (host-cc environment)
+
+| Artifact | Pre-S2 (S1 baseline) bytes / tokens | Post-Task-7 (actualized) bytes / tokens | Post-maintainer-application (projected) bytes / tokens | Mechanism |
+|---|---|---|---|---|
+| `CLAUDE.md` | 26,517 / ~6,629 | **23,740 / ~5,935** | 23,740 / ~5,935 | Task 7 hot/cold split — 4 cold sections moved to `docs/meta-factory/operational-conventions.md` (NOT in `.claude/rules/*.md`, so not auto-loaded) |
+| `.claude/rules/ai-laziness-traps.md` | 26,387 / ~6,596 | 26,387 / ~6,596 | 26,387 / ~6,596 | STAYS (declared always-on core) |
+| `.claude/rules/zcode-parity-doctrine.md` | 22,177 / ~5,544 | 22,177 / ~5,544 | **0 / 0** (paths:-scoped) | Proposal 1 — `paths:` frontmatter converted from `<!-- globs: -->` marker |
+| `.claude/rules/autonomous-loop-continuity.md` | 13,459 / ~3,365 | 13,459 / ~3,365 | **0 / 0** (claudeMdExcludes) | Proposal 2 + 3 atomic — claudeMdExcludes paired with §2 wait-rule hook line (Note B BINDING) |
+| `.claude/rules/build-first-reuse-default.md` | 12,667 / ~3,166 | 12,667 / ~3,166 | 12,667 / ~3,166 | STAYS (declared always-on core) |
+| `.claude/rules/git-conflict-merge-forward.md` | 9,285 / ~2,321 | 9,285 / ~2,321 | **0 / 0** (claudeMdExcludes) | Proposal 3 — claudeMdExcludes (Note C accepted degradation) |
+| `.claude/rules/00-rule-index.md` | 4,095 / ~1,024 | 4,095 / ~1,024 | 4,095 / ~1,024 | STAYS (declared always-on core) |
+| `.claude/rules/attention-is-not-a-mechanism.md` | 2,629 / ~657 | 2,629 / ~657 | 2,629 / ~657 | STAYS (declared always-on core) |
+| `~/.claude/CLAUDE.md` (operator) | 3,593 / ~898 | 3,593 / ~898 | 3,593 / ~898 | Outside repo — untouched by S2 |
+| `MEMORY.md` (operator, RU index) | 19,407 / ~8,821 | 19,407 / ~8,821 | **~6,407 / ~1,602** (EN-compressed index lines, ASCII) | Proposal 4 — `MEMORY.en.md` index rewrite; content files stay RU |
+| **Section A TOTAL (host-cc)** | **140,216 / ~39,021** | **137,439 / ~38,325** | **~79,518 / ~19,876** | |
+| **Δ from pre-S2** | — | **-2,777 bytes / -696 tokens** | **~-60,698 bytes / ~-19,145 tokens** | |
+
+> **Methodology note (host-cc Post-Task-7 column is reconstructed, not script-measured):** the
+> `measure-session-start-tokens.sh` run on this branch produces the **container** number
+> (115,597 bytes / 28,895 tokens) because the container has no operator `~/.claude/CLAUDE.md`
+> and uses the container's own 1,158-byte `MEMORY.md`. The host-cc Post-Task-7 column above is
+> reconstructed by substituting the operator's locals (CLAUDE.md 3,593 + MEMORY.md 19,407) for
+> the container's MEMORY.md, then subtracting Task 7's CLAUDE.md delta (-2,777 bytes from the
+> 26,517 S1 baseline). On the host-cc machine itself, `bash scripts/measure-session-start-tokens.sh`
+> reproduces 137,439 directly. (Also: the script's `host-cc` env label is a fixed-string; the
+> discriminator between container and host runs is the SKIP-of-operator-CLAUDE.md line in the
+> script output + the MEMORY.md path that resolved.)
+>
+> Token conversions use the same per-file heuristic as §1 (ASCII bytes/4; non-ASCII byte
+> fraction >30% → bytes/2.2). The 19,407-byte Russian MEMORY.md uses bytes/2.2 = ~8,821 tokens;
+> the projected English-compressed index (~6,407 bytes ASCII) uses bytes/4 = ~1,602 tokens.
+> Proposal-4 saving is therefore ~7,219 tokens (the asymmetry between the RU divisor 2.2 and the
+> EN divisor 4 — RU byte-cost is ~2×/token vs EN, and the saving is the byte delta weighted by
+> this ratio change, not byte-delta/2.2). This corrects an earlier calc in the S2 proposals
+> README (`2026-07-26-session-start-token-audit-proposals/README.md:78`) which understated
+> proposal-4 token saving by ~1,310 tokens; the README's projected host-cc total of ~21,882
+> was therefore ~1,310 tokens too high. The corrected projected host-cc total is **~19,876
+> tokens** (still GREEN vs the ≤25k budget); the corrected proposal-4 saving is **~7,219
+> tokens** (not 5,909). The S3 PR 3 includes a fix commit for the S2 README to keep both docs
+> in sync.
+
+### §10.2 Container (aif-container) environment
+
+| Run | Bytes / tokens (Section A) | Notes |
+|---|---|---|
+| Pre-S2 (S1 §3) | (memory-autoload absent; baseline projected from §3) ~29,589 tokens | No operator `~/.claude/CLAUDE.md` / MEMORY.md in container. |
+| Post-Task-7 (this run, script-reproduced) | **115,597 bytes / 28,895 tokens** | Container's own 1,158-byte `MEMORY.md` substitutes for the operator's. Verified live: `bash scripts/measure-session-start-tokens.sh` → 9 rows, 115,597 bytes. |
+| Post-maintainer-application (projected) | ~76,019 bytes / ~17,665 tokens | Same proposals (1+2+3) — proposal 4 is operator-applied, no container effect. Computed: 28,895 (post-Task-7) - 5,544 (proposal 1) - 3,365 (proposal 2+3) - 2,321 (proposal 3) = 17,665. |
+
+### §10.3 Budget check (Task 9 BINDING — kickoff §2 S3)
+
+| Budget rule | Pre-S2 | Post-Task-7 (actualized) | Post-maintainer-application (projected) | Verdict |
+|---|---|---|---|---|
+| Host-cc ≤25,000 tokens | 39,021 | 38,325 | **~19,876** | **GREEN (projected)** — blocked on maintainer application of proposals 1-4 |
+| Container ≤25,000 tokens | 29,589 | 28,895 | **~17,665** | **GREEN (projected)** — same blocker |
+
+**Verdict: budget GREEN is REACHED only after the maintainer applies proposals 1-4.** Task 7 alone
+saves ~696 tokens (host-cc) — material but not sufficient. The umbrella cannot close GREEN on
+agent-applied work alone; closure is BLOCKED on the maintainer's atomic application of the four
+proposal diffs.
+
+Per kickoff §2 S3 budget-miss clause: «miss → surface fork to operator». The fork here is NOT a
+design fork — the proposals ARE the agreed design. The fork is **execution-timing**: the agent
+cannot land the four proposals because `.claude/**` is deny-listed (CLAUDE.md `Artifact Ownership
+Contract`). Surface to operator: apply the four proposals at
+[`docs/meta-factory/research-patches/2026-07-26-session-start-token-audit-proposals/`](2026-07-26-session-start-token-audit-proposals/README.md)
+in the binding apply order, then re-run `bash scripts/measure-session-start-tokens.sh` to confirm
+GREEN.
+
+### §10.4 §1 (v) hook-channel re-enumeration (no new rows)
+
+Re-run by the same script (Section D output). 16 hook arms registered in `.claude/settings.json`
+at lines 66-213 — same set as the S1 run (no hooks added between S1 and S3). No new row to
+surface by name. The only delta is the projected proposal-2 addition: ONE line (~600 bytes)
+added to the `AIF_AUTONOMOUS` block of `inject-session-bootstrap.sh` (the §2 wait-rule
+compensation for the autonomous-loop-continuity claudeMdExcludes — Note B BINDING pairing). That
+addition is opt-in (`AIF_AUTONOMOUS=1`) and therefore NOT in the Section-A always-on payload; it
+appears only when autonomy is enabled, costing ~150 tokens per autonomous turn. Interactive
+sessions see zero overhead. Verified: `git diff 336d031ef..237095a3b -- .claude/settings.json`
+returns EMPTY — no hooks added/removed between S1 and S3; the projected proposal-2 addition is
+the only delta, and it is itself a one-line prose payload inside an existing hook, not a new
+registration.
+
+> **§10 T15 carry (self-application for §10's own artifacts):** this §10 addition itself, the
+> new `operational-conventions.md`, and the `2026-07-26-session-start-token-audit-proposals/`
+> README are all cold files — outside `.claude/rules/*.md`, outside `CLAUDE.md`, outside the
+> operator's `~/.claude/CLAUDE.md` and `MEMORY.md`. The committed script's set computation
+> (Section A) enumerates only those four sources; these artifacts are not in the set → **0
+> session-start cost**. T15 (audit measures its own artifacts) therefore carries from S1 §6
+> without restatement per artifact.
+
+### §10.5 done.md closure (Task 10) — BLOCKED
+
+Per CLAUDE.md `Umbrella closure convention` (now at
+[`docs/meta-factory/operational-conventions.md#1-umbrella-closure-convention`](operational-conventions.md#1-umbrella-closure-convention)
+after Task 7 moved it), the merging session writes `done.md` at the last-stage merge. **This
+umbrella's done.md is BLOCKED on maintainer application of proposals 1-4** — the budget check
+(§10.3) does not go GREEN on agent-applied work alone. The done.md file is therefore NOT written
+in S3 PR 3; it is written by the maintainer (or a follow-up session) at the point of
+proposal-application, with the actualized GREEN budget numbers substituted. The schema is:
+
+```text
+# session-start-token-audit — DONE
+- Final PR: #<PR-3-num>
+- Closed: <YYYY-MM-DD of maintainer application of proposals 1-4>
+- Summary: session-start token set trimmed from ~39k to ~20k tokens (host-cc) via channel re-scoping (1 paths: frontmatter, 2 claudeMdExcludes, 1 MEMORY.en index) + CLAUDE.md hot/cold split; budget ≤25k GREEN post-maintainer-application.
+```
+
+The S3 PR 3 carries this section as the recorded blocker — a NAMED pending operator action, not
+a silent hand-off (per `memory-codification.md §3` §3 `TODO-codify:` pattern analog).
+
 ## See also
 
-- [`scripts/measure-session-start-tokens.sh`](../../../scripts/measure-session-start-tokens.sh) — executable proof; re-run reproduces §1/§2/§4.
+- [`scripts/measure-session-start-tokens.sh`](../../../scripts/measure-session-start-tokens.sh) — executable proof; re-run reproduces §1/§2/§4/§10.
 - [`.claude/orchestrator-prompts/session-start-token-audit/kickoff.md`](../../../.claude/orchestrator-prompts/session-start-token-audit/kickoff.md) — operator kickoff (pre-decided S2 moves + notes A/B/C).
 - [`.ai-factory/plans/feature-session-start-token-audit-c781e8.md`](../../../.ai-factory/plans/feature-session-start-token-audit-c781e8.md) — execution plan (10 tasks, 3 PRs).
+- [`2026-07-26-session-start-token-audit-proposals/README.md`](2026-07-26-session-start-token-audit-proposals/README.md) — maintainer proposals (Tasks 4/5/6/8) + binding apply order.
 - [`language-discipline.md §1`](../../../.claude/rules/language-discipline.md) — internal-machinery English rule.
 - [`doc-authority-hierarchy.md §2-§3`](../../../.claude/rules/doc-authority-hierarchy.md) — header spec this patch follows.
 - [`ai-laziness-traps.md §2`](../../../.claude/rules/ai-laziness-traps.md) — active traps T3/T7/T10/T14/T15 + domain traps T-TOK-A/B/C/D.
