@@ -114,7 +114,7 @@ One entry point runs the whole contour in one top-tier session: brainstorming un
 
 ## See also
 
-- `superpowers:brainstorming` — the wrapped phase-1 engine (ADOPT; its spec self-review + user gate stand unchanged). Upstream's capability: brainstorming **ships** an author-side spec-document reviewer prompt (its 6.2.0 flow does not itself dispatch it — the spec pass there is a self-review). Our delta: two cold seats at fixed altitudes with a verdict grammar and a routed exit.
+- `superpowers:brainstorming` — the wrapped phase-1 engine (ADOPT; its spec self-review + user gate stand unchanged). Upstream's capability: brainstorming **ships** an author-side spec-document reviewer prompt, and its own flow leaves the spec pass as a self-review rather than dispatching that prompt. Our delta: two cold seats at fixed altitudes with a verdict grammar and a routed exit.
 - [reviewer-discipline.md](../../rules/reviewer-discipline.md) — reviewer ROLE discipline both §2 seats point to (surface, never decide).
 - [CLAUDE.md «Task-tier routing»](../../../CLAUDE.md) — the §3 factory-path classification criteria (fixed, judgment-applied).
 - [pipeline/SKILL.md](../pipeline/SKILL.md) — the internal-contour entry `/arch` hands umbrellas to.
