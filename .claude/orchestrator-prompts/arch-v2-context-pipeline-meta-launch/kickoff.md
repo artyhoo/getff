@@ -17,7 +17,7 @@ Read in this order:
 1. This kickoff (sequencing + stage gates).
 2. [`arch-v2-context-pipeline/kickoff.md`](../arch-v2-context-pipeline/kickoff.md) — the umbrella (BINDING: §0 dispatch protocol, §1 stages, §4 plan-writer objections, §5 AI-traps).
 3. [`docs/superpowers/specs/2026-07-31-arch-v2-context-pipeline-design.md`](../../../docs/superpowers/specs/2026-07-31-arch-v2-context-pipeline-design.md) — design SSOT (ADR-1..8).
-4. The per-stage kickoff once authored (§4 below — S-B and S-C kickoffs do NOT exist yet).
+4. The per-stage kickoffs: [`../arch-v2-context-pipeline-s-b/kickoff.md`](../arch-v2-context-pipeline-s-b/kickoff.md) and [`../arch-v2-context-pipeline-s-c/kickoff.md`](../arch-v2-context-pipeline-s-c/kickoff.md) — authored in the same PR as this file (Stage 1 = K-BC below); dispatchable only once merged to `staging`.
 
 ---
 
@@ -69,7 +69,7 @@ git fetch origin staging -q && git ls-tree -r --name-only origin/staging .claude
   | grep -E 'arch-v2-context-pipeline-s-(b|c)/kickoff\.md'
 ```
 
-Expected: **two** lines (`-s-b/kickoff.md` and `-s-c/kickoff.md`). Fewer → halt; the missing stage is not dispatchable (`#dispatch-before-staging`).
+Expected: **two** lines (the s-b and s-c kickoff paths). Fewer → halt; the missing stage is not dispatchable (`#dispatch-before-staging`).
 
 ### Stage 2 → Stage 3 (S-C merged → S-D dispatch)
 

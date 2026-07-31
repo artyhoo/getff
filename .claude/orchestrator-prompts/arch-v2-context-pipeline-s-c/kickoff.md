@@ -8,7 +8,9 @@
 > **Design SSOT (read first, in full):**
 > [`docs/superpowers/specs/2026-07-31-arch-v2-context-pipeline-design.md`](../../../docs/superpowers/specs/2026-07-31-arch-v2-context-pipeline-design.md)
 > — **ADR-2** (the 5 options, the population-table precondition, the falsifier), **ADR-1** (the
-> L1/L2 boundary this verdict presupposes), **ADR-8** (why the metered seats matter). **Umbrella
+> L1/L2 boundary this verdict presupposes), **ADR-8** (why the metered seats matter). **Also read
+> first:** [`2026-07-31-arch-v2-research-distillate.md`](../../../docs/superpowers/specs/2026-07-31-arch-v2-research-distillate.md)
+> — A5 (`:31-32`) + R6 (`:129`) carry the container re-check anchors W1 consumes. **Umbrella
 > context (sequencing only):** [`../arch-v2-context-pipeline/kickoff.md`](../arch-v2-context-pipeline/kickoff.md) §1 S-C.
 >
 > **This stage is S-C only.** S-B (contract + ledger) runs in parallel on a disjoint surface — do
@@ -20,10 +22,11 @@
 ## §0 Dispatch facts (binding)
 
 - **No `bridge-profile` marker on this file — deliberate, not an omission.** Tier 2: a BFR verdict
-  over a five-option space is judgment by construction, and the umbrella's §4 O-6 forbids leaning on
-  the `/arch` D1 exception for this track. Project defaults apply: the top tier plans in aif, the
-  executor tier implements and reviews. Do not add a marker without the operator's explicit ruling
-  quoted here.
+  over a five-option space is judgment by construction, and the umbrella's §4 O-6 recommends (a
+  MINOR objection with a stated operator-override falsifier) not leaning on the `/arch` D1
+  exception for this track; §1 applies that recommendation to this stage. Project defaults apply:
+  the top tier plans in aif, the executor tier implements and reviews. Do not add a marker without
+  the operator's explicit ruling quoted here.
 - **Staging placement.** This kickoff must be on `origin/staging` before dispatch
   ([kickoff-staging-placement.md §1](../../rules/kickoff-staging-placement.md)).
 - **Ownership.** This stage writes a research-patch under `docs/meta-factory/research-patches/`
@@ -55,11 +58,19 @@ Rows (exactly these four, per ADR-2): **CC main session** · **CC subagent** · 
 | Metered? | whether ADR-8's metrics are collected from this seat |
 | Evidence | command + output, or `file:line` whose content you quote |
 
-**The R6 container re-check rides here.** Re-verify the A5 sweep lines inside the aif container
-(`docker exec` into it). **If the container is unreachable from where you run, record
-`INCONCLUSIVE` and say so — never extrapolate host semantics onto the container** (umbrella §1 S-C,
-verbatim). An `INCONCLUSIVE` row is a correct outcome; a fabricated one is the exact defect this
-stage's own discipline exists to prevent.
+**The R6 container re-check rides here.** The concrete targets are the A5 sweep anchors from the
+research distillate ([`2026-07-31-arch-v2-research-distillate.md:31-32` and `:129`](../../../docs/superpowers/specs/2026-07-31-arch-v2-research-distillate.md)),
+verbatim: under the container's `/app/` checkout — `coordinator.ts:270-278`
+(`runtimeProfileModeForStage`, stage → `task|plan|review`), the hardcoded `profileMode` literals in
+the six subagents (`planner.ts:330`, `reviewer.ts:49`, `verifier.ts:91`, `improver.ts:87`,
+`planChecker.ts:122`), and the agent-definition-name branching (`reviewer.ts:172-173`). The
+repo-side half is already verified (`2026-07-23-acceptance-contour-design.md:14-15`); it is the
+`/app/` half that is sweep-asserted and needs the re-check. **Environment split:** if you are
+running **inside** the aif container, you ARE the seat — read the `/app/` files directly and quote
+them; `docker exec` applies only to a host-side run. **If neither path is available from where you
+run, record `INCONCLUSIVE` and say so — never extrapolate host semantics onto the container**
+(umbrella §1 S-C, verbatim). An `INCONCLUSIVE` row is a correct outcome; a fabricated one is the
+exact defect this stage's own discipline exists to prevent.
 
 ### W2 — the five-option verdict (BFR-disciplined)
 
@@ -94,6 +105,10 @@ Match? Evidence: …»** (T16 — the umbrella's own O-1 is exactly a name-vs-fu
 
 - **Research-patch** under `docs/meta-factory/research-patches/2026-<MM>-<DD>-l2-channel-verdict.md`
   carrying the population table, the per-option adjudication, the search evidence, and the verdict.
+  **Principle 10 format (gated, exact):** the FIRST line must be a scope annotation matching
+  `^<!-- scope:[a-zA-Z0-9.§-]+ -->$` — **no spaces inside the slug**, e.g.
+  `<!-- scope:l2-channel-verdict -->`. The multi-word `<!-- scope: stage-scoped … -->` comment
+  style used by kickoffs (including this one) FAILS that regex — do not copy it into the patch.
 - **SSOT append** to [`docs/meta-factory/prior-art-evaluations.md`](../../../docs/meta-factory/prior-art-evaluations.md)
   for any candidate surfaced that has no entry yet — with `Verdict`, `Rationale`, `Trigger to
   revisit`, in this same PR (per its §3 append-only contract).
@@ -132,6 +147,10 @@ npx vitest run packages/core/principles/10-research-patch-annotation.test.ts
 npx vitest run packages/core/principles/12-ai-laziness-traps.test.ts
 ```
 
+> Run them via `bash scripts/host-verify.sh arch-v2-context-pipeline-s-c` **on the host** — a green
+> container run is not evidence about the host
+> ([destination-environment-verification.md §3](../../rules/destination-environment-verification.md)).
+
 ## §3 §1.7 self-check obligation for this stage's PR
 
 **Forward-check** must name, each with `file:line` evidence: `build-first-reuse-default.md §1/§3`
@@ -144,8 +163,8 @@ is session-read; nothing added to CI).
 `SWEPT-CLEAN(evidence)` / `GAP-FOUND(action)`. The change class is *per-role / per-seat context
 delivery channels*; the enumeration must at minimum reach the `paths:`-scoped rule mechanism
 (SSOT #101), `.claude/hooks/inject-matching-rule.sh`, the shipped
-`packages/core/templates/shared/skill-context/**` overrides, and `CLAUDE.md`'s `claudeMdExcludes`
-surface. A backward-check whose surface list equals the diff's own file list is **non-conformant by
+`packages/core/templates/shared/skill-context/**` overrides, and the `claudeMdExcludes` surface
+(`.claude/settings.json:214` — a settings key, not a CLAUDE.md section). A backward-check whose surface list equals the diff's own file list is **non-conformant by
 format** — delegate the sweep to [`agents/backward-sweep-auditor.md`](../../../agents/backward-sweep-auditor.md),
 handing it the change *class* only, never this kickoff or the diff.
 
@@ -206,6 +225,8 @@ this stage: T2, T3, T7, T10, T11, T12, T13, T14, T15, T16, T20, T21.**
 ## See also
 
 - [`docs/superpowers/specs/2026-07-31-arch-v2-context-pipeline-design.md`](../../../docs/superpowers/specs/2026-07-31-arch-v2-context-pipeline-design.md) — ADR-1, ADR-2, ADR-8 (binding).
+- [`docs/superpowers/specs/2026-07-31-arch-v2-research-distillate.md`](../../../docs/superpowers/specs/2026-07-31-arch-v2-research-distillate.md) — A5/R6, the container re-check anchors (W1).
+- [`docs/superpowers/specs/2026-07-31-arch-v2-context-pipeline-handoff.md`](../../../docs/superpowers/specs/2026-07-31-arch-v2-context-pipeline-handoff.md) — decision 11 (stage-scoped inputs are binding), the provenance of this file's format.
 - [`../arch-v2-context-pipeline/kickoff.md`](../arch-v2-context-pipeline/kickoff.md) — umbrella §1 S-C, §4 O-5.
 - [`.claude/rules/build-first-reuse-default.md`](../../rules/build-first-reuse-default.md) — the seven verdicts + the mandatory §3 mechanism.
 - [`.claude/rules/phase-research-coverage.md`](../../rules/phase-research-coverage.md) — the 6-item negative-existence checklist.

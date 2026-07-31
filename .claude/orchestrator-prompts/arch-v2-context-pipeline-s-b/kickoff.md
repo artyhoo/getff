@@ -25,8 +25,9 @@
   agent vs a skill vs a kickoff section, and where it hooks into aif dispatch). Under CLAUDE.md's
   binding tie-breaker («when unsure between Tier 1 and Tier 2, default to Tier 2»), Tier 2 →
   project defaults: the top tier plans in aif, the executor tier implements and reviews. The
-  umbrella's §4 O-6 additionally forbids leaning on the `/arch` D1 exception for this track. Do
-  not add a marker without the operator's explicit ruling quoted here.
+  umbrella's §4 O-6 additionally recommends (a MINOR objection with a stated operator-override
+  falsifier) not leaning on the `/arch` D1 exception for this track; §1 applies that
+  recommendation. Do not add a marker without the operator's explicit ruling quoted here.
 - **Staging placement.** This kickoff must be on `origin/staging` before dispatch
   ([kickoff-staging-placement.md §1](../../rules/kickoff-staging-placement.md)).
 - **Ownership.** `.claude/skills/**`, `agents/**` and `.claude/orchestrator-prompts/**` are
@@ -38,6 +39,14 @@
 - **Ceilings.** A pre-commit hook blocks any markdown file past **600 lines** — run `wc -l` before
   adding. Any new `agents/*.md` needs the mandatory frontmatter or the pre-push skill-drift gate
   rejects it (S-A hit exactly this: commit `80623c0b79`).
+- **Fingerprint consequence of a new agent (mechanical, will bite).** `install.sh` copies
+  `agents/*.md` **by glob** with a per-file skip-list (authoring-only agents like
+  backward-sweep-auditor are skipped), so a new agent file either (i) ships to consumers and shifts
+  **all 8** install fingerprints — regenerate with `SNAPSHOT_MODE=capture bash tests/install-sh/snapshot.sh`
+  in the same commit (precedent: `80623c0b79` regenerated 8 baselines for one agent edit) — or
+  (ii) is added to the skip-list as authoring-only, with the rationale comment the existing entries
+  carry. The dispatch-input checker is an authoring-side station; (ii) is the expected branch, but
+  decide it explicitly and record which.
 - **Parallel sibling.** S-C runs concurrently on a disjoint surface (a research verdict). Work in
   your own worktree; do not touch S-C's files.
 
@@ -45,8 +54,8 @@
 
 ### W1 — the dispatch-input contract v2 artefact
 
-**Decide the shape first, and record the decision.** Three candidate homes: (a) an
-`agents/dispatch-input-checker.md` cold agent (peer: [`agents/fidelity-auditor.md`](../../../agents/fidelity-auditor.md),
+**Decide the shape first, and record the decision.** Three candidate homes: (a) a new
+**agents/dispatch-input-checker** cold-agent file (not yet existing — this stage creates it; peer: [`agents/fidelity-auditor.md`](../../../agents/fidelity-auditor.md),
 [`agents/backward-sweep-auditor.md`](../../../agents/backward-sweep-auditor.md)); (b) a skill; (c) a
 mandatory kickoff section. Choose ONE with a stated rationale citing
 [build-first-reuse-default.md §1](../../rules/build-first-reuse-default.md) (which verdict of the
@@ -67,11 +76,16 @@ agent file is AI-agnostic and session-read (no paid LLM in CI).
 | K5 | external-state preconditions — required-check registrations, live profile names, env vars |
 
 **K6 — self-consistency with declared non-goals — enters as a SPLIT check.** The executor arm emits
-**candidates** only: a closed verdict-lexicon grep (`Recommendation|Verdict|should adopt|High —|Preferred`)
+**candidates** only: a closed verdict-lexicon grep (`Recommendation|Verdict|should adopt|Preferred`)
 plus the extracted non-goal declarations, as structured output. The Opus framing-bias look
-**adjudicates**. State the known false-negative class verbatim in the artefact: *priority labels
-without verdict words («High — natural host») defeat the lexicon* — the executor arm is a candidate
-generator, never the decision layer ([attention-is-not-a-mechanism.md §1](../../rules/attention-is-not-a-mechanism.md)).
+**adjudicates**. State the known false-negative class in the artefact: *bare priority labels with no
+verdict word (e.g. a lone «High» ranking beside an option) defeat the lexicon* — the executor arm is
+a candidate generator, never the decision layer
+([attention-is-not-a-mechanism.md §1](../../rules/attention-is-not-a-mechanism.md)).
+**Deviation from spec, deliberate:** ADR-6's lexicon as written includes `High —` while naming
+«High — natural host» as the false-negative example — self-refuting. This kickoff supersedes that
+wording: `High —` is dropped from the lexicon and the false-negative example is one the lexicon
+genuinely misses. Record this deviation in the artefact; do not re-import the spec's literal list.
 
 The artefact declares its **output grammar** (per-class verdict + findings with file:line evidence)
 and names where the run is recorded (W2's ledger row).
@@ -82,8 +96,9 @@ present.
 
 ### W2 — the calibration ledger
 
-**Path:** `.claude/orchestrator-prompts/arch-v2-context-pipeline/calibration.md` (umbrella §2 fixes
-this path — do not relocate it). Created here, appended to by every subsequent stage dispatch.
+**Path:** **.claude/orchestrator-prompts/arch-v2-context-pipeline/calibration.md** — created by
+this stage; the umbrella §2 fixes this path, do not relocate it. Appended to by every subsequent
+stage dispatch.
 
 **Header pre-registers, BEFORE any row exists** — a threshold written after the data is not a
 threshold:
@@ -150,7 +165,11 @@ files»), instead of resuming a transcript-replaying agent.
   squash-merge.
 - **Rule sync** — `cold-seat-economy.md §3` currently says «free-form until the arch-v2 S-B stage
   formalises the format». Ship the pointer update as a **proposed diff in the PR body** (the rules
-  directory is maintainer-owned, §0).
+  directory is maintainer-owned, §0). **Acceptance-narrowing, stated not silent:** the umbrella's
+  S-B acceptance sentence says the rule is «updated»; that wording predates applying the
+  [CLAUDE.md Artifact Ownership Contract](../../../CLAUDE.md) (`.claude/rules/**` owner =
+  maintainers, read-only for session agents) and is superseded by it — «updated» is satisfied by
+  the proposed diff plus the maintainer landing it, and a fidelity seat should score it so.
 
 **Do not re-measure the token numbers** in that §3 table — they are already recorded; re-deriving
 them is out of scope and would be a `#reaudit-on-sha-move`-shaped waste.
@@ -170,7 +189,7 @@ If the run finds nothing at low coverage, log «coverage insufficient», never �
 1. The contract artefact exists at the chosen home, with the shape decision and its BFR verdict
    stated; five **equal** classes; the K6 split with the executor arm as candidate generator only;
    the known false-negative class written out.
-2. `.claude/orchestrator-prompts/arch-v2-context-pipeline/calibration.md` exists with the three
+2. The calibration ledger file (W2 path) exists with the three
    pre-registered header items (ADR-5 threshold, ADR-8 window + owner, ADR-6 re-derivation gate),
    the row schema, and the `shadow=absent` convention.
 3. The shadow-A/B protocol answers all four W3 questions explicitly, including the Opus-unavailable
@@ -186,8 +205,14 @@ If the run finds nothing at low coverage, log «coverage insufficient», never �
 ```bash host-verify
 npx vitest run packages/core/principles/09-doc-authority-hierarchy.test.ts
 npx vitest run packages/core/principles/12-ai-laziness-traps.test.ts
+npx vitest run packages/core/principles/21-shipped-agent-tools-valid.test.ts
 npx tsx scripts/render-rule-index.mjs --check
+SNAPSHOT_MODE=compare bash tests/install-sh/snapshot.sh
 ```
+
+> Principle 21 and the snapshot compare are load-bearing only if W1's chosen home is a new
+> `agents/*.md` (they gate agent `tools:` validity and the install fingerprints); on another home
+> they still run and stay green.
 
 > Run them via `bash scripts/host-verify.sh arch-v2-context-pipeline-s-b` **on the host** — a green
 > container run is not evidence about the host
@@ -217,7 +242,9 @@ No S-C..S-F content: no L2 population table, no channel verdict, no L2 build, no
 small-fixes items. No ADR-8 baseline **rows** (S-D captures those). No ledger-row-completeness
 principle test. No direct edits to `.claude/rules/**`, `CLAUDE.md`, `.husky/**`,
 `.claude/settings.json` — proposed diffs in the PR body only. No new npm dependency. No CI workflow
-changes. No retro sweep of existing kickoffs against the new contract.
+changes. No retro sweep of existing kickoffs against the new contract. **No SSOT append** — S-C
+owns `docs/meta-factory/prior-art-evaluations.md` this round (the two stages run in parallel and it
+is the one file both could touch); a warranted new entry is a proposed diff in the PR body.
 
 ## §4a Park-don't-guess contract (non-negotiable)
 
@@ -266,3 +293,4 @@ this stage: T2, T3, T7, T11, T14, T15, T20, T21.**
 - [`.claude/rules/cold-seat-economy.md`](../../rules/cold-seat-economy.md) — W4's parent rule.
 - [`agents/fidelity-auditor.md`](../../../agents/fidelity-auditor.md) · [`agents/backward-sweep-auditor.md`](../../../agents/backward-sweep-auditor.md) — the cold-agent pattern W1 chooses from.
 - [`.claude/rules/attention-is-not-a-mechanism.md`](../../rules/attention-is-not-a-mechanism.md) — the K6 split's parent discipline.
+- [`docs/superpowers/specs/2026-07-31-arch-v2-context-pipeline-handoff.md`](../../../docs/superpowers/specs/2026-07-31-arch-v2-context-pipeline-handoff.md) — decision 11 (stage-scoped inputs are binding) + decision 5 (contract v2), the provenance of this file's format.
