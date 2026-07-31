@@ -76,6 +76,14 @@ The sweep auto-scopes via `git merge-base`, escalates to `--full` on any unmappe
    `KICKOFF-AMBIGUOUS` → escalate to `/arch` §4 office hours without burning a round.
    `GO` → the verdict block (Basis/Round/Audited-SHA = current HEAD/Evidence) goes into the
    PR body `## Fidelity verdict` section — the `pr-body-fidelity` CI gate blocks merge without it.
+   <!-- seat-economy embed (spec-of: .claude/rules/cold-seat-economy.md) -->
+   **Seat economy** ([cold-seat-economy.md](../../rules/cold-seat-economy.md)): dispatch this
+   WHAT-audit only once the diff is FINAL (step 1's code-review first — its fixes invalidate a
+   parallel fidelity verdict). If a later commit moves the SHA but none of what the seat judges
+   (deliverables / permitted files / descopes — confirm via `git diff --name-only <audited>..HEAD`
+   against the kickoff), re-establish with a narrow cold delta check (incremental diff + scope
+   sections), resuming the same auditor agent by name — never a fresh full re-audit, never a
+   self-issued verdict.
 3. Assemble a **§1.7-compliant PR body** (Forward/Backward sections, each with file:line) **plus the acceptance-package sections (Provenance / Review findings / Fidelity verdict / Parked questions — spec D4)**. Open the PR with base `staging` (`gh pr create --base staging`), optionally `gh pr merge --auto --squash` per the dispatcher convention.
 4. Confirm the PR diff is exactly the intended files, **0 unintended deletions**, before merge.
 

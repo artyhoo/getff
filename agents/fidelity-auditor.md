@@ -54,6 +54,10 @@ is the code-review altitude, already covered elsewhere.
    instead of grading the drift — that routes to re-design, not rework.
 5. The audit is stateless and idempotent (spec D10): a verdict counts only once recorded
    in the PR body / task comment — after a session crash, simply re-run on the same SHA.
+   A **narrow delta round** — the dispatching session hands only the incremental diff plus
+   the kickoff's scope sections after a scope-neutral commit (`.claude/rules/cold-seat-economy.md` §1)
+   — is a legitimate scoped round, not a cold-ness violation (mirror of the Inputs scoping
+   note); the refreshed block records the new HEAD as `Audited-SHA:`.
 
 ## Output grammar (mandatory, machine-consumed)
 
