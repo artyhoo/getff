@@ -65,7 +65,7 @@
 // exercises the SKIPPED path. The integration test below these is the one that
 // is only meaningful with a real upstream.
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { readFileSync, readdirSync, existsSync, statSync, mkdtempSync, mkdirSync, rmSync, symlinkSync, chmodSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, existsSync, statSync, mkdtempSync, mkdirSync, rmSync, symlinkSync, chmodSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
@@ -82,24 +82,37 @@ function errCode(err: unknown): string {
 }
 
 /**
- * Probe a path for «is this a readable directory?», keeping the three answers
- * DISTINCT — absent, present-as-a-directory, and present-but-unreadable.
+ * errno codes that mean «we were DENIED the answer», as opposed to «the answer
+ * is no». Only these can conceal a real install, so only these are loud.
+ * ENOENT / ENOTDIR / ELOOP are definitive negatives: nothing is there, the
+ * entry is a plain file, or the link cannot resolve — none of which can be
+ * hiding an install directory.
+ */
+const CONCEALING_CODES = new Set(['EACCES', 'EPERM']);
+
+/**
+ * Probe a path for «is this a readable directory?», keeping THREE answers
+ * distinct — yes, a definitive no, and «cannot tell».
  *
- * `existsSync` cannot do this: it returns `false` for BOTH «no such path» and
- * «EACCES on the parent», so a permission-denied install is indistinguishable
- * from an absent one — the exact conflation this file exists to end.
- * `statSync` also FOLLOWS symlinks, where `Dirent.isDirectory()` reports false
- * for a symlinked directory and would hide a healthy install behind a symlinked
- * marketplace or version directory.
+ * `existsSync` collapses the last two: it returns `false` for both «no such
+ * path» and «EACCES on the parent», so a permission-denied install is
+ * indistinguishable from an absent one — the exact conflation this file exists
+ * to end. `statSync` additionally FOLLOWS symlinks, where
+ * `Dirent.isDirectory()` reports false for a symlinked directory and would hide
+ * a healthy install behind a symlinked marketplace, version, or skills dir.
+ *
+ * `error` is set ONLY for the cannot-tell case. A stray `.DS_Store` in the
+ * plugins cache is a definitive no, not an alarm — treating it as one turned
+ * «nothing installed» into a loud BROKEN on any Mac whose Finder had visited
+ * the folder.
  */
 function probeDir(path: string): { isDir: boolean; error?: string } {
   try {
     return { isDir: statSync(path).isDirectory() };
   } catch (err) {
     const code = errCode(err);
-    // ENOENT is a real answer: the path is genuinely absent.
-    if (code === 'ENOENT') return { isDir: false };
-    return { isDir: false, error: `${path}: ${code}` };
+    if (CONCEALING_CODES.has(code)) return { isDir: false, error: `${path}: ${code}` };
+    return { isDir: false };
   }
 }
 
@@ -139,7 +152,12 @@ export function checkReferences(refs: readonly Ref[], upstreamRoots: readonly st
       for (const entry of readdirSync(root, { withFileTypes: true })) {
         // statSync follows symlinks; Dirent.isDirectory() is false for a
         // symlinked skill directory, which would silently hide a real skill.
-        if (probeDir(join(root, entry.name)).isDir) available.add(entry.name);
+        const probe = probeDir(join(root, entry.name));
+        if (probe.isDir) available.add(entry.name);
+        // A root that lists but whose children cannot be stat'ed (mode 0444 —
+        // readable, not traversable) would otherwise blame the reference for a
+        // permission problem, with the skill sitting right there.
+        else if (probe.error) failures.push(`${probe.error} — skill directory unreadable; references cannot be resolved through it`);
       }
     } catch (err) {
       // An unreadable root is reported, never swallowed: without this the
@@ -190,7 +208,12 @@ export function discoverUpstreamRoots(homeOverride?: string): UpstreamDiscovery 
   const home = homeOverride ?? (process.env.HOME || process.env.USERPROFILE || '');
   const searchedGlob = join(home || '<HOME unset>', '.claude', 'plugins', 'cache', '*', 'superpowers', '*', 'skills');
   const out: UpstreamDiscovery = { roots: [], searchedGlob, baseFound: false, errors: [] };
-  if (!home) return out;
+  if (!home) {
+    // «We could not work out where to look» is not «nothing is installed» —
+    // the same conflation as the permission case, one level further out.
+    out.errors.push('neither HOME nor USERPROFILE is set — cannot locate the plugins cache');
+    return out;
+  }
   const cacheDir = join(home, '.claude', 'plugins', 'cache');
   const cacheProbe = probeDir(cacheDir);
   if (cacheProbe.error) {
@@ -206,6 +229,16 @@ export function discoverUpstreamRoots(homeOverride?: string): UpstreamDiscovery 
     return out;
   }
   for (const marketplace of marketplaces) {
+    // Probe the ENTRY first. Descending straight to `<entry>/superpowers`
+    // reports ENOTDIR for any stray file in the cache — and a single
+    // `.DS_Store` (one Finder visit) would then turn «nothing installed» into
+    // a loud BROKEN. A non-directory entry simply cannot hold an install.
+    const marketProbe = probeDir(join(cacheDir, marketplace));
+    if (marketProbe.error) {
+      out.errors.push(marketProbe.error);
+      continue;
+    }
+    if (!marketProbe.isDir) continue;
     const base = join(cacheDir, marketplace, 'superpowers');
     const baseProbe = probeDir(base);
     if (baseProbe.error) {
@@ -348,8 +381,9 @@ describe('Upstream skill-reference smoke — pure function (paired-negative)', (
     expect(res.message).toMatch(/SKIPPED/);
   });
 
-  it('unreadable root is reported as its own failure, not blamed on the references', () => {
-    if (typeof process.getuid === 'function' && process.getuid() === 0) return;
+  // A bare `return` here would report a green tick for a test that asserted
+  // nothing — `#warning-nobody-reads` in miniature. skipIf reports a skip.
+  it.skipIf(typeof process.getuid === 'function' && process.getuid() === 0)('unreadable root is reported as its own failure, not blamed on the references', () => {
     chmodSync(emptyDir, 0o000);
     try {
       const refs: Ref[] = [{ name: 'brainstorming', source: 'demo/SKILL.md' }];
@@ -448,20 +482,68 @@ describe('discoverUpstreamRoots — synthetic HOME (broken-install regression)',
     }
   });
 
-  it('symlinked marketplace and version dirs → still discovered (Dirent.isDirectory would miss them)', () => {
+  // One case per level, because a symlink at the MARKETPLACE level resolves
+  // through ordinary path resolution and so cannot detect a regression in the
+  // follow-semantics at the version or skills level. A single combined fixture
+  // stayed green under a faithful `lstatSync` mutation applied to exactly those
+  // two probes — i.e. it did not test what its name claimed.
+  it.each([
+    ['marketplace', (cache: string, real: string) => {
+      mkdirSync(join(real, 'superpowers', '6.2.0', 'skills', 'brainstorming'), { recursive: true });
+      symlinkSync(real, join(cache, 'mkt'), 'dir');
+    }],
+    ['version', (cache: string, real: string) => {
+      mkdirSync(join(real, 'skills', 'brainstorming'), { recursive: true });
+      mkdirSync(join(cache, 'mkt', 'superpowers'), { recursive: true });
+      symlinkSync(real, join(cache, 'mkt', 'superpowers', '6.2.0'), 'dir');
+    }],
+    ['skills', (cache: string, real: string) => {
+      mkdirSync(join(real, 'brainstorming'), { recursive: true });
+      mkdirSync(join(cache, 'mkt', 'superpowers', '6.2.0'), { recursive: true });
+      symlinkSync(real, join(cache, 'mkt', 'superpowers', '6.2.0', 'skills'), 'dir');
+    }],
+  ])('symlinked %s dir → still discovered (Dirent.isDirectory would miss it)', (_level, build) => {
     const real = mkdtempSync(join(tmpdir(), 'usref-real-'));
     try {
-      mkdirSync(join(real, 'superpowers', '6.2.0', 'skills', 'brainstorming'), { recursive: true });
       const cache = join(fakeHome, '.claude', 'plugins', 'cache');
       mkdirSync(cache, { recursive: true });
-      symlinkSync(real, join(cache, 'mkt'), 'dir');
+      build(cache, real);
       const disc = discoverUpstreamRoots(fakeHome);
       expect(disc.baseFound).toBe(true);
       expect(disc.roots).toHaveLength(1);
       expect(disc.errors).toHaveLength(0);
+      // Resolve through it too, so the root is proven usable and not merely listed.
+      expect(checkReferences([{ name: 'brainstorming', source: 'demo/SKILL.md' }], disc.roots).status).toBe('PASS');
     } finally {
       rmSync(real, { recursive: true, force: true });
     }
+  });
+
+  it('a stray FILE in the plugins cache is a definitive «no», not an alarm', () => {
+    // One Finder visit leaves a .DS_Store here. Descending straight to
+    // `<entry>/superpowers` reported ENOTDIR and turned «nothing installed»
+    // into a loud BROKEN.
+    const cache = join(fakeHome, '.claude', 'plugins', 'cache');
+    mkdirSync(cache, { recursive: true });
+    writeFileSync(join(cache, '.DS_Store'), 'x');
+    const disc = discoverUpstreamRoots(fakeHome);
+    expect(disc.errors, 'a plain file cannot conceal an install — it must not be reported').toHaveLength(0);
+    expect(disc.baseFound).toBe(false);
+    expect(disc.roots).toHaveLength(0);
+  });
+
+  it('a stray file alongside a healthy install does not mask it', () => {
+    const cache = join(fakeHome, '.claude', 'plugins', 'cache');
+    mkdirSync(join(cache, 'mkt', 'superpowers', '6.2.0', 'skills', 'brainstorming'), { recursive: true });
+    writeFileSync(join(cache, '.DS_Store'), 'x');
+    const disc = discoverUpstreamRoots(fakeHome);
+    expect(disc.errors).toHaveLength(0);
+    expect(disc.roots).toHaveLength(1);
+  });
+
+  it('unset HOME is «cannot look», not «not installed»', () => {
+    const disc = discoverUpstreamRoots('');
+    expect(disc.errors.join(' ')).toMatch(/cannot locate the plugins cache/);
   });
 
   it('healthy install → roots discovered across a non-frozen marketplace segment', () => {

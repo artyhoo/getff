@@ -1,6 +1,6 @@
 ---
 name: arch
-description: Use when starting the EXTERNAL design contour — turning a raw idea or prep-doc into a reviewed design and a routed handoff. Wraps superpowers:brainstorming unchanged and adds only: a research contour (§1.5 — research-spec template with pre-mortem + acceptance-criteria, distillate with GO/rework/kill verdict, K-pass membrane, kill channels); a cold two-altitude design review (top-tier goal/feasibility critic + executor-tier facts/patterns reviewer, dispatched as read-only subagents); and exit routing per the CLAUDE.md task-tier criteria (factory-bound → kickoff → staging → /pipeline or bridge auto-dispatch; small in-session → superpowers writing-plans tail; tiny → direct edit). Triggers - /arch, external contour, внешний контур, спроектируй идею, задумка в архитектуру, design contour, arch loop, продумай и спроектируй, идея → kickoff, research contour, research-spec, distillate, исследовательский контур. NOT for reviewing code (/reviewer), dispatching stages (/pipeline), factory runtime questions (aif-doctor), or a bare brainstorm with no handoff (use superpowers:brainstorming directly).
+description: Use when starting the EXTERNAL design contour — turning a raw idea or prep-doc into a reviewed design and a routed handoff. Wraps superpowers:brainstorming unchanged and adds only: a research contour (§1.5 — research-spec template with pre-mortem + acceptance-criteria, distillate with GO/rework/kill verdict, K-pass membrane, kill channels); a cold two-altitude design review (goal/feasibility critic + facts/patterns reviewer, dispatched as read-only subagents; §2 assigns their tiers); and exit routing per the CLAUDE.md task-tier criteria (factory-bound → kickoff → staging → /pipeline or bridge auto-dispatch; small in-session → superpowers writing-plans tail; tiny → direct edit). Triggers - /arch, external contour, внешний контур, спроектируй идею, задумка в архитектуру, design contour, arch loop, продумай и спроектируй, идея → kickoff, research contour, research-spec, distillate, исследовательский контур. NOT for reviewing code (/reviewer), dispatching stages (/pipeline), factory runtime questions (aif-doctor), or a bare brainstorm with no handoff (use superpowers:brainstorming directly).
 arguments: [topic-or-prep-doc]
 argument-hint: '<topic | path/to/prep-doc.md>'
 disable-model-invocation: true
@@ -73,8 +73,10 @@ The ideation seat consumes distillates; the executor seat consumes specs/kickoff
 
 Dispatch **two read-only subagents** (Agent tool), each handed ONLY artifact paths (spec / decision record / kickoff draft) — never chat context. **Cold, defined once and used everywhere:** a seat is cold when it **did not author the artifact AND did not receive the authoring context** — artifact paths only. The reviewer that never saw the dialogue cannot inherit its blind spots (Phase -1 cold-review precedent, [CLAUDE.md «Meta-orchestrator self-review obligation»](../../../CLAUDE.md)). This same definition gates §1.5's K-pass and §3's exit; it is stated once here and referenced, not re-stated per section.
 
-- **Top-down** — `model:` top tier. Question: does the design serve the stated goal; is it feasible; are the architectural choices sound; what did the authors not consider?
-- **Bottom-up** — `model:` executor tier. Question: do the named files/APIs/patterns actually exist as claimed; does this assemble from the real bricks; which claims lack file:line evidence?
+The two seats are altitudes, not tiers — tiers are assigned once, in the seat-instantiation paragraph below, so that the two statements cannot drift apart:
+
+- **Top-down** — question: does the design serve the stated goal; is it feasible; are the architectural choices sound; what did the authors not consider?
+- **Bottom-up** — question: do the named files/APIs/patterns actually exist as claimed; does this assemble from the real bricks; which claims lack file:line evidence?
 
 **Unique-filenames dispatch contract (handoff decision 13).** When two or more subagents are dispatched in parallel and share one scratchpad directory, each dispatch prompt names a **unique output filename** (e.g. `<seat>-<topic>.md`), assigned by the dispatching session, never chosen by the subagent — e.g. `top-down-<topic>.md` and `bottom-up-<topic>.md` for the two §2 seats.
 
@@ -112,7 +114,7 @@ One entry point runs the whole contour in one top-tier session: brainstorming un
 
 ## See also
 
-- `superpowers:brainstorming` — the wrapped phase-1 engine (ADOPT; its spec self-review + user gate stand unchanged). Upstream's capability: brainstorming dispatches an author-side spec-document reviewer. Our delta: two cold seats at fixed altitudes with a verdict grammar and a routed exit.
+- `superpowers:brainstorming` — the wrapped phase-1 engine (ADOPT; its spec self-review + user gate stand unchanged). Upstream's capability: brainstorming **ships** an author-side spec-document reviewer prompt (its 6.2.0 flow does not itself dispatch it — the spec pass there is a self-review). Our delta: two cold seats at fixed altitudes with a verdict grammar and a routed exit.
 - [reviewer-discipline.md](../../rules/reviewer-discipline.md) — reviewer ROLE discipline both §2 seats point to (surface, never decide).
 - [CLAUDE.md «Task-tier routing»](../../../CLAUDE.md) — the §3 factory-path classification criteria (fixed, judgment-applied).
 - [pipeline/SKILL.md](../pipeline/SKILL.md) — the internal-contour entry `/arch` hands umbrellas to.
