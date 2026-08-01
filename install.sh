@@ -186,6 +186,7 @@ SHIPPED_DOCS=(
   "packages/core/templates/shared/DESCRIPTION.template.md"
   "packages/core/templates/shared/ARCHITECTURE.ts-server.md"
   "packages/core/templates/shared/integration-rules.md"
+  "packages/core/templates/shared/tier-home.md"
   "packages/preset-next-15-canonical/RULES.md"
   "packages/preset-next-15-canonical/RULES.react-next.md"
   "packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md"

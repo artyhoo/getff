@@ -107,6 +107,9 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   'packages/core/templates/shared/DESCRIPTION.template.md',
   'packages/core/templates/shared/ARCHITECTURE.ts-server.md',
   'packages/core/templates/shared/integration-rules.md',
+  // tier-home.md shipped at env+ via setup.d/30-templates.sh (beta-delivery-ux S3 / spec A3).
+  // SSOT for the Tier 0/1/2 criteria + degradation matrix; CLAUDE.md «Task-tier routing» points here.
+  'packages/core/templates/shared/tier-home.md',
   'packages/preset-next-15-canonical/RULES.md',
   'packages/preset-next-15-canonical/RULES.react-next.md',
   'packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md',

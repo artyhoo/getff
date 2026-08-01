@@ -79,3 +79,20 @@ echo "  ✓ aif-handoff integration: skill-context files installed at .ai-factor
 
 # ─── §5b: AGENTS.md ─────────────────────────────────────
 copy_safe "$PKG_ROOT/packages/core/templates/shared/AGENTS.md.template" "$PROJECT_ROOT/AGENTS.md"
+
+# ─── §3e: tier-home doc (env+ profile only; beta-delivery-ux S3 / spec A3) ───
+# The authoritative Tier 0/1/2 criteria + capability-absence degradation matrix. CLAUDE.md
+# «Task-tier routing» in the operator repo points here; the consumer's AGENTS.md (rendered from
+# AGENTS.md.template) carries a pointer in its §Tier routing + degradation section.
+#
+# F-A′ PARKED (kickoff §1.1/§7): the payload-home choice between Option A
+# (.ai-factory/tier-home.md — lighter, file-on-disk) and Option B
+# (.ai-factory/skill-context/tier-home/SKILL.md — structured, skill-context-loaded) is deferred
+# to the maintainer. BOTH candidate paths are wired here so the post-decision follow-up is
+# delete-one-not-rewrite. The unchosen path is removed when the maintainer signs off.
+if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ]; then
+  copy_safe "$PKG_ROOT/packages/core/templates/shared/tier-home.md" "$PROJECT_ROOT/.ai-factory/tier-home.md"
+  mkdir_safe "$PROJECT_ROOT/.ai-factory/skill-context/tier-home"
+  copy_safe "$PKG_ROOT/packages/core/templates/shared/tier-home.md" "$PROJECT_ROOT/.ai-factory/skill-context/tier-home/SKILL.md"
+  echo "  ✓ tier-home doc installed at .ai-factory/tier-home.md + .ai-factory/skill-context/tier-home/SKILL.md (profile: $PROFILE; F-A′ PARKED)"
+fi
