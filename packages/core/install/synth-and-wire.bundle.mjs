@@ -862,47 +862,6 @@ var require_coerce = __commonJS({
   }
 });
 
-// node_modules/semver/functions/truncate.js
-var require_truncate = __commonJS({
-  "node_modules/semver/functions/truncate.js"(exports, module) {
-    "use strict";
-    var parse = require_parse();
-    var constants = require_constants();
-    var SemVer = require_semver();
-    var truncate = (version, truncation, options) => {
-      if (!constants.RELEASE_TYPES.includes(truncation)) {
-        return null;
-      }
-      const clonedVersion = cloneInputVersion(version, options);
-      return clonedVersion && doTruncation(clonedVersion, truncation);
-    };
-    var cloneInputVersion = (version, options) => {
-      const versionStringToParse = version instanceof SemVer ? version.version : version;
-      return parse(versionStringToParse, options);
-    };
-    var doTruncation = (version, truncation) => {
-      if (isPrerelease(truncation)) {
-        return version.version;
-      }
-      version.prerelease = [];
-      switch (truncation) {
-        case "major":
-          version.minor = 0;
-          version.patch = 0;
-          break;
-        case "minor":
-          version.patch = 0;
-          break;
-      }
-      return version.format();
-    };
-    var isPrerelease = (type) => {
-      return type.startsWith("pre");
-    };
-    module.exports = truncate;
-  }
-});
-
 // node_modules/semver/internal/lrucache.js
 var require_lrucache = __commonJS({
   "node_modules/semver/internal/lrucache.js"(exports, module) {
@@ -1011,7 +970,6 @@ var require_range = __commonJS({
         return this.range;
       }
       parseRange(range) {
-        range = range.replace(BUILDSTRIPRE, "");
         const memoOpts = (this.options.includePrerelease && FLAG_INCLUDE_PRERELEASE) | (this.options.loose && FLAG_LOOSE);
         const memoKey = memoOpts + ":" + range;
         const cached = cache.get(memoKey);
@@ -1094,14 +1052,12 @@ var require_range = __commonJS({
     var SemVer = require_semver();
     var {
       safeRe: re,
-      src,
       t,
       comparatorTrimReplace,
       tildeTrimReplace,
       caretTrimReplace
     } = require_re();
     var { FLAG_INCLUDE_PRERELEASE, FLAG_LOOSE } = require_constants();
-    var BUILDSTRIPRE = new RegExp(src[t.BUILD], "g");
     var isNullSet = (c) => c.value === "<0.0.0-0";
     var isAny = (c) => c.value === "";
     var isSatisfiable = (comparators, options) => {
@@ -1857,7 +1813,7 @@ var require_subset = __commonJS({
             if (higher === c && higher !== gt) {
               return false;
             }
-          } else if (gt.operator === ">=" && !c.test(gt.semver)) {
+          } else if (gt.operator === ">=" && !satisfies(gt.semver, String(c), options)) {
             return false;
           }
         }
@@ -1872,7 +1828,7 @@ var require_subset = __commonJS({
             if (lower === c && lower !== lt) {
               return false;
             }
-          } else if (lt.operator === "<=" && !c.test(lt.semver)) {
+          } else if (lt.operator === "<=" && !satisfies(lt.semver, String(c), options)) {
             return false;
           }
         }
@@ -1940,7 +1896,6 @@ var require_semver2 = __commonJS({
     var lte = require_lte();
     var cmp = require_cmp();
     var coerce = require_coerce();
-    var truncate = require_truncate();
     var Comparator = require_comparator();
     var Range = require_range();
     var satisfies = require_satisfies();
@@ -1979,7 +1934,6 @@ var require_semver2 = __commonJS({
       lte,
       cmp,
       coerce,
-      truncate,
       Comparator,
       Range,
       satisfies,
