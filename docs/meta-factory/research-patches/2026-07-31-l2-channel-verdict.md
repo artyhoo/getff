@@ -92,7 +92,7 @@ Per [`build-first-reuse-default.md §3`](../../../.claude/rules/build-first-reus
 | **#229** Destination-environment verification | ADAPT | Cited for the §2 R6 re-check semantics (the rule's §3 governs host-vs-container suite re-runs, not `/app/` reads). |
 | **#231** obra/superpowers retired review loop | REFERENCE | Subtractive evidence: a measured no-gain result for a subagent-based review loop — material to option-2 falsifier (see §5.2). |
 
-No SSOT entry covers a per-role L2-context mechanism end-to-end. **Next free ID = 233** for the new candidates this adjudication surfaces (one per option where applicable).
+No SSOT entry covers a per-role L2-context mechanism end-to-end. **Next free ID = 234** for the new candidates this adjudication surfaces (one per option where applicable).
 
 ### §4.2 DeepWiki `ask_question` — 3 phrasings
 
