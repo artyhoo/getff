@@ -53,11 +53,14 @@ fi
 # .claude/skills/ as single source of truth (no separate mirror under skills/). Repo-internal
 # cross-refs in .md files get rewritten to GitHub blob URLs via transform_internal_refs().
 #
-# F7 split (owner GO 2026-07-10): the set divides into a consumer-facing CORE set (always shipped)
-# and an AIF operator SUITE (shipped ONLY under --with-aif-suite). The suite presupposes the
-# aif-handoff operator runtime; on a consumer without it those triggers fire into a dead end, and
-# `story` crashes on landing until its lang-pack ships (#934). Gating is opt-in + reversible (BFR
-# §1.1 integrate-never-hard-depend; same posture as companions.manifest — companion-install-principle.md).
+# F7 split (owner GO 2026-07-10, widened S5 2026-08-01): the set divides into THREE arms —
+# a consumer-facing CORE set (always shipped), an env+ CONTOUR SURFACE (shipped at PROFILE=env
+# or above), and an AIF operator SUITE (shipped ONLY at PROFILE=factory or via legacy
+# --with-aif-suite). The contour surface carries the architecture-design skill that produces
+# the contour; the suite presupposes the aif-handoff operator runtime. On a consumer without
+# that runtime the suite's triggers fire into a dead end, and `story` crashes on landing until
+# its lang-pack ships (#934). Gating is opt-in + reversible (BFR §1.1 integrate-never-hard-depend;
+# same posture as companions.manifest — companion-install-principle.md).
 #
 # CORE (always — consumer-facing, no aif-handoff runtime assumed):
 #   - template-audit — local advisory audit of the rendered templates this installer ships.
@@ -69,7 +72,13 @@ fi
 #                      verify it in single-rule isolation (mirror pair to rule-research; the write
 #                      half is agents/rule-test-author.md). Consumer-facing by design.
 #
-# AIF operator SUITE (only under --with-aif-suite — presupposes the aif-handoff runtime):
+# CONTOUR SURFACE (env+ — ships at PROFILE=env or factory, NOT core; spec A8 binding):
+#   - arch           — the architecture-design skill that produces the contour. Pairs with the
+#                      AIF operator suite at factory, but is itself consumer-facing at env+ (a
+#                      consumer running their own architecture cycle benefits without the AIF
+#                      operator runtime). depth-per-skill: env+ (S5 kickoff §2 binding #3).
+#
+# AIF operator SUITE (factory only — presupposes the aif-handoff runtime):
 #   - pipeline      — the planner (/pipeline): umbrella triage, priority ranking, plan/state.md.
 #   - dispatcher    — pipeline's execution companion: dispatches a chosen umbrella's stages
 #                     through the aif-control loop the ./setup runtime-bridge step installs.
@@ -82,6 +91,13 @@ fi
 #   - story          — plain-language, by-act recap of a session's work (AIF_HOOK_LANG-gated
 #                      output). Stays in the gated set until its lang-pack delivery is fixed
 #                      (#934) — it crashes on landing without the pack.
+#   - claude-glm-executor-handoff — pairs an in-aif Claude coordinator with a GLM-family
+#                      executor tier (kickoff marker → bridge-profile resolver). Factory-only
+#                      by design (S5 kickoff §2 binding #3): the skill presupposes the
+#                      runtime-bridge + aif-handoff operator runtime that the factory profile
+#                      installs in the same stage. Spec A8 lists env/factory; the kickoff's
+#                      narrower reading (factory-only) is adopted per §2 binding #3 + recorded
+#                      in the PR body §1.7 Forward-check as a spec-vs-kickoff divergence.
 #
 # Only self-reflection is intentionally NOT shipped at all: it is the §1.7 self-review discipline
 # specific to THIS repo's own development process (not a reusable consumer capability) — see the
@@ -92,9 +108,19 @@ fi
 for _skill in template-audit ai-doc rule-research rule-tests; do
   copy_skill_with_transform "$_skill"
 done
+# env+ contour surface (spec A8): ships at PROFILE=env or factory, NOT core. /arch is the
+# architecture-design skill that produces the contour; consumer-facing at env+ per S5 kickoff
+# §2 binding #3. Legacy --with-aif-suite routes through PROFILE=factory (install.sh:405-408),
+# so the env/factory check covers it without an explicit OR clause.
+if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
+  echo "  ▶ Contour surface (profile=env+ OR --with-aif-suite): arch"
+  for _skill in arch; do
+    copy_skill_with_transform "$_skill"
+  done
+fi
 if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
-  echo "  ▶ AIF operator suite (profile=factory OR --with-aif-suite): pipeline dispatcher aif-doctor harvest night-mode story"
-  for _skill in pipeline dispatcher aif-doctor harvest night-mode story; do
+  echo "  ▶ AIF operator suite (profile=factory OR --with-aif-suite): pipeline dispatcher aif-doctor harvest night-mode story claude-glm-executor-handoff"
+  for _skill in pipeline dispatcher aif-doctor harvest night-mode story claude-glm-executor-handoff; do
     copy_skill_with_transform "$_skill"
   done
 fi
