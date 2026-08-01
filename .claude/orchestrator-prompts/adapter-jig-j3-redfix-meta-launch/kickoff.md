@@ -1,4 +1,3 @@
-<!-- bridge: skip -->
 <!-- scope: dispatch-kickoff — adapter-jig J3 RED-CI fix + Option B (backends/golangci/ E3 parity).
      Operator decision 2026-08-01: dispatch the fix work to aif-handoff (autonomous). Option B chosen
      over Option A (lane-only) for E3 structural parity with all 4 existing backends (npm/ruff/astgrep/cargo).
