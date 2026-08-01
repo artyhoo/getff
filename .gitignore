@@ -21,6 +21,11 @@ packages/*/node_modules
 # UNCLEAR table. Same durable-committed class as done.md/kickoff.md. Per-umbrella
 # glob mirrors the done.md/kickoff.md exceptions.
 !.claude/orchestrator-prompts/*/report.md
+# Calibration ledgers (arch-v2-context-pipeline ADR-5/ADR-6/ADR-8). Same durable-committed
+# class as done.md/kickoff.md/report.md: pre-registered threshold + row schema + per-row
+# dispatch records. Tracked so the dispatching session can append rows that reach `staging`
+# for the next stage's aif container base to read (kickoff-staging-placement.md §1 shape).
+!.claude/orchestrator-prompts/*/calibration.md
 # Stage dispatch chain for the modular-install-fullpack umbrella (S0 boundary
 # blueprint + S1-S5 dispatch inputs). Same durable-committed-design-doc class as
 # kickoff.md; tracked so kickoff-s0.md reaches `staging` for aif/S1 to read from
