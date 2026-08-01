@@ -125,7 +125,7 @@ recalled. Each item carries an `arch-v2 overlap:` label per kickoff W1 item 4.
 > mid-session entry 5.15M × ~106 ≈ 546M → **3.1%** of cache-READ raw; turn-1 entry 5.15M × 212 ≈
 > 1.09B → **6.2%**. Conclusion weakened (margin is ~3-6%, not two orders of magnitude) but **not
 > reversed** — Bash is still <10% of the resident-context head; the §3 arithmetic below independently
-> lands RTK's project-share saving at 1.9-3.5% of total weighted cost.
+> lands RTK's attributable share at 1.9-3.5% of total weighted cost (saving 1.7-3.1% after the 89% removal factor).
 
 **3. §2.1 cost line attacked + arithmetic (T-TokenB-A/B).**
 Cost line: **cache WRITE (32.2%) + cache READ (53.3%)** — the resident-context head (85.5%). RTK
@@ -279,7 +279,7 @@ in use. Establish what exists AND what is configured today before evaluating any
   - `claudeMdExcludes` — YES (7 entries, `.claude/settings.json:214`; partial eviction per stage A).
   - `ToolSearch`/MCPSearch deferral — IMPLICIT (no `permissions.deny` set; §2.4 shows `ToolSearch
     154` calls — feature is live).
-  - Compaction — IMPLICIT (no config; harness default fires at the published 100k-token threshold).
+  - Compaction — IMPLICIT (no config; the 100k-token default is the **API cookbook's** figure — the harness's own threshold is `INCONCLUSIVE — no published harness figure reached`).
   - Sub-agent isolation — YES in active use (`Agent` 548 calls per §2.4; `isolation: "worktree"`
     precedent at [`parallel-subwave-isolation.md §1`](../../../.claude/rules/parallel-subwave-isolation.md)).
   - Read dedup / compact line format — YES (harness default; no opt-out).
@@ -320,8 +320,8 @@ Each feature attacks a different facet of the cache-WRITE+READ head (85.5%):
 **4. Two-axis verdict.**
 - **Operator axis: `ADOPT` (continue + tune).** All five features are live or implicit-default. The
   work is (a) confirming every rule/skill is under a `paths:` glob or `claudeMdExcludes`-equivalent
-  (closes candidate-2's gap), (b) measuring whether the published 100k-token compaction threshold
-  is right for this project's loss-tolerance, (c) using sub-agent delegation where the cold-seat-economy
+  (closes candidate-2's gap), (b) establishing the harness's actual compaction threshold (the 100k
+  figure is the API cookbook's, not the harness's) and its fit, (c) using sub-agent delegation where the cold-seat-economy
   table shows a net win. **No new adoption — configuration + discipline.**
 - **Shipped axis (provisional, one line): `ADOPT` (provisional).** Native to CC; portability to
   other consumer harnesses varies (Cursor/Cline have partial analogs). **Open question:** which of
@@ -489,8 +489,8 @@ deep evaluation (kickoff §0/§4 — no winner-crowning from this stage).
 
 **Claim:** *«No upstream analog was found that intercepts `Read`-tool-result payloads (file
 contents) generically and compresses them before they enter context — the way RTK does for
-Bash output.»* This is the **largest single tool-result class in §2.5 (14.6M chars / 36.5% of
-total)**, so the absence is load-bearing.
+Bash output.»* This is the **second-largest tool-result class in §2.5 (14.6M chars / 36.5% of
+total; Bash leads at 20.6M)**, so the absence is load-bearing.
 
 | # | Item | Result |
 |---|---|---|
@@ -499,7 +499,7 @@ total)**, so the absence is load-bearing.
 | 3 | Semantic-distance check | «file-content compressor» / «tool-result preprocessor» / «agent-context middleware» — three phrasings, no production tool surfaced. |
 | 4 | Adversarial counter-prompt | «If a Read-result compressor existed, where would it live?» → MCP server, hook layer, or CC plugin. Probed MCP servers registry (WebSearch); no Read-payload-compressing server surfaced. CC's hooks are PostToolUse-after-the-fact — the payload has already entered context. |
 | 5 | Prompt-list ≠ complete | §3 named RTK (Bash-only). The absence here is on the **adjacent** surface (Read), not a deeper enumeration of the named candidate. |
-| 6 | Trigger sweep at phase entry research (`grep -nE "^### 13\." docs/meta-factory/open-questions.md`, classify FIRED / STILL ARMED / CASCADE-DEPENDENT) | Ran 2026-08-01: 18 entries. **FIRED by this stage:** §13.11 (LLM cost model — §2.1 IS the cost model, measured) and §13.16 (search-coverage discipline — applied here, principle 13 already ships). **STILL ARMED:** §13.17 (hot/warm/cold tiering — deferred, no CC-integrated impl yet), §13.22 (L2 Research Agent — Phase 5+), §13.34/§13.35/§13.37/§13.40 (autonomous self-audit, 1%-Rule, pressure scenarios, meta-factory CLI — no signal). **Already closed elsewhere:** §13.31 (Wave 9 theatre audit), §13.32 (Phase 10 foundations). §13.38 (CC v2.1.100+ token inflation) STILL ARMED — Anthropic fix not confirmed; this stage's measurement baseline predates the regression. §13.39 H1 SHIPPED / H10 ARMED. No new `§13.x` opened by this candidate. |
+| 6 | Trigger sweep at phase entry research (`grep -nE "^### 13\." docs/meta-factory/open-questions.md`, classify FIRED / STILL ARMED / CASCADE-DEPENDENT) | Ran 2026-08-01: **26 entries** (a prior revision mis-counted 18 — corrected at review; the grep output is the population). **Classified 12/26.** FIRED by this stage: §13.11 (LLM cost model — §2.1 IS the cost model, measured) and §13.16 (search-coverage discipline — applied here, principle 13 already ships). STILL ARMED: §13.17 (hot/warm/cold tiering), §13.22 (L2 Research Agent — Phase 5+), §13.34/§13.35/§13.37/§13.40 (no signal), §13.38 (CC token inflation — fix not confirmed; this stage's baseline predates the regression), §13.39 (H1 shipped / H10 armed). Already closed elsewhere: §13.31, §13.32. **Remaining 14 (§13.4-13.10, §13.12-13.14, §13.18-13.20, §13.24): fire-checked only** — none is triggered by this stage's findings (they are prior-phase mechanism/process questions with no token-economy surface); full FIRED/ARMED classification NOT performed for them. Coverage of this row: 12/26 classified + 14/26 fire-checked — stated per T14, not read as a complete sweep. No new `§13.x` opened by this candidate. |
 
 **Verdict on the claim:** `coverage insufficient` (T14), NOT «category clean». The most defensible
 statement is: «no production-grade Read-result-payload compressor was surfaced under the
@@ -571,7 +571,7 @@ Ordered by §2.1 cost line attacked (cache READ 53.3% → cache WRITE 32.2% → 
 This patch is **itself** a resident-context artefact on the surface this survey evaluates; T15
 requires it be audited against its own discipline rather than exempted.
 
-- **Cost to read (re-measured 2026-08-01):** 599 lines, 45,531 chars ≈ 11.4k est-tokens (chars/4)
+- **Cost to read (re-measured 2026-08-01):** ≈600 lines, ≈45.5k chars ≈ 11.4k est-tokens (chars/4; stated as a band — an exact self-quote goes stale with every edit pass)
   resident across any cold-seat that loads it. At median 213-turn residency that is 11.4k × 22.45 ≈
   256k weighted units/session — one of the larger rules this project ships. **The distillation seat
   should treat this patch as a one-shot input, not a resident artefact** — read once, extract
