@@ -137,6 +137,12 @@ export interface EcosystemAdapter {
 }
 export interface InstalledMeta {
   homepage?: string;
+  /** `Project-URL: Documentation, <url>` from a Python dist-info METADATA (D7, S1
+   *  getff-any-stack-trace). Admitted alongside `homepage` by `tier1For` — both enter
+   *  the same `candidateFields` list and the same multi-tenant-apex filter chain. The
+   *  npm/cargo adapters leave this undefined (no parallel field in their metadata
+   *  formats); only `pipAdapter` populates it today. */
+  documentation?: string;
   repository?: string | { type?: string; url?: string };
 }
 
@@ -215,7 +221,14 @@ export function resolveAllowedSources(ctx?: ResolveCtx): ResolvedSources {
         };
       }
       const meta = ctx.adapter.readInstalledMeta(ctx.root, bareName);
-      const candidateFields = [meta?.homepage, meta?.repository];
+      // D7 (S1 getff-any-stack-trace): `documentation` joins `homepage` and `repository`
+      // as a Tier-1 candidate field. All three pass the IDENTICAL filter chain below —
+      // canonicalize, IP-literal reject, bare-TLD reject, punycode reject, multi-tenant
+      // apex reject — so the multi-tenant guard (DN #6) is the load-bearing containment
+      // for `documentation` exactly as it is for `homepage`/`repository`. No new trust
+      // grant: this is a derived-data admission (a consumer-installed package's own
+      // self-declared docs URL), the same trust source as homepage per kickoff §4 / H1.
+      const candidateFields = [meta?.homepage, meta?.documentation, meta?.repository];
       const hosts: string[] = [];
       for (const field of candidateFields) {
         const rawHost = extractHttpsHostFromMeta(field);
@@ -297,7 +310,11 @@ function validateUrlAgainstTiers(
     });
   }
 
-  // Tier 1 — scope-locked derived trust (activates in S2; S1 tier1For always misses).
+  // Tier 1 — scope-locked derived trust. Activates when BOTH (a) the caller threads
+  // an opts.entryPackage (the bridge does this with `p.packageName`; S1) AND (b) a
+  // ctx.adapter is wired (S1 python via pipAdapter, S2 cargo via cargoAdapter, npm
+  // adapter pre-existed). Without ctx or without a matching adapter, tier1For always
+  // misses and this branch falls through to Tier 2 / FF2005.
   let tier1Miss: Diagnostic | undefined;
   const packageName = p.packageName;
   if (packageName !== undefined && opts?.entryPackage !== undefined) {

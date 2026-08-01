@@ -305,6 +305,103 @@ describe('pipAdapter.readInstalledMeta — gaps & fail-closed', () => {
   });
 });
 
+// --- D7 (S1 getff-any-stack-trace): `Project-URL: Documentation, <url>` reader -------
+//
+// Spec: docs/superpowers/specs/2026-07-23-getff-any-stack-closure-design.md §4 W1-2.
+// The `documentation` field joins `homepage` and `repository` as a Tier-1 candidate
+// host source. Precedence vs. Homepage is intentionally NOT invented — both populate
+// separate InstalledMeta fields and the resolver admits either host independently
+// (kickoff §4 park-trigger satisfied by NOT collapsing).
+describe('pipAdapter.readInstalledMeta — D7 Project-URL: Documentation', () => {
+  it('parses `Project-URL: Documentation, <url>` into meta.documentation', () => {
+    const root = makeVenvRoot({
+      distInfos: {
+        fa: {
+          dirName: 'fastapi-0.100.dist-info',
+          // Real FastAPI METADATA shape (apex host, NOT a multi-tenant apex).
+          metadata:
+            'Metadata-Version: 2.1\nName: fastapi\nProject-URL: Documentation, https://fastapi.tiangolo.com/\n',
+        },
+      },
+    });
+    const meta = pipAdapter.readInstalledMeta(root, 'fastapi');
+    expect(meta?.documentation).toBe('https://fastapi.tiangolo.com/');
+    // Homepage field is independently absent — the reader does NOT collapse Documentation
+    // into Homepage to invent a value when Homepage is missing.
+    expect(meta?.homepage).toBeUndefined();
+  });
+
+  it('populates BOTH homepage AND documentation when both Project-URL fields are present', () => {
+    const root = makeVenvRoot({
+      distInfos: {
+        sa: {
+          dirName: 'sqlalchemy-2.0.dist-info',
+          // SQLAlchemy shape: Homepage=different domain, Documentation=docs.sqlalchemy.org.
+          metadata:
+            'Metadata-Version: 2.1\nName: sqlalchemy\nProject-URL: Homepage, https://www.sqlalchemy.org/\nProject-URL: Documentation, https://docs.sqlalchemy.org/\n',
+        },
+      },
+    });
+    const meta = pipAdapter.readInstalledMeta(root, 'sqlalchemy');
+    expect(meta?.homepage).toBe('https://www.sqlalchemy.org/');
+    expect(meta?.documentation).toBe('https://docs.sqlalchemy.org/');
+  });
+
+  it('drops a FOLDED Project-URL: Documentation field — same RFC 822 fail-closed discipline as Homepage', () => {
+    const root = makeVenvRoot({
+      distInfos: {
+        f: {
+          dirName: 'folded-doc-1.0.dist-info',
+          // The Documentation value is folded onto a continuation line.
+          metadata:
+            'Metadata-Version: 2.1\nName: folded-doc\nProject-URL: Documentation, https://docs.example/very/\n  long/continued/path\n',
+        },
+      },
+    });
+    const meta = pipAdapter.readInstalledMeta(root, 'folded-doc');
+    expect(meta).not.toBeNull();
+    // Folded value is dropped entirely (never a truncated first-line guess).
+    expect(meta?.documentation).toBeUndefined();
+  });
+
+  it('case-insensitive on the Documentation label (PyPI normalizes; reader matches the normalization)', () => {
+    const root = makeVenvRoot({
+      distInfos: {
+        c: {
+          dirName: 'case-1.0.dist-info',
+          metadata:
+            'Metadata-Version: 2.1\nName: case\nProject-URL: documentation, https://docs.case.example/\n',
+        },
+      },
+    });
+    expect(pipAdapter.readInstalledMeta(root, 'case')?.documentation).toBe(
+      'https://docs.case.example/',
+    );
+  });
+
+  it('does NOT confuse Documentation with a similarly-prefixed Project-URL label (scoped match)', () => {
+    const root = makeVenvRoot({
+      distInfos: {
+        s: {
+          dirName: 'strict-1.0.dist-info',
+          // `Documentation-Source` is NOT `Documentation` — the reader must NOT match.
+          // (A label like `Documentation, Github, <url>` would parse under the same
+          // RFC-822-first-comma rule the Homepage reader uses; the resulting
+          // `Github, <url>` value is then rejected downstream by the URL validator
+          // because it isn't an https URL. So no separate guard is needed here —
+          // the multi-tenant apex + URL-shape filter chain catches both shapes.)
+          metadata:
+            'Metadata-Version: 2.1\nName: strict\n' +
+            'Project-URL: Documentation-Source, https://wrong.example/\n',
+        },
+      },
+    });
+    const meta = pipAdapter.readInstalledMeta(root, 'strict');
+    // Prefix-overlap case: must NOT match.
+    expect(meta?.documentation).toBeUndefined();
+  });
+});
+
 // --- adapter-jig B3: direct-deps-only (transitive exclusion, pip lane) ---------
 //
 // Spec §3.2 B3: listDirectDeps returns DIRECT dependencies only — never the

@@ -213,6 +213,36 @@ function readHomepageFromMetadata(text: string): string | undefined {
   return projectUrlHomepage ?? homePage;
 }
 
+/** Reads the D7 `Project-URL: Documentation, <url>` field from METADATA (S1 of the
+ *  getff-any-stack-trace umbrella; spec §4 W1-2). Same RFC 822 line-folding discipline
+ *  as {@link readHomepageFromMetadata} — folded values are REJECTED, never partially
+ *  accepted. There is NO deprecated single-line `Documentation:` form (PyPI only ever
+ *  exposed this via Project-URL), so unlike Homepage there is nothing to fall back to.
+ *
+ *  Precedence vs. Homepage: this reader does NOT collapse Documentation and Homepage
+ *  into a single value — both populate separate `InstalledMeta` fields and the resolver
+ *  (`allowlist-resolver.ts` `tier1For` candidateFields) admits EITHER host independently.
+ *  The umbrella kickoff §4 park-trigger ("do not invent a precedence rule when both
+ *  fields are present and disagree") is satisfied by NOT collapsing: both hosts are
+ *  Tier-1-eligible, neither wins over the other. The multi-tenant apex guard (DN #6)
+ *  stays the load-bearing containment — a `github.com` Documentation URL is rejected
+ *  there, exactly as a `github.com` Homepage already is. */
+function readDocumentationFromMetadata(text: string): string | undefined {
+  const lines = text.split('\n');
+  let projectUrlDocumentation: string | undefined;
+  const isFolded = (i: number): boolean => {
+    const next = lines[i + 1];
+    return next !== undefined && next !== '' && /^[ \t]/.test(next);
+  };
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    if (line === '') break;
+    const pu = /^Project-URL:\s*Documentation\s*,\s*(.*)$/i.exec(line);
+    if (pu) { if (!isFolded(i)) projectUrlDocumentation = pu[1]!.trim(); continue; }
+  }
+  return projectUrlDocumentation;
+}
+
 export const pipAdapter: EcosystemAdapter = {
   ecosystem: 'pip',
 
@@ -288,8 +318,14 @@ export const pipAdapter: EcosystemAdapter = {
           const nameField = readMetadataName(text);
           if (nameField === null) continue; // no Name: header — fail-closed
           if (normalizePep503(nameField) !== normalizedPkg) continue;
-          // Matched — extract homepage/repository.
-          return { homepage: readHomepageFromMetadata(text), repository: undefined };
+          // Matched — extract homepage/documentation/repository. D7 (S1 getff-any-stack-trace):
+          // `documentation` is parsed alongside `homepage`; both populate separate InstalledMeta
+          // fields and the resolver's `tier1For` admits either host independently (spec §4 W1-2).
+          return {
+            homepage: readHomepageFromMetadata(text),
+            documentation: readDocumentationFromMetadata(text),
+            repository: undefined,
+          };
         }
       }
     }

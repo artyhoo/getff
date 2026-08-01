@@ -44,6 +44,39 @@ RED pre-fix, GREEN post-fix, **both runs quoted** in the PR body.
 
 - **T-HS-A (binding):** assert **exit code / filesystem state first**, wording second.
 
+## §3b Destination-environment contract (host, not container)
+
+You run in the aif container; this work is accepted on the **host**. A green container run is not evidence
+about the host ([destination-environment-verification.md §3](../../rules/destination-environment-verification.md)).
+The harvesting session runs the block below on the host via
+`bash scripts/host-verify.sh getff-honest-signals-s5` and quotes the output — a failing command is a HALT,
+never a pass.
+
+This stage **deletes** a directory and **must not touch** a consumer-owned file, so the contract is the
+existing refresh + companion regression surface: if any of these four goes red, the removal or the
+migration-offer took something with it.
+
+```bash host-verify
+bash tests/install-sh/refresh-covers-full-delivery.test.sh
+bash tests/install-sh/refresh-safe-dir-payload.test.sh
+bash tests/install-sh/f14-lintstaged-resolves.test.sh
+bash tests/install-sh/ship-orchestration-skills.test.sh
+bash tests/install-sh/refresh-reconciles-skill-rename.test.sh
+bash tests/install-sh/refresh-offers-lintstaged-migration.test.sh
+```
+
+**All four verified PASS on `staging` at `e9fdae393` before this contract was written** — they are a real
+baseline, not an aspirational list, so a red one means *this stage* broke it.
+
+**You MUST append your own §3 fixtures to this block** once they exist (the two paired fixtures: single-skill-dir
+after refresh, and byte-identical `.lintstagedrc` + printed offer). A contract that only re-runs pre-existing
+regressions proves this stage broke nothing — it does **not** prove this stage *did* anything, which is half
+the acceptance question. Leaving the block as-is would be a green signal covering an empty deliverable, the
+exact defect class this umbrella removes.
+
+If your change shifts install fingerprints, add `SNAPSHOT_MODE=compare bash tests/install-sh/snapshot.sh`
+to the block as well and regenerate per §7.
+
 ## §4 Park-don't-guess contract (aif agent — non-negotiable)
 
 **aif agent — fork discipline:** On ANY genuine fork or ambiguity (two defensible implementations, an undecided design choice, a missing spec detail that changes behaviour) — **do NOT pick.** Park it as a question (set the task to `manualReviewRequired` / `blocked_external` with the fork stated as «Option A → consequence X / Option B → consequence Y») and **stop that task.** Proceed only on the unambiguous parts. Guessing a fork to "keep moving" is the failure this whole loop exists to prevent.

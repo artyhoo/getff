@@ -104,16 +104,22 @@ EXC
 # ── FULL: every framework artefact a --full install copy_safe's to a consumer path ──────────────
 # Scan ALL setup.d/*.sh (not just 40-configs.sh), skip comment lines (a commented-out copy_safe is
 # not a live delivery). Normalize each dst to the literal prefix up to the first $-expansion.
+# S4 (getff-honest-signals): workflow deliveries moved from copy_safe onto deliver_getff_workflow
+# (which is copy_safe-equivalent + branch substitution). The verb alternation MUST include both,
+# or workflow destinations silently drop out of FULL → Check 2 (EXCLUDED ⊆ FULL) flags them as
+# stale exclusions (false RED), and Check 1 (FULL ⊆ REFRESH ∪ EXCLUDED) stops seeing them at all
+# (silent green — the #blind-gate shape this whole stage exists to kill).
 # shellcheck disable=SC2016  # single-quoted regex matches the literal '$PROJECT_ROOT' in source; no expansion intended
-FULL=$(grep -hE 'copy_safe' "${NPM_LANE_LAYERS[@]}" 2>/dev/null | grep -vE '^[[:space:]]*#' \
+FULL=$(grep -hE 'copy_safe|deliver_getff_workflow' "${NPM_LANE_LAYERS[@]}" 2>/dev/null | grep -vE '^[[:space:]]*#' \
   | grep -oE '\$PROJECT_ROOT/[A-Za-z0-9._/-]*' | sed -E 's#\$PROJECT_ROOT/##' | sort -u)
 
-# Fail loud if a copy_safe dst begins with an immediate variable ("$PROJECT_ROOT/$x") — it would
-# normalize to the empty string and silently escape FULL (a false-GREEN hole). None exist today.
+# Fail loud if a copy_safe/deliver_getff_workflow dst begins with an immediate variable
+# ("$PROJECT_ROOT/$x") — it would normalize to the empty string and silently escape FULL
+# (a false-GREEN hole). None exist today.
 # shellcheck disable=SC2016
-if grep -hE 'copy_safe' "${NPM_LANE_LAYERS[@]}" 2>/dev/null | grep -vE '^[[:space:]]*#' \
+if grep -hE 'copy_safe|deliver_getff_workflow' "${NPM_LANE_LAYERS[@]}" 2>/dev/null | grep -vE '^[[:space:]]*#' \
    | grep -qE '"\$PROJECT_ROOT/\$'; then
-  echo "FATAL: a copy_safe dst starts with an immediate \$var after \$PROJECT_ROOT/ — unparseable; extend the gate"; exit 1
+  echo "FATAL: a copy_safe/deliver_getff_workflow dst starts with an immediate \$var after \$PROJECT_ROOT/ — unparseable; extend the gate"; exit 1
 fi
 
 # ── REFRESH: every consumer path do_refresh() actually WRITES to (write-intent lines only) ──────
@@ -200,10 +206,16 @@ fi
 PY_LAYER="$REPO_ROOT/setup.d/45-python.sh"
 [ -f "$PY_LAYER" ] || { echo "FATAL: $PY_LAYER not found"; exit 1; }
 # shellcheck disable=SC2016
-PY_COPY_SRC=$(grep -hE 'copy_safe|_py_copy_or_refresh' "$PY_LAYER" | grep -vE '^[[:space:]]*#' \
+# S4 (getff-honest-signals): python workflow delivery moved from copy_safe onto deliver_getff_workflow.
+# The verb alternation MUST include deliver_getff_workflow here, or $tpl/github-actions-ci.yml silently
+# drops out of the FRESH set and the subset check below stays green while covering nothing (blind gate).
+PY_COPY_SRC=$(grep -hE 'copy_safe|_py_copy_or_refresh|deliver_getff_workflow' "$PY_LAYER" | grep -vE '^[[:space:]]*#' \
   | grep -oE '\$tpl/[A-Za-z0-9._/-]*' | sort -u)
 # shellcheck disable=SC2016
-PY_REFRESH_SRC=$(grep -hE 'refresh_safe|_py_copy_or_refresh' "$PY_LAYER" | grep -vE '^[[:space:]]*#' \
+# REFRESH side keys on the literal-prefix form `GETFF_TOOLCHAIN_REFRESH=1 deliver_getff_workflow` — NOT
+# the bare verb — because matching the bare verb would also catch the FRESH-only call site (no env
+# prefix) and manufacture a false green. Lookbehind is unavailable (grep -E is ERE, rejects (?<!...)).
+PY_REFRESH_SRC=$(grep -hE 'refresh_safe|_py_copy_or_refresh|GETFF_TOOLCHAIN_REFRESH=1 deliver_getff_workflow' "$PY_LAYER" | grep -vE '^[[:space:]]*#' \
   | grep -oE '\$tpl/[A-Za-z0-9._/-]*' | sort -u)
 [ -n "$PY_COPY_SRC" ] || { echo "FATAL: PY_COPY_SRC empty — 45-python.sh copy_safe \$tpl extraction broke"; exit 1; }
 py_missing=""

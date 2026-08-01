@@ -42,6 +42,7 @@ import {
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { renderAstgrep } from '../backends/astgrep/render-astgrep.ts';
+import type { ResolveCtx } from '../research/allowlist-resolver.ts';
 import {
   researchedPracticeToNode,
   type AstgrepResearchedPractice,
@@ -95,15 +96,26 @@ export function loadPracticeRecord(absPath: string): AstgrepResearchedPractice {
  * PURE (of consumer machine state). Project each researched practice → ConventionNode (INC-1
  * bridge; MAJOR-1 + provenance filters applied THERE) → `renderAstgrep`. A practice the bridge
  * degrades is pushed to `researchOnly` and NEVER rendered. NO fs writes here.
+ *
+ * `ctx` (S1 getff-any-stack-trace, spec §4 W1-1): optional manifest-derived `ResolveCtx`. The
+ * CONSUMER render path (`rule-bootstrap-cli --from-practice`) threads the factory-built ctx
+ * (resolve-ctx.ts `resolveCtxForRoot`) so a practice whose provenance host is a direct
+ * dependency's documentation/homepage/repository is admitted at Tier-1. The FRAMEWORK-side
+ * render paths (`planFromCommittedRecords`, `writeResearchedAstgrep`,
+ * `checkResearchedAstgrepDrift`) omit it — those paths have no consumer manifest in scope, so
+ * they correctly stay on the Tier-0-only back-compat path the bridge always used pre-S1. Either
+ * way the bridge's `firstProvenanceRejection` runs through the SSOT two-arg validator; the only
+ * difference is which tiers the materialised `ResolvedSources` carries.
  */
 export function planResearchedAstgrep(
   practices: AstgrepResearchedPractice[],
+  ctx?: ResolveCtx,
 ): ResearchedAstgrepPlan {
   const rendered: RenderedResearchedRule[] = [];
   const researchOnly: ResearchOnlyFinding[] = [];
 
   for (const practice of practices) {
-    const result = researchedPracticeToNode(practice);
+    const result = researchedPracticeToNode(practice, ctx);
     if (result.status !== 'node') {
       researchOnly.push({
         entryId: result.entryId,
