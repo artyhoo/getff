@@ -233,6 +233,8 @@ seed detail given per candidate reflects only what was verified at authoring tim
 - **No final ranking, no winner.** The Opus distillation seat adjudicates. Emitting a
   «recommended candidate» here is the K6 framing-bias defect this pipeline separates seats to
   prevent ([agents/dispatch-input-checker.md](../../../agents/dispatch-input-checker.md)).
+  (W4's «ranked next-stage proposals» is a different object and stays required: ordering
+  FOLLOW-UP STAGE proposals by attacked cost line is not crowning a candidate.)
 - **No new umbrella, no extra PR.** One PR ([CLAUDE.md `PR strategy`](../../../CLAUDE.md)).
 
 ## §4a Park-don't-guess contract (non-negotiable)

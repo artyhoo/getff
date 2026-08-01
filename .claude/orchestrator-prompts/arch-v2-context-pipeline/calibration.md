@@ -213,3 +213,15 @@ GLM question ADR-5 pre-registered. Recommended reading (recorded, not applied): 
 cohort dispatches with an Opus bottom seat where the dispatching session cannot field a true
 executor-tier seat, and let the arch-v2 orchestrator rule on the re-tier.
 Role-shaped dispatches: **3 / 20**.
+
+#### Round-2 note for Rows 2-3 (2026-08-01)
+
+Both kickoffs re-checked post-revision by one narrow cold Opus seat each (fresh seats +
+round-1 watch-list inlined, per [cold-seat-economy.md §1/§3](../../rules/cold-seat-economy.md)):
+**GO / GO** at staging `d22b4f4014` — all watch-list items verified fixed, every §2 table
+cross-footed exactly, cross-stage numbers identical. Two non-blocking K5 nits from the S-A seat
+(§2.1 truncated share column summing to 98%; row-11 formula lacking a direction-of-error note)
+plus one K6 lexical tension from the S-B seat (W4 «ranked proposals» vs §4 «no ranking») were
+fixed inline by the dispatching session in the same commit as this note — operator ruled no
+round 3; the fixes are the seats' own findings, not new substance. Shadow arms deliberately
+absent in round 2 (narrow refresh, not a cohort run — does not count toward ADR-5).
