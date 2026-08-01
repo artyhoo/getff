@@ -263,6 +263,12 @@ trap 'rm -rf "$WORK" "$WORK_RED" "$PREPUSH_WORK" "$PREPUSH_RED_WORK"' EXIT
 # walker copies at scripts/ (the install path — what pre-push.ts:834-886 invokes).
 cp -r "$SANDBOX_SRC/." "$PREPUSH_WORK/"
 mkdir -p "$PREPUSH_WORK/packages/core/hooks" "$PREPUSH_WORK/scripts"
+# DEFECT 5 fix (round 5): mkdir node_modules so check-lintstaged-resolves passes its §27
+# existence guard (the paired-negative in §GUARD proves the guard must NOT be widened).
+# Without this, the walker exits at 'no node_modules yet' and never reaches its find walk,
+# so the §PRE-PUSH positive-control has no way to see it reach apps/web/ — pos=0 false-red.
+# Symmetric with the mkdir already done for $WORK at the top of the script (line ~224).
+mkdir -p "$PREPUSH_WORK/node_modules"
 cp "$AUDIT/check-rule-globs.sh"          "$PREPUSH_WORK/scripts/"
 cp "$AUDIT/check-lintstaged-resolves.sh" "$PREPUSH_WORK/scripts/"
 # r2-na-marker.sh is sourced by check-rule-globs.sh:75 — install.sh:594 ships it to scripts/.
@@ -318,12 +324,19 @@ else
   # Drive the consumer-installed walkers via the EXACT call shape pre-push.ts:834-886 uses:
   # `bash scripts/<walker>.sh` from sandbox cwd. Exercises the install path (scripts/ copies,
   # not packages/core/audit-self/ originals) AND pre-push.ts's invocation shape.
+  # DEFECT 6 fix (round 5): run under `bash -x`. The walkers are silent-success on the happy
+  # path (check-rule-globs prints 'OK', not the paths it scanned), so a plain-invocation
+  # positive-control greps 0 legit-path hits even when the walker DID reach apps/web/ — a
+  # pos=0 false-red. `bash -x` echoes each command's argument-expansion to stderr (merged via
+  # 2>&1), so the find results surface in the trace as the resolved file paths. The negative
+  # signal (foreign-dir path) is unaffected: it comes from the walker's own FAIL-report stdout
+  # which `-x` preserves verbatim. `-x` is a strict superset of plain stdout → both signals hold.
   {
-    echo '--- bash scripts/check-rule-globs.sh (cwd = sandbox-with-install) ---'
-    ( cd "$PREPUSH_WORK" && bash scripts/check-rule-globs.sh ) 2>&1 || true
+    echo '--- bash -x scripts/check-rule-globs.sh (cwd = sandbox-with-install) ---'
+    ( cd "$PREPUSH_WORK" && bash -x scripts/check-rule-globs.sh ) 2>&1 || true
     echo
-    echo '--- bash scripts/check-lintstaged-resolves.sh (cwd = sandbox-with-install) ---'
-    ( cd "$PREPUSH_WORK" && bash scripts/check-lintstaged-resolves.sh ) 2>&1 || true
+    echo '--- bash -x scripts/check-lintstaged-resolves.sh (cwd = sandbox-with-install) ---'
+    ( cd "$PREPUSH_WORK" && bash -x scripts/check-lintstaged-resolves.sh ) 2>&1 || true
   } >"$PREPUSH_WALK_LOG"
 fi
 
@@ -343,6 +356,8 @@ dispatcher_fallback=$(grep -cE 'fallback:'     "$PREPUSH_LOG" 2>/dev/null) || di
 # to the pre-fix version on those prune lines. Works in a fresh clone with no branch history.
 cp -r "$SANDBOX_SRC/." "$PREPUSH_RED_WORK/"
 mkdir -p "$PREPUSH_RED_WORK/packages/core/hooks" "$PREPUSH_RED_WORK/scripts"
+# DEFECT 5 fix (round 5): same node_modules mkdir as PREPUSH_WORK above, for the same reason.
+mkdir -p "$PREPUSH_RED_WORK/node_modules"
 
 synthesize_prefix_walker() { # $1 = src path, $2 = target path, $3 = literal substring to strip
   local src="$1" tgt="$2" strip="$3" content
@@ -385,11 +400,11 @@ if [ "$TS_HOOK_REACHABLE" -eq 1 ]; then
 else
   COMPOSED_SURFACE_RED='TS hook unreachable — pre-fix install driven via call-shape substitute'
   {
-    echo '--- bash scripts/check-rule-globs.sh (PRE-FIX; cwd = sandbox-with-pre-fix-install) ---'
-    ( cd "$PREPUSH_RED_WORK" && bash scripts/check-rule-globs.sh ) 2>&1 || true
+    echo '--- bash -x scripts/check-rule-globs.sh (PRE-FIX; cwd = sandbox-with-pre-fix-install) ---'
+    ( cd "$PREPUSH_RED_WORK" && bash -x scripts/check-rule-globs.sh ) 2>&1 || true
     echo
-    echo '--- bash scripts/check-lintstaged-resolves.sh (PRE-FIX; cwd = sandbox-with-pre-fix-install) ---'
-    ( cd "$PREPUSH_RED_WORK" && bash scripts/check-lintstaged-resolves.sh ) 2>&1 || true
+    echo '--- bash -x scripts/check-lintstaged-resolves.sh (PRE-FIX; cwd = sandbox-with-pre-fix-install) ---'
+    ( cd "$PREPUSH_RED_WORK" && bash -x scripts/check-lintstaged-resolves.sh ) 2>&1 || true
   } >"$PREPUSH_RED_LOG"
 fi
 # Detection mirrors §PRE-PUSH above: foreign-dir path pattern, not sentinel filename.
