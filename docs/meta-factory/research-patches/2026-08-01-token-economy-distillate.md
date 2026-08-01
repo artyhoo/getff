@@ -1,0 +1,106 @@
+<!-- scope:token-economy-distillate -->
+
+# Token-economy distillate — measured facts, ranked levers, proposed stages
+
+> **Stage 3 of the token-economy funnel** ([design](../../superpowers/specs/2026-08-01-token-economy-research-design.md)):
+> GLM gathered (stages A + B) → this seat distills → Fable/operator decide. Raw material:
+> [`…-s-a-profile.md`](2026-08-01-token-economy-s-a-profile.md) (measured attribution),
+> [`…-s-b-candidates.md`](2026-08-01-token-economy-s-b-candidates.md) (candidate verdicts).
+> **Owning umbrella:** [`arch-v2-context-pipeline`](../../../.claude/orchestrator-prompts/arch-v2-context-pipeline/kickoff.md)
+> — «context is the one convention this project never made executable». This patch opens no new umbrella.
+> **Scope:** operator-axis + aif top-tier seats only. Shipped/consumer economy is out of scope by design.
+> **Descoped here:** no implementation, no code, no rule edits — proposals only.
+> **Reading rule:** every number below traces to stage A or B. Nothing is re-derived or improved.
+
+## §1 The five load-bearing measured facts
+
+1. **85.5% of weighted spend is context re-submission, not generation** — cache READ 53.3% + cache WRITE 32.2%, vs output 14.0% and uncached input 0.5% (`s-a-profile.md §A2.2`, 247 transcripts / 58,345 turns, host-measured 2026-08-01).
+2. **A token resident from turn 1 costs 21.2× a one-shot input token** at the 213-turn median session; 51.6× at p90, 83.2× at max (`s-a-profile.md §A2.3`).
+3. **Always-on documentation and tool-output accumulation are co-dominant, not one-runaway** — 754,884 vs ~430,243 cost-units per median session (~1.75 : 1), and the tool-output figure is an explicit **lower bound** (uniform-arrival assumption understates it; realistic front-loading moves the two toward parity). Session length is **not** a lever: the ratio moves <0.05% across a 4× session-length range (`s-a-profile.md §A4.3`, `§A4.4`).
+4. **The always-on head is 7 of 11 rows = 86.3% of always-on cost**, led by `ai-laziness-traps.md` (139,856 units, 18.5%), `CLAUDE.md` (125,822, 16.7%) and — promoted from *last* by byte size to **rank 3** by cost — the per-prompt session-bootstrap digest (93,720, 12.4%) (`s-a-profile.md §A3`).
+5. **Bash + Read = 87.9% of all tool-result volume returned into context** (35.2M of 40.1M chars corpus-wide), i.e. two tools carry essentially the whole tool-output cost class (`s-a-profile.md §A2.6`).
+
+**Denominator used throughout §3** (stated once, so shares are comparable): `D = 1,170,235` cost-units/median session = always-on 754,884 + top-5 tool-output 415,351 (`s-a-profile.md §Headline`).
+**Honest limit on D, carried not laundered:** D is the *accounted* resident subset (11 always-on rows + 5 tools). It is **not** the whole bill — the harness remainder (system prompt, tool schemas, MCP instructions, prior assistant turns) is outside stage A's measurement scope (`s-a-profile.md §See also`, scope-distinction note). A share of D therefore **overstates** the same lever's share of total spend. Stage B's independent corpus-denominator check on Bash lands at 1.9-3.5% of *total* weighted cost (`s-b-candidates.md §candidate-1 §3`) where D-arithmetic gives 18.9%. **Both bounds are reported below; neither is reconciled away.**
+
+## §2 Mechanism bug — NOT an optimization lever
+
+`.claude/settings.json` `claudeMdExcludes` lists 7 rules; live observation shows only 4 evicted. `cold-seat-economy.md`, `autonomous-loop-continuity.md`, `git-conflict-merge-forward.md` load anyway — **8,799 est-tokens × 21.2 = 186,539 cost-units/session, 24.7% of the always-on bill (15.9% of D), paid for content the project has already declared cold** (`s-a-profile.md §A1.2`, `§A5`).
+
+This is a **defect in a declared hot/cold split, not a design trade-off**: there is no content decision to make, no enforcement to give up, no falsifier that makes the spend legitimate. It is listed apart from §3 deliberately — ranking it against levers would frame «stop paying for something we declared we would not pay for» as an optimization choice. Root cause is unknown (§4); three testable hypotheses are recorded at `s-a-profile.md §A1.2` (path-resolution mismatch, secondary load trigger on the leak-through rules, loader ordering). Stage B independently corroborated the *behaviour* (a rule excluded from the CLAUDE.md channel remains loaded via CC's parallel rules auto-load — a different channel) but not the cause (`s-b-candidates.md §W1.1`).
+
+Secondary defect of the same class, same finding: `00-rule-index.md`'s `Channel(s)` column marks 3 rules `always-on core` while the observed always-on set is 11 rows — the index under-reports what actually loads (`s-a-profile.md §A1.2`).
+
+## §3 Ranked lever list
+
+Ranked by **measured impact per unit of effort**, not by cost-line size (that is stage B's ordering — see §4.1). Effort class per the BFR cost gate (`build-first-reuse-default.md §1.1`): *cheap* = text/skill/rule/config edit; *expensive* = new dependency, code module, or standing infra.
+
+| # | Lever | §2.1 cost line attacked | Expected saving (A-bound; share of `D`) | Stage-B two-axis verdict | Effort | Falsifier |
+|---|---|---|---|---|---|---|
+| L1 | **Bash/Read output economy via skill-text** — teach the agent to bound verbose tool output (`head`/`grep`/`wc`, targeted `Read` ranges) at the moment it is requested (B's P4, the config-only equivalent of RTK) | cache WRITE 32.2% + READ 53.3% | Addressable block = **32.3% of D** (Bash 18.9% + Read 13.4%). Removable fraction **unmeasured on this project's command mix**; RTK's vendor 89%-noise figure is on a different mix. Corpus-denominator cross-check for Bash alone: **1.7-3.1% of total weighted cost** (`s-b-candidates.md §candidate-1 §3`) | RTK-the-binary: operator `DEFER`, shipped `REJECT` (provisional). The **config-only variant was explicitly not evaluated** by stage B (`s-b-candidates.md §candidate-1 §4`, open question) | cheap | If bounded output makes the model re-run commands to see what it truncated, the saving evaporates (`s-b-candidates.md §candidate-1 §3` caveat c). If Bash-heavy sessions are rare in the real mix, the 32.3% block shrinks. |
+| L2 | **Sub-agent dispatch inlining** — inline diff + scope + watch-list into the dispatch prompt so cold seats finish in 0-2 turns (B's P3; already codified, not yet default) | cache WRITE 32.2% + output 14.0% | **Measured per seat, not per session: 85,855 vs 177,105 tokens** — ~52% off a cold seat (`cold-seat-economy.md §3`, cited by `s-b-candidates.md §W1.2`). Per-session share **not computable from §A2** | `ADOPT` (continue) — already-shipped discipline, operational tuning only | cheap | A seat whose substance resists compression into a watch-list; a fresh-blind seat that misses a regression a resumed seat catches (both stated at `cold-seat-economy.md §3`). |
+| L3 | **Prompt-prefix stability audit** — measure how often a cache WRITE fires on a turn that should have been a pure READ, then apply static-first/dynamic-last ordering (B's P1) | cache WRITE **32.2%** — the largest single line with **zero** attribution today | **UNQUANTIFIED with reason.** Per-turn churn attribution is not in the inlined profile (`s-b-candidates.md §W3 search 2`). Upper bound is structural: each churned token flips 0.1× → 1.25× | `ADOPT-as-discipline-on-operator` — measurement + ordering discipline, no tool | cheap (measurement + discipline) | Stage-B's own trigger: if <5% of turns re-WRITE a prefix that should have been stable, the lever is empty. |
+| L4 | **Per-prompt injection economy** — the session-bootstrap digest is re-injected every prompt at 440 tokens × 213 (B's P2 family, disclosure applied to the injection channel) | cache WRITE 32.2% (fresh entry each prompt) | **8.0% of D** (93,720 units) — but stage A labels the 213 multiplier an explicit **upper bound** (213 is the *assistant*-turn median, ≥ the user-prompt count) and whether the digest enters the prompt cache is `INCONCLUSIVE` (`s-a-profile.md §A3`, `§A7`) | `ADOPT` (continue + close gaps) — disclosure pattern already adopted; this is the un-closed instance | cheap | If the digest is cache-hit rather than billed fresh, the real cost is ~10× lower and this drops below L6. |
+| L5 | **Always-on head trimming** — `ai-laziness-traps.md` + `CLAUDE.md`, the two largest resident rows | cache READ 53.3% + WRITE 32.2% | **22.7% of D** (265,678 units) — the single largest addressable block in the table | `ADOPT` on the disclosure pattern generally; **stage B did not evaluate trimming these two specifically** — both are declared `always-on core` by design (`s-a-profile.md §A5` rows 3-4: «no split intended») | cheap to execute, **goal-bearing to decide** | Any trim that moves enforcement content off the always-on channel trades cost for the project's own goal (rules must fire at the earliest channel). Falsified if a post-trim session bypasses a convention the trimmed text was carrying. → operator decision D1 (§6). |
+| L6 | **Native harness context controls — tune, don't adopt** — `claudeMdExcludes` + `paths:` coverage, MCPSearch/ToolSearch deferral, compaction, sub-agent isolation, Read dedup | cache READ 53.3% + WRITE 32.2% | MCPSearch deferral: **~1.7% of total weighted cost** *if* all 52 tool schemas would otherwise be resident (`s-b-candidates.md §candidate-3 §3`) — already partly live (154 ToolSearch calls). Compaction, sub-agent isolation, Read dedup: **unquantified-with-reason**, all `PENDING-STAGE-A` | `ADOPT` (continue + tune), both axes provisional. **No new adoption — configuration + discipline** | cheap | Per-feature measurement showing a feature removes <0.1% of total weighted cost downgrades that feature, not the bundle (`s-b-candidates.md §candidate-3 §6`). Compaction is **lossy** (reported 20-25k tokens of information lost per auto-compact) — a cost, not a free win. |
+| L7 | **Structured-output format audit** (YAML over JSON, terse schemas) | output **14.0%** | Narrow and possibly **negative**: stage B's own evidence says JSON structured output *adds* 2-3× overhead, so adoption in the wrong direction increases cost; only YAML-over-JSON + terse fields is an economy direction (`s-b-candidates.md §W3 search 3`) | `DEFER` — revisit only if a measured JSON-heavy call class exceeds 1% of output cost | cheap | The trigger has not fired; no measured call class exists. |
+
+**Parked, not ranked** (stage B's own parking, carried forward): structured-context-eviction (CWL-style) — academic, no CC-integrated implementation, `WATCHLIST`, do not BUILD on a paper; the Anthropic `engineering` plugin — `DEFER` pending a harvested verdict (§4).
+
+## §4 Proposed next stages under `arch-v2-context-pipeline`
+
+Re-ranked from stage B's P1-P6 by measured-impact-per-effort. The umbrella already owns S-A…S-F; these are proposed **additional** stages, sequenced against them, not a competing track.
+
+| Proposed | Scope (one line) | From | Tier | Sequencing note |
+|---|---|---|---|---|
+| **N1** | Root-cause + fix the `claudeMdExcludes` leak (§2): test the three hypotheses on the host, restore the declared split, and re-align `00-rule-index.md`'s `Channel(s)` column with what actually loads | §2 (A `§A1.2`); B's P2 partially | 1 if the cause is path-resolution, 2 if a second load channel must be chosen | **First.** It is a defect, its cost (15.9% of `D`) is already measured, and no design judgment is spent. Feeds S-C's L2 verdict with a working exclusion primitive. |
+| **N2** | Per-turn attribution stage: arrival-position distribution for tool output + prefix-churn events + edit-time-injection firing rates, host-side | B's P1 + A's three `INCONCLUSIVE` items | 1 (the «how» is one sentence: extend stage A's aggregator) | **Second, and it unblocks the most.** One cheap measurement resolves three of the five open unknowns (§5) and supplies S-E's budget gate with the numbers it needs. |
+| **N3** | Bash/Read output-economy skill-text (L1) + sub-agent dispatch inlining as project default (L2) | B's P4 + P3 | 1 | Ships the two cheapest levers. L2 needs no new measurement (already measured per seat); L1's *sizing* improves after N2 but its *direction* does not depend on it. |
+| **N4** | Native-control tuning pass (L6) — `paths:`/exclusion coverage audit, confirm the harness's real compaction threshold, sub-agent-delegation policy | B's candidate 3 | 1 | After N1 (which fixes the exclusion primitive N4 would otherwise audit against a broken channel). **Complementary with S-E**: native features shrink what loads, S-E's gate enforces the ceiling. |
+| **N5** | Always-on head trim (L5) | this seat, from A `§A3` | 2 — the «how» is a goal-bearing judgment | **Blocked on operator decision D1** (§6). Not dispatchable as a Tier-1 mechanical sweep. |
+
+**Where I disagree with stage B's ordering, and why:**
+
+- **B ranked P4 (Bash-output economy) fourth; I rank it first (L1).** B ordered its proposals by the §2.1 cost line each attacks (READ → WRITE → output), and inherited RTK's *corpus-denominator* share (1.9-3.5%) as P4's implicit size, labelling it «narrow». Against stage A's per-session attribution, Bash alone is **221,127 units — larger than any single always-on row including rank-1 `ai-laziness-traps`** (`s-a-profile.md §A3`, `§A4.3`), and Bash+Read is 32.3% of `D`. The two denominators disagree by an order of magnitude (§1) and I do not resolve that here — but under *either*, a cheap skill-text edit against the largest tool-output rows beats a fourth-place ranking.
+- **B listed P6 (RTK operator trial) as a live proposal; I drop it below the ranked set.** It is dominated by L1: the config-only variant attacks the same rows at zero tool surface, and B's own falsifier for P6 requires a measured Bash-heavy session class that N2 has not yet produced. Running the trial before N2 buys an unfalsifiable result.
+- **B listed P5 (output-format audit) as a proposal; I park it (L7).** Its own evidence base points the *wrong way* (structured output adds 2-3× overhead), it attacks the smallest cost line, and its trigger has not fired.
+- **Where I agree with B:** P1 first-among-measurements (my N2) and P2/P3 as cheap continuations. B's refusal to crown a winner was correct for its stage; this is the seat that owes the ranking.
+
+## §5 What we still do not know
+
+| # | Unknown | Status carried from | Consequence |
+|---|---|---|---|
+| 1 | **Arrival-position distribution of tool output** — the uniform-arrival assumption is a deliberate lower bound; front-loaded arrival raises tool-output residency | `INCONCLUSIVE — not in the inlined profile` (`s-a-profile.md §A4.2`, `§A8`) | The one reachable lever that can move the always-on-vs-tool-output ratio. Until measured, «always-on is larger» holds but the margin is soft. Resolved by N2. |
+| 2 | **The harness's real compaction threshold** — the 100k-token figure is the **API cookbook's**, not the harness's; the harness's own figure was not reached | `INCONCLUSIVE — no published harness figure reached` (`s-b-candidates.md §candidate-3 §1`) | Compaction's §2.1 share stays unquantified, and it is **lossy** (20-25k tokens of information reported lost per event) — so it cannot be treated as free headroom. |
+| 3 | **Per-session firing rates for the edit-time-injection class** — 15 rules / 53,795 est-tokens gated behind a `paths:` match, cost zero until fired, then resident for the session | `INCONCLUSIVE` (`s-a-profile.md §A1.3`, `§A7`) | This class is **1.7× the always-on byte volume** and is entirely unpriced. It could be the largest un-costed block in the profile. Resolved by N2. |
+| 4 | **The `claudeMdExcludes` root cause** — three hypotheses recorded, none tested | open (`s-a-profile.md §A1.2`) | N1's tier (1 vs 2) and whether the fix is a settings edit or a different disclosure primitive both depend on it. |
+| 5 | **The `engineering`-plugin harvested verdict** — the aif task reached `done`; the patch was not reachable from the container (`git fetch origin staging` TLS failure) | `PENDING — task done, verdict not yet harvested to staging` (`s-b-candidates.md §candidate-4`) | On the reachable advertised surface the plugin attacks **0%** of every §2.1 row. If the harvested patch surfaces a context-economy mechanism, candidate 4 re-enters; otherwise it drops. Cheap to close: read the patch. |
+
+Two further honesty carries: (a) the negative-existence claim «no upstream tool compresses **Read**-result payloads generically» is recorded as **`coverage insufficient`, not «category clean»** — 4 phrasings, container-reachable ceiling only (`s-b-candidates.md §W3` checklist); (b) `D` is the accounted subset, not the total bill (§1) — the unmeasured harness remainder means every §3 share is an over-statement relative to the real invoice.
+
+## §6 Decisions requested from the operator
+
+Genuine forks only. Everything else in §4 is dispatchable without a decision.
+
+**D1 — Always-on head trim (L5 / stage N5).** The two largest resident rows are `ai-laziness-traps.md` and `CLAUDE.md`, together 22.7% of `D`. Both are enforcement-bearing and declared always-on by design.
+
+- **Option A — trim/split them** (hot digest resident, full text on `paths:` match). → Largest single saving in the table; but enforcement content moves off the always-on channel, which is a trade against the project's own goal («rules fail at the earliest reachable channel»), and the failure mode is silent (a convention bypassed because its text was not resident).
+- **Option B — leave them whole.** → Enforcement posture unchanged; 22.7% of `D` stands and no further lever recovers it.
+
+**D2 — Sequencing: measure first, or ship the cheap levers first.**
+
+- **Option A — N1 → N2 → N3** (defect fix, then measurement, then levers). → Every lever ships with a falsifiable size attached; costs one research cycle before any saving lands.
+- **Option B — N1 → N3 → N2** (defect fix, then levers, then measurement). → Savings start immediately; L1's and L4's sizes stay estimate-bound, and a wrong-sized lever is only caught retroactively.
+
+**D3 — Close or drop the `engineering`-plugin thread (§5 item 5).**
+
+- **Option A — harvest and read the verdict.** → Candidate 4 resolves either way; costs one read.
+- **Option B — drop it.** → Removed from the input set on the reachable evidence (0% of every §2.1 row on the advertised surface); a context-economy mechanism inside the plugin, if one exists, stays unfound.
+
+## See also
+
+- [`2026-08-01-token-economy-s-a-profile.md`](2026-08-01-token-economy-s-a-profile.md) — measured attribution, ranked cost table, tool-output comparison, disclosure inventory.
+- [`2026-08-01-token-economy-s-b-candidates.md`](2026-08-01-token-economy-s-b-candidates.md) — four candidate evaluations, unnamed-mechanism search, P1-P6.
+- [`2026-08-01-token-economy-research-design.md`](../../superpowers/specs/2026-08-01-token-economy-research-design.md) — the funnel; this file is its Stage 3.
+- [`arch-v2-context-pipeline/kickoff.md`](../../../.claude/orchestrator-prompts/arch-v2-context-pipeline/kickoff.md) — owning umbrella (S-C consumes §3/§4; S-E consumes §5 items 1 and 3).
+- [`cold-seat-economy.md §3`](../../../.claude/rules/cold-seat-economy.md) — the already-measured seat-economy table L2 rests on.
