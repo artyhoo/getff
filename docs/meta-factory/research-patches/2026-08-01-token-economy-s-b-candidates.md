@@ -1,4 +1,4 @@
-<!-- scope: stage B token-economy research — BFR-disciplined candidate survey against the §2 measured profile; zero-build; Opus distillation seat owns ranking. -->
+<!-- scope:token-economy-s-b-candidates -->
 
 # Token-economy stage B — candidate survey against the measured profile
 
@@ -388,3 +388,212 @@ with the verdict.
 inside the plugin → this candidate is removed from the distillation seat's input set.
 
 **`arch-v2 overlap:` UNKNOWN** — depends on the harvested verdict.
+
+## W3 — Unnamed-candidate search
+
+Four WebSearch phrasings run 2026-08-01, each quoted verbatim. Aim: surface mechanisms absent
+from the §3 seed list. New candidates are recorded with a one-line T16 statement + the §2.1
+cost line they would attack; a full W2 block is not produced here — the distillation seat owns
+deep evaluation (kickoff §0/§4 — no winner-crowning from this stage).
+
+### Search 1 — compaction/eviction strategies (beyond CC native)
+
+- **Query:** `agent context compaction eviction strategy LLM long session token reduction framework`
+- **What returned:**
+  - **Context Window Lifecycle (CWL)** ([arxiv 2606.11213](https://arxiv.org/html/2606.11213v1)) —
+    «gives long-horizon LLM agents an effectively unbounded working memory»; **structured eviction
+    policy**, distinct from CC auto-compact's lossy summarisation. Academic; no production-grade
+    Claude-Code-integrated implementation surfaced.
+  - **Governance Decay** ([arxiv 2606.22528](https://arxiv.org/html/2606.22528v1)) — risk paper,
+    not a tool; corroborates the candidate-3 «compaction is lossy» honest signal.
+  - **LangChain Deep Agents** + **Agent Development Kit (ADK)** — frameworks shipping
+    summarisation/offloading; not CC-integrated.
+- **New candidate surfaced:** **structured-context-eviction (CWL-style)**. T16 statement:
+  > Upstream problem class: long-horizon agents needing unbounded working memory via structured
+  > eviction. Our problem class: long sessions (median 213 turns) on a CC harness that already
+  > auto-compacts. Match? **Partial** — complements CC compaction with explicit eviction policy
+  > instead of summarisation; no CC-integrated implementation exists; would require BUILD.
+  > Cost line attacked: cache WRITE+READ (85.5%). Provisional verdict: **WATCHLIST** — research
+  > only; BUILD cost on a non-CC-integrated academic paper is unjustified.
+
+### Search 2 — prompt-cache-aware session design
+
+- **Query:** `prompt cache aware agent session design maximize cache read prefix reuse strategy`
+- **What returned:** convergent pattern across
+  [pydantic-ai-harness #99](https://github.com/pydantic-ai-harness/issues/99),
+  [earendil.com/posts/prompt-caching](https://earendil.com/posts/prompt-caching/),
+  [arxiv 2601.06007](https://arxiv.org/html/2601.06007v2),
+  [LangChain Deep Agents](https://www.langchain.com/blog/deep-agents-prompt-caching),
+  [OpenAI Cookbook 201](https://developers.openai.com/cookbook/examples/prompt_caching_201): «freeze
+  system prompt across turns; static-first, dynamic-last; stabilize the prefix; monitor
+  `cached_tokens`».
+- **Critical §2.1 read:** cache READ 53.3% + cache WRITE 32.2% = **85.5% of cost is already
+  cache-mediated**. Caching is working — the question is whether the prefix is being inadvertently
+  **invalidated mid-session**, converting cache READs (0.1×) into cache WRITEs (1.25×) or uncached
+  input (1×). Highest-attack-surface lever in the survey, and **stage A's per-turn attribution** is
+  the only thing that can quantify how often it happens here.
+- **New candidate surfaced:** **prompt-prefix-stability audit**. T16 statement:
+  > Upstream problem class: any agent session where cacheable prefix churns. Our problem class:
+  > identical — but the §2.1 numbers show caching is dominant (85.5%), so the failure mode is
+  > **churn**, not absence. Match? **Strong**. Cost line attacked: cache WRITE (32.2%) — churn
+  > converts WRITE 1.25× into READ 0.1× (good) or, when it goes wrong, READ into WRITE/uncached
+  > (bad). Provisional verdict: **ADOPT-as-discipline-on-operator** — a stage-A attribution audit
+  > measuring per-turn cache-write counts would tell us; cheap (no tool, just measurement + prompt
+  > ordering discipline).
+
+### Search 3 — output-format economy
+
+- **Query:** `LLM structured output JSON schema token economy reduce verbose prose generation`
+- **What returned:**
+  - [«The JSON Tax» (nehmeailabs)](https://nehmeailabs.com/post/structured-output-overhead) —
+    **JSON structured output adds 2-3× token overhead** for simple extraction tasks.
+  - [Token Efficiency with Structured Output (Microsoft)](https://medium.com/data-science-at-microsoft/token-efficiency-with-structured-output-from-language-models-be2e51d3d9d5):
+    YAML < JSON for token economy; field-name shortening strategies.
+  - [LLGuidance (arxiv 2606.09395)](https://arxiv.org/html/2606.09395) — grammar-constrained
+    decoding; theoretical, not a CC plugin.
+- **§2.1 read:** output = **14.0%** — smallest non-trivial cost line. Structured-output adoption
+  would, per the JSON-Tax finding, **increase** output cost. The Microsoft finding (YAML < JSON,
+  terse field names) is the only economy direction, and applies only to the small subset of LLM
+  calls producing structured data.
+- **New candidate surfaced:** **structured-output-format audit (YAML over JSON, terse schemas)**.
+  T16 statement:
+  > Upstream problem class: structured-output calls where format overhead dominates. Our problem
+  > class: 14% output cost, mostly free-prose assistant turns, not JSON. Match? **Weak on the
+  > aggregate cost; potentially strong on a narrow call class** (TACO-like tool calls).
+  > Provisional verdict: **DEFER** — narrow surface; revisit only if a measured class of
+  > JSON-heavy calls exceeds 1% of output cost.
+
+### Search 4 — session splitting / checkpoint-resume
+
+- **Query:** `agent session splitting checkpoint resume reduce context length long task decomposition subagent`
+- **What returned:**
+  - **TokenMizer** ([arxiv 2606.06337](https://arxiv.org/html/2606.06337v1)) — three-tier checkpoint,
+    8-layer compression, graph-structured memory. Academic.
+  - **OpenAI Agents SDK Session Memory** + **LangGraph Context Engineering** — short/long-term
+    memory persistence patterns.
+  - [Long-Running Agent Runtime (slavadub)](https://slavadub.github.io/blog/2026/05/26/ai-agent-runtime/)
+    — persists graph state + workspace diffs + artifact references.
+- **§2.1 read:** these address cache WRITE+READ (85.5%) by **rotating sessions** before context
+  grows. Already dogfooded on this project: [`cold-seat-economy.md §3`](../../../.claude/rules/cold-seat-economy.md)
+  shows fresh-with-watchlist ≈ half the tokens of file-reading resume. **The discipline is already
+  codified**; the candidate is operational tuning, not a new tool.
+- **New candidate surfaced:** **bounded-session + watch-list handoff discipline**. T16 statement:
+  > Upstream problem class: long-running tasks needing resumable context across sessions. Our
+  > problem class: median 213-turn sessions already exceeding the cache-stability sweet spot.
+  > Match? **Strong — and already shipped as cold-seat-economy.md.** Provisional verdict: **ADOPT
+  > (continue)** — operational use only; no new tool.
+
+### Negative-existence claim — 6-item checklist (phase-research-coverage.md §1)
+
+**Claim:** *«No upstream analog was found that intercepts `Read`-tool-result payloads (file
+contents) generically and compresses them before they enter context — the way RTK does for
+Bash output.»* This is the **largest single tool-result class in §2.5 (14.6M chars / 36.5% of
+total)**, so the absence is load-bearing.
+
+| # | Item | Result |
+|---|---|---|
+| 1 | Own-stack sweep | CC Read tool — no built-in compression; compact line-number format is the only economy. `pages:` parameter is user-driven, not auto. |
+| 2 | Category sweep | Output-filter tooling (RTK), KV-cache eviction (model layer), summarisation frameworks (LangChain) — none target Read-result payloads at the agent-context boundary. |
+| 3 | Semantic-distance check | «file-content compressor» / «tool-result preprocessor» / «agent-context middleware» — three phrasings, no production tool surfaced. |
+| 4 | Adversarial counter-prompt | «If a Read-result compressor existed, where would it live?» → MCP server, hook layer, or CC plugin. Probed MCP servers registry (WebSearch); no Read-payload-compressing server surfaced. CC's hooks are PostToolUse-after-the-fact — the payload has already entered context. |
+| 5 | Prompt-list ≠ complete | §3 named RTK (Bash-only). The absence here is on the **adjacent** surface (Read), not a deeper enumeration of the named candidate. |
+| 6 | Search ceiling | **`coverage insufficient`** (T14): container cannot reach `github.com` for repo enumeration; `api.github.com` topic search returned RTK but no Read-side analog; DeepWiki cannot read unindexed repos. |
+
+**Verdict on the claim:** `coverage insufficient` (T14), NOT «category clean». The most defensible
+statement is: «no production-grade Read-result-payload compressor was surfaced under the
+container-reachable search ceiling; its absence is consistent across 4 phrasings but not
+exhaustively excluded». The distillation seat may have host-side tooling the container lacks.
+
+## W4 — Next-stage proposals
+
+Per kickoff §4 descope: **proposals only — no implementation, and no self-selected winner**. Each
+proposal = one sentence of scope + the §2 cost line it attacks + cost-gate class + trigger.
+Ordered by §2.1 cost line attacked (cache READ 53.3% → cache WRITE 32.2% → output 14.0%).
+
+### Proposal P1 — prompt-prefix-stability audit (cache READ 53.3% + cache WRITE 32.2%)
+
+- **Scope:** stage A's attribution plumbing extended to measure, per turn, how many cache WRITEs
+  fire on turns that should have been pure cache READs — i.e. prefix-churn events. Lever is
+  **discipline** (static-first, dynamic-last prompt ordering), not a tool.
+- **Cost-gate class:** **cheap** (measurement + prompt-ordering discipline; no dependency).
+- **Trigger:** stage A's per-turn attribution shows >5% of turns re-WRITE a prefix that should
+  have been cache-stable.
+
+### Proposal P2 — disclosure-gap closure (cache WRITE 32.2% + cache READ 53.3%)
+
+- **Scope:** stage A's W4 ranked disclosure-gap artefacts (the `PENDING-STAGE-A` list) get the
+  `paths:`-glob + `claudeMdExcludes` treatment so they load only when relevant. Mechanism shipped
+  (W1.1) — this is closure work.
+- **Cost-gate class:** **cheap** (rule/config edits).
+- **Trigger:** stage A's ranked list shows ≥1 resident artefact irrelevant on >50% of turns.
+
+### Proposal P3 — sub-agent delegation tuning (cache WRITE 32.2% + output 14.0%)
+
+- **Scope:** ship `cold-seat-economy.md §3` "inline inputs in the dispatch prompt" as the
+  project-wide default for cold audit/review seats. Already measured (85k vs 177k tokens).
+- **Cost-gate class:** **cheap** (skill-text edit).
+- **Trigger:** any stage dispatching >2 cold audits per PR — pays for itself at that volume.
+
+### Proposal P4 — Bash-output economy via skill-text (cache WRITE 32.2%, narrow)
+
+- **Scope:** project skill teaching the agent to pipe verbose-but-irrelevant Bash commands through
+  `head`/`grep`/`wc`. The config-only equivalent of RTK — captures part of RTK's gain without the
+  binary dependency.
+- **Cost-gate class:** **cheap** (skill-text edit).
+- **Trigger:** a measured Bash-heavy session class where Bash output >30% of resident-context
+  tokens (per candidate-1 arithmetic, ~1.9-3.5% of total).
+
+### Proposal P5 — output-format economy audit (output 14.0%, narrow)
+
+- **Scope:** audit the project's structured-output-adjacent calls (TACO-like tool outputs,
+  snapshot regens, SSOT row formats) for JSON→YAML conversion + terse field names. Microsoft
+  finding (YAML < JSON) is the only documented economy direction on output.
+- **Cost-gate class:** **cheap** (text edits).
+- **Trigger:** a measured call class producing structured output exceeding 1% of total output cost.
+
+### Proposal P6 — RTK operator-axis trial (cache WRITE 32.2%, Bash-only)
+
+- **Scope:** a measured Bash-heavy session class on which candidate-1's falsifier would fire
+  (>5% of total weighted cost removed). Operator-axis only; never shipped.
+- **Cost-gate class:** **cheap on operator** (Homebrew, env var); **expensive on shipped** (Rust
+  binary dep — rejected).
+- **Trigger:** a Bash-heavy session class observed in stage A's per-turn attribution.
+
+### Parked (not proposed)
+
+- **Structured-context-eviction (CWL)** — academic, BUILD cost, no CC-integrated implementation.
+  Parked until a production-grade upstream emerges; do not propose BUILD on an academic paper.
+- **Anthropic engineering plugin** — PENDING the harvested verdict (candidate 4). Re-propose or
+  drop at the distillation seat.
+
+## W5 — T15 self-application (kickoff §5 trap T15 — mandatory)
+
+This patch is **itself** a resident-context artefact on the surface this survey evaluates. T15
+requires it be audited against its own discipline rather than exempted.
+
+- **Cost to read:** ~595 lines ≈ 7-9k tokens resident across any cold-seat that loads it. At
+  median 213-turn residency that is ~7-9k · 21.2 ≈ 150-190k weighted units/session — comparable
+  to one of the larger rules this project ships. **The distillation seat should treat this patch
+  as a one-shot input, not a resident artefact** — read once, extract the verdicts, drop.
+- **Does it practise progressive disclosure (the discipline candidate 2 evaluates)?** No — it is a
+  single flat dump, by design (kickoff §0: «write raw and complete, not polished»). The disclosure
+  pattern lives in the project's rules and skills, not in research-patches. A flat research-patch
+  is the correct shape for an artefact consumed once by the distillation seat.
+- **Did the survey run on itself?** Yes — §2.5's Read-tool payload row names this very surface
+  (Read 14.6M chars / 36.5% of tool-result payload). Any cold-seat that re-Reads this patch pays
+  the residency multiplier; mitigation is the `cold-seat-economy.md §3` «inline inputs» pattern.
+
+## Coverage
+
+**Reached:** WebSearch (12 phrasings across W2/W3 — all quoted inline), DeepWiki (`rtk-ai/rtk`,
+`obra/superpowers`, `anthropics/claude-code`), context7 (`/llmstxt/code_claude_llms_txt`),
+in-repo source citations (`cold-seat-economy.md §3`, `.claude/settings.json:214`,
+`build-first-reuse-default.md §1.1`, the arch-v2 kickoff + calibration.md), SSOT grep on
+`prior-art-evaluations.md`. **NOT reached:** `git fetch origin staging` (TLS handshake to
+github.com fails from the aif container — candidate-4 patch-presence check records
+`INCONCLUSIVE — tooling unreachable from container`), `claude-code-guide` agent (not in aif
+container per kickoff §0), host-side `bash scripts/host-verify.sh` (container is not the host per
+kickoff §6 — runs at harvest), `vitest` for principles 08/10 (devDeps omitted under
+NODE_ENV=production in container — also deferred to host). **PENDING-STAGE-A:** artefact-level
+disclosure-gap enumeration (§3 item 2 / candidate 2), per-turn cache-churn attribution
+(proposal P1's trigger), full Bash-heavy session-class measurement (proposal P4/P6 triggers).
