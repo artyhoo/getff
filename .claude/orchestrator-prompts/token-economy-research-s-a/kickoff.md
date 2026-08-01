@@ -93,7 +93,10 @@ median session and **51.6×** at p90. For every artefact from W1, compute:
 ```text
 cost_units_median = tokens × 21.2         (rows 1-10)
 cost_units_median = tokens × 213 × 1.0    (row 11 — re-injected fresh every prompt, not cached
-                                           from turn 1; state this asymmetry explicitly)
+                                           from turn 1; state this asymmetry explicitly. Direction
+                                           of error: 213 is the median ASSISTANT-turn count, an
+                                           upper bound on user prompts, so row 11 is OVERSTATED —
+                                           say so in the patch)
 ```
 
 Produce ONE ranked table, most expensive first, with a running cumulative share so the head/tail
@@ -136,11 +139,11 @@ cross-foots exactly.
 
 | category | raw tokens | share of raw |
 | --- | ---: | ---: |
-| uncached input | 17,379,404 | 0% |
-| cache WRITE | 844,266,278 | 4% |
-| cache READ | 17,501,892,975 | 94% |
-| output | 91,530,961 | 0% |
-| **total raw** | **18,455,069,618** | |
+| uncached input | 17,379,404 | 0.1% |
+| cache WRITE | 844,266,278 | 4.6% |
+| cache READ | 17,501,892,975 | 94.8% |
+| output | 91,530,961 | 0.5% |
+| **total raw** | **18,455,069,618** | 100.0% |
 
 ### 2.2 The same, weighted by price multiplier — THE HEADLINE RESULT
 
