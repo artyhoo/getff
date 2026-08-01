@@ -1,4 +1,4 @@
-<!-- scope: stage B of the token-economy research — BFR-disciplined survey of token/context-economy candidates against a measured cost profile. Runs in parallel with stage A; the profile both stages share is INLINED in §2. Authored 2026-08-01 by the operator-facing session that ran the host-side measurement. -->
+<!-- scope: stage B of the token-economy research — BFR-disciplined survey of token/context-economy candidates against a measured cost profile. Runs in parallel with stage A; the profile both stages share is INLINED in §2. Authored 2026-08-01; revised same day after station round 1 (REVISE bottom seat / STOP shadow) — §2 rebuilt from one canonical aggregator run, host-verify glob de-collided from stage A, container-unreachable tool fallback added, sibling-task state corrected. -->
 <!-- bridge-profile: Z.AI GLM-5.2 SDK -->
 
 # token-economy-research-s-b — what could actually reduce the measured cost?
@@ -34,8 +34,20 @@
   `docs/meta-factory/prior-art-evaluations.md` (append-only). It writes **no** rule, **no** hook,
   **no** skill, and does **not** edit `README.md`, `CLAUDE.md`, `.claude/rules/**`,
   `.claude/settings.json`, `.husky/**` ([CLAUDE.md `Artifact Ownership Contract`](../../../CLAUDE.md)).
+- **Deliverable filename (binding):** the research-patch MUST be
+  `docs/meta-factory/research-patches/2026-08-01-token-economy-s-b-candidates.md` — the §6
+  host-verify globs match on `token-economy-s-b` (deliberately disjoint from stage A's
+  `token-economy-s-a` glob: the two stages land concurrently in the same directory, and a shared
+  glob lets one stage's file mask the other's absence — `#silent-contract-skip`). Its **first
+  line** MUST be an HTML scope comment (`<!-- scope: ... -->`) —
+  [`10-research-patch-annotation.test.ts`](../../../packages/core/principles/10-research-patch-annotation.test.ts)
+  fails the PR otherwise.
+- **Container tool reality:** the `claude-code-guide` agent is **NOT available** in the aif
+  container (operator-verified precedent). For Claude Code internals use context7 / DeepWiki /
+  WebFetch of the official docs; if none of those is reachable either, record
+  `INCONCLUSIVE — tooling unreachable from container` rather than answering from recall.
 - **Ceilings.** A pre-commit hook blocks any markdown file past **600 lines** — `wc -l` before
-  adding, including `prior-art-evaluations.md` (~331 lines as of 2026-07-31).
+  adding, including `prior-art-evaluations.md` (331 lines as of 2026-08-01).
 - **Parallel stage.** Stage A (`token-economy-research-s-a`) runs concurrently on the always-on
   attribution. Do not duplicate its work; §2 is the shared source. Where you need a number stage A
   will produce, write `PENDING-STAGE-A` and continue — the distillation seat joins them.
@@ -48,7 +60,9 @@ Before evaluating any external candidate, enumerate what this project **already*
 token/context economy, from source, with `file:line` or command output:
 
 1. **Progressive disclosure already shipped** — the `00-rule-index.md` digest pattern, skill
-   `SKILL.md` hot + `references/` cold split, `claudeMdExcludes` in `.claude/settings.json`.
+   `SKILL.md` hot + `references/` cold split, `claudeMdExcludes` in `.claude/settings.json`
+   (NOTE: stage A carries a pre-found finding that the exclusion only partially evicts — cite
+   `PENDING-STAGE-A` for the attribution, do not re-derive).
 2. **Seat/dispatch economy already measured** — `.claude/rules/cold-seat-economy.md §3` carries a
    measured table (fresh full audit 185,239 tokens / 19 tool calls vs inputs-inlined zero-tool
    85,855 tokens / 0 calls) and the watch-list mechanism in `agents/fidelity-auditor.md`.
@@ -72,7 +86,8 @@ For **each** candidate in §3, produce a block containing all of:
 1. **The BFR §3 mechanism, run and shown** — WebSearch with **≥3 distinct phrasings** (quote the
    queries), DeepWiki `ask_question` where a concrete repo is named (`owner/repo` form), and an
    SSOT consult (`grep` `prior-art-evaluations.md`). Show what each returned. A mechanism
-   «considered» but not run is T2.
+   «considered» but not run is T2. If a search tool is unreachable from the container, record
+   which one and mark that item `INCONCLUSIVE — tooling unreachable`, never silently narrower.
 2. **The T16 problem-class statement, verbatim in this form:**
    > Upstream problem class: X. Our problem class: Y. Match? Evidence: …
 3. **Which measured cost line it attacks** — name the §2 row. A candidate that reduces *output*
@@ -107,23 +122,25 @@ and its cost-gate class. **Proposals only — no implementation, and no self-sel
 
 Measured 2026-08-01 on the host over **247 transcripts** across **99 project directories** under
 `~/.claude/projects/*rules-as-tests-aif*/`, reading per-turn billing accounting only — never
-message content. **That path does not exist in the aif container**; §2 is your only source for
-session behaviour. Anything not here is `INCONCLUSIVE — not in the inlined profile`, never
-inferred ([destination-environment-verification.md §3](../../rules/destination-environment-verification.md)).
+message content. Single aggregator run (2026-08-01T01:00:50Z; full script inlined in stage A's
+§2.7); every table cross-foots exactly. **That path does not exist in the aif container**; §2 is
+your only source for session behaviour. Anything not here is
+`INCONCLUSIVE — not in the inlined profile`, never inferred (this kickoff's binding grammar; the
+why is [destination-environment-verification.md §3](../../rules/destination-environment-verification.md)).
 
 ### 2.1 Cost by billing category, weighted by price multiplier — THE HEADLINE
 
-Multipliers are Anthropic's published prompt-caching multipliers relative to base input price
-(cache write 1.25×, cache read 0.1×) and the output/input price ratio (5×). **Verify these against
-current published pricing and record the check.**
+Multipliers (cache write 1.25×, cache read 0.1×, output/input 5×) verified against live published
+pricing 2026-08-01 by the dispatch-input station. Treat as verified; re-verify only if your
+container has network access, else proceed.
 
 | category | raw tokens | multiplier | weighted units | cost share |
 | --- | ---: | ---: | ---: | ---: |
-| cache READ | 17,501,147,752 | 0.1× | 1,750,114,775 | **53.3%** |
-| cache WRITE | 844,259,721 | 1.25× | 1,055,324,651 | **32.2%** |
-| output | 91,526,585 | 5× | 457,632,925 | 14.0% |
-| uncached input | 17,379,399 | 1× | 17,379,399 | 0.5% |
-| **TOTAL** | | | **3,280,451,750** | 100% |
+| cache READ | 17,501,892,975 | 0.1× | 1,750,189,298 | **53.3%** |
+| cache WRITE | 844,266,278 | 1.25× | 1,055,332,848 | **32.2%** |
+| output | 91,530,961 | 5× | 457,654,805 | 14.0% |
+| uncached input | 17,379,404 | 1× | 17,379,404 | 0.5% |
+| **TOTAL** | | | **3,280,556,354** | 100% |
 
 **85.5% of spend is context re-submission, not generation.** Uncached input is negligible, so
 caching already works; the cost is that the cached context is large and is billed on every turn.
@@ -131,7 +148,8 @@ A candidate that does not shrink resident context or reduce turn count is attack
 
 ### 2.2 Turn counts and the residency multiplier
 
-247 sessions · median **213** turns · p90 **517** · max **833** · total 58,345 turns.
+247 sessions · median **213** turns · p90 **517** · max **833** · total **58,345** turns (58,345
+assistant turns with usage; per-model rows in 2.3 sum to exactly this).
 
 A token resident from turn 1 is re-billed at 0.1× on every later turn: **21.2×** a one-shot input
 token in a median session, **51.6×** at p90, **83.2×** at max.
@@ -142,20 +160,23 @@ token in a median session, **51.6×** at p90, **83.2×** at max.
 | --- | ---: | ---: |
 | claude-opus-4-8 | 29,878 | 10,128,170,357 |
 | claude-fable-5 | 17,012 | 4,580,732,963 |
-| claude-opus-5 | 6,968 | 2,513,431,331 |
+| claude-opus-5 | 6,972 | 2,514,187,492 |
 | claude-sonnet-5 | 4,136 | 1,208,617,260 |
 | claude-sonnet-4-6 | 184 | 21,217,372 |
 | claude-haiku-4-5 | 14 | 2,144,174 |
+| `<synthetic>` (harness-internal, zero-token) | 149 | 0 |
 
-Opus + Fable carry **53,858 of 58,341 turns (92%)**.
+Opus 4.8 + Opus 5 + Fable carry **53,862 of 58,345 turns (92%)**.
 
 ### 2.4 Tool-call frequency — what drives turn count
 
-Bash 16,767 · Edit 2,921 · Read 1,825 · Write 764 · Agent 548 · TaskUpdate 513 · TaskCreate 309 ·
-AskUserQuestion 240 · Skill 177 · ToolSearch 154. (49 tools total; the tail below 113 calls is
+Bash 16,768 · Edit 2,922 · Read 1,825 · Write 764 · Agent 548 · TaskUpdate 513 · TaskCreate 309 ·
+AskUserQuestion 240 · Skill 177 · ToolSearch 154. (52 tools total; the tail below 154 calls is
 omitted as immaterial — stated, not silent.)
 
 ### 2.5 Tool-result payload returned INTO context — top 10 by volume
+
+Total across all 52 tools: **40,101,993 chars**.
 
 | tool | results | total chars | max chars |
 | --- | ---: | ---: | ---: |
@@ -170,20 +191,21 @@ omitted as immaterial — stated, not silent.)
 | Workflow | 113 | 153,331 | 1,624 |
 | TaskOutput | 8 | 70,061 | 32,162 |
 
-**Bash and Read together are 96% of tool-result volume** — 35.2M of 36.6M chars. This is the
-number the RTK candidate must be evaluated against.
+**Bash and Read together are 35,242,027 of 40,101,993 chars — 87.9% of all tool-result volume.**
+This is the payload-class number that any candidate attacking tool output (filters, compressors,
+output-limiting wrappers) is evaluated against — whichever candidate that turns out to be.
 
 ## §3 Seed candidates (a starting list, NOT the population — see W3)
 
-1. **RTK — `rtk-ai/rtk`** (verified live 2026-08-01 via `gh api repos/rtk-ai/rtk`). «Rust Token
-   Killer»: a CLI proxy that filters/compresses command output **before it reaches the agent's
-   context**. Single Rust binary, zero deps, 100+ commands, <10 ms overhead, claims 60-90% token
-   reduction on common dev commands. 74,185 stars, Apache-2.0, in Homebrew (`brew install rtk`).
-   Topics include `claude-code`, `token-optimization`.
-   *Evaluate against §2.5* — it attacks the Bash/Read payload class, which is 96% of tool-result
-   volume. **The claim «60-90% reduction» is the vendor's, on their benchmark, not ours** — restate
-   it as a claim to be tested, never as our expected saving. The number that matters is the share
-   of §2.1 total weighted cost, not the share of one command's output.
+Each candidate below gets the identical W2 treatment; the ordering is arbitrary, and the amount of
+seed detail given per candidate reflects only what was verified at authoring time, not priority.
+
+1. **RTK — `rtk-ai/rtk`** (verified live 2026-08-01 via `gh api repos/rtk-ai/rtk`): CLI proxy
+   filtering/compressing command output before it reaches the agent's context. Single Rust binary,
+   Apache-2.0, in Homebrew, ~74k stars; topics include `claude-code`, `token-optimization`.
+   **The vendor's «60-90% reduction» claim is theirs, on their benchmark, not ours** — restate it
+   as a claim to be tested. The number that matters is the share of §2.1 total weighted cost
+   removed, not the share of one command's output.
 2. **Remaining progressive-disclosure gaps.** Stage A enumerates and ranks these; your job is the
    *mechanism* question — for the artefacts stage A names as the head, what disclosure mechanisms
    exist upstream (in Claude Code itself, in Superpowers, in other agent frameworks) that this
@@ -192,13 +214,14 @@ number the RTK candidate must be evaluated against.
 3. **Claude Code native context management** — compaction, context editing, `claudeMdExcludes`,
    tool-schema deferral (`ToolSearch`), sub-agent context isolation. **Own-stack-first, criterion
    zero:** these are features of the harness already in use. Establish what exists and what is
-   configured *today* before evaluating any external tool that overlaps them.
-   Use the `claude-code-guide` agent or context7 rather than recall.
-4. **The Anthropic `engineering` plugin verdict** — aif task `53c2ecdd-9194-4f6f-bfca-6a3047de214e`
-   (kickoff `anthropic-engineering-prior-art`) is producing a BFR verdict on Anthropic's
-   first-party `engineering` plugin. If its research-patch has landed on `staging` by the time you
-   run, read it and record whether it surfaced any context-economy mechanism. If it has not landed,
-   record `PENDING — sibling stage in flight` and continue. **It is not a blocker.**
+   configured *today* before evaluating any external tool that overlaps them. Source per §0's
+   container-tool bullet: context7 / DeepWiki / official docs — never recall.
+4. **The Anthropic `engineering` plugin verdict** — aif task
+   `53c2ecdd-9194-4f6f-bfca-6a3047de214e` (kickoff `anthropic-engineering-prior-art`) reached
+   `done` on 2026-08-01, but its research-patch had NOT yet landed on `origin/staging` at this
+   kickoff's revision (harvest pending). If the patch is on `staging` when you run, read it and
+   record whether it surfaced any context-economy mechanism. If not, record
+   `PENDING — task done, verdict not yet harvested to staging` and continue. **Not a blocker.**
 
 ## §4 Descopes (binding — do not do these)
 
@@ -211,6 +234,16 @@ number the RTK candidate must be evaluated against.
   «recommended candidate» here is the K6 framing-bias defect this pipeline separates seats to
   prevent ([agents/dispatch-input-checker.md](../../../agents/dispatch-input-checker.md)).
 - **No new umbrella, no extra PR.** One PR ([CLAUDE.md `PR strategy`](../../../CLAUDE.md)).
+
+## §4a Park-don't-guess contract (non-negotiable)
+
+On ANY genuine fork or ambiguity — two defensible verdicts for one candidate, a search result that
+contradicts the SSOT, a §2 number that appears to contradict another — do **NOT** pick silently.
+Park it: set the task to `manualReviewRequired` / `blocked_external` with the fork stated as
+«Option A → consequence X / Option B → consequence Y», and stop that item. Proceed on the
+unambiguous parts. A verdict chosen **with reasons recorded** is in scope; a verdict chosen
+silently is the failure. Never manufacture a quoted command output for anything outside your
+environment.
 
 ## §5 Active AI-laziness traps
 
@@ -247,17 +280,21 @@ resident context (85.5%). Every candidate must name its §2.1 row before its est
 
 The container is not the destination — the patch and any SSOT rows land on the host
 ([destination-environment-verification.md §1](../../rules/destination-environment-verification.md)).
-Run these on the HOST before accepting; a green container run is not evidence.
+Run on the HOST via `bash scripts/host-verify.sh token-economy-research-s-b` before accepting;
+a green container run is not evidence. The `test -f` guard exists because `markdownlint-cli2`
+exits 0 on a zero-match glob, and stage A's patch lands in the same directory concurrently — an
+undiscriminating glob would let A's file mask B's absence.
 
 ```bash host-verify
-npx markdownlint-cli2 "docs/meta-factory/research-patches/*token-economy*.md" "docs/meta-factory/prior-art-evaluations.md"
-wc -l docs/meta-factory/research-patches/*token-economy*.md docs/meta-factory/prior-art-evaluations.md
+test -f docs/meta-factory/research-patches/2026-08-01-token-economy-s-b-candidates.md
+npx markdownlint-cli2 "docs/meta-factory/research-patches/*token-economy-s-b*.md" "docs/meta-factory/prior-art-evaluations.md"
+wc -l docs/meta-factory/research-patches/*token-economy-s-b*.md docs/meta-factory/prior-art-evaluations.md
 npx vitest run packages/core/principles/08-prior-art-cited.test.ts packages/core/principles/10-research-patch-annotation.test.ts
 ```
 
 ## §7 Acceptance
 
-The stage is done when the research-patch contains:
+The stage is done when the research-patch (filename + first-line scope comment per §0) contains:
 
 1. The own-stack enumeration with citations (W1), including the arch-v2 overlap labelling.
 2. One complete block per candidate — mechanism shown, T16 statement, §2.1 cost line named,
@@ -268,3 +305,16 @@ The stage is done when the research-patch contains:
 4. Ranked next-stage proposals with their attacked cost lines (W4).
 5. A `Coverage:` line naming what was reached and what was not.
 6. Any earned SSOT rows appended per the append-only schema.
+7. This stage's PR carries the standard `## §1.7 Self-discipline check` sections (forward +
+   backward) — the PR template stubs them; the CI `discipline-self-check` gate rejects placeholders.
+
+## See also
+
+- [`token-economy-research-s-a/kickoff.md`](../token-economy-research-s-a/kickoff.md) — the
+  parallel attribution stage sharing this §2 profile (and carrying the full aggregator script).
+- [`docs/superpowers/specs/2026-08-01-token-economy-research-design.md`](../../../docs/superpowers/specs/2026-08-01-token-economy-research-design.md)
+  — the funnel design (GLM gather → Opus distill → Fable decide) this stage implements.
+- [`.claude/orchestrator-prompts/arch-v2-context-pipeline/kickoff.md`](../arch-v2-context-pipeline/kickoff.md)
+  — the umbrella owning dispatch/seat economy; W4 proposals feed it.
+- [`docs/meta-factory/prior-art-evaluations.md`](../../../docs/meta-factory/prior-art-evaluations.md)
+  — the SSOT this stage may append to.
