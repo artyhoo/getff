@@ -24,11 +24,12 @@ not one-runaway.**
 | class | est. cost-units / session (median) | share of (always-on + top-5 tool-output) |
 |---|---:|---:|
 | always-on documentation (11 rows, full payload) | 754,884 | 64.5% |
-| tool-output accumulation (top 5 tools, **lower bound**) | 415,329 | 35.5% |
+| tool-output accumulation (top 5 tools, **lower bound**) | 415,351 | 35.5% |
 
-The tool-output figure is a **deliberate lower bound** (uniform-arrival + median-session
-assumptions, both of which under-estimate; see §A3). Under realistic front-loaded tool arrival
-the two classes approach parity. The practical consequence: a token-economy intervention that
+The tool-output figure is a **deliberate lower bound** on its absolute cost — the
+uniform-arrival assumption understates tool-output residency specifically (front-loaded arrival
+would raise it; see §A4.2). The median-vs-mean session choice is **ratio-neutral** (both classes
+are linear in N — see §A4.2). Under realistic front-loaded tool arrival the two classes approach parity. The practical consequence: a token-economy intervention that
 touches only always-on documentation addresses at most ~⅔ of the resident bill; the other ~⅓ is
 earned tool output whose residency is the real lever (§A3 falsifier).
 
@@ -120,12 +121,23 @@ split that silently does not enforce is a token-economy defect class of its own.
 
 ### A1.3 The edit-time-injection class (resident-once-fired, NOT always-on)
 
-A separate cost class: rules delivered by **`paths:` frontmatter** (CC-native, read-time, loads the
-**whole rule** when a matching file is read) **and/or** the **`inject-matching-rule.sh`** PostToolUse
-hook (Edit/Write, injects a one-line **summary**, once per session). Both fire only when a matching
-file is touched. **Cost is zero unless they fire**; once fired the whole-rule (CC-native) or the
-summary (hook) is resident for the rest of the session (T-TokenA-A guard: these are NOT in the
-always-on ranking because their residency is conditional, not from turn 1).
+A separate cost class: rules delivered by the **`inject-matching-rule.sh`** PostToolUse hook
+(Edit/Write, injects a one-line **summary** of the rule, once per session when a matching file is
+touched). This is the class kickoff §1 W1 asked W4 to inventory — the `Channel(s) = edit-time inject`
+rows of `00-rule-index.md`. **Cost is zero unless they fire**; once fired the summary is resident
+for the rest of the session (T-TokenA-A guard: these are NOT in the always-on ranking because their
+residency is conditional, not from turn 1).
+
+**Population note (T14 shape — completeness sentence must match the definition).** The class
+definition above is **narrow** (index rows carrying `edit-time inject`, which is the
+`inject-matching-rule.sh` set). It is NOT the wider "any rule with `paths:` frontmatter" — CC-native
+read-time `paths:` loading is a **different channel** (loads the whole rule on read, not a one-line
+summary on edit). One rule carries `paths:` frontmatter WITHOUT an `edit-time inject` index entry —
+`.claude/rules/phase-research-coverage.md` (`paths:(4)`, no `<!-- inject: -->` marker, 34,151 B /
+8,538 est-tokens, larger than any of the 15 rows below). It is **outside the enumerated set by
+design**: the index's `paths:(N)`-without-`edit-time inject` notation marks it CC-native-read-time
+only. A wider "all `paths:`-bearing rules" inventory is a different population and is **not what the
+15/15 completeness claim below covers**.
 
 Enumerated from the `Channel(s)` = `edit-time inject` rows of `00-rule-index.md` (all 15, not the
 first three that look big — T1/T10):
@@ -147,7 +159,12 @@ first three that look big — T1/T10):
 | `skill-description-quality.md` | 9,586 | 2,397 | `.claude/skills/**` |
 | `source-before-shape.md` | 16,852 | 4,213 | `.claude/skills/**`, `agents/**`, `.claude/orchestrator-prompts/**` |
 | `zcode-parity-doctrine.md` | 23,101 | 5,775 | `.claude/hooks/**`, `scripts/render-harness-config.mjs`, `plugin/hooks/**`, + 6 zcode decision/patch docs |
-| | **215,177** | **53,794** | |
+| | **215,177** | **53,795** | |
+
+Est-tokens use the **sum-of-rounded-rows** convention (each row = `round(bytes/4)`; total = sum of
+row values). The byte total 215,177 ÷ 4 = 53,794.25 — `round()` of the byte-derived figure would
+give 53,794; **two rows round up** (12,050 → 3,013 not 3,012; 16,585 → 4,146 not 4,145), so the
+column sum is 53,795. Stating this uniformly avoids the 1-token drift between the two conventions.
 
 Evidence:
 
@@ -261,11 +278,11 @@ using 1.0× is the conservative upper bound.)
 | rank | # | artefact | est. tokens | multiplier | cost-units (median) | share | cumulative |
 | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: |
 | 1 | 3 | `ai-laziness-traps.md` | 6,597 | 21.2 | 139,856 | 18.5% | 18.5% |
-| 2 | 1 | `CLAUDE.md` | 5,935 | 21.2 | 125,822 | 16.7% | 35.3% |
-| 3 | 11 | session-bootstrap digest (per-prompt) | 440 | 213 | 93,720 | 12.4% | 47.7% |
-| 4 | 10 | `MEMORY.md` index | 4,126 | 21.2 | 87,471 | 11.6% | 59.3% |
-| 5 | 7 | `autonomous-loop-continuity.md` (leak) | 3,365 | 21.2 | 71,338 | 9.5% | 68.7% |
-| 6 | 4 | `build-first-reuse-default.md` | 3,167 | 21.2 | 67,140 | 8.9% | 77.6% |
+| 2 | 1 | `CLAUDE.md` | 5,935 | 21.2 | 125,822 | 16.7% | 35.2% |
+| 3 | 11 | session-bootstrap digest (per-prompt) | 440 | 213 | 93,720 | 12.4% | 47.6% |
+| 4 | 10 | `MEMORY.md` index | 4,126 | 21.2 | 87,471 | 11.6% | 59.2% |
+| 5 | 7 | `autonomous-loop-continuity.md` (leak) | 3,365 | 21.2 | 71,338 | 9.5% | 68.6% |
+| 6 | 4 | `build-first-reuse-default.md` | 3,167 | 21.2 | 67,140 | 8.9% | 77.5% |
 | 7 | 6 | `cold-seat-economy.md` (leak) | 3,113 | 21.2 | 65,996 | 8.7% | **86.3%** ← HEAD ENDS |
 | 8 | 8 | `git-conflict-merge-forward.md` (leak) | 2,321 | 21.2 | 49,205 | 6.5% | 92.8% |
 | 9 | 2 | `00-rule-index.md` | 1,008 | 21.2 | 21,370 | 2.8% | 95.6% |
@@ -273,8 +290,13 @@ using 1.0× is the conservative upper bound.)
 | 11 | 5 | `attention-is-not-a-mechanism.md` | 657 | 21.2 | 13,928 | 1.8% | 100.0% |
 | | | **total** | **31,627** | | **754,884** | 100% | |
 
+**Cumulative-column convention (uniform).** Cumulative share = `cumulative_cost / 754,884`, computed
+once per row from the unrounded cost-units column (NOT sum-of-rounded-shares — that drifts 0.1pp on
+four cells where the per-rank share rounds down but the cumulative doesn't). The head/tail boundary
+is unaffected (rank 7 = 86.3% under every rounding mode).
+
 **Head/tail boundary.** The smallest set accounting for ≥80% of always-on cost is the **top 7**
-(cumulative 86.3%); top 6 = 77.6% (just under). **Head ends at `cold-seat-economy.md`** (rank 7).
+(cumulative 86.3%); top 6 = 77.5% (just under). **Head ends at `cold-seat-economy.md`** (rank 7).
 Tail = ranks 8-11 (`git-conflict-merge-forward`, `00-rule-index`, `~/.claude/CLAUDE.md`,
 `attention-is-not-a-mechanism`), **13.7%** combined.
 
@@ -303,33 +325,50 @@ corpus-tokens / 247.
 
 ### A4.2 Direction of error (state plainly, per kickoff)
 
-Both modelling choices **under-estimate** tool-output cost:
+Three modelling choices, with **direction-of-error marked per choice**. A rework reviewer (cold
+host-side re-computation) caught that the prior draft mis-stated factor 2 as a tool-output-only
+downward bias — it is **ratio-neutral** for the always-on-vs-tool-output comparison (T3 firing at
+review: the median choice understates BOTH classes equally, because both are linear in N).
 
 1. **Uniform arrival** — reality is **front-loaded** (initial Bash/Read exploration dominates early
    turns). Front-loaded arrival → payloads sit resident **longer** → actual mean residency is
-   **higher** than *N*/2. So uniform arrival is a **lower bound** on the true multiplier.
+   **higher** than *N*/2. So uniform arrival is a **lower bound on tool-output specifically**. This
+   is the dominant lower-bound driver; it does NOT affect the always-on side (resident from turn 1
+   regardless of arrival position).
 2. **Median session (*N* = 213)** — the corpus mean is **236.2** turns (right-skewed by long
-   sessions). Using the median under-estimates the corpus-mean residency by ~10%.
-3. **Per-session even distribution** — long sessions produce disproportionately more tool output
-   AND have higher residency; dividing by 247 flattens that correlation. Direction: **lower bound**.
+   sessions). Using the median under-states the **absolute** cost of BOTH classes by ~10% (the
+   always-on multiplier at the mean would be (236.2−1)×0.1 = 23.5, not 21.2; tool-output's residency
+   would be (236.2−1)/2 × 0.1 = 11.76, not 10.6). **Ratio-neutral for the comparison**: both classes
+   are linear in N, so the ratio is essentially fixed across session lengths. Verified arithmetically:
+   at N=213 → 754,884 vs 415,351 (ratio 1.8176); at N=517 → 1,836,729 vs 1,010,947 (ratio 1.8168);
+   at N=833 → 2,961,278 vs 1,630,054 (ratio 1.8167). The ratio moves < 0.05% across a 4× session-
+   length range. A p90 analysis (517 turns) is therefore **not** a lever that moves the comparison.
+3. **Per-session even distribution** — IF long sessions produce disproportionately more tool output
+   (super-linear in N), dividing by 247 flattens that correlation and under-states mean per-session
+   tool-output. This is a tool-output-specific downward bias, **conditional on the super-linearity
+   hypothesis** (not measurable from §A2 — the §A2 aggregator reports corpus totals, not per-session
+   output-vs-length).
 
-Net: the A4.3 numbers are a **conservative lower bound**. Real tool-output residency cost is
-likely **meaningfully higher**; the always-on side has no such downward bias (its multiplier 21.2
-is the median figure from §A2.3, applied without the arrival-position discount).
+Net: the A4.3 numbers are a **conservative lower bound on absolute tool-output cost** (factors 1 + 3
+push that direction; factor 3 is conditional). **The ratio against always-on is ratio-invariant to
+factor 2.** The levers that CAN move the ratio are: (i) arrival-position distribution (factor 1 —
+front-loaded arrival raises tool-output's effective multiplier above the uniform N/2); (ii) per-tool
+payload volume (changes to Bash/Read output truncation would shift the corpus-tokens column).
+**Session length is NOT such a lever.**
 
 ### A4.3 Top-5 tool-output cost (median session, uniform arrival — LOWER BOUND)
 
 | tool | corpus chars | corpus tokens (4 B/t) | per-session tokens (÷247) | × residency 10.6 | cost-units / session |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Bash | 20,610,988 | 5,152,747 | 20,863 | 10.6 | 221,148 |
-| Read | 14,631,039 | 3,657,760 | 14,805 | 10.6 | 156,933 |
+| Bash | 20,610,988 | 5,152,747 | 20,861 | 10.6 | 221,127 |
+| Read | 14,631,039 | 3,657,760 | 14,809 | 10.6 | 156,975 |
 | mcp\_\_claude-in-chrome\_\_computer | 1,665,599 | 416,400 | 1,686 | 10.6 | 17,872 |
 | Agent | 1,152,020 | 288,005 | 1,166 | 10.6 | 12,360 |
 | Edit | 653,724 | 163,431 | 662 | 10.6 | 7,017 |
-| **top-5 total** | **38,713,370** | **9,678,343** | **39,182** | | **415,329** |
+| **top-5 total** | **38,713,370** | **9,678,343** | **39,184** | | **415,351** |
 
-(All-tool total = 40,101,993 chars / 10,025,498 tokens / 40,591 per-session; at residency 10.6 →
-**~430,265 cost-units/session**. Top-5 covers 96.5% of all tool-output tokens.)
+(All-tool total = 40,101,993 chars / 10,025,498 tokens / 40,589 per-session; at residency 10.6 →
+**~430,243 cost-units/session**. Top-5 covers 96.5% of all tool-output tokens.)
 
 ### A4.4 The comparison
 
@@ -337,33 +376,60 @@ is the median figure from §A2.3, applied without the arrival-position discount)
 |---|---:|
 | always-on total (11 rows, §A3) | 754,884 |
 | always-on HEAD — top 7 (≥80%, §A3) | 651,343 |
-| tool-output top 5 (lower bound, §A4.3) | 415,329 |
-| tool-output ALL tools (lower bound) | ~430,265 |
+| tool-output top 5 (lower bound, §A4.3) | 415,351 |
+| tool-output ALL tools (lower bound) | ~430,243 |
 
 **Verdict (numbers, not narrative).** Always-on documentation is the larger single class in the
-median session: **754,884 vs ~430,265** (all tools, lower bound) — a ratio of **~1.75 : 1**. But
+median session: **754,884 vs ~430,243** (all tools, lower bound) — a ratio of **~1.75 : 1**. But
 tool-output is **within the same order of magnitude**, and the tool-output number is a deliberate
-lower bound whose three error factors all push the same direction. Under realistic front-loaded
-arrival the two classes approach parity. **The two classes are co-dominant**; a token-economy
-intervention that addresses only always-on documentation leaves ~35-45% of the resident bill
-untouched.
+lower bound: the uniform-arrival assumption understates tool-output residency specifically, while
+the median-vs-mean session choice is **ratio-neutral** (§A4.2 factor 2 — both classes are linear in
+N). Under realistic front-loaded arrival the two classes approach parity. **The two classes are
+co-dominant**; a token-economy intervention that addresses only always-on documentation leaves **at
+least ~35%** of the resident bill untouched (35.5% by top-5 tool-output, 36.3% by all-tool).
 
-Cross-check on the headline ratio: tool-output / (always-on + top-5 tool-output) = 415,329 /
-(754,884 + 415,329) = **35.5%** — matches §Headline.
+Cross-check on the headline ratio: tool-output / (always-on + top-5 tool-output) = 415,351 /
+(754,884 + 415,351) = **35.5%** — matches §Headline.
 
 **Falsifier.** The verdict ("co-dominant, always-on slightly larger; tool-output is a lower
-bound") would be falsified in either direction:
-- **Falsified → "always-on dominates decisively"** if per-turn positioning shows tool output
-  arrives **late-session** (mean residency < ~40 turns), which would drop tool-output below
-  ~150,000 cost-units (<20% of always-on). The corpus pattern (Bash-heavy exploration front-loads
-  work) argues against this, but it is not measurable from §A2.
-- **Falsified → "tool-output dominates"** if (a) front-loading is severe (mean residency > ~160
-  turns) **and** (b) long sessions dominate the corpus (the right-skew of the turn-count
-  distribution makes this plausible — mean 236 vs median 213, max 833).
-- The current answer rests on the median session; a p90 analysis (517 turns, 51.6× always-on
-  multiplier) would shift BOTH classes up but would **amplify tool-output more** (its residency
-  grows with session length faster than always-on's fixed-from-turn-1 multiplier gap closes).
-  Per-session positioning data would settle it; that data is `INCONCLUSIVE — not in the inlined profile`.
+bound") would be falsified in either direction. A rework reviewer (cold host-side re-computation)
+caught that the prior draft mis-stated both the ratio's sensitivity to session length and the
+dominance thresholds (T3 firing at review); the corrections are inlined below.
+
+- **Session length is ratio-invariant — NOT a lever.** Both cost classes are linear in N: always-on
+  = `31,187 × (N−1) × 0.1 + 440 × N`; tool-output = `39,184 × (N−1)/2 × 0.1`. Their ratio is therefore
+  essentially fixed at ~1.82 across all N (verified at N=213/517/833 in §A4.2; moves < 0.05%). The
+  prior draft's claim that a longer session amplifies tool-output relative to always-on is
+  arithmetically false, as is the claim that always-on has no median-vs-mean downward bias (its 21.2
+  multiplier is itself median-derived; at the 236.2 mean it would be 23.5 — the median understates
+  BOTH sides, not one). A p90 analysis (517 turns, 51.6× always-on multiplier) shifts BOTH classes
+  up by the same linear factor; the ratio moves < 0.05% and the verdict is unchanged.
+
+- **The levers that CAN move the ratio** are: (i) **arrival-position distribution** — front-loaded
+  arrival raises tool-output's effective multiplier above the uniform N/2; late-only arrival lowers
+  it. (ii) **Per-tool payload volume** — changes to Bash/Read output truncation shift the
+  corpus-tokens column. Both are tool-output-side levers; the always-on side is fixed by the row
+  population.
+
+- **Falsified → "always-on dominates decisively"** would require tool-output mean residency so low
+  that its cost drops to a negligible share. At a 40-turn mean residency: `39,184 × 40 × 0.1 =
+  156,736` cost-units, which is **20.8%** of always-on (not "<20%", and not "below ~150,000" — the
+  prior draft's threshold figures were wrong). The corpus pattern (Bash-heavy exploration front-loads
+  work) argues against such late-only arrival, but it is not measurable from §A2.
+
+- **Falsified → "tool-output dominates"** would require tool-output mean residency ≥ the break-even
+  point: `754,884 / (39,184 × 0.1) = 192.6 turns`. For a 213-turn median session that is **90.4%**
+  of all turns — and the theoretical maximum from turn-1-only arrival is `N − 1 = 212`, so no
+  realistic arrival distribution can produce a 192.6-turn mean. (At the prior draft's quoted
+  160-turn mean residency: `39,184 × 160 × 0.1 = 626,944` vs always-on 754,884 — still **17%
+  smaller**, i.e. not dominant. Dominance is effectively unreachable under this corpus.) The prior
+  draft's "long sessions dominate the corpus" condition is ratio-invariant per the bullet above — it
+  cannot discriminate between the two classes and is dropped.
+
+- The current answer rests on the median session and uniform-arrival assumptions. The arrival-
+  distribution data needed to tighten the residency assumption beyond the uniform lower bound is
+  `INCONCLUSIVE — not in the inlined profile`; that data would settle the only ratio-moving lever
+  reachable from §A2.
 
 ## A5 — W4: progressive-disclosure inventory (one line per artefact)
 
@@ -397,18 +463,24 @@ state its own always-on cost and recommend for/against its own residency.
 
 ```text
 $ wc -c docs/meta-factory/research-patches/2026-08-01-token-economy-s-a-profile.md
-30453 docs/meta-factory/research-patches/2026-08-01-token-economy-s-a-profile.md
+36786 docs/meta-factory/research-patches/2026-08-01-token-economy-s-a-profile.md
 $ wc -l docs/meta-factory/research-patches/2026-08-01-token-economy-s-a-profile.md
-480 docs/meta-factory/research-patches/2026-08-01-token-economy-s-a-profile.md
+554 docs/meta-factory/research-patches/2026-08-01-token-economy-s-a-profile.md
 ```
 
-30,453 B → **7,613 est-tokens** (4 B/t). If loaded always-on, its median cost would be
-7,613 × 21.2 = **161,396 cost-units/session** — larger than every always-on row in §A3, including
+36,786 B → **9,197 est-tokens** (4 B/t). If loaded always-on, its median cost would be
+9,197 × 21.2 = **194,976 cost-units/session** — larger than every always-on row in §A3, including
 `ai-laziness-traps.md` (rank 1, 139,856). A single research artefact would leap to **rank 1** of the
-always-on ranking — a self-inflicted ~21% increase in the always-on bill it exists to measure.
-(This §A6 was refreshed under rework: the prior draft quoted a stale `wc` from before the file's
-See-also section settled; the corrected numbers promote the self-cost from the previously-quoted
-rank 2 to rank 1 — T3 firing inside T15, caught at review.)
+always-on ranking — a self-inflicted ~26% increase in the always-on bill it exists to measure. The
+rank-1 verdict is robust to the self-referential `wc` drift (any size ≥ 26,364 B = `139,856 / 21.2 × 4`
+leaps to rank 1; this file is ~10,000 B past that threshold).
+(This §A6 has been refreshed twice under rework: round 1 corrected a stale `wc` from before the
+file's See-also section settled, promoting self-cost from previously-quoted rank 2 to rank 1 — T3
+firing inside T15, caught at review. Round 2 (this revision) re-runs the `wc` after the §A4.2/§A4.4
+falsifier rewrite + §A1.3 boundary note grew the file from 30,453 B to 36,414 B; this third refresh
+absorbs the small drift introduced by the second refresh itself. The rank-1 verdict is unchanged.)
+The drift floor (a `wc` quote that grows the file by single-digit bytes when refreshed) does not
+move the verdict; the cost figure is approximate by the 4 B/t assumption anyway.
 
 This patch is a **one-time research artefact** under `docs/meta-factory/research-patches/` — a
 folder with folder-level authority (individual files scope-bound by gap, append-only; per
@@ -433,7 +505,7 @@ Recorded as one-liners per the descope; stage B owns evaluation.
 - Row 11 (session-bootstrap digest, per-prompt) is small per-injection (440 tokens) but pays the
   per-prompt multiplicity — a caching analysis (does the digest enter the prompt cache, or is it
   billed fresh each turn?) is `INCONCLUSIVE — not in the inlined profile`; stage B may investigate.
-- The edit-time-injection class (§A1.3, 53,794 est-tokens gated behind path-match) has no
+- The edit-time-injection class (§A1.3, 53,795 est-tokens gated behind path-match) has no
   per-session firing-rate data in §A2; a real cost ranking of this class requires host-side
   path-match instrumentation — stage B candidate.
 
@@ -441,9 +513,12 @@ Recorded as one-liners per the descope; stage B owns evaluation.
 
 **Measured:** 8/11 always-on rows repo-side via `wc -c` (rows 1-8; all match the inlined table —
 no delta). 3/11 host-only sizes cited verbatim from §A2.8 (rows 9-11 — paths unreachable in
-container). Edit-time-injection class: **fully enumerated** — 15/15 rules from the index's
-`edit-time inject` rows, each with `wc -c` size + `paths:` firing condition. `claudeMdExcludes`
-list: read in-container (7/7 entries).
+container). Edit-time-injection class: **fully enumerated under the narrow definition** (index's
+`edit-time inject` rows = the `inject-matching-rule.sh` set) — 15/15 rules, each with `wc -c` size +
+`paths:` firing condition. The wider "any `paths:`-bearing rule" population is a different class
+(CC-native read-time, not edit-time inject); one such rule (`phase-research-coverage.md`, 34,151 B)
+is recorded as a boundary note in §A1.3 and is **outside** the 15/15 set by design.
+`claudeMdExcludes` list: read in-container (7/7 entries).
 
 **Cited, NOT re-measured (transcripts unreachable):** the entire §A2 billing profile (raw token
 volume, weighted spend, turn-count distribution, per-model split, tool-call frequency, tool-result
@@ -473,7 +548,8 @@ host-side reviewer. Re-runs drift ~0.1-0.2% upward as the live corpus grows — 
   live-session always-on population (11 rows), which excludes the harness remainder (tool schemas,
   MCP instructions, skills listings) that dominates the S1 <40% verdict.
 - [`docs/superpowers/specs/2026-07-23-acceptance-contour-design.md`](../../superpowers/specs/2026-07-23-acceptance-contour-design.md)
-  — the funnel design (GLM gather → Opus distill → Fable decide).
+  — the acceptance contour (fidelity gate spec; not the funnel — the funnel design is the
+  `token-economy-research-design.md` entry above).
 - [`.claude/rules/cold-seat-economy.md`](../../../.claude/rules/cold-seat-economy.md) — already-measured
   seat-economy discipline (the §A3 table is independent; do not re-derive cold-seat numbers from it).
 - [`destination-environment-verification.md`](../../../.claude/rules/destination-environment-verification.md)
