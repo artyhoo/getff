@@ -336,7 +336,7 @@ is the median figure from §A2.3, applied without the arrival-position discount)
 | class | cost-units / session (median) |
 |---|---:|
 | always-on total (11 rows, §A3) | 754,884 |
-| always-on HEAD — top 7 (≥80%, §A3) | 651,469 |
+| always-on HEAD — top 7 (≥80%, §A3) | 651,343 |
 | tool-output top 5 (lower bound, §A4.3) | 415,329 |
 | tool-output ALL tools (lower bound) | ~430,265 |
 
@@ -397,15 +397,18 @@ state its own always-on cost and recommend for/against its own residency.
 
 ```text
 $ wc -c docs/meta-factory/research-patches/2026-08-01-token-economy-s-a-profile.md
-29062 docs/meta-factory/research-patches/2026-08-01-token-economy-s-a-profile.md
+30453 docs/meta-factory/research-patches/2026-08-01-token-economy-s-a-profile.md
 $ wc -l docs/meta-factory/research-patches/2026-08-01-token-economy-s-a-profile.md
-462 docs/meta-factory/research-patches/2026-08-01-token-economy-s-a-profile.md
+480 docs/meta-factory/research-patches/2026-08-01-token-economy-s-a-profile.md
 ```
 
-29,062 B → **7,265 est-tokens** (4 B/t). If loaded always-on, its median cost would be
-7,265 × 21.2 = **154,018 cost-units/session** — larger than every always-on row in §A3 except
-`ai-laziness-traps.md` (rank 1). A single research artefact would leap to **rank 2** of the
-always-on ranking — a self-inflicted 20% increase in the always-on bill it exists to measure.
+30,453 B → **7,613 est-tokens** (4 B/t). If loaded always-on, its median cost would be
+7,613 × 21.2 = **161,396 cost-units/session** — larger than every always-on row in §A3, including
+`ai-laziness-traps.md` (rank 1, 139,856). A single research artefact would leap to **rank 1** of the
+always-on ranking — a self-inflicted ~21% increase in the always-on bill it exists to measure.
+(This §A6 was refreshed under rework: the prior draft quoted a stale `wc` from before the file's
+See-also section settled; the corrected numbers promote the self-cost from the previously-quoted
+rank 2 to rank 1 — T3 firing inside T15, caught at review.)
 
 This patch is a **one-time research artefact** under `docs/meta-factory/research-patches/` — a
 folder with folder-level authority (individual files scope-bound by gap, append-only; per
