@@ -167,7 +167,7 @@ describe('goAdapter.readInstalledMeta', () => {
     // Sanity: every synthesized URL has a single-label hostname — tier1For's
     // `!host.includes('.')` stage (allowlist-resolver.ts:243) will reject each.
     for (const m of [a, b, c]) {
-      expect(new URL(m!.homepage).hostname.includes('.')).toBe(false);
+      expect(new URL(m!.homepage!).hostname.includes('.')).toBe(false);
     }
   });
 
