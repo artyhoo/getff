@@ -126,3 +126,12 @@ here declares it `peerDependencies` for documentation, not as an installable dep
 When the framework copy at `packages/runtime-bridge/src/` changes, this vendored copy does
 **not** auto-track. Re-vendor is a manual `cp -r` from `src/` (preserving the idempotency.ts
 stub). A sync script or npm-package replacement is parked — see P4 above.
+
+## Framework typecheck isolation
+
+`packages/runtime-bridge/tsconfig.json` excludes `vendor/` from the framework's `tsc --noEmit`
+pass — vendor files are a COPY for consumers, not part of the framework build. The vendor
+subset is type-checked independently when the consumer runs `tsx dispatch.ts` (runtime
+type-safety via tsx's transpile-on-execute). Removing the `vendor` exclude re-introduces
+framework typecheck errors (vendor has its own peer-deps — `@types/node`, etc. — that live
+in the consumer's tree, not the framework's).
