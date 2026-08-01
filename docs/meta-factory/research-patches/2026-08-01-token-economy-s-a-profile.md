@@ -31,7 +31,7 @@ uniform-arrival assumption understates tool-output residency specifically (front
 would raise it; see §A4.2). The median-vs-mean session choice is **ratio-neutral** (both classes
 are linear in N — see §A4.2). Under realistic front-loaded tool arrival the two classes approach parity. The practical consequence: a token-economy intervention that
 touches only always-on documentation addresses at most ~⅔ of the resident bill; the other ~⅓ is
-earned tool output whose residency is the real lever (§A3 falsifier).
+earned tool output whose residency is the real lever (§A4.4 falsifier).
 
 **Spend shape (from §A2, context for the above):** 85.5% of the corpus bill is context
 *re-submission* (cache read 53.3% + cache write 32.2%), 14.0% output, 0.5% uncached input.
@@ -163,8 +163,9 @@ first three that look big — T1/T10):
 
 Est-tokens use the **sum-of-rounded-rows** convention (each row = `round(bytes/4)`; total = sum of
 row values). The byte total 215,177 ÷ 4 = 53,794.25 — `round()` of the byte-derived figure would
-give 53,794; **two rows round up** (12,050 → 3,013 not 3,012; 16,585 → 4,146 not 4,145), so the
-column sum is 53,795. Stating this uniformly avoids the 1-token drift between the two conventions.
+give 53,794; **five rows round up** (12,050 → 3,013, 6,422 → 1,606, 6,051 → 1,513, 7,182 → 1,796,
+9,586 → 2,397 — net +0.75 over the 15 rows), so the column sum is 53,795. Stating this uniformly
+avoids the 1-token drift between the two conventions.
 
 Evidence:
 
@@ -418,9 +419,9 @@ dominance thresholds (T3 firing at review); the corrections are inlined below.
   work) argues against such late-only arrival, but it is not measurable from §A2.
 
 - **Falsified → "tool-output dominates"** would require tool-output mean residency ≥ the break-even
-  point: `754,884 / (39,184 × 0.1) = 192.6 turns`. For a 213-turn median session that is **90.4%**
+  point: `754,884 / (39,184 × 0.1) = 192.7 turns`. For a 213-turn median session that is **90.5%**
   of all turns — and the theoretical maximum from turn-1-only arrival is `N − 1 = 212`, so no
-  realistic arrival distribution can produce a 192.6-turn mean. (At the prior draft's quoted
+  realistic arrival distribution can produce a 192.7-turn mean. (At the prior draft's quoted
   160-turn mean residency: `39,184 × 160 × 0.1 = 626,944` vs always-on 754,884 — still **17%
   smaller**, i.e. not dominant. Dominance is effectively unreachable under this corpus.) The prior
   draft's "long sessions dominate the corpus" condition is ratio-invariant per the bullet above — it
@@ -461,26 +462,28 @@ always-on total), which is a **mechanism defect, not a documentation-design ques
 This stage measures always-on context cost; its own output is a repo document. T15 requires it
 state its own always-on cost and recommend for/against its own residency.
 
+**Stated as a band, deliberately — an exact self-quote cannot be made true.** Three successive
+rework passes each re-ran `wc` on this file and each quote was stale by the time the edit that
+carried it was written: the act of recording the size changes the size. That is a fixpoint, not
+carelessness, and chasing it is `#reaudit-on-sha-move` in miniature. So this section states a band
+plus the threshold that decides the verdict, both of which are stable under further editing:
+
 ```text
 $ wc -c docs/meta-factory/research-patches/2026-08-01-token-economy-s-a-profile.md
-36786 docs/meta-factory/research-patches/2026-08-01-token-economy-s-a-profile.md
+≈ 37,000   (37,007 measured at commit 4d91a320b9; ±a few hundred B per subsequent edit)
 $ wc -l docs/meta-factory/research-patches/2026-08-01-token-economy-s-a-profile.md
-554 docs/meta-factory/research-patches/2026-08-01-token-economy-s-a-profile.md
+≈ 556
 ```
 
-36,786 B → **9,197 est-tokens** (4 B/t). If loaded always-on, its median cost would be
-9,197 × 21.2 = **194,976 cost-units/session** — larger than every always-on row in §A3, including
+≈37,000 B → **≈9,250 est-tokens** (4 B/t). If loaded always-on, its median cost would be
+≈9,250 × 21.2 ≈ **196,000 cost-units/session** — larger than every always-on row in §A3, including
 `ai-laziness-traps.md` (rank 1, 139,856). A single research artefact would leap to **rank 1** of the
-always-on ranking — a self-inflicted ~26% increase in the always-on bill it exists to measure. The
-rank-1 verdict is robust to the self-referential `wc` drift (any size ≥ 26,364 B = `139,856 / 21.2 × 4`
-leaps to rank 1; this file is ~10,000 B past that threshold).
-(This §A6 has been refreshed twice under rework: round 1 corrected a stale `wc` from before the
-file's See-also section settled, promoting self-cost from previously-quoted rank 2 to rank 1 — T3
-firing inside T15, caught at review. Round 2 (this revision) re-runs the `wc` after the §A4.2/§A4.4
-falsifier rewrite + §A1.3 boundary note grew the file from 30,453 B to 36,414 B; this third refresh
-absorbs the small drift introduced by the second refresh itself. The rank-1 verdict is unchanged.)
-The drift floor (a `wc` quote that grows the file by single-digit bytes when refreshed) does not
-move the verdict; the cost figure is approximate by the 4 B/t assumption anyway.
+always-on ranking — a self-inflicted ~26% increase in the always-on bill it exists to measure.
+
+**The verdict does not depend on the exact figure.** Rank 1 is reached at any size ≥
+`139,856 / 21.2 × 4` = **26,388 B**; this file is ~10,600 B past that threshold, so every quote any
+pass has produced (30,453 / 36,786 / 37,007) lands on the same verdict. The 4 B/t assumption is
+itself coarser than the drift being chased.
 
 This patch is a **one-time research artefact** under `docs/meta-factory/research-patches/` — a
 folder with folder-level authority (individual files scope-bound by gap, append-only; per
