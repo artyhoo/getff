@@ -94,13 +94,14 @@ maps 1:1 to the row's K-class columns; the conversion is mechanical.
 
 | Window | Count | Threshold / cap |
 |---|---|---|
-| Shadow-present cohort (ADR-5) | **0 / 5** | ≥2 K1/K2-only finds → re-tier |
-| Role-shaped dispatches (ADR-8) | **1 / 20** | At cap → orchestrator reviews cohort |
+| Shadow-present cohort (ADR-5) | **2 / 5** | ≥2 K1/K2-only finds → re-tier |
+| Role-shaped dispatches (ADR-8) | **3 / 20** | At cap → orchestrator reviews cohort |
 
 The counters are **live state read from the row set below**, not a recap and not a fixed
 starting value: the dispatching session updates this block every time a row lands. They read
-`0 / 5` and `1 / 20` at this SHA because Row 1 is `shadow=absent` — it counts toward the ADR-8
-role-shaped window and **not** toward the ADR-5 shadow-present cohort. That asymmetry is the
+`2 / 5` and `3 / 20` at this SHA: Row 1 is `shadow=absent` (ADR-8 only, per the convention),
+Rows 2-3 are `shadow=present` and both carry Opus-only K1/K2 finds — see the Rows 2-3 cohort
+note for the proxy-bottom-seat caveat on how that evidence reads. That asymmetry is the
 whole point of the two counters (T-SB-A): a ledger full of `shadow=absent` rows must never
 read as cohort progress. A counter that disagrees with the row set is a ledger bug — fix the
 counter, never paper over a row.
@@ -162,3 +163,53 @@ Baseline rows name their environment (per-environment ceilings, N2).
 
 **Cohort counter update:** shadow-present cohort remains **0 / 5** (this row is `shadow=absent`).
 Role-shaped dispatches: **1 / 20** (ADR-8 window — any dispatch-input-checker run counts).
+
+### Row 2 — token-economy-research-s-a dispatch (round 1)
+
+| Field | Value |
+|---|---|
+| `date` | 2026-08-01 |
+| `stage` | token-economy-research S-A (cross-umbrella dispatch using this station) |
+| `task id` | not yet dispatched — row records the pre-dispatch check; verdict forced a kickoff revision before any aif task was created |
+| `bottom-seat` | claude-sonnet-5 (PROXY for the executor tier — interactive-session Agent tool cannot run GLM; calibration caveat below) |
+| `basis` | `.claude/orchestrator-prompts/token-economy-research-s-a/kickoff.md` @ d081ae2e58 (285 lines) |
+| K1 | bottom 0; shadow 1 (kickoff:32 — anchor resolves but the cited §3 does not carry the INCONCLUSIVE-recording proposition) |
+| K2 | bottom 1 (kickoff:226 — §2.8 `MEMORY.md 7,738 bytes` vs measured 16,504: fabricated-at-authoring, executor barred from self-correcting); shadow 5 (same MEMORY.md; kickoff:205 «96%» arithmetically impossible — ceiling 88.7% from own table; three inconsistent turn totals 58,341/58,345/58,192; §2.5 omission threshold misstated; §2.7 reproduces only §2.1-§2.2) |
+| K3 | bottom 0; shadow 3 (missing §4a park contract, §1.7 PR obligation, See-also — all present in arch-v2 sibling kickoffs) |
+| K4 | bottom 1 (host-verify primary command `tsx --test` is the wrong runner, saved by `\|\|` fallback); shadow 4 (W1 item 3 `index ∖ claudeMdExcludes` derivation contradicted by observed session state in BOTH directions — 3 of 7 excludes load anyway, index under-reports; bytes→tokens factor underivable in-container; pricing-verification obligation unowned; markdownlint exits 0 on zero-match glob) |
+| K5 | bottom 0; shadow 0 (profile marker exact-unique; staging placement verified by both) |
+| K6 candidates | both arms: 0 lexicon hits (stated as not-clean per false-negative class); shadow candidates: §2 pre-states W3's open question as conclusion; «96%» pre-ranks W3 inputs |
+| `Coverage` | bottom: all anchors + §2.7 re-run + arithmetic + pricing verified live; NOT reached §2.5/§2.6 per-tool reproduction. shadow: 5/5 K-classes; §2.3-§2.6 declared unreproducible from the inlined block (no aggregator for them was inlined) |
+| `shadow` | **present** (claude-opus-5) |
+| `diff (found-by-Opus-only)` | K2: «96%» impossibility, turn-total inconsistency, §2.7 partial-reproduction over-claim; K4: claudeMdExcludes divergence (35,197 B of «excluded» rules loading anyway); K1: mis-anchored citation. The bottom seat caught MEMORY.md (the single largest defect) but missed every derived-arithmetic and population-integrity defect. |
+| `verdict-affecting notes` | **Verdict: STOP (both arms independently).** Kickoff revised same day (all findings addressed: canonical single-run §2, inlined host-measured always-on population, filename binding, §3a/§1.7/See-also added). **Calibration caveat:** bottom seat ran on claude-sonnet-5, not GLM — this row evidences «cheap-tier seat misses K2-arithmetic defects Opus catches» but NOT the GLM-specific question; count it toward ADR-5 with that caveat recorded. |
+
+### Row 3 — token-economy-research-s-b dispatch (round 1)
+
+| Field | Value |
+|---|---|
+| `date` | 2026-08-01 |
+| `stage` | token-economy-research S-B (cross-umbrella dispatch using this station) |
+| `task id` | not yet dispatched — pre-dispatch check; verdict forced a kickoff revision first |
+| `bottom-seat` | claude-sonnet-5 (PROXY — same caveat as Row 2) |
+| `basis` | `.claude/orchestrator-prompts/token-economy-research-s-b/kickoff.md` @ d081ae2e58 (270 lines) |
+| K1 | bottom 0 (15/15 anchors incl. content-level spot-checks); shadow 0 (18/18) |
+| K2 | bottom 1 (cosmetic star-count drift 74,185→74,186); shadow 3 (kickoff:173 «96% — 35.2M of 36.6M» impossible — own top-10 rows sum to 39.7M, share ≤88.7%; three inconsistent turn totals; §2.4-vs-§2.5 Edit call/result mismatch) |
+| K3 | bottom 0; shadow 1 (stage A and B declared the IDENTICAL host-verify glob while landing concurrently in one directory) |
+| K4 | bottom 1 (host-verify glob matches zero files today, markdownlint fails open); shadow 2 (same fail-open compounded by the shared glob — A's file can mask B's absence; principle-10 first-line scope-comment contract undeclared) |
+| K5 | bottom 0; shadow 2 (kickoff:196 instructs `claude-code-guide`, container-unreachable per operator memory; kickoff:197-201 states task 53c2ecdd «is producing» — live status `done`, patch not on staging: neither branch of the kickoff's dichotomy holds) |
+| K6 candidates | both arms: 0 lexicon hits; both flagged the same bare-priority candidate — RTK receives materially richer favourable framing than candidates 2-4, and §2.5's closing line named RTK as the number's consumer. Adjudicated by the dispatching session (the Opus-altitude framing look this station's split assigns upward): REAL — fixed in revision (framing neutralised, §2.5 line de-named, seed-detail disclaimer added). |
+| `Coverage` | bottom 18 of ~20 surfaces; shadow 8 of 11 surface classes (in-container tool availability unprobeable from host; raw transcript sums not re-derived — arithmetic-only) |
+| `shadow` | **present** (claude-opus-5) |
+| `diff (found-by-Opus-only)` | K2: the «96%» impossibility + turn totals (bottom seat verified anchors and live probes but did not cross-foot the tables); K5: both external-state staleness findings (task status, container tool reality). |
+| `verdict-affecting notes` | **Verdict: bottom REVISE / shadow STOP → treated as STOP.** Kickoff revised same day (disjoint globs + `test -f` guards, filename binding, tool fallback, task-state wording, framing neutralised). Same PROXY caveat as Row 2. |
+
+**Cohort counter update (after Rows 2-3):** shadow-present cohort **2 / 5** — and in BOTH runs the
+Opus arm found K1/K2-class defects the bottom seat missed, so the ADR-5 threshold condition
+(«≥2 of 5») is already MET at 2/5. Evaluation is the umbrella orchestrator's call (Item 1), with
+one honesty constraint recorded here: both bottom seats were claude-sonnet-5 PROXIES, not the GLM
+executor tier, so the cohort evidences «sub-Opus seat misses derived-arithmetic defects», not the
+GLM question ADR-5 pre-registered. Recommended reading (recorded, not applied): run remaining
+cohort dispatches with an Opus bottom seat where the dispatching session cannot field a true
+executor-tier seat, and let the arch-v2 orchestrator rule on the re-tier.
+Role-shaped dispatches: **3 / 20**.
