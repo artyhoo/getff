@@ -10,8 +10,9 @@ import type { Confidence, Severity } from './confidence.ts';
 // pass DetectionResult through to research()/synthesize()); the compiler enumerates
 // every consumer and the change is reversible pre-ship — so the delegation criterion
 // (non-frozen, compiler-enumerated, reversible) holds. 'react-next'/'ts-server' are
-// the JS/TS labels; 'python' and 'cargo' are the widened non-JS toolchain labels.
-export type Stack = 'react-next' | 'ts-server' | 'python' | 'cargo' | 'unknown';
+// the JS/TS labels; 'python', 'cargo' (W1) and 'go' (J3) are the widened non-JS
+// toolchain labels.
+export type Stack = 'react-next' | 'ts-server' | 'python' | 'cargo' | 'go' | 'unknown';
 
 export interface Framework {
   name: string | null;

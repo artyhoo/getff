@@ -1,6 +1,6 @@
 ---
 name: harvest
-description: Use when harvesting a finished aif-agent branch into a PR after acceptance — egress the committed work (push or Git-Data-API land), reconcile cross-stage shared-file collisions, run the local CI-equivalent sweep before push, then cold-review + open the PR. Standalone companion to /dispatcher §2.4 (which runs the same sweep inside its loop). Invoked explicitly via /harvest only (disable-model-invocation:true). Triggers: harvest, harvest aif branch, egress aif task, push harvested work, post-acceptance harvest.
+description: Use when harvesting a finished aif-agent branch into a PR after acceptance. Triggers: harvest, harvest aif branch, egress aif task, push harvested work, post-acceptance harvest. Invoked explicitly via /harvest only (disable-model-invocation:true).
 arguments: [taskId]
 argument-hint: "[aif-taskId-or-branch]"
 disable-model-invocation: true

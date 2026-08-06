@@ -30,12 +30,14 @@ import type { ResolveCtx } from '../research/allowlist-resolver.ts';
 import { npmAdapter } from '../research/ecosystem-npm.ts';
 import { cargoAdapter } from '../research/ecosystem-cargo.ts';
 import { pipAdapter } from '../research/ecosystem-python.ts';
+import { goAdapter } from '../research/ecosystem-go.ts';
 
 /**
  * Builds the production ResolveCtx for a consumer `root`, selecting the
  * EcosystemAdapter by the detected stack:
  *   - python → pipAdapter
  *   - cargo  → cargoAdapter
+ *   - go     → goAdapter
  *   - react-next / ts-server / unknown → npmAdapter (the pre-W2 default,
  *     preserved for every JS/unknown consumer — a strict superset of prior
  *     behaviour, no regression for the npm path).
@@ -43,7 +45,7 @@ import { pipAdapter } from '../research/ecosystem-python.ts';
  *
  * `skipAif: true` is load-bearing, not an optimisation: adapter selection is a
  * pure function of the TOOLCHAIN manifest (pyproject.toml → python, Cargo.toml →
- * cargo, else npm), never of the `.ai-factory` metadata (whose parser only ever
+ * cargo, go.mod → go, else npm), never of the `.ai-factory` metadata (whose parser only ever
  * yields 'react-next'/'ts-server' → npmAdapter anyway). Reading `.ai-factory`
  * here would ADD a throw the pre-W2 resolve path never had: readAif raises
  * AifSchemaError when a consumer ships a freeform `.ai-factory/DESCRIPTION.md` |
@@ -57,5 +59,6 @@ export function resolveCtxForRoot(root: string): ResolveCtx {
   const { stack } = detectStack(root, { skipAif: true });
   if (stack === 'python') return { root, adapter: pipAdapter };
   if (stack === 'cargo') return { root, adapter: cargoAdapter };
+  if (stack === 'go') return { root, adapter: goAdapter };
   return { root, adapter: npmAdapter };
 }

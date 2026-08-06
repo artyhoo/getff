@@ -137,10 +137,11 @@ describe('unwired-debt tripwire (spec §6)', () => {
     expect(unwiredCount(ghostPopulation, neverWired)).not.toBe(BASELINE);
   });
 
-  it('detector sanity: all three shipped adapters are detected as WIRED (post-W2)', () => {
+  it('detector sanity: all four shipped adapters are detected as WIRED (post-J3)', () => {
     expect(isWired('npmAdapter')).toBe(true);
     expect(isWired('cargoAdapter')).toBe(true);
     expect(isWired('pipAdapter')).toBe(true);
+    expect(isWired('goAdapter')).toBe(true);
   });
 
   it('detector sanity: a non-existent symbol is detected as UNWIRED (false-branch guard)', () => {

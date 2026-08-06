@@ -1,6 +1,6 @@
 ---
 name: dispatcher
-description: Use when you need to EXECUTE a chosen umbrella's stages through the aif-control loop — dispatch kickoff to aif, monitor status, resolve parked Q&A (technical forks autonomously, strategic forks to operator), harvest done tasks (push + PR + auto-merge), run Phase-1 cold-review, check stage gate, advance to next stage. Does NOT plan (priority/launch-table = /pipeline). Invoked explicitly via /dispatcher slash command only (disable-model-invocation:true). Triggers: dispatcher, execute umbrella, run stages, aif loop, harvest PR, stage gate advance.
+description: Use when you need to EXECUTE a chosen umbrella's stages through the aif-control loop. Triggers: dispatcher, execute umbrella, run stages, aif loop, harvest PR, stage gate advance. Invoked explicitly via /dispatcher only (disable-model-invocation:true). NOT for planning — priority and launch-table are /pipeline.
 arguments: [umbrella]
 argument-hint: "[umbrella-name]"
 disable-model-invocation: true
