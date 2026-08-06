@@ -1302,7 +1302,22 @@ jobs:
         # Avoiding SARIF upload keeps this runnable without GitHub Advanced Security.
         # Also scan the SHIPPED CI templates (#637) so they can't drift past the
         # gate — they live OUTSIDE .github/workflows/, so these are extra path args.
-        run: zizmor --format plain .github/workflows/ templates/ts-server/github-actions-ci.yml templates/ts-server/github-actions-workflow-integrity.yml packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml
+        # Keep this list in sync with zizmorTemplatesSection() in
+        # packages/core/hooks/pre-push.ts (the HARD-gate twin). New presets added via
+        # setup.d deliver_getff_workflow MUST be appended here AND there — the list
+        # below drifted past cargo/python/react-spa/react-native for 4+ months (#130
+        # was the last edit; presets landed in #661/#662/#996/#1080) because nothing
+        # enforced parity. If you ship a new github-actions template, add its path
+        # to BOTH places.
+        run: >-
+          zizmor --format plain .github/workflows/
+          templates/ts-server/github-actions-ci.yml
+          templates/ts-server/github-actions-workflow-integrity.yml
+          packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml
+          packages/core/templates/cargo/github-actions-ci.yml
+          packages/core/templates/python/github-actions-ci.yml
+          packages/preset-react-spa/templates/github-actions-ci-ui.yml
+          packages/preset-react-native/templates/github-actions-ci-ui.yml
 
   # enforcement-liveness-fix S5: f17 planted-violation test on Node 20 + 22 matrix.
   # Scoped to f17 only — proves barrel loads without tsx loader on both LTS versions.

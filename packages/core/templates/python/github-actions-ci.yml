@@ -43,7 +43,7 @@ jobs:
           node-version: '20'
       # Pinned per ci-tool-pinning.md Rule A — matches the getff framework CI pin.
       - name: Install ast-grep (pinned)
-        run: npm install -g @ast-grep/cli@0.44.1
+        run: npm install -g @ast-grep/cli@0.44.1 # zizmor: ignore[adhoc-packages]
       # Fails RED when a getff ast-grep rule fires (sgconfig.yml resolves .getff/astgrep-rules).
       - name: ast-grep scan (getff rules)
         run: ast-grep scan
