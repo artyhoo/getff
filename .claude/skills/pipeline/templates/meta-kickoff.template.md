@@ -156,7 +156,7 @@ export AGENT_SKIP_REVIEW=false
 npx tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --base staging
 ```
 
-Harvest: reads `branchName` from aif REST API → `docker exec container git push origin <branch>` → `gh pr create --base staging` → `gh pr merge --auto --squash`. Anti-pattern `#autonomous-done-no-harvest`: skipping this step leaves the work permanently in the container.
+Harvest: reads `branchName` from aif REST API → Channel A egress (bundle the commit out of the container → `docker cp` → host `git fetch` → host `git push`, so `.husky/pre-push` runs; the container itself has no `github.com` route and is never pushed from) → `gh pr create --base staging` → `gh pr merge --auto --squash`. Anti-pattern `#autonomous-done-no-harvest`: skipping this step leaves the work permanently in the container.
 
 ---
 

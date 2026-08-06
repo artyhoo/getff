@@ -190,11 +190,11 @@ Then push:
 tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --base staging
 ```
 
-`harvest.ts` → `GET /tasks/:id` → `docker exec aif-handoff-agent-1 git push origin <branch>` → `gh pr create --base staging --head <branch>` → `gh pr merge <prUrl> --auto --squash`. Emits `{ prUrl, branch, autoMerge, committed }`.
+`harvest.ts` → `GET /tasks/:id` → **Channel A** (`docker exec … git bundle create` → `docker cp` → host `git fetch <bundle>` → host `git push origin <sha>:refs/heads/<branch>`, so `.husky/pre-push` runs — the container has no `github.com` route and is never pushed from, per [egress-no-api-bypass.md §1](../../rules/egress-no-api-bypass.md)) → `gh pr create --base staging --head <branch>` → `gh pr merge <prUrl> --auto --squash`. Emits `{ prUrl, branch, autoMerge, committed }`.
 
 If `/dispatcher` has prepared a §1.7-compliant PR body, pass it via `--body-file <path>`. Otherwise a minimal pointer body is used (harvest warns about missing §1.7 sections in that case).
 
-**§2.4b — Harvest when the container github-host is unroutable (resilience helper).** When the proxy/tunnel blocks `github.com` from the container (`git push` → `gnutls_handshake`/`SSL_ERROR_SYSCALL`/000) but `api.github.com` is reachable (discriminate via `gh api rate_limit`), the stock `harvest.ts` push fails. Use the API-harvest helper instead — it commits the task's declared file via the GitHub Contents API (branch ref + PUT), no `git push` needed:
+**§2.4b — Harvest when the HOST transport is dead (break-glass helper).** A container-side `github.com` block is **not** a trigger for this path any more: `harvest.ts` pushes from the host (Channel A above), so the container's missing egress is expected and harmless. Reach for the API helper **only when the host transport is ALSO dead** (host `git ls-remote origin` fails) while `api.github.com` is still reachable (discriminate via `gh api rate_limit`) — the channel of last resort per [egress-no-api-bypass.md §1](../../rules/egress-no-api-bypass.md), because it lands server-side and so **skips `.husky/pre-push` by construction**; when taken, `scripts/run-local-ci-sweep.sh` is the mandatory gate-substitute. It commits the task's declared file via the GitHub Contents API (branch ref + PUT), no `git push` needed:
 
 ```bash
 bash .claude/skills/dispatcher/helpers/harvest-via-api.sh <taskId> staging [path]

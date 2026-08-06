@@ -4,7 +4,7 @@
  * Usage:
  *   tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> \
  *     [--base <branch>] [--body-file <path>] [--no-auto-merge] [--container <name>] \
- *     [--repo-path <path>] [--work-dir <path>] \
+ *     [--repo-path <path>] [--work-dir <path>] [--host-repo <path>] \
  *     [--confirm-rework] [--confirm-unreported-files] [--confirm-dirty-residue]
  *
  * aif-handoff ends a task at "committed on a local feature branch" — it has no
@@ -25,13 +25,36 @@
  * ZERO LLM by construction — plain git + gh. (aif's own commit flow spends a paid
  * `claude -p` query to run git; harvest does not.) Complies with no-paid-llm-in-ci.md.
  *
- * Egress mechanism: aif's commit lives only inside its container's checkout, which
- * already carries working push creds (GH_TOKEN credential helper). Harvest pushes
- * via `docker exec <container> git -C <repo> push` (container name from
- * --container / RUNTIME_BRIDGE_AIF_CONTAINER, default 'aif-handoff-agent-1'); the
- * PR is opened from the host where `gh` is authenticated. If docker / the container
- * is unavailable, harvest prints the exact manual git+gh commands and exits non-zero
- * rather than guessing — graceful degradation, no silent half-egress.
+ * Egress mechanism — Channel A (host-pull + host push), per egress-no-api-bypass.md §1.
+ * aif's commit lives only inside its container's checkout, and the container **cannot
+ * push**: no route to `github.com:443` (a network block, not auth — re-measured on
+ * `aif-handoff-agent-1` 2026-08-07: `curl https://github.com` → CONNECT FAILED in 0.21s)
+ * and no pre-push toolchain, so a container-side push would both fail and, if it ever
+ * "worked", bypass `.husky/pre-push` — the earliest reachable gate for this work. Harvest
+ * therefore brings the commit to the HOST and pushes from there, in four deterministic
+ * steps (no LLM, no Git-Data-API):
+ *
+ *   1. `docker exec <container> git -C <task-worktree> bundle create /tmp/<n>.bundle
+ *      <baseRef>..<branch>` — a few KB for a normal task; falls back to a full-history
+ *      bundle (no prerequisites) if the host lacks the range's base commit.
+ *   2. `docker cp <container>:/tmp/<n>.bundle <host tmp>`.
+ *   3. `git -C <hostRepo> fetch <bundle> refs/heads/<branch>` — lands in FETCH_HEAD ONLY.
+ *      No local branch is created or moved, so no worktree can be desynced and no
+ *      `update-ref` is needed. The fetched sha is then verified === the container's tip.
+ *   4. `git -C <hostRepo> push origin <sha>:refs/heads/<branch>` — the real push, which
+ *      runs `.husky/pre-push` for real. Pushing a ref the host checkout is NOT on is
+ *      supported by design: the hook derives its range from git's push stdin (`local_sha`),
+ *      not from HEAD (`packages/core/hooks/pre-push.ts:133-139`, the 2026-06-17
+ *      cross-checkout fix). Host repo from --host-repo / RUNTIME_BRIDGE_HOST_REPO, else
+ *      the cwd's `git rev-parse --show-toplevel`.
+ *
+ * The one Channel-A step harvest does NOT automate is the optional rebase onto live
+ * `origin/<base>` (/harvest §1 step 4): a rebase needs a working tree and can conflict —
+ * i.e. it is a judgment call, not a deterministic leg — so it stays operator-side and is
+ * printed in the fallback. The PR is opened from the host where `gh` is authenticated. If
+ * any step fails (docker down, container gone, pre-push RED, no host transport), harvest
+ * prints the exact Channel-A manual commands and exits non-zero rather than guessing —
+ * graceful degradation, no silent half-egress, and never a pointer at the dead channel.
  *
  * False-done guard (2026-06-23): aif can mark a task `done` while its agent internally
  * PARKED subtasks and left the work uncommitted (the Finding-F gap, `park.ts:139`). That
@@ -76,11 +99,20 @@
  *   (internal tooling → CC/env-specific OK); it degrades to printed manual commands.
  */
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { getTask } from './aifHttp.js';
 import type { AifTaskFull } from './aifHttp.js';
-import { harvestTask, parseTrackedDirtyFiles, parseWorktreeList, resolveWorkDir } from '../harvest.js';
-import type { HarvestDeps, WorkDirResolution } from '../harvest.js';
+import {
+  bundleFileName,
+  channelAFallbackCommands,
+  harvestTask,
+  parseTrackedDirtyFiles,
+  parseWorktreeList,
+  resolveWorkDir,
+} from '../harvest.js';
+import type { ChannelAContext, HarvestDeps, WorkDirResolution } from '../harvest.js';
 
 /** Base clone inside the container — the ROOT, not any task's checkout (see {@link resolveTaskWorkDir}).
  *  Overridable for a differently-mounted aif via `--repo-path` / RUNTIME_BRIDGE_AIF_REPO_PATH. */
@@ -94,6 +126,7 @@ interface ParsedArgs {
   container: string;
   repoPath: string;
   workDir?: string;
+  hostRepo?: string;
   confirmRework: boolean;
   confirmUnreportedFiles: boolean;
   confirmDirtyResidue: boolean;
@@ -113,6 +146,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     container: flag('--container') ?? process.env['RUNTIME_BRIDGE_AIF_CONTAINER'] ?? 'aif-handoff-agent-1',
     repoPath: flag('--repo-path') ?? process.env['RUNTIME_BRIDGE_AIF_REPO_PATH'] ?? DEFAULT_AIF_REPO_PATH,
     workDir: flag('--work-dir'),
+    hostRepo: flag('--host-repo') ?? process.env['RUNTIME_BRIDGE_HOST_REPO'],
     confirmRework: argv.includes('--confirm-rework'),
     confirmUnreportedFiles: argv.includes('--confirm-unreported-files'),
     confirmDirtyResidue: argv.includes('--confirm-dirty-residue'),
@@ -142,6 +176,42 @@ function dockerGit(container: string, workDir: string, args: string[]): string {
   return execFileSync('docker', ['exec', container, 'git', '-c', `safe.directory=${workDir}`, '-C', workDir, ...args], {
     encoding: 'utf8',
   }).replace(/\s+$/, '');
+}
+
+/**
+ * Run git in the HOST clone — the side that actually owns the push (Channel A).
+ *
+ * `quiet` captures stderr instead of letting execFileSync forward it to ours: the
+ * range-bundle `verify` attempt is EXPECTED to fail on a host that lacks the prerequisite
+ * commit, and printing its "Repository lacks these prerequisite commits" would read as an
+ * error when it is just the first of two planned attempts.
+ */
+function hostGit(hostRepo: string, args: string[], quiet = false): string {
+  return execFileSync('git', ['-C', hostRepo, ...args], {
+    encoding: 'utf8',
+    ...(quiet ? { stdio: ['ignore', 'pipe', 'pipe'] as const } : {}),
+  }).trim();
+}
+
+/**
+ * The host clone Channel A pushes from: `--host-repo` / RUNTIME_BRIDGE_HOST_REPO, else the
+ * top level of whatever checkout the operator invoked harvest in.
+ *
+ * A worktree is a perfectly good answer — `.husky/pre-push` lives in every checkout of this
+ * repo and the object store is shared with the main clone, so the fetched commit is visible
+ * to the push either way.
+ */
+function resolveHostRepo(explicit?: string): string {
+  if (explicit) return explicit;
+  try {
+    return execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `harvest: cannot resolve the host repo to push from (cwd is not a git checkout) — ${msg}. ` +
+        `Pass --host-repo <path> (or set RUNTIME_BRIDGE_HOST_REPO).`,
+    );
+  }
 }
 
 /**
@@ -275,8 +345,85 @@ function realDeps(
       dockerGit(container, dir(branch), ['commit', '-m', message]);
     },
     pushBranch: async (branch) => {
-      // Push from INSIDE the container (it holds the commit + working push creds).
-      dockerGit(container, dir(branch), ['push', 'origin', branch]);
+      // CHANNEL A — host-pull + host push (egress-no-api-bypass.md §1; procedure in
+      // /harvest §1 step 4). NOT a container-side `git push`: the container has no route to
+      // github.com:443 (network block, not auth) and no pre-push toolchain, so that channel
+      // fails AND would bypass `.husky/pre-push`. Full rationale in the module docstring.
+      const workDir = dir(branch);
+      const hostRepo = resolveHostRepo(args.hostRepo);
+      // The tip we intend to land, read from the container BEFORE any transport — the
+      // identity check below proves the host received exactly this commit.
+      const containerSha = dockerGit(container, workDir, ['rev-parse', branch]);
+      const bundleName = bundleFileName(branch, task.id);
+      const containerBundle = `/tmp/${bundleName}`;
+      const hostBundle = join(tmpdir(), bundleName);
+      try {
+        // Range bundle first (a few KB — measured 14 KB for a 2-commit task branch on the
+        // live container). Its prerequisite is the container's base commit, which the host
+        // normally has; when it does NOT (the container fetched the trunk more recently than
+        // the host), `git bundle verify` fails and the full-history bundle — prerequisite-
+        // free by construction, ~13 MB for this repo — always verifies. Two attempts, both
+        // deterministic; never a silent half-transport.
+        const baseRef = resolveBaseRef(container, workDir, args.base);
+        let verified = false;
+        //
+        // Only a failed VERIFY escalates to attempt 2. A failed `bundle create` throws
+        // straight out (nothing is pushed): its realistic cause is an EMPTY range — a branch
+        // with no commits ahead of base — and "Refusing to create empty bundle" before any
+        // push beats silently landing a contentless branch on origin and failing later at
+        // `gh pr create`.
+        for (const rev of [`${baseRef}..${branch}`, branch]) {
+          dockerGit(container, workDir, ['bundle', 'create', containerBundle, rev]);
+          execFileSync('docker', ['cp', `${container}:${containerBundle}`, hostBundle], { stdio: 'pipe' });
+          try {
+            hostGit(hostRepo, ['bundle', 'verify', hostBundle], true);
+            verified = true;
+            break;
+          } catch {
+            // prerequisite commit missing on the host — retry with full history
+          }
+        }
+        if (!verified) {
+          throw new Error(
+            `harvest: bundle of '${branch}' from '${workDir}' does not verify against host repo '${hostRepo}' ` +
+              `(tried the ${args.base}-range and full-history forms)`,
+          );
+        }
+
+        // Land the commit in the host's object store via FETCH_HEAD ONLY. No local branch is
+        // created or moved: nothing to desync a worktree, no `update-ref`, nothing to clean
+        // up afterwards.
+        hostGit(hostRepo, ['fetch', hostBundle, `refs/heads/${branch}`]);
+        const fetched = hostGit(hostRepo, ['rev-parse', 'FETCH_HEAD']);
+        if (fetched !== containerSha) {
+          throw new Error(
+            `harvest: host received ${fetched} for '${branch}' but the container's tip is ${containerSha} — ` +
+              `refusing to push a commit that is not the task's HEAD`,
+          );
+        }
+
+        // The real push. `.husky/pre-push` runs here — the earliest reachable gate for this
+        // work, and the whole reason Channel A is the default. stdout/stderr go to OUR
+        // stderr so the operator watches the gate live while stdout stays clean for the
+        // result JSON; a RED gate exits non-zero → nothing is PR'd, and the caller prints
+        // the Channel-A fallback.
+        execFileSync('git', ['-C', hostRepo, 'push', 'origin', `${fetched}:refs/heads/${branch}`], {
+          stdio: ['ignore', 2, 2],
+        });
+      } finally {
+        // Best-effort cleanup of both bundle copies — a leftover temp file must never fail
+        // an otherwise-successful egress.
+        try {
+          execFileSync('docker', ['exec', container, 'rm', '-f', containerBundle], { stdio: 'pipe' });
+        } catch {
+          // container gone / already cleaned — nothing to do
+        }
+        try {
+          rmSync(hostBundle, { force: true });
+        } catch {
+          // host temp already gone — nothing to do
+        }
+      }
     },
     createPr: async ({ branch, base, title, body }) => {
       const out = execFileSync(
@@ -319,10 +466,25 @@ function realDeps(
   return { deps, checkout: () => resolved?.path ?? args.repoPath };
 }
 
+/**
+ * The copy-pasteable form of a container-side READ, byte-identical in shape to what
+ * {@link dockerGit} actually runs — including `-c safe.directory=<workDir>`, without which
+ * the pasted command aborts with "detected dubious ownership" on any node-owned worktree
+ * (`docker exec` runs as root). Reads are the ONLY thing the container can still do for us:
+ * it has no route to github.com, so nothing printed here is ever a push.
+ */
+function containerRead(container: string, workDir: string, gitArgs: string): string {
+  return `docker exec ${container} git -c safe.directory=${workDir} -C ${workDir} ${gitArgs}`;
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   if (!args.taskId) {
-    process.stderr.write('[harvest] usage: harvest.ts <taskId> [--base staging] [--body-file P] [--no-auto-merge]\n');
+    process.stderr.write(
+      '[harvest] usage: harvest.ts <taskId> [--base staging] [--body-file P] [--no-auto-merge] [--host-repo P]\n' +
+        '[harvest]   egress = Channel A: the container\'s commit is bundled to the HOST and pushed from there\n' +
+        '[harvest]   (--host-repo / RUNTIME_BRIDGE_HOST_REPO, default: the cwd\'s checkout) so .husky/pre-push runs.\n',
+    );
     process.exit(1);
   }
 
@@ -360,7 +522,7 @@ async function main(): Promise<void> {
           `aif's self-reported affected_files: ${(res.unreportedFiles ?? []).join(', ')}. These were never ` +
           `reviewed by aif's gate. Re-run with --confirm-unreported-files to proceed. ` +
           `(aif review-gate gap — see docs/meta-factory/research-patches/2026-07-17-aif-review-gate-affected-files-gap.md §7)\n` +
-          `[harvest]   inspect:  docker exec ${args.container} git -C ${checkout()} diff -- ${(res.unreportedFiles ?? []).join(' ')}\n` +
+          `[harvest]   inspect:  ${containerRead(args.container, checkout(), `diff -- ${(res.unreportedFiles ?? []).join(' ')}`)}\n` +
           `[harvest]   ship anyway:  tsx packages/runtime-bridge/src/cli/harvest.ts ${args.taskId} --confirm-unreported-files\n`,
       );
       process.exit(2);
@@ -377,7 +539,7 @@ async function main(): Promise<void> {
           (res.parkSignals && res.parkSignals.length > 0
             ? `[harvest]   park signals in the task log: ${res.parkSignals.join(', ')} → likely INCOMPLETE; inspect before shipping.\n`
             : `[harvest]   no park markers in the log, but 0-ahead+dirty is still ambiguous — inspect the diff.\n`) +
-          `[harvest]   inspect:  docker exec ${args.container} git -C ${checkout()} diff\n` +
+          `[harvest]   inspect:  ${containerRead(args.container, checkout(), 'diff')}\n` +
           `[harvest]   ship only if it IS a complete rework:  tsx packages/runtime-bridge/src/cli/harvest.ts ${args.taskId} --confirm-rework\n`,
       );
       process.exit(2);
@@ -394,7 +556,7 @@ async function main(): Promise<void> {
           `uncommitted on top of them: ${(res.trackedDirtyFiles ?? []).join(', ')}. This is the ` +
           `done-with-dirty-tree shape (D12) — the modifications may BE the deliverable (uncommitted ` +
           `rework). Nothing pushed.\n` +
-          `[harvest]   inspect:  docker exec ${args.container} git -C ${checkout()} diff\n` +
+          `[harvest]   inspect:  ${containerRead(args.container, checkout(), 'diff')}\n` +
           `[harvest]   preferred: deliver a request_changes round so the worker commits its own work\n` +
           `[harvest]   ship WITHOUT them (discardable residue only):  tsx packages/runtime-bridge/src/cli/harvest.ts ${args.taskId} --confirm-dirty-residue\n`,
       );
@@ -433,13 +595,37 @@ async function main(): Promise<void> {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     process.stderr.write(`[harvest] FAILED: ${msg}\n`);
-    // Graceful degradation: print the exact manual egress so the operator is never stuck.
+    // Graceful degradation: print the exact CHANNEL-A manual egress so the operator is never
+    // stuck — host-pull + host push, the same channel the automated leg takes. Never the
+    // container-side `git push` this fallback used to print: that channel is dead (no
+    // github.com egress from the container) and pointing at it sent the operator in circles.
     if (task.branchName) {
+      const bundleName = bundleFileName(task.branchName, args.taskId ?? task.id);
+      const ctx: ChannelAContext = {
+        container: args.container,
+        workDir: checkout(),
+        branch: task.branchName,
+        baseRef: `origin/${args.base}`,
+        base: args.base,
+        // Best-effort: if even this cannot resolve, name the flag that fixes it rather than
+        // printing a broken path.
+        hostRepo: (() => {
+          try {
+            return resolveHostRepo(args.hostRepo);
+          } catch {
+            return '<host-repo — pass --host-repo>';
+          }
+        })(),
+        containerBundlePath: `/tmp/${bundleName}`,
+        hostBundlePath: join(tmpdir(), bundleName),
+        title: task.title,
+        autoMerge: args.autoMerge,
+      };
       process.stderr.write(
-        `[harvest] manual fallback:\n` +
-          `  docker exec ${args.container} git -C ${checkout()} push origin ${task.branchName}\n` +
-          `  gh pr create --base ${args.base} --head ${task.branchName} --title "${task.title}" --body "..."\n` +
-          (args.autoMerge ? `  gh pr merge <pr-url> --auto --squash\n` : ''),
+        `[harvest] manual fallback — Channel A (host-pull + host push, egress-no-api-bypass.md §1):\n` +
+          channelAFallbackCommands(ctx)
+            .map((c) => `  ${c}\n`)
+            .join(''),
       );
     }
     process.exit(1);
