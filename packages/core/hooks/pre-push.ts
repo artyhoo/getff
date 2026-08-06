@@ -1235,6 +1235,42 @@ function principlesMetaSection(): void {
   }
 }
 
+// ── 5c. Always-on context budget (maintainer, arch-v2 S-E P3a) ───────────────
+// Standing drift-guard: gate the always-on resident set on size. Shells out to
+// scripts/check-alwayson-budget.sh, which calls scripts/measure-always-on.sh and
+// fails if the byte total exceeds AIF_ALWAYSON_CEILING (default 54000, derived
+// 2026-08-06 from the post-P3b baseline 48,671 B × 1.10 → 54,000 B). See the gate
+// header for the per-environment labelled derivations and the declared-coverage
+// sentence (the gate sees the repo-authored set only — 29-39% of session-start
+// tokens; the remaining 60-71% is harness-resident, addressed by P14 in S-H).
+//
+// Maintainer-only because the ceiling is framework-derived and the gated set is
+// the framework's CLAUDE.md + .claude/rules/*.md (a consumer layout has its own
+// CLAUDE.md, not gated here).
+//
+// Escape hatch (§3, per ci-tool-pinning.md §3 precedent): AIF_ALWAYSON_BUDGET_ALLOW
+// env with rationale ≥20 chars downgrades RED to WARN. Rationale length gates the
+// escape so a bare "TODO" cannot skip the gate. The escape is checked INSIDE the
+// gate script — here we only propagate its exit code.
+function alwaysonBudgetSection(): void {
+  const r = run('bash', ['scripts/check-alwayson-budget.sh']);
+  if (r.notFound) {
+    die(
+      '❌ bash not found to run scripts/check-alwayson-budget.sh ' +
+        '(arch-v2 S-E P3a always-on budget gate).',
+    );
+  }
+  if (r.exitCode !== 0) {
+    die(
+      '❌ always-on budget gate RED — fix the resident set, OR escape with\n' +
+        "   AIF_ALWAYSON_BUDGET_ALLOW='<rationale ≥20 chars>'\n" +
+        '   (rationale must name why this push is exempt).',
+      r,
+    );
+  }
+  emit(r);
+}
+
 // ── 5b. IR grammar-gate tests (maintainer, MT S1) ────────────────────────────
 function irMetaSection(): void {
   if (existsSync(resolve(CORE, 'package.json'))) {
@@ -1535,6 +1571,14 @@ const SECTIONS: readonly PrePushSection[] = [
     owner: 'both',
     run: () => unpinnedToolInstallSection(),
   },
+  {
+    // arch-v2 S-E P3a: standing drift-guard on the always-on resident set size.
+    // maintainer-only — ceiling is framework-derived; consumer layout has its own
+    // CLAUDE.md. See alwaysonBudgetSection docstring + scripts/check-alwayson-budget.sh.
+    id: 'alwayson-budget',
+    owner: 'maintainer',
+    run: () => alwaysonBudgetSection(),
+  },
 ];
 
 /**
@@ -1595,6 +1639,10 @@ async function main(): Promise<void> {
   }
   if (process.env['PREPUSH_ONLY'] === 'unpinned-tool-install') {
     unpinnedToolInstallSection();
+    process.exit(0);
+  }
+  if (process.env['PREPUSH_ONLY'] === 'alwayson-budget') {
+    alwaysonBudgetSection();
     process.exit(0);
   }
   if (process.env['PREPUSH_ONLY'] === 'generated-rule-material') {

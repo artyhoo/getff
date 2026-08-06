@@ -808,6 +808,28 @@ jobs:
           PREPUSH_UPSTREAM_REF: origin/${{ github.base_ref }}
         run: PREPUSH_ONLY=prior-art npx tsx packages/core/hooks/pre-push.ts
 
+  # arch-v2 S-E P3a CI mirror of the pre-push always-on-budget gate. Runs on every
+  # push — the resident set is repo state (size of CLAUDE.md + non-path-scoped
+  # .claude/rules/*.md), not a per-PR-commit property, so this is NOT gated on
+  # pull_request. Bash + jq only (both pre-installed on ubuntu-latest); no
+  # node/setup-node step needed because the gate is pure shell.
+  # Declared coverage: this gate sees the repo-authored always-on set only —
+  # 29,589 tok (aif-container) / 39,021 tok (host-cc) against a ~100k session-start
+  # total → 29-39% (2026-07-26-session-start-token-attribution.md:214-218). The
+  # remaining 60-71% is harness-resident and unreachable by any file-trim; P14 (S-H)
+  # addresses it as operator recommendations, never by this gate.
+  alwayson-budget:
+    name: Always-on context budget (arch-v2 S-E P3a CI mirror)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Run scripts/check-alwayson-budget.sh
+        run: bash scripts/check-alwayson-budget.sh
+
   enforce-husky-presence:
     name: Verify .husky/ hooks exist and are non-trivial
     runs-on: ubuntu-latest
