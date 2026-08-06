@@ -16,7 +16,7 @@ for rule in .claude/rules/*.md; do
   # gate = a principle test naming this slug (the real test, on disk)
   if grep -rql -- "$slug" packages/core/principles/*.test.ts 2>/dev/null; then gate=yes; else gate=no; fi
   # globs/paths markers present?
-  grep -q '<!-- globs:' "$rule" && globs=yes || globs=no
+  grep -q '^<!-- globs:' "$rule" && globs=yes || globs=no
   grep -qE '^paths:' "$rule" && paths=yes || paths=no
   echo "$slug gate=$gate globs=$globs paths=$paths inject-fire=INCONCLUSIVE-needs-live-probe"
 done

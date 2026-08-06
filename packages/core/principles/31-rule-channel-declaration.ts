@@ -58,7 +58,7 @@ import {
 export const ALWAYS_ON_CORE: readonly string[] = [
   'build-first-reuse-default.md',
   'attention-is-not-a-mechanism.md',
-  'ai-laziness-traps.md',
+  'ai-laziness-digest.md',
   '00-rule-index.md',
 ];
 

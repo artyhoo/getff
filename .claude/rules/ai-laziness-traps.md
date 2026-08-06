@@ -1,4 +1,16 @@
+---
+paths:
+  - '.claude/rules/**'
+  - '.claude/skills/**'
+  - 'agents/**'
+  - '.claude/orchestrator-prompts/**'
+  - 'docs/meta-factory/research-patches/**'
+---
+
 # AI laziness traps — discipline rule
+
+<!-- globs: .claude/rules/**, .claude/skills/**, agents/**, .claude/orchestrator-prompts/**, docs/meta-factory/research-patches/** -->
+<!-- inject: AI-laziness traps (T1-T21) apply when running R-phases, audits, sample-based investigations, doc-creation of discipline-bearing artefacts, or open-ended tasks on this surface. Cite + enumerate active T-numbers + extend with ≥1 domain trap per §3; consult the full catalogue (.claude/rules/ai-laziness-traps.md §2) and the resident hot digest (.claude/rules/ai-laziness-digest.md). Self-apply T15. -->
 
 > **Class:** A — companion principle test shipped at [packages/core/principles/12-ai-laziness-traps.test.ts](../../packages/core/principles/12-ai-laziness-traps.test.ts) (#74, 2026-05-17).
 > **Fires:** any R-phase, audit, sample-based investigation, or open-ended AI task.

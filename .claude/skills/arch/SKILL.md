@@ -37,6 +37,8 @@ A **thin wrapper**: phase 1 is `superpowers:brainstorming` verbatim; this skill 
 
 Invoke `superpowers:brainstorming` AS IS: intent → clarifying questions → 2-3 approaches with trade-offs → design presented section-by-section → spec written and self-reviewed. Its user-review gate stands. Additionally, when the dialogue closes real forks with verdicts, record them with per-verdict falsifiers (H1 discipline) — as a research-patch decision record when the design closes a coverage gap (that folder's charter; established decision-record practice), otherwise inside the spec itself.
 
+**Spec-format slot (P12, trio §A2 G1) — operator-axis ADOPT of the upstream `engineering:architecture` ADR template** ([spec D3 item (d)](../../../docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md); [research-patch §A2](../../../docs/meta-factory/research-patches/2026-08-02-knowledge-work-plugins-utility.md)). When that plugin is installed (`claude plugin install engineering@knowledge-work-plugins`), the spec produced by §1's brainstorming flow wraps its ADR template (Context / Decision / Status / Consequences); otherwise the same shape is hand-authored. Thin-wrapper only — the template body lives upstream, never re-described here (T16, `#parallel-evolution-creep`).
+
 ## §1.5 Research contour — idea → distillate BEFORE design (delta #0)
 
 When the idea touches a **new capability**, an **unfamiliar domain**, or needs a **BFR verdict**, run a research contour before §1's ideation. Tier-0/Tier-1 work (per [CLAUDE.md «Task-tier routing»](../../../CLAUDE.md)) skips this contour **explicitly** — one line in the artefact saying so, never silently.
