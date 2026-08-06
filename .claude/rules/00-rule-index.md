@@ -13,7 +13,7 @@ One line per rule — full text: read `.claude/rules/<name>.md` (index: `.claude
 | `autonomous-loop-continuity.md` | B | unattended turn ending with work in flight. | hook |
 | `build-first-reuse-default.md` | A | any capability commit / new-capability proposal. | always-on core |
 | `ci-tool-pinning.md` | A | editing `.github/workflows/**` or any repo shell script (`*.sh`, `setup`, `install.sh`). | paths:(6), edit-time inject |
-| `cold-seat-economy.md` | C | re-running a cold seat on already-judged work; resume-vs-fresh choice. | skill-embed, skill-embed |
+| `cold-seat-economy.md` | C | re-running a cold seat on already-judged work; resume-vs-fresh choice. | skill-embed(2) |
 | `companion-install-principle.md` | B | editing `setup.d/**` (companion install manifest/engine). | paths:(1), edit-time inject |
 | `destination-environment-verification.md` | B | kickoff authoring; accepting container work. | paths:(1), edit-time inject |
 | `doc-authority-hierarchy.md` | A | creating/editing any canonical or shipped consumer-facing doc. | paths:(4), edit-time inject |

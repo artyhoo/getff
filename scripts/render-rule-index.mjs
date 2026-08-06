@@ -88,9 +88,16 @@ function deriveChannels(name, fields) {
   if (TIER0_CORE.has(name)) chans.push('always-on core');
   if (fields.paths) chans.push(`paths:(${fields.paths.length})`);
   if (fields.globsMarker) chans.push('edit-time inject');
+  // Aggregate repeated channel-marker mechanisms (e.g. cold-seat-economy has two
+  // skill-embed targets → 'skill-embed(2)' rather than 'skill-embed, skill-embed').
+  // Iteration order is the file order of the markers (Map preserves insertion order).
+  const counts = new Map();
   for (const c of fields.channelMarkers) {
     const mech = c.split(/\s+/)[0];
-    chans.push(mech);
+    counts.set(mech, (counts.get(mech) || 0) + 1);
+  }
+  for (const [mech, count] of counts) {
+    chans.push(count > 1 ? `${mech}(${count})` : mech);
   }
   if (chans.length === 0) chans.push('gate-only');
   return chans.join(', ');

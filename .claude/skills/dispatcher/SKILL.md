@@ -133,6 +133,8 @@ established §2.4/harvest-§1 inspect pattern; 3-dot tolerates a stale base):
 docker exec aif-handoff-agent-1 git -C <worktree> diff origin/staging...HEAD
 ```
 
+**Default format: inputs-inlined** (spec P7, [cold-seat-economy.md §3](../../rules/cold-seat-economy.md) row 4). The default dispatch payload **inlines** the kickoff scope sections + the diff into the prompt («answer without reading files») — measured at ~85k tokens / 0 tool calls vs ~177k tokens / 7 tool calls for the file-reading form (row 4 vs row 3). The file-reading form is the **fallback** when content size prohibits inlining. **Promotion trigger** (cross-stage boundary): 3 incidents of >100k-token file-reading seats → a mechanical check in **S-B's station** (S-B is the stage that owns the bottom-seat check station; not implemented here).
+
 - `GO` → record the block (Basis/Round/Audited-SHA/Evidence) into the prepared PR body
   (pass via `--body-file` — without the section the `pr-body-fidelity` gate holds the PR
   red) and proceed to `harvest.ts`. **`Audited-SHA` = container HEAD is correct ONLY on
@@ -170,6 +172,17 @@ docker exec aif-handoff-agent-1 git -C <worktree> diff origin/staging...HEAD
   watch-list (resume the same auditor by name only when the watch-list cannot carry it) — not a
   full re-audit, and never a self-issued verdict. Have the round-1 seat leave that watch-list
   in the PR body / task comment. Order seats so this audit runs on the final diff.
+- <!-- re-write-trigger embed (spec-of: .claude/rules/cold-seat-economy.md §3) -->
+  **Re-write-trigger economy** ([cold-seat-economy.md §3](../../rules/cold-seat-economy.md)): when
+  the seat has reached its natural end, the cached-prefix cost discipline applies —
+  - prefer **artifact handoff** to a fresh seat over `/compact` — a fresh seat billed at read
+    price on a narrow input is cheaper than re-billing the cached prefix at write price;
+  - do **not** stretch a seat across the 1-hour TTL idle gap — the cached prefix expires; the
+    next turn re-bills the whole prefix at write price;
+  - avoid mid-session **model / effort switches** and **MCP toggles** on a fat context — each
+    invalidates the cached prefix and re-bills it at write price (pending S-H P3d verification
+    of the config-change class — rev 4 moved P3d there; same handoff rule applies until verified
+    otherwise).
 
 Then push:
 

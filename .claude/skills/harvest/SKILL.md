@@ -73,7 +73,9 @@ The sweep auto-scopes via `git merge-base`, escalates to `--full` on any unmappe
    [cold-seat-economy.md §3](../../rules/cold-seat-economy.md) reachable; the follow-up default
    is a fresh narrow seat): inputs = the
    stage kickoff/spec path + the same 3-dot diff, current HEAD sha,
-   round number — nothing else (no chat, no logs). `REVISE`/`STOP` → do NOT open the PR;
+   round number — nothing else (no chat, no logs).
+   **Default format: inputs-inlined** (spec P7, [cold-seat-economy.md §3](../../rules/cold-seat-economy.md) row 4): inline the kickoff scope sections + diff into the dispatch prompt (~85k tokens / 0 tool calls vs ~177k tokens / 7 tool calls for file-reading — row 4 vs row 3). File-reading is the **fallback** when content size prohibits inlining. **Promotion trigger** (cross-stage boundary): 3 incidents of >100k-token file-reading seats → a mechanical check in **S-B's station** (S-B owns the bottom-seat check station; not implemented here).
+   `REVISE`/`STOP` → do NOT open the PR;
    factory task → route the findings per [/dispatcher §2.4 rework loop](../dispatcher/SKILL.md),
    in-session work → fix and re-audit (Round 2); cap 2 rounds → escalate to the operator.
    `KICKOFF-AMBIGUOUS` → escalate to `/arch` §4 office hours without burning a round.
@@ -90,6 +92,17 @@ The sweep auto-scopes via `git merge-base`, escalates to `--full` on any unmappe
    incremental diff + scope sections + that watch-list (resume the same auditor by name only
    when the watch-list cannot carry the substance) — never a full re-audit, never a
    self-issued verdict.
+   <!-- re-write-trigger embed (spec-of: .claude/rules/cold-seat-economy.md §3) -->
+   **Re-write-trigger economy** ([cold-seat-economy.md §3](../../rules/cold-seat-economy.md)): when
+   the seat has reached its natural end, the cached-prefix cost discipline applies —
+   - prefer **artifact handoff** to a fresh seat over `/compact` — a fresh seat billed at read
+     price on a narrow input is cheaper than re-billing the cached prefix at write price;
+   - do **not** stretch a seat across the 1-hour TTL idle gap — the cached prefix expires; the
+     next turn re-bills the whole prefix at write price;
+   - avoid mid-session **model / effort switches** and **MCP toggles** on a fat context — each
+     invalidates the cached prefix and re-bills it at write price (pending S-H P3d verification
+     of the config-change class — rev 4 moved P3d there; same handoff rule applies until
+     verified otherwise).
 3. Assemble a **§1.7-compliant PR body** (Forward/Backward sections, each with file:line) **plus the acceptance-package sections (Provenance / Review findings / Fidelity verdict / Parked questions — spec D4)**. Open the PR with base `staging` (`gh pr create --base staging`), optionally `gh pr merge --auto --squash` per the dispatcher convention.
 4. Confirm the PR diff is exactly the intended files, **0 unintended deletions**, before merge.
 
