@@ -1,6 +1,6 @@
 // Firing harness runner — adapter-jig J3 Option B (golangci-forbidigo backend).
 // Spec: docs/superpowers/specs/2026-07-22-adapter-jig-design.md §2/§3 (E3 arm).
-// Kickoff: .ai-factory/plans/adapter-jig-j3-option-b.md §2 step 3.
+// Kickoff: .claude/orchestrator-prompts/adapter-jig-j3-option-b/kickoff.md §2 step 3.
 //
 // The RED of TDD for the lane's delivered ban surface (forbidigo's `os\.Getenv`): fires a REAL
 // `golangci-lint run --out-format=json --enable forbidigo` against a committed fixture module
@@ -43,7 +43,8 @@ export interface GolangciFiringContract {
  * Scoping: golangci-lint auto-discovers configuration by walking up the filesystem from the
  * module root for a `.golangci.yml`. Each fixture carries its OWN `.golangci.yml` at its module
  * root (the ban surface), so the run is scoped to exactly that fixture regardless of the outer
- * tree. (Verified live against the v1.55.2 pin — captured at host-verify §6 step 7.)
+ * tree. (Config-discovery behaviour is the documented v1.x walk-up; it is NOT yet confirmed
+ * against a live run here — the capture that confirms it is owed at host-verify §6 step 7.)
  */
 export function fireContract(
   contract: GolangciFiringContract,
@@ -68,14 +69,27 @@ export function parseCodesFromStdout(stdout: string, jsonPath: string): Set<stri
 }
 
 /**
- * Extract the golangci-lint semver from a `--version` line. Accepts both
- * `golangci-lint v1.55.2` (with leading `v`) and `golangci-lint 1.55.2` (bare semver) — the
- * kickoff §1 evidence string is `golangci-lint v1.55.2`, but the binary's exact `--version`
- * output is verified at host-verify §6 step 7, not here (T-AJ-D: do not guess doc facts
- * against a v1 pin from inside the aif container).
+ * Extract the golangci-lint semver from a `--version` line.
+ *
+ * THREE shapes are accepted, and the first one is the one the real binary emits:
+ *   1. `golangci-lint has version 1.55.2 built with go1.21.4 from <sha> on <date>` — the v1.x
+ *      binary's actual stdout. Source-verified against `golangci/golangci-lint`: `BuildInfo.String()`
+ *      formats `"golangci-lint has version %s built with %s from %s on %s"`, and BOTH `--version`
+ *      and the `version` subcommand route through it. Words sit between the tool name and the
+ *      semver, so a regex demanding adjacency does NOT match it.
+ *   2. `golangci-lint v1.55.2` — the kickoff §1 evidence-string shape (what the matrix records).
+ *   3. `golangci-lint 1.55.2` — bare semver.
+ *
+ * Shape 1 is load-bearing and is NOT a doc-guess (T-AJ-D): an earlier revision of this function
+ * accepted only shapes 2-3, which made `deriveGolangciVersion()` return undefined on a machine
+ * that HAS golangci-lint installed — indistinguishable from "tool absent". The freshness gate
+ * would then loud-skip forever and CI would stay green while the E3 arm never fired. Caught by
+ * the cold fidelity audit before merge (W-1).
  */
 export function parseGolangciVersion(versionOutput: string): string | undefined {
-  const m = /(?:^|\s)golangci-lint\s+v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)\b/.exec(versionOutput);
+  const m = /(?:^|\s)golangci-lint\s+(?:has\s+version\s+)?v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)\b/.exec(
+    versionOutput,
+  );
   return m?.[1];
 }
 

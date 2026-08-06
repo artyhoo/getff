@@ -1,6 +1,6 @@
 // Firing harness — live-fire tests (adapter-jig J3 Option B, golangci-forbidigo backend).
 // Spec: docs/superpowers/specs/2026-07-22-adapter-jig-design.md §2/§3 (E3 arm).
-// Kickoff: .ai-factory/plans/adapter-jig-j3-option-b.md §2 step 5.
+// Kickoff: .claude/orchestrator-prompts/adapter-jig-j3-option-b/kickoff.md §2 step 5.
 //
 // The RED of TDD for the lane's delivered ban surface: fires a REAL
 // `golangci-lint run --out-format=json --enable forbidigo` against the committed fixture
@@ -14,8 +14,9 @@
 // Loud-skip when the tool is unavailable (not on PATH — aif container without golangci-lint)
 // — NEVER a silent pass: the golangci backend must not be claimed green on live-fire from a
 // run that never fired it (T-AJ-A). There is deliberately NO `!isCI` guard (mirrors ruff's
-// firing.test.ts:14-16 STOP-line — CI fires it for real when the install step is present,
-// which on this branch it is NOT yet; the lane PR #1171 brings it).
+// firing.test.ts:14-16 STOP-line — CI fires it for real wherever the install step is present,
+// and it IS present on this branch's base: PR #1171 merged as 124d2c4212 and installs
+// `golangci-lint@v1.55.2` at `.github/workflows/audit-self.yml:306-312`).
 //
 // FORK #2 PARKED: at worker-done time firing-contract.json carries `expectedCodes: []` +
 // `jsonPath: ""`. The three live-fire tests below still exercise the spawn + parse path,

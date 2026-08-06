@@ -1,6 +1,6 @@
 // Capability matrix — mechanized honesty (adapter-jig J3 Option B, golangci-forbidigo backend).
 // Spec: docs/superpowers/specs/2026-07-22-adapter-jig-design.md §2/§3 (E3 arm).
-// Kickoff: .ai-factory/plans/adapter-jig-j3-option-b.md §2 step 4.
+// Kickoff: .claude/orchestrator-prompts/adapter-jig-j3-option-b/kickoff.md §2 step 4.
 //
 // Always-on (golangci-lint NOT required): validates the COMMITTED capability-matrix.json against
 // a structural honesty contract. At worker-done time every cell is `status:"no"` — the `syntax`
@@ -151,6 +151,20 @@ describe('parseGolangciVersion + checkToolchainFreshness — paired negatives (p
     },
   });
 
+  // THE shape the real v1.x binary emits. Source: golangci/golangci-lint `BuildInfo.String()`
+  // formats "golangci-lint has version %s built with %s from %s on %s" — both `--version` and
+  // the `version` subcommand print through it. Without this case the suite is green against a
+  // string the binary never produces (T-AJ-A: the arm passes because it tests the fixture, not
+  // the lane), and `deriveGolangciVersion()` silently returns undefined on a machine that HAS
+  // the tool — a permanently inert freshness gate. Do not delete this case to "simplify".
+  it('parseGolangciVersion extracts the semver from the REAL `golangci-lint has version …` output', () => {
+    expect(
+      parseGolangciVersion(
+        'golangci-lint has version 1.55.2 built with go1.21.4 from e3c2265f on 2023-11-03T12:59:19Z',
+      ),
+    ).toBe('1.55.2');
+  });
+
   it('parseGolangciVersion extracts the semver from a `golangci-lint v1.55.2` line', () => {
     expect(parseGolangciVersion('golangci-lint v1.55.2')).toBe('1.55.2');
   });
@@ -215,10 +229,11 @@ describe('capability-matrix.json — the committed file passes validateMatrix', 
 
   // Toolchain freshness derives the resolving golangci-lint version at run time (no literal in
   // this file). It requires golangci-lint on PATH; loud-skip when absent rather than false-RED.
-  // In CI the pinned install step (audit-self.yml go arm, lane PR #1171) puts golangci-lint
-  // v1.55.2 on PATH, so a pin bump without evidence-regen turns this RED there. NO `!isCI`
-  // guard: ruff's firing.test.ts:14-16 documents this STOP-line — CI must fire for real when
-  // the install step is present (it is NOT present on this branch yet; the lane PR brings it).
+  // In CI the pinned install step puts golangci-lint v1.55.2 on PATH, so a pin bump without
+  // evidence-regen turns this RED there. That step IS present on this branch's base: PR #1171
+  // merged as 124d2c4212 and the go arm installs `golangci-lint@v1.55.2` at
+  // `.github/workflows/audit-self.yml:306-312`. NO `!isCI` guard: ruff's firing.test.ts:14-16
+  // documents this STOP-line — CI must fire for real wherever the install step is present.
   const resolvedVersion = deriveGolangciVersion();
   it.skipIf(resolvedVersion === undefined)(
     'toolchain freshness: the evidence golangci-lint version equals the golangci-lint that actually resolves here',
