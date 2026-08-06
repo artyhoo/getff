@@ -1,0 +1,9 @@
+linters:
+  disable-all: true
+  enable:
+    - forbidigo
+linters-settings:
+  forbidigo:
+    forbid:
+      - p: 'os\.Getenv'
+        msg: 'Read configuration through the injected config accessor, never os.Getenv directly'
