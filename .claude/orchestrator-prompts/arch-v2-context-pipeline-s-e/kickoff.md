@@ -37,12 +37,46 @@ resident baseline (spec §1.6 FORK D) and deriving them earlier produces stale-h
    (`**/` works via picomatch semantics, NOT the normaliser; spec §2). `picomatch` becomes an
    explicit **pinned** devDependency → this is a **capability commit**: `Prior-art:` trailer
    (verdict ADOPT verbatim — picomatch is the matcher the shipped client bundles) + SSOT entry
-   in the same commit. Register the new test file in any principle-test allowlists (probe per
-   umbrella §0 Phase -1).
+   in the same commit. **The escape hatch is REFUSED on this commit** — `prior-art.ts:195-199`
+   rejects `Prior-art: skipped` on a capability commit («cite an SSOT entry … instead»), and no
+   picomatch row exists yet (`grep -i picomatch docs/meta-factory/prior-art-evaluations.md` → no
+   hits; highest id `#236`), so the new SSOT row must land in the SAME commit or the push is
+   blocked with an error that looks unrelated. **No principle-test allowlist exists** (rev 5 —
+   the rev-4 instruction sent you to a registry that is not there): principle tests are
+   glob-discovered (`packages/core/vitest.config.ts:10` `principles/**/*.test.ts`). The
+   registration you DO need is the pre-push one in item 2/3 below.
+
+   **Dependency pin — name the manifest, there are two (rev 5).** Pin in
+   `packages/core/package.json` + `packages/core/package-lock.json`, NOT the repo root: the suite
+   runs as `npm --prefix packages/core run test:principles` (`.github/workflows/audit-self.yml:214`).
+   The tree already carries **two majors** — root `picomatch@2.3.2`, `packages/core@4.0.4` — so pin
+   the `packages/core` major (4.x) and say so in the trailer; pinning the root manifest produces a
+   green local run and an unresolvable import where the test actually executes.
 2. **P2b — local-shadow pre-push section** (+ `worktree-doctor.sh` arm): if
    `.claude/settings.local.json` defines `claudeMdExcludes`, its picomatch match-set must be a
    superset of the project list's match-set — else error-with-escape-token (rationale ≥20
    chars, `ci-tool-pinning.md §3` precedent). Host-only channel: CI cannot see the file.
+
+   **Acceptance for P2b — a discrimination pair, not just «the arm exists» (rev 5; the rev-4
+   kickoff declared no criterion at all for this item, so a no-op arm would have passed every
+   stated check).** `.claude/settings.local.json` is gitignored (`git check-ignore -v` →
+   `~/.config/git/ignore:1`) and on the host currently has **no** `claudeMdExcludes` key
+   (`jq -r 'has("claudeMdExcludes")'` → `false`), so the assert is unexercised on both sides
+   unless you build fixtures. Required: (i) a fixture local list that is a strict SUBSET of the
+   project list → the section exits non-zero **naming the missing entry**; (ii) the same fixture
+   as a superset → the section stays green. Both quoted in the PR body.
+
+   **Pre-push registration (BINDING — rev 5; without it the hook throws at runtime and principle
+   32 goes red).** Every pre-push section is an entry in the `SECTIONS` array at
+   `packages/core/hooks/pre-push.ts:1445`, and `:1552` throws when a section carries no valid
+   `owner`. Add each new section there with `owner: 'maintainer'` (both new sections are
+   maintainer-surface), per `packages/core/principles/32-prepush-section-owner.test.ts`.
+   **Implement both sections INLINE in `pre-push.ts` — do NOT extract a new
+   `packages/core/hooks/checks/*.ts` module.** A new relative import from `pre-push.ts` turns
+   principle 27 red (`27-prepush-copylist-complete.test.ts:108` real-tree arm and `:260`
+   fresh-install arm), and the fix would be to edit the copy loops at `install.sh:874` and
+   `setup.d/50-hooks.sh:26` — neither of which is in this stage's §2 permitted set. Inlining
+   keeps the change inside the permitted surface.
 3. **P3a — wire the EXISTING `scripts/check-alwayson-budget.sh`** (ceiling 101,000 B, `:8`)
    into `.husky/pre-push` + CI mirror, with **per-environment ceilings** (N2 label required —
    the gate refuses an unlabelled ceiling) + escape token. REUSE — do not write a new gate.
@@ -62,12 +96,27 @@ resident baseline (spec §1.6 FORK D) and deriving them earlier produces stale-h
    run. For calibration: the true resident set at re-plan time (staging `c8a2bfcec6`, BEFORE
    S-G) measured 69,453 B; post-S-G expect ≈ ≤ 50.2 KB — if the fixed meter's baseline is not
    in that neighbourhood, STOP and park (the predicate or the base is wrong).
+
+   **«Per-environment» defined (rev 5 — the rev-4 text required a label for a set it never
+   named, and no detection idiom exists anywhere in the spec or the gate).** The environment set
+   is exactly two: **`host-cc`** and **`aif-container`**. The gate exposes ONE knob
+   (`check-alwayson-budget.sh:8` `CEILING="${AIF_ALWAYSON_CEILING:-…}"`), and **only the
+   container baseline is measurable from where this stage runs** — so the accepted shape is
+   **one committed ceiling carrying TWO labelled derivation comments**: the `aif-container`
+   line quoting your own baseline run, and the `host-cc` line stating `UNMEASURED — baseline not
+   reachable from the container; S-H's host session supplies it`. Inventing a host number from
+   the container is `#budget-sized-to-the-wrong-machine`. **Added to the §3a park list:** if you
+   conclude a genuine per-environment *runtime* switch is required (rather than two labelled
+   comments), park it — that is a gate-shape decision, not an implementation detail.
 4. **P3b — fix `scripts/measure-always-on.sh` — BOTH blindnesses (extended rev 4):**
    (i) membership predicate: the manifest must be `CLAUDE.md` + `.claude/rules/*.md` files
    **lacking `^paths:` frontmatter** (the `scripts/probe-channels.sh:20` predicate — one bash
    idiom, two consumers; `packages/core/principles/rule-channel-glob.ts` stays the semantic
    owner, note the twin in a comment), because `paths:`-scoped rules are not resident — the
-   current all-files glob over-counts ~4× (394,687 B vs the true 69,453 B, spec §1.6 FORK D);
+   current all-files glob over-counts **~8×** — measured at this stage's post-S-G base
+   (`origin/staging`): all-files **400,919 B** vs a true resident **≈48.7 KB** (rev 5; the
+   rev-4 sentence quoted the pre-S-G pair 394,687 B / 69,453 B and read as «~4×», both stale
+   now that S-G re-scoped `ai-laziness-traps.md` behind `paths:`), spec §1.6 FORK D;
    (ii) apply the effective `claudeMdExcludes` under **replace-per-key overlay semantics**
    (a local `claudeMdExcludes` SHADOWS the project list entirely — spec §1.6 FORK D,
    round-4 MAJOR-3; this is the only model under which P2b's superset assert is
@@ -98,7 +147,9 @@ RTK measurement, SSOT #233); no re-derivation of any §2/§4 prep-doc fact.
 
 `packages/core/principles/*` (new test + allowlist), `packages/core/hooks/pre-push.ts` /
 `.husky/pre-push`, `scripts/check-alwayson-budget.sh`, `scripts/measure-always-on.sh`,
-`scripts/worktree-doctor.sh`, `package.json` + lockfile (picomatch pin),
+`scripts/worktree-doctor.sh`, **`packages/core/package.json` + `packages/core/package-lock.json`**
+(picomatch pin — the `packages/core` manifest specifically, rev 5: the repo root carries its own
+pair and a different picomatch major),
 `docs/meta-factory/research-patches/*` (P3c verdict output),
 `docs/meta-factory/prior-art-evaluations.md` (P2a SSOT entry), `.github/workflows/*` (CI
 mirror only). NOT permitted: `.claude/settings.json` (operator-only), `.claude/rules/*`,
@@ -112,8 +163,15 @@ create it).
 ```bash host-verify
 npx vitest run packages/core/principles
 bash scripts/check-alwayson-budget.sh
-bash scripts/measure-always-on.sh
+bash scripts/measure-always-on.sh | jq -e '[.sources[].path] | index(".claude/rules/ai-laziness-traps.md") == null'
 ```
+
+**Why line 3 is not a bare `measure-always-on.sh` run (rev 5).** The bare form passes today with
+zero work done: the script has no non-zero exit path (it ends at a `printf`), so it cannot
+distinguish a fixed meter from an untouched one — verified, `bash scripts/measure-always-on.sh`
+→ EXIT 0, `"total_bytes": 400919`. The `jq -e` form asserts the **membership predicate** the stage
+exists to fix: `ai-laziness-traps.md` carries `paths:` frontmatter since S-G, so a correct meter
+must NOT list it as resident. RED today, GREEN only after P3b lands.
 
 **The budget gate must ASSERT AND DISCRIMINATE — an acceptance TRIPLE (spec §1.6 FORK D,
 round-4 M-2: the before/after pair alone proves the meter was fixed, never that the gate
@@ -123,9 +181,15 @@ measured state):**
 exits 1 reporting ~394-403 KB (post-S-G tree: the digest adds ≤ 8.2 KB to the broken
 meter's count) against the 101,000 B ceiling — quote it; (2) AFTER — fixed meter +
 re-derived per-environment ceilings, the same command exits 0 — quote it; (3)
-DISCRIMINATION — the fixed gate run with a ceiling forced below the measured baseline (env
-override or fixture ceiling; give the gate whichever it lacks) exits 1 naming the overage —
-quote it. A PR whose gate still exits 1
+DISCRIMINATION — **rev 5 replaces the rev-4 wording, which was vacuous**: forcing the ceiling
+below the baseline only exercises the pre-existing `total > CEILING` comparator, which this
+stage does not touch. Verified on an untouched tree: `AIF_ALWAYSON_CEILING=1000 bash
+scripts/check-alwayson-budget.sh` → `DRIFT: … 400919B exceeds ceiling 1000B`, **EXIT=1 with
+zero work done**. The leg must discriminate the **membership predicate** instead: add a temp
+`.claude/rules/<fixture>.md` **without** `paths:` frontmatter, sized above the post-fix
+headroom → the gate goes RED naming the overage; add the same-size fixture **with** `paths:`
+frontmatter → the gate stays GREEN. Both runs quoted; the fixture removed before commit. That
+pair is red-then-green only if the predicate was actually fixed. A PR whose gate still exits 1
 at merge time, or whose «fix» is raising the ceiling to cover the broken ~400 KB
 measurement, or whose gate was never shown RED on an over-budget state,
 FAILS this stage.
