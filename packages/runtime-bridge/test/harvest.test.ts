@@ -1,6 +1,6 @@
 // packages/runtime-bridge/test/harvest.test.ts
 import { describe, it, expect, vi } from 'vitest';
-import { harvestTask, scanParkSignals, extractAffectedFiles } from '../src/harvest.js';
+import { harvestTask, scanParkSignals, extractAffectedFiles, parseTrackedDirtyFiles, parseWorktreeList, resolveWorkDir } from '../src/harvest.js';
 import type { HarvestDeps } from '../src/harvest.js';
 
 /** A deps double that records call order; each fn resolves successfully by default.
@@ -412,5 +412,129 @@ describe('scanParkSignals — pure park-marker detector (informational only)', (
 
   it('paired-negative: all-empty input → empty array', () => {
     expect(scanParkSignals({})).toEqual([]);
+  });
+});
+
+describe('parseWorktreeList — branch → checkout map (aif runs each task in its own worktree)', () => {
+  // The real shape, straight off `aif-handoff-agent-1` (2026-08-07): the base clone on
+  // staging, then one sibling worktree per task.
+  const PORCELAIN = [
+    'worktree /home/www/rules-as-tests-aif',
+    'HEAD 2923ba6f4138d124e6896cad5125275edea075d9',
+    'branch refs/heads/staging',
+    '',
+    'worktree /home/www/rules-as-tests-aif-feature-thing-abc-t1',
+    'HEAD af01805677ec15b773e3966a02b168dee3c3c93d',
+    'branch refs/heads/feature/thing-abc',
+    '',
+  ].join('\n');
+
+  it('positive: maps each branch to its checkout, stripping refs/heads/', () => {
+    const map = parseWorktreeList(PORCELAIN);
+
+    expect(map.get('feature/thing-abc')).toBe('/home/www/rules-as-tests-aif-feature-thing-abc-t1');
+    expect(map.get('staging')).toBe('/home/www/rules-as-tests-aif');
+  });
+
+  it('positive: a detached worktree carries no branch line and is simply absent', () => {
+    const map = parseWorktreeList(
+      ['worktree /home/www/detached', 'HEAD deadbeef', 'detached', ''].join('\n'),
+    );
+
+    expect(map.size).toBe(0);
+  });
+
+  it('paired-negative: the task branch is NOT mapped to the base clone', () => {
+    // The defect's signature: reading the base clone for a task branch measures `staging`.
+    expect(parseWorktreeList(PORCELAIN).get('feature/thing-abc')).not.toBe('/home/www/rules-as-tests-aif');
+  });
+
+  it('paired-negative: empty input → empty map (no phantom entries)', () => {
+    expect(parseWorktreeList('')).toEqual(new Map());
+  });
+});
+
+describe('resolveWorkDir — which checkout the guards measure (2026-08-07 defect)', () => {
+  const ROOT = '/home/www/rules-as-tests-aif';
+  const WT = '/home/www/rules-as-tests-aif-feature-thing-abc-t1';
+  const worktrees = new Map([['feature/thing-abc', WT]]);
+
+  it('regression: a branch with a worktree resolves to THAT worktree, never the base clone', () => {
+    const res = resolveWorkDir({ branch: 'feature/thing-abc', repoRoot: ROOT, worktrees });
+
+    expect(res).toEqual({ path: WT, source: 'worktree-list' });
+    // The bug was exactly this equality holding — the base clone is on staging with
+    // permanent `?? .claude/worktrees/` residue, i.e. a fabricated dirty + 0-ahead HOLD.
+    expect(res.path).not.toBe(ROOT);
+  });
+
+  it('git worktree list (live ground truth) outranks aif’s persisted record', () => {
+    const res = resolveWorkDir({
+      branch: 'feature/thing-abc',
+      repoRoot: ROOT,
+      worktrees,
+      taskWorktreePath: '/home/www/stale-record',
+    });
+
+    expect(res.path).toBe(WT);
+  });
+
+  it('falls back to aif’s worktreePath when git has no entry for the branch', () => {
+    const res = resolveWorkDir({
+      branch: 'feature/other-xyz',
+      repoRoot: ROOT,
+      worktrees,
+      taskWorktreePath: '/home/www/rules-as-tests-aif-feature-other-xyz-t2',
+    });
+
+    expect(res).toEqual({ path: '/home/www/rules-as-tests-aif-feature-other-xyz-t2', source: 'task-record' });
+  });
+
+  it('an explicit --work-dir override wins over every automatic source', () => {
+    const res = resolveWorkDir({
+      branch: 'feature/thing-abc',
+      repoRoot: ROOT,
+      worktrees,
+      taskWorktreePath: '/home/www/from-record',
+      explicit: '/home/www/operator-choice',
+    });
+
+    expect(res).toEqual({ path: '/home/www/operator-choice', source: 'explicit' });
+  });
+
+  it('paired-negative: nothing knows the branch → repo-root, flagged as such for the preflight', () => {
+    // Not a silent success: the CLI's HEAD==branch preflight rejects this checkout, which is
+    // what turns the old silent wrong-measurement into a loud failure.
+    const res = resolveWorkDir({ branch: 'feature/unknown', repoRoot: ROOT, worktrees: new Map() });
+
+    expect(res).toEqual({ path: ROOT, source: 'repo-root' });
+  });
+});
+
+describe('parseTrackedDirtyFiles — D12 guard input (porcelain column layout)', () => {
+  it('positive: an unstaged modification keeps its full path (leading index column is a SPACE)', () => {
+    // The exact 2026-08-07 regression: a left-trimmed first line shifted `" M x"` to `"M x"`,
+    // and the 3-char slice then ate the path's first character.
+    expect(parseTrackedDirtyFiles(' M .claude/hooks/ask-question-reminder.sh')).toEqual([
+      '.claude/hooks/ask-question-reminder.sh',
+    ]);
+  });
+
+  it('positive: staged + mixed statuses all keep their paths', () => {
+    expect(parseTrackedDirtyFiles(['M  a.ts', ' M .b.ts', 'MM c.ts', 'A  d.ts'].join('\n'))).toEqual([
+      'a.ts',
+      '.b.ts',
+      'c.ts',
+      'd.ts',
+    ]);
+  });
+
+  it('paired-negative: untracked-only residue is NOT a tracked modification', () => {
+    // `?? .claude/worktrees/` is the routine container leftover — it must never HOLD.
+    expect(parseTrackedDirtyFiles('?? .claude/worktrees/')).toEqual([]);
+  });
+
+  it('paired-negative: a clean tree (empty output) → no files', () => {
+    expect(parseTrackedDirtyFiles('')).toEqual([]);
   });
 });

@@ -17,6 +17,14 @@ export interface AifTaskFull {
   blockedReason?: string | null;
   /** aif's persisted feature-branch name (planner source-of-truth; read back by harvest). */
   branchName?: string | null;
+  /**
+   * aif's persisted per-task CHECKOUT — the worktree it ran the task in (a sibling of the
+   * base clone, `<root>-<branch-slug>-<taskId>`), NOT the base clone. Null on tasks that ran
+   * before/without parallel worktrees (11/183 live tasks, 2026-08-07). Harvest reads it as
+   * the fallback record when git's own worktree list has no entry for the branch; measuring
+   * the guards against the base clone instead is the defect this field closes.
+   */
+  worktreePath?: string | null;
 }
 
 async function request(method: 'GET' | 'PUT', baseUrl: string, path: string, body?: unknown): Promise<unknown> {
