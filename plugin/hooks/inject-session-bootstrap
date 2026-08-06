@@ -46,6 +46,13 @@ case "${AIF_HOOK_LANG:-en}" in
     ;;
 esac
 
+# #F10AUTONOMY anchor — second channel token for .claude/rules/autonomous-loop-continuity.md
+# (`<!-- channel: digest .claude/hooks/inject-session-bootstrap.sh#F10AUTONOMY -->`) points HERE:
+# the AUTONOMY BLOCK below (the opt-in AIF_AUTONOMOUS=1 digest extension at inject-session-
+# bootstrap.sh:63-65) — the always-on second delivery surface named in that rule's Class-B
+# header. The rule's first marker (#F10 → end-of-turn-reminder.sh) names the Stop-hook arm;
+# this one names the digest-block arm. Both must be declared separately so the rendered index
+# reports the full delivery surface (S-F channel-truth fix, 2026-08-06).
 # AUTONOMY BLOCK (opt-in, AIF_AUTONOMOUS=1) — F2/F10 of the autonomous-loop diagnostics.
 # Off by default: an ordinary session pays zero tokens and sees no behavioural change.
 #
