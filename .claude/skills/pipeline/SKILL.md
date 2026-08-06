@@ -1,6 +1,6 @@
 ---
 name: pipeline
-description: Use when you have ≥2 in-flight wave umbrellas with cross-stage dependencies, suspect drift between wave-sequencing-plan.md and live git reality, or need to dispatch the next wave with verified Stage N→N+1 gates. Triggers: pipeline, wave orchestrator, wave plan, stage-gate, umbrella priority, waves parallel/sequential, wave-sequencing-plan drift. Invoked explicitly via /pipeline slash command only — never auto-triggered on Claude Code (disable-model-invocation:true). On non-CC harnesses (Cursor/Aider/Codex) consumers should treat this as a manually-invoked workflow skill — the body §0 specifies invocation form.
+description: Use when you have ≥2 in-flight wave umbrellas with cross-stage dependencies, suspect drift between wave-sequencing-plan.md and live git reality, or need to dispatch the next wave with verified Stage N→N+1 gates. Triggers: pipeline, wave orchestrator, wave plan, stage-gate, umbrella priority, waves parallel/sequential, wave-sequencing-plan drift. Invoked explicitly via /pipeline only (disable-model-invocation:true).
 arguments: [umbrella]
 argument-hint: "[umbrella-name]"
 disable-model-invocation: true
