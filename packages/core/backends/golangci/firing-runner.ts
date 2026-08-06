@@ -73,11 +73,17 @@ export function parseCodesFromStdout(stdout: string, jsonPath: string): Set<stri
  *
  * THREE shapes are accepted, and the first one is the one the real binary emits:
  *   1. `golangci-lint has version 1.55.2 built with go1.21.4 from <sha> on <date>` — the v1.x
- *      binary's actual stdout. Source-verified against `golangci/golangci-lint`: `BuildInfo.String()`
- *      formats `"golangci-lint has version %s built with %s from %s on %s"`, and BOTH `--version`
- *      and the `version` subcommand route through it. Words sit between the tool name and the
- *      semver, so a regex demanding adjacency does NOT match it.
+ *      binary's actual stdout. Source-verified AT THE PINNED TAG `v1.55.2` (not master — that is
+ *      the T-AJ-D trap this lane already paid for once): `printVersion()` in
+ *      `pkg/commands/version.go` formats `"golangci-lint has version %s built with %s from %s on
+ *      %s\n"`, and both the `--version` flag (`pkg/commands/root.go`) and the `version`
+ *      subcommand's default branch route through it. At v1.55.2 `BuildInfo` is a plain struct with
+ *      NO `String()` method — the format only moved onto `BuildInfo.String()` in a LATER release.
+ *      Words sit between the tool name and the semver, so a regex demanding adjacency never matches.
  *   2. `golangci-lint v1.55.2` — the kickoff §1 evidence-string shape (what the matrix records).
+ *      Also what CI actually produces: `audit-self.yml` installs via `go install …@v1.55.2` (no
+ *      goreleaser ldflags), so the version falls back to `buildInfo.Main.Version` — the tag string
+ *      WITH its leading `v`. Hence the `v?` group is load-bearing on the real CI path, not cosmetic.
  *   3. `golangci-lint 1.55.2` — bare semver.
  *
  * Shape 1 is load-bearing and is NOT a doc-guess (T-AJ-D): an earlier revision of this function

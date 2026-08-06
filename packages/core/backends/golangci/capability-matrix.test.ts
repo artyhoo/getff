@@ -151,9 +151,10 @@ describe('parseGolangciVersion + checkToolchainFreshness — paired negatives (p
     },
   });
 
-  // THE shape the real v1.x binary emits. Source: golangci/golangci-lint `BuildInfo.String()`
-  // formats "golangci-lint has version %s built with %s from %s on %s" — both `--version` and
-  // the `version` subcommand print through it. Without this case the suite is green against a
+  // THE shape the real v1.x binary emits. Source, read AT THE PINNED TAG v1.55.2 (never master —
+  // T-AJ-D): `printVersion()` in pkg/commands/version.go formats "golangci-lint has version %s
+  // built with %s from %s on %s" — both `--version` and the `version` subcommand print through
+  // it. (`BuildInfo.String()` carries this only in a later release.) Without this case the suite is green against a
   // string the binary never produces (T-AJ-A: the arm passes because it tests the fixture, not
   // the lane), and `deriveGolangciVersion()` silently returns undefined on a machine that HAS
   // the tool — a permanently inert freshness gate. Do not delete this case to "simplify".
@@ -163,6 +164,34 @@ describe('parseGolangciVersion + checkToolchainFreshness — paired negatives (p
         'golangci-lint has version 1.55.2 built with go1.21.4 from e3c2265f on 2023-11-03T12:59:19Z',
       ),
     ).toBe('1.55.2');
+  });
+
+  // The shape CI ACTUALLY produces, which differs from the release-binary shape above. The go arm
+  // installs with `go install …@v1.55.2` and no goreleaser ldflags, so the version falls back to
+  // `buildInfo.Main.Version` — the tag string WITH its leading `v`, and the date renders
+  // "(unknown)". Both the `has version` prefix AND the `v` prefix are therefore present at once on
+  // the only path where this gate ever fires for real. Assert that combination explicitly rather
+  // than trusting that two separately-tested groups compose.
+  it('parseGolangciVersion handles the `go install` shape — `has version` AND a leading `v` together', () => {
+    expect(
+      parseGolangciVersion(
+        'golangci-lint has version v1.55.2 built with go1.21.4 from (unknown) on (unknown)',
+      ),
+    ).toBe('1.55.2');
+  });
+
+  // Discrimination is NOT defeated by the widening: a different tool that also says "has version"
+  // must still be rejected, and a drifted version must still come back as the drifted value.
+  it('parseGolangciVersion still rejects another tool that also prints `has version`', () => {
+    expect(
+      parseGolangciVersion('staticcheck has version 1.55.2 built with go1.21.4'),
+    ).toBeUndefined();
+  });
+
+  it('parseGolangciVersion reads a DRIFTED version out of the real shape (drift stays detectable)', () => {
+    expect(
+      parseGolangciVersion('golangci-lint has version 1.54.0 built with go1.21.4 from x on y'),
+    ).toBe('1.54.0');
   });
 
   it('parseGolangciVersion extracts the semver from a `golangci-lint v1.55.2` line', () => {
@@ -232,7 +261,7 @@ describe('capability-matrix.json — the committed file passes validateMatrix', 
   // In CI the pinned install step puts golangci-lint v1.55.2 on PATH, so a pin bump without
   // evidence-regen turns this RED there. That step IS present on this branch's base: PR #1171
   // merged as 124d2c4212 and the go arm installs `golangci-lint@v1.55.2` at
-  // `.github/workflows/audit-self.yml:306-312`. NO `!isCI` guard: ruff's firing.test.ts:14-16
+  // `.github/workflows/audit-self.yml:306-315`. NO `!isCI` guard: ruff's firing.test.ts:14-16
   // documents this STOP-line — CI must fire for real wherever the install step is present.
   const resolvedVersion = deriveGolangciVersion();
   it.skipIf(resolvedVersion === undefined)(
