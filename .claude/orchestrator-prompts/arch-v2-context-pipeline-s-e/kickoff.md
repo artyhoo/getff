@@ -42,8 +42,11 @@
    loaded set, and can it BLOCK? Primary-docs verification, verdict recorded either way with
    citations. Doubles as the measurement-extension probe (ADR-3 falsifier note).
 6. **P3d — N2 attribution extension** to the stage-A aggregator: per-turn re-write trigger
-   classes (TTL expiry / `/compact` / resume) sized against WRITE [W]; arrival-position
-   distribution of tool output; edit-time-injection firing rates.
+   classes sized against WRITE [W] — TTL expiry / `/compact` / resume, PLUS the
+   config-change class (mid-session model or effort-level switch, MCP server toggle, CC
+   update — each invalidates the prompt-cache prefix; added 2026-08-06 from external
+   practitioner evidence, to be verified against primary docs before pricing);
+   arrival-position distribution of tool output; edit-time-injection firing rates.
 7. **P11 — subagent probe:** one measured host session each for `Explore` and `Plan` — do they
    load `.claude/rules/` at all? Result recorded as a research-patch note; S-D′ consumes it.
 8. **P14 — harness-remainder price list:** per-block token cost of the non-repo resident load
