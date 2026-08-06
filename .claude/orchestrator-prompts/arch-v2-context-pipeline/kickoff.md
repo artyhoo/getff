@@ -84,14 +84,20 @@ forward+backward self-check and a `Prior-art:` trailer (or the ≥20-char escape
 
 ## §1 Stages
 
+> **Decision-layer spec (2026-08-06, binding for the S-D / S-D′ / S-E / S-F-item-4 / S-G rows
+> below):** [`docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md`](../../../docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md)
+> — resolves forks D1-D3/N1-N2, closes S-D's additive scope, reopens S-D′ subtractive, adds S-G.
+
 | Stage | Scope (one line) | Depends on | Tier | Marker | Implements |
 |---|---|---|---|---|---|
 | S-A | `/arch` v2 SKILL.md rewrite + 3 wrapper-drift fixes + upstream-reference smoke | — | 2 | **NO** (§4 O-6) | §2 arc, ADR-4 |
 | S-B | dispatch-input contract v2 + calibration ledger + shadow-A/B protocol | S-A | 2 | NO | ADR-5, ADR-6 |
 | S-C | L2 population table + 5-option BFR verdict (null option live) | S-A | 2 | NO | ADR-2, ADR-1 |
-| S-D | L2 build — whatever S-C's verdict selects, or L2 closure | S-C | classify at dispatch | per S-C verdict | ADR-2, ADR-8 |
-| S-E | L1 budget gate at pre-push/CI + `InstructionsLoaded` blocking verification | token-audit S1 **merged** | 2 | NO | ADR-3 |
-| S-F | small-fixes queue (handoff decision 13), one maintenance PR | token-audit S2 timing | 1 | YES (`Z.AI GLM-5.2 SDK`) | — |
+| S-D | L2 build (ADDITIVE scope) — **CLOSED-NULL 2026-08-06** per SSOT #234; NO stage `done.md` (see charter) | S-C | — | — | ADR-2 |
+| S-D′ | per-seat SUBTRACTION maps — reopened scope, operator override 2026-08-06 (#234 trigger (a) fired); inherits ADR-8's experiment protocol | S-E (consumes P11 probe) | 2 | **NO** (map authoring = un-spent judgment) | ADR-8, ADR-1 |
+| S-E | L1 budget gate + config-assertion asserts + `InstructionsLoaded` verification + N2 attribution + subagent-rules probe + harness-remainder pricing (spec P2/P3/P11/P14) | token-audit S1 **merged** | 2 | YES per /arch §3 D1 exception (spec-produced, plan-complete; re-verify precondition at dispatch) | ADR-3 |
+| S-F | small-fixes queue (handoff decision 13), one maintenance PR; item 4 **CONSUMED** by S-E's P2 (see charter) | token-audit S2 timing | 1 | YES (`Z.AI GLM-5.2 SDK`) | — |
+| S-G | economy small-fixes 2 (spec P5-P8 + P12: `@AGENTS.md` trim + traps digest, rule-embed handoffs, inlined-dispatch template default, rule-index regen, ADR-template wiring) | decision-layer spec merged | 1 | YES (`Z.AI GLM-5.2 SDK`) | — |
 
 ### S-A — `/arch` v2 rewrite
 
@@ -171,16 +177,33 @@ row; verdict cites the SSOT by ID and runs the 6-item search check for any negat
 claim; the null option is adjudicated on the merits, not dismissed; the verdict PR states the
 S-D tier with justification (§4 O-5).
 
-### S-D — L2 build (contingent)
+### S-D — L2 build (additive scope) — CLOSED-NULL 2026-08-06
 
-**Scope.** Whatever S-C selects — resolver, preload, system-prompt route — or, on the null
-verdict, an L2-closure PR (retirement note + `done.md`, no build). Includes the ADR-8 baseline
-capture **before** merge, the deterministic role-vs-uniform A/B branch, and the ZCode twin per the
-population table. **Depends on** S-C merged. **Tier:** undetermined at authoring — S-C's verdict
-PR assigns it. **Acceptance.** Baseline rows exist in the ledger BEFORE the shaping merge; the
-A/B branch is a real branch in the resolver, not fail-open-by-accident; ZCode twin byte-identity
-gated by the existing `plugin/hooks` pre-commit pattern; ADR-8's window (20 role-shaped
-dispatches) and its owner are named in the PR body.
+**Closed per SSOT #234** (ADR-2's verdict: DEFER / null option adopted; re-open triggers live
+in the SSOT row). Closure is THIS status edit — **explicitly NOT a stage-level `done.md`**: the
+earlier «L2-closure PR (retirement note + `done.md`, no build)» instruction is RETRACTED,
+because `priority-score.sh` Layer C3 treats `<umbrella>/done.md` existence alone as
+WHOLE-umbrella closure (`.claude/skills/pipeline/helpers/priority-score.sh:23-25,122-126`);
+the umbrella's `done.md` is written only when the LAST stage merges. ADR-8 is NOT orphaned:
+its experiment protocol (baseline before merge, 20-dispatch window, deterministic A/B,
+owner-closed verdict PR) is **inherited by S-D′**, now measuring subtractive shaping. Full
+rationale: decision-layer spec §1.5 + P4.
+
+### S-D′ — per-seat subtraction maps (reopened scope, operator override 2026-08-06)
+
+**Scope.** NOT the old L2 — no authored per-role ambient content (#234 stands for that scope).
+Author **subtraction maps**: which already-loading blocks each CC seat class DROPS — review
+subagents via replacement system prompts (C2-native `agents/*.md`); Explore/Plan per S-E's P11
+probe result; the senior main seat via rule channel re-scoping (the #1188 pattern). Priority
+per spec §0.5: expensive CC seats first; aif executor seats deferred (cheap tokens + the
+guidance gradient — a weaker executor needs MORE resident instruction), never starved. Runs
+under ADR-8's inherited protocol; annotates SSOT #234 (trigger (a) fired: operator-declared
+expensive-seat budget exhaustion, 2026-08-06 session). **Depends on** S-E (consumes the P11
+probe + attribution numbers). **Tier 2, NO marker** — the map authoring is the un-spent
+judgment. **Acceptance.** Maps state per-seat-class drops WITH per-population reach incl. the
+ZCode row (ADR-2 population-table obligation); ADR-8 baseline rows exist BEFORE any map
+merges; the SSOT #234 annotation lands in the same PR; every drop names its restoration
+trigger. Stage kickoff: [`../arch-v2-context-pipeline-s-d-prime/kickoff.md`](../arch-v2-context-pipeline-s-d-prime/kickoff.md).
 
 ### S-E — L1 budget gate
 
@@ -194,22 +217,32 @@ cross-umbrella, see §3. **Tier 2** (gate design + ceiling derivation are judgme
 Tier 1 only if S1's output makes the ceilings mechanical. **Acceptance.** No ceiling loads without
 an environment label (the gate refuses); the escape token is tested (a rationale <20 chars fails);
 the `InstructionsLoaded` verdict is recorded with its primary-source citation whichever way it
-lands.
+lands. **Extended 2026-08-06 by the decision-layer spec (binding):** + P2 config-assertion
+asserts (committed-list liveness principle test with pinned `picomatch` — a capability commit
+carrying a `Prior-art:` trailer + SSOT entry; local-shadow pre-push check; backstop wiring per
+spec §2 item 3); + REUSE routing (wire the existing `scripts/check-alwayson-budget.sh` into
+pre-push; fix `scripts/measure-always-on.sh` `claudeMdExcludes` blindness); + N2 per-turn
+attribution (re-write trigger classes, arrival-position, edit-time-injection firing rates);
++ P11 Explore/Plan rules-loading probe; + P14 harness-remainder pricing + settings-
+recommendations deliverable. Stage kickoff: [`../arch-v2-context-pipeline-s-e/kickoff.md`](../arch-v2-context-pipeline-s-e/kickoff.md).
 
 ### S-F — small-fixes queue
 
 **Scope.** Handoff decision 13, one maintenance PR at token-audit S2 time: the
 `autonomous-loop-continuity.md:4` channel-marker understatement; the stale
 `#autonomous-dispatch-without-park` falsifier in `pipeline/SKILL.md §5`; the aif container's
-uncommitted `?? .claude/worktrees/` drift; the E-4 `claudeMdExcludes` absolute-glob hypothesis
-checked at S2 acceptance. **Tier 1** — each item's «how» is one determinable sentence and the
+uncommitted `?? .claude/worktrees/` drift; the E-4 `claudeMdExcludes` absolute-glob hypothesis —
+**CONSUMED 2026-08-06** by the decision-layer spec (P1 operator fix + S-E's P2 assert; at S2
+acceptance verify the S-E assert exists instead of re-deriving the hypothesis). **Tier 1** —
+each item's «how» is one determinable sentence and the
 work is expansion, not design. Marker: **YES**, value `Z.AI GLM-5.2 SDK` (re-verify uniqueness
 and the fidelity precondition at dispatch per §0). **Acceptance.** Each item either fixed with
 evidence or explicitly deferred with a trigger; no scope beyond the four items.
 
 **Ordering.** S-A → {S-B, S-C} may run in parallel (disjoint surfaces: S-B writes the
-contract/ledger artefacts, S-C writes a research verdict) → S-D after S-C → S-E gated on the
-cross-umbrella dependency → S-F on token-audit S2 timing. Parallel stages take isolated worktrees
+contract/ledger artefacts, S-C writes a research verdict) → S-D closed-null (no dispatch) →
+S-E gated on the cross-umbrella dependency → S-D′ after S-E → {S-F on token-audit S2 timing,
+S-G after the decision-layer spec merges}. Parallel stages take isolated worktrees
 ([parallel-subwave-isolation.md §1](../../rules/parallel-subwave-isolation.md)).
 
 ## §2 Calibration-ledger bootstrap (ADR-5 / ADR-6 / ADR-8)
