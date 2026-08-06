@@ -80,6 +80,22 @@ else
   bad "(2) cargo lock not emitted — cannot judge schema parity"
 fi
 
+# ── (2b) go lane: scratch install → core set ⊆ emitted keys (adapter-jig J3) ───────────────────────
+echo ""; echo "  ── (2b) go lane emits the full F11 core set ──"
+G=$(mktemp -d)
+printf 'module example.com/demo\n\ngo 1.22\n' > "$G/go.mod"
+( cd "$G" && bash "$INSTALL" go < /dev/null ) >/dev/null 2>&1
+GLOCK="$G/.ai-factory/synthesizer-output/rules-lock.go.json"
+if [ -f "$GLOCK" ]; then
+  ok "(2b) go scratch install emitted $GLOCK"
+  mG=$(missing_core "$GLOCK")
+  [ -z "$mG" ] \
+    && ok "(2b) go lock carries all 6 F11 core fields" \
+    || bad "(2b) go lock MISSING core field(s):$mG"
+else
+  bad "(2b) go lock not emitted — cannot judge schema parity"
+fi
+
 # ── (3) extras are tolerated: per-lane fields beyond the core set must NOT fail the compare ────────
 # The compare is ⊆ (names), not set-equality: python's ruffBans and cargo's backend/note are
 # per-lane-named EXTRAS by contract. Assert they exist in the shipped locks AND that the core
@@ -113,7 +129,7 @@ case " $mS " in
   *) bad "(4) compare stayed green with a renamed core field → VACUOUS arm" ;;
 esac
 rm -f "$STUB"
-rm -rf "$P" "$C"
+rm -rf "$P" "$C" "$G"
 
 echo ""
 echo "── rules-lock-schema-parity: $PASS passed, $FAIL failed ──"
