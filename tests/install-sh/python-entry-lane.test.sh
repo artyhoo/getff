@@ -434,7 +434,7 @@ rm -rf "$P"
 
 # ── (14) D-S2b positive — local git pre-push rung delivered + activated + opt-out ─────────────
 # Kickoff §3: hook file delivered + executable + activation present + opt-out honored. The
-# verdict-driven design (SSOT #235) is bare core.hooksPath-style delivery as default. This arm
+# verdict-driven design (SSOT #237) is bare core.hooksPath-style delivery as default. This arm
 # fails-closed when the rung is missing or not activated. NOTE deliberately NOT an `@arm:` marker
 # (S2 incident commit 7f21e44f19 — that grammar belongs to the adapter-jig registry, principle 33);
 # plain-comment label only, parallel to arm (13).
@@ -520,7 +520,13 @@ if { command -v ast-grep >/dev/null 2>&1 || { command -v sg >/dev/null 2>&1 && s
   else
     # Push blocked — assert our hook is what fired (output mentions getff). T-S2B-C counter: prove
     # the rung fired via git, not the scanner directly.
-    if { cat push_red; git -C "$P3" push origin "$BR" 2>&1; } | grep -qi 'getff pre-push'; then
+    # NOTE: capture into a variable first. Piping the group straight into grep is self-defeating
+    # under `set -o pipefail` (line 15): the re-push legitimately exits non-zero (the rung blocks
+    # it — that IS the assertion), so the pipeline's status is 1 even when grep matches, and the
+    # arm can never go green in the RED case it exists to prove. Caught on the host 2026-08-07;
+    # invisible in the container, where the arm SKIPs for want of ast-grep/ruff (T14).
+    _red_out=$( { cat push_red; git -C "$P3" push origin "$BR" 2>&1; } || true )
+    if printf '%s\n' "$_red_out" | grep -qi 'getff pre-push'; then
       ok "(15) RED run: planted violation blocked the push via the getff rung (hook fired through git)"
     else
       bad "(15) RED run: push blocked but getff hook output not found: $(cat push_red | tr '\n' '|')"

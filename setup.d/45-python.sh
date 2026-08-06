@@ -672,12 +672,12 @@ deliver_python_toolchain() {
 # earliest-reachable-channel ladder (edit → pre-commit → pre-push → CI) had no local git rung for
 # python consumers; this stage closes it.
 #
-# Verdict (SSOT #235 — prior-art-evaluations.md): BUILD bare `core.hooksPath`-style delivery as
+# Verdict (SSOT #237 — prior-art-evaluations.md): BUILD bare `core.hooksPath`-style delivery as
 # default, WITH integration arm for existing-hooks consumers. Pre-commit (pre-commit.com) was
 # REJECTED on the runner-role verdict: criteria (a) zero-installed-prerequisites fails (Python
 # required at runtime), criteria (b) augment-first fails («Cowardly refusing» guards clobber).
 # Pre-commit in its scaffolder role was already REJECTED by SSOT #216 — the S2b verdict is on the
-# different runner-role question (T16 problem-class separation, see prior-art-evaluations.md #235).
+# different runner-role question (T16 problem-class separation, see prior-art-evaluations.md #237).
 #
 # Hook body lives at packages/core/templates/python/hooks/pre-push.sh; pre-commit fragment at
 # packages/core/templates/python/hooks/getff.pre-commit-config.yaml.fragment. The hook body mirrors
@@ -708,7 +708,7 @@ _py_deliver_local_hook_rung() {
     return 0
   fi
 
-  echo "▶ Local git pre-push rung (getff python lane) — D-S2b / verdict SSOT #235"
+  echo "▶ Local git pre-push rung (getff python lane) — D-S2b / verdict SSOT #237"
 
   local hook_src="$tpl/hooks/pre-push.sh"
   local hook_dst_dir="$PROJECT_ROOT/.getff/hooks"
@@ -735,11 +735,11 @@ _py_deliver_local_hook_rung() {
   #
   # ── Integration arm (kickoff §2 item 2 + §3 + T-S2B-B): never clobber the consumer's hooks ──
   # Three pre-existing-hook cases, in priority order; default = set core.hooksPath ourselves.
-  # Case 2 is checked FIRST because the verdict (SSOT #235) names pre-commit as the integration
+  # Case 2 is checked FIRST because the verdict (SSOT #237) names pre-commit as the integration
   # arm — if the consumer already uses it, we honour their choice and do not compete for
   # core.hooksPath.
 
-  # Case 2: consumer uses the pre-commit framework (we have a verdict on this — SSOT #235 REJECT
+  # Case 2: consumer uses the pre-commit framework (we have a verdict on this — SSOT #237 REJECT
   # in the runner role for fresh delivery, but the consumer already chose it; augment-first
   # means honour their choice and integrate rather than compete for core.hooksPath). This check
   # does NOT require git — pre-commit-config.yaml is a plain file.
@@ -1010,7 +1010,7 @@ _py_deliver_agent_surface() {
 
   # ── Local git pre-push rung (D-S2b) ──────────────────────────────────────────
   # Closes the python lane's empty git-hook rung (kickoff §1). Verdict = BUILD bare
-  # core.hooksPath-style delivery with integration arm (SSOT #235). See helper docstring above.
+  # core.hooksPath-style delivery with integration arm (SSOT #237). See helper docstring above.
   _py_deliver_local_hook_rung
 
   echo "  ✓ Agent surface delivery complete"
