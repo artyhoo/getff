@@ -59,8 +59,10 @@ prices the remainder **in aggregate** but cannot split it, so rows 5c, 5d, 5e an
 > 68.4% of the measured seat) is **UNPRICED**, and S-D′'s stated instrument rule is to park the
 > ordering of any block neither instrument prices.
 > **Option A** — the operator runs `/context` once in an interactive session and pastes the
-> output into this patch. Consequence: the five `UNMEASURED` rows resolve into a per-block
-> split, S-D′ can order its harness-side drops, and the cost is one command.
+> output into this patch. Consequence: the four `UNMEASURED — channel absent` rows (5c, 5d, 5e,
+> 9) resolve into a per-block split and row 8 gains its injected-form figure — the same five
+> unpriced blocks this heading names — S-D′ can order its harness-side drops, and the cost is
+> one command.
 > **Option B** — accept the aggregate as final for this umbrella. Consequence: S-D′ marks the
 > harness remainder `UNPRICED` and **parks its harness-side ordering** per its own rule, so the
 > subtraction maps ship covering the repo-owned ~21% only — the smaller half, against §0.5's
@@ -154,9 +156,9 @@ is the smaller half of the problem.
    listed by *name only* and require a `ToolSearch` call before use. Confirmed live: `WebFetch`
    and `WebSearch` were unavailable until fetched by name mid-session, then became callable.
    Do not undo this; it is the single largest working mitigation on row 5.
-2. **The `paths:` edit-time channel.** Rules scoped by `paths:` fire at **0.95 firings per
-   transcript**, in 56.8% of transcripts (sibling patch §4) — delivered when relevant, free in
-   the ~43% of sessions where they never fire. S-G's digest swap rides this.
+2. **The `paths:` edit-time channel.** Rules scoped by `paths:` fire at **0.93 firings per
+   transcript**, in 55.6% of transcripts (sibling patch §4) — delivered when relevant, free in
+   the ~44% of sessions where they never fire. S-G's digest swap rides this.
 3. **`claudeMdExcludes` is now working.** Three rules the S-A profile recorded as «loaded
    despite `claudeMdExcludes`» (35,197 B) are absent from a live agent's context inventory, and
    `.claude/settings.local.json` no longer carries a shadowing key (`jq` → `ABSENT`). Both P1
@@ -176,7 +178,8 @@ Each carries its evidence and what would make it wrong. None is applied by this 
 **R1 — Close the UNMEASURED rows with one `/context` paste (cost: one command).** This is the
 ranked-recommendation form of **DECISION-NEEDED #3 (§0a) Option A**; the fork itself is the
 operator's to settle, this is only the ordering advice.
-Rows 5c/5d/5e are the only blocks in the top cost class with no channel. An interactive
+Rows 5c/5d/5e are the channel-less blocks inside the measured seat total, and row 9 is the
+fourth, priced outside it. An interactive
 `/context` run pasted into this patch converts ~42,621 tok of aggregate into a per-block split,
 which is exactly what S-D′ needs to *order* its harness-side drops. Until then S-D′ must treat
 the harness remainder as one `UNPRICED` block and park its ordering, per its own instrument rule.
@@ -298,8 +301,9 @@ shortfall. P14 accordingly priced via the §0 substitute channel, as recorded th
 this patch adds no check, so it introduces no bare-attention gate; the one obligation it creates
 (R1) is an operator action with a named artefact, not «someone should look at the harness».
 T-SH-A is the governing trap and is satisfied structurally — the price table has a channel
-column, and five rows exercise the `UNMEASURED — channel absent` value rather than being
-back-filled from byte estimates. §3a of the kickoff is satisfied in its own grammar: the
+column, and four rows (5c, 5d, 5e, 9) exercise the `UNMEASURED — channel absent` value rather
+than being back-filled from byte estimates — with row 8 priced source-side only, making five
+unpriced blocks in all. §3a of the kickoff is satisfied in its own grammar: the
 unpriceable-block / probe-cannot-observe fork is stated as `DECISION-NEEDED` with both options
 and their consequences (§0a), matching the shape the sibling patch uses, so one stage does not
 ship two different reporting forms for the same contract. T20: every recommendation cites a measured number or explicitly
