@@ -287,7 +287,7 @@ jobs:
       # template, so a runner-default bump can never silently change the toolchain while the cache
       # key still reads go-1.22.0. Both surfaces now carry a real pin string that must move together.
       - name: Install pinned go toolchain (adapter-jig J3)
-        uses: actions/setup-go@41dfa10bad2d2ebc6f5a188428eb60db4a9232c5  # v5.4.0
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b  # v5.4.0
         with:
           go-version: '1.22.0'
           cache: false
