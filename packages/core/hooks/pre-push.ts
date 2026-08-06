@@ -776,10 +776,20 @@ function zizmorLiveSection(ctx: SectionCtx): void {
 // owner=maintainer composes it on the framework layout only. `onMissing` stays 'die':
 // a maintainer whose zizmor is missing must fix-first, never DEGRADE past a template.
 function zizmorTemplatesSection(): void {
+  // KEEP IN SYNC with the zizmor run: line in .github/workflows/audit-self.yml
+  // (the CI twin). New presets added via setup.d deliver_getff_workflow MUST be
+  // appended here AND there — this list drifted past cargo/python/react-spa/
+  // react-native for 4+ months (last touched in #130; presets landed in
+  // #661/#662/#996/#1080) because nothing enforced parity. Ship a new
+  // github-actions template → add its path to BOTH places.
   const existingTemplates = [
     'templates/ts-server/github-actions-ci.yml',
     'templates/ts-server/github-actions-workflow-integrity.yml',
     'packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml',
+    'packages/core/templates/cargo/github-actions-ci.yml',
+    'packages/core/templates/python/github-actions-ci.yml',
+    'packages/preset-react-spa/templates/github-actions-ci-ui.yml',
+    'packages/preset-react-native/templates/github-actions-ci-ui.yml',
   ].filter((p) => existsSync(resolve(REPO_ROOT, p)));
   if (existingTemplates.length > 0) {
     requireTool(
