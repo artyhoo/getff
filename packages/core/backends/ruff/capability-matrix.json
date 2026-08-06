@@ -5,7 +5,7 @@
     "syntax": {
       "status": "partial",
       "caps": [
-        "Only the flake8-tidy-imports slice fires: kind 'import' renders TID253 banned-module-level-imports, kind 'attribute' renders TID251 banned-api. kind 'call' (call-with-args ban) is refused FF7001 (ruff bans a qualified name, not a call site; ast-grep is the catch-all, #212)."
+        "Only the flake8-tidy-imports slice fires: kind 'import' renders TID253 banned-module-level-imports, kind 'attribute' renders TID251 banned-api. kind 'call' (call-with-args ban) is refused FF7001 (ruff bans a qualified name, not a call site; ast-grep is the catch-all, #212). The built-in selector DTZ005 (call-datetime-now-without-tzinfo) is opted into via [lint] select as a NARROW complement to the closed custom-rule vocabulary — DTZ005 only, NEVER the DTZ family (T-DTZ-A: select = [\"DTZ\"] double-reports datetime.datetime.utcnow() against our TID251 AND DTZ003 — see prior-art-evaluations.md#237)."
       ],
       "evidence": {
         "kind": "live-fired",

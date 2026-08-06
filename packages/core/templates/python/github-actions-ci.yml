@@ -70,9 +70,10 @@ jobs:
       # clobbers it — so this step runs your own rules.
       - name: ruff check (discovered config)
         run: ruff check .
-      # STEP 2 — getff bans gate (cell-INDEPENDENT). Enforces the getff TID import bans REGARDLESS of your
+      # STEP 2 — getff bans gate (cell-INDEPENDENT). Enforces the getff ruff bans REGARDLESS of your
       # own ruff config: `--config` makes ruff REPLACE config discovery (not merge), so this lints your
-      # tree against ONLY .getff/ruff-bans.toml (select = TID251/TID253). Without this step a ruff-
+      # tree against ONLY .getff/ruff-bans.toml (select = DTZ005/TID251/TID253 — the import bans + the
+      # naive-datetime built-in). Without this step a ruff-
       # collision repo would discover only YOUR config in step 1 and the getff bans would be SILENTLY
       # unenforced — a green gate that enforces nothing (attention-is-not-a-mechanism.md §1, the exact
       # #discipline-theatre this project exists to prevent). The getff lane delivers .getff/ruff-bans.toml

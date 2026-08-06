@@ -4,6 +4,9 @@
 // implement until every case below is GREEN. Mirrors backends/{cargo,astgrep}/render-*.test.ts.
 
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { runGrammarGate } from '../../ir/gates/grammar.ts';
 import type { ConventionNode } from '../../ir/types.ts';
 import { assertEveryNodeResolved, type RenderOutcome } from '../shared/render-outcome.ts';
@@ -128,7 +131,7 @@ describe('renderRuff — rendered goldens (byte-for-byte)', () => {
     const golden =
       HEADER +
       '[lint]\n' +
-      'select = ["TID251"]\n' +
+      'select = ["DTZ005", "TID251"]\n' +
       '\n' +
       '[lint.flake8-tidy-imports.banned-api]\n' +
       '"requests".msg = "Use httpx, not the requests library"\n';
@@ -141,7 +144,7 @@ describe('renderRuff — rendered goldens (byte-for-byte)', () => {
     const golden =
       HEADER +
       '[lint]\n' +
-      'select = ["TID253"]\n' +
+      'select = ["DTZ005", "TID253"]\n' +
       '\n' +
       '[lint.flake8-tidy-imports]\n' +
       'banned-module-level-imports = ["torch"]\n';
@@ -155,7 +158,7 @@ describe('renderRuff — rendered goldens (byte-for-byte)', () => {
     const golden =
       HEADER +
       '[lint]\n' +
-      'select = ["TID251", "TID253"]\n' +
+      'select = ["DTZ005", "TID251", "TID253"]\n' +
       '\n' +
       '[lint.flake8-tidy-imports]\n' +
       'banned-module-level-imports = ["torch"]\n' +
@@ -165,9 +168,40 @@ describe('renderRuff — rendered goldens (byte-for-byte)', () => {
     expect(toml).toBe(golden);
   });
 
-  it('empty (all refused) -> header-only toml (parity with cargo/astgrep header-only emission)', () => {
+  it('empty (all refused) -> header + [lint] select = ["DTZ005"] (built-in selector independent of custom bans; was header-only pre-DTZ005)', () => {
     const { toml } = renderRuff([node({ id: 'x', selectorClass: 'type-aware', params: {} })]);
-    expect(toml).toBe(HEADER);
+    const golden =
+      HEADER + '[lint]\n' + 'select = ["DTZ005"]\n';
+    expect(toml).toBe(golden);
+  });
+
+  it('P5d: renderRuff([]) -> header + [lint] select = ["DTZ005"] (zero-bans path now emits built-in selectors; T3 item-3 implementation)', () => {
+    // Mirrors the empty case above but with a literally-empty node list (no refusals), so the
+    // renderToml([]) early-return path is exercised independently — covers the §2 item-1 path the
+    // kickoff flagged as a §5 park trigger (park NOT taken: zero-bans path is dead on the consumer
+    // lane — snapshot.sh brownfield-ruff refuses headerless consumer ruff.toml; firing.test.ts:97-110
+    // exercises both bans).
+    const { toml, outcomes } = renderRuff([]);
+    expect(outcomes.size).toBe(0);
+    const golden =
+      HEADER + '[lint]\n' + 'select = ["DTZ005"]\n';
+    expect(toml).toBe(golden);
+  });
+
+  it('P5e (structural, T21 backward sweep): DTZ005 is visibly distinct from TID251/TID253 in the source — BUILTIN_SELECTORS constant exists and is referenced by renderToml', () => {
+    // Guards the «smuggled into one array» failure: a future edit that puts DTZ005 directly into the
+    // {TID251, TID253} codes array (without the BUILTIN_SELECTORS surface marker) fails this test.
+    // Reading the source as text so the structural surface (comment + constant + comment in
+    // renderToml) is asserted, not just the rendered output shape. Uses an absolute path resolved
+    // from this test file (via fileURLToPath) so the assertion is cwd-independent — `test:backends`
+    // runs from packages/core, direct vitest runs from repo root.
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const source = readFileSync(join(__dirname, 'render-ruff.ts'), 'utf8');
+    expect(source).toContain('BUILTIN_SELECTORS');
+    expect(source).toMatch(/BUILTIN_SELECTORS.*DTZ005/);
+    // The T21 backward-sweep invariant: the closed-vocabulary refusal comment is intact
+    // (FF7001 NOT weakened — the closed surface is still named closed; DTZ005 is a separate surface).
+    expect(source).toContain('call-with-args ban not expressible in ruff');
   });
 });
 

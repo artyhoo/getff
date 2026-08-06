@@ -248,7 +248,7 @@ bash /tmp/getff/install.sh python          # explicit lane — always wins over 
 ```text
 project/
 ├── sgconfig.yml                          ← ast-grep project config (resolves .getff/astgrep-rules)
-├── ruff.toml                             ← ruff fast-path config (TID251/TID253 import bans)
+├── ruff.toml                             ← ruff fast-path config (TID251/TID253 import bans + DTZ005 naive-datetime built-in)
 ├── .getff/
 │   ├── astgrep-rules/*.yml               ← getff structural rules (no-eval, no-os-system,
 │   │                                       no-datetime[.datetime].now) — framework-owned
