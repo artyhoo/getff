@@ -19,8 +19,11 @@
 
 ## §1 Deliverables (decomposition — all decisions already taken, none re-open)
 
-1. **P2a — committed-list liveness principle test** (next free slot under
-   `packages/core/principles/`): every `claudeMdExcludes` entry in `.claude/settings.json`
+1. **P2a — committed-list liveness principle test** — slot **34**, PRE-ASSIGNED, do NOT
+   re-derive «next free» (S-G concurrently takes slot **35**; both stages would otherwise
+   resolve «next free» to 34 independently — verified 2026-08-06, highest existing slot is
+   `33-adapter-jig-arm-registry.test.ts` — and git would merge two different `34-*` files
+   cleanly into broken numbering): every `claudeMdExcludes` entry in `.claude/settings.json`
    evaluated with `picomatch` (absolute paths, `{dot:true}`) against the repo file tree; any
    entry matching 0 files FAILS with the entry named. Behavioural — no prefix-form check
    (`**/` works via picomatch semantics, NOT the normaliser; spec §2). `picomatch` becomes an
@@ -35,6 +38,16 @@
 3. **P3a — wire the EXISTING `scripts/check-alwayson-budget.sh`** (ceiling 101,000 B, `:8`)
    into `.husky/pre-push` + CI mirror, with **per-environment ceilings** (N2 label required —
    the gate refuses an unlabelled ceiling) + escape token. REUSE — do not write a new gate.
+   **Declared coverage — state it, do not inherit it silently (umbrella §3 gate 2).**
+   token-audit S1's falsifier FIRED: the repo-authored injected set this gate can see measures
+   **29,589 tok (aif-container) / 39,021 tok (host-cc) against a ~100k session-start total →
+   29-39%** ([`2026-07-26-session-start-token-attribution.md:214-218`](../../../docs/meta-factory/research-patches/2026-07-26-session-start-token-attribution.md)).
+   The gate therefore governs a **minority share**, and the remaining 60-71% is harness-resident
+   and unreachable by any file-trim — it is addressed by P14 as operator recommendations, never
+   by this gate. Carry that as a **comment in the gate itself** (next to the ceiling) and as a
+   sentence in the PR body. Transplanting the old ceilings while implying whole-session coverage
+   is `#hope-as-gate` ([attention-is-not-a-mechanism.md §2](../../rules/attention-is-not-a-mechanism.md));
+   the ceiling numbers themselves are re-derived from S1's per-channel table, not copied.
 4. **P3b — fix `scripts/measure-always-on.sh` blindness:** it must apply the effective
    `claudeMdExcludes` (project ∪ local override semantics) so its output can serve as the §2
    item-3 fallback outcome channel.
@@ -77,10 +90,49 @@ bash scripts/check-alwayson-budget.sh
 bash scripts/measure-always-on.sh
 ```
 
-Plus review-time: the P2a test FAILS on the current staging `settings.json` (7 relative
-entries) and PASSES after the operator's P1 fix — both runs quoted in the PR body; the escape
-token tested (<20-char rationale fails); every ceiling carries an environment label; P3c/P11
-verdicts carry primary-source citations whichever way they land.
+Plus review-time:
+
+- **P2a discrimination, demonstrated without waiting on the operator.** The test MUST be shown
+  to discriminate on BOTH configurations, and neither run may depend on an operator action:
+  (i) against the committed list as it stands on staging (7 **relative** entries — verified
+  still present 2026-08-06, `jq -r '.claudeMdExcludes' .claude/settings.json`) → **FAILS**,
+  naming every inert entry; (ii) against the same list rewritten to `**/` glob form in a
+  **fixture / temp copy** the test reads → **PASSES**. Both runs quoted in the PR body.
+  Rationale: P1 (rewriting the committed list) is operator-only — `.claude/settings.json` is
+  outside §2's permitted set and agent-uncommittable — so an acceptance criterion that waits
+  for it is a criterion this stage cannot satisfy. If P1 *has* landed by acceptance time,
+  quote the live post-fix run **in addition**, never instead of the fixture pair.
+- The escape token tested (<20-char rationale fails); every ceiling carries an environment
+  label; the P3a declared-coverage sentence is present in both the gate comment and the PR body
+  with the 29-39% figure and its citation; P3c/P11 verdicts carry primary-source citations
+  whichever way they land.
+
+## §3a Park-don't-guess contract (non-negotiable)
+
+**aif agent — fork discipline (non-negotiable):** On ANY genuine fork or ambiguity (two
+defensible implementations, an undecided design choice, a missing spec detail that changes
+behaviour) — **do NOT pick.** Park it as a question (set the task to `manualReviewRequired` /
+`blocked_external` with the fork stated as «Option A → consequence X / Option B → consequence
+Y») and **stop that task.** Proceed only on the unambiguous parts.
+
+Expected to fire here on: **(a)** the per-environment ceiling numbers, if S1's table does not
+resolve one environment cleanly — park with the two candidate ceilings and their consequences
+rather than picking the safer-looking one; **(b)** P3c, if `InstructionsLoaded` turns out to
+observe but not block — that changes ADR-3's channel choice, so record the verdict with its
+citation and park the «promote the gate earlier?» decision; **(c)** P14, when a harness block
+has no measurement channel — the answer is `UNMEASURED — channel absent`, never an estimate
+(T-SE-B), and if a whole class is unmeasurable, park rather than ship a partial price list as
+if complete. Never manufacture a quoted command output for anything outside your environment.
+
+## §3b Parallel stage (S-G) — one shared surface
+
+S-G runs **concurrently** on a disjoint scope (`CLAUDE.md`, `.claude/rules/*`, skills — all of
+which §2 lists as NOT permitted here). The single overlap is `packages/core/principles/*`:
+S-G adds its own test + allowlist entry there. Work in an isolated worktree
+([parallel-subwave-isolation.md §1](../../rules/parallel-subwave-isolation.md)); if S-G merges
+first, resolve by **merging staging into this branch** — never `git rebase` a published branch
+([git-conflict-merge-forward.md](../../rules/git-conflict-merge-forward.md)). Do not touch any
+S-G file to «avoid the conflict»; that is scope creep, not conflict avoidance.
 
 ## §4 AI-traps
 

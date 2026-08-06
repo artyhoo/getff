@@ -47,6 +47,8 @@
    frontmatter) then regen `npx tsx scripts/render-rule-index.mjs --write` (never hand-edit
    the generated index); wire the `engineering:architecture` ADR template as /arch §1's
    spec-format slot (thin-wrapper line in `arch/SKILL.md`, trio §A2 G1 cited).
+   **Slot note:** any new principle test this stage ships takes slot **35**, PRE-ASSIGNED —
+   do NOT re-derive «next free» (S-E concurrently takes **34**; highest existing is `33-`).
 
 ## §2 Permitted files
 
@@ -68,6 +70,34 @@ Plus review-time: keep-list sections byte-identical (git diff shows no hunk touc
 `wc -c CLAUDE.md` before/after quoted in the PR body with the [A]-share arithmetic; the
 anti-drift test fails when a digest line is deleted (mutation shown once in the PR body);
 every trimmed section's new home is named.
+
+## §3a Park-don't-guess contract (non-negotiable)
+
+**aif agent — fork discipline (non-negotiable):** On ANY genuine fork or ambiguity (two
+defensible implementations, an undecided design choice, a missing spec detail that changes
+behaviour) — **do NOT pick.** Park it as a question (set the task to `manualReviewRequired` /
+`blocked_external` with the fork stated as «Option A → consequence X / Option B → consequence
+Y») and **stop that task.** Proceed only on the unambiguous parts.
+
+Expected to fire here on: **(a)** P5a, if ZCode does not honour `@`-imports — the kickoff says
+DOCUMENT the degradation and do not block, so that one is already decided; but if the import
+does not render **on CC either**, that invalidates the trim's mechanism → park, do not
+hand-inline the content as a workaround; **(b)** P5b, on any section where «is this the
+keep-list or is this duplicative?» is genuinely arguable — the keep-list is binding and a
+touched keep-list hunk is a REVISE (T-SG-A), so park the borderline section rather than
+trimming it; **(c)** P5c, when a T-number's counter cannot be compressed without paraphrase —
+the anti-drift test requires an exact prefix/quote, not a paraphrase (T-SG-B), so park rather
+than loosen the test to fit the digest. Never manufacture a quoted fresh-session observation.
+
+## §3b Parallel stage (S-E) — one shared surface
+
+S-E runs **concurrently** on a disjoint scope (`packages/core/hooks/`, `.husky/pre-push`,
+`scripts/*`, CI mirror); its own §2 lists `CLAUDE.md` and `.claude/rules/*` — this stage's
+territory — as NOT permitted. The single overlap is `packages/core/principles/*`: S-E adds the
+P2a liveness test + allowlist entry there. Work in an isolated worktree
+([parallel-subwave-isolation.md §1](../../rules/parallel-subwave-isolation.md)); if S-E merges
+first, resolve by **merging staging into this branch** — never `git rebase` a published branch
+([git-conflict-merge-forward.md](../../rules/git-conflict-merge-forward.md)).
 
 ## §4 AI-traps
 
