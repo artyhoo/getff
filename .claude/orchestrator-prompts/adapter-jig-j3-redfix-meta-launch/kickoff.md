@@ -8,6 +8,15 @@
 
 # adapter-jig J3 RED-CI fix + Option B (backends/golangci/) — dispatch kickoff
 
+> **SUPERSEDED 2026-08-06 — do NOT dispatch this file.** It was never dispatched, and its §1 is now
+> closed: the fabricated `actions/setup-go` SHA, the `install.sh` conflict and the stale synth bundle
+> are all fixed on PR #1171, and the OVER-BROAD golangci config §1 never knew about was found and fixed
+> (`packages/core/templates/go/.golangci.yml` — the forbid key is `p`, not `pattern`). Dispatching this
+> as written would send a worker at finished work. The surviving scope — §2 Option B — was re-baselined
+> into its own kickoff off current staging:
+> [`adapter-jig-j3-option-b/kickoff.md`](../adapter-jig-j3-option-b/kickoff.md). Read this file only as
+> the design-history record of §2.
+
 > **Goal:** close the 3 remaining RED-CI failures on PR #1171 (`feature/adapter-jig-j3-d4db43`, base
 > `staging`), resolve its `install.sh` merge conflict with staging, AND ship the Option-B
 > `backends/golangci/` E3 parity structure the operator chose — so J3 reaches a mergeable state: green
