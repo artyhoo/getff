@@ -233,6 +233,22 @@ EOF
 # `install.sh go`, the self-check prints "insufficient (tool absent)" — that is the honest label
 # for a local run; it does NOT let the stage finish. The stage finishes when the runner arm
 # (audit-self.yml go lane, F10 pin-parity mirror) is green and linked (T-EW-C posture).
+# _go_dump_lint_output — print a captured golangci-lint run verbatim (indented) so a FAILED
+# direction carries its own evidence into the log. Without it the self-check emitted a verdict
+# («OVER-BROAD») with no trace of what actually fired, leaving «re-run the tool by hand» as the
+# only diagnosis channel — a verdict nobody can act on from the log is not a mechanism
+# (attention-is-not-a-mechanism.md §1). Incident 2026-08-06: CI run 31093381580 reported
+# «1 ok · 0 SILENT · 1 OVER-BROAD» and the log carried zero golangci-lint output to root-cause it.
+_go_dump_lint_output() {
+  local _label="$1" _rc="$2" _text="$3"
+  echo "    ↳ $_label: golangci-lint exit=$_rc, output verbatim:"
+  if [ -n "$_text" ]; then
+    printf '%s\n' "$_text" | sed 's/^/      | /'
+  else
+    echo "      | (no output)"
+  fi
+}
+
 _go_firing_self_check() {
   echo ""
   local _pass=0 _silent=0 _degraded=0 _overbroad=0
@@ -263,6 +279,7 @@ _go_firing_self_check() {
       _pass=$((_pass+1))
     else
       echo "  ✗ golangci-lint did NOT fire on the planted violation — the delivered config is SILENT (delivery bug)"
+      _go_dump_lint_output "planted-violation run" "$_rc" "$_out"
       _silent=$((_silent+1))
     fi
     # Clean control: the delivered config must NOT flag os.Args (only os.Getenv is banned).
@@ -273,6 +290,12 @@ _go_firing_self_check() {
       _pass=$((_pass+1))
     else
       echo "  ✗ golangci-lint FIRED on the clean control — the delivered config is OVER-BROAD (an always-red config is not enforcement)"
+      _go_dump_lint_output "clean-control run" "$_rc_clean" "$_out_clean"
+      # The .go files golangci-lint actually saw on this run. Discriminates the two failure
+      # classes the exit code alone cannot: a genuinely over-broad pattern (fires on clean.go)
+      # vs. a stale/leftover violation.go still in the module (the rm did not take effect).
+      echo "    ↳ .go files present in the temp module at clean-control time:"
+      ( cd "$_t" && find . -name '*.go' -print ) 2>&1 | sed 's/^/      | /'
       _overbroad=$((_overbroad+1))
     fi
     rm -rf "$_t"
