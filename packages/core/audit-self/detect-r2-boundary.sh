@@ -41,7 +41,7 @@ DECLARATIVE_ALLOWLIST="${R2_DECLARATIVE_ALLOWLIST:-@hono/zod-openapi}"
 # Post-#735: install.sh ALSO ships the framework's vendored rules to `packages/core/eslint-rules/`
 # (so guard-liveness.ts can load) — same `.parse(`-as-rule-subject false-positive as eslint-rules-local
 # above, at a different path. Prune the vendored framework tree too. (GH #777)
-PRUNE=( -name node_modules -o -name dist -o -name coverage -o -name .stryker-tmp -o -name reports -o -name .next -o -name .git -o -name eslint-rules-local -o -path '*/packages/core' )
+PRUNE=( -name node_modules -o -name dist -o -name coverage -o -name .stryker-tmp -o -name reports -o -name .next -o -name .git -o -name eslint-rules-local -o -path '*/packages/core' -o -path '*/.claude/worktrees' )
 BOUNDARY_TOKENS=( handlers routes controllers actions )   # app/api is two-segment → path-probed below
 
 # A file is "test" (excluded from boundary signals) if it is *.test.* / *.spec.* / under __tests__ / under tests/.

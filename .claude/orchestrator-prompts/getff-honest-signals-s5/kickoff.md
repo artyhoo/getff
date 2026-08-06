@@ -61,6 +61,8 @@ bash tests/install-sh/refresh-covers-full-delivery.test.sh
 bash tests/install-sh/refresh-safe-dir-payload.test.sh
 bash tests/install-sh/f14-lintstaged-resolves.test.sh
 bash tests/install-sh/ship-orchestration-skills.test.sh
+bash tests/install-sh/refresh-reconciles-skill-rename.test.sh
+bash tests/install-sh/refresh-offers-lintstaged-migration.test.sh
 ```
 
 **All four verified PASS on `staging` at `e9fdae393` before this contract was written** — they are a real

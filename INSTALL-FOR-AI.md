@@ -66,14 +66,17 @@ Install getff into this project. Follow these steps exactly:
    `bash /tmp/getff/setup -y <detected-stack>`
    (adjust the path if Step 0 cloned the framework elsewhere)
 
-   `-y` installs the curated consumer set — the right default. Use
+   `-y` installs the curated consumer set at `core` depth — the right default. Use
    `bash /tmp/getff/setup --all <detected-stack>` INSTEAD only if I explicitly
    tell you this machine runs the aif-handoff operator runtime: --all
    additionally ships the AIF operator suite (6 skills + 2 agents +
-   skill-context) that dead-ends without that runtime. When unsure, use -y.
+   skill-context) at `factory` depth that dead-ends without that runtime.
+   Equivalent new-syntax forms: `install.sh <stack> --profile factory` (recommended for
+   new installs) or `install.sh <stack> --with-aif-suite` (legacy escape). When unsure, use -y
+   (i.e. core). See "Install depth profiles" below for the full core/env/factory breakdown.
 
    This installs:
-   - .claude/agents/{review-sidecar,living-docs-auditor,compliance-verifier,memory-codification-auditor,aif-init,rule-researcher,capability-reuse-auditor,docplan-auditor}.md (best-practices-sidecar is KEEP-AIF — not shipped by us; review-sidecar default-skips when AIF's exists; orchestrator-worker-discipline + reviewer-discipline ship only under --with-aif-suite / --all)
+   - .claude/agents/{review-sidecar,living-docs-auditor,compliance-verifier,memory-codification-auditor,aif-init,rule-researcher,capability-reuse-auditor,docplan-auditor}.md (best-practices-sidecar is KEEP-AIF — not shipped by us; review-sidecar default-skips when AIF's exists; orchestrator-worker-discipline + reviewer-discipline ship only under --profile factory / --with-aif-suite / --all)
    - .claude/skills/rules-as-tests/ — skill + 5 reference files in references/
    - .ai-factory/DESCRIPTION.template.md, ARCHITECTURE.ts-server.md, RULES.md, RULES.react-next.md (if applicable)
    - scripts/audit-ai-docs.sh (or .react-next.sh)
@@ -86,7 +89,7 @@ Install getff into this project. Follow these steps exactly:
    a. `npm run typecheck` — should pass on a fresh project
    b. `npm run lint` — may have warnings on existing code, that's OK
    c. `npm run audit:docs` — should run, may report findings (read them aloud to me)
-   d. `ls -la .claude/agents/` — confirm living-docs-auditor.md, compliance-verifier.md, memory-codification-auditor.md, aif-init.md, rule-researcher.md, capability-reuse-auditor.md, docplan-auditor.md exist (ours); review-sidecar.md + best-practices-sidecar.md may be AIF's when AIF is installed; orchestrator-worker-discipline.md + reviewer-discipline.md appear only after --with-aif-suite / --all
+   d. `ls -la .claude/agents/` — confirm living-docs-auditor.md, compliance-verifier.md, memory-codification-auditor.md, aif-init.md, rule-researcher.md, capability-reuse-auditor.md, docplan-auditor.md exist (ours); review-sidecar.md + best-practices-sidecar.md may be AIF's when AIF is installed; orchestrator-worker-discipline.md + reviewer-discipline.md appear only after --profile factory / --with-aif-suite / --all
    e. `ls -la .ai-factory/` — confirm DESCRIPTION.md (or .template.md), ARCHITECTURE.md, RULES.md exist
 
 6. Read .ai-factory/DESCRIPTION.template.md and tell me which placeholders need filling.
@@ -104,6 +107,50 @@ After all this, tell me:
 - The 3 most important things I should manually edit
 - The exact command to verify everything is wired up: `npm run validate && npm run audit:docs`
 ```
+
+---
+
+## Install depth profiles (`--profile core | env | factory`)
+
+Pick a depth instead of assembling flags. Three monotonic depths, default `core`:
+
+| Profile | What ships | When to pick |
+|---|---|---|
+| `core` (default) | Rules + tests + guard hooks + killer payload; today's default set. No AIF operator runtime. | Consumer projects that want the rules-as-tests discipline without any aif-handoff runtime. |
+| `env` | core + multi-model contour surface (/arch, presets, status, night-mode/SDD) — wired as placeholders; no AIF runtime. | Consumer projects that want the multi-model contour surface as future-state placeholders (the contour ships via follow-up stages S2-S5, not via this stage's install). |
+| `factory` | env + the AIF operator suite (dispatcher / harvest / aif-doctor + runtime-bridge wiring + GLM one-button placeholder) — full aif-handoff runtime stack. | Operator machines running the aif-handoff runtime. The legacy `--with-aif-suite` and `--all` flags are factory-equivalent escapes. |
+
+**Selection surfaces:**
+
+- `--profile <name>` flag (agents / CI — flag-first; case-insensitive). Mutually-aware with `--with-aif-suite`: if both are passed and disagree → WARN + `--profile` wins.
+- TTY menu (interactive; non-TTY defaults to `core` with a one-line notice — never blocks CI / `</dev/null`).
+- This `INSTALL-FOR-AI.md` section is the AI-dialog smart default (see "AI-dialog smart default" below).
+
+**AI-dialog smart default (the AI reading this section picks):**
+
+- Default → `core`. Recommend `core` when the consumer hasn't mentioned aif-handoff, /arch, or multi-model workflows.
+- Pick `env` if the consumer's stated goal includes /arch, multi-model contour, or status/night-mode features — and explicitly NOT aif-handoff runtime.
+- Pick `factory` ONLY if the consumer explicitly runs the aif-handoff operator runtime today (or asks for the dispatcher / harvest / aif-doctor surface). When unsure, fall back to `core` — `--profile` upgrades are stateless-regen (below), so starting shallow is reversible-by-deepening.
+
+**Stateless-regen upgrade path (NOT additive-components):**
+
+Re-run with a deeper profile to upgrade — the deeper payload arrives, the shallower artefacts stay byte-identical:
+
+```bash
+bash /tmp/getff/setup -y <stack>                          # core
+bash /tmp/getff/install.sh <stack> --refresh --profile env    # → env (env-only placeholders ADDED)
+bash /tmp/getff/install.sh <stack> --refresh --profile factory # → factory (AIF suite + aif-handoff row ADDED)
+```
+
+Downgrades are NOT auto — per inventory §5.3, a downgrade is `git rm` the deeper-only artefacts manually. The `--refresh` path keeps refreshing whatever's already on disk (prior opt-in), so a deeper install survives a shallower refresh.
+
+**Backward compatibility:**
+
+- `--with-aif-suite` — explicit escape; routes to `factory`-depth skill scope (today's behavior preserved).
+- `--all` — legacy alias for `--full --with-aif-suite`; now also sets `PROFILE=factory` for downstream consistency.
+- Every flag that worked before still works. Profiles are an additive surface over the existing flag machinery, not a replacement.
+
+See also: per-profile payload inventory at `docs/meta-factory/research-patches/2026-07-25-beta-a-s1-inventory.md` §2.
 
 ---
 
@@ -384,7 +431,7 @@ bash /path/to/getff/install.sh --refresh
 Framework-owned artefacts the consumer is **not** expected to edit in place:
 
 - `.claude/agents/*.md` — sub-agent prompts
-- `.claude/skills/` — core set (template-audit, ai-doc, rule-research) + rules-as-tests, tool-bootstrapping. The AIF operator suite — 6 skills (pipeline, dispatcher, aif-doctor, harvest, night-mode, story) + 2 agents (orchestrator-worker-discipline, reviewer-discipline) + their aif-orchestrator-discipline skill-context — ships only under `--with-aif-suite` / `--all`; `--refresh` keeps refreshing it when already present on disk (prior opt-in), never creates it otherwise.
+- `.claude/skills/` — core set (template-audit, ai-doc, rule-research) + rules-as-tests, tool-bootstrapping. The AIF operator suite — 6 skills (pipeline, dispatcher, aif-doctor, harvest, night-mode, story) + 2 agents (orchestrator-worker-discipline, reviewer-discipline) + their aif-orchestrator-discipline skill-context — ships only under `--profile factory` (or the equivalent legacy `--with-aif-suite` / `--all` escapes); `--refresh` keeps refreshing it when already present on disk (prior opt-in), never creates it otherwise.
 - `.claude/hooks/deps-hash-check.sh` — session hook
 - `scripts/*.sh`, `scripts/audit-r4.ts` — audit gate scripts
 - `packages/core/hooks/` — TS pre-push pipeline

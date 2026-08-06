@@ -133,24 +133,7 @@ The `bridge-profile` marker mechanic that Tier 1 relies on is shipped in `packag
 
 ## Umbrella closure convention
 
-When the **last stage** of a multi-stage umbrella merges, the merging session writes a `done.md` file at:
-
-```text
-.claude/orchestrator-prompts/<umbrella>/done.md
-```
-
-**Schema (binding):**
-
-```text
-# <umbrella> — DONE
-- Final PR: #<num>
-- Closed: <YYYY-MM-DD>
-- Summary: <one-line>
-```
-
-**When to write:** at the last-stage PR merge only — not at intermediate stage merges. For single-stage umbrellas, write at the one-and-only merge.
-
-**Why this convention:** `priority-score.sh` completion-detection Layer C3 checks `done.md` existence per candidate and tags `status=DONE done_pr=<num> basis=done-md`. This is the load-bearing fallback layer (deterministic, zero gh rate-limit cost, covers the 83% NO-MATCH bucket that branch-prefix and jaccard cannot reach). ADAPT of Cline Memory Bank committed-markdown sub-pattern (SSOT #77 — ~85% problem-class match on storage format; diverges on update trigger: Cline = on-demand AI-signalled, ours = explicit at-merge convention).
+> **See:** [docs/meta-factory/operational-conventions.md#1-umbrella-closure-convention](docs/meta-factory/operational-conventions.md#1-umbrella-closure-convention) — when the last stage of a multi-stage umbrella merges, the merging session writes `done.md` (the load-bearing `priority-score.sh` Layer C3 fallback).
 
 ## Operational conventions (non-obvious harness gates + orchestration obligations)
 
@@ -158,14 +141,14 @@ When the **last stage** of a multi-stage umbrella merges, the merging session wr
 
 - **Agent PR merge gating:** `~/.claude/hooks/git-safety.sh` allows `gh pr merge --squash` when `base=staging` or `base=epic/*`. Base=`main` is blocked — maintainer merges manually. Retrying on a real `main`-base block is futile.
 - **CONFLICTING PR → merge-forward, never rebase:** force-push is permission-classifier-blocked for agents in every form (`--force`, `--force-with-lease`, rewritten history to a new branch — verified 2026-07-21), so `git rebase` on a published PR branch is a dead end. Instead merge the base INTO the PR branch, regenerate conflicted generated artefacts (`SNAPSHOT_MODE=capture bash tests/install-sh/snapshot.sh`; `plugin/hooks` twins regenerate via pre-commit), verify, then plain fast-forward push. Full recipe + triage: [.claude/rules/git-conflict-merge-forward.md](.claude/rules/git-conflict-merge-forward.md). (Incident 2026-07-21, PR #1058.)
-- **Promote staging→main mechanics (two hard rules):** (1) the promote PR MUST have `head=staging` (base=`main`) — the §7 real-commit trailer backstop in `.github/workflows/audit-self.yml` (`continue-on-error` only when `base_ref==main && head_ref==staging`) is exempt ONLY for that head; a promote from any other branch loses the exemption and the required `ci-success` gate goes RED on pre-existing staging squash-commits whose `Prior-art:` trailers live in their PR bodies, not as git trailers (`--no-verify` cannot help — `ci-success` is server-side). (2) the maintainer MUST merge the promote as a **merge commit, never squash** — squash collapses to one parent and severs `staging`↔`main` ancestry, so the next promote surfaces false conflicts across ~all files. Recovery from a prior squash: a content-free reconciling merge (`git commit-tree origin/staging^{tree} -p origin/staging -p origin/main`, tree byte-identical to staging) pushed to `staging` with `--no-verify` (maintainer's hands — agents are deny-listed on `--no-verify`), then the canonical `head=staging` PR is clean + exempt. Precedent: `4ca44598c`. (Codified from memory `feedback_promote_staging_to_main_mechanics`; incident 2026-07-05 getff Wave-0.)
-- **Never move a branch ref with `git update-ref` — check EVERY worktree first.** `git branch -f` refuses a branch checked out in *any* worktree; **`git update-ref` does not**. A script that only tests `git symbolic-ref --short HEAD` is testing *the directory it happens to run in*, so when it runs from a linked worktree it concludes «not checked out» and moves a ref that another checkout is sitting on. The ref advances while that checkout's index and working tree stay behind, and every file added in between shows up there as a **staged deletion** — one `git commit -a` from wiping them. Correct test: `git worktree list --porcelain` → find the worktree holding `refs/heads/<branch>` → fast-forward it *there* (`git -C <path> merge --ff-only`), so ref + index + tree move together. Incident 2026-07-24: `~/.claude/sync-branch-from-api.sh` (operator-global, called by `refresh-aif-base.sh`'s host arm) desynced the main checkout to 29 files / 4737 staged deletions including dozens of `kickoff.md`; repaired with `git restore --source=HEAD --staged --worktree .` after proving the index matched an old commit's tree exactly (i.e. zero real local edits). The container-side arm of [`refresh-aif-base.sh`](.claude/skills/aif-doctor/helpers/refresh-aif-base.sh) (detach → `branch -f` → re-attach, lines 83-94) has always been correct — only the host arm was not.
+- **Promote staging→main mechanics (two hard rules):** see [docs/meta-factory/operational-conventions.md#promote-stagingmain-mechanics-two-hard-rules](docs/meta-factory/operational-conventions.md#promote-stagingmain-mechanics-two-hard-rules) — fires when promoting staging→main (the `head=staging`-only §7 exemption + the merge-commit-never-squash rule).
+- **Never move a branch ref with `git update-ref`:** see [docs/meta-factory/operational-conventions.md#never-move-a-branch-ref-with-git-update-ref--check-every-worktree-first](docs/meta-factory/operational-conventions.md#never-move-a-branch-ref-with-git-update-ref--check-every-worktree-first) — fires before any `git update-ref` / branch-ref move (worktree-desync hazard — check EVERY worktree first).
 - **600-line markdown gate:** pre-commit hook blocks commits that push any markdown file past 600 lines. Check `wc -l <file>` before adding content to near-600 files (e.g. `docs/meta-factory/open-questions.md`). To free lines: migrate resolved `§13.x` entries to `docs/meta-factory/closed-questions.md` (append-only archive — TOC row + full entry under `## Archived entries`).
 - **Homebrew PATH in hooks:** CC-launched hooks run with a stripped PATH (Homebrew absent). Hooks calling `gh`, `jq`, or other Homebrew tools must export `PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"` after `set -euo pipefail`. Symptom: hook returns empty output from `gh pr view` despite correct auth. (Codified from memory `feedback_harness_merge_block_and_500line_gate`.)
 
 ### Meta-orchestrator self-review obligation
 
-Before any `/meta-orchestrator` session hands off a meta-kickoff to an orchestrator, spawn a Phase -1 cold-review (read-only Agent, adversarial) on the generated `<umbrella>-meta-launch/kickoff.md` against the umbrella's `kickoff.md`. One REVISE round maximum. The orchestrator's own Phase -1 reviews the dispatch prompt — it does NOT cover meta-synthesis bugs. Evidence: 2026-05-28 — a BLOCKER in §3 stage-gate logic was caught only by meta-level cold-review. Home note (audited 2026-07-21): no `meta-orchestrator` global skill exists, so this section IS the home until one is created. (Codified from memory `feedback_meta_orch_self_reviews_own_kickoff`.)
+> **See:** [docs/meta-factory/operational-conventions.md#3-meta-orchestrator-self-review-obligation](docs/meta-factory/operational-conventions.md#3-meta-orchestrator-self-review-obligation) — before any `/meta-orchestrator` session hands off a meta-kickoff to an orchestrator, spawn a Phase -1 cold-review on the generated `<umbrella>-meta-launch/kickoff.md` against the umbrella's `kickoff.md`.
 
 ### Phase -1 principle-test allowlist probe
 

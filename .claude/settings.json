@@ -215,6 +215,9 @@
     ".claude/rules/egress-no-api-bypass.md",
     ".claude/rules/memory-codification.md",
     ".claude/rules/recommendation-laziness-discipline.md",
-    ".claude/rules/reviewer-discipline.md"
+    ".claude/rules/reviewer-discipline.md",
+    ".claude/rules/autonomous-loop-continuity.md",
+    ".claude/rules/git-conflict-merge-forward.md",
+    ".claude/rules/cold-seat-economy.md"
   ]
 }

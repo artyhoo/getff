@@ -123,7 +123,9 @@ the mechanics.
 
 **Pre-egress fidelity gate (design altitude — spec D2/D6).** `harvest.ts` creates the PR and
 queues auto-merge inside one binary, so the fidelity seam is HERE, before invoking it.
-Dispatch [`agents/fidelity-auditor.md`](../../../agents/fidelity-auditor.md) cold: inputs = the
+Dispatch [`agents/fidelity-auditor.md`](../../../agents/fidelity-auditor.md) cold, **with an
+explicit `name`** (keeps the resume exception of [cold-seat-economy.md §3](../../rules/cold-seat-economy.md)
+reachable; the follow-up default is a fresh narrow seat): inputs = the
 stage kickoff path + the container diff (read-only; in-container `origin/staging` is the
 established §2.4/harvest-§1 inspect pattern; 3-dot tolerates a stale base):
 
@@ -160,6 +162,14 @@ docker exec aif-handoff-agent-1 git -C <worktree> diff origin/staging...HEAD
 - Restart safety (spec D10): all rework state above lives in durable stores (aif task
   comments, PR body, git) — a fresh dispatcher session resumes by re-probing (§2.0/§2.2);
   never carry contour state only in session memory (`#state-in-session-memory`).
+- <!-- seat-economy embed (spec-of: .claude/rules/cold-seat-economy.md) -->
+  Seat economy ([cold-seat-economy.md](../../rules/cold-seat-economy.md)): the Audited-SHA
+  guard forces a refresh after every new commit, but a commit that moves none of what the seat
+  judges (deliverables / permitted files / descopes) earns only a **narrow cold delta check** —
+  a fresh cold agent handed the incremental diff + kickoff scope sections + the round-1
+  watch-list (resume the same auditor by name only when the watch-list cannot carry it) — not a
+  full re-audit, and never a self-issued verdict. Have the round-1 seat leave that watch-list
+  in the PR body / task comment. Order seats so this audit runs on the final diff.
 
 Then push:
 

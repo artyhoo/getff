@@ -1,0 +1,88 @@
+# Proposal 1 — zcode-parity-doctrine.md paths: frontmatter
+
+> **Apply to:** `.claude/rules/zcode-parity-doctrine.md`
+> **Origin:** session-start-token-audit S2 §1 table row 1 + Note A (binding).
+> **Mechanism:** CC-native conditional load. A rule with `paths:` frontmatter is loaded by
+> Claude Code only when the session reads files matching the listed globs (CC docs: "Path-scoped
+> rules trigger when Claude reads files matching the pattern"). The `<!-- globs: -->` marker
+> this rule already carries (currently at line 8) does NOT restrict the CC-native loader —
+> only `paths:` does. Pasting the marker's comma-separated string as a scalar yields either
+> "rule never loads" or "rule stays always-on" — both silently. Each glob must be a YAML list
+> item.
+> **Token impact:** 22,177 bytes / ~5,544 tokens removed from every session-start (host-cc +
+> aif-container). Source: S1 attribution table row for `zcode-parity-doctrine.md`.
+> **Diff verification:** mechanically generated + `git apply --check` returns clean against the
+> pre-application HEAD of `feature/session-start-token-audit-c781e8` (commit 336d031ef, 2026-07-30).
+
+## The diff (apply with `git apply`)
+
+```diff
+diff --git a/.claude/rules/zcode-parity-doctrine.md b/.claude/rules/zcode-parity-doctrine.md
+--- a/.claude/rules/zcode-parity-doctrine.md
++++ b/.claude/rules/zcode-parity-doctrine.md
+@@ -1,3 +1,12 @@
++---
++paths:
++  - .claude/hooks/**
++  - scripts/render-harness-config.mjs
++  - plugin/hooks/**
++  - docs/meta-factory/zcode-parity-mega.*.md
++  - docs/meta-factory/research-patches/2026-07-18-zcode-parity-*.md
++---
++
+ # ZCode parity doctrine — discipline rule
+
+ > **Class:** A — companion principle test shipped at [packages/core/principles/09-doc-authority-hierarchy.test.ts](../../packages/core/principles/09-doc-authority-hierarchy.test.ts) (doctrine registered in `REQUIRED_HEADER_DOCS`; the doctrine itself is a SSOT pointer-aggregator, the enforcement lives in existing gates per §6).
+```
+
+(The diff's @@ -1,3 +1,12 @@ hunk header reflects: 3 -side context lines (`# title`, blank, `> Class:`) → 12 +side lines (9 added + 3 context). The hunk is minimal — it only adds the frontmatter block + trailing blank.)
+
+## Apply recipe
+
+```bash
+# 1. Apply the diff (maintainer hands; agents are deny-listed on .claude/**):
+git apply docs/meta-factory/research-patches/2026-07-26-session-start-token-audit-proposals/01-zcode-parity-doctrine-paths-frontmatter.diff
+# Verify it applied:
+head -12 .claude/rules/zcode-parity-doctrine.md
+
+# 2. Verify NO line-number citations need shifting (mechanically verified at proposal
+#    authoring time 2026-07-30):
+git grep -nE 'zcode-parity-doctrine\.md:[0-9]+' -- ':!docs/meta-factory/research-patches/2026-07-26-session-start-token-audit-proposals/'
+# Expected: EMPTY. At S2 authoring time, NO file in the repo cites this rule by :line-number
+# (no rule, doc, test, or kickoff references `zcode-parity-doctrine.md:<N>`). The line-shift
+# caused by the 9-line frontmatter insertion is therefore a non-event — but step is retained
+# as a binding re-verification, not a busywork step. If the grep returns hits, update each
+# cited line number to its new (shifted-by-+9) value.
+
+# 3. Verify CC-native loader honours the new frontmatter (live session start):
+#    Start a fresh CC session in this repo, edit a file under .claude/hooks/, and confirm
+#    the rule appears in the loaded context. Then start a session editing an unrelated file
+#    (e.g. README.md) and confirm the rule is ABSENT.
+
+# 4. Verify dual-pair invariant: the existing <!-- globs: --> marker (post-shift line ~17)
+#    must carry the SAME glob set as paths: above. Compare comma-split to the paths: list —
+#    they must be set-equal (per rule-enforcement-channel-selection.md §4 "Keep the two glob
+#    sets identical"):
+grep -A1 '<!-- globs:' .claude/rules/zcode-parity-doctrine.md
+```
+
+## Why this is safe
+
+- 15 rules already use `paths:` frontmatter (verified at S1; e.g. `ci-tool-pinning.md:3-9`).
+- zcode-parity-doctrine is already registered in principle 09 `REQUIRED_HEADER_DOCS`
+  (`packages/core/principles/09-doc-authority-hierarchy.ts:28-55`) — frontmatter and the
+  doc-authority header coexist fine (15 precedents).
+- The rule's `Fires:` clause (currently line 4) already enumerates exactly these paths — the
+  rule was DESIGNED to fire only on this scope, but the CC-native loader ignored that intent
+  and loaded it always. This proposal aligns the runtime behaviour with the declared intent.
+
+## Risks if misapplied
+
+- **Pasting as scalar** (`paths: .claude/hooks/**, scripts/render-harness-config.mjs, ...`)
+  produces silent no-op (rule stays always-on) — the YAML parses as a single string, not a
+  list. Each glob MUST be a `- ` list item. The diff above uses the correct list form.
+- **Forgetting the `---` terminator** makes the frontmatter body part of the rule body —
+  silent parse failure. The diff includes both opening and closing `---`.
+- **Missing the re-grep step (step 2)** would leave stale `:N` citations if any exist — at
+  proposal authoring time none do, but new citations added between S2 and the maintainer's
+  application could exist; re-verify.
