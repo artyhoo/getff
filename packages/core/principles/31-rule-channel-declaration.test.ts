@@ -60,7 +60,7 @@ describe('Principle 31 — every rule declares a delivery channel (4-branch PASS
         [
           'build-first-reuse-default.md',
           'attention-is-not-a-mechanism.md',
-          'ai-laziness-traps.md',
+          'ai-laziness-digest.md',
           '00-rule-index.md',
         ].sort(),
       );
@@ -121,7 +121,7 @@ describe('Principle 31 — every rule declares a delivery channel (4-branch PASS
     });
 
     it('positive control: the SAME fixture content, but named as an ALWAYS_ON_CORE member, passes', () => {
-      const fields = loadFixtureFields('no-channel-at-all.md', 'ai-laziness-traps.md');
+      const fields = loadFixtureFields('no-channel-at-all.md', 'ai-laziness-digest.md');
       const result = evaluateRuleChannel(fields, REPO_ROOT);
       expect(result.ok).toBe(true);
     });
@@ -137,7 +137,7 @@ describe('Principle 31 — every rule declares a delivery channel (4-branch PASS
       const fiveEntryCore = [
         'build-first-reuse-default.md',
         'attention-is-not-a-mechanism.md',
-        'ai-laziness-traps.md',
+        'ai-laziness-digest.md',
         '00-rule-index.md',
         'one-too-many.md',
       ];

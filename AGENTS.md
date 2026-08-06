@@ -28,7 +28,8 @@ One line per rule — full text: read `.claude/rules/<name>.md` (index: `.claude
 
 | Rule | Class | Fires | Channel(s) |
 |---|---|---|---|
-| `ai-laziness-traps.md` | A | any R-phase, audit, sample-based investigation, or open-ended AI task. | always-on core |
+| `ai-laziness-digest.md` | A | any R-phase, audit, sample-based investigation, or open-ended AI task. | always-on core |
+| `ai-laziness-traps.md` | A | any R-phase, audit, sample-based investigation, or open-ended AI task. | paths:(5), edit-time inject |
 | `attention-is-not-a-mechanism.md` | C | designing any load-bearing check (gate vs. bare human/AI attention). | always-on core |
 | `autonomous-loop-continuity.md` | B | unattended turn ending with work in flight. | hook |
 | `build-first-reuse-default.md` | A | any capability commit / new-capability proposal. | always-on core |
@@ -39,8 +40,8 @@ One line per rule — full text: read `.claude/rules/<name>.md` (index: `.claude
 | `doc-authority-hierarchy.md` | A | creating/editing any canonical or shipped consumer-facing doc. | paths:(4), edit-time inject |
 | `dual-implementation-discipline.md` | A | shipping a new CC-native hook + choosing its delivery channel(s). | paths:(3), edit-time inject |
 | `egress-no-api-bypass.md` | B | harvesting/egressing a finished aif-agent branch to a PR. | skill-embed |
-| `evidence-regeneration.md` | B | a per-backend toolchain-freshness gate (`checkToolchainFreshness`) goes RED, or a rendered-not-fired matrix cell needs its first live-fired evidence. | paths:(1), edit-time inject |
-| `git-conflict-merge-forward.md` | B | a PR turns CONFLICTING (`mergeable_state: dirty`) because the base branch moved ahead; any urge to `git rebase` and/or `git push --force*` a published PR branch. | claude-md |
+| `evidence-regeneration.md` | B | a toolchain-freshness gate goes RED, or a rendered-not-fired matrix cell needs its first live-fired evidence. | paths:(1), edit-time inject |
+| `git-conflict-merge-forward.md` | B | a CONFLICTING PR (`mergeable_state: dirty`) or any `git rebase` / `git push --force*` urge on a published branch. | claude-md |
 | `kickoff-staging-placement.md` | B | editing/creating any file under `.claude/orchestrator-prompts/<umbrella>/`. | paths:(1), edit-time inject |
 | `language-discipline.md` | A | writing any internal machinery or human-facing output. | paths:(3), edit-time inject |
 | `memory-codification.md` | B | writing a durable behavioural convention to agent memory. | hook |

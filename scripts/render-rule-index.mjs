@@ -56,7 +56,7 @@ const INDEX_MAX_BYTES = 4 * 1024;
 const TIER0_CORE = new Set([
   'build-first-reuse-default',
   'attention-is-not-a-mechanism',
-  'ai-laziness-traps',
+  'ai-laziness-digest',
 ]);
 
 function findRoot(start) {
