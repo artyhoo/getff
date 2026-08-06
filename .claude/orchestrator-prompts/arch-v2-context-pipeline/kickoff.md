@@ -98,8 +98,29 @@ forward+backward self-check and a `Prior-art:` trailer (or the ≥20-char escape
 | S-E | L1 budget gate + config-assertion asserts + `InstructionsLoaded` verification (spec P2/P3 — container-safe set after the rev-4 split; P3d/P11/P14 → S-H) | S-G **merged** (resident baseline) + token-audit S1 **merged** | 2 | YES per /arch §3 D1 exception (spec-produced, plan-complete; re-verify precondition at dispatch) | ADR-3 |
 | S-F | small-fixes queue (handoff decision 13), one maintenance PR; item 4 **CONSUMED** by S-E's P2 (see charter) | token-audit S2 timing | 1 | YES (`Z.AI GLM-5.2 SDK`) | — |
 | S-G | economy small-fixes 2 (spec P5-P8 + P12: `CLAUDE.md` pointer-collapse trim + traps digest + renderer/probe channel-truth fixes, rule-embed handoffs, inlined-dispatch template default, ADR-template wiring) | decision-layer spec merged (met) — **runs FIRST of the remaining stages** | 1 | YES (`Z.AI GLM-5.2 SDK`) | — |
-| S-H | host-side measurements (spec P3d per-turn attribution via new `scripts/measure-turn-attribution.sh` incl. the FORK E injector line + P11 Explore/Plan probe + P14 harness-remainder price list + conditional P3c live confirmation) | re-plan merged; **UNBLOCKED from S-E** (round-4 M-6) — S-E touchpoints degrade gracefully per the stage kickoff | 1 (host-bound) | **NO — not factory-bound**: container lacks `~/.claude/projects`, `/context`, live CC (spec §1.6 FORK C); executed by a host CC session | ADR-3 (measurement arm) |
-| S-I | doctor-surfaced context-economy residue (spec §8, operator-invited expansion 2026-08-06): project+user skill-`description:` trims with trigger-inventory acceptance, plugin-`skillOverrides` probe, autosync-hook deferred-report fix; P-I3/P-I4 pre-executed in the /arch session, stage verifies | S-I kickoff merged | 1 (host-bound) | **NO — not factory-bound** (same FORK C rationale); host CC session on the **MID tier** (Opus today) with `superpowers:writing-skills` + `ai-doc` loaded (operator directive 2026-08-06) | — |
+| S-H | host-side measurements (spec P3d per-turn attribution via new `scripts/measure-turn-attribution.sh` incl. the FORK E injector line + P11 Explore/Plan probe + P14 harness-remainder price list + conditional P3c live confirmation) | re-plan merged; **UNBLOCKED from S-E** (round-4 M-6) — S-E touchpoints degrade gracefully per the stage kickoff | 1 (host-bound) | **NO — not factory-bound**: the container carries a DIFFERENT population, not an absent surface (rev 5 correction — see the FORK C note below the table) | ADR-3 (measurement arm) |
+| S-I | doctor-surfaced context-economy residue (spec §8, operator-invited expansion 2026-08-06): project+user skill-`description:` trims with trigger-inventory acceptance, plugin-`skillOverrides` probe, autosync-hook deferred-report fix; P-I3/P-I4 pre-executed in the /arch session, stage verifies | **S-G merged** (rev 5 — permitted-set collision, see Ordering) | 1 (host-bound) | **NO — not factory-bound** (same FORK C rationale); host CC session on the **MID tier** (Opus today) with `superpowers:writing-skills` + `ai-doc` loaded (operator directive 2026-08-06) | — |
+
+> **FORK C — why S-H and S-I are host-bound (rev 5, corrected against a live container probe).**
+> The earlier wording — «container lacks `~/.claude/projects`, `/context`, live CC» — is **false as
+> written** and was corrected rather than re-pinned. Measured 2026-08-06:
+> `docker exec aif-handoff-agent-1 sh -c 'find /home/node/.claude/projects -name "*.jsonl" | wc -l'`
+> → **746**. The container has the surface; what it does not have is the **population**. The
+> `claude-auth` volume is a *named* volume, not a bind of the host `~/.claude`
+> (`aif-handoff/docker-compose.yml:27,75`), so those 746 transcripts are the container's own
+> executor-seat sessions. S-H prices inject cost **per seat class** and S-D′ consumes it to cut the
+> **expensive** seats first (decision-layer spec §0.5); the container is exactly the one cheap class.
+> P14 compounds it — MCP schemas, plugin SessionStart injects, skills/agents listings and the memory
+> index are the operator's configuration, so a container-side price list would be internally correct
+> and answer the wrong machine (`#budget-sized-to-the-wrong-machine`,
+> [destination-environment-verification.md §4](../../rules/destination-environment-verification.md)).
+> S-I is host-bound for the same class of reason (`~/.claude/settings.json`, `skillOverrides`,
+> `~/.claude/skills`, `~/.claude/hooks` are the operator's, not the container's).
+> **Honest weak point:** P11 (do `Explore`/`Plan` load `.claude/rules`?) is the one item that *could*
+> technically run in the container — it is kept host-side because the container runs a different
+> runtime profile, so a container answer would describe a different harness. **Falsifier:** if a
+> future container image binds the host `~/.claude` read-only AND runs the host's runtime profile,
+> this rationale dies and the stages become factory-eligible — re-probe the mount before assuming it.
 
 ### S-A — `/arch` v2 rewrite
 
@@ -305,9 +326,15 @@ cross-umbrella token-audit S1 dependency, met). **S-H is independent** (round-4 
 host-side, dispatchable any time after the re-plan merges, concurrent with S-G/S-E — its
 S-E touchpoints degrade gracefully per its kickoff. **S-D′ last** (consumes S-E's fixed
 meter + S-H's P11/P14/P3d numbers, two-gate form each).
-**S-I is independent** (host-bound; skills-listing budget is a
-disjoint surface from the rules resident set): dispatchable any time after its kickoff merges,
-concurrent with everything; if it runs before S-G, its re-measure notes the pre-S-G baseline.
+**S-I runs AFTER S-G merges** (rev 5, 2026-08-06 — the rev-4 «independent, concurrent with
+everything» statement is SUPERSEDED; a Phase -1 cold review falsified it). The *budget surface*
+is disjoint from the rules resident set, but the *file set* is not: S-G's §2 permitted set
+reserves `.claude/skills/{arch,harvest,dispatcher}/SKILL.md` and `tests/install-sh/*`
+(`../arch-v2-context-pipeline-s-g/kickoff.md:117-131`), while S-I edits the `description:` field
+of every `.claude/skills/*/SKILL.md` and regenerates the same snapshots. Sequencing also repairs
+the arithmetic: with S-G's three skills unavailable, S-I's byte target was unreachable. S-I stays
+independent of S-E and S-H (neither touches either surface); its baseline is re-measured against
+post-S-G `HEAD` at stage start.
 S-F rides token-audit S2 timing, independent of this chain. The rev-3 statements («S-G
 concurrent with S-E» in the stage kickoffs; «S-G after S-D′» in the earlier Ordering
 paragraph) are both SUPERSEDED by this one. Parallel stages take isolated worktrees
