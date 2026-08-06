@@ -31,6 +31,7 @@ import {
   statSync,
 } from 'node:fs';
 import { resolve, dirname, relative } from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 // @ts-expect-error picomatch 4.x ships no type declarations; no @types/picomatch exists.
 // Behavioural callers (principle 34, this section) treat the API as `any` and assert
@@ -1341,34 +1342,40 @@ function localShadowClaudeMdExcludesSection(): void {
     (x: unknown) => typeof x === 'string',
   );
 
-  // Enumerate repo files (skipping .git, node_modules — same population as
-  // principle 34). Picomatch.isMatch signature: (STRING, PATTERNS, OPTIONS).
-  const SKIP = new Set(['.git', 'node_modules']);
-  const files: string[] = [];
-  const walk = (dir: string): void => {
-    let entries: string[];
-    try {
-      entries = readdirSync(dir);
-    } catch {
-      return;
-    }
-    for (const name of entries) {
-      if (SKIP.has(name)) continue;
-      const full = resolve(dir, name);
-      let st;
-      try {
-        st = statSync(full);
-      } catch {
-        continue;
-      }
-      if (st.isDirectory()) walk(full);
-      else if (st.isFile()) {
-        const rel = relative(REPO_ROOT, full).split('\\').join('/');
-        if (rel.length > 0) files.push(rel);
-      }
-    }
-  };
-  walk(REPO_ROOT);
+  // Enumerate the repo file tree as ABSOLUTE paths from the GIT-TRACKED list —
+  // the same population and the same two corrections as principle 34
+  // (34-claudemd-excludes-liveness.test.ts, see its enumerateRepoFiles doc):
+  //
+  //  * absolute, because the CC client matches claudeMdExcludes against absolute
+  //    paths; matching relative paths makes the historical broken form
+  //    self-matching and the check blind to it;
+  //  * tracked, because a walk that skips only .git/node_modules descends into the
+  //    gitignored nested worktrees under .claude/worktrees/ — ~293k files and ~11 s
+  //    on the maintainer's primary checkout, and it masks deletions (a stale copy
+  //    inside another worktree keeps a dead entry matching).
+  //
+  // Both were caught by the round-1 cold fidelity audit of this stage. Keep the two
+  // enumerators in step: if one changes population, the other must too, or the
+  // pre-push section and principle 34 start disagreeing about what "the repo file
+  // tree" is. Picomatch.isMatch signature: (STRING, PATTERNS, OPTIONS).
+  let files: string[] = [];
+  try {
+    files = execFileSync('git', ['ls-files', '-z'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    })
+      .split('\0')
+      .filter((p: string) => p.length > 0)
+      .map((p: string) => `${REPO_ROOT}/${p.split('\\').join('/')}`);
+  } catch {
+    // git unavailable → cannot establish the population; a superset check over an
+    // empty population would pass vacuously, so say so instead of going green.
+    process.stdout.write(
+      '⚠️  local-shadow claudeMdExcludes: `git ls-files` failed — DID NOT RUN (this is a skip, not a pass).\n',
+    );
+    return;
+  }
 
   // Match-set SUPERSET check: every file matched by project must also be matched by local.
   const missing: string[] = [];

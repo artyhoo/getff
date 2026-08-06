@@ -27,8 +27,9 @@
  * double-asterisk-slash form AND the inert relative-path form is T-SE-A theatre.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { resolve, relative, dirname } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 // @ts-expect-error picomatch 4.x ships no type declarations; no @types/picomatch exists.
 import picomatch from 'picomatch';
@@ -45,40 +46,41 @@ function loadSettings(): Settings {
 }
 
 /**
- * Enumerate every regular file under REPO_ROOT, returning repo-relative POSIX paths.
- * Skips `.git` and `node_modules` (the latter is large, ephemeral, and never an
- * exclude target — keeping the walk under a second). All other directories,
- * including dot-dirs like `.claude/`, ARE walked — excludes live there.
+ * Enumerate the repo file tree as ABSOLUTE POSIX paths, from the GIT-TRACKED file
+ * list (`git ls-files -z`).
+ *
+ * TWO deliberate properties, both of which a naive `readdirSync` walk got wrong
+ * (fixed after the round-1 cold fidelity audit of this stage):
+ *
+ * 1. ABSOLUTE, not repo-relative. `claudeMdExcludes` patterns are matched by the
+ *    CC client against absolute file paths (code.claude.com/docs/en/settings —
+ *    "Patterns match against absolute file paths"), and the kickoff specifies the
+ *    same. Matching relative paths is not merely a different convention: it makes
+ *    the historical broken form self-matching, because
+ *    `picomatch.isMatch('.claude/rules/x.md', '.claude/rules/x.md')` is TRUE while
+ *    `picomatch.isMatch('/abs/.claude/rules/x.md', '.claude/rules/x.md')` is FALSE.
+ *    A relative-path enumerator therefore reports ZERO dead entries for exactly the
+ *    defect class this principle exists to catch — see N34-1 below, which is only
+ *    reachable because of this line.
+ *
+ * 2. TRACKED files, not a filesystem walk. A walk that skips only `.git` and
+ *    `node_modules` descends into gitignored nested worktrees under
+ *    `.claude/worktrees/` — on the maintainer's primary checkout that is ~293k
+ *    files (~11 s) and, worse, it MASKS deletions: a rule deleted from the tracked
+ *    tree still matches through a stale copy inside another worktree, so a dead
+ *    entry reads as live. `git ls-files` is the honest population for "the repo
+ *    file tree" and is what makes the check see the tree the client will see.
  */
 function enumerateRepoFiles(): string[] {
-  const out: string[] = [];
-  const SKIP = new Set(['.git', 'node_modules']);
-  const walk = (dir: string): void => {
-    let entries: string[];
-    try {
-      entries = readdirSync(dir);
-    } catch {
-      return;
-    }
-    for (const name of entries) {
-      if (SKIP.has(name)) continue;
-      const full = resolve(dir, name);
-      let st;
-      try {
-        st = statSync(full);
-      } catch {
-        continue;
-      }
-      if (st.isDirectory()) {
-        walk(full);
-      } else if (st.isFile()) {
-        const rel = relative(REPO_ROOT, full).split('\\').join('/');
-        if (rel.length > 0) out.push(rel);
-      }
-    }
-  };
-  walk(REPO_ROOT);
-  return out;
+  const out = execFileSync('git', ['ls-files', '-z'], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  return out
+    .split('\0')
+    .filter((p) => p.length > 0)
+    .map((p) => `${REPO_ROOT}/${p.split('\\').join('/')}`);
 }
 
 describe('Principle 34 — claudeMdExcludes liveness (every entry matches ≥1 file)', () => {
@@ -118,6 +120,59 @@ describe('Principle 34 — paired-negative N34-1 (the check catches inert entrie
   // fail this check. N34-1 proves the check actually fails on a known-inert input:
   // a fixture entry naming a file that does not exist in the repo. A test that
   // passes on a known-inert input is non-discriminating (T-SE-A theatre).
+
+  it('N34-1a: the LIVE list rewritten to the historical relative-path form is ALL dead', () => {
+    // THE mandated FAIL leg (kickoff §3): take the real committed list and rewrite
+    // each entry back to the historical relative-path form `.claude/rules/<name>.md`
+    // — the exact shape that silently no-opped before PR #1223 — and assert EVERY
+    // rewritten entry is reported dead.
+    //
+    // This leg is the whole point of the principle, and it is UNREACHABLE unless
+    // enumerateRepoFiles() emits absolute paths: against repo-relative paths the
+    // historical form matches itself, so a relative-path enumerator reports 0 dead
+    // here and the check passes on both the working and the broken form — T-SE-A
+    // theatre, and precisely the defect the round-1 cold fidelity audit caught.
+    const files = enumerateRepoFiles();
+    expect(files.length).toBeGreaterThan(0);
+
+    const s = loadSettings();
+    const excludes: string[] = Array.isArray(s.claudeMdExcludes)
+      ? s.claudeMdExcludes
+      : [];
+    expect(excludes.length).toBeGreaterThan(0);
+
+    const historical = excludes.map((e) =>
+      `.claude/rules/${e.replace(/^\*\*\//, '')}`,
+    );
+    // Guard: the rewrite must actually have changed every entry, otherwise this
+    // leg is vacuous (e.g. if the committed list ever stops using the `**/` form).
+    expect(
+      historical.every((h, i) => h !== excludes[i]),
+      'N34-1a: rewrite produced an entry identical to the live one — the fixture no longer represents the historical form; update the rewrite.',
+    ).toBe(true);
+
+    const dead = historical.filter(
+      (entry) => !files.some((f) => picomatch.isMatch(f, entry, { dot: true })),
+    );
+    expect(
+      dead,
+      `N34-1a: the historical relative-path form must be detected as INERT for every entry. ` +
+        `Live entries: ${excludes.length}; detected dead: ${dead.length}. ` +
+        `If this is empty, the enumerator is emitting relative paths and the check cannot ` +
+        `discriminate the working form from the broken one.`,
+    ).toHaveLength(excludes.length);
+
+    // And the positive direction on the same population, so the leg proves a
+    // DIFFERENCE rather than "nothing matches anything".
+    const liveDead = excludes.filter(
+      (entry) => !files.some((f) => picomatch.isMatch(f, entry, { dot: true })),
+    );
+    expect(
+      liveDead,
+      `N34-1a: the LIVE form must match real files on the same population — ` +
+        `if both forms are dead the fixture proves nothing.`,
+    ).toEqual([]);
+  });
 
   it('N34-1: a fixture inert entry (matches 0 repo files) is detected as dead', () => {
     const files = enumerateRepoFiles();
