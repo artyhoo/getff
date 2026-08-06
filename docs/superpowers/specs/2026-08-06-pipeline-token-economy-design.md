@@ -520,14 +520,25 @@ new out-of-scope surface, one host-side observation:
    skills contribute ~2.2k; heaviest measured description: `arch/SKILL.md` 1,486 chars, then
    `self-reflection` 969 / `aif-doctor` 965 / `pipeline` 907 (host-measured this session).
    The dominant weight (~6.2k) is app-bundled plugins outside repo control, so a repo-side
-   fix recovers at most the project share. Disposition: NOT added to the reviewed S-G/S-E
-   kickoffs (round cap reached; scope discipline per CLAUDE.md «PR strategy») — recorded here
-   as a candidate follow-up Tier-1 task (trim project `description:` fields under
-   [skill-description-quality.md](../../../.claude/rules/skill-description-quality.md)
-   discipline + re-measure) AFTER S-G/S-E land, so the re-measure rides the post-S-G baseline.
-5. **Host-side observation (non-umbrella):** `~/.claude/hooks/post-api-push-autosync.sh`
-   blocks `PostToolUse:Bash` at a 3.9 s median when it fires (network in the hook body).
-   Operator machine surface, outside this repo's scope; noted for the operator only.
+   fix recovers at most the project share. Disposition — SUPERSEDED same day: the original
+   «deferred out of umbrella» call was overridden by explicit operator invitation («умбрелла
+   всё берёт») → routed to NEW stage **S-I** (kickoff
+   `.claude/orchestrator-prompts/arch-v2-context-pipeline-s-i/kickoff.md`; host-bound, MID-tier
+   seat with `superpowers:writing-skills` loaded — operator directive). The round-capped
+   S-G/S-E kickoffs remain untouched; S-I is a new artifact with its own Phase -1 review at
+   dispatch.
+5. **Host-side hook latency — routed to S-I (P-I6):** `~/.claude/hooks/post-api-push-autosync.sh`
+   blocks `PostToolUse:Bash` at a 3.9 s median when it fires (network in the hook body). Fix =
+   deferred-report pattern (background the network, next hook invocation relays the outcome
+   lines) — NOT plain backgrounding: the hook's stdout is a load-bearing channel to the active
+   session (the DIVERGED warning's named consumer; 2026-07-10 31-commit drift incident), so
+   orphaning it would be `#warning-nobody-reads`.
+6. **Executed during the 2026-08-06 Actions-outage window (in the /arch session, ahead of
+   S-I's verify pass):** the P1-residue sibling pair — conditional `claudeMdExcludes` drop
+   (3 of 21 worktree copies, only where the committed `**/` form is present) + the duplicate
+   `inject-memory-codification.sh` registration removed (20 copies); and
+   `"uniq-rewrite": "off"` added to `~/.claude/settings.json` `skillOverrides`. Backups in the
+   session scratchpad. S-I re-verifies both (its P-I3/P-I4 verify-only items).
 
 ## See also
 

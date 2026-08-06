@@ -99,6 +99,7 @@ forward+backward self-check and a `Prior-art:` trailer (or the ≥20-char escape
 | S-F | small-fixes queue (handoff decision 13), one maintenance PR; item 4 **CONSUMED** by S-E's P2 (see charter) | token-audit S2 timing | 1 | YES (`Z.AI GLM-5.2 SDK`) | — |
 | S-G | economy small-fixes 2 (spec P5-P8 + P12: `CLAUDE.md` pointer-collapse trim + traps digest + renderer/probe channel-truth fixes, rule-embed handoffs, inlined-dispatch template default, ADR-template wiring) | decision-layer spec merged (met) — **runs FIRST of the remaining stages** | 1 | YES (`Z.AI GLM-5.2 SDK`) | — |
 | S-H | host-side measurements (spec P3d per-turn attribution via new `scripts/measure-turn-attribution.sh` incl. the FORK E injector line + P11 Explore/Plan probe + P14 harness-remainder price list + conditional P3c live confirmation) | re-plan merged; **UNBLOCKED from S-E** (round-4 M-6) — S-E touchpoints degrade gracefully per the stage kickoff | 1 (host-bound) | **NO — not factory-bound**: container lacks `~/.claude/projects`, `/context`, live CC (spec §1.6 FORK C); executed by a host CC session | ADR-3 (measurement arm) |
+| S-I | doctor-surfaced context-economy residue (spec §8, operator-invited expansion 2026-08-06): project+user skill-`description:` trims with trigger-inventory acceptance, plugin-`skillOverrides` probe, autosync-hook deferred-report fix; P-I3/P-I4 pre-executed in the /arch session, stage verifies | S-I kickoff merged | 1 (host-bound) | **NO — not factory-bound** (same FORK C rationale); host CC session on the **MID tier** (Opus today) with `superpowers:writing-skills` + `ai-doc` loaded (operator directive 2026-08-06) | — |
 
 ### S-A — `/arch` v2 rewrite
 
@@ -280,6 +281,22 @@ kickoff. **Acceptance.** Per the stage kickoff §3; every price row names its me
 channel or says `UNMEASURED — channel absent`; the P3d output carries the FORK E
 bootstrap-injector line. Stage kickoff: [`../arch-v2-context-pipeline-s-h/kickoff.md`](../arch-v2-context-pipeline-s-h/kickoff.md).
 
+### S-I — doctor-surfaced context-economy residue (added 2026-08-06, operator-invited)
+
+**Scope.** Spec §8: the operator's same-day `/doctor` scan surfaced a second economy surface
+(skills-listing budget ≈9.1k est. tokens vs ~2k → descriptions truncate, routing degrades) plus
+host config debt. The §8 «deferred out of umbrella» disposition was SUPERSEDED by explicit
+operator invitation the same day — the umbrella takes it as a stage. P-I1/P-I2 skill-`description:`
+trims (trigger-inventory acceptance, P-I7), P-I5 plugin-`skillOverrides` empirical probe,
+P-I6 autosync-hook deferred-report fix (hook stdout is a load-bearing channel — plain
+backgrounding is `#warning-nobody-reads`), P-I8 disk sweep. P-I3 (settings.local dedupe ×21
+worktrees, conditional on the committed `**/` form) and P-I4 (`uniq-rewrite: off`) were
+EXECUTED in the /arch session during the 2026-08-06 Actions outage — the stage VERIFIES them.
+**Host-bound, NO marker** (FORK C rationale); seat = **MID tier** (Opus today) with
+`superpowers:writing-skills` + `ai-doc` loaded before the trims (operator directive).
+**Acceptance.** Stage kickoff §3 + §3.5 host-verify contract (description-bytes gate ≤5,000 B +
+committed trigger inventory). Stage kickoff: [`../arch-v2-context-pipeline-s-i/kickoff.md`](../arch-v2-context-pipeline-s-i/kickoff.md).
+
 **Ordering (single statement, table and prose agree — rev 4, amended by the round-4
 review).** S-A → {S-B, S-C} in parallel
 (disjoint surfaces) → S-D closed-null (no dispatch) → **S-G** (resident-population changes
@@ -288,6 +305,9 @@ cross-umbrella token-audit S1 dependency, met). **S-H is independent** (round-4 
 host-side, dispatchable any time after the re-plan merges, concurrent with S-G/S-E — its
 S-E touchpoints degrade gracefully per its kickoff. **S-D′ last** (consumes S-E's fixed
 meter + S-H's P11/P14/P3d numbers, two-gate form each).
+**S-I is independent** (host-bound; skills-listing budget is a
+disjoint surface from the rules resident set): dispatchable any time after its kickoff merges,
+concurrent with everything; if it runs before S-G, its re-measure notes the pre-S-G baseline.
 S-F rides token-audit S2 timing, independent of this chain. The rev-3 statements («S-G
 concurrent with S-E» in the stage kickoffs; «S-G after S-D′» in the earlier Ordering
 paragraph) are both SUPERSEDED by this one. Parallel stages take isolated worktrees
