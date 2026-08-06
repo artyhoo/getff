@@ -98,8 +98,29 @@ forward+backward self-check and a `Prior-art:` trailer (or the ≥20-char escape
 | S-E | L1 budget gate + config-assertion asserts + `InstructionsLoaded` verification (spec P2/P3 — container-safe set after the rev-4 split; P3d/P11/P14 → S-H) | S-G **merged** (resident baseline) + token-audit S1 **merged** | 2 | YES per /arch §3 D1 exception (spec-produced, plan-complete; re-verify precondition at dispatch) | ADR-3 |
 | S-F | small-fixes queue (handoff decision 13), one maintenance PR; item 4 **CONSUMED** by S-E's P2 (see charter) | token-audit S2 timing | 1 | YES (`Z.AI GLM-5.2 SDK`) | — |
 | S-G | economy small-fixes 2 (spec P5-P8 + P12: `CLAUDE.md` pointer-collapse trim + traps digest + renderer/probe channel-truth fixes, rule-embed handoffs, inlined-dispatch template default, ADR-template wiring) | decision-layer spec merged (met) — **runs FIRST of the remaining stages** | 1 | YES (`Z.AI GLM-5.2 SDK`) | — |
-| S-H | host-side measurements (spec P3d per-turn attribution via new `scripts/measure-turn-attribution.sh` incl. the FORK E injector line + P11 Explore/Plan probe + P14 harness-remainder price list + conditional P3c live confirmation) | re-plan merged; **UNBLOCKED from S-E** (round-4 M-6) — S-E touchpoints degrade gracefully per the stage kickoff | 1 (host-bound) | **NO — not factory-bound**: container lacks `~/.claude/projects`, `/context`, live CC (spec §1.6 FORK C); executed by a host CC session | ADR-3 (measurement arm) |
+| S-H | host-side measurements (spec P3d per-turn attribution via new `scripts/measure-turn-attribution.sh` incl. the FORK E injector line + P11 Explore/Plan probe + P14 harness-remainder price list + conditional P3c live confirmation) | re-plan merged; **UNBLOCKED from S-E** (round-4 M-6) — S-E touchpoints degrade gracefully per the stage kickoff | 1 (host-bound) | **NO — not factory-bound**: the container carries a DIFFERENT population, not an absent surface (rev 5 correction — see the FORK C note below the table) | ADR-3 (measurement arm) |
 | S-I | doctor-surfaced context-economy residue (spec §8, operator-invited expansion 2026-08-06): project+user skill-`description:` trims with trigger-inventory acceptance, plugin-`skillOverrides` probe, autosync-hook deferred-report fix; P-I3/P-I4 pre-executed in the /arch session, stage verifies | **S-G merged** (rev 5 — permitted-set collision, see Ordering) | 1 (host-bound) | **NO — not factory-bound** (same FORK C rationale); host CC session on the **MID tier** (Opus today) with `superpowers:writing-skills` + `ai-doc` loaded (operator directive 2026-08-06) | — |
+
+> **FORK C — why S-H and S-I are host-bound (rev 5, corrected against a live container probe).**
+> The earlier wording — «container lacks `~/.claude/projects`, `/context`, live CC» — is **false as
+> written** and was corrected rather than re-pinned. Measured 2026-08-06:
+> `docker exec aif-handoff-agent-1 sh -c 'find /home/node/.claude/projects -name "*.jsonl" | wc -l'`
+> → **746**. The container has the surface; what it does not have is the **population**. The
+> `claude-auth` volume is a *named* volume, not a bind of the host `~/.claude`
+> (`aif-handoff/docker-compose.yml:27,75`), so those 746 transcripts are the container's own
+> executor-seat sessions. S-H prices inject cost **per seat class** and S-D′ consumes it to cut the
+> **expensive** seats first (decision-layer spec §0.5); the container is exactly the one cheap class.
+> P14 compounds it — MCP schemas, plugin SessionStart injects, skills/agents listings and the memory
+> index are the operator's configuration, so a container-side price list would be internally correct
+> and answer the wrong machine (`#budget-sized-to-the-wrong-machine`,
+> [destination-environment-verification.md §4](../../rules/destination-environment-verification.md)).
+> S-I is host-bound for the same class of reason (`~/.claude/settings.json`, `skillOverrides`,
+> `~/.claude/skills`, `~/.claude/hooks` are the operator's, not the container's).
+> **Honest weak point:** P11 (do `Explore`/`Plan` load `.claude/rules`?) is the one item that *could*
+> technically run in the container — it is kept host-side because the container runs a different
+> runtime profile, so a container answer would describe a different harness. **Falsifier:** if a
+> future container image binds the host `~/.claude` read-only AND runs the host's runtime profile,
+> this rationale dies and the stages become factory-eligible — re-probe the mount before assuming it.
 
 ### S-A — `/arch` v2 rewrite
 
