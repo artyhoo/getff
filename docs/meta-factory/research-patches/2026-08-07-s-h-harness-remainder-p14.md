@@ -82,7 +82,7 @@ every subtractable block is present and the total is exactly measured.
 |---|---|---:|---|
 | 6 | plugin `SessionStart` inject (`"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" session-start`) | **1,155 / session** (4,618 B, 184 firings, 1.01/transcript) | corpus hook-execution records |
 | 7 | subagent digest (per spawn, `SubagentStart`) | 457 (1,828 B, 724 firings, 1.01/subagent) | corpus hook-execution records |
-| 8 | skills listing, **source-side** sum of 129 `SKILL.md` name+description | 11,332 (45,329 B) | `awk` over frontmatter; **source-side, not the injected form** — S-I owns the injected/truncated figure |
+| 8 | skills listing, **source-side** sum of 129 `SKILL.md` name+description | **10,264 (41,057 B)** post-S-I; 11,332 (45,329 B) pre-S-I | `awk` over frontmatter; **source-side, not the injected form** — S-I owns the injected/truncated figure |
 | 9 | agents inventory: 17 files, 188,117 B on disk | listing form `UNMEASURED — channel absent` | `wc -c`; agents are listed, not loaded whole |
 
 **The headline.** The harness remainder is **68.4%** of a full-tool subagent seat and **77.8%**
@@ -147,10 +147,13 @@ compaction-resilience purpose) is a design call, not a cost call. Mechanism is a
 maintainer-handoff proposed diff; hooks are outside S-D′'s permitted set.
 
 **R4 — Route the skills-listing block to S-I, do not re-derive it here.** Source-side sum
-measured at 45,329 B (~11,332 tok) across 129 `SKILL.md` files. The *injected* figure differs
-because the harness truncates to a listing budget — which is precisely the overflow S-I owns
-(spec §8 item 4, ~9.1k est-tokens vs a ~2k budget). Two stages publishing two different numbers
-for one block would be the drift this project exists to prevent.
+measured twice, straddling S-I's description trims (#1229, merged mid-stage): **45,329 B
+(~11,332 tok) before, 41,057 B (~10,264 tok) after** across 129 `SKILL.md` files — S-I's trims
+are worth a measured **−4,272 B (−1,068 est-tokens)** at source, of which the project-scope
+share is 14 files / 6,508 B. The *injected* figure differs again because the harness truncates
+to a listing budget — precisely the overflow S-I owns (spec §8 item 4, ~9.1k est-tokens vs a
+~2k budget). Two stages publishing two different numbers for one block would be the drift this
+project exists to prevent, so the injected figure stays S-I's to publish.
 
 **R5 — Do not spend further effort on repo-side residency without a harness-side plan.** Row 1
 is now ~21% of a full-tool subagent seat post-S-G, and 12,167 est-tokens against a ~26,229-tok
@@ -175,6 +178,11 @@ docs/meta-factory/research-patches/2026-07-31-per-role-context-opus-cold-verify.
 docs/meta-factory/research-patches/2026-06-04-ai-doc-audit-c2-r.md
 ```
 
+(Re-run after `#1231` — the S-E *kickoff* Phase -1 repair — merged mid-stage: same five files,
+plus **this patch itself**, which now matches the pattern because it documents the probe. A
+reader re-running it today gets six hits for that reason; the five above are the pre-existing
+population.)
+
 **The kickoff predicted «→ no match». The probe returns five files — and none is an S-E
 verdict.** Reported as observed rather than as predicted (T3). Inspecting each: the hits are
 pre-existing *mentions* of the `InstructionsLoaded` hook event — the capability census
@@ -187,8 +195,10 @@ Corroborating probes:
 
 - `grep -rn "P3c" docs/ .claude/` → hits only in the decision-layer **spec** and the **S-E
   kickoff** (which *defines* the task), never a verdict.
-- `gh pr list --state all --search "arch-v2-context-pipeline"` → newest are #1228 (S-G, merged),
-  #1227, #1226, #1225. **No S-E PR exists.**
+- `gh pr list --state all --search "arch-v2-context-pipeline"` → #1231, #1229, #1228, #1227,
+  #1226, #1225, all merged. **No S-E implementation PR exists.** #1231 («absorb Phase -1 REVISE
+  on S-E») merged mid-stage and is a repair to the S-E *kickoff*, not the stage: it moves no
+  P3c verdict into the tree, and the probe above was re-run after it to confirm exactly that.
 
 **Conclusion: S-E is unmerged, therefore no P3c verdict exists → branch (c). The live
 confirmation is skipped, and no workaround was built.** Branch (c) is a legal outcome, not a
