@@ -55,6 +55,23 @@ full disciplinary corpus is resident in the most expensive seat. Every lever bel
 for expensive-seat effect first; executor-side residency trims are legitimate later work, with
 the guidance gradient as their guard-rail (never starve the weaker seat of instruction).
 
+## §0.6 AI-agnosticism constraint (operator directive 2026-08-06 — binding for every proposal)
+
+**CC-first, agnostic-always.** Vendor-agnostic agent tooling is the 2026 baseline expectation,
+and it is this project's own architecture: build and land on Claude Code FIRST (the operator's
+harness — richest surface, fastest iteration), but every SHIPPED artefact stays AI-/OS-agnostic
+per the existing doctrine — this section binds the constraint to this spec's proposals, it does
+not restate the doctrine (owners: [`dual-implementation-discipline.md §3`](../../../.claude/rules/dual-implementation-discipline.md)
+graceful degradation; [`zcode-parity-doctrine.md §1`](../../../.claude/rules/zcode-parity-doctrine.md)
+«degraded is acceptable, undocumented degradation is not»; [`build-first-reuse-default.md §1.1`](../../../.claude/rules/build-first-reuse-default.md)
+two-axis model — operator-axis may be CC-native, shipped-axis must degrade). Applied to this
+spec: P2's principle test + P3's pre-push/CI gates are harness-agnostic by construction
+(CI + shell); P1 fixes a CC-native mechanism → non-CC harnesses get documented degradation;
+P5 checks `@AGENTS.md`-import honour on ZCode before relying on it; S-D′ (P13) inherits
+ADR-2's population-table obligation — every option states per-row reach incl. the ZCode row;
+P9's preset wiring rides the opt-in `companions.manifest` flow (degrades when the companion is
+absent). A proposal that cannot state its non-CC behaviour is not dispatch-ready.
+
 ## §1 Fork resolutions
 
 Format per fork: resolution → grounds → falsifier («wrong if»).
