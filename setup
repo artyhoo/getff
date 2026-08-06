@@ -10,6 +10,9 @@
 #   ./setup --all ts-server         # EVERYTHING: -y + the AIF operator suite (operator machines)
 #   ./setup --full ts-server        # alias for -y (wrapper alias; forwards --full to install.sh)
 #   ./setup --dry-run ts-server     # preview without writing
+#   ./setup --profile factory ts-server   # install depth profiles (beta-delivery-ux S1 / A1):
+#                                         #   core (default) | env | factory — forwarded to install.sh
+#   ./setup --profile=factory ts-server   # = form, same routing
 #   ./setup python                  # Python toolchain lane (non-npm; see "Toolchain lanes" below)
 #
 # Stack: ts-server | react-next | react-spa | react-native
@@ -21,8 +24,26 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
-MODE="interactive"; DRY=""; STACK=""; FULL=""; WITH_AIF_SUITE=""
+# Forward --profile to install.sh by capturing the value alongside the flag. The wrapper's
+# for-loop processes each token independently, so `--profile <value>` (2 tokens) is handled
+# via an _awaiting_profile_value state flag set on the first token and consumed on the next.
+# Cold-QA MINOR fix (beta-delivery-ux S1 round 1): previously the wrapper neither accepted nor
+# forwarded --profile, so `./setup --profile factory ts-server` silently dropped the flag and
+# installed at the resolved default — a silent wrong-depth install, not an error.
+MODE="interactive"; DRY=""; STACK=""; FULL=""; WITH_AIF_SUITE=""; PROFILE_FLAG=""; PROFILE_VALUE=""; _awaiting_profile_value=0
 for a in "$@"; do
+  if [ "$_awaiting_profile_value" -eq 1 ]; then
+    # Cold-QA MINOR fix parity with install.sh:133 (flag-after-`--profile` guard): a value
+    # that starts with `-` is another flag, not the profile name. Mirror install.sh's own
+    # fail-loud instead of silently consuming the flag as the value.
+    if [ "${a#-}" != "${a:-}" ]; then
+      echo "❌ --profile requires a value (core|env|factory); got flag '$a'" >&2
+      exit 1
+    fi
+    PROFILE_VALUE="$a"
+    _awaiting_profile_value=0
+    continue
+  fi
   case "$a" in
     -y|--yes)          MODE="yes"; FULL="--full" ;;
     # --all = everything: the -y full path PLUS the AIF operator suite (owner directive
@@ -33,6 +54,12 @@ for a in "$@"; do
     # F7: opt-in AIF operator suite — forward to install.sh (default omits it). This is the
     # operator's recommended path, so the flag must survive the wrapper (setup.d/10-skills.sh).
     --with-aif-suite)  WITH_AIF_SUITE="--with-aif-suite" ;;
+    # beta-delivery-ux S1: install depth profile. Both forms supported:
+    #   --profile=factory (single-token) and --profile factory (two-token).
+    # Value validation lives in install.sh (the SSOT — `case core|env|factory`); the wrapper
+    # only forwards. We DO NOT emit a [profile] notice here — install.sh does, after resolution.
+    --profile=*)       PROFILE_FLAG="--profile=${a#--profile=}" ;;
+    --profile)         PROFILE_FLAG="--profile"; _awaiting_profile_value=1 ;;
     ts-server|react-next|react-spa|react-native) STACK="$a" ;;
     # python = the getff Python toolchain lane (python-delivery-v0 S2). Forwarded verbatim to
     # install.sh, which routes it to the pure-bash Python delivery + firing self-check and early-exits.
@@ -41,6 +68,12 @@ for a in "$@"; do
     python) STACK="$a" ;;
   esac
 done
+# Cold-QA MINOR fix parity with install.sh:133 (end-of-args guard): if --profile was the LAST
+# token with no value following it, fail-loud rather than silently passing an empty value.
+if [ "$_awaiting_profile_value" -eq 1 ]; then
+  echo "❌ --profile requires a value (core|env|factory)" >&2
+  exit 1
+fi
 
 echo "▶ Preflight"
 for tool in bash git python3 curl; do
@@ -48,7 +81,7 @@ for tool in bash git python3 curl; do
 done
 
 echo "▶ Framework (install.sh)"
-bash "$HERE/install.sh" ${STACK:+$STACK} ${DRY:+$DRY} ${FULL:+$FULL} ${WITH_AIF_SUITE:+$WITH_AIF_SUITE}
+bash "$HERE/install.sh" ${STACK:+$STACK} ${DRY:+$DRY} ${FULL:+$FULL} ${WITH_AIF_SUITE:+$WITH_AIF_SUITE} ${PROFILE_FLAG:+$PROFILE_FLAG} ${PROFILE_VALUE:+$PROFILE_VALUE}
 
 echo "▶ Companions"
 source "$HERE/setup.d/engine.sh"

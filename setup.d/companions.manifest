@@ -19,3 +19,13 @@ runtime-bridge	curl -sf "${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}/health
 deepwiki	claude mcp list --scope user 2>/dev/null | grep -q deepwiki	claude mcp add --scope user --transport http deepwiki https://mcp.deepwiki.com/mcp	mcp	*
 ast-grep-cli	command -v ast-grep	npm install -g @ast-grep/cli	cli	*
 ast-grep	claude plugin list 2>/dev/null | grep -q ast-grep	claude plugin marketplace add ast-grep/agent-skill && claude plugin install ast-grep@ast-grep-marketplace --scope user	cc-plugin	*
+# @profile: factory — the aif-handoff row ships only when --profile factory is selected
+# (or the legacy --with-aif-suite escape, which routes to factory per install.sh:395-401).
+# Per beta-delivery-ux S1 §2.5 inventory: the factory profile UPGRADES this row from detect+
+# instruct to a consented guided INSTALL. The UPGRADE implementation is S4's scope; S1 ships
+# the declaration row only. The kind=external-service label means the engine (setup.d/engine.sh
+# companion_step) treats this as a no-op print line — the actual handling routes through
+# setup.d/bridge-guided.sh, which is wired from install.sh's runtime-bridge step under the
+# same factory gate. detect/install fields below are placeholders matching runtime-bridge's
+# shape; S4 will replace them with the guided-install commands.
+aif-handoff	curl -sf "${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}/health"	(bridge: aif-handoff guided install — S4 implements)	external-service	*

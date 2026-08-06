@@ -82,7 +82,7 @@ fi
 # so the gate measures the consumer's OWN boundary coverage, not the framework it vendored.
 # Mirrors detect-r2-boundary.sh's existing `eslint-rules-local` exclusion. (GH #777 — this gate
 # runs consumer-side only; the framework repo does not invoke it.)
-PRUNE=( -name node_modules -o -name dist -o -name coverage -o -name .stryker-tmp -o -name reports -o -name .next -o -name .git -o -path '*/packages/core' )
+PRUNE=( -name node_modules -o -name dist -o -name coverage -o -name .stryker-tmp -o -name reports -o -name .next -o -name .git -o -path '*/packages/core' -o -path '*/.claude/worktrees' )
 
 # ── #507 (reopen #2): per-package ESLint flat configs SHADOW the root ──────────
 # ESLint flat-config resolution is NEAREST-config: a sub-package shipping its own
