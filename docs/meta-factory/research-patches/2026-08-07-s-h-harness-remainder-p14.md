@@ -1,0 +1,260 @@
+<!-- scope:arch-v2-context-pipeline-s-h-p14 -->
+
+# S-H — harness-remainder price list + settings recommendations (P14)
+
+> **Authoritative for:** the per-block price list of the NON-repo resident session-start load,
+> each row with its measurement channel, and the operator-applied settings recommendations
+> derived from it (2026-08-07 host measurement).
+> **NOT authoritative for:** per-turn attribution, hook firing rates and the FORK-E injector line
+> — sibling patch [`2026-08-07-s-h-turn-attribution-p3d-p11.md`](2026-08-07-s-h-turn-attribution-p3d-p11.md);
+> repo-owned always-on ceilings/gates (S-E); resident-file trims (S-G); the skills-listing
+> overflow surface (S-I owns it, spec §8 item 4); subtraction maps (S-D′);
+> project goal — [README.md#why-this-exists](../../../README.md#why-this-exists).
+
+**Recommendations only.** `.claude/settings.json` and `.claude/settings.local.json` are
+operator-applied and agent-uncommittable; nothing in this patch edits them.
+
+---
+
+## §0 Channel statement (binding — read before any number below)
+
+S-E has **not merged** and no P3c `InstructionsLoaded` verdict exists (see §5), so the kickoff's
+fallback applies: price via `/context` alone, with a note. **The note is this section.**
+
+`/context` is an interactive CC slash command. This stage executed as a **non-interactive
+background session**, where slash commands are not invocable, so `/context` produced no output
+and none is quoted — fabricating one would be the exact failure T3 and §3a forbid.
+
+**Substitute channel, named and reproducible:** a subagent's or session's **first billed turn**
+in `~/.claude/projects/**/*.jsonl` carries `input_tokens + cache_creation_input_tokens +
+cache_read_input_tokens` for a context containing nothing but the resident head plus its
+dispatch prompt. That is a direct, machine-readable measurement of total resident load per seat
+class. Combined with `wc -c` on each repo/host-side block, it prices the harness remainder **by
+difference**.
+
+**What this channel cannot do, stated up front (T-SH-A):** it yields the remainder as an
+aggregate, not `/context`'s per-block split of that remainder. Rows below that would need the
+split read **`UNMEASURED — channel absent`** and are never estimated. **One `/context` paste
+from an interactive operator session closes those rows** — that is the cheapest single action
+that would complete this table.
+
+Conversion: **4 B ≈ 1 token, est.**, per the seed's binding convention, applied uniformly.
+
+---
+
+## §1 Total resident head per seat class — MEASURED
+
+| seat class | resident head | channel |
+|---|---:|---|
+| main CC session, this stage (2026-08-07) | **89,019 tok** | own transcript, first billed turn |
+| main CC session, 60 most-recent project sessions | median **99,559** / max 161,189 tok | first billed turn, per session |
+| subagent, full toolset (`general-purpose`) | **62,340 tok** | subagent transcript, first billed turn |
+| subagent, reduced toolset (`Explore`) | **26,659 tok** | same |
+| subagent, reduced toolset (`Plan`) | **26,783 tok** | same |
+
+The 60-session median of **99,559 tok independently confirms ADR-3's «~100k observed
+session-start total»** through a completely different channel (transcript billing vs the S1
+script's file-side count). ADR-3's figure is corroborated, not contradicted.
+
+---
+
+## §2 The price list — every row names its channel
+
+Sized against the **`general-purpose` subagent seat (62,340 tok)**, the one seat class where
+every subtractable block is present and the total is exactly measured.
+
+| # | block | est-tokens | share | measurement channel |
+|---|---|---:|---:|---|
+| 1 | repo-owned always-on files (pre-S-G set as loaded) | 17,363 | 27.8% | `wc -c` × 4 B/t; set confirmed live by agent context inventory |
+| 2 | operator-global `~/.claude/CLAUDE.md` | 800 | 1.3% | `wc -c` (3,198 B) |
+| 3 | memory index `MEMORY.md` | 1,126 | 1.8% | `wc -c` (4,505 B) |
+| 4 | session-bootstrap digest (per prompt) | 430 | 0.7% | live hook probe + corpus hook records (1,721 B) |
+| 5 | **harness remainder** (base system prompt + tool schemas + MCP + listings) | **42,621** | **68.4%** | **by difference: row-total minus rows 1-4** |
+| 5a | — composite floor: base prompt + reduced toolset (`Explore` seat, no repo files) | 26,229 | 42.1% | `Explore` first-turn billing minus its digest |
+| 5b | — incremental tool schemas of a full-tool seat over a reduced one | 16,392 | 26.3% | difference between the two measured seats |
+| 5c | — MCP tool schemas (resident subset) | `UNMEASURED — channel absent` | — | no per-server byte channel; not estimated |
+| 5d | — MCP server instructions | `UNMEASURED — channel absent` | — | visible in-prompt, no byte channel |
+| 5e | — skills/agents listing, as injected | `UNMEASURED — channel absent` | — | harness truncates to a listing budget; injected form not observable |
+
+**Blocks priced outside the subagent total** (they belong to the main session, not a subagent):
+
+| # | block | est-tokens | channel |
+|---|---|---:|---|
+| 6 | plugin `SessionStart` inject (`"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" session-start`) | **1,155 / session** (4,618 B, 184 firings, 1.01/transcript) | corpus hook-execution records |
+| 7 | subagent digest (per spawn, `SubagentStart`) | 457 (1,828 B, 724 firings, 1.01/subagent) | corpus hook-execution records |
+| 8 | skills listing, **source-side** sum of 129 `SKILL.md` name+description | 11,332 (45,329 B) | `awk` over frontmatter; **source-side, not the injected form** — S-I owns the injected/truncated figure |
+| 9 | agents inventory: 17 files, 188,117 B on disk | listing form `UNMEASURED — channel absent` | `wc -c`; agents are listed, not loaded whole |
+
+**The headline.** The harness remainder is **68.4%** of a full-tool subagent seat and **77.8%**
+of this stage's main seat (69,300 of 89,019 tok). The spec's «60-71% harness share» is
+**confirmed at the subagent seat and exceeded at the main seat**. Row 5a alone — the base
+prompt plus a *reduced* toolset, carrying no repo content whatsoever — is **26,229 tok, larger
+than the entire pre-S-G repo-owned always-on set (17,363)**. Everything S-E and S-G can reach
+is the smaller half of the problem.
+
+---
+
+## §3 What already works — preserve it (the kickoff's explicit instruction)
+
+1. **ToolSearch deferral keeps deferred schemas non-resident.** In this session ~90 tools are
+   listed by *name only* and require a `ToolSearch` call before use. Confirmed live: `WebFetch`
+   and `WebSearch` were unavailable until fetched by name mid-session, then became callable.
+   Do not undo this; it is the single largest working mitigation on row 5.
+2. **The `paths:` edit-time channel.** Rules scoped by `paths:` fire at **0.95 firings per
+   transcript**, in 56.8% of transcripts (sibling patch §4) — delivered when relevant, free in
+   the ~43% of sessions where they never fire. S-G's digest swap rides this.
+3. **`claudeMdExcludes` is now working.** Three rules the S-A profile recorded as «loaded
+   despite `claudeMdExcludes`» (35,197 B) are absent from a live agent's context inventory, and
+   `.claude/settings.local.json` no longer carries a shadowing key (`jq` → `ABSENT`). Both P1
+   residue items are discharged.
+4. **S-G's trim landed and is measurable:** repo-owned resident set fell from 69,453 B
+   (~17,363 tok) to **48,671 B (~12,167 tok)** — `CLAUDE.md` 22,605 + `00-rule-index.md` 4,067 +
+   `ai-laziness-digest.md` 6,703 + `attention-is-not-a-mechanism.md` 2,629 +
+   `build-first-reuse-default.md` 12,667. That is **−20,782 B (−29.9%)** resident per expensive
+   seat, and it moves row 1 from 27.8% to ~21% of the same seat.
+
+---
+
+## §4 Recommendations — operator-applied, ranked by measured effect
+
+Each carries its evidence and what would make it wrong. None is applied by this stage.
+
+**R1 — Close the UNMEASURED rows with one `/context` paste (cost: one command).**
+Rows 5c/5d/5e are the only blocks in the top cost class with no channel. An interactive
+`/context` run pasted into this patch converts ~42,621 tok of aggregate into a per-block split,
+which is exactly what S-D′ needs to *order* its harness-side drops. Until then S-D′ must treat
+the harness remainder as one `UNPRICED` block and park its ordering, per its own instrument rule.
+*Wrong if:* `/context` in the current CC build does not break out MCP/skills separately.
+
+**R2 — Audit MCP servers registered but unauthenticated.** This session reported 8 servers
+(`plugin:engineering:asana|atlassian|datadog|github|linear|notion|pagerduty|slack`) that
+**cannot be used without an OAuth flow** and were unusable for the entire stage. Configured
+servers total only 4 across `~/.claude.json` (context7, deepwiki) and the project `.mcp.json`;
+the 8 come from a plugin bundle. Per the primary caching doc, «Modifying tool definitions
+(names, descriptions, parameters) invalidates the entire cache» — so an unused server is not
+merely resident weight, it is also a cache-invalidation surface whenever the bundle changes.
+Recommend disabling the unauthenticated subset at the plugin level.
+*Wrong if:* those servers' schemas are ToolSearch-deferred and therefore already non-resident —
+which R1 would settle. **Priced `UNMEASURED — channel absent` until then; this is a
+disable-candidate on grounds of unusability, not a quantified saving.**
+
+**R3 — Adjudicate a once-per-session cache for `inject-session-bootstrap.sh` (S-D′ decides).**
+Measured: 10.3 firings/session × 1,721 B, no cache guard; residency-weighted **0.49% of total
+weighted spend**, of which ~90% is recoverable by caching. The sibling
+`inject-matching-rule.sh` already implements exactly that pattern. Real and cheap — but **not a
+top-three lever**, and the counter-argument (per-prompt re-injection *is* the digest's
+compaction-resilience purpose) is a design call, not a cost call. Mechanism is a
+maintainer-handoff proposed diff; hooks are outside S-D′'s permitted set.
+
+**R4 — Route the skills-listing block to S-I, do not re-derive it here.** Source-side sum
+measured at 45,329 B (~11,332 tok) across 129 `SKILL.md` files. The *injected* figure differs
+because the harness truncates to a listing budget — which is precisely the overflow S-I owns
+(spec §8 item 4, ~9.1k est-tokens vs a ~2k budget). Two stages publishing two different numbers
+for one block would be the drift this project exists to prevent.
+
+**R5 — Do not spend further effort on repo-side residency without a harness-side plan.** Row 1
+is now ~21% of a full-tool subagent seat post-S-G, and 12,167 est-tokens against a ~26,229-tok
+harness floor that carries no repo content at all. Additional repo trims have a hard ceiling
+below the remainder they are competing with. This is the §0.5 expensive-seat-first principle
+applied to its own evidence: the next real lever is harness-side, and R1 is its precondition.
+
+---
+
+## §5 Item 4 — conditional P3c live confirmation: **branch (c), skipped**
+
+The kickoff's three branches; the third holds.
+
+Locating probe, run verbatim from the kickoff:
+
+```console
+$ grep -rln "P3c\|InstructionsLoaded" docs/meta-factory/research-patches/
+docs/meta-factory/research-patches/2026-06-04-ai-doc-audit-c1-r.md
+docs/meta-factory/research-patches/2026-08-01-token-economy-s-b-candidates.md
+docs/meta-factory/research-patches/2026-06-01-capability-census.md
+docs/meta-factory/research-patches/2026-07-31-per-role-context-opus-cold-verify.md
+docs/meta-factory/research-patches/2026-06-04-ai-doc-audit-c2-r.md
+```
+
+**The kickoff predicted «→ no match». The probe returns five files — and none is an S-E
+verdict.** Reported as observed rather than as predicted (T3). Inspecting each: the hits are
+pre-existing *mentions* of the `InstructionsLoaded` hook event — the capability census
+enumerating CC hook events, two 2026-06-04 audit patches recording it as an
+`INCONCLUSIVE`/observation-needed item, the S-B candidate survey naming it in a stage
+description, and the per-role cold-verify noting CC 2.1.207 shipped the event. No file contains
+a P3c verdict in either direction.
+
+Corroborating probes:
+
+- `grep -rn "P3c" docs/ .claude/` → hits only in the decision-layer **spec** and the **S-E
+  kickoff** (which *defines* the task), never a verdict.
+- `gh pr list --state all --search "arch-v2-context-pipeline"` → newest are #1228 (S-G, merged),
+  #1227, #1226, #1225. **No S-E PR exists.**
+
+**Conclusion: S-E is unmerged, therefore no P3c verdict exists → branch (c). The live
+confirmation is skipped, and no workaround was built.** Branch (c) is a legal outcome, not a
+shortfall. P14 accordingly priced via the §0 substitute channel, as recorded there.
+
+---
+
+## §6 Coverage and confidence (T6)
+
+- **Seat classes measured:** 5 (main-this-session, main-60-session distribution, full-tool
+  subagent, two reduced-tool subagents). Every total is a first-turn billing figure, not an
+  estimate.
+- **Price-list rows:** 13 enumerated; **7 MEASURED with a named channel**, **5 marked
+  `UNMEASURED — channel absent`**, 1 (row 8) measured source-side with the injected form
+  explicitly deferred to S-I. **No row carries an estimate dressed as a measurement.**
+- **Share of the harness remainder actually decomposed:** rows 5a+5b = 42,621 of 42,621 tok as a
+  two-way split by seat capability; **0% decomposed into the MCP / skills / system-prompt split
+  that `/context` would give.** Per T14 the correct verdict for that split is **«coverage
+  insufficient to rank harness sub-blocks»**, not «the harness is mostly X». R1 is the action
+  that closes it.
+- **Repo-owned rows** are exact byte counts; the *set membership* was independently confirmed
+  live (sibling patch §6 item 2) rather than assumed from the rule index.
+- **Est-token conversion** is 4 B ≈ 1 token throughout; no tokenizer was available, and every
+  converted figure is labelled est.
+
+---
+
+## §7 §1.7 self-reflexive note
+
+**Forward-check.** [`attention-is-not-a-mechanism.md §1`](../../../.claude/rules/attention-is-not-a-mechanism.md):
+this patch adds no check, so it introduces no bare-attention gate; the one obligation it creates
+(R1) is an operator action with a named artefact, not «someone should look at the harness».
+T-SH-A is the governing trap and is satisfied structurally — the price table has a channel
+column, and five rows exercise the `UNMEASURED — channel absent` value rather than being
+back-filled from byte estimates. T20: every recommendation cites a measured number or explicitly
+states that it is a disable-candidate on non-cost grounds (R2). T14: the undecomposed harness
+split is reported as insufficient coverage, not as a finding.
+[`no-paid-llm-in-ci.md`](../../../.claude/rules/no-paid-llm-in-ci.md): all measurement is shell
++ transcript reading; no LLM is in any loop.
+
+**Backward-check.** Class of this change = *artefacts that price a session-start context block*.
+Enumerated surfaces where that class occurs, verdicted per surface:
+
+- `docs/superpowers/specs/2026-07-31-arch-v2-context-pipeline-design.md` ADR-3 (~100k
+  session-start total, 29-39% repo-owned) — **SWEPT-CLEAN**: independently corroborated by the
+  60-session median 99,559 tok, and the repo-owned share measured at 27.8% pre-S-G / ~21%
+  post-S-G, inside ADR-3's stated band. No correction owed.
+- `docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md` P14 row («remainder ≈
+  100k − (29-39k repo-owned)») — **SWEPT-CLEAN**: measured 68.4% at the subagent seat, 77.8% at
+  the main seat; the row's arithmetic holds.
+- `docs/meta-factory/research-patches/2026-08-01-token-economy-s-a-profile.md` §5.1
+  settings-recommendations — **GAP-FOUND, not edited** (closed historical artefact, its
+  authoring session owns it): its rows 6-8 «loaded despite `claudeMdExcludes`» and its
+  16,504 B `MEMORY.md` are both superseded (4,505 B today, and the three rules are evicted).
+  Correction recorded here.
+- `.claude/settings.json` / `.claude/settings.local.json` — **NOT SWEPT, deliberately**:
+  operator-only, agent-uncommittable; §4 issues recommendations and applies nothing. The
+  local-shadow key was *verified absent*, which is an observation, not an edit.
+- `.claude/orchestrator-prompts/arch-v2-context-pipeline-s-i/kickoff.md` (skills-listing budget)
+  — **GAP-DEFERRED BY OWNERSHIP**: row 8 is measured source-side only and explicitly routed to
+  S-I rather than double-priced here.
+- `scripts/measure-always-on.sh` — **NOT SWEPT, out of permitted set (S-E owns)**; it measures
+  the repo-owned half only, which is exactly the 21-28% this patch bounds from the other side.
+
+**Self-application (T15).** This patch prices resident context. Its own residency: it carries no
+`paths:` frontmatter and lives under `docs/meta-factory/research-patches/`, which is in **no**
+resident set — it costs zero unless deliberately read by S-D′ or S-E. Applying its own R5 to
+itself: adding it to any always-on channel would be the error it warns against, since it is
+reference material consulted once per stage, not per turn.
