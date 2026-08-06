@@ -134,8 +134,8 @@ every subtractable block is present and the total is exactly measured.
 
 | # | block | est-tokens | channel |
 |---|---|---:|---|
-| 6 | plugin `SessionStart` inject (`"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" session-start`) | **1,155 / session** (4,618 B, 184 firings, 1.01/transcript) | corpus hook-execution records |
-| 7 | subagent digest (per spawn, `SubagentStart`) | 457 (1,828 B, 724 firings, 1.01/subagent) | corpus hook-execution records |
+| 6 | plugin `SessionStart` inject (`"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" session-start`) | **1,145 / session** (4,581 B, 190 firings, 1.01/transcript — so one inject per session) | corpus hook-execution records |
+| 7 | subagent digest (per spawn, `SubagentStart`) | 457 (1,828 B, 728 firings, 1.01/subagent) | corpus hook-execution records |
 | 8 | skills listing, **source-side** sum of 129 `SKILL.md` name+description | **10,264 (41,057 B)** post-S-I; 11,332 (45,329 B) pre-S-I | `awk` over frontmatter; **source-side, not the injected form** — S-I owns the injected/truncated figure |
 | 9 | agents inventory: 17 files, 188,117 B on disk | listing form `UNMEASURED — channel absent` | `wc -c`; agents are listed, not loaded whole |
 
@@ -195,8 +195,11 @@ which R1 would settle. **Priced `UNMEASURED — channel absent` until then; this
 disable-candidate on grounds of unusability, not a quantified saving.**
 
 **R3 — Adjudicate a once-per-session cache for `inject-session-bootstrap.sh` (S-D′ decides).**
-Measured: 10.3 firings/session × 1,721 B, no cache guard; residency-weighted **0.49% of total
-weighted spend**, of which ~90% is recoverable by caching. The sibling
+Measured: **10.07 firings/transcript** × 1,721 B, no cache guard; residency-weighted **0.48% of
+total weighted spend [H]**, of which ~90% is recoverable by caching. (Per *transcript* — the
+sibling patch's basis, 1,904 firings / 189 transcripts — kept here for comparability. On the
+narrower per-*session-with-billed-turns* basis, 1,904 / 185 ≈ 10.3; the two differ only by the
+four transcripts that carry no billed turn, and no conclusion turns on which is used.) The sibling
 `inject-matching-rule.sh` already implements exactly that pattern. Real and cheap — but **not a
 top-three lever**, and the counter-argument (per-prompt re-injection *is* the digest's
 compaction-resilience purpose) is a design call, not a cost call. Mechanism is a
@@ -271,9 +274,12 @@ shortfall. P14 accordingly priced via the §0 substitute channel, as recorded th
 - **Forks:** the channel gap is recorded in §3a grammar as **DECISION-NEEDED #3 (§0a)**, not
   only as recommendation R1; the sibling patch carries #1 (corpus drift) and #2 (denominator).
   None of the three is resolved by this stage.
-- **Price-list rows:** 13 enumerated; **7 MEASURED with a named channel**, **5 marked
-  `UNMEASURED — channel absent`**, 1 (row 8) measured source-side with the injected form
-  explicitly deferred to S-I. **No row carries an estimate dressed as a measurement.**
+- **Price-list rows:** **14** enumerated (1, 2, 3, 4, 5, 5a, 5b, 5c, 5d, 5e, 6, 7, 8, 9);
+  **9 MEASURED with a named channel**, **4 marked `UNMEASURED — channel absent`** (5c, 5d, 5e,
+  9 — the same set §0a names), 1 (row 8) measured source-side with the injected form explicitly
+  deferred to S-I. Partition **14 / 9 / 4 / 1**, verified by counting the table rather than
+  restated from memory. **No row carries an estimate dressed as a measurement**, and no
+  `UNMEASURED` row was back-filled to make the predicate tidier (T-SH-A).
 - **Share of the harness remainder actually decomposed:** rows 5a+5b = 42,621 of 42,621 tok as a
   two-way split by seat capability; **0% decomposed into the MCP / skills / system-prompt split
   that `/context` would give.** Per T14 the correct verdict for that split is **«coverage
