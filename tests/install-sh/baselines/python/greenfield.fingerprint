@@ -10,7 +10,7 @@ f93f4a4bd693a0b1920f4e030b5f0d72f2d695fef9d501b3aeb8d02e790a7e24  .ai-factory/to
 48239ef36ed73d01561636d67d2c75947729879a14accae7d667feccc5616215  .claude/agents/rule-researcher.md
 126f04b5c4c8cff807ea0ff5efc3b2208535da443c65be81fdf56492016fd63f  .claude/agents/rule-test-author.md
 e2404b3623a04b6f89e731f32480f26c350503d9c4a6c72c2a706a63a35c544a  .claude/hooks/deps-hash-check.sh
-8edd7ffedf72c343f0717c44b85f358c9fa7c26b8db7db7ac3d5015d9d893dad  .claude/hooks/inject-matching-rule.sh
+6fdc8128cd549df4bbdd7b8549f89599f41315978a1739d1a8fe41ca405bfeeb  .claude/hooks/inject-matching-rule.sh
 67041f525092b56f7b465d90be8a6b908909da7a61d1945f21080145ad8593c6  .claude/settings.json
 059cfe995e80b171118132f02cfe3013760b213d0d900ecdaa3e933bec2faacb  .claude/skills/getff/SKILL.md
 7321c9c7bd5c2e941260c0a1863dacca362c5a8bbaedac37462a2f4d110f8094  .claude/skills/getff/references/ai-traps.md
