@@ -489,6 +489,46 @@ the operator eyeball per the round-3 precedent above. Reports: scratchpad
 `top-down-replan-token-economy.md` / `bottom-up-replan-token-economy.md` /
 `recheck-replan-token-economy.md` (session-local).
 
+## §8 Independent cross-check — operator `/doctor` scan (2026-08-06, additive; no resolution changed)
+
+The operator ran an independent `/doctor` installation scan (50 sessions / 5 days / 103
+project dirs) the same day and handed the report into this contour. Three confirmations, one
+new out-of-scope surface, one host-side observation:
+
+1. **Resident-set convergence.** The scan's estimate — ~18.2k tokens of always-on memory per
+   session — converges with this spec's host measurement (true resident set 69,453 B ≈ 17.4k
+   tokens, §1.6 FORK D) within ~5%, via a fully independent channel (transcript-side
+   estimation vs file-side byte count). It also independently ranks
+   `.claude/rules/ai-laziness-traps.md` (~6.6k tokens) as the single heaviest always-on file —
+   above `CLAUDE.md` itself — which is exactly the lever FORK B's digest swap (S-G P5c/P5d)
+   targets first.
+2. **P1 residue confirmed live** — and it has a sibling. The local
+   `.claude/settings.local.json` still carries the byte-identical `claudeMdExcludes` duplicate
+   (verified: `jq '.claudeMdExcludes|length'` → 7). The scan additionally found
+   `inject-memory-codification.sh` registered on `PostToolUse:Write` in BOTH
+   `.claude/settings.json` and `.claude/settings.local.json` (verified with `jq` on both
+   files) — it double-fires on every `Write` (~31 ms each). The operator-residue action
+   widens to one edit: drop both duplicate keys from the local file. Agent-uncommittable
+   surface either way (`.claude/settings.local.json`), so this stays an operator action, not
+   a stage obligation.
+3. **Lazy-loading posture validated externally.** The scan's Check 4 concluded «nothing left
+   to migrate» from `CLAUDE.md` (Task-tier routing stays resident: dispatch-blocker rule) —
+   consistent with D1's bounded-trim-with-keep-list resolution, not a full offload.
+4. **NEW surface, deferred out of this umbrella: skills-listing budget overflow.** Names +
+   descriptions across all sources ≈ 9.1k est. tokens vs the harness's ~2k listing budget;
+   over budget the harness truncates descriptions and inter-skill routing degrades. Project
+   skills contribute ~2.2k; heaviest measured description: `arch/SKILL.md` 1,486 chars, then
+   `self-reflection` 969 / `aif-doctor` 965 / `pipeline` 907 (host-measured this session).
+   The dominant weight (~6.2k) is app-bundled plugins outside repo control, so a repo-side
+   fix recovers at most the project share. Disposition: NOT added to the reviewed S-G/S-E
+   kickoffs (round cap reached; scope discipline per CLAUDE.md «PR strategy») — recorded here
+   as a candidate follow-up Tier-1 task (trim project `description:` fields under
+   [skill-description-quality.md](../../../.claude/rules/skill-description-quality.md)
+   discipline + re-measure) AFTER S-G/S-E land, so the re-measure rides the post-S-G baseline.
+5. **Host-side observation (non-umbrella):** `~/.claude/hooks/post-api-push-autosync.sh`
+   blocks `PostToolUse:Bash` at a 3.9 s median when it fires (network in the hook body).
+   Operator machine surface, outside this repo's scope; noted for the operator only.
+
 ## See also
 
 - prep-doc: `docs/superpowers/specs/2026-08-06-arch-prep-pipeline-token-economy.md` (feat/prune-worktrees).
