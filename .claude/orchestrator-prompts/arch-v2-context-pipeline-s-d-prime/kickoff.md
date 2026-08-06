@@ -1,4 +1,4 @@
-<!-- scope: stage-scoped dispatch input — S-D′ of the arch-v2-context-pipeline umbrella (reopened scope, operator override 2026-08-06). NO bridge-profile marker — DELIBERATE: Tier 2 and NOT plan-complete (the subtraction-map authoring is the un-spent design judgment), so the top tier plans in aif per CLAUDE.md Task-tier routing. RE-ISSUED rev 4 (2026-08-06 /arch re-planning after a Phase -1 REVISE): dependency widened to S-E + S-H (the P11/P14/P3d inputs live in S-H now — spec §1.6 FORK C); the ADR-8 control arm re-homed to a dispatch-time parity split with a recorded deviation (spec §1.5); the ordering instrument named honestly (spec P13 rev 4). -->
+<!-- scope: stage-scoped dispatch input — S-D′ of the arch-v2-context-pipeline umbrella (reopened scope, operator override 2026-08-06). NO bridge-profile marker — DELIBERATE: Tier 2 and NOT plan-complete (the subtraction-map authoring is the un-spent design judgment), so the top tier plans in aif per CLAUDE.md Task-tier routing. RE-ISSUED rev 4 (2026-08-06 /arch re-planning after a Phase -1 REVISE): dependency widened to S-E + S-H (the P11/P14/P3d inputs live in S-H now — spec §1.6 FORK C); the ADR-8 control arm re-homed to a dispatch-time parity split with a recorded deviation (spec §1.5); the ordering instrument named honestly (spec P13 rev 4). REV 5 (2026-08-07) absorbs this stage's FIRST cold Phase -1, which returned STOP: the fork-independent findings are fixed in place below, and the ADR-8 A/B arm is PARKED behind the §5 DECISION-NEEDED — it is NOT dispatchable until the operator resolves that fork. -->
 <!-- host-verify contract lives in §3 (a real contract, not an opt-out). The earlier `host-verify: none` opt-out was retracted 2026-08-06: deliverable 2 edits `agents/*.md`, which shifts install fingerprints, so this stage DOES have an executable arm — see §3. -->
 
 # arch-v2-context-pipeline S-D′ — per-seat subtraction maps
@@ -31,32 +31,55 @@
    the block, per-population reach incl. the ZCode row (documented degradation where
    unreachable), and a **restoration trigger** (the observable failure that reverses the
    drop). **The bootstrap injector is a MANDATORY named block (spec §1.6 FORK E):** the
-   `UserPromptSubmit`/`SubagentStart` digest inject (1,760 B/invocation, uncached) reaches
+   `UserPromptSubmit`/`SubagentStart` digest inject (**provisional 1,760 B/invocation,
+   uncached — inherited from spec FORK E, which itself instructs S-H to re-measure; quote
+   S-H's P3d measurement or mark the row provisional-pending-P3d, never restate this number
+   as measured**) reaches
    every seat class INDEPENDENTLY of agent definitions — a review-seat map that ignores it
    subtracts theatre, not tokens. Its mechanism is a `.claude/hooks/*` / settings edit,
    which is NOT in §2's permitted set → the map row carries a maintainer-handoff proposed
    diff (e.g. the once-per-session cache pattern `inject-matching-rule.sh` already uses),
    priced from S-H's P3d line, with the anti-drift counter-argument (per-prompt re-inject
    is the digest's compaction-resilience purpose) stated in the row.
-   **Ordering instrument (rev 4 — spec P13; the earlier «S-E attribution table» named a
-   table nobody produces):** repo-side blocks are ordered by the fixed
-   `scripts/measure-always-on.sh` per-file output (whole files ARE the drop unit for rules
-   and agent prompts; `CLAUDE.md` sections priced by `sed -n 'X,Yp' | wc -c`); harness-side
-   blocks by S-H's P14 price list. A block neither instrument prices is `UNPRICED` — park
-   its ordering, never estimate (T-SDP-A).
+   **Ordering instrument (rev 5 — spec P13; corrected against the script's actual manifest):**
+   `scripts/measure-always-on.sh` prices **`CLAUDE.md` + `.claude/rules/*.md` ONLY** — its
+   manifest is `files=( "CLAUDE.md" )` plus a `find .claude/rules -maxdepth 1 -name '*.md'`
+   (`scripts/measure-always-on.sh:10-11`). It emits **no line for `agents/*.md`**, so the
+   rev-4 claim that its per-file output prices «rules and agent prompts» was false for the
+   agent half. Corrected instrument set, by drop unit:
+   - **rules** (whole file is the drop unit) → `measure-always-on.sh` per-file output;
+   - **`CLAUDE.md` sections** → `sed -n 'X,Yp' CLAUDE.md | wc -c`;
+   - **`agents/*.md`** (whole file is the drop unit) → `wc -c agents/<name>.md`, and for a
+     replacement prompt the delta `wc -c` before vs after — state both numbers;
+   - **harness-side blocks** → S-H's P14 price list.
+
+   A block **no** instrument in that list prices is `UNPRICED` — **park its ORDERING and keep
+   the drop, do not stop the task** (this is the binding reading; see §3a(a), which rev 5
+   harmonises). Never estimate (T-SDP-A).
 2. **Review-seat agent definitions** (`agents/*.md`): replacement system prompts carrying
    reviewer-discipline + verdict grammar instead of the full operational head. Editing
    `agents/*.md` shifts install fingerprints — regen snapshots
    (`SNAPSHOT_MODE=capture bash tests/install-sh/snapshot.sh`).
-3. **ADR-8 baseline capture BEFORE any map merges** (calibration ledger rows: token cost per
-   dispatched task + review-defect count over the trailing 10 uniform dispatches), then the
-   20-dispatch window + the deterministic A/B **in its rev-4 re-homed form (spec §1.5,
-   recorded deviation):** the resolver branch died with S-D's CLOSED-NULL, so the split
-   lives at DISPATCH TIME — two review-agent definition variants (subtracted vs uniform),
-   selected by task-id parity, the arm recorded in each calibration-ledger row; the
-   window-close verdict PR runs and quotes a mechanical parity audit over the ledger
-   (`arm == parity(task-id)` for every row) — missing arm columns or a failed audit VOID the
-   window, fail-closed; owner named in the PR.
+3. **ADR-8 experiment — PARKED at rev 5, NOT dispatchable.** The cold Phase -1 found the
+   rev-4 form unexecutable on four independent counts, each verified: (i) `parity(task-id)`
+   is undefined over aif's id space — task ids are UUIDs
+   (`calibration.md:150` → `efe91281-2640-49b0-ba61-436c2a8eb628`), and no parity function is
+   defined, so two executors compute two different arms and the «mechanical» audit is
+   narration; (ii) the audit as scoped VOIDs the window on day one — the ledger already holds
+   three arm-less rows (`calibration.md:145-215`), two with no task id at all, so
+   `arm == parity(task-id)` over «every row» fails before the first subtracted dispatch
+   exists; (iii) **review-defect count has no instrument and no producer anywhere in the
+   umbrella** — the ledger's named instrument covers `tokenTotal`/`costUsd` only
+   (`calibration.md:127-135`), while ADR-8's falsifier needs BOTH metrics
+   (`2026-07-31-arch-v2-context-pipeline-design.md:243-244`), so the window cannot be
+   adjudicated; (iv) two agent-definition variants both ship to consumers through
+   `install.sh:606-618`'s glob-copy, whose skip-list is not in §2 — so the experiment either
+   edits an unpermitted file or ships an experiment to every consumer.
+
+   **Binding consequence:** an executor MUST NOT implement any part of the A/B arm, MUST NOT
+   invent a parity function, and MUST NOT fabricate a defect count. Resolution is the §5
+   DECISION-NEEDED — an operator fork, not an executor judgment. Until it is resolved this
+   stage is **not dispatchable**; deliverables 1, 2 and 4 are held with it (they are one PR).
 4. **SSOT #234 annotation** (same PR): trigger (a) fired — operator-declared expensive-seat
    budget exhaustion, 2026-08-06 session; verdict text unchanged, annotation appended per the
    row's own protocol.
@@ -95,6 +118,29 @@ its existence as whole-umbrella closure, so writing it early is a defect),
 `tests/install-sh/*` (snapshot regen only). `.claude/hooks/*` and `.claude/settings.json`
 remain NOT permitted — injector and excludes changes travel as proposed diffs (§1 item 1).
 
+**Tier-0 registry surfaces — GRANTED at rev 5, and the reason you will need them (cold
+Phase -1 B3).** The senior-main-seat rule-channel drop has, on the current host, **no target
+that is not a Tier-0 member**: after `claudeMdExcludes`, the resident rule set is
+`00-rule-index.md` (generated) + `build-first-reuse-default.md` +
+`attention-is-not-a-mechanism.md` + `ai-laziness-digest.md`, and those three ARE
+`ALWAYS_ON_CORE` (`packages/core/principles/31-rule-channel-declaration.ts:58-63`, capped at
+4 by a module-load throw at `:65-70`) and `TIER0_CORE`
+(`scripts/render-rule-index.mjs:56-60`). Re-scoping one therefore requires the four-way swap
+that spec §1.6 FORK B documents, and **all four copies are hereby permitted** (same grant
+S-G received — `arch-v2-context-pipeline-s-g/kickoff.md:118-121`):
+`scripts/render-rule-index.mjs` · `packages/core/principles/31-rule-channel-declaration.ts` ·
+its `.test.ts` exact-membership literal · `scripts/render-rule-channels.mjs`. **Swap, never
+append** — the cap is 4 and a fifth entry throws at module load.
+
+> **Why this needs its own acceptance leg (§3) and not just a permission.** The collision is
+> **silent**: `deriveChannels` (`scripts/render-rule-index.mjs:86-88`) pushes `always-on core`
+> for a TIER0_CORE member **and** `paths:(N)` when the rule gains a `paths:` list, and
+> `--check` diffs the render output against the regenerated file — both sides change
+> together, so `npx tsx scripts/render-rule-index.mjs --check` stays **GREEN** while shipping
+> a self-contradictory `always-on core, paths:(N)` row and (per FORK B) a rule with no
+> per-harness delivery verdict. Taking that green as acceptance is `#silent-contract-skip`
+> ([destination-environment-verification.md §4](../../rules/destination-environment-verification.md)).
+
 ## §3 Acceptance
 
 ```bash host-verify
@@ -110,29 +156,63 @@ npx tsx scripts/render-rule-channels.mjs --check
 > Regen with `SNAPSHOT_MODE=capture bash tests/install-sh/snapshot.sh`, then the plain run
 > above must pass **on the host**.
 
+**Tier-0 swap leg (rev 5, non-vacuous by construction — the `--check` green above does NOT
+cover it).** If the stage re-scopes any Tier-0 rule's channel: show the four-way swap landed
+in all four copies (`git diff --name-only` naming each), show `npx vitest run
+packages/core/principles/31-rule-channel-declaration.test.ts` green, AND show the
+**discrimination**: revert exactly one of the four copies, show the suite goes **RED**,
+restore, show GREEN. Paste both outputs. Additionally quote the rendered index row for the
+re-scoped rule and confirm it does NOT read `always-on core, paths:(N)` — a row carrying both
+is the self-contradiction `--check` cannot see. If the stage re-scopes no Tier-0 rule, state
+that explicitly and say which senior-seat mechanism carried the drop instead.
+
 Review-time (design stage): every map row carries cost + reach + restoration trigger (a row
-missing any of the three is incomplete); baseline rows exist BEFORE the first map merges;
-**the A/B experiment is CONCRETE, not narrated (rev 4):** the two agent-definition variants
-exist, the ledger schema carries the arm column, and the parity-audit command is stated in
-the PR (deliverable 3) — a PR that ships maps with no executable A/B arm fails the stage's
-purpose even if every map row is complete;
+missing any of the three is incomplete);
 the #234 annotation lands in the same PR; no drop touches a block whose consumer is the aif
 executor tier without the §1 priority justification; §0.6 agnosticism — every mechanism names
 its non-CC behaviour or documents degradation.
 
-**Deliverable 2 (review-seat agent definitions) — its own criteria, previously absent:** each
-shipped `agents/*.md` replacement prompt (a) exists and is named in the map it implements,
-(b) carries the reviewer-role boundary + verdict grammar of
-[reviewer-discipline.md §2](../../rules/reviewer-discipline.md) (surface strategy forks as
-DECISION-NEEDED, never pick), (c) states which currently-loading blocks it drops and what the
-seat still receives, (d) touches no file in the maintainer-owned set above, and (e) the install
-snapshots were regenerated in the same PR with the host run quoted.
+**Reach is MEASURED or declared UNVERIFIED — never asserted (rev 5, cold Phase -1 M2).** The
+«per-population reach» cell of every map row states HOW it was established. Permitted bases:
+S-H's P11 probe (Explore/Plan only), a live probe you ran and quoted, or upstream client
+documentation cited by URL + section. For the **review-subagent** seat class specifically:
+no upstream deliverable measures what a custom review subagent loads, so unless you ran that
+probe yourself, the reach cell reads `UNVERIFIED — no probe exists` and the row's drop is
+**held**, not shipped. A row whose reach cell is a bare «yes»/«no» is incomplete, exactly as
+a missing cost cell is.
+
+**Deliverable 2 (review-seat agent definitions) — population FIRST, then criteria (rev 5,
+cold Phase -1 B5; T10 before T1).** Before authoring anything, enumerate the population in
+the PR body: `ls agents/*.md` (**17 files at rev-5 authoring time**), classified into
+review-seat agents (in scope) / non-review agents (out of scope) / the maintainer-owned
+read-only set above, **with the classification stated per file**. Then: the stage covers
+**every** agent classified review-seat, or names each uncovered one with a reason. **Floor:
+if fewer than 5 review-seat agents are covered, the PR states the population count and why
+the covered subset is the complete in-scope set** — «I shipped one and it satisfied the
+criteria» is the T1 sampling artifact this leg exists to block.
+
+Per shipped `agents/*.md` replacement prompt: (a) exists and is named in the map it
+implements, (b) carries the reviewer-role boundary of
+[reviewer-discipline.md §1](../../rules/reviewer-discipline.md) and the surface-as-
+DECISION-NEEDED pattern of [§2](../../rules/reviewer-discipline.md) (**rev 5 correction:
+the rev-4 text cited §2 for the role boundary, which lives in §1; and it cited a «verdict
+grammar» that exists in NEITHER `.claude/rules/reviewer-discipline.md` NOR
+`agents/reviewer-discipline.md` — `grep -cE 'GO|REVISE|STOP|verdict grammar'` returns 0 on
+both. If the prompt needs a GO/REVISE/STOP grammar, take it from
+[`agents/dispatch-input-checker.md`](../../../agents/dispatch-input-checker.md) and cite THAT
+— do not invent one and do not cite a section that does not carry it**), (c) states which
+currently-loading blocks it drops and what the seat still receives, (d) touches no file in the
+maintainer-owned set above, and (e) the install snapshots were regenerated in the same PR with
+the host run quoted.
 
 **Upstream dependency — TWO gates each, not one (rev 4: S-E AND S-H)** (the umbrella models
 this at [`../arch-v2-context-pipeline/kickoff.md`](../arch-v2-context-pipeline/kickoff.md)):
 per upstream stage, (1)
 **merged** — its PR is on `staging`; (2) **content-read** — the consumed deliverable
-actually returned a usable answer: S-H's P11 probe and P14 price list, S-E's fixed per-file
+actually returned a usable answer: S-H's P11 probe, P14 price list **and P3d per-turn
+attribution** (rev 5 — P3d was missing from the rev-4 list while §1 item 1 prices the
+MANDATORY injector row from it; a P3d that lands degraded, e.g. the failed-run shape its own
+kickoff names, leaves that row priced from nothing), and S-E's fixed per-file
 meter. P11 may legitimately land `INCONCLUSIVE` («coverage insufficient» is its honest output
 when the probe cannot observe). If it did, this stage's Explore/Plan rows have no evidence
 base: say so and descope those rows, do NOT substitute an assumption. Reading «merged» as
@@ -146,12 +226,16 @@ behaviour) — **do NOT pick.** Park it as a question (set the task to `manualRe
 `blocked_external` with the fork stated as «Option A → consequence X / Option B → consequence
 Y») and **stop that task.** Proceed only on the unambiguous parts.
 
-Expected to fire here on: **(a)** any drop whose cost the §1 instrument does not price
-(fixed `measure-always-on.sh` per-file output repo-side, S-H's P14 price list
-harness-side — rev 4: the earlier «S-E attribution table» here named an artefact nobody
-produces) — an unpriced drop cannot be ordered against the others (T-SDP-A), so park it
-rather than
-guessing its rank; **(b)** the ZCode population row, when a mechanism has no ZCode equivalent
+**(a) is NOT a task-stopping park (rev 5 — the rev-4 text stated two incompatible readings of
+one rule).** An unpriced block has ONE implementation and only an unknown rank, so it is not
+a fork: **keep the drop, leave it unranked, mark it `UNPRICED` in the map, and continue**
+(§1's binding reading). Stop the task only for (b) and (c) below, which are genuine
+two-consequence forks.
+
+Expected to fire here on: **(a)** any drop whose cost none of the §1 instruments prices
+(`measure-always-on.sh` for rules, `sed | wc -c` for `CLAUDE.md` sections, `wc -c` for
+`agents/*.md`, S-H's P14 price list harness-side) — record `UNPRICED`, do not rank it, do not
+estimate (T-SDP-A), do not stop; **(b)** the ZCode population row, when a mechanism has no ZCode equivalent
 — «documented degradation» is the decided answer, but if a drop would be *silently* different
 there rather than absent, that is a real fork: state both consequences and park; **(c)** any
 drop where the restoration trigger has no observable (T-SDP-B) — park instead of writing a
@@ -160,8 +244,15 @@ vibe. Never extrapolate a per-seat load figure from an environment you did not m
 ## §4 AI-traps
 
 See [`ai-laziness-traps.md §2`](../../rules/ai-laziness-traps.md) (cited per §3 of that rule).
-**Active traps for this stage: T2, T3, T13, T15, T16, T20.** T2 — the ADR-8 baseline must be
-CAPTURED, not described; T3 — every «block X costs Y» row cites the measurement; T13/T16 —
+**Active traps for this stage: T1, T2, T3, T10, T13, T15, T16, T20.**
+**T10 — population enumeration BEFORE any per-agent work** (which seat classes, which
+`agents/*.md`, which blocks): added rev 5 because the stage's dominant failure mode is an
+incomplete population, and §3's deliverable-2 leg was satisfiable by a one-file PR until this
+round. **T1 — sampling floor**: «I covered one review-seat agent and every criterion passed»
+is the sampling artifact, not a result; §3 states the floor and the escape (name the whole
+in-scope set). T2 — the ADR-8 baseline must be
+CAPTURED, not described (**parked at rev 5 — see §1 item 3 and §5**); T3 — every «block X
+costs Y» row cites the measurement; T13/T16 —
 «C2 replaces the system prompt» is upstream-doc-verified for the CURRENT client version, not
 assumed from the ADR; T15 — the map's own residency: the map document is consumed at
 dispatch-authoring, never loaded always-on; T20 — no drop without its measured cost quoted.
@@ -173,3 +264,38 @@ map that skips a top-3 priced block states why; unpriced blocks park, never rank
 **T-SDP-B — restoration-trigger-as-decoration:** writing «restore if problems occur» as the
 trigger. Counter: each trigger names an OBSERVABLE (a failed gate, a review-defect class, a
 budget line moving), not a vibe.
+
+> **Label-forward-reference note (rev 5):** `T-SDP-A` and `T-SDP-B` are cited in §1 and §3a
+> above and DEFINED here. Read §4 before executing §1 — the labels are binding where cited.
+
+## §5 PARKED DECISION-NEEDED — the operator owns this fork (stage is not dispatchable until resolved)
+
+The stage's first cold Phase -1 (2026-08-07) returned **STOP**. Every fork-independent finding
+is fixed in rev 5 above. What remains is one genuine fork with no determinate best answer on
+the project's merits, so it is logged, not decided:
+
+**DECISION-NEEDED: does the ADR-8 A/B experiment belong in S-D′ at all, given that neither its
+selection mechanism nor its second metric has a home inside §2's permitted set?**
+
+- **Option A — descope the A/B from S-D′.** The stage ships subtraction maps + review-seat
+  agent definitions + the #234 annotation; ADR-8 stays explicitly open with a named owner and
+  a follow-on stage that owns the dispatch choreography. **Consequence:** the maps merge with
+  no evaluation arm — so §3's «a PR that ships maps with no executable A/B arm fails the
+  stage's purpose» must be **rewritten out**, not merely left unmet, and ADR-8 accrues a
+  second recorded deviation.
+- **Option B — widen §2 to the surfaces the experiment needs.** Grant this stage the dispatch-
+  choreography home (the umbrella's ledger-schema section and/or
+  `.claude/skills/dispatcher/SKILL.md`) plus `install.sh`'s agent skip-list, and define both
+  the parity function over UUIDs and the review-defect-count instrument here. **Consequence:**
+  the stage grows from «author maps» into «author maps + amend the dispatch protocol + amend
+  the installer», crossing two other owners' surfaces mid-stage — the shape
+  [CLAUDE.md `PR strategy`](../../../CLAUDE.md) exists to prevent — and its Tier-2 planning
+  judgment now covers choreography it was never scoped to design.
+
+**Also unresolved under either option (INCONCLUSIVE-needs-human):** whether aif creates the
+task id before or after the dispatch prompt is composed. Option B needs an answer — an arm
+selected by task-id parity cannot be written into a prompt that predates the id.
+
+**Until this is answered:** do not dispatch S-D′, and do not let an executor «work around» the
+parked arm. The two-gate dependency (S-E AND S-H merged) remains in force independently — it
+is a second, unrelated reason the stage cannot start yet.
