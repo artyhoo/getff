@@ -219,4 +219,31 @@ describe('inject-session-bootstrap.sh — UserPromptSubmit bootstrap injection',
     expect(stdout).toContain('[output-language]');
     expect(stdout).toContain(`AIF_HOOK_LANG=${sentinel}`);
   });
+
+  it('AUTONOMY-BLOCK §2: under AIF_AUTONOMOUS=1 the digest carries the §2 wait-rule prescription (proposal 2 pairing)', () => {
+    // Pins the BINDING pairing from session-start-token-audit S2 Note B: excluding
+    // autonomous-loop-continuity.md from always-on load (via claudeMdExcludes — proposal 3)
+    // is safe ONLY if the §2 wait-rule prescription is delivered by another channel. This
+    // asserts that channel (the AIF_AUTONOMOUS=1 autonomy block in inject-session-bootstrap.sh)
+    // actually carries the §2 line. Without this assertion, removing the rule from always-on
+    // load would silently strand §2 — the failure mode Note B exists to prevent.
+    //
+    // Counter-falsifier: revert proposal 2 part A (no §2 line in the autonomy block) — this
+    // test goes RED because the §2 markers are absent from the AIF_AUTONOMOUS=1 digest.
+    const { stdout } = runHook('autonomy-block-test', {
+      AIF_AUTONOMOUS: '1',
+    });
+    expect(stdout).toContain('[autonomy]');
+    // The §2 prescription must name the bounded-waiter invariant:
+    expect(stdout).toContain('silence');
+    expect(stdout).toContain('terminal verdict');
+    expect(stdout).toContain('--timeout-ms');
+    // And it must point at the repo's canonical waiter:
+    expect(stdout).toContain('await.ts');
+    // The 4 items must all be present (the autonomy block enumerates them):
+    expect(stdout).toContain('(1) Cold sub-agents');
+    expect(stdout).toContain('(2) Do NOT end a turn');
+    expect(stdout).toContain('(3) A constraint you cannot trace');
+    expect(stdout).toContain('(4) §2 wait rule');
+  });
 });

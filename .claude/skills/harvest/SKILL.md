@@ -69,13 +69,27 @@ The sweep auto-scopes via `git merge-base`, escalates to `--full` on any unmappe
 1. **Own cold-QA before handoff** (T19) — CI checks form, not design. Invoke `superpowers:requesting-code-review` on the 3-dot diff (`git diff origin/staging...HEAD`).
 2. **Fidelity verdict (design altitude — spec D2).** Dispatch
    [`agents/fidelity-auditor.md`](../../../agents/fidelity-auditor.md) as a cold read-only
-   subagent: inputs = the stage kickoff/spec path + the same 3-dot diff, current HEAD sha,
+   subagent **with an explicit `name`** (keeps the resume exception of
+   [cold-seat-economy.md §3](../../rules/cold-seat-economy.md) reachable; the follow-up default
+   is a fresh narrow seat): inputs = the
+   stage kickoff/spec path + the same 3-dot diff, current HEAD sha,
    round number — nothing else (no chat, no logs). `REVISE`/`STOP` → do NOT open the PR;
    factory task → route the findings per [/dispatcher §2.4 rework loop](../dispatcher/SKILL.md),
    in-session work → fix and re-audit (Round 2); cap 2 rounds → escalate to the operator.
    `KICKOFF-AMBIGUOUS` → escalate to `/arch` §4 office hours without burning a round.
    `GO` → the verdict block (Basis/Round/Audited-SHA = current HEAD/Evidence) goes into the
    PR body `## Fidelity verdict` section — the `pr-body-fidelity` CI gate blocks merge without it.
+   <!-- seat-economy embed (spec-of: .claude/rules/cold-seat-economy.md) -->
+   **Seat economy** ([cold-seat-economy.md](../../rules/cold-seat-economy.md)): dispatch this
+   WHAT-audit only once the diff is FINAL (step 1's code-review first — its fixes invalidate a
+   parallel fidelity verdict), and at round 1 have the seat leave a compact **watch-list**
+   (why each criterion exists, where defects lived) in the PR body / task comment. If a later
+   commit moves the SHA but none of what the seat judges (deliverables / permitted files /
+   descopes — confirm via `git diff --name-only <audited>..HEAD` against the kickoff),
+   re-establish with a narrow cold delta check: a **fresh** cold agent handed only the
+   incremental diff + scope sections + that watch-list (resume the same auditor by name only
+   when the watch-list cannot carry the substance) — never a full re-audit, never a
+   self-issued verdict.
 3. Assemble a **§1.7-compliant PR body** (Forward/Backward sections, each with file:line) **plus the acceptance-package sections (Provenance / Review findings / Fidelity verdict / Parked questions — spec D4)**. Open the PR with base `staging` (`gh pr create --base staging`), optionally `gh pr merge --auto --squash` per the dispatcher convention.
 4. Confirm the PR diff is exactly the intended files, **0 unintended deletions**, before merge.
 

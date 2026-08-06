@@ -1,11 +1,13 @@
 # `setup.d/` Layer Registry
 
 > **Authoritative for:** S1 layer list (number · file · purpose · depends-on), `lib.sh` public API surface, stub layers awaiting S2/S3.
-> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../README.md#why-this-exists). Layer *content* for `05-mcp` / `15-companions-stack` — those are defined in S2/S3.
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../README.md#why-this-exists). Layer *content* for `05-mcp` / `15-companions-stack` — those are defined in S2/S3. Profile *semantics* (which depth ships which artefacts) — see [`docs/meta-factory/research-patches/2026-07-25-beta-a-s1-inventory.md`](../docs/meta-factory/research-patches/2026-07-25-beta-a-s1-inventory.md) §2 (the binding per-profile payload inventory).
 >
 > **Origin:** modular-install-fullpack Stage S1 (`feature/modular-install-fullpack-73b048`). This file is the concrete predecessor-output that S2/S3/S4 consume, parallel to how S1 consumed `kickoff-s0.md`. See `.claude/orchestrator-prompts/modular-install-fullpack/kickoff-s1.md §3 deliverable 5`.
 >
-> **Byte-identical invariant:** all layers collectively produce a filesystem tree byte-identical to the monolithic `install.sh` for all 4 stacks (`ts-server`, `react-next`, `react-spa`, `react-native`), greenfield **and** brownfield. Proven by `tests/install-sh/byte-identical.test.sh` (golden baselines under `tests/install-sh/baselines/<stack>/`).
+> **Byte-identical invariant:** all layers collectively produce a filesystem tree byte-identical to the monolithic `install.sh` for all 4 stacks (`ts-server`, `react-next`, `react-spa`, `react-native`), greenfield **and** brownfield. Proven by `tests/install-sh/byte-identical.test.sh` (golden baselines under `tests/install-sh/baselines/<stack>/`). The `core` profile (default) preserves this invariant — verified by the snapshot suite (13/13 baselines pass after the `--profile` flag landed).
+>
+> **Profile model (beta-delivery-ux S1, A1):** layers may gate content on `${PROFILE:-core}`. Three monotonic depths: `core` (today's default, no AIF runtime) → `env` (core + multi-model contour surface as placeholders, no AIF runtime) → `factory` (env + the AIF operator suite + runtime-bridge wiring + GLM one-button placeholder). The `factory` gate in 10-skills + 20-agents replaces the pre-profile `WITH_AIF_SUITE` flag (the legacy flag still works — install.sh resolution routes it to `PROFILE=factory`). The `env` depth is `core`-equivalent on today's payload; the contour surface it adds ships via OTHER stages (S2/S3/S4/S5), not via this stage's setup.d edits.
 
 ---
 
@@ -18,9 +20,9 @@ All layers are **sourced** (not exec'd) into the dispatcher shell so mutations t
 | # | File | Purpose | Depends on | Status |
 |---|------|---------|-----------|--------|
 | 05 | `05-mcp.sh` | MCP companion install: (a) context7 → `.mcp.json` (regression L1 restore from `setup.sh:289-303`); (b) detect-first `claude mcp add` for each `kind=mcp` manifest row | lib.sh (in scope), engine.sh (sourced here) | **Done** (S2) — gated on `FULL`; non-full / snapshot path no-ops (D2) |
-| 10 | `10-skills.sh` | §1 Skills (`skills/` → `.claude/skills/`) + §1b deps-hash-check CC hook | (none — first content layer) | Done |
+| 10 | `10-skills.sh` | §1 Skills (`skills/` → `.claude/skills/`) + §1b deps-hash-check CC hook | (none — first content layer) | Done — F7 split now gated on `PROFILE=factory` OR legacy `WITH_AIF_SUITE` (kickoff §2 re-triage) |
 | 15 | `15-companions-stack.sh` | Stack-specific companion installs | lib.sh (in scope) | **Stub** — content deferred to S3 |
-| 20 | `20-agents.sh` | §2 Sub-agents (`agents/` → `.claude/agents/`) + §3c skill-context overrides | `SHIPPED_DOCS` global (set in dispatcher) | Done |
+| 20 | `20-agents.sh` | §2 Sub-agents (`agents/` → `.claude/agents/`) + §3c skill-context overrides | `SHIPPED_DOCS` global (set in dispatcher) | Done — orchestrator-worker + reviewer-discipline + aif-orchestrator-discipline skill-context gated on `PROFILE=factory` OR legacy `WITH_AIF_SUITE` |
 | 30 | `30-templates.sh` | §3a AI Factory templates + §3b `tool-decisions.md` seed + §3d stack-specific templates + §5b `AGENTS.md` | `SHIPPED_DOCS` global | Done |
 | 40 | `40-configs.sh` | §4 enforcement scripts + §5a shared templates + §5b' ESLint rules + barrel-gen + §6a stack configs | 30-templates (`.ai-factory/` exists) | Done |
 | 45 | `45-python.sh` | Python toolchain delivery (ast-grep rules + `sgconfig.yml` + ruff config) with augment-first collision policy; **INERT on the npm flow** — runs only when `GETFF_TOOLCHAIN=python` (env-var contract; S2 wires the `./setup python` entry) | lib.sh (`copy_safe`/`mkdir_safe` in scope), `packages/core/templates/python/**` (S1 Task 4) | **Done (S1 Task 5)** — inert until S2 sets `GETFF_TOOLCHAIN`; npm byte-identical unaffected (guarded no-op) |
@@ -56,6 +58,7 @@ All layers share the dispatcher shell scope. These globals are initialised in `i
 | `DRY_RUN` | dispatcher (flag parse) | lib helpers |
 | `SKIPPED` | dispatcher (`SKIPPED=()`) | 10, 20, 30, 40, 50, 60, 70, 99-finalize (`SKIPPED` fully accumulated at finalize time) |
 | `STACK` | dispatcher (stack pick) | 30, 40, 60, 70, 99 |
+| `PROFILE` | dispatcher (flag resolution; `core` default for non-TTY) | 10 (F7 split), 20 (agents F7) — beta-delivery-ux S1 |
 | `SHIPPED_DOCS` | dispatcher (SHIPPED_DOCS array set before loop) | 20, 30, 40 |
 | `_r2_verdict` | 60-ci | 99-finalize (R2 L2 AST-wire) |
 | `DEPS_INSTALLED` | 70-deps | 99-finalize (Next-steps) |

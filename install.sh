@@ -12,6 +12,9 @@
 #   ./install.sh ts-server --with-aif-suite     # also ship the AIF operator suite (aif-handoff runtime required)
 #   ./install.sh ts-server --all                # everything: --full + --with-aif-suite (operator machines)
 #   ./install.sh python                         # Python toolchain lane (non-npm; ast-grep + ruff, no package.json — see INSTALL-FOR-AI.md)
+#   ./install.sh ts-server --profile core       # default depth: rules + tests + guards + killer payload
+#   ./install.sh ts-server --profile env        # core + multi-model contour surface (/arch, presets, status, night-mode/SDD placeholders)
+#   ./install.sh ts-server --profile factory    # env + AIF operator suite (dispatcher/harvest/aif-doctor + runtime-bridge + GLM one-button)
 #
 # What it does:
 #   1. Copies skills/ + the consumer-facing core skill set
@@ -94,7 +97,17 @@ TOOLCHAIN=""
 # never-hard-depend). The consumer-facing core set (template-audit ai-doc rule-research) stays
 # default. See setup.d/10-skills.sh for the split.
 WITH_AIF_SUITE=""
-for arg in "$@"; do
+# PROFILE_RAW holds the literal `--profile <value>` until the resolution block below normalises
+# it to one of {core, env, factory} (case-insensitive). PROFILE is the resolved variable that
+# setup.d layers read; set later. Empty PROFILE_RAW = no --profile flag passed (resolved to the
+# TTY-menu / non-TTY-default path in the resolution block).
+PROFILE_RAW=""
+# while-loop (not `for arg in "$@"`) so value-taking flags like `--profile <name>` can consume
+# their value via shift without snapshot-vs-positional skew. The `*)` no-op preserves
+# forward-compat for unknown flags (today they're silently ignored; future flags can be added
+# without rewriting the loop).
+while [ "$#" -gt 0 ]; do
+  arg="$1"
   case "$arg" in
     --dry-run)              DRY_RUN="--dry-run" ;;
     --force)                FORCE="--force" ;;
@@ -102,8 +115,32 @@ for arg in "$@"; do
     --wire-ci)              WIRE_CI="--wire-ci" ;;
     --refresh)              REFRESH="--refresh" ;;
     --with-aif-suite)       WITH_AIF_SUITE="--with-aif-suite" ;;
+    # --profile <name> — install depth (kickoff §0 + design spec §4 A1, beta-delivery-ux S1).
+    # Three values, monotonic depth: core (today's default, no AIF runtime) → env (core +
+    # multi-model contour surface as placeholders, no AIF runtime) → factory (env + the AIF
+    # operator suite + runtime-bridge wiring + GLM one-button placeholder). The flag LAYERS OVER
+    # the existing flag machinery (kickoff §4 item 3: every flag that worked before still works).
+    # Mutually-aware with --with-aif-suite: if both are passed and disagree → WARN + --profile
+    # wins (explicit depth signal overrides the escape hatch). --all stays as the legacy alias
+    # for `--full --with-aif-suite` AND additionally sets PROFILE=factory (factory = env + AIF
+    # suite per §2.1 of the inventory, so the legacy alias maps cleanly to the deepest profile).
+    # Case-insensitive: normalised to lower-case in the resolution block below.
+    --profile)
+      shift
+      # Fail-loud if --profile is the last arg OR the next arg is itself a flag
+      # (cold-QA MINOR 1 fix: previously `--profile --dry-run` consumed --dry-run
+      # as the value and emitted a misleading "unknown value" error).
+      if [ "$#" -eq 0 ] || [ "${1#-}" != "${1:-}" ]; then
+        echo "❌ --profile requires a value (core|env|factory)" >&2
+        exit 1
+      fi
+      PROFILE_RAW="$1"
+      ;;
+    --profile=*)            PROFILE_RAW="${arg#--profile=}" ;;
     # --all = everything: --full (dev-deps, no prompts) + the AIF operator suite. Operator
     # convenience alias (owner directive 2026-07-11); consumer default (-y/--full) stays curated.
+    # Under --profile semantics (S1): --all additionally implies --profile factory, since
+    # factory = env + AIF suite per inventory §2.1 (the AIF suite IS the factory-only payload).
     --all)                  FULL="--full"; WITH_AIF_SUITE="--with-aif-suite" ;;
     ts-server|react-next|react-spa|react-native)   STACK="$arg"; STACK_EXPLICIT="1" ;;
     # python = a TOOLCHAIN lane, not a fifth npm stack. Explicit positional → always wins over
@@ -115,6 +152,7 @@ for arg in "$@"; do
     cargo)                  TOOLCHAIN="cargo" ;;
     *)                      ;;
   esac
+  shift
 done
 SKIPPED=()
 
@@ -329,6 +367,96 @@ if [ "$TOOLCHAIN" = "cargo" ]; then
   exit 0
 fi
 
+# ─── Profile resolution (beta-delivery-ux S1, design spec §4 A1) ──────────────
+# Resolve the install depth: core (default) | env (core + multi-model contour
+# placeholders, no AIF runtime) | factory (env + AIF operator suite + runtime-bridge
+# + GLM one-button placeholder). The flag is the agent/CI surface; the TTY menu is
+# the human surface; non-TTY defaults to core. The variable exported here (PROFILE)
+# is read by setup.d/10-skills.sh (F7 split is now profile-driven) and by setup.d/
+# companions.manifest (@profile: factory comment marker for the aif-handoff row).
+#
+# Mutual-awareness with --with-aif-suite: factory-depth installs the AIF suite, so
+# `--with-aif-suite` is the explicit escape that selects factory-equivalent skill
+# scope. If both are passed and they disagree → WARN + --profile wins (explicit
+# depth signal overrides the escape hatch). `--all` is the legacy alias for
+# `--full --with-aif-suite`; we additionally derive PROFILE=factory from it for
+# downstream consistency (factory = env + AIF suite per inventory §2.1).
+#
+# The flag LAYERS OVER the existing flag machinery: every flag that worked before
+# still works (kickoff §4 item 3). Profiles are an additive surface, not a
+# replacement for --with-aif-suite / --all.
+PROFILE=""
+# Normalise --profile value to lower-case + validate against the allowed set.
+if [ -n "$PROFILE_RAW" ]; then
+  # to-lower via tr; pure-bash ${var,,} would also work but tr is portable across
+  # the bash 3.2 (macOS default) / bash 4+ split that has bitten this script before.
+  PROFILE="$(printf '%s' "$PROFILE_RAW" | tr '[:upper:]' '[:lower:]')"
+  case "$PROFILE" in
+    core|env|factory) ;;
+    *)
+      echo "❌ --profile: unknown value '$PROFILE_RAW' (allowed: core | env | factory)" >&2
+      exit 1
+      ;;
+  esac
+fi
+# If --with-aif-suite was passed without an explicit --profile, derive factory (the
+# AIF suite IS the factory-only payload per inventory §2.1 — the escape hatch selects
+# the deeper profile). If both were passed and disagree, WARN + --profile wins.
+if [ -n "$WITH_AIF_SUITE" ] && [ -z "$PROFILE" ]; then
+  PROFILE="factory"
+elif [ -n "$WITH_AIF_SUITE" ] && [ "$PROFILE" != "factory" ]; then
+  echo "⚠  --with-aif-suite is factory-depth, but --profile $PROFILE was also passed." >&2
+  echo "   --profile wins (explicit depth signal); --with-aif-suite is ignored for depth routing." >&2
+  echo "   (The AIF suite will still be installed only if your profile is factory.)" >&2
+fi
+# No --profile flag at all → TTY menu (interactive human) or non-TTY default.
+# The TTY menu is the HUMAN surface. The non-interactive contract used everywhere
+# else in this script (--full/-y at install.sh:468 fail-loud instead of showing
+# the stack menu; --full/--dry-run at :316 and :348 decline the python/cargo
+# toolchain prompts) MUST also skip this menu. Otherwise `bash /tmp/getff/setup
+# -y <stack>` attached to a terminal — the exact invocation INSTALL-FOR-AI.md:66
+# tells an AI to run — hangs on `read -rp` here, regressing kickoff §4 item 3
+# (existing flag back-compat) and breaking the diff's own claim at
+# INSTALL-FOR-AI.md:83 ("Every flag that worked before still works"). The flag
+# LAYERS OVER the menu; it does not replace it.
+#
+# Round-3 gate (rework MAJOR): the menu MUST also skip when a positional stack
+# arg was supplied (STACK_EXPLICIT=1). Per the reviewer's binding constraint
+# («existing interactive prompt order must keep working»), the §8 dev-deps →
+# §8b tsx prompts in setup.d/70-deps.sh:269/374 are the existing interactive
+# flow for `install.sh <stack>`; inserting the profile menu in front of them
+# intercepts the first positional answer meant for §8 (e.g. 'n') and exits 1
+# at the `*)` branch below. tests/install-sh/gh-636-ensure-tsx-root.test.sh
+# Arm D feeds `n` then `y` under a real pty — the menu ate `n` → exit 1 (16/3
+# red). A positional stack signals the user is already on the existing flow;
+# depth selection via `--profile <name>` still works as a flag in that case.
+# The menu only fires for the no-stack-arg path (`./install.sh` bare at a TTY).
+if [ -z "$PROFILE" ]; then
+  if [ -t 0 ] && [ -z "$DRY_RUN" ] && [ -z "$FULL" ] && [ -z "$STACK_EXPLICIT" ]; then
+    echo "What install depth do you want?"
+    echo "  1) core    — rules + tests + guard hooks + killer payload; today's default. No AIF operator runtime."
+    echo "  2) env     — core + multi-model contour surface (/arch, presets, status, night-mode/SDD) as placeholders; no AIF runtime."
+    echo "  3) factory — env + the AIF operator suite (dispatcher/harvest/aif-doctor + runtime-bridge + GLM one-button placeholder) — full aif-handoff runtime stack."
+    read -rp "Choose [1/2/3] (default 1): " _profile_ans || _profile_ans=""
+    case "$_profile_ans" in
+      2) PROFILE="env" ;;
+      3) PROFILE="factory" ;;
+      "") PROFILE="core" ;;
+      1) PROFILE="core" ;;
+      *) echo "❌ Invalid choice (use 1, 2, or 3)"; exit 1 ;;
+    esac
+  else
+    # Non-TTY (piped stdin, --dry-run, or closed stdin) OR non-interactive flag
+    # (-y/--full): default to core with a one-line `[profile] core` notice.
+    # Never blocks; CI / agents / `./install.sh < /dev/null` / `./setup -y` always
+    # proceed. The deeper depths are explicit opt-ins (--profile env|factory).
+    PROFILE="core"
+    echo "[profile] core (non-interactive default; re-run with --profile env|factory to deepen)"
+  fi
+fi
+export PROFILE
+echo "[profile] $PROFILE"
+
 # Must be a project (has package.json) — but in dry-run we just warn so the user can preview.
 if [ ! -f "$PROJECT_ROOT/package.json" ]; then
   if [ "$DRY_RUN" = "--dry-run" ]; then
@@ -425,10 +553,13 @@ do_refresh() {
       shipped-agent-liveness-prober.md) continue ;;
       backward-sweep-auditor.md) continue ;;  # authoring-only tool (§1.7 backward-check cold-sweep, T21)
       adapter-jig-reviewer.md) continue ;;  # authoring-only tool (framework-side adapter-wiring conformance review, adapter-jig J1)
+      dispatch-input-checker.md) continue ;;  # authoring-only station (arch-v2 S-B contract v2, dispatch-input reality-check)
       orchestrator-worker-discipline.md|reviewer-discipline.md)
-        # F7 companion split (agents arm) — parity with setup.d/20-agents.sh: suite-only,
-        # or keep refreshing a copy already on disk (presence = prior --with-aif-suite opt-in).
-        if [ -z "${WITH_AIF_SUITE:-}" ] && [ ! -e "$PROJECT_ROOT/.claude/agents/$(basename "$f")" ]; then continue; fi ;;
+        # F7 companion split (agents arm) — parity with setup.d/20-agents.sh: factory-only
+        # (or legacy --with-aif-suite), or keep refreshing a copy already on disk (presence =
+        # prior opt-in).
+        if [ "${PROFILE:-core}" != "factory" ] && [ -z "${WITH_AIF_SUITE:-}" ] \
+          && [ ! -e "$PROJECT_ROOT/.claude/agents/$(basename "$f")" ]; then continue; fi ;;
     esac
     _dst="$PROJECT_ROOT/.claude/agents/$(basename "$f")"
     refresh_safe "$f" "$_dst"
@@ -479,7 +610,13 @@ do_refresh() {
     refresh_skill_with_transform "$_skill"
   done
   for _skill in pipeline dispatcher aif-doctor harvest night-mode story; do
-    if [ -n "$WITH_AIF_SUITE" ] || [ -e "$PROJECT_ROOT/.claude/skills/$_skill" ]; then
+    # F7 gate (refresh arm) — parity with setup.d/10-skills.sh: factory profile, legacy
+    # --with-aif-suite escape, OR keep refreshing a copy already on disk (presence = prior
+    # opt-in). The presence check is the upgrade-path mechanism: a core-only consumer who
+    # later runs `--refresh --profile factory` lands the factory artefacts, then subsequent
+    # `--refresh` runs (even without --profile) keep them fresh.
+    if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
+      || [ -e "$PROJECT_ROOT/.claude/skills/$_skill" ]; then
       refresh_skill_with_transform "$_skill"
     fi
   done
@@ -879,8 +1016,10 @@ do_refresh() {
     case "$_doc" in
       packages/core/templates/shared/skill-context/*/SKILL.md)
         _sc="${_doc#packages/core/templates/shared/skill-context/}"; _sc="${_sc%/SKILL.md}"
-        # F7 companion split (skill-context arm) — parity with setup.d/20-agents.sh §3c.
-        if [ "$_sc" = "aif-orchestrator-discipline" ] && [ -z "${WITH_AIF_SUITE:-}" ] \
+        # F7 companion split (skill-context arm) — parity with setup.d/20-agents.sh §3c:
+        # factory-only (or legacy --with-aif-suite escape), or present = prior opt-in.
+        if [ "$_sc" = "aif-orchestrator-discipline" ] && [ "${PROFILE:-core}" != "factory" ] \
+          && [ -z "${WITH_AIF_SUITE:-}" ] \
           && [ ! -e "$PROJECT_ROOT/.ai-factory/skill-context/$_sc/SKILL.md" ]; then continue; fi
         refresh_safe "$PKG_ROOT/$_doc" "$PROJECT_ROOT/.ai-factory/skill-context/$_sc/SKILL.md" ;;
     esac

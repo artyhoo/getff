@@ -1,0 +1,7 @@
+{
+  "name": "@consumer-fixture/web",
+  "private": true,
+  "dependencies": {
+    "zod": "^3.23.0"
+  }
+}

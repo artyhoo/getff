@@ -85,8 +85,10 @@ For structure-aware queries — counting real array/object members, finding lang
 - **`/pipeline`** (Claude Code; manual workflow on other harnesses) reads the kickoffs + plan,
   ranks them, and emits a launch-table telling you what to start next. An **empty** backlog
   (no kickoffs yet) is normal — it reports "nothing queued", not an error. The `/pipeline` skill
-  and its AIF operator companions ship only when the framework was installed with
-  `--with-aif-suite` (they presuppose the aif-handoff runtime); a default install omits them.
+  and its AIF operator companions ship only when the framework was installed at `factory` depth
+  (`--profile factory`, or the equivalent legacy `--with-aif-suite` / `--all` escapes — they
+  presuppose the aif-handoff runtime); a default (`core`) install omits them. See
+  `INSTALL-FOR-AI.md` "Install depth profiles" for the core/env/factory breakdown.
 - **Kickoff format:** a markdown file beginning with a `Type:` line (`fix` / `research` /
   `feature`), the goal, and — if the work splits into parallel sub-steps — a `## §1 Sub-wave`
   section with one table row per sub-step. Without sub-steps, a plain task brief is fine.

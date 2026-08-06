@@ -124,7 +124,30 @@ function hasUniversalMutator(): boolean {
     return false;
   }
 }
-const HAS_UM = hasUniversalMutator();
+
+/**
+ * Opt-in switch for the Stage 3C bash-mutation gate (`RUN_BASH_MUTATION=1`).
+ *
+ * Tool-presence alone is the WRONG trigger. The gate spawns `npx vitest` once per
+ * mutant, so its wall-clock scales with the mutant count of the hook under test —
+ * 13 mutants ≈ 65s today, and every strengthening of the hook makes it slower. Keyed
+ * on PATH alone it therefore fired on EVERY `git push` from any shell whose PATH
+ * carries universalmutator, growing without bound as the hook grows (operator call,
+ * 2026-07-31: "на каждый пуш по мутанту — это быстро превратится в бесконечную
+ * загрузку"). Bumping the per-test timeout treats the symptom and keeps the
+ * unbounded per-push cost.
+ *
+ * The gate's own docstring (Stage 3C block below) already declares it
+ * "local/on-demand" and notes it is skipped in CI — no workflow installs
+ * universalmutator (verified 2026-07-31: `grep -rn 'universalmutator\|analyze_mutants'
+ * .github/workflows/*.yml` → empty). This flag makes the declared intent the actual
+ * behaviour instead of an accident of the developer's PATH. Enforcement is unchanged
+ * where it was ever real: run it deliberately, or wire it to a scheduled job.
+ *
+ *   RUN_BASH_MUTATION=1 npx vitest run principles/02-paired-negative-test.test.ts
+ */
+const MUTATION_OPT_IN = process.env['RUN_BASH_MUTATION'] === '1';
+const HAS_UM = MUTATION_OPT_IN && hasUniversalMutator();
 
 /**
  * Run the Stage 2 B bash-mutation wrapper
