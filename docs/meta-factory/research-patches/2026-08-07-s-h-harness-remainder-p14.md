@@ -42,17 +42,71 @@ Conversion: **4 B ≈ 1 token, est.**, per the seed's binding convention, applie
 
 ---
 
+## §0a DECISION-NEEDED #3 — the prescribed pricing channel could not observe, and five blocks stay unpriced
+
+§3a of the stage kickoff names «an unpriceable block class» and «a probe that cannot observe» as
+DECISION-NEEDED triggers. Both fired here, so this is recorded in §3a grammar rather than only
+as a ranked recommendation (R1 below keeps the substance; this section supplies the contract
+form the sibling patch already uses for its own two forks).
+
+**What happened:** the kickoff prescribes `/context` as P14's fallback pricing channel, while
+the dispatch header permits non-interactive execution — where slash commands are not invocable.
+No descope covers that combination. The substitute channel (first-turn transcript billing, §0)
+prices the remainder **in aggregate** but cannot split it, so rows 5c, 5d, 5e and 9 return
+`UNMEASURED — channel absent` and row 8 is source-side only.
+
+> **DECISION-NEEDED:** P14's per-block decomposition of the harness remainder (~42,621 tok,
+> 68.4% of the measured seat) is **UNPRICED**, and S-D′'s stated instrument rule is to park the
+> ordering of any block neither instrument prices.
+> **Option A** — the operator runs `/context` once in an interactive session and pastes the
+> output into this patch. Consequence: the five `UNMEASURED` rows resolve into a per-block
+> split, S-D′ can order its harness-side drops, and the cost is one command.
+> **Option B** — accept the aggregate as final for this umbrella. Consequence: S-D′ marks the
+> harness remainder `UNPRICED` and **parks its harness-side ordering** per its own rule, so the
+> subtraction maps ship covering the repo-owned ~21% only — the smaller half, against §0.5's
+> expensive-seat-first principle.
+> Consequence of doing nothing: S-D′ inherits an unpriced block and must park regardless, but
+> without this fork recorded the park will read as an S-D′ defect rather than an S-H input gap.
+> **Not resolved here** — the choice is the operator's; the stage did not build a workaround.
+
+---
+
 ## §1 Total resident head per seat class — MEASURED
 
-| seat class | resident head | channel |
+| seat class | resident head | transcript / command (reproducible pointer) |
 |---|---:|---|
-| main CC session, this stage (2026-08-07) | **89,019 tok** | own transcript, first billed turn |
-| main CC session, 60 most-recent project sessions | median **99,559** / max 161,189 tok | first billed turn, per session |
-| subagent, full toolset (`general-purpose`) | **62,340 tok** | subagent transcript, first billed turn |
-| subagent, reduced toolset (`Explore`) | **26,659 tok** | same |
-| subagent, reduced toolset (`Plan`) | **26,783 tok** | same |
+| main CC session, this stage (2026-08-07) | **89,019 tok** | `…/e5a0e586-8a12-4765-905b-13b307556f67.jsonl`, first billed turn |
+| main CC session, 60 most-recent project sessions | median **100,529** (min 63,751 / max 161,189) tok | command below |
+| subagent, full toolset (`general-purpose`) | **62,340 tok** | `…/subagents/agent-a8ef1a67abc18f52b.jsonl` |
+| subagent, reduced toolset (`Explore`) | **26,659 tok** | `…/subagents/agent-a44e1f59627a682f2.jsonl` |
+| subagent, reduced toolset (`Plan`) | **26,783 tok** | `…/subagents/agent-a063ec38421c06d63.jsonl` |
 
-The 60-session median of **99,559 tok independently confirms ADR-3's «~100k observed
+The three subagent transcripts live under
+`~/.claude/projects/-Users-art-code-rules-as-tests-aif--claude-worktrees-orchestrator-arch-v2-context-pipeline-f7a49f/e5a0e586-8a12-4765-905b-13b307556f67/subagents/`;
+the sibling patch §6 gives the one-liner that reproduces all three heads (and their
+`tool_use-count=0`). **62,340 tok is the denominator the whole §2 price list is sized against**,
+so it is pinned to a file, not just a channel name.
+
+The main-seat distribution reproduces with:
+
+```bash
+for d in ~/.claude/projects/-Users-art-code-rules-as-tests-aif*; do
+  f=$(ls -t "$d"/*.jsonl 2>/dev/null | head -1); [ -n "${f:-}" ] || continue
+  jq -s 'map(select(.type=="assistant" and .message.usage))[0] | select(.!=null)
+         | (.message.usage.input_tokens + .message.usage.cache_creation_input_tokens
+            + .message.usage.cache_read_input_tokens)' "$f" 2>/dev/null
+done | awk '$1>0' | sort -n \
+  | awk '{v[NR]=$1} END{printf "n=%d min=%d median=%d max=%d\n", NR, v[1], v[int((NR+1)/2)], v[NR]}'
+```
+
+```console
+n=60 min=63751 median=100529 max=161189
+```
+
+(`awk '$1>0'` drops one degenerate session whose transcript holds no billed turn — excluded
+rather than allowed to drag the minimum to 0.)
+
+The 60-session median of **100,529 tok independently confirms ADR-3's «~100k observed
 session-start total»** through a completely different channel (transcript billing vs the S1
 script's file-side count). ADR-3's figure is corroborated, not contradicted.
 
@@ -119,7 +173,9 @@ is the smaller half of the problem.
 
 Each carries its evidence and what would make it wrong. None is applied by this stage.
 
-**R1 — Close the UNMEASURED rows with one `/context` paste (cost: one command).**
+**R1 — Close the UNMEASURED rows with one `/context` paste (cost: one command).** This is the
+ranked-recommendation form of **DECISION-NEEDED #3 (§0a) Option A**; the fork itself is the
+operator's to settle, this is only the ordering advice.
 Rows 5c/5d/5e are the only blocks in the top cost class with no channel. An interactive
 `/context` run pasted into this patch converts ~42,621 tok of aggregate into a per-block split,
 which is exactly what S-D′ needs to *order* its harness-side drops. Until then S-D′ must treat
@@ -210,7 +266,11 @@ shortfall. P14 accordingly priced via the §0 substitute channel, as recorded th
 
 - **Seat classes measured:** 5 (main-this-session, main-60-session distribution, full-tool
   subagent, two reduced-tool subagents). Every total is a first-turn billing figure, not an
-  estimate.
+  estimate, and each carries a transcript path or the exact command that reproduces it (§1) —
+  including the 62,340-tok figure the whole §2 price list is sized against.
+- **Forks:** the channel gap is recorded in §3a grammar as **DECISION-NEEDED #3 (§0a)**, not
+  only as recommendation R1; the sibling patch carries #1 (corpus drift) and #2 (denominator).
+  None of the three is resolved by this stage.
 - **Price-list rows:** 13 enumerated; **7 MEASURED with a named channel**, **5 marked
   `UNMEASURED — channel absent`**, 1 (row 8) measured source-side with the injected form
   explicitly deferred to S-I. **No row carries an estimate dressed as a measurement.**
@@ -233,7 +293,10 @@ this patch adds no check, so it introduces no bare-attention gate; the one oblig
 (R1) is an operator action with a named artefact, not «someone should look at the harness».
 T-SH-A is the governing trap and is satisfied structurally — the price table has a channel
 column, and five rows exercise the `UNMEASURED — channel absent` value rather than being
-back-filled from byte estimates. T20: every recommendation cites a measured number or explicitly
+back-filled from byte estimates. §3a of the kickoff is satisfied in its own grammar: the
+unpriceable-block / probe-cannot-observe fork is stated as `DECISION-NEEDED` with both options
+and their consequences (§0a), matching the shape the sibling patch uses, so one stage does not
+ship two different reporting forms for the same contract. T20: every recommendation cites a measured number or explicitly
 states that it is a disable-candidate on non-cost grounds (R2). T14: the undecomposed harness
 split is reported as insufficient coverage, not as a finding.
 [`no-paid-llm-in-ci.md`](../../../.claude/rules/no-paid-llm-in-ci.md): all measurement is shell
@@ -244,7 +307,7 @@ Enumerated surfaces where that class occurs, verdicted per surface:
 
 - `docs/superpowers/specs/2026-07-31-arch-v2-context-pipeline-design.md` ADR-3 (~100k
   session-start total, 29-39% repo-owned) — **SWEPT-CLEAN**: independently corroborated by the
-  60-session median 99,559 tok, and the repo-owned share measured at 27.8% pre-S-G / ~21%
+  60-session median 100,529 tok, and the repo-owned share measured at 27.8% pre-S-G / ~21%
   post-S-G, inside ADR-3's stated band. No correction owed.
 - `docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md` P14 row («remainder ≈
   100k − (29-39k repo-owned)») — **SWEPT-CLEAN**: measured 68.4% at the subagent seat, 77.8% at

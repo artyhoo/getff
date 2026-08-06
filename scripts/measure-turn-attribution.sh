@@ -18,6 +18,17 @@
 #   of the bootstrap-injector cost line (§9) is unmeasurable under that find. This script drops
 #   `-maxdepth 2` and reports the two populations SEPARATELY.
 #
+# DENOMINATOR TAG — [H], AND IT IS NOT CONVERTIBLE TO [W]:
+#   Every percentage this script prints is weighted over the corpus it just enumerated —
+#   BOTH populations, session-root plus subagent. The token-economy spec
+#   (docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md, "Denominator
+#   convention (binding)") declares three tags, "none convertible": [W] is the re-priced
+#   169-session corpus (WRITE 43.1%), [D] the stage-A accounted subset, [A] the always-on doc
+#   bill. This script measures NONE of those — it measures [H], the live host corpus
+#   (WRITE ~35%). Do NOT read a share printed here as a [W] share, and do not adjudicate a
+#   [W]-defined threshold (e.g. the N1 retirement falsifier, spec row N1) against it without
+#   saying which denominator you used. An untagged percentage is a defect per that convention.
+#
 # HOST-ONLY: reads `~/.claude/projects/**/*.jsonl`. That path does not exist in the aif
 #   container (it mounts `claude-auth` as a named volume, not the host `~/.claude`), so this
 #   script cannot run there. It reads per-turn BILLING METADATA and tool names/sizes only —
@@ -181,7 +192,8 @@ awk -F'\t' -v mw="$MULT_CACHE_WRITE" -v mr="$MULT_CACHE_READ" -v mo="$MULT_OUTPU
       printf "%-14s %18.0f %9.1f%%\n","uncached input",wi,100*wi/W
       printf "%-14s %18.0f %9.1f%%\n","TOTAL",W,100.0
       printf "RAW-TOKENS-TOTAL: %d\n", raw
-      printf "WRITE-LINE-SHARE: %.1f%%   (the [W] denominator §6 sizes trigger classes against)\n", 100*ww/W
+      printf "DENOMINATOR-TAG: [H] = this two-population host corpus, price-weighted. NOT [W].\n"
+      printf "WRITE-LINE-SHARE: %.1f%%   (the [H] denominator §6 sizes trigger classes against)\n", 100*ww/W
     }
   }' "$TMPD/stream.tsv"
 
@@ -276,7 +288,7 @@ awk -F'\t' '
     last_ep[f]=$4
   }
   END {
-    printf "%-52s %9s %8s %16s %9s\n","trigger class","turns","turn-%","cache-WRITE-tok","%-of-[W]"
+    printf "%-52s %9s %8s %16s %9s\n","trigger class","turns","turn-%","cache-WRITE-tok","%-of-[H]"
     for (k in c) printf "%-52s %9d %7.1f%% %16d %8.1f%%\n", substr(k,3), c[k], (T?100*c[k]/T:0), w[k], (TW?100*w[k]/TW:0)
     printf "%-52s %9d %7.1f%% %16d %8.1f%%\n","TOTAL",T,100.0,TW,100.0
   }' "$TMPD/stream.tsv" | { read -r h; echo "$h"; sort; }
