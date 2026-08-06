@@ -432,6 +432,184 @@ done
   || bad "(13) agent surface incomplete — see MISSING items above (the host-verify contract fires here)"
 rm -rf "$P"
 
+# ── (14) D-S2b positive — local git pre-push rung delivered + activated + opt-out ─────────────
+# Kickoff §3: hook file delivered + executable + activation present + opt-out honored. The
+# verdict-driven design (SSOT #235) is bare core.hooksPath-style delivery as default. This arm
+# fails-closed when the rung is missing or not activated. NOTE deliberately NOT an `@arm:` marker
+# (S2 incident commit 7f21e44f19 — that grammar belongs to the adapter-jig registry, principle 33);
+# plain-comment label only, parallel to arm (13).
+echo ""; echo "  ── (14) D-S2b local git pre-push rung: delivered + executable + activated ──"
+P=$(py_fixture)
+git -C "$P" init -q
+( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+_s2b_fail=0
+# (a) hook file delivered
+[ -f "$P/.getff/hooks/pre-push" ] \
+  && ok "(14) .getff/hooks/pre-push delivered" \
+  || { bad "(14) MISSING: .getff/hooks/pre-push"; _s2b_fail=1; }
+# (b) hook file executable
+[ -x "$P/.getff/hooks/pre-push" ] \
+  && ok "(14) .getff/hooks/pre-push is executable" \
+  || { bad "(14) .getff/hooks/pre-push NOT executable"; _s2b_fail=1; }
+# (c) activation present — git config core.hooksPath .getff/hooks
+_act=$(git -C "$P" config --get core.hooksPath 2>/dev/null || true)
+[ "$_act" = ".getff/hooks" ] \
+  && ok "(14) core.hooksPath=.getff/hooks activated" \
+  || { bad "(14) core.hooksPath NOT set to .getff/hooks (got: ${_act:-<unset>})"; _s2b_fail=1; }
+# (d) header comment carries opt-out + deletion path (kickoff §2 item 3 — documented deletion path
+# + env escape, stated in the hook's header comment).
+grep -q 'GETFF_SKIP_HOOKS=1' "$P/.getff/hooks/pre-push" \
+  && ok "(14) header documents GETFF_SKIP_HOOKS=1 runtime opt-out" \
+  || { bad "(14) header missing GETFF_SKIP_HOOKS=1 opt-out doc"; _s2b_fail=1; }
+grep -qE 'rm[[:space:]]+(\.getff/hooks/pre-push|\.git/hooks)' "$P/.getff/hooks/pre-push" \
+  && ok "(14) header documents deletion path" \
+  || { bad "(14) header missing deletion path"; _s2b_fail=1; }
+
+# ── (14b) D-S2b opt-out at INSTALL time (GETFF_SKIP_HOOKS=1 → no activation) ──────────────────
+# Kickoff §3: opt-out honored (GETFF_SKIP_HOOKS=1 install → no activation). The load-bearing
+# assertion is NO core.hooksPath mutation — the opt-out's job is to leave the consumer's git config
+# untouched (the hook body MAY still be delivered; it just isn't wired into git).
+echo ""; echo "  ── (14b) D-S2b install-time opt-out: GETFF_SKIP_HOOKS=1 → no activation ──"
+P2=$(py_fixture)
+git -C "$P2" init -q
+( cd "$P2" && GETFF_SKIP_HOOKS=1 bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+_act2=$(git -C "$P2" config --get core.hooksPath 2>/dev/null || true)
+[ -z "$_act2" ] \
+  && ok "(14b) GETFF_SKIP_HOOKS=1 install → core.hooksPath NOT set (opt-out honored)" \
+  || bad "(14b) GETFF_SKIP_HOOKS=1 install → core.hooksPath WAS set to '$_act2' (opt-out broken)"
+rm -rf "$P" "$P2"
+
+# ── (15) D-S2b RED/GREEN firing through the actual git rung (T-S2B-C — prove the rung, not the scanner) ─
+# The whole point of the stage (kickoff §3): a hook delivered but never proven to fire through git
+# is «coverage insufficient», not «works». We do REAL git operations: git init / commit / push
+# through a local bare remote. The hook fires (or skips) via git itself, NOT via direct invocation
+# of ast-grep/ruff. Tool-gated — when ast-grep + ruff are both absent the arm is SKIP (the rung
+# would fail-OPEN; the RED/GREEN assertion is vacuous without the tools).
+echo ""; echo "  ── (15) D-S2b RED/GREEN firing through actual git push (T-S2B-C) ──"
+if { command -v ast-grep >/dev/null 2>&1 || { command -v sg >/dev/null 2>&1 && sg --version 2>/dev/null | grep -qi 'ast-grep'; }; } \
+   && { command -v ruff >/dev/null 2>&1 || command -v uvx >/dev/null 2>&1; }; then
+  # Build a fixture WITH a bare remote so git push has a destination (pre-push needs a real push).
+  P3=$(py_fixture)
+  git -C "$P3" init -q
+  git -C "$P3" config user.email test@test.test
+  git -C "$P3" config user.name test
+  git -C "$P3" config commit.gpgsign false
+  ( cd "$P3" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+  REMOTE=$(mktemp -d)
+  git init -q --bare "$REMOTE"
+  git -C "$P3" remote add origin "$REMOTE"
+  # Initial clean commit + push — this is the GREEN control (the rung allows a clean push).
+  printf 'print("hello")\n' > "$P3/clean.py"
+  git -C "$P3" add clean.py
+  git -C "$P3" commit -q -m "initial clean"
+  BR=$(git -C "$P3" symbolic-ref --short HEAD 2>/dev/null || echo main)
+  if git -C "$P3" push -q origin "$BR" 2>push_err; then
+    ok "(15) GREEN control: clean push succeeded (rung allowed it)"
+  else
+    bad "(15) GREEN control FAILED — clean push blocked: $(cat push_err | tr '\n' '|')"
+    _s2b_fail=1
+  fi
+  # RED: plant a violation the shipped rules catch (os.system — getff-no-os-system.yml).
+  # Then commit + push → the pre-push hook MUST fire and block the push (non-zero exit).
+  printf 'import os\nos.system("echo pwned")\n' > "$P3/bad.py"
+  git -C "$P3" add bad.py
+  git -C "$P3" commit -q -m "plant violation"
+  if git -C "$P3" push -q origin "$BR" 2>push_red; then
+    bad "(15) RED run FAILED — push with planted violation SUCCEEDED (rung did not fire)"
+    _s2b_fail=1
+  else
+    # Push blocked — assert our hook is what fired (output mentions getff). T-S2B-C counter: prove
+    # the rung fired via git, not the scanner directly.
+    if { cat push_red; git -C "$P3" push origin "$BR" 2>&1; } | grep -qi 'getff pre-push'; then
+      ok "(15) RED run: planted violation blocked the push via the getff rung (hook fired through git)"
+    else
+      bad "(15) RED run: push blocked but getff hook output not found: $(cat push_red | tr '\n' '|')"
+      _s2b_fail=1
+    fi
+  fi
+  # SKIP-RUN: GETFF_SKIP_HOOKS=1 must let the violation through (runtime opt-out honored).
+  if GETFF_SKIP_HOOKS=1 git -C "$P3" push -q origin "$BR" 2>push_skip; then
+    ok "(15) SKIP-RUN: GETFF_SKIP_HOOKS=1 push succeeded (runtime opt-out honored)"
+  else
+    bad "(15) SKIP-RUN FAILED — GETFF_SKIP_HOOKS=1 push blocked anyway: $(cat push_skip | tr '\n' '|')"
+    _s2b_fail=1
+  fi
+  rm -rf "$P3" "$REMOTE" push_err push_red push_skip
+else
+  echo "  · (15) SKIP RED/GREEN git-push fixture (ast-grep and/or ruff not on PATH)"
+  echo "    └─ the rung would fail-OPEN; the RED/GREEN assertion is vacuous without the tools."
+fi
+
+# ── (16) D-S2b integration arm — consumer with existing hooks is NEVER clobbered (T-S2B-B) ─────
+# Kickoff §3 mandatory fixture: pre-set core.hooksPath OR .pre-commit-config.yaml OR legacy
+# .git/hooks/pre-push → install → consumer's setup still works, getff rung integrated or cleanly
+# declined WITH a printed notice — never silently broken. Three cases per verdict-driven design.
+echo ""; echo "  ── (16) D-S2b integration arm (3 cases: existing core.hooksPath / pre-commit / legacy .git/hooks) ──"
+
+# Case 1: existing core.hooksPath is preserved (declined with notice).
+P4=$(py_fixture); git -C "$P4" init -q
+git -C "$P4" config core.hooksPath .my-hooks
+out1=$( cd "$P4" && bash "$INSTALL" python < /dev/null 2>&1 )
+_act3=$(git -C "$P4" config --get core.hooksPath 2>/dev/null || true)
+[ "$_act3" = ".my-hooks" ] \
+  && ok "(16a) case 1: existing core.hooksPath='.my-hooks' preserved (NOT overwritten)" \
+  || bad "(16a) case 1 FAILED: core.hooksPath='$_act3' (expected '.my-hooks')"
+echo "$out1" | grep -qi 'NOT overwriting\|NOT activated' \
+  && ok "(16a) case 1: printed notice (consumer informed)" \
+  || bad "(16a) case 1: no notice printed (silently broken): $(echo "$out1" | grep -i hook | tr '\n' '|')"
+[ -f "$P4/.getff/hooks/pre-push" ] \
+  && ok "(16a) case 1: getff hook body still delivered to .getff/hooks/pre-push" \
+  || bad "(16a) case 1: getff hook body NOT delivered (declined too hard)"
+rm -rf "$P4"
+
+# Case 2: existing .pre-commit-config.yaml → fragment appended (idempotent on re-install).
+P5=$(py_fixture)
+printf 'repos:\n  - repo: https://github.com/pre-commit/pre-commit-hooks\n    rev: v4.6.0\n    hooks:\n      - id: trailing-whitespace\n' > "$P5/.pre-commit-config.yaml"
+out2=$( cd "$P5" && bash "$INSTALL" python < /dev/null 2>&1 )
+grep -q 'getff-python-pre-push' "$P5/.pre-commit-config.yaml" \
+  && ok "(16b) case 2: getff entry appended to .pre-commit-config.yaml" \
+  || bad "(16b) case 2 FAILED: getff entry NOT appended: $(echo "$out2" | grep -i 'pre-commit\|getff' | tr '\n' '|')"
+# Idempotency: re-run install — no duplicate entry (Task 5: marker-grep prevents duplication).
+# Count the unique marker line (one per append) — NOT the substring 'getff-python-pre-push',
+# which appears 3× per append (marker + SKIP= comment + id: line) and would mask a duplication.
+( cd "$P5" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+_count=$(grep -c 'delivered by setup.d/45-python.sh' "$P5/.pre-commit-config.yaml")
+[ "$_count" = "1" ] \
+  && ok "(16b) case 2 idempotency: re-install did not duplicate the entry ($_count marker line)" \
+  || bad "(16b) case 2 idempotency FAILED: $_count marker lines (expected 1)"
+# core.hooksPath NOT set (pre-commit owns hooks — augment-first means don't compete).
+git -C "$P5" init -q 2>/dev/null
+_act4=$(git -C "$P5" config --get core.hooksPath 2>/dev/null || true)
+[ -z "$_act4" ] \
+  && ok "(16b) case 2: core.hooksPath NOT touched (pre-commit owns hooks)" \
+  || bad "(16b) case 2: core.hooksPath='$_act4' set anyway (would compete with pre-commit)"
+rm -rf "$P5"
+
+# Case 3: existing .git/hooks/pre-push file (no core.hooksPath) → declined with notice.
+P6=$(py_fixture); git -C "$P6" init -q
+mkdir -p "$P6/.git/hooks"
+printf '#!/bin/sh\nexit 0\n' > "$P6/.git/hooks/pre-push"
+chmod +x "$P6/.git/hooks/pre-push"
+out3=$( cd "$P6" && bash "$INSTALL" python < /dev/null 2>&1 )
+_act5=$(git -C "$P6" config --get core.hooksPath 2>/dev/null || true)
+[ -z "$_act5" ] \
+  && ok "(16c) case 3: core.hooksPath NOT set (legacy hook not clobbered)" \
+  || bad "(16c) case 3 FAILED: core.hooksPath='$_act5' set anyway (legacy hook bypassed)"
+[ -f "$P6/.git/hooks/pre-push" ] \
+  && ok "(16c) case 3: legacy .git/hooks/pre-push preserved (NOT overwritten)" \
+  || bad "(16c) case 3 FAILED: legacy .git/hooks/pre-push REMOVED (T-S2B-B violation)"
+echo "$out3" | grep -qi '\.git/hooks/pre-push exists' \
+  && ok "(16c) case 3: printed notice (consumer informed)" \
+  || bad "(16c) case 3: no notice printed (silently broken): $(echo "$out3" | grep -i hook | tr '\n' '|')"
+rm -rf "$P6"
+
+# Self-verifying TEETH assertion: arms (14)-(16) are fail-closed — T14 (a green install with the
+# hook delivered-but-never-fired is «coverage insufficient», not «works»). The RED run in arm (15)
+# is the mandatory firing proof.
+[ "$_s2b_fail" = "0" ] \
+  && ok "(14-16) local git rung delivered + activated + integrated — fail-closed arm held GREEN" \
+  || bad "(14-16) local git rung delivery/activation issues — see MISSING items above"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

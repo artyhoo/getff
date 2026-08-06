@@ -666,6 +666,171 @@ deliver_python_toolchain() {
   echo "  ✓ Python toolchain delivery complete (see .getff-python-install.log for the audit trail)."
 }
 
+# _py_deliver_local_hook_rung — D-S2b (getff-any-stack-trace-s2b): close the python lane's empty
+# local git-hook rung by delivering a pre-push hook that runs the SAME ast-grep + ruff checks the
+# CI template runs, but BEFORE the push leaves the machine (README.md#why-this-exists). The
+# earliest-reachable-channel ladder (edit → pre-commit → pre-push → CI) had no local git rung for
+# python consumers; this stage closes it.
+#
+# Verdict (SSOT #235 — prior-art-evaluations.md): BUILD bare `core.hooksPath`-style delivery as
+# default, WITH integration arm for existing-hooks consumers. Pre-commit (pre-commit.com) was
+# REJECTED on the runner-role verdict: criteria (a) zero-installed-prerequisites fails (Python
+# required at runtime), criteria (b) augment-first fails («Cowardly refusing» guards clobber).
+# Pre-commit in its scaffolder role was already REJECTED by SSOT #216 — the S2b verdict is on the
+# different runner-role question (T16 problem-class separation, see prior-art-evaluations.md #235).
+#
+# Hook body lives at packages/core/templates/python/hooks/pre-push.sh; pre-commit fragment at
+# packages/core/templates/python/hooks/getff.pre-commit-config.yaml.fragment. The hook body mirrors
+# the CI template (.github/workflows/getff-python.yml) — keep the two in sync on any pin bump
+# (both bump together per .claude/rules/ci-tool-pinning.md Rule A).
+#
+# Activation (default): git config core.hooksPath .getff/hooks. The hook file is delivered to
+# .getff/hooks/pre-push (getff-namespaced, parallel to .getff/astgrep-rules/ and
+# .getff/ruff-bans.toml). The consumer's existing core.hooksPath / .pre-commit-config.yaml /
+# .git/hooks/pre-push are NEVER clobbered (kickoff §2 item 2, criterion (b), T-S2B-B). Three
+# integration cases handled by _py_integrate_* helpers below.
+#
+# Opt-out (kickoff §2 item 3): GETFF_SKIP_HOOKS=1 at install-time → return early, no delivery.
+# Runtime opt-out lives in the hook body itself (exit 0 on GETFF_SKIP_HOOKS=1). The opt-out story
+# mirrors the CI template's: documented deletion path + env escape, stated in the hook header.
+#
+# Idempotency + --refresh (kickoff §2 item 4): _py_copy_or_refresh wraps copy_safe/refresh_safe
+# (lib.sh) so plain re-install skips (preserves consumer edits) and --refresh overwrites with the
+# current template (refresh_safe honours a sibling pre-push.override.md for Layer-3 ownership).
+# The .pre-commit-config.yaml append is idempotent via a marker grep; --refresh re-appends only
+# when the marker is absent (no duplicate entries on either path).
+_py_deliver_local_hook_rung() {
+  local tpl="${PY_TEMPLATE_DIR:-$PKG_ROOT/packages/core/templates/python}"
+
+  # Install-time opt-out — runtime opt-out is in the hook body.
+  if [ "${GETFF_SKIP_HOOKS:-0}" = "1" ]; then
+    echo "  ⊝ local git hook rung skipped (GETFF_SKIP_HOOKS=1 at install)"
+    return 0
+  fi
+
+  echo "▶ Local git pre-push rung (getff python lane) — D-S2b / verdict SSOT #235"
+
+  local hook_src="$tpl/hooks/pre-push.sh"
+  local hook_dst_dir="$PROJECT_ROOT/.getff/hooks"
+  local hook_dst="$hook_dst_dir/pre-push"
+
+  if [ ! -f "$hook_src" ]; then
+    echo "  ⚠ local git hook template missing at $hook_src — skipping rung delivery" >&2
+    return 0
+  fi
+
+  # Deliver the hook body (framework-owned, getff-namespaced destination). _py_copy_or_refresh
+  # wraps copy_safe/refresh_safe so --refresh overwrites a brownfield copy with the current
+  # template (refresh_safe honours pre-push.override.md for Layer-3 consumer ownership).
+  mkdir_safe "$hook_dst_dir"
+  _py_copy_or_refresh "$hook_src" "$hook_dst"
+  chmod_safe +x "$hook_dst" 2>/dev/null || true
+
+  # Bail gracefully if $PROJECT_ROOT is not a git repo — a consumer running ./setup before
+  # `git init` must NOT get a fatal (regression caught by arm 1 of python-entry-lane.test.sh:
+  # py_fixture is a plain dir). The hook body is still delivered so activation is a one-liner
+  # after they `git init`. The integration-arm helpers below all call `git -C` which would
+  # fatal-abort the install without this guard. NOTE: case 2 (.pre-commit-config.yaml) is
+  # checked BEFORE this guard — pre-commit does not need git to read its config.
+  #
+  # ── Integration arm (kickoff §2 item 2 + §3 + T-S2B-B): never clobber the consumer's hooks ──
+  # Three pre-existing-hook cases, in priority order; default = set core.hooksPath ourselves.
+  # Case 2 is checked FIRST because the verdict (SSOT #235) names pre-commit as the integration
+  # arm — if the consumer already uses it, we honour their choice and do not compete for
+  # core.hooksPath.
+
+  # Case 2: consumer uses the pre-commit framework (we have a verdict on this — SSOT #235 REJECT
+  # in the runner role for fresh delivery, but the consumer already chose it; augment-first
+  # means honour their choice and integrate rather than compete for core.hooksPath). This check
+  # does NOT require git — pre-commit-config.yaml is a plain file.
+  if [ -f "$PROJECT_ROOT/.pre-commit-config.yaml" ]; then
+    _py_integrate_precommit_consumer "$tpl"
+    return 0
+  fi
+
+  # Cases 1, 3, and default all use `git -C` — guard against non-git fatal here.
+  if ! git -C "$PROJECT_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "  ⊝ not a git repo — hook body delivered to .getff/hooks/pre-push but NOT activated"
+    echo "    run 'git init' then 'git config core.hooksPath .getff/hooks' to activate" >&2
+    return 0
+  fi
+
+  local _existing_hookspath
+  _existing_hookspath=$(git -C "$PROJECT_ROOT" config --get core.hooksPath 2>/dev/null || true)
+
+  if [ -n "$_existing_hookspath" ] && [ "$_existing_hookspath" != ".getff/hooks" ]; then
+    # Case 1: consumer has core.hooksPath set to a non-getff path.
+    _py_integrate_existing_hookspath "$_existing_hookspath"
+  elif [ -f "$PROJECT_ROOT/.git/hooks/pre-push" ]; then
+    # Case 3: consumer has a legacy .git/hooks/pre-push file (and no core.hooksPath).
+    _py_integrate_legacy_githook
+  else
+    # Default: activate core.hooksPath = .getff/hooks (getff-namespaced, parallel to .getff/
+    # astgrep-rules/). git config is idempotent — a re-install writes the same value, no-op.
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would: git config core.hooksPath .getff/hooks"
+    else
+      git -C "$PROJECT_ROOT" config core.hooksPath .getff/hooks
+      echo "  ✓ core.hooksPath → .getff/hooks (getff pre-push rung active)"
+    fi
+  fi
+}
+
+# _py_integrate_existing_hookspath — Case 1: consumer has core.hooksPath set to a non-getff path.
+# We deliver our hook body to .getff/hooks/pre-push but do NOT overwrite their core.hooksPath.
+# A printed notice tells them how to wire it manually. This is «cleanly declined WITH a printed
+# notice» per kickoff §3 — the consumer's setup still works, getff rung integrated or declined,
+# never silently broken.
+_py_integrate_existing_hookspath() {
+  local existing="$1"
+  echo "  ⚠ consumer core.hooksPath='$existing' — NOT overwriting (T-S2B-B / augment-first)" >&2
+  echo "    getff hook body delivered to .getff/hooks/pre-push but NOT activated." >&2
+  echo "    To activate, EITHER:" >&2
+  echo "      (a) source it from your existing hook:  . .getff/hooks/pre-push" >&2
+  echo "      (b) relocate: git config core.hooksPath .getff/hooks  (migrate your old hooksPath first)" >&2
+}
+
+# _py_integrate_precommit_consumer — Case 2: consumer has .pre-commit-config.yaml.
+# Append the getff entry as a local-hook fragment into their .pre-commit-config.yaml (idempotent —
+# marker-grep before append). We do NOT set core.hooksPath — pre-commit manages it. The fragment
+# references .getff/hooks/pre-push (delivered above), so the hook body is single-source.
+_py_integrate_precommit_consumer() {
+  local tpl="$1"
+  local cfg="$PROJECT_ROOT/.pre-commit-config.yaml"
+  local frag_marker="# getff-python-pre-push entry — delivered by setup.d/45-python.sh"
+  local frag_src="$tpl/hooks/getff.pre-commit-config.yaml.fragment"
+
+  if [ ! -f "$frag_src" ]; then
+    echo "  ⚠ pre-commit fragment template missing at $frag_src — skipping .pre-commit-config.yaml integration" >&2
+    return 0
+  fi
+
+  if grep -qF "$frag_marker" "$cfg" 2>/dev/null; then
+    echo "  ⊝ .pre-commit-config.yaml already has the getff entry — no-op (idempotent)"
+    return 0
+  fi
+
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would: append getff-python-pre-push entry to .pre-commit-config.yaml"
+    return 0
+  fi
+
+  # Marker first (so the idempotency grep above finds it on re-run), then the fragment body.
+  printf '\n%s\n' "$frag_marker" >> "$cfg"
+  cat "$frag_src" >> "$cfg"
+  echo "  ✓ appended getff-python-pre-push entry to .pre-commit-config.yaml"
+  echo "    ⚠ run 'pre-commit install --hook-type pre-push' to activate the pre-push stage" >&2
+}
+
+# _py_integrate_legacy_githook — Case 3: consumer has .git/hooks/pre-push file (no core.hooksPath).
+# A printed notice is the entire integration — we never touch .git/hooks/ directly (T-S2B-B).
+_py_integrate_legacy_githook() {
+  echo "  ⚠ .git/hooks/pre-push exists — NOT overwriting (T-S2B-B / augment-first)" >&2
+  echo "    getff hook body delivered to .getff/hooks/pre-push; to activate, EITHER:" >&2
+  echo "      (a) add this line to your .git/hooks/pre-push:  . .getff/hooks/pre-push" >&2
+  echo "      (b) delete .git/hooks/pre-push and run: git config core.hooksPath .getff/hooks" >&2
+}
+
 # _py_deliver_agent_surface — D8 / spec §5: deliver the curated agent surface on the python lane.
 #
 # Replicates — does NOT source — the npm-lane setup.d layer logic for the curated subset (kickoff
@@ -842,6 +1007,11 @@ _py_deliver_agent_surface() {
         copy_safe "$PKG_ROOT/$_py_doc" "$PROJECT_ROOT/.ai-factory/skill-context/$_py_sc/SKILL.md" ;;
     esac
   done
+
+  # ── Local git pre-push rung (D-S2b) ──────────────────────────────────────────
+  # Closes the python lane's empty git-hook rung (kickoff §1). Verdict = BUILD bare
+  # core.hooksPath-style delivery with integration arm (SSOT #235). See helper docstring above.
+  _py_deliver_local_hook_rung
 
   echo "  ✓ Agent surface delivery complete"
 }
