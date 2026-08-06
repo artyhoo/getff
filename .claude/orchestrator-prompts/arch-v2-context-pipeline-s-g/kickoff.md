@@ -36,7 +36,10 @@
    the PR IS the handoff.
 4. **P6 — re-write-trigger discipline embeds:** add to the cold-seat-economy skill-embed
    blocks (`harvest/SKILL.md`, `dispatcher/SKILL.md`): prefer artifact handoff to a fresh seat
-   over `/compact`; do not stretch a seat across the 1-hour TTL idle gap. Same handoff rule.
+   over `/compact`; do not stretch a seat across the 1-hour TTL idle gap; avoid mid-session
+   model/effort switches and MCP toggles on a fat context — each invalidates the cached
+   prefix and re-bills it at write price (pending S-E P3d verification of the config-change
+   class). Same handoff rule.
 5. **P7 — inlined-dispatch template default:** make the inputs-inlined dispatch format the
    documented default in the dispatcher/harvest dispatch templates, with the promotion trigger
    quoted (3 incidents of >100k file-reading seats → mechanical check in S-B's station).
