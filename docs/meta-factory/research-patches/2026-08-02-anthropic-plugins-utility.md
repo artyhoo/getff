@@ -164,5 +164,5 @@ Change class = *utility/gap-fill verdict over first-party Anthropic plugins*. Th
 - [`build-first-reuse-default.md`](../../../.claude/rules/build-first-reuse-default.md) — governing rule (§1 verdicts, §1.1 two axes + own-stack-first).
 - [`dual-implementation-discipline.md §3`](../../../.claude/rules/dual-implementation-discipline.md) — AI-/OS-/license-agnostic default that grounds every shipped-axis REJECT/KEEP NARROW here.
 - [`2026-07-31-orchestration-contour-prior-art-comparison.md`](2026-07-31-orchestration-contour-prior-art-comparison.md) — sibling prior-art patch (mattpocock/superpowers/mission-control); methodological precedent for per-capability T16.
-- [`prior-art-evaluations.md`](../prior-art-evaluations.md) — SSOT; new row #234 appended by this patch; sibling precedents at rows #64, #84, #111, #149.
+- [`prior-art-evaluations.md`](../prior-art-evaluations.md) — SSOT; new row #236 appended by this patch; sibling precedents at rows #64, #84, #111, #149.
 - Host plugin marketplace (read directly this session): `/Users/art/.claude/plugins/marketplaces/claude-plugins-official/plugins/` — the 39-plugin roster; `security-guidance/hooks/hooks.json` + `security_reminder_hook.py:282` (`decision:"block"`) are the load-bearing evidence for §A1.
