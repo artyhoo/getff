@@ -82,6 +82,13 @@ packages/*/reports/
 /.codex/
 /.opencode/*
 !/.opencode/INSTALL.md
+# Operator worktrees (CC `worktree` feature + bare `git worktree add`) — per-clone
+# output, never tracked. Without this tracked ignore, the host's `.git/info/exclude` carries
+# it locally but every fresh clone (the aif container base included) sees `?? .claude/worktrees/`
+# as permanent untracked drift — the exact condition the dirty-worktree guard above refuses
+# (packages/shared/src/gitIsolation.ts -> assertWorkingTreeClean). Root-anchored to avoid
+# touching the framework's own tracked .claude/** entries (same rationale as /.ai-factory/*).
+/.claude/worktrees/
 /.claude/agents/
 /.claude/skills/aif/
 /.claude/skills/aif-*/
