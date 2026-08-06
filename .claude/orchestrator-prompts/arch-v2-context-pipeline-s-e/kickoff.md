@@ -1,29 +1,37 @@
 <!-- bridge-profile: Z.AI GLM-5.2 SDK -->
-<!-- scope: stage-scoped dispatch input — S-E of the arch-v2-context-pipeline umbrella. Marker carried per /arch §3 D1 exception: this kickoff is produced by the 2026-08-06 /arch contour and is plan-complete (decomposition + descopes encoded below); the dispatcher MUST re-verify the fidelity-verdict-in-pr-body precondition at dispatch time per the umbrella §0. -->
+<!-- scope: stage-scoped dispatch input — S-E of the arch-v2-context-pipeline umbrella. Marker carried per /arch §3 D1 exception: this kickoff is produced by the 2026-08-06 /arch contour and is plan-complete (decomposition + descopes encoded below); the dispatcher MUST re-verify the fidelity-verdict-in-pr-body precondition at dispatch time per the umbrella §0. RE-ISSUED rev 4 (2026-08-06 /arch re-planning after a Phase -1 STOP): P3d/P11/P14 moved to stage S-H (container-infeasible — spec §1.6 FORK C); P3b extended to the membership predicate; P3a ceiling formula decided; now depends on S-G merged (spec §1.6 FORK D). -->
 
-# arch-v2-context-pipeline S-E — budget gate + config-assertion asserts + attribution
+# arch-v2-context-pipeline S-E — budget gate + config-assertion asserts (container-safe set)
 
 > **Stage goal:** make session context a gated convention (ADR-3) and give context config a
 > failure signal. **Design SSOTs (read both, in full):**
 > [`2026-07-31-arch-v2-context-pipeline-design.md`](../../../docs/superpowers/specs/2026-07-31-arch-v2-context-pipeline-design.md)
 > — ADR-3 (gate at pre-push/CI, measurement-vs-gate split, the FIRED falsifier note);
 > [`2026-08-06-pipeline-token-economy-design.md`](../../../docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md)
-> — §2 (asserts + backstop), §3 rows P2/P3/P11/P14, §0.5/§0.6 (priority + agnosticism).
+> — §2 (asserts + backstop), §3 rows P2/P3, §1.6 FORK C/D (the rev-4 resolutions this
+> re-issue implements), §0.5/§0.6 (priority + agnosticism).
 > Umbrella context (sequencing only): [`../arch-v2-context-pipeline/kickoff.md`](../arch-v2-context-pipeline/kickoff.md).
 >
-> **This stage is S-E only.** S-D′ (subtraction maps) and S-G (trim/small-fixes) are OUT OF
+> **This stage is S-E only.** S-D′ (subtraction maps), S-G (trim/small-fixes) and S-H
+> (host-side measurements — P3d/P11/P14 live THERE now) are OUT OF
 > SCOPE — do not implement, do not pre-wire. A systemic issue noticed mid-stage is surfaced as
 > a PR-body observation, never an extra PR ([CLAUDE.md `PR strategy`](../../../CLAUDE.md)).
 
-**Base:** `origin/staging`. **Mode:** implementation, one PR onto staging.
+**Base:** `origin/staging` **with S-G merged** — verify before starting with the
+deterministic content check (round-4 minor: a subject-line grep is satisfiable by any
+commit containing «s-g»):
+`git cat-file -e origin/staging:.claude/rules/ai-laziness-digest.md && echo S-G-MERGED`.
+If it fails, STOP and park: the P3a ceilings derive from the post-S-G
+resident baseline (spec §1.6 FORK D) and deriving them earlier produces stale-high numbers.
+**Mode:** implementation, one PR onto staging.
 
 ## §1 Deliverables (decomposition — all decisions already taken, none re-open)
 
 1. **P2a — committed-list liveness principle test** — slot **34**, PRE-ASSIGNED, do NOT
-   re-derive «next free» (S-G concurrently takes slot **35**; both stages would otherwise
-   resolve «next free» to 34 independently — verified 2026-08-06, highest existing slot is
-   `33-adapter-jig-arm-registry.test.ts` — and git would merge two different `34-*` files
-   cleanly into broken numbering): every `claudeMdExcludes` entry in `.claude/settings.json`
+   re-derive «next free» (S-G — merged before this stage per the §1 base precondition — holds
+   slot **35**; the pre-assignment survives the rev-4 re-order because «next free» at your
+   base now resolves to 34 anyway, and keeping it explicit prevents regressions if S-G's
+   test slips): every `claudeMdExcludes` entry in `.claude/settings.json`
    evaluated with `picomatch` (absolute paths, `{dot:true}`) against the repo file tree; any
    entry matching 0 files FAILS with the entry named. Behavioural — no prefix-form check
    (`**/` works via picomatch semantics, NOT the normaliser; spec §2). `picomatch` becomes an
@@ -47,40 +55,57 @@
    by this gate. Carry that as a **comment in the gate itself** (next to the ceiling) and as a
    sentence in the PR body. Transplanting the old ceilings while implying whole-session coverage
    is `#hope-as-gate` ([attention-is-not-a-mechanism.md §2](../../rules/attention-is-not-a-mechanism.md));
-   the ceiling numbers themselves are re-derived from S1's per-channel table, not copied.
-4. **P3b — fix `scripts/measure-always-on.sh` blindness:** it must apply the effective
-   `claudeMdExcludes` (project ∪ local override semantics) so its output can serve as the §2
-   item-3 fallback outcome channel.
+   the ceiling numbers themselves are re-derived per the formula below, not copied.
+   **Ceiling formula (decided, spec §1.6 FORK D):** per-environment ceiling = the post-P3b
+   meter's measured baseline at this stage's base commit × 1.10, rounded UP to the next
+   1,000 B, each labelled with its environment and a derivation comment quoting the baseline
+   run. For calibration: the true resident set at re-plan time (staging `c8a2bfcec6`, BEFORE
+   S-G) measured 69,453 B; post-S-G expect ≈ ≤ 50.2 KB — if the fixed meter's baseline is not
+   in that neighbourhood, STOP and park (the predicate or the base is wrong).
+4. **P3b — fix `scripts/measure-always-on.sh` — BOTH blindnesses (extended rev 4):**
+   (i) membership predicate: the manifest must be `CLAUDE.md` + `.claude/rules/*.md` files
+   **lacking `^paths:` frontmatter** (the `scripts/probe-channels.sh:20` predicate — one bash
+   idiom, two consumers; `packages/core/principles/rule-channel-glob.ts` stays the semantic
+   owner, note the twin in a comment), because `paths:`-scoped rules are not resident — the
+   current all-files glob over-counts ~4× (394,687 B vs the true 69,453 B, spec §1.6 FORK D);
+   (ii) apply the effective `claudeMdExcludes` under **replace-per-key overlay semantics**
+   (a local `claudeMdExcludes` SHADOWS the project list entirely — spec §1.6 FORK D,
+   round-4 MAJOR-3; this is the only model under which P2b's superset assert is
+   load-bearing): verify the client's merge semantics against primary docs in this same
+   task, cite the verdict in BOTH P2b and P3b, and PARK if the docs contradict the replace
+   model. The fixed output then serves as the §2 item-3 fallback outcome channel.
 5. **P3c — `InstructionsLoaded` verification task** (ADR-3): can a hook on it OBSERVE the full
    loaded set, and can it BLOCK? Primary-docs verification, verdict recorded either way with
-   citations. Doubles as the measurement-extension probe (ADR-3 falsifier note).
-6. **P3d — N2 attribution extension** to the stage-A aggregator: per-turn re-write trigger
-   classes sized against WRITE [W] — TTL expiry / `/compact` / resume, PLUS the
-   config-change class (mid-session model or effort-level switch, MCP server toggle, CC
-   update — each invalidates the prompt-cache prefix; added 2026-08-06 from external
-   practitioner evidence, to be verified against primary docs before pricing);
-   arrival-position distribution of tool output; edit-time-injection firing rates.
-7. **P11 — subagent probe:** one measured host session each for `Explore` and `Plan` — do they
-   load `.claude/rules/` at all? Result recorded as a research-patch note; S-D′ consumes it.
-8. **P14 — harness-remainder price list:** per-block token cost of the non-repo resident load
-   (MCP tool schemas + server instructions, plugin SessionStart injects, skills/agents
-   listings, memory index) via the P3c channel + `/context`; deliverable = a
-   settings-recommendations doc with per-item cost. Recommendations only — settings stay
-   operator-applied (agent-uncommittable).
+   citations. Doubles as the measurement-extension probe (ADR-3 falsifier note). A LIVE
+   host-session confirmation is NOT this stage's job — S-H runs it if your verdict says
+   «observable»; do not manufacture a live observation from the container (T-SE-B).
 
-**Descopes (encoded, binding):** no CLAUDE.md/traps trim (S-G owns); no subtraction maps
-(S-D′ owns); no Bash-output economy (L1 dropped on the RTK measurement, SSOT #233); no
-re-derivation of any §2/§4 prep-doc fact.
+> **SUPERSEDED (rev 4 — preserved per T18, do not execute here):** former items 6-8 — P3d
+> N2 attribution extension (per-turn re-write trigger classes incl. the config-change class,
+> arrival-position, edit-time-injection firing rates), P11 Explore/Plan subagent probe, P14
+> harness-remainder price list — **moved verbatim to
+> [`../arch-v2-context-pipeline-s-h/kickoff.md`](../arch-v2-context-pipeline-s-h/kickoff.md)**.
+> Reason: each needs the host (`~/.claude/projects`, measured host sessions, `/context`) and
+> this kickoff's marker routes execution into the aif container, where none of those exist
+> (spec §1.6 FORK C, `aif-handoff/docker-compose.yml:27`).
+
+**Descopes (encoded, binding):** no CLAUDE.md/traps trim, no renderer/probe edits (S-G owns
+— and it has ALREADY MERGED by this stage's base precondition); no subtraction maps
+(S-D′ owns); no host-side measurements (S-H owns); no Bash-output economy (L1 dropped on the
+RTK measurement, SSOT #233); no re-derivation of any §2/§4 prep-doc fact.
 
 ## §2 Permitted files
 
 `packages/core/principles/*` (new test + allowlist), `packages/core/hooks/pre-push.ts` /
 `.husky/pre-push`, `scripts/check-alwayson-budget.sh`, `scripts/measure-always-on.sh`,
 `scripts/worktree-doctor.sh`, `package.json` + lockfile (picomatch pin),
-`docs/meta-factory/research-patches/*` (P3c/P3d/P11/P14 outputs),
+`docs/meta-factory/research-patches/*` (P3c verdict output),
 `docs/meta-factory/prior-art-evaluations.md` (P2a SSOT entry), `.github/workflows/*` (CI
 mirror only). NOT permitted: `.claude/settings.json` (operator-only), `.claude/rules/*`,
-`CLAUDE.md`.
+`CLAUDE.md`, `scripts/render-rule-index.mjs` / `scripts/probe-channels.sh` /
+`scripts/render-rule-channels.mjs` (S-G owned, already
+merged), `scripts/measure-turn-attribution.sh` (S-H's file — may not exist yet, do not
+create it).
 
 ## §3 Acceptance
 
@@ -90,22 +115,37 @@ bash scripts/check-alwayson-budget.sh
 bash scripts/measure-always-on.sh
 ```
 
+**The budget gate must ASSERT AND DISCRIMINATE — an acceptance TRIPLE (spec §1.6 FORK D,
+round-4 M-2: the before/after pair alone proves the meter was fixed, never that the gate
+catches anything — EXIT=0 after is true by construction when the ceiling derives from the
+measured state):**
+(1) BEFORE — unmodified meter at the base commit, `bash scripts/check-alwayson-budget.sh`
+exits 1 reporting ~394-403 KB (post-S-G tree: the digest adds ≤ 8.2 KB to the broken
+meter's count) against the 101,000 B ceiling — quote it; (2) AFTER — fixed meter +
+re-derived per-environment ceilings, the same command exits 0 — quote it; (3)
+DISCRIMINATION — the fixed gate run with a ceiling forced below the measured baseline (env
+override or fixture ceiling; give the gate whichever it lacks) exits 1 naming the overage —
+quote it. A PR whose gate still exits 1
+at merge time, or whose «fix» is raising the ceiling to cover the broken ~400 KB
+measurement, or whose gate was never shown RED on an over-budget state,
+FAILS this stage.
+
 Plus review-time:
 
-- **P2a discrimination, demonstrated without waiting on the operator.** The test MUST be shown
-  to discriminate on BOTH configurations, and neither run may depend on an operator action:
-  (i) against the committed list as it stands on staging (7 **relative** entries — verified
-  still present 2026-08-06, `jq -r '.claudeMdExcludes' .claude/settings.json`) → **FAILS**,
-  naming every inert entry; (ii) against the same list rewritten to `**/` glob form in a
-  **fixture / temp copy** the test reads → **PASSES**. Both runs quoted in the PR body.
-  Rationale: P1 (rewriting the committed list) is operator-only — `.claude/settings.json` is
-  outside §2's permitted set and agent-uncommittable — so an acceptance criterion that waits
-  for it is a criterion this stage cannot satisfy. If P1 *has* landed by acceptance time,
-  quote the live post-fix run **in addition**, never instead of the fixture pair.
+- **P2a discrimination, demonstrated without waiting on the operator (UPDATED rev 4 — P1 has
+  LANDED, PR #1223: the committed list is already the working `**/` glob form).** The test
+  MUST be shown to discriminate on BOTH configurations, and neither run may depend on an
+  operator action: (i) against the LIVE committed list
+  (`jq -r '.claudeMdExcludes' .claude/settings.json`, 7 `**/` entries) → **PASSES**;
+  (ii) against a **fixture / temp copy** of the list rewritten back to the historical
+  relative-path form (`.claude/rules/<name>.md`) → **FAILS**, naming every inert entry.
+  Both runs quoted in the PR body. The FAIL leg is what proves the test catches the P1
+  defect class recurring; a test that passes on both forms is T-SE-A theatre.
 - The escape token tested (<20-char rationale fails); every ceiling carries an environment
-  label; the P3a declared-coverage sentence is present in both the gate comment and the PR body
-  with the 29-39% figure and its citation; P3c/P11 verdicts carry primary-source citations
-  whichever way they land.
+  label + the derivation comment quoting the baseline run; the P3a declared-coverage sentence
+  is present in both the gate comment and the PR body
+  with the 29-39% figure and its citation; the P3c verdict carries primary-source citations
+  whichever way it lands.
 
 ## §3a Park-don't-guess contract (non-negotiable)
 
@@ -115,37 +155,41 @@ behaviour) — **do NOT pick.** Park it as a question (set the task to `manualRe
 `blocked_external` with the fork stated as «Option A → consequence X / Option B → consequence
 Y») and **stop that task.** Proceed only on the unambiguous parts.
 
-Expected to fire here on: **(a)** the per-environment ceiling numbers, if S1's table does not
-resolve one environment cleanly — park with the two candidate ceilings and their consequences
-rather than picking the safer-looking one; **(b)** P3c, if `InstructionsLoaded` turns out to
+Expected to fire here on: **(a)** the per-environment ceiling numbers, if the post-P3b
+baseline lands far outside the calibration neighbourhood in §1 item 3 — park with the two
+candidate readings and their consequences rather than picking the safer-looking one;
+**(b)** P3c, if `InstructionsLoaded` turns out to
 observe but not block — that changes ADR-3's channel choice, so record the verdict with its
-citation and park the «promote the gate earlier?» decision; **(c)** P14, when a harness block
-has no measurement channel — the answer is `UNMEASURED — channel absent`, never an estimate
-(T-SE-B), and if a whole class is unmeasurable, park rather than ship a partial price list as
-if complete. Never manufacture a quoted command output for anything outside your environment.
+citation and park the «promote the gate earlier?» decision; **(c)** the S-G base
+precondition, if S-G is NOT on staging at start — park, do not proceed on the pre-S-G
+baseline. Never manufacture a quoted command output for anything outside your environment.
 
-## §3b Parallel stage (S-G) — one shared surface
+## §3b Stage neighbours (rev 4 — S-G is a PREDECESSOR now, not a parallel)
 
-S-G runs **concurrently** on a disjoint scope (`CLAUDE.md`, `.claude/rules/*`, skills — all of
-which §2 lists as NOT permitted here). The single overlap is `packages/core/principles/*`:
-S-G adds its own test + allowlist entry there. Work in an isolated worktree
-([parallel-subwave-isolation.md §1](../../rules/parallel-subwave-isolation.md)); if S-G merges
-first, resolve by **merging staging into this branch** — never `git rebase` a published branch
-([git-conflict-merge-forward.md](../../rules/git-conflict-merge-forward.md)). Do not touch any
-S-G file to «avoid the conflict»; that is scope creep, not conflict avoidance.
+> **SUPERSEDED (rev 4, preserved per T18):** the rev-3 text here said S-G «runs
+> concurrently» and prescribed merge-forward on collision. The spec re-derived the order
+> (§1.6 FORK D): **S-G merges BEFORE this stage dispatches** — the §1 base precondition.
+
+Slot bookkeeping survives the re-order: S-G has taken principle-test slot **35**; this stage
+takes slot **34** as pre-assigned in §1. If staging moves mid-stage for any other reason,
+resolve by **merging staging into this branch** — never `git rebase` a published branch
+([git-conflict-merge-forward.md](../../rules/git-conflict-merge-forward.md)).
 
 ## §4 AI-traps
 
 See [`ai-laziness-traps.md §2`](../../rules/ai-laziness-traps.md) (cited per §3 of that rule).
-**Active traps for this stage: T2, T3, T6, T14, T16, T20.** T2 — P3c/P11 must be RUN, not
-designed («would verify» = failure); T3 — every measurement row carries command + output;
+**Active traps for this stage: T2, T3, T6, T14, T16, T20.** T2 — P3c must be RUN against the
+primary docs, not designed («would verify» = failure); T3 — every measurement row carries
+command + output;
 T6/T14 — a probe that cannot observe reports «coverage insufficient», never «clean»; T16 —
 picomatch-in-tree (2 majors) is not picomatch-pinned: verify the pinned major matches the
 client's, not just the name; T20 — no verdict without quoted evidence.
 **T-SE-A — gate-green-on-broken-config:** the tempting test asserts the glob FORM (passes
 forever, catches nothing — the round-1 reviewer's form-proxy finding). Counter: assert
-match-COUNT against the real tree; the acceptance run against the broken staging config MUST
-fail (§3).
-**T-SE-B — pricing-by-assumption:** P14 tempted to price harness blocks from byte-size
-estimates. Counter: every price row names its measurement channel; unmeasurable rows say
-`UNMEASURED — channel absent`, never an estimate dressed as a measurement.
+match-COUNT against the real tree. Note rev 4: P1 has LANDED (PR #1223) — the committed list
+is now the WORKING 7-glob form, so §3's discrimination pair runs against a fixture BROKEN
+(relative-path) copy for the FAIL leg and the live committed list for the PASS leg — the
+inverse of the rev-3 arrangement; both runs still quoted.
+**T-SE-B — observation-by-assumption:** tempted to «confirm» P3c behaviour or the resident
+set from inside the container. Counter: container-unreachable claims carry a primary-doc
+citation or park; never a manufactured live observation.
