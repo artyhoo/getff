@@ -1,6 +1,6 @@
-<!-- scope: pipeline-token-economy decision layer — output of the 2026-08-06 /arch external design contour over docs/superpowers/specs/2026-08-06-arch-prep-pipeline-token-economy.md (feat/prune-worktrees). Revision 3: round-2 narrow re-check findings (3 MAJOR + 4 MINOR) dispositioned in §7, PLUS the operator override of 2026-08-06 (S-D reopened as subtractive per-seat maps; harness-remainder taken into scope; expensive-seat economy principle recorded). -->
+<!-- scope: pipeline-token-economy decision layer — output of the 2026-08-06 /arch external design contour over docs/superpowers/specs/2026-08-06-arch-prep-pipeline-token-economy.md (feat/prune-worktrees). Revision 3: round-2 narrow re-check findings (3 MAJOR + 4 MINOR) dispositioned in §7, PLUS the operator override of 2026-08-06 (S-D reopened as subtractive per-seat maps; harness-remainder taken into scope; expensive-seat economy principle recorded). Revision 4 (2026-08-06 /arch re-planning pass): the two /pipeline Phase -1 cold reviews returned design-level defects (S-E STOP, S-G REVISE, S-D′ REVISE); the four forks are resolved in §1.6 with fresh host measurements — D1's import mechanism replaced (it inverted the goal), the D1b digest homed, S-E split (host-only items → new stage S-H), the budget-gate membership predicate fixed and the stage order re-derived. -->
 
-# Pipeline context & token economy — decision layer (2026-08-06, rev 3)
+# Pipeline context & token economy — decision layer (2026-08-06, rev 4)
 
 > **Authoritative for:** the decision layer over the 2026-08-06 prep-doc — economy principle
 > (§0.5), fork resolutions D1/D2/D3/N1/N2 + the per-role reopen (§1), the config-assertion gate
@@ -12,10 +12,12 @@
 > project goal — [README.md#why-this-exists](../../../README.md#why-this-exists).
 > **Current as of 2026-08-06.**
 
-> **Branch note.** `origin/staging` is an ancestor of this branch, so the staging-side inputs
-> (ADR spec, distillate, `cold-seat-economy.md`) are readable locally; the prep-doc and the
+> **Branch note.** The staging-side inputs (ADR spec, distillate, `cold-seat-economy.md`)
+> are readable locally; the prep-doc and the
 > 2026-08-02 webresearch corpus live on `feat/prune-worktrees` only. One seat reading one ref
-> still finds nothing at some links — resolve cross-branch links deliberately.
+> still finds nothing at some links — resolve cross-branch links deliberately. (An earlier
+> «staging is an ancestor of this branch» claim is dropped — rev 4: staging moves during
+> multi-PR work; verify with `git merge-base --is-ancestor` at read time, never assume.)
 
 **Inputs consumed** (per the prep-doc's §6 reading rule): the prep-doc; the token-economy
 distillate; `cold-seat-economy.md §3`; SSOT #233 + #234; the RTK empirical test
@@ -67,7 +69,8 @@ graceful degradation; [`zcode-parity-doctrine.md §1`](../../../.claude/rules/zc
 two-axis model — operator-axis may be CC-native, shipped-axis must degrade). Applied to this
 spec: P2's principle test + P3's pre-push/CI gates are harness-agnostic by construction
 (CI + shell); P1 fixes a CC-native mechanism → non-CC harnesses get documented degradation;
-P5 checks `@AGENTS.md`-import honour on ZCode before relying on it; S-D′ (P13) inherits
+P5's non-CC behaviour is trivial after rev 4 (pointer-collapse edits one CC-read file;
+the retired `@AGENTS.md`-import ZCode check retired with the import — §1.6 FORK A); S-D′ (P13) inherits
 ADR-2's population-table obligation — every option states per-row reach incl. the ZCode row;
 P9's preset wiring rides the opt-in `companions.manifest` flow (degrades when the companion is
 absent). A proposal that cannot state its non-CC behaviour is not dispatch-ready.
@@ -78,7 +81,7 @@ Format per fork: resolution → grounds → falsifier («wrong if»).
 
 | # | Fork | Resolution | Grounds | Wrong if |
 |---|---|---|---|---|
-| D1 | Always-on head trim | **Bounded trim of `CLAUDE.md`; D1b RESOLVED (2026-08-06, operator-delegated): traps → resident hot digest.** `CLAUDE.md` trim mechanism: **dedupe the shared core via `@AGENTS.md` import** (CC inlines `@`-imports at load; goal/rule-index/Step-0 live once, in the portable file) + keep the CC-only share in place; **judgment-bearing sections are a keep-list, out of trim scope** (`CLAUDE.md:106` tier routing «a judgment, never an automated classifier»; `:132` marker-value «belt-and-braces»; PR strategy; un-gated operational conventions). Keep-list authored INTO the executing kickoff. ZCode check rides the stage: if `@`-import is not honoured there, document the degradation (zcode-parity doctrine), do not block the trim. **D1b:** expensive seats get a hot digest (T-numbers + one-line counters, ~2k vs 6.6k tokens); full catalogue re-scoped to `paths:` (fires edit-time on rule/kickoff/research-patch authoring — the earliest reachable channel for exactly the work traps bite); executor channel already mechanical (principle test 12 fails any kickoff without trap enumeration); **anti-drift gate:** a deterministic test asserts every §2 T-number has a digest line. | The mechanical-enforcement argument holds only for the gated share; #1188 banked the easy half. ~2/3 of `CLAUDE.md` is CC-only content AGENTS.md deliberately lacks — full unification would bloat the portable file. D1b's ground is §0.5: the full lazy-executor manual resident in the smartest seat is the inversion; savings ≈ 9% [A]. | A post-trim session bypasses a convention the trimmed prose carried → restore that section. **D1b rollback trigger: ONE incident of a senior-seat session committing a trap the digest under-carried → full residency restored, incident recorded.** |
+| D1 | Always-on head trim | **Bounded trim of `CLAUDE.md`; D1b RESOLVED (2026-08-06, operator-delegated): traps → resident hot digest.** `CLAUDE.md` trim mechanism — **AMENDED rev 4 (§1.6 FORK A): pointer-collapse, NO `@AGENTS.md` import.** The rev-3 import mechanism was measured to invert the goal (import makes 8,861 B resident to remove 1,369 B, net **+7,492 B per expensive seat**, and duplicates the resident rule-index region — evidence in §1.6). Instead: collapse the `Read-first (Step 0)` + `Project goal pointer` sections to one-line pointers at `.claude/session-bootstrap.md` and `README.md#why-this-exists`; sized target **net ≤ −1,100 B**, acceptance measured on the **resident set** (no new resident file), not on one file; **judgment-bearing sections are a keep-list, out of trim scope** (`CLAUDE.md:106` tier routing «a judgment, never an automated classifier»; `:132` marker-value «belt-and-braces»; PR strategy; un-gated operational conventions). Keep-list authored INTO the executing kickoff. ZCode check rides the stage: if `@`-import is not honoured there, document the degradation (zcode-parity doctrine), do not block the trim. **D1b:** expensive seats get a hot digest (T-numbers + one-line counters, ~2k vs 6.6k tokens); full catalogue re-scoped to `paths:` (fires edit-time on rule/kickoff/research-patch authoring — the earliest reachable channel for exactly the work traps bite); executor channel already mechanical (principle test 12 fails any kickoff without trap enumeration); **anti-drift gate:** a deterministic test asserts every §2 T-number has a digest line. **Digest home — RESOLVED rev 4 (§1.6 FORK B): new rule file `.claude/rules/ai-laziness-digest.md`, ≤ 8,192 B, no `paths:` frontmatter (resident by the client's own mechanism); the renderer bookkeeping (TIER0_CORE swap traps→digest, channel dedupe, `INDEX_MAX_BYTES` headroom) rides S-G, whose permitted set now includes `scripts/render-rule-index.mjs`.** | The mechanical-enforcement argument holds only for the gated share; #1188 banked the easy half. ~2/3 of `CLAUDE.md` is CC-only content AGENTS.md deliberately lacks — full unification would bloat the portable file. D1b's ground is §0.5: the full lazy-executor manual resident in the smartest seat is the inversion; savings ≈ 9% [A]. | A post-trim session bypasses a convention the trimmed prose carried → restore that section. **D1b rollback trigger: ONE incident of a senior-seat session committing a trap the digest under-carried → full residency restored, incident recorded.** |
 | D2 | Measure-first vs ship-cheap-first | **Ship-cheap-first; N2 measurement rides S-E as its input.** | P1 and stage dispositions depend on nothing unmeasured. The only consumer of per-turn attribution is S-E's gate (ADR-3). | A decision needs N2's numbers before S-E dispatches → split N2 into its own Tier-1 stage. |
 | D3 | Plugin thread | **(a) CC-plugin adapter → separate /arch (capability commit, positioning; plugins patch §10 item 3 is its input). (b) Channel split per the operator's §B3 delegation: `engineering` + `system-design` → preset-option backend; `design` → preset-option UI; `tech-debt` + `standup` → user-scope; PM not shipped. (c) `security-guidance` mining → STUDY in the adapter contour. (d) Operator-axis ADOPT: `engineering:architecture` ADR template as /arch §1's spec-format slot, thin-wrapper (trio §A2 G1) — P12.** Token angle closed: ≈1,402 est-tokens, not binding (trio §A4). | §B1 verdicts round-2 operator-validated; §B3 defers the split here. | A preset cohort measurably wants `tech-debt`/`standup` by default → promote to manifest. |
 | N1 | Re-write triggers (WRITE 43.1% [W]) | **Discipline + measurement, no new structure.** (a) Resume-as-expensive codified (`cold-seat-economy.md §3`). (b) Skill-embed additions: prefer artifact handoff to a fresh seat over `/compact`; do not stretch a seat across the 1-hour TTL idle gap. (c) Trigger-class sizing inside S-E's N2. | WRITE = unavoidable first-writes (2× each new token) + avoidable full prefix re-writes (~5% of turns, each a whole prefix). Attacks the **trigger**, not the payload. | N2 measures avoidable re-writes <5% of the WRITE line [W] → retire the discipline text. |
@@ -105,11 +108,196 @@ subagents → custom agent definitions whose system prompt REPLACES CC's (C2), c
 reviewer-discipline + verdict grammar instead of the full operational head; Explore/Plan →
 P11's probe prices what they already skip; senior main seat → P1 + P5 + rule channel
 re-scoping (the #1188 pattern); **aif GLM seats → deferred by §0.5's priority ordering**
-(cheap tokens + the guidance gradient make them last in line, not off the table). **ADR-8 is not orphaned — it is inherited:** S-D′'s rollout runs under ADR-8's
-own experiment protocol (baseline before merge, 20-dispatch window, deterministic A/B branch,
-owner closes with a verdict PR), now measuring subtractive shaping instead of additive.
+(cheap tokens + the guidance gradient make them last in line, not off the table). **ADR-8 is not orphaned — it is inherited, with one recorded deviation
+(rev 4):** S-D′'s rollout runs under ADR-8's own experiment protocol (baseline before merge,
+20-dispatch window, deterministic A/B, owner closes with a verdict PR), now measuring
+subtractive shaping instead of additive. **Deviation, recorded loudly rather than quietly:**
+ADR-8's control arm specified «hook branches on task-id parity, one branch in the resolver» —
+but the resolver was never built (S-D CLOSED-NULL adopted the null option), so that arm has
+no home. The deterministic split is **re-homed to dispatch time**: two review-agent
+definition variants (subtracted vs uniform), selected by task-id parity at dispatch, with the
+arm recorded in the calibration-ledger row; determinism stays auditable — the window-close
+verdict PR runs a mechanical parity audit over the ledger (`arm == parity(task-id)` for every
+row) and quotes it. A ledger with missing arm columns or a failed parity audit voids the
+window (fail-closed), which preserves ADR-8's «a real A/B rather than fail-open-by-accident»
+intent without inventing a resolver S-D declined to build.
 **Stage: S-D′** (P13). The SSOT #234 row gets a trigger-fired annotation at S-D′ dispatch, per
 its own protocol.
+
+## §1.6 Re-planning fork resolutions (rev 4, 2026-08-06 — measured on the host at staging `c8a2bfcec6`)
+
+The /pipeline Phase -1 cold reviews (S-E STOP, S-G REVISE, S-D′ REVISE) surfaced four
+design-level forks. Every number below was re-run in the re-planning session per T-REPLAN-B —
+none is carried from the reviews.
+
+### FORK A — D1's `@AGENTS.md` import inverted the trim's goal → pointer-collapse
+
+**Resolution:** drop the import; collapse the two named `CLAUDE.md` sections to one-line
+pointers (`.claude/session-bootstrap.md`; `README.md#why-this-exists`). D1 row amended above.
+**Evidence:** `wc -c AGENTS.md` → 8,861; `sed -n '8,17p' CLAUDE.md | wc -c` → 1,369.
+`AGENTS.md` is NOT in the resident set (`scripts/measure-always-on.sh:10-11` builds
+`files=( "CLAUDE.md" )` + `.claude/rules/*.md`; corroborated by the attribution table's
+10-source enumeration). Importing it adds 8,861 B resident to remove 1,369 B — net
+**+7,492 B/expensive seat** — and makes the rule-index region resident twice (`AGENTS.md`
+carries it via `render-rule-index.mjs:21-22,199-200`, alongside the resident
+`00-rule-index.md`, 4,030 B). The collapsed prose is already delivered twice more: the
+UserPromptSubmit bootstrap digest re-injects goal + invariants every prompt (observed live
+2026-08-06), and `.claude/session-bootstrap.md` is the Step-0 read target itself.
+**Sized target:** net ≤ −1,100 B on `CLAUDE.md` (1,369 B removed, ≤ ~250 B of pointers added).
+**Acceptance (resident set, not one file):** the S-G PR quotes (i) `wc -c CLAUDE.md`
+before/after with delta ≤ −1,100 B, (ii) `grep -c '@AGENTS' CLAUDE.md` → 0, (iii) the
+resident-set table (§FORK D formula) before/after — no file enters the set.
+**Wrong if:** a harness materialises where `CLAUDE.md` must inline the shared core (no hook
+digest, no session-bootstrap read) — then re-open the import WITH its measured residency cost
+stated in the row, never as a free win.
+
+### FORK B — D1b digest home → new rule file + S-G gets the renderer
+
+**Resolution:** digest = `.claude/rules/ai-laziness-digest.md` (≤ 8,192 B ≈ 2k tokens, no
+`paths:` → resident by construction). `ai-laziness-traps.md` gains `paths:` (rule/kickoff/
+research-patch/skill/agent authoring surfaces) and leaves residency. Renderer bookkeeping in
+the same S-G PR: (a) `TIER0_CORE` swap `'ai-laziness-traps'` → `'ai-laziness-digest'` — the
+set is a display label (`render-rule-index.mjs:56-60`, `:88` unconditionally emits
+`always-on core`), so leaving it stale would render a self-contradictory row
+(`always-on core, paths:(N)`) in the very PR whose P8 item is Channel(s) truth; (b) index
+headroom: `wc -c 00-rule-index.md` → 4,030 vs `INDEX_MAX_BYTES` 4,096 (`:52`) = **66 B**, one
+row ≈ 150 B — first trim verbose `Fires:` cells (the script's own guidance), and if the regen
+still exceeds the ceiling, raise to **4,608** with the script's required reasoning comment;
+(c) channel dedupe — see FORK D item (b). **Residency mechanism:** residency
+flows from `paths:`-absence minus `claudeMdExcludes`.
+**The Tier-0 registry is QUADRUPLICATED (round-4 cold review B-1/B-2/M-1) — the S-G PR
+swaps `ai-laziness-traps` → `ai-laziness-digest` in ALL FOUR in one commit, or its own suite
+goes red:** (1) `render-rule-index.mjs:56-60` `TIER0_CORE` — display label; (2)
+`packages/core/principles/31-rule-channel-declaration.ts:58-64` `ALWAYS_ON_CORE` —
+**load-bearing, not a label**: branch (c) of the Class-A channel gate is the ONLY branch a
+`paths:`-less digest can pass, and the set is capped at 4 by a module-load throw (`:65-70`);
+(3) that principle's test literal («contains the 4 expected rule basenames» —
+exact-membership assert in `31-rule-channel-declaration.test.ts`); (4)
+`scripts/render-rule-channels.mjs:75-79` `ALWAYS_ON_CORE` — feeds the harness-degradation
+matrix's in-scope predicate, so a stale copy leaves the digest with NO per-harness delivery
+verdict, silently (§0.6 violation). The `00-rule-index.md` member stays in every copy. An
+earlier rev-4 draft said «`TIER0_CORE` only labels it» — TRUE of the renderer, FALSE of
+principle 31; corrected here.
+**Second render target (round-4 B-1):** `render-rule-index.mjs --write` writes BOTH
+`00-rule-index.md` AND the `AGENTS.md` rule-index fenced region (`:187-204`); `--check` and
+the principle-21 agnosticism probe (`tests/agnosticism/probes/rules-autoload.sh`) make the
+`AGENTS.md` regen MANDATORY once a rule is added. S-G's permitted set therefore includes
+`AGENTS.md` **scoped to the generated rule-index region, via `--write` only, never
+hand-edited** — this does not resurrect FORK A's import; the region was always generated.
+**Rejected:** digest as a `CLAUDE.md` section (re-grows the P5a-trimmed file; sits outside
+the rule inventory P8 makes truthful). **S-G tier consequence (the ONE authoritative
+permitted-set statement — the §3 S-G row defers here):** permitted set grows to
+include `scripts/render-rule-index.mjs` + `scripts/probe-channels.sh` +
+`scripts/render-rule-channels.mjs` + the two principle-31 files + the `AGENTS.md` generated
+region + the `ai-laziness-*` rows of `.ai-factory/rule-channel-degradations.json`
+(hand-maintained reviewed data — round-2 N-1: there is NO rendered matrix artefact;
+`--write` only scaffolds a missing manifest) + the `tests/agnosticism/harness-self.test.sh`
+Tier-0 seed swap (round-2 N-3: it seeds `ai-laziness-traps.md` by real name);
+the discriminator re-run keeps Tier 1 — every edit is one determinable sentence,
+decided here (four set swaps, dedupe, ceiling procedure, regen, seed swap) — and the marker
+rides the
+/arch §3 plan-complete exception regardless. **Wrong if:** regen after the swap shows any
+OTHER Tier-0-labelled row whose file carries `paths:`, or a FIFTH Tier-0 consumer surfaces
+(`grep -rn 'ALWAYS_ON_CORE\|TIER0_CORE\|ai-laziness-traps' scripts/ packages/ tests/` —
+scope includes `tests/`, round-2 N-3 — finds a set literal or name-keyed consumer this list
+misses) — then stop and surface.
+
+### FORK C — S-E's host-only trio cannot run behind the marker → split out stage S-H
+
+**Resolution:** S-E keeps the container-safe items (P2a, P2b, P3a, P3b, P3c) WITH the
+marker; P3d, P11, P14 move to a new **host-side stage S-H** (no marker — not factory-bound;
+executed by a host CC session). **Evidence:** the aif container mounts a NAMED VOLUME
+`claude-auth:/home/node/.claude` (`~/code/aif-handoff/docker-compose.yml:27`), not the host
+`~/.claude` — `~/.claude/projects/**.jsonl` (P3d's input) does not exist there, exactly as
+the stage-A kickoff states («You cannot run this in the container»); P11 requires measured
+HOST sessions; P14 requires `/context`, a CC slash command. Dropping the marker instead would
+run five container-safe items on the expensive tier against §0.5. **P3d's aggregator gets a
+permitted home:** S-H creates `scripts/measure-turn-attribution.sh`, seeded (read-only) from
+the inlined snippet in `token-economy-research-s-a/kickoff.md` §2.7 («Reproduction — the full
+aggregator») — no edit to another
+umbrella's kickoff (Artifact Ownership Contract), no divergent second copy: the script
+becomes the SSOT and the S-A kickoff stays a historical record. **Wrong if:** the aif compose
+ever bind-mounts the host `~/.claude/projects` tree — re-verify at S-H authoring; if it does,
+fold S-H back into S-E and record the merge here.
+
+### FORK D — the budget gate's meter over-counts; the fix is S-E's, not S-G's P8
+
+**Resolution:** the load-bearing repair is the **membership predicate inside
+`scripts/measure-always-on.sh`** (S-E P3b, extended) — NOT S-G's P8: the meter reads neither
+the rendered index nor `probe-channels.sh` (`grep -c probe-channels scripts/render-rule-index.mjs`
+→ 0; the meter's own manifest is `files=( "CLAUDE.md" )` + ALL `.claude/rules/*.md`).
+**Fixed predicate:** resident set = `CLAUDE.md` + `.claude/rules/*.md` lacking `^paths:`
+frontmatter (the `probe-channels.sh:20` predicate, one bash idiom shared by both consumers;
+the TS extractor in `packages/core/principles/rule-channel-glob.ts` stays the semantic owner)
+minus the effective `claudeMdExcludes`. **Overlay semantics (round-4 MAJOR-3 — an earlier
+draft said «project ∪ local», which contradicts P2b):** the working model is **replace per
+key** — a local `claudeMdExcludes` SHADOWS the project list entirely (this is what the
+2026-08 `settings.local.json` shadowing incident exhibited, and it is the only model under
+which P2b's superset assert is load-bearing; under union it would be vacuous). P3b
+implements replace, verifies the client's merge semantics against primary docs in the same
+task, and PARKS if the docs contradict the model — both P2b and P3b must cite the same
+verdict. **Measured:** today's meter
+reports 394,687 B > 101,000 (EXIT=1, before any work); the TRUE resident set is
+`CLAUDE.md` 23,740 + `00-rule-index.md` 4,030 + `build-first-reuse-default.md` 12,667 +
+`attention-is-not-a-mechanism.md` 2,629 + `ai-laziness-traps.md` 26,387 = **69,453 B** —
+under the ceiling. Post-S-G baseline ≈ 69,453 − 26,387 (traps leaves) + ≤ 8,192 (digest) −
+~1,100 (P5a) ≈ **≤ 50.2 KB**. **Ceiling formula (decided):** per-environment ceiling =
+post-P3b measured baseline at the stage's base commit × 1.10, rounded up to the next 1,000 B,
+labelled with environment + derivation comment. **Acceptance TRIPLE (round-4 M-2 — the before/after pair alone proves the METER was fixed,
+never that the GATE discriminates; EXIT=0 after is true by construction when the ceiling
+derives from the state being measured):** (1) before = unmodified meter,
+`check-alwayson-budget.sh` EXIT=1 at ~394-403 KB (post-S-G tree — the digest adds ≤ 8.2 KB
+to the broken meter's count); (2) after = fixed meter + re-derived ceiling, EXIT=0; (3)
+**discrimination** = the fixed gate run against a ceiling forced below the measured baseline
+(env override or fixture ceiling — the gate must support one) exits 1 naming the overage.
+All three runs quoted. **P8 redefined (it could not discharge what FORK D
+assigned it):** the real, named drift is (a) `00-rule-index.md:15` renders
+`skill-embed, skill-embed` — the renderer's `deriveChannels` emits one entry per
+`<!-- channel: -->` marker without aggregation → fix: render repeated mechanisms once with a
+count (`skill-embed(2)`); (b) `probe-channels.sh:19` false-positives on PROSE mentions of the
+globs marker — `phase-research-coverage.md:21` documents «no `<!-- globs: -->` sibling, by
+design (T-SEF-A)» yet the probe reports `globs=yes` because its grep is unanchored → fix:
+anchor the grep to a marker at line start. The review's second claimed drift row
+(`phase-research-coverage` missing `edit-time inject`) is **NOT drift** — the rendered row is
+correct and adding the channel would regress a documented design decision. (c) `TIER0_CORE`
+label truth rides FORK B. **P8 acceptance pair:** before — probe reports
+`phase-research-coverage … globs=yes` and the index carries the duplicated cell; after —
+`globs=no` on that row, no duplicated mechanism in any Channel(s) cell, `--check` green.
+**Stage order consequence:** S-G **precedes** S-E (S-G changes the resident population —
+traps out, digest in, `CLAUDE.md` trimmed — and S-E's ceiling derives from the post-S-G
+baseline). The reviews' claim «S-G's P8 must precede S-E's gate» reached the right order for
+the wrong reason: P8's index/probe fixes are display-layer; the population change is what
+sequences the stages. **Wrong if:** the client is shown to load `paths:`-scoped rules
+always-on after all (then the predicate is wrong — re-derive from a live session inventory,
+and the §2 item-3 outcome backstop is the catch channel).
+
+### FORK E — the repo-owned bootstrap injector (surfaced by the round-4 cold review, M-5)
+
+**The gap:** `.claude/settings.json` wires `hooks.UserPromptSubmit` →
+`.claude/hooks/inject-session-bootstrap.sh` (and `SubagentStart` reuses the same digest
+source) — **1,760 B measured per invocation, no session cache, fires on EVERY prompt submit
+and every subagent spawn** (verified live 2026-08-06). It is repo-owned yet sits in the seam
+between the plan's two instruments: P3b's meter counts FILES; P14 is scoped to the NON-repo
+harness load. On a 30-turn expensive seat it injects ~53 KB — comparable to the entire
+post-S-G resident file set (~50 KB) — and no rev-3 artefact priced or claimed it. It also
+reaches review subagents REGARDLESS of S-D′'s replacement system prompts (the
+`SubagentStart` hook fires independently of the agent definition), so subtraction maps that
+ignore it can pass acceptance while the seat's real head is untouched (T-SDP-A shape).
+**Resolution:** (a) S-H's P3d prices it explicitly — per-prompt and per-subagent injection
+cost as its own line (the injection-firing-rates deliverable already covers the channel);
+(b) S-D′'s maps MUST carry the injector as a named block per seat class, with mechanism =
+`.claude/hooks/*` / settings edit via **maintainer-handoff proposed diff** (hooks are not in
+S-D′'s permitted set); (c) candidate lever recorded for the maps to adjudicate, not decided
+here: a once-per-session cache in `inject-session-bootstrap.sh` (the sibling
+`inject-matching-rule.sh` already implements exactly that pattern), which would convert
+~1,760 B × turns into ~1,760 B × 1 — against the counter-argument that per-prompt
+re-injection is the digest's anti-drift PURPOSE (compaction resilience). Note the P5a
+interplay: FORK A cites the injector as evidence the collapsed prose is still delivered —
+true, and the injector's own cost is the LARGER lever; the two statements are consistent
+because P5a trims a resident file while FORK E prices a per-turn channel.
+**Wrong if:** the injector is shown to be cached per session after all (then the ~53 KB
+figure collapses to ~1.8 KB and the lever drops out of the top-3 — re-run the grep for a
+session-cache guard and the live double-fire observation before pricing).
 
 ## §2 The generalisable position (prep-doc §7 item 6)
 
@@ -160,44 +348,73 @@ this raises P1's priority and enters the S-E kickoff as fresh evidence.
 
 | # | Proposal | Lands in | Cost line attacked | Size |
 |---|---|---|---|---|
-| P1 | Config fix, remaining half: **operator edits committed `.claude/settings.json`** — 7 entries → `**/<name>.md`. Local half ALREADY APPLIED (2026-08-06, three worktrees, 7/7 glob verified). After the committed fix merges, drop the redundant local key. | **operator** | READ + WRITE [W] | 15.9% [D] measured |
+| P1 | Config fix — **LANDED (rev 4): the committed `.claude/settings.json` carries all 7 entries in `**/<name>.md` form on staging since PR #1223 (`c8a2bfcec6`), verified `git show origin/staging:.claude/settings.json`.** Remaining operator step: drop the now-redundant `claudeMdExcludes` key from `.claude/settings.local.json` (lists verified identical). | **operator (residue only)** | READ + WRITE [W] | 15.9% [D] measured |
 | P2 | Config-assertion gate (§2 asserts 1-2 + backstop). Capability commit: picomatch pinned explicit devDep + `Prior-art:` trailer + SSOT entry. | **S-E** | recurrence insurance on P1's line | ~0 run cost; consumes S-F item 4 |
-| P3 | Budget gate per ADR-3: **REUSE `check-alwayson-budget.sh` — wire into pre-push + per-environment ceilings**; fix `measure-always-on.sh` blindness; N2 measurement (re-write trigger classes, arrival-position, edit-time-injection firing rates); `InstructionsLoaded` verification task | **S-E** | READ + WRITE [W] ceilings | repo-owned always-on share only (ADR-3 post-falsifier scope) |
-| P4 | **One umbrella-kickoff commit** (planning-session-owned surface): (a) S-D stage-table row → CLOSED-NULL for the ADDITIVE scope per SSOT #234 + S-D′ row added (P13) with its charter; (b) **S-D charter prose rewritten** — the «L2-closure PR (retirement note + `done.md`, no build)» instruction DELETED (kickoff:176-177): a stage-level `done.md` closes the whole umbrella (`priority-score.sh:140,255-263` — C3 file-existence is the closure signal; `:23-25,122-126` document it); (c) S-G row + Ordering slot + marker values for S-G/S-D′ (`Z.AI GLM-5.2 SDK`, re-verified unique at dispatch per the CLAUDE.md marker-value rule); (d) S-F item 4 marked consumed-by-P2. Umbrella `done.md` only when the LAST stage merges. | **S-D/S-G bookkeeping** | — | — |
-| P5 | Bounded `CLAUDE.md` trim per D1 (`@AGENTS.md` core-dedupe + CC-only keep + keep-list; ZCode `@`-import degradation check) **+ D1b traps digest** (digest authored + full catalogue re-scoped to `paths:` + anti-drift test + rollback trigger) | **S-G** | READ + WRITE [W] | `CLAUDE.md` = 16.7% [A], headroom = duplicated/gated share, sized at kickoff (post-#1188 baseline); traps digest ≈ 9% [A] |
+| P3 | Budget gate per ADR-3: **REUSE `check-alwayson-budget.sh` — wire into pre-push + per-environment ceilings (formula + acceptance pair in §1.6 FORK D)**; fix `measure-always-on.sh` TWICE-blind manifest (membership predicate: `^paths:`-absence minus effective `claudeMdExcludes` — §1.6 FORK D); `InstructionsLoaded` verification task. N2 per-turn measurement → **S-H** (rev 4, §1.6 FORK C). | **S-E** | READ + WRITE [W] ceilings | repo-owned always-on share only (ADR-3 post-falsifier scope; 29-39% declared-coverage statement binding) |
+| P4 | **One umbrella-kickoff commit** (planning-session-owned surface): (a) S-D stage-table row → CLOSED-NULL for the ADDITIVE scope per SSOT #234 + S-D′ row added (P13) with its charter; (b) **S-D charter prose rewritten** — the «L2-closure PR (retirement note + `done.md`, no build)» instruction DELETED (kickoff:176-177): a stage-level `done.md` closes the whole umbrella (`priority-score.sh:140,255-263` — C3 file-existence is the closure signal; `:23-25,122-126` document it); (c) S-G row + Ordering slot + marker value for S-G (`Z.AI GLM-5.2 SDK`, re-verified unique at dispatch per the CLAUDE.md marker-value rule; S-D′ carries NO marker — un-spent judgment, rev-4 correction of this row); (d) S-F item 4 marked consumed-by-P2. Umbrella `done.md` only when the LAST stage merges. | **S-D/S-G bookkeeping** | — | — |
+| P5 | Bounded `CLAUDE.md` trim per D1 — **rev 4 mechanism: pointer-collapse, NO import (§1.6 FORK A); the ZCode `@`-import degradation check is RETIRED with the import** — + keep-list **+ D1b traps digest** (digest authored at `.claude/rules/ai-laziness-digest.md` + full catalogue re-scoped to `paths:` + anti-drift test + rollback trigger + renderer bookkeeping, §1.6 FORK B) | **S-G** | READ + WRITE [W] | sized (rev 4): P5a net ≤ −1,100 B; D1b net ≈ −18 KB resident (traps 26,387 B out, digest ≤ 8,192 B in) |
 | P6 | Re-write-trigger discipline text (N1b) into cold-seat-economy skill-embeds. `.claude/rules/*` maintainer-owned → **proposed diff in the stage PR, maintainer reviews/merges**. | **S-G** | WRITE 43.1% [W] — the trigger | unsized until N2 |
 | P7 | Inlined-dispatch as template default (N2) | **S-G** | WRITE + output [W] | ~52%/cold seat measured |
-| P8 | `Channel(s)` truth: fix at source (`scripts/probe-channels.sh` is the channel source of truth; rule frontmatter/renderer inputs) then regen `npx tsx scripts/render-rule-index.mjs --write` — never hand-edit the generated index | **S-G** | L1 inventory honesty | Tier-1 |
+| P8 | `Channel(s)` truth — **REDEFINED rev 4 (§1.6 FORK D): the source of truth is the rule files' own frontmatter/markers rendered by `render-rule-index.mjs`; `probe-channels.sh` is a diagnostic reporter the renderer never reads.** Named drift to fix: renderer channel dedupe (`skill-embed, skill-embed` → `skill-embed(2)`); probe's unanchored globs-grep false-positive on prose mentions; TIER0_CORE label truth (rides D1b). Then regen `--write` — never hand-edit the index. Acceptance pair in §1.6. | **S-G** | L1 inventory honesty | Tier-1 |
 | P9 | Trio channel-split wiring (D3b) — `companions.manifest` / `preset.meta.json` rows | **companion/beta track** | none | — |
 | P10 | CC-plugin adapter + `security-guidance` mining | **separate /arch** | none (positioning) | — |
-| P11 | Probe: do `Explore`/`Plan` subagents load `.claude/rules/` at all? One measured session each, host-side; outcome = evidence beside the per-role work (S-D′ consumes it). | **S-E** | READ [W] scoping | cheap |
+| P11 | Probe: do `Explore`/`Plan` subagents load `.claude/rules/` at all? One measured session each, host-side; outcome = evidence beside the per-role work (S-D′ consumes it). **Re-routed to S-H (rev 4, §1.6 FORK C — host-only, cannot run behind the marker).** | **S-H** | READ [W] scoping | cheap |
 | P12 | Operator-axis ADOPT: `engineering:architecture` ADR template as /arch §1 spec-format slot | **S-G** | none (quality) | cheap text edit |
-| P13 | **S-D′ — per-seat subtraction maps** (§1.5): review-agent definitions with replacement system prompts; senior-seat rule re-scoping map; consumes P11; aif seats deferred per §0.5 priority ordering; runs under ADR-8's inherited experiment protocol (baseline → 20-dispatch window → A/B → verdict PR); SSOT #234 trigger-fired annotation | **S-D′** (reopened, Tier-2) | READ + WRITE [W] on expensive seats | sized by its own ADR-8 baseline capture |
-| P14 | **Harness-remainder pricing + disable set** (operator override): per-block price list of the non-repo resident load — MCP tool schemas + server instructions, plugin SessionStart injects (e.g. the `using-superpowers` full-text inject each session start), skills/agents listings, memory index — via `InstructionsLoaded` + `/context`; deliverable = settings-recommendations doc with per-item token cost, operator applies. Preserve what already works (ToolSearch deferral keeps deferred schemas non-resident). | **S-E** | READ + WRITE [W] — the ~60-70% of session start outside repo control | remainder ≈ 100k − (29-39k repo-owned), S1-measured bounds |
+| P13 | **S-D′ — per-seat subtraction maps** (§1.5): review-agent definitions with replacement system prompts; senior-seat rule re-scoping map; consumes P11 (now S-H); aif seats deferred per §0.5 priority ordering; runs under ADR-8's inherited experiment protocol with the rev-4 recorded deviation (dispatch-time parity split — §1.5); SSOT #234 trigger-fired annotation. **Instrument (rev 4 — the earlier «ordered by the S-E attribution table» named a table nobody produces):** repo-side drops are ordered by the **fixed `measure-always-on.sh` per-file output** (S-E P3b); harness-side by the **P14 price list** (S-H); a block neither instrument prices is `UNPRICED` and its ordering parks. | **S-D′** (reopened, Tier-2) | READ + WRITE [W] on expensive seats | sized by its own ADR-8 baseline capture |
+| P14 | **Harness-remainder pricing + disable set** (operator override): per-block price list of the non-repo resident load — MCP tool schemas + server instructions, plugin SessionStart injects (e.g. the `using-superpowers` full-text inject each session start), skills/agents listings, memory index — via the P3c-verified channel + `/context`; deliverable = settings-recommendations doc with per-item token cost, operator applies. Preserve what already works (ToolSearch deferral keeps deferred schemas non-resident). **Re-routed to S-H (rev 4, §1.6 FORK C — `/context` is a CC slash command, host-only).** | **S-H** | READ + WRITE [W] — the ~60-70% of session start outside repo control | remainder ≈ 100k − (29-39k repo-owned), S1-measured bounds |
 
 **S-G — new small stage** (added rev 2; routed into the umbrella by P4(c)): Tier-1, one PR,
 items P5-P8 + P12, maintainer-handoff protocol for every `.claude/rules/*` surface, kickoff
 carries the D1 keep-list. S-F's charter stays closed («no scope beyond the four items»).
+**Rev 4:** permitted set grows per §1.6 FORK B's «S-G tier consequence» list (the renderer,
+the probe, `render-rule-channels.mjs`, the principle-31 pair, the `AGENTS.md` generated
+region, the degradation manifest rows, the `harness-self` seed — stated ONCE there; this
+row defers to it, round-2 N-4); Tier-1 re-affirmed under the discriminator (every code edit
+is a decided, one-sentence «how»); **S-G now precedes S-E** (§1.6 FORK D — it changes the
+resident population S-E's ceiling derives from).
+
+**S-H — new host-side stage** (added rev 4, §1.6 FORK C): the three host-only measurement
+items — P3d per-turn attribution (new SSOT script `scripts/measure-turn-attribution.sh`,
+seeded read-only from the S-A kickoff snippet), P11 Explore/Plan probe, P14
+harness-remainder price list incl. the FORK E injector line — plus a conditional live
+confirmation of S-E's P3c
+`InstructionsLoaded` verdict when that verdict says «observable». **Scheduling (round-4 M-6
+— §0.5 says economise where tokens are dearest first, and S-H's P14 addresses the 60-71%
+share):** S-H is UNBLOCKED from S-E — it may run any time after this re-plan merges,
+concurrently with S-G/S-E (permitted sets verified disjoint). Its two S-E touchpoints
+degrade gracefully and say so: P14 uses the P3c-verified channel if S-E has merged, else
+`/context` alone with a note; the conditional P3c live confirmation is skipped with a note
+if S-E has not merged by stage end. **No marker, not factory-bound** — the container
+cannot reach `~/.claude/projects`, `/context`, or a live CC session; executed by a host CC
+session holding the S-H kickoff. Tier-1-shaped work (measurement running against decided
+classes), host-bound by construction.
 
 ## §4 Umbrella dispositions (prep-doc §0 requirement)
 
 | Umbrella | Disposition |
 |---|---|
-| `arch-v2-context-pipeline` | **ADVANCES.** S-D → additive scope closed-null; **S-D′ reopened subtractive** (operator override, #234 trigger (a) fired) — both via P4's single kickoff commit, never a stage `done.md`. S-E → strengthened (P2, P3, P11, P14). S-F → untouched; item 4 consumed by P2. S-G → added (P5-P8, P12). Umbrella `done.md` only at last-stage merge. |
+| `arch-v2-context-pipeline` | **ADVANCES.** S-D → additive scope closed-null; **S-D′ reopened subtractive** (operator override, #234 trigger (a) fired) — both via P4's single kickoff commit, never a stage `done.md`. S-E → strengthened (P2, P3), container-safe after the rev-4 split. S-F → untouched; item 4 consumed by P2. S-G → added (P5-P8, P12), precedes S-E. **S-H → added rev 4** (P3d, P11, P14 — host-side). Stage order: **S-G → S-E (strict); S-H independent, concurrent-allowed (round-4 M-6); S-D′ after S-E + S-H** (§1.6 FORK C/D/E). Umbrella `done.md` only at last-stage merge. |
 | `per-role-context-cold-verify` | **CLOSES.** The reserved design decision is delivered: no ADDITIVE per-role ambient (its research corpus fed #234, which stands for that scope); the subtractive successor S-D′ lives under `arch-v2-context-pipeline`, not here. Whole-umbrella `done.md` correct here. |
 | research-patch trio / plugin thread | **ADVANCES + routed.** Channel split resolved (D3b); operator-axis ADR-template adoption (P12); adapter + security-guidance → own contour (P10). Observation, not acted on: the 2026-08-02/-06 corpus needs harvesting from `feat/prune-worktrees` to staging. |
 
 ## §5 Exit routing (/arch §3)
 
-- **Operator, manual:** (1) P1 — the committed `.claude/settings.json` half; (2) per the
+- **Operator, manual:** (1) P1 — LANDED (rev 4, PR #1223); residue = drop the redundant
+  local `claudeMdExcludes` key; (2) per the
   round-2 recheck's own recommendation, eyeball the three rev-3 fix sites (P4's charter
   rewrite clause, §2's dependency-honesty paragraph, P4(c)'s S-G routing) instead of a third
   cold seat (`cold-seat-economy.md §3`). (D1b was operator-delegated and is resolved in §1:
   digest, with the one-incident rollback trigger.)
-- **Factory-bound:** S-E kickoff (P2 + P3 + P11 + P14) — Tier-2, plan-complete → WITH marker
-  (precondition ACTIVE). S-D′ kickoff — Tier-2 (subtraction maps need design; ADR-8 protocol
-  inherited). S-G — Tier-1 with the D1 keep-list authored in. P4 — the planning session's own
-  kickoff commit, first in sequence (it creates S-D′/S-G rows the kickoffs then fill).
+- **Factory-bound (rev 4 order: S-G → S-E strict; S-H independent/concurrent; S-D′ after
+  S-E + S-H):** S-G — Tier-1 with the D1
+  keep-list authored in, WITH marker, **first of the factory stages** (it sets the resident
+  baseline). S-E kickoff
+  (P2 + P3, container-safe) — Tier-2, plan-complete → WITH marker (precondition ACTIVE).
+  S-H — host-side, NO marker, not factory-bound (host CC session), dispatchable any time
+  after this re-plan merges. S-D′ kickoff — Tier-2,
+  NO marker (subtraction maps need design; ADR-8 protocol inherited with the §1.5 deviation).
+  P4 — LANDED: the umbrella rows/Ordering shipped with the rev-3 kickoff commit (#1218) and
+  the rev-4 corrections ship in the re-plan PR itself.
 - **Bookkeeping:** umbrella-closure `done.md` for `per-role-context-cold-verify`; session
   memory corrected (done in-session 2026-08-06: local-half-applied state + fork resolutions
   recorded in `project_arch_v2_context_pipeline`).
@@ -249,6 +466,28 @@ rev-2 fixes):
 **Round 3:** per the re-check seat's own recommendation, no third cold seat — the three MAJOR
 fixes are text-mechanical; the operator eyeballs the three sites (§5). Round cap respected
 (/arch §2: 2 REVISE rounds, then surface — surfaced in §5 as the operator eyeball step).
+
+**Round 4 (rev 4 — outside the /arch rounds above):** two /pipeline Phase -1 dispatch-time
+cold reviews over the rev-3 STAGE KICKOFFS (not this spec) returned S-E STOP, S-G REVISE,
+S-D′ REVISE with design-level findings that traced back to spec rows (D1's import mechanism,
+D1b's homelessness, P3d/P11/P14's container-infeasibility, the meter's manifest). Resolved by
+the 2026-08-06 /arch re-planning pass: §1.6 fork resolutions + the rev-4 row amendments.
+The re-issued artefacts then ran the /arch §2 two-altitude cold review (two fresh Opus
+seats, artifact-paths-only): **top-down REVISE** (2 BLOCKER B-1/B-2, 6 MAJOR M-1..M-6),
+**bottom-up REVISE** (1 BLOCKER, 3 MAJOR, 5 MINOR — measurement layer fully reproduced,
+defects in kickoff assembly). Every finding is dispositioned in this revision: the
+quadruplicated Tier-0 registry + `AGENTS.md` second render target (FORK B rewrite), the
+gate-discrimination third leg (FORK D), the overlay-semantics fork (FORK D), the bootstrap
+injector (new FORK E), the S-H unblocking (M-6), plus the stale cross-references in the
+kickoffs. A round-2 fresh narrow re-check then verified every disposition real (3/3
+BLOCKER, 9/9 MAJOR, 13/13 minor) and surfaced 3 defects the dispositions introduced —
+N-1 (no rendered matrix artefact: the manifest is hand-maintained reviewed data), N-2
+(S-D′ carried B-1's unshippable shape on its own `paths:` edits), N-3 (a fifth,
+name-keyed Tier-0 consumer in `tests/agnosticism/harness-self.test.sh`) — all three +
+3 minors dispositioned in this same revision; round cap reached, the three fix sites go to
+the operator eyeball per the round-3 precedent above. Reports: scratchpad
+`top-down-replan-token-economy.md` / `bottom-up-replan-token-economy.md` /
+`recheck-replan-token-economy.md` (session-local).
 
 ## See also
 
