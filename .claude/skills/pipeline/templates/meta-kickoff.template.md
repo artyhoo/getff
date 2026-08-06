@@ -148,7 +148,7 @@ export AGENT_SKIP_REVIEW=false
 
 **Trust is a tunable dial, not baked-in distrust (design §1):** `MAX_REVIEW_ITERATIONS` high = trust aif more / low = hand off more. The loop (collect → resolve-in-chat → resume) is **identical at any dial setting** — so the trust level never blocks the build. Start trust-but-verify (middle), run 2–3 real umbrellas, then adjust by observed error rate. Do NOT over-design the dial upfront.
 
-**Pre-dispatch gate (run before `dispatch.ts`):** confirm this kickoff contains the Lever-2 block (`grep -qi 'park it as a question' <this-kickoff>` — case-insensitive, the contract text capitalizes «Park») AND the env carries Lever-1 (`echo "$AGENT_MAX_REVIEW_ITERATIONS"` non-empty). Either missing → STOP; do not dispatch autonomously.
+**Pre-dispatch gate (run before `dispatch.ts`):** confirm this kickoff contains the Lever-2 block (`grep -qi 'park it as a question' <this-kickoff>` — case-insensitive, the contract text capitalizes «Park») AND probe Lever-1 container-side: `docker exec <agent-container> sh -c 'echo "${AGENT_MAX_REVIEW_ITERATIONS:-UNSET}"'`. A host-side `echo "$AGENT_MAX_REVIEW_ITERATIONS"` is **UNVERIFIED** — the value is not forwarded to the aif loop (no `packages/runtime-bridge/src/**` forwarding path, no compose key, re-verified 2026-08-06). When the container probe returns `UNSET` or the container is unreachable, Lever-1 is **UNVERIFIED**: the dispatch carries «park contract present, review-iteration ceiling unconfirmed», NOT a passing gate. Either leg missing/unverified → STOP; do not dispatch autonomously.
 
 **Egress gate (mandatory after `status=done` or `status=verified`):** aif does NOT push or open PRs by design. Call harvest immediately after the task reaches done:
 
