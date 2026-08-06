@@ -1,6 +1,6 @@
 // Stage J3 — go EcosystemAdapter: direct deps + synthesized module-path metadata.
 // Mirrors ecosystem-cargo.test.ts's paired positive+negative shape for the go
-// toolchain axis. Kickoff: .ai-factory/plans/feature-adapter-jig-j3-d4db43.md §2.
+// toolchain axis. Kickoff: .claude/orchestrator-prompts/adapter-jig-j3/kickoff.md §2.
 // Binding hard node: docs/superpowers/specs/2026-07-22-adapter-jig-design.md §2.1.
 import { describe, it, expect } from 'vitest';
 import { mkdtempSync, writeFileSync } from 'node:fs';

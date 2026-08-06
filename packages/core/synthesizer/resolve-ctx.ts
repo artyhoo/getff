@@ -37,6 +37,7 @@ import { goAdapter } from '../research/ecosystem-go.ts';
  * EcosystemAdapter by the detected stack:
  *   - python → pipAdapter
  *   - cargo  → cargoAdapter
+ *   - go     → goAdapter
  *   - react-next / ts-server / unknown → npmAdapter (the pre-W2 default,
  *     preserved for every JS/unknown consumer — a strict superset of prior
  *     behaviour, no regression for the npm path).
@@ -44,7 +45,7 @@ import { goAdapter } from '../research/ecosystem-go.ts';
  *
  * `skipAif: true` is load-bearing, not an optimisation: adapter selection is a
  * pure function of the TOOLCHAIN manifest (pyproject.toml → python, Cargo.toml →
- * cargo, else npm), never of the `.ai-factory` metadata (whose parser only ever
+ * cargo, go.mod → go, else npm), never of the `.ai-factory` metadata (whose parser only ever
  * yields 'react-next'/'ts-server' → npmAdapter anyway). Reading `.ai-factory`
  * here would ADD a throw the pre-W2 resolve path never had: readAif raises
  * AifSchemaError when a consumer ships a freeform `.ai-factory/DESCRIPTION.md` |
