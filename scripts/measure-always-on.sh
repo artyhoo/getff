@@ -10,25 +10,18 @@
 # spec: docs/superpowers/specs/2026-06-04-ai-doc-audit-design.md §Success-criteria
 # spec: docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md §1.6 FORK D (rev 4)
 #
-# OVERLAY-VERDICT PARK (load-bearing — spec §1.6 FORK D round-4 MAJOR-3, parked per kickoff
-# §1 item 4 binding instruction "PARK if the docs contradict the replace model"):
-#   The kickoff required a "REPLACE-PER-KEY overlay" semantics where a local
-#   .claude/settings.local.json claudeMdExcludes SHADOWS the project list entirely.
-#   Primary docs (verified 2026-08-06 via WebFetch on https://code.claude.com/docs/en/settings)
-#   state: "scalar values from higher-priority scopes override and arrays concatenate,
-#   each with the exceptions described under Settings precedence". `claudeMdExcludes` is an
-#   array → it CONCATENATES across scopes under primary docs, NOT replace.
-#   The replace model the kickoff assumed is CONTRADICTED by primary docs.
-#   Per the binding instruction "PARK if the docs contradict the replace model":
-#     - This meter applies ONLY the project `.claude/settings.json` claudeMdExcludes list.
-#     - Local-overlay handling (concat, replace, or anything else) is PARKED pending
-#       spec/docs reconciliation. See
-#       docs/meta-factory/research-patches/2026-08-06-claudemd-overlay-semantics-verdict.md
-#       (the verdict research-patch carries the primary-source citations).
-#     - On the host this branch runs in, .claude/settings.local.json is ABSENT, so the
-#       overlay model is unobservable here regardless (effective excludes = project list).
-#   Effective-overlay source is named on stderr below ("project" — the only source this
-#   meter consults pending the overlay verdict).
+# OVERLAY SEMANTICS (verified 2026-08-06 vs primary docs — kickoff's REPLACE-PER-KEY model
+# CONFIRMED, spec §1.6 FORK D round-4 MAJOR-3):
+#   https://code.claude.com/docs/en/settings (verbatim): "When both files set the same key,
+#   the repository root's value wins, except that permission rules from both files stay in
+#   effect." `claudeMdExcludes` is NOT in the merge-exception list (the named exceptions are
+#   `permissions` and `AllowedHttpHookUrls`). Therefore a local `.claude/settings.local.json`
+#   `claudeMdExcludes` REPLACES the project list entirely — the kickoff's replace-per-key
+#   overlay model is correct, and P2b's superset assert IS load-bearing under it.
+#   This meter applies the EFFECTIVE list (local if it sets the key, else project).
+#   Effective-overlay source is named on stderr below.
+#   See docs/meta-factory/research-patches/2026-08-06-claudemd-overlay-semantics-verdict.md
+#   for the full primary-source citations and the verdict narrative.
 #
 # EXCLUDE-PATTERN FORM (bash-native; picomatch-equivalent for the **/<name>.md form):
 #   The project list uses picomatch's `**/<name>.md` form. Picomatch is not yet a declared
@@ -56,13 +49,22 @@ while IFS= read -r r; do files+=( "$r" ); done < <(
   done | sort
 )
 
-# Effective claudeMdExcludes — PROJECT list only (overlay verdict PARKED, see header).
+# Effective claudeMdExcludes — REPLACE-PER-KEY overlay (verified overlay semantics; see header).
+# A local .claude/settings.local.json that sets claudeMdExcludes SHADOWS the project list entirely.
+SETTINGS_LOCAL=".claude/settings.local.json"
 overlay_source="project"
 excludes=()
-if [[ -f "$SETTINGS" ]] && command -v jq >/dev/null 2>&1; then
+source_file=""
+if [[ -f "$SETTINGS_LOCAL" ]] && command -v jq >/dev/null 2>&1 && jq -e 'has("claudeMdExcludes")' "$SETTINGS_LOCAL" >/dev/null 2>&1; then
+  source_file="$SETTINGS_LOCAL"
+  overlay_source="local-replace"
+elif [[ -f "$SETTINGS" ]] && command -v jq >/dev/null 2>&1; then
+  source_file="$SETTINGS"
+fi
+if [[ -n "$source_file" ]]; then
   while IFS= read -r e; do
     [[ -n "$e" ]] && excludes+=( "$e" )
-  done < <(jq -r '.claudeMdExcludes[]? // empty' "$SETTINGS")
+  done < <(jq -r '.claudeMdExcludes[]? // empty' "$source_file")
 fi
 
 excluded_count=0

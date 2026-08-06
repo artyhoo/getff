@@ -30,6 +30,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve, relative, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// @ts-expect-error picomatch 4.x ships no type declarations; no @types/picomatch exists.
 import picomatch from 'picomatch';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
