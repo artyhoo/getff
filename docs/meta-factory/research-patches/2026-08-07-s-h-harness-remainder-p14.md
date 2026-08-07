@@ -247,6 +247,19 @@ to a listing budget — precisely the overflow S-I owns (spec §8 item 4, ~9.1k 
 ~2k budget). Two stages publishing two different numbers for one block would be the drift this
 project exists to prevent, so the injected figure stays S-I's to publish.
 
+> **CHALLENGED 2026-08-07 (§8.2) — the truncation premise did not survive the paste.** This
+> recommendation rests on the harness truncating the skills listing «to a ~2k budget». `/context`
+> reports the **injected** skills block at **8.9k resident** — essentially the un-truncated
+> source-side ~9.1k, not ~2k. On this seat the listing appears **not** to be truncated at all.
+> The routing decision still stands (S-I owns the injected figure and this stage does not publish
+> it), but S-I's *premise* is now contradicted by a measurement, which S-I needs to know. Surfaced
+> here, not re-derived — the number remains S-I's to publish.
+>
+> **Also unverified in this recommendation (T3):** «129 `SKILL.md` files» carries no reproducing
+> command, and a recount over the plausible host+repo roots gives 112. Treat the 129 as
+> **UNVERIFIED population** until the enumerating command is published beside it; the byte deltas
+> (45,329 → 41,057 B) are unaffected, since they were measured on whatever set was walked.
+
 **R5 — Do not spend further effort on repo-side residency without a harness-side plan.** Row 1
 is now ~21% of a full-tool subagent seat post-S-G, and 12,167 est-tokens against a ~26,229-tok
 harness floor that carries no repo content at all. Additional repo trims have a hard ceiling
@@ -373,10 +386,12 @@ Enumerated surfaces where that class occurs, verdicted per surface:
   post-S-G, inside ADR-3's stated band. No correction owed.
   **RE-VERDICTED 2026-08-07 (§8) — the «inside the band» clause was wrong when written:** the
   band is 29-39% and both measurements (27.8% / ~21%) fall *below* it, so «no correction owed»
-  was unsupported on its own numbers. Under §8.1's measured conversion the same share moves the
-  other way — 29,464 / 62,340 ≈ **47%** — i.e. outside the band on the high side. **Verdict now:
-  GAP-FOUND against ADR-3, direction unresolved**, and it is unresolvable until
-  DECISION-NEEDED #4 settles the conversion constant. Not edited — ADR-3 is spec, outside §2.
+  was unsupported on its own numbers. Restating **within one channel** (row 1's own bytes, not a
+  `/context` numerator — mixing those is what §8.5 shows to be irreconcilable): 17,363 ×
+  (4 / 2.6187) = **26,522** tok, i.e. **42.5%** of the 62,340-tok subagent seat, or **~26.5%**
+  against ADR-3's own ~100k session-start denominator. **Both readings put the repo-owned share
+  BELOW the 29-39% band, not above it.** **Verdict now: GAP-FOUND against ADR-3 — measured
+  low, consistently across the conversion change.** Not edited — ADR-3 is spec, outside §2.
 - `docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md` P14 row («remainder ≈
   100k − (29-39k repo-owned)») — **SWEPT-CLEAN**: measured 68.4% at the subagent seat, 77.8% at
   the main seat; the row's arithmetic holds.
@@ -407,171 +422,14 @@ reference material consulted once per stage, not per turn.
 
 ---
 
-## §8 Addendum (2026-08-07, post-merge) — DECISION-NEEDED #3 answered by Option A
+## §8 — moved to a companion patch
 
-The operator ran `/context` in an interactive session and pasted the output. §0a's Option A is
-therefore **taken**, and the block below records what it resolved and what it did not. This
-section is an addendum rather than an in-place rewrite on purpose: the measurement history must
-read «unknown at stage close → known on 2026-08-07», not as though the split had been available
-all along.
+The post-merge addendum recording the operator's `/context` paste — the falsified 4 B/token
+conversion (§8.1), the resident/deferred split (§8.2), which `UNMEASURED` rows it closed (§8.3),
+what S-D′ can now do (§8.4), and the unreconciled channel disagreement (§8.5) — lives at
+[`2026-08-07-s-h-p14-context-addendum.md`](2026-08-07-s-h-p14-context-addendum.md).
 
-**Provenance and its limits (T6, stated before the numbers).** One `/context` snapshot, n=1, from
-an **orchestrator seat in a worktree** whose edit-time rule matcher had injected four rule files
-(`00-rule-index`, `attention-is-not-a-mechanism`, `build-first-reuse-default`,
-`ai-laziness-traps` — the other three of the seven memory files are the two `CLAUDE.md` and
-`MEMORY.md`).
-A fresh main-checkout seat, or a subagent seat, has a different resident set. All figures are the
-harness's own reported estimates at its own rounding (`5.2k`, `~380`); no tokenizer was run.
-`Messages 276.4k` is that session's accumulated dialogue and is **not** resident load.
-
-### §8.1 The finding that outranks the split: the 4 B/token convention is falsified
-
-The seed's binding conversion — **4 B ≈ 1 token**, applied uniformly across both S-H patches — is
-directly checkable for the first time, because `/context` itemises per-file token counts for
-files whose byte counts are known. Seven files carry both:
-
-| file | bytes (`wc -c`) | tokens (harness) | B/token |
-|---|---:|---:|---:|
-| `~/.claude/CLAUDE.md` | 3,198 | 964 | 3.32 |
-| `<repo>/CLAUDE.md` | 23,740 | 9.3k | 2.55 |
-| `.claude/rules/00-rule-index.md` | 4,030 | 1.7k | 2.37 |
-| `.claude/rules/attention-is-not-a-mechanism.md` | 2,629 | 1.1k | 2.39 |
-| `.claude/rules/build-first-reuse-default.md` | 12,667 | 4.8k | 2.64 |
-| `.claude/rules/ai-laziness-traps.md` | 26,387 | 9.8k | 2.69 |
-| `…/memory/MEMORY.md` | 4,505 | 1.8k | 2.50 |
-| **aggregate** | **77,156** | **29,464** | **2.62** |
-
-**Measured 2.62 B/token, not 4.** The six ASCII-dominant repo files cluster at 2.37-2.69; the
-outlier (3.32) is the operator-global `CLAUDE.md`, which is largely Russian — multi-byte UTF-8
-inflates bytes per token, which is the expected direction and corroborates rather than
-undermines the reading.
-
-**Consequence, flagged and NOT silently applied.** Every `est-tokens` figure derived through
-4 B/t in this patch and its sibling is low by ≈**1.53×** (4 / 2.62). Because row 5 (the harness
-remainder) is computed **by difference** — seat total minus rows 1-4 — an understated rows 1-4
-makes the remainder correspondingly **overstated**. A first-order restatement on the same seat
-total gives rows 1-4 = 19,719 × (4 / 2.6187) ≈ **30,120** tok and a remainder of
-62,340 − 30,120 = **32,220** tok, i.e. **51.7%, not 68.4%**.
-
-That restatement is **not** written into §2, and the table's figures are left as they were. Two
-reasons, both binding: the row-1 file set is the *pre-S-G* resident set while the ratio was
-measured on the *current* one, so the two are not the same population; and re-deriving §2 on a
-new conversion is a re-measurement, which is beyond an addendum. **Recorded as a correction owed,
-not as a correction made.**
-
-> **DECISION-NEEDED #4 — the conversion constant.** The 4 B/t convention is inherited from the
-> S-A seed and is load-bearing for every est figure in this umbrella.
-> **Option A** — adopt **2.62 B/token** (or a per-seat re-measurement) as the operative
-> conversion and re-derive §2 and the sibling's 4 B/t sites — its **§5, §7 and §8** (the sibling
-> runs §0-§8; there is no §9) — in a follow-up stage. Consequence: the
-> harness share drops to roughly half, and the repo-owned half becomes correspondingly *more*
-> expensive — which changes which levers S-D′ ranks first.
-> **Option B** — keep 4 B/t for comparability with S1/S2 figures already published under it, and
-> carry this section as the standing caveat. Consequence: every published est figure stays
-> internally comparable but is known-low by ~1.5×.
-> **Not resolved here.**
-
-### §8.2 What the snapshot resolves — the resident/deferred identity
-
-The reported percentages sum to **105.6%**, which is not an error: the two `(deferred)` rows are
-counted in the table but are **not resident** — they are tool schemas held behind `ToolSearch`
-and fetched on demand. The identity confirms it exactly:
-
-```text
-resident non-message load = 334.6k − 276.4k                       = 58.2k
-sum of non-deferred rows  = 5.2 + 5.3 + 8.4 + 1 + 29.4 + 8.9      = 58.2k   ← exact match
-deferred, i.e. NOT resident = 42.4 + 15.7                          = 58.1k
-```
-
-| resident block | tokens | share of resident |
-|---|---:|---:|
-| memory files | 29.4k | 50.5% |
-| skills listing | 8.9k | 15.3% |
-| MCP tool schemas (resident subset) | 8.4k | 14.4% |
-| system tools | 5.3k | 9.1% |
-| base system prompt | 5.2k | 8.9% |
-| custom-agent listing | 1k | 1.7% |
-
-Two readings follow, and only the first is new:
-
-1. **Half the resident load is memory files** — 29.4k of 58.2k. Within it, two documents carry a
-   third of the *entire* resident head: `<repo>/CLAUDE.md` (9.3k) and
-   `.claude/rules/ai-laziness-traps.md` (9.8k) = 19.1k. This is the «expensive end» §0.5 says to
-   price first, and it is repo-owned — i.e. **actionable by this project**, unlike the harness
-   blocks.
-2. **`ToolSearch` deferral withholds 58.1k — almost exactly what the entire resident head costs.**
-   §3's «preserve what already works» now has its number. **Stated precisely, because the loose
-   form is wrong:** making those schemas resident would **double the resident head** (58.2k →
-   116.3k); it would *not* halve the budget — on this 1m-window snapshot free space moves
-   665.4k → ~607.3k, i.e. **−8.7%**. The head is what the deferral halves, and the head is what
-   every seat pays before its first word. On that measure it is still the single most expensive
-   regression available in this table.
-
-### §8.3 Which `UNMEASURED` rows this closes — two of four, not four
-
-| row | before | after | basis |
-|---|---|---|---|
-| 5c — MCP tool schemas (resident subset) | `UNMEASURED — channel absent` | **8.4k** | `/context` «MCP tools» |
-| 5e — skills/agents listing, as injected | `UNMEASURED — channel absent` | **8.9k** skills + **1k** custom-agent listing | `/context` «Skills» + «Custom agents» |
-| 5d — MCP server instructions | `UNMEASURED — channel absent` | **unchanged** | `/context` does not itemise server instructions apart from tool schemas. Where they are counted is *not* established by the snapshot — asserting a region would be the estimate T-SH-A forbids |
-| 9 — agents inventory (17 repo `agents/*.md`) | `UNMEASURED — channel absent` | **unchanged** | different population: `/context`'s «Custom agents» (1k) counts the harness's *registered* agent types — one row, `orchestrator-planner` — not the repo's `agents/` directory |
-
-Rows 5d and 9 stay `UNMEASURED — channel absent` rather than being filled from the nearest
-plausible neighbour. Reporting «two of four» where «four of four» was expected is the T-SH-A
-obligation working as intended.
-
-**Revised partition:** the price list still holds **14** rows; **11** now carry a named channel,
-**2** read `UNMEASURED — channel absent` (5d, 9), and 1 (row 8) is measured source-side with the
-injected form still S-I's to publish. Partition **14 / 11 / 2 / 1**, counted from the table.
-
-### §8.4 What S-D′ can now do, and what it still cannot
-
-**Can:** rank the resident head by block, with the repo-owned memory files (29.4k, 50.5%) as the
-top-ranked and *own-able* target — the ordering §0.5 asks for is available for the half that
-matters. **Cannot:** treat the absolute figures as final while DECISION-NEEDED #4 **and #5** are
-open, or split the MCP server-instruction block. **Should:** read §8.1 and §8.5 before ordering
-anything — between them they move the repo-vs-harness balance by more than the width of the
-decision, and in the same direction.
-
-### §8.5 The two figures do not reconcile — and the gap indicts the by-difference method
-
-`/context` and the by-difference channel priced **the same session** (`e5a0e586-…`, the seat §1
-publishes at 89,019 tok), and they disagree:
-
-| channel | harness-side figure for that seat |
-|---|---:|
-| by difference (§1/§2): seat total − rows 1-4 | **69,300** tok (77.8%) |
-| `/context` categories matching row 5's own definition («base system prompt + tool schemas + MCP + listings»): 5.2 + 5.3 + 8.4 + 1 + 8.9 | **28.8k** |
-
-Neither 28.8k nor 28.8 + 58.1 (adding the deferred schemas back) = 86.9k equals 69,300. The
-totals disagree the same way: `/context` puts the whole resident head at **58.2k**, while the
-first billed turn bills **89,019** — reproducible as `input_tokens 2 + cache_creation 66,650 +
-cache_read 22,367`. **Gap: ~30.8k.**
-
-**What the gap most likely is, stated as a hypothesis and not priced.** §0 defines the
-substitute channel as «the resident head **plus its dispatch prompt**» — and rows 1-4 never
-subtract that prompt. This session opened with a `/orchestrator` invocation, which injects the
-whole SKILL.md body into the first message, so a large first-turn message is expected here.
-That is a *plausible* account of ~30.8k; it is **not measured**, and no figure in this patch is
-adjusted on it.
-
-**Why this matters more than a bookkeeping note.** If the gap is dispatch-prompt content, then
-the by-difference method **systematically overstates the harness remainder**, because everything
-it cannot attribute to rows 1-4 lands in row 5 by construction — including message content that
-is not resident load at all. The main-seat 77.8% is the most exposed figure; the subagent-seat
-68.4% is exposed to the same bias in proportion to its dispatch prompt.
-
-> **DECISION-NEEDED #5 — which channel defines «harness remainder».** Kickoff §3a names «two
-> defensible readings of a measurement» a fork; this is one, and it was not visible until the
-> `/context` paste gave a second channel to compare against.
-> **Option A** — treat `/context` as authoritative for the *resident* split and demote the
-> by-difference figures to «seat cost at first turn, dispatch prompt included». Consequence: the
-> harness remainder for this seat is ~28.8k resident, not 69,300, and §2's headline percentages
-> are wrong by roughly 2.4× — every ranking in §4 is re-derived.
-> **Option B** — keep by-difference as authoritative (it is the only channel available for
-> *subagent* seats, which `/context` cannot reach) and carry §8.2 as a resident-only cross-check.
-> Consequence: the figures stand as published, with a known upward bias of unmeasured size.
-> **Option C** — measure the gap directly: bill one seat's first turn *and* run `/context` in it
-> before any other message, so the dispatch prompt is isolated. Cost: one interactive session.
-> **Not resolved here.** This addendum records the disagreement rather than picking a winner —
-> picking one silently would be the failure §3a exists to prevent.
+It was written as this patch's §8 and split out when this file reached the repo's 600-line
+markdown gate. **Every `§8.x` reference above resolves into that file**, where the numbering is
+preserved for exactly that reason. `DECISION-NEEDED #4` (the conversion constant) and `#5` (which
+channel defines «harness remainder») are stated there and are **open**.
