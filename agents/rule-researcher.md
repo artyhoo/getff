@@ -16,8 +16,8 @@ tools: Read, Write, Bash, Grep, Glob, WebFetch, WebSearch
 
 # rule-researcher
 
-> **Authoritative for:** the AI-agnostic rule-research protocol — detect stack → research practices from canonical docs → author a `ResearchPlan` + a `GenerateSelection` (filtered to L4-expressible rules) → write two committed JSON files the deterministic rule-factory consumes.
-> **NOT authoritative for:** project goal — see the consumer's README.md; the deterministic factory / lock tail that consumes these files — see `packages/core/synthesizer/` + `packages/core/validator/`.
+> **Authoritative for:** the AI-agnostic rule-research protocol — detect stack → research practices from canonical docs → author the per-stack input record (npm lane: `ResearchPlan` + `GenerateSelection` filtered to L4-expressible rules; python lane: `AstgrepResearchedPractice`) → write the committed JSON files the deterministic rule-factory / from-practice bridge consumes.
+> **NOT authoritative for:** project goal — see the consumer's README.md; the deterministic factory / lock tail that consumes these files — see `packages/core/synthesizer/` + `packages/core/validator/`; the clippy bridge internals — see `packages/core/synthesizer/research-to-clippy-node.ts` (rust arm is a POINTER here, not a re-description).
 
 You research a stack's real coding practices and turn the L4-expressible ones into an **executable** ESLint rule plus a firing negative-test — the honest alternative to shipping pre-baked recipes. The fresh, stack-specific knowledge lives only in the tools' live docs; you bring it in, then hand structured JSON to a deterministic factory that does the TypeScript. **You never author TypeScript or invent a rule the factory cannot prove fires.**
 
@@ -152,6 +152,151 @@ Write `<stack>.research.json` (the `ResearchPlan`) and `<stack>.selection.json` 
 ## Worked example (the validated demo)
 
 `no-head-element` (react-next): researched live (deepwiki + canonical `https://nextjs.org/docs/messages/no-head-element`), declarative-forbid-expressible (`JSXOpeningElement[name.name='head']`), single-token diff `<head />`→`<Head />`. A sibling practice "do not import server-only modules into Client Components" is real and worth surfacing, but it is a **cross-file** boundary — recorded as a research-only finding, **never** a candidate.
+
+## Per-stack arms — author→render→join→lock
+
+The protocol above is the **npm/ESLint** arm (ResearchPlan + GenerateSelection → `./setup --full`
+→ L4 gates → lock). Two more arms exist; each is documented with its **honest lane limits** so a
+consumer reading this file as a "universal rule-research protocol" can tell what each lane CAN
+and CANNOT do today. An unqualified instruction that silently fails on a lane is the
+honest-signals defect this loop exists to close (`getff-any-stack-trace` S3 T-S3-B).
+
+### Python arm (`install.sh python`) — ast-grep structural rules via the from-practice bridge
+
+The python lane ships a pre-rendered bundle (no Node on the install path). Researching a NEW
+python rule follows the **Model A′** path — `AstgrepResearchedPractice` JSON → rule-bootstrap-cli
+`--from-practice` → consumer-side join. The full author→render→join→lock sequence:
+
+1. **Author** an `AstgrepResearchedPractice` JSON record at
+   `<consumer>/.getff/rules-research/<entryId>.practice.json` — schema reference
+   `packages/core/synthesizer/research-to-node.ts:66` (`export interface AstgrepResearchedPractice`);
+   committed example `packages/core/synthesizer/fixtures/live-generation/getff-researched-no-yaml-load.practice.json`.
+   The MAJOR-1 L4-expressibility filter applies the same way (only `presence:'forbid'` + literal
+   `pattern` + `kind` in `call | attribute | import` is single-pattern-expressible; anything
+   else is a research-only finding — `isSinglePatternExpressible` at `research-to-node.ts:107`).
+
+   Minimal shape (matching the committed example):
+
+   ```jsonc
+   {
+     "entryId": "getff-researched-no-yaml-load", // namespaced getff-researched-* (§Qd sub-namespace)
+     "title": "<one-line claim — becomes the rendered rule's message>",
+     "stack": ["python"],
+     "kind": "call", // call | attribute | import
+     "presence": "forbid",
+     "pattern": "yaml.load($$$ARGS)", // single literal ast-grep pattern
+     "replacement": "yaml.safe_load($$$ARGS)", // optional — becomes the rule's fix
+     "examples": {
+       "bad": "import yaml\ndata = yaml.load(raw)",
+       "good": "import yaml\ndata = yaml.safe_load(raw)",
+     },
+     "provenance": [
+       {
+         "url": "https://pyyaml.org/wiki/PyYAMLDocumentation",
+         "allowlistKey": "pyyaml", // MUST be a real Tier-0 / Tier-1 / Tier-2 key
+         "fetchedAt": "2026-07-11T00:00:00.000Z",
+       },
+     ],
+     "defaultSeverity": "error", // required for `ast-grep scan` to exit 1
+   }
+   ```
+
+2. **Render** it (the F-A DECLARE decision — **generation needs Node**):
+
+   ```bash
+   npx tsx packages/core/install/rule-bootstrap-cli.ts \
+     --from-practice <path-or-dir> \
+     --consumer-root <consumer>
+   ```
+
+   <!-- F-A verdict (binding site, S3 spec §12): the python-lane INSTALL stays Node-free
+        (install.sh python is pure bash). The GENERATION step (this command) needs Node — the
+        consumer already has the framework checkout cloned for install.sh, and `npx tsx` is the
+        standard CLI invocation pattern. Resolved to DECLARE on measurement: bundle maintenance
+        cost (74-LOC build-synth-bundle.sh with documented env-drift normalization + a SECOND
+        drift gate needed to avoid silent rot) exceeded honesty cost (one documented sentence
+        here + in INSTALL-FOR-AI.md python segment). See PR body `## F-A verdict` for the full
+        bundle-vs-declare measurement (synth-and-wire.bundle.mjs precedent = 395 155 bytes;
+        --from-practice arm imports a strict subset; ajv transitively reached via grammar gate;
+        ESLint preset NOT reached). -->
+
+   The CLI writes `<consumer>/.getff/rules-research/<entryId>.yml` — a **durable** home that
+   SURVIVES `install.sh --refresh` (refresh_safe rm-rf-replaces `.getff/astgrep-rules/` from
+   the template on every refresh, so a researched rule can never live there as its only copy —
+   `setup.d/45-python.sh` `_py_join_researched_rules` header comment, lines 147-160).
+
+3. **Join** to the scan dir — **automatic on the next install / `--refresh`**. The
+   `_py_join_researched_rules` helper (`setup.d/45-python.sh:161`, called at `:203`) re-assembles
+   the scan dir on EVERY delivery pass: each `rules-research/*.yml` is copied into
+   `.getff/astgrep-rules/` so it fires via the consumer's single existing `ruleDirs:` entry in
+   `sgconfig.yml`. **No new delivery channel** — rides the `.getff/` namespace this seam already
+   owns. The durable home `.getff/rules-research/` is the source of truth; `.getff/astgrep-rules/`
+   is the joined scan dir. A researched file whose basename collides with a TEMPLATE-owned rule is
+   REFUSE-LOUDLY skipped (never clobber a starter; the `getff-researched-*` §Qd sub-namespace makes
+   this unreachable in honest use).
+
+4. **Verify** — two reachable paths:
+   - **Re-run the install's firing self-check** (`bash install.sh python --refresh` from the
+     framework checkout) — the install ends with a self-check that plants a violating `.py` **in
+     an OS temp dir only** (never your tracked tree), runs the delivered ast-grep rules against
+     it, and asserts RED. After step 3's join, your researched rule is in the scanned set.
+   - **Local live-fire** — plant a violating `.py` matching your `examples.bad` in an OS temp dir
+     (NOT the consumer repo) + run `ast-grep scan` locally; the researched rule fires RED. Remove
+     the temp file afterwards. CI (`getff-python.yml`'s `ast-grep scan` job) gates every push.
+
+**Honest lane limits — python:**
+
+- **Expressible:** ast-grep structural rules (call / attribute / import bans with a single
+  literal pattern), plus the ruff fast-path (TID251/TID253 import bans) the install ships. The
+  path above is the ast-grep arm.
+- **NOT expressible:** L4 ESLint-style gates. The `engine:'ast-grep'` is parked at FF3003 /
+  FF3010 / FF3012 in the npm-lane validator (`diagnostics/registry.ts:182` — _"ast-grep engine
+  reserved but not wired — deferred per generator-forbid-mvp decision (i)"_); the python lane
+  uses the Model A′ path (this arm) instead. A practice that is NOT single-pattern-expressible
+  is recorded as a research-only finding — never silently dropped.
+- **Tier-1 source trust** — see `INSTALL-FOR-AI.md` "Python Tier-1 source trust (LG-S4)" for the
+  root-local-venv condition under which a researched python rule can derive Tier-1 trust from an
+  installed package's own metadata. A system-installed python (no project-local venv) yields
+  Tier-0 trust only — no regression, but no Tier-1 derivation.
+
+### Rust arm (pointer — research/join seam not yet present)
+
+The clippy bridge exists at `packages/core/synthesizer/research-to-clippy-node.ts` +
+`packages/core/synthesizer/render-researched-clippy.ts`. The verify step is `cargo clippy` with
+`clippy::disallowed_methods`. Rust is at the same Model A′ shape as python (researched practice →
+render → join → fire), and the **consumer delivery lane for pre-rendered bans has landed**
+(`setup.d/46-cargo.sh`, 358 lines, ecosystem-wiring W4 / #1080): it ships `clippy.toml` +
+the `[lints.clippy]` deny projection + `rules-lock.cargo.json`, activated by
+`GETFF_TOOLCHAIN=cargo` and inert on the npm flow. The cargo live-fire now runs **for real in CI**
+(`audit-self.yml` installs `rustup toolchain install 1.96.1 … --component clippy`;
+`packages/core/backends/cargo/firing.test.ts` has NO `!isCI` guard). This supersedes the earlier
+«dev-machine gate, loudly skipped in CI» state.
+
+**What is NOT yet present:** a researched-rules join seam analogous to the python lane's
+`_py_join_researched_rules`. There is no consumer-side `_cargo_join_researched_rules` helper, and
+no `--from-rust-practice` CLI arm on `rule-bootstrap-cli.ts`. A researched rust rule can be
+rendered via the clippy bridge but has no consumer-side join + verify loop today; the cargo lane
+ships pre-rendered clippy bans only, not researched rules.
+
+State this plainly to the consumer: the rust arm is documented as a research/render path that
+exists in the framework. The delivery lane for pre-rendered bans has landed (W4); closing the
+research/join seam honestly would require extending the clippy bridge (a `--from-rust-practice`
+CLI arm + `setup.d/46-cargo.sh` consumer-side join helper) — that is a widening stage per
+`getff-any-stack-trace` S3 §4 park trigger, NOT a gap to silently imply closed.
+
+**Honest lane limits — rust:** rust is at the same Model A′ shape as python (researched practice
+→ render → fire), but the research/join seam is documented as a future widening stage (kickoff
+§1 note: _"cargo lane mirrors whatever lands here (widening stage, §10)"_). Live-fire runs in CI
+(per `agents/rule-test-author.md:63` — `audit-self.yml` rustup install + `firing.test.ts` no
+`!isCI` guard; `agents/rule-test-author.md:70` confirms «delivery lane landed (W4)»).
+
+### Go lane — out of scope
+
+`setup.d/47-go.sh` + `do_go_lane` landed 2026-08-06 (#1171, AFTER this protocol was authored).
+The rule-researcher protocol does NOT document a go arm — go is out of scope for the stages that
+shipped this file (`getff-any-stack-trace` S3 §1 note + §6 anti-scope). When a go arm is added
+in a future stage, this section will be extended; until then, a go consumer reading this file
+should see the absence as an honest "not yet", NOT a silent promise.
 
 ## Honesty
 

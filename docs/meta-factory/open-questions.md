@@ -534,4 +534,4 @@ The single-stage umbrella `getff-python-dtz-adopt` (PR #<TBD>, 2026-08-06) ADOPT
 
 **Action on this PR:** ZERO edits to the S3 astgrep rules (kickoff §7 anti-scope). Parked here, not picked.
 
-**Origin:** 2026-08-06, `feature-getff-python-dtz-adopt-4d865a` T7 park-probe (kickoff §5 binding). **Cross-references:** [kickoff §5 + §7](.ai-factory/plans/getff-python-dtz-adopt.md); [prior-art-evaluations.md#237](prior-art-evaluations.md) (ruff built-in DTZ005, ADOPT narrow); S3 narrowing PR #1150 (`getff-honest-signals` S3).
+**Origin:** 2026-08-06, `feature-getff-python-dtz-adopt-4d865a` T7 park-probe (kickoff §5 binding). **Cross-references:** [kickoff §5 + §7](../../.claude/orchestrator-prompts/getff-python-dtz-adopt/kickoff.md); [prior-art-evaluations.md#240](prior-art-evaluations.md) (ruff built-in DTZ005, ADOPT narrow); S3 narrowing PR #1150 (`getff-honest-signals` S3).

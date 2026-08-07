@@ -39,8 +39,10 @@
 #   Pure-bash + jq, deterministic, no paid LLM (no-paid-llm-in-ci.md §1 satisfied).
 #
 # Seams for testing (mirrors update-cache.sh / update-delta.sh convention):
-#   MO_STATE_FILE — override state path (default: <REPO_ROOT>/.claude/orchestrator-prompts/_meta-orch-state.json)
-#   MO_KICKOFF_DIR — override umbrella dispatch dir (default: <REPO_ROOT>/.claude/orchestrator-prompts)
+#   MO_STATE_FILE — override state path (default: <resolved-orch-home>/_meta-orch-state.json)
+#   MO_KICKOFF_DIR — override umbrella dispatch dir (default: <resolved-orch-home>)
+#                    <resolved-orch-home> = resolve_orch_home() in lib/common.sh —
+#                    .claude/orchestrator-prompts (framework) | .ai-factory/… (consumer)
 #   REPO_ROOT     — override repo root (default: git rev-parse --show-toplevel)
 
 set -euo pipefail
@@ -79,7 +81,9 @@ emit_kickoff_section() {
   fi
   local kickoff="${KICKOFF_DIR}/${UMBRELLA}/kickoff.md"
   if [[ ! -f "${kickoff}" ]]; then
-    echo "MISSING kickoff: .claude/orchestrator-prompts/${UMBRELLA}/kickoff.md"
+    # Report the path actually probed (honours the MO_KICKOFF_DIR seam), not a hardcoded
+    # `.claude/…` that names a nonexistent directory in a consumer install.
+    echo "MISSING kickoff: $(repo_rel "${kickoff}")"
     return 0
   fi
   echo "kickoff: ${kickoff} ($(wc -l < "${kickoff}") lines)"

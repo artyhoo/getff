@@ -26,7 +26,8 @@ fi
 KICKOFF="$(resolve_orch_home)/${UMBRELLA}/kickoff.md"
 
 if [[ ! -f "${KICKOFF}" ]]; then
-  echo "MISSING kickoff: .claude/orchestrator-prompts/${UMBRELLA}/kickoff.md"
+  # Report the resolved home, not a hardcoded `.claude/…` — see resolve_orch_home_rel().
+  echo "MISSING kickoff: $(resolve_orch_home_rel)/${UMBRELLA}/kickoff.md"
   exit 0
 fi
 

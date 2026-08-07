@@ -217,20 +217,34 @@ tsx packages/runtime-bridge/src/cli/ensure-parallel.ts --project "$RUNTIME_BRIDG
 
 The deterministic egress leg. `aif-handoff` ends a task at "committed on a local feature branch" — it
 has no push and no PR-creation in its autonomous path. `harvest` closes that gap: it reads the task's
-persisted `branchName` from aif's REST API, pushes that already-made commit out of aif's container to
-`origin`, opens a PR against the trunk, and arms GitHub native auto-merge (which merges on green CI).
+persisted `branchName` from aif's REST API, lands that already-made commit on `origin`, opens a PR
+against the trunk, and arms GitHub native auto-merge (which merges on green CI).
 
-Zero LLM by construction — plain `git` + `gh` (complies with `no-paid-llm-in-ci.md`). The push happens
-from **inside** aif's container (`docker exec <container> git … push`), which already carries working
-push creds; the PR is opened from the host where `gh` is authenticated. If docker / the container is
-unavailable, harvest prints the exact manual `git`+`gh` commands and exits non-zero rather than
-guessing — graceful degradation, no silent half-egress.
+Zero LLM by construction — plain `git` + `gh` (complies with `no-paid-llm-in-ci.md`).
+
+**Egress channel — Channel A (host-pull + host push)**, per
+[`egress-no-api-bypass.md §1`](../../.claude/rules/egress-no-api-bypass.md). The container **cannot**
+push: it has no route to `github.com:443` (a network block, not auth) and no pre-push toolchain, so a
+container-side push both fails and would bypass `.husky/pre-push` — the earliest reachable gate for
+this work. Harvest therefore brings the commit to the **host**: `git bundle create` in the task's
+worktree → `docker cp` → `git fetch <bundle>` on the host (into `FETCH_HEAD` only, so no local branch
+is created or moved) → verify the fetched sha **is** the container's tip → `git push origin
+<sha>:refs/heads/<branch>` from the host, where the real pre-push hook runs. Pushing a ref the host
+checkout is not on is supported by design — the hook derives its range from git's push stdin, not from
+`HEAD` (`packages/core/hooks/pre-push.ts:133-139`). The PR is then opened from the host where `gh` is
+authenticated.
+
+The one Channel-A step harvest does **not** automate is the optional rebase onto live `origin/<base>`
+(`/harvest §1 step 4`): a rebase needs a working tree and can conflict, i.e. it is judgment, not a
+deterministic leg — so it stays operator-side and is printed in the fallback. If any step fails (docker
+down, container gone, pre-push RED, host transport dead), harvest prints the exact **Channel-A** manual
+commands and exits non-zero rather than guessing — graceful degradation, no silent half-egress.
 
 ### Usage
 
 ```bash
 tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> \
-  [--base <branch>] [--body-file <path>] [--no-auto-merge] [--container <name>]
+  [--base <branch>] [--body-file <path>] [--no-auto-merge] [--container <name>] [--host-repo <path>]
 ```
 
 ### Flags
@@ -241,7 +255,8 @@ tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> \
 | `--base <branch>`    | PR base branch (default `staging`).                                                               |
 | `--body-file <path>` | File whose contents become the PR body.                                                           |
 | `--no-auto-merge`    | Do not arm GitHub native auto-merge.                                                              |
-| `--container <name>` | aif container to push from (default `$RUNTIME_BRIDGE_AIF_CONTAINER`, else `aif-handoff-agent-1`). |
+| `--container <name>` | aif container holding the task's checkout (default `$RUNTIME_BRIDGE_AIF_CONTAINER`, else `aif-handoff-agent-1`). |
+| `--host-repo <path>` | Host clone the push runs from — where `.husky/pre-push` fires (default `$RUNTIME_BRIDGE_HOST_REPO`, else the cwd's `git rev-parse --show-toplevel`). |
 
 Exit codes: `0` = branch pushed + PR opened; `1` = guard failed / push or PR error (the operator runs
 the printed fallback commands).

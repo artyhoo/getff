@@ -163,3 +163,80 @@ body MUST carry exactly ONE H2 section headed `## Fidelity verdict`. Two legal s
 The dispatching session lands this PR via the Channel-A egress and runs the auditor at that
 seam — the worker's job is to leave the research patch itself audit-ready (every cell verdict
 carrying its evidence).
+
+---
+
+## §8 ROUND 2 — rework scope (added 2026-08-07 after a `FIDELITY: STOP` at the egress seam)
+
+Round 1 (aif task `6f18c179`, dispatched 2026-08-01) produced the patch and was **not merged**.
+The branch `research/getff-any-stack-trace-r1` (`1479f54741`) carries it; no PR was opened,
+because a branch with no PR releases nothing. Round 2 reworks that patch — it does **not** start
+over. Read the round-1 patch first; keep every verdict that still holds.
+
+**§8.1 BLOCKER — the go row is now false, and the reason is NOT worker error.**
+
+Round 1's §3.4 verdicted all 7 go cells `N/A` as a «product-scope absence», backed by a quoted
+`= 0 matches` negative search. That search was **honest and correct when it ran** — verified
+mechanically, not assumed:
+
+```text
+git show 0e2d366a9f:install.sh | grep -cE 'do_go_lane|TOOLCHAIN=go'   → 0   (R1's base, 2026-08-01)
+git show origin/staging:install.sh | grep -cE 'do_go_lane|TOOLCHAIN=go' → 6   (2026-08-07)
+git ls-tree 0e2d366a9f setup.d/47-go.sh                                → absent
+PR #1171 merged 2026-08-06T22:04Z — "stamp go ecosystem end-to-end THROUGH the conformance jig"
+```
+
+A **full go lane** now exists: `install.sh:316` `do_go_lane()`, `setup.d/47-go.sh` (361 lines,
+with `_go_deliver_golangci`, `_go_deliver_ci`, `_go_write_rules_lock`, `_go_firing_self_check`),
+and `packages/core/templates/go/`. So the go row is a **fourth lane needing 7 substantive
+verdicts**, not an absence — and §6's `operator-roadmap` routing row rests on the dead premise.
+
+**Round 2 must:** verdict all 7 go cells against the live tree with the same evidence bar as
+every other row; correct the §2 matrix dimensions and the §7/§8 counts that follow; and rewrite
+the §6 routing row for go. **Record the staleness itself as a finding** — a parity audit's
+verdicts are only as live as the tree they were taken against, and this one aged out in five
+days. That is a fact about the audit's shelf life and belongs in the patch, not only in a PR body.
+
+**§8.2 MAJORs — these are NOT staleness; they are conformance gaps against §2/§3 as written.**
+
+1. **npm rung 6 is the only EXISTS with no firing evidence at all** (round-1 patch `:81`) — pure
+   implementation-reading, which §3 and T-R1-B forbid. Four of its line anchors also do not
+   resolve: `do_refresh()` is at `install.sh:600` (not `:544`), the skill-rename orphan reclaim
+   at `:691` (not `:663`), and the `--refresh` call site at `:1097` (not `:1041`). Re-derive the
+   anchors live; do not patch the numbers from this list without re-checking them.
+2. **Five EXISTS cells rest on analogy or assertion, not a cited firing artefact** — `:86`
+   python rung 1 («the same shape as the npm lane»), `:99` cargo rung 4 («same default-branch
+   substitution machinery as python»), `:89` python rung 4, `:79` npm rung 4 (definitional),
+   `:80` npm rung 5 (asserted). §2's EXISTS bar is «cite the artifact `file:line` AND the
+   evidence it actually FIRES». An EXISTS resting on a sibling lane's health reports coverage
+   the consumer does not have.
+3. **The hybrid `EXISTS*` token breaks §2's «exactly three verdicts»** (round-1 `:62`, `:66`,
+   `:91` — python rung 6). It is counted EXISTS in the matrix at `:68` and listed as a GAP row in
+   the §6 routing table at `:161`, so the per-GAP counts §7 requires quoted in the PR body cannot
+   be reconciled against the matrix. Pick one token; if the cell is genuinely split, split the
+   CELL (state the sub-scope), never the token.
+
+**§8.3 MINORs — fix in passing, do not spend a round on them.**
+
+- §4.1's «literal quote» of SSOT #216 is normalised, not literal (bold moved, a parenthetical
+  elided without an ellipsis). The MISDECIDED classification itself holds; the label «literal»
+  does not. Either quote literally or drop the word.
+- §4 kickoff park trigger not honoured: two deceptive-rung observations (`:101` «nothing globs it
+  today», `:102` the inert `getff-clippy.toml` REFUSE cell) appear only as inline clauses. §4
+  binds them to be «recorded as its own finding with the evidence», with the hotfix question
+  parked. Elevate both.
+- The patch states the kickoff is «166 lines» (`:14`, `:210`); it was 165 at round 1 and is
+  longer now. Prefer a claim that does not rot — cite the section, not the line count.
+
+**§8.4 Unchanged and still binding:** §1 population enumeration (now 4 lanes, not 3 + an
+absence), §2 method and the three verdict tokens, §3 «works», §4 park contract, §5 traps
+(T-R1-A/B/C all fired in round 1 — B and C are the ones that scored), §6 anti-scope (ZERO code
+changes; the diff stays exactly one research-patch file), §7 PR body.
+
+**§8.5 Round-2 specific trap.**
+
+- **T-R1-D — patching the auditor's findings instead of re-deriving them.** §8.1/§8.2 hand you
+  line numbers and verdicts. They were correct at `1479f54741` and at `a66c0cb9aa`; they are a
+  *map*, not evidence. Re-run every search on the tree you are actually on and quote YOUR output.
+  A round-2 patch whose citations are copied from this kickoff has laundered a second-hand claim
+  into a primary one — the same failure class, one level up, as the stale go row it exists to fix.
