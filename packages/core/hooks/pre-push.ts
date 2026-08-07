@@ -1248,8 +1248,10 @@ function principlesMetaSection(): void {
 // fails if the byte total exceeds AIF_ALWAYSON_CEILING (default 54000, derived
 // 2026-08-06 from the post-P3b baseline 48,671 B × 1.10 → 54,000 B). See the gate
 // header for the per-environment labelled derivations and the declared-coverage
-// sentence (the gate sees the repo-authored set only — 29-39% of session-start
-// tokens; the remaining 60-71% is harness-resident, addressed by P14 in S-H).
+// sentence (the gate sees the repo-authored set only — 48,671 B at HEAD; its SHARE of
+// session-start is UNMEASURED — channel absent since S-G moved the numerator away from
+// every denominator in hand, withdrawing the old "29-39%" per arch-v2 S-L PR #1263; a
+// substantial majority remains harness-resident, addressed by P14 in S-H).
 //
 // Maintainer-only because the ceiling is framework-derived and the gated set is
 // the framework's CLAUDE.md + .claude/rules/*.md (a consumer layout has its own

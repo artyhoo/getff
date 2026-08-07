@@ -101,6 +101,19 @@ function checkTEntry(entry: TEntry, digestMap: Map<string, string>): string[] {
   return errs;
 }
 
+/** Size of the digest in UTF-8 BYTES — the unit `DIGEST_MAX_BYTES` is denominated in.
+ *
+ *  NOT `String.prototype.length`: that counts UTF-16 code units, so every non-ASCII
+ *  character in the digest is under-counted (Cyrillic costs 2 bytes and 1 unit; an emoji
+ *  costs 4 bytes and 2 units). The digest carries Cyrillic, so `.length` made the budget
+ *  gate looser than it declared — 141 B looser as of 2026-08-07. Same idiom as
+ *  `scripts/render-rule-index.mjs:200`. Found by the cold backward sweep behind arch-v2
+ *  S-L (PR #1263 §6); the unit-binds-to-the-channel rule that names this class is
+ *  `docs/meta-factory/research-patches/2026-08-07-s-l-recalculation.md` §1. */
+function digestBytes(src: string): number {
+  return Buffer.byteLength(src, 'utf8');
+}
+
 /** Check the entire digest against the catalogue. Accepts an optional mutated digest
  *  source for the paired-negative. */
 function checkDigest(src?: string): string[] {
@@ -122,8 +135,21 @@ describe('Principle 35 — ai-laziness-digest anti-drift (catalogue ↔ digest)'
   });
 
   it(`digest is ≤ ${DIGEST_MAX_BYTES} B (resident-set budget, spec §1.6 FORK B)`, () => {
-    const bytes = readFileSync(DIGEST_PATH, 'utf8').length;
+    const bytes = digestBytes(readFileSync(DIGEST_PATH, 'utf8'));
     expect(bytes).toBeLessThanOrEqual(DIGEST_MAX_BYTES);
+  });
+
+  it('N35-2 — paired-negative: the budget is measured in BYTES, not UTF-16 units', () => {
+    // Anti-regression for the 2026-08-07 defect: `.length` under-counted the digest by
+    // 141 B, making the gate looser than its own name. A reversion to `.length` (or to
+    // any code-unit measure) fails here — the two disagree on any non-ASCII input.
+    const cyrillic = 'привет'; // 6 code units, 12 UTF-8 bytes
+    expect(digestBytes(cyrillic)).toBe(12);
+    expect(digestBytes(cyrillic)).not.toBe(cyrillic.length);
+    // …and the real digest is non-ASCII, so the two measures must differ on it too —
+    // otherwise this guard would be vacuous on the artefact it actually protects.
+    const src = readFileSync(DIGEST_PATH, 'utf8');
+    expect(digestBytes(src)).toBeGreaterThan(src.length);
   });
 
   describe('N35-1 — paired-negative: deleting one digest line makes the check RED', () => {
