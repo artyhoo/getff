@@ -85,14 +85,13 @@ copy_safe "$PKG_ROOT/packages/core/templates/shared/AGENTS.md.template" "$PROJEC
 # «Task-tier routing» in the operator repo points here; the consumer's AGENTS.md (rendered from
 # AGENTS.md.template) carries a pointer in its §Tier routing + degradation section.
 #
-# F-A′ PARKED (kickoff §1.1/§7): the payload-home choice between Option A
-# (.ai-factory/tier-home.md — lighter, file-on-disk) and Option B
-# (.ai-factory/skill-context/tier-home/SKILL.md — structured, skill-context-loaded) is deferred
-# to the maintainer. BOTH candidate paths are wired here so the post-decision follow-up is
-# delete-one-not-rewrite. The unchosen path is removed when the maintainer signs off.
+# F-A′ RESOLVED (operator-delegated verdict 2026-08-07): home = Option A,
+# .ai-factory/tier-home.md — it is the path the consumer AGENTS.md pointer targets
+# (the doc's only live reader); Option B's skill-context slot has no consumer today
+# (aif skills MANDATORY-read skill-context per their OWN skill name, and no skill is
+# named tier-home), so installing it was build-ahead-of-need. Re-add Option B iff an
+# aif skill named tier-home appears (falsifier recorded in PR #1272).
 if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ]; then
   copy_safe "$PKG_ROOT/packages/core/templates/shared/tier-home.md" "$PROJECT_ROOT/.ai-factory/tier-home.md"
-  mkdir_safe "$PROJECT_ROOT/.ai-factory/skill-context/tier-home"
-  copy_safe "$PKG_ROOT/packages/core/templates/shared/tier-home.md" "$PROJECT_ROOT/.ai-factory/skill-context/tier-home/SKILL.md"
-  echo "  ✓ tier-home doc installed at .ai-factory/tier-home.md + .ai-factory/skill-context/tier-home/SKILL.md (profile: $PROFILE; F-A′ PARKED)"
+  echo "  ✓ tier-home doc installed at .ai-factory/tier-home.md (profile: $PROFILE)"
 fi
