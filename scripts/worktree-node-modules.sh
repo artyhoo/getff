@@ -139,6 +139,11 @@ if [ "$needs_core" -eq 1 ]; then
   # then bundles the root versions and `scripts/build-synth-bundle.sh --check` false-fails
   # with "synth-bundle drift" in every fresh worktree (incident 2026-07-02). Fall back to
   # ../../node_modules only when the primary has no nested dir (fresh clone before install).
+  #
+  # The bundle's own layer-sensitivity is no longer load-bearing on this link: every package it
+  # inlines is now pinned to one version across all three lockfile-planned layers, and
+  # scripts/check-bundle-dep-parity.sh fails loudly if that ever stops being true. Keep the
+  # nested link anyway — it is still the layout root `npm ci` produces for every OTHER dep.
   rm -rf "$CORE_NM"
   if [ -d "$PRIMARY_DIR/packages/core/node_modules" ] && [ ! -L "$PRIMARY_DIR/packages/core/node_modules" ]; then
     ln -sfn "$PRIMARY_DIR/packages/core/node_modules" "$CORE_NM"
