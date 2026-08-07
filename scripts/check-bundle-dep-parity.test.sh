@@ -103,6 +103,32 @@ expect 'external package is out of scope' 0 "$TMP/c5" 'semver@7.8.5'
 mkdir -p "$TMP/c6"
 expect 'missing lockfiles are exit 2' 2 "$TMP/c6" 'required file missing'
 
+# 7 — CWD-INDEPENDENCE: with no argument the target is the repo the script lives in, derived
+#     from its own path. A cwd-derived root would answer about the caller's checkout instead —
+#     and outside any repo it had nothing to answer with at all. Run from a non-repo directory.
+FOREIGN="$(mktemp -d)"
+if git -C "$FOREIGN" rev-parse --show-toplevel >/dev/null 2>&1; then
+  echo "FAIL: fixture dir $FOREIGN is inside a git repo — this case needs a non-repo cwd"
+  FAILED=1
+else
+  here="$("$CHECK" 2>&1)"; rc_here=$?
+  there="$(cd "$FOREIGN" && "$CHECK" 2>&1)"; rc_there=$?
+  if [ "$rc_here" -ne "$rc_there" ] || [ "$here" != "$there" ]; then
+    echo "FAIL: no-argument result depends on cwd — exit $rc_here here vs $rc_there from $FOREIGN"
+    diff <(printf '%s\n' "$here") <(printf '%s\n' "$there") | sed 's/^/      /'
+    FAILED=1
+  else
+    echo 'ok: no-argument run is identical from the repo and from a non-repo cwd'
+  fi
+fi
+rm -rf "$FOREIGN"
+
+# 8 — CWD-INDEPENDENCE for an explicit RELATIVE argument: it must keep meaning the directory the
+#     caller named, so the script resolves it before use rather than re-interpreting it later.
+( cd "$TMP" && "$CHECK" ./c1 >/dev/null 2>&1 ) \
+  && echo 'ok: relative <repo-root> argument resolves against the caller'"'"'s cwd' \
+  || { echo 'FAIL: relative <repo-root> argument did not resolve'; FAILED=1; }
+
 [ "$FAILED" -eq 0 ] && echo 'PASS' && exit 0
 echo 'FAILED'
 exit 1

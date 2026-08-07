@@ -42,6 +42,9 @@
 # USAGE
 #   bash scripts/check-bundle-dep-parity.sh [<repo-root>]
 #
+#   Runnable from any working directory, inside or outside a git repo. With no argument it
+#   targets the repo this script lives in; pass <repo-root> to point it at a fixture tree.
+#
 # EXIT CODES
 #   0 — parity holds, or there is nothing layer-sensitive to check.
 #   1 — a divergence was found (message names the package + every layer's version).
@@ -51,12 +54,18 @@
 # (.claude/rules/no-paid-llm-in-ci.md). Safe to call from a gate.
 set -uo pipefail
 
-ROOT="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+# Runnable from ANY working directory. With no argument the target is the repo this script
+# lives in, derived from the script's own path — NOT from the caller's cwd, which would answer
+# about whatever checkout the operator happened to be standing in (or nothing at all outside a
+# repo). An explicit <repo-root> argument still wins; it is resolved to an absolute path so a
+# relative one keeps meaning the same directory regardless of where the caller stood.
+ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}"
 
 if [ ! -d "$ROOT" ]; then
   echo "check-bundle-dep-parity: no such directory: $ROOT" >&2
   exit 2
 fi
+ROOT="$(cd "$ROOT" && pwd -P)"
 
 python3 - "$ROOT" <<'PY'
 import json, os, re, sys

@@ -13,7 +13,24 @@
 # that keeps the committed .mjs in sync with its .ts source.
 set -euo pipefail
 
-ROOT="$(git rev-parse --show-toplevel)"
+# Runnable from ANY working directory. Two independent things had to be pinned for that:
+#
+#   1. WHICH repo. `git rev-parse --show-toplevel` answers about the CALLER's cwd, so invoking
+#      this script by absolute path from inside a different checkout silently built THAT repo's
+#      tree — or died outright outside a repo. The script's own location is the only honest
+#      answer to "which repo do I belong to", so the root is derived from it.
+#   2. WHERE it runs. esbuild embeds each bundled file's path RELATIVE TO CWD as a `// path`
+#      comment, and only the node_modules ones are normalised below. Built from any other
+#      directory, every first-party comment became a machine-specific traversal
+#      (`// ../../../../../../Users/<name>/code/…/synth-and-wire.ts`) — so `--check` reported a
+#      phantom DRIFT, and a plain `build` would have committed the operator's home path into a
+#      shipped artefact. `cd "$ROOT"` makes those comments repo-relative and cwd-independent.
+#
+# Regression-tested by scripts/build-synth-bundle.test.sh (same invocation from two different
+# working directories must produce identical output and exit code).
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+cd "$ROOT" || { echo "ERROR: cannot enter repo root $ROOT" >&2; exit 2; }
+
 ESBUILD="$ROOT/node_modules/.bin/esbuild"
 ENTRY="$ROOT/packages/core/install/synth-and-wire.ts"
 OUTFILE="$ROOT/packages/core/install/synth-and-wire.bundle.mjs"

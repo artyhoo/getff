@@ -479,6 +479,8 @@ jobs:
         run: bash scripts/run-local-ci-sweep.test.sh
       - name: Run synth-bundle dep-parity paired-negative (phantom-drift guard)
         run: bash scripts/check-bundle-dep-parity.test.sh
+      - name: Run synth-bundle cwd-independence test (build runs from any directory)
+        run: bash scripts/build-synth-bundle.test.sh
       - name: Run install-sh audit-r4 shipped test (consumer-install-hardening F6)
         run: bash tests/install-sh/audit-r4-shipped.test.sh
       - name: Run install-sh hook-activation test (consumer-install-hardening F2)
