@@ -53,11 +53,14 @@ fi
 # .claude/skills/ as single source of truth (no separate mirror under skills/). Repo-internal
 # cross-refs in .md files get rewritten to GitHub blob URLs via transform_internal_refs().
 #
-# F7 split (owner GO 2026-07-10): the set divides into a consumer-facing CORE set (always shipped)
-# and an AIF operator SUITE (shipped ONLY under --with-aif-suite). The suite presupposes the
-# aif-handoff operator runtime; on a consumer without it those triggers fire into a dead end, and
-# `story` crashes on landing until its lang-pack ships (#934). Gating is opt-in + reversible (BFR
-# §1.1 integrate-never-hard-depend; same posture as companions.manifest — companion-install-principle.md).
+# F7 split (owner GO 2026-07-10, widened S5 2026-08-01): the set divides into THREE arms —
+# a consumer-facing CORE set (always shipped), an env+ CONTOUR SURFACE (shipped at PROFILE=env
+# or above), and an AIF operator SUITE (shipped ONLY at PROFILE=factory or via legacy
+# --with-aif-suite). The contour surface carries the architecture-design skill that produces
+# the contour; the suite presupposes the aif-handoff operator runtime. On a consumer without
+# that runtime the suite's triggers fire into a dead end, and `story` crashes on landing until
+# its lang-pack ships (#934). Gating is opt-in + reversible (BFR §1.1 integrate-never-hard-depend;
+# same posture as companions.manifest — companion-install-principle.md).
 #
 # CORE (always — consumer-facing, no aif-handoff runtime assumed):
 #   - template-audit — local advisory audit of the rendered templates this installer ships.
@@ -69,7 +72,13 @@ fi
 #                      verify it in single-rule isolation (mirror pair to rule-research; the write
 #                      half is agents/rule-test-author.md). Consumer-facing by design.
 #
-# AIF operator SUITE (only under --with-aif-suite — presupposes the aif-handoff runtime):
+# CONTOUR SURFACE (env+ — ships at PROFILE=env or factory, NOT core; spec A8 binding):
+#   - arch           — the architecture-design skill that produces the contour. Pairs with the
+#                      AIF operator suite at factory, but is itself consumer-facing at env+ (a
+#                      consumer running their own architecture cycle benefits without the AIF
+#                      operator runtime). depth-per-skill: env+ (S5 kickoff §2 binding #3).
+#
+# AIF operator SUITE (factory only — presupposes the aif-handoff runtime):
 #   - pipeline      — the planner (/pipeline): umbrella triage, priority ranking, plan/state.md.
 #   - dispatcher    — pipeline's execution companion: dispatches a chosen umbrella's stages
 #                     through the aif-control loop the ./setup runtime-bridge step installs.
@@ -82,6 +91,13 @@ fi
 #   - story          — plain-language, by-act recap of a session's work (AIF_HOOK_LANG-gated
 #                      output). Stays in the gated set until its lang-pack delivery is fixed
 #                      (#934) — it crashes on landing without the pack.
+#   - claude-glm-executor-handoff — pairs an in-aif Claude coordinator with a GLM-family
+#                      executor tier (kickoff marker → bridge-profile resolver). Factory-only
+#                      by design (S5 kickoff §2 binding #3): the skill presupposes the
+#                      runtime-bridge + aif-handoff operator runtime that the factory profile
+#                      installs in the same stage. Spec A8 lists env/factory; the kickoff's
+#                      narrower reading (factory-only) is adopted per §2 binding #3 + recorded
+#                      in the PR body §1.7 Forward-check as a spec-vs-kickoff divergence.
 #
 # Only self-reflection is intentionally NOT shipped at all: it is the §1.7 self-review discipline
 # specific to THIS repo's own development process (not a reusable consumer capability) — see the
@@ -92,9 +108,23 @@ fi
 for _skill in template-audit ai-doc rule-research rule-tests; do
   copy_skill_with_transform "$_skill"
 done
+# env+ contour surface (spec A8): ships at PROFILE=env or factory, NOT core. /arch is the
+# architecture-design skill that produces the contour; consumer-facing at env+ per S5 kickoff
+# §2 binding #3. Legacy --with-aif-suite routes through PROFILE=factory (install.sh:405-408),
+# so the env/factory check covers it without an explicit OR clause.
+if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
+  echo "  ▶ Contour surface (profile=env+ OR --with-aif-suite): arch"
+  # Single-item today by design (the env+ contour ships only /arch); the loop form is
+  # kept for symmetry with the factory arm below so the next contour skill is a
+  # one-word addition.
+  # shellcheck disable=SC2043
+  for _skill in arch; do
+    copy_skill_with_transform "$_skill"
+  done
+fi
 if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
-  echo "  ▶ AIF operator suite (profile=factory OR --with-aif-suite): pipeline dispatcher aif-doctor harvest night-mode story"
-  for _skill in pipeline dispatcher aif-doctor harvest night-mode story; do
+  echo "  ▶ AIF operator suite (profile=factory OR --with-aif-suite): pipeline dispatcher aif-doctor harvest night-mode story claude-glm-executor-handoff"
+  for _skill in pipeline dispatcher aif-doctor harvest night-mode story claude-glm-executor-handoff; do
     copy_skill_with_transform "$_skill"
   done
 fi
@@ -286,41 +316,5 @@ if [ -f "$MCF_SRC" ]; then
     echo "  [dry-run] would: register inject-memory-codification as a PostToolUse:Write hook"
   else
     register_cc_hook "$SETTINGS" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-memory-codification.sh"' "inject-memory-codification" "Write"
-  fi
-fi
-
-# ─── 1j. Workspace one-command: scripts/create-worktree.sh for env+ profiles ─
-# beta-delivery-ux S2 (kickoff §4 A9 part 1 — REUSE, do not rebuild): the workspace
-# one-command `getff work <name>` (T12) composes worktree creation by REUSING
-# scripts/create-worktree.sh — portable, configurable base-ref, dual-pair with the
-# CC hook. Per kickoff §4 binding + spec A9: do NOT rewrite the script; ship it.
-# S1 inventory gap closed here: create-worktree.sh exists in the framework tree
-# but shipped to NO profile today (verified at S2 entry — T1.1 anchor table in
-# .ai-factory/plans/beta-delivery-ux-parked-forks.md: zero `create-worktree`
-# references in setup.d/ before this section).
-#
-# Profile gate (env+ monotonic depth — setup.d/LAYERS.md:10: "core → env → factory"):
-# create-worktree.sh is the FIRST env-specific payload surface, shipping under
-# --profile env|factory. The legacy --with-aif-suite flag routes to factory
-# (install.sh:458-465), so the belt-and-braces `|| [ -n "${WITH_AIF_SUITE:-}" ]`
-# mirrors the F7-split pattern at line 95 above.
-#
-# T11 verdict (the WHERE-TO-HOOK fork within kickoff §8 bounds — YOURS to resolve):
-# extend 10-skills.sh rather than introduce a new layer file — minimal footprint,
-# matches the file's existing role as "shipped-to-consumer .claude/ + scripts/
-# artefacts" (§1 skills + §1b-§1i hooks + this §1j workspace script). The §1j
-# marker parallels the §1/§1b-§1i naming.
-if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
-  mkdir_safe "$PROJECT_ROOT/scripts"
-  CW_SRC="$PKG_ROOT/scripts/create-worktree.sh"
-  CW_DST="$PROJECT_ROOT/scripts/create-worktree.sh"
-  if [ -f "$CW_SRC" ]; then
-    if [ "$DRY_RUN" = "--dry-run" ]; then
-      echo "  [dry-run] would: ship scripts/create-worktree.sh (env+ profile payload)"
-    else
-      copy_safe "$CW_SRC" "$CW_DST"
-      chmod_safe +x "$CW_DST" 2>/dev/null || true
-      echo "  ✓ scripts/create-worktree.sh (env+ profile payload)"
-    fi
   fi
 fi
