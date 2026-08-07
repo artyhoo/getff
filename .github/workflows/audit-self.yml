@@ -823,11 +823,16 @@ jobs:
   # sitting unread in the checks list. Bash + jq only (both pre-installed on
   # ubuntu-latest); no
   # node/setup-node step needed because the gate is pure shell.
-  # Declared coverage: this gate sees the repo-authored always-on set only —
-  # 29,589 tok (aif-container) / 39,021 tok (host-cc) against a ~100k session-start
-  # total → 29-39% (2026-07-26-session-start-token-attribution.md:214-218). The
-  # remaining 60-71% is harness-resident and unreachable by any file-trim; P14 (S-H)
-  # addresses it as operator recommendations, never by this gate.
+  # Declared coverage: this gate sees the repo-authored always-on set only — 48,671 B at
+  # HEAD. Its SHARE of the session-start total is UNMEASURED — channel absent: S-G moved
+  # the numerator (69,453 -> 48,671 B) while every denominator in hand was measured on a
+  # pre-S-G seat, so no current-set percentage is computable. The "29-39%" that stood here
+  # was exactly that cross-population division and is withdrawn (arch-v2 S-L, PR #1263;
+  # docs/meta-factory/research-patches/2026-08-07-s-l-recalculation.md section 4).
+  # Falsifier: one /context reading on a post-S-G seat makes the share computable again.
+  # Direction-preserving remainder: a substantial majority of session-start context is
+  # still harness-resident and unreachable by any file-trim; P14 (S-H) addresses it as
+  # operator recommendations, never by this gate.
   alwayson-budget:
     name: Always-on context budget (arch-v2 S-E P3a CI mirror)
     runs-on: ubuntu-latest
@@ -837,6 +842,16 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
           persist-credentials: false
+      # Floor first, then ceiling: the meter's own self-test asserts it still measures a
+      # non-empty set, so a green ceiling below cannot be green because the meter broke.
+      # Wired here 2026-08-07 — the file had shipped attached to no channel at all.
+      - name: Run scripts/measure-always-on.test.sh (meter floor)
+        run: bash scripts/measure-always-on.test.sh
+      # Paired-negative for the gate below: proves it still goes RED over a zero ceiling.
+      # Also shipped unwired (sibling sweep of the line above, same defect class): a gate
+      # whose can-it-fail proof runs at no channel is not proven to fail at all.
+      - name: Run scripts/check-alwayson-budget.test.sh (gate paired-negative)
+        run: bash scripts/check-alwayson-budget.test.sh
       - name: Run scripts/check-alwayson-budget.sh
         run: bash scripts/check-alwayson-budget.sh
 
