@@ -159,14 +159,36 @@ kickoffs; `.claude/settings.json` / `settings.local.json` (operator-only); `.cla
 
 ```bash host-verify
 bash scripts/measure-turn-attribution.sh
-bash scripts/measure-turn-attribution.sh | grep -qE '^SESSION-TRANSCRIPTS: [1-9][0-9]*$'
-bash scripts/measure-turn-attribution.sh | grep -qE '^SUBAGENT-TRANSCRIPTS: [1-9][0-9]*$'
+bash scripts/measure-turn-attribution.sh | grep -E '^SESSION-TRANSCRIPTS: [1-9][0-9]*$'
+bash scripts/measure-turn-attribution.sh | grep -E '^SUBAGENT-TRANSCRIPTS: [1-9][0-9]*$'
 npx vitest run packages/core/principles/10-research-patch-annotation.test.ts
 ```
 
 The script contract is inherited from S-H deliberately: this stage edits the conversion the script
 carries, so «it still runs, on a non-empty corpus, in both populations» is exactly the regression
 the edit could cause. A run whose subagent count is 0 is a failed run, not a finding.
+
+**Why plain `grep`, not `grep -q` (fixed 2026-08-07, before dispatch — the contract was RUN, not
+assumed).** The rev-1 form of the two middle lines used `grep -qE`, copied from S-H's merged
+contract. `grep -q` exits the moment it matches and closes the pipe; `measure-turn-attribution.sh`
+then takes SIGPIPE on its next `echo` and dies **141**. `host-verify.sh` executes every contract
+line as `bash -o pipefail -c` (`scripts/host-verify.sh:474`), so the pipeline reports the script's
+141 and the line FAILS — reproduced here, 2/4 passing, before a single line of stage work existed.
+It does **not** reproduce in an interactive shell with `pipefail` off, which is how the defect
+survived authoring. Plain `grep` drains the stream (no SIGPIPE) and prints the matched line, so
+the acceptance log carries its own evidence — e.g. `SESSION-TRANSCRIPTS: 209`.
+
+> **Inherited, not introduced — for the stage to surface, not fix.** S-H's merged kickoff
+> (`.claude/orchestrator-prompts/arch-v2-context-pipeline-s-h/kickoff.md`) carries the identical
+> `grep -qE` shape and therefore the same latent 141. That is a **closed stage's** artefact and
+> **out of this stage's permitted set** — report it as a PR-body observation
+> ([CLAUDE.md `PR strategy`](../../../CLAUDE.md)), never as a drive-by edit.
+
+**Corpus-drift note for this run (T-SH-B, inherited).** The baseline run on 2026-08-07 reported
+`SESSION-TRANSCRIPTS: 209`, against the **180** recorded in S-H's kickoff at its authoring — a
++16% move, far above the 1% threshold at which T-SH-B suspends «change nothing» and requires a
+`DECISION-NEEDED` per §3a. Do not silently reconcile it; quote both numbers and the find that
+produced each.
 
 Plus review-time:
 
