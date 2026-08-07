@@ -194,3 +194,61 @@ is not resident load at all. The main-seat 77.8% is the most exposed figure; the
 > before any other message, so the dispatch prompt is isolated. Cost: one interactive session.
 > **Not resolved here.** This addendum records the disagreement rather than picking a winner —
 > picking one silently would be the failure §3a exists to prevent.
+
+---
+
+## §1.7 self-reflexive note
+
+**Forward-check.** [`attention-is-not-a-mechanism.md §1`](../../../.claude/rules/attention-is-not-a-mechanism.md):
+this addendum adds no check, so it introduces no bare-attention gate; the three obligations it
+creates (DECISION-NEEDED #3 answered, #4 and #5 open) are operator decisions with named options
+and consequences, not «someone should look at the numbers».
+[`ai-laziness-traps.md §2`](../../../.claude/rules/ai-laziness-traps.md): **T3** — every figure
+carries its command or its source line in the pasted snapshot, and the ~30.8k gap is labelled a
+hypothesis twice rather than priced; **T6** — coverage is stated as predicates (n=1, one seat
+class, harness-reported rounding, no tokenizer) before any number; **T14** — rows 5d and 9 report
+insufficient coverage instead of being filled from the nearest plausible neighbour; **T20** — the
+one claim that outran its evidence («deferral roughly doubles the usable budget») was caught by a
+cold seat and restated to what the snapshot bounds. **T-SH-A** (the stage's own trap) is the
+governing one and held: the paste answered two rows and the other two stayed `UNMEASURED`.
+[`no-paid-llm-in-ci.md`](../../../.claude/rules/no-paid-llm-in-ci.md): measurement is a shell
+concatenation plus an operator-pasted harness report; no LLM is in any loop.
+
+**Backward-check.** Class of this change = *a post-merge artefact that revises figures already
+published in a merged research patch*. Enumerated surfaces where that class occurs, verdicted per
+surface:
+
+- **The parent patch** `2026-08-07-s-h-harness-remainder-p14.md` — **SWEPT**: every section whose
+  evidentiary basis this paste moved now carries a marker (§0 supersession note, §0a ANSWERED,
+  §2 headline warning + per-row seat annotations on 5c/5e, §4 R1 PERFORMED / R4 CHALLENGED /
+  R5 REVERSED, §6 revised partition, §7 T-SH-A revision **and both backward-check verdicts
+  re-adjudicated**). The §4 sweep initially reached only the recommendations a prior review had
+  named — R4 was missed and caught by the next round, which is why the sweep is now stated by
+  class rather than by list.
+- **The sibling patch** `2026-08-07-s-h-turn-attribution-p3d-p11.md` — **GAP-FOUND, not edited.**
+  It uses the same 4 B/t constant at its §5, §7 and §8, so §8.1's falsification applies to it
+  identically and its FORK-E est-token figures are low by the same ≈1.53×. Not corrected here:
+  re-deriving it is the same re-measurement §8.1 declines for §2, and DECISION-NEEDED #4 must
+  settle the constant first. Named in #4's Option A as required scope.
+- **`docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md`** (the `[W]`/`[H]`/`[D]`
+  tag convention and the P14 row) — **GAP-FOUND, out of permitted set**: the spec declares the
+  tags non-convertible, and this addendum shows the *conversion constant underneath one of them*
+  is itself wrong; that is a spec-level correction, and the spec is round-capped and
+  operator-owned. Surfaced via #4, not edited.
+- **`docs/superpowers/specs/2026-07-31-arch-v2-context-pipeline-design.md`** ADR-3 — **GAP-FOUND,
+  out of permitted set**: the repo-owned share measures below its 29-39% band under both
+  conversions (§7 re-verdict in the parent). Not edited; ADR-3 is spec.
+- **`docs/meta-factory/research-patches/2026-08-01-token-economy-s-a-profile.md`** — **NOT SWEPT,
+  by ownership**: a closed historical artefact whose authoring session owns it; the parent patch
+  already records its superseded rows and this addendum adds nothing to that verdict.
+- **`.claude/settings.json` / `.claude/settings.local.json`** — **NOT SWEPT, deliberately**:
+  operator-only and agent-uncommittable. The `/context` snapshot names their effects; nothing here
+  applies one.
+
+**Self-application (T15).** This patch measures resident context cost, and its own residency is
+zero — it carries no `paths:` frontmatter and lives under `research-patches/`, a directory in no
+resident set. It was nonetheless *created by* the cost it studies: it exists as a separate file
+because the parent hit the 600-line markdown gate, i.e. a document about document cost was itself
+split by a size discipline. Applying its own §8.2 reading to itself: the lever it identifies —
+repo-owned memory files at 45.9% of the resident head — does not touch this file, and adding it
+to any always-on channel would be the error it warns against.
