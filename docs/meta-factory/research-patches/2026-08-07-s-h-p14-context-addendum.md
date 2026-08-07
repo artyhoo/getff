@@ -50,7 +50,8 @@ files whose byte counts are known. Seven files carry both:
 | `…/memory/MEMORY.md` | 4,505 | 1.8k | 2.50 |
 | **aggregate** | **77,156** | **29,464** | **2.62** |
 
-**Measured 2.62 B/token, not 4.** The six ASCII-dominant repo files cluster at 2.37-2.69; the
+**Measured 2.62 B/token, not 4.** The six ASCII-dominant files — **five repo files plus host-side
+`MEMORY.md`**, which is host-side by ownership but ASCII by content — cluster at 2.37-2.69; the
 outlier (3.32) is the operator-global `CLAUDE.md`, which is largely Russian — multi-byte UTF-8
 inflates bytes per token, which is the expected direction and corroborates rather than
 undermines the reading.
@@ -142,7 +143,9 @@ injected form still S-I's to publish. Partition **14 / 11 / 2 / 1**, counted fro
 
 ### §8.4 What S-D′ can now do, and what it still cannot
 
-**Can:** rank the resident head by block, with the repo-owned memory files (29.4k, 50.5%) as the
+**Can:** rank the resident head by block, with the repo-owned memory files (**26,700 = 45.9%** —
+not the full 29.4k memory category, which includes 2,764 tok of host-side files this project does
+not own) as the
 top-ranked and *own-able* target — the ordering §0.5 asks for is available for the half that
 matters. **Cannot:** treat the absolute figures as final while DECISION-NEEDED #4 **and #5** are
 open, or split the MCP server-instruction block. **Should:** read §8.1 and §8.5 before ordering
@@ -221,10 +224,14 @@ surface:
 - **The parent patch** `2026-08-07-s-h-harness-remainder-p14.md` — **SWEPT**: every section whose
   evidentiary basis this paste moved now carries a marker (§0 supersession note, §0a ANSWERED,
   §2 headline warning + per-row seat annotations on 5c/5e, §4 R1 PERFORMED / R4 CHALLENGED /
-  R5 REVERSED, §6 revised partition, §7 T-SH-A revision **and both backward-check verdicts
-  re-adjudicated**). The §4 sweep initially reached only the recommendations a prior review had
-  named — R4 was missed and caught by the next round, which is why the sweep is now stated by
-  class rather than by list.
+  R5 REVERSED, §6 revised partition, §7 T-SH-A revision **and all three backward-check verdicts
+  whose basis this paste moved — ADR-3, the spec P14 row, and the S-I kickoff — re-adjudicated**).
+  The §4 sweep initially reached only the recommendations a prior review had named: R4 was missed
+  and caught by round 3, then R2 was missed and caught by round 4. **Four rounds, four sweeps
+  driven by the last review's list** — recorded here because the failure is the method, not the
+  rows: a list-driven sweep re-fails on whatever the list omits, which is exactly
+  [`ai-laziness-traps.md` T21](../../../.claude/rules/ai-laziness-traps.md) in its
+  own-work form.
 - **The sibling patch** `2026-08-07-s-h-turn-attribution-p3d-p11.md` — **GAP-FOUND, not edited.**
   It uses the same 4 B/t constant at its §5, §7 and §8, so §8.1's falsification applies to it
   identically and its FORK-E est-token figures are low by the same ≈1.53×. Not corrected here:

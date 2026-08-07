@@ -227,6 +227,14 @@ Recommend disabling the unauthenticated subset at the plugin level.
 which R1 would settle. **Priced `UNMEASURED — channel absent` until then; this is a
 disable-candidate on grounds of unusability, not a quantified saving.**
 
+> **PARTLY SETTLED 2026-08-07 (§8.2) — R1 is discharged, so the «until then» has expired.** The
+> snapshot's resident MCP enumeration does **not** list the 8 `plugin:engineering:*` servers,
+> which is evidence the *Wrong-if* fired: on this seat their schemas are not resident. Not
+> conclusive — absence from the listing is not the same as a measured zero, and the enumeration
+> is n=1 on one seat — so the row keeps its `UNMEASURED` pricing rather than gaining a «0». The
+> recommendation stands on its stated grounds (unusability plus the cache-invalidation surface),
+> which never depended on the saving.
+
 **R3 — Adjudicate a once-per-session cache for `inject-session-bootstrap.sh` (S-D′ decides).**
 Measured: **10.07 firings/transcript** × 1,721 B, no cache guard; residency-weighted **0.48% of
 total weighted spend [H]**, of which ~90% is recoverable by caching. (Per *transcript* — the
@@ -247,16 +255,23 @@ to a listing budget — precisely the overflow S-I owns (spec §8 item 4, ~9.1k 
 ~2k budget). Two stages publishing two different numbers for one block would be the drift this
 project exists to prevent, so the injected figure stays S-I's to publish.
 
-> **CHALLENGED 2026-08-07 (§8.2) — the truncation premise did not survive the paste.** This
-> recommendation rests on the harness truncating the skills listing «to a ~2k budget». `/context`
-> reports the **injected** skills block at **8.9k resident** — essentially the un-truncated
-> source-side ~9.1k, not ~2k. On this seat the listing appears **not** to be truncated at all.
-> The routing decision still stands (S-I owns the injected figure and this stage does not publish
-> it), but S-I's *premise* is now contradicted by a measurement, which S-I needs to know. Surfaced
-> here, not re-derived — the number remains S-I's to publish.
+> **PARTLY CHALLENGED 2026-08-07 (§8.2) — the budget figure is contradicted; the truncation is
+> not.** `/context` reports the **injected** skills block at **8.9k resident**, which is far above
+> the «~2k budget» this recommendation cites — that figure does not survive.
+> **But the listing IS reduced, and an earlier draft of this note got that backwards by comparing
+> across conversion constants (cold audit, round 4).** The comparison must be made in one
+> constant: the source-side 41,057 B is **15,678 tok at the measured 2.6187 B/t**, not the ~10.3k
+> its 4 B/t estimate suggests, so the injected 8.9k is **≈57% of source**, not «essentially all of
+> it». Independently, the snapshot lists **74 entries against a 112-file population** — **≈66%**.
+> Two channels, same direction: reduced, but nowhere near to 2k.
+> The routing decision stands unchanged (S-I owns the injected figure and this stage does not
+> publish it); what S-I needs from here is that its **~2k budget premise is wrong by ~4×**, not
+> that truncation is absent.
 >
 > **Also unverified in this recommendation (T3):** «129 `SKILL.md` files» carries no reproducing
-> command, and a recount over the plausible host+repo roots gives 112. Treat the 129 as
+> command, and a recount over the plausible host+repo roots gives **112** — reproduced as
+> `find ~/.claude -name SKILL.md | wc -l` → 86, plus 26 in-repo (the T3 obligation applies to the
+> correction as much as to the figure corrected). Treat the 129 as
 > **UNVERIFIED population** until the enumerating command is published beside it; the byte deltas
 > (45,329 → 41,057 B) are unaffected, since they were measured on whatever set was walked.
 
@@ -267,8 +282,10 @@ below the remainder they are competing with. This is the §0.5 expensive-seat-fi
 applied to its own evidence: the next real lever is harness-side, and R1 is its precondition.
 
 > **REVERSED 2026-08-07 (§8.1 + §8.2) — do not act on the paragraph above.** Both legs of its
-> argument moved. §8.2 measures the resident head at 58.2k, of which **memory files are 29.4k
-> (50.5%) and repo-owned**, with two documents (`CLAUDE.md` 9.3k + `ai-laziness-traps.md` 9.8k)
+> argument moved. §8.2 measures the resident head at 58.2k, of which the **repo-owned** memory
+> files are **26,700 = 45.9%** (the 29.4k memory category minus 2,764 tok of host-side
+> `~/.claude/CLAUDE.md` + `MEMORY.md`, which this project does not
+> own), with two documents (`CLAUDE.md` 9.3k + `ai-laziness-traps.md` 9.8k)
 > carrying a third of everything — so repo-side residency is not a small residual competing with
 > a large harness, it is the **largest single own-able block**. §8.1's conversion moves the
 > subagent-seat harness share from 68.4% to 51.7% in the same direction. The honest revised
@@ -386,12 +403,18 @@ Enumerated surfaces where that class occurs, verdicted per surface:
   post-S-G, inside ADR-3's stated band. No correction owed.
   **RE-VERDICTED 2026-08-07 (§8) — the «inside the band» clause was wrong when written:** the
   band is 29-39% and both measurements (27.8% / ~21%) fall *below* it, so «no correction owed»
-  was unsupported on its own numbers. Restating **within one channel** (row 1's own bytes, not a
-  `/context` numerator — mixing those is what §8.5 shows to be irreconcilable): 17,363 ×
-  (4 / 2.6187) = **26,522** tok, i.e. **42.5%** of the 62,340-tok subagent seat, or **~26.5%**
-  against ADR-3's own ~100k session-start denominator. **Both readings put the repo-owned share
-  BELOW the 29-39% band, not above it.** **Verdict now: GAP-FOUND against ADR-3 — measured
-  low, consistently across the conversion change.** Not edited — ADR-3 is spec, outside §2.
+  was unsupported on its own numbers. Restating with the **directly measured** figure for that
+  exact population — the five repo files `/context` itemises, **26,700 tok** (addendum §8.2), not
+  a ratio-derived one: **26.7% against ADR-3's own ~100k session-start denominator, which is
+  BELOW the 29-39% band.** **Verdict now: GAP-FOUND against ADR-3 — measured low.**
+  Not edited — ADR-3 is spec, outside §2.
+  **Two arithmetic traps this line fell into twice before, recorded so it is not re-derived
+  wrongly a third time:** (i) the same block is **42.8%** of the 62,340-tok *subagent* seat, and
+  that number is **not band-comparable** — ADR-3's band is denominated on ~100k, so only the
+  ~100k reading may be set against it; (ii) do **not** re-derive this by applying §8.1's
+  seven-file aggregate ratio (2.6187) to row 1 — that aggregate is inflated by the one host-side
+  Russian-text outlier at 3.32 B/t which is *not* in this population, whose own five-file ratio
+  is **2.6012**. The measured 26,700 supersedes any derivation.
 - `docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md` P14 row («remainder ≈
   100k − (29-39k repo-owned)») — **SWEPT-CLEAN**: measured 68.4% at the subagent seat, 77.8% at
   the main seat; the row's arithmetic holds.
@@ -411,6 +434,11 @@ Enumerated surfaces where that class occurs, verdicted per surface:
 - `.claude/orchestrator-prompts/arch-v2-context-pipeline-s-i/kickoff.md` (skills-listing budget)
   — **GAP-DEFERRED BY OWNERSHIP**: row 8 is measured source-side only and explicitly routed to
   S-I rather than double-priced here.
+  **RE-ADJUDICATED 2026-08-07 (§4 R4):** the routing is unchanged, but this commit now moves that
+  kickoff's *premise*, not just its number — its «~2k listing budget» is contradicted by the
+  injected block measuring 8.9k (≈4× the budget), while the listing is nonetheless reduced to
+  ≈57% of source by tokens and ≈66% by population. **Verdict now: GAP-FOUND against the S-I
+  kickoff's budget premise, routed not edited** (that kickoff is outside §2).
 - `scripts/measure-always-on.sh` — **NOT SWEPT, out of permitted set (S-E owns)**; it measures
   the repo-owned half only, which is exactly the 21-28% this patch bounds from the other side.
 
