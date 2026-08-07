@@ -12,19 +12,19 @@
 
 Four results, in the order they constrain each other:
 
-1. **The conversion has an undefined UNIT, and the unit accounts for the whole upper end of the
-   published spread.** S-H measured bytes; the 5-C census measured codepoints; both called the
-   result «B/token». Re-measured at the commit the seat actually loaded, S-H's byte table
-   reproduces exactly — and in codepoints its 3.32 outlier collapses to 2.587, *inside* the
-   cluster (§1).
-2. **`/context`'s `Skills 8.9k` IS the `skill_listing` attachment** — the load-bearing unknown
-   §1.3 named is closed, mechanically, n=69 both channels. So is `Custom agents 1k`: it is the
-   orchestrator-planner entry and nothing else (§2).
-3. **`/context` UNDER-reports.** At least **15,258 codepoints** of every-seat harness-injected
-   payload are billed and appear in no `/context` category. The merged addendum §8.5's title —
-   «the gap indicts the by-difference method» — **inverts** on this evidence (§3).
-4. **ADR-3's 29-39% band is stale by construction**: S-G cut the numerator ~30% after the band was
-   written. Reproduced: 69,453 B → **48,671 B** (§5).
+1. **The conversion had an undefined UNIT, which accounts for the whole upper end of the published
+   spread.** S-H measured bytes, the 5-C census codepoints, both labelled «B/token». Re-measured
+   at the commit the seat actually loaded, S-H's byte table reproduces exactly — and in codepoints
+   its 3.32 outlier collapses to 2.587, *inside* the cluster (§1).
+2. **`/context`'s `Skills 8.9k` IS the `skill_listing` attachment** (n=69 both channels) — §1.3's
+   load-bearing unknown, closed mechanically. So is `Custom agents 1k`: the orchestrator-planner
+   entry and nothing else (§2).
+3. **`/context` UNDER-reports** — ≥**15,258 codepoints** of every-seat harness-injected payload
+   are billed and appear in no category, so addendum §8.5's «the gap indicts the by-difference
+   method» **inverts** (§3).
+4. **ADR-3's band cannot be restated as a percentage at all right now.** S-G cut the numerator
+   ~30% (69,453 → **48,671 B**, reproduced) and **every** denominator in hand was measured on a
+   pre-S-G seat — a current-set share is `UNMEASURED — channel absent`, not merely stale (§4).
 
 ## §1 Fork #4 — Option A applied per-seat, and the unit defect underneath it
 
@@ -40,16 +40,11 @@ Both prior measurements label their result «B/token». They are not the same me
 For ASCII the two coincide, which is why the defect survived. For anything else they diverge by
 the UTF-8 multi-byte ratio — measured on the skill listing at **1.135 bytes/codepoint**.
 
-**Re-measurement, at the commit the measured seat actually loaded.** Seat `45489086` started
-`2026-08-07T09:20:22Z`; its worktree still carried the **pre-S-G** rule set, so the correct
-comparison commit is `f31fd8c094` (S-G's parent), not `origin/staging`. Measuring against
-today's files instead would have been the T-SL-B defect this stage exists to prevent — a
-numerator from one population over a denominator from another.
-
-```bash
-PRE=$(git rev-parse 97b10bed50^)   # f31fd8c0944a86436e87a481cfb974de3f44c68d
-git show "$PRE:CLAUDE.md" | LC_ALL=en_US.UTF-8 wc -c -m
-```
+**Re-measured at the commit the seat actually loaded.** Seat `45489086` started
+`2026-08-07T09:20:22Z` on a worktree still carrying the **pre-S-G** rule set, so the comparison
+commit is `f31fd8c094` (S-G's parent, via `git rev-parse 97b10bed50^`), not `origin/staging`;
+each file read with `git show "$PRE:<path>" | LC_ALL=en_US.UTF-8 wc -c -m`. Measuring today's
+files against the seat's token counts would be T-SL-B — the defect this stage exists to prevent.
 
 | file | bytes | codepoints | tokens (`/context`) | **B/tok** | **cp/tok** |
 |---|---:|---:|---:|---:|---:|
@@ -63,13 +58,18 @@ git show "$PRE:CLAUDE.md" | LC_ALL=en_US.UTF-8 wc -c -m
 **The byte column reproduces S-H §8.1 to the published precision** (2.55 / 2.37 / 2.39 / 2.64 /
 2.69 / 3.32) — an independent re-derivation, not a quotation.
 
+**Coverage (T6): 6 of S-H's 7 rows re-derived.** `…/memory/MEMORY.md` is dropped — host-side and
+untracked, so its state at the seat's start time is unrecoverable; pairing today's bytes with the
+seat's tokens would be the population mismatch this section is about. Bands unaffected (that row
+was interior to the cluster in both units).
+
 **The codepoint column is the new result.** S-H read the 3.32 outlier as corroborating («multi-byte
 UTF-8 inflates bytes per token, which is the expected direction»). The mechanism was identified
 correctly; the conclusion drawn from it was the wrong one. Multi-byte inflation is not a property
 of how the text tokenises — it is a property of how it is *stored*. Removing it removes the
 outlier rather than explaining it:
 
-| unit | seven-file spread | ratio |
+| unit | six-file spread | ratio |
 |---|---|---|
 | bytes | 2.371 – 3.317 | **1.40×** |
 | codepoints | 2.340 – 2.649 | **1.13×** |
@@ -81,51 +81,57 @@ in the unit that removes storage encoding, that file is not an outlier at all.
 
 ### §1.2 The band, restated per unit, with two new content classes
 
-Two content classes neither prior stage measured, both from the same seat:
-
-```bash
-# skill listing: attachment content vs /context's per-entry token sum
-jq -j 'select(.attachment.type=="skill_listing")|.attachment.content' <seat>.jsonl | wc -c -m
-```
+Two content classes neither prior stage measured, both from the same seat (skill listing via
+`jq -j 'select(.attachment.type=="skill_listing")|.attachment.content' <seat>.jsonl | wc -c -m`,
+compared against `/context`'s per-entry token sum):
 
 | content class | bytes | codepoints | tokens | B/tok | cp/tok |
 |---|---:|---:|---:|---:|---:|
-| dense ASCII pipe-table (`/context` stdout) | 13,450 | 13,450 | 7,535 | **1.835** | **1.835** |
+| dense ASCII pipe-table (`/context` stdout **+ its 379-cp command block**) | 13,829 | 13,829 | 7,535 | **1.835** | **1.835** |
 | skill listing (Cyrillic-rich prose entries) | 30,299 | 26,696 | 8,870 | **3.416** | **3.010** |
 | custom-agent entry (ASCII prose + examples) | 3,134 | 3,128 | ~1,000 | 3.134 | **3.128** |
 
-**Operative bands — wider than S-H's published 2.37-3.32 in both units:**
+> **Row 1 numerator/denominator (T-SL-B, cold-audit finding — full record in §6).** The 7,535
+> tokens are the *billed delta*, covering the stdout (13,450) **and** the 379-cp command block
+> that produced it. An earlier draft paired that count with the stdout alone: 13,829 / 7,535 =
+> **1.835** is the same-population figure.
 
-- **bytes: 1.835 – 3.416** (1.86×)
-- **codepoints: 1.835 – 3.128** (1.70×)
+**Operative bands — wider than S-H's published 2.37-3.32 in both units: bytes 1.835 – 3.416**
+(1.86×), **codepoints 1.835 – 3.128** (1.70×).
 
-The 5-C patch's 1.835 survives the unit audit unchanged: that block is pure ASCII (13,450 bytes =
-13,450 codepoints, verified), so its figure is unit-neutral and is a genuine bytes/token result.
+The 5-C patch's 1.835 survives the unit audit unchanged — the block is pure ASCII (`wc -c` and
+`wc -m` both return 13,450 on the stdout; the command block is ASCII too), so the two units
+coincide. It is the one 5-C conversion figure the unit correction leaves untouched.
 
 ### §1.3 Decision taken (not routed): the unit binds to the CHANNEL
 
-Adopting codepoints project-wide would require editing merged patches and re-deriving
-`measure-turn-attribution.sh`'s input path — outside this stage's permitted set. Adopting nothing
-leaves two incompatible units sharing one label. **Operative rule, binding for this umbrella:**
+Adopting codepoints project-wide would mean editing merged patches and re-deriving the script's
+input path — outside this stage's permitted set; adopting nothing leaves two incompatible units
+sharing one label. **Operative rule, binding for this umbrella:**
 
 > Every conversion figure states its unit. A channel whose input is bytes (`wc -c`) reports
 > **B/tok**; a channel whose input is transcript/JSON text reports **cp/tok**. A figure without a
 > unit suffix is not comparable to one with it, and no ratio may be taken across units.
 
-Recommendation recorded for a later stage, **not applied here:** move the project to codepoints.
-The byte unit's extra 0.7 of spread carries no information about token cost — only about whether
-the text is Cyrillic — and it is that spread which makes a flat constant look unreachable.
+Recommendation for a later stage, **not applied here:** move the project to codepoints — the byte
+unit's extra spread says nothing about token cost, only whether the text is Cyrillic.
 
 ### §1.4 The consuming sites
 
 Re-enumerated at execution time (T21 — run, not recalled):
 
-```console
-$ grep -rn "BYTES_PER_TOKEN\|4 B/tok\|4 bytes per token" --include='*.sh' --include='*.md' .
-scripts/measure-turn-attribution.sh:61   BYTES_PER_TOKEN=4
-scripts/measure-turn-attribution.sh:440,441,446,457,478   (five consumers)
-docs/meta-factory/research-patches/2026-08-07-s-h-turn-attribution-p3d-p11.md:482
-docs/meta-factory/research-patches/2026-08-07-s-h-turn-attribution-p3d-p11.md:536
+Command run (its raw output is ~20 lines including this patch and the kickoff quoting the
+constant; the code-bearing hits are listed below as a **digest**, not as literal stdout):
+
+```bash
+grep -rn "BYTES_PER_TOKEN\|4 B/tok\|4 bytes per token" --include='*.sh' --include='*.md' .
+```
+
+```text
+scripts/measure-turn-attribution.sh:61                    BYTES_PER_TOKEN=4
+scripts/measure-turn-attribution.sh:440 441 446 457 478   (five consumers)
+docs/…/2026-08-07-s-h-turn-attribution-p3d-p11.md:482     (tolerance claim)
+docs/…/2026-08-07-s-h-turn-attribution-p3d-p11.md:536     (self-application cost)
 ```
 
 The enumeration matches the kickoff's authoring-time table exactly — constant at `:61`, five
@@ -152,20 +158,15 @@ S-H  (…-s-h-turn-attribution-p3d-p11.md:26-29)   SESSION-TRANSCRIPTS: 189   SU
 S-L  (this run, MEASURED-AT 2026-08-07T11:29:44Z) SESSION-TRANSCRIPTS: 210   SUBAGENT: 747
 ```
 
-Both produced by the same find, unchanged by this stage:
+Both from the same find, unchanged by this stage (`scripts/measure-turn-attribution.sh:85,87`):
+`find "$CORPUS_ROOT" -path "$PROJECT_MATCH" -name '*.jsonl'` with `-not -path '*/subagents/*'`
+for sessions and `-path '*/subagents/*'` for subagents.
 
-```bash
-find "$CORPUS_ROOT" -path "$PROJECT_MATCH" -name '*.jsonl' -not -path '*/subagents/*'   # sessions
-find "$CORPUS_ROOT" -path "$PROJECT_MATCH" -name '*.jsonl' -path '*/subagents/*'        # subagents
-```
-
-**Drift: +11.1% sessions, +3.5% subagents, in under one day.** Direction is *upward* and the
-magnitude is consistent with ordinary accretion (this umbrella alone opened several seats today,
-including the one measuring this), which is the opposite class from the −27% retention event
-T-SH-B was written against. **Nothing is reconciled and no figure in this patch is adjusted for
-it:** every §1.1/§2 measurement is a *within-seat* comparison on named transcripts, so it is
-unaffected by how many other transcripts exist. The corpus count matters only for the script's
-aggregate tables, which are re-derived on each run by construction.
+**Drift: +11.1% sessions, +3.5% subagents, in under one day** — *upward*, consistent with ordinary
+accretion (this umbrella opened several seats today, including the one being measured), the
+opposite class from the −27% retention event T-SH-B was written against. **Nothing is reconciled
+and no figure here is adjusted for it:** every §1.1/§2 measurement is a *within-seat* comparison
+on named transcripts, so the corpus size does not enter it.
 
 > **DECISION-NEEDED #7 (T-SH-B, mechanical).** Accept +11.1% as accretion and leave S-H's
 > published aggregates as-is (**recommended** — they are labelled with their own MEASURED-AT, and
@@ -180,65 +181,49 @@ constant — that is T-SL-A, and a diff whose only change was `4` → `2.62` wou
 own acceptance. Verified: `grep -n 'BYTES_PER_TOKEN\b'` returns nothing (no unsuffixed survivor),
 `bash -n` and `shellcheck -S warning` are clean, and the script runs to exit 0 on the live corpus.
 
-Live output, this run:
-
-```text
-inject-session-bootstrap.sh (UserPromptSubmit): 1760 B  (~515-959 est-tokens @ 1.835-3.416 B/t)
-inject-subagent-digest.sh   (SubagentStart):    1866 B  (~546-1016 est-tokens @ 1.835-3.416 B/t)
-NOTE: … Both hook payloads are ASCII-dominant, so the TRUE value sits near the LOW end of the
-      band … Direction of error: a point estimate at 4 B/t UNDERSTATES.
-```
-
-Three properties the band form buys, none of which a swapped constant would have:
-
-- **The direction of error is stated at the point of use**, not in a patch a reader may not have.
-- **Ratios stay honest.** The residency `amplif.` column is a ratio of two figures sharing the
-  conversion, so it is band-invariant — that is annotated in the code rather than left for a
-  reader to re-derive.
-- **The unit is named** (`B/t`, bytes) with a pointer to the codepoint band for transcript
-  channels, so §1.3's rule is enforced where the figure is produced.
+Live output, this run — e.g. `inject-session-bootstrap.sh (UserPromptSubmit): 1760 B
+(~515-959 est-tokens @ 1.835-3.416 B/t)`, followed by a printed NOTE that both hook payloads are
+ASCII-dominant (so the true value sits near the band's LOW end) and that a point estimate at
+4 B/t UNDERSTATES. The band form buys three things a swapped constant would not: direction of
+error stated at the point of use; the residency `amplif.` column annotated band-invariant (a ratio
+of two figures sharing the conversion); and the unit named at the site.
 
 ### §1.7 The unit defect was in this stage's own first edit — and fixing it closes a merged patch's open discrepancy
 
-**Self-found, via the cold sweep this stage dispatched** ([`agents/backward-sweep-auditor.md`](../../../agents/backward-sweep-auditor.md)):
-the band conversion above was first applied to a field that is **not** in bytes. The stream
-builder produced it with jq `length`, which counts **codepoints**:
+**Found by the cold sweep this stage dispatched** ([`agents/backward-sweep-auditor.md`](../../../agents/backward-sweep-auditor.md)):
+the band was first applied to a field that is **not** in bytes — the stream builder produced it
+with jq `length`, which counts **codepoints**:
 
 ```diff
 - len:(((.attachment.stdout // "") | length))
 + len:(((.attachment.stdout // "") | utf8bytelength))
 ```
 
-That field is printed as `stdout-bytes` / `injected-bytes` / `mean-B` and converted through the
-**byte** band — i.e. the first version of this stage's own fix violated the unit rule this stage
-wrote, twelve lines below where it wrote it. Reported rather than silently corrected: the sweep
-found it because it was cold, and a self-review would have re-read past it.
+That field prints as `stdout-bytes` / `injected-bytes` / `mean-B` and feeds the **byte** band —
+the first version of this stage's own fix violated the unit rule this stage wrote, twelve lines
+below where it wrote it. The sweep found it because it was cold; a self-review had already read
+past it.
 
 **What the fix revealed — a merged patch's stated cause is falsified.**
-[`…-p3d-p11.md:480-482`](2026-08-07-s-h-turn-attribution-p3d-p11.md) records a discrepancy
-between two channels and explains it:
-
-> «live hook probe 1,760/1,866 B vs corpus-recorded 1,721/1,828 B — a ~2% spread from the
-> trailing newline and the language-line variant, well inside the 4 B/token estimation error».
-
-Both halves of that explanation are wrong. The spread was **neither a newline nor a variant**: it
-was `length` (codepoints) being compared against `wc -c` (bytes) across a payload containing
-Cyrillic. Correcting the unit closes it:
+[`…-p3d-p11.md:480-482`](2026-08-07-s-h-turn-attribution-p3d-p11.md) attributes a two-channel
+discrepancy to «a ~2% spread from the trailing newline and the language-line variant, well inside
+the 4 B/token estimation error». It was **neither a newline nor a variant**: it was `length`
+(codepoints) compared against `wc -c` (bytes) across a payload containing Cyrillic. The unit fix
+closes it:
 
 | channel | before (codepoints) | after (`utf8bytelength`) | live `wc -c` probe |
 |---|---:|---:|---:|
 | `inject-session-bootstrap.sh` | 1,721 | **1,759** | **1,760** |
 | `inject-subagent-digest.sh` | 1,828 | **1,866** | **1,866** |
 
-The subagent channel now agrees **exactly**; the session channel to **1 byte** (the trailing
-newline — which turns out to be the *residual*, not the cause). The «well inside the 4 B/token
-estimation error» clause is doubly void: it appeals to a falsified constant to excuse a
-discrepancy that was not an estimation error at all.
+The subagent channel now agrees **exactly**; the session channel to **1 byte** — the trailing
+newline turns out to be the *residual*, not the cause. The «well inside the 4 B/token estimation
+error» clause is doubly void: it appeals to a falsified constant to excuse a discrepancy that was
+not an estimation error at all.
 
-**Superseded by name:** `…-p3d-p11.md:480-482`'s causal explanation. Merged and append-only —
+**Superseded by name:** `…-p3d-p11.md:480-482`'s causal explanation — merged and append-only, so
 corrected here, not edited. Its *conclusion* (both FORK-E arms measured) survives; only the
-account of the 2% spread is replaced, and replaced with a closed discrepancy rather than a
-better excuse for an open one.
+account of the spread is replaced, and with a closed discrepancy rather than a better excuse.
 
 ## §2 The decomposition (§1.3 of the kickoff) — run, not designed
 
@@ -291,12 +276,12 @@ billed and counted nowhere.
 
 ### §2.3 `Messages 1.3k` — bounded, not resolved (T14)
 
-At the moment `/context` ran, the stream carried 7,232 content-codepoints. The reconciliation the
+At the moment `/context` ran, the stream carried 7,232 content-codepoints. (The seat's own 31-cp user prompt is **not** among them: the transcript order puts it *after* the `/context` stdout, so it could not have been counted by the reading.) The reconciliation the
 5-C patch left open narrows but does not close:
 
 | candidate | cp | cp/tok at 1.3k displayed (1,250-1,349 true) | verdict |
 |---|---:|---|---|
-| everything preceding | 7,232 | 5.36 – 5.79 | **EXCLUDED** |
+| everything preceding the reading | 7,232 | 5.36 – 5.79 | **EXCLUDED** |
 | both hook injects | 6,853 | 5.08 – 5.48 | **EXCLUDED** |
 | SessionStart + cmd block | 3,851 | 2.85 – 3.08 | in band |
 | `hook_additional_context` + cmd block | 3,760 | 2.79 – 3.01 | in band |
@@ -344,21 +329,39 @@ in row 5 by construction) remains structurally true — what changes is the *cha
 lands there. On this evidence the indictment **inverts**: by-difference is not overstating harness
 cost; `/context` is understating it.
 
-**Falsifier for this reading:** produce a channel showing that `/context`'s reported total already
-includes the uncounted rows under some category not named in its own output — e.g. that `System
-prompt 5.7k` silently absorbs the hook injects. That would return the gap to §8.5's account.
-Everything measurable here says otherwise: the categories sum to the reported total exactly
-(§8.2's identity, now n=4), leaving no unlabelled slack to hide 15k codepoints in.
+**Falsifier for this reading:** a channel showing `/context`'s total already absorbs the uncounted
+rows under some category not named in its output (e.g. `System prompt 5.7k` silently including the
+hook injects). Everything measurable says otherwise — the categories sum to the reported total
+exactly (§8.2's identity, now n=4), leaving no unlabelled slack to hide 15k codepoints in.
 
 **The subagent-seat 68.4% is NOT re-adjudicated,** and this stage produces no new channel for it.
 `/context` cannot be run inside a subagent — Option B's original argument, untouched by anything
 measured here. Stated explicitly, as the kickoff requires either way.
 
-### §3.2 DECISION-NEEDED #5 — which channel keeps the term
+### §3.2 The naming RULE — delivered; only the term assignment is routed
 
-> **DECISION-NEEDED #5 — the naming rule.** The two channels measure different populations
-> separated by a measured, **non-constant** residual (16,196 tok on one day, ~17.3k on another).
-> A single unqualified term across both is what let §8.5 draw its conclusion backwards.
+The kickoff asks for «a naming rule, not a winner». The rule is delivered and binds regardless of
+how the term question below resolves:
+
+> **Naming rule (operative).** No figure describing session-start cost may be stated without
+> **(a)** its channel — `by-difference` (transcript-billed) or `/context` (harness-declared) —
+> **(b)** its unit (`tok`, `B`, `cp`), and **(c)** for any share, the **rule-set commit** the
+> denominator's seat loaded. The term «harness remainder», used bare, satisfies none of these and
+> is therefore not a usable label in either channel: the two channels differ by a measured,
+> **non-constant** residual (16,196 tok on one day, ~17.3k on another), so the term does not
+> denote a single quantity.
+
+**What would falsify this rule** (§3 acceptance bullet, attached to the rule itself): a
+demonstration that the residual is **seat-constant** — that the two channels differ by a fixed
+offset across seat classes and dates. A constant offset would make one term plus a documented
+conversion sufficient, and the qualification mere overhead. At n=2 (16,196 and ~17.3k, different
+days, `staging` and the memory index moved between) the data are consistent with «approximately
+constant», so this falsifier is live and cheap — worth running before the rule is called settled.
+
+### §3.3 DECISION-NEEDED #5 — which channel keeps the term
+
+> **DECISION-NEEDED #5 — the term assignment.** The rule above is delivered; what is open is which
+> channel, if either, inherits the word «harness remainder».
 >
 > **Option A (recommended) — retire the bare term.** No unqualified «harness remainder» anywhere.
 > Two explicit names: **«billed first-turn seat cost»** (by-difference) and **«`/context`-declared
@@ -378,68 +381,108 @@ measured here. Stated explicitly, as the kickoff requires either way.
 
 ## §4 Fork #6 — ADR-3's band
 
-### §4.1 The numerator moved
+### §4.1 The numerator moved — and its provenance is a CHANNEL, not a predicate
 
 ADR-3's 29-39% was stated against the pre-S-G repo-owned always-on set. S-G replaced
-`ai-laziness-traps.md` with `ai-laziness-digest.md`. Reproduced independently:
+`ai-laziness-traps.md` with `ai-laziness-digest.md`.
 
-```console
-$ # post-S-G resident set = rules WITHOUT paths: frontmatter, + CLAUDE.md
-48,671 B   47,899 cp
-```
+**The numerator is defined by the `/context` memory-files channel, not by a frontmatter
+predicate.** This distinction is load-bearing and an earlier draft of this section got it wrong
+(cold audit, round 1 — recorded rather than silently corrected, per the 5-C precedent). The two
+selections are not the same set:
 
-**48,671 B matches the addendum's recorded 69,453 → 48,671 cut exactly** — an independent
-confirmation, not a quotation.
+| selection | files | bytes |
+|---|---:|---:|
+| **`/context` Memory Files, project-scoped** (what the seat actually loaded) | **5** | **48,671** |
+| «`.claude/rules/*.md` without `paths:` frontmatter» + `CLAUDE.md` | 12 | 124,529 |
 
-Converted through the repo-markdown in-class codepoint band (2.340-2.649, §1.1) — a band, never a
-point, per T-SL-A:
+The predicate over-selects by **2.56×**: seven Class-B/C rules carry no `paths:` key yet reach the
+model by hook, skill-embed or agent channel rather than as always-on memory files
+(`autonomous-loop-continuity`, `cold-seat-economy`, `egress-no-api-bypass`,
+`git-conflict-merge-forward`, `memory-codification`, `recommendation-laziness-discipline`,
+`reviewer-discipline`). **«No `paths:`» ≠ «always-on»** — a later stage rebuilding this share from
+the predicate gets a silently different ADR-3 verdict.
 
-**Post-S-G repo-owned always-on = 47,899 cp = 18,081 – 20,469 tokens.**
+Operative numerator, on the channel: **48,671 B / 47,899 cp**, which reproduces the addendum's
+recorded 69,453 → 48,671 cut exactly — an independent confirmation, not a quotation.
 
-**26,700 is the pre-S-G set** and no ranking of the current set is built on it here.
+### §4.2 The share cannot be computed on the current set — no denominator exists for it
 
-### §4.2 The four denominators, recomputed
+This is the finding, and it is stronger than the four-way table it replaces.
 
-| denominator | source | share of 18,081-20,469 | vs 29-39% |
-|---|---|---|---|
-| seat first-turn total, **75,496** (n=2, reproduced) | 5-C §F1 | **23.9 – 27.1%** | **below** |
-| 60-session median main seat, 100,529 | S-H parent §1 | 18.0 – 20.4% | below |
-| `/context` resident head, 59,300 | 5-C §3 | 30.5 – 34.5% | inside (low edge) |
-| full-tool subagent seat, 62,340 | S-H parent §2 | 29.0 – 32.8% | inside (low edge) |
+**Every denominator in hand was measured on a seat carrying the PRE-S-G rule set.** Seat
+`45489086` started `2026-08-07T09:20:22Z` on a worktree that had not yet taken S-G (§1.1); its
+`/context` lists `ai-laziness-traps.md`, not the digest. The post-S-G numerator contains
+`ai-laziness-digest.md`, which **did not exist** at the pre-S-G commit (`git cat-file -e
+f31fd8c094:.claude/rules/ai-laziness-digest.md` → absent). The post-S-G numerator is therefore
+**not a subset of any measured denominator's population**: dividing them is exactly T-SL-B —
+arithmetically computable, semantically void.
 
-**Numerator/denominator provenance, stated before dividing** (§3 acceptance, first bullet): the
-numerator is the five repo-owned files with no `paths:` frontmatter on `origin/staging`, in
-codepoints. Denominators 1 and 4 are transcript-billed token totals for seats **that load that
-same repo set**; the numerator is a subset of each. Denominator 3 is `/context`-declared and, per
-§3.1, **omits ≥15,258 cp of load the numerator's own seat pays** — the numerator is a subset of
-the *seat*, but not cleanly of this *denominator's* population. Denominator 2 is a 60-session
-median spanning seats with different repo sets, so the subset relation is not provable at all.
+**The only internally consistent pairing is the pre-S-G one** — pre-S-G numerator (26,700 tok,
+`/context`-measured on the seat) over denominators measured on that same seat class:
 
-**75,496 is used, not 89,019.** The addendum's 89,019 seat opened with `/orchestrator`, which
-injects 13,523 tokens (5-C §F2). Denominating on it would price the repo share against a total
-inflated by one optional dispatch prompt.
+| denominator | source | share of **26,700** (pre-S-G) | vs 29-39% |
+|---|---|---:|---|
+| seat first-turn total, **75,496** (n=2, reproduced) | 5-C §F1 | **35.4%** | **inside** |
+| 60-session median main seat, 100,529 | S-H parent §1 | 26.6% | below |
+| `/context` **reported total**, 59,300 | 5-C §3 | 45.0% | above |
+| full-tool subagent seat, 62,340 | S-H parent §2 | 42.8% | above |
 
-### §4.3 DECISION-NEEDED #6 — what ADR-3 says now
+**Post-S-G shares are `UNMEASURED — channel absent`** (T14): producing one needs a `/context`
+reading on a seat that actually loaded the post-S-G set, no such reading exists, and this stage
+does not manufacture one by converting bytes through a band and calling it a share. For **sizing
+only**, the post-S-G set converts through the repo-markdown in-class codepoint band (2.340-2.649,
+§1.1) to **18,081 – 20,469 tokens** — a bound on the *numerator alone*; no percentage here uses
+it.
 
-> **DECISION-NEEDED #6 — the denominator.** The band is stale **by construction**: S-G cut the
-> numerator ~30% after it was written, so every surviving percentage measures a superseded
-> population. The two pairings still landing «inside» do so only at the low edge, and only by the
-> coincidence of the cut's size.
+**Two labels corrected while here** (both cold-audit findings, both direction-neutral):
+**59,300 is `/context`'s reported total**, not the «resident head» — the addendum §8.6 uses
+**58,200** for the head, and the earlier draft of this table conflated them. And **75,496 is used,
+not 89,019** — the addendum's 89,019 seat opened with `/orchestrator`, which injects 13,523
+tokens (5-C §F2), so denominating on it prices the repo share against a total inflated by one
+optional dispatch prompt.
+
+### §4.3 The operative form — delivered; only the denominator choice is routed
+
+**Delivered — the kickoff §1.4 second branch, exercised, not a routed option.** ADR-3's band
+cannot be restated as a bare percentage on the current set, and that is a measurement result, not
+a preference: any post-S-G share needs a denominator measured on a post-S-G seat, and **none
+exists** (§4.2). The operative statement ADR-3 must carry:
+
+> The repo-owned always-on set is **48,671 B / 47,899 cp** on the `/context` **memory-files
+> channel** (5 project-scoped files), post-S-G. Any share **must** name the denominator's channel,
+> unit, **and the rule-set commit the denominator's seat loaded**; a share pairing this numerator
+> with a pre-S-G seat total is void.
+
+**Falsifier for this restatement:** a `/context` reading taken on a seat that has loaded the
+post-S-G rule set. That single measurement would make a current-set share computable and would
+retire this «channel absent» verdict — it is cheap (one interactive seat), and it is the natural
+first task of whichever stage next needs the number.
+
+**Three denominators rejected, with the direction each would have moved the band** (§3 acceptance,
+last bullet), on the pre-S-G pairing where the arithmetic is at least valid: 60-session median
+(100,529 → **26.6%**, *below*; compounds the question with a population change); `/context`'s
+reported total (59,300 → **45.0%**, *above*; §3.1 measured that channel incomplete); full-tool
+subagent seat (62,340 → **42.8%**, *above*; different seat class). Retained: the reproduced
+first-turn baseline (75,496 → **35.4%**, *inside*), the only n=2 total on the numerator's own
+seat class.
+
+> **DECISION-NEEDED #6 — which denominator ADR-3 names, once one is measurable.** The restatement
+> above is delivered and stands under every option; what is open is the *choice* the restatement
+> tells ADR-3 to name.
+> **Option A (recommended) — the seat first-turn total.** Reproduced n=2, same seat class as the
+> numerator, and the only pairing whose subset relation is provable. *Consequence:* ADR-3's band
+> is re-derived once a post-S-G seat is measured; on the pre-S-G pairing it read 35.4%, inside.
+> **Option B — the 60-session median.** Matches ADR-3's «observed» wording most literally.
+> *Consequence:* below the band, so ADR-3 is measured high — but it spans seats with different
+> repo sets, so the subset relation is never provable.
+> **Option C — `/context`'s own total.** The only channel that excludes dispatch-prompt content.
+> *Consequence:* above the band; and §3.1 measured it incomplete, so it under-states the
+> denominator and over-states the share.
 >
-> **Option A (recommended) — restate against a named channel.** ADR-3 stops asserting a bare
-> percentage: it states the **absolute** repo-owned size with its channel and unit (47,899 cp =
-> 18,081-20,469 tok, `/context` memory-files channel), plus a share against **one** explicitly
-> named denominator. *Consequence:* the gate S-E wires asserts a quantity that survives the next
-> trim; no percentage silently re-ages.
-> **Option B — denominate on the seat first-turn total (75,496).** Share 23.9-27.1%, below the
-> band; ADR-3 is measured high and its band is rewritten downward. *Consequence:* keeps one
-> percentage, pinned to a denominator that includes first-turn message content.
-> **Option C — denominate on the `/context` resident head (59,300).** Share 30.5-34.5% — the only
-> pairing preserving the band. *Consequence:* chooses the denominator §3.1 measured to be
-> incomplete, i.e. picks the answer that needs no correction.
->
-> **Not picked here** — §3a. #6 is reported as coupled to #5 exactly as the addendum states:
-> Option A's denominator differs from Option C's by the gap #5 records.
+> **Not picked here** — §3a, and per the dispatch instruction routing #6 to the operator. #6 stays
+> coupled to #5 exactly as the addendum states: Option A's denominator differs from Option C's by
+> the gap #5 records.
 
 ## §5 Spec reach — what this does to the S-D′ ranking
 
@@ -453,42 +496,50 @@ The P14 price list orders harness-side levers. Two of this patch's results move 
    any other message-stream row by 4.9×, and confirmed identical to `/context`'s `Skills`
    category. It is the top harness-side lever under either channel.
 
-Any ordering derived through a flat 4 B/tok is re-scaled **non-uniformly**. Dividing bytes by 4
-when the true divisor is content-dependent understates every figure, but by different factors:
-dense-table content by **2.18×**, Cyrillic-rich listings by **1.17×**. The direction is the same
-everywhere — all published est-token figures are **low** — but the magnitude differs by 1.86×
-between content classes, which is what re-orders a ranking. **A re-ranking is not a rescale**, and
-S-D′ must re-derive rather than multiply through: a uniform correction factor preserves order by
-construction and would hide exactly the effect this stage measured.
+Any ordering derived through a flat 4 B/tok is re-scaled **non-uniformly**: dividing by 4 when the
+true divisor is content-dependent understates every figure, but by **2.18×** for dense-table
+content and **1.17×** for Cyrillic-rich listings. The direction is uniform (all published
+est-token figures are **low**); the magnitude differs 1.86× between classes, and that is what
+re-orders a ranking. **A re-ranking is not a rescale** — S-D′ must re-derive rather than multiply
+through, since a uniform factor preserves order by construction and would hide this effect.
 
 ## §6 §1.7 self-reflexive note
 
 **Forward-check.** Complies with [`no-paid-llm-in-ci.md`](../../../.claude/rules/no-paid-llm-in-ci.md)
-(local `jq`/`wc`/`git` only; zero API-billed calls). Complies with
-[`phase-research-coverage.md §1.11`](../../../.claude/rules/phase-research-coverage.md): every
-figure carried from a merged patch was re-derived — including S-H §8.1's whole table, which was
-available as a quotation and was re-run against the correct commit anyway, and the addendum's
-48,671 B cut, which reproduces exactly. Complies with
-[`ai-laziness-traps.md`](../../../.claude/rules/ai-laziness-traps.md): **T2** (§2 is a run
-decomposition, not a described one), **T3** (every number carries its command or its file:line),
-**T6** (coverage stated as predicates in §2.4 — 2 rows closed, 1 bounded, 1 open), **T14** (§2.3
-and §2.4 report bounded/absent rather than clean), **T20** (the §3.1 direction call quotes its
-evidence and states its falsifier), **T21** (§1.4's enumeration was re-run before the section was
-written; a cold sweep is recorded in the backward-check). Carries the principle-10 scope
-annotation on line 1. Adds no dependency and no `packages/` file — no capability commit.
+(local `jq`/`wc`/`git`; zero API-billed calls) and
+[`phase-research-coverage.md §1.11`](../../../.claude/rules/phase-research-coverage.md) — every
+figure carried from a merged patch was re-derived, including S-H §8.1's whole table (available as
+a quotation, re-run against the correct commit anyway) and the addendum's 48,671 B cut, which
+reproduces exactly. [`ai-laziness-traps.md`](../../../.claude/rules/ai-laziness-traps.md):
+**T2** (§2 is a run decomposition), **T3** (every number carries its command or file:line),
+**T6** (§2.4 + §1.1 state coverage as k-of-n predicates), **T14** (§2.3, §2.4 and §4.2 report
+bounded/absent, not clean), **T20** (§3.1 quotes evidence and states its falsifier), **T21**
+(sweep delegated cold — below). Principle-10 scope annotation on line 1. No dependency, no
+`packages/` file — not a capability commit.
 
 **T-SL-A compliance, self-checked.** No site receives a substituted constant. The script takes a
 band with a stated direction of error (§1.5); the two merged-patch sites are annotated, not
 edited; the ADR-3 numerator is a range, not a point. A diff whose only change was `4` → `2.62`
 would fail this patch's own §1.4 table.
 
-**T-SL-B compliance, self-checked.** Every share in §4.2 states both provenances before dividing,
-and the one denominator whose subset relation is **not** provable (the 60-session median) is
-labelled as such rather than quietly used. The near-miss this stage caught in its own work: the
-first measurement pass in §1.1 used `origin/staging` files against a seat that had loaded the
-**pre-S-G** set — a numerator and denominator from different populations, i.e. exactly T-SL-B,
-caught by checking the seat's start timestamp against S-G's merge time before publishing. Reported
-rather than silently corrected, per the 5-C patch's own precedent.
+**T-SL-B — this stage tripped it three times and is not self-certifying compliance.** An earlier
+draft of this section did claim compliance; a cold fidelity audit on the head SHA
+([`agents/fidelity-auditor.md`](../../../agents/fidelity-auditor.md), round 1, verdict REVISE)
+disproved it. Recorded in full, because a trap the author declares clean while violating it is
+worth more as an incident than as a checkbox:
+
+| # | where | the defect | caught by |
+|---|---|---|---|
+| 1 | §1.1 first measurement pass | `origin/staging` files against a seat that had loaded the **pre-S-G** set | self, before publishing (seat start-time vs S-G merge-time) |
+| 2 | §1.2 row 1 | 7,535 tokens (stdout **+** command block) paired with 13,450 (stdout **alone**), printed as 1.835 when it computes to 1.785 | **cold audit** |
+| 3 | §4.2 whole table | post-S-G numerator (contains `ai-laziness-digest.md`, absent pre-S-G) divided by denominators measured on pre-S-G seats — and the numerator's stated provenance («no `paths:` frontmatter») selects 124,529 B, not the 48,671 B measured | **cold audit** |
+
+**Two of three needed the cold seat.** The one the author caught was caught by a *mechanical*
+check (two timestamps compared), not by re-reading — this project's own thesis restated on its own
+artefact: attention is not a mechanism. Defect 3 is why §4.2 publishes no current-set share.
+
+**T-SL-A compliance** stands as claimed, confirmed by the same audit: the band is not a constant,
+all 6 sites treated, no unsuffixed `BYTES_PER_TOKEN` survives.
 
 **Backward-check — delegated COLD, per T21.** The enumeration was **not** self-produced. This
 umbrella has recorded three consecutive self-sweeps overturned by grep, so the sweep was dispatched
@@ -496,11 +547,9 @@ to a fresh PR-blind agent per [`agents/backward-sweep-auditor.md`](../../../agen
 handed only the change **class** (three content predicates: fixed-divisor byte→token conversion;
 bytes-vs-codepoints unit conflation; stale/non-subset always-on share) and never the diff.
 
-**It earned its dispatch on the first predicate: it found a defect in this stage's own edit**
-(§1.7) that a self-review had already read past. Population reached: P1 11/11 surfaces (7
-GAP-FOUND), P2 8/8 (4 GAP-FOUND), P3 8/8 (8 GAP-FOUND).
-
-In-scope surfaces, handled in this patch:
+**It earned its dispatch**: it found a defect in this stage's own edit (§1.7) that a self-review
+had read past. Population reached: P1 11/11 (7 GAP-FOUND), P2 8/8 (4 GAP-FOUND), P3 8/8 (8
+GAP-FOUND). In-scope surfaces, handled here:
 
 - [`…-s-h-p14-context-addendum.md`](2026-08-07-s-h-p14-context-addendum.md) — **GAP-FOUND, routed
   not edited.** §8.1's outlier *reading* superseded (§1.1); §8.5's direction inverted (§3.1);
@@ -530,18 +579,18 @@ not drive-by edits; they are recorded here so the enumeration is not lost betwee
 
 | surface | class | why it matters |
 |---|---|---|
-| `packages/core/principles/35-ai-laziness-digest-anti-drift.test.ts:125` | P2 | **shipped CI gate, wrong unit.** `readFileSync(…,'utf8').length` compared against `DIGEST_MAX_BYTES = 8192` under a title saying «B». Measured live: `.length` 6,562 vs `Buffer.byteLength` 6,703 — the gate **under-counts by 141 B today** and is looser than it declares. One-line fix; the correct idiom is already in-tree at `scripts/render-rule-index.mjs:200`. |
-| `scripts/measure-always-on.test.sh:10` | P3 | **RED right now and wired to nothing.** `(( total > 100000 ))` floors on the pre-trim set; actual is 48,671 → the test exits 1. No invocation exists in `Makefile`/`package.json`/`.github`/`.husky`. |
-| `scripts/measure-session-start-tokens.sh:33-34,68,349,391` | P1 | a **second live meter** with two fixed divisors (`4` / `2.2`), a third hard-wired `/4` at `:349`, and the `<40%` threshold emitter at `:391`. |
-| `scripts/check-alwayson-budget.sh:13-16` + `packages/core/hooks/pre-push.ts:1251-1252` + `.github/workflows/audit-self.yml:826-830` | P3 | **three synchronised copies** of the stale 29-39% declared-coverage sentence, on blocking channels. Their SSOT is ADR-3, which §4.3 routes. |
-| `.claude/skills/pipeline/references/plan-cache.md:21` | P1 | live skill reference; at the band its 6-12 kB is 1,756-6,540 tok, so its own «stays below the 2k threshold» **verdict inverts**. |
-| `.claude/orchestrator-prompts/arch-v2-context-pipeline-s-i/kickoff.md:20-21` | P1 | **open, dispatchable stage** whose §0 problem statement is a flat-divisor ratio (`~2k` vs `≈9.1k`, «exceeded ~4.5×») on the skill listing — the exact Cyrillic-rich class the 3.416 bound was measured on. |
-| spec `…-token-economy-design.md:189` and `:541-545` | P1+P3 | outside the «§1.5 + P13 only» permit. `:189` sized a shipped gate at «≤ 8,192 B ≈ 2k tokens»; `:541` rests a **two-channel convergence argument** on 3.99 B/tok — at the band the channels do not converge within ~5%. |
+| `packages/core/principles/35-ai-laziness-digest-anti-drift.test.ts:125` | P2 | **shipped CI gate, wrong unit.** `readFileSync(…,'utf8').length` vs `DIGEST_MAX_BYTES = 8192` under a title saying «B». Live: 6,562 vs 6,703 → **under-counts by 141 B today**, i.e. looser than it declares. Correct idiom already in-tree at `scripts/render-rule-index.mjs:200`. |
+| `scripts/measure-always-on.test.sh:10` | P3 | **RED now and wired to nothing.** `(( total > 100000 ))` floors on the pre-trim set; actual 48,671 → exits 1. No invocation in `Makefile`/`package.json`/`.github`/`.husky`. |
+| `scripts/measure-session-start-tokens.sh:33-34,68,349,391` | P1 | a **second live meter**: two fixed divisors (`4`/`2.2`), a third hard-wired `/4` at `:349`, and the `<40%` threshold emitter at `:391`. |
+| `scripts/check-alwayson-budget.sh:13-16` + `packages/core/hooks/pre-push.ts:1251-1252` + `.github/workflows/audit-self.yml:826-830` | P3 | **three synchronised copies** of the stale 29-39% sentence, on blocking channels. SSOT is ADR-3, routed in §4.3. |
+| `.claude/skills/pipeline/references/plan-cache.md:21` | P1 | live skill reference; at the band its 6-12 kB is 1,756-6,540 tok, so its own «below the 2k threshold» **verdict inverts**. |
+| `.claude/orchestrator-prompts/arch-v2-context-pipeline-s-i/kickoff.md:20-21` | P1 | **open, dispatchable stage** whose §0 is a flat-divisor ratio (`~2k` vs `≈9.1k`) on the skill listing — the exact Cyrillic-rich class the 3.416 bound came from. |
+| spec `…-token-economy-design.md:189`, `:541-545` | P1+P3 | outside the «§1.5 + P13 only» permit. `:189` sized a shipped gate at «≈ 2k tokens»; `:541` rests a **two-channel convergence argument** on 3.99 B/tok — at the band the channels do not converge within ~5%. |
 | `docs/meta-factory/operational-conventions.md:21` | P1 | live conventions doc, unbanded 4 B/tok. |
 
-**Sweep coverage, stated as a predicate (T14, T6):** dated files under
-`docs/meta-factory/research-patches/` (~14 files, ~80 conversion sites) were **excluded by
-convention** as archival-corrected-by-annotation, and are *not* verdicted clean. If that
-convention does not in fact protect them, the P1 population roughly triples.
+**Sweep coverage as a predicate (T14, T6):** dated files under `research-patches/` (~14 files,
+~80 conversion sites) were **excluded by convention** as archival-corrected-by-annotation, and are
+*not* verdicted clean — if that convention does not protect them, the P1 population roughly
+triples.
 
 No merged patch is edited by this change.
