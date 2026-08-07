@@ -223,7 +223,11 @@ so even that reading does not settle it.
 > only denominator that excludes dispatch-prompt content and is therefore the one a *residency*
 > claim should arguably use. The share is above the band and ADR-3 is measured low, in the
 > opposite direction from Option B. **Not resolved here** — and note that #6 cannot be settled
-> independently of #5, since Options A/B and C differ precisely by the ~30.8k gap #5 records.
+> independently of #5 — though the coupling is **not** a single identity, as an earlier draft
+> claimed. Option A's denominator differs from Option C's by exactly the gap #5 records
+> (89,019 − 58,200 = 30,819); Option B's differs by 42,329 **and** is a 60-session median set
+> against a gap measured on one session, so B compounds #5's question with a population change
+> rather than restating it.
 
 
 ---
@@ -231,8 +235,8 @@ so even that reading does not settle it.
 ## §1.7 self-reflexive note
 
 **Forward-check.** [`attention-is-not-a-mechanism.md §1`](../../../.claude/rules/attention-is-not-a-mechanism.md):
-this addendum adds no check, so it introduces no bare-attention gate; the three obligations it
-creates (DECISION-NEEDED #3 answered, #4 and #5 open) are operator decisions with named options
+this addendum adds no check, so it introduces no bare-attention gate; the four obligations it
+creates (DECISION-NEEDED #3 answered; #4, #5 and #6 open) are operator decisions with named options
 and consequences, not «someone should look at the numbers».
 [`ai-laziness-traps.md §2`](../../../.claude/rules/ai-laziness-traps.md): **T3** — every figure
 carries its command or its source line in the pasted snapshot, and the ~30.8k gap is labelled a
@@ -273,7 +277,15 @@ surface:
   cross-denominator, then ratio-transferred-across-populations). The root cause was not
   carelessness at any one site — it was that the comparison has one measured numerator and four
   defensible denominators. The resolution was to **withdraw the verdict rather than repair it a
-  fourth time** (DECISION-NEEDED #6 below).
+  fourth time** (DECISION-NEEDED #6, §8.6 above).
+
+  **A third, recorded because the two records of this round disagreed.** The commit message for
+  this round claimed the class sweep found a site «not only the one the audit named»; the
+  paragraph above claimed the sweep was purely list-driven. **The commit message is the accurate
+  one on that point:** the §7 S-I re-adjudication carried the withdrawn share and was found by
+  the author's own grep for the *class*, not by any review naming it. So the honest summary is:
+  the sweep was list-driven for five rounds and became class-driven for exactly one item — which
+  is progress worth naming precisely, not a claim that the method changed.
 - **The sibling patch** `2026-08-07-s-h-turn-attribution-p3d-p11.md` — **GAP-FOUND, not edited.**
   It uses the same 4 B/t constant at its §5, §7 and §8, so §8.1's falsification applies to it
   identically and its FORK-E est-token figures are low by the same ≈1.53×. Not corrected here:

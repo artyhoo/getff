@@ -165,7 +165,7 @@ of this stage's main seat (69,300 of 89,019 tok). The spec's «60-71% harness sh
 subagent seat at 51.7% under the measured conversion, and §8.5 shows the by-difference method
 overstates the main seat by an unmeasured amount (a ~30.8k gap against `/context` on the same
 session, most of it plausibly dispatch-prompt content that rows 1-4 never subtract). Open as
-DECISION-NEEDED #4 and #5. Row 5a alone — the base
+DECISION-NEEDED #4, #5 and #6. Row 5a alone — the base
 prompt plus a *reduced* toolset, carrying no repo content whatsoever — is **26,229 tok, larger
 than the entire pre-S-G repo-owned always-on set (17,363)**. Everything S-E and S-G can reach
 is the smaller half of the problem.
@@ -261,11 +261,13 @@ project exists to prevent, so the injected figure stays S-I's to publish.
 > **But the listing IS reduced, and an earlier draft of this note got that backwards by comparing
 > across conversion constants (cold audit, round 4).** The comparison must be made in one
 > constant: at the measured B/t the source-side 41,057 B is ~15.7k tok, not the ~10.3k its 4 B/t
-> estimate suggests, so the injected 8.9k is a **minority of source** — direction only.
-> **The precise share is deliberately not stated (round 5):** it swings **56% → 87%** across the
-> conversion constants in play (2.6012 / 2.6187 / 3.32 / 4.0), and the `SKILL.md` corpus is
-> itself multi-byte-heavy (six skills carry Russian descriptions), so no single constant is
-> defensible for it without measuring that corpus.
+> estimate suggests. **No magnitude word is used here, and an earlier draft's «a minority of
+> source» was wrong in the opposite direction (round 6):** the injected 8.9k against that source
+> is **56.4% / 56.8% / 72.0% / 86.7%** at 2.6012 / 2.6187 / 3.32 / 4.0 B/t respectively — a
+> majority under every constant in play, and against the pre-S-I 45,329 B it is 51.4% at 2.6187.
+> The share is therefore reported as **that range and nothing else**: which constant applies to
+> the `SKILL.md` corpus is unmeasured, so a single figure — or any word standing in for one —
+> would be an estimate dressed as a measurement.
 > **A second «independent channel» (74 listed entries ÷ 112 files) is WITHDRAWN entirely
 > (round 5), not corrected:** the numerator is provably not a subset of the denominator — the two
 > largest listed entries, `dataviz` and `claude-api`, are built-in skills with no `SKILL.md` file
@@ -302,7 +304,8 @@ applied to its own evidence: the next real lever is harness-side, and R1 is its 
 > a large harness, it is the **largest single own-able block**. §8.1's conversion moves the
 > subagent-seat harness share from 68.4% to 51.7% in the same direction. The honest revised
 > reading: **the next real lever is repo-side memory files**, and the harness-side case is
-> weaker than this recommendation claimed — pending DECISION-NEEDED #4 and #5, which could move
+> weaker than this recommendation claimed — pending DECISION-NEEDED #4, #5 and #6 (the 45.9% just quoted is one of #6's four tabled
+> options, not a settled figure), which could move
 > it again.
 
 ---
@@ -457,14 +460,18 @@ Enumerated surfaces where that class occurs, verdicted per surface:
   **RE-ADJUDICATED 2026-08-07 (§4 R4):** the routing is unchanged, but this commit now moves that
   kickoff's *premise*, not just its number — its «~2k listing budget» is contradicted by the
   injected block measuring 8.9k (≈4× the budget), while the listing is nonetheless reduced to
-  a minority of source (direction only — the precise share is withdrawn, see R4). **Verdict now: GAP-FOUND against the S-I
+  56.4-86.7% of source depending on the conversion constant (see R4; no single figure is
+  defensible and no magnitude word is substituted for one). **Verdict now: GAP-FOUND against the S-I
   kickoff's budget premise, routed not edited** (that kickoff is outside §2).
 - `scripts/measure-always-on.sh` — **NOT SWEPT, out of permitted set (S-E owns)**; it measures
   the repo-owned half only, which is exactly the 21-28% this patch bounds from the other side.
-  **RE-ADJUDICATED 2026-08-07 (round 5):** «21-28%» is a pre-paste 4 B/t pair, superseded by the
-  directly measured 26,700 — whose share is 29.99% / 26.6% / 45.9% / 42.8% depending on the
-  denominator (see the ADR-3 surface above, DECISION-NEEDED #6). The bounding claim stands only
-  once #6 fixes a denominator. Still **NOT SWEPT** — S-E owns that script.
+  **RE-ADJUDICATED 2026-08-07 (round 6):** the «21-28%» pair is **not restatable from this
+  paste at all**, and an earlier draft claiming the measured 26,700 supersedes it was wrong on
+  the numerator, not merely the denominator: 26,700 is the **pre-S-G** five-file set (pinned
+  byte-for-byte at addendum §8.1), whereas the «~21%» member is the **post-S-G** set, a different
+  population. No choice of denominator repairs a numerator mismatch, so **no restatement is
+  offered** — the bound is simply unverified here. Still **NOT SWEPT** — S-E owns that script and
+  owns the post-S-G measurement.
 
 **Self-application (T15).** This patch prices resident context. Its own residency: it carries no
 `paths:` frontmatter and lives under `docs/meta-factory/research-patches/`, which is in **no**
@@ -483,5 +490,6 @@ what S-D′ can now do (§8.4), and the unreconciled channel disagreement (§8.5
 
 It was written as this patch's §8 and split out when this file reached the repo's 600-line
 markdown gate. **Every `§8.x` reference above resolves into that file**, where the numbering is
-preserved for exactly that reason. `DECISION-NEEDED #4` (the conversion constant) and `#5` (which
-channel defines «harness remainder») are stated there and are **open**.
+preserved for exactly that reason. `DECISION-NEEDED #4` (the conversion constant), `#5` (which
+channel defines «harness remainder») and `#6` (which denominator the repo-owned share is measured
+against) are stated there and are **open**.
