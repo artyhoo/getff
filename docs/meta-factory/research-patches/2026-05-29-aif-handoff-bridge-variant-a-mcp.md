@@ -378,7 +378,7 @@ Evidence:
 - [docs/meta-factory/prior-art-evaluations.md](../prior-art-evaluations.md) — SSOT rows #27, #28, #29, #30, #43, #44, #46, #67, #80 (existing aif-handoff entries reviewed for this patch)
 - [docs/meta-factory/research-patches/2026-05-23-meta-orchestrator-prior-art.md](./2026-05-23-meta-orchestrator-prior-art.md) — meta-orchestrator BUILD verdict + leapfrog table (SP `requesting-code-review` REFERENCE row at line 73; criterion 5 disambiguation)
 - [docs/meta-factory/research-patches/2026-05-26-companion-reuse-aif-handoff-autoqueue.md](./2026-05-26-companion-reuse-aif-handoff-autoqueue.md) — predecessor sub-component evaluation (autoQueueMode)
-- [.claude/skills/meta-orchestrator/SKILL.md](../../../.claude/skills/meta-orchestrator/SKILL.md) — surface this umbrella reasons against; lines :404 and :429 (criterion 5 resolution)
+- [.claude/skills/meta-orchestrator/SKILL.md](../../../.claude/skills/pipeline/SKILL.md) — surface this umbrella reasons against; lines :404 and :429 (criterion 5 resolution)
 - [.claude/rules/build-first-reuse-default.md](../../../.claude/rules/build-first-reuse-default.md) — verdict ladder applied in §5
 - [.claude/rules/reviewer-discipline.md](../../../.claude/rules/reviewer-discipline.md) — §2 strategy-fork-surface gate that aif-handoff Reviewer conflicts with (criterion 5 risk)
 - [.claude/rules/ai-laziness-traps.md](../../../.claude/rules/ai-laziness-traps.md) — T-traps active for this Sub-wave; T20 specifically enforced in §5 verdict sentence

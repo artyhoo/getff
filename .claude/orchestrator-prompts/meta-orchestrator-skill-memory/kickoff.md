@@ -100,7 +100,7 @@ Maintainer's verbatim brief (2026-05-25):
 
 **File:** `.claude/skills/meta-orchestrator/SKILL.md` — single SSOT, NO consumer mirror.
 
-**Authority:** [install.sh:233-235](../../../install.sh) explicitly states `meta-orchestrator: shipped from authoring location .claude/skills/meta-orchestrator/ as single source of truth (no separate mirror under skills/)`. Note: [SKILL.md:359](../../skills/meta-orchestrator/SKILL.md) §7.10 carries a stale «Mirrors at repo-root skills/meta-orchestrator/» claim — flagged as STALE REF in PR body, deferred to separate PR per drive-by discipline (do NOT fix mid-flight in this umbrella).
+**Authority:** [install.sh:233-235](../../../install.sh) explicitly states `meta-orchestrator: shipped from authoring location .claude/skills/meta-orchestrator/ as single source of truth (no separate mirror under skills/)`. Note: [SKILL.md:359](../../skills/pipeline/SKILL.md) §7.10 carries a stale «Mirrors at repo-root skills/meta-orchestrator/» claim — flagged as STALE REF in PR body, deferred to separate PR per drive-by discipline (do NOT fix mid-flight in this umbrella).
 
 **Edit:** §1 «Plan-currency check» Step 1 currently has 4 `!shell` blocks (git status / gh pr list / head wave-sequencing-plan / plan-currency-check.sh). **Add a 5th block at the TOP** (before the others — cache is the «here's what last session knew» context that should inform reading of the live mechanical blocks):
 
@@ -167,7 +167,7 @@ Per [dual-implementation-discipline.md §5](../../rules/dual-implementation-disc
 
 **Edit `.claude/skills/meta-orchestrator/SKILL.md §10`** — add a new item 5:
 
-```markdown
+````markdown
 5. **Plan cache update:** at end of invocation, run via Bash tool:
 
    ```bash
@@ -177,7 +177,7 @@ Per [dual-implementation-discipline.md §5](../../rules/dual-implementation-disc
    ```
 
    Updates `.claude/orchestrator-prompts/_plan-cache.md` for next-invocation continuity. NOT load-bearing — mechanical state always wins. The cache is supplementary memory only.
-```
+````
 
 (No consumer mirror — see §1.2 authority block; install.sh:233-235 confirms single SSOT.)
 
@@ -194,7 +194,7 @@ Per [dual-implementation-discipline.md §5](../../rules/dual-implementation-disc
 
 **Total estimate:** ~30-45k Opus. Single session, sequential edits, NO Worker dispatch.
 
-**Anti-pattern guard:** per [SKILL.md §8](../../skills/meta-orchestrator/SKILL.md) `#worker-dispatch-via-subagent` + `#commit-on-behalf-of-worker` — this kickoff is itself dispatched via 1-liner paste by maintainer into a fresh CC session, OR executed inline by the meta-orchestrator that wrote this kickoff (NOT this session — this session WROTE the kickoff per `dispatch-not-implement` discipline per [SKILL.md §8 anti-scope](../../skills/meta-orchestrator/SKILL.md)).
+**Anti-pattern guard:** per [SKILL.md §8](../../skills/pipeline/SKILL.md) `#worker-dispatch-via-subagent` + `#commit-on-behalf-of-worker` — this kickoff is itself dispatched via 1-liner paste by maintainer into a fresh CC session, OR executed inline by the meta-orchestrator that wrote this kickoff (NOT this session — this session WROTE the kickoff per `dispatch-not-implement` discipline per [SKILL.md §8 anti-scope](../../skills/pipeline/SKILL.md)).
 
 **Worktree (per [parallel-subwave-isolation.md §1](../../rules/parallel-subwave-isolation.md)):**
 
@@ -225,7 +225,7 @@ git worktree remove ../rules-as-tests-aif-skill-memory
 ## §3 Acceptance criteria
 
 1. ✅ `.claude/skills/meta-orchestrator/helpers/update-cache.sh` exists, is executable (`chmod +x`), passes its companion test (`packages/core/hooks/update-cache.test.ts`).
-2. ✅ `.claude/skills/meta-orchestrator/SKILL.md` is the single SSOT — NO consumer mirror under `skills/meta-orchestrator/` (per install.sh:233-235). `diff -q` against an `skills/` mirror is NOT an AC item — the mirror must not exist. PR body notes [SKILL.md:359](../../skills/meta-orchestrator/SKILL.md) §7.10 STALE REF (mirror claim) as deferred to separate PR (drive-by discipline).
+2. ✅ `.claude/skills/meta-orchestrator/SKILL.md` is the single SSOT — NO consumer mirror under `skills/meta-orchestrator/` (per install.sh:233-235). `diff -q` against an `skills/` mirror is NOT an AC item — the mirror must not exist. PR body notes [SKILL.md:359](../../skills/pipeline/SKILL.md) §7.10 STALE REF (mirror claim) as deferred to separate PR (drive-by discipline).
 3. ✅ `.claude/orchestrator-prompts/_plan-cache.md` is created on first helper invocation (verified by deleting any existing file then running `bash helpers/update-cache.sh test-umbrella "smoke test"`).
 4. ✅ Second invocation of the helper preserves non-«Last invocation» sections verbatim (idempotency test).
 5. ✅ `wave-sequencing-plan.md` Track P row + «What actually remains:» paragraph updated.
@@ -317,7 +317,7 @@ When execution completes, the implementing session emits a final block:
 
 ## §8 See also
 
-- [.claude/skills/meta-orchestrator/SKILL.md](../../skills/meta-orchestrator/SKILL.md) — the skill being extended (§1 + §10 surfaces)
+- [.claude/skills/meta-orchestrator/SKILL.md](../../skills/pipeline/SKILL.md) — the skill being extended (§1 + §10 surfaces)
 - [.claude/rules/build-first-reuse-default.md §3](../../rules/build-first-reuse-default.md) — BFR mechanism that §0 ran
 - [.claude/rules/dual-implementation-discipline.md §5](../../rules/dual-implementation-discipline.md) — `@dual-pair` markers (helper writer ↔ SKILL.md reader)
 - [.claude/rules/memory-codification.md](../../rules/memory-codification.md) — adjacent discipline: this kickoff's cache is per-skill operational memory, NOT durable-convention memory codified to repo (different layer)

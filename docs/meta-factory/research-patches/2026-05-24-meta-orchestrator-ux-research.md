@@ -332,7 +332,7 @@ This is currently prose in the kickoff's 3-layer table but absent from SKILL.md 
 - Kickoff source (SSOT for UX requirements): [`.claude/orchestrator-prompts/meta-orchestrator-followup-audit/kickoff.md §1 Sub-wave F`](../../../.claude/orchestrator-prompts/meta-orchestrator-followup-audit/kickoff.md) lines 167-335.
 - Prior meta-orchestrator BUILD R-phase (capability verdict, not UX): [`2026-05-23-meta-orchestrator-prior-art.md`](2026-05-23-meta-orchestrator-prior-art.md).
 - SSOT rows relevant: #64 (SP `subagent-driven-development`), #65 (SP `using-git-worktrees`), #66 (AIF REFERENCE), #68 (OhMyOpencode REFERENCE+ADOPT-VOCABULARY), #70 (ComposioHQ REFERENCE), #71 (SP Red Flags REJECT).
-- Current SKILL.md state: [`.claude/skills/meta-orchestrator/SKILL.md`](../../../.claude/skills/meta-orchestrator/SKILL.md) §5 (dispatch tree) and §10 (output artifacts).
+- Current SKILL.md state: [`.claude/skills/meta-orchestrator/SKILL.md`](../../../.claude/skills/pipeline/SKILL.md) §5 (dispatch tree) and §10 (output artifacts).
 - BFR rule (7-verdict taxonomy): [`.claude/rules/build-first-reuse-default.md §1`](../../../.claude/rules/build-first-reuse-default.md).
 - T16 trap (pattern-matching-on-name): [`.claude/rules/ai-laziness-traps.md §2 T16`](../../../.claude/rules/ai-laziness-traps.md).
 - Global `/orchestrator` skill (agent-uncommittable, F.3 must read before adopting rec (i)): `~/.claude/skills/orchestrator/SKILL.md`.

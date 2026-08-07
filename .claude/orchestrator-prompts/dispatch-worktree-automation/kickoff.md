@@ -4,7 +4,7 @@
 >
 > **Authoritative for:** R-phase scope covering elimination of the recurring manual worktree-setup step in parallel R-phase / execution-build dispatch workflow — currently 5-7 terminal commands × N sub-waves per umbrella dispatch, emitted as paste-block bash in meta-launch kickoffs (`.claude/skills/meta-orchestrator/templates/meta-kickoff.template.md §4 {{DISPATCH_INSTRUCTIONS}}`).
 >
-> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). The implementation itself — separate I-phase umbrella post-verdict. Cross-worktree gitignored coordination-doc sync — see [research-patches/2026-05-17-cross-worktree-coord-doc-sync.md](../../../docs/meta-factory/research-patches/2026-05-17-cross-worktree-coord-doc-sync.md) (orthogonal). Subagent vs paste-tab discipline channel — see [PR #265 research-patches/2026-05-29-skill-row3-vs-worker-dispatch-antipattern.md](../../../docs/meta-factory/research-patches/2026-05-29-skill-row3-vs-worker-dispatch-antipattern.md) (sibling drift R-phase; this umbrella concerns the **automation surface**, that one concerned the **channel discipline**).
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). The implementation itself — separate I-phase umbrella post-verdict. Cross-worktree gitignored coordination-doc sync — see [research-patches/2026-05-17-cross-worktree-coord-doc-sync.md](../../../docs/meta-factory/research-patches/2026-05-17-cross-worktree-coord-doc-sync.md) (orthogonal). Subagent vs paste-tab discipline channel — see PR #265 research-patches/2026-05-29-skill-row3-vs-worker-dispatch-antipattern.md (sibling drift R-phase; this umbrella concerns the **automation surface**, that one concerned the **channel discipline**).
 >
 > **Class:** N/A (kickoff doc, not a rule). Discipline-bearing artefact — full §1.7 self-reflexive check at §6 + §7.
 
@@ -20,7 +20,7 @@ Maintainer hypothesis (2026-05-29 session): «manual `git worktree add` + `cd` +
 
 **Recurring operational pain.** Today (2026-05-29), maintainer hit the friction explicitly when dispatching aif-handoff bridge R-phase (Sub-waves A + B): meta-orchestrator emitted in `.claude/orchestrator-prompts/aif-handoff-as-runtime-bridge-meta-launch/kickoff.md §4` (lines 89-115) the standard paste-block format:
 
-```
+```bash
 cd /Users/art/code/rules-as-tests-aif
 git fetch origin staging
 git worktree add ../rules-as-tests-aif-aif-handoff-sw-A origin/staging
@@ -57,7 +57,7 @@ Each candidate MUST be evaluated against the 5 criteria (§4 below). R-phase out
 ### Candidate A — Embed STEP 0 bash inside the paste-block body
 
 **Mechanism:**
-```
+```text
 meta-orchestrator → emits .claude/orchestrator-prompts/<umbrella>-meta-launch/kickoff.md §4
    §4 paste-block contains BOTH bash STEP 0 (cd / git worktree add / node_modules symlinks / git checkout -b / pwd verify)
    AND the /orchestrator slash-command Worker prompt in ONE paste body.
@@ -78,7 +78,7 @@ Worker session's AI runs STEP 0 bash on first turn (Bash tool), then proceeds to
 ### Candidate B — CC `Agent({isolation:"worktree"})` (the reverted SKILL.md edit)
 
 **Mechanism:**
-```
+```text
 meta-orchestrator session reads umbrella kickoff §6
    ↓
 For each sub-wave: dispatches Agent({isolation:"worktree", model:"opus", prompt:"<worker prompt>"})
@@ -98,7 +98,7 @@ Subagents run in parallel within meta-orchestrator's own CC process
 ### Candidate C — External helper script `mo-worktree <umbrella> <suffix>`
 
 **Mechanism:**
-```
+```text
 maintainer runs single command:
    mo-worktree aif-handoff sw-A
    ↓
@@ -118,7 +118,7 @@ script handles: git fetch / git worktree add /Users/art/code/<project>-<umbrella
 ### Candidate D — PreToolUse hook auto-creates worktree on dispatch
 
 **Mechanism:**
-```
+```text
 .claude/hooks/auto-worktree.sh — PreToolUse hook on UserPromptSubmit or SessionStart
    Reads prompt; detects marker (e.g. first line "# WORKTREE: <umbrella>/<sub-wave>")
    If marker present + not already in worktree: creates worktree, cd's session, runs setup
@@ -134,7 +134,7 @@ script handles: git fetch / git worktree add /Users/art/code/<project>-<umbrella
 ### Candidate E — Native CC `WorktreeCreate` / `EnterWorktree` tool primitive
 
 **Mechanism:**
-```
+```text
 CC platform exposes a tool (per Superpowers `using-git-worktrees` Step 1a):
    WorktreeCreate({branch: "research/foo", base: "origin/staging"})
    → returns worktree path
@@ -150,7 +150,7 @@ CC platform exposes a tool (per Superpowers `using-git-worktrees` Step 1a):
 ### Candidate F — Filesystem-watcher daemon (aif-handoff bridge Variant B-equivalent)
 
 **Mechanism:**
-```
+```text
 daemon watches .claude/orchestrator-prompts/**/<umbrella>-meta-launch/kickoff.md
    On new kickoff: parses §4 sub-wave list
    For each sub-wave: git worktree add + node_modules symlinks + git checkout -b
@@ -169,7 +169,7 @@ daemon watches .claude/orchestrator-prompts/**/<umbrella>-meta-launch/kickoff.md
 ### Candidate G — Hybrid (A + B): meta-orchestrator emits both formats
 
 **Mechanism:**
-```
+```text
 meta-orchestrator §4 dispatch generates TWO blocks per sub-wave:
    1. Embedded-STEP-0 paste-block (Candidate A) — for fresh-tab dispatch with visibility
    2. Agent({isolation:"worktree"}) example (Candidate B) — for in-session dispatch with speed
@@ -208,7 +208,7 @@ See `.claude/rules/ai-laziness-traps.md §2` for full catalogue.
 
 - **T1** (sampling floor ≥5) — when evaluating each candidate against §4 criteria, sample ≥5 historical dispatches OR ≥5 user-stated scenarios; don't close at 1-2.
 - **T3** (file:line per claim) — every claim about CC primitive existence/behaviour cites file:line in `docs/agent-sdk/typescript.md` or `code.claude.com/docs/en/*.md` excerpt.
-- **T7** (run the adversarial counter-prompt, not just cite) — at §3 Candidate E (native CC tool), actually probe for `WorktreeCreate` / `EnterWorktree` / `--worktree` flag existence; don't just say «may exist». 
+- **T7** (run the adversarial counter-prompt, not just cite) — at §3 Candidate E (native CC tool), actually probe for `WorktreeCreate` / `EnterWorktree` / `--worktree` flag existence; don't just say «may exist».
 - **T11** (BFR §3 6-layer applied) — before declaring «build new daemon» (Candidate F) or «build helper script» (Candidate C), full BFR sweep over upstream alternatives (aif-handoff, Superpowers, OhMyOpencode worktree-management, etc).
 - **T12** (web-search at moment, not from memory) — for «no native CC tool exists» negative-existence claim (Candidate E falsifier), run actual probe + WebSearch + WebFetch of CC docs.
 - **T13** (verify ADOPTED items have upstream evidence) — Candidate B claim «aligned with Superpowers» must cite specific Superpowers SKILL line (already done in current SKILL.md row 3, but the citation may not transfer if row 3 narrative changes).
@@ -268,12 +268,12 @@ This kickoff is a discipline-bearing artefact — must comply with all active di
 
 Sweep of existing artefacts under this R-phase's scope — what does it interact with, what might it silently supersede?
 
-- **[meta-orchestrator SKILL.md §3 + §4](../../../.claude/skills/meta-orchestrator/SKILL.md)** — current dispatch instructions generator; whichever candidate wins, I-phase will edit §3/§4 generation guidance. **NOT silently superseded** — explicitly the I-phase target. Worker should NOT edit these in R-phase.
-- **[meta-kickoff.template.md §4 `{{DISPATCH_INSTRUCTIONS}}`](../../../.claude/skills/meta-orchestrator/templates/meta-kickoff.template.md)** — placeholder for per-sub-wave dispatch text; same I-phase target as SKILL.md §3/§4. Verify in §6 source-of-truth check.
-- **[meta-kickoff.template.md §4a Worker worktree setup](../../../.claude/skills/meta-orchestrator/templates/meta-kickoff.template.md)** — existing `node_modules` symlink helper that's already idempotent; some candidates (A, C, F) preserve and reuse this, others (B, D, E) make it redundant. Backward-compatible inclusion.
-- **[placeholders.md `{{DISPATCH_INSTRUCTIONS}}` description](../../../.claude/skills/meta-orchestrator/references/placeholders.md)** — currently «name the worktree command (Mode B) or inline Agent dispatch (Mode A)»; description may need update if winning candidate changes generation shape.
+- **[meta-orchestrator SKILL.md §3 + §4](../../../.claude/skills/pipeline/SKILL.md)** — current dispatch instructions generator; whichever candidate wins, I-phase will edit §3/§4 generation guidance. **NOT silently superseded** — explicitly the I-phase target. Worker should NOT edit these in R-phase.
+- **[meta-kickoff.template.md §4 `{{DISPATCH_INSTRUCTIONS}}`](../../../.claude/skills/pipeline/templates/meta-kickoff.template.md)** — placeholder for per-sub-wave dispatch text; same I-phase target as SKILL.md §3/§4. Verify in §6 source-of-truth check.
+- **[meta-kickoff.template.md §4a Worker worktree setup](../../../.claude/skills/pipeline/templates/meta-kickoff.template.md)** — existing `node_modules` symlink helper that's already idempotent; some candidates (A, C, F) preserve and reuse this, others (B, D, E) make it redundant. Backward-compatible inclusion.
+- **[placeholders.md `{{DISPATCH_INSTRUCTIONS}}` description](../../../.claude/skills/pipeline/references/placeholders.md)** — currently «name the worktree command (Mode B) or inline Agent dispatch (Mode A)»; description may need update if winning candidate changes generation shape.
 - **[aif-handoff-as-runtime-bridge kickoff §3 Variant B](../aif-handoff-as-runtime-bridge/kickoff.md)** — overlaps with Candidate F. Coordination: if aif-handoff R-phase lands first with Variant B verdict, this R-phase's Candidate F evaluates that verdict; otherwise this R-phase proposes joint approach. Backward-check: do NOT duplicate work.
-- **[PR #265 research-patch](../../../docs/meta-factory/research-patches/2026-05-29-skill-row3-vs-worker-dispatch-antipattern.md)** — sibling drift R-phase; its Candidate C verdict («`isolation:"worktree"` carve-out») was applied + reverted. This R-phase supersedes the operational direction of PR #265's verdict (channel selection is downstream of worktree automation choice). PR #265's drift identification stands.
+- **PR #265 research-patch** — sibling drift R-phase; its Candidate C verdict («`isolation:"worktree"` carve-out») was applied + reverted. This R-phase supersedes the operational direction of PR #265's verdict (channel selection is downstream of worktree automation choice). PR #265's drift identification stands.
 - **[3 hand-crafted paste-prompts (2026-05-29 session, not committed)](https://github.com/Yhooi2/rules-as-tests-aif/pull/265)** — empirical exemplar of Candidate A; reference for I-phase if A wins.
 - **`.claude/hooks/*.sh` existing hooks** — none currently automate worktree; Candidate D would add a new one. Backward-check: review hook-overlap per CC convention if D wins.
 - **`packages/core/principles/*.test.ts`** — no current principle test gates worktree-automation discipline; Candidate D or F might warrant a new principle test post-I-phase if winning candidate becomes a recurring failure mode. Surface as future work.
@@ -336,7 +336,7 @@ pwd && git branch --show-current
 
 Then in fresh CC tab opened in that dir, paste:
 
-```
+```text
 /orchestrator dispatch-worktree-automation §9 — Mode A inline R-phase per kickoff at .claude/orchestrator-prompts/dispatch-worktree-automation/kickoff.md. Output: docs/meta-factory/research-patches/<DATE>-dispatch-worktree-automation.md. Active T-traps per §5: T1, T3, T7, T11, T12, T13, T15, T16, T19, T20, T-DWA-A, T-DWA-B, T-DWA-C. PR base: staging. §1.7 PR-body mandate per §4b template applies. CI gate: research-patches/** NOT in §1.7 trigger paths — pre-flight grep is only programmatic check.
 ```
 
@@ -364,8 +364,8 @@ Then in fresh CC tab opened in that dir, paste:
 - [docs/meta-factory/research-patches/2026-05-17-cross-worktree-coord-doc-sync.md](../../../docs/meta-factory/research-patches/2026-05-17-cross-worktree-coord-doc-sync.md) — orthogonal R-phase on gitignored coord-doc sync across worktrees.
 - [.claude/rules/parallel-subwave-isolation.md §4 N7](../../../.claude/rules/parallel-subwave-isolation.md) — REFERENCE to Superpowers `using-git-worktrees` (relevant to Candidates B + E).
 - [.claude/rules/build-first-reuse-default.md](../../../.claude/rules/build-first-reuse-default.md) — BFR discipline; Candidates C + F (BUILDs) must clear 6-layer sweep per §3.
-- [/tmp/skill-edit.py](file:///tmp/skill-edit.py) — applied + reverted 2026-05-29; precedent for I-phase recipe-script pattern.
-- [/tmp/skill-revert.py](file:///tmp/skill-revert.py) — applied 2026-05-29 to clean working tree before this kickoff.
+- `/tmp/skill-edit.py` — applied + reverted 2026-05-29; precedent for I-phase recipe-script pattern.
+- `/tmp/skill-revert.py` — applied 2026-05-29 to clean working tree before this kickoff.
 - 3 hand-crafted paste-prompts (Stage 4 / SW-A / SW-B, 2026-05-29 session, not committed) — empirical exemplar of Candidate A.
 
 Prior-art: prior-art-evaluations.md#65 (`using-git-worktrees`, REFERENCE — Red Flag #1 «use the native primitive» is direct input to Candidates B + E). prior-art-evaluations.md#64 (`subagent-driven-development`, ADOPT VOCABULARY — input to Candidate B re-evaluation).

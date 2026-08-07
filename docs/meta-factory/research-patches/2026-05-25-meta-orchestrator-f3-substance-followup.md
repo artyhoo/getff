@@ -100,7 +100,7 @@ The helper change (B5 logic) is a backward-compatible fix — the fallback path 
 
 - [docs/meta-factory/research-patches/2026-05-24-meta-orchestrator-refactor-f3-scope.md §1.5 Item 10](2026-05-24-meta-orchestrator-refactor-f3-scope.md) — G binding spec Item 10, now updated with follow-up reference line.
 - [docs/meta-factory/research-patches/2026-05-24-meta-orchestrator-refactor-design.md](2026-05-24-meta-orchestrator-refactor-design.md) — G primary research patch; context for the full F.3 refactor.
-- [`.claude/skills/meta-orchestrator/helpers/launch-table-generator.sh`](../../../.claude/skills/meta-orchestrator/helpers/launch-table-generator.sh) — fixed helper (authoring copy).
-- [`skills/meta-orchestrator/helpers/launch-table-generator.sh`](../../../.claude/skills/meta-orchestrator/helpers/launch-table-generator.sh) — fixed helper (consumer mirror).
+- [`.claude/skills/meta-orchestrator/helpers/launch-table-generator.sh`](../../../.claude/skills/pipeline/helpers/launch-table-generator.sh) — fixed helper (authoring copy).
+- [`skills/meta-orchestrator/helpers/launch-table-generator.sh`](../../../.claude/skills/pipeline/helpers/launch-table-generator.sh) — fixed helper (consumer mirror).
 - [`.claude/rules/phase-research-coverage.md §1.7`](../../../.claude/rules/phase-research-coverage.md) — Falsifier → binding criterion discipline source.
 - [`.claude/rules/ai-laziness-traps.md §2`](../../../.claude/rules/ai-laziness-traps.md) — T3/T4/T7/T15/T17/T19 traps active for this kickoff; T-F3-FU-A domain-specific trap codified in §1.4 above.
