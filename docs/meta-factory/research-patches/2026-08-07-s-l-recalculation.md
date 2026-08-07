@@ -74,7 +74,7 @@ outlier rather than explaining it:
 | bytes | 2.371 – 3.317 | **1.40×** |
 | codepoints | 2.340 – 2.649 | **1.13×** |
 
-**Superseded by name:** [`…-s-h-p14-context-addendum.md:60-63`](2026-08-07-s-h-p14-context-addendum.md)
+**Superseded by name:** [`…-s-h-p14-context-addendum.md:55-57`](2026-08-07-s-h-p14-context-addendum.md)
 — the sentence «the outlier (3.32) is the operator-global `CLAUDE.md` … corroborates rather than
 undermines the reading». The *figure* stands (3.317 B/tok, reproduced). Its *reading* does not:
 in the unit that removes storage encoding, that file is not an outlier at all.
@@ -94,7 +94,8 @@ compared against `/context`'s per-entry token sum):
 > **Row 1 numerator/denominator (T-SL-B, cold-audit finding — full record in §6).** The 7,535
 > tokens are the *billed delta*, covering the stdout (13,450) **and** the 379-cp command block
 > that produced it. An earlier draft paired that count with the stdout alone: 13,829 / 7,535 =
-> **1.835** is the same-population figure.
+> **1.835** is the same-population figure. (5-C prints **13,827** for the same delta — it also
+> nets the seats' 4-char prompt difference and 2-char hook differences; both round to 1.835.)
 
 **Operative bands — wider than S-H's published 2.37-3.32 in both units: bytes 1.835 – 3.416**
 (1.86×), **codepoints 1.835 – 3.128** (1.70×).
@@ -139,7 +140,7 @@ consumers at `:440`, `:441`, `:446`, `:457`, `:478`. No site was added or moved.
 
 | site | treatment | why |
 |---|---|---|
-| `scripts/measure-turn-attribution.sh:61` + 5 consumers | **explicit band + direction of error** (§1.5) — NOT a constant swap | its inputs are `wc -c` byte counts of hook stdout; no per-content channel exists inside the script, so §1.1's escape hatch applies in its band form |
+| `scripts/measure-turn-attribution.sh:61` + 5 consumers | **explicit band + direction of error** (§1.6) — NOT a constant swap | its inputs are `wc -c` byte counts of hook stdout; no per-content channel exists inside the script, so §1.1's escape hatch applies in its band form |
 | `…-p3d-p11.md:482` (tolerance claim) | **conclusion survives, justification corrected here** | a ~2% spread is inside 1.835-3.416 either way; the sentence cites a falsified constant as its warrant |
 | `…-p3d-p11.md:536` (prices its own always-on cost) | **figure moves; superseded here by band** | `wc -c ÷ 4 B/tok × 23.7` → dividing by 4 when the true divisor is 1.835-3.416 makes the result **UNDERSTATED by 1.17-2.18×**. (The site is hypothetical either way: it prices what the file *would* cost if resident, and states it carries no `paths:` frontmatter and is in no resident set.) |
 
@@ -255,11 +256,12 @@ comparable to the other. This is §1.3's rule applied to this patch's own number
 
 **It is the same content.** Two independent identities:
 
-```console
-$ # /context's own Skills table, summed
-entries=69  sum=8870 tokens          # reported category: 8.9k
-$ # the attachment
-grep -c '^- ' skill_listing.content  # 69
+Two commands, output quoted as a **digest** (the raw forms are an awk sum over the `/context`
+Skills table and a `grep -c` over the extracted attachment):
+
+```text
+/context Skills table, summed :  entries=69   sum=8870 tokens    (reported category: 8.9k)
+skill_listing attachment      :  entries=69
 ```
 
 - **69 entries in both channels**, exactly.
@@ -518,7 +520,7 @@ bounded/absent, not clean), **T20** (§3.1 quotes evidence and states its falsif
 `packages/` file — not a capability commit.
 
 **T-SL-A compliance, self-checked.** No site receives a substituted constant. The script takes a
-band with a stated direction of error (§1.5); the two merged-patch sites are annotated, not
+band with a stated direction of error (§1.6); the two merged-patch sites are annotated, not
 edited; the ADR-3 numerator is a range, not a point. A diff whose only change was `4` → `2.62`
 would fail this patch's own §1.4 table.
 
@@ -564,7 +566,7 @@ GAP-FOUND). In-scope surfaces, handled here:
   **GAP-FOUND, superseded here by name:** its §F3 labels a codepoint measurement «B/token»
   (§1.1). Its 1.835 figure survives unchanged — that block is pure ASCII, verified.
 - [`scripts/measure-turn-attribution.sh:61`](../../../scripts/measure-turn-attribution.sh) —
-  **GAP-FOUND, fixed** (§1.5). Constant → band; five consumers state direction of error.
+  **GAP-FOUND, fixed** (§1.6). Constant → band; five consumers state direction of error.
 - [`docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md`](../../superpowers/specs/2026-08-06-pipeline-token-economy-design.md)
   §1.5 + P13 — **GAP-FOUND, annotated** (§5).
 - `.claude/orchestrator-prompts/arch-v2-context-pipeline/calibration.md` — **SWEPT-CLEAN for this

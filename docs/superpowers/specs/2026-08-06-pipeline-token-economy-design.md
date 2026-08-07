@@ -148,8 +148,9 @@ its own protocol.
 > list. S-D′ must re-derive its ordering, not multiply the P14 list through by a correction factor
 > (a uniform factor preserves order by construction and would hide exactly this effect).
 > **(b) `/context` cannot be the ordering instrument on its own.** It under-reports: ≥15,258
-> codepoints of every-seat harness-injected payload — both hook injects, `deferred_tools_delta`,
-> `mcp_instructions_delta`, the built-in agent descriptions — are billed and appear in **no**
+> codepoints of every-seat harness-injected payload — one of the two hook injects (the other is
+> `Messages`, bounded but not identified), `deferred_tools_delta`, `mcp_instructions_delta`, the
+> built-in agent descriptions and the UserPromptSubmit hook — are billed and appear in **no**
 > `/context` category, so a `/context`-ordered list ranks those levers at zero. Conversely
 > `/context`'s `Skills` category **is** the `skill_listing` attachment (n=69 both channels), which
 > makes it the largest single priced harness block and the top lever under either channel.
