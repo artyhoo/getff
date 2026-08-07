@@ -1,7 +1,7 @@
 // packages/runtime-bridge/test/harvest.test.ts
 import { describe, it, expect, vi } from 'vitest';
-import { harvestTask, scanParkSignals, extractAffectedFiles, parseTrackedDirtyFiles, parseWorktreeList, resolveWorkDir } from '../src/harvest.js';
-import type { HarvestDeps } from '../src/harvest.js';
+import { harvestTask, scanParkSignals, extractAffectedFiles, parseTrackedDirtyFiles, parseWorktreeList, resolveWorkDir, bundleFileName, channelAFallbackCommands } from '../src/harvest.js';
+import type { ChannelAContext, HarvestDeps } from '../src/harvest.js';
 
 /** A deps double that records call order; each fn resolves successfully by default.
  *  Default `hasUncommittedChanges` → false (the normal approve_done path, where
@@ -508,6 +508,117 @@ describe('resolveWorkDir — which checkout the guards measure (2026-08-07 defec
     const res = resolveWorkDir({ branch: 'feature/unknown', repoRoot: ROOT, worktrees: new Map() });
 
     expect(res).toEqual({ path: ROOT, source: 'repo-root' });
+  });
+});
+
+describe('bundleFileName — Channel-A transport basename (one path segment, always)', () => {
+  it('positive: a slashed branch name collapses to a SINGLE path segment', () => {
+    // `/tmp/${name}` must not become `/tmp/feature/thing-abc.bundle` (no such directory).
+    const name = bundleFileName('feature/thing-abc', 't1');
+
+    expect(name).toBe('aif-harvest-feature-thing-abc-t1.bundle');
+    expect(name).not.toContain('/');
+  });
+
+  it('positive: deterministic, and carries both the branch and the task id', () => {
+    expect(bundleFileName('feature/x', 'abc123')).toBe(bundleFileName('feature/x', 'abc123'));
+    expect(bundleFileName('feature/x', 'abc123')).toContain('abc123');
+    // Two tasks on the same branch never collide on one temp file.
+    expect(bundleFileName('feature/x', 'a')).not.toBe(bundleFileName('feature/x', 'b'));
+  });
+
+  it('paired-negative: a traversal-shaped branch name cannot escape the temp dir', () => {
+    // The name is joined onto /tmp (container) and os.tmpdir() (host) unchecked, so neither
+    // a separator nor a `..` run may survive.
+    const name = bundleFileName('../../etc/passwd', '../..');
+
+    expect(name).not.toContain('/');
+    expect(name).not.toContain('..');
+  });
+
+  it('paired-negative: an all-separator branch/id still yields a usable basename (never empty)', () => {
+    const name = bundleFileName('///', '///');
+
+    expect(name).toBe('aif-harvest-branch-task.bundle');
+    expect(name.startsWith('aif-harvest-')).toBe(true);
+  });
+});
+
+describe('channelAFallbackCommands — the printed manual egress IS the live channel', () => {
+  // The 2026-08-07 defect: harvest's automated push leg AND its printed fallback both aimed
+  // at `docker exec … git push origin <branch>`. The container has no route to
+  // github.com:443 (measured on aif-handoff-agent-1: CONNECT FAILED in 0.21s), so the leg
+  // always failed and the fallback then pointed the operator back at the same dead channel.
+  const CTX: ChannelAContext = {
+    container: 'aif-handoff-agent-1',
+    workDir: '/home/www/rules-as-tests-aif-feature-thing-abc-t1',
+    branch: 'feature/thing-abc',
+    baseRef: 'origin/staging',
+    base: 'staging',
+    hostRepo: '/Users/art/code/rules-as-tests-aif',
+    containerBundlePath: '/tmp/aif-harvest-feature-thing-abc-t1.bundle',
+    hostBundlePath: '/tmp/aif-harvest-feature-thing-abc-t1.bundle',
+    title: 'feat: thing',
+    autoMerge: true,
+  };
+
+  it('positive: the four transport steps appear in order (bundle → docker cp → host fetch → host push)', () => {
+    const cmds = channelAFallbackCommands(CTX);
+    const idx = (re: RegExp): number => cmds.findIndex((c) => re.test(c));
+
+    const bundle = idx(/^docker exec .* bundle create /);
+    const cp = idx(/^docker cp /);
+    const fetch = idx(/^git -C \/Users\/art\/code\/rules-as-tests-aif fetch /);
+    const push = idx(/^git -C \/Users\/art\/code\/rules-as-tests-aif push origin /);
+
+    expect(bundle).toBeGreaterThanOrEqual(0);
+    expect(cp).toBeGreaterThan(bundle);
+    expect(fetch).toBeGreaterThan(cp);
+    expect(push).toBeGreaterThan(fetch);
+  });
+
+  it('positive: the push lands on the branch ref from the HOST and names the gate it runs', () => {
+    const push = channelAFallbackCommands(CTX).find((c) => /push origin/.test(c)) ?? '';
+
+    expect(push).toContain('FETCH_HEAD:refs/heads/feature/thing-abc');
+    expect(push).toContain('.husky/pre-push');
+  });
+
+  it('positive: the container-side read carries safe.directory (docker exec runs as root)', () => {
+    const bundle = channelAFallbackCommands(CTX).find((c) => /bundle create/.test(c)) ?? '';
+
+    expect(bundle).toContain('-c safe.directory=/home/www/rules-as-tests-aif-feature-thing-abc-t1');
+    expect(bundle).toContain('origin/staging..feature/thing-abc');
+  });
+
+  it('positive: the optional rebase stays operator-side and is named (/harvest §1 step 4)', () => {
+    // Not automated: a rebase needs a working tree and can conflict — judgment, not a
+    // deterministic leg. It must still be OFFERED, or the fallback silently drops a step of
+    // the documented channel.
+    expect(channelAFallbackCommands(CTX).some((c) => /rebase onto live origin\/staging/.test(c))).toBe(true);
+  });
+
+  it('positive: PR + auto-merge close the procedure; autoMerge:false drops only the merge line', () => {
+    expect(channelAFallbackCommands(CTX).some((c) => /^gh pr merge /.test(c))).toBe(true);
+
+    const noMerge = channelAFallbackCommands({ ...CTX, autoMerge: false });
+
+    expect(noMerge.some((c) => /^gh pr create /.test(c))).toBe(true);
+    expect(noMerge.some((c) => /^gh pr merge /.test(c))).toBe(false);
+  });
+
+  it('paired-negative: NEVER prints a container-side git push (the dead channel — the whole defect)', () => {
+    for (const cmds of [channelAFallbackCommands(CTX), channelAFallbackCommands({ ...CTX, autoMerge: false })]) {
+      expect(cmds.some((c) => /docker exec .*\bpush\b/.test(c))).toBe(false);
+      expect(cmds.some((c) => new RegExp(`-C ${CTX.workDir} push`).test(c))).toBe(false);
+    }
+  });
+
+  it('paired-negative: never routes the operator to the Git-Data-API break-glass by default', () => {
+    // egress-no-api-bypass.md §1: the API land skips .husky/pre-push by construction, so it
+    // is the channel of LAST resort — reached only when host transport is also dead, never
+    // suggested by the default fallback.
+    expect(channelAFallbackCommands(CTX).some((c) => /harvest-via-api|gh api/.test(c))).toBe(false);
   });
 });
 
