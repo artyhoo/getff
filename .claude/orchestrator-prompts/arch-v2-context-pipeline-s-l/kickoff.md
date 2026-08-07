@@ -20,10 +20,16 @@
 executed on the HOST. **Ordering constraint — binding:** this stage must **merge before S-D′
 dispatches**. S-D′ ranks harness-side levers by the P14 price list
 ([spec `:363`, row P13](../../../docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md));
-a falsified conversion falsifies the *ranking*, which is S-D′'s entire product. The deadline is
-real but not currently the binding constraint: S-D′ is blocked on the two-gate `S-E + S-H merged`
-and S-E is unmerged. **Re-verify that at dispatch** — if S-E has merged, S-L is on the critical
-path.
+a falsified conversion falsifies the *ranking*, which is S-D′'s entire product.
+
+**The deadline is LIVE as of 2026-08-07 — this changed mid-authoring.** An earlier revision of
+this kickoff said the deadline was «real but not currently binding, since S-D′ is blocked on the
+two-gate `S-E + S-H merged` and S-E is unmerged». Both gates are now satisfied — S-H merged in
+#1239 (2026-08-07T00:06Z) and **S-E merged in #1237 (2026-08-07T09:39Z)** — so S-D′ is
+dispatchable today and S-L is on the critical path. Verified with
+`gh pr view 1237 --json state,mergedAt`, not from the umbrella's prose, which still described the
+pre-merge state. **Re-verify at dispatch anyway**; the point of this paragraph is that the answer
+moved once already inside a single working session.
 
 ## §0 The prerequisite is already met — read it, do not re-run it blind
 
