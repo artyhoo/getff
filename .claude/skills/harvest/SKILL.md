@@ -1,6 +1,6 @@
 ---
 name: harvest
-description: Use when harvesting a finished aif-agent branch into a PR after acceptance — egress the committed work (push or Git-Data-API land), reconcile cross-stage shared-file collisions, run the local CI-equivalent sweep before push, then cold-review + open the PR. Standalone companion to /dispatcher §2.4 (which runs the same sweep inside its loop). Invoked explicitly via /harvest only (disable-model-invocation:true). Triggers: harvest, harvest aif branch, egress aif task, push harvested work, post-acceptance harvest.
+description: Use when harvesting a finished aif-agent branch into a PR after acceptance. Triggers: harvest, harvest aif branch, egress aif task, push harvested work, post-acceptance harvest. Invoked explicitly via /harvest only (disable-model-invocation:true).
 arguments: [taskId]
 argument-hint: "[aif-taskId-or-branch]"
 disable-model-invocation: true
@@ -38,7 +38,7 @@ allowed-tools:
 
 Harvest the **committed** in-scope work only. aif worktrees arrive polluted (out-of-scope dirty files) on a stale base — the real work is in the commits, not the working tree.
 
-1. **Inspect first.** `docker exec <agent> git -C <worktree> status --porcelain` + `git log origin/staging..HEAD`. Push the committed HEAD; never `git add -A` (gotcha 1).
+1. **Inspect first — in the TASK's worktree, never the base clone.** `docker exec <agent> git -C <worktree> status --porcelain` + `git log origin/staging..HEAD`. Push the committed HEAD; never `git add -A` (gotcha 1). aif runs each task in its own worktree (`<root>-<branch-slug>-<taskId>`, also on the task's `worktreePath`); the base clone sits on `staging` with permanent `?? .claude/worktrees/` residue, so measuring it fabricates the step-2 `0-ahead + dirty` shape and strands the task on a bogus HOLD (2026-08-07 defect). `harvest.ts` now resolves the worktree itself (git's worktree list → `worktreePath` → `--work-dir`) and refuses to run the guards unless that checkout's HEAD **is** the task branch.
 2. **0-commits-ahead + dirty tree** is ambiguous (false-done / parked-partial vs genuine rework). `harvest.ts` returns `needsConfirm` and exits non-zero — inspect the park signals, pass `--confirm-rework` ONLY for a genuine complete rework (false-done guard, [2026-06-23 spec](../../../docs/superpowers/specs/2026-06-23-aif-harvest-false-done-guard-design.md)).
    **≥1-commit-ahead + TRACKED files modified** is the D12 shape (aif review gate passed `done` with the deliverable partly uncommitted — 2×2026-07-25): `harvest.ts` HOLDs (`needsResidueConfirm`, exit 2). Preferred fix: a `request_changes` round so the worker commits its own work; `--confirm-dirty-residue` ships the commits and abandons the modifications (untracked-only dirt like `?? .claude/worktrees/` never holds).
 3. **Reconstruct branch-behind EDITED files.** The container forked at an old base; a full override of an EDITED tracked file reverts staging changes it never saw. For each MODIFIED (not new) path, diff against `origin/staging` and keep it `+N/−0` (pure addition) — exclude any file showing `−` lines (gotcha 3 / 7c).
@@ -73,7 +73,9 @@ The sweep auto-scopes via `git merge-base`, escalates to `--full` on any unmappe
    [cold-seat-economy.md §3](../../rules/cold-seat-economy.md) reachable; the follow-up default
    is a fresh narrow seat): inputs = the
    stage kickoff/spec path + the same 3-dot diff, current HEAD sha,
-   round number — nothing else (no chat, no logs). `REVISE`/`STOP` → do NOT open the PR;
+   round number — nothing else (no chat, no logs).
+   **Default format: inputs-inlined** (spec P7, [cold-seat-economy.md §3](../../rules/cold-seat-economy.md) row 4): inline the kickoff scope sections + diff into the dispatch prompt (~85k tokens / 0 tool calls vs ~177k tokens / 7 tool calls for file-reading — row 4 vs row 3). File-reading is the **fallback** when content size prohibits inlining. **Promotion trigger** (cross-stage boundary): 3 incidents of >100k-token file-reading seats → a mechanical check in **S-B's station** (S-B owns the bottom-seat check station; not implemented here).
+   `REVISE`/`STOP` → do NOT open the PR;
    factory task → route the findings per [/dispatcher §2.4 rework loop](../dispatcher/SKILL.md),
    in-session work → fix and re-audit (Round 2); cap 2 rounds → escalate to the operator.
    `KICKOFF-AMBIGUOUS` → escalate to `/arch` §4 office hours without burning a round.
@@ -90,6 +92,17 @@ The sweep auto-scopes via `git merge-base`, escalates to `--full` on any unmappe
    incremental diff + scope sections + that watch-list (resume the same auditor by name only
    when the watch-list cannot carry the substance) — never a full re-audit, never a
    self-issued verdict.
+   <!-- re-write-trigger embed (spec-of: .claude/rules/cold-seat-economy.md §3) -->
+   **Re-write-trigger economy** ([cold-seat-economy.md §3](../../rules/cold-seat-economy.md)): when
+   the seat has reached its natural end, the cached-prefix cost discipline applies —
+   - prefer **artifact handoff** to a fresh seat over `/compact` — a fresh seat billed at read
+     price on a narrow input is cheaper than re-billing the cached prefix at write price;
+   - do **not** stretch a seat across the 1-hour TTL idle gap — the cached prefix expires; the
+     next turn re-bills the whole prefix at write price;
+   - avoid mid-session **model / effort switches** and **MCP toggles** on a fat context — each
+     invalidates the cached prefix and re-bills it at write price (pending S-H P3d verification
+     of the config-change class — rev 4 moved P3d there; same handoff rule applies until
+     verified otherwise).
 3. Assemble a **§1.7-compliant PR body** (Forward/Backward sections, each with file:line) **plus the acceptance-package sections (Provenance / Review findings / Fidelity verdict / Parked questions — spec D4)**. Open the PR with base `staging` (`gh pr create --base staging`), optionally `gh pr merge --auto --squash` per the dispatcher convention.
 4. Confirm the PR diff is exactly the intended files, **0 unintended deletions**, before merge.
 

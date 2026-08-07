@@ -5,7 +5,7 @@
 # >          packages/core/hooks/update-cache.test.ts. No principle test
 # >          gates compliance — the test gates the helper's own contract.
 # > Authoritative for: deterministic write of the `## Last invocation` section
-# >                    of .claude/orchestrator-prompts/_plan-cache.md.
+# >                    of <resolved-orch-home>/_plan-cache.md.
 # > NOT authoritative for: other cache sections — those are populated by direct
 # >                        Edit of the cache file before invoking this helper
 # >                        (round-3 scope reduction per umbrella §1.3 item 4).
@@ -32,7 +32,8 @@
 #   Pure-bash, deterministic, no paid LLM (no-paid-llm-in-ci.md §1 satisfied).
 #
 # Seams for testing (matches plan-currency-check.sh convention):
-#   MO_CACHE_FILE — override cache path (default: <REPO_ROOT>/.claude/orchestrator-prompts/_plan-cache.md)
+#   MO_CACHE_FILE — override cache path (default: <resolved-orch-home>/_plan-cache.md,
+#                   resolve_orch_home() — .claude/orchestrator-prompts | .ai-factory/orchestrator-prompts)
 #   REPO_ROOT     — override repo root (default: git rev-parse --show-toplevel)
 #   MO_GIT_HEAD   — override the git short-SHA captured into «Git HEAD» field (default: git rev-parse --short HEAD)
 #   MO_TIMESTAMP  — override the ISO 8601 UTC timestamp (default: date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -53,7 +54,7 @@ CACHE_FILE="${MO_CACHE_FILE:-$(resolve_orch_home)/_plan-cache.md}"
 TIMESTAMP="${MO_TIMESTAMP:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
 GIT_HEAD="${MO_GIT_HEAD:-$(git -C "${REPO_ROOT}" rev-parse --short HEAD 2>/dev/null || echo "unknown")}"
 
-# Ensure parent directory exists (it always should — .claude/orchestrator-prompts is in repo).
+# Ensure parent directory exists (it always should — the orchestration home is in repo).
 mkdir -p "$(dirname "${CACHE_FILE}")"
 
 write_initial_template() {

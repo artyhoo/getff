@@ -63,6 +63,8 @@ export function stackLabel(stack: Stack): string {
       return 'toolchain:python';
     case 'cargo':
       return 'toolchain:cargo';
+    case 'go':
+      return 'toolchain:go';
     case 'unknown':
       return 'js:unknown-default';
     default:
@@ -107,13 +109,14 @@ describe('G1 — Stack union stays compiler-enumerated (adapter-jig §3.7)', () 
   // compile-time half of the positive is `npm run typecheck` passing over the
   // total switch above)
   it('the exhaustive sentinel maps every Stack variant to a distinct explicit label', () => {
-    const variants: Stack[] = ['react-next', 'ts-server', 'python', 'cargo', 'unknown'];
+    const variants: Stack[] = ['react-next', 'ts-server', 'python', 'cargo', 'go', 'unknown'];
     const labels = variants.map((v) => stackLabel(v));
     expect(labels).toEqual([
       'js:react-next',
       'js:ts-server',
       'toolchain:python',
       'toolchain:cargo',
+      'toolchain:go',
       'js:unknown-default',
     ]);
     // All labels explicit and distinct — no two variants share a default path.

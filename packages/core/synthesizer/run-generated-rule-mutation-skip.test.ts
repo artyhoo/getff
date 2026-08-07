@@ -138,6 +138,42 @@ describe.skipIf(!PROBES_AVAILABLE)(
       expect(out).toContain('=== overall:');
     });
 
+    it('POSITIVE (probe liveness): a genuinely matching selector is TESTED, never skipped', () => {
+      // The arm above is satisfied by a skip — and a skip is what you get whether the
+      // selector honestly missed the AST *or* the probe never ran at all. Nothing here
+      // could tell those apart, so a dead probe reads as a green suite: every rule
+      // "correctly" skipped, forever.
+      //
+      // This arm removes that blind spot. The selector below provably matches its input
+      // (MemberExpression with object.name === 'localStorage'), so a live probe MUST
+      // reach the mutation loop. If it skips, the probe itself is broken.
+      //
+      // Concretely what this catches: the probe builds a flat config with no `files` key
+      // and calls linter.verify(..., { filename: 'probe.ts' }). ESLint 9 flat config only
+      // matches js/mjs/cjs by default, so a `.ts` filename matches NO config object —
+      // verify returns "No matching configuration found for probe.ts", _probe exits
+      // non-zero, and EVERY rule takes the `:182` selector-not-firing path. Same trap
+      // already documented and fixed in audit-self/check-fences-fire.sh:177-182.
+      const manifest = writeManifest({
+        'rule-live': {
+          check: {
+            type: 'declarative',
+            selector: "MemberExpression[object.name='localStorage']",
+          },
+          'negative-test': { input: ["localStorage.getItem('token');"] },
+        },
+      });
+      const { code, out } = runRunner(manifest);
+
+      // The defect signature, asserted directly: no skip, no not-fired warning.
+      expect(out, `runner output:\n${out}`).not.toContain('did NOT fire on negative-test input');
+      expect(out).not.toContain('skipped=1');
+      // Rule was actually measured, and the mutants died (attribute-value mutations
+      // stop matching `localStorage`), so the gate is green on its own merits.
+      expect(out).toContain('=== overall:');
+      expect(code, `runner output:\n${out}`).toBe(0);
+    });
+
     it('anti-scope guard: empty manifest (RULE_COUNT=0) still exits 0 honestly', () => {
       // §6 anti-scope: «Do NOT change the RULE_COUNT -eq 0 early-exit path (§1)».
       // That path is ALREADY HONEST — it claims nothing. Pins it in place: if a

@@ -139,18 +139,36 @@ describe('Case 1 — no-arg quiet skip (script lines 16-22)', () => {
 // ---------------------------------------------------------------------------
 describe('Case 2 — missing kickoff detection (script lines 26-29)', () => {
   it('POSITIVE: umbrella arg given, no kickoff.md → stdout contains "MISSING kickoff:", exit 0', () => {
-    // Targets script lines 26-29:
+    // Targets script lines 26-30:
     //   if [[ ! -f "${KICKOFF}" ]]; then
-    //     echo "MISSING kickoff: .claude/orchestrator-prompts/${UMBRELLA}/kickoff.md"
+    //     echo "MISSING kickoff: $(resolve_orch_home_rel)/${UMBRELLA}/kickoff.md"
     //     exit 0
     //   fi
+    // This sandbox has NO .claude/orchestrator-prompts (writeKickoff is not called), so
+    // resolve_orch_home() takes the CONSUMER branch and the message must name .ai-factory/.
+    // Before the orch-home-hardcode fix this arm asserted `.claude/…` — i.e. it pinned a
+    // message that named a directory the script had not looked in and that did not exist.
     const sandbox = makeSandbox();
     // No kickoff.md written for 'my-umbrella'
     const r = run(sandbox, 'my-umbrella');
     expect(r.status).toBe(0);
     expect(r.stdout).toContain(
+      'MISSING kickoff: .ai-factory/orchestrator-prompts/my-umbrella/kickoff.md',
+    );
+  });
+
+  it('POSITIVE (framework layout): message names .claude/ when that home exists', () => {
+    // Paired arm for the one above: the message must TRACK resolve_orch_home(), not be
+    // pinned to either literal. A sibling umbrella's kickoff makes .claude/orchestrator-prompts
+    // exist, flipping the resolver to the framework branch — while 'my-umbrella' stays absent.
+    const sandbox = makeSandbox();
+    writeKickoff(sandbox, 'other-umbrella', '# Other\n');
+    const r = run(sandbox, 'my-umbrella');
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain(
       'MISSING kickoff: .claude/orchestrator-prompts/my-umbrella/kickoff.md',
     );
+    expect(r.stdout).not.toContain('.ai-factory');
   });
 
   it('NEGATIVE: umbrella arg given and kickoff EXISTS → stdout does NOT contain "MISSING kickoff"', () => {

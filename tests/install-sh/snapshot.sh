@@ -50,13 +50,17 @@ compute_fingerprint() {
   # rules-lock.cargo.json (its `emittedAt` is a `date -u` timestamp — a per-run reproducibility
   # record, not a delivered config; the byte-stable config artefacts, clippy.toml / deny.toml /
   # Cargo.lints.toml / getff-cargo.yml, still fingerprint; gated by cargo-entry-lane.test.sh).
+  # The go lane's two non-deterministic outputs are excluded for the SAME reason (adapter-jig J3):
+  # the timestamped .getff-go-install.log audit trail, and rules-lock.go.json.
   find "$dir" -type f \
     -not -path '*/.git/*' \
     -not -path '*/node_modules/*' -not -name '*.tmp' \
     -not -name '.getff-python-install.log' \
     -not -name '.getff-cargo-install.log' \
+    -not -name '.getff-go-install.log' \
     -not -name 'rules-lock.cargo.json' \
     -not -name 'rules-lock.python.json' \
+    -not -name 'rules-lock.go.json' \
     | sort \
     | while IFS= read -r f; do
         local h
@@ -100,6 +104,14 @@ install_into_fixture() {
     ( cd "$fixture" && git init -q && git config user.email "test@test.com" && git config user.name "Test" ) >/dev/null 2>&1
     # Explicit `cargo` positional → the Rust toolchain lane (no package.json precondition, no prompt).
     ( cd "$fixture" && bash "$REPO_ROOT/install.sh" cargo --force < /dev/null ) >/dev/null 2>&1 || true
+    return 0
+  fi
+
+  if [ "$stack" = "go" ]; then
+    _seed_go_fixture "$fixture" "$mode_label"
+    ( cd "$fixture" && git init -q && git config user.email "test@test.com" && git config user.name "Test" ) >/dev/null 2>&1
+    # Explicit `go` positional → the Go toolchain lane (adapter-jig J3; no package.json precondition, no prompt).
+    ( cd "$fixture" && bash "$REPO_ROOT/install.sh" go --force < /dev/null ) >/dev/null 2>&1 || true
     return 0
   fi
 
@@ -200,6 +212,35 @@ EOF
   esac
 }
 
+# _seed_go_fixture <fixture_dir> <mode_label>
+# Go-lane seeding (adapter-jig J3). Every variant carries a go.mod (the lane's detect signal + a
+# repo a real Go consumer would have) and NO package.json/pyproject.toml/Cargo.toml:
+#   greenfield            — bare go.mod → fresh whole-file copies of .golangci.yml/getff-go.yml (cell i).
+#   brownfield-golangci   — + a consumer .golangci.yml (no getff header) → the golangci lane REFUSES,
+#                           ships getff-golangci.yml, leaves the consumer .golangci.yml untouched (cell ii).
+_seed_go_fixture() {
+  local fixture="$1"
+  local mode_label="$2"
+
+  cat > "$fixture/go.mod" <<'EOF'
+module example.com/brownfield-go-consumer
+
+go 1.22
+EOF
+
+  case "$mode_label" in
+    brownfield-golangci)
+      # Consumer-authored .golangci.yml (no getff header) → cell (ii) REFUSE.
+      cat > "$fixture/.golangci.yml" <<'EOF'
+linters:
+  disable-all: true
+  enable:
+    - errcheck
+EOF
+      ;;
+  esac
+}
+
 # run_one_capture <stack> <mode_label>  (mode_label = greenfield | brownfield)
 run_one_capture() {
   local stack="$1"
@@ -261,6 +302,7 @@ STACKS=(ts-server react-next react-spa react-native)
 MODES=(greenfield brownfield)
 PYTHON_MODES=(greenfield brownfield-ruff brownfield-sgconfig)
 CARGO_MODES=(greenfield brownfield-clippy)
+GO_MODES=(greenfield brownfield-golangci)
 
 OVERALL_PASS=0
 OVERALL_FAIL=0
@@ -312,9 +354,22 @@ for mode_label in "${CARGO_MODES[@]}"; do
   fi
 done
 
+# ── Go toolchain row (adapter-jig J3 — own seeding + collision-cell variant) ──
+for mode_label in "${GO_MODES[@]}"; do
+  if [ "$MODE" = "capture" ]; then
+    run_one_capture "go" "$mode_label"
+  else
+    if run_one_compare "go" "$mode_label"; then
+      OVERALL_PASS=$((OVERALL_PASS + 1))
+    else
+      OVERALL_FAIL=$((OVERALL_FAIL + 1))
+    fi
+  fi
+done
+
 echo ""
 if [ "$MODE" = "capture" ]; then
-  echo "✅ Baselines captured: 4 npm stacks × {greenfield,brownfield} + python × {greenfield,brownfield-ruff,brownfield-sgconfig} + cargo × {greenfield,brownfield-clippy}"
+  echo "✅ Baselines captured: 4 npm stacks × {greenfield,brownfield} + python × {greenfield,brownfield-ruff,brownfield-sgconfig} + cargo × {greenfield,brownfield-clippy} + go × {greenfield,brownfield-golangci}"
   echo "   Location: $BASELINE_DIR/"
 else
   echo "Result: $OVERALL_PASS pass / $OVERALL_FAIL fail"

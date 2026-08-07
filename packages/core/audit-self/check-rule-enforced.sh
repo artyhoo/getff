@@ -69,7 +69,7 @@ EOF
 fi
 [ -f "$CFG" ] || { echo "check-rule-enforced: $CFG not found (run from the project root)" >&2; exit 2; }
 
-PRUNE=( -name node_modules -o -name dist -o -name coverage -o -name .stryker-tmp -o -name reports -o -name .next -o -name .git )
+PRUNE=( -name node_modules -o -name dist -o -name coverage -o -name .stryker-tmp -o -name reports -o -name .next -o -name .git -o -path '*/.claude/worktrees' )
 
 # C4 (GH #547 Point 2): honor a recorded R2 N/A decision through the SAME shared helper as
 # check-rule-globs.sh (two gates, one marker). The recheck is pure-bash (no eslint), so it short-

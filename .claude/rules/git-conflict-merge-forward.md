@@ -3,7 +3,7 @@
 <!-- channel: claude-md CLAUDE.md#merge-forward -->
 
 > **Class:** B — enforcement mechanism is the operator-global PreToolUse guard (`~/.claude/hooks/git-safety.sh` rebase/force-push arm — fires at the moment the agent types the dangerous command) + the always-on [CLAUDE.md `Harness gates`](../../CLAUDE.md) pointer (the in-repo channel this marker declares). Class A (CI principle test) is **structurally unreachable**: the violation is an agent-session *command choice* (`git rebase` + force-push), invisible to repo CI by construction — by the time anything reaches CI the push either succeeded (plain) or was already classifier-blocked. Same out-of-repo ceiling rationale as [memory-codification.md §1](memory-codification.md). Promotion ceiling = B; §6.
-> **Fires:** a PR turns CONFLICTING (`mergeable_state: dirty`) because the base branch moved ahead; any urge to `git rebase` and/or `git push --force*` a published PR branch.
+> **Fires:** a CONFLICTING PR (`mergeable_state: dirty`) or any `git rebase` / `git push --force*` urge on a published branch.
 > **Authoritative for:** the merge-forward discipline for un-conflicting a published PR branch — §1 the rule, §2 the verified recipe, §3 why rebase+force is a dead end for agents, §4 generated-vs-semantic conflict triage, §5 anti-patterns, §6 promotion/retirement.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). `git-safety.sh` implementation — operator-owned global file outside the repo. Promote staging→main mechanics and other push gates — see [CLAUDE.md `Harness gates`](../../CLAUDE.md).
 
@@ -36,6 +36,12 @@ MERGE-FORWARD (PR CONFLICTING because base moved):
 ```
 
 Step 9 is the safety interlock: it proves the push is a fast-forward (remote tip is an ancestor of what you push), i.e. no history was rewritten and no force flag can be needed.
+
+**Trailer-gate interaction (range fix shipped 2026-08-08; incident 2026-08-07, PRs #1269/#1270):** step 10's plain push used to fail the pre-push `§7 Prior-art` / `§1.7` gates on *staging's own squash commits* swept in by step 3 — the hook's range was a bare `remote_sha..local_sha`, and staging squash commits routinely lack trailers (squash-trailer-loss; the server-side PR-body gate #1098 covered them at merge). Fixed at range level: the TS core scopes the gated set to `rev-list remote_sha..local_sha --not <resolved-trunk>` (`packages/core/hooks/pre-push.ts` `resolveBase` → `getCommits`), and the bash fallback additionally skips merge commits (`--no-merges` — its reduced PRESENCE check would otherwise flag the step-7 merge commit, which the TS core never flags). Consequences for this recipe:
+
+- No `PREPUSH_UPSTREAM_REF` override is needed (that was the pre-fix workaround).
+- The exclusion reads the **local** `origin/staging` tracking ref — step 1's `git fetch origin staging` is what keeps it current; do not skip it.
+- Commits the branch itself introduces stay fully gated — paired-negative: `tests/hooks/prepush-merge-forward-range.test.sh` (CI: audit-self.yml `principles-meta-tests`).
 
 ## §3 Why rebase + force is a dead end for agents
 

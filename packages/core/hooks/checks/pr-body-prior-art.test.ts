@@ -36,6 +36,7 @@ function fakeGit(overrides: Partial<GitProvider> = {}): GitProvider {
     authorDate: () => '',
     commitSubject: () => '',
     diffForPaths: () => '',
+    blobDuplicatedInTree: () => false,
     ...overrides,
   };
 }

@@ -5,15 +5,9 @@ This file is auto-loaded by Claude Code when sessions run inside this repo.
 > **Authoritative for:** AI-tooling conventions, capability-commit gates, build-vs-reuse discipline, Artifact Ownership Contract.
 > **NOT authoritative for:** project goal, methodology, design invariants — see [README.md#why-this-exists](README.md#why-this-exists).
 
-## Read-first (Step 0)
+## Goal + Step 0 (methodology ≠ goal)
 
-At session start, read [.claude/session-bootstrap.md](.claude/session-bootstrap.md) — it re-states the project goal + invariants from README in compaction-resilient form. Implements the AIF Step 0 / Cline Memory Bank re-read pattern: anchors goal across context-loss events that compaction cannot guarantee to preserve.
-
-## Project goal pointer (do not elevate methodology to goal)
-
-**Goal:** AI agents can't silently bypass undocumented conventions. Every codified rule is an executable artifact (ESLint rule, pre-push check, principle test, mutation gate, drift probe, Living Documentation assertion) that fails at the earliest reachable channel — edit-time → pre-commit → pre-push → CI → production audit. **CI is the last-resort gate, not the primary one.** Full statement: [README.md#why-this-exists](README.md#why-this-exists).
-
-**Methodology:** recursive self-application — framework validates itself with its own logic. *Quality signal* (per GCC bootstrap precedent, `rustc` compile-self analogy), not the project's goal. **Do not elevate to «north star» in any operational doc.** If you find yourself reasoning under a goal that contradicts README — stop. The contradicting doc has drifted, not README. Surface as a coverage-gap patch under [docs/meta-factory/research-patches/](docs/meta-factory/research-patches/).
+[Step-0](.claude/session-bootstrap.md) + [goal](README.md#why-this-exists). If a doc contradicts README, it has drifted — surface as a [research-patch](docs/meta-factory/research-patches/).
 
 ## Build-vs-reuse invariant (Phase 8.8)
 
@@ -38,6 +32,8 @@ A commit that does **any** of the following (mirrors `packages/core/hooks/checks
 - Adds a new **explicit dependency** in `package.json` (transitive deps don't count; detected as a dependency key present on an added `+` line with no matching removed `-` line for the same key, across common semver-prefix forms `^ ~ >= <= = *`, in the package.json diff). Keys inside `overrides` / `resolutions` / `pnpm` blocks do NOT count — they force versions of packages already in the tree, adding no capability (PR #980 incident).
 - Adds a new file **≥50 LOC** under a new subdirectory of `packages/core/<new-dir>/`.
 - Adds a new file **≥80 LOC** anywhere under `packages/`.
+
+Two carve-outs on the LOC triggers (hook parity 2026-08-07, mirroring the PR #980 overrides carve-out pattern): **documentation files** (`*.md`/`*.markdown`) never count — the «doc edits are NOT capability commits» exemption below always covered them, but a shipped ≥80-LOC doc template tripped the detector (PR #1272 incident); and a new file **byte-identical to a blob already tracked elsewhere in the same tree** never counts — a relocation/vendor copy adds no capability by construction (PR #1271 incident: vendored runtime-bridge subset).
 
 Refactors, doc edits, test additions for existing capabilities, bug fixes, snapshot regenerations, recipe data edits — **NOT** capability commits.
 

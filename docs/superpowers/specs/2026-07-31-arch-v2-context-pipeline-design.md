@@ -148,11 +148,26 @@ K5 defect (CR-M4) — the same class the pipeline checks for.
 cannot see → the gate is asserting a minority share; re-scope measurement before enforcing.
 **Status 2026-07-31 — this falsifier FIRED at S1 acceptance:** the S1 run measured the
 repo-owned always-on set at ~29,589 tokens (aif-container) / ~39,021 (host-cc) against a
-~100k observed session-start total — 29-39%, under the kickoff's own <40% clause; the
-remainder (tool schemas, MCP instructions, skills listings, plugin session-start injects) is
-invisible to the script (S1 patch §5, T14 «coverage insufficient» verdict). Consequence,
+~100k observed session-start total, under the kickoff's own <40% clause; the rest of the seat
+(tool schemas, MCP instructions, skills listings, plugin session-start injects) is
+invisible to the script (S1 patch §5, T14 «coverage insufficient» verdict).
+**Superseded 2026-08-07 (arch-v2 S-L, PR #1263, plus the operator's fork verdicts —
+[`2026-08-07-s-l-fork-verdicts.md`](../../meta-factory/research-patches/2026-08-07-s-l-fork-verdicts.md)):**
+the «29-39%» that stood here is **withdrawn**. S-G moved the numerator (69,453 → 48,671 B)
+while every denominator in hand was measured on a pre-S-G seat, so that figure was a
+cross-population division and no current-set share is computable. ADR-3's asserted quantity is
+now stated in the operative form S-L delivered: the repo-owned always-on set is
+**48,671 B / 47,899 cp** on the `/context` **memory-files channel** (5 project-scoped files),
+post-S-G; its SHARE is **UNMEASURED — channel absent**. **Denominator ADR-3 names (fork #6 =
+Option A): the seat first-turn total** — the only pairing whose subset relation is provable and
+the same seat class as the numerator (35.4% on the pre-S-G pairing, inside the withdrawn band).
+Any share MUST name the denominator's channel, its unit, and the rule-set commit the
+denominator's seat loaded. **Falsifier:** one `/context` reading on a post-S-G seat makes the
+share computable and retires this «channel absent» verdict. Consequence,
 binding for S-E: the gate's asserted quantity is the **repo-owned always-on share**,
-explicitly labelled as such — never «session-start total»; the harness remainder is
+explicitly labelled as such — never «session-start total»; the non-repo resident load —
+**«billed first-turn seat cost»** (by-difference) or **«`/context`-declared resident head»**,
+never the bare «harness remainder» (fork #5 = Option A) — is
 addressed by settings-recommendations (S1 §5.1), not gated; and the
 `InstructionsLoaded`-verification task doubles as the measurement-extension probe (it is the
 only channel that could see the full loaded set).

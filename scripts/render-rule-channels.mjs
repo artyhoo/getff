@@ -75,7 +75,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ALWAYS_ON_CORE = new Set([
   'build-first-reuse-default',
   'attention-is-not-a-mechanism',
-  'ai-laziness-traps',
+  'ai-laziness-digest',
 ]);
 
 function findRoot(start) {

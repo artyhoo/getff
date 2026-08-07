@@ -43,7 +43,7 @@ jobs:
           node-version: '20'
       # Pinned per ci-tool-pinning.md Rule A — matches the getff framework CI pin.
       - name: Install ast-grep (pinned)
-        run: npm install -g @ast-grep/cli@0.44.1
+        run: npm install -g @ast-grep/cli@0.44.1 # zizmor: ignore[adhoc-packages]
       # Fails RED when a getff ast-grep rule fires (sgconfig.yml resolves .getff/astgrep-rules).
       - name: ast-grep scan (getff rules)
         run: ast-grep scan
@@ -70,9 +70,10 @@ jobs:
       # clobbers it — so this step runs your own rules.
       - name: ruff check (discovered config)
         run: ruff check .
-      # STEP 2 — getff bans gate (cell-INDEPENDENT). Enforces the getff TID import bans REGARDLESS of your
+      # STEP 2 — getff bans gate (cell-INDEPENDENT). Enforces the getff ruff bans REGARDLESS of your
       # own ruff config: `--config` makes ruff REPLACE config discovery (not merge), so this lints your
-      # tree against ONLY .getff/ruff-bans.toml (select = TID251/TID253). Without this step a ruff-
+      # tree against ONLY .getff/ruff-bans.toml (select = DTZ005/TID251/TID253 — the import bans + the
+      # naive-datetime built-in). Without this step a ruff-
       # collision repo would discover only YOUR config in step 1 and the getff bans would be SILENTLY
       # unenforced — a green gate that enforces nothing (attention-is-not-a-mechanism.md §1, the exact
       # #discipline-theatre this project exists to prevent). The getff lane delivers .getff/ruff-bans.toml

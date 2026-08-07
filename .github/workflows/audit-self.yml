@@ -272,6 +272,89 @@ jobs:
           rustup default 1.96.1
           rustc --version
           cargo clippy --version
+      # adapter-jig J3: the go CI arm. The go EcosystemAdapter has NO backends/go/ capability-matrix
+      # (E3 PARKED — see PR body §5 «E3 park» for Option A vs Option B with consequences), so the
+      # arm does NOT run a vitest include-allowlist like MT S2's test:backends. Instead it proves
+      # E1 red/green directly: install the exact-pinned go toolchain + golangci-lint, then run
+      # `install.sh go` against a scratch fixture so the lane's _go_firing_self_check (F8) fires
+      # FOR REAL against the pinned binary (kickoff §1.3: where the E1 red/green proof actually
+      # lands — T-EW-C posture: until the runner arm is green and linked, E1 is unproven).
+      #
+      # F10 two-surface pin parity (arm P1): the framework pin strings here MUST match the consumer
+      # template at packages/core/templates/go/github-actions-ci.yml; bump them in lockstep.
+      # MAJOR 1 fix (pre-egress fidelity audit 2026-07-25): `go version` only PRINTS — it does not
+      # pin. We use actions/setup-go@<SHA> with go-version: '1.22.0', exactly like the consumer
+      # template, so a runner-default bump can never silently change the toolchain while the cache
+      # key still reads go-1.22.0. Both surfaces now carry a real pin string that must move together.
+      - name: Install pinned go toolchain (adapter-jig J3)
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b  # v5.4.0
+        with:
+          go-version: '1.22.0'
+          cache: false
+      # MINOR fix (fidelity audit round 2): the binary path was `${{ env.GOBIN }}`, but GOBIN is
+      # unset workflow-wide, so that entry expanded to empty and golangci-lint itself was never
+      # cached — only the module + build caches were. `go install` writes to $(go env GOPATH)/bin,
+      # which is ~/go/bin on the runner (the same path the next step invokes by absolute path).
+      - name: Cache go module + golangci-lint binaries (adapter-jig J3)
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809  # v4.2.4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/go/bin
+          key: go-mod-1.22.0-golangci-v1.55.2-${{ runner.os }}
+      - name: Install pinned golangci-lint for go lane live-fire (adapter-jig J3)
+        run: |
+          set -euo pipefail
+          # Exact-pinned golangci-lint @ v1.55.2 (ci-tool-pinning.md Rule A — the pin lives in the @tag).
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.2
+          # MINOR 5 fix (pre-egress fidelity audit 2026-07-25): GITHUB_PATH only takes effect on
+          # SUBSEQUENT steps, so a same-step `golangci-lint --version` under `set -euo pipefail`
+          # would die if $GOPATH/bin is not already on PATH. Invoke by absolute path here; the
+          # next step finds golangci-lint on PATH via the setup-go-added $GOPATH/bin.
+          "$(go env GOPATH)/bin/golangci-lint" --version
+      - name: Run getff go lane live-fire (adapter-jig J3)
+        run: |
+          set -euo pipefail
+          # Scratch fixture: a fresh Go module in an OS temp dir, then install.sh go fires the lane's
+          # _go_firing_self_check (F8). The self-check plants a violating .go file (os.Getenv) in its
+          # OWN mktemp -d, asserts golangci-lint fires RED on the violation + GREEN on the clean control,
+          # prints ✓-prefixed PASS lines. The self-check returns 0 on EVERY branch by contract (F8
+          # mandates rc=0 always so a self-check never aborts install.sh) — so the step cannot rely
+          # on exit code alone. We capture the output and grep for the lane's OWN failure markers.
+          # MAJOR 2 fix (pre-egress fidelity audit 2026-07-25): the previous version asserted only
+          # artefact existence, which proves DELIVERY but not FIRING — a SILENT or OVER-BROAD config
+          # prints its ✗ marker and the step still went GREEN. Now: the step fails on any ✗ / ⚠
+          # degrade line (on this runner the toolchain IS present, so a degrade means the install
+          # step did not take effect), and asserts the positive «enforcement is live» line is present.
+          fixture="$(mktemp -d)"
+          printf 'module example.com/j3-livefire\n\ngo 1.22\n' > "$fixture/go.mod"
+          cd "$fixture"
+          # Tee captures the install.sh output (including _go_firing_self_check markers) to a log
+          # AND surfaces it to the GitHub Actions step log for operator visibility.
+          bash "$GITHUB_WORKSPACE/install.sh" go 2>&1 | tee /tmp/j3-go-livefire.log
+          # Re-affirm the lane delivered the artefacts the firing self-check attested against:
+          [ -f "$fixture/.golangci.yml" ] || { echo "❌ J3 live-fire: .golangci.yml not delivered"; exit 1; }
+          [ -f "$fixture/.github/workflows/getff-go.yml" ] || { echo "❌ J3 live-fire: getff-go.yml not delivered"; exit 1; }
+          [ -f "$fixture/.ai-factory/synthesizer-output/rules-lock.go.json" ] || { echo "❌ J3 live-fire: rules-lock.go.json not emitted"; exit 1; }
+          # FIRING assertions (the load-bearing half — artefact existence alone is delivery, not firing):
+          #  (a) on this runner go AND golangci-lint ARE present (installed in the previous step),
+          #      so a "NOT proven (tool absent)" degrade line means the install did not take effect.
+          #  (b) a SILENT config (golangci-lint does not fire on the planted os.Getenv violation)
+          #      or an OVER-BROAD one (it fires on the clean control) is a delivery bug; the self-check
+          #      prints ✗ for both. The summary line repeats SILENT/OVER-BROAD/NOT proven tokens.
+          if grep -E 'SILENT|OVER-BROAD|NOT proven \(tool absent\)|✗' /tmp/j3-go-livefire.log; then
+            echo "❌ J3 live-fire: firing self-check produced a failure marker (see lines above)"
+            exit 1
+          fi
+          # Assert the POSITIVE too: the lane MUST print the «enforcement is live» summary, proving
+          # both directions fired correctly. Its absence means the self-check did not run at all
+          # (a worse failure than a wrong config — the lane silently skipped its own proof).
+          if ! grep -F 'enforcement is live' /tmp/j3-go-livefire.log; then
+            echo "❌ J3 live-fire: «enforcement is live» summary line absent — self-check did not complete successfully"
+            exit 1
+          fi
+          echo "✓ J3 go lane live-fire: artefacts delivered + firing self-check proven on the pinned go 1.22.0 + golangci-lint v1.55.2 toolchain"
       # MT umbrella S2: packages/core/backends/ (cargo-backend-v0 renderer + firing harness
       # + capability matrix) is a new vitest include-allowlist entry (vitest.config.ts) —
       # gate it here, reusing the `npm ci --prefix packages/core` install above. The cargo
@@ -364,6 +447,10 @@ jobs:
         run: bash tests/hooks/prepush-upstream-ref.test.sh
       - name: Run pre-push base-ref stdin-detection paired-negative (hook-base-ref-detection I-phase)
         run: bash tests/hooks/prepush-fallback-base-ref.test.sh
+      - name: Run merge-forward range paired-negative (trunk-reachable commits exempt, 2026-08-07)
+        run: bash tests/hooks/prepush-merge-forward-range.test.sh
+      - name: Run cross-checkout range paired-negative (HEAD ≠ pushed local_sha; §7 tree-scoped SSOT)
+        run: bash tests/hooks/prepush-cross-checkout-range.test.sh
       - name: Run runtime-bridge dispatch opt-IN gate paired-negative (one-click-installer kickoff §7)
         run: bash tests/hooks/runtime-bridge-dispatch-optin.test.sh
 
@@ -394,6 +481,10 @@ jobs:
         run: npx --prefix packages/core vitest run --reporter=default packages/core/install/wire-live-snippet.test.ts packages/core/install/wire-synth-rules.test.ts
       - name: Run local-ci-sweep paired-negative (harvest sweep aggregator)
         run: bash scripts/run-local-ci-sweep.test.sh
+      - name: Run synth-bundle dep-parity paired-negative (phantom-drift guard)
+        run: bash scripts/check-bundle-dep-parity.test.sh
+      - name: Run synth-bundle cwd-independence test (build runs from any directory)
+        run: bash scripts/build-synth-bundle.test.sh
       - name: Run install-sh audit-r4 shipped test (consumer-install-hardening F6)
         run: bash tests/install-sh/audit-r4-shipped.test.sh
       - name: Run install-sh hook-activation test (consumer-install-hardening F2)
@@ -724,6 +815,49 @@ jobs:
         env:
           PREPUSH_UPSTREAM_REF: origin/${{ github.base_ref }}
         run: PREPUSH_ONLY=prior-art npx tsx packages/core/hooks/pre-push.ts
+
+  # arch-v2 S-E P3a CI mirror of the pre-push always-on-budget gate. The resident
+  # set is repo state (size of CLAUDE.md + non-path-scoped .claude/rules/*.md), not
+  # a per-PR-commit property. Trigger scope is this workflow's own `on:` block —
+  # push to the branches it lists, plus pull_request; this job adds no `if:` guard
+  # of its own, so it runs wherever the workflow runs. (The earlier comment here
+  # claimed "runs on every push … NOT gated on pull_request"; both halves were
+  # wrong — corrected after the round-1 cold fidelity audit of this stage.)
+  # It is listed in `ci-success.needs`, so a RED here blocks the merge rather than
+  # sitting unread in the checks list. Bash + jq only (both pre-installed on
+  # ubuntu-latest); no
+  # node/setup-node step needed because the gate is pure shell.
+  # Declared coverage: this gate sees the repo-authored always-on set only — 48,671 B at
+  # HEAD. Its SHARE of the session-start total is UNMEASURED — channel absent: S-G moved
+  # the numerator (69,453 -> 48,671 B) while every denominator in hand was measured on a
+  # pre-S-G seat, so no current-set percentage is computable. The "29-39%" that stood here
+  # was exactly that cross-population division and is withdrawn (arch-v2 S-L, PR #1263;
+  # docs/meta-factory/research-patches/2026-08-07-s-l-recalculation.md section 4).
+  # Falsifier: one /context reading on a post-S-G seat makes the share computable again.
+  # Direction-preserving remainder: a substantial majority of session-start context is
+  # still harness-resident and unreachable by any file-trim; P14 (S-H) addresses it as
+  # operator recommendations, never by this gate.
+  alwayson-budget:
+    name: Always-on context budget (arch-v2 S-E P3a CI mirror)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      # Floor first, then ceiling: the meter's own self-test asserts it still measures a
+      # non-empty set, so a green ceiling below cannot be green because the meter broke.
+      # Wired here 2026-08-07 — the file had shipped attached to no channel at all.
+      - name: Run scripts/measure-always-on.test.sh (meter floor)
+        run: bash scripts/measure-always-on.test.sh
+      # Paired-negative for the gate below: proves it still goes RED over a zero ceiling.
+      # Also shipped unwired (sibling sweep of the line above, same defect class): a gate
+      # whose can-it-fail proof runs at no channel is not proven to fail at all.
+      - name: Run scripts/check-alwayson-budget.test.sh (gate paired-negative)
+        run: bash scripts/check-alwayson-budget.test.sh
+      - name: Run scripts/check-alwayson-budget.sh
+        run: bash scripts/check-alwayson-budget.sh
 
   enforce-husky-presence:
     name: Verify .husky/ hooks exist and are non-trivial
@@ -1302,7 +1436,22 @@ jobs:
         # Avoiding SARIF upload keeps this runnable without GitHub Advanced Security.
         # Also scan the SHIPPED CI templates (#637) so they can't drift past the
         # gate — they live OUTSIDE .github/workflows/, so these are extra path args.
-        run: zizmor --format plain .github/workflows/ templates/ts-server/github-actions-ci.yml templates/ts-server/github-actions-workflow-integrity.yml packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml
+        # Keep this list in sync with zizmorTemplatesSection() in
+        # packages/core/hooks/pre-push.ts (the HARD-gate twin). New presets added via
+        # setup.d deliver_getff_workflow MUST be appended here AND there — the list
+        # below drifted past cargo/python/react-spa/react-native for 4+ months (#130
+        # was the last edit; presets landed in #661/#662/#996/#1080) because nothing
+        # enforced parity. If you ship a new github-actions template, add its path
+        # to BOTH places.
+        run: >-
+          zizmor --format plain .github/workflows/
+          templates/ts-server/github-actions-ci.yml
+          templates/ts-server/github-actions-workflow-integrity.yml
+          packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml
+          packages/core/templates/cargo/github-actions-ci.yml
+          packages/core/templates/python/github-actions-ci.yml
+          packages/preset-react-spa/templates/github-actions-ci-ui.yml
+          packages/preset-react-native/templates/github-actions-ci-ui.yml
 
   # enforcement-liveness-fix S5: f17 planted-violation test on Node 20 + 22 matrix.
   # Scoped to f17 only — proves barrel loads without tsx loader on both LTS versions.
@@ -1356,6 +1505,54 @@ jobs:
         env:
           FRAMEWORK_ROOT: ${{ github.workspace }}
 
+  # getff-any-stack-trace S4 (spec §9.1 W6 cell v1): python unfamiliar-stack e2e —
+  # scripted fresh python project (FastAPI/SQLAlchemy-class, master default branch)
+  # → install.sh python under Node-stripped PATH (proves F-A DECLARE on the install
+  # path) → assert the S2 agent surface (4 skills + curated 2 agents + hooks +
+  # .mcp.json + AGENTS.md + .ai-factory/ + .getff/) → committed Tier-1-provenance
+  # practice fixture → rule-bootstrap-cli --from-practice resolves Tier-1 via
+  # vendored .dist-info METADATA (`Project-URL: Documentation, <url>`, the D7 host-
+  # derivation surface) → RED arm: ast-grep fires non-zero on planted print() →
+  # GREEN arm: ast-grep silent on conforming logger.info() → REJECT arm: a practice
+  # citing a non-direct-dep package is downgraded to research-only (FF2007, honest
+  # degrade) → R1-input: delivered workflow trigger carries `branches: [master]`
+  # (deliver_getff_workflow substitutes via git symbolic-ref origin/HEAD). A cell
+  # that only passes is `#discipline-theatre` with a workflow file attached — the
+  # RED/GREEN/REJECT arms ARE the §3 «works» claim, not a green-CI narrative.
+  # Fail-closed: a missing tool is RED, never SKIP. Deterministic + API-free per
+  # no-paid-llm-in-ci.md §1. ast-grep pinned per ci-tool-pinning.md Rule A.
+  consumer-matrix-python-unfamiliar-stack-cell:
+    name: "Consumer-matrix W6 cell — python unfamiliar-stack e2e (getff-any-stack-trace S4)"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '22'
+      # tsx lives in packages/core/node_modules — the cell invokes
+      # `npx --no-install tsx ... rule-bootstrap-cli.ts` at cell:300-303 from
+      # $FRAMEWORK_ROOT (root), so tsx must resolve from root/node_modules.
+      # Pattern B (lines 467-469, 555-557, 641-643, 881-883, 911-913): npm ci
+      # --prefix packages/core installs packages/core's own deps, then the
+      # workspace install hoists tsx to root where the cell's cd-root invocation
+      # finds it. Without these steps the cell fails at the Tier-1 generation
+      # arm with "tsx not found". Container masks this via ambient
+      # /app/node_modules + /home/node/.npm-global — destination-environment-
+      # verification.md §2 incident-1 pattern (caught by round-1 rework review
+      # 2026-08-07).
+      - name: Install packages/core deps (tsx for rule-bootstrap-cli)
+        run: npm ci --prefix packages/core --silent
+      - name: Install workspace deps (hoists tsx to root)
+        run: npm install --silent
+      - name: Run the consumer-matrix W6 cell (python unfamiliar-stack e2e)
+        run: bash tests/consumer-matrix/python-unfamiliar-stack-cell.sh
+        env:
+          FRAMEWORK_ROOT: ${{ github.workspace }}
+
   # Single aggregate context for branch protection. `needs:` every other
   # audit-self PR job — including actionlint + zizmor above — so requiring just
   # `ci-success` gates them all, and stays correct as jobs are added/removed (vs
@@ -1391,6 +1588,19 @@ jobs:
       - phase-8-canonical-regen-acceptance
       - f17-node-compat
       - consumer-matrix-start-cell
+      # getff-any-stack-trace S4 (spec §9.1): without this line the W6 cell could go
+      # RED (or SKIP its firing arms) while `ci-success` stays green and the PR merges,
+      # because branch protection requires only `ci-success`. Same `#warning-nobody-reads
+      # shape as the alwayson-budget incident below — load-bearing assertion lives in the
+      # cell's RED/GREEN/REJECT arms, none of which a green `ci-success` alone proves.
+      - consumer-matrix-python-unfamiliar-stack-cell
+      # arch-v2 S-E P3a. Without this line the budget job could go RED while
+      # `ci-success` stayed green and the PR merged, because branch protection
+      # requires only `ci-success` — a gate whose sole consumer is someone
+      # reading the checks list (`#warning-nobody-reads`,
+      # .claude/rules/attention-is-not-a-mechanism.md §2). Caught by the round-1
+      # cold fidelity audit of the S-E stage.
+      - alwayson-budget
     runs-on: ubuntu-latest
     permissions:
       contents: read

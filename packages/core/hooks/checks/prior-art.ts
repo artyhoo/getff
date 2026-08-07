@@ -114,14 +114,27 @@ export function isNewDepAdded(packageJsonDiff: string): boolean {
   return false;
 }
 
+/**
+ * Documentation files never count toward the LOC triggers: the CLAUDE.md prose
+ * definition has always exempted doc edits («Refactors, doc edits, … NOT
+ * capability commits»); the detector lacked the parity until a shipped ≥80-LOC
+ * doc template tripped it (PR #1272 incident, 2026-08-07).
+ */
+const DOC_FILE_RE = /\.(md|markdown)$/i;
+
 function isNewCoreSubdir50Loc(sha: string, g: GitProvider): boolean {
   for (const { status, path } of g.changedFiles(sha)) {
     if (status !== 'A') continue;
     if (!path.startsWith('packages/core/')) continue;
+    if (DOC_FILE_RE.test(path)) continue;
     const subdir = path.slice('packages/core/'.length).split('/')[0];
     if (g.subdirExistedAtParent(sha, subdir)) continue; // not a NEW subdir
     const content = g.fileContent(sha, path);
-    if (content !== null && loc(content) >= 50) return true;
+    if (content !== null && loc(content) >= 50) {
+      // Byte-identical to a blob elsewhere in the tree = relocation/vendor
+      // copy, no new capability by construction (PR #1271 incident).
+      if (!g.blobDuplicatedInTree(sha, path)) return true;
+    }
   }
   return false;
 }
@@ -130,8 +143,11 @@ function isNewPackages80Loc(sha: string, g: GitProvider): boolean {
   for (const { status, path } of g.changedFiles(sha)) {
     if (status !== 'A') continue;
     if (!path.startsWith('packages/')) continue;
+    if (DOC_FILE_RE.test(path)) continue;
     const content = g.fileContent(sha, path);
-    if (content !== null && loc(content) >= 80) return true;
+    if (content !== null && loc(content) >= 80) {
+      if (!g.blobDuplicatedInTree(sha, path)) return true;
+    }
   }
   return false;
 }

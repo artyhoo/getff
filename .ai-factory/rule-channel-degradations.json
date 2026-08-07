@@ -1,11 +1,18 @@
 {
   "degradations": [
     {
-      "rule": "ai-laziness-traps",
+      "rule": "ai-laziness-digest",
       "harness": "zcode",
       "status": "degraded",
       "target": "session-start-hook",
       "reason": "zcode has no rulesAutoload/paths: primitive (P1 fact); Tier-0 core text delivered via a SessionStart hook fallback instead of always-on rule auto-load."
+    },
+    {
+      "rule": "ai-laziness-traps",
+      "harness": "zcode",
+      "status": "degraded",
+      "target": "edit-time-inject",
+      "reason": "zcode has no pathScoping primitive (P1 fact); path-scoped delivery falls back to the PostToolUse edit-time-inject channel (inject-matching-rule.sh shim, #897), not native read-time paths: scoping. Re-scoped 2026-08-06 (S-G P5c/1) from Tier-0 always-on to paths:-declared, mirroring source-before-shape.md's authoring-surface glob family."
     },
     {
       "rule": "attention-is-not-a-mechanism",

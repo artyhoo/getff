@@ -32,6 +32,13 @@ import {
 } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// NOTE: this file ships verbatim into consumer projects (install.sh:929-938), so a
+// static bare-package import of anything outside the consumer's tree crashes the hook
+// with ERR_MODULE_NOT_FOUND *before any gate runs* (#735/#636). `picomatch` used to be
+// imported here for the arch-v2 S-E P2b local-shadow section; that section was removed
+// (its premise was disproven — see the removal commit), and with it the only reason this
+// hook referenced picomatch. Keep it that way: a new dependency here needs the ship-list
+// treatment or a lazy `await import()` + `die()`, the shape guard-liveness uses below.
 import { runCheck, type CheckResult } from './utils/run-check.ts';
 import { runPriorArtCheck, loadSsotIds } from './checks/prior-art.ts';
 import { runS17Check } from './checks/s17.ts';
@@ -115,6 +122,17 @@ interface ResolvedBase {
   head: string;
   /** Explicit commit list (new-branch Z40 case); null = derive from `base..head`. */
   commits: string[] | null;
+  /**
+   * Ref whose reachable commits are EXEMPT from the commit-scoped trailer gates
+   * (`rev-list base..head --not <exclude>`) — the resolved trunk, or null when
+   * none resolves. The merge-forward range fix (2026-08-07): a published PR
+   * branch that merged the base in (git-conflict-merge-forward.md §2) must not
+   * be gated on the trunk's own squash commits — those were already gated at
+   * their own push or by the server-side PR-body gate (#1098) at merge. Set on
+   * the env + stdin paths; the default path's base IS the trunk (no-op) and the
+   * Z40 path's `--not --remotes` is a superset, so both stay null.
+   */
+  exclude: string | null;
   source: 'env' | 'stdin' | 'stdin-new-branch' | 'default' | 'unresolved';
 }
 
@@ -122,7 +140,16 @@ function resolveBase(): ResolvedBase {
   const env = process.env['PREPUSH_UPSTREAM_REF'];
   // CI backstop / manual override: HEAD is the thing being checked against the
   // override base (the CI job checks out the PR head), so the endpoint is HEAD.
-  if (env) return { base: env, commits: null, head: 'HEAD', source: 'env' };
+  // Trunk exclusion applies here too (no-op when the override IS the trunk;
+  // fixes the same merge-forward sweep for an epic-based PR range in CI).
+  if (env)
+    return {
+      base: env,
+      commits: null,
+      head: 'HEAD',
+      exclude: resolveDefaultBase(),
+      source: 'env',
+    };
 
   const refs = parsePushRefs(readPushStdin());
   if (refs.length > 0) {
@@ -132,10 +159,13 @@ function resolveBase(): ResolvedBase {
     if (r.remoteSha !== Z40 && upstreamExists(`${r.remoteSha}^{commit}`)) {
       // Range endpoint is the PUSHED ref's local_sha, NOT HEAD: pushing `feat`
       // from a checkout on `staging` must validate feat's commits, not staging's.
+      // `exclude` scopes the trailer gates to commits this push actually
+      // introduces to the trunk lineage (merge-forward range fix, 2026-08-07).
       return {
         base: r.remoteSha,
         commits: null,
         head: r.localSha,
+        exclude: resolveDefaultBase(),
         source: 'stdin',
       };
     }
@@ -150,6 +180,7 @@ function resolveBase(): ResolvedBase {
       base,
       commits: newCommits,
       head: r.localSha,
+      exclude: null,
       source: 'stdin-new-branch',
     };
   }
@@ -159,9 +190,21 @@ function resolveBase(): ResolvedBase {
   // source:'default', never silently skip. Endpoint is HEAD (no pushed ref to follow).
   const def = resolveDefaultBase();
   if (def) {
-    return { base: def, commits: null, head: 'HEAD', source: 'default' };
+    return {
+      base: def,
+      commits: null,
+      head: 'HEAD',
+      exclude: null,
+      source: 'default',
+    };
   }
-  return { base: null, commits: null, head: 'HEAD', source: 'unresolved' };
+  return {
+    base: null,
+    commits: null,
+    head: 'HEAD',
+    exclude: null,
+    source: 'unresolved',
+  };
 }
 
 /** Emit a visible (non-silent) warning that a section is being skipped. */
@@ -187,7 +230,7 @@ function commitsToCheck(rb: ResolvedBase, label: string): string[] | null {
     warnSkip(label, `base ref '${rb.base}' not found`);
     return null;
   }
-  return getCommits(rb.base, rb.head);
+  return getCommits(rb.base, rb.head, rb.exclude ?? undefined);
 }
 
 /** Re-emit a captured result's output to the operator. */
@@ -776,10 +819,20 @@ function zizmorLiveSection(ctx: SectionCtx): void {
 // owner=maintainer composes it on the framework layout only. `onMissing` stays 'die':
 // a maintainer whose zizmor is missing must fix-first, never DEGRADE past a template.
 function zizmorTemplatesSection(): void {
+  // KEEP IN SYNC with the zizmor run: line in .github/workflows/audit-self.yml
+  // (the CI twin). New presets added via setup.d deliver_getff_workflow MUST be
+  // appended here AND there — this list drifted past cargo/python/react-spa/
+  // react-native for 4+ months (last touched in #130; presets landed in
+  // #661/#662/#996/#1080) because nothing enforced parity. Ship a new
+  // github-actions template → add its path to BOTH places.
   const existingTemplates = [
     'templates/ts-server/github-actions-ci.yml',
     'templates/ts-server/github-actions-workflow-integrity.yml',
     'packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml',
+    'packages/core/templates/cargo/github-actions-ci.yml',
+    'packages/core/templates/python/github-actions-ci.yml',
+    'packages/preset-react-spa/templates/github-actions-ci-ui.yml',
+    'packages/preset-react-native/templates/github-actions-ci-ui.yml',
   ].filter((p) => existsSync(resolve(REPO_ROOT, p)));
   if (existingTemplates.length > 0) {
     requireTool(
@@ -1225,6 +1278,44 @@ function principlesMetaSection(): void {
   }
 }
 
+// ── 5c. Always-on context budget (maintainer, arch-v2 S-E P3a) ───────────────
+// Standing drift-guard: gate the always-on resident set on size. Shells out to
+// scripts/check-alwayson-budget.sh, which calls scripts/measure-always-on.sh and
+// fails if the byte total exceeds AIF_ALWAYSON_CEILING (default 54000, derived
+// 2026-08-06 from the post-P3b baseline 48,671 B × 1.10 → 54,000 B). See the gate
+// header for the per-environment labelled derivations and the declared-coverage
+// sentence (the gate sees the repo-authored set only — 48,671 B at HEAD; its SHARE of
+// session-start is UNMEASURED — channel absent since S-G moved the numerator away from
+// every denominator in hand, withdrawing the old "29-39%" per arch-v2 S-L PR #1263; a
+// substantial majority remains harness-resident, addressed by P14 in S-H).
+//
+// Maintainer-only because the ceiling is framework-derived and the gated set is
+// the framework's CLAUDE.md + .claude/rules/*.md (a consumer layout has its own
+// CLAUDE.md, not gated here).
+//
+// Escape hatch (§3, per ci-tool-pinning.md §3 precedent): AIF_ALWAYSON_BUDGET_ALLOW
+// env with rationale ≥20 chars downgrades RED to WARN. Rationale length gates the
+// escape so a bare "TODO" cannot skip the gate. The escape is checked INSIDE the
+// gate script — here we only propagate its exit code.
+function alwaysonBudgetSection(): void {
+  const r = run('bash', ['scripts/check-alwayson-budget.sh']);
+  if (r.notFound) {
+    die(
+      '❌ bash not found to run scripts/check-alwayson-budget.sh ' +
+        '(arch-v2 S-E P3a always-on budget gate).',
+    );
+  }
+  if (r.exitCode !== 0) {
+    die(
+      '❌ always-on budget gate RED — fix the resident set, OR escape with\n' +
+        "   AIF_ALWAYSON_BUDGET_ALLOW='<rationale ≥20 chars>'\n" +
+        '   (rationale must name why this push is exempt).',
+      r,
+    );
+  }
+  emit(r);
+}
+
 // ── 5b. IR grammar-gate tests (maintainer, MT S1) ────────────────────────────
 function irMetaSection(): void {
   if (existsSync(resolve(CORE, 'package.json'))) {
@@ -1525,6 +1616,14 @@ const SECTIONS: readonly PrePushSection[] = [
     owner: 'both',
     run: () => unpinnedToolInstallSection(),
   },
+  {
+    // arch-v2 S-E P3a: standing drift-guard on the always-on resident set size.
+    // maintainer-only — ceiling is framework-derived; consumer layout has its own
+    // CLAUDE.md. See alwaysonBudgetSection docstring + scripts/check-alwayson-budget.sh.
+    id: 'alwayson-budget',
+    owner: 'maintainer',
+    run: () => alwaysonBudgetSection(),
+  },
 ];
 
 /**
@@ -1585,6 +1684,10 @@ async function main(): Promise<void> {
   }
   if (process.env['PREPUSH_ONLY'] === 'unpinned-tool-install') {
     unpinnedToolInstallSection();
+    process.exit(0);
+  }
+  if (process.env['PREPUSH_ONLY'] === 'alwayson-budget') {
+    alwaysonBudgetSection();
     process.exit(0);
   }
   if (process.env['PREPUSH_ONLY'] === 'generated-rule-material') {

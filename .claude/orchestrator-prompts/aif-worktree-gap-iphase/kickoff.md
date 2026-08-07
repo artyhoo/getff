@@ -142,7 +142,7 @@ This kickoff was authored by `/meta-orchestrator`. Verify principle 12 passes if
 under a `kickoff.md` the test scans:
 
 ```bash
-npm --prefix packages/core run test:principles -- --testPathPattern=12 2>/dev/null | tail -5
+npx vitest run packages/core/principles/12-ai-laziness-traps.test.ts | tail -5
 ```
 
 ---

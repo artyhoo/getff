@@ -1,6 +1,6 @@
 ---
 name: dispatcher
-description: Use when you need to EXECUTE a chosen umbrella's stages through the aif-control loop — dispatch kickoff to aif, monitor status, resolve parked Q&A (technical forks autonomously, strategic forks to operator), harvest done tasks (push + PR + auto-merge), run Phase-1 cold-review, check stage gate, advance to next stage. Does NOT plan (priority/launch-table = /pipeline). Invoked explicitly via /dispatcher slash command only (disable-model-invocation:true). Triggers: dispatcher, execute umbrella, run stages, aif loop, harvest PR, stage gate advance.
+description: Use when you need to EXECUTE a chosen umbrella's stages through the aif-control loop. Triggers: dispatcher, execute umbrella, run stages, aif loop, harvest PR, stage gate advance. Invoked explicitly via /dispatcher only (disable-model-invocation:true). NOT for planning — priority and launch-table are /pipeline.
 arguments: [umbrella]
 argument-hint: "[umbrella-name]"
 disable-model-invocation: true
@@ -133,6 +133,8 @@ established §2.4/harvest-§1 inspect pattern; 3-dot tolerates a stale base):
 docker exec aif-handoff-agent-1 git -C <worktree> diff origin/staging...HEAD
 ```
 
+**Default format: inputs-inlined** (spec P7, [cold-seat-economy.md §3](../../rules/cold-seat-economy.md) row 4). The default dispatch payload **inlines** the kickoff scope sections + the diff into the prompt («answer without reading files») — measured at ~85k tokens / 0 tool calls vs ~177k tokens / 7 tool calls for the file-reading form (row 4 vs row 3). The file-reading form is the **fallback** when content size prohibits inlining. **Promotion trigger** (cross-stage boundary): 3 incidents of >100k-token file-reading seats → a mechanical check in **S-B's station** (S-B is the stage that owns the bottom-seat check station; not implemented here).
+
 - `GO` → record the block (Basis/Round/Audited-SHA/Evidence) into the prepared PR body
   (pass via `--body-file` — without the section the `pr-body-fidelity` gate holds the PR
   red) and proceed to `harvest.ts`. **`Audited-SHA` = container HEAD is correct ONLY on
@@ -170,6 +172,17 @@ docker exec aif-handoff-agent-1 git -C <worktree> diff origin/staging...HEAD
   watch-list (resume the same auditor by name only when the watch-list cannot carry it) — not a
   full re-audit, and never a self-issued verdict. Have the round-1 seat leave that watch-list
   in the PR body / task comment. Order seats so this audit runs on the final diff.
+- <!-- re-write-trigger embed (spec-of: .claude/rules/cold-seat-economy.md §3) -->
+  **Re-write-trigger economy** ([cold-seat-economy.md §3](../../rules/cold-seat-economy.md)): when
+  the seat has reached its natural end, the cached-prefix cost discipline applies —
+  - prefer **artifact handoff** to a fresh seat over `/compact` — a fresh seat billed at read
+    price on a narrow input is cheaper than re-billing the cached prefix at write price;
+  - do **not** stretch a seat across the 1-hour TTL idle gap — the cached prefix expires; the
+    next turn re-bills the whole prefix at write price;
+  - avoid mid-session **model / effort switches** and **MCP toggles** on a fat context — each
+    invalidates the cached prefix and re-bills it at write price (pending S-H P3d verification
+    of the config-change class — rev 4 moved P3d there; same handoff rule applies until verified
+    otherwise).
 
 Then push:
 
@@ -177,11 +190,11 @@ Then push:
 tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --base staging
 ```
 
-`harvest.ts` → `GET /tasks/:id` → `docker exec aif-handoff-agent-1 git push origin <branch>` → `gh pr create --base staging --head <branch>` → `gh pr merge <prUrl> --auto --squash`. Emits `{ prUrl, branch, autoMerge, committed }`.
+`harvest.ts` → `GET /tasks/:id` → **Channel A** (`docker exec … git bundle create` → `docker cp` → host `git fetch <bundle>` → host `git push origin <sha>:refs/heads/<branch>`, so `.husky/pre-push` runs — the container has no `github.com` route and is never pushed from, per [egress-no-api-bypass.md §1](../../rules/egress-no-api-bypass.md)) → `gh pr create --base staging --head <branch>` → `gh pr merge <prUrl> --auto --squash`. Emits `{ prUrl, branch, autoMerge, committed }`.
 
 If `/dispatcher` has prepared a §1.7-compliant PR body, pass it via `--body-file <path>`. Otherwise a minimal pointer body is used (harvest warns about missing §1.7 sections in that case).
 
-**§2.4b — Harvest when the container github-host is unroutable (resilience helper).** When the proxy/tunnel blocks `github.com` from the container (`git push` → `gnutls_handshake`/`SSL_ERROR_SYSCALL`/000) but `api.github.com` is reachable (discriminate via `gh api rate_limit`), the stock `harvest.ts` push fails. Use the API-harvest helper instead — it commits the task's declared file via the GitHub Contents API (branch ref + PUT), no `git push` needed:
+**§2.4b — Harvest when the HOST transport is dead (break-glass helper).** A container-side `github.com` block is **not** a trigger for this path any more: `harvest.ts` pushes from the host (Channel A above), so the container's missing egress is expected and harmless. Reach for the API helper **only when the host transport is ALSO dead** (host `git ls-remote origin` fails) while `api.github.com` is still reachable (discriminate via `gh api rate_limit`) — the channel of last resort per [egress-no-api-bypass.md §1](../../rules/egress-no-api-bypass.md), because it lands server-side and so **skips `.husky/pre-push` by construction**; when taken, `scripts/run-local-ci-sweep.sh` is the mandatory gate-substitute. It commits the task's declared file via the GitHub Contents API (branch ref + PUT), no `git push` needed:
 
 ```bash
 bash .claude/skills/dispatcher/helpers/harvest-via-api.sh <taskId> staging [path]

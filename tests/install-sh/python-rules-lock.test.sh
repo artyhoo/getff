@@ -159,7 +159,7 @@ L9="$P9/$LOCK_REL"
 fpA=$(lock_field "$L9" sourceFingerprint)
 grep -q '"TID999"' "$L9" && preTID=1 || preTID=0
 # Mutate the template B: the delivered .getff/ruff-bans.toml is a copy of the template ruff.toml — add a ban.
-sed -i.bak -E 's/select = \["TID251", "TID253"\]/select = ["TID251", "TID253", "TID999"]/' "$SRC9/ruff.toml" && rm -f "$SRC9/ruff.toml.bak"
+sed -i.bak -E 's/select = \["DTZ005", "TID251", "TID253"\]/select = ["DTZ005", "TID251", "TID253", "TID999"]/' "$SRC9/ruff.toml" && rm -f "$SRC9/ruff.toml.bak"
 # Re-install with --force (NOT --refresh) over the SAME consumer → copy_safe overwrites ruff-bans.toml.
 ( cd "$P9" && PY_TEMPLATE_DIR="$SRC9" bash "$INSTALL" python --force < /dev/null ) >/dev/null 2>&1
 grep -q 'TID999' "$P9/.getff/ruff-bans.toml" \

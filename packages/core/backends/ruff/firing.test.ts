@@ -31,6 +31,12 @@ const CONTRACT: RuffFiringContract = JSON.parse(
 const INVALID_DIR = join(__dirname, 'fixtures/firing/invalid');
 const VALID_DIR = join(__dirname, 'fixtures/firing/valid');
 const VALID_CLEAN_DIR = join(__dirname, 'fixtures/firing/valid-clean');
+// T-DTZ-A counter fixture (kickoff §3): `datetime.datetime.utcnow()` MUST fire exactly ONE
+// diagnostic (TID251), NO DTZ003 — proves the family double-report (the trap `select = ["DTZ"]`
+// would re-create) is avoided by `select = ["DTZ005"]`. Carries its own ruff.toml that bans
+// `datetime.datetime.utcnow` via TID251 (intentionally NOT in the self-application block at
+// :97-110, which only checks the 3 main dirs against render([TID251, TID253])).
+const DOUBLE_OWNER_UTCNOW_DIR = join(__dirname, 'fixtures/firing/double-owner-utcnow');
 
 // Spawning the PATH binary is fast, but keep generous headroom so a cold first spawn on a busy
 // runner never trips vitest's 5s default.
@@ -85,6 +91,25 @@ describe.skipIf(!toolPresent)('firing harness — live ruff check', () => {
         expect(codes.has(code)).toBe(false);
       }
       expect(codes.size).toBe(0);
+    },
+  );
+
+  it(
+    'T-DTZ-A counter: `datetime.datetime.utcnow()` fires EXACTLY ONE diagnostic (TID251), NO DTZ003 (kickoff §3 + §6 T-DTZ-A, T-HS-A binding: count first)',
+    { timeout: LIVE_TIMEOUT_MS },
+    () => {
+      // Per kickoff §3 + §6 T-DTZ-A: enabling `select = ["DTZ"]` instead of `["DTZ005"]` would
+      // double-report `datetime.datetime.utcnow()` (our TID251 + DTZ003 = two owners, one signal —
+      // the defect class the parent umbrella exists to remove). With `["DTZ005"]`, the DTZ family
+      // sibling `DTZ003` (call-datetime-without-tzinfo / `datetime.datetime.utcnow()`) is NOT
+      // enabled — only `TID251` fires here. T-HS-A: assert the count (`codes.size === 1`) BEFORE
+      // the message wording.
+      const { codes } = fireContract(CONTRACT, DOUBLE_OWNER_UTCNOW_DIR);
+      // T-HS-A: COUNT FIRST.
+      expect(codes.size).toBe(1);
+      // The single diagnostic is our TID251 ban (the message we wrote), not a DTZ003.
+      expect(codes.has('TID251')).toBe(true);
+      expect(codes.has('DTZ003')).toBe(false);
     },
   );
 });

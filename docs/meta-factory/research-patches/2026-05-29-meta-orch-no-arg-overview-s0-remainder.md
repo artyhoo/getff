@@ -202,7 +202,7 @@ fi
 
 ### V2 — Parallelism-signal source: **DECLARATIVE**, sourced from kickoff `§2 Stage table` `Parallel-with` column
 
-**Verdict (binding):** Stage 3 implementer reads the existing `| Parallel-with |` column already mandated by [output-format.md §3](../../../.claude/skills/meta-orchestrator/references/output-format.md) Action queue (column `Можно параллельно с`). The signal lives in EACH umbrella's kickoff (one source per umbrella). NO inferred-parallelism — no AST-level file-scope detection, no grep-based heuristic.
+**Verdict (binding):** Stage 3 implementer reads the existing `| Parallel-with |` column already mandated by [output-format.md §3](../../../.claude/skills/pipeline/references/output-format.md) Action queue (column `Можно параллельно с`). The signal lives in EACH umbrella's kickoff (one source per umbrella). NO inferred-parallelism — no AST-level file-scope detection, no grep-based heuristic.
 
 **Evidence chain:**
 - SSOT #68 (OhMyOpencode Atlas/Prometheus) — strongest upstream precedent: `## Parallel Execution Graph` with `Wave N` markdown is industry-validated (§1.2.i DeepWiki quoted the Prometheus prompt mandate verbatim).
@@ -218,7 +218,7 @@ fi
 
 ### V3 — No-arg overview format: ≤30-line ASCII/markdown skeleton, coexisting with output-format.md F.3
 
-**Verdict (binding):** Stage 3 implementer adds a new section `## §1A No-arg overview format` to [`output-format.md`](../../../.claude/skills/meta-orchestrator/references/output-format.md), immediately after current §1. The section's example skeleton MUST reuse all 6 principle-18 substrings (§1.5b verified zero churn).
+**Verdict (binding):** Stage 3 implementer adds a new section `## §1A No-arg overview format` to [`output-format.md`](../../../.claude/skills/pipeline/references/output-format.md), immediately after current §1. The section's example skeleton MUST reuse all 6 principle-18 substrings (§1.5b verified zero churn).
 
 **Skeleton (binding, ≤30 lines body):**
 
@@ -268,7 +268,7 @@ Wave 2 — после мержа Wave 1:
 1. Sort candidates by priority score descending.
 2. Drop any candidate flagged `DONE` by Stage 2's multi-signal classifier (§4 below).
 3. Take first N from remaining.
-4. For each: emit «Что делает / Deliverable / Почему сейчас» 3-line block per [output-format.md §4.1](../../../.claude/skills/meta-orchestrator/references/output-format.md) + 1-liner.
+4. For each: emit «Что делает / Deliverable / Почему сейчас» 3-line block per [output-format.md §4.1](../../../.claude/skills/pipeline/references/output-format.md) + 1-liner.
 5. Parallel-vs-sequential markers between the N: derive from each candidate's kickoff `§2 Parallel-with` column (V2). If k of the N pairwise list each other → emit `PARALLEL-OK ↔`; else sequential `↓`.
 
 **Edge cases (binding):**
@@ -378,8 +378,8 @@ Per [`phase-research-coverage.md §1.7`](../../../.claude/rules/phase-research-c
 - [`../prior-art-evaluations.md`](../prior-art-evaluations.md) — SSOT consulted §1.1 (rows #64, #65, #66, #68, #77, #79, #80, #81 cited).
 - [`../../../.claude/rules/ai-laziness-traps.md`](../../../.claude/rules/ai-laziness-traps.md) — T20 in particular for the inline-verdict-without-evidence discipline applied throughout §3.
 - [`../../../.claude/rules/recommendation-laziness-discipline.md`](../../../.claude/rules/recommendation-laziness-discipline.md) — parent rule for the every-verdict-backs-with-evidence pattern applied to §3 + §4.
-- [`../../../.claude/skills/meta-orchestrator/SKILL.md`](../../../.claude/skills/meta-orchestrator/SKILL.md) — Stage 3 implementation target (V1 routing branch + V4 top-N + V3 overview render).
-- [`../../../.claude/skills/meta-orchestrator/references/output-format.md`](../../../.claude/skills/meta-orchestrator/references/output-format.md) — V3 new section `## §1A No-arg overview format` lands here; V2 reuses existing §3 Action queue column.
-- [`../../../.claude/skills/meta-orchestrator/helpers/priority-score.sh`](../../../.claude/skills/meta-orchestrator/helpers/priority-score.sh) + [`../../../.claude/skills/meta-orchestrator/helpers/dup-detect.sh`](../../../.claude/skills/meta-orchestrator/helpers/dup-detect.sh) — Stage 2 implementation targets (§4 Layer 1+2+3 wiring).
+- [`../../../.claude/skills/meta-orchestrator/SKILL.md`](../../../.claude/skills/pipeline/SKILL.md) — Stage 3 implementation target (V1 routing branch + V4 top-N + V3 overview render).
+- [`../../../.claude/skills/meta-orchestrator/references/output-format.md`](../../../.claude/skills/pipeline/references/output-format.md) — V3 new section `## §1A No-arg overview format` lands here; V2 reuses existing §3 Action queue column.
+- [`../../../.claude/skills/meta-orchestrator/helpers/priority-score.sh`](../../../.claude/skills/pipeline/helpers/priority-score.sh) + [`../../../.claude/skills/meta-orchestrator/helpers/dup-detect.sh`](../../../.claude/skills/pipeline/helpers/dup-detect.sh) — Stage 2 implementation targets (§4 Layer 1+2+3 wiring).
 - [`../../../packages/core/principles/18-meta-orchestrator-output-format.test.ts`](../../../packages/core/principles/18-meta-orchestrator-output-format.test.ts) — §1.5b verified zero-churn target.
 - [PR #264](https://github.com/Yhooi2/rules-as-tests-aif/pull/264) — Stage 0-thin §1.5d closure; §0.5 P4 falsifier resolved upstream of this patch.
