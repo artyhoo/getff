@@ -458,9 +458,10 @@ Enumerated surfaces where that class occurs, verdicted per surface:
   S-I rather than double-priced here.
   **RE-ADJUDICATED 2026-08-07 (§4 R4):** the routing is unchanged, but this commit now moves that
   kickoff's *premise*, not just its number — its «~2k listing budget» is contradicted by the
-  injected block measuring 8.9k (≈4× the budget), while the listing is nonetheless reduced to
-  measured at 8.9k injected, with **no source-side share published** (see R4 — the listed-entry
-  and file-side populations differ, so every such ratio is withdrawn). **Verdict now: GAP-FOUND against the S-I
+  injected block measuring **8.9k**, ≈4× that budget. **No claim is made here about the listing
+  being reduced or not** — the injected-vs-source relation has no publishable figure, since the
+  listed-entry and file-side populations differ (R4). What S-I needs is that its budget premise
+  is wrong by ≈4×, not a verdict on truncation. **Verdict now: GAP-FOUND against the S-I
   kickoff's budget premise, routed not edited** (that kickoff is outside §2).
 - `scripts/measure-always-on.sh` — **NOT SWEPT, out of permitted set (S-E owns)**; it measures
   the repo-owned half only, which is exactly the 21-28% this patch bounds from the other side.

@@ -113,9 +113,10 @@ Two readings follow, and only the first is new:
    (29,464 − `~/.claude/CLAUDE.md` 964 − `MEMORY.md` 1,800, both host-side: §2 rows 2 and 3).
    **This measurement is of the PRE-S-G resident set, and that limits what may be built on it**
    (cold audit, round 7): the seat measured carries `ai-laziness-traps.md` (26,387 B), which
-   S-G has since replaced with `ai-laziness-digest.md` (6,703 B), cutting the set 69,453 →
-   48,671 B per the parent patch §3 item 4. The file that dominates this measurement is therefore
-   **already gone from the current always-on set**, so **no ranking, no «top lever» and no share
+   S-G has since replaced with `ai-laziness-digest.md` (6,703 B) — that swap alone accounts for
+   −19,684 B of the set's 69,453 → 48,671 B cut recorded in the parent patch §3 item 4; the
+   remaining ~1.1 KB comes from two other files in the same trim. The largest single file in this measurement — 9.8k of the 26,700, just ahead of `CLAUDE.md`'s
+   9.3k — is therefore **already gone from the current always-on set**, so **no ranking, no «top lever» and no share
    of the current head is derived from it here** — doing so would carry a superseded population
    into S-D′'s ordering. What the snapshot establishes is narrower and still useful: on the seat
    it measured, repo-owned memory files were the single largest resident block, which is the
@@ -149,12 +150,16 @@ injected form still S-I's to publish. Partition **14 / 11 / 2 / 1**, counted fro
 ### §8.4 What S-D′ can now do, and what it still cannot
 
 **Can:** see, for one measured seat, which *classes* the resident head divides into (§8.2's table)
-and that repo-owned memory files were its largest — plus the two identities in §8.1 and §8.2 that
-hold regardless of seat.
-**Cannot** — and this is the larger half: **rank the current always-on set from these numbers.**
-The measurement is of the **pre-S-G** resident set (§8.2 reading 1), so every share of it, and
-every «top lever» drawn from it, is withdrawn; nor may the absolute figures be treated as final
-while DECISION-NEEDED **#4, #5 and #6** are open; nor is the MCP server-instruction block split.
+and that repo-owned memory files were its largest — plus §8.2's exact resident/deferred identity,
+which is arithmetic and holds independently of seat, and §8.1's measured B/token aggregate, which
+is an empirical average over seven files (2.37-3.32 per file), not an identity.
+**Cannot** — and this is the larger half: **rank the CURRENT always-on set from these numbers.**
+The measurement is of the **pre-S-G** resident set (§8.2 reading 1). The shares published in
+§8.2, §8.6 and their parent-side twins remain valid **as shares of that pre-S-G set** and are not
+withdrawn; what is withdrawn is any share of, or «top lever» for, the **current** set — which is
+what a subtraction map would act on. Nor may the absolute figures be treated as final while
+DECISION-NEEDED **#4, #5 and #6** are open — #6 being precisely the question of which denominator
+a pre-S-G share should be quoted against; nor is the MCP server-instruction block split.
 **Should:** read §8.1, §8.5 and §8.6 before ordering
 anything — between them they move the repo-vs-harness balance by more than the width of the
 decision, and in the same direction.
@@ -262,8 +267,8 @@ surface:
 
 - **The parent patch** `2026-08-07-s-h-harness-remainder-p14.md` — **SWEPT**: every section whose
   evidentiary basis this paste moved now carries a marker (§0 supersession note, §0a ANSWERED,
-  §2 headline warning + per-row seat annotations on 5c/5e, §4 R1 PERFORMED / R4 CHALLENGED /
-  R5 REVERSED, §6 revised partition, §7 T-SH-A revision **and all four backward-check surfaces
+  §2 headline warning + per-row seat annotations on 5c/5e, §4 R1 PERFORMED / R4 PARTLY CHALLENGED /
+  R5 SUSPENDED, §6 revised partition, §7 T-SH-A revision **and all four backward-check surfaces
   whose basis this paste moved — ADR-3, the spec P14 row, the S-I kickoff and
   `measure-always-on.sh` — re-adjudicated**).
 
