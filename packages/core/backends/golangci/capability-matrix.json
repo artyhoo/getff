@@ -3,8 +3,19 @@
   "contract": "firing-contract.json",
   "cells": {
     "syntax": {
-      "status": "no",
-      "refusedCode": "PENDING-RUNNER-CAPTURE"
+      "status": "partial",
+      "caps": [
+        "identity granularity is the LINTER name (`forbidigo`), not a per-pattern rule id — two different forbid patterns are indistinguishable in the JSON, so a consumer cannot attribute an issue to a specific ban",
+        "no severity in the emitted issue (`\"Severity\": \"\"`) — error-vs-warning is a golangci-lint run-level concern, not a per-ban one",
+        "pattern matching is textual over the source (forbidigo `p:` is a regexp), so `os.Getenv` is matched by spelling: an aliased import or a wrapper call is not caught",
+        "no per-package or per-symbol scoping of a ban"
+      ],
+      "evidence": {
+        "kind": "live-fired",
+        "date": "2026-08-06",
+        "toolchain": "golangci-lint has version v1.55.2 built with go1.22.0 from (unknown, mod sum: \"h1:yllEIsSJ7MtlDBwDJ9IMBkyEUz2fYE0b5B8IUgO1oP8=\") on (unknown)",
+        "capturedDiagnostic": "{\"FromLinter\":\"forbidigo\",\"Text\":\"use of `os.Getenv` forbidden because \\\"Read configuration through the injected config accessor, never os.Getenv directly\\\"\",\"Severity\":\"\",\"SourceLines\":[\"\\t_ = os.Getenv(\\\"HOME\\\")\"],\"Replacement\":null,\"Pos\":{\"Filename\":\"main.go\",\"Offset\":113,\"Line\":7,\"Column\":6},\"ExpectNoLint\":false,\"ExpectedNoLintLinter\":\"\"}"
+      }
     },
     "type-aware": {
       "status": "no",

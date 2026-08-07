@@ -4,10 +4,20 @@
 //
 // The RED of TDD for the lane's delivered ban surface (forbidigo's `os\.Getenv`): fires a REAL
 // `golangci-lint run --out-format=json --enable forbidigo` against a committed fixture module
-// and parses the resulting diagnostic identities out of its stdout (a JSON **array** — same
-// shape as ruff/ast-grep, distinct from cargo's NDJSON; uses the SHARED parser
-// backends/shared/json-array-parse.ts). Only fireContract()/deriveGolangciVersion() spawn;
-// the parse-core is pure and lives in the shared module.
+// and parses the resulting diagnostic identities out of its stdout.
+//
+// STDOUT SHAPE — captured live from the pinned v1.55.2 binary on the CI runner (host-verify §6
+// step 7, run 31132752600). golangci-lint does NOT emit a bare JSON array: it emits a single
+// **object** `{"Issues":[…],"Report":{"Linters":[…]}}`. That is a third shape, distinct from
+// BOTH ruff/ast-grep's bare array AND cargo's NDJSON, so this backend keeps its own parse-core
+// (exactly as cargo does for its NDJSON) instead of reusing backends/shared/json-array-parse.ts.
+// Reusing the shared array parser was the worker-time hypothesis and it is WRONG on this shape:
+// `parseIdentitiesFromJsonArray` bails at its `if (!Array.isArray(parsed))` guard and returns an
+// empty set for every golangci run, so a populated expectedCodes would have turned the RED test
+// permanently red (and an empty one — the parked worker-done state — permanently vacuous). The
+// shared `getByJsonPath` helper IS reused: only the array-vs-object container differs.
+//
+// Only fireContract()/deriveGolangciVersion() spawn; the parse-core below is pure.
 //
 // The contract `command` invokes the bare PATH binary. golangci-lint is NOT a package.json
 // dependency and NOT an npx-style pin baked into the command: the lane audit-self.yml installs
@@ -17,13 +27,16 @@
 // so a version drift between the installed PATH binary and the capability-matrix evidence turns
 // the freshness gate RED (attention-is-not-a-mechanism).
 //
-// FORK #2 PARKED: firing-contract.json carries `jsonPath: ""` + `expectedCodes: []` at worker-done
-// time. Those values are the dispatching session's job to fill at host-verify §6 step 7, from a
-// captured v1.55.2 JSON run — never guessed here (kickoff §4c, T-AJ-D). The runner's parse-core
-// is parameterised by `contract.jsonPath`, so it activates only after that upgrade.
+// FORK #2 CLOSED (host-verify §6 step 7): firing-contract.json now carries `jsonPath:
+// "$.FromLinter"` + `expectedCodes: ["forbidigo"]`, both read off the captured run rather than
+// guessed (kickoff §4c, T-AJ-D). Note what the captured identity actually IS: golangci's
+// per-issue identity is the emitting **linter's** name, not a per-pattern rule id — there is no
+// ruff-style `TID251` granularity to extract, because forbidigo's individual `forbid:` patterns
+// are not separately identified in the JSON. That capability limit is recorded in the matrix
+// cell's `caps`, which is why the cell is `partial` and not `yes`.
 
 import { spawnSync } from 'node:child_process';
-import { parseIdentitiesFromJsonArray } from '../shared/json-array-parse.ts';
+import { getByJsonPath } from '../shared/json-array-parse.ts';
 
 export interface GolangciFiringContract {
   command: string;
@@ -35,16 +48,19 @@ export interface GolangciFiringContract {
 }
 
 /**
- * Spawn the contract command against a fixture directory and parse its stdout (a JSON array of
- * golangci-lint findings) for the set of reported identities. Asserts (expected-vs-actual) live
- * in the caller (test); this only fires + parses. golangci-lint writes the JSON array to stdout
- * and any progress / warning text to stderr, so stdout is the clean JSON surface.
+ * Spawn the contract command against a fixture directory and parse its stdout (the golangci-lint
+ * report object) for the set of reported identities. Asserts (expected-vs-actual) live in the
+ * caller (test); this only fires + parses. golangci-lint writes the JSON report to stdout and any
+ * progress / warning text to stderr, so stdout is the clean JSON surface (confirmed: the captured
+ * run's stderr was empty on all three fixtures).
  *
  * Scoping: golangci-lint auto-discovers configuration by walking up the filesystem from the
  * module root for a `.golangci.yml`. Each fixture carries its OWN `.golangci.yml` at its module
  * root (the ban surface), so the run is scoped to exactly that fixture regardless of the outer
- * tree. (Config-discovery behaviour is the documented v1.x walk-up; it is NOT yet confirmed
- * against a live run here — the capture that confirms it is owed at host-verify §6 step 7.)
+ * tree. CONFIRMED against the live pinned v1.55.2 run: the `invalid` fixture exited 1 with
+ * exactly one forbidigo issue at `main.go:7:6`, while `valid` and `valid-clean` — sitting under
+ * the same outer tree — exited 0 with `"Issues":[]`. A leaking outer config would have made all
+ * three agree.
  */
 export function fireContract(
   contract: GolangciFiringContract,
@@ -55,17 +71,42 @@ export function fireContract(
     throw new Error('fireContract(): empty command in contract');
   }
   const result = spawnSync(cmd, args, { cwd: fixtureDir, encoding: 'utf8', shell: false });
-  const codes = parseIdentitiesFromJsonArray(result.stdout ?? '', contract.jsonPath);
+  const codes = parseCodesFromStdout(result.stdout ?? '', contract.jsonPath);
   return { codes };
 }
 
 /**
- * Pure parse of stdout via the shared JSON-array helper. Re-exported for unit-testing the
- * parse-core without spawning golangci-lint (R9, always-on in CI). Equivalent to cargo's
- * parseCodesFromStdout but for the JSON-array shape.
+ * Pure parse of the golangci-lint report object. Exported for unit-testing the parse-core without
+ * spawning golangci-lint (R9, always-on in CI) — the go analog of cargo's parseCodesFromStdout.
+ *
+ * Container: `{"Issues":[…]}`. Each element of `Issues` is walked by `jsonPath` (`$.FromLinter`)
+ * via the shared `getByJsonPath`; non-empty string identities are collected. Tolerance mirrors
+ * the sibling parsers — non-JSON, a missing/non-array `Issues`, or an empty stdout all resolve to
+ * an empty set rather than throwing ("no code found", never a crash).
+ *
+ * A clean run emits `"Issues":[]` and yields the empty set. NOTE this is the same result an
+ * unparseable stdout yields, which is why the empty set alone is never the proof that a fixture is
+ * clean: the GREEN tests pair it with the RED test firing on the same binary in the same run.
  */
 export function parseCodesFromStdout(stdout: string, jsonPath: string): Set<string> {
-  return parseIdentitiesFromJsonArray(stdout, jsonPath);
+  const identities = new Set<string>();
+  const trimmed = stdout.trim();
+  if (trimmed.length === 0) return identities;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return identities; // non-JSON stdout — treat as no findings
+  }
+  const issues = getByJsonPath(parsed, '$.Issues');
+  if (!Array.isArray(issues)) return identities;
+  for (const issue of issues) {
+    const value = getByJsonPath(issue, jsonPath);
+    if (typeof value === 'string' && value.length > 0) {
+      identities.add(value);
+    }
+  }
+  return identities;
 }
 
 /**
