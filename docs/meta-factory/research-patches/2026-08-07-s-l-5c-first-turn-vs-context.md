@@ -229,9 +229,9 @@ the spec and kickoff trees:
   three awk tables with it. Not edited here (S-H's permitted set, and the live per-turn SSOT);
   named as an S-L deliverable. The first draft of this row cited `:63` — off by two; the grep
   gave the real line.
-- `2026-08-01-token-economy-distillate.md` and `-s-a-profile.md` — **SWEPT-CLEAN, grep
-  collision.** Both surface in the sweep only because `18.5%` / `86.3%` match the `8\.5` term;
-  neither quotes the harness-remainder figures nor the conversion constant.
+- `2026-08-01-token-economy-distillate.md` and `2026-08-01-token-economy-s-a-profile.md` —
+  **SWEPT-CLEAN, grep collision.** Both surface in the sweep only because `18.5%` / `86.3%` match
+  the `8\.5` term; neither quotes the harness-remainder figures nor the conversion constant.
 - [`docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md`](../../superpowers/specs/2026-08-06-pipeline-token-economy-design.md)
   P13 / §1.5 — **GAP-FOUND, routed:** S-D′ ranks harness-side levers by the P14 price list, so a
   moved conversion moves the *ranking*, which is S-D′'s product. This is the ordering constraint
