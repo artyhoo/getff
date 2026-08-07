@@ -7,6 +7,13 @@
 #   (no flag)  report only; exit 1 if any worktree is unprovisioned.
 #   --fix      provision every fixable worktree; exit 1 only if something could not be fixed.
 #
+# Exit 1 also fires when the local-shadow sweep (arm 2, below) finds a worktree whose
+# .claude/settings.local.json shadows the project claudeMdExcludes list. A worktree the
+# sweep could NOT check is announced as `SHADOW? … DID NOT RUN` and does NOT set exit 1
+# — it is neither a pass nor a failure, and silently folding it into either would be the
+# dishonest direction. Read the counts line; a non-zero "could not run" is a real gap in
+# coverage, not an all-clear.
+#
 # This is the operator-facing sweep. The per-worktree logic lives in worktree-node-modules.sh
 # (single source of truth) — this script only enumerates and reports, so the doctor and the
 # create-time hooks can never drift apart in what "provisioned" means.
@@ -100,6 +107,27 @@ while IFS= read -r wt; do
     shadow_skipped=$((shadow_skipped + 1))
     printf 'SHADOW?  %s — DID NOT RUN (no %s)\n' \
       "$wt" "$([ -f "$hook" ] || echo 'pre-push.ts'; [ -d "$wt/node_modules" ] || echo 'node_modules')"
+    continue
+  fi
+
+  # HARD PRECONDITION — the target hook must KNOW this section id.
+  #
+  # pre-push.ts dispatches PREPUSH_ONLY through a flat if-chain with NO default
+  # arm: an unrecognised value does not error, it falls through to the FULL run.
+  # Most registered worktrees sit on branches predating this section, so invoking
+  # them blind would (a) execute a complete pre-push suite per worktree —
+  # including the side-effectful `worktree-provisioning` section — and (b) report
+  # any unrelated failure as a SHADOW finding, which is a false positive about a
+  # check that never ran. Measured on this machine at authoring time: 29 worktrees
+  # carry a settings.local.json, and exactly 1 hook knew the id — so the unguarded
+  # form would have mis-invoked 28.
+  #
+  # Grepping the target file is the honest precondition: it asks the artefact we
+  # are about to execute whether it implements the contract, instead of assuming
+  # the whole population is on this branch.
+  if ! grep -q 'local-claudemd-shadow' "$hook" 2>/dev/null; then
+    shadow_skipped=$((shadow_skipped + 1))
+    printf 'SHADOW?  %s — DID NOT RUN (its pre-push.ts predates the local-claudemd-shadow section)\n' "$wt"
     continue
   fi
 
