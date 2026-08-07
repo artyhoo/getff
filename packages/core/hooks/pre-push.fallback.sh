@@ -20,15 +20,48 @@ HISTORICAL_CUTOFF="2026-05-12"
 S17_ALLOWLIST_RE='^(docs\(research-patches\)|chore\(snapshot-regen\)|chore\(prior-art-update\)):'
 fail=0
 
+# The resolved trunk (dual-pair with pre-push.ts resolveDefaultBase, GH #568):
+# origin/HEAD symbolic-ref → first existing of origin/staging|main|master. The
+# chain also covers an unset OR stale origin/HEAD symref (worktree-setup.test.ts
+# gotcha). Empty output = no trunk resolvable.
+resolve_trunk() {
+  local default_ref ref
+  default_ref="$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || true)"
+  for ref in "${default_ref}" origin/staging origin/main origin/master; do
+    [ -z "${ref}" ] && continue
+    if git rev-parse --verify "${ref}" >/dev/null 2>&1; then echo "${ref}"; return 0; fi
+  done
+  return 0
+}
+TRUNK="$(resolve_trunk)"
+
+# rev-list over RANGE, excluding trunk-reachable commits and merge commits —
+# the merge-forward range fix (2026-08-07, dual-pair with pre-push.ts
+# resolveBase's `exclude` + getCommits `--not`): after `git merge origin/staging`
+# on a published PR branch (git-conflict-merge-forward.md §2), a bare
+# `remote_sha..local_sha` swept in the trunk's own squash commits, which lack
+# `Prior-art:`/`§1.7` trailers (squash-trailer-loss; server-side PR-body gate
+# #1098 covered them at merge) — failing the push on commits the pusher does not
+# own. --no-merges additionally skips the merge commit itself: the TS core never
+# flags merges (diff-tree / `git show --cc` are empty on a clean merge), but this
+# reduced channel's PRESENCE-only check would — parity demands the skip.
+range_commits() {
+  if [ -n "${TRUNK}" ]; then
+    git rev-list --no-merges "$1" --not "${TRUNK}" 2>/dev/null || true
+  else
+    git rev-list --no-merges "$1" 2>/dev/null || true
+  fi
+}
+
 # Resolve the commits being pushed into COMMITS (newline-separated). Precedence
 # matches pre-push.ts resolveBase(): env > stdin remote_sha (Z40 → not-on-remotes)
-# > origin/staging default. Returns non-zero when nothing resolves (caller skips
+# > resolved trunk default. Returns non-zero when nothing resolves (caller skips
 # with a visible message — not a silent pass).
 COMMITS=""
 resolve_commits() {
   if [ -n "${PREPUSH_UPSTREAM_REF:-}" ]; then
     if git rev-parse --verify "${PREPUSH_UPSTREAM_REF}" >/dev/null 2>&1; then
-      COMMITS=$(git rev-list "${PREPUSH_UPSTREAM_REF}..HEAD" 2>/dev/null || true); return 0
+      COMMITS=$(range_commits "${PREPUSH_UPSTREAM_REF}..HEAD"); return 0
     fi
     echo "⚠ fallback: PREPUSH_UPSTREAM_REF='${PREPUSH_UPSTREAM_REF}' not found — skipping (not a silent pass)."; return 1
   fi
@@ -41,26 +74,19 @@ resolve_commits() {
         # from a checkout on a different branch must validate feat's commits, not
         # the checked-out branch's (the 2026-06-17 cross-checkout incident; parity
         # with pre-push.ts resolveBase's head=local_sha).
-        COMMITS=$(git rev-list "${r_sha}..${l_sha}" 2>/dev/null || true)
+        COMMITS=$(range_commits "${r_sha}..${l_sha}")
       else
         # new branch (Z40) or unknown remote sha → commits not on any remote.
-        COMMITS=$(git rev-list "${l_sha:-HEAD}" --not --remotes 2>/dev/null || true)
+        COMMITS=$(git rev-list --no-merges "${l_sha:-HEAD}" --not --remotes 2>/dev/null || true)
       fi
       return 0
     fi
   fi
-  # No env, no git stdin: derive the consumer's REAL default branch instead of
-  # hard-coding origin/staging (GH #568; dual-pair with pre-push.ts resolveDefaultBase):
-  # origin/HEAD symbolic-ref → first existing of origin/staging|main|master. The fallback
-  # chain also covers an unset OR stale origin/HEAD symref (worktree-setup.test.ts gotcha).
-  local default_ref ref
-  default_ref="$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || true)"
-  for ref in "${default_ref}" origin/staging origin/main origin/master; do
-    [ -z "${ref}" ] && continue
-    if git rev-parse --verify "${ref}" >/dev/null 2>&1; then
-      COMMITS=$(git rev-list "${ref}..HEAD" 2>/dev/null || true); return 0
-    fi
-  done
+  # No env, no git stdin: diff against the resolved trunk (GH #568) — the
+  # trunk-exclusion in range_commits is a no-op here (base IS the trunk).
+  if [ -n "${TRUNK}" ]; then
+    COMMITS=$(range_commits "${TRUNK}..HEAD"); return 0
+  fi
   echo "⚠ fallback: could not determine a base ref (no PREPUSH_UPSTREAM_REF, no git stdin, no default branch) — skipping (not a silent pass)."; return 1
 }
 

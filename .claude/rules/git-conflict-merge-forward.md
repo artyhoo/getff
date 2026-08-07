@@ -37,6 +37,12 @@ MERGE-FORWARD (PR CONFLICTING because base moved):
 
 Step 9 is the safety interlock: it proves the push is a fast-forward (remote tip is an ancestor of what you push), i.e. no history was rewritten and no force flag can be needed.
 
+**Trailer-gate interaction (range fix shipped 2026-08-08; incident 2026-08-07, PRs #1269/#1270):** step 10's plain push used to fail the pre-push `§7 Prior-art` / `§1.7` gates on *staging's own squash commits* swept in by step 3 — the hook's range was a bare `remote_sha..local_sha`, and staging squash commits routinely lack trailers (squash-trailer-loss; the server-side PR-body gate #1098 covered them at merge). Fixed at range level: the TS core scopes the gated set to `rev-list remote_sha..local_sha --not <resolved-trunk>` (`packages/core/hooks/pre-push.ts` `resolveBase` → `getCommits`), and the bash fallback additionally skips merge commits (`--no-merges` — its reduced PRESENCE check would otherwise flag the step-7 merge commit, which the TS core never flags). Consequences for this recipe:
+
+- No `PREPUSH_UPSTREAM_REF` override is needed (that was the pre-fix workaround).
+- The exclusion reads the **local** `origin/staging` tracking ref — step 1's `git fetch origin staging` is what keeps it current; do not skip it.
+- Commits the branch itself introduces stay fully gated — paired-negative: `tests/hooks/prepush-merge-forward-range.test.sh` (CI: audit-self.yml `principles-meta-tests`).
+
 ## §3 Why rebase + force is a dead end for agents
 
 - `git push --force` / `-f` — blocked by `git-safety.sh` (operator-global PreToolUse hook).
