@@ -1,4 +1,4 @@
-<!-- scope: stage-scoped dispatch input — S-D′ of the arch-v2-context-pipeline umbrella (reopened scope, operator override 2026-08-06). NO bridge-profile marker — DELIBERATE: Tier 2 and NOT plan-complete (the subtraction-map authoring is the un-spent design judgment), so the top tier plans in aif per CLAUDE.md Task-tier routing. RE-ISSUED rev 4 (2026-08-06 /arch re-planning after a Phase -1 REVISE): dependency widened to S-E + S-H (the P11/P14/P3d inputs live in S-H now — spec §1.6 FORK C); the ADR-8 control arm re-homed to a dispatch-time parity split with a recorded deviation (spec §1.5); the ordering instrument named honestly (spec P13 rev 4). REV 5 (2026-08-07) absorbs this stage's FIRST cold Phase -1, which returned STOP: the fork-independent findings are fixed in place below, and the ADR-8 A/B arm is PARKED behind the §5 DECISION-NEEDED — it is NOT dispatchable until the operator resolves that fork. -->
+<!-- scope: stage-scoped dispatch input — S-D′ of the arch-v2-context-pipeline umbrella (reopened scope, operator override 2026-08-06). NO bridge-profile marker — DELIBERATE: Tier 2 and NOT plan-complete (the subtraction-map authoring is the un-spent design judgment), so the top tier plans in aif per CLAUDE.md Task-tier routing. RE-ISSUED rev 4 (2026-08-06 /arch re-planning after a Phase -1 REVISE): dependency widened to S-E + S-H (the P11/P14/P3d inputs live in S-H now — spec §1.6 FORK C); the ADR-8 control arm re-homed to a dispatch-time parity split with a recorded deviation (spec §1.5); the ordering instrument named honestly (spec P13 rev 4). REV 5 (2026-08-07) absorbs this stage's FIRST cold Phase -1, which returned STOP: the fork-independent findings are fixed in place below, and the ADR-8 A/B arm is PARKED behind the §5 DECISION-NEEDED — it is NOT dispatchable until the operator resolves that fork. REV 6 (2026-08-07) records the operator's resolution of that fork — §5 = Option A, the ADR-8 A/B arm is DESCOPED from this stage (deliverable 3 removed, §4 T2 re-scoped to this stage's own before/after, follow-on stage stubbed in §6); the §5 blocker is lifted, so the ONLY remaining gate on dispatch is the two-gate S-E + S-H dependency. -->
 <!-- host-verify contract lives in §3 (a real contract, not an opt-out). The earlier `host-verify: none` opt-out was retracted 2026-08-06: deliverable 2 edits `agents/*.md`, which shifts install fingerprints, so this stage DOES have an executable arm — see §3. -->
 
 # arch-v2-context-pipeline S-D′ — per-seat subtraction maps
@@ -97,10 +97,13 @@
    `install.sh:606-618`'s glob-copy, whose skip-list is not in §2 — so the experiment either
    edits an unpermitted file or ships an experiment to every consumer.
 
-   **Binding consequence:** an executor MUST NOT implement any part of the A/B arm, MUST NOT
-   invent a parity function, and MUST NOT fabricate a defect count. Resolution is the §5
-   DECISION-NEEDED — an operator fork, not an executor judgment. Until it is resolved this
-   stage is **not dispatchable**; deliverables 1, 2 and 4 are held with it (they are one PR).
+   **DESCOPED at rev 6 — §5 resolved to Option A (operator verdict 2026-08-07).** The four
+   findings above stand as the record of *why*; the arm itself leaves this stage. **Binding for
+   an executor of S-D′:** do NOT implement any part of the A/B arm, do NOT invent a parity
+   function, do NOT fabricate a defect count — and do NOT treat their absence as a shortfall.
+   This stage now ships deliverables 1, 2 and 4; a PR with no evaluation arm is **conformant**,
+   not incomplete. The arm's new home is the follow-on stage stubbed in §6. **The §5 blocker is
+   lifted; the two-gate S-E + S-H dependency is unaffected and still binds.**
 4. **SSOT #234 annotation** (same PR): trigger (a) fired — operator-declared expensive-seat
    budget exhaustion, 2026-08-06 session; verdict text unchanged, annotation appended per the
    row's own protocol.
@@ -271,8 +274,11 @@ See [`ai-laziness-traps.md §2`](../../rules/ai-laziness-traps.md) (cited per §
 incomplete population, and §3's deliverable-2 leg was satisfiable by a one-file PR until this
 round. **T1 — sampling floor**: «I covered one review-seat agent and every criterion passed»
 is the sampling artifact, not a result; §3 states the floor and the escape (name the whole
-in-scope set). T2 — the ADR-8 baseline must be
-CAPTURED, not described (**parked at rev 5 — see §1 item 3 and §5**); T3 — every «block X
+in-scope set). T2 — a baseline must be
+CAPTURED, not described (**re-scoped at rev 6:** ADR-8's A/B baseline left with the descoped arm
+(§1 item 3, §5, §6), but this stage's OWN before/after baseline remains in scope and remains
+subject to T2 — and per the header's INPUT CONDITION it cites the pre-prune billing-projection
+snapshot it used, rather than a figure re-derived at read time); T3 — every «block X
 costs Y» row cites the measurement; T13/T16 —
 «C2 replaces the system prompt» is upstream-doc-verified for the CURRENT client version, not
 assumed from the ADR; T15 — the map's own residency: the map document is consumed at
@@ -289,11 +295,18 @@ budget line moving), not a vibe.
 > **Label-forward-reference note (rev 5):** `T-SDP-A` and `T-SDP-B` are cited in §1 and §3a
 > above and DEFINED here. Read §4 before executing §1 — the labels are binding where cited.
 
-## §5 PARKED DECISION-NEEDED — the operator owns this fork (stage is not dispatchable until resolved)
+## §5 RESOLVED DECISION-NEEDED — Option A (operator verdict 2026-08-07, rev 6)
+
+> **RESOLVED: Option A — the ADR-8 A/B arm is DESCOPED from S-D′.** The fork below is kept
+> verbatim as the record of what was decided and against what alternative; it is **no longer a
+> dispatch blocker**. Consequences now in force: §1 item 3 is descoped (a PR with no evaluation
+> arm is conformant, not incomplete); §4 T2 is re-scoped to this stage's own before/after; ADR-8
+> accrues its **second** recorded deviation, and its A/B window travels to the follow-on stage
+> stubbed in §6. **The remaining gate on dispatch is the two-gate S-E + S-H dependency alone.**
 
 The stage's first cold Phase -1 (2026-08-07) returned **STOP**. Every fork-independent finding
-is fixed in rev 5 above. What remains is one genuine fork with no determinate best answer on
-the project's merits, so it is logged, not decided:
+is fixed in rev 5 above. What remained was one genuine fork with no determinate best answer on
+the project's merits, so it was logged, not decided:
 
 **DECISION-NEEDED: does the ADR-8 A/B experiment belong in S-D′ at all, given that neither its
 selection mechanism nor its second metric has a home inside §2's permitted set?**
@@ -304,6 +317,16 @@ selection mechanism nor its second metric has a home inside §2's permitted set?
   no evaluation arm — so §3's «a PR that ships maps with no executable A/B arm fails the
   stage's purpose» must be **rewritten out**, not merely left unmet, and ADR-8 accrues a
   second recorded deviation.
+  > **Rev-6 correction to this Option's own text — the quoted §3 sentence does not exist.**
+  > Executing the descope required locating it; it is not in §3 and not anywhere in this file.
+  > Verified by exhaustive grep over the whole kickoff, not by reading §3:
+  > `grep -nE 'A/B|ADR-8|experiment|ledger|arm|purpose|evaluation'` returns, in the §3 region
+  > (lines 165-264 at rev 5), only the `#optout-as-reflex` note about install-fingerprint
+  > snapshots — nothing tying the stage's purpose to an executable arm. The A/B framing lived in
+  > **§1 item 3** and **§4 T2** instead, and those are what rev 6 actually edits. The Option's
+  > consequence is therefore satisfied by construction; the sentence it named was a rev-5
+  > paraphrase of a line that had already been removed. Recorded rather than quietly ignored:
+  > an instruction that points at absent text is a real defect in the fork's own statement.
 - **Option B — widen §2 to the surfaces the experiment needs.** Grant this stage the dispatch-
   choreography home (the umbrella's ledger-schema section and/or
   `.claude/skills/dispatcher/SKILL.md`) plus `install.sh`'s agent skip-list, and define both
@@ -313,10 +336,49 @@ selection mechanism nor its second metric has a home inside §2's permitted set?
   [CLAUDE.md `PR strategy`](../../../CLAUDE.md) exists to prevent — and its Tier-2 planning
   judgment now covers choreography it was never scoped to design.
 
-**Also unresolved under either option (INCONCLUSIVE-needs-human):** whether aif creates the
-task id before or after the dispatch prompt is composed. Option B needs an answer — an arm
-selected by task-id parity cannot be written into a prompt that predates the id.
+**The INCONCLUSIVE is CLOSED at rev 6 — and it independently corroborates Option A.** The open
+question was whether aif creates the task id before or after the dispatch prompt is composed.
+**Answer: after.** The kickoff ships as the `description` field *inside* the `POST /tasks` request
+body (`packages/runtime-bridge/src/AifHandoffBackend.ts:231-239`), and the id exists only in that
+call's **response** (`:249`, `const taskId = (createResult as { id: string }).id`). The only
+post-create mutation is `PUT /tasks/{id} {paused:false}` (`:260`); the sole other write is a
+best-effort `DELETE` rollback on failure (`:263`) — no request edits `description` after creation.
+**Therefore an arm selected by task-id parity cannot be written into the dispatch prompt without a
+two-phase dispatch redesign**, which is a choreography change well outside a map-authoring stage —
+independent grounds for Option A beyond the four findings in §1 item 3.
+**Caveat, stated because it bounds the claim:** verified **client-side only**. `packages/api` was
+not audited for whether a *paused* task's `description` is editable after creation; if it is, a
+two-phase dispatch becomes cheaper — but that is a question for the §6 follow-on stage, and it does
+not reopen this one.
 
-**Until this is answered:** do not dispatch S-D′, and do not let an executor «work around» the
-parked arm. The two-gate dependency (S-E AND S-H merged) remains in force independently — it
-is a second, unrelated reason the stage cannot start yet.
+**Dispatch status at rev 6:** the §5 blocker is **lifted**. The stage still cannot start, for one
+remaining and unrelated reason: the two-gate dependency (S-E **AND** S-H merged) — S-H is merged
+(#1239 + #1249), S-E is not. Do not let an executor «work around» the descoped arm in the other
+direction either: re-introducing an A/B under a different name is the same scope-crossing this
+resolution declined.
+
+## §6 Follow-on stage stub — ADR-8's A/B, re-homed (rev 6)
+
+Not a dispatchable kickoff: a **stub**, so the descoped arm has a named destination rather than an
+open promise. Scoping it is its own act, and this stage does not perform it.
+
+- **Owns:** ADR-8's experiment protocol as inherited at spec §1.5 — baseline before merge,
+  20-dispatch window, deterministic A/B, owner closes with a verdict PR — for the *subtractive*
+  shaping S-D′ ships.
+- **Must resolve before it is dispatchable** (the four §1-item-3 findings, unchanged and still
+  the entry criteria): a defined parity function over aif's UUID id space; a ledger whose arm
+  column is populated (the three existing arm-less rows either backfilled or excluded, so the
+  parity audit does not void the window on day one); an instrument and a producer for the
+  **review-defect count**, ADR-8's second falsifier metric, which exists nowhere in the umbrella;
+  and a home for the `install.sh` agent skip-list so two agent-definition variants do not ship to
+  every consumer.
+- **Plus the rev-6 finding:** the dispatch prompt predates the task id (§5 above,
+  `AifHandoffBackend.ts:231-249`), so the parity split needs either a two-phase dispatch or a
+  selector that is not the task id. Audit `packages/api` for description-editability of a paused
+  task first — that is the cheap branch, and it was explicitly not audited here.
+- **Permitted surfaces it will need** (why it could not live in S-D′): the umbrella's
+  ledger-schema section, `.claude/skills/dispatcher/SKILL.md`, and `install.sh`'s skip-list —
+  three owners S-D′ does not have, which is what made Option B a mid-stage scope crossing.
+- **Inherits** the header's INPUT CONDITION: its baseline is captured from a pre-prune
+  billing-projection snapshot, not re-derived at read time.
+- **Depends on:** S-D′ merged (it evaluates what S-D′ ships).
