@@ -100,6 +100,24 @@ For structure-aware queries — counting real array/object members, finding lang
 These paths are harness-agnostic (`.ai-factory/`, not `.claude/`) so the backlog is portable
 across Claude Code / Cursor / Codex / Aider.
 
+## Rule research — continue post-install and on demand
+
+The framework's thesis is that rules are tested for firing at delivery time, not shipped
+pre-baked. `install.sh` delivered a curated starter set; researching stack-specific rules
+from live documentation is the next step of the same lifecycle.
+
+- **First invocation point:** the agent that just installed the framework continues directly
+  into `/rule-research` **in the same session**, before reporting back to the operator (see
+  `INSTALL-FOR-AI.md` "After install — continue into /rule-research"). Research is skipped
+  **only** on an explicit operator opt-out; the shape of the opt-out is itself an operator
+  decision (env var, prompt, or documented sentence — surface it at first contact, do NOT
+  silently assume one).
+- **On demand (any session):** re-invoke `/rule-research` whenever you want to add or refresh
+  a stack-specific rule. Read `agents/rule-researcher.md` for the per-stack author→render→join→lock
+  sequence. Per-stack honest limits are documented there (a lane whose support is partial says
+  so; an unqualified instruction that silently fails on a lane is the honest-signals defect
+  this loop exists to close).
+
 ## Skills available
 
 The following skills **auto-activate on relevant queries in Claude Code**:

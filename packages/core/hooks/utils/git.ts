@@ -34,6 +34,13 @@ export interface GitProvider {
   commitSubject(sha: string): string;
   /** `git show <sha> -- <paths…>` — the unified diff restricted to those paths. */
   diffForPaths(sha: string, paths: readonly string[]): string;
+  /**
+   * Is the blob at `<sha>:<path>` byte-identical to a blob tracked at ANY other
+   * path in the same tree? A true result means the file is a relocation/vendor
+   * copy — no new capability by construction (PR #1271: vendored runtime-bridge
+   * subset tripped the ≥80-LOC trigger despite being byte-identical copies).
+   */
+  blobDuplicatedInTree(sha: string, path: string): boolean;
 }
 
 /**
@@ -131,9 +138,25 @@ export function commitsNotOnRemotes(localSha: string): string[] {
  * on a *different* branch, `HEAD` is the other branch's tip — NOT the pushed
  * branch's — so `..HEAD` would validate unrelated commits (the 2026-06-17
  * cross-checkout incident). The range must follow the ref actually being pushed.
+ *
+ * `excludeReachableFrom` (optional) appends `--not <ref>` — the merge-forward
+ * range fix (2026-08-07, PR #1269/#1270 incident): after `git merge
+ * origin/staging` on a published PR branch, the bare `remote_sha..local_sha`
+ * range swept in the trunk's own squash commits (which routinely lack
+ * `Prior-art:`/`§1.7` trailers — the squash-trailer-loss, compensated by the
+ * PR-body gate #1098), failing the push on commits the pusher does not own.
+ * Passing the resolved trunk here scopes the gate to commits the push actually
+ * introduces to the trunk lineage. Range-correctness only, not a relaxation:
+ * trunk-reachable commits were already gated at their own push or PR merge.
  */
-export function getCommits(upstreamRef: string, head = 'HEAD'): string[] {
-  return gitOut(['rev-list', `${upstreamRef}..${head}`])
+export function getCommits(
+  upstreamRef: string,
+  head = 'HEAD',
+  excludeReachableFrom?: string,
+): string[] {
+  const args = ['rev-list', `${upstreamRef}..${head}`];
+  if (excludeReachableFrom) args.push('--not', excludeReachableFrom);
+  return gitOut(args)
     .split('\n')
     .map((s) => s.trim())
     .filter(Boolean);
@@ -205,7 +228,26 @@ export const realGit: GitProvider = {
   commitSubject: (sha) =>
     gitOut(['show', '-s', '--format=%s', sha]).replace(/\n$/, ''),
   diffForPaths: (sha, paths) => gitOut(['show', sha, '--', ...paths]),
+  blobDuplicatedInTree: (sha, path) => blobDuplicatedAt(sha, path),
 };
+
+/**
+ * Shared impl for GitProvider.blobDuplicatedInTree: resolve the blob hash of
+ * `<tree>:<path>`, then count how many paths in that tree carry the same hash.
+ * ls-tree line shape: `<mode> blob <hash>\t<path>` — match on the hash column.
+ */
+function blobDuplicatedAt(tree: string, path: string): boolean {
+  const blob = runCheck('git', ['rev-parse', `${tree}:${path}`]);
+  if (blob.exitCode !== 0) return false;
+  const hash = blob.stdout.trim();
+  if (!/^[0-9a-f]{40,64}$/.test(hash)) return false;
+  let count = 0;
+  for (const line of gitOut(['ls-tree', '-r', tree]).split('\n')) {
+    if (line.includes(hash)) count++;
+    if (count >= 2) return true;
+  }
+  return false;
+}
 
 /**
  * A GitProvider over a PR RANGE (`merge-base(base, head)..head`) instead of a
@@ -240,5 +282,6 @@ export function rangeGit(baseSha: string, headSha: string): GitProvider {
     commitSubject: () => '',
     diffForPaths: (_sha, paths) =>
       gitOut(['diff', mb, headSha, '--', ...paths]),
+    blobDuplicatedInTree: (_sha, path) => blobDuplicatedAt(headSha, path),
   };
 }

@@ -24,6 +24,10 @@
 #       1 = a governing config's command binary won't resolve (ENOENT-before-commit alarm).
 set -uo pipefail
 
+# Existence guard (NOT a walker prune — answers ONLY 'is node_modules installed yet?').
+# Must NOT be widened to .stryker-tmp / .claude/worktrees: that would suppress the skip on
+# repos that have foreign dirs but no installed deps. The paired-negative assertion in
+# fixtures/foreign-scan-triage/repro.sh pins this behaviour.
 if ! find . -name node_modules -type d -prune -print 2>/dev/null | head -1 | grep -q .; then
   echo "check-lintstaged-resolves: no node_modules yet — run after install (skipped)."
   exit 0
@@ -33,7 +37,7 @@ command -v node >/dev/null 2>&1 || { echo "check-lintstaged-resolves: node not f
 # All .lintstagedrc.json config dirs (absolute), for shadow computation.
 CFG_DIRS=()
 while IFS= read -r c; do CFG_DIRS+=("$(cd "$(dirname "$c")" && pwd)"); done \
-  < <(find . -name node_modules -prune -o -name .git -prune -o -name '.lintstagedrc.json' -print 2>/dev/null)
+  < <(find . \( -name node_modules -o -name .git -o -name .stryker-tmp -o -path '*/.claude/worktrees' \) -prune -o -name '.lintstagedrc.json' -print 2>/dev/null)
 
 resolves() { # $1 = binary, $2 = start dir
   local dir="$2"
@@ -64,7 +68,7 @@ governs_match() { # $1 = config dir, $2 = glob (e.g. *.{ts,tsx} or package.json)
               nameargs=( "${nameargs[@]:1}" ) ;;           # drop leading -o
     *)        nameargs=( -name "$g" ) ;;                   # *.ext or literal (package.json)
   esac
-  find "$d" -name node_modules -prune -o -name .git -prune \
+  find "$d" \( -name node_modules -o -name .git -o -name .stryker-tmp -o -path '*/.claude/worktrees' \) -prune \
     ${pruneargs[@]+"${pruneargs[@]}"} \
     -o -type f '(' "${nameargs[@]}" ')' -print 2>/dev/null | head -1
 }

@@ -1,0 +1,5 @@
+{
+  "command": "golangci-lint run --out-format=json --enable forbidigo",
+  "jsonPath": "$.FromLinter",
+  "expectedCodes": ["forbidigo"]
+}

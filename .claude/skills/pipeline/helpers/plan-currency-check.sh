@@ -11,7 +11,9 @@
 #
 # pipeline-ux Stage 1A: no-arg mode now emits a compact digest to stdout (≤10 lines +
 # UNTRACKED lines for backward-compat) and writes the full corpus to side-file
-# _plan-currency-raw.txt in .claude/orchestrator-prompts/ (gitignored).
+# _plan-currency-raw.txt in the resolved orchestration home (gitignored) — see
+# resolve_orch_home() in lib/common.sh; `.claude/orchestrator-prompts/` in the framework,
+# `.ai-factory/orchestrator-prompts/` in a consumer install.
 #
 # Seams for testing (reuse L1 vocabulary verbatim — T13):
 #   REPO_ROOT    — override repo root (default: git rev-parse --show-toplevel)
@@ -35,10 +37,13 @@ if [[ -n "$UMBRELLA" ]]; then
   source "${_SCRIPT_DIR}/lib/common.sh"
   echo "--- kickoff existence check ---"
   KICKOFF_PATH="$(resolve_orch_home)/${UMBRELLA}/kickoff.md"
+  # Message renders the SAME home the test above used (resolve_orch_home_rel), never a
+  # hardcoded `.claude/…` — in a consumer that literal names a nonexistent directory.
+  _ORCH_REL="$(resolve_orch_home_rel)"
   if [[ -f "$KICKOFF_PATH" ]]; then
-    echo "kickoff: EXISTS at .claude/orchestrator-prompts/${UMBRELLA}/kickoff.md"
+    echo "kickoff: EXISTS at ${_ORCH_REL}/${UMBRELLA}/kickoff.md"
   else
-    echo "kickoff: MISSING — .claude/orchestrator-prompts/${UMBRELLA}/kickoff.md not found"
+    echo "kickoff: MISSING — ${_ORCH_REL}/${UMBRELLA}/kickoff.md not found"
   fi
   echo "=== plan-currency-check: END rc=0 ==="
   exit 0
@@ -55,7 +60,7 @@ MO_WAVE_PLAN="$(resolve_plan_path)"
 # ── No-arg digest mode (pipeline-ux Stage 1A) ────────────────────────────────
 # Full corpus is written to side-file; compact digest + UNTRACKED lines go to stdout.
 # UNTRACKED lines preserved on stdout for backward-compat (existing tests grep stdout).
-# Side-file path: .claude/orchestrator-prompts/_plan-currency-raw.txt (gitignored).
+# Side-file path: <resolved-orch-home>/_plan-currency-raw.txt (gitignored).
 _PROMPTS_DIR_BASE="$(resolve_orch_home)"
 _RAW_FILE="${_PROMPTS_DIR_BASE}/_plan-currency-raw.txt"
 mkdir -p "${_PROMPTS_DIR_BASE}"
@@ -101,7 +106,10 @@ mkdir -p "${_PROMPTS_DIR_BASE}"
 
   echo "--- kickoff existence check ---"
   echo "--- all umbrella kickoffs ---"
-  find "${REPO_ROOT}/.claude/orchestrator-prompts" -mindepth 1 -maxdepth 1 -type d \
+  # Scan the RESOLVED home. A hardcoded `.claude/orchestrator-prompts` here made this whole
+  # section render empty in every consumer install: the dir does not exist, find's error is
+  # swallowed by 2>/dev/null, and the silence is indistinguishable from "no kickoffs".
+  find "${_PROMPTS_DIR_BASE}" -mindepth 1 -maxdepth 1 -type d \
       2>/dev/null | sort \
     | while read -r dir_path; do
         dir="$(basename "${dir_path}")"

@@ -238,7 +238,7 @@ This verdict is more decisive than the §8 stop condition implies: the three DEC
 - [`.claude/rules/ai-laziness-traps.md`](../../../.claude/rules/ai-laziness-traps.md) — T-AIF-BRIDGE-B trap confirmed active; T1/T3/T7/T11/T12/T13/T15/T16/T17/T19/T20 all verified in §7.
 - [`.claude/rules/doc-authority-hierarchy.md`](../../../.claude/rules/doc-authority-hierarchy.md) — §3 header format spec followed.
 - [`.claude/rules/rule-enforcement-channel-selection.md`](../../../.claude/rules/rule-enforcement-channel-selection.md) — no new enforcement channel needed (REJECT verdict).
-- [`.claude/skills/meta-orchestrator/SKILL.md`](../../../.claude/skills/meta-orchestrator/SKILL.md) — surface this umbrella reasons against; lines 335/404/429 cited in §4 criterion 5.
+- [`.claude/skills/meta-orchestrator/SKILL.md`](../../../.claude/skills/pipeline/SKILL.md) — surface this umbrella reasons against; lines 335/404/429 cited in §4 criterion 5.
 - DeepWiki search links: [probe 1](https://deepwiki.com/search/does-aifhandoff-support-a-file_dca4e299-2fff-413f-aaaa-6765b74dee98) · [probe 2](https://deepwiki.com/search/how-are-tasks-created-in-aifha_d8f65789-89f1-43d8-91b1-a2b398080af9) · [probe 3](https://deepwiki.com/search/what-processmanagement-primiti_2eecfc4a-c9d0-4d8b-9ad1-d02dc9f2fc10) · [probe 5 adversarial](https://deepwiki.com/search/is-there-any-watcher-daemon-or_ea002117-844c-45b0-aab1-0ab62784a66f)
 
 ---

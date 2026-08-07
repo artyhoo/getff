@@ -75,7 +75,7 @@ cp "$REPO_ROOT/.ai-factory/rule-channel-capabilities.schema.json" "$RCROOT/.ai-f
 # Seed ONE Tier-0-shaped rule via its real name (ALWAYS_ON_CORE is name-keyed in the script) and
 # ONE paths:-declaring rule — both must resolve to "refused" once the capability matrix below
 # strips every fallback primitive from the (only) supported harness.
-cp "$REPO_ROOT/.claude/rules/ai-laziness-traps.md" "$RCROOT/.claude/rules/ai-laziness-traps.md"
+cp "$REPO_ROOT/.claude/rules/ai-laziness-digest.md" "$RCROOT/.claude/rules/ai-laziness-digest.md"
 cp "$REPO_ROOT/.claude/rules/ci-tool-pinning.md" "$RCROOT/.claude/rules/ci-tool-pinning.md"
 cat > "$RCROOT/.ai-factory/rule-channel-capabilities.json" <<'EOF'
 {
@@ -102,7 +102,7 @@ printf '{"degradations":[]}\n' > "$RCROOT/.ai-factory/rule-channel-degradations.
 RC_TSX="$REPO_ROOT/packages/core/node_modules/.bin/tsx"
 [ -x "$RC_TSX" ] || RC_TSX="$REPO_ROOT/node_modules/.bin/tsx"
 rc_out=$("$RC_TSX" "$REPO_ROOT/scripts/render-rule-channels.mjs" --json --root "$RCROOT" 2>&1)
-echo "$rc_out" | grep -q '"rule":"ai-laziness-traps".*"verdict":"refused"' \
+echo "$rc_out" | grep -q '"rule":"ai-laziness-digest".*"verdict":"refused"' \
   && ok "rule-channel-readability data: Tier-0 rule computes refused when every fallback is stripped" \
   || bad "rule-channel-readability data MISSED the Tier-0 refusal — seeded-break not reaching computeVerdict()"
 echo "$rc_out" | grep -q '"rule":"ci-tool-pinning".*"verdict":"refused"' \
@@ -143,7 +143,7 @@ seed_s9_root() {                       # $1 = target dir
   cp "$REPO_ROOT/tests/agnosticism/_cc-absent-lib.sh"                 "$R/tests/agnosticism/"
   cp "$REPO_ROOT/tests/agnosticism/probes/rule-channel-readability.sh" "$R/tests/agnosticism/probes/"
   cp "$REPO_ROOT/.ai-factory/rule-channel-capabilities.schema.json"    "$R/.ai-factory/"
-  cp "$REPO_ROOT/.claude/rules/ai-laziness-traps.md"                   "$R/.claude/rules/"
+  cp "$REPO_ROOT/.claude/rules/ai-laziness-digest.md"                   "$R/.claude/rules/"
   printf '{"harnesses":{"seeded-ok":{"support":"supported","axis":"shipped","rulesAutoload":true,"pathScoping":true,"claudeMdExcludes":true,"postToolUseInject":true,"sessionStartHook":true}}}\n' \
     > "$R/.ai-factory/rule-channel-capabilities.json"
   printf '{"degradations":[]}\n' > "$R/.ai-factory/rule-channel-degradations.json"

@@ -52,6 +52,7 @@ function fakeGit(overrides: Partial<GitProvider> = {}): GitProvider {
     authorDate: () => FUTURE,
     commitSubject: () => 'feat: x',
     diffForPaths: () => '',
+    blobDuplicatedInTree: () => false,
     ...overrides,
   };
 }
@@ -318,6 +319,49 @@ describe('detectCapabilityReason()', () => {
     const g = fakeGit({
       changedFiles: () => [{ status: 'A', path: 'packages/other/module.ts' }],
       fileContent: () => content80,
+    });
+    expect(detectCapabilityReason('abc123', g)).toMatch(/80 LOC/);
+  });
+
+  it('does NOT flag a new ≥80 LOC .md doc under packages/ (doc-edit parity, PR #1272)', () => {
+    const content100 = 'x\n'.repeat(100);
+    const g = fakeGit({
+      changedFiles: () => [
+        { status: 'A', path: 'packages/core/templates/shared/tier-home.md' },
+      ],
+      fileContent: () => content100,
+    });
+    expect(detectCapabilityReason('abc123', g)).toBeNull();
+  });
+
+  it('does NOT flag a new ≥50 LOC .md doc under a NEW packages/core subdir', () => {
+    const content60 = 'x\n'.repeat(60);
+    const g = fakeGit({
+      changedFiles: () => [{ status: 'A', path: 'packages/core/newdocs/README.md' }],
+      fileContent: () => content60,
+      subdirExistedAtParent: () => false,
+    });
+    expect(detectCapabilityReason('abc123', g)).toBeNull();
+  });
+
+  it('does NOT flag a new ≥80 LOC file byte-identical to an existing blob (vendor copy, PR #1271)', () => {
+    const content100 = 'x\n'.repeat(100);
+    const g = fakeGit({
+      changedFiles: () => [
+        { status: 'A', path: 'packages/runtime-bridge/vendor/dispatch.ts' },
+      ],
+      fileContent: () => content100,
+      blobDuplicatedInTree: () => true,
+    });
+    expect(detectCapabilityReason('abc123', g)).toBeNull();
+  });
+
+  it('STILL flags a unique (non-duplicated) ≥80 LOC non-doc file under packages/', () => {
+    const content100 = 'x\n'.repeat(100);
+    const g = fakeGit({
+      changedFiles: () => [{ status: 'A', path: 'packages/other/new-module.ts' }],
+      fileContent: () => content100,
+      blobDuplicatedInTree: () => false,
     });
     expect(detectCapabilityReason('abc123', g)).toMatch(/80 LOC/);
   });

@@ -1,6 +1,6 @@
 ---
 name: template-audit
-description: Use when auditing rendered templates via local advisory review. Triggers on keywords «template», «audit», «render», «generated docs», «AGENTS.md», «paraphrase», «cue placement», «local advisory», «template-render», «audit-template». Session-bound under Claude Code subscription — no API key, no CI gate, no blocking. Step 1 runs deterministic probes; Step 2 asks the current session to semantic-check for paraphrase / cue-placement bugs (P2/P3/P5 from Wave 6 D-2 taxonomy, not in CI per Decision 3).
+description: Use when auditing rendered templates via local advisory review. Triggers: template, audit, render, generated docs, AGENTS.md, paraphrase, cue placement, local advisory, template-render, audit-template.
 ---
 
 # template-audit — local advisory skill

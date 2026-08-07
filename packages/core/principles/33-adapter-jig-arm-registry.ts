@@ -597,7 +597,11 @@ export const ADAPTER_JIG_ARMS: readonly ArmEntry[] = [
   // hooks/checks/unpinned-tool-install.ts) STRUCTURALLY cannot see: that gate asserts each install
   // is pinned, never that the FRAMEWORK pin equals the CONSUMER pin. P1 adds exactly that missing
   // mirror (spec §3.6 / §2.1 F10), scoped to the getff-shipped-and-pinned tools present on BOTH
-  // surfaces — ast-grep + ruff (J2 decisions log #11); rustc/cargo 1.96.1 is framework-pinned only
+  // surfaces — ast-grep + ruff (J2 decisions log #11), joined by the go toolchain + golangci-lint
+  // (J3), whose consumer half is the delivered CI template plus the lane's REFUSE-path hint. The
+  // consumer surface is per-tool (`TrackedTool.consumerSurfaces` in hooks/pin-parity.test.ts), since
+  // each lane delivers through its own files; keep this enumeration in step with that population.
+  // rustc/cargo 1.96.1 is framework-pinned only
   // (46-cargo.sh leaves the consumer toolchain version unpinned), so a two-surface claim for it
   // would fabricate an invariant F10 does not state. NO fix (honest none-spotted): the real surfaces
   // already mirror (framework audit-self.yml ast-grep 0.44.1 == consumer 45-python.sh 0.44.1; ruff

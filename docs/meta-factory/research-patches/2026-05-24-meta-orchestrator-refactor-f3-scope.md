@@ -470,6 +470,6 @@ detect_subwaves() {
 - Gap-1 fix approach decision (D-G-1): основной файл §A
 - SKILL.md line count decision (D-G-2): основной файл §A
 - F.1 UX prior-art: [`2026-05-24-meta-orchestrator-ux-research.md`](2026-05-24-meta-orchestrator-ux-research.md) §A.5
-- SKILL.md authoring source: [`.claude/skills/meta-orchestrator/SKILL.md`](../../../.claude/skills/meta-orchestrator/SKILL.md)
-- launch-table-generator.sh Gap-1: [`.claude/skills/meta-orchestrator/helpers/launch-table-generator.sh:42-49`](../../../.claude/skills/meta-orchestrator/helpers/launch-table-generator.sh)
+- SKILL.md authoring source: [`.claude/skills/meta-orchestrator/SKILL.md`](../../../.claude/skills/pipeline/SKILL.md)
+- launch-table-generator.sh Gap-1: [`.claude/skills/meta-orchestrator/helpers/launch-table-generator.sh:42-49`](../../../.claude/skills/pipeline/helpers/launch-table-generator.sh)
 - Principle 18 test slot: `packages/core/principles/18-meta-orchestrator-output-format.test.ts` (slot 18 verified free)

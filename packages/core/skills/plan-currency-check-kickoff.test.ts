@@ -163,12 +163,16 @@ describe('plan-currency-check.sh kickoff existence check — single-umbrella mod
     const fakeGh = makeFakeGh(sandbox);
     const wavePlan = makeWavePlan(sandbox);
 
-    // Do NOT create any kickoff.md — the directory may not even exist
-    // (script should handle that gracefully via [[ -f ]] check)
+    // Do NOT create any kickoff.md — the [[ -f ]] check must handle that gracefully.
+    // The orchestration home itself IS created (empty) so resolve_orch_home() takes the
+    // FRAMEWORK branch: this arm pins the framework-layout message. The consumer-layout
+    // counterpart lives in Group 4. Without this mkdir the resolver would fall through to
+    // .ai-factory/ and the assertion below would be pinning the wrong home.
+    mkdirSync(join(sandbox, '.claude', 'orchestrator-prompts'), { recursive: true });
 
     const r = runScript(sandbox, fakeGh, wavePlan, 'my-umbrella');
     expect(r.status).toBe(0);
-    // Script line ~73: echo "kickoff: MISSING — .claude/orchestrator-prompts/${UMBRELLA}/kickoff.md not found"
+    // Script line ~73: echo "kickoff: MISSING — ${_ORCH_REL}/${UMBRELLA}/kickoff.md not found"
     expect(r.stdout).toMatch('kickoff: MISSING — .claude/orchestrator-prompts/my-umbrella/kickoff.md not found');
     // Confirm positive arm did NOT fire
     expect(r.stdout).not.toMatch('kickoff: EXISTS at');
@@ -257,5 +261,107 @@ describe('plan-currency-check.sh kickoff existence check — section headers', (
     // In no-arg mode, the "--- all umbrella kickoffs ---" sub-header also appears unconditionally
     // (script line ~76)
     expect(r.stdout).toMatch('--- all umbrella kickoffs ---');
+  });
+});
+
+// ── Group 4: CONSUMER layout (.ai-factory/orchestrator-prompts) ───────────────
+//
+// Groups 1-3 above all build their sandbox under `.claude/orchestrator-prompts/` — the
+// FRAMEWORK dogfood layout. That is the whole test gap: resolve_orch_home() (lib/common.sh)
+// returns `.ai-factory/orchestrator-prompts` when no `.claude/orchestrator-prompts` dir
+// exists (dual-implementation-discipline.md §3), and a consumer install always takes that
+// branch — but no arm here ever exercised it, so hardcoded `.claude/orchestrator-prompts`
+// paths inside the script were invisible to CI.
+//
+// Two distinct defect classes are pinned below:
+//   (a) FUNCTIONAL — the no-arg `find` scanned a hardcoded `.claude/orchestrator-prompts`,
+//       which does not exist in a consumer; stderr was swallowed by `2>/dev/null` so the
+//       "all umbrella kickoffs" section silently rendered EMPTY even with kickoffs present.
+//   (b) COSMETIC-BUT-MISLEADING — named-mode EXISTS/MISSING messages printed a
+//       `.claude/orchestrator-prompts/...` path while the existence test itself used the
+//       correctly-resolved home, i.e. the message named a file that does not exist.
+
+describe('plan-currency-check.sh kickoff existence check — consumer layout (.ai-factory)', () => {
+  it('POSITIVE (functional): no-arg mode lists umbrellas under .ai-factory/orchestrator-prompts', () => {
+    // Targets the no-arg `find "$(resolve_orch_home)" -mindepth 1 -maxdepth 1 -type d` scan.
+    // Mutation-sanity: reverting that find to a hardcoded `${REPO_ROOT}/.claude/
+    // orchestrator-prompts` makes both assertions fail (find errors, stderr swallowed,
+    // section renders empty) — this is the arm the framework-only sandboxes never covered.
+    const sandbox = makeSandbox();
+    initGitRepo(sandbox);
+    const fakeGh = makeFakeGh(sandbox);
+    const wavePlan = makeWavePlan(sandbox);
+
+    // Consumer layout: .ai-factory/, and deliberately NO .claude/orchestrator-prompts
+    const promptsDir = join(sandbox, '.ai-factory', 'orchestrator-prompts');
+    write(join(promptsDir, 'stage6-auth', 'kickoff.md'), '# Stage 6 Auth\n');
+    mkdirSync(join(promptsDir, 'stage8-polish'), { recursive: true });
+
+    const r = runScript(sandbox, fakeGh, wavePlan, '');
+    expect(r.status).toBe(0);
+    expect(r.stdout).toMatch('EXISTS: stage6-auth/kickoff.md');
+    expect(r.stdout).toMatch('MISSING: stage8-polish/');
+  });
+
+  it('NEGATIVE (resolver precedence intact): .claude/ layout still wins when present', () => {
+    // Paired-negative for the arm above: the fix must not invert resolve_orch_home()'s
+    // precedence. With BOTH dirs present the framework dogfood home wins, so the
+    // .ai-factory umbrella must NOT be listed.
+    const sandbox = makeSandbox();
+    initGitRepo(sandbox);
+    const fakeGh = makeFakeGh(sandbox);
+    const wavePlan = makeWavePlan(sandbox);
+
+    write(
+      join(sandbox, '.claude', 'orchestrator-prompts', 'framework-umbrella', 'kickoff.md'),
+      '# Framework\n',
+    );
+    write(
+      join(sandbox, '.ai-factory', 'orchestrator-prompts', 'consumer-umbrella', 'kickoff.md'),
+      '# Consumer\n',
+    );
+
+    const r = runScript(sandbox, fakeGh, wavePlan, '');
+    expect(r.status).toBe(0);
+    expect(r.stdout).toMatch('EXISTS: framework-umbrella/kickoff.md');
+    expect(r.stdout).not.toMatch('consumer-umbrella');
+  });
+
+  it('POSITIVE (message): named mode reports the .ai-factory path it actually checked', () => {
+    // Targets the named-mode EXISTS echo. Mutation-sanity: hardcoding
+    // `.claude/orchestrator-prompts` in that echo makes the `not.toMatch` arm fail.
+    const sandbox = makeSandbox();
+    initGitRepo(sandbox);
+    const fakeGh = makeFakeGh(sandbox);
+    const wavePlan = makeWavePlan(sandbox);
+
+    write(
+      join(sandbox, '.ai-factory', 'orchestrator-prompts', 'stage6-auth', 'kickoff.md'),
+      '# Stage 6 Auth\n',
+    );
+
+    const r = runScript(sandbox, fakeGh, wavePlan, 'stage6-auth');
+    expect(r.status).toBe(0);
+    expect(r.stdout).toMatch(
+      'kickoff: EXISTS at .ai-factory/orchestrator-prompts/stage6-auth/kickoff.md',
+    );
+    expect(r.stdout).not.toMatch('.claude/orchestrator-prompts');
+  });
+
+  it('NEGATIVE (message): named mode MISSING line also names the .ai-factory path', () => {
+    // Paired-negative for the arm above — the else branch of the same existence test.
+    const sandbox = makeSandbox();
+    initGitRepo(sandbox);
+    const fakeGh = makeFakeGh(sandbox);
+    const wavePlan = makeWavePlan(sandbox);
+    // Consumer home exists but the named umbrella does not
+    mkdirSync(join(sandbox, '.ai-factory', 'orchestrator-prompts'), { recursive: true });
+
+    const r = runScript(sandbox, fakeGh, wavePlan, 'stage6-auth');
+    expect(r.status).toBe(0);
+    expect(r.stdout).toMatch(
+      'kickoff: MISSING — .ai-factory/orchestrator-prompts/stage6-auth/kickoff.md not found',
+    );
+    expect(r.stdout).not.toMatch('kickoff: EXISTS at');
   });
 });

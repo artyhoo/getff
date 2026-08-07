@@ -6,7 +6,7 @@
 > **Class:** Design doc (research-patch lane); precedes R-phase prior-art survey + umbrella kickoff (NOT writing-plans skill — scope exceeds single-session implementation plan, see §13).
 >
 > **Authoritative for:** the integration design that stitches existing L1-L5 planner helpers (PRs #213/#214/#217/#222/#223/#225) + composition direction (`bundle-autonomous` kickoff, R-phase blocked) + new alias layer + master-plan persistence + L1 discovery scope extension into a unified `/meta-orchestrator`-as-planner. Records the brainstorming session 2026-05-25 conclusions: triage axis, Mode catalogue, routing decision tree, scope partition (NEW vs INTEGRATION vs EXTERNAL).
-> **NOT authoritative for:** project goal (see [README.md#why-this-exists](../../../README.md#why-this-exists)); R-phase prior-art evidence (separate patch, see §13); umbrella execution stages (separate kickoff under `.claude/orchestrator-prompts/`); Mode A/B/SDD/Queue vocabulary itself (lives in maintainer's global `~/.claude/skills/orchestrator/SKILL.md`, ADOPT-VERBATIM internal); meta-orchestrator output format (frozen by [principle 18](../../../packages/core/principles/18-meta-orchestrator-output-format.test.ts) + [references/output-format.md](../../../.claude/skills/meta-orchestrator/references/output-format.md)).
+> **NOT authoritative for:** project goal (see [README.md#why-this-exists](../../../README.md#why-this-exists)); R-phase prior-art evidence (separate patch, see §13); umbrella execution stages (separate kickoff under `.claude/orchestrator-prompts/`); Mode A/B/SDD/Queue vocabulary itself (lives in maintainer's global `~/.claude/skills/orchestrator/SKILL.md`, ADOPT-VERBATIM internal); meta-orchestrator output format (frozen by [principle 18](../../../packages/core/principles/18-meta-orchestrator-output-format.test.ts) + [references/output-format.md](../../../.claude/skills/pipeline/references/output-format.md)).
 
 ---
 
@@ -35,15 +35,15 @@ Verified during brainstorm session 2026-05-25 via `gh pr view` + `ls .claude/ski
 
 | Capability | Code path | Source PR | Wired in SKILL.md? |
 |---|---|---|---|
-| L1 discovery: kickoff backlog, open/merged PRs, research-patches, wave-plan refs | [`plan-currency-check.sh`](../../../.claude/skills/meta-orchestrator/helpers/plan-currency-check.sh) | (pre-planner) | ✅ §1 |
-| L1 extension: 5 synthetic surfaces (cold-review-fixes / state.md PENDING / memory TODO-codify / stale PRs / wave-plan 🟡-🔲-DEFERRED) | [`priority-score.sh`](../../../.claude/skills/meta-orchestrator/helpers/priority-score.sh) | #214 | ✅ §2 |
-| L2 reverse-currency UNTRACKED-N / UNTRACKED-KICKOFF | [`plan-currency-check.sh`](../../../.claude/skills/meta-orchestrator/helpers/plan-currency-check.sh) | #217 | ✅ §1 |
-| L3 dup-detect (Jaccard heuristic on PR titles vs kickoff items) | [`dup-detect.sh`](../../../.claude/skills/meta-orchestrator/helpers/dup-detect.sh) | #222 | ❌ NOT WIRED |
-| L4 classify (`fix`/`I-phase-small`/`I-phase-large`/`R-phase`) + DISPATCH mapping (`direct-Edit`/`Mode-A`/`Mode-B`/`R-phase-session`) | [`classify-work.sh`](../../../.claude/skills/meta-orchestrator/helpers/classify-work.sh) | #225 | ❌ NOT WIRED |
-| L5 skill/agent assign (keyword overlap deterministic) | [`assign-skill.sh`](../../../.claude/skills/meta-orchestrator/helpers/assign-skill.sh) | #223 | ❌ NOT WIRED |
-| Internal Mode vocabulary (Mode A inline / Mode B × N worktrees / SDD / Queue mode / R-phase-session) | [SKILL.md §5](../../../.claude/skills/meta-orchestrator/SKILL.md) lines 229-308 + maintainer's global `~/.claude/skills/orchestrator/SKILL.md` | (pre-planner) | ✅ |
-| Output format (Dependency graph + Action queue + 1-liner blocks + Description block) | [`output-format.md`](../../../.claude/skills/meta-orchestrator/references/output-format.md) + [principle 18](../../../packages/core/principles/18-meta-orchestrator-output-format.test.ts) | F.3 (#205) | ✅ §10 |
-| Per-umbrella state template (NOT master-plan-level) | [`state.md.template`](../../../.claude/skills/meta-orchestrator/templates/state.md.template) | (pre-planner) | ✅ §10 |
+| L1 discovery: kickoff backlog, open/merged PRs, research-patches, wave-plan refs | [`plan-currency-check.sh`](../../../.claude/skills/pipeline/helpers/plan-currency-check.sh) | (pre-planner) | ✅ §1 |
+| L1 extension: 5 synthetic surfaces (cold-review-fixes / state.md PENDING / memory TODO-codify / stale PRs / wave-plan 🟡-🔲-DEFERRED) | [`priority-score.sh`](../../../.claude/skills/pipeline/helpers/priority-score.sh) | #214 | ✅ §2 |
+| L2 reverse-currency UNTRACKED-N / UNTRACKED-KICKOFF | [`plan-currency-check.sh`](../../../.claude/skills/pipeline/helpers/plan-currency-check.sh) | #217 | ✅ §1 |
+| L3 dup-detect (Jaccard heuristic on PR titles vs kickoff items) | [`dup-detect.sh`](../../../.claude/skills/pipeline/helpers/dup-detect.sh) | #222 | ❌ NOT WIRED |
+| L4 classify (`fix`/`I-phase-small`/`I-phase-large`/`R-phase`) + DISPATCH mapping (`direct-Edit`/`Mode-A`/`Mode-B`/`R-phase-session`) | [`classify-work.sh`](../../../.claude/skills/pipeline/helpers/classify-work.sh) | #225 | ❌ NOT WIRED |
+| L5 skill/agent assign (keyword overlap deterministic) | [`assign-skill.sh`](../../../.claude/skills/pipeline/helpers/assign-skill.sh) | #223 | ❌ NOT WIRED |
+| Internal Mode vocabulary (Mode A inline / Mode B × N worktrees / SDD / Queue mode / R-phase-session) | [SKILL.md §5](../../../.claude/skills/pipeline/SKILL.md) lines 229-308 + maintainer's global `~/.claude/skills/orchestrator/SKILL.md` | (pre-planner) | ✅ |
+| Output format (Dependency graph + Action queue + 1-liner blocks + Description block) | [`output-format.md`](../../../.claude/skills/pipeline/references/output-format.md) + [principle 18](../../../packages/core/principles/18-meta-orchestrator-output-format.test.ts) | F.3 (#205) | ✅ §10 |
+| Per-umbrella state template (NOT master-plan-level) | [`state.md.template`](../../../.claude/skills/pipeline/templates/state.md.template) | (pre-planner) | ✅ §10 |
 | Composition direction (BUNDLE) | [`bundle-autonomous/kickoff.md`](../../../.claude/orchestrator-prompts/meta-orchestrator-bundle-autonomous/kickoff.md) | (kickoff only — R-phase unblocked 2026-05-25 by planner-completeness L4+L5, not yet executed) | ❌ EXTERNAL |
 | SSOT prior-art register | [`prior-art-evaluations.md`](../prior-art-evaluations.md) | continuous | ✅ |
 
@@ -65,7 +65,7 @@ Meta-orchestrator **never does work itself**. Its job is exactly the following l
 9. HAND OFF       — maintainer pastes 1-liner block into fresh CC session (per principle 18)
 ```
 
-**Sub-orchestrator / worker / reviewer all live BELOW this layer.** Meta does not invoke Agent tool for write-work (per [SKILL.md §5 anti-pattern `#worker-dispatch-via-subagent`](../../../.claude/skills/meta-orchestrator/SKILL.md)); maintainer-paste is the channel boundary.
+**Sub-orchestrator / worker / reviewer all live BELOW this layer.** Meta does not invoke Agent tool for write-work (per [SKILL.md §5 anti-pattern `#worker-dispatch-via-subagent`](../../../.claude/skills/pipeline/SKILL.md)); maintainer-paste is the channel boundary.
 
 ---
 
@@ -98,7 +98,7 @@ Both depth and cost are downstream consequences of picking the right Mode. The r
 | **DECOMPOSE** | `Mode B × N worktrees` per [`parallel-subwave-isolation.md §1`](../../../.claude/rules/parallel-subwave-isolation.md) | L4=`I-phase-large` (>80 LOC OR ≥2 surfaces) with parallel-safe sub-waves AND R-phase complete | meta + sub-orchestrators + workers | ~150k+ |
 | **RESEARCH** | `R-phase-session` (single) OR `Queue mode` (≥2 sequential R-iterations) | L4=`R-phase` (keyword match: research / prior-art / survey) — fires highest priority regardless of LOC | 1 | ~30-120k depending on sequential queue length |
 
-**Mode selection is not optional UX dressing** — alias label appears in §SKILL.md `## Dependency graph` and `## 1-liner blocks` rendered output ([output-format.md §2, §4](../../../.claude/skills/meta-orchestrator/references/output-format.md)), and `classify-work.sh` emits both `DISPATCH=<internal>` and `ALIAS=<user-facing>` lines (§8 mapping below).
+**Mode selection is not optional UX dressing** — alias label appears in §SKILL.md `## Dependency graph` and `## 1-liner blocks` rendered output ([output-format.md §2, §4](../../../.claude/skills/pipeline/references/output-format.md)), and `classify-work.sh` emits both `DISPATCH=<internal>` and `ALIAS=<user-facing>` lines (§8 mapping below).
 
 ---
 
@@ -215,7 +215,7 @@ Updated JSON written at end of invocation. Git-ignored (per `state/`-prefix conv
 **Decision-needed surface (§12 DN-2):** extend [`wave-sequencing-plan.md`](../wave-sequencing-plan.md) §0 to be meta-writable — or create new artifact `.claude/skills/meta-orchestrator/state/master-backlog.md`?
 
 **This design's recommendation: extend existing `wave-sequencing-plan.md`.** Reasons:
-- Already SSOT (skill already injects it inline at [SKILL.md:66](../../../.claude/skills/meta-orchestrator/SKILL.md) via `head -200 docs/meta-factory/wave-sequencing-plan.md`).
+- Already SSOT (skill already injects it inline at [SKILL.md:66](../../../.claude/skills/pipeline/SKILL.md) via `head -200 docs/meta-factory/wave-sequencing-plan.md`).
 - New artifact = `#two-prompts-drift` risk per [`dual-implementation-discipline.md §8`](../../../.claude/rules/dual-implementation-discipline.md).
 - Wave-plan §0 already has the table shape we need (rows with 🟡 / ✅ / 🔲 markers).
 
@@ -246,7 +246,7 @@ The new sub-section is positioned **AFTER today's §2 priority scoring** (NOT be
 
 **Cost saving from §2.5 placement vs original §1.5:** L3/L4/L5 now run only on the **priority-ranked top-K candidates** (typically K≤5 from today's §2), not on the full L1 sweep (often 20+ surfaces). Helper invocations drop from ~3×N to ~3×K — saves ≥75% of bash subprocess cost.
 
-The exact `!shell` injection syntax follows the existing convention in [SKILL.md §1](../../../.claude/skills/meta-orchestrator/SKILL.md) lines 56-68 (plan-currency-check + REPORT reconciliation).
+The exact `!shell` injection syntax follows the existing convention in [SKILL.md §1](../../../.claude/skills/pipeline/SKILL.md) lines 56-68 (plan-currency-check + REPORT reconciliation).
 
 ---
 
@@ -370,9 +370,9 @@ Therefore:
 
 ## §15 See also
 
-- [.claude/skills/meta-orchestrator/SKILL.md](../../../.claude/skills/meta-orchestrator/SKILL.md) — the skill body this design extends
-- [.claude/skills/meta-orchestrator/references/output-format.md](../../../.claude/skills/meta-orchestrator/references/output-format.md) — output format frozen by principle 18
-- [.claude/skills/meta-orchestrator/helpers/](../../../.claude/skills/meta-orchestrator/helpers/) — 6 helpers (L1-L5 + launch-table)
+- [.claude/skills/meta-orchestrator/SKILL.md](../../../.claude/skills/pipeline/SKILL.md) — the skill body this design extends
+- [.claude/skills/meta-orchestrator/references/output-format.md](../../../.claude/skills/pipeline/references/output-format.md) — output format frozen by principle 18
+- [.claude/skills/meta-orchestrator/helpers/](../../../.claude/skills/pipeline/helpers/) — 6 helpers (L1-L5 + launch-table)
 - [.claude/orchestrator-prompts/meta-orchestrator-bundle-autonomous/kickoff.md](../../../.claude/orchestrator-prompts/meta-orchestrator-bundle-autonomous/kickoff.md) — EXTERNAL bundle direction umbrella
 - [docs/meta-factory/research-patches/2026-05-25-planner-completeness-prior-art.md](2026-05-25-planner-completeness-prior-art.md) — prior-art survey that produced L3/L4/L5
 - [docs/meta-factory/research-patches/2026-05-23-meta-orchestrator-prior-art.md](2026-05-23-meta-orchestrator-prior-art.md) — original meta-orchestrator R-phase patch

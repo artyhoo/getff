@@ -7,6 +7,11 @@
 #   (no flag)  report only; exit 1 if any worktree is unprovisioned.
 #   --fix      provision every fixable worktree; exit 1 only if something could not be fixed.
 #
+# This script once carried a second arm — a local-shadow `claudeMdExcludes` sweep (arch-v2
+# S-E P2b). It was removed with the rest of P2b: the client merges array settings across
+# settings files (union + dedupe; `fallbackModel` is the sole replace exception), so a local
+# list can only ADD excludes and the sweep's subset finding was unreachable by construction.
+#
 # This is the operator-facing sweep. The per-worktree logic lives in worktree-node-modules.sh
 # (single source of truth) — this script only enumerates and reports, so the doctor and the
 # create-time hooks can never drift apart in what "provisioned" means.
@@ -71,6 +76,7 @@ $(git -C "$PRIMARY_DIR" worktree list --porcelain 2>/dev/null | awk '/^worktree 
 EOF
 
 printf '\n%d worktrees: %d provisioned, %d fixed, %d outstanding\n' "$total" "$ok" "$fixed" "$broken"
+
 if [ "$broken" -gt 0 ]; then
   [ "$FIX" -eq 1 ] || printf 'Run `bash scripts/worktree-doctor.sh --fix` to provision them.\n'
   exit 1

@@ -212,12 +212,12 @@
     ]
   },
   "claudeMdExcludes": [
-    ".claude/rules/egress-no-api-bypass.md",
-    ".claude/rules/memory-codification.md",
-    ".claude/rules/recommendation-laziness-discipline.md",
-    ".claude/rules/reviewer-discipline.md",
-    ".claude/rules/autonomous-loop-continuity.md",
-    ".claude/rules/git-conflict-merge-forward.md",
-    ".claude/rules/cold-seat-economy.md"
+    "**/egress-no-api-bypass.md",
+    "**/memory-codification.md",
+    "**/recommendation-laziness-discipline.md",
+    "**/reviewer-discipline.md",
+    "**/autonomous-loop-continuity.md",
+    "**/git-conflict-merge-forward.md",
+    "**/cold-seat-economy.md"
   ]
 }

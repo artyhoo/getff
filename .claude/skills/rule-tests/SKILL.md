@@ -1,6 +1,6 @@
 ---
 name: rule-tests
-description: Use when a consumer has an EXISTING generated rule whose firing test material is missing, broken, or needs a bypass variant — write or repair the test material, then verify it fires with your lane's deterministic check and quote the tool verdict. NOT for creating new rules (that is /rule-research). Triggers: rule tests, repair test material, fix negative-test, rule test material, verify the rule fires, rule-tests, починить тест правила, исправить негативный тест, проверить что правило срабатывает, тестовый материал для правила.
+description: Use when a consumer has an EXISTING generated rule whose firing test material is missing, broken, or needs a bypass variant. Triggers: rule tests, repair test material, fix negative-test, rule test material, verify the rule fires, rule-tests, починить тест правила, исправить негативный тест, проверить что правило срабатывает, тестовый материал для правила. NOT for creating new rules (/rule-research).
 ---
 
 <!-- @dual-pair: rule-tests-protocol -->

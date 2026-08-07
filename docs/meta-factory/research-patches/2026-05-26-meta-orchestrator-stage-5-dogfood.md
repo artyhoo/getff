@@ -2,7 +2,7 @@
 # Stage 5 dogfood — first `/meta-orchestrator` invocation on real backlog (2026-05-26)
 
 > **Authoritative for:** Stage 5 dogfood findings — §1 substrate invocation trace, §2 routing decision walk, §3 N=1 coherence call, §4 T19 cold-review of own §1-§3, §5 substrate bugs / UX gaps surfaced during the run (severity + repro + 1-line proposed fix scope, NO fixes applied), §6 §1.7 Forward-check applied, §7 §1.7 Backward-check applied.
-> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). Substrate spec — see [`.claude/skills/meta-orchestrator/SKILL.md`](../../../.claude/skills/meta-orchestrator/SKILL.md). Bug fixes — surfaced in §5 only, follow-up PRs out of scope per [feedback_no_drive_by_prs](../../../CLAUDE.md).
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). Substrate spec — see [`.claude/skills/meta-orchestrator/SKILL.md`](../../../.claude/skills/pipeline/SKILL.md). Bug fixes — surfaced in §5 only, follow-up PRs out of scope per [feedback_no_drive_by_prs](../../../CLAUDE.md).
 
 > **Origin:** kickoff `.claude/orchestrator-prompts/meta-orchestrator-mode-triage-and-planner/stage-5-dogfood-kickoff.md` (Option A canonical: 1-liner emitted by dispatching orchestrator, fresh CC tab Worker session executed the protocol). Dogfood validates substrate built by PRs #239/#240/#241/#242/#243 (Stages 2A/2B/2C/3) + PR #244 (Stage 4 — override flags).
 
@@ -135,7 +135,7 @@ SURFACES: 1
 RATIONALE: LOC=1≤5, SURFACES=1≤1 → small/mechanical tier (SDD fix)
 ```
 
-Exit 0. **Silent false-positive** — see §5 finding J1.  Source of the fabricated numbers traced to [`classify-work.sh:25-44`](../../../.claude/skills/meta-orchestrator/helpers/classify-work.sh#L25-L44): the helper has a file-vs-string fallback that treats a non-existent path as a literal description string. For the input `.claude/orchestrator-prompts/memory-codify-feedback_ai_doc_research_priority_pool/kickoff.md` (1 whitespace-free token), word-count = 1 → `LOC = 1/6 = 0` → clamped to `1`. SURFACES = 1 (the `.md` extension matches the `[a-zA-Z0-9._/-]+\.(ts|tsx|js|sh|md|yml|yaml|json)` regex on the same path-string). Routing then runs `LOC=1 ≤5 AND SURFACES=1 ≤1` → `fix`.
+Exit 0. **Silent false-positive** — see §5 finding J1.  Source of the fabricated numbers traced to [`classify-work.sh:25-44`](../../../.claude/skills/pipeline/helpers/classify-work.sh#L25-L44): the helper has a file-vs-string fallback that treats a non-existent path as a literal description string. For the input `.claude/orchestrator-prompts/memory-codify-feedback_ai_doc_research_priority_pool/kickoff.md` (1 whitespace-free token), word-count = 1 → `LOC = 1/6 = 0` → clamped to `1`. SURFACES = 1 (the `.md` extension matches the `[a-zA-Z0-9._/-]+\.(ts|tsx|js|sh|md|yml|yaml|json)` regex on the same path-string). Routing then runs `LOC=1 ≤5 AND SURFACES=1 ≤1` → `fix`.
 
 ```bash
 # L5 — assign-skill (advisory)
@@ -165,7 +165,7 @@ Exit 0. Stage 4's `--mode-solo` flag parsed correctly; `OVERRIDE_REASON` capture
 
 Files produced via Write tool:
 
-- `.claude/orchestrator-prompts/memory-codify-feedback_ai_doc_research_priority_pool-meta-launch/kickoff.md` — 157 lines, all 12 substituted placeholders honoured per [`.claude/skills/meta-orchestrator/references/placeholders.md`](../../../.claude/skills/meta-orchestrator/references/placeholders.md). `{{T_TRAP_ENUMERATION}}` enumerated 5 canonical traps (T3/T14/T15/T16/T20); `{{DOMAIN_TRAPS}}` defined `T-MEMORY-CODIFY-A` per principle 12 §5 obligation.
+- `.claude/orchestrator-prompts/memory-codify-feedback_ai_doc_research_priority_pool-meta-launch/kickoff.md` — 157 lines, all 12 substituted placeholders honoured per [`.claude/skills/meta-orchestrator/references/placeholders.md`](../../../.claude/skills/pipeline/references/placeholders.md). `{{T_TRAP_ENUMERATION}}` enumerated 5 canonical traps (T3/T14/T15/T16/T20); `{{DOMAIN_TRAPS}}` defined `T-MEMORY-CODIFY-A` per principle 12 §5 obligation.
 - `.claude/orchestrator-prompts/memory-codify-feedback_ai_doc_research_priority_pool-meta-launch/state.md` — 64 lines, all 21+ substituted placeholders per template.
 
 Both paths gitignored (`git status --short` empty after write; `git check-ignore` confirms). Substrate `_plan-cache.md` + `_master-backlog-delta.json` also gitignored — T-MMT-5-C cleanup verified clean.
@@ -184,7 +184,7 @@ bash .claude/skills/meta-orchestrator/helpers/update-delta.sh "no-arg" "Stage 5 
 # Exit 0.
 ```
 
-Post-rewrite JSON: 34 `untracked_seen` entries (each `{id, first_seen: 2026-05-26T15:46:02Z}`), 0 `closed_since_last` entries (first invocation). Schema honoured per [`references/master-backlog-delta.md`](../../../.claude/skills/meta-orchestrator/references/master-backlog-delta.md).
+Post-rewrite JSON: 34 `untracked_seen` entries (each `{id, first_seen: 2026-05-26T15:46:02Z}`), 0 `closed_since_last` entries (first invocation). Schema honoured per [`references/master-backlog-delta.md`](../../../.claude/skills/pipeline/references/master-backlog-delta.md).
 
 ---
 
@@ -194,14 +194,14 @@ Following SKILL.md §2.5 + §5 mechanically for `TOP_UMBRELLA = memory-codify-fe
 
 | Step | Predicate | Observed value | Source |
 |---|---|---|---|
-| L1 | candidate surfaced by priority-score | yes — alphabetical-first of 34 synthetic candidates (per kickoff §3 Step 4 literal `${CANDIDATE_IDS[0]:-}`) | §1.6 / [`priority-score.sh:135-188`](../../../.claude/skills/meta-orchestrator/helpers/priority-score.sh) (synthetic emitter for memory-codify type) |
-| L2 | dup-detect | `MISSING:` (= drift item per SKILL.md §2.5 Step 2 [line 175](../../../.claude/skills/meta-orchestrator/SKILL.md#L175)) | §1.6 / [`dup-detect.sh`](../../../.claude/skills/meta-orchestrator/helpers/dup-detect.sh) |
-| L3 | classify-work TYPE | `fix` (**false-positive from string-mode fallback** — see §5 J1; cited [`classify-work.sh:25-44`](../../../.claude/skills/meta-orchestrator/helpers/classify-work.sh)) | §1.6 helper output |
-| L4 | I-phase vs R-phase | N/A — classified as `fix` (per SKILL.md §2.5 Step 5 routing tree [line 197-209](../../../.claude/skills/meta-orchestrator/SKILL.md#L197)) | derived from L3 |
+| L1 | candidate surfaced by priority-score | yes — alphabetical-first of 34 synthetic candidates (per kickoff §3 Step 4 literal `${CANDIDATE_IDS[0]:-}`) | §1.6 / [`priority-score.sh:135-188`](../../../.claude/skills/pipeline/helpers/priority-score.sh) (synthetic emitter for memory-codify type) |
+| L2 | dup-detect | `MISSING:` (= drift item per SKILL.md §2.5 Step 2 [line 175](../../../.claude/skills/pipeline/SKILL.md#L175)) | §1.6 / [`dup-detect.sh`](../../../.claude/skills/pipeline/helpers/dup-detect.sh) |
+| L3 | classify-work TYPE | `fix` (**false-positive from string-mode fallback** — see §5 J1; cited [`classify-work.sh:25-44`](../../../.claude/skills/pipeline/helpers/classify-work.sh)) | §1.6 helper output |
+| L4 | I-phase vs R-phase | N/A — classified as `fix` (per SKILL.md §2.5 Step 5 routing tree [line 197-209](../../../.claude/skills/pipeline/SKILL.md#L197)) | derived from L3 |
 | L5 | assign-skill | `recommended_agent: agents/memory-codification-auditor.md` (advisory) | §1.6 helper output |
-| L5 routing tree (SKILL.md §2.5 Step 5) | `TYPE == "fix"`; `sibling_count >= 3 AND bundle_opt_in` ? | `sibling_count = 1` (zero other `fix`-classified active candidates this invocation); `bundle_opt_in = false` (no `--mode-bundle`) → **Mode = DIRECT** | SKILL.md §2.5 Step 5 [line 199-201](../../../.claude/skills/meta-orchestrator/SKILL.md#L199) |
-| Step 6 ALIAS | DIRECT → `direct-Edit` (TYPE=fix AND sibling_count<3) | confirmed | SKILL.md §2.5 Step 6 [line 215](../../../.claude/skills/meta-orchestrator/SKILL.md#L215) |
-| Stage 4 override | `--mode-solo --reason=...` parsed → `OVERRIDE_MODE=SOLO, OVERRIDE_REASON=...` (this would re-route to SOLO/Mode-A per Step 6 ALIAS [line 217](../../../.claude/skills/meta-orchestrator/SKILL.md#L217) IF applied) | §1.7 helper output |
+| L5 routing tree (SKILL.md §2.5 Step 5) | `TYPE == "fix"`; `sibling_count >= 3 AND bundle_opt_in` ? | `sibling_count = 1` (zero other `fix`-classified active candidates this invocation); `bundle_opt_in = false` (no `--mode-bundle`) → **Mode = DIRECT** | SKILL.md §2.5 Step 5 [line 199-201](../../../.claude/skills/pipeline/SKILL.md#L199) |
+| Step 6 ALIAS | DIRECT → `direct-Edit` (TYPE=fix AND sibling_count<3) | confirmed | SKILL.md §2.5 Step 6 [line 215](../../../.claude/skills/pipeline/SKILL.md#L215) |
+| Stage 4 override | `--mode-solo --reason=...` parsed → `OVERRIDE_MODE=SOLO, OVERRIDE_REASON=...` (this would re-route to SOLO/Mode-A per Step 6 ALIAS [line 217](../../../.claude/skills/pipeline/SKILL.md#L217) IF applied) | §1.7 helper output |
 
 **Chosen Mode (substrate-determined, no override applied to final dispatch): DIRECT (`direct-Edit` per Step 6 ALIAS)**. With Stage-4 override `--mode-solo` (exercised in §1.7), the verdict would become SOLO/Mode-A — but the override path was exercised in §1.7 as a helper-test, not as a real dispatch flag.
 
@@ -211,7 +211,7 @@ Following SKILL.md §2.5 + §5 mechanically for `TOP_UMBRELLA = memory-codify-fe
 
 **Scope of this call:** does substrate behaviour on THIS dogfood invocation match SKILL.md §5 routing tree? **Single observation; N=1; no generalisation per T-MMT-5-B.**
 
-**Mechanical coherence:** YES — the helpers each exited 0 with output matching their published schemas, the routing-tree predicate evaluation followed SKILL.md §2.5 Step 5 line-by-line, and the Step 6 ALIAS table mapped the predicate result (TYPE=fix + sibling_count<3 + !bundle_opt_in) to DIRECT/`direct-Edit` exactly as [SKILL.md §2.5 Step 6 line 215](../../../.claude/skills/meta-orchestrator/SKILL.md#L215) prescribes. Stage 4's `parse-override-flags.sh` parsed the test flag correctly.
+**Mechanical coherence:** YES — the helpers each exited 0 with output matching their published schemas, the routing-tree predicate evaluation followed SKILL.md §2.5 Step 5 line-by-line, and the Step 6 ALIAS table mapped the predicate result (TYPE=fix + sibling_count<3 + !bundle_opt_in) to DIRECT/`direct-Edit` exactly as [SKILL.md §2.5 Step 6 line 215](../../../.claude/skills/pipeline/SKILL.md#L215) prescribes. Stage 4's `parse-override-flags.sh` parsed the test flag correctly.
 
 **Semantic coherence:** **NO**. The Mode-DIRECT verdict is mechanically consistent but semantically wrong because:
 
@@ -254,7 +254,7 @@ bash .claude/skills/meta-orchestrator/helpers/classify-work.sh \
 # Returns TYPE=fix, DISPATCH=direct-Edit, LOC=1, SURFACES=1 — silently, exit 0
 ```
 
-**Root cause:** [`classify-work.sh:25-44`](../../../.claude/skills/meta-orchestrator/helpers/classify-work.sh#L25-L44) file-vs-string detection treats a non-existent path as a literal description string. Word-count of the bare path-string = 1 → LOC clamped to 1; `.md` suffix matches SURFACES regex → SURFACES=1; tier-1 boundary `LOC≤5 AND SURFACES≤1` matches → false `fix`. **Under this fallback, ALL ~30 synthetic candidate ids of this run would also classify as `fix`** (per §4 A6) — the broken sibling_count semantics under this fallback compounds the bug.
+**Root cause:** [`classify-work.sh:25-44`](../../../.claude/skills/pipeline/helpers/classify-work.sh#L25-L44) file-vs-string detection treats a non-existent path as a literal description string. Word-count of the bare path-string = 1 → LOC clamped to 1; `.md` suffix matches SURFACES regex → SURFACES=1; tier-1 boundary `LOC≤5 AND SURFACES≤1` matches → false `fix`. **Under this fallback, ALL ~30 synthetic candidate ids of this run would also classify as `fix`** (per §4 A6) — the broken sibling_count semantics under this fallback compounds the bug.
 
 **Proposed fix scope (1-line):** when INPUT contains `/` AND ends in `.md`/`.ts`/`.tsx`/etc. AND `[[ ! -f INPUT ]]` → emit `MISSING-FILE: <path>` to stderr + exit non-zero; reserve string-mode fallback for inputs that don't look like file paths.
 
@@ -271,7 +271,7 @@ REPO_ROOT=/tmp PROMPTS_DIR=/tmp/empty-prompts \
 # Section "candidate umbrellas" emits a single line: "* kickoff=missing"
 ```
 
-**Root cause:** [`priority-score.sh:62`](../../../.claude/skills/meta-orchestrator/helpers/priority-score.sh#L62) `for dir in "${PROMPTS_DIR}"/*/`. Without `shopt -s nullglob`, an unmatched `*/` glob expands to the literal `*/` → loop body runs once with `name=*`.
+**Root cause:** [`priority-score.sh:62`](../../../.claude/skills/pipeline/helpers/priority-score.sh#L62) `for dir in "${PROMPTS_DIR}"/*/`. Without `shopt -s nullglob`, an unmatched `*/` glob expands to the literal `*/` → loop body runs once with `name=*`.
 
 **Proposed fix scope (1-line):** `shopt -s nullglob` at top of helper (bash-specific; helper already uses `#!/usr/bin/env bash` so safe), OR guard the loop with `compgen -G "${PROMPTS_DIR}/*/" > /dev/null || { … return; }`.
 

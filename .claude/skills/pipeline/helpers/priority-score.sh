@@ -39,7 +39,7 @@
 # directory basename without a dash-reason suffix or category prefix).
 #
 # Synthetic surface types:
-#   (a) cold-review-fixes.md in any .claude/orchestrator-prompts/*/
+#   (a) cold-review-fixes.md in any <resolved-orch-home>/*/
 #   (b) state.md matching PENDING|TODO|AWAITING|REVIEW-PENDING
 #   (c) Memory files with TODO-codify: marker
 #   (d) Stale open PRs (no update in >14 days)
@@ -100,7 +100,9 @@ MO_PATCHES_DIR="${MO_PATCHES_DIR:-${REPO_ROOT}/docs/meta-factory/research-patche
 echo "=== priority-score: candidate umbrellas ==="
 
 if [[ ! -d "${PROMPTS_DIR}" ]]; then
-  echo "(no .claude/orchestrator-prompts directory)"
+  # Name the home actually probed — a hardcoded `.claude/…` here sends a consumer looking
+  # for a directory the resolver never consulted.
+  echo "(no $(repo_rel "${PROMPTS_DIR}") directory)"
   exit 0
 fi
 
@@ -186,7 +188,7 @@ for dir in "${PROMPTS_DIR}"/*/; do
     # "ux-improvements"). Kebab-case names are regex-safe (alnum + hyphen only).
     _rs_re="(^|[^[:alnum:]-])${name}([^[:alnum:]-]|$)"
     if [[ -f "${MO_WAVE_PLAN}" ]] && grep -qE "${_rs_re}" "${MO_WAVE_PLAN}" 2>/dev/null; then
-      echo "RECONSTRUCT-STUB: ${name} has a committed plan row but kickoff=missing — author + commit .claude/orchestrator-prompts/${name}/kickoff.md to restore portability (no auto-write)"
+      echo "RECONSTRUCT-STUB: ${name} has a committed plan row but kickoff=missing — author + commit $(resolve_orch_home_rel)/${name}/kickoff.md to restore portability (no auto-write)"
     fi
     continue
   fi

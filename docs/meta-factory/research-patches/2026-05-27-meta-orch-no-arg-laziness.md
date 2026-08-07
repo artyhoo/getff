@@ -2,7 +2,7 @@
 # R-phase: `meta-orch-no-arg-laziness` — architectural fix for classifier-incompatible inline `!shell` patterns
 
 > **Type:** R-phase research-patch. Verdict + I-phase preview. **No code change in this PR.**
-> **Authoritative for:** verdict on Bugs #2/#3/#4 — three classifier-incompatible inline `!shell` surfaces in [`.claude/skills/meta-orchestrator/SKILL.md`](../../../.claude/skills/meta-orchestrator/SKILL.md); BFR posture per [build-first-reuse-default.md §1](../../../.claude/rules/build-first-reuse-default.md); §1.7 forward/backward self-checks; I-phase scope sketch.
+> **Authoritative for:** verdict on Bugs #2/#3/#4 — three classifier-incompatible inline `!shell` surfaces in [`.claude/skills/meta-orchestrator/SKILL.md`](../../../.claude/skills/pipeline/SKILL.md); BFR posture per [build-first-reuse-default.md §1](../../../.claude/rules/build-first-reuse-default.md); §1.7 forward/backward self-checks; I-phase scope sketch.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). PR-A's §2.5 Step 3 fix (already shipped as [PR #260](https://github.com/Yhooi2/rules-as-tests-aif/pull/260) — Bug #1, distinct surface). Implementation of the verdict — separate I-phase umbrella.
 > **Origin:** Kickoff [`.claude/orchestrator-prompts/meta-orch-no-arg-laziness/kickoff.md`](../../../.claude/orchestrator-prompts/meta-orch-no-arg-laziness/kickoff.md); meta-launch dispatch state at [`.claude/orchestrator-prompts/meta-orch-no-arg-laziness-meta-launch/state.md`](../../../.claude/orchestrator-prompts/meta-orch-no-arg-laziness-meta-launch/state.md); follows the "deeper issue" deferred by [PR #193 commit 8f60158](https://github.com/Yhooi2/rules-as-tests-aif/commit/8f60158).
 
@@ -10,11 +10,11 @@
 
 ## §0 Problem statement
 
-The `/meta-orchestrator` skill (single CC slash-command, [SKILL.md](../../../.claude/skills/meta-orchestrator/SKILL.md)) contains three inline `!shell` surfaces that fail the CC auto-mode classifier at runtime. They are all instances of the same root problem-class — _"an inline `!shell` block contains text the classifier cannot verify pre-execution: an unexpanded `${var}` (other than the whitelisted `${CLAUDE_SKILL_DIR}`) or an angle-bracket model-substitution placeholder"_.
+The `/meta-orchestrator` skill (single CC slash-command, [SKILL.md](../../../.claude/skills/pipeline/SKILL.md)) contains three inline `!shell` surfaces that fail the CC auto-mode classifier at runtime. They are all instances of the same root problem-class — _"an inline `!shell` block contains text the classifier cannot verify pre-execution: an unexpanded `${var}` (other than the whitelisted `${CLAUDE_SKILL_DIR}`) or an angle-bracket model-substitution placeholder"_.
 
 ### Bug #2 — §3 launch-table-generator runs before §2 picks the winner
 
-[SKILL.md:239](../../../.claude/skills/meta-orchestrator/SKILL.md#L239) and [SKILL.md:243](../../../.claude/skills/meta-orchestrator/SKILL.md#L243):
+[SKILL.md:239](../../../.claude/skills/pipeline/SKILL.md#L239) and [SKILL.md:243](../../../.claude/skills/pipeline/SKILL.md#L243):
 
 ```bash
 ${CLAUDE_SKILL_DIR}/helpers/launch-table-generator.sh "${umbrella:-}" 2>/dev/null
@@ -39,7 +39,7 @@ Live reproduction (Incident C — this very meta-launch invocation 2026-05-27, b
 
 ### Bug #4 — §10 step 5b angle-bracket placeholders + brace-quote jq
 
-[SKILL.md:517-525](../../../.claude/skills/meta-orchestrator/SKILL.md#L517-L525):
+[SKILL.md:517-525](../../../.claude/skills/pipeline/SKILL.md#L517-L525):
 
 ```bash
 DELTA=.claude/orchestrator-prompts/_master-backlog-delta.json
@@ -167,7 +167,7 @@ T-N1 honoured: docs were WebFetched, not inferred from training-data.
 
 #### §1.5c — `allowed-tools` write paths (VERIFIED OK)
 
-[SKILL.md:8-16](../../../.claude/skills/meta-orchestrator/SKILL.md#L8-L16):
+[SKILL.md:8-16](../../../.claude/skills/pipeline/SKILL.md#L8-L16):
 
 ```yaml
 allowed-tools:
@@ -191,14 +191,14 @@ allowed-tools:
 
 #### §1.5d — §10 step 5b deterministic-substitution feasibility (SETTLES §0.5 falsifier)
 
-Inspection of [SKILL.md:225-226 (Steps 8-9)](../../../.claude/skills/meta-orchestrator/SKILL.md#L225-L226), [SKILL.md:517-525 (step 5b jq)](../../../.claude/skills/meta-orchestrator/SKILL.md#L517-L525), [helpers/delta-diff.sh](../../../.claude/skills/meta-orchestrator/helpers/delta-diff.sh), [helpers/update-delta.sh](../../../.claude/skills/meta-orchestrator/helpers/update-delta.sh), [references/master-backlog-delta.md §1-§3](../../../.claude/skills/meta-orchestrator/references/master-backlog-delta.md).
+Inspection of [SKILL.md:225-226 (Steps 8-9)](../../../.claude/skills/pipeline/SKILL.md#L225-L226), [SKILL.md:517-525 (step 5b jq)](../../../.claude/skills/pipeline/SKILL.md#L517-L525), [helpers/delta-diff.sh](../../../.claude/skills/pipeline/helpers/delta-diff.sh), [helpers/update-delta.sh](../../../.claude/skills/pipeline/helpers/update-delta.sh), [references/master-backlog-delta.md §1-§3](../../../.claude/skills/pipeline/references/master-backlog-delta.md).
 
 **Findings:**
 
 1. `current_ids_json_array` derives from: §2.5 Step 2 `dup-detect.sh` (deterministic — emits `POTENTIAL_DUPE:` / `MISSING:` lines) + §2.5 Step 3 `classify-each-candidate.sh` (deterministic — iterates the `priority-score.sh` candidate set). Both are pure bash, no model judgment for the id-set.
-2. `resolved_ids_json_array` derives from: `delta-diff.sh` set-diff between prior `untracked_seen[].id` and current id-set ([helpers/delta-diff.sh](../../../.claude/skills/meta-orchestrator/helpers/delta-diff.sh) lines 22-26 contract: «3. Emits "NEW-SINCE-LAST: <id>" for each id in current \ seen. 4. Emits "RESOLVED-SINCE-LAST: <id>" for each id in seen \ current»). Deterministic.
+2. `resolved_ids_json_array` derives from: `delta-diff.sh` set-diff between prior `untracked_seen[].id` and current id-set ([helpers/delta-diff.sh](../../../.claude/skills/pipeline/helpers/delta-diff.sh) lines 22-26 contract: «3. Emits "NEW-SINCE-LAST: <id>" for each id in current \ seen. 4. Emits "RESOLVED-SINCE-LAST: <id>" for each id in seen \ current»). Deterministic.
 3. Model judgment in §2.5 Step 5 (routing-tree → ALIAS) applies to per-candidate Mode/dispatch decisions — it does NOT enter the id-set. The id-set is the input to routing-tree, not the output.
-4. `untracked_seen` overwrite-shape per [references/master-backlog-delta.md §1](../../../.claude/skills/meta-orchestrator/references/master-backlog-delta.md) — `first_seen` is "most recent sighting", not historical anchor — so no preserve-history complication.
+4. `untracked_seen` overwrite-shape per [references/master-backlog-delta.md §1](../../../.claude/skills/pipeline/references/master-backlog-delta.md) — `first_seen` is "most recent sighting", not historical anchor — so no preserve-history complication.
 
 **Verdict:** `current_ids` and `resolved_ids` are **deterministically reconstructible** from `priority-score.sh` + `dup-detect.sh` + `delta-diff.sh` outputs alone. **§0.5 falsifier resolves NEGATIVE.** Scope-merge (Bug #2 + #3 + #4 in one R-phase) is VALID. F.3 helper-collapse can cover Bug #4 without requiring an F.1+ extension that would persist routing-tree (model-judgment) output.
 
@@ -311,7 +311,7 @@ For each candidate: **BFR posture** ([build-first-reuse-default.md §1](../../..
 
 ## §3 SSOT entries to add
 
-No new SSOT row required for the verdict — F.3 ADAPTs from existing rows **#68** (OhMyOpencode `boulder.json` file-state, REFERENCE) and **#77** (Cline Memory Bank committed-markdown, ADAPT for `_plan-cache.md`). The new helpers (`dispatch-from-state.sh`, `delta-write-from-state.sh`) extend the existing helper family at [.claude/skills/meta-orchestrator/helpers/](../../../.claude/skills/meta-orchestrator/helpers/) and are governed by [CLAUDE.md "What is a capability commit?"](../../../CLAUDE.md) (≥80 LOC threshold likely fires → I-phase commit must carry a `Prior-art:` trailer citing this patch).
+No new SSOT row required for the verdict — F.3 ADAPTs from existing rows **#68** (OhMyOpencode `boulder.json` file-state, REFERENCE) and **#77** (Cline Memory Bank committed-markdown, ADAPT for `_plan-cache.md`). The new helpers (`dispatch-from-state.sh`, `delta-write-from-state.sh`) extend the existing helper family at [.claude/skills/meta-orchestrator/helpers/](../../../.claude/skills/pipeline/helpers/) and are governed by [CLAUDE.md "What is a capability commit?"](../../../CLAUDE.md) (≥80 LOC threshold likely fires → I-phase commit must carry a `Prior-art:` trailer citing this patch).
 
 The F.6 fix uses an already-documented CC primitive (`$umbrella` named-arg substitution per [code.claude.com/docs/en/skills](https://code.claude.com/docs/en/skills) "Available string substitutions" table) — no SSOT row needed; the [code.claude.com docs](https://code.claude.com/docs/en/skills) themselves are the citation.
 
@@ -327,7 +327,7 @@ Does this verdict comply with the existing discipline-bearing artefacts?
 
 - **[no-paid-llm-in-ci.md §1](../../../.claude/rules/no-paid-llm-in-ci.md)** — VERIFIED OK: F.3 mechanism is `bash <helper>` + `jq` inside helpers + `Write` tool from the active session. Zero API-billed call; no CI-side LLM addition; entire dispatch is session-bound. ([file:line](../../../.claude/rules/no-paid-llm-in-ci.md) §1).
 - **[build-first-reuse-default.md §1](../../../.claude/rules/build-first-reuse-default.md)** — VERIFIED OK: §2 declares ADAPT verdict (F.3) citing SSOT #68 + #77 with T16 problem-class checks; the only BUILD elements are two thin project-specific helpers (~80-120 LOC each) justified by §1.4 finding that no upstream addresses cross-block CC-skill state with the classifier-as-constraint shape. ([file:line](../../../.claude/rules/build-first-reuse-default.md) §1).
-- **[dual-implementation-discipline.md §3](../../../.claude/rules/dual-implementation-discipline.md)** — VERIFIED OK: the F.3 helpers are CC-native (called from `/meta-orchestrator` skill inline bash). Per §3 "Performance-critical default CC-native + portable optional" — these helpers are session-bound to the CC skill, fire at the §10 step 5b moment with no portable analog. Each new helper should carry `@cc-only-rationale: consumer-facing CC-session helper invoked from /meta-orchestrator …` (matches the existing helpers' header convention per [helpers/update-delta.sh](../../../.claude/skills/meta-orchestrator/helpers/update-delta.sh) lines 30-34).
+- **[dual-implementation-discipline.md §3](../../../.claude/rules/dual-implementation-discipline.md)** — VERIFIED OK: the F.3 helpers are CC-native (called from `/meta-orchestrator` skill inline bash). Per §3 "Performance-critical default CC-native + portable optional" — these helpers are session-bound to the CC skill, fire at the §10 step 5b moment with no portable analog. Each new helper should carry `@cc-only-rationale: consumer-facing CC-session helper invoked from /meta-orchestrator …` (matches the existing helpers' header convention per [helpers/update-delta.sh](../../../.claude/skills/pipeline/helpers/update-delta.sh) lines 30-34).
 - **[doc-authority-hierarchy.md §2-§3](../../../.claude/rules/doc-authority-hierarchy.md)** — VERIFIED OK: this patch carries the required header (Authoritative-for + NOT authoritative-for); SKILL.md already carries its header and is the binding spec; the new helpers fall under "scripts/code files — JSDoc comments serve different purpose" but the existing helper header convention (Class C + Authoritative-for + NOT authoritative-for) should be carried forward at I-phase time.
 - **[parallel-subwave-isolation.md §1](../../../.claude/rules/parallel-subwave-isolation.md)** — N/A here (single R-phase, single sub-wave, no parallel siblings, no shared-dir-parallel risk; primary workdir used per meta-launch §4a).
 - **[ai-laziness-traps.md §3](../../../.claude/rules/ai-laziness-traps.md)** — VERIFIED OK: T1/T3/T4/T7/T11/T12/T13/T15/T16/T19/T20 active per kickoff §5; T-N1/T-N2/T-N3/T-N4 honoured per kickoff. T13 audit on SSOT #77 found the kickoff's "start there" hint misleading (corrected in §1.1). T15 instantiation: this very patch is checked for compliance with the rules above (this section). T19 self-cold-QA scheduled before declaring R-phase done (§7 below).
@@ -336,11 +336,11 @@ Does this verdict comply with the existing discipline-bearing artefacts?
 
 Does this patch silently supersede or contradict existing artefacts?
 
-- **No existing rule, principle test, or SSOT row is superseded.** The F.3 verdict EXTENDS the existing helper family at [.claude/skills/meta-orchestrator/helpers/](../../../.claude/skills/meta-orchestrator/helpers/) — does not replace any of them.
-- **One tension surfaced for I-phase resolution:** the kickoff and master-backlog-delta.md §4 anti-pattern `#delta-arrays-writer-creep` ([references/master-backlog-delta.md §4](../../../.claude/skills/meta-orchestrator/references/master-backlog-delta.md)) explicitly says: «extending `update-delta.sh` to write the two arrays (`untracked_seen` / `closed_since_last`) in addition to metadata. The two arrays MUST be populated by direct inline `jq` in SKILL.md body, not by the helper.» F.3 violates this anti-pattern (forced to do so by classifier reality — inline `jq` with brace-quote is blocked). The anti-pattern was written before §0 Incident B evidence; it needs a maintainer-owned revision in the I-phase: either (a) extend `update-delta.sh` with explicit `--with-arrays` flag (or new sibling helper `delta-write-arrays.sh`) with rationale «classifier-incompatibility supersedes BFR-style architectural-purity per Incident B verdict 2026-05-27»; (b) update the anti-pattern wording to acknowledge the exception. **Surface as DECISION-NEEDED §6 item 2.**
+- **No existing rule, principle test, or SSOT row is superseded.** The F.3 verdict EXTENDS the existing helper family at [.claude/skills/meta-orchestrator/helpers/](../../../.claude/skills/pipeline/helpers/) — does not replace any of them.
+- **One tension surfaced for I-phase resolution:** the kickoff and master-backlog-delta.md §4 anti-pattern `#delta-arrays-writer-creep` ([references/master-backlog-delta.md §4](../../../.claude/skills/pipeline/references/master-backlog-delta.md)) explicitly says: «extending `update-delta.sh` to write the two arrays (`untracked_seen` / `closed_since_last`) in addition to metadata. The two arrays MUST be populated by direct inline `jq` in SKILL.md body, not by the helper.» F.3 violates this anti-pattern (forced to do so by classifier reality — inline `jq` with brace-quote is blocked). The anti-pattern was written before §0 Incident B evidence; it needs a maintainer-owned revision in the I-phase: either (a) extend `update-delta.sh` with explicit `--with-arrays` flag (or new sibling helper `delta-write-arrays.sh`) with rationale «classifier-incompatibility supersedes BFR-style architectural-purity per Incident B verdict 2026-05-27»; (b) update the anti-pattern wording to acknowledge the exception. **Surface as DECISION-NEEDED §6 item 2.**
 - **PR #205 naming collision** flagged — that PR used "F.3" label for a different umbrella's UX work. I-phase PR title must disambiguate.
 - **PR #193 commit message** ([commit 8f60158](https://github.com/Yhooi2/rules-as-tests-aif/commit/8f60158)) explicitly defers "the deeper issue" to a separate scope; this patch closes that deferral. No supersession.
-- **SKILL.md §10.3a plain-language tail** [SKILL.md:506](../../../.claude/skills/meta-orchestrator/SKILL.md#L506) — this very R-phase Worker emits the §7a tail per meta-launch §7a mandate; the I-phase Worker MUST also emit it; no new rule needed.
+- **SKILL.md §10.3a plain-language tail** [SKILL.md:506](../../../.claude/skills/pipeline/SKILL.md#L506) — this very R-phase Worker emits the §7a tail per meta-launch §7a mandate; the I-phase Worker MUST also emit it; no new rule needed.
 
 ---
 
@@ -356,7 +356,7 @@ Rationale: F.3 alone resolves all three bugs; F.6 restores arg-mode (`/meta-orch
 
 Scope (out of this R-phase; binding for the I-phase umbrella to be opened separately per kickoff §3):
 
-1. **New helpers** under [.claude/skills/meta-orchestrator/helpers/](../../../.claude/skills/meta-orchestrator/helpers/):
+1. **New helpers** under [.claude/skills/meta-orchestrator/helpers/](../../../.claude/skills/pipeline/helpers/):
    - `dispatch-from-state.sh` (~80-100 LOC) — collapses §3 launch-table + meta-kickoff invocation; reads winner-id from `_meta-orch-state.json` (NEW state file); calls existing `launch-table-generator.sh` internally; emits the launch-table to stdout.
    - `delta-write-from-state.sh` (~60-80 LOC) — replaces inline jq at SKILL.md:517-525; reads `current_ids` + `resolved_ids` from `_meta-orch-state.json` (or accepts as positional args); runs jq internally; chains to existing `update-delta.sh` for metadata.
    - Each helper carries the existing `update-delta.sh`-style header: Class declaration + Authoritative-for + NOT authoritative-for + dual-pair / cc-only-rationale + test seams.
@@ -369,7 +369,7 @@ Scope (out of this R-phase; binding for the I-phase umbrella to be opened separa
    - All five `${umbrella:-}` occurrences (lines 72, 172, 239, 243, 524) → `$umbrella` (F.6).
    - Frontmatter `allowed-tools` extended with `Bash(bash *)` (or per-helper allowlist, narrower).
 4. **References update**:
-   - [references/master-backlog-delta.md §4](../../../.claude/skills/meta-orchestrator/references/master-backlog-delta.md) anti-pattern `#delta-arrays-writer-creep` — DECISION-NEEDED §6 item 2 resolves; update the anti-pattern wording accordingly.
+   - [references/master-backlog-delta.md §4](../../../.claude/skills/pipeline/references/master-backlog-delta.md) anti-pattern `#delta-arrays-writer-creep` — DECISION-NEEDED §6 item 2 resolves; update the anti-pattern wording accordingly.
    - SKILL.md §2.5 Step 9 (line 226): update «Concrete jq shape in §10 step 5» to reference the new helper file.
 5. **`Prior-art:` trailer** on the I-phase capability commit citing this patch + SSOT #68 + #77.
 6. **Principle 12 (AI-laziness-traps format) test** ([packages/core/principles/12-ai-laziness-traps.test.ts](../../../packages/core/principles/12-ai-laziness-traps.test.ts)) — unaffected by this verdict; no principle-test additions needed.
@@ -407,7 +407,7 @@ Maintainer to choose A / B / C. (Recommended: A for simplicity, accept the broad
 
 ### DN-2: `#delta-arrays-writer-creep` anti-pattern tension
 
-[references/master-backlog-delta.md §4](../../../.claude/skills/meta-orchestrator/references/master-backlog-delta.md) explicitly forbids extending `update-delta.sh` to write the two arrays. F.3 implements the delta-write via either (a) extending `update-delta.sh` (violates anti-pattern) or (b) a sibling helper `delta-write-from-state.sh` (does NOT violate — helper-scope separation preserved). The anti-pattern wording itself may need revision to acknowledge: «inline jq with brace-quote is classifier-blocked per Incident B 2026-05-27 — the body-owned-arrays clause must be relaxed to permit a sibling helper».
+[references/master-backlog-delta.md §4](../../../.claude/skills/pipeline/references/master-backlog-delta.md) explicitly forbids extending `update-delta.sh` to write the two arrays. F.3 implements the delta-write via either (a) extending `update-delta.sh` (violates anti-pattern) or (b) a sibling helper `delta-write-from-state.sh` (does NOT violate — helper-scope separation preserved). The anti-pattern wording itself may need revision to acknowledge: «inline jq with brace-quote is classifier-blocked per Incident B 2026-05-27 — the body-owned-arrays clause must be relaxed to permit a sibling helper».
 
 - **Option A:** extend `update-delta.sh` with `--with-arrays` flag; revise anti-pattern wording.
 - **Option B:** new sibling helper `delta-write-from-state.sh` (or `write-delta-arrays.sh`); update anti-pattern wording to call out the explicit exception («arrays may live in a separate sibling helper, but NOT in the metadata writer»).

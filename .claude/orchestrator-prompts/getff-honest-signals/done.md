@@ -1,0 +1,4 @@
+# getff-honest-signals — DONE
+- Final PR: #1175
+- Closed: 2026-07-26
+- Summary: Honest signal for silent no-op shipped for inject-matching-rule — when the consumer's .claude/rules/ corpus is absent, the hook now reports the gap once loudly per session instead of silently no-op'ing forever. Two sibling consumer-shipped hooks carry the same defect class and are NOT addressed by this umbrella: inject-project-digest.sh (silent exit when .claude/session-bootstrap.md is absent — install.sh:652-660, setup.d/10-skills.sh:260-271, plugin twin; GAP-FOUND, candidate follow-up) and deps-hash-check.sh (silent exit when $DECISIONS file is missing — install.sh:573, setup.d/10-skills.sh:119; GAP-FOUND, owned by the deps-hash umbrella). inject-subagent-digest.sh and inject-session-bootstrap.sh are framework-internal (no install.sh delivery) and correctly outside this consumer-shipped scope.

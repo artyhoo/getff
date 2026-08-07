@@ -1,6 +1,6 @@
 ---
 name: story
-description: Use when work is done / a PR was pushed, or when the user asks to recap what was done ("расскажи что сделали", "расскажи историю", "story", "recap", "по актам") — tells the story of this session in plain, engaging language, by acts, with jargon explained, honest about what's left. Output language follows AIF_HOOK_LANG (RU operator / EN default).
+description: Use when work is done / a PR was pushed, or when the user asks to recap what was done — «расскажи что сделали», «расскажи историю», story, recap, «по актам».
 ---
 
 > **Authoritative for:** /story skill — session recap narrated as a story by acts; localized to the operator's language via AIF_HOOK_LANG; single SSOT for the story spec shared with the Stop-hook branch.

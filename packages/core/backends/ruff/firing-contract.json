@@ -1,5 +1,5 @@
 {
   "command": "ruff check --output-format=json",
   "jsonPath": "$.code",
-  "expectedCodes": ["TID251", "TID253"]
+  "expectedCodes": ["TID251", "TID253", "DTZ005"]
 }

@@ -521,3 +521,17 @@ The 2026-07-03 doc-remediation audit (PRs #867, #875, follow-up) found 5 `docs/m
 **Trigger to revisit:** work begins on Phase 8.X (self-diagnostics) or the `meta-factory` bin per `self-diagnostics-design.md` — replace each disclaimer with the shipped mechanism, or promote this entry's items to a tracked implementation phase.
 
 **Origin:** 2026-07-03 doc-audit round 2, Type-B hunt (4 parallel auditors over `docs/meta-factory/*.md` + `.claude/rules/*.md`). **Cross-references:** [`architecture.md:7`](architecture.md) (the disclaimer style this entry's fixes reuse); [`self-diagnostics-design.md`](self-diagnostics-design.md) (Status: design only, Phase 8.X — the same gap, pre-existing honest marker).
+
+### 13.41 S3 astgrep datetime rules — retire now that DTZ005 covers the call site? (parked, getff-python-dtz-adopt)
+
+The single-stage umbrella `getff-python-dtz-adopt` (PR #<TBD>, 2026-08-06) ADOPTed ruff's built-in `DTZ005` (`call-datetime-now-without-tzinfo`) into `[lint] select` to close the naive-datetime middle case (`datetime.now(None)`) that S3 (#1150) left open. With DTZ005 now covering both `datetime.now()` / `datetime.datetime.now()` AND the `tz=None` arg variant, the S3 astgrep datetime rules at `packages/core/templates/python/.getff/astgrep-rules/getff-no-datetime-now.yml` and `getff-no-datetime-datetime-now.yml` become **partially redundant** — they fire on the same zero-arg literal call sites DTZ005 now catches. The umbrella kickoff (§5) explicitly does NOT decide whether to retire them. Deleting a shipped rule is the irreversible branch (T17/T18) — parked here per the kickoff §5 park-don't-guess contract.
+
+**Option A — keep both astgrep rules.** Reasoning: the astgrep rules fire on the zero-arg literal `datetime.now()` and `datetime.datetime.now()` and carry `node.claim`-style messaging (e.g. `getff-no-datetime-now.yml:5`) that ruff's built-in DTZ005 message does NOT carry. Two-owners for the zero-arg literal form is the pre-existing state S3 deliberately kept (S3 narrowed from `datetime.now($$ARGS)` to the zero-arg literal to keep the remedy GREEN); removing astgrep now would change that decision's scope. Consequence: consumers see two diagnostics (astgrep + DTZ005) on `datetime.now()` calls.
+
+**Option B — retire the astgrep rules.** Reasoning: two-owners-one-signal is the exact defect class the parent umbrella (`getff-honest-signals`) exists to remove. DTZ005 covers the call site (and more — the `tz=None` arm astgrep never narrowed to). The astgrep `node.claim` messaging can be carried via a DTZ005-specific consumer override if needed. Consequence: lose the inline astgrep remediation message on `datetime.now()` calls (gain: single owner).
+
+**Trigger to revisit:** (a) first consumer complaint about a double-diagnostic on `datetime.now()` calls; OR (b) maintainer judgment that the astgrep `node.claim` messaging is no longer load-bearing (it has been internalised into the DTZ005 ban rationale); OR (c) a follow-up audit confirms Option B's "DTZ005-only" path produces no regression on the S3 paired-fixture evidence.
+
+**Action on this PR:** ZERO edits to the S3 astgrep rules (kickoff §7 anti-scope). Parked here, not picked.
+
+**Origin:** 2026-08-06, `feature-getff-python-dtz-adopt-4d865a` T7 park-probe (kickoff §5 binding). **Cross-references:** [kickoff §5 + §7](../../.claude/orchestrator-prompts/getff-python-dtz-adopt/kickoff.md); [prior-art-evaluations.md#240](prior-art-evaluations.md) (ruff built-in DTZ005, ADOPT narrow); S3 narrowing PR #1150 (`getff-honest-signals` S3).

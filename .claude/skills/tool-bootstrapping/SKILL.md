@@ -1,6 +1,6 @@
 ---
 name: tool-bootstrapping
-description: Use when analysing project stack for MCP or skill recommendations, user mentions tool bootstrapping, MCP installation, skill discovery, project onboarding tools, package.json deps changed, .ai-factory/tool-decisions.md, AIF /aif, tool detection, инструменты, бутстраппинг, MCP серверы, скиллы, зависимости, онбординг, подбор инструментов, предложение инструментов, подтверждение установки, memory persistence for tools, tool proposal confirmation, incremental tool re-evaluation, rejected tools memory.
+description: Use when analysing project stack for MCP or skill recommendations. Triggers: tool bootstrapping, MCP installation, skill discovery, project onboarding tools, package.json deps changed, .ai-factory/tool-decisions.md, AIF /aif, tool detection, инструменты, бутстраппинг, MCP серверы, скиллы, зависимости, онбординг, подбор инструментов, предложение инструментов, подтверждение установки, tool proposal confirmation, incremental tool re-evaluation, rejected tools memory, memory persistence for tools.
 ---
 
 # Tool Bootstrapping — project-aware MCP/skill proposal discipline

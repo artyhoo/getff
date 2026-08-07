@@ -84,14 +84,45 @@ forward+backward self-check and a `Prior-art:` trailer (or the ≥20-char escape
 
 ## §1 Stages
 
+> **Decision-layer spec (2026-08-06, binding for the S-D / S-D′ / S-E / S-F-item-4 / S-G rows
+> below):** [`docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md`](../../../docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md)
+> — resolves forks D1-D3/N1-N2, closes S-D's additive scope, reopens S-D′ subtractive, adds S-G.
+
 | Stage | Scope (one line) | Depends on | Tier | Marker | Implements |
 |---|---|---|---|---|---|
 | S-A | `/arch` v2 SKILL.md rewrite + 3 wrapper-drift fixes + upstream-reference smoke | — | 2 | **NO** (§4 O-6) | §2 arc, ADR-4 |
 | S-B | dispatch-input contract v2 + calibration ledger + shadow-A/B protocol | S-A | 2 | NO | ADR-5, ADR-6 |
 | S-C | L2 population table + 5-option BFR verdict (null option live) | S-A | 2 | NO | ADR-2, ADR-1 |
-| S-D | L2 build — whatever S-C's verdict selects, or L2 closure | S-C | classify at dispatch | per S-C verdict | ADR-2, ADR-8 |
-| S-E | L1 budget gate at pre-push/CI + `InstructionsLoaded` blocking verification | token-audit S1 **merged** | 2 | NO | ADR-3 |
-| S-F | small-fixes queue (handoff decision 13), one maintenance PR | token-audit S2 timing | 1 | YES (`Z.AI GLM-5.2 SDK`) | — |
+| S-D | L2 build (ADDITIVE scope) — **CLOSED-NULL 2026-08-06** per SSOT #234; NO stage `done.md` (see charter) | S-C | — | — | ADR-2 |
+| S-D′ | per-seat SUBTRACTION maps — reopened scope, operator override 2026-08-06 (#234 trigger (a) fired). **Rev 6 (2026-08-07): ADR-8's A/B arm DESCOPED per the operator's §5 = Option A → S-K; this stage ships maps + review-seat agent definitions + the #234 annotation, and a PR with no evaluation arm is conformant** | S-E + S-H + **S-L merged** (consumes P11 probe + P3d numbers + S-L's re-priced P14 ranking — two-gate form each, §3). **S-L PROMOTED TO A GATE — operator verdict 2026-08-07, resolving PR #1255 `DECISION-NEEDED` 1:** S-L recalculates the P14 conversion this stage ranks by, and a falsified conversion falsifies the *ranking*, which is this stage's product (spec `:387`, row P13). S-E (#1237), S-H (#1239 + #1249) and **S-L (#1263)** all merged 2026-08-07 → **every gate MET on both arms; the stage is DISPATCHABLE** (kickoff rev 8) | 2 | **NO** (map authoring = un-spent judgment) | ADR-1 |
+| S-K | **STUB, not dispatchable** — ADR-8's A/B experiment re-homed off S-D′ (rev 6, operator verdict 2026-08-07). Entry criteria + the rev-6 task-id finding are stubbed at [`../arch-v2-context-pipeline-s-d-prime/kickoff.md`](../arch-v2-context-pipeline-s-d-prime/kickoff.md) §6; scoping it is its own act | S-D′ **merged** (it evaluates what S-D′ ships) | — | — | ADR-8 |
+| S-E | L1 budget gate + config-assertion asserts + `InstructionsLoaded` verification (spec P2/P3 — container-safe set after the rev-4 split; P3d/P11/P14 → S-H) | S-G **merged** (resident baseline) + token-audit S1 **merged** | 2 | YES per /arch §3 D1 exception (spec-produced, plan-complete; re-verify precondition at dispatch) | ADR-3 |
+| S-F | small-fixes queue (handoff decision 13), one maintenance PR; item 4 **CONSUMED** by S-E's P2 (see charter) | token-audit S2 timing | 1 | YES (`Z.AI GLM-5.2 SDK`) | — |
+| S-G | economy small-fixes 2 (spec P5-P8 + P12: `CLAUDE.md` pointer-collapse trim + traps digest + renderer/probe channel-truth fixes, rule-embed handoffs, inlined-dispatch template default, ADR-template wiring) | decision-layer spec merged (met) — **runs FIRST of the remaining stages** | 1 | YES (`Z.AI GLM-5.2 SDK`) | — |
+| S-H | host-side measurements (spec P3d per-turn attribution via new `scripts/measure-turn-attribution.sh` incl. the FORK E injector line + P11 Explore/Plan probe + P14 harness-remainder price list + conditional P3c live confirmation) | re-plan merged; **UNBLOCKED from S-E** (round-4 M-6) — S-E touchpoints degrade gracefully per the stage kickoff | 1 (host-bound) | **NO — not factory-bound**: the container carries a DIFFERENT population, not an absent surface (rev 5 correction — see the FORK C note below the table) | ADR-3 (measurement arm) |
+| S-L | **recalculation stage (added 2026-08-07)** — applies fork #4 = Option A in its *per-seat* form (the 4 B/token convention is falsified; a flat 2.62 is explicitly NOT the replacement), designs the fork #5 re-labelling **from scratch** (its inherited hypothesis is measured-false — see the §0 input patch), runs the residual decomposition, and re-adjudicates ADR-3's 29-39% band, which closes fork #6. **DELIVERED 2026-08-07** ([`…-s-l-recalculation.md`](../../../docs/meta-factory/research-patches/2026-08-07-s-l-recalculation.md)): #4 applied as a **band** (1.835-3.416 B/tok · 1.835-3.128 cp/tok) at all 6 sites — a new **unit defect** was found underneath it (bytes vs codepoints; S-H's 3.32 outlier is an encoding artifact, 2.587 in cp); §1.3's load-bearing unknown **CLOSED** (`/context` `Skills` **is** `skill_listing`, n=69); `/context` measured to **under-report** by ≥15,258 cp, so addendum §8.5's indictment **inverts**; ADR-3's band **cannot be restated as a percentage at all** — S-G cut the numerator (69,453→48,671 B) and every denominator in hand was measured on a pre-S-G seat, so a current-set share is `UNMEASURED — channel absent`; the operative restatement (absolute + channel + unit + the denominator seat's rule-set commit) is DELIVERED, with a named falsifier. **The #5 naming RULE and the #6 restatement are delivered; the #5 term assignment, the #6 denominator choice, and a T-SH-B drift fork (+11.1%) were routed to the operator and are now DECIDED — #5 = A (retire the bare term), #6 = A (the seat first-turn total), #7 = accept as accretion** (§3a; verdicts + the ADR-3 edit at [`2026-08-07-s-l-fork-verdicts.md`](../../../docs/meta-factory/research-patches/2026-08-07-s-l-fork-verdicts.md)). A cold fidelity audit (round 1, REVISE) caught 2 of this stage's 3 T-SL-B trips, incl. a false numerator provenance — recorded as an incident in the patch, not as a checkbox | **prerequisite MET** — the #5-C measurement is committed at [`…-s-l-5c-first-turn-vs-context.md`](../../../docs/meta-factory/research-patches/2026-08-07-s-l-5c-first-turn-vs-context.md); no stage gate | 2 (host-bound) | **NO** — Tier 2, not `/arch`-produced, so the D1 plan-complete exception does not apply; the #5 naming rule and the #6 denominator are both un-spent judgment | ADR-3 (re-adjudication) |
+| S-I | doctor-surfaced context-economy residue (spec §8, operator-invited expansion 2026-08-06): project+user skill-`description:` trims with trigger-inventory acceptance, plugin-`skillOverrides` probe, autosync-hook deferred-report fix; P-I3/P-I4 pre-executed in the /arch session, stage verifies | **S-G merged** (rev 5 — permitted-set collision, see Ordering) | 1 (host-bound) | **NO — not factory-bound** (same FORK C rationale); host CC session on the **MID tier** (Opus today) with `superpowers:writing-skills` + `ai-doc` loaded (operator directive 2026-08-06) | — |
+
+> **FORK C — why S-H and S-I are host-bound (rev 5, corrected against a live container probe).**
+> The earlier wording — «container lacks `~/.claude/projects`, `/context`, live CC» — is **false as
+> written** and was corrected rather than re-pinned. Measured 2026-08-06:
+> `docker exec aif-handoff-agent-1 sh -c 'find /home/node/.claude/projects -name "*.jsonl" | wc -l'`
+> → **746**. The container has the surface; what it does not have is the **population**. The
+> `claude-auth` volume is a *named* volume, not a bind of the host `~/.claude`
+> (`aif-handoff/docker-compose.yml:27,75`), so those 746 transcripts are the container's own
+> executor-seat sessions. S-H prices inject cost **per seat class** and S-D′ consumes it to cut the
+> **expensive** seats first (decision-layer spec §0.5); the container is exactly the one cheap class.
+> P14 compounds it — MCP schemas, plugin SessionStart injects, skills/agents listings and the memory
+> index are the operator's configuration, so a container-side price list would be internally correct
+> and answer the wrong machine (`#budget-sized-to-the-wrong-machine`,
+> [destination-environment-verification.md §4](../../rules/destination-environment-verification.md)).
+> S-I is host-bound for the same class of reason (`~/.claude/settings.json`, `skillOverrides`,
+> `~/.claude/skills`, `~/.claude/hooks` are the operator's, not the container's).
+> **Honest weak point:** P11 (do `Explore`/`Plan` load `.claude/rules`?) is the one item that *could*
+> technically run in the container — it is kept host-side because the container runs a different
+> runtime profile, so a container answer would describe a different harness. **Falsifier:** if a
+> future container image binds the host `~/.claude` read-only AND runs the host's runtime profile,
+> this rationale dies and the stages become factory-eligible — re-probe the mount before assuming it.
 
 ### S-A — `/arch` v2 rewrite
 
@@ -171,16 +202,48 @@ row; verdict cites the SSOT by ID and runs the 6-item search check for any negat
 claim; the null option is adjudicated on the merits, not dismissed; the verdict PR states the
 S-D tier with justification (§4 O-5).
 
-### S-D — L2 build (contingent)
+### S-D — L2 build (additive scope) — CLOSED-NULL 2026-08-06
 
-**Scope.** Whatever S-C selects — resolver, preload, system-prompt route — or, on the null
-verdict, an L2-closure PR (retirement note + `done.md`, no build). Includes the ADR-8 baseline
-capture **before** merge, the deterministic role-vs-uniform A/B branch, and the ZCode twin per the
-population table. **Depends on** S-C merged. **Tier:** undetermined at authoring — S-C's verdict
-PR assigns it. **Acceptance.** Baseline rows exist in the ledger BEFORE the shaping merge; the
-A/B branch is a real branch in the resolver, not fail-open-by-accident; ZCode twin byte-identity
-gated by the existing `plugin/hooks` pre-commit pattern; ADR-8's window (20 role-shaped
-dispatches) and its owner are named in the PR body.
+**Closed per SSOT #234** (ADR-2's verdict: DEFER / null option adopted; re-open triggers live
+in the SSOT row). Closure is THIS status edit — **explicitly NOT a stage-level `done.md`**: the
+earlier «L2-closure PR (retirement note + `done.md`, no build)» instruction is RETRACTED,
+because `priority-score.sh` Layer C3 treats `<umbrella>/done.md` existence alone as
+WHOLE-umbrella closure (`.claude/skills/pipeline/helpers/priority-score.sh:23-25,122-126`);
+the umbrella's `done.md` is written only when the LAST stage merges. ADR-8 is NOT orphaned:
+its experiment protocol (baseline before merge, 20-dispatch window, deterministic A/B,
+owner-closed verdict PR) is **inherited by S-D′**, now measuring subtractive shaping. Full
+rationale: decision-layer spec §1.5 + P4.
+**Re-homed 2026-08-07 (operator verdict, S-D′ §5 = Option A) — ADR-8's SECOND recorded
+deviation.** The protocol is still not orphaned, but its host is no longer S-D′: neither the A/B's
+selection mechanism nor its second falsifier metric had a home inside S-D′'s permitted set, and the
+rev-6 finding that aif's task id **postdates** the dispatch prompt
+(`packages/runtime-bridge/src/AifHandoffBackend.ts:231-249`) makes a parity-selected arm
+unimplementable there without a two-phase dispatch redesign. The arm moves to the **S-K stub**
+above; S-D′ keeps the maps. Entry criteria, unchanged from the four Phase -1 findings, are stubbed
+at [`../arch-v2-context-pipeline-s-d-prime/kickoff.md`](../arch-v2-context-pipeline-s-d-prime/kickoff.md) §6.
+
+### S-D′ — per-seat subtraction maps (reopened scope, operator override 2026-08-06)
+
+**Scope.** NOT the old L2 — no authored per-role ambient content (#234 stands for that scope).
+Author **subtraction maps**: which already-loading blocks each CC seat class DROPS — review
+subagents via replacement system prompts (C2-native `agents/*.md`); Explore/Plan per S-E's P11
+probe result; the senior main seat via rule channel re-scoping (the #1188 pattern). Priority
+per spec §0.5: expensive CC seats first; aif executor seats deferred (cheap tokens + the
+guidance gradient — a weaker executor needs MORE resident instruction), never starved. Runs
+under ADR-8's inherited protocol **with the rev-4 recorded deviation** (dispatch-time parity
+split over agent-definition variants, ledger-audited — the resolver branch died with S-D's
+CLOSED-NULL; spec §1.5); annotates SSOT #234 (trigger (a) fired: operator-declared
+expensive-seat budget exhaustion, 2026-08-06 session). **Depends on** S-E, S-H **and S-L**,
+each in the two-gate form (merged + content-read — the P11 probe and the P3d numbers are S-H
+deliverables; the re-priced P14 ranking is S-L's, gate added by operator verdict 2026-08-07).
+Repo-side drops are ordered by the fixed `measure-always-on.sh` per-file
+output; harness-side by S-L's re-priced P14 ranking; unpriced blocks park (spec P13, rev 4).
+**Tier 2, NO marker** — the map authoring is the un-spent
+judgment. **Acceptance.** Maps state per-seat-class drops WITH per-population reach incl. the
+ZCode row (ADR-2 population-table obligation); ADR-8 baseline rows exist BEFORE any map
+merges; the A/B arm column + parity audit per the §1.5 deviation; the SSOT #234 annotation
+lands in the same PR; every drop names its restoration
+trigger. Stage kickoff: [`../arch-v2-context-pipeline-s-d-prime/kickoff.md`](../arch-v2-context-pipeline-s-d-prime/kickoff.md).
 
 ### S-E — L1 budget gate
 
@@ -194,22 +257,151 @@ cross-umbrella, see §3. **Tier 2** (gate design + ceiling derivation are judgme
 Tier 1 only if S1's output makes the ceilings mechanical. **Acceptance.** No ceiling loads without
 an environment label (the gate refuses); the escape token is tested (a rationale <20 chars fails);
 the `InstructionsLoaded` verdict is recorded with its primary-source citation whichever way it
-lands.
+lands. **Extended 2026-08-06 by the decision-layer spec (binding):** + P2 config-assertion
+asserts (committed-list liveness principle test with pinned `picomatch` — a capability commit
+carrying a `Prior-art:` trailer + SSOT entry; ~~local-shadow pre-push check~~ **P2b WITHDRAWN
+2026-08-07 — do not rebuild from this line:** the shipped client MERGES array settings
+(`project ∪ local`), so the superset assert is green-by-construction (`#hope-as-gate`);
+evidence `docs/meta-factory/research-patches/2026-08-06-claudemd-overlay-semantics-verdict.md`
+§3-§4, spec §2 item 2 struck through in the same class of owner commit (#1252). The **inverse**
+hazard — a local file ADDING excludes to hide always-on rules — is real and claimed by no
+stage; backstop wiring per
+spec §2 item 3); + REUSE routing (wire the existing `scripts/check-alwayson-budget.sh` into
+pre-push; fix `scripts/measure-always-on.sh` — BOTH blindnesses: `claudeMdExcludes` AND the
+membership predicate that counts `paths:`-scoped rules as resident, spec §1.6 FORK D).
+**Re-scoped by the rev-4 split (spec §1.6 FORK C):** N2 per-turn attribution, the P11
+Explore/Plan probe and the P14 harness-remainder pricing are **S-H deliverables now** —
+container-infeasible behind this stage's marker. **Depends on S-G merged** (the resident
+baseline the ceilings derive from) + token-audit S1 (met). Stage kickoff: [`../arch-v2-context-pipeline-s-e/kickoff.md`](../arch-v2-context-pipeline-s-e/kickoff.md).
 
 ### S-F — small-fixes queue
 
 **Scope.** Handoff decision 13, one maintenance PR at token-audit S2 time: the
 `autonomous-loop-continuity.md:4` channel-marker understatement; the stale
 `#autonomous-dispatch-without-park` falsifier in `pipeline/SKILL.md §5`; the aif container's
-uncommitted `?? .claude/worktrees/` drift; the E-4 `claudeMdExcludes` absolute-glob hypothesis
-checked at S2 acceptance. **Tier 1** — each item's «how» is one determinable sentence and the
+uncommitted `?? .claude/worktrees/` drift; the E-4 `claudeMdExcludes` absolute-glob hypothesis —
+**CONSUMED 2026-08-06** by the decision-layer spec (P1 operator fix + S-E's P2 assert; at S2
+acceptance verify the S-E assert exists instead of re-deriving the hypothesis). **Tier 1** —
+each item's «how» is one determinable sentence and the
 work is expansion, not design. Marker: **YES**, value `Z.AI GLM-5.2 SDK` (re-verify uniqueness
 and the fidelity precondition at dispatch per §0). **Acceptance.** Each item either fixed with
 evidence or explicitly deferred with a trigger; no scope beyond the four items.
 
-**Ordering.** S-A → {S-B, S-C} may run in parallel (disjoint surfaces: S-B writes the
-contract/ledger artefacts, S-C writes a research verdict) → S-D after S-C → S-E gated on the
-cross-umbrella dependency → S-F on token-audit S2 timing. Parallel stages take isolated worktrees
+### S-G — economy small-fixes 2 (added rev 2; re-planned rev 4)
+
+**Scope.** Spec rows P5-P8 + P12: the `CLAUDE.md` pointer-collapse trim (D1, keep-list
+binding), the D1b traps digest (`.claude/rules/ai-laziness-digest.md` + traps `paths:`
+re-scope + anti-drift test slot 35 + renderer bookkeeping), the cold-seat-economy skill-embed
+additions, the inlined-dispatch template default, the P8 channel-truth fixes (renderer dedupe
++ probe grep anchor), the ADR-template wiring. **Tier 1** — every «how» is one determinable
+sentence, decided in the spec (§1.6 FORK A/B/D). Marker: **YES** (`Z.AI GLM-5.2 SDK`,
+re-verify at dispatch). **Runs FIRST of the remaining stages** — it changes the resident
+population S-E's ceilings derive from. **Acceptance.** Per the stage kickoff §3: resident-set
+before/after table, `--check` green, anti-drift mutation shown, probe/index acceptance pair
+(spec §1.6 FORK D). Stage kickoff: [`../arch-v2-context-pipeline-s-g/kickoff.md`](../arch-v2-context-pipeline-s-g/kickoff.md).
+
+### S-H — host-side measurements (added rev 4)
+
+**Scope.** Spec §1.6 FORK C: P3d per-turn attribution — promote the S-A kickoff's inlined
+aggregator to `scripts/measure-turn-attribution.sh` (the new SSOT; the S-A kickoff stays a
+historical record, read-only) and extend it with the re-write trigger classes + arrival-position
++ edit-time-injection firing rates; P11 — one measured host session each for `Explore` and
+`Plan`; P14 — harness-remainder per-block price list + settings-recommendations doc;
+conditional live confirmation of S-E's P3c verdict when it lands «observable».
+**UNBLOCKED from S-E (round-4 M-6):** dispatchable any time after the re-plan merges,
+concurrent with S-G/S-E (disjoint permitted sets); its two S-E touchpoints (P14's
+P3c-verified channel; the conditional P3c live confirmation) degrade gracefully with
+explicit notes when S-E has not merged. **Tier 1 (host-bound), NO
+marker — not factory-bound:** the aif container mounts `claude-auth` as a named volume, not
+the host `~/.claude` (`aif-handoff/docker-compose.yml:27`), so `~/.claude/projects`,
+`/context` and live CC sessions are unreachable there; a host CC session executes this
+kickoff. **Acceptance.** Per the stage kickoff §3; every price row names its measurement
+channel or says `UNMEASURED — channel absent`; the P3d output carries the FORK E
+bootstrap-injector line. Stage kickoff: [`../arch-v2-context-pipeline-s-h/kickoff.md`](../arch-v2-context-pipeline-s-h/kickoff.md).
+
+### S-I — doctor-surfaced context-economy residue (added 2026-08-06, operator-invited)
+
+**Scope.** Spec §8: the operator's same-day `/doctor` scan surfaced a second economy surface
+(skills-listing budget ≈9.1k est. tokens vs ~2k → descriptions truncate, routing degrades) plus
+host config debt. The §8 «deferred out of umbrella» disposition was SUPERSEDED by explicit
+operator invitation the same day — the umbrella takes it as a stage. P-I1/P-I2 skill-`description:`
+trims (trigger-inventory acceptance, P-I7), P-I5 plugin-`skillOverrides` empirical probe,
+P-I6 autosync-hook deferred-report fix (hook stdout is a load-bearing channel — plain
+backgrounding is `#warning-nobody-reads`), P-I8 disk sweep. P-I3 (settings.local dedupe ×21
+worktrees, conditional on the committed `**/` form) and P-I4 (`uniq-rewrite: off`) were
+EXECUTED in the /arch session during the 2026-08-06 Actions outage — the stage VERIFIES them.
+**Host-bound, NO marker** (FORK C rationale); seat = **MID tier** (Opus today) with
+`superpowers:writing-skills` + `ai-doc` loaded before the trims (operator directive).
+**Acceptance.** Stage kickoff §3 + §3.5 host-verify contract (description-bytes gate ≤5,000 B +
+committed trigger inventory). Stage kickoff: [`../arch-v2-context-pipeline-s-i/kickoff.md`](../arch-v2-context-pipeline-s-i/kickoff.md).
+
+### S-L — recalculation stage (added 2026-08-07)
+
+**Scope.** S-H shipped its measurements with three open forks, and all three move the same
+numbers, so they are applied **once**, in one place. Fork **#4** = Option A in its *per-seat*
+form: the 4 B/token convention is falsified and a flat **2.62 is explicitly not the
+replacement** — the measured spread is at least **1.835-3.32**, driven by content type and
+language, so each site either takes a per-content measurement, stops converting because a direct
+count exists, or states the band with its direction of error. Fork **#5** must be designed **from
+scratch**: the hypothesis that the `/context`-vs-billing gap was dispatch-prompt content is
+measured-false (the `/orchestrator` injection is 13,523 tok, 44% of the gap it was invoked to
+explain; seats with no dispatch prompt at all still show a 16,196-token gap), which also reopens
+the *direction* of §8.5's «the gap indicts the by-difference method» — if the residual is
+harness-injected session-start payload, `/context` under-reports instead. Fork **#6** (ADR-3's
+29-39% band against four denominators disagreeing in direction) is CLOSED — #5 = A, #6 = A.
+
+**Prerequisite MET — no stage gate.** The #5-C measurement Option C called for was run on the
+host 2026-08-07 and is committed at
+[`docs/meta-factory/research-patches/2026-08-07-s-l-5c-first-turn-vs-context.md`](../../../docs/meta-factory/research-patches/2026-08-07-s-l-5c-first-turn-vs-context.md);
+the stage reads it as §0 input rather than re-deriving it. **Tier 2 (host-bound), NO marker** —
+not `/arch`-produced, so the D1 plan-complete exception does not apply, and both the #5 naming
+rule and the #6 denominator are un-spent judgment. Host-bound for the FORK C reason: the
+acceptance contract runs `scripts/measure-turn-attribution.sh`, which reads
+`~/.claude/projects/**/*.jsonl`. **Ordering:** had to merge **before S-D′ dispatches** — a gate on
+the S-D′ row above. **MERGED 2026-08-07T12:50Z as PR #1263**, alongside S-H (#1239, 00:06Z) and
+S-E (#1237, 09:39Z) — so S-D′'s last gate is closed and it no longer risks a dispatch that would
+rank against a falsified constant. Its §5 binds S-D′ to **re-derive**, never rescale, the ranking.
+
+**PROMOTED TO A GATE — operator verdict 2026-08-07, resolving PR #1255 `DECISION-NEEDED` 1.**
+The #1255 authoring session had recorded the constraint as an open question, arguing that
+promotion would re-declare the named **two-gate form** (§3). The verdict takes the
+consumed-deliverable reading instead, which needs no re-declaration: §3 already binds *every
+consumed deliverable* to the two-gate form (merged + content-read), and S-D′ consumes S-L's
+re-priced P14 ranking, so S-L enters S-D′'s dependency list on the same footing as S-E and S-H.
+The load-bearing statements the open-question note had enumerated (the `Depends on` charter
+line, the Ordering line, §3's intra-umbrella list, the four in
+[`../arch-v2-context-pipeline-s-d-prime/kickoff.md`](../arch-v2-context-pipeline-s-d-prime/kickoff.md),
+the spec's P13 instrument cell and §4 stage-order cell) are swept to the three-dependency form
+in the same PR as this paragraph — table and prose stay in agreement.
+
+**Scope fence.** The merged S-H research patches are append-only and read-only for later sessions
+(Artifact Ownership Contract): every correction lands as a **new** patch plus spec/kickoff
+annotations, exactly as #1250/#1251 did, never as an edit to a merged patch.
+**Acceptance.** Per the stage kickoff §3, whose first review-time bullet is the numerator-subset-
+of-denominator check — the single class that consumed nine REVISE rounds on the S-H addendum.
+Stage kickoff: [`../arch-v2-context-pipeline-s-l/kickoff.md`](../arch-v2-context-pipeline-s-l/kickoff.md).
+
+**Ordering (single statement, table and prose agree — rev 4, amended by the round-4
+review).** S-A → {S-B, S-C} in parallel
+(disjoint surfaces) → S-D closed-null (no dispatch) → **S-G** (resident-population changes
+first) → **S-E** (strict: ceilings derive from the post-S-G baseline; also gated on the
+cross-umbrella token-audit S1 dependency, met). **S-H is independent** (round-4 M-6):
+host-side, dispatchable any time after the re-plan merges, concurrent with S-G/S-E — its
+S-E touchpoints degrade gracefully per its kickoff. **S-D′ last** (consumes S-E's fixed
+meter + S-H's P11/P3d numbers + S-L's re-priced P14 ranking, two-gate form each — S-L
+promoted to a gate 2026-08-07, operator verdict).
+**S-I runs AFTER S-G merges** (rev 5, 2026-08-06 — the rev-4 «independent, concurrent with
+everything» statement is SUPERSEDED; a Phase -1 cold review falsified it). The *budget surface*
+is disjoint from the rules resident set, but the *file set* is not: S-G's §2 permitted set
+reserves `.claude/skills/{arch,harvest,dispatcher}/SKILL.md` and `tests/install-sh/*`
+(`../arch-v2-context-pipeline-s-g/kickoff.md:117-131`), while S-I edits the `description:` field
+of every `.claude/skills/*/SKILL.md` and regenerates the same snapshots. Sequencing also repairs
+the arithmetic: with S-G's three skills unavailable, S-I's byte target was unreachable. S-I stays
+independent of S-E and S-H (neither touches either surface); its baseline is re-measured against
+post-S-G `HEAD` at stage start.
+S-F rides token-audit S2 timing, independent of this chain. The rev-3 statements («S-G
+concurrent with S-E» in the stage kickoffs; «S-G after S-D′» in the earlier Ordering
+paragraph) are both SUPERSEDED by this one. Parallel stages take isolated worktrees
 ([parallel-subwave-isolation.md §1](../../rules/parallel-subwave-isolation.md)).
 
 ## §2 Calibration-ledger bootstrap (ADR-5 / ADR-6 / ADR-8)
@@ -238,7 +430,15 @@ appended to by every subsequent stage dispatch.
   vacuous gate is a permanent noise floor by the same argument ADR-7 uses to drop SOLID. Trigger:
   the 5th row lands → ship the test in that stage's PR.
 
-## §3 Cross-umbrella dependency (S-E only)
+## §3 Dependency gating — the two-gate form (cross-umbrella for S-E; intra-umbrella for S-D′)
+
+**The two-gate pattern below (merged + content-read) is the binding form for EVERY consumed
+deliverable in this umbrella** — rev 4 applies it to S-D′'s intra-umbrella dependencies too
+(S-E's fixed meter; S-H's P11 probe + P3d numbers; S-L's re-priced P14 ranking, promoted
+2026-08-07): «merged» alone is `#hope-as-gate`
+when the consumed content may legitimately land `INCONCLUSIVE`.
+
+### Cross-umbrella (S-E)
 
 S-E consumes [`session-start-token-audit`](../session-start-token-audit/kickoff.md) S1's output:
 `scripts/measure-session-start-tokens.sh` + the attribution table. **Two gates, not one:**
@@ -318,6 +518,14 @@ S-C, S-E dispatch **without** the marker — top tier plans in aif; S-F carries 
 criteria, marker independent of the D1 exception). Cost of being wrong: one extra planning pass.
 Falsifier: if the operator rules that this contour *is* `/arch` for D1 purposes, S-A may carry the
 marker with that ruling quoted in the kickoff.
+**Rev-4 disposition (round-4 M-3 — this objection and the §1 table said opposite things
+about S-E):** the falsifier FIRED for the post-S-A world. O-6's circularity argument was
+about pre-S-A stages leaning on an exception whose authority /arch's own rewrite would
+create; S-A merged (#1192) and the 2026-08-06 S-E/S-G kickoffs were produced by an actual
+`/arch` contour invocation (the decision-layer spec + this re-plan), so the CLAUDE.md
+three-condition exception applies to them in full. O-6 stands as history for S-A/S-B/S-C
+(which did dispatch without the marker); the §1 table's S-E/S-G `YES` markers are the
+current truth, not a contradiction.
 
 **Checked and found sound (no objection):** the ADR-1 L1/L2 boundary against C1/C2; ADR-4's
 K-pass-before-consumption ordering (the distiller's defect dying at the distiller's channel is

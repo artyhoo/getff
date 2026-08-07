@@ -1,6 +1,6 @@
 ---
 name: arch
-description: Use when starting the EXTERNAL design contour — turning a raw idea or prep-doc into a reviewed design and a routed handoff. Wraps superpowers:brainstorming unchanged and adds only: a research contour (§1.5 — research-spec template with pre-mortem + acceptance-criteria, distillate with GO/rework/kill verdict, K-pass membrane, kill channels); a cold two-altitude design review (goal/feasibility critic + facts/patterns reviewer, dispatched as read-only subagents; §2 assigns their tiers); and exit routing per the CLAUDE.md task-tier criteria (factory-bound → kickoff → staging → /pipeline or bridge auto-dispatch; small in-session → superpowers writing-plans tail; tiny → direct edit). Triggers - /arch, external contour, внешний контур, спроектируй идею, задумка в архитектуру, design contour, arch loop, продумай и спроектируй, идея → kickoff, research contour, research-spec, distillate, исследовательский контур. NOT for reviewing code (/reviewer), dispatching stages (/pipeline), factory runtime questions (aif-doctor), or a bare brainstorm with no handoff (use superpowers:brainstorming directly).
+description: Use when starting the EXTERNAL design contour — turning a raw idea or prep-doc into a reviewed design and a routed handoff. Triggers: /arch, external contour, внешний контур, спроектируй идею, задумка в архитектуру, design contour, arch loop, продумай и спроектируй, идея → kickoff, research contour, research-spec, distillate, исследовательский контур. NOT for reviewing code (/reviewer), dispatching stages (/pipeline), factory runtime questions (aif-doctor), or a bare brainstorm with no handoff (superpowers:brainstorming).
 arguments: [topic-or-prep-doc]
 argument-hint: '<topic | path/to/prep-doc.md>'
 disable-model-invocation: true
@@ -36,6 +36,8 @@ A **thin wrapper**: phase 1 is `superpowers:brainstorming` verbatim; this skill 
 ## §1 Phase 1 — ideate + design (pure reuse)
 
 Invoke `superpowers:brainstorming` AS IS: intent → clarifying questions → 2-3 approaches with trade-offs → design presented section-by-section → spec written and self-reviewed. Its user-review gate stands. Additionally, when the dialogue closes real forks with verdicts, record them with per-verdict falsifiers (H1 discipline) — as a research-patch decision record when the design closes a coverage gap (that folder's charter; established decision-record practice), otherwise inside the spec itself.
+
+**Spec-format slot (P12, trio §A2 G1) — operator-axis ADOPT of the upstream `engineering:architecture` ADR template** ([spec D3 item (d)](../../../docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md); [research-patch §A2](../../../docs/meta-factory/research-patches/2026-08-02-knowledge-work-plugins-utility.md)). When that plugin is installed (`claude plugin install engineering@knowledge-work-plugins`), the spec produced by §1's brainstorming flow wraps its ADR template (Context / Decision / Status / Consequences); otherwise the same shape is hand-authored. Thin-wrapper only — the template body lives upstream, never re-described here (T16, `#parallel-evolution-creep`).
 
 ## §1.5 Research contour — idea → distillate BEFORE design (delta #0)
 

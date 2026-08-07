@@ -83,4 +83,14 @@ describe('pre-push.ts orchestrator — delegation folded through runCheck', () =
   it('imports git helpers from utils/git.ts (Wave 10.2)', () => {
     expect(ORCHESTRATOR).toMatch(/from '\.\/utils\/git\.ts'/);
   });
+
+  it('threads the trunk exclusion into the commit range (merge-forward range fix, 2026-08-07)', () => {
+    // commitsToCheck must pass ResolvedBase.exclude to getCommits — dropping it
+    // reverts to the bare remote_sha..local_sha range that flagged staging's own
+    // squash commits on a merge-forward push (PR #1269/#1270 incident). The
+    // behavioural paired-negative lives in tests/hooks/prepush-merge-forward-range.test.sh.
+    expect(ORCHESTRATOR).toMatch(
+      /getCommits\(rb\.base, rb\.head, rb\.exclude \?\? undefined\)/,
+    );
+  });
 });

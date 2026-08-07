@@ -334,8 +334,8 @@ Does THIS umbrella's own plan-of-action live in the stored plan? The `meta-orche
 ## See also
 
 - [kickoff.md](../../../.claude/orchestrator-prompts/meta-orchestrator-plan-memory/kickoff.md) — brainstorm kickoff (origin of this patch)
-- [SKILL.md §1–§2](../../../.claude/skills/meta-orchestrator/SKILL.md) — current plan-currency + priority sections (the read-only surface this feature extends)
-- [helpers/plan-currency-check.sh](../../../.claude/skills/meta-orchestrator/helpers/plan-currency-check.sh) — L2 detection (the write-back missing half)
+- [SKILL.md §1–§2](../../../.claude/skills/pipeline/SKILL.md) — current plan-currency + priority sections (the read-only surface this feature extends)
+- [helpers/plan-currency-check.sh](../../../.claude/skills/pipeline/helpers/plan-currency-check.sh) — L2 detection (the write-back missing half)
 - [docs/meta-factory/wave-sequencing-plan.md §0](../wave-sequencing-plan.md) — current plan SSOT (Direction A write target)
 - [docs/meta-factory/research-patches/2026-05-25-planner-completeness-prior-art.md](2026-05-25-planner-completeness-prior-art.md) — L3/L4/L5 R-phase (predecessor; SSOT rows #72-#76 registered there)
 - [docs/meta-factory/research-patches/2026-05-23-meta-orchestrator-prior-art.md](2026-05-23-meta-orchestrator-prior-art.md) — original /meta-orchestrator BUILD verdict (SSOT rows #66-#70)

@@ -248,7 +248,7 @@ bash /tmp/getff/install.sh python          # explicit lane — always wins over 
 ```text
 project/
 ├── sgconfig.yml                          ← ast-grep project config (resolves .getff/astgrep-rules)
-├── ruff.toml                             ← ruff fast-path config (TID251/TID253 import bans)
+├── ruff.toml                             ← ruff fast-path config (TID251/TID253 import bans + DTZ005 naive-datetime built-in)
 ├── .getff/
 │   ├── astgrep-rules/*.yml               ← getff structural rules (no-eval, no-os-system,
 │   │                                       no-datetime[.datetime].now) — framework-owned
@@ -278,8 +278,16 @@ reference copy plus printed `extend`/merge instructions, and always writes the i
 `.getff/ruff-bans.toml` so the bans still enforce; a re-run is byte-idempotent (zero config diff).
 Every degrade path is printed **and** logged to `.getff-python-install.log`.
 
-**Scope note:** the Python lane ships a curated starter rule-set (not live-researched rules); mypy /
-import-linter backends and the rule-research live adapter for Python are out of scope for this lane.
+**Scope note:** the Python lane ships a curated starter rule-set (not live-researched rules);
+mypy / import-linter backends are out of scope for this lane. The rule-research **loop** is
+in scope and documented under [`/rule-research` python arm](agents/rule-researcher.md)
+(author an `AstgrepResearchedPractice` JSON → `npx tsx rule-bootstrap-cli.ts --from-practice`
+→ `_py_join_researched_rules` joins it on the next install / `--refresh`). **Generation needs
+Node** — the python-lane install itself stays Node-free; only researching + rendering a new
+rule requires a Node-capable environment (the framework checkout you cloned for `install.sh`
+already has it — `npx tsx` is the standard CLI invocation pattern). See `## F-A verdict` in the
+PR body that shipped this clause for the bundle-vs-declare measurement behind this decision
+(S3 of the `getff-any-stack-trace` umbrella; spec §12).
 
 ---
 
@@ -517,3 +525,39 @@ If a check fails for a reason not in this table — **stop and report**, do not 
 | Pre-push hook | `git push --dry-run` | Typecheck + tests + audit run |
 | `/aif-verify` works | in Claude Code: `/aif-verify` | AIF rules-sidecar (reads RULES.md) + review-sidecar + living-docs-auditor produce output |
 | Harness hooks active (Claude Code only) | `jq .hooks .claude/settings.json` | `UserPromptSubmit` + `PostToolUse` entries present (sub-wave 7.2.a/b/c) |
+
+---
+
+## After install — continue into `/rule-research` in the same session
+
+The install prompt above ends with "Stop here. Do NOT start implementing features" — that
+injunction applies to **feature implementation**. It does **not** end the session: the same
+agent that just installed the framework proceeds directly into `/rule-research` to bootstrap
+stack-specific rules from live documentation, in the same session, before reporting back to
+the operator. The rule-research loop is part of the install — the framework's thesis is that
+rules are tested for firing at delivery time, not shipped pre-baked; researched rules are how
+that thesis extends beyond the curated starter set the installer delivered.
+
+**How the agent continues** (per stack):
+
+- **npm lanes** (`ts-server` / `react-next` / `react-spa` / `react-native`) — read
+  `agents/rule-researcher.md` for the author → render → join → lock sequence (the
+  `AstgrepResearchedPractice` arm covers ast-grep structural rules; the ESLint arm covers L4
+  single-token-diff candidates via `./setup --full`).
+- **python lane** — read `agents/rule-researcher.md` python arm. Generation needs Node
+  (`npx tsx …` from the framework checkout); the python install itself stays Node-free (the
+  fork F-A resolution cited at the python-segment scope note above).
+- **cargo lane** — `agents/rule-researcher.md` rust arm points at the clippy bridge. The
+  pre-rendered clippy-bans delivery lane (`setup.d/46-cargo.sh`, W4 / #1080, activated by
+  `GETFF_TOOLCHAIN=cargo`) has landed; the research/join seam (a `--from-rust-practice` CLI arm
+  + `_cargo_join_researched_rules` consumer-side helper) is the honest residual gap, named as a
+  widening stage in the rust arm — NOT a silent promise that the full loop is closed.
+
+**Stopping rule:** research is skipped **only** on an explicit operator opt-out. The shape of
+the opt-out (an env var, a prompt at install time, or a documented sentence the agent reads)
+is intentionally not fixed by this doc — three candidate consumer contracts exist and the
+choice is itself an operator decision. **Surface it explicitly at first contact; do NOT
+silently assume a shape.** (Parked per `getff-any-stack-trace` S3 §4; spec §6.1 fixes that an
+opt-out exists, not what it is.) Until the operator settles the shape, the safe behaviour is
+to **prompt the operator before continuing past install** — that is one of the three candidate
+shapes and it satisfies «explicit opt-out» by construction (the operator says no out loud).

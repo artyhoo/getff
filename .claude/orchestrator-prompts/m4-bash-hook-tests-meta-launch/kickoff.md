@@ -98,11 +98,11 @@ For each sub-wave `M.4.<N>` with hook `<H>`:
    Prior-art: skipped — test additions for existing capability (see kickoff §3).
    ```
 
-4. **PR into `staging`** with §1.7 H3 headers per [memory `feedback_pr_s17_authoring_checklist`](~/.claude/projects/-Users-art-code-rules-as-tests-aif/memory/feedback_pr_s17_authoring_checklist.md):
+4. **PR into `staging`** with §1.7 H3 headers per memory `feedback_pr_s17_authoring_checklist`:
    - `### §1.7 Forward-check applied` — list rules complied with + file:line cite per arm
    - `### §1.7 Backward-check applied` — scope-additive (6 new test files, zero deletions)
 
-5. **Auto-merge on green CI** per staging policy ([memory `project_automerge_staging_plan`](~/.claude/projects/-Users-art-code-rules-as-tests-aif/memory/project_automerge_staging_plan.md)). Agent allowed to `gh pr merge` base=staging.
+5. **Auto-merge on green CI** per staging policy (memory `project_automerge_staging_plan`). Agent allowed to `gh pr merge` base=staging.
 
 6. **`git worktree remove ../rules-as-tests-aif-m4-<N>`** after merge.
 
@@ -130,7 +130,7 @@ See `.claude/rules/ai-laziness-traps.md §2` for full catalogue.
 - **T-M4-A — «bash hook = test the bash directly»** (T16-shape).
   Tempted: write `.bats` tests or `bash hook.sh < fixture` shell-only invocations. Counter: 3-hook precedent uses **TS + `spawnSync`** (`check-hook-marker.test.ts:25-30`); adding `bats` splits the test harness and forces CI dep install. ADOPT existing pattern.
 - **T-M4-B — «just test exit code 0/1»**.
-  Tempted: minimal assert on exit code only. Counter: hooks have BOTH exit code AND `stdout`/`stderr` semantics — Stop hook contract = `reason` → MODEL + `systemMessage` → USER (per [memory `project_eot_hook_redesign_approved`](~/.claude/projects/-Users-art-code-rules-as-tests-aif/memory/project_eot_hook_redesign_approved.md)); PostToolUse = JSON `additionalContext`. Exit-only assertions miss the channel-injection regressions EOT contract had TWICE (false-confirm). Assert exit AND payload shape.
+  Tempted: minimal assert on exit code only. Counter: hooks have BOTH exit code AND `stdout`/`stderr` semantics — Stop hook contract = `reason` → MODEL + `systemMessage` → USER (per memory `project_eot_hook_redesign_approved`); PostToolUse = JSON `additionalContext`. Exit-only assertions miss the channel-injection regressions EOT contract had TWICE (false-confirm). Assert exit AND payload shape.
 - **T-M4-C — «6 hooks → 6 identical tests in 6 hours»** (T16-shape).
   Tempted: copy-paste skeleton 6×. Counter: each hook has different trigger contract (PostToolUse vs UserPromptSubmit vs Stop vs PreToolUse). Read each hook source (umbrella §5 step 3) before writing its test.
 
@@ -199,9 +199,9 @@ Reviewer discipline per [reviewer-discipline.md §2](../../../.claude/rules/revi
 
 - [`.claude/orchestrator-prompts/m4-bash-hook-tests/kickoff.md`](../m4-bash-hook-tests/kickoff.md) — umbrella kickoff (binding scope per sub-wave).
 - [`docs/meta-factory/wave-sequencing-plan.md §2 Track M`](../../../docs/meta-factory/wave-sequencing-plan.md) + [§5.4 decision record](../../../docs/meta-factory/wave-sequencing-plan.md) — origin.
-- [`.claude/skills/meta-orchestrator/SKILL.md`](../../skills/meta-orchestrator/SKILL.md) — generating skill (used `disable-model-invocation: true`, fires only on explicit `/meta-orchestrator`).
+- [`.claude/skills/meta-orchestrator/SKILL.md`](../../skills/pipeline/SKILL.md) — generating skill (used `disable-model-invocation: true`, fires only on explicit `/meta-orchestrator`).
 - [`.claude/rules/ai-laziness-traps.md §2`](../../../.claude/rules/ai-laziness-traps.md) — canonical T-catalogue.
 - [`.claude/rules/parallel-subwave-isolation.md §1`](../../../.claude/rules/parallel-subwave-isolation.md) — worktree isolation mandate.
 - [`.claude/rules/reviewer-discipline.md §2`](../../../.claude/rules/reviewer-discipline.md) — Phase -1 reviewer role boundaries.
 - [`packages/core/hooks/check-hook-marker.test.ts`](../../../packages/core/hooks/check-hook-marker.test.ts) — REFERENCE test pattern.
-- [`packages/core/hooks/git.test.ts`](../../../packages/core/hooks/git.test.ts) — Wave 3 precedent (0-tests gap closure pattern M.4 mirrors 6×).
+- `packages/core/hooks/git.test.ts` — Wave 3 precedent (0-tests gap closure pattern M.4 mirrors 6×).
