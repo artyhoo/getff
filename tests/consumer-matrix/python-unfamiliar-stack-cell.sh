@@ -202,21 +202,32 @@ step "install.sh python (Node-stripped PATH — F-A DECLARE on the install path)
 # Build a Node-stripped PATH to prove the python install lane is Node-free. The CI
 # runner has Node (F-A DECLARE: Node in the CI RUNNER is fine — kickoff §6 anti-scope);
 # the install PATH is the surface under test.
-NODE_BIN="$(command -v node || true)"
-NPM_BIN="$(command -v npm || true)"
-NPX_BIN="$(command -v npx || true)"
-NODE_DIRS=()
-for _t in "$NODE_BIN" "$NPM_BIN" "$NPX_BIN"; do
-  if [ -n "$_t" ]; then NODE_DIRS+=("$(dirname "$_t")"); fi
+# ITERATIVE strip, not single-shot. `command -v X` reports only the FIRST match on PATH,
+# so a one-pass enumeration misses a second copy in a directory further along. The GitHub
+# runner has exactly that shape: setup-node's /opt/hostedtoolcache/node/<ver>/x64/bin AND a
+# system /usr/local/bin/node. A single pass stripped the first and left the second, and the
+# guard below then correctly refused to claim Node-freeness. Loop until no Node tool resolves
+# (or nothing more can be removed), which is environment-agnostic — ubuntu runner and macOS
+# host both converge.
+NODE_STRIPPED_PATH="$PATH"
+_strip_rounds=0
+while [ "$_strip_rounds" -lt 20 ]; do
+  _round_dirs=()
+  for _tool in node npm npx; do
+    _found="$(PATH="$NODE_STRIPPED_PATH" command -v "$_tool" 2>/dev/null || true)"
+    if [ -n "$_found" ]; then _round_dirs+=("$(dirname "$_found")"); fi
+  done
+  [ "${#_round_dirs[@]}" -gt 0 ] || break   # nothing left to strip — converged
+  _round_alt="$(printf '%s\n' "${_round_dirs[@]}" | sort -u | paste -sd'|' -)"
+  _next="$(echo "$NODE_STRIPPED_PATH" | tr ':' '\n' | grep -vxE "$_round_alt" | paste -sd: -)"
+  [ "$_next" != "$NODE_STRIPPED_PATH" ] || break   # no progress — the guard below reports it
+  NODE_STRIPPED_PATH="$_next"
+  _strip_rounds=$((_strip_rounds + 1))
 done
-
-# Dedupe + build a grep alternation. Filter every Node-tool directory out of PATH.
-NODE_DIRS_DEDUPED="$(printf '%s\n' "${NODE_DIRS[@]}" | sort -u | paste -sd'|' -)"
-if [ -z "$NODE_DIRS_DEDUPED" ]; then
+if [ "$_strip_rounds" -eq 0 ]; then
   echo "  ⚠ no Node/npm/npx found to strip — F-A DECLARE still proven by the install's own _py_firing_self_check degrade hints"
-  NODE_STRIPPED_PATH="$PATH"
 else
-  NODE_STRIPPED_PATH="$(echo "$PATH" | tr ':' '\n' | grep -vxE "$NODE_DIRS_DEDUPED" | paste -sd: -)"
+  echo "  stripped Node tool dirs in $_strip_rounds pass(es)"
 fi
 
 if [ -z "$NODE_STRIPPED_PATH" ]; then
