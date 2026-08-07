@@ -330,8 +330,13 @@ step "RED arm — planted violation, ast-grep fires non-zero"
 # Install ast-grep PINNED (ci-tool-pinning.md Rule A — bare `run:` install must pin).
 # `npm install -g` rather than `npx -p` so the cell's later ast-grep invocations are
 # straightforward; the version is the same setup.d/45-python.sh:437 advertises.
-npm install -g "$ASTGREP_PKG" > "$WORK/npm-install.log" 2>&1 \
-  || { echo "----- npm-install.log"; cat "$WORK/npm-install.log"; fail "npm install -g $ASTGREP_PKG failed"; }
+# The pin is REAL but INDIRECT: ASTGREP_PKG expands to @ast-grep/cli@0.44.1 (literal at :56).
+# The pre-push regex gate resolves no variables, so these three lines carry the §3 escape token.
+if ! npm install -g "$ASTGREP_PKG" > "$WORK/npm-install.log" 2>&1; then  # ci-tool-pin: allow pinned indirectly via ASTGREP_PKG=@ast-grep/cli@0.44.1, literal at :56
+  echo "----- npm-install.log"
+  cat "$WORK/npm-install.log"
+  fail "npm install -g $ASTGREP_PKG failed"  # ci-tool-pin: allow error message, not an install
+fi
 
 # `npm install -g` lands in `npm prefix -g`/bin — that dir is not always on the runner's
 # PATH (CI runners usually add it; container environments vary). Resolve it explicitly
@@ -347,7 +352,7 @@ export PATH
 # the Linux `sg` collision — `command -v sg` matches the setgid(1) coreutil, so the
 # ast-grep binary is the only name we trust (mirrors setup.d/45-python.sh:404-410).
 ASTGREP_BIN="$(command -v ast-grep || true)"
-[ -n "$ASTGREP_BIN" ] || fail "ast-grep not on PATH after npm install -g (looked in: $NPM_GLOBAL_BIN)"
+[ -n "$ASTGREP_BIN" ] || fail "ast-grep not on PATH after npm install -g (looked in: $NPM_GLOBAL_BIN)"  # ci-tool-pin: allow error message, not an install
 ast-grep --version || fail "ast-grep --version exited non-zero"
 echo "  ast-grep binary: $ASTGREP_BIN ($(ast-grep --version))"
 
