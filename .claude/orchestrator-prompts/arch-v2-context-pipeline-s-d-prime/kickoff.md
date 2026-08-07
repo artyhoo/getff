@@ -172,7 +172,7 @@ append** — the cap is 4 and a fifth entry throws at module load.
 ## §3 Acceptance
 
 ```bash host-verify
-bash tests/install-sh/snapshot.sh
+SNAPSHOT_MODE=compare bash tests/install-sh/snapshot.sh
 npx tsx scripts/render-rule-index.mjs --check
 npx tsx scripts/render-rule-channels.mjs --check
 ```
