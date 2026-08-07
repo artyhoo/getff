@@ -17,6 +17,27 @@
 > **Depends on S-E AND S-H merged (rev 4)** — S-H carries the P11 probe (do Explore/Plan
 > load rules?) and the N2/P14 attribution numbers (spec §1.6 FORK C); S-E carries the fixed
 > per-file meter this stage orders its repo-side drops by. Do not dispatch before either.
+>
+> **INPUT CONDITION — baseline snapshot before any prune (operator verdict 2026-08-07, S-H
+> `DECISION-NEEDED #1` Option B).** This stage's before/after measurement is invalid on a corpus
+> that shrinks under it: between the S-A seed and S-H the transcript population moved **−23.5%**
+> (247 → 189 files, 99 → 65 project dirs) because pruning a worktree deletes its transcripts with
+> it — a population change, not drift
+> (`docs/meta-factory/research-patches/2026-08-07-s-h-turn-attribution-p3d-p11.md:73-95`).
+> **Binding:** a host-side snapshot of the **per-turn billing projection** is captured BEFORE any
+> worktree prune, and this stage's baseline cites the snapshot it used.
+> **Form — reuse, not build** ([build-first-reuse-default.md](../../rules/build-first-reuse-default.md)):
+> copy the shape of the existing `origin/data/metrics` channel — one appended CSV row per day on a
+> data branch, outside the main history — but **NOT its mechanism**: that channel is a CI cron
+> (`.github/workflows/metrics-collect.yml`) collecting GitHub repo-popularity counters
+> (`date,stars,forks,clones_…`), and the corpus it would need lives at `~/.claude/projects`, which
+> CI cannot reach. The snapshotter is therefore host-side by construction.
+> **Scope note (do not widen):** authoring that snapshotter is NOT this stage's deliverable — this
+> clause states the precondition and its form; the owning stage is named at dispatch.
+> **One consumer, not two (§5 = Option A, operator verdict 2026-08-07, recorded in rev 6):** with
+> the ADR-8 A/B arm descoped from S-D′, the surviving consumer of a stable baseline is **this
+> stage's own before/after**; ADR-8's 20-dispatch window travels to the follow-on stage that takes
+> the dispatch choreography, and that stage inherits this same input condition.
 
 **Base:** `origin/staging`. **Mode:** design + implementation, one PR onto staging.
 
