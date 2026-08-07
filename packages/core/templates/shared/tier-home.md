@@ -1,7 +1,7 @@
-<!-- fork: F-A′ PARKED — payload-home choice deferred per kickoff §1.1/§7; both options documented in §4 Payload home.
-     This doc is the shipped SSOT for the Tier 0/1/2 criteria + degradation matrix. The maintainer's
-     post-decision follow-up removes the unchosen install path (Option A `.ai-factory/tier-home.md`
-     vs Option B `.ai-factory/skill-context/tier-home/SKILL.md`); see §4 for the tradeoff. -->
+<!-- fork: F-A′ RESOLVED 2026-08-07 (operator-delegated) — home = Option A `.ai-factory/tier-home.md`,
+     the path the consumer AGENTS.md pointer targets; Option B's skill-context slot had no live
+     reader (no aif skill is named tier-home). §4 retains the tradeoff as design history.
+     This doc is the shipped SSOT for the Tier 0/1/2 criteria + degradation matrix. -->
 
 # Tier routing — criteria + degradation matrix
 
@@ -19,8 +19,8 @@
 ## §1 Doc-authority note (path convention)
 
 Paths in this doc are **repo-root-relative** (same convention as `AGENTS.md.template` and
-`CLAUDE.md.template`). When this doc is installed at `.ai-factory/tier-home.md` (Option A home)
-or `.ai-factory/skill-context/tier-home/SKILL.md` (Option B home), AI agents reading it resolve
+`CLAUDE.md.template`). When this doc is installed at `.ai-factory/tier-home.md` (its home —
+F-A′ resolution), AI agents reading it resolve
 the paths against the consumer's repo root — not against the doc's own install location.
 
 ---
@@ -119,10 +119,12 @@ aif-review,aif-rules-check}/SKILL.md` pattern.
 a non-CC harness (zcode) read it cheaply; pick the cheaper). PARKED under autonomous worker
 posture; both options shipped so the maintainer's decision is delete-one-not-rewrite.
 
-**Current state in this PR:** BOTH candidate paths wired in `setup.d/30-templates.sh` (Task B1).
-The doc source lives at `packages/core/templates/shared/tier-home.md`; the install step copies
-it to both `.ai-factory/tier-home.md` (Option A) and
-`.ai-factory/skill-context/tier-home/SKILL.md` (Option B) under the `env`+`factory` profiles.
+**Resolution (2026-08-07, operator-delegated):** Option A — the install step copies the doc
+source (`packages/core/templates/shared/tier-home.md`) to `.ai-factory/tier-home.md` only,
+under the `env`+`factory` profiles. Option B was dropped: no live reader (aif skills
+mandatory-read skill-context by their own skill name; none is named tier-home). Re-add iff
+such a skill appears. The one-beat read test from the decision rule above remains a valid
+falsifier if reader economics change.
 
 ---
 
