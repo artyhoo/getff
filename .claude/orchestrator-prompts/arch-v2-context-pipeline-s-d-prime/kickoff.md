@@ -1,4 +1,4 @@
-<!-- scope: stage-scoped dispatch input — S-D′ of the arch-v2-context-pipeline umbrella (reopened scope, operator override 2026-08-06). NO bridge-profile marker — DELIBERATE: Tier 2 and NOT plan-complete (the subtraction-map authoring is the un-spent design judgment), so the top tier plans in aif per CLAUDE.md Task-tier routing. RE-ISSUED rev 4 (2026-08-06 /arch re-planning after a Phase -1 REVISE): dependency widened to S-E + S-H (the P11/P14/P3d inputs live in S-H now — spec §1.6 FORK C); the ADR-8 control arm re-homed to a dispatch-time parity split with a recorded deviation (spec §1.5); the ordering instrument named honestly (spec P13 rev 4). REV 5 (2026-08-07) absorbs this stage's FIRST cold Phase -1, which returned STOP: the fork-independent findings are fixed in place below, and the ADR-8 A/B arm is PARKED behind the §5 DECISION-NEEDED — it is NOT dispatchable until the operator resolves that fork. REV 6 (2026-08-07) records the operator's resolution of that fork — §5 = Option A, the ADR-8 A/B arm is DESCOPED from this stage (deliverable 3 removed, §4 T2 re-scoped to this stage's own before/after, follow-on stage stubbed in §6); the §5 blocker is lifted, so the ONLY remaining gate on dispatch is the two-gate S-E + S-H dependency. REV 7 (2026-08-07) records the operator verdict resolving PR #1255 DECISION-NEEDED 1: the dependency list gains S-L — this stage orders its harness-side drops by the P14 ranking, S-L re-prices it (the 4 B/token conversion is falsified), so S-L's re-priced ranking is a consumed deliverable under the umbrella §3 two-gate form. With S-E (#1237) and S-H (#1239) merged 2026-08-07, S-L merged is now the ONLY remaining gate on dispatch. -->
+<!-- scope: stage-scoped dispatch input — S-D′ of the arch-v2-context-pipeline umbrella (reopened scope, operator override 2026-08-06). NO bridge-profile marker — DELIBERATE: Tier 2 and NOT plan-complete (the subtraction-map authoring is the un-spent design judgment), so the top tier plans in aif per CLAUDE.md Task-tier routing. RE-ISSUED rev 4 (2026-08-06 /arch re-planning after a Phase -1 REVISE): dependency widened to S-E + S-H (the P11/P14/P3d inputs live in S-H now — spec §1.6 FORK C); the ADR-8 control arm re-homed to a dispatch-time parity split with a recorded deviation (spec §1.5); the ordering instrument named honestly (spec P13 rev 4). REV 5 (2026-08-07) absorbs this stage's FIRST cold Phase -1, which returned STOP: the fork-independent findings are fixed in place below, and the ADR-8 A/B arm is PARKED behind the §5 DECISION-NEEDED — it is NOT dispatchable until the operator resolves that fork. REV 6 (2026-08-07) records the operator's resolution of that fork — §5 = Option A, the ADR-8 A/B arm is DESCOPED from this stage (deliverable 3 removed, §4 T2 re-scoped to this stage's own before/after, follow-on stage stubbed in §6); the §5 blocker is lifted, so the ONLY remaining gate on dispatch is the two-gate S-E + S-H dependency. REV 7 (2026-08-07) records the operator verdict resolving PR #1255 DECISION-NEEDED 1: the dependency list gains S-L — this stage orders its harness-side drops by the P14 ranking, S-L re-prices it (the 4 B/token conversion is falsified), so S-L's re-priced ranking is a consumed deliverable under the umbrella §3 two-gate form. REV 8 (2026-08-07) records the gate closing: S-L merged as PR #1263, so with S-E (#1237), S-H (#1239 + #1249) and S-L (#1263) ALL merged, every consumed-deliverable gate is MET on both arms and the stage is DISPATCHABLE. Rev 8 changes no scope and no deliverable — it only retires the «S-L is open» claim that rev 7 left in three places below. -->
 <!-- host-verify contract lives in §3 (a real contract, not an opt-out). The earlier `host-verify: none` opt-out was retracted 2026-08-06: deliverable 2 edits `agents/*.md`, which shifts install fingerprints, so this stage DOES have an executable arm — see §3. -->
 
 # arch-v2-context-pipeline S-D′ — per-seat subtraction maps
@@ -307,7 +307,7 @@ budget line moving), not a vibe.
 > arm is conformant, not incomplete); §4 T2 is re-scoped to this stage's own before/after; ADR-8
 > accrues its **second** recorded deviation, and its A/B window travels to the follow-on stage
 > stubbed in §6. **The remaining gate on dispatch is the consumed-deliverable dependency alone —
-> S-E + S-H + S-L as of rev 7 (S-E and S-H merged 2026-08-07; S-L open).**
+> S-E + S-H + S-L as of rev 7 — and at rev 8 all three are merged (#1237 / #1239 + #1249 / #1263).**
 
 The stage's first cold Phase -1 (2026-08-07) returned **STOP**. Every fork-independent finding
 is fixed in rev 5 above. What remained was one genuine fork with no determinate best answer on
@@ -356,10 +356,15 @@ not audited for whether a *paused* task's `description` is editable after creati
 two-phase dispatch becomes cheaper — but that is a question for the §6 follow-on stage, and it does
 not reopen this one.
 
-**Dispatch status at rev 7 (2026-08-07):** the §5 blocker is **lifted**, and S-E (#1237) and
-S-H (#1239 + #1249) are both merged. The stage still cannot start, for one remaining reason:
-**S-L is not merged** — its re-priced P14 ranking is the ordering input for the harness-side
-drops (operator verdict 2026-08-07, PR #1255 `DECISION-NEEDED` 1).
+**Dispatch status at rev 8 (2026-08-07): DISPATCHABLE.** The §5 blocker is **lifted**, and every
+consumed-deliverable gate is now MET on both arms — S-E (#1237), S-H (#1239 + #1249) and **S-L
+(#1263, merged 2026-08-07T12:50Z)**. S-L's re-priced P14 ranking, the ordering input for the
+harness-side drops, is on `staging` at
+[`…-s-l-recalculation.md`](../../../docs/meta-factory/research-patches/2026-08-07-s-l-recalculation.md);
+read its **§5** before ordering anything — it is binding and counter-intuitive: **«A re-ranking is
+not a rescale — S-D′ must re-derive rather than multiply through»**, because a uniform factor
+preserves order by construction and would hide the effect. Note also that both hook injects are
+levers a `/context`-ordered list ranks at **zero**. Rev 7's «S-L is not merged» is retired.
 Do not let an executor «work around» the descoped arm in the other
 direction either: re-introducing an A/B under a different name is the same scope-crossing this
 resolution declined.
