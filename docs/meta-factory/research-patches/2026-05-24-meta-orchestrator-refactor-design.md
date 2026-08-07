@@ -274,5 +274,5 @@ Recommend A: §10 уже проектирует `references/output-format.md` к
 - F.2 REPORT: см. parent kickoff §0.1
 - Parent kickoff (SSOT для F.3): [`.claude/orchestrator-prompts/meta-orchestrator-followup-audit/kickoff.md §1 Sub-wave F.3`](../../../.claude/orchestrator-prompts/meta-orchestrator-followup-audit/kickoff.md)
 - Original BUILD verdict: [`2026-05-23-meta-orchestrator-prior-art.md`](2026-05-23-meta-orchestrator-prior-art.md)
-- SKILL.md authoring: [`.claude/skills/meta-orchestrator/SKILL.md`](../../../.claude/skills/meta-orchestrator/SKILL.md)
+- SKILL.md authoring: [`.claude/skills/meta-orchestrator/SKILL.md`](../../../.claude/skills/pipeline/SKILL.md)
 - Principle 18 spec: companion file §1.4 + slot confirmed free in `packages/core/principles/`

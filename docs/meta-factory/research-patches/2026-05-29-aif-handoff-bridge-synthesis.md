@@ -472,7 +472,7 @@ Evidence (file:line / SSOT row IDs verified):
 - [SW-B2 patch line 396](2026-05-29-aif-handoff-bridge-variant-b-prime-hybrid.md) — REFERENCE conditional for Variant B'
 - [SW-C patch line 347](2026-05-29-aif-handoff-bridge-variant-c-minimal.md) — REJECT for Variant C
 - `docs/meta-factory/prior-art-evaluations.md:152` — slot #84 highest existing (synthesis proposes #85)
-- [`.claude/skills/meta-orchestrator/SKILL.md:404`](../../../.claude/skills/meta-orchestrator/SKILL.md#L404) + [`:429`](../../../.claude/skills/meta-orchestrator/SKILL.md#L429) — Phase -1 dispatch template (SP REFERENCE + ADOPT-template-directive); inherited disambiguation from SW-A
+- [`.claude/skills/meta-orchestrator/SKILL.md:404`](../../../.claude/skills/pipeline/SKILL.md#L404) + [`:429`](../../../.claude/skills/pipeline/SKILL.md#L429) — Phase -1 dispatch template (SP REFERENCE + ADOPT-template-directive); inherited disambiguation from SW-A
 
 ---
 
@@ -538,4 +538,4 @@ All six are mechanical and deterministic — no LLM-judgment needed at the cold-
 - [`.claude/rules/recommendation-laziness-discipline.md`](../../../.claude/rules/recommendation-laziness-discipline.md) — T20 specialisation applied to §6 recommendation sentence.
 - [`.claude/rules/doc-authority-hierarchy.md`](../../../.claude/rules/doc-authority-hierarchy.md) §3 — header format spec; §2 filename-convention authority for research-patches/.
 - [`.claude/rules/dual-implementation-discipline.md`](../../../.claude/rules/dual-implementation-discipline.md) §2 — markdown-only carve-out (R-phase synthesis not subject to dual-channel discipline).
-- [`.claude/skills/meta-orchestrator/SKILL.md`](../../../.claude/skills/meta-orchestrator/SKILL.md) — surface this umbrella reasons against; `:441` (anti-scope; line current on `origin/staging` 2026-05-29), `:404+:429` (Phase -1 dispatch SP REFERENCE + ADOPT-template, criterion 5 disambiguation per SW-A grounding).
+- [`.claude/skills/meta-orchestrator/SKILL.md`](../../../.claude/skills/pipeline/SKILL.md) — surface this umbrella reasons against; `:441` (anti-scope; line current on `origin/staging` 2026-05-29), `:404+:429` (Phase -1 dispatch SP REFERENCE + ADOPT-template, criterion 5 disambiguation per SW-A grounding).
