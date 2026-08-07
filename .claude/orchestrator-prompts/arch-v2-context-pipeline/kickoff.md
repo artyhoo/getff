@@ -333,7 +333,7 @@ committed trigger inventory). Stage kickoff: [`../arch-v2-context-pipeline-s-i/k
 **Scope.** S-H shipped its measurements with three open forks, and all three move the same
 numbers, so they are applied **once**, in one place. Fork **#4** = Option A in its *per-seat*
 form: the 4 B/token convention is falsified and a flat **2.62 is explicitly not the
-replacement** — the measured spread is at least **1.83-3.32**, driven by content type and
+replacement** — the measured spread is at least **1.835-3.32**, driven by content type and
 language, so each site either takes a per-content measurement, stops converting because a direct
 count exists, or states the band with its direction of error. Fork **#5** must be designed **from
 scratch**: the hypothesis that the `/context`-vs-billing gap was dispatch-prompt content is

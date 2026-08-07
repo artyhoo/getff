@@ -45,7 +45,7 @@ findings by name. Its headline, because it changes what this stage must do:
   **16,196**-token gap. The re-labelling this stage designs therefore has to be designed from
   scratch, not derived from that hypothesis.
 - **A second, independent falsification of flat-constant conversion:** a dense markdown table
-  measured **1.83 B/token**, below the 2.37-3.32 spread S-H recorded.
+  measured **1.835 B/token**, below the 2.37-3.32 spread S-H recorded.
 
 **You may re-verify any figure** — every one carries its command and the corpus is on this host.
 Re-verification that *contradicts* the patch is a finding, not an error: report it under §3a.
@@ -55,7 +55,7 @@ Re-verification that *contradicts* the patch is a finding, not an error: report 
 ### 1. Fork #4 — apply Option A in its **per-seat** form, at every consuming site
 
 The 4 B/token convention is falsified. **Do NOT substitute 2.62** — or any other single number —
-as the replacement. The measured spread is at least **1.83-3.32** and is driven by content type
+as the replacement. The measured spread is at least **1.835-3.32** and is driven by content type
 and language, not by a global property; Option A's own text offers «2.62 **or a per-seat
 re-measurement**» and this stage takes the second branch. Where a direct token count exists
 (`/context`, transcript `usage`), **no conversion is needed at all** and the site should stop
@@ -223,7 +223,7 @@ See [`ai-laziness-traps.md §2`](../../rules/ai-laziness-traps.md) (cited per §
 
 **T-SL-A — recalculation-by-constant-swap.** Tempted, on being told «4 is falsified, the measured
 aggregate is 2.62», to replace the constant repo-wide and declare fork #4 applied. That reproduces
-the exact defect at a new value: a single number standing in for a spread of at least 1.83-3.32
+the exact defect at a new value: a single number standing in for a spread of at least 1.835-3.32
 that is driven by content type. Counter: §1.1's table — every site either takes a per-content
 measurement, stops converting because a direct count exists, or states the band **and** the
 direction of error. A diff whose only change is `4` → `2.62` fails this stage.

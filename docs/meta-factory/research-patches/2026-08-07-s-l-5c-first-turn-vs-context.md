@@ -114,7 +114,7 @@ design.** In particular the naming rule sketched as «by-difference = seat cost 
 **first-turn injected payload**, of which the dispatch prompt is one optional component and, in
 three of the four seats above, none of it.
 
-### F3 — content-type dependence of B/token is wider than the S-H spread: **1.83 B/token measured**
+### F3 — content-type dependence of B/token is wider than the S-H spread: **1.835 B/token measured**
 
 The pre-turn payload census (transcript `attachment` / `system` / `user` entries preceding the
 first assistant message) is **byte-identical** between seat `45489086` and baseline `384ada17`
@@ -134,12 +134,12 @@ except for the `/context` block and a 4-char filename difference:
 | `hook_success` (UserPromptSubmit) | 3,742 | 3,741 |
 | **total** | **72,264** | **58,437** |
 
-Delta = **13,827 chars** for **7,535 tokens** = **1.83 B/token** — a dense markdown pipe-table,
+Delta = **13,827 chars** for **7,535 tokens** = **1.835 B/token** — a dense markdown pipe-table,
 where each `|`, rule segment and numeral is its own token.
 
 This sits **below** the 2.37-3.32 seven-file spread the S-H work measured, whose low end was
 ASCII source and whose 3.32 outlier was the Russian-language `~/.claude/CLAUDE.md`. The band is
-therefore at least 1.83-3.32, and it is driven by *content type*, not only by language. **This
+therefore at least 1.835-3.32, and it is driven by *content type*, not only by language. **This
 independently re-confirms fork #4 = Option A in its per-seat form**: a flat conversion constant is
 falsified a second time, and adopting the measured aggregate **2.62** as a new flat constant would
 have mis-priced this block by **43%**.
@@ -219,7 +219,7 @@ the spec and kickoff trees:
   harness-remainder figure nor the 4 B/token constant»); the grep overturned it. Two sites
   consume the falsified constant: `:482` rests a tolerance claim on it («a ~2% spread […] well
   inside the 4 B/token estimation error» — the *conclusion* survives, since 2% is inside the
-  1.83-3.32 band either way, but its stated justification cites a falsified constant), and `:536`
+  1.835-3.32 band either way, but its stated justification cites a falsified constant), and `:536`
   multiplies by it directly to price the patch's own always-on cost («`wc -c` on this file × 4
   B/token × the 23.7× median main-seat residency multiplier» — that figure moves).
 - [`scripts/measure-turn-attribution.sh:61`](../../../scripts/measure-turn-attribution.sh) —
