@@ -79,8 +79,10 @@ This decisively falsifies the hypothetical "block at session-start" alternative 
 
 The ADR-3 choice (gate at pre-push/CI, not at session-start) is **confirmed** by §3.2.
 A session-start hook can never be a gate; the deterministic, AI-agnostic gate must run
-upstream of the session — at pre-push or CI. The P2b local-shadow section and the P3a
-budget gate both run at pre-push for this reason.
+upstream of the session — at pre-push or CI. The P3a budget gate runs at pre-push for this
+reason. (The P2b local-shadow section was cited here as a second example; it was removed
+2026-08-07 when its replace-per-key premise was disproven — see
+`2026-08-06-claudemd-overlay-semantics-verdict.md` §3. The channel argument is unaffected.)
 
 ### §3.4 Measurement-extension channel — YES (viable, belongs to S-H)
 

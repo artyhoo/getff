@@ -204,7 +204,8 @@ misses) — then stop and surface.
 
 ### FORK C — S-E's host-only trio cannot run behind the marker → split out stage S-H
 
-**Resolution:** S-E keeps the container-safe items (P2a, P2b, P3a, P3b, P3c) WITH the
+**Resolution:** S-E keeps the container-safe items (P2a, P2b — P2b later REMOVED, see FORK D
+overlay-semantics correction 2026-08-07 —, P3a, P3b, P3c) WITH the
 marker; P3d, P11, P14 move to a new **host-side stage S-H** (no marker — not factory-bound;
 executed by a host CC session). **Evidence:** the aif container mounts a NAMED VOLUME
 `claude-auth:/home/node/.claude` (`~/code/aif-handoff/docker-compose.yml:27`), not the host
@@ -229,14 +230,17 @@ the rendered index nor `probe-channels.sh` (`grep -c probe-channels scripts/rend
 **Fixed predicate:** resident set = `CLAUDE.md` + `.claude/rules/*.md` lacking `^paths:`
 frontmatter (the `probe-channels.sh:20` predicate, one bash idiom shared by both consumers;
 the TS extractor in `packages/core/principles/rule-channel-glob.ts` stays the semantic owner)
-minus the effective `claudeMdExcludes`. **Overlay semantics (round-4 MAJOR-3 — an earlier
-draft said «project ∪ local», which contradicts P2b):** the working model is **replace per
-key** — a local `claudeMdExcludes` SHADOWS the project list entirely (this is what the
-2026-08 `settings.local.json` shadowing incident exhibited, and it is the only model under
-which P2b's superset assert is load-bearing; under union it would be vacuous). P3b
-implements replace, verifies the client's merge semantics against primary docs in the same
-task, and PARKS if the docs contradict the model — both P2b and P3b must cite the same
-verdict. **Measured:** today's meter
+minus the effective `claudeMdExcludes`. **Overlay semantics — CORRECTED 2026-08-07: the
+model is `project ∪ local` (union + dedupe), and the rejected draft was right.** Round-4
+MAJOR-3 had overruled that draft with the reason that union «contradicts P2b» and that under
+union P2b's superset assert «would be vacuous». Reading the shipped client settled it: the
+settings fold applies a customizer that unions arrays and replaces only for `fallbackModel`
+(`ipe()` → `WSm()` → `Mo()`, `claude.exe` v2.1.207) — so the assert IS vacuous, and that is a
+fact about the client, not a reason to reject the model. **The PARK condition was therefore
+MET and fired: P2b is removed** (see the corrected verdict patch
+`docs/meta-factory/research-patches/2026-08-06-claudemd-overlay-semantics-verdict.md` §3-§4).
+P3b implements the union. **Method note for future forks:** «model X would make our gate
+pointless, therefore not X» is an inverted inference — the gate is the thing under test. **Measured:** today's meter
 reports 394,687 B > 101,000 (EXIT=1, before any work); the TRUE resident set is
 `CLAUDE.md` 23,740 + `00-rule-index.md` 4,030 + `build-first-reuse-default.md` 12,667 +
 `attention-is-not-a-mechanism.md` 2,629 + `ai-laziness-traps.md` 26,387 = **69,453 B** —

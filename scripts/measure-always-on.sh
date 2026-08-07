@@ -10,18 +10,20 @@
 # spec: docs/superpowers/specs/2026-06-04-ai-doc-audit-design.md §Success-criteria
 # spec: docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md §1.6 FORK D (rev 4)
 #
-# OVERLAY SEMANTICS (verified 2026-08-06 vs primary docs — kickoff's REPLACE-PER-KEY model
-# CONFIRMED, spec §1.6 FORK D round-4 MAJOR-3):
-#   https://code.claude.com/docs/en/settings (verbatim): "When both files set the same key,
-#   the repository root's value wins, except that permission rules from both files stay in
-#   effect." `claudeMdExcludes` is NOT in the merge-exception list (the named exceptions are
-#   `permissions` and `AllowedHttpHookUrls`). Therefore a local `.claude/settings.local.json`
-#   `claudeMdExcludes` REPLACES the project list entirely — the kickoff's replace-per-key
-#   overlay model is correct, and P2b's superset assert IS load-bearing under it.
-#   This meter applies the EFFECTIVE list (local if it sets the key, else project).
-#   Effective-overlay source is named on stderr below.
+# OVERLAY SEMANTICS — MERGE (union + dedupe). Established 2026-08-07 by reading the shipped
+# client, which supersedes the earlier REPLACE-PER-KEY reading (spec §1.6 FORK D round-4
+# MAJOR-3) that this comment used to assert:
+#   `claude.exe` v2.1.207 folds every settings source through a lodash-mergeWith-shaped call
+#   whose customizer is `ipe(objValue, srcValue, key)`. For arrays it returns
+#   `Mo([...objValue, ...srcValue])` = `[...new Set(...)]` — union with dedupe — EXCEPT for
+#   `key === "fallbackModel"`, the one hard-coded replace. `claudeMdExcludes` is not that key.
+#   Therefore the effective list is `project ∪ local`: a local `.claude/settings.local.json`
+#   can only ADD excludes, never subtract. This is also what the docs say — `settings.md:278`
+#   names `fallbackModel` as the array key that does NOT merge, implying the rest do.
+#   Falsifier: a client ≥2.1.211 whose `ipe` special-cases `claudeMdExcludes` too.
+#   This meter applies the UNION of both lists; the source composition is named on stderr.
 #   See docs/meta-factory/research-patches/2026-08-06-claudemd-overlay-semantics-verdict.md
-#   for the full primary-source citations and the verdict narrative.
+#   for the corrected verdict narrative and the full evidence chain.
 #
 # EXCLUDE-PATTERN FORM (bash-native; picomatch-equivalent for the **/<name>.md form):
 #   The project list uses picomatch's `**/<name>.md` form. Picomatch is not yet a declared
@@ -49,22 +51,39 @@ while IFS= read -r r; do files+=( "$r" ); done < <(
   done | sort
 )
 
-# Effective claudeMdExcludes — REPLACE-PER-KEY overlay (verified overlay semantics; see header).
-# A local .claude/settings.local.json that sets claudeMdExcludes SHADOWS the project list entirely.
+# Effective claudeMdExcludes — UNION of project and local, deduped (see the header note on
+# overlay semantics). The local file can only ADD excludes; it never subtracts from project.
 SETTINGS_LOCAL=".claude/settings.local.json"
-overlay_source="project"
+overlay_source="none"
 excludes=()
-source_file=""
-if [[ -f "$SETTINGS_LOCAL" ]] && command -v jq >/dev/null 2>&1 && jq -e 'has("claudeMdExcludes")' "$SETTINGS_LOCAL" >/dev/null 2>&1; then
-  source_file="$SETTINGS_LOCAL"
-  overlay_source="local-replace"
-elif [[ -f "$SETTINGS" ]] && command -v jq >/dev/null 2>&1; then
-  source_file="$SETTINGS"
-fi
-if [[ -n "$source_file" ]]; then
-  while IFS= read -r e; do
-    [[ -n "$e" ]] && excludes+=( "$e" )
-  done < <(jq -r '.claudeMdExcludes[]? // empty' "$source_file")
+if command -v jq >/dev/null 2>&1; then
+  # `overlay_source` reports which files SET the key — deliberately not "which files
+  # contributed a new pattern". A local list whose every entry is already in the project
+  # list contributes nothing after dedupe, but it exists and the operator should see it;
+  # collapsing it into "project" would hide a real overlay behind an accident of content.
+  has_project=0
+  has_local=0
+  for f in "$SETTINGS" "$SETTINGS_LOCAL"; do
+    [[ -f "$f" ]] || continue
+    jq -e 'has("claudeMdExcludes")' "$f" >/dev/null 2>&1 || continue
+    [[ "$f" == "$SETTINGS" ]] && has_project=1 || has_local=1
+    while IFS= read -r e; do
+      [[ -n "$e" ]] || continue
+      # dedupe — the client's Mo() is [...new Set(...)], so a pattern present in both
+      # files is applied once.
+      for have in ${excludes[@]+"${excludes[@]}"}; do
+        [[ "$have" == "$e" ]] && continue 2
+      done
+      excludes+=( "$e" )
+    done < <(jq -r '.claudeMdExcludes[]? // empty' "$f")
+  done
+  if [[ "$has_project" -eq 1 && "$has_local" -eq 1 ]]; then
+    overlay_source="project+local"
+  elif [[ "$has_local" -eq 1 ]]; then
+    overlay_source="local"
+  elif [[ "$has_project" -eq 1 ]]; then
+    overlay_source="project"
+  fi
 fi
 
 excluded_count=0

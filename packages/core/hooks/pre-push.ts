@@ -33,18 +33,13 @@ import {
 import { resolve, dirname, relative } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-// NOTE: `picomatch` is deliberately NOT imported at module scope. This file ships
-// verbatim into consumer projects (install.sh:929-938), and a static bare-package
-// import of something absent from the consumer's tree crashes the hook with
-// ERR_MODULE_NOT_FOUND *before any gate runs* — the #735/#636 class the ship-list
-// comment warns about. That is not hypothetical here: this repo's own
-// consumer-matrix pnpm cell reproduced it, and `git push` failed outright in a
-// pnpm-workspace consumer. It only ever looked safe under flat npm, where
-// `vitest` happens to hoist picomatch@4.0.4 — luck, not correctness.
-//
-// The one section that needs it (local-shadow claudeMdExcludes) is maintainer-only
-// AND host-only, so it lazy-loads inside the function behind `await import()` +
-// `die()` — the same shape guard-liveness's ESLint stack already uses below.
+// NOTE: this file ships verbatim into consumer projects (install.sh:929-938), so a
+// static bare-package import of anything outside the consumer's tree crashes the hook
+// with ERR_MODULE_NOT_FOUND *before any gate runs* (#735/#636). `picomatch` used to be
+// imported here for the arch-v2 S-E P2b local-shadow section; that section was removed
+// (its premise was disproven — see the removal commit), and with it the only reason this
+// hook referenced picomatch. Keep it that way: a new dependency here needs the ship-list
+// treatment or a lazy `await import()` + `die()`, the shape guard-liveness uses below.
 import { runCheck, type CheckResult } from './utils/run-check.ts';
 import { runPriorArtCheck, loadSsotIds } from './checks/prior-art.ts';
 import { runS17Check } from './checks/s17.ts';
@@ -1284,151 +1279,6 @@ function alwaysonBudgetSection(): void {
   emit(r);
 }
 
-// ── 5d. Local claudeMdExcludes shadow (maintainer, arch-v2 S-E P2b) ─────────
-// Standing drift-guard on the local-overlay relationship: under primary-docs
-// REPLACE-PER-KEY overlay semantics (verified 2026-08-06 vs https://code.claude.com/
-// docs/en/settings: "When both files set the same key, the repository root's value
-// wins, except that permission rules from both files stay in effect"; claudeMdExcludes
-// is NOT a documented merge exception), a `.claude/settings.local.json` that sets
-// `claudeMdExcludes` SHADOWS the project list ENTIRELY. If the local list is a
-// strict SUBSET of the project list (i.e. fails to exclude some files the project
-// list excludes), those excludes are silently lost. This section catches that.
-//
-// Behavioural check (mirrors principle 34's behavioural mechanism — no form-proxy):
-// picomatch.isMatch every repo file against both the project and the local exclude
-// lists (with {dot:true} so .claude/... paths are reachable). The local match-SET
-// must be a SUPERSET of the project match-set. If any file is matched by project
-// but NOT by local, the section exits RED naming those files.
-//
-// Maintainer-only: this is the maintainer's own local-overlay file. A consumer
-// layout has no .claude/settings.local.json under our control, and the assert is
-// host-only by construction (the file is gitignored, CI cannot see it).
-//
-// Host-only: the file is gitignored, so CI never exercises this section — it is
-// a host-side drift-guard for the maintainer's local environment. CI green does
-// NOT imply the section ran; the section must be exercised locally (P2b acceptance
-// discrimination pair, see PR body).
-//
-// Escape hatch (§3, per ci-tool-pinning.md §3 precedent): AIF_CLAUDEMD_LOCAL_SHADOW_ALLOW
-// env with rationale ≥20 chars downgrades RED to WARN.
-async function localShadowClaudeMdExcludesSection(): Promise<void> {
-  const settingsLocalPath = resolve(REPO_ROOT, '.claude/settings.local.json');
-  if (!existsSync(settingsLocalPath)) return; // no local overlay → no-op
-  let localJson: { claudeMdExcludes?: unknown } = {};
-  try {
-    localJson = JSON.parse(readFileSync(settingsLocalPath, 'utf8'));
-  } catch (e) {
-    die(
-      '❌ .claude/settings.local.json is not valid JSON — fix or remove it.',
-      undefined,
-    );
-    return; // unreachable; die throws
-  }
-  if (!Array.isArray(localJson.claudeMdExcludes)) return; // local sets no key → no-op
-
-  // Escape hatch: ≥20-char rationale downgrades RED to WARN (the rationale length
-  // is the gate — a bare "TODO" or "later" cannot skip).
-  const allow = process.env['AIF_CLAUDEMD_LOCAL_SHADOW_ALLOW'] ?? '';
-  const escaped = allow.length >= 20;
-
-  // Read project list.
-  const settingsProjectPath = resolve(REPO_ROOT, '.claude/settings.json');
-  let projectExcludes: string[] = [];
-  if (existsSync(settingsProjectPath)) {
-    try {
-      const j = JSON.parse(readFileSync(settingsProjectPath, 'utf8'));
-      if (Array.isArray(j.claudeMdExcludes)) {
-        projectExcludes = (j.claudeMdExcludes as unknown[]).filter(
-          (x): x is string => typeof x === 'string',
-        );
-      }
-    } catch {
-      // project file unparseable → let principle 34 catch it; here treat as empty.
-    }
-  }
-  const localExcludes: string[] = localJson.claudeMdExcludes.filter(
-    (x: unknown) => typeof x === 'string',
-  );
-
-  // Enumerate the repo file tree as ABSOLUTE paths from the GIT-TRACKED list —
-  // the same population and the same two corrections as principle 34
-  // (34-claudemd-excludes-liveness.test.ts, see its enumerateRepoFiles doc):
-  //
-  //  * absolute, because the CC client matches claudeMdExcludes against absolute
-  //    paths; matching relative paths makes the historical broken form
-  //    self-matching and the check blind to it;
-  //  * tracked, because a walk that skips only .git/node_modules descends into the
-  //    gitignored nested worktrees under .claude/worktrees/ — ~293k files and ~11 s
-  //    on the maintainer's primary checkout, and it masks deletions (a stale copy
-  //    inside another worktree keeps a dead entry matching).
-  //
-  // Both were caught by the round-1 cold fidelity audit of this stage. Keep the two
-  // enumerators in step: if one changes population, the other must too, or the
-  // pre-push section and principle 34 start disagreeing about what "the repo file
-  // tree" is. Picomatch.isMatch signature: (STRING, PATTERNS, OPTIONS).
-  let files: string[] = [];
-  try {
-    files = execFileSync('git', ['ls-files', '-z'], {
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
-    })
-      .split('\0')
-      .filter((p: string) => p.length > 0)
-      .map((p: string) => `${REPO_ROOT}/${p.split('\\').join('/')}`);
-  } catch {
-    // git unavailable → cannot establish the population; a superset check over an
-    // empty population would pass vacuously, so say so instead of going green.
-    process.stdout.write(
-      '⚠️  local-shadow claudeMdExcludes: `git ls-files` failed — DID NOT RUN (this is a skip, not a pass).\n',
-    );
-    return;
-  }
-
-  // Lazy-load the matcher (see the module-header note): keeps a consumer's hook
-  // from crashing at load time on a package it does not have. Reaching this point
-  // already means the run is maintainer-side with a local overlay present.
-  let picomatch: { isMatch: (s: string, p: string, o?: unknown) => boolean };
-  try {
-    // @ts-expect-error picomatch 4.x ships no type declarations; no @types/picomatch
-    // exists. The behavioural contract is asserted by the paired-negative tests, not
-    // by a type signature.
-    picomatch = (await import('picomatch'))
-      .default as unknown as typeof picomatch;
-  } catch (err) {
-    die(
-      '❌ local-shadow claudeMdExcludes: failed to load `picomatch` — this gate needs\n' +
-        '   the packages/core devDependencies (run `npm ci --prefix packages/core`).\n' +
-        `   ${(err as Error).message}`,
-    );
-    return; // unreachable; die throws
-  }
-
-  // Match-set SUPERSET check: every file matched by project must also be matched by local.
-  const missing: string[] = [];
-  for (const f of files) {
-    const inProject = projectExcludes.some((p) =>
-      picomatch.isMatch(f, p, { dot: true }),
-    );
-    if (!inProject) continue;
-    const inLocal = localExcludes.some((p) =>
-      picomatch.isMatch(f, p, { dot: true }),
-    );
-    if (!inLocal) missing.push(f);
-  }
-
-  if (missing.length === 0) return; // green: local is a superset (or project is empty)
-
-  const banner = `❌ .claude/settings.local.json claudeMdExcludes is a STRICT SUBSET of the project list — ${missing.length} file(s) matched by project excludes fall through the local overlay (under REPLACE-PER-KEY overlay semantics, the local list ENTIRELY SHADOWS the project list):\n   ${missing.slice(0, 20).join('\n   ')}${missing.length > 20 ? `\n   … and ${missing.length - 20} more` : ''}\n   Fix: add the missing exclude patterns to .claude/settings.local.json, OR escape with\n   AIF_CLAUDEMD_LOCAL_SHADOW_ALLOW='<rationale ≥20 chars>'`;
-  if (escaped) {
-    process.stdout.write(
-      `⚠️  (escaped) ${banner}\n   escape rationale: ${allow}\n`,
-    );
-    return;
-  }
-  die(banner);
-}
-
 // ── 5b. IR grammar-gate tests (maintainer, MT S1) ────────────────────────────
 function irMetaSection(): void {
   if (existsSync(resolve(CORE, 'package.json'))) {
@@ -1737,14 +1587,6 @@ const SECTIONS: readonly PrePushSection[] = [
     owner: 'maintainer',
     run: () => alwaysonBudgetSection(),
   },
-  {
-    // arch-v2 S-E P2b: drift-guard on the local claudeMdExcludes shadow.
-    // maintainer-only + host-only — the file is gitignored; CI never exercises
-    // this section. See localShadowClaudeMdExcludesSection docstring.
-    id: 'local-claudemd-shadow',
-    owner: 'maintainer',
-    run: () => localShadowClaudeMdExcludesSection(),
-  },
 ];
 
 /**
@@ -1809,10 +1651,6 @@ async function main(): Promise<void> {
   }
   if (process.env['PREPUSH_ONLY'] === 'alwayson-budget') {
     alwaysonBudgetSection();
-    process.exit(0);
-  }
-  if (process.env['PREPUSH_ONLY'] === 'local-claudemd-shadow') {
-    await localShadowClaudeMdExcludesSection();
     process.exit(0);
   }
   if (process.env['PREPUSH_ONLY'] === 'generated-rule-material') {

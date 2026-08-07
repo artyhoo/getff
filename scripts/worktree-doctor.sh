@@ -7,12 +7,10 @@
 #   (no flag)  report only; exit 1 if any worktree is unprovisioned.
 #   --fix      provision every fixable worktree; exit 1 only if something could not be fixed.
 #
-# Exit 1 also fires when the local-shadow sweep (arm 2, below) finds a worktree whose
-# .claude/settings.local.json shadows the project claudeMdExcludes list. A worktree the
-# sweep could NOT check is announced as `SHADOW? … DID NOT RUN` and does NOT set exit 1
-# — it is neither a pass nor a failure, and silently folding it into either would be the
-# dishonest direction. Read the counts line; a non-zero "could not run" is a real gap in
-# coverage, not an all-clear.
+# This script once carried a second arm — a local-shadow `claudeMdExcludes` sweep (arch-v2
+# S-E P2b). It was removed with the rest of P2b: the client merges array settings across
+# settings files (union + dedupe; `fallbackModel` is the sole replace exception), so a local
+# list can only ADD excludes and the sweep's subset finding was unreachable by construction.
 #
 # This is the operator-facing sweep. The per-worktree logic lives in worktree-node-modules.sh
 # (single source of truth) — this script only enumerates and reports, so the doctor and the
@@ -79,77 +77,8 @@ EOF
 
 printf '\n%d worktrees: %d provisioned, %d fixed, %d outstanding\n' "$total" "$ok" "$fixed" "$broken"
 
-# ── arm 2: local-shadow claudeMdExcludes sweep (arch-v2 S-E P2b) ───────────────
-# The pre-push section `local-claudemd-shadow` only ever sees the ONE worktree you
-# push from. A worktree whose gitignored .claude/settings.local.json defines a
-# claudeMdExcludes list that is a strict SUBSET of the project list silently drops
-# excludes for every session opened there — and, because the file is gitignored and
-# per-worktree, nothing else in the repo can see it. This arm is the sweep.
-#
-# It does NOT reimplement the check (that would be `#sync-by-copy-paste`,
-# .claude/rules/dual-implementation-discipline.md §8): it invokes the section
-# through its existing PREPUSH_ONLY seam. pre-push.ts derives REPO_ROOT from its
-# OWN location, so each worktree must run ITS OWN copy — the same self-resolution
-# rule this script already follows for $HELPER.
-#
-# A worktree that cannot run the check is announced LOUDLY as DID NOT RUN, never
-# counted as clean (the silent-inert-hook class, aif-doctor SKILL §3.6).
-shadow_checked=0; shadow_bad=0; shadow_skipped=0
-
-while IFS= read -r wt; do
-  [ -n "$wt" ] || continue
-  [ -d "$wt" ] || continue
-  # No local overlay → nothing to shadow. Not a skip: there is genuinely no risk.
-  [ -f "$wt/.claude/settings.local.json" ] || continue
-
-  hook="$wt/packages/core/hooks/pre-push.ts"
-  if [ ! -f "$hook" ] || [ ! -d "$wt/node_modules" ]; then
-    shadow_skipped=$((shadow_skipped + 1))
-    printf 'SHADOW?  %s — DID NOT RUN (no %s)\n' \
-      "$wt" "$([ -f "$hook" ] || echo 'pre-push.ts'; [ -d "$wt/node_modules" ] || echo 'node_modules')"
-    continue
-  fi
-
-  # HARD PRECONDITION — the target hook must KNOW this section id.
-  #
-  # pre-push.ts dispatches PREPUSH_ONLY through a flat if-chain with NO default
-  # arm: an unrecognised value does not error, it falls through to the FULL run.
-  # Most registered worktrees sit on branches predating this section, so invoking
-  # them blind would (a) execute a complete pre-push suite per worktree —
-  # including the side-effectful `worktree-provisioning` section — and (b) report
-  # any unrelated failure as a SHADOW finding, which is a false positive about a
-  # check that never ran. Measured on this machine at authoring time: 29 worktrees
-  # carry a settings.local.json, and exactly 1 hook knew the id — so the unguarded
-  # form would have mis-invoked 28.
-  #
-  # Grepping the target file is the honest precondition: it asks the artefact we
-  # are about to execute whether it implements the contract, instead of assuming
-  # the whole population is on this branch.
-  if ! grep -q 'local-claudemd-shadow' "$hook" 2>/dev/null; then
-    shadow_skipped=$((shadow_skipped + 1))
-    printf 'SHADOW?  %s — DID NOT RUN (its pre-push.ts predates the local-claudemd-shadow section)\n' "$wt"
-    continue
-  fi
-
-  shadow_checked=$((shadow_checked + 1))
-  if out="$(cd "$wt" && PREPUSH_ONLY=local-claudemd-shadow npx tsx "$hook" 2>&1)"; then
-    :
-  else
-    shadow_bad=$((shadow_bad + 1))
-    printf 'SHADOW   %s\n%s\n' "$wt" "$out"
-  fi
-done <<EOF
-$(git -C "$PRIMARY_DIR" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print substr($0, 10)}')
-EOF
-
-if [ "$shadow_checked" -gt 0 ] || [ "$shadow_skipped" -gt 0 ]; then
-  printf 'local-shadow sweep: %d checked, %d shadowing, %d could not run\n' \
-    "$shadow_checked" "$shadow_bad" "$shadow_skipped"
-fi
-
 if [ "$broken" -gt 0 ]; then
   [ "$FIX" -eq 1 ] || printf 'Run `bash scripts/worktree-doctor.sh --fix` to provision them.\n'
   exit 1
 fi
-[ "$shadow_bad" -eq 0 ] || exit 1
 exit 0
