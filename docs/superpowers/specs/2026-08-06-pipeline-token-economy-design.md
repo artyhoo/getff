@@ -218,7 +218,8 @@ misses) — then stop and surface.
 
 ### FORK C — S-E's host-only trio cannot run behind the marker → split out stage S-H
 
-**Resolution:** S-E keeps the container-safe items (P2a, P2b, P3a, P3b, P3c) WITH the
+**Resolution:** S-E keeps the container-safe items (P2a, P2b — P2b later REMOVED, see FORK D
+overlay-semantics correction 2026-08-07 —, P3a, P3b, P3c) WITH the
 marker; P3d, P11, P14 move to a new **host-side stage S-H** (no marker — not factory-bound;
 executed by a host CC session). **Evidence:** the aif container mounts a NAMED VOLUME
 `claude-auth:/home/node/.claude` (`~/code/aif-handoff/docker-compose.yml:27`), not the host
@@ -243,14 +244,17 @@ the rendered index nor `probe-channels.sh` (`grep -c probe-channels scripts/rend
 **Fixed predicate:** resident set = `CLAUDE.md` + `.claude/rules/*.md` lacking `^paths:`
 frontmatter (the `probe-channels.sh:20` predicate, one bash idiom shared by both consumers;
 the TS extractor in `packages/core/principles/rule-channel-glob.ts` stays the semantic owner)
-minus the effective `claudeMdExcludes`. **Overlay semantics (round-4 MAJOR-3 — an earlier
-draft said «project ∪ local», which contradicts P2b):** the working model is **replace per
-key** — a local `claudeMdExcludes` SHADOWS the project list entirely (this is what the
-2026-08 `settings.local.json` shadowing incident exhibited, and it is the only model under
-which P2b's superset assert is load-bearing; under union it would be vacuous). P3b
-implements replace, verifies the client's merge semantics against primary docs in the same
-task, and PARKS if the docs contradict the model — both P2b and P3b must cite the same
-verdict. **Measured:** today's meter
+minus the effective `claudeMdExcludes`. **Overlay semantics — CORRECTED 2026-08-07: the
+model is `project ∪ local` (union + dedupe), and the rejected draft was right.** Round-4
+MAJOR-3 had overruled that draft with the reason that union «contradicts P2b» and that under
+union P2b's superset assert «would be vacuous». Reading the shipped client settled it: the
+settings fold applies a customizer that unions arrays and replaces only for `fallbackModel`
+(`ipe()` → `WSm()` → `Mo()`, `claude.exe` v2.1.207) — so the assert IS vacuous, and that is a
+fact about the client, not a reason to reject the model. **The PARK condition was therefore
+MET and fired: P2b is removed** (see the corrected verdict patch
+`docs/meta-factory/research-patches/2026-08-06-claudemd-overlay-semantics-verdict.md` §3-§4).
+P3b implements the union. **Method note for future forks:** «model X would make our gate
+pointless, therefore not X» is an inverted inference — the gate is the thing under test. **Measured:** today's meter
 reports 394,687 B > 101,000 (EXIT=1, before any work); the TRUE resident set is
 `CLAUDE.md` 23,740 + `00-rule-index.md` 4,030 + `build-first-reuse-default.md` 12,667 +
 `attention-is-not-a-mechanism.md` 2,629 + `ai-laziness-traps.md` 26,387 = **69,453 B** —
@@ -330,11 +334,17 @@ picomatch semantics against absolute paths, NOT the normaliser, which only absol
 1. **Committed-list liveness (CI-reachable principle test):** evaluate every
    `claudeMdExcludes` entry in `.claude/settings.json` with picomatch (absolute paths,
    `{dot:true}`) against the repo file tree; any entry matching 0 files fails.
-2. **Local-shadow detection (host-only → pre-push + `worktree-doctor`):** if
+2. ~~**Local-shadow detection (host-only → pre-push + `worktree-doctor`):** if
    `.claude/settings.local.json` defines `claudeMdExcludes`, the local list's picomatch
    match-set must be a superset of the project list's match-set (behavioural, not string
    comparison) — else error-with-escape-token. CI cannot see this file; pre-push is its
-   earliest reachable channel.
+   earliest reachable channel.~~
+   **WITHDRAWN 2026-08-07 — do not rebuild from this item.** The client merges array settings
+   (`project ∪ local`), so the superset condition holds by construction and this assert is
+   green-by-construction — `#hope-as-gate`. See §1.6 FORK D's dated overlay-semantics correction
+   and `docs/meta-factory/research-patches/2026-08-06-claudemd-overlay-semantics-verdict.md` §3.
+   The **inverse** hazard (a local file ADDING excludes to hide always-on rules) is real and
+   unclaimed by any stage — it needs its own item, not a revival of this one.
 3. **Semantic backstop (outcome channel):** residual risk = our picomatch diverging from the
    client's bundled matcher. Primary backstop: P3's `InstructionsLoaded`-based measurement (an
    entry asserted-excluded but observed loaded → gate red). **Fallback if `InstructionsLoaded`
@@ -363,7 +373,7 @@ this raises P1's priority and enters the S-E kickoff as fresh evidence.
 | # | Proposal | Lands in | Cost line attacked | Size |
 |---|---|---|---|---|
 | P1 | Config fix — **LANDED (rev 4): the committed `.claude/settings.json` carries all 7 entries in `**/<name>.md` form on staging since PR #1223 (`c8a2bfcec6`), verified `git show origin/staging:.claude/settings.json`.** Remaining operator step: drop the now-redundant `claudeMdExcludes` key from `.claude/settings.local.json` (lists verified identical). | **operator (residue only)** | READ + WRITE [W] | 15.9% [D] measured |
-| P2 | Config-assertion gate (§2 asserts 1-2 + backstop). Capability commit: picomatch pinned explicit devDep + `Prior-art:` trailer + SSOT entry. | **S-E** | recurrence insurance on P1's line | ~0 run cost; consumes S-F item 4 |
+| P2 | Config-assertion gate (**§2 assert 1** + backstop; §2 assert 2 WITHDRAWN 2026-08-07 — see §2). Capability commit: picomatch pinned explicit devDep + `Prior-art:` trailer + SSOT entry. | **S-E** | recurrence insurance on P1's line | ~0 run cost; consumes S-F item 4 |
 | P3 | Budget gate per ADR-3: **REUSE `check-alwayson-budget.sh` — wire into pre-push + per-environment ceilings (formula + acceptance pair in §1.6 FORK D)**; fix `measure-always-on.sh` TWICE-blind manifest (membership predicate: `^paths:`-absence minus effective `claudeMdExcludes` — §1.6 FORK D); `InstructionsLoaded` verification task. N2 per-turn measurement → **S-H** (rev 4, §1.6 FORK C). | **S-E** | READ + WRITE [W] ceilings | repo-owned always-on share only (ADR-3 post-falsifier scope; 29-39% declared-coverage statement binding) |
 | P4 | **One umbrella-kickoff commit** (planning-session-owned surface): (a) S-D stage-table row → CLOSED-NULL for the ADDITIVE scope per SSOT #234 + S-D′ row added (P13) with its charter; (b) **S-D charter prose rewritten** — the «L2-closure PR (retirement note + `done.md`, no build)» instruction DELETED (kickoff:176-177): a stage-level `done.md` closes the whole umbrella (`priority-score.sh:140,255-263` — C3 file-existence is the closure signal; `:23-25,122-126` document it); (c) S-G row + Ordering slot + marker value for S-G (`Z.AI GLM-5.2 SDK`, re-verified unique at dispatch per the CLAUDE.md marker-value rule; S-D′ carries NO marker — un-spent judgment, rev-4 correction of this row); (d) S-F item 4 marked consumed-by-P2. Umbrella `done.md` only when the LAST stage merges. | **S-D/S-G bookkeeping** | — | — |
 | P5 | Bounded `CLAUDE.md` trim per D1 — **rev 4 mechanism: pointer-collapse, NO import (§1.6 FORK A); the ZCode `@`-import degradation check is RETIRED with the import** — + keep-list **+ D1b traps digest** (digest authored at `.claude/rules/ai-laziness-digest.md` + full catalogue re-scoped to `paths:` + anti-drift test + rollback trigger + renderer bookkeeping, §1.6 FORK B) | **S-G** | READ + WRITE [W] | sized (rev 4): P5a net ≤ −1,100 B; D1b net ≈ −18 KB resident (traps 26,387 B out, digest ≤ 8,192 B in) |
