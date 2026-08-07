@@ -51,14 +51,15 @@ difference) is correspondingly known-HIGH.**
 
 ---
 
-## §0a DECISION-NEEDED #3 — the prescribed pricing channel could not observe, and five blocks stay unpriced
+## §0a DECISION-NEEDED #3 (as at stage close) — the prescribed pricing channel could not observe, and five blocks stayed unpriced
 
 > **ANSWERED 2026-08-07 (post-merge): Option A taken.** The operator ran `/context` and supplied
 > the output; §8
 > records the result. The fork below is kept **verbatim** as the record of the state at stage
 > close — it is not rewritten to look as though the answer had been available. Note that Option
 > A's stated consequence turned out to be optimistic: it closed **two** of the four rows, not
-> four, and row 8's injected form remains S-I's to publish.
+> four, and row 8's injected form remains S-I's to publish. **Unpriced blocks are now three**
+> (5d, 9, and row 8's injected form), down from the five this heading records.
 
 §3a of the stage kickoff names «an unpriceable block class» and «a probe that cannot observe» as
 DECISION-NEEDED triggers. Both fired here, so this is recorded in §3a grammar rather than only
@@ -328,7 +329,8 @@ T-SH-A is the governing trap and is satisfied structurally — the price table h
 column, and four rows (5c, 5d, 5e, 9) exercise the `UNMEASURED — channel absent` value rather
 than being back-filled from byte estimates — with row 8 priced source-side only, making five
 unpriced blocks in all. **Revised 2026-08-07 (§8.3):** two of those four (5d, 9) still exercise
-the value; 5c and 5e gained a named channel from the operator's `/context` paste. The trap held
+the value; 5c and 5e gained a named channel from the operator's `/context` paste, so unpriced
+blocks are now **three** (5d, 9, row 8's injected form), not five. The trap held
 under the update — the paste answered two rows and the other two were left `UNMEASURED` rather
 than filled from the nearest plausible neighbour, which is the whole point of the value existing. §3a of the kickoff is satisfied in its own grammar: the
 unpriceable-block / probe-cannot-observe fork is stated as `DECISION-NEEDED` with both options
@@ -380,7 +382,10 @@ read «unknown at stage close → known on 2026-08-07», not as though the split
 all along.
 
 **Provenance and its limits (T6, stated before the numbers).** One `/context` snapshot, n=1, from
-an **orchestrator seat in a worktree** whose edit-time rule matcher had injected five rule files.
+an **orchestrator seat in a worktree** whose edit-time rule matcher had injected four rule files
+(`00-rule-index`, `attention-is-not-a-mechanism`, `build-first-reuse-default`,
+`ai-laziness-traps` — the other three of the seven memory files are the two `CLAUDE.md` and
+`MEMORY.md`).
 A fresh main-checkout seat, or a subagent seat, has a different resident set. All figures are the
 harness's own reported estimates at its own rounding (`5.2k`, `~380`); no tokenizer was run.
 `Messages 276.4k` is that session's accumulated dialogue and is **not** resident load.
@@ -411,7 +416,8 @@ undermines the reading.
 4 B/t in this patch and its sibling is low by ≈**1.53×** (4 / 2.62). Because row 5 (the harness
 remainder) is computed **by difference** — seat total minus rows 1-4 — an understated rows 1-4
 makes the remainder correspondingly **overstated**. A first-order restatement on the same seat
-total gives rows 1-4 ≈ 30,163 tok and a remainder ≈ 32,177 tok, i.e. **≈52%, not 68.4%**.
+total gives rows 1-4 = 19,719 × (4 / 2.6187) ≈ **30,120** tok and a remainder of
+62,340 − 30,120 = **32,220** tok, i.e. **51.7%, not 68.4%**.
 
 That restatement is **not** written into §2, and the table's figures are left as they were. Two
 reasons, both binding: the row-1 file set is the *pre-S-G* resident set while the ratio was
@@ -422,7 +428,8 @@ not as a correction made.**
 > **DECISION-NEEDED #4 — the conversion constant.** The 4 B/t convention is inherited from the
 > S-A seed and is load-bearing for every est figure in this umbrella.
 > **Option A** — adopt **2.62 B/token** (or a per-seat re-measurement) as the operative
-> conversion and re-derive §2 and the sibling's §5/§9 in a follow-up stage. Consequence: the
+> conversion and re-derive §2 and the sibling's 4 B/t sites — its **§5, §7 and §8** (the sibling
+> runs §0-§8; there is no §9) — in a follow-up stage. Consequence: the
 > harness share drops to roughly half, and the repo-owned half becomes correspondingly *more*
 > expensive — which changes which levers S-D′ ranks first.
 > **Option B** — keep 4 B/t for comparability with S1/S2 figures already published under it, and
@@ -458,10 +465,13 @@ Two readings follow, and only the first is new:
    `.claude/rules/ai-laziness-traps.md` (9.8k) = 19.1k. This is the «expensive end» §0.5 says to
    price first, and it is repo-owned — i.e. **actionable by this project**, unlike the harness
    blocks.
-2. **`ToolSearch` deferral saves 58.1k — almost exactly what the entire resident head costs.**
-   §3's «preserve what already works» now has its number: the mechanism roughly doubles the
-   usable budget, and any change that makes deferred schemas resident would be the single most
-   expensive regression available.
+2. **`ToolSearch` deferral withholds 58.1k — almost exactly what the entire resident head costs.**
+   §3's «preserve what already works» now has its number. **Stated precisely, because the loose
+   form is wrong:** making those schemas resident would **double the resident head** (58.2k →
+   116.3k); it would *not* halve the budget — on this 1m-window snapshot free space moves
+   665.4k → ~607.3k, i.e. **−8.7%**. The head is what the deferral halves, and the head is what
+   every seat pays before its first word. On that measure it is still the single most expensive
+   regression available in this table.
 
 ### §8.3 Which `UNMEASURED` rows this closes — two of four, not four
 
@@ -469,7 +479,7 @@ Two readings follow, and only the first is new:
 |---|---|---|---|
 | 5c — MCP tool schemas (resident subset) | `UNMEASURED — channel absent` | **8.4k** | `/context` «MCP tools» |
 | 5e — skills/agents listing, as injected | `UNMEASURED — channel absent` | **8.9k** skills + **1k** custom-agent listing | `/context` «Skills» + «Custom agents» |
-| 5d — MCP server instructions | `UNMEASURED — channel absent` | **unchanged** | `/context` does not itemise server instructions apart from tool schemas; they sit inside the system-prompt region and remain unsplit |
+| 5d — MCP server instructions | `UNMEASURED — channel absent` | **unchanged** | `/context` does not itemise server instructions apart from tool schemas. Where they are counted is *not* established by the snapshot — asserting a region would be the estimate T-SH-A forbids |
 | 9 — agents inventory (17 repo `agents/*.md`) | `UNMEASURED — channel absent` | **unchanged** | different population: `/context`'s «Custom agents» (1k) counts the harness's *registered* agent types — one row, `orchestrator-planner` — not the repo's `agents/` directory |
 
 Rows 5d and 9 stay `UNMEASURED — channel absent` rather than being filled from the nearest
