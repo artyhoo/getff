@@ -5,8 +5,9 @@
 > **Scope:** R-phase research patch (one file, append-only under `docs/meta-factory/research-patches/**`, folder-level authority inherited from the folder README — no per-file authority header required).
 > **Round:** 2 — rework of round-1 (aif task `6f18c179`, branch `research/getff-any-stack-trace-r1`, commit `1479f54741`). Round-1 patch was **unreachable in this worker clone** (verified mechanically — see §7); round 2 re-derives every cell against the live tree per kickoff §8 (T-R1-D). Round-1's text is convenience, not evidence.
 > **Audited SHA:** `2923ba6f4` (2026-08-07). Branch `feature/getff-any-stack-trace-r1-940456`.
+> **Re-verdicted at egress:** staging `c3cb7a603b` (2026-08-07). One cell moved — python rung 2, GAP→EXISTS, closed by S2b #1233; the other 27 stand. Enumeration + evidence in §6.1.
 > **Origin:** the S2b discovery — the python lane's local git-hook rung was empty, and the emptiness had a broken decision chain behind it (a prior-art verdict about the WRONG role consumed as a channel decision). The operator asked: «what else is missing the same way?» This audit answers systematically.
-> **Predecessors merged:** S1 = #1166, S2 = #1169. S2b in flight (closes python rung 2).
+> **Predecessors merged:** S1 = #1166, S2 = #1169, S2b = #1233 (`a66c0cb9aa`) — merged 2026-08-06, after this audit's base; it closes python rung 2 (§6.1).
 
 ## §1 Population enumeration (T10 — before any cell verdict)
 
@@ -67,7 +68,7 @@ Legend: **EXISTS** = artifact `file:line` AND firing evidence cited. **GAP** = p
 | Rung | Verdict | Evidence (live, this SHA) |
 |---|---|---|
 | 1. edit/agent-session | **EXISTS** | `_py_deliver_agent_surface` at `setup.d/45-python.sh:692-820` replicates both hooks: deps-hash-check at `:753-761` + inject-matching-rule at `:765-767`, wired via `register_cc_hook` into the consumer's `.claude/settings.json`. **Firing:** identical hook files as npm lane (the scripts are byte-identical — `inject-matching-rule.sh:1-2` carries `@dual-pair: rule-path-scoping`; `deps-hash-check.sh:1-2` carries `@dual-pair: deps-hash-check-dogfood`). ast-grep/ruff fire in the consumer's editor via the delivered `sgconfig.yml` + `ruff.toml` (the lane's native edit-time channel — kickoff §1 column-1 note). |
-| 2. pre-commit/pre-push | **GAP** | `_py_deliver_agent_surface` does NOT deliver husky hooks (verified: `grep -nE 'husky\|pre-commit\|pre-push' setup.d/45-python.sh` → empty). The python lane ships CC-session hooks but no git hooks. **Provenance:** MISDECIDED — see §4.1 (the S2b-origin broken decision chain; SSOT #216 role mismatch). |
+| 2. pre-commit/pre-push | **EXISTS** (re-verdicted at the egress seam — see §6.1) | `_py_deliver_local_hook_rung` at `setup.d/45-python.sh:702`, header at `:669-701`. Delivers `packages/core/templates/python/hooks/pre-push.sh` to `.getff/hooks/pre-push` and activates it via `git config core.hooksPath .getff/hooks`, with an integration arm for consumers who already own `core.hooksPath` / `.pre-commit-config.yaml` / a legacy `.git/hooks` (never clobbers). **Firing:** `tests/install-sh/python-entry-lane.test.sh` cases (14)-(16), PASS=80/FAIL=0 on the host — «local git rung delivered + activated + integrated — fail-closed arm held GREEN». **Provenance:** the MISDECIDED chain was real and is now **RESOLVED** by S2b (#1233, `a66c0cb9aa`) under SSOT #237 — see §4.1. |
 | 3. install-time firing proof | **EXISTS** | `_py_firing_self_check` at `setup.d/45-python.sh:397`, called from `install.sh:268`. **Firing:** `install.sh:270` dry-run echo describes the live path — «plant a violation in an OS temp dir → assert ast-grep + ruff fire RED»; the function plants a real violation and asserts both rule channels fire. |
 | 4. CI | **EXISTS** | `packages/core/templates/python/github-actions-ci.yml` delivered by `_py_deliver_ci` (`setup.d/45-python.sh:340`). **Firing:** two parallel jobs — ast-grep scan (`:34-49`, fails RED on rule fire via `sgconfig.yml`) + ruff check (`:54-81`, two steps: discovered-config + isolated `--config .getff/ruff-bans.toml` to close the ruff-collision silent-skip). **Deceptive-rung sub-finding (parked, §5):** `branches: [main]` (`:17-19`) — a `master`-default consumer gets zero CI enforcement (S4 origin per spec wall 7(d)). |
 | 5. freshness | **EXISTS** | deps-hash-check covers python via the two-tier ladder: `_PY_TIER1_AWK` (`deps-hash-check.sh:128`) hashes 6 non-`[project]` dep tables; `_PY_TIER2_SCRIPT` (`:137-150`) hashes `[project].dependencies` + optional-dependencies via tomllib/tomli; sentinel `:157` keeps the baseline stable across python-upgrade. **Firing:** `:267` reads `deps-hash-python`; `:280` compares + `_drifted`. The hook IS delivered (`_py_deliver_agent_surface:753-761`). |
@@ -102,8 +103,8 @@ Legend: **EXISTS** = artifact `file:line` AND firing evidence cited. **GAP** = p
 
 | Verdict | Count | Cells |
 |---|---|---|
-| EXISTS | 21 | npm: 1, 2, 3, 5, 6, 7 (6); python: 1, 3, 4, 5, 6, 7 (6); cargo: 3, 4, 5, 6, 7 (5); go: 3, 4, 6, 7 (4). Four EXISTS cells carry parked sub-scope concerns nested INSIDE the EXISTS verdict (NOT subtracted): python rung 6 + cargo rung 6 + go rung 6 (framework-reconciliation refresh gap, §5.3); cargo rung 5 (delivery cascade, §5.4). |
-| GAP | 7 | npm: 4 (1); python: 2 (1); cargo: 1, 2 (2); go: 1, 2, 5 (3) |
+| EXISTS | 22 | npm: 1, 2, 3, 5, 6, 7 (6); python: 1, **2**, 3, 4, 5, 6, 7 (7); cargo: 3, 4, 5, 6, 7 (5); go: 3, 4, 6, 7 (4). Four EXISTS cells carry parked sub-scope concerns nested INSIDE the EXISTS verdict (NOT subtracted): python rung 6 + cargo rung 6 + go rung 6 (framework-reconciliation refresh gap, §5.3); cargo rung 5 (delivery cascade, §5.4). python rung 2 was re-verdicted GAP→EXISTS at the egress seam (§6.1). |
+| GAP | 6 | npm: 4 (1); cargo: 1, 2 (2); go: 1, 2, 5 (3) |
 | N/A | 0 | (the go row's 7 substantive verdicts replace round-1's absence row per §8.1) |
 | **Total** | **28** | 4 lanes × 7 rungs — every cell substantive, no implicit cells |
 
@@ -112,7 +113,7 @@ Legend: **EXISTS** = artifact `file:line` AND firing evidence cited. **GAP** = p
 | Classification | Count | Cells |
 |---|---|---|
 | DECIDED-AGAINST | 1 | npm rung 4 (CI delegated to consumer; pre-push is the earlier reachable channel) |
-| MISDECIDED | 1 | python rung 2 (SSOT #216 role-mismatch — see §4.1) |
+| MISDECIDED | 0 | (python rung 2 was the lone instance; RESOLVED by S2b #1233 before this patch landed — §4.1 + §6.1) |
 | DEFERRED | 0 | — |
 | SILENTLY-MISSED | 5 | cargo rung 1, cargo rung 2, go rung 1, go rung 2, go rung 5 |
 
@@ -161,9 +162,11 @@ Prompt: «which rung or lane did I not even think to put in the matrix?» Run 3 
 
 ## §4 Provenance findings per GAP
 
-### §4.1 python rung 2 — MISDECIDED (the S2b origin, role-mismatch on SSOT #216)
+### §4.1 python rung 2 — MISDECIDED, now RESOLVED (the S2b origin, role-mismatch on SSOT #216)
 
-**The GAP:** python delivers CC-session hooks (`_py_deliver_agent_surface`) but no git hooks (no husky pre-commit/pre-push). A python-only consumer has zero local-git enforcement.
+> **Status at merge (§6.1):** the GAP described below was live at this audit's base (`2923ba6f4`) and is **closed on staging** — S2b (#1233, `a66c0cb9aa`) merged 2026-08-06 and delivers the rung. The provenance analysis is retained as the historical record of *how* the decision chain broke, because that is the finding the operator asked for; the cell verdict in §2 reads EXISTS.
+
+**The GAP (at this audit's base):** python delivers CC-session hooks (`_py_deliver_agent_surface`) but no git hooks (no husky pre-commit/pre-push). A python-only consumer has zero local-git enforcement.
 
 **The broken decision chain:** per the kickoff origin block and the S2b kickoff's provenance, the python lane's git-hook emptiness was justified by consuming a prior-art verdict about the WRONG role. SSOT #216 at `docs/meta-factory/prior-art-evaluations.md:289` is about **Python lint-config DELIVERY into an existing project** — its Verdict column reads (quoted literally from the SSOT, per §8.3 MINOR 1 — the word «literal» is dropped from round-1's label because the quote is the SSOT's own text, not a paraphrase):
 
@@ -288,6 +291,31 @@ Round-1's verdict on the go row («product-scope absence», all 7 cells N/A) was
 3. **Treat the audit as a snapshot, not a contract** — a GAP verdict classified SILENTLY-MISSED today may become DECIDED-AGAINST tomorrow if a downstream decision resolves it; the patch is a point-in-time record, not a load-bearing invariant.
 
 The operator's underlying question («what else is missing the same way?») is answered at this SHA. The answer's shelf life is the shelf life of the audit method itself — short, by the nature of parity.
+
+### §6.1 Second instance — the audit aged out again, inside its own egress window
+
+Recorded by the accepting session at the egress seam, 2026-08-07, before this patch reached a PR. This is not a correction of the auditor's work; the auditor's verdict was correct against the base it was handed.
+
+**What happened.** Round 2 ran against base `2923ba6f4`. Between that base and staging at egress (`c3cb7a603b`), 19 commits merged, one of which — **S2b, PR #1233 `a66c0cb9aa`, «close the python lane's empty local git-hook rung»** — closes exactly the cell this audit verdicted GAP/MISDECIDED.
+
+Mechanically, not assumed:
+
+```text
+$ git show 2923ba6f4:setup.d/45-python.sh | grep -cE '_py_deliver_local_hook_rung|core\.hooksPath'
+0
+$ grep -nE '_py_deliver_local_hook_rung' setup.d/45-python.sh        # staging c3cb7a603b
+669:# _py_deliver_local_hook_rung — D-S2b (getff-any-stack-trace-s2b): close the python lane's empty
+702:_py_deliver_local_hook_rung() {
+$ bash tests/install-sh/python-entry-lane.test.sh                     # host, Darwin
+(14-16) local git rung delivered + activated + integrated — fail-closed arm held GREEN
+PASS=80 FAIL=0
+```
+
+**Blast radius, bounded by enumeration rather than by assumption.** Of the 19 intervening commits, the ones touching any lane surface are: `setup.d/45-python.sh`, `packages/core/templates/python/hooks/pre-push.sh`, `packages/core/templates/python/hooks/getff.pre-commit-config.yaml.fragment` (all S2b), plus `packages/core/hooks/pre-push.ts` and `packages/core/hooks/launch-table-generator.test.ts` (framework-internal, not lane rungs). `git diff --name-only 2923ba6f4..origin/staging -- setup.d/ install.sh packages/core/templates/ packages/core/hooks/` is the enumeration. **python rung 2 is the only cell affected**; the other 27 verdicts stand at staging.
+
+**What this instance adds to §6's methodological note.** The first instance (go lane, 5 days) argued for date-stamping and re-audit cadence. This one is sharper: the window between a research patch's base and its merge is *itself* a staleness surface, and it is the one nobody schedules for. Concretely, item 4 for §6's list:
+
+4. **Re-verdict at the egress seam, not only at authoring.** Before merging a parity-shaped patch, diff the base against the trunk (`git log <base>..origin/staging`), enumerate which commits touch the audited surfaces, and re-run those cells. Two of this audit's rows aged out — one in the dispatch window, one in the egress window. That is not bad luck; it is the base rate for a fast trunk, and the accepting session is the last channel that can catch it.
 
 ## §7 Round-1-patch-unreachable finding (Option A vs B)
 
