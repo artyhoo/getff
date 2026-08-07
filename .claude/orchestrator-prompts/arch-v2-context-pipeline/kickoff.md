@@ -94,12 +94,13 @@ forward+backward self-check and a `Prior-art:` trailer (or the ≥20-char escape
 | S-B | dispatch-input contract v2 + calibration ledger + shadow-A/B protocol | S-A | 2 | NO | ADR-5, ADR-6 |
 | S-C | L2 population table + 5-option BFR verdict (null option live) | S-A | 2 | NO | ADR-2, ADR-1 |
 | S-D | L2 build (ADDITIVE scope) — **CLOSED-NULL 2026-08-06** per SSOT #234; NO stage `done.md` (see charter) | S-C | — | — | ADR-2 |
-| S-D′ | per-seat SUBTRACTION maps — reopened scope, operator override 2026-08-06 (#234 trigger (a) fired). **Rev 6 (2026-08-07): ADR-8's A/B arm DESCOPED per the operator's §5 = Option A → S-K; this stage ships maps + review-seat agent definitions + the #234 annotation, and a PR with no evaluation arm is conformant** | S-E + S-H **merged** (consumes P11 probe + P14 prices — two-gate form, §3) | 2 | **NO** (map authoring = un-spent judgment) | ADR-1 |
+| S-D′ | per-seat SUBTRACTION maps — reopened scope, operator override 2026-08-06 (#234 trigger (a) fired). **Rev 6 (2026-08-07): ADR-8's A/B arm DESCOPED per the operator's §5 = Option A → S-K; this stage ships maps + review-seat agent definitions + the #234 annotation, and a PR with no evaluation arm is conformant** | S-E + S-H **merged** (consumes P11 probe + P14 prices — two-gate form, §3). **⚠ BOTH GATES NOW SATISFIED (S-H #1239 00:06Z, S-E #1237 09:39Z, 2026-08-07) — this stage is dispatchable.** Open ordering question, **NOT yet a gate:** S-L recalculates the P14 conversion this stage ranks by, and a falsified conversion falsifies the *ranking*, which is this stage's product (spec `:363`, row P13). Dispatching S-D′ before S-L merges ranks against a falsified constant. Whether that promotes to a third gate is operator-owned — see the S-L row and `DECISION-NEEDED` in PR #1255 | 2 | **NO** (map authoring = un-spent judgment) | ADR-1 |
 | S-K | **STUB, not dispatchable** — ADR-8's A/B experiment re-homed off S-D′ (rev 6, operator verdict 2026-08-07). Entry criteria + the rev-6 task-id finding are stubbed at [`../arch-v2-context-pipeline-s-d-prime/kickoff.md`](../arch-v2-context-pipeline-s-d-prime/kickoff.md) §6; scoping it is its own act | S-D′ **merged** (it evaluates what S-D′ ships) | — | — | ADR-8 |
 | S-E | L1 budget gate + config-assertion asserts + `InstructionsLoaded` verification (spec P2/P3 — container-safe set after the rev-4 split; P3d/P11/P14 → S-H) | S-G **merged** (resident baseline) + token-audit S1 **merged** | 2 | YES per /arch §3 D1 exception (spec-produced, plan-complete; re-verify precondition at dispatch) | ADR-3 |
 | S-F | small-fixes queue (handoff decision 13), one maintenance PR; item 4 **CONSUMED** by S-E's P2 (see charter) | token-audit S2 timing | 1 | YES (`Z.AI GLM-5.2 SDK`) | — |
 | S-G | economy small-fixes 2 (spec P5-P8 + P12: `CLAUDE.md` pointer-collapse trim + traps digest + renderer/probe channel-truth fixes, rule-embed handoffs, inlined-dispatch template default, ADR-template wiring) | decision-layer spec merged (met) — **runs FIRST of the remaining stages** | 1 | YES (`Z.AI GLM-5.2 SDK`) | — |
 | S-H | host-side measurements (spec P3d per-turn attribution via new `scripts/measure-turn-attribution.sh` incl. the FORK E injector line + P11 Explore/Plan probe + P14 harness-remainder price list + conditional P3c live confirmation) | re-plan merged; **UNBLOCKED from S-E** (round-4 M-6) — S-E touchpoints degrade gracefully per the stage kickoff | 1 (host-bound) | **NO — not factory-bound**: the container carries a DIFFERENT population, not an absent surface (rev 5 correction — see the FORK C note below the table) | ADR-3 (measurement arm) |
+| S-L | **recalculation stage (added 2026-08-07)** — applies fork #4 = Option A in its *per-seat* form (the 4 B/token convention is falsified; a flat 2.62 is explicitly NOT the replacement), designs the fork #5 re-labelling **from scratch** (its inherited hypothesis is measured-false — see the §0 input patch), runs the residual decomposition, and re-adjudicates ADR-3's 29-39% band, which closes fork #6 | **prerequisite MET** — the #5-C measurement is committed at [`…-s-l-5c-first-turn-vs-context.md`](../../../docs/meta-factory/research-patches/2026-08-07-s-l-5c-first-turn-vs-context.md); no stage gate | 2 (host-bound) | **NO** — Tier 2, not `/arch`-produced, so the D1 plan-complete exception does not apply; the #5 naming rule and the #6 denominator are both un-spent judgment | ADR-3 (re-adjudication) |
 | S-I | doctor-surfaced context-economy residue (spec §8, operator-invited expansion 2026-08-06): project+user skill-`description:` trims with trigger-inventory acceptance, plugin-`skillOverrides` probe, autosync-hook deferred-report fix; P-I3/P-I4 pre-executed in the /arch session, stage verifies | **S-G merged** (rev 5 — permitted-set collision, see Ordering) | 1 (host-bound) | **NO — not factory-bound** (same FORK C rationale); host CC session on the **MID tier** (Opus today) with `superpowers:writing-skills` + `ai-doc` loaded (operator directive 2026-08-06) | — |
 
 > **FORK C — why S-H and S-I are host-bound (rev 5, corrected against a live container probe).**
@@ -332,6 +333,53 @@ EXECUTED in the /arch session during the 2026-08-06 Actions outage — the stage
 `superpowers:writing-skills` + `ai-doc` loaded before the trims (operator directive).
 **Acceptance.** Stage kickoff §3 + §3.5 host-verify contract (description-bytes gate ≤5,000 B +
 committed trigger inventory). Stage kickoff: [`../arch-v2-context-pipeline-s-i/kickoff.md`](../arch-v2-context-pipeline-s-i/kickoff.md).
+
+### S-L — recalculation stage (added 2026-08-07)
+
+**Scope.** S-H shipped its measurements with three open forks, and all three move the same
+numbers, so they are applied **once**, in one place. Fork **#4** = Option A in its *per-seat*
+form: the 4 B/token convention is falsified and a flat **2.62 is explicitly not the
+replacement** — the measured spread is at least **1.835-3.32**, driven by content type and
+language, so each site either takes a per-content measurement, stops converting because a direct
+count exists, or states the band with its direction of error. Fork **#5** must be designed **from
+scratch**: the hypothesis that the `/context`-vs-billing gap was dispatch-prompt content is
+measured-false (the `/orchestrator` injection is 13,523 tok, 44% of the gap it was invoked to
+explain; seats with no dispatch prompt at all still show a 16,196-token gap), which also reopens
+the *direction* of §8.5's «the gap indicts the by-difference method» — if the residual is
+harness-injected session-start payload, `/context` under-reports instead. Fork **#6** (ADR-3's
+29-39% band against four denominators disagreeing in direction) closes once #5 is decided.
+
+**Prerequisite MET — no stage gate.** The #5-C measurement Option C called for was run on the
+host 2026-08-07 and is committed at
+[`docs/meta-factory/research-patches/2026-08-07-s-l-5c-first-turn-vs-context.md`](../../../docs/meta-factory/research-patches/2026-08-07-s-l-5c-first-turn-vs-context.md);
+the stage reads it as §0 input rather than re-deriving it. **Tier 2 (host-bound), NO marker** —
+not `/arch`-produced, so the D1 plan-complete exception does not apply, and both the #5 naming
+rule and the #6 denominator are un-spent judgment. Host-bound for the FORK C reason: the
+acceptance contract runs `scripts/measure-turn-attribution.sh`, which reads
+`~/.claude/projects/**/*.jsonl`. **Ordering:** should merge **before S-D′ dispatches** — recorded
+on the S-D′ row above as an open question, **not** as a gate (see the note below for why).
+**This is now on the critical path.** Both of S-D′'s gates closed on 2026-08-07 — S-H in #1239
+(00:06Z) and S-E in #1237 (09:39Z) — so S-D′ is dispatchable today, and a dispatcher reading its
+kickoff would find «the remaining gate … is the two-gate S-E + S-H dependency alone» satisfied.
+
+**The «before S-D′» constraint is recorded, NOT yet enforced as a gate — deliberately.** Promoting
+it would mean re-declaring the umbrella's named **two-gate form** (§3) as a three-gate form, and
+that phrase is load-bearing in eight places outside this row: `:237`, `:371` and §3 itself here,
+plus four statements in
+[`../arch-v2-context-pipeline-s-d-prime/kickoff.md`](../arch-v2-context-pipeline-s-d-prime/kickoff.md)
+(`:1`, `:106`, `:305`, `:355` — the last three saying the two-gate dependency is the *only*
+remaining gate), plus the spec's own «S-D′ after S-E + S-H» at `:410`. Editing one row to
+«three-gate» while those stand would put the table and the prose in contradiction, which this
+umbrella's Ordering statement explicitly forbids; sweeping all eight is a structural change to a
+named pattern, with an owner, and is out of this PR's scope
+([CLAUDE.md `PR strategy`](../../../CLAUDE.md)). Surfaced as `DECISION-NEEDED` instead.
+
+**Scope fence.** The merged S-H research patches are append-only and read-only for later sessions
+(Artifact Ownership Contract): every correction lands as a **new** patch plus spec/kickoff
+annotations, exactly as #1250/#1251 did, never as an edit to a merged patch.
+**Acceptance.** Per the stage kickoff §3, whose first review-time bullet is the numerator-subset-
+of-denominator check — the single class that consumed nine REVISE rounds on the S-H addendum.
+Stage kickoff: [`../arch-v2-context-pipeline-s-l/kickoff.md`](../arch-v2-context-pipeline-s-l/kickoff.md).
 
 **Ordering (single statement, table and prose agree — rev 4, amended by the round-4
 review).** S-A → {S-B, S-C} in parallel
