@@ -24,6 +24,19 @@ if [ ! -x "$ESBUILD" ]; then
   exit 2
 fi
 
+# Preflight: refuse to build or drift-check while the bundle's inlined dependencies are
+# ambiguous. esbuild resolves them by walking up from packages/core/install, so a nested
+# `npm ci --prefix packages/core` (the standard opening line of a kickoff `host-verify`
+# contract) can put a different version in front of the one CI resolves — and this gate then
+# reports `DRIFT` on a branch that never touched a synth file. That phantom has fired four
+# times (2026-07-02 ×2, 2026-07-21, 2026-08-06); the guard names the real disagreement instead.
+# Its ✓ line goes to stdout (suppressed — this script's stdout is the build's), its diagnosis
+# to stderr (passed through verbatim).
+PARITY="$ROOT/scripts/check-bundle-dep-parity.sh"
+if [ -f "$PARITY" ]; then
+  bash "$PARITY" "$ROOT" >/dev/null || exit 1
+fi
+
 # Load-bearing banner: defines a real `require` so ajv (CJS) bundled into ESM
 # output does not crash with "Dynamic require of X is not supported" (esbuild#1921).
 BANNER="import{createRequire as ___cr}from'node:module';const require=___cr(import.meta.url);"
