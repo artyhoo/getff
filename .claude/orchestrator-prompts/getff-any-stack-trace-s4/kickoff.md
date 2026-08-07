@@ -84,10 +84,11 @@ No «works» claim without quoted tool output (T3/T20).
 ## §4 Park-don't-guess contract (aif agent — non-negotiable)
 
 **aif agent — fork discipline:** On ANY genuine fork or ambiguity (two defensible implementations,
-an undecided design choice, a missing spec detail that changes behaviour) — **do NOT pick.** Park it
-as a question (set the task to `manualReviewRequired` / `blocked_external` with the fork stated as
-«Option A → consequence X / Option B → consequence Y») and **stop that task.** Proceed only on the
-unambiguous parts. Guessing a fork to "keep moving" is the failure this whole loop exists to prevent.
+an undecided design choice, a missing spec detail that changes behaviour) — **do NOT pick.**
+Park it as a question (set the task to `manualReviewRequired` / `blocked_external` with the fork
+stated as «Option A → consequence X / Option B → consequence Y») and **stop that task.** Proceed
+only on the unambiguous parts. Guessing a fork to "keep moving" is the failure this whole loop
+exists to prevent.
 
 **Stage-specific park triggers (do NOT guess these):**
 
