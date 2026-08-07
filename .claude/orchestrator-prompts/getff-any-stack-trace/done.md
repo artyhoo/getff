@@ -1,6 +1,6 @@
 # getff-any-stack-trace — DONE
 
-- Final PR: #<this PR number — fill at PR-creation>
+- Final PR: #1262
 - Closed: 2026-08-07
 - Summary: Tier-1 host-derivation threaded end-to-end across the python lane, agent surface + git-hook rung + research paths shipped, and the W6 acceptance cell + one-beat cold-run protocol landed — gate `getff-freshness-widening` (spec §10) per the routed-onward findings below.
 
