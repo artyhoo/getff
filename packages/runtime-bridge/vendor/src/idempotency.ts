@@ -1,9 +1,7 @@
 /**
  * Content-hash idempotency for dispatch deduplication.
  *
- * State path: per-project — $RUNTIME_BRIDGE_DEDUP_PATH (preferred) or
- *   $TMPDIR/runtime-bridge-dedup.jsonl (per-process fallback, NOT the
- *   framework's global /tmp/runtime-bridge-dedup.jsonl).
+ * State path: /tmp/runtime-bridge-dedup.jsonl
  * Each line: { hash, taskHandle, timestamp }
  * TTL: 24 hours (lines older than 24h are ignored on lookup).
  *
@@ -13,23 +11,13 @@
  * without any manual sweep. (Was append-only; changed for self-cleaning per the
  * "junk must not accumulate / not be cleaned each session" requirement 2026-06-01.)
  *
- * VENDOR-STUB (S5 A7): the framework copy at packages/runtime-bridge/src/idempotency.ts
- * hardcodes `/tmp/runtime-bridge-dedup.jsonl` (shared global log). This vendored copy
- * parameterizes the path via env var so two consumers don't share a dedup log
- * (spec A7 line 287-288: «dedup-log path becomes per-project»). The mechanism choice
- * (env var vs relative path vs config file) is PARKED — see vendor/README.md §P3/P5.
- * This stub is the minimum to make the dispatch smoke runnable without guessing
- * the parked mechanism; NOT a resolution of P3/P5.
- *
  * @cc-only-rationale: Used from both hook (CC) and CLI entrypoint (portable).
  */
 import { createHash } from 'node:crypto';
 import { existsSync, writeFileSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import type { TaskHandle } from './types.js';
 
-const DEDUP_PATH = process.env.RUNTIME_BRIDGE_DEDUP_PATH ?? join(tmpdir(), 'runtime-bridge-dedup.jsonl');
+const DEDUP_PATH = '/tmp/runtime-bridge-dedup.jsonl';
 const TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 interface DedupEntry {
