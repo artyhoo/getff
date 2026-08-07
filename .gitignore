@@ -59,6 +59,8 @@ packages/*/reports/
 # touching the framework's own tracked .claude/skills/* entries.
 /.ai-factory/*
 /.ai-factory.json
+# Operator worktrees (CC `worktree` + bare `git worktree add`) — root-anchored per the same dirty-worktree-guard rationale as /.ai-factory/* above (fresh clones incl. the aif container base otherwise see permanent `?? .claude/worktrees/` drift).
+/.claude/worktrees/
 # Exception: harness-model.json is the framework's OWN tracked SSOT — the neutral
 # harness-config model that scripts/render-harness-config.mjs derives CC + zcode
 # config from (#894). NOT installer output. The `/*` glob above keeps every OTHER

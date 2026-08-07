@@ -31,7 +31,7 @@ One line per rule — full text: read `.claude/rules/<name>.md` (index: `.claude
 | `ai-laziness-digest.md` | A | any R-phase, audit, sample-based investigation, or open-ended AI task. | always-on core |
 | `ai-laziness-traps.md` | A | any R-phase, audit, sample-based investigation, or open-ended AI task. | paths:(5), edit-time inject |
 | `attention-is-not-a-mechanism.md` | C | designing any load-bearing check (gate vs. bare human/AI attention). | always-on core |
-| `autonomous-loop-continuity.md` | B | unattended turn ending with work in flight. | hook |
+| `autonomous-loop-continuity.md` | B | unattended turn ending with work in flight. | hook, digest |
 | `build-first-reuse-default.md` | A | any capability commit / new-capability proposal. | always-on core |
 | `ci-tool-pinning.md` | A | editing `.github/workflows/**` or any repo shell script (`*.sh`, `setup`, `install.sh`). | paths:(6), edit-time inject |
 | `cold-seat-economy.md` | C | re-running a cold seat on already-judged work; resume-vs-fresh choice. | skill-embed(2) |

@@ -5,6 +5,7 @@ description: Autonomous-loop continuity — an unattended turn must not end at t
 # Autonomous-loop continuity — discipline rule
 
 <!-- channel: hook .claude/hooks/end-of-turn-reminder.sh#F10 -->
+<!-- channel: digest .claude/hooks/inject-session-bootstrap.sh#F10AUTONOMY -->
 
 > **Class:** B — the mechanism is the opt-in `AIF_AUTONOMOUS=1` pair: (a) the **Stop-hook arm** in [`end-of-turn-reminder.sh`](../hooks/end-of-turn-reminder.sh) (`#F10` anchor), which emits `decision:block` when dispatched work is in flight, so the turn does **not** end — a mechanism, not a reminder; paired self-tests at [`packages/core/hooks/end-of-turn-reminder.test.ts`](../../packages/core/hooks/end-of-turn-reminder.test.ts); and (b) the always-on autonomy block in [`inject-session-bootstrap.sh`](../hooks/inject-session-bootstrap.sh), which is honestly **prose delivered reliably**, not a gate. Class A is not reachable for the prose half: what counts as "work remaining" is judgment, and gating a judgment is `#gate-where-judgment-needed` ([rule-enforcement-channel-selection.md §5](rule-enforcement-channel-selection.md)). §4 states the promotion path for the half that *is* mechanisable.
 > **Fires:** unattended turn ending with work in flight.
