@@ -57,8 +57,19 @@ REPO_ROOT="${REPO_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 MULT_CACHE_WRITE=1.25
 MULT_CACHE_READ=0.1
 MULT_OUTPUT=5
-# Bytes-per-token convention, inherited from the seed (§W1): 4 B ~= 1 token, est.
-BYTES_PER_TOKEN=4
+# Bytes-per-token BAND, not a constant (S-L, 2026-08-07). The seed's flat "4 B ~= 1 token" (§W1)
+# is falsified twice over: S-H measured 2.37-3.32 B/tok across seven resident files, and S-L
+# measured 1.835 (dense ASCII pipe-table) to 3.416 (Cyrillic-rich listing) — a content-type-driven
+# spread no single number represents. Substituting one measured aggregate (e.g. 2.62) for the 4
+# would reproduce the same defect at a new value, so this script reports a RANGE and every derived
+# figure states its direction of error.
+#
+# Unit: BYTES. This script's inputs are `wc -c` byte counts, so the byte band applies. A
+# transcript/JSON channel counts codepoints and must use the codepoint band (1.835-3.128) instead
+# — the two are NOT interchangeable for non-ASCII text (measured: 1.135 bytes/codepoint on the
+# skill listing). See docs/meta-factory/research-patches/2026-08-07-s-l-recalculation.md §1.
+BYTES_PER_TOKEN_LO=1.835   # dense ASCII table — the FEWEST bytes per token, so the MOST tokens
+BYTES_PER_TOKEN_HI=3.416   # Cyrillic-rich listing — the MOST bytes per token, so the FEWEST tokens
 
 for dep in jq awk find xargs grep; do
   command -v "$dep" >/dev/null 2>&1 || { echo "FATAL: missing dependency: $dep" >&2; exit 2; }
@@ -142,7 +153,13 @@ emit_stream() { # $1 NUL-list  $2 population label
             # no surrounding quote to strip — deliberate: a literal apostrophe here would
             # close the single-quoted shell string that wraps this jq program.
             n:(((.attachment.command // "") | [scan("[A-Za-z0-9._-]+[.](?:sh|cmd|mjs|js|py)")] | last) // "unknown"),
-            len:(((.attachment.stdout // "") | length)) }
+            # utf8bytelength, NOT length: in jq, `length` on a string counts CODEPOINTS, and
+            # this field is reported downstream as "stdout-bytes" / "injected-bytes" and
+            # converted through the BYTE band (see the unit rule at the top of this file).
+            # Using `length` here under-counted non-ASCII hook output by ~13.5% and made the
+            # section-9 table cross-unit-incomparable with the live `wc -c` probe below.
+            # NOTE: no apostrophes in this comment — it lives inside a single-quoted jq program.
+            len:(((.attachment.stdout // "") | utf8bytelength)) }
         else empty end )
   ' < "$1" 2>/dev/null || true
 }
@@ -436,52 +453,60 @@ probe_hook() { # $1 hook path, $2 event name -> bytes emitted (0 if unrunnable)
 }
 BOOT_B="$(probe_hook "$BOOT_HOOK" UserPromptSubmit)"
 SUBA_B="$(probe_hook "$SUBA_HOOK" SubagentStart)"
+# est-token BAND from a byte count: dividing by the LOW B/tok gives the HIGH token estimate.
+tok_band() { awk -v b="$1" -v lo="$BYTES_PER_TOKEN_LO" -v hi="$BYTES_PER_TOKEN_HI" \
+  'BEGIN{ printf "%d-%d", b/hi, b/lo }'; }
 echo "per-invocation size, MEASURED LIVE this run:"
-echo "  inject-session-bootstrap.sh (UserPromptSubmit): ${BOOT_B} B  (~$((BOOT_B / BYTES_PER_TOKEN)) est-tokens @ ${BYTES_PER_TOKEN} B/t)"
-echo "  inject-subagent-digest.sh   (SubagentStart):    ${SUBA_B} B  (~$((SUBA_B / BYTES_PER_TOKEN)) est-tokens @ ${BYTES_PER_TOKEN} B/t)"
+echo "  inject-session-bootstrap.sh (UserPromptSubmit): ${BOOT_B} B  (~$(tok_band "$BOOT_B") est-tokens @ ${BYTES_PER_TOKEN_LO}-${BYTES_PER_TOKEN_HI} B/t)"
+echo "  inject-subagent-digest.sh   (SubagentStart):    ${SUBA_B} B  (~$(tok_band "$SUBA_B") est-tokens @ ${BYTES_PER_TOKEN_LO}-${BYTES_PER_TOKEN_HI} B/t)"
+echo "  NOTE: est-tokens is a BAND, not a point. Both hook payloads are ASCII-dominant, so the"
+echo "        TRUE value sits near the LOW end of the band (high B/tok = few tokens applies to"
+echo "        Cyrillic-rich text). Direction of error: a point estimate at 4 B/t UNDERSTATES."
 echo "  session-cache guard present in either hook: $( { grep -q 'CACHE' "$BOOT_HOOK" "$SUBA_HOOK" 2>/dev/null && echo yes; } || echo no) (no cache => every firing is a fresh injection)"
 
 echo
 echo "observed firings + injected volume, MEASURED from hook-execution records:"
-awk -F'\t' -v ns="$N_SESSION" -v nb="$N_SUBAGENT" -v bpt="$BYTES_PER_TOKEN" '
+awk -F'\t' -v ns="$N_SESSION" -v nb="$N_SUBAGENT" -v lo="$BYTES_PER_TOKEN_LO" -v hi="$BYTES_PER_TOKEN_HI" '
   $1=="H" && ($15 ~ /inject-session-bootstrap/ || $15 ~ /inject-subagent-digest/) {
     k=$2"\t"$15; c[k]++; b[k]+=$16 }
   END {
-    printf "  %-10s %-32s %8s %14s %9s %14s %12s\n","population","hook","firings","stdout-bytes","mean-B","est-tokens","per-transcript"
+    printf "  %-10s %-32s %8s %14s %9s %18s %12s\n","population","hook","firings","stdout-bytes","mean-B","est-tokens(band)","per-transcript"
     for (k in c) { split(k,a,"\t"); t=(a[1]=="session"?ns:nb)
-      printf "  %-10s %-32s %8d %14d %9d %14d %12.2f\n", a[1], a[2], c[k], b[k], b[k]/c[k], b[k]/bpt, (t?c[k]/t:0) }
+      printf "  %-10s %-32s %8d %14d %9d %18s %12.2f\n", a[1], a[2], c[k], b[k], b[k]/c[k], sprintf("%d-%d", b[k]/hi, b[k]/lo), (t?c[k]/t:0) }
   }' "$TMPD/stream.tsv" | { read -r h; echo "$h"; sort -k4 -rn; }
 
 echo
 echo "residency-weighted cost (an injection at prompt p is re-billed on every LATER turn at the cache-read rate):"
-awk -F'\t' -v mr="$MULT_CACHE_READ" -v bpt="$BYTES_PER_TOKEN" '
+awk -F'\t' -v mr="$MULT_CACHE_READ" -v lo="$BYTES_PER_TOKEN_LO" -v hi="$BYTES_PER_TOKEN_HI" '
   $1=="A" { seenA[$3]++; totA[$3]=seenA[$3] }
   $1=="H" && ($15 ~ /inject-session-bootstrap/ || $15 ~ /inject-subagent-digest/) {
     idx++; pos[idx]=seenA[$3]+0; file[idx]=$3; by[idx]=$16+0; pp[idx]=$2 }
   END {
     for (i=1;i<=idx;i++) {
       N=totA[file[i]]+0; resid=N-pos[i]; if (resid<0) resid=0
-      tok=by[i]/bpt
-      oneshot[pp[i]] += tok
-      weighted[pp[i]] += tok*(1+resid*mr)
+      tlo=by[i]/hi; thi=by[i]/lo          # tlo = fewest tokens, thi = most
+      oneshotL[pp[i]] += tlo; oneshotH[pp[i]] += thi
+      weightedL[pp[i]] += tlo*(1+resid*mr); weightedH[pp[i]] += thi*(1+resid*mr)
       rs[pp[i]]+=resid; n[pp[i]]++
     }
-    printf "  %-10s %14s %18s %14s %10s\n","population","one-shot-tok","residency-weighted","mean-residual","amplif."
+    # amplif. is a RATIO of two figures sharing the conversion, so it is band-invariant.
+    printf "  %-10s %18s %22s %14s %10s\n","population","one-shot-tok(band)","residency-weighted(band)","mean-residual","amplif."
     for (p in n)
-      printf "  %-10s %14d %18d %14.1f %9.1fx\n", p, oneshot[p], weighted[p], rs[p]/n[p], (oneshot[p]?weighted[p]/oneshot[p]:0)
+      printf "  %-10s %18s %22s %14.1f %9.1fx\n", p, sprintf("%d-%d",oneshotL[p],oneshotH[p]), \
+        sprintf("%d-%d",weightedL[p],weightedH[p]), rs[p]/n[p], (oneshotL[p]?weightedL[p]/oneshotL[p]:0)
   }' "$TMPD/stream.tsv" | { read -r h; echo "$h"; sort -k3 -rn; }
 
 echo
 echo "per-seat-class (dominant model of the transcript the injection fired in):"
 awk -F'\t' '$1=="A" { k=$3"\t"$5; c[k]++ } END { for (k in c) print c[k]"\t"k }' "$TMPD/stream.tsv" \
   | sort -k2,2 -k1,1rn | awk -F'\t' '!seen[$2]++ { print $2"\t"$3 }' > "$TMPD/filemodel.tsv"
-awk -F'\t' -v bpt="$BYTES_PER_TOKEN" '
+awk -F'\t' -v lo="$BYTES_PER_TOKEN_LO" -v hi="$BYTES_PER_TOKEN_HI" '
   NR==FNR { model[$1]=$2; next }
   $1=="H" && ($15 ~ /inject-session-bootstrap/ || $15 ~ /inject-subagent-digest/) {
     m=(model[$3]!=""?model[$3]:"unknown"); fires[m]++; bytes[m]+=$16 }
   END {
-    printf "  %-26s %10s %16s %14s\n","model (seat class)","firings","injected-bytes","est-tokens"
-    for (m in fires) printf "  %-26s %10d %16d %14d\n", m, fires[m], bytes[m], bytes[m]/bpt
+    printf "  %-26s %10s %16s %18s\n","model (seat class)","firings","injected-bytes","est-tokens(band)"
+    for (m in fires) printf "  %-26s %10d %16d %18s\n", m, fires[m], bytes[m], sprintf("%d-%d", bytes[m]/hi, bytes[m]/lo)
   }' "$TMPD/filemodel.tsv" "$TMPD/stream.tsv" | { read -r h; echo "$h"; sort -k2 -rn; }
 
 echo

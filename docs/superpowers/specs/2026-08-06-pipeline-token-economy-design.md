@@ -138,6 +138,25 @@ intent without inventing a resolver S-D declined to build.
 **Stage: S-D′** (P13). The SSOT #234 row gets a trigger-fired annotation at S-D′ dispatch, per
 its own protocol.
 
+> **Annotation 2026-08-07 (S-L recalculation — binding on S-D′'s ordering).** The 4 B/token
+> conversion behind every est-token figure this section's subtraction maps would be ranked by is
+> falsified, and its replacement is a **band, not a number**:
+> **1.835-3.416 B/tok** (bytes) / **1.835-3.128 cp/tok** (codepoints) — content-type-driven, so no
+> single constant represents it. Two consequences S-D′ must carry:
+> **(a) A re-ranking is not a rescale.** Dividing by 4 understates every figure, but by
+> 1.17-2.18× depending on content class — a 1.86× spread *between* classes, which re-orders the
+> list. S-D′ must re-derive its ordering, not multiply the P14 list through by a correction factor
+> (a uniform factor preserves order by construction and would hide exactly this effect).
+> **(b) `/context` cannot be the ordering instrument on its own.** It under-reports: ≥15,258
+> codepoints of every-seat harness-injected payload — both hook injects, `deferred_tools_delta`,
+> `mcp_instructions_delta`, the built-in agent descriptions — are billed and appear in **no**
+> `/context` category, so a `/context`-ordered list ranks those levers at zero. Conversely
+> `/context`'s `Skills` category **is** the `skill_listing` attachment (n=69 both channels), which
+> makes it the largest single priced harness block and the top lever under either channel.
+> Every figure must now state its **unit** as well as its channel; cross-unit ratios are void.
+> Full derivation + two open forks (#5 naming, #6 denominator):
+> [`docs/meta-factory/research-patches/2026-08-07-s-l-recalculation.md`](../../meta-factory/research-patches/2026-08-07-s-l-recalculation.md).
+
 ## §1.6 Re-planning fork resolutions (rev 4, 2026-08-06 — measured on the host at staging `c8a2bfcec6`)
 
 The /pipeline Phase -1 cold reviews (S-E STOP, S-G REVISE, S-D′ REVISE) surfaced four
@@ -384,7 +403,7 @@ this raises P1's priority and enters the S-E kickoff as fresh evidence.
 | P10 | CC-plugin adapter + `security-guidance` mining | **separate /arch** | none (positioning) | — |
 | P11 | Probe: do `Explore`/`Plan` subagents load `.claude/rules/` at all? One measured session each, host-side; outcome = evidence beside the per-role work (S-D′ consumes it). **Re-routed to S-H (rev 4, §1.6 FORK C — host-only, cannot run behind the marker).** | **S-H** | READ [W] scoping | cheap |
 | P12 | Operator-axis ADOPT: `engineering:architecture` ADR template as /arch §1 spec-format slot | **S-G** | none (quality) | cheap text edit |
-| P13 | **S-D′ — per-seat subtraction maps** (§1.5): review-agent definitions with replacement system prompts; senior-seat rule re-scoping map; consumes P11 (now S-H); aif seats deferred per §0.5 priority ordering; runs under ADR-8's inherited experiment protocol with the rev-4 recorded deviation (dispatch-time parity split — §1.5); SSOT #234 trigger-fired annotation. **Instrument (rev 4 — the earlier «ordered by the S-E attribution table» named a table nobody produces):** repo-side drops are ordered by the **fixed `measure-always-on.sh` per-file output** (S-E P3b); harness-side by the **P14 price list** (S-H) **— annotation 2026-08-07 (operator verdict, PR #1255 `DECISION-NEEDED` 1): superseded for ordering by S-L's re-priced ranking (the 4 B/token conversion behind the S-H list is falsified); S-L merged is a consumed-deliverable gate on S-D′ dispatch**; a block neither instrument prices is `UNPRICED` and its ordering parks. | **S-D′** (reopened, Tier-2) | READ + WRITE [W] on expensive seats | sized by its own ADR-8 baseline capture |
+| P13 | **S-D′ — per-seat subtraction maps** (§1.5): review-agent definitions with replacement system prompts; senior-seat rule re-scoping map; consumes P11 (now S-H); aif seats deferred per §0.5 priority ordering; runs under ADR-8's inherited experiment protocol with the rev-4 recorded deviation (dispatch-time parity split — §1.5); SSOT #234 trigger-fired annotation. **Instrument (rev 4 — the earlier «ordered by the S-E attribution table» named a table nobody produces):** repo-side drops are ordered by the **fixed `measure-always-on.sh` per-file output** (S-E P3b); harness-side by the **P14 price list** (S-H) **— annotation 2026-08-07 (operator verdict, PR #1255 `DECISION-NEEDED` 1): superseded for ordering by S-L's re-priced ranking (the 4 B/token conversion behind the S-H list is falsified); S-L merged is a consumed-deliverable gate on S-D′ dispatch**; a block neither instrument prices is `UNPRICED` and its ordering parks. **S-L delivered 2026-08-07 (`…-s-l-recalculation.md`): the replacement is a BAND (1.835-3.416 B/tok · 1.835-3.128 cp/tok), not a constant — so this row's ordering must be RE-DERIVED, not rescaled (the mis-pricing differs 1.86× between content classes and therefore re-orders). `/context` alone is not a sufficient instrument: it omits ≥15,258 cp of billed every-seat harness payload, which its categories rank at zero. Its `Skills` category IS the `skill_listing` attachment (n=69), the largest single priced harness block. Two forks stay open for the operator — #5 (which channel keeps «harness remainder») and #6 (ADR-3's denominator) — neither blocks the re-derivation, both change what a figure is CALLED.** | **S-D′** (reopened, Tier-2) | READ + WRITE [W] on expensive seats | sized by its own ADR-8 baseline capture |
 | P14 | **Harness-remainder pricing + disable set** (operator override): per-block price list of the non-repo resident load — MCP tool schemas + server instructions, plugin SessionStart injects (e.g. the `using-superpowers` full-text inject each session start), skills/agents listings, memory index — via the P3c-verified channel + `/context`; deliverable = settings-recommendations doc with per-item token cost, operator applies. Preserve what already works (ToolSearch deferral keeps deferred schemas non-resident). **Re-routed to S-H (rev 4, §1.6 FORK C — `/context` is a CC slash command, host-only).** | **S-H** | READ + WRITE [W] — the ~60-70% of session start outside repo control | remainder ≈ 100k − (29-39k repo-owned), S1-measured bounds |
 
 **S-G — new small stage** (added rev 2; routed into the umbrella by P4(c)): Tier-1, one PR,
