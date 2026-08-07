@@ -93,6 +93,53 @@ consumer), `check-hook-marker`, `check-kickoff-traps`, `check-worker-dispatch-ch
 `hooks.json` registry + `_zcode-emit` helper. **No plugin twin today for**
 `check-doc-authority-header` (zcode-parity-doctrine §2 row 3, `plugin-gap`).
 
+### §1.8 Vendored runtime-bridge subset (S5 A7 — factory-only install surface)
+
+Added by stage [`feature/beta-delivery-ux-eac3a0`](../../../setup.d/55-runtime-bridge-vendor.sh)
+per spec [`2026-07-23-beta-program-design.md` §4 A7](../../../docs/superpowers/specs/2026-07-23-beta-program-design.md)
+(lines 285-289). Install surface: `setup.d/55-runtime-bridge-vendor.sh` (sourced between
+`50-hooks` and `60-ci`). Source-of-truth for the vendor COPY:
+[`packages/runtime-bridge/vendor/`](../../../packages/runtime-bridge/vendor/) — 13 transitively-
+closed `.ts` files (dispatch CLI closure) + `hooks/runtime-bridge-dispatch.sh` (PostToolUse
+dispatch hook, byte-identical to `.claude/hooks/runtime-bridge-dispatch.sh`) + `README.md` +
+minimal `package.json` (peer-dep on `tsx`, no version pin per
+[companion-install-principle.md §1](../../companion-install-principle.md)).
+
+**Profile gate:** `factory` OR legacy `WITH_AIF_SUITE` only. `env` / `core` profiles skip the
+layer (early `return 0` — verified by dry-run + real-install in
+[commit 2551ce154 / 176767216](https://github.com/artyhoo/getff/commit/2551ce154)). The vendor
+COPY is **not** an npm dependency (spec A7 binds COPY; npm packaging of the bridge stays
+deferred to U9 post-announce).
+
+**Consumer landing paths** (under `PROFILE=factory`):
+
+| Consumer path | Source |
+|---|---|
+| `.claude/vendor/runtime-bridge/` (13 `.ts` + `README.md` + `package.json`) | `packages/runtime-bridge/vendor/` (rm -rf + cp -r — idempotent wipe-and-recopy) |
+| `.claude/hooks/runtime-bridge-dispatch.sh` (PostToolUse dispatch hook) | `packages/runtime-bridge/vendor/hooks/runtime-bridge-dispatch.sh` (via `copy_safe` — idempotent with the runtime `setup-runtime-bridge.sh` flow, byte-identical source) |
+
+**Install-time vs runtime split (load-bearing):** layer 55 is **install-time file-copy only**;
+it does NOT register the PostToolUse hook in `.claude/settings.json` (that is a runtime
+decision the consumer makes when they bring up aif-handoff — without the settings.json
+registration the hook is a no-op even if the file is present). The interactive
+runtime setup (env-var probe, settings.json registration) is owned by
+[`packages/runtime-bridge/scripts/setup-runtime-bridge.sh`](../../../packages/runtime-bridge/scripts/setup-runtime-bridge.sh),
+which is framework-only (the consumer does NOT receive `packages/`); the consumer follows the
+`README.md` pointer instead. See the layer 55 header comment for the full coordination note.
+
+**Smoke-enabling stub (NOT a park resolution):** the vendored `idempotency.ts:32` reads
+`RUNTIME_BRIDGE_DEDUP_PATH` from env (per-project dedup-log path — spec A7), falling back to
+`join(tmpdir(), 'runtime-bridge-dedup.jsonl')`. `ManualBackend.ts` retains its hardcoded `/tmp`
+paths as an honest-gap (in-scope of parked fork P3 — manual-fallback path resolution; see
+[`beta-delivery-ux.md` §3.1 P3](../../beta-delivery-ux.md)).
+
+**Parked forks (recorded in the stage plan, not resolved here):** P1 import-coupling,
+P2 path-resolution mechanism, P3 dedup-log path mechanism, P4 update mechanism,
+P5 vendor subset boundary (resolved at dispatch.ts transitive-closure time — 13 files; see
+[`vendor/README.md`](../../../packages/runtime-bridge/vendor/README.md) transitive closure
+table). Spec A7 falsifier (U9): if first foreign tester blocked by vendoring → raise bridge
+packaging priority.
+
 ---
 
 ## §2 Per-profile payload inventory (the deliverable's spine)
