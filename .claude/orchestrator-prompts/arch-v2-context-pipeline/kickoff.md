@@ -94,7 +94,8 @@ forward+backward self-check and a `Prior-art:` trailer (or the ≥20-char escape
 | S-B | dispatch-input contract v2 + calibration ledger + shadow-A/B protocol | S-A | 2 | NO | ADR-5, ADR-6 |
 | S-C | L2 population table + 5-option BFR verdict (null option live) | S-A | 2 | NO | ADR-2, ADR-1 |
 | S-D | L2 build (ADDITIVE scope) — **CLOSED-NULL 2026-08-06** per SSOT #234; NO stage `done.md` (see charter) | S-C | — | — | ADR-2 |
-| S-D′ | per-seat SUBTRACTION maps — reopened scope, operator override 2026-08-06 (#234 trigger (a) fired); inherits ADR-8's experiment protocol (rev-4 deviation recorded, spec §1.5) | S-E + S-H **merged** (consumes P11 probe + P14 prices — two-gate form, §3) | 2 | **NO** (map authoring = un-spent judgment) | ADR-8, ADR-1 |
+| S-D′ | per-seat SUBTRACTION maps — reopened scope, operator override 2026-08-06 (#234 trigger (a) fired). **Rev 6 (2026-08-07): ADR-8's A/B arm DESCOPED per the operator's §5 = Option A → S-K; this stage ships maps + review-seat agent definitions + the #234 annotation, and a PR with no evaluation arm is conformant** | S-E + S-H **merged** (consumes P11 probe + P14 prices — two-gate form, §3) | 2 | **NO** (map authoring = un-spent judgment) | ADR-1 |
+| S-K | **STUB, not dispatchable** — ADR-8's A/B experiment re-homed off S-D′ (rev 6, operator verdict 2026-08-07). Entry criteria + the rev-6 task-id finding are stubbed at [`../arch-v2-context-pipeline-s-d-prime/kickoff.md`](../arch-v2-context-pipeline-s-d-prime/kickoff.md) §6; scoping it is its own act | S-D′ **merged** (it evaluates what S-D′ ships) | — | — | ADR-8 |
 | S-E | L1 budget gate + config-assertion asserts + `InstructionsLoaded` verification (spec P2/P3 — container-safe set after the rev-4 split; P3d/P11/P14 → S-H) | S-G **merged** (resident baseline) + token-audit S1 **merged** | 2 | YES per /arch §3 D1 exception (spec-produced, plan-complete; re-verify precondition at dispatch) | ADR-3 |
 | S-F | small-fixes queue (handoff decision 13), one maintenance PR; item 4 **CONSUMED** by S-E's P2 (see charter) | token-audit S2 timing | 1 | YES (`Z.AI GLM-5.2 SDK`) | — |
 | S-G | economy small-fixes 2 (spec P5-P8 + P12: `CLAUDE.md` pointer-collapse trim + traps digest + renderer/probe channel-truth fixes, rule-embed handoffs, inlined-dispatch template default, ADR-template wiring) | decision-layer spec merged (met) — **runs FIRST of the remaining stages** | 1 | YES (`Z.AI GLM-5.2 SDK`) | — |
@@ -211,6 +212,14 @@ the umbrella's `done.md` is written only when the LAST stage merges. ADR-8 is NO
 its experiment protocol (baseline before merge, 20-dispatch window, deterministic A/B,
 owner-closed verdict PR) is **inherited by S-D′**, now measuring subtractive shaping. Full
 rationale: decision-layer spec §1.5 + P4.
+**Re-homed 2026-08-07 (operator verdict, S-D′ §5 = Option A) — ADR-8's SECOND recorded
+deviation.** The protocol is still not orphaned, but its host is no longer S-D′: neither the A/B's
+selection mechanism nor its second falsifier metric had a home inside S-D′'s permitted set, and the
+rev-6 finding that aif's task id **postdates** the dispatch prompt
+(`packages/runtime-bridge/src/AifHandoffBackend.ts:231-249`) makes a parity-selected arm
+unimplementable there without a two-phase dispatch redesign. The arm moves to the **S-K stub**
+above; S-D′ keeps the maps. Entry criteria, unchanged from the four Phase -1 findings, are stubbed
+at [`../arch-v2-context-pipeline-s-d-prime/kickoff.md`](../arch-v2-context-pipeline-s-d-prime/kickoff.md) §6.
 
 ### S-D′ — per-seat subtraction maps (reopened scope, operator override 2026-08-06)
 
