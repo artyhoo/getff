@@ -114,6 +114,9 @@ done
 # so the env/factory check covers it without an explicit OR clause.
 if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
   echo "  ▶ Contour surface (profile=env+ OR --with-aif-suite): arch"
+  # shellcheck disable=SC2043 -- single-item today by design (the env+ contour ships only
+  # /arch); the loop form is kept for symmetry with the factory arm below so the next
+  # contour skill is a one-word addition.
   for _skill in arch; do
     copy_skill_with_transform "$_skill"
   done
