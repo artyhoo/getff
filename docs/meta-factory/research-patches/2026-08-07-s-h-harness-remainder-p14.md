@@ -260,20 +260,32 @@ project exists to prevent, so the injected figure stays S-I's to publish.
 > the «~2k budget» this recommendation cites — that figure does not survive.
 > **But the listing IS reduced, and an earlier draft of this note got that backwards by comparing
 > across conversion constants (cold audit, round 4).** The comparison must be made in one
-> constant: the source-side 41,057 B is **15,678 tok at the measured 2.6187 B/t**, not the ~10.3k
-> its 4 B/t estimate suggests, so the injected 8.9k is **≈57% of source**, not «essentially all of
-> it». Independently, the snapshot lists **74 entries against a 112-file population** — **≈66%**.
-> Two channels, same direction: reduced, but nowhere near to 2k.
+> constant: at the measured B/t the source-side 41,057 B is ~15.7k tok, not the ~10.3k its 4 B/t
+> estimate suggests, so the injected 8.9k is a **minority of source** — direction only.
+> **The precise share is deliberately not stated (round 5):** it swings **56% → 87%** across the
+> conversion constants in play (2.6012 / 2.6187 / 3.32 / 4.0), and the `SKILL.md` corpus is
+> itself multi-byte-heavy (six skills carry Russian descriptions), so no single constant is
+> defensible for it without measuring that corpus.
+> **A second «independent channel» (74 listed entries ÷ 112 files) is WITHDRAWN entirely
+> (round 5), not corrected:** the numerator is provably not a subset of the denominator — the two
+> largest listed entries, `dataviz` and `claude-api`, are built-in skills with no `SKILL.md` file
+> anywhere, as are ≥14 others — while the denominator is an unfiltered `find` carrying
+> marketplace/cache duplicates, vendored `node_modules` files, worktree copies and uninstalled
+> catalogue rows. A ratio whose numerator and denominator are drawn from different sets measures
+> nothing, and publishing it would be the estimate-dressed-as-measurement T-SH-A forbids.
 > The routing decision stands unchanged (S-I owns the injected figure and this stage does not
 > publish it); what S-I needs from here is that its **~2k budget premise is wrong by ~4×**, not
 > that truncation is absent.
 >
 > **Also unverified in this recommendation (T3):** «129 `SKILL.md` files» carries no reproducing
-> command, and a recount over the plausible host+repo roots gives **112** — reproduced as
-> `find ~/.claude -name SKILL.md | wc -l` → 86, plus 26 in-repo (the T3 obligation applies to the
-> correction as much as to the figure corrected). Treat the 129 as
-> **UNVERIFIED population** until the enumerating command is published beside it; the byte deltas
-> (45,329 → 41,057 B) are unaffected, since they were measured on whatever set was walked.
+> command. A raw `find` over the host and repo roots returns 112 (86 + 26) — but **that 112 is
+> equally unusable as a population** and is not offered as a correction (round 5): unfiltered, it
+> carries names duplicated between `plugins/marketplaces` and `plugins/cache`, vendored
+> `node_modules` files, git-worktree copies, `packages/core` fixtures and catalogue rows for
+> plugins that are not installed. **Publishing the command is necessary but not sufficient — the
+> command must already exclude what the claim is not about.** Both 129 and 112 are therefore
+> `UNVERIFIED population`; the byte deltas (45,329 → 41,057 B) are unaffected, since they were
+> measured on whatever set was walked, and no share is derived from either count.
 
 **R5 — Do not spend further effort on repo-side residency without a harness-side plan.** Row 1
 is now ~21% of a full-tool subagent seat post-S-G, and 12,167 est-tokens against a ~26,229-tok
@@ -403,18 +415,26 @@ Enumerated surfaces where that class occurs, verdicted per surface:
   post-S-G, inside ADR-3's stated band. No correction owed.
   **RE-VERDICTED 2026-08-07 (§8) — the «inside the band» clause was wrong when written:** the
   band is 29-39% and both measurements (27.8% / ~21%) fall *below* it, so «no correction owed»
-  was unsupported on its own numbers. Restating with the **directly measured** figure for that
-  exact population — the five repo files `/context` itemises, **26,700 tok** (addendum §8.2), not
-  a ratio-derived one: **26.7% against ADR-3's own ~100k session-start denominator, which is
-  BELOW the 29-39% band.** **Verdict now: GAP-FOUND against ADR-3 — measured low.**
-  Not edited — ADR-3 is spec, outside §2.
-  **Two arithmetic traps this line fell into twice before, recorded so it is not re-derived
-  wrongly a third time:** (i) the same block is **42.8%** of the 62,340-tok *subagent* seat, and
-  that number is **not band-comparable** — ADR-3's band is denominated on ~100k, so only the
-  ~100k reading may be set against it; (ii) do **not** re-derive this by applying §8.1's
-  seven-file aggregate ratio (2.6187) to row 1 — that aggregate is inflated by the one host-side
-  Russian-text outlier at 3.32 B/t which is *not* in this population, whose own five-file ratio
-  is **2.6012**. The measured 26,700 supersedes any derivation.
+  was unsupported on its own numbers.
+  **VERDICT WITHDRAWN, NOT REPLACED (cold audit, round 5).** Three successive rounds each replaced
+  this verdict's figure and each replacement was itself defective — cross-seat, then
+  cross-denominator, then ratio-transferred-across-populations. The reason is now clear and is
+  the finding: **the repo-owned block has one measured size and four defensible denominators,
+  and they disagree in direction.** Measured block = **26,700 tok** (the five repo files
+  `/context` itemises directly — addendum §8.2; do **not** re-derive it by applying §8.1's
+  seven-file ratio 2.6187, which is inflated by a host-side Russian-text outlier absent from this
+  population whose own ratio is 2.6012):
+
+  | denominator | share | vs ADR-3's 29-39% band |
+  |---|---:|---|
+  | this seat's own first-turn total, 89,019 (§1) | **29.99%** | **inside** |
+  | 60-session median main seat, 100,529 (§1) | **26.6%** | below |
+  | resident head per `/context`, 58,200 (addendum §8.2) | **45.9%** | above |
+  | full-tool subagent seat, 62,340 (§2's own denominator) | **42.8%** | above |
+
+  **No verdict is issued.** Picking one denominator here would be selecting the answer, which is
+  what the previous three attempts did without noticing. Raised as **DECISION-NEEDED #6** in the
+  addendum. Not edited either way — ADR-3 is spec, outside §2.
 - `docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md` P14 row («remainder ≈
   100k − (29-39k repo-owned)») — **SWEPT-CLEAN**: measured 68.4% at the subagent seat, 77.8% at
   the main seat; the row's arithmetic holds.
@@ -437,10 +457,14 @@ Enumerated surfaces where that class occurs, verdicted per surface:
   **RE-ADJUDICATED 2026-08-07 (§4 R4):** the routing is unchanged, but this commit now moves that
   kickoff's *premise*, not just its number — its «~2k listing budget» is contradicted by the
   injected block measuring 8.9k (≈4× the budget), while the listing is nonetheless reduced to
-  ≈57% of source by tokens and ≈66% by population. **Verdict now: GAP-FOUND against the S-I
+  a minority of source (direction only — the precise share is withdrawn, see R4). **Verdict now: GAP-FOUND against the S-I
   kickoff's budget premise, routed not edited** (that kickoff is outside §2).
 - `scripts/measure-always-on.sh` — **NOT SWEPT, out of permitted set (S-E owns)**; it measures
   the repo-owned half only, which is exactly the 21-28% this patch bounds from the other side.
+  **RE-ADJUDICATED 2026-08-07 (round 5):** «21-28%» is a pre-paste 4 B/t pair, superseded by the
+  directly measured 26,700 — whose share is 29.99% / 26.6% / 45.9% / 42.8% depending on the
+  denominator (see the ADR-3 surface above, DECISION-NEEDED #6). The bounding claim stands only
+  once #6 fixes a denominator. Still **NOT SWEPT** — S-E owns that script.
 
 **Self-application (T15).** This patch prices resident context. Its own residency: it carries no
 `paths:` frontmatter and lives under `docs/meta-factory/research-patches/`, which is in **no**

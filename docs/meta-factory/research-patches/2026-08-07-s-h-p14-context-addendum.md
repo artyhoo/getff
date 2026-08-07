@@ -4,7 +4,7 @@
 
 > **Authoritative for:** what the 2026-08-07 operator-supplied `/context` snapshot resolved for
 > the P14 price list, the falsification of the 4 B/token conversion, the resident/deferred
-> identity, and DECISION-NEEDED #4 and #5.
+> identity, and DECISION-NEEDED #4, #5 and #6.
 > **NOT authoritative for:** the price list itself and its recommendations — parent patch
 > [`2026-08-07-s-h-harness-remainder-p14.md`](2026-08-07-s-h-harness-remainder-p14.md);
 > per-turn attribution and hook firing rates — [`2026-08-07-s-h-turn-attribution-p3d-p11.md`](2026-08-07-s-h-turn-attribution-p3d-p11.md);
@@ -198,6 +198,34 @@ is not resident load at all. The main-seat 77.8% is the most exposed figure; the
 > **Not resolved here.** This addendum records the disagreement rather than picking a winner —
 > picking one silently would be the failure §3a exists to prevent.
 
+### §8.6 DECISION-NEEDED #6 — which denominator the repo-owned share is measured against
+
+The repo-owned always-on block has **one measured size and four defensible denominators**, and
+they disagree in direction against ADR-3's 29-39% band. Three successive rounds each picked one
+and each pick was defective; the fourth response is to stop picking.
+
+| denominator | source | share of 26,700 | vs the 29-39% band |
+|---|---|---:|---|
+| this seat's first-turn total, 89,019 | parent §1, transcript-billed | **29.99%** | **inside** |
+| 60-session median main seat, 100,529 | parent §1, same channel | **26.6%** | below |
+| resident head, 58,200 | §8.2, `/context` | **45.9%** | above |
+| full-tool subagent seat, 62,340 | parent §2's own denominator | **42.8%** | above |
+
+They are not interchangeable: the first two include a dispatch prompt the third excludes (§8.5),
+and the fourth is a different seat class. ADR-3 states its band against «a ~100k observed
+session-start total», which most closely matches rows 1-2 — but those two straddle the band edge,
+so even that reading does not settle it.
+
+> **DECISION-NEEDED #6.** **Option A** — denominate on the seat's own first-turn total. The share
+> is inside the band and ADR-3 needs no correction. **Option B** — denominate on the 60-session
+> median, matching ADR-3's «observed» wording most literally. The share is below the band and
+> ADR-3 is measured high. **Option C** — denominate on the `/context` resident head, which is the
+> only denominator that excludes dispatch-prompt content and is therefore the one a *residency*
+> claim should arguably use. The share is above the band and ADR-3 is measured low, in the
+> opposite direction from Option B. **Not resolved here** — and note that #6 cannot be settled
+> independently of #5, since Options A/B and C differ precisely by the ~30.8k gap #5 records.
+
+
 ---
 
 ## §1.7 self-reflexive note
@@ -224,14 +252,28 @@ surface:
 - **The parent patch** `2026-08-07-s-h-harness-remainder-p14.md` — **SWEPT**: every section whose
   evidentiary basis this paste moved now carries a marker (§0 supersession note, §0a ANSWERED,
   §2 headline warning + per-row seat annotations on 5c/5e, §4 R1 PERFORMED / R4 CHALLENGED /
-  R5 REVERSED, §6 revised partition, §7 T-SH-A revision **and all three backward-check verdicts
-  whose basis this paste moved — ADR-3, the spec P14 row, and the S-I kickoff — re-adjudicated**).
-  The §4 sweep initially reached only the recommendations a prior review had named: R4 was missed
-  and caught by round 3, then R2 was missed and caught by round 4. **Four rounds, four sweeps
-  driven by the last review's list** — recorded here because the failure is the method, not the
-  rows: a list-driven sweep re-fails on whatever the list omits, which is exactly
-  [`ai-laziness-traps.md` T21](../../../.claude/rules/ai-laziness-traps.md) in its
-  own-work form.
+  R5 REVERSED, §6 revised partition, §7 T-SH-A revision **and all four backward-check surfaces
+  whose basis this paste moved — ADR-3, the spec P14 row, the S-I kickoff and
+  `measure-always-on.sh` — re-adjudicated**).
+
+  **The sweep method failed, five rounds running, and this note is not exempt.** Each round's
+  fixes were driven by the previous review's *list*, so each round re-failed on whatever that
+  list omitted: R4 missed at round 2 and caught at round 3; R2 missed at round 3 and caught at
+  round 4; `measure-always-on.sh` missed at round 4 and caught at round 5. That is
+  [`ai-laziness-traps.md` T21](../../../.claude/rules/ai-laziness-traps.md) in its own-work form —
+  and an earlier draft of this paragraph *named* T21 while doing it, which a cold seat caught.
+  **Stated plainly rather than dressed up: this round's sweep was list-driven too.** Its hunks map
+  one-to-one onto round 5's findings. The counter T21 actually prescribes — a cold agent handed
+  only the change *class* — is what the five audit rounds have been doing; the author-side sweep
+  never became class-driven, and saying so is more useful to the next reader than a claim that it
+  did.
+
+  A second method finding, from the same five rounds: **three successive attempts to restate the
+  ADR-3 comparison each produced a defective replacement figure** (cross-seat, then
+  cross-denominator, then ratio-transferred-across-populations). The root cause was not
+  carelessness at any one site — it was that the comparison has one measured numerator and four
+  defensible denominators. The resolution was to **withdraw the verdict rather than repair it a
+  fourth time** (DECISION-NEEDED #6 below).
 - **The sibling patch** `2026-08-07-s-h-turn-attribution-p3d-p11.md` — **GAP-FOUND, not edited.**
   It uses the same 4 B/t constant at its §5, §7 and §8, so §8.1's falsification applies to it
   identically and its FORK-E est-token figures are low by the same ≈1.53×. Not corrected here:
