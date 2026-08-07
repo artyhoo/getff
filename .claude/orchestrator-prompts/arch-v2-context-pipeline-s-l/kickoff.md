@@ -158,15 +158,20 @@ kickoffs; `.claude/settings.json` / `settings.local.json` (operator-only); `.cla
 ## §3 Acceptance
 
 ```bash host-verify
-bash scripts/measure-turn-attribution.sh
-bash scripts/measure-turn-attribution.sh | grep -qE '^SESSION-TRANSCRIPTS: [1-9][0-9]*$'
-bash scripts/measure-turn-attribution.sh | grep -qE '^SUBAGENT-TRANSCRIPTS: [1-9][0-9]*$'
+bash scripts/measure-turn-attribution.sh > /tmp/s-l-mta.out
+grep -qE '^SESSION-TRANSCRIPTS: [1-9][0-9]*$' /tmp/s-l-mta.out
+grep -qE '^SUBAGENT-TRANSCRIPTS: [1-9][0-9]*$' /tmp/s-l-mta.out
 npx vitest run packages/core/principles/10-research-patch-annotation.test.ts
 ```
 
 The script contract is inherited from S-H deliberately: this stage edits the conversion the script
 carries, so «it still runs, on a non-empty corpus, in both populations» is exactly the regression
 the edit could cause. A run whose subagent count is 0 is a failed run, not a finding.
+(Phase -1 fix, 2026-08-07: the inherited `script | grep -q` form is unsatisfiable on the host —
+`grep -q` exits at first match, the still-writing script takes SIGPIPE, and the runner's
+`pipefail` turns that into exit 141 — so the contract runs the script ONCE into a file and greps
+the file. The S-H kickoff (`../arch-v2-context-pipeline-s-h/kickoff.md:110-113`) carries the same
+latent form; that stage is closed, so it is noted here, not edited.)
 
 Plus review-time:
 
