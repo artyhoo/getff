@@ -17,9 +17,10 @@
 > ([CLAUDE.md `PR strategy`](../../../CLAUDE.md)).
 
 **Base:** `origin/staging`. **Mode:** adjudication + doc/script edits, one PR onto staging,
-executed on the HOST. **Ordering constraint — binding:** this stage must **merge before S-D′
-dispatches**. S-D′ ranks harness-side levers by the P14 price list
-([spec `:363`, row P13](../../../docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md));
+executed on the HOST. **Ordering constraint — binding, and since 2026-08-07 a GATE on S-D′
+(operator verdict resolving PR #1255 `DECISION-NEEDED` 1, consumed-deliverable form per the
+umbrella §3):** this stage must **merge before S-D′ dispatches**. S-D′ ranks harness-side levers by the P14 price list
+([spec `:387`, row P13](../../../docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md));
 a falsified conversion falsifies the *ranking*, which is S-D′'s entire product.
 
 **The deadline is LIVE as of 2026-08-07 — this changed mid-authoring.** An earlier revision of
@@ -124,7 +125,7 @@ by-difference-derived numerator moves with the channel decision. With §1.2 deci
 
 ### 5. Spec annotation — the conversion's reach into P13
 
-Annotate [spec `:363` (P13)](../../../docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md)
+Annotate [spec `:387` (P13)](../../../docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md)
 and §1.5 (`:111-122`) with the recalculated conversion and what it does to the S-D′ ranking.
 **Scope fence:** the *second* ADR-8 deviation (PR #1251) is also unrecorded in the spec — that is
 a **different concern with a different owner** (operator-owned, per the handoff). Surface it as a
