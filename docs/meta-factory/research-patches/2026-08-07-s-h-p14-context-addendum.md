@@ -109,13 +109,18 @@ deferred, i.e. NOT resident = 42.4 + 15.7                          = 58.1k
 
 Two readings follow, and only the first is new:
 
-1. **Half the resident load is memory files** — 29.4k of 58.2k. **Of that, repo-owned is 26,700**
-   (29,464 − `~/.claude/CLAUDE.md` 964 − `MEMORY.md` 1,800, both host-side: §2 rows 2 and 3),
-   i.e. **45.9%** of the resident head, not 50.5% — the distinction matters because only the
-   repo-owned part is this project's to change. Within it, two documents carry a third of the
-   *entire* resident head: `<repo>/CLAUDE.md` (9.3k) and `.claude/rules/ai-laziness-traps.md`
-   (9.8k) = 19.1k. This is the «expensive end» §0.5 says to price first, and it is
-   **actionable by this project**, unlike the harness blocks.
+1. **Half the resident load is memory files** — 29.4k of 58.2k, of which **26,700 is repo-owned**
+   (29,464 − `~/.claude/CLAUDE.md` 964 − `MEMORY.md` 1,800, both host-side: §2 rows 2 and 3).
+   **This measurement is of the PRE-S-G resident set, and that limits what may be built on it**
+   (cold audit, round 7): the seat measured carries `ai-laziness-traps.md` (26,387 B), which
+   S-G has since replaced with `ai-laziness-digest.md` (6,703 B), cutting the set 69,453 →
+   48,671 B per the parent patch §3 item 4. The file that dominates this measurement is therefore
+   **already gone from the current always-on set**, so **no ranking, no «top lever» and no share
+   of the current head is derived from it here** — doing so would carry a superseded population
+   into S-D′'s ordering. What the snapshot establishes is narrower and still useful: on the seat
+   it measured, repo-owned memory files were the single largest resident block, which is the
+   *class* §0.5 says to price first. Re-measuring it on the post-S-G set is a follow-up, not an
+   addendum.
 2. **`ToolSearch` deferral withholds 58.1k — almost exactly what the entire resident head costs.**
    §3's «preserve what already works» now has its number. **Stated precisely, because the loose
    form is wrong:** making those schemas resident would **double the resident head** (58.2k →
@@ -143,12 +148,14 @@ injected form still S-I's to publish. Partition **14 / 11 / 2 / 1**, counted fro
 
 ### §8.4 What S-D′ can now do, and what it still cannot
 
-**Can:** rank the resident head by block, with the repo-owned memory files (**26,700 = 45.9%** —
-not the full 29.4k memory category, which includes 2,764 tok of host-side files this project does
-not own) as the
-top-ranked and *own-able* target — the ordering §0.5 asks for is available for the half that
-matters. **Cannot:** treat the absolute figures as final while DECISION-NEEDED #4 **and #5** are
-open, or split the MCP server-instruction block. **Should:** read §8.1 and §8.5 before ordering
+**Can:** see, for one measured seat, which *classes* the resident head divides into (§8.2's table)
+and that repo-owned memory files were its largest — plus the two identities in §8.1 and §8.2 that
+hold regardless of seat.
+**Cannot** — and this is the larger half: **rank the current always-on set from these numbers.**
+The measurement is of the **pre-S-G** resident set (§8.2 reading 1), so every share of it, and
+every «top lever» drawn from it, is withdrawn; nor may the absolute figures be treated as final
+while DECISION-NEEDED **#4, #5 and #6** are open; nor is the MCP server-instruction block split.
+**Should:** read §8.1, §8.5 and §8.6 before ordering
 anything — between them they move the repo-vs-harness balance by more than the width of the
 decision, and in the same direction.
 
@@ -260,32 +267,32 @@ surface:
   whose basis this paste moved — ADR-3, the spec P14 row, the S-I kickoff and
   `measure-always-on.sh` — re-adjudicated**).
 
-  **The sweep method failed, five rounds running, and this note is not exempt.** Each round's
+  **The sweep method failed in every round, and this note is not exempt.** Each round's
   fixes were driven by the previous review's *list*, so each round re-failed on whatever that
   list omitted: R4 missed at round 2 and caught at round 3; R2 missed at round 3 and caught at
   round 4; `measure-always-on.sh` missed at round 4 and caught at round 5. That is
   [`ai-laziness-traps.md` T21](../../../.claude/rules/ai-laziness-traps.md) in its own-work form —
   and an earlier draft of this paragraph *named* T21 while doing it, which a cold seat caught.
-  **Stated plainly rather than dressed up: this round's sweep was list-driven too.** Its hunks map
-  one-to-one onto round 5's findings. The counter T21 actually prescribes — a cold agent handed
-  only the change *class* — is what the five audit rounds have been doing; the author-side sweep
+  **Stated plainly rather than dressed up: this round's sweep was list-driven too.** Every round's hunks map one-to-one onto the previous review's findings. The counter T21 actually prescribes — a cold agent handed
+  only the change *class* — is what the cold audit rounds have been doing; the author-side sweep
   never became class-driven, and saying so is more useful to the next reader than a claim that it
   did.
 
-  A second method finding, from the same five rounds: **three successive attempts to restate the
+  A second method finding, from the same rounds: **three successive attempts to restate the
   ADR-3 comparison each produced a defective replacement figure** (cross-seat, then
   cross-denominator, then ratio-transferred-across-populations). The root cause was not
   carelessness at any one site — it was that the comparison has one measured numerator and four
   defensible denominators. The resolution was to **withdraw the verdict rather than repair it a
   fourth time** (DECISION-NEEDED #6, §8.6 above).
 
-  **A third, recorded because the two records of this round disagreed.** The commit message for
-  this round claimed the class sweep found a site «not only the one the audit named»; the
-  paragraph above claimed the sweep was purely list-driven. **The commit message is the accurate
-  one on that point:** the §7 S-I re-adjudication carried the withdrawn share and was found by
-  the author's own grep for the *class*, not by any review naming it. So the honest summary is:
-  the sweep was list-driven for five rounds and became class-driven for exactly one item — which
-  is progress worth naming precisely, not a claim that the method changed.
+  **A third, and it retracts a claim this note itself made.** An earlier draft adjudicated a
+  disagreement between two records of one round in the author's favour, asserting that the §7 S-I
+  site «was found by the author's own class grep, not by any review naming it». **That is false**
+  (cold audit, round 7): the preceding round's watch-list names that exact line among its defect
+  sites. **The author-side sweep has not become class-driven at any point** — every round's hunks
+  trace to the previous review's findings. Recording the retraction rather than the claim is the
+  point: a §1.7 note asserting method progress against the review record is the failure the note
+  exists to catch.
 - **The sibling patch** `2026-08-07-s-h-turn-attribution-p3d-p11.md` — **GAP-FOUND, not edited.**
   It uses the same 4 B/t constant at its §5, §7 and §8, so §8.1's falsification applies to it
   identically and its FORK-E est-token figures are low by the same ≈1.53×. Not corrected here:
@@ -311,5 +318,6 @@ zero — it carries no `paths:` frontmatter and lives under `research-patches/`,
 resident set. It was nonetheless *created by* the cost it studies: it exists as a separate file
 because the parent hit the 600-line markdown gate, i.e. a document about document cost was itself
 split by a size discipline. Applying its own §8.2 reading to itself: the lever it identifies —
-repo-owned memory files at 45.9% of the resident head — does not touch this file, and adding it
+repo-owned memory files, the largest resident class on the seat measured (§8.2 reading 1, whose
+share figures are withdrawn as pre-S-G) — does not touch this file, and adding it
 to any always-on channel would be the error it warns against.

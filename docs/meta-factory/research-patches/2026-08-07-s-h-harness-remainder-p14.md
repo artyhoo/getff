@@ -258,23 +258,19 @@ project exists to prevent, so the injected figure stays S-I's to publish.
 > **PARTLY CHALLENGED 2026-08-07 (§8.2) — the budget figure is contradicted; the truncation is
 > not.** `/context` reports the **injected** skills block at **8.9k resident**, which is far above
 > the «~2k budget» this recommendation cites — that figure does not survive.
-> **But the listing IS reduced, and an earlier draft of this note got that backwards by comparing
-> across conversion constants (cold audit, round 4).** The comparison must be made in one
-> constant: at the measured B/t the source-side 41,057 B is ~15.7k tok, not the ~10.3k its 4 B/t
-> estimate suggests. **No magnitude word is used here, and an earlier draft's «a minority of
-> source» was wrong in the opposite direction (round 6):** the injected 8.9k against that source
-> is **56.4% / 56.8% / 72.0% / 86.7%** at 2.6012 / 2.6187 / 3.32 / 4.0 B/t respectively — a
-> majority under every constant in play, and against the pre-S-I 45,329 B it is 51.4% at 2.6187.
-> The share is therefore reported as **that range and nothing else**: which constant applies to
-> the `SKILL.md` corpus is unmeasured, so a single figure — or any word standing in for one —
-> would be an estimate dressed as a measurement.
-> **A second «independent channel» (74 listed entries ÷ 112 files) is WITHDRAWN entirely
-> (round 5), not corrected:** the numerator is provably not a subset of the denominator — the two
-> largest listed entries, `dataviz` and `claude-api`, are built-in skills with no `SKILL.md` file
-> anywhere, as are ≥14 others — while the denominator is an unfiltered `find` carrying
-> marketplace/cache duplicates, vendored `node_modules` files, worktree copies and uninstalled
-> catalogue rows. A ratio whose numerator and denominator are drawn from different sets measures
-> nothing, and publishing it would be the estimate-dressed-as-measurement T-SH-A forbids.
+> **No injected-vs-source SHARE is published, and four successive attempts to state one are
+> withdrawn (cold audit rounds 4-7).** Every such share divides the harness's total for the
+> **74 listed entries** by a byte sum over the **129 `SKILL.md` files** — and those populations
+> are provably different: the two largest listed entries, `dataviz` (~380) and `claude-api`
+> (~360), have no `SKILL.md` file anywhere, as do ≥14 other built-ins, while the file-side count
+> is an unfiltered walk carrying marketplace/cache duplicates, vendored `node_modules` files,
+> worktree copies and uninstalled catalogue rows. A ratio across two different sets measures
+> nothing regardless of which conversion constant is chosen, so **no figure, no range and no
+> magnitude word is offered for it** — that is what T-SH-A requires, and stating it once here
+> replaces the four attempts (a «66%» population ratio, a «~57%», a «minority», and a
+> «56.4-86.7%» range) that each failed review for exactly this reason.
+> **What IS comparable:** 8.9k measured against the «~2k budget» — both are token figures for the
+> injected block, so that contradiction stands on its own without any source-side denominator.
 > The routing decision stands unchanged (S-I owns the injected figure and this stage does not
 > publish it); what S-I needs from here is that its **~2k budget premise is wrong by ~4×**, not
 > that truncation is absent.
@@ -295,18 +291,17 @@ harness floor that carries no repo content at all. Additional repo trims have a 
 below the remainder they are competing with. This is the §0.5 expensive-seat-first principle
 applied to its own evidence: the next real lever is harness-side, and R1 is its precondition.
 
-> **REVERSED 2026-08-07 (§8.1 + §8.2) — do not act on the paragraph above.** Both legs of its
-> argument moved. §8.2 measures the resident head at 58.2k, of which the **repo-owned** memory
-> files are **26,700 = 45.9%** (the 29.4k memory category minus 2,764 tok of host-side
-> `~/.claude/CLAUDE.md` + `MEMORY.md`, which this project does not
-> own), with two documents (`CLAUDE.md` 9.3k + `ai-laziness-traps.md` 9.8k)
-> carrying a third of everything — so repo-side residency is not a small residual competing with
-> a large harness, it is the **largest single own-able block**. §8.1's conversion moves the
-> subagent-seat harness share from 68.4% to 51.7% in the same direction. The honest revised
-> reading: **the next real lever is repo-side memory files**, and the harness-side case is
-> weaker than this recommendation claimed — pending DECISION-NEEDED #4, #5 and #6 (the 45.9% just quoted is one of #6's four tabled
-> options, not a settled figure), which could move
-> it again.
+> **SUSPENDED 2026-08-07 (§8.1 + §8.2) — do not act on the paragraph above, and do not act on its
+> reversal either.** An earlier draft reversed this recommendation outright, on the strength of
+> `/context` measuring repo-owned memory files as the largest resident block. That reversal is
+> itself withdrawn (cold audit, round 7): the snapshot measures the **pre-S-G** set, in which
+> `ai-laziness-traps.md` — since replaced by a digest a quarter its size — is a third of the
+> repo-owned figure, so it cannot rank the *current* set. What survives is weaker and honest:
+> **this recommendation's own premise moved** (§8.1 restates the subagent-seat harness share
+> downward; §8.2 shows repo-owned files were the largest resident class on the seat it measured),
+> so «do not spend further effort on repo-side residency» is **no longer supported** — but its
+> opposite is not established either. Blocked on DECISION-NEEDED #4, #5 and #6, and on a
+> post-S-G re-measurement that only S-E can make.
 
 ---
 
@@ -359,9 +354,13 @@ shortfall. P14 accordingly priced via the §0 substitute channel, as recorded th
   subagent, two reduced-tool subagents). Every total is a first-turn billing figure, not an
   estimate, and each carries a transcript path or the exact command that reproduces it (§1) —
   including the 62,340-tok figure the whole §2 price list is sized against.
-- **Forks:** the channel gap is recorded in §3a grammar as **DECISION-NEEDED #3 (§0a)**, not
-  only as recommendation R1; the sibling patch carries #1 (corpus drift) and #2 (denominator).
-  None of the three is resolved by this stage.
+- **Forks (as at stage close):** the channel gap is recorded in §3a grammar as
+  **DECISION-NEEDED #3 (§0a)**, not only as recommendation R1; the sibling patch carries
+  #1 (corpus drift) and #2 (denominator). None of the three is resolved by this stage.
+  **Revised 2026-08-07:** #3 is **answered** (§8, Option A), and three further forks were opened
+  by the paste — **#4** (the conversion constant), **#5** (which channel defines «harness
+  remainder») and **#6** (which denominator the repo-owned share is measured against). Fork
+  inventory is now **six, of which five are open**.
 - **Price-list rows (as at stage close):** **14** enumerated (1, 2, 3, 4, 5, 5a, 5b, 5c, 5d, 5e,
   6, 7, 8, 9); **9 MEASURED with a named channel**, **4 marked `UNMEASURED — channel absent`**
   (5c, 5d, 5e, 9 — the same set §0a names), 1 (row 8) measured source-side with the injected form
@@ -460,8 +459,8 @@ Enumerated surfaces where that class occurs, verdicted per surface:
   **RE-ADJUDICATED 2026-08-07 (§4 R4):** the routing is unchanged, but this commit now moves that
   kickoff's *premise*, not just its number — its «~2k listing budget» is contradicted by the
   injected block measuring 8.9k (≈4× the budget), while the listing is nonetheless reduced to
-  56.4-86.7% of source depending on the conversion constant (see R4; no single figure is
-  defensible and no magnitude word is substituted for one). **Verdict now: GAP-FOUND against the S-I
+  measured at 8.9k injected, with **no source-side share published** (see R4 — the listed-entry
+  and file-side populations differ, so every such ratio is withdrawn). **Verdict now: GAP-FOUND against the S-I
   kickoff's budget premise, routed not edited** (that kickoff is outside §2).
 - `scripts/measure-always-on.sh` — **NOT SWEPT, out of permitted set (S-E owns)**; it measures
   the repo-owned half only, which is exactly the 21-28% this patch bounds from the other side.
@@ -485,7 +484,8 @@ reference material consulted once per stage, not per turn.
 
 The post-merge addendum recording the operator's `/context` paste — the falsified 4 B/token
 conversion (§8.1), the resident/deferred split (§8.2), which `UNMEASURED` rows it closed (§8.3),
-what S-D′ can now do (§8.4), and the unreconciled channel disagreement (§8.5) — lives at
+what S-D′ can and cannot do with it (§8.4), the unreconciled channel disagreement (§8.5) and the
+denominator fork (§8.6) — lives at
 [`2026-08-07-s-h-p14-context-addendum.md`](2026-08-07-s-h-p14-context-addendum.md).
 
 It was written as this patch's §8 and split out when this file reached the repo's 600-line
