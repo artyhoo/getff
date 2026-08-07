@@ -33,6 +33,8 @@ A commit that does **any** of the following (mirrors `packages/core/hooks/checks
 - Adds a new file **≥50 LOC** under a new subdirectory of `packages/core/<new-dir>/`.
 - Adds a new file **≥80 LOC** anywhere under `packages/`.
 
+Two carve-outs on the LOC triggers (hook parity 2026-08-07, mirroring the PR #980 overrides carve-out pattern): **documentation files** (`*.md`/`*.markdown`) never count — the «doc edits are NOT capability commits» exemption below always covered them, but a shipped ≥80-LOC doc template tripped the detector (PR #1272 incident); and a new file **byte-identical to a blob already tracked elsewhere in the same tree** never counts — a relocation/vendor copy adds no capability by construction (PR #1271 incident: vendored runtime-bridge subset).
+
 Refactors, doc edits, test additions for existing capabilities, bug fixes, snapshot regenerations, recipe data edits — **NOT** capability commits.
 
 ## `Prior-art:` trailer syntax

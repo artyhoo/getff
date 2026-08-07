@@ -34,6 +34,13 @@ export interface GitProvider {
   commitSubject(sha: string): string;
   /** `git show <sha> -- <paths…>` — the unified diff restricted to those paths. */
   diffForPaths(sha: string, paths: readonly string[]): string;
+  /**
+   * Is the blob at `<sha>:<path>` byte-identical to a blob tracked at ANY other
+   * path in the same tree? A true result means the file is a relocation/vendor
+   * copy — no new capability by construction (PR #1271: vendored runtime-bridge
+   * subset tripped the ≥80-LOC trigger despite being byte-identical copies).
+   */
+  blobDuplicatedInTree(sha: string, path: string): boolean;
 }
 
 /**
@@ -221,7 +228,26 @@ export const realGit: GitProvider = {
   commitSubject: (sha) =>
     gitOut(['show', '-s', '--format=%s', sha]).replace(/\n$/, ''),
   diffForPaths: (sha, paths) => gitOut(['show', sha, '--', ...paths]),
+  blobDuplicatedInTree: (sha, path) => blobDuplicatedAt(sha, path),
 };
+
+/**
+ * Shared impl for GitProvider.blobDuplicatedInTree: resolve the blob hash of
+ * `<tree>:<path>`, then count how many paths in that tree carry the same hash.
+ * ls-tree line shape: `<mode> blob <hash>\t<path>` — match on the hash column.
+ */
+function blobDuplicatedAt(tree: string, path: string): boolean {
+  const blob = runCheck('git', ['rev-parse', `${tree}:${path}`]);
+  if (blob.exitCode !== 0) return false;
+  const hash = blob.stdout.trim();
+  if (!/^[0-9a-f]{40,64}$/.test(hash)) return false;
+  let count = 0;
+  for (const line of gitOut(['ls-tree', '-r', tree]).split('\n')) {
+    if (line.includes(hash)) count++;
+    if (count >= 2) return true;
+  }
+  return false;
+}
 
 /**
  * A GitProvider over a PR RANGE (`merge-base(base, head)..head`) instead of a
@@ -256,5 +282,6 @@ export function rangeGit(baseSha: string, headSha: string): GitProvider {
     commitSubject: () => '',
     diffForPaths: (_sha, paths) =>
       gitOut(['diff', mb, headSha, '--', ...paths]),
+    blobDuplicatedInTree: (_sha, path) => blobDuplicatedAt(headSha, path),
   };
 }
