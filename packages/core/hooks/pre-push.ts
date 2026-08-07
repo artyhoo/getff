@@ -122,6 +122,17 @@ interface ResolvedBase {
   head: string;
   /** Explicit commit list (new-branch Z40 case); null = derive from `base..head`. */
   commits: string[] | null;
+  /**
+   * Ref whose reachable commits are EXEMPT from the commit-scoped trailer gates
+   * (`rev-list base..head --not <exclude>`) — the resolved trunk, or null when
+   * none resolves. The merge-forward range fix (2026-08-07): a published PR
+   * branch that merged the base in (git-conflict-merge-forward.md §2) must not
+   * be gated on the trunk's own squash commits — those were already gated at
+   * their own push or by the server-side PR-body gate (#1098) at merge. Set on
+   * the env + stdin paths; the default path's base IS the trunk (no-op) and the
+   * Z40 path's `--not --remotes` is a superset, so both stay null.
+   */
+  exclude: string | null;
   source: 'env' | 'stdin' | 'stdin-new-branch' | 'default' | 'unresolved';
 }
 
@@ -129,7 +140,16 @@ function resolveBase(): ResolvedBase {
   const env = process.env['PREPUSH_UPSTREAM_REF'];
   // CI backstop / manual override: HEAD is the thing being checked against the
   // override base (the CI job checks out the PR head), so the endpoint is HEAD.
-  if (env) return { base: env, commits: null, head: 'HEAD', source: 'env' };
+  // Trunk exclusion applies here too (no-op when the override IS the trunk;
+  // fixes the same merge-forward sweep for an epic-based PR range in CI).
+  if (env)
+    return {
+      base: env,
+      commits: null,
+      head: 'HEAD',
+      exclude: resolveDefaultBase(),
+      source: 'env',
+    };
 
   const refs = parsePushRefs(readPushStdin());
   if (refs.length > 0) {
@@ -139,10 +159,13 @@ function resolveBase(): ResolvedBase {
     if (r.remoteSha !== Z40 && upstreamExists(`${r.remoteSha}^{commit}`)) {
       // Range endpoint is the PUSHED ref's local_sha, NOT HEAD: pushing `feat`
       // from a checkout on `staging` must validate feat's commits, not staging's.
+      // `exclude` scopes the trailer gates to commits this push actually
+      // introduces to the trunk lineage (merge-forward range fix, 2026-08-07).
       return {
         base: r.remoteSha,
         commits: null,
         head: r.localSha,
+        exclude: resolveDefaultBase(),
         source: 'stdin',
       };
     }
@@ -157,6 +180,7 @@ function resolveBase(): ResolvedBase {
       base,
       commits: newCommits,
       head: r.localSha,
+      exclude: null,
       source: 'stdin-new-branch',
     };
   }
@@ -166,9 +190,21 @@ function resolveBase(): ResolvedBase {
   // source:'default', never silently skip. Endpoint is HEAD (no pushed ref to follow).
   const def = resolveDefaultBase();
   if (def) {
-    return { base: def, commits: null, head: 'HEAD', source: 'default' };
+    return {
+      base: def,
+      commits: null,
+      head: 'HEAD',
+      exclude: null,
+      source: 'default',
+    };
   }
-  return { base: null, commits: null, head: 'HEAD', source: 'unresolved' };
+  return {
+    base: null,
+    commits: null,
+    head: 'HEAD',
+    exclude: null,
+    source: 'unresolved',
+  };
 }
 
 /** Emit a visible (non-silent) warning that a section is being skipped. */
@@ -194,7 +230,7 @@ function commitsToCheck(rb: ResolvedBase, label: string): string[] | null {
     warnSkip(label, `base ref '${rb.base}' not found`);
     return null;
   }
-  return getCommits(rb.base, rb.head);
+  return getCommits(rb.base, rb.head, rb.exclude ?? undefined);
 }
 
 /** Re-emit a captured result's output to the operator. */

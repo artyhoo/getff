@@ -131,9 +131,25 @@ export function commitsNotOnRemotes(localSha: string): string[] {
  * on a *different* branch, `HEAD` is the other branch's tip — NOT the pushed
  * branch's — so `..HEAD` would validate unrelated commits (the 2026-06-17
  * cross-checkout incident). The range must follow the ref actually being pushed.
+ *
+ * `excludeReachableFrom` (optional) appends `--not <ref>` — the merge-forward
+ * range fix (2026-08-07, PR #1269/#1270 incident): after `git merge
+ * origin/staging` on a published PR branch, the bare `remote_sha..local_sha`
+ * range swept in the trunk's own squash commits (which routinely lack
+ * `Prior-art:`/`§1.7` trailers — the squash-trailer-loss, compensated by the
+ * PR-body gate #1098), failing the push on commits the pusher does not own.
+ * Passing the resolved trunk here scopes the gate to commits the push actually
+ * introduces to the trunk lineage. Range-correctness only, not a relaxation:
+ * trunk-reachable commits were already gated at their own push or PR merge.
  */
-export function getCommits(upstreamRef: string, head = 'HEAD'): string[] {
-  return gitOut(['rev-list', `${upstreamRef}..${head}`])
+export function getCommits(
+  upstreamRef: string,
+  head = 'HEAD',
+  excludeReachableFrom?: string,
+): string[] {
+  const args = ['rev-list', `${upstreamRef}..${head}`];
+  if (excludeReachableFrom) args.push('--not', excludeReachableFrom);
+  return gitOut(args)
     .split('\n')
     .map((s) => s.trim())
     .filter(Boolean);

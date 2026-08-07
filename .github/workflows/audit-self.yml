@@ -447,6 +447,8 @@ jobs:
         run: bash tests/hooks/prepush-upstream-ref.test.sh
       - name: Run pre-push base-ref stdin-detection paired-negative (hook-base-ref-detection I-phase)
         run: bash tests/hooks/prepush-fallback-base-ref.test.sh
+      - name: Run merge-forward range paired-negative (trunk-reachable commits exempt, 2026-08-07)
+        run: bash tests/hooks/prepush-merge-forward-range.test.sh
       - name: Run runtime-bridge dispatch opt-IN gate paired-negative (one-click-installer kickoff §7)
         run: bash tests/hooks/runtime-bridge-dispatch-optin.test.sh
 
