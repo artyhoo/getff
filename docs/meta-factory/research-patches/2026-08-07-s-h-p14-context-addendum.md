@@ -155,9 +155,9 @@ which is arithmetic and holds independently of seat, and §8.1's measured B/toke
 is an empirical average over seven files (2.37-3.32 per file), not an identity.
 **Cannot** — and this is the larger half: **rank the CURRENT always-on set from these numbers.**
 The measurement is of the **pre-S-G** resident set (§8.2 reading 1). The shares published in
-§8.2, §8.6 and their parent-side twins remain valid **as shares of that pre-S-G set** and are not
-withdrawn; what is withdrawn is any share of, or «top lever» for, the **current** set — which is
-what a subtraction map would act on. Nor may the absolute figures be treated as final while
+§8.2, §8.6 and their parent-side twins are computed from that pre-S-G measurement, each against
+the denominator its own table names, and are not withdrawn; what is withdrawn is any share of, or
+«top lever» for, the **current** set — which is what a subtraction map would act on. Nor may the absolute figures be treated as final while
 DECISION-NEEDED **#4, #5 and #6** are open — #6 being precisely the question of which denominator
 a pre-S-G share should be quoted against; nor is the MCP server-instruction block split.
 **Should:** read §8.1, §8.5 and §8.6 before ordering
@@ -323,6 +323,7 @@ zero — it carries no `paths:` frontmatter and lives under `research-patches/`,
 resident set. It was nonetheless *created by* the cost it studies: it exists as a separate file
 because the parent hit the 600-line markdown gate, i.e. a document about document cost was itself
 split by a size discipline. Applying its own §8.2 reading to itself: the lever it identifies —
-repo-owned memory files, the largest resident class on the seat measured (§8.2 reading 1, whose
-share figures are withdrawn as pre-S-G) — does not touch this file, and adding it
+repo-owned memory files, the largest resident class on the seat measured (§8.2 reading 1, a
+pre-S-G measurement from which no share of the current head is derived) — does not touch this
+file, and adding it
 to any always-on channel would be the error it warns against.
