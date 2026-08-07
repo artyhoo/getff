@@ -1068,6 +1068,13 @@ do_refresh() {
   copy_safe "$_arch_sot_src" "$_arch_sot_dst"
   rewrite_arch_sot_header "$_arch_sot_dst" "$_arch_sot_existed"
 
+  # ── tier-home doc (env+ profiles; beta-delivery-ux S3) — #869 refresh parity ──
+  # Framework-owned: refresh must re-deliver fixes. Presence-gated like the skill-context
+  # arm below: only env+/factory installs placed it; refresh must not create it on core.
+  if [ -e "$PROJECT_ROOT/.ai-factory/tier-home.md" ]; then
+    refresh_safe "$PKG_ROOT/packages/core/templates/shared/tier-home.md" "$PROJECT_ROOT/.ai-factory/tier-home.md"
+  fi
+
   # ── Skill-context overrides (derived from SHIPPED_DOCS — cannot drift) ──
   echo "▶ Skill-context → .ai-factory/skill-context/"
   for _doc in "${SHIPPED_DOCS[@]}"; do
