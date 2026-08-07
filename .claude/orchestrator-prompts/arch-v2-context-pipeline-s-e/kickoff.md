@@ -52,25 +52,7 @@ resident baseline (spec §1.6 FORK D) and deriving them earlier produces stale-h
    The tree already carries **two majors** — root `picomatch@2.3.2`, `packages/core@4.0.4` — so pin
    the `packages/core` major (4.x) and say so in the trailer; pinning the root manifest produces a
    green local run and an unresolvable import where the test actually executes.
-2. **P2b — local-shadow pre-push section** — **BUILT, THEN REMOVED 2026-08-07 BY OPERATOR
-   DECISION.** The premise was disproven: the shipped client MERGES array settings across
-   settings files (union + dedupe; `fallbackModel` is the only replace exception), so the local
-   list can only ADD excludes and the superset assert below is vacuous by construction — the
-   contradiction item 4 of §1 instructed this stage to PARK on. Evidence:
-   `docs/meta-factory/research-patches/2026-08-06-claudemd-overlay-semantics-verdict.md` §3-§4.
-
-   **Fork, and who resolved it.** Per §3a this disposition was NOT the implementing session's
-   to take. Two defensible options existed — **Option A: remove** (consequence: the host-only
-   channel is left with no gate at all) · **Option B: re-point the same section at the inverse
-   hazard** (consequence: the stage grows a new gate whose justification was never designed,
-   mid-flight). The fork was surfaced to the operator with both consequences stated, and the
-   **operator chose Option A on 2026-08-07**. Recorded here so the choice reads as an answered
-   fork, not a fait accompli. **Option B is not foreclosed** — the inverse hazard is real, is
-   claimed by no stage, and needs its own item with its own justification.
-
-   The original task text is kept verbatim below as the record of what was specified.
-
-   ~~Original task:~~ (+ `worktree-doctor.sh` arm): if
+2. **P2b — local-shadow pre-push section** (+ `worktree-doctor.sh` arm): if
    `.claude/settings.local.json` defines `claudeMdExcludes`, its picomatch match-set must be a
    superset of the project list's match-set — else error-with-escape-token (rationale ≥20
    chars, `ci-tool-pinning.md §3` precedent). Host-only channel: CI cannot see the file.
@@ -135,15 +117,12 @@ resident baseline (spec §1.6 FORK D) and deriving them earlier produces stale-h
    (`origin/staging`): all-files **400,919 B** vs a true resident **≈48.7 KB** (rev 5; the
    rev-4 sentence quoted the pre-S-G pair 394,687 B / 69,453 B and read as «~4×», both stale
    now that S-G re-scoped `ai-laziness-traps.md` behind `paths:`), spec §1.6 FORK D;
-   (ii) apply the effective `claudeMdExcludes`. **The PARK below FIRED — 2026-08-07.** The
-   replace-per-key model this item mandated is wrong: the shipped client unions array settings
-   across settings files (`fallbackModel` is the only replace exception), so the effective list
-   is `project ∪ local`, deduped. P3b implements the union; P2b, which only made sense under
-   replace, was removed. Original instruction, kept for the record: apply replace-per-key
-   semantics (a local `claudeMdExcludes` SHADOWS the project list entirely — spec §1.6 FORK D,
-   round-4 MAJOR-3; the only model under which P2b's superset assert is load-bearing), verify
-   the client's merge semantics against primary docs in this same task, cite the verdict in
-   BOTH P2b and P3b, and PARK if the docs contradict the replace model. The fixed output then serves as the §2 item-3 fallback outcome channel.
+   (ii) apply the effective `claudeMdExcludes` under **replace-per-key overlay semantics**
+   (a local `claudeMdExcludes` SHADOWS the project list entirely — spec §1.6 FORK D,
+   round-4 MAJOR-3; this is the only model under which P2b's superset assert is
+   load-bearing): verify the client's merge semantics against primary docs in this same
+   task, cite the verdict in BOTH P2b and P3b, and PARK if the docs contradict the replace
+   model. The fixed output then serves as the §2 item-3 fallback outcome channel.
 5. **P3c — `InstructionsLoaded` verification task** (ADR-3): can a hook on it OBSERVE the full
    loaded set, and can it BLOCK? Primary-docs verification, verdict recorded either way with
    citations. Doubles as the measurement-extension probe (ADR-3 falsifier note). A LIVE
