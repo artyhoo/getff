@@ -33,10 +33,18 @@ import {
 import { resolve, dirname, relative } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-// @ts-expect-error picomatch 4.x ships no type declarations; no @types/picomatch exists.
-// Behavioural callers (principle 34, this section) treat the API as `any` and assert
-// behaviour via paired-negative tests rather than type signatures.
-import picomatch from 'picomatch';
+// NOTE: `picomatch` is deliberately NOT imported at module scope. This file ships
+// verbatim into consumer projects (install.sh:929-938), and a static bare-package
+// import of something absent from the consumer's tree crashes the hook with
+// ERR_MODULE_NOT_FOUND *before any gate runs* — the #735/#636 class the ship-list
+// comment warns about. That is not hypothetical here: this repo's own
+// consumer-matrix pnpm cell reproduced it, and `git push` failed outright in a
+// pnpm-workspace consumer. It only ever looked safe under flat npm, where
+// `vitest` happens to hoist picomatch@4.0.4 — luck, not correctness.
+//
+// The one section that needs it (local-shadow claudeMdExcludes) is maintainer-only
+// AND host-only, so it lazy-loads inside the function behind `await import()` +
+// `die()` — the same shape guard-liveness's ESLint stack already uses below.
 import { runCheck, type CheckResult } from './utils/run-check.ts';
 import { runPriorArtCheck, loadSsotIds } from './checks/prior-art.ts';
 import { runS17Check } from './checks/s17.ts';
@@ -1303,7 +1311,7 @@ function alwaysonBudgetSection(): void {
 //
 // Escape hatch (§3, per ci-tool-pinning.md §3 precedent): AIF_CLAUDEMD_LOCAL_SHADOW_ALLOW
 // env with rationale ≥20 chars downgrades RED to WARN.
-function localShadowClaudeMdExcludesSection(): void {
+async function localShadowClaudeMdExcludesSection(): Promise<void> {
   const settingsLocalPath = resolve(REPO_ROOT, '.claude/settings.local.json');
   if (!existsSync(settingsLocalPath)) return; // no local overlay → no-op
   let localJson: { claudeMdExcludes?: unknown } = {};
@@ -1375,6 +1383,25 @@ function localShadowClaudeMdExcludesSection(): void {
       '⚠️  local-shadow claudeMdExcludes: `git ls-files` failed — DID NOT RUN (this is a skip, not a pass).\n',
     );
     return;
+  }
+
+  // Lazy-load the matcher (see the module-header note): keeps a consumer's hook
+  // from crashing at load time on a package it does not have. Reaching this point
+  // already means the run is maintainer-side with a local overlay present.
+  let picomatch: { isMatch: (s: string, p: string, o?: unknown) => boolean };
+  try {
+    // @ts-expect-error picomatch 4.x ships no type declarations; no @types/picomatch
+    // exists. The behavioural contract is asserted by the paired-negative tests, not
+    // by a type signature.
+    picomatch = (await import('picomatch'))
+      .default as unknown as typeof picomatch;
+  } catch (err) {
+    die(
+      '❌ local-shadow claudeMdExcludes: failed to load `picomatch` — this gate needs\n' +
+        '   the packages/core devDependencies (run `npm ci --prefix packages/core`).\n' +
+        `   ${(err as Error).message}`,
+    );
+    return; // unreachable; die throws
   }
 
   // Match-set SUPERSET check: every file matched by project must also be matched by local.
@@ -1785,7 +1812,7 @@ async function main(): Promise<void> {
     process.exit(0);
   }
   if (process.env['PREPUSH_ONLY'] === 'local-claudemd-shadow') {
-    localShadowClaudeMdExcludesSection();
+    await localShadowClaudeMdExcludesSection();
     process.exit(0);
   }
   if (process.env['PREPUSH_ONLY'] === 'generated-rule-material') {
