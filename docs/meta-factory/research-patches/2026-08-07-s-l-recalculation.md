@@ -142,7 +142,7 @@ consumers at `:440`, `:441`, `:446`, `:457`, `:478`. No site was added or moved.
 |---|---|---|
 | `scripts/measure-turn-attribution.sh:61` + 5 consumers | **explicit band + direction of error** (§1.6) — NOT a constant swap | its inputs are `wc -c` byte counts of hook stdout; no per-content channel exists inside the script, so §1.1's escape hatch applies in its band form |
 | `…-p3d-p11.md:482` (tolerance claim) | **conclusion survives, justification corrected here** | a ~2% spread is inside 1.835-3.416 either way; the sentence cites a falsified constant as its warrant |
-| `…-p3d-p11.md:536` (prices its own always-on cost) | **figure moves; superseded here by band** | `wc -c ÷ 4 B/tok × 23.7` → dividing by 4 when the true divisor is 1.835-3.416 makes the result **UNDERSTATED by 1.17-2.18×**. (The site is hypothetical either way: it prices what the file *would* cost if resident, and states it carries no `paths:` frontmatter and is in no resident set.) |
+| `…-p3d-p11.md:536` (prices its own always-on cost) | **figure moves; superseded here by band** | source prints «`wc -c` on this file **×** 4 B/token × … 23.7×»; the intent must be **÷** (multiplying bytes by B/token is dimensionally nonsense), and only under division does the direction follow — dividing by 4 when the true divisor is 1.835-3.416 leaves the result **UNDERSTATED by 1.17-2.18×**. (The site is hypothetical either way: it prices what the file *would* cost if resident, and states it carries no `paths:` frontmatter and is in no resident set.) |
 
 Both `-p3d-p11` sites are in a merged, append-only patch: corrected **by annotation here**, not by
 edit. `…-s-h-harness-remainder-p14.md:486` surfaced in the grep and is **SWEPT-CLEAN** — it
@@ -163,11 +163,11 @@ Both from the same find, unchanged by this stage (`scripts/measure-turn-attribut
 `find "$CORPUS_ROOT" -path "$PROJECT_MATCH" -name '*.jsonl'` with `-not -path '*/subagents/*'`
 for sessions and `-path '*/subagents/*'` for subagents.
 
-**Drift: +11.1% sessions, +3.5% subagents, in under one day** — *upward*, consistent with ordinary
-accretion (this umbrella opened several seats today, including the one being measured), the
-opposite class from the −27% retention event T-SH-B was written against. **Nothing is reconciled
-and no figure here is adjusted for it:** every §1.1/§2 measurement is a *within-seat* comparison
-on named transcripts, so the corpus size does not enter it.
+**Drift: +11.1% sessions, +3.5% subagents in under one day** — *upward*, consistent with ordinary
+accretion (this umbrella opened several seats today, including the one measured), the opposite
+class from the −27% retention event T-SH-B was written against. **Nothing is reconciled and no
+figure here is adjusted for it:** every §1.1/§2 measurement is a *within-seat* comparison on named
+transcripts, so corpus size does not enter it.
 
 > **DECISION-NEEDED #7 (T-SH-B, mechanical).** Accept +11.1% as accretion and leave S-H's
 > published aggregates as-is (**recommended** — they are labelled with their own MEASURED-AT, and
@@ -193,7 +193,7 @@ of two figures sharing the conversion); and the unit named at the site.
 
 **Found by the cold sweep this stage dispatched** ([`agents/backward-sweep-auditor.md`](../../../agents/backward-sweep-auditor.md)):
 the band was first applied to a field that is **not** in bytes — the stream builder produced it
-with jq `length`, which counts **codepoints**:
+with jq `length`, counting **codepoints**:
 
 ```diff
 - len:(((.attachment.stdout // "") | length))
@@ -278,7 +278,8 @@ billed and counted nowhere.
 
 ### §2.3 `Messages 1.3k` — bounded, not resolved (T14)
 
-At the moment `/context` ran, the stream carried 7,232 content-codepoints. (The seat's own 31-cp user prompt is **not** among them: the transcript order puts it *after* the `/context` stdout, so it could not have been counted by the reading.) The reconciliation the
+When `/context` ran, seat `45489086`'s stream carried 7,232 content-codepoints (row sizes from
+§2.1's `384ada17` census — byte-identical on this pair but for the `/context` block). (The seat's own 31-cp user prompt is **not** among them: the transcript order puts it *after* the `/context` stdout, so it could not have been counted by the reading.) The reconciliation the
 5-C patch left open narrows but does not close:
 
 | candidate | cp | cp/tok at 1.3k displayed (1,250-1,349 true) | verdict |
@@ -311,6 +312,11 @@ estimate is offered. Coverage: 2 of 3 named rows closed (§2.2), 1 bounded (§2.
 
 Accounting the census against `/context`'s categories:
 
+**Seats named, per §3.2's own rule.** Census rows from baseline seat `384ada17` (§2.1); `/context`
+categories from seat `45489086` (§0) — same bare-prompt class, same pre-S-G rule set, and
+*checked* rather than assumed: `skill_listing` measures 26,696 cp identically on both, so the
+payload is seat-invariant across the pair. Hence the result is stated as a floor (`≥15,258`).
+
 | status | rows | codepoints |
 |---|---|---:|
 | **counted** | `skill_listing` → `Skills`; orchestrator-planner → `Custom agents`; one hook → `Messages` | ~33,205 – 33,296 |
@@ -342,8 +348,8 @@ measured here. Stated explicitly, as the kickoff requires either way.
 
 ### §3.2 The naming RULE — delivered; only the term assignment is routed
 
-The kickoff asks for «a naming rule, not a winner». The rule is delivered and binds regardless of
-how the term question below resolves:
+The kickoff asks for «a naming rule, not a winner». It is delivered, and binds regardless of how
+the term question below resolves:
 
 > **Naming rule (operative).** No figure describing session-start cost may be stated without
 > **(a)** its channel — `by-difference` (transcript-billed) or `/context` (harness-declared) —
@@ -431,11 +437,10 @@ arithmetically computable, semantically void.
 | full-tool subagent seat, 62,340 | S-H parent §2 | 42.8% | above |
 
 **Post-S-G shares are `UNMEASURED — channel absent`** (T14): producing one needs a `/context`
-reading on a seat that actually loaded the post-S-G set, no such reading exists, and this stage
-does not manufacture one by converting bytes through a band and calling it a share. For **sizing
-only**, the post-S-G set converts through the repo-markdown in-class codepoint band (2.340-2.649,
-§1.1) to **18,081 – 20,469 tokens** — a bound on the *numerator alone*; no percentage here uses
-it.
+reading on a post-S-G seat, none exists, and this stage does not manufacture one by converting
+bytes through a band and calling it a share. For **sizing only**, the set converts through the
+repo-markdown in-class codepoint band (2.340-2.649, §1.1) to **18,081 – 20,469 tokens** — a bound
+on the *numerator alone*; no percentage here uses it.
 
 **Two labels corrected while here** (both cold-audit findings, both direction-neutral):
 **59,300 is `/context`'s reported total**, not the «resident head» — the addendum §8.6 uses
@@ -446,10 +451,9 @@ optional dispatch prompt.
 
 ### §4.3 The operative form — delivered; only the denominator choice is routed
 
-**Delivered — the kickoff §1.4 second branch, exercised, not a routed option.** ADR-3's band
-cannot be restated as a bare percentage on the current set, and that is a measurement result, not
-a preference: any post-S-G share needs a denominator measured on a post-S-G seat, and **none
-exists** (§4.2). The operative statement ADR-3 must carry:
+**Delivered — kickoff §1.4's second branch, exercised, not a routed option.** ADR-3's band cannot
+be restated as a bare percentage on the current set — a measurement result, not a preference: any
+post-S-G share needs a post-S-G denominator, and **none exists** (§4.2). ADR-3 must carry:
 
 > The repo-owned always-on set is **48,671 B / 47,899 cp** on the `/context` **memory-files
 > channel** (5 project-scoped files), post-S-G. Any share **must** name the denominator's channel,
@@ -540,8 +544,8 @@ worth more as an incident than as a checkbox:
 check (two timestamps compared), not by re-reading — this project's own thesis restated on its own
 artefact: attention is not a mechanism. Defect 3 is why §4.2 publishes no current-set share.
 
-**T-SL-A compliance** stands as claimed, confirmed by the same audit: the band is not a constant,
-all 6 sites treated, no unsuffixed `BYTES_PER_TOKEN` survives.
+**T-SL-A compliance** stands as claimed, confirmed by the same audit: band not a constant, all 6
+sites treated, no unsuffixed `BYTES_PER_TOKEN` survives.
 
 **Backward-check — delegated COLD, per T21.** The enumeration was **not** self-produced. This
 umbrella has recorded three consecutive self-sweeps overturned by grep, so the sweep was dispatched
@@ -550,8 +554,7 @@ handed only the change **class** (three content predicates: fixed-divisor byte�
 bytes-vs-codepoints unit conflation; stale/non-subset always-on share) and never the diff.
 
 **It earned its dispatch**: it found a defect in this stage's own edit (§1.7) that a self-review
-had read past. Population reached: P1 11/11 (7 GAP-FOUND), P2 8/8 (4 GAP-FOUND), P3 8/8 (8
-GAP-FOUND). In-scope surfaces, handled here:
+had read past. Reached: P1 11/11 (7 GAP-FOUND), P2 8/8 (4), P3 8/8 (8). In-scope surfaces:
 
 - [`…-s-h-p14-context-addendum.md`](2026-08-07-s-h-p14-context-addendum.md) — **GAP-FOUND, routed
   not edited.** §8.1's outlier *reading* superseded (§1.1); §8.5's direction inverted (§3.1);
@@ -590,9 +593,8 @@ not drive-by edits; they are recorded here so the enumeration is not lost betwee
 | spec `…-token-economy-design.md:189`, `:541-545` | P1+P3 | outside the «§1.5 + P13 only» permit. `:189` sized a shipped gate at «≈ 2k tokens»; `:541` rests a **two-channel convergence argument** on 3.99 B/tok — at the band the channels do not converge within ~5%. |
 | `docs/meta-factory/operational-conventions.md:21` | P1 | live conventions doc, unbanded 4 B/tok. |
 
-**Sweep coverage as a predicate (T14, T6):** dated files under `research-patches/` (~14 files,
-~80 conversion sites) were **excluded by convention** as archival-corrected-by-annotation, and are
-*not* verdicted clean — if that convention does not protect them, the P1 population roughly
-triples.
+**Sweep coverage as a predicate (T14, T6):** dated `research-patches/` files (~14 files, ~80
+conversion sites) were **excluded by convention** as archival-corrected-by-annotation and are
+*not* verdicted clean — if that convention does not protect them, P1's population roughly triples.
 
 No merged patch is edited by this change.
