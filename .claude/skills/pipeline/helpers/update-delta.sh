@@ -5,7 +5,7 @@
 # >          packages/core/hooks/update-delta.test.ts. No principle test
 # >          gates compliance — the test gates the helper's own contract.
 # > Authoritative for: deterministic write of `last_check_ts` + `last_check_git_head`
-# >                    fields in .claude/orchestrator-prompts/_master-backlog-delta.json.
+# >                    fields in <resolved-orch-home>/_master-backlog-delta.json.
 # > NOT authoritative for: the two arrays `untracked_seen` + `closed_since_last` —
 # >                        those are populated by SKILL.md §2.5 logic in Stage 2C
 # >                        (round-3 scope reduction mirrors update-cache.sh §3 of
@@ -33,7 +33,7 @@
 #   CC. Pure-bash + jq, deterministic, no paid LLM (no-paid-llm-in-ci.md §1 satisfied).
 #
 # Seams for testing (mirrors update-cache.sh convention):
-#   MO_DELTA_FILE — override delta path (default: <REPO_ROOT>/.claude/orchestrator-prompts/_master-backlog-delta.json)
+#   MO_DELTA_FILE — override delta path (default: <resolved-orch-home>/_master-backlog-delta.json)
 #   REPO_ROOT     — override repo root (default: git rev-parse --show-toplevel)
 #   MO_GIT_HEAD   — override the git short-SHA captured into last_check_git_head (default: git rev-parse --short HEAD)
 #   MO_TIMESTAMP  — override the ISO 8601 UTC timestamp (default: date -u +%Y-%m-%dT%H:%M:%SZ)

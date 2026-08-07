@@ -7,7 +7,7 @@
 # >          gates compliance — the test gates the helper's own contract.
 # > Authoritative for: deterministic in-place jq rewrite of `untracked_seen` +
 # >                    `closed_since_last` arrays in
-# >                    .claude/orchestrator-prompts/_master-backlog-delta.json.
+# >                    <resolved-orch-home>/_master-backlog-delta.json.
 # > NOT authoritative for: the two metadata fields `last_check_ts` +
 # >                        `last_check_git_head` — those are owned by
 # >                        update-delta.sh (sibling helper, paired-negative test
@@ -42,7 +42,7 @@
 #   satisfied).
 #
 # Seams for testing (mirrors update-delta.sh convention):
-#   MO_DELTA_FILE — override delta path (default: <REPO_ROOT>/.claude/orchestrator-prompts/_master-backlog-delta.json)
+#   MO_DELTA_FILE — override delta path (default: <resolved-orch-home>/_master-backlog-delta.json)
 #   REPO_ROOT     — override repo root (default: git rev-parse --show-toplevel)
 #   MO_TIMESTAMP  — override the ISO 8601 UTC timestamp (default: date -u +%Y-%m-%dT%H:%M:%SZ)
 

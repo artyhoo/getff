@@ -80,7 +80,14 @@ const selector = process.env['PROBE_SELECTOR'] ?? '';
 const code     = process.env['PROBE_CODE'] ?? '';
 if (!selector || !code) { process.stderr.write('missing env\n'); process.exit(9); }
 const linter = new Linter();
-const cfg = [{ rules: { 'no-restricted-syntax': ['error' as const, { selector, message: 'depth-mutation-probe' }] }, languageOptions: { ecmaVersion: 2022, sourceType: 'module' } }];
+// `files` is REQUIRED: in ESLint flat config an object without a `files` key matches
+// only the default js/mjs/cjs set, so `linter.verify(..., { filename: 'probe.ts' })`
+// below returns "No matching configuration found for probe.ts" and the rule never
+// runs — _probe then exits non-zero for EVERY selector, so every rule takes the
+// selector-not-firing skip path and no mutation is ever measured. Same trap as #832
+// in audit-self/check-fences-fire.sh:177-182; the paired-negative arm that pins this
+// is `POSITIVE (probe liveness)` in run-generated-rule-mutation-skip.test.ts.
+const cfg = [{ files: ['**/*.{ts,tsx,js,jsx}'], rules: { 'no-restricted-syntax': ['error' as const, { selector, message: 'depth-mutation-probe' }] }, languageOptions: { ecmaVersion: 2022, sourceType: 'module' } }];
 try {
   const msgs = linter.verify(code, cfg, { filename: 'probe.ts' });
   process.exit(msgs.some(m => m.ruleId === 'no-restricted-syntax') ? 0 : 1);

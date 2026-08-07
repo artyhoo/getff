@@ -38,6 +38,20 @@ stage-A accounted subset (D = 1,170,235 cost-units/median session; an over-state
 total bill); **[A]** = share of the always-on doc bill (754,884 units [D]-scale). Untagged
 percentages are a defect.
 
+> **[W] is HISTORICAL from S-H onward — operator verdict 2026-08-07, S-H `DECISION-NEEDED #2`
+> Option A.** The operative denominator is **[H]** — the live host corpus S-H measured (189
+> session-root + 722 subagent transcripts, WRITE 35.2%;
+> `docs/meta-factory/research-patches/2026-08-07-s-h-turn-attribution-p3d-p11.md:109-110`).
+> This is a **constatation, not a preference**: [W]'s 169-session subset is physically
+> unrecoverable, not merely un-selected — worktree pruning deleted 34 project directories
+> together with their transcripts, so «the 169-session subset cannot be re-selected by re-running
+> anything» (`…-s-h-turn-attribution-p3d-p11.md:112`, cause at `:92`). Consequences, binding:
+> existing [W]-tagged shares stay readable **as history** and are **not** comparable with anything
+> measured after 2026-08-07; **no new figure may be tagged [W]**; and every [W]-defined threshold
+> is re-adjudicated on [H] or marked un-adjudicable (the one such threshold is N1's falsifier in
+> the §1 fork table — annotated there). The tags remain **non-convertible**: a [H] figure must never be read
+> as its [W] counterpart (`…-s-h-turn-attribution-p3d-p11.md:168`).
+
 ## §0 Stance
 
 No parallel structure. Every proposal lands in an existing or explicitly added stage of the
@@ -84,7 +98,7 @@ Format per fork: resolution → grounds → falsifier («wrong if»).
 | D1 | Always-on head trim | **Bounded trim of `CLAUDE.md`; D1b RESOLVED (2026-08-06, operator-delegated): traps → resident hot digest.** `CLAUDE.md` trim mechanism — **AMENDED rev 4 (§1.6 FORK A): pointer-collapse, NO `@AGENTS.md` import.** The rev-3 import mechanism was measured to invert the goal (import makes 8,861 B resident to remove 1,369 B, net **+7,492 B per expensive seat**, and duplicates the resident rule-index region — evidence in §1.6). Instead: collapse the `Read-first (Step 0)` + `Project goal pointer` sections to one-line pointers at `.claude/session-bootstrap.md` and `README.md#why-this-exists`; sized target **net ≤ −1,100 B**, acceptance measured on the **resident set** (no new resident file), not on one file; **judgment-bearing sections are a keep-list, out of trim scope** (`CLAUDE.md:106` tier routing «a judgment, never an automated classifier»; `:132` marker-value «belt-and-braces»; PR strategy; un-gated operational conventions). Keep-list authored INTO the executing kickoff. ZCode check rides the stage: if `@`-import is not honoured there, document the degradation (zcode-parity doctrine), do not block the trim. **D1b:** expensive seats get a hot digest (T-numbers + one-line counters, ~2k vs 6.6k tokens); full catalogue re-scoped to `paths:` (fires edit-time on rule/kickoff/research-patch authoring — the earliest reachable channel for exactly the work traps bite); executor channel already mechanical (principle test 12 fails any kickoff without trap enumeration); **anti-drift gate:** a deterministic test asserts every §2 T-number has a digest line. **Digest home — RESOLVED rev 4 (§1.6 FORK B): new rule file `.claude/rules/ai-laziness-digest.md`, ≤ 8,192 B, no `paths:` frontmatter (resident by the client's own mechanism); the renderer bookkeeping (TIER0_CORE swap traps→digest, channel dedupe, `INDEX_MAX_BYTES` headroom) rides S-G, whose permitted set now includes `scripts/render-rule-index.mjs`.** | The mechanical-enforcement argument holds only for the gated share; #1188 banked the easy half. ~2/3 of `CLAUDE.md` is CC-only content AGENTS.md deliberately lacks — full unification would bloat the portable file. D1b's ground is §0.5: the full lazy-executor manual resident in the smartest seat is the inversion; savings ≈ 9% [A]. | A post-trim session bypasses a convention the trimmed prose carried → restore that section. **D1b rollback trigger: ONE incident of a senior-seat session committing a trap the digest under-carried → full residency restored, incident recorded.** |
 | D2 | Measure-first vs ship-cheap-first | **Ship-cheap-first; N2 measurement rides S-E as its input.** | P1 and stage dispositions depend on nothing unmeasured. The only consumer of per-turn attribution is S-E's gate (ADR-3). | A decision needs N2's numbers before S-E dispatches → split N2 into its own Tier-1 stage. |
 | D3 | Plugin thread | **(a) CC-plugin adapter → separate /arch (capability commit, positioning; plugins patch §10 item 3 is its input). (b) Channel split per the operator's §B3 delegation: `engineering` + `system-design` → preset-option backend; `design` → preset-option UI; `tech-debt` + `standup` → user-scope; PM not shipped. (c) `security-guidance` mining → STUDY in the adapter contour. (d) Operator-axis ADOPT: `engineering:architecture` ADR template as /arch §1's spec-format slot, thin-wrapper (trio §A2 G1) — P12.** Token angle closed: ≈1,402 est-tokens, not binding (trio §A4). | §B1 verdicts round-2 operator-validated; §B3 defers the split here. | A preset cohort measurably wants `tech-debt`/`standup` by default → promote to manifest. |
-| N1 | Re-write triggers (WRITE 43.1% [W]) | **Discipline + measurement, no new structure.** (a) Resume-as-expensive codified (`cold-seat-economy.md §3`). (b) Skill-embed additions: prefer artifact handoff to a fresh seat over `/compact`; do not stretch a seat across the 1-hour TTL idle gap. (c) Trigger-class sizing inside S-E's N2. | WRITE = unavoidable first-writes (2× each new token) + avoidable full prefix re-writes (~5% of turns, each a whole prefix). Attacks the **trigger**, not the payload. | N2 measures avoidable re-writes <5% of the WRITE line [W] → retire the discipline text. |
+| N1 | Re-write triggers (WRITE 43.1% [W]) | **Discipline + measurement, no new structure.** (a) Resume-as-expensive codified (`cold-seat-economy.md §3`). (b) Skill-embed additions: prefer artifact handoff to a fresh seat over `/compact`; do not stretch a seat across the 1-hour TTL idle gap. (c) Trigger-class sizing inside S-E's N2. | WRITE = unavoidable first-writes (2× each new token) + avoidable full prefix re-writes (~5% of turns, each a whole prefix). Attacks the **trigger**, not the payload. | ~~N2 measures avoidable re-writes <5% of the WRITE line [W] → retire the discipline text.~~ **HISTORICAL — un-adjudicable as written (2026-08-07, #2 Option A):** [W] is unrecoverable, so this falsifier can never be evaluated on the corpus it names. **Operative restatement on [H]:** avoidable re-writes <5% of the WRITE line **[H]** → retire the discipline text. **Standing [H] reading: 16.5% > 5% → the discipline text STAYS** (1,416 turns, 1.7% of turns, carrying 16.5% of the [H] WRITE line — `…-s-h-turn-attribution-p3d-p11.md:154`, Option-A consequence `:162`). Not a [W] result: `:168`. |
 | N2 | Dispatch inlining | **Default-in-template, not a gate.** Promotion trigger: 3 incidents of a seat burning >100k tokens on file-reading turns → mechanical check in S-B's bottom-seat station. | Hard gate = `#gate-where-judgment-needed`; bare prose = `#hope-as-gate`. Stake: 85,855 vs 177,105 tokens/seat (~52%). | Trigger fires → build the check; OR inlined dispatches miss regressions a file-reading seat catches. |
 
 **Dropped with evidence — L1 (Bash/Read output economy):** RTK empirical 1.8% of total weighted
@@ -123,6 +137,26 @@ window (fail-closed), which preserves ADR-8's «a real A/B rather than fail-open
 intent without inventing a resolver S-D declined to build.
 **Stage: S-D′** (P13). The SSOT #234 row gets a trigger-fired annotation at S-D′ dispatch, per
 its own protocol.
+
+> **Annotation 2026-08-07 (S-L recalculation — binding on S-D′'s ordering).** The 4 B/token
+> conversion behind every est-token figure this section's subtraction maps would be ranked by is
+> falsified, and its replacement is a **band, not a number**:
+> **1.835-3.416 B/tok** (bytes) / **1.835-3.128 cp/tok** (codepoints) — content-type-driven, so no
+> single constant represents it. Two consequences S-D′ must carry:
+> **(a) A re-ranking is not a rescale.** Dividing by 4 understates every figure, but by
+> 1.17-2.18× depending on content class — a 1.86× spread *between* classes, which re-orders the
+> list. S-D′ must re-derive its ordering, not multiply the P14 list through by a correction factor
+> (a uniform factor preserves order by construction and would hide exactly this effect).
+> **(b) `/context` cannot be the ordering instrument on its own.** It under-reports: ≥15,258
+> codepoints of every-seat harness-injected payload — one of the two hook injects (the other is
+> `Messages`, bounded but not identified), `deferred_tools_delta`, `mcp_instructions_delta`, the
+> built-in agent descriptions and the UserPromptSubmit hook — are billed and appear in **no**
+> `/context` category, so a `/context`-ordered list ranks those levers at zero. Conversely
+> `/context`'s `Skills` category **is** the `skill_listing` attachment (n=69 both channels), which
+> makes it the largest single priced harness block and the top lever under either channel.
+> Every figure must now state its **unit** as well as its channel; cross-unit ratios are void.
+> Full derivation + two open forks (#5 naming, #6 denominator):
+> [`docs/meta-factory/research-patches/2026-08-07-s-l-recalculation.md`](../../meta-factory/research-patches/2026-08-07-s-l-recalculation.md).
 
 ## §1.6 Re-planning fork resolutions (rev 4, 2026-08-06 — measured on the host at staging `c8a2bfcec6`)
 
@@ -204,7 +238,8 @@ misses) — then stop and surface.
 
 ### FORK C — S-E's host-only trio cannot run behind the marker → split out stage S-H
 
-**Resolution:** S-E keeps the container-safe items (P2a, P2b, P3a, P3b, P3c) WITH the
+**Resolution:** S-E keeps the container-safe items (P2a, P2b — P2b later REMOVED, see FORK D
+overlay-semantics correction 2026-08-07 —, P3a, P3b, P3c) WITH the
 marker; P3d, P11, P14 move to a new **host-side stage S-H** (no marker — not factory-bound;
 executed by a host CC session). **Evidence:** the aif container mounts a NAMED VOLUME
 `claude-auth:/home/node/.claude` (`~/code/aif-handoff/docker-compose.yml:27`), not the host
@@ -229,14 +264,17 @@ the rendered index nor `probe-channels.sh` (`grep -c probe-channels scripts/rend
 **Fixed predicate:** resident set = `CLAUDE.md` + `.claude/rules/*.md` lacking `^paths:`
 frontmatter (the `probe-channels.sh:20` predicate, one bash idiom shared by both consumers;
 the TS extractor in `packages/core/principles/rule-channel-glob.ts` stays the semantic owner)
-minus the effective `claudeMdExcludes`. **Overlay semantics (round-4 MAJOR-3 — an earlier
-draft said «project ∪ local», which contradicts P2b):** the working model is **replace per
-key** — a local `claudeMdExcludes` SHADOWS the project list entirely (this is what the
-2026-08 `settings.local.json` shadowing incident exhibited, and it is the only model under
-which P2b's superset assert is load-bearing; under union it would be vacuous). P3b
-implements replace, verifies the client's merge semantics against primary docs in the same
-task, and PARKS if the docs contradict the model — both P2b and P3b must cite the same
-verdict. **Measured:** today's meter
+minus the effective `claudeMdExcludes`. **Overlay semantics — CORRECTED 2026-08-07: the
+model is `project ∪ local` (union + dedupe), and the rejected draft was right.** Round-4
+MAJOR-3 had overruled that draft with the reason that union «contradicts P2b» and that under
+union P2b's superset assert «would be vacuous». Reading the shipped client settled it: the
+settings fold applies a customizer that unions arrays and replaces only for `fallbackModel`
+(`ipe()` → `WSm()` → `Mo()`, `claude.exe` v2.1.207) — so the assert IS vacuous, and that is a
+fact about the client, not a reason to reject the model. **The PARK condition was therefore
+MET and fired: P2b is removed** (see the corrected verdict patch
+`docs/meta-factory/research-patches/2026-08-06-claudemd-overlay-semantics-verdict.md` §3-§4).
+P3b implements the union. **Method note for future forks:** «model X would make our gate
+pointless, therefore not X» is an inverted inference — the gate is the thing under test. **Measured:** today's meter
 reports 394,687 B > 101,000 (EXIT=1, before any work); the TRUE resident set is
 `CLAUDE.md` 23,740 + `00-rule-index.md` 4,030 + `build-first-reuse-default.md` 12,667 +
 `attention-is-not-a-mechanism.md` 2,629 + `ai-laziness-traps.md` 26,387 = **69,453 B** —
@@ -316,11 +354,17 @@ picomatch semantics against absolute paths, NOT the normaliser, which only absol
 1. **Committed-list liveness (CI-reachable principle test):** evaluate every
    `claudeMdExcludes` entry in `.claude/settings.json` with picomatch (absolute paths,
    `{dot:true}`) against the repo file tree; any entry matching 0 files fails.
-2. **Local-shadow detection (host-only → pre-push + `worktree-doctor`):** if
+2. ~~**Local-shadow detection (host-only → pre-push + `worktree-doctor`):** if
    `.claude/settings.local.json` defines `claudeMdExcludes`, the local list's picomatch
    match-set must be a superset of the project list's match-set (behavioural, not string
    comparison) — else error-with-escape-token. CI cannot see this file; pre-push is its
-   earliest reachable channel.
+   earliest reachable channel.~~
+   **WITHDRAWN 2026-08-07 — do not rebuild from this item.** The client merges array settings
+   (`project ∪ local`), so the superset condition holds by construction and this assert is
+   green-by-construction — `#hope-as-gate`. See §1.6 FORK D's dated overlay-semantics correction
+   and `docs/meta-factory/research-patches/2026-08-06-claudemd-overlay-semantics-verdict.md` §3.
+   The **inverse** hazard (a local file ADDING excludes to hide always-on rules) is real and
+   unclaimed by any stage — it needs its own item, not a revival of this one.
 3. **Semantic backstop (outcome channel):** residual risk = our picomatch diverging from the
    client's bundled matcher. Primary backstop: P3's `InstructionsLoaded`-based measurement (an
    entry asserted-excluded but observed loaded → gate red). **Fallback if `InstructionsLoaded`
@@ -349,7 +393,7 @@ this raises P1's priority and enters the S-E kickoff as fresh evidence.
 | # | Proposal | Lands in | Cost line attacked | Size |
 |---|---|---|---|---|
 | P1 | Config fix — **LANDED (rev 4): the committed `.claude/settings.json` carries all 7 entries in `**/<name>.md` form on staging since PR #1223 (`c8a2bfcec6`), verified `git show origin/staging:.claude/settings.json`.** Remaining operator step: drop the now-redundant `claudeMdExcludes` key from `.claude/settings.local.json` (lists verified identical). | **operator (residue only)** | READ + WRITE [W] | 15.9% [D] measured |
-| P2 | Config-assertion gate (§2 asserts 1-2 + backstop). Capability commit: picomatch pinned explicit devDep + `Prior-art:` trailer + SSOT entry. | **S-E** | recurrence insurance on P1's line | ~0 run cost; consumes S-F item 4 |
+| P2 | Config-assertion gate (**§2 assert 1** + backstop; §2 assert 2 WITHDRAWN 2026-08-07 — see §2). Capability commit: picomatch pinned explicit devDep + `Prior-art:` trailer + SSOT entry. | **S-E** | recurrence insurance on P1's line | ~0 run cost; consumes S-F item 4 |
 | P3 | Budget gate per ADR-3: **REUSE `check-alwayson-budget.sh` — wire into pre-push + per-environment ceilings (formula + acceptance pair in §1.6 FORK D)**; fix `measure-always-on.sh` TWICE-blind manifest (membership predicate: `^paths:`-absence minus effective `claudeMdExcludes` — §1.6 FORK D); `InstructionsLoaded` verification task. N2 per-turn measurement → **S-H** (rev 4, §1.6 FORK C). | **S-E** | READ + WRITE [W] ceilings | repo-owned always-on share only (ADR-3 post-falsifier scope; 29-39% declared-coverage statement binding) |
 | P4 | **One umbrella-kickoff commit** (planning-session-owned surface): (a) S-D stage-table row → CLOSED-NULL for the ADDITIVE scope per SSOT #234 + S-D′ row added (P13) with its charter; (b) **S-D charter prose rewritten** — the «L2-closure PR (retirement note + `done.md`, no build)» instruction DELETED (kickoff:176-177): a stage-level `done.md` closes the whole umbrella (`priority-score.sh:140,255-263` — C3 file-existence is the closure signal; `:23-25,122-126` document it); (c) S-G row + Ordering slot + marker value for S-G (`Z.AI GLM-5.2 SDK`, re-verified unique at dispatch per the CLAUDE.md marker-value rule; S-D′ carries NO marker — un-spent judgment, rev-4 correction of this row); (d) S-F item 4 marked consumed-by-P2. Umbrella `done.md` only when the LAST stage merges. | **S-D/S-G bookkeeping** | — | — |
 | P5 | Bounded `CLAUDE.md` trim per D1 — **rev 4 mechanism: pointer-collapse, NO import (§1.6 FORK A); the ZCode `@`-import degradation check is RETIRED with the import** — + keep-list **+ D1b traps digest** (digest authored at `.claude/rules/ai-laziness-digest.md` + full catalogue re-scoped to `paths:` + anti-drift test + rollback trigger + renderer bookkeeping, §1.6 FORK B) | **S-G** | READ + WRITE [W] | sized (rev 4): P5a net ≤ −1,100 B; D1b net ≈ −18 KB resident (traps 26,387 B out, digest ≤ 8,192 B in) |
@@ -360,7 +404,7 @@ this raises P1's priority and enters the S-E kickoff as fresh evidence.
 | P10 | CC-plugin adapter + `security-guidance` mining | **separate /arch** | none (positioning) | — |
 | P11 | Probe: do `Explore`/`Plan` subagents load `.claude/rules/` at all? One measured session each, host-side; outcome = evidence beside the per-role work (S-D′ consumes it). **Re-routed to S-H (rev 4, §1.6 FORK C — host-only, cannot run behind the marker).** | **S-H** | READ [W] scoping | cheap |
 | P12 | Operator-axis ADOPT: `engineering:architecture` ADR template as /arch §1 spec-format slot | **S-G** | none (quality) | cheap text edit |
-| P13 | **S-D′ — per-seat subtraction maps** (§1.5): review-agent definitions with replacement system prompts; senior-seat rule re-scoping map; consumes P11 (now S-H); aif seats deferred per §0.5 priority ordering; runs under ADR-8's inherited experiment protocol with the rev-4 recorded deviation (dispatch-time parity split — §1.5); SSOT #234 trigger-fired annotation. **Instrument (rev 4 — the earlier «ordered by the S-E attribution table» named a table nobody produces):** repo-side drops are ordered by the **fixed `measure-always-on.sh` per-file output** (S-E P3b); harness-side by the **P14 price list** (S-H); a block neither instrument prices is `UNPRICED` and its ordering parks. | **S-D′** (reopened, Tier-2) | READ + WRITE [W] on expensive seats | sized by its own ADR-8 baseline capture |
+| P13 | **S-D′ — per-seat subtraction maps** (§1.5): review-agent definitions with replacement system prompts; senior-seat rule re-scoping map; consumes P11 (now S-H); aif seats deferred per §0.5 priority ordering; runs under ADR-8's inherited experiment protocol with the rev-4 recorded deviation (dispatch-time parity split — §1.5); SSOT #234 trigger-fired annotation. **Instrument (rev 4 — the earlier «ordered by the S-E attribution table» named a table nobody produces):** repo-side drops are ordered by the **fixed `measure-always-on.sh` per-file output** (S-E P3b); harness-side by the **P14 price list** (S-H) **— annotation 2026-08-07 (operator verdict, PR #1255 `DECISION-NEEDED` 1): superseded for ordering by S-L's re-priced ranking (the 4 B/token conversion behind the S-H list is falsified); S-L merged is a consumed-deliverable gate on S-D′ dispatch**; a block neither instrument prices is `UNPRICED` and its ordering parks. **S-L delivered 2026-08-07 (`…-s-l-recalculation.md`): the replacement is a BAND (1.835-3.416 B/tok · 1.835-3.128 cp/tok), not a constant — so this row's ordering must be RE-DERIVED, not rescaled (the mis-pricing differs 1.86× between content classes and therefore re-orders). `/context` alone is not a sufficient instrument: it omits ≥15,258 cp of billed every-seat harness payload, which its categories rank at zero. Its `Skills` category IS the `skill_listing` attachment (n=69), the largest single priced harness block. Two forks stay open for the operator — #5 (which channel keeps «harness remainder») and #6 (ADR-3's denominator) — neither blocks the re-derivation, both change what a figure is CALLED.** | **S-D′** (reopened, Tier-2) | READ + WRITE [W] on expensive seats | sized by its own ADR-8 baseline capture |
 | P14 | **Harness-remainder pricing + disable set** (operator override): per-block price list of the non-repo resident load — MCP tool schemas + server instructions, plugin SessionStart injects (e.g. the `using-superpowers` full-text inject each session start), skills/agents listings, memory index — via the P3c-verified channel + `/context`; deliverable = settings-recommendations doc with per-item token cost, operator applies. Preserve what already works (ToolSearch deferral keeps deferred schemas non-resident). **Re-routed to S-H (rev 4, §1.6 FORK C — `/context` is a CC slash command, host-only).** | **S-H** | READ + WRITE [W] — the ~60-70% of session start outside repo control | remainder ≈ 100k − (29-39k repo-owned), S1-measured bounds |
 
 **S-G — new small stage** (added rev 2; routed into the umbrella by P4(c)): Tier-1, one PR,
@@ -393,7 +437,7 @@ classes), host-bound by construction.
 
 | Umbrella | Disposition |
 |---|---|
-| `arch-v2-context-pipeline` | **ADVANCES.** S-D → additive scope closed-null; **S-D′ reopened subtractive** (operator override, #234 trigger (a) fired) — both via P4's single kickoff commit, never a stage `done.md`. S-E → strengthened (P2, P3), container-safe after the rev-4 split. S-F → untouched; item 4 consumed by P2. S-G → added (P5-P8, P12), precedes S-E. **S-H → added rev 4** (P3d, P11, P14 — host-side). Stage order: **S-G → S-E (strict); S-H independent, concurrent-allowed (round-4 M-6); S-D′ after S-E + S-H** (§1.6 FORK C/D/E). Umbrella `done.md` only at last-stage merge. |
+| `arch-v2-context-pipeline` | **ADVANCES.** S-D → additive scope closed-null; **S-D′ reopened subtractive** (operator override, #234 trigger (a) fired) — both via P4's single kickoff commit, never a stage `done.md`. S-E → strengthened (P2, P3), container-safe after the rev-4 split. S-F → untouched; item 4 consumed by P2. S-G → added (P5-P8, P12), precedes S-E. **S-H → added rev 4** (P3d, P11, P14 — host-side). Stage order: **S-G → S-E (strict); S-H independent, concurrent-allowed (round-4 M-6); S-D′ after S-E + S-H** (§1.6 FORK C/D/E) **+ S-L (annotation 2026-08-07, operator verdict — S-L re-prices the P14 ranking S-D′ orders by; PR #1255 `DECISION-NEEDED` 1 promoted to a gate)**. Umbrella `done.md` only at last-stage merge. |
 | `per-role-context-cold-verify` | **CLOSES.** The reserved design decision is delivered: no ADDITIVE per-role ambient (its research corpus fed #234, which stands for that scope); the subtractive successor S-D′ lives under `arch-v2-context-pipeline`, not here. Whole-umbrella `done.md` correct here. |
 | research-patch trio / plugin thread | **ADVANCES + routed.** Channel split resolved (D3b); operator-axis ADR-template adoption (P12); adapter + security-guidance → own contour (P10). Observation, not acted on: the 2026-08-02/-06 corpus needs harvesting from `feat/prune-worktrees` to staging. |
 
@@ -406,7 +450,7 @@ classes), host-bound by construction.
   cold seat (`cold-seat-economy.md §3`). (D1b was operator-delegated and is resolved in §1:
   digest, with the one-incident rollback trigger.)
 - **Factory-bound (rev 4 order: S-G → S-E strict; S-H independent/concurrent; S-D′ after
-  S-E + S-H):** S-G — Tier-1 with the D1
+  S-E + S-H — annotation 2026-08-07: + S-L, operator verdict per the P13 cell above):** S-G — Tier-1 with the D1
   keep-list authored in, WITH marker, **first of the factory stages** (it sets the resident
   baseline). S-E kickoff
   (P2 + P3, container-safe) — Tier-2, plan-complete → WITH marker (precondition ACTIVE).

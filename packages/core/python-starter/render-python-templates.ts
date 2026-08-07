@@ -74,9 +74,17 @@ export const RULES_DIR = '.getff/astgrep-rules';
  * pipeline neither produces it nor should flag it as an orphan. Registered here so the orphan
  * check does not false-positive on it AND so `checkPythonTemplateDrift()` still asserts it EXISTS
  * (a silent deletion surfaces as a `missing` finding — the exclusion is not a blind pass).
+ *
+ * `hooks/pre-push.sh` + `hooks/getff.pre-commit-config.yaml.fragment` are the S2b local git-hook
+ * rung (SSOT #237) — likewise hand-authored, for the same reason: a hook body is a shell script
+ * and a pre-commit config fragment, neither of which the lint-rule render pipeline produces. Their
+ * byte-integrity is guarded by the install fingerprint gate + the `(14)`/`(16b)` arms of
+ * tests/install-sh/python-entry-lane.test.sh, and their FIRING by the `(15)` RED/GREEN arm.
  */
 export const NON_RENDERED_TEMPLATE_FILES: readonly string[] = [
   'github-actions-ci.yml',
+  'hooks/getff.pre-commit-config.yaml.fragment',
+  'hooks/pre-push.sh',
 ];
 
 /** A single template file, `path` relative to {@link PYTHON_TEMPLATE_DIR}. */
