@@ -1,4 +1,4 @@
-<!-- scope: stage-scoped dispatch input — S-D′ of the arch-v2-context-pipeline umbrella (reopened scope, operator override 2026-08-06). NO bridge-profile marker — DELIBERATE: Tier 2 and NOT plan-complete (the subtraction-map authoring is the un-spent design judgment), so the top tier plans in aif per CLAUDE.md Task-tier routing. RE-ISSUED rev 4 (2026-08-06 /arch re-planning after a Phase -1 REVISE): dependency widened to S-E + S-H (the P11/P14/P3d inputs live in S-H now — spec §1.6 FORK C); the ADR-8 control arm re-homed to a dispatch-time parity split with a recorded deviation (spec §1.5); the ordering instrument named honestly (spec P13 rev 4). REV 5 (2026-08-07) absorbs this stage's FIRST cold Phase -1, which returned STOP: the fork-independent findings are fixed in place below, and the ADR-8 A/B arm is PARKED behind the §5 DECISION-NEEDED — it is NOT dispatchable until the operator resolves that fork. REV 6 (2026-08-07) records the operator's resolution of that fork — §5 = Option A, the ADR-8 A/B arm is DESCOPED from this stage (deliverable 3 removed, §4 T2 re-scoped to this stage's own before/after, follow-on stage stubbed in §6); the §5 blocker is lifted, so the ONLY remaining gate on dispatch is the two-gate S-E + S-H dependency. -->
+<!-- scope: stage-scoped dispatch input — S-D′ of the arch-v2-context-pipeline umbrella (reopened scope, operator override 2026-08-06). NO bridge-profile marker — DELIBERATE: Tier 2 and NOT plan-complete (the subtraction-map authoring is the un-spent design judgment), so the top tier plans in aif per CLAUDE.md Task-tier routing. RE-ISSUED rev 4 (2026-08-06 /arch re-planning after a Phase -1 REVISE): dependency widened to S-E + S-H (the P11/P14/P3d inputs live in S-H now — spec §1.6 FORK C); the ADR-8 control arm re-homed to a dispatch-time parity split with a recorded deviation (spec §1.5); the ordering instrument named honestly (spec P13 rev 4). REV 5 (2026-08-07) absorbs this stage's FIRST cold Phase -1, which returned STOP: the fork-independent findings are fixed in place below, and the ADR-8 A/B arm is PARKED behind the §5 DECISION-NEEDED — it is NOT dispatchable until the operator resolves that fork. REV 6 (2026-08-07) records the operator's resolution of that fork — §5 = Option A, the ADR-8 A/B arm is DESCOPED from this stage (deliverable 3 removed, §4 T2 re-scoped to this stage's own before/after, follow-on stage stubbed in §6); the §5 blocker is lifted, so the ONLY remaining gate on dispatch is the two-gate S-E + S-H dependency. REV 7 (2026-08-07) records the operator verdict resolving PR #1255 DECISION-NEEDED 1: the dependency list gains S-L — this stage orders its harness-side drops by the P14 ranking, S-L re-prices it (the 4 B/token conversion is falsified), so S-L's re-priced ranking is a consumed deliverable under the umbrella §3 two-gate form. With S-E (#1237) and S-H (#1239) merged 2026-08-07, S-L merged is now the ONLY remaining gate on dispatch. -->
 <!-- host-verify contract lives in §3 (a real contract, not an opt-out). The earlier `host-verify: none` opt-out was retracted 2026-08-06: deliverable 2 edits `agents/*.md`, which shifts install fingerprints, so this stage DOES have an executable arm — see §3. -->
 
 # arch-v2-context-pipeline S-D′ — per-seat subtraction maps
@@ -14,9 +14,11 @@
 > (population-table obligation + C2: a custom subagent's system prompt REPLACES CC's).
 > Umbrella context: [`../arch-v2-context-pipeline/kickoff.md`](../arch-v2-context-pipeline/kickoff.md).
 >
-> **Depends on S-E AND S-H merged (rev 4)** — S-H carries the P11 probe (do Explore/Plan
-> load rules?) and the N2/P14 attribution numbers (spec §1.6 FORK C); S-E carries the fixed
-> per-file meter this stage orders its repo-side drops by. Do not dispatch before either.
+> **Depends on S-E, S-H AND S-L merged (rev 7)** — S-H carries the P11 probe (do Explore/Plan
+> load rules?) and the N2/P3d attribution numbers (spec §1.6 FORK C); S-L carries the
+> re-priced P14 ranking the harness-side drops are ordered by (operator verdict 2026-08-07,
+> PR #1255 `DECISION-NEEDED` 1); S-E carries the fixed
+> per-file meter this stage orders its repo-side drops by. Do not dispatch before all three.
 >
 > **INPUT CONDITION — baseline snapshot before any prune (operator verdict 2026-08-07, S-H
 > `DECISION-NEEDED #1` Option B).** This stage's before/after measurement is invalid on a corpus
@@ -72,7 +74,8 @@
    - **`CLAUDE.md` sections** → `sed -n 'X,Yp' CLAUDE.md | wc -c`;
    - **`agents/*.md`** (whole file is the drop unit) → `wc -c agents/<name>.md`, and for a
      replacement prompt the delta `wc -c` before vs after — state both numbers;
-   - **harness-side blocks** → S-H's P14 price list.
+   - **harness-side blocks** → S-L's re-priced P14 ranking (rev 7 — S-H's original list is
+     superseded for ordering: its conversion constant is falsified).
 
    A block **no** instrument in that list prices is `UNPRICED` — **park its ORDERING and keep
    the drop, do not stop the task** (this is the binding reading; see §3a(a), which rev 5
@@ -103,7 +106,8 @@
    function, do NOT fabricate a defect count — and do NOT treat their absence as a shortfall.
    This stage now ships deliverables 1, 2 and 4; a PR with no evaluation arm is **conformant**,
    not incomplete. The arm's new home is the follow-on stage stubbed in §6. **The §5 blocker is
-   lifted; the two-gate S-E + S-H dependency is unaffected and still binds.**
+   lifted; the dependency gates (S-E + S-H + S-L as of rev 7) are unaffected by this
+   descope and still bind.**
 4. **SSOT #234 annotation** (same PR): trigger (a) fired — operator-declared expensive-seat
    budget exhaustion, 2026-08-06 session; verdict text unchanged, annotation appended per the
    row's own protocol.
@@ -229,15 +233,15 @@ currently-loading blocks it drops and what the seat still receives, (d) touches 
 maintainer-owned set above, and (e) the install snapshots were regenerated in the same PR with
 the host run quoted.
 
-**Upstream dependency — TWO gates each, not one (rev 4: S-E AND S-H)** (the umbrella models
+**Upstream dependency — TWO gates each, not one (rev 4: S-E AND S-H; rev 7: + S-L)** (the umbrella models
 this at [`../arch-v2-context-pipeline/kickoff.md`](../arch-v2-context-pipeline/kickoff.md)):
 per upstream stage, (1)
 **merged** — its PR is on `staging`; (2) **content-read** — the consumed deliverable
-actually returned a usable answer: S-H's P11 probe, P14 price list **and P3d per-turn
+actually returned a usable answer: S-H's P11 probe **and P3d per-turn
 attribution** (rev 5 — P3d was missing from the rev-4 list while §1 item 1 prices the
 MANDATORY injector row from it; a P3d that lands degraded, e.g. the failed-run shape its own
-kickoff names, leaves that row priced from nothing), and S-E's fixed per-file
-meter. P11 may legitimately land `INCONCLUSIVE` («coverage insufficient» is its honest output
+kickoff names, leaves that row priced from nothing), S-E's fixed per-file
+meter, and S-L's re-priced P14 ranking (rev 7). P11 may legitimately land `INCONCLUSIVE` («coverage insufficient» is its honest output
 when the probe cannot observe). If it did, this stage's Explore/Plan rows have no evidence
 base: say so and descope those rows, do NOT substitute an assumption. Reading «merged» as
 sufficient is `#hope-as-gate`.
@@ -258,7 +262,7 @@ two-consequence forks.
 
 Expected to fire here on: **(a)** any drop whose cost none of the §1 instruments prices
 (`measure-always-on.sh` for rules, `sed | wc -c` for `CLAUDE.md` sections, `wc -c` for
-`agents/*.md`, S-H's P14 price list harness-side) — record `UNPRICED`, do not rank it, do not
+`agents/*.md`, S-L's re-priced P14 ranking harness-side) — record `UNPRICED`, do not rank it, do not
 estimate (T-SDP-A), do not stop; **(b)** the ZCode population row, when a mechanism has no ZCode equivalent
 — «documented degradation» is the decided answer, but if a drop would be *silently* different
 there rather than absent, that is a real fork: state both consequences and park; **(c)** any
@@ -286,7 +290,7 @@ dispatch-authoring, never loaded always-on; T20 — no drop without its measured
 **T-SDP-A — subtraction-theatre:** dropping blocks nobody measured (feels productive, saves
 nothing) while the measured heavy blocks stay resident because dropping them is harder.
 Counter (rev 4): maps are ordered by the §1 instrument — fixed `measure-always-on.sh`
-per-file output repo-side, S-H's P14 price list harness-side — largest priced block first; a
+per-file output repo-side, S-L's re-priced P14 ranking harness-side (rev 7) — largest priced block first; a
 map that skips a top-3 priced block states why; unpriced blocks park, never rank.
 **T-SDP-B — restoration-trigger-as-decoration:** writing «restore if problems occur» as the
 trigger. Counter: each trigger names an OBSERVABLE (a failed gate, a review-defect class, a
@@ -302,7 +306,8 @@ budget line moving), not a vibe.
 > dispatch blocker**. Consequences now in force: §1 item 3 is descoped (a PR with no evaluation
 > arm is conformant, not incomplete); §4 T2 is re-scoped to this stage's own before/after; ADR-8
 > accrues its **second** recorded deviation, and its A/B window travels to the follow-on stage
-> stubbed in §6. **The remaining gate on dispatch is the two-gate S-E + S-H dependency alone.**
+> stubbed in §6. **The remaining gate on dispatch is the consumed-deliverable dependency alone —
+> S-E + S-H + S-L as of rev 7 (S-E and S-H merged 2026-08-07; S-L open).**
 
 The stage's first cold Phase -1 (2026-08-07) returned **STOP**. Every fork-independent finding
 is fixed in rev 5 above. What remained was one genuine fork with no determinate best answer on
@@ -351,9 +356,11 @@ not audited for whether a *paused* task's `description` is editable after creati
 two-phase dispatch becomes cheaper — but that is a question for the §6 follow-on stage, and it does
 not reopen this one.
 
-**Dispatch status at rev 6:** the §5 blocker is **lifted**. The stage still cannot start, for one
-remaining and unrelated reason: the two-gate dependency (S-E **AND** S-H merged) — S-H is merged
-(#1239 + #1249), S-E is not. Do not let an executor «work around» the descoped arm in the other
+**Dispatch status at rev 7 (2026-08-07):** the §5 blocker is **lifted**, and S-E (#1237) and
+S-H (#1239 + #1249) are both merged. The stage still cannot start, for one remaining reason:
+**S-L is not merged** — its re-priced P14 ranking is the ordering input for the harness-side
+drops (operator verdict 2026-08-07, PR #1255 `DECISION-NEEDED` 1).
+Do not let an executor «work around» the descoped arm in the other
 direction either: re-introducing an A/B under a different name is the same scope-crossing this
 resolution declined.
 

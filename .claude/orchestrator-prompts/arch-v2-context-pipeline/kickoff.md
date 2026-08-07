@@ -94,7 +94,7 @@ forward+backward self-check and a `Prior-art:` trailer (or the ≥20-char escape
 | S-B | dispatch-input contract v2 + calibration ledger + shadow-A/B protocol | S-A | 2 | NO | ADR-5, ADR-6 |
 | S-C | L2 population table + 5-option BFR verdict (null option live) | S-A | 2 | NO | ADR-2, ADR-1 |
 | S-D | L2 build (ADDITIVE scope) — **CLOSED-NULL 2026-08-06** per SSOT #234; NO stage `done.md` (see charter) | S-C | — | — | ADR-2 |
-| S-D′ | per-seat SUBTRACTION maps — reopened scope, operator override 2026-08-06 (#234 trigger (a) fired). **Rev 6 (2026-08-07): ADR-8's A/B arm DESCOPED per the operator's §5 = Option A → S-K; this stage ships maps + review-seat agent definitions + the #234 annotation, and a PR with no evaluation arm is conformant** | S-E + S-H **merged** (consumes P11 probe + P14 prices — two-gate form, §3). **⚠ BOTH GATES NOW SATISFIED (S-H #1239 00:06Z, S-E #1237 09:39Z, 2026-08-07) — this stage is dispatchable.** Open ordering question, **NOT yet a gate:** S-L recalculates the P14 conversion this stage ranks by, and a falsified conversion falsifies the *ranking*, which is this stage's product (spec `:363`, row P13). Dispatching S-D′ before S-L merges ranks against a falsified constant. Whether that promotes to a third gate is operator-owned — see the S-L row and `DECISION-NEEDED` in PR #1255 | 2 | **NO** (map authoring = un-spent judgment) | ADR-1 |
+| S-D′ | per-seat SUBTRACTION maps — reopened scope, operator override 2026-08-06 (#234 trigger (a) fired). **Rev 6 (2026-08-07): ADR-8's A/B arm DESCOPED per the operator's §5 = Option A → S-K; this stage ships maps + review-seat agent definitions + the #234 annotation, and a PR with no evaluation arm is conformant** | S-E + S-H + **S-L merged** (consumes P11 probe + P3d numbers + S-L's re-priced P14 ranking — two-gate form each, §3). **S-L PROMOTED TO A GATE — operator verdict 2026-08-07, resolving PR #1255 `DECISION-NEEDED` 1:** S-L recalculates the P14 conversion this stage ranks by, and a falsified conversion falsifies the *ranking*, which is this stage's product (spec `:387`, row P13). S-E (#1237) and S-H (#1239) merged 2026-08-07; **S-L is the one open gate** | 2 | **NO** (map authoring = un-spent judgment) | ADR-1 |
 | S-K | **STUB, not dispatchable** — ADR-8's A/B experiment re-homed off S-D′ (rev 6, operator verdict 2026-08-07). Entry criteria + the rev-6 task-id finding are stubbed at [`../arch-v2-context-pipeline-s-d-prime/kickoff.md`](../arch-v2-context-pipeline-s-d-prime/kickoff.md) §6; scoping it is its own act | S-D′ **merged** (it evaluates what S-D′ ships) | — | — | ADR-8 |
 | S-E | L1 budget gate + config-assertion asserts + `InstructionsLoaded` verification (spec P2/P3 — container-safe set after the rev-4 split; P3d/P11/P14 → S-H) | S-G **merged** (resident baseline) + token-audit S1 **merged** | 2 | YES per /arch §3 D1 exception (spec-produced, plan-complete; re-verify precondition at dispatch) | ADR-3 |
 | S-F | small-fixes queue (handoff decision 13), one maintenance PR; item 4 **CONSUMED** by S-E's P2 (see charter) | token-audit S2 timing | 1 | YES (`Z.AI GLM-5.2 SDK`) | — |
@@ -233,10 +233,11 @@ guidance gradient — a weaker executor needs MORE resident instruction), never 
 under ADR-8's inherited protocol **with the rev-4 recorded deviation** (dispatch-time parity
 split over agent-definition variants, ledger-audited — the resolver branch died with S-D's
 CLOSED-NULL; spec §1.5); annotates SSOT #234 (trigger (a) fired: operator-declared
-expensive-seat budget exhaustion, 2026-08-06 session). **Depends on** S-E **and** S-H, each
-in the two-gate form (merged + content-read — the P11 probe and the P14/P3d numbers are S-H
-deliverables). Repo-side drops are ordered by the fixed `measure-always-on.sh` per-file
-output; harness-side by S-H's P14 price list; unpriced blocks park (spec P13, rev 4).
+expensive-seat budget exhaustion, 2026-08-06 session). **Depends on** S-E, S-H **and S-L**,
+each in the two-gate form (merged + content-read — the P11 probe and the P3d numbers are S-H
+deliverables; the re-priced P14 ranking is S-L's, gate added by operator verdict 2026-08-07).
+Repo-side drops are ordered by the fixed `measure-always-on.sh` per-file
+output; harness-side by S-L's re-priced P14 ranking; unpriced blocks park (spec P13, rev 4).
 **Tier 2, NO marker** — the map authoring is the un-spent
 judgment. **Acceptance.** Maps state per-seat-class drops WITH per-population reach incl. the
 ZCode row (ADR-2 population-table obligation); ADR-8 baseline rows exist BEFORE any map
@@ -356,23 +357,22 @@ the stage reads it as §0 input rather than re-deriving it. **Tier 2 (host-bound
 not `/arch`-produced, so the D1 plan-complete exception does not apply, and both the #5 naming
 rule and the #6 denominator are un-spent judgment. Host-bound for the FORK C reason: the
 acceptance contract runs `scripts/measure-turn-attribution.sh`, which reads
-`~/.claude/projects/**/*.jsonl`. **Ordering:** should merge **before S-D′ dispatches** — recorded
-on the S-D′ row above as an open question, **not** as a gate (see the note below for why).
-**This is now on the critical path.** Both of S-D′'s gates closed on 2026-08-07 — S-H in #1239
-(00:06Z) and S-E in #1237 (09:39Z) — so S-D′ is dispatchable today, and a dispatcher reading its
-kickoff would find «the remaining gate … is the two-gate S-E + S-H dependency alone» satisfied.
+`~/.claude/projects/**/*.jsonl`. **Ordering:** must merge **before S-D′ dispatches** — a gate on
+the S-D′ row above. **This is on the critical path.** S-D′'s other gates closed on 2026-08-07 —
+S-H in #1239 (00:06Z) and S-E in #1237 (09:39Z) — so S-L is the one gate standing between S-D′
+and a dispatch that would rank against a falsified constant.
 
-**The «before S-D′» constraint is recorded, NOT yet enforced as a gate — deliberately.** Promoting
-it would mean re-declaring the umbrella's named **two-gate form** (§3) as a three-gate form, and
-that phrase is load-bearing in eight places outside this row: `:237`, `:371` and §3 itself here,
-plus four statements in
-[`../arch-v2-context-pipeline-s-d-prime/kickoff.md`](../arch-v2-context-pipeline-s-d-prime/kickoff.md)
-(`:1`, `:106`, `:305`, `:355` — the last three saying the two-gate dependency is the *only*
-remaining gate), plus the spec's own «S-D′ after S-E + S-H» at `:410`. Editing one row to
-«three-gate» while those stand would put the table and the prose in contradiction, which this
-umbrella's Ordering statement explicitly forbids; sweeping all eight is a structural change to a
-named pattern, with an owner, and is out of this PR's scope
-([CLAUDE.md `PR strategy`](../../../CLAUDE.md)). Surfaced as `DECISION-NEEDED` instead.
+**PROMOTED TO A GATE — operator verdict 2026-08-07, resolving PR #1255 `DECISION-NEEDED` 1.**
+The #1255 authoring session had recorded the constraint as an open question, arguing that
+promotion would re-declare the named **two-gate form** (§3). The verdict takes the
+consumed-deliverable reading instead, which needs no re-declaration: §3 already binds *every
+consumed deliverable* to the two-gate form (merged + content-read), and S-D′ consumes S-L's
+re-priced P14 ranking, so S-L enters S-D′'s dependency list on the same footing as S-E and S-H.
+The load-bearing statements the open-question note had enumerated (the `Depends on` charter
+line, the Ordering line, §3's intra-umbrella list, the four in
+[`../arch-v2-context-pipeline-s-d-prime/kickoff.md`](../arch-v2-context-pipeline-s-d-prime/kickoff.md),
+the spec's P13 instrument cell and §4 stage-order cell) are swept to the three-dependency form
+in the same PR as this paragraph — table and prose stay in agreement.
 
 **Scope fence.** The merged S-H research patches are append-only and read-only for later sessions
 (Artifact Ownership Contract): every correction lands as a **new** patch plus spec/kickoff
@@ -388,7 +388,8 @@ first) → **S-E** (strict: ceilings derive from the post-S-G baseline; also gat
 cross-umbrella token-audit S1 dependency, met). **S-H is independent** (round-4 M-6):
 host-side, dispatchable any time after the re-plan merges, concurrent with S-G/S-E — its
 S-E touchpoints degrade gracefully per its kickoff. **S-D′ last** (consumes S-E's fixed
-meter + S-H's P11/P14/P3d numbers, two-gate form each).
+meter + S-H's P11/P3d numbers + S-L's re-priced P14 ranking, two-gate form each — S-L
+promoted to a gate 2026-08-07, operator verdict).
 **S-I runs AFTER S-G merges** (rev 5, 2026-08-06 — the rev-4 «independent, concurrent with
 everything» statement is SUPERSEDED; a Phase -1 cold review falsified it). The *budget surface*
 is disjoint from the rules resident set, but the *file set* is not: S-G's §2 permitted set
@@ -433,7 +434,8 @@ appended to by every subsequent stage dispatch.
 
 **The two-gate pattern below (merged + content-read) is the binding form for EVERY consumed
 deliverable in this umbrella** — rev 4 applies it to S-D′'s intra-umbrella dependencies too
-(S-E's fixed meter; S-H's P11 probe + P14 price list): «merged» alone is `#hope-as-gate`
+(S-E's fixed meter; S-H's P11 probe + P3d numbers; S-L's re-priced P14 ranking, promoted
+2026-08-07): «merged» alone is `#hope-as-gate`
 when the consumed content may legitimately land `INCONCLUSIVE`.
 
 ### Cross-umbrella (S-E)
