@@ -1,7 +1,7 @@
 # consumer-matrix-pnpm-flake — investigation tracker
 
-- **Type:** investigation (CI flake vs real intermittent defect), small. Tier 2 per CLAUDE.md task-tier routing (root cause unknown → dispatch WITHOUT a `bridge-profile` marker).
-- **Opened:** 2026-08-08 (surfaced during PR #1274 — the cross-checkout test-wiring fix; the failure is unrelated to that PR's diff).
+- **Type:** investigation (CI flake vs real intermittent defect), small but **rising-frequency — disrupts PR CI repo-wide; dispatch promptly after this kickoff merges**. Tier 2 per CLAUDE.md task-tier routing (root cause unknown → dispatch WITHOUT a `bridge-profile` marker).
+- **Opened:** 2026-08-08 (surfaced during PR #1274 — the cross-checkout test-wiring fix; the failure is unrelated to that PR's diff). Second occurrence ~20 min later on PR #1276 — this kickoff's own docs-only PR.
 - **Base:** staging.
 
 ## What
@@ -26,8 +26,10 @@ The `audit-self.yml` job **«Consumer-matrix start cell — pnpm workspace monor
 
 - **Not caused by the PR:** PR #1274's diff is 2 lines in the `principles-meta-tests` job of `audit-self.yml`; the pnpm cell consumes none of it.
 - **Not pre-existing red:** two control `audit-self` runs on staging started the same minute (runs `31222069426`, `31222061084`, no #1274 content) — pnpm cell green in both. The last completed staging run before that (`31219870077`) was also green.
-- **Frequency:** across the last 25 `audit-self` runs (all branches, checked 2026-08-08 via `run_attempt`), exactly ONE run has attempt >1 — this incident. So: first documented occurrence, observed first-attempt failure rate ≈ 1/25. One data point — treat frequency itself as unverified (see traps).
-- **Rerun green:** `gh run rerun --failed` on the same commit → 41/41 green.
+- **Frequency (updated after the 2nd occurrence):** the 25-run `run_attempt` probe (2026-08-08) initially showed this as the ONLY rerun-carrying run — but within the evening window 21:57–22:17 UTC the picture is: fail 21:58 (run `31222026820` att.1, PR #1274), pass ×2 21:57 (staging controls `31222069426`/`31222061084`), pass 21:58 (`claude/pipeline-getff-freshness-widening-fe4271`), pass ~22:00 (rerun of the first fail), **fail 22:17 (run `31223276292`, job `93012211714`, PR #1276 — a docs-only diff: one markdown kickoff file, the strongest possible control)**. ≥2 first-attempt failures in ~7 attempts (~30%) — treat as high-frequency stochastic, NOT deterministic: greens and reds interleave within the same minutes, so registry-version drift ALONE does not explain it (same registry state produced both outcomes).
+- **Identical signature both times:** same «R2 … NOT in the resolved ESLint config for src/routes/health.ts — SILENTLY INERT» on «root config», same «no .ts/.tsx source yet» skip on the second workspace.
+- **Rerun green:** `gh run rerun --failed` on the same commit → 41/41 green (occurrence 1).
+- **Pinning status (read from the cell script, 2026-08-08):** the fixture's OWN deps are pinned (`zod 3.23.8` at `tests/consumer-matrix/pnpm-monorepo-cell.sh:87`, `packageManager pnpm@9.12.3` at `:75`), lockfile is generated fresh each run (`pnpm install --silent` at `:143`); the framework toolchain lands via `install.sh ts-server --full` (`:149`) — run-time dependency resolution points live there. Suspect list for the dispatched session, not a verdict.
 
 ## The load-bearing fork (why this is worth a session)
 
