@@ -1486,6 +1486,54 @@ jobs:
         env:
           FRAMEWORK_ROOT: ${{ github.workspace }}
 
+  # getff-any-stack-trace S4 (spec §9.1 W6 cell v1): python unfamiliar-stack e2e —
+  # scripted fresh python project (FastAPI/SQLAlchemy-class, master default branch)
+  # → install.sh python under Node-stripped PATH (proves F-A DECLARE on the install
+  # path) → assert the S2 agent surface (4 skills + curated 2 agents + hooks +
+  # .mcp.json + AGENTS.md + .ai-factory/ + .getff/) → committed Tier-1-provenance
+  # practice fixture → rule-bootstrap-cli --from-practice resolves Tier-1 via
+  # vendored .dist-info METADATA (`Project-URL: Documentation, <url>`, the D7 host-
+  # derivation surface) → RED arm: ast-grep fires non-zero on planted print() →
+  # GREEN arm: ast-grep silent on conforming logger.info() → REJECT arm: a practice
+  # citing a non-direct-dep package is downgraded to research-only (FF2007, honest
+  # degrade) → R1-input: delivered workflow trigger carries `branches: [master]`
+  # (deliver_getff_workflow substitutes via git symbolic-ref origin/HEAD). A cell
+  # that only passes is `#discipline-theatre` with a workflow file attached — the
+  # RED/GREEN/REJECT arms ARE the §3 «works» claim, not a green-CI narrative.
+  # Fail-closed: a missing tool is RED, never SKIP. Deterministic + API-free per
+  # no-paid-llm-in-ci.md §1. ast-grep pinned per ci-tool-pinning.md Rule A.
+  consumer-matrix-python-unfamiliar-stack-cell:
+    name: "Consumer-matrix W6 cell — python unfamiliar-stack e2e (getff-any-stack-trace S4)"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '22'
+      # tsx lives in packages/core/node_modules — the cell invokes
+      # `npx --no-install tsx ... rule-bootstrap-cli.ts` at cell:300-303 from
+      # $FRAMEWORK_ROOT (root), so tsx must resolve from root/node_modules.
+      # Pattern B (lines 467-469, 555-557, 641-643, 881-883, 911-913): npm ci
+      # --prefix packages/core installs packages/core's own deps, then the
+      # workspace install hoists tsx to root where the cell's cd-root invocation
+      # finds it. Without these steps the cell fails at the Tier-1 generation
+      # arm with "tsx not found". Container masks this via ambient
+      # /app/node_modules + /home/node/.npm-global — destination-environment-
+      # verification.md §2 incident-1 pattern (caught by round-1 rework review
+      # 2026-08-07).
+      - name: Install packages/core deps (tsx for rule-bootstrap-cli)
+        run: npm ci --prefix packages/core --silent
+      - name: Install workspace deps (hoists tsx to root)
+        run: npm install --silent
+      - name: Run the consumer-matrix W6 cell (python unfamiliar-stack e2e)
+        run: bash tests/consumer-matrix/python-unfamiliar-stack-cell.sh
+        env:
+          FRAMEWORK_ROOT: ${{ github.workspace }}
+
   # Single aggregate context for branch protection. `needs:` every other
   # audit-self PR job — including actionlint + zizmor above — so requiring just
   # `ci-success` gates them all, and stays correct as jobs are added/removed (vs
@@ -1521,6 +1569,12 @@ jobs:
       - phase-8-canonical-regen-acceptance
       - f17-node-compat
       - consumer-matrix-start-cell
+      # getff-any-stack-trace S4 (spec §9.1): without this line the W6 cell could go
+      # RED (or SKIP its firing arms) while `ci-success` stays green and the PR merges,
+      # because branch protection requires only `ci-success`. Same `#warning-nobody-reads
+      # shape as the alwayson-budget incident below — load-bearing assertion lives in the
+      # cell's RED/GREEN/REJECT arms, none of which a green `ci-success` alone proves.
+      - consumer-matrix-python-unfamiliar-stack-cell
       # arch-v2 S-E P3a. Without this line the budget job could go RED while
       # `ci-success` stayed green and the PR merged, because branch protection
       # requires only `ci-success` — a gate whose sole consumer is someone
