@@ -56,6 +56,18 @@ resolve_orch_home() {
   fi
 }
 
+# Render an absolute path repo-relative, for compact human-facing messages. A path outside
+# REPO_ROOT (e.g. an MO_* seam pointing at a sandbox) falls through unchanged rather than
+# being mangled — an absolute path is still a correct answer, a wrong relative one is not.
+repo_rel() { printf '%s\n' "${1#"${REPO_ROOT}"/}"; }
+
+# Repo-relative form of resolve_orch_home() — `.claude/orchestrator-prompts` in the framework,
+# `.ai-factory/orchestrator-prompts` in a consumer. Helper OUTPUT must go through this rather
+# than hardcode either literal: a message naming `.claude/orchestrator-prompts` in a consumer
+# points at a directory that does not exist, sending the reader (human or agent) to look in
+# the wrong place while the code checked the right one.
+resolve_orch_home_rel() { repo_rel "$(resolve_orch_home)"; }
+
 # The backlog-priority registry ("wave plan"). Framework keeps docs/meta-factory/wave-sequencing-plan.md;
 # a consumer's plan lives beside its kickoffs at <orch-home>/plan.md (created on first run, SKILL §1).
 resolve_plan_path() {

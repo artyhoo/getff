@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # integer-name-guard.sh — V1 pre-invocation guard for SKILL.md §0.
-# Asserts no umbrella directory under .claude/orchestrator-prompts/ is named as a
+# Asserts no umbrella directory under the resolved orchestration home is named as a
 # bare integer (^[0-9]+$). An integer-named umbrella makes `/pipeline 1`
 # ambiguous between named-umbrella dispatch and V4 top-N routing (§0 arg-routing).
 #
@@ -19,7 +19,8 @@
 # `Bash(bash ${CLAUDE_SKILL_DIR}/helpers/*.sh *)` entry removes that dependency.
 #
 # Usage: integer-name-guard.sh [orch-prompts-dir]
-#   arg1 — dir to scan (default: .claude/orchestrator-prompts relative to cwd).
+#   arg1 — dir to scan (default: resolve_orch_home() — .claude/orchestrator-prompts in
+#          the framework, .ai-factory/orchestrator-prompts in a consumer install).
 #          Passed explicitly by the §0 caller so the invocation carries a trailing
 #          arg and matches the `*.sh *` allowlist glob (no-arg would not match).
 #   exit 0 → no integer-named umbrella (safe to proceed)
