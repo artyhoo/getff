@@ -610,6 +610,7 @@ do_refresh() {
       backward-sweep-auditor.md) continue ;;  # authoring-only tool (§1.7 backward-check cold-sweep, T21)
       adapter-jig-reviewer.md) continue ;;  # authoring-only tool (framework-side adapter-wiring conformance review, adapter-jig J1)
       dispatch-input-checker.md) continue ;;  # authoring-only station (arch-v2 S-B contract v2, dispatch-input reality-check)
+      getff-cold-run-prober.md) continue ;;  # framework-only (S4 one-beat cold-run protocol — run BY framework against consumer, not shipped; spec §9.3)
       orchestrator-worker-discipline.md|reviewer-discipline.md)
         # F7 companion split (agents arm) — parity with setup.d/20-agents.sh: factory-only
         # (or legacy --with-aif-suite), or keep refreshing a copy already on disk (presence =
