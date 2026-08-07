@@ -94,7 +94,7 @@ forward+backward self-check and a `Prior-art:` trailer (or the ≥20-char escape
 | S-B | dispatch-input contract v2 + calibration ledger + shadow-A/B protocol | S-A | 2 | NO | ADR-5, ADR-6 |
 | S-C | L2 population table + 5-option BFR verdict (null option live) | S-A | 2 | NO | ADR-2, ADR-1 |
 | S-D | L2 build (ADDITIVE scope) — **CLOSED-NULL 2026-08-06** per SSOT #234; NO stage `done.md` (see charter) | S-C | — | — | ADR-2 |
-| S-D′ | per-seat SUBTRACTION maps — reopened scope, operator override 2026-08-06 (#234 trigger (a) fired). **Rev 6 (2026-08-07): ADR-8's A/B arm DESCOPED per the operator's §5 = Option A → S-K; this stage ships maps + review-seat agent definitions + the #234 annotation, and a PR with no evaluation arm is conformant** | S-E + S-H + **S-L merged** (consumes P11 probe + P3d numbers + S-L's re-priced P14 ranking — two-gate form each, §3). **S-L PROMOTED TO A GATE — operator verdict 2026-08-07, resolving PR #1255 `DECISION-NEEDED` 1:** S-L recalculates the P14 conversion this stage ranks by, and a falsified conversion falsifies the *ranking*, which is this stage's product (spec `:387`, row P13). S-E (#1237) and S-H (#1239) merged 2026-08-07; **S-L is the one open gate** | 2 | **NO** (map authoring = un-spent judgment) | ADR-1 |
+| S-D′ | per-seat SUBTRACTION maps — reopened scope, operator override 2026-08-06 (#234 trigger (a) fired). **Rev 6 (2026-08-07): ADR-8's A/B arm DESCOPED per the operator's §5 = Option A → S-K; this stage ships maps + review-seat agent definitions + the #234 annotation, and a PR with no evaluation arm is conformant** | S-E + S-H + **S-L merged** (consumes P11 probe + P3d numbers + S-L's re-priced P14 ranking — two-gate form each, §3). **S-L PROMOTED TO A GATE — operator verdict 2026-08-07, resolving PR #1255 `DECISION-NEEDED` 1:** S-L recalculates the P14 conversion this stage ranks by, and a falsified conversion falsifies the *ranking*, which is this stage's product (spec `:387`, row P13). S-E (#1237), S-H (#1239 + #1249) and **S-L (#1263)** all merged 2026-08-07 → **every gate MET on both arms; the stage is DISPATCHABLE** (kickoff rev 8) | 2 | **NO** (map authoring = un-spent judgment) | ADR-1 |
 | S-K | **STUB, not dispatchable** — ADR-8's A/B experiment re-homed off S-D′ (rev 6, operator verdict 2026-08-07). Entry criteria + the rev-6 task-id finding are stubbed at [`../arch-v2-context-pipeline-s-d-prime/kickoff.md`](../arch-v2-context-pipeline-s-d-prime/kickoff.md) §6; scoping it is its own act | S-D′ **merged** (it evaluates what S-D′ ships) | — | — | ADR-8 |
 | S-E | L1 budget gate + config-assertion asserts + `InstructionsLoaded` verification (spec P2/P3 — container-safe set after the rev-4 split; P3d/P11/P14 → S-H) | S-G **merged** (resident baseline) + token-audit S1 **merged** | 2 | YES per /arch §3 D1 exception (spec-produced, plan-complete; re-verify precondition at dispatch) | ADR-3 |
 | S-F | small-fixes queue (handoff decision 13), one maintenance PR; item 4 **CONSUMED** by S-E's P2 (see charter) | token-audit S2 timing | 1 | YES (`Z.AI GLM-5.2 SDK`) | — |
@@ -357,10 +357,10 @@ the stage reads it as §0 input rather than re-deriving it. **Tier 2 (host-bound
 not `/arch`-produced, so the D1 plan-complete exception does not apply, and both the #5 naming
 rule and the #6 denominator are un-spent judgment. Host-bound for the FORK C reason: the
 acceptance contract runs `scripts/measure-turn-attribution.sh`, which reads
-`~/.claude/projects/**/*.jsonl`. **Ordering:** must merge **before S-D′ dispatches** — a gate on
-the S-D′ row above. **This is on the critical path.** S-D′'s other gates closed on 2026-08-07 —
-S-H in #1239 (00:06Z) and S-E in #1237 (09:39Z) — so S-L is the one gate standing between S-D′
-and a dispatch that would rank against a falsified constant.
+`~/.claude/projects/**/*.jsonl`. **Ordering:** had to merge **before S-D′ dispatches** — a gate on
+the S-D′ row above. **MERGED 2026-08-07T12:50Z as PR #1263**, alongside S-H (#1239, 00:06Z) and
+S-E (#1237, 09:39Z) — so S-D′'s last gate is closed and it no longer risks a dispatch that would
+rank against a falsified constant. Its §5 binds S-D′ to **re-derive**, never rescale, the ranking.
 
 **PROMOTED TO A GATE — operator verdict 2026-08-07, resolving PR #1255 `DECISION-NEEDED` 1.**
 The #1255 authoring session had recorded the constraint as an open question, arguing that
