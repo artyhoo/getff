@@ -257,7 +257,13 @@ an environment label (the gate refuses); the escape token is tested (a rationale
 the `InstructionsLoaded` verdict is recorded with its primary-source citation whichever way it
 lands. **Extended 2026-08-06 by the decision-layer spec (binding):** + P2 config-assertion
 asserts (committed-list liveness principle test with pinned `picomatch` — a capability commit
-carrying a `Prior-art:` trailer + SSOT entry; local-shadow pre-push check; backstop wiring per
+carrying a `Prior-art:` trailer + SSOT entry; ~~local-shadow pre-push check~~ **P2b WITHDRAWN
+2026-08-07 — do not rebuild from this line:** the shipped client MERGES array settings
+(`project ∪ local`), so the superset assert is green-by-construction (`#hope-as-gate`);
+evidence `docs/meta-factory/research-patches/2026-08-06-claudemd-overlay-semantics-verdict.md`
+§3-§4, spec §2 item 2 struck through in the same class of owner commit (#1252). The **inverse**
+hazard — a local file ADDING excludes to hide always-on rules — is real and claimed by no
+stage; backstop wiring per
 spec §2 item 3); + REUSE routing (wire the existing `scripts/check-alwayson-budget.sh` into
 pre-push; fix `scripts/measure-always-on.sh` — BOTH blindnesses: `claudeMdExcludes` AND the
 membership predicate that counts `paths:`-scoped rules as resident, spec §1.6 FORK D).
