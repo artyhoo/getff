@@ -59,6 +59,8 @@ packages/*/reports/
 # touching the framework's own tracked .claude/skills/* entries.
 /.ai-factory/*
 /.ai-factory.json
+# Operator worktrees (CC `worktree` + bare `git worktree add`) — root-anchored per the same dirty-worktree-guard rationale as /.ai-factory/* above (fresh clones incl. the aif container base otherwise see permanent `?? .claude/worktrees/` drift).
+/.claude/worktrees/
 # Exception: harness-model.json is the framework's OWN tracked SSOT — the neutral
 # harness-config model that scripts/render-harness-config.mjs derives CC + zcode
 # config from (#894). NOT installer output. The `/*` glob above keeps every OTHER
@@ -82,13 +84,6 @@ packages/*/reports/
 /.codex/
 /.opencode/*
 !/.opencode/INSTALL.md
-# Operator worktrees (CC `worktree` feature + bare `git worktree add`) — per-clone
-# output, never tracked. Without this tracked ignore, the host's `.git/info/exclude` carries
-# it locally but every fresh clone (the aif container base included) sees `?? .claude/worktrees/`
-# as permanent untracked drift — the exact condition the dirty-worktree guard above refuses
-# (packages/shared/src/gitIsolation.ts -> assertWorkingTreeClean). Root-anchored to avoid
-# touching the framework's own tracked .claude/** entries (same rationale as /.ai-factory/*).
-/.claude/worktrees/
 /.claude/agents/
 /.claude/skills/aif/
 /.claude/skills/aif-*/
