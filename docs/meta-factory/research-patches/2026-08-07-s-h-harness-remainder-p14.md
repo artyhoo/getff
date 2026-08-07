@@ -38,11 +38,27 @@ split read **`UNMEASURED — channel absent`** and are never estimated. **One `/
 from an interactive operator session closes those rows** — that is the cheapest single action
 that would complete this table.
 
+> **Superseded in part — see §8.**
+> The operator supplied that `/context` paste on 2026-08-07, after this patch merged. It closed
+> **two** of the four `UNMEASURED` rows (5c, 5e) and left two open (5d, 9). Read §8 before acting
+> on any figure below.
+
 Conversion: **4 B ≈ 1 token, est.**, per the seed's binding convention, applied uniformly.
+**⚠ Falsified after merge — measured 2.62 B/token on seven files with both counts; see
+§8.1. Figures
+below are left as published and are known-low by ≈1.53×; the remainder (row 5, computed by
+difference) is correspondingly known-HIGH.**
 
 ---
 
 ## §0a DECISION-NEEDED #3 — the prescribed pricing channel could not observe, and five blocks stay unpriced
+
+> **ANSWERED 2026-08-07 (post-merge): Option A taken.** The operator ran `/context` and supplied
+> the output; §8
+> records the result. The fork below is kept **verbatim** as the record of the state at stage
+> close — it is not rewritten to look as though the answer had been available. Note that Option
+> A's stated consequence turned out to be optimistic: it closed **two** of the four rows, not
+> four, and row 8's injected form remains S-I's to publish.
 
 §3a of the stage kickoff names «an unpriceable block class» and «a probe that cannot observe» as
 DECISION-NEEDED triggers. Both fired here, so this is recorded in §3a grammar rather than only
@@ -128,9 +144,9 @@ every subtractable block is present and the total is exactly measured.
 | 5 | **harness remainder** (base system prompt + tool schemas + MCP + listings) | **42,621** | **68.4%** | **by difference: row-total minus rows 1-4** |
 | 5a | — composite floor: base prompt + reduced toolset (`Explore` seat, no repo files) | 26,229 | 42.1% | `Explore` first-turn billing minus its digest |
 | 5b | — incremental tool schemas of a full-tool seat over a reduced one | 16,392 | 26.3% | difference between the two measured seats |
-| 5c | — MCP tool schemas (resident subset) | `UNMEASURED — channel absent` | — | no per-server byte channel; not estimated |
-| 5d | — MCP server instructions | `UNMEASURED — channel absent` | — | visible in-prompt, no byte channel |
-| 5e | — skills/agents listing, as injected | `UNMEASURED — channel absent` | — | harness truncates to a listing budget; injected form not observable |
+| 5c | — MCP tool schemas (resident subset) | **8.4k** (§8.3, 2026-08-07) | — | `/context` «MCP tools» — operator paste, post-merge |
+| 5d | — MCP server instructions | `UNMEASURED — channel absent` | — | visible in-prompt, no byte channel; `/context` does not itemise it apart from tool schemas (§8.3) |
+| 5e | — skills/agents listing, as injected | **8.9k** skills + **1k** custom-agent listing (§8.3, 2026-08-07) | — | `/context` «Skills» + «Custom agents» — operator paste, post-merge |
 
 **Blocks priced outside the subagent total** (they belong to the main session, not a subagent):
 
@@ -139,7 +155,7 @@ every subtractable block is present and the total is exactly measured.
 | 6 | plugin `SessionStart` inject (`"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" session-start`) | **1,145 / session** (4,581 B, 190 firings, 1.01/transcript — so one inject per session) | corpus hook-execution records |
 | 7 | subagent digest (per spawn, `SubagentStart`) | 457 (1,828 B, 728 firings, 1.01/subagent) | corpus hook-execution records |
 | 8 | skills listing, **source-side** sum of 129 `SKILL.md` name+description | **10,264 (41,057 B)** post-S-I; 11,332 (45,329 B) pre-S-I | `awk` over frontmatter; **source-side, not the injected form** — S-I owns the injected/truncated figure |
-| 9 | agents inventory: 17 files, 188,117 B on disk | listing form `UNMEASURED — channel absent` | `wc -c`; agents are listed, not loaded whole |
+| 9 | agents inventory: 17 files, 188,117 B on disk | listing form `UNMEASURED — channel absent` | `wc -c`; agents are listed, not loaded whole. **Still open after the §8 paste**: `/context`'s «Custom agents» (1k) counts the harness's *registered* agent types, a different population from the repo's `agents/` directory (§8.3) |
 
 **The headline.** The harness remainder is **68.4%** of a full-tool subagent seat and **77.8%**
 of this stage's main seat (69,300 of 89,019 tok). The spec's «60-71% harness share» is
@@ -277,21 +293,29 @@ shortfall. P14 accordingly priced via the §0 substitute channel, as recorded th
 - **Forks:** the channel gap is recorded in §3a grammar as **DECISION-NEEDED #3 (§0a)**, not
   only as recommendation R1; the sibling patch carries #1 (corpus drift) and #2 (denominator).
   None of the three is resolved by this stage.
-- **Price-list rows:** **14** enumerated (1, 2, 3, 4, 5, 5a, 5b, 5c, 5d, 5e, 6, 7, 8, 9);
-  **9 MEASURED with a named channel**, **4 marked `UNMEASURED — channel absent`** (5c, 5d, 5e,
-  9 — the same set §0a names), 1 (row 8) measured source-side with the injected form explicitly
-  deferred to S-I. Partition **14 / 9 / 4 / 1**, verified by counting the table rather than
-  restated from memory. **No row carries an estimate dressed as a measurement**, and no
+- **Price-list rows (as at stage close):** **14** enumerated (1, 2, 3, 4, 5, 5a, 5b, 5c, 5d, 5e,
+  6, 7, 8, 9); **9 MEASURED with a named channel**, **4 marked `UNMEASURED — channel absent`**
+  (5c, 5d, 5e, 9 — the same set §0a names), 1 (row 8) measured source-side with the injected form
+  explicitly deferred to S-I. Partition **14 / 9 / 4 / 1**, verified by counting the table rather
+  than restated from memory. **No row carries an estimate dressed as a measurement**, and no
   `UNMEASURED` row was back-filled to make the predicate tidier (T-SH-A).
-- **Share of the harness remainder actually decomposed:** rows 5a+5b = 42,621 of 42,621 tok as a
-  two-way split by seat capability; **0% decomposed into the MCP / skills / system-prompt split
-  that `/context` would give.** Per T14 the correct verdict for that split is **«coverage
-  insufficient to rank harness sub-blocks»**, not «the harness is mostly X». R1 is the action
-  that closes it.
+  **Revised 2026-08-07 after the §8 addendum: 14 / 11 / 2 / 1** — 5c and 5e gained a named
+  channel; 5d and 9 did not (§8.3).
+- **Share of the harness remainder actually decomposed (as at stage close):** rows 5a+5b = 42,621
+  of 42,621 tok as a two-way split by seat capability; **0% decomposed into the MCP / skills /
+  system-prompt split that `/context` would give.** Per T14 the correct verdict for that split was
+  **«coverage insufficient to rank harness sub-blocks»**, not «the harness is mostly X». R1 was
+  the action that closes it. **Revised 2026-08-07:** R1 was performed and §8.2 supplies that
+  split for the seat it was taken on — memory files 50.5%, skills 15.3%, MCP tool schemas 14.4%,
+  system tools 9.1%, base prompt 8.9%, custom-agent listing 1.7% — at n=1 and on an orchestrator
+  seat, so the honest verdict is now «ranked for one measured seat», not «ranked in general».
 - **Repo-owned rows** are exact byte counts; the *set membership* was independently confirmed
   live (sibling patch §6 item 2) rather than assumed from the rule index.
 - **Est-token conversion** is 4 B ≈ 1 token throughout; no tokenizer was available, and every
-  converted figure is labelled est.
+  converted figure is labelled est. **Falsified 2026-08-07 (§8.1):** measured **2.62 B/token**
+  across seven files carrying both a byte count and a harness token count. Every 4 B/t figure in
+  this patch is low by ≈1.53×, and row 5 — computed by difference — is correspondingly high.
+  Raised as **DECISION-NEEDED #4**; figures are left as published rather than silently reconverted.
 
 ---
 
@@ -303,7 +327,10 @@ this patch adds no check, so it introduces no bare-attention gate; the one oblig
 T-SH-A is the governing trap and is satisfied structurally — the price table has a channel
 column, and four rows (5c, 5d, 5e, 9) exercise the `UNMEASURED — channel absent` value rather
 than being back-filled from byte estimates — with row 8 priced source-side only, making five
-unpriced blocks in all. §3a of the kickoff is satisfied in its own grammar: the
+unpriced blocks in all. **Revised 2026-08-07 (§8.3):** two of those four (5d, 9) still exercise
+the value; 5c and 5e gained a named channel from the operator's `/context` paste. The trap held
+under the update — the paste answered two rows and the other two were left `UNMEASURED` rather
+than filled from the nearest plausible neighbour, which is the whole point of the value existing. §3a of the kickoff is satisfied in its own grammar: the
 unpriceable-block / probe-cannot-observe fork is stated as `DECISION-NEEDED` with both options
 and their consequences (§0a), matching the shape the sibling patch uses, so one stage does not
 ship two different reporting forms for the same contract. T20: every recommendation cites a measured number or explicitly
@@ -341,3 +368,122 @@ Enumerated surfaces where that class occurs, verdicted per surface:
 resident set — it costs zero unless deliberately read by S-D′ or S-E. Applying its own R5 to
 itself: adding it to any always-on channel would be the error it warns against, since it is
 reference material consulted once per stage, not per turn.
+
+---
+
+## §8 Addendum (2026-08-07, post-merge) — DECISION-NEEDED #3 answered by Option A
+
+The operator ran `/context` in an interactive session and pasted the output. §0a's Option A is
+therefore **taken**, and the block below records what it resolved and what it did not. This
+section is an addendum rather than an in-place rewrite on purpose: the measurement history must
+read «unknown at stage close → known on 2026-08-07», not as though the split had been available
+all along.
+
+**Provenance and its limits (T6, stated before the numbers).** One `/context` snapshot, n=1, from
+an **orchestrator seat in a worktree** whose edit-time rule matcher had injected five rule files.
+A fresh main-checkout seat, or a subagent seat, has a different resident set. All figures are the
+harness's own reported estimates at its own rounding (`5.2k`, `~380`); no tokenizer was run.
+`Messages 276.4k` is that session's accumulated dialogue and is **not** resident load.
+
+### §8.1 The finding that outranks the split: the 4 B/token convention is falsified
+
+The seed's binding conversion — **4 B ≈ 1 token**, applied uniformly across both S-H patches — is
+directly checkable for the first time, because `/context` itemises per-file token counts for
+files whose byte counts are known. Seven files carry both:
+
+| file | bytes (`wc -c`) | tokens (harness) | B/token |
+|---|---:|---:|---:|
+| `~/.claude/CLAUDE.md` | 3,198 | 964 | 3.32 |
+| `<repo>/CLAUDE.md` | 23,740 | 9.3k | 2.55 |
+| `.claude/rules/00-rule-index.md` | 4,030 | 1.7k | 2.37 |
+| `.claude/rules/attention-is-not-a-mechanism.md` | 2,629 | 1.1k | 2.39 |
+| `.claude/rules/build-first-reuse-default.md` | 12,667 | 4.8k | 2.64 |
+| `.claude/rules/ai-laziness-traps.md` | 26,387 | 9.8k | 2.69 |
+| `…/memory/MEMORY.md` | 4,505 | 1.8k | 2.50 |
+| **aggregate** | **77,156** | **29,464** | **2.62** |
+
+**Measured 2.62 B/token, not 4.** The six ASCII-dominant repo files cluster at 2.37-2.69; the
+outlier (3.32) is the operator-global `CLAUDE.md`, which is largely Russian — multi-byte UTF-8
+inflates bytes per token, which is the expected direction and corroborates rather than
+undermines the reading.
+
+**Consequence, flagged and NOT silently applied.** Every `est-tokens` figure derived through
+4 B/t in this patch and its sibling is low by ≈**1.53×** (4 / 2.62). Because row 5 (the harness
+remainder) is computed **by difference** — seat total minus rows 1-4 — an understated rows 1-4
+makes the remainder correspondingly **overstated**. A first-order restatement on the same seat
+total gives rows 1-4 ≈ 30,163 tok and a remainder ≈ 32,177 tok, i.e. **≈52%, not 68.4%**.
+
+That restatement is **not** written into §2, and the table's figures are left as they were. Two
+reasons, both binding: the row-1 file set is the *pre-S-G* resident set while the ratio was
+measured on the *current* one, so the two are not the same population; and re-deriving §2 on a
+new conversion is a re-measurement, which is beyond an addendum. **Recorded as a correction owed,
+not as a correction made.**
+
+> **DECISION-NEEDED #4 — the conversion constant.** The 4 B/t convention is inherited from the
+> S-A seed and is load-bearing for every est figure in this umbrella.
+> **Option A** — adopt **2.62 B/token** (or a per-seat re-measurement) as the operative
+> conversion and re-derive §2 and the sibling's §5/§9 in a follow-up stage. Consequence: the
+> harness share drops to roughly half, and the repo-owned half becomes correspondingly *more*
+> expensive — which changes which levers S-D′ ranks first.
+> **Option B** — keep 4 B/t for comparability with S1/S2 figures already published under it, and
+> carry this section as the standing caveat. Consequence: every published est figure stays
+> internally comparable but is known-low by ~1.5×.
+> **Not resolved here.**
+
+### §8.2 What the snapshot resolves — the resident/deferred identity
+
+The reported percentages sum to **105.6%**, which is not an error: the two `(deferred)` rows are
+counted in the table but are **not resident** — they are tool schemas held behind `ToolSearch`
+and fetched on demand. The identity confirms it exactly:
+
+```text
+resident non-message load = 334.6k − 276.4k                       = 58.2k
+sum of non-deferred rows  = 5.2 + 5.3 + 8.4 + 1 + 29.4 + 8.9      = 58.2k   ← exact match
+deferred, i.e. NOT resident = 42.4 + 15.7                          = 58.1k
+```
+
+| resident block | tokens | share of resident |
+|---|---:|---:|
+| memory files | 29.4k | 50.5% |
+| skills listing | 8.9k | 15.3% |
+| MCP tool schemas (resident subset) | 8.4k | 14.4% |
+| system tools | 5.3k | 9.1% |
+| base system prompt | 5.2k | 8.9% |
+| custom-agent listing | 1k | 1.7% |
+
+Two readings follow, and only the first is new:
+
+1. **Half the resident load is memory files** — 29.4k of 58.2k. Within it, two documents carry a
+   third of the *entire* resident head: `<repo>/CLAUDE.md` (9.3k) and
+   `.claude/rules/ai-laziness-traps.md` (9.8k) = 19.1k. This is the «expensive end» §0.5 says to
+   price first, and it is repo-owned — i.e. **actionable by this project**, unlike the harness
+   blocks.
+2. **`ToolSearch` deferral saves 58.1k — almost exactly what the entire resident head costs.**
+   §3's «preserve what already works» now has its number: the mechanism roughly doubles the
+   usable budget, and any change that makes deferred schemas resident would be the single most
+   expensive regression available.
+
+### §8.3 Which `UNMEASURED` rows this closes — two of four, not four
+
+| row | before | after | basis |
+|---|---|---|---|
+| 5c — MCP tool schemas (resident subset) | `UNMEASURED — channel absent` | **8.4k** | `/context` «MCP tools» |
+| 5e — skills/agents listing, as injected | `UNMEASURED — channel absent` | **8.9k** skills + **1k** custom-agent listing | `/context` «Skills» + «Custom agents» |
+| 5d — MCP server instructions | `UNMEASURED — channel absent` | **unchanged** | `/context` does not itemise server instructions apart from tool schemas; they sit inside the system-prompt region and remain unsplit |
+| 9 — agents inventory (17 repo `agents/*.md`) | `UNMEASURED — channel absent` | **unchanged** | different population: `/context`'s «Custom agents» (1k) counts the harness's *registered* agent types — one row, `orchestrator-planner` — not the repo's `agents/` directory |
+
+Rows 5d and 9 stay `UNMEASURED — channel absent` rather than being filled from the nearest
+plausible neighbour. Reporting «two of four» where «four of four» was expected is the T-SH-A
+obligation working as intended.
+
+**Revised partition:** the price list still holds **14** rows; **11** now carry a named channel,
+**2** read `UNMEASURED — channel absent` (5d, 9), and 1 (row 8) is measured source-side with the
+injected form still S-I's to publish. Partition **14 / 11 / 2 / 1**, counted from the table.
+
+### §8.4 What S-D′ can now do, and what it still cannot
+
+**Can:** rank the resident head by block, with the repo-owned memory files (29.4k, 50.5%) as the
+top-ranked and *own-able* target — the ordering §0.5 asks for is available for the half that
+matters. **Cannot:** treat the absolute figures as final while DECISION-NEEDED #4 is open, or
+split the MCP server-instruction block. **Should:** read the ratio finding (§8.1) before ordering
+anything, since it moves the repo-vs-harness balance by roughly the width of the decision.
