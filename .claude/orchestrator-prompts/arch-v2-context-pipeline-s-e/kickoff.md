@@ -52,13 +52,22 @@ resident baseline (spec §1.6 FORK D) and deriving them earlier produces stale-h
    The tree already carries **two majors** — root `picomatch@2.3.2`, `packages/core@4.0.4` — so pin
    the `packages/core` major (4.x) and say so in the trailer; pinning the root manifest produces a
    green local run and an unresolvable import where the test actually executes.
-2. **P2b — local-shadow pre-push section** — **PARKED AND REMOVED 2026-08-07. Do not
-   re-open.** This item was built, then removed when its premise was disproven: the shipped
-   client MERGES array settings across settings files (union + dedupe; `fallbackModel` is the
-   only replace exception), so the local list can only ADD excludes and the superset assert
-   below is vacuous by construction. That is exactly the contradiction item 4 of §1 instructed
-   this stage to PARK on. Evidence + the removed surfaces:
+2. **P2b — local-shadow pre-push section** — **BUILT, THEN REMOVED 2026-08-07 BY OPERATOR
+   DECISION.** The premise was disproven: the shipped client MERGES array settings across
+   settings files (union + dedupe; `fallbackModel` is the only replace exception), so the local
+   list can only ADD excludes and the superset assert below is vacuous by construction — the
+   contradiction item 4 of §1 instructed this stage to PARK on. Evidence:
    `docs/meta-factory/research-patches/2026-08-06-claudemd-overlay-semantics-verdict.md` §3-§4.
+
+   **Fork, and who resolved it.** Per §3a this disposition was NOT the implementing session's
+   to take. Two defensible options existed — **Option A: remove** (consequence: the host-only
+   channel is left with no gate at all) · **Option B: re-point the same section at the inverse
+   hazard** (consequence: the stage grows a new gate whose justification was never designed,
+   mid-flight). The fork was surfaced to the operator with both consequences stated, and the
+   **operator chose Option A on 2026-08-07**. Recorded here so the choice reads as an answered
+   fork, not a fait accompli. **Option B is not foreclosed** — the inverse hazard is real, is
+   claimed by no stage, and needs its own item with its own justification.
+
    The original task text is kept verbatim below as the record of what was specified.
 
    ~~Original task:~~ (+ `worktree-doctor.sh` arm): if

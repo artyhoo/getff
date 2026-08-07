@@ -30,8 +30,7 @@ import {
   realpathSync,
   statSync,
 } from 'node:fs';
-import { resolve, dirname, relative } from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 // NOTE: this file ships verbatim into consumer projects (install.sh:929-938), so a
 // static bare-package import of anything outside the consumer's tree crashes the hook

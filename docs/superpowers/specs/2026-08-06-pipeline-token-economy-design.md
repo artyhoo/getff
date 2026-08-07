@@ -320,11 +320,17 @@ picomatch semantics against absolute paths, NOT the normaliser, which only absol
 1. **Committed-list liveness (CI-reachable principle test):** evaluate every
    `claudeMdExcludes` entry in `.claude/settings.json` with picomatch (absolute paths,
    `{dot:true}`) against the repo file tree; any entry matching 0 files fails.
-2. **Local-shadow detection (host-only → pre-push + `worktree-doctor`):** if
+2. ~~**Local-shadow detection (host-only → pre-push + `worktree-doctor`):** if
    `.claude/settings.local.json` defines `claudeMdExcludes`, the local list's picomatch
    match-set must be a superset of the project list's match-set (behavioural, not string
    comparison) — else error-with-escape-token. CI cannot see this file; pre-push is its
-   earliest reachable channel.
+   earliest reachable channel.~~
+   **WITHDRAWN 2026-08-07 — do not rebuild from this item.** The client merges array settings
+   (`project ∪ local`), so the superset condition holds by construction and this assert is
+   green-by-construction — `#hope-as-gate`. See §1.6 FORK D's dated overlay-semantics correction
+   and `docs/meta-factory/research-patches/2026-08-06-claudemd-overlay-semantics-verdict.md` §3.
+   The **inverse** hazard (a local file ADDING excludes to hide always-on rules) is real and
+   unclaimed by any stage — it needs its own item, not a revival of this one.
 3. **Semantic backstop (outcome channel):** residual risk = our picomatch diverging from the
    client's bundled matcher. Primary backstop: P3's `InstructionsLoaded`-based measurement (an
    entry asserted-excluded but observed loaded → gate red). **Fallback if `InstructionsLoaded`
@@ -353,7 +359,7 @@ this raises P1's priority and enters the S-E kickoff as fresh evidence.
 | # | Proposal | Lands in | Cost line attacked | Size |
 |---|---|---|---|---|
 | P1 | Config fix — **LANDED (rev 4): the committed `.claude/settings.json` carries all 7 entries in `**/<name>.md` form on staging since PR #1223 (`c8a2bfcec6`), verified `git show origin/staging:.claude/settings.json`.** Remaining operator step: drop the now-redundant `claudeMdExcludes` key from `.claude/settings.local.json` (lists verified identical). | **operator (residue only)** | READ + WRITE [W] | 15.9% [D] measured |
-| P2 | Config-assertion gate (§2 asserts 1-2 + backstop). Capability commit: picomatch pinned explicit devDep + `Prior-art:` trailer + SSOT entry. | **S-E** | recurrence insurance on P1's line | ~0 run cost; consumes S-F item 4 |
+| P2 | Config-assertion gate (**§2 assert 1** + backstop; §2 assert 2 WITHDRAWN 2026-08-07 — see §2). Capability commit: picomatch pinned explicit devDep + `Prior-art:` trailer + SSOT entry. | **S-E** | recurrence insurance on P1's line | ~0 run cost; consumes S-F item 4 |
 | P3 | Budget gate per ADR-3: **REUSE `check-alwayson-budget.sh` — wire into pre-push + per-environment ceilings (formula + acceptance pair in §1.6 FORK D)**; fix `measure-always-on.sh` TWICE-blind manifest (membership predicate: `^paths:`-absence minus effective `claudeMdExcludes` — §1.6 FORK D); `InstructionsLoaded` verification task. N2 per-turn measurement → **S-H** (rev 4, §1.6 FORK C). | **S-E** | READ + WRITE [W] ceilings | repo-owned always-on share only (ADR-3 post-falsifier scope; 29-39% declared-coverage statement binding) |
 | P4 | **One umbrella-kickoff commit** (planning-session-owned surface): (a) S-D stage-table row → CLOSED-NULL for the ADDITIVE scope per SSOT #234 + S-D′ row added (P13) with its charter; (b) **S-D charter prose rewritten** — the «L2-closure PR (retirement note + `done.md`, no build)» instruction DELETED (kickoff:176-177): a stage-level `done.md` closes the whole umbrella (`priority-score.sh:140,255-263` — C3 file-existence is the closure signal; `:23-25,122-126` document it); (c) S-G row + Ordering slot + marker value for S-G (`Z.AI GLM-5.2 SDK`, re-verified unique at dispatch per the CLAUDE.md marker-value rule; S-D′ carries NO marker — un-spent judgment, rev-4 correction of this row); (d) S-F item 4 marked consumed-by-P2. Umbrella `done.md` only when the LAST stage merges. | **S-D/S-G bookkeeping** | — | — |
 | P5 | Bounded `CLAUDE.md` trim per D1 — **rev 4 mechanism: pointer-collapse, NO import (§1.6 FORK A); the ZCode `@`-import degradation check is RETIRED with the import** — + keep-list **+ D1b traps digest** (digest authored at `.claude/rules/ai-laziness-digest.md` + full catalogue re-scoped to `paths:` + anti-drift test + rollback trigger + renderer bookkeeping, §1.6 FORK B) | **S-G** | READ + WRITE [W] | sized (rev 4): P5a net ≤ −1,100 B; D1b net ≈ −18 KB resident (traps 26,387 B out, digest ≤ 8,192 B in) |
