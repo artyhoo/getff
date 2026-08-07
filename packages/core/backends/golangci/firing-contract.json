@@ -1,6 +1,5 @@
 {
   "command": "golangci-lint run --out-format=json --enable forbidigo",
-  "jsonPath": "",
-  "expectedCodes": [],
-  "parkReason": "fork-2 (kickoff §4c): jsonPath + expectedCodes MUST be derived from a captured golangci-lint v1.55.2 JSON run, never guessed from cargo/ruff precedent. The dispatching session upgrades this file post-capture at host-verify §6 step 7."
+  "jsonPath": "$.FromLinter",
+  "expectedCodes": ["forbidigo"]
 }

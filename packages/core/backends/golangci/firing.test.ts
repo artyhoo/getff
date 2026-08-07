@@ -18,19 +18,27 @@
 // and it IS present on this branch's base: PR #1171 merged as 124d2c4212 and installs
 // `golangci-lint@v1.55.2` at `.github/workflows/audit-self.yml:306-315`).
 //
-// FORK #2 PARKED: at worker-done time firing-contract.json carries `expectedCodes: []` +
-// `jsonPath: ""`. The three live-fire tests below still exercise the spawn + parse path,
-// but the `for (const code of CONTRACT.expectedCodes)` loops are empty — the assertions are
-// vacuously green. This is honest: a green loud-skipped run with empty expectedCodes asserts
-// "the runner spawned and parsed cleanly" without claiming "the expected identities fired".
-// The dispatching session's §6 step 7 upgrade populates expectedCodes + jsonPath from a
-// captured run, after which these tests have real assertion content.
+// FORK #2 CLOSED (host-verify §6 step 7, CI run 31132752600): firing-contract.json now carries
+// `jsonPath: "$.FromLinter"` + `expectedCodes: ["forbidigo"]`, so the loops below are no longer
+// vacuous — the RED test genuinely asserts that forbidigo's identity comes back out of the
+// parsed stdout. The capture also corrected the stdout SHAPE the runner parses (an object with
+// an `Issues` array, not the bare array the worker-time code assumed); had the contract been
+// populated without that fix, this RED test would have failed rather than passed vacuously.
+//
+// Guard against re-vacuuming: a future edit that empties expectedCodes would silently turn all
+// three tests back into assertions about nothing, so the non-emptiness is asserted explicitly
+// below rather than left to a reader noticing.
 
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { deriveGolangciVersion, fireContract, type GolangciFiringContract } from './firing-runner.ts';
+import {
+  deriveGolangciVersion,
+  fireContract,
+  parseCodesFromStdout,
+  type GolangciFiringContract,
+} from './firing-runner.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CONTRACT: GolangciFiringContract = JSON.parse(
@@ -62,6 +70,81 @@ if (!toolPresent) {
       'fixture drift.',
   );
 }
+
+// R9 parse-core — PURE, always-on, no golangci-lint required. The go analog of cargo's
+// `parseCodesFromStdout — R9` block. These are the tests that make the §6 step 7 shape
+// correction RED-provable: the first case below is the verbatim stdout container captured from
+// the pinned v1.55.2 binary (CI run 31132752600), and it returns the EMPTY set under the
+// worker-time implementation (`parseIdentitiesFromJsonArray`, which bails on any non-array root).
+// Without this block the container could silently regress to the array assumption and every
+// live-fire test would go quietly vacuous on the loud-skip path.
+describe('parseCodesFromStdout — R9 (pure, always-on, no golangci-lint required)', () => {
+  // Verbatim from the captured `invalid` run — the Report blob (a ~110-entry linter inventory)
+  // is elided to one entry; nothing else is reshaped.
+  const CAPTURED_INVALID_STDOUT = JSON.stringify({
+    Issues: [
+      {
+        FromLinter: 'forbidigo',
+        Text: 'use of `os.Getenv` forbidden because "Read configuration through the injected config accessor, never os.Getenv directly"',
+        Severity: '',
+        SourceLines: ['\t_ = os.Getenv("HOME")'],
+        Replacement: null,
+        Pos: { Filename: 'main.go', Offset: 113, Line: 7, Column: 6 },
+        ExpectNoLint: false,
+        ExpectedNoLintLinter: '',
+      },
+    ],
+    Report: { Linters: [{ Name: 'forbidigo', Enabled: true }] },
+  });
+
+  it('extracts forbidigo from the REAL captured v1.55.2 report object', () => {
+    const codes = parseCodesFromStdout(CAPTURED_INVALID_STDOUT, '$.FromLinter');
+    expect([...codes]).toEqual(['forbidigo']);
+  });
+
+  it('a clean run ("Issues":[]) yields the empty set', () => {
+    const stdout = JSON.stringify({ Issues: [], Report: { Linters: [] } });
+    expect(parseCodesFromStdout(stdout, '$.FromLinter').size).toBe(0);
+  });
+
+  // Documents WHY this backend cannot share backends/shared/json-array-parse.ts: golangci's
+  // container is genuinely a different shape, and a bare array — the worker-time assumption —
+  // is not something the binary ever emits. Deleting this case would re-open the door to
+  // "just reuse the shared array parser".
+  it('a BARE JSON array (the wrong worker-time assumption) yields nothing — shapes are distinct', () => {
+    const stdout = JSON.stringify([{ FromLinter: 'forbidigo' }]);
+    expect(parseCodesFromStdout(stdout, '$.FromLinter').size).toBe(0);
+  });
+
+  it('collects every distinct linter identity when several linters report', () => {
+    const stdout = JSON.stringify({
+      Issues: [{ FromLinter: 'forbidigo' }, { FromLinter: 'govet' }, { FromLinter: 'forbidigo' }],
+    });
+    expect([...parseCodesFromStdout(stdout, '$.FromLinter')].sort()).toEqual(['forbidigo', 'govet']);
+  });
+
+  it('tolerates non-JSON stdout and an empty stdout without throwing', () => {
+    expect(parseCodesFromStdout('level=error msg="boom"', '$.FromLinter').size).toBe(0);
+    expect(parseCodesFromStdout('', '$.FromLinter').size).toBe(0);
+  });
+
+  // @arm:E3:neg identity-path-vs-stdout (wrong jsonPath → no identities, RED-capable)
+  it('a wrong jsonPath finds nothing — the path is load-bearing, not decorative', () => {
+    expect(parseCodesFromStdout(CAPTURED_INVALID_STDOUT, '$.ruleId').size).toBe(0);
+  });
+});
+
+// Always-on (no spawn): the three live-fire tests below iterate `CONTRACT.expectedCodes`, so an
+// empty list makes every one of them assert nothing while still reporting green. That is exactly
+// the parked worker-done state, and it must never silently return. This guard is always-on
+// BECAUSE the live-fire block is not: on a machine without golangci-lint the loud-skip hides the
+// vacuum entirely (attention-is-not-a-mechanism §1 — a gate, not a reader noticing).
+describe('firing contract is non-vacuous (always-on)', () => {
+  it('expectedCodes is non-empty and jsonPath is set, or the live-fire assertions are vacuous', () => {
+    expect(CONTRACT.expectedCodes.length).toBeGreaterThan(0);
+    expect(CONTRACT.jsonPath.length).toBeGreaterThan(0);
+  });
+});
 
 describe.skipIf(!toolPresent)('firing harness — live golangci-lint check', () => {
   it(
