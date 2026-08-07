@@ -145,9 +145,9 @@ every subtractable block is present and the total is exactly measured.
 | 5 | **harness remainder** (base system prompt + tool schemas + MCP + listings) | **42,621** | **68.4%** | **by difference: row-total minus rows 1-4** |
 | 5a | — composite floor: base prompt + reduced toolset (`Explore` seat, no repo files) | 26,229 | 42.1% | `Explore` first-turn billing minus its digest |
 | 5b | — incremental tool schemas of a full-tool seat over a reduced one | 16,392 | 26.3% | difference between the two measured seats |
-| 5c | — MCP tool schemas (resident subset) | **8.4k** (§8.3, 2026-08-07) | — | `/context` «MCP tools» — operator paste, post-merge |
+| 5c | — MCP tool schemas (resident subset) | **8.4k** (§8.3, 2026-08-07) — **orchestrator MAIN seat, n=1; not the 62,340-tok subagent seat this table is sized against, so do NOT sum it against row 5 (§8.5)** | — | `/context` «MCP tools» — operator paste, post-merge |
 | 5d | — MCP server instructions | `UNMEASURED — channel absent` | — | visible in-prompt, no byte channel; `/context` does not itemise it apart from tool schemas (§8.3) |
-| 5e | — skills/agents listing, as injected | **8.9k** skills + **1k** custom-agent listing (§8.3, 2026-08-07) | — | `/context` «Skills» + «Custom agents» — operator paste, post-merge |
+| 5e | — skills/agents listing, as injected | **8.9k** skills + **1k** custom-agent listing (§8.3, 2026-08-07) — **orchestrator MAIN seat, n=1; same seat caveat as 5c, do NOT sum against row 5 (§8.5)** | — | `/context` «Skills» + «Custom agents» — operator paste, post-merge |
 
 **Blocks priced outside the subagent total** (they belong to the main session, not a subagent):
 
@@ -160,7 +160,12 @@ every subtractable block is present and the total is exactly measured.
 
 **The headline.** The harness remainder is **68.4%** of a full-tool subagent seat and **77.8%**
 of this stage's main seat (69,300 of 89,019 tok). The spec's «60-71% harness share» is
-**confirmed at the subagent seat and exceeded at the main seat**. Row 5a alone — the base
+**confirmed at the subagent seat and exceeded at the main seat**.
+**⚠ Both figures are contested by §8 and neither should be quoted alone:** §8.1 restates the
+subagent seat at 51.7% under the measured conversion, and §8.5 shows the by-difference method
+overstates the main seat by an unmeasured amount (a ~30.8k gap against `/context` on the same
+session, most of it plausibly dispatch-prompt content that rows 1-4 never subtract). Open as
+DECISION-NEEDED #4 and #5. Row 5a alone — the base
 prompt plus a *reduced* toolset, carrying no repo content whatsoever — is **26,229 tok, larger
 than the entire pre-S-G repo-owned always-on set (17,363)**. Everything S-E and S-G can reach
 is the smaller half of the problem.
@@ -202,6 +207,14 @@ which is exactly what S-D′ needs to *order* its harness-side drops. Until then
 the harness remainder as one `UNPRICED` block and park its ordering, per its own instrument rule.
 *Wrong if:* `/context` in the current CC build does not break out MCP/skills separately.
 
+> **PERFORMED 2026-08-07 (§8.3) — this recommendation is discharged, and its counts above are
+> stage-close state.** The paste happened. It broke out MCP and skills separately (so the
+> *Wrong-if* did not fire) but closed **two** of the four channel-less rows, not four: the table
+> now carries **two** (5d, 9). S-D′ **no longer has to park** the harness-side ordering — §8.2
+> gives it a per-block split for one measured seat — but §8.5 opens a new question about which
+> channel that ranking should be denominated in. Read §8.2, §8.4 and §8.5 in place of the «until
+> then» sentence above.
+
 **R2 — Audit MCP servers registered but unauthenticated.** This session reported 8 servers
 (`plugin:engineering:asana|atlassian|datadog|github|linear|notion|pagerduty|slack`) that
 **cannot be used without an OAuth flow** and were unusable for the entire stage. Configured
@@ -239,6 +252,16 @@ is now ~21% of a full-tool subagent seat post-S-G, and 12,167 est-tokens against
 harness floor that carries no repo content at all. Additional repo trims have a hard ceiling
 below the remainder they are competing with. This is the §0.5 expensive-seat-first principle
 applied to its own evidence: the next real lever is harness-side, and R1 is its precondition.
+
+> **REVERSED 2026-08-07 (§8.1 + §8.2) — do not act on the paragraph above.** Both legs of its
+> argument moved. §8.2 measures the resident head at 58.2k, of which **memory files are 29.4k
+> (50.5%) and repo-owned**, with two documents (`CLAUDE.md` 9.3k + `ai-laziness-traps.md` 9.8k)
+> carrying a third of everything — so repo-side residency is not a small residual competing with
+> a large harness, it is the **largest single own-able block**. §8.1's conversion moves the
+> subagent-seat harness share from 68.4% to 51.7% in the same direction. The honest revised
+> reading: **the next real lever is repo-side memory files**, and the harness-side case is
+> weaker than this recommendation claimed — pending DECISION-NEEDED #4 and #5, which could move
+> it again.
 
 ---
 
@@ -348,9 +371,20 @@ Enumerated surfaces where that class occurs, verdicted per surface:
   session-start total, 29-39% repo-owned) — **SWEPT-CLEAN**: independently corroborated by the
   60-session median 100,529 tok, and the repo-owned share measured at 27.8% pre-S-G / ~21%
   post-S-G, inside ADR-3's stated band. No correction owed.
+  **RE-VERDICTED 2026-08-07 (§8) — the «inside the band» clause was wrong when written:** the
+  band is 29-39% and both measurements (27.8% / ~21%) fall *below* it, so «no correction owed»
+  was unsupported on its own numbers. Under §8.1's measured conversion the same share moves the
+  other way — 29,464 / 62,340 ≈ **47%** — i.e. outside the band on the high side. **Verdict now:
+  GAP-FOUND against ADR-3, direction unresolved**, and it is unresolvable until
+  DECISION-NEEDED #4 settles the conversion constant. Not edited — ADR-3 is spec, outside §2.
 - `docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md` P14 row («remainder ≈
   100k − (29-39k repo-owned)») — **SWEPT-CLEAN**: measured 68.4% at the subagent seat, 77.8% at
   the main seat; the row's arithmetic holds.
+  **RE-VERDICTED 2026-08-07 (§8.1):** this same patch now restates the subagent-seat remainder
+  at **51.7%** under the measured conversion, so «the row's arithmetic holds» stands only under
+  the 4 B/t constant it was computed with. **Verdict now: HOLDS-CONDITIONALLY**, on
+  DECISION-NEEDED #4 Option B. Under Option A the spec row needs re-derivation, which is a
+  follow-up stage's work, not this addendum's.
 - `docs/meta-factory/research-patches/2026-08-01-token-economy-s-a-profile.md` §5.1
   settings-recommendations — **GAP-FOUND, not edited** (closed historical artefact, its
   authoring session owns it): its rows 6-8 «loaded despite `claudeMdExcludes`» and its
@@ -494,6 +528,50 @@ injected form still S-I's to publish. Partition **14 / 11 / 2 / 1**, counted fro
 
 **Can:** rank the resident head by block, with the repo-owned memory files (29.4k, 50.5%) as the
 top-ranked and *own-able* target — the ordering §0.5 asks for is available for the half that
-matters. **Cannot:** treat the absolute figures as final while DECISION-NEEDED #4 is open, or
-split the MCP server-instruction block. **Should:** read the ratio finding (§8.1) before ordering
-anything, since it moves the repo-vs-harness balance by roughly the width of the decision.
+matters. **Cannot:** treat the absolute figures as final while DECISION-NEEDED #4 **and #5** are
+open, or split the MCP server-instruction block. **Should:** read §8.1 and §8.5 before ordering
+anything — between them they move the repo-vs-harness balance by more than the width of the
+decision, and in the same direction.
+
+### §8.5 The two figures do not reconcile — and the gap indicts the by-difference method
+
+`/context` and the by-difference channel priced **the same session** (`e5a0e586-…`, the seat §1
+publishes at 89,019 tok), and they disagree:
+
+| channel | harness-side figure for that seat |
+|---|---:|
+| by difference (§1/§2): seat total − rows 1-4 | **69,300** tok (77.8%) |
+| `/context` categories matching row 5's own definition («base system prompt + tool schemas + MCP + listings»): 5.2 + 5.3 + 8.4 + 1 + 8.9 | **28.8k** |
+
+Neither 28.8k nor 28.8 + 58.1 (adding the deferred schemas back) = 86.9k equals 69,300. The
+totals disagree the same way: `/context` puts the whole resident head at **58.2k**, while the
+first billed turn bills **89,019** — reproducible as `input_tokens 2 + cache_creation 66,650 +
+cache_read 22,367`. **Gap: ~30.8k.**
+
+**What the gap most likely is, stated as a hypothesis and not priced.** §0 defines the
+substitute channel as «the resident head **plus its dispatch prompt**» — and rows 1-4 never
+subtract that prompt. This session opened with a `/orchestrator` invocation, which injects the
+whole SKILL.md body into the first message, so a large first-turn message is expected here.
+That is a *plausible* account of ~30.8k; it is **not measured**, and no figure in this patch is
+adjusted on it.
+
+**Why this matters more than a bookkeeping note.** If the gap is dispatch-prompt content, then
+the by-difference method **systematically overstates the harness remainder**, because everything
+it cannot attribute to rows 1-4 lands in row 5 by construction — including message content that
+is not resident load at all. The main-seat 77.8% is the most exposed figure; the subagent-seat
+68.4% is exposed to the same bias in proportion to its dispatch prompt.
+
+> **DECISION-NEEDED #5 — which channel defines «harness remainder».** Kickoff §3a names «two
+> defensible readings of a measurement» a fork; this is one, and it was not visible until the
+> `/context` paste gave a second channel to compare against.
+> **Option A** — treat `/context` as authoritative for the *resident* split and demote the
+> by-difference figures to «seat cost at first turn, dispatch prompt included». Consequence: the
+> harness remainder for this seat is ~28.8k resident, not 69,300, and §2's headline percentages
+> are wrong by roughly 2.4× — every ranking in §4 is re-derived.
+> **Option B** — keep by-difference as authoritative (it is the only channel available for
+> *subagent* seats, which `/context` cannot reach) and carry §8.2 as a resident-only cross-check.
+> Consequence: the figures stand as published, with a known upward bias of unmeasured size.
+> **Option C** — measure the gap directly: bill one seat's first turn *and* run `/context` in it
+> before any other message, so the dispatch prompt is isolated. Cost: one interactive session.
+> **Not resolved here.** This addendum records the disagreement rather than picking a winner —
+> picking one silently would be the failure §3a exists to prevent.
