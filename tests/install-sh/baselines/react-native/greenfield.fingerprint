@@ -1,4 +1,4 @@
-1254939a8bf1700d9d8dc7aba9e28aca04d303c35767cc5077be980f8848d5d1  .ai-factory/AI-USAGE-GUIDE.md
+a36c6c80f33ab30920e9f1e4c000cf560a0c01fcde340609520877ee72af77a5  .ai-factory/AI-USAGE-GUIDE.md
 acafe267e1ac90afe1038da15ad9be69e8b28b8e26e67203fc414def68641068  .ai-factory/ARCHITECTURE.md
 acafe267e1ac90afe1038da15ad9be69e8b28b8e26e67203fc414def68641068  .ai-factory/ARCHITECTURE.react-native.md
 854cfb38f3d4acfd40245b5b490e5163658e2e98b0573239c15dd5802d16f5cb  .ai-factory/ARCHITECTURE.ts-server.md
@@ -56,7 +56,7 @@ a1b7d1e98fc2feb0abb42940f17830afd565b53b4b57bb0ac6f855e603cfc612  .husky/pre-pus
 7d2df647f25529bd87500319c41564e032e2be642e565350fa6136d7a1ec4d10  .nvmrc
 cbe892c15b17c3fff0b8001c42c8e5267f8e1f5e5d0b198022fa1875cfaddf55  .prettierignore
 37055c98043228133ffcc5cad7bba5ef6c8f24698a551cae547b90f51d22e519  .prettierrc.json
-4fbf0cc52bf704183afbb20c523a5af26d5cb000a518299a585ccabf801f7332  AGENTS.md
+2c8211a62ed65e60c67deee89d12ccccd22ed1677526ec40dbb2549407ba1c87  AGENTS.md
 2b476ad9e8f1259b5dd1403c8bdf519bba6bd5239e179bab0ab037186b92ccfe  eslint-rules-local/index.mjs
 044eac93f14786d3a0bfa1b6468f3878a08bd036fbef76e3e219475f4b41b3f1  eslint-rules-local/no-direct-time-randomness.d.ts
 49d271a67220d37ac42809d9242fa938e280eed8342f4e9abbcc573298d858b7  eslint-rules-local/no-direct-time-randomness.mjs

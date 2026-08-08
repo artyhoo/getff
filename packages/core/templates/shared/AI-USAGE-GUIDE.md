@@ -198,6 +198,34 @@ The steady-state loop once First Steps is done. Every command below is shipped b
 rule is named there. If a rule seems wrong for this project, change it there with a rationale in
 the PR — never silence it with an inline suppression you cannot explain.
 
+### §3.1 Monorepo, brownfield-CI and per-package-config caveats
+
+`AGENTS.md` points here for these. They are the cases where a gate is installed but does **not**
+govern what you think it governs — a silently-inert check is worse than an absent one.
+
+**`check-rule-globs.sh` — widening the globs.** If it reports a rule inert, widen `RULE_GLOBS` in
+`eslint.config.mjs` to cover your layout. A flat / inline-router server whose routes live in
+`app.ts` with no `routes/` folder needs a broader boundary glob, e.g. `apps/*/src/**`.
+
+**`check-rule-globs.sh` — monorepos and shadowing packages.** If a workspace package ships its own
+`eslint.config.*`, ESLint's nearest-config resolution means the root config **never governs that
+package**. The gate accounts for this: a shadowing package is pruned from the root probe (so a file
+there cannot fake a green) and checked separately.
+
+- It has boundary files but its config does **not** wire R2 → **FAILS**. Fix: copy the custom-rule
+  block into that package's config, or re-export the root config from it.
+- It re-exports / extends another config → **WARNs**. Verify by hand that R2 is inherited.
+
+**`check-rule-globs.sh` — brownfield CI.** Install never overwrites a pre-existing
+`.github/workflows/ci.yml`, so on an existing repo the gate may run only in `npm run validate`.
+Install prints a WARN when no workflow wires it — add `- run: bash scripts/check-rule-globs.sh` to
+your lint job, or the gate is local-only and a PR can go green without it.
+
+**`check-lintstaged-resolves.sh` — monorepos and `ENOENT`.** A single root `.lintstagedrc.json`
+runs `eslint` from the repo root, where a per-package binary is not installed → `ENOENT` blocks the
+commit. Fix: keep a per-package `.lintstagedrc.json` beside each package (install drops one for
+every package present at install time). Re-run the check after any `npm`/`pnpm install`.
+
 ---
 
 ## §4 Degradations — what still works when a capability is absent
@@ -249,6 +277,11 @@ here instead of a section pretending it exists.
 - **Consumer-side destination:** `.ai-factory/AI-USAGE-GUIDE.md`.
 - **§2 SSOT:** `packages/core/templates/shared/first-steps.source.json`. Edit the JSON, then this
   render; the parity check fails on any step reordered or retitled in one of them alone.
-- **Editing your installed copy:** it is yours (Layer 2 of the three-layer authority model in
-  `INSTALL-FOR-AI.md`). `install.sh` without `--force` will not overwrite it, and a sibling
-  `AI-USAGE-GUIDE.override.md` takes precedence wholesale if you need to diverge structurally.
+- **Editing your installed copy — read this before you edit.** This doc is **framework-owned**
+  (Layer 1 of the three-layer authority model in `INSTALL-FOR-AI.md`), not a file you are expected
+  to maintain. A plain re-install leaves your copy alone: `install.sh` skips a destination that
+  already exists. **`install.sh --refresh` DOES overwrite it**, on purpose — refreshing is how a
+  framework doc receives fixes, and its §2 renders from a source that moves. So in-place edits
+  survive a re-install but **not** a refresh. If you need yours to survive, put them in a sibling
+  `AI-USAGE-GUIDE.override.md`: that file takes precedence wholesale, and `--refresh` never touches
+  the base file while it exists.
