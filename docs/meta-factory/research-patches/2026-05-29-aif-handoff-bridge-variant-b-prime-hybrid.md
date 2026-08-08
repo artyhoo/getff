@@ -1,4 +1,5 @@
 <!-- scope:aif-handoff-bridge-variant-b-prime-hybrid -->
+<!-- line-limit-exempt: closed research-patch, 605 lines at closure (2026-05-29); append-only archive — splitting would sever folder-level authority + external citations. Grandfathered per operator decision 2026-08-08; enforcement: .husky/pre-commit exempt case. -->
 
 # Variant B' — hybrid CC-hook (or standalone watcher) + aif-handoff existing MCP — R-phase patch
 
@@ -327,11 +328,11 @@ Evidence: §2.1, §2.5, §2.7 above. Reference precedent: [`inject-matching-rule
 - **Option (b)** standalone chokidar: requires Node `chokidar` dep on consumer machine. NOT in `/meta-orchestrator` substrate; opt-in install. Consumer who doesn't install it → bridge inactive → meta-orchestrator works unchanged. **PASS.**
 - **Option (c)** `fswatch`: requires `brew install fswatch` on consumer machine. Same opt-in pattern. **PASS.**
 
-**Substrate verification:** our [`packages/core/hooks/`](../../../packages/core/hooks/) ships 9 hooks today — none assumes aif-handoff. B' adds zero or one optional hook (Option a/a') with explicit opt-in detection. [`SKILL.md:441`](../../../.claude/skills/meta-orchestrator/SKILL.md#L441) anti-scope: «Does NOT add npm deps. Substrate stays bash + markdown + CC primitives + existing gh CLI» — B' Option (a') / (a) is **fully compatible**; Option (b)/(c) requires consumer-side `chokidar` / `fswatch` which is **opt-in to consumer**, not in our shipped substrate.
+**Substrate verification:** our [`packages/core/hooks/`](../../../packages/core/hooks/) ships 9 hooks today — none assumes aif-handoff. B' adds zero or one optional hook (Option a/a') with explicit opt-in detection. [`SKILL.md:441`](../../../.claude/skills/pipeline/SKILL.md#L441) anti-scope: «Does NOT add npm deps. Substrate stays bash + markdown + CC primitives + existing gh CLI» — B' Option (a') / (a) is **fully compatible**; Option (b)/(c) requires consumer-side `chokidar` / `fswatch` which is **opt-in to consumer**, not in our shipped substrate.
 
 **Criterion 2 score:** **PASS** (HARD requirement satisfied for all 4 sub-options).
 
-Evidence: §2.1 (mcp_tool error semantics), §2.7 (existing hook pattern), [`SKILL.md:441`](../../../.claude/skills/meta-orchestrator/SKILL.md#L441) anti-scope.
+Evidence: §2.1 (mcp_tool error semantics), §2.7 (existing hook pattern), [`SKILL.md:441`](../../../.claude/skills/pipeline/SKILL.md#L441) anti-scope.
 
 ### Criterion 3 — What's actually automated vs maintainer-loop preserved
 
@@ -514,8 +515,8 @@ Evidence (verifiable file:line / command output / fetched URL):
 Evidence (file:line / SSOT row IDs verified):
 - [`docs/meta-factory/prior-art-evaluations.md` row #20](../prior-art-evaluations.md) — CC hooks API ADOPT
 - [`docs/meta-factory/prior-art-evaluations.md` rows #27/#28/#30/#43/#44/#46/#67/#80](../prior-art-evaluations.md) — aif-handoff entries
-- [`.claude/skills/meta-orchestrator/SKILL.md:441`](../../../.claude/skills/meta-orchestrator/SKILL.md#L441) — substrate-purity anti-scope
-- [`.claude/skills/meta-orchestrator/SKILL.md:404`](../../../.claude/skills/meta-orchestrator/SKILL.md#L404) + [`:429`](../../../.claude/skills/meta-orchestrator/SKILL.md#L429) — SP `requesting-code-review` inconsistency (resolved in SW-A)
+- [`.claude/skills/meta-orchestrator/SKILL.md:441`](../../../.claude/skills/pipeline/SKILL.md#L441) — substrate-purity anti-scope
+- [`.claude/skills/meta-orchestrator/SKILL.md:404`](../../../.claude/skills/pipeline/SKILL.md#L404) + [`:429`](../../../.claude/skills/pipeline/SKILL.md#L429) — SP `requesting-code-review` inconsistency (resolved in SW-A)
 
 ---
 
@@ -588,7 +589,7 @@ Self-note: both inconclusive points are flagged in §4 + §2.4, not hidden. They
 - [SW R-phase prior-art patch](2026-05-23-meta-orchestrator-prior-art.md) — meta-orchestrator BUILD verdict + SSOT #66-#70 origin; SP `requesting-code-review` REFERENCE leapfrog row at line 73
 - [`docs/meta-factory/research-patches/2026-05-26-companion-reuse-aif-handoff-autoqueue.md`](2026-05-26-companion-reuse-aif-handoff-autoqueue.md) — predecessor sub-component evaluation (autoQueueMode)
 - [`docs/meta-factory/prior-art-evaluations.md`](../prior-art-evaluations.md) — SSOT rows referenced: #20 (CC hooks ADOPT), #27/#28/#29/#30/#43/#44/#46/#67/#80 (aif-handoff entries)
-- [`.claude/skills/meta-orchestrator/SKILL.md`](../../../.claude/skills/meta-orchestrator/SKILL.md) — surface umbrella reasons against; lines :338 (substrate purity) :404 / :429 (SP `requesting-code-review` reconciliation, resolved by SW-A)
+- [`.claude/skills/meta-orchestrator/SKILL.md`](../../../.claude/skills/pipeline/SKILL.md) — surface umbrella reasons against; lines :338 (substrate purity) :404 / :429 (SP `requesting-code-review` reconciliation, resolved by SW-A)
 - [`.claude/hooks/inject-matching-rule.sh`](../../../.claude/hooks/inject-matching-rule.sh) — own-stack PostToolUse Edit|Write precedent ([packages/core/hooks/inject-matching-rule.test.ts](../../../packages/core/hooks/inject-matching-rule.test.ts) shipped tests)
 - [`.claude/rules/build-first-reuse-default.md`](../../../.claude/rules/build-first-reuse-default.md) — verdict ladder applied in §5
 - [`.claude/rules/reviewer-discipline.md §2`](../../../.claude/rules/reviewer-discipline.md) — strategy-fork-surface gate that aif-handoff Reviewer conflicts with (inherited from A)
