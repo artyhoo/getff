@@ -266,23 +266,40 @@ the change *class* only.
 
 ## §4c Autonomous aif-handoff dispatch — park-don't-guess contract
 
-**Status for this umbrella: autonomous dispatch is GATED SHUT. Use maintainer-paste tabs.**
-
-Probe results, this invocation:
+**Status for this umbrella: autonomous dispatch is OPEN (both legs verified 2026-08-08).**
 
 | Leg | Result | Evidence |
 |---|---|---|
 | Bridge reachable | **UP** | `RUNTIME_BRIDGE_MODE=aif-handoff`; `GET /runtime-profiles` → `200`, `GET /health` → `200` |
-| Lever-1 review-iteration ceiling | **UNVERIFIED** | `docker exec aif-handoff-agent-1 sh -c 'echo "${AGENT_MAX_REVIEW_ITERATIONS:-UNSET}"'` → `UNSET` |
+| Lever-1 review-iteration ceiling | **VERIFIED = 4** | `docker exec aif-handoff-api-1 … AGENT_MAX_REVIEW_ITERATIONS` → `4`; same on `aif-handoff-agent-1`; `GET /settings` → `maxReviewIterations: 4` |
 
-Per `/pipeline` §5 `#autonomous-dispatch-without-park`, an `UNSET` container probe means Lever-1
-is **UNVERIFIED**, and «either leg missing/unverified → STOP; do not dispatch autonomously». The
-bridge being up is not sufficient. **Unblock step (maintainer):** set
-`AGENT_MAX_REVIEW_ITERATIONS=1` in the agent container's environment (a host-side `export` is
-**not** forwarded — there is no forwarding path in `packages/runtime-bridge/src/**` and no compose
-key), re-run the probe, and only then may a stage be dispatched autonomously.
+**Where the ceiling must live, and why the obvious placement is inert.**
+`autoReviewHandler.ts:125` reads `refreshedTask.maxReviewIterations ?? env.AGENT_MAX_REVIEW_ITERATIONS`
+— **the task row wins** — and `api/schemas.ts:79` stamps that row at creation from the **api**
+container's env (`.default(getEnv().AGENT_MAX_REVIEW_ITERATIONS)`). So setting the variable on the
+`agent` service alone is **inert for every task created through the API**: measured on 2026-08-08,
+the five most recent rows (`GET /tasks`) all carried `mri=3` while the agent container reported
+its own value. The ceiling is therefore set on **both** services in
+`~/code/aif-handoff/docker-compose.override.yml`, and the probe that proves it is `GET /settings`
+plus a fresh task's row — not the agent-side `docker exec` alone. (Same failure class as that
+file's documented `COORDINATOR_MAX_CONCURRENT_TASKS` incident: a value set where nothing reads it.)
+A host-side `export` is not forwarded in any case — no path in `packages/runtime-bridge/src/**`,
+no compose key.
 
-**If that gate is later cleared, the dispatched stage kickoff MUST carry this verbatim:**
+**Ceiling semantics + scope honesty (operator decision 2026-08-08).** 4 rounds of
+fix-and-re-review before handing to a human — a cheap executor seat should keep fixing its own
+review findings rather than parking them. This is a **global** default, not a GLM-only one:
+nothing pins a task to the GLM seat unless its kickoff carries `<!-- bridge-profile: <name> -->`
+(`runtime-bridge/src/kickoff.ts:30` → `AifHandoffBackend.ts:221`), and **Tier-2 kickoffs
+deliberately omit that marker** (this umbrella's header; verified absent in all three kickoffs by
+running the extractor's own regex). So 4 rounds bill whatever seat aif picks —
+`resolvedDefaultTaskRuntimeProfileId` is `null` today, and every existing task row carries
+`profile=null`. Per-task `maxReviewIterations` (api `schemas.ts:79`) is the override when a stage
+wants a different ceiling. **Open fork for the maintainer, deliberately not decided here:** pinning
+the executor seat to GLM requires a `bridge-profile` marker, which contradicts the Tier-2 «no
+marker» rule — resolving that is a tier-routing decision, not a stage one.
+
+**Every autonomously dispatched stage kickoff MUST carry this verbatim:**
 
 > **aif agent — fork discipline (non-negotiable):** On ANY genuine fork or ambiguity (two
 > defensible implementations, an undecided design choice, a missing spec detail that changes
