@@ -118,7 +118,7 @@ Pick a depth instead of assembling flags. Three monotonic depths, default `core`
 |---|---|---|
 | `core` (default) | Rules + tests + guard hooks + killer payload; today's default set. No AIF operator runtime. | Consumer projects that want the rules-as-tests discipline without any aif-handoff runtime. |
 | `env` | core + multi-model contour surface (/arch, presets, status, night-mode/SDD) — wired as placeholders; no AIF runtime. | Consumer projects that want the multi-model contour surface as future-state placeholders (the contour ships via follow-up stages S2-S5, not via this stage's install). |
-| `factory` | env + the AIF operator suite (dispatcher / harvest / aif-doctor + runtime-bridge wiring + GLM one-button placeholder) — full aif-handoff runtime stack. | Operator machines running the aif-handoff runtime. The legacy `--with-aif-suite` and `--all` flags are factory-equivalent escapes. |
+| `factory` | env + the AIF operator suite (dispatcher / harvest / aif-doctor + runtime-bridge wiring + GLM one-button setup) — full aif-handoff runtime stack. | Operator machines running the aif-handoff runtime. The legacy `--with-aif-suite` and `--all` flags are factory-equivalent escapes. |
 
 **Selection surfaces:**
 
@@ -153,6 +153,40 @@ Downgrades are NOT auto — per inventory §5.3, a downgrade is `git rm` the dee
 See also: per-profile payload inventory at `docs/meta-factory/research-patches/2026-07-25-beta-a-s1-inventory.md` §2.
 
 ---
+
+## GLM executor tier — one-button setup (`factory` profile only)
+
+Runs ONLY after the `factory` profile install completes AND aif-handoff is reachable
+(`${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}/health` responds). Opt-in, never a
+hard dependency — skip if the consumer didn't pick `factory` or doesn't want GLM.
+
+**The aider pattern (executor = your existing AI session).** The consumer's in-session
+AI agent (you) runs `bash /tmp/getff/scripts/getff-glm-onebutton.sh` from the framework
+checkout (parallel to `/tmp/getff/setup` at L66; S4 does NOT ship the helper into the
+consumer project — that would require editing `setup.d/10-skills.sh`, S5's file per §5).
+One-button: detect → explain → wait → create profile → set defaults → verify → ping.
+No daemon, no GUI. The human does ONE thing: paste ONE key into ONE untracked env file.
+
+Required env (operator provides): `AIF_PROJECT_ID` (find via
+`curl -s $RUNTIME_BRIDGE_AIF_URL/projects | jq '.[].id'`), `TOP_TIER_PROFILE_ID`
+(Plan-mode default — the existing top-tier profile).
+
+The script: detects an existing GLM profile (idempotent exit 0) or prints ONE explanation
+(Z.ai Coding Plan, $18/mo, key at `https://docs.z.ai/devpack/quick-start`) + the env file
+path `${XDG_CONFIG_HOME:-$HOME/.config}/getff/glm.env` under var name `ANTHROPIC_AUTH_TOKEN`;
+waits; verifies reachability in aif process env; creates the profile via POST `/runtime-profiles`
+(minimal set: name + model + baseUrl + `apiKeyEnvVar="ANTHROPIC_AUTH_TOKEN"` — NAME only);
+sets per-mode defaults via PUT `/projects/:id` (Plan→top tier, Task+Review→GLM); runs ONE
+real minimal model call routed THROUGH the profile id (NOT the vendor URL).
+
+**Key-handling invariant (load-bearing).** The VALUE is NEVER touched by tooling — only the
+NAME. The helper never reads the value into a shell variable, never passes it in `curl` argv,
+never echoes it. Value moves file → aif process env only. Grep-provable:
+`grep -nE '\$\{?ANTHROPIC_AUTH_TOKEN' /tmp/getff/scripts/getff-glm-onebutton.sh` returns ONLY comments.
+
+**Honest degradation (NOT "degraded gracefully").** Failures (profile create, reachability,
+ping) exit non-zero with `objective-3 MISS: <specific blocker>`. Per binding §2 constraint 4,
+a guided-manual fallback counts as a MISS, not a pass — the PR body records it as such.
 
 ## What the AI will produce
 
