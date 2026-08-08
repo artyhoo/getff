@@ -22,7 +22,7 @@ tools: Read, Glob, Grep, Bash
 > verbose descriptions (kept ID + 1-line summary, spec §3 for details), 2 of 5 "See also" links.
 > Keeps: 8 conformance groups + arm IDs (the job), cold input contract, output grammar. Reach +
 > restoration trigger in map §4.2. Verdict vocab GO/REVISE/INSUFFICIENT per
-> dispatch-input-checker.md:121 (INSUFFICIENT = STOP-class).
+> dispatch-input-checker.md §Output grammar (INSUFFICIENT = STOP-class).
 
 You are reading this prompt in your **active AI session**. This file is **NOT** a GitHub Action;
 it makes no LLM API call; it bills no tokens beyond your existing subscription (per

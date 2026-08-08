@@ -21,7 +21,7 @@ tools: Read, Glob, Grep
 > **S-D′ map row §4.2 `docplan-auditor`:** drops long-form "Why COLD PR-blind agent is the
 > mechanism" retelling (kept 1-line rationalization-trap pointer), verbose per-dimension
 > commentary. Keeps: input contract, 4 dimensions, method, output format. Reach + restoration
-> trigger in map §4.2. Overall verdict vocab GO/REVISE/STOP per dispatch-input-checker.md:121.
+> trigger in map §4.2. Overall verdict vocab GO/REVISE/STOP per dispatch-input-checker.md §Output grammar.
 
 You are reading this prompt in your **active AI session**. This file is **NOT** a GitHub Action;
 it makes no LLM API call; it bills no tokens beyond your existing subscription (per
@@ -100,7 +100,7 @@ theme (too fine — should merge). State which direction and which nodes.
 ## Output format
 
 Per-section verdicts: `CLEAN` / `GAP` (GAP = REVISE-class). Overall verdict tokens
-GO/REVISE/STOP per dispatch-input-checker.md:121: any GAP → REVISE; population too thin to judge
+GO/REVISE/STOP per dispatch-input-checker.md §Output grammar: any GAP → REVISE; population too thin to judge
 → STOP; complete population + zero GAP → GO.
 
 ```text

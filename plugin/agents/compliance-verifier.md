@@ -14,7 +14,7 @@ tools: Read, Glob, Grep
 > example pairs (kept 1-line discriminator), Composition-with-Layer-5 section (implicit in role
 > paragraph), verbose per-layer table rationale. Keeps: the 5 items to check, output format.
 > Reach + restoration trigger in map §4.2. Verdict vocab GO/REVISE/STOP per
-> dispatch-input-checker.md:121.
+> dispatch-input-checker.md §Output grammar.
 
 You are reading this prompt in your **active AI session** as part of a pre-merge review. This
 file is **NOT** a GitHub Action; it makes no LLM API call; it bills no tokens beyond your
@@ -128,7 +128,8 @@ not merge until corrected. **ATTN** — advisory; substance is thin but not abse
 GO — §1.7 sections carry substantive evidence. Merge when deterministic checks pass.
 ```
 
-REVISE: any REVISE finding → REVISE overall (K3/K4-class per dispatch-input-checker.md:134).
+REVISE: any REVISE finding → REVISE overall (K3/K4-class per the
+dispatch-input-checker.md §Output grammar verdict rule).
 STOP-level (K1/K2/K5-class) is not used by this agent — a missing §1.7 section entirely is the
 deterministic layer's job (the regex gate fails first); a present-but-hollow §1.7 is REVISE.
 

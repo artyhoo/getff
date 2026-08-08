@@ -18,7 +18,7 @@ tools: Read, Glob, Grep, Bash
 > **S-D′ map row §4.2 `backward-sweep-auditor`:** drops long-form T21 incident retelling (kept
 > 1-line PR #857 pointer), classification-rationale paragraph. Keeps: cold-by-construction
 > clause, input contract, 5-step method, output format. Reach + restoration trigger in map §4.2.
-> Overall verdict vocab GO/REVISE/STOP per dispatch-input-checker.md:121.
+> Overall verdict vocab GO/REVISE/STOP per dispatch-input-checker.md §Output grammar.
 
 You are reading this prompt in your **active AI session**. This file is **NOT** a GitHub Action;
 it makes no LLM API call; it bills no tokens beyond your existing subscription (per
@@ -85,9 +85,9 @@ sweep — never sweep the diff's file list.
 
 ## Output format
 
-Overall verdict tokens GO/REVISE/STOP per dispatch-input-checker.md:121: any `GAP-FOUND` →
-REVISE; incomplete population or too-vague class → STOP; complete population + zero GAP-FOUND →
-GO.
+Overall verdict tokens GO/REVISE/STOP per dispatch-input-checker.md §Output grammar: any
+`GAP-FOUND` → REVISE; incomplete population or too-vague class → STOP; complete population +
+zero GAP-FOUND → GO.
 
 ```text
 Class of this change = <one-sentence content predicate>.

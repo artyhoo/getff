@@ -28,7 +28,7 @@ tools: Read, Glob, Grep, Bash
 > **S-D′ map row §4.2 `dispatch-input-checker`:** drops long-form "five EQUAL classes" preamble
 > (kept 1-line ADR-6 pointer), K6 verbose explanation (kept candidate generator + false-negative-
 > class note), Shadow-A/B protocol details (kept 4 one-line W3 answers), self-application
-> retelling. **PRESERVED verbatim:** DISPATCH-INPUT grammar at line 121 (machine-consumed);
+> retelling. **PRESERVED verbatim:** DISPATCH-INPUT grammar in §Output grammar (machine-consumed);
 > verdict rule (K1/K2/K5→STOP, K3/K4→REVISE); K1-K5 table; inputs; cold-by-construction role.
 > Reach + restoration trigger in map §4.2. **This agent IS the GO/REVISE/STOP grammar source**
 > per kickoff §3 rev-5 — its own grammar is preserved verbatim.

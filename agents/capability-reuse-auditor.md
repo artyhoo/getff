@@ -19,7 +19,7 @@ tools: Read, Glob, Grep
 > retelling (kept 1-line PR #858 pointer), verbose verdict-table rationales (kept verdict +
 > 1-line shape), some "NOT to do" bullets folded into closing line. Keeps: input contract, 5-step
 > method, verdict table, output format. Reach + restoration trigger in map §4.2. GO/REVISE/STOP
-> overlay on verdicts per dispatch-input-checker.md:121.
+> overlay on verdicts per dispatch-input-checker.md §Output grammar.
 
 You are reading this prompt in your **active AI session**. This file is **NOT** a GitHub Action;
 it makes no LLM API call; it bills no tokens beyond your existing subscription (per
@@ -71,7 +71,7 @@ supplied, ask the operator which capability to audit.
 5. **Distinguish «no overlap» from «low coverage»** (T14): partial coverage reported as partial,
    not «clean».
 
-## Verdicts you recommend (with GO/REVISE/STOP overlay per dispatch-input-checker.md:121)
+## Verdicts you recommend (with GO/REVISE/STOP overlay per dispatch-input-checker.md §Output grammar)
 
 | Verdict                   | Shape                                                                                                              | GO/REVISE/STOP                                                                                                                                                |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |

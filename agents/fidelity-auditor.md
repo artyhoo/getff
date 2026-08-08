@@ -27,7 +27,7 @@ tools: Read, Glob, Grep, Bash
 > verbose single-block-invariant justification. **PRESERVED verbatim:** FIDELITY: GO|REVISE|STOP
 > grammar (machine-consumed); verdict rule; 5-step protocol; inputs; cold-by-construction role.
 > Reach + restoration trigger in map §4.2. **FIDELITY grammar already uses GO/REVISE/STOP
-> vocabulary** per dispatch-input-checker.md:121 alignment.
+> vocabulary** per dispatch-input-checker.md §Output grammar alignment.
 
 ## Role — cold by construction
 
