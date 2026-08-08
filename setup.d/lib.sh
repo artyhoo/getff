@@ -48,6 +48,18 @@ PRETTIERIGNORE_END='# <<< rules-as-tests-aif (managed) <<<'
 PRETTIERIGNORE_CFG_BEGIN='# >>> rules-as-tests-aif shipped-configs (managed) >>>'
 PRETTIERIGNORE_CFG_END='# <<< rules-as-tests-aif shipped-configs (managed) <<<'
 
+# Consumer root AGENTS.md is CO-OWNED (spec C1 (b)): ai-factory generates and auto-updates it
+# on consumer machines, so our contribution is a fenced section, never the whole file. These
+# four constants are the SSOT for both delivery paths (setup.d/30-templates.sh npm lane +
+# setup.d/45-python.sh python lane) — install_agents_md() below is the only caller, so the two
+# lanes cannot drift (dual-implementation-discipline.md §7).
+AGENTS_FENCE_SECTION='getff-framework'
+AGENTS_FENCE_PLAN='packages/core/templates/shared/AGENTS.md.template'
+# Case-(c) adopt sentinels — BOTH must match before an existing unfenced file is rewritten.
+# Verified present in all 20 historical revisions of AGENTS.md.template (2026-08-08).
+AGENTS_FENCE_SENTINEL_1='# AGENTS.md — context for AI coding agents'
+AGENTS_FENCE_SENTINEL_2='.ai-factory/RULES.md'
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 # transform_internal_refs <markdown-file>
@@ -119,6 +131,161 @@ copy_safe() {
   mkdir -p "$(dirname "$dst")"
   cp -r "$src" "$dst"
   echo "  ✓ $dst"
+}
+
+# merge_fenced <src> <dst> <section-id> [plan-path] [sentinel-1] [sentinel-2]
+#
+# Section-scoped co-ownership for a destination file that OTHER generators also write
+# (spec C1 addition (b), beta-ai-docs-agnosticism S1 §2 D1b). The canonical case is the
+# consumer's root AGENTS.md: ai-factory generates and auto-updates it, so `copy_safe`'s
+# skip-if-exists means our contribution lands NOWHERE on any consumer that already has one,
+# while `--force` would clobber the other writer. This helper writes ONLY our fenced block:
+#
+#   <!-- getff:begin section=<id> plan=<path> -->  … ours …  <!-- getff:end section=<id> -->
+#
+# Everything outside the markers is the other writer's and is preserved byte-for-byte.
+# Marker grammar mirrors packages/core/composition/fence.ts (beginMarker/endMarker/findRegions)
+# — same `getff:begin section=<id> plan=<path>` shape, so the TS fence tooling can parse what
+# this bash writer emits. Replicated, NOT imported: install.sh must run with zero Node.
+#
+# `copy_safe` is deliberately UNCHANGED (S1 §2 D1b binding constraint): it has ~142 call sites
+# across 14 files, none of which asked for merge behaviour. This is an additive helper.
+#
+# FOUR cases (all three S1 §4 item-4 acceptance cases plus the fresh-install path):
+#   (0) dst absent            → create; the whole file is our fenced section.
+#   (a) dst has FOREIGN text  → append our fenced block; foreign content survives.
+#   (b) dst already fenced    → replace the body BETWEEN the markers, in place. Idempotent:
+#                               a second run is byte-identical, never a duplicated section.
+#                               The existing begin marker line is kept VERBATIM (forward-compat
+#                               attributes an older/newer writer put on it survive) — same rule
+#                               as fence.ts injectRegion.
+#   (c) dst is a FENCE-LESS copy of an older version of our own template → adopt it exactly
+#                               once by REPLACING the whole file with the fenced form. This is
+#                               every consumer installed before this stage; a fence-writer that
+#                               only knew case (a) would append and silently DOUBLE their file.
+#
+# Case (c) detection is deliberately conservative — a false-positive adopt would destroy a
+# consumer's own file. TWO independent sentinels must BOTH be present, and both were verified
+# present in all 20 historical revisions of AGENTS.md.template (git log --follow, 2026-08-08):
+#   1. the template's H1 line, and 2. the `.ai-factory/RULES.md` convention reference.
+# Sentinels are caller-supplied (args 5/6) so the helper stays generic; with no sentinels
+# passed, case (c) never fires and an unrecognised file takes the safe (a) path.
+#
+# `--force` semantics for a co-owned file (S1 §2 D1b — stated, not left undefined): --force
+# replaces OUR fenced section ONLY, never the whole file. Mechanically that is what this helper
+# already does on every run, so FORCE is a deliberate NO-OP here. Rationale: the file is
+# co-owned by construction; there is no consumer intent under which "overwrite" should mean
+# "delete the other writer's content".
+#
+# Layer-3 escape hatch honoured (same signal as refresh_safe): a sibling <base>.override.md
+# means the consumer has taken ownership — skip entirely, write nothing.
+#
+# The body is written with a blank line on each side of the markers, and every write path does it
+# identically so the replace path is byte-equal to the create path. Without it Prettier reports the
+# consumer's AGENTS.md as unformatted (an HTML comment immediately followed by a heading), and the
+# consumer's very first `npm run validate` goes red on a file we wrote — the #531 failure class.
+#
+# Malformed fence (a begin marker with no matching end) → LOUD refuse + skip, never a guess.
+# Splicing against a missing end marker would delete everything from the marker to EOF; the
+# irreversible branch is never the default (T-Upgrade-A).
+merge_fenced() {
+  local src="$1"
+  local dst="$2"
+  local section="$3"
+  local plan="${4:-}"
+  local sentinel_1="${5:-}"
+  local sentinel_2="${6:-}"
+
+  local override="${dst%.md}.override.md"
+  local begin="<!-- getff:begin section=${section}"
+  local end_tok="<!-- getff:end section=${section} -->"
+  local begin_full="${begin} plan=${plan} -->"
+  [ -n "$plan" ] || begin_full="${begin} -->"
+
+  [ -f "$src" ] || return 0
+
+  if [ -e "$override" ]; then
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would skip: $dst (.override.md present — consumer-owned Layer 3)"
+    else
+      echo "  ⊝ $dst (.override.md — consumer-owned, keeping)"
+    fi
+    return 0
+  fi
+
+  # ── (0) fresh install ──────────────────────────────────────────────────────
+  if [ ! -e "$dst" ]; then
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would create: $dst (fenced section=$section)"
+      return 0
+    fi
+    mkdir -p "$(dirname "$dst")"
+    { echo "$begin_full"; echo ""; cat "$src"; echo ""; echo "$end_tok"; } > "$dst"
+    echo "  ✓ $dst (fenced section=$section)"
+    return 0
+  fi
+
+  # ── (b) our fence already present → replace body in place ──────────────────
+  if grep -qF "$begin" "$dst"; then
+    if ! grep -qF "$end_tok" "$dst"; then
+      echo "  ⚠ $dst: '$begin' present but no matching '$end_tok' — REFUSING to splice" >&2
+      echo "    (an unterminated fence would delete everything to EOF; fix the marker pair by hand)" >&2
+      SKIPPED+=("$dst")
+      return 0
+    fi
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would replace fenced section=$section in: $dst"
+      return 0
+    fi
+    local tmp="${dst}.getff.tmp"
+    awk -v BEG="$begin" -v END_TOK="$end_tok" -v SRC="$src" '
+      state == 0 && index($0, BEG) > 0 {
+        print                                     # keep the begin marker verbatim
+        print ""                                  # blank lines around the body: Prettier treats an
+        while ((getline line < SRC) > 0) print line
+        close(SRC)
+        print ""                                  # HTML comment glued to a heading as unformatted
+        state = 1
+        next
+      }
+      state == 1 && index($0, END_TOK) > 0 { print; state = 2; next }
+      state == 1 { next }                         # drop the previous body
+      { print }
+    ' "$dst" > "$tmp" && mv "$tmp" "$dst"
+    echo "  ✓ $dst (fenced section=$section replaced)"
+    return 0
+  fi
+
+  # ── (c) fence-less copy of an older version of our own template → adopt once ─
+  if [ -n "$sentinel_1" ] && [ -n "$sentinel_2" ] \
+    && grep -qF "$sentinel_1" "$dst" && grep -qF "$sentinel_2" "$dst"; then
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would adopt (wrap in fence): $dst"
+      return 0
+    fi
+    { echo "$begin_full"; echo ""; cat "$src"; echo ""; echo "$end_tok"; } > "$dst"
+    echo "  ✓ $dst (pre-fence getff copy adopted into section=$section)"
+    return 0
+  fi
+
+  # ── (a) foreign content → append our block, preserve theirs ────────────────
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would append fenced section=$section to: $dst (foreign content preserved)"
+    return 0
+  fi
+  # Guarantee a newline boundary so the marker never glues onto the last foreign line.
+  [ -s "$dst" ] && [ "$(tail -c 1 "$dst")" != "" ] && echo "" >> "$dst"
+  { echo "$begin_full"; echo ""; cat "$src"; echo ""; echo "$end_tok"; } >> "$dst"
+  echo "  ✓ $dst (fenced section=$section appended; existing content preserved)"
+}
+
+# install_agents_md <src> <dst>
+# The ONLY caller of merge_fenced for the consumer root AGENTS.md. Both delivery lanes
+# (30-templates.sh npm, 45-python.sh python) route through here so the section id, plan
+# attribute and case-(c) sentinels cannot drift between them.
+install_agents_md() {
+  merge_fenced "$1" "$2" "$AGENTS_FENCE_SECTION" "$AGENTS_FENCE_PLAN" \
+    "$AGENTS_FENCE_SENTINEL_1" "$AGENTS_FENCE_SENTINEL_2"
 }
 
 # refresh_safe <src> <dst>

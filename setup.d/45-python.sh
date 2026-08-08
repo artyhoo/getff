@@ -969,8 +969,10 @@ _py_deliver_agent_surface() {
   fi
 
   # ── AGENTS.md ─────────────────────────────────────────────────────────────────
-  # Replicates setup.d/30-templates.sh:81 — starter AGENTS.md at project root.
-  copy_safe "$PKG_ROOT/packages/core/templates/shared/AGENTS.md.template" "$PROJECT_ROOT/AGENTS.md"
+  # Replicates setup.d/30-templates.sh — starter AGENTS.md at project root, delivered as a
+  # co-owned fenced section (spec C1 (b)). Routed through the same install_agents_md wrapper
+  # as the npm lane so the section id / plan / adopt-sentinels cannot drift between lanes.
+  install_agents_md "$PKG_ROOT/packages/core/templates/shared/AGENTS.md.template" "$PROJECT_ROOT/AGENTS.md"
 
   # ── .ai-factory/ agent-surface subtree ───────────────────────────────────────
   # Replicates setup.d/30-templates.sh:13-73 — minus the react-* stack branches (the python lane
@@ -983,6 +985,9 @@ _py_deliver_agent_surface() {
   copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/RULES.md" "$PROJECT_ROOT/.ai-factory/RULES.md"
   copy_safe "$PKG_ROOT/packages/core/templates/shared/integration-rules.md" "$PROJECT_ROOT/.ai-factory/rules/integration-rules.md"
   copy_safe "$PKG_ROOT/skills/tool-bootstrapping/templates/tool-decisions.md.template" "$PROJECT_ROOT/.ai-factory/tool-decisions.md"
+  # AI Usage Guide — same every-depth delivery as the npm lane (30-templates.sh). Lane parity:
+  # a python consumer that lands AGENTS.md's pointer but not its target gets a dangling reference.
+  copy_safe "$PKG_ROOT/packages/core/templates/shared/AI-USAGE-GUIDE.md" "$PROJECT_ROOT/.ai-factory/AI-USAGE-GUIDE.md"
 
   # Materialize the AGENTS.md-referenced SoT (30-templates.sh:67-73). AGENTS.md.template sends the
   # first agent session to .ai-factory/DESCRIPTION.md + ARCHITECTURE.md; without materialization

@@ -18,6 +18,9 @@
 npx vitest run packages/core/principles/09-doc-authority-hierarchy.test.ts
 bash tests/agnosticism/run-audit.sh
 test "$(wc -l < AGENTS.md)" -le 150
+npx vitest run packages/core/audit-self/first-steps-parity.test.ts
+bash tests/install-sh/fence-agents-coownership.test.sh
+test "$(wc -l < packages/core/templates/shared/AGENTS.md.template)" -le 150
 ```
 
 > Run it by explicit path — `bash scripts/host-verify.sh .claude/orchestrator-prompts/beta-ai-docs-agnosticism/kickoff-s1.md`
