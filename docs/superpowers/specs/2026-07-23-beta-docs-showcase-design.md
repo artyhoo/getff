@@ -161,6 +161,25 @@ present tense** — «clippy demo, deny roadmap»; (5) everything environment-la
   Exact home + format are proposed in BS2's SSOT PR; C-side review of that PR is the
   coordination point. *Falsifier: two-render drift found twice by the auditor → promote a
   deterministic vendor-sync check into the landing repo (parent §5 falsifier).*
+  **AMENDED 2026-08-08 (C1 authored it; awaiting maintainer sign-off — see the
+  beta-ai-docs-agnosticism S1 PR).** The default-owner rule above settles an authoring
+  RACE. It did not consider the case that actually occurred: **B-D6 defers umbrella B's
+  execution until after A7**, so BS2 had no schedule, and following B-D5 literally would
+  have blocked C1's First-Steps deliverable behind an umbrella with no start date. C1
+  probed at S1 entry per the rule's own instruction — `grep -rn "First Steps"
+  --include="*.md" .` surfaced no source doc, and `gh pr list --state all --search
+  beta-docs-showcase` returned only the design/kickoff PRs #1103/#1104/#1105 — confirming
+  BS2 had landed nothing. **C1 therefore authored the SSOT**, at
+  `packages/core/templates/shared/first-steps.source.json` (JSON, so neither markdown
+  render can be mistaken for the source), with the AI render in
+  `packages/core/templates/shared/AI-USAGE-GUIDE.md` §2 and a parity gate at
+  `packages/core/audit-self/first-steps-parity.test.ts` comparing the ordered step list
+  per depth. **BS2's role is now CONSUME, not author:** vendor the human render from that
+  source with the provenance header B-D5 already requires, and change no step without
+  surfacing it to C. The «exact home + format proposed in BS2's SSOT PR» clause is
+  discharged by this stage's PR, which is the coordination point in its place. Everything
+  else in B-D5 — SSOT in the framework repo, vendored render on the site, the
+  `claims-conformance-auditor` drift backstop, the falsifier — is unchanged.
 
 - **B-D6 (r3) — Execution model: aif factory AFTER A7; deferred, never CC-in-session.**
   Operator directive (2026-07-23): B must not consume CC-subscription limits, so the r2

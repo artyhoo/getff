@@ -127,7 +127,7 @@ Compact reference for the framework. Read when you need a quick refresher of wha
 
 ## Cross-cutting extensions
 
-### Pre-PR layer (AI Factory `/aif-verify`)
+### Pre-PR layer (`audit-ai-docs.sh` + review sub-agents)
 
 Sub-agents in separate contexts validate against `.ai-factory/RULES.md` before commit. `review-sidecar` is the **two-AI tautology check** — different model reviews tests without seeing how they were written.
 

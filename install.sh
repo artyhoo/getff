@@ -190,6 +190,7 @@ SHIPPED_DOCS=(
   "packages/core/templates/shared/ARCHITECTURE.ts-server.md"
   "packages/core/templates/shared/integration-rules.md"
   "packages/core/templates/shared/tier-home.md"
+  "packages/core/templates/shared/AI-USAGE-GUIDE.md"
   "packages/preset-next-15-canonical/RULES.md"
   "packages/preset-next-15-canonical/RULES.react-next.md"
   "packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md"
@@ -1074,6 +1075,11 @@ do_refresh() {
   if [ -e "$PROJECT_ROOT/.ai-factory/tier-home.md" ]; then
     refresh_safe "$PKG_ROOT/packages/core/templates/shared/tier-home.md" "$PROJECT_ROOT/.ai-factory/tier-home.md"
   fi
+
+  # ── AI Usage Guide (every depth; beta-ai-docs-agnosticism S1) — refresh parity ──
+  # Framework-owned: refresh must re-deliver fixes, and its §2 First Steps renders from an SSOT
+  # that moves, so a brownfield consumer stuck on an old copy would follow stale steps.
+  refresh_safe "$PKG_ROOT/packages/core/templates/shared/AI-USAGE-GUIDE.md" "$PROJECT_ROOT/.ai-factory/AI-USAGE-GUIDE.md"
 
   # ── Skill-context overrides (derived from SHIPPED_DOCS — cannot drift) ──
   echo "▶ Skill-context → .ai-factory/skill-context/"
