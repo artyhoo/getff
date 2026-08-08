@@ -40,6 +40,15 @@ copy_safe "$PKG_ROOT/packages/core/templates/shared/integration-rules.md" "$PROJ
 # The actual tool-bootstrapping workflow (picking tools, recording decisions) is a separate S3 concern.
 copy_safe "$PKG_ROOT/skills/tool-bootstrapping/templates/tool-decisions.md.template" "$PROJECT_ROOT/.ai-factory/tool-decisions.md"
 
+# ─── AI Usage Guide (EVERY depth; beta-ai-docs-agnosticism S1 / spec C1) ─────
+# The AI-facing lifecycle doc past install: First Steps -> daily cycle -> degradations. Installed
+# at core+ deliberately, NOT gated to env+ like tier-home.md: its §2.1 sequence IS the `core`
+# First-Steps path, so an env+ gate would withhold the core walkthrough from exactly the consumers
+# who need it. Cost to a core consumer is one on-demand file — AGENTS.md carries only a pointer,
+# so always-on context is unchanged (spec D8). [PARKED FORK — see the stage PR body: the A1
+# payload inventory predates this doc and does not settle its depth; maintainer may re-gate.]
+copy_safe "$PKG_ROOT/packages/core/templates/shared/AI-USAGE-GUIDE.md" "$PROJECT_ROOT/.ai-factory/AI-USAGE-GUIDE.md"
+
 # ─── §3d: stack-specific .ai-factory/ files ─────────────
 if [ "$STACK" = "react-next" ]; then
   copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md" "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.react-next.md"
