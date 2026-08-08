@@ -1,6 +1,6 @@
-<!-- scope: kickoff — getff-freshness-widening STAGE S1 (locks record reality), REV 4: r2 audit repairs — §2 permitted-files closure (two omitted files) + §3a derived-not-asserted clarification. REV 3 forks unchanged and NOT re-litigated (version semantics → Option A; PARK-S1-1 → staged-A; PARK-S1-2 → C; PARK-S1-4 → refined-A; operator, 2026-08-08 — see docs/meta-factory/research-patches/2026-08-08-rules-lock-version-semantics-fork.md §9). Parent: .claude/orchestrator-prompts/getff-freshness-widening/kickoff.md §1 S1. Design base (BINDING): docs/superpowers/specs/2026-07-23-getff-any-stack-closure-design.md §7.1. Tier 2 (generation-context manifest shape is a design decision), NO bridge-profile marker. Container-dispatchable: touches setup.d/ + packages/core/, NOT .claude/**. -->
+<!-- scope: kickoff — getff-freshness-widening STAGE S1 (locks record reality), REV 5: r3 audit repairs — §2 gains the two remaining FORCED files (audit-self.yml lockShape jq; packages/core/ir/convention-node.schema.json) + a park instruction for any fourth. REV 4: r2 audit repairs — §2 permitted-files closure (two omitted files) + §3a derived-not-asserted clarification. REV 3 forks unchanged and NOT re-litigated (version semantics → Option A; PARK-S1-1 → staged-A; PARK-S1-2 → C; PARK-S1-4 → refined-A; operator, 2026-08-08 — see docs/meta-factory/research-patches/2026-08-08-rules-lock-version-semantics-fork.md §9). Parent: .claude/orchestrator-prompts/getff-freshness-widening/kickoff.md §1 S1. Design base (BINDING): docs/superpowers/specs/2026-07-23-getff-any-stack-closure-design.md §7.1. Tier 2 (generation-context manifest shape is a design decision), NO bridge-profile marker. Container-dispatchable: touches setup.d/ + packages/core/, NOT .claude/**. -->
 
-# getff-freshness-widening S1 — locks record reality (rev 4, r2 audit repairs)
+# getff-freshness-widening S1 — locks record reality (rev 5, r3 audit repairs)
 
 > **Goal:** a generated `rules-lock.<framework>.json` currently cannot answer «which dependency
 > versions was this rule set generated against?» — the field exists and is hard-coded `null`.
@@ -78,10 +78,24 @@ fixtures — a different artefact class**. Do NOT sweep them.
 - `docs/meta-factory/prior-art-evaluations.md` — the SSOT row §4 *mandates* re-landing. **Added
   rev 4:** rev 3 omitted it while §4 required editing it, so the stage was undoable as written
   (r2 audit, KICKOFF-AMBIGUOUS finding 1). Append-only per that file's §3 — never rewrite a row.
-- `.github/workflows/audit-self.yml` — **ONLY** to wire the criterion-5/7/9 tests this stage adds.
-  **Added rev 4:** an unwired test is not a gate, so rev 3's omission made criteria 5/7/9
-  unsatisfiable (r2 audit, KICKOFF-AMBIGUOUS finding 2 + the «scope» MAJOR that traced to it).
-  Adding jobs for THIS stage's tests is in scope; any other workflow edit is not.
+- `.github/workflows/audit-self.yml` — **ONLY** to (a) wire the criterion-5/7/9 tests this stage
+  adds, and (b) update the `lockShape` jq literal, which the `ruleIds`→`rules` rename of
+  criterion 3 forces. **(a) added rev 4:** an unwired test is not a gate, so rev 3's omission made
+  criteria 5/7/9 unsatisfiable (r2 audit, KICKOFF-AMBIGUOUS finding 2 + the «scope» MAJOR that
+  traced to it). **(b) widened rev 5:** rev 4 permitted only test-wiring, but the `lockShape`
+  literal asserts the very shape criterion 3 changes — leaving it stale would go red by
+  construction (r3 audit KICKOFF-AMBIGUOUS). Any other workflow edit is still out of scope.
+- `packages/core/ir/convention-node.schema.json` — **ONLY** the additive optional `tier` field on
+  `Provenance`. **Added rev 5:** that schema declares `Provenance` with
+  `"additionalProperties": false`, so the §2-permitted `tier` field on `research/types.ts` is
+  unrepresentable without it — the schema edit is forced by a change §2 already permits, exactly
+  the class rev 4 closed for two other files (r3 audit KICKOFF-AMBIGUOUS).
+
+**Forced-but-unlisted files are a PARK, not a silent edit.** Three revisions have now each
+discovered a file the change provably forces but §2 did not list. If you hit a fourth, do NOT
+edit it and do NOT stop work on everything else: park it per §6 with the forcing reason
+(«file X is required because Y, which §2 permits, cannot be expressed without it»), and proceed
+with the rest of the stage.
 
 **Not permitted:** anything under `.claude/**` (hard harness block in the container — §6), the
 spec, any ADR, any other umbrella's kickoff, and the research/detector fixtures named in §1's
