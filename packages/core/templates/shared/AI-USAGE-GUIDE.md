@@ -65,7 +65,9 @@ not know: `core` is the default, `env` additionally puts `.ai-factory/tier-home.
 
 4. **Prove the rules are not inert on your layout** — `bash scripts/check-rule-globs.sh`. It fails
    when a shipped custom rule matches **zero** files in your layout, i.e. it is installed but
-   enforcing nothing. If it fires, widen `RULE_GLOBS` in `eslint.config.mjs`.
+   enforcing nothing. If it fires, widen `RULE_GLOBS` in `eslint.config.mjs`. On a brand-new
+   skeleton with no source files yet it **fails by design** — every rule matches zero files. That
+   is the expected first run; re-run it once your first `src/` files exist.
 
 <!-- step: watch-a-rule-fire -->
 
@@ -107,7 +109,8 @@ not know: `core` is the default, `env` additionally puts `.ai-factory/tier-home.
 <!-- step: prove-rules-not-inert -->
 
 4. **Prove the rules are not inert on your layout** — `bash scripts/check-rule-globs.sh`, then
-   `bash scripts/check-fences-fire.sh` to see a rule go RED on planted input.
+   `bash scripts/check-fences-fire.sh` to see a rule go RED on planted input. On an empty skeleton
+   `check-rule-globs.sh` fails by design (zero source files to match); re-run it once you have some.
 
 <!-- step: read-tier-home -->
 
@@ -143,7 +146,8 @@ not know: `core` is the default, `env` additionally puts `.ai-factory/tier-home.
 <!-- step: prove-rules-not-inert -->
 
 4. **Prove the rules are not inert on your layout** — `bash scripts/check-rule-globs.sh`, then
-   `bash scripts/check-fences-fire.sh` to see a rule go RED on planted input.
+   `bash scripts/check-fences-fire.sh` to see a rule go RED on planted input. On an empty skeleton
+   `check-rule-globs.sh` fails by design (zero source files to match); re-run it once you have some.
 
 <!-- step: read-tier-home -->
 

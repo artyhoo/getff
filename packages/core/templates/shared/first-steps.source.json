@@ -50,7 +50,7 @@
         {
           "id": "prove-rules-not-inert",
           "title": "Prove the rules are not inert on your layout",
-          "action": "`bash scripts/check-rule-globs.sh` — fails when a shipped custom rule matches ZERO files in your layout, i.e. it is installed but silently enforcing nothing. If it fires, widen `RULE_GLOBS` in `eslint.config.mjs` to cover your layout.",
+          "action": "`bash scripts/check-rule-globs.sh` — fails when a shipped custom rule matches ZERO files in your layout, i.e. it is installed but silently enforcing nothing. If it fires, widen `RULE_GLOBS` in `eslint.config.mjs` to cover your layout. On a brand-new skeleton with no source files yet this FAILS by design — every rule matches zero files. That is the expected first run; re-run it once your first `src/` files exist.",
           "evidence": "scripts/check-rule-globs.sh (shipped at core; verified in a temp consumer 2026-08-08)"
         },
         {
@@ -98,7 +98,7 @@
         {
           "id": "prove-rules-not-inert",
           "title": "Prove the rules are not inert on your layout",
-          "action": "`bash scripts/check-rule-globs.sh`, then `bash scripts/check-fences-fire.sh` to see a rule go RED on planted input.",
+          "action": "`bash scripts/check-rule-globs.sh`, then `bash scripts/check-fences-fire.sh` to see a rule go RED on planted input. On a brand-new skeleton with no source files yet this FAILS by design — every rule matches zero files. That is the expected first run; re-run it once your first `src/` files exist.",
           "evidence": "scripts/check-rule-globs.sh; scripts/check-fences-fire.sh"
         },
         {
@@ -140,7 +140,7 @@
         {
           "id": "prove-rules-not-inert",
           "title": "Prove the rules are not inert on your layout",
-          "action": "`bash scripts/check-rule-globs.sh`, then `bash scripts/check-fences-fire.sh` to see a rule go RED on planted input.",
+          "action": "`bash scripts/check-rule-globs.sh`, then `bash scripts/check-fences-fire.sh` to see a rule go RED on planted input. On a brand-new skeleton with no source files yet this FAILS by design — every rule matches zero files. That is the expected first run; re-run it once your first `src/` files exist.",
           "evidence": "scripts/check-rule-globs.sh; scripts/check-fences-fire.sh"
         },
         {
