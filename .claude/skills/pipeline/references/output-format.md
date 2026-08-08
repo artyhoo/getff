@@ -146,6 +146,43 @@ EXECUTION PLAN — <umbrella> (<YYYY-MM-DD>)
 
 **Falsifiers:** wrong if §1B output exceeds ~15 lines for a 2-stage umbrella; wrong if any of the 6 principle-18 substrings (`## Dependency graph` / `↓` / `## Action queue` / `Paste into a new CC tab` / `Can parallel with` / `### Stage`) is absent from the §1B skeleton above.
 
+## §1C Status format (beta-delivery-ux S2, A5)
+
+> **Origin:** beta-delivery-ux S2 (2026-08-08). Spec: [2026-07-23-beta-program-design.md §4 A5](../../../../docs/superpowers/specs/2026-07-23-beta-program-design.md). Read-only, three-section, no persistent state, NOT a dashboard.
+
+Emitted by `/pipeline status`. The status verb does NOT enter the §1 dispatch tree — it short-circuits to a read-only render against live bricks.
+
+```text
+## Pipeline status
+
+### In-factory
+  <running aif tasks + their state — from bridge REST /health + /tasks>
+  (or: "(bridge unreachable at <url>)" — designed degradation)
+
+### Parked questions
+  <each parked task + its fork — from questions.ts --json>
+  (or: "(no parked questions)" — designed degradation)
+
+### Ready-to-harvest + PR state
+  <open PRs + mergeable state — from gh pr list>
+  (or: "(no open PRs)" / "(gh unavailable)" — designed degradation)
+
+### Suggested next
+→ next: <suggested command 1>
+→ next: <suggested command 2 — optional>
+```
+
+**Rules:**
+
+- Each section degrades **independently** — an unreachable bridge does NOT block parked-questions or PR sections.
+- Exit code is 0 unless the renderer itself crashes; degraded sections are a **designed success path** (§3 spec).
+- 1-3 suggested-next lines tail the output (clig.dev «suggest what to run next»).
+- No persistent state, no refresh loop, no TUI. One-shot read + print.
+
+**Falsifiers:** wrong if any section is silently elided (each MUST appear, even in degraded form); wrong if the renderer exits non-zero on a missing brick; wrong if the output omits the `### Suggested next` tail.
+
+**See also:** [`helpers/render-status.sh`](../helpers/render-status.sh) — the renderer. [`SKILL.md §2.6`](../SKILL.md) — invocation point.
+
 ---
 
 ## §2 Dependency graph
