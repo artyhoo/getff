@@ -300,6 +300,110 @@ Run 2's audit findings that are settled by in-repo source. Do not re-derive, do 
 4. **`setup.d/10-skills.sh` stays untouched** — S5 is its sole editor (W-5, held CLEAN in run 2;
    keep it that way).
 
+## §7d Round 3 — rework dispatch facts (authored 2026-08-09 from a host-side re-verification)
+
+**Provenance:** like §7b, this section is dispatcher-authored, not operator-issued. It carries **no
+new design decision** — it supplies endpoint-level facts read on the **host**, where
+`~/code/aif-handoff` exists and your container's checkout does not, plus the run-2 defects §7b/§7c
+did not cover. The operator may override any of it.
+
+**Your base is NOT clean `staging`.** Run 2's work is on `feature/beta-delivery-ux-92bf00`
+(PR #1300, 2 commits, 7 files). Step 1, before anything else:
+
+```bash
+git merge --no-edit feature/beta-delivery-ux-92bf00
+git diff --name-only origin/staging...HEAD   # expect the 7 files of PR #1300
+```
+
+Run 2 was judged **STOP**, not "worthless" — you are repairing it, not redoing it. Held CLEAN and
+**not to be touched**: the detect/explain paths, the `${XDG_CONFIG_HOME:-$HOME/.config}/getff/glm.env`
+location, the minimal profile field set (§7a #1), the S4/S5 boundary, and the redaction discipline.
+
+### §7d.1 Host-verified aif contract — take these as given, do NOT re-derive
+
+Your container has no `~/code/aif-handoff`; run 2 parked on that and then guessed anyway. These
+were read on the host on 2026-08-09 from that checkout (commit `7743089`):
+
+1. **Project defaults (§7a #2 / §7c #1).** `packages/api/src/routes/projects.ts:237` —
+   `PUT /projects/:id` validates against the **full** `createProjectSchema`; the four fields are
+   `defaultTaskRuntimeProfileId` / `defaultPlanRuntimeProfileId` / `defaultReviewRuntimeProfileId` /
+   `defaultChatRuntimeProfileId` (`packages/api/src/schemas.ts:42-45`). No `PATCH /project` and no
+   `PATCH /projects/:id` exist — the only `PATCH` verbs on that router are `/:id/organization`
+   (`projects.ts:280`) and `/:id/auto-queue-mode` (`projects.ts:431`). Read current state via
+   `GET /projects` + filter by id (there is no `GET /projects/:id`), then PUT the full body back.
+2. **An app-level partial-write endpoint EXISTS but is NOT what §7a #2 binds.**
+   `PUT /settings/runtime-defaults` (`packages/api/src/routes/settings.ts:140`) accepts a *partial*
+   body of exactly those four fields (`schemas.ts:186-195`). §7a #2 binds **project-level**, so use
+   path 1. Recorded here only so you do not "discover" it and switch channels — switching is an
+   operator call, not yours.
+3. **The §7a #3 / §7c #3 ping has a native, profile-routed endpoint.**
+   `POST /runtime-profiles/validate` (`packages/api/src/routes/runtimeProfiles.ts:721`), payload
+   `runtimeProfileValidationSchema` (`schemas.ts:250-259`): `{ profileId }` is sufficient. Use it —
+   it exercises the route the flow just built, which a direct call to the vendor cannot.
+   The schema's optional `apiKey` is a **transient** credential ("Never persisted", `schemas.ts:256`;
+   the route logs it as validation-only, `runtimeProfiles.ts:750`). Prefer **omitting** it and
+   relying on §7b's env wiring — that keeps §2 constraint 1 intact and keeps the value out of argv.
+4. **Delete the invented `x-api-key` attribution.** Run 2's helper attributed that header to
+   "SKILL.md D3" (`scripts/getff-glm-onebutton.sh:169`); the D3 row
+   (`.claude/skills/claude-glm-executor-handoff/SKILL.md:36`) names `ANTHROPIC_AUTH_TOKEN` and never
+   mentions `x-api-key`. With item 3 the header question disappears entirely — aif builds the
+   request. Do not re-introduce a hand-rolled vendor call.
+5. **§7b's premise re-confirmed on the host:** `packages/runtime/src/resolution.ts:217` resolves the
+   key by NAME out of an env map, `:247` defaults that map to `process.env`; `docs/configuration.md:127`
+   — `.env` is loaded into the API/agent processes and forwarded through each adapter's allowlist.
+   §7b stands as written.
+
+### §7d.2 Binding correction — the guided-install clone URL is FALSIFIED, not parked
+
+`setup.d/aif-handoff-guided-install.sh:28` defaults `AIF_HANDOFF_REPO_URL` to
+`https://github.com/sst-aif/aif-handoff.git` and `:65` clones it **after consumer consent**. That
+repository does not exist:
+
+```text
+$ gh api repos/sst-aif/aif-handoff
+{"message":"Not Found", ... "status":"404"}
+$ gh api repos/lee-to/aif-handoff --jq '.full_name'
+lee-to/aif-handoff
+```
+
+Set the default to the upstream `https://github.com/lee-to/aif-handoff.git`, keep the
+`AIF_HANDOFF_REPO_URL` override, and **remove the PARKED/unverified wording** from both the helper
+comment and the research patch (`…-entry-verification.md:53-55`). A default that is falsified is not
+a park — a park is an open question, and shipping a broken default behind park language is worse
+than either. Verify with one `git ls-remote` before you call it done.
+
+### §7d.3 Green-CI floor — run 2 shipped four red checks
+
+All must be green at handoff. The first three are mechanical and are **not** optional cleanup:
+
+1. **Principle 10** — `docs/meta-factory/research-patches/2026-08-08-s4-glm-onebutton-entry-verification.md`
+   has no `<!-- scope:<slug> -->` first line (every sibling patch has one; e.g.
+   `2026-08-02-per-role-digest-fork.md:1`). Fails both `Principles as meta-tests` and
+   `Mechanical checks`.
+2. **The new test is not wired** — `install-sh battery (shard A)` reports
+   `✗ install-sh test(s) NOT wired in audit-self.yml → glm-onebutton.test.sh`. Add it to the shard
+   list in `.github/workflows/audit-self.yml` (the existing rows end at `:730`). An unwired test is
+   an inert test.
+3. **shellcheck SC1091** — `setup.d/aif-handoff-guided-install.sh:21` carries
+   `# shellcheck source=bridge-guided.sh`; the directive path must be repo-root-relative, per the
+   in-repo precedent `setup.d/05-mcp.sh:52` (`# shellcheck source=setup.d/engine.sh`). Fails
+   `install-sh battery (shard C)`.
+4. **`fidelity-verdict-in-pr-body`** stays red until a cold auditor returns GO. Per §8, a rework
+   round **REPLACES** the existing `## Fidelity verdict` block — never appends a second one.
+
+### §7d.4 The two run-2 MINORs that are still open
+
+- **MINOR-4** — `setup.d/companions.manifest:31` still carries prose in the install field where the
+  other rows carry commands. Behaviourally inert today (`setup:92` skips every `kind=external-service`
+  row before `companion_step`, and `setup.d/engine.sh:18-21` returns 0 for that kind), so either make
+  it a real command or leave a one-line comment stating the inertness. Do not leave it undecided.
+- **MINOR-6 / §4 item 1** — the live end-to-end never fired. **Probe first, then report:** try the
+  aif API from your container (`curl -sf "$RUNTIME_BRIDGE_AIF_URL/health"`, default
+  `http://localhost:3009`). If it answers, live-fire steps A/B/C against a scratch profile and delete
+  it afterwards, and quote the output (T3). If it does not, quote the failing command — an
+  objective-3 MISS recorded with evidence per §2 constraint 4. What is not acceptable is a third
+  round of "structurally complete, live-unverified" with no probe output.
+
 ## §8 PR-body requirements (both gates are REQUIRED checks on `staging`)
 
 This stage touches `.zcode/skills/**` (glm-handoff shipping) + `setup.d/**` (companions.manifest
