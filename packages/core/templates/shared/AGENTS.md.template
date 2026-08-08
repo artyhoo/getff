@@ -59,7 +59,7 @@ For structure-aware queries — counting real array/object members, finding lang
 - Skipping `./scripts/audit-ai-docs.sh` / the pre-push hook before PR.
 - Adding rules to AGENTS.md / RULES.md without a measurable check.
 
-## Orchestration — backlog
+## Orchestration — backlog & /pipeline
 
 > Where multi-step work is planned and prioritised.
 

@@ -1076,6 +1076,11 @@ do_refresh() {
     refresh_safe "$PKG_ROOT/packages/core/templates/shared/tier-home.md" "$PROJECT_ROOT/.ai-factory/tier-home.md"
   fi
 
+  # ── AI Usage Guide (every depth; beta-ai-docs-agnosticism S1) — refresh parity ──
+  # Framework-owned: refresh must re-deliver fixes, and its §2 First Steps renders from an SSOT
+  # that moves, so a brownfield consumer stuck on an old copy would follow stale steps.
+  refresh_safe "$PKG_ROOT/packages/core/templates/shared/AI-USAGE-GUIDE.md" "$PROJECT_ROOT/.ai-factory/AI-USAGE-GUIDE.md"
+
   # ── Skill-context overrides (derived from SHIPPED_DOCS — cannot drift) ──
   echo "▶ Skill-context → .ai-factory/skill-context/"
   for _doc in "${SHIPPED_DOCS[@]}"; do

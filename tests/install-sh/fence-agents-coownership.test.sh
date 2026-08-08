@@ -123,8 +123,10 @@ if [ -n "$OLD_SHA" ]; then
   else
     bad "(c) pre-fence getff copy: $(count_beg "$W/AGENTS.md") begin / $(count_end "$W/AGENTS.md") end"
   fi
-  # ADOPT, not APPEND: the result is the template + 2 marker lines, NOT old+new concatenated.
-  if [ "$NEW_LINES" -le $((TPL_LINES + 3)) ]; then
+  # ADOPT, not APPEND: the result is the template + 4 wrapper lines (begin, blank, blank, end),
+  # NOT old+new concatenated. The +5 slack absorbs a trailing-newline difference; it stays far
+  # below the doubled size (old + template ≈ 254), which is the failure this arm exists to catch.
+  if [ "$NEW_LINES" -le $((TPL_LINES + 5)) ]; then
     ok "(c) adopted (${OLD_LINES} → ${NEW_LINES} lines ≈ template ${TPL_LINES} + markers), not doubled"
   else
     bad "(c) file DOUBLED: ${OLD_LINES} → ${NEW_LINES} lines (template is ${TPL_LINES}) — appended instead of adopting"

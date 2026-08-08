@@ -180,6 +180,11 @@ copy_safe() {
 # Layer-3 escape hatch honoured (same signal as refresh_safe): a sibling <base>.override.md
 # means the consumer has taken ownership — skip entirely, write nothing.
 #
+# The body is written with a blank line on each side of the markers, and every write path does it
+# identically so the replace path is byte-equal to the create path. Without it Prettier reports the
+# consumer's AGENTS.md as unformatted (an HTML comment immediately followed by a heading), and the
+# consumer's very first `npm run validate` goes red on a file we wrote — the #531 failure class.
+#
 # Malformed fence (a begin marker with no matching end) → LOUD refuse + skip, never a guess.
 # Splicing against a missing end marker would delete everything from the marker to EOF; the
 # irreversible branch is never the default (T-Upgrade-A).
@@ -215,7 +220,7 @@ merge_fenced() {
       return 0
     fi
     mkdir -p "$(dirname "$dst")"
-    { echo "$begin_full"; cat "$src"; echo "$end_tok"; } > "$dst"
+    { echo "$begin_full"; echo ""; cat "$src"; echo ""; echo "$end_tok"; } > "$dst"
     echo "  ✓ $dst (fenced section=$section)"
     return 0
   fi
@@ -236,8 +241,10 @@ merge_fenced() {
     awk -v BEG="$begin" -v END_TOK="$end_tok" -v SRC="$src" '
       state == 0 && index($0, BEG) > 0 {
         print                                     # keep the begin marker verbatim
+        print ""                                  # blank lines around the body: Prettier treats an
         while ((getline line < SRC) > 0) print line
         close(SRC)
+        print ""                                  # HTML comment glued to a heading as unformatted
         state = 1
         next
       }
@@ -256,7 +263,7 @@ merge_fenced() {
       echo "  [dry-run] would adopt (wrap in fence): $dst"
       return 0
     fi
-    { echo "$begin_full"; cat "$src"; echo "$end_tok"; } > "$dst"
+    { echo "$begin_full"; echo ""; cat "$src"; echo ""; echo "$end_tok"; } > "$dst"
     echo "  ✓ $dst (pre-fence getff copy adopted into section=$section)"
     return 0
   fi
@@ -268,7 +275,7 @@ merge_fenced() {
   fi
   # Guarantee a newline boundary so the marker never glues onto the last foreign line.
   [ -s "$dst" ] && [ "$(tail -c 1 "$dst")" != "" ] && echo "" >> "$dst"
-  { echo "$begin_full"; cat "$src"; echo "$end_tok"; } >> "$dst"
+  { echo "$begin_full"; echo ""; cat "$src"; echo ""; echo "$end_tok"; } >> "$dst"
   echo "  ✓ $dst (fenced section=$section appended; existing content preserved)"
 }
 
