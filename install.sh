@@ -1127,3 +1127,20 @@ for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do
   # shellcheck source=/dev/null
   source "$f"
 done
+
+# ─── aif-handoff guided install (beta-delivery-ux S4, spec §4 A1) ────────────
+# Under PROFILE=factory (or legacy --with-aif-suite), offer the consented guided INSTALL
+# for the aif-handoff runtime. The helper mirrors setup.d/bridge-guided.sh's shape: detect-first
+# (bridge_diagnose), consented docker-compose install, decline → graceful env-level degradation.
+# Gating matches setup.d/10-skills.sh:95 exactly (PROFILE=factory OR WITH_AIF_SUITE set).
+# Runs AFTER the setup.d layer loop so RUNTIME_BRIDGE_AIF_URL is in scope + all layers shipped.
+if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
+  echo "▶ aif-handoff guided install (profile=factory)"
+  if [ -f "$PKG_ROOT/setup.d/aif-handoff-guided-install.sh" ]; then
+    bash "$PKG_ROOT/setup.d/aif-handoff-guided-install.sh" || true
+  else
+    # Consumer install payload may not include this helper (e.g. core-only checkout refreshed
+    # with --profile factory but the helper file was not in the original payload). Graceful skip.
+    echo "  ⊝ setup.d/aif-handoff-guided-install.sh not present in this checkout — see docs/runtime-bridge-setup.md"
+  fi
+fi
