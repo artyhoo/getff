@@ -255,6 +255,7 @@ swap is the second lever, behind `skill_listing` and ahead of every harness-side
 > **DECISION-NEEDED (operator): at the corrected band, `build-first-reuse-default.md` ranks #2;
 > firing the Tier-0 swap is a channel re-scope decision reserved to the operator (kickoff §3a).**
 > This stage records the corrected ranking and does **not** convert it into a swap.
+> *(RESOLVED 2026-08-08 — see §3.2 resolution note.)*
 
 **This stage still does NOT fire the swap** — the reasons are now (2) and (3), not (1):
 
@@ -305,6 +306,12 @@ restoration trigger fires.
 
 **PARKED.** This stage does not pick. A reviewer/operator decision on this fork is welcome at
 PR review; absent that, the fork travels to the §6 follow-on stage.
+
+**RESOLVED 2026-08-08 (operator verdict): Option B — target `build-first-reuse-default.md`,
+executed as its own stage S-M**
+(`.claude/orchestrator-prompts/arch-v2-context-pipeline-s-m/kickoff.md`; umbrella table row
+added the same day). The other two candidates stay always-on; their cases above remain the
+record for any future re-visit.
 
 ## §4 Review subagents — replacement prompt map
 
