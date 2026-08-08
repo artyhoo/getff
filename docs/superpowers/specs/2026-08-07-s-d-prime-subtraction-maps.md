@@ -65,35 +65,58 @@ S-L §5 binding: **"A re-ranking is not a rescale — S-D′ must re-derive rath
 through."** S-L §3.1's billed-but-/context-uncounted rows, re-derived by content-shape (NOT
 flat 4 B/tok), per seat, every seat, regardless of operator input:
 
-| Block | Codepoints (cp) | Est-tokens | /context status | Source |
+| Block | Codepoints (cp) | Est-tokens (band @ 1.835–3.128 cp/t) | /context status | Source |
 |---|---:|---:|---|---|
-| `skill_listing` (.content) | 26,696 | 8,870 | COUNTED as `Skills 8.9k` | S-L §2.2 (`2026-08-07-s-l-recalculation.md:244,269`) |
-| Both hook injects (combined) | 6,853 | ~2,284 tok @ 3 cp/tok | ONE counted as `Messages 1.3k`, OTHER uncounted | S-L §2.3 (`:288`); S-H §5 (`2026-08-07-s-h-turn-attribution-p3d-p11.md:336`) |
-| `agent_listing_delta` (.addedLines) total | 5,433 | ~1,811 tok @ 3 cp/tok | PARTIAL — only orchestrator-planner (3,128 cp) counted as `Custom agents 1k`; built-in agent descriptions 2,305 cp uncounted | S-L §2.2 (`:242,276`) |
-| `deferred_tools_delta` (.addedLines) | 4,075 | ~1,358 tok @ 3 cp/tok | UNCOUNTED | S-L §2.1 (`:241`) |
-| `mcp_instructions_delta` (.addedBlocks) | 3,741 | ~1,247 tok @ 3 cp/tok | UNCOUNTED | S-L §2.1 (`:243`) |
-| `hook_additional_context` | 3,381 | ~1,127 tok @ 3 cp/tok | Candidate for `Messages 1.3k` | S-L §2.3 (`:240`) |
-| `hook_success` (UserPromptSubmit, .content) | 1,721 | ~574 tok @ 3 cp/tok | Candidate for `Messages 1.3k` | S-L §2.3 (`:245`) |
+| `skill_listing` (.content) | 26,696 | **8,870 — MEASURED, not converted** (`/context` per-entry token sum) | COUNTED as `Skills 8.9k` | S-L §2.2 (`2026-08-07-s-l-recalculation.md:244,269`) |
+| Both hook injects (combined) | 6,853 | ~2,191–3,735 | ONE counted as `Messages 1.3k`, OTHER uncounted | S-L §2.3 (`:288`); S-H §5 (`2026-08-07-s-h-turn-attribution-p3d-p11.md:336`) |
+| `agent_listing_delta` (.addedLines) total | 5,433 | ~1,737–2,961 | PARTIAL — only orchestrator-planner (3,128 cp) counted as `Custom agents 1k`; built-in agent descriptions 2,305 cp uncounted | S-L §2.2 (`:242,276`) |
+| `deferred_tools_delta` (.addedLines) | 4,075 | ~1,303–2,221 | UNCOUNTED | S-L §2.1 (`:241`) |
+| `mcp_instructions_delta` (.addedBlocks) | 3,741 | ~1,196–2,039 | UNCOUNTED | S-L §2.1 (`:243`) |
+| `hook_additional_context` | 3,381 | ~1,081–1,843 | Candidate for `Messages 1.3k` | S-L §2.3 (`:240`) |
+| `hook_success` (UserPromptSubmit, .content) | 1,721 | ~550–938 | Candidate for `Messages 1.3k` | S-L §2.3 (`:245`) |
 
-**Top-3 priced harness-side blocks (kickoff §4 T-SDP-A counter — maps ordered largest-first):**
-1. `skill_listing` — 8,870 tok (4.9× any other message-stream row, S-L §5)
-2. Both hook injects — ~2,284 tok combined
-3. `agent_listing_delta` total — ~1,811 tok (built-in-agent descriptions subset 2,305 cp ≈ 768 tok is the addressable trim, since orchestrator-planner is operator-defined)
+**Top-3 priced harness-side blocks (kickoff §4 T-SDP-A counter — maps ordered largest-first).**
+Every row above is measured in the SAME channel (codepoints) and therefore converts with the
+same divisor, so the ordering is **band-invariant** — it is the ordering of the cp column:
+1. `skill_listing` — 8,870 tok measured (4.9× any other message-stream row, S-L §5)
+2. Both hook injects — 6,853 cp ≈ ~2,191–3,735 tok combined
+3. `agent_listing_delta` total — 5,433 cp ≈ ~1,737–2,961 tok (built-in-agent descriptions subset 2,305 cp ≈ ~737–1,256 tok is the addressable trim, since orchestrator-planner is operator-defined)
 
-**Conversion constant falsified (S-L §1.4):** flat 4 B/tok understates dense-table content by
-2.18× and Cyrillic-rich by 1.17×. Every figure above is re-derived by content-shape band
-(2.62–3.43 cp/tok for dense tables, 3.43–4.00 cp/tok for Cyrillic), per S-L's re-derivation.
+**Conversion constant falsified (S-L §1.2/§1.4).** The operative figure is a **band, never a
+point** — S-L measured **bytes 1.835–3.416 B/tok** (1.86× spread) and **codepoints
+1.835–3.128 cp/tok** (1.70× spread), and §1.3 binds the unit to the channel: a `wc -c` input
+reports B/tok, a transcript/JSON input reports cp/tok, and **no ratio may be taken across
+units**. Direction inside the band: **dense ASCII pipe-table content sits at the LOW end
+(1.835 in both units)**, Cyrillic-rich prose at the HIGH end (**3.416 B/tok**; in the codepoint
+channel the top of the band is 3.128, from the ASCII-prose custom-agent entry, with the
+Cyrillic-rich skill listing at 3.010 cp/tok — the byte unit's extra spread measures Cyrillic,
+not token cost). A flat 4 B/tok point estimate **understates** token counts by 1.17×
+(Cyrillic-rich) to 2.18× (dense ASCII) — it is a floor, not an estimate. Every figure in this
+spec is therefore re-derived as a band in its own channel's unit, per S-L §1.6.
 
 ### §0.4 FORK E mandatory injector block (S-H P3d, confirmed by S-L)
 
-| Hook | Per-firing B | Per-firing est-tok | Trigger | Cache | Source |
+| Hook | Per-firing B | Per-firing est-tokens (band @ 1.835–3.416 B/t) | Trigger | Cache | Source |
 |---|---:|---:|---|---|---|
-| `inject-session-bootstrap.sh` (UserPromptSubmit) | **1,760 B** | ~440 tok @ 4 B/t | per-prompt (1 per ~24 turns) | **NONE** — every firing is fresh injection | S-H §5 (`s-h-…:329,335`); S-L §1.5 (`s-l-…:217`) |
-| `inject-subagent-digest.sh` (SubagentStart) | **1,866 B** | ~466 tok @ 4 B/t | per-subagent-spawn | **NONE** | S-H §5 (`s-h-…:330,336`); S-L §1.5 (`s-l-…:218`) |
+| `inject-session-bootstrap.sh` (UserPromptSubmit) | **1,760 B** | **~515–959** (payload is ASCII-dominant → true value near the LOW divisor, i.e. the HIGH token end) | per-prompt (1 per ~24 turns) | **NONE** — every firing is fresh injection | S-H §5 (`s-h-…:329,335`); S-L §1.6 (`s-l-…:184-186`) |
+| `inject-subagent-digest.sh` (SubagentStart) | **1,866 B** | **~546–1,017** (same direction of error) | per-subagent-spawn | **NONE** | S-H §5 (`s-h-…:330,336`); S-L §1.6 (`s-l-…:184-186`) |
 
-**Residency-weighted cost (S-H §5):** ~53 KB per session for the expensive seat (one injection
-per ~24 turns × 1,904 firings / 189 sessions × re-billed at cache-read rate on every later turn).
-The injector is **~12× the P5a lever** (S-H §5 `s-h-…:367`).
+**Raw injected volume (S-H §5, corrected figure):** **~17.3 KB per session** — 1,904
+`UserPromptSubmit` firings / 189 session transcripts = 10.07 firings per transcript × mean
+1,721 B, with no session cache (`2026-08-07-s-h-turn-attribution-p3d-p11.md:352-361`).
+**The ~53 KB/session figure this spec previously carried is the falsified pre-measurement
+estimate** — it assumed one injection per assistant *turn*; the hook fires per *prompt*
+(1,904 firings against 46,462 turns = one per ~24 turns), so the magnitude was **overstated
+~3×** and is superseded by ~17.3 KB (same source, `:356-361`).
+
+**Residency-weighted cost (S-H §5):** the injector costs **77,008 weighted units per session
+transcript** (14,554,534 / 189), against P5a's ~6,325 units — the injector is **≥~12× the P5a
+lever** (`s-h-…:363-367`). **This ratio survives the band** and is the one figure here that is
+not re-derived: numerator and denominator are both `bytes ÷ 4 × residency`, so a common divisor
+cancels (S-L §1.6's «band-invariant — a ratio of two figures sharing the conversion»,
+`s-l-…:189-191`). Under *per-content* divisors it moves **upward**, not down: the injector
+payload is ASCII-dominant (≈1.835 B/tok) while P5a's target `CLAUDE.md` measures 2.553 B/tok
+(S-L §1.1), which would put the ratio nearer ~17×. **~12× is therefore a floor, not a point.**
 
 **Counter-argument carried in this row per kickoff §1 item 1:** per-prompt re-injection is the
 digest's **compaction-resilience purpose** — the digest exists *because* CC's compaction window
@@ -131,7 +154,7 @@ replacement — does not apply.
 
 | Cell | Value |
 |---|---|
-| **cost** | 1,760 B per UserPromptSubmit firing + 1,866 B per SubagentStart firing; residency-weighted ~53 KB/session for expensive seat; **~12× the P5a lever** (S-H §5 `s-h-…:367`). Source: S-H §5 (`2026-08-07-s-h-turn-attribution-p3d-p11.md:329-330,336,367`); S-L §1.5 (`2026-08-07-s-l-recalculation.md:217-218`). |
+| **cost** | 1,760 B (~515–959 est-tokens @ 1.835–3.416 B/t) per UserPromptSubmit firing + 1,866 B (~546–1,017 est-tokens) per SubagentStart firing; raw volume **~17.3 KB/session** (10.07 firings × 1,721 B — NOT the ~53 KB this spec previously carried, which assumed per-turn firing and was overstated ~3×, `s-h-…:352-361`); residency-weighted **77,008 weighted units/session ≥~12× the P5a lever** (band-invariant, see §0.4). Source: S-H §5 (`2026-08-07-s-h-turn-attribution-p3d-p11.md:329-330,336,352-361,363-367`); S-L §1.6 (`2026-08-07-s-l-recalculation.md:184-191`). |
 | **reach** | CC main seat: yes (every prompt). CC subagent: n/a for UserPromptSubmit, yes for SubagentStart. aif-container: yes via container hooks. ZCode: yes via SessionStart hook twin (`dual-implementation-discipline.md`). **Basis:** S-H P3d corpus measurement (189 transcripts, 1,904 UserPromptSubmit firings, 728 SubagentStart firings) — quoted at `s-h-…:282-283,335-336`. |
 | **restoration trigger** | OBSERVABLE: a `compact_boundary` event (per `message.subtype`) followed by ≥1 reviewer-flagged "lost ambient context" finding in a stage-PR review OR an `inject-session-bootstrap` firing rate dropping below 1-per-30-turns on a comparable corpus (would indicate the cache is over-missing compaction events). T-SDP-B counter: names an observable, not "if problems occur." |
 | **mechanism** | **PROPOSED DIFF — maintainer handoff.** `.claude/hooks/inject-session-bootstrap.sh` and `.claude/hooks/inject-subagent-digest.sh` are NOT in §2's permitted set; the row ships as a recommended diff in this PR body, priced from S-H's P3d line. Proposed pattern: once-per-session cache mirroring `inject-matching-rule.sh`'s existing cache (`inject-matching-rule.sh` already implements this pattern — copy its cache key, scope to session id). **Cache invalidation trigger named:** on `subtype=compact_boundary` (CC's compaction signal), the cache MUST be invalidated so the digest re-injects after compaction — this preserves the digest's compaction-resilience purpose (counter-argument per kickoff §1 item 1). |
@@ -151,7 +174,7 @@ replacement — does not apply.
 
 | Cell | Value |
 |---|---|
-| **cost** | 2,305 cp ≈ 768 tok @ 3 cp/tok — built-in agent descriptions subset of `agent_listing_delta` (S-L §2.2 `s-l-…:276`). Total `agent_listing_delta` 5,433 cp but only the built-in subset is addressable: orchestrator-planner (3,128 cp) is operator-defined, not a drop candidate. |
+| **cost** | 2,305 cp (~737–1,256 est-tokens @ 1.835–3.128 cp/t) — built-in agent descriptions subset of `agent_listing_delta` (S-L §2.2 `s-l-…:276`). Total `agent_listing_delta` 5,433 cp but only the built-in subset is addressable: orchestrator-planner (3,128 cp) is operator-defined, not a drop candidate. |
 | **reach** | CC main seat: yes (every seat). CC subagent: yes. aif-container: yes. ZCode: **no equivalent** — agent descriptions are CC-specific. **Basis:** S-L §2.2 — `agent_listing_delta` attachment carries 7 entries, 6 built-in + 1 user-defined; the 6 built-in (2,305 cp) are billed-and-/context-uncounted. |
 | **restoration trigger** | OBSERVABLE: a built-in agent (e.g. `Explore`, `Plan`, `general-purpose`) invocation in a transcript for a seat where its description was elided — the invocation would still succeed (built-in agents are not removed, only their descriptions trimmed from the listing). T-SDP-B counter: names an observable. |
 | **mechanism** | **PROPOSED DIFF — maintainer handoff.** Built-in agent descriptions are harness-supplied, not operator-controlled; the lever is whether to suppress their display in the listing. CC has no documented mechanism for this; the recommended diff is **a feature request to upstream** (CC) plus a documented degradation in this map until CC ships a suppression mechanism. **NOT a §2-permitted edit.** |
@@ -161,7 +184,7 @@ replacement — does not apply.
 
 | Cell | Value |
 |---|---|
-| **cost** | `deferred_tools_delta` 4,075 cp (~1,358 tok) + `mcp_instructions_delta` 3,741 cp (~1,247 tok) = **7,816 cp combined (~2,605 tok)**. Source: S-L §2.1 (`s-l-…:241,243`). |
+| **cost** | `deferred_tools_delta` 4,075 cp (~1,303–2,221 est-tokens @ 1.835–3.128 cp/t) + `mcp_instructions_delta` 3,741 cp (~1,196–2,039 est-tokens) = **7,816 cp combined (~2,499–4,259 est-tokens)**. Source: S-L §2.1 (`s-l-…:241,243`). |
 | **reach** | CC main seat: yes. CC subagent: yes. aif-container: depends on MCP config. ZCode: no equivalent. **Basis:** S-L §2.1 census. |
 | **restoration trigger** | OBSERVABLE: a tool invocation for a deferred tool failing because its description was elided AND the model failed to discover it — would surface as a "tool not found" error in transcript. T-SDP-B counter: names an observable. |
 | **mechanism** | **PROPOSED DIFF — maintainer handoff.** Deferred-tool and MCP-instruction listings are harness/MCP-server-controlled, not directly operator-editable. The recommended diff is an audit pass: enumerate deferred tools, identify those whose definitions could be slimmed at the MCP-server source, file per-MCP-server upstream PRs. **NOT a §2-permitted edit.** |
@@ -171,7 +194,7 @@ replacement — does not apply.
 
 | Cell | Value |
 |---|---|
-| **cost** | Currently 7 rules already excluded (see §0.2). The remaining 5 always-on files total 48,679 B. CLAUDE.md (22,605 B / ~5,651 tok @ 4 B/t) is the largest candidate. |
+| **cost** | Currently 7 rules already excluded (see §0.2). The remaining 5 always-on files total 48,679 B. CLAUDE.md (22,605 B → ~6,617–12,319 est-tokens @ 1.835–3.416 B/t; S-L §1.1 measured the pre-S-G 23,740 B copy of this same file at 2.553 B/tok, which places the content-specific point at ~8,854 tok, inside the band) is the largest candidate. |
 | **reach** | CC main seat: yes. CC subagent: n/a (no CLAUDE.md load per S-H P11). aif-container: yes via container settings. ZCode: **no `claudeMdExcludes` primitive** — degradation documented; ZCode's SessionStart hook twin can hand-load the file if needed. **Basis:** S-H P11 + script-overlay semantics (`scripts/measure-always-on.sh:18-32` comment). |
 | **restoration trigger** | OBSERVABLE: an excluded rule's pattern (e.g. a `git-conflict-merge-forward.md` invocation) appearing in a stage-PR review without the rule firing (the rule's advice absent from a relevant conflict-PR review) — surface as reviewer-flagged finding. T-SDP-B counter: names an observable. |
 | **mechanism** | **PROPOSED DIFF — maintainer handoff.** `.claude/settings.json` is NOT in §2's permitted set. The recommended diff: re-audit the 7 currently-excluded rules against the resident need; for the 5 remaining residents (CLAUDE.md + 4 Tier-0), CLAUDE.md is owned by S-G (not editable here); Tier-0 rules cannot be excluded without the four-way swap (see §3.1). **No new claudeMdExcludes additions proposed by this stage.** |
@@ -201,19 +224,49 @@ current host, **no target that is not a Tier-0 member** — after `claudeMdExclu
 rule set is `00-rule-index.md` + the three named Tier-0 rules. Re-scoping one therefore requires
 the four-way swap.
 
-**This stage does NOT fire the swap.** Reasoning:
+**Corrected ranking at the band (this replaces an earlier flat-4-B/tok ordering).** An earlier
+revision of this section ranked the Tier-0 swap **fourth** on the strength of
+`build-first-reuse-default.md` ≈ 3,167 tok @ 4 B/t. That figure was a point estimate on a
+falsified constant; re-derived per §0.3 it is **3,708–6,904 est-tokens**, and S-L §1.1
+**measured this exact file** (same 12,667 B) at **4,800 tokens** on a live `/context` read
+(`2026-08-07-s-l-recalculation.md:55`). Every lever, re-derived:
 
-1. **§2's largest measured levers are NOT rule-level.** S-L §5's top-3 (skill_listing 8,870 tok,
-   hook injects ~2,284 tok, agent_listing_delta ~1,811 tok) all exceed the largest Tier-0 rule
-   (`build-first-reuse-default.md` 12,667 B ≈ 3,167 tok @ 4 B/t). Dropping a Tier-0 rule is the
-   **fourth** lever, not the first — and per §0.5 priority ordering, the bigger levers come first.
-2. **§2's rule-level drop alternatives carry the senior-seat subtraction.** The proposed-diff rows
-   in §2.1-§2.4 subtract the measured heavy blocks. The Tier-0 swap is therefore not load-bearing
-   for the stage's purpose.
+| # | Lever | Basis | est-tokens |
+|---:|---|---|---|
+| 1 | `skill_listing` trim (§2.2) | MEASURED (`/context`) | **8,870** |
+| 2 | `build-first-reuse-default.md` (Tier-0) | MEASURED (S-L §1.1); band 3,708–6,904 @ 1.835–3.416 B/t | **4,800** |
+| 3 | both hook injects (§0.3 / §2.1) | band @ 1.835–3.128 cp/t | ~2,191–3,735 |
+| 4 | `ai-laziness-digest.md` (Tier-0) | band @ 1.835–3.416 B/t (6,703 B) | ~1,962–3,653 |
+| 5 | `agent_listing_delta` total (§2.3) | band @ 1.835–3.128 cp/t | ~1,737–2,961 (addressable subset ~737–1,256) |
+| 6 | `deferred_tools_delta` (§2.4) | band @ 1.835–3.128 cp/t | ~1,303–2,221 |
+| 7 | `mcp_instructions_delta` (§2.4) | band @ 1.835–3.128 cp/t | ~1,196–2,039 |
+| 8 | `attention-is-not-a-mechanism.md` (Tier-0) | MEASURED (S-L §1.1); band 770–1,433 | **1,100** |
+
+(`CLAUDE.md` at ~6,617–12,319 est-tokens would sit at #2 as well, but it is not a Tier-0 swap
+candidate — its content-trim is S-G-owned and §2.5 proposes no `claudeMdExcludes` addition.)
+
+**The re-ranking overturns the earlier ordering claim.** `build-first-reuse-default.md` is the
+**second** lever, not the fourth: its measured 4,800 tok exceeds the hook injects, the agent
+listing, and both tool-listing blocks, and its band floor (3,708) sits at or above every one of
+their ceilings. Only `skill_listing` is larger. The honest statement is therefore *«the Tier-0
+swap is the second lever, behind `skill_listing` and ahead of every harness-side block»*.
+
+> **DECISION-NEEDED (operator): at the corrected band, `build-first-reuse-default.md` ranks #2;
+> firing the Tier-0 swap is a channel re-scope decision reserved to the operator (kickoff §3a).**
+> This stage records the corrected ranking and does **not** convert it into a swap.
+
+**This stage still does NOT fire the swap** — the reasons are now (2) and (3), not (1):
+
+1. ~~The Tier-0 swap is the fourth lever~~ — **withdrawn, falsified above.** It is #2.
+2. **§2's proposed-diff rows already carry the senior-seat subtraction.** The rows in
+   §2.1-§2.4 subtract the measured heavy blocks without touching the rule channel, so the
+   Tier-0 swap is not load-bearing for this stage's purpose.
 3. **§3a park-don't-guess:** the choice between the three Tier-0 candidates is a genuine fork
-   with defensible cases on each side. The plan does not pick. The fork is **DECISION-NEEDED**,
-   recorded in §3.2, surfaced in the PR body. Reverting to it is a future stage's call (likely the
-   ADR-8 follow-on stub in kickoff §6, which inherits the baseline question).
+   with defensible cases on each side (§3.2), and a Tier-0 re-scope is a **channel decision**
+   (four registry copies, `zcode-parity-doctrine.md` twins, principle 31) — reserved to the
+   operator, not a figure a stage can settle by arithmetic. The plan does not pick. The fork is
+   **DECISION-NEEDED**, recorded in §3.2, surfaced in the PR body. Firing it is a future stage's
+   call (likely the ADR-8 follow-on stub in kickoff §6, which inherits the baseline question).
 
 **Acceptance (§3 Tier-0 swap leg):** "If the stage re-scopes no Tier-0 rule, state that explicitly
 and say which senior-seat mechanism carried the drop instead." — **No Tier-0 rule re-scoped. The
@@ -226,18 +279,18 @@ operator-owned surfaces, none touching §2-permitted registry surfaces.**
 If a future stage wants a rule-level senior-seat drop, the three Tier-0 candidates (per
 `packages/core/principles/31-rule-channel-declaration.ts:58-63`) and their cases:
 
-- **`build-first-reuse-default.md`** (12,667 B ≈ 3,167 tok @ 4 B/t — largest Tier-0 rule).
+- **`build-first-reuse-default.md`** (12,667 B → **4,800 tok MEASURED** at S-L §1.1 `s-l-…:55`; band ~3,708–6,904 @ 1.835–3.416 B/t — largest Tier-0 rule, and the **#2 lever overall** per §3.1).
   - **Case for drop:** biggest measured cost; macro-level operating philosophy (per its own §6
     "Never retire") could be carried by the per-commit CLAUDE.md gate alone.
   - **Case against:** its §6 self-declares "Never retire" — dropping would abandon a
     project-foundational discipline; the principle test at slot 11 stays registered regardless.
-- **`ai-laziness-digest.md`** (6,703 B ≈ 1,676 tok @ 4 B/t — second-largest).
+- **`ai-laziness-digest.md`** (6,703 B → ~1,962–3,653 est-tokens @ 1.835–3.416 B/t — second-largest; not in S-L §1.1's measured set, so band only).
   - **Case for drop:** the digest is the resident hot digest of the full ai-laziness-traps
     catalogue; once that catalogue's countermeasures are encoded in tests/probes, the digest's
     residency is theatre.
   - **Case against:** the digest carries anti-drift obligation (principle slot 35) — dropping
     the digest requires also retiring the anti-drift gate, which is a separate decision.
-- **`attention-is-not-a-mechanism.md`** (2,629 B ≈ 657 tok @ 4 B/t — smallest).
+- **`attention-is-not-a-mechanism.md`** (2,629 B → **1,100 tok MEASURED** at S-L §1.1 `s-l-…:54`; band ~770–1,433 — smallest).
   - **Case for drop:** Class C prose-only rule with promotion criterion in its §3; lowest byte
     cost → smallest drop savings.
   - **Case against:** smallest savings; least-attractive candidate.
