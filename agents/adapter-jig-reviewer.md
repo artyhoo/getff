@@ -67,7 +67,9 @@ interrogation of a dimension against the code, not an echo of the author's story
 
 **Judge the real lane, not a fixture (T-AJ-A).** A dimension is GO only if you cite the **real**
 lane file/output you inspected (e.g. `setup.d/46-cargo.sh:NNN`, the emitted
-`.getff/rules-lock.*.json`, a captured exit code) — never a synthetic fixture alone.
+`.getff/rules-lock.*.json`, a captured exit code) — never a synthetic fixture alone. An arm
+«wired to the fixture but never exercised against the real lane» is theatre; flag it
+`INSUFFICIENT`.
 
 ## Method — walk the eight groups (no prose-only findings — per T3)
 

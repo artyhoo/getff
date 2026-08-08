@@ -88,10 +88,14 @@ empty drift list is reported as empty, not filled.
 
 **Single-block invariant (enforced by the gate).** The PR body carries exactly ONE
 `## Fidelity verdict` section containing exactly ONE `FIDELITY:` line. A rework round
-**replaces** the previous block — never appends below it. The gate rejects both appended-block
-shapes (`packages/core/hooks/checks/pr-body-fidelity.ts`). Verdict tokens are case-sensitive.
-Any heading closes the section; on a stage PR (one whose `## Provenance` declares a substrate)
-`FIDELITY: skipped` is rejected outright.
+**replaces** the previous block — never appends below it. The gate rejects **both** appended
+shapes: an appended `skipped` that would neutralise a recorded REVISE, and an appended `GO`
+that would be shadowed by the round-1 REVISE above it
+(`packages/core/hooks/checks/pr-body-fidelity.ts`). Verdict tokens are case-sensitive. Any
+heading closes the section, so **every line of the block — including the `Evidence:` file:line —
+must sit inside it** (`hasEvidence()` scans only within the section bounds; evidence cannot be
+borrowed from a neighbouring `### §1.7 …` block). On a stage PR (one whose `## Provenance`
+declares a substrate) `FIDELITY: skipped` is rejected outright.
 
 ## Watch-list (load-bearing cold-seat continuity)
 
