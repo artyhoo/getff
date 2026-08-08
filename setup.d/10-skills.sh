@@ -108,23 +108,25 @@ fi
 for _skill in template-audit ai-doc rule-research rule-tests; do
   copy_skill_with_transform "$_skill"
 done
-# env+ contour surface (spec A8): ships at PROFILE=env or factory, NOT core. /arch is the
-# architecture-design skill that produces the contour; consumer-facing at env+ per S5 kickoff
-# §2 binding #3. Legacy --with-aif-suite routes through PROFILE=factory (install.sh:405-408),
-# so the env/factory check covers it without an explicit OR clause.
+# env+ contour surface (spec A8 + beta-delivery-ux S2 / R3 spec-conformance divergence):
+# /arch is the architecture-design skill that produces the contour; consumer-facing at env+
+# per S5 kickoff §2 binding #3. /pipeline joined env+ at S2 rework round 1 — the design SSOT
+# defines the env depth as carrying «pipeline presets, status, …» verbatim
+# (docs/superpowers/specs/2026-07-23-beta-program-design.md:211). Standing gate had pipeline
+# at factory-only; spec wins → resolved by moving pipeline into the env+ loop. The factory-only
+# arm below retains dispatcher/aif-doctor/harvest/night-mode/story/claude-glm-executor-handoff
+# (those presuppose the aif operator runtime). Legacy --with-aif-suite routes through
+# PROFILE=factory (install.sh:405-408), so the env/factory check covers it without an explicit
+# OR clause.
 if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
-  echo "  ▶ Contour surface (profile=env+ OR --with-aif-suite): arch"
-  # Single-item today by design (the env+ contour ships only /arch); the loop form is
-  # kept for symmetry with the factory arm below so the next contour skill is a
-  # one-word addition.
-  # shellcheck disable=SC2043
-  for _skill in arch; do
+  echo "  ▶ Contour surface (profile=env+ OR --with-aif-suite): arch pipeline"
+  for _skill in arch pipeline; do
     copy_skill_with_transform "$_skill"
   done
 fi
 if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
-  echo "  ▶ AIF operator suite (profile=factory OR --with-aif-suite): pipeline dispatcher aif-doctor harvest night-mode story claude-glm-executor-handoff"
-  for _skill in pipeline dispatcher aif-doctor harvest night-mode story claude-glm-executor-handoff; do
+  echo "  ▶ AIF operator suite (profile=factory OR --with-aif-suite): dispatcher aif-doctor harvest night-mode story claude-glm-executor-handoff"
+  for _skill in dispatcher aif-doctor harvest night-mode story claude-glm-executor-handoff; do
     copy_skill_with_transform "$_skill"
   done
 fi
@@ -318,3 +320,13 @@ if [ -f "$MCF_SRC" ]; then
     register_cc_hook "$SETTINGS" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-memory-codification.sh"' "inject-memory-codification" "Write"
   fi
 fi
+
+# ─── 1j. Workspace one-command scripts → MOVED to setup.d/85-worktree-scripts.sh ──
+# beta-delivery-ux S2 rework round 1 / R7 (consolidate to ONE ship-point): the worktree
+# helper scripts cluster (create-worktree.sh + worktree-node-modules.sh + link-coordination.sh
+# + getff-work.sh) now ships exclusively from setup.d/85-worktree-scripts.sh under the
+# env+ gate (PROFILE=env|factory, OR WITH_AIF_SUITE). The previous §1j block that shipped
+# only create-worktree.sh from this file has been removed — the cluster's call-chain
+# requirement (create-worktree → worktree-node-modules → link-coordination) means a partial
+# ship from two sites drifts independently; 85 is the single owner now. Gate semantics
+# identical (env|factory|WITH_AIF_SUITE). See setup.d/85-worktree-scripts.sh §1.

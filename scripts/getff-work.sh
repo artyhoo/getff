@@ -4,11 +4,18 @@
 # Composes:
 #   1. Worktree creation (REUSE scripts/create-worktree.sh — do NOT rewrite).
 #   2. Dep wiring (detect package manager, run install in worktree).
-#   3. Per-detected-harness session start:
-#        - Claude Code → DEFER entirely to the native flow (operator resolution
-#          2026-07-23, §8a Park-4 binding). NO wrapper involvement. CC desktop
-#          has its own worktree UX; CLI → `claude -w`.
-#        - ZCode / unknown → print the exact next command.
+#   3. Per-detected-harness session start (launch-vs-print matrix — kickoff §4.4
+#      + §8a Park-4 + spec A9 binding; R8 documented 2026-08-08):
+#        | environment                                   | action                     |
+#        |-----------------------------------------------|----------------------------|
+#        | inside a live CC session                      | PRINT `claude -w <name>`   |
+#        |   (CLAUDE_CODE_SESSION_ID set)                | (DEFER to native — never   |
+#        |                                               |  wrap; §8a Park-4 binding) |
+#        | outside CC, interactive TTY                   | LAUNCH the session         |
+#        |   (spec A9 allows launch or exact printed     | (or print exact command —  |
+#        |    command; §8a says launches)                |  TTY-qualifier additive)   |
+#        | outside CC, non-TTY (CI / agents)             | PRINT the exact command    |
+#        |   (kickoff §4.4 — never launch)               | (never launch)             |
 #   4. Flag-first / non-TTY prints instead of launching. `--no-launch` always
 #      prints (AI DX — agents can capture stdout).
 #

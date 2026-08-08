@@ -43,10 +43,15 @@ fi
 
 # Source absent → no-op (defensive — the framework ships these by construction
 # today; if a future split relocates them, this guard surfaces the drift).
+# R2 (S2 rework round 1): getff-work.sh is the workspace one-command entry-point
+# (spec A9) — it composes worktree creation by REUSING create-worktree.sh + the
+# dep-wiring chain. It MUST ship alongside the three callees so consumers receive
+# the complete workspace surface at env+ profile depth.
 WORKTREE_SCRIPTS=(
   "create-worktree.sh"
   "worktree-node-modules.sh"
   "link-coordination.sh"
+  "getff-work.sh"
 )
 missing=0
 for s in "${WORKTREE_SCRIPTS[@]}"; do
@@ -82,5 +87,6 @@ done
 echo "  ✓ scripts/create-worktree.sh (worktree entrypoint — REUSE per kickoff §4)"
 echo "  ✓ scripts/worktree-node-modules.sh (node_modules provisioning)"
 echo "  ✓ scripts/link-coordination.sh (workspace link coordination)"
+echo "  ✓ scripts/getff-work.sh (workspace one-command entry-point — spec A9)"
 echo "    ↳ NEXT: invoke via \`getff work <name>\` (env+ profile) or directly"
 echo "      via \`bash scripts/create-worktree.sh <name>\`."

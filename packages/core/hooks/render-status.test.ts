@@ -23,6 +23,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -90,5 +91,61 @@ describe('render-status.sh — /pipeline status (AC-4, degraded path)', () => {
     });
     expect(r.status ?? -1).toBe(0);
     expect(r.stdout).toMatch(/Ready-to-harvest/i);
+  });
+
+  // ✅ NON-DEGRADED-PR-SECTION (R5 — S2 rework round 1): the jq template at
+  // render-status.sh:104 must be syntactically valid and render PR info, NOT
+  // degrade to the count-only fallback. The prior template had `→` in jq syntax
+  // position (`\(.headRefName → .baseRefName`), which jq parsed as
+  // INVALID_CHARACTER, so the `2>/dev/null || echo` fallback fired unconditionally
+  // and CI could not see this class of break. This test extracts the actual jq
+  // template FROM render-status.sh and pipes fixture JSON through it, catching
+  // any future syntax regression without depending on a full render-status.sh run.
+  //
+  // MARKED `it.fails()` because the code fix to render-status.sh:104 (moving `→`
+  // inside the string literal) is PERMISSION-BLOCKED in this autonomous Handoff
+  // session — `.claude/skills/pipeline/helpers/` is not writable. The template
+  // is STILL BROKEN, so this test is expected to fail. Once the operator applies
+  // the one-line fix documented in §8 of the implementation note, the test will
+  // unexpectedly pass; at that point, flip `it.fails()` → `it()` to make it a
+  // permanent regression guard.
+  it.fails('NON-DEGRADED-PR-SECTION: jq template extracted from render-status.sh renders PR row with arrow + mergeable', () => {
+    // Read the actual render-status.sh to extract the jq template used for PR rows.
+    const script = readFileSync(HELPER, 'utf8');
+    // Find the jq template in the Ready-to-harvest section: `jq -r '.[] | "..."'`
+    const match = script.match(/jq -r '(\.\\?\[?\]?[^|]*\|[^']*#[^']*)'/);
+    // Simpler: find the line containing both `jq -r` and `headRefName`.
+    const prLine = script.split('\n').find((l) => l.includes('jq -r') && l.includes('headRefName'));
+    expect(prLine, 'jq template line with headRefName found in render-status.sh').toBeDefined();
+    // Extract the single-quoted jq expression.
+    const jqMatch = prLine!.match(/jq -r '([^']+)'/);
+    expect(jqMatch, 'jq expression extracted from the line').not.toBeNull();
+    const jqExpr = jqMatch![1];
+
+    // Pipe fixture JSON through the extracted template.
+    const fixture = JSON.stringify([
+      {
+        number: 42,
+        title: 'Add feature X',
+        headRefName: 'feature-branch',
+        baseRefName: 'main',
+        mergeable: 'MERGEABLE',
+        state: 'OPEN',
+      },
+    ]);
+
+    const r = spawnSync(
+      'bash',
+      ['-c', `printf '%s' '${fixture}' | jq -r '${jqExpr}' 2>&1`],
+      { encoding: 'utf8' },
+    );
+
+    // If the template has a syntax error (like the R5 `→` bug), jq exits non-zero
+    // and stderr carries the error message. This is the exact class of bug the
+    // test exists to catch.
+    expect(r.status, `jq exit code. stderr:\n${r.stderr}`).toBe(0);
+    expect(r.stdout).toMatch(/#42/);
+    expect(r.stdout).toMatch(/feature-branch.*→.*main/);
+    expect(r.stdout).toMatch(/mergeable=MERGEABLE/);
   });
 });

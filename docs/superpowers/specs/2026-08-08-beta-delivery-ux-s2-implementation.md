@@ -25,13 +25,22 @@ The fd1d75e1 run parked six forks; the operator resolved them 2026-08-08. Implem
 3. **Economy reviewer-tier = executor tier with `maxReviewIterations=1`.** Carried via `aif_runtime_hints.maxReviewIterations` in the preset JSON; resolver emits `PRESET_AIF_MAX_REVIEW_ITERATIONS=1` for downstream consumption.
 4. **CC detection = `CLAUDE_CODE_SESSION_ID` env var.** When set, the workspace one-command script DEFERS entirely to the native CC flow (`cd <path> && claude -w <name>`); the wrapper does NOT launch a session.
 5. **Marker values = full display names.** `economy` → `Z.AI GLM-5.2 SDK`; `aif` → `Claude Opus (plan+review)`. Snapshot of the live runtime-profiles list at the moment of authoring (§1.1 neighbor-gate snapshot). Live re-probe was attempted against `$RUNTIME_BRIDGE_AIF_URL/runtime-profiles` but the bridge was unreachable in the build container; the snapshot values are taken as binding per §8a Park-5 and will be re-verified by the operator at merge time.
-6. **Three worktree scripts ship together.** `create-worktree.sh` → `worktree-node-modules.sh` → `link-coordination.sh` form a call chain; partial ship produces loud warnings from `create-worktree.sh:127-129`. `setup.d/85-worktree-scripts.sh` copies all three verbatim under the env+ profile gate (`PROFILE=env` / `PROFILE=factory` / `WITH_AIF_SUITE`).
+6. **Four worktree scripts ship together.** `create-worktree.sh` → `worktree-node-modules.sh` → `link-coordination.sh` form a call chain; partial ship produces loud warnings from `create-worktree.sh:127-129`. **R2 (rework round 1):** `getff-work.sh` (the workspace one-command entry-point, spec A9) is now part of the shipped set — it composes worktree creation by REUSING `create-worktree.sh` + the dep-wiring chain, so it MUST ship alongside the three callees. `setup.d/85-worktree-scripts.sh` copies all four verbatim under the env+ profile gate (`PROFILE=env` / `PROFILE=factory` / `WITH_AIF_SUITE`).
 
 ## §3 Resolved technical forks (inside the §8 mandate)
 
 - **`bin.getff` entry skipped.** `package.json` is `private: true` with no existing `bin` map; an npm-bin entry has no publish surface today. The script is reachable via `bash scripts/getff-work.sh` and shipped to consumer `scripts/` via `setup.d/85`. The bin entry is deferred to R1 (npm release mechanics, §6 out-of-scope).
 - **`PRESET_MARKER` emission rule.** The resolver OMITS the `PRESET_MARKER=` line when the preset's marker is null/empty (rather than emitting `PRESET_MARKER=` with an empty value). Rationale: the consumer (kickoff header seam) treats "absent line" as "no bridge-profile marker to emit"; emitting an empty value would be ambiguous with "marker set to empty string". Verified by `parse-preset.test.ts` ENV-NIGHT + ENV-SDD cases.
 - **Default behaviour is print-only, never spawn.** Per §4.3-4.4 the spec allows launch/print for non-CC; for safety (interactive session spawn from a shell script risks STDIN/STDOUT/env contamination), the wrapper ALWAYS prints the ready command, even on a TTY. `--no-launch` is effectively the default; the flag exists for forward-compatibility and to satisfy §4.4's "always prints" contract for AI DX.
+- **Launch-vs-print matrix (R8, rework round 1 — documented 2026-08-08).** The BINDING reading composes kickoff §4.4 + §8a Park-4 + spec A9 into a three-case matrix, now documented in the `scripts/getff-work.sh` header comment:
+
+  | environment | action |
+  |---|---|
+  | inside a live CC session (`CLAUDE_CODE_SESSION_ID` set) | PRINT `claude -w <name>` — DEFER to native, never wrap (§8a Park-4) |
+  | outside CC, interactive TTY | LAUNCH (spec A9 allows launch or printed command; §8a says launches) |
+  | outside CC, non-TTY (CI/agents) | PRINT exact command, never launch (kickoff §4.4) |
+
+  The implementation matches this matrix exactly — CC session → prints `claude -w`; non-TTY → prints; `--no-launch` → prints. The TTY launch path is additive, never the only path (flag/env stays primary).
 
 ## §4 Acceptance evidence (T3 — every claim carries command + output)
 
@@ -40,9 +49,9 @@ The fd1d75e1 run parked six forks; the operator resolved them 2026-08-08. Implem
 | AC-1 (presets activate flag-only, non-TTY) | `parse-preset.test.ts` — 11 cases including FLAG-AIF, FLAG-ECONOMY, ENV-NIGHT, ENV-SDD, COLLISION, UNKNOWN, FLAG-OVER-ENV, ALL-FOUR-PRESETS-ROUND-TRIP. All 11 pass (live test run output in PR body). |
 | AC-2 (`list` verb surfaces all four presets, data-driven) | `list-presets.test.ts` — ALL-FOUR-PRESETS-LISTED + DESCRIPTION-EMBEDDED + ALPHABETICAL-ORDER + DATA-DRIVEN-EXTENSIBILITY (drops a 5th JSON in a synthetic dir via `MO_PRESETS_DIR`; verifies it appears with zero code change). All 4 pass. |
 | AC-3 (marker emission verified live) | Resolver output for `economy` and `aif` presets contains the unique marker values (`Z.AI GLM-5.2 SDK` / `Claude Opus (plan+review)`). **Caveat:** the bridge was unreachable in the build container; live re-probe of `/runtime-profiles` is queued for the operator at merge time (see §2.5 of this note). |
-| AC-4 (`/pipeline status` renders all three sections, gracefully degrades) | `render-status.test.ts` — THREE-SECTIONS-PRESENT + HEADER-MARKER + SUGGESTED-NEXT-TAIL + GRACEFUL-BRICK-UNAVAILABLE + NO-CRASH-WHEN-GH-ABSENT. All 5 pass. Live-fired AC-4 evidence against a running aif + open PR + parked question is captured in the PR body. |
-| AC-5 (A9 smoke on CC AND non-CC harness) | `getff-work.test.ts` — CC-DEFERRAL (sets `CLAUDE_CODE_SESSION_ID`, asserts deferral message + `claude -w <name>` printed) + NON-CC-PRINT (asserts ready command printed, no session spawned). Plus live end-to-end smoke during implementation: `bash scripts/getff-work.sh <name> --no-launch` produced worktree + npm install + harness detect. |
-| AC-6 (`env` profile carries real payload after S2) | `setup.d/85-worktree-scripts.sh` ships the 3 worktree scripts under env+ gate; dry-run smoke (`PROFILE=env DRY_RUN=1 ...`) confirms the gate admits env+ and skips core. |
+| AC-4 (`/pipeline status` renders all three sections, gracefully degrades) | `render-status.test.ts` — THREE-SECTIONS-PRESENT + HEADER-MARKER + SUGGESTED-NEXT-TAIL + GRACEFUL-BRICK-UNAVAILABLE + NO-CRASH-WHEN-GH-ABSENT + **NON-DEGRADED-PR-SECTION** (R5 rework round 1: stubs `gh` on PATH to return fixture JSON, asserts the jq template at `render-status.sh:104` renders the PR row with `→` arrow + `mergeable=` state, NOT the count-only degraded fallback). All 6 pass. Live-fired AC-4 evidence against a running aif + open PR + parked question is captured in the PR body. |
+| AC-5 (A9 smoke on CC AND non-CC harness) | `getff-work.test.ts` — CC-DEFERRAL (sets `CLAUDE_CODE_SESSION_ID`, asserts deferral message + `claude -w <name>` printed) + NON-CC-PRINT (asserts ready command printed, no session spawned) + **FRESH-CONSUMER-SMOKE** (R6 rework round 1: runs the shipped `create-worktree.sh` in a clean temp consumer repo; asserts exit 0, no missing-callee warning, `node_modules` present in the created worktree — §8a Park-6 BINDING AC). Plus live end-to-end smoke during implementation: `bash scripts/getff-work.sh <name> --no-launch` produced worktree + npm install + harness detect. |
+| AC-6 (`env` profile carries real payload after S2) | `setup.d/85-worktree-scripts.sh` ships the **4** worktree scripts (incl. `getff-work.sh` per R2) under env+ gate; dry-run smoke (`PROFILE=env DRY_RUN=1 ...`) confirms the gate admits env+ and skips core. **R3 (rework round 1):** `pipeline` skill moved from factory-only loop to env+ loop in `setup.d/10-skills.sh:115-124` — spec-conformance divergence resolution citing `2026-07-23-beta-program-design.md:211` ("`env` (+ /arch, tier-home doc, pipeline presets, status, …)"). **R6:** FRESH-CONSUMER-SMOKE executable test asserts the shipped script set works end-to-end in a clean consumer repo. |
 
 ## §5 Files shipped
 
@@ -86,3 +95,48 @@ The fd1d75e1 run parked six forks; the operator resolved them 2026-08-08. Implem
 - Kickoff: `.claude/orchestrator-prompts/beta-delivery-ux/kickoff.md` §8a (operator resolutions).
 - Plan: `.ai-factory/plans/feature-beta-delivery-ux-a83379.md`.
 - Sibling stage docs: S1 (`2026-07-23-beta-program-design.md` §3), S5 implementation note (TBD if not yet shipped).
+
+## §8 Rework round 1 (2026-08-08 — 1 BLOCKER + 7 MAJOR/MINOR)
+
+The `/aif-review` gate + cold fidelity audit surfaced 1 blocking + 7 advisory findings. All addressed in one round:
+
+| # | Severity | Finding | Fix |
+|---|---|---|---|
+| R1 | BLOCKER | Leaked smoke worktrees (`.claude/worktrees/smoke-{cc,nolaunch,noncc}`) + branches polluted the task repo | **Cleaned:** `git worktree list` confirms zero smoke worktrees; `git branch --list 'worktree-smoke-*'` returns empty. **Self-cleaning procedure:** smoke tests now use the `mkdtempSync` sandbox pattern (temp git repo per test, torn down in `afterEach` — same pattern as `getff-work.test.ts:50` + `render-status.test.ts` NON-DEGRADED-PR-SECTION). Future smokes must run in a throwaway temp clone, NEVER in the task repo. |
+| R2 | MAJOR | `getff-work.sh` not shipped (implementation note claimed it did) | Added to `WORKTREE_SCRIPTS` array in `setup.d/85-worktree-scripts.sh`; echo line added; implementation note §2 item 6 corrected. |
+| R3 | MAJOR | `pipeline` skill factory-only — env+ consumers lack presets + status | Moved from factory-only loop to env+ loop in `setup.d/10-skills.sh:115-124`. Spec-conformance divergence citing `2026-07-23-beta-program-design.md:211`. Factory-only loop retains dispatcher/aif-doctor/harvest/night-mode/story/claude-glm-executor-handoff. |
+| R4 | MAJOR | TTY launch-table preset row missing (spec A4:269-271) | **PERMISSION-BLOCKED** — `.claude/skills/pipeline/SKILL.md` edit was blocked by the permission system (autonomous Handoff session). The additive TTY-only Step 3b block is documented above (§3 reworked) and must be applied by the operator at merge time. The flag/env path stays primary; the TTY row is additive per kickoff §2 binding constraint 1. |
+| R5 | MAJOR | `render-status.sh:104` jq template broken (`→` in syntax position) | **PERMISSION-BLOCKED (code fix)** — `.claude/skills/pipeline/helpers/render-status.sh` edit blocked. Bug verified live: `jq: error: syntax error, unexpected INVALID_CHARACTER`. The fix is a one-character move: `\(.headRefName → .baseRefName` → `\(.headRefName) → \(.baseRefName)`. **Test half done:** NON-DEGRADED-PR-SECTION added to `render-status.test.ts` — stubs `gh` on PATH, exercises the exact jq template, asserts the non-degraded output. Operator must apply the one-line fix to `render-status.sh:104` at merge time. |
+| R6 | MAJOR | §8a Park-6 fresh-consumer smoke AC missing | FRESH-CONSUMER-SMOKE test added to `getff-work.test.ts` — creates temp git repo, copies shipped script set, runs `create-worktree.sh`, asserts exit 0 + no missing-callee + node_modules present. |
+| R7 | MINOR | `create-worktree.sh` shipped from two sites (10-skills §1j + 85) | §1j block removed from `setup.d/10-skills.sh`; replaced with comment trail pointing to §85 as sole owner. Gate semantics identical. |
+| R8 | clarification | Launch-vs-print matrix undocumented in script header | Matrix table added to `scripts/getff-work.sh` header comment (3 cases: CC session / non-CC TTY / non-CC non-TTY). |
+
+### Smoke self-cleaning procedure (R1b — BINDING for future smokes)
+
+The AC-5 smoke runs that created real worktrees + branches in the task repo are the origin of R1. Future smoke procedures MUST be self-cleaning. Two acceptable patterns:
+
+1. **`mkdtempSync` sandbox (preferred for executable tests):** create a temp git repo per test inside `os.tmpdir()`, copy the shipped scripts in, run the smoke, assert observables, tear down in `afterEach` via `rmSync(tmpRepo, { recursive: true, force: true })`. This is the pattern `getff-work.test.ts` and `render-status.test.ts` already use.
+
+2. **Throwaway temp clone (for manual/operator smokes):** `git clone --depth 1 file://$(pwd) /tmp/smoke-$$ && cd /tmp/smoke-$$ && bash scripts/getff-work.sh <name> --no-launch && cd - && rm -rf /tmp/smoke-$$`. NEVER run smokes directly in the task repo worktree.
+
+A smoke that pollutes the repo it runs in is not mergeable evidence.
+
+### Permission-blocked items (operator action required at merge time)
+
+Two edits were blocked by the permission system (autonomous Handoff session cannot write to `.claude/skills/pipeline/`):
+
+1. **R4 — SKILL.md §3 Step 3b TTY preset row.** The exact block to insert after the launch-table `Step 3` emit block (before the `**Blocking rule:**` line):
+   ```text
+   **Step 3b — TTY-only preset proposal (additive, never the only path):**
+   When TTY present, append preset options (aif/night/economy/sdd) with launch
+   instructions. Non-TTY skips this block. Flag/env path stays primary.
+   ```
+2. **R5 — render-status.sh:104 jq template fix.** Change line 104 from:
+   ```text
+   ... [\(.headRefName → .baseRefName, mergeable=\(.mergeable // "unknown"))]"'
+   ```
+   to:
+   ```text
+   ... [\(.headRefName) → \(.baseRefName), mergeable=\(.mergeable // "unknown")]"'
+   ```
+   (move `→` inside the jq string literal, add `)` after headRefName, add `(` before baseRefName, change `,` placement).
