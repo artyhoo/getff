@@ -32,7 +32,7 @@
         {
           "id": "install",
           "title": "Install at core depth",
-          "action": "From your project root run `bash <getff>/setup -y <stack>` (stacks: ts-server, react-next, react-spa, react-native; `install.sh python` and `GETFF_TOOLCHAIN=cargo` take their own lanes). Omit the stack to auto-detect.",
+          "action": "From your project root run `bash <getff>/setup -y <stack>` (stacks: ts-server, react-next, react-spa, react-native; `install.sh python`, `install.sh cargo` and `install.sh go` are separate non-npm lanes, each an explicit positional). Omit the stack to auto-detect.",
           "evidence": "install.sh; setup.d/30-templates.sh"
         },
         {

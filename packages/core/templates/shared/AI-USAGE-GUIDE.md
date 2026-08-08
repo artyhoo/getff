@@ -46,8 +46,10 @@ not know: `core` is the default, `env` additionally puts `.ai-factory/tier-home.
 <!-- step: install -->
 
 1. **Install at core depth** — from your project root run `bash <getff>/setup -y <stack>` (stacks:
-   `ts-server`, `react-next`, `react-spa`, `react-native`; `install.sh python` and
-   `GETFF_TOOLCHAIN=cargo` take their own lanes). Omit the stack to auto-detect.
+   `ts-server`, `react-next`, `react-spa`, `react-native`). Omit the stack to auto-detect.
+   Non-npm projects take a separate lane, each an explicit positional argument:
+   `install.sh python`, `install.sh cargo`, `install.sh go`. Those lanes early-exit before the
+   npm `package.json` precondition, so they need no `package.json` at all.
 
 <!-- step: verify-payload -->
 

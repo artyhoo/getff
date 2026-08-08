@@ -358,7 +358,7 @@ project/
 
 ## Tool bootstrapping — MCP and skill recommendations at install time
 
-`install.sh` seeds `.ai-factory/tool-decisions.md` (the `30-templates` layer) with a baseline entry recommending **context7** (the doc-fetching MCP that powers the `/aif-*` commands), and the `05-mcp` layer merges a context7 server entry into your `.mcp.json` on the full install path (`./setup -y` / `--full`). This file is **committed** — it serves as the team-shared record of which tools are accepted, rejected, or pending.
+`install.sh` seeds `.ai-factory/tool-decisions.md` (the `30-templates` layer) with a baseline entry recommending **context7** (the doc-fetching MCP that `/rule-research` uses to read live library documentation when it bootstraps stack-specific rules), and the `05-mcp` layer merges a context7 server entry into your `.mcp.json` on the full install path (`./setup -y` / `--full`). This file is **committed** — it serves as the team-shared record of which tools are accepted, rejected, or pending.
 
 The **`tool-bootstrapping`** skill (auto-loaded via `.claude/skills/tool-bootstrapping/SKILL.md`) extends this at runtime: when your `package.json` deps change, the UserPromptSubmit hook injects a one-line warning prompting re-evaluation. Use `/tool-bootstrapping` to trigger the full AIF `/aif` analysis → proposal → confirmation loop.
 
