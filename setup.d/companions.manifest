@@ -28,4 +28,6 @@ ast-grep	claude plugin list 2>/dev/null | grep -q ast-grep	claude plugin marketp
 # companion_step) treats this as a no-op print line — the actual handling routes through
 # setup.d/aif-handoff-guided-install.sh, which mirrors setup.d/bridge-guided.sh's pattern.
 # detect/install fields below carry the health-check detect + the helper pointer for the engine.
+# MINOR-4 resolution (§7d.4): install field is informational for kind=external-service; engine.sh
+# companion_step returns 0 for this kind — actual handling routes via install.sh → setup.d/aif-handoff-guided-install.sh.
 aif-handoff	curl -sf "${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}/health"	(guided-install: setup.d/aif-handoff-guided-install.sh under --profile factory)	external-service	*
