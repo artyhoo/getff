@@ -325,17 +325,48 @@ agent-definition edit itself reaches 100% of dispatches of that subagent (it IS 
 
 ### §4.1 Review-subagent cost basis (S-L `agent_listing_delta` + per-file wc)
 
+**Population census — the complete `agents/*.md` set (T10: enumeration BEFORE sampling).**
+`ls agents/*.md` → **18 files**. Every one is classified below; the 8 in-scope rows are the
+population §4.2 samples (T1 floor = 5, satisfied), and no file is waved off without a reason.
+
+| # | File | Class | Disposition |
+|---:|---|---|---|
+| 1 | `adapter-jig-reviewer.md` | review seat | **IN SCOPE** — §4.2 |
+| 2 | `backward-sweep-auditor.md` | review seat | **IN SCOPE** — §4.2 |
+| 3 | `capability-reuse-auditor.md` | review seat | **IN SCOPE** — §4.2 |
+| 4 | `compliance-verifier.md` | review seat | **IN SCOPE** — §4.2 |
+| 5 | `dispatch-input-checker.md` | review seat | **IN SCOPE** — §4.2 |
+| 6 | `docplan-auditor.md` | review seat | **IN SCOPE** — §4.2 |
+| 7 | `fidelity-auditor.md` | review seat | **IN SCOPE** — §4.2 |
+| 8 | `reviewer-discipline.md` | review seat (protocol pointer) | **IN SCOPE** — §4.2 (NO-OP trim) |
+| 9 | `living-docs-auditor.md` | review seat | **OUT — maintainer-owned**, CLAUDE.md Artifact Ownership Contract (§4.3) |
+| 10 | `review-sidecar.md` | review seat | **OUT — maintainer-owned** (§4.3) |
+| 11 | `rule-test-author.md` | review seat (write-half protocol) | **OUT — maintainer-owned** (§4.3) |
+| 12 | `aif-init.md` (9,986 B) | generator | **OUT — not a review seat.** Writes `.ai-factory/DESCRIPTION.md` + `ARCHITECTURE.md` from repo signals (`tools: Read, Glob, Write`); consumer-shipped via `install.sh`. Carries no verdict grammar, so the kickoff's GO/REVISE/STOP alignment criterion has nothing to attach to. |
+| 13 | `rule-researcher.md` (24,438 B) | generator / consumer-facing researcher | **OUT — not a review seat.** Largest file in `agents/`; authors the `ResearchPlan` + `GenerateSelection` JSON records the deterministic factory consumes. Its bulk IS the machine-consumed record schema — the same class §4.1's finding says cannot be cut without gutting function. |
+| 14 | `getff-cold-run-prober.md` (21,600 B) | acceptance probe (DORMANT) | **OUT — not a review seat.** Dispatch-orchestrating probe bound to the getff-any-stack-trace umbrella (spec §9.3); its length is the acceptance-protocol contract, and trimming it would edit an acceptance protocol, not a review prompt. |
+| 15 | `shipped-agent-liveness-prober.md` (21,004 B) | liveness probe (DORMANT) | **OUT — not a review seat.** RED→GREEN with/without-tools probe over the shipped-agent surface; same class as #14. |
+| 16 | `manual-rule-liveness-prober.md` (16,885 B) | liveness probe | **OUT — not a review seat.** RED→GREEN probe for manifest manual rules; same class as #14/#15. |
+| 17 | `orchestrator-worker-discipline.md` (11,116 B) | worker-side discipline prompt | **OUT — not a review seat** (it is read by the *implementer*, not a reviewer), **and** it is a `@dual-pair` twin of `packages/core/templates/shared/skill-context/aif-orchestrator-discipline/SKILL.md` — a unilateral trim desyncs the twin (`dual-implementation-discipline.md §7`). |
+| 18 | `memory-codification-auditor.md` (6,486 B) | auditor — but not of a PR | **OUT, with an honest caveat.** It *is* an auditor and *does* emit a codify-or-leave verdict, so «not an auditor» would be a wave-off. It is out because its subject is the operator's **user-scope memory store**, not a diff / PR body / dispatch input — it never runs at a stage-PR boundary, which is the seat class this stage prices. It is also a `@dual-pair` twin of `.claude/hooks/inject-memory-codification.sh`, so any trim must move both halves together. **Legitimate candidate for a later per-seat pass, jointly with its hook twin** — recorded, not silently dropped. |
+
+**Honest note on the boundary:** the four largest files in `agents/` (#13-#16, 16-24 KB each)
+are all OUT of scope. That is the kickoff §2 allowlist doing its job — the stage prices
+*review seats*, not «the biggest files» — but it means this stage's −21% does **not** touch
+the heaviest agent prompts in the tree. A future stage wanting raw byte reduction across
+`agents/` should start there, not here.
+
 | Agent (in scope) | `wc -c` BEFORE (Task 2) | `wc -c` AFTER (Task 6) | Net trim | Role one-liner |
 |---|---:|---:|---:|---|
-| adapter-jig-reviewer | 13,067 | 8,439 | −4,628 | cold adversarial multi-dimension review of adapter wiring diff |
-| backward-sweep-auditor | 8,221 | 6,413 | −1,808 | cold backward-sweep for §1.7 Backward-check |
-| capability-reuse-auditor | 8,691 | 7,854 | −837 | audits proposed or just-authored new capability |
-| compliance-verifier | 13,380 | 7,030 | −6,350 | reviews PR §1.7 Forward/Backward-check sections |
-| dispatch-input-checker | 12,469 | 10,922 | −1,547 | cold dispatch-input reality-check |
-| docplan-auditor | 7,924 | 7,307 | −617 | cold semantic-grouping judgment for DocPlan |
-| fidelity-auditor | 9,072 | 8,095 | −977 | cold WHAT-conformance acceptance audit at stage-PR boundary |
+| adapter-jig-reviewer | 13,067 | 8,562 | −4,505 | cold adversarial multi-dimension review of adapter wiring diff |
+| backward-sweep-auditor | 8,221 | 6,439 | −1,782 | cold backward-sweep for §1.7 Backward-check |
+| capability-reuse-auditor | 8,691 | 7,880 | −811 | audits proposed or just-authored new capability |
+| compliance-verifier | 13,380 | 7,073 | −6,307 | reviews PR §1.7 Forward/Backward-check sections |
+| dispatch-input-checker | 12,469 | 10,930 | −1,539 | cold dispatch-input reality-check |
+| docplan-auditor | 7,924 | 7,333 | −591 | cold semantic-grouping judgment for DocPlan |
+| fidelity-auditor | 9,072 | 8,466 | −606 | cold WHAT-conformance acceptance audit at stage-PR boundary |
 | reviewer-discipline | 4,892 | 5,091 | **+199** | review-session protocol — NO-OP trim; map-row ref added |
-| **TOTAL** | **77,716** | **61,151** | **−16,565 B (−21%)** | |
+| **TOTAL** | **77,716** | **61,774** | **−15,942 B (−20.5%)** | |
 
 **Wishful-targets finding (recorded honestly per §3a park-don't-guess).** The original §4.2
 targets (adapter ≤6,000 / backward ≤4,500 / capability ≤4,500 / compliance ≤6,000 / dispatch
@@ -365,13 +396,13 @@ context. Trimming the prompt therefore trims the subagent's per-dispatch load, l
 
 | Agent | Drop mechanism | Cost cell (BEFORE → AFTER) | Reach | Restoration trigger |
 |---|---|---|---|---|
-| **adapter-jig-reviewer** | Slim 13,067 → 8,439 B (wishful ≤6,000 — see §4.1 finding) | −4,628 B (−35%) | `UNVERIFIED — no probe exists` for subagent's CC-context load; agent-file edit reaches 100% of dispatches | OBSERVABLE: a wiring-diff review where the reviewer defers a F1-F11 dimension the slimmed prompt dropped → flagged in stage-PR review |
-| **backward-sweep-auditor** | Slim 8,221 → 6,413 B (wishful ≤4,500 — see §4.1 finding) | −1,808 B (−22%) | same | OBSERVABLE: a sibling-surface gap on a change-class the slimmed prompt no longer enumerates → returns CLEAN where it should report GAP-FOUND |
-| **capability-reuse-auditor** | Slim 8,691 → 7,854 B (wishful ≤4,500 — see §4.1 finding) | −837 B (−10%) | same | OBSERVABLE: a capability-commit PR where the slimmed prompt misses a SSOT cross-check |
-| **compliance-verifier** | Slim 13,380 → 7,030 B (wishful ≤6,000 — see §4.1 finding) | −6,350 B (−47%) | same | OBSERVABLE: a stage-PR §1.7 review where the slimmed prompt does not surface a missing Forward/Backward check that the full prompt would have caught |
-| **dispatch-input-checker** | Slim 12,469 → 10,922 B (wishful ≤5,500 — see §4.1 finding). NOTE: GO/REVISE/STOP grammar source per kickoff §3 — DISPATCH-INPUT grammar in §Output grammar preserved verbatim | −1,547 B (−12%) | same | OBSERVABLE: a K1-K6 dispatch defect where the slimmed prompt misses a class the full prompt catches |
-| **docplan-auditor** | Slim 7,924 → 7,307 B (wishful ≤4,000 — see §4.1 finding) | −617 B (−8%) | same | OBSERVABLE: a DocPlan review where the slimmed prompt approves a semantic-grouping defect the full prompt would reject |
-| **fidelity-auditor** | Slim 9,072 → 8,095 B (wishful ≤4,500 — see §4.1 finding). FIDELITY grammar preserved verbatim | −977 B (−11%) | same | OBSERVABLE: a stage-PR WHAT-conformance audit where the slimmed prompt misses a kickoff-spec mismatch |
+| **adapter-jig-reviewer** | Slim 13,067 → 8,562 B (wishful ≤6,000 — see §4.1 finding) | −4,505 B (−34%) | `UNVERIFIED — no probe exists` for subagent's CC-context load; agent-file edit reaches 100% of dispatches | OBSERVABLE: a wiring-diff review where the reviewer defers one of the agent's own conformance arms (A1-A2 / B1-B3 / C1-C4 / D1-D3 / E1-E3 / P1 / G1-G3 / H1-H3 — the eight groups at `agents/adapter-jig-reviewer.md:82-89`) because the slimmed prompt dropped it → flagged in stage-PR review. («F1-F11» named no arm this agent has.) |
+| **backward-sweep-auditor** | Slim 8,221 → 6,439 B (wishful ≤4,500 — see §4.1 finding) | −1,782 B (−22%) | same | OBSERVABLE: a sibling-surface gap on a change-class the slimmed prompt no longer enumerates → returns CLEAN where it should report GAP-FOUND |
+| **capability-reuse-auditor** | Slim 8,691 → 7,880 B (wishful ≤4,500 — see §4.1 finding) | −811 B (−9%) | same | OBSERVABLE: a capability-commit PR where the slimmed prompt misses a SSOT cross-check |
+| **compliance-verifier** | Slim 13,380 → 7,073 B (wishful ≤6,000 — see §4.1 finding) | −6,307 B (−47%) | same | OBSERVABLE: a stage-PR §1.7 review where the slimmed prompt does not surface a missing Forward/Backward check that the full prompt would have caught |
+| **dispatch-input-checker** | Slim 12,469 → 10,930 B (wishful ≤5,500 — see §4.1 finding). NOTE: GO/REVISE/STOP grammar source per kickoff §3 — DISPATCH-INPUT grammar in §Output grammar preserved verbatim | −1,539 B (−12%) | same | OBSERVABLE: a K1-K6 dispatch defect where the slimmed prompt misses a class the full prompt catches |
+| **docplan-auditor** | Slim 7,924 → 7,333 B (wishful ≤4,000 — see §4.1 finding) | −591 B (−7%) | same | OBSERVABLE: a DocPlan review where the slimmed prompt approves a semantic-grouping defect the full prompt would reject |
+| **fidelity-auditor** | Slim 9,072 → 8,466 B (wishful ≤4,500 — see §4.1 finding). FIDELITY grammar preserved verbatim | −606 B (−7%) | same | OBSERVABLE: a stage-PR WHAT-conformance audit where the slimmed prompt misses a kickoff-spec mismatch |
 | **reviewer-discipline** | NO-OP trim — already slim protocol pointer (4,892 B → 5,091 B; +199 B map-row ref added, no body trim) | +199 B (+4%) | same | n/a (no trim shipped) |
 
 ### §4.3 Maintainer-owned set (out of scope by CLAUDE.md)
@@ -412,6 +443,18 @@ The ADR-8 A/B evaluation arm is descoped from S-D′ (kickoff §5 Option A, oper
 2026-08-07). Re-homed to a follow-on stage that takes the dispatch choreography. **This stage
 does not implement any part of the A/B arm** — no parity function, no defect count, no ledger
 column. A PR with no evaluation arm is conformant. See kickoff §6 for the stub's full scope.
+
+**Reclassification mechanics preserved here (Task 6 deleted three "Revisit criterion" blocks).**
+`adapter-jig-reviewer`, `backward-sweep-auditor` and `dispatch-input-checker` each carried a
+"Revisit criterion" paragraph naming what reclassifying an operator-only agent as
+consumer-shipped requires; the slimming pass dropped all three, and
+[prior-art-evaluations.md #195](../../meta-factory/prior-art-evaluations.md)'s
+Trigger-to-revisit («the agent is reclassified as consumer-shipped (its own *Revisit criterion*)
+→ move its entry alongside `compliance-verifier`») would otherwise dangle. The mechanics now
+live here: **add the agent to `install.sh` SHIPPED_DOCS and to principle-09's
+`REQUIRED_HEADER_DOCS` (`packages/core/principles/09-doc-authority-hierarchy.ts:28`), drop
+its `setup.d/20-agents.sh:28-30` skip-loop line, then regenerate
+fingerprints with `SNAPSHOT_MODE=capture bash tests/install-sh/snapshot.sh`.**
 
 ## §7 §1.7 self-reflexive note
 
@@ -493,9 +536,14 @@ Review-time gates (kickoff §3):
 ## §9 See also
 
 - [Kickoff (inline)](../../../.claude/orchestrator-prompts/arch-v2-context-pipeline-s-d-prime/kickoff.md) — stage contract source
-- [S-E fixed per-file meter](../research-patches/2026-08-07-s-e-*.md) — §0.2 instrument
-- [S-H P11 + P3d](../research-patches/2026-08-07-s-h-turn-attribution-p3d-p11.md) — §0.3, §0.4, §5
-- [S-L re-derived ranking](../research-patches/2026-08-07-s-l-recalculation.md) — §0.3, §0.4
+- S-E fixed per-file meter — §0.2 instrument. **S-E (#1237) shipped no research patch of its
+  own**; the instrument IS [`scripts/measure-always-on.sh`](../../../scripts/measure-always-on.sh),
+  and its overlay semantics are recorded in
+  [2026-08-06-claudemd-overlay-semantics-verdict.md](../../meta-factory/research-patches/2026-08-06-claudemd-overlay-semantics-verdict.md)
+  (P3b) and [2026-08-06-instructionsloaded-observability-verdict.md](../../meta-factory/research-patches/2026-08-06-instructionsloaded-observability-verdict.md) (P3c).
+  The earlier `2026-08-07-s-e-*.md` link in this section was a literal glob matching no file.
+- [S-H P11 + P3d](../../meta-factory/research-patches/2026-08-07-s-h-turn-attribution-p3d-p11.md) — §0.3, §0.4, §5
+- [S-L re-derived ranking](../../meta-factory/research-patches/2026-08-07-s-l-recalculation.md) — §0.3, §0.4
 - [Pipeline token-economy design](./2026-08-06-pipeline-token-economy-design.md) — source spec
 - [arch-v2-context-pipeline design](./2026-07-31-arch-v2-context-pipeline-design.md) — ADR-1, ADR-2, ADR-8
 - [prior-art-evaluations.md #234](../../meta-factory/prior-art-evaluations.md) — SSOT (Task 9 annotation target)
