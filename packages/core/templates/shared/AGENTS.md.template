@@ -107,7 +107,16 @@ npm run validate   # typecheck + lint + format:check + arch:check + audit:docs +
 npm run test       # vitest run (unit + audit tests)
 ```
 
-Mutation testing (`test:mutation:incremental`, the PR-diff gate), integration tests and coverage are in the same list. UI tooling (Storybook, Playwright) is **not shipped by default**: `install.sh react-next` writes `playwright.config.ts` but no script and no `@playwright/test` dependency — install the tooling first, then add the scripts.
+Mutation testing (`test:mutation:incremental`, the PR-diff gate), integration tests and coverage are in the same list.
+
+### UI projects (react-next stack) — only if you installed Storybook / Playwright
+
+**Not shipped by default.** `install.sh react-next` writes `playwright.config.ts`, but no `npm run` script and no `@playwright/test` dependency; Storybook is never scaffolded. Install the tooling yourself first, then add these:
+
+```bash
+npm run test-storybook             # Storybook test runner — needs @storybook/test-runner
+npx playwright test                # E2E — react-next config only; needs @playwright/test
+```
 
 ## Stack constraints (enforced)
 
