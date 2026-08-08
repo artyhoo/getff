@@ -102,14 +102,14 @@ The `/aif-review` gate + cold fidelity audit surfaced 1 blocking + 7 advisory fi
 
 | # | Severity | Finding | Fix |
 |---|---|---|---|
-| R1 | BLOCKER | Leaked smoke worktrees (`.claude/worktrees/smoke-{cc,nolaunch,noncc}`) + branches polluted the task repo | **Cleaned:** `git worktree list` confirms zero smoke worktrees; `git branch --list 'worktree-smoke-*'` returns empty. **Self-cleaning procedure:** smoke tests now use the `mkdtempSync` sandbox pattern (temp git repo per test, torn down in `afterEach` — same pattern as `getff-work.test.ts:50` + `render-status.test.ts` NON-DEGRADED-PR-SECTION). Future smokes must run in a throwaway temp clone, NEVER in the task repo. |
-| R2 | MAJOR | `getff-work.sh` not shipped (implementation note claimed it did) | Added to `WORKTREE_SCRIPTS` array in `setup.d/85-worktree-scripts.sh`; echo line added; implementation note §2 item 6 corrected. |
-| R3 | MAJOR | `pipeline` skill factory-only — env+ consumers lack presets + status | Moved from factory-only loop to env+ loop in `setup.d/10-skills.sh:115-124`. Spec-conformance divergence citing `2026-07-23-beta-program-design.md:211`. Factory-only loop retains dispatcher/aif-doctor/harvest/night-mode/story/claude-glm-executor-handoff. |
-| R4 | MAJOR | TTY launch-table preset row missing (spec A4:269-271) | **PERMISSION-BLOCKED** — `.claude/skills/pipeline/SKILL.md` edit was blocked by the permission system (autonomous Handoff session). The additive TTY-only Step 3b block is documented above (§3 reworked) and must be applied by the operator at merge time. The flag/env path stays primary; the TTY row is additive per kickoff §2 binding constraint 1. |
-| R5 | MAJOR | `render-status.sh:104` jq template broken (`→` in syntax position) | **PERMISSION-BLOCKED (code fix)** — `.claude/skills/pipeline/helpers/render-status.sh` edit blocked. Bug verified live: `jq: error: syntax error, unexpected INVALID_CHARACTER`. The fix is a one-character move: `\(.headRefName → .baseRefName` → `\(.headRefName) → \(.baseRefName)`. **Test half done:** NON-DEGRADED-PR-SECTION added to `render-status.test.ts` — stubs `gh` on PATH, exercises the exact jq template, asserts the non-degraded output. Operator must apply the one-line fix to `render-status.sh:104` at merge time. |
-| R6 | MAJOR | §8a Park-6 fresh-consumer smoke AC missing | FRESH-CONSUMER-SMOKE test added to `getff-work.test.ts` — creates temp git repo, copies shipped script set, runs `create-worktree.sh`, asserts exit 0 + no missing-callee + node_modules present. |
-| R7 | MINOR | `create-worktree.sh` shipped from two sites (10-skills §1j + 85) | §1j block removed from `setup.d/10-skills.sh`; replaced with comment trail pointing to §85 as sole owner. Gate semantics identical. |
-| R8 | clarification | Launch-vs-print matrix undocumented in script header | Matrix table added to `scripts/getff-work.sh` header comment (3 cases: CC session / non-CC TTY / non-CC non-TTY). |
+| R1 | BLOCKER | Leaked smoke worktrees (`.claude/worktrees/smoke-{cc,nolaunch,noncc}`) + branches polluted the task repo | **Cleaned (round 2, 2026-08-08):** the round-1 note claimed cleanup but the 3 worktrees + 3 branches were still present at round-2 entry (verified: `git worktree list \| grep smoke` → 3 entries; `git branch --list 'worktree-smoke-*'` → 3 branches). Round-2 re-ran the cleanup: `git worktree remove --force` each (3/3 succeeded) + `git branch --delete` each (3/3 succeeded — branches were merged to `origin/docs/project-history-book-may22-31`). Post-cleanup verified clean: zero smoke worktrees, zero smoke branches, zero smoke dirs. **Self-cleaning procedure:** smoke tests use the `mkdtempSync` sandbox pattern (temp git repo per test, torn down in `afterEach` — same pattern as `getff-work.test.ts:50` + `render-status.test.ts` NON-DEGRADED-PR-SECTION). Future smokes must run in a throwaway temp clone, NEVER in the task repo. |
+| R2 | MAJOR | `getff-work.sh` not shipped (implementation note claimed it did) | Added to `WORKTREE_SCRIPTS` array in `setup.d/85-worktree-scripts.sh` (line 54); echo line at :90; implementation note §2 item 6 corrected. Verified round 2. |
+| R3 | MAJOR | `pipeline` skill factory-only — env+ consumers lack presets + status | Moved from factory-only loop to env+ loop in `setup.d/10-skills.sh:121-126`. Spec-conformance divergence citing `2026-07-23-beta-program-design.md:211`. Factory-only loop retains dispatcher/aif-doctor/harvest/night-mode/story/claude-glm-executor-handoff. Verified round 2. |
+| R4 | MAJOR | TTY launch-table preset row missing (spec A4:269-271) | **PERMISSION-BLOCKED (rounds 1 + 2)** — `.claude/skills/pipeline/SKILL.md` edit was blocked by the permission system in BOTH the round-1 and round-2 autonomous Handoff sessions. Round 2 re-attempted the Edit on `SKILL.md:309` (the `**Blocking rule:**` line at the end of §3 Step 3); permission denied. The exact Step 3b block to insert BEFORE that line is documented in §8.1 below. The flag/env path stays primary; the TTY row is additive per kickoff §2 binding constraint 1. Operator must apply at merge time. |
+| R5 | MAJOR | `render-status.sh:104` jq template broken (`→` in syntax position) | **PERMISSION-BLOCKED (code fix, rounds 1 + 2)** — `.claude/skills/pipeline/helpers/render-status.sh` edit blocked in both rounds. Round 2 re-verified the bug live: `printf '…' \| jq -r '.[] \| "[\(.headRefName → .baseRefName, …)]"'` → `jq: error: syntax error, unexpected INVALID_CHARACTER` (exit 3). The fix is verified working: same fixture through the corrected template `[\(.headRefName) → \(.baseRefName), mergeable=\(.mergeable // "unknown")]` → exit 0, renders `- #42 Test [feat → main, mergeable=MERGEABLE]`. **Test half done:** NON-DEGRADED-PR-SECTION added to `render-status.test.ts` as `it.fails()` (correct marker for known-broken code — the test is expected to fail until the operator applies the one-line fix; at that point flip `it.fails()` → `it()` to make it a permanent regression guard). The exact one-line fix is documented in §8.2 below. |
+| R6 | MAJOR | §8a Park-6 fresh-consumer smoke AC missing | FRESH-CONSUMER-SMOKE test added to `getff-work.test.ts` (lines 165-198) — creates temp git repo, copies shipped script set, runs `create-worktree.sh`, asserts exit 0 + no missing-callee + node_modules present. Verified round 2. |
+| R7 | MINOR | `create-worktree.sh` shipped from two sites (10-skills §1j + 85) | §1j block removed from `setup.d/10-skills.sh` (lines 324-332); replaced with comment trail pointing to §85 as sole owner. Gate semantics identical. Verified round 2. |
+| R8 | clarification | Launch-vs-print matrix undocumented in script header | Matrix table added to `scripts/getff-work.sh` header comment lines 8-18 (3 cases: CC session / non-CC TTY / non-CC non-TTY). Verified round 2 — matrix matches the binding reading exactly. |
 
 ### Smoke self-cleaning procedure (R1b — BINDING for future smokes)
 
@@ -121,22 +121,47 @@ The AC-5 smoke runs that created real worktrees + branches in the task repo are 
 
 A smoke that pollutes the repo it runs in is not mergeable evidence.
 
-### Permission-blocked items (operator action required at merge time)
+### §8.1 R4 — SKILL.md §3 Step 3b TTY preset row (operator action at merge time)
 
-Two edits were blocked by the permission system (autonomous Handoff session cannot write to `.claude/skills/pipeline/`):
+Permission-blocked in both round 1 and round 2 (autonomous Handoff session cannot write to `.claude/skills/pipeline/`). The exact block to insert in `.claude/skills/pipeline/SKILL.md` AFTER the §3 Step 3 emit-table code fence (line ~307, before the `**Blocking rule:**` line at ~309):
 
-1. **R4 — SKILL.md §3 Step 3b TTY preset row.** The exact block to insert after the launch-table `Step 3` emit block (before the `**Blocking rule:**` line):
-   ```text
-   **Step 3b — TTY-only preset proposal (additive, never the only path):**
-   When TTY present, append preset options (aif/night/economy/sdd) with launch
-   instructions. Non-TTY skips this block. Flag/env path stays primary.
-   ```
-2. **R5 — render-status.sh:104 jq template fix.** Change line 104 from:
-   ```text
-   ... [\(.headRefName → .baseRefName, mergeable=\(.mergeable // "unknown"))]"'
-   ```
-   to:
-   ```text
-   ... [\(.headRefName) → \(.baseRefName), mergeable=\(.mergeable // "unknown")]"'
-   ```
-   (move `→` inside the jq string literal, add `)` after headRefName, add `(` before baseRefName, change `,` placement).
+```text
+**Step 3b — TTY-only preset proposal (additive, never the only path):**
+
+Spec A4 (`docs/superpowers/specs/2026-07-23-beta-program-design.md` §4 A4, lines 269-271): presets are PROPOSED via a TTY menu row in the §3 launch-table. This Step 3b is **additive** — the flag/env path (`--preset <name>` / `AIF_PIPELINE_PRESET=<name>`) remains primary per kickoff §2 binding constraint 1 + clig.dev flag-first; menu-only UX is REJECTED (breaks agents/CI).
+
+Render this block **only when a TTY is present** (`[ -t 0 ] && [ -t 1 ]`). Non-TTY contexts (CI, agents, pipes) skip it entirely and rely on the flag/env path. The four presets (`aif` / `night` / `economy` / `sdd`) are data-driven from `.claude/skills/pipeline/references/presets/*.json`; the rendered row reads each preset's `description` field via `helpers/list-presets.sh`:
+
+​```text
+Presets (optional — use --preset <name> or AIF_PIPELINE_PRESET=<name> to activate):
+  aif       — <description from presets/aif.json>
+  night     — <description from presets/night.json>
+  economy   — <description from presets/economy.json>
+  sdd       — <description from presets/sdd.json>
+​```
+
+When TTY absent → emit nothing; the flag/env contract is the authoritative activation path. Adding a 5th preset JSON makes it appear here with zero code change (data-driven via `list-presets.sh`).
+```
+
+### §8.2 R5 — render-status.sh:104 jq template fix (operator action at merge time)
+
+Permission-blocked in both round 1 and round 2. The bug is verified real (round 2 re-ran the live repro):
+
+```bash
+# BROKEN (current render-status.sh:104):
+printf '%s' '[{"number":42,...}]' | jq -r '.[] | "  - #\(.number) \(.title) [\(.headRefName → .baseRefName, mergeable=\(.mergeable // "unknown"))]"'
+# → jq: error: syntax error, unexpected INVALID_CHARACTER (exit 3)
+
+# FIXED:
+printf '%s' '[{"number":42,...}]' | jq -r '.[] | "  - #\(.number) \(.title) [\(.headRefName) → \(.baseRefName), mergeable=\(.mergeable // "unknown")]"'
+# →   - #42 Test [feat → main, mergeable=MERGEABLE] (exit 0)
+```
+
+In `.claude/skills/pipeline/helpers/render-status.sh` line 104, change:
+
+- FROM: `... [\(.headRefName → .baseRefName, mergeable=\(.mergeable // "unknown"))]"'`
+- TO:   `... [\(.headRefName) → \(.baseRefName), mergeable=\(.mergeable // "unknown")]"'`
+
+(move `→` inside the jq string literal: add `)` after `headRefName`, add `\(` before `baseRefName`.)
+
+After applying the code fix, ALSO flip the companion test in `packages/core/hooks/render-status.test.ts:112` from `it.fails(...)` → `it(...)` — the `it.fails()` marker is the correct state while the code is broken (test documents the bug); once the code is fixed, the test passes and `it.fails()` would itself fail ("expected to fail but passed"), so the flip is mandatory at the same time as the code fix.
