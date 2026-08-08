@@ -79,3 +79,19 @@ echo "  ✓ aif-handoff integration: skill-context files installed at .ai-factor
 
 # ─── §5b: AGENTS.md ─────────────────────────────────────
 copy_safe "$PKG_ROOT/packages/core/templates/shared/AGENTS.md.template" "$PROJECT_ROOT/AGENTS.md"
+
+# ─── §3e: tier-home doc (env+ profile only; beta-delivery-ux S3 / spec A3) ───
+# The authoritative Tier 0/1/2 criteria + capability-absence degradation matrix. CLAUDE.md
+# «Task-tier routing» in the operator repo points here; the consumer's AGENTS.md (rendered from
+# AGENTS.md.template) carries a pointer in its §Tier routing + degradation section.
+#
+# F-A′ RESOLVED (operator-delegated verdict 2026-08-07): home = Option A,
+# .ai-factory/tier-home.md — it is the path the consumer AGENTS.md pointer targets
+# (the doc's only live reader); Option B's skill-context slot has no consumer today
+# (aif skills MANDATORY-read skill-context per their OWN skill name, and no skill is
+# named tier-home), so installing it was build-ahead-of-need. Re-add Option B iff an
+# aif skill named tier-home appears (falsifier recorded in PR #1272).
+if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ]; then
+  copy_safe "$PKG_ROOT/packages/core/templates/shared/tier-home.md" "$PROJECT_ROOT/.ai-factory/tier-home.md"
+  echo "  ✓ tier-home doc installed at .ai-factory/tier-home.md (profile: $PROFILE)"
+fi

@@ -146,7 +146,7 @@ packaging priority.
 
 **Profile semantics (spec §4 A1, binding):**
 - **`core`** — default; today's default + full killer payload. No AIF operator suite.
-- **`env`** — `core` + `/arch` wiring + tier-home doc + pipeline presets + status +
+- **`env`** — `core` + `/arch` wiring + tier-home doc (S3 shipped at `packages/core/templates/shared/tier-home.md` → installs to `.ai-factory/tier-home.md` + `.ai-factory/skill-context/tier-home/SKILL.md` while F-A′ is PARKED) + pipeline presets + status +
   night-mode/SDD placeholders. **No aif runtime.**
 - **`factory`** — `env` + dispatcher/harvest/aif-doctor (today's `--with-aif-suite` payload) +
   runtime-bridge wiring + GLM one-button placeholder.

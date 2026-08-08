@@ -99,33 +99,16 @@ When working on an agreed scope (a defined umbrella, batch, or single-concern PR
 
 ## Task-tier routing (which model plans, and whether to use the pipeline at all)
 
-**Who classifies:** the senior interactive session (the top-tier model working with the operator) decides the tier at the moment of dispatch — a judgment, never an automated classifier. Building a «simple vs complex» auto-detector would be `#parallel-evolution-creep` over a judgment call; per [attention-is-not-a-mechanism.md §1](.claude/rules/attention-is-not-a-mechanism.md), a judgment may be the decision AUTHORITY, never faked as a mechanical gate. This section exists so the classification is applied by **fixed criteria**, not re-invented per task.
+The Tier 0/1/2 criteria + the bridge-profile mechanic + the marker value rule + the
+explicit capability-absence degradation matrix live in the shipped tier-home doc — the
+**single source of truth**, installed at `.ai-factory/tier-home.md` for `env`+ consumers
+and referenced here for the operator repo:
 
-**Tiers are RELATIVE capability tiers, not hard-coded models** (same posture as [night-mode/SKILL.md](.claude/skills/night-mode/SKILL.md) «Overnight model posture» paragraph, the SSOT for the tier→model instantiation — the window slides to whatever the active harness offers, so this stays AI-agnostic). This section owns the *criteria*; night-mode + the aif runtime profile config own *which model fills which tier*. Roles below: **top tier** = the strongest reasoner (plans complex work, reviews from above); **executor tier** = the cheaper strong-agentic model (plans simple work, implements, reviews from below). *Current instantiation on this operator's stack (2026-07, NOT load-bearing — lives in the profile config, not here): top = Opus, executor = GLM.*
+[`packages/core/templates/shared/tier-home.md`](packages/core/templates/shared/tier-home.md)
 
-**Two questions, three tiers:**
-
-1. **Is the change ≤~5 lines in a single file at a known exact path?**
-   → **TIER 0 — tiny.** The senior does the `Edit` itself. No kickoff, no aif dispatch, no pipeline (forcing one is pure overhead). Mirrors the `orchestrator` skill's own SKIP rule.
-2. Otherwise — **does producing the PLAN require a design/architecture judgment** (choosing between approaches, a non-obvious «how», or an open «will this even work / what's the root cause»)?
-   - **NO — the «how» is already determined; the work is just voluminous/mechanical** → **TIER 1 — bulky-simple.** Dispatch **with** an `<!-- bridge-profile: <unique-executor-tier-profile-name> -->` header marker → the whole aif pipeline (plan + implement + review) runs on the executor tier. The value must be the **unique** profile display name — see the mechanic paragraph below.
-   - **YES — the plan itself needs judgment** → **TIER 2 — bulky-complex.** Dispatch **without** the marker → project defaults apply: the **top tier plans**, the executor tier implements and reviews from below. **Exception (acceptance-contour spec D1):** a Tier-2 kickoff produced by `/arch` AND plan-complete (decomposition decisions + all descopes encoded) dispatches **with** the marker — the whole pipeline runs on the executor tier; the fail-closed fidelity gate at the exit boundary covers the WHAT, and the first-5-tasks calibration spot-check covers the plan HOW. **Precondition:** this exception is active ONLY while `fidelity-verdict-in-pr-body` is a REQUIRED check in staging branch protection; if it is not (yet or anymore) registered, dispatch without the marker — a routing rule without its fail-closed gate violates the spec D1 precondition.
-
-**Criteria table (for fast, repeatable classification):**
-
-| Tier | Trigger (fixed criteria) | Who plans | Mechanic |
-|---|---|---|---|
-| 0 — tiny | ≤~5 lines, 1 file, exact path known, no ambiguity | — (no plan) | senior does `Edit` directly; no dispatch |
-| 1 — bulky-simple | many files/steps BUT the «how» is one determinable sentence: rename/move sweep, apply an established pattern across N sites, tests for already-specified behaviour, mechanical refactor (extract/inline), scaled doc/config edits | executor tier | kickoff with `<!-- bridge-profile: <unique-executor-tier-profile-name> -->` (unique — see mechanic paragraph) |
-| 2 — bulky-complex | the plan requires a design decision: new module/architecture, data-model or API-shape choice, cross-cutting consequences, unknown root cause needing investigation, «is this the right approach» is open | top tier — unless the kickoff came through /arch plan-complete (judgment already spent) → executor tier | /arch-reviewed plan-complete kickoff → WITH marker (see [/arch §3](.claude/skills/arch/SKILL.md)); exception active only with the fidelity required-check registered (see prose); otherwise kickoff, no marker (project defaults) |
-
-**Tie-breaker (binding):** when unsure between Tier 1 and Tier 2, default to **Tier 2 (top tier plans)**. A wrong-but-cheap plan from the weaker tier costs a full re-do downstream; over-investing one planning pass is the cheaper error. This matches the project thesis «decisions with a real cost of error route to the stronger tier».
-
-**Discriminator in one line:** if you can state the «how» in a single sentence and the rest is expansion → Tier 1; if stating the «how» forces you to *choose* → Tier 2.
-
-The `bridge-profile` marker mechanic that Tier 1 relies on is shipped in `packages/runtime-bridge` (header-region-only parse in `kickoff.ts`, name→id resolution in `AifHandoffBackend.ts` — it resolves an arbitrary profile *name*, not a hard-coded model); the per-mode project defaults Tier 2 relies on live in the aif runtime profile config (Plan→top tier, Review/Task→executor tier).
-
-**Marker value rule (binding — this is a dispatch-blocker, not a style preference):** the value MUST be the profile's **full display name, unique** under the resolver's match. `AifHandoffBackend._resolveProfileId` is a two-step resolver: an **exact (case-insensitive) name match short-circuit**, falling back to a **case-insensitive substring match** (`packages/runtime-bridge/src/AifHandoffBackend.ts:137-141`). The exact-name short-circuit was added to save the load-bearing prefix case (e.g. `Z.AI GLM-5.2` is a strict prefix of `Z.AI GLM-5.2 SDK`; under pure substring matching, naming the former matched BOTH and threw `dispatch_failed` — the resolver header at `:127-130` documents this). An **abbreviation** still matches ≥2 profiles under the substring fallback and aborts with `dispatch_failed`, so the authoring rule still binds. Verify at authoring time against the live list — `curl -s "$RUNTIME_BRIDGE_AIF_URL/runtime-profiles" | jq -r '.[].name'` — and pick a value matching exactly one row. Recurrence: 3 kickoffs shipped an ambiguous value (PR #1109; `umbrella-donemd-backfill`; `getff-honest-signals`). The resolver-side exact-match short-circuit landed at `AifHandoffBackend.ts:137-141`, so there are now **two channels** — the runtime short-circuit for exact-name-with-prefix-collisions, and this authoring rule as belt-and-braces for abbreviations the short-circuit does not save. Peer statement of the same rule: [`/arch §3`](.claude/skills/arch/SKILL.md) «Marker value = the UNIQUE profile display name».
+That doc owns the *criteria*; night-mode + the aif runtime profile config own *which model
+fills which tier*. The acceptance-contour D1 exception (Tier-2 + /arch-reviewed
+plan-complete kickoff → bridge-profile marker) still applies — see the doc's §2 lift.
 
 ## Umbrella closure convention
 
