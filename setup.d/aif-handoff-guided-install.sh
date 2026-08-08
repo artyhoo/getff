@@ -17,15 +17,15 @@ set -euo pipefail
 # --- Source bridge-guided.sh for bridge_diagnose / bridge_health_ok (SSOT — §7) ---
 # Resolve root via BASH_SOURCE (cwd-independent — mirrors bridge-guided.sh:41).
 _aif_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# shellcheck source=bridge-guided.sh
+# shellcheck source=setup.d/bridge-guided.sh
 source "$_aif_root/setup.d/bridge-guided.sh"
 
 # --- Constants ---
 AIF_URL="${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}"
-# Official aif-handoff repo URL. Default is the operator's checkout-path-implied origin;
-# env-overridable for consumers who mirror to a different remote. PARKED at entry verification
-# (Task 1 item 5 — ~/code/aif-handoff absent in executor container; URL unverified).
-AIF_HANDOFF_REPO_URL="${AIF_HANDOFF_REPO_URL:-https://github.com/sst-aif/aif-handoff.git}"
+# Official aif-handoff repo URL. Default upstream per §7d.2 host-side verification
+# (gh api repos/sst-aif/aif-handoff → 404; repos/lee-to/aif-handoff → 200, 2026-08-09).
+# Env-overridable for consumers who mirror to a different remote.
+AIF_HANDOFF_REPO_URL="${AIF_HANDOFF_REPO_URL:-https://github.com/lee-to/aif-handoff.git}"
 # Checkout path — mirrors the operator's ~/code/aif-handoff convention.
 AIF_HANDOFF_CHECKOUT="${AIF_HANDOFF_CHECKOUT:-$HOME/code/aif-handoff}"
 # Install audit log (mirror the setup.d/ python/cargo lane audit trail pattern).

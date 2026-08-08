@@ -1,3 +1,5 @@
+<!-- scope:s4-glm-onebutton-entry-verification -->
+
 # S4 GLM one-button — entry verification research-patch
 
 > **Authoritative for:** the S4 entry-verification evidence base (which §7a resolutions held live, which parked, at the moment of stage S4 implementation).
@@ -46,7 +48,7 @@ Cannot verify — requires either a live aif endpoint (item 1 down) or the schem
 
 Command: `git -C ~/code/aif-handoff remote -v` → `fatal: cannot change to '/home/node/code/aif-handoff': No such file or directory`
 
-**Verdict: PARKED — repo URL unverified.** Task 3's docker-clone step uses a placeholder URL with an env-var override (`AIF_HANDOFF_REPO_URL`), defaulting to the operator's checkout-path-implied origin. The consumer must verify the URL at install time; the helper records the URL it cloned in the install audit log.
+**Verdict: RESOLVED — default upstream is `lee-to/aif-handoff` (gh api confirmed 2026-08-09 per §7d.2; `sst-aif/aif-handoff` returns 404).** Task 3's docker-clone step now defaults to `https://github.com/lee-to/aif-handoff.git` with the `AIF_HANDOFF_REPO_URL` override preserved for consumers who mirror to a different remote.
 
 ### §1.1 — companion engine `@profile:` enforcement
 
