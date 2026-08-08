@@ -3,7 +3,7 @@
 # `RulesLock.version` semantics — an unresolved fork that blocks `getff-freshness-widening` S1
 
 > **Type:** research-patch (discovered gap). Owner: the `/dispatcher` session that found it, 2026-08-08.
-> **Status:** OPEN — awaiting an operator decision. S1's work is written but **withheld from egress**.
+> **Status:** DECIDED — **Option A** (operator, 2026-08-08); see §9. S1-r1 stays withheld; the stage re-dispatches under the rev-2 kickoff.
 > **Reader:** a cold session convened to decide this fork. Everything needed is below; you do not need the originating session's transcript.
 
 ## §1 The fork in one sentence
@@ -75,6 +75,23 @@ The originating session's S1 kickoff framed the work as «the three writers that
 **Backward-check.** Class of this change = *research-patches that record an open decision blocking an in-flight umbrella*. Sibling surfaces where the same class occurs, and their state: [`2026-07-24-autonomous-loop-diagnostics.md`](2026-07-24-autonomous-loop-diagnostics.md) — SWEPT-CLEAN, it records the container≠host finding (F3) that later became `destination-environment-verification.md`; disjoint subject, and this patch does not supersede it. The umbrella's own dispatch inputs — `.claude/orchestrator-prompts/getff-freshness-widening/kickoff.md` and `…-s1/kickoff.md` — are **GAP-FOUND, deliberately left**: the S1 stage kickoff still carries the framing §7 identifies as the root cause, and re-authoring it is the *next* action under whichever option wins, not this patch's (editing it now would pre-commit the decision this patch exists to surface). `docs/superpowers/specs/2026-07-23-getff-any-stack-closure-design.md` — untouched by design: it is the binding source this patch cites, and a spec correction is a separate spec-owner commit ([`/pipeline §5`](../../../.claude/skills/pipeline/SKILL.md) park-record contract, precedent PR #1252).
 
 **Self-application (T15).** The patch's own §7 finding — «a criterion that depends on a spec distinction must quote the spec line, not paraphrase it one hop upstream» — is applied to this document: §2 quotes `…closure-design.md:231-232` verbatim rather than summarising it, and §6 quotes the failing assertion's literal `grep` expression rather than describing it. The honest limit: this patch was written by the same session whose framing caused the defect, so its §7 counter is **self-diagnosed, not cold-reviewed** — a cold reader deciding the fork should treat §7 as a hypothesis about the cause, not an established one.
+
+## §9 Decision record (2026-08-08, appended by the deciding session)
+
+**Option A — every lane records a DEPENDENCY version.** Decided by the operator in dialogue after
+a host-evidence-backed walkthrough of §3-§4. Rationale accepted: (1) Option B cancels the
+umbrella's goal rather than costing less — S2/S3 would need a replacement staleness source
+anyway; (2) Option A's cost (a synthesizer-emitted generation-context manifest the shell lanes
+read) overlaps the infrastructure spec §7.1 already requires for per-rule provenance and S3's
+ledger — pulled forward, not newly built; (3) the §4 third possibility («both fields») reduces to
+«A + an extra field later», to be shaped by the parked provenance work, so it needed no separate
+decision now.
+
+**Cascade:** `PARK-S1-3` resolves to its Option B (manifest) by implication — the shell has no
+other access to the generation context. `PARK-S1-1/2/4` remain open. The stage kickoff was
+re-authored per §7's counter (spec line quoted inside criterion 1):
+[`getff-freshness-widening-s1/kickoff.md`](../../../.claude/orchestrator-prompts/getff-freshness-widening-s1/kickoff.md) rev 2 — it also inlines the §6 blockers as
+criteria 6-8 and preserves the r1 park payloads, closing §6 item 3 (invisible parks).
 
 ## See also
 
