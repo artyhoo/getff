@@ -79,7 +79,8 @@ rm -rf "$TMP_HOME"
 # Stub curl to handle the three provision-stage URLs.
 # ============================================================
 
-# Happy path: step A returns {"id":"test-id"}, step B returns {}, step C (validation ping) returns {}.
+# Happy path: step A returns {"id":"test-id"}, step B (GET /projects + PUT /projects/:id)
+# returns the updated project, step C (POST /runtime-profiles/validate) returns {}.
 # All return rc=0.
 curl() {
   case "$*" in
@@ -87,12 +88,17 @@ curl() {
       printf '%s' '{"id":"test-id","name":"Z.AI GLM-5.2"}'
       return 0
       ;;
-    *"-X PATCH"*"/project"*)
-      printf '%s' '{}'
+    *"-X POST"*"/runtime-profiles/validate"*)
+      printf '%s' '{"valid":true}'
       return 0
       ;;
-    *"api.z.ai/api/anthropic/v1/messages"*)
-      printf '%s' '{"id":"msg-1","role":"assistant","content":[{"type":"text","text":"x"}]}'
+    *"-X PUT"*"/projects/"*)
+      printf '%s' '{"id":"proj-1","ok":true}'
+      return 0
+      ;;
+    *"/projects"*)
+      # GET /projects — return a project with an existing top-tier Plan profile.
+      printf '%s' '[{"id":"proj-1","name":"default","defaultPlanRuntimeProfileId":"top-tier-1","defaultTaskRuntimeProfileId":"old-task","defaultReviewRuntimeProfileId":"old-review"}]'
       return 0
       ;;
     *) return 1 ;;
@@ -143,8 +149,7 @@ rm -rf "$TMP_NOENV" "$TMP_PROV"
 # ============================================================
 # The grep pattern: any echo/printf/log statement that also references $ANTHROPIC_AUTH_TOKEN
 # (or ${ANTHROPIC_AUTH_TOKEN} / ${!GLM_ENV_VAR}-with-GLM_ENV_VAR=ANTHROPIC_AUTH_TOKEN context).
-# The allowlist: indirect expansion ${!GLM_ENV_VAR} in the curl HEADER (not echo/log) is OK;
-# the env-var-unset check `[ -z "${!GLM_ENV_VAR:-}" ]` is OK (test, not echo).
+# The allowlist: the env-var-unset check `[ -z "${!GLM_ENV_VAR:-}" ]` is OK (test, not echo).
 INVARIANT_VIOLATIONS=$(grep -nE '(\becho\b|\bprintf\b|\b_log\b|\b_warn\b).*\$\{?ANTHROPIC_AUTH_TOKEN\}?' "$REPO_ROOT/scripts/getff-glm-onebutton.sh" || true)
 if [ -z "$INVARIANT_VIOLATIONS" ]; then
   ok "key-handling invariant: no echo/printf/log/_log/_warn line references \$ANTHROPIC_AUTH_TOKEN"
@@ -156,9 +161,51 @@ fi
 NAME_REFS=$(grep -cE 'GLM_ENV_VAR=|ANTHROPIC_AUTH_TOKEN' "$REPO_ROOT/scripts/getff-glm-onebutton.sh" || true)
 [ "$NAME_REFS" -ge 2 ] && ok "key-handling invariant: env-var name referenced ($NAME_REFS sites — name, not value)" || bad "key-handling invariant: env-var name not referenced"
 
-# Paired-negative: the indirect-expansion in the curl header IS present (proves the value IS used
-# for the API call — the helper does call the model with the key, just never logs it).
-INDIRECT_REFS=$(grep -cE 'x-api-key: \$\{!GLM_ENV_VAR\}' "$REPO_ROOT/scripts/getff-glm-onebutton.sh" || true)
-[ "$INDIRECT_REFS" -ge 1 ] && ok "key-handling invariant: indirect expansion in curl header present ($INDIRECT_REFS sites)" || bad "key-handling invariant: NO indirect expansion in curl header — value never reaches the API"
+# ============================================================
+# (e) Regression guards for §7c #1 (PUT /projects/:id, no PATCH /project) + §7c #3 + §7d.1 #3
+#     (POST /runtime-profiles/validate, no direct vendor ping) + §7d.1 #4 (no x-api-key attribution).
+# ============================================================
+
+# §7c #1 — run-2 invented PATCH /project; must be gone.
+if grep -qE 'PATCH.*"\$AIF_URL/project"' "$REPO_ROOT/scripts/getff-glm-onebutton.sh"; then
+  bad "regression §7c #1: helper still contains PATCH \$AIF_URL/project (must be PUT /projects/:id)"
+else
+  ok "regression §7c #1: no PATCH \$AIF_URL/project (PUT /projects/:id in use)"
+fi
+
+# §7c #1 positive — PUT /projects/ must be present.
+if grep -qE 'PUT.*"\$AIF_URL/projects/' "$REPO_ROOT/scripts/getff-glm-onebutton.sh"; then
+  ok "regression §7c #1: PUT /projects/:id present"
+else
+  bad "regression §7c #1: PUT /projects/:id MISSING"
+fi
+
+# §7c #3 / §7d.1 #3 — direct vendor ping must be gone (match non-comment lines only).
+if grep -vE '^\s*#' "$REPO_ROOT/scripts/getff-glm-onebutton.sh" | grep -qE 'GLM_BASE_URL.*v1/messages'; then
+  bad "regression §7c #3: helper still pings \$GLM_BASE_URL/v1/messages directly (must use /runtime-profiles/validate)"
+else
+  ok "regression §7c #3: no direct vendor ping (uses POST /runtime-profiles/validate)"
+fi
+
+# §7c #3 / §7d.1 #3 positive — POST /runtime-profiles/validate must be present.
+if grep -qE 'POST.*runtime-profiles/validate' "$REPO_ROOT/scripts/getff-glm-onebutton.sh"; then
+  ok "regression §7c #3: POST /runtime-profiles/validate present"
+else
+  bad "regression §7c #3: POST /runtime-profiles/validate MISSING"
+fi
+
+# §7d.1 #4 — invented x-api-key attribution must be gone.
+if grep -qiE 'x-api-key.*SKILL\.md.*D3|SKILL\.md.*D3.*x-api-key' "$REPO_ROOT/scripts/getff-glm-onebutton.sh"; then
+  bad "regression §7d.1 #4: helper still attributes x-api-key to SKILL.md D3 (D3 names ANTHROPIC_AUTH_TOKEN only)"
+else
+  ok "regression §7d.1 #4: no invented x-api-key attribution"
+fi
+
+# §7d.1 #4 — no x-api-key header line at all (the validate endpoint builds the request).
+if grep -qE 'x-api-key: ' "$REPO_ROOT/scripts/getff-glm-onebutton.sh"; then
+  bad "regression §7d.1 #4: helper still carries an x-api-key header line (aif builds the request via /validate)"
+else
+  ok "regression §7d.1 #4: no x-api-key header line (aif builds the request)"
+fi
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
