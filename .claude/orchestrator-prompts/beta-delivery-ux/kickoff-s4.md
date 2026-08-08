@@ -197,6 +197,35 @@ declaration to a **consented guided INSTALL**:
 Technical forks strictly inside the kickoff bounds (bash helper structure, detect-probe wording,
 INSTALL-FOR-AI step phrasing) are yours to resolve — resolve them and record why.
 
+## §7a Operator resolutions (2026-08-08 — re-dispatch rev; the run-1 parks are ANSWERED)
+
+Run 1 (aif task `5a567e97`) parked the three §7 forks correctly and was held un-harvested.
+The operator resolved them 2026-08-08 («A, A, B»). These are now BINDING — do not re-park them;
+implement as resolved. Anything OUTSIDE these resolutions still follows the §7 contract.
+
+1. **REST field mapping = Option A — MINIMAL set.** Populate only: schema-required fields +
+   profile display name + model + `apiKeyEnvVar` (the NAME, never the value) + the base-URL
+   field targeting the Z.ai Anthropic-shape endpoint. Everything else stays on server defaults.
+   Re-read the live schema at entry (`~/code/aif-handoff/packages/api/src/routes/runtimeProfiles.ts`,
+   `createRuntimeProfileSchema`) — the minimal set is defined against the LIVE schema, not the
+   spec sketch. Rationale: smallest surface to break on aif upgrades.
+2. **Per-mode defaults = Option A — project-level aif runtime-profile config.** Write
+   Plan→top-tier / Task+Review→executor-tier into the same project-level config the system
+   already reads (the channel `tier-home.md` names as owning tier→model instantiation). Do NOT
+   invent an env or per-task channel.
+3. **Validation ping = Option B — one real minimal model call** (1-token-scale completion via the
+   created profile), proving key + model + route together. `/health` alone is NOT acceptance.
+   On failure: honest degradation to the guided-manual path with the error shown (spec r2
+   binding — degradation honesty).
+4. **Key env contract (delegated resolution, evidence-backed — falsifiers stated):**
+   (i) env-var NAME = `ANTHROPIC_AUTH_TOKEN` — the canonical name for the Z.ai Anthropic-shape
+   endpoint per the shipped skill's D3 row
+   (`.claude/skills/claude-glm-executor-handoff/SKILL.md:36`, citing docs.z.ai). Falsifier: if
+   the live `createRuntimeProfileSchema` names a different expected var, PARK with the schema
+   quoted. (ii) file path = `${XDG_CONFIG_HOME:-$HOME/.config}/getff/glm.env` — the XDG Base
+   Directory spec's OWN fallback semantics, valid on macOS (var unset → literal `~/.config`)
+   and Linux alike; this is the spec default, not a platform guess.
+
 ## §8 PR-body requirements (both gates are REQUIRED checks on `staging`)
 
 This stage touches `.zcode/skills/**` (glm-handoff shipping) + `setup.d/**` (companions.manifest
