@@ -128,9 +128,9 @@ Six layers, each catching different evidence:
 **Supersession.** The `session-start-token-audit` kickoff `:145` verdict «STAY (declared always-on core) — do NOT demote» is SUPERSEDED by this operator verdict.
 
 **Observable restoration trigger.** Restore Tier-0 membership (all four copies: `scripts/render-rule-index.mjs TIER0_CORE`, `scripts/render-rule-channels.mjs ALWAYS_ON_CORE`, `packages/core/principles/31-rule-channel-declaration.ts ALWAYS_ON_CORE`, `packages/core/principles/31-rule-channel-declaration.test.ts` membership literal) upon ONE incident detectable from git artifacts:
-- a merged capability commit whose `Prior-art:` trailer is the escape-hatch form AND whose diff touches no §1.2 glob path, OR
+- a merged capability commit whose `Prior-art:` trailer is the escape-hatch form AND whose diff touches none of this rule's `paths:` globs (frontmatter above), OR
 - a `#parallel-evolution-creep` finding recorded in a research-patch.
 
-**Proxy-floor honesty.** Edited-paths are a PROXY — read-time loads are not observable post-hoc; a session may read a §1.2 surface without editing it. The proxy under-counts loads, so it can only fire when neither channel provably had its editing occasion — a conservative trigger.
+**Proxy-floor honesty.** Edited-paths are a PROXY — read-time loads are not observable post-hoc; a session may read a surface matched by this rule's `paths:` globs without editing it. The proxy under-counts loads, so it can only fire when neither channel provably had its editing occasion — a conservative trigger.
 
 **Self-application (T15).** This stage's own PR is capability-adjacent. The PR body shows the BFR/SSOT consult it preaches. §1a of the S-M kickoff exists because the swap applied to itself asked «who loads the rule after the rule stops loading?» — the carriers named there are the answer.

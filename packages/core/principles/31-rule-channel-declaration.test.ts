@@ -130,7 +130,7 @@ describe('Principle 31 — every rule declares a delivery channel (4-branch PASS
     it('RED: constructing a 5-entry core array throws past the asserted ceiling', async () => {
       // ALWAYS_ON_CORE's ceiling check runs at module-load time (module-level throw). To
       // exercise the SAME assertion logic without re-importing the real module (which would
-      // just re-use its already-passing 4-entry array), replicate the identical guard here
+      // just re-use its already-passing 3-entry array), replicate the identical guard here
       // against a synthetic 5-entry array — proving the guard's condition is correctly wired
       // to reject >4, not merely documented as a comment.
       const fiveEntryCore = [
