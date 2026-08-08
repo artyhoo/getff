@@ -227,14 +227,14 @@ the four-way swap.
 **Corrected ranking at the band (this replaces an earlier flat-4-B/tok ordering).** An earlier
 revision of this section ranked the Tier-0 swap **fourth** on the strength of
 `build-first-reuse-default.md` ≈ 3,167 tok @ 4 B/t. That figure was a point estimate on a
-falsified constant; re-derived per §0.3 it is **3,708–6,904 est-tokens**, and S-L §1.1
+falsified constant; re-derived per §0.3 it is **3,708–6,903 est-tokens**, and S-L §1.1
 **measured this exact file** (same 12,667 B) at **4,800 tokens** on a live `/context` read
 (`2026-08-07-s-l-recalculation.md:55`). Every lever, re-derived:
 
 | # | Lever | Basis | est-tokens |
 |---:|---|---|---|
 | 1 | `skill_listing` trim (§2.2) | MEASURED (`/context`) | **8,870** |
-| 2 | `build-first-reuse-default.md` (Tier-0) | MEASURED (S-L §1.1); band 3,708–6,904 @ 1.835–3.416 B/t | **4,800** |
+| 2 | `build-first-reuse-default.md` (Tier-0) | MEASURED (S-L §1.1); band 3,708–6,903 @ 1.835–3.416 B/t | **4,800** |
 | 3 | both hook injects (§0.3 / §2.1) | band @ 1.835–3.128 cp/t | ~2,191–3,735 |
 | 4 | `ai-laziness-digest.md` (Tier-0) | band @ 1.835–3.416 B/t (6,703 B) | ~1,962–3,653 |
 | 5 | `agent_listing_delta` total (§2.3) | band @ 1.835–3.128 cp/t | ~1,737–2,961 (addressable subset ~737–1,256) |
@@ -247,8 +247,9 @@ candidate — its content-trim is S-G-owned and §2.5 proposes no `claudeMdExclu
 
 **The re-ranking overturns the earlier ordering claim.** `build-first-reuse-default.md` is the
 **second** lever, not the fourth: its measured 4,800 tok exceeds the hook injects, the agent
-listing, and both tool-listing blocks, and its band floor (3,708) sits at or above every one of
-their ceilings. Only `skill_listing` is larger. The honest statement is therefore *«the Tier-0
+listing, and both tool-listing blocks. (Its band floor, 3,708, clears every harness-block ceiling
+except the hook injects' 3,735 — the #2 rank rests on the MEASURED 4,800, not on band
+separation.) Only `skill_listing` is larger. The honest statement is therefore *«the Tier-0
 swap is the second lever, behind `skill_listing` and ahead of every harness-side block»*.
 
 > **DECISION-NEEDED (operator): at the corrected band, `build-first-reuse-default.md` ranks #2;
@@ -279,7 +280,7 @@ operator-owned surfaces, none touching §2-permitted registry surfaces.**
 If a future stage wants a rule-level senior-seat drop, the three Tier-0 candidates (per
 `packages/core/principles/31-rule-channel-declaration.ts:58-63`) and their cases:
 
-- **`build-first-reuse-default.md`** (12,667 B → **4,800 tok MEASURED** at S-L §1.1 `s-l-…:55`; band ~3,708–6,904 @ 1.835–3.416 B/t — largest Tier-0 rule, and the **#2 lever overall** per §3.1).
+- **`build-first-reuse-default.md`** (12,667 B → **4,800 tok MEASURED** at S-L §1.1 `s-l-…:55`; band ~3,708–6,903 @ 1.835–3.416 B/t — largest Tier-0 rule, and the **#2 lever overall** per §3.1).
   - **Case for drop:** biggest measured cost; macro-level operating philosophy (per its own §6
     "Never retire") could be carried by the per-commit CLAUDE.md gate alone.
   - **Case against:** its §6 self-declares "Never retire" — dropping would abandon a
@@ -352,7 +353,7 @@ population §4.2 samples (T1 floor = 5, satisfied), and no file is waved off wit
 
 **Honest note on the boundary:** the four largest files in `agents/` (#13-#16, 16-24 KB each)
 are all OUT of scope. That is the kickoff §2 allowlist doing its job — the stage prices
-*review seats*, not «the biggest files» — but it means this stage's −21% does **not** touch
+*review seats*, not «the biggest files» — but it means this stage's −20.5% does **not** touch
 the heaviest agent prompts in the tree. A future stage wanting raw byte reduction across
 `agents/` should start there, not here.
 
