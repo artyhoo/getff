@@ -378,13 +378,35 @@ them to the §7a #1 minimal set — they *are* «schema-required fields», which
 mandates. Populate them from the §7d.1(a) probe + the `GET /runtime-profiles` shape (§1), never
 from a guess.
 
-### §7d.3 The ping route is `POST /runtime-profiles/validate`, not `/<id>/v1/messages`
+### §7d.3 The ping splits in two — aif has no single endpoint that satisfies §7a #3
 
-The guessed path does not exist (§7d.1 control → 404). Route §7a #3's «one real minimal model call»
-through the purpose-built validation endpoint, addressing the profile created in step A by its id.
-Discover its accepted body the same way you discovered the create body — probe, then implement.
-**Falsifier:** if `/validate` proves to be a reachability check rather than a real model call, it
-does not satisfy §7a #3 — PARK with the probe output quoted, do not substitute `/health`.
+The guessed path does not exist (§7d.1 control → 404). But `POST /runtime-profiles/validate` does
+**not** replace it either, and the dispatcher fired its own §7d.3 falsifier rather than leave the
+worker to discover this: for a profile with `transport: "api"`, `validateClaudeConnection` returns
+`{ok:true, message:"Claude API profile configured"}` after checking only that `apiKey` and `baseUrl`
+are non-empty — **no network call at all**
+(aif-handoff `packages/runtime/src/adapters/claude/index.ts:468-479`; host-read, quoted here
+because you cannot read it — §7d.0). Live confirmation, 2026-08-09: `POST /validate` against the
+`Qwen3.8-Max-Preview` profile returned `ok:true` in well under a second. `POST /runtime-profiles/models`
+is not the answer either — it returned a **static Claude catalogue** (`Sonnet 4.6`, `Opus 4.6`) for a
+Qwen profile, so it is not querying the provider.
+
+So §7a #3 («one real minimal model call») and §7c #3 («the ping target is the profile, not the
+vendor») cannot both be met by one aif REST call. **Dispatcher resolution — same provenance and
+standing as §7b: authored by the dispatcher, not the operator, and overridable by them.** Do both
+halves, and report them as one objective:
+
+1. **Route proof — `POST /runtime-profiles/validate`** with the step-A profile id. This is what
+   proves aif resolved *the profile the flow just built*: the response echoes the resolved
+   `baseUrl`, `apiKeyEnvVar`, `model`, `transport`, and `hasApiKey`. Required: `ok:true`.
+2. **Model proof — one 1-token-scale completion** against the `baseUrl` **read back from that same
+   response** (never a hardcoded `$GLM_BASE_URL` — that was run 2's W-3 defect), with the model from
+   the same response. Reading the route back out of aif is what makes this «through the profile»
+   rather than «at the vendor».
+
+Both must pass. Either failing is an objective-3 MISS per §2 constraint 4. **Falsifier:** if you
+find an aif endpoint that does perform a real completion through a stored profile, prefer it and
+collapse the two halves back into one — quote the route and its live output.
 
 ### §7d.4 §7b #1 is still undelivered — verifying reachability is not making it reachable
 
@@ -393,6 +415,14 @@ prints wiring instructions and `exit 1`. Nothing performs §7b #1, so a first ru
 MISS. Implement the wiring step itself (mechanism still yours per §7b #2), then verify, then ping.
 A helper that can only ever instruct is the `#warning-nobody-reads` shape
 ([attention-is-not-a-mechanism.md §1](../../rules/attention-is-not-a-mechanism.md)).
+
+**Use the §7d.3(1) response as the §7b #3 verifier — it is exact, and it never touches the value.**
+`hasApiKey` is `Boolean(resolved.apiKey)` and `resolved.apiKey` is `normalizeString(env[envVarName])`
+read from the aif runtime's own `process.env` (aif-handoff `packages/runtime/src/resolution.ts:426`
+and `:217-219`). So `hasApiKey:true` **is** the proof that §7b #1's outcome was achieved — the key
+is reachable in the aif runtime under the §7a #1 name — obtained without dereferencing it, without
+it entering argv, and without echoing it (§7b #4 intact). `hasApiKey:false` is an objective-3 MISS,
+not a warning to print.
 
 ### §7d.5 §3's companion install is prose in a field the engine never reads
 
