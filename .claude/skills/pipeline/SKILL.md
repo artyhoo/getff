@@ -39,7 +39,7 @@ allowed-tools:
 
 **`disable-model-invocation: true`** — fires ONLY on explicit `/pipeline` invocation. The flag suppresses CC's default auto-load into subagent contexts when description matches a subagent's task — it is **not** a recursive-invocation guard (no such risk exists: subagent depth is hard-capped at 2 by CC's harness, per [sub-agents.md](https://code.claude.com/docs/en/sub-agents.md)).
 
-**Arg routing (V1 binding per [research-patch §3](../../../docs/meta-factory/research-patches/2026-05-29-meta-orch-no-arg-overview-s0-remainder.md)):** regex check at invocation start — empty → V3 overview; `^[0-9]+$` → V4 top-N (N=0 routes to V3); else → named-umbrella dispatch (existing §1→§3→§4→§5). **Pre-invocation guard (V1 mandatory):** assert no umbrella basename is `^[0-9]+$` (otherwise `/pipeline 1` is ambiguous): <!-- @dual-pair: meta-orchestrator-integer-name-guard -->
+**Arg routing (V1 binding per [research-patch §3](../../../docs/meta-factory/research-patches/2026-05-29-meta-orch-no-arg-overview-s0-remainder.md)):** regex check at invocation start — empty → V3 overview; `^[0-9]+$` → V4 top-N (N=0 routes to V3); `list` → preset enumeration via [`helpers/list-presets.sh`](helpers/list-presets.sh) (§0.1); `status` → read-only status render via [`helpers/render-status.sh`](helpers/render-status.sh) (§2.6); else → named-umbrella dispatch (existing §1→§3→§4→§5). **Pre-invocation guard (V1 mandatory):** assert no umbrella basename is `^[0-9]+$` (otherwise `/pipeline 1` is ambiguous): <!-- @dual-pair: meta-orchestrator-integer-name-guard -->
 
 ```!
 bash "${CLAUDE_SKILL_DIR}/helpers/integer-name-guard.sh" .claude/orchestrator-prompts
@@ -51,7 +51,27 @@ bash "${CLAUDE_SKILL_DIR}/helpers/integer-name-guard.sh" .claude/orchestrator-pr
 bash "${CLAUDE_SKILL_DIR}/helpers/parse-override-flags.sh" "${umbrella:-}" 2>/dev/null || true
 ```
 
+**Preset flag (optional, A4):** the parser above also recognises `--preset <name>` (flag) and `AIF_PIPELINE_PRESET=<name>` (env). Precedence: flag > env > default. When resolved, the preamble output carries `PRESET_MODE` / `PRESET_MARKER` / `PRESET_BUNDLE_OPT_IN` / `PRESET_REVIEW_REQUIRED` / `PRESET_PARALLEL_SAFE` lines. **Seam #3 — marker relay:** when `PRESET_MARKER=<value>` is non-empty (economy/aif presets), the generated meta-kickoff header MUST carry `<!-- bridge-profile: <value> -->`. The value MUST be the profile's full display name, unique under the resolver's case-insensitive substring match (see [CLAUDE.md «Marker value rule»](../../../CLAUDE.md)). For null-marker presets (night/sdd) no marker line is emitted. **Seam #2 — routing short-circuit:** see §2.5 Step 5.
+
 **Permissions model:** `allowed-tools` list above constrains the skill to read/git/gh/write — no arbitrary Bash. If a check requires a command outside the list, escalate to maintainer. **Caveat — Issue [#14956](https://github.com/anthropics/claude-code/issues/14956) (open as of 2026-05-28):** specific `Bash(<pattern>)` patterns in skill-scoped `allowed-tools` do not auto-approve matching commands in current CC versions. The load-bearing fallback is a `~/.claude/settings.json` `permissions.allow` entry `Bash(bash *helpers/*.sh *)` — a per-operator manual setup step in the operator's global settings, NOT committed in this repo (per DN-1 Option C verdict, PR #262 §3). The frontmatter glob above remains for forward-compatibility when #14956 closes — remove the settings.json fallback line at that point.
+
+## §0.1 `list` verb — preset enumeration (A4)
+
+> Data-driven enumeration of pipeline launch presets. Source-of-truth: the JSON
+> files under `references/presets/`. Adding a 5th preset file there surfaces it
+> with zero code change (AC-2).
+
+**Step 1 — invoke enumerator:**
+
+```!
+bash "${CLAUDE_SKILL_DIR}/helpers/list-presets.sh"
+```
+
+**Output shape:** one line per preset, sorted alphabetically:
+`<name> — <description> (mode=<mode>[, marker=<marker>])`.
+
+**Escape hatch:** `MO_PRESETS_DIR=<dir>` overrides the presets directory (test
+fixtures only).
 
 ---
 
@@ -182,6 +202,10 @@ bash "${CLAUDE_SKILL_DIR}/helpers/assign-skill.sh" "<TYPE-from-Step-3>" "<one-li
 Advisory output: `recommended_skill: <slug>` / `recommended_agent: <path>` / `recommended: none`.
 **Step 5 — routing decision tree (judgment on injected data):**
 
+<!-- preset short-circuit: when PRESET_MODE is set (from §0 preamble --preset or AIF_PIPELINE_PRESET), the 3 routing predicates bundle_opt_in / review_required / parallel_safe come from the preset data file, short-circuiting the routing tree. The other 3 predicates (load_bearing, sibling_count, scope_decided) still derive from the existing logic below. -->
+
+**Preset short-circuit (A4):** if `PRESET_MODE` is present in the §0 preamble output, skip the routing tree for the 3 preset-controlled predicates (`bundle_opt_in`, `review_required`, `parallel_safe`) — they are already resolved from the preset JSON. The remaining 3 predicates (`load_bearing`, `sibling_count`, `scope_decided`) still derive from existing logic. Proceed to Step 6 with the preset-driven ALIAS (mapped from `PRESET_MODE`). For `economy` (`PRESET_MODE=whole-line-executor`), the dispatch payload carries `PRESET_AIF_MAX_REVIEW_ITERATIONS=1` per §8a Park-3 (aif auto-review capped at 1 iteration; external cold fidelity round stays mandatory).
+
 6 predicates: `load_bearing` (paths ∩ principle-09 REQUIRED_HEADER_DOCS), `sibling_count` (same-TYPE disjoint candidates), `scope_decided` (kickoff §binding non-empty OR non-DEFER research-patch; else FALSE → RESEARCH), `parallel_safe` (explicit decl OR disjoint scopes; default=FALSE → PAIR), `bundle_opt_in` (`--mode-bundle` OR silent TRUE for fix), `review_required` (`--mode-pair` OR kickoff hint OR `load_bearing`).
 
 ```text
@@ -215,6 +239,30 @@ elif TYPE == "I-phase-large":
 **Step 7 — emit ALIAS in §10 rendered output:** Stage heading: `### Stage N — <name> (<ALIAS> / <Mode>, ~<cost>)`. Dep-graph bullet: `├── <name>   (<ALIAS> / <Mode>, ~<cost>, <role>)`. Template update deferred to follow-up PR per `feedback_no_drive_by_prs`.
 **Step 8 — delta diff:** invoke `bash ${CLAUDE_SKILL_DIR}/helpers/delta-diff.sh .claude/orchestrator-prompts/_master-backlog-delta.json "<id-1>" "<id-2>" "<...>"` (post-dedup ids from Steps 2-3 as positional args) → emits `NEW-SINCE-LAST: <id>` (current ∖ seen) + `RESOLVED-SINCE-LAST: <id>` (seen ∖ current), sorted; missing delta → all current = NEW; lines feed §10; maintainer manually updates `wave-sequencing-plan.md §0` (Direction A REJECTED per R-phase β-2); semantics + contract: [`references/master-backlog-delta.md`](references/master-backlog-delta.md) + [`packages/core/hooks/delta-diff.test.ts`](../../../packages/core/hooks/delta-diff.test.ts). <!-- @dual-pair: meta-orchestrator-delta-diff -->
 **Step 9 — write-back to `_master-backlog-delta.json`:** `untracked_seen` ← current candidate set (overwrite-shape; `first_seen` = current ts). `closed_since_last` ← prior ids that no longer surface. Concrete `jq` shape in §10 step 5 — do NOT re-specify here.
+
+## §2.6 `status` verb — read-only status render (A5)
+
+> Three-section status against LIVE bricks (in-factory / parked questions /
+> ready-to-harvest + PR state). NOT a dashboard — no persistent state, no
+> refresh loop, no TUI. One-shot read + print.
+
+**Step 1 — invoke renderer:**
+
+```!
+bash "${CLAUDE_SKILL_DIR}/helpers/render-status.sh"
+```
+
+**Section sources + degradation:**
+
+| Section                     | Source                                                    | Degradation when brick unavailable    |
+| --------------------------- | --------------------------------------------------------- | ------------------------------------- |
+| In-factory                  | bridge REST (`/health`, task list)                        | "(bridge unreachable at <url>)"       |
+| Parked questions            | `tsx packages/runtime-bridge/src/cli/questions.ts --json` | "(no parked questions)"               |
+| Ready-to-harvest + PR state | `gh pr list`                                              | "(no open PRs)" or "(gh unavailable)" |
+
+Ends with **suggested-next-command lines** (1-3 paste-able shell strings).
+Each section degrades independently — exit 0 unless the renderer itself
+crashes (defensive: an unreachable brick is a designed success path, §3 spec).
 
 ---
 
