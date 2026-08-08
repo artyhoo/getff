@@ -3,42 +3,35 @@
 > Read this file at the start of every session. It points to the source of truth for project rules and workflow.
 > Universal format read by Claude Code (CLAUDE.md fallback), Codex CLI, Cursor, Windsurf, Roo Code, and others.
 >
-> **Authoritative for:** AI-agent session-context format and pointer structure for consumer projects.
-> **NOT authoritative for:** project goal — see consumer's README.md.
+> **Authoritative for:** AI-agent session-context format and pointer structure for consumer projects; which install depth is present and where the authoritative criteria live.
+> **NOT authoritative for:** project goal — see consumer's README.md. Rule text — see `.ai-factory/RULES.md`. Tier criteria + degradation matrix — see `.ai-factory/tier-home.md`. Lifecycle past install — see `.ai-factory/AI-USAGE-GUIDE.md`.
+
+**This file is a POINTER DOC.** It is the thin always-on layer; everything below is one line of orientation plus the path that owns the detail. If you find the full answer here rather than in the file named, that is drift — the named file wins.
 
 ## What this project is
 
 See `.ai-factory/DESCRIPTION.md` for full project context — domain, stack, constraints, non-goals.
+See `.ai-factory/ARCHITECTURE.md` for layer structure, dependency direction, forbidden patterns.
 
 ## Project rules (enforced by lint, tests, CI, audit-ai-docs)
 
-See `.ai-factory/RULES.md` for full rule list (R1–R20). Quick reference:
+`.ai-factory/RULES.md` is the rule list and the only place rules are stated — R1–R11 for every stack, plus R12–R20 for React/Next (`.ai-factory/RULES.react-next.md`) and IR1–IR6 for microservices (`.ai-factory/rules/integration-rules.md`). Each rule names its own enforcement channel there. Read it before your first edit; do not rely on a summary.
 
-- **R1** TypeScript hygiene — no `as any`, no `!`, no `enum`.
-- **R2** Validation at boundaries — Zod at every external input.
-- **R3** Architectural boundaries — domain → application → infrastructure (one direction).
-- **R4** Tests for new public code — every export tested with real assertion.
-- **R5** Async correctness — no floating promises.
-- **R6** Errors — Error subclasses only, structured.
-- **R7** Time/randomness/IO injected via interfaces.
-- **R8** Observability — OTel spans on public commands/queries.
-- **R9** Imports — banned: lodash, moment, axios.
-- **R10** Naming — by location and convention.
-- **R11** CI integrity — `ci-success` is required check.
+**Runtime-discipline rules R7/R8 are opt-in.** `no-direct-time-randomness` (R7) and `require-otel-span` (R8) need an injected Clock/Random + `infrastructure/` layer and an OpenTelemetry tracer — infra a fresh skeleton lacks. The shipped `eslint.config.mjs` enables them only when `AIF_STRICT_RUNTIME=1` is set; R2 (validation at boundaries) stays unconditional.
 
-For React/Next projects, also R12–R20 (see `.ai-factory/RULES.react-next.md`).
+## Environment layer — which depth is installed here
 
-For microservices, also IR1–IR6 (see `.ai-factory/rules/integration-rules.md`).
+The framework installs at one of three monotonic depths. **No flag is recorded on disk, so detect the depth by what is present** — then read only the row that matches:
 
-## Architecture
+| Detect (from the project root)                                            | Depth     | What the environment layer gives you here                                                                                                                 |
+| ------------------------------------------------------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scripts/audit-ai-docs.sh` present, `.ai-factory/tier-home.md` **absent** | `core`    | Rules + tests + gate hooks + CI. No model-tier routing surface is installed, so tier-routing instructions do not apply to this project.                   |
+| `.ai-factory/tier-home.md` **and** `.claude/skills/arch/` present         | `env`     | core + the multi-model contour surface: tier-routing criteria on disk, and the `/arch` design contour.                                                    |
+| also `.claude/skills/pipeline/` present                                   | `factory` | env + the operator suite (`pipeline`, `dispatcher`, `harvest`, `aif-doctor`, `night-mode`, `story`). Presupposes the aif-handoff runtime on this machine. |
 
-See `.ai-factory/ARCHITECTURE.md` for layer structure, dependency direction, forbidden patterns.
+**Criteria and degradations live in ONE file, not here.** When work needs model-tier routing (Tier 0 tiny / Tier 1 bulky-simple / Tier 2 bulky-complex), or when a capability is absent (no aif runtime, no executor-tier model subscription, no top-tier advisor model, non-Claude-Code harness), the authoritative criteria **and** the per-capability degradation matrix are `.ai-factory/tier-home.md` (§2 criteria, §3 degradations). This file states no criterion and no degradation row — open that file. On a `core` install it is absent by design: nothing above the lint / hook / CI layers was installed, so there is no tier system to degrade.
 
-For React/Next projects: also `.ai-factory/ARCHITECTURE.react-next.md` (Server vs Client boundary, etc.)
-
-## Tier routing + degradation (multi-model contour)
-
-When work needs model-tier routing (Tier 0 tiny / Tier 1 bulky-simple / Tier 2 bulky-complex), or when a capability is absent (no aif runtime, no GLM subscription, no Fable, non-CC harness), the authoritative criteria + degradation matrix live at [.ai-factory/tier-home.md](.ai-factory/tier-home.md). That doc owns the _criteria_; the aif runtime profile config (or your harness's equivalent) owns _which model fills which tier_.
+**Lifecycle past install** — `.ai-factory/AI-USAGE-GUIDE.md`: First Steps for each depth, the daily cycle, harness portability, and what is not shipped yet (named with an owner, not described as if it existed).
 
 ## Workflow
 
@@ -47,29 +40,17 @@ When work needs model-tier routing (Tier 0 tiny / Tier 1 bulky-simple / Tier 2 b
 Before every commit or PR, run the gate this installer actually ships:
 
 - **`./scripts/audit-ai-docs.sh`** — drift + code-vs-docs probes (~10 sec). Run it before you commit.
-- **`./scripts/check-rule-globs.sh`** — fails if a custom ESLint rule (R2 always; R7/R8 under `AIF_STRICT_RUNTIME=1`) matches **zero** source files, i.e. is silently inert against your layout. **Wired into `npm run validate` and the shipped CI `lint` job** — a layout the globs miss now fails loudly instead of silently shipping. If it fires, widen `RULE_GLOBS` in `eslint.config.mjs` to cover your layout (a flat / inline-router server whose routes live in `app.ts` with no `routes/` folder needs a broader boundary glob, e.g. `apps/*/src/**`). **Monorepos:** if a workspace package ships its own `eslint.config.*`, ESLint's nearest-config resolution means the AIF root config never governs that package. The gate accounts for this: a shadowing package is pruned from the root probe (so a file there can't fake a green) and checked separately — if it has boundary files but its config does **not** wire R2 it **FAILS** (copy the custom-rule block into, or re-export the root config from, that package); if it re-exports/extends another config it **WARNs** (verify R2 is inherited). **Brownfield CI:** install never overwrites a pre-existing `.github/workflows/ci.yml`, so on an existing repo the gate may run only in `npm run validate`; install prints a WARN when no workflow wires it — add `- run: bash scripts/check-rule-globs.sh` to your lint job.
-- **`./scripts/check-lintstaged-resolves.sh`** — fails if a `.lintstagedrc.json` command's binary (e.g. `eslint`) can't resolve from the directory lint-staged would run it in. **Monorepos:** a single root config runs `eslint` from the repo root, where a per-package binary isn't installed → `ENOENT` blocks the commit. Fix: keep a per-package `.lintstagedrc.json` beside each package (install drops one for packages present at install time). Run after `npm/pnpm install`.
+- **`./scripts/check-rule-globs.sh`** — fails if a custom ESLint rule (R2 always; R7/R8 under `AIF_STRICT_RUNTIME=1`) matches **zero** source files, i.e. is silently inert against your layout. Wired into `npm run validate` and the shipped CI `lint` job. Monorepo, brownfield-CI and per-package-config caveats: `.ai-factory/AI-USAGE-GUIDE.md` §3.
+- **`./scripts/check-lintstaged-resolves.sh`** — fails if a `.lintstagedrc.json` command's binary can't resolve from the directory lint-staged would run it in. Run after `npm/pnpm install`.
+- **`./scripts/check-fences-fire.sh`** — plants deliberately-bad input and asserts the installed rules go RED on it. An installed rule never seen to fire is an unproven claim.
 - The **pre-push hook** (`.husky/pre-push`) fires automatically on `git push` — typecheck, `vitest related`, dependency-cruiser.
 - **CI** gates the PR (`ci-success` required check). This is the last-resort authority that does not depend on local tooling.
 
 These are unconditional — they ship with the project and need no extra install.
 
-**Runtime-discipline rules R7/R8 are opt-in.** `no-direct-time-randomness` (R7) and `require-otel-span` (R8) need an injected Clock/Random + `infrastructure/` layer and an OpenTelemetry tracer — infra a fresh skeleton lacks. The shipped `eslint.config.mjs` enables them only when `AIF_STRICT_RUNTIME=1` is set in the environment; R2 (validation at boundaries) stays unconditional. Custom-rule file globs are **layout-agnostic** (flat / layered / monorepo) — widen `RULE_GLOBS` in `eslint.config.mjs` if `check-rule-globs.sh` reports a rule inert.
-
 ### Structural code search (ast-grep)
 
-For structure-aware queries — counting real array/object members, finding language constructs (e.g. async functions without try/catch), or any search where plain-text grep can false-positive on comments, strings, or code fences — prefer `ast-grep` (AST-aware) over regex grep. If your harness has the `ast-grep` skill, invoke it; otherwise run the CLI directly: `ast-grep run --pattern '<pattern>' --lang <lang> .` (install if missing: `npm install -g @ast-grep/cli` — `./setup` offers both the CLI and the skill). Plain grep stays fine for simple string lookups.
-
-### AI Factory commands (only if you have aif installed)
-
-**If you use AI Factory (aif)** for spec-driven development, the commands below are available. AI Factory is **not bundled** by this installer — install it separately to use them.
-
-- **`/aif-explore <task>`** — when scope is unclear. Saves research to `.ai-factory/RESEARCH.md`.
-- **`/aif-plan <task>`** — for any non-trivial change. Creates branch, writes plan to `.ai-factory/plans/`.
-- **`/aif-implement`** — execute plan step by step with checkpoints.
-- **`/aif-verify`** — _if you use aif_, runs `review-sidecar`, `living-docs-auditor` over RULES.md and the audit-ai-docs probes. A convenience wrapper around the unconditional gate above — not a substitute for it.
-- **`/aif-fix <error>`** — targeted bug fix. Reads the plan, knows exactly what was intended.
-- **`/aif-commit`** — final commit, groups checkpoint commits, pushes.
+For structure-aware queries — counting real array/object members, finding language constructs, or any search where plain-text grep can false-positive on comments, strings, or code fences — prefer `ast-grep` over regex grep: `ast-grep run --pattern '<pattern>' --lang <lang> .` (install if missing: `npm install -g @ast-grep/cli`). Plain grep stays fine for simple string lookups.
 
 ### Forbidden
 
@@ -78,118 +59,69 @@ For structure-aware queries — counting real array/object members, finding lang
 - Skipping `./scripts/audit-ai-docs.sh` / the pre-push hook before PR.
 - Adding rules to AGENTS.md / RULES.md without a measurable check.
 
-## Orchestration — backlog & /pipeline
+## Orchestration — backlog
 
-> Where multi-step work is planned and prioritised. The `/pipeline` skill reads these.
+> Where multi-step work is planned and prioritised.
 
-- **Kickoffs / handoffs** (one task-brief per work item) live at:
-  `.ai-factory/orchestrator-prompts/<work-item-name>/kickoff.md`
-- **Backlog plan** (priority registry across all work items) lives at:
-  `.ai-factory/orchestrator-prompts/plan.md` — `/pipeline` **creates it on first run** if absent.
-- **`/pipeline`** (Claude Code; manual workflow on other harnesses) reads the kickoffs + plan,
-  ranks them, and emits a launch-table telling you what to start next. An **empty** backlog
-  (no kickoffs yet) is normal — it reports "nothing queued", not an error. The `/pipeline` skill
-  and its AIF operator companions ship only when the framework was installed at `factory` depth
-  (`--profile factory`, or the equivalent legacy `--with-aif-suite` / `--all` escapes — they
-  presuppose the aif-handoff runtime); a default (`core`) install omits them. See
-  `INSTALL-FOR-AI.md` "Install depth profiles" for the core/env/factory breakdown.
-- **Kickoff format:** a markdown file beginning with a `Type:` line (`fix` / `research` /
-  `feature`), the goal, and — if the work splits into parallel sub-steps — a `## §1 Sub-wave`
-  section with one table row per sub-step. Without sub-steps, a plain task brief is fine.
-
-These paths are harness-agnostic (`.ai-factory/`, not `.claude/`) so the backlog is portable
-across Claude Code / Cursor / Codex / Aider.
+- **Kickoffs / handoffs** (one task-brief per work item): `.ai-factory/orchestrator-prompts/<work-item-name>/kickoff.md`
+- **Backlog plan** (priority registry across all work items): `.ai-factory/orchestrator-prompts/plan.md`
+- These paths are harness-agnostic (`.ai-factory/`, not `.claude/`) so the backlog stays portable across Claude Code / Cursor / Codex / Aider.
+- Kickoff format, how the backlog is ranked, and how a task is dispatched: `.ai-factory/AI-USAGE-GUIDE.md` §2.3 (`factory` depth only — a `core` install ships no dispatch surface).
 
 ## Rule research — continue post-install and on demand
 
-The framework's thesis is that rules are tested for firing at delivery time, not shipped
-pre-baked. `install.sh` delivered a curated starter set; researching stack-specific rules
-from live documentation is the next step of the same lifecycle.
+The framework's thesis is that rules are tested for firing at delivery time, not shipped pre-baked. The installer delivered a curated starter set; researching stack-specific rules from live documentation is the next step of the same lifecycle.
 
-- **First invocation point:** the agent that just installed the framework continues directly
-  into `/rule-research` **in the same session**, before reporting back to the operator (see
-  `INSTALL-FOR-AI.md` "After install — continue into /rule-research"). Research is skipped
-  **only** on an explicit operator opt-out; the shape of the opt-out is itself an operator
-  decision (env var, prompt, or documented sentence — surface it at first contact, do NOT
-  silently assume one).
-- **On demand (any session):** re-invoke `/rule-research` whenever you want to add or refresh
-  a stack-specific rule. Read `agents/rule-researcher.md` for the per-stack author→render→join→lock
-  sequence. Per-stack honest limits are documented there (a lane whose support is partial says
-  so; an unqualified instruction that silently fails on a lane is the honest-signals defect
-  this loop exists to close).
+- **First invocation point:** the agent that just installed the framework continues directly into `/rule-research` in the same session, before reporting back to the operator. Research is skipped **only** on an explicit operator opt-out — surface the opt-out at first contact, do NOT silently assume one.
+- **On demand (any session):** re-invoke `/rule-research` to add or refresh a stack-specific rule. `.claude/agents/rule-researcher.md` holds the per-stack author→render→join→lock sequence and the honest per-stack limits (a lane whose support is partial says so there).
 
 ## Skills available
 
-The following skills **auto-activate on relevant queries in Claude Code**:
+These skills are installed under `.claude/skills/` and **auto-activate on relevant queries in Claude Code**:
 
-- **`rules-as-tests`** — five-layer framework (architecture / meta-tests / spec by example / mutation / living docs). On Claude Code, auto-triggers on questions about ESLint, Stryker, Pact, dependency-cruiser, AI-driven code drift.
-- **`tool-bootstrapping`** — when project deps change, analyses stack for MCP/skill fit, proposes a confirmation list, persists accepted/rejected decisions in `.ai-factory/tool-decisions.md`. On Claude Code, auto-triggers on MCP, skill-discovery, bootstrapping, and tool-decision queries.
+- **`getff`** — five-layer framework (architecture / meta-tests / spec by example / mutation / living docs), plus 5 reference docs in `references/`. On Claude Code, auto-triggers on questions about ESLint, Stryker, Pact, dependency-cruiser, AI-driven code drift.
+- **`tool-bootstrapping`** — when project deps change, analyses the stack for MCP/skill fit, proposes a confirmation list, persists accepted/rejected decisions in `.ai-factory/tool-decisions.md`.
+- **`rule-research`** / **`rule-tests`** — bootstrap rules from live documentation; write or repair the firing test material that proves a rule fires.
+- **`ai-doc`** / **`template-audit`** — AI-doc authoring standard; local advisory audit of the shipped templates.
+- At `env` depth also **`arch`**; at `factory` depth also `pipeline`, `dispatcher`, `harvest`, `aif-doctor`, `night-mode`, `story`, `claude-glm-executor-handoff`.
 
 > On other harnesses (Cursor, Codex CLI, Aider, Windsurf, Roo Code) skills do **not** auto-activate — load the skill manually / read its `SKILL.md` when the topic comes up.
 
-Add additional project skills here as you create them. Don't list a skill until its file is committed (see ai-traps.md, lesson #2).
+Add additional project skills here as you create them. Don't list a skill until its file is committed (see `references/ai-traps.md`, lesson #2).
 
 ## Sub-agents (Claude Code)
 
-Loaded by AI Factory in `.claude/agents/`:
+Installed in `.claude/agents/` — read the file itself for each one's protocol:
 
-- **`review-sidecar`** — two-AI tautology review. Reads tests as if external reviewer with no memory of how they were written.
-- **`living-docs-auditor`** — runs `scripts/audit-ai-docs.sh` (drift detection + code-vs-docs probes). Interprets PASS/FAIL.
+- **`review-sidecar`** — two-AI tautology review; reads tests as an external reviewer with no memory of how they were written.
+- **`living-docs-auditor`** — runs `scripts/audit-ai-docs.sh` and interprets PASS/FAIL (drift + code-vs-docs).
+- **`rule-researcher`** / **`rule-test-author`** — live rule research; firing test material for a generated rule.
+- **`compliance-verifier`**, **`capability-reuse-auditor`**, **`memory-codification-auditor`**, **`docplan-auditor`**, **`fidelity-auditor`**, **`aif-init`** — review and audit seats; each states its own trigger.
 
-## Test commands
+## Test + validate commands
 
-Core test commands — shipped for **every** stack (`install.sh` adds these to `package.json`):
-
-```bash
-npm run test                       # vitest run (unit + audit tests)
-npm run test:watch                 # vitest watch mode
-npm run test:coverage              # with coverage thresholds
-npm run test:integration           # *.integration.ts files (real DB)
-npm run test:mutation              # Stryker — full run (all files)
-npm run test:mutation:incremental  # Stryker — changed files only (the PR-diff gate)
-```
-
-### UI projects (react-next stack) — only if you installed Storybook / Playwright
-
-**Not shipped by default.** `install.sh react-next` ships `playwright.config.ts`, but no `npm run` script and no `@playwright/test` dependency; Storybook is never scaffolded. Install the tooling yourself first, then add these:
+`package.json` owns the script list the installer wrote — run `npm run` to see it. The ones you will use daily:
 
 ```bash
-npm run test-storybook             # Storybook test runner — needs @storybook/test-runner
-npx playwright test                # E2E — react-next config only; needs @playwright/test
+npm run validate   # typecheck + lint + format:check + arch:check + audit:docs + test (parallel)
+npm run test       # vitest run (unit + audit tests)
 ```
 
-## Validate everything
-
-```bash
-npm run validate                # typecheck + lint + format:check + arch:check + audit:docs + test (parallel)
-./scripts/audit-ai-docs.sh     # drift + code-vs-docs probes (~10 sec)
-```
+Mutation testing (`test:mutation:incremental`, the PR-diff gate), integration tests and coverage are in the same list. UI tooling (Storybook, Playwright) is **not shipped by default**: `install.sh react-next` writes `playwright.config.ts` but no script and no `@playwright/test` dependency — install the tooling first, then add the scripts.
 
 ## Stack constraints (enforced)
 
-- TypeScript strict + `noUncheckedIndexedAccess`.
-- Node.js version pinned in `.nvmrc` — CI depends on it.
-- ESLint 10 flat config — see `eslint.config.mjs`.
-- Mutation kill rate ≥70% on PR diff (Stryker incremental).
-- Coverage thresholds per-module (see `vitest.config.ts`).
+- TypeScript strict + `noUncheckedIndexedAccess`; Node.js version pinned in `.nvmrc` (CI depends on it).
+- ESLint 10 flat config — `eslint.config.mjs`.
+- Mutation kill rate ≥70% on the PR diff (Stryker incremental); coverage thresholds per-module (`vitest.config.ts`).
 - Architecture rules in `.dependency-cruiser.cjs` — fail on violation.
 
 ## Files NOT to edit without explicit reason
 
 - `.ai-factory/RULES.md` — rules are added/changed via PR with rationale, not silently.
-- `.dependency-cruiser.cjs` — same.
-- `eslint.config.mjs` — same.
-- `.github/workflows/ci.yml` — same.
-- `scripts/audit-ai-docs.sh` — additions need a paired negative test (see references/self-testing-docs.md).
+- `.dependency-cruiser.cjs`, `eslint.config.mjs`, `.github/workflows/ci.yml` — same.
+- `scripts/audit-ai-docs.sh` — additions need a paired negative test (see `references/self-testing-docs.md`).
 
 ## Quick reminders
 
-- **Skills are declared after they exist, not before.** See `references/ai-traps.md` lesson #2.
-- **`_comment_TODO` never goes into JSON config files.** Use issue tracker.
-- **Trigger keywords are a namespace** — manage them like usernames. See lesson #7.
-- **Every rule has a measurable check** — or it's not a rule.
-
----
-
-For long-form architectural details, see `.ai-factory/ARCHITECTURE.md`.
-For current sprint plan, see `.ai-factory/plans/`.
+The recurring traps — declaring a skill before its file exists, `_comment_TODO` in JSON config, trigger keywords as a shared namespace — are catalogued with their incidents in `.claude/skills/getff/references/ai-traps.md`. Read it once; it is short.
