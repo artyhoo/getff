@@ -274,15 +274,15 @@ agent-definition edit itself reaches 100% of dispatches of that subagent (it IS 
 
 | Agent (in scope) | `wc -c` BEFORE (Task 2) | `wc -c` AFTER (Task 6) | Net trim | Role one-liner |
 |---|---:|---:|---:|---|
-| adapter-jig-reviewer | 13,067 | 8,430 | −4,637 | cold adversarial multi-dimension review of adapter wiring diff |
+| adapter-jig-reviewer | 13,067 | 8,439 | −4,628 | cold adversarial multi-dimension review of adapter wiring diff |
 | backward-sweep-auditor | 8,221 | 6,413 | −1,808 | cold backward-sweep for §1.7 Backward-check |
-| capability-reuse-auditor | 8,691 | 6,886 | −1,805 | audits proposed or just-authored new capability |
+| capability-reuse-auditor | 8,691 | 7,854 | −837 | audits proposed or just-authored new capability |
 | compliance-verifier | 13,380 | 7,030 | −6,350 | reviews PR §1.7 Forward/Backward-check sections |
-| dispatch-input-checker | 12,469 | 9,940 | −2,529 | cold dispatch-input reality-check |
+| dispatch-input-checker | 12,469 | 10,922 | −1,547 | cold dispatch-input reality-check |
 | docplan-auditor | 7,924 | 7,307 | −617 | cold semantic-grouping judgment for DocPlan |
 | fidelity-auditor | 9,072 | 8,095 | −977 | cold WHAT-conformance acceptance audit at stage-PR boundary |
 | reviewer-discipline | 4,892 | 5,091 | **+199** | review-session protocol — NO-OP trim; map-row ref added |
-| **TOTAL** | **77,716** | **59,192** | **−18,524 B (−24%)** | |
+| **TOTAL** | **77,716** | **61,151** | **−16,565 B (−21%)** | |
 
 **Wishful-targets finding (recorded honestly per §3a park-don't-guess).** The original §4.2
 targets (adapter ≤6,000 / backward ≤4,500 / capability ≤4,500 / compliance ≤6,000 / dispatch
@@ -312,11 +312,11 @@ context. Trimming the prompt therefore trims the subagent's per-dispatch load, l
 
 | Agent | Drop mechanism | Cost cell (BEFORE → AFTER) | Reach | Restoration trigger |
 |---|---|---|---|---|
-| **adapter-jig-reviewer** | Slim 13,067 → 8,430 B (wishful ≤6,000 — see §4.1 finding) | −4,637 B (−35%) | `UNVERIFIED — no probe exists` for subagent's CC-context load; agent-file edit reaches 100% of dispatches | OBSERVABLE: a wiring-diff review where the reviewer defers a F1-F11 dimension the slimmed prompt dropped → flagged in stage-PR review |
+| **adapter-jig-reviewer** | Slim 13,067 → 8,439 B (wishful ≤6,000 — see §4.1 finding) | −4,628 B (−35%) | `UNVERIFIED — no probe exists` for subagent's CC-context load; agent-file edit reaches 100% of dispatches | OBSERVABLE: a wiring-diff review where the reviewer defers a F1-F11 dimension the slimmed prompt dropped → flagged in stage-PR review |
 | **backward-sweep-auditor** | Slim 8,221 → 6,413 B (wishful ≤4,500 — see §4.1 finding) | −1,808 B (−22%) | same | OBSERVABLE: a sibling-surface gap on a change-class the slimmed prompt no longer enumerates → returns CLEAN where it should report GAP-FOUND |
-| **capability-reuse-auditor** | Slim 8,691 → 6,886 B (wishful ≤4,500 — see §4.1 finding) | −1,805 B (−21%) | same | OBSERVABLE: a capability-commit PR where the slimmed prompt misses a SSOT cross-check |
+| **capability-reuse-auditor** | Slim 8,691 → 7,854 B (wishful ≤4,500 — see §4.1 finding) | −837 B (−10%) | same | OBSERVABLE: a capability-commit PR where the slimmed prompt misses a SSOT cross-check |
 | **compliance-verifier** | Slim 13,380 → 7,030 B (wishful ≤6,000 — see §4.1 finding) | −6,350 B (−47%) | same | OBSERVABLE: a stage-PR §1.7 review where the slimmed prompt does not surface a missing Forward/Backward check that the full prompt would have caught |
-| **dispatch-input-checker** | Slim 12,469 → 9,940 B (wishful ≤5,500 — see §4.1 finding). NOTE: GO/REVISE/STOP grammar source per kickoff §3 — DISPATCH-INPUT grammar at :121 preserved verbatim | −2,529 B (−20%) | same | OBSERVABLE: a K1-K6 dispatch defect where the slimmed prompt misses a class the full prompt catches |
+| **dispatch-input-checker** | Slim 12,469 → 10,922 B (wishful ≤5,500 — see §4.1 finding). NOTE: GO/REVISE/STOP grammar source per kickoff §3 — DISPATCH-INPUT grammar at :121 preserved verbatim | −1,547 B (−12%) | same | OBSERVABLE: a K1-K6 dispatch defect where the slimmed prompt misses a class the full prompt catches |
 | **docplan-auditor** | Slim 7,924 → 7,307 B (wishful ≤4,000 — see §4.1 finding) | −617 B (−8%) | same | OBSERVABLE: a DocPlan review where the slimmed prompt approves a semantic-grouping defect the full prompt would reject |
 | **fidelity-auditor** | Slim 9,072 → 8,095 B (wishful ≤4,500 — see §4.1 finding). FIDELITY grammar preserved verbatim | −977 B (−11%) | same | OBSERVABLE: a stage-PR WHAT-conformance audit where the slimmed prompt misses a kickoff-spec mismatch |
 | **reviewer-discipline** | NO-OP trim — already slim protocol pointer (4,892 B → 5,091 B; +199 B map-row ref added, no body trim) | +199 B (+4%) | same | n/a (no trim shipped) |
