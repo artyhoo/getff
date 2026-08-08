@@ -42,11 +42,10 @@ That is **18 fields** — the spec's sketch implied fewer. **The exact field map
 one-button flow (which fields to populate, which to leave to defaults) is a genuine fork — PARK it
 (§7).** Do NOT assume the sketch maps 1:1.
 
-- **aif REST route source** = `packages/api/src/routes/runtimeProfiles.ts` + `packages/api/src/schemas.ts`
-  **in the aif-handoff repo — a HOST path, NOT reachable from the container worker** (see §7d.0; the
-  container mounts only `$PROJECTS_DIR`, one level below the aif-handoff repo root). Do **not** try to
-  read it, and do **not** park on being unable to. **The live API is the authoritative oracle and it
-  IS reachable** — verify the schema by probing it (§7d.1), never by guessing.
+- **aif REST route source** = `~/code/aif-handoff/packages/api/src/routes/runtimeProfiles.ts`
+  (`createRuntimeProfileSchema` — Hono router). ⚠️ **«Re-read this file at stage entry» is RETRACTED
+  (§7e.1)** — that path is host-only and unreachable from the container. §7d.1 hands over the
+  host-read facts; confirm them against the **live API**, which is the reachable oracle (§7e.1-§7e.3).
 - **Per-mode defaults** — Plan→top tier, Task/Review→executor tier. HOW per-mode defaults are set
   (per-task field? project-level? env?) is a genuine fork — the spec doesn't pin it. Park (§7).
 - **Validation ping** — what constitutes «validated»? A `/health` 200? A real model call? Park
@@ -146,10 +145,10 @@ Note the ordering: the command targets a file this stage introduces, so it resol
 branch is checked out on the host — which is precisely when acceptance happens. It will not
 resolve against bare `staging`, and that is expected, not a defect in the contract.
 
-**Run 3 showed this contract can pass over a broken flow** — the suite mocked a non-existent
-endpoint, so «green» meant «the mock agrees with the helper», not «the helper works». The contract's
-teeth are therefore §7d.6: the stub is fail-closed and carries a paired-negative that fails on the
-run-3 helper. A green run of the command above is evidence only if §7d.6 is delivered.
+**Run 3 proved this contract can pass over a broken flow** — its suite mocked an endpoint that does
+not exist, so «green» meant «the mock agrees with the helper», not «the helper works». The contract's
+teeth are §7e.6: the stub is fail-closed and carries a paired-negative that fails on run 3's helper.
+A green run of the command above is evidence only once §7e.6 is delivered.
 
 ## §5 Out of scope (do NOT do these here)
 
@@ -187,12 +186,15 @@ run-3 helper. A green run of the command above is evidence only if §7d.6 is del
   designed success path; but the one-button flow degrading to guided manual is a MISS. Distinguish.
 - **T-BDU-C (domain)** — «the neighbor gate is probably clear by now». §1 REST shapes re-verified
   live at entry (re-probe the bridge); §1.1 engine enforcement verified in source.
-- **T-BDU-D (domain, added run 3)** — «the kickoff told me to read a file I cannot reach, so I
-  filled the gap from plausibility». Run 3 guessed a REST route that does not exist, and the sin
-  was the guess, not the unreachability. When an instructed source is unreachable: try the **live
-  probe** (§7d.1); if that too is unavailable, **PARK with the failed access quoted** — never
-  substitute a plausible shape. The tell: any endpoint, field, or status code in the diff that no
+- **T-BDU-D (domain, added at run 4)** — «the kickoff named a source I cannot reach, so I filled the
+  gap from plausibility». Run 2 did exactly this and invented a REST route; the sin was the guess,
+  not the unreachability. Unreachable source → try the live probe (§7e.1); if that fails too, **PARK
+  with the failed access quoted**. Tell: any endpoint, field, or status code in the diff that no
   command output in the PR body establishes.
+- **T-BDU-E (domain, added at run 4)** — «the suite is green, so the flow works». Run 3's suite was
+  green *because its own mock invented the endpoint the helper called* (§7e.6). A mock you authored
+  agreeing with code you authored is not evidence. Tell: a stub that cannot be made to fail by
+  feeding it the known-bad input.
 
 ## §7 Park-don't-guess contract (BINDING — this task runs autonomously)
 
@@ -234,11 +236,10 @@ implement as resolved. Anything OUTSIDE these resolutions still follows the §7 
 1. **REST field mapping = Option A — MINIMAL set.** Populate only: schema-required fields +
    profile display name + model + `apiKeyEnvVar` (the NAME, never the value) + the base-URL
    field targeting the Z.ai Anthropic-shape endpoint. Everything else stays on server defaults.
-   The minimal set is defined against the LIVE schema, not the spec sketch — and the schema is
-   **probed, not read** (§7d.0: that source file is host-only; the earlier «re-read the file at
-   entry» instruction was unexecutable and is retracted). Establish it with the §7d.1 probe.
-   Rationale: smallest surface to break on aif upgrades. **`runtimeId` + `providerId` are part of
-   the schema-required set** — see §7d.2.
+   The minimal set is defined against the LIVE schema, not the spec sketch — **established by probe,
+   not by reading that file** (§7e.1 retracts the «re-read at entry» instruction as unexecutable from
+   the container). Rationale: smallest surface to break on aif upgrades. **`runtimeId` and
+   `providerId` are part of the schema-required set** — §7e.2.
 2. **Per-mode defaults = Option A — project-level aif runtime-profile config.** Write
    Plan→top-tier / Task+Review→executor-tier into the same project-level config the system
    already reads (the channel `tier-home.md` names as owning tier→model instantiation). Do NOT
@@ -315,139 +316,208 @@ Run 2's audit findings that are settled by in-repo source. Do not re-derive, do 
 4. **`setup.d/10-skills.sh` stays untouched** — S5 is its sole editor (W-5, held CLEAN in run 2;
    keep it that way).
 
-## §7d Binding corrections carried from run 3 (NOT forks — implement as stated)
+## §7d Round 3 — rework dispatch facts (authored 2026-08-09 from a host-side re-verification)
 
-Run 3 (aif task `e65989fa`, Audited-SHA `53fce45f51`) delivered every §7c correction (W-2..W-5
-CLEAN) and raised **no** `KICKOFF-AMBIGUOUS`. It stopped on five items. Four are defects in the
-work; the first is a defect in **this kickoff**, and it is upstream of the rest.
+**Provenance:** like §7b, this section is dispatcher-authored, not operator-issued. It carries **no
+new design decision** — it supplies endpoint-level facts read on the **host**, where
+`~/code/aif-handoff` exists and your container's checkout does not, plus the run-2 defects §7b/§7c
+did not cover. The operator may override any of it.
 
-### §7d.0 The dispatcher's defect — a host path handed to a container worker (RETRACTED instruction)
-
-`§1` and `§7a #1` both ordered you to «re-read `~/code/aif-handoff/…/runtimeProfiles.ts` at entry».
-**That file is not reachable from the container by any path**, so the instruction was unexecutable
-and the run guessed instead of parking. Measured 2026-08-09 from `aif-handoff-agent-1`:
-`PROJECTS_HOST_ROOT=/Users/art/code/aif-handoff` and `PROJECTS_DIR=$PROJECTS_HOST_ROOT/projects` —
-only `projects/` is mounted, so the repo root that holds `packages/api/` sits one level **above**
-the mount. This is the same class as state.md §2 decision 14 (an empirical sweep ordered over
-branches the worker could not see). Both instructions are now retracted and replaced by §7d.1.
-
-**The generalisation, and it is binding for the rest of this kickoff:** when a fact about aif is
-needed, the **live API is the oracle**, not the source tree. It is reachable from the container
-(`curl -s -o /dev/null -w '%{http_code}' "$RUNTIME_BRIDGE_AIF_URL/runtime-profiles"` → `200`, measured 2026-08-09).
-If a needed fact is reachable by neither source nor probe, **that** is a §7 park.
-
-### §7d.1 Establish the schema by probe, at entry (replaces «re-read the file»)
-
-**First, the base URL — and this is a trap the run-3 helper is already sitting in.** The helper
-resolves `AIF_URL="${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}"`
-(`scripts/getff-glm-onebutton.sh:94`). That fallback is correct for a **consumer's** machine and
-**wrong inside the agent container**, where `RUNTIME_BRIDGE_AIF_URL` is unset and `localhost` is the
-container itself. Measured 2026-08-09 from `aif-handoff-agent-1`: `GET http://localhost:3009/runtime-profiles`
-→ curl exit 7 (`000`, connection refused); `GET http://api:3009/runtime-profiles` → **`200`**. So
-when probing from the container, export `RUNTIME_BRIDGE_AIF_URL=http://api:3009` first. Do **not**
-change the helper's shipped default — the default is for consumers; this is your probe environment.
-
-Run these first and quote the outputs in the PR body (T3):
+**Your base is NOT clean `staging`.** Run 2's work is on `feature/beta-delivery-ux-92bf00`
+(PR #1300, 2 commits, 7 files). Step 1, before anything else:
 
 ```bash
-export RUNTIME_BRIDGE_AIF_URL="${RUNTIME_BRIDGE_AIF_URL:-http://api:3009}"   # container only
-A="$RUNTIME_BRIDGE_AIF_URL"
-# (a) required-field discovery — the API names its own required fields
-curl -s -X POST -H 'Content-Type: application/json' -d '{"name":"probe-only"}' "$A/runtime-profiles"
-# (b) route-existence discovery — 404 means the route does not exist
-curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'Content-Type: application/json' -d '{}' \
-  "$A/runtime-profiles/validate"
+git merge --no-edit feature/beta-delivery-ux-92bf00
+git diff --name-only origin/staging...HEAD   # expect the 7 files of PR #1300
 ```
 
-Dispatcher's own run, 2026-08-09, from `aif-handoff-agent-1` — reproduce it, do not trust it:
+Run 2 was judged **STOP**, not "worthless" — you are repairing it, not redoing it. Held CLEAN and
+**not to be touched**: the detect/explain paths, the `${XDG_CONFIG_HOME:-$HOME/.config}/getff/glm.env`
+location, the minimal profile field set (§7a #1), the S4/S5 boundary, and the redaction discipline.
 
-- (a) → `400` with `ZodError`, `path: ["runtimeId"]` and `path: ["providerId"]`, both
-  `"expected string, received undefined"`.
-- (b) → `400` (**not** 404): the route exists and rejects an empty body.
-- Control: `POST "$A/runtime-profiles/deadbeef/v1/messages"` → **`404`**.
+### §7d.1 Host-verified aif contract — take these as given, do NOT re-derive
 
-**Consequence for §4 item 1 («live end-to-end … against a running aif»).** If the run-3 helper was
-ever «run» in-container without that export, it could not have reached aif at all — which is
-consistent with the suite mocking every call (§7d.6). A live end-to-end claim must therefore quote
-the base URL it used alongside the transcript.
+Your container has no `~/code/aif-handoff`; run 2 parked on that and then guessed anyway. These
+were read on the host on 2026-08-09 from that checkout (commit `7743089`):
 
-### §7d.2 `runtimeId` + `providerId` are REQUIRED in the create body
+1. **Project defaults (§7a #2 / §7c #1).** `packages/api/src/routes/projects.ts:237` —
+   `PUT /projects/:id` validates against the **full** `createProjectSchema`; the four fields are
+   `defaultTaskRuntimeProfileId` / `defaultPlanRuntimeProfileId` / `defaultReviewRuntimeProfileId` /
+   `defaultChatRuntimeProfileId` (`packages/api/src/schemas.ts:42-45`). No `PATCH /project` and no
+   `PATCH /projects/:id` exist — the only `PATCH` verbs on that router are `/:id/organization`
+   (`projects.ts:280`) and `/:id/auto-queue-mode` (`projects.ts:431`). Read current state via
+   `GET /projects` + filter by id (there is no `GET /projects/:id`), then PUT the full body back.
+2. **An app-level partial-write endpoint EXISTS but is NOT what §7a #2 binds.**
+   `PUT /settings/runtime-defaults` (`packages/api/src/routes/settings.ts:140`) accepts a *partial*
+   body of exactly those four fields (`schemas.ts:186-195`). §7a #2 binds **project-level**, so use
+   path 1. Recorded here only so you do not "discover" it and switch channels — switching is an
+   operator call, not yours.
+3. **The §7a #3 / §7c #3 ping has a native, profile-routed endpoint.**
+   `POST /runtime-profiles/validate` (`packages/api/src/routes/runtimeProfiles.ts:721`), payload
+   `runtimeProfileValidationSchema` (`schemas.ts:250-259`): `{ profileId }` is sufficient. Use it —
+   it exercises the route the flow just built, which a direct call to the vendor cannot.
+   The schema's optional `apiKey` is a **transient** credential ("Never persisted", `schemas.ts:256`;
+   the route logs it as validation-only, `runtimeProfiles.ts:750`). Prefer **omitting** it and
+   relying on §7b's env wiring — that keeps §2 constraint 1 intact and keeps the value out of argv.
+4. **Delete the invented `x-api-key` attribution.** Run 2's helper attributed that header to
+   "SKILL.md D3" (`scripts/getff-glm-onebutton.sh:169`); the D3 row
+   (`.claude/skills/claude-glm-executor-handoff/SKILL.md:36`) names `ANTHROPIC_AUTH_TOKEN` and never
+   mentions `x-api-key`. With item 3 the header question disappears entirely — aif builds the
+   request. Do not re-introduce a hand-rolled vendor call.
+5. **§7b's premise re-confirmed on the host:** `packages/runtime/src/resolution.ts:217` resolves the
+   key by NAME out of an env map, `:247` defaults that map to `process.env`; `docs/configuration.md:127`
+   — `.env` is loaded into the API/agent processes and forwarded through each adapter's allowlist.
+   §7b stands as written.
 
-`getff-glm-onebutton.sh:222-226` omits both, so step 5 can never run live (400, never 201). Add
-them to the §7a #1 minimal set — they *are* «schema-required fields», which §7a #1 already
-mandates. Populate them from the §7d.1(a) probe + the `GET /runtime-profiles` shape (§1), never
-from a guess.
+### §7d.2 Binding correction — the guided-install clone URL is FALSIFIED, not parked
 
-### §7d.3 The ping splits in two — aif has no single endpoint that satisfies §7a #3
+`setup.d/aif-handoff-guided-install.sh:28` defaults `AIF_HANDOFF_REPO_URL` to
+`https://github.com/sst-aif/aif-handoff.git` and `:65` clones it **after consumer consent**. That
+repository does not exist:
 
-The guessed path does not exist (§7d.1 control → 404). But `POST /runtime-profiles/validate` does
-**not** replace it either, and the dispatcher fired its own §7d.3 falsifier rather than leave the
-worker to discover this: for a profile with `transport: "api"`, `validateClaudeConnection` returns
-`{ok:true, message:"Claude API profile configured"}` after checking only that `apiKey` and `baseUrl`
-are non-empty — **no network call at all**
-(aif-handoff `packages/runtime/src/adapters/claude/index.ts:468-479`; host-read, quoted here
-because you cannot read it — §7d.0). Live confirmation, 2026-08-09: `POST /validate` against the
-`Qwen3.8-Max-Preview` profile returned `ok:true` in well under a second. `POST /runtime-profiles/models`
-is not the answer either — it returned a **static Claude catalogue** (`Sonnet 4.6`, `Opus 4.6`) for a
-Qwen profile, so it is not querying the provider.
+```text
+$ gh api repos/sst-aif/aif-handoff
+{"message":"Not Found", ... "status":"404"}
+$ gh api repos/lee-to/aif-handoff --jq '.full_name'
+lee-to/aif-handoff
+```
 
-So §7a #3 («one real minimal model call») and §7c #3 («the ping target is the profile, not the
-vendor») cannot both be met by one aif REST call. **Dispatcher resolution — same provenance and
-standing as §7b: authored by the dispatcher, not the operator, and overridable by them.** Do both
-halves, and report them as one objective:
+Set the default to the upstream `https://github.com/lee-to/aif-handoff.git`, keep the
+`AIF_HANDOFF_REPO_URL` override, and **remove the PARKED/unverified wording** from both the helper
+comment and the research patch (`…-entry-verification.md:53-55`). A default that is falsified is not
+a park — a park is an open question, and shipping a broken default behind park language is worse
+than either. Verify with one `git ls-remote` before you call it done.
 
-1. **Route proof — `POST /runtime-profiles/validate`** with the step-A profile id. This is what
-   proves aif resolved *the profile the flow just built*: the response echoes the resolved
-   `baseUrl`, `apiKeyEnvVar`, `model`, `transport`, and `hasApiKey`. Required: `ok:true`.
-2. **Model proof — one 1-token-scale completion** against the `baseUrl` **read back from that same
-   response** (never a hardcoded `$GLM_BASE_URL` — that was run 2's W-3 defect), with the model from
-   the same response. Reading the route back out of aif is what makes this «through the profile»
-   rather than «at the vendor».
+### §7d.3 Green-CI floor — run 2 shipped four red checks
 
-Both must pass. Either failing is an objective-3 MISS per §2 constraint 4. **Falsifier:** if you
-find an aif endpoint that does perform a real completion through a stored profile, prefer it and
-collapse the two halves back into one — quote the route and its live output.
+All must be green at handoff. The first three are mechanical and are **not** optional cleanup:
 
-### §7d.4 §7b #1 is still undelivered — verifying reachability is not making it reachable
+1. **Principle 10** — `docs/meta-factory/research-patches/2026-08-08-s4-glm-onebutton-entry-verification.md`
+   has no `<!-- scope:<slug> -->` first line (every sibling patch has one; e.g.
+   `2026-08-02-per-role-digest-fork.md:1`). Fails both `Principles as meta-tests` and
+   `Mechanical checks`.
+2. **The new test is not wired** — `install-sh battery (shard A)` reports
+   `✗ install-sh test(s) NOT wired in audit-self.yml → glm-onebutton.test.sh`. Add it to the shard
+   list in `.github/workflows/audit-self.yml` (the existing rows end at `:730`). An unwired test is
+   an inert test.
+3. **shellcheck SC1091** — `setup.d/aif-handoff-guided-install.sh:21` carries
+   `# shellcheck source=bridge-guided.sh`; the directive path must be repo-root-relative, per the
+   in-repo precedent `setup.d/05-mcp.sh:52` (`# shellcheck source=setup.d/engine.sh`). Fails
+   `install-sh battery (shard C)`.
+4. **`fidelity-verdict-in-pr-body`** stays red until a cold auditor returns GO. Per §8, a rework
+   round **REPLACES** the existing `## Fidelity verdict` block — never appends a second one.
 
-`getff-glm-onebutton.sh:204-216` correctly implements §7b #3 (verify-before-ping), but `:191-198`
-prints wiring instructions and `exit 1`. Nothing performs §7b #1, so a first run always ends in a
-MISS. Implement the wiring step itself (mechanism still yours per §7b #2), then verify, then ping.
-A helper that can only ever instruct is the `#warning-nobody-reads` shape
+### §7d.4 The two run-2 MINORs that are still open
+
+- **MINOR-4** — `setup.d/companions.manifest:31` still carries prose in the install field where the
+  other rows carry commands. Behaviourally inert today (`setup:92` skips every `kind=external-service`
+  row before `companion_step`, and `setup.d/engine.sh:18-21` returns 0 for that kind), so either make
+  it a real command or leave a one-line comment stating the inertness. Do not leave it undecided.
+- **MINOR-6 / §4 item 1** — the live end-to-end never fired. **Probe first, then report:** try the
+  aif API from your container (`curl -sf "$RUNTIME_BRIDGE_AIF_URL/health"`, default
+  `http://localhost:3009`). If it answers, live-fire steps A/B/C against a scratch profile and delete
+  it afterwards, and quote the output (T3). If it does not, quote the failing command — an
+  objective-3 MISS recorded with evidence per §2 constraint 4. What is not acceptable is a third
+  round of "structurally complete, live-unverified" with no probe output.
+
+## §7e Corrections to §7d — a newer run exists, and one §7d fact is wrong
+
+**Provenance:** dispatcher-authored, same standing as §7b/§7d, operator-overridable. §7d was written
+from run 2's findings; a **later** run had already landed by then, and §7d's author did not have it.
+Where §7e and §7d disagree, §7e carries the evidence and wins.
+
+### §7e.0 Your base is wrong — run 3 supersedes `feature/beta-delivery-ux-92bf00`
+
+§7d step 1 orders `git merge feature/beta-delivery-ux-92bf00`. That is **run 2** (task `92bf0019`,
+last touched 2026-08-08T01:04Z). **Run 3** (task `e65989fa`, commit `53fce45f51`, 2026-08-08T14:51Z)
+is newer and already delivered every §7c correction — its cold audit held W-2..W-5 CLEAN and raised
+no `KICKOFF-AMBIGUOUS`. Measured 2026-08-09: `scripts/getff-glm-onebutton.sh` is **212 lines** on
+`92bf00`, still carrying `PATCH "$AIF_URL/project"` (`:135`) and the vendor-direct ping
+`"$GLM_BASE_URL/v1/messages"` (`:171`) — the two defects §7c exists to correct — versus **361 lines**
+at `53fce45f51`, where the profile-routed path is in place. Basing on `92bf00` therefore re-does
+~150 lines of already-accepted work and re-introduces two closed defects. **Base on run 3.** Run 3
+was judged STOP for the §7e.2-§7e.6 items below, not for the §7c work, which stands.
+
+### §7e.1 The §1 / §7a #1 host-path instruction is RETRACTED — probe instead
+
+§1 and §7a #1 still order «re-read `~/code/aif-handoff/…/runtimeProfiles.ts` at stage entry». That
+file is unreachable from the container: `PROJECTS_HOST_ROOT=/Users/art/code/aif-handoff` and only
+`$PROJECTS_HOST_ROOT/projects` is mounted, so the repo root holding `packages/api/` sits one level
+above the mount. §7d hands over host-read facts, which is right; this retracts the instruction that
+sent run 2 looking for the file and then guessing. **When a fact about aif is needed, the live API
+is the oracle.** If neither source nor probe can answer, *that* is a §7 park.
+
+**Base-URL trap — this bites before anything else.** The helper resolves
+`AIF_URL="${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}"` (`scripts/getff-glm-onebutton.sh:94`).
+That default is right for a **consumer** and wrong **in the container**, where the var is unset and
+`localhost` is the container itself. Measured 2026-08-09 from `aif-handoff-agent-1`:
+`GET http://localhost:3009/runtime-profiles` → curl exit 7 (`000`); `GET http://api:3009/runtime-profiles`
+→ **`200`**. Export `RUNTIME_BRIDGE_AIF_URL=http://api:3009` for probing; do **not** change the
+shipped consumer default. Any live end-to-end claim (§4 item 1) must quote the base URL it used.
+
+### §7e.2 `runtimeId` + `providerId` are REQUIRED in the create body
+
+Run 3's `getff-glm-onebutton.sh:222-226` omits both → 400, so the create step can never run live.
+They belong to the «schema-required fields» §7a #1 already mandates. The API names them itself:
+`curl -s -X POST -H 'Content-Type: application/json' -d '{"name":"probe-only"}' "$RUNTIME_BRIDGE_AIF_URL/runtime-profiles"`
+→ `400` `ZodError`, `path: ["runtimeId"]` and `path: ["providerId"]`, both
+`"expected string, received undefined"` (measured 2026-08-09, reproduce it).
+
+### §7e.3 CORRECTION to §7d.1 — `/validate` does NOT make a model call
+
+§7d.1 says `POST /runtime-profiles/validate` «exercises the route the flow just built» and is
+«exactly what §7a #3 / §7c #3 ask for». **It is not.** For a profile with `transport: "api"`,
+`validateClaudeConnection` returns `{ok:true, message:"Claude API profile configured"}` after
+checking only that `apiKey` and `baseUrl` are non-empty — **no network call**
+(aif-handoff `packages/runtime/src/adapters/claude/index.ts:468-479`). Live, 2026-08-09: `/validate`
+against the `Qwen3.8-Max-Preview` profile returned `ok:true` sub-second.
+`POST /runtime-profiles/models` is not a substitute either — for that same Qwen profile it returned
+a **static Claude catalogue** (`Sonnet 4.6`, `Opus 4.6`), so it does not query the provider.
+
+So §7a #3 and §7c #3 cannot both be met by one aif call. **Do both halves, report as one objective:**
+
+1. **Route proof** — `POST /runtime-profiles/validate` with the step-A profile id; the response
+   echoes the resolved `baseUrl`, `apiKeyEnvVar`, `model`, `transport`, `hasApiKey`. Require `ok:true`.
+2. **Model proof** — one 1-token-scale completion against the `baseUrl` **read back from that
+   response** (never a hardcoded `$GLM_BASE_URL` — run 2's W-3 defect), using the model from the
+   same response. Reading the route back out of aif is what makes it «through the profile».
+
+Either half failing is an objective-3 MISS per §2 constraint 4.
+
+### §7e.4 §7b #1 is still undelivered — and §7e.3(1) is its exact verifier
+
+Run 3's helper verifies reachability (`:204-216`, §7b #3, correct) then prints wiring instructions
+and `exit 1` (`:191-198`). Nothing *makes* the key reachable, so a first run always ends in a MISS.
+Implement the wiring (mechanism yours per §7b #2), then verify, then ping. A helper that can only
+ever instruct is the `#warning-nobody-reads` shape
 ([attention-is-not-a-mechanism.md §1](../../rules/attention-is-not-a-mechanism.md)).
 
-**Use the §7d.3(1) response as the §7b #3 verifier — it is exact, and it never touches the value.**
-`hasApiKey` is `Boolean(resolved.apiKey)` and `resolved.apiKey` is `normalizeString(env[envVarName])`
-read from the aif runtime's own `process.env` (aif-handoff `packages/runtime/src/resolution.ts:426`
-and `:217-219`). So `hasApiKey:true` **is** the proof that §7b #1's outcome was achieved — the key
-is reachable in the aif runtime under the §7a #1 name — obtained without dereferencing it, without
-it entering argv, and without echoing it (§7b #4 intact). `hasApiKey:false` is an objective-3 MISS,
-not a warning to print.
+Use §7e.3(1)'s response as the verifier: `hasApiKey` is `Boolean(resolved.apiKey)` and
+`resolved.apiKey` is `normalizeString(env[envVarName])` off the aif runtime's own `process.env`
+(aif-handoff `packages/runtime/src/resolution.ts:426`, `:217-219`). So `hasApiKey:true` **is** proof
+that §7b #1's outcome was achieved — without dereferencing the value, without argv exposure, without
+echoing it (§7b #4 intact). `hasApiKey:false` is an objective-3 MISS, not a warning to print.
 
-### §7d.5 §3's companion install is prose in a field the engine never reads
+### §7e.5 §3's companion install is prose in a field the engine never reads
 
 `companions.manifest:33` puts clone+compose into `install_cmd`, but `setup.d/engine.sh:18`
 early-returns past that field for `kind=external-service`, and `bridge-guided.sh:11-29` only prints
-hints. There is therefore **no consent surface**, and §4 item 4's «decline → `env` degradation» has
-nothing to decline. Either deliver a real consent+install path for this kind, or PARK (§7) with
-`engine.sh:18` quoted — but do **not** leave prose in a dead field and report the objective met.
+hints. There is no consent surface, so §4 item 4's «decline → `env` degradation» has nothing to
+decline. Deliver a real consent+install path for this kind, or PARK with `engine.sh:18` quoted —
+do not leave prose in a dead field and report the objective met. (§7d.2's falsified clone URL is a
+separate, still-binding correction; fixing the URL does not give the field a reader.)
 
-### §7d.6 MAJOR — the suite must not green-light routes that do not exist
+### §7e.6 MAJOR — the suite must not green-light routes that do not exist
 
-`tests/install-sh/glm-onebutton.test.sh:78-86` mocks the guessed ping path → `200` and
-`POST /runtime-profiles` → `201` **regardless of body**. §4.1's `host-verify` command therefore
-passes *over* §7d.2 and §7d.3. A mock that invents an endpoint is not a test, it is a second
-implementation of the bug.
-
-**Binding shape (fail-closed, not a reminder):** the `curl()` stub MUST reject any request whose
-path is not in an explicit allowlist, and MUST reject a create body missing a required field —
-returning the same `400` the live API returns, so the test fails when the helper is wrong. The
-allowlist is pinned by the §7d.1 probe and each entry carries the date it was probed. Add a
-paired-negative case proving the stub **fails** on the run-3 helper (guessed ping path + create body
-without `runtimeId`/`providerId`); a stub that cannot fail on the known-bad input is not evidence.
-
-**No `it.fails()`-as-delivery.** A known-broken path may not be shipped as a passing suite plus an
-expected-to-fail marker plus an operator TODO. Either fix it or PARK it per §7.
+Run 3's `tests/install-sh/glm-onebutton.test.sh:78-86` mocks a guessed ping path → `200` and
+`POST /runtime-profiles` → `201` **regardless of body**, so §4.1's `host-verify` command passes
+*over* §7e.2 and §7e.3: «green» meant «the mock agrees with the helper». **Fail-closed, structurally:**
+the `curl()` stub MUST reject any path outside an explicit allowlist (each entry carrying the date it
+was probed) and MUST reject a create body missing a required field, returning the same `400` the live
+API returns. Add a paired-negative proving the stub **fails** on run 3's helper (guessed ping path +
+create body without `runtimeId`/`providerId`); a stub that cannot fail on known-bad input is not
+evidence. **No `it.fails()`-as-delivery** — a known-broken path may not ship as a passing suite plus
+an expected-to-fail marker plus an operator TODO. Fix it or PARK it per §7.
 
 ## §8 PR-body requirements (both gates are REQUIRED checks on `staging`)
 
