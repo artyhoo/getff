@@ -333,20 +333,30 @@ branches the worker could not see). Both instructions are now retracted and repl
 
 **The generalisation, and it is binding for the rest of this kickoff:** when a fact about aif is
 needed, the **live API is the oracle**, not the source tree. It is reachable from the container
-(`curl -s -o /dev/null -w '%{http_code}' "$AIF/runtime-profiles"` → `200`, measured 2026-08-09).
+(`curl -s -o /dev/null -w '%{http_code}' "$RUNTIME_BRIDGE_AIF_URL/runtime-profiles"` → `200`, measured 2026-08-09).
 If a needed fact is reachable by neither source nor probe, **that** is a §7 park.
 
 ### §7d.1 Establish the schema by probe, at entry (replaces «re-read the file»)
 
-Run these first, from the container, and quote the outputs in the PR body (T3). `$AIF` is the aif
-API base the helper already resolves; inside the agent container it is `http://api:3009`.
+**First, the base URL — and this is a trap the run-3 helper is already sitting in.** The helper
+resolves `AIF_URL="${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}"`
+(`scripts/getff-glm-onebutton.sh:94`). That fallback is correct for a **consumer's** machine and
+**wrong inside the agent container**, where `RUNTIME_BRIDGE_AIF_URL` is unset and `localhost` is the
+container itself. Measured 2026-08-09 from `aif-handoff-agent-1`: `GET http://localhost:3009/runtime-profiles`
+→ curl exit 7 (`000`, connection refused); `GET http://api:3009/runtime-profiles` → **`200`**. So
+when probing from the container, export `RUNTIME_BRIDGE_AIF_URL=http://api:3009` first. Do **not**
+change the helper's shipped default — the default is for consumers; this is your probe environment.
+
+Run these first and quote the outputs in the PR body (T3):
 
 ```bash
+export RUNTIME_BRIDGE_AIF_URL="${RUNTIME_BRIDGE_AIF_URL:-http://api:3009}"   # container only
+A="$RUNTIME_BRIDGE_AIF_URL"
 # (a) required-field discovery — the API names its own required fields
-curl -s -X POST -H 'Content-Type: application/json' -d '{"name":"probe-only"}' "$AIF/runtime-profiles"
+curl -s -X POST -H 'Content-Type: application/json' -d '{"name":"probe-only"}' "$A/runtime-profiles"
 # (b) route-existence discovery — 404 means the route does not exist
 curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'Content-Type: application/json' -d '{}' \
-  "$AIF/runtime-profiles/validate"
+  "$A/runtime-profiles/validate"
 ```
 
 Dispatcher's own run, 2026-08-09, from `aif-handoff-agent-1` — reproduce it, do not trust it:
@@ -354,7 +364,12 @@ Dispatcher's own run, 2026-08-09, from `aif-handoff-agent-1` — reproduce it, d
 - (a) → `400` with `ZodError`, `path: ["runtimeId"]` and `path: ["providerId"]`, both
   `"expected string, received undefined"`.
 - (b) → `400` (**not** 404): the route exists and rejects an empty body.
-- Control: `POST "$AIF/runtime-profiles/deadbeef/v1/messages"` → **`404`**.
+- Control: `POST "$A/runtime-profiles/deadbeef/v1/messages"` → **`404`**.
+
+**Consequence for §4 item 1 («live end-to-end … against a running aif»).** If the run-3 helper was
+ever «run» in-container without that export, it could not have reached aif at all — which is
+consistent with the suite mocking every call (§7d.6). A live end-to-end claim must therefore quote
+the base URL it used alongside the transcript.
 
 ### §7d.2 `runtimeId` + `providerId` are REQUIRED in the create body
 
