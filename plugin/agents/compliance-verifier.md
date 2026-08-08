@@ -141,5 +141,5 @@ deterministic layer's job (the regex gate fails first); a present-but-hollow §1
 
 ## See also
 
-- [`.claude/rules/phase-research-coverage.md §1.7`](../.claude/rules/phase-research-coverage.md) — the §1.7 discipline.
+- `.claude/rules/phase-research-coverage.md §1.7` — the §1.7 discipline.
 - [`agents/review-sidecar.md`](review-sidecar.md) — diff-level tautological-test review.
