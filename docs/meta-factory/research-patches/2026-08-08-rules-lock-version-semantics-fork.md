@@ -88,10 +88,13 @@ ledger — pulled forward, not newly built; (3) the §4 third possibility («bot
 decision now.
 
 **Cascade:** `PARK-S1-3` resolves to its Option B (manifest) by implication — the shell has no
-other access to the generation context. `PARK-S1-1/2/4` remain open. The stage kickoff was
-re-authored per §7's counter (spec line quoted inside criterion 1):
-[`getff-freshness-widening-s1/kickoff.md`](../../../.claude/orchestrator-prompts/getff-freshness-widening-s1/kickoff.md) rev 2 — it also inlines the §6 blockers as
-criteria 6-8 and preserves the r1 park payloads, closing §6 item 3 (invisible parks).
+other access to the generation context. `PARK-S1-1/2/4` remained open at decision time and were
+**decided the same day in the follow-up dialogue** (staged-A / C / refined-A — recorded with
+rationale and external evidence in the kickoff rev 3 §6 Decided forks; no open forks remain).
+The stage kickoff was re-authored per §7's counter (spec line quoted inside criterion 1):
+[`getff-freshness-widening-s1/kickoff.md`](../../../.claude/orchestrator-prompts/getff-freshness-widening-s1/kickoff.md) rev 2, superseded same day by rev 3 —
+it also inlines the §6 blockers as criteria 6-8 and records every park's resolution in §6
+Decided forks (closing §6 item 3, invisible parks).
 
 ## See also
 

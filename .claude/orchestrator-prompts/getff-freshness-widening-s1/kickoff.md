@@ -1,6 +1,6 @@
-<!-- scope: kickoff — getff-freshness-widening STAGE S1 (locks record reality), REV 2 after the RulesLock.version semantics fork was DECIDED (Option A, operator, 2026-08-08 — see docs/meta-factory/research-patches/2026-08-08-rules-lock-version-semantics-fork.md). Parent: .claude/orchestrator-prompts/getff-freshness-widening/kickoff.md §1 S1. Design base (BINDING): docs/superpowers/specs/2026-07-23-getff-any-stack-closure-design.md §7.1. Tier 2 (generation-context manifest shape is a design decision), NO bridge-profile marker. Container-dispatchable: touches setup.d/ + packages/core/, NOT .claude/**. -->
+<!-- scope: kickoff — getff-freshness-widening STAGE S1 (locks record reality), REV 3: ALL forks decided (version semantics → Option A; PARK-S1-1 → staged-A; PARK-S1-2 → C; PARK-S1-4 → refined-A; operator, 2026-08-08 — see docs/meta-factory/research-patches/2026-08-08-rules-lock-version-semantics-fork.md §9). Parent: .claude/orchestrator-prompts/getff-freshness-widening/kickoff.md §1 S1. Design base (BINDING): docs/superpowers/specs/2026-07-23-getff-any-stack-closure-design.md §7.1. Tier 2 (generation-context manifest shape is a design decision), NO bridge-profile marker. Container-dispatchable: touches setup.d/ + packages/core/, NOT .claude/**. -->
 
-# getff-freshness-widening S1 — locks record reality (rev 2, post-fork)
+# getff-freshness-widening S1 — locks record reality (rev 3, all forks decided)
 
 > **Goal:** a generated `rules-lock.<framework>.json` currently cannot answer «which dependency
 > versions was this rule set generated against?» — the field exists and is hard-coded `null`.
@@ -11,6 +11,8 @@
 > of [`2026-08-08-rules-lock-version-semantics-fork.md`](../../../docs/meta-factory/research-patches/2026-08-08-rules-lock-version-semantics-fork.md).
 > The first S1 run (r1) shipped the opposite reading (consumer's own project version) and was
 > withheld from egress; its branch is preserved, see §0.
+> **All remaining r1 parks DECIDED the same day (operator):** PARK-S1-1 → staged-A,
+> PARK-S1-2 → C, PARK-S1-4 → refined-A — see §6 Decided forks. **No open forks at dispatch.**
 
 ## §0 What happened to S1-r1 (read before re-deriving anything)
 
@@ -29,7 +31,10 @@ defect, and `.husky/pre-push` correctly refused the red branch. Preserved in two
   a **value-level** parity check (reverting a writer to `"version": null` turns it RED). Keep it.
 - Lane parity asserted over **outputs** (the npm arm invokes `install()` for real), not over
   writers looking alike. Keep the approach (T-S1-B).
-- SSOT row 241 (lockfile-provenance, BUILD with REFERENCE) already researched — cite, don't re-search.
+- SSOT row 241 (lockfile-provenance) was researched in r1 but is **NOT on staging** (verified
+  2026-08-08: the SSOT's last row is 240) — it lives only in the bundle. RE-LAND it from the
+  bundle, extended with the ADOPT-VOCABULARY note from §6 fork 5, in the SAME commit as the
+  `Prior-art:` trailer that cites it (§1.9 existence-check fires on a citation of an unlanded row).
 - PARK-S1-5 (go lane) — a model park; its resolution is folded into criterion 1 below.
 
 **Discard from r1:** the `sed`-based `[project]`/`[package]` version extractors in
@@ -62,8 +67,11 @@ fixtures — a different artefact class**. Do NOT sweep them.
 
 - `packages/core/installer/types.ts` — the `RulesLock` schema.
 - `packages/core/installer/{install.ts,cli.ts,index.ts}` — only as the schema change forces.
-- `packages/core/synthesizer/**` — ONLY the generation-context manifest emission (§3 mechanism);
-  widened in rev 2 because the decided semantics makes the synthesizer the version's source of truth.
+- `packages/core/synthesizer/**` — the generation-context manifest emission (§3 mechanism) and
+  the `tier` stamp on `SynthesizedRule.research` (PARK-S1-2 → Option C, §6); widened in rev 2-3
+  because the decided semantics makes the synthesizer the source of truth for generation facts.
+- `packages/core/research/types.ts` — ONLY the additive optional `tier` field on `Provenance`
+  (PARK-S1-2 Option C; existing data stays valid).
 - `setup.d/45-python.sh`, `setup.d/46-cargo.sh`, `setup.d/47-go.sh` — the three lane writers.
 - Tests + fixtures for the above, under `packages/core/**` and `tests/install-sh/**`.
 - Baseline/snapshot regeneration the change forces (`tests/install-sh/baselines/**`).
@@ -95,10 +103,14 @@ park-record contract, not as file writes.
    POSIX-`grep`/`sed`-extractable because install-time shell lanes have no Node). Shell writers
    read `version` from it at install time. This same manifest is the designated carrier for the
    per-rule provenance slice when PARK-S1-2/4 are decided — design it so that slice is additive.
-3. **Per-rule provenance/tier — park-pending, stated honestly.** Blocked on PARK-S1-1/2/4 (§6 —
-   payloads inlined, decisions still open). Ship the version slice without pretending: the lock's
-   per-rule fields stay absent (no present-but-empty theatre, T14). If the parks get decided
-   before dispatch, this criterion re-activates in full per the §6 payloads.
+3. **Per-rule provenance/tier — ACTIVE (all three parks decided, §6).** The lock's per-rule shape
+   is `rules: Array<{id, provenance: Provenance[], tier}>` — sorted by `id`, named fields only
+   (never positional), REPLACING `ruleIds`, landing together with the `schemaVersion: 2` bump
+   (§6 forks 3/5). `tier` is stamped at synthesis time onto the rule's research record (additive
+   optional field; §6 fork 4) and travels through the manifest — never re-derived at install
+   time. Populated for real on the fixture: uniformly-null provenance/tier is a stage FAILURE
+   (T14). Update the in-repo shape gates in the same commit: `snapshot.test.ts` lockShape, the
+   F11 CORE set in `33-adapter-jig-arm-registry.ts:418-427`, and the parity checker.
 4. **All four lanes aligned on ONE semantics AND one schema** — python, cargo, go, npm produce the
    same shape and the same meaning of `version`. Prove it at the VALUE level: extend r1's
    `lock_version_raw()` parity check (§0) so that a writer emitting a project-own version (not
@@ -117,10 +129,13 @@ park-record contract, not as file writes.
    emitted by `JSON.stringify` (well-formed by construction) — so this criterion is satisfied by
    (a) deleting r1's `sed` extractors (§0 Discard) AND (b) a test proving `JSON.parse` succeeds on
    locks produced from a fixture whose consumer manifests contain exactly those three vectors.
-8. **Backward compatibility stated, not assumed** (r1 blocker 2): the version slice changes a
-   value, not the schema — encode in a test that the lock stays `schemaVersion: 1` and an
-   old-lock reader is unaffected. The full PARK-S1-1 policy decision stays parked for the
-   per-rule slice (§6).
+8. **Backward compatibility — staged policy DECIDED (PARK-S1-1 → staged-A, §6); encode both
+   halves in tests:** the version-value change alone is additive under `schemaVersion: 1`; the
+   per-rule shape change (criterion 3) lands with `schemaVersion: 2`, and a v2-aware reader
+   REFUSES a v1 lock loudly with a «regenerate the lock» remediation message — never a silent
+   partial read, never migrate-on-read (an old lock has no per-rule data to migrate). Any
+   shipped reader written for v2 (e.g. the future deps-hash S2 parser) branches on
+   `schemaVersion` from day one.
 9. **The scope trap held:** `git diff --name-only origin/staging...HEAD` contains **no**
    research-plan / detector fixture from §1. If one appears, justify explicitly or revert.
 
@@ -135,10 +150,13 @@ npx vitest run packages/core/hooks/deps-hash-check.test.ts
 
 The generation-context manifest emission may cross the capability-commit thresholds
 ([CLAUDE.md](../../../CLAUDE.md) «Build-vs-reuse invariant»: new file ≥80 LOC under `packages/`,
-or ≥50 LOC under a new `packages/core/<dir>/`). SSOT row 241 (lockfile-provenance, BUILD with
-REFERENCE) already covers this capability area from r1's T12 consult — cite it in the `Prior-art:`
-trailer; re-search only if the manifest design leaves row 241's scope. If the change stays under
-the LOC thresholds, say so explicitly with the count.
+or ≥50 LOC under a new `packages/core/<dir>/`). SSOT row 241 (lockfile-provenance) was researched
+in r1's T12 consult but is **NOT on staging** (verified 2026-08-08: last landed row is 240) — it
+lives in the r1 bundle. RE-LAND the row — extended with the ADOPT-VOCABULARY note per §6 fork 5 —
+in the SAME commit as the `Prior-art:` trailer that cites it: §1.9 existence-check requires the
+cited ID to be landed by-or-before the citing commit. Re-search only if the manifest design
+leaves row 241's scope. If the change stays under the LOC thresholds, say so explicitly with
+the count.
 
 ## §5 AI-laziness traps
 
@@ -176,31 +194,41 @@ On ANY genuine fork or ambiguity — **do NOT pick.** Park it (`manualReviewRequ
 `blocked_external`, fork stated as «Option A → consequence X / Option B → consequence Y») and
 stop that task. Proceed only on unambiguous parts.
 
-**Decided forks (do not re-litigate):**
+**Decided forks (all operator, 2026-08-08 — do not re-litigate):**
 
-- **RulesLock.version semantics → Option A (dependency version).** Operator, 2026-08-08, per the
-  research patch. Binding on criteria 1/4/5/6.
-- **PARK-S1-3 (shell-lane source) → its Option B (synthesizer-emitted manifest),** by implication
-  of the semantics decision — the shell has no other access to the generation context. Binding on
-  criterion 2. The manifest's *shape* remains this stage's Tier-2 design work.
+1. **RulesLock.version semantics → Option A (dependency version).** Per the research patch §9.
+   Binding on criteria 1/4/5/6.
+2. **PARK-S1-3 (shell-lane source) → its Option B (synthesizer-emitted manifest),** by
+   implication of the semantics decision — the shell has no other access to the generation
+   context. Binding on criterion 2. The manifest's *shape* remains this stage's Tier-2 design
+   work; recommended composition: one fragment file per rule id, already in final lock shape, so
+   shell lanes select by filename and `cat`-join (no JSON parsing in shell; multi-provenance
+   lives INSIDE a fragment — `research.provenance` is already an array, synthesizer/types.ts:72).
+3. **PARK-S1-1 (schema compat) → staged-A.** The version-value slice stays `schemaVersion: 1`
+   (additive); the per-rule shape slice bumps to `2`, readers refuse v1 loudly («regenerate»).
+   Rationale: silent partial reads recreate the silent staleness this umbrella exists to end;
+   migrate-on-read cannot invent absent per-rule data. Binding on criterion 8.
+4. **PARK-S1-2 (tier source) → Option C.** `tier` is stamped at synthesis time (additive
+   optional field beside `fetchedAt`) — tier is a fact about the research moment, like
+   `fetchedAt`; re-deriving at install time can silently rewrite history when allowlist/ack
+   state moved between generation and install. §2 widened accordingly. Binding on criteria 2-3.
+5. **PARK-S1-4 (per-rule shape) → refined Option A.** `rules: Array<{id, provenance, tier}>`
+   REPLACES `ruleIds`; sorted by `id`; named fields only, never positional. The r1 Option B
+   (parallel `ruleProvenance` map) is REJECTED: its sync with `ruleIds` would be held by a test,
+   while the array makes the inconsistency unrepresentable — earlier than any gate. External
+   convergence (live-searched 2026-08-08): in-toto/SLSA `subject` and CycloneDX `components`
+   are arrays of per-entity objects (CycloneDX 1.6 migrated identity evidence object→array,
+   recommending arrays); lockfile-design guidance recommends flat independent sorted entries
+   and warns off nested maps (npm's mirrors `node_modules` — problem-class mismatch, T16) and
+   positional arrays (bun — «hostile to external tooling»). Verdict class: **ADOPT VOCABULARY**
+   (CycloneDX/in-toto shape conventions, no dependency on their schemas) — record in the
+   re-landed SSOT row 241 (§4). The fragment dir (one file per rule) is the grep/shell-friendly
+   line-oriented surface; the lock stays a single JSON attestation document. Binding on
+   criteria 3-5.
 
-**Still-open forks (parked; payloads preserved from r1 so no session re-derives them —
-full text in r1's plan file, summarized binding-part here):**
-
-- **PARK-S1-1 — backward-compat policy** for the schema change: bump `schemaVersion` to 2
-  (fail loud) / tolerate v1 at read (silent partial) / migrate-on-read (write-on-read side
-  effect). Spec §7.1 is silent. Blocks the per-rule slice only; the version slice is additive
-  under `schemaVersion: 1` (criterion 8).
-- **PARK-S1-2 — `tier` source**: omit tier (spec deviation) / re-derive at install via the
-  research-source-trust resolver (threads resolver into installer) / stamp tier onto
-  `SynthesizedRule` at synthesis (cleanest, but edits `packages/core/synthesizer/types.ts` +
-  `research/types.ts`). Evidence from r1: neither `SynthesizedRule` (synthesizer/types.ts:54-73)
-  nor `Provenance` (research/types.ts:4-14) carries `tier`; it is a property of resolution
-  (`allowlist-resolver.ts`), not stored.
-- **PARK-S1-4 — per-rule schema shape**: `rules: Array<{id, provenance, tier}>` replacing
-  `ruleIds` (breaks readers) / `ruleIds` + parallel `ruleProvenance` record (additive,
-  shell-friendly) / keyed `rules: Record<id, {...}>` (loses ordering). Interacts with S1-1/S1-2
-  and with criterion 5's diff shape.
+**Still-open forks: NONE.** All r1 parks are resolved above (PARK-S1-5 is folded into
+criterion 1). The park discipline in this section still applies in full to any NEW fork
+discovered during execution.
 
 **Known harness constraint:** container write channels refuse `.claude/**` (observed 2026-08-07,
 task `6cfa9c79`). §2's allowlist avoids that surface; this stage IS container-dispatchable. A
