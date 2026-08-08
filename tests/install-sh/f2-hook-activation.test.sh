@@ -31,11 +31,11 @@ printf '{ "name":"t","version":"0.0.0" }\n' > "$T/package.json"
 
 node -e '
   const d = require(process.argv[1]).devDependencies || {};
-  const want = { "husky":"^9.1.7", "lint-staged":"^15.2.10", "sort-package-json":"^2.10.1" };
+  const want = { "husky":"^9.1.7", "lint-staged":"~16.4.0", "sort-package-json":"~3.7.1" };
   for (const [k,v] of Object.entries(want)) if (d[k] !== v) { console.error("missing/wrong: "+k+"="+d[k]); process.exit(1); }
   process.exit(0);
 ' "$T/package.json" \
-  && ok "pos: 3 hook devDeps merged with caret ranges (husky/lint-staged/sort-package-json)" \
+  && ok "pos: 3 hook devDeps merged at the CORE_DEVDEPS specs (husky/lint-staged/sort-package-json)" \
   || bad "pos: hook devDeps not merged correctly"
 
 # ── IDEMPOTENCY: a second install changes nothing ──

@@ -25,8 +25,8 @@
       "rule": "build-first-reuse-default",
       "harness": "zcode",
       "status": "degraded",
-      "target": "session-start-hook",
-      "reason": "zcode has no rulesAutoload/paths: primitive (P1 fact); Tier-0 core text delivered via a SessionStart hook fallback instead of always-on rule auto-load."
+      "target": "edit-time-inject",
+      "reason": "zcode has no pathScoping primitive (P1 fact); path-scoped delivery falls back to the PostToolUse edit-time-inject channel (inject-matching-rule.sh shim, #897), not native read-time paths: scoping. Re-scoped 2026-08-08 (S-M) from Tier-0 always-on to paths:-declared, mirroring source-before-shape.md's authoring-surface glob family."
     },
     {
       "rule": "ci-tool-pinning",

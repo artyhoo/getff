@@ -11,7 +11,7 @@
 ## What this project is
 
 See `.ai-factory/DESCRIPTION.md` for full project context — domain, stack, constraints, non-goals.
-See `.ai-factory/ARCHITECTURE.md` for layer structure, dependency direction, forbidden patterns.
+See `.ai-factory/ARCHITECTURE.md` for layer structure, dependency direction, forbidden patterns — and on a React/Next project also `.ai-factory/ARCHITECTURE.react-next.md` (Server vs Client boundary).
 
 ## Project rules (enforced by lint, tests, CI, audit-ai-docs)
 

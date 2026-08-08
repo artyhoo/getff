@@ -129,6 +129,21 @@ declaration to a **consented guided INSTALL**:
 5. **Degrade-to-manual counts as objective-3 MISS** — if the flow cannot complete automated, the
    PR body records it as a MISS with the blocker, NOT as «degraded gracefully» (T-BDU-B).
 
+### §4.1 Host-verify contract ([destination-environment-verification.md §1](../../rules/destination-environment-verification.md))
+
+This stage ships a shell helper, an install-time gate, and a `tests/install-sh/` suite — exactly
+the container≠host surface the rule exists for. A green container run is **not** evidence. Run
+these on the **host** (`bash scripts/host-verify.sh beta-delivery-ux`) before accepting the work;
+they decide acceptance:
+
+```bash host-verify
+bash tests/install-sh/glm-onebutton.test.sh
+```
+
+Note the ordering: the command targets a file this stage introduces, so it resolves only once the
+branch is checked out on the host — which is precisely when acceptance happens. It will not
+resolve against bare `staging`, and that is expected, not a defect in the contract.
+
 ## §5 Out of scope (do NOT do these here)
 
 - Pipeline presets / `/pipeline status` / workspace one-command → S2.
@@ -225,6 +240,65 @@ implement as resolved. Anything OUTSIDE these resolutions still follows the §7 
    quoted. (ii) file path = `${XDG_CONFIG_HOME:-$HOME/.config}/getff/glm.env` — the XDG Base
    Directory spec's OWN fallback semantics, valid on macOS (var unset → literal `~/.config`)
    and Linux alike; this is the spec default, not a platform guess.
+
+## §7b Dispatcher resolution — the key-acquisition channel (run-2 KICKOFF-AMBIGUOUS, CLOSED)
+
+**Provenance, stated honestly:** §7a is the *operator's* resolution set. This section is **not** —
+it was authored by the `/dispatcher` session on 2026-08-08 to close the `KICKOFF-AMBIGUOUS` that
+run 2's cold fidelity audit raised (PR #1300). It adds **no new decision**; it supplies the one
+step §7a omitted, and it is the *unique* completion that leaves all three §7a clauses intact.
+The operator may override it — if they do, §7b loses to their call.
+
+**The gap (verified against source, not inferred).** §7a #1 puts only the env-var NAME in the
+profile; §7a #4(ii) puts the VALUE in `${XDG_CONFIG_HOME:-$HOME/.config}/getff/glm.env`; §7a #3
+requires the validation ping to run **through the created profile**. Nothing connects (ii) to the
+process that needs it:
+
+- aif resolves the key from **its own runtime `process.env`, by that name** —
+  `packages/runtime/src/resolution.ts:217-219` (`resolveApiKey(envVarName, env)` →
+  `normalizeString(env[envVarName])`) and `:247`
+  (`const env = input.env ?? (process.env as RuntimeResolutionEnv)`), in the aif-handoff repo.
+- that process env is populated from the compose env-file — `docker-compose.yml:15`, `:59`, `:94`
+  (`env_file: .env`, all three services).
+- therefore a file at `~/.config/getff/glm.env` is **invisible** to the aif runtime unless the
+  flow also makes it reachable there. Without that step §7a #3 is unreachable except by
+  dereferencing the value, which §7a #1 + §2 constraint 1 forbid.
+
+**Resolution — bind the OUTCOME, leave the mechanism to the worker (a §7 technical fork).**
+
+1. The flow MUST make the key value reachable in the **aif runtime's process environment** under
+   the §7a #1 name (`ANTHROPIC_AUTH_TOKEN`), sourced from the §7a #4(ii) file. `glm.env` stays the
+   canonical getff-owned storage location — this adds the wiring, it does not move the file.
+2. The **mechanism is yours to pick** (compose `env_file:` entry, the aif deployment's own `.env`,
+   or an equivalent) — deployments vary, so the kickoff does not prescribe one. Record which you
+   picked and why, per §7.
+3. The helper MUST **verify reachability before** the §7a #3 ping and fail honestly if absent —
+   an unreachable key is an **objective-3 MISS** per §2 constraint 4, never a silent warning-and-continue.
+4. **Unchanged and still binding:** the value never enters the profile, never enters `curl` argv
+   or any command line (process-table exposure — run-2 watch-list W-2), and is never echoed. It
+   moves file → process env only.
+
+**Falsifier:** if the live aif deployment reads its key by some channel other than
+`process.env[<name>]`, this resolution is wrong — PARK with the contradicting source quoted.
+
+## §7c Binding corrections carried from run 2 (NOT forks — implement as stated)
+
+Run 2's audit findings that are settled by in-repo source. Do not re-derive, do not park.
+
+1. **The project-defaults write path was invented.** `scripts/getff-glm-onebutton.sh:135` used
+   `PATCH $AIF_URL/project`, which does not exist. The authoritative contract was reachable in the
+   container: `packages/runtime-bridge/src/cli/aifHttp.ts:96` — **`PUT /projects/:id` with a full
+   `createProjectSchema` body** is the only write path; `aifHttp.ts:90` — aif has **no**
+   `GET /projects/:id`, so read current state via `GET /projects` and filter by id, then PUT the
+   full body back with your fields changed.
+2. **Both halves of §7a #2 must be written.** Run 2 wrote only Task+Review (`:138`) and omitted
+   `defaultPlanRuntimeProfileId`, silently leaving Plan on whatever was set before. Write
+   Plan→top-tier **and** Task+Review→executor-tier, or the step is not delivered.
+3. **The ping target is the profile, not the vendor.** Run 2 pinged `$GLM_BASE_URL` directly
+   (`:171`), which proves the key but not the route the flow just built (watch-list W-3). Route it
+   through the aif profile id created in step A.
+4. **`setup.d/10-skills.sh` stays untouched** — S5 is its sole editor (W-5, held CLEAN in run 2;
+   keep it that way).
 
 ## §8 PR-body requirements (both gates are REQUIRED checks on `staging`)
 

@@ -512,13 +512,23 @@ jobs:
       - name: Run install-sh ship-orchestration-skills test (#500 — was present-but-unwired)
         run: bash tests/install-sh/ship-orchestration-skills.test.sh
       - name: install-sh — lychee-shipped-md-offline (consumer first-push link integrity, 2026-07-10 smoke)
-        # Pinned release install (ci-tool-pinning.md §1): without lychee on PATH the test
-        # self-skips, which would make this CI arm vacuous (#hope-as-gate).
+        # Pinned release install (ci-tool-pinning.md §1). The 0.24.2 release tarball nests
+        # the binary under lychee-x86_64-unknown-linux-gnu/, so --strip-components=1 is
+        # load-bearing: without it lychee never lands on PATH and the test self-skips,
+        # making this arm vacuous (PR #1272 run 31230567666 — a broken shipped link merged
+        # green, fixed in PR #1304). The test's SKIP branch is therefore promoted to a hard
+        # step failure here (attention-is-not-a-mechanism.md §1: no #hope-as-gate).
         run: |
+          set -euo pipefail
           curl -sSfL https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz -o "$RUNNER_TEMP/lychee.tgz"
           echo "1f4e0ef7f6554a6ed33dd7ac144fb2e1bbed98598e7af973042fc5cd43951c9a  $RUNNER_TEMP/lychee.tgz" | sha256sum -c -
-          tar -xzf "$RUNNER_TEMP/lychee.tgz" -C "$RUNNER_TEMP"
-          PATH="$RUNNER_TEMP:$PATH" bash tests/install-sh/lychee-shipped-md-offline.test.sh
+          tar -xzf "$RUNNER_TEMP/lychee.tgz" -C "$RUNNER_TEMP" --strip-components=1
+          "$RUNNER_TEMP/lychee" --version
+          PATH="$RUNNER_TEMP:$PATH" bash tests/install-sh/lychee-shipped-md-offline.test.sh | tee "$RUNNER_TEMP/lychee-test.out"
+          if grep -qF 'SKIP: lychee not on PATH' "$RUNNER_TEMP/lychee-test.out"; then
+            echo "::error::lychee-shipped-md-offline self-skipped despite the pinned install — this CI arm is vacuous; fix the PATH/extraction above"
+            exit 1
+          fi
       - name: install-sh — r2-na-marker (GH #547 C4 two-gates-one-marker)
         run: bash tests/install-sh/r2-na-marker.test.sh
       - name: install-sh — consumer-upgrade-path (--refresh acceptance gate — stale-refreshed + customise-survives)
