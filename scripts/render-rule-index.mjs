@@ -54,7 +54,6 @@ const INDEX_MAX_BYTES = 4 * 1024;
 // Tier-0 core rules: never evicted, always-on regardless of paths:/globs — declared here as the
 // project's own current decision (P4 resolution), not derived from any rule's own markers.
 const TIER0_CORE = new Set([
-  'build-first-reuse-default',
   'attention-is-not-a-mechanism',
   'ai-laziness-digest',
 ]);

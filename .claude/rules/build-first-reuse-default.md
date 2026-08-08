@@ -1,6 +1,20 @@
+---
+paths:
+  - '.claude/skills/**'
+  - 'agents/**'
+  - '.claude/rules/**'
+  - 'setup.d/**'
+  - 'docs/meta-factory/prior-art-evaluations.md'
+  - 'package.json'
+  - 'packages/core/package.json'
+---
+
+<!-- globs: .claude/skills/**, agents/**, .claude/rules/**, setup.d/**, docs/meta-factory/prior-art-evaluations.md, package.json, packages/core/package.json -->
+<!-- inject: BFR: capability proposals resolve to one of 7 verdicts (ADOPT/ADOPT VOCAB/ADAPT/REFERENCE/KEEP NARROW/BUILD/REJECT); default ADOPT/REFERENCE; BUILD requires SSOT consult + DeepWiki+WebSearch ≥3 phrasings. See .claude/rules/build-first-reuse-default.md + prior-art-evaluations.md. -->
+
 # Build-first, reuse-default — operating philosophy
 
-> **Class:** A — companion principle test shipped at [packages/core/principles/11-build-first-reuse-default.test.ts](../../packages/core/principles/11-build-first-reuse-default.test.ts) (#75, 2026-05-17). Design sketch retained at [11-build-first-reuse-default.design.md](../../packages/core/principles/11-build-first-reuse-default.design.md).
+> **Class:** A — companion principle test shipped at [packages/core/principles/11-build-first-reuse-default.test.ts](../../packages/core/principles/11-build-first-reuse-default.test.ts) (#75, 2026-05-17). Design sketch retained at [11-build-first-reuse-default.design.md](../../packages/core/principles/11-build-first-reuse-default.design.md). Channel: paths:(7) + edit-time inject (re-scoped from always-on Tier-0, operator verdict 2026-08-08); always-on pointer carriers: session-bootstrap digest invariant (1) + CLAUDE.md per-commit gate.
 > **Fires:** any capability commit / new-capability proposal.
 > **Authoritative for:** project-wide macro-level scope discipline; relationship to upstream tools, frameworks, and ecosystems; default verdict for new capability proposals.
 > **NOT authoritative for:** per-commit build-vs-reuse — that lives in [CLAUDE.md «Build-vs-reuse invariant (Phase 8.8)»](../../CLAUDE.md). This rule is the macro-level complement to per-commit invariant.
@@ -91,6 +105,8 @@ Six layers, each catching different evidence:
 
 **Never retire.** This rule encodes a project-foundational operating philosophy — recursive self-application requirement makes retirement equivalent to abandoning the discipline-bearing artifact ownership model itself. If discipline framework changes structurally, revise this rule's content; do not delete.
 
+2026-08-08 channel re-scope ≠ retirement — see §9.
+
 ## §7 Relationship to other rules
 
 - **Subordinate to:** [CLAUDE.md «Build-vs-reuse invariant»](../../CLAUDE.md) at the per-commit level. This rule complements at the scope level.
@@ -104,3 +120,17 @@ Six layers, each catching different evidence:
 - [CLAUDE.md «Build-vs-reuse invariant (Phase 8.8)»](../../CLAUDE.md) — per-commit gate (predecessor at the micro level)
 - [docs/meta-factory/research-patches/2026-05-16-goal-clarity-dialogue.md](../../docs/meta-factory/research-patches/2026-05-16-goal-clarity-dialogue.md) — origin research-patch
 - [docs/meta-factory/research-patches/2026-05-16-1a-drafts-substantive-review.md](../../docs/meta-factory/research-patches/2026-05-16-1a-drafts-substantive-review.md) — pre-ship review that established slot-11 cascade + BFR rule final wording
+
+## §9 Channel & recursive self-application (2026-08-08)
+
+**Re-scope record.** Operator verdict 2026-08-08: this rule's full text moved off always-on Tier-0 core membership onto CC-native `paths:` + edit-time inject (`@dual-pair`). Resolves S-D′ spec §3.2 DECISION-NEEDED as Option B (target = this file). This is a channel re-scope, NOT retirement (§6 «Never retire» stands).
+
+**Supersession.** The `session-start-token-audit` kickoff `:145` verdict «STAY (declared always-on core) — do NOT demote» is SUPERSEDED by this operator verdict.
+
+**Observable restoration trigger.** Restore Tier-0 membership (all four copies: `scripts/render-rule-index.mjs TIER0_CORE`, `scripts/render-rule-channels.mjs ALWAYS_ON_CORE`, `packages/core/principles/31-rule-channel-declaration.ts ALWAYS_ON_CORE`, `packages/core/principles/31-rule-channel-declaration.test.ts` membership literal) upon ONE incident detectable from git artifacts:
+- a merged capability commit whose `Prior-art:` trailer is the escape-hatch form AND whose diff touches no §1.2 glob path, OR
+- a `#parallel-evolution-creep` finding recorded in a research-patch.
+
+**Proxy-floor honesty.** Edited-paths are a PROXY — read-time loads are not observable post-hoc; a session may read a §1.2 surface without editing it. The proxy under-counts loads, so it can only fire when neither channel provably had its editing occasion — a conservative trigger.
+
+**Self-application (T15).** This stage's own PR is capability-adjacent. The PR body shows the BFR/SSOT consult it preaches. §1a of the S-M kickoff exists because the swap applied to itself asked «who loads the rule after the rule stops loading?» — the carriers named there are the answer.
