@@ -217,6 +217,61 @@ layer ABOVE this command, not the load-bearing path.
 Technical forks strictly inside the kickoff bounds (which JSON schema, where exactly to hook the
 parser, how to format the status output) are yours to resolve — resolve them and record why.
 
+## §8a Operator resolutions (2026-08-08 — re-dispatch rev; the six #1284 parks are ANSWERED)
+
+The fd1d75e1 run correctly parked six forks (durable record: PR #1284 body, «Parked questions»).
+The operator resolved them 2026-08-08. These are now BINDING — do not re-park them; implement as
+resolved. Anything OUTSIDE these resolutions still follows the §8 contract. Where a §8 bullet
+below conflicts with §8a, §8a wins (it is the answer to that bullet's park).
+
+1. **Park-1 — preset data SCHEMA = Candidate A (flat) + one `description` field:**
+   `{mode, reviewer_tier, marker: <name|null>, description, predicates: {bundle_opt_in,
+   review_required, parallel_safe}}`. Rationale: all three seams are bash-3.2 + `jq` one-key
+   lookups (`helpers/parse-override-flags.sh` header forbids associative arrays; each seam reads
+   one path — `.mode` / `.predicates.*` / `.marker`). `description` feeds the §5 AC-2 `list`
+   verb (zero-code 5th preset). Falsifier: per-harness variants or multi-marker needs → revisit
+   Candidate B; no such requirement exists in the spec today.
+2. **Park-2 — preset data FORMAT = JSON.** `jq` is already a hard helper dependency
+   (`helpers/update-delta.sh`); YAML would add a `yq`-class toolchain dependency (rejected —
+   new capability for a format choice). **F-B′ shell-sourced rejection recorded** (spec §11
+   requires the WHY): sourcing data executes it as code — the flag parser itself rejected eval
+   for injection risk (`parse-override-flags.sh` header, strategy C); data that executes fails
+   the F-B′ criterion «readable … without parsing prose» in the harder direction (readable only
+   BY executing). First non-`.md` entry under `references/` is accepted: the `.md` files are
+   read-specs, presets are machine data — different roles, different formats.
+3. **Park-3 — `economy` reviewer-tier semantics:** the whole line INCLUDING review runs on the
+   executor tier (the §8 candidate «Option C» shape), with TWO binding additions: aif
+   auto-review capped at **1 iteration** (per-task `maxReviewIterations: 1` — meta-launch
+   decision 11 channel), and the **external cold fidelity round stays MANDATORY**. Evidence
+   basis: every real defect in this umbrella was caught by the external fidelity seat, not aif
+   auto-review (S1 MAJOR, S2 empty-done, S4 run-1 REVISE — meta-launch state.md §3.1/§5), and
+   that seat is session-bound (no per-token cost), so review depth is preserved while the paid
+   line stays cheap.
+4. **Park-4 — CC harness detection for `getff work` = env-presence capability check:**
+   `[ -n "${CLAUDE_CODE_SESSION_ID:-}" ]` (live-session marker; verified present in a live CC
+   session 2026-08-08). Sanctioned form per `dual-implementation-discipline.md §4` («env var
+   presence» is a capability check; the ban is brand-string branching in runtime logic).
+   Semantics: var set ⇔ inside a live CC session ⇔ native worktree flow available → print the
+   native-flow instruction, do not wrap. Outside a session the wrapper launches even when the
+   `claude` binary is installed (installed ≠ in-session). Falsifier: a compatible harness
+   setting the var without a native worktree flow → switch to an explicit capability probe.
+5. **Park-5 — marker values: the CONDITIONAL park did NOT fire.** Live probe 2026-08-08
+   (`curl -s "$RUNTIME_BRIDGE_AIF_URL/runtime-profiles" | jq -r '.[].name'` →
+   `Claude Opus (plan+review)` / `Z.AI GLM-5.2 SDK` / `Qwen3.8-Max-Preview`): no
+   case-insensitive substring collision among full display names → use full display names
+   as-is. This probe is a snapshot: §5 AC-3 (re-probe live at implementation) is unchanged and
+   still binding.
+6. **Park-6 — ship the FULL functional set together, same §1j profile gate (`env|factory|`
+   `WITH_AIF_SUITE`):** `scripts/create-worktree.sh` (already shipped, #1284) +
+   `scripts/worktree-node-modules.sh` + `scripts/link-coordination.sh`. Rationale:
+   `create-worktree.sh:87` calls `worktree-node-modules.sh` (missing → worktree silently
+   unprovisioned, the 2026-07-23 incident class exported to consumers) and `:127-130` calls
+   `link-coordination.sh` (missing → loud, consumer-meaningless warning on every run); the
+   kickoff §4 REUSE binding forbids rewriting the script, so the callees ship with it. All
+   three verbatim via `copy_safe`, no rewrites. **AC addition:** fresh-consumer smoke — run the
+   shipped `create-worktree.sh` in a clean consumer repo: exit 0, no missing-callee warning,
+   `node_modules` symlinks present in the created worktree.
+
 ## §9 PR-body requirements (both gates are REQUIRED checks on `staging`)
 
 This stage touches `.zcode/skills/pipeline/**` + `setup.d/**` (shipping create-worktree.sh) +
