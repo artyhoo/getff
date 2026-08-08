@@ -1,7 +1,7 @@
 # dispatcher-skill — Stage 0 R-phase: loop design + primitive reality + BFR verdict
 
 > **Authoritative for:** dispatcher-skill Stage 0 R-phase — primitive-reality table, loop design, BFR verdict (SSOT layer 5 consult included), DN-A/DN-B design recommendations.
-> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists); final DN-A/DN-B strategy (maintainer confirms per [reviewer-discipline.md §2](../../.claude/rules/reviewer-discipline.md)).
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists); final DN-A/DN-B strategy (maintainer confirms per [reviewer-discipline.md §2](../../.claude/rules/reviewer-discipline.md)); **current primitive behavior** — this is a point-in-time Stage-0 snapshot (e.g. it describes the 168-LOC `harvest.ts`; the rework auto-commit is since gated on 0-commits-ahead + `--confirm-rework`, and a ≥1-ahead dirty tree is never `add -A`'d — see [.claude/skills/dispatcher/SKILL.md §4](../../.claude/skills/dispatcher/SKILL.md) and `packages/runtime-bridge/src/harvest.ts`).
 
 ---
 
