@@ -152,6 +152,21 @@ Downgrades are NOT auto — per inventory §5.3, a downgrade is `git rm` the dee
 
 See also: per-profile payload inventory at `docs/meta-factory/research-patches/2026-07-25-beta-a-s1-inventory.md` §2.
 
+### GLM executor one-button (factory profile ONLY)
+
+If the consumer chose `--profile factory` (or `--with-aif-suite` / `--all`), the GLM executor tier wires with ONE human-entered key. Run:
+
+```bash
+bash /tmp/getff/scripts/getff-glm-onebutton.sh detect
+```
+
+- If output is `GLM_PROFILE: present` → GLM is already wired; skip to the next section.
+- If output is `GLM_PROFILE: missing` → run `bash /tmp/getff/scripts/getff-glm-onebutton.sh explain`, read the printed explanation aloud to the consumer (z.ai Coding Plan, the env-file path), and WAIT for the consumer to paste the key into `${XDG_CONFIG_HOME:-$HOME/.config}/getff/glm.env`.
+- After the consumer confirms the paste → run `bash /tmp/getff/scripts/getff-glm-onebutton.sh provision`. Report the `GLM_PROVISION: DONE` or `GLM_PROVISION: FAILED` output verbatim.
+- If the consumer declines the z.ai plan → factory profile runs at env-level until GLM is wired; record the decline in your install summary.
+
+The installer NEVER reads the key value — only the env-var name `ANTHROPIC_AUTH_TOKEN`. If you find yourself printing or logging the key value, STOP.
+
 ---
 
 ## What the AI will produce
