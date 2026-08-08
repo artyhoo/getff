@@ -38,7 +38,7 @@ For React/Next projects: also `.ai-factory/ARCHITECTURE.react-next.md` (Server v
 
 ## Tier routing + degradation (multi-model contour)
 
-When work needs model-tier routing (Tier 0 tiny / Tier 1 bulky-simple / Tier 2 bulky-complex), or when a capability is absent (no aif runtime, no GLM subscription, no Fable, non-CC harness), the authoritative criteria + degradation matrix live at [.ai-factory/tier-home.md](.ai-factory/tier-home.md). That doc owns the _criteria_; the aif runtime profile config (or your harness's equivalent) owns _which model fills which tier_.
+When work needs model-tier routing (Tier 0 tiny / Tier 1 bulky-simple / Tier 2 bulky-complex), or when a capability is absent (no aif runtime, no GLM subscription, no Fable, non-CC harness), the authoritative criteria + degradation matrix live at `.ai-factory/tier-home.md` (installed under the `env`/`factory` profiles; absent on a `core` install — re-run the installer with `--profile env` to add it). That doc owns the _criteria_; the aif runtime profile config (or your harness's equivalent) owns _which model fills which tier_.
 
 ## Workflow
 

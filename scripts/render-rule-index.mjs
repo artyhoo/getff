@@ -5,7 +5,7 @@
  * WHY: the always-on rule context (`.claude/rules/*.md`, auto-loaded by CC every session) grows
  * linearly with rule count. CTX Stage 0/1 shrink this WITHOUT losing enforcement — every rule
  * still fails at its earliest reachable channel (Class A/B gate, or the Tier-0 core rules for
- * Class C via ai-laziness T20) — by replacing the full always-on rule bodies with (a) 3 Tier-0
+ * Class C via ai-laziness T20) — by replacing the full always-on rule bodies with (a) 2 Tier-0
  * core rules that stay always-on, and (b) a ONE-LINE-PER-RULE index (this renderer's output)
  * that tells the model WHERE to find the rest and WHEN it would have fired. Full rule text is
  * still reachable — via `paths:`/globs edit-time injection, skill-embeds, or a manual read of
@@ -54,7 +54,6 @@ const INDEX_MAX_BYTES = 4 * 1024;
 // Tier-0 core rules: never evicted, always-on regardless of paths:/globs — declared here as the
 // project's own current decision (P4 resolution), not derived from any rule's own markers.
 const TIER0_CORE = new Set([
-  'build-first-reuse-default',
   'attention-is-not-a-mechanism',
   'ai-laziness-digest',
 ]);

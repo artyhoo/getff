@@ -40,18 +40,34 @@ shadow arm is recorded as missing, never hand-waved into a clean run. The cohort
 **shadow-present runs only** — a silent shadow arm is the §2 failure wearing an «all-clear»
 mask.
 
-### Item 2 — ADR-8 window + owner
+### Item 2 — ADR-8 window + owner — RETIRED 2026-08-08, replaced by Item 2-R
 
-**Window:** **20 role-shaped dispatches** across the arch-v2-context-pipeline umbrella. Any
-dispatch that uses the dispatch-input-checker station counts as one row, regardless of stage.
+**RETIRED (ADR-8's third and closing deviation, operator-ruled at S-K scoping — record:
+[`kickoff.md`](kickoff.md) §S-D + [`done.md`](done.md)).** The 20-dispatch window closes
+unfilled at **3 / 20**; the three recorded rows keep their full evidentiary value for ADR-5 /
+ADR-6 (those items stay live). Grounds: power analysis over the 11 most recent dispatched-stage
+harvests measured per-dispatch review-defect counts at mean ≈ 3.9, SD ≈ 4.3 (CV ≈ 1.1) — a
+10-vs-10 arm comparison detects only a Δ ≥ 5.4-defect degradation, more than the entire mean,
+so the window could not answer its own question at the pre-registered n. Original terms,
+retained for the record: window = 20 role-shaped dispatches (any dispatch-input-checker run,
+regardless of stage); owner = the L2 umbrella orchestrator; baseline rows were S-D's to
+capture (S-D closed NULL; the baseline INPUT CONDITION retires with the experiment — a
+baseline for a retired A/B has no consumer).
 
-**Owner:** the L2 umbrella orchestrator. After the 20th role-shaped dispatch, the orchestrator
-reviews the cohort for K-class demotion candidates (Item 3) and the ADR-5 threshold state
-(re-tier or hold), recording the verdict as a ledger note in the cohort-summary row.
+### Item 2-R — subtraction-map rollback watch (replaces Item 2)
 
-**Baseline-capture boundary (load-bearing):** baseline token/cost rows for ADR-8 are captured
-by **stage S-D**, not by this ledger. S-B ships only the schema + the header + the instrument
-(§「ADR-8 baseline instrument」 below); S-D ships the rows.
+**Trigger:** a review seat running an S-D′-slimmed agent definition (PR #1290 set) misses a
+defect whose earliest-catchable channel was a block that agent's subtraction map dropped —
+judged at harvest by the session that observes the miss. **Action:** restore the dropped block
+for that agent (one-block rollback, not full un-slim) and record the incident as a ledger note
+below. **Full-rollback trigger:** 3 such incidents → restore the pre-#1290 agent set and
+reopen ADR-8 with the incident data attached. **Class precedent:** the S-M watch-list
+(PR #1302 W-1..W-6) and the digest rollback trigger
+([`ai-laziness-digest.md`](../../rules/ai-laziness-digest.md)). Detection stays with the named
+cold seats (fidelity + cold review), per
+[`attention-is-not-a-mechanism.md §1(b)`](../../rules/attention-is-not-a-mechanism.md).
+**Honesty bound (T14):** zero incidents = absence of evidence of harm on the observed
+dispatches, never proof the slimming is safe — the watch is evidence-priced, not a clean bill.
 
 ### Item 3 — ADR-6 re-derivation gate (K-class demotion)
 
@@ -95,7 +111,8 @@ maps 1:1 to the row's K-class columns; the conversion is mechanical.
 | Window | Count | Threshold / cap |
 |---|---|---|
 | Shadow-present cohort (ADR-5) | **2 / 5** | ≥2 K1/K2-only finds → re-tier |
-| Role-shaped dispatches (ADR-8) | **3 / 20** | At cap → orchestrator reviews cohort |
+| Role-shaped dispatches (ADR-8) | **FROZEN at 3 / 20** — window retired 2026-08-08 (Item 2-R) | was: at cap → orchestrator reviews cohort |
+| Item 2-R rollback incidents | **0 / 3** | 1 → one-block restore; 3 → full un-slim + reopen ADR-8 |
 
 The counters are **live state read from the row set below**, not a recap and not a fixed
 starting value: the dispatching session updates this block every time a row lands. They read

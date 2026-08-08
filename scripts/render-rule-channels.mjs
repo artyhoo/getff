@@ -73,7 +73,6 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 // standalone CLI script — precedent: render-rule-index.mjs also re-declares its own TIER0_CORE
 // rather than importing from principle 31).
 const ALWAYS_ON_CORE = new Set([
-  'build-first-reuse-default',
   'attention-is-not-a-mechanism',
   'ai-laziness-digest',
 ]);
