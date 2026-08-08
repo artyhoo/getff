@@ -1,6 +1,6 @@
-<!-- scope: kickoff — getff-freshness-widening STAGE S1 (locks record reality), REV 3: ALL forks decided (version semantics → Option A; PARK-S1-1 → staged-A; PARK-S1-2 → C; PARK-S1-4 → refined-A; operator, 2026-08-08 — see docs/meta-factory/research-patches/2026-08-08-rules-lock-version-semantics-fork.md §9). Parent: .claude/orchestrator-prompts/getff-freshness-widening/kickoff.md §1 S1. Design base (BINDING): docs/superpowers/specs/2026-07-23-getff-any-stack-closure-design.md §7.1. Tier 2 (generation-context manifest shape is a design decision), NO bridge-profile marker. Container-dispatchable: touches setup.d/ + packages/core/, NOT .claude/**. -->
+<!-- scope: kickoff — getff-freshness-widening STAGE S1 (locks record reality), REV 4: r2 audit repairs — §2 permitted-files closure (two omitted files) + §3a derived-not-asserted clarification. REV 3 forks unchanged and NOT re-litigated (version semantics → Option A; PARK-S1-1 → staged-A; PARK-S1-2 → C; PARK-S1-4 → refined-A; operator, 2026-08-08 — see docs/meta-factory/research-patches/2026-08-08-rules-lock-version-semantics-fork.md §9). Parent: .claude/orchestrator-prompts/getff-freshness-widening/kickoff.md §1 S1. Design base (BINDING): docs/superpowers/specs/2026-07-23-getff-any-stack-closure-design.md §7.1. Tier 2 (generation-context manifest shape is a design decision), NO bridge-profile marker. Container-dispatchable: touches setup.d/ + packages/core/, NOT .claude/**. -->
 
-# getff-freshness-widening S1 — locks record reality (rev 3, all forks decided)
+# getff-freshness-widening S1 — locks record reality (rev 4, r2 audit repairs)
 
 > **Goal:** a generated `rules-lock.<framework>.json` currently cannot answer «which dependency
 > versions was this rule set generated against?» — the field exists and is hard-coded `null`.
@@ -75,13 +75,62 @@ fixtures — a different artefact class**. Do NOT sweep them.
 - `setup.d/45-python.sh`, `setup.d/46-cargo.sh`, `setup.d/47-go.sh` — the three lane writers.
 - Tests + fixtures for the above, under `packages/core/**` and `tests/install-sh/**`.
 - Baseline/snapshot regeneration the change forces (`tests/install-sh/baselines/**`).
+- `docs/meta-factory/prior-art-evaluations.md` — the SSOT row §4 *mandates* re-landing. **Added
+  rev 4:** rev 3 omitted it while §4 required editing it, so the stage was undoable as written
+  (r2 audit, KICKOFF-AMBIGUOUS finding 1). Append-only per that file's §3 — never rewrite a row.
+- `.github/workflows/audit-self.yml` — **ONLY** to wire the criterion-5/7/9 tests this stage adds.
+  **Added rev 4:** an unwired test is not a gate, so rev 3's omission made criteria 5/7/9
+  unsatisfiable (r2 audit, KICKOFF-AMBIGUOUS finding 2 + the «scope» MAJOR that traced to it).
+  Adding jobs for THIS stage's tests is in scope; any other workflow edit is not.
 
 **Not permitted:** anything under `.claude/**` (hard harness block in the container — §6), the
 spec, any ADR, any other umbrella's kickoff, and the research/detector fixtures named in §1's
-scope trap. Park records land in the park payload + PR `## Parked questions` per the `/pipeline §5`
+scope trap. `.github/workflows/**` beyond the single file named above. Park records land in the park payload + PR `## Parked questions` per the `/pipeline §5`
 park-record contract, not as file writes.
 
 ## §3 «Works» — explicit + testable
+
+> **§3a — DERIVED, not asserted (added rev 4; binding on criteria 1/2/4/6; resolves the r2
+> audit BLOCKER without re-opening any rev-3 fork).**
+>
+> The r2 run read the criteria as «make `version` non-null», found it impossible for the three
+> shell lanes, and hard-coded `null` with a justifying comment. Both halves of that are wrong.
+> What the criteria require is a **derivation**, not a value:
+>
+> - **The read is UNCONDITIONAL.** Criterion 2 stands exactly as written — each of the three lane
+>   writers MUST consult the generation-context manifest at install time. A `printf`/heredoc
+>   literal is not a read, however the surrounding comment justifies it. This is the r2 BLOCKER:
+>   `git grep generation-context -- setup.d` returned nothing at `312b2c65fe`, so no lane
+>   consults anything.
+> - **The resulting VALUE may legitimately be `null`,** per criterion 1's escape clause
+>   («if the generation context genuinely has no named dependency, `null` stays legal … and the
+>   lock says so honestly») and criterion 6 («null only when the context names no dependency»).
+>   Expect `null` for python/cargo/go **today**, for a reason that is structural and must be
+>   recorded in the writer's comment rather than asserted: `version` is a **plan-level** field
+>   keyed to `framework` (`ResearchPlan {framework, version}`,
+>   `packages/core/research/research-plan.schema.json`), and these three are **language** lanes
+>   with no single framework dependency. `Provenance` (`packages/core/research/types.ts:4-13`)
+>   carries `url`/`allowlistKey`/`fetchedAt`/`packageName?`/`finalUrl?` and **no version field at
+>   all**, so no per-rule version exists to lift either. Verify this still holds before relying
+>   on it (T3) — if a version field has since appeared, derive from it.
+> - **A derived `null` and a hard-coded `null` are different artefacts.** The derived one starts
+>   reporting a real version the moment a manifest carries one, with no further code change; the
+>   literal never does. That difference is the whole deliverable for these lanes.
+> - **Do NOT freeze the blanket `null` into a permanent gate.** `tests/install-sh/rules-lock-schema-parity.test.sh`
+>   must not assert «these three lanes are always null» — that would make an unverified
+>   present-day claim permanently true by fiat, and would go red on the first lane that gains a
+>   named dependency. Assert the derivation instead: manifest present with a version → that
+>   value; manifest absent or naming nothing → `null`.
+> - **Criteria are NOT re-worded.** Nothing in §3 changes; §3a only states how the existing
+>   criteria compose. If you conclude a criterion must be re-worded to match what you built,
+>   that is a park (§6), not an edit.
+>
+> **Shape obligation carried forward:** criterion 2's «POSIX-`grep`/`sed`-extractable» is binding
+> on the per-rule slice too, not only on the top-level `version`. The r2 single
+> `generation-context.json` satisfies it for `version` (top-level, one field per line at
+> `indent=2`), but a nested per-rule array is not shell-extractable without a JSON parser.
+> Either demonstrate extraction of the per-rule slice in POSIX shell, or adopt §6 fork 2's
+> recommended one-fragment-per-rule composition. This is still your Tier-2 design call.
 
 1. **`version` = DEPENDENCY version, spec quote binding.** Spec §7.1 line 231-232 (quote verbatim,
    it decides this criterion): «record the consumer's actual **dependency** versions at generation
