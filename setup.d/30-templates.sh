@@ -78,7 +78,12 @@ rewrite_arch_sot_header "$_arch_sot_dst" "$_arch_sot_existed"
 echo "  ✓ aif-handoff integration: skill-context files installed at .ai-factory/skill-context/ (auto)"
 
 # ─── §5b: AGENTS.md ─────────────────────────────────────
-copy_safe "$PKG_ROOT/packages/core/templates/shared/AGENTS.md.template" "$PROJECT_ROOT/AGENTS.md"
+# CO-OWNED file (spec C1 addition (b)): ai-factory generates + auto-updates the consumer's root
+# AGENTS.md, so copy_safe's skip-if-exists landed our contribution NOWHERE on any consumer that
+# already had one, and --force would have clobbered the other writer. install_agents_md writes
+# only our `getff:begin section=getff-framework` block; everything outside it is preserved.
+# Helper + the four cases: setup.d/lib.sh merge_fenced.
+install_agents_md "$PKG_ROOT/packages/core/templates/shared/AGENTS.md.template" "$PROJECT_ROOT/AGENTS.md"
 
 # ─── §3e: tier-home doc (env+ profile only; beta-delivery-ux S3 / spec A3) ───
 # The authoritative Tier 0/1/2 criteria + capability-absence degradation matrix. CLAUDE.md

@@ -493,6 +493,8 @@ jobs:
         run: bash tests/install-sh/f8-agents-scripts-shipped.test.sh
       - name: Run install-sh .ai-factory SoT-materialized test (consumer-install-hardening F8d)
         run: bash tests/install-sh/f8d-ai-factory-sot-materialized.test.sh
+      - name: Run install-sh AGENTS.md fenced co-ownership test (beta-ai-docs-agnosticism S1 D1b)
+        run: bash tests/install-sh/fence-agents-coownership.test.sh
       - name: Run install-sh with-aif-suite flag test (F7 — operator-suite skills gated behind explicit opt-in)
         run: bash tests/install-sh/with-aif-suite-flag.test.sh
       - name: Run install-sh no-husky-init-advice test (consumer-install-hardening F8c)

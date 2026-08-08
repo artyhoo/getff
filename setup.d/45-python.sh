@@ -969,8 +969,10 @@ _py_deliver_agent_surface() {
   fi
 
   # ── AGENTS.md ─────────────────────────────────────────────────────────────────
-  # Replicates setup.d/30-templates.sh:81 — starter AGENTS.md at project root.
-  copy_safe "$PKG_ROOT/packages/core/templates/shared/AGENTS.md.template" "$PROJECT_ROOT/AGENTS.md"
+  # Replicates setup.d/30-templates.sh — starter AGENTS.md at project root, delivered as a
+  # co-owned fenced section (spec C1 (b)). Routed through the same install_agents_md wrapper
+  # as the npm lane so the section id / plan / adopt-sentinels cannot drift between lanes.
+  install_agents_md "$PKG_ROOT/packages/core/templates/shared/AGENTS.md.template" "$PROJECT_ROOT/AGENTS.md"
 
   # ── .ai-factory/ agent-surface subtree ───────────────────────────────────────
   # Replicates setup.d/30-templates.sh:13-73 — minus the react-* stack branches (the python lane
