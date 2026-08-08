@@ -255,7 +255,7 @@ npm run audit:docs || {
 
 ## Sub-agent: living-docs-auditor
 
-В AIF под `/aif-verify` подключается `living-docs-auditor` sub-agent, который:
+Скрипт вызывается напрямую и является гейтом сам по себе. Дополнительно: если у вас установлен внешний AI Factory (инсталлятор его не ставит), он подключает под `/aif-verify` тот же `living-docs-auditor` sub-agent, который:
 
 1. Прогоняет `audit-ai-docs.sh`
 2. Парсит вывод

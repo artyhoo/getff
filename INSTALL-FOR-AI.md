@@ -68,7 +68,7 @@ Install getff into this project. Follow these steps exactly:
    `-y` installs the curated consumer set at `core` depth — the right default. Use
    `bash /tmp/getff/setup --all <detected-stack>` INSTEAD only if I explicitly
    tell you this machine runs the aif-handoff operator runtime: --all
-   additionally ships the AIF operator suite (6 skills + 2 agents +
+   additionally ships the AIF operator suite (7 skills + 2 agents +
    skill-context) at `factory` depth that dead-ends without that runtime.
    Equivalent new-syntax forms: `install.sh <stack> --profile factory` (recommended for
    new installs) or `install.sh <stack> --with-aif-suite` (legacy escape). When unsure, use -y
@@ -422,7 +422,7 @@ bash /path/to/getff/install.sh --refresh
 Framework-owned artefacts the consumer is **not** expected to edit in place:
 
 - `.claude/agents/*.md` — sub-agent prompts
-- `.claude/skills/` — the 6-dir core set (getff, tool-bootstrapping, rule-research, rule-tests, ai-doc, template-audit). The AIF operator suite — 6 skills (pipeline, dispatcher, aif-doctor, harvest, night-mode, story) + 2 agents (orchestrator-worker-discipline, reviewer-discipline) + their aif-orchestrator-discipline skill-context — ships only under `--profile factory` (or the equivalent legacy `--with-aif-suite` / `--all` escapes); `--refresh` keeps refreshing it when already present on disk (prior opt-in), never creates it otherwise.
+- `.claude/skills/` — the 6-dir core set (getff, tool-bootstrapping, rule-research, rule-tests, ai-doc, template-audit). The AIF operator suite — 7 skills (pipeline, dispatcher, aif-doctor, harvest, night-mode, story, claude-glm-executor-handoff) + 2 agents (orchestrator-worker-discipline, reviewer-discipline) + their aif-orchestrator-discipline skill-context — ships only under `--profile factory` (or the equivalent legacy `--with-aif-suite` / `--all` escapes); `--refresh` keeps refreshing it when already present on disk (prior opt-in), never creates it otherwise.
 - `.claude/hooks/deps-hash-check.sh` — session hook
 - `scripts/*.sh`, `scripts/audit-r4.ts` — audit gate scripts
 - `packages/core/hooks/` — TS pre-push pipeline
