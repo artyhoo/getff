@@ -29,7 +29,7 @@ exit 0 (PASS) | 1 (FAIL) | 0+WARN (decay-watch)
 
 Запускается на трёх уровнях:
 
-1. **`/aif-verify`** через `living-docs-auditor` sub-agent — перед PR.
+1. **`./scripts/audit-ai-docs.sh`** напрямую (или через `living-docs-auditor` sub-agent) — перед PR. Если у вас установлен внешний AI Factory, его `/aif-verify` оборачивает этот же скрипт, но сам скрипт — и есть гейт.
 2. **Pre-push hook** (`.husky/pre-push`) — до того, как код покидает машину.
 3. **CI on PR** — required check, не даёт мерджить, если не PASS.
 
@@ -255,7 +255,7 @@ npm run audit:docs || {
 
 ## Sub-agent: living-docs-auditor
 
-В AIF под `/aif-verify` подключается `living-docs-auditor` sub-agent, который:
+Скрипт вызывается напрямую и является гейтом сам по себе. Дополнительно: если у вас установлен внешний AI Factory (инсталлятор его не ставит), он подключает под `/aif-verify` тот же `living-docs-auditor` sub-agent, который:
 
 1. Прогоняет `audit-ai-docs.sh`
 2. Парсит вывод
@@ -281,7 +281,7 @@ npm run audit:docs || {
 ## Связано
 
 - `references/doc-organization.md` — hot/cold split AGENTS.md, drift detection §5.1-5.5.
-- `agents/living-docs-auditor.md` — sub-agent, который запускает audit-скрипт под `/aif-verify`.
+- `agents/living-docs-auditor.md` — sub-agent, который запускает audit-скрипт и интерпретирует PASS/FAIL. Вызывается напрямую; если у вас стоит внешний AI Factory, он же подключается под `/aif-verify`.
 - `packages/core/audit-self/audit-ai-docs.sh` — эталон серверного TS.
 - `packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh` — эталон UI-стека.
 - `references/overview.md` Layer 5 — Living Documentation как принцип, частным случаем которого является self-testing AI documentation.
