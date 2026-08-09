@@ -70,6 +70,7 @@ fi
 # a silent non-block is exactly the "silence is indistinguishable from health" shape that
 # finding F2 is about. Cheap because of the single-block guard above. Off by default.
 autonomy_line=""
+ctx_line=""
 if [ "${AIF_AUTONOMOUS:-0}" = "1" ]; then
   _aif_url="${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}"
   _tasks="$(curl -s --max-time 5 "${_aif_url}/tasks" 2>/dev/null || true)"
@@ -128,10 +129,19 @@ if [ "${AIF_AUTONOMOUS:-0}" = "1" ]; then
 fi
 
 # Every early return below routes through this, so a guard whose intent is "do not re-inject a
-# recap" can no longer also swallow "work is still in flight".
+# recap" can no longer also swallow "work is still in flight" — or, since the D7 context-arm,
+# "the context is nearly spent". Both lines ride ONE block; never two blocks per turn.
 _autonomy_exit() {
-  if [ -n "${autonomy_line:-}" ]; then
-    jq -n --arg msg "$autonomy_line" '{decision: "block", reason: $msg}'
+  _extra="${autonomy_line:-}"
+  if [ -n "${ctx_line:-}" ]; then
+    if [ -n "$_extra" ]; then
+      _extra="${_extra}"$'\n\n'"${ctx_line}"
+    else
+      _extra="${ctx_line}"
+    fi
+  fi
+  if [ -n "$_extra" ]; then
+    jq -n --arg msg "$_extra" '{decision: "block", reason: $msg}'
   fi
   exit 0
 }
@@ -139,6 +149,77 @@ _autonomy_exit() {
 transcript=$(echo "$input" | jq -r '.transcript_path // empty' 2>/dev/null || echo "")
 if [ -z "$transcript" ] || [ ! -f "$transcript" ]; then
   _autonomy_exit
+fi
+
+session_id=$(echo "$input" | jq -r '.session_id // "nosession"' 2>/dev/null || echo "nosession")
+
+# ── D7 context-arm (handoff trigger) ──────────────────────────────────────────
+# spec: docs/superpowers/specs/2026-08-09-pipeline-chips-session-bus-design.md §D7 (S2a)
+# POSITION IS LOAD-BEARING — same postmortem as the F10 arm above: the line is computed HERE,
+# before every subsequent early return, and each of those returns routes through
+# _autonomy_exit, so a guard whose intent is "do not re-inject a recap" cannot also swallow
+# "the context is nearly spent". (The transcript-absent return above precedes this arm by
+# construction: no transcript, no estimate.)
+#
+# Estimator: LAST MAIN-THREAD assistant entry — `select(.isSidechain != true)` is REQUIRED:
+# subagent turns share the transcript file, and the sessions this arm targets are exactly the
+# subagent-heavy ones. Context size = input_tokens + cache_read_input_tokens +
+# cache_creation_input_tokens on that entry (jq-over-transcript precedent: the anchor grep).
+#
+# Window resolution: .message.model on the same entry → table, `unknown → 200k` conservative
+# fallback, PLUS the self-evident override "observed usage > 200k ⇒ 1M window". HONEST LIMIT:
+# the 1M window is opt-in per request and the transcript does not record the request, so the
+# table gives an upper bound — window discrimination is not *reliably* available here.
+#
+# Thresholds are PROVISIONAL PARAMETERS under test — D9 (context-degradation-calibration)
+# calibrates: T_soft(200k) = 70% ≈ 140k; T_soft(1M) = 300k (operator floor); 1M working
+# ceiling ≈ 500k (mechanical tails only past T_soft).
+#
+# Debounce: once per session per tier via ${TMPDIR:-/tmp}/aif-ctx-<session_id>-<tier>
+# (guarded expansion — set -euo pipefail; story-flag precedent below). Known limitation,
+# accepted: after an auto-compact the flag stays spent, so a re-climbing 200k session is
+# covered by D8's PreCompact snapshot (S2b), not a second reminder.
+#
+# Audience: this hook ships to consumers (see header) — the prose is GENERIC, zero
+# framework-artifact references (F10 resolved consumer-generic, operator directive 2026-08-09).
+# ZCode: synthetic transcripts may carry no usage fields → the arm is inert there
+# (zcode-parity-doctrine.md §2 row 9: zcode-gap).
+ctx_entry=$(grep -E '"(type|role)":"assistant"' "$transcript" 2>/dev/null \
+  | jq -c 'select(.isSidechain != true) | select(.message.usage.input_tokens != null)' 2>/dev/null \
+  | tail -1 || true)
+if [ -n "$ctx_entry" ]; then
+  ctx_tokens=$(printf '%s' "$ctx_entry" | jq -r '
+    ((.message.usage.input_tokens // 0)
+     + (.message.usage.cache_read_input_tokens // 0)
+     + (.message.usage.cache_creation_input_tokens // 0))' 2>/dev/null || echo 0)
+  case "$ctx_tokens" in '' | *[!0-9]*) ctx_tokens=0 ;; esac
+  ctx_model=$(printf '%s' "$ctx_entry" | jq -r '.message.model // ""' 2>/dev/null || echo "")
+  ctx_window=200000
+  case "$ctx_model" in
+    *'[1m]'* | *-1m*) ctx_window=1000000 ;;
+  esac
+  if [ "$ctx_tokens" -gt 200000 ]; then
+    ctx_window=1000000
+  fi
+  ctx_tier=""
+  if [ "$ctx_window" -eq 1000000 ]; then
+    if [ "$ctx_tokens" -ge 500000 ]; then
+      ctx_tier="1m-deep"
+    elif [ "$ctx_tokens" -ge 300000 ]; then
+      ctx_tier="1m-soft"
+    fi
+  elif [ "$ctx_tokens" -ge 140000 ]; then
+    ctx_tier="200k-soft"
+  fi
+  if [ -n "$ctx_tier" ]; then
+    ctx_flag="${TMPDIR:-/tmp}/aif-ctx-${session_id}-${ctx_tier}"
+    if [ ! -f "$ctx_flag" ]; then
+      # Brace group: a failed flag write must go to /dev/null BEFORE the redirect list of the
+      # simple command is applied, or the error leaks to stderr and the debounce fails open.
+      { : > "$ctx_flag"; } 2>/dev/null || true
+      ctx_line="[context] This session's context is ≈ ${ctx_tokens} tokens (window ~${ctx_window}). If substantial judgment work (design, review, novel debugging) remains, write a short handoff note and continue it in a fresh session; if what is left is mechanical (commits, merges, regenerations guarded by external checks), finishing here is fine."
+    fi
+  fi
 fi
 
 # Session-goal anchor (deterministic, no LLM). Primary signal: CC's own session
@@ -178,7 +259,7 @@ fi
 
 text=$(echo "$last_line" | jq -r '.message.content[]? | select(.type=="text") | .text' 2>/dev/null || true)
 # -- story branch detection: a PR was just created this turn → engaging recap ----
-session_id=$(echo "$input" | jq -r '.session_id // "nosession"' 2>/dev/null || echo "nosession")
+# (session_id is read above, before the D7 context-arm.)
 story_signal=""
 _gh=$(echo "$last_line" | jq -r '.message.content[]? | select(.type=="tool_use" and .name=="Bash") | .input.command // empty' 2>/dev/null | grep -c 'gh pr create' || true)
 _url=$(printf '%s' "$text" | grep -oE 'github\.com/[^ )]+/pull/[0-9]+' | head -1 || true)
@@ -225,6 +306,9 @@ if _is_zcode && [ "$text_length" -gt 500 ]; then
     # ZCode as supported today). Same append as the CC bottom block.
     if [ -n "$autonomy_line" ]; then
       _ze_reason="${_ze_reason}"$'\n\n'"${autonomy_line}"
+    fi
+    if [ -n "$ctx_line" ]; then
+      _ze_reason="${_ze_reason}"$'\n\n'"${ctx_line}"
     fi
     _ze_glance="🎯 $(printf '%s' "${anchor}" | head -c 60 | tr '\n' ' ')"
     jq -n --arg msg "$_ze_reason" --arg gl "$_ze_glance" '{
@@ -374,11 +458,9 @@ glance_line="🎯 ${anchor_short}"
 #   Branch B — a question with no long answer body: fork-challenge + recommend-first.
 #   Neither (short chatter, bare tool call) — stay silent (no reminder).
 if [ "$long_text" = "false" ] && [ "$asked" = "false" ] && [ -z "$story_signal" ]; then
-  # Normally silent — but if autonomous work is in flight, a silent stop IS the F10 failure.
-  if [ -n "$autonomy_line" ]; then
-    jq -n --arg msg "$autonomy_line" '{decision: "block", reason: $msg}'
-  fi
-  exit 0
+  # Normally silent — but if autonomous work is in flight, a silent stop IS the F10 failure;
+  # and a spent-context turn deserves its handoff line even when no recap is due.
+  _autonomy_exit
 fi
 
 if [ -n "$story_signal" ]; then
@@ -406,6 +488,9 @@ fi
 # because a recap happened to be due this turn.
 if [ -n "$autonomy_line" ]; then
   reminder="${reminder}"$'\n\n'"${autonomy_line}"
+fi
+if [ -n "$ctx_line" ]; then
+  reminder="${reminder}"$'\n\n'"${ctx_line}"
 fi
 
 jq -n --arg msg "$reminder" --arg gl "${glance_line}" '{
