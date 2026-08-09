@@ -286,7 +286,15 @@ if [ "$_ctx12" = "3.2.1" ]; then
 else
   bad "(12) manifest-present arm BROKEN: lock version='$_ctx12' (expected 3.2.1 from manifest at .ai-factory/synthesizer-output/)"
 fi
-# Also test the fragment dir (MAJOR B / §6 fork 2): pre-populated fragments are read by _py_json_rules
+# Also test the fragment dir (MAJOR B / §6 fork 2): pre-populated fragments are read by _py_json_rules.
+# SCOPE OF THIS ARM (PARK-S1-7, round-5 audit): it proves the READER, not the producer. The
+# fragment below is hand-written under the DELIVERED ast-grep id, because that is the key
+# `_py_json_rules` looks up. The synthesizer keys its fragments by the PLAN id instead
+# (emit.ts:97-103 writes `${r.id}.json`, and r.id is `G${n}` from generate.ts:52 /
+# synthesize.ts:90), and the researched-python path returns before emit runs at all
+# (rule-bootstrap-cli.ts:243, the `--from-practice` arm). So on the live path this arm's
+# precondition never occurs and every python rule falls to `{"provenance":[],"tier":2}`
+# (45-python.sh:531). Parked, not fixed — see the stage PR's `## Parked questions`.
 mkdir -p "$P12/.ai-factory/synthesizer-output/generation-context"
 # Re-run with fragments for a rule that python actually delivers
 _delivered_id=$(grep -hE '^id:' "$P12"/.getff/astgrep-rules/*.yml 2>/dev/null | head -1 | sed -E 's/^id:[[:space:]]*"?([^"]*)"?[[:space:]]*$/\1/')
@@ -295,7 +303,7 @@ if [ -n "$_delivered_id" ]; then
     > "$P12/.ai-factory/synthesizer-output/generation-context/$_delivered_id.json"
   ( cd "$P12" && bash "$INSTALL" python --force < /dev/null ) >/dev/null 2>&1
   if grep -q "\"provenance\":\[.*\"pyyaml\"" "$L12" 2>/dev/null; then
-    ok "(12) fragment-read arm fires: rule '$_delivered_id' provenance derived from generation-context/ fragment"
+    ok "(12) fragment-READER works: rule '$_delivered_id' provenance read from a hand-placed generation-context/ fragment (producer side parked — PARK-S1-7)"
   else
     bad "(12) fragment-read arm BROKEN: rule '$_delivered_id' provenance not read from fragment dir"
   fi
