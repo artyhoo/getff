@@ -115,3 +115,51 @@ promise is a product call about other people's money.
 
 `INSTALL-FOR-AI.md` now states the measured cost to the consumer regardless of which way this
 goes, so nobody is billed by surprise while it is open.
+
+---
+
+## OPERATOR RESOLUTIONS (2026-08-09) — both open questions CLOSED
+
+### §4 item 1 (live end-to-end on a clean machine) — ACCEPTED AS MET
+
+**Decision: «считай готовой».** Stage acceptance rests on the block-level evidence, without a
+live end-to-end run.
+
+What that evidence is, stated plainly so a later reader can judge the decision rather than inherit
+it: profile creation, per-mode defaults, the key-reachability gate, the chat-session pin and the
+completion call were each measured live against a running aif; step D's four failure modes each
+carry a paired negative that was observed RED before GREEN; the suite is 62/62 on the host. What
+was NOT observed is those steps executing **in sequence, against a profile the helper itself
+created, on a machine where the §7b wiring supplied the key**.
+
+**The accepted risk, named:** the first consumer run is the first execution of the full chain. A
+`FAILED step-D` there is most likely the §7b wiring not landing, not a defect in the proof. The
+distinguishing signal is `CHAT_AUTH_ERROR` from `POST /chat` — the helper prints that hint.
+
+**What would reopen this:** any consumer report of `FAILED step-D` on a first run. That is the
+falsifier; it does not require re-litigating the decision, only reading the reported line.
+
+### §7a #3 recurring per-consumer spend — ACCEPTED AS-IS
+
+**Decision: «оставить как есть».** Step D fires on every `provision` and bills the consumer's z.ai
+plan. Measured: **39058 input tokens, `costUsd:0.117219`** for a three-word prompt, because aif
+prepends project context on the only reachable completion route (`buildContextAppend` is
+unconditional on that path). A retry after fixing wiring bills again.
+
+The kickoff's «1-token-scale» wording in §7a #3 is therefore **inaccurate as shipped** and is left
+standing rather than quietly amended — the measured figure is what governs, and it is stated to the
+consumer at `INSTALL-FOR-AI.md:184` before they run the step.
+
+**Rejected alternatives, recorded so the choice is legible:** dropping to a resolution-only proof
+(cheaper, but a wrong key surfaces on the consumer's first real task instead of at install); an
+opt-out flag (re-opens the false-green question this stage exists to close). Neither was chosen.
+
+### Stage vs umbrella — why there is still no `done.md`
+
+Both questions above are closed, so **S4 as a stage is closed**. `done.md` is nonetheless NOT
+written, for an unrelated reason: per
+[operational-conventions.md §1](../../../docs/meta-factory/operational-conventions.md), `done.md`
+marks the **umbrella** complete and is written at the **last stage's** merge only. `beta-delivery-ux`
+still has R1 in flight (aif task `7a12c5bc`) and S2's follow-up unharvested (`a8337963`), among 8
+`done`-but-unharvested tasks. Writing it now would make `priority-score.sh` Layer C3 score the
+umbrella `status=DONE` and stop dispatching that remaining work.
