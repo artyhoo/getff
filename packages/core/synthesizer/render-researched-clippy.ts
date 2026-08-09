@@ -177,10 +177,15 @@ export function planResearchedClippy(
 }
 
 /** PURE (read-only fs). Load the committed records + plan. The single entry the writer AND the drift
- *  gate call, so the two can never disagree about the bytes. */
-export function planFromCommittedRecords(): ResearchedClippyPlan {
+ *  gate call, so the two can never disagree about the bytes. `liveGenRustDir` defaults to the
+ *  committed tree; tests inject a tmpdir CLONE so gate-teeth checks never mutate the tracked
+ *  fixtures (in-place mutate/unlink-then-restore races parallel vitest workers over the shared
+ *  committed artifact — the astgrep sibling's ENOENT flake, PR #1349 CI run 31336870255). */
+export function planFromCommittedRecords(
+  liveGenRustDir: string = LIVE_GEN_RUST_DIR,
+): ResearchedClippyPlan {
   const practices = PRACTICE_RECORDS.map((r) =>
-    loadPracticeRecord(join(LIVE_GEN_RUST_DIR, r)),
+    loadPracticeRecord(join(liveGenRustDir, r)),
   );
   return planResearchedClippy(practices);
 }
@@ -208,13 +213,15 @@ export interface ResearchedDriftFinding {
 /** PURE (read-only fs). Compare each committed crate clippy.toml to a fresh render — the drift gate
  *  the increment's test asserts is empty (AC1). With nothing expressible, there is no toml to check
  *  against, so drift is empty (the test separately asserts the flagship IS expressible). */
-export function checkResearchedClippyDrift(): ResearchedDriftFinding[] {
-  const plan = planFromCommittedRecords();
+export function checkResearchedClippyDrift(
+  liveGenRustDir: string = LIVE_GEN_RUST_DIR,
+): ResearchedDriftFinding[] {
+  const plan = planFromCommittedRecords(liveGenRustDir);
   const findings: ResearchedDriftFinding[] = [];
   if (plan.rendered === null) return findings;
   for (const crateDir of CRATE_DIRS) {
     const rel = renderedClippyPath(crateDir);
-    const abs = join(LIVE_GEN_RUST_DIR, rel);
+    const abs = join(liveGenRustDir, rel);
     if (!existsSync(abs)) {
       findings.push({ path: rel, reason: 'missing' });
       continue;
