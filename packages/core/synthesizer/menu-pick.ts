@@ -7,6 +7,7 @@
 // No live LLM calls here — all I/O is behind the client port.
 
 import type { ResearchPlan } from '../research/types.ts';
+import { weakestTier, stampProvenanceTier } from './tier.ts';
 import { loadRecipe } from './synthesize.ts';
 import { compileDeclarativeMd } from './compile-declarative-md.ts';
 import { mergeEslintRuleConfig } from './merge-eslint-config.ts';
@@ -49,10 +50,15 @@ export async function synthesizeLive(
     if (plan.framework !== null && !recipe.appliesTo.includes(plan.framework)) continue;
 
     const id = `G${nextId++}`;
+    // S1 §3 criterion 3 / §6 fork 4 (PARK-S1-2 Option C): stamp tier at synthesis
+    // time, mirroring synthesize.ts — a fact about the research moment, never
+    // re-derived at install time. Symmetry with synthesize.ts keeps the curated
+    // and live paths byte-identical (menu-pick.test.ts (b) invariant).
+    const stampedProv = stampProvenanceTier(entry.provenance);
     const composed: SynthesizedRule = {
       ...recipe.rule,
       id,
-      research: { entryId: entry.id, provenance: entry.provenance },
+      research: { entryId: entry.id, provenance: stampedProv, tier: weakestTier(stampedProv) },
     };
     // MT S3b врезка: thread the composed rule through the IR plane (grammar gate + npm
     // adapter for the declarative-syntax class); output stays byte-identical (mergeEnrichment

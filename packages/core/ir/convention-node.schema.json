@@ -46,7 +46,8 @@
         "allowlistKey": { "type": "string" },
         "fetchedAt": { "type": "string" },
         "packageName": { "type": "string" },
-        "finalUrl": { "type": "string" }
+        "finalUrl": { "type": "string" },
+        "tier": { "type": "integer", "enum": [0, 1, 2] }
       }
     },
     "PairedExamples": {

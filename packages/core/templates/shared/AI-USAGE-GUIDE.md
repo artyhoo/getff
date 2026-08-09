@@ -95,8 +95,11 @@ not know: `core` is the default, `env` additionally puts `.ai-factory/tier-home.
 <!-- step: install -->
 
 1. **Install at env depth** — `bash <getff>/install.sh <stack> --profile env`. Already on core?
-   Upgrade in place with `--refresh --profile env`: the deeper payload arrives and the core
-   artefacts stay byte-identical.
+   Re-run that same command: the deeper payload is added and every core artefact stays
+   byte-identical except `.prettierignore`, whose managed block gains the new paths. Do not reach
+   for `--refresh` to upgrade — it re-delivers fixes to what you already have and does not
+   reliably deepen an install: on a `core` project `--refresh --profile env` exits 0 while
+   `tier-home.md` and `.claude/skills/arch/` stay absent.
 
 <!-- step: verify-payload -->
 

@@ -1,6 +1,6 @@
-<!-- scope: kickoff — getff-freshness-widening STAGE S1 (locks record reality), REV 5: r3 audit repairs — §2 gains the two remaining FORCED files (audit-self.yml lockShape jq; packages/core/ir/convention-node.schema.json) + a park instruction for any fourth. REV 4: r2 audit repairs — §2 permitted-files closure (two omitted files) + §3a derived-not-asserted clarification. REV 3 forks unchanged and NOT re-litigated (version semantics → Option A; PARK-S1-1 → staged-A; PARK-S1-2 → C; PARK-S1-4 → refined-A; operator, 2026-08-08 — see docs/meta-factory/research-patches/2026-08-08-rules-lock-version-semantics-fork.md §9). Parent: .claude/orchestrator-prompts/getff-freshness-widening/kickoff.md §1 S1. Design base (BINDING): docs/superpowers/specs/2026-07-23-getff-any-stack-closure-design.md §7.1. Tier 2 (generation-context manifest shape is a design decision), NO bridge-profile marker. Container-dispatchable: touches setup.d/ + packages/core/, NOT .claude/**. -->
+<!-- scope: kickoff — getff-freshness-widening STAGE S1 (locks record reality), REV 6: r5 audit repairs — §2 gains the generated synth bundle (packages/core/install/** is NOT packages/core/installer/**), the blanket-PARK instruction gains its two unparkable exceptions, and stale «row 241» pointers are de-numbered after the SSOT renumber to 243. REV 5: r3 audit repairs — §2 gains the two remaining FORCED files (audit-self.yml lockShape jq; packages/core/ir/convention-node.schema.json) + a park instruction for any fourth. REV 4: r2 audit repairs — §2 permitted-files closure (two omitted files) + §3a derived-not-asserted clarification. REV 3 forks unchanged and NOT re-litigated (version semantics → Option A; PARK-S1-1 → staged-A; PARK-S1-2 → C; PARK-S1-4 → refined-A; operator, 2026-08-08 — see docs/meta-factory/research-patches/2026-08-08-rules-lock-version-semantics-fork.md §9). Parent: .claude/orchestrator-prompts/getff-freshness-widening/kickoff.md §1 S1. Design base (BINDING): docs/superpowers/specs/2026-07-23-getff-any-stack-closure-design.md §7.1. Tier 2 (generation-context manifest shape is a design decision), NO bridge-profile marker. Container-dispatchable: touches setup.d/ + packages/core/, NOT .claude/**. -->
 
-# getff-freshness-widening S1 — locks record reality (rev 5, r3 audit repairs)
+# getff-freshness-widening S1 — locks record reality (rev 6, r5 audit repairs)
 
 > **Goal:** a generated `rules-lock.<framework>.json` currently cannot answer «which dependency
 > versions was this rule set generated against?» — the field exists and is hard-coded `null`.
@@ -32,7 +32,7 @@ defect, and `.husky/pre-push` correctly refused the red branch. Preserved in two
 - Lane parity asserted over **outputs** (the npm arm invokes `install()` for real), not over
   writers looking alike. Keep the approach (T-S1-B).
 - SSOT row 241 (lockfile-provenance) was researched in r1 but is **NOT on staging** (verified
-  2026-08-08: the SSOT's last row is 240) — it lives only in the bundle. RE-LAND it from the
+  2026-08-08: the SSOT's last row was 240 at that time) — it lives only in the bundle. RE-LAND it from the
   bundle, extended with the ADOPT-VOCABULARY note from §6 fork 5, in the SAME commit as the
   `Prior-art:` trailer that cites it (§1.9 existence-check fires on a citation of an unlanded row).
 - PARK-S1-5 (go lane) — a model park; its resolution is folded into criterion 1 below.
@@ -90,12 +90,29 @@ fixtures — a different artefact class**. Do NOT sweep them.
   `"additionalProperties": false`, so the §2-permitted `tier` field on `research/types.ts` is
   unrepresentable without it — the schema edit is forced by a change §2 already permits, exactly
   the class rev 4 closed for two other files (r3 audit KICKOFF-AMBIGUOUS).
+- `packages/core/install/synth-and-wire.bundle.mjs` — the generated twin of
+  `packages/core/install/synth-and-wire.ts`, rebuilt **only** via
+  `bash scripts/build-synth-bundle.sh`, never hand-edited. **Added rev 6:** note
+  `packages/core/install/` and `packages/core/installer/` are *different directories* — §2 listed
+  only the latter. This stage's `packages/core/synthesizer/tier.ts` is inlined into the bundle, so
+  the bundle goes stale the moment the stage's synthesizer change lands, and the host-side
+  `.husky/pre-push` `synth-bundle` gate then refuses the push (r5 audit KICKOFF-AMBIGUOUS).
 
-**Forced-but-unlisted files are a PARK, not a silent edit.** Three revisions have now each
-discovered a file the change provably forces but §2 did not list. If you hit a fourth, do NOT
-edit it and do NOT stop work on everything else: park it per §6 with the forcing reason
-(«file X is required because Y, which §2 permits, cannot be expressed without it»), and proceed
-with the rest of the stage.
+**Forced-but-unlisted files — PARK, unless parking cannot ship.** Four revisions have now each
+discovered a file the change provably forces but §2 did not list, so expect a fifth. Two routes,
+and you must pick by whether deferral is even possible:
+
+- **Default — PARK.** Do NOT edit it and do NOT stop work on everything else: park it per §6 with
+  the forcing reason («file X is required because Y, which §2 permits, cannot be expressed without
+  it»), and proceed with the rest of the stage.
+- **Exception — a file §3 explicitly names as required-to-edit is permitted BY THAT MANDATE,** and
+  so is a **generated twin whose staleness blocks the push itself**. Parking either one is
+  unsatisfiable: §3's mandate would contradict §2's refusal, and a stale generated twin leaves the
+  stage un-shippable rather than merely incomplete. Edit it, and say so explicitly in the PR body's
+  `## Parked questions` so the §2 gap is still visible. **Added rev 6** after the r3 audit flagged
+  `packages/core/principles/33-adapter-jig-arm-registry.ts` (comment-only, commanded verbatim by
+  criterion 3) and the r5 audit flagged the synth bundle above — rev 5's blanket PARK instruction
+  could not express either case.
 
 **Not permitted:** anything under `.claude/**` (hard harness block in the container — §6), the
 spec, any ADR, any other umbrella's kickoff, and the research/detector fixtures named in §1's
@@ -214,11 +231,11 @@ npx vitest run packages/core/hooks/deps-hash-check.test.ts
 The generation-context manifest emission may cross the capability-commit thresholds
 ([CLAUDE.md](../../../CLAUDE.md) «Build-vs-reuse invariant»: new file ≥80 LOC under `packages/`,
 or ≥50 LOC under a new `packages/core/<dir>/`). SSOT row 241 (lockfile-provenance) was researched
-in r1's T12 consult but is **NOT on staging** (verified 2026-08-08: last landed row is 240) — it
+in r1's T12 consult but was **NOT on staging** (verified 2026-08-08: last landed row was 240 then) — it
 lives in the r1 bundle. RE-LAND the row — extended with the ADOPT-VOCABULARY note per §6 fork 5 —
 in the SAME commit as the `Prior-art:` trailer that cites it: §1.9 existence-check requires the
 cited ID to be landed by-or-before the citing commit. Re-search only if the manifest design
-leaves row 241's scope. If the change stays under the LOC thresholds, say so explicitly with
+leaves that row's scope. If the change stays under the LOC thresholds, say so explicitly with
 the count.
 
 ## §5 AI-laziness traps
@@ -229,7 +246,7 @@ this stage: T3, T10, T11, T12, T14, T16, T19.**
 - **T3** — every claim about current behaviour carries command output or file:line. §1's anchors
   were verified live at `0f3235396e`; re-verify before editing.
 - **T10** — §1 enumerates the FULL population of rules-lock writers (three) before scoping.
-- **T11/T12** — SSOT row 241 exists; cite it. A manifest design outside its scope re-triggers the
+- **T11/T12** — the lockfile-provenance SSOT row exists; cite it BY ITS CURRENT ID. A manifest design outside its scope re-triggers the
   live search — from search, not training-data recall.
 - **T14** — absent per-rule fields stated honestly (criterion 3) beat present-but-empty ones.
 - **T16** — any ADOPTED lockfile-provenance format states «upstream problem class: X / ours: Y /
@@ -285,7 +302,7 @@ stop that task. Proceed only on unambiguous parts.
    and warns off nested maps (npm's mirrors `node_modules` — problem-class mismatch, T16) and
    positional arrays (bun — «hostile to external tooling»). Verdict class: **ADOPT VOCABULARY**
    (CycloneDX/in-toto shape conventions, no dependency on their schemas) — record in the
-   re-landed SSOT row 241 (§4). The fragment dir (one file per rule) is the grep/shell-friendly
+   re-landed lockfile-provenance SSOT row (§4). The fragment dir (one file per rule) is the grep/shell-friendly
    line-oriented surface; the lock stays a single JSON attestation document. Binding on
    criteria 3-5.
 

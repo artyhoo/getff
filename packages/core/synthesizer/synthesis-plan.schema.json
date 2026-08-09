@@ -118,7 +118,8 @@
             "provenance": {
               "type": "array",
               "items": { "$ref": "#/definitions/Provenance" }
-            }
+            },
+            "tier": { "type": "integer", "enum": [0, 1, 2] }
           }
         }
       }
@@ -130,7 +131,8 @@
       "properties": {
         "url": { "type": "string" },
         "allowlistKey": { "type": "string" },
-        "fetchedAt": { "type": "string" }
+        "fetchedAt": { "type": "string" },
+        "tier": { "type": "integer", "enum": [0, 1, 2] }
       }
     }
   }

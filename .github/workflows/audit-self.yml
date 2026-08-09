@@ -171,6 +171,18 @@ jobs:
             echo "::error::packages/core/audit-self/audit-ai-docs.test.ts missing"
             exit 1
           fi
+      # First-Steps SSOT ↔ AI Usage Guide parity (beta-ai-docs-agnosticism S1). Registered by
+      # NAME, not via an `audit-self/` directory scope: a directory sweep would also pull in
+      # currently-unregistered neighbours, which is scope this umbrella did not ask for.
+      # The else-arm is load-bearing — a silently-vanished gate is the failure being closed here.
+      - name: Run packages/core/audit-self/first-steps-parity.test.ts (beta-ai-docs-agnosticism S1)
+        run: |
+          if [ -f packages/core/audit-self/first-steps-parity.test.ts ]; then
+            npx --prefix packages/core vitest run --reporter=default packages/core/audit-self/first-steps-parity.test.ts
+          else
+            echo "::error::packages/core/audit-self/first-steps-parity.test.ts missing"
+            exit 1
+          fi
 
   manifest-render-check:
     name: Manifest → RULES.md drift check
@@ -726,6 +738,12 @@ jobs:
         run: bash tests/install-sh/refresh-offers-lintstaged-migration.test.sh
       - name: "install-sh — rules-lock schema parity: F11 core set ⊆ each lane's ACTUAL emitted lock JSON (adapter-jig D3)"
         run: bash tests/install-sh/rules-lock-schema-parity.test.sh
+      - name: "install-sh — rules-lock version diff shape: dependency bump differs, consumer bump does not (getff-freshness-widening S1 criterion 5)"
+        run: bash tests/install-sh/rules-lock-version-diff.test.sh
+      - name: "install-sh — rules-lock malformed-value vectors: consumer manifest toxins never reach the lock (getff-freshness-widening S1 criterion 7)"
+        run: bash tests/install-sh/rules-lock-malformed-values.test.sh
+      - name: "install-sh — rules-lock scope trap: no research/detector fixtures in branch diff (getff-freshness-widening S1 criterion 9)"
+        run: bash tests/install-sh/rules-lock-scope-trap.test.sh
       - name: "install-sh — snapshot exclusion guard: volatile-only exclusions never mask deterministic drift (adapter-jig C3)"
         run: bash tests/install-sh/snapshot-exclusion-guard.test.sh
       - name: "install-sh — lane orphan residue: refresh sweeps dir payloads + loudly reports dropped top-level getff files (adapter-jig C4)"
@@ -1325,7 +1343,7 @@ jobs:
               installed: $r[0].installed,
               failuresCount: ($r[0].failures | length),
               artifactNames: [$r[0].artifacts[] | split("/") | last],
-              lockShape: { schemaVersion: $l[0].schemaVersion, framework: $l[0].framework, version: $l[0].version, ruleIds: $l[0].ruleIds },
+              lockShape: { schemaVersion: $l[0].schemaVersion, framework: $l[0].framework, version: $l[0].version, rules: $l[0].rules },
               preValidation: $r[0].preValidation,
               postValidation: $r[0].postValidation
             }')

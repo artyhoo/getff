@@ -43,7 +43,7 @@ compute_fingerprint() {
   # .getff/rules-lock.python.json carries a wall-clock `emittedAt` (setup.d/45-python.sh
   # _py_write_rules_lock) → its bytes differ every run, same as the audit log. It is a
   # machine-reproducibility record, NOT a delivered CONFIG artefact; its deterministic content
-  # (ruleIds/ruffBans/sourceFingerprint) is gated by tests/install-sh/python-rules-lock.test.sh, so it
+  # (rules/ruffBans/sourceFingerprint) is gated by tests/install-sh/python-rules-lock.test.sh, so it
   # is excluded here too — else the python rows would be non-deterministic.
   # The cargo lane's two non-deterministic outputs are excluded for the SAME reason
   # (ecosystem-wiring W4): the timestamped .getff-cargo-install.log audit trail, and
