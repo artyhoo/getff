@@ -5,12 +5,15 @@
      v2 §14/§14b dispositions are NOT re-opened. Lineage: draft fe0e018bc2 → this r1
      revision absorbing two cold REVISE verdicts (top-down: 2 BLOCKER / 7 MAJOR / 6 MINOR;
      bottom-up: 1 BLOCKER / 3 MAJOR / 6 MINOR). Review reports are session-ephemeral
-     scratchpad files; every finding's disposition is inlined in §13. -->
+     scratchpad files; every finding's disposition is inlined in §13 (r1) and §13b (r2). -->
 
 # Autonomous night v3 — night-mode joins the seat design
 
-> **Status:** PHASE-B r1 — revised after two cold REVISE verdicts ([arch/SKILL.md §2](../../../.claude/skills/arch/SKILL.md));
-> awaiting round-2 verification (cap 2 rounds).
+> **Status:** PHASE-B ROUND-2 REPAIRED — the r2 cold verification returned REVISE at the
+> 2-round cap ([arch/SKILL.md §2](../../../.claude/skills/arch/SKILL.md)) with the design
+> spine verified sound (21/23 r1 dispositions DISCHARGED, both BLOCKERs closed, object cut
+> independently re-tested on three corpus members); the residue (2 landing-scope MAJORs +
+> 7 text MINORs) is repaired in this text (§13b).
 > **Extends (if ratified):** [2026-08-09-session-bus-v2.md](2026-08-09-session-bus-v2.md)
 > Part I — absorbed as ratified base, its Phase-C obligations join §10 here; the v2 spec's
 > §14/§14b dispositions stand un-re-litigated, EXCEPT one explicit supersession: the v2 §4
@@ -59,13 +62,14 @@ at any moment with zero loss (the §10 work list is ordered to keep that extract
 ## §2 D-v3.1 — night is a MODE, not a fifth seat role (approach A, operator-ratified)
 
 `/night-mode` stays the fourth SKILL but never becomes a registry ROLE. At lights-out the
-existing seats enter night mode themselves: same role, same seat file, with the night-mode
-policy items applied on top (the item-mapping is §5's — not all eight items bind every
-seat class; r1, TD-M3).
+existing seats enter night mode themselves: same role, same registry identity, with the
+night-mode policy items applied on top (the item-mapping is §5's — not all eight items
+bind every seat class; r1, TD-M3).
 
-**Roles enumerated (r1, TD-M4): exactly three seat files** — `arch.json`,
-`pipeline.json`, `dispatcher.json` (v2 §6; v2 §14 «three seat files total»). Night does
-not add a fourth.
+**Roles enumerated (r1, TD-M4): exactly three** — arch, pipeline, dispatcher; their seat
+files `arch.json` / `pipeline.json` / `dispatcher.json` are the Part-II-gated registry
+mechanism per §3 (v2 §6; v2 §14 «three seat files total»; r2 N4 — the file vocabulary is
+gated everywhere, including here). Night does not add a fourth role.
 
 Grounds: (a) v2 §4 records night as **availability degradation, not reassignment** of
 arch §4 routing (r2 NEW-M5 — not re-litigated without new evidence); (b) night-mode is by
@@ -86,14 +90,17 @@ adds ONE protocol at a new home — `.claude/rules/seat-lifecycle.md` — and ea
 four skills gains a 3–5-line «Seat lifecycle» pointer block, never a restatement
 (`#parallel-evolution-creep` counter).
 
-**Rule-file obligations (r1, TD-M2 + BU-MINOR-1):** Class **B** (the compensating
-mechanism — the all-four-carry-the-pointer grep check — ships in the same PR; Class C
-«prose-only» would be false). Channel per [principle 31](../../../packages/core/principles/31-rule-channel-declaration.ts):
-`paths:` frontmatter over the four seat SKILL.md files (edit-time inject — the rule fires
-when a seat skill is edited, its natural occasion). Promotion criterion: ≥2 incidents in
-6 months of a lifecycle phase silently skipped by a live seat → promote the grep check to
-a principle test. Landing obligations in §10: `render-rule-index.mjs --write` regen (the
-generated index gate) + headroom check against the index's 4KB ceiling.
+**Rule-file obligations (r1, TD-M2 + BU-MINOR-1; r2 N2/N3):** Class **B** (the
+compensating mechanism — the all-four-carry-the-pointer grep check — ships in the same
+PR; Class C «prose-only» would be false). Channel per [principle 31](../../../packages/core/principles/31-rule-channel-declaration.ts):
+`paths:` frontmatter (branch (a), read-time load on matching work) over the four SKILL.md
+files of the architecture — three seat roles + the night-mode layer. Promotion criterion:
+≥2 incidents in 6 months of a lifecycle phase silently skipped by a live seat → promote
+the grep check to a principle test. Landing obligations in §10: `render-rule-index.mjs
+--write` regen + the r2-verified ceiling fact: the 4KB index is already at 4088/4096
+bytes, so landing REQUIRES freeing a row's worth of bytes first — trim verbose `Fires:`
+lines (the renderer's own stated remedy) or raise the constant with recorded reasoning;
+an operator-visible choice at landing, not a silent bump (r2 MAJOR-1).
 
 **Phases — each REUSES a settled mechanism, and bus-touching steps are explicitly
 PART-II-GATED (r1, TD-M1: the SLP ships nothing parked as normative-now):**
@@ -203,19 +210,22 @@ top-tier seat (arch in night mode) sweeps parks under the envelope; venue-tier
 degradation per v2 §4. **/pipeline is a DAY seat by policy (r1, TD-M4):** authoring NEW
 scope (kickoffs, umbrellas) is intent-class — floored at night by the same envelope that
 floors intent parks; the pipeline seat carries the SLP pointer and (Part-II-gated) bus
-participation, and its night delta is exactly one line: «no new-scope planning at night».
-Inter-seat signalling at night = Part-II doorbells WHEN its probes land; until then
-pull-twins carry everything (v2 §9 matrix).
+participation, and its night delta is exactly one line: «no new-scope planning at night»
+— a FOURTH policy surface, billed in §10.1 (r2 MAJOR-2: previously normative here but
+landing nowhere). Inter-seat signalling at night = Part-II doorbells WHEN its probes
+land; until then pull-twins carry everything (v2 §9 matrix).
 
 **Night-mode item mapping for non-SDD seats (r1, TD-M3 — the «policy layer» named
-precisely, T16 counter):** upstream problem class of night-mode items 2/4/6/7 is the
-unattended IMPLEMENTATION run (SDD loop: increments, commits, advisor); the night ARCH
-seat runs an unattended DECISION sweep — a different class, so those items do not
-transfer. What binds EVERY night seat: item 1 (fork policy), item 3 (quota backoff), item
-8 (standing authorization + escalation list), and the morning report. Items 2/4/6/7 bind
-only seats actually running the implementation loop (dispatcher-driven factory work).
-This mapping lands as one clarifying sentence in night-mode/SKILL.md (§10 item 1), so the
-skill itself says which items bind which seat class.
+precisely, T16 counter; r2 N1 — all eight items now enumerated):** upstream problem class
+of night-mode items 2/4/6/7 is the unattended IMPLEMENTATION run (SDD loop: increments,
+commits, advisor); the night ARCH seat runs an unattended DECISION sweep — a different
+class, so those items do not transfer. What binds EVERY night seat: item 1 (fork policy),
+item 3 (quota backoff), item 5 (verification discipline — empirical over inferred binds
+any unattended claim-maker), item 8 (standing authorization + escalation list), and the
+morning report. Items 2/4/6/7 bind only seats actually running the implementation loop
+(dispatcher-driven factory work). This mapping lands as one clarifying sentence in
+night-mode/SKILL.md (§10 item 1), so the skill itself says which items bind which seat
+class.
 
 ## §6 D-v3.4 — autonomy ceiling: the floor fires on the decision's OBJECT
 
@@ -238,6 +248,10 @@ whose scope authority covers it — never by lane or git operation:
 - **Independent floor axes unchanged:** genuine owner-forks (taste — #1284.3) stay
   floored by night-mode item 1 regardless of object; deletions of non-generated
   artifacts and externally-visible actions stay floored as in v2 §4.
+- **Precedence (r2 N5):** floor categories DOMINATE stage-scope membership — an object
+  that is simultaneously inside a stage's scope AND in a floor category (live case:
+  #1311.3, a maintainer-owned file whose fix the stage could technically carry) is
+  FLOORED. Stage-scope authorizes only what no floor category claims.
 
 **Supersession, explicit (r1, TD coherence-2 — no silent contradiction):** this re-cuts
 the v2 §4 floor clause «merges into shared branches» (a git-operation criterion) into the
@@ -320,31 +334,36 @@ inside its stage's authorized scope. **Population caveat (NEW-M6, carried):** th
 PR-body proxy for the aif-store population; the first live night ledger re-runs this
 classification on live store parks.
 
-## §10 Work list — Phase C v3, one PR
+## §10 Work list — Phase C v3, one PR (ordered: [Part-I] items first, so extracting
+Part I alone stays cheap — §1.1; r2 N7)
 
-1. Three policy surfaces in ONE change (v2 §5): dispatcher §3 Night cell (bus-free
-   wording NEW-M1) + night-mode delta items 1 and 8 — item 8 gains the §6 object-cut
-   paragraph + the ambiguity tie rule; night-mode gains the §5 one-sentence item mapping
-   (which items bind non-SDD seats).
-2. New `.claude/rules/seat-lifecycle.md` — Class B, `paths:` channel over the four seat
-   SKILL.md files (principle 31 branch (a)), promotion criterion as §3 — + the four
-   pointer blocks + the all-four-carry-the-pointer grep claim +
-   `render-rule-index.mjs --write` regen with 4KB-ceiling headroom check.
-3. `<plan>.decisions.md` entry-shape extension + morning-report «bus anomalies» section
-   (v2 §4).
-4. Morning-report chip paragraph in night-mode's terminal condition (§7 — night-end only,
-   one per plan).
-5. Supersession pointers, re-scoped (r1, BU-MINOR-4): (a) one-line pointer AT the v2 §4
-   floor clause → this §6 (the only supersession this PR performs); (b) the ADR Part-2/D5
+1. **[Part-I]** FOUR policy surfaces in ONE change (r2 MAJOR-2 — the v2 §5 three plus
+   v3's fourth): dispatcher §3 Night cell (bus-free wording NEW-M1) + night-mode delta
+   items 1 and 8 — item 8 gains the §6 object-cut paragraph + the ambiguity tie rule —
+   + pipeline/SKILL.md one-line night delta («no new-scope planning at night», §5);
+   night-mode also gains the §5 one-sentence item mapping.
+2. **[Part-I]** `<plan>.decisions.md` entry-shape extension + morning-report «bus
+   anomalies» section (v2 §4).
+3. **[Part-I]** Supersession pointer (r1, BU-MINOR-4): one-line pointer AT the v2 §4
+   floor clause → this §6 (the only supersession this PR performs); the ADR Part-2/D5
    pointer belongs to Part-II ratification and is NOT this PR's (the arch-prep handoff's
    listing of it under Phase-C is resolved explicitly here, not silently dropped).
    Plus `/self-reflection` on the discipline change at landing.
-6. F4 probe task updated: F4a + F4b as PROBES with the §4 checks (incl. the corrected
-   billing fact + the cost-GO gate); any landing = a new operator fork routed to the D7
-   owner. Zero hook edits in this PR.
-7. Observation routed to owner (not fixed here): the dispatcher/harvest re-write-trigger
-   blocks cite `cold-seat-economy.md §3` for content that section does not carry (r1,
-   BU-MAJOR-3 adjacent).
+4. **[v3]** New `.claude/rules/seat-lifecycle.md` — Class B, `paths:` channel (principle
+   31 branch (a)) over the four SKILL.md files, promotion criterion as §3 — + the four
+   pointer blocks + the all-four-carry-the-pointer grep claim + `render-rule-index.mjs
+   --write` regen, PRECEDED by freeing index bytes (r2 MAJOR-1: 4088/4096 spent — trim
+   verbose `Fires:` lines per the renderer's remedy, or raise the constant with recorded
+   reasoning; operator-visible either way).
+5. **[v3]** Morning-report additions in night-mode's terminal condition: the §7 chip
+   paragraph (night-end only, one per plan) + the night-decided-parks listing line + the
+   best-effort `dismiss_task` note (r2 N6 — previously §7 commitments unbilled).
+6. **[v3]** F4 probe task updated: F4a + F4b as PROBES with the §4 checks (incl. the
+   corrected billing fact + the cost-GO gate); any landing = a new operator fork routed
+   to the D7 owner. Zero hook edits in this PR.
+7. **[v3]** Observation routed to owner (not fixed here): the dispatcher/harvest
+   re-write-trigger blocks cite `cold-seat-economy.md §3` for content that section does
+   not carry (r1, BU-MAJOR-3 adjacent).
 
 Explicitly NOT in scope: probes P1/P4/F4 execution (separate tasks — operator directive);
 S2a/S2b (own stages; F10 gates only S2a's shipped wording); Part-II recipes and registry
@@ -416,3 +435,27 @@ BEFORE the policy text, and the cold two-altitude review read this file plus the
 | BU-MINOR-5 parallel-subwave-isolation citation stretch | ACCEPTED — owner corrected to v2 §6 corollary; PSI cited as background (§3) |
 | BU-MINOR-6 chip fallback consumer misattributed | ACCEPTED — claimed as this spec's own extension (§7) |
 | BU soft-edge #1302.3 half-maintainer-owned | ACCEPTED — recorded in §9 |
+
+## §13b Round-2 disposition changelog (verification seat, REVISE — cap reached)
+
+r2 verified: 21/23 r1 dispositions DISCHARGED, 2 PARTIAL (both repaired below), 0
+NOT-DONE; both r1 BLOCKERs genuinely closed (links 10/10 resolve; F4b fence consistent;
+object cut independently re-tested cold on #1311.4/#1317/#1284.6 — no judgment collapse);
+zero misquotations in r1's base-artifact citations.
+
+| r2 finding | Disposition |
+|---|---|
+| MAJOR-1 4KB rule-index ceiling spent (4088/4096; min row 100 B) — «headroom check» had no passing branch | ACCEPTED — landing now REQUIRES freeing bytes first (trim `Fires:` lines per the renderer's remedy) or raising the constant with recorded reasoning; billed as §10.4's precondition (§3, §10.4) |
+| MAJOR-2 /pipeline night delta normative but landing nowhere | ACCEPTED — billed as the FOURTH policy surface in §10.1; §5 points at the bill (§5, §10.1) |
+| N1 item 5 missing from the night-mode item mapping | ACCEPTED — item 5 (verification discipline) added to the binds-every-seat list (§5) |
+| N2 `paths:` mislabelled «edit-time inject» | ACCEPTED — corrected to branch (a) read-time load (§3) |
+| N3 «four seat SKILL.md files» survived the three-roles repair | ACCEPTED — «four SKILL.md files: three seat roles + the night-mode layer» (§3) |
+| N4 §2 seat-file vocabulary un-gated | ACCEPTED — Part-II-gated qualifier added at the §2 enumeration (§2) |
+| N5 no precedence when stage-scope and a floor category both apply (#1311.3) | ACCEPTED — floor dominates; stage-scope authorizes only what no floor category claims (§6) |
+| N6 §7 `dismiss_task` + park-listing commitments unbilled | ACCEPTED — billed in §10.5 (§10) |
+| N7 §1.1 «ordered for cheap extraction» untrue of §10 as written | ACCEPTED — §10 reordered [Part-I] first, items labelled (§10) |
+
+Review cap (2 rounds) reached; per [arch/SKILL.md §2](../../../.claude/skills/arch/SKILL.md)
+the routing disposition is the operator's: the r2 seat's own note — «the residue is
+paragraph-level text and work-list completeness — the design spine (§2, §4, §6, §7)
+verified sound» — and every residue item is repaired in this text.
