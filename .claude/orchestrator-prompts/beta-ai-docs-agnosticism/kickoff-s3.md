@@ -105,6 +105,36 @@ Its first live target arrives with umbrella B; acceptance here is the auditor pa
 principle 21 + a dry-run over ONE existing claim surface (e.g. README's install claims)
 with the output pasted.
 
+### D5 — Inherited items routed here AFTER this kickoff was authored
+
+Three items were routed to this stage by the meta-launch **after** 2026-08-08 16:35, so
+nothing above mentions them. All three are re-measured against `origin/staging` `4f68ed560a`
+(2026-08-09) — the evidence below is live, not inherited prose. Each still needs its own
+entry re-verification per §1's posture.
+
+| # | Item | Measured now | Verdict class |
+|---|---|---|---|
+| i | **Presets row is stale** (meta-launch §3.2 «M4», flipped mid-session) | `packages/core/templates/shared/AI-USAGE-GUIDE.md:272` still reads `| Launch presets … | not shipped | beta-delivery-ux S2 | that stage merges; this guide gains a §Presets rendered from the shipped preset data |` — but that stage **merged as #1327** and the capability is on staging: `.claude/skills/pipeline/references/presets/{aif,economy,night,sdd}.json` + `helpers/list-presets.sh` + `helpers/resolve-preset.sh`. The row's own trigger has fired. | `MIGRATE-now` candidate — the row's promise («rendered from the shipped preset data») is **exactly** a D2 generated section + drift gate. If the inventory verdicts it otherwise, say so with evidence. |
+| ii | **`agents/living-docs-auditor.md` contradiction** (S1 park 3) | `agents/living-docs-auditor.md:110` («2 FAIL, 1 WARN — `/aif-verify` blocked.») and `:173` («Only FAIL blocks `/aif-verify`.») assert a gate that `skills/getff/SKILL.md:128` explicitly denies: «`/aif-verify` — a pre-PR command belonging to the EXTERNAL AI Factory tool, which this installer does not bundle … not a step in this project's gate». | `PROPOSE-to-owner` — `agents/living-docs-auditor.md` is framework-maintainer-owned ([CLAUDE.md Artifact Ownership Contract](../../../CLAUDE.md)). S1 drafted replacement text; read it from **PR #1311's body** (`## Parked questions`) and carry it into the proposal rather than re-drafting. **Direct edit is a contract violation** — D3 form only. |
+| iii | **`aif-version` is a permanently-empty schema field** (S1 park 4) | The hook never reads it: `git show origin/staging:packages/core/hooks/deps-hash-check.sh \| grep -c 'aif-version'` → **0**; control `deps-hash` → **15**. It occurs in 4 tracked files: `.claude/skills/tool-bootstrapping/references/decision-format.md`, `skills/tool-bootstrapping/references/decision-format.md`, `skills/tool-bootstrapping/templates/tool-decisions.md.template`, and one kickoff. | **Operator fork, not yours to pick** — A: keep (consumers commit a permanently-empty field) · B: remove (3 shipped + twin edits, hook untouched, installed files don't break). Record it in the inventory with both consequences and **park it** per §6; do not resolve it to «keep moving». |
+
+**Why item i does not collide with §3's consumer-payload carve-out:** that carve-out excludes
+consumer-payload doc generation *beyond what S1 landed*. `AI-USAGE-GUIDE.md` **is** what S1
+landed (PR #1311); correcting a row inside it — and generating the §Presets its own row
+promises — is inside this stage's repo-side scope, not new A/C1 territory. If you conclude
+otherwise on entry, park the boundary question rather than silently skipping the row.
+
+**Hazard that comes with item i:** editing `AI-USAGE-GUIDE.md` moves its hash in **11**
+install baselines (`grep -rl 'AI-USAGE-GUIDE' tests/install-sh/baselines/` → 11).
+Regenerate with `SNAPSHOT_MODE=capture bash tests/install-sh/snapshot.sh`, then **audit the
+diff for swept-in drift before committing** (expect N added / N removed, all one path) and
+confirm with `SNAPSHOT_MODE=compare`. Those same 11 files also fingerprint six shipped
+`.claude/skills/*/SKILL.md` paths (`ai-doc`, `getff`, `rule-research`, `rule-tests`,
+`template-audit`, `tool-bootstrapping`), so **if S2's census adds declaration lines to any of
+those six, both stages regenerate the same baselines** — §5's source-file split does not
+cover this generated surface. Whoever merges second re-runs `capture` on top of the first;
+merge-forward, never rebase ([git-conflict-merge-forward.md](../../rules/git-conflict-merge-forward.md)).
+
 ## §3 Out of scope (do NOT do these here)
 
 - The skills census probe, night-mode/`/arch`/glm-handoff declarations, and ANY edit to
