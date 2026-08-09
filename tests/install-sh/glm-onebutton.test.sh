@@ -82,15 +82,61 @@ rm -rf "$TMP_HOME"
 # Happy path: step A returns {"id":"test-id"}, step B (GET /projects + PUT /projects/:id)
 # returns the updated project, step C (POST /runtime-profiles/validate) returns {}.
 # All return rc=0.
+# ── FAIL-CLOSED stub (§7e.6) ────────────────────────────────────────────────
+# Two rules this stub must obey, both learned from defects a permissive stub hid:
+#
+#  1. ORDER: the /validate arm MUST precede the generic create arm. A `case` takes the
+#     FIRST match, and `*"/runtime-profiles"*` also matches `/runtime-profiles/validate`.
+#     Run 4 had them the other way round, so its validate arm was dead code and step C was
+#     silently tested against the CREATE response.
+#  2. BODY-AWARENESS: the create arm must reject a body missing a schema-required field,
+#     returning the same shape the live API returns. Probed 2026-08-09 against the live aif:
+#       POST /runtime-profiles -d '{"name":"probe-only"}'
+#         → HTTP 400 ZodError, path ["runtimeId"] and ["providerId"]
+#     A stub that answers 201 regardless of body green-lights a flow that 400s in reality.
+#
+# Allowlist — every path the helper may call, each with the date it was probed live:
+#   POST /runtime-profiles/validate   (probed 2026-08-09 → exists, 400 on empty body)
+#   POST /runtime-profiles            (probed 2026-08-09 → exists, 400 without required ids)
+#   PUT  /projects/:id                (§7d.1 #1)
+#   GET  /projects                    (§7c #1)
+# Anything else is a stub failure, not a pass — an invented endpoint is how run 3 shipped a
+# ping to a path that returns 404.
+_stub_create_body_ok() {
+  # Mirrors createRuntimeProfileSchema's required set: runtimeId + providerId + name.
+  case "$1" in
+    *'"runtimeId"'*) ;;
+    *) return 1 ;;
+  esac
+  case "$1" in
+    *'"providerId"'*) ;;
+    *) return 1 ;;
+  esac
+  return 0
+}
+
 curl() {
   case "$*" in
-    *"-X POST"*"/runtime-profiles"*)
-      printf '%s' '{"id":"test-id","name":"Z.AI GLM-5.2"}'
+    # NOT IN THE ALLOWLIST — run 3's invented ping path. The live API 404s it
+    # (probed 2026-08-09). Rejected explicitly so the assertion below tests the
+    # allowlist, not some incidental body rule.
+    *"/v1/messages"*)
+      printf 'STUB-REJECT: endpoint does not exist on aif: %s\n' "$*" >&2
+      return 22
+      ;;
+    # ORDER RULE — validate BEFORE the generic create arm.
+    *"-X POST"*"/runtime-profiles/validate"*)
+      printf '%s' '{"ok":true,"message":"Claude API profile configured","profile":{"hasApiKey":true}}'
       return 0
       ;;
-    *"-X POST"*"/runtime-profiles/validate"*)
-      printf '%s' '{"valid":true}'
-      return 0
+    *"-X POST"*"/runtime-profiles"*)
+      # BODY RULE — reject exactly what the live API rejects.
+      if _stub_create_body_ok "$*"; then
+        printf '%s' '{"id":"test-id","name":"Z.AI GLM-5.2"}'
+        return 0
+      fi
+      printf '%s' '{"success":false,"error":{"name":"ZodError","message":"runtimeId/providerId required"}}'
+      return 22   # curl -f exit code for HTTP 4xx
       ;;
     *"-X PUT"*"/projects/"*)
       printf '%s' '{"id":"proj-1","ok":true}'
@@ -101,7 +147,10 @@ curl() {
       printf '%s' '[{"id":"proj-1","name":"default","defaultPlanRuntimeProfileId":"top-tier-1","defaultTaskRuntimeProfileId":"old-task","defaultReviewRuntimeProfileId":"old-review"}]'
       return 0
       ;;
-    *) return 1 ;;
+    *)
+      printf 'STUB-REJECT: path not in allowlist: %s\n' "$*" >&2
+      return 1
+      ;;
   esac
 }
 export -f curl
@@ -118,6 +167,53 @@ case "$out" in *"GLM_PROVISION: DONE profile-id=test-id"*) ok "provision happy: 
 
 # Verify the key value is NOT in the output (key-handling invariant — sister check to (d)).
 case "$out" in *"test-key-not-real"*) bad "provision happy: KEY VALUE LEAKED in stdout" ;; *) ok "provision happy: key value not in stdout" ;; esac
+
+# ── PAIRED NEGATIVES (§7e.6) — the stub must FAIL on the known-bad inputs ────
+# A stub that cannot be made to fail by feeding it run-4's actual defects is not evidence.
+
+# N1 — the body rule catches a create body missing runtimeId/providerId (run 4's live 400).
+if _stub_create_body_ok '{"name":"Z.AI GLM-5.2","defaultModel":"glm-5.2","apiKeyEnvVar":"ANTHROPIC_AUTH_TOKEN","baseUrl":"https://api.z.ai/api/anthropic"}'; then
+  bad "neg N1: stub ACCEPTED run-4's create body (missing runtimeId/providerId) — stub is not fail-closed"
+else
+  ok "neg N1: stub rejects run-4's create body (missing runtimeId/providerId), as the live API does"
+fi
+if _stub_create_body_ok '{"name":"x","runtimeId":"claude","providerId":"anthropic"}'; then
+  ok "neg N1b: stub accepts a body carrying both required ids (non-vacuous)"
+else
+  bad "neg N1b: stub rejected a VALID body — the body rule is over-tight"
+fi
+
+# N2 — the order rule: /validate must not be swallowed by the generic create arm.
+# Reproduces run 4's ordering to prove the hazard is real, then asserts ours is correct.
+# shellcheck disable=SC2221,SC2222  # the shadowed arm is the POINT — this function
+# reproduces run 4's ordering on purpose so the guard below is proven non-vacuous.
+# (Worth noting: SC2221/SC2222 flag this class automatically, and they fire on run 4's
+# real stub too — shellcheck simply is not pointed at tests/install-sh/** today.)
+_wrong_order() {
+  case "$*" in
+    *"-X POST"*"/runtime-profiles"*)         printf 'create-arm' ;;
+    *"-X POST"*"/runtime-profiles/validate"*) printf 'validate-arm' ;;
+    *) printf 'fallback' ;;
+  esac
+}
+if [ "$(_wrong_order -s -X POST http://h/runtime-profiles/validate -d '{}')" = "create-arm" ]; then
+  ok "neg N2: run-4 arm order provably swallows /validate (hazard is real, not theoretical)"
+else
+  bad "neg N2: could not reproduce the arm-order hazard — the guard below proves nothing"
+fi
+if [ "$(curl -s -X POST http://h/runtime-profiles/validate -d '{}' | jq -r '.ok // "no-ok-field"')" = "true" ]; then
+  ok "neg N2b: our stub routes /validate to the validate arm (ordering correct)"
+else
+  bad "neg N2b: our stub did NOT route /validate to the validate arm — arm order regressed"
+fi
+
+# N3 — an endpoint outside the allowlist must be rejected, not silently answered.
+# Run 3 shipped a ping to /runtime-profiles/<id>/v1/messages, which the live API 404s.
+if curl -s -X POST "http://h/runtime-profiles/some-id/v1/messages" -d '{}' >/dev/null 2>&1; then
+  bad "neg N3: stub ANSWERED an endpoint outside the allowlist (run-3's invented ping path)"
+else
+  ok "neg N3: stub rejects run-3's invented ping path (not in allowlist)"
+fi
 
 # Step-A failure: REST profile create returns nonzero.
 curl() {
@@ -206,6 +302,33 @@ if grep -qE 'x-api-key: ' "$REPO_ROOT/scripts/getff-glm-onebutton.sh"; then
   bad "regression §7d.1 #4: helper still carries an x-api-key header line (aif builds the request via /validate)"
 else
   ok "regression §7d.1 #4: no x-api-key header line (aif builds the request)"
+fi
+
+# §7e.2 — the two schema-required ids must be in the create body. Live-probed 2026-08-09:
+# omitting them returns HTTP 400 ZodError, so a helper without them can never provision.
+if grep -qE 'runtimeId: \$runtime' "$REPO_ROOT/scripts/getff-glm-onebutton.sh" \
+   && grep -qE 'providerId: \$provider' "$REPO_ROOT/scripts/getff-glm-onebutton.sh"; then
+  ok "regression §7e.2: create body carries runtimeId + providerId (schema-required)"
+else
+  bad "regression §7e.2: create body MISSING runtimeId/providerId — live API returns 400"
+fi
+
+# §7e.3 — transport must be explicit. Without it the profile resolves to SDK, and for SDK
+# transport validateClaudeConnection returns ok unconditionally, so step C can never fail.
+# Measured 2026-08-09: no transport → {"ok":true,"transport":"sdk","hasApiKey":false}.
+if grep -qE 'transport: \$transport' "$REPO_ROOT/scripts/getff-glm-onebutton.sh"; then
+  ok "regression §7e.3: create body sets transport explicitly (SDK default would void step C)"
+else
+  bad "regression §7e.3: transport not set — step C degenerates to an unconditional pass"
+fi
+
+# §7e.3 — step C must read the verdict from the body. /runtime-profiles/validate answers
+# HTTP 200 even when validation FAILS (measured 2026-08-09), so `curl -sf`'s exit code is
+# not the verdict; a helper that trusts it reports a false green.
+if grep -qE "jq -r '\.ok" "$REPO_ROOT/scripts/getff-glm-onebutton.sh"; then
+  ok "regression §7e.3: step C parses .ok from the body (200-with-ok:false is not a pass)"
+else
+  bad "regression §7e.3: step C trusts the HTTP status — validate returns 200 on failure"
 fi
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

@@ -32,6 +32,24 @@ GLM_ENV_VAR="ANTHROPIC_AUTH_TOKEN"
 # Z.ai Anthropic-shape endpoint (SKILL.md:36 D3 row).
 GLM_BASE_URL="https://api.z.ai/api/anthropic"
 GLM_DEFAULT_MODEL="glm-5.2"
+# createRuntimeProfileSchema REQUIRES runtimeId + providerId (no .optional(), no .nullable()).
+# Established by probe, not by reading the aif source (which is host-only — kickoff §7e.1):
+#   curl -sX POST "$AIF_URL/runtime-profiles" -d '{"name":"probe-only"}'
+#   → 400 ZodError, path ["runtimeId"] and ["providerId"], "expected string, received undefined"
+# Values match the live Z.ai profile shape (GET /runtime-profiles → runtimeId=claude,
+# providerId=anthropic for the Anthropic-shape Z.ai endpoint).
+GLM_RUNTIME_ID="claude"
+GLM_PROVIDER_ID="anthropic"
+# Transport is LOAD-BEARING, not cosmetic. Omitting it resolves to SDK, and for SDK transport
+# validateClaudeConnection returns ok unconditionally ("using session auth"), so the step-C ping
+# would pass with the key completely unreachable. Measured 2026-08-09 against a non-persisted
+# inline profile via POST /runtime-profiles/validate:
+#   no transport  → {"ok":true,  "transport":"sdk", "hasApiKey":false}   ← false green
+#   transport=api → {"ok":false, "transport":"api", "hasApiKey":false,
+#                    "message":"Missing API key (expected env var: …)"}  ← real gate
+# This flow is key-based (the consumer pastes a key), not session-based, so "api" is also the
+# correct semantic choice — and it is what makes §7b #3 enforceable.
+GLM_TRANSPORT="api"
 # Profile display name — MUST be unique under the resolver's match (kickoff §1 caveat
 # about prefix collisions: "Z.AI GLM-5.2" is a strict prefix of "Z.AI GLM-5.2 SDK";
 # the resolver's exact-match short-circuit saves this, but the name stays exact).
@@ -94,17 +112,23 @@ do_provision() {
   _log "provision: step A — REST profile create (POST $AIF_URL/runtime-profiles)"
 
   # Step A — REST profile create (§7a #1 minimal field set).
-  # Fields: name (display) + defaultModel + apiKeyEnvVar (the NAME) + baseUrl.
+  # Fields: the two schema-REQUIRED ids (runtimeId, providerId) + name (display) + transport
+  # + defaultModel + apiKeyEnvVar (the NAME) + baseUrl. §7a #1 says "schema-required fields +
+  # …", and runtimeId/providerId ARE schema-required — see the GLM_RUNTIME_ID probe note above.
   # All other fields stay on server defaults (§7a #1 rationale: smallest surface to break on aif upgrades).
   local create_resp create_rc
   create_resp=$(curl -sf -X POST "$AIF_URL/runtime-profiles" \
     -H 'Content-Type: application/json' \
     -d "$(jq -n \
       --arg name "$GLM_PROFILE_NAME" \
+      --arg runtime "$GLM_RUNTIME_ID" \
+      --arg provider "$GLM_PROVIDER_ID" \
+      --arg transport "$GLM_TRANSPORT" \
       --arg model "$GLM_DEFAULT_MODEL" \
       --arg keyvar "$GLM_ENV_VAR" \
       --arg baseurl "$GLM_BASE_URL" \
-      '{name: $name, defaultModel: $model, apiKeyEnvVar: $keyvar, baseUrl: $baseurl}')" 2>&1) || create_rc=$?
+      '{name: $name, runtimeId: $runtime, providerId: $provider, transport: $transport,
+        defaultModel: $model, apiKeyEnvVar: $keyvar, baseUrl: $baseurl}')" 2>&1) || create_rc=$?
   create_rc=${create_rc:-0}
 
   if [ "$create_rc" -ne 0 ]; then
@@ -195,7 +219,7 @@ do_provision() {
     _log "provision: step B done — PUT /projects/$project_id green (Plan: $plan_status)"
   fi
 
-  # Step B.5 — key reachability mechanism (§7b binding gap, resolved 2026-08-09).
+  # Step B.5 — key-reachability wiring INSTRUCTION (§7b #1 is NOT closed by this step).
   # The aif runtime resolves ANTHROPIC_AUTH_TOKEN from its OWN process.env by NAME
   # (packages/runtime/src/resolution.ts:217-219). That process env is populated from
   # the compose env_file (docker-compose.yml:15,59,94 — env_file: .env).
@@ -205,8 +229,12 @@ do_provision() {
   # Print the docker-compose env_file addition for the consumer/AI agent to apply.
   # The helper does NOT auto-patch deployment files — deployment layouts vary too widely
   # (compose, systemd, k8s, bare node) for a mechanical patch to be reliable.
-  # The validation ping (step C) confirms end-to-end reachability — if aif cannot
-  # resolve the key, validate returns auth-error and the flow records an objective-3 MISS.
+  #
+  # HONEST SCOPE: §7b #1 asks the flow to MAKE the key reachable; printing an instruction
+  # does not. What closes the loop instead is step C, which now FAILS when aif cannot
+  # resolve the key, so an un-applied instruction produces an objective-3 MISS rather than
+  # a green run. That is a gate, not a warning — but it is detection, not wiring, and the
+  # difference is stated here rather than papered over.
   #
   # INVARIANT (§2 constraint 1 + §7b #4): the helper references ONLY the env-var NAME.
   # The value moves file → process env only. It never enters the profile, never enters
@@ -227,53 +255,94 @@ Key-reachability wiring (§7b — the aif runtime must see the key in its env):
   For non-compose deployments: ensure ANTHROPIC_AUTH_TOKEN is in the aif
   process env by your deployment's standard mechanism.
 
-  The next step (POST /runtime-profiles/validate) confirms end-to-end reachability.
+  The next step (POST /runtime-profiles/validate) FAILS if this wiring is not
+  applied — an un-applied instruction is an objective-3 MISS, not a warning.
 EOF
 
-  # Step C — validation ping via the created profile (§7a #3 / §7c #3 / §7d.1 #3).
+  # Step C — key-reachability gate via the created profile (§7c #3 / §7d.1 #3 / §7e.3).
   # Routes through the aif profile id, NOT the vendor URL directly (§7c #3 — run-2
   # pinged $GLM_BASE_URL/v1/messages, proving the key but not the route the flow built).
-  # The native endpoint POST /runtime-profiles/validate (§7d.1 #3) exercises the full
-  # route — profile resolution + key lookup + model call — in one shot.
-  _log "provision: step C — validation ping (POST $AIF_URL/runtime-profiles/validate)"
+  #
+  # SCOPE, stated honestly (§7e.3): this call proves profile resolution + that aif can
+  # resolve the key from its own process env under the declared name. It does NOT make a
+  # model call — for transport=api, validateClaudeConnection checks only that apiKey and
+  # baseUrl are non-empty. §7a #3's "one real minimal model call" is therefore NOT satisfied
+  # by this step alone; that half is PARKED (see the park note after this function).
+  _log "provision: step C — key-reachability gate (POST $AIF_URL/runtime-profiles/validate)"
 
-  # Source glm.env for the HELPER's env (pre-ping reachability check below).
+  # Source glm.env for the HELPER's env (pre-ping check below).
   # The aif runtime resolves the key from ITS OWN env via the §7b mechanism above.
   # shellcheck disable=SC1090
   set -a; . "$GLM_ENV_FILE"; set +a
 
-  # Pre-ping reachability check (§7b #3): verify the key is in the HELPER's env.
-  # This catches the case where glm.env is empty/missing the var. The validate call
-  # below is the authoritative reachability check for aif's env — if aif cannot
-  # resolve the key, validate returns auth-error → objective-3 MISS (§7b #3, §2 constraint 4).
+  # Pre-ping check: the var is present in the FILE (helper env). This is a file-integrity
+  # check only — it says nothing about aif's env. The validate call below is what tests aif.
   if [ -z "${!GLM_ENV_VAR:-}" ]; then
     printf 'GLM_PROVISION: FAILED step-C env-var-unset-in-helper\n'
     _warn "objective-3 MISS: $GLM_ENV_VAR is not set in $GLM_ENV_FILE (kickoff §4 item 5 + §7b #3)"
     return 1
   fi
-  _log "provision: env var $GLM_ENV_VAR present in helper env (value redacted: ***)"
-  _log "provision: aif-runtime reachability confirmed by the validate call next (§7b #3)"
+  _log "provision: env var $GLM_ENV_VAR present in $GLM_ENV_FILE (value redacted: ***)"
 
   # POST /runtime-profiles/validate — payload {profileId} only (§7d.1 #3).
   # Omit apiKey — keeps §2 constraint 1 intact (value never enters argv/body) and
-  # relies on §7b's env wiring. The endpoint exercises the route the flow just built.
+  # relies on §7b's env wiring being in place.
   local validate_resp validate_rc
-  validate_resp=$(curl -sf -X POST "$AIF_URL/runtime-profiles/validate" \
+  validate_resp=$(curl -s -X POST "$AIF_URL/runtime-profiles/validate" \
     -H 'Content-Type: application/json' \
     -d "$(jq -n --arg id "$profile_id" '{profileId: $id}')" 2>&1) || validate_rc=$?
   validate_rc=${validate_rc:-0}
 
   if [ "$validate_rc" -ne 0 ]; then
-    printf 'GLM_PROVISION: FAILED step-C validation-nonzero\n'
-    _warn "objective-3 MISS: validation ping failed (rc=$validate_rc). Response: $validate_resp (kickoff §4 item 5)"
-    _warn "if auth error: the key is unreachable to aif — apply the env_file wiring printed above and re-run (§7b #3)"
+    printf 'GLM_PROVISION: FAILED step-C validation-transport\n'
+    _warn "objective-3 MISS: validation call did not complete (rc=$validate_rc). Response: $validate_resp (kickoff §4 item 5)"
     return 1
   fi
-  _log "provision: step C done — validate green (profile $profile_id, route proven end-to-end)"
+
+  # The endpoint answers HTTP 200 even when validation FAILS — the verdict is in the body's
+  # .ok field, not in the status code. Measured 2026-08-09: a profile whose apiKeyEnvVar is
+  # absent from aif's env returns `HTTP 200 {"ok":false,"message":"Missing API key …"}`, and
+  # `curl -sf` exits 0 on it. Reading the exit code alone is a false green — parse .ok.
+  local validate_ok validate_msg
+  validate_ok=$(printf '%s' "$validate_resp" | jq -r '.ok // false' 2>/dev/null || printf 'false')
+  validate_msg=$(printf '%s' "$validate_resp" | jq -r '.message // "no message"' 2>/dev/null || printf 'unparseable')
+  if [ "$validate_ok" != "true" ]; then
+    printf 'GLM_PROVISION: FAILED step-C validation-not-ok\n'
+    _warn "objective-3 MISS: aif rejected the profile — $validate_msg (kickoff §4 item 5 + §7b #3)"
+    _warn "most likely the key is unreachable to the aif runtime: apply the env_file wiring printed above, restart aif, re-run"
+    return 1
+  fi
+  _log "provision: step C done — aif resolves $GLM_ENV_VAR for profile $profile_id ($validate_msg)"
 
   printf 'GLM_PROVISION: DONE profile-id=%s\n' "$profile_id"
-  _log "provision: GLM executor tier wired — profile $profile_id, defaults set, validation green"
+  _log "provision: GLM executor tier wired — profile $profile_id, defaults set, key reachable"
+  _log "provision: NOTE — §7a #3's real model call is PARKED, not delivered (see §7e.3 park note)"
 }
+
+# ---------------------------------------------------------------------------
+# PARK (§7) — §7a #3's second half: "one real minimal model call"
+#
+# §7e.3 splits the ping into a route/key proof (delivered above) and a model proof (this
+# park). The model proof is a genuine fork, not an omission, because the two obvious
+# mechanisms each break a standing binding:
+#
+#   Option A — call {baseUrl}/v1/messages from the helper with the key in a header.
+#     Consequence: the value enters curl's argv → process-table exposure, which §2
+#     constraint 1 and §7b #4 forbid (run-2 watch-list W-2). A `curl --config <file>`
+#     indirection avoids argv but introduces a temp file holding the secret, i.e. a new
+#     storage location for the value that §7a #4(ii) does not sanction.
+#
+#   Option B — route the completion through aif.
+#     Consequence: no aif endpoint performs a completion through a stored profile.
+#     POST /runtime-profiles/validate does not call the provider (transport=api checks only
+#     that apiKey and baseUrl are non-empty); POST /runtime-profiles/models returned a static
+#     Claude catalogue (Sonnet 4.6 / Opus 4.6) for a Qwen profile, so it is not querying the
+#     provider either. Both measured 2026-08-09.
+#
+# Picking either silently would violate the standing constraint it breaks, so this is parked
+# per §7 rather than guessed. Until it is resolved, the flow proves that aif can resolve the
+# key and reach the profile — it does NOT prove the key is *valid* at the vendor.
+# ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
 # Dispatch
