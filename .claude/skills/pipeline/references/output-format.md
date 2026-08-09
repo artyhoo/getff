@@ -498,6 +498,22 @@ Total pastes: 1 (Queue mode internally processes all 4 R-iters autonomously).
 
 ---
 
+## §8 Step 3b — the TTY-only preset row
+
+Spec A4 ([`2026-07-23-beta-program-design.md`](../../../../docs/superpowers/specs/2026-07-23-beta-program-design.md) §4 A4, lines 269-271) proposes presets via a TTY menu row in the §3 launch-table. The row is **additive**: `--preset <name>` / `AIF_PIPELINE_PRESET=<name>` stays the primary path per the S2 kickoff §2 binding constraint 1 and clig.dev flag-first. **Menu-only UX is REJECTED** — it breaks agents and CI, which have no TTY.
+
+Render only when `[ -t 0 ] && [ -t 1 ]`. The four presets are data-driven from [`presets/`](presets/); each line's text is the preset's own `description` field, read via [`../helpers/list-presets.sh`](../helpers/list-presets.sh) — never hard-coded here, so adding a preset JSON is the only edit a new preset needs.
+
+```text
+Presets (optional — use --preset <name> or AIF_PIPELINE_PRESET=<name> to activate):
+  aif      — <description from presets/aif.json>
+  night    — <description from presets/night.json>
+  economy  — <description from presets/economy.json>
+  sdd      — <description from presets/sdd.json>
+```
+
+**Falsifier:** if this row ever appears in a non-TTY transcript, the TTY guard regressed; if it lists a preset absent from `presets/*.json` (or omits one present there), the row stopped being data-driven.
+
 ## §A — See also
 
 - [`../SKILL.md` §10](../SKILL.md) — the meta-orchestrator skill that emits this output structure.

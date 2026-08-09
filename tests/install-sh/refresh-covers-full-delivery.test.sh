@@ -255,6 +255,39 @@ case " $neg_missing " in
   *)           bad "neg: gate stayed green with '$probe' dropped from refresh → set-difference is VACUOUS" ;;
 esac
 
+# ── Check: the worktree-scripts list is duplicated, so assert the duplication ────────────────────
+# setup.d/85-worktree-scripts.sh owns WORKTREE_SCRIPTS on the install path; do_refresh cannot read
+# that array (the module is sourced only during install), so install.sh repeats the names. The
+# set-difference check above only sees the truncated "scripts/" token for both sides, so it cannot
+# catch a per-script divergence: adding a 5th script to the delivery array while forgetting the
+# refresh loop would stay GREEN. This check closes that hole by comparing the two lists directly.
+WT_MODULE="$REPO_ROOT/setup.d/85-worktree-scripts.sh"
+if [ -f "$WT_MODULE" ]; then
+  deliver_list=$(awk '/^WORKTREE_SCRIPTS=\(/{f=1;next} f&&/^\)/{exit} f{print}' "$WT_MODULE" \
+    | grep -oE '[A-Za-z0-9._-]+\.sh' | sort -u)
+  refresh_list=$(refresh_body \
+    | awk '/for _ws in /{sub(/.*for _ws in /,""); sub(/; do.*/,""); print}' \
+    | tr ' ' '\n' | grep -oE '[A-Za-z0-9._-]+\.sh' | sort -u)
+  if [ -z "$deliver_list" ]; then
+    bad "worktree-scripts parity: could not parse WORKTREE_SCRIPTS from 85-worktree-scripts.sh (gate broke)"
+  elif [ -z "$refresh_list" ]; then
+    bad "worktree-scripts parity: do_refresh has no '_ws' loop — the four scripts are not refreshed"
+  elif [ "$deliver_list" = "$refresh_list" ]; then
+    ok "worktree-scripts parity: do_refresh refreshes exactly the set 85-worktree-scripts.sh delivers"
+  else
+    bad "worktree-scripts parity: delivery/refresh lists DIVERGE — delivered=[$(echo "$deliver_list" | tr '\n' ' ')] refreshed=[$(echo "$refresh_list" | tr '\n' ' ')]"
+  fi
+  # neg — drop one name from the refresh side and prove the comparison flags it (non-vacuous).
+  one=$(printf '%s\n' "$refresh_list" | head -1)
+  if [ "$(printf '%s\n' "$refresh_list" | grep -vxF "$one")" = "$deliver_list" ]; then
+    bad "neg (worktree-scripts parity): dropping '$one' left the lists equal → comparison is VACUOUS"
+  else
+    ok "neg (worktree-scripts parity): dropping '$one' from the refresh list flips the comparison (non-vacuous)"
+  fi
+else
+  bad "worktree-scripts parity: setup.d/85-worktree-scripts.sh absent — delivery site moved, update this gate"
+fi
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

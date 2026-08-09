@@ -306,6 +306,8 @@ Launch table — <umbrella> (as of <git-HEAD-short>):
 ...
 ```
 
+**Step 3b — TTY-only preset proposal (additive, never the only path):** when a TTY is present (`[ -t 0 ] && [ -t 1 ]`), render the preset row after the table; non-TTY contexts (CI, agents, pipes) skip it and rely on the flag/env path, which stays primary. Exact block + rationale: [`references/output-format.md §8`](references/output-format.md).
+
 **Blocking rule:** if either helper (`launch-table-generator.sh` or `dispatch-from-state.sh`) emits «MISSING kickoff» → halt and report. Do NOT produce a launch-table without reading the actual kickoff. The two helpers are complementary: `launch-table-generator.sh` emits the auto-detected sub-wave skeleton; `dispatch-from-state.sh` emits state-file context (`winner_id`, `sub_wave_state`) plus the head-120 kickoff body for the AI to read in Step 2 when filling judgment columns. The §3 inline `cat .../kickoff.md` block that previously injected the kickoff body was removed 2026-05-28 (DN-3 A verdict, PR #261); its function is now owned by `dispatch-from-state.sh` (F.3 helper-collapse — single source for §3 dispatch context). <!-- @dual-pair: meta-orchestrator-dispatch-from-state -->
 
 ---

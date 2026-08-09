@@ -102,14 +102,12 @@ describe('render-status.sh — /pipeline status (AC-4, degraded path)', () => {
   // template FROM render-status.sh and pipes fixture JSON through it, catching
   // any future syntax regression without depending on a full render-status.sh run.
   //
-  // MARKED `it.fails()` because the code fix to render-status.sh:104 (moving `→`
-  // inside the string literal) is PERMISSION-BLOCKED in this autonomous Handoff
-  // session — `.claude/skills/pipeline/helpers/` is not writable. The template
-  // is STILL BROKEN, so this test is expected to fail. Once the operator applies
-  // the one-line fix documented in §8 of the implementation note, the test will
-  // unexpectedly pass; at that point, flip `it.fails()` → `it()` to make it a
-  // permanent regression guard.
-  it.fails('NON-DEGRADED-PR-SECTION: jq template extracted from render-status.sh renders PR row with arrow + mergeable', () => {
+  // Now a plain `it()` — a permanent regression guard. It was authored as `it.fails()`
+  // while the template was still broken, which made a known defect ship as a green suite
+  // plus an operator TODO. The template is fixed (the `→` and the `mergeable=` label moved
+  // outside the \(…) interpolations), so the guard is live: reverting the fix turns this
+  // test RED instead of merely "expectedly failing".
+  it('NON-DEGRADED-PR-SECTION: jq template extracted from render-status.sh renders PR row with arrow + mergeable', () => {
     // Read the actual render-status.sh to extract the jq template used for PR rows.
     const script = readFileSync(HELPER, 'utf8');
     // Find the jq template in the Ready-to-harvest section: `jq -r '.[] | "..."'`

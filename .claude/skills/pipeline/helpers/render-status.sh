@@ -101,7 +101,12 @@ trace "prs=$pr_count"
 
 echo "### Ready-to-harvest + PR state"
 if [ "$pr_count" -gt 0 ] 2>/dev/null; then
-  printf '%s' "$prs_json" | jq -r '.[] | "  - #\(.number) \(.title) [\(.headRefName → .baseRefName, mergeable=\(.mergeable // "unknown"))]"' 2>/dev/null \
+  # The `→` and the `mergeable=` label are LITERAL text and must sit outside the \(…)
+  # interpolations. An earlier revision had them inside, which is a jq syntax error
+  # (`jq: error: syntax error, unexpected INVALID_CHARACTER`, exit 3) — and the
+  # `2>/dev/null || echo` fallback below swallowed it, so this whole section silently
+  # rendered the fallback line instead of the PR list on every run.
+  printf '%s' "$prs_json" | jq -r '.[] | "  - #\(.number) \(.title) [\(.headRefName) → \(.baseRefName), mergeable=\(.mergeable // "unknown")]"' 2>/dev/null \
     || echo "  ($pr_count open PRs — gh pr list for details)"
   echo ""
 else
