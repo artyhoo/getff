@@ -452,7 +452,11 @@ out=$(do_provision 2>/dev/null); rc=$?
 case "$out" in *"GLM_PROVISION: FAILED step-A rest-create-nonzero"*) ok "provision step-A fail: emits FAILED step-A rest-create-nonzero" ;; *) bad "provision step-A fail: emits '$out'" ;; esac
 
 # Preflight env-file missing: no env file at $GLM_ENV_FILE.
-curl() { return 0; }  # curl doesn't even fire — preflight catches first
+# Fail-CLOSED even though curl never fires here — the preflight env-file check returns before
+# any request is made. `return 0` was the caseless fail-open shape the §7e.6 meta-scanner's
+# declared population used to exclude; it was harmless only by accident of call order, and
+# "harmless today" is not the invariant this suite asserts.
+curl() { return 1; }  # curl doesn't even fire — preflight catches first
 export -f curl
 TMP_NOENV=$(mktemp -d)
 GLM_ENV_FILE="$TMP_NOENV/.config/getff/glm.env"  # pointed at non-existent path
@@ -627,6 +631,30 @@ out=$(_nd_run); rc=$?
 [ "$rc" -ne 0 ] && ok "neg N9: zero-token 'completion' → rc!=0" || bad "neg N9: accepted a completion that billed nothing"
 case "$out" in *"FAILED step-D model-proof-no-usage"*) ok "neg N9: emits FAILED step-D model-proof-no-usage" ;; *) bad "neg N9: emits '$out'" ;; esac
 
+# N10 — the FOURTH way step D can lie, and the only one that used to fall OPEN. The usage gate
+# was `[ "$chat_tokens" -le 0 ] 2>/dev/null`: on a non-numeric value `[` errors out (status 2),
+# the `if` is therefore false, and control falls straight through to `GLM_PROVISION: DONE`.
+# `null` and an absent `usage` object are safe — jq's `// 0` turns both into `0`, which the
+# arithmetic test catches — so the reachable window is narrow (aif types `RuntimeUsage.totalTokens`
+# as `number`). Narrow is not closed, and this is a fail-OPEN branch inside the one step whose
+# entire job is to fail closed. Both halves are asserted: a string, and a JSON float — `12.5`
+# is numeric in JSON but not an integer, so `[ -le ]` errors on it exactly as it does on `abc`.
+_nd_stub '{"assistantMessage":"ok","usage":{"totalTokens":"abc"},"runtime":{"profileId":"test-id"}}' 0
+out=$(_nd_run); rc=$?
+[ "$rc" -ne 0 ] && ok "neg N10: non-numeric totalTokens → rc!=0" || bad "neg N10: non-numeric totalTokens fell through to DONE (usage gate fails OPEN)"
+case "$out" in *"FAILED step-D model-proof-unusable-usage"*) ok "neg N10: emits FAILED step-D model-proof-unusable-usage" ;; *) bad "neg N10: emits '$out'" ;; esac
+case "$out" in *"GLM_PROVISION: DONE"*) bad "neg N10: printed DONE on an unparseable usage figure" ;; *) ok "neg N10: no DONE line on an unparseable usage figure" ;; esac
+
+_nd_stub '{"assistantMessage":"ok","usage":{"totalTokens":12.5},"runtime":{"profileId":"test-id"}}' 0
+out=$(_nd_run); rc=$?
+[ "$rc" -ne 0 ] && ok "neg N10b: non-integer totalTokens → rc!=0" || bad "neg N10b: non-integer totalTokens fell through to DONE (usage gate fails OPEN)"
+
+# N10c — paired POSITIVE, so N10/N10b cannot be satisfied by a gate that rejects everything.
+# A plain positive integer MUST still pass the widened test.
+_nd_stub '{"assistantMessage":"ok","usage":{"totalTokens":12},"runtime":{"profileId":"test-id"}}' 0
+out=$(_nd_run); rc=$?
+[ "$rc" -eq 0 ] && ok "neg N10c: a positive integer usage figure still passes (gate is not reject-all)" || bad "neg N10c: rc=$rc — the widened usage gate rejects a VALID completion"
+
 # §2 constraint 1 on the NEW surface — step D must not put the key value in any request.
 #
 # The captured requests go to a FILE, not a shell variable, and that is forced for the same
@@ -656,27 +684,59 @@ curl() {
 }
 GLM_ENV_FILE="$TMP_ND/glm.env" AIF_HANDOFF_CHECKOUT="$TMP_ND/no-such" do_provision >/dev/null 2>&1
 
-# Guard the guard: if nothing was captured, the assertion below would pass vacuously.
-if [ -s "$_ND_SEEN_FILE" ]; then
-  ok "key-invariant capture is non-empty ($(wc -l < "$_ND_SEEN_FILE" | tr -d ' ') requests recorded)"
+# Guard the guard: the leak assertion below is about STEP D's request bodies, so the guard has
+# to establish that step D's completion request is actually in the capture — not merely that the
+# capture is non-empty. `[ -s ]` was weaker than the property it protects: aborting the helper
+# right after step A leaves NINE earlier requests in the file, so `-s` reported
+# «capture is non-empty (9 requests recorded)» and the leak assertion passed while no `/chat`
+# completion had ever been made (measured on a scratch copy with an injected early `return 1`).
+# Match a whitespace-delimited token ENDING in `/chat`, which is the completion POST — the
+# `/chat/sessions` create is a different token and must not satisfy this guard on its own.
+_nd_chat_reqs=$(grep -cE '(^|[[:space:]])[^[:space:]]*/chat([[:space:]]|$)' "$_ND_SEEN_FILE" || true)
+if [ "$_nd_chat_reqs" -ge 1 ]; then
+  ok "key-invariant capture carries step D's completion request ($_nd_chat_reqs POST /chat, $(wc -l < "$_ND_SEEN_FILE" | tr -d ' ') requests total)"
 else
-  bad "key-invariant capture is EMPTY — the leak assertion below cannot fail (vacuous)"
+  bad "key-invariant capture has NO POST /chat completion — the leak assertion below cannot fail (vacuous)"
 fi
 if grep -q 'test-key-not-real' "$_ND_SEEN_FILE"; then
   bad "step D: KEY VALUE LEAKED into a request body (§2 constraint 1)"
 else
   ok "step D: requests carry the profile id, never the key value (§2 constraint 1)"
 fi
-# PAIRED NEGATIVE — the detector must fire on a request that DOES carry the value, otherwise
-# the green above says nothing. Uses the same grep over the same file shape.
-_leak_probe=$(mktemp)
-printf 'curl -sf -X POST http://h/chat -d {"k":"test-key-not-real"}\n' > "$_leak_probe"
-if grep -q 'test-key-not-real' "$_leak_probe"; then
-  ok "key-invariant paired-negative: the detector fires on a request carrying the value"
+# PAIRED NEGATIVE — the detector must fire on a request that DOES carry the value, otherwise the
+# green above says nothing. This has to exercise the REAL path: an earlier version wrote a
+# leak-shaped string to a temp file and grepped it back, which proved that `grep` works — never
+# that the capture wiring would carry a real leak from a request body to the grep. The two are
+# different claims, and only the second is the property under test.
+#
+# So: build a scratch copy of the helper with the key value injected into step D's chat body
+# (exactly the mutation a §2 constraint 1 violation would be), run it against the SAME capture
+# stub, and assert the value lands in the capture. Nothing but the injection differs — same
+# helper, same stub, same grep.
+_leak_capture=$(mktemp)
+_leaky_helper=$(mktemp)
+sed -e 's|--arg s "$chat_session_id"|--arg s "$chat_session_id" --arg LEAKV "${!GLM_ENV_VAR}"|' \
+    -e 's|word: ok"}|word: ok", leak:$LEAKV}|' \
+    "$REPO_ROOT/scripts/getff-glm-onebutton.sh" > "$_leaky_helper"
+# Confirm the injection actually landed — a silently-failed sed would make the negative vacuous
+# in precisely the way this block exists to prevent.
+if grep -q 'leak:\$LEAKV' "$_leaky_helper" && grep -q 'arg LEAKV' "$_leaky_helper"; then
+  ok "key-invariant paired-negative: leak injected into step D's chat body (mutation applied)"
 else
-  bad "key-invariant paired-negative: detector missed an obvious leak — it cannot fail"
+  bad "key-invariant paired-negative: leak injection did NOT apply — the negative below is vacuous"
 fi
-rm -f "$_leak_probe" "$_ND_SEEN_FILE"
+(
+  _ND_SEEN_FILE="$_leak_capture"; export _ND_SEEN_FILE
+  GLM_LIB_ONLY=1 source "$_leaky_helper"
+  set +e
+  GLM_ENV_FILE="$TMP_ND/glm.env" AIF_HANDOFF_CHECKOUT="$TMP_ND/no-such" do_provision >/dev/null 2>&1
+)
+if grep -q 'test-key-not-real' "$_leak_capture"; then
+  ok "key-invariant paired-negative: a value injected into step D's body reaches the detector (capture wiring is live)"
+else
+  bad "key-invariant paired-negative: an injected leak did NOT reach the detector — the green above cannot fail"
+fi
+rm -f "$_leak_capture" "$_leaky_helper" "$_ND_SEEN_FILE"
 rm -rf "$TMP_ND"
 
 # ── §7c #1 regression — the PUT body must omit null budget fields ────────────
@@ -694,7 +754,7 @@ else
 fi
 
 # ============================================================
-# (e) META — §7e.6 structural: every case-based curl stub in THIS file fails closed.
+# (e) META — §7e.6 structural: every curl stub in THIS file fails closed.
 # ============================================================
 # Why this exists as a gate rather than a comment: W-4 ("the curl stub is fail-closed") was
 # reported CLEAN in round 3, then REINTRODUCED in round 4 — the N5 stub was a copy of the base
@@ -705,13 +765,53 @@ fi
 # invariant is asserted mechanically over this file's own source.
 # Scoped to `curl()` stubs — the invariant's declared population. Other case statements in
 # this file (e.g. the `_wrong_order` hazard reproducer) are not stubs and must not be graded
-# against it. Two fail-open shapes are caught, not one: an explicit `return 0`, AND an arm
-# with no `return` at all — a case arm inherits the exit status of its last command, so
-# `*) printf 'x' ;;` is just as fail-open as `*) return 0 ;;` and reads as if it were safe.
+# against it.
+#
+# THREE fail-open shapes are caught, not one:
+#   (i)   an explicit `return 0` in the catch-all arm;
+#   (ii)  a catch-all arm with no `return` at all — a case arm inherits the exit status of its
+#         last command, so `*) printf 'x' ;;` is just as fail-open as `*) return 0 ;;` and reads
+#         as if it were safe;
+#   (iii) a CASELESS stub — `curl() { return 0; }` answers 2xx-equivalent for every path, which
+#         is the most fail-open shape there is, and it has no catch-all arm for (i)/(ii) to
+#         match. The scanner's declared population was `case`-based stubs only, so this shape
+#         was invisible to it; the file carried one (the preflight stub, whose curl never
+#         fires). Declaring the population and then scanning a subset of it is the same
+#         can't-fail shape this gate exists to reject, so the population is widened rather
+#         than narrowed in prose.
+# A caseless stub is fail-closed iff its body carries an explicit non-zero `return`.
 _scan_failopen_catchalls() {
   awk '
-    /curl\(\)[[:space:]]*\{/ { in_curl = 1 }
-    in_curl && /^[[:space:]]*\}[[:space:]]*$/ { in_curl = 0 }
+    # A comment is not a stub. Without this the scanner flags the prose above, which names the
+    # caseless shape literally in order to describe it — and the previous shape-workaround
+    # (assembling fixtures so no literal catch-all arm appears in this file) had to exist for
+    # exactly the same reason. Skipping comments removes the class rather than dodging it.
+    /^[[:space:]]*#/ { next }
+    # (iii-a) single-line stub — definition and body on one line. Both flavours are graded:
+    # a caseless one-liner on its body, a case-based one-liner on its LAST `*)` arm (the
+    # catch-all; the greedy sub is deliberate — earlier `*)` are pattern-arm terminators).
+    # STATED LIMIT: a case-based stub with no catch-all arm at all is fail-open too — bash
+    # returns 0 from a `case` that matches nothing — and is NOT detected here.
+    /curl\(\)[[:space:]]*\{.*\}/ {
+      body = $0
+      sub(/^.*curl\(\)[[:space:]]*\{/, "", body)
+      sub(/\}[^}]*$/, "", body)
+      if (body ~ /case/) {
+        if (body ~ /\*\)/) {
+          arm = body; sub(/^.*\*\)/, "", arm)
+          if (arm ~ /return[[:space:]]+0/ || arm !~ /return[[:space:]]+[0-9]+/) print NR
+        }
+      } else if (body !~ /return[[:space:]]+[1-9]/) print NR
+      next
+    }
+    /curl\(\)[[:space:]]*\{/ { in_curl = 1; curl_start = NR; saw_case = 0; saw_nonzero = 0 }
+    in_curl && /case[[:space:]]/          { saw_case = 1 }
+    in_curl && /return[[:space:]]+[1-9]/  { saw_nonzero = 1 }
+    # (iii-b) multi-line stub that closed without ever opening a case.
+    in_curl && /^[[:space:]]*\}[[:space:]]*$/ {
+      if (!saw_case && !saw_nonzero) print curl_start
+      in_curl = 0
+    }
     in_curl && /^[[:space:]]*\*\)/ {
       arm = $0; ln = NR
       while (arm !~ /;;/ && (getline line) > 0) arm = arm " " line
@@ -721,9 +821,9 @@ _scan_failopen_catchalls() {
 
 _failopen=$(_scan_failopen_catchalls "$0")
 if [ -z "$_failopen" ]; then
-  ok "meta §7e.6: every case-based curl stub fails closed on an unallowlisted path"
+  ok "meta §7e.6: every curl stub (case-based AND caseless) fails closed on an unallowlisted path"
 else
-  bad "meta §7e.6: fail-open catch-all arm(s) at line(s): $(echo "$_failopen" | tr '\n' ' ')"
+  bad "meta §7e.6: fail-open stub(s)/arm(s) at line(s): $(echo "$_failopen" | tr '\n' ' ')"
 fi
 
 # PAIRED NEGATIVE — the scanner must FAIL on a deliberately fail-open stub, otherwise the
@@ -744,5 +844,56 @@ else
   bad "meta §7e.6 paired-negative: scanner passed a fail-open stub — the meta check is vacuous"
 fi
 rm -f "$_tmp_fixture"
+
+# PAIRED NEGATIVE for the CASELESS shape (the population the scanner used to exclude). The
+# function name is printed from an argument so the literal stub opener never appears in this
+# file's own source — same reason the catch-all arm above is passed as `'*)'`.
+_tmp_fixture_caseless=$(mktemp)
+{
+  printf '%s() {\n' curl
+  printf '  printf "STUB-DEFAULT"; return 0\n'
+  printf '}\n'
+} > "$_tmp_fixture_caseless"
+if [ -n "$(_scan_failopen_catchalls "$_tmp_fixture_caseless")" ]; then
+  ok "meta §7e.6 paired-negative: the scanner flags a CASELESS fail-open stub (widened population)"
+else
+  bad "meta §7e.6 paired-negative: scanner passed a caseless fail-open stub — the widening is vacuous"
+fi
+# Same shape as a one-liner, which is how the real one was written.
+_tmp_fixture_oneline=$(mktemp)
+printf '%s() { printf "STUB-DEFAULT"; return 0; }\n' curl > "$_tmp_fixture_oneline"
+if [ -n "$(_scan_failopen_catchalls "$_tmp_fixture_oneline")" ]; then
+  ok "meta §7e.6 paired-negative: the scanner flags a one-line caseless fail-open stub"
+else
+  bad "meta §7e.6 paired-negative: scanner passed a one-line caseless fail-open stub"
+fi
+# PAIRED POSITIVE — the widened rule must not be reject-all: a caseless stub that returns
+# non-zero IS fail-closed and must stay unflagged. Without this, the two negatives above would
+# also be satisfied by a scanner that flags every stub it sees.
+_tmp_fixture_closed=$(mktemp)
+printf '%s() { return 1; }\n' curl > "$_tmp_fixture_closed"
+if [ -z "$(_scan_failopen_catchalls "$_tmp_fixture_closed")" ]; then
+  ok "meta §7e.6 paired-positive: a caseless stub returning non-zero is NOT flagged (not reject-all)"
+else
+  bad "meta §7e.6 paired-positive: scanner flagged a fail-CLOSED caseless stub (over-tight)"
+fi
+# One-line CASE-BASED stub — the shape the sibling suite `bridge-guided.test.sh` uses throughout.
+# Graded in both directions so the sweep of that file is backed rather than assumed.
+_tmp_fixture_1lcase_open=$(mktemp)
+printf '%s() { case "$*" in *"/health"*) return 0 ;; %s return 0 ;; esac; }\n' curl '*)' > "$_tmp_fixture_1lcase_open"
+if [ -n "$(_scan_failopen_catchalls "$_tmp_fixture_1lcase_open")" ]; then
+  ok "meta §7e.6 paired-negative: the scanner flags a one-line case stub with a fail-open catch-all"
+else
+  bad "meta §7e.6 paired-negative: scanner passed a one-line case stub whose catch-all returns 0"
+fi
+_tmp_fixture_1lcase_closed=$(mktemp)
+printf '%s() { case "$*" in *"/health"*) return 0 ;; %s return 1 ;; esac; }\n' curl '*)' > "$_tmp_fixture_1lcase_closed"
+if [ -z "$(_scan_failopen_catchalls "$_tmp_fixture_1lcase_closed")" ]; then
+  ok "meta §7e.6 paired-positive: a one-line case stub with a fail-closed catch-all is NOT flagged"
+else
+  bad "meta §7e.6 paired-positive: scanner flagged a fail-CLOSED one-line case stub (over-tight)"
+fi
+rm -f "$_tmp_fixture_caseless" "$_tmp_fixture_oneline" "$_tmp_fixture_closed" \
+      "$_tmp_fixture_1lcase_open" "$_tmp_fixture_1lcase_closed"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

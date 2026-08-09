@@ -521,8 +521,23 @@ EOF
     _warn "objective-3 MISS: completion ran on profile '$chat_profile', expected '$profile_id' (§7e.3(2))"
     return 1
   fi
+  # The usage figure must be a NUMBER before it can be compared to one. This test is explicit
+  # rather than `[ "$chat_tokens" -le 0 ] 2>/dev/null` because that form fails OPEN: on a
+  # non-numeric value `[` errors (status 2), the `if` is therefore false, and control falls
+  # through to `GLM_PROVISION: DONE` — a fail-open branch inside the one step whose entire job
+  # is to fail closed. `null` and an absent `usage` object were always safe (jq's `// 0` yields
+  # `0`), and aif types `RuntimeUsage.totalTokens` as `number`, so the window was narrow; narrow
+  # is not closed. Non-integers are rejected here too — `12.5` is valid JSON but `[ -le ]` errors
+  # on it identically, so it must not reach the comparison either.
+  case "$chat_tokens" in
+    ''|*[!0-9]*)
+      printf 'GLM_PROVISION: FAILED step-D model-proof-unusable-usage\n'
+      _warn "objective-3 MISS: completion reported a usage figure that is not a non-negative integer ('$chat_tokens') — the proof cannot be evaluated (§7a #3)"
+      return 1
+      ;;
+  esac
   # A completion that billed zero tokens is not a completion.
-  if [ "$chat_tokens" -le 0 ] 2>/dev/null; then
+  if [ "$chat_tokens" -le 0 ]; then
     printf 'GLM_PROVISION: FAILED step-D model-proof-no-usage\n'
     _warn "objective-3 MISS: completion reported no token usage — the vendor call did not happen (§7a #3)"
     return 1

@@ -245,7 +245,16 @@ returns 53/53 green.
 
 ---
 
-## SUPERSEDING ADDENDUM (run-5, commit `34ccc8cece`) — three statements above are now false
+## SUPERSEDING ADDENDUM — three statements above are now false
+
+> **Provenance.** Written by the round-6 REVISE, commit `3bf1d18ce9` (2026-08-10); merged to
+> staging in PR #1341 as `5d9a5efa0d`. Its *subject* is run-5's step-D delivery (commit
+> `34ccc8cece`, 2026-08-09) plus the two corrections the round-6 audit produced — which is why
+> the text below describes work that postdates `34ccc8cece`. This heading previously read
+> «(run-5, commit `34ccc8cece`)», naming the commit the section was *about* rather than the
+> commit that *added* it: a stale provenance label inside the one section whose entire subject
+> is provenance honesty. Corrected in place (the claims below are untouched — the append-only
+> convention governs withdrawing claims, not mislabelling authorship).
 
 Append-only, per the folder convention: the sections below are **not** edited in place, but a
 reader following this file's ordering would otherwise land on withdrawn claims and act on them.
@@ -286,3 +295,92 @@ effects the sentence omitted (a `docker compose up -d` restart, and a chat sessi
 aif carries `ZAI_API_KEY` and no `ANTHROPIC_AUTH_TOKEN` (names checked, values never read), so a
 helper-created `transport=api` profile returns `CHAT_AUTH_ERROR` there whatever the code does. §4
 item 1 is therefore **not** fulfilled, and the first consumer run is the first end-to-end execution.
+
+---
+
+## ROUND-7 FOLLOW-UPS — the four MINORs the GO deliberately carried
+
+The round-7 cold fidelity audit returned `FIDELITY: GO` against `e3e705eb26`, grading five findings
+MINOR and leaving them unfixed **on purpose**: any further commit would have made the merged
+artefact differ from the audited one. They are closed here, after the merge, as follow-up work.
+The fifth (this file's stale addendum heading) is fixed at that heading, with its own note.
+
+1. **The step-D zero-usage gate fell OPEN on a non-numeric `totalTokens`.** The guard was
+   `[ "$chat_tokens" -le 0 ] 2>/dev/null`; on a non-numeric value `[` errors (status 2), the `if`
+   is false, and control reached `GLM_PROVISION: DONE`. `null` and an absent `usage` were always
+   safe (jq's `// 0` yields `0`) and aif types `RuntimeUsage.totalTokens` as `number`, so the
+   window was narrow — but it was a fail-OPEN branch inside the one step whose whole job is to
+   fail closed. Now an explicit `case` numeric test emitting a distinct terminal token,
+   `FAILED step-D model-proof-unusable-usage`. Paired negatives N10 (string `"abc"`) and N10b
+   (non-integer `12.5` — valid JSON, and `[ -le ]` errors on it identically), plus paired positive
+   N10c so the widened gate is not reject-all. Verified RED before the fix: N10 reported
+   «fell through to DONE».
+2. **The §2-constraint-1 guard-the-guard was weaker than the property it protects.** It asserted
+   the capture file was non-empty, not that step D's completion request was in it. Measured on a
+   scratch copy with an injected early `return 1` after step A: the guard reported
+   «capture is non-empty (9 requests recorded)» and the leak assertion passed while no `/chat`
+   request had ever been made. It now matches a whitespace-delimited token ending in `/chat` (the
+   completion POST — `/chat/sessions` must not satisfy it alone). Re-measured after the fix: the
+   same scratch copy turns the guard RED.
+3. **The shipped paired-negative for the leak detector was a tautology.** It wrote a leak-shaped
+   string to a temp file and grepped it back, proving that `grep` works — not that the capture
+   wiring carries a real leak to the grep. It now builds a scratch copy of the helper with the key
+   value injected into step D's chat body (`--arg LEAKV "${!GLM_ENV_VAR}"`), runs it against the
+   same stub, and asserts the value lands in the capture; a companion assertion checks the
+   injection actually applied, so a drifted anchor cannot make it vacuous. Falsified: neutering
+   the injection turns exactly these two assertions red and nothing else (66/2).
+4. **The §7e.6 meta-scanner's declared population excluded one fail-open shape.** It scoped itself
+   to `case`-based stubs, so a caseless stub — which answers 2xx-equivalent for *every* path, the
+   most fail-open shape there is — was invisible to it, and the file carried one (the preflight
+   stub, harmless only by accident of call order). Declaring a population and scanning a subset of
+   it is the same can't-fail shape this gate exists to reject, so the population was **widened**
+   rather than narrowed in prose: the scanner now flags caseless stubs (one-line and multi-line)
+   that carry no explicit non-zero `return`, and skips comment lines so prose describing the shape
+   is not mistaken for the shape. The preflight stub is now `return 1`. One-line *case-based*
+   stubs are graded too — on their last `*)` arm — which the first version of the widening
+   skipped; that was found by using the scanner to sweep the sibling suite, where every stub is
+   exactly that shape. Five fixtures pin it: three negatives (caseless multi-line, caseless
+   one-line, one-line case with a fail-open catch-all) and two positives (a caseless stub and a
+   one-line case stub, both returning non-zero, must stay unflagged). Falsified against the real
+   file: reintroducing `curl() { return 0; }` turns the meta assertion red, naming the line.
+
+Suite: **73/0** on the host, up from 62/0 at the audited SHA. Each fix was watched fail first.
+
+### §1.7 self-reflexive note (round-7 follow-ups)
+
+- **Forward-check:** complies with [`attention-is-not-a-mechanism.md §1`](../../../.claude/rules/attention-is-not-a-mechanism.md)
+  — every fix lands as a deterministic assertion, and finding 4 is resolved by widening a scanner
+  rather than by a prose scope statement, which §1 names as the non-mechanism. Complies with
+  [`destination-environment-verification.md`](../../../.claude/rules/destination-environment-verification.md):
+  all runs quoted here are **host** runs, not container. Complies with
+  [`no-paid-llm-in-ci.md`](../../../.claude/rules/no-paid-llm-in-ci.md) (deterministic bash; zero
+  billed calls — the step-D model proof is stubbed throughout) and
+  [`language-discipline.md §1`](../../../.claude/rules/language-discipline.md).
+- **Backward-check.** Class of this change = *a fail-open `curl()` stub in an install-sh shell
+  test suite*. Population enumerated mechanically, not by eye —
+  `grep -lE 'curl\(\)[[:space:]]*\{' tests/install-sh/*.test.sh` returns **exactly 2** of the ~100
+  suites: `glm-onebutton.test.sh` and `bridge-guided.test.sh`. Per surface:
+  - `glm-onebutton.test.sh` — **GAP-FOUND** (the caseless preflight stub, line 455), fixed here.
+  - `bridge-guided.test.sh` — **SWEPT-CLEAN**, with evidence rather than assumption. It defines
+    seven stubs (`:11,:15,:20,:36,:52,:68,:76`), all one-liners; five case-based with
+    `*) return 1 ;;` catch-alls and two caseless `curl() { return 1; }`. Running the finished
+    scanner over that file emits nothing. **That claim is only worth the scanner's reach**, which
+    is why the one-line *case-based* grading was added before the sweep was run: the first
+    version of the widened scanner skipped one-line case stubs entirely, so it would have
+    reported this file clean without having graded a single one of its seven stubs — a
+    SWEPT-CLEAN verdict from a scanner structurally unable to disagree.
+  The round-5 note recorded this sibling as unswept for the stub-drift class; that is now closed
+  for *this* class. What remains open: the §7e.6 gate is still scoped to its own file's source
+  (`$0`), so the sibling's cleanliness is a one-off measurement here, **not** a standing gate — a
+  fail-open stub introduced there tomorrow is caught by nothing. Promoting the scanner to a shared
+  checker over `tests/install-sh/**` is the obvious next step and is deliberately **not** taken
+  here: it is a capability commit needing its own prior-art consult, and this is a follow-up
+  bugfix. Stated limit of the scanner itself, in the code as well as here: a case-based stub with
+  no catch-all arm at all is fail-open (bash returns 0 from a `case` that matches nothing) and is
+  not detected; neither suite currently contains that shape.
+- **Self-application (T15).** The widened scanner was pointed at itself first and flagged its own
+  explanatory comment — the literal caseless stub written to *describe* the shape. That is the
+  same self-flagging trap the round-5 fixture-assembly comment records, arriving from the other
+  direction, and it is why the comment-skip rule exists rather than a reworded comment: the
+  workaround would have rotted at the next edit. The fix that closes a can't-fail assertion was
+  itself watched fail before being believed, in all four cases.
