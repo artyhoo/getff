@@ -989,6 +989,21 @@ do_refresh() {
   # Directory payload: refresh_safe now replaces (not nests) an existing dir (setup.d/lib.sh, #873).
   refresh_safe "$PKG_ROOT/packages/core/audit-self/fixtures/fences-fire" "$PROJECT_ROOT/scripts/fences-fire-fixtures"
 
+  # ── Worktree + workspace scripts → scripts/ (S2, spec A9) ──
+  # setup.d/85-worktree-scripts.sh copy_safe's these on the --full env+ path. Without a refresh
+  # arm a brownfield env+ consumer gets NONE of them on --refresh — the #869 class this gate
+  # exists to catch, and the reason `refresh-covers-full-delivery` was RED on this branch.
+  # The list is duplicated deliberately and the duplication is asserted: the delivery site is a
+  # setup.d module sourced only on the install path, so do_refresh cannot read its array, and a
+  # silent divergence is exactly what the paired check in
+  # tests/install-sh/refresh-covers-full-delivery.test.sh now forbids.
+  echo "▶ Worktree scripts → scripts/"
+  for _ws in create-worktree.sh worktree-node-modules.sh link-coordination.sh getff-work.sh; do
+    [ -f "$PKG_ROOT/scripts/$_ws" ] || continue
+    refresh_safe "$PKG_ROOT/scripts/$_ws" "$PROJECT_ROOT/scripts/$_ws"
+    chmod_safe +x "$PROJECT_ROOT/scripts/$_ws" 2>/dev/null || true
+  done
+
   # ── Regenerate the eslint-rules-local barrel + prune stack-absent fixtures (#876) ──
   # do_refresh re-delivers individual rule files above but the GENERATED index.mjs barrel would keep
   # its old import list → a newly-shipped rule lands unregistered. Regenerate from the on-disk rule
