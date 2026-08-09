@@ -519,6 +519,34 @@ create body without `runtimeId`/`providerId`); a stub that cannot fail on known-
 evidence. **No `it.fails()`-as-delivery** — a known-broken path may not ship as a passing suite plus
 an expected-to-fail marker plus an operator TODO. Fix it or PARK it per §7.
 
+## §7f Run-4 dispatch facts (2026-08-09, host+container verified — not a re-plan)
+
+**Provenance:** dispatcher-authored at run-4 dispatch time, same standing as §7b/§7d/§7e. Records
+state that changed *after* §7e was written; adds no design decision.
+
+**§7f.0 — your base is now on origin.** Run 3 is harvested: `feature/beta-delivery-ux-e65989`,
+commit `53fce45f51`, PR **#1322** (open, red by design — it carries `FIDELITY: STOP`). §7e.0 stands:
+**base on run 3.** #1322's body carries the round-3 watch-list W-1..W-6 — that is your checklist.
+
+**§7f.1 — `feature/beta-delivery-ux-995e9c` is a DEAD END. Do not base on it, do not delete it.**
+A duplicate dispatch fired 2026-08-08T21:22Z by a session whose probe checked origin + `gh pr list`
+only and never saw run 3 (container-only branches are invisible to that probe). Dead because: it
+merges `feature/beta-delivery-ux-92bf00`, which §7e.0 supersedes; it implements
+`POST /runtime-profiles/validate` as the §7a #3 model call, which §7e.3 falsifies; its
+`tests/install-sh/glm-onebutton.test.sh` still carries the §7e.6 stub defect. Keep the branch (T18).
+**One item is worth carrying forward:** its `.github/workflows/audit-self.yml` shard-A wiring
+(§7d.3 #2) — but wire the suite in only **after** the stub is fail-closed per §7e.6, or CI is made
+to depend on the theatre.
+
+**§7f.2 — measured: the run-3 ping route does not exist.** Probed from `aif-handoff-agent-1`
+2026-08-09 with `RUNTIME_BRIDGE_AIF_URL=http://api:3009` (§7e.1's trap applies):
+`GET /runtime-profiles` → `200`; `POST /runtime-profiles/<real-profile-id>/v1/messages` → **`404`**.
+Run 3's `scripts/getff-glm-onebutton.sh:53` resolves `AIF_PROFILE_CHAT_PATH` to exactly that path.
+So §7e.3's two-half split is not one option among several — it is the only reachable form of §7a #3.
+
+**§7f.3 — the §2.4 rework cap does not bar this dispatch.** Run 1 REVISE, run 2 STOP, run 3 STOP —
+the cap counts consecutive rounds on *unchanged* scope, and §7d/§7e are each a scope change.
+
 ## §8 PR-body requirements (both gates are REQUIRED checks on `staging`)
 
 This stage touches `.zcode/skills/**` (glm-handoff shipping) + `setup.d/**` (companions.manifest
