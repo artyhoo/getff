@@ -96,6 +96,21 @@ tested). Its *execution* is a command the orchestrator runs, not yet a gate — 
   the gate. The ≥20-char rationale is a floor, not a proof; a kickoff with an executable deliverable
   and an opt-out is a review-time reject. Counter: review-time judgment — the gate cannot decide
   whether a deliverable is executable, and pretending it can would be `#gate-where-judgment-needed`.
+- **`#contract-that-cannot-fail`** — a contract that runs, reports PASS, and asserts nothing about
+  the stage's deliverable. Unlike `#silent-contract-skip` nothing is missing and nothing is skipped:
+  the block is present, the commands execute, the exit code is 0 — the contract simply does not gate
+  the defect class it exists for. Incident: `getff-freshness-widening-s1` (merged PR #1333) permitted
+  `packages/core/synthesizer/**` and made a synthesis-time stamp its criterion 3, while all four
+  declared commands returned **4/4 PASS** on a branch where `packages/core/synthesizer/generate.ts`
+  never stamped `tier` — a MAJOR found by cold audit, not by the contract.
+  Counter: the K6 contract-coverage emission ([`scripts/host-verify-coverage.sh`](../../scripts/host-verify-coverage.sh),
+  wired at [`agents/dispatch-input-checker.md`](../../agents/dispatch-input-checker.md) K6) plus the
+  adjudicating seat — **never a gate**: three deterministic variants were built and replayed against
+  this incident, and each failed on recall or on noise
+  ([research-patch §3](../../docs/meta-factory/research-patches/2026-08-09-contract-deliverable-coverage.md)).
+  The root falsifier is that the defect is an *omission* at file granularity — `generate.ts` was
+  unchanged when the criterion required changing it — and no reachability- or diff-scoped check can
+  see a file that should have been edited and was not.
 
 ## §5 Promotion / retirement
 
@@ -116,6 +131,13 @@ tested). Its *execution* is a command the orchestrator runs, not yet a gate — 
   run») has not fired.
 - **Strengthening trigger:** a fifth incident of the §2 class *after* this rule ships means the
   contract is being declared but not exercised → promote, do not re-word.
+- **`#contract-that-cannot-fail` re-gate trigger (§4, added 2026-08-09).** The «emission, not gate»
+  verdict is evidence-backed, not permanent. Re-open the deterministic branch on a second incident
+  of the class in which the uncovered area is named by **no** declared command *and* the deliverable
+  is a file the stage does change — at that point the omission falsifier no longer covers the
+  population, and the syntactic variant becomes worth re-measuring. The acceptance leg is the
+  **incident replay**, never the flag count (the bar the sibling patch set and this one reused).
+  Incident counter: **1** (`getff-freshness-widening-s1`, PR #1333).
 - **Known population gap — the rule is narrower than the defect class it names.** The gate reaches
   **kickoffs only** (`.claude/orchestrator-prompts/*/kickoff.md`). A cold backward sweep of the
   `#budget-sized-to-the-wrong-machine` shape (§4) enumerated 62 hard-coded budgets repo-wide and
