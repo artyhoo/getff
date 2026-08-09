@@ -62,20 +62,47 @@ All 4 CLI primitives are pre-built. `/dispatcher` wires them — it does NOT bui
 
 Steps run in order for each stage kickoff. After §2.7, loop back to §2.1 with the next stage kickoff, or emit "umbrella complete".
 
-**§2.0 — Pre-dispatch dedup guard (run before §2.1)**
+**§2.0 — Pre-dispatch guard (run before §2.1)**
 
 ```bash
-slug="<umbrella>"
-git branch -a --list "*${slug}*"                              # Signal 1: branch match
-gh pr list --state all --search "${slug}" --json number,state # Signal 2: broad PR search (not in:title)
-test -f ".claude/orchestrator-prompts/${slug}/done.md"        # Signal 3: done.md (Layer-C3)
+SLUG="<umbrella>" bash .claude/skills/dispatcher/helpers/probe-inflight.sh
 ```
 
-Verdict — **≥2 of 3 signals required** to mark ALREADY-DONE (T-DUX-A: lone slug-substring PR hit is insufficient):
+One command, five signals, one `VERDICT:` line. Branch on the verdict — do NOT re-run the
+signals by hand, and do NOT substitute a subset. Proven by
+[`packages/core/skills/dispatcher/probe-inflight.test.ts`](../../../packages/core/skills/dispatcher/probe-inflight.test.ts).
 
-- **ALREADY-DONE**: skip dispatch → auto-write `done.md` + CANON sync + report (CLEAR action — **never surface as question**, T15 / P4); see §2.8 for schema
-- **IN-FLIGHT**: open PR or live branch, no done.md → surface + let operator decide
-- **FRESH** (0–1 signals): proceed to §2.1
+| Signal                    | Scope             | What it can see                                                             |
+| ------------------------- | ----------------- | --------------------------------------------------------------------------- |
+| 1 `origin-branch`         | host              | branches git already knows about                                            |
+| 2 `pr`                    | origin            | PRs in any state (broad search, T-DUX-A: a lone slug-substring hit is weak) |
+| 3 `done-md`               | repo              | the Layer-C3 closure marker                                                 |
+| 4 `container-branch`      | **aif container** | branches that exist ONLY inside the container                               |
+| 5 `task-done-unharvested` | **aif API × PRs** | finished tasks whose branch carries no PR                                   |
+
+Signals 1-3 are the original guard, and **all three are origin/host-scoped** — which is why
+they missed `feature/beta-delivery-ux-995e9c` (2026-08-08T21:22Z): run 3 had finished inside
+the container an hour earlier, invisible to every one of them, and the umbrella was dispatched
+twice. Signals 4-5 are that blind spot.
+
+Verdicts, highest precedence first:
+
+- **PROBE-INCOMPLETE** — a probe could not be _asked_ (docker down, aif API unreachable, no
+  `SLUG`). **STOP and surface. Never treat as FRESH** — the whole defect class is a guard that
+  renders an unasked question as a clean answer, so this outranks every other verdict.
+- **DONE-UNHARVESTED** — a finished task's work is sitting un-harvested. **Harvest it (§2.4)
+  or explicitly supersede it before dispatching.** Outranks ALREADY-DONE: a loose end is loose
+  even under a closed umbrella. This is the `#autonomous-done-no-harvest` shape.
+- **ALREADY-DONE** — `done.md` plus ≥1 other origin signal: skip dispatch → auto-write
+  `done.md` + CANON sync + report (CLEAR action — **never surface as question**, T15 / P4);
+  see §2.8 for schema.
+- **IN-FLIGHT** — open PR, live branch, or a container-only branch: surface + let the operator
+  decide.
+- **FRESH** — every probe ran and found nothing: proceed to §2.1.
+
+**Re-probe immediately before the actual dispatch**, after any Phase -1 review completes — all
+historical collisions materialised inside that window ([CLAUDE.md `Pre-dispatch in-flight
+probe`](../../../CLAUDE.md)).
 
 **Base normalization (P3):** before §2.1, run `git remote set-head origin --auto` to refresh trunk ref. If kickoff's stated base diverges from live trunk, warn and use live trunk for harvest `--base` in §2.4.
 

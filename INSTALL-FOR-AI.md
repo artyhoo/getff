@@ -149,13 +149,15 @@ Pick a depth instead of assembling flags. Three monotonic depths, default `core`
 
 **Stateless-regen upgrade path (NOT additive-components):**
 
-Re-run with a deeper profile to upgrade — the deeper payload arrives, the shallower artefacts stay byte-identical:
+Re-run with a deeper profile to upgrade — the deeper payload arrives, the shallower artefacts stay byte-identical. **Do NOT add `--refresh` to deepen an install:** `--refresh` re-delivers fixes at the depth you already have, and it deepens only partially (measured below), so it silently leaves a half-upgraded project and still exits 0.
 
 ```bash
-bash /tmp/getff/setup -y <stack>                          # core
-bash /tmp/getff/install.sh <stack> --refresh --profile env    # → env (env-only placeholders ADDED)
-bash /tmp/getff/install.sh <stack> --refresh --profile factory # → factory (AIF suite + aif-handoff row ADDED)
+bash /tmp/getff/setup -y <stack>                    # core
+bash /tmp/getff/install.sh <stack> --profile env     # → env (env-only artefacts ADDED)
+bash /tmp/getff/install.sh <stack> --profile factory # → factory (AIF suite + aif-handoff row ADDED)
 ```
+
+Measured on a `core` consumer (2026-08-09): plain `--profile env` → `tier-home.md` YES, `.claude/skills/arch/` YES, core artefact md5s unchanged. By contrast `--refresh --profile env` → exit 0 but **neither** arrives, and `--refresh --profile factory` → the AIF suite arrives while `tier-home.md` and `arch` still do **not**. The asymmetry is structural, not a bug to route around here: the AIF-suite refresh arm honours `--profile` (`install.sh:669-671` F7 gate) while the tier-home arm is presence-gated by design (`install.sh:1074-1077`, «refresh must not create it on core») and `arch` appears in no refresh loop at all.
 
 Downgrades are NOT auto — per inventory §5.3, a downgrade is `git rm` the deeper-only artefacts manually. The `--refresh` path keeps refreshing whatever's already on disk (prior opt-in), so a deeper install survives a shallower refresh.
 
