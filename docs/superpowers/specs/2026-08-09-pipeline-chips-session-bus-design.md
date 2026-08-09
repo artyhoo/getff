@@ -2,8 +2,10 @@
 
 # ADR: Pipeline chips + park-chips + context handoff (session bus deferred)
 
-> **Status:** Proposed — /arch §2 cold-reviewed (round 1: REVISE×2 → round 2 revision below);
-> operator acceptance pending. The round-1 reviews changed the Part-2 transport — see §4.
+> **Status:** Proposed — /arch §2 cold-reviewed (round 1: REVISE×2 → round-2 revision; round-2
+> delta seats: REVISE×2 with ALL round-1 findings closed and bounded new findings — applied
+> below; the 2-round cap is reached, so the remaining judgment items are operator forks in §7:
+> F1 transport pivot, F10 D7 audience). The round-1 reviews changed the Part-2 transport — §4.
 > **Date:** 2026-08-09. **Deciders:** operator (goals + CLOSED forks ratified in-contour, see
 > [prep-doc §4/§5](2026-08-09-arch-prep-pipeline-chips-session-bus.md)); Part-2 transport pivot
 > is this contour's recommendation under the operator's «rethink for more value» directive —
@@ -43,18 +45,21 @@ verified 2026-08-09), plus this contour's deltas:
   still pings the phone, unfiltered. Net: «noticing» is covered (noisily); the expensive part of
   the R3 chain — context reconstruction, deciding in the right place, relaying the answer back —
   is covered by nothing.
-- **Live session topology (ccd `list_sessions`, 2026-08-09):** 25 sessions across 4 repos in
-  ~2 days; 6+ parallel rules-as-tests sessions in one evening (PRs #1293–#1320); a real night
-  gap (00:42→10:32 on 2026-08-08). Two repo-root sessions with merged PRs (#1269, #1267) show
-  the app does NOT always isolate — see D1's mandatory isolation step.
+- **Live session topology (ccd `list_sessions`, limit-25 probe — first page, not the full
+  population; 2026-08-09):** sessions across 4 repos in ~2 days; 6+ parallel rules-as-tests
+  sessions in one evening (PRs #1293–#1320); a real night gap (00:42→10:32 on 2026-08-08). Two
+  repo-root sessions with merged PRs (#1269, #1267) show the app does NOT always isolate — see
+  D1's mandatory isolation step.
 - **Chip-continuation dogfood:** this ADR's authoring session was itself spawned from the
   prep-doc's continuation chip into a fresh app-managed worktree on the design branch — the
   Part-3 attended continuation channel worked end-to-end before being specified.
-- **Plugin hook channel is rendered, not hand-edited:** `plugin/hooks/hooks.json` is emitted by
-  [`scripts/render-harness-config.mjs`](../../../scripts/render-harness-config.mjs) (its own
-  comment: «emitPlugin is the single source of truth for `plugin/hooks/hooks.json`», with a
-  recorded drift incident for a hand-registration miss) — the renderer, not the JSON, is the D8
-  delivery surface.
+- **Hook delivery is renderer-owned, and PreCompact never reaches the plugin output:**
+  `plugin/hooks/hooks.json` is emitted by
+  [`scripts/render-harness-config.mjs`](../../../scripts/render-harness-config.mjs) («emitPlugin
+  is the single source of truth», with a recorded drift incident for a hand-registration miss)
+  — AND its plugin emit path silently skips events outside the ZCode set, PreCompact included
+  (`render-harness-config.mjs:421`), so D8's reachable renderer surface is the claude-side emit
+  (`emitClaude`, `render-harness-config.mjs:150`), not a plugin twin.
 
 Standing constraints (operator-ratified, [prep-doc §4](2026-08-09-arch-prep-pipeline-chips-session-bus.md)):
 chips ADDITIVE (aif option always alongside; human click stays the dispatch channel); any relay
@@ -67,12 +72,13 @@ night posture unchanged; no daemons; no new npm deps; capability-check not versi
 ## §2 Friction inventory (the rethink's evidence base — direction 1 executed)
 
 Manual relay actions the operator performs between sessions today, enumerated from skill
-surfaces + live probes. **Honesty note (round-1 finding):** the `Rate` column is estimated from
-observed session/PR density and skill prose, NOT measured; the one measured data point is a
-**burst**: PR #1284's `## Parked questions` records SIX maintainer forks parked at one stage
-boundary (most sampled PRs carry the template stub `n/a`,
-[.github/pull_request_template.md:53](../../../.github/pull_request_template.md)). The design
-below is therefore chosen to be **rate-robust** (works for singles and bursts alike).
+surfaces + live probes. **Honesty note (round-1 finding, numbers corrected round 2):** the
+`Rate` column is estimated, NOT measured per-umbrella. Measured sample (30 merged PRs,
+2026-08-09): 7 carry substantive `## Parked questions` content (#1317 #1315 #1311 #1302 #1292
+#1290 #1289) plus the PR #1284 SIX-fork burst at one stage boundary — parks are real, recur,
+and arrive burst-shaped; the template heading is a stub (`none`) when nothing parked
+([.github/pull_request_template.md:53-55](../../../.github/pull_request_template.md)). The
+design below is chosen to be **rate-robust** (works for singles and bursts alike).
 
 | # | Relay action | Evidence | Rate × stakes | Closed by |
 |---|---|---|---|---|
@@ -97,7 +103,13 @@ three signals are all empty for a task still in `backlog`, so it cannot catch th
 [dispatcher/SKILL.md:85](../../../.claude/skills/dispatcher/SKILL.md)) — but it IS the park-chip
 emitter (D3).
 
-Chip contract — title = the 1-liner; prompt = self-contained and carrying its gates:
+Chip contract — **title** = a ≤60-char imperative with the DISTINGUISHING tokens first
+(`spawn_task` caps the label; real 1-liners run 85–146 chars with the distinguishing
+`§section`/Worker/Mode tokens in the tail — so the title is e.g. `S2 auth: dispatch
+[<umbrella>]`, never the raw 1-liner); **tldr** = the dropped Action-queue context (`When` /
+`Waiting on`); **prompt** = self-contained, carrying its gates, AND rendered in full in the §10
+report next to the chip (the operator can inspect what a click authorizes — the payload is not
+shown in the chip UI):
 
 1. **Isolation first (mandatory, STOP-on-fail):** enter/verify an isolated worktree before any
    write — [parallel-subwave-isolation.md §1](../../../.claude/rules/parallel-subwave-isolation.md)
@@ -110,16 +122,24 @@ Chip contract — title = the 1-liner; prompt = self-contained and carrying its 
    three-signal dedup PLUS an aif queue scan (`curl $RUNTIME_BRIDGE_AIF_URL/tasks` filtered by
    kickoff slug) — the queue is where the §2.0 signals are blind (memory-codified discipline:
    probe parallel work *including the aif queue* before dispatch).
-3. **Stage-gate precondition, verbatim:** for stage-N chips, the prompt opens with the real
-   gate command (`gh pr list --search "is:merged head:<stage-N-1-branch> base:staging"`) and
-   the HALT rule from [pipeline/SKILL.md §6](../../../.claude/skills/pipeline/SKILL.md) —
-   otherwise chips strip the `When`/`Waiting on` columns off the Action queue and become
-   premature-dispatch buttons (round-1 finding; `#flat-queue-no-gates`).
+3. **Stage-gate precondition, resolved at CLICK time, not frozen at plan time:** for stage-N
+   chips, the prompt opens with the gate PREDICATE + the resolution instruction — «verify
+   Stage N-1 of `<umbrella>` is merged: derive its head branch from the umbrella's PR list /
+   kickoff / state.md NOW, then `gh pr list --search "is:merged head:<derived> base:staging"`;
+   empty → HALT and report» ([pipeline/SKILL.md §6](../../../.claude/skills/pipeline/SKILL.md)).
+   A plan-time literal branch name would be wrong on the factory path — aif names branches
+   per-task at dispatch time and harvest may rename — making the HALT fire forever on a branch
+   that never existed (round-2 finding). Without the gate, chips strip `When`/`Waiting on` off
+   the Action queue and become premature-dispatch buttons (`#flat-queue-no-gates`).
 4. cwd = repo root; kickoff/residue path + «read and execute».
 
-**Falsifier:** a chip prompt that omits any of steps 1–3 and causes an unisolated write, a
-double dispatch, or a premature stage start → the contract above was not applied; fix the
-emitter, not the operator.
+**Assertion mechanism (not hope):** the gates above are asserted, not trusted to emitter
+diligence — S1 EXTENDS [principle 18](../../../packages/core/principles/18-meta-orchestrator-output-format.test.ts)'s
+`REQUIRED_SUBSTRINGS` so the rendered report's chip-prompt block must literally contain the
+isolation, probe, and gate lines (the test already pins the Action-queue grammar; the chip
+block joins it). **Falsifier:** a chip prompt that omits any of steps 1–3 → the extended test
+is red before the report ships; an incident reaching a click means the assertion itself was
+skipped — fix the emitter and the test, not the operator.
 
 ### D2 — Chips are additive, capability-gated, ephemeral-honest
 
@@ -133,19 +153,27 @@ The aif autonomous option is always presented alongside (`#tabs-by-default-when-
 best-effort `dismiss_task`. Control model unchanged: the operator's click IS the «maintainer
 opens a fresh session» channel — `#worker-dispatch-via-subagent` untouched.
 
-**allowed-tools honesty (round-1 finding):** skill-frontmatter `allowed-tools` is NOT enforced
-by CC (upstream issue #18837; recorded at [SSOT #121](../../../docs/meta-factory/prior-art-evaluations.md)
-and [21-shipped-agent-tools-valid.test.ts:30](../../../packages/core/principles/21-shipped-agent-tools-valid.test.ts)),
-and no skill in this repo declares MCP tools there. So: capability = runtime roster probe, not
-frontmatter; the S1 edits still ADD the MCP tool names to `pipeline`/`arch` `allowed-tools` as
-declarative forward-compat (the same posture as the `#14956` permissions caveat recorded at
-[pipeline/SKILL.md:54](../../../.claude/skills/pipeline/SKILL.md)), with a comment marking them
-unenforced-today.
+**allowed-tools honesty (round-1 finding; round-2 correction):** skill-frontmatter
+`allowed-tools` is NOT enforced by CC (upstream issue #18837; recorded at
+[SSOT #121](../../../docs/meta-factory/prior-art-evaluations.md) and
+[21-shipped-agent-tools-valid.test.ts:30](../../../packages/core/principles/21-shipped-agent-tools-valid.test.ts)).
+Capability = runtime roster probe, ONLY — S1 makes **no** `allowed-tools` MCP additions: the
+round-1 «declarative forward-compat add» would turn principle 21 RED deterministically
+(`MCP_TOOL_RE = /^mcp__[^_]+__/` at
+[21-shipped-agent-tools-valid.test.ts:69](../../../packages/core/principles/21-shipped-agent-tools-valid.test.ts)
+rejects underscored server segments — every `mcp__ccd_session__*` / `mcp__ccd_session_mgmt__*`
+name fails it), and widening that regex is a `packages/core/principles/` edit owned by
+meta-tests CI per the [CLAUDE.md](../../../CLAUDE.md) Artifact Ownership Contract — routed as a
+separate owner-visible issue (the regex's «server segment has no underscores» premise is false
+for live MCP servers generally), never an S1 side effect. The skill prose notes the probe-only
+posture in one line.
 
 ### D3 — Part-2 relay = a PARK-CHIP, not a message bus (transport pivot, round 1)
 
-When an executing session parks a **strategic** question (dispatcher §3 Type 2, or any
-attended Worker), it emits — capability-gated like D2 — a chip:
+When the **/dispatcher session** (the v1 emitter — the only one staged; Worker-emitted
+park-chips are a revisit item tied to F7, since factory containers configure no ccd server)
+detects a **strategic** park (dispatcher §3 Type 2), it emits — capability-gated like D2 — a
+chip:
 
 > title: `Decide: <one-line question> [<umbrella>]`
 > prompt: parked task-id + kickoff path + the §3 routing-seats context + instruction: fetch the
@@ -159,6 +187,13 @@ One chip may carry a batch («Decide 6 parked questions [beta-delivery]») — b
 observed shape (§2). The operator clicks when ready; the spawned session pre-reads everything
 and becomes the decision venue — closing all four R3 steps (notice / reconstruct / decide in
 context / relay back) with **zero new transport machinery**: the chip channel D1 already ships.
+Coverage honesty: a park raised while no /dispatcher session is alive produces no chip and
+falls back to the R4 sweep — the closure claim holds for dispatcher-driven umbrellas, which is
+where Type-2 parks arise. **Seat:** `spawn_task` cannot name a model, so the chip's `tldr` +
+prompt first line state the recommended seat class per [arch/SKILL.md §4](../../../.claude/skills/arch/SKILL.md)
+routing («intent/goal fork — open in a top-tier session»); the operator's model pick at click
+is the seat control (whether a spawned session inherits the emitter's model is an F9
+observation).
 
 Why this beats the messaging bus it replaces (full scoring in §4): no receiver discovery
 (impossible with the current roster — sessions cannot self-title), no auto-run turn in a
@@ -272,7 +307,11 @@ Implementation constraints (each one round-1-hardened):
   fine» — with zero framework-artifact references; the framework-specific residue discipline
   lives in this ADR + skill docs, not in the shipped string
   ([dual-implementation-discipline.md §3](../../../.claude/rules/dual-implementation-discipline.md)
-  audience triage, decided: consumer-shipped with generic wording).
+  audience triage). Mechanism cost, stated: delivery is `decision:block`, so the arm adds a NEW
+  blocking path (≤1 per tier per session — the debounce bounds it) in every consumer session
+  that crosses a tier, including turns that today exit silently. This audience decision changes
+  third-party behaviour → it is an operator fork (F10), recommended not fiat-closed; the
+  alternative (framework-presence gate → operator-only) is one capability check.
 - **ZCode census consequence (owned, not hand-waved):** on ZCode synthetic transcripts the
   usage fields may be absent → the arm is inert there. Per the census's own row-13 precedent
   (one working arm + one inert arm ⇒ `zcode-gap`), landing D7 flips
@@ -286,25 +325,35 @@ Round-1 correction: a non-blocking PreCompact hook gives the model no execution 
 «reminder to write a residue before compaction» is undeliverable as specified. The workable
 shape is the one already registered in the SSOT: the hook **itself writes** the state,
 deterministically ([SSOT #108](../../../docs/meta-factory/prior-art-evaluations.md): PreCompact
-«save wave-state before compaction», verdict ADOPT with **DECISION-NEEDED (operator)** and
-«bench-test exit-2 + additionalContext contracts, then wire»). D8 v2:
+«save wave-state before compaction»). D8 v2:
 
 - `precompact-residue.sh` on `PreCompact` (matcher `auto`): extracts from the transcript the
   session anchor (ai-title) + the LAST `AIF_RECAP_MARKER` recap block (a model-authored summary
-  already sitting in the transcript) + timestamp + branch, and writes them to a per-session
-  residue file under the coordination dir — no model turn required, nothing blocked.
-- **Gate before wiring (unchanged from the SSOT row):** the #108 operator decision is OPEN and
-  the bench-test has not run. S2 therefore splits: S2a (D7 Stop-arm) is independent and
-  proceeds; **S2b (D8) is blocked on the operator's #108 GO + the bench-test**, and its first
-  implementation step IS the bench-test. This ADR does not close #108 — it routes to it.
-- Delivery surfaces when unblocked: the hook script; the RENDERER
-  (`scripts/render-harness-config.mjs` — the single source of truth for
-  `plugin/hooks/hooks.json`; hand-editing the JSON has a recorded drift incident); a census
-  row 21 in [zcode-parity-doctrine.md §2](../../../.claude/rules/zcode-parity-doctrine.md)
-  classified `cc-only` (`PreCompact` ∉ `ZCODE_EVENTS`, rule §2; rollup arithmetic updated —
-  «Total = 20» becomes 21); `@cc-only-rationale` marker (edit-time gate `check-hook-marker.sh`
-  enforces); the operator jq snippet for direct-settings sessions (agent-uncommittable
-  `.claude/settings.json`).
+  already in the transcript; the marker is lang-pack-sourced and the recap fires conditionally,
+  so the FALLBACK is the last main-thread assistant text excerpt — anchor + timestamp + branch
+  are always written) — no model turn required, nothing blocked.
+- **Named reader (a residue nobody reads is `#warning-nobody-reads`):** the residue file rides
+  the [pipeline/SKILL.md §1](../../../.claude/skills/pipeline/SKILL.md) Step-1 injection block
+  (S2b adds one line to the existing cache `cat`), so the next /pipeline invocation surfaces
+  it; and the D6 handoff prose instructs a continuing session to check the path. Location:
+  per-session file in the coordination dir — a deliberate deviation from #108's
+  `.claude/session-state.md` sketch (per-session beats one clobbered file; recorded here, not
+  silent).
+- **Gate before wiring, rescoped to the item (round-2 correction — #108 is a COMPOSITE row):**
+  two of its five hook items already shipped, so «#108 is open» holds only for the PreCompact
+  ITEM; the real reasons it is operator-gated are the `.claude/settings.json` touch
+  (maintainer-landed, agent-uncommittable) and that #108's registered bench items (exit-2 +
+  additionalContext contracts) belong to OTHER rows — D8's hook blocks nothing and injects
+  nothing, so its own gate is a minimal liveness bench: PreCompact(auto) fires with
+  `transcript_path` on a real auto-compact + the file is written. S2 splits: S2a (D7 Stop-arm)
+  proceeds; **S2b (D8) waits for the operator's GO on the PreCompact item + that liveness
+  bench** as its first implementation step.
+- Delivery surfaces when unblocked: the hook script; the renderer's claude-side emit
+  (`render-harness-config.mjs:150` — the plugin output cannot carry PreCompact, `:421` skips
+  it, §1); a census row 21 in [zcode-parity-doctrine.md §2](../../../.claude/rules/zcode-parity-doctrine.md)
+  classified `cc-only` (`PreCompact` ∉ `ZCODE_EVENTS`; rollup «Total = 20» becomes 21);
+  `@cc-only-rationale` marker (edit-time gate `check-hook-marker.sh` enforces); the operator jq
+  snippet for direct-settings sessions.
 
 ### D9 — Calibration research task (Part 4, dispatched via kickoff)
 
@@ -333,9 +382,10 @@ builds — had never been scored. Scored:
 | Receiver discovery | required; impossible today (no self-title — §1) | none needed |
 | Operator away / night-local sender | auto-runs a top-tier turn (wake-up cost) | chip waits inert; doubles as the morning surface |
 | Burst of N parks (observed shape, §2) | N auto-run turns, serialized | one batch chip, one click |
-| Injection surface | messages arrive as user turns → security prose in 2 skills | none (operator authors the click) |
+| Injection surface | messages arrive as user turns in a LIVE seat's stream | smaller, not zero: payload is AI-authored and UI-hidden, but lands in a FRESH session with no accumulated context/trust; §10 report renders it for pre-click inspection |
 | Survives app restart | message persists in transcript | chip dies; park state + sweep unaffected either way |
 | Latency hiding (pre-staged package before operator arrives) | **yes — the one bus advantage** | no — one turn after click |
+| Decision-venue tier | over-determined (always the live top-tier seat — the wake-up cost) | under-determined (`spawn_task` names no model) — mitigated by the D3 seat line + operator's pick at click |
 | New machinery | discovery + guards + 2 protocol surfaces | zero (reuses D1/D2) |
 
 Verdict: park-chip wins on every axis but latency hiding, whose value is discounted by the
@@ -351,14 +401,19 @@ durable park store).
 
 - **Easier:** stage dispatch and contour continuation become one click (R1/R2); a parked
   strategic question becomes a click that opens a pre-briefed decision venue (R3), including
-  next-morning for night-parked items (R4); long sessions get a deterministic nudge at the
-  planning threshold instead of silent degradation.
+  next-morning for night-parked items (R4, pending F9's visibility check); long sessions get a
+  deterministic nudge at the planning threshold — with the shipped-v1 caveat that a 200k
+  session re-climbing after auto-compact gets no second nudge until S2b's snapshot lands
+  (debounce spent; D8 parked on F8).
 - **Harder / new surfaces:** chip prompts become load-bearing carriers of three gates
   (isolation, in-flight+aif probe, stage-gate) — emitter prose must keep them verbatim; the
   Stop hook grows a second arm with strict placement constraints (test material extends);
   the pipeline report grammar SSOT ([references/output-format.md](../../../.claude/skills/pipeline/references/output-format.md),
   enforced literally by [principle 18](../../../packages/core/principles/18-meta-orchestrator-output-format.test.ts))
-  must be edited in lockstep with §10 — it is IN S1's surface list.
+  must be edited in lockstep with §10 — it is IN S1's surface list; and R1/R2/R3 now ride ONE
+  capability (`spawn_task`) — where it is absent (non-desktop harness, F7 classes) all three
+  degrade at once, to paste-tabs + the R4 sweep (survivable and honest, but a correlated
+  single-point property the bus topology did not have).
 - **Revisit when:** D5's trigger fires (bus); #108 operator decision lands (D8); calibration
   lands (D9 → D6/D7 parameters); ≥1 incident of a chip-gate omission causing an unisolated
   write / double dispatch / premature stage (D1 falsifier); a ccd self-title or
@@ -368,10 +423,10 @@ durable park store).
 
 | Stage | Scope | Surfaces | Route |
 |---|---|---|---|
-| S1 chips | D1+D2: §10 chip emission + /arch §3 chip emission (with route discrimination), gates-in-prompt, capability probe, allowed-tools declarative adds | `pipeline/SKILL.md` §10 + frontmatter, `references/output-format.md` + `18-meta-orchestrator-output-format.test.ts`, `arch/SKILL.md` §3 + frontmatter | in-session (discipline-bearing skill prose + enforced-grammar lockstep) |
-| S2a Stop-arm | D7 with all six constraints + tests | `.claude/hooks/end-of-turn-reminder.sh`, its test file, `zcode-parity-doctrine.md` §2 (row-9 flip + rollup) | in-session or factory (constraints are quotable; the census edit is doc-judgment — prefer in-session) |
-| S2b PreCompact | D8 — **blocked on operator #108 GO**; first step = the #108 bench-test | hook script, `scripts/render-harness-config.mjs`, `zcode-parity-doctrine.md` §2 (row 21), operator jq hand-off | parked until #108 decision |
-| S3 park-chips | D3+D4: dispatcher §3 Type-2 park-chip emission paragraph + decision-session protocol | `dispatcher/SKILL.md` §3 | in-session (small; same file as S1's dispatcher reading — after S1) |
+| S1 chips | D1+D2: §10 chip emission + /arch §3 chip emission (with route discrimination), gates-in-prompt + the principle-18 substring extension, runtime capability probe (NO `allowed-tools` MCP adds — D2) | `pipeline/SKILL.md` §10, `references/output-format.md` + `18-meta-orchestrator-output-format.test.ts`, `arch/SKILL.md` §3 | in-session (discipline-bearing skill prose + enforced-grammar lockstep) |
+| S2a Stop-arm | D7 with all seven constraints + tests | `.claude/hooks/end-of-turn-reminder.sh`, its test file, `zcode-parity-doctrine.md` §2 (row-9 flip + rollup) | in-session or factory (constraints are quotable; the census edit is doc-judgment — prefer in-session); **F10 gates the shipped wording** |
+| S2b PreCompact | D8 — **blocked on F8** (operator GO on the #108 PreCompact item); first step = D8's liveness bench | hook script, `scripts/render-harness-config.mjs` (emitClaude path), `zcode-parity-doctrine.md` §2 (row 21), `pipeline/SKILL.md` §1 injection line, operator jq hand-off | parked until F8 |
+| S3 park-chips | D3+D4: dispatcher §3 Type-2 park-chip emission paragraph + decision-session protocol | `dispatcher/SKILL.md` §3 | in-session; **after S1 AND F1 ratification** |
 | S4 calibration | D9 dispatch after staging merge | aif factory | `/dispatcher context-degradation-calibration` |
 
 S1 ∥ S2a parallel-safe (disjoint surfaces); S3 after S1; S2b parked; S4 after this PR merges.
@@ -380,13 +435,16 @@ S1 ∥ S2a parallel-safe (disjoint surfaces); S3 after S1; S2b parked; S4 after 
 
 | # | Item | Status |
 |---|---|---|
-| F1 | Part-2 architecture | **CLOSED as recommendation** — park-chip transport (D3–D5); operator acceptance of the pivot pending (this was goal 2's named mechanism; the rethink directive covers the change, but the operator gets the explicit flag) |
+| F1 | Part-2 transport (**operator fork**) | park-chips (D3–D5, this contour's recommendation) vs the round-1 messaging bus (recorded in git history + D5 revisit trigger) vs sweep-only. **OPEN — operator ratifies the pivot**; S3 implementation waits on it (goal 2 named the messaging mechanism; the «rethink for more value» directive covers the change, but the call is the operator's) |
 | F2 | Threshold numbers 300k / ~500k / 70% | research-fillable — D9 kickoff authored, marker-complete |
 | F3 | Chip-spawned session isolation default | **unverified** (round-1 downgrade: the 25/25 statistic is selection-conditioned; repo-root counterexamples exist) — the D1 mandatory isolation step is the mechanism; first live chip run observes the default as a bonus fact |
 | F4 | CLI `SendMessage` unattended/headless behavior | OPEN — deferred with D5; recipe: from a headless `claude -p` run, attempt `ListAgents` + send to a named session; observe delivery + billing |
 | F5 | tg-notify liveness | **CLOSED — split** (host filtered dead / container raw live, probed 2026-08-09). Operator option: set host creds (~1 min) to enable the filtered channel |
+| F6 | ccd message delivery timing to idle sessions | **CLOSED — moot** (no messages in v1; D5) |
 | F7 | `spawn_task` availability in scheduled/remote (unattended) sessions | OPEN — determines whether park-chips also fire from those classes or only from local sessions; probe: one scheduled run calling `spawn_task`; either answer is safe (absent → capability-gate skips → sweep path) |
-| F8 | #108 operator decision + bench-test | OPEN — blocks S2b only (routed, not closed, by D8) |
+| F8 | #108 PreCompact-item operator GO + D8's own liveness bench | OPEN — blocks S2b only (routed, not closed, by D8; the SSOT row is composite — see D8) |
+| F9 | Chip visibility scope + lifetime + seat inheritance | OPEN — first live chip observes: app-global vs per-session-view rendering (the R4 morning-surface claim rests on this); survival across minimize vs restart; whether the spawned session inherits the emitter's model (D3 seat line). Click-time observations, no build needed |
+| F10 | D7 audience (**operator fork**) | consumer-generic as specified (adds a bounded new blocking Stop path in consumer sessions) vs framework-presence-gated (operator-only; consumers lose the reminder). **OPEN — operator ratifies**; D7 records the consumer-generic recommendation; round 2 correctly flagged that this decision lands outside this repo |
 
 ## §8 §1.7 self-reflexive note
 
@@ -396,9 +454,10 @@ S1 ∥ S2a parallel-safe (disjoint surfaces); S3 after S1; S2b parked; S4 after 
   is session-bound or deterministic bash+jq (`end-of-turn-reminder.sh:148-168` precedent);
   zero API-billed CI calls.
 - [attention-is-not-a-mechanism.md §1](../../../.claude/rules/attention-is-not-a-mechanism.md):
-  chips accelerate operator attention but every mechanical gate stays (stage gates §6-command
-  carried INTO chips, park state in aif, sweeps, `done.md`); D1's falsifier names the emitter,
-  not «nobody looked».
+  chips accelerate operator attention but every mechanical gate stays (stage gates resolved-at-
+  click INSIDE chips, park state in aif, sweeps, `done.md`); the chip-prompt gates are asserted
+  by the extended principle-18 substring check (D1), not by emitter diligence; D8's residue has
+  a named reader (the §1 injection block).
 - [dual-implementation-discipline.md §3/§4/§6](../../../.claude/rules/dual-implementation-discipline.md):
   capability-checks at the runtime roster (D2), audience triage done for the consumer-shipped
   hook (D7 generic wording), `@cc-only-rationale` for D8.
