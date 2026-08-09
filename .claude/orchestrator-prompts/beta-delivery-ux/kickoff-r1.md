@@ -56,10 +56,30 @@ Three consequences that shape this stage:
    *repo* to that fact and record the family, not to re-open the choice.
 2. **`0.0.1` is spent.** The first real release cannot be `0.0.1` — it is already published and
    `npm unpublish` is not a rollback (binding input §4). Record the version floor.
-3. **`@getff` scope ownership is UNPROVEN.** A 404 on `@getff/core` proves the *package* is free,
-   **not** that the *scope* is ours. **Entry probe (run it, quote the output):**
-   `npm access list packages @getff` or `npm org ls getff`. If the scope is not ours →
-   **STOP and park** (§9); do not invent a fallback scope.
+3. **`@getff` scope ownership is PARTIALLY established — and it is a U10 gate, not an R1 gate.**
+   A 404 on `@getff/core` proves the *package* is free, **not** that the *scope* is ours.
+   Measured 2026-08-09 with **unauthenticated** commands (these work with no login):
+
+   | probe | result | reading |
+   |---|---|---|
+   | `npm owner ls getff` | `artyhoo <yhooi2011@gmail.com>` | the unscoped name is ours |
+   | `curl -s -o /dev/null -w '%{http_code}' https://registry.npmjs.org/-/org/getff/user` | `200` | the org **exists** |
+   | same URL for `babel` / for `zzqqxx-not-an-org-9931` | `200` / `404` | the control pair that makes the 200 above mean «exists» |
+   | `curl -s 'https://registry.npmjs.org/-/v1/search?text=scope:getff&size=5'` | `total: 0` | nothing published under the scope yet |
+
+   **What is still open:** *whose* org `getff` is. That needs an authenticated read
+   (`npm access list packages @getff` / `npm org ls getff`), and **npm auth is absent on both
+   surfaces** — measured 2026-08-09: `npm whoami` → `E401` in the aif container *and* on the
+   operator host (the host token has expired). Restoring it requires `npm login`, an operator act.
+
+   **Therefore this is NOT a stop condition for R1.** §0.3 already establishes that every R1
+   deliverable is name-independent (`npm i <tarball>` installs by path), and §0.1 keeps
+   `private: true` so nothing can reach the registry from this stage. Scope ownership first
+   becomes load-bearing at **publish** — U10. **Do:** record the table above verbatim in the §2
+   record, mark the ownership row `UNRESOLVED — needs authenticated probe, U10 gate`, name the
+   exact command that closes it, and **continue with the rest of the stage.** Only a probe that
+   returns a *different* owner is a STOP (§11) — «the probe could not authenticate» is a
+   recorded unknown, not a foreign scope.
 
 ### §0.3 What R1 does NOT do — the rename is U9's
 
@@ -106,6 +126,33 @@ runnability, metadata, and release notes. So R1 closes everything except the CLI
 `getff init` maps to (today `./setup` — [`README.md:10`](../../../README.md)), and MUST name
 this as an open deliverable blocking U10. Do **not** build that package in R1 (§7).
 
+### §0.6 Why this file is at rev 2 — the rev-1 gate was unreachable
+
+Rev 1 was dispatched as aif task `eb091c2f-303c-4d08-8d63-2e69fdbe825e` on 2026-08-09. The worker
+did §0.2 correctly, hit the scope-ownership probe, found no npm auth in the container, and — per
+rev 1's own §9/§11 wording — **parked the entire stage** after ~10 minutes with zero commits. It
+was right to: rev 1 said «if the scope is not ours → STOP and park», and an unauthenticated probe
+returns the same empty result as a foreign scope.
+
+Two authoring defects, both mine, both now fixed:
+
+1. **A gate no reachable environment could satisfy.** `npm whoami` → `E401` in the container *and*
+   on the host. The stage could not start under any dispatch. This is the
+   `#contract-that-cannot-fail` shape's mirror image — a contract that cannot *pass* — and the
+   counter is the same: before writing a STOP on a probe, run the probe in the environment the
+   worker will run it in.
+2. **An internal contradiction.** §0.3 says every deliverable is name-independent; §0.2 then made
+   a name-ownership fact block all of them. A worker cannot resolve that — it can only pick a
+   reading, which is exactly the guess §9 forbids.
+
+The worker's own log named the ambiguity precisely («strict vs charitable reading … the §0.2
+framing assumes the probe can run at all») rather than guessing past it. That is the park contract
+working as intended; the kickoff, not the worker, was the defect. **Generalisable lesson for the
+next kickoff author, stated here because it is not yet a rule:** a STOP condition on a probe is
+only as good as the probe's reachability — declare the environment it must run in, and prefer
+«record UNRESOLVED and continue» over «park the stage» whenever the blocked fact is not an input
+to the stage's own deliverables.
+
 ## §1 Inputs (re-verify at entry — the numbers above are snapshots)
 
 - **`packages/core/package.json`** — at authoring: `name: "@rules-as-tests/core"`,
@@ -116,9 +163,14 @@ this as an open deliverable blocking U10. Do **not** build that package in R1 (�
   F-C′ (§4): the tsx path is a `devDependencies`→`dependencies` promotion, not a new dep.
 - **No `packages/core/README.md`, no `packages/core/LICENSE*`** — repo root has
   [`LICENSE.md`](../../../LICENSE.md) only. Confirm both at entry (`ls packages/core/`).
-- **Over-ship has GROWN since the binding input measured it.** S6 (2026-07-11): 549 files /
-  842.6 kB packed / 3.24 MB unpacked. Measured 2026-08-09: **707 files / 1.2 MB / 4.8 MB**.
-  Re-measure at entry and use YOUR number — do not quote 549.
+- **Over-ship has GROWN since the binding input measured it, and it keeps moving.** S6
+  (2026-07-11): 549 files / 842.6 kB packed / 3.24 MB unpacked. Host, 2026-08-09: **707 files /
+  1.2 MB / 4.8 MB**. Container, same day, rev-1 run: **711 files**. Three measurements, three
+  numbers — re-measure at entry and use YOUR number; do not quote any of these.
+- **Container gotcha, re-confirmed by the rev-1 run:** `/home/node/.npm/_cacache/` is root-owned
+  again, so npm commands need `npm_config_cache=/tmp/npm-cache-beta`. Memory recorded this as
+  RESOLVED 2026-07-24; it has regressed. Also: a `cd` in one Bash call leaks into the next — use
+  absolute paths.
 - **Consumer-matrix cells that already exist** (the sibling shape to copy):
   [`tests/consumer-matrix/pnpm-monorepo-cell.sh`](../../../tests/consumer-matrix/pnpm-monorepo-cell.sh)
   and `python-unfamiliar-stack-cell.sh`; CI jobs at
@@ -142,7 +194,10 @@ record why) that freezes and is thereafter cited by U10:
 2. **`getff` (unscoped) = the CLI/init entrypoint**, already reserved (§0.2). State the bin name
    and the `getff init` → `./setup` mapping, plus the §0.5 gap: the package does not exist yet.
 3. **Version floor** — `0.0.1` of `getff` is spent; state the first real version and why.
-4. **Scope-ownership evidence** — quote the §0.2 entry-probe output verbatim.
+4. **Scope-ownership evidence** — quote the §0.2 probe table verbatim, including the control pair
+   that makes the `200` meaningful, and mark the «whose org is `getff`» row
+   `UNRESOLVED — needs `npm access list packages @getff` under an authed account; U10 gate`.
+   Do not soften it to «ours» and do not let it block the record.
 5. **Rollback doctrine restated as binding** (binding input §4): unpublish is not a rollback;
    roll forward with patch releases; the file-copy fallback stays live so consumers pin last-good.
 
@@ -295,7 +350,10 @@ allowlist that breaks it is a regression regardless of how green the new cell is
 
 **PARK these — do not guess:**
 
-- **`@getff` scope not ours** (§0.2 probe fails) → park; do not invent a fallback scope.
+- **`@getff` scope probe returns a DIFFERENT owner** → park; do not invent a fallback scope.
+  (A probe that cannot *authenticate* is NOT this case — record it `UNRESOLVED` per §0.2 and
+  keep going. Rev-2 fix: rev 1 conflated the two and parked the whole stage on a gate that no
+  reachable environment could satisfy — see §0.6.)
 - **A `files` entry that the cell can neither prove nor disprove** (e.g. an asset only a consumer
   flow you cannot run would load) → park that entry, ship the rest, name the untested class.
 - **Any change that would require dropping `private: true`** → park. That is the tripwire.
@@ -359,7 +417,8 @@ echo "$PR_BODY" | grep -cE '[^[:space:]]+\.[a-z]+:[0-9]+'                  # mus
 ## §11 Stop conditions
 
 - Anything would require `npm publish` or dropping `private: true` → **STOP**, do not proceed.
-- The `@getff` scope-ownership probe (§0.2) does not return ours → **STOP and park**.
+- The `@getff` scope-ownership probe (§0.2) returns a **different owner** → **STOP and park**.
+  An *unauthenticated* probe is not that signal — record `UNRESOLVED` and continue (§0.2).
 - A design decision would diverge from spec §4 A6 or §11 F-C′ → **STOP** and surface the divergence.
 - The tarball cell cannot be made to install + run a bin → park the blocker with the failing
   output; do NOT ship a `files` list validated only by inspection.
