@@ -80,8 +80,8 @@
         {
           "id": "install",
           "title": "Install at env depth",
-          "action": "`bash <getff>/install.sh <stack> --profile env`. Already on core? Upgrade in place with `--refresh --profile env` — the deeper payload arrives and the core artefacts stay byte-identical.",
-          "evidence": "install.sh; INSTALL-FOR-AI.md «Install depth profiles»"
+          "action": "`bash <getff>/install.sh <stack> --profile env`. Already on core? Re-run that same command — the deeper payload is added and the core artefacts stay byte-identical. `--refresh` re-delivers fixes at your *current* depth; it never deepens an install, so `--refresh --profile env` on a `core` project is a no-op that still exits 0.",
+          "evidence": "install.sh:1076 — the tier-home arm is presence-gated («refresh must not create it on core»), and `arch` is absent from both do_refresh skill loops (install.sh:669,671). Measured on a core consumer: `--refresh --profile env` → exit 0, tier-home NO, arch NO; plain `--profile env` → exit 0, tier-home YES, arch YES, core artefact md5s unchanged. Also INSTALL-FOR-AI.md «Install depth profiles»"
         },
         {
           "id": "verify-payload",
