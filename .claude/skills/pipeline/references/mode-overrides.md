@@ -161,6 +161,63 @@ per [memory-codification.md §3](../../../rules/memory-codification.md).
 
 ---
 
+## §8 Preset flags (A4 — pipeline launch presets)
+
+**Binding source:** [beta-delivery-ux S2 kickoff](../../../orchestrator-prompts/beta-delivery-ux/kickoff-s2.md) §2 + §8a operator resolutions (2026-08-08). Design spec: `docs/superpowers/specs/2026-07-23-beta-program-design.md` §4 A4.
+
+**Four declarative presets** — data, not prose — at `references/presets/<name>.json`:
+
+| Preset    | `mode`                | `marker`                    | When to pick                                |
+| --------- | --------------------- | --------------------------- | ------------------------------------------- |
+| `aif`     | `autonomous`          | `Claude Opus (plan+review)` | unattended / overnight aif-handoff dispatch |
+| `night`   | `mode-a-inline`       | `null`                      | night-mode unattended single-session        |
+| `economy` | `whole-line-executor` | `Z.AI GLM-5.2 SDK`          | cost-conscious whole-line on executor tier  |
+| `sdd`     | `in-session`          | `null`                      | interactive single-feature SDD              |
+
+**Activation (clig.dev flag-first — A4 binding constraint 1+2):**
+
+- `--preset <name>` in the umbrella string (flag path).
+- `AIF_PIPELINE_PRESET=<name>` environment variable (env path).
+- **Precedence:** flag > env > default (no preset).
+- Menu-only UX is REJECTED (breaks agents/CI). A TTY launch-table row is ADDITIVE.
+
+**Collision with `--mode-*`:** `--preset` + any explicit `--mode-*` flag simultaneously → `parse-override-flags.sh` exits 2 with `multi-source collision` stderr. Use one or the other.
+
+**Data format = JSON** (§8a Park-2 BINDING). `jq` is already a hard helper dependency (`helpers/update-delta.sh`); YAML would add a `yq`-class toolchain dependency (rejected — new capability for a format choice).
+
+**F-B′ shell-sourced rejection (spec §11 requires the WHY):** sourcing data executes it as code — the flag parser itself rejected eval for injection risk (`parse-override-flags.sh` header, strategy C); data that executes fails the F-B′ criterion «readable … without parsing prose» in the harder direction (readable only BY executing).
+
+**Schema (§8a Park-1 BINDING — flat + `description`):**
+
+```json
+{
+  "mode": "<autonomous|mode-a-inline|whole-line-executor|in-session>",
+  "reviewer_tier": "<aif-own|session-bound|executor-tier>",
+  "marker": "<full-display-name | null>",
+  "description": "<one-line human description for list verb>",
+  "predicates": {
+    "bundle_opt_in": <bool>,
+    "review_required": <bool>,
+    "parallel_safe": <bool>
+  },
+  "aif_runtime_hints": { "maxReviewIterations": 1 }
+}
+```
+
+`aif_runtime_hints` is optional (only `economy` carries it, per §8a Park-3: whole line on executor tier + aif auto-review capped at 1 iteration + external cold fidelity round mandatory).
+
+**Three seams where presets embed (spec A4 — all three implemented):**
+
+1. **Parser** (`helpers/parse-override-flags.sh`) — detects `--preset <name>` / `AIF_PIPELINE_PRESET`, delegates to `helpers/resolve-preset.sh`, collision-checks against `--mode-*`.
+2. **Routing predicates** (`SKILL.md §2.5 Step 5`) — when `PRESET_MODE` is set, the 3 predicates (`bundle_opt_in` / `review_required` / `parallel_safe`) come from the preset, short-circuiting the routing tree.
+3. **Bridge-profile marker** (relay in `SKILL.md §0` preamble) — when `PRESET_MARKER` is non-empty, the generated kickoff carries `<!-- bridge-profile: <value> -->`. The marker value MUST be the profile's FULL DISPLAY NAME, UNIQUE under case-insensitive substring match (CLAUDE.md «Marker value rule»).
+
+**`economy` reviewer-tier semantics (§8a Park-3 BINDING):** the whole line INCLUDING review runs on the executor tier (not a separate reviewer), with aif auto-review capped at **1 iteration** (`maxReviewIterations: 1`) AND the external cold fidelity round stays MANDATORY.
+
+**Marker values (§8a Park-5 snapshot, live 2026-08-08):** `curl -s "$RUNTIME_BRIDGE_AIF_URL/runtime-profiles" | jq -r '.[].name'` returned `Claude Opus (plan+review)` / `Z.AI GLM-5.2 SDK` / `Qwen3.8-Max-Preview` — no case-insensitive substring collision among full display names. **AC-3 re-probe live at implementation time is still binding.**
+
+---
+
 ## §7 See also
 
 - [SKILL.md §0 Invocation](../SKILL.md) — slash-command entry point; §0 Step 0 preamble
