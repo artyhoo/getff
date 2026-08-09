@@ -97,6 +97,25 @@ describe('emit — side-effect filesystem writer', () => {
     expect(prov.rules.G1.source.entryId).toBe('test-only-forbid-declarative');
   });
 
+  // getff-freshness-widening S1b criterion 7 (M2 rework): bind the Node lane's per-rule
+  // generation-context fragment file (emit.ts:97-103 writes `<dir>/generation-context/<plan-id>.json`).
+  // The diff originally argued criterion 7 in prose only ("unregressed by leaving it alone"); the
+  // rework requires an assertion so a future move of emit.ts:97 (e.g. into a per-lane subdir that
+  // would break the non-recursive cargo/go glob) lands loudly. Out-of-scope per the rework: the
+  // cold-audit-noted self-tension between criterion 4 and criterion 7 for the Node lane's own
+  // fragments (they DO surface in the cargo/go locks via the parent-dir glob, and preserving that
+  // is what criterion 7 requires) — that is pre-existing behaviour and parked for the maintainer.
+  it('writes a per-rule generation-context fragment for the Node synthesize lane (S1b criterion 7)', () => {
+    const synthPlan = synthesize(plan({ patterns: [entry('nextjs-app-router')] }));
+    emit(synthPlan, dir);
+    const fragPath = resolve(dir, 'generation-context', 'G1.json');
+    const frag = JSON.parse(readFileSync(fragPath, 'utf8'));
+    expect(frag.id).toBe('G1');
+    expect(Array.isArray(frag.provenance)).toBe(true);
+    expect(frag.provenance).toHaveLength(1);
+    expect(typeof frag.tier).toBe('number');
+  });
+
   it('throws EmitError when output directory does not exist', () => {
     const synthPlan = synthesize(plan({ framework: null }));
     expect(() => emit(synthPlan, '/no/such/directory/xyz')).toThrow(EmitError);

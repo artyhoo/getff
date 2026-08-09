@@ -327,6 +327,11 @@ echo ""; echo "  ── (13) producer: real --from-practice → fragment → pyt
 PRACTICE_FIX="$REPO_ROOT/packages/core/synthesizer/fixtures/live-generation/getff-researched-no-yaml-load.practice.json"
 RULE_ID_13="getff-researched-no-yaml-load"
 URL_13="https://pyyaml.org/wiki/PyYAMLDocumentation"
+# M4b rework: criterion 3 names url + allowlistKey + fetchedAt; the prior check grep'd URL only.
+# All three travel together (the fragment is cat'd verbatim after stampProvenanceTier, which
+# spreads the original fields via tier.ts:26-29), so coverage of all three beats coverage of one.
+ALLOWKEY_13="pyyaml"
+FETCHEDAT_13="2026-07-11T00:00:00.000Z"
 # Find tsx (mirror rule-bootstrap-practice.test.ts:52 tsxBin): per-dir CI layouts install
 # packages/core deps only, so tsx lives in packages/core/node_modules/.bin before any root hoist.
 TSX_BIN=""
@@ -334,8 +339,13 @@ for _cand in "$REPO_ROOT/packages/core/node_modules/.bin/tsx" "$REPO_ROOT/node_m
   [ -x "$_cand" ] && TSX_BIN="$_cand" && break
 done
 if [ -z "$TSX_BIN" ]; then
-  skip "(13) tsx not found — producer arm skipped (provision: bash scripts/worktree-node-modules.sh --apply \$(pwd))"
-  skip "(13) cross-lane arms also skipped (depend on the producer run)"
+  # M4c rework (§5 T15 self-application): the prior `skip` touched neither PASS nor FAIL, so an
+  # unprovisioned host reported this stage GREEN — exactly the skip-that-passes concealment shape
+  # T15 asks this stage to name as its own failure mode. CI shard install-sh-c provisions tsx, so
+  # the CI signal is real; a developer running the suite locally without provisioning should NOT
+  # read green. Fail the arm loudly so the missing-tool precondition surfaces.
+  bad "(13) tsx not found — producer arm CANNOT run (T15: skip-that-passes on the one arm proving the stage). Provision: bash scripts/worktree-node-modules.sh --apply \$(pwd)"
+  bad "(13) cross-lane arms also did not run (depend on the producer run)"
 else
   [ -f "$PRACTICE_FIX" ] \
     && ok "(13) precondition: practice fixture present ($PRACTICE_FIX)" \
@@ -343,6 +353,16 @@ else
 
   if [ -n "$PRACTICE_FIX" ]; then
     P13=$(py_fixture)
+    # M3 rework: seed multi-stack manifests so the cargo + go lanes WRITE real locks at their
+    # real home (.ai-factory/synthesizer-output/, NOT .getff/ — only the python lock lives
+    # there; setup.d/46-cargo.sh:198-199 + 47-go.sh:164-165). The prior arm pointed at
+    # .getff/rules-lock.{cargo,go}.json which NOTHING writes — `[ -f … ]` was false on every
+    # tree and both branches took the `else`, emitting `ok`. Independently, py_fixture seeds
+    # only pyproject.toml, so the lanes declined at manifest-detect anyway. Both preconditions
+    # must hold for the criterion-4 lock-level check to actually fire (verified live: the three
+    # lanes coexist on one consumer, all exit 0, all three locks appear).
+    printf '[package]\nname = "demo"\nversion = "0.0.1"\nedition = "2021"\n' > "$P13/Cargo.toml"
+    printf 'module demo\n\ngo 1.21\n' > "$P13/go.mod"
     # Run the real --from-practice CLI against the consumer (NOT a hand-placed fragment).
     # On the pre-fix tree the CLI renders the .yml only; on the post-fix tree (T3) it ALSO
     # emits the generation-context/python/<entryId>.json fragment.
@@ -367,11 +387,18 @@ else
     fi
     # T1 RED→GREEN: this assertion FAILS on the pre-fix tree (no producer → fallback provenance:[])
     # and PASSES on the post-fix tree (T3 wrote the fragment with the record's provenance).
-    if grep -q "$URL_13" "$L13" 2>/dev/null; then
-      ok "(13) python lock carries non-empty provenance for $RULE_ID_13 (url=…pyyaml.org/…) — producer GREEN"
+    # M4b rework: criterion 3 names url + allowlistKey + fetchedAt — assert ALL THREE (the
+    # fragment is cat'd verbatim after stampProvenanceTier, which preserves every original
+    # field via tier.ts:26-29 spread, so all three travel together).
+    _url_present=0; _allow_present=0; _fetched_present=0
+    grep -qF "$URL_13" "$L13" 2>/dev/null && _url_present=1
+    grep -qF "\"allowlistKey\":\"$ALLOWKEY_13\"" "$L13" 2>/dev/null && _allow_present=1
+    grep -qF "\"fetchedAt\":\"$FETCHEDAT_13\"" "$L13" 2>/dev/null && _fetched_present=1
+    if [ "$_url_present" -eq 1 ] && [ "$_allow_present" -eq 1 ] && [ "$_fetched_present" -eq 1 ]; then
+      ok "(13) python lock carries non-empty provenance for $RULE_ID_13 (url + allowlistKey + fetchedAt all present) — producer GREEN"
       PRODUCER_13_RESULT="GREEN"
     else
-      bad "(13) python lock has empty provenance for $RULE_ID_13 (no '$URL_13' in lock) — producer RED (PARK-S1-7 unfixed)"
+      bad "(13) python lock provenance INCOMPLETE for $RULE_ID_13 (url=$_url_present allowKey=$_allow_present fetchedAt=$_fetched_present) — producer RED (PARK-S1-7 unfixed)"
       PRODUCER_13_RESULT="RED"
     fi
 
@@ -381,12 +408,44 @@ else
     # stampProvenanceTier (derived verdict) rather than emitting the constant DEFAULT_TIER=2.
     # A *derived* 0 and an *accidental* value are different artefacts — and on the RED tree the
     # value is the fallback 2, which the assertion correctly distinguishes from a stamped 0.
-    if grep -q "\"$RULE_ID_13\"[^}]*\"tier\":0" "$L13" 2>/dev/null; then
-      ok "(13) tier=0 stamped (Tier-0 builtin allowlist → stampProvenanceTier derived verdict, NOT DEFAULT_TIER=2 fallback)"
+    #
+    # M1 rework (R1 cold audit): the prior pattern `"$RULE_ID_13"[^}]*"tier":0` could not cross
+    # the `}` that closes the first provenance source object, so it bound the SOURCE's tier
+    # (inside provenance[]), never the RULE-LEVEL tier (outside it). A synthetic rule carrying
+    # rule-tier:2 with a Tier-0 source PASSED — exactly the derived-vs-accidental conflation
+    # criterion 3 forbids and S1 round-3 rejected once already. The new pattern binds the
+    # tier that sits AFTER the `]` closing the provenance array (i.e. the rule-level tier).
+    #
+    # Discrimination proof: hand-build all three synthetic locks the cold audit measured, and
+    # show the new pattern fires on exactly the honest one. A regex change without this proof
+    # does not close M1.
+    _m1_honest=$(mktemp); _m1_dishonest=$(mktemp); _m1_empty=$(mktemp)
+    printf '  "rules": [{"id":"%s","provenance":[{"url":"u","allowlistKey":"pyyaml","fetchedAt":"2026-07-11","tier":0}],"tier":0}],\n' "$RULE_ID_13" > "$_m1_honest"
+    printf '  "rules": [{"id":"%s","provenance":[{"url":"u","allowlistKey":"pyyaml","fetchedAt":"2026-07-11","tier":0}],"tier":2}],\n' "$RULE_ID_13" > "$_m1_dishonest"
+    printf '  "rules": [{"id":"%s","provenance":[],"tier":2}],\n' "$RULE_ID_13" > "$_m1_empty"
+    # Pattern: rule-id + any chars + closing-bracket-of-provenance-array + rule-level tier 0.
+    # The `],"tier":0` substring only matches the rule-level tier (the source-tier inside
+    # provenance is preceded by a comma or `{`, never by `]`). Anchored on the rule-id so
+    # multiple rules in a real lock do not cross-bind.
+    _m1_re='.*],"tier":0([^0-9]|$)'
+    _h=$(grep -qE "\"$RULE_ID_13$_m1_re" "$_m1_honest"     && echo pass || echo fail)
+    _d=$(grep -qE "\"$RULE_ID_13$_m1_re" "$_m1_dishonest"  && echo WRONGLY-pass || echo correctly-fail)
+    _e=$(grep -qE "\"$RULE_ID_13$_m1_re" "$_m1_empty"      && echo WRONGLY-pass || echo correctly-fail)
+    if [ "$_h" = "pass" ] && [ "$_d" = "correctly-fail" ] && [ "$_e" = "correctly-fail" ]; then
+      ok "(13) M1 discrimination: new tier pattern binds RULE-LEVEL tier (honest->pass, dishonest rule-tier:2+Tier-0-src->fail, empty-fallback->fail)"
     else
-      _tier_13=$(grep -oE "\"$RULE_ID_13\"[^}]*\"tier\":([0-9]+)" "$L13" 2>/dev/null | head -1 | grep -oE '[0-9]+$')
-      [ -z "$_tier_13" ] && _tier_13="<absent>"
-      bad "(13) tier='$_tier_13' for $RULE_ID_13 — expected 0 (Tier-0 builtin via stampProvenanceTier) — kickoff §3 criterion 3"
+      bad "(13) M1 discrimination FAILED: new tier pattern does not discriminate (honest=$_h dishonest=$_d empty=$_e)"
+    fi
+    rm -f "$_m1_honest" "$_m1_dishonest" "$_m1_empty"
+    # Real assertion against the live lock — pattern: rule-id, then anything, then a literal
+    # ],"tier":0 (the tier that sits AFTER the close of the provenance array). The ([^0-9]|$)
+    # terminator guards against "tier":02 style false-positives (defensive; tiers are integers 0/1/2).
+    if grep -qE "\"$RULE_ID_13\".*],\"tier\":0([^0-9]|$)" "$L13" 2>/dev/null; then
+      ok "(13) tier=0 stamped at RULE LEVEL (after the ] closing provenance) — stampProvenanceTier derived verdict, NOT DEFAULT_TIER=2 fallback"
+    else
+      _tier_13=$(grep -oE "\"$RULE_ID_13\".*],\"tier\":[0-9]+" "$L13" 2>/dev/null | head -1 | grep -oE '[0-9]+$')
+      [ -z "$_tier_13" ] && _tier_13="<absent or bound to source-tier only>"
+      bad "(13) rule-level tier='$_tier_13' for $RULE_ID_13 — expected 0 (Tier-0 builtin via stampProvenanceTier) — kickoff §3 criterion 3"
     fi
 
     # Criterion 4 — cross-lane non-contamination, DIRECTION python→cargo/go. Run the cargo + go
@@ -395,12 +454,17 @@ else
     # `*.json` NON-RECURSIVE on the parent generation-context/ dir, so the subdir is invisible
     # by construction (46-cargo.sh:262, 47-go.sh:229). REVERSE direction: cargo/go producers do
     # not exist today; the per-lane subdir layout handles them symmetrically if/when added.
+    #
+    # M3 rework: the cargo/go locks live at .ai-factory/synthesizer-output/rules-lock.{cargo,go}.json
+    # (setup.d/46-cargo.sh:198-199, 47-go.sh:164-165) — NOT .getff/ (only the PYTHON lock lives
+    # there). The prior arm pointed at .getff/ variants that NOTHING writes: `[ -f … ]` was false
+    # on every tree and both branches took the `else`, emitting `ok`. With Cargo.toml + go.mod
+    # seeded above, the lanes now WRITE real locks; the absent-lock case is now `bad` (precondition
+    # unmet), NOT a trivial pass — an assertion whose positive branch never runs is not an assertion.
     ( cd "$P13" && bash "$INSTALL" cargo --force < /dev/null ) >/dev/null 2>&1
-    L13_CARGO="$P13/.getff/rules-lock.cargo.json"
+    L13_CARGO="$P13/.ai-factory/synthesizer-output/rules-lock.cargo.json"
     ( cd "$P13" && bash "$INSTALL" go --force < /dev/null ) >/dev/null 2>&1
-    L13_GO="$P13/.getff/rules-lock.go.json"
-    # If the cargo/go lanes declined (no Cargo.toml/go.mod in the fixture), the locks are absent —
-    # that is the no-leak case trivially. If they wrote a lock, assert the python rule is absent.
+    L13_GO="$P13/.ai-factory/synthesizer-output/rules-lock.go.json"
     if [ -f "$L13_CARGO" ]; then
       if grep -q "\"$RULE_ID_13\"" "$L13_CARGO" 2>/dev/null; then
         bad "(13) cargo lock LEAKED the python rule (cross-lane contamination — DC-1 broken)"
@@ -408,7 +472,7 @@ else
         ok "(13) cargo lock free of the python rule (per-lane subdir isolates the non-recursive glob — DC-1)"
       fi
     else
-      ok "(13) cargo lane declined (no Rust manifest in the python fixture) — trivially no leak"
+      bad "(13) cargo lock absent at $L13_CARGO — precondition unmet (cargo lane declined despite Cargo.toml seed; lock-level check did not fire)"
     fi
     if [ -f "$L13_GO" ]; then
       if grep -q "\"$RULE_ID_13\"" "$L13_GO" 2>/dev/null; then
@@ -417,7 +481,7 @@ else
         ok "(13) go lock free of the python rule (per-lane subdir isolates the non-recursive glob — DC-1)"
       fi
     else
-      ok "(13) go lane declined (no go.mod in the python fixture) — trivially no leak"
+      bad "(13) go lock absent at $L13_GO — precondition unmet (go lane declined despite go.mod seed; lock-level check did not fire)"
     fi
     # Belt-and-braces: directly exercise the cargo/go glob against the post-producer fragment dir.
     # This catches a future regression where the producer moves files into the parent dir even if

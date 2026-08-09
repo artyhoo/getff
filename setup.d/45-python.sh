@@ -515,10 +515,16 @@ EOF
 
 # _py_json_rules <newline-separated rule ids> <fragment-dir> — render a JSON array of v2 rule
 # objects ({id, provenance, tier}). §3a option B / §6 fork 2: reads each rule's slice from
-# the fragment dir (generation-context/<rule-id>.json, one per rule, written by the synthesizer's
-# emit.ts). When no fragment exists for a rule (template rule with no research provenance), the
-# fallback {id, provenance:[], tier:2} is the DERIVED value — explicit absence from the fragment
-# dir, not a literal. S1 §3 criterion 3: the per-rule shape REPLACES the v1 flat ruleIds array.
+# the fragment dir. S1b (PARK-S1-7 unparked): the python-lane fragment dir is the per-lane
+# subdir `generation-context/python/` (caller resolves + passes that dir at line 648);
+# fragments are written by rule-bootstrap-cli.ts runPracticeRender (S1b), keyed by the
+# delivered ast-grep rule id (DC-3: record.entryId === rendered.entryId, by construction).
+# The Node synthesize path (emit.ts:97-103) still writes `G${n}.json` to the PARENT
+# generation-context/ dir — a different lane with its own fragment set; the cargo/go readers
+# glob that parent dir non-recursively (46-cargo.sh:262, 47-go.sh:229). When no fragment
+# exists for a rule (template rule with no research provenance), the fallback
+# {id, provenance:[], tier:2} is the DERIVED value — explicit absence from the fragment dir,
+# not a literal. S1 §3 criterion 3: the per-rule shape REPLACES the v1 flat ruleIds array.
 _py_json_rules() {
   local items="$1" frag_dir="${2:-}" out="[" first=1 it frag
   while IFS= read -r it; do
