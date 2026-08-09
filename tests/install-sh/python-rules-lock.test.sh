@@ -54,10 +54,28 @@ LOCK="$P/$LOCK_REL"
 [ -f "$LOCK" ] \
   && ok "(1) $LOCK_REL emitted on the python install path" \
   || bad "(1) $LOCK_REL NOT emitted (do_python_lane did not call _py_write_rules_lock)"
-[ "$(lock_field "$LOCK" schemaVersion)" = "1" ]     && ok "(1) schemaVersion=1"        || bad "(1) schemaVersion != 1"
+[ "$(lock_field "$LOCK" schemaVersion)" = "2" ]     && ok "(1) schemaVersion=2"        || bad "(1) schemaVersion != 2"
 [ "$(lock_field "$LOCK" framework)" = "python" ]    && ok "(1) framework=python"        || bad "(1) framework != python"
-grep -q '"version"[[:space:]]*:[[:space:]]*null' "$LOCK" && ok "(1) version=null"        || bad "(1) version field missing/!=null"
-grep -q '"ruleIds"'  "$LOCK" && ok "(1) ruleIds array present"  || bad "(1) ruleIds missing"
+# S1 §3 criterion 6 (re-stated per §3a — DERIVATION, not bare null):
+# The gate branches on whether the generation context named a dependency.
+# Manifest present with a version → lock version MUST match it.
+# Manifest absent (no named dependency) → lock version MUST be null.
+# This distinguishes «null because no dependency was named» from «null because nothing
+# was ever read» (the W-2 tell). The r1 defect (consumer's own [project] version) is
+# caught by the absent-manifest arm: a non-null value when no manifest exists = leak.
+_ctx="$P/.ai-factory/synthesizer-output/generation-context.json"
+_lock_ver=$(lock_field "$LOCK" version)
+if [ -f "$_ctx" ]; then
+  _ctx_ver=$(grep -oE '"version"[[:space:]]*:[[:space:]]*("[^"]*"|null)' "$_ctx" | head -1 | sed -E 's/.*:[[:space:]]*//; s/^"//; s/"$//')
+  [ "$_lock_ver" = "$_ctx_ver" ] \
+    && ok "(1) version matches generation-context manifest ($_lock_ver — S1 criterion 6 derivation)" \
+    || bad "(1) version mismatch: lock=$_lock_ver ctx=$_ctx_ver (manifest present, value must match)"
+else
+  [ "$_lock_ver" = "null" ] \
+    && ok "(1) version=null (no generation-context manifest → no named dependency — S1 criterion 6 derivation)" \
+    || bad "(1) version=$_lock_ver but no manifest exists — leaked value not derived from read (W-1 tell)"
+fi
+grep -q '"rules"'  "$LOCK" && ok "(1) rules array present (v2 per-rule shape)"  || bad "(1) rules array missing"
 grep -q '"ruffBans"' "$LOCK" && ok "(1) ruffBans array present" || bad "(1) ruffBans missing"
 
 # ── (2) lock lives under .getff/ (the python TOOLCHAIN home; D8 split: agent-surface rides .ai-factory/) ─
@@ -67,13 +85,13 @@ LOCK_DIR=$(dirname "$LOCK")
   && ok "(2) lock lives under .getff/ (the python toolchain home — lock + inputs co-located)" \
   || bad "(2) lock NOT under .getff/ (lock dir=$LOCK_DIR; the lock must live with its inputs)"
 
-# ── (3) non-vacuity: ruleIds ↔ the delivered ast-grep rule files; ruffBans = TID251/TID253 ─────────
-echo ""; echo "  ── (3) ruleIds match delivered files; ruffBans match delivered bans ──"
+# ── (3) non-vacuity: rules ↔ the delivered ast-grep rule files; ruffBans = TID251/TID253 ──────────
+echo ""; echo "  ── (3) rules match delivered files; ruffBans match delivered bans ──"
 delivered_ids=$(grep -hE '^id:' "$P"/.getff/astgrep-rules/*.yml 2>/dev/null \
   | sed -E 's/^id:[[:space:]]*"?([^"]*)"?[[:space:]]*$/\1/' | sort -u)
 n_delivered=$(printf '%s\n' "$delivered_ids" | grep -c .)
 for id in $delivered_ids; do
-  grep -q "\"$id\"" "$LOCK" || bad "(3) delivered rule '$id' MISSING from lock ruleIds"
+  grep -q "\"$id\"" "$LOCK" || bad "(3) delivered rule '$id' MISSING from lock rules"
 done
 n_locked=$(grep -oE '"getff-[a-z0-9-]+"' "$LOCK" | sort -u | grep -c .)
 [ "$n_delivered" -eq "$n_locked" ] \
@@ -244,6 +262,45 @@ if [ -f "$RESEARCHED" ]; then
 else
   skip "(11) researched fixture absent ($RESEARCHED) — regression arm skipped"
 fi
+
+# ── (12) MAJOR A (W-8): manifest-present arm fires for real ──────────────────────────────────────
+# The python lane now reads from .ai-factory/synthesizer-output/ (where the Node emitter writes),
+# NOT .getff/ (which was never written → dead path, manifest-present arm unreachable by construction).
+# This arm pre-populates the manifest at the CORRECT path and asserts the lock's version matches —
+# proving the manifest-present arm fires end-to-end. Without this arm the path fix is unverified
+# (the null arm fires on every scratch install because no synthesis ran).
+echo ""; echo "  ── (12) manifest-present arm: python reads .ai-factory/synthesizer-output/ for real ──"
+P12=$(py_fixture)
+mkdir -p "$P12/.ai-factory/synthesizer-output"
+cat > "$P12/.ai-factory/synthesizer-output/generation-context.json" <<'CTXEOF'
+{
+  "version": "3.2.1",
+  "rules": []
+}
+CTXEOF
+( cd "$P12" && bash "$INSTALL" python --force < /dev/null ) >/dev/null 2>&1
+L12="$P12/$LOCK_REL"
+_ctx12=$(lock_field "$L12" version)
+if [ "$_ctx12" = "3.2.1" ]; then
+  ok "(12) manifest-present arm fires: lock version=3.2.1 (matches generation-context manifest)"
+else
+  bad "(12) manifest-present arm BROKEN: lock version='$_ctx12' (expected 3.2.1 from manifest at .ai-factory/synthesizer-output/)"
+fi
+# Also test the fragment dir (MAJOR B / §6 fork 2): pre-populated fragments are read by _py_json_rules
+mkdir -p "$P12/.ai-factory/synthesizer-output/generation-context"
+# Re-run with fragments for a rule that python actually delivers
+_delivered_id=$(grep -hE '^id:' "$P12"/.getff/astgrep-rules/*.yml 2>/dev/null | head -1 | sed -E 's/^id:[[:space:]]*"?([^"]*)"?[[:space:]]*$/\1/')
+if [ -n "$_delivered_id" ]; then
+  printf '{"id":"%s","provenance":[{"url":"https://pyyaml.org","allowlistKey":"pyyaml","fetchedAt":"2026-08-08","tier":0}],"tier":0}\n' "$_delivered_id" \
+    > "$P12/.ai-factory/synthesizer-output/generation-context/$_delivered_id.json"
+  ( cd "$P12" && bash "$INSTALL" python --force < /dev/null ) >/dev/null 2>&1
+  if grep -q "\"provenance\":\[.*\"pyyaml\"" "$L12" 2>/dev/null; then
+    ok "(12) fragment-read arm fires: rule '$_delivered_id' provenance derived from generation-context/ fragment"
+  else
+    bad "(12) fragment-read arm BROKEN: rule '$_delivered_id' provenance not read from fragment dir"
+  fi
+fi
+rm -rf "$P12"
 
 rm -rf "$P" "$P2"
 echo ""

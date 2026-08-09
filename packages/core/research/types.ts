@@ -1,6 +1,10 @@
 // Research Agent (Layer 2) public types.
 // Consumed by L3 (Synthesizer) via index.ts; load.ts/diff.ts/drift.ts internal.
 
+/** Trust tier of a provenance source (research-source-trust.md §1). Lower = more trusted.
+ *  Tier 0 = builtin curated; Tier 1 = derived from direct-dep metadata; Tier 2 = consumer-acked. */
+export type Tier = 0 | 1 | 2;
+
 export interface Provenance {
   url: string;
   allowlistKey: string;
@@ -11,6 +15,10 @@ export interface Provenance {
   /** NEW (S2): post-redirect URL — agent-protocol obligation, NOT validator-
    *  verified (kickoff §4); when present it must pass the same tier as url. */
   finalUrl?: string;
+  /** NEW (S1 getff-freshness-widening, PARK-S1-2 Option C): trust tier stamped at
+   *  synthesis/research time — a fact about the research moment, like fetchedAt.
+   *  Absent = untyped (lock-emission defaults to Tier 2 — never silently upgrade). */
+  tier?: Tier;
 }
 
 export interface ResearchEntry {

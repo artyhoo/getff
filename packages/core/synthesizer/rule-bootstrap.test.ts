@@ -60,13 +60,13 @@ describe('rule-bootstrap — end-to-end skeleton (good finding)', () => {
     expect(result.install.ok).toBe(true);
     expect(result.install.installed).toBe(true);
 
-    // The dead buildLock ran for real: rules-lock.json exists with matching ruleIds.
+    // The dead buildLock ran for real: rules-lock.json exists with matching rules.
     const lockPath = lockPathOf(consumerRoot);
     expect(existsSync(lockPath)).toBe(true);
     const lock = JSON.parse(readFileSync(lockPath, 'utf8')) as RulesLock;
-    expect(lock.schemaVersion).toBe(1);
+    expect(lock.schemaVersion).toBe(2);
     expect(lock.framework).toBe('react-next');
-    expect(lock.ruleIds.length).toBeGreaterThanOrEqual(1);
+    expect(lock.rules.length).toBeGreaterThanOrEqual(1);
     expect(lock.sourceFingerprint).toMatch(/^[0-9a-f]{16}$/);
   });
 

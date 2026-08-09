@@ -9,10 +9,10 @@
     "rules-lock.json"
   ],
   "lockShape": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "framework": null,
     "version": null,
-    "ruleIds": []
+    "rules": []
   },
   "preValidation": {
     "ok": true,

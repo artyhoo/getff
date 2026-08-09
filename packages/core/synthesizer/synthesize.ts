@@ -8,6 +8,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Ajv } from 'ajv';
 import type { ResearchPlan } from '../research/types.ts';
+import { weakestTier, stampProvenanceTier } from './tier.ts';
 import {
   ESLINT_RESTRICTED_RULE_NAME,
   compileDeclarativeMd,
@@ -87,10 +88,16 @@ export function synthesize(plan: ResearchPlan): SynthesisPlan {
       continue;
     }
     const id = `G${nextId++}`;
+    // S1 §3 criterion 3 / §6 fork 4 (PARK-S1-2 Option C): stamp tier at synthesis
+    // time — a fact about the research moment, like fetchedAt. Travels through the
+    // generation-context manifest; never re-derived at install time. stampProvenanceTier
+    // classifies each source via the Tier-0 builtin allowlist (no consumer context needed);
+    // weakestTier collapses to the weakest source.
+    const stampedProv = stampProvenanceTier(entry.provenance);
     const composed: SynthesizedRule = {
       ...recipe.rule,
       id,
-      research: { entryId: entry.id, provenance: entry.provenance },
+      research: { entryId: entry.id, provenance: stampedProv, tier: weakestTier(stampedProv) },
     };
     // MT S3b врезка: thread the composed rule through the IR plane — build a ConventionNode
     // from its backbone, run the grammar gate (throws OUTWARD on failure), and route the
