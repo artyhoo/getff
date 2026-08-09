@@ -5,11 +5,12 @@
 // for npm deps install, husky setup, GitHub Actions workflow generation —
 // install.sh handles those at the framework boundary.
 
-export { install } from './install.ts';
+export { install, readRulesLock, RulesLockSchemaError } from './install.ts';
 export type {
   InstallFailure,
   InstallOptions,
   InstallReport,
   InstallStage,
   RulesLock,
+  RulesLockRule,
 } from './types.ts';

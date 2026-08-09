@@ -199,17 +199,46 @@ _go_write_rules_lock() {
   local now
   now=$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)
   # Schema (adapter-jig D3 — lock-schema-parity): the F11 CORE set {schemaVersion, framework,
-  # version, ruleIds, emittedAt, sourceFingerprint} (packages/core/installer/types.ts RulesLock)
-  # + per-lane extras (backend, note). ruleIds is [] by contract: go's ban surface is
-  # golangci-lint TOML-style forbidigo config (pattern entries), not named ast-grep rule ids —
-  # the core field is name-presence parity, its per-lane content may be empty. Gated cross-lane
-  # by tests/install-sh/rules-lock-schema-parity.test.sh.
+  # version, rules, emittedAt, sourceFingerprint} (packages/core/installer/types.ts RulesLock)
+  # + per-lane extras (backend, note). S1 §3: schemaVersion=2, rules REPLACES ruleIds (criterion 3).
+  # rules is [] by contract: go's ban surface is golangci-lint TOML-style forbidigo config
+  # (pattern entries), not named ast-grep rule ids — the core field is name-presence parity,
+  # its per-lane content may be empty.
+  # S1 §3 criterion 2: READ the generation-context manifest for the dependency version.
+  # `version` is a PLAN-LEVEL field keyed to `framework` (ResearchPlan {framework, version});
+  # go is a LANGUAGE lane with no single framework dependency, and Provenance carries no
+  # version field → no manifest today → derived null is honest. The read is unconditional;
+  # the day a framework-specific go plan is synthesised, the manifest carries its version
+  # and the lock reports it — no code change needed (§3a binding on criteria 1/2/4/6).
+  local _ctx="$lock_dir/generation-context.json"
+  local _ctx_ver='null'
+  if [ -f "$_ctx" ]; then
+    _ctx_ver=$(grep -oE '"version"[[:space:]]*:[[:space:]]*("[^"]*"|null)' "$_ctx" | head -1 | sed -E 's/.*:[[:space:]]*//')
+  fi
+  [ -n "$_ctx_ver" ] || _ctx_ver='null'
+  # MAJOR B (W-7) / §3a option B / §6 fork 2: derive the per-rule slice from the
+  # fragment dir (generation-context/<rule-id>.json, one per rule). go's ban
+  # surface is golangci-lint forbidigo config (pattern entries), not named
+  # ast-grep rule ids — the fragment dir is typically empty for this lane, so the
+  # derived value is []. But it is DERIVED (the dir was scanned), not literal-printed.
+  local _frag_dir="$lock_dir/generation-context"
+  local _rules_json="[]"
+  if [ -d "$_frag_dir" ]; then
+    local _rf _rf_first=1
+    _rules_json="["
+    for _rf in "$_frag_dir"/*.json; do
+      [ -f "$_rf" ] || continue
+      if [ "$_rf_first" -eq 1 ]; then _rf_first=0; else _rules_json="$_rules_json, "; fi
+      _rules_json="$_rules_json$(cat "$_rf")"
+    done
+    _rules_json="$_rules_json]"
+  fi
   cat > "$lock" <<EOF
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "framework": "go",
-  "version": null,
-  "ruleIds": [],
+  "version": $_ctx_ver,
+  "rules": $_rules_json,
   "backend": "go-golangci-lint",
   "emittedAt": "$now",
   "sourceFingerprint": "$fp",

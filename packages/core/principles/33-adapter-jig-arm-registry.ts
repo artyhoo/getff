@@ -415,16 +415,17 @@ export const ADAPTER_JIG_ARMS: readonly ArmEntry[] = [
   },
   // D3 fix+arm atomic (REAL retrofit bug, cargo lane): the shipped cargo lock
   // violated the frozen F11 core set — {framework, backend, emittedAt,
-  // sourceFingerprint, note} was MISSING schemaVersion/version/ruleIds (F11 froze
+  // sourceFingerprint, note} was MISSING schemaVersion/version/rules (F11 froze
   // schema parity on PR-body authority alone; no checked artifact — the
   // attention-dependent gap the spec §3.4 D3 Origin flags). Fixed in the same
-  // increment (writer now emits the full core set; ruleIds=[] by contract — cargo
+  // increment (writer now emits the full core set; rules=[] by contract — cargo
   // bans are clippy TOML lint config, not named rule ids; j2.decisions.md #15).
+  // S1 §3 criterion 3: `rules` REPLACES the v1 `ruleIds` at schemaVersion=2.
   // The NEW cross-lane suite parses the ACTUAL emitted JSON of both lanes' scratch
   // installs (both writers are bash — TS types cannot gate them): pos = core ⊆
   // emitted for python AND cargo + extras tolerated; neg = renamed-core-field stub
   // discriminator (schemaVersion→schemaVer REDs the compare) + the pre-fix cargo
-  // lock itself (RED-proven: "MISSING core field(s): schemaVersion version ruleIds").
+  // lock itself (RED-proven: "MISSING core field(s): schemaVersion version rules").
   {
     id: 'D3',
     group: 'lock',

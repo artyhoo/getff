@@ -6,6 +6,7 @@
 // those for the framework's own self-application; L5 v1 layers
 // synthesized additions on top.
 
+import type { Provenance, Tier } from '../research/types.ts';
 import type { ValidationReport } from '../validator/types.ts';
 
 export interface InstallOptions {
@@ -25,6 +26,7 @@ export interface InstallOptions {
 export type InstallStage =
   | 'pre-validate'
   | 'lock-collision'
+  | 'schema-stale'
   | 'emit'
   | 'post-validate';
 
@@ -33,11 +35,21 @@ export interface InstallFailure {
   reason: string;
 }
 
+/** Per-rule attestation entry inside a v2 RulesLock. Sorted by `id` at emission
+ *  time; named fields only (never positional — kickoff §6 fork 5, refined Option A). */
+export interface RulesLockRule {
+  id: string;
+  provenance: Provenance[];
+  tier: Tier;
+}
+
 export interface RulesLock {
-  schemaVersion: 1;
+  schemaVersion: 2;
   framework: string | null;
   version: string | null;
-  ruleIds: string[];
+  /** v2 per-rule shape (kickoff §3 criterion 3 + §6 fork 5). Replaces the v1 `ruleIds`
+   *  flat string array. A v2-aware reader MUST branch on schemaVersion (criterion 8). */
+  rules: RulesLockRule[];
   emittedAt: string;
   sourceFingerprint: string;
 }

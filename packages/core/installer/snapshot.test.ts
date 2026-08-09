@@ -3,7 +3,7 @@
 //   - artifact paths (depend on tmpdir),
 //   - rules-lock.json emittedAt + sourceFingerprint (timestamp + hash).
 // What remains is the deterministic shape: ok, installed, artifact names,
-// lockShape (schemaVersion + framework + version + ruleIds), and the two
+// lockShape (schemaVersion + framework + version + rules), and the two
 // embedded ValidationReports.
 
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
@@ -15,7 +15,7 @@ import { detectStack } from '../detector/index.ts';
 import { research } from '../research/index.ts';
 import { synthesize } from '../synthesizer/synthesize.ts';
 import { install } from './install.ts';
-import type { InstallReport, RulesLock } from './types.ts';
+import type { InstallReport, RulesLock, RulesLockRule } from './types.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '..', '..', '..');
@@ -30,7 +30,7 @@ interface InstallSnapshot {
     schemaVersion: number;
     framework: string | null;
     version: string | null;
-    ruleIds: string[];
+    rules: RulesLockRule[];
   };
   preValidation: InstallReport['preValidation'];
   postValidation: InstallReport['postValidation'];
@@ -64,7 +64,7 @@ function deterministicShape(
       schemaVersion: lock.schemaVersion,
       framework: lock.framework,
       version: lock.version,
-      ruleIds: lock.ruleIds,
+      rules: lock.rules,
     },
     preValidation: report.preValidation,
     postValidation: report.postValidation,

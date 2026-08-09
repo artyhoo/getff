@@ -9,10 +9,13 @@ import { resolve } from 'node:path';
 import { emit } from '../synthesizer/emit.ts';
 import type { SynthesisPlan } from '../synthesizer/types.ts';
 import { validate } from '../validator/validate.ts';
+import { weakestTier } from '../synthesizer/tier.ts';
 import type {
+  InstallFailure,
   InstallOptions,
   InstallReport,
   RulesLock,
+  RulesLockRule,
 } from './types.ts';
 
 const OUTPUT_SUBPATH = ['.ai-factory', 'synthesizer-output'] as const;
@@ -33,7 +36,7 @@ function outputDirOf(consumerRoot: string): string {
  * overwrote the ts-server G1–G5 record). Scoping the lock by plan.framework —
  * `rules-lock.<framework>.json`, the same per-stack suffix convention as
  * `.ai-factory/RULES.<stack>.md` — makes the machine record cumulative across
- * stacks while keeping each lock's ruleIds drift-check (postInstallChecks)
+ * stacks while keeping each lock's rules drift-check (postInstallChecks)
  * exact against ITS OWN plan. framework:null keeps the legacy unsuffixed name.
  */
 function lockNameOf(plan: SynthesisPlan): string {
@@ -57,12 +60,40 @@ function fingerprint(plan: SynthesisPlan): string {
     .slice(0, 16);
 }
 
+/** Error thrown when a rules-lock JSON carries an unsupported schemaVersion (criterion 8).
+ *  Silent partial reads of a v1 lock are forbidden — an old lock has no per-rule data to migrate. */
+export class RulesLockSchemaError extends Error {
+  constructor(public readonly path: string, public readonly found: number) {
+    super(
+      `${path}: rules-lock schema version ${found} is no longer supported; regenerate the lock (delete it and re-run the install to emit a v2 lock)`,
+    );
+    this.name = 'RulesLockSchemaError';
+  }
+}
+
+/** Read + parse a rules-lock JSON file, refusing non-v2 locks loudly (criterion 8).
+ *  Any shipped reader written for v2 branches on schemaVersion from day one. */
+export function readRulesLock(path: string): RulesLock {
+  const raw = JSON.parse(readFileSync(path, 'utf8')) as { schemaVersion?: number } & Partial<RulesLock>;
+  if (raw.schemaVersion !== 2) {
+    throw new RulesLockSchemaError(path, raw.schemaVersion ?? 0);
+  }
+  return raw as RulesLock;
+}
+
 function buildLock(plan: SynthesisPlan, emittedAt: string): RulesLock {
+  const rules: RulesLockRule[] = plan.rules
+    .map((r) => ({
+      id: r.id,
+      provenance: r.research.provenance,
+      tier: weakestTier(r.research.provenance, r.research.tier),
+    }))
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     framework: plan.framework,
     version: plan.version,
-    ruleIds: plan.rules.map((r) => r.id),
+    rules,
     emittedAt,
     sourceFingerprint: fingerprint(plan),
   };
@@ -82,23 +113,29 @@ function postInstallChecks(
       });
     }
   }
-  // Lock content must round-trip and ruleIds must match the plan.
+  // Lock content must round-trip: rules (v2) must match the plan's rule ids.
   try {
     const lockPath = resolve(outputDir, lockNameOf(plan));
     if (existsSync(lockPath)) {
-      const lock = JSON.parse(readFileSync(lockPath, 'utf8')) as RulesLock;
-      const expected = plan.rules.map((r) => r.id);
-      if (JSON.stringify(lock.ruleIds) !== JSON.stringify(expected)) {
+      const lock = readRulesLock(lockPath);
+      const expected = plan.rules.map((r) => r.id).sort();
+      const actual = lock.rules.map((r) => r.id).sort();
+      if (JSON.stringify(actual) !== JSON.stringify(expected)) {
         failures.push({
           stage: 'post-validate',
-          reason: `${lockNameOf(plan)} ruleIds drift: lock=${JSON.stringify(lock.ruleIds)} plan=${JSON.stringify(expected)}`,
+          reason: `${lockNameOf(plan)} rules drift: lock=${JSON.stringify(actual)} plan=${JSON.stringify(expected)}`,
         });
       }
     }
   } catch (err) {
+    // Preserve the schema-refusal message verbatim (criterion 8) — do not collapse
+    // RulesLockSchemaError into a generic "failed to parse" framing, which hides
+    // the deliberate refusal nature of the throw and weakens the loud guarantee.
     failures.push({
       stage: 'post-validate',
-      reason: `${lockNameOf(plan)} failed to parse: ${(err as Error).message}`,
+      reason: err instanceof RulesLockSchemaError
+        ? (err as RulesLockSchemaError).message
+        : `${lockNameOf(plan)} failed to parse: ${(err as Error).message}`,
     });
   }
   return { ok: failures.length === 0, failures };
@@ -126,17 +163,32 @@ export function install(plan: SynthesisPlan, opts: InstallOptions): InstallRepor
 
   const lockPath = resolve(outputDir, lockNameOf(plan));
   if (!opts.dryRun && !opts.force && existsSync(lockPath)) {
+    // Criterion 8 loud-refusal surface: a v1 lock on disk is REFUSED here (before
+    // postInstallChecks ever runs) with the regenerate remediation — never the
+    // "pass force: true to overwrite" message, which suggests silent overwrite and
+    // hides the schema reason. readRulesLock throws RulesLockSchemaError on non-v2;
+    // any other parse error (corrupt/empty file) falls through to lock-collision.
+    let schemaStaleFound: number | null = null;
+    try {
+      readRulesLock(lockPath);
+    } catch (err) {
+      if (err instanceof RulesLockSchemaError) schemaStaleFound = err.found;
+    }
+    const failure: InstallFailure = schemaStaleFound !== null
+      ? {
+          stage: 'schema-stale',
+          reason: `${lockNameOf(plan)} at ${lockPath} is schemaVersion ${schemaStaleFound} (this installer is v2-aware); regenerate the lock (delete it and re-run the install, or pass force: true, to emit a v2 lock)`,
+        }
+      : {
+          stage: 'lock-collision',
+          reason: `${lockNameOf(plan)} already exists at ${lockPath}; pass force: true to overwrite`,
+        };
     return {
       ok: false,
       installed: false,
       artifacts: expectedArtifacts,
       preValidation,
-      failures: [
-        {
-          stage: 'lock-collision',
-          reason: `${lockNameOf(plan)} already exists at ${lockPath}; pass force: true to overwrite`,
-        },
-      ],
+      failures: [failure],
     };
   }
 
