@@ -95,3 +95,23 @@ but the first real consumer run is still the first time that chain executes end 
 This is recorded rather than smoothed over because §7a #4(i)'s own falsifier — "if the live schema
 names a different expected var, PARK with the schema quoted" — is adjacent to what was observed,
 and a reader deciding whether S4 is closed should see it.
+
+## Fork 3 — recurring per-consumer spend (OPEN; raised by the round-6 audit, not decided)
+
+**The mismatch.** §7a #3 binds «one **1-token-scale** minimal model call». The only reachable
+completion route injects project context, so the measured call was **39058 input tokens /
+`costUsd:0.117219`** for a one-word prompt. Step D runs on **every** `provision`, so this is a
+recurring charge on each consumer's z.ai plan, not a one-off verification cost.
+
+**Why it is not a technical fork.** Nothing in the code decides it. The kickoff wrote «1-token-scale»
+when no such route exists, and whether ~$0.12 per provision is acceptable for the one-button
+promise is a product call about other people's money.
+
+| | consequence |
+|---|---|
+| Accept as-is | `DONE` keeps meaning «the vendor accepted the key», the strongest available proof. Every consumer pays ~$0.12 per provision run, and repeated runs (a retry after fixing wiring) each bill again. |
+| Amend §7a #3 to accept a cheaper proof | e.g. accept step C's resolution proof plus a first-real-task check. Cheaper, but a wrong key then surfaces on the consumer's first real task instead of at install. |
+| Make step D opt-out | `provision --skip-model-proof` for cost-sensitive consumers. Honest, but an opt-out on a binding objective re-opens the false-green question the whole stage exists to close. |
+
+`INSTALL-FOR-AI.md` now states the measured cost to the consumer regardless of which way this
+goes, so nobody is billed by surprise while it is open.
