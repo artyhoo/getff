@@ -502,7 +502,7 @@ Total pastes: 1 (Queue mode internally processes all 4 R-iters autonomously).
 
 Spec A4 ([`2026-07-23-beta-program-design.md`](../../../../docs/superpowers/specs/2026-07-23-beta-program-design.md) §4 A4, lines 269-271) proposes presets via a TTY menu row in the §3 launch-table. The row is **additive**: `--preset <name>` / `AIF_PIPELINE_PRESET=<name>` stays the primary path per the S2 kickoff §2 binding constraint 1 and clig.dev flag-first. **Menu-only UX is REJECTED** — it breaks agents and CI, which have no TTY.
 
-Render only when `[ -t 0 ] && [ -t 1 ]`. The four presets are data-driven from [`presets/`](presets/); each line's text is the preset's own `description` field, read via [`../helpers/list-presets.sh`](../helpers/list-presets.sh) — never hard-coded here, so adding a preset JSON is the only edit a new preset needs.
+Render only when `[ -t 0 ] && [ -t 1 ]`. The four presets are data-driven from the `presets/` directory ([`presets/aif.json`](presets/aif.json), [`presets/night.json`](presets/night.json), [`presets/economy.json`](presets/economy.json), [`presets/sdd.json`](presets/sdd.json)); each line's text is the preset's own `description` field, read via [`../helpers/list-presets.sh`](../helpers/list-presets.sh) — never hard-coded here, so adding a preset JSON is the only edit a new preset needs.
 
 ```text
 Presets (optional — use --preset <name> or AIF_PIPELINE_PRESET=<name> to activate):

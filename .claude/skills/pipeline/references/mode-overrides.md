@@ -163,7 +163,7 @@ per [memory-codification.md §3](../../../rules/memory-codification.md).
 
 ## §8 Preset flags (A4 — pipeline launch presets)
 
-**Binding source:** [beta-delivery-ux S2 kickoff §2](../../../../.ai-factory/plans/beta-delivery-ux.md) §2 + §8a operator resolutions (2026-08-08). Design spec: `docs/superpowers/specs/2026-07-23-beta-program-design.md` §4 A4.
+**Binding source:** [beta-delivery-ux S2 kickoff](../../../orchestrator-prompts/beta-delivery-ux/kickoff-s2.md) §2 + §8a operator resolutions (2026-08-08). Design spec: `docs/superpowers/specs/2026-07-23-beta-program-design.md` §4 A4.
 
 **Four declarative presets** — data, not prose — at `references/presets/<name>.json`:
 
