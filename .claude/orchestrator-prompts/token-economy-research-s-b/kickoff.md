@@ -42,10 +42,20 @@
   line** MUST be an HTML scope comment (`<!-- scope: ... -->`) —
   [`10-research-patch-annotation.test.ts`](../../../packages/core/principles/10-research-patch-annotation.test.ts)
   fails the PR otherwise.
-- **Container tool reality:** the `claude-code-guide` agent is **NOT available** in the aif
-  container (operator-verified precedent). For Claude Code internals use context7 / DeepWiki /
-  WebFetch of the official docs; if none of those is reachable either, record
-  `INCONCLUSIVE — tooling unreachable from container` rather than answering from recall.
+- **Container tool reality — CORRECTED 2026-08-09.** ~~the `claude-code-guide` agent is **NOT
+  available** in the aif container (operator-verified precedent).~~ **False, and the evidence was an
+  appeal to precedent with no probe.** Measured against the live `aif-handoff-agent-1`:
+  `claude-code-guide` is a **built-in** agent compiled into the container's own CLI —
+  `grep -ao` over `/usr/local/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe` (v2.1.218)
+  returns its definition literally carrying `source:"built-in"`, `baseDir:"built-in"`,
+  `model:"haiku"`. Its tools are network-backed, and the container **has egress**:
+  `https://docs.claude.com/en/docs/claude-code/overview` → `301`, `https://api.anthropic.com/` → `404`
+  (both answered, neither blocked). **Re-probe before relying on this** — a CLI upgrade or a network
+  policy change moves it, and «operator-verified precedent» is exactly the form of evidence that
+  produced the wrong answer here. The fallback below stands unchanged and still bounds the blast
+  radius: for Claude Code internals use context7 / DeepWiki / WebFetch of the official docs; if none
+  of those is reachable either, record `INCONCLUSIVE — tooling unreachable from container` rather
+  than answering from recall.
 - **Ceilings.** A pre-commit hook blocks any markdown file past **600 lines** — `wc -l` before
   adding, including `prior-art-evaluations.md` (331 lines as of 2026-08-01).
 - **Parallel stage.** Stage A (`token-economy-research-s-a`) runs concurrently on the always-on
@@ -123,10 +133,22 @@ and its cost-gate class. **Proposals only — no implementation, and no self-sel
 Measured 2026-08-01 on the host over **247 transcripts** across **99 project directories** under
 `~/.claude/projects/*rules-as-tests-aif*/`, reading per-turn billing accounting only — never
 message content. Single aggregator run (2026-08-01T01:00:50Z; full script inlined in stage A's
-§2.7); every table cross-foots exactly. **That path does not exist in the aif container**; §2 is
-your only source for session behaviour. Anything not here is
-`INCONCLUSIVE — not in the inlined profile`, never inferred (this kickoff's binding grammar; the
-why is [destination-environment-verification.md §3](../../rules/destination-environment-verification.md)).
+§2.7); every table cross-foots exactly.
+
+**CORRECTED 2026-08-09 — the exclusivity claim was false.** ~~**That path does not exist in the aif
+container**; §2 is your only source for session behaviour.~~ It does exist. Measured against the
+live `aif-handoff-agent-1`: `ls -d /home/node/.claude/projects/*rules-as-tests-aif*` → **102**
+directories, and `find … -name '*.jsonl'` → **934** transcripts, the newest written the same day the
+measurement was taken. **But do not simply substitute one source for the other — they are different
+populations:** `/home/node/.claude` is a docker volume (`aif-handoff_claude-auth`), *not* a bind mount
+of the operator home, and the directory names are container-side paths (`-home-www-rules-as-tests-aif-…`).
+So those 934 transcripts are the **container's own dispatched-worker sessions**, not the 247 host
+operator sessions §2 profiles. A stage that mines them is measuring a different cost regime and must
+say so. The **binding grammar is unchanged and still applies to §2's numbers**: anything not in the
+inlined profile is `INCONCLUSIVE — not in the inlined profile`, never inferred (the why is
+[destination-environment-verification.md §3](../../rules/destination-environment-verification.md) — which is also the rule this very
+sentence violated: a negative-existence claim about the destination environment, asserted without a
+probe of it).
 
 ### 2.1 Cost by billing category, weighted by price multiplier — THE HEADLINE
 
