@@ -1,7 +1,13 @@
 # Kickoff: context-degradation-calibration — R-phase, single task
 
+<!-- bridge-profile: Z.AI GLM-5.2 SDK -->
+
 > **Type:** R-phase (research only — no source edits, T5). **Tier:** aif executor tier
-> (per [CLAUDE.md «Task-tier routing»](../../../CLAUDE.md) → tier-home doc).
+> (per [CLAUDE.md «Task-tier routing»](../../../CLAUDE.md) → tier-home doc); the
+> `bridge-profile` marker above names the unique executor-profile display name (live
+> `/runtime-profiles` list, 2026-08-09) per the active acceptance-contour marker rule —
+> the marker is dispatch-INERT (`runtime-bridge-dispatch.sh` fires only on a first-line
+> `bridge: auto`), so the sequencing note below is unaffected.
 > **Dispatch:** ONLY after this kickoff merges to staging
 > ([kickoff-staging-placement.md](../../rules/kickoff-staging-placement.md)) — via
 > `/dispatcher context-degradation-calibration`. This file deliberately carries **no
@@ -67,6 +73,11 @@ One research-patch (the §2 file) with: §findings per RQ (each claim: source + 
 per-task-class deltas, with the falsifier for each number), §classifier-refinement (RQ4
 signals), §self-application (T15: at what context size was THIS research session, and did its
 own quality hold?), «current as of» line.
+
+**Consumption gate (arch §1.5 stations — do not skip):** before the patch's numbers enter the
+design (spec D6/D7 parameters), it receives (a) a cold K1/K2 pass (anchors exist as claimed ·
+quoted outputs reproduce) by a seat that did not author it, and (b) a verifier
+`GO | rework | kill` verdict. The harvesting session owns dispatching both.
 
 ## §4c Park-don't-guess
 
