@@ -444,7 +444,7 @@ S1 ∥ S2a parallel-safe (disjoint surfaces); S3 after S1; S2b parked; S4 after 
 | F7 | `spawn_task` availability in scheduled/remote (unattended) sessions | OPEN — determines whether park-chips also fire from those classes or only from local sessions; probe: one scheduled run calling `spawn_task`; either answer is safe (absent → capability-gate skips → sweep path) |
 | F8 | #108 PreCompact-item operator GO + D8's own liveness bench | OPEN — blocks S2b only (routed, not closed, by D8; the SSOT row is composite — see D8) |
 | F9 | Chip visibility scope + lifetime + seat inheritance | OPEN — first live chip observes: app-global vs per-session-view rendering (the R4 morning-surface claim rests on this); survival across minimize vs restart; whether the spawned session inherits the emitter's model (D3 seat line). Click-time observations, no build needed |
-| F10 | D7 audience (**operator fork**) | consumer-generic as specified (adds a bounded new blocking Stop path in consumer sessions) vs framework-presence-gated (operator-only; consumers lose the reminder). **OPEN — operator ratifies**; D7 records the consumer-generic recommendation; round 2 correctly flagged that this decision lands outside this repo |
+| F10 | D7 audience (**operator fork**) | consumer-generic as specified (adds a bounded new blocking Stop path in consumer sessions) vs framework-presence-gated (operator-only; consumers lose the reminder). **CLOSED 2026-08-10 — consumer-generic**: the operator's 2026-08-09 F4b-landing directive (consumer-shipped is the product intent, guards non-negotiable) is the ratifying evidence; S2a ships the generic wording (zero framework refs in the reminder string, test-asserted) |
 
 ## §8 §1.7 self-reflexive note
 

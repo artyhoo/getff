@@ -1163,3 +1163,228 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', () => {
     expect(parsed.reason, 'ZCode arm autonomy half must be appended, not dropped').toMatch(/still in flight/);
   });
 });
+
+describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', () => {
+  // spec: docs/superpowers/specs/2026-08-09-pipeline-chips-session-bus-design.md §D7.
+  // Thresholds under test are PROVISIONAL (D9 calibrates): T_soft(200k)=140k,
+  // T_soft(1M)=300k. Every case runs with a PRIVATE TMPDIR so the
+  // once-per-session-per-tier debounce flags (${TMPDIR:-/tmp}/aif-ctx-<sid>-<tier>)
+  // cannot leak between cases or into the developer's real /tmp.
+
+  function privateTmp(): string {
+    const dir = mkdtempSync(join(tmpdir(), 'd7-ctx-'));
+    tmpDirs.push(dir);
+    return dir;
+  }
+
+  /** Split the total across the three summed usage fields — proves the arm
+   *  compares the SUM, not any single field. */
+  function usageOf(total: number) {
+    return {
+      input_tokens: 1000,
+      cache_read_input_tokens: total - 3000,
+      cache_creation_input_tokens: 2000,
+    };
+  }
+
+  function assistantWithUsage(
+    text: string,
+    total: number,
+    opts: { model?: string; sidechain?: boolean } = {},
+  ) {
+    return {
+      type: 'assistant',
+      isSidechain: opts.sidechain ?? false,
+      message: {
+        model: opts.model ?? 'claude-opus-5',
+        usage: usageOf(total),
+        content: [{ type: 'text', text }],
+      },
+    };
+  }
+
+  it('below T_soft(200k): a short turn at 100k stays silent', () => {
+    const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 100_000)]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd7-below' },
+      { TMPDIR: privateTmp() },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim(), 'no handoff line below the soft threshold').toBe('');
+  });
+
+  it('PAIRED-POSITIVE: a short (normally silent) turn at 150k blocks with the generic handoff line', () => {
+    const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 150_000)]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd7-fire' },
+      { TMPDIR: privateTmp() },
+    );
+    expect(r.status).toBe(0);
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision, 'crossing T_soft must reach the model').toBe('block');
+    expect(parsed.reason).toMatch(/\[context\]/);
+    expect(parsed.reason, 'names the measured size').toMatch(/150000 tokens/);
+    expect(parsed.reason, 'the payload is the handoff policy, generic wording').toMatch(/handoff note/);
+    // Consumer-shipped surface (F10 consumer-generic): no framework artifact refs.
+    expect(parsed.reason).not.toMatch(/aif|dispatcher|pipeline|\.claude/);
+  });
+
+  it('PAIRED-NEGATIVE: a huge SIDECHAIN entry after a small main-thread one stays silent (isSidechain filter)', () => {
+    // Subagent turns share the transcript. Without `select(.isSidechain != true)`
+    // the arm would read the sidechain's 190k as the session size and fire.
+    const tr = writeTranscript([
+      aiTitle('goal'),
+      userTurn('go'),
+      assistantWithUsage('main thread, small.', 90_000),
+      assistantWithUsage('subagent, huge.', 190_000, { sidechain: true }),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd7-side' },
+      { TMPDIR: privateTmp() },
+    );
+    expect(r.stdout.trim(), 'a sidechain entry must never be read as the main-thread context size').toBe('');
+  });
+
+  it('debounce: the same session and tier fires ONCE', () => {
+    const tmp = privateTmp();
+    const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 150_000)]);
+    const first = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd7-debounce' },
+      { TMPDIR: tmp },
+    );
+    expect(first.stdout, 'first crossing fires').toMatch(/\[context\]/);
+    const second = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd7-debounce' },
+      { TMPDIR: tmp },
+    );
+    expect(second.stdout.trim(), 'second turn past the same tier is debounced').toBe('');
+  });
+
+  it('1M override: observed usage > 200k flips the window, so 250k is BELOW the 1M floor — silent', () => {
+    // The sharp case: under a naive single 140k threshold 250k would fire; the
+    // self-evident override (usage > 200k ⇒ 1M window) routes it to the 300k floor.
+    const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 250_000)]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd7-1m-below' },
+      { TMPDIR: privateTmp() },
+    );
+    expect(r.stdout.trim(), '250k on a 1M window is below the 300k operator floor').toBe('');
+  });
+
+  it('1M floor: 350k fires and names the 1M window', () => {
+    const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 350_000)]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd7-1m-fire' },
+      { TMPDIR: privateTmp() },
+    );
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason).toMatch(/350000 tokens/);
+    expect(parsed.reason, 'window resolved via the >200k override').toMatch(/~1000000/);
+  });
+
+  it('model table: an explicit 1M model id at 150k stays silent (200k tier does not apply)', () => {
+    // Both table spellings are load-bearing: `[1m]` bracket marker and `-1m` id suffix.
+    for (const model of ['claude-sonnet-5[1m]', 'claude-sonnet-5-1m']) {
+      const tr = writeTranscript([
+        aiTitle('goal'),
+        userTurn('go'),
+        assistantWithUsage('done.', 150_000, { model }),
+      ]);
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: `d7-1m-model-${model.includes('[') ? 'br' : 'sfx'}` },
+        { TMPDIR: privateTmp() },
+      );
+      expect(r.stdout.trim(), `"${model}" declares a 1M window — governed by the 300k floor, not the 140k tier`).toBe('');
+    }
+  });
+
+  it('boundary pair: 139999 silent, 140000 fires (>=, not >)', () => {
+    for (const [total, fires] of [[139_999, false], [140_000, true]] as const) {
+      const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', total)]);
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: `d7-edge-${total}` },
+        { TMPDIR: privateTmp() },
+      );
+      if (fires) {
+        expect(r.stdout, `${total} is ON the threshold and must fire`).toMatch(/\[context\]/);
+      } else {
+        expect(r.stdout.trim(), `${total} is below the threshold`).toBe('');
+      }
+    }
+  });
+
+  it('1m-deep tier: crossing 500k fires AGAIN in a session whose 1m-soft flag is already spent', () => {
+    // The debounce is per TIER, not per session: past the 1M soft floor a session
+    // still gets exactly one more reminder at the ~500k mechanical-tail ceiling.
+    const tmp = privateTmp();
+    const soft = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 350_000)]);
+    const first = runHook(
+      { transcript_path: soft, stop_hook_active: false, session_id: 'd7-deep' },
+      { TMPDIR: tmp },
+    );
+    expect(first.stdout, 'soft-floor crossing fires first').toMatch(/\[context\]/);
+    const deep = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 510_000)]);
+    const second = runHook(
+      { transcript_path: deep, stop_hook_active: false, session_id: 'd7-deep' },
+      { TMPDIR: tmp },
+    );
+    expect(second.stdout, 'the 500k ceiling is a SEPARATE tier — must fire despite the spent soft flag')
+      .toMatch(/510000 tokens/);
+    const third = runHook(
+      { transcript_path: deep, stop_hook_active: false, session_id: 'd7-deep' },
+      { TMPDIR: tmp },
+    );
+    expect(third.stdout.trim(), 'the deep tier itself debounces').toBe('');
+  });
+
+  it('composition inside the exit shim: autonomy + context lines ride ONE block on a short turn', () => {
+    // A short turn normally exits silent through _autonomy_exit. With work in
+    // flight AND a spent context both lines must survive on the same single block —
+    // a mutation that overwrites _extra with ctx_line would drop the autonomy half.
+    const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 150_000)]);
+    const r = withTasks(JSON.stringify([task('implementing')]), (url) =>
+      runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'd7-both-arms' },
+        { TMPDIR: privateTmp(), AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+      ),
+    );
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason, 'autonomy half survives').toMatch(/still in flight/);
+    expect(parsed.reason, 'context half survives').toMatch(/\[context\]/);
+  });
+
+  it('ZCode census consequence: an entry with NO usage fields leaves the arm inert (row 9 zcode-gap)', () => {
+    // ZCode synthetic transcripts may omit .message.usage entirely — the arm must
+    // degrade to silence, never to an error or a fabricated size.
+    const tr = writeTranscript([
+      aiTitle('goal'),
+      userTurn('go'),
+      { message: { role: 'assistant', content: [{ type: 'text', text: 'done.' }] } },
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd7-no-usage' },
+      { TMPDIR: privateTmp() },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim(), 'no usage fields → no estimate → inert').toBe('');
+  });
+
+  it('composition: the context line rides the SAME block as a Branch A recap, never a second block', () => {
+    const tr = writeTranscript([
+      aiTitle('goal'),
+      userTurn('go'),
+      assistantWithUsage(longMarkdownText(), 150_000),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd7-compose' },
+      { TMPDIR: privateTmp() },
+    );
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason, 'recap half preserved').toMatch(/🟢/);
+    expect(parsed.reason, 'context half appended').toMatch(/\[context\]/);
+    expect(r.stdout.trim().startsWith('{') && r.stdout.trim().endsWith('}'), 'exactly one JSON object emitted').toBe(true);
+  });
+});
