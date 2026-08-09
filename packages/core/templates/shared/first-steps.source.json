@@ -80,8 +80,8 @@
         {
           "id": "install",
           "title": "Install at env depth",
-          "action": "`bash <getff>/install.sh <stack> --profile env`. Already on core? Re-run that same command — the deeper payload is added and the core artefacts stay byte-identical. `--refresh` re-delivers fixes at your *current* depth; it never deepens an install, so `--refresh --profile env` on a `core` project is a no-op that still exits 0.",
-          "evidence": "install.sh:1076 — the tier-home arm is presence-gated («refresh must not create it on core»), and `arch` is absent from both do_refresh skill loops (install.sh:669,671). Measured on a core consumer: `--refresh --profile env` → exit 0, tier-home NO, arch NO; plain `--profile env` → exit 0, tier-home YES, arch YES, core artefact md5s unchanged. Also INSTALL-FOR-AI.md «Install depth profiles»"
+          "action": "`bash <getff>/install.sh <stack> --profile env`. Already on core? Re-run that same command — the deeper payload is added and every core artefact stays byte-identical except `.prettierignore`, whose managed block gains the new paths. Do not reach for `--refresh` to upgrade: it re-delivers fixes to what you already have and does not reliably deepen an install — on a `core` project `--refresh --profile env` exits 0 while `tier-home.md` and `.claude/skills/arch/` stay absent.",
+          "evidence": "install.sh:1090-1093 — the tier-home refresh arm is presence-gated («refresh must not create it on core»); `arch` is in no do_refresh skill loop. Measured on a core consumer against staging 2026-08-09: `--refresh --profile env` → exit 0, tier-home NO, arch NO (it is NOT a no-op, though — the ungated arm at install.sh:1001-1005 does deliver 4 env-tier scripts, a beta-delivery-ux depth-boundary defect); plain `--profile env` → exit 0, tier-home YES, arch YES, every pre-existing core file byte-identical except .prettierignore. Also INSTALL-FOR-AI.md «Install depth profiles»"
         },
         {
           "id": "verify-payload",
