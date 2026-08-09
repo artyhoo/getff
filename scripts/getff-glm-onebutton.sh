@@ -389,7 +389,8 @@ EOF
   # resolve the key from its own process env under the declared name. It does NOT make a
   # model call — for transport=api, validateClaudeConnection checks only that apiKey and
   # baseUrl are non-empty. §7a #3's "one real minimal model call" is therefore NOT satisfied
-  # by this step alone; that half is PARKED (see the park note after this function).
+  # by this step alone — step D below is that half, and it is what would catch a key that
+  # resolves but is rejected by the vendor.
   _log "provision: step C — key-reachability gate (POST $AIF_URL/runtime-profiles/validate)"
 
   # Source glm.env for the HELPER's env (pre-ping check below).
@@ -466,84 +467,103 @@ EOF
     _log "provision: step C done — aif resolves $GLM_ENV_VAR for profile $profile_id ($validate_msg; older aif without explicit hasApiKey field)"
   fi
 
+  # Step D — the MODEL proof (§7a #3 second half, §7e.3(2)). Step C proved aif can RESOLVE the
+  # key and reach the profile; it does not prove the key is VALID at the vendor, because
+  # validateClaudeConnection makes no network call. This does: one minimal completion through
+  # aif's own chat route, with the profile pinned explicitly so the proof is about THIS profile
+  # and not whatever the project happens to default to.
+  #
+  # Why this honours §2 constraint 1: the body carries the profile ID, never the key. aif
+  # resolves ANTHROPIC_AUTH_TOKEN from its OWN process.env by name
+  # (packages/runtime/src/resolution.ts:217-219), so the value never enters this helper's
+  # memory, argv, or logs. That is what makes §7a #3 and constraint 1 co-satisfiable — the
+  # conflict the earlier park asserted does not exist (kickoff §7f.2).
+  # TWO steps, and the order is forced — not a style choice. `POST /chat` resolves the profile
+  # from the chat SESSION (`existingSession?.runtimeProfileId ?? null`, aif
+  # packages/api/src/routes/chat.ts:1336); `chatRequestSchema` accepts a `runtimeProfileId`
+  # field but the handler never reads it when opening a new conversation. Measured 2026-08-09:
+  # a single `POST /chat` carrying `runtimeProfileId` for a freshly created profile ran the
+  # completion on the PROJECT DEFAULT instead and echoed that profile back. So the profile is
+  # pinned on the session, and the completion is then sent to that session.
+  local sess_resp sess_rc chat_session_id
+  sess_resp=$(curl -sf -X POST "$AIF_URL/chat/sessions" \
+    -H 'Content-Type: application/json' \
+    -d "$(jq -nc --arg p "$project_id" --arg r "$profile_id" \
+            '{projectId:$p, runtimeProfileId:$r, title:"getff GLM provisioning proof"}')" \
+    2>&1) || sess_rc=$?
+  sess_rc=${sess_rc:-0}
+  chat_session_id=$(printf '%s' "$sess_resp" | jq -r '.id // empty')
+  if [ "$sess_rc" -ne 0 ] || [ -z "$chat_session_id" ]; then
+    printf 'GLM_PROVISION: FAILED step-D proof-session-uncreatable\n'
+    _warn "objective-3 MISS: could not open a chat session pinned to $profile_id (rc=$sess_rc). Response: $sess_resp (§7e.3(2))"
+    return 1
+  fi
+
+  local chat_resp chat_rc chat_profile chat_tokens
+  chat_resp=$(curl -sf -X POST "$AIF_URL/chat" \
+    -H 'Content-Type: application/json' \
+    -d "$(jq -nc --arg p "$project_id" --arg s "$chat_session_id" \
+            '{projectId:$p, sessionId:$s, message:"Reply with exactly one word: ok"}')" \
+    2>&1) || chat_rc=$?
+  chat_rc=${chat_rc:-0}
+  if [ "$chat_rc" -ne 0 ]; then
+    printf 'GLM_PROVISION: FAILED step-D model-proof-unreachable\n'
+    _warn "objective-3 MISS: the model proof call failed (rc=$chat_rc). Response: $chat_resp (§7a #3 + §7e.3(2))"
+    _warn "a CHAT_AUTH_ERROR here means aif cannot authenticate with $GLM_ENV_VAR — check the §7b wiring landed and aif was restarted"
+    return 1
+  fi
+  chat_profile=$(printf '%s' "$chat_resp" | jq -r '.runtime.profileId // empty')
+  chat_tokens=$(printf '%s' "$chat_resp" | jq -r '.usage.totalTokens // 0')
+  # Bind the proof to OUR profile. A completion billed against a different profile proves
+  # someone else's key works, not the one this run just wired.
+  if [ "$chat_profile" != "$profile_id" ]; then
+    printf 'GLM_PROVISION: FAILED step-D model-proof-wrong-profile\n'
+    _warn "objective-3 MISS: completion ran on profile '$chat_profile', expected '$profile_id' (§7e.3(2))"
+    return 1
+  fi
+  # A completion that billed zero tokens is not a completion.
+  if [ "$chat_tokens" -le 0 ] 2>/dev/null; then
+    printf 'GLM_PROVISION: FAILED step-D model-proof-no-usage\n'
+    _warn "objective-3 MISS: completion reported no token usage — the vendor call did not happen (§7a #3)"
+    return 1
+  fi
+  _log "provision: step D done — real completion on profile $profile_id, $chat_tokens tokens billed"
+
   printf 'GLM_PROVISION: DONE profile-id=%s\n' "$profile_id"
-  _log "provision: GLM executor tier wired — profile $profile_id, defaults set, key reachable"
-  _log "provision: NOTE — §7a #3's real model call is PARKED, not delivered (see §7e.3 park note)"
+  _log "provision: GLM executor tier wired — profile $profile_id, defaults set, key reachable, model proven"
 }
 
 # ---------------------------------------------------------------------------
-# PARK (§7) — §7a #3's second half: "one real minimal model call"
+# §7a #3's second half — "one real minimal model call": DELIVERED as step D above.
 #
-# §7e.3 splits the ping into a route/key proof (delivered above) and a model proof (this
-# park). The model proof is a genuine fork, not an omission, because every candidate
-# mechanism breaks at least one standing binding. Re-probed 2026-08-09 (run 4); see the
-# per-option evidence blocks below — all command outputs quoted are from live probes.
+# This block used to be a PARK. It is kept as a record of why, because the park's rationale
+# was wrong in a way worth not repeating: it concluded "Option B is a dead-end at the aif API
+# surface" from a handful of 404s, and generalised that into "every aif-side completion route
+# is closed". That is a negative-existence claim from a partial probe. It was withdrawn after
+# `POST /chat/sessions` answered 400 rather than 404 (kickoff §7f.2).
 #
-#   Option A — call {baseUrl}/v1/messages from the helper.
-#     Original form (value in argv): violates §2 constraint 1 + §7b #4 (process-table
-#     exposure; run-2 watch-list W-2).
+# What the earlier options got right, and what they missed:
+#   Option A — call {baseUrl}/v1/messages from the helper. Correctly rejected: any form that
+#     lets the helper hold the value violates §2 constraint 1 / §7b #4, and `curl --header @-`
+#     only moves the exposure off argv, it still requires reading the value (T16: upstream
+#     solves argv exposure, not "never read it" — the pattern does not transfer).
+#   Option B — route the completion through aif. Rejected on a false premise; it is the
+#     delivery path. aif holds the key in its own process env, so the helper sends a profile
+#     id and never the value: §7a #3 and §2 constraint 1 are co-satisfiable, and the "two
+#     binding constraints in genuine conflict" that justified the park never existed.
+#   POST /runtime-profiles/validate genuinely does NOT call the provider (transport=api checks
+#     only that apiKey and baseUrl are non-empty) — that part of the run-4 finding stands, and
+#     is exactly why step C alone is not the model proof.
 #
-#     Option A.1 — `curl --config <file>` indirection. Avoids argv BUT introduces a temp
-#     file holding the value (a new storage location §7a #4(ii) does not sanction). The
-#     run-3 park note already rejected this; not retested.
-#
-#     Option A.2 — `curl --config -` reading from a heredoc, OR `curl --header @-` reading
-#     the header from stdin. Run-4 mechanical verification (postman-echo.com round-trip,
-#     2026-08-09). The probe used a header line of the form "<vendor-auth-header-name>:
-#     <value>" piped via stdin; the vendor's echo endpoint confirmed receipt of the value
-#     and `ps -eo args | grep <key>` confirmed no argv exposure.
-#     A.2 avoids argv AND temp file. BUT it requires the helper to expand the env var
-#     (`printf '<header>: %s\n' "${!GLM_ENV_VAR}"`) to feed curl's stdin — i.e. the helper
-#     reads the VALUE. §2 constraint 1 explicitly forbids this: "automation reads the ENV
-#     VAR NAME (never the value) when calling the model". A.2 trades an argv leak for a
-#     helper-reads-value leak — same constraint, different layer. NOT a third option that
-#     honours §2; just a relabelling of Option A.
-#
-#   Option B — route the completion through aif.
-#     Re-probed 2026-08-09 (run 4). Every per-profile completion route 404s:
-#       /runtime-profiles/<id>/v1/messages       -> 404
-#       /runtime-profiles/<id>/chat/completions  -> 404
-#       /runtime-profiles/<id>/completion        -> 404
-#       /runtime-profiles/<id>/v1/chat/completions -> 404
-#     CORRECTED 2026-08-09 (kickoff §7f.2) — the "root-level routes also 404" line below was
-#     WRONG, and with it the "dead-end" conclusion. Re-measured from the host:
-#       POST /chat/sessions -> 400   (route EXISTS; it rejected an empty body)
-#       POST /chat          -> a real completion, billed
-#     packages/api/src/routes/chat.ts:923-937 accepts and project-scope-validates
-#     runtimeProfileId; chat.ts:1275 is the completion endpoint. §7e.4 already established
-#     that aif resolves the key from its OWN process.env, so aif makes the call and this
-#     helper never touches the value: §7a #3 and §2 constraint 1 BOTH hold.
-#     POST /runtime-profiles/validate still does NOT call the provider (transport=api checks
-#     only that apiKey and baseUrl are non-empty) — that part of the run-4 finding stands.
-#     Option B is NOT a dead end. It is the delivery path.
-#
-# T16 verdict for the upstream pattern (curl --header @-): Upstream problem class: "feed
-# N request headers to curl from a script without argv exposure". Our problem class: "make
-# one model call to validate the key WITHOUT the helper reading the value". Match? NO —
-# the upstream mechanism solves argv exposure but presupposes the script can read the
-# value. Our constraint 1 forbids the helper reading the value at all. The pattern does
-# not transfer; treating A.2 as a delivery would be #pattern-matching-on-name.
-#
-# Decision: the PARK IS WITHDRAWN — and this is UNDELIVERED WORK, not a park.
-#
-# The park's whole rationale was "two binding constraints in genuine conflict". §7f.2
-# measured that conflict away: aif makes the completion call, so constraint 1 is never
-# touched and §7a #3 is satisfiable. A rationale that has been falsified does not become a
-# park by keeping the word — a park is an OPEN QUESTION, and calling settled-but-unbuilt
-# work "parked" is the shape §7d.2 already ruled against.
-#
-# So, stated plainly rather than dressed up: step D (POST /chat/sessions with the profile
-# id, then POST /chat, then read `usage` + `runtime.profileId` back from the response) is
-# NOT BUILT YET. Until it is, this flow proves aif can resolve the key and reach the
-# profile; it does NOT prove the key is valid at the vendor.
-#
-# KNOWN INCONSISTENCY, recorded rather than hidden: §7e.3 states that either half of the
-# proof failing is an objective-3 MISS, yet do_provision still ends in `GLM_PROVISION: DONE`
-# (see the terminal printf) while logging that the model call was never made — the same
-# false-green shape that was fixed for step B in this very commit. It is left standing here
-# only because closing it changes the consumer-facing terminal-token contract that
-# INSTALL-FOR-AI.md:184 tells the consumer's agent to report verbatim, and that is an
-# owner decision, not an implementation detail. Round-5 cold audit graded it MAJOR.
+# HONEST VERIFICATION GAP (do not read step D's presence as "proven end-to-end on a consumer"):
+# the completion route, the session pinning and the response shape were each measured live on
+# 2026-08-09, and step D's failure modes are covered by paired negatives N7/N8/N9. What could
+# NOT be exercised on the verifying host is the full chain against a profile THIS helper
+# created: that aif deployment has ZAI_API_KEY in its process env and no ANTHROPIC_AUTH_TOKEN,
+# so a helper-created profile returns CHAT_AUTH_ERROR there regardless of correctness. On a
+# consumer machine the §7b wiring puts ANTHROPIC_AUTH_TOKEN into the aif env, which is the
+# case the helper is written for — but that specific end-to-end run remains UNEXERCISED, and
+# a first consumer run failing at step D with CHAT_AUTH_ERROR means the wiring, not the proof.
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------

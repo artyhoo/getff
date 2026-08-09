@@ -102,6 +102,20 @@ rm -rf "$TMP_HOME"
 #   GET  /projects                    (§7c #1)
 # Anything else is a stub failure, not a pass — an invented endpoint is how run 3 shipped a
 # ping to a path that returns 404.
+# Echoes back the profile the helper pinned on the SESSION, mirroring aif: POST /chat resolves
+# the profile from the session (chat.ts:1336), so the step-D binding assertion is exercised
+# against what was actually pinned rather than against a constant.
+#
+# The pin is carried in a FILE, not a variable, and that is forced: the helper invokes curl
+# inside `$( )`, so every stub call runs in its own subshell and any variable the session arm
+# sets is gone before the /chat arm runs. A variable here would silently echo an empty profile
+# and the binding assertion would fail for a reason that has nothing to do with the helper.
+_STUB_PIN_FILE="$(mktemp)"
+export _STUB_PIN_FILE
+_stub_echo_chat() {
+  printf '{"assistantMessage":"ok","usage":{"totalTokens":12},"runtime":{"profileId":"%s"}}' "$(cat "$_STUB_PIN_FILE" 2>/dev/null)"
+}
+
 _stub_create_body_ok() {
   # Mirrors createRuntimeProfileSchema's required set: runtimeId + providerId + name.
   case "$1" in
@@ -123,6 +137,22 @@ curl() {
     *"/v1/messages"*)
       printf 'STUB-REJECT: endpoint does not exist on aif: %s\n' "$*" >&2
       return 22
+      ;;
+    # ORDER RULE — /chat/sessions BEFORE /chat, or the /chat glob swallows the session create.
+    # Step D pins the profile on a SESSION, then sends the completion to that session: aif's
+    # POST /chat reads the profile off the session (chat.ts:1336) and ignores a runtimeProfileId
+    # in the chat body. The session stub records what was pinned so the /chat arm can echo it.
+    *"-X POST"*"/chat/sessions"*)
+      printf '%s' "$*" | sed -n 's/.*"runtimeProfileId":"\([^"]*\)".*/\1/p' > "$_STUB_PIN_FILE"
+      printf '{"id":"stub-session-1"}'
+      return 0
+      ;;
+    # Step D — the model proof (§7a #3 / §7e.3(2)). The stub ECHOES BACK the profile pinned on
+    # the session rather than printing a constant: a constant would satisfy the helper's binding
+    # assertion no matter what it sent, the same can't-fail shape §7e.6 rejects for stubs.
+    *"-X POST"*"/chat"*)
+      _stub_echo_chat
+      return 0
       ;;
     # ORDER RULE — validate BEFORE the generic create arm.
     *"-X POST"*"/runtime-profiles/validate"*)
@@ -279,6 +309,11 @@ GLM_PROFILE_NAME="Z.AI GLM-5.2" RUNTIME_BRIDGE_AIF_URL="http://h" \
       case "$*" in
         *"/v1/messages"*)
           printf "STUB-REJECT: endpoint does not exist on aif: %s\n" "$*" >&2; return 22 ;;
+        *"-X POST"*"/chat/sessions"*)
+          printf "%s" "$*" | sed -n "s/.*\"runtimeProfileId\":\"\([^\"]*\)\".*/\1/p" > "$_STUB_PIN_FILE"
+          printf "{\"id\":\"stub-session-1\"}"; return 0 ;;
+        *"-X POST"*"/chat"*)
+          printf "{\"assistantMessage\":\"ok\",\"usage\":{\"totalTokens\":12},\"runtime\":{\"profileId\":\"$(cat "$_STUB_PIN_FILE" 2>/dev/null)\"}}"; return 0 ;;
         *"-X POST"*"/runtime-profiles/validate"*) printf "%s" "{\"ok\":true,\"message\":\"older aif without hasApiKey\"}"; return 0 ;;
         *"-X POST"*"/runtime-profiles"*)
           case "$*" in *\"runtimeId\"*) ;; *) printf "%s" "{\"success\":false,\"error\":{\"name\":\"ZodError\"}}"; return 22 ;; esac
@@ -548,6 +583,69 @@ GLM_ENV_FILE="$TMP_N6/glm.env" AIF_HANDOFF_CHECKOUT="$TMP_N6/no-such" out=$(do_p
 case "$out" in *"GLM_PROVISION: DONE"*) bad "neg N6: printed DONE despite an objective-3 MISS (false green reaches the consumer)" ;; *) ok "neg N6: no DONE line emitted on an objective-3 MISS" ;; esac
 case "$out" in *"FAILED step-B per-mode-defaults"*) ok "neg N6: emits FAILED step-B per-mode-defaults" ;; *) bad "neg N6: emits '$out' — the MISS carries no machine-readable terminal token" ;; esac
 rm -rf "$TMP_N6"
+
+# ── N7/N8/N9 — step D (§7a #3 model proof) fails closed on each way it can lie ──
+# The model proof exists to catch a key that resolves but is not VALID at the vendor. It can
+# be faked three ways, so each has its own negative: the call not happening at all, the
+# completion running on a DIFFERENT profile than the one this run wired, and a "completion"
+# that billed nothing. Without these three, step D would be a can't-fail step — exactly the
+# §7e.6 shape this suite already rejects for stubs.
+TMP_ND=$(mktemp -d)
+printf 'ANTHROPIC_AUTH_TOKEN=test-key-not-real\n' > "$TMP_ND/glm.env"
+_nd_stub() {  # $1 = /chat response body, $2 = /chat return code
+  _ND_JSON="$1"; _ND_RC="$2"
+  curl() {
+    case "$*" in
+      *"/v1/messages"*) return 22 ;;
+      *"-X POST"*"/chat/sessions"*) printf '%s' '{"id":"stub-session-1"}'; return 0 ;;
+      *"-X POST"*"/chat"*) printf '%s' "$_ND_JSON"; return "$_ND_RC" ;;
+      *"-X POST"*"/runtime-profiles/validate"*) printf '%s' '{"ok":true,"profile":{"hasApiKey":true}}'; return 0 ;;
+      *"-X POST"*"/runtime-profiles"*)
+        if _stub_create_body_ok "$*"; then printf '%s' '{"id":"test-id"}'; return 0; fi
+        return 22 ;;
+      *"-X PUT"*"/projects/"*) printf '%s' '{"id":"proj-1","ok":true}'; return 0 ;;
+      *"/projects"*) printf '%s' '[{"id":"proj-1","defaultPlanRuntimeProfileId":"x"}]'; return 0 ;;
+      *) printf 'STUB-REJECT: path not in allowlist: %s\n' "$*" >&2; return 1 ;;
+    esac
+  }
+  export -f curl
+}
+_nd_run() { GLM_ENV_FILE="$TMP_ND/glm.env" AIF_HANDOFF_CHECKOUT="$TMP_ND/no-such" do_provision 2>/dev/null; }
+
+_nd_stub '' 22
+out=$(_nd_run); rc=$?
+[ "$rc" -ne 0 ] && ok "neg N7: /chat unreachable → rc!=0" || bad "neg N7: unreachable model proof still returned rc=0"
+case "$out" in *"FAILED step-D model-proof-unreachable"*) ok "neg N7: emits FAILED step-D model-proof-unreachable" ;; *) bad "neg N7: emits '$out'" ;; esac
+
+_nd_stub '{"assistantMessage":"ok","usage":{"totalTokens":12},"runtime":{"profileId":"someone-elses-profile"}}' 0
+out=$(_nd_run); rc=$?
+[ "$rc" -ne 0 ] && ok "neg N8: completion on a DIFFERENT profile → rc!=0" || bad "neg N8: accepted a completion billed to another profile"
+case "$out" in *"FAILED step-D model-proof-wrong-profile"*) ok "neg N8: emits FAILED step-D model-proof-wrong-profile" ;; *) bad "neg N8: emits '$out'" ;; esac
+
+_nd_stub '{"assistantMessage":"ok","usage":{"totalTokens":0},"runtime":{"profileId":"test-id"}}' 0
+out=$(_nd_run); rc=$?
+[ "$rc" -ne 0 ] && ok "neg N9: zero-token 'completion' → rc!=0" || bad "neg N9: accepted a completion that billed nothing"
+case "$out" in *"FAILED step-D model-proof-no-usage"*) ok "neg N9: emits FAILED step-D model-proof-no-usage" ;; *) bad "neg N9: emits '$out'" ;; esac
+
+# §2 constraint 1 on the NEW surface — step D must not put the key value in the request.
+_ND_SEEN=""
+curl() {
+  case "$*" in
+    *"-X POST"*"/chat/sessions"*) _ND_SEEN="$_ND_SEEN $*"; printf '%s' '{"id":"stub-session-1"}'; return 0 ;;
+    *"-X POST"*"/chat"*) _ND_SEEN="$_ND_SEEN $*"; printf '%s' '{"assistantMessage":"ok","usage":{"totalTokens":12},"runtime":{"profileId":"test-id"}}'; return 0 ;;
+    *"-X POST"*"/runtime-profiles/validate"*) printf '%s' '{"ok":true,"profile":{"hasApiKey":true}}'; return 0 ;;
+    *"-X POST"*"/runtime-profiles"*) printf '%s' '{"id":"test-id"}'; return 0 ;;
+    *"-X PUT"*"/projects/"*) printf '%s' '{"id":"proj-1","ok":true}'; return 0 ;;
+    *"/projects"*) printf '%s' '[{"id":"proj-1","defaultPlanRuntimeProfileId":"x"}]'; return 0 ;;
+    *) printf 'STUB-REJECT: path not in allowlist: %s\n' "$*" >&2; return 1 ;;
+  esac
+}
+GLM_ENV_FILE="$TMP_ND/glm.env" AIF_HANDOFF_CHECKOUT="$TMP_ND/no-such" do_provision >/dev/null 2>&1
+case "$_ND_SEEN" in
+  *"test-key-not-real"*) bad "step D: KEY VALUE LEAKED into the /chat request body (§2 constraint 1)" ;;
+  *) ok "step D: /chat request carries the profile id, never the key value (§2 constraint 1)" ;;
+esac
+rm -rf "$TMP_ND"
 
 # ── §7c #1 regression — the PUT body must omit null budget fields ────────────
 # ROOT CAUSE of the objective-3 MISS, measured live 2026-08-09 rather than reasoned about:

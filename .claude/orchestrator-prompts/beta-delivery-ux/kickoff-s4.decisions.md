@@ -4,6 +4,12 @@ Per `.claude/skills/night-mode/SKILL.md` delta item 1: technical forks are resol
 with a recorded rationale; **genuine owner forks are logged here, not decided, and do not block**.
 Both entries below blocked S4 from closing complete. Neither was decided by the session.
 
+> **BOTH FORKS RESOLVED by the operator, 2026-08-09: spend authorised.** Step D is built and
+> `GLM_PROVISION: DONE` now means the vendor accepted the key, so Fork 2 dissolved rather than
+> being decided — `DONE` became true instead of needing a new token. The entries below are kept
+> as the record of what was asked and why. What the authorised spend actually bought, and the
+> one thing it did **not**, is in `## What the verification found` at the end.
+
 ## Fork 1 — spend authorisation for the §7a #3 model proof (step D)
 
 **State.** The completion route is measured and proven: `POST /chat/sessions` → 400 (exists),
@@ -58,3 +64,34 @@ weaken §2 constraint 1) were **not** escalated, because measurement dissolved t
 options rested on: §7f.2 had generalised a single `404` probe into «the only reachable form».
 Neither invariant needed weakening. Corrected in #1340; the withdrawn conclusion is recorded there
 rather than silently replaced.
+
+## What the verification found (2026-08-09, after the spend was authorised)
+
+Three billed calls were spent. They bought one correction that matters more than the delivery.
+
+**The single-call form was wrong.** Step D was first written as one `POST /chat` carrying
+`runtimeProfileId`. `chatRequestSchema` accepts that field, so it looked right, and it *appeared*
+to pass — the echoed `runtime.profileId` matched. It matched by coincidence: the pinned profile
+happened to be the project's default. Fired against a **freshly created** profile, the completion
+ran on the project default instead and echoed that one back. `chat.ts:1336` is the reason —
+`POST /chat` resolves the profile from the chat SESSION (`existingSession?.runtimeProfileId ?? null`)
+and never reads the field from the chat body when opening a new conversation.
+
+So the delivered form is two calls: `POST /chat/sessions` pins the profile, `POST /chat` sends the
+completion to that session. Without the cold-profile probe this would have shipped as a proof that
+silently validated whatever the project already defaulted to — the exact class of false green this
+stage keeps producing.
+
+**What is still UNEXERCISED, and it is not a formality.** The full chain against a profile the
+helper itself created could not be run on the verifying host: that aif deployment has `ZAI_API_KEY`
+in its process env and **no** `ANTHROPIC_AUTH_TOKEN` (measured — names only, never values), so a
+helper-created profile returns `CHAT_AUTH_ERROR` there no matter how correct the code is. The
+working profile on that host uses `ZAI_API_KEY` + `transport: sdk`; the helper creates
+`ANTHROPIC_AUTH_TOKEN` + `transport: api`. On a consumer machine the §7b wiring is what puts
+`ANTHROPIC_AUTH_TOKEN` into the aif env, so the helper's choice is right for the flow it targets —
+but the first real consumer run is still the first time that chain executes end to end. A
+`FAILED step-D` on that run means the wiring did not land, not that the proof is broken.
+
+This is recorded rather than smoothed over because §7a #4(i)'s own falsifier — "if the live schema
+names a different expected var, PARK with the schema quoted" — is adjacent to what was observed,
+and a reader deciding whether S4 is closed should see it.
