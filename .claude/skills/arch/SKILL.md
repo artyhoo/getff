@@ -106,6 +106,13 @@ Two decisions, in order — this is the contour's boundary:
 
 Factory tasks park questions (runtime-bridge `park`/`answer`). Sweep them in batch from a top-tier session («office hours»): in-scope architecture questions → the senior-executor seat answers; intent/goal/creative questions — and anything the senior seat is unsure about — → the top seat. Route by question class, not by a fixed hop chain.
 
+## Seat lifecycle
+
+Registry-role seat sessions (birth · work · self-cleaning · retirement) follow ONE protocol —
+[.claude/rules/seat-lifecycle.md](../../rules/seat-lifecycle.md) (SLP): each phase binds a
+settled owner (ADR D6/D7/D8, session-bus v2, night-mode); bus-touching steps are
+Part-II-gated. Never restate it here (`#fifth-description-of-the-loop`).
+
 ## Without this skill
 
 Each contour is re-improvised: the operator manually switches models per phase (6× `/model` in the origin session, 2026-07-21) and re-asks «how do I start this»; the design itself gets no cold review at either altitude, so plausible-but-wrong designs reach the factory where rework is most expensive; and the handoff decision (kickoff vs in-session) is re-derived from memory against no criteria — the exact re-invention the task-tier table was written to end.

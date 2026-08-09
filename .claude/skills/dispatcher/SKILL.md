@@ -315,11 +315,11 @@ Sources: `questions.ts:85-93` (detection), `answer.ts:207-212` (A-park resume).
 
 ### Routing seats (who answers which class — spec D5)
 
-| Question class                                                     | Day                                                                                                                                        | Night (unattended)                                                            |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
-| technical / in-scope (implementation choice within kickoff bounds) | this dispatcher session resolves autonomously (brainstorm → `answer.ts`); decision recorded in the task comment + PR `## Parked questions` | same — autonomous                                                             |
-| intent / goal / design (changes WHAT to build)                     | `/arch` §4 office hours, top seat                                                                                                          | **stay parked — never guess**; morning batch sweep (`questions.ts --project`) |
-| environment (container/tooling broken)                             | `/aif-doctor`                                                                                                                              | `/aif-doctor` non-destructive arm; else stay parked                           |
+| Question class                                                     | Day                                                                                                                                        | Night (unattended)                                                                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| technical / in-scope (implementation choice within kickoff bounds) | this dispatcher session resolves autonomously (brainstorm → `answer.ts`); decision recorded in the task comment + PR `## Parked questions` | same — autonomous                                                                                                                                                                                                                                                                                                                                                        |
+| intent / goal / design (changes WHAT to build)                     | `/arch` §4 office hours, top seat                                                                                                          | a live top-tier seat exists and is sweeping → it may decide the park per the night envelope ([session-bus v2 §4](../../../docs/superpowers/specs/2026-08-09-session-bus-v2.md) + [night v3 §6 object cut](../../../docs/superpowers/specs/2026-08-09-autonomous-night-v3-design.md)); else **stay parked — never guess**; morning batch sweep (`questions.ts --project`) |
+| environment (container/tooling broken)                             | `/aif-doctor`                                                                                                                              | `/aif-doctor` non-destructive arm; else stay parked                                                                                                                                                                                                                                                                                                                      |
 
 ### Type 1 — Technical fork (HOW to implement; no taste involved)
 
@@ -377,6 +377,13 @@ If the brainstorming companion is unreachable (Cursor / Aider / Codex / no Super
 - **Does NOT add npm deps** — zero new dependencies; `tsx` runs existing TypeScript.
 
 ---
+
+## Seat lifecycle
+
+Registry-role seat sessions (birth · work · self-cleaning · retirement) follow ONE protocol —
+[.claude/rules/seat-lifecycle.md](../../rules/seat-lifecycle.md) (SLP): each phase binds a
+settled owner (ADR D6/D7/D8, session-bus v2, night-mode); bus-touching steps are
+Part-II-gated. Never restate it here (`#fifth-description-of-the-loop`).
 
 ## Without this skill
 

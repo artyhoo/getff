@@ -15,7 +15,7 @@ paths:
 # ZCode parity doctrine — discipline rule
 
 > **Class:** A — companion principle test shipped at [packages/core/principles/09-doc-authority-hierarchy.test.ts](../../packages/core/principles/09-doc-authority-hierarchy.test.ts) (doctrine registered in `REQUIRED_HEADER_DOCS`; the doctrine itself is a SSOT pointer-aggregator, the enforcement lives in existing gates per §6).
-> **Fires:** editing hook twins or the harness-config renderer; authoring zcode-parity decision docs (exact set: the rule's `paths:` frontmatter).
+> **Fires:** editing hook twins, the harness-config renderer, or zcode-parity decision docs.
 > **Authoritative for:** the canonical ZCode-parity SSOT — §2 per-hook census (binding, extends [census.md](../../docs/meta-factory/research-patches/2026-07-18-zcode-full-parity-census.md)), §3 per-stage decision rollup (binding, extends [decisions.md](../../docs/meta-factory/zcode-parity-mega.decisions.md)), §4 degradation rationale per CC-only hook, §5 agnosticism tier table.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Per-stage implementation detail — see merged stage PRs (Wave A: #1031/#1034/#1035/#1036/#1037/#1038/#1039/#1040; Wave B dispatch plan: [decisions.md §Wave B dispatch plan](../../docs/meta-factory/zcode-parity-mega.decisions.md)). Maintenance philosophy — see [dual-implementation-discipline.md](dual-implementation-discipline.md). Build-vs-reuse verdicts — see [build-first-reuse-default.md](build-first-reuse-default.md).
 
