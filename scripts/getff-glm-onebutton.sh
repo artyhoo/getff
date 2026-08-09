@@ -97,6 +97,106 @@ EOF
   _log "explain: env-file path printed; parent dir ensured at $(dirname "$GLM_ENV_FILE")"
 }
 
+# Path to the consumer's aif-handoff checkout. Mirrors the canonical path that
+# setup.d/aif-handoff-guided-install.sh:30 clones to. Env-overridable for consumers who
+# keep aif in a non-standard location.
+AIF_HANDOFF_CHECKOUT="${AIF_HANDOFF_CHECKOUT:-$HOME/code/aif-handoff}"
+
+# ---------------------------------------------------------------------------
+# _wire_key_reachability — §7b #1 / §7e.4 wiring mechanism (W1 best-effort).
+#
+# Makes the key value reachable in the aif runtime's process env by adding
+# $GLM_ENV_FILE to each service's env_file list via a marked override file.
+# The override is named docker-compose.override.yml so docker compose auto-merges
+# it without changing how the consumer invokes `docker compose up`.
+#
+# Return codes (the caller falls through to the W2 instruction print on non-zero):
+#   0  — wiring applied, OR already present (idempotent), OR reloaded successfully
+#   1  — deployment not detected (no docker-compose.yml at $AIF_HANDOFF_CHECKOUT)
+#   2  — deployment detected but wiring could not be applied safely (existing
+#         unmarked override, unwritable path, no services parsed, docker absent)
+#
+# INVARIANT (§2 constraint 1 + §7b #4): the helper references ONLY the env-var NAME.
+# This function writes PATHS to glm.env, never the value. The value stays in
+# glm.env; docker compose's env_file merge loads it into the aif process env.
+# ---------------------------------------------------------------------------
+_wire_key_reachability() {
+  local checkout="$AIF_HANDOFF_CHECKOUT"
+  local compose_yml="$checkout/docker-compose.yml"
+  local override_yml="$checkout/docker-compose.override.yml"
+  local marker='# getff-glm-override-marker — managed by getff-glm-onebutton.sh provision'
+
+  # W1 detector: canonical aif-handoff docker-compose deployment must exist.
+  if [ ! -f "$compose_yml" ]; then
+    _log "wire: no docker-compose.yml at $compose_yml — W1 does not apply"
+    return 1
+  fi
+
+  # Idempotency: if our marker is already in the override, no-op (W1 succeeded before).
+  if [ -f "$override_yml" ] && grep -qF 'getff-glm-override-marker' "$override_yml"; then
+    _log "wire: $override_yml already carries our marker — idempotent no-op"
+    return 0
+  fi
+
+  # Collision: an override exists WITHOUT our marker — do NOT clobber consumer state.
+  if [ -f "$override_yml" ]; then
+    _warn "wire: $override_yml exists without our marker — backing off (W2 fallback)"
+    return 2
+  fi
+
+  # Detect service names from the parent compose file. Naive grep parse: matches
+  # top-level `  <name>:` lines under `services:`. Sufficient for typical aif-handoff
+  # compose layouts (api/agent/worker). For non-standard layouts the parse returns empty
+  # and we back off rather than guessing.
+  local services
+  services=$(awk '
+    /^services:[[:space:]]*$/ { in_services=1; next }
+    /^[a-zA-Z]/ { in_services=0 }
+    in_services && /^  [a-zA-Z0-9_-]+:/ {
+      sub(/^  /, ""); sub(/:.*$/, ""); print
+    }
+  ' "$compose_yml" | sort -u)
+  if [ -z "$services" ]; then
+    _warn "wire: no services parsed from $compose_yml — W2 fallback"
+    return 2
+  fi
+
+  # Write the override. Lists BOTH .env (preserve existing parent entries under
+  # replace-merge semantics) and $GLM_ENV_FILE (the canonical key path per §7a #4(ii)).
+  # Under append-merge semantics the duplicate .env is harmless (compose dedupes).
+  # Persistence: the override is the canonical wiring artifact. Removal rolls back.
+  {
+    printf '%s\n' "$marker"
+    printf '# Remove this file to undo the getff GLM key wiring.\n'
+    printf '# The value lives only in %s; this file references the path.\n' "$GLM_ENV_FILE"
+    printf 'services:\n'
+    local svc
+    for svc in $services; do
+      printf '  %s:\n' "$svc"
+      printf '    env_file:\n'
+      printf '      - .env\n'
+      printf '      - %s\n' "$GLM_ENV_FILE"
+    done
+  } > "$override_yml" 2>/dev/null || {
+    _warn "wire: cannot write $override_yml — W2 fallback"
+    return 2
+  }
+  _log "wire: wrote $override_yml covering services: $(printf '%s' "$services" | tr '\n' ' ')"
+
+  # Best-effort reload. If docker isn't in PATH or compose fails, the override IS
+  # persisted — the consumer can `docker compose up -d` manually. The §7e.4 hasApiKey
+  # gate below is what makes an un-reloaded wiring honest (it returns false until applied).
+  if ! command -v docker >/dev/null 2>&1; then
+    _warn "wire: docker not in PATH — override persisted; consumer must run 'docker compose up -d' in $checkout"
+    return 0  # W1 wiring IS written; reload is the consumer's job
+  fi
+  _log "wire: docker compose up -d (best-effort reload) in $checkout"
+  if ! (cd "$checkout" && docker compose up -d) >&2; then
+    _warn "wire: docker compose up -d failed — override persisted, reload manually"
+  fi
+  return 0
+}
+
 # ---------------------------------------------------------------------------
 # provision — REST profile create + per-mode defaults + validation ping.
 # Sources the env file for the validation ping; NEVER handles the key value.
@@ -219,33 +319,48 @@ do_provision() {
     _log "provision: step B done — PUT /projects/$project_id green (Plan: $plan_status)"
   fi
 
-  # Step B.5 — key-reachability wiring INSTRUCTION (§7b #1 is NOT closed by this step).
-  # The aif runtime resolves ANTHROPIC_AUTH_TOKEN from its OWN process.env by NAME
-  # (packages/runtime/src/resolution.ts:217-219). That process env is populated from
-  # the compose env_file (docker-compose.yml:15,59,94 — env_file: .env).
-  # A file at $GLM_ENV_FILE is INVISIBLE to aif unless the deployment loads it.
+  # Step B.5 — key-reachability WIRING (§7b #1 / §7e.4 — closes the #warning-nobody-reads
+  # shape run 3 shipped). The aif runtime resolves ANTHROPIC_AUTH_TOKEN from its OWN
+  # process.env by NAME (packages/runtime/src/resolution.ts:217-219). That process env is
+  # populated from each service's `env_file:` entries (docker-compose.yml:15,59,94 —
+  # env_file: .env). A file at $GLM_ENV_FILE is INVISIBLE to aif unless the deployment
+  # loads it.
   #
-  # MECHANISM CHOSEN (§7b #2 — deployments vary, mechanism is the worker's pick):
-  # Print the docker-compose env_file addition for the consumer/AI agent to apply.
-  # The helper does NOT auto-patch deployment files — deployment layouts vary too widely
-  # (compose, systemd, k8s, bare node) for a mechanical patch to be reliable.
+  # W1 — best-effort auto-wire via docker-compose.override.yml:
+  #   If $AIF_HANDOFF_CHECKOUT/docker-compose.yml is present (the canonical path from
+  #   setup.d/aif-handoff-guided-install.sh:30) and no unmarked override exists, the
+  #   helper writes a marker-bearing override that adds $GLM_ENV_FILE to each detected
+  #   service's env_file list, then runs `docker compose up -d` (best-effort reload).
+  #   The override lists BOTH .env (preserve existing) and $GLM_ENV_FILE so it works
+  #   under both append- and replace-merge semantics.
   #
-  # HONEST SCOPE: §7b #1 asks the flow to MAKE the key reachable; printing an instruction
-  # does not. What closes the loop instead is step C, which now FAILS when aif cannot
-  # resolve the key, so an un-applied instruction produces an objective-3 MISS rather than
-  # a green run. That is a gate, not a warning — but it is detection, not wiring, and the
-  # difference is stated here rather than papered over.
+  # W2 — honest fallback (instruction + binding verifier):
+  #   When W1 cannot apply (deployment not detected, unmarked override collision,
+  #   unwritable path), the helper prints the docker-compose snippet for the consumer's
+  #   AI agent (kickoff §2 — the agent IS the executor) to apply. Step C's hasApiKey
+  #   gate then decides: if the agent wired correctly, hasApiKey=true; if not, MISS.
+  #   This is NOT the run-3 warning-nobody-reads shape, because the hasApiKey gate
+  #   converts an un-applied instruction into an objective-3 MISS rather than a green run.
   #
   # INVARIANT (§2 constraint 1 + §7b #4): the helper references ONLY the env-var NAME.
-  # The value moves file → process env only. It never enters the profile, never enters
-  # argv or command lines, is never echoed.
-  _log "provision: step B.5 — printing key-reachability wiring instruction (§7b)"
-  cat <<EOF
+  # The override file holds a PATH to glm.env, never the value. The value moves
+  # file → process env only (glm.env → aif container env via compose env_file merge).
+  # It never enters the profile, never enters curl argv or any command line, is never echoed.
+  _log "provision: step B.5 — key-reachability wiring (§7b #1 / §7e.4)"
+  local wire_rc
+  _wire_key_reachability && wire_rc=0 || wire_rc=$?
+  if [ "$wire_rc" -eq 0 ]; then
+    _log "provision: step B.5 — W1 wiring applied (or already present)"
+  else
+    _log "provision: step B.5 — W1 did not apply (rc=$wire_rc); printing W2 instruction fallback"
+    cat <<EOF
 
 Key-reachability wiring (§7b — the aif runtime must see the key in its env):
   The aif runtime resolves ANTHROPIC_AUTH_TOKEN from its process.env by NAME.
-  To make the key reachable WITHOUT the helper touching the value, add this
-  to each service in your aif deployment's docker-compose.yml:
+  The helper could not auto-detect a canonical aif-handoff docker-compose deployment
+  (\$AIF_HANDOFF_CHECKOUT=${AIF_HANDOFF_CHECKOUT:-$HOME/code/aif-handoff}). To wire
+  the key WITHOUT the helper touching the value, add this to each service in your aif
+  deployment's docker-compose.yml:
 
     env_file:
       - .env
@@ -258,8 +373,9 @@ Key-reachability wiring (§7b — the aif runtime must see the key in its env):
   The next step (POST /runtime-profiles/validate) FAILS if this wiring is not
   applied — an un-applied instruction is an objective-3 MISS, not a warning.
 EOF
+  fi
 
-  # Step C — key-reachability gate via the created profile (§7c #3 / §7d.1 #3 / §7e.3).
+  # Step C — key-reachability gate via the created profile (§7c #3 / §7d.1 #3 / §7e.3 / §7e.4).
   # Routes through the aif profile id, NOT the vendor URL directly (§7c #3 — run-2
   # pinged $GLM_BASE_URL/v1/messages, proving the key but not the route the flow built).
   #
@@ -300,19 +416,49 @@ EOF
   fi
 
   # The endpoint answers HTTP 200 even when validation FAILS — the verdict is in the body's
-  # .ok field, not in the status code. Measured 2026-08-09: a profile whose apiKeyEnvVar is
-  # absent from aif's env returns `HTTP 200 {"ok":false,"message":"Missing API key …"}`, and
-  # `curl -sf` exits 0 on it. Reading the exit code alone is a false green — parse .ok.
-  local validate_ok validate_msg
+  # .ok field AND .profile.hasApiKey, not in the status code. Measured 2026-08-09: a profile
+  # whose apiKeyEnvVar is absent from aif's env returns `HTTP 200 {"ok":false,"message":"Missing API key …"}`,
+  # and `curl -sf` exits 0 on it. Reading the exit code alone is a false green — parse .ok.
+  #
+  # §7e.4 binding verifier — .profile.hasApiKey (when present):
+  #   hasApiKey = Boolean(resolved.apiKey) = normalizeString(env[envVarName]) off aif's
+  #   OWN process.env (aif-handoff packages/runtime/src/resolution.ts:426, :217-219).
+  #   So hasApiKey:true IS proof that §7b #1's outcome was achieved, without dereferencing
+  #   the value, without argv exposure, without echoing it (§7b #4 intact).
+  #   hasApiKey:false is an objective-3 MISS, not a warning to print and continue.
+  # Field location: live aif (probed 2026-08-09) wraps the resolved profile in .profile:
+  #   {"ok":true,"message":"…","profile":{"hasApiKey":false,"apiKeyEnvVar":"…",…}}
+  # Older aif without .profile.hasApiKey falls back to the .ok verdict.
+  local validate_ok validate_msg validate_has_key
   validate_ok=$(printf '%s' "$validate_resp" | jq -r '.ok // false' 2>/dev/null || printf 'false')
   validate_msg=$(printf '%s' "$validate_resp" | jq -r '.message // "no message"' 2>/dev/null || printf 'unparseable')
+  # Look for hasApiKey under .profile first (live shape), then top-level (defensive compat).
+  if printf '%s' "$validate_resp" | jq -e '.profile.hasApiKey != null' >/dev/null 2>&1; then
+    validate_has_key=$(printf '%s' "$validate_resp" | jq -r '.profile.hasApiKey' 2>/dev/null || printf 'false')
+  elif printf '%s' "$validate_resp" | jq -e '.hasApiKey != null' >/dev/null 2>&1; then
+    validate_has_key=$(printf '%s' "$validate_resp" | jq -r '.hasApiKey' 2>/dev/null || printf 'false')
+  else
+    validate_has_key=""  # field absent — older aif; fall back to .ok
+  fi
   if [ "$validate_ok" != "true" ]; then
     printf 'GLM_PROVISION: FAILED step-C validation-not-ok\n'
     _warn "objective-3 MISS: aif rejected the profile — $validate_msg (kickoff §4 item 5 + §7b #3)"
-    _warn "most likely the key is unreachable to the aif runtime: apply the env_file wiring printed above, restart aif, re-run"
+    _warn "most likely the key is unreachable to the aif runtime: apply the env_file wiring (W1 override or W2 instruction above), restart aif, re-run"
     return 1
   fi
-  _log "provision: step C done — aif resolves $GLM_ENV_VAR for profile $profile_id ($validate_msg)"
+  # §7e.4 gate — explicit hasApiKey:false is a hard MISS even when .ok:true (semantic:
+  # aif resolved the profile but the key is not in its env, so any model call would fail).
+  if [ -n "$validate_has_key" ] && [ "$validate_has_key" != "true" ]; then
+    printf 'GLM_PROVISION: FAILED step-C key-unreachable\n'
+    _warn "objective-3 MISS: aif resolved the profile but hasApiKey=false (§7e.4 verifier)"
+    _warn "the key is in $GLM_ENV_FILE but NOT in aif's process env — apply the §7b wiring (W1 override or W2 instruction above), restart aif, re-run"
+    return 1
+  fi
+  if [ "$validate_has_key" = "true" ]; then
+    _log "provision: step C done — §7e.4 verifier hasApiKey=true (key IS in aif's process env)"
+  else
+    _log "provision: step C done — aif resolves $GLM_ENV_VAR for profile $profile_id ($validate_msg; older aif without explicit hasApiKey field)"
+  fi
 
   printf 'GLM_PROVISION: DONE profile-id=%s\n' "$profile_id"
   _log "provision: GLM executor tier wired — profile $profile_id, defaults set, key reachable"
@@ -323,25 +469,61 @@ EOF
 # PARK (§7) — §7a #3's second half: "one real minimal model call"
 #
 # §7e.3 splits the ping into a route/key proof (delivered above) and a model proof (this
-# park). The model proof is a genuine fork, not an omission, because the two obvious
-# mechanisms each break a standing binding:
+# park). The model proof is a genuine fork, not an omission, because every candidate
+# mechanism breaks at least one standing binding. Re-probed 2026-08-09 (run 4); see the
+# per-option evidence blocks below — all command outputs quoted are from live probes.
 #
-#   Option A — call {baseUrl}/v1/messages from the helper with the key in a header.
-#     Consequence: the value enters curl's argv → process-table exposure, which §2
-#     constraint 1 and §7b #4 forbid (run-2 watch-list W-2). A `curl --config <file>`
-#     indirection avoids argv but introduces a temp file holding the secret, i.e. a new
-#     storage location for the value that §7a #4(ii) does not sanction.
+#   Option A — call {baseUrl}/v1/messages from the helper.
+#     Original form (value in argv): violates §2 constraint 1 + §7b #4 (process-table
+#     exposure; run-2 watch-list W-2).
+#
+#     Option A.1 — `curl --config <file>` indirection. Avoids argv BUT introduces a temp
+#     file holding the value (a new storage location §7a #4(ii) does not sanction). The
+#     run-3 park note already rejected this; not retested.
+#
+#     Option A.2 — `curl --config -` reading from a heredoc, OR `curl --header @-` reading
+#     the header from stdin. Run-4 mechanical verification (postman-echo.com round-trip,
+#     2026-08-09). The probe used a header line of the form "<vendor-auth-header-name>:
+#     <value>" piped via stdin; the vendor's echo endpoint confirmed receipt of the value
+#     and `ps -eo args | grep <key>` confirmed no argv exposure.
+#     A.2 avoids argv AND temp file. BUT it requires the helper to expand the env var
+#     (`printf '<header>: %s\n' "${!GLM_ENV_VAR}"`) to feed curl's stdin — i.e. the helper
+#     reads the VALUE. §2 constraint 1 explicitly forbids this: "automation reads the ENV
+#     VAR NAME (never the value) when calling the model". A.2 trades an argv leak for a
+#     helper-reads-value leak — same constraint, different layer. NOT a third option that
+#     honours §2; just a relabelling of Option A.
 #
 #   Option B — route the completion through aif.
-#     Consequence: no aif endpoint performs a completion through a stored profile.
-#     POST /runtime-profiles/validate does not call the provider (transport=api checks only
-#     that apiKey and baseUrl are non-empty); POST /runtime-profiles/models returned a static
-#     Claude catalogue (Sonnet 4.6 / Opus 4.6) for a Qwen profile, so it is not querying the
-#     provider either. Both measured 2026-08-09.
+#     Re-probed 2026-08-09 (run 4). Every per-profile completion route 404s:
+#       /runtime-profiles/<id>/v1/messages       -> 404
+#       /runtime-profiles/<id>/chat/completions  -> 404
+#       /runtime-profiles/<id>/completion        -> 404
+#       /runtime-profiles/<id>/v1/chat/completions -> 404
+#     Root-level completion routes also 404: /chat, /prompt, /infer, /send, /v1/messages,
+#     /v1, /agent, /agents. /openapi.json returns empty / 404 (Hono router has no OpenAPI
+#     publish). The only model-exercising surface is POST /tasks (the aif worker loop),
+#     which is a full agent task — not a "minimal model call" per §7a #3, and takes minutes
+#     to settle, not a one-button validation.
+#     POST /runtime-profiles/validate does NOT call the provider (transport=api checks only
+#     that apiKey and baseUrl are non-empty). POST /runtime-profiles/models returns 404
+#     under run-4 probing (was a static Claude catalogue in run-3 vendor catalogue; the
+#     endpoint shape may be runtime-version-dependent — either way, not a completion call).
+#     Option B is a dead-end at the aif API surface as it stands today.
 #
-# Picking either silently would violate the standing constraint it breaks, so this is parked
-# per §7 rather than guessed. Until it is resolved, the flow proves that aif can resolve the
-# key and reach the profile — it does NOT prove the key is *valid* at the vendor.
+# T16 verdict for the upstream pattern (curl --header @-): Upstream problem class: "feed
+# N request headers to curl from a script without argv exposure". Our problem class: "make
+# one model call to validate the key WITHOUT the helper reading the value". Match? NO —
+# the upstream mechanism solves argv exposure but presupposes the script can read the
+# value. Our constraint 1 forbids the helper reading the value at all. The pattern does
+# not transfer; treating A.2 as a delivery would be #pattern-matching-on-name.
+#
+# Decision: PARKED. Two binding constraints in genuine conflict — constraint 1 (helper
+# never reads value) vs §7a #3 (one minimal model call). Picking either silently would
+# violate the standing constraint it breaks. Until the constraint is operator-resolved
+# (e.g. operator amends §7a #3 to accept "/tasks queue + agent loop observes costUsd > 0
+# within 60s" as the model proof, or operator amends §2 constraint 1 to allow helper to
+# expand the value into a stdin pipe), the flow proves that aif can resolve the key and
+# reach the profile — it does NOT prove the key is *valid* at the vendor.
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
