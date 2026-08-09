@@ -291,24 +291,157 @@ fi
 # fragment below is hand-written under the DELIVERED ast-grep id, because that is the key
 # `_py_json_rules` looks up. The synthesizer keys its fragments by the PLAN id instead
 # (emit.ts:97-103 writes `${r.id}.json`, and r.id is `G${n}` from generate.ts:52 /
-# synthesize.ts:90), and the researched-python path returns before emit runs at all
-# (rule-bootstrap-cli.ts:243, the `--from-practice` arm). So on the live path this arm's
-# precondition never occurs and every python rule falls to `{"provenance":[],"tier":2}`
-# (45-python.sh:531). Parked, not fixed — see the stage PR's `## Parked questions`.
-mkdir -p "$P12/.ai-factory/synthesizer-output/generation-context"
+# synthesize.ts:90), and (pre-S1b) the researched-python path returned before emit ran at all
+# (rule-bootstrap-cli.ts `--from-practice` arm). S1b UNPARKED this: the producer now lives in
+# runPracticeRender and writes its fragment to `generation-context/python/<entryId>.json`
+# (per-lane subdir, DC-1). The reader path moved with it (45-python.sh `_frag_dir`).
+# This arm STILL proves the READER only — the fragment is hand-placed (not produced by the
+# CLI), and arm (13) below is the additive producer-proof. Criterion 6 forbids broadening
+# this arm into a producer claim; the path update is necessary maintenance to keep the
+# reader-claim meaningful after the path moved, not a scope change.
+mkdir -p "$P12/.ai-factory/synthesizer-output/generation-context/python"
 # Re-run with fragments for a rule that python actually delivers
 _delivered_id=$(grep -hE '^id:' "$P12"/.getff/astgrep-rules/*.yml 2>/dev/null | head -1 | sed -E 's/^id:[[:space:]]*"?([^"]*)"?[[:space:]]*$/\1/')
 if [ -n "$_delivered_id" ]; then
   printf '{"id":"%s","provenance":[{"url":"https://pyyaml.org","allowlistKey":"pyyaml","fetchedAt":"2026-08-08","tier":0}],"tier":0}\n' "$_delivered_id" \
-    > "$P12/.ai-factory/synthesizer-output/generation-context/$_delivered_id.json"
+    > "$P12/.ai-factory/synthesizer-output/generation-context/python/$_delivered_id.json"
   ( cd "$P12" && bash "$INSTALL" python --force < /dev/null ) >/dev/null 2>&1
   if grep -q "\"provenance\":\[.*\"pyyaml\"" "$L12" 2>/dev/null; then
-    ok "(12) fragment-READER works: rule '$_delivered_id' provenance read from a hand-placed generation-context/ fragment (producer side parked — PARK-S1-7)"
+    ok "(12) fragment-READER works: rule '$_delivered_id' provenance read from a hand-placed generation-context/python/ fragment (producer side covered by arm 13 — S1b)"
   else
     bad "(12) fragment-read arm BROKEN: rule '$_delivered_id' provenance not read from fragment dir"
   fi
 fi
 rm -rf "$P12"
+
+# ── (13) PRODUCER (S1b — unparks PARK-S1-7): real `--from-practice` pipeline writes the fragment ──
+# Arm (12) hand-places a fragment under the delivered id → proves the READER. This arm runs the
+# REAL producer pipeline end-to-end with NO hand-placed fragment anywhere: tsx CLI → install.sh
+# python. Closes kickoff §3 criteria 1 (producer on LIVE path), 2 (key resolves through READER,
+# not by inspection), 3 (provenance real, tier honest), 5 (RED before fix), 6 (arm 12 unchanged —
+# this arm is ADDITIVE), and 4 (cross-lane non-contamination, both directions).
+# T-S1b-A counter: criterion 1 REQUIRES the real --from-practice invocation, not a hand-placed
+# fragment. T-S1b-B counter: criterion 2 is satisfied through the READER's emitted lock, not by
+# asserting two strings look alike. T-S1b-C counter: criterion 4 sweeps cargo + go too.
+echo ""; echo "  ── (13) producer: real --from-practice → fragment → python lock + cargo/go non-leak (S1b) ──"
+PRACTICE_FIX="$REPO_ROOT/packages/core/synthesizer/fixtures/live-generation/getff-researched-no-yaml-load.practice.json"
+RULE_ID_13="getff-researched-no-yaml-load"
+URL_13="https://pyyaml.org/wiki/PyYAMLDocumentation"
+# Find tsx (mirror rule-bootstrap-practice.test.ts:52 tsxBin): per-dir CI layouts install
+# packages/core deps only, so tsx lives in packages/core/node_modules/.bin before any root hoist.
+TSX_BIN=""
+for _cand in "$REPO_ROOT/packages/core/node_modules/.bin/tsx" "$REPO_ROOT/node_modules/.bin/tsx"; do
+  [ -x "$_cand" ] && TSX_BIN="$_cand" && break
+done
+if [ -z "$TSX_BIN" ]; then
+  skip "(13) tsx not found — producer arm skipped (provision: bash scripts/worktree-node-modules.sh --apply \$(pwd))"
+  skip "(13) cross-lane arms also skipped (depend on the producer run)"
+else
+  [ -f "$PRACTICE_FIX" ] \
+    && ok "(13) precondition: practice fixture present ($PRACTICE_FIX)" \
+    || { bad "(13) precondition FAILED: practice fixture missing"; PRACTICE_FIX=""; }
+
+  if [ -n "$PRACTICE_FIX" ]; then
+    P13=$(py_fixture)
+    # Run the real --from-practice CLI against the consumer (NOT a hand-placed fragment).
+    # On the pre-fix tree the CLI renders the .yml only; on the post-fix tree (T3) it ALSO
+    # emits the generation-context/python/<entryId>.json fragment.
+    CLI_OUT=$( cd "$P13" && "$TSX_BIN" "$REPO_ROOT/packages/core/install/rule-bootstrap-cli.ts" \
+      --from-practice "$PRACTICE_FIX" --consumer-root "$P13" 2>&1 )
+    if [ -f "$P13/.getff/rules-research/$RULE_ID_13.yml" ]; then
+      ok "(13) producer rendered $RULE_ID_13.yml into .getff/rules-research/ (the durable researched home)"
+    else
+      bad "(13) producer did NOT render the rule YAML — precondition unmet (CLI tail: $(printf '%s' "$CLI_OUT" | tail -3 | tr '\n' '|'))"
+    fi
+
+    # Run the python lane (joins rules-research/*.yml → astgrep-rules/, reads fragments, writes lock).
+    ( cd "$P13" && bash "$INSTALL" python --force < /dev/null ) >/dev/null 2>&1
+    L13="$P13/$LOCK_REL"
+
+    # Criterion 1 + 2 + 3 + 5: the lock entry for the researched rule carries the record's
+    # url/allowlistKey/fetchedAt — proven through the READER's emitted lock, not by inspection.
+    if grep -q "\"$RULE_ID_13\"" "$L13" 2>/dev/null; then
+      ok "(13) python lock carries the researched rule id (join seam delivered the rendered YAML)"
+    else
+      bad "(13) python lock MISSING the researched rule id (join seam did NOT deliver it)"
+    fi
+    # T1 RED→GREEN: this assertion FAILS on the pre-fix tree (no producer → fallback provenance:[])
+    # and PASSES on the post-fix tree (T3 wrote the fragment with the record's provenance).
+    if grep -q "$URL_13" "$L13" 2>/dev/null; then
+      ok "(13) python lock carries non-empty provenance for $RULE_ID_13 (url=…pyyaml.org/…) — producer GREEN"
+      PRODUCER_13_RESULT="GREEN"
+    else
+      bad "(13) python lock has empty provenance for $RULE_ID_13 (no '$URL_13' in lock) — producer RED (PARK-S1-7 unfixed)"
+      PRODUCER_13_RESULT="RED"
+    fi
+
+    # Criterion 3 — tier honesty. The fixture's provenance URL is in the Tier-0 builtin allowlist
+    # (allowlistKey 'pyyaml'), so stampProvenanceTier yields tier:0 for the source and weakestTier
+    # yields tier:0 for the rule. Asserting tier:0 here asserts the producer called
+    # stampProvenanceTier (derived verdict) rather than emitting the constant DEFAULT_TIER=2.
+    # A *derived* 0 and an *accidental* value are different artefacts — and on the RED tree the
+    # value is the fallback 2, which the assertion correctly distinguishes from a stamped 0.
+    if grep -q "\"$RULE_ID_13\"[^}]*\"tier\":0" "$L13" 2>/dev/null; then
+      ok "(13) tier=0 stamped (Tier-0 builtin allowlist → stampProvenanceTier derived verdict, NOT DEFAULT_TIER=2 fallback)"
+    else
+      _tier_13=$(grep -oE "\"$RULE_ID_13\"[^}]*\"tier\":([0-9]+)" "$L13" 2>/dev/null | head -1 | grep -oE '[0-9]+$')
+      [ -z "$_tier_13" ] && _tier_13="<absent>"
+      bad "(13) tier='$_tier_13' for $RULE_ID_13 — expected 0 (Tier-0 builtin via stampProvenanceTier) — kickoff §3 criterion 3"
+    fi
+
+    # Criterion 4 — cross-lane non-contamination, DIRECTION python→cargo/go. Run the cargo + go
+    # lanes against the same consumer. The python rule must NOT appear in either lock. Mechanism
+    # (DC-1): the producer writes to generation-context/python/; the cargo/go glob is
+    # `*.json` NON-RECURSIVE on the parent generation-context/ dir, so the subdir is invisible
+    # by construction (46-cargo.sh:262, 47-go.sh:229). REVERSE direction: cargo/go producers do
+    # not exist today; the per-lane subdir layout handles them symmetrically if/when added.
+    ( cd "$P13" && bash "$INSTALL" cargo --force < /dev/null ) >/dev/null 2>&1
+    L13_CARGO="$P13/.getff/rules-lock.cargo.json"
+    ( cd "$P13" && bash "$INSTALL" go --force < /dev/null ) >/dev/null 2>&1
+    L13_GO="$P13/.getff/rules-lock.go.json"
+    # If the cargo/go lanes declined (no Cargo.toml/go.mod in the fixture), the locks are absent —
+    # that is the no-leak case trivially. If they wrote a lock, assert the python rule is absent.
+    if [ -f "$L13_CARGO" ]; then
+      if grep -q "\"$RULE_ID_13\"" "$L13_CARGO" 2>/dev/null; then
+        bad "(13) cargo lock LEAKED the python rule (cross-lane contamination — DC-1 broken)"
+      else
+        ok "(13) cargo lock free of the python rule (per-lane subdir isolates the non-recursive glob — DC-1)"
+      fi
+    else
+      ok "(13) cargo lane declined (no Rust manifest in the python fixture) — trivially no leak"
+    fi
+    if [ -f "$L13_GO" ]; then
+      if grep -q "\"$RULE_ID_13\"" "$L13_GO" 2>/dev/null; then
+        bad "(13) go lock LEAKED the python rule (cross-lane contamination — DC-1 broken)"
+      else
+        ok "(13) go lock free of the python rule (per-lane subdir isolates the non-recursive glob — DC-1)"
+      fi
+    else
+      ok "(13) go lane declined (no go.mod in the python fixture) — trivially no leak"
+    fi
+    # Belt-and-braces: directly exercise the cargo/go glob against the post-producer fragment dir.
+    # This catches a future regression where the producer moves files into the parent dir even if
+    # the cargo/go lanes themselves fail to write a lock for an unrelated reason.
+    _parent_frag_dir="$P13/.ai-factory/synthesizer-output/generation-context"
+    if [ -d "$_parent_frag_dir" ]; then
+      _leaked=""
+      for _rf in "$_parent_frag_dir"/*.json; do
+        [ -f "$_rf" ] || continue
+        if grep -q "\"$RULE_ID_13\"" "$_rf" 2>/dev/null; then
+          _leaked="$_leaked $_rf"
+        fi
+      done
+      if [ -z "$_leaked" ]; then
+        ok "(13) direct glob: no python-rule fragment reachable via parent-dir *.json (DC-1 holds at the glob level)"
+      else
+        bad "(13) direct glob: parent-dir *.json reached python fragment(s):$_leaked (DC-1 broken at the glob level)"
+      fi
+    else
+      ok "(13) direct glob: producer wrote no parent-dir generation-context/ (subdir layout — DC-1)"
+    fi
+    rm -rf "$P13"
+  fi
+fi
 
 rm -rf "$P" "$P2"
 echo ""

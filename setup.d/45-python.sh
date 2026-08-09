@@ -639,8 +639,13 @@ _py_write_rules_lock() {
   local _json_rules _json_bans
   # MAJOR B (W-7): fragment-per-rule per §6 fork 2. The fragment dir is the synthesizer's
   # generation-context/ subdir — one <rule-id>.json per rule in final lock shape.
+  # S1b (PARK-S1-7 unparked): per-lane subdir `generation-context/python/` — the producer
+  # (rule-bootstrap-cli.ts runPracticeRender, S1b) writes here. Closes kickoff criterion 4 by
+  # construction: the cargo/go glob is `*.json` NON-RECURSIVE on the parent generation-context/
+  # dir (46-cargo.sh:262, 47-go.sh:229), so python fragments in this subdir are invisible to
+  # those lanes. Node synthesize (emit.ts) keeps writing `G${n}.json` to the parent dir.
   local _synth_dir="$PROJECT_ROOT/.ai-factory/synthesizer-output"
-  local _frag_dir="$_synth_dir/generation-context"
+  local _frag_dir="$_synth_dir/generation-context/python"
   _json_rules=$(_py_json_rules "$ids" "$_frag_dir")
   _json_bans=$(_py_json_array "$ban_codes")
 

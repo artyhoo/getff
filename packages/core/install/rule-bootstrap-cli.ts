@@ -59,6 +59,7 @@ import {
   type ResearchOnlyFinding,
 } from '../synthesizer/render-researched-astgrep.ts';
 import { resolveCtxForRoot } from '../synthesizer/resolve-ctx.ts';
+import { stampProvenanceTier, weakestTier } from '../synthesizer/tier.ts';
 import type { AstgrepResearchedPractice } from '../synthesizer/research-to-node.ts';
 
 interface Args {
@@ -238,6 +239,64 @@ export function runPracticeRender(opts: PracticeRenderOptions): PracticeRenderRe
     mkdirSync(outDir, { recursive: true });
     writeFileSync(outPath, rule.yaml);
     rendered.push({ entryId: rule.entryId, path: outPath });
+  }
+
+  // S1b (unparks PARK-S1-7): emit a per-rule generation-context fragment for the python lane.
+  // The fragment is the substrate for getff staleness (spec §7 item 1 — «the substrate for what
+  // went stale»): the python lock reader `_py_json_rules` (setup.d/45-python.sh:528) cat's it
+  // verbatim into the lock's `rules[]`. Without this producer the reader falls through to the
+  // literal `{"id":...,"provenance":[],"tier":2}` at 45-python.sh:531 — provenance records the
+  // research moment (url/allowlistKey/fetchedAt), so its absence is exactly the empty-substrate
+  // defect S1 shipped and S2 (targeted staleness) cannot consume.
+  //
+  // Path layout (DC-1, kickoff §6 Tier-2 call): `<consumerRoot>/.ai-factory/synthesizer-output/
+  // generation-context/python/<entryId>.json` — the per-lane subdir closes criterion 4 by
+  // construction. Cargo/go glob `*.json` NON-recursively on the parent generation-context/ dir
+  // (46-cargo.sh:262, 47-go.sh:229), so a python lane fragment in the subdir is invisible to
+  // them. The Node synthesize path (emit.ts:97-103) keeps writing `G${n}.json` to the parent
+  // dir unchanged — criterion 7 unregressed by leaving it alone.
+  //
+  // DC-3 join: `record.entryId === rule.entryId`. research-to-node.ts:193 sets the node id from
+  // `practice.entryId` by construction, and render-researched-astgrep.ts:139 sets the rendered
+  // entryId from the node id — so the two equal by construction. No translation layer.
+  //
+  // DC-4 tier honesty: reuse `stampProvenanceTier` + `weakestTier` from synthesizer/tier.ts
+  // (the same canonical derivation as synthesize.ts:96-100). This is a DERIVED verdict, NOT the
+  // DEFAULT_TIER=2 accidental fallback — the exact distinction kickoff §3 criterion 3 warns
+  // against. For the LG-S1 fixture (provenance host pyyaml.org, builtin allowlist key 'pyyaml'),
+  // stampProvenanceTier yields tier:0 per source; weakestTier collapses to 0. An empty-
+  // provenance record (not the case here) would honestly yield DEFAULT_TIER=2 via weakestTier's
+  // empty-array arm — still derived, never literal-printed.
+  const fragDir = resolve(
+    opts.consumerRoot,
+    '.ai-factory',
+    'synthesizer-output',
+    'generation-context',
+    'python',
+  );
+  for (const rule of plan.rendered) {
+    // Defensive PF-1 park trigger (kickoff §6): the join is 1:1 BY CONSTRUCTION
+    // (planResearchedAstgrep iterates `records` → `plan.rendered`, with a loud dup-guard at
+    // render-researched-astgrep.ts:149 catching duplicate entryIds at plan time). If this
+    // throws, the §1 join assumption broke — surface LOUD, do NOT write a wrong fragment.
+    const matches = records.filter((r) => r.entryId === rule.entryId);
+    if (matches.length !== 1) {
+      throw new Error(
+        `[rule-bootstrap] S1b PF-1 park trigger fired for '${rule.entryId}': ` +
+          `expected exactly 1 record, found ${matches.length}. The §1 join ` +
+          `(record.entryId === rendered.entryId) broke — see kickoff §6 PF-1.`,
+      );
+    }
+    const record = matches[0];
+    const stampedProv = stampProvenanceTier(record.provenance);
+    const ruleTier = weakestTier(stampedProv);
+    const fragment = { id: rule.entryId, provenance: stampedProv, tier: ruleTier };
+    mkdirSync(fragDir, { recursive: true });
+    writeFileSync(resolve(fragDir, `${rule.entryId}.json`), JSON.stringify(fragment) + '\n');
+    log(
+      `[rule-bootstrap] wrote generation-context/python/${rule.entryId}.json ` +
+        `(tier=${ruleTier}, ${stampedProv.length} provenance source(s))`,
+    );
   }
 
   return { mode: 'practice-render', rendered, researchOnly: plan.researchOnly };
