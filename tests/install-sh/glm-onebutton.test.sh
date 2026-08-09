@@ -573,12 +573,20 @@ fi
 # only exercise paths the helper actually takes. A prose reminder rots under exactly the fatigue
 # that causes the copy-drift (.claude/rules/attention-is-not-a-mechanism.md §1), so the
 # invariant is asserted mechanically over this file's own source.
+# Scoped to `curl()` stubs — the invariant's declared population. Other case statements in
+# this file (e.g. the `_wrong_order` hazard reproducer) are not stubs and must not be graded
+# against it. Two fail-open shapes are caught, not one: an explicit `return 0`, AND an arm
+# with no `return` at all — a case arm inherits the exit status of its last command, so
+# `*) printf 'x' ;;` is just as fail-open as `*) return 0 ;;` and reads as if it were safe.
 _scan_failopen_catchalls() {
-  awk '/^[[:space:]]*\*\)/ {
-         arm = $0; ln = NR
-         while (arm !~ /;;/ && (getline line) > 0) arm = arm " " line
-         if (arm ~ /return[[:space:]]+0/) printf "%d\n", ln
-       }' "$1"
+  awk '
+    /curl\(\)[[:space:]]*\{/ { in_curl = 1 }
+    in_curl && /^[[:space:]]*\}[[:space:]]*$/ { in_curl = 0 }
+    in_curl && /^[[:space:]]*\*\)/ {
+      arm = $0; ln = NR
+      while (arm !~ /;;/ && (getline line) > 0) arm = arm " " line
+      if (arm ~ /return[[:space:]]+0/ || arm !~ /return[[:space:]]+[0-9]+/) printf "%d\n", ln
+    }' "$1"
 }
 
 _failopen=$(_scan_failopen_catchalls "$0")

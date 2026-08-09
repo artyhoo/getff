@@ -214,6 +214,29 @@ the branch now emits `GLM_PROVISION: FAILED step-B per-mode-defaults` and return
 negative N6 proves it discriminates: reverting the fix turns N6 red (3 assertions), restoring it
 returns 53/53 green.
 
+### §1.7 self-reflexive note (run-5)
+
+- **Forward-check:** complies with `.claude/rules/attention-is-not-a-mechanism.md` §1 — the
+  fail-closed-stub invariant moved from a comment to a scanner over the file's own source, with a
+  paired negative proving it discriminates (reverting the N6 fix turns 3 assertions red).
+  Complies with `.claude/rules/destination-environment-verification.md` §1 — the A→400 / B→200
+  pair and the suite's 53/53 were run on the **host**, not in the container. Complies with
+  `no-paid-llm-in-ci.md` (deterministic bash + curl; the one billed call was an operator-authorised
+  host probe, never a CI step) and `language-discipline.md` §1.
+- **Backward-check:** class = *the same false-green shape appearing more than once in one file*.
+  Enumerated within `scripts/getff-glm-onebutton.sh`: step-A preflight, step-A create, step-B
+  projects-read, step-B project-id, step-C validate, step-C hasApiKey — all already terminal;
+  step-B per-mode-defaults — **GAP-FOUND, fixed here**; the terminal `DONE` printf —
+  **GAP-FOUND, NOT fixed** (see below). Sibling suites `tests/install-sh/bridge-guided.test.sh`
+  were not swept for the stub-drift class; that is a stated gap, not a clean verdict.
+- **Self-application, and where it failed.** The run-5 change establishes «a known-unmet binding
+  objective must not surface as a green terminal token», fixes it for step B — and leaves the
+  identical shape standing twelve lines later, where `GLM_PROVISION: DONE` prints while the log
+  says the §7a #3 model call was never made. The round-5 cold audit graded that MAJOR and it is
+  recorded here rather than quietly carried: closing it changes the consumer-facing terminal-token
+  contract (`INSTALL-FOR-AI.md:184`), which is an owner decision. Applying a principle to one
+  branch and not its neighbour in the same commit is the honest description of what happened.
+
 ### §1.7 self-reflexive note (run-4)
 
 - **Forward-check:** complies with §7 park-don't-guess (model proof parked, not guessed); §7e.4 (verifier wired, not warning); §7e.6 (fail-closed + paired-negatives); §2 constraint 1 (helper never expands the value); no-paid-llm-in-ci.md (no LLM in CI); doc-authority-hierarchy.md §2-§3 (this patch is a research-patch under folder-level authority, no per-file header needed).

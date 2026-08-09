@@ -505,16 +505,17 @@ EOF
 #       /runtime-profiles/<id>/chat/completions  -> 404
 #       /runtime-profiles/<id>/completion        -> 404
 #       /runtime-profiles/<id>/v1/chat/completions -> 404
-#     Root-level completion routes also 404: /chat, /prompt, /infer, /send, /v1/messages,
-#     /v1, /agent, /agents. /openapi.json returns empty / 404 (Hono router has no OpenAPI
-#     publish). The only model-exercising surface is POST /tasks (the aif worker loop),
-#     which is a full agent task — not a "minimal model call" per §7a #3, and takes minutes
-#     to settle, not a one-button validation.
-#     POST /runtime-profiles/validate does NOT call the provider (transport=api checks only
-#     that apiKey and baseUrl are non-empty). POST /runtime-profiles/models returns 404
-#     under run-4 probing (was a static Claude catalogue in run-3 vendor catalogue; the
-#     endpoint shape may be runtime-version-dependent — either way, not a completion call).
-#     Option B is a dead-end at the aif API surface as it stands today.
+#     CORRECTED 2026-08-09 (kickoff §7f.2) — the "root-level routes also 404" line below was
+#     WRONG, and with it the "dead-end" conclusion. Re-measured from the host:
+#       POST /chat/sessions -> 400   (route EXISTS; it rejected an empty body)
+#       POST /chat          -> a real completion, billed
+#     packages/api/src/routes/chat.ts:923-937 accepts and project-scope-validates
+#     runtimeProfileId; chat.ts:1275 is the completion endpoint. §7e.4 already established
+#     that aif resolves the key from its OWN process.env, so aif makes the call and this
+#     helper never touches the value: §7a #3 and §2 constraint 1 BOTH hold.
+#     POST /runtime-profiles/validate still does NOT call the provider (transport=api checks
+#     only that apiKey and baseUrl are non-empty) — that part of the run-4 finding stands.
+#     Option B is NOT a dead end. It is the delivery path.
 #
 # T16 verdict for the upstream pattern (curl --header @-): Upstream problem class: "feed
 # N request headers to curl from a script without argv exposure". Our problem class: "make
@@ -523,13 +524,26 @@ EOF
 # value. Our constraint 1 forbids the helper reading the value at all. The pattern does
 # not transfer; treating A.2 as a delivery would be #pattern-matching-on-name.
 #
-# Decision: PARKED. Two binding constraints in genuine conflict — constraint 1 (helper
-# never reads value) vs §7a #3 (one minimal model call). Picking either silently would
-# violate the standing constraint it breaks. Until the constraint is operator-resolved
-# (e.g. operator amends §7a #3 to accept "/tasks queue + agent loop observes costUsd > 0
-# within 60s" as the model proof, or operator amends §2 constraint 1 to allow helper to
-# expand the value into a stdin pipe), the flow proves that aif can resolve the key and
-# reach the profile — it does NOT prove the key is *valid* at the vendor.
+# Decision: the PARK IS WITHDRAWN — and this is UNDELIVERED WORK, not a park.
+#
+# The park's whole rationale was "two binding constraints in genuine conflict". §7f.2
+# measured that conflict away: aif makes the completion call, so constraint 1 is never
+# touched and §7a #3 is satisfiable. A rationale that has been falsified does not become a
+# park by keeping the word — a park is an OPEN QUESTION, and calling settled-but-unbuilt
+# work "parked" is the shape §7d.2 already ruled against.
+#
+# So, stated plainly rather than dressed up: step D (POST /chat/sessions with the profile
+# id, then POST /chat, then read `usage` + `runtime.profileId` back from the response) is
+# NOT BUILT YET. Until it is, this flow proves aif can resolve the key and reach the
+# profile; it does NOT prove the key is valid at the vendor.
+#
+# KNOWN INCONSISTENCY, recorded rather than hidden: §7e.3 states that either half of the
+# proof failing is an objective-3 MISS, yet do_provision still ends in `GLM_PROVISION: DONE`
+# (see the terminal printf) while logging that the model call was never made — the same
+# false-green shape that was fixed for step B in this very commit. It is left standing here
+# only because closing it changes the consumer-facing terminal-token contract that
+# INSTALL-FOR-AI.md:184 tells the consumer's agent to report verbatim, and that is an
+# owner decision, not an implementation detail. Round-5 cold audit graded it MAJOR.
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
