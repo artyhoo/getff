@@ -521,31 +521,35 @@ an expected-to-fail marker plus an operator TODO. Fix it or PARK it per §7.
 
 ## §7f Run-4 dispatch facts (2026-08-09, host+container verified — not a re-plan)
 
-**Provenance:** dispatcher-authored at run-4 dispatch time, same standing as §7b/§7d/§7e. Records
-state that changed *after* §7e was written; adds no design decision.
+**Provenance:** dispatcher-authored, same standing as §7b/§7d/§7e; records state that changed *after*
+§7e, and (2026-08-09) corrects three of its own facts that later measurement falsified.
 
-**§7f.0 — your base is now on origin.** Run 3 is harvested: `feature/beta-delivery-ux-e65989`,
-commit `53fce45f51`, PR **#1322** (open, red by design — it carries `FIDELITY: STOP`). §7e.0 stands:
-**base on run 3.** #1322's body carries the round-3 watch-list W-1..W-6 — that is your checklist.
+**§7f.0 — CORRECTED: base on `staging`.** S4 is harvested and MERGED — `6ea6011560` (PR **#1323**),
+the only commit touching `scripts/getff-glm-onebutton.sh` on `staging`. PR #1322 (`…-e65989`) stayed
+OPEN and red, is **not** your base, but its body still carries the W-1..W-6 watch-list.
 
-**§7f.1 — `feature/beta-delivery-ux-995e9c` is a DEAD END. Do not base on it, do not delete it.**
-A duplicate dispatch fired 2026-08-08T21:22Z by a session whose probe checked origin + `gh pr list`
-only and never saw run 3 (container-only branches are invisible to that probe). Dead because: it
-merges `feature/beta-delivery-ux-92bf00`, which §7e.0 supersedes; it implements
-`POST /runtime-profiles/validate` as the §7a #3 model call, which §7e.3 falsifies; its
-`tests/install-sh/glm-onebutton.test.sh` still carries the §7e.6 stub defect. Keep the branch (T18).
-**One item is worth carrying forward:** its `.github/workflows/audit-self.yml` shard-A wiring
-(§7d.3 #2) — but wire the suite in only **after** the stub is fail-closed per §7e.6, or CI is made
-to depend on the theatre.
+**§7f.1 — CORRECTED: the BRANCH `…-995e9c` is a dead end, its CONTENT is not.** A duplicate dispatch
+fired 2026-08-08T21:22Z (origin-only probe; fixed in #1330); its output was repaired
+dispatcher-side, pushed as `harvest/s4-995e9c` and merged as #1323 — `audit-self.yml` shard-A wiring,
+fail-closed stub, consent surface. Do not base on the raw container branch, do not delete it (T18).
 
-**§7f.2 — measured: the run-3 ping route does not exist.** Probed from `aif-handoff-agent-1`
-2026-08-09 with `RUNTIME_BRIDGE_AIF_URL=http://api:3009` (§7e.1's trap applies):
-`GET /runtime-profiles` → `200`; `POST /runtime-profiles/<real-profile-id>/v1/messages` → **`404`**.
-Run 3's `scripts/getff-glm-onebutton.sh:53` resolves `AIF_PROFILE_CHAT_PATH` to exactly that path.
-So §7e.3's two-half split is not one option among several — it is the only reachable form of §7a #3.
-
-**§7f.3 — the §2.4 rework cap does not bar this dispatch.** Run 1 REVISE, run 2 STOP, run 3 STOP —
-the cap counts consecutive rounds on *unchanged* scope, and §7d/§7e are each a scope change.
+**§7f.2 — CORRECTED: one route was measured, not all of them.** `POST /runtime-profiles/<id>/v1/messages`
+→ **`404`** is true, but the conclusion drawn from it («the only reachable form of §7a #3») was a
+negative-existence claim from a **single** probe — a miss of project invariant #3 — and is
+**withdrawn**. Host-measured 2026-08-09: `POST /chat/sessions` → **`400`** (exists, bad body
+rejected); `chat.ts:923-937` project-scope-validates `runtimeProfileId`; `chat.ts:1275`
+(`POST /chat`) is the completion endpoint. Since §7e.4 established `resolved.apiKey` is read off
+**aif's own** `process.env`, aif makes the call and the helper never touches the value — **§7a #3 and
+§2 constraint 1 both hold; no amendment needed.** Proven with one billed call: the response carried
+`assistantMessage`, `costUsd:0.117219`, `runtime.profileId:53eca24c-…`, and that profile's
+`lastUsageAt` moved `09:15:11.263Z` → `09:51:42.017Z`. **Proof channel (either beats `/validate`):**
+the response's own `usage` + `runtime.profileId`, or `lastUsageAt` read back — billing is ground
+truth. **Cost is real money, ~$0.12/run** (aif injects project context; `inputTokens` 39058) — stub
+it in the suite, fire it live only in host-verify. **Still UNPROVEN and this is your job:** the probe
+used an already-created profile on a warm aif; that `POST /chat` succeeds right after the helper's
+own `POST /runtime-profiles` on a **cold** install is run 5's task. **§7f.3 — the §2.4 rework cap
+does not bar this dispatch:** it counts consecutive rounds on *unchanged* scope, and §7d/§7e/§7f are
+each a scope change.
 
 ## §8 PR-body requirements (both gates are REQUIRED checks on `staging`)
 
