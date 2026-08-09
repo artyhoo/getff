@@ -270,14 +270,24 @@ GLM_PROFILE_NAME="Z.AI GLM-5.2" RUNTIME_BRIDGE_AIF_URL="http://h" \
     set -e
     printf "ANTHROPIC_AUTH_TOKEN=test-key-not-real\n" > "'"$TMP_N5"'/glm.env"
     # Stub: validate returns .ok:true but NO hasApiKey field anywhere.
+    # FAIL-CLOSED, same contract as the base stub (§7e.6). This block previously carried a
+    # catch-all returning rc=0 and a create arm with no body rule, so it would have green-lit
+    # run 3s invented /v1/messages ping and a create body missing the required ids — W-4
+    # reintroduced. Only the validate RESPONSE differs from the base stub; the allowlist and
+    # the body rule are identical by contract.
     curl() {
       case "$*" in
+        *"/v1/messages"*)
+          printf "STUB-REJECT: endpoint does not exist on aif: %s\n" "$*" >&2; return 22 ;;
         *"-X POST"*"/runtime-profiles/validate"*) printf "%s" "{\"ok\":true,\"message\":\"older aif without hasApiKey\"}"; return 0 ;;
-        *"-X POST"*"/runtime-profiles"*) printf "%s" "{\"id\":\"test-id\",\"name\":\"Z.AI GLM-5.2\"}"; return 0 ;;
+        *"-X POST"*"/runtime-profiles"*)
+          case "$*" in *\"runtimeId\"*) ;; *) printf "%s" "{\"success\":false,\"error\":{\"name\":\"ZodError\"}}"; return 22 ;; esac
+          case "$*" in *\"providerId\"*) ;; *) printf "%s" "{\"success\":false,\"error\":{\"name\":\"ZodError\"}}"; return 22 ;; esac
+          printf "%s" "{\"id\":\"test-id\",\"name\":\"Z.AI GLM-5.2\"}"; return 0 ;;
         *"-X PUT"*"/projects/"*) printf "%s" "{\"id\":\"proj-1\",\"ok\":true}"; return 0 ;;
         *"/runtime-profiles"*) printf "[]"; return 0 ;;
         *"/projects"*) printf "%s" "[{\"id\":\"proj-1\",\"defaultPlanRuntimeProfileId\":\"x\"}]"; return 0 ;;
-        *) printf "STUB-DEFAULT\n"; return 0 ;;
+        *) printf "STUB-REJECT: path not in allowlist: %s\n" "$*" >&2; return 1 ;;
       esac
     }
     export -f curl
@@ -509,5 +519,92 @@ if grep -qE "jq -r '\.ok" "$REPO_ROOT/scripts/getff-glm-onebutton.sh"; then
 else
   bad "regression §7e.3: step C trusts the HTTP status — validate returns 200 on failure"
 fi
+
+# ── N6 — the per-mode-default PUT failing is a TERMINAL objective-3 MISS ─────
+# §2 constraint 4: a degrade to manual steps is an objective-3 MISS, not a neutral fallback.
+# The helper used to warn here and fall through to `GLM_PROVISION: DONE`, and
+# INSTALL-FOR-AI.md tells the consumer's agent to report that line verbatim — so a missed
+# binding objective reached the consumer as success. This is the paired-negative for that.
+TMP_N6=$(mktemp -d)
+printf 'ANTHROPIC_AUTH_TOKEN=test-key-not-real\n' > "$TMP_N6/glm.env"
+curl() {
+  case "$*" in
+    *"/v1/messages"*) return 22 ;;
+    *"-X POST"*"/runtime-profiles/validate"*)
+      printf '%s' '{"ok":true,"profile":{"hasApiKey":true}}'; return 0 ;;
+    *"-X POST"*"/runtime-profiles"*)
+      if _stub_create_body_ok "$*"; then printf '%s' '{"id":"test-id"}'; return 0; fi
+      return 22 ;;
+    # THE ONE DIFFERENCE from the happy path: the per-mode-default PUT is rejected.
+    *"-X PUT"*"/projects/"*)
+      printf '%s' '{"success":false,"error":{"name":"ZodError"}}'; return 22 ;;
+    *"/projects"*) printf '%s' '[{"id":"proj-1","defaultPlanRuntimeProfileId":"x"}]'; return 0 ;;
+    *) return 1 ;;
+  esac
+}
+export -f curl
+GLM_ENV_FILE="$TMP_N6/glm.env" AIF_HANDOFF_CHECKOUT="$TMP_N6/no-such" out=$(do_provision 2>/dev/null); rc=$?
+[ "$rc" -ne 0 ] && ok "neg N6: per-mode-default PUT failure produces rc!=0 (terminal MISS)" || bad "neg N6: PUT failure produced rc=0 — objective-3 MISS reported as success"
+case "$out" in *"GLM_PROVISION: DONE"*) bad "neg N6: printed DONE despite an objective-3 MISS (false green reaches the consumer)" ;; *) ok "neg N6: no DONE line emitted on an objective-3 MISS" ;; esac
+case "$out" in *"FAILED step-B per-mode-defaults"*) ok "neg N6: emits FAILED step-B per-mode-defaults" ;; *) bad "neg N6: emits '$out' — the MISS carries no machine-readable terminal token" ;; esac
+rm -rf "$TMP_N6"
+
+# ── §7c #1 regression — the PUT body must omit null budget fields ────────────
+# ROOT CAUSE of the objective-3 MISS, measured live 2026-08-09 rather than reasoned about:
+# `createProjectSchema` (aif `packages/api/src/schemas.ts`) declares the four
+# `*MaxBudgetUsd` fields as `z.number().positive().optional()` — optional but NOT nullable —
+# while `GET /projects` returns them as `null`. PUTting the GET body back verbatim therefore
+# 400s with `expected number, received null` on `plannerMaxBudgetUsd` (reproduced live), which
+# is exactly the rc=22 the research patch recorded. Dropping the null-valued budget keys makes
+# the same PUT return 200 with every other value unchanged (verified live).
+if grep -q 'endswith("MaxBudgetUsd")' "$REPO_ROOT/scripts/getff-glm-onebutton.sh"; then
+  ok "regression §7c #1: PUT body drops null-valued *MaxBudgetUsd keys (schema rejects null)"
+else
+  bad "regression §7c #1: PUT body passes GET nulls through — createProjectSchema 400s on them"
+fi
+
+# ============================================================
+# (e) META — §7e.6 structural: every case-based curl stub in THIS file fails closed.
+# ============================================================
+# Why this exists as a gate rather than a comment: W-4 ("the curl stub is fail-closed") was
+# reported CLEAN in round 3, then REINTRODUCED in round 4 — the N5 stub was a copy of the base
+# stub that drifted, its catch-all returning rc=0. A stub that cannot fail on a known-bad path
+# is not evidence, and the drift is invisible to every assertion above because those assertions
+# only exercise paths the helper actually takes. A prose reminder rots under exactly the fatigue
+# that causes the copy-drift (.claude/rules/attention-is-not-a-mechanism.md §1), so the
+# invariant is asserted mechanically over this file's own source.
+_scan_failopen_catchalls() {
+  awk '/^[[:space:]]*\*\)/ {
+         arm = $0; ln = NR
+         while (arm !~ /;;/ && (getline line) > 0) arm = arm " " line
+         if (arm ~ /return[[:space:]]+0/) printf "%d\n", ln
+       }' "$1"
+}
+
+_failopen=$(_scan_failopen_catchalls "$0")
+if [ -z "$_failopen" ]; then
+  ok "meta §7e.6: every case-based curl stub fails closed on an unallowlisted path"
+else
+  bad "meta §7e.6: fail-open catch-all arm(s) at line(s): $(echo "$_failopen" | tr '\n' ' ')"
+fi
+
+# PAIRED NEGATIVE — the scanner must FAIL on a deliberately fail-open stub, otherwise the
+# assertion above is vacuous and would pass on an empty file just as happily (T15 non-vacuity).
+# The fixture is assembled programmatically rather than written as a literal heredoc: a
+# heredoc would put a real fail-open catch-all into THIS file's source, and the scanner above
+# reads `$0` — it would flag its own test fixture. (It did, on the first run of this gate.)
+_tmp_fixture=$(mktemp)
+{
+  printf 'curl() {\n'
+  printf '  case "$*" in\n'
+  printf '    %s printf "STUB-DEFAULT"; return 0 ;;\n' '*)'
+  printf '  esac\n}\n'
+} > "$_tmp_fixture"
+if [ -n "$(_scan_failopen_catchalls "$_tmp_fixture")" ]; then
+  ok "meta §7e.6 paired-negative: the scanner flags a fail-open catch-all (non-vacuous)"
+else
+  bad "meta §7e.6 paired-negative: scanner passed a fail-open stub — the meta check is vacuous"
+fi
+rm -f "$_tmp_fixture"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

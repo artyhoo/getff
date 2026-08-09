@@ -182,6 +182,38 @@ Live detect/explain/provision ran in-container with a throwaway key (`sk-run4-pr
 
 The §4.1 host-verify contract (`bash scripts/host-verify.sh beta-delivery-ux` + `bash tests/install-sh/glm-onebutton.test.sh` on the host) cannot be exercised in-container — the destination-environment-verification rule's whole point is that container≠host. PR body records this as host-verify-pending.
 
+### Item 3 — ROOT CAUSE FOUND (run-5, 2026-08-09): the PUT rejects `null` budgets, not the shape
+
+Item 3 above recorded the per-mode-default `PUT /projects/:id` as a live MISS (`rc=22`) and
+attributed it to a schema-shape incompatibility, leaving objective 3 unmet. That attribution was
+one layer short. Measured on the host 2026-08-09:
+
+```text
+A) PUT /projects/<id> with the GET body verbatim          -> 400
+   {"name":"ZodError","message":"[{ \"expected\": \"number\", \"code\": \"invalid_type\",
+     \"path\": [\"plannerMaxBudgetUsd\"],
+     \"message\": \"Invalid input: expected number, received null\" }, …]"}
+B) same body, null-valued *MaxBudgetUsd keys omitted      -> 200
+```
+
+`createProjectSchema` (aif `packages/api/src/schemas.ts`) declares all four budget fields as
+`z.number().positive().optional()` — **optional but NOT nullable** — while `GET /projects` returns
+them as `null`. The helper built its PUT body by mutating the GET body, so it fed four `null`s
+straight back into a schema that rejects `null`. Every run therefore missed objective 3, on every
+consumer, for a reason that had nothing to do with the fields the helper was trying to set.
+
+**Objective 3 is met, not degraded.** The fix is one jq filter dropping null-valued `*MaxBudgetUsd`
+keys; run B above returned 200 with `autoQueueMode`, both runtime-profile defaults and every other
+value unchanged (read back via `GET /projects`). Guarded by the `regression §7c #1` assertion.
+
+**Separately, the MISS is now terminal.** The failure branch previously warned and fell through to
+`GLM_PROVISION: DONE`, and `INSTALL-FOR-AI.md:184` instructs the consumer's agent to report that
+line verbatim — so a missed binding objective reached the consumer as success. §2 constraint 4 is
+explicit that a degrade to manual steps is an objective-3 MISS and **not** a neutral fallback, so
+the branch now emits `GLM_PROVISION: FAILED step-B per-mode-defaults` and returns non-zero. Paired
+negative N6 proves it discriminates: reverting the fix turns N6 red (3 assertions), restoring it
+returns 53/53 green.
+
 ### §1.7 self-reflexive note (run-4)
 
 - **Forward-check:** complies with §7 park-don't-guess (model proof parked, not guessed); §7e.4 (verifier wired, not warning); §7e.6 (fail-closed + paired-negatives); §2 constraint 1 (helper never expands the value); no-paid-llm-in-ci.md (no LLM in CI); doc-authority-hierarchy.md §2-§3 (this patch is a research-patch under folder-level authority, no per-file header needed).

@@ -291,14 +291,16 @@ do_provision() {
   if [ -n "$existing_plan_profile" ]; then
     put_body=$(printf '%s' "$project_json" | jq \
       --arg id "$profile_id" \
-      '.defaultTaskRuntimeProfileId = $id | .defaultReviewRuntimeProfileId = $id')
+      '.defaultTaskRuntimeProfileId = $id | .defaultReviewRuntimeProfileId = $id
+       | with_entries(select(.value != null or ((.key | endswith("MaxBudgetUsd")) | not)))')
     plan_status="preserved (existing top-tier: $existing_plan_profile)"
     _log "provision: step B — Plan→$existing_plan_profile (preserved), Task+Review→$profile_id"
   else
     # Park the Plan half (§7c #2 Park contract) — write only Task+Review.
     put_body=$(printf '%s' "$project_json" | jq \
       --arg id "$profile_id" \
-      '.defaultTaskRuntimeProfileId = $id | .defaultReviewRuntimeProfileId = $id')
+      '.defaultTaskRuntimeProfileId = $id | .defaultReviewRuntimeProfileId = $id
+       | with_entries(select(.value != null or ((.key | endswith("MaxBudgetUsd")) | not)))')
     plan_status="PARKED (defaultPlanRuntimeProfileId was null in GET /projects — no top-tier profile to preserve; set Plan default manually in the aif UI)"
     _warn "Park: $plan_status (§7c #2)"
   fi
@@ -310,11 +312,15 @@ do_provision() {
   put_rc=${put_rc:-0}
 
   if [ "$put_rc" -ne 0 ]; then
+    printf 'GLM_PROVISION: FAILED step-B per-mode-defaults\n'
     _warn "per-mode-default PUT /projects/$project_id failed (rc=$put_rc). Response: $put_resp"
     _warn "objective-3 MISS: per-mode defaults not set automatically — set them manually in the aif UI (Task+Review → $profile_id) (kickoff §4 item 5)"
-    # Continue — the profile IS created; the consumer can set defaults manually.
-    # The MISS is recorded; the flow proceeds because profile creation succeeded and
-    # the validation ping can still prove the key + route work.
+    # FAIL-CLOSED (§2 constraint 4). This branch used to warn and fall through to
+    # `GLM_PROVISION: DONE`, and INSTALL-FOR-AI.md tells the consumer's agent to report that
+    # line verbatim — so a missed binding objective surfaced to the consumer as success.
+    # §2 constraint 4 is explicit that a degrade to manual steps is an objective-3 MISS and
+    # NOT a neutral fallback, so the terminal signal must carry the MISS, not hide it.
+    return 1
   else
     _log "provision: step B done — PUT /projects/$project_id green (Plan: $plan_status)"
   fi
