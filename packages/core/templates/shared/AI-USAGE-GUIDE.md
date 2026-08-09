@@ -95,8 +95,9 @@ not know: `core` is the default, `env` additionally puts `.ai-factory/tier-home.
 <!-- step: install -->
 
 1. **Install at env depth** — `bash <getff>/install.sh <stack> --profile env`. Already on core?
-   Upgrade in place with `--refresh --profile env`: the deeper payload arrives and the core
-   artefacts stay byte-identical.
+   Re-run that same command: the deeper payload is added and the core artefacts stay
+   byte-identical. `--refresh` re-delivers fixes at your _current_ depth — it never deepens an
+   install, so `--refresh --profile env` on a `core` project is a no-op that still exits 0.
 
 <!-- step: verify-payload -->
 
