@@ -54,6 +54,38 @@ PADDED=" ${INPUT} "
 
 KNOWN_FLAGS="--mode-direct --mode-solo --mode-bundle --mode-pair --mode-decompose --mode-research"
 
+# --- Preset detection (§8a Park-1/2; A4 spec) --------------------------------
+# Detect --preset <name> in the umbrella string AND AIF_PIPELINE_PRESET env var.
+# Precedence: --preset flag > AIF_PIPELINE_PRESET env > default (no preset).
+# When a preset is resolved, it short-circuits the entire --mode-* path — the
+# routing tree predicates come from the preset data (seam #2, SKILL.md §2.5).
+# Collision: --preset + any --mode-* flag simultaneously → exit 2 (multi-source).
+PRESET_NAME=""
+if [[ "${PADDED}" == *" --preset "* ]]; then
+  # Extract the token after --preset (bash 3.2 regex, no eval).
+  if [[ "${INPUT}" =~ --preset[[:space:]]+([a-zA-Z0-9_-]+) ]]; then
+    PRESET_NAME="${BASH_REMATCH[1]}"
+  else
+    echo "parse-override-flags.sh: --preset given but no <name> token followed" >&2
+    exit 2
+  fi
+elif [ -n "${AIF_PIPELINE_PRESET:-}" ]; then
+  PRESET_NAME="${AIF_PIPELINE_PRESET}"
+fi
+
+if [ -n "$PRESET_NAME" ]; then
+  # Collision check: any explicit --mode-* flag alongside --preset = ambiguous.
+  for flag in $KNOWN_FLAGS; do
+    if [[ "${PADDED}" == *" ${flag} "* ]]; then
+      echo "parse-override-flags.sh: multi-source collision: --preset ${PRESET_NAME} and ${flag} — use one or the other" >&2
+      exit 2
+    fi
+  done
+  # Delegate to resolver (exits 0/1/2; relay stdout + exit code).
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  exec "${SCRIPT_DIR}/resolve-preset.sh" "$PRESET_NAME"
+fi
+
 found_count=0
 found_flag=""
 

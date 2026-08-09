@@ -86,7 +86,7 @@ emits candidates ONLY** — per
 executor arm is a candidate generator, never the decision layer. The Opus framing-bias look
 adjudicates.
 
-**Candidate emission (closed lexicon grep + non-goal extraction):**
+**Candidate emission 1 — framing bias (closed lexicon grep + non-goal extraction):**
 
 ```bash
 grep -nE 'Recommendation|Verdict|should adopt|Preferred' <dispatch-input-path>
@@ -100,6 +100,35 @@ as structured output. The candidate list is the deliverable; an empty candidate 
 labels with no verdict word_ (a lone «High» ranking beside an option, or «natural host» without
 a `Recommendation`/`Verdict` verb) defeat the lexicon. The lexicon is a candidate generator
 precisely because it cannot catch this class; the Opus adjudicator is the layer that does.
+
+**Candidate emission 2 — allowlist ↔ obligation closure.** The permitted-file list is already
+an input to this seat (Inputs item 2) but fed **K1 anchor resolution only**; a dispatch input
+whose obligations mandate an edit its own allowlist forbids — or omits — is a K6 contradiction
+that no K-class was consuming. Emit both halves so the adjudicator sees them side by side:
+
+```bash
+# (a) the declared non-goal — the permitted / NOT-permitted sets, verbatim
+awk '/^#+ .*[Pp]ermitted files/{p=1;print;next} p&&/^## /{exit} p' <dispatch-input-path>
+# (b) concrete paths named on a MUTATING line (the `/` is load-bearing: without it the
+#     extension pattern also matches symbols like `SynthesizedRule.research`)
+grep -nE '\b(add|edit|write|append|re-?land|wire|update|regenerate|create|extend|delete|remove|rename|stamp|emit)\b' <dispatch-input-path> \
+  | grep -oE '`[^`]*/[^`]+\.[a-z]+`' | sort -u
+```
+
+Emit **(b) minus (a)** — every path the document tells the executor to change that its allowlist
+neither permits nor forbids. **(a) is prose, so the subtraction is a read, not a set operation:**
+emit both halves verbatim and mark any candidate you could not resolve against the allowlist,
+rather than silently dropping it. Measured: **3 candidates across the 9 kickoffs** carrying this
+convention (2026-08-09), all benign on inspection. That is why this is **emission, not a gate** —
+as a gate a broader form of the same extractor was falsified at **0/2 recall** on the two live
+incidents of the class
+([research-patch §3](../docs/meta-factory/research-patches/2026-08-09-kickoff-allowlist-obligation-closure.md)).
+
+**Known false-negative classes** (state beside the candidates — never report «closure clean»):
+_(i) obligation names no path_ — «RE-LAND the SSOT row» addresses its target by concept, beyond
+the grep's reach; that is the motivating incident's own shape, closed only by the adjudicator's
+read. _(ii) allowlist grants by description_ — «the four §1.1 registry files» permits paths it
+never names, so some candidates are in fact permitted edits.
 
 **Deviation from spec, deliberate (recorded):** ADR-6's lexicon as written in the design spec §3
 (line 209) is self-refuting (it contains «High —», the very token it warns misses). Kickoff §1

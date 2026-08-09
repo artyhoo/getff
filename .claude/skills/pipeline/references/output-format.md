@@ -146,6 +146,43 @@ EXECUTION PLAN — <umbrella> (<YYYY-MM-DD>)
 
 **Falsifiers:** wrong if §1B output exceeds ~15 lines for a 2-stage umbrella; wrong if any of the 6 principle-18 substrings (`## Dependency graph` / `↓` / `## Action queue` / `Paste into a new CC tab` / `Can parallel with` / `### Stage`) is absent from the §1B skeleton above.
 
+## §1C Status format (beta-delivery-ux S2, A5)
+
+> **Origin:** beta-delivery-ux S2 (2026-08-08). Spec: [2026-07-23-beta-program-design.md §4 A5](../../../../docs/superpowers/specs/2026-07-23-beta-program-design.md). Read-only, three-section, no persistent state, NOT a dashboard.
+
+Emitted by `/pipeline status`. The status verb does NOT enter the §1 dispatch tree — it short-circuits to a read-only render against live bricks.
+
+```text
+## Pipeline status
+
+### In-factory
+  <running aif tasks + their state — from bridge REST /health + /tasks>
+  (or: "(bridge unreachable at <url>)" — designed degradation)
+
+### Parked questions
+  <each parked task + its fork — from questions.ts --json>
+  (or: "(no parked questions)" — designed degradation)
+
+### Ready-to-harvest + PR state
+  <open PRs + mergeable state — from gh pr list>
+  (or: "(no open PRs)" / "(gh unavailable)" — designed degradation)
+
+### Suggested next
+→ next: <suggested command 1>
+→ next: <suggested command 2 — optional>
+```
+
+**Rules:**
+
+- Each section degrades **independently** — an unreachable bridge does NOT block parked-questions or PR sections.
+- Exit code is 0 unless the renderer itself crashes; degraded sections are a **designed success path** (§3 spec).
+- 1-3 suggested-next lines tail the output (clig.dev «suggest what to run next»).
+- No persistent state, no refresh loop, no TUI. One-shot read + print.
+
+**Falsifiers:** wrong if any section is silently elided (each MUST appear, even in degraded form); wrong if the renderer exits non-zero on a missing brick; wrong if the output omits the `### Suggested next` tail.
+
+**See also:** [`helpers/render-status.sh`](../helpers/render-status.sh) — the renderer. [`SKILL.md §2.6`](../SKILL.md) — invocation point.
+
 ---
 
 ## §2 Dependency graph
@@ -460,6 +497,22 @@ Total pastes: 1 (Queue mode internally processes all 4 R-iters autonomously).
 - **Wrong if** the `Can parallel with` column proves redundant in practice (e.g. maintainer never consults it; or all umbrellas turn out to be strictly sequential). Promotion-to-drop trigger: 3 consecutive umbrellas where the column is empty for every row.
 
 ---
+
+## §8 Step 3b — the TTY-only preset row
+
+Spec A4 ([`2026-07-23-beta-program-design.md`](../../../../docs/superpowers/specs/2026-07-23-beta-program-design.md) §4 A4, lines 269-271) proposes presets via a TTY menu row in the §3 launch-table. The row is **additive**: `--preset <name>` / `AIF_PIPELINE_PRESET=<name>` stays the primary path per the S2 kickoff §2 binding constraint 1 and clig.dev flag-first. **Menu-only UX is REJECTED** — it breaks agents and CI, which have no TTY.
+
+Render only when `[ -t 0 ] && [ -t 1 ]`. The four presets are data-driven from the `presets/` directory ([`presets/aif.json`](presets/aif.json), [`presets/night.json`](presets/night.json), [`presets/economy.json`](presets/economy.json), [`presets/sdd.json`](presets/sdd.json)); each line's text is the preset's own `description` field, read via [`../helpers/list-presets.sh`](../helpers/list-presets.sh) — never hard-coded here, so adding a preset JSON is the only edit a new preset needs.
+
+```text
+Presets (optional — use --preset <name> or AIF_PIPELINE_PRESET=<name> to activate):
+  aif      — <description from presets/aif.json>
+  night    — <description from presets/night.json>
+  economy  — <description from presets/economy.json>
+  sdd      — <description from presets/sdd.json>
+```
+
+**Falsifier:** if this row ever appears in a non-TTY transcript, the TTY guard regressed; if it lists a preset absent from `presets/*.json` (or omits one present there), the row stopped being data-driven.
 
 ## §A — See also
 

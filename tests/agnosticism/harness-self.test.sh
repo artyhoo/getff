@@ -180,4 +180,37 @@ echo "$s9b_out" | grep -qE 'fallback-check-mode|tsx-unresolvable' \
   && bad "rule-channel-readability degraded in a nested worktree where Node CAN resolve tsx upward" \
   || ok "rule-channel-readability does not degrade when tsx is reachable via the node loader"
 
+# ── ANTI-THEATRE: brand-detection probe (Surface 10) must FLAG a seeded brand-literal
+# branch AND stay silent on the legitimate §4 capability-check shapes. BOTH directions are
+# load-bearing: the rule's own §8 falsification sketch (`grep '"claude"\|"cc"\|ANTHROPIC'`)
+# passed the first direction but flagged `ANTHROPIC_API_KEY` — a legit capability check — so a
+# positive-only negative-test would have shipped a false-positive machine. Measured
+# 2026-08-09: refined detector = 4/4 true-positive, 0/3 false-positive, 0 hits on 267 real files.
+BDROOT=$(mktemp -d)
+mkdir -p "$BDROOT/tests/agnosticism/probes" "$BDROOT/scripts"
+cp "$REPO_ROOT/tests/agnosticism/_cc-absent-lib.sh"                "$BDROOT/tests/agnosticism/"
+cp "$REPO_ROOT/tests/agnosticism/probes/brand-detection.sh"        "$BDROOT/tests/agnosticism/probes/"
+# TRUE POSITIVES — four brand-literal comparison shapes, each must be flagged.
+printf '#!/usr/bin/env bash\nif [[ "$AI_HARNESS" == "claude" ]]; then echo x; fi\n' > "$BDROOT/scripts/seed-eq.sh"
+printf '#!/usr/bin/env bash\nif [ "$h" = '"'"'claude'"'"' ]; then echo x; fi\n'      > "$BDROOT/scripts/seed-single.sh"
+printf '#!/usr/bin/env bash\ncase "$A" in claude) echo x ;; esac\n'                  > "$BDROOT/scripts/seed-case.sh"
+printf '#!/usr/bin/env bash\nif [[ "$UA" =~ anthropic ]]; then echo x; fi\n'         > "$BDROOT/scripts/seed-regex.sh"
+# TRUE NEGATIVES — the §4-legitimate shapes; flagging any of these is the FP failure mode.
+printf '#!/usr/bin/env bash\nif [[ -n "$ANTHROPIC_API_KEY" ]]; then echo x; fi\nif [[ -n "$CLAUDE_CODE_HOOKS_ENABLED" ]]; then echo y; fi\n' > "$BDROOT/scripts/ok-capability.sh"
+printf '#!/usr/bin/env bash\nCFG="$CLAUDE_PROJECT_DIR/.claude/settings.json"\nif [[ ! "$R" =~ ^\\.claude/rules/ ]]; then exit 0; fi\n'        > "$BDROOT/scripts/ok-paths.sh"
+printf '#!/usr/bin/env bash\n# never write: if [[ "$H" == "claude" ]] — that is brand detection\necho hi\n'                                  > "$BDROOT/scripts/ok-comment.sh"
+( unset GIT_DIR GIT_COMMON_DIR GIT_WORK_TREE; cd "$BDROOT" && git init -q && git add -A ) >/dev/null 2>&1
+bd_out=$(RECORD_FILE=/dev/stdout bash "$BDROOT/tests/agnosticism/probes/brand-detection.sh")
+for s in seed-eq seed-single seed-case seed-regex; do
+  echo "$bd_out" | grep -q "$s\.sh.*BRAND-DETECTION" \
+    && ok "brand-detection flags $s.sh (§8 #brand-name-detection)" \
+    || bad "brand-detection MISSED $s.sh — probe is blind to a real brand branch"
+done
+for s in ok-capability ok-paths ok-comment; do
+  echo "$bd_out" | grep -q "$s\.sh" \
+    && bad "brand-detection FALSE-POSITIVE on $s.sh — a §4-legitimate capability check was flagged" \
+    || ok "brand-detection stays silent on $s.sh (§4 capability check / path / comment)"
+done
+rm -rf "$BDROOT"
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

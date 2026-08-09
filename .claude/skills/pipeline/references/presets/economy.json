@@ -1,0 +1,14 @@
+{
+  "mode": "whole-line-executor",
+  "reviewer_tier": "executor-tier",
+  "marker": "Z.AI GLM-5.2 SDK",
+  "description": "Cost-conscious whole-line on executor tier",
+  "predicates": {
+    "bundle_opt_in": true,
+    "review_required": true,
+    "parallel_safe": true
+  },
+  "aif_runtime_hints": {
+    "maxReviewIterations": 1
+  }
+}

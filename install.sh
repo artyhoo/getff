@@ -610,6 +610,7 @@ do_refresh() {
       manual-rule-liveness-prober.md) continue ;;
       shipped-agent-liveness-prober.md) continue ;;
       backward-sweep-auditor.md) continue ;;  # authoring-only tool (§1.7 backward-check cold-sweep, T21)
+      dual-channel-drift-auditor.md) continue ;;  # authoring-only tool (dual-implementation-discipline §8 semantic half — @dual-pair group drift/copy audit)
       adapter-jig-reviewer.md) continue ;;  # authoring-only tool (framework-side adapter-wiring conformance review, adapter-jig J1)
       dispatch-input-checker.md) continue ;;  # authoring-only station (arch-v2 S-B contract v2, dispatch-input reality-check)
       getff-cold-run-prober.md) continue ;;  # framework-only (S4 one-beat cold-run protocol — run BY framework against consumer, not shipped; spec §9.3)
@@ -988,6 +989,21 @@ do_refresh() {
   # Directory payload: refresh_safe now replaces (not nests) an existing dir (setup.d/lib.sh, #873).
   refresh_safe "$PKG_ROOT/packages/core/audit-self/fixtures/fences-fire" "$PROJECT_ROOT/scripts/fences-fire-fixtures"
 
+  # ── Worktree + workspace scripts → scripts/ (S2, spec A9) ──
+  # setup.d/85-worktree-scripts.sh copy_safe's these on the --full env+ path. Without a refresh
+  # arm a brownfield env+ consumer gets NONE of them on --refresh — the #869 class this gate
+  # exists to catch, and the reason `refresh-covers-full-delivery` was RED on this branch.
+  # The list is duplicated deliberately and the duplication is asserted: the delivery site is a
+  # setup.d module sourced only on the install path, so do_refresh cannot read its array, and a
+  # silent divergence is exactly what the paired check in
+  # tests/install-sh/refresh-covers-full-delivery.test.sh now forbids.
+  echo "▶ Worktree scripts → scripts/"
+  for _ws in create-worktree.sh worktree-node-modules.sh link-coordination.sh getff-work.sh; do
+    [ -f "$PKG_ROOT/scripts/$_ws" ] || continue
+    refresh_safe "$PKG_ROOT/scripts/$_ws" "$PROJECT_ROOT/scripts/$_ws"
+    chmod_safe +x "$PROJECT_ROOT/scripts/$_ws" 2>/dev/null || true
+  done
+
   # ── Regenerate the eslint-rules-local barrel + prune stack-absent fixtures (#876) ──
   # do_refresh re-delivers individual rule files above but the GENERATED index.mjs barrel would keep
   # its old import list → a newly-shipped rule lands unregistered. Regenerate from the on-disk rule
@@ -1127,3 +1143,20 @@ for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do
   # shellcheck source=/dev/null
   source "$f"
 done
+
+# ─── aif-handoff guided install (beta-delivery-ux S4, spec §4 A1) ────────────
+# Under PROFILE=factory (or legacy --with-aif-suite), offer the consented guided INSTALL
+# for the aif-handoff runtime. The helper mirrors setup.d/bridge-guided.sh's shape: detect-first
+# (bridge_diagnose), consented docker-compose install, decline → graceful env-level degradation.
+# Gating matches setup.d/10-skills.sh:95 exactly (PROFILE=factory OR WITH_AIF_SUITE set).
+# Runs AFTER the setup.d layer loop so RUNTIME_BRIDGE_AIF_URL is in scope + all layers shipped.
+if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
+  echo "▶ aif-handoff guided install (profile=factory)"
+  if [ -f "$PKG_ROOT/setup.d/aif-handoff-guided-install.sh" ]; then
+    bash "$PKG_ROOT/setup.d/aif-handoff-guided-install.sh" || true
+  else
+    # Consumer install payload may not include this helper (e.g. core-only checkout refreshed
+    # with --profile factory but the helper file was not in the original payload). Graceful skip.
+    echo "  ⊝ setup.d/aif-handoff-guided-install.sh not present in this checkout — see docs/runtime-bridge-setup.md"
+  fi
+fi

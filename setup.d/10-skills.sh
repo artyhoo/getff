@@ -108,23 +108,25 @@ fi
 for _skill in template-audit ai-doc rule-research rule-tests; do
   copy_skill_with_transform "$_skill"
 done
-# env+ contour surface (spec A8): ships at PROFILE=env or factory, NOT core. /arch is the
-# architecture-design skill that produces the contour; consumer-facing at env+ per S5 kickoff
-# §2 binding #3. Legacy --with-aif-suite routes through PROFILE=factory (install.sh:405-408),
-# so the env/factory check covers it without an explicit OR clause.
+# env+ contour surface (spec A8 + beta-delivery-ux S2 / R3 spec-conformance divergence):
+# /arch is the architecture-design skill that produces the contour; consumer-facing at env+
+# per S5 kickoff §2 binding #3. /pipeline joined env+ at S2 rework round 1 — the design SSOT
+# defines the env depth as carrying «pipeline presets, status, …» verbatim
+# (docs/superpowers/specs/2026-07-23-beta-program-design.md:211). Standing gate had pipeline
+# at factory-only; spec wins → resolved by moving pipeline into the env+ loop. The factory-only
+# arm below retains dispatcher/aif-doctor/harvest/night-mode/story/claude-glm-executor-handoff
+# (those presuppose the aif operator runtime). Legacy --with-aif-suite routes through
+# PROFILE=factory (install.sh:405-408), so the env/factory check covers it without an explicit
+# OR clause.
 if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
-  echo "  ▶ Contour surface (profile=env+ OR --with-aif-suite): arch"
-  # Single-item today by design (the env+ contour ships only /arch); the loop form is
-  # kept for symmetry with the factory arm below so the next contour skill is a
-  # one-word addition.
-  # shellcheck disable=SC2043
-  for _skill in arch; do
+  echo "  ▶ Contour surface (profile=env+ OR --with-aif-suite): arch pipeline"
+  for _skill in arch pipeline; do
     copy_skill_with_transform "$_skill"
   done
 fi
 if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
-  echo "  ▶ AIF operator suite (profile=factory OR --with-aif-suite): pipeline dispatcher aif-doctor harvest night-mode story claude-glm-executor-handoff"
-  for _skill in pipeline dispatcher aif-doctor harvest night-mode story claude-glm-executor-handoff; do
+  echo "  ▶ AIF operator suite (profile=factory OR --with-aif-suite): dispatcher aif-doctor harvest night-mode story claude-glm-executor-handoff"
+  for _skill in dispatcher aif-doctor harvest night-mode story claude-glm-executor-handoff; do
     copy_skill_with_transform "$_skill"
   done
 fi
@@ -319,38 +321,12 @@ if [ -f "$MCF_SRC" ]; then
   fi
 fi
 
-# ─── 1j. Workspace one-command: scripts/create-worktree.sh for env+ profiles ─
-# beta-delivery-ux S2 (kickoff §4 A9 part 1 — REUSE, do not rebuild): the workspace
-# one-command `getff work <name>` (T12) composes worktree creation by REUSING
-# scripts/create-worktree.sh — portable, configurable base-ref, dual-pair with the
-# CC hook. Per kickoff §4 binding + spec A9: do NOT rewrite the script; ship it.
-# S1 inventory gap closed here: create-worktree.sh exists in the framework tree
-# but shipped to NO profile today (verified at S2 entry — T1.1 anchor table in
-# .ai-factory/plans/beta-delivery-ux-parked-forks.md: zero `create-worktree`
-# references in setup.d/ before this section).
-#
-# Profile gate (env+ monotonic depth — setup.d/LAYERS.md:10: "core → env → factory"):
-# create-worktree.sh is the FIRST env-specific payload surface, shipping under
-# --profile env|factory. The legacy --with-aif-suite flag routes to factory
-# (install.sh:458-465), so the belt-and-braces `|| [ -n "${WITH_AIF_SUITE:-}" ]`
-# mirrors the F7-split pattern at line 95 above.
-#
-# T11 verdict (the WHERE-TO-HOOK fork within kickoff §8 bounds — YOURS to resolve):
-# extend 10-skills.sh rather than introduce a new layer file — minimal footprint,
-# matches the file's existing role as "shipped-to-consumer .claude/ + scripts/
-# artefacts" (§1 skills + §1b-§1i hooks + this §1j workspace script). The §1j
-# marker parallels the §1/§1b-§1i naming.
-if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
-  mkdir_safe "$PROJECT_ROOT/scripts"
-  CW_SRC="$PKG_ROOT/scripts/create-worktree.sh"
-  CW_DST="$PROJECT_ROOT/scripts/create-worktree.sh"
-  if [ -f "$CW_SRC" ]; then
-    if [ "$DRY_RUN" = "--dry-run" ]; then
-      echo "  [dry-run] would: ship scripts/create-worktree.sh (env+ profile payload)"
-    else
-      copy_safe "$CW_SRC" "$CW_DST"
-      chmod_safe +x "$CW_DST" 2>/dev/null || true
-      echo "  ✓ scripts/create-worktree.sh (env+ profile payload)"
-    fi
-  fi
-fi
+# ─── 1j. Workspace one-command scripts → MOVED to setup.d/85-worktree-scripts.sh ──
+# beta-delivery-ux S2 rework round 1 / R7 (consolidate to ONE ship-point): the worktree
+# helper scripts cluster (create-worktree.sh + worktree-node-modules.sh + link-coordination.sh
+# + getff-work.sh) now ships exclusively from setup.d/85-worktree-scripts.sh under the
+# env+ gate (PROFILE=env|factory, OR WITH_AIF_SUITE). The previous §1j block that shipped
+# only create-worktree.sh from this file has been removed — the cluster's call-chain
+# requirement (create-worktree → worktree-node-modules → link-coordination) means a partial
+# ship from two sites drifts independently; 85 is the single owner now. Gate semantics
+# identical (env|factory|WITH_AIF_SUITE). See setup.d/85-worktree-scripts.sh §1.

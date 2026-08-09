@@ -475,6 +475,8 @@ jobs:
         run: bash tests/install-sh/no-companion-blocks.test.sh
       - name: Run install-sh bridge-guided test (one-click-installer S2)
         run: bash tests/install-sh/bridge-guided.test.sh
+      - name: Run install-sh GLM one-button test (beta-delivery-ux S4)
+        run: bash tests/install-sh/glm-onebutton.test.sh
       - name: Run install-sh B1 stack-research-lookup test (multistack-augment-first #827 B1)
         run: bash tests/install-sh/b1-stack-research-lookup.test.sh
       - name: Run live-snippet wire oracle + override tests (live-research-default-delivery D1/D2/§6)
