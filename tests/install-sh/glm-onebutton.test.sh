@@ -270,14 +270,29 @@ GLM_PROFILE_NAME="Z.AI GLM-5.2" RUNTIME_BRIDGE_AIF_URL="http://h" \
     set -e
     printf "ANTHROPIC_AUTH_TOKEN=test-key-not-real\n" > "'"$TMP_N5"'/glm.env"
     # Stub: validate returns .ok:true but NO hasApiKey field anywhere.
+    # FAIL-CLOSED, exactly like the outer stub (§7e.6): an explicit allowlist, a body rule
+    # on the create arm, and a catch-all that REJECTS. An earlier revision of this block
+    # shipped a 200-shaped create with no body inspection plus a `*) return 0` catch-all —
+    # i.e. the W-4 shape the round-3 watch-list exists to keep out: a stub that cannot fail
+    # cannot discriminate, so N5 would have passed even against a helper that invented an
+    # endpoint or posted a schema-invalid body.
     curl() {
       case "$*" in
+        *"/v1/messages"*)
+          printf "STUB-REJECT: endpoint does not exist on aif: %s\n" "$*" >&2; return 22 ;;
         *"-X POST"*"/runtime-profiles/validate"*) printf "%s" "{\"ok\":true,\"message\":\"older aif without hasApiKey\"}"; return 0 ;;
-        *"-X POST"*"/runtime-profiles"*) printf "%s" "{\"id\":\"test-id\",\"name\":\"Z.AI GLM-5.2\"}"; return 0 ;;
+        *"-X POST"*"/runtime-profiles"*)
+          # Same required set as _stub_create_body_ok (createRuntimeProfileSchema):
+          # runtimeId + providerId. Inlined because the outer helper is not exported
+          # into this child shell.
+          case "$*" in *'"runtimeId"'*) ;; *) return 22 ;; esac
+          case "$*" in *'"providerId"'*) ;; *) return 22 ;; esac
+          printf "%s" "{\"id\":\"test-id\",\"name\":\"Z.AI GLM-5.2\"}"; return 0 ;;
         *"-X PUT"*"/projects/"*) printf "%s" "{\"id\":\"proj-1\",\"ok\":true}"; return 0 ;;
         *"/runtime-profiles"*) printf "[]"; return 0 ;;
         *"/projects"*) printf "%s" "[{\"id\":\"proj-1\",\"defaultPlanRuntimeProfileId\":\"x\"}]"; return 0 ;;
-        *) printf "STUB-DEFAULT\n"; return 0 ;;
+        *)
+          printf "STUB-REJECT: path not in allowlist: %s\n" "$*" >&2; return 1 ;;
       esac
     }
     export -f curl
@@ -286,6 +301,58 @@ GLM_PROFILE_NAME="Z.AI GLM-5.2" RUNTIME_BRIDGE_AIF_URL="http://h" \
 rc=$?
 [ "$rc" -eq 0 ] && ok "neg N5: defensive fallthrough (no hasApiKey field) → rc=0 (older aif compatible)" || bad "neg N5: rc=$rc — defensive fallthrough wrongly failed (regression on older aif support)"
 rm -rf "$TMP_N5"
+
+# ── N6 — per-mode-defaults MISS must NOT terminate as DONE ───────────────────
+# Step B's PUT /projects/:id is a BINDING objective (kickoff §4 item 5 — «degrade-to-manual
+# counts as objective-3 MISS, not a pass»). The helper deliberately CONTINUES past a failed
+# PUT so step C can still prove the key, which is right — but the terminal marker must then
+# carry the miss. INSTALL-FOR-AI.md:180 tells the consumer's agent to report the
+# `GLM_PROVISION:` line verbatim, so a `DONE` printed over a missed objective reaches the
+# human as success. Everything else in this stub is the happy path; ONLY the PUT fails.
+# Stub: happy path in every arm EXCEPT the per-mode-default PUT, which is rejected.
+# Same fail-closed discipline as the base stub (§7e.6): body rule on create, catch-all rejects.
+curl() {
+  case "$*" in
+    *"/v1/messages"*)
+      printf 'STUB-REJECT: endpoint does not exist on aif: %s\n' "$*" >&2
+      return 22
+      ;;
+    *"-X POST"*"/runtime-profiles/validate"*)
+      printf '%s' '{"ok":true,"message":"Claude API profile configured","profile":{"hasApiKey":true,"apiKeyEnvVar":"ANTHROPIC_AUTH_TOKEN"}}'
+      return 0
+      ;;
+    *"-X POST"*"/runtime-profiles"*)
+      if _stub_create_body_ok "$*"; then
+        printf '%s' '{"id":"test-id","name":"Z.AI GLM-5.2"}'
+        return 0
+      fi
+      return 22
+      ;;
+    # THE ONE FAILING ARM — the project endpoint rejects the per-mode-default write.
+    *"-X PUT"*"/projects/"*)
+      printf '%s' '{"success":false,"error":"unsupported field"}' >&2
+      return 22
+      ;;
+    *"/projects"*)            printf '%s' '[{"id":"proj-1","defaultPlanRuntimeProfileId":"x"}]'; return 0 ;;
+    *)
+      printf 'STUB-REJECT: path not in allowlist: %s\n' "$*" >&2
+      return 1
+      ;;
+  esac
+}
+export -f curl
+TMP_N6=$(mktemp -d)
+AIF_HANDOFF_CHECKOUT="$TMP_N6/nonexistent-checkout"   # force W1 to no-op, as N4 does
+export AIF_HANDOFF_CHECKOUT
+out=$(do_provision 2>/dev/null); rc=$?
+[ "$rc" -ne 0 ] && ok "neg N6: per-mode-defaults PUT failure produces rc!=0 (objective-3 MISS is not a pass)" || bad "neg N6: rc=0 — a missed binding objective exited clean"
+case "$out" in
+  *"GLM_PROVISION: FAILED per-mode-defaults"*) ok "neg N6: emits FAILED per-mode-defaults (the verbatim-reported marker carries the miss)" ;;
+  *"GLM_PROVISION: DONE"*) bad "neg N6: emits DONE over a missed per-mode-default PUT — INSTALL-FOR-AI.md:180 would report that as success" ;;
+  *) bad "neg N6: emits '$out' — no terminal GLM_PROVISION marker at all" ;;
+esac
+rm -rf "$TMP_N6"
+unset AIF_HANDOFF_CHECKOUT
 
 # ── _wire_key_reachability unit tests (W1 logic, isolated) ───────────────────
 # When the deployment is absent (the in-container case), the function MUST return 1

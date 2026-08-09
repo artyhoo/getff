@@ -303,18 +303,25 @@ do_provision() {
     _warn "Park: $plan_status (§7c #2)"
   fi
 
-  local put_resp put_rc
+  local put_resp put_rc defaults_missed=0
   put_resp=$(curl -sf -X PUT "$AIF_URL/projects/$project_id" \
     -H 'Content-Type: application/json' \
     -d "$put_body" 2>&1) || put_rc=$?
   put_rc=${put_rc:-0}
 
   if [ "$put_rc" -ne 0 ]; then
+    # objective-3 MISS. Continue the flow (the profile IS created and step C can still
+    # prove the key + route), but REMEMBER the miss: the terminal marker must not be
+    # `DONE`. INSTALL-FOR-AI.md:180 instructs the consumer's agent to report the
+    # `GLM_PROVISION:` line verbatim, so a `DONE` emitted over a missed binding objective
+    # surfaces to the human as success — the `#warning-nobody-reads` shape
+    # (.claude/rules/attention-is-not-a-mechanism.md §2), just relocated from the log to
+    # the exit marker. The FAILED form below is the shape this helper's own entry-
+    # verification patch already specified
+    # (docs/meta-factory/research-patches/2026-08-08-s4-glm-onebutton-entry-verification.md:39).
+    defaults_missed=1
     _warn "per-mode-default PUT /projects/$project_id failed (rc=$put_rc). Response: $put_resp"
     _warn "objective-3 MISS: per-mode defaults not set automatically — set them manually in the aif UI (Task+Review → $profile_id) (kickoff §4 item 5)"
-    # Continue — the profile IS created; the consumer can set defaults manually.
-    # The MISS is recorded; the flow proceeds because profile creation succeeded and
-    # the validation ping can still prove the key + route work.
   else
     _log "provision: step B done — PUT /projects/$project_id green (Plan: $plan_status)"
   fi
@@ -458,6 +465,14 @@ EOF
     _log "provision: step C done — §7e.4 verifier hasApiKey=true (key IS in aif's process env)"
   else
     _log "provision: step C done — aif resolves $GLM_ENV_VAR for profile $profile_id ($validate_msg; older aif without explicit hasApiKey field)"
+  fi
+
+  # Terminal marker. A missed per-mode-default PUT (step B) is an objective-3 MISS per
+  # kickoff §4 item 5, so it may NOT terminate as DONE — see the comment at the PUT.
+  if [ "$defaults_missed" -ne 0 ]; then
+    printf 'GLM_PROVISION: FAILED per-mode-defaults profile-id=%s\n' "$profile_id"
+    _warn "profile $profile_id EXISTS and its key is reachable, but Task+Review defaults were NOT set — set them in the aif UI, then re-run \`provision\` to confirm"
+    return 1
   fi
 
   printf 'GLM_PROVISION: DONE profile-id=%s\n' "$profile_id"
