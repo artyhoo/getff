@@ -163,10 +163,15 @@ export function planResearchedAstgrep(
 }
 
 /** PURE (read-only fs). Load the committed records + plan. The single entry the writer AND the drift
- *  gate call, so the two can never disagree about the bytes. */
-export function planFromCommittedRecords(): ResearchedAstgrepPlan {
+ *  gate call, so the two can never disagree about the bytes. `liveGenDir` defaults to the committed
+ *  tree; tests inject a tmpdir CLONE so gate-teeth checks never mutate the tracked fixtures (the
+ *  in-place mutate/unlink-then-restore pattern raced parallel vitest workers reading the same
+ *  committed artifact — ENOENT flake, PR #1349 CI run 31336870255). */
+export function planFromCommittedRecords(
+  liveGenDir: string = LIVE_GEN_DIR,
+): ResearchedAstgrepPlan {
   const practices = PRACTICE_RECORDS.map((r) =>
-    loadPracticeRecord(join(LIVE_GEN_DIR, r)),
+    loadPracticeRecord(join(liveGenDir, r)),
   );
   return planResearchedAstgrep(practices);
 }
@@ -189,12 +194,14 @@ export interface ResearchedDriftFinding {
 }
 
 /** PURE (read-only fs). Compare each committed rendered artifact to a fresh render — the drift gate
- *  the increment's test asserts is empty (AC2). */
-export function checkResearchedAstgrepDrift(): ResearchedDriftFinding[] {
-  const plan = planFromCommittedRecords();
+ *  the increment's test asserts is empty (AC2). `liveGenDir` as in {@link planFromCommittedRecords}. */
+export function checkResearchedAstgrepDrift(
+  liveGenDir: string = LIVE_GEN_DIR,
+): ResearchedDriftFinding[] {
+  const plan = planFromCommittedRecords(liveGenDir);
   const findings: ResearchedDriftFinding[] = [];
   for (const rule of plan.rendered) {
-    const abs = join(LIVE_GEN_DIR, rule.path);
+    const abs = join(liveGenDir, rule.path);
     if (!existsSync(abs)) {
       findings.push({ path: rule.path, reason: 'missing' });
       continue;
