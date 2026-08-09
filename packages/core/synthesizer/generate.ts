@@ -14,6 +14,7 @@ import {
   declarativeRestrictedConfigEntry,
 } from './compile-declarative-md.ts';
 import { mergeEslintRuleConfig } from './merge-eslint-config.ts';
+import { weakestTier, stampProvenanceTier } from './tier.ts';
 import { wireRuleThroughNode } from './to-node.ts';
 import type { ManifestCheck, SynthesisPlan, SynthesizedRule } from './types.ts';
 import type { GenerateClient, Menu, MenuCandidate } from './generate-port.ts';
@@ -73,13 +74,20 @@ export async function synthesizeGenerate(
       };
     }
 
+    // tier is stamped HERE, at synthesis, and travels through the generation-context
+    // manifest; never re-derived at install time (§3 criterion 3 / §6 fork 4). Symmetry
+    // with synthesize.ts:96-100 and menu-pick.ts:57-61 — this recipe-less path is the one
+    // setup.d/80-rule-bootstrap.sh actually runs on a consumer (rule-bootstrap-cli.ts →
+    // runGeneratePath), so leaving it unstamped collapses every real tier to DEFAULT_TIER
+    // inside install.ts weakestTier(prov, undefined).
+    const stampedProv = stampProvenanceTier(entry.provenance);
     const composed: SynthesizedRule = {
       id,
       title: candidate.title,
       stack: candidate.stack,
       check,
       examples: candidate.examples,
-      research: { entryId: entry.id, provenance: entry.provenance },
+      research: { entryId: entry.id, provenance: stampedProv, tier: weakestTier(stampedProv) },
     };
 
     // negative-test: BOTH declarative and eslint require it (gate-schema). Manual: omitted.
