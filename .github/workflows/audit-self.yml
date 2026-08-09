@@ -1592,6 +1592,35 @@ jobs:
         env:
           FRAMEWORK_ROOT: ${{ github.workspace }}
 
+  # beta-delivery-ux R1 (spec A6): the consumer-matrix NPM-TARBALL CELL.
+  # Packs `packages/core` into a tarball, installs it into a fresh fixture
+  # (no registry needed — install by path), and asserts the real consumer
+  # path: manifest loads, by-path assets exist (install bundle, manifest
+  # schema, eslint-rules, templates/, skills/), every `bin:` and `exports:`
+  # target resolves, and ≥1 bin executes end-to-end from the installed
+  # package (F-C′ resolution: tsx as runtime dep). This cell IS the `files`
+  # allowlist validation mechanism per kickoff §3 — every entry in
+  # `packages/core/package.json:files` carries paired RED→GREEN evidence
+  # from this cell. A green `npm pack` is NOT a gate (T-BDU-R1-A); only
+  # installing + running the consumer path is. Deterministic + API-free per
+  # no-paid-llm-in-ci.md §1.
+  consumer-matrix-npm-tarball-cell:
+    name: "Consumer-matrix npm-tarball cell — files allowlist + bin runnability (beta-delivery-ux R1)"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '22'
+      - name: Run the consumer-matrix npm-tarball cell
+        run: bash tests/consumer-matrix/npm-tarball-cell.sh
+        env:
+          FRAMEWORK_ROOT: ${{ github.workspace }}
+
   # Single aggregate context for branch protection. `needs:` every other
   # audit-self PR job — including actionlint + zizmor above — so requiring just
   # `ci-success` gates them all, and stays correct as jobs are added/removed (vs
@@ -1633,6 +1662,15 @@ jobs:
       # shape as the alwayson-budget incident below — load-bearing assertion lives in the
       # cell's RED/GREEN/REJECT arms, none of which a green `ci-success` alone proves.
       - consumer-matrix-python-unfamiliar-stack-cell
+      # beta-delivery-ux R1 (spec A6): without this line the tarball cell
+      # could go RED (a `files` entry dropped, a bin broken) while
+      # `ci-success` stayed green and the PR merged, because branch
+      # protection requires only `ci-success` — the `#warning-nobody-reads`
+      # shape (.claude/rules/attention-is-not-a-mechanism.md §2). The
+      # load-bearing assertion lives in the cell's paired-RED→GREEN evidence
+      # per `files` entry + the F-C′ bin execution; a green `ci-success`
+      # alone proves none of that.
+      - consumer-matrix-npm-tarball-cell
       # arch-v2 S-E P3a. Without this line the budget job could go RED while
       # `ci-success` stayed green and the PR merged, because branch protection
       # requires only `ci-success` — a gate whose sole consumer is someone
