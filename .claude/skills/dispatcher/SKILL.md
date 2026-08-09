@@ -117,6 +117,19 @@ tsx packages/runtime-bridge/src/cli/dispatch.ts \
 
 Emit watch-link immediately after dispatch (P6): `http://${AIF_WEB_HOST:-localhost}:${AIF_WEB_PORT:-5180}/tasks/<taskId>`. Web port (`AIF_WEB_PORT`, default `5180`) is separate from API port (`AIF_PORT`, default `3009`). If the web container is absent, emit the REST task URL instead.
 
+**Model routing — do NOT override the runtime profile per task (operator verdict, 2026-08-09).** A
+dispatch runs on the aif project's configured profiles; leave `runtimeProfileId` / `modelOverride`
+(per-task fields in both the create and update schemas) unset. The top-tier profile is an **external
+seat only** — an extra cold reviewer the host session spawns on top of the pipeline (`§2.5`
+Phase-1 cold-review, the fidelity/compliance agents), never the in-container dispatch runtime. Tier
+2 therefore selects the _criteria_ and the review depth, not a costlier executor: raising the
+dispatch tier per task is a cost decision the operator has already answered «no» to. Bring the
+question back only with a **new** incident of the review-blindness class (counter: 1 — a review gate
+reported `total=0` on a diff a cold audit then STOPped, getff-freshness-widening S1 r2), not as a
+per-stage judgement call. Tier criteria live in [`tier-home.md`](../../../packages/core/templates/shared/tier-home.md); which model fills a tier is the
+aif runtime profile config's, and this line records the standing answer so each dispatch does not
+re-litigate it.
+
 **§2.2 — Monitor (single-poll-per-turn)**
 Classify one poll using `monitor-classify.sh` (proven by `packages/core/skills/dispatcher/monitor.test.ts`):
 
