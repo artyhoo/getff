@@ -242,3 +242,47 @@ returns 53/53 green.
 - **Forward-check:** complies with §7 park-don't-guess (model proof parked, not guessed); §7e.4 (verifier wired, not warning); §7e.6 (fail-closed + paired-negatives); §2 constraint 1 (helper never expands the value); no-paid-llm-in-ci.md (no LLM in CI); doc-authority-hierarchy.md §2-§3 (this patch is a research-patch under folder-level authority, no per-file header needed).
 - **Backward-check:** no existing artefact is changed in load-bearing ways. INSTALL-FOR-AI.md:180 updated to reflect W1 (the only consumer-visible change). Helper script is the only code change. Test suite gains N4 + 4 W1 wire-test blocks (additive, no deletions).
 - **Self-application:** this update patches the run-3 patch honestly — every claim that the run-3 patch made about "unreachable in this container" is now superseded with live evidence, recorded as such per the append-only convention.
+
+---
+
+## SUPERSEDING ADDENDUM (run-5, commit `34ccc8cece`) — three statements above are now false
+
+Append-only, per the folder convention: the sections below are **not** edited in place, but a
+reader following this file's ordering would otherwise land on withdrawn claims and act on them.
+The round-6 cold audit graded exactly that risk, so the corrections are stated here at the end.
+
+1. **`### §7e.3 — model proof: PARKED with refreshed evidence` (above) is SUPERSEDED.** The model
+   proof is **DELIVERED** as step D in `scripts/getff-glm-onebutton.sh`: `POST /chat/sessions` pins
+   the profile this run created, `POST /chat` sends one minimal completion to that session, and the
+   response's `runtime.profileId` + `usage.totalTokens` are asserted. The park's line-number pointer
+   («lines 468-540») no longer resolves to a park.
+2. **«The fork is genuine: two binding constraints in conflict» is FALSIFIED.** There is no
+   conflict. aif resolves the key from its OWN `process.env`, so the helper sends a profile id and
+   never the value — §7a #3 and §2 constraint 1 hold together. The park rested on a
+   negative-existence claim («every aif-side completion route is closed») generalised from a
+   handful of 404s; `POST /chat/sessions` answered 400, not 404.
+3. **The run-5 §1.7 note's «GAP-FOUND, NOT fixed» for the terminal `DONE` is SUPERSEDED.** `DONE` is
+   now unreachable unless step D returns a completion bound to this run's profile with non-zero
+   usage. The accompanying claim that «the log says the §7a #3 model call was never made» describes
+   a line that no longer exists.
+
+**Correction to the delivery itself, worth more than the delivery.** Step D was first written as a
+single `POST /chat` carrying `runtimeProfileId`. It appeared to pass because the echoed profile
+matched — by coincidence, the pinned profile was already the project default. Against a freshly
+created profile the completion ran on the project default and echoed *that* back. `chat.ts:1336`
+is why: `POST /chat` reads the profile off the chat SESSION and ignores the chat body's field when
+opening a conversation. Hence the two-call form.
+
+**Two follow-on corrections from the round-6 audit, both in this same branch.** The §2 constraint 1
+assertion on the step-D surface was **vacuous**: it accumulated request argv into a shell variable,
+and since the helper calls curl inside `$( )`, every stub call ran in a subshell and the variable
+was empty at assertion time — a deliberately injected key value passed it. It now captures to a
+file, guards that the capture is non-empty, and carries a paired negative; injecting a leak turns
+it red. Separately, `INSTALL-FOR-AI.md`'s «a few cents at most» was falsified by this patch's own
+`costUsd:0.117219` and is corrected to the measured figure, plus the two consumer-visible side
+effects the sentence omitted (a `docker compose up -d` restart, and a chat session left behind).
+
+**Still UNEXERCISED:** the chain against a profile the helper itself created. The verifying host's
+aif carries `ZAI_API_KEY` and no `ANTHROPIC_AUTH_TOKEN` (names checked, values never read), so a
+helper-created `transport=api` profile returns `CHAT_AUTH_ERROR` there whatever the code does. §4
+item 1 is therefore **not** fulfilled, and the first consumer run is the first end-to-end execution.

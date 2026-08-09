@@ -627,24 +627,56 @@ out=$(_nd_run); rc=$?
 [ "$rc" -ne 0 ] && ok "neg N9: zero-token 'completion' → rc!=0" || bad "neg N9: accepted a completion that billed nothing"
 case "$out" in *"FAILED step-D model-proof-no-usage"*) ok "neg N9: emits FAILED step-D model-proof-no-usage" ;; *) bad "neg N9: emits '$out'" ;; esac
 
-# §2 constraint 1 on the NEW surface — step D must not put the key value in the request.
-_ND_SEEN=""
+# §2 constraint 1 on the NEW surface — step D must not put the key value in any request.
+#
+# The captured requests go to a FILE, not a shell variable, and that is forced for the same
+# reason as the pin file above: the helper invokes curl inside `$( )`, so each stub call runs
+# in its own subshell and a variable assignment dies with it. An earlier version of this block
+# accumulated into `_ND_SEEN` and therefore asserted against an empty string — it reported the
+# invariant held while a deliberately injected key value sailed past it. That is the exact
+# can't-fail shape §7e.6 forbids, and it is why the paired-negative below is not optional.
+_ND_SEEN_FILE=$(mktemp)
+export _ND_SEEN_FILE
+: > "$_ND_SEEN_FILE"
 curl() {
   case "$*" in
-    *"-X POST"*"/chat/sessions"*) _ND_SEEN="$_ND_SEEN $*"; printf '%s' '{"id":"stub-session-1"}'; return 0 ;;
-    *"-X POST"*"/chat"*) _ND_SEEN="$_ND_SEEN $*"; printf '%s' '{"assistantMessage":"ok","usage":{"totalTokens":12},"runtime":{"profileId":"test-id"}}'; return 0 ;;
-    *"-X POST"*"/runtime-profiles/validate"*) printf '%s' '{"ok":true,"profile":{"hasApiKey":true}}'; return 0 ;;
-    *"-X POST"*"/runtime-profiles"*) printf '%s' '{"id":"test-id"}'; return 0 ;;
-    *"-X PUT"*"/projects/"*) printf '%s' '{"id":"proj-1","ok":true}'; return 0 ;;
-    *"/projects"*) printf '%s' '[{"id":"proj-1","defaultPlanRuntimeProfileId":"x"}]'; return 0 ;;
+    *"-X POST"*"/chat/sessions"*) printf '%s\n' "$*" >> "$_ND_SEEN_FILE"; printf '%s' '{"id":"stub-session-1"}'; return 0 ;;
+    *"-X POST"*"/chat"*) printf '%s\n' "$*" >> "$_ND_SEEN_FILE"; printf '%s' '{"assistantMessage":"ok","usage":{"totalTokens":12},"runtime":{"profileId":"test-id"}}'; return 0 ;;
+    *"-X POST"*"/runtime-profiles/validate"*) printf '%s\n' "$*" >> "$_ND_SEEN_FILE"; printf '%s' '{"ok":true,"profile":{"hasApiKey":true}}'; return 0 ;;
+    # Body rule, same as every sibling stub — a create arm that answers 2xx without inspecting
+    # the body is W-4's tell verbatim.
+    *"-X POST"*"/runtime-profiles"*)
+      printf '%s\n' "$*" >> "$_ND_SEEN_FILE"
+      if _stub_create_body_ok "$*"; then printf '%s' '{"id":"test-id"}'; return 0; fi
+      printf '%s' '{"success":false,"error":{"name":"ZodError"}}'; return 22 ;;
+    *"-X PUT"*"/projects/"*) printf '%s\n' "$*" >> "$_ND_SEEN_FILE"; printf '%s' '{"id":"proj-1","ok":true}'; return 0 ;;
+    *"/projects"*) printf '%s\n' "$*" >> "$_ND_SEEN_FILE"; printf '%s' '[{"id":"proj-1","defaultPlanRuntimeProfileId":"x"}]'; return 0 ;;
     *) printf 'STUB-REJECT: path not in allowlist: %s\n' "$*" >&2; return 1 ;;
   esac
 }
 GLM_ENV_FILE="$TMP_ND/glm.env" AIF_HANDOFF_CHECKOUT="$TMP_ND/no-such" do_provision >/dev/null 2>&1
-case "$_ND_SEEN" in
-  *"test-key-not-real"*) bad "step D: KEY VALUE LEAKED into the /chat request body (§2 constraint 1)" ;;
-  *) ok "step D: /chat request carries the profile id, never the key value (§2 constraint 1)" ;;
-esac
+
+# Guard the guard: if nothing was captured, the assertion below would pass vacuously.
+if [ -s "$_ND_SEEN_FILE" ]; then
+  ok "key-invariant capture is non-empty ($(wc -l < "$_ND_SEEN_FILE" | tr -d ' ') requests recorded)"
+else
+  bad "key-invariant capture is EMPTY — the leak assertion below cannot fail (vacuous)"
+fi
+if grep -q 'test-key-not-real' "$_ND_SEEN_FILE"; then
+  bad "step D: KEY VALUE LEAKED into a request body (§2 constraint 1)"
+else
+  ok "step D: requests carry the profile id, never the key value (§2 constraint 1)"
+fi
+# PAIRED NEGATIVE — the detector must fire on a request that DOES carry the value, otherwise
+# the green above says nothing. Uses the same grep over the same file shape.
+_leak_probe=$(mktemp)
+printf 'curl -sf -X POST http://h/chat -d {"k":"test-key-not-real"}\n' > "$_leak_probe"
+if grep -q 'test-key-not-real' "$_leak_probe"; then
+  ok "key-invariant paired-negative: the detector fires on a request carrying the value"
+else
+  bad "key-invariant paired-negative: detector missed an obvious leak — it cannot fail"
+fi
+rm -f "$_leak_probe" "$_ND_SEEN_FILE"
 rm -rf "$TMP_ND"
 
 # ── §7c #1 regression — the PUT body must omit null budget fields ────────────

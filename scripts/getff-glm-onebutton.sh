@@ -555,9 +555,16 @@ EOF
 #     only that apiKey and baseUrl are non-empty) — that part of the run-4 finding stands, and
 #     is exactly why step C alone is not the model proof.
 #
+# What "measured live on 2026-08-09" covers, precisely — the completion route, the response
+# shape, and the session pinning. The pinning evidence is the discriminating case, so it is
+# worth naming rather than asserting: a session was pinned to a NON-default, freshly created
+# profile and the completion came back `CHAT_AUTH_ERROR` (HTTP 500). Had pinning silently
+# fallen back to the project default — the failure mode this two-call form exists to prevent —
+# that call would have SUCCEEDED, because the project default is a working profile. The error
+# is therefore positive evidence that aif used the pinned profile, not the default.
+#
 # HONEST VERIFICATION GAP (do not read step D's presence as "proven end-to-end on a consumer"):
-# the completion route, the session pinning and the response shape were each measured live on
-# 2026-08-09, and step D's failure modes are covered by paired negatives N7/N8/N9. What could
+# step D's failure modes are covered by paired negatives N7/N8/N9. What could
 # NOT be exercised on the verifying host is the full chain against a profile THIS helper
 # created: that aif deployment has ZAI_API_KEY in its process env and no ANTHROPIC_AUTH_TOKEN,
 # so a helper-created profile returns CHAT_AUTH_ERROR there regardless of correctness. On a
