@@ -126,7 +126,11 @@ curl() {
       ;;
     # ORDER RULE — validate BEFORE the generic create arm.
     *"-X POST"*"/runtime-profiles/validate"*)
-      printf '%s' '{"ok":true,"message":"Claude API profile configured","profile":{"hasApiKey":true}}'
+      # LIVE-SHAPE: live aif nests hasApiKey under .profile (probed 2026-08-09).
+      # The helper's primary parse is jq '.profile.hasApiKey'; this stub exercises
+      # that path. A second stub below (N5) covers the defensive-fallthrough branch
+      # (no hasApiKey field anywhere → .ok-only check).
+      printf '%s' '{"ok":true,"message":"Claude API profile configured","profile":{"hasApiKey":true,"apiKeyEnvVar":"ANTHROPIC_AUTH_TOKEN"}}'
       return 0
       ;;
     *"-X POST"*"/runtime-profiles"*)
@@ -214,6 +218,181 @@ if curl -s -X POST "http://h/runtime-profiles/some-id/v1/messages" -d '{}' >/dev
 else
   ok "neg N3: stub rejects run-3's invented ping path (not in allowlist)"
 fi
+
+# ── N4 — §7e.4 binding verifier: hasApiKey:false MUST produce a hard MISS ─────
+# A stub that always returns hasApiKey:true would let an unwired deployment report DONE.
+# Run-3's helper parsed .ok only, so hasApiKey:false (the §7e.4 honest-MISS signal) was
+# invisible. The run-4 helper MUST treat hasApiKey:false as FAILED step-C key-unreachable.
+
+# Stub: same shape as happy path but hasApiKey:false.
+_save_curl_type() { :; }  # placeholder for clarity
+curl() {
+  case "$*" in
+    *"-X POST"*"/runtime-profiles/validate"*)
+      # LIVE-SHAPE: nested .profile.hasApiKey:false (the §7e.4 honest-MISS signal).
+      printf '%s' '{"ok":true,"message":"Claude API profile configured","profile":{"hasApiKey":false,"apiKeyEnvVar":"ANTHROPIC_AUTH_TOKEN"}}'
+      return 0
+      ;;
+    *"-X POST"*"/runtime-profiles"*)
+      if _stub_create_body_ok "$*"; then
+        printf '%s' '{"id":"test-id","name":"Z.AI GLM-5.2"}'
+        return 0
+      fi
+      return 22
+      ;;
+    *"-X PUT"*"/projects/"*)  printf '%s' '{"id":"proj-1","ok":true}'; return 0 ;;
+    *"/projects"*)            printf '%s' '[{"id":"proj-1","defaultPlanRuntimeProfileId":"x"}]'; return 0 ;;
+    *) return 1 ;;
+  esac
+}
+export -f curl
+# Force W1 to no-op (no docker-compose.yml in the test tmpdir) so the wiring path is the
+# hasApiKey gate alone — that's what N4 exercises.
+TMP_N4=$(mktemp -d)
+AIF_HANDOFF_CHECKOUT="$TMP_N4/nonexistent-checkout"
+export AIF_HANDOFF_CHECKOUT
+out=$(do_provision 2>/dev/null); rc=$?
+[ "$rc" -ne 0 ] && ok "neg N4: hasApiKey:false produces rc!=0 (objective-3 MISS)" || bad "neg N4: hasApiKey:false produced rc=0 (false green)"
+case "$out" in *"FAILED step-C key-unreachable"*) ok "neg N4: emits FAILED step-C key-unreachable (§7e.4 verifier fired)" ;; *) bad "neg N4: emits '$out' — hasApiKey:false did not fire the §7e.4 gate" ;; esac
+# Idempotency check: ensure we never dereferenced the value in the W1 path either.
+case "$out" in *"test-key-not-real"*) bad "neg N4: KEY VALUE LEAKED in stdout" ;; *) ok "neg N4: key value not in stdout (W1 + hasApiKey gate preserve invariant)" ;; esac
+rm -rf "$TMP_N4"
+unset AIF_HANDOFF_CHECKOUT
+
+# ── N5 — defensive-fallthrough: older aif WITHOUT .profile.hasApiKey or top-level .hasApiKey
+# Helper's third branch (validate_has_key="") falls through to the .ok-only check. The helper
+# MUST NOT fail in this case (older aif relies on .ok alone). This is the paired-positive for
+# the third branch — the live shape (N1) and the top-level fallback are the other two.
+TMP_N5=$(mktemp -d)
+GLM_ENV_FILE="$TMP_N5/glm.env" AIF_HANDOFF_CHECKOUT="$TMP_N5/no-such" \
+GLM_PROFILE_NAME="Z.AI GLM-5.2" RUNTIME_BRIDGE_AIF_URL="http://h" \
+  bash -c '
+    set -e
+    printf "ANTHROPIC_AUTH_TOKEN=test-key-not-real\n" > "'"$TMP_N5"'/glm.env"
+    # Stub: validate returns .ok:true but NO hasApiKey field anywhere.
+    curl() {
+      case "$*" in
+        *"-X POST"*"/runtime-profiles/validate"*) printf "%s" "{\"ok\":true,\"message\":\"older aif without hasApiKey\"}"; return 0 ;;
+        *"-X POST"*"/runtime-profiles"*) printf "%s" "{\"id\":\"test-id\",\"name\":\"Z.AI GLM-5.2\"}"; return 0 ;;
+        *"-X PUT"*"/projects/"*) printf "%s" "{\"id\":\"proj-1\",\"ok\":true}"; return 0 ;;
+        *"/runtime-profiles"*) printf "[]"; return 0 ;;
+        *"/projects"*) printf "%s" "[{\"id\":\"proj-1\",\"defaultPlanRuntimeProfileId\":\"x\"}]"; return 0 ;;
+        *) printf "STUB-DEFAULT\n"; return 0 ;;
+      esac
+    }
+    export -f curl
+    bash "'"$REPO_ROOT"'/scripts/getff-glm-onebutton.sh" provision 2>/dev/null
+  '
+rc=$?
+[ "$rc" -eq 0 ] && ok "neg N5: defensive fallthrough (no hasApiKey field) → rc=0 (older aif compatible)" || bad "neg N5: rc=$rc — defensive fallthrough wrongly failed (regression on older aif support)"
+rm -rf "$TMP_N5"
+
+# ── _wire_key_reachability unit tests (W1 logic, isolated) ───────────────────
+# When the deployment is absent (the in-container case), the function MUST return 1
+# (W2 fallback). When the deployment is present + writable + unmarked, it MUST write
+# the override and return 0. When an unmarked override already exists, it MUST back off
+# (return 2) without clobbering.
+
+# Restore the happy-path curl stub for any later tests.
+curl() {
+  case "$*" in
+    *"-X POST"*"/runtime-profiles/validate"*)
+      # LIVE-SHAPE: nested .profile.hasApiKey.
+      printf '%s' '{"ok":true,"message":"Claude API profile configured","profile":{"hasApiKey":true,"apiKeyEnvVar":"ANTHROPIC_AUTH_TOKEN"}}'
+      return 0
+      ;;
+    *"-X POST"*"/runtime-profiles"*)
+      if _stub_create_body_ok "$*"; then
+        printf '%s' '{"id":"test-id","name":"Z.AI GLM-5.2"}'
+        return 0
+      fi
+      return 22
+      ;;
+    *"-X PUT"*"/projects/"*)  printf '%s' '{"id":"proj-1","ok":true}'; return 0 ;;
+    *"/projects"*)            printf '%s' '[{"id":"proj-1","defaultPlanRuntimeProfileId":"x"}]'; return 0 ;;
+    *) return 1 ;;
+  esac
+}
+export -f curl
+
+# W1-absent: no checkout directory → return 1.
+TMP_WIRE=$(mktemp -d)
+AIF_HANDOFF_CHECKOUT="$TMP_WIRE/no-such"
+wire_out=$(_wire_key_reachability 2>/dev/null); wire_rc=$?
+[ "$wire_rc" -eq 1 ] && ok "wire-absent: rc=1 when no docker-compose.yml (W2 fallback)" || bad "wire-absent: rc=$wire_rc (expected 1)"
+
+# W1-write: create a docker-compose.yml with two services; helper MUST write the override.
+mkdir -p "$TMP_WIRE/checkout"
+cat > "$TMP_WIRE/checkout/docker-compose.yml" <<'YML'
+services:
+  api:
+    image: aif-handoff-api
+    env_file:
+      - .env
+  agent:
+    image: aif-handoff-agent
+    env_file:
+      - .env
+YML
+AIF_HANDOFF_CHECKOUT="$TMP_WIRE/checkout"
+# Stub docker as a function returning 127. Note: `command -v docker` finds the
+# function (returns 0), so the helper takes the "docker compose up -d failed"
+# branch (helper line ~194-196), not the "docker not in PATH" branch. Either way
+# the override IS written and the function returns 0. Function stub (not PATH
+# mangling) keeps coreutils (awk/sort/etc.) available for the override writer.
+docker() { return 127; }
+export -f docker
+wire_out=$(_wire_key_reachability 2>/dev/null); wire_rc=$?
+[ "$wire_rc" -eq 0 ] && ok "wire-write: rc=0 (W1 override written; reload deferred)" || bad "wire-write: rc=$wire_rc (expected 0)"
+unset -f docker
+override_path="$TMP_WIRE/checkout/docker-compose.override.yml"
+[ -f "$override_path" ] && ok "wire-write: override file created" || bad "wire-write: override file NOT created"
+if [ -f "$override_path" ] && grep -qF 'getff-glm-override-marker' "$override_path"; then
+  ok "wire-write: override carries our marker"
+else
+  bad "wire-write: override missing marker"
+fi
+# Verify override covers BOTH detected services + references glm.env path (NOT the value).
+if [ -f "$override_path" ] && grep -qE '^  api:' "$override_path" \
+   && grep -qE '^  agent:' "$override_path" \
+   && grep -qF 'glm.env' "$override_path"; then
+  ok "wire-write: override lists api + agent + glm.env path"
+else
+  bad "wire-write: override missing service entries or glm.env path"
+fi
+if [ -f "$override_path" ] && grep -qiE 'sk-[a-z]|test-key' "$override_path"; then
+  bad "wire-write: override LEAKED a value-shaped token (must hold paths only)"
+else
+  ok "wire-write: override holds paths only (no value tokens)"
+fi
+
+# W1-idempotent: second invocation MUST be a no-op (return 0) without rewriting.
+# Track inode-change rather than mtime — mtime has 1-second granularity and idempotency
+# check needs to be deterministic. Re-running on a marked file MUST NOT open it for write.
+override_size_before=$(wc -c < "$override_path" 2>/dev/null || echo 0)
+override_hash_before=$(md5sum "$override_path" 2>/dev/null | awk '{print $1}' || echo "")
+wire_out=$(_wire_key_reachability 2>/dev/null); wire_rc=$?
+[ "$wire_rc" -eq 0 ] && ok "wire-idempotent: rc=0 on second invocation" || bad "wire-idempotent: rc=$wire_rc (expected 0)"
+override_hash_after=$(md5sum "$override_path" 2>/dev/null | awk '{print $1}' || echo "")
+[ "$override_hash_before" = "$override_hash_after" ] && ok "wire-idempotent: override unchanged on second invocation" || bad "wire-idempotent: override was rewritten (NOT idempotent)"
+
+# W1-collision: replace our marked override with an unmarked file → MUST return 2.
+rm -f "$override_path"
+cat > "$override_path" <<'YML'
+services:
+  api:
+    image: consumer-custom-image
+YML
+wire_out=$(_wire_key_reachability 2>/dev/null); wire_rc=$?
+[ "$wire_rc" -eq 2 ] && ok "wire-collision: rc=2 when unmarked override exists (W2 fallback, no clobber)" || bad "wire-collision: rc=$wire_rc (expected 2)"
+# Verify the consumer's file was NOT touched.
+if grep -qF 'consumer-custom-image' "$override_path"; then
+  ok "wire-collision: consumer override preserved (no clobber)"
+else
+  bad "wire-collision: consumer override was OVERWRITTEN"
+fi
+rm -rf "$TMP_WIRE"
+unset AIF_HANDOFF_CHECKOUT
 
 # Step-A failure: REST profile create returns nonzero.
 curl() {

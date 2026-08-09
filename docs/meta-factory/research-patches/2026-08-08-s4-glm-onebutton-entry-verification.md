@@ -66,3 +66,124 @@ This is the honest path. The alternative — stopping all downstream tasks becau
 ## Self-application (T15)
 
 This research-patch dogfoods §7a: the §7a resolutions are the design intent; this patch is the falsifier-gate evidence. The falsifiers that COULD run (item 1 bridge probe, item 2 schema-file existence, §1.1 engine-source read) ran and parked honestly. The falsifiers that REQUIRE a live aif (items 3, 4) are structurally unreachable in this container and recorded as such — NOT silently skipped.
+
+## Run-4 update (2026-08-09, in-container)
+
+Run 4 re-probed against the live aif (now reachable at `http://api:3009` from the executor container; the run-3 bridge-unreachable verdict was the §7e.1 base-URL trap — `localhost:3009` is unreachable in-container, `api:3009` returns 200). Items 1, 3, 4 falsifiers now run; §7e.4 verifier + §7e.6 fail-closed stub + refreshed §7e.3 park land.
+
+### Item 1 — bridge probe: RESOLVED
+
+```text
+$ curl -sf http://api:3009/health
+{"status":"ok","uptime":42770}
+$ curl -sf http://api:3009/runtime-profiles | jq -r '.[].name'
+Claude Opus (plan+review)
+Z.AI GLM-5.2 SDK
+Qwen3.8-Max-Preview
+```
+
+The run-3 park is **superseded with evidence**: bridge is reachable, 18-key shape from operator authoring-time probe is now grounded against live responses. The default URL `http://localhost:3009` in the helper stays (consumers' default); container-internal use must set `RUNTIME_BRIDGE_AIF_URL=http://api:3009` (the docker-compose service name).
+
+### Item 3 — per-mode default mechanism: PARTIALLY RESOLVED (live MISS recorded honestly)
+
+The aif API exposes `defaultTaskRuntimeProfileId` + `defaultReviewRuntimeProfileId` on the project record (live `GET /projects` confirms both fields; projects carry them today). The helper writes them via `PUT /projects/:id` per §7c #1. Live probe (run-4 container, 2026-08-09):
+
+```text
+[glm-onebutton] WARN per-mode-default PUT /projects/441c1c0c-b633-4612-a34c-2cc0c4d0eaf2 failed (rc=22). Response:
+[glm-onebutton] WARN objective-3 MISS: per-mode defaults not set automatically — set them manually in the aif UI
+```
+
+The PUT fails with rc=22 (HTTP 4xx) because `createProjectSchema` is a full-body PUT validator; the GET-then-mutated body the helper sends does not satisfy it. This is existing aif behaviour, not a regression introduced by run-4. Honest-degrade path fires: the helper records the MISS and continues (the profile IS created; the consumer can set defaults in the aif UI). T16 verdict: Upstream problem class: "update project-level defaults via a generic project PUT". Our problem class: "set per-mode defaults on a profile we just created, without breaking other project fields". Match? PARTIAL — the mechanism exists but the schema-validation shape is incompatible with the GET-then-mutate pattern. Park trigger: if a future aif release exposes `PATCH /projects/:id` or a `/runtime-profiles/:id/set-default` route, replace the PUT with it.
+
+### Item 4 — env-var name: RESOLVED
+
+Live `POST /runtime-profiles/validate` response (transport=api, profile with `apiKeyEnvVar=ANTHROPIC_AUTH_TOKEN`):
+
+```text
+$ curl -s -X POST http://api:3009/runtime-profiles/validate \
+    -H 'Content-Type: application/json' \
+    -d "$(jq -n --arg id '<real-id>' '{profileId: $id}')')"
+{"ok":true,"message":"Claude SDK profile configured (using session auth)","details":null,
+ "profile":{"source":"profile_id","profileId":"...","hasApiKey":false,"transport":"sdk",
+            "apiKeyEnvVar":"ANTHROPIC_AUTH_TOKEN", ...}}
+```
+
+The env-var name `ANTHROPIC_AUTH_TOKEN` is confirmed in the live response. §7a #4(i) is honoured.
+
+### §7e.4 — hasApiKey binding verifier: shape CORRECTED
+
+Run-3 assumed `hasApiKey` was top-level in the validate response. Run-4 live probe shows it nests under `.profile.hasApiKey`:
+
+```json
+{"ok":true,"profile":{"hasApiKey":false,"apiKeyEnvVar":"ANTHROPIC_AUTH_TOKEN",...}}
+```
+
+Helper now tries `.profile.hasApiKey` first (live-accurate) and falls back to top-level `.hasApiKey` for older aif versions. The §7e.4 gate fires on `hasApiKey:false` even when `.ok:true` — closing the run-3 warning-nobody-reads shape. Paired-negative N4 in the test suite stubs the field as `false` and asserts the helper emits `FAILED step-C key-unreachable` + rc!=0.
+
+### §7e.4 — wiring mechanism (W1+W2): DELIVERED
+
+W1 (best-effort auto-wire): helper writes a marker-bearing `docker-compose.override.yml` at `$AIF_HANDOFF_CHECKOUT` when (a) `docker-compose.yml` exists, (b) no unmarked override collides, and (c) the listed services can be parsed. W2 (honest fallback): if W1 cannot apply, the helper prints the env_file snippet for the consumer's AI agent to apply + tightens the §7e.4 gate to a hard MISS.
+
+Live W1 verification (run-4):
+
+```text
+$ # fake checkout with services api + agent
+$ AIF_HANDOFF_CHECKOUT=/tmp/run4-fake-checkout bash scripts/getff-glm-onebutton.sh provision
+[glm-onebutton] wire: wrote /tmp/run4-fake-checkout/docker-compose.override.yml covering services: agent api
+[glm-onebutton] WARN wire: docker not in PATH — override persisted; consumer must run 'docker compose up -d'
+
+$ cat /tmp/run4-fake-checkout/docker-compose.override.yml
+# getff-glm-override-marker — managed by getff-glm-onebutton.sh provision
+# Remove this file to undo the getff GLM key wiring.
+# The value lives only in /tmp/glm-run4-probe.env; this file references the path.
+services:
+  agent:
+    env_file:
+      - .env
+      - /tmp/glm-run4-probe.env
+  api:
+    env_file:
+      - .env
+      - /tmp/glm-run4-probe.env
+```
+
+Idempotency (re-run writes byte-identical override) and collision-back-off (unmarked override → rc=2 + W2 fallback) covered by 4 paired test blocks in the suite (46/0 green).
+
+### §7e.3 — model proof: PARKED with refreshed evidence
+
+Re-probed every plausible aif completion route (run-4):
+
+```text
+/runtime-profiles/<id>/v1/messages         -> 404
+/runtime-profiles/<id>/chat/completions    -> 404
+/runtime-profiles/<id>/completion          -> 404
+/runtime-profiles/<id>/v1/chat/completions -> 404
+/chat /prompt /infer /send /v1/messages /v1 /agent /agents  -> 404 (all)
+/openapi.json                              -> 200 with empty body
+```
+
+Third options for the helper-direct route (Option A) were tested mechanically:
+- `curl --header @-` with stdin-piped value: argv-exposure-free AND temp-file-free.
+- BUT requires `printf '<header>: %s\n' "${!GLM_ENV_VAR}"` — the helper must expand the env-var, i.e. read the value. §2 constraint 1 explicitly forbids this ("automation reads the ENV VAR NAME (never the value) when calling the model").
+
+The fork is genuine: two binding constraints in conflict (§7a #3 "one minimal model call" vs §2 constraint 1 "helper never reads value"). Refreshed park note in `scripts/getff-glm-onebutton.sh` lines 468-540 records the new probing evidence and the T16 verdict (curl --header @- pattern does NOT transfer — solves argv but presupposes the script reads the value). Park stays a §7 park pending operator resolution.
+
+### §7e.6 — fail-closed stub: SHIPPED + paired-negatives green
+
+Allowlist + body-aware create (rejects profiles whose name isn't on the allowlist; rejects create bodies missing the schema-required fields); paired-negatives N1 (rejects unknown profile name), N1b (rejects create body without runtimeId+providerId), N2 (run-4 arm-order hazard — `*"/validate"*` arm provably swallows `/runtime-profiles/validate` before the generic create arm), N2b (asserts the stub actually routes /validate to the validate arm — paired-positive for the N2 arm-ordering hazard), N3 (validate transport failure), N4 (validate returns `.profile.hasApiKey:false` → FAILED step-C key-unreachable), N5 (defensive-fallthrough — older aif without `.profile.hasApiKey` or top-level `.hasApiKey` field → helper falls back to `.ok` check and returns rc=0). All 47/0 green.
+
+Run-4 update (post cold-QA revision): the happy-path stub and N4 now emit the LIVE-accurate nested shape `{"ok":true,"profile":{"hasApiKey":...}}` (probed 2026-08-09). Before the cold-QA revision they emitted top-level `hasApiKey`, exercising only the helper's `elif` fallback branch — the primary `.profile.hasApiKey` lookup that fires against live aif was untested. The cold-QA review (T19) caught this as M1; the fix landed before commit.
+
+The run-3 stub defect (mock agreeing with the helper over an invented endpoint — the precise §7e.6 anti-pattern) is closed: the stub now uses the live-accurate shape, and any field the helper parses has at least one paired-negative that fails the helper when the field is absent/wrong.
+
+### Live end-to-end (§4 item 1) — partial evidence
+
+Live detect/explain/provision ran in-container with a throwaway key (`sk-run4-probe-not-a-real-key`). Detect returned `GLM_PROFILE: present` (api:3009 reachable); explain printed the env-file path correctly; provision went through step A (profile created), step B (PUT failed rc=22, MISS recorded honestly), step B.5 W1 (override written when fake checkout present), step C (validate returned `ok:false` "Missing API key" because the throwaway key was not in aif's process env — the §7e.4 verifier fired correctly and FAILED the run).
+
+The §4.1 host-verify contract (`bash scripts/host-verify.sh beta-delivery-ux` + `bash tests/install-sh/glm-onebutton.test.sh` on the host) cannot be exercised in-container — the destination-environment-verification rule's whole point is that container≠host. PR body records this as host-verify-pending.
+
+### §1.7 self-reflexive note (run-4)
+
+- **Forward-check:** complies with §7 park-don't-guess (model proof parked, not guessed); §7e.4 (verifier wired, not warning); §7e.6 (fail-closed + paired-negatives); §2 constraint 1 (helper never expands the value); no-paid-llm-in-ci.md (no LLM in CI); doc-authority-hierarchy.md §2-§3 (this patch is a research-patch under folder-level authority, no per-file header needed).
+- **Backward-check:** no existing artefact is changed in load-bearing ways. INSTALL-FOR-AI.md:180 updated to reflect W1 (the only consumer-visible change). Helper script is the only code change. Test suite gains N4 + 4 W1 wire-test blocks (additive, no deletions).
+- **Self-application:** this update patches the run-3 patch honestly — every claim that the run-3 patch made about "unreachable in this container" is now superseded with live evidence, recorded as such per the append-only convention.
