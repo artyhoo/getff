@@ -102,6 +102,20 @@ rm -rf "$TMP_HOME"
 #   GET  /projects                    (§7c #1)
 # Anything else is a stub failure, not a pass — an invented endpoint is how run 3 shipped a
 # ping to a path that returns 404.
+# Echoes back the profile the helper pinned on the SESSION, mirroring aif: POST /chat resolves
+# the profile from the session (chat.ts:1336), so the step-D binding assertion is exercised
+# against what was actually pinned rather than against a constant.
+#
+# The pin is carried in a FILE, not a variable, and that is forced: the helper invokes curl
+# inside `$( )`, so every stub call runs in its own subshell and any variable the session arm
+# sets is gone before the /chat arm runs. A variable here would silently echo an empty profile
+# and the binding assertion would fail for a reason that has nothing to do with the helper.
+_STUB_PIN_FILE="$(mktemp)"
+export _STUB_PIN_FILE
+_stub_echo_chat() {
+  printf '{"assistantMessage":"ok","usage":{"totalTokens":12},"runtime":{"profileId":"%s"}}' "$(cat "$_STUB_PIN_FILE" 2>/dev/null)"
+}
+
 _stub_create_body_ok() {
   # Mirrors createRuntimeProfileSchema's required set: runtimeId + providerId + name.
   case "$1" in
@@ -124,9 +138,29 @@ curl() {
       printf 'STUB-REJECT: endpoint does not exist on aif: %s\n' "$*" >&2
       return 22
       ;;
+    # ORDER RULE — /chat/sessions BEFORE /chat, or the /chat glob swallows the session create.
+    # Step D pins the profile on a SESSION, then sends the completion to that session: aif's
+    # POST /chat reads the profile off the session (chat.ts:1336) and ignores a runtimeProfileId
+    # in the chat body. The session stub records what was pinned so the /chat arm can echo it.
+    *"-X POST"*"/chat/sessions"*)
+      printf '%s' "$*" | sed -n 's/.*"runtimeProfileId":"\([^"]*\)".*/\1/p' > "$_STUB_PIN_FILE"
+      printf '{"id":"stub-session-1"}'
+      return 0
+      ;;
+    # Step D — the model proof (§7a #3 / §7e.3(2)). The stub ECHOES BACK the profile pinned on
+    # the session rather than printing a constant: a constant would satisfy the helper's binding
+    # assertion no matter what it sent, the same can't-fail shape §7e.6 rejects for stubs.
+    *"-X POST"*"/chat"*)
+      _stub_echo_chat
+      return 0
+      ;;
     # ORDER RULE — validate BEFORE the generic create arm.
     *"-X POST"*"/runtime-profiles/validate"*)
-      printf '%s' '{"ok":true,"message":"Claude API profile configured","profile":{"hasApiKey":true}}'
+      # LIVE-SHAPE: live aif nests hasApiKey under .profile (probed 2026-08-09).
+      # The helper's primary parse is jq '.profile.hasApiKey'; this stub exercises
+      # that path. A second stub below (N5) covers the defensive-fallthrough branch
+      # (no hasApiKey field anywhere → .ok-only check).
+      printf '%s' '{"ok":true,"message":"Claude API profile configured","profile":{"hasApiKey":true,"apiKeyEnvVar":"ANTHROPIC_AUTH_TOKEN"}}'
       return 0
       ;;
     *"-X POST"*"/runtime-profiles"*)
@@ -214,6 +248,196 @@ if curl -s -X POST "http://h/runtime-profiles/some-id/v1/messages" -d '{}' >/dev
 else
   ok "neg N3: stub rejects run-3's invented ping path (not in allowlist)"
 fi
+
+# ── N4 — §7e.4 binding verifier: hasApiKey:false MUST produce a hard MISS ─────
+# A stub that always returns hasApiKey:true would let an unwired deployment report DONE.
+# Run-3's helper parsed .ok only, so hasApiKey:false (the §7e.4 honest-MISS signal) was
+# invisible. The run-4 helper MUST treat hasApiKey:false as FAILED step-C key-unreachable.
+
+# Stub: same shape as happy path but hasApiKey:false.
+_save_curl_type() { :; }  # placeholder for clarity
+curl() {
+  case "$*" in
+    *"-X POST"*"/runtime-profiles/validate"*)
+      # LIVE-SHAPE: nested .profile.hasApiKey:false (the §7e.4 honest-MISS signal).
+      printf '%s' '{"ok":true,"message":"Claude API profile configured","profile":{"hasApiKey":false,"apiKeyEnvVar":"ANTHROPIC_AUTH_TOKEN"}}'
+      return 0
+      ;;
+    *"-X POST"*"/runtime-profiles"*)
+      if _stub_create_body_ok "$*"; then
+        printf '%s' '{"id":"test-id","name":"Z.AI GLM-5.2"}'
+        return 0
+      fi
+      return 22
+      ;;
+    *"-X PUT"*"/projects/"*)  printf '%s' '{"id":"proj-1","ok":true}'; return 0 ;;
+    *"/projects"*)            printf '%s' '[{"id":"proj-1","defaultPlanRuntimeProfileId":"x"}]'; return 0 ;;
+    *) return 1 ;;
+  esac
+}
+export -f curl
+# Force W1 to no-op (no docker-compose.yml in the test tmpdir) so the wiring path is the
+# hasApiKey gate alone — that's what N4 exercises.
+TMP_N4=$(mktemp -d)
+AIF_HANDOFF_CHECKOUT="$TMP_N4/nonexistent-checkout"
+export AIF_HANDOFF_CHECKOUT
+out=$(do_provision 2>/dev/null); rc=$?
+[ "$rc" -ne 0 ] && ok "neg N4: hasApiKey:false produces rc!=0 (objective-3 MISS)" || bad "neg N4: hasApiKey:false produced rc=0 (false green)"
+case "$out" in *"FAILED step-C key-unreachable"*) ok "neg N4: emits FAILED step-C key-unreachable (§7e.4 verifier fired)" ;; *) bad "neg N4: emits '$out' — hasApiKey:false did not fire the §7e.4 gate" ;; esac
+# Idempotency check: ensure we never dereferenced the value in the W1 path either.
+case "$out" in *"test-key-not-real"*) bad "neg N4: KEY VALUE LEAKED in stdout" ;; *) ok "neg N4: key value not in stdout (W1 + hasApiKey gate preserve invariant)" ;; esac
+rm -rf "$TMP_N4"
+unset AIF_HANDOFF_CHECKOUT
+
+# ── N5 — defensive-fallthrough: older aif WITHOUT .profile.hasApiKey or top-level .hasApiKey
+# Helper's third branch (validate_has_key="") falls through to the .ok-only check. The helper
+# MUST NOT fail in this case (older aif relies on .ok alone). This is the paired-positive for
+# the third branch — the live shape (N1) and the top-level fallback are the other two.
+TMP_N5=$(mktemp -d)
+GLM_ENV_FILE="$TMP_N5/glm.env" AIF_HANDOFF_CHECKOUT="$TMP_N5/no-such" \
+GLM_PROFILE_NAME="Z.AI GLM-5.2" RUNTIME_BRIDGE_AIF_URL="http://h" \
+  bash -c '
+    set -e
+    printf "ANTHROPIC_AUTH_TOKEN=test-key-not-real\n" > "'"$TMP_N5"'/glm.env"
+    # Stub: validate returns .ok:true but NO hasApiKey field anywhere.
+    # FAIL-CLOSED, same contract as the base stub (§7e.6). This block previously carried a
+    # catch-all returning rc=0 and a create arm with no body rule, so it would have green-lit
+    # run 3s invented /v1/messages ping and a create body missing the required ids — W-4
+    # reintroduced. Only the validate RESPONSE differs from the base stub; the allowlist and
+    # the body rule are identical by contract.
+    curl() {
+      case "$*" in
+        *"/v1/messages"*)
+          printf "STUB-REJECT: endpoint does not exist on aif: %s\n" "$*" >&2; return 22 ;;
+        *"-X POST"*"/chat/sessions"*)
+          printf "%s" "$*" | sed -n "s/.*\"runtimeProfileId\":\"\([^\"]*\)\".*/\1/p" > "$_STUB_PIN_FILE"
+          printf "{\"id\":\"stub-session-1\"}"; return 0 ;;
+        *"-X POST"*"/chat"*)
+          printf "{\"assistantMessage\":\"ok\",\"usage\":{\"totalTokens\":12},\"runtime\":{\"profileId\":\"$(cat "$_STUB_PIN_FILE" 2>/dev/null)\"}}"; return 0 ;;
+        *"-X POST"*"/runtime-profiles/validate"*) printf "%s" "{\"ok\":true,\"message\":\"older aif without hasApiKey\"}"; return 0 ;;
+        *"-X POST"*"/runtime-profiles"*)
+          case "$*" in *\"runtimeId\"*) ;; *) printf "%s" "{\"success\":false,\"error\":{\"name\":\"ZodError\"}}"; return 22 ;; esac
+          case "$*" in *\"providerId\"*) ;; *) printf "%s" "{\"success\":false,\"error\":{\"name\":\"ZodError\"}}"; return 22 ;; esac
+          printf "%s" "{\"id\":\"test-id\",\"name\":\"Z.AI GLM-5.2\"}"; return 0 ;;
+        *"-X PUT"*"/projects/"*) printf "%s" "{\"id\":\"proj-1\",\"ok\":true}"; return 0 ;;
+        *"/runtime-profiles"*) printf "[]"; return 0 ;;
+        *"/projects"*) printf "%s" "[{\"id\":\"proj-1\",\"defaultPlanRuntimeProfileId\":\"x\"}]"; return 0 ;;
+        *) printf "STUB-REJECT: path not in allowlist: %s\n" "$*" >&2; return 1 ;;
+      esac
+    }
+    export -f curl
+    bash "'"$REPO_ROOT"'/scripts/getff-glm-onebutton.sh" provision 2>/dev/null
+  '
+rc=$?
+[ "$rc" -eq 0 ] && ok "neg N5: defensive fallthrough (no hasApiKey field) → rc=0 (older aif compatible)" || bad "neg N5: rc=$rc — defensive fallthrough wrongly failed (regression on older aif support)"
+rm -rf "$TMP_N5"
+
+# ── _wire_key_reachability unit tests (W1 logic, isolated) ───────────────────
+# When the deployment is absent (the in-container case), the function MUST return 1
+# (W2 fallback). When the deployment is present + writable + unmarked, it MUST write
+# the override and return 0. When an unmarked override already exists, it MUST back off
+# (return 2) without clobbering.
+
+# Restore the happy-path curl stub for any later tests.
+curl() {
+  case "$*" in
+    *"-X POST"*"/runtime-profiles/validate"*)
+      # LIVE-SHAPE: nested .profile.hasApiKey.
+      printf '%s' '{"ok":true,"message":"Claude API profile configured","profile":{"hasApiKey":true,"apiKeyEnvVar":"ANTHROPIC_AUTH_TOKEN"}}'
+      return 0
+      ;;
+    *"-X POST"*"/runtime-profiles"*)
+      if _stub_create_body_ok "$*"; then
+        printf '%s' '{"id":"test-id","name":"Z.AI GLM-5.2"}'
+        return 0
+      fi
+      return 22
+      ;;
+    *"-X PUT"*"/projects/"*)  printf '%s' '{"id":"proj-1","ok":true}'; return 0 ;;
+    *"/projects"*)            printf '%s' '[{"id":"proj-1","defaultPlanRuntimeProfileId":"x"}]'; return 0 ;;
+    *) return 1 ;;
+  esac
+}
+export -f curl
+
+# W1-absent: no checkout directory → return 1.
+TMP_WIRE=$(mktemp -d)
+AIF_HANDOFF_CHECKOUT="$TMP_WIRE/no-such"
+wire_out=$(_wire_key_reachability 2>/dev/null); wire_rc=$?
+[ "$wire_rc" -eq 1 ] && ok "wire-absent: rc=1 when no docker-compose.yml (W2 fallback)" || bad "wire-absent: rc=$wire_rc (expected 1)"
+
+# W1-write: create a docker-compose.yml with two services; helper MUST write the override.
+mkdir -p "$TMP_WIRE/checkout"
+cat > "$TMP_WIRE/checkout/docker-compose.yml" <<'YML'
+services:
+  api:
+    image: aif-handoff-api
+    env_file:
+      - .env
+  agent:
+    image: aif-handoff-agent
+    env_file:
+      - .env
+YML
+AIF_HANDOFF_CHECKOUT="$TMP_WIRE/checkout"
+# Stub docker as a function returning 127. Note: `command -v docker` finds the
+# function (returns 0), so the helper takes the "docker compose up -d failed"
+# branch (helper line ~194-196), not the "docker not in PATH" branch. Either way
+# the override IS written and the function returns 0. Function stub (not PATH
+# mangling) keeps coreutils (awk/sort/etc.) available for the override writer.
+docker() { return 127; }
+export -f docker
+wire_out=$(_wire_key_reachability 2>/dev/null); wire_rc=$?
+[ "$wire_rc" -eq 0 ] && ok "wire-write: rc=0 (W1 override written; reload deferred)" || bad "wire-write: rc=$wire_rc (expected 0)"
+unset -f docker
+override_path="$TMP_WIRE/checkout/docker-compose.override.yml"
+[ -f "$override_path" ] && ok "wire-write: override file created" || bad "wire-write: override file NOT created"
+if [ -f "$override_path" ] && grep -qF 'getff-glm-override-marker' "$override_path"; then
+  ok "wire-write: override carries our marker"
+else
+  bad "wire-write: override missing marker"
+fi
+# Verify override covers BOTH detected services + references glm.env path (NOT the value).
+if [ -f "$override_path" ] && grep -qE '^  api:' "$override_path" \
+   && grep -qE '^  agent:' "$override_path" \
+   && grep -qF 'glm.env' "$override_path"; then
+  ok "wire-write: override lists api + agent + glm.env path"
+else
+  bad "wire-write: override missing service entries or glm.env path"
+fi
+if [ -f "$override_path" ] && grep -qiE 'sk-[a-z]|test-key' "$override_path"; then
+  bad "wire-write: override LEAKED a value-shaped token (must hold paths only)"
+else
+  ok "wire-write: override holds paths only (no value tokens)"
+fi
+
+# W1-idempotent: second invocation MUST be a no-op (return 0) without rewriting.
+# Track inode-change rather than mtime — mtime has 1-second granularity and idempotency
+# check needs to be deterministic. Re-running on a marked file MUST NOT open it for write.
+override_size_before=$(wc -c < "$override_path" 2>/dev/null || echo 0)
+override_hash_before=$(md5sum "$override_path" 2>/dev/null | awk '{print $1}' || echo "")
+wire_out=$(_wire_key_reachability 2>/dev/null); wire_rc=$?
+[ "$wire_rc" -eq 0 ] && ok "wire-idempotent: rc=0 on second invocation" || bad "wire-idempotent: rc=$wire_rc (expected 0)"
+override_hash_after=$(md5sum "$override_path" 2>/dev/null | awk '{print $1}' || echo "")
+[ "$override_hash_before" = "$override_hash_after" ] && ok "wire-idempotent: override unchanged on second invocation" || bad "wire-idempotent: override was rewritten (NOT idempotent)"
+
+# W1-collision: replace our marked override with an unmarked file → MUST return 2.
+rm -f "$override_path"
+cat > "$override_path" <<'YML'
+services:
+  api:
+    image: consumer-custom-image
+YML
+wire_out=$(_wire_key_reachability 2>/dev/null); wire_rc=$?
+[ "$wire_rc" -eq 2 ] && ok "wire-collision: rc=2 when unmarked override exists (W2 fallback, no clobber)" || bad "wire-collision: rc=$wire_rc (expected 2)"
+# Verify the consumer's file was NOT touched.
+if grep -qF 'consumer-custom-image' "$override_path"; then
+  ok "wire-collision: consumer override preserved (no clobber)"
+else
+  bad "wire-collision: consumer override was OVERWRITTEN"
+fi
+rm -rf "$TMP_WIRE"
+unset AIF_HANDOFF_CHECKOUT
 
 # Step-A failure: REST profile create returns nonzero.
 curl() {
@@ -330,5 +554,195 @@ if grep -qE "jq -r '\.ok" "$REPO_ROOT/scripts/getff-glm-onebutton.sh"; then
 else
   bad "regression §7e.3: step C trusts the HTTP status — validate returns 200 on failure"
 fi
+
+# ── N6 — the per-mode-default PUT failing is a TERMINAL objective-3 MISS ─────
+# §2 constraint 4: a degrade to manual steps is an objective-3 MISS, not a neutral fallback.
+# The helper used to warn here and fall through to `GLM_PROVISION: DONE`, and
+# INSTALL-FOR-AI.md tells the consumer's agent to report that line verbatim — so a missed
+# binding objective reached the consumer as success. This is the paired-negative for that.
+TMP_N6=$(mktemp -d)
+printf 'ANTHROPIC_AUTH_TOKEN=test-key-not-real\n' > "$TMP_N6/glm.env"
+curl() {
+  case "$*" in
+    *"/v1/messages"*) return 22 ;;
+    *"-X POST"*"/runtime-profiles/validate"*)
+      printf '%s' '{"ok":true,"profile":{"hasApiKey":true}}'; return 0 ;;
+    *"-X POST"*"/runtime-profiles"*)
+      if _stub_create_body_ok "$*"; then printf '%s' '{"id":"test-id"}'; return 0; fi
+      return 22 ;;
+    # THE ONE DIFFERENCE from the happy path: the per-mode-default PUT is rejected.
+    *"-X PUT"*"/projects/"*)
+      printf '%s' '{"success":false,"error":{"name":"ZodError"}}'; return 22 ;;
+    *"/projects"*) printf '%s' '[{"id":"proj-1","defaultPlanRuntimeProfileId":"x"}]'; return 0 ;;
+    *) return 1 ;;
+  esac
+}
+export -f curl
+GLM_ENV_FILE="$TMP_N6/glm.env" AIF_HANDOFF_CHECKOUT="$TMP_N6/no-such" out=$(do_provision 2>/dev/null); rc=$?
+[ "$rc" -ne 0 ] && ok "neg N6: per-mode-default PUT failure produces rc!=0 (terminal MISS)" || bad "neg N6: PUT failure produced rc=0 — objective-3 MISS reported as success"
+case "$out" in *"GLM_PROVISION: DONE"*) bad "neg N6: printed DONE despite an objective-3 MISS (false green reaches the consumer)" ;; *) ok "neg N6: no DONE line emitted on an objective-3 MISS" ;; esac
+case "$out" in *"FAILED step-B per-mode-defaults"*) ok "neg N6: emits FAILED step-B per-mode-defaults" ;; *) bad "neg N6: emits '$out' — the MISS carries no machine-readable terminal token" ;; esac
+rm -rf "$TMP_N6"
+
+# ── N7/N8/N9 — step D (§7a #3 model proof) fails closed on each way it can lie ──
+# The model proof exists to catch a key that resolves but is not VALID at the vendor. It can
+# be faked three ways, so each has its own negative: the call not happening at all, the
+# completion running on a DIFFERENT profile than the one this run wired, and a "completion"
+# that billed nothing. Without these three, step D would be a can't-fail step — exactly the
+# §7e.6 shape this suite already rejects for stubs.
+TMP_ND=$(mktemp -d)
+printf 'ANTHROPIC_AUTH_TOKEN=test-key-not-real\n' > "$TMP_ND/glm.env"
+_nd_stub() {  # $1 = /chat response body, $2 = /chat return code
+  _ND_JSON="$1"; _ND_RC="$2"
+  curl() {
+    case "$*" in
+      *"/v1/messages"*) return 22 ;;
+      *"-X POST"*"/chat/sessions"*) printf '%s' '{"id":"stub-session-1"}'; return 0 ;;
+      *"-X POST"*"/chat"*) printf '%s' "$_ND_JSON"; return "$_ND_RC" ;;
+      *"-X POST"*"/runtime-profiles/validate"*) printf '%s' '{"ok":true,"profile":{"hasApiKey":true}}'; return 0 ;;
+      *"-X POST"*"/runtime-profiles"*)
+        if _stub_create_body_ok "$*"; then printf '%s' '{"id":"test-id"}'; return 0; fi
+        return 22 ;;
+      *"-X PUT"*"/projects/"*) printf '%s' '{"id":"proj-1","ok":true}'; return 0 ;;
+      *"/projects"*) printf '%s' '[{"id":"proj-1","defaultPlanRuntimeProfileId":"x"}]'; return 0 ;;
+      *) printf 'STUB-REJECT: path not in allowlist: %s\n' "$*" >&2; return 1 ;;
+    esac
+  }
+  export -f curl
+}
+_nd_run() { GLM_ENV_FILE="$TMP_ND/glm.env" AIF_HANDOFF_CHECKOUT="$TMP_ND/no-such" do_provision 2>/dev/null; }
+
+_nd_stub '' 22
+out=$(_nd_run); rc=$?
+[ "$rc" -ne 0 ] && ok "neg N7: /chat unreachable → rc!=0" || bad "neg N7: unreachable model proof still returned rc=0"
+case "$out" in *"FAILED step-D model-proof-unreachable"*) ok "neg N7: emits FAILED step-D model-proof-unreachable" ;; *) bad "neg N7: emits '$out'" ;; esac
+
+_nd_stub '{"assistantMessage":"ok","usage":{"totalTokens":12},"runtime":{"profileId":"someone-elses-profile"}}' 0
+out=$(_nd_run); rc=$?
+[ "$rc" -ne 0 ] && ok "neg N8: completion on a DIFFERENT profile → rc!=0" || bad "neg N8: accepted a completion billed to another profile"
+case "$out" in *"FAILED step-D model-proof-wrong-profile"*) ok "neg N8: emits FAILED step-D model-proof-wrong-profile" ;; *) bad "neg N8: emits '$out'" ;; esac
+
+_nd_stub '{"assistantMessage":"ok","usage":{"totalTokens":0},"runtime":{"profileId":"test-id"}}' 0
+out=$(_nd_run); rc=$?
+[ "$rc" -ne 0 ] && ok "neg N9: zero-token 'completion' → rc!=0" || bad "neg N9: accepted a completion that billed nothing"
+case "$out" in *"FAILED step-D model-proof-no-usage"*) ok "neg N9: emits FAILED step-D model-proof-no-usage" ;; *) bad "neg N9: emits '$out'" ;; esac
+
+# §2 constraint 1 on the NEW surface — step D must not put the key value in any request.
+#
+# The captured requests go to a FILE, not a shell variable, and that is forced for the same
+# reason as the pin file above: the helper invokes curl inside `$( )`, so each stub call runs
+# in its own subshell and a variable assignment dies with it. An earlier version of this block
+# accumulated into `_ND_SEEN` and therefore asserted against an empty string — it reported the
+# invariant held while a deliberately injected key value sailed past it. That is the exact
+# can't-fail shape §7e.6 forbids, and it is why the paired-negative below is not optional.
+_ND_SEEN_FILE=$(mktemp)
+export _ND_SEEN_FILE
+: > "$_ND_SEEN_FILE"
+curl() {
+  case "$*" in
+    *"-X POST"*"/chat/sessions"*) printf '%s\n' "$*" >> "$_ND_SEEN_FILE"; printf '%s' '{"id":"stub-session-1"}'; return 0 ;;
+    *"-X POST"*"/chat"*) printf '%s\n' "$*" >> "$_ND_SEEN_FILE"; printf '%s' '{"assistantMessage":"ok","usage":{"totalTokens":12},"runtime":{"profileId":"test-id"}}'; return 0 ;;
+    *"-X POST"*"/runtime-profiles/validate"*) printf '%s\n' "$*" >> "$_ND_SEEN_FILE"; printf '%s' '{"ok":true,"profile":{"hasApiKey":true}}'; return 0 ;;
+    # Body rule, same as every sibling stub — a create arm that answers 2xx without inspecting
+    # the body is W-4's tell verbatim.
+    *"-X POST"*"/runtime-profiles"*)
+      printf '%s\n' "$*" >> "$_ND_SEEN_FILE"
+      if _stub_create_body_ok "$*"; then printf '%s' '{"id":"test-id"}'; return 0; fi
+      printf '%s' '{"success":false,"error":{"name":"ZodError"}}'; return 22 ;;
+    *"-X PUT"*"/projects/"*) printf '%s\n' "$*" >> "$_ND_SEEN_FILE"; printf '%s' '{"id":"proj-1","ok":true}'; return 0 ;;
+    *"/projects"*) printf '%s\n' "$*" >> "$_ND_SEEN_FILE"; printf '%s' '[{"id":"proj-1","defaultPlanRuntimeProfileId":"x"}]'; return 0 ;;
+    *) printf 'STUB-REJECT: path not in allowlist: %s\n' "$*" >&2; return 1 ;;
+  esac
+}
+GLM_ENV_FILE="$TMP_ND/glm.env" AIF_HANDOFF_CHECKOUT="$TMP_ND/no-such" do_provision >/dev/null 2>&1
+
+# Guard the guard: if nothing was captured, the assertion below would pass vacuously.
+if [ -s "$_ND_SEEN_FILE" ]; then
+  ok "key-invariant capture is non-empty ($(wc -l < "$_ND_SEEN_FILE" | tr -d ' ') requests recorded)"
+else
+  bad "key-invariant capture is EMPTY — the leak assertion below cannot fail (vacuous)"
+fi
+if grep -q 'test-key-not-real' "$_ND_SEEN_FILE"; then
+  bad "step D: KEY VALUE LEAKED into a request body (§2 constraint 1)"
+else
+  ok "step D: requests carry the profile id, never the key value (§2 constraint 1)"
+fi
+# PAIRED NEGATIVE — the detector must fire on a request that DOES carry the value, otherwise
+# the green above says nothing. Uses the same grep over the same file shape.
+_leak_probe=$(mktemp)
+printf 'curl -sf -X POST http://h/chat -d {"k":"test-key-not-real"}\n' > "$_leak_probe"
+if grep -q 'test-key-not-real' "$_leak_probe"; then
+  ok "key-invariant paired-negative: the detector fires on a request carrying the value"
+else
+  bad "key-invariant paired-negative: detector missed an obvious leak — it cannot fail"
+fi
+rm -f "$_leak_probe" "$_ND_SEEN_FILE"
+rm -rf "$TMP_ND"
+
+# ── §7c #1 regression — the PUT body must omit null budget fields ────────────
+# ROOT CAUSE of the objective-3 MISS, measured live 2026-08-09 rather than reasoned about:
+# `createProjectSchema` (aif `packages/api/src/schemas.ts`) declares the four
+# `*MaxBudgetUsd` fields as `z.number().positive().optional()` — optional but NOT nullable —
+# while `GET /projects` returns them as `null`. PUTting the GET body back verbatim therefore
+# 400s with `expected number, received null` on `plannerMaxBudgetUsd` (reproduced live), which
+# is exactly the rc=22 the research patch recorded. Dropping the null-valued budget keys makes
+# the same PUT return 200 with every other value unchanged (verified live).
+if grep -q 'endswith("MaxBudgetUsd")' "$REPO_ROOT/scripts/getff-glm-onebutton.sh"; then
+  ok "regression §7c #1: PUT body drops null-valued *MaxBudgetUsd keys (schema rejects null)"
+else
+  bad "regression §7c #1: PUT body passes GET nulls through — createProjectSchema 400s on them"
+fi
+
+# ============================================================
+# (e) META — §7e.6 structural: every case-based curl stub in THIS file fails closed.
+# ============================================================
+# Why this exists as a gate rather than a comment: W-4 ("the curl stub is fail-closed") was
+# reported CLEAN in round 3, then REINTRODUCED in round 4 — the N5 stub was a copy of the base
+# stub that drifted, its catch-all returning rc=0. A stub that cannot fail on a known-bad path
+# is not evidence, and the drift is invisible to every assertion above because those assertions
+# only exercise paths the helper actually takes. A prose reminder rots under exactly the fatigue
+# that causes the copy-drift (.claude/rules/attention-is-not-a-mechanism.md §1), so the
+# invariant is asserted mechanically over this file's own source.
+# Scoped to `curl()` stubs — the invariant's declared population. Other case statements in
+# this file (e.g. the `_wrong_order` hazard reproducer) are not stubs and must not be graded
+# against it. Two fail-open shapes are caught, not one: an explicit `return 0`, AND an arm
+# with no `return` at all — a case arm inherits the exit status of its last command, so
+# `*) printf 'x' ;;` is just as fail-open as `*) return 0 ;;` and reads as if it were safe.
+_scan_failopen_catchalls() {
+  awk '
+    /curl\(\)[[:space:]]*\{/ { in_curl = 1 }
+    in_curl && /^[[:space:]]*\}[[:space:]]*$/ { in_curl = 0 }
+    in_curl && /^[[:space:]]*\*\)/ {
+      arm = $0; ln = NR
+      while (arm !~ /;;/ && (getline line) > 0) arm = arm " " line
+      if (arm ~ /return[[:space:]]+0/ || arm !~ /return[[:space:]]+[0-9]+/) printf "%d\n", ln
+    }' "$1"
+}
+
+_failopen=$(_scan_failopen_catchalls "$0")
+if [ -z "$_failopen" ]; then
+  ok "meta §7e.6: every case-based curl stub fails closed on an unallowlisted path"
+else
+  bad "meta §7e.6: fail-open catch-all arm(s) at line(s): $(echo "$_failopen" | tr '\n' ' ')"
+fi
+
+# PAIRED NEGATIVE — the scanner must FAIL on a deliberately fail-open stub, otherwise the
+# assertion above is vacuous and would pass on an empty file just as happily (T15 non-vacuity).
+# The fixture is assembled programmatically rather than written as a literal heredoc: a
+# heredoc would put a real fail-open catch-all into THIS file's source, and the scanner above
+# reads `$0` — it would flag its own test fixture. (It did, on the first run of this gate.)
+_tmp_fixture=$(mktemp)
+{
+  printf 'curl() {\n'
+  printf '  case "$*" in\n'
+  printf '    %s printf "STUB-DEFAULT"; return 0 ;;\n' '*)'
+  printf '  esac\n}\n'
+} > "$_tmp_fixture"
+if [ -n "$(_scan_failopen_catchalls "$_tmp_fixture")" ]; then
+  ok "meta §7e.6 paired-negative: the scanner flags a fail-open catch-all (non-vacuous)"
+else
+  bad "meta §7e.6 paired-negative: scanner passed a fail-open stub — the meta check is vacuous"
+fi
+rm -f "$_tmp_fixture"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
