@@ -171,11 +171,18 @@ stage — stated plainly (r1, TD-M5).
   (`end-of-turn-reminder.sh:1`) and launching a process is not originating a turn — r2
   NEW-M2 stands untouched. BUT the shipped Stop hook is **D7-owned and consumer-shipped**
   (`install.sh` registers it for consumers), so F4b is probed OUTSIDE shipped surfaces
-  (a throwaway local hook in a scratch project). A positive F4b does NOT land here: it
-  creates a NEW operator fork — landing surface = the D7-owned consumer-shipped hook, an
-  audience decision of the F10 class plus the cost decision below — routed to the D7
-  owner as its own stage. **v3's shipped scope contains ZERO hook edits; v2 §8's «no hook
-  edits remain anywhere in this design» stands for everything this PR lands.**
+  (a throwaway local hook in a scratch project). A positive F4b still does NOT land in
+  this PR — hook edits are a separate D7-owner stage — but the AUDIENCE half of that
+  fork is DECIDED by operator directive (2026-08-09, this session, post-cap): shipping
+  self-cleaning autonomy to consumers is the framework's product intent («для этого и
+  делаем»), so the landing default is CONSUMER-SHIPPED, with the standing engineering
+  guards non-negotiable (capability-check for the CLI, OFF-tombstone kill switch,
+  per-trigger debounce, graceful no-op when the CLI or the capability is absent);
+  installing the framework is the opt-in surface ([dual-implementation-discipline.md §3](../../../.claude/rules/dual-implementation-discipline.md)
+  consumer-facing default). The narrower F10 wording fork on the D7 arm formally closes
+  at S2a, with this directive recorded as evidence toward its consumer-generic branch.
+  **v3's shipped scope contains ZERO hook edits; v2 §8's «no hook edits remain anywhere
+  in this design» stands for everything this PR lands.**
 - **Probe checks (both recipes):** (a) is a CLI-born session visible in `list_sessions` /
   reachable by ccd messages (if not: the successor works but is deaf to doorbells —
   acceptable, the bus is not load-bearing); (b) spawn-storm guard — one successor per
@@ -185,13 +192,18 @@ stage — stated plainly (r1, TD-M5).
   each spawning at their own T_soft form a bounded chain (each birth requires real
   context consumption), but whether that satisfies the «no daemons» constraint is the
   operator's classification call on the probe's evidence; ≥3 births per night per role is
-  a morning-report anomaly line; (c) **billing, corrected (r1, BU-MAJOR-1 — the draft
-  inverted the recorded fact):** since 2026-06-15, `claude -p` / Agent-SDK runs bill to a
-  SEPARATE monthly Agent-SDK credit pool at full API rates — OFF the subscription
-  interactive pool. This collides with the standing operator posture «run it on the
-  subscription, not the API» ([night-mode/SKILL.md](../../../.claude/skills/night-mode/SKILL.md)
-  delta item 7). Consequence: even a technically-positive F4 needs an explicit operator
-  cost-GO before any landing — recorded as part of the F4 fork, not discovered after.
+  a morning-report anomaly line; (c) **billing — LIVE-VERIFIED 2026-08-09 (operator
+  challenge → web verification; supersedes both the draft's claim and r1's memory-based
+  «correction»):** the announced 2026-06-15 separate Agent-SDK credit pool was PAUSED on
+  its own effective date and never took effect — per the official support article «Use
+  the Claude Agent SDK with your Claude plan», `claude -p` / Agent-SDK / third-party
+  usage still draws from the SUBSCRIPTION's usage limits, the same pool as interactive
+  seats. Consequence: no collision with the «run it on the subscription» posture
+  ([night-mode/SKILL.md](../../../.claude/skills/night-mode/SKILL.md) delta item 7); the
+  r1 cost-GO gate is RETIRED. What remains is cost-awareness, not a gate: night
+  successors consume the shared subscription quota (item 3's quota backoff already
+  governs), and Anthropic promised advance notice before any future billing change — a
+  future change RE-OPENS this check (falsifier recorded here, not hoped away).
   (d) an F4-positive also re-opens the v2 §7 «recipes-ONLY» conditionality and the §9
   claim-1 scope, per v2 NEW-N2 — carried, not silently dropped (r1, TD-m3).
 
@@ -359,8 +371,9 @@ Part I alone stays cheap — §1.1; r2 N7)
    paragraph (night-end only, one per plan) + the night-decided-parks listing line + the
    best-effort `dismiss_task` note (r2 N6 — previously §7 commitments unbilled).
 6. **[v3]** F4 probe task updated: F4a + F4b as PROBES with the §4 checks (incl. the
-   corrected billing fact + the cost-GO gate); any landing = a new operator fork routed
-   to the D7 owner. Zero hook edits in this PR.
+   live-verified billing fact — subscription pool, the 2026-06-15 credit-pool policy
+   paused on its effective date; cost-GO gate retired); any landing = a new operator
+   fork routed to the D7 owner. Zero hook edits in this PR.
 7. **[v3]** Observation routed to owner (not fixed here): the dispatcher/harvest
    re-write-trigger blocks cite `cold-seat-economy.md §3` for content that section does
    not carry (r1, BU-MAJOR-3 adjacent).
@@ -428,7 +441,7 @@ BEFORE the policy text, and the cold two-altitude review read this file plus the
 | TD-m5 terminal seat may lack `spawn_task` | ACCEPTED — named; file fallback (§7) |
 | TD-m6 «seat» overload | ACCEPTED — terminology note added (header block) |
 | BU-B1 all six relative links broken (`../../` depth) | ACCEPTED — all links now `../../../`; lychee gate acknowledged |
-| BU-MAJOR-1 billing fact inverted | ACCEPTED — corrected to the recorded meter (OFF subscription, Agent-SDK credit at API rates); collision with the «on the subscription» posture named; cost-GO gate added to the F4 fork (§4) |
+| BU-MAJOR-1 billing fact inverted | ACCEPTED at r1 (corrected to the recorded meter) — then SUPERSEDED post-r2 by live verification: the 2026-06-15 meter change was paused on its effective date; subscription pool is current; cost-GO retired (§4, §13b) |
 | BU-MAJOR-3 cold-seat-economy blocks uncited; ladder vs economy unreconciled; spec-of defect | ACCEPTED — blocks cited as cost owner, rung ordering reconciled (agreement), header owner list extended; the spec-of defect routed as an observation to its owner (§3, §10.7, §11) |
 | BU-MINOR-3 item 8 «stands as written» over-broad | ACCEPTED — scoped to clause (c); amendment named (§6) |
 | BU-MINOR-4 supersession pointer content undefined | ACCEPTED — re-scoped: v2 §4 pointer is this PR's; ADR Part-2/D5 pointer deferred to Part-II ratification; handoff disagreement resolved explicitly (§10.5) |
@@ -459,3 +472,17 @@ Review cap (2 rounds) reached; per [arch/SKILL.md §2](../../../.claude/skills/a
 the routing disposition is the operator's: the r2 seat's own note — «the residue is
 paragraph-level text and work-list completeness — the design spine (§2, §4, §6, §7)
 verified sound» — and every residue item is repaired in this text.
+
+**Post-cap absorptions (2026-08-09, operator inputs — not a review round):**
+
+1. **Billing fact refresh (operator challenge):** the §4 probe-check (c) fact was
+   re-verified against live official sources after the operator disputed r1's
+   memory-based correction. Verified: the 2026-06-15 separate credit-pool policy was
+   paused on its own effective date; `claude -p` / Agent-SDK usage draws from the
+   subscription pool. The r1 text and the underlying operator-memory record were both
+   stale; §4(c) now carries the verified state + a re-open falsifier; the cost-GO gate
+   is retired. Fact freshening only.
+2. **F4b audience directive:** the operator decided the audience half of the F4b landing
+   fork — consumer-shipped self-cleaning autonomy is the framework's product intent; the
+   engineering guards stay non-negotiable (§4). Recorded as a decided fork with the
+   directive quoted; the F10 wording fork closes formally at S2a.
