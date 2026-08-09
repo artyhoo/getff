@@ -131,6 +131,28 @@ state; duplicate/stale/forged doorbells land on no-ops).
   the single-seat mitigations stand: sweep turns are near-no-ops when nothing is parked;
   every decision records context-age; past the ADR Part-3 T_soft threshold the seat defers
   non-trivial decisions to morning (an envelope floor extension).
+- **Night continuation ladder (operator follow-up, 2026-08-09): handoff vs auto-compact —
+  «one closes the other», formalized.** The two mechanisms fill the same slot, and F4's
+  outcome decides which fills it at night:
+  1. **Artifact-first recording makes either mechanism safe.** Nothing load-bearing lives
+     only in the seat's working memory: role = the seat file (§6, re-derivable), pending
+     work = `questions.ts`, decisions already made = `<plan>.decisions.md`, mandate = the
+     kickoff/spec. A seat can lose its entire context — compaction or death — and re-derive
+     its state from artifacts; the property that makes the bus non-load-bearing (§3) is the
+     same property that makes continuation safe. Decisions are recorded in artifacts BEFORE
+     any compaction can lose them, never only in chat.
+  2. **Preferred continuation = the Part-3 handoff** (ADR D6–D8, NOT re-opened — reused):
+     fresh successor seat, context package + seat-file overwrite, predecessor retires.
+     Available by day always; at night ONLY if F4 lands positive (operator's split
+     directive above).
+  3. **Fallback continuation = auto-compact in place:** the harness summarizes and the same
+     session continues. ADR D8 (PreCompact) owns the state-preservation hook at that
+     boundary — reused, not redesigned here. Post-compaction decision quality is the
+     residual risk, guarded by the T_soft floor (defer non-trivial decisions to morning)
+     and the context-age line each decision record carries.
+
+  F4 positive → rung 2 covers the night and rung 3 demotes to emergency-only; F4 negative →
+  rung 3 IS the night continuation mechanism and the floor extension stands.
 - **Venue tier per question class:** [arch/SKILL.md §4](../../../.claude/skills/arch/SKILL.md)
   day-time routing is NOT amended (in-scope architecture → senior-executor seat;
   intent/goal/creative → top seat). At night the routing DEGRADES by seat availability —
