@@ -437,6 +437,7 @@ SP `requesting-code-review` upstream problem class = «dispatch a reviewer subag
 - **Does NOT violate no-paid-llm-in-ci.md §1.** All dispatch is session-bound CC subscription. Zero API-billed calls in CI. `!shell` injections are deterministic bash.
 - **Does NOT add npm deps.** Substrate stays bash + markdown + CC primitives + existing `gh` CLI.
 - **Does NOT re-litigate R-phase verdicts.** If a missed candidate is noticed, write `docs/meta-factory/research-patches/2026-<date>-meta-orchestrator-followup-<gap>.md` and surface to maintainer.
+- **Night delta — no new-scope planning at night.** Authoring NEW scope (kickoffs, umbrellas) is intent-class work, floored at night by the same envelope that floors intent parks; /pipeline is a day seat by policy ([autonomous-night v3 §5](../../../docs/superpowers/specs/2026-08-09-autonomous-night-v3-design.md)).
 
 **One-button-install coupling (load-bearing):** this skill lives at `.claude/skills/pipeline/` (project-scope, committed). It is templatable for N6b `npx` scaffold via `install.sh` payload. All cross-references use `${CLAUDE_SKILL_DIR}` or repo-relative paths — no absolute paths inside skill body. Ships directly from `.claude/skills/pipeline/` via `install.sh` (single source of truth; no repo-root mirror — Item 12 closure 2026-05-25). Install pattern at `install.sh:236-255`.
 
@@ -501,6 +502,13 @@ The FIRST live invocation MUST run on the BUILD umbrella that produced the skill
 > Class C prose enforcement — `!shell` data is surfaced so AI has no excuse for ignorance; per-code trigger + required-response table lives at [`references/failures.md`](references/failures.md). Read once before invoking; halt + surface (never assume) on any F-code. Re-promotion trigger: ≥2 stage-gate-ignored incidents within 6 months → add pre-push hook verifying stage dependency merged before sub-wave commit.
 
 ---
+
+## Seat lifecycle
+
+Registry-role seat sessions (birth · work · self-cleaning · retirement) follow ONE protocol —
+[.claude/rules/seat-lifecycle.md](../../rules/seat-lifecycle.md) (SLP): each phase binds a
+settled owner (ADR D6/D7/D8, session-bus v2, night-mode); bus-touching steps are
+Part-II-gated. Never restate it here (`#fifth-description-of-the-loop`).
 
 ## Red flags / Common mistakes
 

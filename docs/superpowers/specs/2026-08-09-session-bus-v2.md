@@ -93,7 +93,9 @@ state; duplicate/stale/forged doorbells land on no-ops).
   decision's application path. **In-envelope** (reversible until morning): branch-local
   commits, design/parameter choices within kickoff caps, ordering/prioritization, REVISE
   dispositions, naming, scope-internal trade-offs. **Hard floor** (never night-autonomous):
-  merges into shared branches; deleting non-generated artifacts; anything externally visible
+  merges into shared branches *(SUPERSEDED at Phase-C landing: this git-operation criterion is
+  re-cut by the decision's OBJECT — [autonomous-night v3 §6](2026-08-09-autonomous-night-v3-design.md);
+  all other floor items below stand unchanged)*; deleting non-generated artifacts; anything externally visible
   (publish, egress, messages to humans); spend beyond standing caps; security/permission
   changes; edits crossing the [Artifact Ownership Contract](../../../CLAUDE.md) into
   maintainer-only surfaces. Out-of-envelope questions stay parked with the decision package
@@ -406,9 +408,22 @@ split into Part I (policy) + Part II (overlay).
 - **P5 — multi-match frequency:** the rule is codified in §6 (0 or >1 → skip); the probe
   only documents observed collision frequency.
 - **F4 — CLI headless spawn + cross-session SendMessage (co-critical, elevated by the
-  operator's split directive §4):** prep §2 recipe; the only candidate for night
-  session-birth (multi-session night, self-respawn on context pressure) and for a future
-  `ANSWERED` recipient class.
+  operator's split directive §4; recipe extended at Phase-C landing per
+  [autonomous-night v3 §4](2026-08-09-autonomous-night-v3-design.md)):** prep §2 recipe; the
+  only candidate for night session-birth (multi-session night, self-respawn on context
+  pressure) and for a future `ANSWERED` recipient class. TWO recipes, BOTH probes, zero
+  landings: **F4a** — the seat session itself calls the CLI to spawn a successor; **F4b** —
+  a Stop-hook-launched successor, probed OUTSIDE shipped surfaces (throwaway local hook in a
+  scratch project; the shipped Stop hook is D7-owned — zero hook edits land with the probe).
+  Probe checks (v3 §4): (a) CLI-born session visibility in `list_sessions` / ccd
+  reachability; (b) spawn-storm guard — one successor per trigger, debounced per the
+  story-flag precedent; the chain-spawn daemon-shape question is probe OUTPUT for the
+  operator's classification; (c) billing — LIVE-VERIFIED 2026-08-09: `claude -p` /
+  Agent-SDK usage draws from the SUBSCRIPTION pool (the 2026-06-15 separate credit-pool
+  policy was paused on its own effective date); the r1 cost-GO gate is RETIRED — what
+  remains is cost-awareness under item 3's quota backoff, and any future billing change
+  RE-OPENS this check; (d) an F4-positive re-opens the §7 «recipes-ONLY» conclusion and §9
+  claim-1 scope. Any F4b LANDING = a new operator fork routed to the D7 owner.
 - **Corpus-vs-envelope validation** (§4) — required before Part I lands.
 
 ## §14 Round-1 disposition changelog (both reports, every finding)
