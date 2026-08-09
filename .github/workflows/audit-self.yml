@@ -499,6 +499,13 @@ jobs:
         run: bash scripts/check-bundle-dep-parity.test.sh
       - name: Run synth-bundle cwd-independence test (build runs from any directory)
         run: bash scripts/build-synth-bundle.test.sh
+      # Paired contract for the K4 contract-coverage emitter. The emitter is not a gate
+      # (it always exits 0), so the negative leg is on its OUTPUT: a kickoff whose
+      # host-verify block misses a permitted area must emit a CANDIDATE naming it, and a
+      # kickoff whose block covers the allowlist must emit none. Wired here so the
+      # emitter cannot go silently dead — an unwired can-it-fire proof is not a proof.
+      - name: Run host-verify contract-coverage paired-negative (K4 emitter)
+        run: bash scripts/host-verify-coverage.test.sh
       - name: Run install-sh audit-r4 shipped test (consumer-install-hardening F6)
         run: bash tests/install-sh/audit-r4-shipped.test.sh
       - name: Run install-sh hook-activation test (consumer-install-hardening F2)

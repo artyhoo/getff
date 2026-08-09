@@ -124,6 +124,33 @@ as a gate a broader form of the same extractor was falsified at **0/2 recall** o
 incidents of the class
 ([research-patch §3](../docs/meta-factory/research-patches/2026-08-09-kickoff-allowlist-obligation-closure.md)).
 
+**Candidate emission 3 — contract ↔ deliverable coverage.** A kickoff's `host-verify`
+contract can pass green on a branch whose central deliverable is absent, because nothing
+relates the declared commands to the areas the allowlist permits. This is the substance
+sibling of `#silent-contract-skip`
+([destination-environment-verification.md §4](../.claude/rules/destination-environment-verification.md)):
+the contract does not skip, it _runs_ and reports PASS while asserting nothing about the
+deliverable. Motivating incident — getff-freshness-widening S1 (merged PR #1333): §2
+permitted `packages/core/synthesizer/**` and §3 criterion 3 was about a synthesis-time
+stamp, yet `bash scripts/host-verify.sh getff-freshness-widening-s1` returned **4/4 PASS**
+on a branch where `packages/core/synthesizer/generate.ts` never stamped `tier` — graded a
+MAJOR on cold audit.
+
+```bash
+bash scripts/host-verify-coverage.sh <umbrella|dispatch-input-path>
+```
+
+Emit its `CANDIDATE:` lines verbatim into `K6 candidates:`. **Candidates, never findings** —
+they carry no REVISE weight on their own: measured over the whole contract-bearing
+population (2026-08-09), the emitter yields **63 candidates across the 11 kickoffs that
+carry an allowlist** (5.7/file), a density that disqualifies a gate and is exactly right
+for a candidate list. Routing them to K4 would make REVISE the permanent verdict.
+
+**Read `Allowlist: ABSENT` as missing input, never as health.** **30 of the 41**
+contract-bearing kickoffs state scope as prose plus an `Anti-scope`/`Descopes` denylist, so
+there is no set to subtract from; the emitter prints `Candidates: N/A` for exactly that
+reason (T14).
+
 **Known false-negative classes** (state beside the candidates — never report «closure clean»):
 _(i) obligation names no path_ — «RE-LAND the SSOT row» addresses its target by concept, beyond
 the grep's reach; that is the motivating incident's own shape, closed only by the adjudicator's
