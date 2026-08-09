@@ -189,6 +189,8 @@ SHIPPED_DOCS=(
   "packages/core/templates/shared/DESCRIPTION.template.md"
   "packages/core/templates/shared/ARCHITECTURE.ts-server.md"
   "packages/core/templates/shared/integration-rules.md"
+  "packages/core/templates/shared/tier-home.md"
+  "packages/core/templates/shared/AI-USAGE-GUIDE.md"
   "packages/preset-next-15-canonical/RULES.md"
   "packages/preset-next-15-canonical/RULES.react-next.md"
   "packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md"
@@ -608,6 +610,7 @@ do_refresh() {
       manual-rule-liveness-prober.md) continue ;;
       shipped-agent-liveness-prober.md) continue ;;
       backward-sweep-auditor.md) continue ;;  # authoring-only tool (§1.7 backward-check cold-sweep, T21)
+      dual-channel-drift-auditor.md) continue ;;  # authoring-only tool (dual-implementation-discipline §8 semantic half — @dual-pair group drift/copy audit)
       adapter-jig-reviewer.md) continue ;;  # authoring-only tool (framework-side adapter-wiring conformance review, adapter-jig J1)
       dispatch-input-checker.md) continue ;;  # authoring-only station (arch-v2 S-B contract v2, dispatch-input reality-check)
       getff-cold-run-prober.md) continue ;;  # framework-only (S4 one-beat cold-run protocol — run BY framework against consumer, not shipped; spec §9.3)
@@ -1082,6 +1085,18 @@ do_refresh() {
   copy_safe "$_arch_sot_src" "$_arch_sot_dst"
   rewrite_arch_sot_header "$_arch_sot_dst" "$_arch_sot_existed"
 
+  # ── tier-home doc (env+ profiles; beta-delivery-ux S3) — #869 refresh parity ──
+  # Framework-owned: refresh must re-deliver fixes. Presence-gated like the skill-context
+  # arm below: only env+/factory installs placed it; refresh must not create it on core.
+  if [ -e "$PROJECT_ROOT/.ai-factory/tier-home.md" ]; then
+    refresh_safe "$PKG_ROOT/packages/core/templates/shared/tier-home.md" "$PROJECT_ROOT/.ai-factory/tier-home.md"
+  fi
+
+  # ── AI Usage Guide (every depth; beta-ai-docs-agnosticism S1) — refresh parity ──
+  # Framework-owned: refresh must re-deliver fixes, and its §2 First Steps renders from an SSOT
+  # that moves, so a brownfield consumer stuck on an old copy would follow stale steps.
+  refresh_safe "$PKG_ROOT/packages/core/templates/shared/AI-USAGE-GUIDE.md" "$PROJECT_ROOT/.ai-factory/AI-USAGE-GUIDE.md"
+
   # ── Skill-context overrides (derived from SHIPPED_DOCS — cannot drift) ──
   echo "▶ Skill-context → .ai-factory/skill-context/"
   for _doc in "${SHIPPED_DOCS[@]}"; do
@@ -1128,3 +1143,20 @@ for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do
   # shellcheck source=/dev/null
   source "$f"
 done
+
+# ─── aif-handoff guided install (beta-delivery-ux S4, spec §4 A1) ────────────
+# Under PROFILE=factory (or legacy --with-aif-suite), offer the consented guided INSTALL
+# for the aif-handoff runtime. The helper mirrors setup.d/bridge-guided.sh's shape: detect-first
+# (bridge_diagnose), consented docker-compose install, decline → graceful env-level degradation.
+# Gating matches setup.d/10-skills.sh:95 exactly (PROFILE=factory OR WITH_AIF_SUITE set).
+# Runs AFTER the setup.d layer loop so RUNTIME_BRIDGE_AIF_URL is in scope + all layers shipped.
+if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
+  echo "▶ aif-handoff guided install (profile=factory)"
+  if [ -f "$PKG_ROOT/setup.d/aif-handoff-guided-install.sh" ]; then
+    bash "$PKG_ROOT/setup.d/aif-handoff-guided-install.sh" || true
+  else
+    # Consumer install payload may not include this helper (e.g. core-only checkout refreshed
+    # with --profile factory but the helper file was not in the original payload). Graceful skip.
+    echo "  ⊝ setup.d/aif-handoff-guided-install.sh not present in this checkout — see docs/runtime-bridge-setup.md"
+  fi
+fi

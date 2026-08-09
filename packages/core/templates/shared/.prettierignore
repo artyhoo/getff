@@ -75,3 +75,5 @@ coverage/
 .stryker-tmp/
 node_modules/
 reports/
+.ai-factory/tier-home.md
+.ai-factory/AI-USAGE-GUIDE.md

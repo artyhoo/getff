@@ -48,13 +48,26 @@ while IFS= read -r f; do
       ;;
     *.md)
       # Exempt: declared-transient artifacts (must contain "transient artifact" in first 20 lines)
-      # Mirrors audit-self.yml mechanical step exempt list.
+      # (2026-08-08: no CI mirror — audit-self.yml carries no 600-line check; this hook is the only channel.)
       case "$f" in
         docs/meta-factory/EXECUTION-PLAN.md)
           if head -20 "$f" | grep -qi "transient artifact"; then
             : # skip — declared transient, see line 8
           else
             echo "❌ $f is in exempt list but lacks 'transient artifact' marker in first 20 lines"
+            fail=1
+          fi
+          continue
+          ;;
+        # Grandfathered over-limit closed research-patch (605 lines at closure, 2026-05-29).
+        # Append-only archive: splitting would sever its folder-level authority + external
+        # citations, so it is exempted instead (operator decision 2026-08-08, PR #1282 fork).
+        # The marker requirement keeps the exemption self-documenting at the file itself.
+        docs/meta-factory/research-patches/2026-05-29-aif-handoff-bridge-variant-b-prime-hybrid.md)
+          if head -20 "$f" | grep -qi "line-limit-exempt"; then
+            : # skip — grandfathered, see marker in file header
+          else
+            echo "❌ $f is in exempt list but lacks 'line-limit-exempt' marker in first 20 lines"
             fail=1
           fi
           continue

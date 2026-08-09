@@ -37,7 +37,7 @@ Every rule fits into one of five layers, each with its own enforcement mechanism
 
 These five extend in two directions:
 
-- **Down (shift-left → pre-PR)**: AI Factory `/aif-verify` with sub-agents (`rules-sidecar` validates `.ai-factory/RULES.md`; `review-sidecar` runs our two-AI tautology criteria delivered via the `aif-review` skill-context override).
+- **Down (shift-left → pre-PR)**: `./scripts/audit-ai-docs.sh` plus the `review-sidecar` / `living-docs-auditor` sub-agents, all shipped by this installer. Where an external AI-Factory runtime is present it can wrap that same gate, but it is never the gate itself — an external tool this installer does not deliver cannot be the pre-PR layer.
 - **Up (shift-right → production)**: SLO-as-code (OpenSLO + Pyrra), error budgets, feature flags + observability 2.0, synthetic monitoring, chaos engineering.
 
 Plus a sideways layer:
@@ -125,13 +125,13 @@ Every one of these is caught by a specific automated rule from this skill's temp
 - **Error budget** — the allowed amount of unreliability over a window. SLO = 99.95% → budget = 0.05% over 28 days.
 - **Observability 2.0** — wide events with high cardinality replacing static dashboards (Charity Majors, Honeycomb).
 - **`can-i-deploy`** — Pact Broker query: "can this version be deployed without breaking deployed consumers?"
-- **`/aif-verify`** — AI Factory pre-PR gate that runs sub-agents over RULES.md.
+- **`/aif-verify`** — a pre-PR command belonging to the EXTERNAL AI Factory tool, which this installer does not bundle. Listed here as vocabulary you may meet in the wild, not as a step in this project's gate; the shipped gate is `./scripts/audit-ai-docs.sh` + pre-push + CI.
 
 ## Connecting to broader practice
 
 The framework integrates with:
 
-- **AI Factory (aif)** — Claude Code workflow tool. Slash-commands (`/aif-plan`, `/aif-implement`, `/aif-verify`, `/aif-commit`). Sub-agents (`rules-sidecar` validates against `RULES.md`; `review-sidecar`) run under `/aif-verify`.
+- **AI Factory (aif)** — a separate Claude Code workflow tool, **not bundled by this installer**. Where a consumer already runs it, its `rules-sidecar` reads our `.ai-factory/RULES.md` and our review content reaches its `review-sidecar` through the `aif-review` skill-context override — that integration seam is why the `.ai-factory/` file convention exists. Using the tool is never a prerequisite for anything this framework enforces.
 - **GitHub Actions / GitLab CI** — required `ci-success` job as the merge gate.
 - **OpenTelemetry** — instrumentation for shift-right SLOs and observability.
 - **OpenSLO + Pyrra/Sloth** — declarative SLOs as code, compiled to Prometheus rules.

@@ -188,14 +188,26 @@ package_has_zod() { # $1=boundary file → 0 iff nearest package.json declares "
 }
 
 verify_file() { # $1=file
-  local file="$1" gd rel label out
+  local file="$1" gd rel label out rc err errfile
   gd=$(governing_dir "$file")
   if [ "$gd" = "." ]; then rel="$file"; label="root config"; else rel="${file#"$gd"/}"; label="${gd#./}"; fi
   CHECKED=$((CHECKED + 1))
   # Run from the governing dir — the same cwd `turbo run lint` uses for this package, so the resolved
   # config is what ACTUALLY lints the file (not the root config a root-cwd run would wrongly pick).
-  out=$( cd "$gd" && $ESLINT --print-config "$rel" 2>/dev/null )
-  if printf '%s' "$out" | grep -q "$RULE"; then
+  # Keep rc AND stderr instead of discarding them: a CRASHED eslint (module resolution, broken config,
+  # OOM) also prints no rule, so it used to emit the very same "SILENTLY INERT" ✗ line as genuine
+  # inertness — ambiguous by construction, and the reason the 2026-08 consumer-matrix CI signature
+  # could not be classified without an in-situ patch. Crash-shaped failures get their own message
+  # below; the inertness branch stays byte-identical (its wording is a recorded reopen-trigger
+  # signature) and both branches fail closed.
+  errfile=$(mktemp)
+  out=$( cd "$gd" && $ESLINT --print-config "$rel" 2>"$errfile" ); rc=$?
+  err=$(cat "$errfile"); rm -f "$errfile"
+  if [ "$rc" -ne 0 ]; then
+    echo "  ✗ $label: eslint --print-config FAILED (rc=$rc) for ${file#./} — R2 enforcement is UNVERIFIED here, not known to be absent. This is a crash, not rule inertness: fix the eslint invocation, then re-run. eslint stderr:" >&2
+    printf '%s\n' "${err:-(eslint wrote nothing to stderr)}" | sed 's/^/       /' >&2
+    FAIL=1
+  elif printf '%s' "$out" | grep -q "$RULE"; then
     echo "  ✓ $label: R2 applied to ${file#./}"
   else
     echo "  ✗ $label: R2 ($RULE) is NOT in the resolved ESLint config for ${file#./} — SILENTLY INERT here (verified from the package's own cwd, as \`turbo run lint\` resolves it)." >&2

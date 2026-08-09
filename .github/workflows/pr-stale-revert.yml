@@ -1,0 +1,75 @@
+name: pr-stale-revert
+
+# Stale-base rebuild gate — every base=staging PR is checked for files it sets BACK to
+# an OUTDATED version of that file on the base branch.
+#
+# Why this exists (2026-08-08, incident PR #1285 → repaired by #1298): #1285 was
+# squash-rebuilt — a fresh branch forked from the then-current staging tip, with the
+# ORIGINAL branch's whole tree (based on an older staging) committed over it. Every file
+# staging had moved in between became a silent REVERSION inside the PR's own diff:
+# `.claude/orchestrator-prompts/consumer-matrix-pnpm-flake/kickoff.md` went rev2→rev1
+# (discarding #1283) and `setup.d/10-skills.sh` lost its §1j block (discarding #1284 — a
+# live consumer-facing regression). Nothing caught it: GitHub's "require branches to be
+# up to date" is POSITIONAL (the branch WAS up to date; the stale content arrived as the
+# PR's own change), no CI test covered the reverted content (a merge queue shares that
+# blindness — it re-runs status checks, it does not compare content lineage), and the 21
+# reverted lines sat inside a 2498-insertion diff, i.e. bare attention
+# (.claude/rules/attention-is-not-a-mechanism.md §1). Rule: git-conflict-merge-forward.md §8.
+#
+# Deterministic git plumbing, no LLM (.claude/rules/no-paid-llm-in-ci.md). Re-fires on
+# `edited` so adding the `STALE-REVERT: intended — …` escape token re-runs the gate.
+# Unfiltered events on the pr-body-prior-art.yml model (#1098) — a paths: filter would
+# un-fail-close exactly the docs/config PRs where this class hides.
+#
+# ADVISORY until registered: this job blocks merges only once the operator registers
+# `stale-revert-in-pr-diff` as a REQUIRED check in the STAGING branch-protection set.
+# CI cannot verify that registration (GITHUB_TOKEN cannot read branches/*/protection —
+# see the KNOWN LIMITATION in workflow-integrity.yml, measured on PR #1102). Do not read
+# a green run as proof the context is registered. base=main PRs never run this job
+# (workflow if:), so the promote flow is unaffected.
+#
+# Paired tests: packages/core/hooks/checks/pr-stale-revert.test.ts +
+# pr-stale-revert-bin.test.ts (the latter runs the shipped provider and the bin against a
+# throwaway fixture repository).
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  stale-revert-in-pr-diff:
+    # name == job id, deliberately (same reason as `fidelity-verdict-in-pr-body` in
+    # pr-body-fidelity.yml and `ci-success` in audit-self.yml): GitHub reports the
+    # status-check context under `name:`, so this exact string is what the operator must
+    # register in staging branch protection. A display name here would invite registering
+    # the job id instead — deadlocking every staging PR on a context that never reports.
+    name: stale-revert-in-pr-diff
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.base.ref == 'staging'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0  # blob archaeology walks the base-side history of each file
+          # PR tip, not the synthetic merge commit (same trap as audit-self.yml
+          # `pr-commit-trailers`). Without this ref, a `pull_request` checkout lands on
+          # `refs/pull/N/merge`, where git has ALREADY merged the newer base content over
+          # the stale file — the signal is erased and the gate fails OPEN in exactly the
+          # scenario it exists for.
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '22'
+      - name: Install packages/core deps (tsx runtime)
+        run: npm ci --prefix packages/core --silent
+      - name: Detect files reverted to an outdated base-branch version
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: npx --prefix packages/core tsx packages/core/hooks/checks/pr-stale-revert-bin.ts

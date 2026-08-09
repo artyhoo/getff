@@ -105,19 +105,24 @@ EXC
 # Scan ALL setup.d/*.sh (not just 40-configs.sh), skip comment lines (a commented-out copy_safe is
 # not a live delivery). Normalize each dst to the literal prefix up to the first $-expansion.
 # S4 (getff-honest-signals): workflow deliveries moved from copy_safe onto deliver_getff_workflow
-# (which is copy_safe-equivalent + branch substitution). The verb alternation MUST include both,
-# or workflow destinations silently drop out of FULL → Check 2 (EXCLUDED ⊆ FULL) flags them as
-# stale exclusions (false RED), and Check 1 (FULL ⊆ REFRESH ∪ EXCLUDED) stops seeing them at all
-# (silent green — the #blind-gate shape this whole stage exists to kill).
+# (which is copy_safe-equivalent + branch substitution). beta-ai-docs-agnosticism S1: the consumer
+# root AGENTS.md moved from copy_safe onto install_agents_md (merge_fenced — section-scoped
+# co-ownership, since another generator also writes that file). The verb alternation MUST include
+# EVERY such verb, or those destinations silently drop out of FULL → Check 2 (EXCLUDED ⊆ FULL)
+# flags them as stale exclusions (false RED), and Check 1 (FULL ⊆ REFRESH ∪ EXCLUDED) stops seeing
+# them at all (silent green — the #blind-gate shape this whole stage exists to kill).
+# AGENTS.md stays EXCLUDED from do_refresh: refresh_safe rewrites a WHOLE file, which is precisely
+# wrong for a co-owned one. Re-injecting only the fence on refresh is now mechanically possible and
+# is a deliberate follow-up, not a silent behaviour change here.
 # shellcheck disable=SC2016  # single-quoted regex matches the literal '$PROJECT_ROOT' in source; no expansion intended
-FULL=$(grep -hE 'copy_safe|deliver_getff_workflow' "${NPM_LANE_LAYERS[@]}" 2>/dev/null | grep -vE '^[[:space:]]*#' \
+FULL=$(grep -hE 'copy_safe|deliver_getff_workflow|install_agents_md' "${NPM_LANE_LAYERS[@]}" 2>/dev/null | grep -vE '^[[:space:]]*#' \
   | grep -oE '\$PROJECT_ROOT/[A-Za-z0-9._/-]*' | sed -E 's#\$PROJECT_ROOT/##' | sort -u)
 
 # Fail loud if a copy_safe/deliver_getff_workflow dst begins with an immediate variable
 # ("$PROJECT_ROOT/$x") — it would normalize to the empty string and silently escape FULL
 # (a false-GREEN hole). None exist today.
 # shellcheck disable=SC2016
-if grep -hE 'copy_safe|deliver_getff_workflow' "${NPM_LANE_LAYERS[@]}" 2>/dev/null | grep -vE '^[[:space:]]*#' \
+if grep -hE 'copy_safe|deliver_getff_workflow|install_agents_md' "${NPM_LANE_LAYERS[@]}" 2>/dev/null | grep -vE '^[[:space:]]*#' \
    | grep -qE '"\$PROJECT_ROOT/\$'; then
   echo "FATAL: a copy_safe/deliver_getff_workflow dst starts with an immediate \$var after \$PROJECT_ROOT/ — unparseable; extend the gate"; exit 1
 fi

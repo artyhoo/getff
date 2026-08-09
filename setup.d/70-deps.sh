@@ -109,14 +109,17 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
       // cih-s1 F2: also merge the devDeps the SHIPPED HOOKS need so they run, not just exist.
       // .husky/pre-commit calls `npx lint-staged`; the canonical scripts call `husky` (prepare)
       // and sort-package-json. Without these the hooks are dead even after `npm install`. Same
-      // non-destructive guard as scripts: only keys the consumer lacks; caret ranges (not in the
-      // framework root package.json — no range to mirror, per orchestrator note) so consumers get
-      // patches. devDependencies object created if absent.
+      // non-destructive guard as scripts: only keys the consumer lacks. 2026-08-08: these three
+      // specs now mirror CORE_DEVDEPS below EXACTLY — tilde, not caret, where the node-20.19
+      // engines floor forced a pin below registry latest (the floor has moved WITHIN a major, so
+      // a caret would re-open it). Fourth copy of the same specs lives in
+      // tests/install-sh/f2-hook-activation.test.sh:34 (strict equality).
+      // devDependencies object created if absent.
       pkg.devDependencies = pkg.devDependencies || {};
       const wantDev = {
         "husky": "^9.1.7",
-        "lint-staged": "^15.2.10",
-        "sort-package-json": "^2.10.1"
+        "lint-staged": "~16.4.0",
+        "sort-package-json": "~3.7.1"
       };
       let addedDev = 0;
       for (const [k, v] of Object.entries(wantDev)) if (!(k in pkg.devDependencies)) { pkg.devDependencies[k] = v; addedDev++; }
@@ -155,15 +158,18 @@ fi
 # installs under --legacy-peer-deps (see REACT_NATIVE_DEVDEPS below), which suppresses the peer-RANGE
 # check that shields the strict-peer stacks — so its typescript spec must carry its own cap. Revisit
 # this pin (and the RN one) when typescript-eslint's peer range admits TS 7.
+# 2026-08-08 pin sweep (consumer-matrix-pnpm-flake follow-up #2): the 16 remaining floats pinned at
+# the newest line whose engines.node admits the node-20.19 brownfield floor (the "brownfield
+# consumers may keep an older 20.19+ .nvmrc" note below); tilde = engines-forced below registry latest.
 CORE_DEVDEPS=(
-  eslint@^9 typescript-eslint@^8.59 @eslint/js@^9 @typescript-eslint/utils globals
-  prettier@3.8.3 eslint-config-prettier @vitest/eslint-plugin
+  eslint@^9 typescript-eslint@^8.59 @eslint/js@^9 @typescript-eslint/utils@^8.62.0 globals@^17.7.0
+  prettier@3.8.3 eslint-config-prettier@^10.1.8 @vitest/eslint-plugin@^1.6.20
   typescript@^5.7.0
   vitest@^4.1.5 @vitest/coverage-v8@^4.1.5
-  @stryker-mutator/core @stryker-mutator/vitest-runner @stryker-mutator/typescript-checker
-  dependency-cruiser fast-check glob ts-morph tsx
-  husky lint-staged sort-package-json
-  npm-run-all2 @types/node@^22.10.0
+  @stryker-mutator/core@^9.6.1 @stryker-mutator/vitest-runner@^9.6.1 @stryker-mutator/typescript-checker@^9.6.1
+  dependency-cruiser@~17.4.3 fast-check@^4.8.0 glob@^13.0.6 ts-morph@^28.0.0 tsx@^4.22.4
+  husky@^9.1.7 lint-staged@~16.4.0 sort-package-json@~3.7.1
+  npm-run-all2@~8.0.4 @types/node@^22.10.0
 )
 # npx-float (2026-07-10): concurrently/http-server/wait-on are invoked via bare `npx` by the
 # shipped react-next CI template (packages/preset-next-15-canonical/templates/

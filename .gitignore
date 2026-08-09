@@ -41,6 +41,17 @@ packages/*/node_modules
 # umbrella has six dispatch stages.
 !.claude/orchestrator-prompts/beta-delivery-ux/kickoff-s*.md
 !.claude/orchestrator-prompts/beta-delivery-ux/kickoff-r*.md
+# beta-ai-docs-agnosticism per-stage dispatch inputs (S1-S4). Same rationale as the
+# two globs above: the meta-launch kickoff is a plan, not a buildable task, so each
+# stage needs its OWN kickoff, tracked so it reaches `staging` for the dispatch
+# session to read (.claude/rules/kickoff-staging-placement.md §1). Per-umbrella glob
+# — this umbrella has four dispatch stages.
+!.claude/orchestrator-prompts/beta-ai-docs-agnosticism/kickoff-s*.md
+# aif-handoff-runtime-bridge-iphase §12 audit-trail extraction (2026-08-08): the
+# kickoff hit the 600-line pre-commit gate (651 lines), so §12 moved verbatim to
+# kickoff-amendments.md. Tracked for the same reason as the globs above — it is
+# part of the durable kickoff record and must survive on `staging`.
+!.claude/orchestrator-prompts/aif-handoff-runtime-bridge-iphase/kickoff-amendments.md
 *.log
 .DS_Store
 *.tgz
