@@ -357,10 +357,18 @@ else
     # real home (.ai-factory/synthesizer-output/, NOT .getff/ — only the python lock lives
     # there; setup.d/46-cargo.sh:198-199 + 47-go.sh:164-165). The prior arm pointed at
     # .getff/rules-lock.{cargo,go}.json which NOTHING writes — `[ -f … ]` was false on every
-    # tree and both branches took the `else`, emitting `ok`. Independently, py_fixture seeds
-    # only pyproject.toml, so the lanes declined at manifest-detect anyway. Both preconditions
-    # must hold for the criterion-4 lock-level check to actually fire (verified live: the three
-    # lanes coexist on one consumer, all exit 0, all three locks appear).
+    # tree and both branches took the `else`, emitting `ok`. THAT wrong path was the whole
+    # defect; the seeds below are not what makes the lanes run.
+    #
+    # R2 correction (cold audit round 2, MINOR): an earlier draft of this comment claimed the
+    # lanes «declined at manifest-detect» without a Cargo.toml/go.mod. There is no such gate —
+    # the positional `cargo`/`go` arg sets TOOLCHAIN and routes to do_cargo_lane/do_go_lane
+    # (install.sh:152/155 → :290/:318), which export GETFF_TOOLCHAIN and deliver unconditionally;
+    # `_cargo_write_rules_lock` runs before the firing self-check, so the lock lands either way.
+    # The seeds stay because a cargo lock emitted onto a tree with no Cargo.toml is an artefact
+    # of the fixture rather than a realistic consumer — but they are a REALISM choice, not a
+    # precondition (verified live: the three lanes coexist on one consumer, all exit 0, all three
+    # locks appear).
     printf '[package]\nname = "demo"\nversion = "0.0.1"\nedition = "2021"\n' > "$P13/Cargo.toml"
     printf 'module demo\n\ngo 1.21\n' > "$P13/go.mod"
     # Run the real --from-practice CLI against the consumer (NOT a hand-placed fragment).
@@ -416,34 +424,55 @@ else
     # criterion 3 forbids and S1 round-3 rejected once already. The new pattern binds the
     # tier that sits AFTER the `]` closing the provenance array (i.e. the rule-level tier).
     #
-    # Discrimination proof: hand-build all three synthetic locks the cold audit measured, and
-    # show the new pattern fires on exactly the honest one. A regex change without this proof
-    # does not close M1.
+    # R2 rework (cold audit round 2, MAJOR): the round-1 repair used an UNBOUNDED `.*` between
+    # the rule id and `],"tier":0`. `_py_write_rules_lock` emits the whole `rules[]` array on ONE
+    # line (setup.d/45-python.sh `printf '  "rules": %s,\n'`), and the lock is multi-rule (four
+    # starter rules under packages/core/templates/python/.getff/astgrep-rules/ plus the researched
+    # one), so `.*` traversed past the researched rule's own object into a LATER rule and bound
+    # ITS `],"tier":0`. A researched rule carrying rule-tier 2 therefore passed as a derived
+    # Tier-0 stamp whenever any later rule was Tier-0 — the round-1 defect through a new door.
+    # The bound is `[^]]*`, which cannot cross the `]` that closes this rule's provenance array.
+    #
+    # ONE pattern, TWO uses (round-2 W-8): the discrimination proof below and the live assertion
+    # further down consume the SAME variable. Round 1 wrote them as two separate regex literals
+    # that already differed textually, so the proof certified a string the assertion did not use
+    # — `#sync-by-copy-paste` (dual-implementation-discipline.md §8) at the proof level.
+    #
+    # Discrimination proof: hand-build the four synthetic locks — the three the round-1 audit
+    # measured PLUS the multi-rule shape that defeated the round-1 pattern — and show the pattern
+    # fires on exactly the honest one. A regex change without this proof does not close M1.
+    _m1_re='","provenance":\[[^]]*\],"tier":0([^0-9]|$)'
     _m1_honest=$(mktemp); _m1_dishonest=$(mktemp); _m1_empty=$(mktemp)
+    _m1_multi=$(mktemp); _m1_multi_honest=$(mktemp)
     printf '  "rules": [{"id":"%s","provenance":[{"url":"u","allowlistKey":"pyyaml","fetchedAt":"2026-07-11","tier":0}],"tier":0}],\n' "$RULE_ID_13" > "$_m1_honest"
     printf '  "rules": [{"id":"%s","provenance":[{"url":"u","allowlistKey":"pyyaml","fetchedAt":"2026-07-11","tier":0}],"tier":2}],\n' "$RULE_ID_13" > "$_m1_dishonest"
     printf '  "rules": [{"id":"%s","provenance":[],"tier":2}],\n' "$RULE_ID_13" > "$_m1_empty"
-    # Pattern: rule-id + any chars + closing-bracket-of-provenance-array + rule-level tier 0.
-    # The `],"tier":0` substring only matches the rule-level tier (the source-tier inside
-    # provenance is preceded by a comma or `{`, never by `]`). Anchored on the rule-id so
-    # multiple rules in a real lock do not cross-bind.
-    _m1_re='.*],"tier":0([^0-9]|$)'
-    _h=$(grep -qE "\"$RULE_ID_13$_m1_re" "$_m1_honest"     && echo pass || echo fail)
-    _d=$(grep -qE "\"$RULE_ID_13$_m1_re" "$_m1_dishonest"  && echo WRONGLY-pass || echo correctly-fail)
-    _e=$(grep -qE "\"$RULE_ID_13$_m1_re" "$_m1_empty"      && echo WRONGLY-pass || echo correctly-fail)
-    if [ "$_h" = "pass" ] && [ "$_d" = "correctly-fail" ] && [ "$_e" = "correctly-fail" ]; then
-      ok "(13) M1 discrimination: new tier pattern binds RULE-LEVEL tier (honest->pass, dishonest rule-tier:2+Tier-0-src->fail, empty-fallback->fail)"
+    # The round-2 defeater: researched rule dishonest at rule level, a LATER rule honestly Tier-0.
+    # This is the real lock's shape (one researched rule + starter rules on a single line).
+    printf '  "rules": [{"id":"%s","provenance":[{"url":"u","allowlistKey":"pyyaml","fetchedAt":"2026-07-11","tier":0}],"tier":2},{"id":"getff-no-eval","provenance":[],"tier":0}],\n' "$RULE_ID_13" > "$_m1_multi"
+    # Over-tightening control (the opposite error): an HONEST researched rule followed by a
+    # Tier-2 starter rule — the real lock's actual shape. A pattern tightened until it can no
+    # longer match a multi-rule lock at all would fail this case and silently red the live arm.
+    printf '  "rules": [{"id":"%s","provenance":[{"url":"u","allowlistKey":"pyyaml","fetchedAt":"2026-07-11","tier":0}],"tier":0},{"id":"getff-no-eval","provenance":[],"tier":2}],\n' "$RULE_ID_13" > "$_m1_multi_honest"
+    _h=$(grep -qE "\"$RULE_ID_13$_m1_re" "$_m1_honest"       && echo pass || echo fail)
+    _d=$(grep -qE "\"$RULE_ID_13$_m1_re" "$_m1_dishonest"    && echo WRONGLY-pass || echo correctly-fail)
+    _e=$(grep -qE "\"$RULE_ID_13$_m1_re" "$_m1_empty"        && echo WRONGLY-pass || echo correctly-fail)
+    _m=$(grep -qE "\"$RULE_ID_13$_m1_re" "$_m1_multi"        && echo WRONGLY-pass || echo correctly-fail)
+    _mh=$(grep -qE "\"$RULE_ID_13$_m1_re" "$_m1_multi_honest" && echo pass || echo WRONGLY-fail)
+    if [ "$_h" = "pass" ] && [ "$_d" = "correctly-fail" ] && [ "$_e" = "correctly-fail" ] \
+       && [ "$_m" = "correctly-fail" ] && [ "$_mh" = "pass" ]; then
+      ok "(13) M1 discrimination 5/5: pattern binds THIS rule's tier (honest->pass; dishonest rule-tier:2+Tier-0-src->fail; empty-fallback->fail; multi-rule dishonest-then-Tier-0-neighbour->fail; multi-rule honest-then-Tier-2-neighbour->pass)"
     else
-      bad "(13) M1 discrimination FAILED: new tier pattern does not discriminate (honest=$_h dishonest=$_d empty=$_e)"
+      bad "(13) M1 discrimination FAILED: pattern does not discriminate (honest=$_h dishonest=$_d empty=$_e multi-dishonest=$_m multi-honest=$_mh)"
     fi
-    rm -f "$_m1_honest" "$_m1_dishonest" "$_m1_empty"
-    # Real assertion against the live lock — pattern: rule-id, then anything, then a literal
-    # ],"tier":0 (the tier that sits AFTER the close of the provenance array). The ([^0-9]|$)
-    # terminator guards against "tier":02 style false-positives (defensive; tiers are integers 0/1/2).
-    if grep -qE "\"$RULE_ID_13\".*],\"tier\":0([^0-9]|$)" "$L13" 2>/dev/null; then
+    rm -f "$_m1_honest" "$_m1_dishonest" "$_m1_empty" "$_m1_multi" "$_m1_multi_honest"
+    # Real assertion against the live lock — the SAME `$_m1_re` the proof above just certified.
+    if grep -qE "\"$RULE_ID_13$_m1_re" "$L13" 2>/dev/null; then
       ok "(13) tier=0 stamped at RULE LEVEL (after the ] closing provenance) — stampProvenanceTier derived verdict, NOT DEFAULT_TIER=2 fallback"
     else
-      _tier_13=$(grep -oE "\"$RULE_ID_13\".*],\"tier\":[0-9]+" "$L13" 2>/dev/null | head -1 | grep -oE '[0-9]+$')
+      # Same bound as the assertion: without `[^]]*` this diagnostic reports a NEIGHBOUR rule's
+      # tier and sends the next reader after the wrong defect.
+      _tier_13=$(grep -oE "\"$RULE_ID_13\",\"provenance\":\[[^]]*\],\"tier\":[0-9]+" "$L13" 2>/dev/null | head -1 | grep -oE '[0-9]+$')
       [ -z "$_tier_13" ] && _tier_13="<absent or bound to source-tier only>"
       bad "(13) rule-level tier='$_tier_13' for $RULE_ID_13 — expected 0 (Tier-0 builtin via stampProvenanceTier) — kickoff §3 criterion 3"
     fi
