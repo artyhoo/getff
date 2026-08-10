@@ -151,20 +151,27 @@ the two new rows, never re-typing the ratified ones).
   what it buys**; morning review compares against actuals. Systematic mispricing →
   consolidate a price-sheet artifact FIRST; a seat only if the artifact still fails
   (artifact-before-seat).
-- **Continuity:** seat-lifecycle protocol as-is ([seat-lifecycle.md](../../../.claude/rules/seat-lifecycle.md));
-  T_soft → Part-3 handoff (numbers stay provisional — PARK-CDC-1; the mechanism, not the
-  thresholds, is normative here). Standing seat = operating mode; artifact-backed rebuild =
-  the failure mode, routinely survivable (this contour is its own third live transfer).
+- **Continuity — role decoupled from session lifetime (operator amendment at gate,
+  2026-08-10, dissolving r1 TD ESCALATED-1):** the advisor ROLE and its
+  artifact-complete state (spec + decisions.md + open asks — guaranteed by invariant 1)
+  are the essence; the session hosting it is an operational MODE with two legal
+  instantiations: (a) **standing app session** — doorbell-reachable (P1), day-interactive
+  default; (b) **fresh instantiation rebuilt from the artifacts** — always legal (fresh
+  eyes are a bonus, per the operator: «спека, которую смотрят свежими глазами»),
+  mandatory at every T_soft anyway (seat-lifecycle protocol as-is,
+  [seat-lifecycle.md](../../../.claude/rules/seat-lifecycle.md); thresholds provisional —
+  PARK-CDC-1). Mode choice is config, not design: switch to (b) when the standing seat's
+  per-turn cost exceeds the fresh-inlined baseline (cold-seat-economy §3 row 4) or at any
+  context-hygiene point. This contour is its own third live transfer of exactly that
+  rebuild path.
   Night honesty: a CLI-born successor is ccd-deaf (F4a check (a)); until the P6-matrix
   passes, night degradation = defer-non-trivial or sweep-shot successor.
-- **Token-economy premise (operator):** a standing seat holds context — no per-consult
-  re-briefing; an idle app session burns zero between consults (doorbell transport).
-  Falsifier (extended, r1 TD MAJOR-6 — the original tested only re-briefing): live
-  consults show heavy re-briefing anyway, OR the standing seat's per-turn cost
-  (accumulated-context re-submission — [cold-seat-economy.md §3](../../../.claude/rules/cold-seat-economy.md)
-  rows 1-2 vs the 85,855-token inlined-fresh baseline, row 4) persistently exceeds the
-  per-consult-subagent alternative → revisit standing mode toward the SSOT #201
-  per-consult shape.
+- **Token-economy premise (operator; AMENDED at gate — see Continuity above):** an idle
+  app session burns zero between consults (doorbell transport), and the role's context is
+  artifact-complete. The r1 falsifier (per-turn accumulated-context cost vs the
+  85,855-token inlined-fresh baseline, [cold-seat-economy.md §3](../../../.claude/rules/cold-seat-economy.md)
+  row 4 — r1 TD MAJOR-6) is retained as the **mode-switch trigger** between the two legal
+  instantiations, no longer a design falsifier.
 
 ## §4 Transport + degradation
 
@@ -311,7 +318,10 @@ on the load-bearing half):
   never priced by the reviewer. Fixes the TD-M3 class — both live incidents.
 - **Severity contract:** only a finding with a concrete failure scenario / goal-impact
   statement may spawn a re-review round; everything else = notes lane (fixed same-round or
-  recorded — never a new round; an open note never moves the SHA). Discriminator =
+  recorded — never a new round; an open note never moves the SHA). **The reviewer still
+  initiates rounds** (operator-gate clarification): a scenario-bearing finding IS the
+  trigger, needing nobody's permission — what is withdrawn is label-only triggering (a
+  bare MAJOR with no scenario). Discriminator =
   scenario presence, NOT edit size and NOT the severity label (S4 round-7 caution: one
   «MINOR» was a real hole with a scenario — grade honestly, not «MINOR=noise»).
   **The same contract governs follow-up PRs** (r1 TD MAJOR-7 — the audit located the real
@@ -353,7 +363,10 @@ on the load-bearing half):
 3. Materiality-dispute procedure — one line, four verdicts, final for the round (§6).
 4. Proportionality rule — a probe demand prices what-breaks-if-wrong; reversible → build
    now, verify in practice (§5.3 L1).
-5. Token economy — standing seat, zero idle burn (§3). Falsifier attached.
+5. Token economy — AMENDED at the operator gate (2026-08-10): the role's context lives in
+   artifacts, so seat lifetime is an operational MODE (§3 Continuity) — standing session
+   for doorbell latency, fresh-from-artifacts whenever cheaper or cleaner; «fresh eyes» is
+   a bonus, not a failure mode. Supersedes the standing-only reading.
 6. One advisor only; dispatcher = execution owner; reviewers = powerless checkpoints;
    cost = artifact, not a session (§3, §9 D-AP2).
 7. Cost = effort against goal progress; the four tests; «боевые практики» practice-first
@@ -403,8 +416,9 @@ on the load-bearing half):
    **6b:** L0 rigor-label presence check (kickoff principle-test family, §5.3 L3(d)).
 7. Budget-tripwire mechanism lands with item 2; numbers deferred to calibration from audit
    chip `task_c8cfb806` rates.
-8. **Triage-kernel-v2 contour kickoff** (dedicated; corpus assembly per §5.4 — operator GO
-   starts it; this spec does not block on it).
+8. **Triage-kernel-v2 contour kickoff** (dedicated; corpus assembly + label adjudication
+   per §5.4) — **operator GO given at the gate: starts immediately after this spec lands**
+   (§11c ESCALATED-2 resolution); this spec does not block on its results.
 9. Consumer-delivery stage for the shipped halves (rule + reviewer grammar + skills), own
    review (per F10/F4b precedent) — after operator-side dogfood.
 10. P6-matrix probe run (§4) — post-spec, never a blocker.
@@ -496,3 +510,17 @@ BU MINOR-3, omitted from §11's enumeration); L4 honest channel split (rounds-on
 token half has no measurement surface); L3(d)→§8 item 6b billing; asker non-blocking
 wait semantics (§2); L3(c) answered⇒decisions-entry pre-push cross-check (detectable half
 to channel 1, morning review = authority only).
+
+### §11c Operator gate (2026-08-10) — ESCALATED resolutions + clarifications
+
+- **ESCALATED-1 → DISSOLVED by operator reasoning:** the standing-vs-per-consult cost
+  question dissolves once role is decoupled from session lifetime (§3 Continuity
+  amendment; §7 premise 5 amended) — both instantiations legal, the r1 cost falsifier
+  becomes the mode-switch trigger. Operator's own formulation: the state lives in the
+  artifacts; a fresh session reading them IS the advisor, fresh eyes included.
+- **ESCALATED-2 → RESOLVED by operator: NO numeric target for kernel-v1 residual
+  theatre.** The kernel-v2 contour starts immediately after this spec lands (§8 item 8
+  priority raised accordingly); its adjudicated corpus produces the baseline any
+  candidate must beat. D-AP5's falsifier guards the dangerous direction meanwhile.
+- Severity-contract clarification recorded in §6: the reviewer still initiates rounds via
+  scenario-bearing findings; only label-only triggering is withdrawn.
