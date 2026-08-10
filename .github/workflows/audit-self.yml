@@ -495,6 +495,12 @@ jobs:
         run: npx --prefix packages/core vitest run --reporter=default packages/core/install/wire-live-snippet.test.ts packages/core/install/wire-synth-rules.test.ts
       - name: Run local-ci-sweep paired-negative (harvest sweep aggregator)
         run: bash scripts/run-local-ci-sweep.test.sh
+      # Reverse direction of tests/install-sh/meta-all-wired.test.sh: every atomic command THIS
+      # workflow runs must be reachable from the sweep's gate table, or carry an explicit
+      # UNREACHABLE rationale. Without it the sweep's "green locally ⇒ green in CI" promise rests
+      # on someone re-reading both lists (.claude/rules/attention-is-not-a-mechanism.md §1).
+      - name: Run local-ci-sweep CI-coverage metatest (gate table mirrors this workflow)
+        run: bash scripts/run-local-ci-sweep-coverage.test.sh
       - name: Run synth-bundle dep-parity paired-negative (phantom-drift guard)
         run: bash scripts/check-bundle-dep-parity.test.sh
       - name: Run synth-bundle cwd-independence test (build runs from any directory)

@@ -13,9 +13,16 @@
 #
 # --- COVERAGE vs the required CI contexts (audited 2026-08-09) -----------------------------
 # staging branch protection requires exactly three contexts: `ci-success` (the audit-self.yml
-# aggregator that `needs:` every other job in that file), `fidelity-verdict-in-pr-body`
+# aggregator that `needs:` every other job in that file — kept complete by
+# packages/core/principles/36-ci-needs-completeness.test.ts), `fidelity-verdict-in-pr-body`
 # (pr-body-fidelity.yml) and `stale-revert-in-pr-diff` (pr-stale-revert.yml). There is no
 # ci.yml. A green sweep predicts a green CI only for the jobs listed as COVERED below.
+#
+# This table below is prose and drifts like any prose. The MECHANISM that keeps the gate table
+# itself honest is scripts/run-local-ci-sweep-coverage.test.sh: every single-line atomic command
+# audit-self.yml runs must be reachable from gate_table() or carry an explicit UNREACHABLE
+# rationale there. It covers the single-line layer only — jobs whose gate logic is inline
+# `run: |` / `run: >-` YAML stay invisible to it (see the UNREACHABLE entries below).
 #
 # COVERED — every `ci-success` need except those named UNREACHABLE:
 #   actionlint · typecheck · install-sh-a/b/c (the *.test.sh battery, byte-identical,
@@ -33,9 +40,11 @@
 #   zizmor                needs `pip install zizmor==1.26.1` (network + python env).
 #   framework-self-install-ts-server / -react-next, framework-fresh-install-validate (×4 stacks),
 #   framework-fresh-install-validate-multistack, consumer-matrix-start-cell,
-#   consumer-matrix-python-unfamiliar-stack-cell
+#   consumer-matrix-python-unfamiliar-stack-cell, consumer-matrix-npm-tarball-cell
 #                         each runs a real `install.sh … --full` into a tmp consumer and
 #                         installs its dependency tree — network, minutes, non-hermetic.
+#                         (consumer-matrix-npm-tarball-cell shipped after this list was written
+#                         and went unlisted — exactly the drift the coverage metatest now gates.)
 #   pr-commit-trailers    needs the PR base ref + the real PR commit range; the local channel
 #                         for it is the pre-push hook, not this sweep.
 #   fidelity-verdict-in-pr-body, stale-revert-in-pr-diff
@@ -63,14 +72,16 @@ TAB="$(printf '\t')"
 
 MODE="diff"
 BASE_REF=""
+LIST_GATES=0
 export CAPTURE=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --full) MODE="full" ;;
     --base) shift; BASE_REF="${1:-}" ;;
     --capture) CAPTURE=1 ;;
+    --list-gates) LIST_GATES=1 ;;
     -h | --help)
-      echo "usage: run-local-ci-sweep.sh [--full] [--base <ref>] [--capture]"
+      echo "usage: run-local-ci-sweep.sh [--full] [--base <ref>] [--capture] [--list-gates]"
       exit 0 ;;
     *) echo "[sweep] unknown arg: $1" >&2; exit 2 ;;
   esac
@@ -96,6 +107,10 @@ gate_table() {
   # test present in scripts/ but wired to NO CI step (probe-channels.test.sh at time of
   # writing) correctly stays out — the sweep predicts CI, it does not invent gates.
   #
+  # `sweep-ci-coverage` is listed explicitly even though `script-selftests` would derive it: that
+  # row's trigger is `scripts/` only, and a workflow-only diff — precisely the diff this metatest
+  # exists to catch — would never select it. The duplicate run on a scripts/ diff is pure grep.
+  #
   # Every other row reuses an already-committed script / npm-script VERBATIM. CI jobs whose
   # gate logic lives inline in the workflow YAML (rule-to-probe, enforce-husky-presence, the
   # six framework-self-* snapshot diffs, the synth-bundle functional smoke) are deliberately
@@ -106,6 +121,7 @@ gate_table() {
   # assume; see the coverage table in the header docs above.
   printf '%s\n' \
     "1${TAB}meta-all-wired${TAB}tests/install-sh/,.github/workflows/${TAB}bash tests/install-sh/meta-all-wired.test.sh" \
+    "1${TAB}sweep-ci-coverage${TAB}.github/workflows/,scripts/run-local-ci-sweep.sh${TAB}bash scripts/run-local-ci-sweep-coverage.test.sh" \
     "1${TAB}md-ci-only${TAB}.md${TAB}echo '[sweep] WARN: markdown line/dead-link gates run in CI only (local scan hits gitignored files) — verify on CI'" \
     "1${TAB}actionlint${TAB}.github/workflows/${TAB}{ command -v actionlint >/dev/null 2>&1 && actionlint .github/workflows/*.yml; } || echo '[sweep] WARN-skip actionlint absent'" \
     "1${TAB}alwayson-budget${TAB}CLAUDE.md,.claude/rules/,scripts/measure-always-on.sh,scripts/check-alwayson-budget.sh${TAB}bash scripts/measure-always-on.test.sh && bash scripts/check-alwayson-budget.test.sh && bash scripts/check-alwayson-budget.sh" \
@@ -134,6 +150,11 @@ gate_table() {
     "6${TAB}canonical-regen${TAB}packages/${TAB}npm --prefix packages/core test --silent -- tests/acceptance/canonical-regen" \
     "6${TAB}first-steps-parity${TAB}packages/core/templates/shared/,packages/core/audit-self/${TAB}npx --prefix packages/core vitest run --reporter=default packages/core/audit-self/first-steps-parity.test.ts"
 }
+
+# `--list-gates` prints the table and exits. It exists so scripts/run-local-ci-sweep-coverage.test.sh
+# reads the REAL gate_table() through the REAL argument parser, instead of scraping this file's
+# printf block with a regex — a scrape is itself a second copy that drifts from what runs.
+if [ "$LIST_GATES" -eq 1 ]; then gate_table; exit 0; fi
 
 # --- toolchain_pins_ok ---
 # rc 0 when every pinned toolchain binary that is PRESENT on PATH matches the version
