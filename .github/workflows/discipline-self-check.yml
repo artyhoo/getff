@@ -1,27 +1,45 @@
 name: discipline-self-check
 
 # Build-side enforcement of phase-research-coverage.md §1.7 — Recommendation
-# self-discipline check. PRs touching discipline-bearing files must contain
-# explicit ### §1.7 Forward-check applied + ### §1.7 Backward-check applied
-# sections in PR description, OR a ### §1.7 Skipped: <reason ≥60 chars> marker.
+# self-discipline check. A PR must contain explicit ### §1.7 Forward-check applied +
+# ### §1.7 Backward-check applied sections in its description, OR a
+# ### §1.7 Skipped: <reason ≥60 chars> marker.
 #
 # Build-side layer of the four-layer enforcement ladder (process rule + skill +
 # pre-push + this workflow). See .claude/rules/phase-research-coverage.md §1.7.
+#
+# WHY THE TRIGGER IS UNFILTERED (changed 2026-08-10 — do not re-add `paths:`):
+# this job's `name:` is a REQUIRED status check on staging (operator ruling
+# 2026-08-10; listed in workflow-integrity.yml REQUIRED_CONTEXTS). A path-filtered
+# workflow does not run at all on a PR matching none of its paths, so its context
+# never reports and branch protection parks the PR on «Expected — Waiting for status
+# to be reported» forever. GitHub's own guidance is explicit: «Workflows skipped due
+# to path filtering, branch filtering, or commit messages will remain in a pending
+# state and block merging. To avoid this, do not require workflows that can be
+# skipped» (docs.github.com, Troubleshooting required status checks). The same
+# reasoning already moved actionlint + zizmor into audit-self.yml
+# (docs/meta-factory/automerge-staging-plan.md §5) and is why all three sibling
+# PR-body gates — pr-body-prior-art.yml, pr-body-fidelity.yml, pr-stale-revert.yml —
+# ship unfiltered. Enforced by packages/core/principles/37-required-contexts-registrable.test.ts.
+#
+# The scope decision did NOT disappear, it moved to the mechanism §1.7 already had:
+# the `### §1.7 Skipped: <≥60 chars>` marker, which .github/pull_request_template.md:61
+# emits as the DEFAULT for every PR. That marker is a declared, auditable
+# out-of-scope statement; a `paths:` list was a silent one. Measured before the
+# change: of the 40 most recent merged base=staging PRs, 38 already carried a valid
+# §1.7 section (11 Skipped markers + 27 Forward/Backward pairs) — so the widening
+# costs the remaining ~5% one template-default line, and buys a mechanism where
+# `#hope-as-gate` stood (.claude/rules/attention-is-not-a-mechanism.md §2).
+#
+# A job-level `if:` is safe where a trigger filter is not: a job skipped by `if:`
+# inside a workflow that DID run reports the `skipped` conclusion, which branch
+# protection accepts — «if a job is skipped due to a conditional, it reports success»
+# (same GitHub doc). That is what the base=staging guard below relies on, matching
+# pr-body-fidelity.yml:40 and pr-stale-revert.yml:52.
 
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
-    paths:
-      - '.claude/rules/**'
-      - 'packages/core/principles/**'
-      - 'docs/meta-factory/EXECUTION-PLAN.md'
-      - 'docs/meta-factory/prior-art-evaluations.md'
-      - 'CLAUDE.md'
-      - 'templates/**/*.md'
-      - 'packages/core/templates/**/*.md'
-      - 'packages/core/templates/**/*.template.md'
-      - 'packages/core/backends/**'
-      - 'packages/core/synthesizer/**'
 
 permissions:
   contents: read
@@ -29,8 +47,17 @@ permissions:
 
 jobs:
   verify-pr-body-sections:
+    # NOTE: `name:` is the status-check context string the operator registers in staging
+    # branch protection — GitHub matches it character-for-character, and it is mirrored in
+    # workflow-integrity.yml REQUIRED_CONTEXTS. Renaming it silently deadlocks every
+    # staging PR on a context that never reports. Principle 37 asserts the mirror.
     name: §1.7 forward+backward sections present in PR description
     runs-on: ubuntu-latest
+    # Promote-flow safety, matching the two sibling registered gates: a base=main
+    # promote PR aggregates ~90 squashed commits and has no single meaningful §1.7
+    # forward/backward pair. Skipping there reports `skipped` (accepted by protection),
+    # replacing today's guaranteed RED on every promote PR.
+    if: github.event.pull_request.base.ref == 'staging'
     steps:
       - name: Check PR body for §1.7 sections or skip marker
         env:
