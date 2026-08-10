@@ -9,6 +9,7 @@
 > **Reader:** anyone tempted to set D6 thresholds from a vendor marketing claim or a single benchmark number. Read §calibrated-parameters first: each number carries its falsifier, and the strongest numbers are the agentic-coding-product-internal ones (Claude Code Issues), not the retrieval benchmarks.
 > **Status:** PROPOSED — consumption gate (cold K1/K2 + verifier `GO | rework | kill`) is downstream of this patch, owned by the harvesting session; this R-phase does NOT self-verify its own numbers' entry into D6/D7.
 > **Revision 2 (2026-08-10, harvesting session):** round-1 cold fidelity audit returned `REVISE` (5 MAJOR). The rework is recorded inline: [§search-coverage](#search-coverage) is new and **falsifies two of this patch's own negative-existence claims**; RQ1 now carries a per-tier disposition; the `T_soft(200k)` direction is **parked** as a §4c fork instead of silently proposed; the unsourced `85%` is demoted to the same INCONCLUSIVE marker as its siblings; four citation dates are corrected. Cross-owner edit per [CLAUDE.md `Artifact Ownership Contract`](../../../CLAUDE.md) — separate atomic commit, rationale in its body.
+> **Revision 4 (2026-08-10, operator-directed):** scope is deliberately narrow — **re-run the Fable-5 / Opus-5 tier sweep only**, land whatever the fresh sources support, and stop. No new audit round was requested and none was run; the numbers below enter under the same downstream consumption gate as rev 3's. What changed: the rev-2 `COVERAGE INSUFFICIENT` disposition on **Fable 5 is now partly discharged** — rows 1.10–1.13 add the first *numeric*, token-axis, 2026-dated evidence for the top tier and for judgment-class degradation, so [§search-coverage](#search-coverage) item F no longer reads «none numeric». Consequence for D6: the `T_soft(1M)` = **300k** floor stops being purely operator-experience-derived and acquires a directional external anchor, and the 500k mechanical ceiling moves from *unbounded-inconclusive* to *bounded* (~600k). No threshold moved.
 > **Revision 3 (2026-08-10, same session):** round-2 audit closed all five round-1 MAJORs and found **three new ones, every one introduced by rev 2's own rework** — a ranking withdrawn in prose but left standing in the table it summarises; two *new* negative-existence claims substituted for the falsified ones without the §3 checklist they owe; and three citations with no date at all, sitting under a rev-2 predicate that claimed «26/26 dates verified». All three are closed here. Probing the third turned up a fourth defect nobody had flagged: the `agentpatterns.ai` citation behind signal 4.3 states the **opposite** of the claim it was attached to. The pattern is worth naming — rev 2 was a citation-hygiene pass that introduced citation-hygiene defects, which is the cheapest available evidence for this patch's own subject.
 
 ## §0 Method + freshness
@@ -23,11 +24,17 @@
 ### RQ1 — Degradation onset per model tier
 
 **Coverage (recounted rev 3 — rev 1's arithmetic did not reconcile with its own table, and rev 2's
-restatement did not either):** **9 rows** (1.1–1.9) over **8 distinct URLs** — 1.1 and 1.6 cite the
-same Opus-4.6 page. First-party 3 rows (1.1, 1.6, 1.7) · operator-grade 2 (1.2, 1.3) · third-party
-blog 2 (1.4, 1.5) · peer-reviewed benchmark 2 (1.8, 1.9, added rev 2). Dated **2026: 8 of 9** — only
-row 1.8 (2025-11) is pre-2026, and it is directional only, never a threshold source (as is the AWS
-1M-GA link in §0, 2025-08, which is not an RQ1 row). 0 `INCONCLUSIVE-needs-human`.
+restatement did not either; recounted again rev 4 after four rows were added):** **13 rows**
+(1.1–1.13) over **12 distinct URLs** — 1.1 and 1.6 cite the same Opus-4.6 page. First-party 3 rows
+(1.1, 1.6, 1.7) · operator-grade 2 (1.2, 1.3) · third-party blog 5 (1.4, 1.5, 1.10, 1.12, 1.13) ·
+peer-review-track 3 (1.8, 1.9 added rev 2; 1.11 added rev 4). Dated **2026: 12 of 13** — only row 1.8
+(2025-11) is pre-2026, and it is directional only, never a threshold source (as is the AWS 1M-GA link
+in §0, 2025-08, which is not an RQ1 row). 0 `INCONCLUSIVE-needs-human`.
+
+**Fetch-verification status (rev 4, T3).** Rows 1.10, 1.11, 1.13 were fetched and their figures read
+off the page. Row **1.12 was not** — `morphllm.com` returned HTTP 429 — so its band is
+search-snippet-level and is labelled as such in the row and everywhere it is used. No rev-4 number is
+load-bearing on the unfetched row alone.
 
 **Per-tier disposition (rev 2 — the RQ1 question is «onset *per model tier*», and rev 1 answered it
 for one tier while reporting it answered for both):**
@@ -35,7 +42,7 @@ for one tier while reporting it answered for both):**
 | Tier | Degradation-onset evidence | Disposition |
 |---|---|---|
 | **Opus family** (Opus 5 / 4.8 / 4.6) | rows 1.1, 1.6 are Opus-4.6-specific; rows 1.2, 1.3 are Claude Code product-internal and apply to whatever model the harness runs | **ANSWERED** — but note 1.2/1.3 are harness-level, i.e. model-agnostic by construction |
-| **Fable 5** (top tier) | **none numeric.** A dedicated sweep (4 phrasings, [§search-coverage](#search-coverage) item F) returned only qualitative first- and third-party statements — «more consistent reasoning quality as context grows», «precision drops at the far end of the window» — plus one unattributed «safer working range ≈800k» from a low-trust aggregator, which is not adoptable | **COVERAGE INSUFFICIENT TO CONCLUDE** (T14). Every number in §calibrated-parameters is Opus-family- or harness-derived and is **NOT validated for Fable 5.** Falsifier: a dated 2026 source reporting Fable-5 quality against context fill on an agentic-coding task |
+| **Fable 5** (top tier) | **numeric as of rev 4, from one unreplicated third-party run.** Rev 2 recorded «none numeric»; the rev-4 re-sweep found row **1.10** — Fable-5 accuracy against *token fill* on multi-document synthesis (81.3% at 200k → 64.1% at 800k) plus an «effective reasoning context ~600k» estimate. Rows **1.11** (judgment-class degradation on the token axis, Opus-family model, 2026-dated) and **1.12** (the 300k–400k band) corroborate the shape, not the tier | **PARTLY ANSWERED — bound, not threshold** (T14 still applies to the *value*). The onset shape for Fable 5 is now evidenced; no source pins an onset *token* for **agentic coding** on this tier, so §calibrated-parameters numbers remain Opus-family-/harness-derived and are **still not validated for Fable 5** as thresholds. Residual falsifier unchanged: a dated 2026 source reporting Fable-5 quality against context fill on an **agentic-coding** task |
 
 | # | Claim | Source + date | Class | T-CDC-A problem-class match |
 |---|---|---|---|---|
@@ -48,10 +55,26 @@ for one tier while reporting it answered for both):**
 | 1.8 *(rev 2)* | **LoCoBench-Agent** — «the first long-context LLM agent benchmark for software engineering», evaluates agents across **10K–1M tokens**; reports agents «exhibit remarkable long-context robustness» alongside a **comprehension-efficiency trade-off** (thorough exploration raises comprehension, lowers efficiency) | [arXiv 2511.13998](https://arxiv.org/abs/2511.13998), submitted 2025-11 | Peer-reviewed benchmark | **STRONG MATCH on task class** (agentic SWE, not retrieval), **but pre-2026** — enters as directional confirmation, not as a threshold source, per the §0 freshness bar. Its existence falsifies rev 1's «no agentic-coding-specific independent benchmark» claim — see [§search-coverage](#search-coverage) |
 | 1.9 *(rev 2)* | **SlopCodeBench** — measures how coding agents degrade over **long-horizon iterative tasks**: structural erosion rises in **77%** of trajectories, verbosity in **75.5%**; agent code is 2.3× more verbose and 2.0× more eroded than 473 human repos; best agent passes **14.8%** of checkpoints; explicit quality guidance cut initial erosion by up to a third but **did not change the degradation rate across turns** | [arXiv 2603.24755](https://arxiv.org/abs/2603.24755), submitted 2026-03-25, rev 2026-05-07 | Peer-reviewed benchmark | **STRONG MATCH on failure mode** (agentic-coding quality decay, not retrieval) — **but the axis is turns/checkpoints, not tokens**, so it cannot be converted into a token threshold. It is the strongest evidence that degradation is real for our class; it is *not* evidence for any particular `T_soft` |
 | 1.7 | Fable 5 / Opus 5 both support 1M-token window GA | [Opus 5 announcement](https://www.anthropic.com/news/claude-opus-5), 2026 (first-party) | First-party capability claim | N/A — capacity claim, not quality claim; the existence of a 1M window does not mean quality holds across it |
+| 1.10 *(rev 4)* | **First numeric Fable-5-specific long-context evidence.** Independent head-to-head vs Gemini 3.5 Pro: Fable 5 «effective reasoning context (our tests)» **~600,000 tokens** (Gemini ~400k); multi-document synthesis **81.3% at 200k → 64.1% at 800k** (−17.2pp); multi-needle, 10 facts scattered through a 500k context, **94.2%**. Also states single-needle recall is ≥99% at 1M for *both* frontier models and «stopped discriminating» | [Contra Collective](https://contracollective.com/blog/claude-fable-5-vs-gemini-3-5-pro-long-context-1m-tokens-2026), 2026-06-13 (third-party, method described) | Third-party benchmark, **unreplicated** | **PARTIAL MATCH** — the axis *is* token fill, and multi-document synthesis (combine ≥3 facts scattered across the window) is judgment-shaped rather than pure retrieval. But it is not agentic coding, and it is a single unreplicated third-party run. Adoptable as a **bound** on the working ceiling, never as a threshold |
+| 1.11 *(rev 4)* | **Judgment-class degradation on the token axis, 2026-dated, Opus-family model in scope.** Monitor models (Opus 4.6, GPT-5.4, Gemini 3.1) «miss these actions $2\times$ to $30\times$ more often when they occur after 800K tokens of benign activity than when they occur on their own»; and «agent monitoring benchmarks rarely contain transcripts longer than 100K tokens» while the real task requires classifying transcripts that «often exceed 500K tokens» | [arXiv 2605.12366](https://arxiv.org/abs/2605.12366) «Classifier Context Rot», submitted 2026-05-12 (v1, no revisions) | Peer-review-track | **STRONG MATCH on failure mode + axis** — this is judgment quality as a function of *tokens*, dated 2026, on an Opus-family model. It closes the hole 1.8 and 1.9 left open (1.8 is pre-2026; 1.9's axis is turns). It is **not coding**, and its measured point is 800k — so it evidences that the curve is real and steep, not where it starts |
+| 1.12 *(rev 4)* | Third-party synthesis over the Chroma 18-model context-rot corpus: for 1M-window models «a clearly observable effect typically kicks in somewhere around 300,000–400,000 tokens»; distinguishes **positional** degradation (lost-in-the-middle, U-shaped, 20–30 points lower mid-window) from **length** degradation (accuracy falls as input grows with evidence fixed and favourably placed), with drops «sometimes by 30 to 50 percent well before the documented limit» | Morph, `morphllm.com/context-rot` — **snippet-level only; NOT verbatim-verified.** Direct fetch returned **HTTP 429**; the quoted band is as surfaced by WebSearch, and the underlying Chroma study is **2025** | Third-party aggregator, **unverified fetch** | PARTIAL — cross-vendor, mixed task classes, and it re-reports a pre-2026 corpus. **It is the only source in this patch that names a token band coinciding with D6's 300k floor**, which makes it precisely the source not to lean on: aggregator class + failed fetch = directional corroboration, never the anchor. Re-fetch and re-verify before any consumer treats 300k as externally sourced |
+| 1.13 *(rev 4)* | **Opus 5's 1M window is capacity, not a quality guarantee — and no onset number is published.** Fetched analysis of the 1M default: it is «both the default and the maximum», long-context surcharge «None», and on quality only «context rot» — as context grows «recall and accuracy can degrade», with **no token threshold stated** and «a 1M window is a **capacity**, not an instruction to fill it». Separately, WebSearch snippets characterise Opus 5 as claiming performance «holds throughout» the window, «directly addressing the 200k-token degradation … on Opus 4.8» — **snippet-level, unverified against any first-party page, and the fetched article explicitly contains no such comparison.** Do not carry that claim forward without a first-party citation | [uxdev.org](https://uxdev.org/blog/claude-opus-5-1m-context-window/), 2026-07-29 (fetched in full) | Third-party analysis | Direct on tier, **zero numeric content.** Confirms the T-CDC-A baseline (vendor capacity ≠ validated quality) rather than moving any threshold |
 
 **Calibration interpretation:** the two strongest problem-class-matched numbers (1.2, 1.3) converge on **~70% of advertised window as the quality-preservation threshold for the 200k window**, with explicit product-internal calibration at 150k = 75%. **Note the tension rev 1 glossed:** 1.2 (150k = 75%) is the point at which the product *force-compacts* — the top of the working range — whereas 1.3 (50–70%) is where practitioners say quality *starts* to go. They are not the same quantity, and reading them as «converging on 75%» conflates a ceiling with a soft threshold. This is the fork parked at [§parked-questions](#parked-questions).
 
 For the 1M window, rev 1 claimed «no agentic-coding-specific independent benchmark confirms quality holds past ~500k». **Rev 2 falsifies that as written** ([§search-coverage](#search-coverage) item A): LoCoBench-Agent (1.8) evaluates agentic SWE to 1M and reports robustness with an efficiency cost, and SlopCodeBench (1.9) measures agentic-coding decay directly. What survives is a **narrower** and still-load-bearing claim: *no dated-2026 source surfaced by this sweep expresses agentic-coding quality as a function of **token fill** past ~500k*. **The three exclusions have three different reasons, and rev 2's «unit gap» label flattened them (rev 3):** 1.8 is excluded on **date** — its unit *is* tokens, it evaluates agentic SWE across 10K–1M; 1.9 on **unit** (turns and checkpoints, not tokens); 1.5 on **class** (retrieval). Naming that matters for the consumption gate, because it exposes a tension the 1M rows do not reconcile: the single best task-class-matched benchmark here reports «remarkable long-context robustness» to 1M, while §calibrated-parameters retains a 500k ceiling. Excluding 1.8 is defensible under the freshness bar; pretending the tension does not exist is not.
+
+**Rev 4 — the narrow claim survives, one word at a time.** The surviving rev-2/3 claim was: *no
+dated-2026 source surfaced by this sweep expresses **agentic-coding** quality as a function of **token
+fill** past ~500k.* Rows 1.10 and 1.11 satisfy «dated 2026», «token fill», and «past 500k» — 1.10
+measures to 800k, 1.11 to 800k — and both measure **judgment-shaped** work. Neither measures
+**agentic coding**. So the claim holds only on its last qualifier now, and a consumer should read it
+as: the token-axis degradation curve past 500k is evidenced for judgment work on frontier models
+including the Opus family; its *coding-specific* shape remains unmeasured on the token axis, which is
+exactly the hole 1.9 (turn-axis) leaves. That is a materially weaker gap than rev 3 recorded, and it
+narrows the tension flagged above rather than resolving it: 1.8 still reports «remarkable long-context
+robustness» to 1M while 1.11 reports 2×–30× degradation past 800k — different task, different year,
+both in scope, unreconciled.
 
 ### RQ2 — Task-class variance (mechanical vs judgment)
 
@@ -168,11 +191,27 @@ had been recorded as a measured absence, and D6 would have inherited it.
    recorded below.
 
 **Item F — the Fable-5 tier sweep (backs the RQ1 per-tier disposition, not one of the four claims
-above).** Four phrasings against Fable-5 long-context quality. Result: qualitative first- and
-third-party statements only («more consistent reasoning quality as context grows»; «at the far end of
-the window, precision drops»), plus a «safer working range ≈800k» figure from an aggregator with no
-stated method — **not adoptable**. Disposition: `COVERAGE INSUFFICIENT TO CONCLUDE`, not «no
-degradation».
+above).** *Rev 2 result:* four phrasings, qualitative statements only («more consistent reasoning
+quality as context grows»; «at the far end of the window, precision drops»), plus a «safer working
+range ≈800k» figure from an aggregator with no stated method — not adoptable. Disposition
+`COVERAGE INSUFFICIENT TO CONCLUDE`.
+
+***Rev 4 re-sweep — the «none numeric» half of that is now falsified.*** Four fresh phrasings against
+Fable-5 and Opus-5 long-context quality (`Fable 5 1M context degradation benchmark 2026`,
+`Opus 5 effective context 300k quality degradation agentic coding`,
+`Opus 5 context window degradation long context performance`,
+`"context rot" 2026 degradation 300k tokens frontier models`) surfaced **three numeric rows the rev-2
+sweep missed** — 1.10 (Fable-5 accuracy vs token fill, 2026-06-13), 1.11 (peer-review-track judgment
+degradation on the token axis, 2026-05-12), 1.12 (the 300k–400k band, snippet-level) — plus 1.13,
+which is numerically empty but kills a claim: **no first-party Opus-5 page verified by this sweep
+states a degradation-onset token count**, and the widely-repeated «holds throughout the 1M window»
+line traces to search snippets, not to a fetched vendor page.
+
+Two disciplines this re-sweep is deliberately *not* claiming to have satisfied, stated so a consumer
+does not over-read it: it was scoped by the operator to a tier sweep, so items 1–5 above were **not
+re-run** for the rev-4 rows, and **no cold audit round was run on them** (rev 3's was the last).
+Rev-4 rows therefore carry the same PROPOSED status as everything else here and the same downstream
+consumption gate — they are evidence added, not evidence adjudicated.
 
 ## §parked-questions {#parked-questions}
 
@@ -220,8 +259,8 @@ Each proposed parameter carries its falsifier per kickoff §4. **All numbers are
 
 | Parameter | Current provisional (D6) | Proposed | Falsifier | Evidence |
 |---|---|---|---|---|
-| `T_soft(1M)` (operator floor) | 300k | **300k retains** (judgment); **500k** mechanical-tail provisional | Wrong if a 1M-window agentic-coding benchmark lands showing quality degradation onset < 300k for judgment work on Fable 5 / Opus 5 | T-CDC-A: vendor claims «stable to 1M» are NOT agentic-coding-validated. **Rev 2 correction:** rev 1 called RQ1 1.5 «the strongest external anchor» here while rating it WEAK in §findings — and 1.5 is retrieval-benchmark evidence, the class this patch demotes 1.6 for. The honest anchor set is 1.8 (agentic SWE to 1M, robust-with-efficiency-cost, but 2025-11) and 1.9 (agentic decay measured in turns, not tokens); **neither pins a token number**, so 300k/500k remain operator-experience-derived |
-| Working ceiling (mechanical tails) | ~500k | **500k retains** as PROVISIONAL ceiling for mechanical-tail work only | Wrong if mechanical-tail quality degrades measurably before 500k under in-house measurement | Coverage INSUFFICIENT (T14); this is operator-experience-derived, not benchmark-derived |
+| `T_soft(1M)` (operator floor) | 300k | **300k retains** (judgment); **500k** mechanical-tail provisional. *Value unchanged by rev 4 — what changed is that it is no longer evidence-free* | Wrong if a 1M-window agentic-coding benchmark lands showing quality degradation onset < 300k for judgment work on Fable 5 / Opus 5. **Nothing in the rev-4 sweep fires this** — every dated 2026 source places observable onset at or above the 300k band, so the floor reads conservative-safe rather than contradicted | T-CDC-A: vendor claims «stable to 1M» are NOT agentic-coding-validated — and per **1.13** no fetched first-party Opus-5 page states an onset number at all. **Rev 2 correction:** rev 1 called RQ1 1.5 «the strongest external anchor» here while rating it WEAK in §findings — and 1.5 is retrieval-benchmark evidence, the class this patch demotes 1.6 for. **Rev 4 anchor set (directional, not pinning):** 1.11 is the strongest — judgment degradation on the *token* axis, 2026-dated, Opus-family model, 2×–30× more missed detections past 800k; 1.10 shows Fable-5 judgment-shaped accuracy already down 17.2pp between 200k and 800k; 1.12 names 300k–400k as where the effect becomes clearly observable but is **snippet-level and re-reports a 2025 corpus**. 1.8/1.9 stand as before. **No source pins 300k for agentic coding**, so 300k is still operator-experience-derived — now with external evidence pointing the same way, which is a different epistemic state from rev 3's «derived from nothing external» |
+| Working ceiling (mechanical tails) | ~500k | **500k retains** as PROVISIONAL ceiling for mechanical-tail work only — **now bounded above rather than open-ended** | Wrong if mechanical-tail quality degrades measurably before 500k under in-house measurement. Rev 4 adds an *upper* falsifier: a ceiling raised past **~600k** contradicts 1.10's effective-reasoning estimate | Coverage still INSUFFICIENT to derive the value (T14) — operator-experience-derived, not benchmark-derived. Rev 4 changes its *status*: 1.10 puts Fable-5 effective reasoning at ~600k and still measures 94.2% on 10-fact/500k multi-needle, so 500k sits just under an independently estimated ceiling instead of floating unbounded. Directional corroboration for keeping it; **not** a licence to raise it |
 
 ### Per-task-class deltas (RQ2-derived)
 
