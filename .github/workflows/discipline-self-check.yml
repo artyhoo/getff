@@ -10,7 +10,8 @@ name: discipline-self-check
 #
 # WHY THE TRIGGER IS UNFILTERED (changed 2026-08-10 — do not re-add `paths:`):
 # this job's `name:` is a REQUIRED status check on staging (operator ruling
-# 2026-08-10; listed in workflow-integrity.yml REQUIRED_CONTEXTS). A path-filtered
+# 2026-08-10; declared by the
+# `# required-context: yes` marker on the job below). A path-filtered
 # workflow does not run at all on a PR matching none of its paths, so its context
 # never reports and branch protection parks the PR on «Expected — Waiting for status
 # to be reported» forever. GitHub's own guidance is explicit: «Workflows skipped due
@@ -20,7 +21,8 @@ name: discipline-self-check
 # reasoning already moved actionlint + zizmor into audit-self.yml
 # (docs/meta-factory/automerge-staging-plan.md §5) and is why all three sibling
 # PR-body gates — pr-body-prior-art.yml, pr-body-fidelity.yml, pr-stale-revert.yml —
-# ship unfiltered. Enforced by packages/core/principles/38-required-contexts-registrable.test.ts.
+# ship unfiltered. Enforced by the registrability arm of
+# packages/core/principles/37-required-context-completeness.test.ts.
 #
 # The scope decision did NOT disappear, it moved to the mechanism §1.7 already had:
 # the `### §1.7 Skipped: <≥60 chars>` marker, which .github/pull_request_template.md:61
@@ -47,10 +49,18 @@ permissions:
 
 jobs:
   verify-pr-body-sections:
-    # NOTE: `name:` is the status-check context string the operator registers in staging
-    # branch protection — GitHub matches it character-for-character, and it is mirrored in
-    # workflow-integrity.yml REQUIRED_CONTEXTS. Renaming it silently deadlocks every
-    # staging PR on a context that never reports. Principle 38 asserts the mirror.
+    # required-context: yes — it gates §1.7 substance, and as of this commit it is registrable.
+    # #1368 declared it `no` and named the precondition: «To make it required, the path filter
+    # must first move from `on.pull_request.paths` into the job body … so the context always
+    # reports.» That precondition is now met, by the stronger route — the filter is gone
+    # entirely rather than reimplemented in the job body, because the §1.7 Skipped marker is
+    # already the declared out-of-scope mechanism (see the trigger note above). Operator ruling
+    # 2026-08-10 requires this context on staging.
+    #
+    # `name:` below is the status-check context string, matched character-for-character by
+    # branch protection; renaming it deadlocks every staging PR on a context that never reports.
+    # Principle 37 asserts the marker ↔ list agreement, and its registrability arm asserts that
+    # this workflow's trigger stays unfiltered for as long as this marker says `yes`.
     name: §1.7 forward+backward sections present in PR description
     runs-on: ubuntu-latest
     # Promote-flow safety: a base=main promote PR aggregates ~90 squashed commits and has
@@ -169,6 +179,9 @@ jobs:
           echo "✅ Backward-check cites ${backward_citations} file:line reference(s)."
 
   sanity-stub-fails-substance:
+    # required-context: no — a paired-negative meta-test of the gate above, not a gate on this
+    # PR's content; it asserts the substance regex rejects the Incident-1 stub. Same
+    # `paths:`-filter deadlock applies regardless.
     name: Sanity — Incident-1 stub §1.7 body MUST fail substance gate
     runs-on: ubuntu-latest
     steps:
@@ -212,6 +225,9 @@ jobs:
           echo "   Both substance gates' paired-negative arms are intact."
 
   sanity-stub-backward-passes-with-citation:
+    # required-context: no — the positive half of the paired-negative meta-test above; asserts a
+    # cited Backward-check passes. Not a gate on this PR's content, and same `paths:`-filter
+    # deadlock applies regardless.
     name: Sanity — §1.7 Backward-check with file:line citation MUST pass substance gate (Forward-check parity)
     runs-on: ubuntu-latest
     steps:

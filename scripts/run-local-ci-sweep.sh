@@ -11,26 +11,29 @@
 # Spec: docs/superpowers/specs/2026-06-26-harvest-skill-design.md
 # bash 3.2 compatible (no globstar / associative arrays).
 #
-# --- COVERAGE vs the required CI contexts (audited 2026-08-10) -----------------------------
-# The contexts that must be REQUIRED on staging are listed below. This block is not prose:
-# packages/core/principles/38-required-contexts-registrable.test.ts parses it and asserts it
-# names exactly the set declared in .github/workflows/workflow-integrity.yml REQUIRED_CONTEXTS
-# — the two lists are hand-maintained, and before that gate they had drifted apart AND away
-# from live branch protection. Edit both or neither. Each string is a job's `name:`.
+# --- COVERAGE vs the required CI contexts (audited 2026-08-09; list re-derived 2026-08-10) -
+# The contexts whose fail-closed property rests on being REQUIRED on staging. DERIVED, NOT
+# AUTHORED: each entry is declared at its own job by a `# required-context: yes` marker in
+# .github/workflows/*.yml, and packages/core/principles/37-required-context-completeness.test.ts
+# asserts this block equals that declared set exactly (and that workflow-integrity.yml's
+# `required_contexts=` does too). Do not hand-edit one of the three without the others.
 #
-# REQUIRED-CONTEXTS-BEGIN
+# REQUIRED_CONTEXTS:
+#   Template render probes — P1/P4/P6 (deterministic)
+#   capability PR carries Prior-art line in PR body (squash-survival)
 #   ci-success
 #   fidelity-verdict-in-pr-body
 #   stale-revert-in-pr-diff
 #   §1.7 forward+backward sections present in PR description
-#   capability PR carries Prior-art line in PR body (squash-survival)
-# REQUIRED-CONTEXTS-END
+#
+# REGISTRATION STATE (2026-08-10, `gh api …/branches/staging/protection` with an admin token):
+# only the last three are actually registered. The first two are declared-required but NOT yet
+# registered, so today they can go red and the PR still merges — an operator action closes that,
+# and CI cannot verify it (workflow-integrity.yml:32-42, GITHUB_TOKEN cannot read protection).
 #
 # `ci-success` is the audit-self.yml aggregator that `needs:` every other job in that file
-# (completeness gated by principle 36); the other four each live in their own workflow file
-# and are PR-body/PR-diff gates that this sweep does NOT reproduce — they need the real PR
-# body or base ref. There is no ci.yml. A green sweep predicts a green CI only for the jobs
-# listed as COVERED below.
+# (asserted by principle 36). There is no ci.yml. A green sweep predicts a green CI only for the
+# jobs listed as COVERED below.
 #
 # COVERED — every `ci-success` need except those named UNREACHABLE:
 #   actionlint · typecheck · install-sh-a/b/c (the *.test.sh battery, byte-identical,
@@ -39,8 +42,11 @@
 #   setup.d lint step) · principles-meta-tests (test:principles/hooks/render/ir/composition/
 #   backends/live-generation, the two drift gates, the tests/hooks/*.test.sh battery) ·
 #   manifest-render-check · probe-tests · alwayson-budget · phase-8-canonical-regen-acceptance ·
-#   f17-node-compat (host Node only) · shipped-prettier (not a `ci-success` need, but its
-#   `npm run format:check` is the sweep's format-check row).
+#   f17-node-compat (host Node only) · shipped-prettier (its `npm run format:check` is the
+#   sweep's format-check row; it became a `ci-success` need in #1362) ·
+#   `Template render probes — P1/P4/P6` (framework-self-template-render.yml — a required context
+#   in its own right, not a `ci-success` need; the `template-render` row below runs the same
+#   `test:template-render` suite, hermetic into tmpdirs, ~5s).
 #
 # UNREACHABLE — a green sweep says NOTHING about these; verify on CI:
 #   mechanical            whole-tree `find` scanners; locally they also read gitignored files
@@ -147,7 +153,8 @@ gate_table() {
     "6${TAB}vitest-install-wire${TAB}packages/core/${TAB}npx --prefix packages/core vitest run --reporter=default packages/core/install/wire-live-snippet.test.ts packages/core/install/wire-synth-rules.test.ts" \
     "6${TAB}audit-ai-docs${TAB}packages/core/,docs/,skills/,agents/${TAB}npx --prefix packages/core vitest run --reporter=default packages/core/audit-self/audit-ai-docs.test.ts" \
     "6${TAB}canonical-regen${TAB}packages/${TAB}npm --prefix packages/core test --silent -- tests/acceptance/canonical-regen" \
-    "6${TAB}first-steps-parity${TAB}packages/core/templates/shared/,packages/core/audit-self/${TAB}npx --prefix packages/core vitest run --reporter=default packages/core/audit-self/first-steps-parity.test.ts"
+    "6${TAB}first-steps-parity${TAB}packages/core/templates/shared/,packages/core/audit-self/${TAB}npx --prefix packages/core vitest run --reporter=default packages/core/audit-self/first-steps-parity.test.ts" \
+    "6${TAB}template-render${TAB}packages/core/,install.sh,skills/${TAB}npm --prefix packages/core run test:template-render"
 }
 
 # --- toolchain_pins_ok ---
