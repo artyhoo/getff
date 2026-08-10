@@ -452,9 +452,13 @@ on the load-bearing half):
    **6b:** L0 rigor-label presence check (kickoff principle-test family, §5.3 L3(d)).
 7. Budget-tripwire mechanism lands with item 2; numbers deferred to calibration from audit
    chip `task_c8cfb806` rates.
-8. **Triage-kernel-v2 contour kickoff** (dedicated; corpus assembly + label adjudication
-   per §5.4) — **operator GO given at the gate: starts immediately after this spec lands**
-   (§11c ESCALATED-2 resolution); this spec does not block on its results.
+8. **Triage-kernel-v2 contour kickoff — a SEPARATE dedicated `/arch` design contour on
+   the classifier bottleneck itself** (operator directive at the session-3 gate: this
+   spec is the base attending to everything else; immediately after it lands, a
+   dedicated session discusses and designs the most important piece — the
+   material/immaterial kernel); corpus assembly + label adjudication per §5.4 are its
+   first steps — **operator GO given at the gate: starts immediately after this spec
+   lands** (§11c ESCALATED-2 resolution); this spec does not block on its results.
 9. Consumer-delivery stage for the shipped halves (rule + reviewer grammar + skills), own
    review (per F10/F4b precedent) — after operator-side dogfood.
 10. P6-matrix probe run (§4) — post-spec, never a blocker.
@@ -583,5 +587,9 @@ spec-kit SDD (`constitution → specify → plan → tasks` — the constitution
 idea layer) and AWS Kiro (`requirements / design / tasks`) — examined at the landing
 prior-art pass. In-spec, the ask is carried by premise 11 (layer hierarchy + upward
 conflict resolution + materiality-by-highest-layer) and the §8 item 2 arch-template
-obligation (premise register + falsifiers in every spec). Gate word: pending at this
-commit.
+obligation (premise register + falsifiers in every spec).
+**Operator directive (same gate session): kernel-v2 = a SEPARATE `/arch` design contour**
+— «сейчас мы делаем базово, уделяя внимание всему остальному; сразу после этого мы
+отдельно будем уделять внимание главному — проектировать и реализовывать самое важное:
+узкое горлышко, классификатор» (verbatim; §8 item 8 amended accordingly). Gate word:
+pending at this commit.
