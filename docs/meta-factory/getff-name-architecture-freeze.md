@@ -36,7 +36,7 @@ The unscoped name **`getff`** is the CLI/init entrypoint for the beta program.
 
 U10's own gate is `npx getff init` ([`getff-to-prod-meta-launch/kickoff.md:98,154`](../../.claude/orchestrator-prompts/getff-to-prod-meta-launch/kickoff.md)). **No package with `bin: getff` exists in this repo** — `packages/core` ships six bins, all named `rules-as-tests-*`:
 
-```
+```text
 $ git grep getff -- '*/package.json'
 (no output — zero hits)
 ```
@@ -79,7 +79,7 @@ Measured 2026-08-09 with **unauthenticated** commands (these work with no login)
 
 **What is still open:** *whose* org `getff` is. That needs an authenticated read, and **npm auth is absent** on both the aif container and the operator host:
 
-```
+```text
 $ npm whoami
 npm error code ENEEDAUTH
 npm error need auth This command requires you to be logged in.
@@ -106,9 +106,20 @@ This is **not a stop condition** for R1 (per kickoff §0.2): every R1 deliverabl
 
 **Loser's concrete cost (T20 — record why (b) lost, not just why (a) won):** option (b) prebuild would add (i) a build step (e.g. `tsc --outDir dist`), (ii) `files:` entries for the emitted `dist/` output, (iii) re-targeting of every `bin:` and `exports:` entry from `.ts` → `.js`, (iv) a source-map + type-shipping decision, (v) ongoing drift risk between `.ts` source and the emitted `.js` that the cell would have to detect. None of that is in R1's scope. (a) wins because **the consumer-side cost is the same one-time install** (a runtime dep they pay either way) while the maintainer-side cost is zero — no new build pipeline.
 
-**Cell evidence (paired RED→GREEN, kickoff §3 item 4):**
+**Cell evidence (paired RED→GREEN, kickoff §3 item 4) — MEASURED, and the first draft of this paragraph was falsified by the measurement:**
 
-The cell at [`tests/consumer-matrix/npm-tarball-cell.sh`](../../tests/consumer-matrix/npm-tarball-cell.sh) step (7) runs `rules-as-tests-detect --help` AND a real `rules-as-tests-detect <fixture>` against the installed tarball, with output quoted in the PR body. With `tsx` as a runtime dep the bin executes end-to-end; without it (the prior state) the shebang fails to find `tsx` and the bin exits non-zero.
+The cell at [`tests/consumer-matrix/npm-tarball-cell.sh`](../../tests/consumer-matrix/npm-tarball-cell.sh) step (7) runs `rules-as-tests-detect --help` AND a real `rules-as-tests-detect <fixture>` against the installed tarball. Step (7a) then asserts `tsx` is present in the fixture's `node_modules`.
+
+| arm | `packages/core/package.json` | cell result |
+|---|---|---|
+| GREEN | `tsx` in `dependencies` (shipped state) | rc=0 — `✓ tsx present in fixture as a runtime dep: 4.23.12` |
+| RED | `tsx` demoted back to `devDependencies` | rc=1 — `✗ FAIL: (7a) tsx NOT installed into the fixture …` |
+
+> **Correction (2026-08-10, measured).** An earlier draft of this paragraph claimed: «without it (the prior state) the shebang fails to find `tsx` and the bin exits non-zero.» **That is false.** Demoting `tsx` and re-running the cell as originally written returned **rc=0** — the bin ran fine. The reason is in stderr: the shebang is `#!/usr/bin/env -S npx tsx`, and when `tsx` is absent `npx` **silently installs it from the network** — observed `npm warn exec The following package was not found and will be installed: tsx@4.23.12`, an **unpinned** fetch that ignores the declared `^4.22.4`, with `tsx` confirmed absent from the fixture's `node_modules`.
+>
+> So as first written, step (7) **could not fail for the fork it exists to decide** — «the bin ran» is true under both F-C′ options. That is `#contract-that-cannot-fail` ([destination-environment-verification.md §4](../../.claude/rules/destination-environment-verification.md)) landing on the one deliverable spec §11 bound to this cell, and kickoff §4 («decide against the cell, not against reasoning») is unsatisfiable without a discriminating assert. Step **(7a)** is that assert, and the table above is its two-direction proof.
+
+**What the measurement changes about the verdict.** Option (a) still wins, but *not* for the reason first recorded. The real cost of NOT promoting `tsx` is not «the bin fails» — it is that every consumer's first bin invocation performs a **silent, unpinned, network-dependent install** of whatever `tsx` currently resolves to, which (i) breaks entirely offline / in an air-gapped or locked-down CI, (ii) ignores the version range the package declares, and (iii) is an unreviewed supply-chain fetch at *runtime* rather than at install time. Promotion to `dependencies` converts all three into a normal, lockfile-pinned install-time dependency. Option (b)'s costs (build step, `dist/` `files` entries, `bin`/`exports` retargeting, source-map + type-shipping decision, ongoing `.ts`↔`.js` drift risk) are unchanged and still out of R1 scope.
 
 **Deferred runtime-dep gap (U10 follow-up — out of R1 scope):**
 
@@ -120,7 +131,49 @@ The other **three** bins (`rules-as-tests-synth`, `rules-as-tests-validate`, `ru
 
 **Consequence for `files` validation coverage:**
 
-The four code directories `ir/`, `backends/`, `composition/`, and the validator-internal slice of `diagnostics/` are **transitively needed by the three deferred bins** but are NOT RED-provable by this cell (the runnable bins don't reach them). They are kept in the `files` list with the marking **`UNVALIDATED-by-this-cell — transitively-needed by synth/validate/install bins whose runtime-dep gap is deferred to U10`** per kickoff §9 (park-don't-guess: surface the gap, don't drop the entry). Dropping them would silently break those three bins when their runtime-dep gap is later closed.
+Four of the fourteen entries are **transitively needed by the three deferred bins** but are NOT RED-provable by this cell (the runnable bins don't reach them). They are kept in the `files` list with the marking **`UNVALIDATED-by-this-cell — transitively-needed by synth/validate/install bins whose runtime-dep gap is deferred to U10`** per kickoff §9 (park-don't-guess: surface the gap, don't drop the entry). Dropping them would silently break those three bins when their runtime-dep gap is later closed. Which four is a **measured** fact, not an inferred one — see the table below.
+
+## `files` allowlist — measured paired-RED evidence (kickoff §3 item 4, acceptance §6 item 2)
+
+**Method (T2 counter — the arms were RUN, not reasoned about).** For each of the 14 `files` entries: drop that one entry from `packages/core/package.json`, re-run `bash tests/consumer-matrix/npm-tarball-cell.sh` unchanged, record exit code and the first `✗ FAIL` line. Restore, repeat. 14 arms, host `Darwin`, 2026-08-10, against branch tip. The GREEN column is the honest half: an entry whose removal leaves the cell passing is an entry **this cell does not validate** (T14 — "coverage insufficient to conclude", not "entry justified").
+
+| `files` entry | arm result | the assert that caught it |
+|---|---|---|
+| `manifest/` | **RED** rc=1 | (3) manifest JSON not loadable or empty — the package main is broken |
+| `eslint-rules/` | **RED** rc=1 | (4) file `eslint-rules/index.ts` missing from installed package |
+| `detector/` | **RED** rc=1 | (4c) one or more exports targets missing |
+| `research/` | **RED** rc=1 | (4c) one or more exports targets missing |
+| `synthesizer/` | **RED** rc=1 | (4c) one or more exports targets missing |
+| `installer/` | **RED** rc=1 | (4c) one or more exports targets missing |
+| `diagnostics/` | **RED** rc=1 | (7b) `rules-as-tests-research` import chain failed to load |
+| `templates/` | **RED** rc=1 | (4) directory `templates/` missing from installed package |
+| `install/` | **RED** rc=1 | (4) file `install/synth-and-wire.bundle.mjs` missing |
+| `skills/` | **RED** rc=1 | (4) directory `skills/` missing from installed package |
+| `validator/` | GREEN rc=0 | — **UNVALIDATED-by-this-cell** |
+| `ir/` | GREEN rc=0 | — **UNVALIDATED-by-this-cell** |
+| `backends/` | GREEN rc=0 | — **UNVALIDATED-by-this-cell** |
+| `composition/` | GREEN rc=0 | — **UNVALIDATED-by-this-cell** |
+
+**10 validated / 4 unvalidated.** The unvalidated four are `validator/`, `ir/`, `backends/`, `composition/` — all reached only through the `synth` / `validate` / `install` bins, whose `import 'eslint'` chain cannot execute from a tarball install (the deferred runtime-dep gap above). They stay in `files` because dropping them breaks those bins the moment U10 closes that gap.
+
+> **Correction (2026-08-10, measured).** An earlier draft of this record named the unvalidated four as «`ir/`, `backends/`, `composition/`, + the validator-internal slice of `diagnostics/`». The arms falsify that split: `diagnostics/` **is** RED-validated (step 7b — the research bin's import chain reaches it), and `validator/` is unvalidated **in whole**, not as a slice of another entry. The count (10/4) was right; the membership was inferred rather than measured. Kept visible rather than silently rewritten, per T3.
+
+## Package-metadata decisions (kickoff §5 — «say which you chose»)
+
+| item | choice | why |
+|---|---|---|
+| `packages/core/README.md` | **stub**, not a full README | kickoff §5 permits either. A stub pointing at [`README.md#why-this-exists`](../../README.md#why-this-exists) keeps one source of truth for the project narrative; a full copy would be a `#sync-by-copy-paste` twin with no regenerating mechanism ([dual-implementation-discipline.md §8](../../.claude/rules/dual-implementation-discipline.md)). Revisit at U10 if the npm package page needs standalone framing. |
+| `packages/core/LICENSE` | **real file copy** of root `LICENSE.md`, not a symlink | kickoff §5: symlinks do not survive `npm pack` reliably. Verified present in the packed tarball. |
+| `main` | **unchanged** — `./manifest/rules-manifest.json` | kickoff §5 says confirm, do not silently change. Confirmed intentional (binding input §2); the tarball cell step (3) is the regression guard. |
+| `engines.node` | `>=22` | matches the `node-version: '22'` pin every CI workflow uses. |
+
+## What the tarball cell does NOT assert (T14 — stated, not implied)
+
+The cell asserts that the shipped rule **definitions arrive** (manifest entries + `eslint-rules/` modules). It does **not** assert that a rule **fires**: firing needs `eslint` plus a TS-aware config loader inside the fixture, and neither is present in a tarball install — the same runtime-dep gap recorded above for the `synth` / `validate` / `install` bins.
+
+«At least one rule actually firing» (binding input §3 item 2) is carried by the **sibling cell on the file-copy channel**: [`tests/consumer-matrix/pnpm-monorepo-cell.sh`](../../tests/consumer-matrix/pnpm-monorepo-cell.sh) step (d-1) plants an `OrderSchema.parse(req.body)` violation and asserts `eslint rc=1` carrying the R2 message, with (d-2) proving the lint-staged shield blocks it. Both cells are merge-blocking via `ci-success needs:` and both are declared in the R1 kickoff's `host-verify` contract, so the pair covers **arrival** (tarball channel) + **firing** (file-copy channel).
+
+The residual uncovered class is «a rule that works file-copied and breaks tarball-installed». Rule modules are plain ESLint rule objects whose behaviour does not depend on delivery channel, and their arrival is RED-proven above, so this class is not reachable by any assert the tarball cell could add short of promoting `eslint` to a runtime dependency — ruled out at R1 entry as disproportionate for a `0.1.0` beta. Recorded here rather than papered over.
 
 ## Release-drafter tag→notes flow
 

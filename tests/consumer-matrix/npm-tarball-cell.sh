@@ -20,8 +20,22 @@
 #      skills, eslint-rules, manifest schema).
 #   5. Assert the install wiring (install/synth-and-wire.bundle.mjs) is loadable from the
 #      installed package — this is the install flow a consumer triggers.
-#   6. Assert ≥1 ESLint rule fires against a planted violation — the "one rule actually firing"
-#      per binding input §3 item 2.
+#   6. Assert the shipped rule DEFINITIONS arrived and are non-empty (manifest rule entries +
+#      eslint-rules/ module files). This cell asserts ARRIVAL, not FIRING — see the scope note
+#      below.
+#
+# SCOPE — what this cell does NOT assert (T14: state the classes you do not exercise).
+# «At least one rule actually FIRING» (binding input §3 item 2) is NOT exercised here: firing a
+# rule needs eslint + a TS-aware config loader inside the fixture, which a tarball install does
+# not carry (eslint is a devDependency — the same runtime-dep gap step (7b) records for 3 bins).
+# That assertion is carried by the SIBLING cell on the file-copy channel —
+# tests/consumer-matrix/pnpm-monorepo-cell.sh step (d-1) plants an OrderSchema.parse(req.body)
+# violation and asserts `eslint rc=1` with the R2 message. Both cells are merge-blocking via
+# ci-success needs:, and both are declared in the R1 kickoff's host-verify contract, so the pair
+# covers arrival (here) + firing (there). Rule modules are plain ESLint rules whose behaviour is
+# delivery-channel-independent, so the residual class — «a rule that works file-copied and breaks
+# tarball-installed» — is not reachable by any assert this cell could add short of shipping eslint
+# as a runtime dep (ruled out at R1 entry, see docs/meta-factory/getff-name-architecture-freeze.md).
 #
 # Runs on ubuntu (CI, merge-blocking) and macOS (`make consumer-matrix`, local/nightly).
 set -euo pipefail
@@ -139,10 +153,11 @@ if (code.length < 100) process.exit(1);
 console.log('  ✓ synth-and-wire.bundle.mjs loaded (' + code.length + ' bytes)');
 " || fail "(5) install bundle not loadable from installed package"
 
-step "(6) assert ≥1 ESLint rule fires against a planted violation"
-# The binding input §3 item 2: "the matrix cell is the only honest check that they arrived."
-# We plant a violation that a shipped rule catches — proving the eslint-rules arrived AND work.
-# For the skeleton, we verify the rules-manifest references loadable rule modules.
+step "(6) assert the shipped rule DEFINITIONS arrived (arrival, NOT firing — see scope note above)"
+# The binding input §3 item 2: "the matrix cell is the only honest check that they ARRIVED."
+# Arrival is what this step asserts: the manifest carries rule definitions and eslint-rules/
+# contains real rule modules. FIRING is asserted by pnpm-monorepo-cell.sh step (d-1) on the
+# file-copy channel — do NOT read a green (6) as evidence that a rule executes.
 RULE_MODULE=$(node -e "
 const m = require('$INSTALLED/manifest/rules-manifest.json');
 const r1 = m.R1 || Object.values(m)[0];
@@ -164,6 +179,20 @@ step "(7) F-C′ bin runnability — execute ≥1 bin end-to-end from the instal
 BIN_PATH="$FIXTURE/node_modules/.bin/rules-as-tests-detect"
 test -x "$BIN_PATH" || fail "(7) bin target rules-as-tests-detect not linked into node_modules/.bin — bin entry not wired"
 echo "  ✓ bin symlink: $BIN_PATH"
+# (7a) THE F-C′ DISCRIMINATOR — assert tsx ARRIVED as a declared runtime dependency.
+# Without this assert step (7) cannot fail for the fork it exists to decide: the shebang is
+# `#!/usr/bin/env -S npx tsx`, and when tsx is absent `npx` SILENTLY INSTALLS IT FROM THE
+# NETWORK — measured 2026-08-10 with tsx demoted back to devDependencies: tsx absent from the
+# fixture, bin still rc=0, stderr `npm warn exec The following package was not found and will
+# be installed: tsx@4.23.12` (an UNPINNED fetch, ≠ the declared ^4.22.4). So "the bin ran" is
+# true under BOTH F-C′ options and decides nothing — `#contract-that-cannot-fail`
+# (.claude/rules/destination-environment-verification.md §4). Presence in node_modules is the
+# assert that actually discriminates: it is what makes the bin work OFFLINE and at the pinned
+# range, which is the concrete cost that decided F-C′ for option (a).
+test -d "$FIXTURE/node_modules/tsx" \
+  || fail "(7a) tsx NOT installed into the fixture — it is not a declared runtime dependency of the package. The bin may still 'work' via npx's silent unpinned network install; that is not a shipped guarantee (F-C′ option (a) not in effect)."
+TSX_VER=$(node -e "console.log(require('$FIXTURE/node_modules/tsx/package.json').version)")
+echo "  ✓ tsx present in fixture as a runtime dep: $TSX_VER (offline-capable, pinned range)"
 # Run --help (short-circuits before detectStack() but still loads the import chain —
 # proves tsx loader works on the installed .ts code).
 HELP_OUT=$(cd "$FIXTURE" && "$BIN_PATH" --help 2>"$WORK/bin-help.err") || {
@@ -224,5 +253,6 @@ done
 
 echo ""
 echo "✅ consumer-matrix npm-tarball cell: GREEN (${FILE_COUNT:-?} files in tarball)"
-echo "   files allowlist validated by paired RED→GREEN per asset class (kickoff §3 item 4)."
+echo "   10/14 files entries carry measured paired RED evidence; 4 (validator/, ir/, backends/,"
+echo "   composition/) are UNVALIDATED-by-this-cell — table in the freeze record (kickoff §3 item 4)."
 echo "   F-C′ resolution: option (a) tsx-dep — bin runs end-to-end from installed tarball."
