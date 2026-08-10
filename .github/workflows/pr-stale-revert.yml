@@ -42,6 +42,8 @@ permissions:
 
 jobs:
   stale-revert-in-pr-diff:
+    # required-context: yes — own workflow file, so cross-file `needs:` cannot reach it and
+    # branch-protection registration is its ONLY fail-closed transport. Registered on staging.
     # name == job id, deliberately (same reason as `fidelity-verdict-in-pr-body` in
     # pr-body-fidelity.yml and `ci-success` in audit-self.yml): GitHub reports the
     # status-check context under `name:`, so this exact string is what the operator must
