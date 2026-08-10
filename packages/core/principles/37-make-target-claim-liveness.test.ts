@@ -1,5 +1,5 @@
 /**
- * Principle 36 — make-target claim liveness.
+ * Principle 37 — make-target claim liveness.
  *
  * A shell script that documents WHICH make target invokes it is asserting a
  * falsifiable property about a file it does not own (the Makefile). Nothing
@@ -51,10 +51,10 @@
  * the legitimate case this gate would otherwise punish: a comment that documents
  * the ABSENCE of a make target (the python cell now does exactly that).
  *
- * PAIRED NEGATIVES (principle 02): N36-1 false claim → RED; N36-2 escape → GREEN;
- * N36-3 short-rationale escape → RED (the hatch is not a blanket bypass);
- * N36-4 nonexistent target → RED; N36-5 true claim → GREEN (proves the check
- * discriminates rather than flagging every claim); N36-6 unbackticked prose →
+ * PAIRED NEGATIVES (principle 02): N37-1 false claim → RED; N37-2 escape → GREEN;
+ * N37-3 short-rationale escape → RED (the hatch is not a blanket bypass);
+ * N37-4 nonexistent target → RED; N37-5 true claim → GREEN (proves the check
+ * discriminates rather than flagging every claim); N37-6 unbackticked prose →
  * not a claim.
  */
 import { describe, it, expect } from 'vitest';
@@ -191,7 +191,7 @@ function loadCorpus(): { file: string; content: string }[] {
   }));
 }
 
-describe('Principle 36 — make-target claim liveness', () => {
+describe('Principle 37 — make-target claim liveness', () => {
   it('the `make -n` precondition holds: no `include`, no `$(shell …)`', () => {
     // The whole mechanism rests on `-n` being side-effect free. GNU make DOES
     // execute recipes needed to update included makefiles, and evaluates
@@ -205,7 +205,7 @@ describe('Principle 36 — make-target claim liveness', () => {
     expect(
       offending.map(({ l, n }) => `Makefile:${n}: ${l.trim()}`),
       'Makefile gained an `include` or `$(shell …)`. `make -n` is no longer ' +
-        'guaranteed side-effect free, so principle 36 must re-justify its mechanism ' +
+        'guaranteed side-effect free, so principle 37 must re-justify its mechanism ' +
         'before it can be trusted. See this file\'s header, SAFETY of -n.',
     ).toEqual([]);
   });
@@ -253,7 +253,7 @@ describe('Principle 36 — make-target claim liveness', () => {
   });
 });
 
-describe('Principle 36 — paired negatives (principle 02)', () => {
+describe('Principle 37 — paired negatives (principle 02)', () => {
   // A fixed synthetic resolver: `consumer-matrix` exists and runs two named
   // cells; everything else does not exist. Independent of the real Makefile, so
   // these arms keep discriminating when the real target legitimately changes.
@@ -269,7 +269,7 @@ describe('Principle 36 — paired negatives (principle 02)', () => {
 
   const claimLine = '# Runs in CI (ubuntu) and host-verify (`make consumer-matrix`).';
 
-  it('N36-1: a FALSE claim is RED', () => {
+  it('N37-1: a FALSE claim is RED', () => {
     const v = findViolations(
       [{ file: 'tests/consumer-matrix/python-unfamiliar-stack-cell.sh', content: claimLine }],
       fakeResolve,
@@ -282,7 +282,7 @@ describe('Principle 36 — paired negatives (principle 02)', () => {
     expect(v[0].reason).toContain('never invokes');
   });
 
-  it('N36-5: a TRUE claim is GREEN — the check discriminates', () => {
+  it('N37-5: a TRUE claim is GREEN — the check discriminates', () => {
     // The anti-tautology leg. Same claim, same resolver, only the claiming file
     // differs. A check that flags both is just "every claim is a violation".
     const v = findViolations(
@@ -292,7 +292,7 @@ describe('Principle 36 — paired negatives (principle 02)', () => {
     expect(v).toEqual([]);
   });
 
-  it('N36-2: the escape token with a real rationale is GREEN', () => {
+  it('N37-2: the escape token with a real rationale is GREEN', () => {
     const content =
       '# It is therefore NOT part of `make consumer-matrix`.  ' +
       '# make-claim: allow — records the absence of a make target, not a claim to run under one';
@@ -303,7 +303,7 @@ describe('Principle 36 — paired negatives (principle 02)', () => {
     expect(v).toEqual([]);
   });
 
-  it('N36-3: the escape token WITHOUT a ≥20-char rationale is still RED', () => {
+  it('N37-3: the escape token WITHOUT a ≥20-char rationale is still RED', () => {
     // The hatch must not be a blanket bypass — `allow` + "TODO" is exactly the
     // placeholder CLAUDE.md's Prior-art hatch rejects.
     const short = '# not in `make consumer-matrix`  # make-claim: allow TODO';
@@ -323,7 +323,7 @@ describe('Principle 36 — paired negatives (principle 02)', () => {
     ).toHaveLength(1);
   });
 
-  it('N36-4: claiming a target that does not exist is RED', () => {
+  it('N37-4: claiming a target that does not exist is RED', () => {
     const v = findViolations(
       [{ file: 'tests/x.sh', content: '# run via `make no-such-target`' }],
       fakeResolve,
@@ -332,7 +332,7 @@ describe('Principle 36 — paired negatives (principle 02)', () => {
     expect(v[0].reason).toContain('no such target exists');
   });
 
-  it('N36-6: a make invocation on an EXECUTABLE line is not a claim', () => {
+  it('N37-6: a make invocation on an EXECUTABLE line is not a claim', () => {
     // `make x` in runnable code is a real call. Flagging it would make the gate
     // fire on scripts that legitimately shell out to make.
     const v = findViolations(
