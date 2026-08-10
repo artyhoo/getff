@@ -17,6 +17,12 @@ on:
 
 jobs:
   framework-self-template-render:
+    # required-context: yes — own workflow file, so cross-file `needs:` cannot reach it and
+    # branch-protection registration is its ONLY fail-closed transport. Fires on every PR (no
+    # `paths:` filter, no `if:`), so registering it cannot deadlock. NOT YET REGISTERED on
+    # staging as of 2026-08-10: the P1/P4/P6 probes can go red and the PR still merges. The
+    # alternative closure is relocating this job into audit-self.yml so `ci-success` needs: it —
+    # a job move, deliberately not bundled here.
     name: Template render probes — P1/P4/P6 (deterministic)
     runs-on: ubuntu-latest
     permissions:

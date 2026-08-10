@@ -47,6 +47,10 @@ concurrency:
 
 jobs:
   guard-liveness-fullsweep:
+    # required-context: no — triggers on `pull_request: branches: [main]` only, so it never
+    # reports on a staging-base PR; registering it in STAGING protection would deadlock every
+    # staging PR on a context that never runs. It is a main-promotion backstop, and belongs in
+    # main's protection if anywhere — a separate decision on a branch this list does not cover.
     name: guard-liveness-fullsweep
     runs-on: ubuntu-latest
     timeout-minutes: 5
