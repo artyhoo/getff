@@ -4,8 +4,8 @@
 
 > **Class:** B — enforcement mechanism is the operator-global PreToolUse guard (`~/.claude/hooks/git-safety.sh` rebase/force-push arm — fires at the moment the agent types the dangerous command) + the always-on [CLAUDE.md `Harness gates`](../../CLAUDE.md) pointer (the in-repo channel this marker declares). Class A (CI principle test) is **structurally unreachable**: the violation is an agent-session *command choice* (`git rebase` + force-push), invisible to repo CI by construction — by the time anything reaches CI the push either succeeded (plain) or was already classifier-blocked. Same out-of-repo ceiling rationale as [memory-codification.md §1](memory-codification.md). Promotion ceiling = B; §6. The «structurally unreachable» claim scopes the merge-forward **procedure** (an agent's command choice, invisible to repo CI by construction); §8's stale-base revert **hazard** is a different subject — PR-diff content lineage — which IS mechanically visible at PR time and therefore carries its own CI gate (`stale-revert-in-pr-diff`), so the Class-B ceiling stands for the procedure without extending to §8's hazard.
 > **Fires:** a CONFLICTING PR, or any rebase / force-push urge on a published branch.
-> **Authoritative for:** the merge-forward discipline for un-conflicting a published PR branch — §1 the rule, §2 the verified recipe, §3 why rebase+force is a dead end for agents, §4 generated-vs-semantic conflict triage, §5 anti-patterns, §6 promotion/retirement, §8 the stale-base rebuild hazard + its PR-time gate.
-> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). `git-safety.sh` implementation — operator-owned global file outside the repo. Promote staging→main mechanics and other push gates — see [CLAUDE.md `Harness gates`](../../CLAUDE.md).
+> **Authoritative for:** the merge-forward discipline for un-conflicting a published PR branch — §1 the rule, §2 the verified recipe, §3 why rebase+force is a dead end for agents, §4 generated-vs-semantic conflict triage, §5 anti-patterns, §6 promotion/retirement, §8 the stale-base rebuild hazard + its PR-time gate, §9 what to push when the PR carries a fidelity verdict.
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). `git-safety.sh` implementation — operator-owned global file outside the repo. Promote staging→main mechanics and other push gates — see [CLAUDE.md `Harness gates`](../../CLAUDE.md). Whether a moved head earns a new cold audit at all (the substance-vs-SHA judgment §9 hands off to) — see [cold-seat-economy.md §1](cold-seat-economy.md). The fidelity-audit protocol + verdict grammar — see [agents/fidelity-auditor.md](../../agents/fidelity-auditor.md).
 
 > **Origin:** 2026-07-21 incident, PR #1058 (worktree `night-mode-discussion-833605`). The PR turned CONFLICTING after PR #1054 moved the same generated baselines; the session rebased, then force-push was denied twice by the harness permission classifier (both direct `--force-with-lease` and pushing the rewritten history to a *new* branch), session stopped, operator had to diagnose. The rebase was never needed: merge-forward was then applied successfully — plain fast-forward push `5b784ac12..00546d4e2` un-conflicted PR #1058 with no force involved. Recurrence scale: 43 of 280 session transcripts under `~/.claude/projects/-Users-art-code-rules-as-tests-aif*/` mention `force-with-lease` / CONFLICTING (grep probe, 2026-07-21) — tens of thousands of tokens re-diagnosed per recurrence.
 
@@ -63,6 +63,7 @@ Anything *else* in the `--diff-filter=U` list is a **semantic conflict**: two PR
 - **`#rebase-reflex-on-conflicting-pr`** — reaching for `git rebase` because it is the muscle-memory fix for «branch behind base». For a published PR branch in an agent session it is a guaranteed dead end (§3). Counter: §2 recipe.
 - **`#force-with-lease-as-safe-force`** — treating `--force-with-lease` as the «allowed» force. For agents it is equally blocked; pre-patch `git-safety.sh` advice literally recommended it, steering sessions into the wall. Counter: the hook arm points here instead.
 - **`#hand-merge-generated-conflicts`** — resolving fingerprint/twin conflict hunks by hand. The files are generated; hand-merged content is authoritative-looking garbage. Counter: take either side, regenerate (§2 step 5-6), verify (step 8).
+- **`#merge-forward-buries-the-audited-head`** — pushing the merge-forward commit as the head of a PR that carries a standing `FIDELITY: GO`, then reading `pr-body-fidelity`'s «re-run the fidelity audit on the current head» literally and spending a cold seat on a merge that moved no deliverable. The push is a one-way door: rewinding the head needs a force-push (§3). Counter: §9 — decide what becomes the head *before* pushing; a genuine conflict earns a narrow cold delta check, not a full re-audit.
 
 ## §6 Promotion / retirement
 
@@ -91,9 +92,46 @@ Anything *else* in the `--diff-filter=U` list is a **semantic conflict**: two PR
 - **(b) The edited-stale-file false negative** — whole-file blob equality only catches files the PR leaves byte-identical to the stale base. A stale file the PR *also* edits produces a novel blob and is undetectable: in #1285 itself `setup.d/10-skills.sh` (stale base plus the PR's own A8 edits layered on top) would NOT flag; only the untouched `kickoff.md` does. The untouched-stale-copy shape is the majority shape of a whole-tree snapshot, which is why v1 stops here.
 - **Trigger for both:** a second incident of either shape → extend the gate beyond whole-file blob equality. The SSOT entry [prior-art-evaluations.md#241](../../docs/meta-factory/prior-art-evaluations.md) carries the same trigger, plus «an upstream tool ships content-lineage revert detection → re-evaluate ADOPT».
 
+## §9 The PR carries a fidelity verdict — the merge commit must not become the PR head
+
+**The conflict between two shipped disciplines.** [`pr-body-fidelity.ts:165`](../../packages/core/hooks/checks/pr-body-fidelity.ts) requires the PR body's `Audited-SHA:` to be a **prefix of the PR head SHA**. §2 step 10 pushes the merge-forward commit, which sits ON TOP of the audited commit. So on any PR carrying a `FIDELITY: GO` block, following §2 literally invalidates the verdict the moment the push lands.
+
+Until 2026-08-10 the gate's failure message named only the expensive branch — «*re-run the fidelity audit on the current head*» — which read literally buys a full cold seat (~85–185k tokens, [cold-seat-economy.md §3](cold-seat-economy.md) table) for a merge that moved nothing the seat judges: `#reaudit-on-sha-move` ([cold-seat-economy.md §4](cold-seat-economy.md)) with the gate itself as the tempter. The message now names the cheap branch first and points here; this section is what it points at.
+
+**Split the two branches by what the merge is FOR.** The merge-forward branch and the PR head are different artefacts and only one of them has to be pushed:
+
+- **(a) The base merely MOVED (no conflict) and you want acceptance run against current staging.** The merge-forward branch is a **test vehicle, not the deliverable** — build it, run the suite on it, and push the **audited commit** as the PR head. No re-audit, no seat. *Verified 2026-08-10, PR #1353:* head stayed at the audited `d3e0d1a16f`, the branch history carries no merge commit, the gate passed, and the PR squash-merged as `8d2e7173cf`.
+- **(b) The PR is genuinely CONFLICTING.** The merge commit **must** land — there is no variant that avoids it, and pushing the audited commit un-conflicts nothing. The verdict then earns a refresh, but per [cold-seat-economy.md §1](cold-seat-economy.md) a merge that touched no deliverable / permitted file / descope earns a **narrow cold delta check**, not a full re-audit. Confirm mechanically first: `git diff --name-only <audited>..HEAD` against the kickoff's permitted-file list.
+
+**Case (a), the steps that differ from §2:**
+
+```text
+1-9. §2 steps 1-9 on <fix-branch>, unchanged — including step 8's verification, which is
+     the whole reason the branch exists. Do NOT push <fix-branch>.
+10'. Push the AUDITED commit as the PR head:
+       git push origin <audited-sha>:refs/heads/<pr-branch>
+     Fast-forward only while the remote tip is at or behind the audited commit — see the
+     one-way-door below.
+11'. Confirm GITHUB agrees the PR is clean. A local merge proves you can resolve the base,
+     NOT that the remote considers the head mergeable:
+       gh pr view <n> --json mergeable,mergeStateStatus
+```
+
+**One-way door — decide BEFORE the push.** Once the merge-forward commit is the remote PR head, moving the head back to the audited commit is a history rewind, i.e. a force-push — classifier-blocked for agents in every form (§3). At that point case (a) is no longer reachable and you are in case (b) whether the base conflicted or not.
+
+**Validate the body locally before pushing** — cheaper than a red CI round, and it runs the real gate function rather than eyeballing the hex:
+
+```bash
+npx tsx -e "import {readFileSync} from 'node:fs';import {checkPrBodyFidelity} from './packages/core/hooks/checks/pr-body-fidelity.ts';console.log(JSON.stringify(checkPrBodyFidelity({body:readFileSync('/tmp/pr-body.md','utf8'),headSha:process.argv[1]})))" "$(git rev-parse HEAD)"
+```
+
+Both directions exercised 2026-08-10 against the real function: matching head → `{"ok":true,"errors":[]}`; mismatched head → `ok:false` with the `Audited-SHA … does not match PR head …` error.
+
 ## See also
 
 - [CLAUDE.md `Harness gates`](../../CLAUDE.md) — the always-on pointer bullet (in-repo delivery channel for this rule).
+- [cold-seat-economy.md §1/§4](cold-seat-economy.md) — the substance-vs-SHA judgment §9 case (b) hands off to, and the `#reaudit-on-sha-move` anti-pattern §9 exists to keep the gate from provoking.
+- [.claude/skills/harvest/SKILL.md §4](../skills/harvest/SKILL.md) — the PR-assembly step that records `Audited-SHA`; its step 3 points here for the post-open merge-forward case.
 - [memory-codification.md](memory-codification.md) — precedent for the out-of-repo Class-B ceiling argument.
 - [rule-enforcement-channel-selection.md](rule-enforcement-channel-selection.md) — why the gate lives at PreToolUse, not in memory.
 - [ai-laziness-traps.md §2](ai-laziness-traps.md) — T20 (verdict without evidence) is how «rebase will fix it» ships without checking the push gate.

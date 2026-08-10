@@ -163,7 +163,11 @@ export function checkPrBodyFidelity({ body, headSha }: FidelityCheckInput): Fide
   if (!sha) {
     errors.push('GO requires `Audited-SHA: <12-40 hex>`');
   } else if (!headSha.toLowerCase().startsWith(sha[1].toLowerCase())) {
-    errors.push(`Audited-SHA ${sha[1]} does not match PR head ${headSha || '(empty)'} — re-run the fidelity audit on the current head`);
+    // Name the cheap remediation FIRST. The expensive one (a fresh cold seat) used to be the
+    // only branch this message offered, so a head moved by a merge-forward commit — which
+    // changes nothing the seat judges — read as "burn ~85-185k tokens on a re-audit".
+    // Decision procedure: .claude/rules/git-conflict-merge-forward.md §9.
+    errors.push(`Audited-SHA ${sha[1]} does not match PR head ${headSha || '(empty)'} — if the head moved only by a merge-forward/rebuild commit, push the audited commit as the head instead (.claude/rules/git-conflict-merge-forward.md §9); otherwise re-run the fidelity audit on the current head`);
   }
   if (!hasEvidence(section)) errors.push('GO requires >=1 file:line evidence reference on a line other than `Basis:`');
   return { ok: errors.length === 0, errors };
