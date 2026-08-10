@@ -83,7 +83,7 @@ jobs:
           # Two mechanisms now guard this list, because a hand-maintained list whose
           # population is declared elsewhere is exactly the drift shape that let it fall
           # three entries behind reality (.claude/rules/attention-is-not-a-mechanism.md §2):
-          # packages/core/principles/37-required-contexts-registrable.test.ts asserts every
+          # packages/core/principles/38-required-contexts-registrable.test.ts asserts every
           # entry resolves to exactly one real job `name:`, that no such workflow carries a
           # trigger filter that would make the context never report, and that
           # scripts/run-local-ci-sweep.sh names the identical set.

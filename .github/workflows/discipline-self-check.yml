@@ -20,7 +20,7 @@ name: discipline-self-check
 # reasoning already moved actionlint + zizmor into audit-self.yml
 # (docs/meta-factory/automerge-staging-plan.md §5) and is why all three sibling
 # PR-body gates — pr-body-prior-art.yml, pr-body-fidelity.yml, pr-stale-revert.yml —
-# ship unfiltered. Enforced by packages/core/principles/37-required-contexts-registrable.test.ts.
+# ship unfiltered. Enforced by packages/core/principles/38-required-contexts-registrable.test.ts.
 #
 # The scope decision did NOT disappear, it moved to the mechanism §1.7 already had:
 # the `### §1.7 Skipped: <≥60 chars>` marker, which .github/pull_request_template.md:61
@@ -34,8 +34,8 @@ name: discipline-self-check
 # A job-level `if:` is safe where a trigger filter is not: a job skipped by `if:`
 # inside a workflow that DID run reports the `skipped` conclusion, which branch
 # protection accepts — «if a job is skipped due to a conditional, it reports success»
-# (same GitHub doc). That is what the base=staging guard below relies on, matching
-# pr-body-fidelity.yml:40 and pr-stale-revert.yml:52.
+# (same GitHub doc). That is what the base-ref guard below relies on; see the comment
+# on the job for why its condition is `!= 'main'` and not the siblings' `== 'staging'`.
 
 on:
   pull_request:
@@ -50,7 +50,7 @@ jobs:
     # NOTE: `name:` is the status-check context string the operator registers in staging
     # branch protection — GitHub matches it character-for-character, and it is mirrored in
     # workflow-integrity.yml REQUIRED_CONTEXTS. Renaming it silently deadlocks every
-    # staging PR on a context that never reports. Principle 37 asserts the mirror.
+    # staging PR on a context that never reports. Principle 38 asserts the mirror.
     name: §1.7 forward+backward sections present in PR description
     runs-on: ubuntu-latest
     # Promote-flow safety: a base=main promote PR aggregates ~90 squashed commits and has

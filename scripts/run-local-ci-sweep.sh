@@ -13,7 +13,7 @@
 #
 # --- COVERAGE vs the required CI contexts (audited 2026-08-10) -----------------------------
 # The contexts that must be REQUIRED on staging are listed below. This block is not prose:
-# packages/core/principles/37-required-contexts-registrable.test.ts parses it and asserts it
+# packages/core/principles/38-required-contexts-registrable.test.ts parses it and asserts it
 # names exactly the set declared in .github/workflows/workflow-integrity.yml REQUIRED_CONTEXTS
 # — the two lists are hand-maintained, and before that gate they had drifted apart AND away
 # from live branch protection. Edit both or neither. Each string is a job's `name:`.

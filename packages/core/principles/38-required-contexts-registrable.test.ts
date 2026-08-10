@@ -1,5 +1,5 @@
 /**
- * Principle 37 — required-status-check contexts are registrable, and their two in-repo
+ * Principle 38 — required-status-check contexts are registrable, and their two in-repo
  * declarations agree
  *
  * > **Authoritative for:** the `REQUIRED_CONTEXTS` list in `.github/workflows/workflow-integrity.yml`
@@ -234,7 +234,7 @@ export function hostsOf(
 
 // ── Tests ─────────────────────────────────────────────────────────────────────────────────
 
-describe('Principle 37 — required-check contexts are registrable and consistently declared', () => {
+describe('Principle 38 — required-check contexts are registrable and consistently declared', () => {
   const ssot = (): string => readFileSync(SSOT, 'utf8');
   const sweep = (): string => readFileSync(SWEEP, 'utf8');
   const workflows = () => readWorkflows(WORKFLOW_DIR);
