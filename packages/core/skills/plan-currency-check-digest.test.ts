@@ -145,7 +145,16 @@ afterEach(() => {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe('plan-currency-check.sh — digest mode (pipeline-ux Stage 1A)', () => {
+// Every case here spawns the real plan-currency-check.sh and does real filesystem/git work in a
+// sandbox — multi-second runtimes are inherent, so the vitest 5s default is a mis-set
+// gate rather than a signal, not a budget these tests were ever meant to meet. Measured
+// 2026-08-10 (`vitest run skills/`, macOS): the untimed cases below time out at 5000ms
+// while the underlying script succeeds. 30_000 is the SLOW_SHELL_MS convention already
+// used by the sibling shell-spawning suites (dup-detect, create-worktree,
+// priority-score-synthetic), applied here per the #1363 precedent.
+const SLOW_SHELL_MS = 30_000;
+
+describe('plan-currency-check.sh — digest mode (pipeline-ux Stage 1A)', { timeout: SLOW_SHELL_MS }, () => {
   it('SIDE-FILE WRITE: after running, _plan-currency-raw.txt exists with real content', () => {
     // Targets Stage 1A side-file write: full corpus → _plan-currency-raw.txt
     runScript();

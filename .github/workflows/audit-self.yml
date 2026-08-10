@@ -388,16 +388,19 @@ jobs:
       # firing tests landed under backends/, test:backends). A test-that-does-not-gate is the
       # #discipline-theatre this project exists to prevent. Gate the umbrella's OWN tests here,
       # reusing the `npm ci --prefix packages/core` install above (same job, deterministic).
-      # SCOPED (not `vitest run synthesizer/`): the broader synthesizer/ suite includes ~6
-      # pre-existing tests (generate*/menu-pick/rule-bootstrap*) that import the workspace eslint
-      # preset `@rules-as-tests/preset-next-15-canonical`, which is not built in this per-dir job →
-      # they fail to COLLECT here. Those are a pre-existing CI-coverage gap (flagged in the LG-S3 PR
-      # §1.7 backward-check), NOT this umbrella's tests — wiring them in is a separate task. The
-      # researched-cargo clippy live-fire (live-generation-clippy.test.ts AC2) now fires FOR REAL
-      # here against the pinned 1.96.1 toolchain installed above (ecosystem-wiring W4 — runLiveFire
-      # = cargoPresent, no !isCI); the render/drift/evidence-validator tests remain always-on.
-      - name: Run live-generation umbrella tests (bridges + render + rust evidence)
-        run: npm --prefix packages/core run test:live-generation
+      # UN-SCOPED as of 2026-08-10 (principle 38): this step used to run only 3 named synthesizer
+      # files because the other 20 import the workspace eslint preset
+      # `@rules-as-tests/preset-next-15-canonical`, which `npm ci --prefix packages/core` does not
+      # provide (the preset is a workspace sibling, absent from packages/core's own package.json
+      # and its standalone lock) → they failed to COLLECT at THIS point in the job. The old comment
+      # called wiring them in "a separate task"; that task is done. The fix was placement, not
+      # scoping: the root `npm install` below creates the `@rules-as-tests/*` workspace symlinks in
+      # the repo-root node_modules, and node resolution from packages/core walks up to find them —
+      # so the full `synthesizer/` suite is now run by `test:synthesizer` AFTER that install.
+      # The researched-cargo clippy live-fire (live-generation-clippy.test.ts AC2) still fires FOR
+      # REAL against the pinned 1.96.1 toolchain installed above (ecosystem-wiring W4 — runLiveFire
+      # = cargoPresent, no !isCI); the rust toolchain is job-scoped, so moving the step later keeps
+      # it on PATH. The `test:live-generation` script itself is retained for narrow local use.
       # CI-gap option C (hook-test-suite-rot): the packages/core/hooks/ vitest suite was
       # never gated — only principles/ was — which is how a real cross-platform regression
       # (priority-score-synthetic.sh xargs) accumulated 15 failures unnoticed. Gate it here.
@@ -409,6 +412,39 @@ jobs:
         run: npm install --silent
       - name: Run packages/core/hooks/ suite (CI-gap option C — gate the hooks suite)
         run: npm --prefix packages/core run test:hooks
+      # ── vitest include-allowlist coverage (principle 38, 2026-08-10) ─────────────────────
+      # Before this block, 87 *.test.ts files across 12 include-allowlist directories had ZERO
+      # CI invocation (skills 22, research 22, validator 16, eslint-rules 7, detector 7,
+      # installer 4, scenario-generator 2, diff 2, diagnostics 2, detector-v0 1, spec-validation
+      # 1, python-starter 1), plus partial coverage of synthesizer (3/23), install (2/5) and
+      # audit-self (3/6). A test wired at no channel fails at none — the #armed-but-not-fired
+      # false-green. `principles/38-vitest-include-ci-coverage.test.ts` now asserts this list
+      # cannot fall behind `vitest.config.ts` again; it reads THESE steps to decide coverage,
+      # so deleting one turns the principles suite RED at pre-push, before CI.
+      #
+      # Placement is load-bearing: all three steps run AFTER the root `npm install` above,
+      # because `validator/gate-*.ts`, `install/rule-bootstrap-cli.ts` and
+      # `synthesizer/generate-react-spa.test.ts` import `@rules-as-tests/preset-next-15-canonical`
+      # — a workspace sibling that only exists in node_modules once the root install has linked
+      # it. Moving them above that install reproduces the collection failure this block fixes.
+      - name: Run packages/core deterministic unit suites (principle 38 — 12 previously-unwired dirs)
+        run: npm --prefix packages/core run test:units
+      # Split out from test:units: every case spawns a real bash helper against a sandbox tree,
+      # so this is the slow arm (~90s locally, 211 tests) and deserves its own attributable step.
+      - name: Run packages/core/skills/ suite (principle 38)
+        run: npm --prefix packages/core run test:skills
+      # Split out because it is the only suite in the package that touches the network: it shells
+      # out to the real `gh` CLI to resolve action SHAs against the GitHub API. GH_TOKEN makes
+      # those calls authenticated so the assertions are real rather than uniformly rate-limited
+      # into the exit-2 "tooling unavailable" branch that the tests tolerate by design.
+      - name: Run packages/core/spec-validation/ suite (principle 38)
+        run: npm --prefix packages/core run test:spec-validation
+        env:
+          GH_TOKEN: ${{ github.token }}
+      # Full synthesizer/ — supersedes the narrow 3-file test:live-generation step above; see the
+      # UN-SCOPED note there for why it had to move below the root install.
+      - name: Run packages/core/synthesizer/ suite (principle 38 — was 3/23 files)
+        run: npm --prefix packages/core run test:synthesizer
       # #752 fix (Variant A): rule .mjs/.d.ts are pre-compiled + committed (install copies them,
       # consumer needs no tsc). This gate fails if a committed artifact drifts from its .ts source
       # — the executable guard that keeps "ship pre-compiled" honest. Root tsc hoisted above.

@@ -240,7 +240,16 @@ afterEach(() => {
 
 // ── POSITIVE TESTS ────────────────────────────────────────────────────────────
 
-describe('priority-score.sh — L1 synthetic discovery surfaces (positive cases)', () => {
+// Every case here spawns the real priority-score.sh and does real filesystem/git work in a
+// sandbox — multi-second runtimes are inherent, so the vitest 5s default is a mis-set
+// gate rather than a signal, not a budget these tests were ever meant to meet. Measured
+// 2026-08-10 (`vitest run skills/`, macOS): the untimed cases below time out at 5000ms
+// while the underlying script succeeds. 30_000 is the SLOW_SHELL_MS convention already
+// used by the sibling shell-spawning suites (dup-detect, create-worktree,
+// priority-score-synthetic), applied here per the #1363 precedent.
+const SLOW_SHELL_MS = 30_000;
+
+describe('priority-score.sh — L1 synthetic discovery surfaces (positive cases)', { timeout: SLOW_SHELL_MS }, () => {
   it('(a) cold-review-fixes.md → emits source=cold-review-fixes entry', () => {
     const out = runScript();
     expect(out).toContain('source=cold-review-fixes');
@@ -361,7 +370,7 @@ describe('priority-score.sh — L1 synthetic discovery surfaces (positive cases)
 
 // ── PAIRED-NEGATIVE TESTS (principle 02) ─────────────────────────────────────
 
-describe('priority-score.sh — L1 paired-negative (each surface individually removed)', () => {
+describe('priority-score.sh — L1 paired-negative (each surface individually removed)', { timeout: SLOW_SHELL_MS }, () => {
   it('PAIRED-NEGATIVE (a): remove cold-review-fixes.md → that entry drops, others remain', () => {
     // Remove the fixture
     unlinkSync(join(promptsDir, 'test-umbrella-a', 'cold-review-fixes.md'));
@@ -461,7 +470,7 @@ describe('priority-score.sh — L1 paired-negative (each surface individually re
 
 // ── ANTI-TAUTOLOGY CHECK ──────────────────────────────────────────────────────
 
-describe('priority-score.sh — anti-tautology verification', () => {
+describe('priority-score.sh — anti-tautology verification', { timeout: SLOW_SHELL_MS }, () => {
   it('reverted script (kickoff-only) would FAIL this test — both arms verified', () => {
     // This test documents that the positive test above would fail if the script only
     // enumerated kickoff.md entries (i.e., if L1 extension were reverted).
@@ -497,7 +506,7 @@ describe('priority-score.sh — anti-tautology verification', () => {
 
 // ── T15 RECURSIVE SELF-APPLICATION NOTE ──────────────────────────────────────
 
-describe('priority-score.sh — T15 self-application documentation', () => {
+describe('priority-score.sh — T15 self-application documentation', { timeout: SLOW_SHELL_MS }, () => {
   it(
     'T15 dogfood: umbrella kickoff is discoverable via real repo run ' +
       '(run manually: bash .claude/skills/pipeline/helpers/priority-score.sh | grep planner-completeness)',
@@ -533,7 +542,7 @@ describe('priority-score.sh — T15 self-application documentation', () => {
 
 // ── CONSUMER-USABLE /pipeline: agnostic .ai-factory discovery (2026-06-16) ────
 
-describe('priority-score.sh — agnostic orch-home discovery (consumer)', () => {
+describe('priority-score.sh — agnostic orch-home discovery (consumer)', { timeout: SLOW_SHELL_MS }, () => {
   it('discovers a kickoff under .ai-factory/orchestrator-prompts when .claude/ is absent (consumer)', () => {
     const repo = mkdtempSync(join(tmpdir(), 'consumer-disc-'));
     createdDirs.push(repo);

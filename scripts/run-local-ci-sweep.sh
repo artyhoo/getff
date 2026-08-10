@@ -22,7 +22,8 @@
 #   agnosticism, meta-all-wired, every scripts/*.test.sh self-test the workflow wires (derived,
 #   not listed — see gate_table), harvest-via-api, the
 #   setup.d lint step) · principles-meta-tests (test:principles/hooks/render/ir/composition/
-#   backends/live-generation, the two drift gates, the tests/hooks/*.test.sh battery) ·
+#   backends/synthesizer/units/skills/spec-validation, the two drift gates, the
+#   tests/hooks/*.test.sh battery) ·
 #   manifest-render-check · probe-tests · alwayson-budget · phase-8-canonical-regen-acceptance ·
 #   f17-node-compat (host Node only) · shipped-prettier (not a `ci-success` need, but its
 #   `npm run format:check` is the sweep's format-check row).
@@ -128,7 +129,10 @@ gate_table() {
     "6${TAB}vitest-ir${TAB}packages/core/${TAB}npm --prefix packages/core run test:ir" \
     "6${TAB}vitest-composition${TAB}packages/core/${TAB}npm --prefix packages/core run test:composition" \
     "6${TAB}vitest-backends${TAB}packages/core/${TAB}if toolchain_pins_ok; then npm --prefix packages/core run test:backends; else echo '[sweep] WARN-skip vitest-backends: host toolchain != CI pins'; fi" \
-    "6${TAB}vitest-live-generation${TAB}packages/core/${TAB}if toolchain_pins_ok; then npm --prefix packages/core run test:live-generation; else echo '[sweep] WARN-skip vitest-live-generation: host toolchain != CI pins'; fi" \
+    "6${TAB}vitest-synthesizer${TAB}packages/core/${TAB}if toolchain_pins_ok; then npm --prefix packages/core run test:synthesizer; else echo '[sweep] WARN-skip vitest-synthesizer: host toolchain != CI pins'; fi" \
+    "6${TAB}vitest-units${TAB}packages/core/${TAB}npm --prefix packages/core run test:units" \
+    "6${TAB}vitest-skills${TAB}packages/core/${TAB}npm --prefix packages/core run test:skills" \
+    "6${TAB}vitest-spec-validation${TAB}packages/core/${TAB}{ command -v gh >/dev/null 2>&1 && npm --prefix packages/core run test:spec-validation; } || echo '[sweep] WARN-skip vitest-spec-validation: gh absent (suite resolves action SHAs via the GitHub API)'" \
     "6${TAB}vitest-install-wire${TAB}packages/core/${TAB}npx --prefix packages/core vitest run --reporter=default packages/core/install/wire-live-snippet.test.ts packages/core/install/wire-synth-rules.test.ts" \
     "6${TAB}audit-ai-docs${TAB}packages/core/,docs/,skills/,agents/${TAB}npx --prefix packages/core vitest run --reporter=default packages/core/audit-self/audit-ai-docs.test.ts" \
     "6${TAB}canonical-regen${TAB}packages/${TAB}npm --prefix packages/core test --silent -- tests/acceptance/canonical-regen" \
