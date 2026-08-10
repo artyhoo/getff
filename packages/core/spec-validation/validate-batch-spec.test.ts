@@ -114,7 +114,13 @@ describe('validate-batch-spec (--paths-only mode)', () => {
 
 // ── --soft mode tests ─────────────────────────────────────────────────────────
 
-describe('validate-batch-spec (--soft mode)', () => {
+// Both cases here spawn `npx tsx validate-batch-spec.ts`, which resolves the ref through the
+// real `gh` CLI against the GitHub API — a network round-trip on top of a tsx cold start. The
+// three integration cases below already carry `30_000` for exactly that reason; these two were
+// left on the vitest 5s default and time out against a live `gh` (measured 5568ms, 2026-08-10,
+// macOS) even though the script itself succeeds. Same value, same reason — the timeout must
+// outlive the API call, not budget it.
+describe('validate-batch-spec (--soft mode)', { timeout: 30_000 }, () => {
   it('exits 0 even with all-zeros SHA (soft mode skips hard fail)', () => {
     // --soft + impossible SHA: if gh available → finding reported to stderr but exit 0
     // if gh unavailable → exit 2 (tooling unavailable, also not 1)

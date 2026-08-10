@@ -82,8 +82,18 @@ function runRunner(manifestPath: string): { code: number; out: string } {
   return { code: r.status ?? -1, out: `${r.stdout ?? ''}${r.stderr ?? ''}` };
 }
 
+// Every case here spawns the real run-generated-rule-mutation.sh runner and does real filesystem/git work in a
+// sandbox — multi-second runtimes are inherent, so the vitest 5s default is a mis-set
+// gate rather than a signal, not a budget these tests were ever meant to meet. Measured
+// 2026-08-10 (`vitest run skills/`, macOS): the untimed cases below time out at 5000ms
+// while the underlying script succeeds. 30_000 is the SLOW_SHELL_MS convention already
+// used by the sibling shell-spawning suites (dup-detect, create-worktree,
+// priority-score-synthetic), applied here per the #1363 precedent.
+const SLOW_SHELL_MS = 30_000;
+
 describe.skipIf(!PROBES_AVAILABLE)(
   'run-generated-rule-mutation — skip-counter + non-PASS polarity (getff S1)',
+  { timeout: SLOW_SHELL_MS },
   () => {
     it('manifest with empty negative-test input → malformed skip (SILENT :172 path, T-S1-A)', () => {
       // After node extraction, RULE_INPUT=(inputs||[])[0]||'' becomes '' because

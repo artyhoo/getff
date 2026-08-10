@@ -155,7 +155,16 @@ afterEach(() => {
 
 // ── POSITIVE TESTS ────────────────────────────────────────────────────────────
 
-describe('plan-currency-check.sh — L2 reverse-currency (positive cases)', () => {
+// Every case here spawns the real plan-currency-check.sh and does real filesystem/git work in a
+// sandbox — multi-second runtimes are inherent, so the vitest 5s default is a mis-set
+// gate rather than a signal, not a budget these tests were ever meant to meet. Measured
+// 2026-08-10 (`vitest run skills/`, macOS): the untimed cases below time out at 5000ms
+// while the underlying script succeeds. 30_000 is the SLOW_SHELL_MS convention already
+// used by the sibling shell-spawning suites (dup-detect, create-worktree,
+// priority-score-synthetic), applied here per the #1363 precedent.
+const SLOW_SHELL_MS = 30_000;
+
+describe('plan-currency-check.sh — L2 reverse-currency (positive cases)', { timeout: SLOW_SHELL_MS }, () => {
   it('emits UNTRACKED-200 for merged PR #200 not referenced in wave plan', () => {
     const out = runScript();
     expect(out).toContain('UNTRACKED-200:');
@@ -206,7 +215,7 @@ describe('plan-currency-check.sh — L2 reverse-currency (positive cases)', () =
 
 // ── PAIRED-NEGATIVE TESTS (principle 02) ─────────────────────────────────────
 
-describe('plan-currency-check.sh — L2 paired-negative (remove cause → effect drops)', () => {
+describe('plan-currency-check.sh — L2 paired-negative (remove cause → effect drops)', { timeout: SLOW_SHELL_MS }, () => {
   it('PAIRED-NEGATIVE: when wave plan references #200 and umbrella-not-in-plan → both UNTRACKED entries drop', () => {
     // Update wave plan to include all items
     write(wavePlanPath, WAVE_PLAN_WITH_ALL_ITEMS);
@@ -253,7 +262,7 @@ describe('plan-currency-check.sh — L2 paired-negative (remove cause → effect
 
 // ── FAILURE-MODE TESTS ────────────────────────────────────────────────────────
 
-describe('plan-currency-check.sh — L2 failure modes (graceful degradation)', () => {
+describe('plan-currency-check.sh — L2 failure modes (graceful degradation)', { timeout: SLOW_SHELL_MS }, () => {
   it('when wave-sequencing-plan.md is MISSING → script does NOT crash, emits warning, still outputs open-PR section', () => {
     // Inject a non-existent wave plan path
     const out = runScript({ MO_WAVE_PLAN: join(tmpRoot, 'does-not-exist', 'wave-sequencing-plan.md') });
@@ -275,7 +284,7 @@ describe('plan-currency-check.sh — L2 failure modes (graceful degradation)', (
 
 // ── T15 RECURSIVE SELF-APPLICATION NOTE ──────────────────────────────────────
 
-describe('plan-currency-check.sh — T15 self-application + structural verification', () => {
+describe('plan-currency-check.sh — T15 self-application + structural verification', { timeout: SLOW_SHELL_MS }, () => {
   it('T15 + T19 structural: script exists, contains L2 seam declarations and UNTRACKED keywords', () => {
     // Verify script file exists and contains expected L2 artifacts (structural check)
     const { readFileSync, existsSync } = require('node:fs');
@@ -303,7 +312,7 @@ describe('plan-currency-check.sh — T15 self-application + structural verificat
 });
 
 // ── Named-mode compact output tests (pipeline-ux Stage 1) ────────────────────
-describe('plan-currency-check.sh — named-mode compact (pipeline-ux P1)', () => {
+describe('plan-currency-check.sh — named-mode compact (pipeline-ux P1)', { timeout: SLOW_SHELL_MS }, () => {
   it('named-mode: exits with compact header (not the full 47KB scan)', () => {
     const out = runScript({}, 'some-umbrella');
     expect(out).toContain("umbrella='some-umbrella' named-mode");
