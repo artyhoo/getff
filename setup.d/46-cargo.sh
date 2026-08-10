@@ -249,7 +249,7 @@ _cargo_write_rules_lock() {
     _ctx_ver=$(grep -oE '"version"[[:space:]]*:[[:space:]]*("[^"]*"|null)' "$_ctx" | head -1 | sed -E 's/.*:[[:space:]]*//')
   fi
   [ -n "$_ctx_ver" ] || _ctx_ver='null'
-  # MAJOR B (W-7) / §3a option B / §6 fork 2: derive the per-rule slice from the
+  # §3a option B / §6 fork 2: derive the per-rule slice from the
   # fragment dir (generation-context/<rule-id>.json, one per rule). cargo's ban
   # surface is clippy TOML lint config (disallowed-methods entries), not named
   # ast-grep rule ids — the fragment dir is typically empty for this lane, so the

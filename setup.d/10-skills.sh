@@ -108,9 +108,8 @@ fi
 for _skill in template-audit ai-doc rule-research rule-tests; do
   copy_skill_with_transform "$_skill"
 done
-# env+ contour surface (spec A8 + beta-delivery-ux S2 / R3 spec-conformance divergence):
-# /arch is the architecture-design skill that produces the contour; consumer-facing at env+
-# per S5 kickoff §2 binding #3. /pipeline joined env+ at S2 rework round 1 — the design SSOT
+# env+ contour surface (spec A8): /arch is the architecture-design skill that produces the
+# contour; consumer-facing at env+. /pipeline is env+ too — the design SSOT
 # defines the env depth as carrying «pipeline presets, status, …» verbatim
 # (docs/superpowers/specs/2026-07-23-beta-program-design.md:211). Standing gate had pipeline
 # at factory-only; spec wins → resolved by moving pipeline into the env+ loop. The factory-only
@@ -322,7 +321,7 @@ if [ -f "$MCF_SRC" ]; then
 fi
 
 # ─── 1j. Workspace one-command scripts → MOVED to setup.d/85-worktree-scripts.sh ──
-# beta-delivery-ux S2 rework round 1 / R7 (consolidate to ONE ship-point): the worktree
+# Consolidated to ONE ship-point: the worktree
 # helper scripts cluster (create-worktree.sh + worktree-node-modules.sh + link-coordination.sh
 # + getff-work.sh) now ships exclusively from setup.d/85-worktree-scripts.sh under the
 # env+ gate (PROFILE=env|factory, OR WITH_AIF_SUITE). The previous §1j block that shipped
