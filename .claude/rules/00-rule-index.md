@@ -18,6 +18,7 @@ One line per rule — full text: read `.claude/rules/<name>.md` (index: `.claude
 | `destination-environment-verification.md` | B | kickoff authoring; accepting container work; a cannot-reach claim. | paths:(1), edit-time inject |
 | `doc-authority-hierarchy.md` | A | creating/editing any canonical or shipped consumer-facing doc. | paths:(4), edit-time inject |
 | `dual-implementation-discipline.md` | A | shipping a new CC-native hook + choosing its delivery channel(s). | paths:(3), edit-time inject |
+| `effort-worthiness.md` | C | any effort/rigor fork: probe demand, extra round, follow-up PR, budget breach. | skill-embed(4) |
 | `egress-no-api-bypass.md` | B | harvesting/egressing a finished aif-agent branch to a PR. | skill-embed |
 | `evidence-regeneration.md` | B | a freshness gate RED, or a first live-fired matrix cell. | paths:(1), edit-time inject |
 | `git-conflict-merge-forward.md` | B | a CONFLICTING PR, or any rebase/force-push urge. | claude-md |
