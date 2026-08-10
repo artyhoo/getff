@@ -376,6 +376,12 @@ on the load-bearing half):
    eventually — the operator repo is the first consumer of its own delivery (§1, §5.2).
 9. AI judges substance; mechanisms verify that judgment happened and left a trace —
    theatre came from missing premise/permission/trace, not from inability to judge (§5.3).
+10. **The idea must survive its author-session** (operator, at gate): today the idea's
+    carrier is the authoring /arch session, which dies — the advisor must know the idea
+    EXACTLY, with no broken-telephone effect. Mechanism: verbatim-faithful premise
+    register + transfer by copy-or-pointer, never paraphrase (§2 append-only verbs, §5.2
+    pointer-only floor, §6 verbatim dispute transcription). In-contour proof: the r1 BU
+    BLOCKER — three protocol rows re-typed from memory, all three corrupted in one hop.
 
 ## §8 Work list (landing obligations)
 
