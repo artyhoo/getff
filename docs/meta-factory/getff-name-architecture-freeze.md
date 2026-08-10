@@ -143,7 +143,7 @@ The other **three** bins (`rules-as-tests-synth`, `rules-as-tests-validate`, `ru
 >
 > **U10 must pick one** (R1 does not — it is out of scope per kickoff §7, «no package outside `packages/core`»): (a) publish the presets too, (b) make the preset imports dynamic with a documented degrade, mirroring the existing `ts-morph` pattern at `install/wire-eslint-r2.ts:115-143`, or (c) drop those gates from the `files` allowlist and accept `validate` as a repo-internal bin.
 >
-> Related and also out of R1 scope: `packages/core` declares **no** `peerDependencies` while all four publishable-intent siblings do (`preset-react-spa/package.json:11`, `meta-factory/package.json:13`). Whichever option U10 picks, the peer-tier decision travels with it.
+> Related and also out of R1 scope: `packages/core` declares **no** `peerDependencies` while all four siblings do — `preset-react-spa/package.json:15`, `preset-next-15-canonical/package.json:15`, `preset-react-native/package.json:11`, `meta-factory/package.json:13`. Whichever option U10 picks, the peer-tier decision travels with it.
 
 **Consequence for `files` validation coverage:**
 
