@@ -570,4 +570,18 @@ template + `system-design` (system-design-doc) skill. Document conventions compa
 §7 premises 10-11 + the §8 item 5 layered-spec family; verdict folded into §8 item 5
 (convergent on supersession vocabulary, revisit-triggers, link-don't-duplicate; contributes
 no layer hierarchy, no verbatim premise register, no per-decision falsifiers → no premise
-or template change). Gate word: pending at this commit.
+or template change).
+**Operator's actual question, clarified at the gate (verbatim-faithful):** not a general
+comparison — does the plugin have a format for recording the IDEA separately and keeping
+design / architecture / plan as SEPARATE layers by materiality («иерархия существенности и
+сути» — what is primary vs secondary)? **Answer: NO.** The ADR is a single-layer decision
+document (free-prose `Context` → `Decision` → `Consequences`); `system-design` is a 5-step
+ANALYSIS sequence inside one document, not authority-bearing layer documents;
+`documentation` splits by audience/type (README / API / runbook), not by layer of essence.
+The closest existing formats matching the ask are already in the §8 item 5 family: GitHub
+spec-kit SDD (`constitution → specify → plan → tasks` — the constitution is a first-class
+idea layer) and AWS Kiro (`requirements / design / tasks`) — examined at the landing
+prior-art pass. In-spec, the ask is carried by premise 11 (layer hierarchy + upward
+conflict resolution + materiality-by-highest-layer) and the §8 item 2 arch-template
+obligation (premise register + falsifiers in every spec). Gate word: pending at this
+commit.
