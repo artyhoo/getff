@@ -3,7 +3,7 @@
 <!-- channel: digest .claude/hooks/inject-session-bootstrap.sh#H1 -->
 
 > **Class:** C — prose-only, no companion executable artifact. Promotion criterion in §6.
-> **Fires:** before issuing an inline-chat verdict/recommendation or hitting an ambiguous fork.
+> **Fires:** before an inline verdict/recommendation or an ambiguous fork.
 > **Authoritative for:** mechanism layer + named anti-pattern catalogue entry for inline-chat verdict-without-evidence pattern; promotion criterion in §6.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Recommendation discipline rule itself — see [phase-research-coverage.md §1.12](phase-research-coverage.md) (parent rule, source-of-truth for prose discipline). T-trap catalogue — see [ai-laziness-traps.md §2](ai-laziness-traps.md) (sibling enforcement surface).
 
