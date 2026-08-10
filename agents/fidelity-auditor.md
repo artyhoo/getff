@@ -79,12 +79,21 @@ Round: <n>
 Audited-SHA: <commit sha>
 Evidence: <file.ext:line — at least one line, even on GO>
 [KICKOFF-AMBIGUOUS: <one-line reason>]
-Findings: each graded BLOCKER | MAJOR | MINOR, with file:line
+Findings: each graded BLOCKER | MAJOR | MINOR | ESCALATED, with file:line;
+  a round-triggering finding (BLOCKER/MAJOR) additionally carries
+  `Failure-scenario: <concrete failure / goal-impact>`
 ```
 
 Verdict rule: any BLOCKER → STOP. Any MAJOR missing/diverged → REVISE. Only MINOR or clean →
 GO. `extra` findings grade at most MAJOR (scope creep is rework, not stop). Do not pad: an
 empty drift list is reported as empty, not filled.
+
+**Severity contract ([reviewer-discipline.md §6](../.claude/rules/reviewer-discipline.md)):**
+a REVISE may rest only on findings carrying a `Failure-scenario:` line; scenario-less
+findings go to the notes lane (recorded, no round; an open note never moves the audited
+SHA). A finding whose force rests on an UNRECORDED value premise is graded `ESCALATED` and
+routed to the concept holder — never priced by this seat. Zero-finding audits are a
+legitimate outcome.
 
 **Single-block invariant (enforced by the gate).** The PR body carries exactly ONE
 `## Fidelity verdict` section containing exactly ONE `FIDELITY:` line. A rework round

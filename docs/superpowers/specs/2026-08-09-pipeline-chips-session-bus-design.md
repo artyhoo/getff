@@ -245,6 +245,13 @@ PLUS either a self-title/registration capability appearing in the ccd family OR 
 that CLI `SendMessage` supports deterministic session naming — then the recorded protocol
 extends the same park flow without redesign.
 
+**SUPERSEDED in part (2026-08-10):** the deferral is lifted by
+[advisor-pattern-design §1/§2](2026-08-10-advisor-pattern-design.md), which ratifies v2
+Part II (PARKED/REBIND/NUDGE + ASK/ANSWERED; ask files as the mailbox truth-store). The
+revisit was triggered by the operator's advisor value premise (the TD-M3 recursion) plus
+positive P1/P4/F4 probes and operator-verified native cross-session messaging (P6-matrix
+still pending). This D5 text stays as design history.
+
 ### D6 — Context-handoff policy (Part 3, settled)
 
 Trigger plans the handoff; the work class decides where the tail lands:

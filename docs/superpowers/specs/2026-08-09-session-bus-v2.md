@@ -235,12 +235,14 @@ self-ID wall stands. What the app DOES publish per session: `cwd`, `branch`, `is
   `arch.json`; courtesy `REBIND` to living seats. Correctness never depends on REBIND
   arriving (resolve-at-send reads files).
 
-## §7 Grammar — three live verbs, one reserved
+## §7 Grammar — five live verbs (ASK/ANSWERED appended 2026-08-10)
 
 ```text
 AIF-BUS v1 PARKED task=<task.id> ref=<relative-path>
 AIF-BUS v1 REBIND
 AIF-BUS v1 NUDGE  role=<sender-role> ref=<relative-path>
+AIF-BUS v1 ASK      role=<sender-role> ref=<relative-path>
+AIF-BUS v1 ANSWERED ref=<relative-path>
 ```
 
 - `PARKED` (dispatcher-on-observe → arch; or any local session that parks): a park exists
@@ -258,6 +260,13 @@ AIF-BUS v1 NUDGE  role=<sender-role> ref=<relative-path>
   via `answer.ts` REST-unpause). Reactivates only if a local-parker class materializes
   (F4 CLI probe, or a future local park surface) — with its own review. The registry has NO
   `workers.*` section for the same reason.
+  **UN-FROZEN 2026-08-10:** the reactivation condition was met literally — the local-parker
+  class materialized (local seats filing consults), and «its own review» = the advisor-
+  pattern contour's §2 cold reviews. Senders, recipients, non-blocking semantics, and the
+  ask-file surface are owned by
+  [advisor-pattern-design §2](2026-08-10-advisor-pattern-design.md) (authoritative).
+  *Pull-twins* (claim 2): `ASK` — the advisor sweep of the asks dir; `ANSWERED` — the asker
+  re-reads its open asks at turn start.
 
 **Sender algorithm:** bus enabled (seats dir exists; `AIF_BUS` not `off`) → resolve per §6 →
 capability-check the transport in THIS session → **one attempt, no retry, no ack; control
@@ -275,8 +284,10 @@ applies, and the morning-report anomaly section is the named consumer.
 
 **Doorbell location (round-1 fork resolved):** recipes ONLY — ccd messaging is an MCP tool,
 invocable by a session, unreachable from CLI code. Consequence: **zero bus code inside
-`packages/`** — executable claim 1 (§9). Conditional on F4 staying negative (r2 NEW-N2): a
-positive F4 adds a CLI transport and re-opens both this conclusion and claim 1's scope.
+`packages/`** — executable claim 1 (§9). The F4 condition RESOLVED 2026-08-10: F4 came back
+POSITIVE on both recipes (2026-08-09), and the conclusion + claim 1's scope were re-cut by
+[advisor-pattern-design §2/§4](2026-08-10-advisor-pattern-design.md) — transports stay
+recipe-side (native/ccd send-time cascade), claim 1 re-scoped in §9 below.
 
 ## §8 Night delivery — two legs, both currently unproven for 3am (round-1 B2)
 
@@ -331,9 +342,19 @@ secondary switch for CLI-launched sessions.
 | Machine asleep | nothing runs | morning office-hours (= today) |
 | Parker is container/scheduled-born (messaging blocked) | never sends/receives doorbells | dispatcher observes; unpause returns answers |
 | Malformed / hostile message | ignore + morning-report anomaly line | truth stores unaffected |
+| Advisor absent / asleep (rows added 2026-08-10, [advisor-pattern §4](2026-08-10-advisor-pattern-design.md)) | asks accumulate | morning sweep of the asks dir (= today) |
+| ASK doorbell lost | ask file waits | advisor sweep of the asks dir |
+| ANSWERED doorbell lost / asker idle | answer waits in the ask file | asker re-reads open asks at turn start |
+| Native transport classifier-blocked at night | cascade to ccd (one attempt per doorbell total) | ask file + sweeps |
+| CLI-born successor (ccd-deaf) | no doorbells until the P6-matrix passes | defer-non-trivial or sweep-shot successor |
 
-**Executable claims (rules-as-tests):** (1) **grep-gate: no bus references
-(`AIF-BUS`/`AIF_BUS`/`session-bus`) anywhere under `packages/`** — the strongest form of
+**Executable claims (rules-as-tests):** (1) **grep-gate (re-scoped 2026-08-10 per
+[advisor-pattern §2](2026-08-10-advisor-pattern-design.md)): no verb-grammar literals
+(`AIF-BUS`/`AIF_BUS`) and no mailbox path segment (`session-bus/`) under `packages/`** —
+the previous bare-`session-bus` cut was already RED on a doc-pointer comment
+([end-of-turn-reminder.test.ts:1168](../../../packages/core/hooks/end-of-turn-reminder.test.ts)
+— a spec *filename* containing `session-bus-design`); machinery still trips the re-cut
+gate, doc pointers do not. This stays the strongest form of
 never-load-bearing is zero code in the load-bearing packages; the bus exists only as recipe
 prose + one coordination file class. (Round-1 MAJOR-6: the previous «run the suite with
 `AIF_BUS=off`» claim was green-by-construction because the vitest suite never touches the
@@ -480,6 +501,16 @@ self-respawning sessions) — §4 + §13 F4 elevation. Review cap (2 rounds) rea
 [arch/SKILL.md §2](../../../.claude/skills/arch/SKILL.md) the routing disposition is the
 operator's fork: r2 seat's partition = Part I text-repaired here, Part II parked behind
 P1/F4 (night value) + P4 (addressing join).
+
+## §14c Supersessions by the advisor-pattern spec (2026-08-10, landing PR)
+
+| v2 clause | Disposition |
+|---|---|
+| §7 three-verb grammar | EXTENDED — `ASK`/`ANSWERED` rows appended (copied from [advisor-pattern §2](2026-08-10-advisor-pattern-design.md); the three ratified rows untouched) |
+| §7 `ANSWERED` reserved | UN-FROZEN — reactivation condition met literally (local-parker class = local seats filing consults; «its own review» = the advisor contour's §2 cold reviews) |
+| §7 doorbell-location «conditional on F4 staying negative» | RESOLVED — F4 POSITIVE on both recipes (2026-08-09); transports stay recipe-side, cascade per advisor §4 |
+| §9 claim 1 pattern | RE-SCOPED — verb literals (`AIF-BUS`/`AIF_BUS`) + `session-bus/` path segment under `packages/`; bare `session-bus` retired (doc-pointer false-RED at `end-of-turn-reminder.test.ts:1168`) |
+| §9 degradation matrix | EXTENDED — advisor/ASK/ANSWERED rows per [advisor-pattern §4](2026-08-10-advisor-pattern-design.md) |
 
 ## §15 Self-application note
 

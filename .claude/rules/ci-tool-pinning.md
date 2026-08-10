@@ -16,7 +16,7 @@ paths:
 # CI tool pinning — discipline rule
 
 > **Class:** A — companion principle test (paired-negative) shipped at `packages/core/hooks/unpinned-tool-install.test.ts` (issue #654, 2026-06-22); pre-push gate at `packages/core/hooks/pre-push.ts` (unpinnedToolInstallSection).
-> **Fires:** editing `.github/workflows/**` or any repo shell script (`*.sh`, `setup`, `install.sh`).
+> **Fires:** editing `.github/workflows/**` or any repo shell script.
 > **Authoritative for:** CI tool pinning discipline — §1 the two rules (version pin + lockfile-aware install), §2 scope (this repo's `.github/workflows/` + tracked shell scripts), §3 escape hatch, §4 relationship to companion-install-principle.md, §5 promotion / retirement.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Consumer companion installs — see [companion-install-principle.md](companion-install-principle.md) (different surface, no contradiction with this rule — see §4).
 
