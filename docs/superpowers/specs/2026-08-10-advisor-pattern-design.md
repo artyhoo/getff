@@ -5,7 +5,8 @@
 
 # Advisor pattern — cross-session consultation, effort-worthiness, ESCALATED reviews
 
-> **Status:** DESIGNED — awaiting cold §2 reviews + operator spec gate.
+> **Status:** DESIGNED — 2-round cold-reviewed at cap (§11/§11b); awaiting the operator
+> gate word (§11c/§11d).
 > **Branch:** `claude/advisor-pattern-consultation-86f49b`. **Current as of 2026-08-10.**
 > **Authoritative for:** the ASK/ANSWERED verbs + ask-file surface (§2), the advisor seat (§3),
 > transport cascade + degradation (§4), routing/rights + the effort-worthiness loop (§5),
