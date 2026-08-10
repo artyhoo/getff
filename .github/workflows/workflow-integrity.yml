@@ -92,7 +92,8 @@ jobs:
             "capability PR carries Prior-art line in PR body (squash-survival)",
             "ci-success",
             "fidelity-verdict-in-pr-body",
-            "stale-revert-in-pr-diff"
+            "stale-revert-in-pr-diff",
+            "§1.7 forward+backward sections present in PR description"
           ]'
 
           if [ "$has_protection" = "true" ]; then

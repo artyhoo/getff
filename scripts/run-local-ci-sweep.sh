@@ -24,11 +24,17 @@
 #   ci-success
 #   fidelity-verdict-in-pr-body
 #   stale-revert-in-pr-diff
+#   §1.7 forward+backward sections present in PR description
 #
 # REGISTRATION STATE (2026-08-10, `gh api …/branches/staging/protection` with an admin token):
-# only the last three are actually registered. The first two are declared-required but NOT yet
-# registered, so today they can go red and the PR still merges — an operator action closes that,
-# and CI cannot verify it (workflow-integrity.yml:32-42, GITHUB_TOKEN cannot read protection).
+# registered = `ci-success`, `fidelity-verdict-in-pr-body`, `stale-revert-in-pr-diff`.
+# Declared-required but NOT yet registered = `Template render probes — P1/P4/P6 (deterministic)`,
+# `capability PR carries Prior-art line in PR body (squash-survival)`, and — newly registrable as
+# of the §1.7 trigger unfiltering — `§1.7 forward+backward sections present in PR description`.
+# Those three can go red today and the PR still merges; an operator action closes that, and CI
+# cannot verify it (workflow-integrity.yml:32-42, GITHUB_TOKEN cannot read protection).
+# Named, not positional, deliberately: this line previously said «the last three» / «the first
+# two», which silently became wrong the moment a sixth entry was appended above.
 #
 # `ci-success` is the audit-self.yml aggregator that `needs:` every other job in that file
 # (asserted by principle 36). There is no ci.yml. A green sweep predicts a green CI only for the

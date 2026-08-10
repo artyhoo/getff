@@ -6,6 +6,10 @@
  * > the job's own workflow file — and every in-repo list restating that set agrees with it
  * > exactly. Today two lists restate it: `.github/workflows/workflow-integrity.yml`
  * > (`required_contexts=`) and `scripts/run-local-ci-sweep.sh` (`# REQUIRED_CONTEXTS`).
+ * > Also authoritative (arms (i)-(k), SSOT #247) for the *registrability* of each declared
+ * > entry: a job marked `required-context: yes` must sit in a workflow whose `pull_request:`
+ * > trigger carries no filter, so its context reports on every PR rather than leaving the PR
+ * > pending forever.
  * > **NOT authoritative for:** project goal — see README.md#why-this-exists. Whether a declared
  * > context is actually REGISTERED on GitHub — that is unreadable from CI by construction
  * > (workflow-integrity.yml:32-42, measured on PR #1102) and stays an operator responsibility.
@@ -61,11 +65,19 @@
  * action REGISTERS contexts from a list — it consumes such a list, it does not assert one is
  * complete against the job population. Verdict BUILD, one file, no dependency.
  *
+ * SSOT #247 covers arms (i)-(k) separately, because they assert a different property against a
+ * different upstream class: actionlint's `RuleGlob` validates `paths:` glob SYNTAX but «does not
+ * analyze the implications for branch protection» (DeepWiki `rhysd/actionlint`, 2026-08-10), and
+ * the skipped-but-required answers on the marketplace — `poseidon/wait-for-status-checks`,
+ * `blend/require-conditional-status-checks` — are RUNTIME waiters, not static assertions. The arms
+ * live here rather than in a parallel principle because this file already owns the declaration
+ * model and its parsers; a second principle would have had to duplicate them.
+ *
  * ## Anti-trap notes
  *
  * T3 — every arm reads the real files off disk; no arm asserts against a hand-copied set.
- * T15 (self-application) — arms (d)-(g) mutate REAL file text and re-run the REAL parsers, so
- * each failing direction is exercised, not assumed
+ * T15 (self-application) — arms (d)-(g) and (j) mutate REAL file text and re-run the REAL parsers,
+ * so each failing direction is exercised, not assumed
  * (.claude/rules/destination-environment-verification.md §4 `#contract-that-cannot-fail`).
  */
 import { describe, it, expect } from 'vitest';
@@ -122,6 +134,66 @@ export function hasPullRequestTrigger(source: string): boolean {
 }
 
 /**
+ * `pull_request:` trigger keys that suppress the whole workflow run — so a context inside it
+ * never reports and a PR requiring it blocks forever. Named verbatim by GitHub's
+ * «Troubleshooting required status checks»: path filtering, branch filtering, commit messages.
+ * (Commit-message skipping is a magic string in the commit, not a workflow key, so it is out of
+ * scope here by construction, not by oversight.)
+ */
+const DEADLOCKING_TRIGGER_KEYS = [
+  'paths',
+  'paths-ignore',
+  'branches',
+  'branches-ignore',
+];
+
+/**
+ * Which `DEADLOCKING_TRIGGER_KEYS` the workflow's `pull_request:` trigger carries, or `null`
+ * when there is no `pull_request:` trigger at all (equally unregistrable — the context can
+ * never report on a PR). An empty array means «registrable».
+ *
+ * Complements `hasPullRequestTrigger` above, which answers «can this workflow report a PR
+ * context at all» — this answers «does it report on EVERY PR», the property registration needs.
+ *
+ * Scoped to the `pull_request:` block: a `paths:` under `push:` is harmless for PR contexts, and
+ * `workflow-integrity.yml` carries one of each, so «the first paths: in the file» would be wrong.
+ * The inline forms (`on: pull_request`, `on: [push, pull_request]`) cannot express a filter, so
+ * they resolve to `[]` — treating them as «no trigger» would RED the one unconditionally safe shape.
+ *
+ * Deliberately does NOT look at job-level `if:`. A job skipped by a conditional reports
+ * `skipped`, which branch protection accepts — «if a job is skipped due to a conditional, it
+ * reports success» (same GitHub doc). Flagging it would forbid the promote-flow guards that
+ * pr-body-fidelity.yml, pr-stale-revert.yml and discipline-self-check.yml all rely on.
+ */
+export function parsePullRequestTriggerFilters(
+  source: string,
+): string[] | null {
+  const lines = source.split('\n');
+  const inlineOn = source.match(/^on:[ \t]+(\S.*)$/m);
+  if (inlineOn) return /\bpull_request\b/.test(inlineOn[1]) ? [] : null;
+
+  const onIdx = lines.findIndex((l) => /^on:\s*$/.test(l));
+  if (onIdx === -1) return null;
+  let prIdx = -1;
+  for (let i = onIdx + 1; i < lines.length; i++) {
+    if (/^[A-Za-z]/.test(lines[i])) break;
+    if (/^ {2}pull_request:\s*$/.test(lines[i])) {
+      prIdx = i;
+      break;
+    }
+  }
+  if (prIdx === -1) return null;
+
+  const found: string[] = [];
+  for (let i = prIdx + 1; i < lines.length; i++) {
+    if (/^ {2}\S/.test(lines[i]) || /^[A-Za-z]/.test(lines[i])) break; // next trigger / top-level key
+    const key = lines[i].match(/^ {4}([A-Za-z-]+):/);
+    if (key && DEADLOCKING_TRIGGER_KEYS.includes(key[1])) found.push(key[1]);
+  }
+  return found;
+}
+
+/**
  * Top-level job ids under `jobs:`.
  *
  * Anchored at the `jobs:` line so the 2-space-indented keys of `on:` (`push`, `pull_request`,
@@ -149,7 +221,10 @@ function jobBlock(source: string, jobId: string): [number, number] | null {
   if (start === -1) return null;
   let end = lines.length;
   for (let i = start + 1; i < lines.length; i++) {
-    if (/^ {2}[A-Za-z0-9_-]+:\s*$/.test(lines[i]) || /^[A-Za-z]/.test(lines[i])) {
+    if (
+      /^ {2}[A-Za-z0-9_-]+:\s*$/.test(lines[i]) ||
+      /^[A-Za-z]/.test(lines[i])
+    ) {
       end = i;
       break;
     }
@@ -371,21 +446,33 @@ describe('Principle 37 — required status contexts are declared once and restat
     const src = readWf(file);
     const jobId = parseJobIds(src)[0];
     const before = parseRequiredDeclaration(src, jobId);
-    expect(before, `${file} → ${jobId} must carry a marker for this arm to mean anything`)
-      .not.toBeNull();
+    expect(
+      before,
+      `${file} → ${jobId} must carry a marker for this arm to mean anything`,
+    ).not.toBeNull();
     expect(
       before?.required,
       `${file} → ${jobId} must be declared \`no\` for this arm's flip to be a flip`,
     ).toBe(false);
 
-    const seeded = src.replace('# required-context: no', '# required-context: yes');
-    expect(seeded, 'the seeded mutation must actually change the file text').not.toBe(src);
+    const seeded = src.replace(
+      '# required-context: no',
+      '# required-context: yes',
+    );
+    expect(
+      seeded,
+      'the seeded mutation must actually change the file text',
+    ).not.toBe(src);
 
     const flipped = parseRequiredDeclaration(seeded, jobId);
-    expect(flipped?.required, 'the flip must be visible to the parser').toBe(true);
+    expect(flipped?.required, 'the flip must be visible to the parser').toBe(
+      true,
+    );
 
     const ctx = parseJobContext(seeded, jobId) as string;
-    const integrity = parseIntegrityList(readFileSync(INTEGRITY, 'utf8')) as string[];
+    const integrity = parseIntegrityList(
+      readFileSync(INTEGRITY, 'utf8'),
+    ) as string[];
     expect(
       integrity.includes(ctx),
       `a newly-required context (\`${ctx}\`) absent from workflow-integrity.yml must be detected`,
@@ -404,7 +491,10 @@ describe('Principle 37 — required status contexts are declared once and restat
       .split('\n')
       .filter((l) => !/^\s*#\s*required-context:/.test(l))
       .join('\n');
-    expect(seeded, 'the seeded mutation must actually change the file text').not.toBe(src);
+    expect(
+      seeded,
+      'the seeded mutation must actually change the file text',
+    ).not.toBe(src);
     expect(
       parseRequiredDeclaration(seeded, jobId),
       'a missing marker must return null so arm (b) fails loudly instead of assuming `no`',
@@ -416,9 +506,10 @@ describe('Principle 37 — required status contexts are declared once and restat
 
     const integritySrc = readFileSync(INTEGRITY, 'utf8');
     const seededIntegrity = integritySrc.replace(`"${AGGREGATE_JOB}",\n`, '');
-    expect(seededIntegrity, 'the seeded mutation must change workflow-integrity.yml').not.toBe(
-      integritySrc,
-    );
+    expect(
+      seededIntegrity,
+      'the seeded mutation must change workflow-integrity.yml',
+    ).not.toBe(integritySrc);
     expect(
       parseIntegrityList(seededIntegrity),
       'a dropped required_contexts entry must be detected',
@@ -426,9 +517,10 @@ describe('Principle 37 — required status contexts are declared once and restat
 
     const sweepSrc = readFileSync(SWEEP, 'utf8');
     const seededSweep = sweepSrc.replace(`#   ${AGGREGATE_JOB}\n`, '');
-    expect(seededSweep, 'the seeded mutation must change run-local-ci-sweep.sh').not.toBe(
-      sweepSrc,
-    );
+    expect(
+      seededSweep,
+      'the seeded mutation must change run-local-ci-sweep.sh',
+    ).not.toBe(sweepSrc);
     expect(
       parseSweepList(seededSweep),
       'a dropped REQUIRED_CONTEXTS entry must be detected',
@@ -437,7 +529,10 @@ describe('Principle 37 — required status contexts are declared once and restat
 
   it('(g) fail-closed: an unparseable list yields null, never a vacuous pass', () => {
     const integritySrc = readFileSync(INTEGRITY, 'utf8');
-    const renamed = integritySrc.replace('required_contexts=', 'required_ctxs=');
+    const renamed = integritySrc.replace(
+      'required_contexts=',
+      'required_ctxs=',
+    );
     expect(renamed).not.toBe(integritySrc);
     expect(
       parseIntegrityList(renamed),
@@ -445,7 +540,10 @@ describe('Principle 37 — required status contexts are declared once and restat
     ).toBeNull();
 
     const sweepSrc = readFileSync(SWEEP, 'utf8');
-    const dropped = sweepSrc.replace('# REQUIRED_CONTEXTS:', '# required contexts:');
+    const dropped = sweepSrc.replace(
+      '# REQUIRED_CONTEXTS:',
+      '# required contexts:',
+    );
     expect(dropped).not.toBe(sweepSrc);
     expect(
       parseSweepList(dropped),
@@ -453,7 +551,7 @@ describe('Principle 37 — required status contexts are declared once and restat
     ).toBeNull();
 
     // Malformed JSON must also be null, not a throw.
-    expect(parseIntegrityList("required_contexts='[\"a\", ]'")).toBeNull();
+    expect(parseIntegrityList('required_contexts=\'["a", ]\'')).toBeNull();
   });
 
   it('(h) the audit-self carve-out is covered by its sibling gate', () => {
@@ -469,6 +567,114 @@ describe('Principle 37 — required status contexts are declared once and restat
 
     const src = readWf(AGGREGATED_WORKFLOW);
     const decl = parseRequiredDeclaration(src, AGGREGATE_JOB);
-    expect(decl?.required, `${AGGREGATE_JOB} must declare itself required`).toBe(true);
+    expect(
+      decl?.required,
+      `${AGGREGATE_JOB} must declare itself required`,
+    ).toBe(true);
+  });
+
+  // ── Registrability arm (SSOT #247, added 2026-08-10) ────────────────────────────────────
+  //
+  // Arms (a)-(h) assert the declared set is restated consistently. They do NOT assert that a
+  // declared entry is safe to register at all: `hasPullRequestTrigger` checks only that a
+  // `pull_request:` trigger EXISTS, never that it is unfiltered. So flipping a marker to
+  // `required-context: yes` inside a `paths:`-filtered workflow passes every arm above and
+  // then freezes every PR that matches none of the filter — «Expected — Waiting for status to
+  // be reported», forever. That is not a hypothetical: `discipline-self-check.yml` was declared
+  // `no` for exactly this reason, with the fix deferred in prose. Prose is not a mechanism
+  // (.claude/rules/attention-is-not-a-mechanism.md §1), and this arm is the mechanism.
+
+  it('(i) every declared-required context sits behind an UNFILTERED pull_request: trigger', () => {
+    const offenders: string[] = [];
+    for (const { file, jobId } of declarableJobs(WORKFLOW_DIR)) {
+      const src = readWf(file);
+      if (!parseRequiredDeclaration(src, jobId)?.required) continue;
+      const filters = parsePullRequestTriggerFilters(src);
+      if (filters === null) {
+        offenders.push(`${file} (${jobId}) — no pull_request: trigger at all`);
+      } else if (filters.length > 0) {
+        offenders.push(
+          `${file} (${jobId}) — filtered on ${filters.join(' + ')}`,
+        );
+      }
+    }
+
+    expect(
+      offenders,
+      `These jobs declare \`# required-context: yes\` but their workflow cannot report on every PR:\n` +
+        offenders.map((o) => `  - ${o}`).join('\n') +
+        `\n\nA filtered workflow does not run on a PR matching none of the filter, so the context ` +
+        `never reports and branch protection blocks the PR permanently. GitHub: "Workflows skipped ` +
+        `due to path filtering, branch filtering, or commit messages will remain in a pending state ` +
+        `and block merging. To avoid this, do not require workflows that can be skipped."\n\n` +
+        `Fix: drop the trigger filter and move the scope decision INTO the job — a job-level \`if:\` ` +
+        `is safe, because a job skipped by a conditional reports \`skipped\`, which protection ` +
+        `accepts. If the job must stay filtered, it cannot be declared required: flip the marker to ` +
+        `\`no\` with a rationale, or fold the job into ${AGGREGATED_WORKFLOW} and let ` +
+        `\`${AGGREGATE_JOB}\` aggregate it (principle 36 keeps that wiring honest).`,
+    ).toEqual([]);
+  });
+
+  it('(j) paired-negative (seeded filter): GREEN on the real tree, RED once a declared-required workflow is filtered', () => {
+    const declared = declarableJobs(WORKFLOW_DIR).filter(
+      ({ file, jobId }) =>
+        parseRequiredDeclaration(readWf(file), jobId)?.required,
+    );
+    expect(
+      declared.length,
+      'non-vacuity: at least one job must declare itself required, or arm (i) proves nothing',
+    ).toBeGreaterThanOrEqual(3);
+
+    const victim = 'discipline-self-check.yml';
+    const src = readWf(victim);
+    expect(
+      parseRequiredDeclaration(src, 'verify-pr-body-sections')?.required,
+      `${victim} must be declared required for this arm to exercise the real hazard`,
+    ).toBe(true);
+
+    // GREEN — the real, unmodified file.
+    expect(parsePullRequestTriggerFilters(src)).toEqual([]);
+
+    // RED — re-introduce the filter whose removal made this context registrable.
+    const seeded = src.replace(
+      '    types: [opened, edited, synchronize, reopened]\n',
+      "    types: [opened, edited, synchronize, reopened]\n    paths:\n      - '.claude/rules/**'\n",
+    );
+    expect(
+      seeded,
+      'the seeded mutation must actually change the file text',
+    ).not.toBe(src);
+    expect(
+      parsePullRequestTriggerFilters(seeded),
+      're-adding a paths: filter to a declared-required workflow must be detected',
+    ).toEqual(['paths']);
+  });
+
+  it('(k) the filter parser is scoped to pull_request, and reads the inline trigger grammar', () => {
+    // workflow-integrity.yml filters BOTH push: and pull_request: on paths — a file-wide scan
+    // would be indistinguishable from a correct one here. It is declared `required-context: no`
+    // precisely because of that filter, so arm (i) never reaches it.
+    expect(
+      parsePullRequestTriggerFilters(readWf('workflow-integrity.yml')),
+    ).toEqual(['paths']);
+    // audit-self.yml filters push: on branches only — that must not be miscounted.
+    expect(parsePullRequestTriggerFilters(readWf(AGGREGATED_WORKFLOW))).toEqual(
+      [],
+    );
+
+    // Inline forms cannot express a filter, so they are [] — never a false «no trigger» RED.
+    expect(parsePullRequestTriggerFilters('on: pull_request\njobs:\n')).toEqual(
+      [],
+    );
+    expect(
+      parsePullRequestTriggerFilters('on: [push, pull_request]\njobs:\n'),
+    ).toEqual([]);
+    // A workflow with no PR trigger at all stays null (arm (i) treats that as an offender).
+    expect(parsePullRequestTriggerFilters('on: [push]\njobs:\n')).toBeNull();
+    expect(
+      parsePullRequestTriggerFilters(
+        'on:\n  push:\n    branches: [main]\njobs:\n',
+      ),
+    ).toBeNull();
   });
 });
