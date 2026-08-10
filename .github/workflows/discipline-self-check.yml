@@ -53,11 +53,19 @@ jobs:
     # staging PR on a context that never reports. Principle 37 asserts the mirror.
     name: §1.7 forward+backward sections present in PR description
     runs-on: ubuntu-latest
-    # Promote-flow safety, matching the two sibling registered gates: a base=main
-    # promote PR aggregates ~90 squashed commits and has no single meaningful §1.7
-    # forward/backward pair. Skipping there reports `skipped` (accepted by protection),
-    # replacing today's guaranteed RED on every promote PR.
-    if: github.event.pull_request.base.ref == 'staging'
+    # Promote-flow safety: a base=main promote PR aggregates ~90 squashed commits and has
+    # no single meaningful §1.7 forward/backward pair. Today it gets a guaranteed RED;
+    # skipping reports `skipped`, which protection accepts.
+    #
+    # Deliberately `!= 'main'`, NOT the `== 'staging'` the two sibling gates use
+    # (pr-body-fidelity.yml:40, pr-stale-revert.yml:52). Those two are scoped to staging
+    # because their subject — a kickoff's fidelity verdict, a stale-base rebuild against
+    # staging — only exists on staging PRs. §1.7 has no such limit: it applies to any PR
+    # introducing or extending a discipline rule, including the base=epic/* PRs CLAUDE.md
+    # allows agents to merge. `== 'staging'` would silently drop that coverage, which the
+    # 2026-08-10 ruling did not ask for; `!= 'main'` removes exactly the promote-flow
+    # noise and nothing else.
+    if: github.event.pull_request.base.ref != 'main'
     steps:
       - name: Check PR body for §1.7 sections or skip marker
         env:
