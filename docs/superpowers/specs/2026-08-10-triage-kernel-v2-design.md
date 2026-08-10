@@ -5,10 +5,11 @@
 
 # Triage kernel v2 — corpus-measured materiality classifier
 
-> **Status:** DESIGNED — round-1 cold-reviewed (TD REVISE 2B/9M/5m/2E; BU REVISE 0B/5M),
-> r1 repairs applied; round-2 cold verification (REVISE 1B/4M/4m; all r1 dispositions
-> confirmed — 0 NOT-FIXED / 0 MISSING) with r2 repairs applied in this revision (§13);
-> review cap reached — awaiting operator gate.
+> **Status:** GATED-GO, probe-first (operator gate 2026-08-11 — §13 gate record).
+> Round-1 cold-reviewed (TD REVISE 2B/9M/5m/2E; BU REVISE 0B/5M), r1 repairs applied;
+> round-2 cold verification (REVISE 1B/4M/4m; all r1 dispositions confirmed — 0 NOT-FIXED /
+> 0 MISSING), r2 repairs applied and ACCEPTED at the review cap. Next: §9 S0 probe;
+> S1-S5 conditional on its signal.
 > **Branch:** `claude/kernel-v2-arch-triage-86fa0a`. **Current as of 2026-08-11**
 > (research pass + gate dialogue 2026-08-10; r1 + r2 repairs 2026-08-11).
 > **Authoritative for:** the corpus artifact (§2), adjudication protocol (§3), bench design +
@@ -223,8 +224,8 @@ Zero new runtime code ships to consumers from this contour; the one new dependen
    is the corpus-evaluation promotion trigger, not a volume trigger).
 5. **Operator slice (r1 TD MAJOR-1/MAJOR-6 — stratified, not uniform):** ~15 rows = 5 from
    the MATERIAL-b/disputed stratum + 5 random agreed + 5 advisor-overridden on the
-   layer/whose axes (~20-30 min; amends P7's ~10 — flagged for operator confirmation at the
-   gate) + all FLOOR rows. Escalation rule: >20% of sampled rows disputed by the operator →
+   layer/whose axes (~20-30 min; P7 amendment CONFIRMED at the 2026-08-11 gate) + all
+   FLOOR rows. Escalation rule: >20% of sampled rows disputed by the operator →
    the corpus escalates to the full operator batch pass (P7 fallback). Honesty: n≈15 detects
    gross miscalibration only; fine-grained trust accrues from live morning review (L5), not
    from this sample.
@@ -376,6 +377,7 @@ r1 TD notes-lane), sequenced with S5 but not inside it (§9).
 
 | Stage | What | Where | LLM-call order | L4 budget | Depends |
 |---|---|---|---|---|---|
+| S0 | **Gate-resolved probe (2026-08-11):** ~30 stratified `pr-body` rows (grade-strip + provenance contract §2 applies at probe scale), operator labels = ground truth, C1 vs C0, plain deterministic scorer (~50 LOC, `scripts/` — D-K3's fallback serves as the probe's primary; promptfoo + its capability commit deferred to scale-up) | session, operator in loop | ~30-40 | 1 round → ASK | gate |
 | S1 | Corpus assembly per §2 (extraction contract + grade-strip, provenance-substring probe, dedupe check, `sources/` preservation pre-step at kickoff authoring, docs-gate pre-flight: principle 09 + doc gates on the new folder — first tracked CSV under `docs/`, r1 TD MINOR-3) | factory, mid tier (r2 NEW-m4: verbatim-matching ~104 findings across ~13 PR bodies is a reading task, not mechanical) | ~0 API-scored (extraction is reading) | 2 dispatch rounds → ASK | — |
 | S2 | Cold re-label, three axes, blind kickoff per §3.1 | factory, mid tier | ~150 short calls | 2 rounds → ASK | S1 |
 | S3 | Adjudication (advisor batch + operator slice; per-axis κ/PABAK published) | advisor session + operator | ~60-100 row-verdicts, batched | 2 rounds → ASK | S2 |
@@ -383,8 +385,11 @@ r1 TD notes-lane), sequenced with S5 but not inside it (§9).
 | S5 | Landing PR (kernel surfaces): protocol-text edits (§6) + spec status flip + `/self-reflection`. reviewer-discipline.md is maintainer-owned — the operator-gated landing PR IS the explicit handoff (precedent #1374; r1 BU N6) | session | ~0 | 2 rounds → ASK | S4 |
 | S5b | §7 vocabulary line — separate micro-PR | session | ~0 | — | any time after gate |
 
-Whole-contour order of magnitude: ~400-600 short LLM calls on the subscription pool, zero
-paid CI. Exit routing (factory kickoff vs in-session per stage) is decided at the
+**Probe-first path (gate 2026-08-11):** S0 runs first; S1-S5 run ONLY on S0 signal (C1
+beats C0 on the probe slice). S1's «2 dispatch rounds» and every later budget are
+scale-up-conditional. Whole-contour order of magnitude IF scaled up: ~400-600 short LLM
+calls on the subscription pool, zero paid CI; the probe alone is ~30-40. Exit routing
+(factory kickoff vs in-session per stage) is decided at the
 [arch/SKILL.md §3](../../../.claude/skills/arch/SKILL.md) exit step (r1 BU N4 — the skill's
 §3, not this spec's) after the reviews; the stage table is the decomposition either way.
 
@@ -410,8 +415,8 @@ paid CI. Exit routing (factory kickoff vs in-session per stage) is decided at th
    збс») → §4 runner + §9 budget column + §11 D-K3.
 7. **P7 — adjudication budget:** advisor adjudicates disagreements; operator takes FLOOR
    rows + a validation sample (~15-30 min), chosen over full-batch (1-2h) and zero-operator
-   variants. **r1 amendment pending operator confirmation at the gate:** sample stratified
-   and sized ~15 (was: random ~10) per §3.5 — same time envelope.
+   variants. **r1 amendment CONFIRMED at the 2026-08-11 gate:** sample stratified and
+   sized ~15 (was: random ~10) per §3.5 — same time envelope.
 8. **P8 — measurement over argument, re-confirmed:** after an explicit «why are convincing
    arguments not accepted — really, why?» challenge, the operator accepted the three-part
    answer (fresh measured cases of convincing-but-wrong; cheap fluency makes argument a
@@ -558,3 +563,11 @@ whether that honest null is worth the full ~400-600-call + S1-S3 spend.
 **Review cap:** 2 REVISE rounds reached ([arch §2](../../../.claude/skills/arch/SKILL.md)).
 r2 repairs are author-applied; round-3 verification vs gate-as-is vs park is the operator's
 fork at the gate — surfaced, not decided (r2 report §6).
+
+**Operator gate (2026-08-11) — resolutions:** r2 repairs **ACCEPTED at the cap** (no round
+3; a fresh cold look recurs at the next kickoff's Phase -1 anyway). E1/E2 **RESOLVED →
+probe-first** (§9 S0): ~30 stratified operator-labelled `pr-body` rows, C1 vs C0, plain
+scorer; the full S1-S5 corpus runs only on probe signal — the null, if it comes, is bought
+at ~1/10 the price E2 priced. P7 amendment **CONFIRMED** (stratified ~15 — §3.5/§10;
+under probe-first it applies at scale-up). Exit per arch §3: spec lands on staging; S0 is
+in-session (operator-in-loop labeling), no factory kickoff until S0 signals.
