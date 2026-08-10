@@ -4,7 +4,7 @@
 
 > **Class:** C — prose-only, no current compensating mechanism (reclassed from B per Track 3 §3.3, commit 4d52a72). Promotion criterion in §4.
 > **Fires:** review sessions (`/review`, `/ultrareview`, or a prose "проверь"/verdict ask).
-> **Authoritative for:** reviewer-discipline rule — §1 reviewer/orchestrator role separation, §2 surface-as-decision-needed pattern, §3 anti-patterns (`#role-swap-mid-session`, `#strategy-decided-by-reviewer`), §4 promotion / retirement triggers.
+> **Authoritative for:** reviewer-discipline rule — §1 reviewer/orchestrator role separation, §2 surface-as-decision-needed pattern, §3 anti-patterns (`#role-swap-mid-session`, `#strategy-decided-by-reviewer`), §4 promotion / retirement triggers, §5 classification, §6 severity contract + ESCALATED grammar.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Companion to orchestrator skill — global skill at `~/.claude/skills/reviewer/SKILL.md` may reference this rule but is not required for the rule to apply (project rule is self-contained).
 
 > **Origin:** Incident 2026-05-07. Reviewer session (post-`/review`) made a project-strategy decision («is architecture.md §2.3 a v2 future spec or v1 active requirement?») mid-session instead of surfacing it as decision-needed. The strategic call should have come from the orchestrator track. Codified in repo following the post-Wave-9 memory-to-docs codification audit ([docs/meta-factory/research-patches/2026-05-13-memory-to-docs-codification-audit.md](../../docs/meta-factory/research-patches/2026-05-13-memory-to-docs-codification-audit.md)).
@@ -52,6 +52,15 @@ Track 3 condensed prose-rules audit ([research-patches/2026-05-16-prose-rules-au
 **Path forward when promotion criterion fires:** C-revise-1 — design a new `agents/reviewer-discipline-verifier.md` AI-agnostic sub-agent prompt scoped specifically to reviewer-session role-swap detection (active session reads own output before posting final verdict; checks for strategy-imperative phrases). Effort estimate: 1-2 hours design + bench test on ≥3 fabricated role-swap cases. Not pre-built — promote on incident evidence, not anticipation.
 
 **Recursive self-application note:** this rule is currently one of two Class C rules in the project (the other: [parallel-subwave-isolation.md](parallel-subwave-isolation.md), confirmed Class C in [Track 3 §3.5](../../docs/meta-factory/research-patches/2026-05-16-prose-rules-audit-research.md)). The README invariant «every rule = executable artifact» absolutism vs Class C practice tension is surfaced in [research-patches/2026-05-16-readme-absolutism-vs-class-c-practice.md](../../docs/meta-factory/research-patches/2026-05-16-readme-absolutism-vs-class-c-practice.md) — maintainer-owned resolution pending.
+
+## §6 Severity contract + ESCALATED grammar (advisor-pattern, 2026-08-10)
+
+Transferred from [advisor-pattern-design §6](../../docs/superpowers/specs/2026-08-10-advisor-pattern-design.md) (authoritative for rationale + falsifiers; this § is the operating SSOT for review protocols):
+
+- **Recorded-premise test:** the reviewer may stand only on RECORDED premises. Premise in a ratified artifact → cite file:line, normal finding (BLOCKER/MAJOR/MINOR). Premise unrecorded (payoff, priority, worth-building) → finding class **`ESCALATED`**: routed to the concept holder (advisor seat; operator if floored), never priced by the reviewer.
+- **Severity contract:** only a finding with a concrete failure scenario / goal-impact statement (a `Failure-scenario:` line) may spawn a re-review round; everything else = notes lane (fixed same-round or recorded — never a new round; an open note never moves the audited SHA). **The reviewer still initiates rounds:** a scenario-bearing finding IS the trigger — what is withdrawn is label-only triggering. Discriminator = scenario presence, NOT edit size and NOT the severity label (a real hole can wear a «MINOR» label — grade honestly). **The same contract governs follow-up PRs:** spawned only for a `Failure-scenario:`-bearing finding; scenario-less residue stays in the notes lane, no PR.
+- **Zero-finding reviews are a legitimate outcome** — the reviewer's KPI is goal-shift, not findings-produced.
+- **Materiality dispute:** either side raises it; advisor verdict `MATERIAL | IMMATERIAL | OUT-OF-CONCEPT | FLOOR` + one-line rationale, judged ONLY against ratified artifacts; final for the round; disagreement → operator fork. A read-only reviewer marks the finding `DISPUTED` with a verbatim dispute block in its own report; the orchestrating session transcribes that block into an ask file (`class: materiality-dispute`) as a **verbatim copy, never a paraphrase**, before the round may close.
 
 ## See also
 
