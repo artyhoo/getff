@@ -330,7 +330,14 @@ function stubBin(repoRoot: string): void {
   );
 }
 
-describe('tier-based tsx resolution (paired-negative for the worktree defect class)', () => {
+// These cases build a REAL linked git worktree per test and run the hook through a
+// scrubbed PATH — inherently multi-second, so the vitest 5s default is a mis-set
+// gate rather than a signal. Most cases here already carried a per-test
+// `timeout: 30_000`; C1/C2 did not, and both timed out at 5000ms under full-suite
+// parallel load (`vitest run hooks/ skills/`, measured 2026-08-10). A suite-level
+// default closes that gap for every case, present and future; the per-test values
+// below are now redundant-but-harmless restatements of it.
+describe('tier-based tsx resolution (paired-negative for the worktree defect class)', { timeout: 30_000 }, () => {
   it('C1: linked worktree (no local node_modules, main has tsx, PATH scrubbed) → hook runs check', () => {
     const wt = _mkdtempSync(_join(_osTmpdir(), 'wdc-c1-wt-'));
     _rmSync(wt, { recursive: true, force: true });

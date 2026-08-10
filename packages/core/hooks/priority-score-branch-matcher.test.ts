@@ -64,6 +64,15 @@ const HELPER = resolve(
   '.claude/skills/pipeline/helpers/priority-score.sh',
 );
 
+// Every test here spawns the real priority-score.sh against a sandbox repo — real
+// git + `gh` stub calls per umbrella, so multi-second runtimes are inherent and the
+// vitest 5s default is a mis-set gate rather than a signal. Run in isolation the
+// cases measure 0.8-1.6s; under full-suite parallel load (`vitest run hooks/
+// skills/`, measured 2026-08-10) four of them time out at 5000ms. 30_000 is the
+// SLOW_SHELL_MS convention this helper's own sibling suites already use
+// (priority-score-synthetic.test.ts, priority-score-skip-closed.test.ts).
+const SLOW_SHELL_MS = 30_000;
+
 const sandboxes: string[] = [];
 afterEach(() => {
   for (const d of sandboxes.splice(0)) rmSync(d, { recursive: true, force: true });
@@ -134,7 +143,7 @@ function runHelper(
   return { status: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
 }
 
-describe('priority-score.sh — branch-matcher (paired-negative contract)', () => {
+describe('priority-score.sh — branch-matcher (paired-negative contract)', { timeout: SLOW_SHELL_MS }, () => {
   it('POSITIVE: merged PR `feat/<umbrella>` tags umbrella with `status=DONE done_pr=<num>`', () => {
     // Targets priority-score.sh branch-matcher block:
     //   merged_prs_json="$(${MO_GH_BIN} pr list --state merged ...)"
@@ -279,7 +288,7 @@ function runHelperNamed(
   return { status: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
 }
 
-describe('priority-score.sh — named-mode early-exit (pipeline-ux Stage 1B)', () => {
+describe('priority-score.sh — named-mode early-exit (pipeline-ux Stage 1B)', { timeout: SLOW_SHELL_MS }, () => {
   it('named-mode early-exit: non-empty string arg → exits 0 with skip-line, no full scan', () => {
     // Targets priority-score.sh named-mode guard:
     //   _ARG="${1:-}"
@@ -321,7 +330,7 @@ describe('priority-score.sh — named-mode early-exit (pipeline-ux Stage 1B)', (
   });
 });
 
-describe('priority-score.sh — rank-order (pipeline-ux Stage 1B)', () => {
+describe('priority-score.sh — rank-order (pipeline-ux Stage 1B)', { timeout: SLOW_SHELL_MS }, () => {
   it('rank-order: umbrella with larger kickoff.md appears before umbrella with smaller kickoff', () => {
     // Targets priority-score.sh volume scoring:
     //   loc="$(wc -l < "${kickoff}")"
