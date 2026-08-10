@@ -382,6 +382,14 @@ on the load-bearing half):
     register + transfer by copy-or-pointer, never paraphrase (§2 append-only verbs, §5.2
     pointer-only floor, §6 verbatim dispute transcription). In-contour proof: the r1 BU
     BLOCKER — three protocol rows re-typed from memory, all three corrupted in one hop.
+11. **Layer hierarchy** (operator, at gate): essence/idea → design → architecture → plan →
+    implementation are DIFFERENT things with different importance and revision authority.
+    Conflicts resolve upward (a lower layer bends to a higher one, never the reverse); a
+    deviation's materiality scales with the HIGHEST layer it touches («1% vs 2%» in an
+    implementation report ≈ nothing; the same words in the idea layer = floor); the idea
+    layer is operator-owned (README Ownership Contract), implementation is freely mutable
+    under the layers above. This hierarchy is the yardstick behind L1's «does it move us
+    toward the goal» and behind the advisor's `OUT-OF-CONCEPT` verdict.
 
 ## §8 Work list (landing obligations)
 
