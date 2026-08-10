@@ -1632,6 +1632,14 @@ jobs:
     if: always()
     needs:
       - mechanical
+      # ci-needs-completeness gap (found by the beta-delivery-ux R1 backward sweep, fixed
+      # here): without this line the shipped surface could drift off Prettier-clean while
+      # `ci-success` stayed green and the PR merged — every consumer's first
+      # `prettier --check .` then fails out-of-box (the GH #531 regression this job exists
+      # to prevent). Never wired since the job shipped in #540 (`git log -S` on the needs
+      # entry returns empty) — the `#warning-nobody-reads` shape
+      # (.claude/rules/attention-is-not-a-mechanism.md §2), now gated by principle 36.
+      - shipped-prettier
       - actionlint
       - zizmor
       - rule-to-probe
@@ -1647,6 +1655,13 @@ jobs:
       - framework-self-install-ts-server
       - framework-self-install-react-next
       - framework-fresh-install-validate
+      # Same ci-needs-completeness gap. Without this line the #807 monorepo cell could go
+      # RED while `ci-success` stayed green and the PR merged: the flat-matrix job above
+      # only covers a SINGLE-package consumer, so this is the ONLY surface asserting that
+      # check:globs / check:enforced / arch:check survive a no-root-config multi-stack
+      # layout. A green `ci-success` alone proves none of those three gates. Never wired
+      # since the job shipped in #815.
+      - framework-fresh-install-validate-multistack
       - framework-self-detect
       - framework-self-research
       - framework-self-synth
