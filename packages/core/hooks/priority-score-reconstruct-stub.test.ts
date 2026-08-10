@@ -35,6 +35,15 @@ const HELPER = resolve(
   '.claude/skills/pipeline/helpers/priority-score.sh',
 );
 
+// Every test here spawns the real priority-score.sh against a sandbox repo — real
+// git + `gh` stub calls per umbrella, so multi-second runtimes are inherent and the
+// vitest 5s default is a mis-set gate rather than a signal. Run in isolation the
+// cases measure 0.7-1.5s; under full-suite parallel load (`vitest run hooks/
+// skills/`, measured 2026-08-10) four of them time out at 5000ms. 30_000 is the
+// SLOW_SHELL_MS convention this helper's own sibling suites already use
+// (priority-score-synthetic.test.ts, priority-score-skip-closed.test.ts).
+const SLOW_SHELL_MS = 30_000;
+
 const sandboxes: string[] = [];
 afterEach(() => {
   for (const d of sandboxes.splice(0)) rmSync(d, { recursive: true, force: true });
@@ -94,7 +103,7 @@ function runHelper(
   return { status: r.status ?? -1, stdout: r.stdout };
 }
 
-describe('priority-score.sh — D6 reconstruct-stub (paired-negative contract)', () => {
+describe('priority-score.sh — D6 reconstruct-stub (paired-negative contract)', { timeout: SLOW_SHELL_MS }, () => {
   it('POSITIVE — missing-kickoff umbrella WITH a committed plan row → RECONSTRUCT-STUB notice', () => {
     // Targets the kickoff=missing branch: grep -qF "${name}" "${MO_WAVE_PLAN}" → emit notice.
     const root = makeSandbox();

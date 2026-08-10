@@ -30,6 +30,35 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const SCRIPT = resolve(REPO_ROOT, 'scripts/getff-work.sh');
 
+// Every test here spawns a real `bash scripts/getff-work.sh` (or its callee
+// create-worktree.sh), which does real work: `git worktree add`, node_modules
+// wiring, then a package-manager install inside the freshly created worktree.
+// Multi-second runtimes are inherent, not a regression — the 5s vitest default is
+// a mis-set gate, not a signal (it produced 4 red / 3 green on a clean staging
+// tree, and one marginal CI red that went green on re-run, blocking an unrelated
+// comment-only PR).
+//
+// Sizing evidence (macOS, clean tree, 2026-08-10). Timing the wrapper directly on
+// a cold worktree:
+//   `time bash scripts/getff-work.sh timing-probe --no-launch` → 30.8s total,
+//   of which the dominant leg is the step-2 `npm ci` inside the new worktree.
+// The three worktree-creating cases each measured 31.4s / 33.2s / 31.4s under
+// vitest; the temp-repo case (FRESH-CONSUMER-SMOKE, no root lockfile → no install
+// leg) measured 9.6s. So 30_000 — the value the sibling suites use — is itself too
+// tight here; 60_000 is ~2× the measured cold cost and has repo precedent
+// (principles/20-bundle-classification.paired-negative.test.ts uses 60_000; the
+// root vitest.config.ts testTimeout is 60_000 with a documented 120_000 ceiling).
+// Sibling shell-spawning suites that DON'T pay an npm-install leg stay at 30_000
+// (priority-score-synthetic, priority-score-skip-closed, done-md-completion-filter,
+// pre-push.consumer-layout).
+const SLOW_SHELL_MS = 60_000;
+
+// FRESH-CONSUMER-SMOKE carries its OWN spawnSync guard so a hung create-worktree.sh
+// fails with the captured-output assertion message rather than a bare vitest
+// timeout. That only works while SLOW_SHELL_MS outlives this guard — keep the
+// inequality if either number is ever retuned.
+const SPAWN_GUARD_MS = 30_000;
+
 function runScript(
   args: string[],
   env?: Record<string, string>,
@@ -77,7 +106,7 @@ function setupTempRepo(): string {
   return dir;
 }
 
-describe('getff-work.sh — workspace one-command (AC-5)', () => {
+describe('getff-work.sh — workspace one-command (AC-5)', { timeout: SLOW_SHELL_MS }, () => {
   let tmpRepo: string;
   beforeEach(() => {
     tmpRepo = setupTempRepo();
@@ -167,7 +196,7 @@ describe('getff-work.sh — workspace one-command (AC-5)', () => {
     const r = spawnSync(
       'bash',
       [join(tmpRepo, 'scripts/create-worktree.sh'), 'smoke-fresh'],
-      { cwd: tmpRepo, encoding: 'utf8', timeout: 30_000 },
+      { cwd: tmpRepo, encoding: 'utf8', timeout: SPAWN_GUARD_MS },
     );
     const combined = (r.stdout ?? '') + (r.stderr ?? '');
 
