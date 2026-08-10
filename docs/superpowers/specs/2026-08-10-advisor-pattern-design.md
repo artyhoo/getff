@@ -70,10 +70,12 @@ Part-2/D5 supersession pointer lands once.
 
 **Consumer trajectory (operator premise, this session):** everything here ships to consumer
 projects eventually — pipeline, skills, advisor. The design therefore hardcodes no
-operator-only assumptions: the ask surface is rooted at `${CLAUDE_COORDINATION_DIR:-…}`
-whose default embeds a per-project path segment (rendered per consumer project — the
-operator repo's literal `rules-as-tests-aif` is that repo's rendering, not a hardcode),
-the advisor identity is a role (not a person or hostname), and the effort-worthiness rule is
+operator-only assumptions **as an obligation, not a current fact** (r2 MAJOR-2 — the r1
+wording overclaimed): today the coordination-dir default segment is a plain operator-repo
+literal (`scripts/link-coordination.sh:74`, shipped byte-copied by `install.sh` and
+`setup.d/85-worktree-scripts.sh`; zero render sites exist). Parameterising that segment
+per consumer project is billed to the §8 item 9 consumer-delivery stage. The advisor
+identity is a role (not a person or hostname), and the effort-worthiness rule is
 authored consumer-generic (precedent: F10 resolved consumer-generic; F4b landing audience
 DECIDED consumer-shipped). Operator-repo landing = first consumer + dogfood; consumer
 delivery is a follow-up stage with its own review, never a silent copy.
@@ -97,6 +99,10 @@ the two new rows, never re-typing the ratified ones).
   dispatching session; reviewer agents stay read-only — the orchestrating session files the
   ask). Container workers NEVER send ASK: their channel stays aif park → dispatcher
   observes. Recipient v1 = advisor (arch). Pull-twin: advisor sweep of the asks dir.
+  **An ASK is non-blocking for the asker** (r2 MINOR-5): it defers the forked item and
+  proceeds with other in-scope work; if nothing else is in scope it ends its turn — never
+  a spin-wait. «Работа не простаивает» = the pipeline keeps moving, not that the forked
+  item itself proceeds unanswered.
 - **ANSWERED** — recipients: local askers only. For aif parks the return leg stays
   `answer.ts` REST-unpause (no verb). Pull-twin: asker re-reads its open asks at turn
   start. v2 §7 un-freeze condition met literally: the local-parker class materialized
@@ -114,7 +120,7 @@ the two new rows, never re-typing the ratified ones).
   limit applies; see §4 degradation rows (r1 TD MAJOR-5). Claim 2 (verb↔pull-twin) extends
   to 5 rows. Claim 1 is **re-scoped, not untouched** (r1 BU MAJOR-4; fix content in §8
   item 2): the ratified pattern (`AIF-BUS`/`AIF_BUS`/`session-bus`) is already RED on a
-  doc-pointer comment ([end-of-turn-reminder.test.ts:1170](../../../packages/core/hooks/end-of-turn-reminder.test.ts)
+  doc-pointer comment ([end-of-turn-reminder.test.ts:1168](../../../packages/core/hooks/end-of-turn-reminder.test.ts)
   — a spec *filename* containing `session-bus-design`); the re-cut pattern greps the verb
   grammar (`AIF-BUS`/`AIF_BUS`) plus the mailbox path segment (`session-bus/`) under
   `packages/`, so machinery still trips the gate and doc pointers do not.
@@ -164,8 +170,9 @@ the two new rows, never re-typing the ratified ones).
 
 - Doorbell semantics transport-agnostic (v2 §7 sender algorithm unchanged). Send-time
   cascade: (1) native cross-session SendMessage IF capability present AND target
-  discoverable via ListAgents — until the P6-matrix passes, native counts as capability
-  ABSENT; (2) else ccd `send_message` via cwd-match (v2 §6); (3) else nothing — the
+  discoverable via ListAgents (CLI-side tool names per the CC ≥2.1.224 changelog — NOT in
+  this repo's current harness inventory; presence itself is a capability check) — until
+  the P6-matrix passes, native counts as capability ABSENT; (2) else ccd `send_message` via cwd-match (v2 §6); (3) else nothing — the
   pull-twin carries. One attempt per doorbell total; the cascade is channel choice, not
   retries. After the matrix passes, the order is fixed native-first; the swap is a recipes
   edit, zero code. Own-stack-first grounds
@@ -249,17 +256,22 @@ came from three absences — premise, permission, trace — not from inability t
   one permitted `packages/` edit; extends an existing check, no new capability, no
   claim-1 literal needed); (b) ask-file schema validity — a pre-push section OUTSIDE
   `packages/` (claim-1 channel constraint, v2 §9); (c) decisions.md-before-application —
-  choreography-audited (answer.ts flow + morning review), honestly channel-2 with a named
-  reviewer, not a gate; (d) L0 label presence — kickoff principle-test family (principle
-  12 pattern; channel finalised at landing with its own prior-art trailer if a new file
-  is needed). An empty field is caught mechanically; a *fabricated* field is channel-2
+  the same pre-push section as (b) adds the cross-check `status: answered` ⇒ answer block
+  complete AND a decisions.md entry reference present in it (r2 MINOR-6 — this moves the
+  detectable half to channel 1; the residual «entry content is honest» half stays with
+  morning review, which is decision AUTHORITY, not the detection layer); (d) L0 label
+  presence — kickoff principle-test family (principle 12 pattern; billed as §8 item 6b;
+  its own prior-art trailer if a new file is needed). An empty field is caught mechanically; a *fabricated* field is channel-2
   territory — disputable via `materiality-dispute`, visible at morning review.
-- **L4 — budget tripwire (channel 1 trigger of escalation):** a stage exceeding its
-  round/token budget → **forced ASK to the advisor before continuing** — an escalation,
-  never a guillotine (the audit measured #1311 R3-R5 all material: a hard cap would have
-  shipped defects). Budget numbers deliberately NOT set here — calibrated from the
-  review-effort-theatre rates (audit chip `task_c8cfb806`) at landing; the mechanism is
-  normative, the numbers are config.
+- **L4 — budget tripwire (escalation trigger; honest channel split, r2 MINOR-3):** a
+  stage exceeding its budget → **forced ASK to the advisor before continuing** — an
+  escalation, never a guillotine (the audit measured #1311 R3-R5 all material: a hard cap
+  would have shipped defects). The **rounds** half is channel 1 (round numbers are visible
+  in the PR-body review record — countable by the same protocol that gates
+  `Failure-scenario:`); the **token** half has NO measurement surface today and is
+  deferred until one exists — the tripwire triggers on rounds only at v1. Budget numbers
+  deliberately NOT set here — calibrated from the review-effort-theatre rates (audit chip
+  `task_c8cfb806`) at landing; the mechanism is normative, the numbers are config.
 - **L5 — escalation judge + calibration:** the advisor (concept premise, §3) judges the
   residue with the same card, citing the test item in decisions.md; morning review reads
   the journal; theatre rates re-measured periodically (same audit mold). Zero-finding
@@ -345,7 +357,8 @@ on the load-bearing half):
 6. One advisor only; dispatcher = execution owner; reviewers = powerless checkpoints;
    cost = artifact, not a session (§3, §9 D-AP2).
 7. Cost = effort against goal progress; the four tests; «боевые практики» practice-first
-   default (§5.3). Spend dormant under subscription (§5.2).
+   default (§5.3). Spend stays a LIVE floor item that rarely fires under subscription
+   billing — a frequency observation, not a dormancy (§5.2; r2 MAJOR-1 sync).
 8. The live severity axis = operator-internal vs consumer-shipped; everything ships
    eventually — the operator repo is the first consumer of its own delivery (§1, §5.2).
 9. AI judges substance; mechanisms verify that judgment happened and left a trace —
@@ -385,7 +398,9 @@ on the load-bearing half):
    guidelines (non-blocking nits), Bezos type-1/type-2 reversibility, CBR indexing
    problem, WIP limits / kanban budgets. Fold findings into the rule; add SSOT entries as
    verdicts warrant.
-6. Ask-file schema validity check (mechanizable half; earliest reachable channel).
+6. Ask-file schema validity check (mechanizable half; earliest reachable channel) — the
+   pre-push section per §5.3 L3(b)+(c), including the answered⇒decisions-entry cross-check.
+   **6b:** L0 rigor-label presence check (kickoff principle-test family, §5.3 L3(d)).
 7. Budget-tripwire mechanism lands with item 2; numbers deferred to calibration from audit
    chip `task_c8cfb806` rates.
 8. **Triage-kernel-v2 contour kickoff** (dedicated; corpus assembly per §5.4 — operator GO
@@ -468,3 +483,16 @@ Reports: `top-down-advisor-pattern.md` (REVISE — 8 MAJOR / 6 MINOR / 2 ESCALAT
 - TD ESCALATED-1 (standing-seat cost vs per-consult subagent) and ESCALATED-2 (target
   residual immaterial rate for kernel-v1 shippability) — **OPEN-FOR-OPERATOR** at the
   spec gate; neither priced by any seat (the rung working as designed, first live use).
+
+### §11b Round-2 verification (cap reached)
+
+`r2-verify-advisor-pattern.md`: REVISE — 0 BLOCKER / 2 MAJOR / 6 MINOR; all r1 FIXED
+claims verified except the eight items below, repaired in this commit (author-side repair
+at cap; any residual disagreement is an operator fork per arch §2): r2 M1 (§7 premise 7
+still said «dormant» — synced); r2 M2 (§1 consumer-genericity overclaim — reworded to an
+obligation billed to §8 item 9; `link-coordination.sh:74` literal named); MINORs:
+`:1168` citation; ListAgents qualified at §4 with capability-check note (also closes r1
+BU MINOR-3, omitted from §11's enumeration); L4 honest channel split (rounds-only at v1 —
+token half has no measurement surface); L3(d)→§8 item 6b billing; asker non-blocking
+wait semantics (§2); L3(c) answered⇒decisions-entry pre-push cross-check (detectable half
+to channel 1, morning review = authority only).
