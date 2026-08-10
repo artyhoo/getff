@@ -63,17 +63,31 @@ jobs:
           has_protection=$(echo "$protection_json" | jq 'if . == null or (type=="object" and has("message")) then false else true end')
           has_rulesets=$(echo "$rulesets_json" | jq 'if type=="array" then [.[] | select(.enforcement == "active")] | length > 0 else false end')
 
-          # REQUIRED_CONTEXTS: every check whose fail-closed property rests on being
-          # a REQUIRED status check on staging. `fidelity-verdict-in-pr-body` joined
-          # 2026-07-23 (acceptance contour, spec D3): it lives in its own workflow file
-          # so it cannot needs:-aggregate into ci-success, which means branch protection
-          # is its ONLY fail-closed transport. Listing it here does NOT make that
-          # precondition a mechanism — with GITHUB_TOKEN this check cannot read the
-          # protection state (KNOWN LIMITATION above), so the precondition remains
-          # operator-enforced (`#hope-as-gate`) until an admin-scoped credential exists.
-          # The list is kept because it is correct wherever the state IS readable, and
-          # because it is the single place recording which contexts must be registered.
-          required_contexts='["ci-success", "fidelity-verdict-in-pr-body"]'
+          # REQUIRED_CONTEXTS — the SSOT for «which status-check contexts must be
+          # registered as required on staging». Every entry is a check whose fail-closed
+          # property rests on that registration: each lives in its own workflow file, so it
+          # cannot needs:-aggregate into `ci-success` and branch protection is its ONLY
+          # fail-closed transport. Listing a context here does NOT make that precondition a
+          # mechanism — with GITHUB_TOKEN this check cannot read the protection state (KNOWN
+          # LIMITATION above), so registration remains operator-enforced (`#hope-as-gate`)
+          # until an admin-scoped credential exists. The list is kept because it is correct
+          # wherever the state IS readable, and because it is the single place recording
+          # which contexts must be registered.
+          #
+          # Membership history: `fidelity-verdict-in-pr-body` joined 2026-07-23 (acceptance
+          # contour, spec D3). `stale-revert-in-pr-diff` (#1307, registered 2026-08-08) was
+          # live in protection but missing from this list; the two §1.7 / Prior-art PR-body
+          # gates joined by operator ruling 2026-08-10. Each string is the job's `name:`,
+          # which is what GitHub reports and matches character-for-character — NOT the job id.
+          #
+          # Two mechanisms now guard this list, because a hand-maintained list whose
+          # population is declared elsewhere is exactly the drift shape that let it fall
+          # three entries behind reality (.claude/rules/attention-is-not-a-mechanism.md §2):
+          # packages/core/principles/37-required-contexts-registrable.test.ts asserts every
+          # entry resolves to exactly one real job `name:`, that no such workflow carries a
+          # trigger filter that would make the context never report, and that
+          # scripts/run-local-ci-sweep.sh names the identical set.
+          required_contexts='["ci-success", "fidelity-verdict-in-pr-body", "stale-revert-in-pr-diff", "§1.7 forward+backward sections present in PR description", "capability PR carries Prior-art line in PR body (squash-survival)"]'
 
           if [ "$has_protection" = "true" ]; then
             missing="$(echo "$protection_json" | jq -r --argjson want "$required_contexts" \

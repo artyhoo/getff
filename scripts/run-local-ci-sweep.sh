@@ -11,11 +11,26 @@
 # Spec: docs/superpowers/specs/2026-06-26-harvest-skill-design.md
 # bash 3.2 compatible (no globstar / associative arrays).
 #
-# --- COVERAGE vs the required CI contexts (audited 2026-08-09) -----------------------------
-# staging branch protection requires exactly three contexts: `ci-success` (the audit-self.yml
-# aggregator that `needs:` every other job in that file), `fidelity-verdict-in-pr-body`
-# (pr-body-fidelity.yml) and `stale-revert-in-pr-diff` (pr-stale-revert.yml). There is no
-# ci.yml. A green sweep predicts a green CI only for the jobs listed as COVERED below.
+# --- COVERAGE vs the required CI contexts (audited 2026-08-10) -----------------------------
+# The contexts that must be REQUIRED on staging are listed below. This block is not prose:
+# packages/core/principles/37-required-contexts-registrable.test.ts parses it and asserts it
+# names exactly the set declared in .github/workflows/workflow-integrity.yml REQUIRED_CONTEXTS
+# — the two lists are hand-maintained, and before that gate they had drifted apart AND away
+# from live branch protection. Edit both or neither. Each string is a job's `name:`.
+#
+# REQUIRED-CONTEXTS-BEGIN
+#   ci-success
+#   fidelity-verdict-in-pr-body
+#   stale-revert-in-pr-diff
+#   §1.7 forward+backward sections present in PR description
+#   capability PR carries Prior-art line in PR body (squash-survival)
+# REQUIRED-CONTEXTS-END
+#
+# `ci-success` is the audit-self.yml aggregator that `needs:` every other job in that file
+# (completeness gated by principle 36); the other four each live in their own workflow file
+# and are PR-body/PR-diff gates that this sweep does NOT reproduce — they need the real PR
+# body or base ref. There is no ci.yml. A green sweep predicts a green CI only for the jobs
+# listed as COVERED below.
 #
 # COVERED — every `ci-success` need except those named UNREACHABLE:
 #   actionlint · typecheck · install-sh-a/b/c (the *.test.sh battery, byte-identical,
