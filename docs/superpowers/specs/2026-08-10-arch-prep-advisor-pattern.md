@@ -9,7 +9,7 @@
 > **Status:** design dialogue MID-FLIGHT. Sections 1-3 AGREED with the operator; section 4
 > drafted and PARKED on an operator re-chew; section 5 drafted, not yet presented; section 6
 > sketched. **The spec is NOT written.** Operator directive (mid-session-1): the ENTIRE
-> contour continues in the successor session — chip `task_fcb35157` (the discussion-only
+> contour continues in the successor session — chip `task_bb76e321` (the discussion-only
 > chip `task_9ae01fa8` was superseded and dismissed).
 > **Entry brief origin:** memory card `project_pipeline_chips_contour.md` items (1)-(7).
 > **NOT authoritative for:** anything ratified elsewhere — v2/v3 specs, ADR, night-mode,
@@ -157,7 +157,7 @@ arch §4 edits; reviewer-discipline.md new §; ask-file class; P6-matrix probe r
 morning-report night-decided-asks line; degradation rows; zero `packages/` code;
 /self-reflection at landing (discipline change). H1 fork records with falsifiers.
 
-## 9 Successor entry protocol (chip `task_fcb35157` — the FULL contour continues there)
+## 9 Successor entry protocol (chip `task_bb76e321` — the FULL contour continues there)
 
 1. Read memory card items (1)-(8) + this doc. 2. Brainstorm §6's Q1/Q2 directly with the
 operator (first agenda item); record decisions + falsifiers. 3. Re-present section 4 with
@@ -166,9 +166,12 @@ the deltas, present sections 5-6. 4. Write the spec
 5. Two cold §2 reviews (artifact paths only, unique filenames, GO/REVISE/STOP, 2-round
 cap) — dispatch prompts MUST include the ESCALATED rung (value-premise findings escalate,
 not priced). 6. Operator spec gate. 7. §3 exit routing (likely in-session or single doc-PR
-— zero code; classify then) + `/self-reflection` at landing. Pending externals: desktop
-app restart (P6-matrix — first work item AFTER the spec, never a spec blocker), audit
-`task_c8cfb806` (calibration only).
+— zero code; classify then) + `/self-reflection` at landing. Pending externals: the
+desktop app was RESTARTED 2026-08-10 (native cross-session SendMessage active → P6-matrix
+UNBLOCKED — still a post-spec work item, never a spec blocker); audit `task_c8cfb806`
+(calibration only). Chip mortality note: ccd chips do not survive app restarts — the
+pre-restart chips (task_fcb35157, task_9ae01fa8) died with that restart; `task_bb76e321`
+is the live continuation chip.
 
 ## 10 Do NOT re-open (ratified or agreed this session)
 
