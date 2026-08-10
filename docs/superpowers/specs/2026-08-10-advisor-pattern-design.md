@@ -116,6 +116,8 @@ the two new rows, never re-typing the ratified ones).
   verbatim + the objection · answer block (`verdict`, one-line rationale, `decided-by`,
   timestamp) · `status: open | answered | escalated | withdrawn`. Atomic write-temp+rename.
   Schema presence is mechanically checkable (channel 1); content is judgment (channel 2).
+  The advisor is NOT bound by the asker's options: a third concept-level direction, or a
+  re-classification (§5.1), is a legal verdict (operator clarification, session-3 gate).
 - Laws 1/2 hold for the new pair in the **eventual** sense: an idle asker is reached by the
   ANSWERED doorbell or, failing that, by its next turn-start re-read — v2 §8's push-only
   limit applies; see §4 degradation rows (r1 TD MAJOR-5). Claim 2 (verb↔pull-twin) extends
