@@ -438,22 +438,73 @@ else
     # that already differed textually, so the proof certified a string the assertion did not use
     # — `#sync-by-copy-paste` (dual-implementation-discipline.md §8) at the proof level.
     #
-    # Discrimination proof: hand-build the four synthetic locks — the three the round-1 audit
-    # measured PLUS the multi-rule shape that defeated the round-1 pattern — and show the pattern
-    # fires on exactly the honest one. A regex change without this proof does not close M1.
+    # Discrimination proof: build the five synthetic locks — the three the round-1 audit measured
+    # PLUS the two multi-rule shapes that bracket the round-2 defect — and show the pattern fires
+    # on exactly the honest ones. A regex change without this proof does not close M1.
+    #
+    # R3 rework (cold audit round 3, MINOR): the corpus is now EMITTED, not hand-written. Each
+    # case calls the real `_py_json_rules` through the `PY_LAYER_LIB_ONLY=1` seam against a
+    # synthetic fragment dir, so the separator, the empty-provenance fallback object and the
+    # `  "rules": …,` framing are the artefact's OWN bytes. The hand-written corpus joined rule
+    # objects with `},{` while the emitter joins with `}, {` (`_py_json_rules` builds the
+    # separator as `out="$out, "`). That byte was non-load-bearing for THIS pattern — the
+    # verdicts are identical on both shapes — but a proof corpus one byte off the artefact it
+    # certifies is `#sync-by-copy-paste` (dual-implementation-discipline.md §8) at the fixture
+    # level: it is what hides the NEXT boundary defect, and it drifts silently the day the
+    # emitter's rendering changes. Emitting removes the copy rather than re-synchronising it.
     _m1_re='","provenance":\[[^]]*\],"tier":0([^0-9]|$)'
+    _M1_LAYER="$REPO_ROOT/setup.d/45-python.sh"
+    _M1_PROV='[{"url":"u","allowlistKey":"pyyaml","fetchedAt":"2026-07-11","tier":0}]'
+    # _m1_frag <frag-dir> <rule-id> <provenance-json> <rule-tier> — one generation-context
+    # fragment in the PRODUCER's own shape: rule-bootstrap-cli.ts writes
+    # `JSON.stringify({id, provenance, tier})` (compact, that key order), and `_py_json_rules`
+    # cat's it verbatim into `rules[]`.
+    _m1_frag() { printf '{"id":"%s","provenance":%s,"tier":%s}\n' "$2" "$3" "$4" > "$1/$2.json"; }
+    # _m1_lock <frag-dir> <newline-separated rule ids> — the emitter's own `  "rules": …,` line.
+    # A rule id with no fragment in <frag-dir> takes `_py_json_rules`' `{"id":…,"provenance":[],
+    # "tier":2}` fallback — also emitted, never copied.
+    _m1_lock() {
+      PY_LAYER_LIB_ONLY=1 bash -c \
+        'source "$1"; printf "  \"rules\": %s,\n" "$(_py_json_rules "$2" "$3")"' \
+        _ "$_M1_LAYER" "$2" "$1"
+    }
+    _m1_ids_multi=$(printf '%s\ngetff-no-eval\n' "$RULE_ID_13")
     _m1_honest=$(mktemp); _m1_dishonest=$(mktemp); _m1_empty=$(mktemp)
     _m1_multi=$(mktemp); _m1_multi_honest=$(mktemp)
-    printf '  "rules": [{"id":"%s","provenance":[{"url":"u","allowlistKey":"pyyaml","fetchedAt":"2026-07-11","tier":0}],"tier":0}],\n' "$RULE_ID_13" > "$_m1_honest"
-    printf '  "rules": [{"id":"%s","provenance":[{"url":"u","allowlistKey":"pyyaml","fetchedAt":"2026-07-11","tier":0}],"tier":2}],\n' "$RULE_ID_13" > "$_m1_dishonest"
-    printf '  "rules": [{"id":"%s","provenance":[],"tier":2}],\n' "$RULE_ID_13" > "$_m1_empty"
+    # Honest: researched rule stamped Tier-0 at RULE level over a Tier-0 source.
+    _m1_fd_h=$(mktemp -d); _m1_frag "$_m1_fd_h" "$RULE_ID_13" "$_M1_PROV" 0
+    _m1_lock "$_m1_fd_h" "$RULE_ID_13" > "$_m1_honest"
+    # Dishonest (the round-1 defeater): same Tier-0 SOURCE, rule-level tier 2.
+    _m1_fd_d=$(mktemp -d); _m1_frag "$_m1_fd_d" "$RULE_ID_13" "$_M1_PROV" 2
+    _m1_lock "$_m1_fd_d" "$RULE_ID_13" > "$_m1_dishonest"
+    # Empty-provenance fallback: no fragment at all → the emitter's own `provenance:[],tier:2`.
+    _m1_fd_e=$(mktemp -d)
+    _m1_lock "$_m1_fd_e" "$RULE_ID_13" > "$_m1_empty"
     # The round-2 defeater: researched rule dishonest at rule level, a LATER rule honestly Tier-0.
     # This is the real lock's shape (one researched rule + starter rules on a single line).
-    printf '  "rules": [{"id":"%s","provenance":[{"url":"u","allowlistKey":"pyyaml","fetchedAt":"2026-07-11","tier":0}],"tier":2},{"id":"getff-no-eval","provenance":[],"tier":0}],\n' "$RULE_ID_13" > "$_m1_multi"
+    _m1_fd_m=$(mktemp -d)
+    _m1_frag "$_m1_fd_m" "$RULE_ID_13" "$_M1_PROV" 2
+    _m1_frag "$_m1_fd_m" "getff-no-eval" '[]' 0
+    _m1_lock "$_m1_fd_m" "$_m1_ids_multi" > "$_m1_multi"
     # Over-tightening control (the opposite error): an HONEST researched rule followed by a
     # Tier-2 starter rule — the real lock's actual shape. A pattern tightened until it can no
     # longer match a multi-rule lock at all would fail this case and silently red the live arm.
-    printf '  "rules": [{"id":"%s","provenance":[{"url":"u","allowlistKey":"pyyaml","fetchedAt":"2026-07-11","tier":0}],"tier":0},{"id":"getff-no-eval","provenance":[],"tier":2}],\n' "$RULE_ID_13" > "$_m1_multi_honest"
+    # The neighbour gets NO fragment, so it takes the emitter's own Tier-2 fallback.
+    _m1_fd_mh=$(mktemp -d); _m1_frag "$_m1_fd_mh" "$RULE_ID_13" "$_M1_PROV" 0
+    _m1_lock "$_m1_fd_mh" "$_m1_ids_multi" > "$_m1_multi_honest"
+    # Corpus precondition: an emitted corpus can fail to materialise (a broken seam, a renamed
+    # `_py_json_rules`) in a way a hand-written one could not. Five empty files would make every
+    # `grep` miss and read as a REGEX defect — the wrong diagnosis. Assert the emit landed first,
+    # so the next reader is sent at the seam, not at the pattern.
+    _m1_corpus_bad=""
+    for _f in "$_m1_honest" "$_m1_dishonest" "$_m1_empty" "$_m1_multi" "$_m1_multi_honest"; do
+      grep -q "\"$RULE_ID_13\"" "$_f" 2>/dev/null || _m1_corpus_bad="$_m1_corpus_bad $_f"
+    done
+    if [ -n "$_m1_corpus_bad" ]; then
+      bad "(13) M1 corpus NOT emitted — _py_json_rules produced no rule object via the PY_LAYER_LIB_ONLY seam (empty/absent:$_m1_corpus_bad). This is a SEAM failure, not a regex failure."
+    else
+      ok "(13) M1 corpus emitted by the real _py_json_rules (proof fixture reproduces the artefact's own bytes, separator included)"
+    fi
     _h=$(grep -qE "\"$RULE_ID_13$_m1_re" "$_m1_honest"       && echo pass || echo fail)
     _d=$(grep -qE "\"$RULE_ID_13$_m1_re" "$_m1_dishonest"    && echo WRONGLY-pass || echo correctly-fail)
     _e=$(grep -qE "\"$RULE_ID_13$_m1_re" "$_m1_empty"        && echo WRONGLY-pass || echo correctly-fail)
@@ -466,6 +517,7 @@ else
       bad "(13) M1 discrimination FAILED: pattern does not discriminate (honest=$_h dishonest=$_d empty=$_e multi-dishonest=$_m multi-honest=$_mh)"
     fi
     rm -f "$_m1_honest" "$_m1_dishonest" "$_m1_empty" "$_m1_multi" "$_m1_multi_honest"
+    rm -rf "$_m1_fd_h" "$_m1_fd_d" "$_m1_fd_e" "$_m1_fd_m" "$_m1_fd_mh"
     # Real assertion against the live lock — the SAME `$_m1_re` the proof above just certified.
     if grep -qE "\"$RULE_ID_13$_m1_re" "$L13" 2>/dev/null; then
       ok "(13) tier=0 stamped at RULE LEVEL (after the ] closing provenance) — stampProvenanceTier derived verdict, NOT DEFAULT_TIER=2 fallback"

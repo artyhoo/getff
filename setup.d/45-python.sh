@@ -517,8 +517,8 @@ EOF
 # objects ({id, provenance, tier}). §3a option B / §6 fork 2: reads each rule's slice from
 # the fragment dir. S1b (PARK-S1-7 unparked): the python-lane fragment dir is the per-lane
 # subdir `generation-context/python/` (resolved and passed by `_py_write_rules_lock` below —
-# named rather than line-numbered, because the round-2 audit caught this pointer stale on
-# arrival: it said «line 648» while the same hunk that wrote it pushed the caller to 654);
+# named rather than line-numbered: a line pointer into this same file goes stale the moment
+# anything above the caller is edited, including the hunk that writes the pointer);
 # fragments are written by rule-bootstrap-cli.ts runPracticeRender (S1b), keyed by the
 # delivered ast-grep rule id (DC-3: record.entryId === rendered.entryId, by construction).
 # The Node synthesize path (emit.ts:97-103) still writes `G${n}.json` to the PARENT
