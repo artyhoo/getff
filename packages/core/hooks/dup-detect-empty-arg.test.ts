@@ -45,6 +45,16 @@ const HELPER = resolve(
   '.claude/skills/pipeline/helpers/dup-detect.sh',
 );
 
+// Every test here spawns the real dup-detect.sh, which walks a sandbox umbrella
+// tree and shells out per umbrella — multi-second runtimes are inherent, so the
+// vitest 5s default is a mis-set gate rather than a signal. Run in isolation the
+// cases measure 2.0-3.6s; under full-suite parallel load (`vitest run hooks/
+// skills/`, measured 2026-08-10) all four time out at 5000ms. 30_000 is the
+// SLOW_SHELL_MS convention already used by the sibling shell-spawning suites
+// (priority-score-synthetic, priority-score-skip-closed,
+// done-md-completion-filter, pre-push.consumer-layout).
+const SLOW_SHELL_MS = 30_000;
+
 const sandboxes: string[] = [];
 afterEach(() => {
   for (const d of sandboxes.splice(0)) rmSync(d, { recursive: true, force: true });
@@ -96,7 +106,7 @@ function runHelper(
   return { status: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
 }
 
-describe('dup-detect.sh — empty arg = --all (paired-negative contract)', () => {
+describe('dup-detect.sh — empty arg = --all (paired-negative contract)', { timeout: SLOW_SHELL_MS }, () => {
   it('EMPTY-ARG-EQUALS-ALL: `dup-detect.sh ""` returns identical output to `dup-detect.sh --all`', () => {
     // Targets dup-detect.sh:70 — `if [[ -z "${ARG}" || "${ARG}" == "--all" ]]`
     // (P4-b collapse: empty arg falls through to the --all branch silently,

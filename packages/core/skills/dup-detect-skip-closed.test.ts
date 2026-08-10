@@ -38,6 +38,16 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HELPER = resolve(REPO_ROOT, '.claude/skills/pipeline/helpers/dup-detect.sh');
 
+// Every test here spawns the real dup-detect.sh, which walks a sandbox umbrella
+// tree and shells out per umbrella — multi-second runtimes are inherent, so the
+// vitest 5s default is a mis-set gate rather than a signal. Run in isolation the
+// cases measure 3.3-3.6s; under full-suite parallel load (`vitest run hooks/
+// skills/`, measured 2026-08-10) they time out at 5000ms. 30_000 is the
+// SLOW_SHELL_MS convention already used by the sibling shell-spawning suites
+// (priority-score-synthetic, priority-score-skip-closed,
+// done-md-completion-filter, pre-push.consumer-layout).
+const SLOW_SHELL_MS = 30_000;
+
 const sandboxes: string[] = [];
 afterEach(() => {
   for (const d of sandboxes.splice(0)) rmSync(d, { recursive: true, force: true });
@@ -90,7 +100,7 @@ function runHelper(
   return { status: r.status ?? -1, stdout: r.stdout };
 }
 
-describe('dup-detect.sh — MO_SKIP_CLOSED opt-in (Caller B skip-closed, paired-negative)', () => {
+describe('dup-detect.sh — MO_SKIP_CLOSED opt-in (Caller B skip-closed, paired-negative)', { timeout: SLOW_SHELL_MS }, () => {
   it('POS: MO_SKIP_CLOSED=1 on the glob path skips done.md umbrellas, keeps open ones', () => {
     // Targets the glob-path guard: `[[ "${MO_SKIP_CLOSED:-}" == "1" && -f "${d}done.md" ]] && continue`
     const sandbox = makeSandbox();
