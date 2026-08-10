@@ -515,10 +515,18 @@ EOF
 
 # _py_json_rules <newline-separated rule ids> <fragment-dir> — render a JSON array of v2 rule
 # objects ({id, provenance, tier}). §3a option B / §6 fork 2: reads each rule's slice from
-# the fragment dir (generation-context/<rule-id>.json, one per rule, written by the synthesizer's
-# emit.ts). When no fragment exists for a rule (template rule with no research provenance), the
-# fallback {id, provenance:[], tier:2} is the DERIVED value — explicit absence from the fragment
-# dir, not a literal. S1 §3 criterion 3: the per-rule shape REPLACES the v1 flat ruleIds array.
+# the fragment dir. S1b (PARK-S1-7 unparked): the python-lane fragment dir is the per-lane
+# subdir `generation-context/python/` (resolved and passed by `_py_write_rules_lock` below —
+# named rather than line-numbered, because the round-2 audit caught this pointer stale on
+# arrival: it said «line 648» while the same hunk that wrote it pushed the caller to 654);
+# fragments are written by rule-bootstrap-cli.ts runPracticeRender (S1b), keyed by the
+# delivered ast-grep rule id (DC-3: record.entryId === rendered.entryId, by construction).
+# The Node synthesize path (emit.ts:97-103) still writes `G${n}.json` to the PARENT
+# generation-context/ dir — a different lane with its own fragment set; the cargo/go readers
+# glob that parent dir non-recursively (46-cargo.sh:262, 47-go.sh:229). When no fragment
+# exists for a rule (template rule with no research provenance), the fallback
+# {id, provenance:[], tier:2} is the DERIVED value — explicit absence from the fragment dir,
+# not a literal. S1 §3 criterion 3: the per-rule shape REPLACES the v1 flat ruleIds array.
 _py_json_rules() {
   local items="$1" frag_dir="${2:-}" out="[" first=1 it frag
   while IFS= read -r it; do
@@ -639,8 +647,13 @@ _py_write_rules_lock() {
   local _json_rules _json_bans
   # MAJOR B (W-7): fragment-per-rule per §6 fork 2. The fragment dir is the synthesizer's
   # generation-context/ subdir — one <rule-id>.json per rule in final lock shape.
+  # S1b (PARK-S1-7 unparked): per-lane subdir `generation-context/python/` — the producer
+  # (rule-bootstrap-cli.ts runPracticeRender, S1b) writes here. Closes kickoff criterion 4 by
+  # construction: the cargo/go glob is `*.json` NON-RECURSIVE on the parent generation-context/
+  # dir (46-cargo.sh:262, 47-go.sh:229), so python fragments in this subdir are invisible to
+  # those lanes. Node synthesize (emit.ts) keeps writing `G${n}.json` to the parent dir.
   local _synth_dir="$PROJECT_ROOT/.ai-factory/synthesizer-output"
-  local _frag_dir="$_synth_dir/generation-context"
+  local _frag_dir="$_synth_dir/generation-context/python"
   _json_rules=$(_py_json_rules "$ids" "$_frag_dir")
   _json_bans=$(_py_json_array "$ban_codes")
 
