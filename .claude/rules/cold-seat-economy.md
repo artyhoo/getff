@@ -39,6 +39,12 @@ seat**:
   `Round: n+1` audit, and the file-list check cannot tell the two apart.
 - **Deliverables, permitted files, or descopes actually moved** → that is substance; a full
   re-audit is earned.
+- **The head moved only because of a merge-forward commit** → the cheapest branch is not a
+  smaller check but no check: keep the merge branch local as a test vehicle and push the
+  audited commit as the PR head. Not always reachable (a genuine conflict must land its merge;
+  and once the merge commit IS the remote head, rewinding needs a blocked force-push) — the
+  decision procedure and its one-way door live at
+  [git-conflict-merge-forward.md §9](git-conflict-merge-forward.md).
 - **Never self-issue the verdict to dodge the cost.** The seat is cold by construction; a
   self-issued verdict on your own work is the failure the acceptance contour exists to prevent
   (T19, [ai-laziness-traps.md §2](ai-laziness-traps.md)). The cheap path is a *smaller cold
@@ -98,7 +104,10 @@ Measured (2026-07-31) — the numbers that force this default, and the one that 
 
 - **`#reaudit-on-sha-move`** — spending a full cold re-audit because `Audited-SHA` no longer
   prefixes HEAD, without asking whether the seat's substance moved. Counter: §1 scope check +
-  narrow cold delta.
+  narrow cold delta. The `pr-body-fidelity` failure message names only the expensive branch
+  («re-run the fidelity audit on the current head»), so the gate itself is the tempter —
+  see [git-conflict-merge-forward.md §9](git-conflict-merge-forward.md) for the merge-forward
+  instance.
 - **`#self-issued-verdict`** — the dispatching session writing the seat's verdict itself to
   save the re-audit cost. Counter: §1 third bullet — smaller cold check, never no cold check.
 - **`#expensive-seat-on-nonfinal-diff`** — dispatching the costliest audit in parallel with a
