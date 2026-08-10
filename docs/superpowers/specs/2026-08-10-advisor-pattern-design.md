@@ -427,7 +427,10 @@ on the load-bearing half):
 5. **Prior-art pass BEFORE landing item 4** (T11/T12): context7 ≥3 phrasings + WebSearch —
    Conventional Comments (severity-labeled review comments), Google eng-practices review
    guidelines (non-blocking nits), Bezos type-1/type-2 reversibility, CBR indexing
-   problem, WIP limits / kanban budgets. Fold findings into the rule; add SSOT entries as
+   problem, WIP limits / kanban budgets, and the layered-spec-document family
+   (operator-gate addition): ADR, GitHub spec-kit SDD (`constitution → specify → plan →
+   tasks` — the constitution is a first-class idea layer), AWS Kiro EARS
+   (`requirements / design / tasks`). Fold findings into the rule; add SSOT entries as
    verdicts warrant.
 6. Ask-file schema validity check (mechanizable half; earliest reachable channel) — the
    pre-push section per §5.3 L3(b)+(c), including the answered⇒decisions-entry cross-check.
