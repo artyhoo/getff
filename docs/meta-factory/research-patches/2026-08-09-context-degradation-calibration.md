@@ -9,10 +9,11 @@
 > **Reader:** anyone tempted to set D6 thresholds from a vendor marketing claim or a single benchmark number. Read §calibrated-parameters first: each number carries its falsifier, and the strongest numbers are the agentic-coding-product-internal ones (Claude Code Issues), not the retrieval benchmarks.
 > **Status:** PROPOSED — consumption gate (cold K1/K2 + verifier `GO | rework | kill`) is downstream of this patch, owned by the harvesting session; this R-phase does NOT self-verify its own numbers' entry into D6/D7.
 > **Revision 2 (2026-08-10, harvesting session):** round-1 cold fidelity audit returned `REVISE` (5 MAJOR). The rework is recorded inline: [§search-coverage](#search-coverage) is new and **falsifies two of this patch's own negative-existence claims**; RQ1 now carries a per-tier disposition; the `T_soft(200k)` direction is **parked** as a §4c fork instead of silently proposed; the unsourced `85%` is demoted to the same INCONCLUSIVE marker as its siblings; four citation dates are corrected. Cross-owner edit per [CLAUDE.md `Artifact Ownership Contract`](../../../CLAUDE.md) — separate atomic commit, rationale in its body.
+> **Revision 3 (2026-08-10, same session):** round-2 audit closed all five round-1 MAJORs and found **three new ones, every one introduced by rev 2's own rework** — a ranking withdrawn in prose but left standing in the table it summarises; two *new* negative-existence claims substituted for the falsified ones without the §3 checklist they owe; and three citations with no date at all, sitting under a rev-2 predicate that claimed «26/26 dates verified». All three are closed here. Probing the third turned up a fourth defect nobody had flagged: the `agentpatterns.ai` citation behind signal 4.3 states the **opposite** of the claim it was attached to. The pattern is worth naming — rev 2 was a citation-hygiene pass that introduced citation-hygiene defects, which is the cheapest available evidence for this patch's own subject.
 
 ## §0 Method + freshness
 
-- **Sweep:** WebSearch ≥3 phrasings per RQ (`long-context degradation` / `context rot` / `effective context window` / `lost-in-the-middle agentic` + per-RQ variants). ≥5 dated 2026 sources per RQ; first-party (Anthropic) prioritised.
+- **Sweep:** WebSearch ≥3 phrasings per RQ (`long-context degradation` / `context rot` / `effective context window` / `lost-in-the-middle agentic` + per-RQ variants). **≥5 dated 2026 sources in total** — that is the kickoff §6(c) floor, and it is a floor, not a per-RQ quota (rev 1 wrote «per RQ», which its own per-RQ counts do not meet: RQ2 has 2); first-party (Anthropic) prioritised.
 - **Freshness bar (binding, arch §1.5):** every load-bearing source dated; freshest first; pre-2026 sources excluded from load-bearing claims without fresh confirmation.
 - **Tier-name verification (kickoff §0 mandate: «verify at run time, do not assume»):** as of 2026-08-09 the top two Claude tiers are **Fable 5** (top, GA 2026-06-09; suspended 2026-06-12, restored 2026-07-01 — reason not stated by the source, do not attribute one — [Anthropic news](https://www.anthropic.com/news/claude-fable-5-mythos-5)) and **Opus family** (Opus 5 / 4.8, second tier; the Fable 5 suspension did NOT affect Opus, which served as the recommended fallback). 1M-token context GA on Opus 4.6+ and Sonnet 4.6+; premium pricing applies above 200k tokens ([Opus 4.6 release notes](https://www.anthropic.com/news/claude-opus-4-6), [Opus 5 announcement](https://www.anthropic.com/news/claude-opus-5), [Bedrock 1M expansion](https://aws.amazon.com/about-aws/whats-new/2025/08/anthropic-claude-sonnet-bedrock-expanded-context-window/)).
 - **T-CDC-A baseline:** long-context benchmarks mostly measure retrieval (needle-in-haystack), NOT agentic-coding quality. Every adopted number below carries its problem-class-match statement per the kickoff's domain trap.
@@ -21,11 +22,12 @@
 
 ### RQ1 — Degradation onset per model tier
 
-**Coverage (restated rev 2 — rev 1's arithmetic did not reconcile with its own table):** 8 rows over
-7 distinct sources. First-party 3 (1.1, 1.6, 1.7) · operator-grade 2 (1.2, 1.3) · third-party blog 2
-(1.4, 1.5) · peer-reviewed benchmark 2 (1.8, 1.9, added rev 2). Dated **2026**: 6 of 8 — rows 1.8
-(2025-11) and the AWS 1M-GA link in §0 (2025-08) are pre-2026 and are therefore directional only,
-never threshold sources. 0 `INCONCLUSIVE-needs-human`.
+**Coverage (recounted rev 3 — rev 1's arithmetic did not reconcile with its own table, and rev 2's
+restatement did not either):** **9 rows** (1.1–1.9) over **8 distinct URLs** — 1.1 and 1.6 cite the
+same Opus-4.6 page. First-party 3 rows (1.1, 1.6, 1.7) · operator-grade 2 (1.2, 1.3) · third-party
+blog 2 (1.4, 1.5) · peer-reviewed benchmark 2 (1.8, 1.9, added rev 2). Dated **2026: 8 of 9** — only
+row 1.8 (2025-11) is pre-2026, and it is directional only, never a threshold source (as is the AWS
+1M-GA link in §0, 2025-08, which is not an RQ1 row). 0 `INCONCLUSIVE-needs-human`.
 
 **Per-tier disposition (rev 2 — the RQ1 question is «onset *per model tier*», and rev 1 answered it
 for one tier while reporting it answered for both):**
@@ -49,7 +51,7 @@ for one tier while reporting it answered for both):**
 
 **Calibration interpretation:** the two strongest problem-class-matched numbers (1.2, 1.3) converge on **~70% of advertised window as the quality-preservation threshold for the 200k window**, with explicit product-internal calibration at 150k = 75%. **Note the tension rev 1 glossed:** 1.2 (150k = 75%) is the point at which the product *force-compacts* — the top of the working range — whereas 1.3 (50–70%) is where practitioners say quality *starts* to go. They are not the same quantity, and reading them as «converging on 75%» conflates a ceiling with a soft threshold. This is the fork parked at [§parked-questions](#parked-questions).
 
-For the 1M window, rev 1 claimed «no agentic-coding-specific independent benchmark confirms quality holds past ~500k». **Rev 2 falsifies that as written** ([§search-coverage](#search-coverage) item A): LoCoBench-Agent (1.8) evaluates agentic SWE to 1M and reports robustness with an efficiency cost, and SlopCodeBench (1.9) measures agentic-coding decay directly. What survives is a **narrower** and still-load-bearing claim: *no dated 2026 source expresses agentic-coding quality as a function of **token fill** past ~500k* — 1.8 predates the freshness bar, 1.9's axis is turns rather than tokens, and 1.5's axis is retrieval. The gap is a **unit** gap, not an absence of literature.
+For the 1M window, rev 1 claimed «no agentic-coding-specific independent benchmark confirms quality holds past ~500k». **Rev 2 falsifies that as written** ([§search-coverage](#search-coverage) item A): LoCoBench-Agent (1.8) evaluates agentic SWE to 1M and reports robustness with an efficiency cost, and SlopCodeBench (1.9) measures agentic-coding decay directly. What survives is a **narrower** and still-load-bearing claim: *no dated-2026 source surfaced by this sweep expresses agentic-coding quality as a function of **token fill** past ~500k*. **The three exclusions have three different reasons, and rev 2's «unit gap» label flattened them (rev 3):** 1.8 is excluded on **date** — its unit *is* tokens, it evaluates agentic SWE across 10K–1M; 1.9 on **unit** (turns and checkpoints, not tokens); 1.5 on **class** (retrieval). Naming that matters for the consumption gate, because it exposes a tension the 1M rows do not reconcile: the single best task-class-matched benchmark here reports «remarkable long-context robustness» to 1M, while §calibrated-parameters retains a 500k ceiling. Excluding 1.8 is defensible under the freshness bar; pretending the tension does not exist is not.
 
 ### RQ2 — Task-class variance (mechanical vs judgment)
 
@@ -79,8 +81,8 @@ it is one of three supporting citations on the fresh-session row and carries not
 
 | Practice | Quality retention | Token cost | Failure modes | Sources |
 |---|---|---|---|---|
-| **Fresh-session handoff via residue doc** | Best — intent preserved, debugging context carried forward, no auto-summarisation lossy step | Orchestrator time + new-session bootstrap; reuse cost ~one-time | Handoff doc itself can be lossy if written under fatigue; mitigated by writing early (60–65% fill, not at 0% remaining) | [vincentvandeth — Context Rot in Claude Code](https://vincentvandeth.nl/blog/context-rot-claude-code-automatic-rotation), 2026; [Reddit r/ClaudeCode "Do you compact?"](https://www.reddit.com/r/ClaudeCode/comments/1rfbtyv/do_you_compact_how_many_times/), 2026; [chudi.dev — 3-File System](https://chudi.dev/blog/claude-context-management-dev-docs), 2026 |
-| **Auto-compact (Claude Code native)** | Workable but lossy — known to omit error messages, stack traces, debugging information | Lowest incremental — frees 60–70% of window in-place | Summaries omit debugging info, error traces; "loses task-oriented intent and next-step information" | [Anthropic Compaction docs](https://platform.claude.com/docs/en/build-with-claude/compaction), 2026 (first-party); [anthropics/claude-code#13239](https://github.com/anthropics/claude-code/issues/13239), **2025-12-06** (rev 1 dated it «2026» — corrected rev 2); [MindStudio — Context Rot](https://www.mindstudio.ai/blog/context-rot-ai-agents-auto-compact-fix), 2026 |
+| **Fresh-session handoff via residue doc** | **UNRANKED (rev 3).** Claimed mechanism: intent preserved, debugging context carried forward, no auto-summarisation lossy step. *No source cited here measures it against the other two rows* — rev 1 rated this «Best», rev 2 withdrew the ranking in the cross-reference paragraph below but left the superlative standing in this cell | Orchestrator time + new-session bootstrap; reuse cost ~one-time | Handoff doc itself can be lossy if written under fatigue; mitigated by writing early (60–65% fill, not at 0% remaining) | [vincentvandeth — Context Rot in Claude Code](https://vincentvandeth.nl/blog/context-rot-claude-code-automatic-rotation), 2026; [Reddit r/ClaudeCode "Do you compact?"](https://www.reddit.com/r/ClaudeCode/comments/1rfbtyv/do_you_compact_how_many_times/), 2026; [chudi.dev — 3-File System](https://chudi.dev/blog/claude-context-management-dev-docs), 2026 |
+| **Auto-compact (Claude Code native)** | **UNRANKED (rev 3).** Documented failure mode: omits error messages, stack traces, debugging information (first-party docs + #13239). «Lossy» is a property its own sources state; «workable but» was a comparative against the row above, which nothing measures | Lowest incremental — frees 60–70% of window in-place | Summaries omit debugging info, error traces; "loses task-oriented intent and next-step information" | [Anthropic Compaction docs](https://platform.claude.com/docs/en/build-with-claude/compaction), 2026 (first-party); [anthropics/claude-code#13239](https://github.com/anthropics/claude-code/issues/13239), **2025-12-06** (rev 1 dated it «2026» — corrected rev 2); [MindStudio — Context Rot](https://www.mindstudio.ai/blog/context-rot-ai-agents-auto-compact-fix), 2026 |
 | **Summary-carryover (synthetic recap)** | **Rev 2 — rev 1's «no source isolates this variant» is FALSIFIED.** A dated-2026 peer-reviewed study isolates exactly this three-way comparison: adaptive self-compaction vs **fixed-interval summarisation** vs no-summarisation. Adaptive «matches or exceeds fixed-interval summarisation at a fraction of the token cost» — up to **+18.1 points** on math and **+5–9** on agentic search over no-summarisation | **30–70% lower** per-question token cost than the fixed-interval baseline | Fixed-interval summarisation is the *worst-timed* variant by construction: firing mid-derivation «discards partial results the model then has to reconstruct, which is the most expensive moment to forget» | [arXiv 2606.23525 «Self-Compacting Language Model Agents»](https://arxiv.org/abs/2606.23525), submitted 2026-06-22, rev 2026-07-10; [Blake Crosley — «Context Compaction Is a Decision, Not a Threshold»](https://blakecrosley.com/blog/agent-context-compaction), 2026-06-23 |
 
 **Concrete operator numbers:**
@@ -89,7 +91,7 @@ it is one of three supporting citations on the fresh-session row and carries not
 - Recommended rotation trigger: 60–65% utilisation (NOT 80%+) — Vincent van deth blog, 2026
 - Multi-agent cost compounding: "3 agents cost 10x" via context transfer + retries + verification stack — [AugmentCode](https://www.augmentcode.com/guides/multi-agent-cost-compounding), 2026
 
-**Cross-reference to D6 SSOT entries:** SSOT #230 (`mattpocock/skills` handoff = REFERENCE) — confirmed by 2026 sources; the "handoff.json" / "handoff.md" pattern is the dominant practitioner recommendation. SSOT #122 (session-recap family) — confirmed as a family, but **rev 2 withdraws rev 1's ranking claim** («recap is the SECOND-BEST option, behind full fresh-session with residue»): that ranking was asserted against a row rev 1 had itself marked coverage-insufficient. The 2026 evidence now available ranks *timing* (adaptive vs fixed-interval), not *mechanism* (recap vs fresh session) — nothing measured compares a residue-doc handoff head-to-head against a synthetic recap. The honest statement is that the three practices are **unranked against each other**, with one measured sub-result: adaptive beats fixed-interval summarisation on both quality and cost.
+**Cross-reference to D6 SSOT entries:** SSOT #230 (`mattpocock/skills` handoff = REFERENCE) — confirmed by 2026 sources; the "handoff.json" / "handoff.md" pattern is the dominant practitioner recommendation. SSOT #122 (session-recap family) — confirmed as a family, but **rev 2 withdraws rev 1's ranking claim** («recap is the SECOND-BEST option, behind full fresh-session with residue»): that ranking was asserted against a row rev 1 had itself marked coverage-insufficient. The 2026 evidence now available ranks *timing* (adaptive vs fixed-interval), not *mechanism* (recap vs fresh session) — **no source surfaced by this sweep** compares a residue-doc handoff head-to-head against a synthetic recap. The honest statement is that the three practices are **unranked against each other**, with one measured sub-result: adaptive beats fixed-interval summarisation on both quality and cost. *(Rev 3 scoping: rev 2 wrote «nothing measured compares…», which is a negative-existence claim and would owe the §3 checklist. Scoped to this sweep's coverage, it owes nothing beyond the coverage statement already given — and the correction is the same one rev 2 was written to make. Whether such a comparison exists is genuinely open.)*
 
 **Rev-2 consequence for D6/D7 that is stronger than any threshold here:** the best-supported 2026 finding in RQ3 is that **when to compact is a decision, not a token threshold** — a rubric keyed to «a sub-task resolved / the trajectory is converging» versus «mid-derivation / stuck» outperforms a fixed trigger at 30–70% lower cost, with no fine-tuning. A D6 design whose only control is a `T_soft` number is adopting the *weaker* of the two mechanisms the literature compares. This does not invalidate having thresholds (a hard ceiling is still needed); it means the threshold should be the backstop and the rubric the primary.
 
@@ -112,9 +114,9 @@ Candidate signal classes a session can self-check (each operationalisable in <10
 
 | # | Signal | Mechanical tail indicator | Judgment tail indicator | Operationalisation | Evidence base |
 |---|---|---|---|---|---|
-| 4.1 | **Tool-call density ratio** = tool_calls / total_turns in last N turns | High (≥0.7?) | Low | Trivial counter maintained per turn | [arXiv 2605.09252](https://arxiv.org/html/2605.09252v1) (tool-call necessity is hidden-state-predictable) + [Apple Reinforced Agent](https://machinelearning.apple.com/research/reinforced-agent-inference-feedback) |
+| 4.1 | **Tool-call density ratio** = tool_calls / total_turns in last N turns | High (≥0.7?) | Low | Trivial counter maintained per turn | [arXiv 2605.09252](https://arxiv.org/abs/2605.09252) «LLM Agents Already Know When to Call Tools», **v1 2026-05-10 / v2 2026-05-20** — tool necessity is linearly decodable from the pre-generation representation at AUROC 0.89–0.96 + [Apple — «Reinforced Agent: Inference-Time Feedback for Tool-Calling Agents»](https://machinelearning.apple.com/research/reinforced-agent-inference-feedback), **2026-05** (ACL 2026 GEM workshop) |
 | 4.2 | **Gate-backing ratio** = (CI runs + rule-test fires + lint passes) / total_actions | High | Low | Event counter | RQ2 evidence: external gates are what makes mechanical work tolerant |
-| 4.3 | **Decision-vs-action ratio** = (verdicts + forks surfaced) / (commands + edits) | Low | High | Counter on emitted artefacts | [agentpatterns.ai — Auto Model Selection](https://agentpatterns.ai/patterns/agent-design/auto-model-selection/) (task class as routing signal) |
+| 4.3 | **Decision-vs-action ratio** = (verdicts + forks surfaced) / (commands + edits) | Low | High | Counter on emitted artefacts | **NO SUPPORTING SOURCE (rev 3).** Rev 1 cited [agentpatterns.ai — Auto Model Selection](https://agentpatterns.ai/patterns/agent-design/auto-model-selection/) (reviewed 2026-08-07) as «task class as routing signal»; probed rev 3, the page states the **opposite** — «Copilot's published criteria are availability, model performance, plan, and admin policy — **not** declared task class or context size». The citation contradicted the claim it was attached to. Signal 4.3 is a proposal with no external support |
 | 4.4 | **External-state-mutation share** = (commits + pushes + PR actions) / total_actions | High | Low | Counter | RQ2 2.4 (git-as-gate pattern — rev 1 cited this as «RQ3 2.4»; the claim lives in RQ2) |
 | 4.8 *(rev 2)* | **Trajectory state** — sub-task resolved / converging vs mid-derivation / stuck | Resolved or converging → safe tail | Mid-derivation or stuck → judgment in flight | Model-evaluated rubric, not a counter (the one signal here with published evaluation) | [arXiv 2606.23525](https://arxiv.org/abs/2606.23525), 2026-06-22; [Crosley](https://blakecrosley.com/blog/agent-context-compaction), 2026-06-23 |
 | 4.5 | **Recap-marker presence** — did the session recently write or consume a handoff doc? | Recent handoff → likely mechanical tail (post-handoff execution) | No recent handoff → likely still in judgment phase | Boolean check on artefact timestamps | SSOT #230 confirmation (RQ3) |
@@ -134,7 +136,7 @@ had been recorded as a measured absence, and D6 would have inherited it.
 
 | item | claim as written in rev 1 | verdict after the sweep |
 |---|---|---|
-| **A** | «no agentic-coding-specific independent benchmark confirms quality holds past ~500k» (§findings RQ1) | **FALSIFIED as written.** LoCoBench-Agent (10K–1M, agentic SWE) and SlopCodeBench (agentic-coding decay over long-horizon iteration) both exist. Narrowed survivor: no *dated-2026* source expresses agentic-coding quality against **token fill** past ~500k — a unit gap |
+| **A** | «no agentic-coding-specific independent benchmark confirms quality holds past ~500k» (§findings RQ1) | **FALSIFIED as written.** LoCoBench-Agent (10K–1M, agentic SWE) and SlopCodeBench (agentic-coding decay over long-horizon iteration) both exist. Narrowed survivor (rev 3 wording — «unit gap» was too flat, the three exclusions differ: 1.8 on **date**, 1.9 on **unit**, 1.5 on **class**): no *dated-2026* source expresses agentic-coding quality against **token fill** past ~500k |
 | **B** | «No specific delta number is supportable from the literature» (mechanical vs judgment, RQ2) | **HOLDS.** Every source found measures a different axis (recall-vs-reasoning dissociation; turns; success rate). None yields a token delta. Now backed by a positive measurement of the *mechanism* (2.5) rather than by silence |
 | **C** | «no practitioner-grade 2026 source isolates this variant» (summary-carryover, RQ3) | **FALSIFIED.** arXiv 2606.23525 (2026-06-22) isolates precisely fixed-interval summarisation vs adaptive vs none, with quality and cost numbers |
 | **D** | «none directly operationalise a "mechanical vs judgment tail" classifier» (RQ4) | **FALSIFIED.** The Self-Compacting rubric is an evaluated classifier for the same decision (trajectory-state framing). Narrowed survivor: none operationalises it over the *counter-based* signals proposed here |
@@ -177,6 +179,12 @@ degradation».
 Per kickoff §4c (park-don't-guess). Rev 1 recorded «no genuine fork emerged»; rev 2 finds one it had
 resolved silently.
 
+> **Where the record actually lives (rev 3).** Kickoff §2:55-57 routes a fired PARK to the **park
+> payload + the PR's `## Parked questions`** and states that recording one «is not a file write».
+> This section is therefore **additive, not the record** — a reader must not treat its presence here
+> as the park having been routed. The harvesting session owns putting PARK-CDC-1 into the PR body;
+> if it is absent there at merge time, the fork expires with this patch.
+
 **PARK-CDC-1 — which quantity is `T_soft(200k)`?** The two strongest problem-class-matched sources
 measure different things, and the design needs one number.
 
@@ -189,7 +197,10 @@ measure different things, and the design needs one number.
   D7's handoff arm almost never fires before auto-compact does — the arm becomes decorative, and the
   backstop (D8 PreCompact snapshot) becomes the real mechanism.
 
-Not resolvable from the literature: no source measures our task classes at these fills. The RQ3
+Not resolvable from the sources surfaced by this sweep — none measures our task classes at these
+fills. *(Rev 3 scoping: rev 2 wrote «Not resolvable from the literature», a negative-existence claim
+about the whole literature that would owe the §3 checklist. The fork is parked on **this sweep's**
+coverage; a later sweep that finds such a measurement resolves it.)* The RQ3
 finding above is relevant to the choice — if compaction timing becomes rubric-driven, the number
 matters less and the fork loses most of its force.
 
@@ -255,7 +266,7 @@ Running it surfaced three concrete self-corrections applied to this patch:
 2. **(T-CDC-A-fired)** Initial draft cited Opus 4.6's "76% long-context benchmark" as a quality signal. The counter-prompt exposed this as a retrieval benchmark — exactly the T-CDC-A trap. Demoted to source 1.6 with explicit "NO MATCH" rating.
 3. **(T4-fired)** Initial draft had no §stop-condition-audit. The counter-prompt surfaced this as a missing RQ-class — not a research RQ, but a mandatory process section. Added §stop-condition-audit below.
 
-The session's estimated ~80–110k context is **well below the 140k judgment-floor** proposed above, so per our own calibration this output should be at full quality. The three self-corrections above are consistent with that — the model caught its own pre-deadline drift in the adversarial step. **Falsifier:** if a cold reviewer finds a fourth pre-deadline claim that the counter-prompt missed, that would be evidence of subtle degradation under 100k and would lower the proposed floor.
+The session's estimated ~80–110k context is **well below the 140k judgment-floor** proposed above, so per our own calibration this output should be at full quality. *(Rev 3: 140k is the **current D6 provisional**, not this patch's proposal — after rev 2 the patch proposes nothing here, it parks a 130k/150k fork. The sentence is left standing as rev 1 wrote it because it is the reasoning being audited below, but the anchor it leans on is no longer the patch's own.)* The three self-corrections above are consistent with that — the model caught its own pre-deadline drift in the adversarial step. **Falsifier:** if a cold reviewer finds a fourth pre-deadline claim that the counter-prompt missed, that would be evidence of subtle degradation under 100k and would lower the proposed floor.
 
 ### Rev 2 — the falsifier fired
 
@@ -301,8 +312,9 @@ run at two controlled fills on a Claude tier and defect rates do not separate �
 
 Condition **(b)** (§4c fork) **DID fire** — see [§parked-questions](#parked-questions) PARK-CDC-1.
 Rev 1 stated «no genuine fork emerged» and then resolved the fork silently by proposing one side of it.
-Condition **(c)** (<5 dated 2026 sources) did NOT fire — 16 of the 21 distinct sources now cited carry
-a 2026 date, comfortably above the floor. (Kickoff §6(c) is a floor, not a stopping point — see
+Condition **(c)** (<5 dated 2026 sources) did NOT fire — of the **26** distinct URLs now cited, well
+over 5 carry a 2026 date, comfortably above the floor. *(Rev 3: rev 2 wrote «16 of the 21», carrying
+rev 1's URL count into a rev-2 sentence — the miscount its own next bullet was written to fix.)* (Kickoff §6(c) is a floor, not a stopping point — see
 [§search-coverage](#search-coverage) item 5.)
 
 **Coverage predicates (T6 replacement for "high confidence") — recomputed rev 2, because rev 1's did
@@ -315,8 +327,14 @@ not reconcile with its own tables:**
   probe (bot-block, not evidence of absence)`. Rev 1's own count was 21 URLs of which one 404'd —
   that anchor's slug is fixed in rev 2 and now resolves.
 - Quoted text re-fetched and matched verbatim: **8** load-bearing quotes, 8/8 reproduce.
-- Dates verified against the source rather than against its label: **26/26** — this check did not
-  exist in rev 1, and it is what caught four mislabelled years (2.1, 2.4, RQ3 #13239, 1.5).
+- Dates verified against the source rather than against its label: **23/26 (rev 3 correction).** Rev 2
+  asserted 26/26; it had in fact checked only the citations it touched. The three it missed —
+  `arXiv 2605.09252`, the Apple ML page and `agentpatterns.ai` (signals 4.1 and 4.3) — carried **no
+  date at all**, and probing them in rev 3 dated all three *and* found that the `agentpatterns.ai`
+  page states the **opposite** of the claim it was cited for. The remaining 3 of 26 are the two
+  bot-blocked URLs and the Reddit thread, whose dates rest on the rendering fetch rather than a
+  direct read. The check is what caught four mislabelled years (2.1, 2.4, RQ3 #13239, 1.5) plus, in
+  rev 3, one mis-attributed source.
 - Claims resting on a *token-fill* measurement for our task class: **0 of 21.** This is the single
   most important predicate in the document, and it did not appear in rev 1 at all.
 - Calibration: **NONE.** First run of this methodology; rev 2 is the second pass over the same
@@ -350,4 +368,4 @@ never names; the governing authority is kickoff §2.)*
 
 ---
 
-*Current as of 2026-08-10 (rev 2). Rev 1: 2026-08-09.*
+*Current as of 2026-08-10 (rev 3). Rev 2: 2026-08-10. Rev 1: 2026-08-09.*
