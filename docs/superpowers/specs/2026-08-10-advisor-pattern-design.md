@@ -597,4 +597,4 @@ contour designs the most important piece right after landing (§8 item 8 carries
 rendering). **Recording note (operator, same session):** raw-transcript quotes are avoided
 — out of context they read ambiguously; premise 10's «verbatim-faithful» means faithful to
 MEANING in context, never a naked transcript carrying the meaning alone. Gate word:
-pending at this commit.
+RECEIVED 2026-08-10 — GO (operator: «го» to gate → landing PR → kernel-v2 session).
