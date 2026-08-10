@@ -37,7 +37,7 @@
  *
  * ## Prior art (build-vs-reuse, CLAUDE.md capability-commit gate)
  *
- * SSOT #246 (this commit). Verdict **ADAPT** of two in-repo implementations of the same shape —
+ * SSOT #247 (this commit). Verdict **ADAPT** of two in-repo implementations of the same shape —
  * `tests/install-sh/meta-all-wired.test.sh:22-43` (population = `tests/install-sh/*.test.sh`,
  * registry = the workflow text) and `principles/36-ci-needs-completeness.test.ts` (population =
  * workflow jobs, registry = `ci-success.needs`) — onto a new population/registry pair. No new
