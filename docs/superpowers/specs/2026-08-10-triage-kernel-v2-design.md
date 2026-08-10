@@ -6,9 +6,11 @@
 # Triage kernel v2 — corpus-measured materiality classifier
 
 > **Status:** DESIGNED — round-1 cold-reviewed (TD REVISE 2B/9M/5m/2E; BU REVISE 0B/5M),
-> r1 repairs applied in this revision (§13); awaiting round-2 verification + operator gate.
+> r1 repairs applied; round-2 cold verification (REVISE 1B/4M/4m; all r1 dispositions
+> confirmed — 0 NOT-FIXED / 0 MISSING) with r2 repairs applied in this revision (§13);
+> review cap reached — awaiting operator gate.
 > **Branch:** `claude/kernel-v2-arch-triage-86fa0a`. **Current as of 2026-08-11**
-> (research pass + gate dialogue 2026-08-10; r1 repairs 2026-08-11).
+> (research pass + gate dialogue 2026-08-10; r1 + r2 repairs 2026-08-11).
 > **Authoritative for:** the corpus artifact (§2), adjudication protocol (§3), bench design +
 > candidate layers (§4), acceptance rule (§5), validity limits (§5b), deployment surfaces
 > (§6), the disposition-vocabulary home (§7), post-landing applications (§8), stage plan
@@ -115,24 +117,42 @@ Zero new runtime code ships to consumers from this contour; the one new dependen
   data files are **CSV** (single master format, machine-consumed by the bench, diffable,
   not subject to the 600-line markdown gate; a second human-view format would need a sync
   gate — rejected per [attention-is-not-a-mechanism.md](../../../.claude/rules/attention-is-not-a-mechanism.md)).
-- **Files by source population — disjoint by construction** (r1 BU MAJOR-3): row `id` =
-  `<PR#>-r<round>-<n>`; a finding lives in exactly ONE file; S1's definition-of-done runs a
-  deterministic cross-file `id`/text uniqueness check. `audit-1369.csv` (the ~104 audit §4
-  rows **minus** the #1341 round-7 rows); `s4-round7.csv` (the #1341 R7 rows — the
-  under-graded anchors, counted from the audit table, not its prose); `td-m3.csv` (both
-  value-mispricing incidents — sources: [session-bus-v2 §14](2026-08-09-session-bus-v2.md)
-  row TD-M3 AND [advisor-pattern-design §0/§11](2026-08-10-advisor-pattern-design.md) second
-  instance); `arch-reviews.csv` (**new population, r1 TD MAJOR-5** — design-layer finding
-  rows mined from spec disposition changelogs: advisor §11/§11b, session-bus-v2 §14, night-v3
-  §13, this spec §13); `kickoff-loops.csv` (sample of the 13-PR kickoff-revision series —
-  enumerated but unclassified in audit §7.1, T14 honesty); `research-forks.csv` (the «1% vs
-  2%» class — mined from research-patch dispositions + the per-spec disposition-changelog
-  sections named above). **Under-representation honesty applies to EVERY thin file** (not
-  only research-forks): if a population yields <5 rows, the corpus README says so and §5
-  reports that axis/class as under-powered rather than padding.
-- **Row fields:** `id` · `source` (PR#/round/seat) · `finding` (verbatim quote **from the PR
-  body's own finding text**) · `context` (mechanical provenance ONLY: PR#, round, the file
-  path the finding cites) · `class_start` (audit vocabulary: `MATERIAL | MATERIAL-b |
+- **Files by source population — disjoint, enforced fail-closed** (r1 BU MAJOR-3; r2
+  notes-lane: «by construction» over-claimed — the mechanism is detection): assignment rule
+  = source-artifact class (PR-body findings → `audit-1369`/`s4-round7` by the round split;
+  full-review-report findings → `arch-reviews`; research-patch fork records →
+  `research-forks`; the two named TD-M3 incidents → `td-m3`; the 13-PR kickoff series →
+  `kickoff-loops`); row `id` = `<PR#>-r<round>-<n>`; a finding lives in exactly ONE file;
+  S1's definition-of-done runs a deterministic cross-file `id`/text uniqueness check.
+  `audit-1369.csv` (the ~104 audit §4 rows **minus** the #1341 round-7 rows); `s4-round7.csv`
+  (the #1341 R7 rows — the under-graded anchors, counted from the audit table, not its
+  prose); `td-m3.csv` (both value-mispricing incidents — sources:
+  [session-bus-v2 §14](2026-08-09-session-bus-v2.md) row TD-M3 AND
+  [advisor-pattern-design §0/§11](2026-08-10-advisor-pattern-design.md) second instance;
+  both surviving texts are author-written changelog/spec cells → `provenance: author-cell`);
+  `arch-reviews.csv` (**new population, r1 TD MAJOR-5; re-cut r2 NEW-M2** — design-layer
+  finding rows from **tracked full review reports ONLY**: S1 pre-step commits the surviving
+  triage-kernel-v2 r1/r2 reports into `docs/meta-factory/triage-corpus/sources/` —
+  host-side, at kickoff authoring, because the factory cannot reach the untracked
+  `~/.claude-coordination` tree — and every future /arch contour preserves its review
+  reports there; spec disposition changelogs (advisor §11/§11b, session-bus-v2 §14, night-v3
+  §13+§13b, second-round sections included) hold only author-written `Finding` compressions
+  sitting beside their own dispositions — the banned shape — so those populations enter, if
+  at all, as `provenance: author-cell`); `kickoff-loops.csv` (sample of the 13-PR
+  kickoff-revision series — enumerated but unclassified in audit §7.1, T14 honesty);
+  `research-forks.csv` (the «1% vs 2%» class — research-patch fork/disposition records;
+  `author-cell` by nature). **`provenance: author-cell` rows are EXCLUDED from S2 blind
+  labeling and from every §5 bench comparison** (their only surviving text carries the label
+  rationale beside it, so no blind measurement exists for them — r2 NEW-M2); they are
+  enumerated for T14 honesty and reported descriptively. **Under-representation honesty
+  applies to EVERY thin file** (not only research-forks): if a population yields <5 rows,
+  the corpus README says so and §5 reports that axis/class as under-powered rather than
+  padding.
+- **Row fields:** `id` · `source` (PR#/round/seat) · `provenance` (`pr-body |
+  review-report | author-cell` — per-population sourcing above, r2 NEW-M2) · `finding`
+  (verbatim quote from the source named by `provenance`, passed through the grade-strip
+  normalization below — r2 NEW-B1) · `context` (mechanical provenance ONLY: PR#, round, the
+  file path the finding cites) · `class_start` (audit vocabulary: `MATERIAL | MATERIAL-b |
   IMMATERIAL`, start-only; `UNRECOVERABLE` where the audit recorded only aggregates — the
   #1297 «7 M + 3 M-b» split, r1 BU N3) · `class_cold` / `class_final` (**binary**:
   `MATERIAL | IMMATERIAL` — family-3 evidence, binary beats granular) · `layer_cold` /
@@ -147,30 +167,49 @@ Zero new runtime code ships to consumers from this contour; the one new dependen
   advisor` (concept-level question) + class per judgment; `FLOOR` → `whose_final:
   operator-floor`. `MATERIAL-b` exists only in `class_start` and ALWAYS routes to
   adjudication; it never appears in `class_final`.
-- **Anti-leakage extraction contract (r1 TD MAJOR-3 / BU MAJOR-2):** `finding` and `context`
-  are sourced from the PR bodies themselves (`gh pr view <n> --json body`), NEVER from the
-  audit §4 tables — the tables' `Basis` column IS the label rationale. The audit tables are
-  used ONLY for row enumeration + `class_start`. S1's definition-of-done includes a
-  deterministic **leakage probe**: grep the built CSVs' `finding`+`context` columns for a
-  fixed list of distinctive `Basis` phrases («fail-open», «can't-fail», «nothing downstream
-  reads», «no claim changed», «evidence weight flipped»); any hit fails S1.
+- **Anti-leakage extraction contract (r1 TD MAJOR-3 / BU MAJOR-2; r2-hardened
+  NEW-B1/M1/M2):** `finding`/`context` are sourced per row `provenance` — `pr-body` rows
+  from the PR bodies themselves (`gh pr view <n> --json body`), `review-report` rows from
+  the tracked reports under `triage-corpus/sources/` — NEVER from the audit §4 tables (their
+  `Basis` column IS the label rationale) and never from disposition cells. The audit tables
+  are used ONLY for row enumeration + `class_start` + `orig_grade`. **Grade-strip
+  normalization (r2 NEW-B1):** before a row is written, the extractor deterministically
+  strips leading list markers, grade tokens (`BLOCKER|MAJOR|MINOR`), and finding-ID patterns
+  (`R\d+ [MB]\d+`-class, `TD/BU [MBN]\d+`-class) from the quoted text — the live PR-body
+  shape OPENS findings with their grade token
+  ([pr-body-fidelity.ts:60](../../../packages/core/hooks/checks/pr-body-fidelity.ts)), so an
+  unstripped verbatim quote hands `orig_grade` (C0's input) to every «blind» seat. S1's
+  definition-of-done includes a deterministic **leakage probe**, two arms, both fail-closed:
+  (a) **provenance-substring check** — each row's normalized `finding` must be a substring
+  of its normalized source text (the real copied-from-the-wrong-source discrimination; r1's
+  fixed phrase list is DROPPED — r2 NEW-M1: «fail-open»/«could not fail» are the #1341
+  findings' own verbatim wording, so the phrase grep failed correctly-built rows); (b)
+  **grade-token scan** — any grade token or finding-ID pattern surviving in built
+  `finding`/`context` cells fails S1. Residual (recorded §5b.5): prose synonyms of grades
+  are not mechanically detectable.
 
 ## §3 Adjudication protocol (operator-decided 2026-08-10; r1-hardened)
 
 1. **Cold re-label:** a mid-tier seat, blind to `class_start`, to `orig_grade`, and to the
-   audit's prose (blindness is now *constructed* by the §2 extraction contract + leakage
-   probe, not asserted), labels every row on ALL THREE axes — `class_cold` (binary),
-   `layer_cold`, `whose_cold` — against the audit §1 behavioral yardstick + premise-11.
+   audit's prose (blindness is *constructed* by the §2 extraction contract — grade-strip
+   normalization + provenance-substring probe + grade-token scan — not asserted), labels
+   every `provenance: pr-body | review-report` row (author-cell rows excluded — §2, r2
+   NEW-M2) on ALL THREE axes — `class_cold` (binary), `layer_cold`, `whose_cold` — against
+   the audit §1 behavioral yardstick + premise-11.
    S1 never pre-fills judgment axes (r1 TD MINOR-5): layer/whose have no `_start`.
 2. **Agreement metrics:** per axis — Cohen's κ **plus raw agreement and PABAK** (r1 TD
    MINOR-2: κ's prevalence paradox at this corpus's skew), published in the corpus README.
    The class-axis κ is computed on the binary set; `class_start=MATERIAL-b/UNRECOVERABLE`
    rows are excluded from the class κ (no comparable start value) and reported separately.
 3. **Split:** class-axis agreeing rows → `status: agreed`, `class_final = class_cold`.
-   Disagreeing rows + ALL `class_start: MATERIAL-b` rows → advisor adjudication. The
-   layer/whose axes have no start labels, so for THOSE axes the advisor confirms-or-overrides
-   `*_cold` on **every** row (cheap: one line per row, batched); cold-vs-advisor agreement is
-   published as those axes' calibration stat.
+   Disagreeing rows + ALL `class_start: MATERIAL-b` rows → advisor adjudication.
+   `class_start: UNRECOVERABLE` rows (no comparable start value — r2 NEW-M3) take the
+   layer/whose route: the advisor confirms-or-overrides `class_cold` on each (batched,
+   one line per row), `status: adjudicated`; they stay excluded from the class κ (§3.2)
+   but enter `class_final` and the bench like any other row. The layer/whose axes have no
+   start labels, so for THOSE axes the advisor confirms-or-overrides `*_cold` on **every**
+   row (cheap: one line per row, batched); cold-vs-advisor agreement is published as those
+   axes' calibration stat.
 4. **Advisor pass:** the advisor (arch role; fresh-from-artifacts instantiation legal per
    [advisor-pattern-design §3 Continuity](2026-08-10-advisor-pattern-design.md); no doorbell
    needed — batch work) rules each disputed row with the §2-mapped vocabulary, one-line
@@ -179,8 +218,9 @@ Zero new runtime code ships to consumers from this contour; the one new dependen
    is an ACCEPTANCE property and must NOT bias labeling toward MATERIAL. Irreparably
    ambiguous rows → `status: removed` with reason (IAA standard). **Journal segregation (r1
    TD MAJOR-7):** corpus-adjudication verdicts land in a segregated journal section tagged
-   `class: corpus-adjudication`, EXCLUDED from the D-AP4 «journal volume» trigger — that door
-   opens on live-consult entries only (§11 D-K4).
+   `class: corpus-adjudication`, EXCLUDED from the journal-volume door — owned by this
+   spec's D-K4, which opens on live-consult entries only (r2 NEW-m3: D-AP4's own falsifier
+   is the corpus-evaluation promotion trigger, not a volume trigger).
 5. **Operator slice (r1 TD MAJOR-1/MAJOR-6 — stratified, not uniform):** ~15 rows = 5 from
    the MATERIAL-b/disputed stratum + 5 random agreed + 5 advisor-overridden on the
    layer/whose axes (~20-30 min; amends P7's ~10 — flagged for operator confirmation at the
@@ -197,7 +237,9 @@ Zero new runtime code ships to consumers from this contour; the one new dependen
 **Runner:** promptfoo (dev-dependency; capability commit + `Prior-art:` trailer + SSOT entry
 in the SAME S4 commit — r1 BU MAJOR-4). Config shape: `tests: file://<corpus>.csv` (columns
 become prompt variables; the shim strips every `*_start`/`*_cold`/`*_final`/`orig_grade`
-column from what reaches a judge), caching on, matrix = candidates × rows. **Judge output
+column from what reaches a judge — and the `finding` text itself is already grade-stripped
+at extraction, so no grade survives in any judge's input through either path, r2 NEW-B1;
+author-cell rows never enter the bench — §2), caching on, matrix = candidates × rows. **Judge output
 contract (r1 BU MAJOR-1):** one strict parseable line —
 `class=<MATERIAL|IMMATERIAL> layer=<...> whose=<reviewer|advisor|operator-floor>` — scored
 per-axis via a small `javascript` assertion + the Node-API post-processing (~30 lines):
@@ -215,6 +257,12 @@ separately (honest name — §5b). Bench report lands as a research patch (audit
   2026-08-10; corpus window #1290-#1365) and would return constant-FALSE; it returns as a
   deployed-era metric instead. For the layer/whose axes (no status-quo mechanism exists) the
   bar is the **majority-class predictor** (predict `implementation` / predict `reviewer`).
+  **Expected strength (r2 NEW-M4 — honest pre-read, not a run):** on the audit's own tables
+  C0 lands roughly 0.8-0.9 class-agreement (#1297 alone ~19/19 on binary-resolved rows; its
+  visible misses concentrate in the six #1341 R7 rows) — a STRONG bar, so «no layer beats
+  C0» is a likely outcome, not a tail risk. This feeds ESCALATED-2 at the gate; it does not
+  change the acceptance rule. Wrong if adjudication moves `class_final` sharply away from
+  the original grades.
 - **Descriptive statistic, NOT a bar:** `class_start` vs `class_final` agreement — reported
   with its stated upward bias (`class_final` inherits `class_cold` on agreed rows and both
   raters share provenance; §5b). Never compared against blind candidates.
@@ -234,10 +282,12 @@ list-grouping in practice, S4 falls back to a plain deterministic scorer script 
 Per axis, against its §4 bar, on the adjudicated corpus:
 
 - **Class axis (shipping gate):** a candidate layer ships only if it (a) beats C0 on
-  class-agreement with `class_final` **beyond the noise floor** — the report states the
-  paired comparison (McNemar-style discordant-pair count) and a binomial confidence
-  interval; at n≈120 the minimum detectable difference is roughly ±9pp, stated honestly
-  (thresholds are config, not statute) — AND (b) does not increase
+  class-agreement with `class_final` **beyond the noise floor** — pass rule (r2 NEW-m1):
+  the CI on the paired difference must exclude zero (equivalently McNemar p < α); the rule
+  FORM is statute, α/CI-level are config — the report states the discordant-pair count and
+  the binomial confidence interval; at n≈120 the minimum detectable difference is roughly
+  ±9pp, stated honestly; scored on `pr-body`/`review-report` rows only (§2) — AND (b) does
+  not increase
   MATERIAL-miss-among-raised-findings relative to **C0's own miss-rate on the same scored
   subset** (the reference is now named — r1 TD MAJOR-4).
 - **Layer / whose axes:** measured against their majority-class bars. A rubric question
@@ -270,6 +320,14 @@ Per axis, against its §4 bar, on the adjudicated corpus:
    channel). D-K5's falsifier covers BOTH directions accordingly.
 4. **Power:** n≈120 decides only large effects (~±9pp). Fine ranking between close
    candidates is explicitly out of scope for this bench.
+5. **Grade-leak residue + author-cell exclusion (r2 NEW-B1/M2):** grade tokens are stripped
+   mechanically (§2); prose synonyms («this blocker», «a nit») are not — the scan catches
+   tokens, the operator slice is the only fully independent check on the rest. Author-cell
+   populations (td-m3, research-forks, the changelog-only spec reviews) have no
+   blind-measurable text — their only surviving form carries the disposition beside the
+   finding — so they are enumerated and described, never benched; the highest-materiality
+   surface is instead covered by `arch-reviews.csv` rows from preserved full reports, a
+   population that GROWS with each future /arch contour (§2).
 
 ## §6 Deployment surfaces (winner = protocol text, never CI-LLM)
 
@@ -281,7 +339,7 @@ Per axis, against its §4 bar, on the adjudicated corpus:
   injection, Class C, channel = the reviewer-discipline rule + agent protocols
   ([rule-enforcement-channel-selection.md §3 step 5](../../../.claude/rules/rule-enforcement-channel-selection.md)).
   Each rubric question carries its measurement provenance (`corpus-measured` vs
-  `judgment-only` — §5).
+  `judgment-only` — §5; validity limits travel with it — §5b).
 - Self-review step (if C2 pays): a pre-publish «re-grade your own list» step in the
   reviewer protocols.
 - Losing layers/axes recorded in the bench report with their numbers («measured — does not
@@ -310,13 +368,15 @@ r1 TD notes-lane), sequenced with S5 but not inside it (§9).
    application-agnostic: its questions target any «intent ↔ artifact» divergence, not only
    fresh review findings.
 3. **Precedent-retrieval bench** once decisions.md has LIVE-CONSULT volume (corpus-
-   adjudication entries excluded — §3.4) — the D-AP4 door, numbers attached.
+   adjudication entries excluded — §3.4) — the D-K4 volume door; its result is what closes
+   D-AP4's own falsifier («kernel-v2 corpus evaluation shows precedent retrieval scoring
+   above the v1 baseline → promote»), which otherwise dangles (r2 NEW-m3).
 
 ## §9 Stage plan (with rough budgets — r1 TD MAJOR-8; orders of magnitude, config not statute)
 
 | Stage | What | Where | LLM-call order | L4 budget | Depends |
 |---|---|---|---|---|---|
-| S1 | Corpus assembly per §2 (extraction contract, dedupe check, leakage probe, docs-gate pre-flight: principle 09 + doc gates on the new folder — first tracked CSV under `docs/`, r1 TD MINOR-3) | factory, executor tier | ~0 (mechanical; PR-body fetches) | 2 dispatch rounds → ASK | — |
+| S1 | Corpus assembly per §2 (extraction contract + grade-strip, provenance-substring probe, dedupe check, `sources/` preservation pre-step at kickoff authoring, docs-gate pre-flight: principle 09 + doc gates on the new folder — first tracked CSV under `docs/`, r1 TD MINOR-3) | factory, mid tier (r2 NEW-m4: verbatim-matching ~104 findings across ~13 PR bodies is a reading task, not mechanical) | ~0 API-scored (extraction is reading) | 2 dispatch rounds → ASK | — |
 | S2 | Cold re-label, three axes, blind kickoff per §3.1 | factory, mid tier | ~150 short calls | 2 rounds → ASK | S1 |
 | S3 | Adjudication (advisor batch + operator slice; per-axis κ/PABAK published) | advisor session + operator | ~60-100 row-verdicts, batched | 2 rounds → ASK | S2 |
 | S4 | Bench: promptfoo setup + shim + run + per-axis report (research patch). **Capability commit: promptfoo devDependency + `Prior-art:` trailer + SSOT entry (id ≥250) in the same commit** | factory or session, mid tier | ~200-350 calls (C1 ~150, C2 ~15-25 grouped; C0 $0) | 2 rounds → ASK | S3 |
@@ -381,7 +441,8 @@ paid CI. Exit routing (factory kickoff vs in-session per stage) is decided at th
   empty of LIVE consults and corpus-adjudication entries are segregated out of the volume
   trigger (r1 TD MAJOR-7 — one batch stage must not flip a ratified deferral). *Falsifiers:*
   no layer beats C0 → publish the honest negative, v1 stands; live-consult volume reaches
-  the door → run the retrieval bench with recall/precision.
+  the door → run the retrieval bench with recall/precision (its outcome is the input
+  D-AP4's own falsifier waits on — r2 NEW-m3).
 - **D-K5 — acceptance = beat C0 beyond the noise floor AND no MATERIAL-miss increase vs
   C0's own miss-rate.** Grounds: D-AP5 asymmetry (miss = escaped defect; false alarm = one
   round); references and noise floor now named (r1 TD MAJOR-4). *Falsifiers, both
@@ -457,7 +518,43 @@ classifier; the protocol's own quality is observed through the κ/PABAK stats it
 - TD ESCALATED-1 (proportionality of THIS scale of measurement — is a cheaper probe, e.g.
   ~30 stratified operator-labelled rows + one candidate, enough?) and ESCALATED-2 (is a
   null result worth the full corpus cost?) — **OPEN-FOR-OPERATOR** at the gate, routed not
-  priced (the rung working as designed). Note for the gate: the r1 C0 fix removes the
-  bias-toward-null that sharpened E2.
+  priced (the rung working as designed).
 
-**Round 2:** pending — verification seat over this revision (cap 2 reached at its close).
+**Round 2 (2026-08-11):** `r2-verify.md` — cold verification seat over the r1 revision;
+REVISE 1 BLOCKER / 4 MAJOR / 4 MINOR. The verification half is clean: all r1 dispositions
+confirmed — 19 VERIFIED / 7 PARTIAL (named residues) / **0 NOT-FIXED / 0
+MISSING-DISPOSITION**. New-finding dispositions (r2 repairs, this revision):
+
+- NEW-B1 (grade tokens ride the verbatim `finding` text — the «blind» seats and every
+  candidate read C0's input; TD B2's failure shape re-entered through its own repair) —
+  **FIXED**: §2 grade-strip normalization + grade-token scan; §4 shim note; §5b.5 residual.
+- NEW-M1 (r1 phrase-list probe fails S1 on correctly-built rows — «fail-open» is the #1341
+  findings' own wording) — **FIXED**: probe re-based on the provenance-substring check,
+  phrase list dropped with reason (§2).
+- NEW-M2 (`arch-reviews.csv`/`research-forks.csv` unbuildable under the extraction
+  contract; only surviving text is the banned author-cell shape) — **FIXED**: `provenance`
+  field + per-population sourcing; arch-reviews re-cut to tracked full review reports
+  (`sources/` pre-step + going-forward preservation rule); author-cell rows excluded from
+  blind labeling and the bench, enumerated descriptively (§2, §3.1, §5b.5).
+- NEW-M3 (`UNRECOVERABLE` rows had no route to `class_final`) — **FIXED**: §3.3
+  advisor confirm-or-override route.
+- NEW-M4 (r1 gate note pointed the operator the wrong way on E2) — **FIXED**: note replaced
+  (below) + §4 expected-strength pre-read.
+- NEW-m1 (noise floor lacked a rule form) — **FIXED**: §5 pass rule (CI excludes zero —
+  form statute, values config). NEW-m2 (E1 summary dropped its effort-worthiness ground) —
+  **FIXED** in the gate note below. NEW-m3 (D-AP4 mis-credited with the volume door) —
+  **FIXED**: §3.4 / §8.3 / D-K4 attribution. NEW-m4 (S1 «~0 mechanical» mis-tiered) —
+  **FIXED**: §9 S1 mid tier + honest estimate. r2 notes lane (§5b hop, §13b-class
+  locators, «disjoint by construction» over-claim + missing assignment rule) — **FIXED in
+  place** (§6, §2).
+
+**Gate note (replaces the r1 note per NEW-M4/NEW-m2):** E1 carries effort-worthiness §1
+both ways — whoever keeps the full 5-stage scale must state what breaks if the ~30-row
+probe replaced it and what learning-in-practice costs instead. E2 is SHARPENED, not
+softened, by the r1 C0 repair: the contamination bias is gone, but C0 now pre-reads strong
+(§4, ~0.8-0.9), so «no layer beats C0» is the LIKELY outcome — the operator is deciding
+whether that honest null is worth the full ~400-600-call + S1-S3 spend.
+
+**Review cap:** 2 REVISE rounds reached ([arch §2](../../../.claude/skills/arch/SKILL.md)).
+r2 repairs are author-applied; round-3 verification vs gate-as-is vs park is the operator's
+fork at the gate — surfaced, not decided (r2 report §6).
