@@ -22,6 +22,9 @@ jobs:
   # now carries only the R11 branch-protection check — best-effort, see the
   # KNOWN LIMITATION note on the job below.
   branch-protection-assertion:
+    # required-context: no — it is `paths:`-filtered (fires only on workflow edits), so
+    # registering it would leave every other PR Pending forever; and its own KNOWN LIMITATION
+    # below makes it best-effort by construction, which cannot be a gate regardless.
     # NOTE: this job's `name:` is itself a reported status-check context string —
     # do not rename it casually (REQUIRED_CONTEXTS below lists what it checks for).
     name: ci-success required-check assertion
@@ -63,17 +66,35 @@ jobs:
           has_protection=$(echo "$protection_json" | jq 'if . == null or (type=="object" and has("message")) then false else true end')
           has_rulesets=$(echo "$rulesets_json" | jq 'if type=="array" then [.[] | select(.enforcement == "active")] | length > 0 else false end')
 
-          # REQUIRED_CONTEXTS: every check whose fail-closed property rests on being
-          # a REQUIRED status check on staging. `fidelity-verdict-in-pr-body` joined
-          # 2026-07-23 (acceptance contour, spec D3): it lives in its own workflow file
-          # so it cannot needs:-aggregate into ci-success, which means branch protection
-          # is its ONLY fail-closed transport. Listing it here does NOT make that
-          # precondition a mechanism — with GITHUB_TOKEN this check cannot read the
-          # protection state (KNOWN LIMITATION above), so the precondition remains
-          # operator-enforced (`#hope-as-gate`) until an admin-scoped credential exists.
-          # The list is kept because it is correct wherever the state IS readable, and
-          # because it is the single place recording which contexts must be registered.
-          required_contexts='["ci-success", "fidelity-verdict-in-pr-body"]'
+          # REQUIRED_CONTEXTS: every check whose fail-closed property rests on being a
+          # REQUIRED status check on staging. Listing a context here does NOT make that
+          # precondition a mechanism — with GITHUB_TOKEN this check cannot read the protection
+          # state (KNOWN LIMITATION above), so registration remains operator-enforced
+          # (`#hope-as-gate`) until an admin-scoped credential exists. The list is kept because
+          # it is correct wherever the state IS readable.
+          #
+          # DERIVED, NOT AUTHORED. This list is NOT the source of truth and must not be edited
+          # by hand alone: each entry is declared at its own job by a `# required-context: yes`
+          # marker, and packages/core/principles/37-required-context-completeness.test.ts asserts
+          # this list equals the declared set exactly (and that scripts/run-local-ci-sweep.sh's
+          # `# REQUIRED_CONTEXTS:` block does too). Until principle 37 shipped, this comment
+          # claimed to be "the single place recording which contexts must be registered" — it was
+          # neither single (the sweep held a second list) nor current (`stale-revert-in-pr-diff`
+          # had been registered on staging and was missing here). Change a job's marker or its
+          # `name:`, run the principles suite, and update all three together.
+          #
+          # RENAME HAZARD: an entry is a job's `name:` verbatim. Renaming a declared-required job
+          # keeps this gate green (marker and list move together) while branch protection still
+          # points at the OLD string — a context that never reports, deadlocking every PR. Any
+          # such rename must be paired with a re-registration in Settings → Branches.
+          required_contexts='[
+            "Template render probes — P1/P4/P6 (deterministic)",
+            "capability PR carries Prior-art line in PR body (squash-survival)",
+            "ci-success",
+            "fidelity-verdict-in-pr-body",
+            "stale-revert-in-pr-diff",
+            "§1.7 forward+backward sections present in PR description"
+          ]'
 
           if [ "$has_protection" = "true" ]; then
             missing="$(echo "$protection_json" | jq -r --argjson want "$required_contexts" \

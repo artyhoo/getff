@@ -42,9 +42,10 @@
  * (zizmor/actionlint/lychee → exit 0) keep the framework-layout arms hermetic; on the
  * consumer layout the SECURITY scanners are never composed but the pop-1 regex scan is.
  */
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { spawnSync, execSync } from 'node:child_process';
 import {
+  existsSync,
   mkdtempSync,
   writeFileSync,
   mkdirSync,
@@ -77,10 +78,69 @@ const REAL_NODE_MODULES = TSX_LOADER.replace(
 // principles hook tests (e.g. 20-bundle-classification.test.ts).
 const SLOW_SHELL_MS = 30_000;
 
+/**
+ * Fixture teardown budget. A recursive rm removes the children `readdir` returned and
+ * then `rmdir`s the parent; if ANY entry appears in between, `rmdir` fails ENOTEMPTY.
+ * `force: true` does NOT cover that — per the Node 22 docs it only means "exceptions
+ * will be ignored if `path` does not exist" (ENOENT). The retry knob is the documented
+ * cover: `maxRetries` retries on «EBUSY, EMFILE, ENFILE, ENOTEMPTY, or EPERM … with a
+ * linear backoff wait of retryDelay milliseconds longer on each try», default **0** —
+ * i.e. stock `rmSync` makes exactly ONE `rmdir` attempt and rethrows
+ * (`lib/internal/fs/rimraf.js`: `const tries = options.maxRetries + 1`).
+ *
+ * Worst case here is 50+100+150+200+250 = 750ms per directory — deliberately well
+ * under vitest's 10s default `hookTimeout` (neither vitest.config.ts sets one) even
+ * for the smoke case that registers two sandboxes.
+ */
+const CLEANUP_MAX_RETRIES = 5;
+const CLEANUP_RETRY_DELAY_MS = 50;
+
+/**
+ * Remove a throwaway fixture tree — race-tolerant AND non-fatal.
+ *
+ * Two separate properties, both load-bearing (observed 2026-08-10: run 31375018780
+ * reddened `pop-1 NEGATIVE` on an ENOTEMPTY rmdir of `.git/objects`, on a diff that
+ * changed one markdown line — a teardown crash, not an assertion):
+ *
+ *  1. **Retry** narrows the window. This is a Node-side recursive-rm race (nodejs/node#54561,
+ *     "[fs.rm] Reports ENOTEMPTY randomly"), not an un-reaped child of ours: every git
+ *     invocation on this path is synchronous — `execSync` in the fixture builders above,
+ *     and `spawnSync` inside the hook itself (`utils/run-check.ts:51`, the single funnel
+ *     `utils/git.ts` routes all git I/O through) — so each is reaped before control
+ *     returns here. There is no child left to await.
+ *  2. **Tolerate** is the structural guarantee: teardown is hygiene, never an assertion,
+ *     so it must not be able to fail a suite whose assertions all passed. Retrying alone
+ *     lowers the probability; only the catch removes the failure mode. A leaked directory
+ *     under `os.tmpdir()` is the strictly cheaper outcome, and swallowing here gates
+ *     nothing — no check depends on the removal (`.claude/rules/attention-is-not-a-mechanism.md`
+ *     §1 concerns load-bearing checks; this is not one).
+ *
+ * Keeping it non-throwing also stops one bad directory from stranding every LATER entry
+ * in the caller's `splice(0)` loop.
+ *
+ * `rm` is injectable for the same reason `GitProvider` is (`utils/git.ts`): it lets the
+ * teardown contract below be tested without racing a real filesystem.
+ */
+export function removeSandbox(dir: string, rm: typeof rmSync = rmSync): void {
+  try {
+    rm(dir, {
+      recursive: true,
+      force: true,
+      maxRetries: CLEANUP_MAX_RETRIES,
+      retryDelay: CLEANUP_RETRY_DELAY_MS,
+    });
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code ?? String(err);
+    console.warn(
+      `⚠ fixture cleanup could not remove ${dir} (${code}) — tolerated, not fatal: ` +
+        `teardown is hygiene, not an assertion. The tmpdir entry is leaked deliberately.`,
+    );
+  }
+}
+
 const sandboxes: string[] = [];
 afterEach(() => {
-  for (const d of sandboxes.splice(0))
-    rmSync(d, { recursive: true, force: true });
+  for (const d of sandboxes.splice(0)) removeSandbox(d);
 });
 
 /** Pretty-printed consumer root package.json with the given dependencies. */
@@ -1172,3 +1232,90 @@ describe(
     });
   },
 );
+
+// ── Teardown contract (fixture-cleanup flake, run 31375018780) ────────────────
+// The suite above asserts hook behaviour; this block asserts that its OWN teardown
+// cannot decide the suite's result. Every arm is deterministic — the injectable `rm`
+// seam replaces the real filesystem race, so these tests never race anything.
+describe('removeSandbox — fixture teardown contract', () => {
+  it('POSITIVE — removes a real git-bearing fixture tree (cleanup is not a no-op)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'prepush-teardown-'));
+    execSync('git init -q', { cwd: dir });
+    execSync('git config user.email t@t.com', { cwd: dir });
+    execSync('git config user.name Test', { cwd: dir });
+    execSync('git config commit.gpgsign false', { cwd: dir });
+    writeFileSync(join(dir, 'README.md'), 'base\n');
+    execSync('git add -A', { cwd: dir });
+    execSync('git commit -q -m "chore: base"', { cwd: dir });
+    // The exact directory the flake failed to rmdir — present before, gone after.
+    expect(existsSync(join(dir, '.git/objects'))).toBe(true);
+
+    removeSandbox(dir);
+
+    expect(existsSync(dir)).toBe(false);
+  });
+
+  it('retry wiring is LIVE — the recursive rm is handed maxRetries/retryDelay > 0 (deleting them reddens this)', () => {
+    // Guards against the exact stock shape that flaked: `{recursive,force}` with the
+    // default maxRetries:0 makes ONE rmdir attempt and rethrows ENOTEMPTY. A POSITIVE-only
+    // suite would still pass with the knobs stripped, so assert they reach fs.
+    const rm = vi.fn();
+    removeSandbox('/tmp/does-not-matter', rm as unknown as typeof rmSync);
+
+    expect(rm).toHaveBeenCalledTimes(1);
+    const opts = rm.mock.calls[0]?.[1] as {
+      recursive: boolean;
+      force: boolean;
+      maxRetries: number;
+      retryDelay: number;
+    };
+    expect(opts.recursive).toBe(true);
+    expect(opts.maxRetries).toBeGreaterThan(0);
+    expect(opts.retryDelay).toBeGreaterThan(0);
+  });
+
+  it('NEGATIVE (structural guarantee) — an rm that always throws ENOTEMPTY does NOT propagate, and says so loudly', () => {
+    // This is the property the flake violated: a teardown crash reddening a suite whose
+    // assertions all passed. Retries only narrow the window; the catch is what removes
+    // the failure mode, so it is asserted directly rather than argued in prose.
+    const boom = Object.assign(
+      new Error("ENOTEMPTY: directory not empty, rmdir '/tmp/x/.git/objects'"),
+      { code: 'ENOTEMPTY' },
+    );
+    const rm = vi.fn(() => {
+      throw boom;
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      expect(() =>
+        removeSandbox('/tmp/x', rm as unknown as typeof rmSync),
+      ).not.toThrow();
+      // Not silent either: a leaked tmpdir entry is reported with its errno.
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0]?.[0])).toMatch(/ENOTEMPTY/);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('a failing entry does not strand the LATER sandboxes in the afterEach loop', () => {
+    // The pre-fix `for (…) rmSync(…)` aborted on the first throw, leaking every dir
+    // queued behind it. Mirrors the afterEach body over a failing-then-succeeding pair.
+    const seen: string[] = [];
+    const rm = vi.fn((p: string) => {
+      seen.push(p);
+      if (p === 'first')
+        throw Object.assign(new Error('x'), { code: 'ENOTEMPTY' });
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      for (const d of ['first', 'second'])
+        removeSandbox(d, rm as unknown as typeof rmSync);
+      expect(seen).toEqual(['first', 'second']);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});

@@ -17,7 +17,24 @@ function makeRoot(opts: {
   vendored?: Record<string, string>; // vendor/<name>/Cargo.toml raw text
   pathDeps?: Record<string, string>; // <relative-dir>/Cargo.toml raw text (path deps)
 }): string {
-  const root = mkdtempSync(join(tmpdir(), 'cargo-adapter-'));
+  // `root` is nested TWO levels inside the mkdtemp sandbox, deliberately.
+  //
+  // The traversal paired-negatives below plant a real Cargo.toml at `root/../..` — the escape
+  // target a malicious `../../etc/foo` dep name or `members = ["../../evil-member"]` resolves
+  // to. With `root` placed directly at the mkdtemp dir, that target is two levels above
+  // os.tmpdir(), whose depth is platform-dependent: on macOS tmpdir() is
+  // /var/folders/<x>/<y>/T/ so the escape lands somewhere writable and the tests pass, but on
+  // Linux tmpdir() is /tmp, so `root/../..` is `/` and the tests died with
+  // `EACCES: permission denied, mkdir '/etc/foo'` — a host-dependent failure that stayed
+  // invisible while research/ was un-gated in CI (first observed on ubuntu-latest, 2026-08-10).
+  //
+  // Nesting `root` keeps every escape target inside the sandbox we own, on every platform,
+  // while preserving what the tests actually assert: the planted manifest is still genuinely
+  // OUTSIDE `root`, so the containment guard is still the only thing making them GREEN
+  // (.claude/rules/research-source-trust.md §5 item 2 — these are the BLOCKER paired-negatives).
+  const sandbox = mkdtempSync(join(tmpdir(), 'cargo-adapter-'));
+  const root = join(sandbox, 'nested', 'root');
+  mkdirSync(root, { recursive: true });
   writeFileSync(join(root, 'Cargo.toml'), opts.rootManifest);
   for (const [name, text] of Object.entries(opts.vendored ?? {})) {
     const dir = join(root, 'vendor', name);
