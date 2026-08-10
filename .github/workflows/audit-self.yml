@@ -1664,6 +1664,9 @@ jobs:
   # the gate still runs (and can FAIL) when a need failed; pass/fail logic lives
   # in scripts/ci-success-gate.sh (paired-negative tested).
   ci-success:
+    # required-context: yes — the single aggregate every other audit-self job routes into via
+    # `needs:` (completeness asserted by packages/core/principles/36-ci-needs-completeness.test.ts);
+    # nothing else in this file is separately registrable, so this is its only fail-closed transport.
     name: ci-success
     if: always()
     needs:

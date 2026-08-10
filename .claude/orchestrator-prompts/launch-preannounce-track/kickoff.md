@@ -21,6 +21,21 @@ Make the framework's launch claims demonstrable on a stranger's repo, mechanical
 
 This umbrella closes when that acceptance is CI-mechanized (S2), the push channel is structurally consumer-safe (S3), the cargo demo fires (S4), the harness matrix carries no unfalsified cells (S5), and the npm dependency-delivery path is proven against a packed tarball with publish-readiness handed to U10 (S6). Write `done.md` at the last-stage merge per the CLAUDE.md umbrella-closure convention.
 
+**Host-verify contract** (per [destination-environment-verification.md §1](../../rules/destination-environment-verification.md); added 2026-08-10, when the arm-1 gate first fired on this file — the kickoff predates the rule). Run with `bash scripts/host-verify.sh launch-preannounce-track`:
+
+```bash host-verify
+# S2 acceptance — the start cell: a real `install.sh ts-server --full` into a fresh pnpm
+# workspace monorepo fixture that installs its OWN deps (T-LPT-A), asserting (a)-(i).
+bash tests/consumer-matrix/pnpm-monorepo-cell.sh
+# S3 acceptance — every pre-push section carries an owner tag and composition fails CLOSED,
+# so a maintainer-only section cannot leak onto a consumer layout by forgetting a guard.
+npx vitest run packages/core/principles/32-prepush-section-owner.test.ts
+# S6 acceptance — the packed-tarball consumer path: `files` allowlist + bin runnability.
+bash tests/consumer-matrix/npm-tarball-cell.sh
+```
+
+**What this contract deliberately does NOT cover** (stated, not silently omitted — `#contract-that-cannot-fail`): **S4** needs a `cargo`+`clippy` toolchain and **S5** needs the operator's zcode install, so neither is host-portable; each carries its evidence in its own stage report. A green run of the three commands above is therefore evidence about S2/S3/S6 only.
+
 ## §2 Stages
 
 ### S1 — Foreign-repo calibration (½–1 day)
@@ -43,7 +58,7 @@ One fail-closed CI job family that mechanizes §1 acceptance. Start with a SINGL
   (g) `format:check` green under a divergent consumer `.prettierrc` (printWidth 100 + organize-imports — the historical #531 config);
   (h) stryker: config PLACED on this topology (today it ships only on the flat path — 0 mutants on pnpm monorepos) + `stryker run` with a score threshold in one cell; add the mutation job to `ci-success` `needs:`;
   (i) push channel exercised with a real `git push` (bare remote) on clean tree → allowed.
-- **Wiring:** merge-blocking via `ci-success` `needs:`; local `make consumer-matrix`; pre-push runs the start cell only. Immediately (one line, before anything else): add the existing `framework-fresh-install-validate-multistack` (audit-self.yml:795) and `shipped-prettier` (:99) jobs to `ci-success.needs` — they can currently go RED without blocking merge. Precondition: verify each is GREEN on current staging first (wiring a red job into `needs:` deadlocks all merges); if red, fix-first or wire with a dated escape note.
+- **Wiring:** merge-blocking via `ci-success` `needs:` (SHIPPED — `.github/workflows/audit-self.yml:1658`); local on-demand `make consumer-matrix` (SHIPPED — `Makefile:34`). **Pre-push: RETIRED 2026-08-10 — do not build.** Measured on the operator's Mac before deciding: **108s cold / 38s warm** per invocation of `tests/consumer-matrix/pnpm-monorepo-cell.sh` (two consecutive runs, both `EXIT=0`), against 35–47s for the same cell on a CI runner. Runtime alone would be arguable; the disqualifier is **hermeticity**. The cell runs a real `pnpm install` (`tests/consumer-matrix/pnpm-monorepo-cell.sh:143`) and a real `install.sh ts-server --full` (`:149`), and its declared polarity is fail-closed — «a missing tool in-fixture is RED, never SKIP» (`:42`). At pre-push those compose into *every offline push hard-blocked*, with no honest SKIP arm available — a worse failure mode than the one the gate prevents. The repo already reached this verdict for the sibling local channel: `scripts/run-local-ci-sweep.sh:35-38` lists `consumer-matrix-start-cell` under UNREACHABLE — «network, minutes, non-hermetic» — so a pre-push section would contradict a standing, reasoned classification of this exact job. Per [rule-enforcement-channel-selection.md §3](../../rules/rule-enforcement-channel-selection.md) the gate belongs at the earliest *reachable* channel; here that is CI, where it already blocks merge, with `make consumer-matrix` as the operator's opt-in local run. Re-open only if the cell becomes hermetic (an offline-capable fixture install) — the network dependency is the blocker, not the seconds. **The «add the two unwired jobs to `ci-success.needs`» item below is DONE — 2026-08-10, PR #1362 (`4b9f3c75e7`); do not re-dispatch it.** Both are wired: `shipped-prettier` at `.github/workflows/audit-self.yml:1642` and `framework-fresh-install-validate-multistack` at `:1664`. The original wording — «they can currently go RED without blocking merge» — is therefore **no longer true**, and its `audit-self.yml:795` citation for multistack was stale even before that (the job is defined at `:1094`). #1362 also went past the one-line fix the item asked for: it replaced the false «`needs:` every audit-self PR job» claim in `scripts/ci-success-gate.sh`'s header with a mechanism — `packages/core/principles/36-ci-needs-completeness.test.ts` asserts every job defined in `audit-self.yml` appears in `ci-success.needs`, so the wiring cannot silently drift again. The GREEN-before-wiring precondition it named (a red job in `needs:` deadlocks all merges) was satisfied at merge time and is retained here only as the rule for any FUTURE job added to that list.
 - **Corpus/manifest note:** the planted-violation corpus and owner-tags needed by (d)/S3 are seeded HAND-AUTHORED in this umbrella (a minimal data file listing shipped rules → violation fixture). Generating them from the full delivery manifest is the later P2 upgrade — do not build the full manifest here.
 - **OS axis (explicit degrade):** ubuntu on PR; macOS cells run nightly/locally only (`make consumer-matrix` on the operator's Mac). Record in the job header that BSD-awk/husky-v9/symlink-tmp classes are NOT PR-covered.
 
