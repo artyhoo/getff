@@ -266,3 +266,17 @@ describe('checkPrBodyFidelity — severity-contract arm (Failure-scenario in Rev
     expect(r.errors.join()).toMatch(/Failure-scenario/);
   });
 });
+
+describe('checkPrBodyFidelity — sidecar count lines are not findings', () => {
+  const withFindings = (findings: string) =>
+    `## Review findings\n\n${findings}\n\n## Fidelity verdict\n\n${goSection()}\n`;
+
+  it('exempts the review-sidecar tally shape `- BLOCKER: 1` / `- MAJOR: 3`', () => {
+    const body = withFindings('- BLOCKER: 1\n- MAJOR: 3\n- MINOR: 2');
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
+  it('still gates a real finding whose text follows the colon', () => {
+    const body = withFindings('- MAJOR: 3 retries silently swallowed (src/net.ts:12)');
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(false);
+  });
+});

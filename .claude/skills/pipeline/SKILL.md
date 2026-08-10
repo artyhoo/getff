@@ -455,7 +455,7 @@ The dispatched reviewer:
 
 1. Reads the Stage N diff (`git diff staging...<stage-N-head>`).
 2. Reads the meta-kickoff Stage N acceptance criteria.
-3. Emits GO / REVISE / STOP verdict with BLOCKER/MAJOR/MINOR classification.
+3. Emits GO / REVISE / STOP verdict with BLOCKER/MAJOR/MINOR/ESCALATED classification — severity contract per [reviewer-discipline.md §6](../../rules/reviewer-discipline.md): a round-triggering finding carries a `Failure-scenario:` line; scenario-less findings = notes lane; unrecorded value premise → `ESCALATED` to the concept holder.
 4. For any finding requiring strategy choice: emits «DECISION-NEEDED: <one-line>. Option A → consequence X. Option B → consequence Y. Maintainer decides.» — does NOT pick the strategy.
 
 The reviewer does NOT:
@@ -468,7 +468,7 @@ The reviewer does NOT:
 **Verdict routing:**
 
 - **GO** → proceed to §5 Dispatch tree for Stage N+1.
-- **REVISE** → surface findings to maintainer; worker fixes; repeat Phase -1.
+- **REVISE** → only on `Failure-scenario:`-bearing findings (reviewer-discipline.md §6); surface findings to maintainer; worker fixes; repeat Phase -1.
 - **STOP** → escalate to maintainer; halt Stage N+1 dispatch.
 
 **T16 verification (upstream problem-class match):**

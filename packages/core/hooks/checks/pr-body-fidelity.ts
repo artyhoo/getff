@@ -58,6 +58,14 @@ const FILE_LINE_RE = /[\w./-]+\.[A-Za-z]{1,6}:\d+/;
 const REVIEW_FINDINGS_HEADING_RE = /^##[ \t]+Review findings[ \t]*$/;
 /** Grade token OPENING a list entry (optionally bolded/bracketed). A digit-led summary line never matches. */
 const FINDING_GRADE_RE = /^(?:[-*][ \t]+)?\**\[?(BLOCKER|MAJOR)\b/;
+/**
+ * Count line, not a finding: `- BLOCKER: 1` (the review-sidecar summary shape). Exempt —
+ * a bare tally opens no entry. NOTE (recorded fail-open): a sidecar block pasted WITH its
+ * own `## …` heading terminates the Review-findings section early (any heading closes a
+ * section), so heading-wrapped pastes are invisible to this arm — a visible template
+ * deviation, same posture as the Provenance detector above.
+ */
+const FINDING_COUNT_RE = /^(?:[-*][ \t]+)?\**\[?(?:BLOCKER|MAJOR)\]?\**:?[ \t]*\d+[ \t]*$/;
 /** A new top-level list item ends the entry; indented sub-bullets stay inside it. */
 const FINDING_ENTRY_END_RE = /^(?:[-*][ \t]|#{1,6}[ \t])/;
 const FAILURE_SCENARIO_RE = /Failure-scenario:/;
@@ -120,6 +128,7 @@ function reviewFindingsErrors(lines: string[]): string[] {
   for (const body of sectionBodies(lines, REVIEW_FINDINGS_HEADING_RE)) {
     const ls = body.split('\n');
     for (let i = 0; i < ls.length; i++) {
+      if (FINDING_COUNT_RE.test(ls[i])) continue;
       const m = ls[i].match(FINDING_GRADE_RE);
       if (!m) continue;
       let has = FAILURE_SCENARIO_RE.test(ls[i]);
