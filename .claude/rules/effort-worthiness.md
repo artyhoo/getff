@@ -6,7 +6,7 @@
 <!-- channel: skill-embed .claude/rules/reviewer-discipline.md#effort-worthiness -->
 
 > **Class:** C — prose statute; the mechanical skeleton lands on its own channels (§2 L3).
-> **Fires:** any effort/rigor fork: probe demand, extra round, follow-up PR, budget breach.
+> **Fires:** any effort/rigor fork: probe demand, extra round, budget breach.
 > **Authoritative for:** the effort-worthiness discipline — §1 the rule + four-test card,
 > §2 the six-layer loop, §3 anti-patterns, §4 prior-art, §5 promotion.
 > **NOT authoritative for:** reviewer grammar — [reviewer-discipline.md §6](reviewer-discipline.md);
