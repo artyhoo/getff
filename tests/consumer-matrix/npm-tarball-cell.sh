@@ -18,8 +18,9 @@
 #   3. Assert the package `main` (manifest JSON) loads and contains rules.
 #   4. Assert key by-path assets exist in the installed package (install bundle, templates,
 #      skills, eslint-rules, manifest schema).
-#   5. Assert the install wiring (install/synth-and-wire.bundle.mjs) is loadable from the
-#      installed package — this is the install flow a consumer triggers.
+#   5. Assert the install wiring (install/synth-and-wire.bundle.mjs) arrived INTACT — syntax,
+#      entry guard, tail export. NOT the install flow itself: that runs through
+#      setup.d/99-finalize.sh and is exercised end-to-end by pnpm-monorepo-cell.sh.
 #   6. Assert the shipped rule DEFINITIONS arrived and are non-empty (manifest rule entries +
 #      eslint-rules/ module files). This cell asserts ARRIVAL, not FIRING — see the scope note
 #      below.
@@ -100,6 +101,8 @@ for asset in \
   "manifest/rules-manifest.json" \
   "manifest/rules-manifest.schema.json" \
   "eslint-rules/index.ts" \
+  "LICENSE" \
+  "README.md" \
   "templates/" \
   "skills/" \
 ; do
@@ -143,15 +146,31 @@ for (const [key, target] of Object.entries(exp)) {
 console.log('  ✓ ' + ok + ' exports target(s) all present in installed package');
 " || fail "(4c) one or more exports targets missing — exports: entries point at files not delivered"
 
-step "(5) assert the install wiring bundle is loadable from the installed package"
-# synth-and-wire.bundle.mjs is a pre-bundled .mjs — it should be importable with node.
-# We don't run the full install flow (that needs a consumer project); we prove the bundle loads.
-node --input-type=module -e "
-import { readFileSync } from 'fs';
-const code = readFileSync('$INSTALLED/install/synth-and-wire.bundle.mjs', 'utf8');
-if (code.length < 100) process.exit(1);
-console.log('  ✓ synth-and-wire.bundle.mjs loaded (' + code.length + ' bytes)');
-" || fail "(5) install bundle not loadable from installed package"
+step "(5) assert the shipped install-wiring bundle is INTACT (syntax + entry guard + tail)"
+# What this step is NOT: it is not the install flow. The real install flow is exercised by the
+# sibling cell — setup.d/99-finalize.sh:25 invokes this same bundle during install.sh, and
+# tests/consumer-matrix/pnpm-monorepo-cell.sh runs that end to end.
+#
+# What it IS: proof the bundle arrived WHOLE in the tarball. Three asserts, because the obvious
+# ones do not discriminate (measured 2026-08-10):
+#   - `readFileSync().length > 100` (the previous form) passes on ANY file over 100 bytes — a
+#     truncated or corrupted bundle shipped green. #contract-that-cannot-fail.
+#   - `await import()` is NOT usable here: the bundle has a module-level side effect that opens
+#     install/research-plan.schema.json relative to cwd, so importing it throws even though its
+#     `process.argv[1]` self-guard correctly suppresses main(). Verified, not assumed.
+#   - `node --check` alone is necessary but not sufficient: a 200-byte head of the bundle still
+#     parses (it is a shebang + a couple of complete statements). Measured: 200-byte prefix
+#     PASSES --check, 50 KB prefix FAILS, intact PASSES.
+# So: syntax integrity (--check) + the entry guard + the closing export together fail on every
+# truncation point the size check missed.
+BUNDLE="$INSTALLED/install/synth-and-wire.bundle.mjs"
+node --check "$BUNDLE" 2>"$WORK/bundle-check.err" \
+  || fail "(5) install bundle is not a syntactically valid ES module: $(head -3 "$WORK/bundle-check.err")"
+grep -q "synth-and-wire.bundle.mjs" "$BUNDLE" \
+  || fail "(5) install bundle is missing its process.argv[1] entry guard — the executable entry point did not arrive"
+grep -q "mergeLiveRules" "$BUNDLE" \
+  || fail "(5) install bundle is missing its mergeLiveRules export — the bundle tail is truncated"
+echo "  ✓ synth-and-wire.bundle.mjs intact: node --check OK, entry guard + tail export present ($(wc -c < "$BUNDLE" | tr -d ' ') bytes)"
 
 step "(6) assert the shipped rule DEFINITIONS arrived (arrival, NOT firing — see scope note above)"
 # The binding input §3 item 2: "the matrix cell is the only honest check that they ARRIVED."

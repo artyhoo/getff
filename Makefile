@@ -34,6 +34,8 @@ install-hooks:
 consumer-matrix: ## Run the consumer-matrix acceptance cells locally (launch-preannounce-track S2)
 	@echo "▶ consumer-matrix: pnpm workspace monorepo start cell (real install.sh --full into a fresh fixture)"
 	@FRAMEWORK_ROOT="$(CURDIR)" bash tests/consumer-matrix/pnpm-monorepo-cell.sh
+	@echo "▶ consumer-matrix: npm-tarball cell (pack + install + run the consumer path against packages/core)"
+	@FRAMEWORK_ROOT="$(CURDIR)" bash tests/consumer-matrix/npm-tarball-cell.sh
 
 consumer-matrix-npm-tarball: ## Run the npm-tarball cell locally (beta-delivery-ux R1 — files allowlist + bin runnability)
 	@echo "▶ consumer-matrix-npm-tarball: pack + install + run the consumer path against packages/core"

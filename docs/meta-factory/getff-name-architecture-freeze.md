@@ -129,6 +129,22 @@ The other **three** bins (`rules-as-tests-synth`, `rules-as-tests-validate`, `ru
 
 **Ruling:** promoting `eslint` + the `@typescript-eslint/*` family + `ts-morph` to runtime deps for a `0.1.0` beta was ruled out as disproportionate scope expansion at R1 entry — it would bloat the install with test-runner machinery that most consumers won't invoke, and the bin `rules-as-tests-validate` is the only one that needs it at runtime. This is therefore **deferred to U10** (or to a prebuild-based resolution in U9). The deferral is recorded here so U10 doesn't rediscover it.
 
+> **U10 WARNING — the gap is deeper than a dependency-tier move. Measured 2026-08-10, cold backward sweep.**
+> Promoting `eslint` and friends to `dependencies` is **necessary but not sufficient**. Four shipped validator gates statically import a package that **can never be published as things stand**:
+>
+> | shipped file (in the tarball) | import | target |
+> |---|---|---|
+> | `validator/gate-tautology.ts:15` | `@rules-as-tests/preset-next-15-canonical/eslint-rules` | `private: true` |
+> | `validator/gate-conflict.ts:21` | same | `private: true` |
+> | `validator/gate-rule-tester.ts:22` | same | `private: true` |
+> | `validator/gate-message-id-coverage.ts:21` | same | `private: true` |
+>
+> Verified: `packages/preset-next-15-canonical/package.json` and `packages/preset-react-spa/package.json` both carry `"private": true`, and `npm pack --dry-run` from `packages/core` **does** list `validator/gate-tautology.ts` and `validator/gate-rule-tester.ts` — so the importing files ship while the imported package cannot. `rules-as-tests-validate` is therefore unrunnable from a published tarball even with every dev-dependency promoted.
+>
+> **U10 must pick one** (R1 does not — it is out of scope per kickoff §7, «no package outside `packages/core`»): (a) publish the presets too, (b) make the preset imports dynamic with a documented degrade, mirroring the existing `ts-morph` pattern at `install/wire-eslint-r2.ts:115-143`, or (c) drop those gates from the `files` allowlist and accept `validate` as a repo-internal bin.
+>
+> Related and also out of R1 scope: `packages/core` declares **no** `peerDependencies` while all four publishable-intent siblings do (`preset-react-spa/package.json:11`, `meta-factory/package.json:13`). Whichever option U10 picks, the peer-tier decision travels with it.
+
 **Consequence for `files` validation coverage:**
 
 Four of the fourteen entries are **transitively needed by the three deferred bins** but are NOT RED-provable by this cell (the runnable bins don't reach them). They are kept in the `files` list with the marking **`UNVALIDATED-by-this-cell — transitively-needed by synth/validate/install bins whose runtime-dep gap is deferred to U10`** per kickoff §9 (park-don't-guess: surface the gap, don't drop the entry). Dropping them would silently break those three bins when their runtime-dep gap is later closed. Which four is a **measured** fact, not an inferred one — see the table below.
@@ -158,18 +174,31 @@ Four of the fourteen entries are **transitively needed by the three deferred bin
 
 > **Correction (2026-08-10, measured).** An earlier draft of this record named the unvalidated four as «`ir/`, `backends/`, `composition/`, + the validator-internal slice of `diagnostics/`». The arms falsify that split: `diagnostics/` **is** RED-validated (step 7b — the research bin's import chain reaches it), and `validator/` is unvalidated **in whole**, not as a slice of another entry. The count (10/4) was right; the membership was inferred rather than measured. Kept visible rather than silently rewritten, per T3.
 
+## Over-ship — before / after (kickoff §6 acceptance item 8)
+
+Recorded here, not only in the stage PR body, because kickoff §6 item 7 requires this record to be **self-contained for U10** and the PR body is not what U10 reads.
+
+| state | `npm pack --dry-run` total files | source |
+|---|---|---|
+| **before** — no `files` key | **707** | host measurement at R1 entry, 2026-08-09 (kickoff §1 records 549 at S6 / 2026-07-11 and 711 in-container the same day — three machines, three numbers, which is why the entry re-measurement is mandatory) |
+| **after** — 14-entry `files` allowlist | **494** | host, 2026-08-10, printed by the cell itself: `✅ consumer-matrix npm-tarball cell: GREEN (494 files in tarball)` |
+
+Δ = **−213 files (−30%)**. The number is emitted by every cell run (`files in tarball: …`), so it is a live figure, not a frozen claim — a future `files` edit that re-inflates the tarball shows up in CI output without anyone re-measuring by hand.
+
 ## Package-metadata decisions (kickoff §5 — «say which you chose»)
 
 | item | choice | why |
 |---|---|---|
 | `packages/core/README.md` | **stub**, not a full README | kickoff §5 permits either. A stub pointing at [`README.md#why-this-exists`](../../README.md#why-this-exists) keeps one source of truth for the project narrative; a full copy would be a `#sync-by-copy-paste` twin with no regenerating mechanism ([dual-implementation-discipline.md §8](../../.claude/rules/dual-implementation-discipline.md)). Revisit at U10 if the npm package page needs standalone framing. |
-| `packages/core/LICENSE` | **real file copy** of root `LICENSE.md`, not a symlink | kickoff §5: symlinks do not survive `npm pack` reliably. Verified present in the packed tarball. |
+| `packages/core/LICENSE` | **real file copy** of root `LICENSE.md`, not a symlink | kickoff §5: symlinks do not survive `npm pack` reliably. Arrival is **gated**, not just verified once: `LICENSE` and `README.md` are asserted in the cell's by-path asset loop ([`npm-tarball-cell.sh`](../../tests/consumer-matrix/npm-tarball-cell.sh) step 4). Neither is in `files` — npm auto-includes both — so the gate is what notices if that behaviour ever changes. |
 | `main` | **unchanged** — `./manifest/rules-manifest.json` | kickoff §5 says confirm, do not silently change. Confirmed intentional (binding input §2); the tarball cell step (3) is the regression guard. |
 | `engines.node` | `>=22` | matches the `node-version: '22'` pin every CI workflow uses. |
 
 ## What the tarball cell does NOT assert (T14 — stated, not implied)
 
-The cell asserts that the shipped rule **definitions arrive** (manifest entries + `eslint-rules/` modules). It does **not** assert that a rule **fires**: firing needs `eslint` plus a TS-aware config loader inside the fixture, and neither is present in a tarball install — the same runtime-dep gap recorded above for the `synth` / `validate` / `install` bins.
+**It does not fire a rule.** The cell asserts that the shipped rule **definitions arrive** (manifest entries + `eslint-rules/` modules). Firing needs `eslint` plus a TS-aware config loader inside the fixture, and neither is present in a tarball install — the same runtime-dep gap recorded above for the `synth` / `validate` / `install` bins.
+
+**It does not run the install flow.** Step (5) asserts the shipped `install/synth-and-wire.bundle.mjs` arrived **intact** (`node --check` + entry guard + tail export), not that installing works. The real flow runs through [`setup.d/99-finalize.sh:25`](../../setup.d/99-finalize.sh), and the sibling cell exercises it end-to-end. Three weaker forms were measured and rejected on 2026-08-10: `readFileSync().length > 100` passes on any file over 100 bytes (`#contract-that-cannot-fail` — this was the shipped form and is why step (5) was rewritten); `await import()` throws regardless of integrity, because the bundle has a module-level side effect opening `install/research-plan.schema.json` relative to cwd, even though its `process.argv[1]` self-guard correctly suppresses `main()`; and `node --check` alone passes on a 200-byte head of the bundle (a 50 KB head fails), so it needs the entry-guard + tail-export greps beside it.
 
 «At least one rule actually firing» (binding input §3 item 2) is carried by the **sibling cell on the file-copy channel**: [`tests/consumer-matrix/pnpm-monorepo-cell.sh`](../../tests/consumer-matrix/pnpm-monorepo-cell.sh) step (d-1) plants an `OrderSchema.parse(req.body)` violation and asserts `eslint rc=1` carrying the R2 message, with (d-2) proving the lint-staged shield blocks it. Both cells are merge-blocking via `ci-success needs:` and both are declared in the R1 kickoff's `host-verify` contract, so the pair covers **arrival** (tarball channel) + **firing** (file-copy channel).
 
