@@ -589,7 +589,9 @@ prior-art pass. In-spec, the ask is carried by premise 11 (layer hierarchy + upw
 conflict resolution + materiality-by-highest-layer) and the §8 item 2 arch-template
 obligation (premise register + falsifiers in every spec).
 **Operator directive (same gate session): kernel-v2 = a SEPARATE `/arch` design contour**
-— «сейчас мы делаем базово, уделяя внимание всему остальному; сразу после этого мы
-отдельно будем уделять внимание главному — проектировать и реализовывать самое важное:
-узкое горлышко, классификатор» (verbatim; §8 item 8 amended accordingly). Gate word:
+on the classifier bottleneck — the base spec attends to everything else first; a dedicated
+contour designs the most important piece right after landing (§8 item 8 carries the full
+rendering). **Recording note (operator, same session):** raw-transcript quotes are avoided
+— out of context they read ambiguously; premise 10's «verbatim-faithful» means faithful to
+MEANING in context, never a naked transcript carrying the meaning alone. Gate word:
 pending at this commit.
