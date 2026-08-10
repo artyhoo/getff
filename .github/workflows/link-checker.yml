@@ -36,6 +36,10 @@ concurrency:
 
 jobs:
   link-check:
+    # required-context: no — `paths:`-filtered (deadlocks any PR not touching lychee.toml or this
+    # file), and it audits LIVE external URLs, so its result depends on third-party uptime rather
+    # than on the diff. A required check that reddens because someone else's site is down is not
+    # fail-closed, it is flaky-closed. Weekly cron is the real channel.
     name: lychee — live link audit
     runs-on: ubuntu-latest
     timeout-minutes: 10
