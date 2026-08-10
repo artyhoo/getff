@@ -79,7 +79,7 @@ AGENTS_FENCE_SENTINEL_2='.ai-factory/RULES.md'
 #     setup.d/30-templates.sh:17 (note: `.ai-factory/`, not `.claude/`). A skill file
 #     carrying ](../../orchestrator-prompts/aif-doctor-skill/kickoff.md) resolves to
 #     `<consumer>/.claude/orchestrator-prompts/...` post-install — a path that does not
-#     exist. Found leaking in .claude/skills/aif-doctor/SKILL.md:26 (round-1 rework).
+#     exist. Observed leaking from .claude/skills/aif-doctor/SKILL.md:26.
 # scripts/ is INTENTIONALLY UNHANDLED — partially shipped (subset via 40-configs.sh),
 # per-file ambiguity is a §4 park trigger (kickoff getff-honest-signals-s2). Extend only with a
 # shipped-scripts allowlist if a future scripts/ ref to a non-shipped script re-breaks a push.

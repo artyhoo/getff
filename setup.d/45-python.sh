@@ -241,8 +241,8 @@ _py_deliver_ruff() {
   # cell) at a predictable getff-owned path. This is the single target the shipped CI workflow points a
   # `ruff check . --config .getff/ruff-bans.toml --no-cache` gate at, so the getff TID bans fire in EVERY
   # cell. Load-bearing on the collision cells (iii/iv): there the consumer's OWN ruff config is what
-  # `ruff check .` discovers, so it NEVER sees our TID bans — probe-proven silent-unenforcement (S2-T2
-  # review; .superpowers/sdd/s2-task-2-report.md §Fix round 1). `--config` makes ruff REPLACE discovery
+  # `ruff check .` discovers, so it NEVER sees our TID bans — probe-proven silent-unenforcement.
+  # `--config` makes ruff REPLACE discovery
   # (probe-proven), so the CI gate lints the tree against ONLY our bans regardless of the consumer's
   # config. Framework-owned + getff-header-marked (never a consumer file — the consumer never authors
   # .getff/ruff-bans.toml), refresh-aware. Its source token `$tpl/ruff.toml` already carries copy+refresh
@@ -645,7 +645,7 @@ _py_write_rules_lock() {
   mkdir -p "$PROJECT_ROOT/.getff"
 
   local _json_rules _json_bans
-  # MAJOR B (W-7): fragment-per-rule per §6 fork 2. The fragment dir is the synthesizer's
+  # Fragment-per-rule per §6 fork 2. The fragment dir is the synthesizer's
   # generation-context/ subdir — one <rule-id>.json per rule in final lock shape.
   # S1b (PARK-S1-7 unparked): per-lane subdir `generation-context/python/` — the producer
   # (rule-bootstrap-cli.ts runPracticeRender, S1b) writes here. Closes kickoff criterion 4 by
@@ -667,9 +667,9 @@ _py_write_rules_lock() {
   # — no version field. So no manifest today → derived null is honest. The day a
   # framework-specific python plan is synthesised, the manifest carries its version
   # and the lock reports it — no code change needed (the read is unconditional).
-  # MAJOR A (W-8): the path resolves to .ai-factory/synthesizer-output/ where the Node
-  # emitter actually writes (emit.ts OUTPUT_SUBPATH) — cargo/go lanes already use this
-  # dir; python was pointed at .getff/ (never written) making the manifest-present arm
+  # The path resolves to .ai-factory/synthesizer-output/ where the Node emitter actually
+  # writes (emit.ts OUTPUT_SUBPATH) — the same dir the cargo/go lanes read. Pointing this
+  # at .getff/ instead (never written by the emitter) would make the manifest-present arm
   # unreachable by construction.
   local _ctx="$_synth_dir/generation-context.json"
   local _ctx_ver='null'

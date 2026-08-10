@@ -43,7 +43,7 @@ fi
 
 # Source absent → no-op (defensive — the framework ships these by construction
 # today; if a future split relocates them, this guard surfaces the drift).
-# R2 (S2 rework round 1): getff-work.sh is the workspace one-command entry-point
+# getff-work.sh is the workspace one-command entry-point
 # (spec A9) — it composes worktree creation by REUSING create-worktree.sh + the
 # dep-wiring chain. It MUST ship alongside the three callees so consumers receive
 # the complete workspace surface at env+ profile depth.
