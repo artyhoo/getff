@@ -432,6 +432,21 @@ on the load-bearing half):
    tasks` — the constitution is a first-class idea layer), AWS Kiro EARS
    (`requirements / design / tasks`). Fold findings into the rule; add SSOT entries as
    verdicts warrant.
+   **Pre-verified at the session-3 gate (2026-08-10) — the operator's newly-enabled
+   `engineering` plugin (Anthropic, v1.2.0, Cowork-primary; skill bodies read in-session
+   from the served plugin dir):** its `/architecture` ADR template + `documentation` +
+   `system-design` skills are the family's closest live in-harness analog. Convergent
+   (verbatim quotes, per premise 10): ADR status vocabulary «Proposed | Accepted |
+   Deprecated | Superseded» ≈ this contour's supersession pointers; ADR Consequences
+   bullet «What we'll need to revisit» ≈ the SSOT `Trigger to revisit` field
+   (falsifier-lite); documentation principle «Link, don't duplicate — Reference other
+   docs instead of copying» ≈ premise 10's pointer half; system-design output demands
+   «explicit assumptions» (premise-register, weaker form — assumptions are not ratified
+   verbatim premises). NOT contributed: no layer hierarchy (premise 11), no verbatim
+   premise register, no per-decision falsifiers — the free-prose ADR `Context` section is
+   exactly the paraphrase surface premise 10 counters. Verdict: cite as prior-art in the
+   rule's block; the §8 arch-template obligation (premise register + falsifiers) stands
+   UNCHANGED.
 6. Ask-file schema validity check (mechanizable half; earliest reachable channel) — the
    pre-push section per §5.3 L3(b)+(c), including the answered⇒decisions-entry cross-check.
    **6b:** L0 rigor-label presence check (kickoff principle-test family, §5.3 L3(d)).
@@ -545,3 +560,14 @@ to channel 1, morning review = authority only).
   candidate must beat. D-AP5's falsifier guards the dangerous direction meanwhile.
 - Severity-contract clarification recorded in §6: the reviewer still initiates rounds via
   scenario-bearing findings; only label-only triggering is withdrawn.
+
+### §11d Session-3 gate session (2026-08-10) — doc-plugin format comparison
+
+The operator deferred the gate word to a session with their «engineer» doc-writing plugin
+enabled (abbreviation half-remembered as ~ASD/SDD). Identified: the Anthropic `engineering`
+plugin v1.2.0 — the half-remembered abbreviation resolves to its `/architecture` **ADR**
+template + `system-design` (system-design-doc) skill. Document conventions compared against
+§7 premises 10-11 + the §8 item 5 layered-spec family; verdict folded into §8 item 5
+(convergent on supersession vocabulary, revisit-triggers, link-don't-duplicate; contributes
+no layer hierarchy, no verbatim premise register, no per-decision falsifiers → no premise
+or template change). Gate word: pending at this commit.
