@@ -29,6 +29,14 @@ permissions:
 
 jobs:
   verify-pr-body-sections:
+    # required-context: no — NOT because it is unimportant (it gates §1.7 substance), but because
+    # this workflow is `paths:`-filtered at the trigger. A workflow skipped by path filtering
+    # leaves its checks Pending, and a PR requiring them is blocked from merging — GitHub Docs,
+    # "Troubleshooting required status checks". Registering this context would deadlock every PR
+    # that touches no discipline-bearing path. To make it required, the path filter must first
+    # move from `on.pull_request.paths` into the job body (run always; exit 0 early when the
+    # diff touches no discipline path), so the context always reports. Until then the gate is
+    # advisory-by-construction on any PR that skips it — tracked, not hidden.
     name: §1.7 forward+backward sections present in PR description
     runs-on: ubuntu-latest
     steps:
@@ -134,6 +142,9 @@ jobs:
           echo "✅ Backward-check cites ${backward_citations} file:line reference(s)."
 
   sanity-stub-fails-substance:
+    # required-context: no — a paired-negative meta-test of the gate above, not a gate on this
+    # PR's content; it asserts the substance regex rejects the Incident-1 stub. Same
+    # `paths:`-filter deadlock applies regardless.
     name: Sanity — Incident-1 stub §1.7 body MUST fail substance gate
     runs-on: ubuntu-latest
     steps:
@@ -177,6 +188,9 @@ jobs:
           echo "   Both substance gates' paired-negative arms are intact."
 
   sanity-stub-backward-passes-with-citation:
+    # required-context: no — the positive half of the paired-negative meta-test above; asserts a
+    # cited Backward-check passes. Not a gate on this PR's content, and same `paths:`-filter
+    # deadlock applies regardless.
     name: Sanity — §1.7 Backward-check with file:line citation MUST pass substance gate (Forward-check parity)
     runs-on: ubuntu-latest
     steps:
