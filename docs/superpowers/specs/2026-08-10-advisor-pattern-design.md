@@ -388,7 +388,11 @@ on the load-bearing half):
    `packages/`; doc-pointer filenames no longer match — §2) + §14c disposition table
    entry; ADR Part-2/D5 supersession pointer; dispatcher §3 intent-row Day/Night cells
    («file ask + ASK when advisor reachable»); night-mode items 1+8 same conditional; arch
-   §4 review-ESCALATED intake line; morning-report «night-decided asks» line; v2 §9
+   §4 review-ESCALATED intake line; **arch §1 spec-template obligation — every spec
+   carries an operator-premise register + per-decision falsifiers** (operator-gate
+   addition: idea-recording as a standing rule — the layer the recorded-premise test
+   stands on; spec ≠ recorded idea, both required); morning-report «night-decided asks»
+   line; v2 §9
    degradation rows (§4). The branch merges staging forward first so the cited
    review-effort-theatre patch exists on-branch (r1 MINOR both seats: `lychee.toml`
    excludes `docs/superpowers/`, so the broken citation is currently caught by nothing —
