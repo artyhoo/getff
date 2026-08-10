@@ -108,7 +108,8 @@ question carrying its own measurement provenance. Rigor label (L0): `research-gr
 is the load-bearing half of the D-AP5 split; individual artifacts stay cheap and reversible.
 Zero new runtime code ships to consumers from this contour; the one new dependency
 (promptfoo, dev-only) is a capability commit with its own `Prior-art:` trailer + SSOT entry
-**in the same commit** (S4 — §9).
+**in the same commit** (S4 — §9), and it enters **only at S1-S5 scale-up** — the S0 probe
+runs on the plain scorer, no dependency added (gate 2026-08-11).
 
 ## §2 Corpus (the task-book)
 
@@ -236,7 +237,8 @@ Zero new runtime code ships to consumers from this contour; the one new dependen
 ## §4 Bench (the exam)
 
 **Runner:** promptfoo (dev-dependency; capability commit + `Prior-art:` trailer + SSOT entry
-in the SAME S4 commit — r1 BU MAJOR-4). Config shape: `tests: file://<corpus>.csv` (columns
+in the SAME S4 commit — r1 BU MAJOR-4; scale-up only — S0 runs the D-K3 plain scorer, gate
+2026-08-11). Config shape: `tests: file://<corpus>.csv` (columns
 become prompt variables; the shim strips every `*_start`/`*_cold`/`*_final`/`orig_grade`
 column from what reaches a judge — and the `finding` text itself is already grade-stripped
 at extraction, so no grade survives in any judge's input through either path, r2 NEW-B1;
@@ -437,11 +439,15 @@ calls on the subscription pool, zero paid CI; the probe alone is ~30-40. Exit ro
   adjudicating. Operator slice disputed >20% → corpus escalates to the full operator batch
   pass (P7 fallback).
 - **D-K3 — bench runner = promptfoo (ADOPT, dev-only).** Grounds: §0.5 probes — task
-  matches the tool's core (matrix+equals+cache+exec); thin-adapter cost only. *Falsifiers:*
-  exec provider fails on long/grouped prompts → plain scorer fallback (~50 LOC), reason
-  recorded; OSS goes maintenance-mode or exec removed post-acquisition → re-evaluate
-  (scorer or DeepEval), SSOT revisit trigger.
+  matches the tool's core (matrix+equals+cache+exec); thin-adapter cost only. Gate
+  2026-08-11: the fallback scorer is the S0 probe's PRIMARY; promptfoo enters at scale-up
+  only. *Falsifiers:* exec provider fails on long/grouped prompts → plain scorer fallback
+  (~50 LOC), reason recorded; OSS goes maintenance-mode or exec removed post-acquisition →
+  re-evaluate (scorer or DeepEval), SSOT revisit trigger.
 - **D-K4 — three candidate layers; retrieval deferred; journal door = live entries only.**
+  (The mandate's cheap devil's-advocate layer stays parked upstream at
+  [advisor-pattern-design D-AP6](2026-08-10-advisor-pattern-design.md) — not a candidate
+  here.)
   Grounds: layers are composable stages with separable marginal value; the journal is
   empty of LIVE consults and corpus-adjudication entries are segregated out of the volume
   trigger (r1 TD MAJOR-7 — one batch stage must not flip a ratified deferral). *Falsifiers:*
@@ -490,9 +496,10 @@ classifier; the protocol's own quality is observed through the κ/PABAK stats it
 
 ## §13 Review changelog
 
-**Round 1 (2026-08-11):** `top-down-triage-kernel-v2.md` — REVISE, 2 BLOCKER / 9 MAJOR /
-5 MINOR / 2 ESCALATED; `bottom-up-triage-kernel-v2.md` — REVISE, 0 BLOCKER / 5 MAJOR /
-7 notes (all 12 links + every quoted audit number verified clean). Dispositions:
+**Round 1 (2026-08-11):** `top-down-r1.md` — REVISE, 2 BLOCKER / 9 MAJOR /
+5 MINOR / 2 ESCALATED; `bottom-up-r1.md` — REVISE, 0 BLOCKER / 5 MAJOR /
+7 notes (all 12 links + every quoted audit number verified clean; on-disk filenames — the
+§2 `sources/` pre-step locator). Dispositions:
 
 - TD B1 (2 of 3 axes unmeasured; class space incoherent) — **FIXED**: §2 vocabulary mapping
   + binary class axis, §3 three-axis labeling, §5 per-axis bars + provenance labels.
