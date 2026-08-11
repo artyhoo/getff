@@ -1,3 +1,5 @@
+<!-- scope:triage-kernel-v2-s0-probe -->
+
 # Triage kernel v2 — S0 probe result (C1 beats C0, 9:0, GO for scale-up)
 
 Scope: S0 probe report for the triage-kernel-v2 contour — the gate-resolved ~30-row
