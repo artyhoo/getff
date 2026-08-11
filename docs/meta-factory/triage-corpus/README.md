@@ -19,6 +19,12 @@
 | [s0-fable-rationales.md](s0-fable-rationales.md) | Verbatim rationale record of the blind Fable rater (verdict + WHY per row) |
 | [s0-c1-sonnet.json](s0-c1-sonnet.json) | Raw C1 judge output (blind sonnet, one line per row incl. `layer`/`whose` axes) — the scorer input, committed for reproducibility |
 | [sources/](sources/) | Tracked full review reports (design §2 `arch-reviews` population source; W-7): `top-down-r1.md`, `bottom-up-r1.md`, `r2-verify.md`, `fidelity-r1.md` from the triage-kernel-v2 /arch contour |
+| [audit-1369.csv](audit-1369.csv) | S1: 88 `pr-body` rows — the audit §4 table findings (PR #1290-#1360) **minus** the #1341 R7 rows, grade-stripped, sourced verbatim from PR bodies |
+| [s4-round7.csv](s4-round7.csv) | S1: 6 `pr-body` rows — the #1341 round-7 under-graded findings, counted from the audit table, sourced from PR #1341 body |
+| [arch-reviews.csv](arch-reviews.csv) | S1: 40 `review-report` rows — design-layer findings extracted from `sources/` (top-down-r1 · bottom-up-r1 · r2-verify · fidelity-r1), PR #1376 |
+| [kickoff-loops.csv](kickoff-loops.csv) | S1: 13 `pr-body` rows — the 6 getff-S1 + 7 beta-delivery-ux-S4 kickoff-revision series PRs, enumerated but unclassified (audit §7 item 1, T14) |
+| [td-m3.csv](td-m3.csv) | S1: 2 `author-cell` rows — both TD-M3 value-mispricing incidents (session-bus-v2 §14 + advisor-pattern-design §0). **THIN FILE** (<5 rows, §5 under-powered) |
+| [research-forks.csv](research-forks.csv) | S1: 3 `author-cell` rows — research-patch fork/disposition records («GLM 1%→2%» class). **THIN FILE** (<5 rows, §5 under-powered) |
 
 ## Field schema (S0 subset of design §2)
 
@@ -29,11 +35,37 @@ vocabulary incl. `MATERIAL-b`/`UNRECOVERABLE`, start-only) · `orig_grade`
 (`BLOCKER|MAJOR|MINOR|none` — C0's input) · `stratum` (`<grade-band>/<class_start>`) ·
 `class_final` (binary, operator-adjudicated) · `status` (`adjudicated|removed`).
 
+**S1 population files** use the 7-column subset only (no `class_cold`/`class_final`/
+`layer_*`/`whose_*`/`rationale`/`status`/`stratum` — those are S2+ fields, never pre-filled
+at S1 per design §3.1): `id` · `source` · `provenance` (`pr-body|review-report|author-cell`)
+· `finding` (verbatim substring of the source named by `provenance`, grade-strip normalized)
+· `context` · `class_start` · `orig_grade`. `provenance: author-cell` rows are excluded from
+S2 blind labeling and every §5 bench comparison (r2 NEW-M2 — their surviving text carries the
+label rationale beside the quote).
+
 Anti-leakage: every row passed the two-arm fail-closed probe
 ([scripts/triage-corpus-probe.mjs](../../../scripts/triage-corpus-probe.mjs)) —
 provenance-substring (normalized `finding` is a substring of its normalized PR body) +
 grade-token scan (no `BLOCKER|MAJOR|MINOR` token or finding-ID pattern survives in
 `finding`/`context`). Run: `node scripts/triage-corpus-probe.mjs <csv>`.
+
+**S1 union probe** (DoD §3 — one invocation over all 6 files): `6 file(s) · 152 rows · 0
+probe failures`. Cross-file `id` + normalized-finding-text uniqueness holds across the union.
+**Frozen-record guard** (DoD §7): `s0-probe.csv` re-probes at `1 file(s) · 32 rows · 0 probe
+failures` — zero edits to the S0 probe record.
+
+## S1 thin-file honesty (design §2, r2 under-representation widened)
+
+Files with <5 rows are under-powered and reported descriptively per §5 (not padded):
+
+| File | Rows | Provenance | §5 consequence |
+|---|---|---|---|
+| `td-m3.csv` | 2 | `author-cell` | both rows excluded from S2/§5 (author-cell); the whose-question axis is structurally under-measured |
+| `research-forks.csv` | 3 | `author-cell` | all rows excluded from S2/§5 (author-cell); the research-fork class is reported descriptively, not scored |
+
+`author-cell` rows are enumerated for T14 honesty (coverage disclosure), not for bench
+measurement — their surviving text carries the label rationale beside the quote, so no blind
+measurement exists for them (r2 NEW-M2).
 
 ## S0 truth construction (2026-08-11) + agreement statistics
 
