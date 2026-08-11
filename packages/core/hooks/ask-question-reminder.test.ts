@@ -12,18 +12,24 @@
  *   - `hookEventName` is required in hookSpecificOutput.
  *   - PreToolUse uses exit 0 + JSON on stdout; exit 2 ignores any JSON.
  *
- * Loop-guard: ${TMPDIR:-/tmp}/aif-ask-reminded-${session_id}, 45s window
- *   (hook source lines 33-44). While the flag is fresh, AUQ passes through
- *   (silent allow). After window expires or flag absent → fresh fork-challenge
- *   deny. Solves the deny→regenerate→ask→deny loop (no stop_hook_active
- *   equivalent on PreToolUse — see hook source lines 16-20).
+ * Loop-guard: ${TMPDIR:-/tmp}/aif-ask-reminded-${session_id} — a TWO-STATE flag
+ *   (content "challenged"/"passed" + mtime; see hook header "Loop-safety").
+ *   "challenged" → the next AUQ is the post-challenge retry: allowed COUNT-BASED,
+ *   regardless of elapsed time (card generation is unbounded — measured >45s live
+ *   2026-08-11), unless older than the 600s challenge TTL (abandoned question
+ *   moment). The pass rewrites the state to "passed". "passed" → AUQs within the
+ *   45s window belong to the same question moment (allow); older → genuinely-new
+ *   moment → fresh fork-challenge deny. Empty flag (legacy bare `touch`) keeps the
+ *   old 45s recency semantics. Solves the deny→regenerate→ask→deny loop (no
+ *   stop_hook_active equivalent on PreToolUse — see hook header).
  *
  * Paired-negative contract (per kickoff §1 row 6):
- *   ❌ AUQ without prior fork-challenge (no flag) → deny + non-trivial reason
- *   ✅ AUQ within loop-guard window (flag fresh)  → exit 0 silent (allow)
- *   ✅ non-AUQ tool name                          → exit 0 silent (off-path)
- *   boundary: flag older than 45s                  → fresh deny (window expired)
- *   effect:   deny path touches the flag file
+ *   ❌ AUQ without prior fork-challenge (no flag)  → deny + non-trivial reason
+ *   ✅ AUQ retry after a challenge (any elapsed t) → exit 0 silent (allow)
+ *   ✅ non-AUQ tool name                           → exit 0 silent (off-path)
+ *   boundary: "passed" flag older than 45s         → fresh deny (new moment)
+ *   boundary: "challenged" flag older than 600s    → fresh deny (abandoned)
+ *   effect:   deny writes "challenged"; the allowed retry rewrites "passed"
  *   payload:  hookEventName + permissionDecision shape (T-M4-B per kickoff §7)
  *
  * REFERENCE pattern: check-hook-marker.test.ts (fixture-spawn shape) +
@@ -32,7 +38,15 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { execSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, existsSync, utimesSync, statSync } from 'node:fs';
+import {
+  mkdtempSync,
+  rmSync,
+  existsSync,
+  utimesSync,
+  statSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -189,17 +203,26 @@ describe.skipIf(!JQ)(
       );
     });
 
-    it('PAIRED-POSITIVE: AUQ within 45s loop-guard window (fresh flag) → exit 0 + empty stdout (allow)', () => {
+    it('PAIRED-POSITIVE: immediate AUQ retry after the challenge → exit 0 + empty stdout (allow)', () => {
       const { tmp, session } = makeTmpEnv();
-      // First invocation arms the flag with current mtime and emits the challenge.
+      // First invocation arms the "challenged" flag and emits the challenge.
       const first = runHook('AskUserQuestion', session, tmp);
       expect(first.status).toBe(0);
       expect(first.stdout.trim()).not.toBe('');
 
-      // Second invocation same session within 45s → loop-guard suppresses challenge.
+      // Second invocation same session = the post-challenge retry → allowed.
       const second = runHook('AskUserQuestion', session, tmp);
       expect(second.status).toBe(0);
       expect(second.stdout.trim()).toBe('');
+    });
+
+    it('STATE MACHINE: deny writes "challenged"; the allowed retry rewrites it to "passed"', () => {
+      const { tmp, session } = makeTmpEnv();
+      const flagPath = join(tmp, `aif-ask-reminded-${session}`);
+      runHook('AskUserQuestion', session, tmp);
+      expect(readFileSync(flagPath, 'utf8')).toBe('challenged');
+      runHook('AskUserQuestion', session, tmp);
+      expect(readFileSync(flagPath, 'utf8')).toBe('passed');
     });
 
     it('OFF-PATH: non-AUQ tool names → exit 0 + empty stdout (defensive skip)', () => {
@@ -213,17 +236,35 @@ describe.skipIf(!JQ)(
       }
     });
 
-    it('BOUNDARY: flag older than 45s window → fresh deny (window expired)', () => {
+    it('SLOW RETRY (2026-08-11 incident): "challenged" flag older than 45s → retry still allowed (count-based, not time-based)', () => {
       const { tmp, session } = makeTmpEnv();
-      // First call arms the flag (and emits deny).
+      // First call arms the "challenged" flag (and emits deny).
       runHook('AskUserQuestion', session, tmp);
-      // Backdate the flag mtime to >45s ago via Node's portable utimesSync
-      // (covers both macOS `stat -f %m` and Linux `stat -c %Y` code paths).
       const flagPath = join(tmp, `aif-ask-reminded-${session}`);
       expect(existsSync(flagPath)).toBe(true);
+      // Backdate the flag mtime to 120s ago via Node's portable utimesSync
+      // (covers both macOS `stat -f %m` and Linux `stat -c %Y` code paths).
+      // Live measurement 2026-08-11: regenerating a 3-question card with Russian
+      // option descriptions takes LONGER than 45s, so a time-based window
+      // re-challenged every retry — 4 consecutive denies.
       const past = Math.floor(Date.now() / 1000) - 120; // 120s ago
       utimesSync(flagPath, past, past);
-      // Second call with stale flag → fresh fork-challenge.
+      // The post-challenge retry must pass however long generation took.
+      const r = runHook('AskUserQuestion', session, tmp);
+      expect(r.status).toBe(0);
+      expect(r.stdout.trim()).toBe('');
+      // The pass consumes the challenge: state resets to "passed".
+      expect(readFileSync(flagPath, 'utf8')).toBe('passed');
+    });
+
+    it('BOUNDARY: "passed" flag older than 45s window → fresh deny (genuinely-new question moment)', () => {
+      const { tmp, session } = makeTmpEnv();
+      runHook('AskUserQuestion', session, tmp); // deny → "challenged"
+      runHook('AskUserQuestion', session, tmp); // retry allowed → "passed"
+      const flagPath = join(tmp, `aif-ask-reminded-${session}`);
+      expect(readFileSync(flagPath, 'utf8')).toBe('passed');
+      const past = Math.floor(Date.now() / 1000) - 120; // 120s ago
+      utimesSync(flagPath, past, past);
       const r = runHook('AskUserQuestion', session, tmp);
       expect(r.status).toBe(0);
       const json = JSON.parse(r.stdout);
@@ -231,6 +272,44 @@ describe.skipIf(!JQ)(
       expect(json.hookSpecificOutput.permissionDecisionReason).toContain(
         'Стоп',
       );
+    });
+
+    it('ABANDONED CHALLENGE: "challenged" flag older than 600s TTL → fresh deny; the immediate retry then passes (no deny loop)', () => {
+      const { tmp, session } = makeTmpEnv();
+      runHook('AskUserQuestion', session, tmp); // deny → "challenged"
+      const flagPath = join(tmp, `aif-ask-reminded-${session}`);
+      // The model heeded the nudge and never retried; a question this much later
+      // is a genuinely-new moment, so the stale challenge must not grant a pass.
+      const past = Math.floor(Date.now() / 1000) - 700; // > 600s challenge TTL
+      utimesSync(flagPath, past, past);
+      const r = runHook('AskUserQuestion', session, tmp);
+      expect(JSON.parse(r.stdout).hookSpecificOutput.permissionDecision).toBe(
+        'deny',
+      );
+      // Self-healing: the re-challenge re-arms "challenged" with a fresh mtime,
+      // so the very next attempt passes — consecutive denies are impossible
+      // without another 600s gap (loop-safety).
+      const retry = runHook('AskUserQuestion', session, tmp);
+      expect(retry.status).toBe(0);
+      expect(retry.stdout.trim()).toBe('');
+    });
+
+    it('LEGACY FLAG: empty flag file (pre-two-state bare touch) keeps the old 45s recency semantics', () => {
+      const { tmp, session } = makeTmpEnv();
+      const flagPath = join(tmp, `aif-ask-reminded-${session}`);
+      // What the old hook's `touch` (or the operator's touch-loop workaround)
+      // left behind: an empty file. Treated as "passed" — identical to the old
+      // 45s recency behaviour, so an in-flight session upgrades seamlessly.
+      writeFileSync(flagPath, '');
+      const fresh = runHook('AskUserQuestion', session, tmp);
+      expect(fresh.status).toBe(0);
+      expect(fresh.stdout.trim()).toBe('');
+      const past = Math.floor(Date.now() / 1000) - 120; // 120s ago
+      utimesSync(flagPath, past, past);
+      const stale = runHook('AskUserQuestion', session, tmp);
+      expect(
+        JSON.parse(stale.stdout).hookSpecificOutput.permissionDecision,
+      ).toBe('deny');
     });
 
     it('EFFECT: deny path touches the loop-guard flag file with current mtime', () => {
@@ -267,7 +346,7 @@ describe.skipIf(!JQ)(
     });
 
     it('missing session_id falls back to "nosession" flag without throwing', () => {
-      // Hook line 32: `jq -r '.session_id // "nosession"'` — the // default operator
+      // Hook: `jq -r '.session_id // "nosession"'` — the // default operator
       // plus `|| echo "nosession"` make a missing field safe under `set -euo pipefail`.
       const tmp = mkdtempSync(join(tmpdir(), 'm4-6-auq-'));
       tmpDirs.push(tmp);

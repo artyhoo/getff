@@ -18,7 +18,7 @@ c96ba6e4c52288f0b77a2edaeb6170ecad03e699360d79fe7794fd3e205717e8  .claude/agents
 ecd269f2c9f2e6a328eb50bb09a03b405e4462f019fbf8987fc0849b7fbfabfc  .claude/agents/review-sidecar.md
 e43ef48a6421767a5f028c39ff48c978141133b4c9d2668fac832c5065dea4a4  .claude/agents/rule-researcher.md
 126f04b5c4c8cff807ea0ff5efc3b2208535da443c65be81fdf56492016fd63f  .claude/agents/rule-test-author.md
-9808e32b096cee71f5971bd6c3aa6ec1bddd748c58d84aa93198d05fb5f7b106  .claude/hooks/ask-question-reminder.sh
+019ffec11048bfa80843200ef23965380be79c6cddecfc29ee4e5c9136f9ef7d  .claude/hooks/ask-question-reminder.sh
 c46cce1bd40827c283581e6fc4ffac337d71e38ca062ada64024be2131092084  .claude/hooks/check-doc-authority-header.sh
 e2404b3623a04b6f89e731f32480f26c350503d9c4a6c72c2a706a63a35c544a  .claude/hooks/deps-hash-check.sh
 cbe419ddc8d558e46e22c2eb4d9501d3f4626db82cfc18cca972e95b77dd1524  .claude/hooks/end-of-turn-reminder.sh
