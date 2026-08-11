@@ -32,11 +32,16 @@ exclude = [
 # them would violate their append-only/frozen ownership. The LIVE operational
 # docs (EXECUTION-PLAN.md, prior-art-evaluations.md, open-questions.md,
 # docs/audits/**, runtime-bridge-setup.md, …) remain fully checked.
+# triage-corpus/sources/ holds review reports preserved VERBATIM as blind
+# corpus source material (design spec §2 W-7) — their relative links were
+# written from their original untracked home and editing them would break
+# the preserved-verbatim property the corpus depends on.
 exclude_path = [
   'docs/meta-factory/research-patches/',
   'docs/meta-factory/retros/',
   'docs/meta-factory/generator-forbid-mvp/',
   'docs/meta-factory/phase-8-research\.md',
+  'docs/meta-factory/triage-corpus/sources/',
   'docs/superpowers/',
 ]
 
