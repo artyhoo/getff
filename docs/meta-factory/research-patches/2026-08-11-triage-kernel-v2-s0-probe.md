@@ -61,8 +61,10 @@ rule applies at full-corpus scale, design §5).
 - **Recovery 81.8%** (9 of 11 rows where C0 is wrong, C1 is right); **breakage 0.0%**
   (0 of 20 rows where C0 is right did C1 flip).
 - Where C0 fails is exactly the audit's measured defect direction: under-graded MINORs.
-  C1 recovered 10 of 11 grade-understated rows (per-stratum: `minor/material` 0% → 100%)
-  and never downgraded a correctly-graded row.
+  C1 recovered 9 of the 10 grade-understated rows (`orig_grade=MINOR` ∧ truth MATERIAL;
+  per-stratum: `minor/material` 0% → 100%) and never downgraded a correctly-graded row.
+  The 11th C0 error is one over-graded row (truth IMMATERIAL under a MAJOR grade), which
+  C1 also got wrong — hence recovery 9/11 overall.
 - C1's two misses vs the operator: row 2 (2025-dated sources labelled 2026 — C1 ruled I,
   operator M) and row 14 («12 of 13» recount — C1 ruled M, operator I on challenge).
 - Blind-vs-blind check: Fable (independent full-argument rater) vs C1 agree 30/32; Fable vs

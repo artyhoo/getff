@@ -29,8 +29,9 @@ no labeling, no adjudication, no bench, no dependency changes.
   `s0-fable-rationales.md`) are a FROZEN probe record — zero edits.
 - `docs/meta-factory/triage-corpus/README.md` — extend the Files table + per-population
   row counts + thin-file honesty notes. Do not touch the S0 truth-construction section.
-- `scripts/triage-corpus-probe.mjs` — ONLY if a real defect blocks S1 (e.g. the
-  cross-file uniqueness arm below), with the fix named in the PR body. No rewrites.
+- `scripts/triage-corpus-probe.mjs` — ONLY if a real defect blocks S1, with the fix
+  named in the PR body AND the frozen-record guard re-run (§7 second contract line).
+  No rewrites; all three provenance branches already exist.
 - NOTHING else. No `packages/**`, no `.claude/rules/**`, no `package.json` (see §4).
 
 ## §3 Acceptance criteria (definition of done)
@@ -48,11 +49,13 @@ no labeling, no adjudication, no bench, no dependency changes.
    from `sources/`, `author-cell` rows from their named artifacts — NEVER from the audit
    §4 tables (their Basis column IS the label rationale). Grade-strip normalization
    applied at extraction (the probe's `stripGrades` is the single implementation).
-3. **Leakage probe green on every file, both arms, fail-closed:**
-   `node scripts/triage-corpus-probe.mjs <file> ` per file — provenance-substring +
-   grade-token scan — PLUS a cross-file `id`/normalized-text uniqueness check across all
-   population files (extend the probe if needed; a finding lives in exactly ONE file).
-   Quote the probe output per file in the PR body.
+3. **Leakage probe green over the union of all six files, both arms, fail-closed:**
+   ONE probe invocation with all six CSVs (the §7 contract line) — per-provenance
+   substring arm (`pr-body` vs PR bodies, `review-report` vs `sources/*.md`,
+   `author-cell` substring-N/A by design) + grade-token scan + cross-file `id` and
+   normalized-finding-text uniqueness (a finding lives in exactly ONE file). Quote the
+   probe output in the PR body. The probe already implements all three provenances —
+   verified RED/GREEN at S0 round 2.
 4. **Fields per design §2:** `class_start` (audit vocabulary; `UNRECOVERABLE` where the
    audit recorded only aggregates — e.g. the #1297 «7 M + 3 M-b» split) and `orig_grade`
    from the PR record. **No judgment axes pre-filled**: no `class_cold`/`class_final`,
@@ -110,14 +113,17 @@ results; the DoD is the probe's exit code, not the assembler's confidence.
 
 ## §7 Verification (run before handoff — T19)
 
+Contract lines are executed one-by-one by `host-verify.sh` — each line below is a single
+self-contained command whose exit code IS the verdict (no shell constructs, no fallbacks):
+
 ```bash host-verify
-for f in docs/meta-factory/triage-corpus/{audit-1369,s4-round7,arch-reviews,kickoff-loops,td-m3,research-forks}.csv; do
-  node scripts/triage-corpus-probe.mjs "$f" || echo "FAIL $f"
-done
+node scripts/triage-corpus-probe.mjs docs/meta-factory/triage-corpus/audit-1369.csv docs/meta-factory/triage-corpus/s4-round7.csv docs/meta-factory/triage-corpus/arch-reviews.csv docs/meta-factory/triage-corpus/kickoff-loops.csv docs/meta-factory/triage-corpus/td-m3.csv docs/meta-factory/triage-corpus/research-forks.csv
+node scripts/triage-corpus-probe.mjs docs/meta-factory/triage-corpus/s0-probe.csv
 ```
 
-Plus: cross-file uniqueness output · row counts per file vs audit §2/§4 enumeration
-(state the reconciliation: ~104 total pr-body rows expected) · markdownlint via
+(The second line is the frozen-record guard: any probe/`stripGrades` change must leave the
+S0 record's `32 rows · 0 probe failures` intact.) Plus: row counts per file vs audit §2/§4
+enumeration (state the reconciliation: ~104 total pr-body rows expected) · markdownlint via
 pre-commit · `bash scripts/run-local-ci-sweep.sh` selection green.
 
 ## §8 Budget + exit

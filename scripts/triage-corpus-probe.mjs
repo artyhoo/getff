@@ -1,16 +1,23 @@
 #!/usr/bin/env node
 // Deterministic anti-leakage probe for the triage corpus (spec §2, r2 NEW-B1/M1).
-// Two fail-closed arms, both run over the committed CSV:
+// Two fail-closed arms, run over the committed CSVs, per row `provenance`:
 //   (a) provenance-substring — each row's normalized `finding` must be a substring of its
-//       normalized source text (the PR body named by `context`), proving it was copied from the
-//       source the row claims, not from the audit's own Basis column;
+//       normalized source text (`pr-body` rows: the PR body; `review-report` rows: the tracked
+//       reports under triage-corpus/sources/), proving it was copied from the source the row
+//       claims, not from the audit's own Basis column. `author-cell` rows have no blind source
+//       text by design (spec §2, r2 NEW-M2) — the substring arm is N/A for them, the grade scan
+//       still runs. Any other provenance value fails closed.
 //   (b) grade-token scan — no grade token or finding-ID pattern may survive in `finding`/`context`.
-// Usage: node scripts/triage-corpus-probe.mjs <corpus.csv> [--bodies <dir>]
+// Plus a cross-file `id` + normalized-finding-text uniqueness check over the union of all files
+// passed in one invocation (spec §2: a finding lives in exactly ONE file).
+// Usage: node scripts/triage-corpus-probe.mjs <corpus.csv...> [--bodies <dir>] [--sources <dir>]
 // Bodies are fetched with `gh pr view <n> --json body` unless a cache dir is supplied.
 
-import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, existsSync, mkdirSync, writeFileSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
+
+const DEFAULT_SOURCES_DIR = 'docs/meta-factory/triage-corpus/sources';
 
 /** Collapse every whitespace run so hard-wrapped PR-body prose compares as one line. */
 export const normalize = (s) => s.replace(/\s+/gu, ' ').trim();
@@ -67,37 +74,57 @@ export function loadBody(pr, cacheDir) {
   return execFileSync('gh', ['pr', 'view', String(pr), '--json', 'body', '-q', '.body'], { encoding: 'utf8' });
 }
 
-export function probe(rows, cacheDir) {
+function loadSources(sourcesDir) {
+  const files = readdirSync(sourcesDir).filter((f) => f.endsWith('.md'));
+  return normalize(files.map((f) => readFileSync(join(sourcesDir, f), 'utf8')).join('\n'));
+}
+
+export function probe(rows, cacheDir, sourcesDir = DEFAULT_SOURCES_DIR) {
   const bodies = new Map();
+  let sources = null;
   const failures = [];
   for (const r of rows) {
-    if (r.provenance !== 'pr-body') {
+    if (r.provenance === 'pr-body') {
+      const pr = r.source.match(/(\d{3,})/u)?.[1];
+      if (!bodies.has(pr)) bodies.set(pr, normalize(loadBody(pr, cacheDir)));
+      if (!bodies.get(pr).includes(normalize(r.finding))) {
+        failures.push({ id: r.id, arm: 'substring', detail: `finding is not a substring of PR #${pr} body` });
+      }
+    } else if (r.provenance === 'review-report') {
+      sources ??= loadSources(sourcesDir);
+      if (!sources.includes(normalize(r.finding))) {
+        failures.push({ id: r.id, arm: 'substring', detail: `finding is not a substring of any ${sourcesDir}/*.md` });
+      }
+    } else if (r.provenance !== 'author-cell') {
+      // author-cell rows have no blind source text — substring arm N/A by design (spec §2);
+      // anything else is an unknown provenance and fails closed.
       failures.push({ id: r.id, arm: 'provenance', detail: `unsupported provenance ${r.provenance}` });
-      continue;
-    }
-    const pr = r.source.match(/(\d{3,})/u)?.[1];
-    if (!bodies.has(pr)) bodies.set(pr, normalize(loadBody(pr, cacheDir)));
-    if (!bodies.get(pr).includes(normalize(r.finding))) {
-      failures.push({ id: r.id, arm: 'substring', detail: `finding is not a substring of PR #${pr} body` });
     }
     for (const [field, value] of [['finding', r.finding], ['context', r.context]]) {
       if (GRADE_TOKEN.test(value)) failures.push({ id: r.id, arm: 'grade-token', detail: `${field} carries a grade token` });
       if (FINDING_ID.test(value)) failures.push({ id: r.id, arm: 'grade-token', detail: `${field} carries a finding-ID pattern` });
     }
   }
-  const ids = rows.map((r) => r.id);
-  const dupes = ids.filter((id, i) => ids.indexOf(id) !== i);
-  for (const id of new Set(dupes)) failures.push({ id, arm: 'uniqueness', detail: 'duplicate row id' });
+  const seen = new Map();
+  for (const r of rows) {
+    for (const [kind, key] of [['id', r.id], ['finding-text', normalize(r.finding)]]) {
+      const k = `${kind}:${key}`;
+      if (seen.has(k)) failures.push({ id: r.id, arm: 'uniqueness', detail: `duplicate ${kind} (first seen in ${seen.get(k)})` });
+      else seen.set(k, r.id);
+    }
+  }
   return failures;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const csv = process.argv[2];
-  if (!csv) { console.error('usage: triage-corpus-probe.mjs <corpus.csv> [--bodies <dir>]'); process.exit(2); }
-  const bi = process.argv.indexOf('--bodies');
-  const rows = parseCsv(readFileSync(csv, 'utf8'));
-  const failures = probe(rows, bi > 0 ? process.argv[bi + 1] : undefined);
+  const args = process.argv.slice(2);
+  const opt = (name) => { const i = args.indexOf(name); return i >= 0 ? args.splice(i, 2)[1] : undefined; };
+  const bodiesDir = opt('--bodies');
+  const sourcesDir = opt('--sources') ?? DEFAULT_SOURCES_DIR;
+  if (args.length === 0) { console.error('usage: triage-corpus-probe.mjs <corpus.csv...> [--bodies <dir>] [--sources <dir>]'); process.exit(2); }
+  const rows = args.flatMap((csv) => parseCsv(readFileSync(csv, 'utf8')));
+  const failures = probe(rows, bodiesDir, sourcesDir);
   for (const f of failures) console.error(`FAIL ${f.arm} ${f.id}: ${f.detail}`);
-  console.log(`${rows.length} rows · ${failures.length} probe failures`);
+  console.log(`${args.length} file(s) · ${rows.length} rows · ${failures.length} probe failures`);
   process.exit(failures.length ? 1 : 0);
 }

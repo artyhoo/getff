@@ -17,6 +17,7 @@
 | [s0-probe.csv](s0-probe.csv) | S0 probe corpus: 32 `pr-body` rows, grade-stripped per the §2 extraction contract, with operator-adjudicated `class_final` (31 adjudicated / 1 removed) |
 | [s0-raters.csv](s0-raters.csv) | Per-row verdicts of every S0 rater: C0 grade-map, blind C1 (sonnet), the (contaminated) session rater's first pass, the blind Fable seat, operator final |
 | [s0-fable-rationales.md](s0-fable-rationales.md) | Verbatim rationale record of the blind Fable rater (verdict + WHY per row) |
+| [s0-c1-sonnet.json](s0-c1-sonnet.json) | Raw C1 judge output (blind sonnet, one line per row incl. `layer`/`whose` axes) — the scorer input, committed for reproducibility |
 | [sources/](sources/) | Tracked full review reports (design §2 `arch-reviews` population source; W-7): `top-down-r1.md`, `bottom-up-r1.md`, `r2-verify.md`, `fidelity-r1.md` from the triage-kernel-v2 /arch contour |
 
 ## Field schema (S0 subset of design §2)
