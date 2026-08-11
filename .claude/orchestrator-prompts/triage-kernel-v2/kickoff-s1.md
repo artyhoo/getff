@@ -132,3 +132,51 @@ L4 budget: 2 dispatch rounds → ASK (design §9). PR: single-concern (corpus as
 base `staging`, FIDELITY block per the stage-PR contract (`## Provenance` declares the
 substrate, so a real verdict is required — `pr-body-fidelity.ts`). On completion S2's
 kickoff is authored fresh (not by this executor).
+
+## §9 Autonomous dispatch — park-don't-guess contract
+
+> This section is the [`/pipeline` §4c](../../skills/pipeline/SKILL.md) contract instantiated
+> for S1. It is **live only** when this kickoff is dispatched to the aif-handoff bridge
+> (`tsx packages/runtime-bridge/src/cli/dispatch.ts`). For a maintainer-pasted session it is
+> inert — skip it.
+
+**Why it exists.** aif agents have no mid-implementation «pause and ask» primitive: they
+implement — guessing on any ambiguity — then auto-review post-hoc, and a genuine fork is not
+recognised as a question. Without this contract S1's assignment forks get decided silently,
+which corrupts the corpus that S2-S4 are measured against.
+
+**aif agent — fork discipline (non-negotiable).** On ANY genuine fork or ambiguity (two
+defensible file assignments, an undecided extraction detail, a missing rule that changes which
+population a row lands in) — **do NOT pick.** Park it as a question: set the task to
+`manualReviewRequired` / `blocked_external` with the fork stated as «Option A → consequence X /
+Option B → consequence Y», and **stop that task**. Proceed only on the unambiguous parts.
+Guessing a fork to «keep moving» is the exact failure this loop exists to prevent. Recording a
+fired PARK is not a file write — it lands in the park payload and the PR's
+`## Parked questions` section, never in this kickoff or the design spec.
+
+**Known S1 forks — park these, do not resolve them yourself:**
+
+- A row whose `class_start` survives only as an aggregate (the #1297 «7 M + 3 M-b» split).
+  §3.4 says `UNRECOVERABLE`; if a row nonetheless looks individually attributable, park rather
+  than attribute — the temptation to recover it is the defect.
+- A finding that plausibly belongs to two populations (an `audit-1369` row that also appears in
+  the #1341 round-7 set). §3.1 assigns from the audit TABLE, not its prose — if the table is
+  silent for that row, park.
+- A row that fits no single `provenance` cleanly (a `sources/` report finding with no PR-body
+  counterpart, or the reverse). The provenance value decides the file, so an unclear provenance
+  is a park, not a judgement call.
+- Any change to `scripts/triage-corpus-probe.mjs` beyond §2's narrow «real defect blocks S1»
+  allowance.
+
+**Lever 1 — conservative aif config (operator-set; probed container-side 2026-08-11):**
+`aif-handoff-agent-1` reports `AGENT_MAX_REVIEW_ITERATIONS=1`, so a task that has not converged
+in one review pass is handed to a human instead of continuing to guess.
+`AGENT_AUTO_REVIEW_STRATEGY` is UNSET (runtime default) — noted, not required by the gate.
+
+**Egress — mandatory once `status=done` or `status=verified`.** aif does not push or open PRs by
+design; skipping this leaves the work in the container permanently
+(`#autonomous-done-no-harvest`):
+
+```bash
+npx tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --base staging
+```
