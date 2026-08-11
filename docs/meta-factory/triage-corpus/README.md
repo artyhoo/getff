@@ -21,7 +21,7 @@
 | [sources/](sources/) | Tracked full review reports (design §2 `arch-reviews` population source; W-7): `top-down-r1.md`, `bottom-up-r1.md`, `r2-verify.md`, `fidelity-r1.md` from the triage-kernel-v2 /arch contour |
 | [audit-1369.csv](audit-1369.csv) | S1: 88 `pr-body` rows — the audit §4 table findings (PR #1290-#1360) **minus** the #1341 R7 rows, grade-stripped, sourced verbatim from PR bodies |
 | [s4-round7.csv](s4-round7.csv) | S1: 6 `pr-body` rows — the #1341 round-7 under-graded findings, counted from the audit table, sourced from PR #1341 body |
-| [arch-reviews.csv](arch-reviews.csv) | S1: 40 `review-report` rows — design-layer findings extracted from `sources/` (top-down-r1 · bottom-up-r1 · r2-verify · fidelity-r1), PR #1376 |
+| [arch-reviews.csv](arch-reviews.csv) | S1: 44 `review-report` rows — design-layer findings extracted from `sources/` (top-down-r1 · bottom-up-r1 · r2-verify · fidelity-r1), PR #1376 |
 | [kickoff-loops.csv](kickoff-loops.csv) | S1: 13 `pr-body` rows — the 6 getff-S1 + 7 beta-delivery-ux-S4 kickoff-revision series PRs, enumerated but unclassified (audit §7 item 1, T14) |
 | [td-m3.csv](td-m3.csv) | S1: 2 `author-cell` rows — both TD-M3 value-mispricing incidents (session-bus-v2 §14 + advisor-pattern-design §0). **THIN FILE** (<5 rows, §5 under-powered) |
 | [research-forks.csv](research-forks.csv) | S1: 3 `author-cell` rows — research-patch fork/disposition records («GLM 1%→2%» class). **THIN FILE** (<5 rows, §5 under-powered) |
@@ -43,13 +43,23 @@ at S1 per design §3.1): `id` · `source` · `provenance` (`pr-body|review-repor
 S2 blind labeling and every §5 bench comparison (r2 NEW-M2 — their surviving text carries the
 label rationale beside the quote).
 
+**Two senses of `UNRECOVERABLE` in `class_start`.** The design §2 sense is narrow — «where
+the audit recorded only aggregates» (the #1297 «7 M + 3 M-b» split, ~10 `pr-body` rows in
+`audit-1369.csv`). S1 applies the same token to a second population the audit never
+classified at all: `arch-reviews` (44), `kickoff-loops` (13), `td-m3` (2), `research-forks`
+(3). Pre-filling `MATERIAL|MATERIAL-b|IMMATERIAL` on those never-classified rows would
+violate criterion 4 / T-TK2-C, so the conservative call is to mark them `UNRECOVERABLE` and
+let S2/S3 label fresh. Readers should disambiguate by `provenance`/`source`: aggregate-only
+for `pr-body` rows from #1297; never-classified for `review-report` / `author-cell` /
+kickoff-loop rows (62 of 70 `UNRECOVERABLE` occurrences are the widened sense).
+
 Anti-leakage: every row passed the two-arm fail-closed probe
 ([scripts/triage-corpus-probe.mjs](../../../scripts/triage-corpus-probe.mjs)) —
 provenance-substring (normalized `finding` is a substring of its normalized PR body) +
 grade-token scan (no `BLOCKER|MAJOR|MINOR` token or finding-ID pattern survives in
 `finding`/`context`). Run: `node scripts/triage-corpus-probe.mjs <csv>`.
 
-**S1 union probe** (DoD §3 — one invocation over all 6 files): `6 file(s) · 152 rows · 0
+**S1 union probe** (DoD §3 — one invocation over all 6 files): `6 file(s) · 156 rows · 0
 probe failures`. Cross-file `id` + normalized-finding-text uniqueness holds across the union.
 **Frozen-record guard** (DoD §7): `s0-probe.csv` re-probes at `1 file(s) · 32 rows · 0 probe
 failures` — zero edits to the S0 probe record.
@@ -66,6 +76,26 @@ Files with <5 rows are under-powered and reported descriptively per §5 (not pad
 `author-cell` rows are enumerated for T14 honesty (coverage disclosure), not for bench
 measurement — their surviving text carries the label rationale beside the quote, so no blind
 measurement exists for them (r2 NEW-M2).
+
+## S1 coverage reconciliation (kickoff §7)
+
+Audit §2
+([research-patches/2026-08-10-review-effort-theatre-audit.md:192](../research-patches/2026-08-10-review-effort-theatre-audit.md))
+reports «~104 findings across 12 loops + 1 Phase -1 review». S1 ships 94 `pr-body` rows
+(`audit-1369.csv` 88 + `s4-round7.csv` 6). The ~10-row delta is source-forced, not dropped:
+the §2 extraction contract (criterion 2) requires the `finding` text to be a verbatim
+substring of the PR body, and some audit §4 cells count findings individually where the PR
+body itself compresses them into a single clause. Splitting those clauses to match the
+audit's count would fabricate text absent from the source and fail the probe's substring arm.
+The compressing cells, by loop:
+
+- **#1290**: «M1-M3 restored antecedents + fixture» is one PR-body clause covering the audit's
+  I×3 (3 separate findings).
+- **#1297**: the PR body lists 7 items under «MINOR ×10»; the audit counts 10.
+- **#1302**: «three stale-prose anchors» is one clause covering the audit's I×3.
+
+No rows were dropped to evade the audit's count; every audit §4 finding either has its own
+row or shares a row's verbatim quote where the PR body itself compressed it.
 
 ## S0 truth construction (2026-08-11) + agreement statistics
 
