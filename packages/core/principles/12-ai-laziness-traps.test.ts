@@ -5,9 +5,10 @@
  *         docs/meta-factory/research-patches/2026-05-16-prose-rules-audit-research.md §3.1
  *         (Track 3 evidence-based probe confirming BUILD verdict; principle 10 precedent)
  *
- * Invariant: every REAL (non-symlink) kickoff.md file under
- * .claude/orchestrator-prompts/<dir>/ (excluding pre-rule exempt dirs AND
- * coordination mirrors — symlinks into $CANON authored in another worktree, see
+ * Invariant: every REAL (non-symlink) kickoff under .claude/orchestrator-prompts/<dir>/ —
+ * the umbrella `kickoff.md` AND the stage-kickoff family (`kickoff-s1.md`,
+ * `kickoff-s2b.md`, `kickoff-r1.md`; see STAGE_KICKOFF_RE) — excluding pre-rule exempt
+ * dirs AND coordination mirrors (symlinks into $CANON authored in another worktree, see
  * isCoordinationMirror) must satisfy the COMPOUND CITATION CHECK:
  * at least ONE of the following must be present —
  *   (a) string "ai-laziness-traps" anywhere in the file (explicit rule citation)
@@ -74,19 +75,75 @@ function passesCompoundCheck(content: string): boolean {
 
 interface KickoffEntry {
   dir: string;
+  /** Basename — `kickoff.md` or a stage kickoff. Distinguishes entries sharing a dir. */
+  file: string;
   path: string;
+  /** `<dir>` for the umbrella kickoff, `<dir>/<file>` for a stage — violation reporting. */
+  label: string;
 }
+
+/**
+ * The stage-kickoff family: `kickoff-s1.md`, `kickoff-s2b.md`, `kickoff-s10.md`,
+ * `kickoff-r1.md`. A multi-stage umbrella dispatches these, each a dispatch input in
+ * exactly the sense `kickoff.md` is — and until 2026-08-12 this test resolved the literal
+ * `kickoff.md` per dir, so every stage kickoff went uncited-unchecked.
+ *
+ * The `<letter><digit>` core is what keeps sidecars out: `kickoff-amendments.md` (an audit
+ * trail extracted from a kickoff's §12 to clear the 600-line gate) and
+ * `kickoff-s4.decisions.md` (an owner-fork log) are records ABOUT a stage, carrying no
+ * worker instructions, so the §3 citation obligation does not apply to them. `.gitignore`
+ * draws the same line — the stage family is un-ignored by glob (`kickoff-s*.md`,
+ * `kickoff-r*.md`), the amendments sidecar one-off by exact name. The trailing
+ * `[a-z0-9]*` (not `.*`) is what rejects the dotted sidecar.
+ *
+ * Mirrors the `case` arms in .claude/hooks/check-kickoff-traps.sh — the edit-time twin of
+ * this gate. The two must agree on what a kickoff IS.
+ */
+const STAGE_KICKOFF_RE = /^kickoff-[a-z]\d[a-z0-9]*\.md$/;
+
+/**
+ * Sandbox dirs written by the sibling hook suite
+ * (packages/core/hooks/check-kickoff-traps.test.ts `writeKickoffNamed`, which mkdtemps
+ * `c2-test-*` under the REAL orchestrator-prompts dir because the hook matches on the
+ * absolute path's suffix). Its fixtures are DELIBERATELY uncited — that is what the
+ * paired-negatives assert — so when the two suites run concurrently this gate would flag
+ * another test's scratch files as umbrella violations.
+ *
+ * This is a PRE-EXISTING leak, not one the stage-kickoff widening introduced: an uncited
+ * `kickoff.md` inside a `c2-test-` sandbox dir trips this gate under the old population
+ * definition too (verified 2026-08-12 by writing exactly that file and watching it go RED).
+ * The widening
+ * enlarges the window — more fixture files per run — so the flake is fixed here rather than
+ * left to timing.
+ */
+const TEST_SANDBOX_RE = /^c2-test-/;
 
 function getKickoffEntries(): KickoffEntry[] {
   if (!existsSync(KICKOFFS_DIR)) return [];
-  return readdirSync(KICKOFFS_DIR, { withFileTypes: true })
-    .filter((e) => e.isDirectory())
-    .map((e) => ({
-      dir: e.name,
-      path: resolve(KICKOFFS_DIR, e.name, 'kickoff.md'),
-    }))
-    .filter((e) => existsSync(e.path))
-    .sort((a, b) => a.dir.localeCompare(b.dir));
+  const entries: KickoffEntry[] = [];
+  for (const d of readdirSync(KICKOFFS_DIR, { withFileTypes: true })) {
+    if (!d.isDirectory()) continue;
+    if (TEST_SANDBOX_RE.test(d.name)) continue;
+    const waveDir = resolve(KICKOFFS_DIR, d.name);
+    let files: string[];
+    try {
+      files = readdirSync(waveDir);
+    } catch {
+      continue; // unreadable dir (broken coordination symlink) — not a citation violation
+    }
+    for (const file of files.sort()) {
+      if (file !== 'kickoff.md' && !STAGE_KICKOFF_RE.test(file)) continue;
+      const path = resolve(waveDir, file);
+      if (!existsSync(path)) continue;
+      entries.push({
+        dir: d.name,
+        file,
+        path,
+        label: file === 'kickoff.md' ? d.name : `${d.name}/${file}`,
+      });
+    }
+  }
+  return entries.sort((a, b) => a.label.localeCompare(b.label));
 }
 
 // Population sentinel bound: catch a runaway-glob explosion (absurd count), NOT
@@ -147,10 +204,10 @@ describe('Principle 12 — every kickoff.md cites ai-laziness-traps rule', () =>
     () => {
       const entries = getNonExemptEntries();
       const violations: string[] = [];
-      for (const { dir, path } of entries) {
+      for (const { label, path } of entries) {
         const content = readFileSync(path, 'utf8');
         if (!passesCompoundCheck(content)) {
-          violations.push(dir);
+          violations.push(label);
         }
       }
       expect(
@@ -168,7 +225,9 @@ describe('Principle 12 — every kickoff.md cites ai-laziness-traps rule', () =>
       // migration transitional) — there an exempt dir is legitimately absent. Only run
       // the stale-check when the set is at least as large as the exempt list, i.e. when
       // an exempt dir SHOULD be present. (SSOT #116 few-plans-safety.)
-      const allDirs = getKickoffEntries().map((e) => e.dir);
+      // DISTINCT dirs — a multi-stage umbrella now contributes several entries for one
+      // dir, and counting them would inflate the "back-catalog is present" proxy below.
+      const allDirs = [...new Set(getKickoffEntries().map((e) => e.dir))];
       if (allDirs.length < EXEMPT_LIST.length) return;
       for (const exemptDir of EXEMPT_LIST) {
         expect(
@@ -216,6 +275,40 @@ describe('Principle 12 — every kickoff.md cites ai-laziness-traps rule', () =>
     expect(passesCompoundCheck('Active traps: **T1**, **T3**, **T7**')).toBe(true);
     expect(passesCompoundCheck('Active traps for this R-phase: T1, T3, T7')).toBe(true);
     expect(passesCompoundCheck('Domain trap: T-WAVE9-A captures specific failure')).toBe(true);
+  });
+
+  it('stage-kickoff pattern admits the dispatch family and rejects sidecars', () => {
+    // Both directions, because "widen the glob" fails as easily by over-reach as by
+    // under-reach. The IN list is every live shape in .claude/orchestrator-prompts/;
+    // the OUT list is the sidecars + the wave-dir artefacts that share the prefix.
+    for (const name of [
+      'kickoff-s0.md', 'kickoff-s1.md', 'kickoff-s2b.md', 'kickoff-s10.md', 'kickoff-r1.md',
+    ]) {
+      expect(STAGE_KICKOFF_RE.test(name), `${name} should be IN scope`).toBe(true);
+    }
+    for (const name of [
+      'kickoff-s4.decisions.md', // owner-fork log — a record ABOUT a stage
+      'kickoff-amendments.md', // audit trail extracted to clear the 600-line gate
+      'kickoff.md', // the umbrella kickoff — matched separately, not by this pattern
+      'done.md',
+      'report.md',
+      'kickoff-s1.md.bak',
+      'notes-kickoff-s1.md', // anchored: the prefix must start the basename
+    ]) {
+      expect(STAGE_KICKOFF_RE.test(name), `${name} should be OUT of scope`).toBe(false);
+    }
+  });
+
+  it('the sandbox exclusion is narrow: only the sibling suite prefix, never a real umbrella', () => {
+    // Over-broad exclusion is the dangerous direction — it would silently un-gate real
+    // umbrellas. Pin both sides.
+    expect(TEST_SANDBOX_RE.test('c2-test-Ab12Cd')).toBe(true);
+    for (const dir of [
+      'triage-kernel-v2', 'beta-delivery-ux', 'modular-install-fullpack',
+      'c2-something-real', 'my-c2-test-umbrella',
+    ]) {
+      expect(TEST_SANDBOX_RE.test(dir), `${dir} must stay gated`).toBe(false);
+    }
   });
 
   it.skipIf(!KICKOFFS_AVAILABLE)(
