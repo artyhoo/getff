@@ -30,34 +30,58 @@ question above the reviewer), operator-floor (only the project owner can settle 
 Answer with EXACTLY one line and nothing else:
 class=<MATERIAL|IMMATERIAL> layer=<idea|design|architecture|plan|implementation> whose=<reviewer|advisor|operator-floor>`;
 
-const args = process.argv.slice(2);
-const [csv, out] = args;
-const flag = (name, dflt) => (args.indexOf(name) > 0 ? args[args.indexOf(name) + 1] : dflt);
-if (!csv || !out) { console.error('usage: triage-s0-run.mjs <corpus.csv> <out.json> [--model m] [--concurrency n]'); process.exit(2); }
-const model = flag('--model', 'sonnet');
-const concurrency = Number(flag('--concurrency', '5'));
+/** Build the per-row judge prompt from a row + the active rubric text. Exported so the
+ *  S2 blindness check (scripts/triage-s2-labels-check.mjs arm B) can prove the payload carries
+ *  no forbidden field. Byte-equivalent to the inline template this replaces. */
+export function buildPayload(row, rubric) {
+  return `${rubric}\n\nContext (mechanical provenance only): ${row.context}\nFinding: ${row.finding}`;
+}
 
-const judge = (row) => new Promise((resolve) => {
-  const prompt = `${RUBRIC}\n\nContext (mechanical provenance only): ${row.context}\nFinding: ${row.finding}`;
-  execFile('claude', ['-p', '--model', model, '--allowedTools', '', '--strict-mcp-config', prompt],
-    { maxBuffer: 1 << 20 }, (err, stdout) => {
-      const raw = (stdout || '').trim();
-      const m = /class=(MATERIAL|IMMATERIAL)\s+layer=([a-z]+)\s+whose=([a-z-]+)/u.exec(raw);
-      resolve({ id: row.id, raw, class: m?.[1] ?? null, layer: m?.[2] ?? null, whose: m?.[3] ?? null, error: err ? String(err.message).slice(0, 120) : null });
-    });
-});
+// Main execution guard — without this, importing buildPayload would trigger the runner's
+// argv parsing, file reads, and judge loop. Same pattern as triage-corpus-probe.mjs:119.
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const args = process.argv.slice(2);
+  const [csv, out] = args;
+  const flag = (name, dflt) => (args.indexOf(name) > 0 ? args[args.indexOf(name) + 1] : dflt);
+  if (!csv || !out) { console.error('usage: triage-s0-run.mjs <corpus.csv> <out.json> [--model m] [--concurrency n] [--rubric file] [--rater name]'); process.exit(2); }
+  const model = flag('--model', 'sonnet');
+  const concurrency = Number(flag('--concurrency', '5'));
+  const rubricFile = flag('--rubric', null);
+  const raterName = flag('--rater', null);
+  const activeRubric = rubricFile ? readFileSync(rubricFile, 'utf8') : RUBRIC;
+  process.stderr.write(`mode=${raterName ? `rater=${raterName}` : 'default'}${rubricFile ? ` rubricSource=${rubricFile}` : ''}\n`);
 
-const rows = parseCsv(readFileSync(csv, 'utf8'));
-const results = [];
-let next = 0;
-await Promise.all(Array.from({ length: concurrency }, async () => {
-  while (next < rows.length) {
-    const row = rows[next]; next += 1;
-    const r = await judge(row);
-    results.push(r);
-    process.stderr.write(`${results.length}/${rows.length} ${r.id} ${r.class ?? 'UNPARSED'}\n`);
-  }
-}));
-results.sort((a, b) => rows.findIndex((r) => r.id === a.id) - rows.findIndex((r) => r.id === b.id));
-writeFileSync(out, `${JSON.stringify({ candidate: 'C1', model, rubric: RUBRIC, results }, null, 1)}\n`);
-console.log(`C1 (${model}): ${results.filter((r) => r.class).length}/${rows.length} parsed -> ${out}`);
+  const judge = (row) => new Promise((resolve) => {
+    const prompt = buildPayload(row, activeRubric);
+    execFile('claude', ['-p', '--model', model, '--allowedTools', '', '--strict-mcp-config', prompt],
+      { maxBuffer: 1 << 20 }, (err, stdout) => {
+        const raw = (stdout || '').trim();
+        const m = /class=(MATERIAL|IMMATERIAL)\s+layer=([a-z]+)\s+whose=([a-z-]+)/u.exec(raw);
+        resolve({ id: row.id, raw, class: m?.[1] ?? null, layer: m?.[2] ?? null, whose: m?.[3] ?? null, error: err ? String(err.message).slice(0, 120) : null });
+      });
+  });
+
+  const rows = parseCsv(readFileSync(csv, 'utf8'));
+  const results = [];
+  let next = 0;
+  await Promise.all(Array.from({ length: concurrency }, async () => {
+    while (next < rows.length) {
+      const row = rows[next]; next += 1;
+      const r = await judge(row);
+      results.push(r);
+      process.stderr.write(`${results.length}/${rows.length} ${r.id} ${r.class ?? 'UNPARSED'}\n`);
+    }
+  }));
+  results.sort((a, b) => rows.findIndex((r) => r.id === a.id) - rows.findIndex((r) => r.id === b.id));
+  // Artifact metadata. Default (no flags) is byte-identical to the S0 output: same keys, same
+  // order, same values (candidate:'C1', rubric:RUBRIC, no rubricSource). --rater replaces the
+  // candidate key with a truthful rater key; --rubric swaps the rubric bytes and records the source.
+  const meta = raterName ? { rater: raterName } : { candidate: 'C1' };
+  meta.model = model;
+  meta.rubric = activeRubric;
+  if (rubricFile) meta.rubricSource = rubricFile;
+  writeFileSync(out, `${JSON.stringify({ ...meta, results }, null, 1)}\n`);
+  const seatLabel = raterName || 'C1';
+  console.log(`${seatLabel} (${model}): ${results.filter((r) => r.class).length}/${rows.length} parsed -> ${out}`);
+}
+
