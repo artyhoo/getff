@@ -128,6 +128,87 @@ EOF
 RC_E=$?
 [ "$RC_E" -eq 2 ] || fail "no-contract fixture: expected exit 2 (fail-closed); got $RC_E"
 
+# ── fixture F — NEGATIVE: two sibling areas under one shared prefix ───────────
+# The area-granularity regression test. Before 2026-08-16 `to_area()` normalised every
+# `docs/**` path to two segments, so naming ANY file under `docs/meta-factory` marked the
+# whole prefix covered and this fixture emitted `Candidates: 0`. That false negative is
+# how triage-kernel-v2 S4b (PR #1400) shipped a research patch with no `<!-- scope: -->`
+# line past four §7 host-verify lines and a cold fidelity GO.
+cat > "$TMP/siblingareas.md" <<'EOF'
+# fixture — two permitted areas share a prefix; the contract names only one
+
+## §2 Permitted files
+
+- `docs/meta-factory/triage-corpus/s2-labels.csv` — asserted below.
+- `docs/meta-factory/research-patches/2026-08-09-contract-deliverable-coverage.md` — not.
+
+## §3 Acceptance
+
+```bash host-verify
+test -f docs/meta-factory/triage-corpus/s2-labels.csv
+```
+EOF
+
+OUT_F="$("$SCRIPT" "$TMP/siblingareas.md" 2>&1)"
+printf '%s\n' "$OUT_F" | grep -qx 'CANDIDATE: docs/meta-factory/research-patches — permitted, named by no declared command' \
+  || fail "sibling-areas fixture: a permitted area sharing a prefix with a named one must
+still be a candidate — this is the S4b false negative; got:
+$OUT_F"
+printf '%s\n' "$OUT_F" | grep -qx 'Candidates: 1' \
+  || fail "sibling-areas fixture: expected exactly 1 candidate; got:
+$(printf '%s\n' "$OUT_F" | grep '^Candidates:')"
+
+# ── fixture G — POSITIVE pair for F: name both areas, get nothing ─────────────
+# Identical allowlist, second command added. Proves F's flag tracks the contract rather
+# than the deeper granularity flagging both prefixes unconditionally.
+cat > "$TMP/siblingcovered.md" <<'EOF'
+# fixture — both permitted areas named by the contract
+
+## §2 Permitted files
+
+- `docs/meta-factory/triage-corpus/s2-labels.csv`
+- `docs/meta-factory/research-patches/2026-08-09-contract-deliverable-coverage.md`
+
+## §3 Acceptance
+
+```bash host-verify
+test -f docs/meta-factory/triage-corpus/s2-labels.csv
+test -f docs/meta-factory/research-patches/2026-08-09-contract-deliverable-coverage.md
+```
+EOF
+
+OUT_G="$("$SCRIPT" "$TMP/siblingcovered.md" 2>&1)"
+printf '%s\n' "$OUT_G" | grep -qx 'Candidates: 0' \
+  || fail "sibling-covered fixture: expected 0 candidates; got:
+$OUT_G"
+
+# ── fixture H — the floor is the DIRECTORY, not the file (epilogue class (b)) ──
+# A permitted file counts as covered by a command naming a SIBLING file in the same
+# directory. This is a known false negative, recorded in the emitter's epilogue, NOT an
+# accident: subtracting at file granularity was replayed over the cohort at 6.65 flags/file
+# (vs 4.59) and flagged deliverables the declared commands demonstrably produce. The test
+# pins it so a future "fix" has to argue with the measurement instead of silently
+# tripling the noise.
+cat > "$TMP/samedir.md" <<'EOF'
+# fixture — permitted file, sibling file named
+
+## §2 Permitted files
+
+- `docs/meta-factory/prior-art-evaluations.md` — no command names this file.
+
+## §3 Acceptance
+
+```bash host-verify
+test -f docs/meta-factory/EXECUTION-PLAN.md
+```
+EOF
+
+OUT_H="$("$SCRIPT" "$TMP/samedir.md" 2>&1)"
+printf '%s\n' "$OUT_H" | grep -qx 'Candidates: 0' \
+  || fail "same-dir fixture: the area floor is the containing directory, so a sibling file
+must count as covered (epilogue false-negative class (b)); got:
+$OUT_H"
+
 # ── incident replay — the real kickoff, not a fixture (T2: run it) ────────────
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 REAL="$REPO_ROOT/.claude/orchestrator-prompts/getff-freshness-widening-s1/kickoff.md"
