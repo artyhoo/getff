@@ -169,7 +169,19 @@ For **whose** the majority bar is `reviewer` at 136/151 = 90.1% — see §3.7.
 
 ### §3.4 C1 — per-row rubric judge
 
-One fresh `claude -p` per row, no tools, no session state, mid tier — the S2 shape. Rubric = the
+One fresh `claude -p` per row, no tools, no session state — the S2 shape.
+
+**The judge model is `sonnet`, named explicitly, and it is not a tier choice.** Run
+`--model sonnet`, exactly as S2's cold rater did (`s2-cold-sonnet.json`, 151 calls). Do NOT
+substitute a stronger model, and do not resolve this from the project's tier vocabulary: in the
+operator's model ladder «mid tier» denotes the *verifier* seat, which is a different model from
+the sonnet rater whose labels this corpus was built with. Substituting breaks §3.6: the whole
+confounding analysis — and the 29-row unconfounded slice that answers it — rests on C1 sharing
+BOTH the rubric AND the model family with the S2 rater. A different model changes what the slice
+means, silently, and nothing in the arms would catch it. Changing the judge model is a PARK for
+the operator, not an upgrade. The same holds for C2 (§3.5).
+
+Rubric = the
 **shipping** rubric: the S0 binding yardstick + four-test card + premise-11 layer question, with
 the whose question in its S2 re-cut form ([s2-rubric-whose.md](../../../docs/meta-factory/triage-corpus/s2-rubric-whose.md)).
 Output contract: exactly one line, `class=<...> layer=<...> whose=<...>` (design §4). Unparsed
@@ -179,7 +191,9 @@ re-run is a PARK.
 ### §3.5 C2 — grouped self-review pass
 
 A producer-shaped seat re-grades a whole finding LIST at once (rows grouped by source loop — the
-shim groups; ~15-25 grouped calls). Measured **as delta over C1**, never as a standalone winner:
+shim groups; ~15-25 grouped calls), on the **same `--model sonnet`** as C1 (§3.4) — C2 is measured
+as a delta over C1, and a delta across two different models measures the model, not the layer.
+Measured **as delta over C1**, never as a standalone winner:
 the question C2 answers is «does a second pass add accuracy worth its cost?» (design §4). Report
 the delta with its cost in calls, and state plainly if the delta is inside the noise floor.
 
@@ -430,6 +444,8 @@ the PR body.
 - A candidate output that will not parse after a re-run, or parses outside the §3.4 enums.
 - A truth row that looks wrong (T-TK4-A) — report it, never edit it.
 - Any temptation to re-cut the whose axis, redefine C0, or drop rows from the scored subset.
+- Any reason to run C1 or C2 on a model other than `sonnet` (§3.4) — including «the stronger
+  model was available» or a tier-vocabulary reading. Park it; do not upgrade the judge.
 - The class-axis result lands ambiguously (e.g. beats C0 on accuracy but increases MATERIAL-miss).
   Report both legs and park the ship/no-ship call — D-K5 needs both, and the call is the
   operator's.
