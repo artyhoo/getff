@@ -82,6 +82,14 @@ Say this in the PR body; do not treat the rule edit as routine.
 - `.claude/rules/reviewer-discipline.md` — the compact triage-rubric block inside §6 (§3.1).
 - `agents/fidelity-auditor.md` — one reference line from its severity-contract paragraph
   (`agents/fidelity-auditor.md:91`) to the new §6 block.
+- `agents/reviewer-discipline.md` — one condensed pointer line beside its severity-contract
+  condensation (`agents/reviewer-discipline.md:37`). Load-bearing, not optional:
+  `reviewer-discipline.md:20` designates this twin as the rule's **run-moment** protocol
+  («a review session should read it at review time»), so a block that lands only in the rule
+  never reaches live review sessions — the primary consumer spec §8.1 names (r1 cold-review
+  MAJOR-2).
+- `.claude/skills/reviewer/SKILL.md` — one pointer line at its materiality-dispute step
+  (the advisor-facing consumer spec `:337-341` names). Same r1 MAJOR-2 ground.
 - `docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md` — status-header flip +
   landing record (§3.3). No other spec section may be rewritten.
 - `.claude/rules/00-rule-index.md` — **only if** the reviewer-discipline digest row changes;
@@ -95,6 +103,11 @@ Say this in the PR body; do not treat the rule edit as routine.
   a bench number moves. The provenance labels cite these; they do not edit them.
 - Any repair of drift-register rows — separate umbrella (§0b).
 - Anything under `packages/` except running its test suites.
+- **No new research patch** (r1 notes-lane N3, decided here rather than left to the
+  executor): S5's landing record is the spec status header plus the PR body. If
+  `/self-reflection` (§3.4) concludes a research patch is genuinely owed, that is an ASK,
+  never a silent create — §7 line 3 treats any diff under
+  `docs/meta-factory/research-patches/` as RED by construction.
 
 ## §3 Method
 
@@ -127,19 +140,27 @@ The block is Class-C prose injection: channel = the reviewer-discipline rule + a
 protocols (spec §6's own channel declaration). `promptfoo` never enters CI
 ([no-paid-llm-in-ci.md](../../rules/no-paid-llm-in-ci.md) holds).
 
-### §3.2 The fidelity-auditor reference
+### §3.2 The consumer references (three, one line each)
 
-One line at the severity-contract paragraph pointing to the §6 rubric block, so a cold
-fidelity seat applies the same three-axis triage with the same provenance caveats. No
-protocol restructuring — the auditor's own grammar is untouched.
+One line per consumer pointing to the §6 rubric block, so every run-moment seat applies the
+same three-axis triage with the same provenance caveats: `agents/fidelity-auditor.md:91`
+(cold PR-boundary auditor), `agents/reviewer-discipline.md:37` (the run-moment twin live
+review sessions actually read — `reviewer-discipline.md:20`), and the
+`.claude/skills/reviewer/SKILL.md` materiality-dispute step (the advisor-facing path). No
+protocol restructuring anywhere — each consumer's own grammar is untouched; a pointer, not
+a copy (one SSOT for the block).
 
 ### §3.3 Spec status flip
 
 Replace the `GATED-GO, probe-first` status header with a landing record: measured S0-S4b,
 per-axis outcome (layer deployed `corpus-measured`; class = measured null, C0 remains the
 bar; whose `judgment-only`; C2 step not deployed), pointer to both research patches and to
-the ratified 2026-08-16 operator fork. §8's post-landing applications and D-K7's falsifier
-stay live — the status flip closes the *measurement* contour, not the ideas.
+the ratified 2026-08-16 operator fork. The record MUST state in one clause that **spec §6's
+«if C1 wins on the class axis» condition did NOT fire and deployment rests on that operator
+fork** (r1 notes-lane N1 — §6 itself stays unedited, so the header is the only place a
+reader learns the conditional was overridden, not satisfied). §8's post-landing applications
+and D-K7's falsifier stay live — the status flip closes the *measurement* contour, not the
+ideas.
 
 ### §3.4 `/self-reflection`
 
@@ -149,11 +170,15 @@ explicitly; it is not optional hygiene.
 
 ## §4 Deliverables
 
-The single-concern landing PR to `staging`: reviewer-discipline §6 block + fidelity-auditor
-reference + spec status flip + (conditionally) regenerated rule index, with the FIDELITY
-block in the PR body. PR-body gate traps unchanged from S4b §7: dry-run `checkPrBodyFidelity`
-and the `discipline-self-check.yml:102` awk extractor before `gh pr edit`; `Round:` bare
-digits; `Audited-SHA` must prefix the head SHA.
+The single-concern landing PR to `staging`: reviewer-discipline §6 block + the three §3.2
+consumer references + spec status flip + (conditionally) regenerated rule index, with the
+FIDELITY block in the PR body. PR-body gate traps unchanged from S4b §7: dry-run
+`checkPrBodyFidelity` and the `discipline-self-check.yml:102` awk extractor before
+`gh pr edit`; `Round:` bare digits; `Audited-SHA` must prefix the head SHA. Commit trailer
+(r1 notes-lane N4): every edited file is markdown, so the CLAUDE.md documentation carve-out
+applies — use the escape hatch verbatim:
+`Prior-art: skipped — landing-stage protocol prose, no new capability` (≥20 chars, the
+pre-push hook checks it).
 
 ## §5 Inputs (read scope)
 
@@ -173,6 +198,13 @@ needed; S5 runs on the host.
   kickoff writes `file.ext:line`; a stale comment at `scripts/triage-s4b-outcomes.mjs:60`.
   None are S5 obligations — name them in the PR notes lane if adjacent, else leave recorded
   here.
+- **C2 output-contract gap, ratified post-hoc (S4 report `:137-139`, PARK-shaped note
+  addressed to S5 by name):** kickoff-s4 §3.5 specified no C2 output contract; the
+  frozen-search parse semantics were adopted during S4 and ratified in the report
+  (`scripts/triage-kernel-v2-bench/run.mjs` `parseC2Group` doc comment). S5 inherits this as
+  a *recorded* ratification, not as an up-front spec — irrelevant to the shipped block (no
+  C2 surface deploys, §0) but named here so the umbrella's last recording surface before
+  `done.md` carries it (r1 notes-lane N2).
 - **GAP-FOUND (S4 backward-check), observation only:** `scripts/triage-s0-score.mjs:83` and
   `scripts/triage-s3-agreement.mjs:136` reconcile no report number;
   `docs/meta-factory/triage-corpus/README.md` is read by no script and no principle. A
@@ -213,7 +245,7 @@ round before handoff. T20: the PR body quotes the report lines it relies on. Dom
 ```bash host-verify
 npm run --prefix packages/core test:principles
 node scripts/triage-s4-score.mjs --check
-node scripts/triage-s4b-outcomes.mjs --check
+git diff --quiet "$(git merge-base origin/staging HEAD)" -- docs/meta-factory/triage-corpus docs/meta-factory/research-patches 'scripts/triage-*'
 ```
 
 Line 1 is **binding** (router §2 route rule 4, PR #1401): S4b shipped a principle-10 red past
@@ -221,8 +253,19 @@ seven arms, four §7 lines and a cold fidelity GO — the K4 emitter cannot subs
 (`scripts/host-verify-coverage.sh:145` collapses `docs/**` to two segments). It also carries
 the doc-authority principle over the edited rule and spec headers. Line 2 re-runs S4's arms —
 RED if any bench number this stage quotes moved underneath it, which turns the §3.1 citation
-integrity from prose into a gate on the report side. Line 3 does the same for the S4b
-artifacts. What no line gates, stated plainly: whether the *shipped block's* labels match §0
+integrity from prose into a gate on the report side. Line 3 asserts the S5 branch touches
+**no frozen triage artifact at all** — the corpus directory, both research patches (and any
+new one, enforcing §2's no-new-patch rule), and every `triage-*` script including the bench
+directory; exit 1 on any diff. The merge-base-vs-worktree form is deliberate: the
+three-dot commit form (`origin/staging...HEAD`) ignores uncommitted edits — measured
+RED/GREEN on 2026-08-17 (synthetic corpus edit: three-dot exit 0, merge-base form exit 1;
+restored, exit 0). **Deliberately NOT `node scripts/triage-s4b-outcomes.mjs
+--check`** (r1 cold-review BLOCKER-1): that checker's arm G is a branch-diff containment
+check against *S4b's* own permitted set (`scripts/triage-s4b-outcomes.mjs:41-48`), so it
+REDs on every legitimate S5 edit by construction — measured live: two out-of-set files →
+`FAIL — 2 red, 6 ok`. Running it here would train the executor to waive a red contract
+(`#silent-contract-skip`). Its S4b-artifact-immutability half is exactly what line 3 asserts
+directly. What no line gates, stated plainly: whether the *shipped block's* labels match §0
 and its quotes match the frozen rubric is judgment — carried by the cold fidelity round
 (T19), not by a syntactic check
 ([attention-is-not-a-mechanism.md §1](../../rules/attention-is-not-a-mechanism.md): the round
