@@ -61,7 +61,7 @@ exists. Repair of what S4b finds is a **separate umbrella**, never folded into e
 | **B** | *After S4 merges:* cold review of [kickoff-s4b.md](kickoff-s4b.md) → dispatch S4b to aif → **host** harvests | same |
 | **C** | Synthesis of both axes → S5 landing PR | top tier (synthesis is its role) |
 
-Three rules this route encodes, each with its reason:
+Four rules this route encodes, each with its reason:
 
 1. **A cold seat reads each stage kickoff before its dispatch.** Not ceremony: S4's kickoff shipped
    with the judge model given as a tier word, which resolved to the wrong model and which **no
@@ -76,6 +76,21 @@ Three rules this route encodes, each with its reason:
    runtime — ratified in #1335, `runtimeProfileId` / `modelOverride` stay unset. Its role in this
    umbrella is session C: synthesising what the factory measured. Re-opening this per stage is
    explicitly out of scope.
+4. **S5's kickoff MUST put `npm run --prefix packages/core test:principles` in its own §7
+   host-verify block** (and any later stage of this umbrella that creates or edits a file under
+   `docs/meta-factory/research-patches/` inherits the obligation). Not belt-and-braces — a
+   measured hole: S4b (#1400) shipped its drift register opening with an H1 instead of principle
+   10's `<!-- scope:<slug> -->` first line, and **all seven S4b arms, all four §7 lines and a cold
+   fidelity GO passed over the red**. It was caught only by a hand-run of the suite and fixed in
+   `c86a12d72f`. The existing emitter cannot substitute for the line: `scripts/host-verify-coverage.sh:145`
+   normalises every `docs/**` path to a two-segment area, so naming one
+   `docs/meta-factory/triage-corpus/*.csv` file already marks `docs/meta-factory` covered and the
+   research-patch half stays invisible — the `#contract-that-cannot-fail` shape
+   ([destination-environment-verification.md §4](../../rules/destination-environment-verification.md)).
+   Second, smaller: `markdownlint` runs **only at pre-commit**, so a container-authored markdown
+   file meets it for the first time when the host re-stages it — run
+   `npx markdownlint-cli2 <new .md files>` before harvest rather than discovering MD040 at commit
+   time.
 
 **Judge model ≠ executor tier.** Inside the bench, C1 and C2 run on `--model sonnet`, pinned by
 name because the corpus's cold rater was sonnet ([kickoff-s4.md](kickoff-s4.md) §3.4). That is a
