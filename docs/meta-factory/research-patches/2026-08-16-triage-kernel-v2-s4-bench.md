@@ -1,3 +1,5 @@
+<!-- scope:triage-kernel-v2-s4-bench -->
+
 # triage-kernel-v2 S4 bench — C0/C1/C2 vs s3-final (2026-08-16)
 
 > Stage S4 of the [triage-kernel-v2 router](../../../.claude/orchestrator-prompts/triage-kernel-v2/kickoff.md)
