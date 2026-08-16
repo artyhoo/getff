@@ -155,9 +155,41 @@ bench and not in the frozen rater; no current label is affected. Neither regex c
 
 ## Outcome axis (filled by S4b)
 
-Reserved: [kickoff-s4b](../../../.claude/orchestrator-prompts/triage-kernel-v2/kickoff-s4b.md)
-walks the same 151 rows against the live repository tree — the anchor this bench does not
-have. This report makes no outcome-axis claim.
+Filled 2026-08-16 by [S4b's drift register](2026-08-16-triage-kernel-v2-s4b-outcome-audit.md)
+— what the repository actually did about each of the 151 rows, established by 30 auditor seats
+against the live tree. Cross-tab of this bench's `class_final` × S4b's outcome, denominators
+stated:
+
+| `class_final` × outcome | HOLDS | DRIFTED | NEVER-DONE | MOVED | DECLINED | UNVERIFIABLE | n |
+|---|---|---|---|---|---|---|---|
+| MATERIAL | 102 | 0 | 1 | 8 | 0 | 0 | 111 |
+| IMMATERIAL | 37 | 0 | 2 | 0 | 1 | 0 | 40 |
+| all rows | 139 | 0 | 3 | 8 | 1 | 0 | 151 |
+
+**The agreement this axis does support:** a MATERIAL row that is DRIFTED or NEVER-DONE with
+`cost=VISIBLE` would be judgment corroborated by consequence — count **0** (no row anywhere
+carried `cost=VISIBLE`). An IMMATERIAL row that is NEVER-DONE with `cost=NONE-FOUND` is judgment
+corroborated by absence of consequence — count **2** (`1346-r1-1`, `1358-r3-1`).
+
+**The inference it does NOT support.** `cost=NONE-FOUND` — including on the one MATERIAL
+NEVER-DONE row (`1311-r1-5`) — is **not** evidence the label was wrong, for three reasons: the
+cost may not have surfaced yet; the inverse population (defects never raised) is out of reach of
+any such corpus (design §5b.3); and a visible cost leaves a written trace only when someone
+happened to write one. Reading NONE-FOUND as falsification is this stage's own worst failure
+mode (T-TK4b-B).
+
+**Survivorship, named:** the corpus is drawn from findings on PRs that were reviewed and merged,
+so HOLDS is the expected majority — 139 of 151 is a property of the population, not a grade for
+the project.
+
+**Disagreement with `class_final`:** 0 rows under the mechanical definition (IMMATERIAL ∧
+`cost=VISIBLE`, or MATERIAL ∧ DECLINED). Where outcome and label disagree, the disagreement is
+published in the register — `s3-final.csv` is untouched (arm F, blob hash).
+
+**No statistical test on this axis.** Counts and rates with denominators only: a κ between a
+judgment axis and an outcome axis would imply they measure the same construct; they do not. This
+bench's verdicts (§0b: both candidates DOES-NOT-SHIP on class) stand on the judgment axis alone;
+the outcome axis annotates, it does not re-score.
 
 ## Self-application (T15)
 
