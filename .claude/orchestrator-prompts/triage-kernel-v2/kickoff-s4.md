@@ -4,7 +4,9 @@
 > by a session that did not execute S3 (kickoff-s1/s2/s3 §8/§5 chain). Protocol authority: design
 > spec [§4 · §5 · §5b · §9 · D-K3/D-K5/D-K8](../../../docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md)
 > — this kickoff instantiates it and never redefines it. Rigor label (L0): `research-grade`
-> (design §1). Executor tier: **mid** (design §9). Routing: **factory (aif) or session** — §9
+> (design §1). Executor tier: **mid** (design §9) — that is the routing tier for the seat that runs
+> this stage, **not** a judge-model instruction; the judge model is pinned by name at §3.4 and the
+> tier vocabulary must not be used to resolve it. Routing: **factory (aif) or session** — §9
 > below is live only for the factory route.
 
 ## §0 Predecessor result (W-2 pattern — S3 as merged)
@@ -64,10 +66,17 @@ before that view exists. §3.8 reserves the report slot S4b fills; S4 does not w
 - Candidate raw artifacts under `docs/meta-factory/triage-corpus/`: `s4-c1-<model>.json`,
   `s4-c2-<model>.json` (raw per-row / per-group judge output with provenance stamps, same shape as
   `s2-cold-sonnet.json`).
-- `s4-bench.csv` — the per-row scored join (id · truth axes · C0 · C1 · C2 · scored-subset flags).
+- `docs/meta-factory/triage-corpus/s4-bench.csv` — the per-row scored join (id · truth axes · C0 ·
+  C1 · C2 · scored-subset flags). The path is explicit because arm D of the S2 gate resolves CSVs
+  from the corpus README's Files table; a bench CSV parked elsewhere is outside its reach.
+- The **built bench input** the shim produces (under `scripts/triage-kernel-v2-bench/`), stamped
+  with its own SHA-256 — arms B and H both address it, so it must be an artifact, not a temp file.
 - The bench report: `docs/meta-factory/research-patches/2026-08-<dd>-triage-kernel-v2-s4-bench.md`.
-- Corpus README **§S4 section** + its Files-table rows (the `rows=<n>` tokens are gated by
-  `triage-s2-labels-check.mjs` arm D — a new CSV without its token reddens the contract).
+- Corpus README **§S4 section** + its Files-table rows. Know exactly what gates this:
+  `triage-s2-labels-check.mjs` arm D iterates the **README's own table lines**
+  (`scripts/triage-s2-labels-check.mjs:140`), so it reddens when a **listed** CSV's `rows=<n>` token
+  disagrees with the file — and stays green on a CSV that was never listed at all. The
+  never-listed half is covered by arm A(c) below, not by arm D.
 
 **Edit:** `package.json` (the promptfoo devDependency + its lockfile) — this is the stage's
 capability commit, §3.1. `README.md` of the corpus, as above.
@@ -110,7 +119,8 @@ it wouldn't work" is not a fallback trigger; a pasted error is.
 2. A `Prior-art:` trailer in that commit's message body.
 3. A **new** SSOT row in [prior-art-evaluations.md](../../../docs/meta-factory/prior-art-evaluations.md)
    with `Verdict` + `Rationale` + `Trigger to revisit`. Highest existing id is **249**
-   (`grep -oE '^\| [0-9]{1,3} \|' docs/meta-factory/prior-art-evaluations.md | sort -n | tail -1`),
+   (`grep -oE '^\| [0-9]{1,4} \|' docs/meta-factory/prior-art-evaluations.md | tr -dc '0-9\n' | sort -n | tail -1`
+   — the `|` must be stripped before `sort -n`, or the sort is lexical and returns `| 99 |`),
    so this is **#250** — matching the router's `id ≥250`.
 4. The rationale MUST carry an explicit **T16 problem-class check against SSOT #53**, which
    already evaluated promptfoo and returned **BUILD** — for a *different* problem class
@@ -178,7 +188,9 @@ operator's model ladder «mid tier» denotes the *verifier* seat, which is a dif
 the sonnet rater whose labels this corpus was built with. Substituting breaks §3.6: the whole
 confounding analysis — and the 29-row unconfounded slice that answers it — rests on C1 sharing
 BOTH the rubric AND the model family with the S2 rater. A different model changes what the slice
-means, silently, and nothing in the arms would catch it. Changing the judge model is a PARK for
+means, silently. **Arm H (§3.9) closes this** — it compares `model` and the rubric bytes, which no
+other arm does; without it the only detection layer would be this paragraph being read.
+Changing the judge model is a PARK for
 the operator, not an upgrade. The same holds for C2 (§3.5).
 
 Rubric = the
@@ -190,22 +202,47 @@ re-run is a PARK.
 
 ### §3.5 C2 — grouped self-review pass
 
-A producer-shaped seat re-grades a whole finding LIST at once (rows grouped by source loop — the
-shim groups; ~15-25 grouped calls), on the **same `--model sonnet`** as C1 (§3.4) — C2 is measured
+A producer-shaped seat re-grades a whole finding LIST at once, on the **same `--model sonnet`** as
+C1 (§3.4) — C2 is measured
 as a delta over C1, and a delta across two different models measures the model, not the layer.
 Measured **as delta over C1**, never as a standalone winner:
 the question C2 answers is «does a second pass add accuracy worth its cost?» (design §4). Report
 the delta with its cost in calls, and state plainly if the delta is inside the noise floor.
 
+**The grouping key is `source` (PR# + round) — fixed here, not the executor's to invent.** Design
+§4 says «grouped by source loop» without naming a column; measured on the 151 labelable rows,
+`source` yields **41 groups**, sizes `19,18,12,10,10,9,7,6,5,5,5,4,3,3,3,3,3,2,2` then **22
+singletons**. Group size is the independent variable of this whole comparison, so the report states
+the group-size distribution beside the delta, and notes that a singleton «group» is C1 with a
+different prompt wrapper — the delta on the 22 singletons is reported separately from the delta on
+the 19 multi-row groups. Do not merge or split groups to hit a call-count target: that fits the
+experiment to a number. Arm A asserts the grouping.
+
 ### §3.6 Scoring, the acceptance rule, and the confounding S4 must measure
 
-Per axis, candidate vs truth on the scored subset: accuracy, per-class precision/recall, κ and
+**Population per axis — these differ, and conflating them silently invalidates a verdict.** The
+class axis is scored on the **C0 scored subset (n=131)**; layer and whose are scored on the **full
+labelable population (n=151)**, which is where their §3.3 bars are computed. Design §5 puts the
+subset restriction inside the class-axis bullet only («scored on `pr-body`/`review-report` rows
+only») and gives layer/whose no subset clause, so this is the spec's scoping, not a new one. The
+bars are NOT population-invariant: on the 131-row subset `implementation` is 74/131 = 56.5% and
+`reviewer` is 123/131 = 93.9%, against 53.0% and 90.1% on the 151. Scoring an axis on one
+population and comparing it to the other population's bar manufactures a ~3.5-3.9pp swing — inside
+the ±9pp minimum detectable difference this stage declares below. Arm A asserts the row count
+behind each per-axis number.
+
+Per axis, on its population above, candidate vs truth: accuracy, per-class precision/recall, κ and
 PABAK, and **MATERIAL-miss-among-raised-findings** (the honest name — §5b.3: this is measured only
 among findings that were RAISED; defects never raised are outside any such corpus).
 
 **Class axis — the shipping gate (D-K5).** A candidate ships only if (a) it beats C0 beyond the
 noise floor — the CI on the paired difference excludes zero, equivalently McNemar p < α; report
-the discordant-pair counts and the binomial CI; the rule FORM is statute, α is config — **and**
+the discordant-pair counts and the binomial CI; the rule FORM is statute, and **α is fixed here at
+0.05 two-sided for this stage** (design §5 calls α config and delegates the value; this kickoff is
+the artifact that sets it, so it is set — it is not the executor's to choose). Report the exact
+McNemar p and the 95% binomial CI on the discordant pairs so a different α can be re-judged from
+the report. The **layer** axis uses the same statistic at the same α — McNemar on per-row
+correctness, candidate vs its majority-class bar — **and**
 (b) it does not increase MATERIAL-miss relative to **C0's own miss-rate on the same scored
 subset** (0.319 per §3.3). Both legs, or it does not ship. At n=131 the minimum detectable
 difference is roughly ±9pp; say so.
@@ -262,17 +299,29 @@ mentions the pairing reads as if the bench were the whole answer.
 
 ### §3.9 Fail-closed arms — `scripts/triage-s4-score.mjs --check`
 
-Seven arms, exit 1 on any RED. These exist because the S2 round-1 review found the load-bearing
+Eight arms, exit 1 on any RED. These exist because the S2 round-1 review found the load-bearing
 defect class here: an artifact that is *written but never read* turns a mechanical claim into bare
 attention ([attention-is-not-a-mechanism.md §1](../../rules/attention-is-not-a-mechanism.md)).
 
-- **A — truth join.** Every scored row's truth comes from `s3-final.csv` by `id`; every scored row
-  has a matching **parsed** judge result in the candidate artifact; counts reconcile three ways
-  (population ∩ labelable = 151; scored subset = 131; candidate results = 151). A score with no
-  backing judge result is RED.
-- **B — blindness.** The built bench input carries no `class_start` / `orig_grade` / `*_cold` /
-  `*_final` key, and no surviving grade token (`BLOCKER|MAJOR|MINOR`) or finding-ID pattern in any
-  cell that reaches a judge. RED on any hit.
+- **A — truth join, per-axis population, grouping, and file registration.** Every scored row's truth
+  comes from `s3-final.csv` by `id`; every scored row has a matching **parsed** judge result in the
+  candidate artifact; counts reconcile three ways (population ∩ labelable = 151; scored subset =
+  131; candidate results = 151). A score with no backing judge result is RED. **Additionally:**
+  (a) every per-axis number the scorer emits carries its row count, and that count is **131 for
+  class** and **151 for layer and whose** (§3.6) — a number computed on the other population is RED;
+  (b) the C2 artifact enumerates its groups, the key is the `source` column, there are 41 groups,
+  and every labelable row appears in exactly one group; (c) every `s4-*.csv` and `s4-c*.json` under
+  `docs/meta-factory/triage-corpus/` has a README Files-table row — this is the half arm D of the
+  S2 gate cannot reach (see below).
+- **B — blindness, differentially, over the frozen builder.** Assert
+  `buildPayload(row) === buildPayload(row with every label-bearing field blanked)` for every
+  population row — the shape `scripts/triage-s2-labels-check.mjs:96-101` already implements against
+  `FORBIDDEN_PAYLOAD_FIELDS`; import it, extend the field list with every `*_cold` / `*_final` key,
+  and RED on any row where the two payloads differ. **Do not** implement this as a scan of the built
+  bench input: that artifact is produced by the shim the executor owns and may edit after the judges
+  have run, so a scan of it proves only that the shim is self-consistent right now. Additionally
+  re-scan the built input for surviving grade tokens (`BLOCKER|MAJOR|MINOR`) and finding-ID patterns
+  — the text path (§3.2), which the differential cannot see. RED on any hit.
 - **C — enum validity.** Every candidate `class` ∈ {MATERIAL, IMMATERIAL}, `layer` ∈ the 5-enum,
   `whose` ∈ the 3-enum. No nulls, no defaults, no hand-written labels.
 - **D — subset honesty.** The C0 scored subset is recomputed from `orig_grade != none` and equals
@@ -292,6 +341,14 @@ attention ([attention-is-not-a-mechanism.md §1](../../rules/attention-is-not-a-
   `Prior-art:` trailer half is already carried at push time by
   `packages/core/hooks/checks/prior-art.ts`. Both halves RED-able: a dependency without a register
   row, or a register row written while the dependency was dropped for the fallback.
+- **H — judge provenance.** Each `s4-c*-<model>.json` carries `model`, `rubric`, `rubricSource` and
+  `benchInputSha256`, the same stamp shape as `s2-cold-sonnet.json` (§2). RED unless `model` is
+  exactly `sonnet`, `rubric` is byte-identical to `s2-rubric-whose.md`, and `benchInputSha256`
+  equals a hash the scorer recomputes from the shim at check time. **This arm exists because §3.4
+  states the failure and then must close it:** substituting the judge model or lightly rewording the
+  rubric changes what §3.6's confounding analysis and its 29-row slice mean, silently, and arms A-G
+  compare no model name and no rubric text. Leaving that to the §9 park list would make bare
+  attention the detection layer ([attention-is-not-a-mechanism.md §1](../../rules/attention-is-not-a-mechanism.md)).
 
 ## §4 Deliverables
 
@@ -300,7 +357,11 @@ attention ([attention-is-not-a-mechanism.md §1](../../rules/attention-is-not-a-
 3. The bench report research patch (§3.8).
 4. Corpus README §S4 + Files-table rows with `rows=<n>` tokens.
 5. The capability commit (§3.1) — promptfoo devDep + `Prior-art:` + SSOT #250, one commit.
-6. A single-concern PR to `staging` with the FIDELITY block per the stage-PR contract.
+6. **(HOST, after harvest — NOT the factory executor; see §9)** A single-concern PR to `staging`
+   with the FIDELITY block per the stage-PR contract. Stated with its subject because §9 forbids
+   the executor from opening a PR by any route, and `gh` **is** authenticated in the container
+   today — an executor reading §4 as its definition of done could satisfy item 6 itself and
+   reproduce the S1 egress incident §9 records.
 
 ## §5 Inputs (read scope) — and what to probe rather than assume
 
@@ -378,12 +439,16 @@ node scripts/triage-s3-agreement.mjs --check
 node scripts/triage-s2-labels-check.mjs docs/meta-factory/triage-corpus/s2-labels.csv docs/meta-factory/triage-corpus/README.md docs/meta-factory/triage-corpus/s2-rubric-whose.md docs/meta-factory/triage-corpus/audit-1369.csv docs/meta-factory/triage-corpus/s4-round7.csv docs/meta-factory/triage-corpus/arch-reviews.csv docs/meta-factory/triage-corpus/kickoff-loops.csv docs/meta-factory/triage-corpus/td-m3.csv docs/meta-factory/triage-corpus/research-forks.csv
 ```
 
-Line 1 is the stage's own gate — arms A-G (§3.9) over S4's own deliverables, and it is the line
+Line 1 is the stage's own gate — arms A-H (§3.9) over S4's own deliverables, and it is the line
 that can actually go RED on an S4 defect: a score with no judge result, a leaked column, an
-out-of-enum output, a drifted subset, a report number that disagrees with its artifact, or an
-edited answer key. Line 2 re-runs S3's arms — RED if S4 disturbed the adjudication substrate.
-Line 3 re-runs the S2 gate over the union, which also reconciles the README `rows=` tokens for
-the **new** S4 CSVs via its arm D — RED if a new file lands without its count token.
+out-of-enum output, a drifted subset, an axis scored on the wrong population, an unregistered
+output file, a swapped judge model or reworded rubric, a report number that disagrees with its
+artifact, or an edited answer key. Line 2 re-runs S3's arms — RED if S4 disturbed the adjudication substrate.
+Line 3 re-runs the S2 gate over the union. Its arm D reconciles the README `rows=` tokens for CSVs
+the README **lists** — RED if a listed file's count token disagrees with the file. It does **not**
+detect a CSV that was never listed (the loop is driven by README table lines,
+`scripts/triage-s2-labels-check.mjs:140`), which is why arm A(c) carries that half; without it,
+skipping deliverable 4 outright would leave all three lines green.
 
 **Deliberately NOT copied from S2:** a contract line that cannot fail. Kickoff-s2 §7 lines 2 and 4
 could not go RED on any S2-permitted change, and S2 closed with that as an open
@@ -408,8 +473,11 @@ section, so its `Evidence:` citation must sit inside it; the `## Review findings
 
 ## §8 Budget + exit
 
-L4 budget: **2 rounds → ASK** (design §9). Order of magnitude: ~200-350 short calls — C1 ~151
-per-row, C2 ~15-25 grouped, C0 $0 deterministic — on the subscription pool, zero paid CI.
+L4 budget: **2 rounds → ASK** (design §9). Order of magnitude: **~192-250 short calls** — C1 ~151
+per-row, C2 **41 grouped** (the measured `source` group count, §3.5), C0 $0 deterministic, plus
+re-run headroom for unparsed rows — on the subscription pool, zero paid CI. Design §9's «~200-350
+(C2 ~15-25 grouped)» predates the group-count measurement; the budget that binds is rounds, not
+calls, so this is a corrected estimate rather than a scope change.
 
 Exit: **S4b runs next** ([kickoff-s4b.md](kickoff-s4b.md), already authored — the outcome audit
 over the same 151 rows), and only then **S5's kickoff is authored fresh by a different session**
@@ -444,6 +512,10 @@ the PR body.
 - A candidate output that will not parse after a re-run, or parses outside the §3.4 enums.
 - A truth row that looks wrong (T-TK4-A) — report it, never edit it.
 - Any temptation to re-cut the whose axis, redefine C0, or drop rows from the scored subset.
+- Any parameter this kickoff fixes that you would rather set differently: **α (0.05, §3.6)**, the
+  **C2 grouping key (`source`, §3.5)**, the **per-axis populations (131 class / 151 layer+whose,
+  §3.6)**. These are fixed here precisely so they are not executor choices; a reason to change one
+  is a PARK.
 - Any reason to run C1 or C2 on a model other than `sonnet` (§3.4) — including «the stronger
   model was available» or a tier-vocabulary reading. Park it; do not upgrade the judge.
 - The class-axis result lands ambiguously (e.g. beats C0 on accuracy but increases MATERIAL-miss).
