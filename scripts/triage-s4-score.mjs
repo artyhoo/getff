@@ -171,9 +171,11 @@ const render = () => {
       const field = key === 'c0' ? 'base' : 'cand';
       const k = kappaBinary(rows, field);
       const m = materialMiss(rows, field);
+      NUM.class_n = String(rows.length); // §3.9 A(a): denominator captured from the array the class loop iterates (subset)
       NUM[`${key}_class_acc`] = acc(rows, field).toFixed(3);
       NUM[`${key}_class_miss`] = m.toFixed(3);
       NUM[`${key}_class_kappa`] = k.kappa.toFixed(3);
+      NUM[`${key}_class_pabak`] = k.pabak.toFixed(3);
       out.push(`class ${key}: acc=${NUM[`${key}_class_acc`]} (n=${rows.length}) MATERIAL-miss=${m.toFixed(3)} kappa=${k.kappa.toFixed(3)} PABAK=${k.pabak.toFixed(3)}`);
     }
     for (const key of ['c1', 'c2']) {
@@ -183,15 +185,20 @@ const render = () => {
       const p = mcnemar(b, c);
       NUM[`${key}_mcnemar_p`] = p.toFixed(4);
       NUM[`${key}_ci_disc`] = `[${lo.toFixed(3)}, ${hi.toFixed(3)}]`;
+      NUM[`${key}_class_b`] = String(b);
+      NUM[`${key}_class_c`] = String(c);
       out.push(`class ${key} vs C0 discordants: b=${b} c=${c} McNemar exact p=${p.toFixed(4)} CI(c/(b+c))=[${lo.toFixed(3)}, ${hi.toFixed(3)}] (α=0.05 two-sided)`);
     }
     const c0Miss = Number(NUM.c0_class_miss);
     for (const key of ['c1', 'c2']) {
       const p = Number(NUM[`${key}_mcnemar_p`]);
       const miss = Number(NUM[`${key}_class_miss`]);
-      const legP = p < 0.05;
+      const b = Number(NUM[`${key}_class_b`]);
+      const c = Number(NUM[`${key}_class_c`]);
+      const ahead = c > b; // leg 1 is DIRECTIONAL (round-1 fidelity item 3): PASS requires the candidate on the better side
+      const legP = p < 0.05 && ahead;
       const legMiss = miss <= c0Miss + 1e-12;
-      out.push(`class ${key} GATE: McNemar p=${p.toFixed(4)} ${legP ? '<' : '>='} 0.05 → ${legP ? 'PASS' : 'FAIL'} | MATERIAL-miss ${miss.toFixed(3)} ${legMiss ? '<=' : '>'} C0's ${c0Miss.toFixed(3)} → ${legMiss ? 'PASS' : 'FAIL'} | verdict=${legP && legMiss ? 'SHIPS' : 'DOES-NOT-SHIP'} (±9pp minimum-detectable-difference caveat at n=${subset.length})`);
+      out.push(`class ${key} GATE: McNemar p=${p.toFixed(4)} ${p < 0.05 ? '<' : '>='} 0.05 (directional: c=${c} ${ahead ? '>' : '<='} b=${b}) → ${legP ? 'PASS' : 'FAIL'} | MATERIAL-miss ${miss.toFixed(3)} ${legMiss ? '<=' : '>'} C0's ${c0Miss.toFixed(3)} → ${legMiss ? 'PASS' : 'FAIL'} | verdict=${legP && legMiss ? 'SHIPS' : 'DOES-NOT-SHIP'} (±9pp minimum-detectable-difference caveat at n=${subset.length})`);
     }
     for (const [axis, enums] of [['layer', VALID_LAYER], ['whose', VALID_WHOSE]]) {
       NUM[`${axis}_bar_acc`] = acc(axisRows(axis, 'base'), 'base').toFixed(3);
@@ -199,13 +206,18 @@ const render = () => {
       for (const key of ['c1', 'c2']) {
         const rows = axisRows(axis, key);
         const k = kappaMulti(rows, 'cand', enums);
+        NUM[`${axis}_n`] = String(rows.length); // §3.9 A(a): denominator captured from the array this loop iterates (labelable)
         NUM[`${key}_${axis}_acc`] = acc(rows, 'cand').toFixed(3);
+        if (axis === 'layer') NUM[`${key}_layer_kappa`] = k.kappa.toFixed(3); // stated in report prose; whose κ is not stated → stays out of NUM
         out.push(`${axis} ${key}: acc=${NUM[`${key}_${axis}_acc`]} (n=${rows.length}) kappa=${k.kappa.toFixed(3)} PABAK=${k.pabak.toFixed(3)}`);
         if (axis === 'layer') {
           const { b, c } = discord(rows);
           const p = mcnemar(b, c);
           NUM[`${key}_layer_mcnemar_p`] = p.toFixed(4);
-          out.push(`layer ${key} vs bar: b=${b} c=${c} McNemar exact p=${p.toFixed(4)} — ${p < 0.05 ? 'beats bar beyond noise floor' : 'does NOT beat bar beyond noise floor'}`);
+          NUM[`${key}_layer_b`] = String(b);
+          NUM[`${key}_layer_c`] = String(c);
+          const beats = p < 0.05 && c > b; // directional, same rule as class-gate leg 1 (round-1 fidelity item 3)
+          out.push(`layer ${key} vs bar: b=${b} c=${c} McNemar exact p=${p.toFixed(4)} — ${beats ? 'beats bar beyond noise floor (directional: c > b)' : 'does NOT beat bar beyond noise floor'}`);
         }
       }
       if (axis === 'whose') out.push('whose verdict: judgment-only, not corpus-validated');
@@ -270,6 +282,15 @@ function runArms() {
     if (labelable.length !== EXPECTED_LABELABLE) { RED('A', '-', `labelable=${labelable.length} expected ${EXPECTED_LABELABLE}`); ok = false; }
     const ids = labelable.map((r) => r.id);
     if (new Set(ids).size !== ids.length) { RED('A', '-', `duplicate labelable id`); ok = false; }
+    // §3.9 A(a): every per-axis number carries its row count, captured inside the per-axis loops
+    // from the array actually iterated (classRows → scored subset; axisRows → labelable). §3.6
+    // fixes the populations — class=131, layer=whose=151; a number computed on the other
+    // population (or a loop switched to it) is RED here, not silently green.
+    if (NUM.class_n !== String(subset.length) || NUM.layer_n !== String(labelable.length) || NUM.whose_n !== String(labelable.length)) {
+      RED('A', '-', `per-axis denominators class=${NUM.class_n} layer=${NUM.layer_n} whose=${NUM.whose_n} — loops must iterate subset(${subset.length}) for class, labelable(${labelable.length}) for layer/whose`);
+      ok = false;
+    }
+    if (subset.length !== 131 || labelable.length !== 151) { RED('A', '-', `§3.6 fixed populations: subset=${subset.length} (expected 131) labelable=${labelable.length} (expected 151)`); ok = false; }
     if (c2Art) {
       const g = c2Art.groups ?? [];
       const flat = g.flatMap((x) => x.rows);
@@ -303,7 +324,7 @@ function runArms() {
     for (const f of readdirSync(CORPUS_DIR).filter((x) => /^s4-.*\.csv$/u.test(x) || /^s4-c.*\.json$/u.test(x))) {
       if (!readme.includes(f)) { RED('A', f, `present in corpus dir but not registered in README Files table`); ok = false; }
     }
-    if (ok) OK('A', `151 labelable ids joined to s3-final; s4-bench.csv 151 rows truth+candidate matched; C2 41 groups partition by source; README registers every s4-* artifact`);
+    if (ok) OK('A', `151 labelable ids joined to s3-final; s4-bench.csv 151 rows truth+candidate matched; C2 41 groups partition by source; per-axis denominators class=${NUM.class_n} (subset) / layer=${NUM.layer_n} / whose=${NUM.whose_n} (labelable); README registers every s4-* artifact`);
   }
 
   // --- ARM B — differential blindness (copied+extended) + built-input token rescan ---
@@ -379,7 +400,7 @@ function runArms() {
     if (ok) OK('D', `subset recomputed from orig_grade != none (${recompute.size}); flags + c0_class columns match`);
   }
 
-  // --- ARM E — report-number reconciliation (every report number traces to scorer output) ---
+  // --- ARM E — report-number reconciliation (block + PROSE both, round-1 fidelity item 1 / W-1) ---
   {
     const rp = join(REPO_ROOT, REPORT_REL);
     if (Object.keys(NUM).length === 0) RED('E', '-', `scorer produced no numbers — artifacts missing`);
@@ -392,9 +413,21 @@ function runArms() {
         const reported = new Map(block[1].trim().split('\n').filter((l) => l.includes('=')).map((l) => [l.slice(0, l.indexOf('=')).trim(), l.slice(l.indexOf('=') + 1).trim()]));
         const missing = Object.keys(NUM).filter((k) => !reported.has(k));
         const drift = [...reported.entries()].filter(([k, v]) => NUM[k] !== undefined && NUM[k] !== v);
-        if (missing.length) RED('E', missing[0], `number present in scorer output but absent from report (${missing.length} missing)`);
-        else if (drift.length) RED('E', drift[0][0], `report says '${drift[0][1]}' scorer says '${NUM[drift[0][0]]}'`);
-        else OK('E', `all ${Object.keys(NUM).length} report numbers reconcile with scorer output`);
+        // PROSE reconciliation (round-1 fidelity MAJOR / W-1): the block alone compares the report
+        // against its own generator — an edited PROSE number stays green. Every canonical number
+        // must ALSO appear in the report text OUTSIDE the block with its computed value
+        // (boundary-anchored: not preceded by a digit/decimal point, not followed by a digit or a
+        // decimal point + digit — so '25' does not match inside '0.325' or '25.5', while a
+        // sentence-ending period after '0.736.' still matches); absent ⇒ prose drift or an
+        // unstated canonical number, present-with-another-value ⇒ the computed token is absent.
+        // The block remains the canonical carrier; this check is in addition, not instead.
+        const prose = text.replace(/<!-- s4-numbers[\s\S]*?-->/u, '');
+        const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+        const absentInProse = Object.entries(NUM).filter(([, v]) => !new RegExp(`(?<![\\d.])${esc(v)}(?!\\d|\\.\\d)`, 'u').test(prose));
+        if (missing.length) RED('E', missing[0], `number present in scorer output but absent from report block (${missing.length} missing)`);
+        else if (drift.length) RED('E', drift[0][0], `report block says '${drift[0][1]}' scorer says '${NUM[drift[0][0]]}'`);
+        else if (absentInProse.length) RED('E', absentInProse[0][0], `canonical number '${absentInProse[0][1]}' not found in the report prose outside the s4-numbers block — prose drift or unstated canonical number`);
+        else OK('E', `all ${Object.keys(NUM).length} numbers reconcile: report block == scorer AND every value present in the report prose (digit-boundary matched)`);
       }
     }
   }

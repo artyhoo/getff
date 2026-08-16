@@ -48,6 +48,11 @@ CI [0.325, 0.611]). Layer vs bar: C1 b=8 c=28 (p=0.0012), C2 b=10 c=27 (p=0.0076
 
 ## Acceptance verdict per axis — both legs shown separately (α=0.05 two-sided, fixed)
 
+Method note (round-1 fidelity): leg 1 is **directional** — a PASS requires p < 0.05 AND the
+candidate on the better side of the discordant split (c > b); a significantly *worse*
+candidate fails it. No verdict changed under this rule: both class candidates failed leg 1
+on p alone.
+
 - **class, C1: DOES NOT SHIP.** Leg 1 (beats C0 beyond noise): p=0.4514 ≥ 0.05 — FAIL; CI
   [0.297, 0.578] straddles 0.5. Leg 2 (MATERIAL-miss ≤ C0's 0.319): 0.351 — FAIL. Both legs fail.
 - **class, C2: DOES NOT SHIP.** Leg 1: p=0.7608 — FAIL (CI [0.325, 0.611]). Leg 2: 0.266 ≤
@@ -116,13 +121,25 @@ final pass. The D-K3 plain-scorer fallback clause was never exercised: promptfoo
 **One incident, recorded:** the first C2 pass PARKed on strict parsing — sonnet emits a
 one-line preamble («Looking at each finding through the yardstick:») before the id-keyed
 lines on some groups, and one single re-run came back numbered (`[1]:`…) instead of id-keyed.
-Resolution: the parser was refined ONCE to the frozen S2/C1 parse semantics (search for the
-contract pattern; framing prose without a triple is tolerated; any triple outside an
-id-keyed line, duplicate key, missing id, or out-of-enum value still rejects), the artifact
-was rebuilt from the same judge outputs (41/41 served from promptfoo's disk cache —
-byte-identical prompts), and no label was ever hand-filled or edited. The numbered-key
-variant remains unparsed by design. Decision and precedent are in
-`scripts/triage-kernel-v2-bench/run.mjs` (`parseC2Group` doc comment).
+Root finding: the kickoff specified **no output contract for the grouped C2 pass** (§3.4
+states C1's one-line contract; §3.5 states none for C2), so the strict-first parser was this
+stage's own invention — the outlier, not the rule. The frozen S2 cold rater has always parsed
+by SEARCH over the whole raw output ([`scripts/triage-s0-run.mjs:59`](../../../scripts/triage-s0-run.mjs) —
+`RE.exec(raw)`, framing prose without a triple tolerated), and C1 rides those same semantics;
+the refinement aligned C2 WITH that frozen contract rather than widening an acceptance rule
+after seeing outputs. Genuinely ambiguous variants still reject by design: numbered `[1]:`
+keys, duplicate keys, a triple outside an id-keyed line, out-of-enum values. The artifact was
+rebuilt from the same judge outputs (41/41 served from promptfoo's disk cache —
+byte-identical prompts), and no label was ever hand-filled or edited. Decision and precedent
+are in `scripts/triage-kernel-v2-bench/run.mjs` (`parseC2Group` doc comment).
+**PARK-shaped note for S5:** §3.5 specified no C2 output contract; the frozen-search
+semantics were adopted and are ratified here — S5 must not inherit the gap silently as if
+the contract had been specified up front.
+
+Parse-regex divergence note (no action this round): the frozen rater's layer pattern matches
+`[a-z]+` (`scripts/triage-s0-run.mjs:59`) while the bench's TRIPLE_RE matches `[a-z-]+`
+(`scripts/triage-kernel-v2-bench/run.mjs:30`) — a hyphenated layer value would parse in the
+bench and not in the frozen rater; no current label is affected. Neither regex changes here.
 
 ## Environment probe record (Task 1, re-run 2026-08-16 this session)
 
@@ -158,25 +175,41 @@ scorer — all inputs are committed for exactly that.
 <!-- s4-numbers (canonical block — pasted verbatim into the report; arm E reconciles)
 labelable_n=151
 subset_n=131
+class_n=131
 c0_class_acc=0.733
 c0_class_miss=0.319
 c0_class_kappa=0.453
+c0_class_pabak=0.466
 c1_class_acc=0.687
 c1_class_miss=0.351
 c1_class_kappa=0.359
+c1_class_pabak=0.374
 c2_class_acc=0.710
 c2_class_miss=0.266
 c2_class_kappa=0.348
+c2_class_pabak=0.420
 c1_mcnemar_p=0.4514
 c1_ci_disc=[0.297, 0.578]
+c1_class_b=25
+c1_class_c=19
 c2_mcnemar_p=0.7608
 c2_ci_disc=[0.325, 0.611]
+c2_class_b=23
+c2_class_c=20
 layer_bar_acc=0.530
+layer_n=151
 c1_layer_acc=0.662
+c1_layer_kappa=0.443
 c1_layer_mcnemar_p=0.0012
+c1_layer_b=8
+c1_layer_c=28
 c2_layer_acc=0.642
+c2_layer_kappa=0.430
 c2_layer_mcnemar_p=0.0076
+c2_layer_b=10
+c2_layer_c=27
 whose_bar_acc=0.901
+whose_n=151
 c1_whose_acc=0.848
 c2_whose_acc=0.854
 conf_slice_n=25
