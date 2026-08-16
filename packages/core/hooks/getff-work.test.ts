@@ -33,7 +33,7 @@
 import { afterEach, beforeEach, describe, it, expect } from 'vitest';
 import { execSync, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -253,6 +253,45 @@ describe('getff-work.sh — workspace one-command (AC-5)', { timeout: SLOW_SHELL
     });
     expect(r.status, `getff-work.sh exit code. output:\n${r.stdout}${r.stderr}`).toBe(0);
     expect(r.stdout).toMatch(/--no-launch/);
+  });
+
+  // ✅ NO-INSTALL-THROUGH-DELIVERY-SYMLINK (paired-negative for the 2026-08-16 incident)
+  it('step 2 does NOT install through the worktree node_modules delivery symlink — the primary tree survives', () => {
+    // Incident 2026-08-16 (staging RED at fa8da9406c): create-worktree.sh provisions
+    // <worktree>/node_modules as a symlink to the PRIMARY's tree
+    // (worktree-node-modules.sh:131), and step 2 then ran `npm ci` with that worktree as
+    // cwd — so npm reified the PRIMARY's real node_modules against the worktree's lock,
+    // pruning 673 of 835 packages and emptying node_modules/.bin. Every vitest child
+    // spawned afterwards died on
+    // `Cannot find module '<root>/node_modules/vitest/suppress-warnings.cjs'`:
+    // 972/972 tests passed, 25 unhandled errors, exit 1 — a red no assertion explained.
+    //
+    // The assertion is the primary's own package count across a real wrapper run: it is
+    // the quantity the defect moved, and it cannot pass by construction if the install
+    // writes through the link again.
+    const primaryNodeModules = resolve(REPO_ROOT, 'node_modules');
+    const before = existsSync(primaryNodeModules)
+      ? readdirSync(primaryNodeModules).length
+      : 0;
+    expect(
+      before,
+      'precondition: the primary checkout must be installed for this case to mean anything',
+    ).toBeGreaterThan(100);
+
+    const r = runScript([uniqueName('smoke-nmguard'), '--no-launch'], {
+      CLAUDE_CODE_SESSION_ID: '',
+    });
+    expect(r.status, `getff-work.sh exit code. output:\n${r.stdout}${r.stderr}`).toBe(0);
+
+    const after = readdirSync(primaryNodeModules).length;
+    expect(
+      after,
+      `the primary's node_modules lost entries during a wrapper run (${before} → ${after}). ` +
+        `That is the delivery-symlink write-through defect, not a flake. output:\n${r.stdout}`,
+    ).toBe(before);
+    // And the skip is announced rather than silent — a silent skip would be
+    // indistinguishable from an install that did nothing.
+    expect(r.stdout).toMatch(/delivery symlink into the primary checkout/);
   });
 
   // ✅ HELP-FLAG
