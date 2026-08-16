@@ -13,14 +13,26 @@
  *   ✅ MISSING-NAME:   no positional arg → exit 2, usage on stderr
  *   ✅ UNKNOWN-FLAG:   --bogus → exit 2, error on stderr
  *
- * These tests run against a per-test temp git repo (mirrors create-worktree
- * .test.ts pattern) so they don't pollute the real worktree state.
+ * Two distinct fixtures, deliberately:
+ *   - FRESH-CONSUMER-SMOKE runs against a per-test temp git repo (mirrors
+ *     create-worktree.test.ts) — it is about the SHIPPED script set in a clean
+ *     consumer repo.
+ *   - The three worktree-creating cases run against the REAL repo, because the
+ *     wrapper's value is precisely that it works in this repo's layout. That
+ *     means they mutate real worktree state, so they MUST use per-run-unique
+ *     names and MUST clean up after themselves — see uniqueName() below.
+ *     (Header used to claim all tests were temp-repo isolated. That was false:
+ *     runScript spawns the REAL scripts/getff-work.sh, and create-worktree.sh
+ *     derives its target from `git rev-parse --show-toplevel` of the cwd
+ *     (scripts/create-worktree.sh:33,60-61). Fixed 2026-08-12 — see the
+ *     self-poisoning note on uniqueName().)
  *
  * Reference: packages/core/hooks/create-worktree.test.ts (sibling).
  * T3 compliance: each assertion cites command + output excerpt.
  */
 import { afterEach, beforeEach, describe, it, expect } from 'vitest';
 import { execSync, spawnSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, dirname, join } from 'node:path';
@@ -65,6 +77,11 @@ function runScript(
 ): { status: number; stdout: string; stderr: string } {
   const r = spawnSync('bash', [SCRIPT, ...args], {
     encoding: 'utf8',
+    // Pin the cwd: create-worktree.sh resolves its target repo via
+    // `git rev-parse --show-toplevel` (scripts/create-worktree.sh:33), so an
+    // inherited cwd would put the debris somewhere cleanupRealWorktrees()
+    // cannot predict.
+    cwd: REPO_ROOT,
     env: { ...process.env, ...env },
   });
   return {
@@ -72,6 +89,67 @@ function runScript(
     stdout: r.stdout ?? '',
     stderr: r.stderr ?? '',
   };
+}
+
+// Worktree names claimed by the current test, drained by cleanupRealWorktrees().
+const claimedNames: string[] = [];
+
+/**
+ * Per-run-unique worktree name — the fix for a self-poisoning test suite.
+ *
+ * Incident 2026-08-12: these cases used the fixed names smoke-cc / smoke-noncc /
+ * smoke-nolaunch. create-worktree.sh claims branch `worktree-<name>`
+ * (create-worktree.sh:61), and branch names are repo-global — shared by every
+ * worktree of this repo. So a GREEN run left three worktrees + three branches
+ * behind, and the NEXT run anywhere in the repo hit `git worktree add` failing
+ * on the taken branch → create-worktree.sh exit 1 → the wrapper exit 1 → three
+ * red tests. Observed: the three branches were still held by a months-old
+ * session's nested worktrees, and re-running the suite reproduced the debris
+ * exactly. Unique names make the collision impossible by construction; the
+ * cleanup below keeps the repo from accumulating them.
+ */
+function uniqueName(stem: string): string {
+  const name = `${stem}-${process.pid.toString(36)}${randomBytes(3).toString('hex')}`;
+  claimedNames.push(name);
+  return name;
+}
+
+/** Remove worktrees + branches this test claimed in the REAL repo. */
+function cleanupRealWorktrees(): void {
+  for (const name of claimedNames.splice(0)) {
+    const branch = `worktree-${name}`;
+    // Ask git where the worktree landed rather than re-deriving
+    // create-worktree.sh's path formula — the formula is the thing under test.
+    try {
+      execSync(`git -C "${REPO_ROOT}" worktree list --porcelain`, { encoding: 'utf8' })
+        .split('\n\n')
+        .filter((block) => block.includes(`branch refs/heads/${branch}`))
+        .map((block) =>
+          block
+            .split('\n')
+            .find((l) => l.startsWith('worktree '))
+            ?.replace(/^worktree\s+/, '')
+            .trim(),
+        )
+        .forEach((p) => {
+          if (!p) return;
+          try {
+            execSync(`git -C "${REPO_ROOT}" worktree remove --force "${p}"`, { stdio: 'ignore' });
+          } catch {
+            /* ignore */
+          }
+        });
+    } catch {
+      /* ignore */
+    }
+    // -D (not -d): the branch is throwaway test debris that never receives a
+    // commit, but it can read as "unmerged" whenever origin/HEAD has moved on.
+    try {
+      execSync(`git -C "${REPO_ROOT}" branch -D "${branch}"`, { stdio: 'ignore' });
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 /** Build a temp git repo with the 3 worktree helper scripts copied in. */
@@ -112,6 +190,9 @@ describe('getff-work.sh — workspace one-command (AC-5)', { timeout: SLOW_SHELL
     tmpRepo = setupTempRepo();
   });
   afterEach(() => {
+    // Debris in the REAL repo first — leaving it behind is what turned this
+    // suite red in the first place (see uniqueName()).
+    cleanupRealWorktrees();
     // Clean up any worktrees that were created inside the temp repo.
     try {
       execSync(`git -C "${tmpRepo}" worktree list --porcelain`, { encoding: 'utf8' })
@@ -134,13 +215,14 @@ describe('getff-work.sh — workspace one-command (AC-5)', { timeout: SLOW_SHELL
 
   // ✅ CC-DEFERRAL (Park-4 binding)
   it('CC-DEFERRAL: CLAUDE_CODE_SESSION_ID set → defers, prints `claude -w` (no auto-launch)', () => {
+    const name = uniqueName('smoke-cc');
     const r = runScript(
-      ['smoke-cc', '--no-launch'],
+      [name, '--no-launch'],
       { CLAUDE_CODE_SESSION_ID: 'fake-cc-session-id' },
     );
-    expect(r.status).toBe(0);
+    expect(r.status, `getff-work.sh exit code. output:\n${r.stdout}${r.stderr}`).toBe(0);
     expect(r.stdout).toMatch(/CC deferral|deferring|CLAUDE_CODE_SESSION_ID/i);
-    expect(r.stdout).toMatch(/claude -w\s+smoke-cc/);
+    expect(r.stdout).toMatch(new RegExp(`claude -w\\s+${name}`));
     // The wrapper does NOT itself spawn a `claude` session; verify it ends with
     // the "done (CC deferral)" line, not a session-launch log.
     expect(r.stdout).toMatch(/done \(CC deferral\)/);
@@ -149,10 +231,10 @@ describe('getff-work.sh — workspace one-command (AC-5)', { timeout: SLOW_SHELL
   // ✅ NON-CC-PRINT
   it('NON-CC-PRINT: no CC env → prints ready command, does NOT spawn a session', () => {
     // Ensure CC env is unset for this test.
-    const r = runScript(['smoke-noncc', '--no-launch'], {
+    const r = runScript([uniqueName('smoke-noncc'), '--no-launch'], {
       CLAUDE_CODE_SESSION_ID: '',
     });
-    expect(r.status).toBe(0);
+    expect(r.status, `getff-work.sh exit code. output:\n${r.stdout}${r.stderr}`).toBe(0);
     // Without CC env, the wrapper prints a ready command for the operator to run.
     expect(r.stdout).toMatch(/cd\s+\S+/);
     expect(r.stdout).not.toMatch(/CC deferral/);
@@ -160,8 +242,16 @@ describe('getff-work.sh — workspace one-command (AC-5)', { timeout: SLOW_SHELL
 
   // ✅ NO-LAUNCH-FLAG (force print even in TTY)
   it('NO-LAUNCH-FLAG: --no-launch forces print-only path', () => {
-    const r = runScript(['smoke-nolaunch', '--no-launch']);
-    expect(r.status).toBe(0);
+    // CLAUDE_CODE_SESSION_ID must be cleared: the asserted "done (--no-launch /
+    // non-TTY)" line lives on the NON-CC path (getff-work.sh:153-156), and the
+    // CC check at getff-work.sh:119 exits at :129 before ever reaching it. This
+    // test inherited the ambient env, so it passed in CI and failed inside any
+    // real CC session — a latent env-dependency that the branch-collision
+    // failure masked until 2026-08-12.
+    const r = runScript([uniqueName('smoke-nolaunch'), '--no-launch'], {
+      CLAUDE_CODE_SESSION_ID: '',
+    });
+    expect(r.status, `getff-work.sh exit code. output:\n${r.stdout}${r.stderr}`).toBe(0);
     expect(r.stdout).toMatch(/--no-launch/);
   });
 
