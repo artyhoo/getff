@@ -53,6 +53,35 @@ actually did about each finding. The order is load-bearing, not cosmetic: an aud
 sees the tree and could infer materiality from it, so the bench must be measured before that view
 exists. Repair of what S4b finds is a **separate umbrella**, never folded into either stage.
 
+### Remaining-stage route (operator-ratified 2026-08-16 — follow it, do not re-derive)
+
+| Session | What runs | Seat |
+|---|---|---|
+| **A** | Cold review of [kickoff-s4.md](kickoff-s4.md) → one batched correction PR if it returns REVISE → dispatch S4 to aif → **host** harvests | reviewer = mid tier (verifier); executor = factory |
+| **B** | *After S4 merges:* cold review of [kickoff-s4b.md](kickoff-s4b.md) → dispatch S4b to aif → **host** harvests | same |
+| **C** | Synthesis of both axes → S5 landing PR | top tier (synthesis is its role) |
+
+Three rules this route encodes, each with its reason:
+
+1. **A cold seat reads each stage kickoff before its dispatch.** Not ceremony: S4's kickoff shipped
+   with the judge model given as a tier word, which resolved to the wrong model and which **no
+   declared arm could catch** — found by an incidental read an hour after merge and fixed in
+   #1394. Feed the seat the kickoff and the spec only, never this router's narrative or the
+   authoring dialogue; a seat that has read the story cannot audit it (T19 /
+   [reviewer-discipline.md](../../rules/reviewer-discipline.md)).
+2. **Do NOT review both kickoffs in session A.** S4's result can change S4b — the expensive seat
+   runs on the final artifact ([cold-seat-economy.md §2](../../rules/cold-seat-economy.md)).
+3. **The top tier never executes a stage here.** S4b is ~500-1200 tool calls of volume
+   verification, and the top tier is an external review seat only, never the in-container dispatch
+   runtime — ratified in #1335, `runtimeProfileId` / `modelOverride` stay unset. Its role in this
+   umbrella is session C: synthesising what the factory measured. Re-opening this per stage is
+   explicitly out of scope.
+
+**Judge model ≠ executor tier.** Inside the bench, C1 and C2 run on `--model sonnet`, pinned by
+name because the corpus's cold rater was sonnet ([kickoff-s4.md](kickoff-s4.md) §3.4). That is a
+comparability constraint, not a routing choice, and the tier vocabulary must not be used to
+resolve it.
+
 One stage = one executor session (single-owner-per-stage). Before dispatching any stage:
 `SLUG=triage-kernel-v2 bash .claude/skills/dispatcher/helpers/probe-inflight.sh` → require
 `VERDICT: FRESH`. Executor tier per design §9: mid (Opus) for S1, S2, S4; **S3 is NOT a
@@ -78,6 +107,7 @@ T-TK2-A/B/C). Domain-specific:
 ```
 
 → resolves this router; the launch table should route to the current READY stage kickoff
-(**S4** today). Direct alternative: dispatch S4 per [kickoff-s4.md](kickoff-s4.md) §9 (factory or
-session, mid tier) — that §9 also carries the pre-dispatch order (in-flight probe · aif base-clone
-fast-forward · kickoff-on-staging check).
+(**S4** today). Direct alternative: dispatch S4 per [kickoff-s4.md](kickoff-s4.md) §9 — that §9
+carries the mechanical pre-dispatch order (in-flight probe · aif base-clone fast-forward ·
+kickoff-on-staging check). **Run §2's session-A cold review first** — the route above is
+operator-ratified and the dispatch is its second step, not its first.
