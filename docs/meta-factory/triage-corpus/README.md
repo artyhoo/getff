@@ -30,6 +30,9 @@
 | [s2-rubric-whose.md](s2-rubric-whose.md) | S2: the re-cut whose-axis rubric text (escalation framing — `reviewer` as explicit default; advisor/operator-floor as escalation). Replaces the S0 `whose=` paragraph verbatim; binding yardstick + four-test card unchanged |
 | [s3-adjudication.csv](s3-adjudication.csv) rows=151 | S3: the advisor pass — per-row route (`agreed\|disputed\|material-b\|unrecoverable`), advisor verdicts on all three axes, one-line rationale on every routed row (design §3.3-§3.4). Four rows carry `SLICE-CORRECTED` operator rulings, see §S3 |
 | [s3-final.csv](s3-final.csv) rows=151 | S3: the adjudicated corpus truth — `id,class_final,layer_final,whose_final,status` (`agreed\|adjudicated`; 0 removed). The S4 bench scores against THIS file |
+| [s4-bench.csv](s4-bench.csv) rows=151 | S4: the per-row scored join — truth axes + C0/C1/C2 per-axis labels + `scored_subset` flag (131 rows score on class). The S4 bench deliverable, see §S4 below |
+| [s4-c1-sonnet.json](s4-c1-sonnet.json) | S4: raw per-row judge output (C1 — one fresh `claude -p --model sonnet` call per row, frozen `buildPayload` + `s2-rubric-whose.md`), provenance stamp incl. `benchInputSha256`; 151/151 parsed first pass, 0 re-runs |
+| [s4-c2-sonnet.json](s4-c2-sonnet.json) | S4: raw grouped self-review judge output (C2 — 41 `source` groups, same sonnet + rubric; `groups[].raw` preserved verbatim; one parse-refinement incident recorded in the bench report) |
 
 ## Field schema (S0 subset of design §2)
 
@@ -242,6 +245,45 @@ rested on an aif `costUsd` estimate while the provisioning flow targets a z.ai C
 subscription key — an estimate is not a charge (`claude -p` `total_cost_usd` precedent,
 live-verified 2026-08-09), so the spend object dissolved on fact-check; the residual
 risk-acceptance is advisor-class.
+
+## S4 bench (2026-08-16)
+
+Ran the exam (design §4/§5 via kickoff-s4): **C0** deterministic `orig_grade` map vs **C1**
+per-row rubric judge vs **C2** grouped self-review, against `s3-final.csv`. Runner:
+promptfoo@0.122.0 over an exec provider shelling `claude -p --model sonnet` (judge model
+pinned by name — a swap is a PARK). Judge payloads = the frozen `buildPayload` output (rubric
++ context + finding only); the built input is sha-gated (`bench-input.json`,
+sha256 `665059e5c963ead5…`) and arm-verified blind. Class axis scored on the C0 subset
+(n=131); layer/whose on all 151.
+
+**Verdict lines (scorer output; every rate carries its denominator):**
+
+- **class (n=131):** C0 **0.733** · C1 0.687 · C2 0.710 — **no candidate ships.** McNemar
+  exact vs C0: C1 p=0.4514, C2 p=0.7608 (α=0.05 two-sided — both far above); MATERIAL-miss:
+  C1 0.351 > C0's 0.319 (leg FAIL), C2 0.266 ≤ 0.319 (leg pass, gate still fails). «No layer
+  beats C0» is the published outcome (D-K4) — C0 stands as the class bar.
+- **layer (n=151):** majority bar 0.530 (`implementation`) — C1 **0.662** (McNemar vs bar
+  p=0.0012), C2 **0.642** (p=0.0076): both beat the bar beyond the noise floor; multiclass κ
+  0.443 / 0.430.
+- **whose (n=151):** majority bar 0.901 (`reviewer`) — C1 0.848, C2 0.854, both BELOW the
+  bar; axis remains `judgment-only, not corpus-validated`.
+
+**Confounding (§3.6):** on the 25 scored rows where adjudication moved `class_final` away
+from `class_cold`, C0 0.760 vs C1 0.480; on the 106 concordant rows C0 0.726 vs C1 0.736 —
+C1 tracks its own family's S2 labels exactly where truth diverged from them. n=25: coverage
+insufficient to conclude (T14); never a second gate.
+
+**C2 delta over C1 (never a standalone winner):** class +0.023 (n=131, inside the noise
+floor); singleton groups scored=9: +0.222 (two rows — noise at this denominator);
+multi-row groups scored=122: +0.008. Cost 41 calls vs 151 — a second pass does not earn its
+cost on accuracy alone.
+
+**Check.** `node scripts/triage-s4-score.mjs --check` — eight fail-closed arms (A join/
+grouping/README registration, B differential blindness + grade-token/finding-ID rescan,
+C enum validity, D subset honesty (D-K8), E report-number reconciliation, F substrate
+immutability by blob hash at `7425346f0b`, G promptfoo devDep ⟺ SSOT row #250, H judge
+provenance). Verdict lines + validity limits + the §3.3 falsification finding:
+[2026-08-16-triage-kernel-v2-s4-bench.md](../research-patches/2026-08-16-triage-kernel-v2-s4-bench.md).
 
 ## S0 truth construction (2026-08-11) + agreement statistics
 
