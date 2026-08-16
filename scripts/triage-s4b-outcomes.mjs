@@ -248,14 +248,24 @@ if (strataCounts.A !== 92 || strataCounts.B !== 44 || strataCounts.C !== 8 || st
     }
     if (WITNESS_BEARING.has(r.outcome)) {
       if (!r.witness || r.witness === 'none') { RED('C', r.id, `outcome ${r.outcome} must carry a witness`); ok = false; break; }
-      const mLine = /^(.+):(\d+)$/u.exec(r.witness);
+      // Line-form grammar: path:N | path:N-M | path:N,M,... (comma list of N / N-M tokens) — seats
+      // legitimately cite multi-line evidence spans verbatim; every referenced line must exist.
+      // A BARE path (no line) stays invalid: §3.8 arm C requires the line to exist IN the file.
+      const mLine = /^(.+):(\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*)$/u.exec(r.witness);
       const mSect = !mLine && /^(.+)#([^#]+)$/u.exec(r.witness);
       if (mLine) {
         const p = join(REPO_ROOT, mLine[1]);
         if (!existsSync(p)) { RED('C', r.id, `witness file '${mLine[1]}' does not exist`); ok = false; break; }
-        const n = Number(mLine[2]);
         const lines = readFileSync(p, 'utf8').split('\n').length;
-        if (!(n >= 1 && n <= lines)) { RED('C', r.id, `witness ${r.witness}: line ${n} outside file (1..${lines})`); ok = false; break; }
+        for (const tok of mLine[2].split(',')) {
+          const mm = /^(\d+)(?:-(\d+))?$/u.exec(tok);
+          const lo = mm ? Number(mm[1]) : 0;
+          const hi = mm ? (mm[2] ? Number(mm[2]) : lo) : 0;
+          if (!mm || hi < lo || lo < 1 || hi > lines) {
+            RED('C', r.id, `witness ${r.witness}: line token '${tok}' malformed or outside file (1..${lines})`); ok = false; break;
+          }
+        }
+        if (!ok) break;
       } else if (mSect) {
         const p = join(REPO_ROOT, mSect[1]);
         if (!existsSync(p)) { RED('C', r.id, `witness file '${mSect[1]}' does not exist`); ok = false; break; }
