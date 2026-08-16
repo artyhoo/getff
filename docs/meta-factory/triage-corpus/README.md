@@ -31,6 +31,8 @@
 | [s3-adjudication.csv](s3-adjudication.csv) rows=151 | S3: the advisor pass — per-row route (`agreed\|disputed\|material-b\|unrecoverable`), advisor verdicts on all three axes, one-line rationale on every routed row (design §3.3-§3.4). Four rows carry `SLICE-CORRECTED` operator rulings, see §S3 |
 | [s3-final.csv](s3-final.csv) rows=151 | S3: the adjudicated corpus truth — `id,class_final,layer_final,whose_final,status` (`agreed\|adjudicated`; 0 removed). The S4 bench scores against THIS file |
 | [s4-bench.csv](s4-bench.csv) rows=151 | S4: the per-row scored join — truth axes + C0/C1/C2 per-axis labels + `scored_subset` flag (131 rows score on class). The S4 bench deliverable, see §S4 below |
+| [s4b-outcomes.csv](s4b-outcomes.csv) rows=151 | S4b: the outcome register — `id,stratum,outcome,cost,witness,rationale` for all 151 rows (what the repo actually did about each finding), see §S4b below |
+| [s4b-audit-raw.json](s4b-audit-raw.json) rows=151 | S4b: the auditor-seat log — 30 per-group objects `{group,model,startedAt,rows}` whose verbatim verdict lines are the ONLY source of the register's outcomes (arm D) |
 | [s4-c1-sonnet.json](s4-c1-sonnet.json) | S4: raw per-row judge output (C1 — one fresh `claude -p --model sonnet` call per row, frozen `buildPayload` + `s2-rubric-whose.md`), provenance stamp incl. `benchInputSha256`; 151/151 parsed first pass, 0 re-runs |
 | [s4-c2-sonnet.json](s4-c2-sonnet.json) | S4: raw grouped self-review judge output (C2 — 41 `source` groups, same sonnet + rubric; `groups[].raw` preserved verbatim; one parse-refinement incident recorded in the bench report) |
 
@@ -284,6 +286,31 @@ C enum validity, D subset honesty (D-K8), E report-number reconciliation, F subs
 immutability by blob hash at `7425346f0b`, G promptfoo devDep ⟺ SSOT row #250, H judge
 provenance). Verdict lines + validity limits + the §3.3 falsification finding:
 [2026-08-16-triage-kernel-v2-s4-bench.md](../research-patches/2026-08-16-triage-kernel-v2-s4-bench.md).
+
+## S4b outcome audit (2026-08-16)
+
+The second anchor: not judgment-against-judgment but **what the repository actually did** about
+each of the 151 findings — one read-only `sonnet` seat per §3.2 group (26 PR ids + 4 review
+reports = 30 seats), verdicts `HOLDS|DRIFTED|NEVER-DONE|MOVED|DECLINED|UNVERIFIABLE` with
+file:line witnesses, merged verbatim into [s4b-audit-raw.json](s4b-audit-raw.json). The register
+[s4b-outcomes.csv](s4b-outcomes.csv) never edits `s3-final.csv`: where outcome contradicts
+`class_final`, the contradiction is published (0 such rows).
+
+**Verdict lines (register canonical block; denominators in the drift report):** HOLDS 139 ·
+MOVED 8 (relocations read ALIVE — stratum C's trap) · NEVER-DONE 3 · DECLINED 1 · DRIFTED 0 ·
+UNVERIFIABLE 0; `cost=VISIBLE` 0. `class_final` × outcome: MATERIAL 102/8/1/0
+(HOLDS/MOVED/NEVER-DONE/REST, n=111), IMMATERIAL 37/0/2/1 (n=40). Survivorship named: the
+corpus is drawn from reviewed+merged PRs, so a HOLDS majority is a population property, not a
+grade.
+
+**Check.** `node scripts/triage-s4b-outcomes.mjs --check` — seven fail-closed arms (A
+completeness + README `rows=` registration, B enum + stratum re-derivation, C witness discipline
+(file+line exist / section token; NEVER-DONE rationale non-restatement), D raw join + seat
+provenance (30 × pinned `sonnet`, exact partition), E report reconciliation against the drift
+register's canonical `s4b-numbers` block + S4's reserved outcome-axis section, F substrate
+immutability by blob hash at `fa8da9406c` + reserved-section-only S4 edit, G §3.7 repair ceiling
++ branch-diff ⊆ permitted set). Ranked drift register, disagreement table, limits:
+[2026-08-16-triage-kernel-v2-s4b-outcome-audit.md](../research-patches/2026-08-16-triage-kernel-v2-s4b-outcome-audit.md).
 
 ## S0 truth construction (2026-08-11) + agreement statistics
 
