@@ -15,6 +15,16 @@
 # The transitive and file-fraction rows are prototype measurements over the same
 # 11-kickoff cohort; only the first row is this script's own output.
 #
+# Those three numbers are the 2026-08-09 decision record and are NOT re-measured here.
+# Re-replayed 2026-08-16 on the grown 17-kickoff allowlist cohort after `to_area()` moved
+# from a depth table to the containing directory (below): 72 → 78 candidates, 4.24 → 4.59
+# per file, 14 → 16 of 17 files flagged. No area flagged before stopped being surfaced
+# (19 entries changed label, 0 detections lost); the 6 net-new areas are 3× a permitted
+# `tests/install-sh/baselines` no command regenerates, 2× the research-patch gap the
+# deepening exists to catch, and `scripts/triage-kernel-v2-bench`. The density stays under
+# the 5.7 that this table already judged right for a candidate list, so the emission
+# remains usable and the verdict below is unchanged.
+#
 # A flag density that disqualifies a gate is the right density for a CANDIDATE LIST
 # (precedent: the K6 emission in agents/dispatch-input-checker.md, whose own broader
 # variant was falsified at 0/2 recall). The adjudicating layer is the named cold seat
@@ -137,14 +147,31 @@ resolve_real() {
   return 0
 }
 
-# Normalise a real path to the AREA a permitted-files list reasons in.
+# Normalise a real path to the AREA a permitted-files list reasons in: the path itself
+# when it names a DIRECTORY, otherwise its containing directory. `resolve_real` only ever
+# returns paths git knows, so "not a tracked file" is an exact directory test.
+#
+# This replaced a hard-coded per-root depth table (`docs`/`.claude`/`.github`/`tests` at 2
+# segments, `packages/core` at 3). That table was the source of an area-granularity FALSE
+# NEGATIVE: every `docs/**` path normalised to `docs/meta-factory`, so a contract naming one
+# file under that prefix marked the whole prefix covered. Measured on triage-kernel-v2 S4b,
+# whose allowlist permits BOTH `docs/meta-factory/triage-corpus/*` and
+# `docs/meta-factory/research-patches/*` while its §7 names only triage-corpus files: the
+# emitter reported `Candidates: 0`, and the research patch duly shipped (PR #1400) without
+# principle 10's `<!-- scope: -->` line, caught by a hand-run of `test:principles`.
+# The table had the same hole under `.claude/skills/<skill>`, `tests/install-sh/baselines`
+# and `packages/core/hooks/checks`; deriving the area from the tree closes all four and
+# leaves no depth constant to drift.
 to_area() {
-  printf '%s\n' "$1" | awk -F/ '{
-    if ($1 == "packages" && $2 == "core" && NF >= 3) { print $1 "/" $2 "/" $3; next }
-    if ($1 == "packages" && NF >= 2) { print $1 "/" $2; next }
-    if (($1 == ".claude" || $1 == ".github" || $1 == "docs" || $1 == "tests") && NF >= 2) { print $1 "/" $2; next }
-    print $1
-  }'
+  local p="$1"
+  if grep -qxF "$p" "$TRACKED_FILE"; then
+    case "$p" in
+      */*) printf '%s\n' "${p%/*}" ;;
+      *) printf '%s\n' "$p" ;;
+    esac
+  else
+    printf '%s\n' "$p"
+  fi
 }
 
 # ── (a) the allowlist — the declared non-goal, read as prose ──────────────────
@@ -249,8 +276,18 @@ Known-false-positive classes (do not report "coverage clean"):
         ("the four §1.1 registry files"), so a named area can be under-counted.
   (iii) non-path deliverable — a contract may assert repo-root artefacts that
         resolve to no tracked area at all.
-Known-false-negative class: an area NAMED by a command whose assertions do not touch
-  the deliverable inside it. This is the motivating incident's own shape and is beyond
-  every mechanical variant — only the adjudicating seat closes it.
+Known-false-negative classes:
+  (a) an area NAMED by a command whose assertions do not touch the deliverable inside
+      it. This is the motivating incident's own shape and is beyond every mechanical
+      variant — only the adjudicating seat closes it.
+  (b) sibling files in ONE directory — an area is the containing directory, so a
+      permitted `<dir>/A.md` counts as covered by a command naming `<dir>/B.md`. This is
+      the residual of the quantization defect fixed in 2026-08-16: the per-root depth
+      table was one level too coarse and is gone, but the floor is now the directory, not
+      the file. Closing (b) too — subtracting at file granularity — was built and replayed
+      over the same cohort and REJECTED at 6.65 flags/file (vs 4.59), above the density
+      this emitter already treats as its ceiling, and demonstrably wrong: on
+      triage-kernel-v2 S4b it flags `s4b-outcomes.csv` and `s4b-audit-raw.json`, both of
+      which the declared `scripts/triage-s4b-outcomes.mjs` run produces.
 EOF
 exit 0
