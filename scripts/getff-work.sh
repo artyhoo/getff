@@ -98,6 +98,31 @@ elif [ -f "$WORKTREE_PATH/package.json" ]; then
   PKG_MANAGER="npm";  INSTALL_CMD=(npm install)
 fi
 
+# Never install THROUGH a delivery symlink. create-worktree.sh provisions
+# `$WORKTREE_PATH/node_modules` as a symlink to the PRIMARY checkout's tree
+# (scripts/worktree-node-modules.sh:131 — the D2 workspace optimisation), so an
+# install run here writes into the primary: npm reifies against the worktree's own
+# lock and PRUNES every package outside that closure from the primary's real
+# node_modules, emptying `node_modules/.bin` on the way. The sibling guard in
+# create-worktree.sh:108-111 already states this rule for packages/core; this is the
+# same rule at the root level, where the blast radius is the whole tree.
+#
+# Incident 2026-08-16: this is what reddened `staging` at fa8da9406c. The hooks
+# suite runs `getff-work.sh` against the REAL repo (getff-work.test.ts header,
+# "the three worktree-creating cases run against the REAL repo"), so step 2 deleted
+# the repo's own node_modules mid-run — 673 of 835 packages, `.bin` emptied — and
+# every later vitest child died on
+# `Cannot find module '<root>/node_modules/vitest/suppress-warnings.cjs'`:
+# 972/972 tests passing, 25 unhandled errors, exit 1.
+#
+# Skipping is correct, not a degradation: the symlink IS the delivery. The deps are
+# already present through it, which is the whole point of the optimisation.
+if [ -n "$PKG_MANAGER" ] && [ -L "$WORKTREE_PATH/node_modules" ]; then
+  echo "  ⊝ node_modules is a delivery symlink into the primary checkout — skipping $PKG_MANAGER install"
+  echo "    (installing here would reify the PRIMARY's tree through the link and prune it)"
+  PKG_MANAGER=""
+fi
+
 if [ -n "$PKG_MANAGER" ]; then
   echo "▶ Dep wiring: $PKG_MANAGER (detected lockfile in worktree)"
   if ! (cd "$WORKTREE_PATH" && "${INSTALL_CMD[@]}" >/dev/null 2>&1); then
