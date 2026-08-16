@@ -95,6 +95,8 @@ SHA). A finding whose force rests on an UNRECORDED value premise is graded `ESCA
 routed to the concept holder — never priced by this seat. Zero-finding audits are a
 legitimate outcome.
 
+**Triage rubric ([reviewer-discipline.md §6.1](../.claude/rules/reviewer-discipline.md)):** apply the three-axis rubric quoted there when grading — and carry its per-axis provenance: `layer` is `corpus-measured`, `whose` is `judgment-only, not corpus-validated`, and the class axis is a measured null (the recorded grade, not the rubric, remains the class bar).
+
 **Single-block invariant (enforced by the gate).** The PR body carries exactly ONE
 `## Fidelity verdict` section containing exactly ONE `FIDELITY:` line. A rework round
 **replaces** the previous block — never appends below it. The gate rejects **both** appended

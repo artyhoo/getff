@@ -54,7 +54,12 @@ Per [reviewer-discipline.md §6](../../rules/reviewer-discipline.md): only a
 scenario-bearing finding may trigger a re-review round (the discriminator is the scenario,
 not edit size); a materiality dispute is a one-line ask answered
 `MATERIAL | IMMATERIAL | OUT-OF-CONCEPT | FLOOR`, final for the round; zero-finding
-reviews are a legitimate outcome.
+reviews are a legitimate outcome. When a materiality dispute is raised, judge it with the
+three-axis rubric quoted verbatim at
+[reviewer-discipline.md §6.1](../../rules/reviewer-discipline.md) and state the axis label
+you leaned on — `layer` is `corpus-measured`, `whose` is `judgment-only, not
+corpus-validated`, and the class axis is a measured null (the recorded grade, not the
+rubric, remains the class bar).
 
 ## Hard bounds
 

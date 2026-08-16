@@ -5,13 +5,33 @@
 
 # Triage kernel v2 — corpus-measured materiality classifier
 
-> **Status:** GATED-GO, probe-first (operator gate 2026-08-11 — §13 gate record).
-> Round-1 cold-reviewed (TD REVISE 2B/9M/5m/2E; BU REVISE 0B/5M), r1 repairs applied;
-> round-2 cold verification (REVISE 1B/4M/4m; all r1 dispositions confirmed — 0 NOT-FIXED /
-> 0 MISSING), r2 repairs applied and ACCEPTED at the review cap. Next: §9 S0 probe;
-> S1-S5 conditional on its signal.
-> **Branch:** `claude/kernel-v2-arch-triage-86fa0a`. **Current as of 2026-08-11**
-> (research pass + gate dialogue 2026-08-10; r1 + r2 repairs 2026-08-11).
+> **Status:** LANDED — measurement contour CLOSED (S0 → S4b measured; S5 landing PR 2026-08-17).
+> Per-axis result, recorded rather than deferred: **layer DEPLOYS `corpus-measured`** (C1 0.662 /
+> C2 0.642 vs the 0.530 majority bar, p=0.0012 / p=0.0076, n=151) · **class = measured null,
+> «measured — does not pay»** (C0 0.733 · C1 0.687 · C2 0.710 on n=131; both candidates fail
+> acceptance leg 1, McNemar p=0.4514 / p=0.7608 — **C0, the `orig_grade` severity mapping,
+> remains the class bar**; no class filter deploys) · **whose ships `judgment-only, not
+> corpus-validated`** (0.848 / 0.854 vs a 0.901 bar, n=151 — §5: nothing unmeasured may wear a
+> measured provenance) · **C2's self-review step does NOT deploy** («if C2 pays» did not fire).
+>
+> **§6's «if C1 wins on the class axis» condition did NOT fire.** The rubric block deploys on the
+> operator fork ratified 2026-08-16 («land S5 now» — per-axis dispositions in
+> [kickoff-s5 §0](../../../.claude/orchestrator-prompts/triage-kernel-v2/kickoff-s5.md)), **not**
+> on that conditional being satisfied. §6 itself is unedited, so this header is the only place a
+> reader learns it was overridden rather than met. Frozen reports:
+> [S4 bench](../../meta-factory/research-patches/2026-08-16-triage-kernel-v2-s4-bench.md) (#1397,
+> `fa8da9406c`) ·
+> [S4b outcome audit](../../meta-factory/research-patches/2026-08-16-triage-kernel-v2-s4b-outcome-audit.md)
+> (#1400, `d46f3c87bf`). Deployed surface:
+> [reviewer-discipline.md §6.1](../../../.claude/rules/reviewer-discipline.md) + three run-moment
+> consumer pointers. **Still live:** §8's post-landing applications and D-K7's falsifier — this
+> closes the *measurement* contour, not the ideas; S5b (§7) is its own micro-PR.
+>
+> **Review history:** r1 cold review (TD REVISE 2B/9M/5m/2E; BU REVISE 0B/5M) + repairs; r2 cold
+> verification (REVISE 1B/4M/4m; all r1 dispositions confirmed — 0 NOT-FIXED / 0 MISSING) +
+> repairs, ACCEPTED at the review cap; operator gate 2026-08-11 → probe-first (§13 gate record).
+> **Branch:** `claude/kernel-v2-arch-triage-86fa0a` (design). **Current as of 2026-08-17**
+> (research 2026-08-10; r1 + r2 repairs 2026-08-11; S5 landing 2026-08-17).
 > **Authoritative for:** the corpus artifact (§2), adjudication protocol (§3), bench design +
 > candidate layers (§4), acceptance rule (§5), validity limits (§5b), deployment surfaces
 > (§6), the disposition-vocabulary home (§7), post-landing applications (§8), stage plan
