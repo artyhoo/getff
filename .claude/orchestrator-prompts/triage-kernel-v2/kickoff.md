@@ -36,7 +36,7 @@ unlocked ([research patch](../../../docs/meta-factory/research-patches/2026-08-1
 | S3 | Adjudication (advisor batch + operator stratified slice, per-axis κ/PABAK) | [kickoff-s3.md](kickoff-s3.md) (in-session record) | DONE — in-session 2026-08-16, advisor + operator slice |
 | S4 | Bench: promptfoo + shim + C1/C2 vs C0 + report. **Capability commit: promptfoo devDependency + `Prior-art:` + SSOT id ≥250 in the SAME commit** | [kickoff-s4.md](kickoff-s4.md) | READY — kickoff authored 2026-08-16 |
 | S4b | **Outcome audit** (operator direction 2026-08-16): walk all 151 rows against the live tree — what was actually done, does it hold, did the absence cost anything. Second, non-judgment truth axis + prioritised drift register. Repair is a separate umbrella | [kickoff-s4b.md](kickoff-s4b.md) | READY — runs after S4 merges |
-| S5 | Landing PR: winning layer(s) as protocol text (reviewer-discipline §6 + fidelity-auditor + advisor) + spec status flip + `/self-reflection` | authored after S4b merges | pending S4b |
+| S5 | Landing PR: layer axis as `corpus-measured` protocol text + the class measured null (C0 remains the bar) + whose `judgment-only` (reviewer-discipline §6 + fidelity-auditor) + spec status flip + `/self-reflection`. Operator fork resolved 2026-08-16: land now, not park | [kickoff-s5.md](kickoff-s5.md) | READY — kickoff authored 2026-08-16; mid-tier cold review (§2 rule 1) before any S5 session |
 | S5b | §7 disposition-vocabulary line in arch/SKILL.md — separate micro-PR | any time post-gate | open |
 
 Stage-kickoff convention: each is authored at its turn by the dispatching session (fresh
