@@ -1,3 +1,5 @@
+<!-- scope:triage-kernel-v2-s4b-outcome-audit -->
+
 # S4b outcome audit — drift register (triage-kernel-v2)
 
 > Stage S4b of the [triage-kernel-v2 router](../../superpowers/specs/2026-08-10-triage-kernel-v2-design.md)
@@ -112,7 +114,7 @@ absence of consequence).
 
 ## §repairs — §3.7 exception
 
-```
+```text
 repair: (none — 0 rows qualified; ceiling 0/5 untouched)
 ```
 
