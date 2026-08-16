@@ -35,7 +35,8 @@ unlocked ([research patch](../../../docs/meta-factory/research-patches/2026-08-1
 | S2 | Cold blind re-label, three axes | [kickoff-s2.md](kickoff-s2.md) | DONE — #1386 |
 | S3 | Adjudication (advisor batch + operator stratified slice, per-axis κ/PABAK) | [kickoff-s3.md](kickoff-s3.md) (in-session record) | DONE — in-session 2026-08-16, advisor + operator slice |
 | S4 | Bench: promptfoo + shim + C1/C2 vs C0 + report. **Capability commit: promptfoo devDependency + `Prior-art:` + SSOT id ≥250 in the SAME commit** | [kickoff-s4.md](kickoff-s4.md) | READY — kickoff authored 2026-08-16 |
-| S5 | Landing PR: winning layer(s) as protocol text (reviewer-discipline §6 + fidelity-auditor + advisor) + spec status flip + `/self-reflection` | authored after S4 merges | pending S4 |
+| S4b | **Outcome audit** (operator direction 2026-08-16): walk all 151 rows against the live tree — what was actually done, does it hold, did the absence cost anything. Second, non-judgment truth axis + prioritised drift register. Repair is a separate umbrella | [kickoff-s4b.md](kickoff-s4b.md) | READY — runs after S4 merges |
+| S5 | Landing PR: winning layer(s) as protocol text (reviewer-discipline §6 + fidelity-auditor + advisor) + spec status flip + `/self-reflection` | authored after S4b merges | pending S4b |
 | S5b | §7 disposition-vocabulary line in arch/SKILL.md — separate micro-PR | any time post-gate | open |
 
 Stage-kickoff convention: each is authored at its turn by the dispatching session (fresh
@@ -45,6 +46,12 @@ kickoff quotes its predecessor's merged result (the W-2 pattern) and lands on `s
 BEFORE dispatch (kickoff-staging-placement.md §1).
 
 ## §2 Dispatch rules
+
+**S4 and S4b are a pair, run in that order** (operator direction 2026-08-16). S4 measures judgment
+against judgment; S4b adds the anchor design §5b.1 says the bench lacks — what the repository
+actually did about each finding. The order is load-bearing, not cosmetic: an auditor with tools
+sees the tree and could infer materiality from it, so the bench must be measured before that view
+exists. Repair of what S4b finds is a **separate umbrella**, never folded into either stage.
 
 One stage = one executor session (single-owner-per-stage). Before dispatching any stage:
 `SLUG=triage-kernel-v2 bash .claude/skills/dispatcher/helpers/probe-inflight.sh` → require

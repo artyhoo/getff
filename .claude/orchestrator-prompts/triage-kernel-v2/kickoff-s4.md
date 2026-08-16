@@ -45,6 +45,14 @@ falsifier) — the stage succeeds by measuring honestly, not by finding a winner
 S4 ships **no protocol text**. Deploying the winner is S5's job; S4 hands S5 numbers and a verdict
 line per axis.
 
+**S4 is one half of a pair (operator direction, 2026-08-16).** [kickoff-s4b.md](kickoff-s4b.md)
+walks the same 151 rows against the live tree and asks what actually happened to each finding —
+a second axis of truth that comes from repository state rather than from another Claude-family
+judgment. That is the anchor design §5b.1 says the bench does not have («the only fully
+independent anchor is the operator slice»). S4 runs FIRST and stays self-contained: an auditor
+with tools would see the tree and could infer materiality from it, so the bench must be measured
+before that view exists. §3.8 reserves the report slot S4b fills; S4 does not wait for it.
+
 ## §2 Permitted files — what may be created and edited
 
 **Create:**
@@ -233,6 +241,11 @@ design §12b).
 
 Every rate states its denominator. Every «no difference» states the power behind it.
 
+**Reserve one section, `## Outcome axis (filled by S4b)`, with a one-line statement of what it
+will hold and why it is absent here.** S4b appends the live-tree outcome axis to this same patch
+rather than opening a second report. An empty reserved section is honest; a report that never
+mentions the pairing reads as if the bench were the whole answer.
+
 ### §3.9 Fail-closed arms — `scripts/triage-s4-score.mjs --check`
 
 Seven arms, exit 1 on any RED. These exist because the S2 round-1 review found the load-bearing
@@ -384,8 +397,9 @@ section, so its `Evidence:` citation must sit inside it; the `## Review findings
 L4 budget: **2 rounds → ASK** (design §9). Order of magnitude: ~200-350 short calls — C1 ~151
 per-row, C2 ~15-25 grouped, C0 $0 deterministic — on the subscription pool, zero paid CI.
 
-Exit: **S5's kickoff is authored fresh by a different session** (the S1/S2/S3 §8/§5 chain). S5
-inherits from this stage: the per-axis verdict lines (`corpus-measured` vs `judgment-only, not
+Exit: **S4b runs next** ([kickoff-s4b.md](kickoff-s4b.md), already authored — the outcome audit
+over the same 151 rows), and only then **S5's kickoff is authored fresh by a different session**
+(the S1/S2/S3 §8/§5 chain). S5 inherits from this stage: the per-axis verdict lines (`corpus-measured` vs `judgment-only, not
 corpus-validated`), the winning layer(s) if any, and the validity limits that must travel with any
 deployed rubric question (design §6). **`whose` travels as `judgment-only` no matter what S4
 measures** (§3.7). The umbrella stays OPEN through S5 + S5b; `done.md` is written by the session
