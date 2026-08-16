@@ -1,0 +1,152 @@
+id,route,class_adv,layer_adv,whose_adv,rationale
+1290-r1-1,agreed,MATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1290-r1-2,agreed,MATERIAL,plan,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1290-r1-3,agreed,MATERIAL,design,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1290-r1-4,material-b,MATERIAL,implementation,reviewer,Primary measured band misquoted (endpoints AND direction) in a spec other work consumes; load-bearing measurement record
+1290-r1-5,agreed,IMMATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1290-r1-6,agreed,MATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1290-r1-7,agreed,MATERIAL,design,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1290-r1-8,material-b,MATERIAL,implementation,reviewer,Incomplete population census under conclusions resting on it (T10 class); completing to 18/18 changed the evidence base
+1290-r1-9,disputed,IMMATERIAL,implementation,reviewer,Broken links in a measurement spec: navigation repair; no decision or behavior moved; doc mechanics not design substance
+1290-r1-10,disputed,MATERIAL,implementation,reviewer,Restored test fixture + dropped antecedents = silently-lost test material; behavior-touching restoration
+1290-r2-1,material-b,IMMATERIAL,implementation,reviewer,Derived strengthening claim corrected; verdict survived on re-verified arithmetic (14/14); no decision moved
+1290-r2-2,agreed,IMMATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1290-r2-3,agreed,IMMATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1297-r1-1,agreed,MATERIAL,plan,advisor,"confirmed - layer/whose reviewed against finding text, no override"
+1297-r1-2,disputed,MATERIAL,plan,reviewer,Kickoff authorized relocating A-S3-owned + preset-installed files; fix changed the stage plan (targets dropped; stop condition added)
+1297-r1-3,unrecoverable,MATERIAL,plan,reviewer,Spec clause silently dropped from the kickoff - silent scope subtraction; restored as recorded deferral
+1297-r1-4,unrecoverable,MATERIAL,plan,reviewer,Write-contention hole vs a live parallel stage; fix re-sequenced the plan
+1297-r1-5,unrecoverable,MATERIAL,design,reviewer,Acceptance criterion missing the field-existing case = false-pass AC on the ownership design
+1297-r1-6,unrecoverable,MATERIAL,plan,reviewer,Mandatory trap enumeration dropped (T15 is not optional); discipline gate hole in the kickoff
+1297-r1-7,unrecoverable,MATERIAL,plan,advisor,Zero-cost park exit from the stage's hard part - incentive/effort-worthiness defect; advisor-class concept
+1297-r1-8,unrecoverable,MATERIAL,implementation,reviewer,Parity fixture degradable to self-comparison makes the seeded-red impossible = contract-that-cannot-fail
+1297-r1-9,unrecoverable,MATERIAL,implementation,reviewer,"Citation truncated exactly before the load-bearing precedent; a cite-range defect, no structural question - implementation not architecture"
+1297-r1-10,unrecoverable,MATERIAL,plan,reviewer,'skipped unavailable' held only under an unstated Provenance precondition - fail-open path for the fidelity gate; kickoff contract object
+1297-r1-11,disputed,MATERIAL,plan,reviewer,Falsified evidence baseline in a dispatch input (33 vs 12); worker DoD counts against it; kickoff evidence is plan-load-bearing
+1297-r1-12,agreed,MATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1297-r1-13,agreed,IMMATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1297-r1-14,agreed,IMMATERIAL,plan,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1297-r1-15,agreed,IMMATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1297-r1-16,agreed,IMMATERIAL,plan,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1297-r1-17,disputed,MATERIAL,plan,reviewer,Park-channel narrowing in a kickoff: forks outside the narrow channel get guessed not parked - the silent-decision class the contract exists for
+1297-r1-18,agreed,IMMATERIAL,plan,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1297-r1-19,disputed,MATERIAL,plan,reviewer,Ambiguous target scope in a dispatch input risks a wrong-surface edit; disambiguation changed worker obligations
+1302-r1-1,agreed,IMMATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1311-r1-1,agreed,MATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1311-r1-2,agreed,MATERIAL,architecture,reviewer,"Doc prescribes machinery the branch itself deleted - recorded fact, no concept premise needed"
+1311-r1-3,disputed,MATERIAL,implementation,reviewer,Shipped consumer doc claiming an unbundled capability; consumers act on a false claim
+1311-r1-4,material-b,MATERIAL,implementation,reviewer,Stale roster count in a shipped template; consumer harness mis-learns the installed surface
+1311-r1-5,material-b,MATERIAL,implementation,reviewer,Shipped-doc omission blinds a cold factory-depth harness to two on-disk agents; capability-discovery gap
+1329-r1-1,agreed,MATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1329-r1-2,agreed,MATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1329-r2-1,disputed,MATERIAL,implementation,reviewer,Baseline regen changed the snapshot gate comparison material (red to green); without it the merge is blocked
+1332-r1-1,disputed,MATERIAL,implementation,reviewer,Shipped sentence false at merge time; consumers read a false invariant
+1332-r1-2,disputed,IMMATERIAL,implementation,reviewer,Stale line citation (669-671 vs 678): canonical numeric-pointer nit; zero downstream effect
+1332-r1-3,agreed,IMMATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1333-r3-1,agreed,MATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1333-r4-1,agreed,MATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1333-r5-1,disputed,MATERIAL,implementation,reviewer,Assertion arm whose precondition never fires on the live path = contract-that-cannot-fail; parked as PARK-S1-7 - a decision changed
+1341-r1-1,agreed,MATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1341-r1-2,agreed,MATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1341-r1-3,agreed,MATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1341-r1-4,agreed,MATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1341-r1-5,agreed,MATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1346-r1-1,agreed,IMMATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1349-r1-1,disputed,MATERIAL,implementation,reviewer,Unregenerated fingerprints = deterministic red gate; regen changes gate behavior; twin of 1329-r2-1 ruled identically
+1349-r1-2,material-b,MATERIAL,implementation,reviewer,Hook leaked stderr on the failure path; fix measurably changed runtime behavior (stderr_bytes 0)
+1349-r1-3,agreed,MATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1353-r1-1,agreed,MATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1353-r1-2,agreed,MATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1353-r1-3,agreed,MATERIAL,architecture,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1353-r1-4a,agreed,MATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1353-r1-4b,material-b,MATERIAL,implementation,reviewer,URL-only provenance grep = weak arm under the stage's core claim; a gate passable on fake provenance
+1353-r1-4c,agreed,IMMATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1353-r1-4d,agreed,IMMATERIAL,design,advisor,"confirmed - layer/whose reviewed against finding text, no override"
+1353-r2-1,agreed,MATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1353-r3-1,disputed,IMMATERIAL,implementation,reviewer,Finding's own text: verified non-load-bearing today (7/7 identical verdicts); future-risk flag without present effect
+1353-r3-2,agreed,IMMATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1358-r1-1,agreed,MATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1358-r1-2,agreed,MATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1358-r1-3,material-b,MATERIAL,implementation,reviewer,LICENSE/README gate arm added to the tarball cell; test now discriminates a real consumer-facing packaging defect
+1358-r1-4,material-b,MATERIAL,implementation,reviewer,Over-ship measurement moved into the record U10 reads; evidence completeness for a named downstream decision
+1358-r2-1,agreed,IMMATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1358-r3-1,agreed,IMMATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1360-r1-1,agreed,MATERIAL,plan,reviewer,Binding recorded checklist (invariant 3) - procedural compliance; falsified-by-running is textual
+1360-r1-2,agreed,MATERIAL,plan,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1360-r1-3,disputed,MATERIAL,design,reviewer,Forced a threshold OUT of the design (parked above-evidence T_soft); decision object is a design-level parameter
+1360-r1-4,agreed,MATERIAL,design,reviewer,Calibration-parameter honesty family - same object class as 1360-r1-3
+1360-r1-5,material-b,IMMATERIAL,implementation,reviewer,Citation-year corrections; no decision consumed the dates (all CDC numbers stayed parked)
+1360-r1k-1,agreed,IMMATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1360-r1k-2,disputed,MATERIAL,implementation,reviewer,Self-contradictory anchor rating propping calibrated parameters; false evidentiary anchor for a future threshold decision
+1360-r1k-3,material-b,IMMATERIAL,implementation,reviewer,Same dating-hygiene class as 1360-r1-5; zero downstream effect
+1360-r1k-4,material-b,IMMATERIAL,implementation,reviewer,"Fabricated causal attribution removed - bad class but decorative narrative here: no consumer, no decision"
+1360-r1k-5,disputed,IMMATERIAL,implementation,reviewer,Misattributed illustrative comparator; corrected; nothing consumed it
+1360-r2-1,disputed,MATERIAL,implementation,reviewer,Withdrawn ranking still asserted by its summary table; table consumers inherit retracted load-bearing info
+1360-r2-2,agreed,MATERIAL,plan,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1360-r2-3,agreed,MATERIAL,plan,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1360-r3-1,material-b,IMMATERIAL,implementation,reviewer,"Aggregate tally off by one (12 to 11 of 13); numeric bookkeeping, nothing consumed the count"
+1360-r3-2,agreed,MATERIAL,design,reviewer,Same parameter-bounds family; settled by the recorded RQ2 measurement direction
+1360-r3-3,agreed,IMMATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1341-r7-1,agreed,MATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1341-r7-2,agreed,MATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1341-r7-3,agreed,MATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1341-r7-4,disputed,MATERIAL,implementation,reviewer,Meta-scanner population excludes a stub: coverage-claim hole in a checking mechanism - the two-lists-nobody-reconciles class
+1341-r7-5,agreed,IMMATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1341-r7-6,agreed,IMMATERIAL,implementation,reviewer,"confirmed - layer/whose reviewed against finding text, no override"
+1376-td1-1,unrecoverable,MATERIAL,design,reviewer,Acceptance rule measuring 1 of 3 outputs contradicted recorded P8/12; drove per-axis bars redesign; stands on a recorded premise - reviewer-settleable
+1376-td1-2,unrecoverable,MATERIAL,architecture,reviewer,C0 bar unusable in both arms; forced the D-K8 redefinition - bench structure repair
+1376-td1-3,unrecoverable,MATERIAL,architecture,advisor,Shared-provenance circularity: epistemic validity concept; recorded as 5b.1 and drove the independent operator anchor
+1376-td1-4,unrecoverable,MATERIAL,architecture,reviewer,Construct-transfer gap recorded as monitored limit 5b.2 with live detectors
+1376-td1-5,unrecoverable,MATERIAL,architecture,reviewer,Basis-column leakage: the extraction contract exists because of this row
+1376-td1-6,unrecoverable,MATERIAL,design,reviewer,No noise floor + undefined reference in the acceptance rule; acceptance-rule form is design substance (consistent with td1-1)
+1376-td1-7,unrecoverable,MATERIAL,architecture,reviewer,Deployment surface (/arch) absent from the population; the contradiction is textual between spec sections - reviewer-settleable
+1376-td1-8,unrecoverable,MATERIAL,design,operator-floor,Single-adjudicator hardest stratum; the fix amended operator premise P7 and waited for gate confirmation - operator authority
+1376-td1-9,unrecoverable,MATERIAL,design,reviewer,Synthetic entries would flip the D-K4/D-AP4 volume door - a ratified deferral silently overturned; segregation now load-bearing in S3 itself
+1376-td1-10,unrecoverable,MATERIAL,plan,advisor,P6 cheap premise with no estimate: effort-worthiness discipline - advisor-class; the section-9 budgets exist because of it
+1376-td1-11,unrecoverable,MATERIAL,architecture,advisor,Bench cannot measure the asymmetry quantity; renamed metric + two-direction falsifier; measurement-validity concept
+1376-td1-12,unrecoverable,MATERIAL,design,operator-floor,ESCALATED-1: unrecorded value premise (proportionality) routed to the operator; the gate answer reshaped the whole stage plan (probe-first)
+1376-td1-13,unrecoverable,MATERIAL,design,operator-floor,ESCALATED-2: null-result worth = operator value; gate resolved probe-first
+1376-td1-14,unrecoverable,IMMATERIAL,implementation,reviewer,Stale line pointer; canonical citation nit
+1376-td1-15,unrecoverable,MATERIAL,design,reviewer,"Kappa prevalence paradox - PABAK added; S3 publishes PABAK because of this row; settled by standard IAA practice, recorded lineage"
+1376-td1-16,unrecoverable,IMMATERIAL,implementation,reviewer,First tracked CSV under docs/: cheap pre-flight insurance; no evidence a gate would have fired
+1376-td1-17,unrecoverable,MATERIAL,plan,reviewer,Missing self-application violates mandatory T15; 12b exists because of it
+1376-td1-18,unrecoverable,MATERIAL,plan,reviewer,S1 pre-filling judgment axes would corrupt the blind protocol; never-pre-fill is now a load-bearing stage rule
+1376-bu1-1,unrecoverable,MATERIAL,design,reviewer,Three incompatible vocabularies and no defined value set; the section-2 mapping exists because of it
+1376-bu1-2,unrecoverable,MATERIAL,architecture,reviewer,Cold re-label reading grade justifications inflates kappa invisibly; same leakage family as td1-5 - ruled consistently
+1376-bu1-3,unrecoverable,MATERIAL,implementation,reviewer,Eleven duplicated rows double-count in every stat; the dedupe check is now S1 DoD and runs in the live probe
+1376-bu1-4,unrecoverable,MATERIAL,plan,reviewer,S4/S5 ordering rejected by the live prior-art gate; the same-commit rule (W-6) exists because of it
+1376-bu1-5,unrecoverable,MATERIAL,implementation,reviewer,Population source citation missing one of two incidents; td-m3 unbuildable under the extraction contract without it
+1376-bu1-6,unrecoverable,IMMATERIAL,implementation,reviewer,Stale line pointer; twin of td1-14
+1376-bu1-7,unrecoverable,MATERIAL,implementation,reviewer,Prose-vs-table count mismatch decides the s4-round7 population size; count-from-the-table is S1's instruction
+1376-bu1-8,unrecoverable,MATERIAL,implementation,reviewer,The unrecoverable 1297 split created the UNRECOVERABLE mechanism - the route this very stage executes
+1376-bu1-9,unrecoverable,IMMATERIAL,implementation,reviewer,Ambiguous self-reference; wording nit
+1376-bu1-10,unrecoverable,MATERIAL,plan,reviewer,Unstable changelog locator would misroute S1's report sourcing; per-spec locators fixed the extraction instructions
+1376-bu1-11,unrecoverable,MATERIAL,architecture,reviewer,S5 edits a maintainer-owned artifact; stands on the recorded Ownership Contract - reviewer-settleable; handoff note added
+1376-bu1-12,unrecoverable,IMMATERIAL,plan,reviewer,"Disposition set extends its source: one provenance sentence added, vocabulary itself unchanged; no decision moved"
+1376-r2v-1,unrecoverable,MATERIAL,implementation,reviewer,Grade tokens riding verbatim text = every blind seat reads C0's input; grade-strip is S2's validity
+1376-r2v-2,unrecoverable,MATERIAL,implementation,reviewer,Probe red on correctly-built rows: S1 DoD deterministically broken; re-based on the substring arm
+1376-r2v-3,unrecoverable,MATERIAL,architecture,advisor,author-cell has no blind-measurable form - new epistemic category; the exclusion rule shapes the whole bench population
+1376-r2v-4,unrecoverable,MATERIAL,design,reviewer,UNRECOVERABLE had no route to class_final; the 3.3 route (executed by this stage) is protocol design
+1376-r2v-5,unrecoverable,MATERIAL,plan,reviewer,Gate note steered the operator's E2 decision in the wrong direction; decision-support content for the gate
+1376-r2v-6,unrecoverable,MATERIAL,design,reviewer,Noise floor as apparatus vs decision rule: the fix defines HOW the S4 ship decision is made
+1376-r2v-7,unrecoverable,MATERIAL,plan,reviewer,E1 summary dropped its grounding half - decision-support completeness for the operator gate
+1376-r2v-8,unrecoverable,IMMATERIAL,plan,reviewer,"Falsifier mis-attribution corrected; bookkeeping, no decision object"
+1376-r2v-9,unrecoverable,MATERIAL,plan,reviewer,The fix re-tiered S1 (mechanical to mid): a live dispatch decision changed
+1376-fid1-1,unrecoverable,IMMATERIAL,implementation,reviewer,Prose alignment with an already-recorded deferral; internal consistency nit
+1376-fid1-2,unrecoverable,MATERIAL,plan,reviewer,Decision record contradicting the gate outcome invites wrong implementation; D-K3 text now records probe-primary
+1376-fid1-3,unrecoverable,MATERIAL,plan,reviewer,Mandate-enumerated candidate without disposition = silent scope drop; D-AP6 park recorded
+1376-fid1-4,unrecoverable,IMMATERIAL,implementation,reviewer,Report filenames corrected; the reports existed and were findable
+1376-fid1-5,unrecoverable,MATERIAL,architecture,reviewer,S0 recognized as micro corpus-assembly under the same contract; the probe's validity and the S0 gate decision rested on it
+kl-1292-1,unrecoverable,MATERIAL,design,advisor,Real semantics fork between lanes (RulesLock.version); concept-level design question
+kl-1296-1,unrecoverable,MATERIAL,design,advisor,"Version-semantics fork; SLICE-CORRECTED 2026-08-16: whose = required class, not historical answerer - rationale is pure deduction from ratified goal+spec (advisor-class), floor reserved for goal/ownership/spend"
+kl-1305-1,unrecoverable,MATERIAL,plan,advisor,"Three S1 parks: compat policy + tier provenance semantics (concept-class) + per-rule shape (technical); SLICE-CORRECTED: highest required = advisor, none is goal/ownership/spend"
+kl-1315-1,unrecoverable,MATERIAL,plan,reviewer,Permitted-files omissions block or scope-violate the worker; plan fix
+kl-1317-1,unrecoverable,MATERIAL,plan,reviewer,Same class as kl-1315-1: provably-forced files outside section 2
+kl-1328-1,unrecoverable,IMMATERIAL,plan,reviewer,Late-round kickoff repairs with no evidence any changed worker behavior; churn-class revision
+kl-1295-1,unrecoverable,MATERIAL,plan,advisor,"Six-fork batch: 4 technical/probe-settleable + 2 policy/scope (review economy, ship-set); SLICE-CORRECTED: highest required = advisor, not floor"
+kl-1310-1,unrecoverable,MATERIAL,architecture,reviewer,Key storage-to-consumer channel missing in 7a: structural connectivity hole
+kl-1318-1,unrecoverable,MATERIAL,plan,reviewer,Host-only facts + repair instructions attached to run-2 defects changed what run 3 does; substantive addendum not bookkeeping
+kl-1319-1,unrecoverable,IMMATERIAL,implementation,reviewer,Single path-citation self-fix; cosmetic
+kl-1324-1,unrecoverable,IMMATERIAL,plan,reviewer,Dispatch-facts bookkeeping; the row itself says not a re-plan
+kl-1340-1,unrecoverable,MATERIAL,plan,reviewer,Genuine weaken-A-or-weaken-B fork on completion proof vs key invariant; resolution changed the stage contract
+kl-1351-1,unrecoverable,MATERIAL,plan,advisor,"SLICE-CORRECTED 2026-08-16: risk-acceptance half is advisor-class; the spend half rested on aif costUsd estimate while the flow targets a z.ai Coding Plan subscription key (claude -p total_cost_usd precedent: estimate, not a charge) - phantom spend, floor object dissolved"

@@ -28,6 +28,8 @@
 | [s2-labels.csv](s2-labels.csv) rows=151 | S2: 151 cold-blind labels (one per labelable row), columns `id,class_cold,layer_cold,whose_cold,rationale` — the S2 deliverable, see §S2 below |
 | [s2-cold-sonnet.json](s2-cold-sonnet.json) | S2: raw per-row cold-rater output (sonnet, re-cut whose-axis rubric), provenance stamp + results for reproducibility |
 | [s2-rubric-whose.md](s2-rubric-whose.md) | S2: the re-cut whose-axis rubric text (escalation framing — `reviewer` as explicit default; advisor/operator-floor as escalation). Replaces the S0 `whose=` paragraph verbatim; binding yardstick + four-test card unchanged |
+| [s3-adjudication.csv](s3-adjudication.csv) rows=151 | S3: the advisor pass — per-row route (`agreed\|disputed\|material-b\|unrecoverable`), advisor verdicts on all three axes, one-line rationale on every routed row (design §3.3-§3.4). Four rows carry `SLICE-CORRECTED` operator rulings, see §S3 |
+| [s3-final.csv](s3-final.csv) rows=151 | S3: the adjudicated corpus truth — `id,class_final,layer_final,whose_final,status` (`agreed\|adjudicated`; 0 removed). The S4 bench scores against THIS file |
 
 ## Field schema (S0 subset of design §2)
 
@@ -185,6 +187,61 @@ bench candidates against it as if it were corpus-validated.
 six fail-closed arms (A=join integrity, B=blindness payload equality, C=enum validity, D=README
 count reconciliation, E=every label traces to a judge run, F=truthful provenance). Distribution
 numbers above are reported, never gated — a degenerate axis is a finding, not a defect.
+
+## S3 adjudication (2026-08-16)
+
+S3 ran **in-session** per the router (§2: «S3 is NOT a factory job») — the advisor seat (this
+repo's arch role, fresh-from-artifacts instantiation per advisor-pattern §3) adjudicated every
+row, and the operator took the stratified validation slice. Protocol = design §3.2-§3.6.
+Deliverables: [s3-adjudication.csv](s3-adjudication.csv) (advisor pass, per-row route +
+rationale), [s3-final.csv](s3-final.csv) (final labels + status), the stats below, and the
+segregated journal section in
+[kickoff-s3.decisions.md](../../../.claude/orchestrator-prompts/triage-kernel-v2/kickoff-s3.decisions.md).
+Reproduce: `node scripts/triage-s3-agreement.mjs` (stats) / `--check` (fail-closed arms A-F) /
+`--slice` (the seeded slice; seed `sha256("s3-slice-v1:<id>")` ascending — documented, no RNG).
+
+**Class axis, start vs cold (§3.2; binary set only):** n=73 (rows with `class_start` MATERIAL or
+IMMATERIAL), cells mm=35 mi=11 im=7 ii=20 → **raw 0.7534 · κ 0.4867 · PABAK 0.5068**. The D-K2
+falsifier (κ indicatively <~0.4 with raw also low → yardstick defective, re-label before
+adjudicating) did **not** fire. Excluded from the class κ and reported separately: 13 MATERIAL-b
++ 65 UNRECOVERABLE (they take the §3.3 adjudication routes).
+
+**Routes (§3.3):** 55 `agreed` (class_final = class_cold by construction) · 18 `disputed` ·
+13 `material-b` (always adjudicated) · 65 `unrecoverable` (advisor confirm-or-override on
+class_cold) · **0 removed** (no irreparably ambiguous rows found).
+
+**Advisor pass (§3.4):** class overrides 12/65 on the unrecoverable route (18.5%); layer
+overrides 18/151 (11.9%); whose overrides 14/151 (9.3%, four of them operator-slice
+corrections). Cold-vs-advisor calibration (all 151, the §3.3 stat): class 0.808 · layer 0.881 ·
+whose 0.907. On the 18 disputed rows the advisor sided with `class_start` on 15 and with
+`class_cold` on 3. No OUT-OF-CONCEPT/FLOOR class verdicts were needed beyond the whose axis.
+
+**Final distributions (151 rows):** `class_final` MATERIAL=111 (73.5%) · IMMATERIAL=40 (26.5%);
+`layer_final` implementation=80 · plan=39 · design=19 · architecture=13 (idea still absent);
+`whose_final` reviewer=136 (**90.1%**) · advisor=12 (7.9%) · operator-floor=3 (2.0%).
+Adjudication moved the whose axis FURTHER toward reviewer-dominance (86.1% → 90.1%) — the S2
+verdict **`judgment-only, not corpus-validated`** stands unchanged for S4.
+
+**Descriptive statistic, NOT a bar (design §4):** `class_start` vs `class_final` on the binary
+set = 70/73 (0.959). Stated upward bias: `class_final` inherits `class_cold` on agreed rows and
+the adjudicator saw both raters — never compare this number against blind candidates.
+
+**Operator slice (§3.5), taken 2026-08-16:** 22 rows = 5 disputed/material-b stratum + 5 random
+agreed + 5 advisor-overridden + all 7 then-FLOOR rows (seeded selection above; slice computed on
+the pre-correction labels, ids in the kickoff-s3 record). Operator disputed **4/22 (18.2%)** —
+below the >20% P7 escalation bar (≥5 would have escalated to a full operator batch pass). All
+four disputes are ONE systematic whose-rubric correction, now binding for this corpus and
+recorded for successor stages: **`whose` = the authority class a finding's settling REQUIRED,
+never who historically answered it** (the four corrected rows record pre-advisor-era operator
+decisions — the advisor pattern did not exist yet), **and the operator floor is minimal: goal /
+ownership / spend only** — concept-class forks are advisor-class even when the operator answered
+them historically. Applied: `kl-1296-1`, `kl-1305-1`, `kl-1295-1`, `kl-1351-1` all
+operator-floor→advisor (`SLICE-CORRECTED` rationale in s3-adjudication.csv). The `kl-1351-1`
+correction also records a **phantom-spend finding**: the night-parked «~$0.117 per provision»
+rested on an aif `costUsd` estimate while the provisioning flow targets a z.ai Coding Plan
+subscription key — an estimate is not a charge (`claude -p` `total_cost_usd` precedent,
+live-verified 2026-08-09), so the spend object dissolved on fact-check; the residual
+risk-acceptance is advisor-class.
 
 ## S0 truth construction (2026-08-11) + agreement statistics
 

@@ -31,9 +31,9 @@ unlocked ([research patch](../../../docs/meta-factory/research-patches/2026-08-1
 | Stage | What | Kickoff | Status |
 |---|---|---|---|
 | S0 | Probe (C1 vs C0, operator labels) | — (in-session, gate-resolved) | DONE — #1380 |
-| S1 | Full corpus assembly (6 population CSVs, extraction contract, leakage probe) | [kickoff-s1.md](kickoff-s1.md) | READY to dispatch |
-| S2 | Cold blind re-label, three axes | authored after S1 merges | pending S1 |
-| S3 | Adjudication (advisor batch + operator stratified slice ~15, per-axis κ/PABAK) | authored after S2 merges | pending S2 |
+| S1 | Full corpus assembly (6 population CSVs, extraction contract, leakage probe) | [kickoff-s1.md](kickoff-s1.md) | DONE — #1384 |
+| S2 | Cold blind re-label, three axes | [kickoff-s2.md](kickoff-s2.md) | DONE — #1386 |
+| S3 | Adjudication (advisor batch + operator stratified slice, per-axis κ/PABAK) | [kickoff-s3.md](kickoff-s3.md) (in-session record) | DONE — in-session 2026-08-16, advisor + operator slice |
 | S4 | Bench: promptfoo + shim + C1/C2 vs C0 + report. **Capability commit: promptfoo devDependency + `Prior-art:` + SSOT id ≥250 in the SAME commit** | authored after S3 merges | pending S3 |
 | S5 | Landing PR: winning layer(s) as protocol text (reviewer-discipline §6 + fidelity-auditor + advisor) + spec status flip + `/self-reflection` | authored after S4 merges | pending S4 |
 | S5b | §7 disposition-vocabulary line in arch/SKILL.md — separate micro-PR | any time post-gate | open |
