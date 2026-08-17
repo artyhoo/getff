@@ -20,7 +20,7 @@ allowed-tools:
 <!-- Note: CC-native and portable channels are co-resident in this single SKILL.md; the dual-implementation §5 two-file drift-check finds no counterpart file by design — drift is prevented by co-location, not grep. -->
 
 > **Class:** C — prose-only wiring skill; mechanical enforcement = CC slash-command primitive (exists or does not). Promotion criterion: ≥2 harvest-forgotten incidents within 6 months → consider a PostToolUse hook checking done-task dedup against harvested PRs.
-> **Authoritative for:** /dispatcher slash-command behaviour — §0 invocation through §6 advance; dispatch→monitor→Q&A→harvest→Phase-1→stage-gate→advance loop; Q&A park-type taxonomy; dual-channel degradation for CC-absent harnesses.
+> **Authoritative for:** /dispatcher slash-command behaviour — §0 invocation through §6 advance; dispatch→monitor→Q&A→harvest→Phase-1→stage-gate→advance loop; Q&A park-type taxonomy; the §3 Type-2 park-chip contract + decision-session protocol (ADR D3/D4); dual-channel degradation for CC-absent harnesses.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). Planning, priority scoring, launch-table generation — see [.claude/skills/pipeline/SKILL.md](../pipeline/SKILL.md). Global `~/.claude/skills/orchestrator/` (agent-uncommittable, owner=maintainer).
 
 # /dispatcher — aif-control execution loop
@@ -346,9 +346,29 @@ Sources: `questions.ts:85-93` (detection), `answer.ts:207-212` (A-park resume).
 **Resolution:**
 
 1. `tsx packages/runtime-bridge/src/cli/questions.ts` → surface parked task to operator
-2. Operator reviews, optionally invokes `superpowers:brainstorming` for deliberation
-3. Operator provides answer; `/dispatcher` applies: `tsx packages/runtime-bridge/src/cli/answer.ts --task <id> --answer "<decision>" --decision request_changes` (B-park) OR `--decision resume` (A-park)
-4. Loop resumes
+2. **Park-chip (ADR D3/D4, stage S3)** — emit one, per the contract below, so the decision stops depending on this session staying alive
+3. Operator reviews, optionally invokes `superpowers:brainstorming` for deliberation
+4. Operator provides answer; `/dispatcher` applies: `tsx packages/runtime-bridge/src/cli/answer.ts --task <id> --answer "<decision>" --decision request_changes` (B-park) OR `--decision resume` (A-park)
+5. Loop resumes
+
+Step 2 composes with the routing-seats table above, it does not replace it: when the advisor is reachable, the ask + `ASK` stays the first move, and the chip is what materialises a decision venue when no live seat holds the question — at night it simply waits, unclicked and inert, until morning.
+
+**Park-chip contract (pointer-only — the emitter is `/dispatcher`; dispatch chips are a different animal, contract in [pipeline `references/output-format.md` §9](../pipeline/references/output-format.md)).** Capability-gated exactly like the dispatch chips: emit only when `spawn_task` is invocable in this session (runtime roster probe — never a version-sniff, never an `allowed-tools` entry). Probe fails → today's behaviour verbatim, no apology line.
+
+| Field    | Content                                                                                                                                                                                                                                                                            |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `title`  | `Decide: <one-line question> [<umbrella>]`. One chip MAY batch a burst — `Decide 6 parked questions [<umbrella>]` — because bursts are the observed shape, not the exception                                                                                                       |
+| `tldr`   | the recommended **seat class** plus the umbrella — `spawn_task` cannot name a model, so the operator's model pick at click IS the seat control (`intent/goal fork — open in a top-tier session`, per [arch/SKILL.md §4](../arch/SKILL.md))                                         |
+| `prompt` | **pointers only**: parked task-id(s), kickoff path, and the routing-seat context above. **Never the park payload body** — an inlined hint is untrusted by construction, since the chip outlives the state it was minted from (`REPORT supplementary, mechanical state wins`, §2.2) |
+
+**Decision-session protocol — what a click authorizes.** The chip prompt instructs the spawned session to:
+
+1. **Re-verify at click time, never trust the chip:** re-fetch the park from aif (`questions.ts`, read-only) using the task-id. No matching parked task, or the park is already answered → **report and stop**; the chip was stale (`dismiss_task` is best-effort, never a guarantee).
+2. **Assemble a decision package** — question · evidence · a reasoned recommendation with its falsifier (H1 discipline) · options with consequences — and present it. Apply the class split internally per [arch/SKILL.md §4](../arch/SKILL.md): in-scope architecture is answerable at the senior seat, intent/goal belongs to the operator.
+3. **Apply from that session, with the owning CLI:** `tsx packages/runtime-bridge/src/cli/answer.ts --task <id> --answer "<decision>" --decision <request_changes|resume>`. A fresh session has full tools — nothing is relayed back through the emitting `/dispatcher`.
+4. **Record durably:** the aif task comment + the PR `## Parked questions` section. The chip is ephemeral by design — a restart loses the chip, never the park, and the morning sweep (`questions.ts --project`) stays the mechanical backstop.
+
+**Coverage honesty.** A park raised while no `/dispatcher` session is alive produces no chip at all and falls back to that sweep. Worker-emitted park-chips are out of scope (ADR F7 — factory containers configure no ccd server). **Falsifier:** if parks keep getting answered through some other path while chips rot unclicked, the edge costs nothing standing and retires by deleting this block.
 
 ### Type 3 — Terminal (no Q&A needed)
 
@@ -359,6 +379,8 @@ Sources: `questions.ts:85-93` (detection), `answer.ts:207-212` (A-park resume).
 **Capability-check (not brand-name detection per `dual-implementation-discipline.md §4`):** probe whether the `superpowers:brainstorming` Skill-tool is reachable in the current harness (attempt invocation with a sentinel probe, or check `CLAUDE_SKILL_DIR` environment + skill discovery). Do NOT branch on harness name strings like `"claude"` or `"cc"`.
 
 If the brainstorming companion is unreachable (Cursor / Aider / Codex / no Superpowers installed): **technical forks degrade to Type 2 behaviour** — surface to operator rather than resolving autonomously. The portable markdown of this skill provides the same discrimination discipline; the autonomous resolution step is skipped. This is the CC-absent path by necessity, not a stub.
+
+**Park-chips degrade the same way, and by the same probe:** no invocable `spawn_task` in the roster → skip step 2 of Type 2 silently and surface the park as before. Nothing downstream depends on a chip existing — the decision package, `answer.ts` application, and the morning sweep are all chip-independent, so the degraded path loses latency, never coverage.
 
 ---
 
