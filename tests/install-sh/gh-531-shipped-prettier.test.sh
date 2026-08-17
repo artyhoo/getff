@@ -216,39 +216,60 @@ fi
 # a consumer with its OWN stricter .prettierrc (printWidth 100) KEEPS that config (copy_safe skips
 # it), so the vendored framework files — formatted to the framework's printWidth-80 config — fail
 # `prettier --check .` unless ignored. Arm 3 above uses a GREENFIELD consumer (no competing
-# .prettierrc) and therefore cannot catch this. This arm models the real reopener (timeliner). ──
+# .prettierrc) and therefore cannot catch this. This arm models the real reopener (timeliner).
+#
+# TWO blind spots fixed 2026-08-17 after the .claude/vendor/runtime-bridge/** gap shipped past a
+# green arm (7 files flagged in a real brownfield consumer):
+#   (a) PROFILE — this arm used to run `install.sh ts-server` with no --profile. Redirected (non-TTY)
+#       that resolves to `[profile] core`, and setup.d/55-runtime-bridge-vendor.sh is factory-ONLY
+#       (its gate at :65 returns early), so `.claude/vendor/` was never created in the fixture at
+#       all. Measured: the pre-fix fixture had no .claude/vendor directory. This was the PRIMARY
+#       reason the gap was invisible — dropping the *.md blanket alone would NOT have caught it.
+#       `--profile factory` is therefore load-bearing here, not a widening.
+#   (b) *.md BLANKET — the fixture .prettierignore used to carry `*.md`, which hid the vendored
+#       README.md (1 of the 7). Removed: the shipped .md family is covered by its own managed block
+#       (#884, Arm 9), so a real md escape must FAIL this arm rather than be masked by fixture noise.
+# `</dev/null` because PROFILE=factory reaches the guided aif-handoff install offer (install.sh:1153).
 if npx --yes prettier@3.8.3 --version >/dev/null 2>&1; then
   TB=$(mktemp -d)
   printf '{"name":"g531b","version":"0.0.0"}\n' > "$TB/package.json"
   printf '{"singleQuote":true,"printWidth":100,"trailingComma":"es5"}\n' > "$TB/.prettierrc.json"
-  # Pre-existing brownfield .prettierignore (the merge target). Ignore the test scaffolding the
-  # harness minified (root package.json / .prettierrc.json) + *.md so the assertion isolates the
-  # VENDORED framework surface under test, not fixture noise.
-  printf '%s\n' '*.md' '/package.json' '/.prettierrc.json' > "$TB/.prettierignore"
-  ( cd "$TB" && git init -q && bash "$REPO_ROOT/install.sh" ts-server ) >/dev/null 2>&1
+  # Pre-existing brownfield .prettierignore (the merge target). Ignore ONLY the test scaffolding the
+  # harness minified (root package.json / .prettierrc.json) — everything install.sh ships, .md
+  # included, stays under assertion.
+  printf '%s\n' '/package.json' '/.prettierrc.json' > "$TB/.prettierignore"
+  ( cd "$TB" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --profile factory </dev/null ) >/dev/null 2>&1
+  # Guard: the factory-only vendor drop MUST actually be present, else the vendor assertions below
+  # are vacuously green exactly as they were before this fix (profile regression sentinel).
+  [ -d "$TB/.claude/vendor/runtime-bridge" ] \
+    && ok "brownfield fixture installs at PROFILE=factory (the .claude/vendor/ drop is present)" \
+    || bad "brownfield fixture has no .claude/vendor/runtime-bridge — profile gate regressed, vendor assertions VACUOUS"
   nb=$( ( cd "$TB" && npx --yes prettier@3.8.3 --check . 2>&1 ) | grep -cE '^\[warn\]|^\[error\]' )
   [ "$nb" -eq 0 ] \
     && ok "brownfield: consumer w/ own printWidth-100 .prettierrc is Prettier-clean ($nb issues — vendored source ignored)" \
     || bad "brownfield: $nb prettier failures under the consumer's own config (#531 config-mismatch NOT closed)"
   # NEG (LOAD-BEARING, non-vacuity, environment-INDEPENDENT): plant grossly-dirty content (a long
   # minified line prettier reformats under ANY config — printWidth 80/100/default) at one path each
-  # AIF block covers: packages/core/hooks/** (static SOURCE block) and vitest.config.ts (shipped-
-  # config block). WITH the blocks both are skipped; after removing the blocks both MUST be flagged.
+  # AIF block covers: packages/core/hooks/** (static SOURCE block), vitest.config.ts (shipped-config
+  # block), and .claude/vendor/runtime-bridge/** (the vendor-drop block this fix adds).
+  # WITH the blocks all three are skipped; after removing the blocks all three MUST be flagged.
   # This avoids depending on the vendored files' subtle printWidth-80↔100 reflow, which a CI runner's
   # prettier config resolution can mask (observed: CI saw 0 reflow failures where local saw 14).
   dirt='export const z = {a:1,b:2,c:3,d:4,e:5,f:6,g:7,h:8,i:9,j:10,k:11,l:12,m:13,n:14,o:15,p:16,q:17,r:18,s:19,t:20};'
-  mkdir -p "$TB/packages/core/hooks"
+  mkdir -p "$TB/packages/core/hooks" "$TB/.claude/vendor/runtime-bridge/src"
   printf '%s\n' "$dirt" > "$TB/packages/core/hooks/_neg_probe.ts"
   printf '%s\n' "$dirt" > "$TB/vitest.config.ts"
-  flagged_with=$( ( cd "$TB" && npx --yes prettier@3.8.3 --check . 2>&1 ) | grep -cE '_neg_probe\.ts|vitest\.config\.ts' )
+  printf '%s\n' "$dirt" > "$TB/.claude/vendor/runtime-bridge/src/_neg_probe.ts"
+  probe_re='_neg_probe\.ts|vitest\.config\.ts'
+  flagged_with=$( ( cd "$TB" && npx --yes prettier@3.8.3 --check . 2>&1 ) | grep -cE "$probe_re" )
   [ "$flagged_with" -eq 0 ] \
-    && ok "with AIF blocks: planted dirt under packages/core/hooks/ + vitest.config.ts is skipped (both blocks ignore)" \
+    && ok "with AIF blocks: planted dirt under packages/core/hooks/, .claude/vendor/runtime-bridge/ + vitest.config.ts is skipped (all three blocks ignore)" \
     || bad "with AIF blocks: planted dirt flagged ($flagged_with) — a managed block is not covering its path"
-  printf '%s\n' '*.md' '/package.json' '/.prettierrc.json' > "$TB/.prettierignore"   # remove ALL AIF blocks
-  flagged_without=$( ( cd "$TB" && npx --yes prettier@3.8.3 --check . 2>&1 ) | grep -cE '_neg_probe\.ts|vitest\.config\.ts' )
-  [ "$flagged_without" -ge 2 ] \
-    && ok "neg: removing the AIF blocks flags both planted-dirty files ($flagged_without — ignore is non-vacuous)" \
-    || bad "neg: planted dirt still not flagged after removing blocks ($flagged_without/2) → ignore VACUOUS"
+  printf '%s\n' '/package.json' '/.prettierrc.json' > "$TB/.prettierignore"   # remove ALL AIF blocks
+  flagged_without=$( ( cd "$TB" && npx --yes prettier@3.8.3 --check . 2>&1 ) | grep -cE "$probe_re" )
+  [ "$flagged_without" -ge 3 ] \
+    && ok "neg: removing the AIF blocks flags all three planted-dirty files ($flagged_without — ignore is non-vacuous)" \
+    || bad "neg: planted dirt still not flagged after removing blocks ($flagged_without/3) → ignore VACUOUS"
 else
   echo "  · brownfield arm skipped (npx prettier@3.8.3 unreachable)"
 fi
@@ -359,5 +380,51 @@ done
 [ "$neg884_caught" -eq 1 ] \
   && ok "#884 neg: dropping DESCRIPTION.template.md from the block flips the population guard to fail (non-vacuous)" \
   || bad "#884 neg: dropping an entry did not flip the population guard → VACUOUS"
+
+# ── Arm 10 (vendor-drop population-completeness guard, mirrors Arm 1d/Arm 9 for `.claude/vendor/`):
+# EVERY framework vendor drop — a `$PROJECT_ROOT/.claude/vendor/<name>` destination any setup.d
+# layer copies into — MUST have a covering `<path>/**` line in the static managed .prettierignore
+# block. Without this, a FUTURE vendor drop escapes the ignore exactly as runtime-bridge did:
+# shipped formatted to the framework's printWidth-80 config, RED under a consumer's own
+# .prettierrc, zero consumer edit. Arm 6 catches it only end-to-end (needs npx + a full install);
+# this arm is the deterministic, network-free structural guard. ──
+_ign_v="$REPO_ROOT/packages/core/templates/shared/.prettierignore"
+# Discovery is the DESTINATION path, not the source dir: layer 55 does a wholesale `cp -r` into
+# VENDOR_DST rather than per-file copy_safe, so the Arm 9 copy_safe-target regex cannot see it.
+shipped_vendor=$(grep -ohE '\$PROJECT_ROOT/\.claude/vendor/[A-Za-z0-9._-]+' \
+  "$REPO_ROOT"/setup.d/*.sh "$REPO_ROOT/install.sh" 2>/dev/null \
+  | sed -E 's#.*/\.claude/vendor/#.claude/vendor/#' | sort -u)
+# Non-empty guard (the Arm 1d shipped_wf lesson): a derived set with no non-empty guard turns a
+# broken/renamed destination variable into a silent green meaning "nothing was checked".
+[ -n "$shipped_vendor" ] || { echo "FATAL: shipped_vendor empty — vendor-destination extraction broke"; exit 1; }
+ok "vendor population: discovered $(printf '%s\n' "$shipped_vendor" | wc -l | tr -d ' ') vendor drop(s) to check"
+vendor_miss=""
+for v in $shipped_vendor; do
+  grep -qxF "$v/**" "$_ign_v" || vendor_miss="$vendor_miss $v"
+done
+[ -z "$vendor_miss" ] \
+  && ok "vendor population: every shipped .claude/vendor/ drop has a '/**' line in the managed block" \
+  || bad "vendor population: drop(s) MISSING from .prettierignore →$vendor_miss (config-mismatch escapes ignore)"
+# neg (LOAD-BEARING, non-vacuity): dropping the real entry from the block MUST flip the guard.
+_ign_v_neg=$(grep -vxF '.claude/vendor/runtime-bridge/**' "$_ign_v")
+negv_caught=0
+for v in $shipped_vendor; do
+  printf '%s\n' "$_ign_v_neg" | grep -qxF "$v/**" || negv_caught=1
+done
+[ "$negv_caught" -eq 1 ] \
+  && ok "vendor neg: dropping runtime-bridge from the block flips the population guard to fail (non-vacuous)" \
+  || bad "vendor neg: dropping an entry did not flip the population guard → VACUOUS"
+
+# ── Arm 11 (the discipline distinction PR #1413 made explicit): ignoring a VENDORED file the
+# consumer never authors is the correct #531 remedy; ignoring one to HIDE a genuine
+# non-conformance is not. So every ignored vendor drop must ALSO be format-checked at its
+# framework SOURCE — i.e. appear in scripts/format-shipped.sh's PATHSPECS. This is the invariant
+# every pre-existing entry of the "Vendored framework SOURCE" block already satisfies
+# (packages/core/hooks/** and packages/core/eslint-rules/** are PATHSPECS entries; shipped
+# scripts/audit-r4.ts comes from packages/core/probes/). runtime-bridge was the lone violator. ──
+_fmt_v="$REPO_ROOT/scripts/format-shipped.sh"
+grep -qE '^[[:space:]]*packages/runtime-bridge/vendor[[:space:]]*$' "$_fmt_v" \
+  && ok "vendor source is format-checked at the framework (packages/runtime-bridge/vendor in PATHSPECS — ignored, not hidden)" \
+  || bad "packages/runtime-bridge/vendor absent from format-shipped.sh PATHSPECS — the ignore would HIDE unformatted shipped bytes"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

@@ -37,14 +37,19 @@ export interface ResolverOptions {
  * @param options Optional overrides (for testing / programmatic use).
  * @returns The first available backend, or ManualBackend as fallback.
  */
-export async function resolveBackend(options: ResolverOptions = {}): Promise<RuntimeBackend> {
+export async function resolveBackend(
+  options: ResolverOptions = {},
+): Promise<RuntimeBackend> {
   const mode = (options.mode ??
     (process.env['RUNTIME_BRIDGE_MODE'] as BridgeMode | undefined) ??
     'auto') as BridgeMode;
 
-  const aifBaseUrl = options.aifBaseUrl ?? process.env['RUNTIME_BRIDGE_AIF_URL'];
-  const aifMcpUrl = options.aifMcpUrl ?? process.env['RUNTIME_BRIDGE_AIF_MCP_URL'];
-  const aifProjectId = options.aifProjectId ?? process.env['RUNTIME_BRIDGE_AIF_PROJECT_ID'];
+  const aifBaseUrl =
+    options.aifBaseUrl ?? process.env['RUNTIME_BRIDGE_AIF_URL'];
+  const aifMcpUrl =
+    options.aifMcpUrl ?? process.env['RUNTIME_BRIDGE_AIF_MCP_URL'];
+  const aifProjectId =
+    options.aifProjectId ?? process.env['RUNTIME_BRIDGE_AIF_PROJECT_ID'];
 
   const manualBackend = new ManualBackend();
 

@@ -19,24 +19,25 @@ Spec A7 binds COPY (not symlink, not submodule, not npm dep). npm packaging of t
 The copy is the **complete transitive import closure of `cli/dispatch.ts`** — verified at copy
 time by tracing `import { ... } from '...'` chains:
 
-| File | Reached from |
-|---|---|
-| `src/cli/dispatch.ts` | entry |
-| `src/kickoff.ts` | dispatch → `../kickoff.js` |
-| `src/idempotency.ts` | dispatch → `../idempotency.js`; kickoff → `./idempotency.js` |
-| `src/resolver.ts` | dispatch → `../resolver.js` |
-| `src/ManualBackend.ts` | dispatch → `../ManualBackend.js`; resolver → `./ManualBackend.js` |
-| `src/backend.ts` | dispatch → `../backend.js`; transitively from most files |
-| `src/AifHandoffBackend.ts` | resolver → `./AifHandoffBackend.js` |
-| `src/aifWsStatus.ts` | AifHandoffBackend → `./aifWsStatus.js` |
-| `src/types.ts` | type-only; transitively from most files |
-| `src/cli/ensure-parallel.ts` | AifHandoffBackend → `./cli/ensure-parallel.js` |
-| `src/cli/aifHttp.ts` | cli/ensure-parallel → `./aifHttp.js` |
-| `src/cli/park.ts` | cli/ensure-parallel → `./park.js` |
-| `src/cli/openQuestion.ts` | cli/park → `./openQuestion.js` |
-| `hooks/runtime-bridge-dispatch.sh` | bash PostToolUse hook (paired with this CLI) |
+| File                               | Reached from                                                      |
+| ---------------------------------- | ----------------------------------------------------------------- |
+| `src/cli/dispatch.ts`              | entry                                                             |
+| `src/kickoff.ts`                   | dispatch → `../kickoff.js`                                        |
+| `src/idempotency.ts`               | dispatch → `../idempotency.js`; kickoff → `./idempotency.js`      |
+| `src/resolver.ts`                  | dispatch → `../resolver.js`                                       |
+| `src/ManualBackend.ts`             | dispatch → `../ManualBackend.js`; resolver → `./ManualBackend.js` |
+| `src/backend.ts`                   | dispatch → `../backend.js`; transitively from most files          |
+| `src/AifHandoffBackend.ts`         | resolver → `./AifHandoffBackend.js`                               |
+| `src/aifWsStatus.ts`               | AifHandoffBackend → `./aifWsStatus.js`                            |
+| `src/types.ts`                     | type-only; transitively from most files                           |
+| `src/cli/ensure-parallel.ts`       | AifHandoffBackend → `./cli/ensure-parallel.js`                    |
+| `src/cli/aifHttp.ts`               | cli/ensure-parallel → `./aifHttp.js`                              |
+| `src/cli/park.ts`                  | cli/ensure-parallel → `./park.js`                                 |
+| `src/cli/openQuestion.ts`          | cli/park → `./openQuestion.js`                                    |
+| `hooks/runtime-bridge-dispatch.sh` | bash PostToolUse hook (paired with this CLI)                      |
 
 **Files NOT copied** (deliberate):
+
 - `src/AifFireBackend.ts`, `src/index.ts` — referenced only outside the dispatch closure.
 - `src/cli/{answer,await,harvest,questions}.ts` — the agent-loop entrypoints (consumer runs
   `/harvest`, `/questions`, etc.). Whether to vendor these is **PARKED (P1)** — see «Parked forks».
@@ -46,13 +47,13 @@ time by tracing `import { ... } from '...'` chains:
 The vendored CLI reads these env vars (same convention as the framework copy; resolution in
 `src/resolver.ts` + `src/AifHandoffBackend.ts`):
 
-| Env var | Purpose | Required? |
-|---|---|---|
-| `RUNTIME_BRIDGE_MODE` | `manual` / `aif-handoff` / `auto` (auto falls back to ManualBackend if aif-handoff unreachable) | yes (or `--mode` flag) |
-| `RUNTIME_BRIDGE_AIF_URL` | aif-handoff REST/WS base (default `http://localhost:3009`) | for `aif-handoff`/`auto` |
-| `RUNTIME_BRIDGE_AIF_MCP_URL` | aif-handoff MCP base (default `http://localhost:3100`) | optional |
-| `RUNTIME_BRIDGE_AIF_PROJECT_ID` | project ID for the aif-handoff task queue | for `aif-handoff`/`auto` |
-| `RUNTIME_BRIDGE_DEDUP_PATH` | per-project dedup-log path (see «Smoke-enabling stub» below) | optional (smoke only) |
+| Env var                         | Purpose                                                                                         | Required?                |
+| ------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------ |
+| `RUNTIME_BRIDGE_MODE`           | `manual` / `aif-handoff` / `auto` (auto falls back to ManualBackend if aif-handoff unreachable) | yes (or `--mode` flag)   |
+| `RUNTIME_BRIDGE_AIF_URL`        | aif-handoff REST/WS base (default `http://localhost:3009`)                                      | for `aif-handoff`/`auto` |
+| `RUNTIME_BRIDGE_AIF_MCP_URL`    | aif-handoff MCP base (default `http://localhost:3100`)                                          | optional                 |
+| `RUNTIME_BRIDGE_AIF_PROJECT_ID` | project ID for the aif-handoff task queue                                                       | for `aif-handoff`/`auto` |
+| `RUNTIME_BRIDGE_DEDUP_PATH`     | per-project dedup-log path (see «Smoke-enabling stub» below)                                    | optional (smoke only)    |
 
 ## Per-project dedup-log path — smoke-enabling STUB
 
@@ -62,8 +63,11 @@ that global path would cross-contaminate dedup state — spec A7 (lines 287-288)
 «dedup-log path becomes per-project».
 
 **In this vendored copy ONLY**, `src/idempotency.ts:32` reads:
+
 ```ts
-const DEDUP_PATH = process.env.RUNTIME_BRIDGE_DEDUP_PATH ?? join(tmpdir(), 'runtime-bridge-dedup.jsonl');
+const DEDUP_PATH =
+  process.env.RUNTIME_BRIDGE_DEDUP_PATH ??
+  join(tmpdir(), 'runtime-bridge-dedup.jsonl');
 ```
 
 **This is a stub, NOT a resolution of the underlying mechanism choice.** The actual mechanism

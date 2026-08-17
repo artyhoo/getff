@@ -44,7 +44,11 @@ export function parseEntries(jsonl: string): DedupEntry[] {
  * This is the self-cleaning core: applied on every write so the dedup log is
  * bounded and stale entries (including a one-off manual fallback) drop out by age.
  */
-export function pruneStaleEntries(entries: DedupEntry[], now: number, ttlMs: number = TTL_MS): DedupEntry[] {
+export function pruneStaleEntries(
+  entries: DedupEntry[],
+  now: number,
+  ttlMs: number = TTL_MS,
+): DedupEntry[] {
   return entries.filter((e) => now - new Date(e.timestamp).getTime() <= ttlMs);
 }
 
@@ -63,7 +67,10 @@ export function checkDedup(contentHash: string): TaskHandle | null {
   if (!existsSync(DEDUP_PATH)) return null;
 
   const now = Date.now();
-  const lines = readFileSync(DEDUP_PATH, 'utf8').trim().split('\n').filter(Boolean);
+  const lines = readFileSync(DEDUP_PATH, 'utf8')
+    .trim()
+    .split('\n')
+    .filter(Boolean);
 
   for (const line of lines) {
     let entry: DedupEntry;
@@ -85,14 +92,19 @@ export function checkDedup(contentHash: string): TaskHandle | null {
  * still-fresh prior entries plus this one, so stale lines (incl. an old manual
  * fallback that would otherwise block a retry) drop out by age. No manual sweep.
  */
-export function recordDispatch(contentHash: string, taskHandle: TaskHandle): void {
+export function recordDispatch(
+  contentHash: string,
+  taskHandle: TaskHandle,
+): void {
   const now = Date.now();
   const entry: DedupEntry = {
     hash: contentHash,
     taskHandle,
     timestamp: new Date(now).toISOString(),
   };
-  const prior = existsSync(DEDUP_PATH) ? parseEntries(readFileSync(DEDUP_PATH, 'utf8')) : [];
+  const prior = existsSync(DEDUP_PATH)
+    ? parseEntries(readFileSync(DEDUP_PATH, 'utf8'))
+    : [];
   const kept = pruneStaleEntries(prior, now);
   const lines = [...kept, entry].map((e) => JSON.stringify(e)).join('\n');
   writeFileSync(DEDUP_PATH, lines + '\n', 'utf8');

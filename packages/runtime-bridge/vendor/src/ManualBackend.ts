@@ -17,9 +17,21 @@
  *   callable from both the PostToolUse hook (CC) and any portable entrypoint.
  */
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, writeFileSync, readdirSync, statSync, unlinkSync } from 'node:fs';
+import {
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  readdirSync,
+  statSync,
+  unlinkSync,
+} from 'node:fs';
 import type { RuntimeBackend } from './backend.js';
-import type { KickoffSpec, TaskHandle, TaskStatus, TaskResult } from './types.js';
+import type {
+  KickoffSpec,
+  TaskHandle,
+  TaskStatus,
+  TaskResult,
+} from './types.js';
 
 /** /tmp kickoff/response artefacts older than this are pruned on the next dispatch. */
 const ARTIFACT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — generous (don't nuke an unpasted recent one)
@@ -29,7 +41,12 @@ const ARTIFACT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — generous (don't n
  * Matches only our own `runtime-bridge-*.md` / `.response.md` files, and only when
  * older than the TTL — so self-cleaning never touches unrelated files or fresh kickoffs.
  */
-export function isStaleArtifact(filename: string, mtimeMs: number, now: number, ttlMs: number = ARTIFACT_TTL_MS): boolean {
+export function isStaleArtifact(
+  filename: string,
+  mtimeMs: number,
+  now: number,
+  ttlMs: number = ARTIFACT_TTL_MS,
+): boolean {
   if (!/^runtime-bridge-.*\.md$/.test(filename)) return false;
   return now - mtimeMs > ttlMs;
 }
@@ -38,7 +55,11 @@ export function isStaleArtifact(filename: string, mtimeMs: number, now: number, 
  * Self-clean: delete stale ManualBackend artefacts in `dir`. Best-effort — a file
  * that vanishes or can't be stat'd is skipped, never throws into the dispatch path.
  */
-export function pruneTmpArtifacts(dir: string, now: number, ttlMs: number = ARTIFACT_TTL_MS): string[] {
+export function pruneTmpArtifacts(
+  dir: string,
+  now: number,
+  ttlMs: number = ARTIFACT_TTL_MS,
+): string[] {
   let names: string[];
   try {
     names = readdirSync(dir);
@@ -108,7 +129,9 @@ export class ManualBackend implements RuntimeBackend {
     const responseExists = existsSync(responsePath);
     return Promise.resolve({
       status: responseExists ? 'done' : 'pending',
-      rawStatus: responseExists ? 'response_file_present' : 'awaiting_response_file',
+      rawStatus: responseExists
+        ? 'response_file_present'
+        : 'awaiting_response_file',
       checkedAt: new Date().toISOString(),
     });
   }
