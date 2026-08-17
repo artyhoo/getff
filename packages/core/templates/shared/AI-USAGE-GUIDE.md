@@ -39,7 +39,7 @@ retitled in one render alone fails the check rather than quietly forking.
 
 Three sequences, one per install depth. Run the one matching the depth you installed. If you do
 not know: `core` is the default, `env` additionally puts `.ai-factory/tier-home.md` and
-`.claude/skills/arch/` on disk, `factory` additionally puts `.claude/skills/pipeline/` there.
+`.claude/skills/arch/` on disk, `factory` additionally puts `.claude/skills/dispatcher/` there.
 
 ### §2.1 `core` — install → a rule provably fires on your code
 
@@ -141,7 +141,7 @@ not know: `core` is the default, `env` additionally puts `.ai-factory/tier-home.
 <!-- step: verify-payload -->
 
 2. **Verify the payload landed** — `ls .claude/skills/`. On top of `env` you should see
-   `pipeline`, `dispatcher`, `harvest`, `aif-doctor`, `night-mode`, `story` and
+   `dispatcher`, `harvest`, `aif-doctor`, `night-mode`, `story` and
    `claude-glm-executor-handoff`.
 
 <!-- step: fill-passport -->
