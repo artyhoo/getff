@@ -50,6 +50,17 @@ export function toDiagnostics(report: ValidationReport): Diagnostic[] {
         message: failure.reason,
       });
     }
+    // Skipped checks render too (severity warning) — a degraded gate must not look clean here
+    // any more than it does in the AIF gate-result (U10 option b, 2026-08-17).
+    for (const degrade of outcome.degraded ?? []) {
+      diagnostics.push({
+        code: degrade.code,
+        severity: 'warning',
+        path: degrade.ruleId ? `${gateName}/${degrade.ruleId}` : gateName,
+        params: degrade.ruleId ? { ruleId: degrade.ruleId } : {},
+        message: degrade.reason,
+      });
+    }
   }
   return diagnostics;
 }

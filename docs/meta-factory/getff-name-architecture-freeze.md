@@ -66,7 +66,25 @@ Spec A6 asks R1 for a name freeze, a `files` allowlist, bin runnability, metadat
 | `npm view @getff/cli` | `E404 Not Found` | same |
 | `npm view rules-as-tests` | `E404 Not Found` | the old name is free (not that we want it) |
 
-### §4.2 The `@getff` scope — org EXISTS, ownership UNRESOLVED (U10 gate)
+### §4.2 The `@getff` scope — org EXISTS, ownership **RESOLVED 2026-08-17: ours**
+
+> **Resolved 2026-08-17 (authed probe, operator host).** The gate below is closed:
+>
+> ```text
+> $ npm whoami
+> artyhoo
+> $ npm org ls getff
+> artyhoo - owner
+> ```
+>
+> The `@getff` scope belongs to the same account that owns the unscoped `getff` name (§4.1) — **not
+> a different owner**, so the §11 stop condition does not fire and publish is unblocked on this axis.
+> The two lines below the 2026-08-09 table («what is still open», «the exact command that closes
+> this») are the pre-resolution record; they are kept as history, not as live status.
+>
+> **U10's remaining open items are therefore only:** the `bin: getff` package (§2 §0.5 gap), the
+> package metadata + `private: true` drop, the runtime-dep promotion for the three deferred bins
+> (see the U10 WARNING below), and the publish act itself.
 
 Measured 2026-08-09 with **unauthenticated** commands (these work with no login):
 
@@ -85,7 +103,7 @@ npm error code ENEEDAUTH
 npm error need auth This command requires you to be logged in.
 ```
 
-**Status: `UNRESOLVED — needs `npm access list packages @getff` under an authed account; U10 gate`.**
+**Status (2026-08-09, superseded by the resolution box above): `UNRESOLVED — needs `npm access list packages @getff` under an authed account; U10 gate`.**
 
 This is **not a stop condition** for R1 (per kickoff §0.2): every R1 deliverable is name-independent (`npm i <tarball>` installs by path), and `private:true` is kept so nothing reaches the registry from this stage. Scope ownership first becomes load-bearing at **publish — U10**. Only a probe that returns a **different owner** is a stop (§11 of the kickoff); an unauthenticated probe is a recorded unknown, not a foreign scope.
 
@@ -144,6 +162,49 @@ The other **three** bins (`rules-as-tests-synth`, `rules-as-tests-validate`, `ru
 > **U10 must pick one** (R1 does not — it is out of scope per kickoff §7, «no package outside `packages/core`»): (a) publish the presets too, (b) make the preset imports dynamic with a documented degrade, mirroring the existing `ts-morph` pattern at `install/wire-eslint-r2.ts:115-143`, or (c) drop those gates from the `files` allowlist and accept `validate` as a repo-internal bin.
 >
 > Related and also out of R1 scope: `packages/core` declares **no** `peerDependencies` while all four siblings do — `preset-react-spa/package.json:15`, `preset-next-15-canonical/package.json:15`, `preset-react-native/package.json:11`, `meta-factory/package.json:13`. Whichever option U10 picks, the peer-tier decision travels with it.
+
+### U10 WARNING — RATIFIED VERDICT: **option (b)**, dynamic resolution with an honest degrade (operator, 2026-08-17)
+
+**Ratified by the operator on 2026-08-17 and implemented in the same PR as this record.** The
+imports are gone; the registry is resolved at call time by
+[`packages/core/validator/preset-plugin-resolver.ts`](../../packages/core/validator/preset-plugin-resolver.ts)
+in three tiers: (i) the consumer's vendored barrel `<cwd>/eslint-rules-local/index.mjs`, anchored
+with `createRequire(resolve(process.cwd(), 'package.json'))` — framework-anchored resolution would
+miss the consumer's barrel and falsely degrade (the GH #642 lesson recorded at
+`install/wire-eslint-r2.ts:124-129`); (ii) the workspace packages, so the monorepo/CI path is
+unchanged; (iii) an honest degrade — a new `degrade` `GateStatus` plus per-rule `GateDegrade`
+entries (`FF3022`) naming the rule that was skipped and every specifier tried. Never a crash,
+never a silent pass: the degrade surfaces as AIF status `warn` with `severity: "warning"` blockers
+and as warning diagnostics.
+
+**Table correction (measured 2026-08-17, whole-directory enumeration).** The four-row table above
+is **incomplete** — the population is **five files / six imports**. `validator/gate-autofix-clean.ts:22`
+carried the same `preset-next-15-canonical` import, and `validator/gate-rule-tester.ts:23`
+additionally imported `@rules-as-tests/preset-react-spa/eslint-rules`, also `"private": true`. A
+fix scoped to the four listed rows would have left the bin crashing on the fifth. The
+anti-regression check therefore enumerates `validator/*.ts` against every `private: true` workspace
+package instead of allowlisting known offenders
+([`preset-plugin-resolver.test.ts`](../../packages/core/validator/preset-plugin-resolver.test.ts)).
+
+**Paired-negative evidence — the bin, run from a tarball-shaped tree (presets absent, `eslint`/`ajv`
+present, `tsx`, cwd = a consumer dir):**
+
+| arm | result |
+|---|---|
+| gates as of `origin/staging` | rc=1 — `ERR_MODULE_NOT_FOUND: Cannot find package '@rules-as-tests/preset-next-15-canonical'` (the U10 crash, reproduced) |
+| ratified fix, **no** consumer barrel | rc=0 — `ruleTester`/`tautology`/`conflict`/`autofixClean` = `degrade`, each naming the skipped rule and the specifiers tried; none reports `pass` |
+| ratified fix, consumer barrel vendored | rc=0 — the gates RUN: `tautology` **catches** a seeded always-firing rule (`FF3007`) supplied only by the barrel |
+
+The third arm is the operator's falsifier: if the barrel anchor were not implemented, consumers
+would always degrade and option (b) would collapse into theatre. Three seeded breaks (barrel tier
+disabled; a static import restored; degrade returning `pass`) were each verified RED before GREEN.
+
+**Peer-tier consequence of (b):** the presets never enter `peerDependencies` — they are resolved at
+runtime or skipped. No `package.json` change travels with this option.
+
+**What option (b) does NOT close** (still U10, untouched here): the `private: true` drop, the
+`bin: getff` package, the `eslint` + `@typescript-eslint/*` + `ts-morph` runtime-dep promotion the
+three deferred bins need, and the publish act.
 
 **Consequence for `files` validation coverage:**
 

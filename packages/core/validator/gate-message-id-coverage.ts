@@ -18,8 +18,12 @@
 
 import { Linter } from 'eslint';
 import * as tseslintParser from '@typescript-eslint/parser';
-import presetPlugin from '@rules-as-tests/preset-next-15-canonical/eslint-rules';
-import corePlugin from '../eslint-rules/index.ts';
+import {
+  knownPlugins,
+  resolvePluginRegistry,
+  type PluginRegistry,
+  type PresetResolutionOptions,
+} from './preset-plugin-resolver.ts';
 import {
   ESLINT_RESTRICTED_RULE_NAME,
   extractDeclarativeRuleConfigFromSnippet,
@@ -28,16 +32,14 @@ import type { SynthesisPlan, SynthesizedRule } from '../synthesizer/types.ts';
 import type { GateFailure, GateOutcome } from './types.ts';
 
 // `rules-as-tests` unions core (the exempt-aware wrapper) + preset (handwritten) rules,
-// matching the single barrel a consumer receives from install.sh.
-const KNOWN_PLUGINS: Record<string, unknown> = {
-  'rules-as-tests': {
-    rules: { ...corePlugin.rules, ...presetPlugin.rules },
-  },
-};
-
+// matching the single barrel a consumer receives from install.sh — resolved dynamically
+// (preset-plugin-resolver.ts). This gate has NO degrade arm by construction: it only ever
+// lints ESLINT_RESTRICTED_RULE_NAME, a CORE rule that ships inside the package, so the
+// registry it needs is always present even at the resolver's core-only tier.
 function buildSingleRuleConfig(
   ruleName: string,
   ruleConfig: unknown,
+  registry: PluginRegistry,
 ): Linter.Config[] {
   return [
     {
@@ -50,7 +52,7 @@ function buildSingleRuleConfig(
           sourceType: 'module',
         },
       },
-      plugins: KNOWN_PLUGINS,
+      plugins: knownPlugins(registry),
       rules: { [ruleName]: ruleConfig as Linter.RuleEntry },
     },
   ] as Linter.Config[];
@@ -59,6 +61,7 @@ function buildSingleRuleConfig(
 function checkRule(
   rule: SynthesizedRule,
   parsedSnippet: Record<string, unknown>,
+  registry: PluginRegistry,
 ): GateFailure[] {
   if (rule.check.type !== 'declarative') return [];
 
@@ -91,7 +94,7 @@ function checkRule(
     return [];
   }
 
-  const config = buildSingleRuleConfig(ruleName, ruleConfig);
+  const config = buildSingleRuleConfig(ruleName, ruleConfig, registry);
   const linter = new Linter();
   const messages = linter.verify(rule.examples.bad, config, {
     filename: 'bad-example.tsx',
@@ -124,7 +127,10 @@ function checkRule(
   return [];
 }
 
-export function runMessageIdCoverageGate(plan: SynthesisPlan): GateOutcome {
+export function runMessageIdCoverageGate(
+  plan: SynthesisPlan,
+  opts?: PresetResolutionOptions,
+): GateOutcome {
   const declarativeRules = plan.rules.filter(
     (r) => r.check.type === 'declarative',
   );
@@ -145,9 +151,10 @@ export function runMessageIdCoverageGate(plan: SynthesisPlan): GateOutcome {
     string,
     unknown
   >;
+  const registry = resolvePluginRegistry(opts);
   const failures: GateFailure[] = [];
   for (const rule of declarativeRules) {
-    failures.push(...checkRule(rule, parsedSnippet));
+    failures.push(...checkRule(rule, parsedSnippet, registry));
   }
   return failures.length === 0
     ? { status: 'pass', failures: [] }

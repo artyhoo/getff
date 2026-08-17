@@ -12,21 +12,26 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Linter } from 'eslint';
 import tseslintParser from '@typescript-eslint/parser';
-import presetPlugin from '@rules-as-tests/preset-next-15-canonical/eslint-rules';
+import {
+  degradeFor,
+  gateOutcome,
+  isUnresolvablePluginRule,
+  knownPlugins,
+  resolvePluginRegistry,
+  type PluginRegistry,
+  type PresetResolutionOptions,
+} from './preset-plugin-resolver.ts';
 import type { SynthesisPlan, SynthesizedRule } from '../synthesizer/types.ts';
-import type { GateFailure, GateOutcome } from './types.ts';
+import type { GateDegrade, GateFailure, GateOutcome } from './types.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CORPUS_DIR = resolve(HERE, 'fixtures', 'negative-corpus');
 const CORPUS_FILES = ['empty.ts', 'comment-only.ts', 'unrelated.tsx'] as const;
 
-const KNOWN_PLUGINS: Record<string, unknown> = {
-  'rules-as-tests': presetPlugin,
-};
-
 function buildConfig(
   rule: SynthesizedRule,
   parsedSnippet: Record<string, unknown>,
+  registry: PluginRegistry,
 ): Linter.Config[] | null {
   if (rule.check.type !== 'eslint') return null;
   const ruleName = rule.check.rule;
@@ -42,23 +47,28 @@ function buildConfig(
           sourceType: 'module',
         },
       },
-      plugins: KNOWN_PLUGINS,
+      plugins: knownPlugins(registry),
       rules: { [ruleName]: ruleConfig as Linter.RuleEntry },
     },
   ] as Linter.Config[];
 }
 
-export function runTautologyGate(plan: SynthesisPlan): GateOutcome {
+export function runTautologyGate(
+  plan: SynthesisPlan,
+  opts?: PresetResolutionOptions,
+): GateOutcome {
   const eslintRules = plan.rules.filter((r) => r.check.type === 'eslint');
   if (eslintRules.length === 0) {
     return { status: 'n/a', failures: [] };
   }
+  const registry = resolvePluginRegistry(opts);
   const parsedSnippet = JSON.parse(plan.eslintConfigSnippet) as Record<
     string,
     unknown
   >;
   const linter = new Linter();
   const failures: GateFailure[] = [];
+  const degraded: GateDegrade[] = [];
 
   const corpus = CORPUS_FILES.map((name) => ({
     name,
@@ -67,9 +77,15 @@ export function runTautologyGate(plan: SynthesisPlan): GateOutcome {
 
   for (const rule of eslintRules) {
     if (rule.check.type !== 'eslint') continue;
-    const config = buildConfig(rule, parsedSnippet);
+    const config = buildConfig(rule, parsedSnippet, registry);
     if (!config) continue;
     const ruleName = rule.check.rule;
+    // Linting an unregistered plugin rule throws inside linter.verify ("Could not find
+    // plugin") — record the skip instead of crashing the shipped bin.
+    if (isUnresolvablePluginRule(ruleName, registry)) {
+      degraded.push(degradeFor('tautology', ruleName, registry, rule.id));
+      continue;
+    }
     for (const file of corpus) {
       const messages = linter.verify(file.code, config, { filename: file.name });
       const violating = messages.filter((m) => m.ruleId === ruleName);
@@ -85,7 +101,5 @@ export function runTautologyGate(plan: SynthesisPlan): GateOutcome {
     }
   }
 
-  return failures.length === 0
-    ? { status: 'pass', failures: [] }
-    : { status: 'fail', failures };
+  return gateOutcome(failures, degraded);
 }

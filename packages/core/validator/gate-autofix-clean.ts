@@ -19,27 +19,30 @@
 
 import { Linter } from 'eslint';
 import * as tseslintParser from '@typescript-eslint/parser';
-import presetPlugin from '@rules-as-tests/preset-next-15-canonical/eslint-rules';
-import corePlugin from '../eslint-rules/index.ts';
+import {
+  degradeFor,
+  gateOutcome,
+  isUnresolvablePluginRule,
+  knownPlugins,
+  resolvePluginRegistry,
+  type PluginRegistry,
+  type PresetResolutionOptions,
+} from './preset-plugin-resolver.ts';
 import {
   ESLINT_RESTRICTED_RULE_NAME,
   declarativeRestrictedConfigEntry,
   extractDeclarativeRuleConfigFromSnippet,
 } from '../synthesizer/compile-declarative-md.ts';
 import type { SynthesisPlan, SynthesizedRule } from '../synthesizer/types.ts';
-import type { GateFailure, GateOutcome } from './types.ts';
+import type { GateDegrade, GateFailure, GateOutcome } from './types.ts';
 
 // `rules-as-tests` unions core (the exempt-aware wrapper) + preset (handwritten) rules,
-// matching the single barrel a consumer receives from install.sh.
-const KNOWN_PLUGINS: Record<string, unknown> = {
-  'rules-as-tests': {
-    rules: { ...corePlugin.rules, ...presetPlugin.rules },
-  },
-};
-
+// matching the single barrel a consumer receives from install.sh — resolved dynamically
+// (preset-plugin-resolver.ts), barrel first, then the workspace packages, then degrade.
 function buildSingleRuleConfig(
   ruleName: string,
   ruleConfig: unknown,
+  registry: PluginRegistry,
 ): Linter.Config[] {
   return [
     {
@@ -52,7 +55,7 @@ function buildSingleRuleConfig(
           sourceType: 'module',
         },
       },
-      plugins: KNOWN_PLUGINS,
+      plugins: knownPlugins(registry),
       rules: { [ruleName]: ruleConfig as Linter.RuleEntry },
     },
   ] as Linter.Config[];
@@ -108,6 +111,8 @@ type RuleCheckResult =
 function checkRule(
   rule: SynthesizedRule,
   parsedSnippet: Record<string, unknown>,
+  registry: PluginRegistry,
+  degraded: GateDegrade[],
 ): RuleCheckResult {
   if (rule.check.type !== 'eslint' && rule.check.type !== 'declarative') {
     return { hadFixer: false };
@@ -131,6 +136,12 @@ function checkRule(
     rule.check.type === 'eslint'
       ? rule.check.rule
       : ESLINT_RESTRICTED_RULE_NAME;
+  // Linting an unregistered plugin rule throws inside linter.verify ("Could not find
+  // plugin") — record the skip instead of crashing the shipped bin.
+  if (isUnresolvablePluginRule(ruleName, registry)) {
+    degraded.push(degradeFor('autofixClean', ruleName, registry, rule.id));
+    return { hadFixer: false };
+  }
   // Declarative rules are tested in ISOLATION against their OWN emitted entry (see
   // gate-rule-tester) — not the whole merged snippet.
   const ruleConfig =
@@ -140,7 +151,7 @@ function checkRule(
           rule.check.selector,
         ) ?? declarativeRestrictedConfigEntry(rule.check))
       : (parsedSnippet[ruleName] ?? 'error');
-  const config = buildSingleRuleConfig(ruleName, ruleConfig);
+  const config = buildSingleRuleConfig(ruleName, ruleConfig, registry);
   const linter = new Linter();
 
   const messages = linter.verify(rule.examples.bad, config, {
@@ -191,7 +202,10 @@ function checkRule(
   return { hadFixer: true, failures: [] };
 }
 
-export function runAutofixCleanGate(plan: SynthesisPlan): GateOutcome {
+export function runAutofixCleanGate(
+  plan: SynthesisPlan,
+  opts?: PresetResolutionOptions,
+): GateOutcome {
   const applicableRules = plan.rules.filter(
     (r) => r.check.type === 'eslint' || r.check.type === 'declarative',
   );
@@ -203,21 +217,23 @@ export function runAutofixCleanGate(plan: SynthesisPlan): GateOutcome {
     string,
     unknown
   >;
+  const registry = resolvePluginRegistry(opts);
   let anyHadFixer = false;
   const failures: GateFailure[] = [];
+  const degraded: GateDegrade[] = [];
 
   for (const rule of applicableRules) {
-    const result = checkRule(rule, parsedSnippet);
+    const result = checkRule(rule, parsedSnippet, registry, degraded);
     if (result.hadFixer) {
       anyHadFixer = true;
       failures.push(...result.failures);
     }
   }
 
-  if (!anyHadFixer) {
+  // n/a keeps its meaning — «no rule shipped a fixer» — but only when nothing was skipped:
+  // a degraded run cannot know whether the rules it could not lint have fixers.
+  if (!anyHadFixer && failures.length === 0 && degraded.length === 0) {
     return { status: 'n/a', failures: [] };
   }
-  return failures.length === 0
-    ? { status: 'pass', failures: [] }
-    : { status: 'fail', failures };
+  return gateOutcome(failures, degraded);
 }
