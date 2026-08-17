@@ -44,7 +44,9 @@ export function dispatchUsesForce(argv: readonly string[]): boolean {
 }
 
 /** First non-flag argument (the kickoff path) — lets --force sit anywhere in argv. */
-export function resolveKickoffPath(argv: readonly string[]): string | undefined {
+export function resolveKickoffPath(
+  argv: readonly string[],
+): string | undefined {
   return argv.find((a) => !a.startsWith('--'));
 }
 
@@ -75,7 +77,10 @@ export function runPreflight(env: NodeJS.ProcessEnv = process.env): void {
   const cmd = env['RUNTIME_BRIDGE_PREFLIGHT'];
   if (!cmd) return;
   try {
-    const r = spawnSync('bash', ['-c', cmd], { encoding: 'utf8', timeout: 150_000 });
+    const r = spawnSync('bash', ['-c', cmd], {
+      encoding: 'utf8',
+      timeout: 150_000,
+    });
     if (r.stdout) process.stderr.write(r.stdout);
     if (r.stderr) process.stderr.write(r.stderr);
     if (r.status !== 0) {
@@ -84,7 +89,9 @@ export function runPreflight(env: NodeJS.ProcessEnv = process.env): void {
       );
     }
   } catch (err) {
-    process.stderr.write(`[runtime-bridge] preflight error: ${err} — proceeding with dispatch\n`);
+    process.stderr.write(
+      `[runtime-bridge] preflight error: ${err} — proceeding with dispatch\n`,
+    );
   }
 }
 
@@ -94,7 +101,9 @@ async function main(): Promise<void> {
   const kickoffPath = resolveKickoffPath(cliArgs);
   const force = dispatchUsesForce(cliArgs);
   if (!kickoffPath) {
-    process.stderr.write('[runtime-bridge] dispatch.ts: no kickoff path provided\n');
+    process.stderr.write(
+      '[runtime-bridge] dispatch.ts: no kickoff path provided\n',
+    );
     process.exit(0);
   }
 
@@ -106,7 +115,9 @@ async function main(): Promise<void> {
   try {
     kickoff = buildKickoffSpec(kickoffPath, { requireAutoMarker: false });
   } catch (err) {
-    process.stderr.write(`[runtime-bridge] Failed to read kickoff ${kickoffPath}: ${err}\n`);
+    process.stderr.write(
+      `[runtime-bridge] Failed to read kickoff ${kickoffPath}: ${err}\n`,
+    );
     process.exit(0);
   }
 
@@ -155,7 +166,9 @@ async function main(): Promise<void> {
       try {
         handle = await backend.dispatch(kickoff);
       } catch (manualErr) {
-        process.stderr.write(`[runtime-bridge] ManualBackend dispatch failed: ${manualErr}\n`);
+        process.stderr.write(
+          `[runtime-bridge] ManualBackend dispatch failed: ${manualErr}\n`,
+        );
         process.exit(0);
       }
     } else {
@@ -173,7 +186,8 @@ async function main(): Promise<void> {
   }
 
   // Human-facing UI (the board), NOT the :3009 REST API (which returns raw JSON).
-  const webBase = process.env['RUNTIME_BRIDGE_AIF_WEB_URL'] ?? 'http://localhost:5180';
+  const webBase =
+    process.env['RUNTIME_BRIDGE_AIF_WEB_URL'] ?? 'http://localhost:5180';
   const projectId = process.env['RUNTIME_BRIDGE_AIF_PROJECT_ID'];
   const uiUrl = projectId ? `${webBase}/projects/${projectId}` : webBase;
   const msg =
@@ -203,7 +217,10 @@ async function main(): Promise<void> {
  * the kickoff as an implementation spec — a meta-plan yields no code. Deterministic,
  * conservative (path marker OR ≥2 orchestration section markers).
  */
-function isOrchestrationKickoff(kickoff: { umbrellaName: string; content: string }): boolean {
+function isOrchestrationKickoff(kickoff: {
+  umbrellaName: string;
+  content: string;
+}): boolean {
   if (kickoff.umbrellaName.endsWith('-meta-launch')) return true;
   const markers = [
     /^#+\s*§?\d*\.?\s*Launch-table/im,

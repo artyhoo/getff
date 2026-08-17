@@ -52,7 +52,9 @@ export interface EnsureParallelResult {
  * so a null/absent budget is sent as `undefined` → omitted by JSON.stringify → re-NULLed
  * by the handler (no change). A set budget is carried through verbatim (anti-clobber).
  */
-export function buildParallelEnablePut(project: AifProjectFull): Record<string, unknown> {
+export function buildParallelEnablePut(
+  project: AifProjectFull,
+): Record<string, unknown> {
   return {
     name: project.name,
     rootPath: project.rootPath,
@@ -63,7 +65,8 @@ export function buildParallelEnablePut(project: AifProjectFull): Record<string, 
     parallelEnabled: true,
     defaultTaskRuntimeProfileId: project.defaultTaskRuntimeProfileId ?? null,
     defaultPlanRuntimeProfileId: project.defaultPlanRuntimeProfileId ?? null,
-    defaultReviewRuntimeProfileId: project.defaultReviewRuntimeProfileId ?? null,
+    defaultReviewRuntimeProfileId:
+      project.defaultReviewRuntimeProfileId ?? null,
     defaultChatRuntimeProfileId: project.defaultChatRuntimeProfileId ?? null,
   };
 }
@@ -73,33 +76,54 @@ export function buildParallelEnablePut(project: AifProjectFull): Record<string, 
  * No-op (no PUT) when already enabled. Throws on a missing project or REST failure — the
  * caller decides whether that is fatal (the CLI exits 1; AifHandoffBackend warns + proceeds).
  */
-export async function ensureParallelEnabled(baseUrl: string, projectId: string): Promise<EnsureParallelResult> {
+export async function ensureParallelEnabled(
+  baseUrl: string,
+  projectId: string,
+): Promise<EnsureParallelResult> {
   const projects = await getProjects(baseUrl);
   const project = projects.find((p) => p.id === projectId);
   if (!project) {
-    throw new Error(`project ${projectId} not found at ${baseUrl} (GET /projects)`);
+    throw new Error(
+      `project ${projectId} not found at ${baseUrl} (GET /projects)`,
+    );
   }
   if (project.parallelEnabled === true) {
-    return { projectId, changed: false, parallelEnabled: true, reason: 'already-enabled' };
+    return {
+      projectId,
+      changed: false,
+      parallelEnabled: true,
+      reason: 'already-enabled',
+    };
   }
   await putProject(baseUrl, projectId, buildParallelEnablePut(project));
-  return { projectId, changed: true, parallelEnabled: true, reason: 'enabled-now' };
+  return {
+    projectId,
+    changed: true,
+    parallelEnabled: true,
+    reason: 'enabled-now',
+  };
 }
 
 /** Render an EnsureParallelResult as a human-readable confirmation. */
 export function formatEnsureResult(result: EnsureParallelResult): string {
-  const verb = result.changed ? 'enabled now (was off — Finding A self-heal)' : 'already enabled';
+  const verb = result.changed
+    ? 'enabled now (was off — Finding A self-heal)'
+    : 'already enabled';
   return `project: ${result.projectId}\nparallelEnabled: ${verb}`;
 }
 
 async function main(): Promise<void> {
   const baseUrl = await resolveReachableBaseUrl(process.env);
   const i = process.argv.indexOf('--project');
-  const projectId = (i !== -1 && process.argv[i + 1]) || process.env.RUNTIME_BRIDGE_AIF_PROJECT_ID;
+  const projectId =
+    (i !== -1 && process.argv[i + 1]) ||
+    process.env.RUNTIME_BRIDGE_AIF_PROJECT_ID;
   const json = process.argv.includes('--json');
 
   if (!projectId) {
-    process.stderr.write('[runtime-bridge] ensure-parallel: missing --project <id> (or $RUNTIME_BRIDGE_AIF_PROJECT_ID)\n');
+    process.stderr.write(
+      '[runtime-bridge] ensure-parallel: missing --project <id> (or $RUNTIME_BRIDGE_AIF_PROJECT_ID)\n',
+    );
     process.exit(1);
   }
 
@@ -112,14 +136,18 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  process.stdout.write((json ? JSON.stringify(result) : formatEnsureResult(result)) + '\n');
+  process.stdout.write(
+    (json ? JSON.stringify(result) : formatEnsureResult(result)) + '\n',
+  );
   process.exit(0);
 }
 
 // Run only as a real entrypoint — importing the module (tests) must not fetch/exit.
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   main().catch((err) => {
-    process.stderr.write(`[runtime-bridge] ensure-parallel: unhandled error: ${err}\n`);
+    process.stderr.write(
+      `[runtime-bridge] ensure-parallel: unhandled error: ${err}\n`,
+    );
     process.exit(1);
   });
 }

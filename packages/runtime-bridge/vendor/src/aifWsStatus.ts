@@ -79,7 +79,8 @@ export function mapAifStatusToTaskStatus(
   raw: string,
 ): 'pending' | 'running' | 'done' | 'error' {
   if (raw === 'backlog' || raw === 'planning') return 'pending';
-  if (raw === 'plan_ready' || raw === 'implementing' || raw === 'review') return 'running';
+  if (raw === 'plan_ready' || raw === 'implementing' || raw === 'review')
+    return 'running';
   if (TERMINAL_SUCCESS_STATUSES.has(raw)) return 'done';
   if (TERMINAL_FAILURE_STATUSES.has(raw)) return 'error';
   // Unknown future statuses default to running (non-terminal assumption)
@@ -88,14 +89,18 @@ export function mapAifStatusToTaskStatus(
 
 /** Whether a raw aif status is terminal (awaitTaskDone should resolve). */
 export function isTerminal(raw: string): boolean {
-  return TERMINAL_SUCCESS_STATUSES.has(raw) || TERMINAL_FAILURE_STATUSES.has(raw);
+  return (
+    TERMINAL_SUCCESS_STATUSES.has(raw) || TERMINAL_FAILURE_STATUSES.has(raw)
+  );
 }
 
 /**
  * Constructor type for WebSocket (matches undici-types WebSocket constructor).
  * Used for dependency injection in tests.
  */
-export type WebSocketConstructor = new (url: string) => InstanceType<typeof WebSocket>;
+export type WebSocketConstructor = new (
+  url: string,
+) => InstanceType<typeof WebSocket>;
 
 /** Options for awaitTaskDone. */
 export interface AwaitTaskDoneOptions {
@@ -130,7 +135,9 @@ export interface AwaitTaskDoneResult {
  * On WS disconnect: attempts bounded reconnect (≤ maxReconnectAttempts).
  * After all reconnects exhausted → rejects with BackendError('unavailable').
  */
-export function awaitTaskDone(opts: AwaitTaskDoneOptions): Promise<AwaitTaskDoneResult> {
+export function awaitTaskDone(
+  opts: AwaitTaskDoneOptions,
+): Promise<AwaitTaskDoneResult> {
   const {
     taskId,
     wsUrl,
@@ -152,7 +159,11 @@ export function awaitTaskDone(opts: AwaitTaskDoneOptions): Promise<AwaitTaskDone
         timeoutHandle = null;
       }
       if (currentWs !== null) {
-        try { currentWs.close(); } catch { /* best-effort */ }
+        try {
+          currentWs.close();
+        } catch {
+          /* best-effort */
+        }
         currentWs = null;
       }
     }
@@ -212,7 +223,8 @@ export function awaitTaskDone(opts: AwaitTaskDoneOptions): Promise<AwaitTaskDone
 
         // Filter: only task:updated and task:moved carry { id, title, status } payloads
         // Source: packages/api/src/routes/tasks.ts — broadcast() calls using toTaskBroadcastPayload
-        if (parsed.type !== 'task:updated' && parsed.type !== 'task:moved') return;
+        if (parsed.type !== 'task:updated' && parsed.type !== 'task:moved')
+          return;
 
         const payload = parsed.payload as Partial<AifTaskBroadcastPayload>;
         // Client-side filter by taskId — ignore events for other tasks
@@ -238,7 +250,9 @@ export function awaitTaskDone(opts: AwaitTaskDoneOptions): Promise<AwaitTaskDone
           attemptsLeft--;
           // Note the disconnect in state.md (item 5: never a silent drop), then
           // pause briefly before reconnect — avoids tight loop on flapping server.
-          appendStateLine(`event=ws_disconnected reconnecting attempts_left=${attemptsLeft}`);
+          appendStateLine(
+            `event=ws_disconnected reconnecting attempts_left=${attemptsLeft}`,
+          );
           setTimeout(connect, 100);
         } else {
           // Terminal disconnect: note it in state.md before surfacing the error.

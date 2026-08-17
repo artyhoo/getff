@@ -91,7 +91,10 @@ export interface ParkArgs {
 }
 
 /** Parse CLI args: --task <id> (else $HANDOFF_TASK_ID), --question <text>, --json. */
-export function parseParkArgs(argv: string[], env: NodeJS.ProcessEnv): ParkArgs {
+export function parseParkArgs(
+  argv: string[],
+  env: NodeJS.ProcessEnv,
+): ParkArgs {
   const valueOf = (flag: string): string | undefined => {
     const i = argv.indexOf(flag);
     return i !== -1 && argv[i + 1] ? argv[i + 1] : undefined;
@@ -106,12 +109,16 @@ export function parseParkArgs(argv: string[], env: NodeJS.ProcessEnv): ParkArgs 
 /** Validate parsed args. Returns an error message, or null when valid. */
 export function validateParkArgs(args: ParkArgs): string | null {
   if (!args.taskId) return 'missing required --task <id> (or $HANDOFF_TASK_ID)';
-  if (!args.question?.trim()) return 'missing required --question <text> (the fork + options)';
+  if (!args.question?.trim())
+    return 'missing required --question <text> (the fork + options)';
   return null;
 }
 
 /** Append a marked OPEN QUESTION block to the existing plan (anchor for the resume answer). */
-export function buildOpenQuestionPlan(existingPlan: string | null | undefined, question: string): string {
+export function buildOpenQuestionPlan(
+  existingPlan: string | null | undefined,
+  question: string,
+): string {
   const base = (existingPlan ?? '').trimEnd();
   const block = `\n\n${OPEN_QUESTION_ANCHOR} (awaiting operator)\n\n${question.trim()}\n`;
   return base + block;
@@ -127,7 +134,11 @@ export interface ParkResult {
  * Park the task on a hard fork: read the current plan, append the OPEN QUESTION
  * anchor, and PUT { paused:true, blockedReason, plan }. paused:true is the stop (F3).
  */
-export async function parkTask(baseUrl: string, taskId: string, question: string): Promise<ParkResult> {
+export async function parkTask(
+  baseUrl: string,
+  taskId: string,
+  question: string,
+): Promise<ParkResult> {
   const reason = question.trim();
   const task = await getTask(baseUrl, taskId);
   // Finding F guard (qloop-ux-probe 2026-06-01): a park AFTER the implement→review
@@ -169,11 +180,15 @@ async function main(): Promise<void> {
     result = await parkTask(baseUrl, args.taskId!, args.question!);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    process.stderr.write(`[runtime-bridge] park: failed to park task: ${msg}\n`);
+    process.stderr.write(
+      `[runtime-bridge] park: failed to park task: ${msg}\n`,
+    );
     process.exit(1);
   }
 
-  process.stdout.write((args.json ? JSON.stringify(result) : formatParkResult(result)) + '\n');
+  process.stdout.write(
+    (args.json ? JSON.stringify(result) : formatParkResult(result)) + '\n',
+  );
   process.exit(0);
 }
 

@@ -9,7 +9,12 @@
  *
  * @dual-pair: runtime-bridge-types
  */
-import type { KickoffSpec, TaskHandle, TaskStatus, TaskResult } from './types.js';
+import type {
+  KickoffSpec,
+  TaskHandle,
+  TaskStatus,
+  TaskResult,
+} from './types.js';
 
 export interface RuntimeBackend {
   /** Human-readable name for logging / env-var selection. */
@@ -50,7 +55,11 @@ export interface RuntimeBackend {
 export class BackendError extends Error {
   constructor(
     message: string,
-    public readonly code: 'unavailable' | 'quota_exceeded' | 'dispatch_failed' | 'timeout',
+    public readonly code:
+      | 'unavailable'
+      | 'quota_exceeded'
+      | 'dispatch_failed'
+      | 'timeout',
     public readonly backend: string,
   ) {
     super(message);

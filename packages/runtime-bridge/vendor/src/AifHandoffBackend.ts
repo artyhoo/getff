@@ -41,7 +41,12 @@
 import type { RuntimeBackend } from './backend.js';
 import { BackendError } from './backend.js';
 import { ensureParallelEnabled } from './cli/ensure-parallel.js';
-import type { KickoffSpec, TaskHandle, TaskStatus, TaskResult } from './types.js';
+import type {
+  KickoffSpec,
+  TaskHandle,
+  TaskStatus,
+  TaskResult,
+} from './types.js';
 import {
   awaitTaskDone,
   getTaskStatus,
@@ -112,7 +117,12 @@ export class AifHandoffBackend implements RuntimeBackend {
 
   /** Derive ws:// URL from http:// baseUrl (same host:port, append /ws). */
   private static _deriveWsUrl(httpUrl: string): string {
-    return httpUrl.replace(/^http(s?):\/\//, (_match: string, s: string) => `ws${s}://`) + '/ws';
+    return (
+      httpUrl.replace(
+        /^http(s?):\/\//,
+        (_match: string, s: string) => `ws${s}://`,
+      ) + '/ws'
+    );
   }
 
   /**
@@ -138,7 +148,9 @@ export class AifHandoffBackend implements RuntimeBackend {
     // even when that name is also a prefix of other profile names.
     const exact = profiles.filter((p) => p.name.toLowerCase() === needle);
     const matches =
-      exact.length > 0 ? exact : profiles.filter((p) => p.name.toLowerCase().includes(needle));
+      exact.length > 0
+        ? exact
+        : profiles.filter((p) => p.name.toLowerCase().includes(needle));
 
     if (matches.length === 0) {
       const candidates = profiles.map((p) => p.name).join(', ');
@@ -239,7 +251,11 @@ export class AifHandoffBackend implements RuntimeBackend {
       ...(runtimeProfileId !== undefined ? { runtimeProfileId } : {}),
     });
 
-    if (!createResult || typeof createResult !== 'object' || !('id' in createResult)) {
+    if (
+      !createResult ||
+      typeof createResult !== 'object' ||
+      !('id' in createResult)
+    ) {
       throw new BackendError(
         'POST /tasks returned unexpected shape (no id)',
         'dispatch_failed',
@@ -276,7 +292,10 @@ export class AifHandoffBackend implements RuntimeBackend {
     // Source: aifWsStatus.getTaskStatus -> packages/api/src/routes/tasks.ts GET /:id
     // REST is used (not WS) because getStatus must NOT block.
     // WS is subscribe-and-wait; REST returns immediately.
-    const { rawStatus, checkedAt } = await getTaskStatus(handle.taskId, this.baseUrl);
+    const { rawStatus, checkedAt } = await getTaskStatus(
+      handle.taskId,
+      this.baseUrl,
+    );
     return {
       status: mapAifStatusToTaskStatus(rawStatus),
       rawStatus,
@@ -333,7 +352,11 @@ export class AifHandoffBackend implements RuntimeBackend {
    * @param path    Path appended to baseUrl (e.g. '/tasks', '/tasks/:id/events').
    * @param body    Optional JSON body. Omitted bodies send no payload.
    */
-  private async _rest(method: string, path: string, body?: unknown): Promise<unknown> {
+  private async _rest(
+    method: string,
+    path: string,
+    body?: unknown,
+  ): Promise<unknown> {
     let res: Response;
     try {
       const controller = new AbortController();
@@ -344,7 +367,8 @@ export class AifHandoffBackend implements RuntimeBackend {
           // Only declare a JSON content-type when we actually send a body
           // (a no-body DELETE with Content-Type: application/json is malformed
           // to some servers).
-          headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
+          headers:
+            body === undefined ? {} : { 'Content-Type': 'application/json' },
           body: body === undefined ? undefined : JSON.stringify(body),
           signal: controller.signal,
         });
@@ -355,7 +379,11 @@ export class AifHandoffBackend implements RuntimeBackend {
       const name = err instanceof Error ? err.name : '';
       const msg = err instanceof Error ? err.message : String(err);
       // Prefer the canonical AbortError name; fall back to message-substring.
-      if (name === 'AbortError' || msg.includes('abort') || msg.includes('timeout')) {
+      if (
+        name === 'AbortError' ||
+        msg.includes('abort') ||
+        msg.includes('timeout')
+      ) {
         throw new BackendError(
           `aif-handoff REST ${method} ${path} timed out`,
           'unavailable',

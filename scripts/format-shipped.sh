@@ -50,6 +50,15 @@ PATHSPECS=(
   packages/core/templates
   packages/preset-next-15-canonical/eslint-rules packages/preset-next-15-canonical/templates
   templates
+  # The runtime-bridge VENDOR drop only (setup.d/55-runtime-bridge-vendor.sh cp -r's it into a
+  # factory-profile consumer at .claude/vendor/runtime-bridge/). Its upstream
+  # packages/runtime-bridge/src/ stays OUT: it never ships, and non-shipped framework-internal
+  # source is uniformly unformatted here by this script's own scope rule (measured 2026-08-17:
+  # backends 18/18, install 3/3, runtime-bridge/src 17/20 dirty). The vendor copy is currently
+  # byte-identical to that upstream and formatting it breaks that identity — deliberate: the
+  # shipped/non-shipped boundary is exactly where formatting starts, and a future hand re-copy
+  # from src now lands dirty and goes RED here instead of silently reaching consumers.
+  packages/runtime-bridge/vendor
 )
 
 FILES=()
