@@ -69,7 +69,11 @@ run_lychee() {
 # under them. The old dump grepped `ERROR` only, which printed the broken TARGETS but never the
 # SOURCE file carrying the link — leaving a failure that reproduces only on CI undiagnosable
 # without another push. Both line kinds start with `[`, so one anchor catches them.
-dump_lychee() { grep -E '^\[' <<<"$1" | head -"${2:-24}" | sed 's/^/      /'; }
+# `^\[` alone would hide a lychee that failed WITHOUT producing groups (e.g. xargs rc=124 =
+# exit status 255 — an arch/loader mismatch, not a link problem), so keep the bare error forms
+# in the pattern too: a dump that goes silent on the unexpected failure is the wrong half to
+# optimise for.
+dump_lychee() { grep -E '^\[|ERROR|[Ee]rror' <<<"$1" | head -"${2:-24}" | sed 's/^/      /'; }
 
 # ── pos ──────────────────────────────────────────────────────────────────────
 OUT=$(run_lychee); RC=$?
@@ -84,8 +88,10 @@ fi
 # do_refresh (install.sh) re-copies agents + plain-copy skills on a separate code path
 # (@sync-with-layers hand-sync); cold-review of 081447838 caught it bypassing the transform —
 # a consumer's first push AFTER an upgrade went red again (35 broken links reproduced).
-( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server --refresh ) >/dev/null 2>&1 \
-  || { bad "refresh: install.sh --refresh exited non-zero"; echo "PASS=$PASS FAIL=$FAIL"; exit 1; }
+VENDOR_MD="$T/.claude/vendor/runtime-bridge/README.md"
+VENDOR_BEFORE=$([ -f "$VENDOR_MD" ] && sed -n '3p' "$VENDOR_MD" | cut -c1-80)
+( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server --refresh ) > "$T/.refresh.log" 2>&1 \
+  || { bad "refresh: install.sh --refresh exited non-zero"; tail -20 "$T/.refresh.log" | sed 's/^/      /'; echo "PASS=$PASS FAIL=$FAIL"; exit 1; }
 OUT_R=$(run_lychee); RC_R=$?
 if [ "$RC_R" -eq 0 ]; then
   ok "refresh: lychee still clean after --refresh (refresh path transforms too)"
@@ -99,6 +105,15 @@ else
   MD_AFTER=$(find "$T" -name '*.md' -type f -not -path "$T/node_modules/*" 2>/dev/null)
   echo "      --- *.md appearing only AFTER --refresh (empty ⇒ an existing file was rewritten) ---"
   comm -13 <(sort <<<"$MD_FILES") <(sort <<<"$MD_AFTER") | sed "s|$T|<fixture>|" | head -10 | sed 's/^/      /'
+  # Name the rewrite directly. `--refresh` reproducibly does NOT touch .claude/vendor/ on
+  # macOS or on linux/arm64 (verified 2026-08-17 at both core and factory depth: layer 55 is
+  # not on the refresh path and do_refresh has no vendor arm), yet CI observes this exact file
+  # reverting — so capture WHICH refresh step wrote it rather than inferring from the outcome.
+  echo "      --- vendor README:3 before → after --refresh ---"
+  echo "      before: ${VENDOR_BEFORE:-<absent>}"
+  echo "      after:  $([ -f "$VENDOR_MD" ] && sed -n '3p' "$VENDOR_MD" | cut -c1-80 || echo '<absent>')"
+  echo "      --- refresh log lines touching vendor/skills/agents delivery ---"
+  grep -nE 'vendor|Vendor|skills|agents|refresh' "$T/.refresh.log" | head -15 | sed 's/^/      /'
 fi
 
 # ── neg (probe bites) ────────────────────────────────────────────────────────
