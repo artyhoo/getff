@@ -149,7 +149,7 @@ Pick a depth instead of assembling flags. Three monotonic depths, default `core`
 
 **Stateless-regen upgrade path (NOT additive-components):**
 
-Re-run with a deeper profile to upgrade — the deeper payload arrives, the shallower artefacts stay byte-identical. **Do NOT add `--refresh` to deepen an install:** `--refresh` re-delivers fixes at the depth you already have, and it deepens only partially (measured below), so it silently leaves a half-upgraded project and still exits 0.
+Re-run with a deeper profile to upgrade — the deeper payload arrives, the shallower artefacts stay byte-identical. **Use the installer, not `--refresh`, to change depth:** `--refresh` re-syncs framework-owned artefacts and (since #1312 / #1334) honours the resolved `--profile` on every arm it owns, but it never runs the install-only steps — so a `--refresh`-only "upgrade" still leaves a partly-upgraded project and exits 0.
 
 ```bash
 bash /tmp/getff/setup -y <stack>                    # core
@@ -157,9 +157,15 @@ bash /tmp/getff/install.sh <stack> --profile env     # → env (env-only artefac
 bash /tmp/getff/install.sh <stack> --profile factory # → factory (AIF suite + aif-handoff row ADDED)
 ```
 
-Measured on a `core` consumer (2026-08-09): plain `--profile env` → `tier-home.md` YES, `.claude/skills/arch/` YES, and every pre-existing core artefact byte-identical except `.prettierignore`, whose managed block gains the newly-shipped paths. By contrast `--refresh --profile env` → exit 0, yet **neither** arrives; and `--refresh --profile factory` → the AIF suite arrives while `tier-home.md` and `arch` still do **not**.
+Measured on a `core` consumer (2026-08-09): plain `--profile env` → `tier-home.md` YES, `.claude/skills/arch/` YES, and every pre-existing core artefact byte-identical except `.prettierignore`, whose managed block gains the newly-shipped paths.
 
-`--refresh` is therefore not a partial upgrade with a clean rule behind it — each arm decides for itself, so what it deepens depends on which arm you happen to hit. The AIF-suite arm honours `--profile` (F7 gate, `install.sh:678`); the tier-home arm is presence-gated by design (`install.sh:1090-1093`, «refresh must not create it on core»); `arch` is in no refresh loop at all; and the worktree-scripts arm (`install.sh:1001-1005`) carries **no profile check whatsoever**, so a `core` consumer running any `--refresh` silently receives the four env-tier scripts — `create-worktree.sh`, `worktree-node-modules.sh`, `link-coordination.sh`, `getff-work.sh` — that `setup.d/85-worktree-scripts.sh:19-22` documents as `PROFILE=core → skip`. That last one is a live depth-boundary defect owned by beta-delivery-ux, recorded here because it is what a consumer actually observes; it is not a reason to use `--refresh` for upgrades.
+Every depth-gated `--refresh` arm now follows ONE rule (#1312 / #1334): **the delivery site's own profile predicate, OR the artefact is already on disk** (presence = prior opt-in). Re-measured on a fresh `core` consumer 2026-08-17 — the gate is `tests/install-sh/consumer-upgrade-path.test.sh` TESTs 8-11:
+
+- bare `--refresh` and `--refresh --profile core` → none of the deeper artefacts arrive: the four worktree scripts (`create-worktree.sh`, `worktree-node-modules.sh`, `link-coordination.sh`, `getff-work.sh`), `.claude/skills/arch`, `.claude/skills/pipeline`, `.ai-factory/tier-home.md` all stay absent. Before #1334 the four scripts landed on every `--refresh` regardless of profile, contradicting the `PROFILE=core → skip` decision at `setup.d/85-worktree-scripts.sh:19-22`.
+- `--refresh --profile env` → every env-depth artefact arrives; the factory-only set (`dispatcher`, `claude-glm-executor-handoff`, `.claude/agents/reviewer-discipline.md`) stays absent.
+- a bare `--refresh` on an already-deeper project keeps that depth fresh — no `--profile` to repeat, which is the point of the presence half.
+
+Still install-only, and the reason a depth change is an installer re-run rather than a `--refresh`: the vendored runtime-bridge payload (`setup.d/55-runtime-bridge-vendor.sh`, factory depth) has no refresh arm at all, and dev-deps, CI wiring and the consumer-editable config seeds are install-path steps by design.
 
 Downgrades are NOT auto — per inventory §5.3, a downgrade is `git rm` the deeper-only artefacts manually. The `--refresh` path keeps refreshing whatever's already on disk (prior opt-in), so a deeper install survives a shallower refresh.
 
@@ -441,7 +447,7 @@ bash /path/to/getff/install.sh --refresh
 Framework-owned artefacts the consumer is **not** expected to edit in place:
 
 - `.claude/agents/*.md` — sub-agent prompts
-- `.claude/skills/` — the 6-dir core set (getff, tool-bootstrapping, rule-research, rule-tests, ai-doc, template-audit). The AIF operator suite — 7 skills (pipeline, dispatcher, aif-doctor, harvest, night-mode, story, claude-glm-executor-handoff) + 2 agents (orchestrator-worker-discipline, reviewer-discipline) + their aif-orchestrator-discipline skill-context — ships only under `--profile factory` (or the equivalent legacy `--with-aif-suite` / `--all` escapes); `--refresh` keeps refreshing it when already present on disk (prior opt-in), never creates it otherwise.
+- `.claude/skills/` — the 6-dir core set (getff, tool-bootstrapping, rule-research, rule-tests, ai-doc, template-audit), refreshed at every depth. The deeper tiers follow the profile-OR-presence rule above: the env+ contour surface (`arch`, `pipeline`) under `--profile env`/`factory`; the AIF operator suite — 6 skills (dispatcher, aif-doctor, harvest, night-mode, story, claude-glm-executor-handoff) + 2 agents (orchestrator-worker-discipline, reviewer-discipline) + their aif-orchestrator-discipline skill-context — under `--profile factory` (or the legacy `--with-aif-suite` / `--all` escapes). Either tier also keeps refreshing when already present on disk (prior opt-in), and is never created on a shallower profile.
 - `.claude/hooks/deps-hash-check.sh` — session hook
 - `scripts/*.sh`, `scripts/audit-r4.ts` — audit gate scripts
 - `packages/core/hooks/` — TS pre-push pipeline

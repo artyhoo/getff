@@ -43,6 +43,22 @@
 # Override via env var if forking to a different repo.
 UPSTREAM_BLOB_URL="${UPSTREAM_BLOB_URL:-https://github.com/artyhoo/getff/blob/main}"
 
+# ── Skill-slug tier sets — SSOT for the install arm AND the refresh arm (#1312) ──────────────
+# The `.claude/skills/` payload splits by install depth (F7 split, widened S5 2026-08-01):
+#   CORE     — always shipped, consumer-facing, no aif-handoff runtime assumed.
+#   ENV      — env+ contour surface (PROFILE=env|factory, or the legacy --with-aif-suite escape).
+#   FACTORY  — AIF operator suite (PROFILE=factory or --with-aif-suite); presupposes the runtime.
+# Both consumers read these constants: setup.d/10-skills.sh (install) and install.sh do_refresh
+# (refresh). They used to hard-code a copy each and drifted three times — #1312 measured `arch`
+# absent from every refresh loop, `rule-tests` announced-then-skipped, and
+# `claude-glm-executor-handoff` present on the install arm only. One list per tier makes that
+# class unrepresentable; tests/install-sh/refresh-covers-full-delivery.test.sh asserts both arms
+# still READ them (and that no literal-slug loop reintroduces a third copy).
+# Per-tier rationale (which skill sits at which depth, and why) stays in setup.d/10-skills.sh.
+GETFF_SKILLS_CORE="template-audit ai-doc rule-research rule-tests"
+GETFF_SKILLS_ENV="arch pipeline"
+GETFF_SKILLS_FACTORY="dispatcher aif-doctor harvest night-mode story claude-glm-executor-handoff"
+
 PRETTIERIGNORE_BEGIN='# >>> rules-as-tests-aif (managed) >>>'
 PRETTIERIGNORE_END='# <<< rules-as-tests-aif (managed) <<<'
 PRETTIERIGNORE_CFG_BEGIN='# >>> rules-as-tests-aif shipped-configs (managed) >>>'

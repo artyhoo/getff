@@ -105,7 +105,12 @@ fi
 # dual-implementation-discipline.md §3.
 # Repo-internal cross-refs (docs/packages/scripts/.claude/rules/README) are rewritten to GitHub blob
 # URLs by copy_skill_with_transform → transform_internal_refs; sibling-skill links stay relative (sibling ships too).
-for _skill in template-audit ai-doc rule-research rule-tests; do
+#
+# The three tier LISTS live in setup.d/lib.sh (GETFF_SKILLS_CORE / _ENV / _FACTORY) because
+# install.sh's do_refresh needs the same sets and the two hand-maintained copies drifted three
+# times (#1312). This file stays authoritative for WHY each skill sits at its depth (above);
+# lib.sh owns only the names.
+for _skill in $GETFF_SKILLS_CORE; do
   copy_skill_with_transform "$_skill"
 done
 # env+ contour surface (spec A8): /arch is the architecture-design skill that produces the
@@ -118,14 +123,14 @@ done
 # PROFILE=factory (install.sh:405-408), so the env/factory check covers it without an explicit
 # OR clause.
 if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
-  echo "  ▶ Contour surface (profile=env+ OR --with-aif-suite): arch pipeline"
-  for _skill in arch pipeline; do
+  echo "  ▶ Contour surface (profile=env+ OR --with-aif-suite): $GETFF_SKILLS_ENV"
+  for _skill in $GETFF_SKILLS_ENV; do
     copy_skill_with_transform "$_skill"
   done
 fi
 if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
-  echo "  ▶ AIF operator suite (profile=factory OR --with-aif-suite): dispatcher aif-doctor harvest night-mode story claude-glm-executor-handoff"
-  for _skill in dispatcher aif-doctor harvest night-mode story claude-glm-executor-handoff; do
+  echo "  ▶ AIF operator suite (profile=factory OR --with-aif-suite): $GETFF_SKILLS_FACTORY"
+  for _skill in $GETFF_SKILLS_FACTORY; do
     copy_skill_with_transform "$_skill"
   done
 fi
