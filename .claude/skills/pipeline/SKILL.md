@@ -82,7 +82,7 @@ fixtures only).
 **Step 1 — inject live state:**
 
 ```!
-head -200 "$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)/_plan-cache.md" 2>/dev/null || echo "(no cache — fresh session; will be created by helpers/update-cache.sh on this invocation's exit)"
+head -200 "$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)/_plan-cache.md" 2>/dev/null || echo "(no cache — fresh session; will be created by helpers/update-cache.sh on this invocation's exit)"; for f in $(ls -t "$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)"/_residue-*.md 2>/dev/null | head -3); do echo "--- PreCompact residue (S2b/D8): a session compacted here. POINTER only — re-verify before acting on it: $f"; head -40 "$f"; done
 ```
 
 ```!
