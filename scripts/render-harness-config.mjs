@@ -409,7 +409,16 @@ const PLUGIN_INCOMPATIBLE = {
  *
  *  SUBAGENT EVENTS: SubagentStart/SubagentStop are NOT in ZCODE_EVENTS and also not expressible
  *  on CC's plugin hooks in the same lifecycle way — they are filtered out here. Their content
- *  travels via inject-subagent-context (PreToolUse:Agent) where expressible. */
+ *  travels via inject-subagent-context (PreToolUse:Agent) where expressible.
+ *
+ *  OFF-SET EVENTS ARE DECLARED, NOT DROPPED (S2b, 2026-08-17): the ZCODE_EVENTS filter below
+ *  used to `continue` silently, so a model hook on an event zcode cannot express vanished from
+ *  the plugin output with no trace — the `#warning-nobody-reads` shape inverted
+ *  (attention-is-not-a-mechanism.md §1: a skip whose only signal is «someone diffs the JSON»).
+ *  It now collects the skipped event names into a note op, the same channel the unmappable /
+ *  incompatible skips already use. Found while wiring D8's PreCompact hook, whose whole
+ *  ZCode story IS this filter: PreCompact ∉ ZCODE_EVENTS, so the plugin channel can never
+ *  carry it, and the census records it `cc-only` (zcode-parity-doctrine.md §2 row 21). */
 export function emitPlugin(model) {
   // Translate model commands `bash "$CLAUDE_PROJECT_DIR/.claude/hooks/<name>.sh"` →
   // plugin-channel commands `"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" <name>`. The script
@@ -417,8 +426,13 @@ export function emitPlugin(model) {
   const out = {};
   const unmappable = [];
   const incompatible = [];
+  const offEventSet = [];
   for (const [event, entries] of Object.entries(model.hooks ?? {})) {
-    if (!ZCODE_EVENTS.has(event)) continue; // plugin channel mirrors ZCode's expressible set
+    if (!ZCODE_EVENTS.has(event)) {
+      // plugin channel mirrors ZCode's expressible set — record the skip, do not hide it
+      offEventSet.push(`${event} (${entries.length} hook(s))`);
+      continue;
+    }
     const mapped = [];
     for (const e of entries) {
       // Extract <name> from `bash "$CLAUDE_PROJECT_DIR/.claude/hooks/<name>.sh"` (or the
@@ -458,6 +472,12 @@ export function emitPlugin(model) {
   const ops = [
     { kind: 'json', path: 'plugin/hooks/hooks.json', value: { hooks: out } },
   ];
+  if (offEventSet.length) {
+    ops.push({
+      kind: 'note',
+      message: `emitPlugin: ${offEventSet.length} model event(s) are outside ZCODE_EVENTS and were NOT emitted to plugin/hooks/hooks.json — they are CC-only by construction and reach ZCode through no channel. Each needs a row in zcode-parity-doctrine.md §2 with its degradation rationale:\n    ${offEventSet.join('\n    ')}`,
+    });
+  }
   if (incompatible.length) {
     ops.push({
       kind: 'note',

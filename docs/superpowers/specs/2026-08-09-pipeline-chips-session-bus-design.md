@@ -368,7 +368,11 @@ shape is the one already registered in the SSOT: the hook **itself writes** the 
 deterministically ([SSOT #108](../../../docs/meta-factory/prior-art-evaluations.md): PreCompact
 «save wave-state before compaction»). D8 v2:
 
-- `precompact-residue.sh` on `PreCompact` (matcher `auto`): extracts from the transcript the
+- `precompact-residue.sh` on `PreCompact` (**matcher dropped at S2b — all triggers**; the
+  `auto`-only form specified here made the manual half unfireable by construction, which is the
+  only half a human can trigger on demand, and a manual `/compact` discards the same context:
+  [bench finding B-2](../../meta-factory/research-patches/2026-08-17-precompact-liveness-bench.md)):
+  extracts from the transcript the
   session anchor (ai-title) + the LAST `AIF_RECAP_MARKER` recap block (a model-authored summary
   already in the transcript; the marker is lang-pack-sourced and the recap fires conditionally,
   so the FALLBACK is the last main-thread assistant text excerpt — anchor + timestamp + branch
@@ -466,7 +470,7 @@ durable park store).
 |---|---|---|---|
 | S1 chips | D1+D2: §10 chip emission + /arch §3 chip emission (with route discrimination), gates-in-prompt + the principle-18 substring extension, runtime capability probe (NO `allowed-tools` MCP adds — D2) | `pipeline/SKILL.md` §10, `references/output-format.md` + `18-meta-orchestrator-output-format.test.ts`, `arch/SKILL.md` §3 | in-session (discipline-bearing skill prose + enforced-grammar lockstep) |
 | S2a Stop-arm | D7 with all seven constraints + tests | `.claude/hooks/end-of-turn-reminder.sh`, its test file, `zcode-parity-doctrine.md` §2 (row-9 flip + rollup) | in-session or factory (constraints are quotable; the census edit is doc-judgment — prefer in-session); **F10 gates the shipped wording** |
-| S2b PreCompact | D8 — **blocked on F8** (operator GO on the #108 PreCompact item); first step = D8's liveness bench | hook script, `scripts/render-harness-config.mjs` (emitClaude path), `zcode-parity-doctrine.md` §2 (row 21), `pipeline/SKILL.md` §1 injection line, operator jq hand-off | parked until F8 |
+| S2b PreCompact | D8 — F8 closed 2026-08-17; bench ran first, per D8's ordering | hook script, `scripts/render-harness-config.mjs` (emitClaude path), `zcode-parity-doctrine.md` §2 (row 21), `pipeline/SKILL.md` §1 injection line, operator jq hand-off | **SHIPPED 2026-08-17** in-session. Two recorded deviations from D8-as-written, both in D8's own text: the matcher is dropped (registering on `auto` alone makes the only human-triggerable half unfireable — bench finding B-2), and the renderer surface turned out to be `emitPlugin`'s silent off-set skip rather than an `emitClaude` change (emitClaude already passes any event through; the gap was that a hook on an inexpressible event vanished with no trace). Registration is NOT in this PR: settings.json and the SSOT model must move in one commit and settings.json is agent-blocked |
 | S3 park-chips | D3+D4: dispatcher §3 Type-2 park-chip emission paragraph + decision-session protocol | `dispatcher/SKILL.md` §3 | **SHIPPED 2026-08-17** in-session (both preconditions met: S1 merged #1419, F1 ratified park-chips). Deliberately NOT extended to principle 18 — the ADR scoped S3 to this one surface, and park-chips carry no stage gate; the assertion question is recorded as a follow-up, not smuggled in |
 | S4 calibration | D9 dispatch after staging merge | aif factory | `/dispatcher context-degradation-calibration` |
 
@@ -483,7 +487,7 @@ S1 ∥ S2a parallel-safe (disjoint surfaces); S3 after S1; S2b parked; S4 after 
 | F5 | tg-notify liveness | **CLOSED — split** (host filtered dead / container raw live, probed 2026-08-09). Operator option: set host creds (~1 min) to enable the filtered channel |
 | F6 | ccd message delivery timing to idle sessions | **CLOSED — moot** (no messages in v1; D5) |
 | F7 | `spawn_task` availability in scheduled/remote (unattended) sessions | OPEN — determines whether park-chips also fire from those classes or only from local sessions; probe: one scheduled run calling `spawn_task`; either answer is safe (absent → capability-gate skips → sweep path) |
-| F8 | #108 PreCompact-item operator GO + D8's own liveness bench | OPEN — blocks S2b only (routed, not closed, by D8; the SSOT row is composite — see D8) |
+| F8 | #108 PreCompact-item operator GO + D8's own liveness bench | **CLOSED 2026-08-17 — GO.** Operator GO on the #108 PreCompact item given in a live session, 2026-08-17. Bench ran first per D8's ordering and is recorded at [2026-08-17-precompact-liveness-bench.md](../../meta-factory/research-patches/2026-08-17-precompact-liveness-bench.md): contract PROVEN (15 cases + a seeded-break paired-negative + end-to-end reader/writer agreement through one shared `print-orch-home.sh`); delivery UNFIRED on both halves, with the cause identified rather than hand-waved (registration is agent-blocked by settings.json's own deny-list, hooks snapshot at session start, `/compact` is an operator action, and auto-compaction cannot be induced — 0 hits for `"isCompactSummary":true` across 60 sampled transcripts). Closed on that honest split, which D8 pre-accepted; the residual live-fire is two operator actions in the S2b hand-off, and the bench file is where the observation lands |
 | F9 | Chip visibility scope + lifetime + seat inheritance | OPEN — first live chip observes: app-global vs per-session-view rendering (the R4 morning-surface claim rests on this); survival across minimize vs restart; whether the spawned session inherits the emitter's model (D3 seat line). Click-time observations, no build needed |
 | F10 | D7 audience (**operator fork**) | consumer-generic as specified (adds a bounded new blocking Stop path in consumer sessions) vs framework-presence-gated (operator-only; consumers lose the reminder). **CLOSED 2026-08-10 — consumer-generic**: the operator's 2026-08-09 F4b-landing directive (consumer-shipped is the product intent, guards non-negotiable) is the ratifying evidence; S2a ships the generic wording (zero framework refs in the reminder string, test-asserted) |
 
