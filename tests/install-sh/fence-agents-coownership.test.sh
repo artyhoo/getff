@@ -211,4 +211,67 @@ else
   bad "wiring: second real install duplicated or mutated the section"
 fi
 
+# ── §3 FACTORY-GATE DOC PARITY — the template's `factory` row names every gated agent ──
+#
+# WHY: setup.d/20-agents.sh gates two sub-agents to --profile factory, but the template's
+# factory row listed only the 7-skill suite, so a consumer AI at factory depth never learned
+# it had them. Nothing checked the two lists against each other, and the drift survived a
+# full review round as a NEVER-DONE register row (`1311-r1-5`, s4b outcome audit
+# §drift-register). A doc claim about install behaviour whose only guard is «someone will
+# notice» is `#hope-as-gate` (.claude/rules/attention-is-not-a-mechanism.md §2) — so the two
+# lists are reconciled mechanically here, at the earliest channel that already runs in CI.
+#
+# Extraction is structural, not a hard-coded name list: whichever agents 20-agents.sh gates
+# to factory must appear in the row, so ADDING a third gated agent fails this until the
+# template names it too.
+GATE_SH="$REPO_ROOT/setup.d/20-agents.sh"
+
+# The gated case-arm = the last `<pattern>)` line before the arm body testing PROFILE != factory.
+gated_agents() {
+  awk '
+    /^[[:space:]]*[A-Za-z0-9._|-]+\)[[:space:]]*$/ { pat = $0 }
+    /!=[[:space:]]*"factory"/ { if (pat != "") { print pat; exit } }
+  ' "$GATE_SH" | tr -d '[:space:])' | tr '|' '\n' | sed 's/\.md$//'
+}
+
+# Same counter for both arms (positive + paired negative): every gated agent named in the row.
+missing_from_factory_row() {
+  _tpl="$1"; _missing=""
+  _row=$(grep -E '^\|.*`factory`' "$_tpl" || true)
+  for _a in $(gated_agents); do
+    [ -n "$_a" ] || continue
+    case "$_row" in
+      *"$_a"*) ;;
+      *) _missing="$_missing $_a" ;;
+    esac
+  done
+  echo "$_missing"
+}
+
+_gated_count=$(gated_agents | grep -c . || true)
+if [ "$_gated_count" -lt 1 ]; then
+  bad "factory-gate parity: extracted 0 gated agents from 20-agents.sh — the awk arm no longer matches"
+else
+  ok "factory-gate parity: extracted $_gated_count gated agent(s) from 20-agents.sh"
+fi
+
+_miss=$(missing_from_factory_row "$TPL")
+if [ -z "$_miss" ]; then
+  ok "factory-gate parity: the template's \`factory\` row names every factory-gated agent"
+else
+  bad "factory-gate parity: template \`factory\` row omits:$_miss (add to AGENTS.md.template, then re-capture install snapshots)"
+fi
+
+# PAIRED NEGATIVE — strip one gated agent from a COPY and re-run the SAME counter; if the
+# check does not bite, the positive assertion above was vacuous.
+_neg_tpl="$(mktemp)"
+_first_gated=$(gated_agents | head -1)
+sed "s/$_first_gated//g" "$TPL" > "$_neg_tpl"
+if [ -n "$(missing_from_factory_row "$_neg_tpl")" ]; then
+  ok "factory-gate parity (neg): removing \`$_first_gated\` from the row makes the check bite"
+else
+  bad "factory-gate parity (neg): check stayed green on a template missing \`$_first_gated\` — assertion is vacuous"
+fi
+rm -f "$_neg_tpl"
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
