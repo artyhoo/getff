@@ -25,13 +25,15 @@
  * maintained as an explicit list rather than a date filter.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync, existsSync, lstatSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const HERE = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(HERE, '../../..');
-const KICKOFFS_DIR = resolve(REPO_ROOT, '.claude/orchestrator-prompts');
+import { readFileSync, existsSync } from 'node:fs';
+import {
+  KICKOFFS_DIR,
+  STAGE_KICKOFF_RE,
+  TEST_SANDBOX_RE,
+  getKickoffEntries,
+  isCoordinationMirror,
+  type KickoffEntry,
+} from './kickoff-population.ts';
 
 /**
  * Exempt kickoff dirs (allowlist; must grow only with documented rationale):
@@ -73,78 +75,11 @@ function passesCompoundCheck(content: string): boolean {
   );
 }
 
-interface KickoffEntry {
-  dir: string;
-  /** Basename — `kickoff.md` or a stage kickoff. Distinguishes entries sharing a dir. */
-  file: string;
-  path: string;
-  /** `<dir>` for the umbrella kickoff, `<dir>/<file>` for a stage — violation reporting. */
-  label: string;
-}
-
-/**
- * The stage-kickoff family: `kickoff-s1.md`, `kickoff-s2b.md`, `kickoff-s10.md`,
- * `kickoff-r1.md`. A multi-stage umbrella dispatches these, each a dispatch input in
- * exactly the sense `kickoff.md` is — and until 2026-08-12 this test resolved the literal
- * `kickoff.md` per dir, so every stage kickoff went uncited-unchecked.
- *
- * The `<letter><digit>` core is what keeps sidecars out: `kickoff-amendments.md` (an audit
- * trail extracted from a kickoff's §12 to clear the 600-line gate) and
- * `kickoff-s4.decisions.md` (an owner-fork log) are records ABOUT a stage, carrying no
- * worker instructions, so the §3 citation obligation does not apply to them. `.gitignore`
- * draws the same line — the stage family is un-ignored by glob (`kickoff-s*.md`,
- * `kickoff-r*.md`), the amendments sidecar one-off by exact name. The trailing
- * `[a-z0-9]*` (not `.*`) is what rejects the dotted sidecar.
- *
- * Mirrors the `case` arms in .claude/hooks/check-kickoff-traps.sh — the edit-time twin of
- * this gate. The two must agree on what a kickoff IS.
- */
-const STAGE_KICKOFF_RE = /^kickoff-[a-z]\d[a-z0-9]*\.md$/;
-
-/**
- * Sandbox dirs written by the sibling hook suite
- * (packages/core/hooks/check-kickoff-traps.test.ts `writeKickoffNamed`, which mkdtemps
- * `c2-test-*` under the REAL orchestrator-prompts dir because the hook matches on the
- * absolute path's suffix). Its fixtures are DELIBERATELY uncited — that is what the
- * paired-negatives assert — so when the two suites run concurrently this gate would flag
- * another test's scratch files as umbrella violations.
- *
- * This is a PRE-EXISTING leak, not one the stage-kickoff widening introduced: an uncited
- * `kickoff.md` inside a `c2-test-` sandbox dir trips this gate under the old population
- * definition too (verified 2026-08-12 by writing exactly that file and watching it go RED).
- * The widening
- * enlarges the window — more fixture files per run — so the flake is fixed here rather than
- * left to timing.
- */
-const TEST_SANDBOX_RE = /^c2-test-/;
-
-function getKickoffEntries(): KickoffEntry[] {
-  if (!existsSync(KICKOFFS_DIR)) return [];
-  const entries: KickoffEntry[] = [];
-  for (const d of readdirSync(KICKOFFS_DIR, { withFileTypes: true })) {
-    if (!d.isDirectory()) continue;
-    if (TEST_SANDBOX_RE.test(d.name)) continue;
-    const waveDir = resolve(KICKOFFS_DIR, d.name);
-    let files: string[];
-    try {
-      files = readdirSync(waveDir);
-    } catch {
-      continue; // unreadable dir (broken coordination symlink) — not a citation violation
-    }
-    for (const file of files.sort()) {
-      if (file !== 'kickoff.md' && !STAGE_KICKOFF_RE.test(file)) continue;
-      const path = resolve(waveDir, file);
-      if (!existsSync(path)) continue;
-      entries.push({
-        dir: d.name,
-        file,
-        path,
-        label: file === 'kickoff.md' ? d.name : `${d.name}/${file}`,
-      });
-    }
-  }
-  return entries.sort((a, b) => a.label.localeCompare(b.label));
-}
+// The population itself (STAGE_KICKOFF_RE, TEST_SANDBOX_RE, getKickoffEntries,
+// isCoordinationMirror) now lives in ./kickoff-population.ts — principle 40 resolves the
+// same family, and two hand-kept copies of "what a kickoff is" is the copy-paste drift
+// this repo names. The assertions pinning that population's behaviour stay HERE (see the
+// stage-family and sandbox-exclusion cases below).
 
 // Population sentinel bound: catch a runaway-glob explosion (absurd count), NOT
 // assert a lower floor — "few or zero kickoffs" is a VALID state (fresh clone, a
@@ -157,27 +92,11 @@ export function withinPopulationBounds(n: number): boolean {
   return n >= 0 && n <= POPULATION_CAP;
 }
 
-/**
- * A "coordination mirror" is an umbrella whose kickoff.md is a SYMLINK into the
- * shared coordination store ($CANON), materialised locally by channel G
- * (.husky/post-checkout → scripts/link-coordination.sh). Such an umbrella was
- * authored in some other worktree and adopted into $CANON; its citation was (or
- * should have been) checked AT ITS AUTHORING worktree while its kickoff.md was a
- * real file. Re-checking every mirror in every worktree made this gate fail on
- * historical umbrellas the current worktree never wrote — the principle-12-vs-G
- * conflict. The citation check therefore runs only on REAL (non-symlink) kickoffs
- * = the ones locally authored / not-yet-adopted. The population sentinel, by
- * contrast, deliberately counts the FULL set (mirrors included) as a "mirror
- * present" guard. (maintainer-directed 2026-06-02)
- */
-function isCoordinationMirror(path: string): boolean {
-  try {
-    return lstatSync(path).isSymbolicLink();
-  } catch {
-    return false;
-  }
-}
-
+// The citation check runs only on REAL (non-symlink) kickoffs = the ones locally authored
+// or not yet adopted; a coordination mirror was checked at its authoring worktree (see
+// isCoordinationMirror in ./kickoff-population.ts — the principle-12-vs-channel-G conflict,
+// maintainer-directed 2026-06-02). The population sentinel below deliberately counts the
+// FULL set, mirrors included, as a "mirror present" guard.
 function getNonExemptEntries(): KickoffEntry[] {
   return getKickoffEntries()
     .filter((e) => !EXEMPT_LIST.includes(e.dir))
