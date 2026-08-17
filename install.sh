@@ -12,8 +12,8 @@
 #   ./install.sh ts-server --with-aif-suite     # also ship the AIF operator suite (aif-handoff runtime required)
 #   ./install.sh ts-server --all                # everything: --full + --with-aif-suite (operator machines)
 #   ./install.sh python                         # Python toolchain lane (non-npm; ast-grep + ruff, no package.json — see INSTALL-FOR-AI.md)
-#   ./install.sh ts-server --profile core       # default depth: rules + tests + guards + killer payload
-#   ./install.sh ts-server --profile env        # core + multi-model contour surface (/arch, presets, status, night-mode/SDD placeholders)
+#   ./install.sh ts-server --profile core       # rules + tests + guards + killer payload only (below the default)
+#   ./install.sh ts-server --profile env        # DEFAULT: core + the operator contour (/arch, /orchestrator, /pipeline, /reviewer, night-mode/SDD)
 #   ./install.sh ts-server --profile factory    # env + AIF operator suite (dispatcher/harvest/aif-doctor + runtime-bridge + GLM one-button)
 #
 # What it does:
@@ -116,7 +116,7 @@ while [ "$#" -gt 0 ]; do
     --refresh)              REFRESH="--refresh" ;;
     --with-aif-suite)       WITH_AIF_SUITE="--with-aif-suite" ;;
     # --profile <name> — install depth (kickoff §0 + design spec §4 A1, beta-delivery-ux S1).
-    # Three values, monotonic depth: core (today's default, no AIF runtime) → env (core +
+    # Three values, monotonic depth: core (rules-only, no operator contour) → env (the default;
     # multi-model contour surface as placeholders, no AIF runtime) → factory (env + the AIF
     # operator suite + runtime-bridge wiring + GLM one-button placeholder). The flag LAYERS OVER
     # the existing flag machinery (kickoff §4 item 3: every flag that worked before still works).
@@ -429,7 +429,7 @@ fi
 # Resolve the install depth: core (default) | env (core + multi-model contour
 # placeholders, no AIF runtime) | factory (env + AIF operator suite + runtime-bridge
 # + GLM one-button placeholder). The flag is the agent/CI surface; the TTY menu is
-# the human surface; non-TTY defaults to core. The variable exported here (PROFILE)
+# the human surface; non-TTY defaults to env (core for --refresh). The variable exported here (PROFILE)
 # is read by setup.d/10-skills.sh (F7 split is now profile-driven) and by setup.d/
 # companions.manifest (@profile: factory comment marker for the aif-handoff row).
 #
@@ -492,24 +492,37 @@ fi
 if [ -z "$PROFILE" ]; then
   if [ -t 0 ] && [ -z "$DRY_RUN" ] && [ -z "$FULL" ] && [ -z "$STACK_EXPLICIT" ]; then
     echo "What install depth do you want?"
-    echo "  1) core    — rules + tests + guard hooks + killer payload; today's default. No AIF operator runtime."
-    echo "  2) env     — core + multi-model contour surface (/arch, presets, status, night-mode/SDD) as placeholders; no AIF runtime."
+    echo "  1) core    — rules + tests + guard hooks + killer payload only. No operator contour, no AIF runtime."
+    echo "  2) env     — core + the operator working contour (/arch, /orchestrator, /pipeline, /reviewer, night-mode/SDD, tier criteria); no AIF runtime. THE DEFAULT."
     echo "  3) factory — env + the AIF operator suite (dispatcher/harvest/aif-doctor + runtime-bridge + GLM one-button placeholder) — full aif-handoff runtime stack."
-    read -rp "Choose [1/2/3] (default 1): " _profile_ans || _profile_ans=""
+    read -rp "Choose [1/2/3] (default 2): " _profile_ans || _profile_ans=""
     case "$_profile_ans" in
-      2) PROFILE="env" ;;
-      3) PROFILE="factory" ;;
-      "") PROFILE="core" ;;
       1) PROFILE="core" ;;
+      3) PROFILE="factory" ;;
+      "") PROFILE="env" ;;
+      2) PROFILE="env" ;;
       *) echo "❌ Invalid choice (use 1, 2, or 3)"; exit 1 ;;
     esac
   else
     # Non-TTY (piped stdin, --dry-run, or closed stdin) OR non-interactive flag
-    # (-y/--full): default to core with a one-line `[profile] core` notice.
+    # (-y/--full): take the same default the menu offers, with a one-line notice.
     # Never blocks; CI / agents / `./install.sh < /dev/null` / `./setup -y` always
-    # proceed. The deeper depths are explicit opt-ins (--profile env|factory).
-    PROFILE="core"
-    echo "[profile] core (non-interactive default; re-run with --profile env|factory to deepen)"
+    # proceed. `factory` stays an explicit opt-in (--profile factory) because it
+    # presupposes the aif-handoff runtime; `core` is the explicit way down.
+    #
+    # --refresh is the ONE exception and keeps `core`. Refresh is not an install:
+    # the env/factory arms of do_refresh carry a presence clause, so with PROFILE=core
+    # a refresh updates whatever tiers are already on disk and creates none. Defaulting
+    # a refresh to `env` would silently deepen a consumer who deliberately chose core —
+    # exactly what install.sh:697 already forbids for the factory arm. A consumer who
+    # wants the new default on an existing install asks for it: `--refresh --profile env`.
+    if [ -n "$REFRESH" ]; then
+      PROFILE="core"
+      echo "[profile] core (refresh keeps the depth already on disk; pass --profile env to deepen)"
+    else
+      PROFILE="env"
+      echo "[profile] env (non-interactive default; --profile core for rules-only, --profile factory for the AIF suite)"
+    fi
   fi
 fi
 export PROFILE

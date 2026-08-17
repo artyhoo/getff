@@ -11,7 +11,7 @@
 #   ./setup --full ts-server        # alias for -y (wrapper alias; forwards --full to install.sh)
 #   ./setup --dry-run ts-server     # preview without writing
 #   ./setup --profile factory ts-server   # install depth profiles (beta-delivery-ux S1 / A1):
-#                                         #   core (default) | env | factory — forwarded to install.sh
+#                                         #   core | env (default) | factory — forwarded to install.sh
 #   ./setup --profile=factory ts-server   # = form, same routing
 #   ./setup python                  # Python toolchain lane (non-npm; see "Toolchain lanes" below)
 #
