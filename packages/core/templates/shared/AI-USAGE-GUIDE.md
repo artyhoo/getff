@@ -141,8 +141,7 @@ not know: `core` is the default, `env` additionally puts `.ai-factory/tier-home.
 <!-- step: verify-payload -->
 
 2. **Verify the payload landed** — `ls .claude/skills/`. On top of `env` you should see
-   `dispatcher`, `harvest`, `aif-doctor`, `night-mode`, `story` and
-   `claude-glm-executor-handoff`.
+   `dispatcher`, `harvest`, `aif-doctor`, `story` and `claude-glm-executor-handoff`.
 
 <!-- step: fill-passport -->
 

@@ -3,8 +3,11 @@
 # --with-aif-suite opt-in; the consumer-facing core set stays default.
 #
 # Background: setup.d/10-skills.sh formerly transform-copied 9 skills to EVERY consumer.
-# Five presuppose the aif-handoff operator runtime (pipeline, dispatcher, aif-doctor,
-# harvest, night-mode) and story crashes on landing (its lang-pack is not shipped, #934).
+# Five presuppose the aif-handoff operator runtime (dispatcher, aif-doctor, harvest,
+# claude-glm-executor-handoff) and story crashes on landing (its lang-pack is not shipped,
+# #934). The list is the live GETFF_SKILLS_FACTORY set, re-synced 2026-08-17 when `pipeline`
+# and `night-mode` moved to env — it is a fourth hand-maintained copy of tier membership and
+# must be updated with lib.sh.
 # Owner resolved fork F7: gate that suite behind --with-aif-suite (reversible; BFR §1.1
 # integrate-never-hard-depend; same opt-in posture as companions.manifest). This asserts via
 # the REAL install pipeline (mirror f8/ship-orchestration) that:
@@ -20,7 +23,7 @@ ok()  { PASS=$((PASS+1)); echo "  ✓ $1"; }
 bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 
 CORE_SET="template-audit ai-doc rule-research rule-tests"
-GATED_SET="pipeline dispatcher aif-doctor harvest night-mode story"
+GATED_SET="dispatcher aif-doctor harvest story claude-glm-executor-handoff"
 ALWAYS_COPIED="getff tool-bootstrapping"
 # F7 agents arm (owner GO 2026-07-11): the two aif-handoff-presupposing agents + their
 # @dual-pair skill-context are gated behind the same flag as the suite skills.

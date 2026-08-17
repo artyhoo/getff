@@ -95,6 +95,19 @@ fi
 #   - reviewer       — interactive GO/REVISE/STOP verdict seat. Joined env 2026-08-17 (#1432):
 #                      arch/SKILL.md:94 promises consumers that in-repo `/reviewer` loads the
 #                      project skill, a promise that dangled while reviewer sat in no tier.
+#   - night-mode     — overnight-autonomous orchestration over SDD (executor + dual-reviewer +
+#                      on-demand top-tier advisor); harness-agnostic, relative model tiers,
+#                      graceful degradation on non-CC / sequential-only / single-tier harnesses.
+#                      Moved factory → env 2026-08-17 (decision D4): its core loop needs only
+#                      sequential subagent dispatch and is runtime-free by design (SKILL.md:17),
+#                      and the measured coupling was 2 mentions, of which ONE is real and is a
+#                      cross-reference to sibling skills, not a runtime call. The three refs
+#                      that DID presuppose factory (:19 claude-glm-executor-handoff,
+#                      :33 the runtime-bridge answer CLI, :35 dispatcher) were degraded to
+#                      depth-conditional phrasing in the same commit — a bare list edit would
+#                      have shipped two dangling sibling links. It is also arch's and
+#                      pipeline's tier→model SSOT: six env-tier links pointed at it while it
+#                      was factory-gated, so this move is what makes an env install link-clean.
 #
 # AIF operator SUITE (factory only — presupposes the aif-handoff runtime):
 #   - dispatcher    — pipeline's execution companion: dispatches a chosen umbrella's stages
@@ -102,9 +115,6 @@ fi
 #   - aif-doctor    — diagnoses that same aif-handoff runtime when a task stalls / runtime breaks.
 #   - harvest        — egress a finished aif-agent branch into a PR (host-push default, API
 #                      break-glass) for consumers running aif-handoff.
-#   - night-mode     — overnight-autonomous orchestration over SDD (executor + dual-reviewer +
-#                      on-demand top-tier advisor); harness-agnostic, relative model tiers,
-#                      graceful degradation on non-CC / sequential-only / single-tier harnesses.
 #   - story          — plain-language, by-act recap of a session's work (AIF_HOOK_LANG-gated
 #                      output). Stays in the gated set until its lang-pack delivery is fixed
 #                      (#934) — it crashes on landing without the pack.
@@ -144,7 +154,7 @@ done
 # defines the env depth as carrying «pipeline presets, status, …» verbatim
 # (docs/superpowers/specs/2026-07-23-beta-program-design.md:211). Standing gate had pipeline
 # at factory-only; spec wins → resolved by moving pipeline into the env+ loop. The factory-only
-# arm below retains dispatcher/aif-doctor/harvest/night-mode/story/claude-glm-executor-handoff
+# arm below retains dispatcher/aif-doctor/harvest/story/claude-glm-executor-handoff
 # (those presuppose the aif operator runtime). Legacy --with-aif-suite routes through
 # PROFILE=factory (install.sh:405-408), so the env/factory check covers it without an explicit
 # OR clause.
