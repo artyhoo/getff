@@ -73,6 +73,7 @@ supplied, ask the operator which capability to audit.
 
 ## Verdicts you recommend (with GO/REVISE/STOP overlay per dispatch-input-checker.md §Output grammar)
 
+<!-- prettier-ignore -->
 | Verdict                   | Shape                                                                                                              | GO/REVISE/STOP                                                                                                                                                |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **REUSE-EXISTING**        | An own-stack/upstream capability already covers this problem-class; the new one adds no distinct residue.          | **STOP** — do not create; invoke/extend the existing one (K1-class: a sunk-cost deferral).                                                                    |

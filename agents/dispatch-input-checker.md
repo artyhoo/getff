@@ -66,6 +66,7 @@ Do NOT cross into orchestrator-role decisions mid-session. On a strategic fork: 
 The earlier «K1/K2 primary, 5/5 incidents» derivation is **retracted** (ADR-6, design spec §3).
 A split MAY be re-derived after ≥10 runs of ledger data — until then all five classes are equal.
 
+<!-- prettier-ignore -->
 | Class | What the seat checks                                                                                                                                                                                                      |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | K1    | anchors exist — every cited path/section/line in the dispatch input resolves                                                                                                                                              |

@@ -5,18 +5,18 @@
 
 ## The 10 anti-patterns
 
-| Tag | One-line summary | Mitigated by |
-|---|---|---|
-| `#own-stack-blind-spot` | own deps treated as inert infra, not candidate analog | §1.1 |
-| `#semantic-anchor` | anchoring on capability vocabulary, not function | §1.3 |
-| `#prompt-list-anchoring` | closing at 3-5 candidate floor as ceiling | §1.5 |
-| `#negative-existence-claim` | accepting «no production tool implements X» without counter-prompt | §1.4 |
-| `#category-sweep-missed` | closing without enumerating named-precedent categories | §1.2 |
-| `#recursive-self-application-gap` | discipline applied bottom-up to code, not top-down to design | §2.5 |
-| `#scope-not-formal-trigger` | process gate scoped narrowly, doesn't fire on adjacent shapes | §1.6 |
-| `#trigger-sweep` | armed-but-not-fired §13.x triggers sit indefinitely | §1.6 |
-| `#adopted-pattern-drift` | external pattern shifts; project's adoption stays static | SSOT velocity tags |
-| `#recommendation-skips-own-discipline` | recommendation fails forward+backward against existing disciplines | §1.7 (this skill) |
+| Tag                                    | One-line summary                                                   | Mitigated by       |
+| -------------------------------------- | ------------------------------------------------------------------ | ------------------ |
+| `#own-stack-blind-spot`                | own deps treated as inert infra, not candidate analog              | §1.1               |
+| `#semantic-anchor`                     | anchoring on capability vocabulary, not function                   | §1.3               |
+| `#prompt-list-anchoring`               | closing at 3-5 candidate floor as ceiling                          | §1.5               |
+| `#negative-existence-claim`            | accepting «no production tool implements X» without counter-prompt | §1.4               |
+| `#category-sweep-missed`               | closing without enumerating named-precedent categories             | §1.2               |
+| `#recursive-self-application-gap`      | discipline applied bottom-up to code, not top-down to design       | §2.5               |
+| `#scope-not-formal-trigger`            | process gate scoped narrowly, doesn't fire on adjacent shapes      | §1.6               |
+| `#trigger-sweep`                       | armed-but-not-fired §13.x triggers sit indefinitely                | §1.6               |
+| `#adopted-pattern-drift`               | external pattern shifts; project's adoption stays static           | SSOT velocity tags |
+| `#recommendation-skips-own-discipline` | recommendation fails forward+backward against existing disciplines | §1.7 (this skill)  |
 
 ## Three documented case studies of `#recommendation-skips-own-discipline`
 
@@ -24,7 +24,7 @@
 
 **What happened:** `EXECUTION-PLAN.md §1` silently re-defined the project's goal as «recursive self-application is the north star» — overriding `README.md#why-this-exists`. Drift went uncaught for months. AI reviewers in subsequent sessions pattern-matched on §1's authoritative language and reinforced it, creating feedback-loop drift.
 
-**Same shape:** the doc that was supposed to be operational claimed authority over project goal — drift introduced *in the doc that should prevent drift*.
+**Same shape:** the doc that was supposed to be operational claimed authority over project goal — drift introduced _in the doc that should prevent drift_.
 
 **Cost:** ~3 months of accumulated drift; 23-commit PR to fix; new rule (`doc-authority-hierarchy.md`) + new principle (09) + 30+ doc edits across 5 audit waves.
 
@@ -41,7 +41,7 @@
 
 User pushed back each time. Assistant agreed each time. 2-3 messages later, same framing returned.
 
-**Same shape:** session about *applying discipline before pain surfaces* arguing *against the project's own thesis* in real-time. Industry-conventional language («YAGNI», «pre-1.0», «no consumers») accepted as more authoritative than this specific project's stated thesis (see `#recommendation-skips-own-discipline` body — meta-cognitive blindspot).
+**Same shape:** session about _applying discipline before pain surfaces_ arguing _against the project's own thesis_ in real-time. Industry-conventional language («YAGNI», «pre-1.0», «no consumers») accepted as more authoritative than this specific project's stated thesis (see `#recommendation-skips-own-discipline` body — meta-cognitive blindspot).
 
 **Cost:** session-level drift; user fatigued pushing back same point repeatedly.
 

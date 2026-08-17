@@ -113,6 +113,14 @@ jobs:
       # that fail a consumer's first `prettier --check .` (#531). This gate fails when any shipped
       # source drifts from Prettier — keeping "one button → green validate" true out-of-box.
       # Deterministic (Prettier, not an LLM) — complies with no-paid-llm-in-ci.
+      #
+      # Since GH #1378 the script also checks the DELIVERED shape, not just the source: install.sh
+      # rewrites repo-internal refs into blob URLs AFTER the copy (transform_internal_refs), and a
+      # rewrite inside a table cell re-pads the table, so a source-clean file can ship dirty. That
+      # phase materialises each transform-routed doc at its consumer-final path and re-checks it.
+      # GH #1377's half is the population: `.claude/skills` is enumerated whole rather than as a
+      # hand-maintained allowlist of slugs, which had drifted eight shipped skills out of the gate.
+      # Paired negative: tests/install-sh/delivered-prettier-conformance.test.sh.
       - name: npm run format:check (shipped surface only)
         run: npm run format:check
   rule-to-probe:
@@ -656,6 +664,8 @@ jobs:
         run: bash tests/install-sh/f3-f7-rule-globs.test.sh
       - name: Run install-sh gh-531 shipped-prettier test (GH #531 reopen — prettier pin + .prettierignore merge)
         run: bash tests/install-sh/gh-531-shipped-prettier.test.sh
+      - name: Run install-sh delivered-prettier conformance test (GH #1378/#1377 — post-transform delivery shape)
+        run: bash tests/install-sh/delivered-prettier-conformance.test.sh
       - name: Run install-sh dev-dep install test (consumer-install-completeness S3 one-button #483)
         run: bash tests/install-sh/cic-s3-dep-install.test.sh
       - name: Run install-sh R2 glob-reach test — CI-orphan WARN + per-package shadow + globals (GH #507 reopen)

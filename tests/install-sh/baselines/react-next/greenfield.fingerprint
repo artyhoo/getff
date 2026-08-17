@@ -11,7 +11,7 @@ e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/ru
 7d6b6061459f0939e64358447d0905329ddd4c52abd459ee8d9d201653ffb791  .ai-factory/skill-context/aif-rules-check/SKILL.md
 f93f4a4bd693a0b1920f4e030b5f0d72f2d695fef9d501b3aeb8d02e790a7e24  .ai-factory/tool-decisions.md
 caa7ac27268fdd5652ed66db6b5e9b708042347ebf27663687827b43f07638e4  .claude/agents/aif-init.md
-7a58f8bc7e863b9aa3c2b6931647c6c2acc2dd7c8fd2da93553be82125625d96  .claude/agents/capability-reuse-auditor.md
+e9e7ba33e671dbd3635c3157f43726e4c74f9cbb923328ae5a288bdbd3e13853  .claude/agents/capability-reuse-auditor.md
 0ab1bd4ce7fcb0d85740aaa94546b97d27a332b4db2ec8444dad587cfda5d107  .claude/agents/compliance-verifier.md
 808654a613b6f6197fe89f5398cd3bfb766c874d135c4ee1098993dcdd9f2c4f  .claude/agents/docplan-auditor.md
 8d4af21768eeba5a38e1300ffb2b78e99d10636b425b617838bdbb5d9f383393  .claude/agents/fidelity-auditor.md

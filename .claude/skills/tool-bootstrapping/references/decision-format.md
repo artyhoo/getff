@@ -16,9 +16,9 @@ Repository root: `.ai-factory/tool-decisions.md`. **Committed** — not gitignor
 # Per-stack deps-hash baselines (DH-S1 multistack, kickoff #1016). One line per detected
 # stack; each stores sha256-<hex> of that stack's declared deps. A stack's line is omitted
 # when the consumer has no manifest for it.
-deps-hash-npm:    <sha256 of package.json deps surface — dependencies + devDependencies + peerDependencies + optionalDependencies + overrides + resolutions + pnpm.overrides (each if present, object-guarded)>
+deps-hash-npm: <sha256 of package.json deps surface — dependencies + devDependencies + peerDependencies + optionalDependencies + overrides + resolutions + pnpm.overrides (each if present, object-guarded)>
 deps-hash-python: <sha256 of pyproject.toml deps surface — Tier-1 6 non-[project] tables + Tier-2 tomllib [project].dependencies/optional-dependencies>
-deps-hash-cargo:  <sha256 of Cargo.toml deps surface — Tier-1 table-boundary hash of [dependencies]/[dev-dependencies]/[build-dependencies] + dotted sub-tables + [target.*.{dependencies,dev-dependencies,build-dependencies}] + [workspace.{dependencies,dev-dependencies,build-dependencies}]; Tier-2 cargo metadata enrichment (DH-S2)>
+deps-hash-cargo: <sha256 of Cargo.toml deps surface — Tier-1 table-boundary hash of [dependencies]/[dev-dependencies]/[build-dependencies] + dotted sub-tables + [target.*.{dependencies,dev-dependencies,build-dependencies}] + [workspace.{dependencies,dev-dependencies,build-dependencies}]; Tier-2 cargo metadata enrichment (DH-S2)>
 last-bootstrap: <ISO date of last full tool-bootstrap run, e.g. 2026-05-11>
 aif-version: <AIF semver at time of last bootstrap, e.g. 2.1.0>
 ---
@@ -42,7 +42,7 @@ Free-form markdown list of tools proposed but undecided, or tools due for re-eva
 
 ```markdown
 ---
-deps-hash-npm:    sha256-a1b2c3d4e5f6...
+deps-hash-npm: sha256-a1b2c3d4e5f6...
 deps-hash-python: sha256-fedcba987654...
 last-bootstrap: 2026-05-11
 aif-version: 2.1.0
