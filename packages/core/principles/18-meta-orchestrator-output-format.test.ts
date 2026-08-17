@@ -36,6 +36,15 @@
  * premature-dispatch button, so they are asserted, not trusted to emitter diligence —
  * ADR `2026-08-09-pipeline-chips-session-bus-design.md` D1 «assertion mechanism, not hope».
  *
+ * **2026-08-17 update (stage S3 follow-up):** a THIRD family
+ * (`PARK_CHIP_REQUIRED_SUBSTRINGS`) asserts the D3/D4 park-chip contract on `/dispatcher`
+ * §3. Separate from the dispatch family because park-chips carry a different contract —
+ * pointer-only payload, click-time re-verification, report-and-stop on a stale chip — and
+ * none of the dispatch gates. Same rationale, same channel: the invariants are named in
+ * prose, so a substring gate is the cheapest way to stop a rewrite from quietly dropping
+ * one. What NEITHER family asserts is the runtime payload — see the ADR D1 «What it does
+ * NOT assert» paragraph; both read files from disk.
+ *
  * Slot 18 rationale: slots 01-17 occupied as of 2026-05-24 (`ls packages/core/principles/`).
  *
  * Companion paired-negative: a permutation test temporarily replaces one substring
@@ -73,6 +82,33 @@ const CHIP_REQUIRED_SUBSTRINGS = [
   'Isolation first',
   'In-flight probe',
   'Stage-gate at click time',
+] as const;
+
+// Park-chip substrings (ADR D3/D4 — the /dispatcher §3 Type-2 emitter, stage S3).
+// A SEPARATE family on purpose: park-chips deliberately carry NONE of the dispatch gates
+// above (no isolation step, no stage gate — a decision session reads and answers, it does
+// not implement), so asserting CHIP_REQUIRED_SUBSTRINGS on this surface would demand the
+// wrong contract. What IS load-bearing here is the D4 trio, and each token below has its
+// own failure scenario if the prose drops it:
+//   'Park-chip'               — block-existence anchor; without it a deleted block passes.
+//   'spawn_task'              — capability gate; loss → emission attempted where the tool
+//                               is absent, instead of the silent no-chip degradation.
+//   'pointers only'           — payload discipline; loss → the park body gets inlined, and
+//                               an inlined hint is untrusted by construction (the chip
+//                               outlives the state it was minted from).
+//   'Re-verify at click time' — staleness discipline; loss → the decision session trusts a
+//                               chip minted against a park that has since been answered.
+//   'report and stop'         — the halt OUTCOME; distinct from re-verify, which only says
+//                               «check». Dropping it leaves the check with no consequence,
+//                               and a stale chip applies `answer.ts` to a live park.
+// Deliberately NOT pinned: 'Never the park payload body' — an emphatic restatement of
+// 'pointers only', so it would pad the family without adding a failure scenario.
+const PARK_CHIP_REQUIRED_SUBSTRINGS = [
+  'Park-chip',
+  'spawn_task',
+  'pointers only',
+  'Re-verify at click time',
+  'report and stop',
 ] as const;
 
 // Files that must contain all REQUIRED_SUBSTRINGS in §10 (SKILL.md) or anywhere (output-format.md).
@@ -139,8 +175,11 @@ function checkSurface(
 }
 
 // Chip-emission surfaces: the grammar reference plus BOTH emitters named in ADR D1
-// (/pipeline §10 and /arch §3). /dispatcher is deliberately absent — it emits no
-// dispatch chips (REST + self-advance); its park-chips are D3, a separate stage.
+// (/pipeline §10 and /arch §3). /dispatcher is absent from THIS family because it emits no
+// dispatch chips (REST + self-advance) — its park-chips are D3 and carry a different
+// contract, asserted by PARK_CHIP_SURFACES below (2026-08-17: the PR #1426 follow-up
+// resolved — the omission was consistent, but consistency with an unasserted neighbourhood
+// is not an argument that these invariants are unimportant, `#hope-as-gate`).
 const CHIP_SURFACES: readonly Surface[] = [
   {
     label: 'authoring SKILL.md §10 (chip emission clause)',
@@ -155,6 +194,16 @@ const CHIP_SURFACES: readonly Surface[] = [
   {
     label: 'authoring arch/SKILL.md §3 (exit-chip emission clause)',
     path: '.claude/skills/arch/SKILL.md',
+    scope: 'whole-file',
+  },
+];
+
+// Park-chip surface: the sole D3 emitter. One entry today — a second would mean a second
+// skill learned to emit park-chips, which is exactly when this family needs re-deriving.
+const PARK_CHIP_SURFACES: readonly Surface[] = [
+  {
+    label: 'authoring dispatcher/SKILL.md §3 (park-chip contract + decision-session protocol)',
+    path: '.claude/skills/dispatcher/SKILL.md',
     scope: 'whole-file',
   },
 ];
@@ -235,6 +284,49 @@ describe('Principle 18 — meta-orchestrator output-format structural check', ()
       if (!fakeClause.includes(sub)) missing.push(sub);
     }
     expect(missing).toContain('spawn_task');
+  });
+
+  for (const surface of PARK_CHIP_SURFACES) {
+    it(`${surface.label} contains all ${PARK_CHIP_REQUIRED_SUBSTRINGS.length} park-chip substrings`, () => {
+      const result = checkSurface(surface, PARK_CHIP_REQUIRED_SUBSTRINGS);
+      expect(
+        result.ok,
+        result.missing.length > 0
+          ? `Missing park-chip substrings in ${surface.label}: ${result.missing.join(', ')}`
+          : '',
+      ).toBe(true);
+    });
+  }
+
+  it('paired-negative: a park-chip clause that drops the click-time re-verification fails the check', () => {
+    // The D4 regression this guards: without re-verify + its halt outcome, a chip minted
+    // against a park that was answered by some other path (the morning sweep, an advisor
+    // seat) still spawns a decision session, which applies `answer.ts` over a settled park.
+    const fakeClause = [
+      '**Park-chip contract.** Emit when `spawn_task` is invocable; the prompt carries pointers only.',
+      'The spawned session assembles a decision package and applies it via `answer.ts`.',
+    ].join('\n');
+    const missing: string[] = [];
+    for (const sub of PARK_CHIP_REQUIRED_SUBSTRINGS) {
+      if (!fakeClause.includes(sub)) missing.push(sub);
+    }
+    expect(missing).toContain('Re-verify at click time');
+    expect(missing).toContain('report and stop');
+  });
+
+  it('paired-negative: a park-chip clause that inlines the park payload fails the check', () => {
+    // D4's pointer-only invariant: an inlined body is untrusted by construction, because the
+    // chip outlives the state it was minted from.
+    const fakeClause = [
+      '**Park-chip contract.** Emit when `spawn_task` is invocable.',
+      'The prompt carries the parked question text inline so the session can decide immediately.',
+      'Re-verify at click time, never trust the chip — no matching park → report and stop.',
+    ].join('\n');
+    const missing: string[] = [];
+    for (const sub of PARK_CHIP_REQUIRED_SUBSTRINGS) {
+      if (!fakeClause.includes(sub)) missing.push(sub);
+    }
+    expect(missing).toEqual(['pointers only']);
   });
 
   // Paired-negative test (companion per principle 02 discipline): a temporarily-mutated

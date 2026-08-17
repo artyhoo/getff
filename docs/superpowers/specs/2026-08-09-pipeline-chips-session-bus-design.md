@@ -139,7 +139,15 @@ with a `CHIP_REQUIRED_SUBSTRINGS` family, so every emitting surface's chip claus
 literally name the isolation, probe, and gate lines — asserted on three files:
 [pipeline/SKILL.md §10](../../../.claude/skills/pipeline/SKILL.md),
 [references/output-format.md §9](../../../.claude/skills/pipeline/references/output-format.md),
-[arch/SKILL.md §3](../../../.claude/skills/arch/SKILL.md).
+[arch/SKILL.md §3](../../../.claude/skills/arch/SKILL.md). **S3 follow-up resolved
+2026-08-17:** a second family, `PARK_CHIP_REQUIRED_SUBSTRINGS`, now asserts the D3/D4
+park-chip contract on [dispatcher/SKILL.md §3](../../../.claude/skills/dispatcher/SKILL.md)
+— `Park-chip` · `spawn_task` · `pointers only` · `Re-verify at click time` ·
+`report and stop`. A separate family, not an extension: park-chips carry NONE of the
+dispatch gates (no isolation step, no stage gate — a decision session reads and answers, it
+does not implement), so demanding `CHIP_REQUIRED_SUBSTRINGS` there would assert the wrong
+contract. #1426 left it out reasoning the rest of §3 is equally unasserted; that is a fact
+about §3's neighbourhood, not an argument that these invariants are unimportant.
 
 **What it does NOT assert.** The check reads those three files from disk
 (`18-meta-orchestrator-output-format.test.ts:125-137`). No rendered report and no runtime chip
@@ -160,10 +168,30 @@ when it is built: the registration lands in `.claude/settings.json` (agent-uncom
 operator hand-off), and it needs a discriminator so D3 park-chips and out-of-band chips — which
 carry no stage gate — are not blocked.
 
-**Build trigger:** the first chip that reaches a click with a gate missing from its prompt, OR
-a fourth emitting surface beyond the three above. **Falsifier for the current bound:** wrong if
-some existing channel does inspect a chip payload before dispatch — none was found on
-2026-08-17 (`grep -rn 'spawn_task' .claude/hooks/ .claude/settings.json` → no matcher).
+**Build trigger (re-derived 2026-08-17 — the surface-count clause had already fired and was
+stale when this paragraph was written).** The census is not three. `grep -rln spawn_task`
+over the tree returns **five live emitting clauses across three gate profiles**: the three
+dispatch surfaces above; the D3 park-chip in
+[dispatcher/SKILL.md §3](../../../.claude/skills/dispatcher/SKILL.md); and — landed
+2026-08-09 in #1346, i.e. eight days BEFORE the re-statement above claimed «three» — the
+night-end review chip ([night-mode/SKILL.md](../../../.claude/skills/night-mode/SKILL.md)
+terminal condition) plus the continuation chip bound at
+[seat-lifecycle.md §4](../../../.claude/rules/seat-lifecycle.md) (owner: session-bus v2 §4).
+The last two carry **no gates at all** — they point at a report path or a context package.
+
+So the «fourth emitting surface» clause is **retired as fired**, and the gate is still NOT
+built, on the one ground that survives: **zero live chip clicks** to date, which makes a
+gate for a never-exercised surface `#type1-process-on-type2`
+([effort-worthiness.md §3](../../../.claude/rules/effort-worthiness.md)). The discriminator
+cost went UP, not down — it must now classify chip CLASS from the payload before choosing
+which substrings to demand, across three profiles, and the registration is still an
+operator hand-off into agent-uncommittable `.claude/settings.json`. **Remaining trigger:**
+the first chip that reaches a click with a gate missing from its prompt. **Falsifier for
+the current bound:** wrong if some existing channel does inspect a chip payload before
+dispatch — re-verified 2026-08-17, `grep -rn 'spawn_task' .claude/hooks/ .claude/settings.json
+packages/core/hooks/` returns nothing and the only PreToolUse matchers registered are
+`AskUserQuestion` and `Agent|Task`. **Open, out of this PR's scope:** the night-end and
+continuation chips are asserted by nothing — surfaced, not fixed here (one concern per PR).
 
 ### D2 — Chips are additive, capability-gated, ephemeral-honest
 
