@@ -133,13 +133,37 @@ shown in the chip UI):
    the Action queue and become premature-dispatch buttons (`#flat-queue-no-gates`).
 4. cwd = repo root; kickoff/residue path + «read and execute».
 
-**Assertion mechanism (not hope):** the gates above are asserted, not trusted to emitter
-diligence — S1 EXTENDS [principle 18](../../../packages/core/principles/18-meta-orchestrator-output-format.test.ts)'s
-`REQUIRED_SUBSTRINGS` so the rendered report's chip-prompt block must literally contain the
-isolation, probe, and gate lines (the test already pins the Action-queue grammar; the chip
-block joins it). **Falsifier:** a chip prompt that omits any of steps 1–3 → the extended test
-is red before the report ships; an incident reaching a click means the assertion itself was
-skipped — fix the emitter and the test, not the operator.
+**Assertion mechanism — bounded, and the bound is load-bearing (re-stated 2026-08-17 after S1
+shipped).** S1 EXTENDS [principle 18](../../../packages/core/principles/18-meta-orchestrator-output-format.test.ts)
+with a `CHIP_REQUIRED_SUBSTRINGS` family, so every emitting surface's chip clause must
+literally name the isolation, probe, and gate lines — asserted on three files:
+[pipeline/SKILL.md §10](../../../.claude/skills/pipeline/SKILL.md),
+[references/output-format.md §9](../../../.claude/skills/pipeline/references/output-format.md),
+[arch/SKILL.md §3](../../../.claude/skills/arch/SKILL.md).
+
+**What it does NOT assert.** The check reads those three files from disk
+(`18-meta-orchestrator-output-format.test.ts:125-137`). No rendered report and no runtime chip
+payload is ever inspected, so a chip whose `prompt` drops a gate ships silently. The assertion
+layer is the *emitter's instructions*; conformance of the *payload* still rests on emitter
+diligence — which [attention-is-not-a-mechanism.md §1](../../../.claude/rules/attention-is-not-a-mechanism.md)
+names `#hope-as-gate`. The round-1 wording of this paragraph claimed the payload itself was
+covered; it never was.
+
+**Reachable gate, deliberately not built.** A PreToolUse hook matched on the `spawn_task` tool
+can read the `prompt` argument and block on a missing gate substring — substring presence is
+mechanically detectable, so the correct channel is a gate, not an injection
+([rule-enforcement-channel-selection.md §1](../../../.claude/rules/rule-enforcement-channel-selection.md)).
+It is deferred because the contour has had **zero live chip clicks** to date: building a gate
+for a never-exercised surface is `#type1-process-on-type2`
+([effort-worthiness.md §3](../../../.claude/rules/effort-worthiness.md)). Two costs to price
+when it is built: the registration lands in `.claude/settings.json` (agent-uncommittable →
+operator hand-off), and it needs a discriminator so D3 park-chips and out-of-band chips — which
+carry no stage gate — are not blocked.
+
+**Build trigger:** the first chip that reaches a click with a gate missing from its prompt, OR
+a fourth emitting surface beyond the three above. **Falsifier for the current bound:** wrong if
+some existing channel does inspect a chip payload before dispatch — none was found on
+2026-08-17 (`grep -rn 'spawn_task' .claude/hooks/ .claude/settings.json` → no matcher).
 
 ### D2 — Chips are additive, capability-gated, ephemeral-honest
 
