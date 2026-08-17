@@ -47,14 +47,14 @@ allowed-tools:
 
 All 4 CLI primitives are pre-built. `/dispatcher` wires them — it does NOT build new ones.
 
-| Primitive                            | Path                                           | Role in loop                                                                                                                                    |
-| ------------------------------------ | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dispatch.ts`                        | `packages/runtime-bridge/src/cli/dispatch.ts`  | Send kickoff to aif via REST; exit 0 always (injection hook, never a gate); ManualBackend fallback not deduped so retry is always possible      |
-| `harvest.ts`                         | `packages/runtime-bridge/src/cli/harvest.ts`   | Push aif branch from container, open PR, optionally enable auto-merge; ZERO LLM; throws on wrong-branch container (operator-ATTN case — see §4) |
-| `questions.ts`                       | `packages/runtime-bridge/src/cli/questions.ts` | Read-only GET /tasks, filter to parked tasks, display park reasons; appends brainstorm nudge to output                                          |
-| `answer.ts`                          | `packages/runtime-bridge/src/cli/answer.ts`    | Resolve a parked task via REST state-machine events; invalid `--decision` is an error (never silently defaults)                                 |
-| `superpowers:brainstorming`          | CC companion skill                             | Autonomous technical-fork resolution on CC-present path                                                                                         |
-| `superpowers:requesting-code-review` | CC companion skill                             | Phase-1 cold-review between stages                                                                                                              |
+| Primitive                            | Path                                                                                                                                                                                                                                                    | Role in loop                                                                                                                                    |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dispatch.ts`                        | framework repo: `packages/runtime-bridge/src/cli/dispatch.ts` · consumer install: `.claude/vendor/runtime-bridge/src/cli/dispatch.ts` (the vendor drop — `setup.d/55-runtime-bridge-vendor.sh`; the `packages/` path exists ONLY in the framework repo) | Send kickoff to aif via REST; exit 0 always (injection hook, never a gate); ManualBackend fallback not deduped so retry is always possible      |
+| `harvest.ts`                         | `packages/runtime-bridge/src/cli/harvest.ts`                                                                                                                                                                                                            | Push aif branch from container, open PR, optionally enable auto-merge; ZERO LLM; throws on wrong-branch container (operator-ATTN case — see §4) |
+| `questions.ts`                       | `packages/runtime-bridge/src/cli/questions.ts`                                                                                                                                                                                                          | Read-only GET /tasks, filter to parked tasks, display park reasons; appends brainstorm nudge to output                                          |
+| `answer.ts`                          | `packages/runtime-bridge/src/cli/answer.ts`                                                                                                                                                                                                             | Resolve a parked task via REST state-machine events; invalid `--decision` is an error (never silently defaults)                                 |
+| `superpowers:brainstorming`          | CC companion skill                                                                                                                                                                                                                                      | Autonomous technical-fork resolution on CC-present path                                                                                         |
+| `superpowers:requesting-code-review` | CC companion skill                                                                                                                                                                                                                                      | Phase-1 cold-review between stages                                                                                                              |
 
 ---
 
@@ -109,8 +109,15 @@ probe`](../../../CLAUDE.md)).
 **§2.1 — Dispatch**
 
 ```bash
+# Framework repo:
 tsx packages/runtime-bridge/src/cli/dispatch.ts \
   .claude/orchestrator-prompts/<umbrella>/kickoff.md
+
+# Consumer install — the CLI arrives via the vendor drop, and kickoffs live under
+# .ai-factory/ (setup.d/30-templates.sh:17), not .claude/. The `packages/` path above
+# does not exist outside the framework repo.
+tsx .claude/vendor/runtime-bridge/src/cli/dispatch.ts \
+  .ai-factory/orchestrator-prompts/<umbrella>/kickoff.md
 ```
 
 `AifHandoffBackend.dispatch()` → `POST /tasks (paused:true)` → `PUT /tasks/:id (unpause)` → aif coordinator picks up: `backlog → planning` (per-task worktree created) → `implementing`. The `exit 0` contract holds at every call-site — a ManualBackend fallback (written to `/tmp/runtime-bridge-<taskId>.md`) means aif was unreachable; retry once the blocker clears.

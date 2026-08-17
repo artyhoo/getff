@@ -127,7 +127,7 @@ If any of the four checks fails → fix the body before pushing. CI catches the 
 
 ## §4c Autonomous aif-handoff dispatch — park-don't-guess contract (applies ONLY when a Worker is dispatched to the runtime-bridge instead of a maintainer-paste tab)
 
-> **When this section is live:** the §10 report offered «autonomous dispatch via aif-handoff» for this umbrella AND the maintainer accepted. If every Worker below runs in a maintainer-pasted CC tab, §4c is inert — skip it. **If any sub-wave is dispatched via `tsx packages/runtime-bridge/src/cli/dispatch.ts <this-kickoff>`, §4c is MANDATORY** (SKILL §5 `#autonomous-dispatch-without-park`).
+> **When this section is live:** the §10 report offered «autonomous dispatch via aif-handoff» for this umbrella AND the maintainer accepted. If every Worker below runs in a maintainer-pasted CC tab, §4c is inert — skip it. **If any sub-wave is dispatched via `tsx packages/runtime-bridge/src/cli/dispatch.ts <this-kickoff>` (framework repo; `tsx .claude/vendor/runtime-bridge/src/cli/dispatch.ts <this-kickoff>` on a consumer install), §4c is MANDATORY** (SKILL §5 `#autonomous-dispatch-without-park`).
 
 **Why this exists (design §1 honest limitation, verified `coordinator.ts:398-476` + `reviewGate.ts`):** aif-handoff agents have **no mid-implementation "pause and ask" primitive**. They implement — _guessing_ on any ambiguity — then auto-review post-hoc. Auto-close fires when the review finds _no blocking findings_ — a bar that means "review found no blockers", NOT "a human is sure it's right". A genuine **design fork is not recognised as a question** — aif just picks and proceeds. So **without the levers below, aif decides forks wrong, silently.**
 
