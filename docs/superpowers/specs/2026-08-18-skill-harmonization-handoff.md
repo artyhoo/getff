@@ -1,9 +1,14 @@
 # Handoff — skill-stack harmonization contour (continue in a fresh session)
 
-> **Status:** HANDOFF 2026-08-18 — interview phase of the `/arch` contour is COMPLETE
-> (frontier empty, all decisions ratified in the spec); the contour's remaining phases
-> (§2 cold review → §3 exit routing) are NOT done. Delete or archive this file when the
-> contour closes.
+> **Status:** CLOSED 2026-08-18 — the full contour ran to completion in the continuation
+> session: §2 cold two-altitude review (3 rounds — REVISE/REVISE/**GO×2**; dispositions in
+> spec §9), §3 exit routing executed (chips: consumer-axis design contour,
+> «skill-harmonization-mechanisms» umbrella kickoff, «orchestrator-rewrite» umbrella
+> kickoff; in-session edits landed in `arch`/`ai-doc`/`rule-tests` SKILL.md), SSOT #253
+> counter arm appended + REJECT rows #254-257 added. Remaining work lives OUTSIDE this
+> contour: the operator actions in spec §8 item 1 (P5 probe, prune run, attended
+> `/setup-matt-pocock-skills`, container listing verification) and the chip-routed
+> umbrellas. This file is retained as the contour's closure record (archive).
 > **Authoritative for:** continuation state of THIS design contour only.
 > **NOT authoritative for:** the design itself — see
 > [2026-08-18-skill-stack-harmonization-design.md](2026-08-18-skill-stack-harmonization-design.md)
