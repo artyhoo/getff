@@ -203,7 +203,8 @@ order: fix the §4B ref first), fork 3 (invitation for the marker fix).
 implementation («го так сделаем как ты сразу решил»). Implementation route CHANGED by the
 operator later the same day: NOT the dispatch chip (dismissed) — the operator continues
 in this worktree with a fresh Opus context; the execution brief is
-[impl-handoff.md](impl-handoff.md). The /arch re-review chip stays. Sequencing inside the
+`impl-handoff.md` beside this file (gitignored executor reference, lives on the operator
+machine in worktree `heuristic-joliot-01a0a3`). The /arch re-review chip stays. Sequencing inside the
 approved scope:
 (1) unblocked slice — orchestrator into `GETFF_SKILLS_ENV`, the D6.1/D6.2 stale-ref repairs,
 the hooks PROFILE-gate check, the §4B pipeline ref fix; (2) night-mode move gated on its
