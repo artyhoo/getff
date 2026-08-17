@@ -36,6 +36,8 @@ protocol keeps the two roles separated.
 
 **Severity contract + ESCALATED ([.claude/rules/reviewer-discipline.md §6](../.claude/rules/reviewer-discipline.md), 2026-08-10):** when grading findings in this session, only a finding with a concrete `Failure-scenario:` may trigger a re-review round; scenario-less findings = notes lane (recorded, no round). A finding standing on an UNRECORDED value premise is graded `ESCALATED` and routed to the concept holder — it is a sibling of §2's decision-needed pattern, never priced by the reviewer. Zero-finding reviews are legitimate.
 
+**Triage rubric ([.claude/rules/reviewer-discipline.md §6.1](../.claude/rules/reviewer-discipline.md), 2026-08-17):** grade with the three-axis rubric quoted verbatim there, and carry its labels — `layer` `corpus-measured`, `whose` `judgment-only, not corpus-validated`, class a measured null (the recorded grade stays the class bar; the rubric's class questions never override it).
+
 ## §1 — The discipline (do NOT cross into orchestrator-role decisions mid-session)
 
 If a review finding requires **choosing project strategy** — e.g. «is this doc a v2 future spec
