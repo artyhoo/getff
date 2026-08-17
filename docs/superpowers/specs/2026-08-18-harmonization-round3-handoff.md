@@ -1,8 +1,16 @@
 # Handoff — harmonization round 3: top-down creative re-examination (fresh session)
 
-> **Status:** HANDOFF 2026-08-18 — rounds 1 (operator axis) and 2 (consumer axis) are
-> RECORDED; round 3 is MANDATED by the operator (P-C3) and not started. Delete or archive
-> this file when round 3 closes.
+> **Status:** CLOSED 2026-08-18 — round 3 EXECUTED in this file's mandated phase order
+> (Phase A cold shapes → Phase B collide with the record → Phase C operator verdict).
+> Outcome: the amended-register branch fired — operator-axis spec §9 v4 (D-H15
+> superseded by injected-context bindings) + round-2 spec §9 v2 (D-C1 thin form, D-C9
+> fourth-stack boundary). Retained as closure record.
+> **Continuation-state correction (found by the round-3 in-flight probe):** the
+> «round-1 spec … 2 commits, unmerged» line below was STALE at writing — the
+> operator-axis contour had already closed at v3 REVIEWED-GO (3 review rounds,
+> `f2d3fe2655`/`cf7fcb2942`) before this handoff's own commit (`99793ad9e7`, 01:53
+> same night). Only the round-2 spec lacked a cold review. Both branches were merged
+> into `claude/festive-shtern-0e0296` at round 3 (`3ae6981833`).
 > **Authoritative for:** the round-3 mandate, its phase order, and the continuation state.
 > **NOT authoritative for:** the designs themselves — round-1 spec
 > [2026-08-18-skill-stack-harmonization-design.md](2026-08-18-skill-stack-harmonization-design.md)

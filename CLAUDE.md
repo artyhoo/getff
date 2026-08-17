@@ -110,6 +110,15 @@ That doc owns the *criteria*; night-mode + the aif runtime profile config own *w
 fills which tier*. The acceptance-contour D1 exception (Tier-2 + /arch-reviewed
 plan-complete kickoff → bridge-profile marker) still applies — see the doc's §2 lift.
 
+## Skill routing bindings (three-stack harmonization)
+
+Ratified 2026-08-18 (harmonization round 3 — [operator-axis spec §5.1](docs/superpowers/specs/2026-08-18-skill-stack-harmonization-design.md)): satellite-skill routing collisions die in THIS injected layer, not by cache pruning.
+
+- **TDD loop:** `superpowers:test-driven-development` owns the loop. On «TDD» / «test-first» work, invoke it by explicit name; never route to `mattpocock-skills:tdd`.
+- **Merge conflicts:** follow [.claude/rules/git-conflict-merge-forward.md](.claude/rules/git-conflict-merge-forward.md); never `mattpocock-skills:resolving-merge-conflicts` — its rebase-continuation advice dead-ends (force-push is classifier-blocked for agents machine-wide).
+
+Full ownership map: [harmonization spec §3](docs/superpowers/specs/2026-08-18-skill-stack-harmonization-design.md). A live misroute despite these bindings = D-H7 incident (SSOT #253) → D-H8 escalation ladder (frontmatter neutering → prune → vendor).
+
 ## Umbrella closure convention
 
 > **See:** [docs/meta-factory/operational-conventions.md#1-umbrella-closure-convention](docs/meta-factory/operational-conventions.md#1-umbrella-closure-convention) — when the last stage of a multi-stage umbrella merges, the merging session writes `done.md` (the load-bearing `priority-score.sh` Layer C3 fallback).

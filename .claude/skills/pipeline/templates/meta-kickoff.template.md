@@ -60,6 +60,8 @@ If empty → halt. Do NOT dispatch Stage 2.
 
 {{DISPATCH_INSTRUCTIONS}}
 
+> **Skill binding (harmonization D-H10):** any Worker doing TDD-shaped work invokes `superpowers:test-driven-development` by explicit name — never rely on bare «TDD» wording routing to a skill (the machine may carry `mattpocock-skills:tdd`; the SP skill owns the loop per the harmonization ownership map).
+
 ---
 
 ## §4b §1.7 PR-body authoring mandate (paths-triggered, applies to ALL Workers below — self-evaluate)

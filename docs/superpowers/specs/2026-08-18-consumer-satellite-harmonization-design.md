@@ -4,9 +4,12 @@
 > ratified in dialogue; §2 cold two-altitude review **NOT dispatched** — superseded by the
 > operator-mandated round-3 creative re-examination (D-C8, P-C3). Exit routing deferred to
 > round 3. Companion handoff: [2026-08-18-harmonization-round3-handoff.md](2026-08-18-harmonization-round3-handoff.md).
+> **v2 2026-08-18 — round 3 EXECUTED:** D-C1 re-cut to the thin form (static census
+> prose + known-pair presence check; the inventory-join engine NOT built); D-C9 added
+> (fourth-stack admission boundary); dispositions in §9.
 > **Authoritative for:** the consumer-axis collision contract — §3 three-class collision
-> model, §4 decision register D-C1..D-C8, §5 mechanism architecture, §6 fact register,
-> §7 testing seams. All of it re-openable by round 3 (D-C8) — recorded, not shipped.
+> model, §4 decision register D-C1..D-C9, §5 mechanism architecture, §6 fact register,
+> §7 testing seams.
 > **NOT authoritative for:** the operator axis — see
 > [2026-08-18-skill-stack-harmonization-design.md](2026-08-18-skill-stack-harmonization-design.md)
 > (branch `claude/keen-shannon-46577a`, unmerged as of this writing); consumer authority
@@ -66,29 +69,35 @@ Each class has a different earliest reachable channel ([README.md#why-this-exist
 
 | Decision | Status | Resolution | Falsifier |
 | --- | --- | --- | --- |
-| D-C1 mechanism | ratified 2026-08-18 (P-C1) | **detect + declare + prescribe**: the census scanner detects local collisions AND prints exact remediation commands derived from the collisions measured on THAT machine; only the consumer executes; the factory never mutates the consumer host cache. Shipped static prune REJECTED as primary: the list would be authored blind (knowledge problem, not consent problem), needs a standing drift detector in the consumer's pre-push, and a wrong list = incident × consumer count (deletion is the irreversible branch, T18) | wrong if a live consumer misroute shows reports go unread and prose bindings don't hold → escalate to consent-gated prune |
+| D-C1 mechanism | ratified 2026-08-18 (P-C1); **form re-cut round 3 (D-C8)** | **detect + declare + prescribe, thin form**: the factory-declared collision classes + remediation recipes are CONSTANT across consumers → ship as **static census prose** in the D-C5 AGENTS.md section; the machine-specific half reduces to a **known-pair presence check** in `./setup` (~20 lines, manifest-driven: detect known colliding plugin caches present on THAT machine → print the factory's measured resolution per pair); only the consumer executes; the factory never mutates the consumer host cache. The general inventory-join engine NOT built: minus fuzzy, its only extra signal is name-clash detection with a thin harm model (F-C3/P1: plugin skills namespaced, `/tdd` resolves to the project skill, precedence undocumented). Shipped static prune stays REJECTED as primary (blind list, T18) | wrong if a live consumer misroute shows static prose + presence check insufficient → build the inventory-join (recorded escalation); reports unread → consent-gated prune |
 | D-C2 admission gate | ratified 2026-08-18 | a NEW satellite row in `setup.d/companions.manifest` requires a census artifact: trigger-collision census vs the shipped skill set + capability-ownership row (D-H1 projection) + non-CC degrade path; presence enforced by a principle test on the manifest (class-1 collisions die at factory CI) | wrong if the census artifact rots into `#discipline-theatre` (form present, census stale) → add freshness bar |
-| D-C3 build timing | ratified 2026-08-18 (P-C2, operator override of the session's «wait» recommendation — conceded on the merits) | build the census scanner NOW, not at the second satellite: the mechanism is measured (P2 3/3) and the incident channel does not exist, so incident-gated timing can never fire | wrong if round 3 (D-C8) finds a cheaper mechanism with the same result → supersede before build |
+| D-C3 build timing | ratified 2026-08-18 (P-C2, operator override of the session's «wait» recommendation — conceded on the merits); **falsifier FIRED round 3 — form superseded, timing kept** | build NOW stands (the incident channel still does not exist, P-C2 logic intact); round 3 re-cut only the FORM: the thin D-C1 mechanism ships now instead of the inventory-join scanner | — (falsifier resolved 2026-08-18: round 3 found the cheaper same-result form) |
 | D-C4 consent disclosure | ratified 2026-08-18 | extend the ⚠ machine-scope warning to `kind=cc-plugin` consent (today mcp-only, `setup.d/engine.sh:60-62` — superpowers mutates user scope silently); record the upstream trigger: CC ships project-scope plugin installs → the manifest switches to it (dissolves most of class 3) | — |
 | D-C5 binding carrier | ratified 2026-08-18 | one «Skill routing ownership» section in the shipped `AGENTS.md.template` — the map of factory-shipped surfaces only (consumer's own skills are their Layer-2 territory); the only channel reaching non-CC harnesses. Per-skill binding lines are the ESCALATION, added on a measured collision | wrong if a measured collision lands in a specific shipped skill → add the per-skill binding there (the escalation firing is the falsifier resolving, not the map failing) |
 | D-C6 aif container | ratified 2026-08-18 | the consumer's factory-profile aif container is provisioned by the factory suite and carries no consumer skills → prune at image/config build time is allowed (mirror of operator-axis §5.6); the host cache stays untouchable | — |
 | D-C7 retroactive census | ratified 2026-08-18 (session's own call, surfaced to operator, unopposed) | superpowers — the only satellite shipping today — passes the D-C2 gate retroactively; grandfathering it would leave the one real satellite outside the contract and turn the principle test RED on its row from day one | — |
-| D-C8 round-3 mandate | **ratified 2026-08-18 (P-C3)** | before ANY build item routes out: a fresh-session top-down creative re-examination of the WHOLE harmonization design (operator axis + consumer axis), collisions first, asking the KPD question — is every mechanism buying its cost, is there a simpler/cheaper design with the same result? D-C1..D-C7 stand recorded but re-openable; §2 cold review and §3 exit routing deferred behind it | round 3 confirms the design as-is → cold review runs on this spec unchanged; round 3 finds a simpler mechanism → this register is amended with dispositions |
+| D-C8 round-3 mandate | **EXECUTED 2026-08-18** | round 3 ran as mandated (fresh top-tier session, membrane phase order per the companion handoff): Phase A produced 5 alternative shapes cold, Phase B collided them with both fact registers, Phase C ratified with the operator. Outcome: the second falsifier branch fired — both registers amended with dispositions (this spec §9 v2; operator-axis spec §9 v4) — and the cold reviews follow the amendments | — (spent) |
+| D-C9 fourth-stack admission boundary | **NEW round 3 (2026-08-18)** | the collision population is the INSTALLED/SHIPPED stacks only. The knowledge-work trio ([SSOT #235](../../meta-factory/prior-art-evaluations.md): ADOPT-operator + KEEP NARROW-shipped, 0/26 direct problem-class matches) is NOT re-examined — not installed, zero routing surface (operator cache holds only `ast-grep-marketplace`/`mattpocock`/`superpowers-dev`, verified 2026-08-18). Any fourth stack enters through the existing contract: D-H17 map criteria BEFORE install (operator axis) + the D-C2 census gate BEFORE a manifest row (consumer axis) | wrong if a stack reaches install/manifest without its D-H1 rows / census artifact → the gate rotted; add the missing principle-test arm |
 
 ## §5 Mechanism architecture (recorded for round 3, not routed)
 
-The Q1+Q2 join: the **admission gate produces machine-readable census metadata** next to
-the manifest row (which satellite skills are model-invocable, which triggers are broad,
-known doctrine conflicts). The **install-time scanner** in `./setup` inventories the
-consumer's local skill surfaces (project `.claude/skills/`, personal `~/.claude/skills/`,
-other plugin caches) and JOINS them against that metadata, printing a report plus
-prescribe-remediation commands. Detection is strictly deterministic — name-level matches
-and factory-declared collision classes; no fuzzy trigger-keyword semantics (two measured
-precedents in this repo rejected fuzzy detectors at 13% and 38% precision:
+The Q1+Q2 join, thin form (round 3): the **admission gate (D-C2) produces the census** —
+which satellite skills are model-invocable, which triggers are broad, known doctrine
+conflicts and measured collision PAIRS. Because that census is factory-knowable and
+CONSTANT across consumers, it ships as **static prose** in the D-C5 AGENTS.md section
+(plus the install report), not as machine-readable metadata for a local join. The only
+machine-specific signal worth computing locally is **known-pair presence**: `./setup`
+checks which known colliding plugin caches exist on THAT machine (~20 lines,
+manifest-driven) and prints the factory's measured resolution for each present pair —
+prescribe-remediation commands the consumer runs or ignores (P-C1 preserved). Detection
+stays strictly deterministic — plugin presence + factory-declared classes; no fuzzy
+trigger-keyword semantics (two measured precedents in this repo rejected fuzzy detectors
+at 13% and 38% precision:
 [dual-implementation-discipline.md §8](../../../.claude/rules/dual-implementation-discipline.md)
-and the fences detector, operator-axis memory). Non-CC harness degrade: the D-C5
-AGENTS.md section is the prose channel; the scanner is CC-cache-shaped and skips cleanly
-when no cache exists.
+and the fences detector, operator-axis memory), and the name-clash inventory-join is
+explicitly NOT built (thin harm model, F-C3/P1; escalation recorded in D-C1). Non-CC
+harness degrade: the D-C5 AGENTS.md section is the prose channel; the presence check is
+CC-cache-shaped and skips cleanly when no cache exists.
 
 ## §6 Fact register (all verified this session, 2026-08-18)
 
@@ -109,23 +118,36 @@ when no cache exists.
 
 ## §7 Testing seams (D-H14, self-applied; all deferred behind D-C8)
 
-Named seams: (1) the D-C2 principle test — RED on a manifest row without its census
-artifact, GREEN with it (paired negative at build time); (2) the scanner — verified by a
-fixture inventory join (known local skill set × known metadata → expected report), plus
-one live run on the operator machine; (3) the ⚠ parity line — one-line engine.sh change,
-verified by the existing setup snapshot lane. Open verification item (recorded, unspent):
-the claim that a foreign plugin cache can be inventoried deterministically
-(`disable-model-invocation` frontmatter parse across `~/.claude/plugins/cache/**`) is
-DESIGN-ASSUMED, not yet probed — first build task of the scanner, before anything else.
+Named seams (thin form, round 3): (1) the D-C2 principle test — RED on a manifest row
+without its census artifact, GREEN with it (paired negative at build time); (2) the
+presence check — verified by a fixture cache dir carrying a known colliding plugin name
+→ expected pair-recipe in the report, plus one live run on the operator machine; (3) the
+⚠ parity line — one-line engine.sh change, verified by the existing setup snapshot lane.
+The v1 open item (deterministic `disable-model-invocation` frontmatter inventory across
+a foreign cache) DISSOLVED with the inventory-join: presence detection needs directory
+names only, no frontmatter parse.
 
 ## §8 Routed work inventory — DEFERRED
 
-Held behind D-C8 (round 3). The pre-sorted candidates, valid only if round 3 confirms:
-factory umbrella «consumer-satellite-contract» (scanner + superpowers census metadata +
-principle test + ⚠ parity + AGENTS.md section); SSOT rows (contract + host-prune REJECT).
+Round 3 executed — candidates re-cut to the thin form: factory umbrella
+«consumer-satellite-contract» = the D-C5 AGENTS.md «Skill routing ownership» section
+carrying the static census prose (superpowers retro-census per D-C7) + the ~20-line
+known-pair presence check in `./setup` + the D-C2 principle test + the ⚠ parity line
+(D-C4); SSOT rows (contract + host-prune REJECT). The inventory-join scanner and
+machine-readable census metadata are OUT (D-C1 thin form; escalation path recorded).
 
 ## §9 Changelog
 
 - 2026-08-18 — v1 recorded at interview close (rounds: frontier ×3, one dismissed
   card honored as pause). Cold review not dispatched; round-3 mandate (D-C8) supersedes
   the immediate §2 step.
+- 2026-08-18 — v2: **harmonization round 3 (D-C8 executed; operator-ratified live).**
+  Dispositions: **D-C1 FIXED** (thin form — static census prose + known-pair presence
+  check; inventory-join NOT built: minus fuzzy its deterministic detection surface is
+  name-clash only, thin harm model per F-C3/P1); **D-C3 falsifier RESOLVED** (cheaper
+  same-result form found; build-now timing kept — P-C2 logic intact); **D-C9 ADDED**
+  (fourth-stack admission boundary — knowledge-work trio SSOT #235 stays out of the
+  population, not installed); **D-C2/D-C4/D-C5/D-C6/D-C7 CONFIRMED** as recorded.
+  §5/§7/§8 re-cut accordingly. Operator-axis dispositions:
+  [round-1 spec](2026-08-18-skill-stack-harmonization-design.md) §9 v4. First cold
+  two-altitude review of this spec: recorded below on completion.
