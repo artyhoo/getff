@@ -28,6 +28,14 @@
  *   (5) 'Can parallel with'       — action-queue column header
  *   (6) '### Stage'              — 1-liner heading prefix
  *
+ * **2026-08-17 update (pipeline-chips stage S1):** a second substring family
+ * (`CHIP_REQUIRED_SUBSTRINGS`) asserts the dispatch-chip contract on three surfaces —
+ * the grammar reference (`references/output-format.md §9`) and both emitters named in
+ * ADR D1, `/pipeline` §10 and `/arch` §3. Rationale: the chip prompt's three gates
+ * (isolation, in-flight probe, click-time stage gate) are what keep a chip from being a
+ * premature-dispatch button, so they are asserted, not trusted to emitter diligence —
+ * ADR `2026-08-09-pipeline-chips-session-bus-design.md` D1 «assertion mechanism, not hope».
+ *
  * Slot 18 rationale: slots 01-17 occupied as of 2026-05-24 (`ls packages/core/principles/`).
  *
  * Companion paired-negative: a permutation test temporarily replaces one substring
@@ -50,6 +58,21 @@ const REQUIRED_SUBSTRINGS = [
   'Paste into a new CC tab',
   'Can parallel with',
   '### Stage',
+] as const;
+
+// Chip-emission substrings (stage S1 of the pipeline-chips ADR, 2026-08-09 D1+D2).
+// The chip prompt's three gates must appear LITERALLY in the grammar reference and in
+// each emitter's own emission clause: a chip whose prompt drops one of them strips
+// `When` / `Waiting on` off the Action queue and becomes a premature-dispatch button
+// (`#flat-queue-no-gates`). The capability token pins the runtime-probe posture — chips
+// are gated on `spawn_task` being invocable, never on an `allowed-tools` declaration
+// (which CC does not enforce, and which would turn principle 21 red on `MCP_TOOL_RE`).
+const CHIP_REQUIRED_SUBSTRINGS = [
+  'Dispatch chips',
+  'spawn_task',
+  'Isolation first',
+  'In-flight probe',
+  'Stage-gate at click time',
 ] as const;
 
 // Files that must contain all REQUIRED_SUBSTRINGS in §10 (SKILL.md) or anywhere (output-format.md).
@@ -95,7 +118,10 @@ function extractSectionTen(content: string): string {
   return lines.slice(start, end).join('\n');
 }
 
-function checkSurface(surface: Surface): { ok: boolean; missing: string[] } {
+function checkSurface(
+  surface: Surface,
+  required: readonly string[] = REQUIRED_SUBSTRINGS,
+): { ok: boolean; missing: string[] } {
   const fullPath = resolve(REPO_ROOT, surface.path);
   if (!existsSync(fullPath)) {
     return { ok: false, missing: [`FILE MISSING: ${surface.path}`] };
@@ -106,11 +132,32 @@ function checkSurface(surface: Surface): { ok: boolean; missing: string[] } {
     return { ok: false, missing: [`§10 SECTION NOT FOUND in ${surface.path}`] };
   }
   const missing: string[] = [];
-  for (const sub of REQUIRED_SUBSTRINGS) {
+  for (const sub of required) {
     if (!scope.includes(sub)) missing.push(sub);
   }
   return { ok: missing.length === 0, missing };
 }
+
+// Chip-emission surfaces: the grammar reference plus BOTH emitters named in ADR D1
+// (/pipeline §10 and /arch §3). /dispatcher is deliberately absent — it emits no
+// dispatch chips (REST + self-advance); its park-chips are D3, a separate stage.
+const CHIP_SURFACES: readonly Surface[] = [
+  {
+    label: 'authoring SKILL.md §10 (chip emission clause)',
+    path: '.claude/skills/pipeline/SKILL.md',
+    scope: 'section-10',
+  },
+  {
+    label: 'authoring references/output-format.md §9 (chip contract)',
+    path: '.claude/skills/pipeline/references/output-format.md',
+    scope: 'whole-file',
+  },
+  {
+    label: 'authoring arch/SKILL.md §3 (exit-chip emission clause)',
+    path: '.claude/skills/arch/SKILL.md',
+    scope: 'whole-file',
+  },
+];
 
 describe('Principle 18 — meta-orchestrator output-format structural check', () => {
   for (const surface of SURFACES) {
@@ -137,6 +184,57 @@ describe('Principle 18 — meta-orchestrator output-format structural check', ()
       failed.length,
       failed.map((f) => `${f.label}: missing ${f.missing.join(', ')}`).join('\n'),
     ).toBe(0);
+  });
+
+  for (const surface of CHIP_SURFACES) {
+    it(`${surface.label} contains all ${CHIP_REQUIRED_SUBSTRINGS.length} chip substrings`, () => {
+      const result = checkSurface(surface, CHIP_REQUIRED_SUBSTRINGS);
+      expect(
+        result.ok,
+        result.missing.length > 0
+          ? `Missing chip substrings in ${surface.label}: ${result.missing.join(', ')}`
+          : '',
+      ).toBe(true);
+    });
+  }
+
+  it('chip prompts declare all three gates on every emitting surface (final sweep)', () => {
+    const results = CHIP_SURFACES.map((s) => ({
+      ...s,
+      ...checkSurface(s, CHIP_REQUIRED_SUBSTRINGS),
+    }));
+    const failed = results.filter((r) => !r.ok);
+    expect(
+      failed.length,
+      failed.map((f) => `${f.label}: missing ${f.missing.join(', ')}`).join('\n'),
+    ).toBe(0);
+  });
+
+  it('paired-negative: a chip clause that drops the click-time stage gate fails the check', () => {
+    // The exact regression D1 guards against: gates frozen at plan time (or dropped)
+    // turn the chip into a premature-dispatch button.
+    const fakeClause = [
+      '**Dispatch chips:** when `spawn_task` is invocable, emit one chip per Stage 1-liner.',
+      'Each chip prompt carries: Isolation first, then the In-flight probe, then cwd + kickoff path.',
+    ].join('\n');
+    const missing: string[] = [];
+    for (const sub of CHIP_REQUIRED_SUBSTRINGS) {
+      if (!fakeClause.includes(sub)) missing.push(sub);
+    }
+    expect(missing).toContain('Stage-gate at click time');
+    expect(missing.length).toBeGreaterThan(0);
+  });
+
+  it('paired-negative: a chip clause gated on allowed-tools instead of the runtime probe fails the check', () => {
+    const fakeClause = [
+      '**Dispatch chips:** declare the MCP tool in `allowed-tools`, then emit one chip per Stage.',
+      'Each chip prompt carries: Isolation first, In-flight probe, Stage-gate at click time.',
+    ].join('\n');
+    const missing: string[] = [];
+    for (const sub of CHIP_REQUIRED_SUBSTRINGS) {
+      if (!fakeClause.includes(sub)) missing.push(sub);
+    }
+    expect(missing).toContain('spawn_task');
   });
 
   // Paired-negative test (companion per principle 02 discipline): a temporarily-mutated

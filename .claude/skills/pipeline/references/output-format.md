@@ -1,6 +1,6 @@
 # Output format — `/pipeline <umbrella>` inline session report
 
-> **Authoritative for:** the 3-layer structure shape emitted by `/pipeline <umbrella>` invocations — §1 grammar, §2 dependency-graph template, §3 action-queue template, §4 1-liner block grammar, §5 four worked examples (Mode A / SDD / Mode B × N / Queue mode), §6 anti-patterns for 1-liner format. Principle 18 (`packages/core/principles/18-meta-orchestrator-output-format.test.ts`) enforces the literal substrings below.
+> **Authoritative for:** the 3-layer structure shape emitted by `/pipeline <umbrella>` invocations — §1 grammar, §2 dependency-graph template, §3 action-queue template, §4 1-liner block grammar, §5 four worked examples (Mode A / SDD / Mode B × N / Queue mode), §6 anti-patterns for 1-liner format, §9 dispatch-chip contract. Principle 18 (`packages/core/principles/18-meta-orchestrator-output-format.test.ts`) enforces the literal substrings below.
 > **NOT authoritative for:** project goal — see [`../../../../README.md#why-this-exists`](../../../../README.md#why-this-exists). The `/pipeline` skill body authority — see [`../SKILL.md`](../SKILL.md).
 
 > **Origin:** F.3 (2026-05-24). The 3-layer structure synthesises F.1 prior-art (PR #203) — Argo Workflows' `├── / └──` ASCII tree (ADAPT vocabulary, SSOT row TBA) + maintainer's binding 1-liner format refinement (parent kickoff §1 Sub-wave F.3 lines 237-254). The slash-tag draft (`/Mode-A /Roles-… /Skills-…`) was rated «not convenient» by the maintainer and has zero upstream precedent across 10 surveyed tools (GHA, Concourse, Argo, Dagger, just, LangGraph, Cline, Superpowers, gh workflow run, orchestrator-guide).
@@ -513,6 +513,35 @@ Presets (optional — use --preset <name> or AIF_PIPELINE_PRESET=<name> to activ
 ```
 
 **Falsifier:** if this row ever appears in a non-TTY transcript, the TTY guard regressed; if it lists a preset absent from `presets/*.json` (or omits one present there), the row stopped being data-driven.
+
+## §9 Dispatch chips (ADR D1/D2)
+
+> **Origin:** [`2026-08-09-pipeline-chips-session-bus-design.md`](../../../../docs/superpowers/specs/2026-08-09-pipeline-chips-session-bus-design.md) D1 + D2, stage S1. Chips are an **addition** to the report above, never a replacement: the report + the kickoff files stay the durable record, and chips die on app restart.
+
+**Capability gate.** Emit chips only when `spawn_task` is invocable in this session — a runtime roster probe, never a version-sniff and never an `allowed-tools` declaration (skill-frontmatter `allowed-tools` is not CC-enforced, [SSOT #121](../../../../docs/meta-factory/prior-art-evaluations.md), and an `mcp__ccd_session__*` entry would additionally turn [principle 21](../../../../packages/core/principles/21-shipped-agent-tools-valid.test.ts) red on its `MCP_TOOL_RE`). A tool named in the roster but deferred needs its schema fetched before the first call. When the probe fails, render the paste tabs alone, verbatim — no apology line.
+
+**Emission points.** `/pipeline` §10 — one chip per Stage 1-liner. `/arch` §3 — one chip per routed next action, **except** the single-task `bridge: auto` route, where the write-time hook [`runtime-bridge-dispatch.sh`](../../../hooks/runtime-bridge-dispatch.sh) already dispatches the kickoff and a chip would be a second dispatch path for the same task (the [dispatcher §2.0](../../dispatcher/SKILL.md) probe's three signals are all empty while that task sits in `backlog`, so it cannot catch the collision). `/dispatcher` emits no dispatch chips at all (REST + self-advance); its park-chips are D3, outside this section.
+
+**Chip contract.**
+
+| Field    | Content                                                                                                                                                                                                                                      |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `title`  | ≤60-char imperative with the DISTINGUISHING tokens first — `S2 auth: dispatch [<umbrella>]`, never the raw 1-liner (real 1-liners run 85–146 chars and carry their `§section` / Mode tokens in the tail, which the title cap truncates away) |
+| `tldr`   | the Action-queue context the chip drops — `When` + `Waiting on`                                                                                                                                                                              |
+| `prompt` | self-contained, carrying its own gates (below), **and rendered in full in the report next to the chip** — the payload is invisible in the chip UI, so the report is the only place the operator can inspect what a click authorizes          |
+
+**Chip prompt — four mandatory steps, in this order:**
+
+1. **Isolation first** (STOP-on-fail): enter or verify an isolated worktree before any write ([parallel-subwave-isolation.md §1](../../../rules/parallel-subwave-isolation.md)). The app's worktree default is NOT assumed — the prompt step is the mechanism, the default is a convenience.
+2. **In-flight probe**, widened: the [dispatcher §2.0](../../dispatcher/SKILL.md) three-signal dedup PLUS an aif queue scan (`curl "$RUNTIME_BRIDGE_AIF_URL/tasks"` filtered by the kickoff slug) — the queue is exactly where those three signals are blind.
+3. **Stage-gate at click time**, never frozen at plan time: a stage-N chip opens with the gate predicate AND its resolution instruction — «derive Stage N-1's head branch from the umbrella's PR list / kickoff / state.md NOW, then `gh pr list --search "is:merged head:<derived> base:staging"`; empty → HALT and report». A plan-time literal branch name is wrong on the factory path (aif names branches per task at dispatch time; harvest may rename), so the HALT would fire forever on a branch that never existed. Without this step the chips strip `When` / `Waiting on` off the Action queue and become premature-dispatch buttons (`#flat-queue-no-gates`).
+4. **cwd = repo root**, plus the kickoff/residue path and «read and execute».
+
+**Lifecycle.** Superseded chips get a best-effort `dismiss_task`. The operator's click IS the «maintainer opens a fresh session» channel, so `#worker-dispatch-via-subagent` is untouched — the session is born from the click, not from an Agent-tool call.
+
+**Language.** `title` and `tldr` are operator-facing prose: write them in `AIF_OUTPUT_LANG`, like the rest of the report. The chip prompt itself is machinery — English always ([language-discipline.md §1](../../../rules/language-discipline.md)).
+
+**Falsifier:** a chip prompt missing any of steps 1–3 → principle 18's chip check is red before the report ships. An incident that reaches a click means the assertion itself was skipped — fix the emitter and the test, not the operator.
 
 ## §A — See also
 
