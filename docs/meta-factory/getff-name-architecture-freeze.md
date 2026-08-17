@@ -43,7 +43,37 @@ $ git grep getff -- '*/package.json'
 
 Spec A6 asks R1 for a name freeze, a `files` allowlist, bin runnability, metadata, and release notes — not a CLI package build. So R1 closes everything except the CLI package itself.
 
-**This is an open deliverable blocking U10.** The `getff` CLI package's shape (new workspace package? re-point `packages/core`? a separate stage?) is **not resolved by R1** — it is parked per kickoff §9. U10 must either create a `bin: getff` package or re-point an existing bin before `npx getff init` can work.
+**This was an open deliverable blocking U10.** The `getff` CLI package's shape (new workspace package? re-point `packages/core`? a separate stage?) was **not resolved by R1** — parked per kickoff §9. The shape is RESOLVED below (2026-08-17); building it is still a separate stage.
+
+#### §0.5 RESOLVED (2026-08-17) — `getff` is a distribution package whose tarball mirrors the repo root
+
+**Verdict: a new workspace package published under the unscoped name `getff`, whose tarball is ASSEMBLED (not hand-authored) and lays its contents out exactly as the repo root does.** `@getff/core` still publishes separately as the library, per §1 — this adds a package, it does not replace that decision.
+
+**Why the layout is the whole decision.** `install.sh:55` sets `PKG_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"` and reads everything relative to it. Measured 2026-08-17 (`grep -ohE '\$\{?PKG_ROOT\}?/[A-Za-z0-9_.-]+' install.sh setup.d/*.sh | sort | uniq -c`):
+
+| path under `PKG_ROOT` | references |
+|---|---|
+| `packages/` | 107 |
+| `.claude/` | 25 |
+| `templates/` | 20 |
+| `skills/` | 10 |
+| `setup.d/` | 9 |
+| `scripts/` | 8 |
+| `agents/`, `.prettierrc.json` | 1 each |
+
+There is **no** `CORE_ROOT`, no `require.resolve`, no `node_modules` lookup anywhere in `install.sh` (`grep -nE "CORE_ROOT|node_modules|require\.resolve" install.sh` → the only hit is an unrelated comment at `install.sh:967`). So a tarball that mirrors the root layout makes `PKG_ROOT` land exactly where the script already looks, and **not one of those 107 paths changes**. Any shape that does NOT mirror the root forces a resolution layer through the most heavily-tested script in the repo — `tests/install-sh/*.sh` carries 215 references to the root `install.sh` path across 101 files.
+
+**Assembly, not relocation.** `files` cannot reach above a package's own directory, so the package is populated at pack time by copying `install.sh`, `setup.d/`, `agents/`, `.claude/skills/`, the shipped `scripts/` subset and `packages/` into it. `install.sh` itself does NOT move — the 215-reference blast radius above is the disqualifier for relocation. A generated tarball needs a drift gate; the mechanism already exists in this repo and is the precedent to copy: [`scripts/build-synth-bundle.sh`](../../scripts/build-synth-bundle.sh) `--check` against the committed `packages/core/install/synth-and-wire.bundle.mjs`.
+
+**Rejected, each with its disqualifier:**
+
+| option | disqualifier |
+|---|---|
+| re-point a `packages/core` bin to `getff` | `packages/core/package.json` `files` (14 entries, each measured by a paired-RED arm — see the allowlist table below) would have to grow to nearly the whole repo, re-opening a settled R1 deliverable; and `$PKG_ROOT/packages/core/X` becomes a self-reference inside the core package itself (the file actually sits at `<pkg>/X`), so a resolution layer is needed anyway. Measured: core's tarball today is 662.7 kB / 497 files. |
+| publish the workspace root itself as `getff` | npm workspaces are documented/practised as requiring `private: true` on the root; dropping it to publish the root trades a settled monorepo invariant for a packaging convenience. |
+| a thin shim that `git clone`s the repo on `init` | **the same anti-pattern R1 already ruled against in the F-C′ correction below**: a runtime, network-dependent, unpinned fetch that (i) breaks offline / air-gapped / locked-down CI, (ii) ignores any declared version range — the consumer would get repo HEAD, not the version they installed — and (iii) is an unreviewed supply-chain fetch at run time rather than install time. Ruling out a network fetch at `init` is the same ruling as promoting `tsx` to `dependencies`. |
+
+**Still open (this record fixes the SHAPE, not the build):** the exact `files` set for the distribution — to be established the way R1 established core's, by paired-RED arms against a consumer-matrix cell, not by reasoning; whether the assembler is a `prepack` script or an explicit `scripts/build-getff-dist.sh` with a `--check` drift arm; and the version-coupling rule between `getff` and `@getff/core`.
 
 ## 3. Version floor
 
