@@ -467,7 +467,7 @@ durable park store).
 | S1 chips | D1+D2: §10 chip emission + /arch §3 chip emission (with route discrimination), gates-in-prompt + the principle-18 substring extension, runtime capability probe (NO `allowed-tools` MCP adds — D2) | `pipeline/SKILL.md` §10, `references/output-format.md` + `18-meta-orchestrator-output-format.test.ts`, `arch/SKILL.md` §3 | in-session (discipline-bearing skill prose + enforced-grammar lockstep) |
 | S2a Stop-arm | D7 with all seven constraints + tests | `.claude/hooks/end-of-turn-reminder.sh`, its test file, `zcode-parity-doctrine.md` §2 (row-9 flip + rollup) | in-session or factory (constraints are quotable; the census edit is doc-judgment — prefer in-session); **F10 gates the shipped wording** |
 | S2b PreCompact | D8 — **blocked on F8** (operator GO on the #108 PreCompact item); first step = D8's liveness bench | hook script, `scripts/render-harness-config.mjs` (emitClaude path), `zcode-parity-doctrine.md` §2 (row 21), `pipeline/SKILL.md` §1 injection line, operator jq hand-off | parked until F8 |
-| S3 park-chips | D3+D4: dispatcher §3 Type-2 park-chip emission paragraph + decision-session protocol | `dispatcher/SKILL.md` §3 | in-session; **after S1 AND F1 ratification** |
+| S3 park-chips | D3+D4: dispatcher §3 Type-2 park-chip emission paragraph + decision-session protocol | `dispatcher/SKILL.md` §3 | **SHIPPED 2026-08-17** in-session (both preconditions met: S1 merged #1419, F1 ratified park-chips). Deliberately NOT extended to principle 18 — the ADR scoped S3 to this one surface, and park-chips carry no stage gate; the assertion question is recorded as a follow-up, not smuggled in |
 | S4 calibration | D9 dispatch after staging merge | aif factory | `/dispatcher context-degradation-calibration` |
 
 S1 ∥ S2a parallel-safe (disjoint surfaces); S3 after S1; S2b parked; S4 after this PR merges.
@@ -476,7 +476,7 @@ S1 ∥ S2a parallel-safe (disjoint surfaces); S3 after S1; S2b parked; S4 after 
 
 | # | Item | Status |
 |---|---|---|
-| F1 | Part-2 transport (**operator fork**) | park-chips (D3–D5, this contour's recommendation) vs the round-1 messaging bus (recorded in git history + D5 revisit trigger) vs sweep-only. **OPEN — operator ratifies the pivot**; S3 implementation waits on it (goal 2 named the messaging mechanism; the «rethink for more value» directive covers the change, but the call is the operator's) |
+| F1 | Part-2 transport (**operator fork**) | **CLOSED 2026-08-17 — park-chips (D3–D5)**, ratified by the operator against the alternatives (round-1 messaging bus, recorded in git history + the D5 revisit trigger; sweep-only). Ratifying grounds recorded at the fork: the Part-1 chip channel is already landed, so park-chips are a reuse rather than new transport; the messaging bus is partly overtaken by the advisor-pattern ask-files (#1374); sweep-only would discard the S1 build. S3 was unblocked by this and ships in the same session |
 | F2 | Threshold numbers 300k / ~500k / 70% | research-fillable — D9 kickoff authored, marker-complete |
 | F3 | Chip-spawned session isolation default | **unverified** (round-1 downgrade: the 25/25 statistic is selection-conditioned; repo-root counterexamples exist) — the D1 mandatory isolation step is the mechanism; first live chip run observes the default as a bonus fact |
 | F4 | CLI `SendMessage` unattended/headless behavior | OPEN — deferred with D5; recipe: from a headless `claude -p` run, attempt `ListAgents` + send to a named session; observe delivery + billing |
