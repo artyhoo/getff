@@ -29,7 +29,7 @@ wording chosen here — §1 B-D2); two-layer showcase (killer = beta, environmen
 experimental); simple First Steps per depth profile, ONE source with C1 (two renders);
 python quickstart; beta page + GitHub-issues feedback; README edits via maintainer handoff.
 
-### §0.2 Census (evidence: file paths in the clone, `main` at `13d7fd5`)
+### §0.2 Census (evidence: file paths in the clone, `main` at `733197e` — CORRECTED 2026-08-17; the original census read `13d7fd5` off a working copy that had not fetched)
 
 - Stack: Astro 7.0.7 + Starlight 0.41.3 (`package.json`), Pagefind search, GH Pages deploy
   from `main` (`.github/workflows/deploy.yml`), CNAME getff.ai.
@@ -39,10 +39,20 @@ python quickstart; beta page + GitHub-issues feedback; README edits via maintain
   `/llms.txt` (static `public/llms.txt`). Sitemap + og-card + favicons exist.
 - Hero (deployed): eyebrow «rules as tests», H1 «Docs lie. Tests don't.», terminal panel
   `make self-audit` (`src/pages/index.astro`).
-- **Unmerged redesign exists:** branch `redesign-terminal-gates` (origin, 1 commit ahead of
-  `main`, `154f2d2`): «terminal-with-gates landing — green/red gate palette, product-first
-  hero, mp4 demos». NOT deployed (deploy fires on `main` only). This is a mandatory input
-  the ARCH-PREP did not know about — dispositioned in B-D2.
+- **The redesign is MERGED and DEPLOYED — CORRECTED 2026-08-17 (BS-pre measurement).** Branch
+  `redesign-terminal-gates` (`154f2d2`) landed on `main` via **PR #2, merged
+  2026-07-10T17:35:49Z** — thirteen days *before* this spec was authored;
+  `git merge-base --is-ancestor 154f2d2 origin/main` → true, `origin/main` = `733197e`, and
+  the repo has had no push since. The original bullet («unmerged, 1 commit ahead, NOT
+  deployed») was measured on a local working copy that had never fetched, so it was already
+  false at authoring time. Deploy fires on `main` (`.github/workflows/deploy.yml`), so the
+  gate palette, product-first hero layout and the mp4 demos
+  (`public/demo/{doc-drift-gate,violation-blocked}.mp4`, replacing the previous `.gif`s) are
+  **live on getff.ai today**. What the merge did NOT change, verified against the live page:
+  the eyebrow «rules as tests» and H1 «Docs lie. Tests don't.» survive on `main` and in the
+  served HTML — so the hero bullet above stands, and so does the URL census (the merge
+  touched `src/pages/index.astro`, `src/styles/*`, `public/demo/*` and one blog post; it
+  added and removed no route).
 - Blog: ONE post (`executable-agents-md`, published 2026-07-10, draft:false), RSS live.
 - No GitHub issue templates anywhere; feedback target repo = `artyhoo/getff` (the framework
   repo; landing social links point there).
@@ -112,15 +122,21 @@ present tense** — «clippy demo, deny roadmap»; (5) everything environment-la
   reads experimental on the panel.) D4 candidate 2 «AI DX on both sides of the keyboard»
   becomes the header of a **two-layer panel** below the hero: left card = Rules from live
   docs (beta badge, links killer-layer docs), right card = The AI factory (experimental
-  badge, links factory docs). **`redesign-terminal-gates` is NOT merged to `main`**
-  (avoids a double deploy of a stack about to be replaced); its copy, gate palette and mp4
-  assets are the design base the BS1 landing rebuild ports (T17/T18: the branch stays in
-  git; assets are copied, not linked). *Falsifiers: (1) migration slips >4 weeks past
-  kickoff merge → SURFACE to the operator the choice «merge the redesign to `main` now
-  (live site gets it, at the cost of two visual overhauls within ~a month once BS3 lands)
-  vs keep waiting» — an operator tradeoff, never an automatic merge (r2, top-down
-  MINOR-5); (2) operator dislikes the reframed hero at BS3 sign-off → hero copy is a
-  1-file revert, layers panel stands.*
+  badge, links factory docs). **The redesign is on `main` and live — CORRECTED 2026-08-17
+  (BS-pre measurement, §0.2).** The original clause read «`redesign-terminal-gates` is NOT
+  merged to `main` (avoids a double deploy of a stack about to be replaced)»; it was false
+  when written — PR #2 merged it on 2026-07-10, before this spec existed. The double deploy
+  the clause tried to avoid has therefore **already happened**, and BS3's cutover is the
+  second overhaul, not a hypothetical one. What survives unchanged: its copy, gate palette
+  and mp4 assets are the design base the BS1 landing rebuild ports (T17/T18 — assets are
+  copied, not linked), except that BS1 now ports them **from `main`**, not from a side
+  branch. *Falsifiers: (1) — RETIRED, spent by reality: the falsifier asked the operator to
+  choose «merge the redesign now vs keep waiting» if the migration slipped >4 weeks; the
+  merge had already been made upstream, so there is no choice left to surface (a live claim
+  about a repository's state was never re-probed — the exact `#destination-limit-by-inference`
+  shape, [destination-environment-verification.md §1b](../../../.claude/rules/destination-environment-verification.md));
+  (2) operator dislikes the reframed hero at BS3 sign-off → hero copy is a 1-file revert,
+  layers panel stands.*
 
 - **B-D3 — Blog: keep, minimal.** The 1 post migrates to fumadocs-mdx blog verbatim; URLs
   `/blog/`, `/blog/executable-agents-md`, `/rss.xml` stay byte-stable as routes (RSS is our
@@ -211,7 +227,7 @@ anchors live at entry — parent R5)
 |---|---|---|---|
 | **BS-pre — factory wiring** (r3, B-D6) | Instantiate A7 for `~/code/getff-landing`: vendor runtime-bridge subset via the A7 mechanism (never a parallel reimplementation), aif project with landing container base, env + per-mode defaults | ONE no-op smoke task dispatched → completed → harvested in `getff-landing`; wiring facts recorded in the stage report | **A7 merged** (beta-delivery-ux S5) — hard blocked-pending-neighbor; operator env/key steps parked |
 | **BS0 — prototype** (mandatory, parent D5) | Scratch repo `getff-docs-smoke`: Fumadocs skeleton (2-3 pages incl. ONE real ported page for realistic search), Tailwind v4 co-install probe, static export, GH Pages deploy, `beta.getff.ai` DNS (operator step). Prototype ships site-wide `noindex` (robots meta + robots.txt) — it must never compete with getff.ai in indexes (r2, MINOR-3) | fetched deployed URL; Orama search query returning the ported page; `curl` of `/llms.txt`, `/llms-full.txt`, `/docs/<page>.md`; HTTPS on the subdomain; noindex present in the fetched HTML. **FAIL → STOP: Starlight rollback per parent D5 falsifier-1; umbrella re-plans.** Teardown: scratch deployment + DNS record are removed at BS3 close (tracked in BS3 checklist) | BS-pre (r3) |
-| **BS1 — port skeleton** | Branch `fumadocs-migration` in `getff-landing`: Next + Fumadocs + Tailwind v4 app; port 5 docs pages (same slugs), landing rebuild from `redesign-terminal-gates` assets (B-D2), consulting, blog + `/rss.xml` (B-D3), sitemap/og/favicons/CNAME parity; deploy workflow updated on the branch, `main` untouched | local `next build` static export green; URL census (§0.2) resolves on preview serve; landing renders the two-layer panel; Fumadocs specifics read from live docs at build (T12) | BS0 green |
+| **BS1 — port skeleton** | Branch `fumadocs-migration` in `getff-landing`: Next + Fumadocs + Tailwind v4 app; port 5 docs pages (same slugs), landing rebuild from the redesign assets, which live on `main` since PR #2 (B-D2 as corrected 2026-08-17), consulting, blog + `/rss.xml` (B-D3), sitemap/og/favicons/CNAME parity; deploy workflow updated on the branch, `main` untouched | local `next build` static export green; URL census (§0.2) resolves on preview serve; landing renders the two-layer panel; Fumadocs specifics read from live docs at build (T12) | BS0 green |
 | **BS2 — content** | Two-layer showcase pages (both «Daily cycle» pages, factory Overview, «What is getff»), First Steps ×3 (B-D5), python quickstart, beta page, issue templates (PR in `artyhoo/getff`), announcement draft (draft:true), **F5 claim pass: per-claim ledger** (claim → formula → evidence-or-experimental-label); README honest-claims **patch PROPOSAL** routed via maintainer handoff (Artifact Ownership) — the U8 scope parent D1 absorbed into B | ledger complete over every public capability claim on the site (T7: claim-by-claim, not a section tick); First-Steps human render mirrors the SSOT 1:1; python quickstart wording matches the live matrix state | BS1; First Steps blocked-pending A1 profile names; Degradations page blocked-pending A3; C1 coordination probe |
 | **BS3 — cutover** | Merge `fumadocs-migration` → `main`; deploy; production parity census; announcement stays draft; BS0 scratch teardown | **pre-merge: independent cold claims audit PASS** — a fresh-session cold agent (`claims-conformance-auditor` once umbrella C ships it; until then an equivalent compliance-verifier-class run over the BS2 ledger, claim-by-claim against shipped reality) — the F5 ledger's author never self-certifies the cutover (r2, top-down MAJOR-1; the parent §8 phase-2 assembly gate remains the SECOND, later backstop); every §0.2 URL returns 200 with expected content on getff.ai; `/rss.xml` validates; llms routes live; search live; **operator visual sign-off on the landing (genuine fork — look & feel is operator judgment)** | BS2; cold claims audit PASS; operator GO |
 

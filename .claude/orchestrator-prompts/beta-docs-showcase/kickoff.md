@@ -10,12 +10,15 @@
 > **Binding design:** [docs/superpowers/specs/2026-07-23-beta-docs-showcase-design.md](../../../docs/superpowers/specs/2026-07-23-beta-docs-showcase-design.md)
 > (B-D1..B-D6, stage table §2, F5 carry §0.3). Parent frame:
 > [2026-07-23-beta-program-design.md](../../../docs/superpowers/specs/2026-07-23-beta-program-design.md) §5, D4, D5.
-> **Base:** landing repo `main` (`13d7fd5` census at design time — re-verify at stage
-> entry); this repo `staging` for the two cross-repo PRs (First-Steps SSOT, issue
-> templates).
+> **Base:** landing repo `main` — **`733197e`** as re-verified at BS-pre entry 2026-08-17
+> (the `13d7fd5` census in the design was read off an unfetched working copy; the routes are
+> unchanged, so the URL census stands — see design §0.2 as corrected); this repo `staging`
+> for the two cross-repo PRs (First-Steps SSOT, issue templates).
 > **Tier:** umbrella Tier 2 — factory defaults apply (Plan→top tier, Task/Review→executor
 > tier); BS1 is Tier-1-shaped and may run with the executor-tier bridge-profile marker on
 > its stage dispatch once BS0 is green (B-D6).
+
+<!-- host-verify: none — umbrella-scope kickoff: it authors no executable deliverable in this repo. Every stage's deliverable lands in `artyhoo/getff-landing`, and the host commands that decide acceptance are declared per stage in the meta-launch kickoff §3 (`curl`/`gh`/`next build` against the target repo), each runnable only once its own stage has produced the surface it probes. -->
 
 ## Dispatch gate (binding — check ALL before any stage dispatch)
 
@@ -51,8 +54,8 @@
    HTTPS, noindex present in fetched HTML. **FAIL → STOP, Starlight
    rollback (parent D5 falsifier-1), umbrella re-plans — do not «fix forward» past the gate.**
 2. **BS1 — port skeleton** on branch `fumadocs-migration`: full Next+Fumadocs app; 5 docs
-   pages same slugs; landing rebuilt from `redesign-terminal-gates` assets (branch is the
-   asset base, NOT merged to main — design B-D2); consulting; blog + `/rss.xml`;
+   pages same slugs; landing rebuilt from the redesign assets, which are **on `main` since
+   PR #2** (design B-D2 as corrected 2026-08-17 — copied, never linked); consulting; blog + `/rss.xml`;
    sitemap/og/CNAME parity. Gate: static build green + URL census resolves on preview +
    two-layer panel renders.
 3. **BS2 — content.** Two-layer showcase + daily-cycle pages, First Steps ×3 (SSOT per
