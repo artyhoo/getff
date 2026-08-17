@@ -23,7 +23,7 @@ e43ef48a6421767a5f028c39ff48c978141133b4c9d2668fac832c5065dea4a4  .claude/agents
 019ffec11048bfa80843200ef23965380be79c6cddecfc29ee4e5c9136f9ef7d  .claude/hooks/ask-question-reminder.sh
 c46cce1bd40827c283581e6fc4ffac337d71e38ca062ada64024be2131092084  .claude/hooks/check-doc-authority-header.sh
 e2404b3623a04b6f89e731f32480f26c350503d9c4a6c72c2a706a63a35c544a  .claude/hooks/deps-hash-check.sh
-1e10ea2d77cf7a016ec925ca07f0584b43626e0f1ba96fed855e9ab26f9f7637  .claude/hooks/end-of-turn-reminder.sh
+9fd4dac20d05ad54617b887998b65fc7a0e7237b4a43ae2cea8ad53e0a4dfa61  .claude/hooks/end-of-turn-reminder.sh
 6fdc8128cd549df4bbdd7b8549f89599f41315978a1739d1a8fe41ca405bfeeb  .claude/hooks/inject-matching-rule.sh
 d783e618156d9dc26dad1627281e44ea10a128cee9c29a91cea273b37251e47c  .claude/hooks/inject-memory-codification.sh
 005732895415bdde432bc805f0da3247776373e702a57d1be2b012738de8ccc3  .claude/hooks/inject-output-language.sh
