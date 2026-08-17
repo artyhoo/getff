@@ -436,11 +436,16 @@ ENVPLUS_ONLY=(
   ".claude/skills/pipeline"
   ".ai-factory/tier-home.md"
 )
-# factory-depth-only artefacts (install: setup.d/10-skills.sh:131 + setup.d/20-agents.sh:39)
+# factory-depth-only artefacts (install: setup.d/10-skills.sh:131 + setup.d/20-agents.sh:39 +
+# setup.d/55-runtime-bridge-vendor.sh:65 — the vendored runtime-bridge payload, whose refresh arm
+# landed after #1412 left it out of scope. Layer 55 is its ONLY deliverer, so a core consumer has
+# no other route to it and its presence here would be a depth-boundary breach like any other.)
 FACTORY_ONLY=(
   ".claude/skills/dispatcher"
   ".claude/skills/claude-glm-executor-handoff"
   ".claude/agents/reviewer-discipline.md"
+  ".claude/vendor/runtime-bridge"
+  ".claude/hooks/runtime-bridge-dispatch.sh"
 )
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -503,6 +508,11 @@ REFRESH_TARGETS9=(
   "scripts/create-worktree.sh"
   "scripts/getff-work.sh"
   ".ai-factory/tier-home.md"
+  # Vendored runtime-bridge (both halves): the payload, whose install-time write is a raw cp -r that
+  # only a full installer re-run repeats, and the dispatch hook, whose copy_safe skip-if-exists is
+  # the #869 mechanism itself. Neither could reach a brownfield factory consumer before this arm.
+  ".claude/vendor/runtime-bridge/README.md"
+  ".claude/hooks/runtime-bridge-dispatch.sh"
 )
 _missing9=""
 for _p in "${REFRESH_TARGETS9[@]}"; do
