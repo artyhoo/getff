@@ -18,8 +18,11 @@ fails=0
 run_check() { CLAUDE_COORDINATION_DIR="$TMP" bash "$CHECK" >"$TMP/out" 2>"$TMP/err"; }
 
 expect_pass() {
-  if run_check; then return; fi
-  echo "FAIL: $1 — expected exit 0, got $?"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1))
+  run_check; rc=$?
+  [ "$rc" -eq 0 ] && return
+  # `$?` after `if run_check; then return; fi` is the `if`'s own status (always 0), so the rc
+  # is captured before anything else runs — a FAIL that reports "got 0" is unactionable.
+  echo "FAIL: $1 — expected exit 0, got $rc"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1))
 }
 
 expect_fail() {
@@ -162,6 +165,91 @@ reset
 write_ask '2026-08-17-dispatcher-first.md' consult open
 write_ask '2026-08-17-dispatcher-second.md' consult pending
 expect_fail "a later bad file is still caught" "is not one of: open, answered"
+
+# ── ROUND-TRIP: what the authoring half OFFERS must pass what the validating half JUDGES ─
+# This is the whole reason the template lives inside the checker instead of in a doc. If the
+# two ever disagree — a field renamed on one side, an enum widened on the other — these arms
+# go red on the next push. A separate template file could drift silently forever.
+roundtrip() {
+  # $1 = label, $2 = filename, rest = args to --print-template
+  local label="$1" name="$2"; shift 2
+  reset
+  if ! bash "$CHECK" --print-template "$@" >"$ASKS/$name" 2>/dev/null; then
+    echo "FAIL: $label — --print-template exited non-zero"; fails=$((fails + 1)); return
+  fi
+  expect_pass "$label"
+}
+
+roundtrip "emitted consult template is a valid ask" '2026-08-17-seat-emitted-consult.md'
+roundtrip "emitted dispute template is a valid ask" '2026-08-17-reviewer-emitted-dispute.md' \
+  materiality-dispute reviewer
+
+# The advisor's leg: append --print-answer, flip the status, and the SAME file must still
+# pass — including the L3(c) decisions-entry cross-check the answered branch turns on.
+reset
+bash "$CHECK" --print-template consult dispatcher >"$ASKS/2026-08-17-dispatcher-emitted.md" 2>/dev/null
+bash "$CHECK" --print-answer >>"$ASKS/2026-08-17-dispatcher-emitted.md"
+sed 's/^status: open$/status: answered/' "$ASKS/2026-08-17-dispatcher-emitted.md" >"$TMP/x" &&
+  mv "$TMP/x" "$ASKS/2026-08-17-dispatcher-emitted.md"
+expect_pass "emitted template + emitted answer block, status answered"
+
+# The emitted skeleton must be fileable under the name --print-template tells the author to
+# use. A template whose own suggested filename the gate rejects is worse than no template.
+reset
+SUGGESTED="$(bash "$CHECK" --print-template consult dispatcher 2>&1 >/dev/null |
+  sed -n 's|^\[ask\] write to: .*/||p' | sed 's/<slug>/emitted/')"
+if [ -z "$SUGGESTED" ]; then
+  echo "FAIL: --print-template printed no suggested filename on stderr"; fails=$((fails + 1))
+else
+  bash "$CHECK" --print-template consult dispatcher >"$ASKS/$SUGGESTED" 2>/dev/null
+  expect_pass "the filename --print-template suggests ($SUGGESTED) passes the filename rule"
+fi
+
+# An unknown class must be refused, not silently emitted as a consult: a seat that typos the
+# class would otherwise file a dispute-shaped question with no dispute sections.
+if bash "$CHECK" --print-template not-a-class >/dev/null 2>&1; then
+  echo "FAIL: --print-template accepted an unknown class"; fails=$((fails + 1))
+fi
+if bash "$CHECK" --no-such-flag >/dev/null 2>&1; then
+  echo "FAIL: an unknown flag was accepted"; fails=$((fails + 1))
+fi
+
+# --help must resolve the mailbox for THIS machine, not restate the expression — that is the
+# half a prose doc cannot deliver, and the reason fork C beat a template file.
+if ! CLAUDE_COORDINATION_DIR="$TMP" bash "$CHECK" --help 2>/dev/null | grep -qF "$ASKS"; then
+  echo "FAIL: --help did not print the resolved mailbox path ($ASKS)"; fails=$((fails + 1))
+fi
+
+# Every enum value the validator ACCEPTS must be stated in the authoring half — otherwise a
+# field like `status: withdrawn` is legal but discoverable only by reading the checker's
+# source. The legal values are not re-typed here: they are parsed out of the validator's own
+# RED message ("is not one of: a, b, c"), so widening an enum without teaching --help about
+# it goes red, and this arm can never become a third copy of the list.
+HELP="$(CLAUDE_COORDINATION_DIR="$TMP" bash "$CHECK" --help 2>/dev/null)"
+check_enum_documented() {
+  # $1 = label, $2 = the stderr line's enum list
+  local label="$1" list="$2" value
+  if [ -z "$list" ]; then
+    echo "FAIL: could not read the $label enum out of the validator's RED message"
+    fails=$((fails + 1)); return
+  fi
+  for value in $(printf '%s' "$list" | tr ',' ' '); do
+    printf '%s' "$HELP" | grep -qF "$value" ||
+      { echo "FAIL: --help does not document legal $label value '$value'"; fails=$((fails + 1)); }
+  done
+}
+
+reset
+write_ask '2026-08-17-dispatcher-s2-probe.md' consult pending
+run_check
+check_enum_documented status \
+  "$(sed -n 's/.*status .* is not one of: //p' "$TMP/err" | head -1)"
+
+reset
+write_ask '2026-08-17-dispatcher-s2-probe.md' not-a-class open
+run_check
+check_enum_documented class \
+  "$(sed -n 's/.*class .* is not one of: //p' "$TMP/err" | head -1)"
 
 # ── WIRING: the pre-push section actually runs this script ─────────────────────────────
 # A checker nobody calls is armed-but-not-fired. The registry entry in

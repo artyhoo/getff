@@ -15,6 +15,15 @@
 # (packages/core/hooks/pre-push.ts, askFileSchemaSection) carries no bus literal and no bus
 # logic, so the claim stays honest in both directions.
 #
+# THE AUTHORING HALF LIVES HERE TOO — `--print-template` / `--print-answer` / `--help`.
+# A schema stated only by the thing that rejects it leaves the first author writing against
+# nothing, so this script both JUDGES an ask and OFFERS one. Single source by construction:
+# scripts/check-ask-files.test.sh feeds every emitted skeleton back through the validator,
+# so "the example is valid" is a mechanism rather than a claim. (Same seam, same reason, as
+# `scripts/run-local-ci-sweep.sh --list-gates`:186 — a copy of a format drifts from the
+# format.) The prose block below is kept deliberately: it is what the RED message points a
+# reader at, and it explains fields the skeleton can only show.
+#
 # THE SCHEMA (spec §2, field list transcribed; this file is its mechanical half).
 # One ask = one markdown file with flat YAML-ish frontmatter + H2 sections:
 #
@@ -67,6 +76,122 @@ ASKS_DIR="$CANON/session-bus/asks"
 QUESTION_MAX_LINES="${AIF_ASK_QUESTION_MAX_LINES:-50}"
 
 FILENAME_RE='^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z][a-z0-9]*-[a-z0-9][a-z0-9-]*\.md$'
+
+# ── the authoring half ────────────────────────────────────────────────────────────────────
+# `<role>` in the filename is `[a-z][a-z0-9]*` — no hyphens — so the default placeholder is
+# hyphen-free on purpose: a template whose own suggested filename fails the gate would be
+# worse than no template.
+print_template() {
+  ask_class="${1:-consult}"
+  role="${2:-seat}"
+
+  case "$ask_class" in
+    consult | materiality-dispute) ;;
+    *)
+      echo "check-ask-files.sh: unknown class '$ask_class' (consult | materiality-dispute)" >&2
+      return 2
+      ;;
+  esac
+
+  # Guidance goes to stderr so `--print-template > <file>` captures the ask and nothing else.
+  {
+    echo "[ask] write to: $ASKS_DIR/$(date +%Y-%m-%d)-$role-<slug>.md"
+    echo "[ask] atomically (spec §2 — write-temp+rename):"
+    echo "        f=\"$ASKS_DIR/$(date +%Y-%m-%d)-$role-<slug>.md\""
+    echo "        bash scripts/check-ask-files.sh --print-template $ask_class $role >\"\$f.tmp\" 2>/dev/null && mv \"\$f.tmp\" \"\$f\""
+    echo "[ask] then: bash scripts/check-ask-files.sh   # must print OK before you send ASK"
+  } >&2
+
+  echo '---'
+  echo "asker-role: $role"
+  echo "asker-cwd: $PWD"
+  echo "class: $ask_class"
+  echo 'status: open'
+  echo '---'
+  echo
+  echo '## Question'
+  echo
+  echo 'One screen at most. State the fork, not the background: what are you choosing'
+  echo 'between, and what turns on the choice?'
+  echo
+  echo '## Options considered'
+  echo
+  echo '- A <option> -> <what it costs / what it buys>.'
+  echo '- B <option> -> <what it costs / what it buys>.'
+  echo
+  echo '## Evidence'
+  echo
+  echo '- path/to/file.ext:12 — what that line actually shows.'
+
+  if [ "$ask_class" = 'materiality-dispute' ]; then
+    echo
+    echo '## Finding (verbatim)'
+    echo
+    echo '<the reviewer finding, COPIED verbatim — never paraphrased'
+    echo ' (.claude/rules/reviewer-discipline.md §6)>'
+    echo
+    echo '## Objection'
+    echo
+    echo '<why the finding is disputed, in one paragraph>'
+  fi
+}
+
+# The advisor's half: append this, then flip `status: open` -> `status: answered`.
+print_answer() {
+  echo
+  echo '## Answer'
+  echo
+  echo 'verdict: <the decision, in one line>'
+  echo 'rationale: <why — one line; the reasoning belongs in the decisions entry>'
+  echo 'decided-by: arch'
+  echo "timestamp: $(date +%Y-%m-%dT%H:%M:%S%z)"
+  echo 'decisions-entry: <path>/<plan>.decisions.md#<anchor>'
+}
+
+print_usage() {
+  cat <<USAGE
+usage: check-ask-files.sh [--print-template [<class> [<role>]] | --print-answer | --help]
+
+With no arguments: validate every *.md in the ask mailbox. This is the pre-push mode.
+
+  --print-template [<class>] [<role>]   emit a fileable ask skeleton on stdout
+                                        <class>: consult (default) | materiality-dispute
+                                        <role>:  your seat's role (default: seat)
+  --print-answer                        emit the '## Answer' block the advisor appends
+  --help                                this text
+
+Legal field values (the skeleton emits the common ones; these are all of them):
+  class:  consult | materiality-dispute
+  status: open | answered | escalated | withdrawn
+  '## Question' budget: $QUESTION_MAX_LINES lines (AIF_ASK_QUESTION_MAX_LINES)
+
+Filing an ask, end to end:
+  1. mailbox (resolved on THIS machine): $ASKS_DIR
+     override with CLAUDE_COORDINATION_DIR
+  2. filename: <YYYY-MM-DD>-<role>-<slug>.md  (role and slug lowercase; role has no hyphens)
+  3. write it atomically — temp file, then rename (spec §2)
+  4. run this script with no arguments; it must print OK
+  5. send the doorbell: AIF-BUS v1 ASK role=<role> ref=<path-to-the-ask>
+
+Answering one (advisor):
+  append --print-answer's block, flip 'status: open' to 'status: answered', and point
+  decisions-entry at the decisions.md entry that records the verdict BEFORE it is applied.
+
+Schema reference: the header comment of this file. Design: docs/superpowers/specs/2026-08-10-advisor-pattern-design.md §2.
+USAGE
+}
+
+case "${1:-}" in
+  --print-template)
+    shift
+    print_template "${1:-}" "${2:-}"
+    exit $?
+    ;;
+  --print-answer) print_answer; exit 0 ;;
+  -h | --help) print_usage; exit 0 ;;
+  '') ;;
+  *) echo "check-ask-files.sh: unknown argument '$1' (try --help)" >&2; exit 2 ;;
+esac
 
 findings=0
 
@@ -210,6 +335,7 @@ fi
 if [ "$findings" -gt 0 ]; then
   echo "SCHEMA: $findings finding(s) across $count ask file(s) in $ASKS_DIR" >&2
   echo "Schema reference: the header of scripts/check-ask-files.sh (spec §2 field list)." >&2
+  echo "A conforming skeleton: bash scripts/check-ask-files.sh --print-template   (--help for the filing recipe)." >&2
   exit 1
 fi
 
