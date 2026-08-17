@@ -40,14 +40,17 @@ import {
 import { join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 // NOTE: `runRuleBootstrap` is imported DYNAMICALLY inside main() (the live/synthesis arm), NOT
-// statically here. It transitively reaches `validator/validate.ts` → `gate-conflict.ts` /
-// `gate-tautology.ts`, whose top-level `import … from '@rules-as-tests/preset-next-15-canonical/
-// eslint-rules'` requires the sibling workspace preset to be resolvable AT MODULE LOAD. The
-// lightweight `--from-practice` arm (renderResearchedAstgrep, preset-free) does NOT need any of
-// that — but a static import here would drag the preset into EVERY CLI invocation, so merely
-// LOADING this module in a core-only layout (`npm ci --prefix packages/core`, no sibling
-// packages — the `test:backends` CI job) crashes with ERR_MODULE_NOT_FOUND before parseArgs runs.
-// Keeping the import dynamic lets the render/practice paths run preset-free (ecosystem-wiring W5).
+// statically here. It transitively reaches `validator/validate.ts` → the L4 gates, which pull in
+// `eslint` + `@typescript-eslint/parser`. The lightweight `--from-practice` arm
+// (renderResearchedAstgrep) does NOT need any of that, and a static import here would drag the
+// whole L4 stack into EVERY CLI invocation.
+// Until 2026-08-17 the load-bearing half of this note was the preset: the gates carried a
+// top-level `import … from '@rules-as-tests/preset-next-15-canonical/eslint-rules'`, so merely
+// LOADING this module in a core-only layout (`npm ci --prefix packages/core`, no sibling packages
+// — the `test:backends` CI job) crashed with ERR_MODULE_NOT_FOUND before parseArgs ran. That
+// specific hazard is GONE — the gates now resolve the plugin registry at call time and degrade
+// honestly (`validator/preset-plugin-resolver.ts`, U10 option b). The dynamic import stays for the
+// dependency-weight reason above (ecosystem-wiring W5).
 import {
   FileResearchClient,
   FileGenerateClient,
@@ -362,9 +365,10 @@ async function main(): Promise<void> {
     : {};
 
   // Loaded lazily (see the import note near the top): only the synthesis/live arm needs the L4/L5
-  // validator, which statically requires the sibling `@rules-as-tests/preset-next-15-canonical`
-  // package. The `--from-practice` arm returned above, so it never reaches this import — that arm
-  // stays runnable in a core-only layout with no sibling workspace packages resolvable.
+  // validator and the eslint stack it carries. The `--from-practice` arm returned above, so it
+  // never reaches this import — that arm stays runnable in a core-only layout with no sibling
+  // workspace packages resolvable. (Since 2026-08-17 the gates themselves also survive that
+  // layout — they degrade instead of failing to load — but the weight argument is unchanged.)
   const { runRuleBootstrap } = await import('../synthesizer/rule-bootstrap.ts');
 
   try {
