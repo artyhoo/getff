@@ -49,11 +49,15 @@ writing-plans ↔ SDD + executing-plans + using-git-worktrees; brainstorming →
 writing-plans. The SP cluster we actually depend on is closed:
 `{SDD, brainstorming, writing-plans, requesting-code-review, executing-plans, finishing-a-development-branch, using-git-worktrees}`.
 
-**No hard edge from us** to: `systematic-debugging`, `test-driven-development`,
-`receiving-code-review`, `dispatching-parallel-agents` — they reach sessions via
-description routing only (grep = 0 refs across our surfaces). So the §2.2/§2.3 TDD and
-debugging collisions carry routing risk only, while §2.4's review collision threatens
-named contracts.
+**No hard edge from us** to: `systematic-debugging`, `receiving-code-review`,
+`dispatching-parallel-agents` — routing only (grep = 0 refs across our surfaces).
+**CORRECTION (DeepWiki + grep, 2026-08-17): TDD has a transitive edge, and it is
+name-hazardous.** SDD's `implementer-prompt.md:36` instructs implementer subagents «Write
+tests (following TDD if task says to)» — a BARE acronym, not the namespaced skill — so
+with two TDD skills installed the implementer's router resolves «TDD» freely, and an
+executor inside OUR night-mode/orchestrator flows could load Matt's `tdd` (whose
+refactor-placement and seams doctrine contradict SP's loop). §2.2's collision is therefore
+transitive-contract grade (medium-high), not routing-only; §2.4 remains the highest.
 
 **Self-contained (zero companion refs)**: pipeline, reviewer, story, self-reflection,
 rule-research, rule-tests, template-audit, tool-bootstrapping, aif-doctor, dispatcher's
@@ -70,6 +74,34 @@ not shipped).
 Collision classes: **T** = trigger overlap (two model-invocable descriptions claim the same
 work), **P** = contradictory prescription (the texts disagree on what to do), **E** =
 parallel evolution (same idea, different vocabulary, no live conflict).
+
+### 2.0 The measured routable surface + upstream composition intent (DeepWiki + live session, 2026-08-17)
+
+**Matt's own collision policy is the user-invoked/model-invoked split** (DeepWiki on
+mattpocock/skills, 2026-08-17): user-invoked skills (`disable-model-invocation: true`)
+never enter the router; «a user-invoked skill may call model-invoked skills, but never
+another user-invoked one». **Empirically confirmed in a live CC session** (this one): the
+available-skills listing shows exactly **11** mattpocock skills — `grilling`, `tdd`,
+`diagnosing-bugs`, `code-review`, `research`, `prototype`, `domain-modeling`,
+`codebase-design`, `resolving-merge-conflicts`, `wizard`, `writing-for-agents` —
+`implement`/`triage`/`wayfinder`/`to-spec`/`to-tickets`/`grill-me`/`handoff`/`wait-what`
+and all `in-progress/*` are absent. So the T-collision surface is exactly those 11, and
+§2.5's planning skills can NEVER misroute — they are slash-only.
+
+**Matt's intended main flow** (DeepWiki): `grill-with-docs → to-spec → to-tickets →
+implement (drives tdd, closes with code-review)`; `wayfinder` merges at `to-spec`;
+`grilling`+`domain-modeling` are always invoked as a pair by the flow skills. His
+engineering skills **require `setup-matt-pocock-skills`** (issue-tracker config under
+`docs/agents/`) — we have NOT run it, so `code-review`'s Spec axis and `triage` would nag
+for config if routed to. `grilling`/`grill-me` explicitly need no setup (confirmed — our
+§1 adoption is safe). `in-progress/` skills (incl. `loop-me`) are beta, may vanish.
+
+**Superpowers' composition contract** (DeepWiki on obra/superpowers): skill precedence is
+**Project > Personal > Plugin** — an individual plugin skill is overridden by shipping a
+same-named skill at a higher-priority location, no fork needed; `using-superpowers`
+declares user instructions > skills > system defaults. (DeepWiki's answer is grounded in
+the OpenCode integration docs; CC has the same project-beats-personal precedent recorded
+at `/reviewer`'s origin — CC-specific plugin-shadowing semantics remain probe P1.)
 
 ### 2.1 Design interview / ideation — SETTLED 2026-08-17
 
@@ -91,6 +123,14 @@ Two genuine P-conflicts: (a) refactor-in-loop vs refactor-at-review; (b) test-ev
 vs pre-agreed-seams-only. SDD (our adopted executor loop) references SP TDD, so SP is the
 incumbent owner. Matt's seams discipline is independently valuable (it is a scoping act —
 where testing effort lands) and could transfer WITHOUT adopting his refactor placement.
+
+**Upstream rationale behind (a) is MEASURED, not stylistic** (DeepWiki on
+mattpocock/skills CHANGELOG, 2026-08-17): refactoring was moved out of the loop in June
+2026 because «agents essentially never performed it» inside the red-green loop, and
+separating implementation from review into distinct sessions proved more effective; the
+seams are pre-agreed at his `to-spec` phase. So D-H2 is not «doctrine vs doctrine» — it is
+SP's doctrine vs Matt's behavioral measurement. The design session should check our own
+corpus (do OUR executor subagents actually refactor in-loop?) before ruling.
 
 ### 2.3 Debugging — collision T + P (different first moves)
 
@@ -148,6 +188,12 @@ strongest single artefact in his plugin after grilling.
   `/arch` §3 exit routing.
 - No P-conflicts: the three stacks operate different altitudes (Matt: tracker-centric solo
   dev; SP: in-session execution; ours: factory + operator model ladder).
+- Upstream evolution note (DeepWiki, CHANGELOG): wayfinder's HITL/AFK ticket split was
+  added to fix a real failure — «/wayfinder would grill itself instead of the human», the
+  agent answering its own decision questions. The same failure class exists on OUR
+  park/answer edge (a factory task answering its own parked question instead of parking
+  it); grilling's facts-vs-decisions split was sharpened for the same reason. Relevant to
+  §4's factory-orchestration row and to `/arch` §4 escalation intake.
 - Transfer candidates: **claim-first** for our dispatcher (our collision history is real:
   two sessions on one stage — getff-freshness S1; a duplicate dispatch an hour after the
   real run — `beta-delivery-ux-995e9c`; duplicate merge #1354; CLAUDE.md records «all
@@ -194,6 +240,15 @@ so authors don't pick one at random.
    remove the description from the router's space, so it mitigates, not resolves, T-class.
 6. **Uninstall whole plugin + vendor the keepers** — the maximal form of (2); loses
    upstream evolution (the reason ADOPT was chosen over vendor for grilling).
+7. **Same-name shadow skill at project level** — superpowers documents skill precedence
+   as Project > Personal > Plugin, with per-skill override by shipping a same-named skill
+   higher in the chain, no fork needed (DeepWiki on obra/superpowers, 2026-08-17;
+   grounded in its OpenCode docs — CC analog partially proven by the `/reviewer`
+   skill-beats-personal-command precedent). A thin project-level `tdd` shadow that says
+   «TDD here means `superpowers:test-driven-development`; seams note from Matt applies»
+   would also disarm the §1.5 bare-acronym hazard. CC-specific plugin-shadow semantics =
+   probe P1 (narrowed: not «does disable exist» but «does a project skill named `tdd`
+   out-rank `mattpocock-skills:tdd` in the router»).
 
 Known precedence facts: an in-repo project skill beats a same-named personal command
 (documented; `/reviewer` origin). Plugin-vs-plugin and plugin-vs-builtin routing
@@ -221,6 +276,29 @@ not decisions):
 | Continuity / handoff | ours (seat-lifecycle + session-bus) | Matt `handoff`/`claude-handoff` REFERENCE | ours richer |
 | Research | ours (§1.5 contour) | Matt `research` REFERENCE | ours stricter (freshness bar, K-pass) |
 
+## §4.5 Our-side audit: which of OUR skills could thin down or retire (2026-08-17 pass)
+
+Measured against both satellites (line counts from `wc -l`). Verdicts: **THIN** = real
+overlap slices exist, could become a delta-only adapter; **ALREADY-THIN** = the adapter
+model, done; **KEEP** = domain-specific, no satellite covers it.
+
+| Our skill | Lines | Verdict | Rationale |
+| --- | --- | --- | --- |
+| orchestrator | 512 | **THIN — the main candidate** | Its role glossary, executor loop framing, and worktree-dispatch prose re-describe SDD / `using-git-worktrees` / `dispatching-parallel-agents`, all of which it already cites. Unique deltas worth keeping: discovery checklist, quota zones, model tiers (Fable/Opus/Sonnet), Mode B file-prompt, Queue mode, Phase -1 cold review. A rewrite to «deltas + bindings» (the `/arch` model) could roughly halve it. |
+| pipeline | 599 | KEEP | Factory-specific (umbrella priority, launch tables, chips). Optional: adopt wayfinder's frontier/fog vocabulary for kickoff sections (E-class, no conflict). |
+| dispatcher | 429 | KEEP + D-H5 | aif dispatch loop, probe-inflight, egress — no satellite analog; claim-first ADAPT pending. |
+| aif-doctor | 298 | KEEP | Our runtime's diagnostics; unportable by nature. |
+| arch | 148 | ALREADY-THIN | The wrapper model the THIN verdicts point to (post-#253). |
+| claude-glm-executor-handoff | 136 | KEEP | Cross-model dispatch; no analog in either satellite. |
+| self-reflection | 129 | KEEP | Project §1.7 discipline; recursive-self-application is ours alone. |
+| harvest | 118 | KEEP | aif egress mechanics. |
+| reviewer | 95 | KEEP | The severity contract (Failure-scenario / ESCALATED / notes lane) exists in neither satellite; already thin (binds the rule, restates nothing). |
+| night-mode | 68 | ALREADY-THIN | Layers over SDD explicitly (×5 refs). |
+| tool-bootstrapping / story / template-audit / rule-tests / ai-doc / rule-research | 59/56/43/31/31/30 | KEEP / ALREADY-THIN | Product-specific surfaces; `ai-doc` already subordinates to `writing-skills`. |
+
+**Nothing is deletable outright** — every candidate's remainder is a real delta the
+satellites do not carry. The actionable item is one: the orchestrator rewrite (D-H9).
+
 ## §5 Decision register for the design session (live; grown per the new §1 format)
 
 | Decision | Status | Resolution | Falsifier |
@@ -234,11 +312,17 @@ not decisions):
 | D-H6 wizard first use | settled-by-default | use at next operator hand-off; zero build | — |
 | D-H7 collision incident counter | settled (2026-08-17) | SSOT #253 row is the recording surface; observation №0 (routing risk noted, no incident) logged there conceptually | 1st real misroute → incident №1 |
 | D-H8 keep vs uninstall plugin | open (default: keep, watch) | — | ≥3 misroute incidents → vendor keepers + uninstall (SSOT #253 arm) |
+| D-H9 orchestrator rewrite to deltas+bindings (§4.5) | open (rec: thin; the `/arch` model) | — | wrong if the re-described slices turn out to carry load-bearing project deltas the satellites lack |
+| D-H10 TDD bare-acronym shadow (§3 mech 7) | open (rec: shadow after P1 confirms ranking) | — | wrong if CC router ignores project-level shadowing of plugin skills (then: mech 2/6) |
+| D-H11 pair `domain-modeling` with grilling in /arch (upstream always pairs them) | open (rec: defer — needs a CONTEXT.md/glossary convention we don't have; our premise register covers part) | — | wrong if design dialogues show recurring term-drift our premise register misses |
 
 ## §6 Probes for the design session (facts, not decisions — run before the interview)
 
-- **P1**: does Claude Code support disabling an individual skill of an installed plugin
-  (settings / plugin config)? Decides whether mechanism 3 exists.
+- **P1** (narrowed 2026-08-17): two halves — (i) does a PROJECT-level skill with the same
+  bare name (e.g. `tdd`) out-rank an installed plugin's skill in the CC router (mechanism
+  7)? (ii) does CC additionally support disabling an individual plugin skill (mechanism
+  3)? Superpowers documents Project > Personal > Plugin for its OpenCode integration;
+  CC-side needs a live test.
 - **P2**: routing reality check — with both plugins installed, which skill does the model
   pick on a bare «fix this bug test-first» / «review this branch»? (Live probe, N≥3
   phrasings; decides how load-bearing bindings are vs disables.)
