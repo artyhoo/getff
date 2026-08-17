@@ -4,11 +4,18 @@
 #       docs/meta-factory/research-patches/2026-07-18-zcode-parity-s9-multiturn-anchor.md
 #       docs/meta-factory/zcode-parity-mega.decisions.md §Fork 3 (ADOPT 9C)
 #
-# The CC-source `.claude/hooks/end-of-turn-reminder.sh` has NO ZCode branch
-# (grep `_is_zcode` returns empty). The ZCode arm lives in the twin
-# `plugin/hooks/end-of-turn-reminder` (which has _is_zcode() at L20). This test
-# exercises the twin only; CC source is regression-covered by the existing
-# packages/core/hooks/end-of-turn-reminder.test.ts vitest suite.
+# STALE-CLAIM CORRECTED 2026-08-17. This header used to read «the CC-source has NO
+# ZCode branch … the ZCode arm lives in the twin», which was true when #1044 shipped
+# and is why the arm was written into the twin alone. The twin is identity-generated
+# from `.claude/hooks/end-of-turn-reminder.sh`, so the next regeneration erased it and
+# this test went RED — unnoticed, because it ran on no channel at all. The arm now
+# lives in the SOURCE (restored from the never-merged backport e49407d6c0), which is
+# what makes it survive regeneration.
+#
+# HOOK still points at the twin deliberately: the twin is the ZCode-facing artefact, so
+# testing it covers the source transitively (identity generation, gated by
+# tests/plugin/twin-generation.test.sh) AND catches a source→twin desync. The CC path is
+# separately covered by packages/core/hooks/end-of-turn-reminder.test.ts.
 #
 # Coverage matrix (paired-negative per principle 02):
 #   (1) ZCode + rollout with recap + repeat-question → SUPPRESS (silent exit 0)

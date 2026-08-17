@@ -521,8 +521,9 @@ jobs:
       # workflow step: tests/plugin/ (9 of 10), tests/aif-doctor/ (2), probe-channels (1).
       # meta-all-wired.test.sh had only ever gated tests/install-sh/, so every other shell-test
       # directory was un-gated. All eleven passed on first run; the twelfth
-      # (tests/plugin/end-of-turn-reminder-zcode.test.sh) is RED on a pre-existing defect and is
-      # allowlisted in principle 41 with the diagnosis, not wired here.
+      # (tests/plugin/end-of-turn-reminder-zcode.test.sh) was RED on a pre-existing defect,
+      # allowlisted in principle 41 with the diagnosis, and is wired below now that the defect
+      # it caught — the lost S9C rollout arm — is repaired at the source.
       - name: Run plugin bootstrap test
         run: bash tests/plugin/bootstrap.test.sh
       - name: Run plugin hook-paths test
@@ -539,6 +540,12 @@ jobs:
         run: bash tests/plugin/twin-emit.test.sh
       - name: Run plugin warn-subagent-report ZCode arm test
         run: bash tests/plugin/warn-subagent-report-zcode.test.sh
+      # Wired 2026-08-17 alongside the S9C rollout-arm restore. This is the acceptance test that
+      # went RED for five hook revisions while running on no channel at all; it is the only
+      # coverage of the multi-turn idle-suppression arm, so it must stay wired for the arm to be
+      # regeneration-safe (the arm was lost exactly once nobody ran this).
+      - name: Run plugin end-of-turn-reminder ZCode multi-turn arm test
+        run: bash tests/plugin/end-of-turn-reminder-zcode.test.sh
       # aif-doctor pair: both stub docker/gh explicitly and carry an in-file
       # "ENVIRONMENT-INDEPENDENCE PROOF" (must pass with real docker on PATH), so they are
       # hermetic on a clean runner — verified locally at 9/9 and 5/5.
