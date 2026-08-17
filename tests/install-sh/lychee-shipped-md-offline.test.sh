@@ -25,6 +25,9 @@
 # pure widening, losing no coverage. At factory depth the gate found 17 broken links across 6
 # inputs (10 × `](../../../CLAUDE.md)`, 2 × the vendor README, 2 × run-local-ci-sweep.sh, and one
 # each for reviewer/SKILL.md, check-worker-dispatch-channel.sh, pull_request_template.md).
+# The factory count is 65 *.md / 15 skills as of the same day: fixing the reviewer/SKILL.md link
+# meant SHIPPING that skill at env (it was in no tier while arch promised consumers it loads),
+# not rewriting the ref — so the gate's own population grew by the file it had flagged.
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 PASS=0; FAIL=0

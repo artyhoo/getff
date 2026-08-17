@@ -114,7 +114,16 @@ for _skill in $GETFF_SKILLS_CORE; do
   copy_skill_with_transform "$_skill"
 done
 # env+ contour surface (spec A8): /arch is the architecture-design skill that produces the
-# contour; consumer-facing at env+. /pipeline is env+ too — the design SSOT
+# contour; consumer-facing at env+. /reviewer joined env 2026-08-17: arch/SKILL.md:94 tells the
+# consumer that in-repo `/reviewer` loads the project skill (skill precedence over a same-named
+# personal command) and that it binds the reviewer-discipline §6 severity contract — a promise
+# that dangled, because reviewer was in no tier. env is the minimal sufficient depth: arch is
+# its only referrer and arch is env. Own-stack-first check before shipping our own (BFR §1.1):
+# CC-native /code-review and superpowers:requesting-code-review both operate on code diffs,
+# while this skill's deliverable is explicitly «a GO/REVISE/STOP verdict … not code», and the
+# shipped agents/review-sidecar.md + fidelity-auditor.md are COLD DISPATCHED protocols the skill
+# itself disclaims. No companion covers the interactive-verdict class, so we ship ours.
+# /pipeline is env+ too — the design SSOT
 # defines the env depth as carrying «pipeline presets, status, …» verbatim
 # (docs/superpowers/specs/2026-07-23-beta-program-design.md:211). Standing gate had pipeline
 # at factory-only; spec wins → resolved by moving pipeline into the env+ loop. The factory-only
