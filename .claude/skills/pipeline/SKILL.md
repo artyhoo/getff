@@ -27,7 +27,7 @@ allowed-tools:
 
 **Binding spec:** `.claude/orchestrator-prompts/meta-orchestrator-prior-art/kickoff.md §7` (gitignored, 14 sub-sections §7.1-§7.14).
 
-**Substrate:** CC slash-command primitive + `!shell` injection + Write tool + Agent tool. Zero npm deps. Zero paid-LLM-in-CI calls (all dispatch is session-bound per [no-paid-llm-in-ci.md §1](../../rules/no-paid-llm-in-ci.md)).
+**Substrate:** CC slash-command primitive + `!shell` injection + Write tool + Agent tool. Zero npm deps. Zero paid-LLM-in-CI calls (all dispatch is session-bound per [no-paid-llm-in-ci.md §1](../../rules/no-paid-llm-in-ci.md)). **Path convention — `<orch-home>` (binds §1, §2.5, §4, §10):** every runtime path below is relative to `<orch-home>`, the **resolved** orchestration home — `.claude/orchestrator-prompts/` in this framework repo, `.ai-factory/orchestrator-prompts/` in a consumer install. Resolve it, never assume it: `"$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)"` (the same `resolve_orch_home()` the helpers use, `helpers/lib/common.sh`; `MO_ORCH_HOME` overrides both). The framework literal is **never delivered to a consumer**, so hardcoding it makes reads silently empty and writes land in a second, unread directory (getff#1245); `packages/core/principles/39-skill-fence-orch-home.test.ts` gates the fences against that regression.
 
 ---
 
@@ -42,7 +42,7 @@ allowed-tools:
 **Arg routing (V1 binding per [research-patch §3](../../../docs/meta-factory/research-patches/2026-05-29-meta-orch-no-arg-overview-s0-remainder.md)):** regex check at invocation start — empty → V3 overview; `^[0-9]+$` → V4 top-N (N=0 routes to V3); `list` → preset enumeration via [`helpers/list-presets.sh`](helpers/list-presets.sh) (§0.1); `status` → read-only status render via [`helpers/render-status.sh`](helpers/render-status.sh) (§2.6); else → named-umbrella dispatch (existing §1→§3→§4→§5). **Pre-invocation guard (V1 mandatory):** assert no umbrella basename is `^[0-9]+$` (otherwise `/pipeline 1` is ambiguous): <!-- @dual-pair: meta-orchestrator-integer-name-guard -->
 
 ```!
-bash "${CLAUDE_SKILL_DIR}/helpers/integer-name-guard.sh" .claude/orchestrator-prompts
+bash "${CLAUDE_SKILL_DIR}/helpers/integer-name-guard.sh" --auto
 ```
 
 **Mode-override flags (optional):** parse `--mode-bundle` / `--mode-pair` / `--mode-solo` / … + `--reason=<text>` from the umbrella arg up-front — `OVERRIDE_MODE` / `OVERRIDE_REASON` output feeds §2.5 Step 5 predicates (`bundle_opt_in` / `review_required`); exit 1 = no flag (normal — routing tree proceeds). Spec: [`references/mode-overrides.md`](references/mode-overrides.md). <!-- @dual-pair: meta-orchestrator-mode-overrides -->
@@ -82,7 +82,7 @@ fixtures only).
 **Step 1 — inject live state:**
 
 ```!
-cat .claude/orchestrator-prompts/_plan-cache.md 2>/dev/null | head -200 || echo "(no cache — fresh session; will be created by helpers/update-cache.sh on this invocation's exit)"
+head -200 "$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)/_plan-cache.md" 2>/dev/null || echo "(no cache — fresh session; will be created by helpers/update-cache.sh on this invocation's exit)"
 ```
 
 ```!
@@ -107,7 +107,7 @@ Compare the `wave-sequencing-plan.md` claims against the live `gh pr list` outpu
 
 1. For every wave marked «✅ merged» — verify a merged PR with that head branch exists in `gh pr list --state merged`. If not found → **DRIFT**.
 2. For every wave marked «🟡 partial» — verify at least one open PR matches. If none → **DRIFT**.
-3. For every kickoff path referenced — verify `ls .claude/orchestrator-prompts/<path>/kickoff.md` returns a file (the `plan-currency-check.sh` output provides this). Missing file → **STALE REF**.
+3. For every kickoff path referenced — verify `<orch-home>/<path>/kickoff.md` exists (the `plan-currency-check.sh` output provides this; to `ls` it yourself, resolve the home first — `ls "$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)/<path>/kickoff.md"`). Missing file → **STALE REF**. Never `ls` the framework literal: in a consumer install it names a directory that cannot exist, so every present kickoff reports STALE REF.
 4. For every research-patch cited — verify the cited file exists under the project's research/patches dir (framework: `docs/meta-factory/research-patches/`). If the project has no such dir, skip this check. Missing (where the dir exists) → **STALE REF**.
 5. **REPORT reconciliation:** if a maintainer-passed REPORT contradicts the `gh pr list` injection (e.g. REPORT says «Stage 1 merged» but `gh pr list` shows nothing), emit «REPORT says X; mechanical state shows Y; trusting `gh pr list`; possible causes: stale REPORT / pending GitHub-API sync (<60s) / different branch. Proceeding on mechanical state.» REPORT is welcome **supplementary** input, not load-bearing — mechanical state always wins (3-layer responsibility model; memory `feedback_no_human_verification_ai_self_verifies`).
 6. **Cache reconciliation:** if cache (Step 1 first `!shell` block) «Last invocation» Git HEAD diverges from current `git rev-parse HEAD` AND `wave-sequencing-plan.md` was touched in the SHA diff → emit «CACHE STALE …»; cache stays supplementary, never load-bearing (T-mem-A counter — re-verify «PR merged» / «umbrella DONE» claims via `gh pr list`). Full rule + anti-patterns: [`references/plan-cache.md §2`](references/plan-cache.md).
@@ -170,8 +170,9 @@ Priority ranking (as of <date> <git-HEAD-short>):
 **Step 1 — read prior delta state** (context-priming; deterministic diff in Step 8; reconciliation + T-mem-A counter — [`references/master-backlog-delta.md §2`](references/master-backlog-delta.md)): <!-- @dual-pair: meta-orchestrator-master-backlog-delta -->
 
 ```!
-if [[ -f .claude/orchestrator-prompts/_master-backlog-delta.json ]]; then
-  jq -r '.untracked_seen[]?.id' .claude/orchestrator-prompts/_master-backlog-delta.json 2>/dev/null || echo "(delta file present but unreadable; treat as empty)"
+_MO_DELTA="$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)/_master-backlog-delta.json"
+if [[ -f "${_MO_DELTA}" ]]; then
+  jq -r '.untracked_seen[]?.id' "${_MO_DELTA}" 2>/dev/null || echo "(delta file present but unreadable; treat as empty)"
 else
   echo "(no delta file — first invocation; will be created at end via update-delta.sh)"
 fi
@@ -237,7 +238,7 @@ elif TYPE == "I-phase-large":
 1:1 with Step 5 routing tree. Principle 19 (`packages/core/principles/19-meta-orchestrator-alias-routing-consistency.test.ts`) enforces mechanically. `Mode-A-bundle` sub-dispatch defined in bundle-autonomous umbrella.
 
 **Step 7 — emit ALIAS in §10 rendered output:** Stage heading: `### Stage N — <name> (<ALIAS> / <Mode>, ~<cost>)`. Dep-graph bullet: `├── <name>   (<ALIAS> / <Mode>, ~<cost>, <role>)`. Template update deferred to follow-up PR per `feedback_no_drive_by_prs`.
-**Step 8 — delta diff:** invoke `bash ${CLAUDE_SKILL_DIR}/helpers/delta-diff.sh .claude/orchestrator-prompts/_master-backlog-delta.json "<id-1>" "<id-2>" "<...>"` (post-dedup ids from Steps 2-3 as positional args) → emits `NEW-SINCE-LAST: <id>` (current ∖ seen) + `RESOLVED-SINCE-LAST: <id>` (seen ∖ current), sorted; missing delta → all current = NEW; lines feed §10; maintainer manually updates `wave-sequencing-plan.md §0` (Direction A REJECTED per R-phase β-2); semantics + contract: [`references/master-backlog-delta.md`](references/master-backlog-delta.md) + [`packages/core/hooks/delta-diff.test.ts`](../../../packages/core/hooks/delta-diff.test.ts). <!-- @dual-pair: meta-orchestrator-delta-diff -->
+**Step 8 — delta diff:** invoke `bash ${CLAUDE_SKILL_DIR}/helpers/delta-diff.sh "$(bash ${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh 2>/dev/null)/_master-backlog-delta.json" "<id-1>" "<id-2>" "<...>"` (post-dedup ids from Steps 2-3 as positional args) → emits `NEW-SINCE-LAST: <id>` (current ∖ seen) + `RESOLVED-SINCE-LAST: <id>` (seen ∖ current), sorted; missing delta → all current = NEW; lines feed §10; maintainer manually updates `wave-sequencing-plan.md §0` (Direction A REJECTED per R-phase β-2); semantics + contract: [`references/master-backlog-delta.md`](references/master-backlog-delta.md) + [`packages/core/hooks/delta-diff.test.ts`](../../../packages/core/hooks/delta-diff.test.ts). <!-- @dual-pair: meta-orchestrator-delta-diff -->
 **Step 9 — write-back to `_master-backlog-delta.json`:** `untracked_seen` ← current candidate set (overwrite-shape; `first_seen` = current ts). `closed_since_last` ← prior ids that no longer surface. Concrete `jq` shape in §10 step 5 — do NOT re-specify here.
 
 ## §2.6 `status` verb — read-only status render (A5)
@@ -314,7 +315,7 @@ Launch table — <umbrella> (as of <git-HEAD-short>):
 
 ## §4 Meta-kickoff write
 
-> Writes `.claude/orchestrator-prompts/<umbrella>-meta-launch/kickoff.md` using the template.
+> Writes `<orch-home>/<umbrella>-meta-launch/kickoff.md` using the template (`<orch-home>` per the Path convention above — resolve it, do not assume `.claude/`).
 
 **Step 1 — read template:**
 
@@ -328,7 +329,7 @@ Substitute every `{{<PLACEHOLDER_NAME>}}` token in both templates. The canonical
 
 **Step 3 — write file:**
 
-Target path: `.claude/orchestrator-prompts/<umbrella>-meta-launch/kickoff.md`
+Target path: `<orch-home>/<umbrella>-meta-launch/kickoff.md`
 
 **Mandatory sections in generated kickoff (principle 12 will validate):**
 
@@ -339,7 +340,7 @@ Target path: `.claude/orchestrator-prompts/<umbrella>-meta-launch/kickoff.md`
 
 **Write the state.md companion:**
 
-Target path: `.claude/orchestrator-prompts/<umbrella>-meta-launch/state.md`
+Target path: `<orch-home>/<umbrella>-meta-launch/state.md`
 
 Use `${CLAUDE_SKILL_DIR}/templates/state.md.template` as the skeleton; fill §1 Inputs from plan-currency check output.
 
@@ -505,12 +506,12 @@ The FIRST live invocation MUST run on the BUILD umbrella that produced the skill
 
 **Per invocation, this skill writes:**
 
-1. **Meta-kickoff:** `.claude/orchestrator-prompts/<umbrella>-meta-launch/kickoff.md`
+1. **Meta-kickoff:** `<orch-home>/<umbrella>-meta-launch/kickoff.md`
    - Template: `${CLAUDE_SKILL_DIR}/templates/meta-kickoff.template.md`
    - Required sections: `## §5 AI-traps active` with explicit T-numbers; stage-gate commands; recursive-self-application clause; stop conditions per stage.
    - Validated by: `packages/core/principles/12-ai-laziness-traps.test.ts` (checks `## §5 AI-traps` presence and T-enumeration syntax).
 
-2. **State companion:** `.claude/orchestrator-prompts/<umbrella>-meta-launch/state.md`
+2. **State companion:** `<orch-home>/<umbrella>-meta-launch/state.md`
    - Template: `${CLAUDE_SKILL_DIR}/templates/state.md.template`
    - Filled sections: §1 Inputs (from plan-currency-check output) · §2 Decisions · §3 Phase -1 verdict (updated per stage).
    - Lifecycle: updated in-place via **Edit (section-by-section), NOT Write (full-rewrite)**. Section history preserved unless explicitly stale — replacing the whole file loses §1.1 / §1.2 prior-snapshot context that downstream sessions read. «Not append-only» means «can mutate in place», which is Edit semantics, not Write-clobber semantics. Falsifier: if the next invocation must rebuild §1 Inputs from scratch because the previous snapshot was wiped → §10 was violated.
@@ -520,9 +521,9 @@ The FIRST live invocation MUST run on the BUILD umbrella that produced the skill
    **Output language (i18n):** before rendering the report, run `!bash ${CLAUDE_SKILL_DIR}/helpers/emit-output-strings.sh` and use the emitted `AIF_PIPELINE_*` values for the launch-table column headers, the `What it does` / `Why now` block labels, the `## Action queue` sub-caption, the wave-`NOW` marker, the plan-currency status word, and the `AIF_RECAP_MARKER` recap heading. The helper also emits `AIF_OUTPUT_LANG`: write the ENTIRE session-report PROSE in that language — descriptions, `Why now`, the plain-words recap body, and all narration — not only the table headers. Default is English; the operator's `AIF_HOOK_LANG=ru` yields `AIF_OUTPUT_LANG=ru` → write the prose in Russian. The example tables show the English (default) tokens.
    Full grammar + 4 worked examples (Mode A / SDD / Mode B × N / Queue mode) + ASCII templates live in [`references/output-format.md`](references/output-format.md); principle 18 (`packages/core/principles/18-meta-orchestrator-output-format.test.ts`) enforces those substrings literally in `references/output-format.md`, with SKILL.md §10 required to point at it. **Autonomous-offer (the `autonomous?` slot in the 1-liner grammar):** when the runtime-bridge is configured + aif reachable (probe per `#tabs-by-default-when-bridge-up`), each Stage block MUST present autonomous dispatch (`tsx packages/runtime-bridge/src/cli/dispatch.ts <kickoff>`, contingent on the kickoff's §4c park-don't-guess block) alongside — not instead of — the maintainer-paste tab 1-liner, so the human chooses. Omitting it while the bridge is up = `#tabs-by-default-when-bridge-up`.
    **§10.3a Plain-language checkpoint tail** <!-- @dual-pair: plain-language-tail --> <!-- spec: references/plain-language-tail.md + .claude/hooks/end-of-turn-reminder.sh --> — mandatory `## 🟢 In plain words` block at 3 orchestrator-checkpoint moments (sub-wave boundary / mid-session quota / final umbrella); content names orchestration artefacts (sub-wave, AC item, REPORT-trace), not per-turn personal reasoning. Full table + anti-patterns: [`references/plain-language-tail.md`](references/plain-language-tail.md). Falsifier: verbatim-copyable from `end-of-turn-reminder.sh` → `#two-prompts-drift`.
-4. **Dogfood evidence** (first invocation only): `.claude/orchestrator-prompts/<umbrella>/dogfood-run-output.md`
+4. **Dogfood evidence** (first invocation only): `<orch-home>/<umbrella>/dogfood-run-output.md`
    - Contains: 4-step helper invocation outputs + coherence-call paragraph.
-   - This path is gitignored (`.claude/orchestrator-prompts/` in `.gitignore`) — evidence for session tracing only, not repo-committed.
+   - This path is gitignored in the framework repo (`.claude/orchestrator-prompts/` in `.gitignore`); a consumer's `<orch-home>` follows that project's own ignore rules — evidence for session tracing only, not repo-committed.
 
 5. **Plan-cache + delta update:** at end of invocation, run TWO writes in this order:
 
