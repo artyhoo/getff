@@ -1150,6 +1150,28 @@ do_refresh() {
     esac
   done
 
+  # ── runtime-bridge vendor drop (factory depth; beta-delivery-ux S5 A7) — refresh parity ──
+  # Framework-owned, and it had NO refresh arm at all: a consumer who upgraded never got vendor
+  # fixes, and CI observed the delivered README reverting to its untransformed source across
+  # `--refresh` (run 32022158836 — `before: ](https:/…` → `after: ](../../.`), which is the
+  # dangling-link shape pre-push §8 goes red on. Same uniform gate as the arms above (#1334):
+  # the delivery site's own predicate — setup.d/55-runtime-bridge-vendor.sh gates on factory OR
+  # the legacy WITH_AIF_SUITE escape — OR presence, so refresh never CREATES the drop at a depth
+  # that did not ask for it, but always updates one that is already installed. The wipe-recopy-
+  # transform sequence is shared with the install path via deliver_runtime_bridge_vendor
+  # (setup.d/lib.sh) rather than restated here, so this arm cannot drift from layer 55.
+  if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
+    || [ -d "$PROJECT_ROOT/.claude/vendor/runtime-bridge" ]; then
+    echo "▶ Runtime-bridge vendor → .claude/vendor/runtime-bridge/"
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would refresh: .claude/vendor/runtime-bridge/"
+    else
+      deliver_runtime_bridge_vendor "$PKG_ROOT/packages/runtime-bridge/vendor" \
+        "$PROJECT_ROOT/.claude/vendor/runtime-bridge"
+      echo "  ✓ .claude/vendor/runtime-bridge/ (refreshed)"
+    fi
+  fi
+
   echo ""
   if [ "$DRY_RUN" = "--dry-run" ]; then
     echo "✅ Dry-run complete (--refresh preview). Nothing was written."

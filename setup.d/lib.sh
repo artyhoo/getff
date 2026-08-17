@@ -159,6 +159,30 @@ transform_internal_refs() {
   rm -f "${f}.bak"
 }
 
+# deliver_runtime_bridge_vendor <vendor-src-dir> <vendor-dst-dir>
+# SSOT for the runtime-bridge vendor drop, called by BOTH delivery paths: the install path
+# (setup.d/55-runtime-bridge-vendor.sh) and the refresh path (install.sh do_refresh). Those two
+# are the @sync-with-layers pair the do_refresh header warns about, and they had already drifted
+# once here — the refresh path carried no vendor arm at all, so `--refresh` never updated a
+# consumer's vendor copy after an upgrade, and (observed on CI 2026-08-17, run 32022158836) the
+# delivered README could end up back at its untransformed source with the transform never
+# re-applied. One function means the wipe-recopy-transform sequence cannot diverge again
+# (dual-implementation-discipline.md §7).
+#
+# Wipe + recopy matches the skills/* idempotent pattern (10-skills.sh:22); the transform pass is
+# what keeps repo-internal relative refs from shipping dangling (see transform_internal_refs
+# above). transform_internal_refs is idempotent, so running this on an already-delivered tree is
+# safe — that is what makes it usable as the refresh path's arm.
+deliver_runtime_bridge_vendor() {
+  local src="$1" dst="$2" _md
+  [ -d "$src" ] || return 0
+  rm -rf "$dst"
+  cp -r "$src" "$dst"
+  while IFS= read -r _md; do
+    transform_internal_refs "$_md"
+  done < <(find "$dst" -name '*.md' -type f)
+}
+
 copy_safe() {
   local src="$1"
   local dst="$2"

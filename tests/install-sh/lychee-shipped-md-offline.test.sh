@@ -73,7 +73,7 @@ run_lychee() {
 # exit status 255 — an arch/loader mismatch, not a link problem), so keep the bare error forms
 # in the pattern too: a dump that goes silent on the unexpected failure is the wrong half to
 # optimise for.
-dump_lychee() { grep -E '^\[|ERROR|[Ee]rror' <<<"$1" | head -"${2:-24}" | sed 's/^/      /'; }
+dump_lychee() { grep -E '^\[|ERROR|[Ee]rror' <<<"$1" | sed -n "1,${2:-24}p" | sed 's/^/      /'; }
 
 # ── pos ──────────────────────────────────────────────────────────────────────
 OUT=$(run_lychee); RC=$?
@@ -113,7 +113,9 @@ else
   echo "      before: ${VENDOR_BEFORE:-<absent>}"
   echo "      after:  $([ -f "$VENDOR_MD" ] && sed -n '3p' "$VENDOR_MD" | cut -c1-80 || echo '<absent>')"
   echo "      --- refresh log lines touching vendor/skills/agents delivery ---"
-  grep -nE 'vendor|Vendor|skills|agents|refresh' "$T/.refresh.log" | head -15 | sed 's/^/      /'
+  # `sed -n 1,Np` not `head -N`: head closes the pipe early and grep then prints a "write error:
+  # Broken pipe" line into the middle of the diagnostic block (observed in run 32022158836).
+  grep -nE 'vendor|Vendor|skills|agents|refresh' "$T/.refresh.log" | sed -n '1,15p' | sed 's/^/      /'
 fi
 
 # ── neg (probe bites) ────────────────────────────────────────────────────────
