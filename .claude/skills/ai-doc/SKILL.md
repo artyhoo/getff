@@ -14,6 +14,9 @@ Composes existing skills; does NOT reinvent. For the authoring mechanics invoke
 `superpowers:writing-skills` (TDD-for-docs + bundled Anthropic best-practices + progressive
 disclosure). This wrapper adds only the residue upstream lacks → see
 [anthropic-and-aif-residue.md](anthropic-and-aif-residue.md) (loaded on demand).
+Ownership ([harmonization spec §3](../../../docs/superpowers/specs/2026-08-18-skill-stack-harmonization-design.md)):
+this skill owns the repo STANDARD, `superpowers:writing-skills` owns the authoring PROCESS;
+mattpocock `writing-for-agents` is REFERENCE — consulted, never routed-to.
 
 ## The standard (judgment calls; mechanics are upstream)
 
