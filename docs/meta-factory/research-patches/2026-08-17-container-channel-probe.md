@@ -124,9 +124,26 @@ restored via `git restore` (pre-existing-pollution memory pattern).
 ## §E — Commit-time gates (self-application, T15)
 
 This patch's own commit is the live-fire: markdownlint MD040 (all fenced blocks above
-tagged `text`) + the 600-line markdown gate (`wc -l` pre-checked). A commit cannot contain
-its own outcome — the round-1 result is recorded in the amendment commit (mirroring
+tagged `text`) + the 600-line markdown gate (`wc -l` pre-checked: 165). A commit cannot
+contain its own outcome — round-1 result recorded here in the amendment commit (mirroring
 `9087b66c8d`).
+
+**Round 1 — PASSED first try.** Commit `6add8a101d` (subject above) landed with exit=0;
+pre-commit hooks ran clean — no MD040 rejection, no 600-line rejection, no `/tmp`
+root-owned blocker. Verbatim:
+
+```text
+$ git commit -m "docs(research-patches): container-channel-probe 2026-08-17 — ..."
+[feature/probe-f2d33e 6add8a101d] docs(research-patches): container-channel-probe 2026-08-17 — verbatim gate-reach report
+ 1 file changed, 165 insertions(+)
+ create mode 100644 docs/meta-factory/research-patches/2026-08-17-container-channel-probe.md
+commit-exit=0
+```
+
+Differs from 2026-07-24 round-1 (MD040 rejected five untagged fenced blocks): blocks were
+tagged `text` at authoring time, so the gate had nothing to reject. Commit-time channel
+verdict: `REACHED-ME` (hooks executed and passed; `node_modules` present from §D meant
+markdownlint-cli2 resolved locally rather than via npx fetch).
 
 ## §F — Per-channel verdict table
 
@@ -140,6 +157,7 @@ its own outcome — the round-1 result is recorded in the amendment commit (mirr
 | npm outbound registry | `REACHED-ME` — install exit=0 (auth flipped vs 2026-08-09 memory) |
 | `gh` outbound auth | `BLOCKED (not logged in)` — exit=1; PR/push ops unavailable today |
 | Worktree node_modules provisioning at birth | `BLOCKED (handoff devDeps omitted)` — doctor row MISSING; self-provisioned in §D |
+| Commit-time gates (markdownlint MD040, 600-line, husky pre-commit) | `REACHED-ME` — round-1 clean pass, exit=0 (§E) |
 
 ## §G — What surprised me (differs-from-2026-07-24 notes)
 
