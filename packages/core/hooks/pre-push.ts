@@ -1316,6 +1316,37 @@ function alwaysonBudgetSection(): void {
   emit(r);
 }
 
+// ── 5a-bis. Ask-file schema validity (maintainer, advisor-pattern §8 item 6) ──
+// Validates every ask file in the coordination mailbox against the spec §2 schema and
+// runs the §5.3 L3(c) answered⇒decisions-entry cross-check.
+//
+// The check logic — and the mailbox path literal — live in scripts/check-ask-files.sh,
+// OUTSIDE packages/, which is what session-bus v2 §9 executable claim 1 requires (no bus
+// verb grammar, no mailbox path segment under packages/). This entry is a delegation: it
+// carries no bus literal and no bus logic, so the claim stays honest.
+//
+// Absent script (a consumer checkout, or a shallow copy) → skip, never fail: the same
+// existsSync guard kickoffPortabilitySection and synthBundleSection use. Absent mailbox is
+// handled INSIDE the script (exit 0) — the advisor seat is not live yet, and "not live" must
+// never block a push.
+function askFileSchemaSection(): void {
+  if (!existsSync(resolve(REPO_ROOT, 'scripts/check-ask-files.sh'))) return;
+  const r = run('bash', ['scripts/check-ask-files.sh']);
+  if (r.notFound) {
+    die(
+      '❌ bash not found to run scripts/check-ask-files.sh (ask-file schema gate).',
+    );
+  }
+  if (r.exitCode !== 0) {
+    die(
+      '❌ ask-file schema gate RED — fix the ask file(s) named above.\n' +
+        '   Schema reference: the header of scripts/check-ask-files.sh.',
+      r,
+    );
+  }
+  emit(r);
+}
+
 // ── 5b. IR grammar-gate tests (maintainer, MT S1) ────────────────────────────
 function irMetaSection(): void {
   if (existsSync(resolve(CORE, 'package.json'))) {
@@ -1624,6 +1655,14 @@ const SECTIONS: readonly PrePushSection[] = [
     owner: 'maintainer',
     run: () => alwaysonBudgetSection(),
   },
+  {
+    // advisor-pattern §8 item 6: ask-file schema + the answered⇒decisions-entry
+    // cross-check. maintainer-only — the mailbox is this repo's coordination store;
+    // a consumer layout has no advisor seat and no scripts/ directory to run.
+    id: 'ask-file-schema',
+    owner: 'maintainer',
+    run: () => askFileSchemaSection(),
+  },
 ];
 
 /**
@@ -1692,6 +1731,10 @@ async function main(): Promise<void> {
   }
   if (process.env['PREPUSH_ONLY'] === 'generated-rule-material') {
     generatedRuleMaterialSection();
+    process.exit(0);
+  }
+  if (process.env['PREPUSH_ONLY'] === 'ask-file-schema') {
+    askFileSchemaSection();
     process.exit(0);
   }
 
