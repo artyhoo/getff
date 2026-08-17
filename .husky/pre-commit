@@ -166,12 +166,22 @@ fi
 
 
 # ── Plugin twin regeneration ──────────────────────────────────────────
-# When .claude/hooks/*.sh changes, regenerate plugin twins and re-stage.
+# When .claude/hooks/*.sh or agents/*.md changes, regenerate plugin twins and re-stage.
 # Spec: .ai-factory/plans/zcode-parity-s6-twin-generator.md (Stage 6).
+#
+# The agents/ arm was added 2026-08-17: plugin/agents/*.md twins were guarded only AFTER
+# the fact by principle 24(d) (byte-identity, CI) while plugin/hooks/ regenerated here
+# automatically — so every agents/*.md edit went CI-red until someone remembered a manual
+# copy. PR #1430 hit exactly that. Detection was never the gap; regeneration was.
 HOOKS_STAGED=$(echo "$CHANGED" | grep '^\.claude/hooks/.*\.sh$' || true)
-if [ -n "$HOOKS_STAGED" ]; then
+AGENTS_STAGED=$(echo "$CHANGED" | grep '^agents/.*\.md$' || true)
+if [ -n "$HOOKS_STAGED" ] || [ -n "$AGENTS_STAGED" ]; then
   if bash "$REPO_ROOT/scripts/generate-plugin-twins.sh"; then
+    # Re-stage both twin dirs regardless of which source fired: the generator is a single
+    # idempotent pass over both populations, and staging a dir it did not touch is a no-op.
+    # Narrowing to the fired arm would drop a twin when one commit edits a hook AND an agent.
     git add plugin/hooks/ 2>/dev/null || true
+    git add plugin/agents/ 2>/dev/null || true
   else
     echo "❌ generate-plugin-twins.sh failed"
     fail=1
