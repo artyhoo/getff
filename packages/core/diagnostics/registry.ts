@@ -274,6 +274,16 @@ export const REGISTRY: Readonly<Record<string, RegistryEntry>> = Object.freeze({
     explanation: 'Gate 2 (ruleTester): a declared known-safe form of the forbidden construct fired the rule — over-broad selector (GH #915 obs 4: hasOwnProperty.call / x == null class). gate-rule-tester.ts.',
   },
 
+  FF3022: {
+    template:
+      '{gate} skipped rule \'{ruleName}\': the \'rules-as-tests\' plugin registry could not be resolved, so the check cannot run. Tried: {tried}',
+    defaultSeverity: 'warning',
+    explanation:
+      'Any plugin-rule gate: neither the consumer barrel (<cwd>/eslint-rules-local/index.mjs) ' +
+      'nor the workspace preset packages resolved, so the rule could not be linted. Environmental, ' +
+      'not a defect in the plan — the gate reports `degrade`, never `pass`. validator/preset-plugin-resolver.ts.',
+  },
+
   // --- FF6xxx: IR grammar gates (MT umbrella S1 — ir/gates/grammar.ts) ---
   FF6001: {
     template: 'degenerate pairedExamples: positive === negative for node {nodeId}',

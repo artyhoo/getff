@@ -1,3 +1,5 @@
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { runRuleTesterGate } from './gate-rule-tester.ts';
 import { synthesize } from '../synthesizer/synthesize.ts';
@@ -294,5 +296,62 @@ describe('L4 gate 2 — examples.safeForms probe (GH #915 obs 4)', () => {
     expect(result.status).toBe('fail');
     expect(result.failures).toHaveLength(1);
     expect(result.failures[0].reason).toMatch(/safeForms\[1\]/);
+  });
+});
+
+// U10 option b (2026-08-17) — linting an unregistered plugin rule throws inside
+// linter.verify, which is how the shipped bin used to die. Paired: the barrel tier really
+// runs the roundtrip; the no-registry tier degrades instead of crashing.
+const FIXTURES = resolve(dirname(fileURLToPath(import.meta.url)), 'fixtures');
+
+describe('L4 gate 2 — plugin registry resolution (U10 option b)', () => {
+  const pluginRulePlan = (): SynthesisPlan => ({
+    framework: 'next',
+    version: '16.0.0',
+    rules: [
+      {
+        id: 'G95',
+        title: 'plugin rule roundtrip',
+        stack: ['react-next'],
+        check: { type: 'eslint', rule: 'rules-as-tests/always-fires' },
+        examples: { bad: 'const x = 1;', good: '// nothing' },
+        'negative-test': { input: ['const x = 1;'], 'expect-violation': 'always' },
+        research: {
+          entryId: 'u10',
+          provenance: [
+            {
+              url: 'https://nextjs.org/docs/app',
+              allowlistKey: 'next.official',
+              fetchedAt: '2026-05-08',
+            },
+          ],
+        },
+      },
+    ],
+    rulesMd: '',
+    eslintConfigSnippet: JSON.stringify({ 'rules-as-tests/always-fires': 'error' }),
+  });
+
+  it('runs the roundtrip against a rule that ONLY the consumer barrel supplies', () => {
+    const result = runRuleTesterGate(pluginRulePlan(), {
+      cwd: resolve(FIXTURES, 'consumer-barrel'),
+      workspaceSpecifiers: [],
+    });
+    // `always-fires` fires on every file, so examples.good trips FF3006 — a real finding,
+    // only reachable if the barrel-sourced rule actually ran.
+    expect(result.status).toBe('fail');
+    expect(result.failures[0].code).toBe('FF3006');
+    expect(result.degraded).toBeUndefined();
+  });
+
+  it('degrades — not pass, not crash — when the registry is unresolvable', () => {
+    const result = runRuleTesterGate(pluginRulePlan(), {
+      cwd: resolve(FIXTURES, 'negative-corpus'),
+      workspaceSpecifiers: [],
+    });
+    expect(result.status).toBe('degrade');
+    expect(result.failures).toEqual([]);
+    expect(result.degraded?.[0].code).toBe('FF3022');
+    expect(result.degraded?.[0].ruleId).toBe('G95');
   });
 });

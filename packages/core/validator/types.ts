@@ -3,7 +3,11 @@
 // as REQUIRED. Gate 3 (mutation) = SKIP (Path B only). Gate 5 (two-AI
 // review) = DEFER (advisory; maps to AIF review-sidecar; cost-scope Phase 8).
 
-export type GateStatus = 'pass' | 'fail' | 'skip' | 'n/a';
+// `degrade` (U10 option b, 2026-08-17): the gate ran but could not check part of the plan
+// because the `rules-as-tests` plugin registry was unresolvable in this environment. Distinct
+// from `pass` (nothing was skipped) and from `skip` (an upstream gate failed, so this one was
+// never attempted). See preset-plugin-resolver.ts.
+export type GateStatus = 'pass' | 'fail' | 'skip' | 'n/a' | 'degrade';
 
 export interface GateFailure {
   ruleId?: string;
@@ -14,9 +18,20 @@ export interface GateFailure {
   code: string;
 }
 
+/** One check the gate could NOT run, and why. Never a defect in the plan — always environmental. */
+export interface GateDegrade {
+  ruleId?: string;
+  /** FF3xxx diagnostic code — FF3022 for an unresolvable plugin registry. */
+  code: string;
+  reason: string;
+}
+
 export interface GateOutcome {
   status: GateStatus;
   failures: GateFailure[];
+  /** Present (non-empty) only when the gate skipped checks it could not run — status `degrade`,
+   *  or `fail` when it also found real defects. Omitted entirely when nothing was skipped. */
+  degraded?: GateDegrade[];
 }
 
 export interface ValidationReport {

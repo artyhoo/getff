@@ -43,12 +43,21 @@ const GATE_NAMES = [
 ] as const;
 
 function flattenGate(name: string, outcome: GateOutcome): AifBlocker[] {
-  return outcome.failures.map((f) => ({
+  const failures: AifBlocker[] = outcome.failures.map((f) => ({
     id: f.ruleId ? `${name}.${f.ruleId}` : `${name}.gate-failure`,
     severity: 'error',
     file: null,
     summary: f.reason,
   }));
+  // A degraded gate must not reach AIF looking like a clean pass (U10 option b, 2026-08-17):
+  // every skipped check surfaces as a non-blocking warning blocker.
+  const degrades: AifBlocker[] = (outcome.degraded ?? []).map((d) => ({
+    id: d.ruleId ? `${name}.degrade.${d.ruleId}` : `${name}.gate-degrade`,
+    severity: 'warning',
+    file: null,
+    summary: d.reason,
+  }));
+  return [...failures, ...degrades];
 }
 
 export function fromValidationReport(
@@ -56,15 +65,24 @@ export function fromValidationReport(
   opts?: { affectedFiles?: string[] },
 ): AifGateResult {
   const blockers = GATE_NAMES.flatMap((n) => flattenGate(n, report.gates[n]));
+  const degraded = GATE_NAMES.some(
+    (n) => report.gates[n].status === 'degrade',
+  );
+  const status: AifStatus = report.ok ? (degraded ? 'warn' : 'pass') : 'fail';
   return {
     schema_version: 1,
     gate: 'rules',
-    status: report.ok ? 'pass' : 'fail',
+    status,
     blocking: !report.ok,
     blockers,
     affected_files: opts?.affectedFiles ?? [],
     suggested_next: report.ok
-      ? { command: '/aif-commit', reason: 'all rules gates pass' }
+      ? {
+          command: '/aif-commit',
+          reason: degraded
+            ? 'rules gates pass, but some checks were skipped (plugin registry unresolved)'
+            : 'all rules gates pass',
+        }
       : { command: '/aif-fix', reason: `${blockers.length} blocker(s) require resolution` },
   };
 }

@@ -8,6 +8,8 @@
 // pass of fix application leaves the same-rule violation in the output.
 // VALID uses no-var whose one-pass fix cleanly removes all violations.
 
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { runAutofixCleanGate } from './gate-autofix-clean.ts';
 import type { SynthesisPlan } from '../synthesizer/types.ts';
@@ -82,5 +84,61 @@ describe('L4 gate 9 — autofix-clean adversarial corpus (paired bad/valid)', ()
     const result = runAutofixCleanGate(autofixCleanValidPlan);
     expect(result.status).toBe('pass');
     expect(result.failures).toEqual([]);
+  });
+});
+
+// U10 option b (2026-08-17) — the fifth gate carrying the unpublishable static import (the
+// freeze doc's U10 WARNING table listed only four). Same paired shape as the other gates.
+const NO_BARREL = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  'fixtures',
+  'negative-corpus',
+);
+
+describe('L4 gate 9 — plugin registry resolution (U10 option b)', () => {
+  const pluginRulePlan = (): SynthesisPlan => ({
+    framework: 'next',
+    version: '16.0.0',
+    rules: [
+      {
+        id: 'G95',
+        title: 'plugin rule roundtrip',
+        stack: ['react-next'],
+        check: { type: 'eslint', rule: 'rules-as-tests/always-fires' },
+        examples: { bad: 'const x = 1;', good: '// nothing' },
+        'negative-test': { input: ['const x = 1;'], 'expect-violation': 'always' },
+        research: {
+          entryId: 'u10',
+          provenance: [
+            {
+              url: 'https://nextjs.org/docs/app',
+              allowlistKey: 'next.official',
+              fetchedAt: '2026-05-08',
+            },
+          ],
+        },
+      },
+    ],
+    rulesMd: '',
+    eslintConfigSnippet: JSON.stringify({ 'rules-as-tests/always-fires': 'error' }),
+  });
+
+  it('degrades — not n/a, not crash — when the registry is unresolvable', () => {
+    const result = runAutofixCleanGate(pluginRulePlan(), {
+      cwd: NO_BARREL,
+      workspaceSpecifiers: [],
+    });
+    // n/a would be the pre-fix answer shape ("no rule shipped a fixer") and would hide the
+    // fact that the gate never got to look.
+    expect(result.status).toBe('degrade');
+    expect(result.failures).toEqual([]);
+    expect(result.degraded?.[0].code).toBe('FF3022');
+    expect(result.degraded?.[0].ruleId).toBe('G95');
+  });
+
+  it('leaves the resolved path unchanged (no degraded field when the registry resolves)', () => {
+    const result = runAutofixCleanGate(autofixCleanValidPlan);
+    expect(result.status).toBe('pass');
+    expect(result.degraded).toBeUndefined();
   });
 });

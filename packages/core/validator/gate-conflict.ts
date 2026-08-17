@@ -18,19 +18,25 @@
 // reuse the preset rule rules-as-tests/no-server-imports-in-client at
 // 'error' severity, matching preset's intent. Phase 8 may extend this.
 
-import presetPlugin from '@rules-as-tests/preset-next-15-canonical/eslint-rules';
+import {
+  PRESET_PREFIX,
+  degradeFor,
+  gateOutcome,
+  isUnresolvablePluginRule,
+  resolvePluginRegistry,
+  type PresetResolutionOptions,
+} from './preset-plugin-resolver.ts';
 import type { SynthesisPlan } from '../synthesizer/types.ts';
-import type { GateFailure, GateOutcome } from './types.ts';
+import type { GateDegrade, GateFailure, GateOutcome } from './types.ts';
 
-const PRESET_PREFIX = 'rules-as-tests/';
-
-function getPresetRuleNames(): Set<string> {
-  return new Set(Object.keys(presetPlugin.rules));
-}
-
-export function runConflictGate(plan: SynthesisPlan): GateOutcome {
+export function runConflictGate(
+  plan: SynthesisPlan,
+  opts?: PresetResolutionOptions,
+): GateOutcome {
   const failures: GateFailure[] = [];
-  const presetRules = getPresetRuleNames();
+  const degraded: GateDegrade[] = [];
+  const registry = resolvePluginRegistry(opts);
+  const presetRules = new Set(Object.keys(registry.rules));
   const snippet = JSON.parse(plan.eslintConfigSnippet) as Record<string, unknown>;
 
   const checkRuleToSyntId = new Map<string, string>();
@@ -39,8 +45,11 @@ export function runConflictGate(plan: SynthesisPlan): GateOutcome {
     if (rule.check.type !== 'eslint') continue;
     const ruleName = rule.check.rule;
 
-    // (a) plugin rule existence
-    if (ruleName.startsWith(PRESET_PREFIX)) {
+    // (a) plugin rule existence. With the registry unresolved, «not in the registry» says
+    // nothing about the rule — record the skip instead of raising a false orphan (FF3008).
+    if (isUnresolvablePluginRule(ruleName, registry)) {
+      degraded.push(degradeFor('conflict', ruleName, registry, rule.id));
+    } else if (ruleName.startsWith(PRESET_PREFIX)) {
       const bareName = ruleName.slice(PRESET_PREFIX.length);
       if (!presetRules.has(bareName)) {
         failures.push({
@@ -68,7 +77,5 @@ export function runConflictGate(plan: SynthesisPlan): GateOutcome {
     }
   }
 
-  return failures.length === 0
-    ? { status: 'pass', failures: [] }
-    : { status: 'fail', failures };
+  return gateOutcome(failures, degraded);
 }
