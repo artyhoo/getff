@@ -108,7 +108,7 @@ never routed-to by contract; **REJECT** = recorded in SSOT.
 | D-H4 no-rerank | answered 2026-08-17 | landed `09569a30ab` (`/arch` SKILL.md:89) | as recorded in prep |
 | D-H5 claim-first | answered 2026-08-18; mechanics specified round-1 (TD-F5, B-M1/M2) | Two populations, two EXISTING registries: design tickets → wayfinder assignee-claim (native); factory stages → **aif claim task created BEFORE the Phase -1 window** — claim = `paused:true` task (no lane occupied), unpause only on Phase -1 GO, DELETE on RED; real machinery + probe widening + orphan expiry in §5.3. state.md stays the journal; no `Claimed-by:` column (over-design, withdrawn under P-1) | wrong if the widened probe cannot see the claim from every dispatch entry point (P4, restored), or a collision recurs with the claim in place → medium insufficient, revisit (GH issues) |
 | D-H6 wizard first use | answered | generate the §5.1 prune wizard | — |
-| D-H7 incident counter | settled; recording surface pending | counter arm + observation №0 land on SSOT #253 **at contour close** — round-1 measured the row carries no counter text yet (B-M5); until the append lands the counter is aspirational, not armed | 1st real misroute → incident №1 |
+| D-H7 incident counter | **ARMED 2026-08-18** | counter arm + observation №0 APPENDED to SSOT #253 (same commit as spec v3; round-2 caught «armed» being claimed before the append existed — B-R2/TD-R2) | 1st real misroute → incident №1, dated note on #253 |
 | D-H8 plugin fate | answered 2026-08-18; radius narrowed round-1 | keep + prune 2 (F7 selective radius) + counter arms routed (§8 item 5) | ≥3 real misroute incidents → vendor keepers + uninstall |
 | D-H9 orchestrator rewrite | ratified | thin 512-line skill to deltas+bindings (the `/arch` model); factory umbrella (§8) | wrong if re-described slices turn out load-bearing (rewrite reviewer checks) |
 | D-H10 TDD bare-acronym hazard | **DISSOLVED by D-H15** (pruning Matt's `tdd` removes the competing router entry; «following TDD» in SDD's implementer prompt then has one referent) | residual: if P5 fails, revive the dispatch-prompt binding line + project shadow | wrong if P5 shows cache deletion ineffective |
@@ -116,8 +116,8 @@ never routed-to by contract; **REJECT** = recorded in SSOT.
 | D-H12 wayfinder | answered 2026-08-18 | ADOPT verbatim; run `/setup-matt-pocock-skills` once; tracker = local-markdown first (upstream default when unconfigured, wayfinder/SKILL.md:25); GH issues revisited if collaboration appears | wrong if design maps stay ≤2 sessions in practice |
 | D-H13 dependency frontier | ratified; spelling amended round-1 (B-M6) | standardize on the **incumbent `Depends on` column** — 14 tracked kickoffs already carry it (e.g. `arch-v2-context-pipeline/kickoff.md:91`); a second spelling (`Blocked-by:`) for the same edge would be the exact #parallel-evolution-creep this spec kills. `/pipeline` computes the dispatchable frontier mechanically; expand–contract + fog-of-war vocabulary into `meta-kickoff.template.md` (no `kickoff.template.md` exists) | wrong if real umbrellas are overwhelmingly linear |
 | D-H14 seams slot | ratified | `Testing seams` slot in the spec-template obligation (`/arch` §1); «seams: n/a — doc artifact» is a legitimate answer; self-applied in §7 | wrong if the slot is n/a in ~all meta-factory specs for 6 months → demote to optional line |
-| D-H15 prune doctrine | **NEW, ratified 2026-08-18**; radius + detector amended round-1 | operator-run idempotent prune script + **2-item list** (§5.1; radius narrowed to machine-globally-justified collisions — operator's F7 answer, P-1 concession on the merits); `--check` drift detector wired as a pre-push section (TD-F2); motive = misrouting (P2), not tokens (budget-capped, P6+fetch); total sweep REJECTED; anthropic-skills untouched (needed globally; per-project plugin scoping does not exist — P6, feature request open; **its arrival = revisit trigger, dissolves the radius dilemma**) | wrong if P5 shows deletion doesn't survive, the `--check` section stays silent through a plugin update, or router still lists pruned skills → fallback mechanism 6 |
-| D-H16 plugin in aif container | **NEW, ratified 2026-08-18** | install mattpocock-skills in the aif runtime (executor toolkit: grilling, domain-modeling); §5.1 prune list applied **at plugin-install time in the container image/config** — the host pre-push `--check` cannot see the container cache (round-1 note) | — |
+| D-H15 prune doctrine | **NEW, ratified 2026-08-18**; radius + detector amended round-1 | operator-run idempotent prune script + **2-item list** (§5.1; radius narrowed to machine-globally-justified collisions — operator's F7 answer, P-1 concession on the merits); `--check` drift detector as an `owner: 'maintainer'` pre-push registry section (TD-F2; channel corrected round-2 — §5.1); motive = misrouting (P2), not tokens (budget-capped, P6+fetch); total sweep REJECTED; anthropic-skills untouched (needed globally; per-project plugin scoping does not exist — P6, feature request open; **its arrival = revisit trigger, dissolves the radius dilemma**) | wrong if P5 shows deletion doesn't survive, the `--check` section stays silent through a plugin update, or router still lists pruned skills → fallback mechanism 6 |
+| D-H16 plugin in aif container | ratified 2026-08-18; **build item DISSOLVED round-2** | the container already mounts the operator's `~/.claude/plugins` read-only (aif-handoff local `docker-compose.override.yml`, both container-home and host-absolute paths) — mattpocock is visible to executors NOW, and the §5.1 prune/`--check` cover the container by construction (one cache). Residue: one-time verification in a container session (§5.6) | wrong if a container session's listing lacks the plugin skills → the mount premise broke, re-open |
 | D-H17 map completion | **round-1 (TD-F3), per ratified criteria** | the two model-invocable skills the map missed: `codebase-design` → REFERENCE, cache-resident under the D-H7 counter (collides with D-H11/D-H14 vocabulary but is repo-locally justified only — F7 radius keeps it; no ADOPTED skill invokes it, measured); `prototype` → KEEP (wayfinder ticket dependency, mirror of `research`) | wrong if a live `codebase-design` misroute lands → escalate per D-H8 arm |
 | D-H18 consumer-axis satellites | **NEW 2026-08-18 (P-7), routed out** | when satellite stacks ship to consumers, the collision problem ships too (per-project scoping absent, P6). SEPARATE design contour — chip emitted (§8 item 6); this spec deliberately does not price it | contour opens with its own prep; wrong if consumer shipping never happens (chip expires unused) |
 
@@ -138,16 +138,22 @@ skills may be useful in the operator's other projects. Criterion unchanged
 radius is a second filter on top, not a criterion change. Slash-only skills are never
 pruned (no router presence, no listing cost).
 
-**Drift detector (TD-F2):** the script gains `--check` (report-only; non-zero exit when a
-pruned skill is back in the cache), wired as a `.husky/pre-push` section. Pre-push runs on
-the machine that owns the cache — the earliest **mechanically reachable** channel for a
-machine-global artifact (CI cannot see `~/.claude`). A plugin update that restores pruned
-dirs turns the next push RED with a re-run instruction, replacing «the operator
-remembers». This also narrates the prep-verdict overturn the spec previously skipped
-(prep:268 ruled cache-editing «NOT a mechanism» because updates overwrite it — the
-detector + the D-H15 falsifier are exactly what convert it into one). Container half:
-§5.6 applies the prune at plugin-install time (host pre-push cannot see the container
-cache). Residue (T18, TD-F8): Matt's local in-progress-conflict walkthrough is lost with
+**Drift detector (TD-F2; channel corrected round-2):** the script gains `--check`
+(report-only; non-zero exit when a pruned skill is back in the cache), wired as an
+**`owner: 'maintainer'` section in the `packages/core/hooks/pre-push.ts` section
+registry** — that file ships verbatim to consumers, but the registry's composition rule
+guarantees a maintainer-only section is NEVER composed on a consumer layout
+(`pre-push.ts:679-687`, fail-closed on absent/invalid owner), so the operator-axis fence
+holds. (`.husky/pre-push` itself is a dispatcher that `exec`s the TS hook and holds no
+sections — round-2 correction.) Pre-push runs on the machine that owns the cache — the
+earliest **mechanically reachable** channel for a machine-global artifact (CI cannot see
+`~/.claude`). A plugin update that restores pruned dirs turns the next push RED with a
+re-run instruction, replacing «the operator remembers». This also narrates the
+prep-verdict overturn the spec previously skipped (prep:268 ruled cache-editing «NOT a
+mechanism» because updates overwrite it — the detector + the D-H15 falsifier are exactly
+what convert it into one). Container half: dissolved round-2 — the container mounts the
+HOST cache read-only (§5.6), so the prune and the `--check` cover it by construction.
+Residue (T18, TD-F8): Matt's local in-progress-conflict walkthrough is lost with
 prune #2; [git-conflict-merge-forward.md](../../../.claude/rules/git-conflict-merge-forward.md)
 covers the published-PR class only — the local-merge class is accepted uncovered
 (restore = one plugin reinstall). First delivery = a `wizard`-generated walkthrough
@@ -204,16 +210,21 @@ confirmed at spec time («prefer existing seams; ideal number is one»); «n/a �
 artifact» legitimate. This also makes the seams half of Matt's tdd coherent for executors
 without importing his refactor placement.
 
-### 5.6 Satellite toolkit in aif (D-H16)
+### 5.6 Satellite toolkit in aif (D-H16 — build item DISSOLVED round-2)
 
-Install mattpocock-skills into the **aif runtime image/config** (the aif-handoff side —
-the same operator-axis surface through which superpowers reaches the container), applying
-the §5.1 prune list **at install time** (the host pre-push `--check` cannot see the
-container cache). Explicit non-target (B-M3): `setup.d/companions.manifest` — that file
-is the consumer-shipped `./setup` flow (its superpowers row is how superpowers reaches
-CONSUMERS); adding a mattpocock row there would silently cross the §1 operator-axis
-boundary. The plugin is the executor's *client* toolkit; it is NOT the claim mechanism
-(that is §5.3). Consumer-axis satellite shipping is D-H18's separate contour.
+Measured round-2: superpowers reaches the container not by install but by **read-only
+mounts of the operator's host cache** — aif-handoff's local `docker-compose.override.yml`
+(agent service) mounts `~/.claude/plugins` at BOTH the container-home path and the
+host-absolute path (the latter so `known_marketplaces.json` install locations resolve).
+mattpocock-skills, installed in the same host cache, is therefore **already visible to
+container executors**, and the §5.1 prune + `--check` cover the container by
+construction — same files, one cache. D-H16 reduces to a one-time verification (confirm
+the skills appear in a container session's listing), not a build. Explicit non-target
+(B-M3): `setup.d/companions.manifest` — that file is the consumer-shipped `./setup` flow
+(its superpowers row is how superpowers reaches CONSUMERS); adding a mattpocock row there
+would silently cross the §1 operator-axis boundary. The plugin is the executor's *client*
+toolkit; it is NOT the claim mechanism (that is §5.3). Consumer-axis satellite shipping
+is D-H18's separate contour.
 
 ## §6 Probe register (facts; all sources dated)
 
@@ -254,8 +265,10 @@ was «not yet dispatched» while this section already leaned on it, recorded as 
 
 ## §8 Routed work inventory (input to `/arch` §3 exit routing — NOT yet routed)
 
-1. Operator, no build: run P5; run §5.1 prune (wizard-assisted, 2-item list); install
-   plugin in aif (§5.6). **Re-bucketed round-1 (TD-F4):** `/setup-matt-pocock-skills` is
+1. Operator, no build: run P5; run §5.1 prune (wizard-assisted, 2-item list); one-time
+   verification that plugin skills list inside a container session (§5.6 — the install
+   item dissolved round-2, the mount already delivers them). **Re-bucketed round-1
+   (TD-F4):** `/setup-matt-pocock-skills` is
    NOT «no build» — its process explores/writes `AGENTS.md` (gate-bearing: every claim
    carries a live-fired enforcement status), `CLAUDE.md` (agent-read-only per the
    Artifact Ownership Contract) and `docs/adr/` (D-H11 REJECT). Run it as an ATTENDED
@@ -264,17 +277,19 @@ was «not yet dispatched» while this section already leaned on it, recorded as 
    diff before committing.
 2. Small in-session edits: `/arch` §1 seams slot (§5.5); `/ai-doc` ownership note (§3);
    REFERENCE note in `/rule-tests` (D-H2 transfer (b); transfer (c) dissolved — B-M4).
-3. Factory umbrella «skill-harmonization-mechanisms»: §5.1 script + `--check` + pre-push
-   section + wizard; §5.2 principle test (non-duplicate verified round-1: the lychee gate
+3. Factory umbrella «skill-harmonization-mechanisms»: §5.1 script + `--check` as an
+   `owner: 'maintainer'` pre-push registry section + wizard; §5.2 principle test
+   (non-duplicate verified round-1: the lychee gate
    runs without `--include-fragments`, so anchors are unchecked today); §5.3 four-part
    claim machinery (runtime-bridge split, `/pipeline` Step 3 reorder, probe claim signal,
    orphan expiry); §5.4 pipeline frontier on `Depends on` + `meta-kickoff.template.md`
    vocabulary. Each build item passes the kickoff-time prior-art consult
    (EXECUTION-PLAN §5.5 Step 1.5 — TD-F9).
 4. Separate factory umbrella: D-H9 orchestrator rewrite (deltas+bindings).
-5. SSOT entries: REJECT rows (Matt `implement`, ADR directory, severity-less review model,
-   total-sweep pruning) + the D-H7/D-H8 counter arms on #253 — **to append at contour
-   close; not yet present in the row (B-M5)**.
+5. SSOT entries: **DONE 2026-08-18 in-session** — REJECT rows #254-257 (Matt `implement`,
+   ADR directory, severity-less review model, total-sweep pruning) + the D-H7/D-H8
+   counter arm appended to #253 (same commit as spec v3; closes B-M5 and the round-2
+   «armed before the append» catch).
 6. Separate design contour (P-7/D-H18, chip emitted 2026-08-18): consumer-axis satellite
    harmonization — how shipped satellite stacks and consumer-side skill collisions
    coexist when per-project plugin scoping does not exist.
@@ -322,3 +337,18 @@ was «not yet dispatched» while this section already leaned on it, recorded as 
     not-yet-run review recorded there; prep §4.5 THIN-verdict transfer is lossy by
     design — only D-H9/D-H13 carried forward, the rest closed with the prep (deliberate,
     now recorded).
+- 2026-08-18 — v3: round 2 (both seats REVISE on v1→v2 delta; all round-1 closures
+  confirmed at both altitudes). Dispositions:
+  - **TD-R2-1 / B-R2-1** (MAJOR, convergent) FIXED — the `--check` channel corrected:
+    `.husky/pre-push` is an `exec` dispatcher with no sections, and
+    `packages/core/hooks/pre-push.ts` ships to consumers (install.sh Core-hooks block);
+    the section lands as `owner: 'maintainer'` in the pre-push section registry, which
+    never composes maintainer sections on a consumer layout (fail-closed) — §5.1, D-H15.
+  - **B-R2-2** (MAJOR) DISSOLVED — §5.6's install surface was indeed absent because none
+    is needed: the container mounts the host `~/.claude/plugins` read-only (aif-handoff
+    local `docker-compose.override.yml`), so the plugin is already visible and the prune
+    covers the container by construction; D-H16's build item dissolved to a verification.
+  - **TD-R2-2 / B-R2-3** (MAJOR, convergent) FIXED — «counter armed» made true instead of
+    re-worded: the D-H7/D-H8 arm + observation №0 appended to SSOT #253 and REJECT rows
+    #254-257 added, in the same commit as this entry; D-H7 status now ARMED with the
+    append as evidence.
