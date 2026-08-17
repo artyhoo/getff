@@ -100,13 +100,45 @@ first=$(head -n1 "$FILE_PATH" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//
 [ "$first" = '<!-- bridge: auto -->' ] || exit 0
 
 # ── Locate repo root + entrypoint ────────────────────────────────────────────
+# Two-tier resolution, framework first, vendor second. This same file ships to BOTH
+# audiences (framework repo via .claude/hooks/, consumer via the vendor drop at
+# setup.d/55-runtime-bridge-vendor.sh), and the two layouts put dispatch.ts in
+# different places — a single hardcoded path is wrong for exactly one of them.
+#
+# It was wrong for the consumer: the single-path form resolved only
+# `packages/runtime-bridge/src/cli/dispatch.ts`, which no consumer install has (the
+# vendor drop lands at `.claude/vendor/runtime-bridge/`). The `! -f` branch below then
+# exited 0 with a comment claiming the consumer had «opted out» — but a factory-profile
+# consumer opted IN, got the vendor copy, and still saw a silent no-op. Measured
+# 2026-08-17 on a real `install.sh ts-server --full --force --profile factory` fixture:
+# hook fired, found nothing, exited 0 silently; symlinking the vendor dir onto the
+# framework path made the very same hook dispatch successfully. Same defect class as the
+# per-file allowlist audit that surfaced it (a shipped artefact addressing a
+# framework-only path), but in executable code rather than prose.
+#
+# Tier order is framework-first so the framework repo — where BOTH paths can exist once a
+# vendor copy is present in-tree — keeps dispatching through its own source of truth.
+# Mirrors the `_resolve_tsx` tier-list precedent (.claude/hooks/check-doc-authority.sh,
+# PR #1126): try each candidate, use the first that exists, announce nothing on success.
 REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
-DISPATCH_TS="$REPO_ROOT/packages/runtime-bridge/src/cli/dispatch.ts"
 
-if [[ ! -f "$DISPATCH_TS" ]]; then
-  # Graceful no-op if package not installed (consumer opted out of runtime-bridge)
+_resolve_dispatch_ts() {
+  local candidate
+  for candidate in \
+    "$REPO_ROOT/packages/runtime-bridge/src/cli/dispatch.ts" \
+    "$REPO_ROOT/.claude/vendor/runtime-bridge/src/cli/dispatch.ts"; do
+    [[ -f "$candidate" ]] && { printf '%s' "$candidate"; return 0; }
+  done
+  return 1
+}
+
+DISPATCH_TS="$(_resolve_dispatch_ts)" || {
+  # Genuine no-op: neither the framework package nor the vendor drop is present, so the
+  # consumer really did opt out of runtime-bridge (no `--profile factory`, no
+  # `--with-aif-suite`). Silent by design — a project without the bridge should not be
+  # nagged on every kickoff write.
   exit 0
-fi
+}
 
 # ── Invoke dispatch entrypoint ────────────────────────────────────────────────
 # Use tsx (TypeScript executor) if available; fall back to node with --loader.
