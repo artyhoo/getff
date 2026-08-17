@@ -200,9 +200,11 @@ a runtime dependency. Binding order: fix #934 → move.
 order: fix the §4B ref first), fork 3 (invitation for the marker fix).
 
 **Ratification (2026-08-17, later same session):** the operator approved D1-D5 for
-implementation («го так сделаем как ты сразу решил»). Implementation routed via dispatch
-chips (one click = one session), NOT via autonomous PRs — the PR pause governs each chip
-session's own merge step. Sequencing inside the approved scope:
+implementation («го так сделаем как ты сразу решил»). Implementation route CHANGED by the
+operator later the same day: NOT the dispatch chip (dismissed) — the operator continues
+in this worktree with a fresh Opus context; the execution brief is
+[impl-handoff.md](impl-handoff.md). The /arch re-review chip stays. Sequencing inside the
+approved scope:
 (1) unblocked slice — orchestrator into `GETFF_SKILLS_ENV`, the D6.1/D6.2 stale-ref repairs,
 the hooks PROFILE-gate check, the §4B pipeline ref fix; (2) night-mode move gated on its
 degradation work (D4); (3) story move gated on #934 (D5).
