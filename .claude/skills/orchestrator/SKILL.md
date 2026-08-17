@@ -13,7 +13,7 @@ when_to_use: оркестратор, организатор, ты старшая
 # Orchestrator — the senior coordinates, juniors execute and verify
 
 > **Authoritative for:** the operator-side orchestration workflow — Mode A/B dispatch choice, the task-size decision matrix, quota zones, the Phase -1 → Phase 4.5 phase sequence, and the Queue-mode entry conditions.
-> **NOT authoritative for:** the portable worker-discipline subset that travels into aif containers — see [packages/core/templates/shared/skill-context/aif-orchestrator-discipline/SKILL.md](../../../packages/core/templates/shared/skill-context/aif-orchestrator-discipline/SKILL.md). Stage execution through the aif loop — see [dispatcher](../dispatcher/SKILL.md). Umbrella priority and launch tables — see [pipeline](../pipeline/SKILL.md). Project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists).
+> **NOT authoritative for:** the portable worker-discipline subset that travels into aif containers — see [packages/core/templates/shared/skill-context/aif-orchestrator-discipline/SKILL.md](../../../packages/core/templates/shared/skill-context/aif-orchestrator-discipline/SKILL.md). Stage execution through the aif loop — see the `dispatcher` skill, which ships only at factory depth (`setup.d/lib.sh` `GETFF_SKILLS_FACTORY`); linkless on purpose, because this skill ships one tier lower and a relative sibling link would dangle on an env install. Umbrella priority and launch tables — see [pipeline](../pipeline/SKILL.md). Project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists).
 
 ## Without this skill
 

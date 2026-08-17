@@ -72,14 +72,31 @@ fi
 #                      verify it in single-rule isolation (mirror pair to rule-research; the write
 #                      half is agents/rule-test-author.md). Consumer-facing by design.
 #
-# CONTOUR SURFACE (env+ — ships at PROFILE=env or factory, NOT core; spec A8 binding):
+# CONTOUR SURFACE (env+ — ships at PROFILE=env or factory, NOT core; spec A8 binding). This is
+# the operator's working contour («harness» in the D1 three-part model, 2026-08-17): core ⊂
+# harness ⊂ factory, so factory consumers receive it too:
 #   - arch           — the architecture-design skill that produces the contour. Pairs with the
 #                      AIF operator suite at factory, but is itself consumer-facing at env+ (a
 #                      consumer running their own architecture cycle benefits without the AIF
 #                      operator runtime). depth-per-skill: env+ (S5 kickoff §2 binding #3).
+#   - orchestrator   — delegation/batch coordination (Mode A/B, Queue mode, quota zones,
+#                      Phase -1 cold kickoff read). Vendored into the repo by #1420 yet listed
+#                      in NO tier until 2026-08-17 — the same missed-delivery shape reviewer had
+#                      before #1432, not a deliberate exclusion. Runtime coupling ≈0 (one
+#                      aif mention in SKILL.md, zero across references/*.md), so env is the
+#                      right depth: it wraps `superpowers:*` companions and degrades without
+#                      the aif runtime. Its `](../dispatcher/SKILL.md)` ref is factory-tier and
+#                      therefore dangles at env — same pre-existing shape as pipeline/SKILL.md:366
+#                      and arch/SKILL.md:24 (→ night-mode); tracked with D4, not fixed here.
+#   - pipeline       — the planner (/pipeline): umbrella triage, priority ranking, plan/state.md.
+#                      env+, not factory: the design SSOT defines the env depth as carrying
+#                      «pipeline presets, status, …» verbatim
+#                      (docs/superpowers/specs/2026-07-23-beta-program-design.md:211).
+#   - reviewer       — interactive GO/REVISE/STOP verdict seat. Joined env 2026-08-17 (#1432):
+#                      arch/SKILL.md:94 promises consumers that in-repo `/reviewer` loads the
+#                      project skill, a promise that dangled while reviewer sat in no tier.
 #
 # AIF operator SUITE (factory only — presupposes the aif-handoff runtime):
-#   - pipeline      — the planner (/pipeline): umbrella triage, priority ranking, plan/state.md.
 #   - dispatcher    — pipeline's execution companion: dispatches a chosen umbrella's stages
 #                     through the aif-control loop the ./setup runtime-bridge step installs.
 #   - aif-doctor    — diagnoses that same aif-handoff runtime when a task stalls / runtime breaks.

@@ -367,8 +367,9 @@ project/
 │   │                                    --profile factory. best-practices-sidecar is AIF's, not ours.)
 │   └── skills/                        ← 6 dirs at every depth: getff, tool-bootstrapping,
 │       │                                rule-research, rule-tests, ai-doc, template-audit.
-│       │                                (+ arch at env; + pipeline, dispatcher, harvest, aif-doctor,
-│       │                                night-mode, story, claude-glm-executor-handoff at factory.)
+│       │                                (+ arch, orchestrator, pipeline, reviewer at env;
+│       │                                + dispatcher, harvest, aif-doctor, night-mode, story,
+│       │                                claude-glm-executor-handoff at factory.)
 │       └── getff/references/          ← 5 docs, loaded on demand
 │           ├── checks-map.md
 │           ├── overview.md
@@ -447,7 +448,7 @@ bash /path/to/getff/install.sh --refresh
 Framework-owned artefacts the consumer is **not** expected to edit in place:
 
 - `.claude/agents/*.md` — sub-agent prompts
-- `.claude/skills/` — the 6-dir core set (getff, tool-bootstrapping, rule-research, rule-tests, ai-doc, template-audit), refreshed at every depth. The deeper tiers follow the profile-OR-presence rule above: the env+ contour surface (`arch`, `pipeline`) under `--profile env`/`factory`; the AIF operator suite — 6 skills (dispatcher, aif-doctor, harvest, night-mode, story, claude-glm-executor-handoff) + 2 agents (orchestrator-worker-discipline, reviewer-discipline) + their aif-orchestrator-discipline skill-context — under `--profile factory` (or the legacy `--with-aif-suite` / `--all` escapes). Either tier also keeps refreshing when already present on disk (prior opt-in), and is never created on a shallower profile.
+- `.claude/skills/` — the 6-dir core set (getff, tool-bootstrapping, rule-research, rule-tests, ai-doc, template-audit), refreshed at every depth. The deeper tiers follow the profile-OR-presence rule above: the env+ contour surface — 4 skills (`arch`, `orchestrator`, `pipeline`, `reviewer`) — under `--profile env`/`factory`; the AIF operator suite — 6 skills (dispatcher, aif-doctor, harvest, night-mode, story, claude-glm-executor-handoff) + 2 agents (orchestrator-worker-discipline, reviewer-discipline) + their aif-orchestrator-discipline skill-context — under `--profile factory` (or the legacy `--with-aif-suite` / `--all` escapes). Either tier also keeps refreshing when already present on disk (prior opt-in), and is never created on a shallower profile.
 - `.claude/hooks/deps-hash-check.sh` — session hook
 - `scripts/*.sh`, `scripts/audit-r4.ts` — audit gate scripts
 - `packages/core/hooks/` — TS pre-push pipeline
