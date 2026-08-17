@@ -546,6 +546,11 @@ jobs:
       # regeneration-safe (the arm was lost exactly once nobody ran this).
       - name: Run plugin end-of-turn-reminder ZCode multi-turn arm test
         run: bash tests/plugin/end-of-turn-reminder-zcode.test.sh
+      # The generator's fail-closed guard. twin-generation.test.sh checks byte-identity AFTER a
+      # regeneration, so it reports GREEN on a twin that was just silently clobbered; this one
+      # covers the write itself. Sandboxed (throwaway clones), so it never touches the live tree.
+      - name: Run plugin twin clobber guard test
+        run: bash tests/plugin/twin-clobber-guard.test.sh
       # aif-doctor pair: both stub docker/gh explicitly and carry an in-file
       # "ENVIRONMENT-INDEPENDENCE PROOF" (must pass with real docker on PATH), so they are
       # hermetic on a clean runner — verified locally at 9/9 and 5/5.
