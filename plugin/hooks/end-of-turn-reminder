@@ -167,17 +167,34 @@ session_id=$(echo "$input" | jq -r '.session_id // "nosession"' 2>/dev/null || e
 # subagent-heavy ones. Context size = input_tokens + cache_read_input_tokens +
 # cache_creation_input_tokens on that entry (jq-over-transcript precedent: the anchor grep).
 #
-# Window resolution: .message.model on the same entry → table, `unknown → 200k` conservative
-# fallback, PLUS the self-evident override "observed usage > 200k ⇒ 1M window". HONEST LIMIT:
-# the 1M window is opt-in per request and the transcript does not record the request, so the
-# table gives an upper bound — window discrimination is not *reliably* available here.
+# Window resolution: `AIF_CTX_WINDOW=<n>` if declared, else 1000000. The transcript records
+# usage but NOT the request, so the window is never observable here — it can only be assumed
+# or declared, and the assumption must match the environment the hook actually runs in.
+# The default is 1M because that is what this operator's Claude Code runs everywhere; a
+# consumer on a smaller window declares it via the env var.
 #
-# Thresholds are PROVISIONAL PARAMETERS under test — D9 (context-degradation-calibration)
-# calibrates: T_soft(200k) = 70% ≈ 140k; T_soft(1M) = 300k (operator floor); 1M working
-# ceiling ≈ 500k (mechanical tails only past T_soft).
+# HISTORY — why the old heuristic was removed (do not restore it): the previous form defaulted
+# to 200k and promoted to 1M only on a `[1m]`/`-1m` marker in `.message.model`, or once observed
+# usage had already passed 200k. Current model ids carry no such marker (`claude-fable-5`), so
+# every session resolved to 200k and the 70% tier fired from 140k with ~860k of headroom left.
+# Measured cost: three wrong session stops at ~155k on 2026-08-16, one more at ~150k on
+# 2026-08-17. The model-id table is gone with it — against a 1M default those markers can only
+# confirm what is already assumed, so they carried no information while implying a
+# discrimination the transcript cannot support. The NEW honest limit: a consumer whose window
+# is genuinely smaller and who does not declare `AIF_CTX_WINDOW` is warned late, not early.
+#
+# Floors are window-DERIVED, so both calibrated points survive one formula (D9 /
+# context-degradation-calibration owns the numbers; none moved here):
+#   soft = min(300000, 70% of window)   → 1M: 300000 (operator floor);  200k: 140000
+#   deep = min(500000, 90% of window)   → 1M: 500000 (mechanical tails); 200k: 180000
+# T_soft(200k)=140k is therefore RETAINED — but only reachable when the small window is
+# DECLARED, never assumed. Kept-in-place: the self-evident override — observed usage above the
+# declared window proves the declaration wrong, so it falls back to the 1M default.
 #
 # Debounce: once per session per tier via ${TMPDIR:-/tmp}/aif-ctx-<session_id>-<tier>
-# (guarded expansion — set -euo pipefail; story-flag precedent below). Known limitation,
+# (guarded expansion — set -euo pipefail; story-flag precedent below). Tiers renamed
+# `1m-soft`/`1m-deep`/`200k-soft` → `soft`/`deep`: the old labels named a fixed window, the
+# floors no longer do. Known limitation,
 # accepted: after an auto-compact the flag stays spent, so a re-climbing 200k session is
 # covered by D8's PreCompact snapshot (S2b), not a second reminder.
 #
@@ -194,23 +211,26 @@ if [ -n "$ctx_entry" ]; then
      + (.message.usage.cache_read_input_tokens // 0)
      + (.message.usage.cache_creation_input_tokens // 0))' 2>/dev/null || echo 0)
   case "$ctx_tokens" in '' | *[!0-9]*) ctx_tokens=0 ;; esac
-  ctx_model=$(printf '%s' "$ctx_entry" | jq -r '.message.model // ""' 2>/dev/null || echo "")
-  ctx_window=200000
-  case "$ctx_model" in
-    *'[1m]'* | *-1m*) ctx_window=1000000 ;;
-  esac
-  if [ "$ctx_tokens" -gt 200000 ]; then
+  ctx_window="${AIF_CTX_WINDOW:-1000000}"
+  # A junk or zero declaration is worse than no declaration: it would silence the arm forever
+  # (0% floors) or fire it on every turn. Fall back to the default rather than trusting it.
+  case "$ctx_window" in '' | *[!0-9]* | 0) ctx_window=1000000 ;; esac
+  if [ "$ctx_tokens" -gt "$ctx_window" ]; then
     ctx_window=1000000
   fi
+  # Floors are `min(absolute, share-of-window)`; the `-lt 1` clamp keeps an absurdly small
+  # declaration (AIF_CTX_WINDOW=1) from producing a 0 floor that fires on every single turn.
+  ctx_soft=$(( ctx_window * 70 / 100 ))
+  if [ "$ctx_soft" -gt 300000 ]; then ctx_soft=300000; fi
+  if [ "$ctx_soft" -lt 1 ]; then ctx_soft=1; fi
+  ctx_deep=$(( ctx_window * 90 / 100 ))
+  if [ "$ctx_deep" -gt 500000 ]; then ctx_deep=500000; fi
+  if [ "$ctx_deep" -lt 1 ]; then ctx_deep=1; fi
   ctx_tier=""
-  if [ "$ctx_window" -eq 1000000 ]; then
-    if [ "$ctx_tokens" -ge 500000 ]; then
-      ctx_tier="1m-deep"
-    elif [ "$ctx_tokens" -ge 300000 ]; then
-      ctx_tier="1m-soft"
-    fi
-  elif [ "$ctx_tokens" -ge 140000 ]; then
-    ctx_tier="200k-soft"
+  if [ "$ctx_tokens" -ge "$ctx_deep" ]; then
+    ctx_tier="deep"
+  elif [ "$ctx_tokens" -ge "$ctx_soft" ]; then
+    ctx_tier="soft"
   fi
   if [ -n "$ctx_tier" ]; then
     ctx_flag="${TMPDIR:-/tmp}/aif-ctx-${session_id}-${ctx_tier}"
