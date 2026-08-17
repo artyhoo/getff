@@ -1,8 +1,8 @@
 # Three-stack skill harmonization — design (ours × superpowers × mattpocock-skills)
 
-> **Status:** IN REVIEW 2026-08-18 — interview complete (frontier empty); §2 cold
-> two-altitude review round 1 landed (both seats REVISE — dispositions in §9); round 2
-> delta review pending — see the companion handoff
+> **Status:** REVIEWED — GO 2026-08-18 (§2 cold two-altitude review, 3 rounds, both
+> seats GO on the round-3 delta; dispositions in §9); §3 exit routing executed — see
+> the companion handoff
 > [2026-08-18-skill-harmonization-handoff.md](2026-08-18-skill-harmonization-handoff.md).
 > **Authoritative for:** the ratified capability-ownership map (§3), the decision register
 > (§4), the mechanism set (§5), the probe register (§6), the testing-seams slot (§7).
@@ -352,3 +352,13 @@ was «not yet dispatched» while this section already leaned on it, recorded as 
     re-worded: the D-H7/D-H8 arm + observation №0 appended to SSOT #253 and REJECT rows
     #254-257 added, in the same commit as this entry; D-H7 status now ARMED with the
     append as evidence.
+- 2026-08-18 — round 3 (targeted delta): **both seats GO.** Top-down verified the
+  maintainer-section leak-guard at source (`pre-push.ts:1674-1689`) plus the CI net
+  against a mis-tagged owner (`principles/32-prepush-section-owner.test.ts`); bottom-up
+  verified the registry property verbatim (`pre-push.ts:679-687`), the shipping path
+  (`setup.d/50-hooks.sh:27`), the container mounts
+  (`docker-compose.override.yml:17,18,23`) and the SSOT append (grep now hits; rows
+  #254-257 well-formed). One new MINOR, notes lane, ACCEPTED as a recorded limit: the
+  container premise rests on an UNTRACKED local `docker-compose.override.yml` in the
+  aif-handoff repo — one-time verification only; already covered by D-H16's falsifier
+  (empty container listing → re-open). Contour proceeds to §3 exit routing.
