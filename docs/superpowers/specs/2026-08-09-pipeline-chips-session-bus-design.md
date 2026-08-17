@@ -190,8 +190,20 @@ the first chip that reaches a click with a gate missing from its prompt. **Falsi
 the current bound:** wrong if some existing channel does inspect a chip payload before
 dispatch — re-verified 2026-08-17, `grep -rn 'spawn_task' .claude/hooks/ .claude/settings.json
 packages/core/hooks/` returns nothing and the only PreToolUse matchers registered are
-`AskUserQuestion` and `Agent|Task`. **Open, out of this PR's scope:** the night-end and
-continuation chips are asserted by nothing — surfaced, not fixed here (one concern per PR).
+`AskUserQuestion` and `Agent|Task`.
+
+**The last two emitters — RESOLVED 2026-08-17, split verdict.** These families pin emitter TEXT,
+never a payload (above), so gate-lessness is not the predicate — severity-of-loss × exposure is.
+**`night-mode` → ASSERTED** by a fourth family, `NIGHT_CHIP_REQUIRED_SUBSTRINGS` (terminal-ONLY
+restriction · capability gate · chip identity · stranded-chip `dismiss_task`): invariants no
+other family holds, the one emitter firing UNATTENDED, live (13 commits since 2026-06-01).
+**[seat-lifecycle.md](../../../.claude/rules/seat-lifecycle.md) → NOT asserted, nor is its
+owner the fix:** a BINDING owned by [v2 §4](2026-08-09-session-bus-v2.md), whose own
+`#fifth-description-of-the-loop` anti-pattern forbids carrying owner detail, so pinning
+substrings there turns a pointer into a restatement; the line adds no restriction of its own,
+has one commit ever, does not ship, and its owner is a spec, not work-time emitter instructions.
+**Falsifier:** wrong if that line gains a restriction its owner lacks, or if `night-mode`'s
+clause proves immovable across a year (then the family was pure cost).
 
 ### D2 — Chips are additive, capability-gated, ephemeral-honest
 
