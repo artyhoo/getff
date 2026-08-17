@@ -260,6 +260,100 @@ case " $neg_missing " in
   *)           bad "neg: gate stayed green with '$probe' dropped from refresh → set-difference is VACUOUS" ;;
 esac
 
+# ── Check: the worktree-scripts list is duplicated, so assert the duplication ────────────────────
+# setup.d/85-worktree-scripts.sh owns WORKTREE_SCRIPTS on the install path; do_refresh cannot read
+# that array (the module is sourced only during install), so install.sh repeats the names. The
+# set-difference check above only sees the truncated "scripts/" token for both sides, so it cannot
+# catch a per-script divergence: adding a 5th script to the delivery array while forgetting the
+# refresh loop would stay GREEN. This check closes that hole by comparing the two lists directly.
+WT_MODULE="$REPO_ROOT/setup.d/85-worktree-scripts.sh"
+if [ -f "$WT_MODULE" ]; then
+  deliver_list=$(awk '/^WORKTREE_SCRIPTS=\(/{f=1;next} f&&/^\)/{exit} f{print}' "$WT_MODULE" \
+    | grep -oE '[A-Za-z0-9._-]+\.sh' | sort -u)
+  refresh_list=$(refresh_body \
+    | awk '/for _ws in /{sub(/.*for _ws in /,""); sub(/; do.*/,""); print}' \
+    | tr ' ' '\n' | grep -oE '[A-Za-z0-9._-]+\.sh' | sort -u)
+  if [ -z "$deliver_list" ]; then
+    bad "worktree-scripts parity: could not parse WORKTREE_SCRIPTS from 85-worktree-scripts.sh (gate broke)"
+  elif [ -z "$refresh_list" ]; then
+    bad "worktree-scripts parity: do_refresh has no '_ws' loop — the four scripts are not refreshed"
+  elif [ "$deliver_list" = "$refresh_list" ]; then
+    ok "worktree-scripts parity: do_refresh refreshes exactly the set 85-worktree-scripts.sh delivers"
+  else
+    bad "worktree-scripts parity: delivery/refresh lists DIVERGE — delivered=[$(echo "$deliver_list" | tr '\n' ' ')] refreshed=[$(echo "$refresh_list" | tr '\n' ' ')]"
+  fi
+  # neg — drop one name from the refresh side and prove the comparison flags it (non-vacuous).
+  one=$(printf '%s\n' "$refresh_list" | head -1)
+  if [ "$(printf '%s\n' "$refresh_list" | grep -vxF "$one")" = "$deliver_list" ]; then
+    bad "neg (worktree-scripts parity): dropping '$one' left the lists equal → comparison is VACUOUS"
+  else
+    ok "neg (worktree-scripts parity): dropping '$one' from the refresh list flips the comparison (non-vacuous)"
+  fi
+else
+  bad "worktree-scripts parity: setup.d/85-worktree-scripts.sh absent — delivery site moved, update this gate"
+fi
+
+# ── Check: skill-slug tier lists are an SSOT both arms READ (#1312) ──────────────────────────────
+# The install arm (setup.d/10-skills.sh) and the refresh arm (do_refresh) each iterate a set of
+# `.claude/skills/` slugs per depth tier. While both hard-coded their own copy, the two drifted
+# three times (#1312: `arch` in no refresh loop at all, `rule-tests` announced-then-skipped,
+# `claude-glm-executor-handoff` install-only) — and a name-comparison gate would keep re-deriving
+# what one shared list makes impossible. So the lists live in setup.d/lib.sh as GETFF_SKILLS_*
+# constants and this check asserts the structure that removes the drift class:
+#   (a) both arms REFERENCE every tier constant lib.sh defines (a new tier cannot reach one arm
+#       only), and (b) neither arm carries a literal-slug `for _skill in` loop (which would be a
+#       fourth, unreconciled copy). Paired-negative arms below prove each half is non-vacuous.
+LIB_SH="$REPO_ROOT/setup.d/lib.sh"
+SKILLS_LAYER="$REPO_ROOT/setup.d/10-skills.sh"
+[ -f "$LIB_SH" ] || { echo "FATAL: $LIB_SH not found"; exit 1; }
+[ -f "$SKILLS_LAYER" ] || { echo "FATAL: $SKILLS_LAYER not found"; exit 1; }
+TIER_VARS=$(grep -oE '^GETFF_SKILLS_[A-Z]+=' "$LIB_SH" | sed 's/=$//' | sort -u)
+if [ -z "$TIER_VARS" ]; then
+  bad "skill-tier SSOT: no GETFF_SKILLS_* tier constant defined in setup.d/lib.sh (install/refresh slug lists are still duplicated — #1312)"
+else
+  ok "skill-tier SSOT: setup.d/lib.sh defines the tier constants [$(echo "$TIER_VARS" | tr '\n' ' ')]"
+  # tier_gaps <install-text> <refresh-text> — prints every tier var missing from either side.
+  tier_gaps() {
+    local itxt="$1" rtxt="$2" v
+    for v in $TIER_VARS; do
+      printf '%s\n' "$itxt" | grep -qF "\$$v" || { printf 'install:%s ' "$v"; continue; }
+      printf '%s\n' "$rtxt" | grep -qF "\$$v" || printf 'refresh:%s ' "$v"
+    done
+  }
+  INSTALL_TXT=$(grep -vE '^[[:space:]]*#' "$SKILLS_LAYER")
+  REFRESH_TXT=$(refresh_writes)
+  gaps=$(tier_gaps "$INSTALL_TXT" "$REFRESH_TXT")
+  if [ -z "${gaps// }" ]; then
+    ok "skill-tier SSOT: every tier constant is read by BOTH the install arm (10-skills.sh) and do_refresh"
+  else
+    bad "skill-tier SSOT: tier constant(s) reach only ONE arm → install/refresh slug drift (#1312 class): $gaps"
+  fi
+  # neg (LOAD-BEARING): strip one tier var's reference from the refresh side → MUST be flagged.
+  probe_var=$(printf '%s\n' "$TIER_VARS" | head -1)
+  REFRESH_TXT_BROKEN=$(printf '%s\n' "$REFRESH_TXT" | grep -vF "\$$probe_var")
+  neg_gaps=$(tier_gaps "$INSTALL_TXT" "$REFRESH_TXT_BROKEN")
+  case " $neg_gaps " in
+    *" refresh:$probe_var "*) ok "neg (skill-tier SSOT): dropping \$$probe_var from the refresh side flips the check (non-vacuous)" ;;
+    *) bad "neg (skill-tier SSOT): check stayed green with \$$probe_var dropped from do_refresh → VACUOUS" ;;
+  esac
+fi
+# Literal-slug loops: a `for _skill in <names>` that does not read a tier constant is a new
+# hand-maintained copy — the exact shape that drifted. Both arms are scanned.
+literal_loops=$( { printf '%s\n' "$(grep -hE 'for _skill in ' "$SKILLS_LAYER" | grep -vE '^[[:space:]]*#')"
+                   refresh_writes | grep -E 'for _skill in '
+                 } | sed '/^$/d' | grep -v 'GETFF_SKILLS_' || true)
+if [ -z "$literal_loops" ]; then
+  ok "skill-tier SSOT: no literal-slug 'for _skill in' loop in either arm (no fourth copy)"
+else
+  bad "skill-tier SSOT: literal-slug loop(s) bypass the shared tier lists → drift can reland: $(printf '%s' "$literal_loops" | tr '\n' '|')"
+fi
+# neg (LOAD-BEARING): a synthetic literal loop MUST be caught by the same filter.
+if printf '%s\n' '  for _skill in arch; do' | grep -v 'GETFF_SKILLS_' | grep -qE 'for _skill in '; then
+  ok "neg (skill-tier SSOT): a synthetic literal-slug loop is caught by the filter (non-vacuous)"
+else
+  bad "neg (skill-tier SSOT): synthetic literal-slug loop slipped the filter → literal check is VACUOUS"
+fi
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

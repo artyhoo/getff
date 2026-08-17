@@ -27,6 +27,12 @@ permissions:
 
 jobs:
   prior-art-in-pr-body:
+    # required-context: yes — own workflow file, so cross-file `needs:` cannot reach it and
+    # branch-protection registration is its ONLY fail-closed transport. Fires on every PR (no
+    # `paths:` filter), so registering it cannot deadlock. NOT YET REGISTERED on staging as of
+    # 2026-08-10 — until an operator adds it, a capability PR whose body lacks the `Prior-art:`
+    # line merges with this check red, which is exactly the #1094→#1097 squash-trailer-loss
+    # incident the job header describes.
     name: capability PR carries Prior-art line in PR body (squash-survival)
     runs-on: ubuntu-latest
     steps:

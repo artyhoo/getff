@@ -4,7 +4,7 @@
 
 > **Class:** C — prose-only, no current compensating mechanism (reclassed from B per Track 3 §3.3, commit 4d52a72). Promotion criterion in §4.
 > **Fires:** review sessions (`/review`, `/ultrareview`, or a prose "проверь"/verdict ask).
-> **Authoritative for:** reviewer-discipline rule — §1 reviewer/orchestrator role separation, §2 surface-as-decision-needed pattern, §3 anti-patterns (`#role-swap-mid-session`, `#strategy-decided-by-reviewer`), §4 promotion / retirement triggers.
+> **Authoritative for:** reviewer-discipline rule — §1 reviewer/orchestrator role separation, §2 surface-as-decision-needed pattern, §3 anti-patterns (`#role-swap-mid-session`, `#strategy-decided-by-reviewer`), §4 promotion / retirement triggers, §5 classification, §6 severity contract + ESCALATED grammar, §6.1 the deployed three-axis triage rubric + its per-axis measurement provenance.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Companion to orchestrator skill — global skill at `~/.claude/skills/reviewer/SKILL.md` may reference this rule but is not required for the rule to apply (project rule is self-contained).
 
 > **Origin:** Incident 2026-05-07. Reviewer session (post-`/review`) made a project-strategy decision («is architecture.md §2.3 a v2 future spec or v1 active requirement?») mid-session instead of surfacing it as decision-needed. The strategic call should have come from the orchestrator track. Codified in repo following the post-Wave-9 memory-to-docs codification audit ([docs/meta-factory/research-patches/2026-05-13-memory-to-docs-codification-audit.md](../../docs/meta-factory/research-patches/2026-05-13-memory-to-docs-codification-audit.md)).
@@ -52,6 +52,51 @@ Track 3 condensed prose-rules audit ([research-patches/2026-05-16-prose-rules-au
 **Path forward when promotion criterion fires:** C-revise-1 — design a new `agents/reviewer-discipline-verifier.md` AI-agnostic sub-agent prompt scoped specifically to reviewer-session role-swap detection (active session reads own output before posting final verdict; checks for strategy-imperative phrases). Effort estimate: 1-2 hours design + bench test on ≥3 fabricated role-swap cases. Not pre-built — promote on incident evidence, not anticipation.
 
 **Recursive self-application note:** this rule is currently one of two Class C rules in the project (the other: [parallel-subwave-isolation.md](parallel-subwave-isolation.md), confirmed Class C in [Track 3 §3.5](../../docs/meta-factory/research-patches/2026-05-16-prose-rules-audit-research.md)). The README invariant «every rule = executable artifact» absolutism vs Class C practice tension is surfaced in [research-patches/2026-05-16-readme-absolutism-vs-class-c-practice.md](../../docs/meta-factory/research-patches/2026-05-16-readme-absolutism-vs-class-c-practice.md) — maintainer-owned resolution pending.
+
+## §6 Severity contract + ESCALATED grammar (advisor-pattern, 2026-08-10)
+
+Transferred from [advisor-pattern-design §6](../../docs/superpowers/specs/2026-08-10-advisor-pattern-design.md) (authoritative for rationale + falsifiers; this § is the operating SSOT for review protocols):
+
+- **Recorded-premise test:** the reviewer may stand only on RECORDED premises. Premise in a ratified artifact → cite file:line, normal finding (BLOCKER/MAJOR/MINOR). Premise unrecorded (payoff, priority, worth-building) → finding class **`ESCALATED`**: routed to the concept holder (advisor seat; operator if floored), never priced by the reviewer.
+- **Severity contract:** only a finding with a concrete failure scenario / goal-impact statement (a `Failure-scenario:` line) may spawn a re-review round; everything else = notes lane (fixed same-round or recorded — never a new round; an open note never moves the audited SHA). **The reviewer still initiates rounds:** a scenario-bearing finding IS the trigger — what is withdrawn is label-only triggering. Discriminator = scenario presence, NOT edit size and NOT the severity label (a real hole can wear a «MINOR» label — grade honestly). **The same contract governs follow-up PRs:** spawned only for a `Failure-scenario:`-bearing finding; scenario-less residue stays in the notes lane, no PR.
+- **Zero-finding reviews are a legitimate outcome** — the reviewer's KPI is goal-shift, not findings-produced.
+<!-- effort-worthiness embed (spec-of: .claude/rules/effort-worthiness.md) -->
+- **Effort-worthiness companion** ([effort-worthiness.md](effort-worthiness.md)): the four-test card + practice-first default that this contract's severity discriminator serves; zero-finding reviews are legitimate (KPI = goal-shift, not findings-produced).
+- **Materiality dispute:** either side raises it; advisor verdict `MATERIAL | IMMATERIAL | OUT-OF-CONCEPT | FLOOR` + one-line rationale, judged ONLY against ratified artifacts; final for the round; disagreement → operator fork. A read-only reviewer marks the finding `DISPUTED` with a verbatim dispute block in its own report; the orchestrating session transcribes that block into an ask file (`class: materiality-dispute`) as a **verbatim copy, never a paraphrase**, before the round may close.
+
+### §6.1 Triage rubric — three axes, per-axis provenance (triage-kernel-v2 S5, 2026-08-17)
+
+The text below is **quoted verbatim** from the frozen bench prompt
+[`docs/meta-factory/triage-corpus/s2-rubric-whose.md`](../../docs/meta-factory/triage-corpus/s2-rubric-whose.md) — the exact wording the S4 bench measured. **Do not reword it.** A reworded question was never measured, so any rewrite voids the provenance labels below and demotes the rewritten axis to `judgment-only` until a re-bench. Exactly three lines of the bench prompt are deliberately **not** carried over, both omissions being bench-harness scaffolding rather than rubric substance: its framing line («*Decide three axes from the text alone*»), because a live seat judges with the diff in hand — that gap IS the construct-transfer limit recorded below; and its one-line answer contract (`class=… layer=… whose=…`), because live review output follows the §6 verdict grammar above. Everything else is quoted line-for-line.
+
+```text
+Binding yardstick: a finding is MATERIAL if and only if fixing it changed behaviour or a decision,
+or NOT fixing it would have cost something toward the project goal ("AI agents can't silently
+bypass undocumented conventions"). IMMATERIAL = cosmetic or numeric nit with zero downstream
+effect. That a finding was fixed does not make it material.
+
+Apply these questions before answering:
+1. Does acting on this move the work toward the goal, or only satisfy a form?
+2. Is it theatre - the shape of diligence with no substance behind its target?
+3. Is it immaterial - would no consumer and no decision notice the difference?
+4. Materiality scales with the highest layer the finding touches (idea > design > architecture >
+   plan > implementation); conflicts resolve upward.
+
+layer = the highest layer the finding touches: idea | design | architecture | plan | implementation.
+whose = does settling this require a premise, concept, or value ABOVE the reviewer's authority - a
+concept the advisor owns (OUT-OF-CONCEPT -> advisor) or a value only the operator can set
+(FLOOR -> operator-floor)? If neither, reviewer (the default - a reviewer can settle it without
+escalation).
+```
+
+**Provenance per axis — read the label before you lean on the axis, and never upgrade one:**
+
+- **layer** (question 4 + the `layer =` definition) — **`corpus-measured`**. S4 bench: C1 0.662 / C2 0.642 vs 0.530 majority bar, p=0.0012 / p=0.0076, n=151 ([2026-08-16-triage-kernel-v2-s4-bench.md](../../docs/meta-factory/research-patches/2026-08-16-triage-kernel-v2-s4-bench.md)). The bench number is the only validation this label rests on: the S4b outcome axis must **never** be cited as corroboration ([kickoff-s4b §8](../orchestrator-prompts/triage-kernel-v2/kickoff-s4b.md)) — high HOLDS is a property of the merged-PR population, not a grade.
+- **class** (the yardstick + questions 1-3) — **measured null: «measured — does not pay».** The rubric's class verdict **does not replace grading**; **C0 — the `orig_grade` severity mapping — remains the class bar.** S4 bench on n=131: accuracy C0 0.733 · C1 0.687 · C2 0.710; MATERIAL-miss C0 0.319 · C1 0.351 · C2 0.266. Acceptance is two legs and both are required — C1 fails leg 1 (McNemar p=0.4514) and leg 2; C2 fails leg 1 (p=0.7608) and passes leg 2 — so **both candidates DOES-NOT-SHIP on class**. Use questions 1-3 as a thinking aid for stating *why* a finding is material; do not let them override the recorded grade.
+- **whose** (the `whose =` definition) — **`judgment-only, not corpus-validated`.** 0.848 / 0.854 against a 0.901 majority bar on n=151. It travels with this label whatever it scores, and is never cited downstream as validated. It restates §6's existing ESCALATED routing (reviewer / advisor / operator-floor) — the label is the only change in its standing.
+- **Validity limits travel with every number above** ([spec §5b](../../docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md)): provenance sharing (every labeler and every candidate is a Claude-family seat on the same yardstick — never quote these as model-independent truth); construct transfer (the bench judges decontextualized rows, so it measures the cheap-first triage screen, not the full in-diff task); the inverse population — defects never raised — is out of reach; power ±9pp at n≈120-151, so fine ranking between close candidates is out of scope; grade-leak residue (tokens stripped, prose synonyms not).
+
+**Class + channel declaration** ([rule-enforcement-channel-selection.md §3 step 5](rule-enforcement-channel-selection.md)): Class C prose injection; channel = this rule plus the agent protocols that point at it. Per **D-K7** the winner ships as protocol text only — `promptfoo` stays operator-side and never enters CI ([no-paid-llm-in-ci.md](no-paid-llm-in-ci.md)). *D-K7 falsifier:* a deployed rubric question proves mechanically checkable (pure syntax) → promote that one question to a deterministic arm, prose stays for the judgment rest.
 
 ## See also
 

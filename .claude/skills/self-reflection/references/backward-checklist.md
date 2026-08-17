@@ -3,13 +3,13 @@
 > **Authoritative for:** the complete backward-check enumeration for §1.7 «Recommendation self-discipline check» (new-rule scope determination, full sweep, closure) — inherits invocation scope from [SKILL.md](../SKILL.md).
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../../README.md#why-this-exists). The §1.7 discipline itself — owned by [phase-research-coverage.md](../../../rules/phase-research-coverage.md).
 
-The backward direction is what `#recursive-self-application-gap` was created to catch. Forward-check verifies the proposal complies with existing disciplines; backward-check verifies the new rule the proposal introduces is applied to *all* existing artefacts under its scope.
+The backward direction is what `#recursive-self-application-gap` was created to catch. Forward-check verifies the proposal complies with existing disciplines; backward-check verifies the new rule the proposal introduces is applied to _all_ existing artefacts under its scope.
 
 ## Step 0 — Defeat restatement first (cold-sweep + enumeration format)
 
-The dominant failure of this checklist under a long, context-loaded session is **restatement** — writing a backward-check that recaps *what the PR did* (naming only the diff's own files) instead of sweeping the *sibling surfaces* where the same change-class must also hold. This is [`#backward-check-restates-not-sweeps`](../../../rules/ai-laziness-traps.md) (T21); its incident is PR #857, where a restated backward-check let a real parallel Tier-1 gap reach the PR. Two structural guards (a stronger reminder would rot under the same fatigue):
+The dominant failure of this checklist under a long, context-loaded session is **restatement** — writing a backward-check that recaps _what the PR did_ (naming only the diff's own files) instead of sweeping the _sibling surfaces_ where the same change-class must also hold. This is [`#backward-check-restates-not-sweeps`](../../../rules/ai-laziness-traps.md) (T21); its incident is PR #857, where a restated backward-check let a real parallel Tier-1 gap reach the PR. Two structural guards (a stronger reminder would rot under the same fatigue):
 
-1. **Delegate to the cold sub-agent when the change has parallel surfaces.** Dispatch [`agents/backward-sweep-auditor.md`](../../../../agents/backward-sweep-auditor.md) with **only the change's class** (one-sentence content predicate — *never* the diff or PR narrative). It enumerates every parallel surface and returns `GAP-FOUND` / `SWEPT-CLEAN` per surface. It cannot restate the PR because it never saw it. AI-agnostic, no paid LLM.
+1. **Delegate to the cold sub-agent when the change has parallel surfaces.** Dispatch [`agents/backward-sweep-auditor.md`](../../../../agents/backward-sweep-auditor.md) with **only the change's class** (one-sentence content predicate — _never_ the diff or PR narrative). It enumerates every parallel surface and returns `GAP-FOUND` / `SWEPT-CLEAN` per surface. It cannot restate the PR because it never saw it. AI-agnostic, no paid LLM.
 2. **Author the section in the enumeration format**, so an omission is visible without reading the code:
    ```text
    Class of this change = <content predicate>.
@@ -19,7 +19,7 @@ The dominant failure of this checklist under a long, context-loaded session is *
    Surfaces NOT in the diff but IN the class: <non-empty, unless genuinely first-of-class>.
    ```
 
-Steps 1–6 below are how *you* (or the cold agent) run the sweep whose result populates this format.
+Steps 1–6 below are how _you_ (or the cold agent) run the sweep whose result populates this format.
 
 ## Step 1 — Determine the new rule's scope
 
@@ -45,6 +45,7 @@ grep -rln "^> \*\*Authoritative for:\*\*" --include="*.md"
 ```
 
 Compare result with proposal's enumeration. Every match must be either:
+
 - **In compliance** (already follows new rule), OR
 - **Explicitly exempted** (see Step 3), OR
 - **Brought into compliance in same commit** (the typical case for a backward sweep).
@@ -66,22 +67,24 @@ Default: path glob if fixtures already live under predictable paths; sentinel ma
 The exemption mechanism itself must be tested:
 
 - **Positive test**: file under exemption with intentionally-invalid content does not break enforcement.
-   ```typescript
-   it('files under packages/*/fixtures/** are exempt from principle 09', () => {
-     const fixturePath = 'packages/core/research/fixtures/drift/with-drift/skills/rules-as-tests/SKILL.md';
-     // file intentionally lacks Authoritative-for header
-     expect(isExempt(fixturePath)).toBe(true);
-   });
-   ```
+
+  ```typescript
+  it('files under packages/*/fixtures/** are exempt from principle 09', () => {
+    const fixturePath =
+      'packages/core/research/fixtures/drift/with-drift/skills/rules-as-tests/SKILL.md';
+    // file intentionally lacks Authoritative-for header
+    expect(isExempt(fixturePath)).toBe(true);
+  });
+  ```
 
 - **Mutation (anti-tautology)**: removing exemption breaks intent.
-   ```typescript
-   it('mutation: without exemption, fixture file fails principle 09', () => {
-     const fakeWithoutExemption = readFile('fixture-without-header.md');
-     expect(hasAuthorityHeader(fakeWithoutExemption)).toBe(false);
-     // Confirms: rule actually catches missing headers; exemption is the only reason fixture passes.
-   });
-   ```
+  ```typescript
+  it('mutation: without exemption, fixture file fails principle 09', () => {
+    const fakeWithoutExemption = readFile('fixture-without-header.md');
+    expect(hasAuthorityHeader(fakeWithoutExemption)).toBe(false);
+    // Confirms: rule actually catches missing headers; exemption is the only reason fixture passes.
+  });
+  ```
 
 Without the mutation pair, the exemption could silently degrade to «always exempt» (bug) without any test failing.
 

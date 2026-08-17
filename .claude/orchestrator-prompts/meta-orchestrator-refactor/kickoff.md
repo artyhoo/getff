@@ -1,3 +1,5 @@
+<!-- host-verify: none — umbrella CLOSED 2026-06-03 (PR #399, see done.md). This file is now a historical dispatch record, not a live dispatch input; it has no executable deliverable left to gate. The 2026-08-09 edit corrects two falsified §4c facts and adds no work item. -->
+
 # KICKOFF — meta-orchestrator-refactor (autonomous · audit-first → fixes → rename)
 
 > **Type:** multi-stage R+I umbrella. Autonomous-capable (aif-handoff runtime-bridge OR orchestrator session).
@@ -69,18 +71,38 @@ If run by a normal `/orchestrator` or `/meta-orchestrator` session: same DN-park
 
 ## §4c Runtime availability — aif-handoff vs Claude Code session (READ before choosing runner)
 
-**Where the skills/files actually live decides this. Verified 2026-06-03:**
+**Where the skills/files actually live decides this. Originally verified 2026-06-03 — two rows FALSIFIED by direct measurement 2026-08-09 (see §4c.1); struck cells below are the original wording, kept as record.**
+
+> **Re-verification trigger (this table had none, which is why it rotted):** the container's mount set is
+> operator-machine state, not repo state — it can change with no commit. Before reusing ANY row as a
+> premise, re-run:
+> `docker inspect aif-handoff-agent-1 --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{println}}{{end}}'`
+> and probe the specific path with `docker exec aif-handoff-agent-1 ls <path>`. A stamp is not a measurement.
 
 | Asset | CC session on operator machine | aif-handoff dispatch (containerised) |
 |---|---|---|
-| Global `~/.claude/skills/orchestrator/`, `reviewer/`, Superpowers plugins (`~/.claude/plugins/`) | ✅ available | ❌ **NOT available** — operator-home, only the repo clone is bind-mounted to `/home/www` (`runtime-bridge-setup.md:40`); the container has its own `$HOME` |
+| Superpowers plugins (`~/.claude/plugins/`) | ✅ available | ✅ **available — CORRECTED 2026-08-09.** ~~❌ NOT available — operator-home, only the repo clone is bind-mounted to `/home/www` (`runtime-bridge-setup.md:40`); the container has its own `$HOME`~~. **Two** bind mounts carry them: `/host_mnt/Users/art/.claude/plugins → /home/node/.claude/plugins` **and** `→ /Users/art/.claude/plugins` — the second mirrors the host-absolute path precisely so `installed_plugins.json`'s `installPath` resolves verbatim inside the container. Measured: superpowers **6.2.0** (`gitCommitSha 3dcbd5c4b4`), 14 `SKILL.md` under `/Users/art/.claude/plugins/cache/superpowers-dev/superpowers/6.2.0/skills/`. |
+| Global `~/.claude/skills/orchestrator/`, `reviewer/` | ⚠️ **neither directory exists** (measured 2026-08-09) | ⚠️ same — `/host_mnt/Users/art/.claude/skills → /home/node/.claude/skills` IS mounted, but the whole tree is `ai-docs`, `design-compare`, `native-css-responsive`, `uniq-rewrite`. The original row's **`✅ available`** column was therefore wrong on the host side too; whether the dirs existed on 2026-06-03 is unknown — no artefact records it. |
 | Project `.claude/skills/meta-orchestrator/`, `.claude/rules/*.md`, `.claude/hooks/` | ✅ | ✅ available — committed in the git clone + aif uses **Claude Code CLI transport** (`transport: "cli"`, `runtime-bridge-setup.md:35`) so project `.claude/` auto-loads |
 | **This kickoff** | ✅ | ✅ content transmitted — `dispatch.ts:63 buildKickoffSpec` reads the file operator-side and sends its content (gitignore irrelevant) |
-| **`audit-plan.md`** (sibling, the key input) | ✅ (CANON-symlinked) | ❌ **NOT reachable** — gitignored `.claude/orchestrator-prompts/` + CANON `~/.claude-coordination/` are operator-home; not in the clone, not transmitted |
+| **`audit-plan.md`** (sibling, the key input) | ✅ (CANON) | ✅ **reachable — CORRECTED 2026-08-09.** ~~❌ NOT reachable — gitignored `.claude/orchestrator-prompts/` + CANON `~/.claude-coordination/` are operator-home; not in the clone, not transmitted~~. The *premise* half survives — `git check-ignore -v` resolves the file to `.gitignore:16` (`.claude/orchestrator-prompts/*/*`), so it is genuinely **not** in the clone (only `kickoff.md` + `done.md` are un-ignored, `.gitignore:17-18`). The *conclusion* does not: CANON is a bind mount, `/host_mnt/Users/art/.claude-coordination → /home/node/.claude-coordination`, and `docker exec aif-handoff-agent-1 ls /home/node/.claude-coordination/rules-as-tests-aif/meta-orchestrator-refactor` lists `audit-plan.md` (33372 B) first. Not-in-the-clone ≠ not-reachable. |
 
-**Implication:**
-- **CC session on your machine is the RECOMMENDED runner** for this umbrella — it has your orchestrator/reviewer/Superpowers skills AND can read `audit-plan.md`. This audit-heavy, skill-leaning work fits a CC session far better than aif.
-- **If you still want aif autonomy:** (a) inline `audit-plan.md`'s §10 corrections + the CONFIRMED-bug list (§1 of this kickoff) into the dispatch payload (or temporarily commit `audit-plan.md` for this umbrella so it lands in the clone), and (b) rely on this kickoff's INLINED disciplines (§4 park-contract, §5 AI-traps, §7 reviewer protocol) instead of the global skills — they are deliberately self-contained here precisely so an aif agent without your skills can still follow them. The orchestrator/SP skill references in §5/§7/§9 are then "read the project `.claude/rules/*.md` files directly" (those ARE in the clone), not "load the global skill".
+### §4c.1 Correction record (2026-08-09) — what was wrong, and what it steered
+
+Both falsifications share one shape: a **negative-existence claim about the destination environment**,
+asserted from an inference about how the container is built rather than from a probe of the running
+container, then frozen behind a «Verified <date>» stamp with no re-verification trigger. This is the
+NEGATIVE direction of [`destination-environment-verification.md`](../../rules/destination-environment-verification.md) — that rule gates whether a kickoff
+*declares* a host-verify contract, and nothing at all gates «the container cannot reach X».
+
+**The steering below rested on the `audit-plan.md` row and is therefore WITHDRAWN as a premise-bearing
+recommendation.** It is **not** re-decided here: this umbrella **closed 2026-06-03** (PR #399, see
+`done.md`), so there is no live runner choice left to make. What the correction changes is the value of
+this section **as precedent** — do not copy the runner argument below into a new kickoff; re-measure.
+
+~~**Implication:**~~
+- ~~**CC session on your machine is the RECOMMENDED runner** for this umbrella — it has your orchestrator/reviewer/Superpowers skills AND can read `audit-plan.md`. This audit-heavy, skill-leaning work fits a CC session far better than aif.~~ — **WITHDRAWN.** Every one of the three stated advantages is now measured either false (Superpowers: available in both) or false on both sides (`orchestrator/`/`reviewer/`: absent from the host) or false (`audit-plan.md`: reachable in both). No measured asymmetry supports «CC RECOMMENDED» today. That does **not** make aif the recommendation — the audit-heavy/skill-leaning argument was never measured either way, and picking a runner from a corrected fact-base would be the same mistake in the other direction.
+- ~~**If you still want aif autonomy:** (a) inline `audit-plan.md`'s §10 corrections + the CONFIRMED-bug list (§1 of this kickoff) into the dispatch payload (or temporarily commit `audit-plan.md` for this umbrella so it lands in the clone), and (b) rely on this kickoff's INLINED disciplines …~~ — **workaround (a) is UNNECESSARY.** Neither inlining nor temporarily committing a gitignored CANON file is needed: the container reads it through the CANON bind mount at the path above. Temporarily committing a gitignored dispatch input to work around a mount that already exists is a real cost (it lands in history and must be reverted) paid for a measurement nobody took. Half **(b)** stands on its own merits — the disciplines are inlined here deliberately, and that remains good practice regardless of what the container mounts.
 
 ---
 

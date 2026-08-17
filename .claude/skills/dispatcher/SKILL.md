@@ -62,20 +62,47 @@ All 4 CLI primitives are pre-built. `/dispatcher` wires them — it does NOT bui
 
 Steps run in order for each stage kickoff. After §2.7, loop back to §2.1 with the next stage kickoff, or emit "umbrella complete".
 
-**§2.0 — Pre-dispatch dedup guard (run before §2.1)**
+**§2.0 — Pre-dispatch guard (run before §2.1)**
 
 ```bash
-slug="<umbrella>"
-git branch -a --list "*${slug}*"                              # Signal 1: branch match
-gh pr list --state all --search "${slug}" --json number,state # Signal 2: broad PR search (not in:title)
-test -f ".claude/orchestrator-prompts/${slug}/done.md"        # Signal 3: done.md (Layer-C3)
+SLUG="<umbrella>" bash .claude/skills/dispatcher/helpers/probe-inflight.sh
 ```
 
-Verdict — **≥2 of 3 signals required** to mark ALREADY-DONE (T-DUX-A: lone slug-substring PR hit is insufficient):
+One command, five signals, one `VERDICT:` line. Branch on the verdict — do NOT re-run the
+signals by hand, and do NOT substitute a subset. Proven by
+[`packages/core/skills/dispatcher/probe-inflight.test.ts`](../../../packages/core/skills/dispatcher/probe-inflight.test.ts).
 
-- **ALREADY-DONE**: skip dispatch → auto-write `done.md` + CANON sync + report (CLEAR action — **never surface as question**, T15 / P4); see §2.8 for schema
-- **IN-FLIGHT**: open PR or live branch, no done.md → surface + let operator decide
-- **FRESH** (0–1 signals): proceed to §2.1
+| Signal                    | Scope             | What it can see                                                             |
+| ------------------------- | ----------------- | --------------------------------------------------------------------------- |
+| 1 `origin-branch`         | host              | branches git already knows about                                            |
+| 2 `pr`                    | origin            | PRs in any state (broad search, T-DUX-A: a lone slug-substring hit is weak) |
+| 3 `done-md`               | repo              | the Layer-C3 closure marker                                                 |
+| 4 `container-branch`      | **aif container** | branches that exist ONLY inside the container                               |
+| 5 `task-done-unharvested` | **aif API × PRs** | finished tasks whose branch carries no PR                                   |
+
+Signals 1-3 are the original guard, and **all three are origin/host-scoped** — which is why
+they missed `feature/beta-delivery-ux-995e9c` (2026-08-08T21:22Z): run 3 had finished inside
+the container an hour earlier, invisible to every one of them, and the umbrella was dispatched
+twice. Signals 4-5 are that blind spot.
+
+Verdicts, highest precedence first:
+
+- **PROBE-INCOMPLETE** — a probe could not be _asked_ (docker down, aif API unreachable, no
+  `SLUG`). **STOP and surface. Never treat as FRESH** — the whole defect class is a guard that
+  renders an unasked question as a clean answer, so this outranks every other verdict.
+- **DONE-UNHARVESTED** — a finished task's work is sitting un-harvested. **Harvest it (§2.4)
+  or explicitly supersede it before dispatching.** Outranks ALREADY-DONE: a loose end is loose
+  even under a closed umbrella. This is the `#autonomous-done-no-harvest` shape.
+- **ALREADY-DONE** — `done.md` plus ≥1 other origin signal: skip dispatch → auto-write
+  `done.md` + CANON sync + report (CLEAR action — **never surface as question**, T15 / P4);
+  see §2.8 for schema.
+- **IN-FLIGHT** — open PR, live branch, or a container-only branch: surface + let the operator
+  decide.
+- **FRESH** — every probe ran and found nothing: proceed to §2.1.
+
+**Re-probe immediately before the actual dispatch**, after any Phase -1 review completes — all
+historical collisions materialised inside that window ([CLAUDE.md `Pre-dispatch in-flight
+probe`](../../../CLAUDE.md)).
 
 **Base normalization (P3):** before §2.1, run `git remote set-head origin --auto` to refresh trunk ref. If kickoff's stated base diverges from live trunk, warn and use live trunk for harvest `--base` in §2.4.
 
@@ -89,6 +116,19 @@ tsx packages/runtime-bridge/src/cli/dispatch.ts \
 `AifHandoffBackend.dispatch()` → `POST /tasks (paused:true)` → `PUT /tasks/:id (unpause)` → aif coordinator picks up: `backlog → planning` (per-task worktree created) → `implementing`. The `exit 0` contract holds at every call-site — a ManualBackend fallback (written to `/tmp/runtime-bridge-<taskId>.md`) means aif was unreachable; retry once the blocker clears.
 
 Emit watch-link immediately after dispatch (P6): `http://${AIF_WEB_HOST:-localhost}:${AIF_WEB_PORT:-5180}/tasks/<taskId>`. Web port (`AIF_WEB_PORT`, default `5180`) is separate from API port (`AIF_PORT`, default `3009`). If the web container is absent, emit the REST task URL instead.
+
+**Model routing — do NOT override the runtime profile per task (operator verdict, 2026-08-09).** A
+dispatch runs on the aif project's configured profiles; leave `runtimeProfileId` / `modelOverride`
+(per-task fields in both the create and update schemas) unset. The top-tier profile is an **external
+seat only** — an extra cold reviewer the host session spawns on top of the pipeline (`§2.5`
+Phase-1 cold-review, the fidelity/compliance agents), never the in-container dispatch runtime. Tier
+2 therefore selects the _criteria_ and the review depth, not a costlier executor: raising the
+dispatch tier per task is a cost decision the operator has already answered «no» to. Bring the
+question back only with a **new** incident of the review-blindness class (counter: 1 — a review gate
+reported `total=0` on a diff a cold audit then STOPped, getff-freshness-widening S1 r2), not as a
+per-stage judgement call. Tier criteria live in [`tier-home.md`](../../../packages/core/templates/shared/tier-home.md); which model fills a tier is the
+aif runtime profile config's, and this line records the standing answer so each dispatch does not
+re-litigate it.
 
 **§2.2 — Monitor (single-poll-per-turn)**
 Classify one poll using `monitor-classify.sh` (proven by `packages/core/skills/dispatcher/monitor.test.ts`):
@@ -275,11 +315,16 @@ Sources: `questions.ts:85-93` (detection), `answer.ts:207-212` (A-park resume).
 
 ### Routing seats (who answers which class — spec D5)
 
-| Question class                                                     | Day                                                                                                                                        | Night (unattended)                                                            |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
-| technical / in-scope (implementation choice within kickoff bounds) | this dispatcher session resolves autonomously (brainstorm → `answer.ts`); decision recorded in the task comment + PR `## Parked questions` | same — autonomous                                                             |
-| intent / goal / design (changes WHAT to build)                     | `/arch` §4 office hours, top seat                                                                                                          | **stay parked — never guess**; morning batch sweep (`questions.ts --project`) |
-| environment (container/tooling broken)                             | `/aif-doctor`                                                                                                                              | `/aif-doctor` non-destructive arm; else stay parked                           |
+<!-- prettier-ignore -->
+| Question class                                                     | Day                                                                                                                                                                                                | Night (unattended)                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| technical / in-scope (implementation choice within kickoff bounds) | this dispatcher session resolves autonomously (brainstorm → `answer.ts`); decision recorded in the task comment + PR `## Parked questions`                                                         | same — autonomous                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| intent / goal / design (changes WHAT to build)                     | file an ask + `ASK` when the advisor is reachable ([advisor-pattern-design §2/§5.1](../../../docs/superpowers/specs/2026-08-10-advisor-pattern-design.md)); else `/arch` §4 office hours, top seat | file an ask + `ASK` when the advisor is reachable (same ref; non-blocking — defer the item, keep working); else: a live top-tier seat exists and is sweeping → it may decide the park per the night envelope ([session-bus v2 §4](../../../docs/superpowers/specs/2026-08-09-session-bus-v2.md) + [night v3 §6 object cut](../../../docs/superpowers/specs/2026-08-09-autonomous-night-v3-design.md)); else **stay parked — never guess**; morning batch sweep (`questions.ts --project`) |
+| environment (container/tooling broken)                             | `/aif-doctor`                                                                                                                                                                                      | `/aif-doctor` non-destructive arm; else stay parked                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+
+<!-- effort-worthiness embed (spec-of: .claude/rules/effort-worthiness.md) -->
+
+**Effort-worthiness** ([effort-worthiness.md](../../rules/effort-worthiness.md)): before demanding a probe/extra round on any park resolution, run the four-test card — practice-first on reversible surfaces; a round-budget breach escalates via ASK, never a guillotine and never a silent push-through.
 
 ### Type 1 — Technical fork (HOW to implement; no taste involved)
 
@@ -337,6 +382,13 @@ If the brainstorming companion is unreachable (Cursor / Aider / Codex / no Super
 - **Does NOT add npm deps** — zero new dependencies; `tsx` runs existing TypeScript.
 
 ---
+
+## Seat lifecycle
+
+Registry-role seat sessions (birth · work · self-cleaning · retirement) follow ONE protocol —
+[.claude/rules/seat-lifecycle.md](../../rules/seat-lifecycle.md) (SLP): each phase binds a
+settled owner (ADR D6/D7/D8, session-bus v2, night-mode); bus-touching steps are
+Part-II-gated. Never restate it here (`#fifth-description-of-the-loop`).
 
 ## Without this skill
 

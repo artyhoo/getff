@@ -133,7 +133,16 @@ function runScript(
 
 // ── Group 1: Single-umbrella mode (UMBRELLA arg provided) ─────────────────────
 
-describe('plan-currency-check.sh kickoff existence check — single-umbrella mode', () => {
+// Every case here spawns the real plan-currency-check.sh and does real filesystem/git work in a
+// sandbox — multi-second runtimes are inherent, so the vitest 5s default is a mis-set
+// gate rather than a signal, not a budget these tests were ever meant to meet. Measured
+// 2026-08-10 (`vitest run skills/`, macOS): the untimed cases below time out at 5000ms
+// while the underlying script succeeds. 30_000 is the SLOW_SHELL_MS convention already
+// used by the sibling shell-spawning suites (dup-detect, create-worktree,
+// priority-score-synthetic), applied here per the #1363 precedent.
+const SLOW_SHELL_MS = 30_000;
+
+describe('plan-currency-check.sh kickoff existence check — single-umbrella mode', { timeout: SLOW_SHELL_MS }, () => {
   it('POSITIVE: kickoff.md present → stdout contains "kickoff: EXISTS at ..."', () => {
     // Targets script lines ~69-72: the [[ -f "${KICKOFF_PATH}" ]] positive branch.
     // Mutation-sanity: if "EXISTS at" is removed from the echo, this assertion fails.
@@ -181,7 +190,7 @@ describe('plan-currency-check.sh kickoff existence check — single-umbrella mod
 
 // ── Group 2: All-umbrellas mode (no UMBRELLA arg) ─────────────────────────────
 
-describe('plan-currency-check.sh kickoff existence check — all-umbrellas mode', () => {
+describe('plan-currency-check.sh kickoff existence check — all-umbrellas mode', { timeout: SLOW_SHELL_MS }, () => {
   it('POSITIVE: one dir WITH kickoff.md and one dir WITHOUT → stdout contains both EXISTS: and MISSING:', () => {
     // Targets script lines ~76-87: the find + while loop that iterates all umbrella dirs.
     // Mutation-sanity: changing "EXISTS:" or "MISSING:" in the echo breaks both arms.
@@ -226,7 +235,7 @@ describe('plan-currency-check.sh kickoff existence check — all-umbrellas mode'
 
 // ── Group 3: Section headers always present ───────────────────────────────────
 
-describe('plan-currency-check.sh kickoff existence check — section headers', () => {
+describe('plan-currency-check.sh kickoff existence check — section headers', { timeout: SLOW_SHELL_MS }, () => {
   it('single-umbrella mode: section headers always present regardless of kickoff existence', () => {
     // Targets script line ~30: echo "=== plan-currency-check: ..."
     // Targets script line ~67: echo "--- kickoff existence check ---"
@@ -281,7 +290,7 @@ describe('plan-currency-check.sh kickoff existence check — section headers', (
 //       `.claude/orchestrator-prompts/...` path while the existence test itself used the
 //       correctly-resolved home, i.e. the message named a file that does not exist.
 
-describe('plan-currency-check.sh kickoff existence check — consumer layout (.ai-factory)', () => {
+describe('plan-currency-check.sh kickoff existence check — consumer layout (.ai-factory)', { timeout: SLOW_SHELL_MS }, () => {
   it('POSITIVE (functional): no-arg mode lists umbrellas under .ai-factory/orchestrator-prompts', () => {
     // Targets the no-arg `find "$(resolve_orch_home)" -mindepth 1 -maxdepth 1 -type d` scan.
     // Mutation-sanity: reverting that find to a hardcoded `${REPO_ROOT}/.claude/

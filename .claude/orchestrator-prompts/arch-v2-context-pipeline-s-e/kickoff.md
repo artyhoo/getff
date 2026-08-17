@@ -255,5 +255,12 @@ is now the WORKING 7-glob form, so §3's discrimination pair runs against a fixt
 (relative-path) copy for the FAIL leg and the live committed list for the PASS leg — the
 inverse of the rev-3 arrangement; both runs still quoted.
 **T-SE-B — observation-by-assumption:** tempted to «confirm» P3c behaviour or the resident
-set from inside the container. Counter: container-unreachable claims carry a primary-doc
-citation or park; never a manufactured live observation.
+set from inside the container. Counter: ~~container-unreachable claims carry a primary-doc
+citation or park~~ — **CORRECTED 2026-08-09: a primary-doc citation is the INSUFFICIENT case.**
+A cannot-reach claim carries the **probe** (`docker exec`/`docker inspect` against the live
+destination) **plus the date**, or an explicit `INCONCLUSIVE — could not probe`. Measured
+falsification: `meta-orchestrator-refactor/kickoff.md` §4c cited `runtime-bridge-setup.md:40`
+for «Superpowers plugins NOT available» — a primary-doc citation, and false; `docker inspect`
+returned two plugin mounts. This trap's whole class is now owned by
+[`destination-environment-verification.md §1b`](../../rules/destination-environment-verification.md)
+(PR #1347); never a manufactured live observation.

@@ -1,4 +1,4 @@
-.PHONY: self-audit pre-commit-check pre-push-check install-hooks principles-meta-tests validate-prompts full-sweep demo demo-cargo
+.PHONY: self-audit pre-commit-check pre-push-check install-hooks principles-meta-tests validate-prompts full-sweep demo demo-cargo consumer-matrix consumer-matrix-npm-tarball
 
 self-audit: pre-commit-check pre-push-check principles-meta-tests
 
@@ -34,6 +34,12 @@ install-hooks:
 consumer-matrix: ## Run the consumer-matrix acceptance cells locally (launch-preannounce-track S2)
 	@echo "▶ consumer-matrix: pnpm workspace monorepo start cell (real install.sh --full into a fresh fixture)"
 	@FRAMEWORK_ROOT="$(CURDIR)" bash tests/consumer-matrix/pnpm-monorepo-cell.sh
+	@echo "▶ consumer-matrix: npm-tarball cell (pack + install + run the consumer path against packages/core)"
+	@FRAMEWORK_ROOT="$(CURDIR)" bash tests/consumer-matrix/npm-tarball-cell.sh
+
+consumer-matrix-npm-tarball: ## Run the npm-tarball cell locally (beta-delivery-ux R1 — files allowlist + bin runnability)
+	@echo "▶ consumer-matrix-npm-tarball: pack + install + run the consumer path against packages/core"
+	@FRAMEWORK_ROOT="$(CURDIR)" bash tests/consumer-matrix/npm-tarball-cell.sh
 
 validate-prompts: ## Validate all orchestrator batch-prompt files against spec
 	@find .claude/orchestrator-prompts -name '*.md' -not -name 'README.md' | \

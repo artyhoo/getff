@@ -41,7 +41,7 @@ Read in this order:
 - **Anchors re-verified and HOLDING (T3, so S1/S2 do not re-litigate them):**
   - `deps-hash-check.sh` is WARN-only / non-blocking — `.claude/hooks/deps-hash-check.sh:14` («Non-blocking; always exits 0»).
   - Lock glob is `.ai-factory/synthesizer-output/rules-lock*.json` at `.claude/hooks/deps-hash-check.sh:293` (inside the kickoff's cited `:284-297`).
-  - `.ai-factory/rules-decisions.md` **does not exist** — the ledger is genuinely unbuilt (S3 is greenfield).
+  - `.ai-factory/rules-decisions.md` **does not exist** — the ledger is genuinely unbuilt (S3 is greenfield). Re-measured 2026-08-09, and the claim HOLDS: `ls .ai-factory/rules-decisions.md` → `No such file or directory`; `ls .ai-factory/` → `harness-model.json`, `rule-channel-capabilities.json`, `rule-channel-capabilities.schema.json`, `rule-channel-degradations.json` — four JSON files, no markdown ledger. *(Evidence added 2026-08-09: this was the only line in this T3 block carrying no `file:line`/command citation while every neighbour did — a form defect, not a false claim. A negative-existence claim needs its probe shown for the same reason a positive one does: an unshown probe cannot be re-run when the environment moves under it.)*
   - ruff/cargo committed-fixture debt is real and pending — `agents/rule-test-author.md` «ruff / cargo — sidecar format landed, committed fixtures pending».
 
 ---

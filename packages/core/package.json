@@ -2,9 +2,38 @@
   "name": "@rules-as-tests/core",
   "version": "0.1.0",
   "private": true,
+  "description": "Framework core for rules-as-tests — discipline-bearing code as the project's contract artifact. Ships the rule manifest, ESLint rules, detector/research/synthesizer/installer toolchain, templates, skills, and install wiring.",
   "license": "FSL-1.1-ALv2",
   "type": "module",
   "main": "./manifest/rules-manifest.json",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Yhooi2/rules-as-tests-aif.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/Yhooi2/rules-as-tests-aif/tree/staging/packages/core#readme",
+  "bugs": {
+    "url": "https://github.com/Yhooi2/rules-as-tests-aif/issues"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "manifest/",
+    "eslint-rules/",
+    "detector/",
+    "research/",
+    "synthesizer/",
+    "installer/",
+    "validator/",
+    "ir/",
+    "backends/",
+    "diagnostics/",
+    "composition/",
+    "templates/",
+    "install/",
+    "skills/"
+  ],
   "bin": {
     "rules-as-tests-detect": "./detector/cli.ts",
     "rules-as-tests-research": "./research/cli.ts",
@@ -32,6 +61,10 @@
     "test:render": "vitest run render/",
     "test:live-generation": "vitest run synthesizer/research-to-node.test.ts synthesizer/research-to-clippy-node.test.ts synthesizer/live-generation-clippy.test.ts",
     "test:template-render": "vitest run audit-self/template-render.audit.ts",
+    "test:synthesizer": "vitest run synthesizer/",
+    "test:skills": "vitest run skills/",
+    "test:spec-validation": "vitest run spec-validation/",
+    "test:units": "vitest run audit-self/ detector/ detector-v0/ diagnostics/ diff/ eslint-rules/ install/ installer/ python-starter/ research/ scenario-generator/ validator/",
     "guard-liveness:fullsweep": "tsx hooks/checks/guard-liveness-fullsweep.ts",
     "demo:cargo": "bash backends/cargo/demo/run-demo.sh",
     "typecheck": "tsc --noEmit",
@@ -62,7 +95,6 @@
     "js-yaml": "4.3.0",
     "picomatch": "^4.0.4",
     "ts-morph": "^24.0.0",
-    "tsx": "^4.22.4",
     "typescript": "^5.6.0",
     "vitest": "^4.1.8"
   },
@@ -70,7 +102,8 @@
     "ajv": "^8.20.0",
     "remark": "^15.0.1",
     "remark-parse": "^11.0.0",
-    "semver": "7.8.5"
+    "semver": "7.8.5",
+    "tsx": "^4.22.4"
   },
   "overrides": {
     "qs": "^6.15.2"

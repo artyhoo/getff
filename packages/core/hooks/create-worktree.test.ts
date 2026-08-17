@@ -39,6 +39,17 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const SCRIPT = resolve(REPO_ROOT, 'scripts/create-worktree.sh');
 
+// This suite spawns the real create-worktree.sh, which does real git + filesystem
+// work (worktree add, node_modules wiring, and — in the SELF-HEAL case — an
+// `npm ci --prefix packages/core`). Multi-second runtimes are inherent, so the
+// vitest 5s default is a mis-set gate rather than a signal: run in isolation the
+// SELF-HEAL case measures 3.2s, but under full-suite parallel load
+// (`vitest run hooks/ skills/`, measured 2026-08-10) it times out at 5000ms.
+// 30_000 is the SLOW_SHELL_MS convention already used by the sibling shell-spawning
+// suites (priority-score-synthetic, priority-score-skip-closed,
+// done-md-completion-filter, pre-push.consumer-layout).
+const SLOW_SHELL_MS = 30_000;
+
 interface Result {
   stdout: string;
   stderr: string;
@@ -110,7 +121,7 @@ function teardown(dir: string): void {
   }
 }
 
-describe('create-worktree.sh — portable worktree setup', () => {
+describe('create-worktree.sh — portable worktree setup', { timeout: SLOW_SHELL_MS }, () => {
   let repo: string;
 
   beforeEach(() => {

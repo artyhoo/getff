@@ -1,0 +1,1616 @@
+{
+ "rater": "s4-c2",
+ "model": "sonnet",
+ "rubric": "You are triaging ONE review finding. Decide three axes from the text alone.\n\nBinding yardstick: a finding is MATERIAL if and only if fixing it changed behaviour or a decision,\nor NOT fixing it would have cost something toward the project goal (\"AI agents can't silently\nbypass undocumented conventions\"). IMMATERIAL = cosmetic or numeric nit with zero downstream\neffect. That a finding was fixed does not make it material.\n\nApply these questions before answering:\n1. Does acting on this move the work toward the goal, or only satisfy a form?\n2. Is it theatre - the shape of diligence with no substance behind its target?\n3. Is it immaterial - would no consumer and no decision notice the difference?\n4. Materiality scales with the highest layer the finding touches (idea > design > architecture >\n   plan > implementation); conflicts resolve upward.\n\nlayer = the highest layer the finding touches: idea | design | architecture | plan | implementation.\nwhose = does settling this require a premise, concept, or value ABOVE the reviewer's authority - a\nconcept the advisor owns (OUT-OF-CONCEPT -> advisor) or a value only the operator can set\n(FLOOR -> operator-floor)? If neither, reviewer (the default - a reviewer can settle it without\nescalation).\n\nAnswer with EXACTLY one line and nothing else:\nclass=<MATERIAL|IMMATERIAL> layer=<idea|design|architecture|plan|implementation> whose=<reviewer|advisor|operator-floor>\n",
+ "rubricSource": "docs/meta-factory/triage-corpus/s2-rubric-whose.md",
+ "benchInputSha256": "665059e5c963ead5e9e52009ef46f37610adccd172f630ae0a4d8567a930b6ae",
+ "groups": [
+  {
+   "key": "1290-r1",
+   "rows": [
+    "1290-r1-1",
+    "1290-r1-2",
+    "1290-r1-3",
+    "1290-r1-4",
+    "1290-r1-5",
+    "1290-r1-6",
+    "1290-r1-7",
+    "1290-r1-8",
+    "1290-r1-9",
+    "1290-r1-10"
+   ],
+   "raw": "1290-r1-1: class=MATERIAL layer=implementation whose=reviewer\n1290-r1-2: class=MATERIAL layer=plan whose=reviewer\n1290-r1-3: class=MATERIAL layer=plan whose=reviewer\n1290-r1-4: class=MATERIAL layer=plan whose=reviewer\n1290-r1-5: class=IMMATERIAL layer=plan whose=reviewer\n1290-r1-6: class=IMMATERIAL layer=implementation whose=reviewer\n1290-r1-7: class=MATERIAL layer=plan whose=reviewer\n1290-r1-8: class=MATERIAL layer=plan whose=reviewer\n1290-r1-9: class=IMMATERIAL layer=implementation whose=reviewer\n1290-r1-10: class=MATERIAL layer=implementation whose=reviewer"
+  },
+  {
+   "key": "1290-r2",
+   "rows": [
+    "1290-r2-1",
+    "1290-r2-2",
+    "1290-r2-3"
+   ],
+   "raw": "1290-r2-1: class=MATERIAL layer=plan whose=reviewer\n1290-r2-2: class=IMMATERIAL layer=implementation whose=reviewer\n1290-r2-3: class=IMMATERIAL layer=implementation whose=reviewer"
+  },
+  {
+   "key": "1297-r1",
+   "rows": [
+    "1297-r1-1",
+    "1297-r1-2",
+    "1297-r1-3",
+    "1297-r1-4",
+    "1297-r1-5",
+    "1297-r1-6",
+    "1297-r1-7",
+    "1297-r1-8",
+    "1297-r1-9",
+    "1297-r1-10",
+    "1297-r1-11",
+    "1297-r1-12",
+    "1297-r1-13",
+    "1297-r1-14",
+    "1297-r1-15",
+    "1297-r1-16",
+    "1297-r1-17",
+    "1297-r1-18",
+    "1297-r1-19"
+   ],
+   "raw": "1297-r1-1: class=MATERIAL layer=plan whose=reviewer\n1297-r1-2: class=MATERIAL layer=implementation whose=reviewer\n1297-r1-3: class=MATERIAL layer=plan whose=reviewer\n1297-r1-4: class=MATERIAL layer=plan whose=reviewer\n1297-r1-5: class=MATERIAL layer=plan whose=reviewer\n1297-r1-6: class=MATERIAL layer=architecture whose=reviewer\n1297-r1-7: class=MATERIAL layer=architecture whose=advisor\n1297-r1-8: class=MATERIAL layer=implementation whose=reviewer\n1297-r1-9: class=IMMATERIAL layer=implementation whose=reviewer\n1297-r1-10: class=MATERIAL layer=plan whose=reviewer\n1297-r1-11: class=IMMATERIAL layer=implementation whose=reviewer\n1297-r1-12: class=MATERIAL layer=plan whose=reviewer\n1297-r1-13: class=MATERIAL layer=architecture whose=advisor\n1297-r1-14: class=IMMATERIAL layer=implementation whose=reviewer\n1297-r1-15: class=IMMATERIAL layer=implementation whose=reviewer\n1297-r1-16: class=MATERIAL layer=architecture whose=reviewer\n1297-r1-17: class=MATERIAL layer=plan whose=advisor\n1297-r1-18: class=MATERIAL layer=plan whose=advisor\n1297-r1-19: class=MATERIAL layer=plan whose=reviewer"
+  },
+  {
+   "key": "1302-r1",
+   "rows": [
+    "1302-r1-1"
+   ],
+   "raw": "1302-r1-1: class=IMMATERIAL layer=implementation whose=reviewer"
+  },
+  {
+   "key": "1311-r1",
+   "rows": [
+    "1311-r1-1",
+    "1311-r1-2",
+    "1311-r1-3",
+    "1311-r1-4",
+    "1311-r1-5"
+   ],
+   "raw": "Looking at each finding through the yardstick:\n\n1311-r1-1: class=IMMATERIAL layer=implementation whose=reviewer\n1311-r1-2: class=MATERIAL layer=design whose=reviewer\n1311-r1-3: class=IMMATERIAL layer=implementation whose=reviewer\n1311-r1-4: class=IMMATERIAL layer=implementation whose=reviewer\n1311-r1-5: class=MATERIAL layer=implementation whose=reviewer"
+  },
+  {
+   "key": "1329-r1",
+   "rows": [
+    "1329-r1-1",
+    "1329-r1-2"
+   ],
+   "raw": "1329-r1-1: class=MATERIAL layer=implementation whose=reviewer\n1329-r1-2: class=MATERIAL layer=implementation whose=reviewer"
+  },
+  {
+   "key": "1329-r2",
+   "rows": [
+    "1329-r2-1"
+   ],
+   "raw": "1329-r2-1: class=MATERIAL layer=implementation whose=reviewer"
+  },
+  {
+   "key": "1332-r1",
+   "rows": [
+    "1332-r1-1",
+    "1332-r1-2",
+    "1332-r1-3"
+   ],
+   "raw": "1332-r1-1: class=IMMATERIAL layer=implementation whose=reviewer\n1332-r1-2: class=IMMATERIAL layer=implementation whose=reviewer\n1332-r1-3: class=IMMATERIAL layer=implementation whose=reviewer"
+  },
+  {
+   "key": "1333-r3",
+   "rows": [
+    "1333-r3-1"
+   ],
+   "raw": "1333-r3-1: class=MATERIAL layer=implementation whose=reviewer"
+  },
+  {
+   "key": "1333-r4",
+   "rows": [
+    "1333-r4-1"
+   ],
+   "raw": "1333-r4-1: class=MATERIAL layer=implementation whose=reviewer"
+  },
+  {
+   "key": "1333-r5",
+   "rows": [
+    "1333-r5-1"
+   ],
+   "raw": "1333-r5-1: class=IMMATERIAL layer=implementation whose=reviewer"
+  },
+  {
+   "key": "1341-r1",
+   "rows": [
+    "1341-r1-1",
+    "1341-r1-2",
+    "1341-r1-3",
+    "1341-r1-4",
+    "1341-r1-5"
+   ],
+   "raw": "1341-r1-1: class=MATERIAL layer=implementation whose=reviewer\n1341-r1-2: class=MATERIAL layer=implementation whose=reviewer\n1341-r1-3: class=MATERIAL layer=implementation whose=reviewer\n1341-r1-4: class=MATERIAL layer=implementation whose=reviewer\n1341-r1-5: class=MATERIAL layer=implementation whose=reviewer"
+  },
+  {
+   "key": "1346-r1",
+   "rows": [
+    "1346-r1-1"
+   ],
+   "raw": "1346-r1-1: class=IMMATERIAL layer=implementation whose=reviewer"
+  },
+  {
+   "key": "1349-r1",
+   "rows": [
+    "1349-r1-1",
+    "1349-r1-2",
+    "1349-r1-3"
+   ],
+   "raw": "Looking at each finding against the yardstick:\n\n1349-r1-1: class=MATERIAL layer=implementation whose=reviewer\n1349-r1-2: class=IMMATERIAL layer=implementation whose=reviewer\n1349-r1-3: class=IMMATERIAL layer=implementation whose=reviewer"
+  },
+  {
+   "key": "1353-r1",
+   "rows": [
+    "1353-r1-1",
+    "1353-r1-2",
+    "1353-r1-3",
+    "1353-r1-4a",
+    "1353-r1-4b",
+    "1353-r1-4c",
+    "1353-r1-4d"
+   ],
+   "raw": "1353-r1-1: class=MATERIAL layer=implementation whose=reviewer\n1353-r1-2: class=IMMATERIAL layer=implementation whose=reviewer\n1353-r1-3: class=MATERIAL layer=implementation whose=reviewer\n1353-r1-4a: class=IMMATERIAL layer=implementation whose=reviewer\n1353-r1-4b: class=IMMATERIAL layer=implementation whose=reviewer\n1353-r1-4c: class=IMMATERIAL layer=implementation whose=reviewer\n1353-r1-4d: class=IMMATERIAL layer=implementation whose=reviewer"
+  },
+  {
+   "key": "1353-r2",
+   "rows": [
+    "1353-r2-1"
+   ],
+   "raw": "1353-r2-1: class=MATERIAL layer=implementation whose=reviewer"
+  },
+  {
+   "key": "1353-r3",
+   "rows": [
+    "1353-r3-1",
+    "1353-r3-2"
+   ],
+   "raw": "1353-r3-1: class=IMMATERIAL layer=implementation whose=reviewer\n1353-r3-2: class=MATERIAL layer=implementation whose=reviewer"
+  },
+  {
+   "key": "1358-r1",
+   "rows": [
+    "1358-r1-1",
+    "1358-r1-2",
+    "1358-r1-3",
+    "1358-r1-4"
+   ],
+   "raw": "1358-r1-1: class=MATERIAL layer=implementation whose=reviewer\n1358-r1-2: class=MATERIAL layer=implementation whose=reviewer\n1358-r1-3: class=MATERIAL layer=implementation whose=reviewer\n1358-r1-4: class=IMMATERIAL layer=implementation whose=reviewer"
+  },
+  {
+   "key": "1358-r2",
+   "rows": [
+    "1358-r2-1"
+   ],
+   "raw": "1358-r2-1: class=IMMATERIAL layer=implementation whose=reviewer"
+  },
+  {
+   "key": "1358-r3",
+   "rows": [
+    "1358-r3-1"
+   ],
+   "raw": "1358-r3-1: class=IMMATERIAL layer=implementation whose=reviewer"
+  },
+  {
+   "key": "1360-r1",
+   "rows": [
+    "1360-r1-1",
+    "1360-r1-2",
+    "1360-r1-3",
+    "1360-r1-4",
+    "1360-r1-5",
+    "1360-r1k-1",
+    "1360-r1k-2",
+    "1360-r1k-3",
+    "1360-r1k-4",
+    "1360-r1k-5"
+   ],
+   "raw": "1360-r1-1: class=MATERIAL layer=architecture whose=reviewer\n1360-r1-2: class=MATERIAL layer=plan whose=reviewer\n1360-r1-3: class=MATERIAL layer=architecture whose=reviewer\n1360-r1-4: class=MATERIAL layer=implementation whose=reviewer\n1360-r1-5: class=IMMATERIAL layer=implementation whose=reviewer\n1360-r1k-1: class=IMMATERIAL layer=implementation whose=reviewer\n1360-r1k-2: class=MATERIAL layer=architecture whose=reviewer\n1360-r1k-3: class=IMMATERIAL layer=implementation whose=reviewer\n1360-r1k-4: class=MATERIAL layer=plan whose=reviewer\n1360-r1k-5: class=IMMATERIAL layer=implementation whose=reviewer"
+  },
+  {
+   "key": "1360-r2",
+   "rows": [
+    "1360-r2-1",
+    "1360-r2-2",
+    "1360-r2-3"
+   ],
+   "raw": "1360-r2-1: class=IMMATERIAL layer=implementation whose=reviewer\n1360-r2-2: class=MATERIAL layer=design whose=reviewer\n1360-r2-3: class=MATERIAL layer=design whose=reviewer"
+  },
+  {
+   "key": "1360-r3",
+   "rows": [
+    "1360-r3-1",
+    "1360-r3-2",
+    "1360-r3-3"
+   ],
+   "raw": "1360-r3-1: class=MATERIAL layer=implementation whose=reviewer\n1360-r3-2: class=MATERIAL layer=design whose=reviewer\n1360-r3-3: class=IMMATERIAL layer=implementation whose=reviewer"
+  },
+  {
+   "key": "1341-r7",
+   "rows": [
+    "1341-r7-1",
+    "1341-r7-2",
+    "1341-r7-3",
+    "1341-r7-4",
+    "1341-r7-5",
+    "1341-r7-6"
+   ],
+   "raw": "1341-r7-1: class=IMMATERIAL layer=implementation whose=reviewer\n1341-r7-2: class=IMMATERIAL layer=implementation whose=reviewer\n1341-r7-3: class=MATERIAL layer=implementation whose=reviewer\n1341-r7-4: class=IMMATERIAL layer=implementation whose=reviewer\n1341-r7-5: class=IMMATERIAL layer=implementation whose=reviewer\n1341-r7-6: class=MATERIAL layer=implementation whose=advisor"
+  },
+  {
+   "key": "1376-td-r1",
+   "rows": [
+    "1376-td1-1",
+    "1376-td1-2",
+    "1376-td1-3",
+    "1376-td1-4",
+    "1376-td1-5",
+    "1376-td1-6",
+    "1376-td1-7",
+    "1376-td1-8",
+    "1376-td1-9",
+    "1376-td1-10",
+    "1376-td1-11",
+    "1376-td1-12",
+    "1376-td1-13",
+    "1376-td1-14",
+    "1376-td1-15",
+    "1376-td1-16",
+    "1376-td1-17",
+    "1376-td1-18"
+   ],
+   "raw": "1376-td1-1: class=MATERIAL layer=architecture whose=advisor\n1376-td1-2: class=MATERIAL layer=design whose=advisor\n1376-td1-3: class=MATERIAL layer=design whose=advisor\n1376-td1-4: class=MATERIAL layer=architecture whose=advisor\n1376-td1-5: class=MATERIAL layer=design whose=advisor\n1376-td1-6: class=IMMATERIAL layer=plan whose=reviewer\n1376-td1-7: class=MATERIAL layer=design whose=advisor\n1376-td1-8: class=MATERIAL layer=architecture whose=advisor\n1376-td1-9: class=IMMATERIAL layer=plan whose=reviewer\n1376-td1-10: class=MATERIAL layer=architecture whose=operator-floor\n1376-td1-11: class=MATERIAL layer=design whose=advisor\n1376-td1-12: class=MATERIAL layer=idea whose=operator-floor\n1376-td1-13: class=MATERIAL layer=idea whose=operator-floor\n1376-td1-14: class=IMMATERIAL layer=implementation whose=reviewer\n1376-td1-15: class=MATERIAL layer=design whose=advisor\n1376-td1-16: class=IMMATERIAL layer=implementation whose=reviewer\n1376-td1-17: class=IMMATERIAL layer=plan whose=reviewer\n1376-td1-18: class=IMMATERIAL layer=plan whose=reviewer"
+  },
+  {
+   "key": "1376-bu-r1",
+   "rows": [
+    "1376-bu1-1",
+    "1376-bu1-2",
+    "1376-bu1-3",
+    "1376-bu1-4",
+    "1376-bu1-5",
+    "1376-bu1-6",
+    "1376-bu1-7",
+    "1376-bu1-8",
+    "1376-bu1-9",
+    "1376-bu1-10",
+    "1376-bu1-11",
+    "1376-bu1-12"
+   ],
+   "raw": "1376-bu1-1: class=MATERIAL layer=architecture whose=reviewer\n1376-bu1-2: class=MATERIAL layer=design whose=reviewer\n1376-bu1-3: class=MATERIAL layer=implementation whose=reviewer\n1376-bu1-4: class=MATERIAL layer=plan whose=reviewer\n1376-bu1-5: class=MATERIAL layer=implementation whose=reviewer\n1376-bu1-6: class=IMMATERIAL layer=implementation whose=reviewer\n1376-bu1-7: class=IMMATERIAL layer=implementation whose=reviewer\n1376-bu1-8: class=MATERIAL layer=implementation whose=reviewer\n1376-bu1-9: class=MATERIAL layer=implementation whose=reviewer\n1376-bu1-10: class=IMMATERIAL layer=implementation whose=reviewer\n1376-bu1-11: class=MATERIAL layer=plan whose=advisor\n1376-bu1-12: class=MATERIAL layer=plan whose=reviewer"
+  },
+  {
+   "key": "1376-r2-verify",
+   "rows": [
+    "1376-r2v-1",
+    "1376-r2v-2",
+    "1376-r2v-3",
+    "1376-r2v-4",
+    "1376-r2v-5",
+    "1376-r2v-6",
+    "1376-r2v-7",
+    "1376-r2v-8",
+    "1376-r2v-9"
+   ],
+   "raw": "1376-r2v-1: class=MATERIAL layer=design whose=reviewer\n1376-r2v-2: class=MATERIAL layer=implementation whose=reviewer\n1376-r2v-3: class=MATERIAL layer=plan whose=advisor\n1376-r2v-4: class=MATERIAL layer=design whose=reviewer\n1376-r2v-5: class=MATERIAL layer=implementation whose=reviewer\n1376-r2v-6: class=MATERIAL layer=design whose=reviewer\n1376-r2v-7: class=MATERIAL layer=implementation whose=reviewer\n1376-r2v-8: class=MATERIAL layer=design whose=advisor\n1376-r2v-9: class=MATERIAL layer=implementation whose=reviewer"
+  },
+  {
+   "key": "1376-fid-r1",
+   "rows": [
+    "1376-fid1-1",
+    "1376-fid1-2",
+    "1376-fid1-3",
+    "1376-fid1-4",
+    "1376-fid1-5"
+   ],
+   "raw": "1376-fid1-1: class=MATERIAL layer=plan whose=reviewer\n1376-fid1-2: class=MATERIAL layer=plan whose=reviewer\n1376-fid1-3: class=MATERIAL layer=plan whose=reviewer\n1376-fid1-4: class=MATERIAL layer=implementation whose=reviewer\n1376-fid1-5: class=IMMATERIAL layer=plan whose=reviewer"
+  },
+  {
+   "key": "1292-kl",
+   "rows": [
+    "kl-1292-1"
+   ],
+   "raw": "kl-1292-1: class=IMMATERIAL layer=design whose=reviewer"
+  },
+  {
+   "key": "1296-kl",
+   "rows": [
+    "kl-1296-1"
+   ],
+   "raw": "kl-1296-1: class=IMMATERIAL layer=plan whose=operator-floor"
+  },
+  {
+   "key": "1305-kl",
+   "rows": [
+    "kl-1305-1"
+   ],
+   "raw": "kl-1305-1: class=IMMATERIAL layer=plan whose=reviewer"
+  },
+  {
+   "key": "1315-kl",
+   "rows": [
+    "kl-1315-1"
+   ],
+   "raw": "kl-1315-1: class=MATERIAL layer=plan whose=reviewer"
+  },
+  {
+   "key": "1317-kl",
+   "rows": [
+    "kl-1317-1"
+   ],
+   "raw": "kl-1317-1: class=MATERIAL layer=plan whose=reviewer"
+  },
+  {
+   "key": "1328-kl",
+   "rows": [
+    "kl-1328-1"
+   ],
+   "raw": "kl-1328-1: class=MATERIAL layer=plan whose=reviewer"
+  },
+  {
+   "key": "1295-kl",
+   "rows": [
+    "kl-1295-1"
+   ],
+   "raw": "kl-1295-1: class=IMMATERIAL layer=implementation whose=reviewer"
+  },
+  {
+   "key": "1310-kl",
+   "rows": [
+    "kl-1310-1"
+   ],
+   "raw": "kl-1310-1: class=MATERIAL layer=design whose=reviewer"
+  },
+  {
+   "key": "1318-kl",
+   "rows": [
+    "kl-1318-1"
+   ],
+   "raw": "kl-1318-1: class=MATERIAL layer=plan whose=reviewer"
+  },
+  {
+   "key": "1319-kl",
+   "rows": [
+    "kl-1319-1"
+   ],
+   "raw": "kl-1319-1: class=IMMATERIAL layer=implementation whose=reviewer"
+  },
+  {
+   "key": "1324-kl",
+   "rows": [
+    "kl-1324-1"
+   ],
+   "raw": "kl-1324-1: class=IMMATERIAL layer=implementation whose=reviewer"
+  },
+  {
+   "key": "1340-kl",
+   "rows": [
+    "kl-1340-1"
+   ],
+   "raw": "kl-1340-1: class=MATERIAL layer=design whose=advisor"
+  },
+  {
+   "key": "1351-kl",
+   "rows": [
+    "kl-1351-1"
+   ],
+   "raw": "kl-1351-1: class=IMMATERIAL layer=plan whose=reviewer"
+  }
+ ],
+ "results": [
+  {
+   "id": "1290-r1-1",
+   "raw": "1290-r1-1: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1290-r1-2",
+   "raw": "1290-r1-2: class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1290-r1-3",
+   "raw": "1290-r1-3: class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1290-r1-4",
+   "raw": "1290-r1-4: class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1290-r1-5",
+   "raw": "1290-r1-5: class=IMMATERIAL layer=plan whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1290-r1-6",
+   "raw": "1290-r1-6: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1290-r1-7",
+   "raw": "1290-r1-7: class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1290-r1-8",
+   "raw": "1290-r1-8: class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1290-r1-9",
+   "raw": "1290-r1-9: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1290-r1-10",
+   "raw": "1290-r1-10: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1290-r2-1",
+   "raw": "1290-r2-1: class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1290-r2-2",
+   "raw": "1290-r2-2: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1290-r2-3",
+   "raw": "1290-r2-3: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-1",
+   "raw": "1297-r1-1: class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-2",
+   "raw": "1297-r1-2: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-3",
+   "raw": "1297-r1-3: class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-4",
+   "raw": "1297-r1-4: class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-5",
+   "raw": "1297-r1-5: class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-6",
+   "raw": "1297-r1-6: class=MATERIAL layer=architecture whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-7",
+   "raw": "1297-r1-7: class=MATERIAL layer=architecture whose=advisor",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1297-r1-8",
+   "raw": "1297-r1-8: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-9",
+   "raw": "1297-r1-9: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-10",
+   "raw": "1297-r1-10: class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-11",
+   "raw": "1297-r1-11: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-12",
+   "raw": "1297-r1-12: class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-13",
+   "raw": "1297-r1-13: class=MATERIAL layer=architecture whose=advisor",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1297-r1-14",
+   "raw": "1297-r1-14: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-15",
+   "raw": "1297-r1-15: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-16",
+   "raw": "1297-r1-16: class=MATERIAL layer=architecture whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-17",
+   "raw": "1297-r1-17: class=MATERIAL layer=plan whose=advisor",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1297-r1-18",
+   "raw": "1297-r1-18: class=MATERIAL layer=plan whose=advisor",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1297-r1-19",
+   "raw": "1297-r1-19: class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1302-r1-1",
+   "raw": "1302-r1-1: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1311-r1-1",
+   "raw": "1311-r1-1: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1311-r1-2",
+   "raw": "1311-r1-2: class=MATERIAL layer=design whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1311-r1-3",
+   "raw": "1311-r1-3: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1311-r1-4",
+   "raw": "1311-r1-4: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1311-r1-5",
+   "raw": "1311-r1-5: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1329-r1-1",
+   "raw": "1329-r1-1: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1329-r1-2",
+   "raw": "1329-r1-2: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1329-r2-1",
+   "raw": "1329-r2-1: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1332-r1-1",
+   "raw": "1332-r1-1: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1332-r1-2",
+   "raw": "1332-r1-2: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1332-r1-3",
+   "raw": "1332-r1-3: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1333-r3-1",
+   "raw": "1333-r3-1: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1333-r4-1",
+   "raw": "1333-r4-1: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1333-r5-1",
+   "raw": "1333-r5-1: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1341-r1-1",
+   "raw": "1341-r1-1: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1341-r1-2",
+   "raw": "1341-r1-2: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1341-r1-3",
+   "raw": "1341-r1-3: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1341-r1-4",
+   "raw": "1341-r1-4: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1341-r1-5",
+   "raw": "1341-r1-5: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1346-r1-1",
+   "raw": "1346-r1-1: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1349-r1-1",
+   "raw": "1349-r1-1: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1349-r1-2",
+   "raw": "1349-r1-2: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1349-r1-3",
+   "raw": "1349-r1-3: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1353-r1-1",
+   "raw": "1353-r1-1: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1353-r1-2",
+   "raw": "1353-r1-2: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1353-r1-3",
+   "raw": "1353-r1-3: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1353-r1-4a",
+   "raw": "1353-r1-4a: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1353-r1-4b",
+   "raw": "1353-r1-4b: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1353-r1-4c",
+   "raw": "1353-r1-4c: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1353-r1-4d",
+   "raw": "1353-r1-4d: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1353-r2-1",
+   "raw": "1353-r2-1: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1353-r3-1",
+   "raw": "1353-r3-1: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1353-r3-2",
+   "raw": "1353-r3-2: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1358-r1-1",
+   "raw": "1358-r1-1: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1358-r1-2",
+   "raw": "1358-r1-2: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1358-r1-3",
+   "raw": "1358-r1-3: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1358-r1-4",
+   "raw": "1358-r1-4: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1358-r2-1",
+   "raw": "1358-r2-1: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1358-r3-1",
+   "raw": "1358-r3-1: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r1-1",
+   "raw": "1360-r1-1: class=MATERIAL layer=architecture whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r1-2",
+   "raw": "1360-r1-2: class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r1-3",
+   "raw": "1360-r1-3: class=MATERIAL layer=architecture whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r1-4",
+   "raw": "1360-r1-4: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r1-5",
+   "raw": "1360-r1-5: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r1k-1",
+   "raw": "1360-r1k-1: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r1k-2",
+   "raw": "1360-r1k-2: class=MATERIAL layer=architecture whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r1k-3",
+   "raw": "1360-r1k-3: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r1k-4",
+   "raw": "1360-r1k-4: class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r1k-5",
+   "raw": "1360-r1k-5: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r2-1",
+   "raw": "1360-r2-1: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r2-2",
+   "raw": "1360-r2-2: class=MATERIAL layer=design whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r2-3",
+   "raw": "1360-r2-3: class=MATERIAL layer=design whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r3-1",
+   "raw": "1360-r3-1: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r3-2",
+   "raw": "1360-r3-2: class=MATERIAL layer=design whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r3-3",
+   "raw": "1360-r3-3: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1341-r7-1",
+   "raw": "1341-r7-1: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1341-r7-2",
+   "raw": "1341-r7-2: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1341-r7-3",
+   "raw": "1341-r7-3: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1341-r7-4",
+   "raw": "1341-r7-4: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1341-r7-5",
+   "raw": "1341-r7-5: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1341-r7-6",
+   "raw": "1341-r7-6: class=MATERIAL layer=implementation whose=advisor",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1376-td1-1",
+   "raw": "1376-td1-1: class=MATERIAL layer=architecture whose=advisor",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1376-td1-2",
+   "raw": "1376-td1-2: class=MATERIAL layer=design whose=advisor",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1376-td1-3",
+   "raw": "1376-td1-3: class=MATERIAL layer=design whose=advisor",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1376-td1-4",
+   "raw": "1376-td1-4: class=MATERIAL layer=architecture whose=advisor",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1376-td1-5",
+   "raw": "1376-td1-5: class=MATERIAL layer=design whose=advisor",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1376-td1-6",
+   "raw": "1376-td1-6: class=IMMATERIAL layer=plan whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-td1-7",
+   "raw": "1376-td1-7: class=MATERIAL layer=design whose=advisor",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1376-td1-8",
+   "raw": "1376-td1-8: class=MATERIAL layer=architecture whose=advisor",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1376-td1-9",
+   "raw": "1376-td1-9: class=IMMATERIAL layer=plan whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-td1-10",
+   "raw": "1376-td1-10: class=MATERIAL layer=architecture whose=operator-floor",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "operator-floor",
+   "error": null
+  },
+  {
+   "id": "1376-td1-11",
+   "raw": "1376-td1-11: class=MATERIAL layer=design whose=advisor",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1376-td1-12",
+   "raw": "1376-td1-12: class=MATERIAL layer=idea whose=operator-floor",
+   "class": "MATERIAL",
+   "layer": "idea",
+   "whose": "operator-floor",
+   "error": null
+  },
+  {
+   "id": "1376-td1-13",
+   "raw": "1376-td1-13: class=MATERIAL layer=idea whose=operator-floor",
+   "class": "MATERIAL",
+   "layer": "idea",
+   "whose": "operator-floor",
+   "error": null
+  },
+  {
+   "id": "1376-td1-14",
+   "raw": "1376-td1-14: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-td1-15",
+   "raw": "1376-td1-15: class=MATERIAL layer=design whose=advisor",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1376-td1-16",
+   "raw": "1376-td1-16: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-td1-17",
+   "raw": "1376-td1-17: class=IMMATERIAL layer=plan whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-td1-18",
+   "raw": "1376-td1-18: class=IMMATERIAL layer=plan whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-bu1-1",
+   "raw": "1376-bu1-1: class=MATERIAL layer=architecture whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-bu1-2",
+   "raw": "1376-bu1-2: class=MATERIAL layer=design whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-bu1-3",
+   "raw": "1376-bu1-3: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-bu1-4",
+   "raw": "1376-bu1-4: class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-bu1-5",
+   "raw": "1376-bu1-5: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-bu1-6",
+   "raw": "1376-bu1-6: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-bu1-7",
+   "raw": "1376-bu1-7: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-bu1-8",
+   "raw": "1376-bu1-8: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-bu1-9",
+   "raw": "1376-bu1-9: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-bu1-10",
+   "raw": "1376-bu1-10: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-bu1-11",
+   "raw": "1376-bu1-11: class=MATERIAL layer=plan whose=advisor",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1376-bu1-12",
+   "raw": "1376-bu1-12: class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-r2v-1",
+   "raw": "1376-r2v-1: class=MATERIAL layer=design whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-r2v-2",
+   "raw": "1376-r2v-2: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-r2v-3",
+   "raw": "1376-r2v-3: class=MATERIAL layer=plan whose=advisor",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1376-r2v-4",
+   "raw": "1376-r2v-4: class=MATERIAL layer=design whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-r2v-5",
+   "raw": "1376-r2v-5: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-r2v-6",
+   "raw": "1376-r2v-6: class=MATERIAL layer=design whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-r2v-7",
+   "raw": "1376-r2v-7: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-r2v-8",
+   "raw": "1376-r2v-8: class=MATERIAL layer=design whose=advisor",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1376-r2v-9",
+   "raw": "1376-r2v-9: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-fid1-1",
+   "raw": "1376-fid1-1: class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-fid1-2",
+   "raw": "1376-fid1-2: class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-fid1-3",
+   "raw": "1376-fid1-3: class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-fid1-4",
+   "raw": "1376-fid1-4: class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-fid1-5",
+   "raw": "1376-fid1-5: class=IMMATERIAL layer=plan whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "kl-1292-1",
+   "raw": "kl-1292-1: class=IMMATERIAL layer=design whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "design",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "kl-1296-1",
+   "raw": "kl-1296-1: class=IMMATERIAL layer=plan whose=operator-floor",
+   "class": "IMMATERIAL",
+   "layer": "plan",
+   "whose": "operator-floor",
+   "error": null
+  },
+  {
+   "id": "kl-1305-1",
+   "raw": "kl-1305-1: class=IMMATERIAL layer=plan whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "kl-1315-1",
+   "raw": "kl-1315-1: class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "kl-1317-1",
+   "raw": "kl-1317-1: class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "kl-1328-1",
+   "raw": "kl-1328-1: class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "kl-1295-1",
+   "raw": "kl-1295-1: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "kl-1310-1",
+   "raw": "kl-1310-1: class=MATERIAL layer=design whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "kl-1318-1",
+   "raw": "kl-1318-1: class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "kl-1319-1",
+   "raw": "kl-1319-1: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "kl-1324-1",
+   "raw": "kl-1324-1: class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "kl-1340-1",
+   "raw": "kl-1340-1: class=MATERIAL layer=design whose=advisor",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "kl-1351-1",
+   "raw": "kl-1351-1: class=IMMATERIAL layer=plan whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  }
+ ]
+}

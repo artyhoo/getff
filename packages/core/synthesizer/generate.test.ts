@@ -197,3 +197,110 @@ describe('synthesizeGenerate — oracle coverage against RULES.react-native.md',
     expect(eslintRules.length).toBeGreaterThanOrEqual(1);
   });
 });
+
+// S1 §3 criterion 3 / §6 fork 4 — tier is a fact about the research moment, stamped HERE and
+// carried through the manifest; install.ts must never have to re-derive it. This path (not
+// synthesize.ts, not menu-pick.ts) is the one setup.d/80-rule-bootstrap.sh runs on a consumer,
+// so it is the one whose omission collapses every real tier to DEFAULT_TIER.
+describe('synthesizeGenerate — tier stamped at synthesis (criterion 3)', () => {
+  // Two entries with DIFFERENT trust: a Tier-0 allowlisted source and a non-allowlisted one.
+  // Mixed by construction, so a uniform result fails regardless of which value it collapsed to.
+  const mixedTrustPlan: ResearchPlan = {
+    framework: 'react',
+    version: '19.0.0',
+    patterns: [
+      {
+        id: 'tier0-entry',
+        summary: 'curated source',
+        bestPractices: ['prefer the documented API'],
+        antiPatterns: ['reaching past the documented API'],
+        provenance: [
+          {
+            url: 'https://react.dev/learn',
+            allowlistKey: 'react.official',
+            fetchedAt: '2026-06-23T00:00:00.000Z',
+          },
+        ],
+      },
+      {
+        id: 'untrusted-entry',
+        summary: 'source outside the allowlist',
+        bestPractices: ['prefer the documented API'],
+        antiPatterns: ['reaching past the documented API'],
+        provenance: [
+          {
+            url: 'https://example.invalid/blog/post',
+            allowlistKey: 'example.invalid',
+            fetchedAt: '2026-06-23T00:00:00.000Z',
+          },
+        ],
+      },
+    ],
+    missing: [],
+    drift: null,
+  };
+
+  // Distinct built-in rule ids per entry — one shared ruleId would trip the eslintConfig
+  // collision guard (merge-eslint-config.ts) before the tier assertion is ever reached.
+  const stubMixedTrust: GenerateClient = {
+    async generate(): Promise<GenerateSelection> {
+      return {
+        rules: [
+          {
+            entryId: 'tier0-entry',
+            ruleId: 'no-restricted-globals',
+            title: 'rule for tier0-entry',
+            stack: ['react'],
+            eslintConfig: { 'no-restricted-globals': ['error', 'localStorage'] },
+            examples: {
+              bad: "const s = localStorage.getItem('u');",
+              good: "const s = store.get('u');",
+            },
+            negativeTest: {
+              input: ["const s = localStorage.getItem('u');"],
+              'expect-violation': 'no-restricted-globals',
+            },
+          },
+          {
+            entryId: 'untrusted-entry',
+            ruleId: 'no-restricted-imports',
+            title: 'rule for untrusted-entry',
+            stack: ['react'],
+            eslintConfig: {
+              'no-restricted-imports': ['error', { paths: [{ name: 'lodash' }] }],
+            },
+            examples: {
+              bad: "import _ from 'lodash';",
+              good: "import { map } from './utils';",
+            },
+            negativeTest: {
+              input: ["import _ from 'lodash';"],
+              'expect-violation': 'no-restricted-imports',
+            },
+          },
+        ],
+      };
+    },
+  };
+
+  it('(g) stamps a per-rule tier on the generate path — present, not left to install-time derivation', async () => {
+    const plan = await synthesizeGenerate(mixedTrustPlan, stubMixedTrust);
+    for (const rule of plan.rules) {
+      expect(rule.research.tier).toBeDefined();
+      for (const p of rule.research.provenance) {
+        expect(p.tier).toBeDefined();
+      }
+    }
+  });
+
+  it('(h, paired negative) the stamped tiers are DERIVED, not a uniform default (T14)', async () => {
+    const plan = await synthesizeGenerate(mixedTrustPlan, stubMixedTrust);
+    const byEntry = new Map(plan.rules.map((r) => [r.research.entryId, r.research.tier]));
+    // Allowlisted → Tier 0; outside the allowlist → fails closed to DEFAULT_TIER (2).
+    expect(byEntry.get('tier0-entry')).toBe(0);
+    expect(byEntry.get('untrusted-entry')).toBe(2);
+    // The load-bearing half: a stamp that classified everything the same would satisfy (g)
+    // while telling a downstream freshness gate nothing.
+    expect(new Set(byEntry.values()).size).toBeGreaterThan(1);
+  });
+});

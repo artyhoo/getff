@@ -28,6 +28,34 @@ MO_OPEN_QUESTIONS="${MO_OPEN_QUESTIONS:-${REPO_ROOT}/docs/meta-factory/open-ques
 MO_PACKAGES_DIR="${MO_PACKAGES_DIR:-${REPO_ROOT}/packages}"
 MO_PATCHES_DIR="${MO_PATCHES_DIR:-${REPO_ROOT}/docs/meta-factory/research-patches}"
 
+# ── Closure suppression for the DIRECTORY-SCOPED surfaces (a) + (b) ─────────────────────────
+# Surfaces (a) and (b) key on an umbrella directory under ${PROMPTS_DIR}, so the same
+# completion signal priority-score.sh trusts as load-bearing for real kickoff entries —
+# Layer C3, a committed done.md (operational-conventions.md §1) — applies to them too.
+# Without this, a closed umbrella keeps generating follow-up candidates forever: measured
+# 2026-08-17 over 352 umbrella dirs, 45 of the 54 emitted (a)+(b) candidates (83%) named a
+# directory that already carried a done.md.
+#
+# Deliberately NOT applied to (c)-(h): none of those key on an umbrella directory —
+# (c) memory, (d) live open PRs, (e) wave plan, (f) open-questions, (g) packages/**/*.ts,
+# (h) research-patches — so "a done.md in the same directory" is undefined for them. A stale
+# open PR in particular is about a live PR, not about umbrella state, and must survive closure.
+#
+# Parent inheritance is ONE-DIRECTIONAL. `<x>-meta-launch` is the meta-orchestrator's launch
+# staging FOR `<x>`, so closing `<x>` closes its staging. The reverse does NOT hold: 6 dirs
+# in the live tree carry a meta-launch done.md while the parent umbrella is still open (the
+# launch finished; the umbrella work continued), so a closed meta-launch must never suppress
+# its parent — and this function is never asked to, since it only ever inspects upward.
+_umbrella_closed() {
+  local dir="${1%/}" u
+  [[ -f "${dir}/done.md" ]] && return 0
+  u="${dir##*/}"
+  if [[ "${u}" == *-meta-launch ]]; then
+    [[ -f "${PROMPTS_DIR}/${u%-meta-launch}/done.md" ]] && return 0
+  fi
+  return 1
+}
+
 # ── SYNTHETIC ENTRIES (synthetic-candidate extension — non-kickoff discovery surfaces) ──────
 # NOTE: "synthetic-candidate extension" label replaces the earlier "L1 extension" comment to
 # avoid confusion with completion-detection layers C1/C2/C3 introduced above. The underlying
@@ -37,9 +65,13 @@ MO_PATCHES_DIR="${MO_PATCHES_DIR:-${REPO_ROOT}/docs/meta-factory/research-patche
 echo "=== priority-score: synthetic candidates (synthetic-candidate extension) ==="
 
 # (a) cold-review-fixes.md — parked handoff docs that need a fresh session to apply
+# Suppressed once the umbrella is closed (see _umbrella_closed above): a parked handoff doc
+# is spent when the umbrella it hands off has merged its last stage.
 find "${PROMPTS_DIR}" -mindepth 2 -maxdepth 2 -name 'cold-review-fixes.md' 2>/dev/null \
   | while read -r f; do
-    umbrella="$(basename "$(dirname "${f}")")"
+    dir="$(dirname "${f}")"
+    _umbrella_closed "${dir}" && continue
+    umbrella="$(basename "${dir}")"
     loc="$(wc -l < "${f}" 2>/dev/null || echo 0)"
     echo "${umbrella}-cold-review-fixes type=cleanup kickoff=synthetic source=cold-review-fixes loc=${loc}"
   done
@@ -50,9 +82,14 @@ find "${PROMPTS_DIR}" -mindepth 2 -maxdepth 2 -name 'cold-review-fixes.md' 2>/de
 # an empty find makes xargs run grep on empty stdin, and a no-match `grep -l` exits 1 — either
 # makes xargs exit 123, which pipefail propagates and set -e turns fatal. BSD/macOS xargs hid
 # this (it skips the command on empty input), so the bug was invisible locally + ungated in CI.
+# Suppressed once the umbrella is closed (see _umbrella_closed above): a PENDING marker in a
+# closed umbrella's dispatch record is a dead thread, not a follow-up. Live case 2026-08-17 —
+# triage-kernel-v2-meta-launch/state.md still named a superseded aif task after PR #1407.
 while IFS= read -r s; do
-  if grep -qiE 'PENDING|TODO|AWAITING|REVIEW-PENDING' "${s}" 2>/dev/null; then
-    umbrella="$(basename "$(dirname "${s}")")"
+  dir="$(dirname "${s}")"
+  if ! _umbrella_closed "${dir}" \
+    && grep -qiE 'PENDING|TODO|AWAITING|REVIEW-PENDING' "${s}" 2>/dev/null; then
+    umbrella="$(basename "${dir}")"
     echo "${umbrella}-state-pending type=state-followup kickoff=synthetic source=state.md"
   fi
 done < <(find "${PROMPTS_DIR}" -mindepth 2 -maxdepth 2 -name 'state.md' 2>/dev/null)

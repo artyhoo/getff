@@ -9290,6 +9290,20 @@ import { existsSync as existsSync2, readFileSync as readFileSync5 } from "node:f
 import { dirname as dirname5, resolve as resolve4 } from "node:path";
 import { fileURLToPath as fileURLToPath5 } from "node:url";
 
+// packages/core/synthesizer/tier.ts
+var DEFAULT_TIER = 2;
+function stampProvenanceTier(provenance) {
+  return provenance.map((p) => ({
+    ...p,
+    tier: p.tier ?? (validateProvenance2(p).ok ? 0 : DEFAULT_TIER)
+  }));
+}
+function weakestTier(provenance, stamped) {
+  if (stamped !== void 0) return stamped;
+  if (provenance.length === 0) return DEFAULT_TIER;
+  return Math.max(...provenance.map((p) => p.tier ?? DEFAULT_TIER));
+}
+
 // packages/core/synthesizer/compile-declarative-md.ts
 var ESLINT_RESTRICTED_RULE_NAME = "rules-as-tests/restricted-syntax-audit-exempt";
 function declarativeRestrictedConfigEntry(check) {
@@ -9749,10 +9763,11 @@ function synthesize(plan) {
       continue;
     }
     const id = `G${nextId++}`;
+    const stampedProv = stampProvenanceTier(entry.provenance);
     const composed = {
       ...recipe.rule,
       id,
-      research: { entryId: entry.id, provenance: entry.provenance }
+      research: { entryId: entry.id, provenance: stampedProv, tier: weakestTier(stampedProv) }
     };
     const rule = wireRuleThroughNode(composed);
     rules.push(rule);

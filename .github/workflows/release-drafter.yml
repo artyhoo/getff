@@ -36,6 +36,8 @@ concurrency:
 
 jobs:
   autolabel:
+    # required-context: no — it WRITES a convenience label from the PR title; it asserts nothing
+    # about the diff, so there is no fail-closed property for registration to protect.
     name: autolabel PR from conventional-commit title
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -49,6 +51,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   update_release_draft:
+    # required-context: no — `if: github.event_name == 'push'`, so on a PR event it is skipped
+    # (skipped jobs report success, unlike skipped workflows). It maintains draft release notes
+    # post-merge and gates nothing.
     name: update draft release notes
     if: github.event_name == 'push'
     runs-on: ubuntu-latest

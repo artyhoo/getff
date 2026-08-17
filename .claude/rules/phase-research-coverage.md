@@ -10,7 +10,7 @@ paths:
 # Phase research coverage — searching discipline
 
 > **Class:** A — companion principle test shipped at [packages/core/principles/13-phase-research-coverage-s17.test.ts](../../packages/core/principles/13-phase-research-coverage-s17.test.ts) (#74, 2026-05-17); enforces §1.7 Forward+Backward self-review on research patches via the HISTORICAL_CUTOFF mechanism.
-> **Fires:** phase entry research, prior-art lookups, or closing a negative-existence claim.
+> **Fires:** phase research, prior-art lookups, negative-existence claims.
 > **Authoritative for:** searching-layer discipline rule — §1 coverage methodology checklist, §2 self-reflection prompts for retros, §3 research-patches/ accumulator format (mirrors AIF /aif-evolve), §4 named anti-patterns for fast pattern-match.
 > **NOT authoritative for:** project goal — see [../../README.md#why-this-exists](../../README.md#why-this-exists). Recording-layer discipline (Prior-art trailer + SSOT + principle 08) — see [CLAUDE.md `Build-vs-reuse invariant`](../../CLAUDE.md). Discipline-layer SSOT (re-evaluation triggers for this rule) — see [open-questions.md §13.16](../../docs/meta-factory/open-questions.md).
 

@@ -36,8 +36,21 @@
 # RED, never SKIP. ast-grep is installed PINNED (ci-tool-pinning.md Rule A — version-pin
 # bare run: installs). Deterministic + API-free.
 #
-# Runs in CI (ubuntu) and host-verify (`make consumer-matrix`). Container runs are
-# informational only — host is load-bearing (destination-environment-verification.md §1).
+# CI-ONLY (ubuntu), merge-blocking via the `consumer-matrix-python-unfamiliar-stack-cell`
+# job at .github/workflows/audit-self.yml:1563. Unlike its two sibling cells this one is
+# reachable from no make target, and that is deliberate: it is the only cell that mutates
+# host state OUTSIDE its tmpdir. Line 346 runs `npm install -g "$ASTGREP_PKG"`, which lands
+# in `npm prefix -g`/bin; on a stock Homebrew macOS that resolves to /opt/homebrew/bin,
+# where `ast-grep` is already a brew-owned symlink into Cellar. The install there either
+# fails on the collision or replaces a brew-managed binary — a local-verify target must not
+# do that to an operator's toolchain, so the siblings' lane is not offered here.
+# It is therefore NOT part of `make consumer-matrix`.  # make-claim: allow — records the absence of a make target, not a claim to run under one
+#   Trigger to revisit: scope the ast-grep install to the cell (`npm install --prefix
+#   "$WORK/tools"` + prepend `"$WORK/tools/node_modules/.bin"` to PATH). That removes the
+#   only host-mutating step, after which this cell should join the consumer-matrix target
+#   and this paragraph should be replaced by the siblings' host-verify wording.
+# Container runs are informational only — host is load-bearing
+# (destination-environment-verification.md §1).
 set -euo pipefail
 
 FRAMEWORK_ROOT="${FRAMEWORK_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"

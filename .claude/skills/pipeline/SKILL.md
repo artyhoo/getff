@@ -27,7 +27,7 @@ allowed-tools:
 
 **Binding spec:** `.claude/orchestrator-prompts/meta-orchestrator-prior-art/kickoff.md §7` (gitignored, 14 sub-sections §7.1-§7.14).
 
-**Substrate:** CC slash-command primitive + `!shell` injection + Write tool + Agent tool. Zero npm deps. Zero paid-LLM-in-CI calls (all dispatch is session-bound per [no-paid-llm-in-ci.md §1](../../rules/no-paid-llm-in-ci.md)).
+**Substrate:** CC slash-command primitive + `!shell` injection + Write tool + Agent tool. Zero npm deps. Zero paid-LLM-in-CI calls (all dispatch is session-bound per [no-paid-llm-in-ci.md §1](../../rules/no-paid-llm-in-ci.md)). **Path convention — `<orch-home>` (binds §1, §2.5, §4, §10):** every runtime path below is relative to `<orch-home>`, the **resolved** orchestration home — `.claude/orchestrator-prompts/` in this framework repo, `.ai-factory/orchestrator-prompts/` in a consumer install. Resolve it, never assume it: `"$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)"` (the same `resolve_orch_home()` the helpers use, `helpers/lib/common.sh`; `MO_ORCH_HOME` overrides both). The framework literal is **never delivered to a consumer**, so hardcoding it makes reads silently empty and writes land in a second, unread directory (getff#1245); `packages/core/principles/39-skill-fence-orch-home.test.ts` gates the fences against that regression.
 
 ---
 
@@ -39,10 +39,10 @@ allowed-tools:
 
 **`disable-model-invocation: true`** — fires ONLY on explicit `/pipeline` invocation. The flag suppresses CC's default auto-load into subagent contexts when description matches a subagent's task — it is **not** a recursive-invocation guard (no such risk exists: subagent depth is hard-capped at 2 by CC's harness, per [sub-agents.md](https://code.claude.com/docs/en/sub-agents.md)).
 
-**Arg routing (V1 binding per [research-patch §3](../../../docs/meta-factory/research-patches/2026-05-29-meta-orch-no-arg-overview-s0-remainder.md)):** regex check at invocation start — empty → V3 overview; `^[0-9]+$` → V4 top-N (N=0 routes to V3); else → named-umbrella dispatch (existing §1→§3→§4→§5). **Pre-invocation guard (V1 mandatory):** assert no umbrella basename is `^[0-9]+$` (otherwise `/pipeline 1` is ambiguous): <!-- @dual-pair: meta-orchestrator-integer-name-guard -->
+**Arg routing (V1 binding per [research-patch §3](../../../docs/meta-factory/research-patches/2026-05-29-meta-orch-no-arg-overview-s0-remainder.md)):** regex check at invocation start — empty → V3 overview; `^[0-9]+$` → V4 top-N (N=0 routes to V3); `list` → preset enumeration via [`helpers/list-presets.sh`](helpers/list-presets.sh) (§0.1); `status` → read-only status render via [`helpers/render-status.sh`](helpers/render-status.sh) (§2.6); else → named-umbrella dispatch (existing §1→§3→§4→§5). **Pre-invocation guard (V1 mandatory):** assert no umbrella basename is `^[0-9]+$` (otherwise `/pipeline 1` is ambiguous): <!-- @dual-pair: meta-orchestrator-integer-name-guard -->
 
 ```!
-bash "${CLAUDE_SKILL_DIR}/helpers/integer-name-guard.sh" .claude/orchestrator-prompts
+bash "${CLAUDE_SKILL_DIR}/helpers/integer-name-guard.sh" --auto
 ```
 
 **Mode-override flags (optional):** parse `--mode-bundle` / `--mode-pair` / `--mode-solo` / … + `--reason=<text>` from the umbrella arg up-front — `OVERRIDE_MODE` / `OVERRIDE_REASON` output feeds §2.5 Step 5 predicates (`bundle_opt_in` / `review_required`); exit 1 = no flag (normal — routing tree proceeds). Spec: [`references/mode-overrides.md`](references/mode-overrides.md). <!-- @dual-pair: meta-orchestrator-mode-overrides -->
@@ -51,7 +51,27 @@ bash "${CLAUDE_SKILL_DIR}/helpers/integer-name-guard.sh" .claude/orchestrator-pr
 bash "${CLAUDE_SKILL_DIR}/helpers/parse-override-flags.sh" "${umbrella:-}" 2>/dev/null || true
 ```
 
+**Preset flag (optional, A4):** the parser above also recognises `--preset <name>` (flag) and `AIF_PIPELINE_PRESET=<name>` (env). Precedence: flag > env > default. When resolved, the preamble output carries `PRESET_MODE` / `PRESET_MARKER` / `PRESET_BUNDLE_OPT_IN` / `PRESET_REVIEW_REQUIRED` / `PRESET_PARALLEL_SAFE` lines. **Seam #3 — marker relay:** when `PRESET_MARKER=<value>` is non-empty (economy/aif presets), the generated meta-kickoff header MUST carry `<!-- bridge-profile: <value> -->`. The value MUST be the profile's full display name, unique under the resolver's case-insensitive substring match (see [CLAUDE.md «Marker value rule»](../../../CLAUDE.md)). For null-marker presets (night/sdd) no marker line is emitted. **Seam #2 — routing short-circuit:** see §2.5 Step 5.
+
 **Permissions model:** `allowed-tools` list above constrains the skill to read/git/gh/write — no arbitrary Bash. If a check requires a command outside the list, escalate to maintainer. **Caveat — Issue [#14956](https://github.com/anthropics/claude-code/issues/14956) (open as of 2026-05-28):** specific `Bash(<pattern>)` patterns in skill-scoped `allowed-tools` do not auto-approve matching commands in current CC versions. The load-bearing fallback is a `~/.claude/settings.json` `permissions.allow` entry `Bash(bash *helpers/*.sh *)` — a per-operator manual setup step in the operator's global settings, NOT committed in this repo (per DN-1 Option C verdict, PR #262 §3). The frontmatter glob above remains for forward-compatibility when #14956 closes — remove the settings.json fallback line at that point.
+
+## §0.1 `list` verb — preset enumeration (A4)
+
+> Data-driven enumeration of pipeline launch presets. Source-of-truth: the JSON
+> files under `references/presets/`. Adding a 5th preset file there surfaces it
+> with zero code change (AC-2).
+
+**Step 1 — invoke enumerator:**
+
+```!
+bash "${CLAUDE_SKILL_DIR}/helpers/list-presets.sh"
+```
+
+**Output shape:** one line per preset, sorted alphabetically:
+`<name> — <description> (mode=<mode>[, marker=<marker>])`.
+
+**Escape hatch:** `MO_PRESETS_DIR=<dir>` overrides the presets directory (test
+fixtures only).
 
 ---
 
@@ -62,7 +82,7 @@ bash "${CLAUDE_SKILL_DIR}/helpers/parse-override-flags.sh" "${umbrella:-}" 2>/de
 **Step 1 — inject live state:**
 
 ```!
-cat .claude/orchestrator-prompts/_plan-cache.md 2>/dev/null | head -200 || echo "(no cache — fresh session; will be created by helpers/update-cache.sh on this invocation's exit)"
+head -200 "$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)/_plan-cache.md" 2>/dev/null || echo "(no cache — fresh session; will be created by helpers/update-cache.sh on this invocation's exit)"
 ```
 
 ```!
@@ -87,7 +107,7 @@ Compare the `wave-sequencing-plan.md` claims against the live `gh pr list` outpu
 
 1. For every wave marked «✅ merged» — verify a merged PR with that head branch exists in `gh pr list --state merged`. If not found → **DRIFT**.
 2. For every wave marked «🟡 partial» — verify at least one open PR matches. If none → **DRIFT**.
-3. For every kickoff path referenced — verify `ls .claude/orchestrator-prompts/<path>/kickoff.md` returns a file (the `plan-currency-check.sh` output provides this). Missing file → **STALE REF**.
+3. For every kickoff path referenced — verify `<orch-home>/<path>/kickoff.md` exists (the `plan-currency-check.sh` output provides this; to `ls` it yourself, resolve the home first — `ls "$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)/<path>/kickoff.md"`). Missing file → **STALE REF**. Never `ls` the framework literal: in a consumer install it names a directory that cannot exist, so every present kickoff reports STALE REF.
 4. For every research-patch cited — verify the cited file exists under the project's research/patches dir (framework: `docs/meta-factory/research-patches/`). If the project has no such dir, skip this check. Missing (where the dir exists) → **STALE REF**.
 5. **REPORT reconciliation:** if a maintainer-passed REPORT contradicts the `gh pr list` injection (e.g. REPORT says «Stage 1 merged» but `gh pr list` shows nothing), emit «REPORT says X; mechanical state shows Y; trusting `gh pr list`; possible causes: stale REPORT / pending GitHub-API sync (<60s) / different branch. Proceeding on mechanical state.» REPORT is welcome **supplementary** input, not load-bearing — mechanical state always wins (3-layer responsibility model; memory `feedback_no_human_verification_ai_self_verifies`).
 6. **Cache reconciliation:** if cache (Step 1 first `!shell` block) «Last invocation» Git HEAD diverges from current `git rev-parse HEAD` AND `wave-sequencing-plan.md` was touched in the SHA diff → emit «CACHE STALE …»; cache stays supplementary, never load-bearing (T-mem-A counter — re-verify «PR merged» / «umbrella DONE» claims via `gh pr list`). Full rule + anti-patterns: [`references/plan-cache.md §2`](references/plan-cache.md).
@@ -150,8 +170,9 @@ Priority ranking (as of <date> <git-HEAD-short>):
 **Step 1 — read prior delta state** (context-priming; deterministic diff in Step 8; reconciliation + T-mem-A counter — [`references/master-backlog-delta.md §2`](references/master-backlog-delta.md)): <!-- @dual-pair: meta-orchestrator-master-backlog-delta -->
 
 ```!
-if [[ -f .claude/orchestrator-prompts/_master-backlog-delta.json ]]; then
-  jq -r '.untracked_seen[]?.id' .claude/orchestrator-prompts/_master-backlog-delta.json 2>/dev/null || echo "(delta file present but unreadable; treat as empty)"
+_MO_DELTA="$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)/_master-backlog-delta.json"
+if [[ -f "${_MO_DELTA}" ]]; then
+  jq -r '.untracked_seen[]?.id' "${_MO_DELTA}" 2>/dev/null || echo "(delta file present but unreadable; treat as empty)"
 else
   echo "(no delta file — first invocation; will be created at end via update-delta.sh)"
 fi
@@ -181,6 +202,10 @@ bash "${CLAUDE_SKILL_DIR}/helpers/assign-skill.sh" "<TYPE-from-Step-3>" "<one-li
 
 Advisory output: `recommended_skill: <slug>` / `recommended_agent: <path>` / `recommended: none`.
 **Step 5 — routing decision tree (judgment on injected data):**
+
+<!-- preset short-circuit: when PRESET_MODE is set (from §0 preamble --preset or AIF_PIPELINE_PRESET), the 3 routing predicates bundle_opt_in / review_required / parallel_safe come from the preset data file, short-circuiting the routing tree. The other 3 predicates (load_bearing, sibling_count, scope_decided) still derive from the existing logic below. -->
+
+**Preset short-circuit (A4):** if `PRESET_MODE` is present in the §0 preamble output, skip the routing tree for the 3 preset-controlled predicates (`bundle_opt_in`, `review_required`, `parallel_safe`) — they are already resolved from the preset JSON. The remaining 3 predicates (`load_bearing`, `sibling_count`, `scope_decided`) still derive from existing logic. Proceed to Step 6 with the preset-driven ALIAS (mapped from `PRESET_MODE`). For `economy` (`PRESET_MODE=whole-line-executor`), the dispatch payload carries `PRESET_AIF_MAX_REVIEW_ITERATIONS=1` per §8a Park-3 (aif auto-review capped at 1 iteration; external cold fidelity round stays mandatory).
 
 6 predicates: `load_bearing` (paths ∩ principle-09 REQUIRED_HEADER_DOCS), `sibling_count` (same-TYPE disjoint candidates), `scope_decided` (kickoff §binding non-empty OR non-DEFER research-patch; else FALSE → RESEARCH), `parallel_safe` (explicit decl OR disjoint scopes; default=FALSE → PAIR), `bundle_opt_in` (`--mode-bundle` OR silent TRUE for fix), `review_required` (`--mode-pair` OR kickoff hint OR `load_bearing`).
 
@@ -213,8 +238,32 @@ elif TYPE == "I-phase-large":
 1:1 with Step 5 routing tree. Principle 19 (`packages/core/principles/19-meta-orchestrator-alias-routing-consistency.test.ts`) enforces mechanically. `Mode-A-bundle` sub-dispatch defined in bundle-autonomous umbrella.
 
 **Step 7 — emit ALIAS in §10 rendered output:** Stage heading: `### Stage N — <name> (<ALIAS> / <Mode>, ~<cost>)`. Dep-graph bullet: `├── <name>   (<ALIAS> / <Mode>, ~<cost>, <role>)`. Template update deferred to follow-up PR per `feedback_no_drive_by_prs`.
-**Step 8 — delta diff:** invoke `bash ${CLAUDE_SKILL_DIR}/helpers/delta-diff.sh .claude/orchestrator-prompts/_master-backlog-delta.json "<id-1>" "<id-2>" "<...>"` (post-dedup ids from Steps 2-3 as positional args) → emits `NEW-SINCE-LAST: <id>` (current ∖ seen) + `RESOLVED-SINCE-LAST: <id>` (seen ∖ current), sorted; missing delta → all current = NEW; lines feed §10; maintainer manually updates `wave-sequencing-plan.md §0` (Direction A REJECTED per R-phase β-2); semantics + contract: [`references/master-backlog-delta.md`](references/master-backlog-delta.md) + [`packages/core/hooks/delta-diff.test.ts`](../../../packages/core/hooks/delta-diff.test.ts). <!-- @dual-pair: meta-orchestrator-delta-diff -->
+**Step 8 — delta diff:** invoke `bash ${CLAUDE_SKILL_DIR}/helpers/delta-diff.sh "$(bash ${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh 2>/dev/null)/_master-backlog-delta.json" "<id-1>" "<id-2>" "<...>"` (post-dedup ids from Steps 2-3 as positional args) → emits `NEW-SINCE-LAST: <id>` (current ∖ seen) + `RESOLVED-SINCE-LAST: <id>` (seen ∖ current), sorted; missing delta → all current = NEW; lines feed §10; maintainer manually updates `wave-sequencing-plan.md §0` (Direction A REJECTED per R-phase β-2); semantics + contract: [`references/master-backlog-delta.md`](references/master-backlog-delta.md) + [`packages/core/hooks/delta-diff.test.ts`](../../../packages/core/hooks/delta-diff.test.ts). <!-- @dual-pair: meta-orchestrator-delta-diff -->
 **Step 9 — write-back to `_master-backlog-delta.json`:** `untracked_seen` ← current candidate set (overwrite-shape; `first_seen` = current ts). `closed_since_last` ← prior ids that no longer surface. Concrete `jq` shape in §10 step 5 — do NOT re-specify here.
+
+## §2.6 `status` verb — read-only status render (A5)
+
+> Three-section status against LIVE bricks (in-factory / parked questions /
+> ready-to-harvest + PR state). NOT a dashboard — no persistent state, no
+> refresh loop, no TUI. One-shot read + print.
+
+**Step 1 — invoke renderer:**
+
+```!
+bash "${CLAUDE_SKILL_DIR}/helpers/render-status.sh"
+```
+
+**Section sources + degradation:**
+
+| Section                     | Source                                                    | Degradation when brick unavailable    |
+| --------------------------- | --------------------------------------------------------- | ------------------------------------- |
+| In-factory                  | bridge REST (`/health`, task list)                        | "(bridge unreachable at <url>)"       |
+| Parked questions            | `tsx packages/runtime-bridge/src/cli/questions.ts --json` | "(no parked questions)"               |
+| Ready-to-harvest + PR state | `gh pr list`                                              | "(no open PRs)" or "(gh unavailable)" |
+
+Ends with **suggested-next-command lines** (1-3 paste-able shell strings).
+Each section degrades independently — exit 0 unless the renderer itself
+crashes (defensive: an unreachable brick is a designed success path, §3 spec).
 
 ---
 
@@ -258,13 +307,15 @@ Launch table — <umbrella> (as of <git-HEAD-short>):
 ...
 ```
 
+**Step 3b — TTY-only preset proposal (additive, never the only path):** when a TTY is present (`[ -t 0 ] && [ -t 1 ]`), render the preset row after the table; non-TTY contexts (CI, agents, pipes) skip it and rely on the flag/env path, which stays primary. Exact block + rationale: [`references/output-format.md §8`](references/output-format.md).
+
 **Blocking rule:** if either helper (`launch-table-generator.sh` or `dispatch-from-state.sh`) emits «MISSING kickoff» → halt and report. Do NOT produce a launch-table without reading the actual kickoff. The two helpers are complementary: `launch-table-generator.sh` emits the auto-detected sub-wave skeleton; `dispatch-from-state.sh` emits state-file context (`winner_id`, `sub_wave_state`) plus the head-120 kickoff body for the AI to read in Step 2 when filling judgment columns. The §3 inline `cat .../kickoff.md` block that previously injected the kickoff body was removed 2026-05-28 (DN-3 A verdict, PR #261); its function is now owned by `dispatch-from-state.sh` (F.3 helper-collapse — single source for §3 dispatch context). <!-- @dual-pair: meta-orchestrator-dispatch-from-state -->
 
 ---
 
 ## §4 Meta-kickoff write
 
-> Writes `.claude/orchestrator-prompts/<umbrella>-meta-launch/kickoff.md` using the template.
+> Writes `<orch-home>/<umbrella>-meta-launch/kickoff.md` using the template (`<orch-home>` per the Path convention above — resolve it, do not assume `.claude/`).
 
 **Step 1 — read template:**
 
@@ -278,7 +329,7 @@ Substitute every `{{<PLACEHOLDER_NAME>}}` token in both templates. The canonical
 
 **Step 3 — write file:**
 
-Target path: `.claude/orchestrator-prompts/<umbrella>-meta-launch/kickoff.md`
+Target path: `<orch-home>/<umbrella>-meta-launch/kickoff.md`
 
 **Mandatory sections in generated kickoff (principle 12 will validate):**
 
@@ -289,7 +340,7 @@ Target path: `.claude/orchestrator-prompts/<umbrella>-meta-launch/kickoff.md`
 
 **Write the state.md companion:**
 
-Target path: `.claude/orchestrator-prompts/<umbrella>-meta-launch/state.md`
+Target path: `<orch-home>/<umbrella>-meta-launch/state.md`
 
 Use `${CLAUDE_SKILL_DIR}/templates/state.md.template` as the skeleton; fill §1 Inputs from plan-currency check output.
 
@@ -405,7 +456,7 @@ The dispatched reviewer:
 
 1. Reads the Stage N diff (`git diff staging...<stage-N-head>`).
 2. Reads the meta-kickoff Stage N acceptance criteria.
-3. Emits GO / REVISE / STOP verdict with BLOCKER/MAJOR/MINOR classification.
+3. Emits GO / REVISE / STOP verdict with BLOCKER/MAJOR/MINOR/ESCALATED classification — severity contract per [reviewer-discipline.md §6](../../rules/reviewer-discipline.md): a round-triggering finding carries a `Failure-scenario:` line; scenario-less findings = notes lane; unrecorded value premise → `ESCALATED` to the concept holder.
 4. For any finding requiring strategy choice: emits «DECISION-NEEDED: <one-line>. Option A → consequence X. Option B → consequence Y. Maintainer decides.» — does NOT pick the strategy.
 
 The reviewer does NOT:
@@ -418,7 +469,7 @@ The reviewer does NOT:
 **Verdict routing:**
 
 - **GO** → proceed to §5 Dispatch tree for Stage N+1.
-- **REVISE** → surface findings to maintainer; worker fixes; repeat Phase -1.
+- **REVISE** → only on `Failure-scenario:`-bearing findings (reviewer-discipline.md §6); surface findings to maintainer; worker fixes; repeat Phase -1.
 - **STOP** → escalate to maintainer; halt Stage N+1 dispatch.
 
 **T16 verification (upstream problem-class match):**
@@ -437,6 +488,7 @@ SP `requesting-code-review` upstream problem class = «dispatch a reviewer subag
 - **Does NOT violate no-paid-llm-in-ci.md §1.** All dispatch is session-bound CC subscription. Zero API-billed calls in CI. `!shell` injections are deterministic bash.
 - **Does NOT add npm deps.** Substrate stays bash + markdown + CC primitives + existing `gh` CLI.
 - **Does NOT re-litigate R-phase verdicts.** If a missed candidate is noticed, write `docs/meta-factory/research-patches/2026-<date>-meta-orchestrator-followup-<gap>.md` and surface to maintainer.
+- **Night delta — no new-scope planning at night.** Authoring NEW scope (kickoffs, umbrellas) is intent-class work, floored at night by the same envelope that floors intent parks; /pipeline is a day seat by policy ([autonomous-night v3 §5](../../../docs/superpowers/specs/2026-08-09-autonomous-night-v3-design.md)).
 
 **One-button-install coupling (load-bearing):** this skill lives at `.claude/skills/pipeline/` (project-scope, committed). It is templatable for N6b `npx` scaffold via `install.sh` payload. All cross-references use `${CLAUDE_SKILL_DIR}` or repo-relative paths — no absolute paths inside skill body. Ships directly from `.claude/skills/pipeline/` via `install.sh` (single source of truth; no repo-root mirror — Item 12 closure 2026-05-25). Install pattern at `install.sh:236-255`.
 
@@ -454,12 +506,12 @@ The FIRST live invocation MUST run on the BUILD umbrella that produced the skill
 
 **Per invocation, this skill writes:**
 
-1. **Meta-kickoff:** `.claude/orchestrator-prompts/<umbrella>-meta-launch/kickoff.md`
+1. **Meta-kickoff:** `<orch-home>/<umbrella>-meta-launch/kickoff.md`
    - Template: `${CLAUDE_SKILL_DIR}/templates/meta-kickoff.template.md`
    - Required sections: `## §5 AI-traps active` with explicit T-numbers; stage-gate commands; recursive-self-application clause; stop conditions per stage.
    - Validated by: `packages/core/principles/12-ai-laziness-traps.test.ts` (checks `## §5 AI-traps` presence and T-enumeration syntax).
 
-2. **State companion:** `.claude/orchestrator-prompts/<umbrella>-meta-launch/state.md`
+2. **State companion:** `<orch-home>/<umbrella>-meta-launch/state.md`
    - Template: `${CLAUDE_SKILL_DIR}/templates/state.md.template`
    - Filled sections: §1 Inputs (from plan-currency-check output) · §2 Decisions · §3 Phase -1 verdict (updated per stage).
    - Lifecycle: updated in-place via **Edit (section-by-section), NOT Write (full-rewrite)**. Section history preserved unless explicitly stale — replacing the whole file loses §1.1 / §1.2 prior-snapshot context that downstream sessions read. «Not append-only» means «can mutate in place», which is Edit semantics, not Write-clobber semantics. Falsifier: if the next invocation must rebuild §1 Inputs from scratch because the previous snapshot was wiped → §10 was violated.
@@ -469,9 +521,9 @@ The FIRST live invocation MUST run on the BUILD umbrella that produced the skill
    **Output language (i18n):** before rendering the report, run `!bash ${CLAUDE_SKILL_DIR}/helpers/emit-output-strings.sh` and use the emitted `AIF_PIPELINE_*` values for the launch-table column headers, the `What it does` / `Why now` block labels, the `## Action queue` sub-caption, the wave-`NOW` marker, the plan-currency status word, and the `AIF_RECAP_MARKER` recap heading. The helper also emits `AIF_OUTPUT_LANG`: write the ENTIRE session-report PROSE in that language — descriptions, `Why now`, the plain-words recap body, and all narration — not only the table headers. Default is English; the operator's `AIF_HOOK_LANG=ru` yields `AIF_OUTPUT_LANG=ru` → write the prose in Russian. The example tables show the English (default) tokens.
    Full grammar + 4 worked examples (Mode A / SDD / Mode B × N / Queue mode) + ASCII templates live in [`references/output-format.md`](references/output-format.md); principle 18 (`packages/core/principles/18-meta-orchestrator-output-format.test.ts`) enforces those substrings literally in `references/output-format.md`, with SKILL.md §10 required to point at it. **Autonomous-offer (the `autonomous?` slot in the 1-liner grammar):** when the runtime-bridge is configured + aif reachable (probe per `#tabs-by-default-when-bridge-up`), each Stage block MUST present autonomous dispatch (`tsx packages/runtime-bridge/src/cli/dispatch.ts <kickoff>`, contingent on the kickoff's §4c park-don't-guess block) alongside — not instead of — the maintainer-paste tab 1-liner, so the human chooses. Omitting it while the bridge is up = `#tabs-by-default-when-bridge-up`.
    **§10.3a Plain-language checkpoint tail** <!-- @dual-pair: plain-language-tail --> <!-- spec: references/plain-language-tail.md + .claude/hooks/end-of-turn-reminder.sh --> — mandatory `## 🟢 In plain words` block at 3 orchestrator-checkpoint moments (sub-wave boundary / mid-session quota / final umbrella); content names orchestration artefacts (sub-wave, AC item, REPORT-trace), not per-turn personal reasoning. Full table + anti-patterns: [`references/plain-language-tail.md`](references/plain-language-tail.md). Falsifier: verbatim-copyable from `end-of-turn-reminder.sh` → `#two-prompts-drift`.
-4. **Dogfood evidence** (first invocation only): `.claude/orchestrator-prompts/<umbrella>/dogfood-run-output.md`
+4. **Dogfood evidence** (first invocation only): `<orch-home>/<umbrella>/dogfood-run-output.md`
    - Contains: 4-step helper invocation outputs + coherence-call paragraph.
-   - This path is gitignored (`.claude/orchestrator-prompts/` in `.gitignore`) — evidence for session tracing only, not repo-committed.
+   - This path is gitignored in the framework repo (`.claude/orchestrator-prompts/` in `.gitignore`); a consumer's `<orch-home>` follows that project's own ignore rules — evidence for session tracing only, not repo-committed.
 
 5. **Plan-cache + delta update:** at end of invocation, run TWO writes in this order:
 
@@ -501,6 +553,13 @@ The FIRST live invocation MUST run on the BUILD umbrella that produced the skill
 > Class C prose enforcement — `!shell` data is surfaced so AI has no excuse for ignorance; per-code trigger + required-response table lives at [`references/failures.md`](references/failures.md). Read once before invoking; halt + surface (never assume) on any F-code. Re-promotion trigger: ≥2 stage-gate-ignored incidents within 6 months → add pre-push hook verifying stage dependency merged before sub-wave commit.
 
 ---
+
+## Seat lifecycle
+
+Registry-role seat sessions (birth · work · self-cleaning · retirement) follow ONE protocol —
+[.claude/rules/seat-lifecycle.md](../../rules/seat-lifecycle.md) (SLP): each phase binds a
+settled owner (ADR D6/D7/D8, session-bus v2, night-mode); bus-touching steps are
+Part-II-gated. Never restate it here (`#fifth-description-of-the-loop`).
 
 ## Red flags / Common mistakes
 

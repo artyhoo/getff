@@ -39,6 +39,16 @@ const SCRIPT = resolve(
   '.claude/skills/pipeline/helpers/dup-detect.sh',
 );
 
+// Every test here spawns the real dup-detect.sh, which walks a sandbox umbrella
+// tree and shells out per umbrella (plus a mock `gh`) — multi-second runtimes are
+// inherent, so the vitest 5s default is a mis-set gate rather than a signal. Run in
+// isolation the cases measure 1.8-3.7s; under full-suite parallel load
+// (`vitest run hooks/ skills/`, measured 2026-08-10) eight of them time out at
+// 5000ms. 30_000 is the SLOW_SHELL_MS convention already used by the sibling
+// shell-spawning suites (priority-score-synthetic, priority-score-skip-closed,
+// done-md-completion-filter, pre-push.consumer-layout).
+const SLOW_SHELL_MS = 30_000;
+
 // ── Fixture state shared across tests ────────────────────────────────────────
 
 let tmpRoot: string;
@@ -104,7 +114,7 @@ afterEach(() => {
 
 // ── Test 1: POS xref — kickoff mentions #205 explicitly ─────────────────────
 
-describe('dup-detect.sh — Test 1: POS xref', () => {
+describe('dup-detect.sh — Test 1: POS xref', { timeout: SLOW_SHELL_MS }, () => {
   it('kickoff containing "PR #205" → POTENTIAL_DUPE with basis=xref', () => {
     write(
       join(promptsDir, 'test-xref', 'kickoff.md'),
@@ -120,7 +130,7 @@ describe('dup-detect.sh — Test 1: POS xref', () => {
 
 // ── Test 2: POS jaccard — high-overlap tokens ─────────────────────────────────
 
-describe('dup-detect.sh — Test 2: POS jaccard', () => {
+describe('dup-detect.sh — Test 2: POS jaccard', { timeout: SLOW_SHELL_MS }, () => {
   it('kickoff with overlapping tokens → POTENTIAL_DUPE with basis=jaccard', () => {
     // mock-gh returns PR with title containing tokens that will overlap with kickoff §headers
     write(
@@ -155,7 +165,7 @@ describe('dup-detect.sh — Test 2: POS jaccard', () => {
 
 // ── Test 3: NEG paired with Test 1 — #205 ref removed ───────────────────────
 
-describe('dup-detect.sh — Test 3: NEG xref (paired with Test 1)', () => {
+describe('dup-detect.sh — Test 3: NEG xref (paired with Test 1)', { timeout: SLOW_SHELL_MS }, () => {
   it('kickoff without #205 reference + no token overlap → OK line, no POTENTIAL_DUPE', () => {
     write(
       join(promptsDir, 'test-neg-xref', 'kickoff.md'),
@@ -169,7 +179,7 @@ describe('dup-detect.sh — Test 3: NEG xref (paired with Test 1)', () => {
 
 // ── Test 4: NEG paired with Test 2 — tokens scrubbed below threshold ──────────
 
-describe('dup-detect.sh — Test 4: NEG jaccard threshold (paired with Test 2)', () => {
+describe('dup-detect.sh — Test 4: NEG jaccard threshold (paired with Test 2)', { timeout: SLOW_SHELL_MS }, () => {
   it('kickoff with scrubbed tokens → OK line when threshold not met', () => {
     write(
       mockGhBin,
@@ -201,7 +211,7 @@ describe('dup-detect.sh — Test 4: NEG jaccard threshold (paired with Test 2)',
 
 // ── Test 5: NEG fail-soft — gh unavailable ────────────────────────────────────
 
-describe('dup-detect.sh — Test 5: NEG fail-soft gh unavailable', () => {
+describe('dup-detect.sh — Test 5: NEG fail-soft gh unavailable', { timeout: SLOW_SHELL_MS }, () => {
   it('gh returns exit-1 → PR-based signals skipped, script continues + exit code 0', () => {
     // Replace mock-gh with one that exits 1
     write(mockGhBin, '#!/usr/bin/env bash\nexit 1\n');
@@ -241,7 +251,7 @@ describe('dup-detect.sh — Test 5: NEG fail-soft gh unavailable', () => {
 
 // ── Test 6: NEG missing kickoff ───────────────────────────────────────────────
 
-describe('dup-detect.sh — Test 6: NEG missing kickoff', () => {
+describe('dup-detect.sh — Test 6: NEG missing kickoff', { timeout: SLOW_SHELL_MS }, () => {
   it('umbrella dir has no kickoff.md → MISSING: line, exit 0', () => {
     // Create dir but NO kickoff.md
     mkdirSync(join(promptsDir, 'test-missing'), { recursive: true });
@@ -253,7 +263,7 @@ describe('dup-detect.sh — Test 6: NEG missing kickoff', () => {
 
 // ── Test 7: --all smoke — two umbrellas, one POS one NEG ─────────────────────
 
-describe('dup-detect.sh — Test 7: --all smoke', () => {
+describe('dup-detect.sh — Test 7: --all smoke', { timeout: SLOW_SHELL_MS }, () => {
   it('--all with two umbrellas emits POTENTIAL_DUPE for xref-one and OK for clean-one', () => {
     // Umbrella 1: mentions #205 → POTENTIAL_DUPE
     write(
@@ -278,7 +288,7 @@ describe('dup-detect.sh — Test 7: --all smoke', () => {
 
 // ── Test 8: Threshold seam — MO_JACCARD_THRESHOLD=99 suppresses jaccard hits ─
 
-describe('dup-detect.sh — Test 8: MO_JACCARD_THRESHOLD seam', () => {
+describe('dup-detect.sh — Test 8: MO_JACCARD_THRESHOLD seam', { timeout: SLOW_SHELL_MS }, () => {
   it('MO_JACCARD_THRESHOLD=99 suppresses jaccard matches that would fire at 30', () => {
     write(
       mockGhBin,
@@ -348,7 +358,7 @@ function runScriptS3(umbrella: string, extraEnv: Record<string, string> = {}): s
   }
 }
 
-describe('dup-detect.sh — Test 9: POS deliverable-on-staging (dogfood)', () => {
+describe('dup-detect.sh — Test 9: POS deliverable-on-staging (dogfood)', { timeout: SLOW_SHELL_MS }, () => {
   it('umbrella whose >=2 slug-tokens match a committed research-patch → basis=deliverable-on-staging', () => {
     // Commit the deliverable on the ref (mirrors the real 2026-05-25 mutation miss).
     initGitRepo({
@@ -398,7 +408,7 @@ describe('dup-detect.sh — Test 9: POS deliverable-on-staging (dogfood)', () =>
   });
 });
 
-describe('dup-detect.sh — Test 10: NEG deliverable-on-staging (paired with Test 9)', () => {
+describe('dup-detect.sh — Test 10: NEG deliverable-on-staging (paired with Test 9)', { timeout: SLOW_SHELL_MS }, () => {
   it('umbrella with no matching committed deliverable → no deliverable-on-staging signal', () => {
     // Same committed file, but the umbrella shares <2 significant tokens with it.
     initGitRepo({
@@ -437,7 +447,7 @@ describe('dup-detect.sh — Test 10: NEG deliverable-on-staging (paired with Tes
 // when it is unset (Caller B / plain --all — behaviour unchanged). dup-detect stays
 // closure-agnostic: it does not decide what is "closed", it scans the names handed in.
 
-describe('dup-detect.sh — Test 11: MO_UMBRELLA_SUBSET seam (paired-negative)', () => {
+describe('dup-detect.sh — Test 11: MO_UMBRELLA_SUBSET seam (paired-negative)', { timeout: SLOW_SHELL_MS }, () => {
   it('POSITIVE: --all with MO_UMBRELLA_SUBSET scans ONLY the named subset', () => {
     // Three umbrellas with unrelated vocab (all → OK lines). With the subset set to
     // alpha+gamma, beta must NOT be scanned (its line is absent from output).
@@ -472,7 +482,7 @@ describe('dup-detect.sh — Test 11: MO_UMBRELLA_SUBSET seam (paired-negative)',
 
 // ── T15 recursive self-application + script structure check ──────────────────
 
-describe('dup-detect.sh — T15 self-application documentation', () => {
+describe('dup-detect.sh — T15 self-application documentation', { timeout: SLOW_SHELL_MS }, () => {
   it('script exists, is executable, contains required markers and seam vars', () => {
     expect(existsSync(SCRIPT)).toBe(true);
     const src = readFileSync(SCRIPT, 'utf8');
@@ -515,7 +525,7 @@ describe('dup-detect.sh — T15 self-application documentation', () => {
 // the awk passes + the once-only precomputes must stay, and the per-item `comm` storm must
 // not return. Non-vacuous: the pre-fix script (HEAD~2) contained `comm -12` and no
 // precompute_prs, so this block would have been RED on it.
-describe('dup-detect.sh — perf-regression structural guard (anti-revert to the O(n²) subshell storm)', () => {
+describe('dup-detect.sh — perf-regression structural guard (anti-revert to the O(n²) subshell storm)', { timeout: SLOW_SHELL_MS }, () => {
   it('keeps the once-only precomputes and the awk intersection passes; forbids the per-item comm storm', () => {
     const src = readFileSync(SCRIPT, 'utf8');
 

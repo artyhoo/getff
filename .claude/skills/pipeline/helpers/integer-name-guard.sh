@@ -18,11 +18,16 @@
 # first block (§0). Routing through the allowlisted
 # `Bash(bash ${CLAUDE_SKILL_DIR}/helpers/*.sh *)` entry removes that dependency.
 #
-# Usage: integer-name-guard.sh [orch-prompts-dir]
-#   arg1 — dir to scan (default: resolve_orch_home() — .claude/orchestrator-prompts in
-#          the framework, .ai-factory/orchestrator-prompts in a consumer install).
-#          Passed explicitly by the §0 caller so the invocation carries a trailing
-#          arg and matches the `*.sh *` allowlist glob (no-arg would not match).
+# Usage: integer-name-guard.sh [--auto | <orch-prompts-dir>]
+#   arg1 — dir to scan, or the sentinel `--auto` meaning "resolve it yourself".
+#          Default (and `--auto`): resolve_orch_home() — .claude/orchestrator-prompts in
+#          the framework, .ai-factory/orchestrator-prompts in a consumer install.
+#          The §0 caller passes `--auto` so the invocation carries a trailing arg and
+#          matches the `*.sh *` allowlist glob (no-arg would not match) WITHOUT
+#          overriding the resolver. It used to pass the framework path literally, which
+#          in a consumer named a directory that cannot exist — `[ -d "$dir" ]` below then
+#          short-circuited and the guard was a silent no-op in every consumer install
+#          (getff#1245). An explicit dir stays supported for tests and power users.
 #   exit 0 → no integer-named umbrella (safe to proceed)
 #   exit 2 → integer-named umbrella found (ERROR printed to stderr; halt)
 #
@@ -41,7 +46,10 @@ set -euo pipefail
 # survives the REPO_ROOT test-seam; consumer-usable /pipeline 2026-06-16).
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
-dir="${1:-${MO_ORCH_PROMPTS_DIR:-$(resolve_orch_home)}}"
+dir="${1:-}"
+# `if`, not `[ … ] && dir=""`: under `set -e` a false trailing AND-list aborts the script.
+if [ "$dir" = "--auto" ]; then dir=""; fi   # sentinel → fall through to the resolver below
+dir="${dir:-${MO_ORCH_PROMPTS_DIR:-$(resolve_orch_home)}}"
 
 # No umbrellas dir → nothing to guard.
 [ -d "$dir" ] || exit 0

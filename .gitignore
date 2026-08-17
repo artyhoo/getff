@@ -47,6 +47,12 @@ packages/*/node_modules
 # session to read (.claude/rules/kickoff-staging-placement.md §1). Per-umbrella glob
 # — this umbrella has four dispatch stages.
 !.claude/orchestrator-prompts/beta-ai-docs-agnosticism/kickoff-s*.md
+
+# triage-kernel-v2: probe-first umbrella (design spec 2026-08-10-triage-kernel-v2-design.md
+# §9) — S1-S5 each get their OWN stage kickoff, tracked to reach `staging` for the
+# dispatch session to read (.claude/rules/kickoff-staging-placement.md §1). Per-umbrella
+# glob mirrors the beta-delivery-ux exception above.
+!.claude/orchestrator-prompts/triage-kernel-v2/kickoff-s*.md
 # aif-handoff-runtime-bridge-iphase §12 audit-trail extraction (2026-08-08): the
 # kickoff hit the 600-line pre-commit gate (651 lines), so §12 moved verbatim to
 # kickoff-amendments.md. Tracked for the same reason as the globs above — it is

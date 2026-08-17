@@ -3,7 +3,7 @@
 // (rules-manifest.schema.json#/definitions/RuleEntry) so generated rules
 // validate identically to manually authored ones — Phase 5 retro Q1 reuse.
 
-import type { Provenance } from '../research/types.ts';
+import type { Provenance, Tier } from '../research/types.ts';
 
 export type ManifestCheck =
   | { type: 'eslint'; rule: string }
@@ -69,7 +69,7 @@ export interface SynthesizedRule {
   fixture?: Fixture;
   'liveness-mode'?: LivenessModeOverride;
   'pressure-scenario'?: PressureScenario;
-  research: { entryId: string; provenance: Provenance[] };
+  research: { entryId: string; provenance: Provenance[]; tier?: Tier };
 }
 
 export interface SynthesisPlan {

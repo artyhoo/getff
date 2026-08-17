@@ -51,11 +51,20 @@ afterEach(() => {
  * Returns the absolute path. The wave dir is removed in afterEach.
  */
 function writeKickoff(body: string): string {
+  return writeKickoffNamed('kickoff.md', body);
+}
+
+/**
+ * As writeKickoff, but for an arbitrary filename in the wave dir — the stage-kickoff
+ * family (`kickoff-s1.md`, `kickoff-s2b.md`, `kickoff-r1.md`) and the sidecars that must
+ * stay OUT of scope (`kickoff-s4.decisions.md`, `kickoff-amendments.md`).
+ */
+function writeKickoffNamed(name: string, body: string): string {
   const waveDir = mkdtempSync(
     join(REPO_ROOT, '.claude/orchestrator-prompts/c2-test-'),
   );
   tmpDirs.push(waveDir);
-  const abs = join(waveDir, 'kickoff.md');
+  const abs = join(waveDir, name);
   writeFileSync(abs, body, 'utf8');
   return abs;
 }
@@ -664,5 +673,77 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
     const r = runHook('Write', abs, { CLAUDE_PROJECT_DIR: foreign });
     expect(r.status).toBe(2);
     expect(r.stderr).toContain(abs);
+  });
+});
+
+/**
+ * Stage-kickoff family scope — the 2026-08-12 gate-reach gap.
+ *
+ * A multi-stage umbrella dispatches `kickoff-s1.md` / `kickoff-s2b.md` / `kickoff-r1.md`.
+ * Every one is a dispatch input in exactly the sense `kickoff.md` is, and every one was
+ * ungated by BOTH arms: the hook's `case` matched the literal name `kickoff.md` only, so
+ * the whole triage-kernel-v2 S1/S2 series passed by construction, not by compliance.
+ *
+ * Every NEGATIVE below asserts exit 2 AND the arm-specific stderr — the exit code alone
+ * cannot say which arm fired, and a fixture that trips arm 2 while arm 1 stays inert is
+ * the "green suite, dead mechanism" failure this block exists to prevent.
+ *
+ * Falsifier for the whole block: narrow the hook's `case` back to the single literal
+ * kickoff.md arm — every negative here flips to exit 0 (verified against HEAD before the
+ * widening, running the old and new hooks side by side over the same files: the two
+ * pre-existing arm-1 violators `beta-delivery-ux/kickoff-s1.md` and a contract-less
+ * synthetic stage kickoff both scored 0 on the old hook, 2 on the new one).
+ */
+describe.skipIf(!JQ)('check-kickoff-traps.sh — stage-kickoff family scope', () => {
+  const CONTRACT = '```bash host-verify\nnpx vitest run packages/core/principles\n```';
+  const THREE_TRAPS = `${CITE}\nActive traps: T1, T3, T7.`;
+
+  it('PAIRED-NEGATIVE: a stage kickoff with no host contract → exit 2 (arm 1 now reaches it)', () => {
+    const abs = writeKickoffNamed('kickoff-s1.md', '# S1\n\nA plan with no host contract.\n');
+    const r = runHook('Write', abs);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/kickoff host-verify:/);
+  });
+
+  it('PAIRED-NEGATIVE: a stage kickoff engaging the rule with <3 T-numbers → exit 2 (arm 2 now reaches it)', () => {
+    const abs = writeKickoffNamed('kickoff-s1.md', `# S1\n${HV_OPTOUT}\n${CITE}\nOnly T1 here.\n`);
+    const r = runHook('Write', abs);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/floor: 3/);
+  });
+
+  it('PAIRED-POSITIVE: a compliant stage kickoff → exit 0', () => {
+    const abs = writeKickoffNamed('kickoff-s2.md', `# S2\n\n${CONTRACT}\n\n${THREE_TRAPS}\n`);
+    expect(runHook('Write', abs).status).toBe(0);
+  });
+
+  it.each(['kickoff-s0.md', 'kickoff-s2b.md', 'kickoff-s10.md', 'kickoff-r1.md'])(
+    'the whole stage naming family is in scope: %s',
+    (name) => {
+      // s0 (zero-indexed stages), s2b (a split stage), s10 (two-digit), r1 (a review lane)
+      // are all live shapes in .claude/orchestrator-prompts/ — none may fall through.
+      const r = runHook('Write', writeKickoffNamed(name, '# stage\n\nNo contract.\n'));
+      expect(r.status).toBe(2);
+      expect(r.stderr).toMatch(/kickoff host-verify:/);
+    },
+  );
+
+  it.each(['kickoff-s4.decisions.md', 'kickoff-amendments.md'])(
+    'sidecars stay OUT of scope (records ABOUT a stage, not dispatch inputs): %s',
+    (name) => {
+      // `kickoff-s4.decisions.md` is an owner-fork log; `kickoff-amendments.md` is an audit
+      // trail extracted from kickoff.md §12 to clear the 600-line gate. Neither carries
+      // worker instructions, so neither arm applies. .gitignore draws the same line: the
+      // stage family is un-ignored by glob, the amendments sidecar one-off by exact name.
+      // Both fixtures are contract-less — they WOULD trip arm 1 if wrongly in scope.
+      expect(runHook('Write', writeKickoffNamed(name, '# sidecar\n\nNo contract.\n')).status).toBe(0);
+    },
+  );
+
+  it('the widening did not over-reach: a non-kickoff file in a wave dir stays off-path', () => {
+    // `report.md` / `done.md` are tracked wave-dir artefacts (see .gitignore un-ignores).
+    // A `kickoff*`-shaped glob would have swallowed neither, but a lazier `*.md` would.
+    expect(runHook('Write', writeKickoffNamed('report.md', '# report\n\nNo contract.\n')).status).toBe(0);
+    expect(runHook('Write', writeKickoffNamed('done.md', '# done\n\nNo contract.\n')).status).toBe(0);
   });
 });

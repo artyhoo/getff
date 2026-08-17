@@ -12,25 +12,27 @@ One line per rule — full text: read `.claude/rules/<name>.md` (index: `.claude
 | `attention-is-not-a-mechanism.md` | C | designing any load-bearing check (gate vs. bare human/AI attention). | always-on core |
 | `autonomous-loop-continuity.md` | B | unattended turn ending with work in flight. | hook, digest |
 | `build-first-reuse-default.md` | A | any capability commit / new-capability proposal. | paths:(7), edit-time inject |
-| `ci-tool-pinning.md` | A | editing `.github/workflows/**` or any repo shell script (`*.sh`, `setup`, `install.sh`). | paths:(6), edit-time inject |
+| `ci-tool-pinning.md` | A | editing `.github/workflows/**` or any repo shell script. | paths:(6), edit-time inject |
 | `cold-seat-economy.md` | C | re-running a cold seat on already-judged work; resume-vs-fresh choice. | skill-embed(2) |
 | `companion-install-principle.md` | B | editing `setup.d/**` (companion install manifest/engine). | paths:(1), edit-time inject |
-| `destination-environment-verification.md` | B | kickoff authoring; accepting container work. | paths:(1), edit-time inject |
+| `destination-environment-verification.md` | B | kickoff authoring; accepting container work; a cannot-reach claim. | paths:(1), edit-time inject |
 | `doc-authority-hierarchy.md` | A | creating/editing any canonical or shipped consumer-facing doc. | paths:(4), edit-time inject |
 | `dual-implementation-discipline.md` | A | shipping a new CC-native hook + choosing its delivery channel(s). | paths:(3), edit-time inject |
+| `effort-worthiness.md` | C | any effort/rigor fork: probe demand, extra round, budget breach. | skill-embed(4) |
 | `egress-no-api-bypass.md` | B | harvesting/egressing a finished aif-agent branch to a PR. | skill-embed |
-| `evidence-regeneration.md` | B | a toolchain-freshness gate goes RED, or a rendered-not-fired matrix cell needs its first live-fired evidence. | paths:(1), edit-time inject |
-| `git-conflict-merge-forward.md` | B | a CONFLICTING PR (`mergeable_state: dirty`) or any `git rebase` / `git push --force*` urge on a published branch. | claude-md |
+| `evidence-regeneration.md` | B | a freshness gate RED, or a first live-fired matrix cell. | paths:(1), edit-time inject |
+| `git-conflict-merge-forward.md` | B | a CONFLICTING PR, or any rebase/force-push urge. | claude-md |
 | `kickoff-staging-placement.md` | B | editing/creating any file under `.claude/orchestrator-prompts/<umbrella>/`. | paths:(1), edit-time inject |
 | `language-discipline.md` | A | writing any internal machinery or human-facing output. | paths:(3), edit-time inject |
 | `memory-codification.md` | B | writing a durable behavioural convention to agent memory. | hook |
 | `no-paid-llm-in-ci.md` | A | editing `.github/workflows/**` or `.github/actions/**`. | paths:(2), edit-time inject |
 | `parallel-subwave-isolation.md` | C | dispatching parallel sub-wave / batch AI sessions. | paths:(1), edit-time inject |
-| `phase-research-coverage.md` | A | phase entry research, prior-art lookups, or closing a negative-existence claim. | paths:(4) |
-| `recommendation-laziness-discipline.md` | C | before issuing an inline-chat verdict/recommendation or hitting an ambiguous fork. | digest |
+| `phase-research-coverage.md` | A | phase research, prior-art lookups, negative-existence claims. | paths:(4) |
+| `recommendation-laziness-discipline.md` | C | before an inline verdict/recommendation or an ambiguous fork. | digest |
 | `research-source-trust.md` | A | authoring a rule-research provenance entry / resolving allowed sources. | paths:(2), edit-time inject, skill-embed |
 | `reviewer-discipline.md` | C | review sessions (`/review`, `/ultrareview`, or a prose "проверь"/verdict ask). | agent |
 | `rule-enforcement-channel-selection.md` | A | codifying any new rule / choosing its enforcement channel. | paths:(2), edit-time inject |
+| `seat-lifecycle.md` | B | seat birth, self-cleaning handoff, or retirement in a seat session. | paths:(4) |
 | `skill-description-quality.md` | C | authoring/updating any SKILL.md `description` field. | paths:(1), edit-time inject |
 | `source-before-shape.md` | B | creating a new SKILL.md/agent/module, or authoring a dispatch/kickoff. | paths:(3), edit-time inject |
-| `zcode-parity-doctrine.md` | A | editing hook twins or the harness-config renderer; authoring zcode-parity decision docs (exact set: the rule's `paths:` frontmatter). | paths:(10), edit-time inject |
+| `zcode-parity-doctrine.md` | A | editing hook twins, the harness-config renderer, or zcode-parity decision docs. | paths:(10), edit-time inject |

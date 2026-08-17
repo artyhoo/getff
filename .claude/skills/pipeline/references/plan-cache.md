@@ -13,7 +13,7 @@
 ## §1 Cache injection (read side) — SKILL.md §1 Step 1 first `!shell` block
 
 ```!
-cat .claude/orchestrator-prompts/_plan-cache.md 2>/dev/null | head -200 || echo "(no cache — fresh session; will be created by helpers/update-cache.sh on this invocation's exit)"
+head -200 "$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)/_plan-cache.md" 2>/dev/null || echo "(no cache — fresh session; will be created by helpers/update-cache.sh on this invocation's exit)"
 ```
 
 Placed BEFORE the other 4 injection blocks (git status / gh pr list / wave-plan head / plan-currency-check.sh) because cache is «here's what last session knew» context that should inform reading of the live mechanical blocks below.
@@ -42,7 +42,7 @@ At end of invocation, run via Bash tool:
 bash ${CLAUDE_SKILL_DIR}/helpers/update-cache.sh "<umbrella-or-no-arg>" "<outcome-one-liner>"
 ```
 
-Updates `.claude/orchestrator-prompts/_plan-cache.md` (gitignored, per-machine) for next-invocation continuity via the §1 cache injection.
+Updates `<orch-home>/_plan-cache.md` (gitignored, per-machine) for next-invocation continuity via the §1 cache injection. `<orch-home>` is the resolved orchestration home — `.claude/orchestrator-prompts/` in the framework repo, `.ai-factory/orchestrator-prompts/` in a consumer install (`resolve_orch_home()` in `helpers/lib/common.sh`, printed by `helpers/print-orch-home.sh`). The read side above resolves it the same way; hardcoding either literal desynchronises reader from writer (getff#1245).
 
 **Helper-scope contract** (round-3 scope reduction per umbrella §1.3 item 4): the helper writes ONLY the `## Last invocation` section deterministically (`$1` umbrella name, `$2` outcome one-liner, env-injectable `MO_TIMESTAMP` / `MO_GIT_HEAD` seams for tests). All other sections — `## Last priority ranking`, `## DRIFT items surfaced last time`, `## DECISION-NEEDED pending maintainer`, `## Deferred follow-ups` — are populated by direct `Edit` on the cache file BEFORE invoking the helper. This split keeps the helper deterministic with a tight idempotency contract (covered by `packages/core/hooks/update-cache.test.ts`), while the richer session content flows through standard `Edit` (no underspecified `$3..$N` interface).
 

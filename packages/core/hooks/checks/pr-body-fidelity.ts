@@ -27,7 +27,11 @@
  *     regex) — both are visible deviations from the template. Note the asymmetry:
  *     renaming the verdict heading fails CLOSED (missing-section error), renaming
  *     Provenance fails OPEN. That is inherent to a self-declared, heading-matched
- *     detector; the guard raises the cost of bypass, it does not make it impossible.
+ *     detector; the guard raises the cost of bypass, it does not make it impossible;
+ *   - severity-contract arm (advisor-pattern spec §5.3 L3(a); reviewer-discipline.md §6):
+ *     a `## Review findings` entry opened by a round-triggering grade (BLOCKER/MAJOR)
+ *     must carry a `Failure-scenario:` line inside the entry. Summary counts
+ *     ("0 BLOCKER / 2 MAJOR") do not open an entry; ESCALATED/MINOR entries are exempt.
  */
 export interface FidelityCheckInput { body: string; headSha: string; }
 export interface FidelityCheckResult { ok: boolean; errors: string[]; }
@@ -51,6 +55,20 @@ const BASIS_RE = /^Basis:[ \t]*\S+/m;
 const ROUND_RE = /^Round:[ \t]*\d+[ \t]*$/m;
 const SHA_RE = /^Audited-SHA:[ \t]*([0-9a-fA-F]{12,40})[ \t]*$/m;
 const FILE_LINE_RE = /[\w./-]+\.[A-Za-z]{1,6}:\d+/;
+const REVIEW_FINDINGS_HEADING_RE = /^##[ \t]+Review findings[ \t]*$/;
+/** Grade token OPENING a list entry (optionally bolded/bracketed). A digit-led summary line never matches. */
+const FINDING_GRADE_RE = /^(?:[-*][ \t]+)?\**\[?(BLOCKER|MAJOR)\b/;
+/**
+ * Count line, not a finding: `- BLOCKER: 1` (the review-sidecar summary shape). Exempt —
+ * a bare tally opens no entry. NOTE (recorded fail-open): a sidecar block pasted WITH its
+ * own `## …` heading terminates the Review-findings section early (any heading closes a
+ * section), so heading-wrapped pastes are invisible to this arm — a visible template
+ * deviation, same posture as the Provenance detector above.
+ */
+const FINDING_COUNT_RE = /^(?:[-*][ \t]+)?\**\[?(?:BLOCKER|MAJOR)\]?\**:?[ \t]*\d+[ \t]*$/;
+/** A new top-level list item ends the entry; indented sub-bullets stay inside it. */
+const FINDING_ENTRY_END_RE = /^(?:[-*][ \t]|#{1,6}[ \t])/;
+const FAILURE_SCENARIO_RE = /Failure-scenario:/;
 
 /** Strip HTML comments so commented-out template text never satisfies the gate. */
 function stripComments(text: string): string {
@@ -100,6 +118,34 @@ function declaresProvenance(lines: string[]): boolean {
   );
 }
 
+/**
+ * Severity-contract arm. Deterministic half only: an EMPTY/absent `Failure-scenario:`
+ * is caught here; a fabricated one is channel-2 territory (materiality dispute /
+ * morning review) — reviewer-discipline.md §6.
+ */
+function reviewFindingsErrors(lines: string[]): string[] {
+  const out: string[] = [];
+  for (const body of sectionBodies(lines, REVIEW_FINDINGS_HEADING_RE)) {
+    const ls = body.split('\n');
+    for (let i = 0; i < ls.length; i++) {
+      if (FINDING_COUNT_RE.test(ls[i])) continue;
+      const m = ls[i].match(FINDING_GRADE_RE);
+      if (!m) continue;
+      let has = FAILURE_SCENARIO_RE.test(ls[i]);
+      for (let j = i + 1; j < ls.length && !has; j++) {
+        if (FINDING_ENTRY_END_RE.test(ls[j])) break;
+        has = FAILURE_SCENARIO_RE.test(ls[j]);
+      }
+      if (!has) {
+        out.push(
+          `\`## Review findings\` entry graded ${m[1]} lacks a \`Failure-scenario:\` line — a round-triggering grade must state the concrete failure (reviewer-discipline.md §6); scenario-less findings belong in the notes lane`,
+        );
+      }
+    }
+  }
+  return out;
+}
+
 function extractSection(body: string): SectionResult {
   const lines = stripComments(body).split(/\r?\n/);
   const starts = lines.reduce<number[]>((acc, l, i) => (HEADING_RE.test(l) ? [...acc, i] : acc), []);
@@ -127,6 +173,7 @@ function hasEvidence(section: string): boolean {
 
 export function checkPrBodyFidelity({ body, headSha }: FidelityCheckInput): FidelityCheckResult {
   const errors: string[] = [];
+  errors.push(...reviewFindingsErrors(stripComments(body).split(/\r?\n/)));
   const { section, error } = extractSection(body);
   if (section === null) return { ok: false, errors: [error as string] };
 
@@ -163,7 +210,11 @@ export function checkPrBodyFidelity({ body, headSha }: FidelityCheckInput): Fide
   if (!sha) {
     errors.push('GO requires `Audited-SHA: <12-40 hex>`');
   } else if (!headSha.toLowerCase().startsWith(sha[1].toLowerCase())) {
-    errors.push(`Audited-SHA ${sha[1]} does not match PR head ${headSha || '(empty)'} — re-run the fidelity audit on the current head`);
+    // Name the cheap remediation FIRST. The expensive one (a fresh cold seat) used to be the
+    // only branch this message offered, so a head moved by a merge-forward commit — which
+    // changes nothing the seat judges — read as "burn ~85-185k tokens on a re-audit".
+    // Decision procedure: .claude/rules/git-conflict-merge-forward.md §9.
+    errors.push(`Audited-SHA ${sha[1]} does not match PR head ${headSha || '(empty)'} — if the head moved only by a merge-forward/rebuild commit, push the audited commit as the head instead (.claude/rules/git-conflict-merge-forward.md §9); otherwise re-run the fidelity audit on the current head`);
   }
   if (!hasEvidence(section)) errors.push('GO requires >=1 file:line evidence reference on a line other than `Basis:`');
   return { ok: errors.length === 0, errors };

@@ -19,7 +19,17 @@
 //       committed evidence — so honesty is mechanized without a paid/absent toolchain in CI
 //       (no-paid-llm-in-ci.md / principle 17).
 
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -51,6 +61,24 @@ const BAD_DIR = join(LIVE_GEN_RUST_DIR, 'firing', 'bad');
 const GOOD_DIR = join(LIVE_GEN_RUST_DIR, 'firing', 'good');
 const EVIDENCE_ABS = join(LIVE_GEN_RUST_DIR, 'mem-forget.evidence.json');
 const EXPECTED_CODE = 'clippy::disallowed_methods';
+
+/** Clone the drift-gate surface (practice records + each crate's rendered clippy.toml) into a fresh
+ *  tmpdir. Gate-teeth tests mutate the CLONE — the committed tree stays byte-identical for the whole
+ *  run, so no parallel vitest worker can observe a mutate/unlink window (the astgrep sibling's
+ *  PR #1349 ENOENT flake). Deliberately NOT a recursive crate copy: a local `target/` build dir
+ *  would be huge, and the drift gate only reads records + clippy.toml. Caller rmSyncs the root. */
+function cloneDriftSurface(): string {
+  const root = mkdtempSync(join(tmpdir(), 'lg-s3-drift-teeth-'));
+  for (const record of PRACTICE_RECORDS) {
+    cpSync(join(LIVE_GEN_RUST_DIR, record), join(root, record));
+  }
+  for (const crateDir of CRATE_DIRS) {
+    const rel = renderedClippyPath(crateDir);
+    mkdirSync(dirname(join(root, rel)), { recursive: true });
+    cpSync(join(LIVE_GEN_RUST_DIR, rel), join(root, rel));
+  }
+  return root;
+}
 
 // cargo's live diagnostic identity is clippy's nested `message.code.code` shape (mirrors
 // backends/cargo/capability-matrix.test.ts:19 — extractor imported-by-shape, not by editing it).
@@ -101,34 +129,38 @@ describe('AC1 — committed clippy.toml is byte-for-byte the fresh render (Model
     expect(checkResearchedClippyDrift()).toEqual([]);
   });
 
-  it('the drift gate has teeth: a mutated committed clippy.toml → a byte-mismatch finding (restored after)', () => {
-    // REAL non-vacuity: mutate the committed artifact ON DISK, run the ACTUAL drift gate
-    // (checkResearchedClippyDrift → planFromCommittedRecords → renderCargoClippy), and assert it
-    // reports the mismatch. A `finally` restores the verbatim bytes even if the assertion throws.
+  it('the drift gate has teeth: a mutated clippy.toml → a byte-mismatch finding (tmpdir clone; tracked tree untouched)', () => {
+    // REAL non-vacuity: mutate the artifact ON DISK and run the ACTUAL drift gate
+    // (checkResearchedClippyDrift → planFromCommittedRecords → renderCargoClippy) — but against a
+    // tmpdir CLONE of the drift surface, never the committed tree. In-place mutate-then-restore
+    // races any parallel vitest worker reading the same committed artifact (the astgrep sibling's
+    // ENOENT flake, PR #1349 CI run 31336870255) — the clone removes the window entirely.
     const rel = renderedClippyPath('firing/bad');
-    const abs = join(LIVE_GEN_RUST_DIR, rel);
-    const original = readFileSync(abs, 'utf8');
+    const root = cloneDriftSurface();
     try {
-      writeFileSync(abs, original.replace('std::mem::forget', 'std::mem::OOPS'));
-      const drift = checkResearchedClippyDrift();
+      const abs = join(root, rel);
+      writeFileSync(
+        abs,
+        readFileSync(abs, 'utf8').replace('std::mem::forget', 'std::mem::OOPS'),
+      );
+      const drift = checkResearchedClippyDrift(root);
       expect(drift).toContainEqual({ path: rel, reason: 'byte-mismatch' });
     } finally {
-      writeFileSync(abs, original);
+      rmSync(root, { recursive: true, force: true });
     }
-    // Restored: the gate is empty again — proves the finally left the committed bytes pristine.
+    // The committed tree was never touched — the real gate is still empty.
     expect(checkResearchedClippyDrift()).toEqual([]);
   });
 
-  it('the drift gate reports `missing` when a committed clippy.toml is absent (restored after)', () => {
+  it('the drift gate reports `missing` when a clippy.toml is absent (tmpdir clone; tracked tree untouched)', () => {
     const rel = renderedClippyPath('firing/good');
-    const abs = join(LIVE_GEN_RUST_DIR, rel);
-    const original = readFileSync(abs, 'utf8');
+    const root = cloneDriftSurface();
     try {
-      unlinkSync(abs);
-      const drift = checkResearchedClippyDrift();
+      unlinkSync(join(root, rel));
+      const drift = checkResearchedClippyDrift(root);
       expect(drift).toContainEqual({ path: rel, reason: 'missing' });
     } finally {
-      writeFileSync(abs, original);
+      rmSync(root, { recursive: true, force: true });
     }
     expect(checkResearchedClippyDrift()).toEqual([]);
   });

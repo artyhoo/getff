@@ -149,13 +149,23 @@ Pick a depth instead of assembling flags. Three monotonic depths, default `core`
 
 **Stateless-regen upgrade path (NOT additive-components):**
 
-Re-run with a deeper profile to upgrade — the deeper payload arrives, the shallower artefacts stay byte-identical:
+Re-run with a deeper profile to upgrade — the deeper payload arrives, the shallower artefacts stay byte-identical. **Use the installer, not `--refresh`, to change depth:** `--refresh` re-syncs framework-owned artefacts and (since #1312 / #1334) honours the resolved `--profile` on every arm it owns, but it never runs the install-only steps — so a `--refresh`-only "upgrade" still leaves a partly-upgraded project and exits 0.
 
 ```bash
-bash /tmp/getff/setup -y <stack>                          # core
-bash /tmp/getff/install.sh <stack> --refresh --profile env    # → env (env-only placeholders ADDED)
-bash /tmp/getff/install.sh <stack> --refresh --profile factory # → factory (AIF suite + aif-handoff row ADDED)
+bash /tmp/getff/setup -y <stack>                    # core
+bash /tmp/getff/install.sh <stack> --profile env     # → env (env-only artefacts ADDED)
+bash /tmp/getff/install.sh <stack> --profile factory # → factory (AIF suite + aif-handoff row ADDED)
 ```
+
+Measured on a `core` consumer (2026-08-09): plain `--profile env` → `tier-home.md` YES, `.claude/skills/arch/` YES, and every pre-existing core artefact byte-identical except `.prettierignore`, whose managed block gains the newly-shipped paths.
+
+Every depth-gated `--refresh` arm now follows ONE rule (#1312 / #1334): **the delivery site's own profile predicate, OR the artefact is already on disk** (presence = prior opt-in). Re-measured on a fresh `core` consumer 2026-08-17 — the gate is `tests/install-sh/consumer-upgrade-path.test.sh` TESTs 8-11:
+
+- bare `--refresh` and `--refresh --profile core` → none of the deeper artefacts arrive: the four worktree scripts (`create-worktree.sh`, `worktree-node-modules.sh`, `link-coordination.sh`, `getff-work.sh`), `.claude/skills/arch`, `.claude/skills/pipeline`, `.ai-factory/tier-home.md` all stay absent. Before #1334 the four scripts landed on every `--refresh` regardless of profile, contradicting the `PROFILE=core → skip` decision at `setup.d/85-worktree-scripts.sh:19-22`.
+- `--refresh --profile env` → every env-depth artefact arrives; the factory-only set (`dispatcher`, `claude-glm-executor-handoff`, `.claude/agents/reviewer-discipline.md`) stays absent.
+- a bare `--refresh` on an already-deeper project keeps that depth fresh — no `--profile` to repeat, which is the point of the presence half.
+
+Still install-only, and the reason a depth change is an installer re-run rather than a `--refresh`: the vendored runtime-bridge payload (`setup.d/55-runtime-bridge-vendor.sh`, factory depth) has no refresh arm at all, and dev-deps, CI wiring and the consumer-editable config seeds are install-path steps by design.
 
 Downgrades are NOT auto — per inventory §5.3, a downgrade is `git rm` the deeper-only artefacts manually. The `--refresh` path keeps refreshing whatever's already on disk (prior opt-in), so a deeper install survives a shallower refresh.
 
@@ -166,6 +176,21 @@ Downgrades are NOT auto — per inventory §5.3, a downgrade is `git rm` the dee
 - Every flag that worked before still works. Profiles are an additive surface over the existing flag machinery, not a replacement.
 
 See also: per-profile payload inventory at `docs/meta-factory/research-patches/2026-07-25-beta-a-s1-inventory.md` §2.
+
+### GLM executor one-button (factory profile ONLY)
+
+If the consumer chose `--profile factory` (or `--with-aif-suite` / `--all`), the GLM executor tier wires with ONE human-entered key. Run:
+
+```bash
+bash /tmp/getff/scripts/getff-glm-onebutton.sh detect
+```
+
+- If output is `GLM_PROFILE: present` → GLM is already wired; skip to the next section.
+- If output is `GLM_PROFILE: missing` → run `bash /tmp/getff/scripts/getff-glm-onebutton.sh explain`, read the printed explanation aloud to the consumer (z.ai Coding Plan, the env-file path), and WAIT for the consumer to paste the key into `${XDG_CONFIG_HOME:-$HOME/.config}/getff/glm.env`.
+- After the consumer confirms the paste → run `bash /tmp/getff/scripts/getff-glm-onebutton.sh provision`. The helper provisions the runtime profile, sets per-mode defaults via the aif project config, wires the env-file into the aif deployment's process env (best-effort: writes a marker-bearing `docker-compose.override.yml` when the canonical aif-handoff checkout is detected at `$AIF_HANDOFF_CHECKOUT`; otherwise prints a key-reachability instruction for you to apply — §7b), validates the route via the aif bridge, and then makes **one real model call** through the profile it just created — so `DONE` means the key was accepted by the vendor, not merely that it was found. Tell the consumer three things about that step before running it, because all three touch their machine or their bill: (1) the call is billed to their z.ai plan and is **not** token-scale — aif injects project context, so a one-word prompt measured **$0.117** on the reference host, and it is billed on every `provision` run; (2) if the aif deployment is detected, the helper runs `docker compose up -d` against it, which restarts their aif services; (3) each run leaves a chat session titled «getff GLM provisioning proof» in their aif project, which they may delete afterwards. Report the `GLM_PROVISION: DONE` or `GLM_PROVISION: FAILED` output verbatim; a `FAILED step-D` line means the key resolved but the vendor rejected it, or the §7b wiring has not landed in the aif process env yet. If the helper falls back to the instruction form, read it aloud to the consumer — they must apply it before validation can succeed.
+- If the consumer declines the z.ai plan → factory profile runs at env-level until GLM is wired; record the decline in your install summary.
+
+The installer NEVER reads the key value — only the env-var name `ANTHROPIC_AUTH_TOKEN`. If you find yourself printing or logging the key value, STOP.
 
 ---
 
@@ -422,7 +447,7 @@ bash /path/to/getff/install.sh --refresh
 Framework-owned artefacts the consumer is **not** expected to edit in place:
 
 - `.claude/agents/*.md` — sub-agent prompts
-- `.claude/skills/` — the 6-dir core set (getff, tool-bootstrapping, rule-research, rule-tests, ai-doc, template-audit). The AIF operator suite — 7 skills (pipeline, dispatcher, aif-doctor, harvest, night-mode, story, claude-glm-executor-handoff) + 2 agents (orchestrator-worker-discipline, reviewer-discipline) + their aif-orchestrator-discipline skill-context — ships only under `--profile factory` (or the equivalent legacy `--with-aif-suite` / `--all` escapes); `--refresh` keeps refreshing it when already present on disk (prior opt-in), never creates it otherwise.
+- `.claude/skills/` — the 6-dir core set (getff, tool-bootstrapping, rule-research, rule-tests, ai-doc, template-audit), refreshed at every depth. The deeper tiers follow the profile-OR-presence rule above: the env+ contour surface (`arch`, `pipeline`) under `--profile env`/`factory`; the AIF operator suite — 6 skills (dispatcher, aif-doctor, harvest, night-mode, story, claude-glm-executor-handoff) + 2 agents (orchestrator-worker-discipline, reviewer-discipline) + their aif-orchestrator-discipline skill-context — under `--profile factory` (or the legacy `--with-aif-suite` / `--all` escapes). Either tier also keeps refreshing when already present on disk (prior opt-in), and is never created on a shallower profile.
 - `.claude/hooks/deps-hash-check.sh` — session hook
 - `scripts/*.sh`, `scripts/audit-r4.ts` — audit gate scripts
 - `packages/core/hooks/` — TS pre-push pipeline

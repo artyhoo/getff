@@ -26,8 +26,9 @@ bad()  { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 
 [ -f "$INSTALL" ] || { echo "FATAL: $INSTALL not found"; exit 1; }
 
-# The frozen F11 CORE set — name-for-name mirror of RulesLock (packages/core/installer/types.ts).
-CORE_FIELDS="schemaVersion framework version ruleIds emittedAt sourceFingerprint"
+# The frozen F11 CORE set — name-for-name mirror of RulesLock v2 (packages/core/installer/types.ts).
+# S1 §3 criterion 3: `rules` REPLACES the v1 `ruleIds` (schemaVersion=2 bump).
+CORE_FIELDS="schemaVersion framework version rules emittedAt sourceFingerprint"
 
 # Top-level key names of a (flat, one-key-per-line) lock JSON — portable grep, no jq dependency.
 lock_keys() { grep -oE '^[[:space:]]*"[A-Za-z][A-Za-z0-9]*"[[:space:]]*:' "$1" | sed -E 's/^[[:space:]]*"([A-Za-z0-9]+)".*/\1/'; }
@@ -115,10 +116,10 @@ echo ""; echo "  ── (4) teeth: renamed core field is detected (arm discrimin
 STUB=$(mktemp)
 cat > "$STUB" <<'EOF'
 {
-  "schemaVer": 1,
+  "schemaVer": 2,
   "framework": "python",
   "version": null,
-  "ruleIds": [],
+  "rules": [],
   "emittedAt": "2026-01-01T00:00:00Z",
   "sourceFingerprint": "deadbeefdeadbeef"
 }
@@ -129,6 +130,58 @@ case " $mS " in
   *) bad "(4) compare stayed green with a renamed core field → VACUOUS arm" ;;
 esac
 rm -f "$STUB"
+
+# ── (5) version value-level parity (S1 §3 criterion 4): DERIVATION, not blanket null ──────────────
+# Per §3a: the gate asserts the DERIVATION, not «these lanes are always null».
+# Manifest present with a version → lock version matches; manifest absent → null.
+# All three shell lanes today have no generation-context manifest (language-level rules,
+# no framework dependency) → derived null. The teeth stub proves a non-null is caught.
+echo ""; echo "  ── (5) version derivation parity across shell lanes (criterion 4, §3a) ──"
+lock_version_raw() { grep -oE '"version"[[:space:]]*:[[:space:]]*(null|"[^"]*")' "$1" | head -1 | sed -E 's/.*:[[:space:]]*//'; }
+# Assert the derivation for a single lane: manifest present → match; absent → null.
+assert_derived_version() {
+  local label="$1" lock="$2" ctx="$3"
+  local lv cv
+  lv=$(lock_version_raw "$lock")
+  if [ -f "$ctx" ]; then
+    cv=$(lock_version_raw "$ctx")
+    [ "$lv" = "$cv" ] \
+      && ok "(5) $label version=$lv (matches generation-context manifest — derivation)" \
+      || bad "(5) $label version=$lv but manifest says $cv (must match when manifest present)"
+  else
+    [ "$lv" = "null" ] \
+      && ok "(5) $label version=null (no manifest → no named dependency — derived null per §3a)" \
+      || bad "(5) $label version=$lv but no manifest exists (leaked value, not derived)"
+  fi
+}
+assert_derived_version python "$PLOCK" "$P/.ai-factory/synthesizer-output/generation-context.json"
+assert_derived_version cargo  "$CLOCK" "$C/.ai-factory/synthesizer-output/generation-context.json"
+assert_derived_version go     "$GLOCK" "$G/.ai-factory/synthesizer-output/generation-context.json"
+# Teeth (MINOR 2): pass a stub lock with a leaked project-own version (no manifest) through
+# assert_derived_version — it MUST RED. Criterion 4 asks precisely that the discriminating
+# assertion goes RED on a leaked value, not just that lock_version_raw returns non-null.
+STUB_V=$(mktemp)
+cat > "$STUB_V" <<'EOF'
+{
+  "schemaVersion": 2,
+  "framework": "python",
+  "version": "0.0.1",
+  "rules": [],
+  "emittedAt": "2026-01-01T00:00:00Z",
+  "sourceFingerprint": "deadbeefdeadbeef"
+}
+EOF
+_pre_fail=$FAIL
+assert_derived_version teeth-stub "$STUB_V" "/nonexistent/no-manifest.json"
+# The call above SHOULD have called bad() → FAIL increased by exactly 1 (leaked value caught).
+if [ "$FAIL" -eq "$((_pre_fail + 1))" ]; then
+  FAIL=$_pre_fail  # undo — the RED was the expected outcome (criterion 4 bites)
+  ok "(5) teeth: leaked version 0.0.1 with no manifest → assert_derived_version REDs (criterion 4 bites)"
+else
+  bad "(5) teeth: assert_derived_version stayed GREEN on a leaked version — VACUOUS guard"
+fi
+rm -f "$STUB_V"
+
 rm -rf "$P" "$C" "$G"
 
 echo ""

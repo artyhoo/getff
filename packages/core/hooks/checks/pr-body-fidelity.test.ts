@@ -217,3 +217,66 @@ describe('checkPrBodyFidelity — evidence exclusion is case-insensitive', () =>
     expect(r.errors.join()).toMatch(/other than `Basis:`/);
   });
 });
+
+describe('checkPrBodyFidelity — severity-contract arm (Failure-scenario in Review findings)', () => {
+  const withFindings = (findings: string) =>
+    `## Review findings\n\n${findings}\n\n## Fidelity verdict\n\n${goSection()}\n\n## Parked questions\nnone\n`;
+
+  it('fails a MAJOR-graded entry without a Failure-scenario line', () => {
+    const r = checkPrBodyFidelity({ body: withFindings('- MAJOR: cache key ignores locale (src/x.ts:42)'), headSha: HEAD });
+    expect(r.ok).toBe(false);
+    expect(r.errors.join()).toMatch(/Failure-scenario/);
+  });
+  it('fails a BLOCKER-graded bare-line entry without a scenario', () => {
+    const r = checkPrBodyFidelity({ body: withFindings('BLOCKER: gate never fires (pre-push.ts:10)'), headSha: HEAD });
+    expect(r.ok).toBe(false);
+  });
+  it('passes when the scenario sits on the same line', () => {
+    const body = withFindings('- MAJOR: cache key ignores locale (src/x.ts:42) — Failure-scenario: ru users get en prices');
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
+  it('passes when the scenario is an indented sub-bullet of the entry', () => {
+    const body = withFindings('- MAJOR: cache key ignores locale (src/x.ts:42)\n  - Failure-scenario: ru users get en prices');
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
+  it('does not let one scenario cover a following scenario-less entry', () => {
+    const body = withFindings(
+      '- MAJOR: a (src/a.ts:1)\n  - Failure-scenario: concrete break\n- MAJOR: b (src/b.ts:2)',
+    );
+    const r = checkPrBodyFidelity({ body, headSha: HEAD });
+    expect(r.ok).toBe(false);
+    expect(r.errors).toHaveLength(1);
+  });
+  it('ignores digit-led summary count lines', () => {
+    const body = withFindings('round 1: 0 BLOCKER / 2 MAJOR / 3 MINOR — all fixed, r2 GO');
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
+  it('exempts ESCALATED and MINOR entries', () => {
+    const body = withFindings('- ESCALATED: value premise unrecorded → advisor\n- MINOR: typo in comment (src/y.ts:7)');
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
+  it('is not satisfied by a Failure-scenario mention inside an HTML comment', () => {
+    const body = withFindings('- MAJOR: a (src/a.ts:1)\n<!-- Failure-scenario: hidden -->');
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(false);
+  });
+  it('reports the arm error alongside the skipped path too', () => {
+    const body = `## Review findings\n\n- MAJOR: a (src/a.ts:1)\n\n## Fidelity verdict\nFIDELITY: skipped — docs-only change, no kickoff applies\n`;
+    const r = checkPrBodyFidelity({ body, headSha: HEAD });
+    expect(r.ok).toBe(false);
+    expect(r.errors.join()).toMatch(/Failure-scenario/);
+  });
+});
+
+describe('checkPrBodyFidelity — sidecar count lines are not findings', () => {
+  const withFindings = (findings: string) =>
+    `## Review findings\n\n${findings}\n\n## Fidelity verdict\n\n${goSection()}\n`;
+
+  it('exempts the review-sidecar tally shape `- BLOCKER: 1` / `- MAJOR: 3`', () => {
+    const body = withFindings('- BLOCKER: 1\n- MAJOR: 3\n- MINOR: 2');
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
+  it('still gates a real finding whose text follows the colon', () => {
+    const body = withFindings('- MAJOR: 3 retries silently swallowed (src/net.ts:12)');
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(false);
+  });
+});

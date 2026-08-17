@@ -113,6 +113,14 @@ jobs:
       # that fail a consumer's first `prettier --check .` (#531). This gate fails when any shipped
       # source drifts from Prettier — keeping "one button → green validate" true out-of-box.
       # Deterministic (Prettier, not an LLM) — complies with no-paid-llm-in-ci.
+      #
+      # Since GH #1378 the script also checks the DELIVERED shape, not just the source: install.sh
+      # rewrites repo-internal refs into blob URLs AFTER the copy (transform_internal_refs), and a
+      # rewrite inside a table cell re-pads the table, so a source-clean file can ship dirty. That
+      # phase materialises each transform-routed doc at its consumer-final path and re-checks it.
+      # GH #1377's half is the population: `.claude/skills` is enumerated whole rather than as a
+      # hand-maintained allowlist of slugs, which had drifted eight shipped skills out of the gate.
+      # Paired negative: tests/install-sh/delivered-prettier-conformance.test.sh.
       - name: npm run format:check (shipped surface only)
         run: npm run format:check
   rule-to-probe:
@@ -169,6 +177,18 @@ jobs:
             npx --prefix packages/core vitest run --reporter=default packages/core/audit-self/audit-ai-docs.test.ts
           else
             echo "::error::packages/core/audit-self/audit-ai-docs.test.ts missing"
+            exit 1
+          fi
+      # First-Steps SSOT ↔ AI Usage Guide parity (beta-ai-docs-agnosticism S1). Registered by
+      # NAME, not via an `audit-self/` directory scope: a directory sweep would also pull in
+      # currently-unregistered neighbours, which is scope this umbrella did not ask for.
+      # The else-arm is load-bearing — a silently-vanished gate is the failure being closed here.
+      - name: Run packages/core/audit-self/first-steps-parity.test.ts (beta-ai-docs-agnosticism S1)
+        run: |
+          if [ -f packages/core/audit-self/first-steps-parity.test.ts ]; then
+            npx --prefix packages/core vitest run --reporter=default packages/core/audit-self/first-steps-parity.test.ts
+          else
+            echo "::error::packages/core/audit-self/first-steps-parity.test.ts missing"
             exit 1
           fi
 
@@ -376,16 +396,19 @@ jobs:
       # firing tests landed under backends/, test:backends). A test-that-does-not-gate is the
       # #discipline-theatre this project exists to prevent. Gate the umbrella's OWN tests here,
       # reusing the `npm ci --prefix packages/core` install above (same job, deterministic).
-      # SCOPED (not `vitest run synthesizer/`): the broader synthesizer/ suite includes ~6
-      # pre-existing tests (generate*/menu-pick/rule-bootstrap*) that import the workspace eslint
-      # preset `@rules-as-tests/preset-next-15-canonical`, which is not built in this per-dir job →
-      # they fail to COLLECT here. Those are a pre-existing CI-coverage gap (flagged in the LG-S3 PR
-      # §1.7 backward-check), NOT this umbrella's tests — wiring them in is a separate task. The
-      # researched-cargo clippy live-fire (live-generation-clippy.test.ts AC2) now fires FOR REAL
-      # here against the pinned 1.96.1 toolchain installed above (ecosystem-wiring W4 — runLiveFire
-      # = cargoPresent, no !isCI); the render/drift/evidence-validator tests remain always-on.
-      - name: Run live-generation umbrella tests (bridges + render + rust evidence)
-        run: npm --prefix packages/core run test:live-generation
+      # UN-SCOPED as of 2026-08-10 (principle 38): this step used to run only 3 named synthesizer
+      # files because the other 20 import the workspace eslint preset
+      # `@rules-as-tests/preset-next-15-canonical`, which `npm ci --prefix packages/core` does not
+      # provide (the preset is a workspace sibling, absent from packages/core's own package.json
+      # and its standalone lock) → they failed to COLLECT at THIS point in the job. The old comment
+      # called wiring them in "a separate task"; that task is done. The fix was placement, not
+      # scoping: the root `npm install` below creates the `@rules-as-tests/*` workspace symlinks in
+      # the repo-root node_modules, and node resolution from packages/core walks up to find them —
+      # so the full `synthesizer/` suite is now run by `test:synthesizer` AFTER that install.
+      # The researched-cargo clippy live-fire (live-generation-clippy.test.ts AC2) still fires FOR
+      # REAL against the pinned 1.96.1 toolchain installed above (ecosystem-wiring W4 — runLiveFire
+      # = cargoPresent, no !isCI); the rust toolchain is job-scoped, so moving the step later keeps
+      # it on PATH. The `test:live-generation` script itself is retained for narrow local use.
       # CI-gap option C (hook-test-suite-rot): the packages/core/hooks/ vitest suite was
       # never gated — only principles/ was — which is how a real cross-platform regression
       # (priority-score-synthetic.sh xargs) accumulated 15 failures unnoticed. Gate it here.
@@ -397,6 +420,39 @@ jobs:
         run: npm install --silent
       - name: Run packages/core/hooks/ suite (CI-gap option C — gate the hooks suite)
         run: npm --prefix packages/core run test:hooks
+      # ── vitest include-allowlist coverage (principle 38, 2026-08-10) ─────────────────────
+      # Before this block, 87 *.test.ts files across 12 include-allowlist directories had ZERO
+      # CI invocation (skills 22, research 22, validator 16, eslint-rules 7, detector 7,
+      # installer 4, scenario-generator 2, diff 2, diagnostics 2, detector-v0 1, spec-validation
+      # 1, python-starter 1), plus partial coverage of synthesizer (3/23), install (2/5) and
+      # audit-self (3/6). A test wired at no channel fails at none — the #armed-but-not-fired
+      # false-green. `principles/38-vitest-include-ci-coverage.test.ts` now asserts this list
+      # cannot fall behind `vitest.config.ts` again; it reads THESE steps to decide coverage,
+      # so deleting one turns the principles suite RED at pre-push, before CI.
+      #
+      # Placement is load-bearing: all three steps run AFTER the root `npm install` above,
+      # because `validator/gate-*.ts`, `install/rule-bootstrap-cli.ts` and
+      # `synthesizer/generate-react-spa.test.ts` import `@rules-as-tests/preset-next-15-canonical`
+      # — a workspace sibling that only exists in node_modules once the root install has linked
+      # it. Moving them above that install reproduces the collection failure this block fixes.
+      - name: Run packages/core deterministic unit suites (principle 38 — 12 previously-unwired dirs)
+        run: npm --prefix packages/core run test:units
+      # Split out from test:units: every case spawns a real bash helper against a sandbox tree,
+      # so this is the slow arm (~90s locally, 211 tests) and deserves its own attributable step.
+      - name: Run packages/core/skills/ suite (principle 38)
+        run: npm --prefix packages/core run test:skills
+      # Split out because it is the only suite in the package that touches the network: it shells
+      # out to the real `gh` CLI to resolve action SHAs against the GitHub API. GH_TOKEN makes
+      # those calls authenticated so the assertions are real rather than uniformly rate-limited
+      # into the exit-2 "tooling unavailable" branch that the tests tolerate by design.
+      - name: Run packages/core/spec-validation/ suite (principle 38)
+        run: npm --prefix packages/core run test:spec-validation
+        env:
+          GH_TOKEN: ${{ github.token }}
+      # Full synthesizer/ — supersedes the narrow 3-file test:live-generation step above; see the
+      # UN-SCOPED note there for why it had to move below the root install.
+      - name: Run packages/core/synthesizer/ suite (principle 38 — was 3/23 files)
+        run: npm --prefix packages/core run test:synthesizer
       # #752 fix (Variant A): rule .mjs/.d.ts are pre-compiled + committed (install copies them,
       # consumer needs no tsc). This gate fails if a committed artifact drifts from its .ts source
       # — the executable guard that keeps "ship pre-compiled" honest. Root tsc hoisted above.
@@ -475,16 +531,31 @@ jobs:
         run: bash tests/install-sh/no-companion-blocks.test.sh
       - name: Run install-sh bridge-guided test (one-click-installer S2)
         run: bash tests/install-sh/bridge-guided.test.sh
+      - name: Run install-sh GLM one-button test (beta-delivery-ux S4)
+        run: bash tests/install-sh/glm-onebutton.test.sh
       - name: Run install-sh B1 stack-research-lookup test (multistack-augment-first #827 B1)
         run: bash tests/install-sh/b1-stack-research-lookup.test.sh
       - name: Run live-snippet wire oracle + override tests (live-research-default-delivery D1/D2/§6)
         run: npx --prefix packages/core vitest run --reporter=default packages/core/install/wire-live-snippet.test.ts packages/core/install/wire-synth-rules.test.ts
       - name: Run local-ci-sweep paired-negative (harvest sweep aggregator)
         run: bash scripts/run-local-ci-sweep.test.sh
+      # Reverse direction of tests/install-sh/meta-all-wired.test.sh: every atomic command THIS
+      # workflow runs must be reachable from the sweep's gate table, or carry an explicit
+      # UNREACHABLE rationale. Without it the sweep's "green locally ⇒ green in CI" promise rests
+      # on someone re-reading both lists (.claude/rules/attention-is-not-a-mechanism.md §1).
+      - name: Run local-ci-sweep CI-coverage metatest (gate table mirrors this workflow)
+        run: bash scripts/run-local-ci-sweep-coverage.test.sh
       - name: Run synth-bundle dep-parity paired-negative (phantom-drift guard)
         run: bash scripts/check-bundle-dep-parity.test.sh
       - name: Run synth-bundle cwd-independence test (build runs from any directory)
         run: bash scripts/build-synth-bundle.test.sh
+      # Paired contract for the K4 contract-coverage emitter. The emitter is not a gate
+      # (it always exits 0), so the negative leg is on its OUTPUT: a kickoff whose
+      # host-verify block misses a permitted area must emit a CANDIDATE naming it, and a
+      # kickoff whose block covers the allowlist must emit none. Wired here so the
+      # emitter cannot go silently dead — an unwired can-it-fire proof is not a proof.
+      - name: Run host-verify contract-coverage paired-negative (K4 emitter)
+        run: bash scripts/host-verify-coverage.test.sh
       - name: Run install-sh audit-r4 shipped test (consumer-install-hardening F6)
         run: bash tests/install-sh/audit-r4-shipped.test.sh
       - name: Run install-sh hook-activation test (consumer-install-hardening F2)
@@ -593,6 +664,8 @@ jobs:
         run: bash tests/install-sh/f3-f7-rule-globs.test.sh
       - name: Run install-sh gh-531 shipped-prettier test (GH #531 reopen — prettier pin + .prettierignore merge)
         run: bash tests/install-sh/gh-531-shipped-prettier.test.sh
+      - name: Run install-sh delivered-prettier conformance test (GH #1378/#1377 — post-transform delivery shape)
+        run: bash tests/install-sh/delivered-prettier-conformance.test.sh
       - name: Run install-sh dev-dep install test (consumer-install-completeness S3 one-button #483)
         run: bash tests/install-sh/cic-s3-dep-install.test.sh
       - name: Run install-sh R2 glob-reach test — CI-orphan WARN + per-package shadow + globals (GH #507 reopen)
@@ -724,6 +797,12 @@ jobs:
         run: bash tests/install-sh/refresh-offers-lintstaged-migration.test.sh
       - name: "install-sh — rules-lock schema parity: F11 core set ⊆ each lane's ACTUAL emitted lock JSON (adapter-jig D3)"
         run: bash tests/install-sh/rules-lock-schema-parity.test.sh
+      - name: "install-sh — rules-lock version diff shape: dependency bump differs, consumer bump does not (getff-freshness-widening S1 criterion 5)"
+        run: bash tests/install-sh/rules-lock-version-diff.test.sh
+      - name: "install-sh — rules-lock malformed-value vectors: consumer manifest toxins never reach the lock (getff-freshness-widening S1 criterion 7)"
+        run: bash tests/install-sh/rules-lock-malformed-values.test.sh
+      - name: "install-sh — rules-lock scope trap: no research/detector fixtures in branch diff (getff-freshness-widening S1 criterion 9)"
+        run: bash tests/install-sh/rules-lock-scope-trap.test.sh
       - name: "install-sh — snapshot exclusion guard: volatile-only exclusions never mask deterministic drift (adapter-jig C3)"
         run: bash tests/install-sh/snapshot-exclusion-guard.test.sh
       - name: "install-sh — lane orphan residue: refresh sweeps dir payloads + loudly reports dropped top-level getff files (adapter-jig C4)"
@@ -1323,7 +1402,7 @@ jobs:
               installed: $r[0].installed,
               failuresCount: ($r[0].failures | length),
               artifactNames: [$r[0].artifacts[] | split("/") | last],
-              lockShape: { schemaVersion: $l[0].schemaVersion, framework: $l[0].framework, version: $l[0].version, ruleIds: $l[0].ruleIds },
+              lockShape: { schemaVersion: $l[0].schemaVersion, framework: $l[0].framework, version: $l[0].version, rules: $l[0].rules },
               preValidation: $r[0].preValidation,
               postValidation: $r[0].postValidation
             }')
@@ -1565,6 +1644,35 @@ jobs:
         env:
           FRAMEWORK_ROOT: ${{ github.workspace }}
 
+  # beta-delivery-ux R1 (spec A6): the consumer-matrix NPM-TARBALL CELL.
+  # Packs `packages/core` into a tarball, installs it into a fresh fixture
+  # (no registry needed — install by path), and asserts the real consumer
+  # path: manifest loads, by-path assets exist (install bundle, manifest
+  # schema, eslint-rules, templates/, skills/), every `bin:` and `exports:`
+  # target resolves, and ≥1 bin executes end-to-end from the installed
+  # package (F-C′ resolution: tsx as runtime dep). This cell IS the `files`
+  # allowlist validation mechanism per kickoff §3 — every entry in
+  # `packages/core/package.json:files` carries paired RED→GREEN evidence
+  # from this cell. A green `npm pack` is NOT a gate (T-BDU-R1-A); only
+  # installing + running the consumer path is. Deterministic + API-free per
+  # no-paid-llm-in-ci.md §1.
+  consumer-matrix-npm-tarball-cell:
+    name: "Consumer-matrix npm-tarball cell — files allowlist + bin runnability (beta-delivery-ux R1)"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '22'
+      - name: Run the consumer-matrix npm-tarball cell
+        run: bash tests/consumer-matrix/npm-tarball-cell.sh
+        env:
+          FRAMEWORK_ROOT: ${{ github.workspace }}
+
   # Single aggregate context for branch protection. `needs:` every other
   # audit-self PR job — including actionlint + zizmor above — so requiring just
   # `ci-success` gates them all, and stays correct as jobs are added/removed (vs
@@ -1572,10 +1680,21 @@ jobs:
   # the gate still runs (and can FAIL) when a need failed; pass/fail logic lives
   # in scripts/ci-success-gate.sh (paired-negative tested).
   ci-success:
+    # required-context: yes — the single aggregate every other audit-self job routes into via
+    # `needs:` (completeness asserted by packages/core/principles/36-ci-needs-completeness.test.ts);
+    # nothing else in this file is separately registrable, so this is its only fail-closed transport.
     name: ci-success
     if: always()
     needs:
       - mechanical
+      # ci-needs-completeness gap (found by the beta-delivery-ux R1 backward sweep, fixed
+      # here): without this line the shipped surface could drift off Prettier-clean while
+      # `ci-success` stayed green and the PR merged — every consumer's first
+      # `prettier --check .` then fails out-of-box (the GH #531 regression this job exists
+      # to prevent). Never wired since the job shipped in #540 (`git log -S` on the needs
+      # entry returns empty) — the `#warning-nobody-reads` shape
+      # (.claude/rules/attention-is-not-a-mechanism.md §2), now gated by principle 36.
+      - shipped-prettier
       - actionlint
       - zizmor
       - rule-to-probe
@@ -1591,6 +1710,13 @@ jobs:
       - framework-self-install-ts-server
       - framework-self-install-react-next
       - framework-fresh-install-validate
+      # Same ci-needs-completeness gap. Without this line the #807 monorepo cell could go
+      # RED while `ci-success` stayed green and the PR merged: the flat-matrix job above
+      # only covers a SINGLE-package consumer, so this is the ONLY surface asserting that
+      # check:globs / check:enforced / arch:check survive a no-root-config multi-stack
+      # layout. A green `ci-success` alone proves none of those three gates. Never wired
+      # since the job shipped in #815.
+      - framework-fresh-install-validate-multistack
       - framework-self-detect
       - framework-self-research
       - framework-self-synth
@@ -1606,6 +1732,15 @@ jobs:
       # shape as the alwayson-budget incident below — load-bearing assertion lives in the
       # cell's RED/GREEN/REJECT arms, none of which a green `ci-success` alone proves.
       - consumer-matrix-python-unfamiliar-stack-cell
+      # beta-delivery-ux R1 (spec A6): without this line the tarball cell
+      # could go RED (a `files` entry dropped, a bin broken) while
+      # `ci-success` stayed green and the PR merged, because branch
+      # protection requires only `ci-success` — the `#warning-nobody-reads`
+      # shape (.claude/rules/attention-is-not-a-mechanism.md §2). The
+      # load-bearing assertion lives in the cell's paired-RED→GREEN evidence
+      # per `files` entry + the F-C′ bin execution; a green `ci-success`
+      # alone proves none of that.
+      - consumer-matrix-npm-tarball-cell
       # arch-v2 S-E P3a. Without this line the budget job could go RED while
       # `ci-success` stayed green and the PR merged, because branch protection
       # requires only `ci-success` — a gate whose sole consumer is someone

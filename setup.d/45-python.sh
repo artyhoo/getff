@@ -241,8 +241,8 @@ _py_deliver_ruff() {
   # cell) at a predictable getff-owned path. This is the single target the shipped CI workflow points a
   # `ruff check . --config .getff/ruff-bans.toml --no-cache` gate at, so the getff TID bans fire in EVERY
   # cell. Load-bearing on the collision cells (iii/iv): there the consumer's OWN ruff config is what
-  # `ruff check .` discovers, so it NEVER sees our TID bans — probe-proven silent-unenforcement (S2-T2
-  # review; .superpowers/sdd/s2-task-2-report.md §Fix round 1). `--config` makes ruff REPLACE discovery
+  # `ruff check .` discovers, so it NEVER sees our TID bans — probe-proven silent-unenforcement.
+  # `--config` makes ruff REPLACE discovery
   # (probe-proven), so the CI gate lints the tree against ONLY our bans regardless of the consumer's
   # config. Framework-owned + getff-header-marked (never a consumer file — the consumer never authors
   # .getff/ruff-bans.toml), refresh-aware. Its source token `$tpl/ruff.toml` already carries copy+refresh
@@ -513,6 +513,37 @@ EOF
   printf '%s]' "$out"
 }
 
+# _py_json_rules <newline-separated rule ids> <fragment-dir> — render a JSON array of v2 rule
+# objects ({id, provenance, tier}). §3a option B / §6 fork 2: reads each rule's slice from
+# the fragment dir. S1b (PARK-S1-7 unparked): the python-lane fragment dir is the per-lane
+# subdir `generation-context/python/` (resolved and passed by `_py_write_rules_lock` below —
+# named rather than line-numbered: a line pointer into this same file goes stale the moment
+# anything above the caller is edited, including the hunk that writes the pointer);
+# fragments are written by rule-bootstrap-cli.ts runPracticeRender (S1b), keyed by the
+# delivered ast-grep rule id (DC-3: record.entryId === rendered.entryId, by construction).
+# The Node synthesize path (emit.ts:97-103) still writes `G${n}.json` to the PARENT
+# generation-context/ dir — a different lane with its own fragment set; the cargo/go readers
+# glob that parent dir non-recursively (46-cargo.sh:262, 47-go.sh:229). When no fragment
+# exists for a rule (template rule with no research provenance), the fallback
+# {id, provenance:[], tier:2} is the DERIVED value — explicit absence from the fragment dir,
+# not a literal. S1 §3 criterion 3: the per-rule shape REPLACES the v1 flat ruleIds array.
+_py_json_rules() {
+  local items="$1" frag_dir="${2:-}" out="[" first=1 it frag
+  while IFS= read -r it; do
+    [ -z "$it" ] && continue
+    if [ "$first" -eq 1 ]; then first=0; else out="$out, "; fi
+    frag="$frag_dir/$it.json"
+    if [ -n "$frag_dir" ] && [ -f "$frag" ]; then
+      out="$out$(cat "$frag")"
+    else
+      out="$out{\"id\":\"$it\",\"provenance\":[],\"tier\":2}"
+    fi
+  done <<EOF
+$items
+EOF
+  printf '%s]' "$out"
+}
+
 # _py_write_rules_lock — emit the PYTHON RULES-LOCK VARIANT: a machine-reproducibility record of the
 # rule set actually delivered into the consumer's .getff/ tree. Parity with the JS/TS
 # installer/install.ts rules-lock.json (schemaVersion/framework/version/ruleIds/emittedAt/
@@ -613,16 +644,45 @@ _py_write_rules_lock() {
 
   mkdir -p "$PROJECT_ROOT/.getff"
 
-  local _json_ids _json_bans
-  _json_ids=$(_py_json_array "$ids")
+  local _json_rules _json_bans
+  # Fragment-per-rule per §6 fork 2. The fragment dir is the synthesizer's
+  # generation-context/ subdir — one <rule-id>.json per rule in final lock shape.
+  # S1b (PARK-S1-7 unparked): per-lane subdir `generation-context/python/` — the producer
+  # (rule-bootstrap-cli.ts runPracticeRender, S1b) writes here. Closes kickoff criterion 4 by
+  # construction: the cargo/go glob is `*.json` NON-RECURSIVE on the parent generation-context/
+  # dir (46-cargo.sh:262, 47-go.sh:229), so python fragments in this subdir are invisible to
+  # those lanes. Node synthesize (emit.ts) keeps writing `G${n}.json` to the parent dir.
+  local _synth_dir="$PROJECT_ROOT/.ai-factory/synthesizer-output"
+  local _frag_dir="$_synth_dir/generation-context/python"
+  _json_rules=$(_py_json_rules "$ids" "$_frag_dir")
   _json_bans=$(_py_json_array "$ban_codes")
 
+  # S1 §3 criterion 2: READ the generation-context manifest for the dependency version.
+  # The manifest is emitted by the synthesizer at generation time (emit.ts writes
+  # generation-context.json alongside the ast-grep YAMLs) and read here with POSIX
+  # grep/sed (no Node at install time). `version` is a PLAN-LEVEL field keyed to
+  # `framework` (ResearchPlan {framework, version}, research-plan.schema.json);
+  # python is a LANGUAGE lane with no single framework dependency, and Provenance
+  # (research/types.ts:8-22) carries url/allowlistKey/fetchedAt/packageName?/finalUrl?/tier?
+  # — no version field. So no manifest today → derived null is honest. The day a
+  # framework-specific python plan is synthesised, the manifest carries its version
+  # and the lock reports it — no code change needed (the read is unconditional).
+  # The path resolves to .ai-factory/synthesizer-output/ where the Node emitter actually
+  # writes (emit.ts OUTPUT_SUBPATH) — the same dir the cargo/go lanes read. Pointing this
+  # at .getff/ instead (never written by the emitter) would make the manifest-present arm
+  # unreachable by construction.
+  local _ctx="$_synth_dir/generation-context.json"
+  local _ctx_ver='null'
+  if [ -f "$_ctx" ]; then
+    _ctx_ver=$(grep -oE '"version"[[:space:]]*:[[:space:]]*("[^"]*"|null)' "$_ctx" | head -1 | sed -E 's/.*:[[:space:]]*//')
+  fi
+  [ -n "$_ctx_ver" ] || _ctx_ver='null'
   {
     printf '{\n'
-    printf '  "schemaVersion": 1,\n'
+    printf '  "schemaVersion": 2,\n'
     printf '  "framework": "python",\n'
-    printf '  "version": null,\n'
-    printf '  "ruleIds": %s,\n' "$_json_ids"
+    printf '  "version": %s,\n' "$_ctx_ver"
+    printf '  "rules": %s,\n' "$_json_rules"
     printf '  "ruffBans": %s,\n' "$_json_bans"
     printf '  "emittedAt": "%s",\n' "$emitted"
     printf '  "sourceFingerprint": "%s"\n' "$_fp"

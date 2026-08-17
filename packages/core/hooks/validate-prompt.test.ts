@@ -285,8 +285,14 @@ describe.skipIf(!JQ)('validate-prompt.sh — tsx-unavailable graceful skip (hook
 // node_modules symlink, tsx will be absent and the hook exits 0 via graceful skip (hook:26),
 // making the PAIRED-NEGATIVE (expects exit 1) unreachable. Guard with TSX to skip safely.
 
+// Each case spawns the hook, which spawns `tsx validate-batch-spec.ts`, which in
+// turn shells out to `gh` — a three-deep process chain whose cost is inherent. Two
+// cases already carried `timeout: 15_000`; the fake-SHA paired-negative did not and
+// timed out at 5000ms under full-suite parallel load (`vitest run hooks/ skills/`,
+// measured 2026-08-10). Suite-level default so every case is covered.
 describe.skipIf(!JQ || !GH || !TSX)(
   'validate-prompt.sh — content validation via validate-batch-spec.ts (jq + tsx + gh required)',
+  { timeout: 30_000 },
   () => {
     it('PAIRED-POSITIVE: orchestrator-prompt with no action SHAs → exit 0 (nothing to validate)', () => {
       const abs = writeOrchestratorPrompt(
@@ -535,7 +541,14 @@ function writeViolatingOrchestratorPrompt(repoRoot: string): string {
   return abs;
 }
 
-describe('tier-based tsx resolution (paired-negative for the worktree defect class)', () => {
+// These cases build a REAL linked git worktree per test and run the hook through a
+// scrubbed PATH — inherently multi-second, so the vitest 5s default is a mis-set
+// gate rather than a signal. Most cases here already carried a per-test
+// `timeout: 30_000`; C1/C2 did not, and both timed out at 5000ms under full-suite
+// parallel load (`vitest run hooks/ skills/`, measured 2026-08-10). A suite-level
+// default closes that gap for every case, present and future; the per-test values
+// below are now redundant-but-harmless restatements of it.
+describe('tier-based tsx resolution (paired-negative for the worktree defect class)', { timeout: 30_000 }, () => {
   it('C1: linked worktree (no local node_modules, main has tsx, PATH scrubbed) → hook runs check (NOT silent exit 0)', () => {
     // Setup: real linked worktree of REPO_ROOT. The worktree has NO node_modules (git
     // worktree add doesn't copy it); the main worktree at <repo-root>/../.. DOES have

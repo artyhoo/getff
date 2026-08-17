@@ -519,6 +519,38 @@ create body without `runtimeId`/`providerId`); a stub that cannot fail on known-
 evidence. **No `it.fails()`-as-delivery** — a known-broken path may not ship as a passing suite plus
 an expected-to-fail marker plus an operator TODO. Fix it or PARK it per §7.
 
+## §7f Run-4 dispatch facts (2026-08-09, host+container verified — not a re-plan)
+
+**Provenance:** dispatcher-authored, same standing as §7b/§7d/§7e; records state that changed *after*
+§7e, and (2026-08-09) corrects three of its own facts that later measurement falsified.
+
+**§7f.0 — CORRECTED: base on `staging`.** S4 is harvested and MERGED — `6ea6011560` (PR **#1323**),
+the only commit touching `scripts/getff-glm-onebutton.sh` on `staging`. PR #1322 (`…-e65989`) stayed
+OPEN and red, is **not** your base, but its body still carries the W-1..W-6 watch-list.
+
+**§7f.1 — CORRECTED: the BRANCH `…-995e9c` is a dead end, its CONTENT is not.** A duplicate dispatch
+fired 2026-08-08T21:22Z (origin-only probe; fixed in #1330); its output was repaired
+dispatcher-side, pushed as `harvest/s4-995e9c` and merged as #1323 — `audit-self.yml` shard-A wiring,
+fail-closed stub, consent surface. Do not base on the raw container branch, do not delete it (T18).
+
+**§7f.2 — CORRECTED: one route was measured, not all of them.** `POST /runtime-profiles/<id>/v1/messages`
+→ **`404`** is true, but the conclusion drawn from it («the only reachable form of §7a #3») was a
+negative-existence claim from a **single** probe — a miss of project invariant #3 — and is
+**withdrawn**. Host-measured 2026-08-09: `POST /chat/sessions` → **`400`** (exists, bad body
+rejected); `chat.ts:923-937` project-scope-validates `runtimeProfileId`; `chat.ts:1275`
+(`POST /chat`) is the completion endpoint. Since §7e.4 established `resolved.apiKey` is read off
+**aif's own** `process.env`, aif makes the call and the helper never touches the value — **§7a #3 and
+§2 constraint 1 both hold; no amendment needed.** Proven with one billed call: the response carried
+`assistantMessage`, `costUsd:0.117219`, `runtime.profileId:53eca24c-…`, and that profile's
+`lastUsageAt` moved `09:15:11.263Z` → `09:51:42.017Z`. **Proof channel (either beats `/validate`):**
+the response's own `usage` + `runtime.profileId`, or `lastUsageAt` read back — billing is ground
+truth. **Cost is real money, ~$0.12/run** (aif injects project context; `inputTokens` 39058) — stub
+it in the suite, fire it live only in host-verify. **Still UNPROVEN and this is your job:** the probe
+used an already-created profile on a warm aif; that `POST /chat` succeeds right after the helper's
+own `POST /runtime-profiles` on a **cold** install is run 5's task. **§7f.3 — the §2.4 rework cap
+does not bar this dispatch:** it counts consecutive rounds on *unchanged* scope, and §7d/§7e/§7f are
+each a scope change.
+
 ## §8 PR-body requirements (both gates are REQUIRED checks on `staging`)
 
 This stage touches `.zcode/skills/**` (glm-handoff shipping) + `setup.d/**` (companions.manifest

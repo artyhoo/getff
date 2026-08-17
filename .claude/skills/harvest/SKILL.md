@@ -104,6 +104,7 @@ The sweep auto-scopes via `git merge-base`, escalates to `--full` on any unmappe
      of the config-change class — rev 4 moved P3d there; same handoff rule applies until
      verified otherwise).
 3. Assemble a **§1.7-compliant PR body** (Forward/Backward sections, each with file:line) **plus the acceptance-package sections (Provenance / Review findings / Fidelity verdict / Parked questions — spec D4)**. Open the PR with base `staging` (`gh pr create --base staging`), optionally `gh pr merge --auto --squash` per the dispatcher convention.
+   **After the PR is open, any push that moves the head off `Audited-SHA` reds the gate** — most often a merge-forward commit taken to re-run acceptance against current staging. What to push instead (and the force-push one-way door that closes the cheap option): [git-conflict-merge-forward.md §9](../../rules/git-conflict-merge-forward.md). The body can be checked against a candidate head before pushing, with the gate's own `checkPrBodyFidelity` — command in that §9.
 4. Confirm the PR diff is exactly the intended files, **0 unintended deletions**, before merge.
 
 ---

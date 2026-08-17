@@ -17,6 +17,16 @@
 #         the shipped install-generated barrel (eslint-rules-local/index.mjs) is absent.
 #   (ii)  FENCE SILENT arm: bad fixture replaced with valid code → gate must exit non-zero
 #   (iii) FALSE POSITIVE arm: good fixture replaced with bad code → gate must exit non-zero
+#   (iv-vii) strict mode: a DEP-class skip fails under strict / degrades without it / honours the
+#         escape token; a STRUCTURAL skip stays non-failing even under strict+CI
+#   (viii-xi) NON-VACUITY (GH #1391): manifests present + every fixture skipped → rc!=0 with a
+#         VACUOUS verdict in the DEGRADE default too; the skip line NAMES the real error
+#         (GH #1390); the escape is its own token (FENCES_FIRE_ALLOW_VACUOUS, ≥20 chars) and
+#         FENCES_FIRE_ALLOW_SKIP alone must NOT waive the firing proof
+#   (xii) paired-positive for (viii): the same shape with a WORKING barrel exits 0 and reports
+#         the fixture axis separately — the vacuity gate must not over-fire
+#   (xiii/xiv) a probe exiting 0 with NO output is not a fired fence (positive-evidence
+#         sentinel); the same stub emitting the sentinel IS counted
 #
 # SKIP condition: tsx or eslint not available (same graceful-degrade as the gate itself).
 # rc=0 on SKIP, rc=1 on any arm FAIL.
@@ -190,6 +200,150 @@ else
 fi
 rm -rf "$BARREL_ABSENT_ROOT"
 
+# ─── Arms (viii)-(xiii): NON-VACUITY of the fixture arm (GH #1391 / #1390) ────────────
+# GH #1391: the gate printed `PASS=5 FAIL=0` and exited 0 with EVERY fixture skipped — the
+# five passes were load-probes (they prove a config IMPORTS, never that a rule FIRES), so the
+# firing proof was 0/3 and the gate reported success. #contract-that-cannot-fail.
+# GH #1390: the skip line rendered the cause as an empty `()` because `head -1` read a blank
+# first line, so the real `Cannot find package …` message never reached the log.
+#
+# Both arms run against ONE reproduction of the reported consumer shape: barrel PRESENT,
+# tsx+eslint PRESENT, manifests PRESENT, but the barrel imports an unresolvable package →
+# every fixture takes the dep-class skip inside _run_fixture. Verified locally: tsx emits a
+# BLANK first line, the frame header second, and `Cannot find package` only on line 5.
+#
+# PLACEMENT: these arms sit ABOVE the arms (ii)/(iii) scratch section on purpose — that section
+# exits early when the install-generated barrel is absent, which is ALWAYS the case in the
+# framework repo. Below it, every arm here would silently never run (the same vacuity #1391 is
+# about). They build their own barrel instead, so they run in framework CI.
+VAC_NM="$(dirname "$(dirname "$ESLINT_BIN")")"
+
+_vac_root() {
+  # _vac_root <dir> <barrel-import-specifier> — build a consumer-shaped root whose barrel
+  # re-exports <specifier> (an unresolvable specifier ⇒ the reported dep-skip shape).
+  local _root="$1" _spec="$2"
+  mkdir -p "$_root/scripts/fences-fire-fixtures" "$_root/eslint-rules-local"
+  ln -sf "$VAC_NM" "$_root/node_modules"
+  printf "export { default } from '%s';\n" "$_spec" > "$_root/eslint-rules-local/index.mjs"
+  cp "$FIXTURE_SRC/no-unsafe-zod-parse.manifest.json" "$_root/scripts/fences-fire-fixtures/"
+  cp "$FIXTURE_SRC"/no-unsafe-zod-parse.bad.*  "$_root/scripts/fences-fire-fixtures/" 2>/dev/null || true
+  cp "$FIXTURE_SRC"/no-unsafe-zod-parse.good.* "$_root/scripts/fences-fire-fixtures/" 2>/dev/null || true
+}
+
+VAC_MISSING_PKG='definitely-not-a-real-package-xyz'
+VAC_ROOT=$(mktemp -d)
+_vac_root "$VAC_ROOT" "$VAC_MISSING_PKG"
+
+# (viii) all-fixtures-skipped ⇒ non-zero with a DISTINCT verdict, in the DEGRADE default too
+# (no CI, no FENCES_FIRE_STRICT) — vacuity is its own axis, not a strict-mode side effect.
+VAC_OUT=$(env -u CI -u FENCES_FIRE_STRICT AIF_PROJECT_ROOT="$VAC_ROOT" bash "$GATE_SCRIPT" 2>&1)
+VAC_RC=$?
+if [ "$VAC_RC" -ne 0 ] && echo "$VAC_OUT" | grep -q 'VACUOUS'; then
+  ok "(viii) vacuity arm: manifests present + every fixture skipped → rc=$VAC_RC with a VACUOUS verdict (#1391)"
+else
+  bad "(viii) vacuity arm: expected rc!=0 + VACUOUS, got rc=$VAC_RC — the gate reports success having proved no fence (#1391)"
+  echo "    gate output: $(echo "$VAC_OUT" | tail -6 | tr '\n' '|')"
+fi
+
+# (ix) the skip line must NAME the real error, not render an empty parenthetical (#1390)
+if echo "$VAC_OUT" | grep -q "module load failed ($VAC_MISSING_PKG\|module load failed (.*$VAC_MISSING_PKG"; then
+  ok "(ix) error-capture arm: dep-skip parenthetical names the unresolvable package (#1390)"
+elif echo "$VAC_OUT" | grep -q 'module load failed ()'; then
+  bad "(ix) error-capture arm: parenthetical is EMPTY — head -1 read the blank first line, the real cause never reached the log (#1390)"
+else
+  bad "(ix) error-capture arm: parenthetical does not name '$VAC_MISSING_PKG' (#1390)"
+  echo "    skip line: $(echo "$VAC_OUT" | grep -m1 'module load failed' | head -c 300)"
+fi
+
+# (x) the vacuity escape is its OWN token with a >=20-char rationale (precedent: ci-tool-pinning §3)
+env -u CI -u FENCES_FIRE_STRICT FENCES_FIRE_ALLOW_VACUOUS='consumer probes fences in a separate lint job' \
+  AIF_PROJECT_ROOT="$VAC_ROOT" bash "$GATE_SCRIPT" >/dev/null 2>&1
+VAC_ESC_LONG=$?
+env -u CI -u FENCES_FIRE_STRICT FENCES_FIRE_ALLOW_VACUOUS='nope' \
+  AIF_PROJECT_ROOT="$VAC_ROOT" bash "$GATE_SCRIPT" >/dev/null 2>&1
+VAC_ESC_SHORT=$?
+if [ "$VAC_ESC_LONG" -eq 0 ] && [ "$VAC_ESC_SHORT" -ne 0 ]; then
+  ok "(x) vacuity escape arm: >=20-char FENCES_FIRE_ALLOW_VACUOUS rationale bypasses (rc=0); short rationale rejected (rc=$VAC_ESC_SHORT)"
+else
+  bad "(x) vacuity escape arm: expected long-rationale rc=0 + short-rationale rc!=0, got $VAC_ESC_LONG/$VAC_ESC_SHORT"
+fi
+
+# (xi, the #1391 CI escape) FENCES_FIRE_ALLOW_SKIP must NOT waive vacuity. The reported
+# consumer waived 100% of the firing proof with a dep-skip rationale written against the
+# PADDED counter; the two axes therefore need two tokens.
+env -u CI -u FENCES_FIRE_STRICT FENCES_FIRE_ALLOW_SKIP='the other fixture probes still run and still must pass' \
+  AIF_PROJECT_ROOT="$VAC_ROOT" bash "$GATE_SCRIPT" >/dev/null 2>&1
+if [ $? -ne 0 ]; then
+  ok "(xi) escape-separation arm: FENCES_FIRE_ALLOW_SKIP alone does NOT waive vacuity — the two axes have two tokens (#1391)"
+else
+  bad "(xi) escape-separation arm: a dep-skip waiver silently waived the whole firing proof (#1391)"
+fi
+rm -rf "$VAC_ROOT"
+
+# (xii, paired-positive) the vacuity gate must NOT over-fire: the same shape with a WORKING
+# barrel proves its fence and exits 0, and the summary reports the fixture axis separately so
+# an ALLOW_SKIP rationale can be checked against a number that means what it says.
+VAC_OK_ROOT=$(mktemp -d)
+_vac_root "$VAC_OK_ROOT" "$REPO_ROOT/packages/core/eslint-rules/index.ts"
+VAC_OK_OUT=$(env -u CI -u FENCES_FIRE_STRICT AIF_PROJECT_ROOT="$VAC_OK_ROOT" bash "$GATE_SCRIPT" 2>&1)
+VAC_OK_RC=$?
+if [ "$VAC_OK_RC" -eq 0 ] && echo "$VAC_OK_OUT" | grep -qE 'proved=[1-9]'; then
+  ok "(xii) paired-positive: working barrel → rc=0 and the summary reports the fixture axis (proved=N) separately from load-probes"
+elif echo "$VAC_OK_OUT" | grep -qE 'module load failed|dep missing'; then
+  # Narrower than GATE_SKIP_PATTERN on purpose: that pattern also matches the load-probe's
+  # structural "— skipped" line, which is EXPECTED here (no placed eslint.config.mjs in a
+  # scratch root) and would turn this arm permanently inconclusive — vacuity by another name.
+  skip "(xii) gate SKIP'd in scratch env — paired-positive inconclusive: $(echo "$VAC_OK_OUT" | tail -3 | tr '\n' '|')"
+else
+  bad "(xii) paired-positive: expected rc=0 + a separate fixture-axis count (proved=N), got rc=$VAC_OK_RC"
+  echo "    gate output: $(echo "$VAC_OK_OUT" | tail -6 | tr '\n' '|')"
+fi
+rm -rf "$VAC_OK_ROOT"
+
+# (xiii) #1391 secondary observation — a probe that exits 0 having produced NO output must not
+# read as a fired fence. The gate's dispatch was `grep module-resolution → else rc==0 → ok`, so
+# a silent rc=0 (observed on tsx 4.22.4 with output captured) landed on the ok branch and
+# reported a fence ACTIVE that never ran. Positive evidence (a sentinel the probe prints) is
+# the falsifier. Driven here by a STUB tsx — deterministic, no dependence on which tsx build
+# exhibits the silent exit.
+_stub_tsx_root() {
+  # _stub_tsx_root <dir> <stub-body> — consumer-shaped root whose node_modules/.bin/tsx is a stub
+  local _root="$1" _body="$2"
+  mkdir -p "$_root/scripts/fences-fire-fixtures" "$_root/eslint-rules-local" "$_root/node_modules/.bin"
+  printf 'export default { rules: {} };\n' > "$_root/eslint-rules-local/index.mjs"
+  cp "$FIXTURE_SRC/no-unsafe-zod-parse.manifest.json" "$_root/scripts/fences-fire-fixtures/"
+  cp "$FIXTURE_SRC"/no-unsafe-zod-parse.bad.*  "$_root/scripts/fences-fire-fixtures/" 2>/dev/null || true
+  cp "$FIXTURE_SRC"/no-unsafe-zod-parse.good.* "$_root/scripts/fences-fire-fixtures/" 2>/dev/null || true
+  printf '#!/usr/bin/env bash\n%s\n' "$_body" > "$_root/node_modules/.bin/tsx"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$_root/node_modules/.bin/eslint"
+  chmod +x "$_root/node_modules/.bin/tsx" "$_root/node_modules/.bin/eslint"
+}
+
+SILENT_ROOT=$(mktemp -d)
+_stub_tsx_root "$SILENT_ROOT" 'exit 0'
+SILENT_OUT=$(env -u CI -u FENCES_FIRE_STRICT AIF_PROJECT_ROOT="$SILENT_ROOT" bash "$GATE_SCRIPT" 2>&1)
+SILENT_RC=$?
+if [ "$SILENT_RC" -ne 0 ] && ! echo "$SILENT_OUT" | grep -q 'ACTIVE'; then
+  ok "(xiii) silent-probe arm: a probe exiting 0 with no output is NOT counted as a fired fence (rc=$SILENT_RC, no ACTIVE claim)"
+else
+  bad "(xiii) silent-probe arm: rc=$SILENT_RC and ACTIVE-claim present=$(echo "$SILENT_OUT" | grep -c 'ACTIVE') — a probe that never ran reported a live fence (#1391 secondary)"
+  echo "    gate output: $(echo "$SILENT_OUT" | tail -6 | tr '\n' '|')"
+fi
+rm -rf "$SILENT_ROOT"
+
+# (xiv, paired-positive for xiii) the SAME stub, now printing the success sentinel, IS counted —
+# proving arm (xiii) fails on missing evidence, not on the stub itself.
+SENTINEL_ROOT=$(mktemp -d)
+_stub_tsx_root "$SENTINEL_ROOT" 'echo FENCE_PROBE_DONE; exit 0'
+SENTINEL_OUT=$(env -u CI -u FENCES_FIRE_STRICT AIF_PROJECT_ROOT="$SENTINEL_ROOT" bash "$GATE_SCRIPT" 2>&1)
+SENTINEL_RC=$?
+if [ "$SENTINEL_RC" -eq 0 ] && echo "$SENTINEL_OUT" | grep -q 'ACTIVE'; then
+  ok "(xiv) sentinel paired-positive: probe emitting the success sentinel counts as a fired fence (rc=0) — arm (xiii) is non-vacuous"
+else
+  bad "(xiv) sentinel paired-positive: expected rc=0 + ACTIVE, got rc=$SENTINEL_RC — the sentinel requirement rejects a legitimate pass"
+  echo "    gate output: $(echo "$SENTINEL_OUT" | tail -6 | tr '\n' '|')"
+fi
+rm -rf "$SENTINEL_ROOT"
 # ─── Scratch: isolated fixture environment ────────────────────────────────────
 SCRATCH=$(mktemp -d)
 

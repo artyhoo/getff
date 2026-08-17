@@ -13,7 +13,17 @@
 // NEVER a live MCP/research call. The render ran session-side (Model A′); CI only drift-checks the
 // committed artifact (AC2) and fires it (AC3) — it never renders-from-research.
 
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -47,6 +57,20 @@ const RECORD_ABS = join(LIVE_GEN_DIR, PRACTICE_RECORDS[0] as string);
 const ARTIFACT_ABS = join(LIVE_GEN_DIR, renderedRulePath(RULE_ID));
 const BAD_DIR = join(LIVE_GEN_DIR, 'firing', 'bad');
 const GOOD_DIR = join(LIVE_GEN_DIR, 'firing', 'good');
+
+/** Clone the drift-gate surface (practice records + the rendered artifact) into a fresh tmpdir.
+ *  Gate-teeth tests mutate the CLONE — the committed tree stays byte-identical for the whole run,
+ *  so parallel vitest workers (delivery/sidecar suites cpSync the same artifact) can never observe
+ *  a mutate/unlink window (the PR #1349 ENOENT flake). Caller rmSyncs the returned root. */
+function cloneDriftSurface(): string {
+  const root = mkdtempSync(join(tmpdir(), 'lg-s1-drift-teeth-'));
+  mkdirSync(join(root, 'firing', 'rules'), { recursive: true });
+  for (const record of PRACTICE_RECORDS) {
+    cpSync(join(LIVE_GEN_DIR, record), join(root, record));
+  }
+  cpSync(ARTIFACT_ABS, join(root, renderedRulePath(RULE_ID)));
+  return root;
+}
 
 // ── AC1: the committed practice record projects to a valid, namespaced ConventionNode ────────────
 
@@ -103,44 +127,45 @@ describe('AC2 — committed rendered artifact is byte-for-byte renderAstgrep([no
     expect(readFileSync(ARTIFACT_ABS, 'utf8')).toBe(yaml);
   });
 
-  it('the drift gate has teeth: a mutated committed artifact → a byte-mismatch finding (bytes restored after)', () => {
-    // REAL non-vacuity: mutate the committed artifact ON DISK, run the ACTUAL drift gate
-    // (checkResearchedAstgrepDrift → planFromCommittedRecords → renderAstgrep), and assert it
-    // reports the mismatch. A `finally` restores the verbatim bytes even if the assertion throws, so
-    // the committed tree is left byte-identical. (This replaces a prior vacuous `String.replace` +
-    // `not.toBe` assertion that never called any drift code and passed even if the gate were deleted
-    // — exactly the attention-is-not-a-mechanism / #discipline-theatre failure the project catches.)
-    const original = readFileSync(ARTIFACT_ABS, 'utf8');
+  it('the drift gate has teeth: a mutated artifact → a byte-mismatch finding (tmpdir clone; tracked tree untouched)', () => {
+    // REAL non-vacuity: mutate the artifact ON DISK and run the ACTUAL drift gate
+    // (checkResearchedAstgrepDrift → planFromCommittedRecords → renderAstgrep) — but against a
+    // tmpdir CLONE of the drift surface, never the committed tree. The prior in-place
+    // mutate-then-restore raced parallel vitest workers: the delivery/sidecar suites cpSync the
+    // SAME committed artifact, and a copy landing inside the mutate/unlink window fails with
+    // ENOENT or mutated bytes (PR #1349 CI run 31336870255, job 93304066830).
+    const root = cloneDriftSurface();
     try {
+      const abs = join(root, renderedRulePath(RULE_ID));
       writeFileSync(
-        ARTIFACT_ABS,
-        original.replace('yaml.load($$$ARGS)', 'yaml.load($$$OOPS)'),
+        abs,
+        readFileSync(abs, 'utf8').replace('yaml.load($$$ARGS)', 'yaml.load($$$OOPS)'),
       );
-      const drift = checkResearchedAstgrepDrift();
+      const drift = checkResearchedAstgrepDrift(root);
       expect(drift).toContainEqual({
         path: renderedRulePath(RULE_ID),
         reason: 'byte-mismatch',
       });
     } finally {
-      writeFileSync(ARTIFACT_ABS, original);
+      rmSync(root, { recursive: true, force: true });
     }
-    // Restored: the gate is empty again — proves the finally left the committed bytes pristine.
+    // The committed tree was never touched — the real gate is still empty.
     expect(checkResearchedAstgrepDrift()).toEqual([]);
   });
 
-  it('the drift gate reports `missing` when the committed artifact is absent (bytes restored after)', () => {
+  it('the drift gate reports `missing` when the artifact is absent (tmpdir clone; tracked tree untouched)', () => {
     // Covers the second drift reason: a deleted/absent committed artifact must be caught, not
-    // silently treated as up-to-date. Restore in `finally` keeps the tree byte-identical.
-    const original = readFileSync(ARTIFACT_ABS, 'utf8');
+    // silently treated as up-to-date. Same tmpdir-clone isolation as the byte-mismatch case.
+    const root = cloneDriftSurface();
     try {
-      unlinkSync(ARTIFACT_ABS);
-      const drift = checkResearchedAstgrepDrift();
+      unlinkSync(join(root, renderedRulePath(RULE_ID)));
+      const drift = checkResearchedAstgrepDrift(root);
       expect(drift).toContainEqual({
         path: renderedRulePath(RULE_ID),
         reason: 'missing',
       });
     } finally {
-      writeFileSync(ARTIFACT_ABS, original);
+      rmSync(root, { recursive: true, force: true });
     }
     expect(checkResearchedAstgrepDrift()).toEqual([]);
   });

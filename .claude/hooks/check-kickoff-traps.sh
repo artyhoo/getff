@@ -45,10 +45,13 @@ _adv_violation() { if _is_zcode; then _emit_ctx "PostToolUse" "$1"; else printf 
 REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
 if ! command -v jq >/dev/null 2>&1; then
   # jq-less best-effort path extraction (sed on raw stdin) — scope the skip notice to
-  # kickoff.md edits (or unparseable stdin — conservative), not every Edit/Write.
+  # kickoff edits (or unparseable stdin — conservative), not every Edit/Write. Mirrors the
+  # gated set below, stage kickoffs included: a stage kickoff that silently skips BOTH arms
+  # deserves the same loud notice as `kickoff.md`.
   _RAW_PATH="$(sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
   case "$_RAW_PATH" in
-    *.claude/orchestrator-prompts/*/kickoff.md | "")
+    *.claude/orchestrator-prompts/*/kickoff-*.*.md) ;;
+    *.claude/orchestrator-prompts/*/kickoff.md | *.claude/orchestrator-prompts/*/kickoff-[a-z][0-9]*.md | "")
       _emit_skip '⚠ check-kickoff-traps: jq unavailable — BOTH kickoff checks DID NOT RUN for this edit (the host-verification contract arm and the T-enumeration arm). This is a SKIP, not a pass; install jq to restore enforcement.' ;;
   esac
   exit 0
@@ -61,7 +64,22 @@ ABS_PATH="$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // ""' 2>/dev/nu
 case "$TOOL" in Edit | Write | MultiEdit) ;; *) exit 0 ;; esac
 [[ -z "$ABS_PATH" ]] && exit 0
 
-# Narrow: only kickoff.md under orchestrator-prompts (one path segment for <wave>).
+# Narrow: kickoff.md AND the stage-kickoff family under orchestrator-prompts (one path
+# segment for <wave>). A multi-stage umbrella dispatches `kickoff-s1.md` / `kickoff-s2b.md`
+# / `kickoff-r1.md` — each one a dispatch input in exactly the same sense as `kickoff.md`,
+# each one previously ungated by BOTH arms because this case matched the literal name only.
+# The entire triage-kernel-v2 S1/S2 series passed both arms by construction, not compliance
+# (found 2026-08-12; 10 pre-existing arm-1 violations across beta-delivery-ux +
+# modular-install-fullpack, deliberately NOT suppressed — see the widening PR body).
+#
+# Stage form = `kickoff-<letter><digit>[alnum].md`. Dotted names (`kickoff-s4.decisions.md`)
+# and word-suffixed ones (`kickoff-amendments.md`) are records ABOUT a stage — an owner-fork
+# log, an audit trail extracted to dodge the 600-line gate — carrying no worker instructions,
+# so neither arm applies. `.gitignore` draws the same line: the stage family is un-ignored by
+# glob (`kickoff-s*.md`, `kickoff-r*.md`, lines 35/42/49/55) while the amendments sidecar is
+# un-ignored one-off by exact name (line 60). The dotted arm must come FIRST — the stage
+# pattern's trailing `*` would otherwise swallow `s4.decisions`.
+#
 # Match on the ABSOLUTE path's suffix, NOT on a REPO_ROOT-relative path. The older form
 # stripped a "$REPO_ROOT/" prefix and matched an anchored pattern, so any kickoff NOT under
 # the resolved root — a linked worktree (they nest inside the repo here, so a primary-rooted
@@ -70,7 +88,9 @@ case "$TOOL" in Edit | Write | MultiEdit) ;; *) exit 0 ;; esac
 # SILENCE. That is the exact defect class this hook's arm 1 exists to close, reintroduced in
 # the dispatcher itself. Suffix-matching is root-independent, so it cannot recur.
 case "$ABS_PATH" in
+  */.claude/orchestrator-prompts/*/kickoff-*.*.md) exit 0 ;;
   */.claude/orchestrator-prompts/*/kickoff.md) ;;
+  */.claude/orchestrator-prompts/*/kickoff-[a-z][0-9]*.md) ;;
   *) exit 0 ;;
 esac
 # Display path only — never load-bearing for the scope decision above.
