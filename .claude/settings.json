@@ -209,6 +209,16 @@
           }
         ]
       }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/precompact-residue.sh\""
+          }
+        ]
+      }
     ]
   },
   "claudeMdExcludes": [
