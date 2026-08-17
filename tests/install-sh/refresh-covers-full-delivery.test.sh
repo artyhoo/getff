@@ -37,17 +37,32 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 
 [ -f "$INSTALL" ] || { echo "FATAL: $INSTALL not found"; exit 1; }
 
-# ── npm-lane layers only (the Python lane is covered separately by Check 4 below) ──────────────────
-# do_refresh() is the npm-flow refresh. The Python-lane layer (setup.d/45-python.sh) is gated on
-# GETFF_TOOLCHAIN=python and INERT on the npm flow (byte-identical.test.sh proves it); its copy_safe
-# deliveries are NOT mirrored by the npm do_refresh() — the Python lane has its OWN (S2) refresh path
-# (GETFF_TOOLCHAIN_REFRESH → refresh_safe, inside 45-python.sh). The S1-era blanket exclusion ("out of
-# this gate's population") is REPLACED (S2) by the real python-lane refresh-parity assertion in Check 4
-# below: 45-python.sh is no longer un-covered, it is scanned against its own refresh path. Here we scan
-# only the npm-lane layers so Checks 1-3 (npm FULL ⊆ do_refresh) are not polluted by the python lane.
+# ── npm-lane layers only (the toolchain lanes are covered separately by Check 4 below) ─────────────
+# do_refresh() is the npm-flow refresh. Each toolchain-lane layer (setup.d/45-python.sh, 46-cargo.sh,
+# 47-go.sh) is gated on its own GETFF_TOOLCHAIN value and INERT on the npm flow (byte-identical.test.sh
+# proves it for python); its copy_safe deliveries are NOT mirrored by the npm do_refresh() — each lane
+# has its OWN refresh path (GETFF_TOOLCHAIN_REFRESH → refresh_safe, inside the layer). The S1-era
+# blanket exclusion ("out of this gate's population") is REPLACED by the real per-lane refresh-parity
+# assertions in Check 4 below: these layers are no longer un-covered, each is scanned against its own
+# refresh path. Here we scan only the npm-lane layers so Checks 1-3 (npm FULL ⊆ do_refresh) are not
+# polluted by them — and, more sharply, so a future literal-dst delivery inside a toolchain lane is not
+# demanded of the npm do_refresh(), which on a toolchain --refresh never executes at all (install.sh
+# do_cargo_lane/do_go_lane early-exit before the npm flow) and would therefore false-RED.
+#
+# ONE list drives BOTH halves: the exclusion here and the per-lane parity checks in Check 4. Keeping
+# two hand-maintained copies is the drift shape #1312 already burned this file once (skill slugs), and
+# it is precisely how 46-cargo.sh + 47-go.sh went uncovered — excluded from nothing, checked by
+# nothing. Row = "<layer basename> <the lane's copy-or-refresh wrapper function>".
+TOOLCHAIN_LANES=$(sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' <<'TCL' | sed '/^$/d'
+  45-python.sh  _py_copy_or_refresh
+  46-cargo.sh   _cargo_copy_or_refresh
+  47-go.sh      _go_copy_or_refresh
+TCL
+)
+[ -n "$TOOLCHAIN_LANES" ] || { echo "FATAL: TOOLCHAIN_LANES empty — heredoc parse broke"; exit 1; }
 NPM_LANE_LAYERS=()
 for _lyr in "$REPO_ROOT"/setup.d/[0-9]*.sh; do
-  case "$_lyr" in */45-python.sh) continue ;; esac
+  printf '%s\n' "$TOOLCHAIN_LANES" | awk '{print $1}' | grep -qxF "$(basename "$_lyr")" && continue
   NPM_LANE_LAYERS+=("$_lyr")
 done
 # Guard the empty-array expansion: under `set -u` on bash 3.2 (macOS), "${NPM_LANE_LAYERS[@]}"
@@ -160,12 +175,15 @@ fi
 # an unread dst is invisible rather than flagged — so the residue is enumerated by name with the
 # reason it is out of population, and a NEW one is FATAL instead of silently escaping. This is the
 # guard that would have caught $HOOK_DST at the moment layer 55 was written.
+#
+# The toolchain-lane locals ($dst, $wf_dst, and the `copy_safe "$1" "$2"` wrapper's $2) were listed here
+# until 46-cargo.sh + 47-go.sh joined TOOLCHAIN_LANES above; their stated reason — "those lanes carry
+# their own refresh path (cf. Check 4)" — pointed at a check that scanned the PYTHON layer only, so it
+# was true about the lanes and false about the coverage. Those layers are now out of DELIVER_LINES
+# entirely and scanned by their own Check 4 arm, so the entries are gone rather than re-worded.
 UNPARSEABLE_DST=$(sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' <<'UNP' | sed '/^$/d'
   _dst        # 20-agents.sh: $(basename) glob loop — namespace-covered (.claude/agents/, per GRANULARITY above)
   _ws_abs     # 40-configs.sh: per-workspace eslint config — workspace-relative, never under $PROJECT_ROOT literally
-  dst         # 46-cargo.sh / 47-go.sh: toolchain-lane local; those lanes carry their own refresh path (cf. Check 4)
-  wf_dst      # 46-cargo.sh / 47-go.sh: toolchain-lane workflow dst — same lane, same reason
-  2           # 46-cargo.sh / 47-go.sh: generic `copy_safe "$1" "$2"` wrapper — call sites are what carry the real dst
 UNP
 )
 [ -n "$UNPARSEABLE_DST" ] || { echo "FATAL: UNPARSEABLE_DST empty — heredoc parse broke"; exit 1; }
@@ -273,52 +291,69 @@ else
   bad "eslint-rules-local: delivery ships from source dir(s) do_refresh never refreshes → preset rules stranded:$missing_dirs"
 fi
 
-# ── Check 4 (python-lane refresh parity — replaces the S1 blanket exclusion of 45-python.sh) ─────
-# The python delivery layer (setup.d/45-python.sh) has its OWN refresh path (S2), separate from the
-# npm-lane do_refresh() — so it is scanned HERE, not folded into the npm FULL/REFRESH sets above.
-# Every framework-owned artefact it delivers (identified by its `$tpl/<x>` TEMPLATE SOURCE — everything
-# copied FROM the template dir is framework-owned) MUST also be re-delivered on --refresh, or a
-# brownfield python consumer never receives updated ast-grep rules (the #869 refresh-drift class, on
-# the python surface). Source-token parity (not dst) because the ruff.toml template feeds two dsts
-# (ruff.toml + getff-ruff.toml) — the source is the unambiguous key. `_py_copy_or_refresh` call sites
-# deliver on BOTH paths, so they count for copy AND refresh; explicit copy_safe / refresh_safe lines
-# count for their own side only.
-PY_LAYER="$REPO_ROOT/setup.d/45-python.sh"
-[ -f "$PY_LAYER" ] || { echo "FATAL: $PY_LAYER not found"; exit 1; }
-# shellcheck disable=SC2016
-# S4 (getff-honest-signals): python workflow delivery moved from copy_safe onto deliver_getff_workflow.
-# The verb alternation MUST include deliver_getff_workflow here, or $tpl/github-actions-ci.yml silently
-# drops out of the FRESH set and the subset check below stays green while covering nothing (blind gate).
-PY_COPY_SRC=$(grep -hE 'copy_safe|_py_copy_or_refresh|deliver_getff_workflow' "$PY_LAYER" | grep -vE '^[[:space:]]*#' \
-  | grep -oE '\$tpl/[A-Za-z0-9._/-]*' | sort -u)
-# shellcheck disable=SC2016
-# REFRESH side keys on the literal-prefix form `GETFF_TOOLCHAIN_REFRESH=1 deliver_getff_workflow` — NOT
-# the bare verb — because matching the bare verb would also catch the FRESH-only call site (no env
-# prefix) and manufacture a false green. Lookbehind is unavailable (grep -E is ERE, rejects (?<!...)).
-PY_REFRESH_SRC=$(grep -hE 'refresh_safe|_py_copy_or_refresh|GETFF_TOOLCHAIN_REFRESH=1 deliver_getff_workflow' "$PY_LAYER" | grep -vE '^[[:space:]]*#' \
-  | grep -oE '\$tpl/[A-Za-z0-9._/-]*' | sort -u)
-[ -n "$PY_COPY_SRC" ] || { echo "FATAL: PY_COPY_SRC empty — 45-python.sh copy_safe \$tpl extraction broke"; exit 1; }
-py_missing=""
-for s in $PY_COPY_SRC; do
-  printf '%s\n' "$PY_REFRESH_SRC" | grep -qxF "$s" || py_missing="$py_missing $s"
-done
-if [ -z "${py_missing// }" ]; then
-  ok "python-lane: every framework-owned delivery in 45-python.sh has a --refresh path (no python refresh drift)"
-else
-  bad "python-lane: framework artefact(s) delivered on install but with NO --refresh path → brownfield python consumers can't get updated rules:$py_missing"
-fi
-
-# neg (LOAD-BEARING): drop one delivery source from the REFRESH set → Check 4 MUST flag it.
-py_probe=$(printf '%s\n' "$PY_COPY_SRC" | head -1)
-PY_REFRESH_BROKEN=$(printf '%s\n' "$PY_REFRESH_SRC" | grep -vxF "$py_probe")
-py_neg_missing=""
-for s in $PY_COPY_SRC; do
-  printf '%s\n' "$PY_REFRESH_BROKEN" | grep -qxF "$s" || py_neg_missing="$py_neg_missing $s"
-done
-case " $py_neg_missing " in
-  *" $py_probe "*) ok "neg (python): removing '$py_probe' from the refresh set flips the gate to flag it (non-vacuous)" ;;
-  *) bad "neg (python): gate stayed green with '$py_probe' dropped → python parity check is VACUOUS" ;;
-esac
+# ── Check 4 (per-toolchain-lane refresh parity — replaces the S1 blanket exclusion of 45-python.sh) ─
+# Each toolchain delivery layer has its OWN refresh path, separate from the npm-lane do_refresh() — so
+# each is scanned HERE, not folded into the npm FULL/REFRESH sets above. The lane entrypoints in
+# install.sh (do_python_lane / do_cargo_lane / do_go_lane) all `export GETFF_TOOLCHAIN_REFRESH=1` when
+# --refresh is passed, and the layer's `_<lane>_copy_or_refresh` wrapper switches copy_safe →
+# refresh_safe on that flag; that pair IS the lane's refresh path.
+# Every framework-owned artefact a lane delivers (identified by its `$tpl/<x>` TEMPLATE SOURCE —
+# everything copied FROM the template dir is framework-owned) MUST also be re-delivered on --refresh,
+# or a brownfield consumer of that toolchain never receives updated rules (the #869 refresh-drift
+# class, per lane). Source-token parity (not dst) because one template can feed two dsts (python's
+# ruff.toml → ruff.toml + getff-ruff.toml; cargo's clippy.toml → clippy.toml + getff-clippy.toml) —
+# the source is the unambiguous key. `_<lane>_copy_or_refresh` call sites deliver on BOTH paths, so
+# they count for copy AND refresh; explicit copy_safe / refresh_safe lines count for their own side only.
+#
+# S4 (getff-honest-signals): the python + cargo workflow deliveries moved from copy_safe onto
+# deliver_getff_workflow. The COPY verb alternation MUST include it, or $tpl/github-actions-ci.yml
+# silently drops out of the FRESH set and the subset check stays green while covering nothing (blind
+# gate). The REFRESH side keys on the literal-prefix form `GETFF_TOOLCHAIN_REFRESH=1
+# deliver_getff_workflow` — NOT the bare verb — because matching the bare verb would also catch the
+# FRESH-only call site (no env prefix) and manufacture a false green. Lookbehind is unavailable
+# (grep -E is ERE, rejects (?<!...)). The go lane refreshes its workflow through plain refresh_safe,
+# which the alternation already covers.
+lane_refresh_parity() {  # $1 = layer basename, $2 = the lane's copy-or-refresh wrapper fn
+  local base="$1" wrap="$2" layer="$REPO_ROOT/setup.d/$1"
+  local copy_src refresh_src s missing="" probe broken neg_missing=""
+  [ -f "$layer" ] || { echo "FATAL: $layer not found — toolchain lane moved, update TOOLCHAIN_LANES"; exit 1; }
+  # The wrapper is what makes a call site count for BOTH sides. If it is renamed away, every one of
+  # its call sites leaves the refresh set at once — so assert it is really defined here rather than
+  # letting the rename surface as a pile of unexplained parity failures.
+  grep -qE "^[[:space:]]*$wrap\(\)" "$layer" \
+    || { echo "FATAL: $base does not define $wrap() — wrapper renamed, update TOOLCHAIN_LANES"; exit 1; }
+  # shellcheck disable=SC2016  # single-quoted regex matches the literal '$tpl' in source; no expansion intended
+  copy_src=$(grep -hE "copy_safe|$wrap|deliver_getff_workflow" "$layer" | grep -vE '^[[:space:]]*#' \
+    | grep -oE '\$tpl/[A-Za-z0-9._/-]*' | sort -u)
+  # shellcheck disable=SC2016
+  refresh_src=$(grep -hE "refresh_safe|$wrap|GETFF_TOOLCHAIN_REFRESH=1 deliver_getff_workflow" "$layer" | grep -vE '^[[:space:]]*#' \
+    | grep -oE '\$tpl/[A-Za-z0-9._/-]*' | sort -u)
+  [ -n "$copy_src" ] || { echo "FATAL: copy set empty for $base — \$tpl delivery extraction broke"; exit 1; }
+  for s in $copy_src; do
+    printf '%s\n' "$refresh_src" | grep -qxF "$s" || missing="$missing $s"
+  done
+  if [ -z "${missing// }" ]; then
+    ok "$base: every framework-owned delivery has a --refresh path (no refresh drift on this lane)"
+  else
+    bad "$base: framework artefact(s) delivered on install but with NO --refresh path → brownfield consumers of this toolchain can't get updated rules:$missing"
+  fi
+  # neg (LOAD-BEARING): drop one delivery source from the REFRESH set → this arm MUST flag it.
+  probe=$(printf '%s\n' "$copy_src" | head -1)
+  broken=$(printf '%s\n' "$refresh_src" | grep -vxF "$probe")
+  for s in $copy_src; do
+    printf '%s\n' "$broken" | grep -qxF "$s" || neg_missing="$neg_missing $s"
+  done
+  case " $neg_missing " in
+    *" $probe "*) ok "neg ($base): removing '$probe' from the refresh set flips the gate to flag it (non-vacuous)" ;;
+    *) bad "neg ($base): gate stayed green with '$probe' dropped → $base parity check is VACUOUS" ;;
+  esac
+}
+while read -r _base _wrap; do
+  [ -n "$_base" ] || continue
+  lane_refresh_parity "$_base" "$_wrap"
+done <<TCLOOP
+$TOOLCHAIN_LANES
+TCLOOP
 
 # ── neg (LOAD-BEARING): drop one known-present entry from REFRESH → Check 1 MUST flag it ─────────
 # probe MUST be a FULL∩REFRESH entry — dropping it from REFRESH then creates a REAL gap

@@ -17,7 +17,7 @@ cc_scrub() {
   # an unguarded `"${unset_args[@]}"` aborts with 'unset_args[@]: unbound variable' when no
   # CLAUDE_* env vars are present to scrub (the common case on a clean host). macOS ships bash
   # 3.2, where empty-array expansion is not implicitly empty under `set -u`. Same class as
-  # refresh-covers-full-delivery.test.sh:53 / format-shipped.sh:64 / memory
+  # refresh-covers-full-delivery.test.sh:68 / format-shipped.sh:64 / memory
   # installsh_set_u_empty_array — guard the expansion against the empty case. When unset_args
   # IS empty we still run `env` (with PATH + CC_ABSENT only), preserving the scrub semantics.
   if [ "${#unset_args[@]}" -gt 0 ]; then
