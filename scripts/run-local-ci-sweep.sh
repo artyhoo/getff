@@ -54,6 +54,13 @@
 #   backends/synthesizer/units/skills/spec-validation, the two drift gates, the
 #   tests/hooks/*.test.sh battery) ·
 #   manifest-render-check · probe-tests · alwayson-budget · phase-8-canonical-regen-acceptance ·
+#   tests/plugin/twin-generation.test.sh (plugin twin generator acceptance — the
+#   `plugin-twin-tests` row). Named literally, not as a `tests/plugin/*` loop, so that a future
+#   test added to that dir but wired to NO CI step stays out of the sweep — same reasoning as
+#   the derived `script-selftests` row: the sweep predicts CI, it does not invent gates. Its
+#   `agents/` trigger is load-bearing beyond CI prediction: the suite RUNS the generator, so a
+#   sweep after an agents/*.md edit re-syncs the plugin/agents twins that .husky/pre-commit
+#   does not yet regenerate ·
 #   f17-node-compat (host Node only) · shipped-prettier (its `npm run format:check` is the
 #   sweep's format-check row; it became a `ci-success` need in #1362) ·
 #   `Template render probes — P1/P4/P6` (framework-self-template-render.yml — a required context
@@ -164,6 +171,7 @@ gate_table() {
     "5${TAB}agnosticism${TAB}packages/core/${TAB}bash tests/agnosticism/harness-self.test.sh" \
     "5${TAB}hook-tests${TAB}packages/core/hooks/,tests/hooks/,.husky/${TAB}for t in tests/hooks/*.test.sh; do bash \"\$t\" || exit 1; done" \
     "5${TAB}dispatcher-tests${TAB}.claude/skills/dispatcher/,tests/dispatcher/${TAB}for t in tests/dispatcher/*.test.sh; do bash \"\$t\" || exit 1; done" \
+    "5${TAB}plugin-aifdoctor-selftests${TAB}scripts/generate-plugin-twins.sh,agents/,.claude/hooks/,plugin/,tests/plugin/,tests/aif-doctor/,scripts/aif-doctor${TAB}ts=\$(grep -vE '^[[:space:]]*#' .github/workflows/audit-self.yml | grep -oE '(tests/plugin|tests/aif-doctor)/[a-zA-Z0-9._-]+\\.test\\.sh' | sort -u); [ -n \"\$ts\" ] || { echo 'no tests/plugin or tests/aif-doctor steps found in audit-self.yml — derivation broke'; exit 1; }; for t in \$ts; do bash \"\$t\" || exit 1; done" \
     "6${TAB}vitest-principles${TAB}packages/core/${TAB}npm --prefix packages/core run test:principles" \
     "6${TAB}vitest-hooks${TAB}packages/core/${TAB}npm --prefix packages/core run test:hooks" \
     "6${TAB}vitest-render${TAB}packages/core/${TAB}npm --prefix packages/core run test:render" \

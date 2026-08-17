@@ -82,7 +82,7 @@ fixtures only).
 **Step 1 — inject live state:**
 
 ```!
-head -200 "$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)/_plan-cache.md" 2>/dev/null || echo "(no cache — fresh session; will be created by helpers/update-cache.sh on this invocation's exit)"
+head -200 "$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)/_plan-cache.md" 2>/dev/null || echo "(no cache — fresh session; will be created by helpers/update-cache.sh on this invocation's exit)"; for f in $(ls -t "$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)"/_residue-*.md 2>/dev/null | head -3); do echo "--- PreCompact residue (S2b/D8): a session compacted here. POINTER only — re-verify before acting on it: $f"; head -40 "$f"; done
 ```
 
 ```!
@@ -456,7 +456,7 @@ The dispatched reviewer:
 
 1. Reads the Stage N diff (`git diff staging...<stage-N-head>`).
 2. Reads the meta-kickoff Stage N acceptance criteria.
-3. Emits GO / REVISE / STOP verdict with BLOCKER/MAJOR/MINOR/ESCALATED classification — severity contract per [reviewer-discipline.md §6](../../rules/reviewer-discipline.md): a round-triggering finding carries a `Failure-scenario:` line; scenario-less findings = notes lane; unrecorded value premise → `ESCALATED` to the concept holder.
+3. Emits GO / REVISE / STOP verdict with BLOCKER/MAJOR/MINOR/ESCALATED classification — severity contract per [reviewer-discipline.md §6](../../rules/reviewer-discipline.md): a round-triggering finding carries a `Failure-scenario:` line; scenario-less findings = notes lane; unrecorded value premise → `ESCALATED` to the concept holder. Grade with the three-axis triage rubric quoted verbatim at [reviewer-discipline.md §6.1](../../rules/reviewer-discipline.md), carrying its per-axis provenance — `layer` `corpus-measured`, `whose` `judgment-only, not corpus-validated`, class a measured null (the recorded grade, not the rubric, stays the class bar).
 4. For any finding requiring strategy choice: emits «DECISION-NEEDED: <one-line>. Option A → consequence X. Option B → consequence Y. Maintainer decides.» — does NOT pick the strategy.
 
 The reviewer does NOT:

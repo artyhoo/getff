@@ -509,6 +509,52 @@ jobs:
         run: bash tests/hooks/prepush-cross-checkout-range.test.sh
       - name: Run runtime-bridge dispatch opt-IN gate paired-negative (one-click-installer kickoff §7)
         run: bash tests/hooks/runtime-bridge-dispatch-optin.test.sh
+      # Wired 2026-08-17. This suite had existed since the S6 twin generator shipped but was
+      # invoked by NO workflow step and NO pre-push section — a test nobody ran. It is the only
+      # coverage of scripts/generate-plugin-twins.sh, including the sandbox arms proving the
+      # agents population re-syncs and never invents a twin. Principle 38 gates vitest↔CI
+      # coverage only, so a stranded *.sh test is invisible to it (that wider gap is recorded,
+      # not fixed here).
+      - name: Run plugin twin generator acceptance (hooks + agents populations)
+        run: bash tests/plugin/twin-generation.test.sh
+      # Wired 2026-08-17 by principle 41. These eleven were git-tracked and invoked by NO
+      # workflow step: tests/plugin/ (9 of 10), tests/aif-doctor/ (2), probe-channels (1).
+      # meta-all-wired.test.sh had only ever gated tests/install-sh/, so every other shell-test
+      # directory was un-gated. All eleven passed on first run; the twelfth
+      # (tests/plugin/end-of-turn-reminder-zcode.test.sh) was RED on a pre-existing defect,
+      # allowlisted in principle 41 with the diagnosis, and is wired below now that the defect
+      # it caught — the lost S9C rollout arm — is repaired at the source.
+      - name: Run plugin bootstrap test
+        run: bash tests/plugin/bootstrap.test.sh
+      - name: Run plugin hook-paths test
+        run: bash tests/plugin/hook-paths.test.sh
+      - name: Run plugin install-seam test
+        run: bash tests/plugin/install-seam.test.sh
+      - name: Run plugin manifest-valid test
+        run: bash tests/plugin/manifest-valid.test.sh
+      - name: Run plugin opencode-adapter test
+        run: bash tests/plugin/opencode-adapter.test.sh
+      - name: Run plugin run-hook test
+        run: bash tests/plugin/run-hook.test.sh
+      - name: Run plugin twin-emit test
+        run: bash tests/plugin/twin-emit.test.sh
+      - name: Run plugin warn-subagent-report ZCode arm test
+        run: bash tests/plugin/warn-subagent-report-zcode.test.sh
+      # Wired 2026-08-17 alongside the S9C rollout-arm restore. This is the acceptance test that
+      # went RED for five hook revisions while running on no channel at all; it is the only
+      # coverage of the multi-turn idle-suppression arm, so it must stay wired for the arm to be
+      # regeneration-safe (the arm was lost exactly once nobody ran this).
+      - name: Run plugin end-of-turn-reminder ZCode multi-turn arm test
+        run: bash tests/plugin/end-of-turn-reminder-zcode.test.sh
+      # aif-doctor pair: both stub docker/gh explicitly and carry an in-file
+      # "ENVIRONMENT-INDEPENDENCE PROOF" (must pass with real docker on PATH), so they are
+      # hermetic on a clean runner — verified locally at 9/9 and 5/5.
+      - name: Run aif-doctor heal test
+        run: bash tests/aif-doctor/heal.test.sh
+      - name: Run aif-doctor refresh-aif-base test
+        run: bash tests/aif-doctor/refresh-aif-base.test.sh
+      - name: Run probe-channels self-test
+        run: bash scripts/probe-channels.test.sh
 
   install-sh-a:
     name: install-sh battery (shard A)
@@ -545,6 +591,12 @@ jobs:
       # on someone re-reading both lists (.claude/rules/attention-is-not-a-mechanism.md §1).
       - name: Run local-ci-sweep CI-coverage metatest (gate table mirrors this workflow)
         run: bash scripts/run-local-ci-sweep-coverage.test.sh
+      # The ask-file gate's own channel is pre-push (the mailbox lives in the operator's
+      # coordination store, which CI never has). Its detector still needs a CI channel, or
+      # the only proof it fires is that someone ran it once — the paired-negative below is
+      # hermetic (mktemp mailbox) and runs anywhere.
+      - name: Run ask-file schema paired-negative (advisor-pattern §8 item 6)
+        run: bash scripts/check-ask-files.test.sh
       - name: Run synth-bundle dep-parity paired-negative (phantom-drift guard)
         run: bash scripts/check-bundle-dep-parity.test.sh
       - name: Run synth-bundle cwd-independence test (build runs from any directory)

@@ -133,13 +133,77 @@ shown in the chip UI):
    the Action queue and become premature-dispatch buttons (`#flat-queue-no-gates`).
 4. cwd = repo root; kickoff/residue path + «read and execute».
 
-**Assertion mechanism (not hope):** the gates above are asserted, not trusted to emitter
-diligence — S1 EXTENDS [principle 18](../../../packages/core/principles/18-meta-orchestrator-output-format.test.ts)'s
-`REQUIRED_SUBSTRINGS` so the rendered report's chip-prompt block must literally contain the
-isolation, probe, and gate lines (the test already pins the Action-queue grammar; the chip
-block joins it). **Falsifier:** a chip prompt that omits any of steps 1–3 → the extended test
-is red before the report ships; an incident reaching a click means the assertion itself was
-skipped — fix the emitter and the test, not the operator.
+**Assertion mechanism — bounded, and the bound is load-bearing (re-stated 2026-08-17 after S1
+shipped).** S1 EXTENDS [principle 18](../../../packages/core/principles/18-meta-orchestrator-output-format.test.ts)
+with a `CHIP_REQUIRED_SUBSTRINGS` family, so every emitting surface's chip clause must
+literally name the isolation, probe, and gate lines — asserted on three files:
+[pipeline/SKILL.md §10](../../../.claude/skills/pipeline/SKILL.md),
+[references/output-format.md §9](../../../.claude/skills/pipeline/references/output-format.md),
+[arch/SKILL.md §3](../../../.claude/skills/arch/SKILL.md). **S3 follow-up resolved
+2026-08-17:** a second family, `PARK_CHIP_REQUIRED_SUBSTRINGS`, now asserts the D3/D4
+park-chip contract on [dispatcher/SKILL.md §3](../../../.claude/skills/dispatcher/SKILL.md)
+— `Park-chip` · `spawn_task` · `pointers only` · `Re-verify at click time` ·
+`report and stop`. A separate family, not an extension: park-chips carry NONE of the
+dispatch gates (no isolation step, no stage gate — a decision session reads and answers, it
+does not implement), so demanding `CHIP_REQUIRED_SUBSTRINGS` there would assert the wrong
+contract. #1426 left it out reasoning the rest of §3 is equally unasserted; that is a fact
+about §3's neighbourhood, not an argument that these invariants are unimportant.
+
+**What it does NOT assert.** The check reads those three files from disk
+(`18-meta-orchestrator-output-format.test.ts:125-137`). No rendered report and no runtime chip
+payload is ever inspected, so a chip whose `prompt` drops a gate ships silently. The assertion
+layer is the *emitter's instructions*; conformance of the *payload* still rests on emitter
+diligence — which [attention-is-not-a-mechanism.md §1](../../../.claude/rules/attention-is-not-a-mechanism.md)
+names `#hope-as-gate`. The round-1 wording of this paragraph claimed the payload itself was
+covered; it never was.
+
+**Reachable gate, deliberately not built.** A PreToolUse hook matched on the `spawn_task` tool
+can read the `prompt` argument and block on a missing gate substring — substring presence is
+mechanically detectable, so the correct channel is a gate, not an injection
+([rule-enforcement-channel-selection.md §1](../../../.claude/rules/rule-enforcement-channel-selection.md)).
+It is deferred because the contour has had **zero live chip clicks** to date: building a gate
+for a never-exercised surface is `#type1-process-on-type2`
+([effort-worthiness.md §3](../../../.claude/rules/effort-worthiness.md)). Two costs to price
+when it is built: the registration lands in `.claude/settings.json` (agent-uncommittable →
+operator hand-off), and it needs a discriminator so D3 park-chips and out-of-band chips — which
+carry no stage gate — are not blocked.
+
+**Build trigger (re-derived 2026-08-17 — the surface-count clause had already fired and was
+stale when this paragraph was written).** The census is not three. `grep -rln spawn_task`
+over the tree returns **five live emitting clauses across three gate profiles**: the three
+dispatch surfaces above; the D3 park-chip in
+[dispatcher/SKILL.md §3](../../../.claude/skills/dispatcher/SKILL.md); and — landed
+2026-08-09 in #1346, i.e. eight days BEFORE the re-statement above claimed «three» — the
+night-end review chip ([night-mode/SKILL.md](../../../.claude/skills/night-mode/SKILL.md)
+terminal condition) plus the continuation chip bound at
+[seat-lifecycle.md §4](../../../.claude/rules/seat-lifecycle.md) (owner: session-bus v2 §4).
+The last two carry **no gates at all** — they point at a report path or a context package.
+
+So the «fourth emitting surface» clause is **retired as fired**, and the gate is still NOT
+built, on the one ground that survives: **zero live chip clicks** to date, which makes a
+gate for a never-exercised surface `#type1-process-on-type2`
+([effort-worthiness.md §3](../../../.claude/rules/effort-worthiness.md)). The discriminator
+cost went UP, not down — it must now classify chip CLASS from the payload before choosing
+which substrings to demand, across three profiles, and the registration is still an
+operator hand-off into agent-uncommittable `.claude/settings.json`. **Remaining trigger:**
+the first chip that reaches a click with a gate missing from its prompt. **Falsifier for
+the current bound:** wrong if some existing channel does inspect a chip payload before
+dispatch — re-verified 2026-08-17, `grep -rn 'spawn_task' .claude/hooks/ .claude/settings.json
+packages/core/hooks/` returns nothing and the only PreToolUse matchers registered are
+`AskUserQuestion` and `Agent|Task`.
+
+**The last two emitters — RESOLVED 2026-08-17, split verdict.** These families pin emitter TEXT,
+never a payload (above), so gate-lessness is not the predicate — severity-of-loss × exposure is.
+**`night-mode` → ASSERTED** by a fourth family, `NIGHT_CHIP_REQUIRED_SUBSTRINGS` (terminal-ONLY
+restriction · capability gate · chip identity · stranded-chip `dismiss_task`): invariants no
+other family holds, the one emitter firing UNATTENDED, live (13 commits since 2026-06-01).
+**[seat-lifecycle.md](../../../.claude/rules/seat-lifecycle.md) → NOT asserted, nor is its
+owner the fix:** a BINDING owned by [v2 §4](2026-08-09-session-bus-v2.md), whose own
+`#fifth-description-of-the-loop` anti-pattern forbids carrying owner detail, so pinning
+substrings there turns a pointer into a restatement; the line adds no restriction of its own,
+has one commit ever, does not ship, and its owner is a spec, not work-time emitter instructions.
+**Falsifier:** wrong if that line gains a restriction its owner lacks, or if `night-mode`'s
+clause proves immovable across a year (then the family was pure cost).
 
 ### D2 — Chips are additive, capability-gated, ephemeral-honest
 
@@ -344,7 +408,11 @@ shape is the one already registered in the SSOT: the hook **itself writes** the 
 deterministically ([SSOT #108](../../../docs/meta-factory/prior-art-evaluations.md): PreCompact
 «save wave-state before compaction»). D8 v2:
 
-- `precompact-residue.sh` on `PreCompact` (matcher `auto`): extracts from the transcript the
+- `precompact-residue.sh` on `PreCompact` (**matcher dropped at S2b — all triggers**; the
+  `auto`-only form specified here made the manual half unfireable by construction, which is the
+  only half a human can trigger on demand, and a manual `/compact` discards the same context:
+  [bench finding B-2](../../meta-factory/research-patches/2026-08-17-precompact-liveness-bench.md)):
+  extracts from the transcript the
   session anchor (ai-title) + the LAST `AIF_RECAP_MARKER` recap block (a model-authored summary
   already in the transcript; the marker is lang-pack-sourced and the recap fires conditionally,
   so the FALLBACK is the last main-thread assistant text excerpt — anchor + timestamp + branch
@@ -442,8 +510,8 @@ durable park store).
 |---|---|---|---|
 | S1 chips | D1+D2: §10 chip emission + /arch §3 chip emission (with route discrimination), gates-in-prompt + the principle-18 substring extension, runtime capability probe (NO `allowed-tools` MCP adds — D2) | `pipeline/SKILL.md` §10, `references/output-format.md` + `18-meta-orchestrator-output-format.test.ts`, `arch/SKILL.md` §3 | in-session (discipline-bearing skill prose + enforced-grammar lockstep) |
 | S2a Stop-arm | D7 with all seven constraints + tests | `.claude/hooks/end-of-turn-reminder.sh`, its test file, `zcode-parity-doctrine.md` §2 (row-9 flip + rollup) | in-session or factory (constraints are quotable; the census edit is doc-judgment — prefer in-session); **F10 gates the shipped wording** |
-| S2b PreCompact | D8 — **blocked on F8** (operator GO on the #108 PreCompact item); first step = D8's liveness bench | hook script, `scripts/render-harness-config.mjs` (emitClaude path), `zcode-parity-doctrine.md` §2 (row 21), `pipeline/SKILL.md` §1 injection line, operator jq hand-off | parked until F8 |
-| S3 park-chips | D3+D4: dispatcher §3 Type-2 park-chip emission paragraph + decision-session protocol | `dispatcher/SKILL.md` §3 | in-session; **after S1 AND F1 ratification** |
+| S2b PreCompact | D8 — F8 closed 2026-08-17; bench ran first, per D8's ordering | hook script, `scripts/render-harness-config.mjs` (emitClaude path), `zcode-parity-doctrine.md` §2 (row 21), `pipeline/SKILL.md` §1 injection line, operator jq hand-off | **SHIPPED 2026-08-17** in-session. Two recorded deviations from D8-as-written, both in D8's own text: the matcher is dropped (registering on `auto` alone makes the only human-triggerable half unfireable — bench finding B-2), and the renderer surface turned out to be `emitPlugin`'s silent off-set skip rather than an `emitClaude` change (emitClaude already passes any event through; the gap was that a hook on an inexpressible event vanished with no trace). Registration is NOT in this PR: settings.json and the SSOT model must move in one commit and settings.json is agent-blocked |
+| S3 park-chips | D3+D4: dispatcher §3 Type-2 park-chip emission paragraph + decision-session protocol | `dispatcher/SKILL.md` §3 | **SHIPPED 2026-08-17** in-session (both preconditions met: S1 merged #1419, F1 ratified park-chips). Deliberately NOT extended to principle 18 — the ADR scoped S3 to this one surface, and park-chips carry no stage gate; the assertion question is recorded as a follow-up, not smuggled in |
 | S4 calibration | D9 dispatch after staging merge | aif factory | `/dispatcher context-degradation-calibration` |
 
 S1 ∥ S2a parallel-safe (disjoint surfaces); S3 after S1; S2b parked; S4 after this PR merges.
@@ -452,14 +520,14 @@ S1 ∥ S2a parallel-safe (disjoint surfaces); S3 after S1; S2b parked; S4 after 
 
 | # | Item | Status |
 |---|---|---|
-| F1 | Part-2 transport (**operator fork**) | park-chips (D3–D5, this contour's recommendation) vs the round-1 messaging bus (recorded in git history + D5 revisit trigger) vs sweep-only. **OPEN — operator ratifies the pivot**; S3 implementation waits on it (goal 2 named the messaging mechanism; the «rethink for more value» directive covers the change, but the call is the operator's) |
+| F1 | Part-2 transport (**operator fork**) | **CLOSED 2026-08-17 — park-chips (D3–D5)**, ratified by the operator against the alternatives (round-1 messaging bus, recorded in git history + the D5 revisit trigger; sweep-only). Ratifying grounds recorded at the fork: the Part-1 chip channel is already landed, so park-chips are a reuse rather than new transport; the messaging bus is partly overtaken by the advisor-pattern ask-files (#1374); sweep-only would discard the S1 build. S3 was unblocked by this and ships in the same session |
 | F2 | Threshold numbers 300k / ~500k / 70% | research-fillable — D9 kickoff authored, marker-complete |
 | F3 | Chip-spawned session isolation default | **unverified** (round-1 downgrade: the 25/25 statistic is selection-conditioned; repo-root counterexamples exist) — the D1 mandatory isolation step is the mechanism; first live chip run observes the default as a bonus fact |
 | F4 | CLI `SendMessage` unattended/headless behavior | OPEN — deferred with D5; recipe: from a headless `claude -p` run, attempt `ListAgents` + send to a named session; observe delivery + billing |
 | F5 | tg-notify liveness | **CLOSED — split** (host filtered dead / container raw live, probed 2026-08-09). Operator option: set host creds (~1 min) to enable the filtered channel |
 | F6 | ccd message delivery timing to idle sessions | **CLOSED — moot** (no messages in v1; D5) |
 | F7 | `spawn_task` availability in scheduled/remote (unattended) sessions | OPEN — determines whether park-chips also fire from those classes or only from local sessions; probe: one scheduled run calling `spawn_task`; either answer is safe (absent → capability-gate skips → sweep path) |
-| F8 | #108 PreCompact-item operator GO + D8's own liveness bench | OPEN — blocks S2b only (routed, not closed, by D8; the SSOT row is composite — see D8) |
+| F8 | #108 PreCompact-item operator GO + D8's own liveness bench | **CLOSED 2026-08-17 — GO.** Operator GO on the #108 PreCompact item given in a live session, 2026-08-17. Bench ran first per D8's ordering and is recorded at [2026-08-17-precompact-liveness-bench.md](../../meta-factory/research-patches/2026-08-17-precompact-liveness-bench.md): contract PROVEN (15 cases + a seeded-break paired-negative + end-to-end reader/writer agreement through one shared `print-orch-home.sh`); delivery UNFIRED on both halves, with the cause identified rather than hand-waved (registration is agent-blocked by settings.json's own deny-list, hooks snapshot at session start, `/compact` is an operator action, and auto-compaction cannot be induced — 0 hits for `"isCompactSummary":true` across 60 sampled transcripts). Closed on that honest split, which D8 pre-accepted; the residual live-fire is two operator actions in the S2b hand-off, and the bench file is where the observation lands |
 | F9 | Chip visibility scope + lifetime + seat inheritance | OPEN — first live chip observes: app-global vs per-session-view rendering (the R4 morning-surface claim rests on this); survival across minimize vs restart; whether the spawned session inherits the emitter's model (D3 seat line). Click-time observations, no build needed |
 | F10 | D7 audience (**operator fork**) | consumer-generic as specified (adds a bounded new blocking Stop path in consumer sessions) vs framework-presence-gated (operator-only; consumers lose the reminder). **CLOSED 2026-08-10 — consumer-generic**: the operator's 2026-08-09 F4b-landing directive (consumer-shipped is the product intent, guards non-negotiable) is the ratifying evidence; S2a ships the generic wording (zero framework refs in the reminder string, test-asserted) |
 

@@ -445,7 +445,43 @@ if [ "$asked" = "true" ] && [ "$long_text" = "false" ]; then
   if [ -z "$text" ] || [ "$has_askuserquestion" = "true" ]; then
     idle_suppress=false
   else
-    prev_line=$(grep -E '"(type|role)":"assistant"' "$transcript" 2>/dev/null | tail -2 | head -1 || true)
+    # Stage 9C (zcode-parity-s9c-multiturn-zcode-arm) — source for prev_line:
+    # CC reads its native transcript (multi-line per session); ZCode's synthetic
+    # transcript has 1 line per turn (step-1 evidence, zcode.cjs:~1072550 $_n
+    # producer), making tail-2|head-1 structurally inert on ZCode. When _is_zcode,
+    # prefer the rollout file (~/.zcode/cli/rollout/model-io-*.jsonl) which has
+    # multi-line per session (R1 INHERITED-INFERRED per research-patch
+    # 2026-07-18-zcode-parity-s9-multiturn-anchor.md §3.3; own-verification BLOCKED
+    # on container access — runtime gated on rollout reachability, degrades
+    # gracefully to synthetic when rollout is absent). Operator decision ADOPT 9C
+    # (decisions.md §Fork 3): hybrid — synthetic anchor (unchanged) + rollout
+    # multi-turn guard. CC path byte-identical (default branch).
+    _prev_src="$transcript"
+    if _is_zcode; then
+      _zc_dir="${ZCODE_ROLLOUT_DIR:-$HOME/.zcode/cli/rollout}"
+      _zc_file=""
+      if [ -d "$_zc_dir" ]; then
+        # Prefer session-id-pinned file; fall back to newest model-io-*.jsonl.
+        if [ -n "$session_id" ] && [ "$session_id" != "nosession" ] \
+           && [ -f "$_zc_dir/model-io-$session_id.jsonl" ]; then
+          _zc_file="$_zc_dir/model-io-$session_id.jsonl"
+        else
+          _zc_file=$(ls -t "$_zc_dir"/model-io-*.jsonl 2>/dev/null | head -1 || true)
+        fi
+      fi
+      if [ -n "$_zc_file" ] && [ -f "$_zc_file" ]; then
+        # Need ≥2 assistant turns in rollout for prev_line to be meaningful;
+        # otherwise tail-2|head-1 equals tail-1 (degenerate == current turn).
+        _zc_n=$(grep -cE '"(type|role)":"assistant"' "$_zc_file" 2>/dev/null || echo 0)
+        if [ "${_zc_n:-0}" -ge 2 ]; then
+          _prev_src="$_zc_file"
+        fi
+        unset _zc_n
+      fi
+      unset _zc_dir _zc_file
+    fi
+    prev_line=$(grep -E '"(type|role)":"assistant"' "$_prev_src" 2>/dev/null | tail -2 | head -1 || true)
+    unset _prev_src
     if [ -n "$prev_line" ] && [ "$prev_line" != "$last_line" ]; then
       prev_text=$(printf '%s' "$prev_line" | jq -r '.message.content[]? | select(.type=="text") | .text' 2>/dev/null || true)
       if printf '%s\n' "${prev_text}" | grep -q '## 🟢'; then
