@@ -541,7 +541,9 @@ Presets (optional — use --preset <name> or AIF_PIPELINE_PRESET=<name> to activ
 
 **Language.** `title` and `tldr` are operator-facing prose: write them in `AIF_OUTPUT_LANG`, like the rest of the report. The chip prompt itself is machinery — English always ([language-discipline.md §1](../../../rules/language-discipline.md)).
 
-**Falsifier:** a chip prompt missing any of steps 1–3 → principle 18's chip check is red before the report ships. An incident that reaches a click means the assertion itself was skipped — fix the emitter and the test, not the operator.
+**What principle 18 asserts, and what it does not.** The chip check asserts that THIS section and both emitter clauses literally name the three gates — it reads the files from disk and never sees a rendered report or a runtime chip payload. So a chip whose `prompt` silently drops step 1, 2, or 3 is **not** caught by any gate today: the payload rests on emitter diligence (`#hope-as-gate`, [attention-is-not-a-mechanism.md §1](../../../rules/attention-is-not-a-mechanism.md)). Emit accordingly — render the prompt in full next to the chip (above) so the omission is at least visible to the operator before the click.
+
+**Falsifier:** wrong if a chip payload is inspected anywhere before dispatch — no `spawn_task` PreToolUse matcher exists in `.claude/settings.json` as of 2026-08-17. The reachable gate + its build trigger are recorded in [ADR D1](../../../../docs/superpowers/specs/2026-08-09-pipeline-chips-session-bus-design.md).
 
 ## §A — See also
 
