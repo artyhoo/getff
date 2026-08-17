@@ -20,7 +20,7 @@
 #   1. Copies skills/ + the consumer-facing core skill set
 #      .claude/skills/{template-audit,ai-doc,rule-research}/ → .claude/skills/ (always).
 #      With --with-aif-suite, also ships the AIF operator suite
-#      {pipeline,dispatcher,aif-doctor,harvest,night-mode,story}/ (F7, owner GO 2026-07-10) —
+#      {dispatcher,aif-doctor,harvest,story,claude-glm-executor-handoff}/ (F7, owner GO 2026-07-10) —
 #      those presuppose the aif-handoff operator runtime + `story`'s lang-pack (#934), so they
 #      are opt-in, not default (see setup.d/10-skills.sh + --with-aif-suite below).
 #      (all shipped from .claude/skills/ as single source of truth; ONLY self-reflection is
@@ -41,8 +41,8 @@
 # Use --wire-ci to also auto-wire any CI-orphan rule-enforcement gate (§6c) into your existing
 # workflow via yq (used-if-present, never installed by us; default is the non-destructive WARN +
 # paste-block — wiring edits your kept workflow in place, so it is opt-in). No effect in --dry-run.
-# Use --with-aif-suite to also ship the AIF operator suite: the six skills (pipeline, dispatcher,
-# aif-doctor, harvest, night-mode, story) PLUS the two suite agents (orchestrator-worker-discipline,
+# Use --with-aif-suite to also ship the AIF operator suite: the five skills (dispatcher,
+# aif-doctor, harvest, story, claude-glm-executor-handoff) PLUS the two suite agents (orchestrator-worker-discipline,
 # reviewer-discipline) and their aif-orchestrator-discipline skill-context. Those presuppose the
 # aif-handoff operator runtime and story's lang-pack (#934); default installs only the
 # consumer-facing core set. Opt-in + reversible (delete the six .claude/skills/ dirs, the two
@@ -89,8 +89,8 @@ REFRESH=""
 # present + no package.json → OFFER; non-interactive declines). The npm flow is untouched when
 # TOOLCHAIN stays "" (byte-identical baselines are the gate).
 TOOLCHAIN=""
-# F7 (owner GO 2026-07-10): the AIF operator suite (pipeline dispatcher aif-doctor harvest
-# night-mode story) ships ONLY under this explicit opt-in. Those five presuppose the aif-handoff
+# F7 (owner GO 2026-07-10): the AIF operator suite (dispatcher aif-doctor harvest story
+# claude-glm-executor-handoff) ships ONLY under this explicit opt-in. Those five presuppose the aif-handoff
 # operator runtime and `story` crashes on landing until its lang-pack ships (#934) — a consumer
 # without that runtime should not get them by default. Opt-in + reversible, same posture as the
 # companions.manifest flow (.claude/rules/companion-install-principle.md; BFR §1.1 integrate-
