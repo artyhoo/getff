@@ -48,11 +48,11 @@
 
 **Шаблон `orchestrator.local.md`:**
 
-```markdown
+```text
 # Orchestrator local config — discovered <YYYY-MM-DD>
 
 WORKDIR: <abs path>
-BASE*BRANCH: <e.g. origin/main>
+BASE_BRANCH: <e.g. origin/main>
 REMOTE: <name + url>
 GH_REPO: <owner/repo or none>
 TASK_ID_PATTERN: <e.g. ID-XXXX | none>
@@ -65,5 +65,5 @@ TEST: <command>
 CHECK_ALL: <command or sequence>
 PROJECT_SKILLS: <list from .claude/skills/>
 PROJECT_RULES: <list from .claude/rules/>
-PROMPTS_DIR: .claude/orchestrator-prompts/ # gitignored # orch-home: allow framework-only skill, never in GETFF_SKILLS*\* delivery tiers (setup.d/lib.sh:58-60)
+PROMPTS_DIR: .claude/orchestrator-prompts/ # gitignored # orch-home: allow framework-only skill, never delivered to a consumer (setup.d/lib.sh:58-60)
 ```
