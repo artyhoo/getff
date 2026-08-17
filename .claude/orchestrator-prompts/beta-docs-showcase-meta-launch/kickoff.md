@@ -65,8 +65,10 @@ Read in this order:
   working copy that had never fetched).** `~/code/getff-landing` still shows `main` at `13d7fd5`, but
   that is a stale local ref: `origin/main` is **`733197e`**, and `redesign-terminal-gates` (`154f2d2`)
   is an **ancestor of it** — merged by PR #2 on 2026-07-10T17:35:49Z, i.e. before the design spec was
-  authored. Probe: `git merge-base --is-ancestor 154f2d2 origin/main` → true;
-  `gh api repos/artyhoo/getff-landing/commits/main`. Consequence: the redesign assets are on `main`
+  authored. Probe — **the `git fetch` is load-bearing**, since running it in the stale
+  `~/code/getff-landing` without one returns the opposite answer:
+  `git fetch origin && git merge-base --is-ancestor 154f2d2 origin/main` → true;
+  `gh api repos/artyhoo/getff-landing/commits/main` → `733197e`. Consequence: the redesign assets are on `main`
   and deployed, B-D2's «NOT merged» clause and §9's anti-merge item are corrected in place, and BS1
   ports the assets from `main`. The **URL census is unaffected** — the merge added and removed no
   route (`git diff --stat 13d7fd5 origin/main` touches `src/pages/index.astro`, `src/styles/*`,

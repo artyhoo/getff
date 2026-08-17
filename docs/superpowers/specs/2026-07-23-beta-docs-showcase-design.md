@@ -42,8 +42,12 @@ python quickstart; beta page + GitHub-issues feedback; README edits via maintain
 - **The redesign is MERGED and DEPLOYED — CORRECTED 2026-08-17 (BS-pre measurement).** Branch
   `redesign-terminal-gates` (`154f2d2`) landed on `main` via **PR #2, merged
   2026-07-10T17:35:49Z** — thirteen days *before* this spec was authored;
-  `git merge-base --is-ancestor 154f2d2 origin/main` → true, `origin/main` = `733197e`, and
-  the repo has had no push since. The original bullet («unmerged, 1 commit ahead, NOT
+  **`git fetch origin && git merge-base --is-ancestor 154f2d2 origin/main`** → true,
+  `origin/main` = `733197e`, and the repo has had no push since. **The `git fetch` is part of
+  the probe, not decoration:** run without it in `~/code/getff-landing` — the working copy this
+  umbrella's own docs point at — the same command returns **false**, because that clone's
+  `origin/main` is still the stale `13d7fd5`. That is the defect being corrected, so a probe
+  that reproduces it would re-instate the error. The original bullet («unmerged, 1 commit ahead, NOT
   deployed») was measured on a local working copy that had never fetched, so it was already
   false at authoring time. Deploy fires on `main` (`.github/workflows/deploy.yml`), so the
   gate palette, product-first hero layout and the mp4 demos
@@ -111,8 +115,8 @@ present tense** — «clippy demo, deny roadmap»; (5) everything environment-la
   publicly UNVALIDATED by real users — a deliberate accepted bet, recorded here so it is
   visible, with phase-3 card-sorting as the check.*
 
-- **B-D2 — Landing narrative: keep the hook, reframe around it; the unmerged redesign is
-  the asset base.** H1 stays **«Docs lie. Tests don't.»** (deployed brand, matrix-provable,
+- **B-D2 — Landing narrative: keep the hook, reframe around it; the redesign — merged to
+  `main` on 2026-07-10 — is the asset base.** H1 stays **«Docs lie. Tests don't.»** (deployed brand, matrix-provable,
   the strongest F5-clean claim we own). Eyebrow «rules as tests» → **«AI DX»** (the
   positioning term, parent D4). Subtitle = final tagline (chosen now, D4 candidate 1
   adapted to F5): **«AI DX for your codebase: conventions AI agents can't silently bypass —
@@ -130,11 +134,17 @@ present tense** — «clippy demo, deny roadmap»; (5) everything environment-la
   second overhaul, not a hypothetical one. What survives unchanged: its copy, gate palette
   and mp4 assets are the design base the BS1 landing rebuild ports (T17/T18 — assets are
   copied, not linked), except that BS1 now ports them **from `main`**, not from a side
-  branch. *Falsifiers: (1) — RETIRED, spent by reality: the falsifier asked the operator to
-  choose «merge the redesign now vs keep waiting» if the migration slipped >4 weeks; the
-  merge had already been made upstream, so there is no choice left to surface (a live claim
-  about a repository's state was never re-probed — the exact `#destination-limit-by-inference`
-  shape, [destination-environment-verification.md §1b](../../../.claude/rules/destination-environment-verification.md));
+  branch. *Falsifiers: (1) — RETIRED as to its ACTION, and its trigger is
+  residue for the design owner: the falsifier asked the operator to choose «merge the redesign
+  now vs keep waiting» if the migration slipped >4 weeks; the merge had already been made
+  upstream, so there is no choice left to surface (a live claim about a repository's state was
+  never re-probed — the exact `#destination-limit-by-inference` shape,
+  [destination-environment-verification.md §1b](../../../.claude/rules/destination-environment-verification.md)).
+  **What retiring it drops, stated rather than smuggled:** this was B-D2's only calendar-based
+  stall detector, so the umbrella can now stall with getff.ai serving the un-reframed hero
+  («rules as tests», not the «AI DX» reframe, which ships only at BS3) and nothing on B-D2
+  escalating. Replacing it needs a new escalation, which is a design decision — out of scope
+  for a factual correction and left to the design owner rather than invented here;
   (2) operator dislikes the reframed hero at BS3 sign-off → hero copy is a 1-file revert,
   layers panel stands.*
 
@@ -227,7 +237,7 @@ anchors live at entry — parent R5)
 |---|---|---|---|
 | **BS-pre — factory wiring** (r3, B-D6) | Instantiate A7 for `~/code/getff-landing`: vendor runtime-bridge subset via the A7 mechanism (never a parallel reimplementation), aif project with landing container base, env + per-mode defaults | ONE no-op smoke task dispatched → completed → harvested in `getff-landing`; wiring facts recorded in the stage report | **A7 merged** (beta-delivery-ux S5) — hard blocked-pending-neighbor; operator env/key steps parked |
 | **BS0 — prototype** (mandatory, parent D5) | Scratch repo `getff-docs-smoke`: Fumadocs skeleton (2-3 pages incl. ONE real ported page for realistic search), Tailwind v4 co-install probe, static export, GH Pages deploy, `beta.getff.ai` DNS (operator step). Prototype ships site-wide `noindex` (robots meta + robots.txt) — it must never compete with getff.ai in indexes (r2, MINOR-3) | fetched deployed URL; Orama search query returning the ported page; `curl` of `/llms.txt`, `/llms-full.txt`, `/docs/<page>.md`; HTTPS on the subdomain; noindex present in the fetched HTML. **FAIL → STOP: Starlight rollback per parent D5 falsifier-1; umbrella re-plans.** Teardown: scratch deployment + DNS record are removed at BS3 close (tracked in BS3 checklist) | BS-pre (r3) |
-| **BS1 — port skeleton** | Branch `fumadocs-migration` in `getff-landing`: Next + Fumadocs + Tailwind v4 app; port 5 docs pages (same slugs), landing rebuild from the redesign assets, which live on `main` since PR #2 (B-D2 as corrected 2026-08-17), consulting, blog + `/rss.xml` (B-D3), sitemap/og/favicons/CNAME parity; deploy workflow updated on the branch, `main` untouched | local `next build` static export green; URL census (§0.2) resolves on preview serve; landing renders the two-layer panel; Fumadocs specifics read from live docs at build (T12) | BS0 green |
+| **BS1 — port skeleton** | Branch `fumadocs-migration` in `getff-landing`: Next + Fumadocs + Tailwind v4 app; port 5 docs pages (same slugs), landing rebuild from the redesign assets, which live on `main` since PR #2 (B-D2 as corrected 2026-08-17; the port also needs `@fontsource/jetbrains-mono`, the one dependency that merge added and the §0.2 Stack bullet does not name), consulting, blog + `/rss.xml` (B-D3), sitemap/og/favicons/CNAME parity; deploy workflow updated on the branch, `main` untouched | local `next build` static export green; URL census (§0.2) resolves on preview serve; landing renders the two-layer panel; Fumadocs specifics read from live docs at build (T12) | BS0 green |
 | **BS2 — content** | Two-layer showcase pages (both «Daily cycle» pages, factory Overview, «What is getff»), First Steps ×3 (B-D5), python quickstart, beta page, issue templates (PR in `artyhoo/getff`), announcement draft (draft:true), **F5 claim pass: per-claim ledger** (claim → formula → evidence-or-experimental-label); README honest-claims **patch PROPOSAL** routed via maintainer handoff (Artifact Ownership) — the U8 scope parent D1 absorbed into B | ledger complete over every public capability claim on the site (T7: claim-by-claim, not a section tick); First-Steps human render mirrors the SSOT 1:1; python quickstart wording matches the live matrix state | BS1; First Steps blocked-pending A1 profile names; Degradations page blocked-pending A3; C1 coordination probe |
 | **BS3 — cutover** | Merge `fumadocs-migration` → `main`; deploy; production parity census; announcement stays draft; BS0 scratch teardown | **pre-merge: independent cold claims audit PASS** — a fresh-session cold agent (`claims-conformance-auditor` once umbrella C ships it; until then an equivalent compliance-verifier-class run over the BS2 ledger, claim-by-claim against shipped reality) — the F5 ledger's author never self-certifies the cutover (r2, top-down MAJOR-1; the parent §8 phase-2 assembly gate remains the SECOND, later backstop); every §0.2 URL returns 200 with expected content on getff.ai; `/rss.xml` validates; llms routes live; search live; **operator visual sign-off on the landing (genuine fork — look & feel is operator judgment)** | BS2; cold claims audit PASS; operator GO |
 

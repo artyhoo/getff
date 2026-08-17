@@ -10,10 +10,11 @@
 > **Binding design:** [docs/superpowers/specs/2026-07-23-beta-docs-showcase-design.md](../../../docs/superpowers/specs/2026-07-23-beta-docs-showcase-design.md)
 > (B-D1..B-D6, stage table §2, F5 carry §0.3). Parent frame:
 > [2026-07-23-beta-program-design.md](../../../docs/superpowers/specs/2026-07-23-beta-program-design.md) §5, D4, D5.
-> **Base:** landing repo `main` — **`733197e`** as re-verified at BS-pre entry 2026-08-17
-> (the `13d7fd5` census in the design was read off an unfetched working copy; the routes are
-> unchanged, so the URL census stands — see design §0.2 as corrected); this repo `staging`
-> for the two cross-repo PRs (First-Steps SSOT, issue templates).
+> **Base:** landing repo `main` — **`733197e`** at BS-pre entry 2026-08-17, **and still
+> re-verify at every stage entry with `git fetch origin` first**: the pin is a dated reading,
+> not a standing fact, and the `13d7fd5` census it replaces was itself an unfetched working
+> copy read (routes unchanged, so the URL census stands — design §0.2 as corrected); this repo
+> `staging` for the two cross-repo PRs (First-Steps SSOT, issue templates).
 > **Tier:** umbrella Tier 2 — factory defaults apply (Plan→top tier, Task/Review→executor
 > tier); BS1 is Tier-1-shaped and may run with the executor-tier bridge-profile marker on
 > its stage dispatch once BS0 is green (B-D6).
