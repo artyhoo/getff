@@ -194,13 +194,42 @@ strongest single artefact in his plugin after grilling.
   park/answer edge (a factory task answering its own parked question instead of parking
   it); grilling's facts-vs-decisions split was sharpened for the same reason. Relevant to
   §4's factory-orchestration row and to `/arch` §4 escalation intake.
-- Transfer candidates: **claim-first** for our dispatcher (our collision history is real:
-  two sessions on one stage — getff-freshness S1; a duplicate dispatch an hour after the
-  real run — `beta-delivery-ux-995e9c`; duplicate merge #1354; CLAUDE.md records «all
-  historical collisions materialized inside the Phase -1 window» — claim-first closes
-  exactly that window, probe stays for the многоповерхностную half); **expand–contract**
-  vocabulary for wide-refactor kickoffs; **fog-of-war section** for umbrella kickoffs
-  (our open-questions §13.x is project-wide, not per-umbrella).
+- «No collision» ≠ «no value» (operator correction, 2026-08-17): the slash-only planning
+  skills are adoption candidates in their own right — full per-skill evaluation:
+  - **`wayfinder` — ADAPT candidate, the strongest.** Upstream problem class: one foggy
+    effort spanning MANY sessions, resolved as decision tickets on a shared map with a
+    frontier and claims. Our current answer to the same class is ad-hoc handoff briefs
+    (tier-membership: design session → §7 ratification → gitignored `impl-handoff.md`;
+    advisor-pattern: 3 chained sessions) — artifact-first per SLP, but with NO frontier
+    structure, NO claim discipline, NO fog register. Convergence: the D4 live decision
+    register just shipped in `/arch` IS a single-session mini-map; wayfinder is the same
+    object lifted to multi-session. Raw idea in §4.6 (idea 1). Claim-first transfer for
+    dispatcher stands on its own incident base (two sessions on one stage —
+    getff-freshness S1; duplicate dispatch — `beta-delivery-ux-995e9c`; duplicate merge
+    #1354; «all historical collisions materialized inside the Phase -1 window»).
+  - **`to-tickets` — ADAPT candidate (mechanizable).** Tracer-bullet vertical slices with
+    explicit `Blocked by` edges + frontier execution + quiz-the-user granularity gate +
+    **expand–contract** for wide refactors. Our kickoff stages express dependencies in
+    PROSE ordering; the dispatcher cannot compute a frontier. Raw idea in §4.6 (idea 2):
+    Blocked-by edges in kickoff stage tables → `/pipeline` computes the dispatchable
+    frontier mechanically. Expand–contract vocabulary transfers regardless.
+  - **`to-spec` — one section transfers: seams-first.** His spec template carries
+    «Testing Decisions» agreed BEFORE implementation (seams sketched, «the ideal number
+    is one», confirmed with the user); our spec obligations (premise register, falsifiers,
+    decision register) have NO testing-seams slot. Adopting it also makes Matt's tdd
+    seams discipline coherent for our executors (the seams his `tdd` demands are
+    pre-agreed exactly here — D-H2's second half). Raw idea in §4.6 (idea 3).
+  - **`implement` — REJECT.** A 15-line stub whose whole content is «use /tdd, then
+    /code-review, commit»; SDD covers the loop with per-task review + fix loop + final
+    broad review. Nothing to take.
+  - **`triage` — mostly covered, two residues.** «Already implemented → point to where»
+    = BFR own-stack-first criterion zero; redundancy probe = §1.5 research contour. The
+    two residues: verify-the-claim-before-grilling (reproduce the bug / run the diff
+    BEFORE interviewing — a cheap-death ordering our kill-channels table could name) and
+    the `.out-of-scope/` rejected-requests KB (ours lives as SSOT REJECT rows +
+    closed-questions — adequate; REFERENCE).
+  - **fog-of-war section** for umbrella kickoffs transfers regardless of wayfinder
+    (our open-questions §13.x is project-wide, not per-umbrella).
 
 ### 2.6 Skill authoring — 3 surfaces, layered (no P)
 
@@ -299,6 +328,53 @@ model, done; **KEEP** = domain-specific, no satellite covers it.
 **Nothing is deletable outright** — every candidate's remainder is a real delta the
 satellites do not carry. The actionable item is one: the orchestrator rewrite (D-H9).
 
+## §4.6 Raw ideas for the design session (сырые идеи — material, not decisions)
+
+**Idea 1 — the decision map as the multi-session layer over `/arch` (ADAPT wayfinder).**
+When a design outgrows one dialogue, the spec's live decision register (D4) graduates
+into a wayfinder-shaped map: each open row = a decision ticket sized to one session; the
+frontier = rows whose prerequisite rows are settled; a session CLAIMS a row before
+working it; fog-of-war = a `Not yet specified` section for questions not yet sharp enough
+to be rows; out-of-scope never graduates. Open sub-fork: where the map lives — (i) GitHub
+issues with native blocking (his default; we have `gh` but zero issue-tracker practice),
+(ii) the spec file itself as a local map (his local-markdown fallback; closest to our
+current handoff-brief practice, survives offline), (iii) aif tasks as tickets (claims =
+task assignment, statuses native — but decisions are HITL and aif is an AFK executor
+surface). Recommendation seed: (ii) local map first — it is our existing practice plus
+structure, zero new infra; revisit (i) if collaboration appears.
+
+**Idea 2 — kickoff stages as a ticket graph; `/pipeline` computes the frontier.**
+Kickoff stage tables gain an explicit `Blocked-by:` column (his to-tickets edge
+convention); the dispatcher/pipeline derives the dispatchable frontier mechanically
+instead of reading prose order. This upgrades stage sequencing from
+attention-shaped prose to a checkable structure ([attention-is-not-a-mechanism.md §1](../../../.claude/rules/attention-is-not-a-mechanism.md))
+and gives the in-flight probe a natural claim surface per stage (D-H5 synergy: claim =
+assigning the stage row). Vertical-slice discipline statement + expand–contract recipe
+enter the kickoff template's vocabulary.
+
+**Idea 3 — seams-first testing decisions in our spec template.**
+Add a `Testing seams` slot to the spec-template obligation (arch §1): seams named and
+confirmed at spec time, «prefer existing seams, highest seam possible, ideal number is
+one» (his to-spec). Feeds D-H2: with seams pre-agreed in specs, the seams half of Matt's
+tdd becomes adoptable without the refactor-placement half.
+
+**Idea 4 — glossary SSOT instead of CONTEXT.md (the D-H11 material).**
+Upstream's `domain-modeling` maintains a ubiquitous-language glossary (CONTEXT.md) +
+ADRs, actively challenged during dialogues. We do the same WORK today, scattered:
+`orchestrator/references/glossary.md` (three roles), seat-lifecycle §1 (three «seat»
+usages disambiguated), the ACCEPTED-vs-FIXED vocabulary ruling (S5b/D-K6), «night is a
+MODE, not a role», tier vocabulary in `tier-home.md` — each a domain-modeling act
+recorded ad-hoc in whichever authority doc was nearest. Raw idea: a generated
+**term-ownership index** (pattern: `00-rule-index.md` — «generated, do not hand-edit»),
+one line per cross-doc term pointing at its owner doc/anchor per
+[doc-authority-hierarchy.md](../../../.claude/rules/doc-authority-hierarchy.md); a
+principle test asserts every indexed term's owner anchor exists (the principle-08/09
+mold). Then `/arch` §1 can bind domain-modeling's challenge-the-term behavior to OUR
+glossary surface — the upstream pairing (grilling+domain-modeling always invoked
+together) becomes adoptable without importing the CONTEXT.md convention. ADR directory:
+REJECT (parallel-evolution with our specs/research-patches/closed-questions record
+system).
+
 ## §5 Decision register for the design session (live; grown per the new §1 format)
 
 | Decision | Status | Resolution | Falsifier |
@@ -314,7 +390,10 @@ satellites do not carry. The actionable item is one: the orchestrator rewrite (D
 | D-H8 keep vs uninstall plugin | open (default: keep, watch) | — | ≥3 misroute incidents → vendor keepers + uninstall (SSOT #253 arm) |
 | D-H9 orchestrator rewrite to deltas+bindings (§4.5) | open (rec: thin; the `/arch` model) | — | wrong if the re-described slices turn out to carry load-bearing project deltas the satellites lack |
 | D-H10 TDD bare-acronym shadow (§3 mech 7) | open (rec: shadow after P1 confirms ranking) | — | wrong if CC router ignores project-level shadowing of plugin skills (then: mech 2/6) |
-| D-H11 pair `domain-modeling` with grilling in /arch (upstream always pairs them) | open (rec: defer — needs a CONTEXT.md/glossary convention we don't have; our premise register covers part) | — | wrong if design dialogues show recurring term-drift our premise register misses |
+| D-H11 pair `domain-modeling` with grilling in /arch | open (rec: adopt VIA the glossary-SSOT adaptation, §4.6 idea 4 — not via CONTEXT.md) | — | wrong if the term-ownership index proves redundant with doc-authority headers alone (no term-drift incident within 6 months) |
+| D-H12 wayfinder-shaped multi-session decision map over /arch (§4.6 idea 1) | open (rec: ADAPT, map lives in the spec file first) | — | wrong if chained design contours stay ≤2 sessions in practice (map overhead beats ad-hoc briefs only at ≥3) |
+| D-H13 kickoff `Blocked-by:` edges + pipeline-computed frontier (§4.6 idea 2) | open (rec: ADAPT — mechanizes stage sequencing) | — | wrong if real umbrellas are overwhelmingly linear (frontier degenerates to the prose order it replaced) |
+| D-H14 seams-first `Testing seams` slot in the spec template (§4.6 idea 3) | open (rec: adopt; unlocks the seams half of D-H2) | — | wrong if our spec corpus shows seams can't be named pre-implementation for meta-factory work (mostly md artifacts, few code seams) |
 
 ## §6 Probes for the design session (facts, not decisions — run before the interview)
 
