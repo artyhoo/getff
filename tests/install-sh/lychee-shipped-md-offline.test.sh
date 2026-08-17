@@ -65,13 +65,19 @@ run_lychee() {
       | xargs -0 lychee --offline --no-progress ) 2>&1
 }
 
+# Print BOTH lychee's per-input group headers (`[./path/to/file.md]:`) and the `[ERROR]` lines
+# under them. The old dump grepped `ERROR` only, which printed the broken TARGETS but never the
+# SOURCE file carrying the link — leaving a failure that reproduces only on CI undiagnosable
+# without another push. Both line kinds start with `[`, so one anchor catches them.
+dump_lychee() { grep -E '^\[' <<<"$1" | head -"${2:-24}" | sed 's/^/      /'; }
+
 # ── pos ──────────────────────────────────────────────────────────────────────
 OUT=$(run_lychee); RC=$?
 if [ "$RC" -eq 0 ]; then
   ok "pos: lychee --offline clean over $N_MD installed *.md files (whole tree minus node_modules)"
 else
   bad "pos: lychee found broken links (rc=$RC) over $N_MD files — first consumer push would be RED"
-  grep -E 'ERROR|✗' <<<"$OUT" | head -15 | sed 's/^/      /'
+  dump_lychee "$OUT" 30
 fi
 
 # ── refresh arm: --refresh must not reintroduce dangling links ────────────────
@@ -85,7 +91,14 @@ if [ "$RC_R" -eq 0 ]; then
   ok "refresh: lychee still clean after --refresh (refresh path transforms too)"
 else
   bad "refresh: --refresh reintroduced broken links (rc=$RC_R) — next consumer push after upgrade RED"
-  grep -E 'ERROR|✗' <<<"$OUT_R" | head -10 | sed 's/^/      /'
+  dump_lychee "$OUT_R" 30
+  # A refresh-only failure is either (a) an existing file rewritten back to its untransformed
+  # source, or (b) a NEW file the refresh path delivers that the install path never did. The
+  # two need opposite fixes, and the lychee output alone cannot tell them apart — so name the
+  # population delta explicitly rather than leaving the next reader to guess.
+  MD_AFTER=$(find "$T" -name '*.md' -type f -not -path "$T/node_modules/*" 2>/dev/null)
+  echo "      --- *.md appearing only AFTER --refresh (empty ⇒ an existing file was rewritten) ---"
+  comm -13 <(sort <<<"$MD_FILES") <(sort <<<"$MD_AFTER") | sed "s|$T|<fixture>|" | head -10 | sed 's/^/      /'
 fi
 
 # ── neg (probe bites) ────────────────────────────────────────────────────────
