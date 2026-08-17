@@ -258,6 +258,18 @@ is D-H18's separate contour.
   «Plugin skills are not affected by `skillOverrides`.» Listing economics from the same
   fetch: budget ≈1% of context window; overflow trims least-used descriptions; per-entry
   cap 1,536 chars; slash-only skills carry no descriptions into the listing.
+- **P7** (post-binding routing probes, 2026-08-18 round 3): fresh-session headless
+  probes (`claude -p` from the worktree, so CLAUDE.md is read from disk) flipped BOTH
+  P2-class triggers: «fix this bug test-first» → `superpowers:test-driven-development`
+  (the answer cites the «Skill routing bindings» section and its ban on the competitor);
+  «mid-merge conflicts» → `git-conflict-merge-forward.md` over
+  `mattpocock-skills:resolving-merge-conflicts`. **2/2 steered vs the P2 3/3-misroute
+  baseline.** Method finding (measured): an in-session subagent probe is INVALID for a
+  binding landed mid-session — subagents inherit the parent's session-start CLAUDE.md
+  snapshot (the first probe run picked Matt's `tdd` and, on diagnostic, reported the
+  bindings section absent from its context). Limitation shared with P2: meta-probes,
+  not live task runs; the `~/.claude/CLAUDE.md` machine-global half is validated as
+  mechanism-class only (both probes ran inside this repo).
 
 ## §7 Testing seams (D-H14, self-applied)
 
