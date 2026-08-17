@@ -78,7 +78,7 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 # individual CI steps would compare a loop against its own elements. They are removed from the
 # comparison population here and re-asserted positively below — an exclusion nobody checks is a
 # hole, so each family must still prove it has a sweep row.
-BATTERY_RE='tests/install-sh/|tests/hooks/|tests/dispatcher/|scripts/[a-zA-Z0-9._-]+\.test\.sh'
+BATTERY_RE='tests/install-sh/|tests/hooks/|tests/dispatcher/|tests/plugin/|tests/aif-doctor/|scripts/[a-zA-Z0-9._-]+\.test\.sh'
 # `npm ci` / `npm install` are dependency setup for the job, not gates — nothing for the sweep to
 # mirror, and no covering row to assert. Excluded separately from the battery families so the two
 # reasons for exclusion never get conflated.
@@ -90,7 +90,9 @@ battery_families() {
     "tests/install-sh/*.test.sh${TAB}tests/install-sh/" \
     "tests/hooks/*.test.sh${TAB}tests/hooks/" \
     "tests/dispatcher/*.test.sh${TAB}tests/dispatcher/" \
-    "scripts/*.test.sh${TAB}audit-self.yml"
+    "scripts/*.test.sh${TAB}audit-self.yml" \
+    "tests/plugin/*.test.sh${TAB}audit-self.yml" \
+    "tests/aif-doctor/*.test.sh${TAB}audit-self.yml"
 }
 
 # ── UNREACHABLE allowlist: artifact path <TAB> rationale (≥20 chars) ───────────────────────────
