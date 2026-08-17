@@ -633,8 +633,16 @@ do_refresh() {
   done
 
   # ── Skills (plain copy + internal-ref transform) ────────
-  echo "▶ Skills (getff, tool-bootstrapping, rule-tests) → .claude/skills/"
-  for _slug in getff tool-bootstrapping rule-tests; do
+  # Payload root matters: this loop copies from $PKG_ROOT/skills/, which holds getff +
+  # tool-bootstrapping ONLY. `rule-tests` used to be listed here too — its payload lives under
+  # .claude/skills/, so the `[ -d "$_src" ] || continue` guard below dropped it on every run
+  # while the header claimed it shipped (#1312, honest-signals defect: the operator reads the
+  # line and believes it landed). It now refreshes with its tier peers in the orchestration
+  # loops below. The header renders FROM the list so the two cannot diverge again; the
+  # announce↔deliver assertion lives in tests/install-sh/consumer-upgrade-path.test.sh TEST 10.
+  _PLAIN_SKILLS="getff tool-bootstrapping"
+  echo "▶ Skills ($_PLAIN_SKILLS) → .claude/skills/"
+  for _slug in $_PLAIN_SKILLS; do
     _src="$PKG_ROOT/skills/$_slug"
     _dst="$PROJECT_ROOT/.claude/skills/$_slug"
     _override="${_dst}.override.md"
@@ -661,20 +669,33 @@ do_refresh() {
   done
 
   # ── Orchestration skills (with internal-ref transform) ──
-  # Consumer-facing core set: always refreshed. AIF operator suite (F7): refreshed ONLY when
-  # already present on disk (presence = prior --with-aif-suite opt-in) OR the flag is passed now.
-  # Absence + no flag = never installed → refresh must NOT create it (else refresh silently
-  # opts a consumer into the runtime-dependent suite). See setup.d/10-skills.sh for the split.
+  # Three tiers, three gates — the slug LISTS are the shared constants from setup.d/lib.sh
+  # (GETFF_SKILLS_CORE / _ENV / _FACTORY), read by this arm and by the install arm
+  # (setup.d/10-skills.sh) alike. Hand-maintained copies drifted three times before #1312.
+  #
+  # Gate shape, uniform across every depth-gated refresh arm in this function:
+  #   the install arm's OWN profile predicate  OR  the artefact is already on disk.
+  # The presence half is the brownfield upgrade path (#1312): a consumer who opted into a
+  # deeper depth keeps receiving fixes from a bare `--refresh`, with no --profile to repeat
+  # (PROFILE resolves to core on a non-interactive run). The profile half is what keeps
+  # refresh from DEEPENING a core project by accident (#1334) — absence + shallower profile
+  # = never installed → refresh must not create it.
   echo "▶ Orchestration skills → .claude/skills/"
-  for _skill in template-audit ai-doc rule-research; do
+  for _skill in $GETFF_SKILLS_CORE; do
     refresh_skill_with_transform "$_skill"
   done
-  for _skill in pipeline dispatcher aif-doctor harvest night-mode story; do
-    # F7 gate (refresh arm) — parity with setup.d/10-skills.sh: factory profile, legacy
-    # --with-aif-suite escape, OR keep refreshing a copy already on disk (presence = prior
-    # opt-in). The presence check is the upgrade-path mechanism: a core-only consumer who
-    # later runs `--refresh --profile factory` lands the factory artefacts, then subsequent
-    # `--refresh` runs (even without --profile) keep them fresh.
+  for _skill in $GETFF_SKILLS_ENV; do
+    # env+ contour surface — parity with setup.d/10-skills.sh:125 (env | factory |
+    # WITH_AIF_SUITE), plus the presence clause.
+    if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
+      || [ -e "$PROJECT_ROOT/.claude/skills/$_skill" ]; then
+      refresh_skill_with_transform "$_skill"
+    fi
+  done
+  for _skill in $GETFF_SKILLS_FACTORY; do
+    # AIF operator suite — parity with setup.d/10-skills.sh:131 (factory | WITH_AIF_SUITE),
+    # plus the presence clause. Never created on a shallower profile: the suite presupposes
+    # the aif-handoff runtime, so refresh must not silently opt a consumer into it.
     if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
       || [ -e "$PROJECT_ROOT/.claude/skills/$_skill" ]; then
       refresh_skill_with_transform "$_skill"
@@ -997,12 +1018,24 @@ do_refresh() {
   # setup.d module sourced only on the install path, so do_refresh cannot read its array, and a
   # silent divergence is exactly what the paired check in
   # tests/install-sh/refresh-covers-full-delivery.test.sh now forbids.
-  echo "▶ Worktree scripts → scripts/"
-  for _ws in create-worktree.sh worktree-node-modules.sh link-coordination.sh getff-work.sh; do
-    [ -f "$PKG_ROOT/scripts/$_ws" ] || continue
-    refresh_safe "$PKG_ROOT/scripts/$_ws" "$PROJECT_ROOT/scripts/$_ws"
-    chmod_safe +x "$PROJECT_ROOT/scripts/$_ws" 2>/dev/null || true
-  done
+  # Depth gate (#1334): this arm carried NO profile check, so ANY --refresh on a `core` project
+  # delivered all four env+ scripts — the inverse of #1312 and a depth-boundary defect, since
+  # `--profile` is the product's promise about what lands on disk (delivery site:
+  # setup.d/85-worktree-scripts.sh:19-22 documents `PROFILE=core → skip`). Same uniform shape as
+  # the skills arms above: the delivery site's own predicate (env | factory | WITH_AIF_SUITE) OR
+  # presence. create-worktree.sh is the presence probe — the cluster's load-bearing entry point,
+  # present in every version of it, and the four ship together by construction (they form one
+  # call chain), so probing the entry point covers a consumer who opted in before getff-work.sh
+  # was added to the cluster.
+  if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
+    || [ -e "$PROJECT_ROOT/scripts/create-worktree.sh" ]; then
+    echo "▶ Worktree scripts → scripts/"
+    for _ws in create-worktree.sh worktree-node-modules.sh link-coordination.sh getff-work.sh; do
+      [ -f "$PKG_ROOT/scripts/$_ws" ] || continue
+      refresh_safe "$PKG_ROOT/scripts/$_ws" "$PROJECT_ROOT/scripts/$_ws"
+      chmod_safe +x "$PROJECT_ROOT/scripts/$_ws" 2>/dev/null || true
+    done
+  fi
 
   # ── Regenerate the eslint-rules-local barrel + prune stack-absent fixtures (#876) ──
   # do_refresh re-delivers individual rule files above but the GENERATED index.mjs barrel would keep
@@ -1086,9 +1119,14 @@ do_refresh() {
   rewrite_arch_sot_header "$_arch_sot_dst" "$_arch_sot_existed"
 
   # ── tier-home doc (env+ profiles; beta-delivery-ux S3) — #869 refresh parity ──
-  # Framework-owned: refresh must re-deliver fixes. Presence-gated like the skill-context
-  # arm below: only env+/factory installs placed it; refresh must not create it on core.
-  if [ -e "$PROJECT_ROOT/.ai-factory/tier-home.md" ]; then
+  # Framework-owned: refresh must re-deliver fixes, and it must not create the doc on core.
+  # Same uniform gate as the arms above (#1334 follow-through): the delivery site's own
+  # predicate — setup.d/30-templates.sh:108 gates on env | factory, with no WITH_AIF_SUITE
+  # clause, so this mirror has none either — OR presence. Before this stage the arm was
+  # presence-ONLY, which made `--refresh --profile env` deepen some arms and not others (the
+  # «each arm decides for itself» state INSTALL-FOR-AI.md had to describe in a paragraph).
+  if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] \
+    || [ -e "$PROJECT_ROOT/.ai-factory/tier-home.md" ]; then
     refresh_safe "$PKG_ROOT/packages/core/templates/shared/tier-home.md" "$PROJECT_ROOT/.ai-factory/tier-home.md"
   fi
 

@@ -24,6 +24,17 @@ make_consumer() {
   echo "$T"
 }
 
+# A consumer installed at an explicit --profile depth (TESTs 8-11: the depth-boundary arms).
+# `< /dev/null` closes stdin so the §8 dev-deps / §8b tsx prompts take the declining EOF path
+# instead of eating the harness's stdin when the suite is run from a terminal.
+make_consumer_profile() {
+  local T prof="$1"
+  T=$(mktemp -d)
+  printf '{ "name":"consumer","version":"0.0.0" }\n' > "$T/package.json"
+  ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --profile "$prof" < /dev/null ) >/dev/null 2>&1
+  echo "$T"
+}
+
 # A react-next consumer — ships the preset eslint-rules-local rules (no-server-imports-in-client)
 # that the ts-server consumer above does NOT, needed to exercise the preset refresh sub-population.
 make_consumer_next() {
@@ -392,6 +403,210 @@ else
   rm -rf "$TC7_NEG"
 fi
 rm -rf "$TC7"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Depth-profile boundary arms (TESTs 8-11) — issues #1312 + #1334.
+#
+# The two failure directions of the same seam, both live before this stage:
+#   #1334  refresh ships where install deliberately does not — do_refresh's worktree-scripts
+#          arm carried NO profile check, so any --refresh on a `core` project silently
+#          delivered four env+ scripts. `--profile` is the product's promise about what lands
+#          on disk; an ungated arm makes «what does core contain» unanswerable.
+#   #1312  install ships where refresh does not — `arch` was in no refresh loop at all,
+#          `rule-tests` was ANNOUNCED by the refresh header and then skipped (its payload
+#          lives in .claude/skills/, not skills/), and `claude-glm-executor-handoff` was in
+#          the factory install loop but not the factory refresh loop.
+#
+# Resolved shape (uniform across every depth-gated refresh arm): a refresh arm delivers when
+# the RESOLVED profile matches the install arm's own predicate, OR when the artefact is
+# already on disk (presence = prior opt-in — the brownfield upgrade path #1312 is about).
+# So: refresh never DEEPENS a core project by accident (TEST 8), always keeps an already-
+# opted-in payload fresh even on a bare `--refresh` (TEST 9), never announces what it does
+# not ship (TEST 10), and honours an explicit deeper --profile (TEST 11).
+# ══════════════════════════════════════════════════════════════════════════════
+
+# env-depth-only artefacts (install: setup.d/10-skills.sh:125 arch+pipeline,
+# setup.d/30-templates.sh:108 tier-home, setup.d/85-worktree-scripts.sh:34 the four scripts)
+ENVPLUS_ONLY=(
+  "scripts/create-worktree.sh"
+  "scripts/worktree-node-modules.sh"
+  "scripts/link-coordination.sh"
+  "scripts/getff-work.sh"
+  ".claude/skills/arch"
+  ".claude/skills/pipeline"
+  ".ai-factory/tier-home.md"
+)
+# factory-depth-only artefacts (install: setup.d/10-skills.sh:131 + setup.d/20-agents.sh:39)
+FACTORY_ONLY=(
+  ".claude/skills/dispatcher"
+  ".claude/skills/claude-glm-executor-handoff"
+  ".claude/agents/reviewer-discipline.md"
+)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TEST 8 — #1334: a core-depth --refresh must not cross the depth boundary
+# ══════════════════════════════════════════════════════════════════════════════
+TC8=$(make_consumer_profile core)
+_pre8=""
+for _p in "${ENVPLUS_ONLY[@]}" "${FACTORY_ONLY[@]}"; do
+  [ -e "$TC8/$_p" ] && _pre8="$_pre8 $_p"
+done
+if [ -z "${_pre8// }" ]; then
+  ok "gh-1334 precondition: --profile core installs none of the env+/factory artefacts"
+else
+  bad "gh-1334 precondition: core INSTALL already ships env+/factory artefact(s) → boundary broken at install time:$_pre8"
+fi
+
+# (pos-a) bare --refresh — PROFILE resolves to core (non-interactive default)
+( cd "$TC8" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null ) >/dev/null 2>&1
+_leak8=""
+for _p in "${ENVPLUS_ONLY[@]}" "${FACTORY_ONLY[@]}"; do
+  [ -e "$TC8/$_p" ] && _leak8="$_leak8 $_p"
+done
+if [ -z "${_leak8// }" ]; then
+  ok "gh-1334 pos: bare --refresh on a core project delivers NO env+/factory artefact (depth boundary held)"
+else
+  bad "gh-1334 pos: bare --refresh on a core project delivered env+/factory artefact(s) → ungated refresh arm:$_leak8"
+fi
+
+# (pos-b) explicit --refresh --profile core — same boundary, explicit depth signal
+( cd "$TC8" && bash "$REPO_ROOT/install.sh" --refresh --profile core < /dev/null ) >/dev/null 2>&1
+_leak8b=""
+for _p in "${ENVPLUS_ONLY[@]}" "${FACTORY_ONLY[@]}"; do
+  [ -e "$TC8/$_p" ] && _leak8b="$_leak8b $_p"
+done
+if [ -z "${_leak8b// }" ]; then
+  ok "gh-1334 pos: --refresh --profile core delivers NO env+/factory artefact (depth boundary held)"
+else
+  bad "gh-1334 pos: --refresh --profile core delivered env+/factory artefact(s):$_leak8b"
+fi
+# The paired-negative for this absence claim is TEST 11 below: the SAME paths, the SAME
+# consumer tree, appear as soon as the resolved profile is env — so "absent" here is a real
+# gate decision, not a framework that cannot deliver them at all.
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TEST 9 — #1312: a bare --refresh keeps every already-opted-in payload fresh
+# The consumer installed at factory depth, then upgrades with a plain `--refresh` (no
+# --profile — the documented upgrade path). Every framework-owned artefact of the deeper
+# depth must be re-delivered via the presence clause, including the three slugs #1312
+# found missing: arch (no refresh loop), rule-tests (announced then skipped) and
+# claude-glm-executor-handoff (factory install loop only).
+# ══════════════════════════════════════════════════════════════════════════════
+TC9=$(make_consumer_profile factory)
+STALE9="STALE_DEPTH_ARTEFACT_INJECTED_PRE_1312"
+REFRESH_TARGETS9=(
+  ".claude/skills/arch/SKILL.md"
+  ".claude/skills/pipeline/SKILL.md"
+  ".claude/skills/rule-tests/SKILL.md"
+  ".claude/skills/claude-glm-executor-handoff/SKILL.md"
+  ".claude/skills/template-audit/SKILL.md"
+  "scripts/create-worktree.sh"
+  "scripts/getff-work.sh"
+  ".ai-factory/tier-home.md"
+)
+_missing9=""
+for _p in "${REFRESH_TARGETS9[@]}"; do
+  [ -f "$TC9/$_p" ] || _missing9="$_missing9 $_p"
+done
+if [ -n "${_missing9// }" ]; then
+  bad "gh-1312 precondition: --profile factory install did NOT ship:$_missing9 (cannot test their refresh)"
+else
+  ok "gh-1312 precondition: --profile factory install shipped all ${#REFRESH_TARGETS9[@]} depth artefacts under test"
+  # Capture the as-installed bytes (shipped copies are transform_internal_refs-rewritten, so
+  # the fresh-install copy — not the framework source — is the parity target), plant stale.
+  _fresh9_dir=$(mktemp -d)
+  _i=0
+  for _p in "${REFRESH_TARGETS9[@]}"; do
+    cp "$TC9/$_p" "$_fresh9_dir/$_i"
+    printf '%s\n' "$STALE9" > "$TC9/$_p"
+    _i=$((_i+1))
+  done
+
+  # Bare --refresh: no --profile, so ONLY the presence clause can save these.
+  ( cd "$TC9" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null ) >/dev/null 2>&1
+
+  _i=0
+  for _p in "${REFRESH_TARGETS9[@]}"; do
+    if grep -qF "$STALE9" "$TC9/$_p"; then
+      bad "gh-1312 pos: $_p still stale after a bare --refresh (omitted from do_refresh)"
+    elif cmp -s "$TC9/$_p" "$_fresh9_dir/$_i"; then
+      ok "gh-1312 pos: $_p refreshed to the as-installed bytes (install/refresh parity)"
+    else
+      bad "gh-1312 pos: $_p changed but does NOT match the as-installed bytes"
+    fi
+    _i=$((_i+1))
+  done
+
+  # neg (LOAD-BEARING): plant stale in a second factory consumer, do NOT refresh → stays stale.
+  TC9_NEG=$(make_consumer_profile factory)
+  printf '%s\n' "$STALE9" > "$TC9_NEG/.claude/skills/arch/SKILL.md"
+  printf '%s\n' "$STALE9" > "$TC9_NEG/.claude/skills/rule-tests/SKILL.md"
+  if grep -qF "$STALE9" "$TC9_NEG/.claude/skills/arch/SKILL.md" \
+    && grep -qF "$STALE9" "$TC9_NEG/.claude/skills/rule-tests/SKILL.md"; then
+    ok "gh-1312 neg: without --refresh the planted markers persist (assertion non-vacuous)"
+  else
+    bad "gh-1312 neg: a planted marker vanished without --refresh → test was vacuous"
+  fi
+  rm -rf "$TC9_NEG" "$_fresh9_dir"
+fi
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TEST 10 — #1312 gap 2: the refresh arm must not ANNOUNCE what it does not ship
+# The `▶ Skills (…)` header named rule-tests while the loop's `[ -d "$_src" ] || continue`
+# guard dropped it every time (wrong payload root) — an honest-signals defect: the operator
+# reads the line and believes it landed. Assert every slug the header announces is actually
+# acted on somewhere in the same run.
+# ══════════════════════════════════════════════════════════════════════════════
+DRY10=$( cd "$TC9" && bash "$REPO_ROOT/install.sh" --refresh --dry-run < /dev/null 2>&1 )
+ANNOUNCED10=$(printf '%s\n' "$DRY10" | sed -n 's/^▶ Skills (\([^)]*\)).*/\1/p' | tr ', ' '\n' | sed '/^$/d')
+if [ -z "$ANNOUNCED10" ]; then
+  bad "announce-honesty: could not parse the '▶ Skills (…)' header from --refresh --dry-run output (gate broke)"
+else
+  _lies10=""
+  for _slug in $ANNOUNCED10; do
+    printf '%s\n' "$DRY10" | grep -qE "(would refresh|would skip|✓|⊝).*\.claude/skills/$_slug( |/|$)" \
+      || _lies10="$_lies10 $_slug"
+  done
+  if [ -z "${_lies10// }" ]; then
+    ok "announce-honesty: every slug the '▶ Skills' header announces is acted on in the same run ($(printf '%s' "$ANNOUNCED10" | tr '\n' ' '))"
+  else
+    bad "announce-honesty: header announces slug(s) the refresh never touches (announced-then-skipped):$_lies10"
+  fi
+  # neg (LOAD-BEARING): a slug that is NOT shipped must fail the same predicate.
+  if printf '%s\n' "$DRY10" | grep -qE "(would refresh|would skip|✓|⊝).*\.claude/skills/self-reflection( |/|$)"; then
+    bad "announce-honesty neg: the never-shipped slug 'self-reflection' matched the predicate → check is VACUOUS"
+  else
+    ok "announce-honesty neg: the never-shipped slug 'self-reflection' fails the predicate (check discriminates)"
+  fi
+fi
+rm -rf "$TC9"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TEST 11 — the paired-negative for TEST 8: an explicit deeper --profile DOES deliver
+# Same consumer tree TEST 8 just proved clean. `--refresh --profile env` is an explicit
+# depth signal, so every env-depth arm delivers — and the factory-only artefacts stay
+# absent (the boundary moves to env, it does not disappear).
+# ══════════════════════════════════════════════════════════════════════════════
+( cd "$TC8" && bash "$REPO_ROOT/install.sh" --refresh --profile env < /dev/null ) >/dev/null 2>&1
+_still11=""
+for _p in "${ENVPLUS_ONLY[@]}"; do
+  [ -e "$TC8/$_p" ] || _still11="$_still11 $_p"
+done
+if [ -z "${_still11// }" ]; then
+  ok "profile-honoured: --refresh --profile env delivers every env-depth artefact (TEST 8's absence was a gate decision, not an inability)"
+else
+  bad "profile-honoured: --refresh --profile env still missing env-depth artefact(s):$_still11"
+fi
+_leak11=""
+for _p in "${FACTORY_ONLY[@]}"; do
+  [ -e "$TC8/$_p" ] && _leak11="$_leak11 $_p"
+done
+if [ -z "${_leak11// }" ]; then
+  ok "profile-honoured: --refresh --profile env leaves the factory-only artefacts absent (boundary moved, not removed)"
+else
+  bad "profile-honoured: --refresh --profile env delivered factory-only artefact(s):$_leak11"
+fi
+rm -rf "$TC8"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
