@@ -106,6 +106,34 @@ AGENTS_FENCE_SENTINEL_2='.ai-factory/RULES.md'
 # does not exist (lychee-shipped-md-offline RED on agents/fidelity-auditor.md:22 → dispatcher).
 # Blob URL, not a relative rewrite: the target skill may be absent (aif-suite–gated) — same
 # verdict as the agents/ arm above.
+# 2026-08-17 — six arms added after the lychee gate's population was widened from core to
+# factory depth (tests/install-sh/lychee-shipped-md-offline.test.sh). Every one of these had
+# been shipping dangling for as long as env/factory depth existed; none was reachable by the
+# core-depth fixture, so all six were invisible. Measured at factory depth: 17 broken links.
+#   - `CLAUDE.md` (10 of the 17 — the single biggest offender): the peer `README.md` arm above
+#     has existed since the original fix, but CLAUDE.md was never added even though it is just
+#     as absent from a consumer (install ships AGENTS.md, never CLAUDE.md — verified on the
+#     fixture). Sources: arch ×7, dispatcher, pipeline, pipeline/references/mode-overrides.
+#   - `.claude/orchestrator-prompts/` — the `.claude/`-PREFIXED shape. The 2026-07-25 arm below
+#     only matches the bare `](../../orchestrator-prompts/` shape, so a ref written as
+#     `](../../../.claude/orchestrator-prompts/…)` slipped past it untouched (vendor README:4).
+#   - `.github/` — never shipped except `.github/workflows/` (verified: the factory fixture has
+#     workflows/ only, no pull_request_template.md). Source: pipeline/SKILL.md:366.
+# The last three are DELIBERATELY per-file, not blanket arms, because their parent directories
+# are PARTIALLY shipped — a blanket arm would rewrite genuinely consumer-resolvable refs into
+# blob URLs and lose in-repo navigability:
+#   - `scripts/run-local-ci-sweep.sh` — this is the "shipped-scripts allowlist" the §park note
+#     above anticipated ("Extend only with a shipped-scripts allowlist if a future scripts/ ref
+#     to a non-shipped script re-breaks a push"). It re-broke the push; scripts/ IS partially
+#     shipped, so only the proven-absent file is rewritten. Source: harvest/SKILL.md:18,20.
+#   - `hooks/check-worker-dispatch-channel.sh` — `.claude/hooks/` IS shipped and most hook refs
+#     resolve fine (transform-internal-refs.test.sh #5 asserts `](../../hooks/…)` stays intact),
+#     so only this one absent hook is rewritten. Source: pipeline/SKILL.md:388.
+#   - `](../reviewer/` — sibling-skill shape. Sibling refs normally resolve (skills ship next to
+#     each other), but `reviewer` is in NO tier list (GETFF_SKILLS_CORE/_ENV/_FACTORY above), so
+#     it never lands on a consumer at any depth. Source: arch/SKILL.md:94.
+# Recurrence is now caught mechanically, not by review attention: the widened factory-depth
+# fixture covers 64/64 shipped *.md, so the next unshipped-target ref fails the gate.
 # Uses `-i.bak` for BSD-sed/GNU-sed portability, then removes the backup.
 transform_internal_refs() {
   local f="$1"
@@ -114,13 +142,19 @@ transform_internal_refs() {
     -e "s#\]\((\.\./)+docs/#](${UPSTREAM_BLOB_URL}/docs/#g" \
     -e "s#\]\((\.\./)+packages/#](${UPSTREAM_BLOB_URL}/packages/#g" \
     -e "s#\]\((\.\./)+README\.md#](${UPSTREAM_BLOB_URL}/README.md#g" \
+    -e "s#\]\((\.\./)+CLAUDE\.md#](${UPSTREAM_BLOB_URL}/CLAUDE.md#g" \
     -e "s#\]\((\.\./)+\.claude/rules/#](${UPSTREAM_BLOB_URL}/.claude/rules/#g" \
     -e "s#\]\((\.\./)+\.claude/skills/#](${UPSTREAM_BLOB_URL}/.claude/skills/#g" \
+    -e "s#\]\((\.\./)+\.claude/orchestrator-prompts/#](${UPSTREAM_BLOB_URL}/.claude/orchestrator-prompts/#g" \
     -e "s#\]\((\.\./)+rules/#](${UPSTREAM_BLOB_URL}/.claude/rules/#g" \
     -e "s|\]\((\.\./)+install\.sh([#)])|](${UPSTREAM_BLOB_URL}/install.sh\2|g" \
     -e "s#\]\((\.\./)+agents/#](${UPSTREAM_BLOB_URL}/agents/#g" \
     -e "s#\]\((\.\./)+tests/#](${UPSTREAM_BLOB_URL}/tests/#g" \
     -e "s#\]\((\.\./)+orchestrator-prompts/#](${UPSTREAM_BLOB_URL}/.claude/orchestrator-prompts/#g" \
+    -e "s#\]\((\.\./)+\.github/#](${UPSTREAM_BLOB_URL}/.github/#g" \
+    -e "s#\]\((\.\./)+scripts/run-local-ci-sweep\.sh#](${UPSTREAM_BLOB_URL}/scripts/run-local-ci-sweep.sh#g" \
+    -e "s#\]\((\.\./)+hooks/check-worker-dispatch-channel\.sh#](${UPSTREAM_BLOB_URL}/.claude/hooks/check-worker-dispatch-channel.sh#g" \
+    -e "s#\]\(\.\./reviewer/#](${UPSTREAM_BLOB_URL}/.claude/skills/reviewer/#g" \
     "$f"
   rm -f "${f}.bak"
 }

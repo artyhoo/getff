@@ -12,6 +12,19 @@
 #         proving the probe bites and is not vacuous.
 #
 # Skips (exit 0, loud note) when lychee is not on PATH — mirrors pre-push §8's own gating.
+#
+# POPULATION — factory depth, not core (widened 2026-08-17, same class as GH #1377/PR #1413):
+# the fixture used to install `ts-server --full --force`. `--full` is the dev-deps flag, NOT a
+# depth flag (install.sh:114 sets FULL; PROFILE is a separate `--profile` arg at :128), so with
+# no `--profile` the fixture resolved to `core` — 35 *.md, 4 skills. Everything gated behind
+# env/factory depth was therefore OUTSIDE the gate's population entirely and stayed green while
+# shipping dangling links: the 6 env+factory skills (GETFF_SKILLS_ENV/_FACTORY, setup.d/lib.sh:59)
+# and the factory-only runtime-bridge vendor drop (setup.d/55-runtime-bridge-vendor.sh:65 returns
+# early at core/env). Measured 2026-08-17: core = 35 *.md / 4 skills, factory = 64 *.md / 14
+# skills, and `comm -23` proves core ⊂ factory strictly — so installing at factory depth is a
+# pure widening, losing no coverage. At factory depth the gate found 17 broken links across 6
+# inputs (10 × `](../../../CLAUDE.md)`, 2 × the vendor README, 2 × run-local-ci-sweep.sh, and one
+# each for reviewer/SKILL.md, check-worker-dispatch-channel.sh, pull_request_template.md).
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 PASS=0; FAIL=0
@@ -26,8 +39,16 @@ fi
 T=$(mktemp -d)
 trap 'rm -rf "$T"' EXIT
 printf '{"name":"lychee-fixture","version":"0.0.0"}\n' > "$T/package.json"
-( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --full --force ) >/dev/null 2>&1 \
+( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --full --force --profile factory ) >/dev/null 2>&1 \
   || { bad "install.sh exited non-zero — fixture install failed"; echo "PASS=$PASS FAIL=$FAIL"; exit 1; }
+
+# Non-vacuity guard on the widening (mirrors tests/install-sh/gh-531-shipped-prettier.test.sh:256):
+# every factory-depth assertion below is silently VACUOUS if the profile gate regresses and the
+# deep surface never lands. Assert the two markers of factory depth — the vendor drop (the
+# factory-only layer) and an env-tier skill — before trusting a green lychee run.
+[ -d "$T/.claude/vendor/runtime-bridge" ] && [ -d "$T/.claude/skills/pipeline" ] \
+  && ok "fixture installed at factory depth (.claude/vendor/runtime-bridge + env-tier skills present)" \
+  || { bad "fixture lacks .claude/vendor/runtime-bridge or .claude/skills/pipeline — profile gate regressed, ALL assertions below VACUOUS"; echo "PASS=$PASS FAIL=$FAIL"; exit 1; }
 
 # Whole installed tree (minus node_modules) — the first consumer push runs lychee over
 # EVERY shipped .md (AGENTS.md, .ai-factory/*.md, .claude/**), not just .claude/**.

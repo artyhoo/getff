@@ -20,9 +20,22 @@
 #       Six such leaks surfaced in the S2 corpus sweep (harvest/dispatcher/night-mode).
 #   4e. transforms ](../tests/fixtures/foo/README.md) → ](${URL}/tests/fixtures/foo/README.md)
 #       — S2 2026-07-25: tests/ is never shipped; one leak in shipped-agent-liveness-prober.md.
-#   4f. LEAVES ](../../../scripts/foo.sh) intact — scripts/ is PARTIALLY shipped
+#   4f. LEAVES ](../../../scripts/check-rule-enforced.sh) intact — scripts/ is PARTIALLY shipped
 #       (subset via setup.d/40-configs.sh); per-file ambiguity is a §4 park trigger
 #       (kickoff getff-honest-signals-s2 §4). Boundary documented, not blanket-rewritten.
+#   4f2-4f4. PER-FILE allowlist (2026-08-17) — the park's own stated trigger fired. Widening the
+#       lychee fixture from core to factory depth caught three refs to proven-absent targets:
+#       scripts/run-local-ci-sweep.sh, hooks/check-worker-dispatch-channel.sh, and the sibling
+#       ](../reviewer/ (a skill in NO GETFF_SKILLS_* tier). Each verified missing from a real
+#       `--profile factory` install. 4f vs 4f2 is the honest pair: same directory, opposite
+#       verdicts, decided per-file by whether that file actually ships.
+#   4f5. PREMISE GUARD for 4f4 — asserts `reviewer` is still in no tier. A stale sibling arm is
+#       the one failure here that NO link gate could catch (an extra blob URL is not a broken
+#       link), so the premise gets an explicit assertion instead of relying on someone noticing.
+#   4i-4k. BLANKET arms (2026-08-17): CLAUDE.md (consumers get AGENTS.md, never CLAUDE.md — 10
+#       of the 17 factory-depth breaks, purely because the peer README.md arm existed from day
+#       one and this one never got added), the `.claude/`-PREFIXED orchestrator-prompts shape
+#       (4g's bare arm does not match it), and .github/ (only .github/workflows/ ships).
 #   4g. transforms ](../../orchestrator-prompts/foo/kickoff.md) → ](${URL}/.claude/orchestrator-prompts/foo/kickoff.md)
 #       — S2 2026-07-25 round-1 rework: .claude/orchestrator-prompts/ is NEVER delivered
 #       to consumers (the only install action is mkdir_safe "$PROJECT_ROOT/.ai-factory/
@@ -74,8 +87,15 @@ cat > "$FIXTURE" <<'EOF'
 - [agent file link](../../../agents/fidelity-auditor.md) — should TRANSFORM (S2: wrong path on consumer)
 - [tests fixture](../tests/fixtures/foo/README.md) — should TRANSFORM (S2: tests/ not shipped)
 - [orchestrator-prompts](../../orchestrator-prompts/aif-doctor-skill/kickoff.md) — should TRANSFORM (S2: never delivered to consumers)
-- [scripts link](../../../scripts/run-local-ci-sweep.sh) — should STAY (S2 park: scripts/ partial-ship)
+- [scripts link](../../../scripts/check-rule-enforced.sh) — should STAY (S2 park: scripts/ partial-ship)
+- [unshipped script](../../../scripts/run-local-ci-sweep.sh) — should TRANSFORM (allowlist: proven-absent)
+- [unshipped hook](../../hooks/check-worker-dispatch-channel.sh) — should TRANSFORM (allowlist: proven-absent)
+- [sibling skill](../reviewer/SKILL.md) — should TRANSFORM (reviewer is in no tier list)
 - [agent skill link](../.claude/skills/dispatcher/SKILL.md) — should TRANSFORM (agent shape: doubles to .claude/.claude on consumer)
+- [claude md](../../../CLAUDE.md) — should TRANSFORM (consumer gets AGENTS.md, never CLAUDE.md)
+- [claude md anchor](../../../CLAUDE.md#pr-strategy) — should TRANSFORM (anchor preserved)
+- [dotclaude orch](../../../.claude/orchestrator-prompts/beta/kickoff-s5.md) — should TRANSFORM (.claude/-prefixed shape)
+- [pr template](../../../.github/pull_request_template.md) — should TRANSFORM (.github/ not shipped)
 - [hook link](../../../hooks/end-of-turn-reminder.sh) — should STAY
 EOF
 
@@ -140,9 +160,58 @@ grep -qF "](${UPSTREAM_BLOB_URL}/tests/fixtures/foo/README.md)" <<<"$OUT" \
 # (subset via setup.d/40-configs.sh); the per-file ambiguity is a §4 park trigger.
 # Documents the boundary — extend with a shipped-scripts allowlist if a future
 # scripts/ ref to a non-shipped script re-breaks a consumer push.
-grep -qF "](../../../scripts/run-local-ci-sweep.sh)" <<<"$OUT" \
+grep -qF "](../../../scripts/check-rule-enforced.sh)" <<<"$OUT" \
   && ok "4f: ../../../scripts/ left intact (S2 park: scripts/ partial-ship ambiguity)" \
-  || bad "4f: scripts/ was rewritten — park violated; got: $(grep -F 'scripts/run' <<<"$OUT")"
+  || bad "4f: scripts/ was rewritten — park violated; got: $(grep -F 'scripts/check-rule' <<<"$OUT")"
+
+# Sub-tests 4f2-4f4: the three PER-FILE allowlist arms (2026-08-17). The park above stays a
+# park — scripts/ and .claude/hooks/ are still NOT blanket-rewritten (4f, 5) — but the park's
+# own stated trigger fired ("extend with a shipped-scripts allowlist if a future scripts/ ref
+# to a non-shipped script re-breaks a consumer push"): widening the lychee fixture from core to
+# factory depth caught all three shipping dangling. Each target was verified ABSENT from a real
+# `--profile factory` install before being allowlisted, so these three are proven-absent, not
+# guessed. Pairing 4f against 4f2 is what keeps the distinction honest: same directory, opposite
+# verdicts, decided by whether the specific file ships.
+grep -qF "](${UPSTREAM_BLOB_URL}/scripts/run-local-ci-sweep.sh)" <<<"$OUT" \
+  && ok "4f2: scripts/run-local-ci-sweep.sh → blob (allowlist: proven absent at factory depth)" \
+  || bad "4f2: unshipped scripts/ allowlist arm failed; got: $(grep -F 'run-local-ci-sweep' <<<"$OUT")"
+
+grep -qF "](${UPSTREAM_BLOB_URL}/.claude/hooks/check-worker-dispatch-channel.sh)" <<<"$OUT" \
+  && ok "4f3: hooks/check-worker-dispatch-channel.sh → blob (allowlist: proven absent)" \
+  || bad "4f3: unshipped hook allowlist arm failed; got: $(grep -F 'check-worker-dispatch' <<<"$OUT")"
+
+grep -qF "](${UPSTREAM_BLOB_URL}/.claude/skills/reviewer/SKILL.md)" <<<"$OUT" \
+  && ok "4f4: sibling ](../reviewer/ → blob (reviewer is in no GETFF_SKILLS_* tier)" \
+  || bad "4f4: sibling-skill arm failed; got: $(grep -F 'reviewer/' <<<"$OUT")"
+
+# Sub-test 4f5: PREMISE GUARD for 4f4. The sibling arm is correct only while `reviewer` ships to
+# nobody. If it is ever added to a tier, the arm silently starts rewriting a ref that WOULD have
+# resolved on the consumer into a blob URL — and no link checker can see that regression, because
+# an extra blob URL is not a broken link (lychee --offline excludes remote URLs by design). That
+# makes the premise attention-dependent unless it is asserted here, so assert it: this is the one
+# place the 4f4 arm can be caught going stale.
+case " $GETFF_SKILLS_CORE $GETFF_SKILLS_ENV $GETFF_SKILLS_FACTORY " in
+  *" reviewer "*)
+    bad "4f5: 'reviewer' is now in a GETFF_SKILLS_* tier — the 4f4 arm in setup.d/lib.sh MUST be removed (it now rewrites a consumer-resolvable sibling ref into a blob URL, and no link gate can detect that)" ;;
+  *)
+    ok "4f5: premise holds — 'reviewer' is in no tier, so the 4f4 arm still rewrites a genuinely-absent target" ;;
+esac
+
+# Sub-tests 4i-4k: the three BLANKET arms added 2026-08-17 alongside the allowlist above.
+# CLAUDE.md was the single biggest offender at factory depth (10 of 17 broken links) purely
+# because the peer README.md arm had existed from the start and this one had never been added.
+grep -qF "](${UPSTREAM_BLOB_URL}/CLAUDE.md)" <<<"$OUT" \
+  && grep -qF "](${UPSTREAM_BLOB_URL}/CLAUDE.md#pr-strategy)" <<<"$OUT" \
+  && ok "4i: ../../../CLAUDE.md → blob, anchor form preserved (consumer ships AGENTS.md only)" \
+  || bad "4i: CLAUDE.md rewrite failed; got: $(grep -F 'CLAUDE.md' <<<"$OUT")"
+
+grep -qF "](${UPSTREAM_BLOB_URL}/.claude/orchestrator-prompts/beta/kickoff-s5.md)" <<<"$OUT" \
+  && ok "4j: .claude/-PREFIXED orchestrator-prompts → blob (4g's bare arm misses this shape)" \
+  || bad "4j: .claude/-prefixed orchestrator-prompts failed; got: $(grep -F 'kickoff-s5' <<<"$OUT")"
+
+grep -qF "](${UPSTREAM_BLOB_URL}/.github/pull_request_template.md)" <<<"$OUT" \
+  && ok "4k: ../../../.github/ → blob (only .github/workflows/ ships)" \
+  || bad "4k: .github/ rewrite failed; got: $(grep -F '.github/' <<<"$OUT")"
 
 # Sub-test 4g: orchestrator-prompts/ rewritten (S2 2026-07-25 round-1 rework).
 # .claude/orchestrator-prompts/ is never delivered to consumers — the only install

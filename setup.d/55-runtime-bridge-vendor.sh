@@ -101,6 +101,21 @@ mkdir_safe "$PROJECT_ROOT/.claude/vendor"
 rm -rf "$VENDOR_DST"
 cp -r "$VENDOR_SRC" "$VENDOR_DST"
 
+# Rewrite repo-internal relative refs in the DELIVERED markdown (2026-08-17). The bare `cp -r`
+# above was the only shipped-markdown path in setup.d/ that skipped transform_internal_refs
+# (cf. 10-skills.sh:29,48 · 20-agents.sh:50 · lib.sh:900,930), so vendor/README.md's two
+# `](../../../…)` refs shipped verbatim. They resolve in-repo — packages/runtime-bridge/vendor/
+# sits three levels below the repo root, the same depth as .claude/vendor/runtime-bridge/ below
+# a consumer root — which is exactly why the breakage is invisible here and fatal there: on a
+# consumer both targets are absent, and pre-push §8 (`lychee --offline` over changed *.md) goes
+# red on the FIRST push. That is the 2026-07-10 flat-install smoke incident (lib.sh:65-93).
+# Delivery-time, not source-time, ON PURPOSE: PR #1417 keeps this vendor drop byte-identical to
+# its tracked source, and rewriting the delivered copy preserves that (the tracked file is not
+# touched) where re-authoring the README would break it.
+find "$VENDOR_DST" -name '*.md' -type f | while IFS= read -r _md; do
+  transform_internal_refs "$_md"
+done
+
 # Copy the dispatch hook (idempotent — same destination as
 # setup-runtime-bridge.sh's HOOK_DST copy; byte-identical source).
 mkdir_safe "$PROJECT_ROOT/.claude/hooks"
