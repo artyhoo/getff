@@ -253,7 +253,7 @@ Exactly one block per stage. Maintainer pastes the entire block into a fresh CC 
 
 **Tokens:**
 
-- `/orchestrator` — deterministic CC slash-command routing token. Activates the global `~/.claude/skills/orchestrator/SKILL.md`.
+- `/orchestrator` — deterministic CC slash-command routing token. Activates `.claude/skills/orchestrator/SKILL.md`.
 - `<umbrella-name>` — kebab-case identifier matching the kickoff directory `.claude/orchestrator-prompts/<umbrella-name>/kickoff.md`.
 - `§<section-anchor>` — exact section header from the kickoff (e.g. `§1`, `§4 Stage 1`, `§1 Sub-wave F.3`).
 - `— <natural-language payload>` — free-form description naming Mode/role/autonomous?/iterative-review-status. The global `orchestrator` skill parses this as natural language, NOT as `--flag=value` args.
@@ -263,7 +263,7 @@ Exactly one block per stage. Maintainer pastes the entire block into a fresh CC 
 
 - 10 mature tools surveyed (GHA, Concourse, Argo, Dagger, just, LangGraph, Cline, Superpowers, `gh workflow run`, chat-orchestrator pattern article) — all converge on `/<command> <natural-language-payload>` for chat-medium dispatch. None use `/Flag-Value /Flag-Value …` shape.
 - Maintainer (2026-05-24) explicitly rated the earlier `/Mode-A /Roles-worker /Skills-foo /Autonomous-yes /Iterative-review-no` draft «not a convenient format, I don't like it».
-- The global orchestrator skill at `~/.claude/skills/orchestrator/SKILL.md` parses natural-language payload (no structured-args parser).
+- The orchestrator skill at `.claude/skills/orchestrator/SKILL.md` parses natural-language payload (no structured-args parser).
 
 ## §4.1 Description block above each 1-liner (mandatory, prose-discipline)
 
@@ -483,16 +483,16 @@ Total pastes: 1 (Queue mode internally processes all 4 R-iters autonomously).
 
 ## §6 Anti-patterns for the 1-liner format
 
-- **`#slash-tag-flag-format`** — formatting payload as `/Mode-A /Roles-… /Skills-… /Autonomous-yes /Iterative-review-no /Kickoff:<path>`. F.1 §A.5(i) — ZERO upstream precedent across 10 surveyed tools. Maintainer 2026-05-24 explicit «not a convenient format». Counter: natural-language payload after `— ` (em-dash + space). **Falsifier:** if a future revision of `~/.claude/skills/orchestrator/SKILL.md` adds a structured-args parser, the slash-tag format may regain viability — verify by reading the global skill body before falsifying.
+- **`#slash-tag-flag-format`** — formatting payload as `/Mode-A /Roles-… /Skills-… /Autonomous-yes /Iterative-review-no /Kickoff:<path>`. F.1 §A.5(i) — ZERO upstream precedent across 10 surveyed tools. Maintainer 2026-05-24 explicit «not a convenient format». Counter: natural-language payload after `— ` (em-dash + space). **Falsifier:** if a future revision of `.claude/skills/orchestrator/SKILL.md` adds a structured-args parser, the slash-tag format may regain viability — verify by reading that skill body before falsifying.
 - **`#paste-block-with-kickoff-content-inlined`** — copying acceptance criteria / T-traps / skills list / stop conditions INTO the 1-liner. Defeats `rest in kickoff` deferral; the new session re-reads the kickoff at the anchor anyway. Counter: keep the 1-liner under ~150 chars; anything more belongs in the kickoff.
 - **`#missing-section-anchor`** — emitting `/orchestrator <umbrella> — Mode A …` without `§<section>`. The receiving session has no anchor to read; defaults to the kickoff top, which may be `§0 Status` or `§-1 RE-VERIFY` rather than the action body. Counter: every 1-liner carries an explicit `§<section>` anchor.
-- **`#pattern-matching-on-name-T16`** — assuming the format works because it visually resembles `/aif-handoff` slash-tag examples (which DO have structured args). Our `/orchestrator` is a different problem class — it parses NL payload, not args. Verify by reading the global skill body, not by analogy.
+- **`#pattern-matching-on-name-T16`** — assuming the format works because it visually resembles `/aif-handoff` slash-tag examples (which DO have structured args). Our `/orchestrator` is a different problem class — it parses NL payload, not args. Verify by reading that skill body, not by analogy.
 
 ---
 
 ## §7 Falsifiers
 
-- **Wrong if** `~/.claude/skills/orchestrator/SKILL.md` is replaced by a structured-args parser — re-read the global skill body before relying on the natural-language form documented here. (Agent-uncommittable: F.3 reads the global skill but does NOT edit it.)
+- **Wrong if** `.claude/skills/orchestrator/SKILL.md` is replaced by a structured-args parser — re-read that skill body before relying on the natural-language form documented here. (F.3 reads the orchestrator skill but does NOT edit it.)
 - **Wrong if** Argo Workflows discontinues the `├── / └──` ASCII tree convention or the upstream pattern is superseded by a better chat-medium-renderable graph notation. Re-check F.1 SSOT entry on a 12-month cadence.
 - **Wrong if** the `Can parallel with` column proves redundant in practice (e.g. maintainer never consults it; or all umbrellas turn out to be strictly sequential). Promotion-to-drop trigger: 3 consecutive umbrellas where the column is empty for every row.
 

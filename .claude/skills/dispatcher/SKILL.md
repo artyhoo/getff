@@ -21,7 +21,7 @@ allowed-tools:
 
 > **Class:** C — prose-only wiring skill; mechanical enforcement = CC slash-command primitive (exists or does not). Promotion criterion: ≥2 harvest-forgotten incidents within 6 months → consider a PostToolUse hook checking done-task dedup against harvested PRs.
 > **Authoritative for:** /dispatcher slash-command behaviour — §0 invocation through §6 advance; dispatch→monitor→Q&A→harvest→Phase-1→stage-gate→advance loop; Q&A park-type taxonomy; the §3 Type-2 park-chip contract + decision-session protocol (ADR D3/D4); dual-channel degradation for CC-absent harnesses.
-> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). Planning, priority scoring, launch-table generation — see [.claude/skills/pipeline/SKILL.md](../pipeline/SKILL.md). Global `~/.claude/skills/orchestrator/` (agent-uncommittable, owner=maintainer).
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). Planning, priority scoring, launch-table generation — see [.claude/skills/pipeline/SKILL.md](../pipeline/SKILL.md). The `orchestrator` skill at `.claude/skills/orchestrator/`.
 
 # /dispatcher — aif-control execution loop
 
@@ -409,7 +409,7 @@ If the brainstorming companion is unreachable (Cursor / Aider / Codex / no Super
 
 - **Does NOT plan** — priority scoring, launch-table generation, plan-currency check = `/pipeline`'s job. `/dispatcher` only executes a named umbrella.
 - **Does NOT build new CLI primitives** — wires the 4 existing ones in `packages/runtime-bridge/src/cli/`. A genuinely-needed new primitive = surface as a finding to maintainer, do not add it here.
-- **Does NOT edit `~/.claude/skills/orchestrator/`** — global skill, agent-uncommittable; maintainer-owned.
+- **Does NOT edit `.claude/skills/orchestrator/`** — another skill's artefact; wrap, never fork.
 - **Does NOT add npm deps** — zero new dependencies; `tsx` runs existing TypeScript.
 
 ---

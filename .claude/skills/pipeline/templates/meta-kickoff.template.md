@@ -219,7 +219,7 @@ Any session message produced FROM this kickoff (Worker REPORT, Reviewer GO/REVIS
 - Stage gate command returns empty AND Stage N was expected merged → halt, report.
 - Phase -1 reviewer returns STOP → halt, surface to maintainer.
 - Any sub-wave returns BLOCKER finding → halt Stage; surface before proceeding.
-- Any temptation to edit `~/.claude/skills/orchestrator/` → T-MOB-C violation; stop.
+- Any temptation to edit `.claude/skills/orchestrator/` → T-MOB-C violation; stop.
 
 ---
 
@@ -227,7 +227,7 @@ Any session message produced FROM this kickoff (Worker REPORT, Reviewer GO/REVIS
 
 - Do NOT write sub-wave implementation code in this kickoff.
 - Do NOT finalize project strategy — surface genuine forks to maintainer.
-- Do NOT modify `~/.claude/skills/orchestrator/` (agent-uncommittable).
+- Do NOT modify `.claude/skills/orchestrator/` (another skill's artefact — wrap, never fork).
 - Do NOT add npm deps (substrate-purity per no-paid-llm-in-ci.md + BFR-default).
 
 ---

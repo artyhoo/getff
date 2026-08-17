@@ -131,7 +131,7 @@ plan-complete kickoff → bridge-profile marker) still applies — see the doc's
 
 ### Phase -1 principle-test allowlist probe
 
-Moved 2026-07-21 to its declared codification target: `~/.claude/skills/orchestrator/SKILL.md` Phase -1 → «Principle-test allowlist probe». This stub stays because in-flight kickoffs cite «CLAUDE.md §Operational conventions» for the probe; new kickoffs should cite the skill directly.
+Moved 2026-07-21 to its declared codification target: `.claude/skills/orchestrator/SKILL.md` Phase -1 → «Principle-test allowlist probe». This stub stays because in-flight kickoffs cite «CLAUDE.md §Operational conventions» for the probe; new kickoffs should cite the skill directly.
 
 ### Pre-dispatch in-flight probe
 
