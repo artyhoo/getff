@@ -38,8 +38,9 @@ retitled in one render alone fails the check rather than quietly forking.
 ## §2 First Steps
 
 Three sequences, one per install depth. Run the one matching the depth you installed. If you do
-not know: `core` is the default, `env` additionally puts `.ai-factory/tier-home.md` and
-`.claude/skills/arch/` on disk, `factory` additionally puts `.claude/skills/dispatcher/` there.
+not know: `env` is the default, `core` is the rules-only depth below it and puts neither
+`.ai-factory/tier-home.md` nor `.claude/skills/arch/` on disk, and `factory` additionally puts
+`.claude/skills/dispatcher/` there.
 
 ### §2.1 `core` — install → a rule provably fires on your code
 

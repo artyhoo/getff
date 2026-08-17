@@ -65,18 +65,20 @@ Install getff into this project. Follow these steps exactly:
    `bash /tmp/getff/setup -y <detected-stack>`
    (adjust the path if Step 0 cloned the framework elsewhere)
 
-   `-y` installs the curated consumer set at `core` depth — the right default. Use
+   `-y` installs the curated consumer set at `env` depth — the right default. Use
    `bash /tmp/getff/setup --all <detected-stack>` INSTEAD only if I explicitly
    tell you this machine runs the aif-handoff operator runtime: --all
    additionally ships the AIF operator suite (7 skills + 2 agents +
    skill-context) at `factory` depth that dead-ends without that runtime.
    Equivalent new-syntax forms: `install.sh <stack> --profile factory` (recommended for
    new installs) or `install.sh <stack> --with-aif-suite` (legacy escape). When unsure, use -y
-   (i.e. core). See "Install depth profiles" below for the full core/env/factory breakdown.
+   (i.e. env). Pass `--profile core` for the rules-only depth below the default. See
+   "Install depth profiles" below for the full core/env/factory breakdown.
 
-   This installs (verified against a real `core` install, 2026-08-08):
+   This installs (verified against a real default install, 2026-08-17):
    - .claude/agents/ — 10 files: aif-init, capability-reuse-auditor, compliance-verifier, docplan-auditor, fidelity-auditor, living-docs-auditor, memory-codification-auditor, review-sidecar, rule-researcher, rule-test-author (best-practices-sidecar is KEEP-AIF — not shipped by us; review-sidecar default-skips when AIF's exists; orchestrator-worker-discipline + reviewer-discipline appear only at --profile factory / --with-aif-suite / --all)
-   - .claude/skills/ — 6 dirs: getff (+ 5 reference files in references/), tool-bootstrapping, rule-research, rule-tests, ai-doc, template-audit. NOTE the directory is `getff`, not `rules-as-tests` — see "Names you will see" below
+   - .claude/skills/ — 11 dirs at the default `env` depth: the 6-dir core set — getff (+ 5 reference files in references/), tool-bootstrapping, rule-research, rule-tests, ai-doc, template-audit — plus the operator contour arch, night-mode, orchestrator, pipeline, reviewer. `--profile core` ships the 6 core dirs only. NOTE the directory is `getff`, not `rules-as-tests` — see "Names you will see" below
+   - .ai-factory/tier-home.md — the tier-routing criteria (env+ only; absent at `--profile core`)
    - .ai-factory/DESCRIPTION.template.md + DESCRIPTION.md, ARCHITECTURE.ts-server.md + ARCHITECTURE.md, RULES.md, RULES.react-next.md (if applicable), AI-USAGE-GUIDE.md, tool-decisions.md, skill-context/{aif-review,aif-rules-check}/
    - AGENTS.md — written as a `getff:begin section=getff-framework` fenced block, so a root AGENTS.md another tool already generates is extended, never replaced
    - scripts/audit-ai-docs.sh (or .react-next.sh) + the check-\* gate scripts
@@ -127,13 +129,13 @@ If a doc or script sends you to `.claude/skills/rules-as-tests/`, it is stale: t
 
 ## Install depth profiles (`--profile core | env | factory`)
 
-Pick a depth instead of assembling flags. Three monotonic depths, default `core`:
+Pick a depth instead of assembling flags. Three monotonic depths, default `env` (raised from `core` 2026-08-17 — `env` needs nothing external, so gating it was a decision rather than a necessity):
 
-| Profile          | What ships                                                                                                                                              | When to pick                                                                                                                                                           |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `core` (default) | Rules + tests + guard hooks + killer payload; today's default set. No AIF operator runtime.                                                             | Consumer projects that want the rules-as-tests discipline without any aif-handoff runtime.                                                                             |
-| `env`            | core + multi-model contour surface (/arch, presets, status, night-mode/SDD) — wired as placeholders; no AIF runtime.                                    | Consumer projects that want the multi-model contour surface as future-state placeholders (the contour ships via follow-up stages S2-S5, not via this stage's install). |
-| `factory`        | env + the AIF operator suite (dispatcher / harvest / aif-doctor + runtime-bridge wiring + GLM one-button placeholder) — full aif-handoff runtime stack. | Operator machines running the aif-handoff runtime. The legacy `--with-aif-suite` and `--all` flags are factory-equivalent escapes.                                     |
+| Profile         | What ships                                                                                                                                                                    | When to pick                                                                                                                                                      |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `core`          | Rules + tests + guard hooks + killer payload. No operator contour, no AIF operator runtime.                                                                                   | Consumer projects that want the rules-as-tests discipline without any aif-handoff runtime.                                                                        |
+| `env` (default) | core + the operator working contour: /arch, /orchestrator, /pipeline, /reviewer, night-mode/SDD, and the tier-routing criteria at `.ai-factory/tier-home.md`. No AIF runtime. | The default. Nothing at this depth needs anything external — verified by a real install whose delivered tree is link-clean — so it ships unless you ask for less. |
+| `factory`       | env + the AIF operator suite (dispatcher / harvest / aif-doctor + runtime-bridge wiring + GLM one-button placeholder) — full aif-handoff runtime stack.                       | Operator machines running the aif-handoff runtime. The legacy `--with-aif-suite` and `--all` flags are factory-equivalent escapes.                                |
 
 **Selection surfaces:**
 
