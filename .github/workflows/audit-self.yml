@@ -509,6 +509,14 @@ jobs:
         run: bash tests/hooks/prepush-cross-checkout-range.test.sh
       - name: Run runtime-bridge dispatch opt-IN gate paired-negative (one-click-installer kickoff §7)
         run: bash tests/hooks/runtime-bridge-dispatch-optin.test.sh
+      # Wired 2026-08-17. This suite had existed since the S6 twin generator shipped but was
+      # invoked by NO workflow step and NO pre-push section — a test nobody ran. It is the only
+      # coverage of scripts/generate-plugin-twins.sh, including the sandbox arms proving the
+      # agents population re-syncs and never invents a twin. Principle 38 gates vitest↔CI
+      # coverage only, so a stranded *.sh test is invisible to it (that wider gap is recorded,
+      # not fixed here).
+      - name: Run plugin twin generator acceptance (hooks + agents populations)
+        run: bash tests/plugin/twin-generation.test.sh
 
   install-sh-a:
     name: install-sh battery (shard A)
