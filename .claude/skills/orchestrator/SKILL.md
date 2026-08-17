@@ -10,17 +10,28 @@ description: |
 when_to_use: оркестратор, организатор, ты старшая, батч правок, umbrella, пакет фиксов, много мелких, делегируй, младшая модель, координируй, разбей на подзадачи, orchestrator, batch fixes, delegate, queue mode, kickoff, autonomous research, worker dispatch, воркер, ревьюер, очередь задач, автономно, волнами, итеративно, работай без остановок, прогони очередь кикофов, цикл кикофов, не останавливайся, сам до конца
 ---
 
-# Orchestrator — старшая координирует, младшие делают и верифицируют
+# Orchestrator — the senior coordinates, juniors execute and verify
+
+> **Authoritative for:** the operator-side orchestration workflow — Mode A/B dispatch choice, the task-size decision matrix, quota zones, the Phase -1 → Phase 4.5 phase sequence, and the Queue-mode entry conditions.
+> **NOT authoritative for:** the portable worker-discipline subset that travels into aif containers — see [packages/core/templates/shared/skill-context/aif-orchestrator-discipline/SKILL.md](../../../packages/core/templates/shared/skill-context/aif-orchestrator-discipline/SKILL.md). Stage execution through the aif loop — see [dispatcher](../dispatcher/SKILL.md). Umbrella priority and launch tables — see [pipeline](../pipeline/SKILL.md). Project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists).
+
+## Without this skill
+
+Delegation collapses into two failure modes. Either the senior does the work itself — burning its own context on greps and multi-file edits until it runs out of room mid-umbrella — or it delegates without discipline: no discovery, so junior prompts carry commands that do not exist in this repo; no file-lock matrix, so parallel agents collide in one branch; no quota tracking, so a 429 lands mid-batch and the progress is lost; no Phase -1, so an ambiguous kickoff is discovered only after the executor has acted on it.
+
+## With this skill
+
+Task size picks the mechanism (small → the senior's own `Edit`, bulk → an isolated inline `Agent`, a queue of research kickoffs → Queue mode), discovery is taken once per repo so junior prompts carry real commands, quota zones switch the working mode before a 429 rather than after it, and every kickoff above the trigger threshold gets a cold independent read before dispatch instead of after. One PR per umbrella, with a verify-trace that survives the Phase 4.5 audit.
 
 ## Glossary — three roles
 
 > Full definitions and hierarchy rules: [references/glossary.md](references/glossary.md)
 
-| Role | One-sentence definition |
-|---|---|
+| Role             | One-sentence definition                                                                        |
+| ---------------- | ---------------------------------------------------------------------------------------------- |
 | **Orchestrator** | Main session (Opus); owns queue, state.md, dispatch, anti-collusion spot-check, memory updates |
-| **Worker** | Subagent that executes one kickoff; writes output; does NOT spawn sub-queues |
-| **Reviewer** | Subagent that verifies Worker output cold; returns GO or REVISE; does NOT fix |
+| **Worker**       | Subagent that executes one kickoff; writes output; does NOT spawn sub-queues                   |
+| **Reviewer**     | Subagent that verifies Worker output cold; returns GO or REVISE; does NOT fix                  |
 
 Hierarchy depth = 2 (Orchestrator → Worker/Reviewer). `claude-code-guide` and MCP tools are utility helpers — not roles. See [references/glossary.md](references/glossary.md) for details.
 
@@ -30,333 +41,342 @@ Our terms (Mode A/B, Worker, Reviewer, Orchestrator dispatch loop) map 1:1 onto 
 
 ---
 
-Реализация двух паттернов из [Anthropic «Building Effective Agents»](https://www.anthropic.com/engineering/building-effective-agents):
+An implementation of two patterns from [Anthropic «Building Effective Agents»](https://www.anthropic.com/engineering/building-effective-agents):
 
-- **Orchestrator-workers**: старшая динамически разбивает umbrella-задачу на под-фиксы и делегирует исполнение младшим. Контекст исполнителей изолирован.
-- **Evaluator-optimizer**: младшая генерирует фикс + сама верифицирует (тесты, grep, diff stat). Старшая = evaluator: смотрит REPORT, в случае red-флагов отправляет follow-up.
+- **Orchestrator-workers**: the senior dynamically splits an umbrella task into sub-fixes and delegates execution to juniors. Executor context stays isolated.
+- **Evaluator-optimizer**: the junior generates a fix and verifies it itself (tests, grep, diff stat). The senior is the evaluator: it reads the REPORT and sends a follow-up on any red flag.
 
-Цель: **изоляция контекста старшей** + **максимум качества reasoning'а** + **один PR на umbrella**.
+Goal: **senior-context isolation** + **maximum reasoning quality** + **one PR per umbrella**.
 
 ---
 
-## Project bootstrap — discovery при первом запуске в проекте
+## Project bootstrap — discovery on first run in a project
 
-Скил универсальный. В **новом проекте** старшая один раз молча делает discovery — без него промты младшим будут содержать неверные команды/конвенции. Семь областей:
+The skill is project-agnostic. In a **new project** the senior silently runs discovery once — without it, junior prompts will carry wrong commands and conventions. Seven areas:
 
-1. Корень проекта + язык/формат коммитов (`pwd`, `git log --oneline -20`)
-2. Project instructions (`CLAUDE.md` / `AGENTS.md` — ссылаться, не пересказывать)
-3. Git topology (remote, базовая ветка, `<owner>/<repo>`)
-4. Task-ID convention из последних коммитов
-5. Build/check-команды + package manager (`<TYPECHECK>` `<LINT>` `<TEST>` `<CHECK_ALL>`)
-6. Project-local skills/rules (`ls .claude/skills/ .claude/rules/`) — упоминать по имени, auto-trigger подгрузит
-7. File-prompt directory в `.gitignore` (для Mode B)
+1. Project root + commit language/format (`pwd`, `git log --oneline -20`)
+2. Project instructions (`CLAUDE.md` / `AGENTS.md` — reference them, do not restate)
+3. Git topology (remote, base branch, `<owner>/<repo>`)
+4. Task-ID convention from recent commits
+5. Build/check commands + package manager (`<TYPECHECK>` `<LINT>` `<TEST>` `<CHECK_ALL>`)
+6. Project-local skills/rules (`ls .claude/skills/ .claude/rules/`) — name them, auto-trigger will load them
+7. File-prompt directory in `.gitignore` (for Mode B)
 
-Кэш — in-head на сессию (переснять при смене ветки/remote). Skip: уже работала в репо в этой сессии, или задача = одна тривиальная правка (→ прямой `Edit` без workflow). **Полный чек-лист с командами, вопросами пользователю и шаблоном `orchestrator.local.md`: [references/discovery.md](references/discovery.md).**
+The cache is in-head for the session (re-take it when the branch or remote changes). Skip when: already worked in this repo during this session, or the task is a single trivial fix (→ direct `Edit`, no workflow). **Full checklist with commands, user-facing questions and the `orchestrator.local.md` template: [references/discovery.md](references/discovery.md).**
 
 > After discovery: `Skill('superpowers:subagent-driven-development')` for PRD-driven decomposition, `Skill('superpowers:writing-plans')` for structured plan creation. Discovery is our niche; decomposition is companion's.
 
 ---
 
-## Дефолт — Mode A (inline `Agent` на Opus). Mode B (file-prompt → Sonnet) — явная опция
+## Default — Mode A (inline `Agent` on Opus). Mode B (file-prompt → Sonnet) is an explicit option
 
-**Mode A = дефолт для всего: execution, research, audit, verification.** Спавн inline `Agent` из старшей сессии: немедленный результат, ноль ручного copy-paste, сильный reasoning, можно ветвить план по interim-результатам. Контекст исполнителя изолирован (для write-задач — `isolation: "worktree"`).
+**Mode A = the default for everything: execution, research, audit, verification.** Spawn an inline `Agent` from the senior session: immediate result, zero manual copy-paste, strong reasoning, and the plan can branch on interim results. Executor context is isolated (for write tasks — `isolation: "worktree"`).
 
-**Почему A, а не B:** Opus-квота — не дефицит на Max plan, поэтому дефолт — сильный reasoning inline (а верхнюю ступень Fable держим для самых сложных задач, см. «Правило модели»). Mode A даёт немедленный результат без ручного overhead'а; Mode B (отдельное Sonnet-окно) требует ручного copy-paste каждого промта и REPORT'а, и его latency + overhead обычно дороже выигрыша — кроме случаев ниже.
+**Why A and not B:** the Opus quota is not scarce on the Max plan, so the default is strong reasoning inline (the top tier, Fable, is reserved for the hardest tasks — see «Model rule»). Mode A gives an immediate result with no manual overhead; Mode B (a separate Sonnet window) requires hand copy-pasting every prompt and REPORT, and its latency plus overhead usually costs more than it wins — except in the cases below.
 
-**Mode B — явная опция, не дефолт.** Бери B только когда выполнено хотя бы одно: (a) **N-кратная параллель** через N живых окон даёт реальный throughput-выигрыш сверх параллельных inline-Agent'ов одним сообщением; (b) нужен **persistent audit-trail** файлом-промтом; (c) пользователь **явно** просит разгрузить Sonnet-квоту И готов платить ручным copy-paste. Механика file-prompt: [references/batch-prompt-template.md](references/batch-prompt-template.md).
+**Mode B — an explicit option, not the default.** Take B only when at least one holds: (a) **N-way parallelism** across N live windows yields real throughput beyond parallel inline Agents in one message; (b) a **persistent audit trail** as a prompt file is required; (c) the user **explicitly** asks to offload onto the Sonnet quota AND accepts the manual copy-paste cost. File-prompt mechanics: [references/batch-prompt-template.md](references/batch-prompt-template.md).
 
-**Правило модели для Mode A (три ступени по сложности задачи):**
+**Model rule for Mode A (three tiers by task difficulty):**
 
-- **Fable** (`model: "fable"`) — для **самых сложных** задач: глубокий архитектурный анализ, adversarial cold-review необратимых операций, тонкий multi-file reasoning, где цена ошибки высока. Самая мощная ступень — держи для верхнего края сложности, не для рутины.
-- **Opus** (`model: "opus"` или без параметра — наследует Opus) — **дефолт** для обычной объёмной работы и сложного reasoning'а.
-- **Sonnet** (`model: "sonnet"`) — допустимая опция для задач попроще с реальной разводкой квоты. (На некоторых setup'ах Sonnet-via-Agent исторически списывался на Opus-пул — проверь на своём: после первого Sonnet-dispatch сверься по `/status` или `claude.ai/usage`, что расход лёг на Sonnet. История и детали: [references/rationale.md](references/rationale.md).)
+- **Fable** (`model: "fable"`) — for the **hardest** tasks: deep architectural analysis, adversarial cold review of irreversible operations, delicate multi-file reasoning where the cost of error is high. The most capable tier — reserve it for the top edge of difficulty, not for routine.
+- **Opus** (`model: "opus"`, or no parameter — inherits Opus) — the **default** for ordinary bulk work and hard reasoning.
+- **Sonnet** (`model: "sonnet"`) — an acceptable option for easier tasks where it genuinely splits the quota. (On some setups Sonnet-via-Agent has historically billed against the Opus pool — verify on yours: after the first Sonnet dispatch, check `/status` or claude.ai/usage to confirm the spend landed on Sonnet. History and details: [references/rationale.md](references/rationale.md).)
 
-Выбирай модель по сложности задачи, а не по запрету. Все три передаются через Agent tool (`model` принимает `fable` / `opus` / `sonnet`).
+Choose the model by task difficulty, not by prohibition. All three are passed through the Agent tool (`model` accepts `fable` / `opus` / `sonnet`).
 
 > `Skill('superpowers:subagent-driven-development')` provides the Coordinator/implementer/reviewer role model. See §Vocabulary alignment above.
 
 ---
 
-## Три способа выполнить работу — выбор по размеру задачи
+## Three ways to do the work — choose by task size
 
-> **Главное правило: смотри на размер задачи, потом на тип.**
+> **Main rule: look at task size first, then at type.**
 >
-> 1. **МЕЛКАЯ правка** (1 файл, ≤5 строк, путь известен, явная замена X→Y — опечатка, rename, текст кнопки) → **старшая сама через `Edit`**. Спавнить агента ради `s/foo/bar/` дороже чем сделать руками.
-> 2. **ОБЪЁМНАЯ execution-работа** (≥2 файлов ИЛИ ≥10 строк ИЛИ нужен grep/поиск ИЛИ меняется логика) → **Режим A: inline `Agent`** (write-задачи с `isolation: "worktree"`; параллель — несколько Agent-вызовов одним сообщением).
-> 3. **READ-ONLY research / audit / discovery / verification** → тоже **Режим A: inline `Agent`**. Результат немедленно в parent session; можно multi-turn follow-up и ветвить план по interim-результатам.
+> 1. **SMALL fix** (1 file, ≤5 lines, path known, explicit X→Y replacement — typo, rename, button text) → **the senior does it via `Edit`**. Spawning an agent for `s/foo/bar/` costs more than doing it by hand.
+> 2. **BULK execution work** (≥2 files OR ≥10 lines OR grep/search needed OR logic changes) → **Mode A: inline `Agent`** (write tasks with `isolation: "worktree"`; parallelism = several Agent calls in one message).
+> 3. **READ-ONLY research / audit / discovery / verification** → also **Mode A: inline `Agent`**. The result lands in the parent session immediately; multi-turn follow-up is possible and the plan can branch on interim results.
 >
-> **НЕ Mode A:** ≥2 research-kickoffs автономной очередью → **Queue mode**; тривиальные правки → **direct Edit**; N-окон-параллель / audit-trail / Opus-пул в Red / явная Sonnet-разгрузка → **Mode B**.
+> **NOT Mode A:** ≥2 research kickoffs as an autonomous queue → **Queue mode**; trivial fixes → **direct Edit**; N-window parallelism / audit trail / Opus pool in Red / explicit Sonnet offload → **Mode B**.
 
-**Quota:** Mode A = общий пул с Orchestrator (Opus по дефолту; `model: "sonnet"` допустим для задач попроще с реальной разводкой квоты — см. «Правило модели»).
+**Quota:** Mode A shares a pool with the Orchestrator (Opus by default; `model: "sonnet"` is acceptable for easier tasks where it genuinely splits the quota — see «Model rule»).
 
-### Decision matrix (каноническая — Phase 3 ссылается сюда)
+### Decision matrix (canonical — Phase 3 refers here)
 
-| Размер / тип задачи                                          | Способ                       |
-| ------------------------------------------------------------ | ---------------------------- |
-| **МЕЛКАЯ**: 1 файл, ≤5 строк, путь известен, замена X→Y      | **Старшая сама через `Edit`** |
-| **ОБЪЁМНАЯ execution**: ≥2 файлов ИЛИ ≥10 строк ИЛИ grep ИЛИ logic-changes | **Режим A (inline Agent на Opus)** ← DEFAULT |
-| **Research / audit / discovery / verification**              | **Режим A (inline Agent)**   |
-| Параллельные независимые батчи объёмной работы (file-lock OK) | **Режим A × N вызовов одним сообщением** (`isolation: "worktree"`); **Mode B × N окон** если нужен throughput живых окон |
-| Pre-flight: git stash / branch setup / итоговый push + PR    | Старшая сама                 |
-| Нужен N-окон-параллель / audit-trail / Opus-пул в Red / явная Sonnet-разгрузка | **Режим B (file-prompt)** — явная опция |
-| Явное «делай сам / не пиши промт»                            | Режим A                      |
-| **Autonomous research, ≥2 kickoffs in queue, maintainer wants autonomy** | **Queue mode** (see [references/queue-mode.md](references/queue-mode.md)) |
+| Task size / type                                                                       | Method                                                                                                                      |
+| -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| **SMALL**: 1 file, ≤5 lines, path known, X→Y replacement                               | **Senior via `Edit`**                                                                                                       |
+| **BULK execution**: ≥2 files OR ≥10 lines OR grep OR logic changes                     | **Mode A (inline Agent on Opus)** ← DEFAULT                                                                                 |
+| **Research / audit / discovery / verification**                                        | **Mode A (inline Agent)**                                                                                                   |
+| Parallel independent batches of bulk work (file-lock OK)                               | **Mode A × N calls in one message** (`isolation: "worktree"`); **Mode B × N windows** when live-window throughput is needed |
+| Pre-flight: git stash / branch setup / final push + PR                                 | Senior                                                                                                                      |
+| N-window parallelism / audit trail / Opus pool in Red / explicit Sonnet offload needed | **Mode B (file-prompt)** — explicit option                                                                                  |
+| Explicit «do it yourself / don't write a prompt»                                       | Mode A                                                                                                                      |
+| **Autonomous research, ≥2 kickoffs in queue, maintainer wants autonomy**               | **Queue mode** (see [references/queue-mode.md](references/queue-mode.md))                                                   |
 
 ---
 
 ## Cross-session dispatch — worktree by default
 
-Любая dispatch новой Claude Code сессии (fresh R-phase, новое окно для Mode B, autonomous research kickoff, переключение в свежий контекст после `/clear`-у-другого-окна) — **в отдельном worktree, не в shared workdir**. Дефолт, не опция.
+Any dispatch of a new Claude Code session (fresh R-phase, a new window for Mode B, an autonomous research kickoff, switching to fresh context after someone else's `/clear`) goes **into its own worktree, not the shared workdir**. Default, not an option.
 
-Use `Skill('superpowers:using-git-worktrees')` — mature upstream. Step 0 определяет уже-активный worktree (`GIT_DIR != GIT_COMMON_DIR`, с submodule-guard) и **пропускает** вложенное создание → совместим с `isolation:"worktree"` ниже; есть sandbox-fallback.
+Use `Skill('superpowers:using-git-worktrees')` — mature upstream. Its Step 0 detects an already-active worktree (`GIT_DIR != GIT_COMMON_DIR`, with a submodule guard) and **skips** nested creation → compatible with `isolation:"worktree"` below; a sandbox fallback exists.
 
-Quick commands: `git worktree add ../<repo>-<task-slug> <BASE_BRANCH>` / `git worktree remove ../<repo>-<task-slug>` (после завершения).
+Quick commands: `git worktree add ../<repo>-<task-slug> <BASE_BRANCH>` / `git worktree remove ../<repo>-<task-slug>` (once finished).
 
-Наш niche above `using-git-worktrees`: umbrella quota zones, Phase -1 protocol, Mode A/B dispatch. См. §Quota monitoring и §Phase -1.
+Our niche above `using-git-worktrees`: umbrella quota zones, the Phase -1 protocol, Mode A/B dispatch. See §Quota monitoring and §Phase -1.
 
 ---
 
 ## In-session sub-agent isolation — `Agent` tool `isolation: "worktree"`
 
-При делегации через `Agent` tool **внутри текущей сессии** старшая передаёт `isolation: "worktree"` когда младший будет писать.
+When delegating through the `Agent` tool **inside the current session**, the senior passes `isolation: "worktree"` whenever the junior will write.
 
-**Обязательно когда:**
-- Любой sub-agent с **Edit / Write / Bash mutations / commits / git ops**
-- Параллельный батч ≥2 одновременных агентов — **даже если все read-only** (race на `.git/index`)
-- Bypass permissions mode включён — ошибка subagent'а в shared workdir не имеет undo
-- Agent teams — все teammates наследуют bypass; изоляция — единственная защита от cross-contamination
+**Mandatory when:**
 
-**Можно пропустить:** одиночный read-only Explore / grep / file-read без параллельных агентов.
+- Any sub-agent with **Edit / Write / Bash mutations / commits / git ops**
+- A parallel batch of ≥2 concurrent agents — **even if all are read-only** (race on `.git/index`)
+- Bypass permissions mode is on — a subagent's mistake in a shared workdir has no undo
+- Agent teams — every teammate inherits bypass; isolation is the only defence against cross-contamination
+
+**May be skipped:** a single read-only Explore / grep / file read with no parallel agents.
 
 ```javascript
-// Write-делегация — ОБЯЗАТЕЛЬНО isolation
-Agent({ subagent_type: "claude", description: "...", prompt: "...",
-  isolation: "worktree" })   // ← worktree автоматически создаётся и убирается
+// Write delegation — isolation is MANDATORY
+Agent({
+  subagent_type: 'claude',
+  description: '...',
+  prompt: '...',
+  isolation: 'worktree',
+}); // ← worktree is created and removed automatically
 
-// Read-only исследование — isolation опционален
-Agent({ subagent_type: "Explore", description: "...", prompt: "..." })
+// Read-only research — isolation is optional
+Agent({ subagent_type: 'Explore', description: '...', prompt: '...' });
 ```
 
-❌ Anti-patterns: write-работа без изоляции в bypass mode (undo нет); параллельный батч без изоляции «потому что все только читают» (race на git/index всё равно возможна).
+❌ Anti-patterns: write work without isolation in bypass mode (no undo); a parallel batch without isolation «because they only read» (a race on git/index is still possible).
 
 ---
 
-## Phases (быстрый обзор)
+## Phases (quick overview)
 
-| #   | Фаза            | Действия старшей                                          | Когда заканчивается                  |
-| --- | --------------- | --------------------------------------------------------- | ------------------------------------ |
-| **-1** | **Self-review своего kickoff** | **Холодное ревью prompt'а через 1-2 independent reviewer'ов** (1× Opus default; 2× Opus для prod-blast-radius) перед dispatch | Оба reviewer'а вернули GO (или ≤3 итераций амендмента) |
-| 0   | Pre-flight      | Стэш WIP, ветка от `<BASE_BRANCH>`                        | Ветка готова, working tree чистый    |
-| 1   | Приём правок    | 2–3 строки на правку, ноль grep/Read                      | Пользователь говорит «всё/план»      |
-| 2   | Планирование    | Таблица батчей, согласование                              | Пользователь подтверждает план       |
-| 3   | Делегирование   | Спавн Agent-ов, **quota check после каждого batch**       | Все батчи отчитались зелёным         |
-| 4   | Контроль и PR   | Финальный sanity-check, push, PR                          | PR создан, ссылка отдана             |
-| 4.5 | Pre-PR self-audit | Cross-ref claims + citation validation + niche audits  | Zero ATTN → push                     |
+| #      | Phase                          | Senior's actions                                                                                                            | Ends when                                               |
+| ------ | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| **-1** | **Self-review of own kickoff** | **Cold review of the prompt by 1-2 independent reviewers** (1× Opus default; 2× Opus for prod blast radius) before dispatch | Both reviewers returned GO (or ≤3 amendment iterations) |
+| 0      | Pre-flight                     | Stash WIP, branch off `<BASE_BRANCH>`                                                                                       | Branch ready, working tree clean                        |
+| 1      | Intake of fixes                | 2–3 lines per fix, zero grep/Read                                                                                           | User says «that's all / plan»                           |
+| 2      | Planning                       | Batch table, agreement                                                                                                      | User confirms the plan                                  |
+| 3      | Delegation                     | Spawn Agents, **quota check after every batch**                                                                             | All batches reported green                              |
+| 4      | Control and PR                 | Final sanity check, push, PR                                                                                                | PR created, link handed over                            |
+| 4.5    | Pre-PR self-audit              | Cross-ref claims + citation validation + niche audits                                                                       | Zero ATTN → push                                        |
 
 ---
 
-## Quota monitoring (сквозное правило, действует с Phase 3)
+## Quota monitoring (cross-cutting rule, active from Phase 3)
 
-Старшая отслеживает расход квоты в реальном времени и переключает режим при пересечении порогов. Без этого можно упереться в 429 посреди batch'а и потерять прогресс.
+The senior tracks quota spend in real time and switches mode when thresholds are crossed. Without this you can hit a 429 mid-batch and lose progress.
 
-### Что отслеживать
+### What to track
 
-- **После каждого Agent-вызова** в tool result есть блок `<usage>total_tokens: N tool_uses: M duration_ms: T</usage>`. **Запоминай N для каждого вызова.**
-- **Cumulative Opus** = сумма total_tokens по всем inline Agent-вызовам + эстимейт по моим действиям (~500-1500 tokens на развёрнутое сообщение, +500-2000 на Read большого файла).
-- **Cumulative Sonnet** = напрямую не отслеживается из этой сессии: Mode B идёт в отдельных окнах. Ориентируйся на сигнал пользователя («Sonnet ~200k», «sonnet жёлтый») или попроси `/status` из его сессий.
+- **After every Agent call** the tool result carries a `<usage>total_tokens: N tool_uses: M duration_ms: T</usage>` block. **Remember N for each call.**
+- **Cumulative Opus** = the sum of total_tokens across all inline Agent calls + an estimate of my own actions (~500-1500 tokens per substantial message, +500-2000 for reading a large file).
+- **Cumulative Sonnet** = not directly observable from this session: Mode B runs in separate windows. Rely on the user's signal («Sonnet ~200k», «sonnet is yellow») or ask for `/status` from their sessions.
 
-### Зоны и реакция
+### Zones and response
 
-| Зона          | Sonnet cumul | Opus cumul (моё) | Действие                                                                                                                         |
-| ------------- | ------------ | ---------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| 🟢 Green      | <150k        | <30k             | **Mode A — дефолт для всего** (execution + research). Продолжать. |
-| 🟡 Yellow-S   | 150–350k     | <30k             | Sonnet-пул на исходе — не критично, Mode A на Opus-пуле работает свободно. Если использовал Mode B параллельно — уплотни окна. |
-| 🟡 Yellow-O   | <150k        | 30–80k           | **Opus-пул под нагрузкой — ВОТ когда Mode B оправдан:** перенеси объёмную execution в Mode B (file-prompt → Sonnet-окна), чтобы разгрузить Opus. Mode B здесь = клапан сброса давления, не дефолт. Минимизируй свои Read/Bash. |
-| 🔴 Red        | >350k        | >80k             | **Пауза.** Сообщить состояние, предложить: (а) `/clear` и продолжить, (б) перерыв до reset, (в) убедиться что оставшиеся батчи в Mode B. |
-| ⛔ Critical   | 429          | то же            | Стоп. Залогировать что закоммичено / что в working tree, ждать reset. |
+| Zone        | Sonnet cumul | Opus cumul (mine) | Action                                                                                                                                                                                                                            |
+| ----------- | ------------ | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🟢 Green    | <150k        | <30k              | **Mode A — the default for everything** (execution + research). Continue.                                                                                                                                                         |
+| 🟡 Yellow-S | 150–350k     | <30k              | Sonnet pool running out — not critical, Mode A on the Opus pool runs freely. If Mode B was used in parallel, consolidate windows.                                                                                                 |
+| 🟡 Yellow-O | <150k        | 30–80k            | **Opus pool under load — THIS is when Mode B is justified:** move bulk execution to Mode B (file-prompt → Sonnet windows) to relieve Opus. Mode B here is a pressure-release valve, not the default. Minimise your own Read/Bash. |
+| 🔴 Red      | >350k        | >80k              | **Pause.** Report the state and offer: (a) `/clear` and continue, (b) break until reset, (c) make sure remaining batches go through Mode B.                                                                                       |
+| ⛔ Critical | 429          | same              | Stop. Log what is committed and what sits in the working tree, wait for reset.                                                                                                                                                    |
 
 ### Reset windows
 
-Anthropic Max plan: квоты обнуляются каждые 5 часов скользящим окном. Точные цифры — `/status` (если работает) или claude.ai/usage. Ориентировочные лимиты: Opus ~200k/5h, Sonnet ~1M/5h. **Числа неточные** — это grey-area. Используй для прикидки порогов.
+Anthropic Max plan: quotas reset on a rolling 5-hour window. Exact figures come from `/status` (when it works) or claude.ai/usage. Rough limits: Opus ~200k/5h, Sonnet ~1M/5h. **The numbers are imprecise** — this is grey area. Use them for threshold estimation only.
 
-> **Fable (верхняя ступень) в зоны выше НЕ заведён** — размер пула и окно сброса неизвестны, а выдумывать пороги = фабрикация. Поскольку Fable — самая мощная и, вероятно, самая дефицитная модель, трать её **осознанно и выборочно** (только «самые сложные задачи» из «Правила модели»), веди свой счётчик Fable-вызовов вручную и сверяйся с `/status`. Завести Fable в светофор — follow-up, когда появятся реальные цифры лимита.
+> **Fable (the top tier) is deliberately NOT wired into the zones above** — its pool size and reset window are unknown, and inventing thresholds would be fabrication. Since Fable is the most capable and probably the scarcest model, spend it **deliberately and selectively** (only the «hardest tasks» from the «Model rule»), keep your own manual count of Fable calls, and cross-check against `/status`. Wiring Fable into the traffic light is a follow-up for when real limit figures exist.
 
-**Формат сообщений о квоте пользователю + Burn mode (явное «жги Opus» по сигналу): [references/quota-and-burn.md](references/quota-and-burn.md).** Кратко: при смене зоны — одна строка в начале следующего отчёта; per-batch без смены зоны — тишина; burn mode только по явному триггеру пользователя, никогда автономно.
+**Quota-message format for the user + Burn mode (an explicit «burn Opus» on signal): [references/quota-and-burn.md](references/quota-and-burn.md).** In short: on a zone change — one line at the start of the next report; per-batch with no zone change — silence; burn mode only on an explicit user trigger, never autonomously.
 
-### Антипаттерны quota-monitoring'а
+### Quota-monitoring anti-patterns
 
-- ❌ Игнорировать `<usage>` в tool result.
-- ❌ Молча гнать в Red zone «авось хватит».
-- ❌ Считать каждый раунд заново. Веди cumulative с начала сессии.
-- ❌ Тратить Opus на quota-tracking. Это in-head операция.
-- ❌ Сообщать пользователю о квоте per batch если зона не сменилась — спам.
+- ❌ Ignoring `<usage>` in the tool result.
+- ❌ Silently pushing into the Red zone «it'll probably hold».
+- ❌ Recounting from scratch each round. Keep a cumulative total from session start.
+- ❌ Spending Opus on quota tracking. This is an in-head operation.
+- ❌ Reporting quota per batch when the zone has not changed — that is spam.
 
 ---
 
-## Phase -1 — Self-review своего kickoff (paranoia at start)
+## Phase -1 — Self-review of your own kickoff (paranoia at start)
 
-Холодное чтение собственного dispatch-промта 1–2 независимыми reviewer'ами **до** отправки — ловит ambiguity, устаревшие ссылки и скрытые допущения, пока executor их не выполнил. Два reviewer'а, а не один: соло-ревью пропускает собственное слепое пятно. Embedded self-review внутри самого промта НЕ считается одним из двух — тот же контекст исполнения, не independent. Мотивирующие инциденты и ROI: [references/rationale.md](references/rationale.md).
+A cold read of your own dispatch prompt by 1–2 independent reviewers **before** sending catches ambiguity, stale references and hidden assumptions while the executor has not yet acted on them. Two reviewers rather than one: a solo review misses its own blind spot. An embedded self-review inside the prompt does NOT count as one of the two — same execution context, not independent. Motivating incidents and ROI: [references/rationale.md](references/rationale.md).
 
 **Must-trigger:**
-- Multi-step kickoff/prompt **≥30 строк** для младшего агента
-- Делегирование **≥3 distinct subtasks** одной сессии младшему
-- Prompt включает git/PR операции, file edits, capability-commit territory, principle-test additions, или rule-bearing changes
-- **Любой Mode B file-prompt** (формат «открой новую сессию, скопируй ВСЁ»)
-- **Любая операция с irreversible blast radius** (prod DB write, force-push, package downgrade) — даже если промт маленький
 
-**Skip OK:** direct Edit без младшего; one-shot тривиальная задача (≤10 строк prompt, один Bash/Read/Edit); read-only research-вызов.
+- A multi-step kickoff/prompt **≥30 lines** for a junior agent
+- Delegating **≥3 distinct subtasks** to one junior session
+- The prompt includes git/PR operations, file edits, capability-commit territory, principle-test additions, or rule-bearing changes
+- **Any Mode B file-prompt** (the «open a new session, copy EVERYTHING» format)
+- **Any operation with irreversible blast radius** (prod DB write, force-push, package downgrade) — even if the prompt is small
 
-**Скелет протокола:** (1) прочитать свой prompt холодно → (2) спавн reviewer'ов с focus-split A/B → (3) собрать findings → (4) BLOCKER/MAJOR — править prompt, MINOR — лог в known-residuals → (5) re-review ОБОИХ параллельно после правки BLOCKER, max 3 итерации → GO. **Полный протокол (шаблон reviewer-промта, focus split, cost framing, T-traps, anti-patterns): [references/phase-minus-1.md](references/phase-minus-1.md).**
+**Skip OK:** direct Edit with no junior; a one-shot trivial task (≤10-line prompt, one Bash/Read/Edit); a read-only research call.
 
-### Principle-test allowlist probe (обязательное измерение при NEW files под наблюдаемыми путями)
+**Protocol skeleton:** (1) read your prompt cold → (2) spawn reviewers with an A/B focus split → (3) collect findings → (4) BLOCKER/MAJOR — fix the prompt, MINOR — log to known-residuals → (5) re-review BOTH in parallel after fixing a BLOCKER, max 3 iterations → GO. **Full protocol (reviewer prompt template, focus split, cost framing, T-traps, anti-patterns): [references/phase-minus-1.md](references/phase-minus-1.md).**
 
-Если dispatch создаёт ≥1 НОВЫЙ файл под путями, которые сторожат principle-тесты проекта (для rules-as-tests-aif: `.claude/skills/**`, `.claude/rules/**`, `agents/**`, `docs/meta-factory/research-patches/**`, `packages/core/templates/**`) — Phase -1 ОБЯЗАН включить измерение: «для каждого NEW пути grep `packages/core/principles/` на `EXEMPT_*` allowlists + структурное правило; подтвердить, что артефакт удовлетворяет правилу ИЛИ подпадает под exemption». Проба: `grep -rn 'EXEMPT_\|allowlist\|skip' packages/core/principles/ | grep -E '\.(test\.)?ts:' | head -20`. Инцидент-основание: PR #264 пушился дважды — принципы 15 (paired-negative) и 10 (scope annotation) сработали ПОСЛЕ того, как 11-измерений Phase -1 оба пропустил. (Переехало из CLAUDE.md «Operational conventions» 2026-07-21 — этот скилл и есть заявленный codification target.)
+### Principle-test allowlist probe (mandatory measurement when NEW files land under watched paths)
 
-### Реализация subagents (default = Opus)
+If the dispatch creates ≥1 NEW file under paths guarded by the project's principle tests (for rules-as-tests-aif: `.claude/skills/**`, `.claude/rules/**`, `agents/**`, `docs/meta-factory/research-patches/**`, `packages/core/templates/**`), Phase -1 MUST include the measurement: «for every NEW path, grep `packages/core/principles/` for `EXEMPT_*` allowlists + the structural rule; confirm the artifact satisfies the rule OR falls under an exemption». Probe: `grep -rn 'EXEMPT_\|allowlist\|skip' packages/core/principles/ | grep -E '\.(test\.)?ts:' | head -20`. Grounding incident: PR #264 was pushed twice — principles 15 (paired-negative) and 10 (scope annotation) fired AFTER an 11-measurement Phase -1 missed both. (Relocated from CLAUDE.md «Operational conventions» 2026-07-21 — this skill is the declared codification target.)
 
-| Сценарий | Реализация | Cost |
-|---|---|---|
-| **Самые сложные / max-reasoning** (сложнейший дизайн, необратимая операция) | Fable (`model: "fable"`) | самая мощная ступень, использовать выборочно |
-| **Default** subagent через Agent tool | **Opus** (omit `model` или `model: opus`) | ~30-50k Opus per call |
-| **Prod-blast-radius** double coverage | 2× Opus через Agent parallel (топ-край → 1× Fable) | ~60-100k Opus |
-| Пользователь явно сказал «экономь / Sonnet» | 2× Sonnet через Agent tool (`model: "sonnet"`; или Mode B file-prompts для живых окон) | ~0 Opus из текущей сессии |
+### Subagent implementation (default = Opus)
 
-**Когда orchestrator пишет под-промт для другой сессии** — под-промт **должен явно** указывать реализацию (Mode A 1× Fable / 1× Opus / 2× Opus / 2× Sonnet / Mode B 2× Sonnet). Выбор модели — по сложности задачи.
+| Scenario                                                             | Implementation                                                                        | Cost                               |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------- |
+| **Hardest / max reasoning** (hardest design, irreversible operation) | Fable (`model: "fable"`)                                                              | most capable tier, use selectively |
+| **Default** subagent via Agent tool                                  | **Opus** (omit `model` or `model: opus`)                                              | ~30-50k Opus per call              |
+| **Prod-blast-radius** double coverage                                | 2× Opus via Agent parallel (top edge → 1× Fable)                                      | ~60-100k Opus                      |
+| User explicitly said «go cheap / Sonnet»                             | 2× Sonnet via Agent tool (`model: "sonnet"`; or Mode B file-prompts for live windows) | ~0 Opus from the current session   |
+
+**When the orchestrator writes a sub-prompt for another session**, that sub-prompt **must explicitly** state the implementation (Mode A 1× Fable / 1× Opus / 2× Opus / 2× Sonnet / Mode B 2× Sonnet). Model choice follows task difficulty.
 
 ---
 
-## Phase 0 — Pre-flight (один раз перед стартом)
+## Phase 0 — Pre-flight (once, before starting)
 
-**Старшая делает сама** (не делегируется). Команды используют значения из discovery.
+**The senior does this itself** (not delegated). Commands use values from discovery.
 
 ```bash
-# 1. Сохранить чужие WIP-изменения
-git status --short                                # увидеть что есть
-git stash push -u -m "wip: pre-umbrella <TASK_ID>"  # если что-то есть
+# 1. Save someone else's WIP changes
+git status --short                                # see what is there
+git stash push -u -m "wip: pre-umbrella <TASK_ID>"  # if anything is there
 
-# 2. Засинкаться + базовая ветка
+# 2. Sync + base branch
 git fetch <REMOTE>
 
-# 3. Создать umbrella-ветку (паттерн зависит от проекта)
+# 3. Create the umbrella branch (pattern depends on the project)
 git checkout -b <type>/<TASK_ID>-<slug> <BASE_BRANCH>
-# type ∈ {feat, fix, hotfix, refactor, chore} — выбрать по характеру umbrella
+# type ∈ {feat, fix, hotfix, refactor, chore} — pick by umbrella character
 ```
 
-Если в Pre-flight `git status` показал WIP не относящийся к umbrella — **спросить пользователя** перед стэшем. Не теряем чужую работу молча.
+If Pre-flight `git status` shows WIP unrelated to the umbrella — **ask the user** before stashing. We do not silently lose someone else's work.
 
 > After Phase 0 git environment setup completes, use `Skill('superpowers:executing-plans')` to drive plan execution with structured review checkpoints.
 
 ---
 
-## Phase 1 — Приём правок
+## Phase 1 — Intake of fixes
 
-- **Формат ответа на правку:** 2–3 строки, без tool calls.
+- **Response format per fix:** 2–3 lines, no tool calls.
   ```text
-  Понял #N: «<old>» → «<new>» в <screen/файл если назван>. В реестр.
+  Got #N: «<old>» → «<new>» in <screen/file if named>. Registered.
   ```
-- **Внутренний реестр.** До 5 правок — в голове. ≥5 — TodoWrite (1 item на правку, status pending).
-- **Уточнения.** Если правка двусмысленна — **один** вопрос. Лучше потерять 200 токенов на уточнение чем 5000 на переделку.
-- **Не обсуждать UX-минусы.** Пользователь в курсе → решение принято. Молча в реестр.
+- **Internal register.** Up to 5 fixes — in head. ≥5 — TodoWrite (1 item per fix, status pending).
+- **Clarifications.** If a fix is ambiguous — **one** question. Better to spend 200 tokens on a clarification than 5000 on rework.
+- **Do not argue UX downsides.** The user knows → the decision is made. Register it silently.
 
-**Конец фазы:** «всё», «план», «погнали», «достаточно», или явный конец потока.
+**Phase ends on:** «that's all», «plan», «go», «enough», or an explicit end of the stream.
 
 ---
 
-## Phase 2 — План
+## Phase 2 — Plan
 
-Одна таблица в одном сообщении:
+One table in one message:
 
 ```text
-| # | правка (1 строка)                  | файл/экран            | риск | зависит от | батч |
-| 1 | <правка>                           | <file>                | low  | -          | A    |
-| 2 | <правка>                           | <file>                | low  | -          | A    |
-| 3 | <правка>                           | grep по проекту       | med  | -          | B    |
-| 4 | <правка>                           | <file>                | low  | -          | C    |
+| # | fix (1 line)                       | file/screen           | risk | depends on | batch |
+| 1 | <fix>                              | <file>                | low  | -          | A     |
+| 2 | <fix>                              | <file>                | low  | -          | A     |
+| 3 | <fix>                              | grep across project   | med  | -          | B     |
+| 4 | <fix>                              | <file>                | low  | -          | C     |
 ```
 
-**Правила группировки в батчи:**
-- **Один файл = один батч** (минимизирует merge-конфликты).
-- **Перекрёстные правки** (рефакторинг имени prop + потребители) — один батч.
-- **Независимые батчи** — параллельно (Phase 3).
-- **High-risk правки** (логика, не только текст) — отдельный батч, без параллели, тестируется первым.
+**Batch grouping rules:**
 
-**Согласование:** короткое «ок?» в конце. Без согласования — в Phase 3 не идти. Это единственная пауза до конца umbrella.
+- **One file = one batch** (minimises merge conflicts).
+- **Cross-cutting fixes** (renaming a prop + its consumers) — one batch.
+- **Independent batches** — in parallel (Phase 3).
+- **High-risk fixes** (logic, not just text) — a separate batch, no parallelism, tested first.
+
+**Agreement:** a short «ok?» at the end. Without agreement, do not move to Phase 3. This is the only pause until the umbrella ends.
 
 > **For PRD-driven decomposition:** `Skill('superpowers:writing-plans')` for structured plan creation. Import result into batch table above.
 
 ---
 
-## Phase 3 — Делегирование (orchestrator-workers)
+## Phase 3 — Delegation (orchestrator-workers)
 
-**Обязательная декларация перед каждым Agent-вызовом или записью file-prompt:**
-> «Mode <A|B> для <задача-slug>. Механизм: <inline Agent / file-prompt + Sonnet / Task subagent>. Квота: <Opus-пул / Sonnet-пул>.»
+**Mandatory declaration before every Agent call or file-prompt write:**
 
-Если не можешь заполнить без обращения к секции «Дефолт — Mode A» выше — перечитай сначала. Никогда не используй метки Mode A/B по памяти. Canonical определения: [references/glossary.md](references/glossary.md).
+> «Mode <A|B> for <task-slug>. Mechanism: <inline Agent / file-prompt + Sonnet / Task subagent>. Quota: <Opus pool / Sonnet pool>.»
 
-**Триаж каждого батча — по канонической Decision matrix (§«Три способа» выше):**
+If you cannot fill this in without re-reading the «Default — Mode A» section above, re-read it first. Never use the Mode A/B labels from memory. Canonical definitions: [references/glossary.md](references/glossary.md).
 
-1. **Мелкая?** (1 файл, ≤5 строк, путь известен, явная замена) → `Edit` руками. **Не делегируй.**
-2. **Объёмная execution?** (≥2 файла ИЛИ ≥10 строк ИЛИ grep ИЛИ logic-changes) → **Mode A inline `Agent`** (write-задачи с `isolation: "worktree"`). Mode B file-prompt — только N-окон-параллель / audit-trail / явная Sonnet-разгрузка.
+**Triage every batch against the canonical Decision matrix (§«Three ways» above):**
+
+1. **Small?** (1 file, ≤5 lines, path known, explicit replacement) → `Edit` by hand. **Do not delegate.**
+2. **Bulk execution?** (≥2 files OR ≥10 lines OR grep OR logic changes) → **Mode A inline `Agent`** (write tasks with `isolation: "worktree"`). Mode B file-prompt only for N-window parallelism / audit trail / explicit Sonnet offload.
 3. **Read-only research / verification?** → **Mode A inline `Agent`**.
 
 Use `Skill('superpowers:subagent-driven-development')` for the Coordinator→implementer→spec-reviewer→code-quality-reviewer delegation loop.
 
-### Промт младшей
+### The junior's prompt
 
-Self-contained (контекст младшей пуст), значения из discovery. **Полный шаблон (TASK/CONTEXT/VERIFY/DECISIONS/REPORT) + Mode B file-prompt механика: [references/batch-prompt-template.md](references/batch-prompt-template.md).**
+Self-contained (the junior's context is empty), values from discovery. **Full template (TASK/CONTEXT/VERIFY/DECISIONS/REPORT) + Mode B file-prompt mechanics: [references/batch-prompt-template.md](references/batch-prompt-template.md).**
 
-> **Перед dispatch:** если итоговый prompt ≥30 строк ИЛИ делегирует ≥3 distinct subtasks ИЛИ это Mode B file-prompt ИЛИ операция с irreversible blast radius → **запустить Phase -1 self-review** (см. секцию выше). Окупается с первого пойманного BLOCKER.
+> **Before dispatch:** if the final prompt is ≥30 lines OR delegates ≥3 distinct subtasks OR is a Mode B file-prompt OR is an operation with irreversible blast radius → **run the Phase -1 self-review** (see the section above). It pays for itself on the first BLOCKER caught.
 
-### Параллелизация (sectioning pattern)
+### Parallelisation (sectioning pattern)
 
-**Режим A (default)** — N inline `Agent`-вызовов одним сообщением (write-задачи с `isolation: "worktree"`). Немедленно, без ручного copy-paste:
+**Mode A (default)** — N inline `Agent` calls in one message (write tasks with `isolation: "worktree"`). Immediate, no manual copy-paste:
 
 ```text
-Batch A → Agent(isolation:"worktree")  (file_1)   # без model param → наследует Opus
+Batch A → Agent(isolation:"worktree")  (file_1)   # no model param → inherits Opus
 Batch B → Agent(isolation:"worktree")  (file_2)
 Batch C → Agent(isolation:"worktree")  (grep replacement)
 ```
 
-**Режим B (опция для throughput живых окон)** — N файлов-промтов одним сообщением; пользователь открывает N окон Sonnet.
+**Mode B (option for live-window throughput)** — N prompt files in one message; the user opens N Sonnet windows.
 
-**File-lock matrix.** Перед параллельным спавном (любой режим) проверь: ни два батча не редактируют один файл. Если пересекаются — sequential.
+**File-lock matrix.** Before any parallel spawn (either mode) check: no two batches edit the same file. If they overlap — sequential.
 
-### Mid-batch sanity check (между батчами)
+### Mid-batch sanity check (between batches)
 
-После каждых 3–4 батчей **один cheap проход** старшей:
+After every 3–4 batches, **one cheap pass** by the senior:
+
 ```bash
-git log --oneline <BASE_BRANCH>..HEAD     # все коммиты в формате?
-git diff --stat <BASE_BRANCH>..HEAD       # ничего лишнего?
+git log --oneline <BASE_BRANCH>..HEAD     # are all commits in format?
+git diff --stat <BASE_BRANCH>..HEAD       # nothing extraneous?
 ```
 
-Если что-то не так — **остановиться**, разбираться, не накапливать долг.
+If something is off — **stop**, investigate, do not accumulate debt.
 
 ---
 
-## Phase 4 — Контроль и PR
+## Phase 4 — Control and PR
 
-### Чтение REPORT (на каждый агент)
+### Reading the REPORT (per agent)
 
-Только текст REPORT, не лезть в код. Чек-лист в голове (6 пунктов):
+Only the REPORT text, do not dive into the code. Checklist in head (6 items):
 
-1. Все пункты VERIFY ✅?
-2. Файлы в `Stat` соответствуют ожидаемым из плана?
-3. `DECISIONS` пустой или объяснимый?
+1. All VERIFY items ✅?
+2. Do the files in `Stat` match what the plan expected?
+3. Is `DECISIONS` empty or explainable?
 4. `Confidence: high`?
-5. `ATTN` пустой?
-6. **Quota check:** прибавь `total_tokens` к cumulative, оцени зону. Если зона сменилась — упомянуть; иначе тишина.
+5. Is `ATTN` empty?
+6. **Quota check:** add `total_tokens` to the cumulative total, assess the zone. Mention it only if the zone changed; otherwise silence.
 
-Все 6 ✅ → «ok, следующий». **0 tool calls.**
+All 6 ✅ → «ok, next». **0 tool calls.**
 
-Любой red в 1-5 → «Recovery patterns» ниже.
-Yellow/Red в #6 → переключить режим работы.
+Any red in 1-5 → «Recovery patterns» below.
+Yellow/Red in #6 → switch working mode.
 
-### Финальный sanity-check (один раз перед PR)
+### Final sanity check (once, before the PR)
 
 ```bash
-git log --oneline <BASE_BRANCH>..HEAD     # формат, кол-во коммитов
-git diff --stat <BASE_BRANCH>..HEAD       # все файлы ожидаемы
-<CHECK_ALL команда из discovery>          # один раз, с build
+git log --oneline <BASE_BRANCH>..HEAD     # format, commit count
+git diff --stat <BASE_BRANCH>..HEAD       # all files expected
+<CHECK_ALL command from discovery>        # once, with build
 ```
 
 > Use `Skill('superpowers:verification-before-completion')` for the final sanity check before push. The 6-item REPORT checklist above remains the primary gate.
@@ -365,17 +385,18 @@ git diff --stat <BASE_BRANCH>..HEAD       # все файлы ожидаемы
 
 ```bash
 git push -u <REMOTE> <branch>
-gh pr create [--repo <GH_REPO> если нужно] \
-  --base <BASE_BRANCH без префикса remote> --head <branch> \
-  --title "<TASK_ID>: <короткое название umbrella>" \
+gh pr create [--repo <GH_REPO> if needed] \
+  --base <BASE_BRANCH without remote prefix> --head <branch> \
+  --title "<TASK_ID>: <short umbrella name>" \
   --body "<body>"   # See Skill('superpowers:finishing-a-development-branch') for body template + pre-marked checkboxes
 ```
 
-### Восстановление WIP
+### Restoring WIP
 
-Если в Phase 0 что-то стэшилось:
+If something was stashed in Phase 0:
+
 ```bash
-git checkout <предыдущая-ветка>
+git checkout <previous-branch>
 git stash pop
 ```
 
@@ -393,99 +414,99 @@ git stash pop
 
 3. **Companion delegation audit:** For each `Skill('...')` invocation referenced in this umbrella — was it actually invoked, or just mentioned? If referenced but not invoked, the companion's verification step was skipped. Surface as ATTN if material to PR correctness.
 
-4. **Pre-mark PR body checkboxes** (ОБЯЗАТЕЛЬНО перед `gh pr create` / `gh pr edit --body`): ставь **уже отмеченные** `[x]` для всего, что verified через (a) CI зелёный, (b) Worker REPORT verify-trace (буквально перечисленные observed results), (c) reviewer-пробы (`gh pr diff` / `git show` / grep / DB probe). `[ ]` оставлять **только** для physically pending (визуальная приёмка / runtime после migration / third-party access). НЕ extrapolate «merged значит runtime verified» — `[x]` только на пункт, буквально упомянутый в verify-trace. Anti-pattern: скопировать чеклист из kickoff'а пустым — переносит работу пользователю, который должен пройти что и так verified. Особенно для epic→staging агрегирующих PR.
+4. **Pre-mark PR body checkboxes** (MANDATORY before `gh pr create` / `gh pr edit --body`): put an **already-checked** `[x]` on everything verified through (a) green CI, (b) a Worker REPORT verify-trace (literally enumerated observed results), (c) reviewer probes (`gh pr diff` / `git show` / grep / DB probe). Leave `[ ]` **only** for the physically pending (visual acceptance / runtime after a migration / third-party access). Do NOT extrapolate «merged means runtime verified» — an `[x]` goes only on an item literally mentioned in the verify-trace. Anti-pattern: copying the kickoff checklist over empty — that shifts the work onto the user, who then re-walks what is already verified. This matters most for aggregating epic→staging PRs.
 
 > If Phase 4.5 audit finds ≥1 unverified claim → escalate before PR creation. Zero ATTN → proceed to push + PR.
 
 ---
 
-## Recovery patterns (что если что-то пошло не так)
+## Recovery patterns (what to do when something goes wrong)
 
-| Ситуация                                                | Действие старшей                                                            |
-| ------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `VERIFY` failed (grep/test/lint красное)                | Один follow-up промт младшей: «п.N упал, вот вывод <X>, доделай»            |
-| `Confidence: low`                                       | Запросить уточнение у пользователя; передать его ответ младшей              |
-| `ATTN` непустой                                         | Прочитать ATTN, решить: фикс ок и идём дальше / нужна доработка / спросить |
-| Junior закоммитил лишнее (refactor / extra files)       | `git reset --soft HEAD~1` + промт младшей переделать аккуратно              |
-| Junior пушнул сам (нарушение)                           | Сразу `git push --delete <REMOTE> <branch>` после согласования с пользователем |
-| Два параллельных Agent-а тронули один файл              | Конфликт. Разрулить вручную, для будущего — sequential                      |
-| Junior зациклился, не находит файл                      | Промт с явным `find` командой и hint                                        |
-| Пользователь меняет правку mid-flight                   | Пересоставить план, отметить что уже сделано, продолжить                    |
-| Правка #N технически невозможна                         | **Можно пушбэкнуть** — техническая невозможность ≠ UX мнение                |
+| Situation                                        | Senior's action                                                                    |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| `VERIFY` failed (grep/test/lint red)             | One follow-up prompt to the junior: «item N failed, here is output <X>, finish it» |
+| `Confidence: low`                                | Ask the user for clarification; relay their answer to the junior                   |
+| `ATTN` non-empty                                 | Read the ATTN, decide: fix is fine and we move on / rework needed / ask            |
+| Junior committed extras (refactor / extra files) | `git reset --soft HEAD~1` + prompt the junior to redo it narrowly                  |
+| Junior pushed on its own (a violation)           | Immediately `git push --delete <REMOTE> <branch>` after agreeing with the user     |
+| Two parallel Agents touched the same file        | Conflict. Resolve by hand; go sequential next time                                 |
+| Junior looped, cannot find the file              | Prompt with an explicit `find` command and a hint                                  |
+| User changes a fix mid-flight                    | Re-plan, note what is already done, continue                                       |
+| Fix #N is technically impossible                 | **Pushback is allowed** — technical impossibility ≠ a UX opinion                   |
 
 ---
 
 ## Queue mode — autonomous research multi-kickoff
 
-Modes A/B обслуживают **одну задачу**; Queue mode — **серию research-kickoffs**, выполняемую автономно циклами Worker → file-system verify → Reviewer (GO/REVISE, max 5 iter) → anti-collusion spot-check → next.
+Modes A/B serve **one task**; Queue mode serves **a series of research kickoffs**, run autonomously in cycles of Worker → file-system verify → Reviewer (GO/REVISE, max 5 iter) → anti-collusion spot-check → next.
 
-**When:** ≥2 research-kickoffs в очереди + maintainer дал автономию + у каждого kickoff self-contained acceptance criteria. **NOT for:** одиночные kickoffs (Mode A/B), параллельная code-execution (Mode B × worktrees), kickoffs с открытыми D-вопросами к maintainer'у.
+**When:** ≥2 research kickoffs queued + the maintainer granted autonomy + each kickoff has self-contained acceptance criteria. **NOT for:** single kickoffs (Mode A/B), parallel code execution (Mode B × worktrees), kickoffs with open D-questions for the maintainer.
 
-**Всё остальное — pre-flight чеклист, state.md формат, dispatch-цикл, anti-collusion формула, iteration limits, escalation codes, dual-channel верификация CC-клеймов, headless-fallback: [references/queue-mode.md](references/queue-mode.md).** Трапы: [references/ai-laziness-traps-orchestrator.md](references/ai-laziness-traps-orchestrator.md) (T-AO-A…T-AO-L). Шаблоны диспатча: [references/worker-template.md](references/worker-template.md), [references/reviewer-template.md](references/reviewer-template.md).
-
----
-
-## Communication с пользователем
-
-- **Ноль вопросов между фазами** кроме согласования плана (Phase 2). Поток фиксов не прерывать.
-- **Батчированные вопросы.** Все ambiguities из Phase 1 — один список в начале Phase 2.
-- **ATTN escalation.** Оценить: можно решить самой / нужно слово пользователя.
-- **Status update.** После каждого батча — 1 строка: «батч A: 2 коммита, ok». Не повтор отчёта.
+**Everything else — pre-flight checklist, state.md format, the dispatch cycle, the anti-collusion formula, iteration limits, escalation codes, dual-channel verification of CC claims, headless fallback: [references/queue-mode.md](references/queue-mode.md).** Traps: [references/ai-laziness-traps-orchestrator.md](references/ai-laziness-traps-orchestrator.md) (T-AO-A…T-AO-L). Dispatch templates: [references/worker-template.md](references/worker-template.md), [references/reviewer-template.md](references/reviewer-template.md).
 
 ---
 
-## Auto-trigger проектных skills через формулировку промта
+## Communication with the user
 
-Младшая авто-триггерит skills по ключевым словам в её промте. **Не пересказывай содержимое skill** — упомяни имя или контекст-слово (`- ЕСЛИ затрагиваешь <тема> → активируй skill <skill-name>`), младшая прочитает. Список доступных skills — из discovery (`ls .claude/skills/`). Use `Skill('superpowers:using-superpowers')` for CSO discipline (auto-invocation by description match).
-
----
-
-## Пример walkthrough
-
-For a worked walkthrough of the Coordinator→implementer→reviewer delegation cycle, see `Skill('superpowers:subagent-driven-development')` examples. Our Phases -1 (kickoff self-review), 0 (pre-flight), 1 (приём правок), and 2 (план) are documented in their own sections above and are not covered by companion walkthroughs.
+- **Zero questions between phases** except the plan agreement (Phase 2). Do not interrupt the flow of fixes.
+- **Batched questions.** All ambiguities from Phase 1 — one list at the start of Phase 2.
+- **ATTN escalation.** Judge it: solvable alone / needs the user's word.
+- **Status update.** After each batch — 1 line: «batch A: 2 commits, ok». Not a repeat of the report.
 
 ---
 
-## Anti-patterns (видел — переделывай)
+## Auto-triggering project skills through prompt wording
 
-- ❌ Каждая правка = отдельный PR. → Один PR на umbrella.
-- ❌ Полный check:all после каждой правки. → Только финально.
-- ❌ Junior пушит / мержит / создаёт PR. → Только старшая.
-- ❌ Длинная проза в REPORT. → Строгий шаблон, bullets.
-- ❌ Старшая молча соглашается с `ATTN: ...`. → ATTN — обязательная остановка.
-- ❌ Параллельный спавн без file-lock check. → Конфликты в одной ветке.
-- ❌ Спавн Agent / writing file-prompt для тривиальной правки с известным путём. → Дешевле `Edit` самой (≤5 строк, 1 файл).
-- ❌ `Edit` руками объёмной execution-задачи (≥2 файлов / grep / logic-changes). → Делегируй на **Mode A inline `Agent`** (изоляция контекста + дефолт), а не делай в своём контексте.
-- ❌ Гнать всё через Mode B file-prompt «ради экономии Opus» когда Opus-пул в норме. → Mode A — дефолт; Mode B только когда Opus реально под нагрузкой / нужен N-окон-throughput / audit-trail / явная Sonnet-разгрузка.
-- ❌ Тянуть Sonnet на задачу, требующую топового reasoning'а (prod-blast-radius ревью, сложный архитектурный анализ). → Там дефолт Opus; `model: "sonnet"` через Agent tool — для задач попроще с реальной разводкой квоты.
-- ❌ Pre-flight пропущен, чужой WIP смешался с umbrella. → Стэшить ОБЯЗАТЕЛЬНО.
-- ❌ Junior сделал refactor «по дороге». → Reset, переделать узко.
-- ❌ Discovery пропущен в новом репо. → Промт младшей будет содержать неверные команды.
+The junior auto-triggers skills on keywords in its prompt. **Do not restate a skill's content** — mention its name or a context word (`- IF you touch <topic> → activate skill <skill-name>`), the junior will read it. The list of available skills comes from discovery (`ls .claude/skills/`). Use `Skill('superpowers:using-superpowers')` for CSO discipline (auto-invocation by description match).
+
+---
+
+## Example walkthrough
+
+For a worked walkthrough of the Coordinator→implementer→reviewer delegation cycle, see `Skill('superpowers:subagent-driven-development')` examples. Our Phases -1 (kickoff self-review), 0 (pre-flight), 1 (intake of fixes), and 2 (plan) are documented in their own sections above and are not covered by companion walkthroughs.
+
+---
+
+## Anti-patterns (seen it — redo it)
+
+- ❌ Every fix as its own PR. → One PR per umbrella.
+- ❌ Full check:all after every fix. → Only at the end.
+- ❌ A junior pushes / merges / creates a PR. → Senior only.
+- ❌ Long prose in a REPORT. → Strict template, bullets.
+- ❌ The senior silently accepts an `ATTN: ...`. → ATTN is a mandatory stop.
+- ❌ Parallel spawn without a file-lock check. → Conflicts in one branch.
+- ❌ Spawning an Agent / writing a file-prompt for a trivial fix with a known path. → Cheaper to `Edit` it yourself (≤5 lines, 1 file).
+- ❌ Hand-`Edit`ing a bulk execution task (≥2 files / grep / logic changes). → Delegate to **Mode A inline `Agent`** (context isolation + the default) instead of doing it in your own context.
+- ❌ Routing everything through Mode B file-prompts «to save Opus» while the Opus pool is fine. → Mode A is the default; Mode B only when Opus is genuinely under load / N-window throughput is needed / an audit trail is needed / an explicit Sonnet offload was requested.
+- ❌ Pulling Sonnet onto a task that needs top-tier reasoning (prod-blast-radius review, hard architectural analysis). → Opus is the default there; `model: "sonnet"` via the Agent tool is for easier tasks where it genuinely splits the quota.
+- ❌ Pre-flight skipped, someone else's WIP mixed into the umbrella. → Stashing is MANDATORY.
+- ❌ A junior did a refactor «along the way». → Reset, redo narrowly.
+- ❌ Discovery skipped in a new repo. → The junior's prompt will carry wrong commands.
 
 > For delegation-specific anti-patterns, see `Skill('superpowers:subagent-driven-development')` §anti-patterns.
 
 ---
 
-## Бюджет токенов (red flags)
+## Token budget (red flags)
 
-| Метрика                              | Норма        | Red flag                              |
-| ------------------------------------ | ------------ | ------------------------------------- |
-| Старшая на 1 правку (промт + отчёт)  | 500–1500     | >3000 → лезет в код вместо Agent      |
-| Pre-flight + план для 10 правок      | 3–5k         | >10k → слишком много research старшей |
-| Финальный sanity-check + PR          | 2–3k         | >5k → лишние Read/проверки            |
-| Junior на 1 правку (своя сессия)     | 5–30k        | (не моя проблема)                     |
-| Итого старшей на umbrella из 10      | ~25–35k      | >50k → пересмотреть workflow          |
+| Metric                             | Normal   | Red flag                                  |
+| ---------------------------------- | -------- | ----------------------------------------- |
+| Senior per fix (prompt + report)   | 500–1500 | >3000 → diving into code instead of Agent |
+| Pre-flight + plan for 10 fixes     | 3–5k     | >10k → too much senior-side research      |
+| Final sanity check + PR            | 2–3k     | >5k → superfluous Reads/checks            |
+| Junior per fix (its own session)   | 5–30k    | (not my problem)                          |
+| Senior total for an umbrella of 10 | ~25–35k  | >50k → revisit the workflow               |
 
-Если старшая >5k токенов на одну правку → почти всегда лезет в код сама вместо делегирования. Откатиться, спавнить Agent.
+If the senior spends >5k tokens on a single fix, it is almost always diving into the code itself instead of delegating. Roll back, spawn an Agent.
 
 ---
 
-## Triggers (когда активировать)
+## Triggers (when to activate)
 
-- «ты оркестратор / организатор», «делегируй», «координируй»
-- «umbrella», «пакет правок», «батч фиксов», «много мелких»
-- «1 сообщение = 1 правка»
-- Поток коротких задач явно одной темы
-- Сам определил что задача = ≥3 независимых под-задач, выполнимых параллельно
+- «you are the orchestrator / coordinator», «delegate», «coordinate»
+- «umbrella», «package of fixes», «batch of fixes», «lots of small ones»
+- «1 message = 1 fix»
+- A stream of short tasks clearly on one topic
+- You determined yourself that the task = ≥3 independent subtasks executable in parallel
 
-→ Сначала Project bootstrap discovery (если ещё не делалось в сессии), затем активировать workflow без переобъяснения.
+→ First run Project bootstrap discovery (if not done this session), then activate the workflow without re-explaining it.

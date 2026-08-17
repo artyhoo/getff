@@ -1,5 +1,8 @@
 # Project bootstrap — discovery reference
 
+> **Authoritative for:** the project-bootstrap discovery checklist — the seven areas' concrete commands, the user-facing questions, and the `orchestrator.local.md` override template.
+> **NOT authoritative for:** when discovery may be skipped — see [../SKILL.md](../SKILL.md) §Project bootstrap. Project goal — see [README.md#why-this-exists](../../../../README.md#why-this-exists).
+
 > Полный чек-лист самодонастройки при первом запуске в проекте. Тело SKILL.md держит только список областей; здесь — команды, вопросы пользователю и шаблон override-файла.
 
 Скил универсальный. Перед стартом workflow в **новом проекте** старшая один раз делает discovery — без него промты младшим будут содержать неверные команды/конвенции.
@@ -49,7 +52,7 @@
 # Orchestrator local config — discovered <YYYY-MM-DD>
 
 WORKDIR: <abs path>
-BASE_BRANCH: <e.g. origin/main>
+BASE*BRANCH: <e.g. origin/main>
 REMOTE: <name + url>
 GH_REPO: <owner/repo or none>
 TASK_ID_PATTERN: <e.g. ID-XXXX | none>
@@ -62,5 +65,5 @@ TEST: <command>
 CHECK_ALL: <command or sequence>
 PROJECT_SKILLS: <list from .claude/skills/>
 PROJECT_RULES: <list from .claude/rules/>
-PROMPTS_DIR: .claude/orchestrator-prompts/   # gitignored
+PROMPTS_DIR: .claude/orchestrator-prompts/ # gitignored # orch-home: allow framework-only skill, never in GETFF_SKILLS*\* delivery tiers (setup.d/lib.sh:58-60)
 ```

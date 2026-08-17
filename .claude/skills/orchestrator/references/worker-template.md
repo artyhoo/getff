@@ -101,15 +101,15 @@ User-scope ~/.claude/skills/ IS writable for Queue mode skill artefacts.
 
 ## Placeholder reference
 
-| Placeholder | Fill with |
-|---|---|
-| `<YYYY-MM-DD>` | Today's date |
-| `<WORKDIR>` | `/Users/art/code/rules-as-tests-aif` (or project root) |
-| `<K>` | Artefact letter (A / B / C / …) |
-| `<PATH-TO-QUEUE-KICKOFF>` | Absolute path to the controlling kickoff file |
-| `<LIST SPECIFIC OUTPUT FILES>` | Per-artefact paths from kickoff §output |
-| `<STATE-MD-PATH>` | Absolute path to this session's state.md |
-| `<ENUMERATE T-NUMBERS>` | Copy from kickoff §5.<K> T-traps section; enumerate, do not blanket-reference |
+| Placeholder                    | Fill with                                                                     |
+| ------------------------------ | ----------------------------------------------------------------------------- |
+| `<YYYY-MM-DD>`                 | Today's date                                                                  |
+| `<WORKDIR>`                    | `/Users/art/code/rules-as-tests-aif` (or project root)                        |
+| `<K>`                          | Artefact letter (A / B / C / …)                                               |
+| `<PATH-TO-QUEUE-KICKOFF>`      | Absolute path to the controlling kickoff file                                 |
+| `<LIST SPECIFIC OUTPUT FILES>` | Per-artefact paths from kickoff §output                                       |
+| `<STATE-MD-PATH>`              | Absolute path to this session's state.md                                      |
+| `<ENUMERATE T-NUMBERS>`        | Copy from kickoff §5.<K> T-traps section; enumerate, do not blanket-reference |
 
 ## See also
 

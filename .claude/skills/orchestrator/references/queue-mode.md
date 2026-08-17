@@ -52,12 +52,12 @@ claude -p "echo PROBE-OK"
 
 **Pre-flight failures → escalation triggers:**
 
-| Check | Failure | Escalation |
-|---|---|---|
-| `claude --version` wrong | Unexpected model version | `ESCALATE:setup:wrong-claude-version` |
-| MCP unavailable >30 min | DeepWiki or context7 down | `ESCALATE:K:tool-unavailable` |
-| `claude -p` fails AND date > ~2026-06-16 | Headless window expired | Document in state.md; fallback = Task subagent only; no escalation if Task works |
-| `claude-code-guide` missing | L7 mandate unsatisfiable | `ESCALATE:setup:claude-code-guide-unavailable` |
+| Check                                    | Failure                   | Escalation                                                                       |
+| ---------------------------------------- | ------------------------- | -------------------------------------------------------------------------------- |
+| `claude --version` wrong                 | Unexpected model version  | `ESCALATE:setup:wrong-claude-version`                                            |
+| MCP unavailable >30 min                  | DeepWiki or context7 down | `ESCALATE:K:tool-unavailable`                                                    |
+| `claude -p` fails AND date > ~2026-06-16 | Headless window expired   | Document in state.md; fallback = Task subagent only; no escalation if Task works |
+| `claude-code-guide` missing              | L7 mandate unsatisfiable  | `ESCALATE:setup:claude-code-guide-unavailable`                                   |
 
 ---
 
@@ -134,15 +134,16 @@ Append-only journal. Create at session start. Never delete entries (append-only 
 > Parent session: <parent-session-name> (if applicable)
 
 ## Pre-flight check results
+
 [one bullet per check; ✓ or ✗]
 
 ## Queue
 
-| # | Artefact | Status | Iterations | Notes |
-|---|----------|--------|------------|-------|
-| A | <name> | PENDING | 0 | <notes> |
-| B | <name> | PENDING | 0 | After A |
-| C | <name> | PENDING | 0 | After B |
+| #   | Artefact | Status  | Iterations | Notes   |
+| --- | -------- | ------- | ---------- | ------- |
+| A   | <name>   | PENDING | 0          | <notes> |
+| B   | <name>   | PENDING | 0          | After A |
+| C   | <name>   | PENDING | 0          | After B |
 
 ## Statuses legend
 
@@ -214,6 +215,7 @@ i = ((artefact_letter_ord + iter_count) * 7 + N) mod N
 ```
 
 Where:
+
 - `artefact_letter_ord` — position of artefact letter in queue (first=1, second=2, third=3, …). Example: if queue is [C, B, A], then C→1, B→2, A→3
 - `iter_count` — final iteration number when GO was reached (0 for first-pass GO)
 - `7` — prime multiplier to spread indices across full range (prevents collapse on §1-§3)
@@ -243,15 +245,15 @@ Where:
 
 **Escalation triggers:**
 
-| Code | Trigger | Escalation action |
-|---|---|---|
-| `ESCALATE:K:max-iterations` | Artefact K hit iter 5 without GO | Stop K; write escalation summary; pause queue |
-| `ESCALATE:K:blocked-by-prerequisite` | K requires answer to D-question from prior kickoff that was DEFERRED | Mark K DEFERRED; if K was blocking next artefacts, escalate entire queue |
-| `ESCALATE:K:tool-unavailable` | claude-code-guide OR DeepWiki/context7 unreachable >30 min | Stop; note which tool; wait for recovery or escalate |
-| `ESCALATE:K:scope-conflict` | Executing K would require editing maintainer-owned project file | Stop; document which file and why; surface for maintainer |
-| `ESCALATE:K:maintainer-dialogue-required` | Open D-question in K has no autonomous-decidable default | Stop K; surface D-question with both options' downstream consequences |
-| `ESCALATE:K:infinite-loop` | Reviewer flip-flops GO ↔ REVISE on same content across 2+ iterations | Stop; document the conflicting criteria; maintainer decides |
-| `ESCALATE:budget-cap` | Token budget approaching limit (burn mode: discretionary; hard 429) | Stop cleanly; log current state; await reset |
+| Code                                      | Trigger                                                              | Escalation action                                                        |
+| ----------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `ESCALATE:K:max-iterations`               | Artefact K hit iter 5 without GO                                     | Stop K; write escalation summary; pause queue                            |
+| `ESCALATE:K:blocked-by-prerequisite`      | K requires answer to D-question from prior kickoff that was DEFERRED | Mark K DEFERRED; if K was blocking next artefacts, escalate entire queue |
+| `ESCALATE:K:tool-unavailable`             | claude-code-guide OR DeepWiki/context7 unreachable >30 min           | Stop; note which tool; wait for recovery or escalate                     |
+| `ESCALATE:K:scope-conflict`               | Executing K would require editing maintainer-owned project file      | Stop; document which file and why; surface for maintainer                |
+| `ESCALATE:K:maintainer-dialogue-required` | Open D-question in K has no autonomous-decidable default             | Stop K; surface D-question with both options' downstream consequences    |
+| `ESCALATE:K:infinite-loop`                | Reviewer flip-flops GO ↔ REVISE on same content across 2+ iterations | Stop; document the conflicting criteria; maintainer decides              |
+| `ESCALATE:budget-cap`                     | Token budget approaching limit (burn mode: discretionary; hard 429)  | Stop cleanly; log current state; await reset                             |
 
 **Escalation message format** (write to state.md + return as Orchestrator response):
 
@@ -290,6 +292,7 @@ Where:
 **Primary dispatch mechanism:** Task subagent (Tool: Task). Always try Task first.
 
 **Headless as fallback ONLY when:**
+
 - Task subagent reports context-budget exhaustion for a per-section block
 - Full kickoff is too large for one Task dispatch and must be split into per-section blocks
 
@@ -297,7 +300,7 @@ Where:
 
 ```bash
 # 1. Prepare per-section prompt file
-# Path: .claude/orchestrator-prompts/<queue-dir>/headless-prompts/<K>-<section>.md
+# Path: .claude/orchestrator-prompts/<queue-dir>/headless-prompts/<K>-<section>.md  # orch-home: allow framework-only skill, never in GETFF_SKILLS_* delivery tiers (setup.d/lib.sh:58-60)
 
 # 2. Dispatch with explicit model and timeout
 claude -p "$(cat <prompt-file>)" --model claude-opus-4-7 2>&1
@@ -310,6 +313,7 @@ claude -p "$(cat <prompt-file>)" --model claude-opus-4-7 2>&1
 ```
 
 **Fallback when headless unavailable (post-2026-06-16 or window expired):**
+
 - Split kickoff into smaller per-section Task dispatches
 - Each Task handles one §N, writes to file, Orchestrator integrates
 - If Task still exhausts context on single section → escalate `ESCALATE:K:tool-unavailable` (the task is effectively too large for autonomous execution in current harness)
@@ -326,21 +330,23 @@ Earlier versions of this skill mandated «claude-code-guide as MANDATORY FIRST c
 
 ### §10.1 Role-specific channels
 
-| Role | First channel for Claude Code claims | Second channel (cross-check) |
-|---|---|---|
-| **Orchestrator** (Opus main session) | `claude-code-guide` subagent (if listed in system reminder) | DeepWiki MCP via `mcp__deepwiki__ask_question` on `anthropics/claude-code` |
-| **Worker** (spawned via Task) | `WebFetch` of `https://docs.claude.com/en/docs/claude-code/...` | DeepWiki MCP on `anthropics/claude-code` |
-| **Reviewer** (spawned via Task) | Same as Worker — plus **independent re-verification** of ≥1 high-stakes claim that Worker flagged |
+| Role                                 | First channel for Claude Code claims                                                              | Second channel (cross-check)                                               |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| **Orchestrator** (Opus main session) | `claude-code-guide` subagent (if listed in system reminder)                                       | DeepWiki MCP via `mcp__deepwiki__ask_question` on `anthropics/claude-code` |
+| **Worker** (spawned via Task)        | `WebFetch` of `https://docs.claude.com/en/docs/claude-code/...`                                   | DeepWiki MCP on `anthropics/claude-code`                                   |
+| **Reviewer** (spawned via Task)      | Same as Worker — plus **independent re-verification** of ≥1 high-stakes claim that Worker flagged |
 
 ### §10.2 Graduated rigor by claim class (revised 2026-05-16 per D3)
 
-| Claim class | Primary channel | Secondary | Tertiary | Notes |
-|---|---|---|---|---|
-| **SDK-shaped** — hook payload fields (e.g. `StopHookInput.last_assistant_message?`), MCP tool contracts, settings.json schema field types, harness event interfaces | TypeScript SDK types (`agent-sdk/typescript.md` or `.d.ts`) | One prose channel (WebFetch official docs OR DeepWiki) | — | Type-system authoritative per [phase-research-coverage.md §1.10](../../../../code/rules-as-tests-aif/.claude/rules/phase-research-coverage.md) |
-| **Prose CC docs (non-lifecycle)** — feature behavior descriptions, configuration narratives, slash command flows, setting semantics | WebFetch `docs.claude.com` | DeepWiki `anthropics/claude-code` | — | Dual-channel default |
-| **High-stakes CC harness lifecycle** — when Stop fires, when SubagentStop fires, event firing order, compaction triggers | WebFetch `docs.claude.com` | DeepWiki `anthropics/claude-code` | Orchestrator-only `claude-code-guide` w/ TypeScript SDK access | Empirical 2026-05-16: 2 prose channels can converge on same misreading; types resolve |
-| **External libs (npm/GitHub)** | context7 OR DeepWiki single-channel | — | — | As before |
-| **General programming concepts** | No external verification | — | — | As before |
+| Claim class                                                                                                                                                         | Primary channel                                             | Secondary                                              | Tertiary                                                       | Notes                                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------ | -------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| **SDK-shaped** — hook payload fields (e.g. `StopHookInput.last_assistant_message?`), MCP tool contracts, settings.json schema field types, harness event interfaces | TypeScript SDK types (`agent-sdk/typescript.md` or `.d.ts`) | One prose channel (WebFetch official docs OR DeepWiki) | —                                                              | Type-system authoritative per `phase-research-coverage.md` §1.10 (see below)          |
+| **Prose CC docs (non-lifecycle)** — feature behavior descriptions, configuration narratives, slash command flows, setting semantics                                 | WebFetch `docs.claude.com`                                  | DeepWiki `anthropics/claude-code`                      | —                                                              | Dual-channel default                                                                  |
+| **High-stakes CC harness lifecycle** — when Stop fires, when SubagentStop fires, event firing order, compaction triggers                                            | WebFetch `docs.claude.com`                                  | DeepWiki `anthropics/claude-code`                      | Orchestrator-only `claude-code-guide` w/ TypeScript SDK access | Empirical 2026-05-16: 2 prose channels can converge on same misreading; types resolve |
+| **External libs (npm/GitHub)**                                                                                                                                      | context7 OR DeepWiki single-channel                         | —                                                      | —                                                              | As before                                                                             |
+| **General programming concepts**                                                                                                                                    | No external verification                                    | —                                                      | —                                                              | As before                                                                             |
+
+The SDK-shaped row's authority rests on [phase-research-coverage.md §1.10](../../../rules/phase-research-coverage.md) — kept out of the table cell because a repo-internal ref becomes a blob URL on delivery and re-pads every column (`scripts/format-shipped.sh`).
 
 **Why three channels for harness lifecycle specifically:** the 2026-05-16 Stop-hook incident showed Worker and Reviewer WebFetches converged on the same prose misreading. Type-system evidence was the discriminating channel. Other claim classes can rely on dual-channel because their failure modes don't typically converge — prose-only claims and external libs don't have a third type-system option, and the dual-channel default catches divergences in those classes well.
 
@@ -348,15 +354,15 @@ Earlier versions of this skill mandated «claude-code-guide as MANDATORY FIRST c
 
 ```text
 1. WebFetch official docs:
-   WebFetch(url="https://docs.claude.com/en/docs/claude-code/hooks#stop", 
+   WebFetch(url="https://docs.claude.com/en/docs/claude-code/hooks#stop",
             prompt="When does the Stop hook fire? Quote exact lifecycle.")
-   
+
 2. DeepWiki cross-check:
    mcp__deepwiki__ask_question(
      repoUrl="https://github.com/anthropics/claude-code",
      question="When does the Stop hook fire in the session lifecycle?"
    )
-   
+
 3. Compare answers:
    - If both agree → AFFIRM, cite both URLs
    - If divergent → FLAG as INCONCLUSIVE, surface as D-item, do NOT accept either
@@ -370,7 +376,7 @@ Use the claude-code-guide subagent to answer:
 "[Specific question about Claude Code feature]"
 
 Cross-check via DeepWiki:
-mcp__deepwiki__ask_question(repoUrl="https://github.com/anthropics/claude-code", 
+mcp__deepwiki__ask_question(repoUrl="https://github.com/anthropics/claude-code",
                             question="[same question]")
 ```
 

@@ -1,17 +1,20 @@
 # Orchestrator — rationale & history
 
-> **Why this file exists:** the main `SKILL.md` holds only the reusable, general workflow. The *why* behind specific rules — the incidents that motivated them, machine/account-specific quirks, and cross-project vocabulary mapping — lives here so the skill body stays lean and portable. Read this when you want the reasoning, not the rule.
+> **Authoritative for:** the _why_ behind this skill's rules — motivating incidents, machine/account-specific quirks (Sonnet-via-Agent quota billing), and the companion vocabulary mapping.
+> **NOT authoritative for:** the rules themselves — see [../SKILL.md](../SKILL.md). Project goal — see [README.md#why-this-exists](../../../../README.md#why-this-exists).
+
+> **Why this file exists:** the main `SKILL.md` holds only the reusable, general workflow. The _why_ behind specific rules — the incidents that motivated them, machine/account-specific quirks, and cross-project vocabulary mapping — lives here so the skill body stays lean and portable. Read this when you want the reasoning, not the rule.
 
 ## Vocabulary alignment with companion tools
 
 Our internal terms stay **primary** (short, muscle-memory). The companion-equivalent column documents convergent upstream vocabulary so cross-project readers map terms 1:1. This is **ADOPT-VOCABULARY, no dependency** — the substrate stays companion-free.
 
-| Our term (primary) | Companion equivalent | Relationship |
-|---|---|---|
-| **Mode A / Mode B** (delegation styles) | Superpowers `subagent-driven-development`; aif-handoff Planner/Implementer/Reviewer | vocabulary aligned; no dependency |
-| **Worktree-per-parallel-session** | Superpowers `using-git-worktrees`; aif-handoff Git Isolation | mature upstream; we reference it |
-| **Worker / Reviewer subagents** | Superpowers SDD role prompts; aif-handoff RuntimeAdapter | our scope narrower; reference upstream |
-| **Orchestrator dispatch + verification loop** | OhMyOpencode Atlas (verification) + Prometheus (planning) | vocabulary aligned |
+| Our term (primary)                            | Companion equivalent                                                                | Relationship                           |
+| --------------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------- |
+| **Mode A / Mode B** (delegation styles)       | Superpowers `subagent-driven-development`; aif-handoff Planner/Implementer/Reviewer | vocabulary aligned; no dependency      |
+| **Worktree-per-parallel-session**             | Superpowers `using-git-worktrees`; aif-handoff Git Isolation                        | mature upstream; we reference it       |
+| **Worker / Reviewer subagents**               | Superpowers SDD role prompts; aif-handoff RuntimeAdapter                            | our scope narrower; reference upstream |
+| **Orchestrator dispatch + verification loop** | OhMyOpencode Atlas (verification) + Prometheus (planning)                           | vocabulary aligned                     |
 
 ## Model selection — the opusplan-bug history (machine/account-specific)
 

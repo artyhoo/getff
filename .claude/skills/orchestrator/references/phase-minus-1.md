@@ -1,5 +1,8 @@
 # Phase -1 — Self-review протокол (полный)
 
+> **Authoritative for:** the full Phase -1 kickoff self-review protocol — the 5 steps, the reviewer-prompt template, the A/B focus split, cost framing, T-traps and anti-patterns.
+> **NOT authoritative for:** the must-trigger / skip-OK conditions and the subagent implementation table — see [../SKILL.md](../SKILL.md) §Phase -1. Motivating incidents and ROI — see [rationale.md](rationale.md). Project goal — see [README.md#why-this-exists](../../../../README.md#why-this-exists).
+
 > Тело SKILL.md держит триггеры (когда применять / когда skip) и таблицу реализации. Здесь — полный 5-шаговый протокол, шаблон reviewer-промта, focus split, cost framing, T-traps и anti-patterns. Мотивирующие инциденты и ROI: [rationale.md](rationale.md).
 
 ## Протокол (5 шагов)
@@ -14,6 +17,7 @@
    **(c) Когда пользователь явно сказал «экономь / Sonnet»** — **2× Sonnet через Agent tool** (`model: "sonnet"`): реально разводит квоту (проверь разводку по `/status` на своём setup'е, см. «Правило модели»), без ручного copy-paste. Cost ~0 Opus из текущей сессии. Компромисс — Sonnet слабее на adversarial-ревью, поэтому для prod-blast-radius всё равно предпочитай 2× Opus (вариант b). Альтернатива с живыми окнами — Mode B file-prompts (`.claude/orchestrator-prompts/reviewer-A-*.md` / `reviewer-B-*.md`, шаблон `templates/cold-verify-reviewer.md`).
 
    **Reviewer checklist** (одинаков для A и B, передавать в subagent prompt):
+
    ```text
    Task: Cold-start review of <kickoff/prompt path> for execution-readiness
    Subagent prompt:

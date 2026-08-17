@@ -1,5 +1,8 @@
 # Стандартный шаблон промта младшей (Phase 3) + Mode B file-prompt механика
 
+> **Authoritative for:** the Phase 3 batch-prompt template (TASK/CONTEXT/VERIFY/DECISIONS/REPORT) and Mode B file-prompt mechanics.
+> **NOT authoritative for:** the Queue-mode Worker template — see [worker-template.md](worker-template.md). Dispatch triage and Mode A/B choice — see [../SKILL.md](../SKILL.md). Project goal — see [README.md#why-this-exists](../../../../README.md#why-this-exists).
+
 > Тело SKILL.md держит триаж и правила диспатча; здесь — полный шаблон батч-промта и детали Mode B. Для Queue-mode Worker'ов есть отдельный шаблон: [worker-template.md](worker-template.md).
 
 ## Шаблон батч-промта

@@ -39,7 +39,7 @@ You have NO shared memory with the Worker who produced this output. Do not assum
 
 ## Verdict format
 
-Write verdict to: `.claude/orchestrator-prompts/<queue-dir>/review-<K>-iter-<N>.md`
+Write verdict to: `.claude/orchestrator-prompts/<queue-dir>/review-<K>-iter-<N>.md`  <!-- orch-home: allow framework-only skill, never in GETFF_SKILLS_* delivery tiers (setup.d/lib.sh:58-60) -->
 
 **Structure:**
 ```
@@ -121,15 +121,15 @@ Return: the verdict file path, verdict, count of HARD-FIX items, count of SOFT i
 
 ## Placeholder reference
 
-| Placeholder | Fill with |
-|---|---|
-| `<YYYY-MM-DD>` | Today's date |
-| `<K>` | Artefact letter (A / B / C / …) |
-| `<N>` | Iteration number (0, 1, 2, …) |
-| `<OUTPUT-PATH>` | Absolute path to Worker's output file(s) |
-| `<PATH-TO-QUEUE-KICKOFF>` | Absolute path to the controlling kickoff file |
-| `<STATE-MD-PATH>` | Absolute path to this session's state.md |
-| `<queue-dir>` | Gitignored orchestrator-prompts subdirectory name |
+| Placeholder               | Fill with                                         |
+| ------------------------- | ------------------------------------------------- |
+| `<YYYY-MM-DD>`            | Today's date                                      |
+| `<K>`                     | Artefact letter (A / B / C / …)                   |
+| `<N>`                     | Iteration number (0, 1, 2, …)                     |
+| `<OUTPUT-PATH>`           | Absolute path to Worker's output file(s)          |
+| `<PATH-TO-QUEUE-KICKOFF>` | Absolute path to the controlling kickoff file     |
+| `<STATE-MD-PATH>`         | Absolute path to this session's state.md          |
+| `<queue-dir>`             | Gitignored orchestrator-prompts subdirectory name |
 
 ## See also
 

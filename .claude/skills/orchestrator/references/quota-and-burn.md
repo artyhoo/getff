@@ -1,5 +1,8 @@
 # Quota reporting + Burn mode — reference
 
+> **Authoritative for:** the quota-message format shown to the user, and the full burn-mode protocol (explicit trigger, scope, exit).
+> **NOT authoritative for:** the zone thresholds and what to track — see [../SKILL.md](../SKILL.md) §Quota monitoring. Project goal — see [README.md#why-this-exists](../../../../README.md#why-this-exists).
+
 > Тело SKILL.md держит зоны-светофор и что отслеживать; здесь — формат сообщений пользователю и полный burn-mode протокол.
 
 ## Как сообщать пользователю о квоте
@@ -25,18 +28,18 @@
 - «opus много осталось», «sonnet полный»
 - «делай thorough», «не спеши»
 
-При триггере старшая немедленно подтверждает одной строкой: *«Burn mode активирован: thorough analysis, чтение в моём контексте, длинные deliverables.»*
+При триггере старшая немедленно подтверждает одной строкой: _«Burn mode активирован: thorough analysis, чтение в моём контексте, длинные deliverables.»_
 
 ### Поведение в burn mode
 
-| Что | Norma | Burn mode |
-|-----|-------|-----------|
-| Чтение исходников | Делегировать через Agent | **Читать самой** в свой контекст |
-| Длина ответа | Краткие bullets | Длинные с примерами, обоснованиями |
-| Архитектурный анализ | Поверхностный, делегировать | Глубокий, multi-file synthesis |
-| Документы (audits, plans) | Короткие | Comprehensive с decision matrix'ами |
-| Initiative | Только по запросу | Предлагать backlog Opus-задач |
-| Mode A inline (Opus) | Дефолт для execution + research, без избытка | Развёрнутые промты, multi-step follow-ups, thorough audits |
+| Что                       | Norma                                        | Burn mode                                                  |
+| ------------------------- | -------------------------------------------- | ---------------------------------------------------------- |
+| Чтение исходников         | Делегировать через Agent                     | **Читать самой** в свой контекст                           |
+| Длина ответа              | Краткие bullets                              | Длинные с примерами, обоснованиями                         |
+| Архитектурный анализ      | Поверхностный, делегировать                  | Глубокий, multi-file synthesis                             |
+| Документы (audits, plans) | Короткие                                     | Comprehensive с decision matrix'ами                        |
+| Initiative                | Только по запросу                            | Предлагать backlog Opus-задач                              |
+| Mode A inline (Opus)      | Дефолт для execution + research, без избытка | Развёрнутые промты, multi-step follow-ups, thorough audits |
 
 ### Backlog задач которые имеет смысл жечь Opus'ом
 
