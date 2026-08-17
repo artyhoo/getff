@@ -36,11 +36,34 @@ time by tracing `import { ... } from '...'` chains:
 | `src/cli/openQuestion.ts`          | cli/park → `./openQuestion.js`                                    |
 | `hooks/runtime-bridge-dispatch.sh` | bash PostToolUse hook (paired with this CLI)                      |
 
+### Agent-loop entrypoints (added 2026-08-17 — P1 resolved PARTIALLY)
+
+Beyond the dispatch closure, the copy carries the agent-loop entrypoints that shipped skills
+**instruct the consumer to run**. The admitting criterion is the one PR #1432 set for the
+`reviewer` skill: _a shipped artefact that promises a command obliges the tier to deliver it_ —
+otherwise the promise is a documented lie, which is the failure class this project exists to
+prevent ([README.md#why-this-exists](../../../README.md#why-this-exists)).
+
+| File                   | Promised by (shipped skills)           | Closure cost                         |
+| ---------------------- | -------------------------------------- | ------------------------------------ |
+| `src/cli/harvest.ts`   | `dispatcher`, `pipeline`               | + `src/harvest.ts` (0 imports)       |
+| `src/cli/answer.ts`    | `dispatcher`, `night-mode`, `pipeline` | none new (`backend.ts` already here) |
+| `src/cli/questions.ts` | `dispatcher`, `pipeline`               | none new (no sibling imports)        |
+| `src/harvest.ts`       | (closure of `cli/harvest.ts`)          | 0 imports — self-contained           |
+
+The four are mutually independent: none imports another, and their only shared sibling is
+`cli/aifHttp.ts`, already vendored for dispatch. The copy stays import-closed — every relative
+import from every vendored `.ts` resolves inside this tree (verified at copy time).
+
 **Files NOT copied** (deliberate):
 
 - `src/AifFireBackend.ts`, `src/index.ts` — referenced only outside the dispatch closure.
-- `src/cli/{answer,await,harvest,questions}.ts` — the agent-loop entrypoints (consumer runs
-  `/harvest`, `/questions`, etc.). Whether to vendor these is **PARKED (P1)** — see «Parked forks».
+- `src/cli/await.ts` — the one agent-loop entrypoint **no shipped skill mentions** (measured
+  2026-08-17: `grep -rl 'cli/await\.ts' --include='*.md' .claude/skills/` → 0 files, versus 2-3
+  files each for harvest/answer/questions). Nothing promises it, so nothing obliges us to carry
+  it, and every vendored file is maintenance surface while **P4 (update mechanism) is still
+  parked**. Its closure is already present (`backend.ts`, `resolver.ts`, `types.ts`), so admitting
+  it later is a one-file copy. **P1 stays open for this file only.**
 
 ## Env-var contract
 
@@ -87,9 +110,17 @@ because the plan §3.3 explicitly scopes the stub to the dedup path only.
 Five forks are deliberately **not resolved** in this stage; the executor proceeded only on the
 unambiguous minimum-for-dispatch slice. Each park will be cited into the PR body at handoff.
 
-- **P1 — Runtime-bridge subset boundary** (kickoff §1.1). Vendor the dispatch closure (DONE
-  here) vs vendor all 9 entrypoints + hook (full agent loop in the consumer). Spec A7 line 286
-  says «CLI entrypoints» (plural) without deciding the boundary.
+- **P1 — Runtime-bridge subset boundary** (kickoff §1.1). Vendor the dispatch closure vs vendor
+  all 9 entrypoints + hook (full agent loop in the consumer). Spec A7 line 286 says «CLI
+  entrypoints» (plural) without deciding the boundary. **RESOLVED PARTIALLY 2026-08-17** — the
+  boundary is now stated rather than left open: _vendor what a shipped skill instructs the
+  consumer to run_, per the PR #1432 `reviewer` precedent. That admits `harvest`, `answer`,
+  `questions` (see «Agent-loop entrypoints» above) and leaves `await` out — it is mentioned by no
+  shipped skill. **Still open for `await` only**; re-open the wider fork if a future skill starts
+  promising it, or if the criterion itself is rejected. Origin of the reopening: the 2026-08-17
+  shipped-path audit found `pipeline/SKILL.md` calling the `harvest.ts` egress **mandatory** after
+  `status=done` while the file reached no consumer — a park with no consumer-facing consequence
+  recorded.
 - **P2 — Vendor/framework import-coupling** (kickoff §3 sub-fork a). Self-contained snapshot
   (frozen, this copy) vs shared-types import (drifts with framework). Current choice: snapshot.
 - **P3 — Vendor/framework path-resolution** (kickoff §3 sub-fork b). Env vars vs hardcoded
