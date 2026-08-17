@@ -22,16 +22,23 @@
  * The hole was not academic. Of those 12, eleven passed on first run and are wired by the same
  * commit as this file. **One was RED**: `tests/plugin/end-of-turn-reminder-zcode.test.sh` case
  * (1) asserts the Stop hook's ZCode-rollout arm suppresses a repeated question, and the hook
- * answers `decision: block` instead. Cause traced, not guessed: `ZCODE_ROLLOUT_DIR` appears in
+ * answered `decision: block` instead. Cause traced, not guessed: `ZCODE_ROLLOUT_DIR` appeared in
  * that test and NOWHERE else in the tree. The arm shipped in #1044 into the *twin*
  * `plugin/hooks/end-of-turn-reminder`, never into the source `.claude/hooks/end-of-turn-reminder.sh`;
- * the twin now carries no `@plugin-transform` marker and is byte-identical to its source, i.e.
+ * the twin carries no `@plugin-transform` marker and is byte-identical to its source, i.e.
  * identity-generated — so regeneration overwrote the arm. A test wired at no channel could not
- * say so. It is allowlisted below rather than silently deleted, because «restore the arm or
- * retire the test» is a behaviour decision this gate does not get to make.
+ * say so.
  *
  * That is the argument for the gate in one line: a directory nobody wired hid a real capability
  * loss for five hook revisions (#1054, #1137, #1142, #1349, #1409).
+ *
+ * **Settled 2026-08-17 (same day, follow-up commit):** the arm was restored *into the source*, so
+ * regeneration now propagates it instead of erasing it, and the test is wired like its eleven
+ * peers. `COVERAGE_ALLOWLIST` is consequently **empty** — the intended steady state. Arms (f) and
+ * (g) were rebuilt in that commit because both had been resting on this one file being unwired:
+ * (f) used it as a live comment-only specimen (none remain — measured 130 of 130 tracked tests
+ * named in a real step), and (g) looped over allowlist entries, which is vacuous at zero. Each
+ * now carries a seeded negative so the logic fires with an empty allowlist.
  *
  * ## Channel choice (.claude/rules/rule-enforcement-channel-selection.md §3)
  *
@@ -55,7 +62,15 @@
  */
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import {
+  readFileSync,
+  existsSync,
+  readdirSync,
+  mkdtempSync,
+  writeFileSync,
+  rmSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -69,14 +84,10 @@ const WORKFLOW_DIR = join(REPO_ROOT, '.github/workflows');
  * still a real member of the population, so a stale entry cannot silently widen the exemption.
  */
 const COVERAGE_ALLOWLIST = new Map<string, string>([
-  [
-    'tests/plugin/end-of-turn-reminder-zcode.test.sh',
-    'KNOWN-RED, wiring it would make CI red on a pre-existing defect: case (1) asserts a ZCode ' +
-      'rollout arm (ZCODE_ROLLOUT_DIR) that shipped in #1044 into the plugin twin only and was ' +
-      'overwritten once that twin became identity-generated from .claude/hooks/end-of-turn-reminder.sh. ' +
-      'Restoring the arm vs retiring the test is a behaviour decision, tracked separately; remove ' +
-      'this entry in the same commit that settles it.',
-  ],
+  // Empty is the intended steady state: every tracked *.test.sh is wired. The sole entry this
+  // file ever carried (tests/plugin/end-of-turn-reminder-zcode.test.sh) was removed once the
+  // defect it recorded — the lost S9C rollout arm — was repaired at the source and the test
+  // wired. Arm (g) proves its own logic on a seeded map, so it does not go vacuous at zero.
 ]);
 
 /** Git-tracked `*.test.sh` — the real population. Tracked-only, so worktree scratch never counts. */
@@ -95,12 +106,17 @@ function population(): string[] {
 /**
  * Workflow text with whole-line comments stripped.
  *
- * Load-bearing TODAY, not a hypothetical guard: a path named only in a `#` comment must NOT
- * count as wired, and this repo already has exactly that case — audit-self.yml names the
- * allowlisted KNOWN-RED test in a comment. Measured 2026-08-17: 130 of 130 tracked tests are
- * named in the raw workflow text, but only 129 in a step. Counting the comment would mark the
- * red test «wired», and the sweep's derived row would then run a knowingly-red test locally.
- * Arm (f) pins this against the real file rather than a synthetic string.
+ * A path named only in a `#` comment must NOT count as wired. This started as a live case —
+ * audit-self.yml named the then-allowlisted KNOWN-RED test in a comment, and counting it would
+ * have marked that test «wired», so the sweep's derived row would have run a knowingly-red test
+ * locally (measured 2026-08-17: 130 named in the raw text, 129 in a real step). The red test was
+ * repaired and wired hours later, so the population is now 130 of 130 in real steps and no
+ * comment-only specimen survives — arm (f) therefore seeds one, still exercising this real
+ * function rather than a reimplementation of it.
+ *
+ * The strip stays load-bearing regardless of the count: audit-self.yml comments name test paths
+ * freely (the wiring comments above each block do exactly that), so any future comment mention
+ * would silently register as coverage.
  */
 function workflowRegistry(dir: string = WORKFLOW_DIR): string {
   if (!existsSync(dir)) return '';
@@ -116,6 +132,30 @@ function workflowRegistry(dir: string = WORKFLOW_DIR): string {
 /** Files in `pop` that `registry` never names. */
 function unwired(pop: string[], registry: string): string[] {
   return pop.filter((f) => !registry.includes(f));
+}
+
+/**
+ * Allowlist-hygiene violations, as messages. Returned rather than asserted inline so arm (g2) can
+ * drive the same logic with a seeded map — otherwise the check goes vacuous the moment the real
+ * allowlist is empty, which is its intended steady state.
+ */
+function allowlistViolations(map: Map<string, string>): string[] {
+  const files = new Set(population());
+  const out: string[] = [];
+  for (const [path, rationale] of map) {
+    if (!files.has(path)) {
+      out.push(
+        `COVERAGE_ALLOWLIST entry \`${path}\` is not a tracked *.test.sh — a stale entry ` +
+          `silently widens the exemption; delete it or fix the path`,
+      );
+    }
+    if (rationale.trim().length < 20) {
+      out.push(
+        `COVERAGE_ALLOWLIST entry \`${path}\` needs a rationale of ≥20 chars saying WHY it is exempt`,
+      );
+    }
+  }
+  return out;
 }
 
 describe('Principle 41 — every tracked *.test.sh is invoked by CI', () => {
@@ -182,37 +222,69 @@ describe('Principle 41 — every tracked *.test.sh is invoked by CI', () => {
   });
 
   it('(f) comment-only mentions do not count as wiring', () => {
-    // This is not hypothetical: audit-self.yml names the allowlisted KNOWN-RED test inside a
-    // `#` comment. A registry that counted comments would report it as wired, and the local
-    // sweep's derived row (scripts/run-local-ci-sweep.sh, `plugin-aifdoctor-selftests`) would
-    // pick it up and run a knowingly-red test — measured 2026-08-17 before the strip landed.
-    const red = 'tests/plugin/end-of-turn-reminder-zcode.test.sh';
+    // Seeded, because the live specimen was repaired: audit-self.yml used to name the KNOWN-RED
+    // test only in a `#` comment, and a registry counting comments would have reported it wired,
+    // so the sweep's derived row (scripts/run-local-ci-sweep.sh, `plugin-aifdoctor-selftests`)
+    // would have run a knowingly-red test locally. The seed drives the REAL workflowRegistry()
+    // over a real file on disk — only the corpus is synthetic, never the logic under test.
+    const seeded = 'tests/plugin/seeded-comment-only.test.sh';
+    const stepped = 'tests/plugin/seeded-real-step.test.sh';
+    const tmp = mkdtempSync(join(tmpdir(), 'p41-'));
+    try {
+      writeFileSync(
+        join(tmp, 'seeded.yml'),
+        [
+          'jobs:',
+          '  probe:',
+          '    steps:',
+          `      # a wiring note that names ${seeded}`,
+          `      - run: bash ${stepped}`,
+        ].join('\n'),
+      );
+      const reg = workflowRegistry(tmp);
+      expect(
+        reg,
+        `\`${seeded}\` is named only in a comment — the registry must not treat that as wiring`,
+      ).not.toContain(seeded);
+      expect(
+        reg,
+        'the seeded corpus must still register its real `run:` step, or the strip is over-eager',
+      ).toContain(stepped);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+
+    // Real-corpus half: audit-self.yml genuinely does name test paths inside comments, so the
+    // strip is exercised against the shipped file too, not only against the seed.
     const raw = readdirSync(WORKFLOW_DIR)
       .filter((f) => f.endsWith('.yml') || f.endsWith('.yaml'))
       .map((f) => readFileSync(join(WORKFLOW_DIR, f), 'utf8'))
       .join('\n');
+    const commentOnlyPhrase = 'invoked by NO workflow step';
     expect(
       raw,
-      'precondition: the red test is named in a workflow comment',
-    ).toContain(red);
-    expect(
-      workflowRegistry(),
-      `\`${red}\` is named only in a comment — the registry must not treat that as a wiring step`,
-    ).not.toContain(red);
+      'precondition: the real workflow carries this phrase in a comment',
+    ).toContain(commentOnlyPhrase);
+    expect(workflowRegistry()).not.toContain(commentOnlyPhrase);
   });
 
   it('(g) allowlist hygiene: every allowlisted path is real, with a substantive rationale', () => {
-    const files = new Set(population());
-    for (const [path, rationale] of COVERAGE_ALLOWLIST) {
-      expect(
-        files.has(path),
-        `COVERAGE_ALLOWLIST entry \`${path}\` is not a tracked *.test.sh — a stale entry ` +
-          `silently widens the exemption; delete it or fix the path`,
-      ).toBe(true);
-      expect(
-        rationale.trim().length,
-        `COVERAGE_ALLOWLIST entry \`${path}\` needs a rationale of ≥20 chars saying WHY it is exempt`,
-      ).toBeGreaterThanOrEqual(20);
-    }
+    expect(allowlistViolations(COVERAGE_ALLOWLIST)).toEqual([]);
+  });
+
+  it('(g2) paired-negative: the hygiene check itself still fires at an empty allowlist', () => {
+    // Without this, (g) is a loop over zero entries — the exact `#armed-but-not-fired` shape this
+    // principle exists to catch, reproduced inside the principle. The seeded map proves both
+    // clauses are live regardless of what the real allowlist holds.
+    const real = population()[0];
+    expect(real, 'population is empty — cannot seed the negative').toBeTruthy();
+    const seeded = new Map<string, string>([
+      ['tests/plugin/not-a-tracked-file.test.sh', 'a perfectly long-enough rationale here'],
+      [real!, 'too short'],
+    ]);
+    const violations = allowlistViolations(seeded);
+    expect(violations).toHaveLength(2);
+    expect(violations[0]).toMatch(/not a tracked/);
+    expect(violations[1]).toMatch(/≥20 chars/);
   });
 });
