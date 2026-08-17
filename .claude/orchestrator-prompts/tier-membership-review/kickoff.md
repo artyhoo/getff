@@ -106,6 +106,9 @@ has no one-command entry. Never investigated; the layer cites «spec A9», unrea
 
 ## §5 Open forks — the operator's, not yours
 
+> **2026-08-17 design session #2:** fork 2 is CLOSED (widened into the three-part model) — see
+> §7. Forks 1 and 3 remain open.
+
 1. **Default depth: stay `core`, or raise to `env`?** Changes installer behaviour for every
    consumer. Argument for `env`: §4A shows it needs nothing external, so gating it is a
    decision rather than a necessity, and it makes the operator's «core + optional bonuses»
@@ -136,3 +139,61 @@ tests/install-sh/snapshot.sh` — its content hash sits in the 11 baselines that
 - **Coupling counts are a proxy** (`T-TIER-A`), not a proof of unusability.
 - The scan ran on the framework's own tree plus one scratch install — not on any real
   consumer project.
+
+## §7 Decisions recorded — 2026-08-17 design session #2 (operator dialogue)
+
+Recorded from the live operator conversation on `claude/drift-register-probe`. The PR pause
+is STILL IN FORCE — nothing below is implemented; this section is the decision record.
+
+**D1 — three-part delivery model CONFIRMED (fork 2 closed and widened).** The operator's
+cut: **core** («rules = tests», always ships) / **harness** (the operator's working contour,
+optional) / **factory** (the aif engine room, optional). «Any 2 of 3» was measured and
+REJECTED: all four factory skills reference harness skills (dispatcher → /pipeline at
+:3/:24/:42/:401 + /arch at :367; aif-doctor → /pipeline ×6; harvest → night-mode :67 +
+/arch :81; claude-glm-executor-handoff → night-mode throughout), so factory presupposes
+harness and the ladder stays monotonic: `core ⊂ harness ⊂ factory`. Installer nesting
+mechanics unchanged; only list membership moves ([setup.d/lib.sh:58-60](../../../setup.d/lib.sh)).
+
+**D2 — target membership.** harness = arch, pipeline, reviewer + orchestrator (D3) +
+night-mode (D4) + story (D5) + the question hooks (`ask-question-reminder.sh`,
+`end-of-turn-reminder.sh` — present in the setup.d manifests; their PROFILE gate is
+UNVERIFIED, enumerate before moving). factory = dispatcher, aif-doctor, harvest,
+claude-glm-executor-handoff (+ the aif-handoff runtime).
+
+**D3 — orchestrator ships in harness.** Vendored into the repo by #1420
+(`.claude/skills/orchestrator/`, tracked) yet present in NO tier list — the same
+missed-delivery shape as reviewer before #1432 (§4D). Runtime coupling ≈0 (1 mention in
+SKILL.md, 0 across all working `references/*.md`). BFR: NOT a duplicate of Superpowers SDD —
+the body delegates via `Skill('superpowers:…')` at 9+ points
+([orchestrator/SKILL.md:67](../../skills/orchestrator/SKILL.md) «Discovery is our niche;
+decomposition is companion's»; also :122, :264, :382, :486) and adds five capabilities
+upstream lacks: Mode B cross-session dispatch, Queue mode, quota zones, Phase -1 cold
+kickoff read, discovery. Obligation: re-verify upstream Superpowers (>6.2.0) for a queue
+layer when the BFR record is written.
+
+**D4 — night-mode moves to harness WITH degradation work.** Its core loop is runtime-free
+by design ([night-mode/SKILL.md:17](../../skills/night-mode/SKILL.md)), but three refs are
+factory-only: runtime-bridge CLI (:33), dispatcher (:35), claude-glm-executor-handoff (:19).
+The move requires conditional/degrading refs, never a bare list edit.
+
+**D5 — story moves to harness AFTER #934.** The installer's own rationale comment
+([setup.d/10-skills.sh:92-94](../../../setup.d/10-skills.sh)) records that story «crashes on
+landing until its lang-pack ships (#934)» — the factory gate was masking a delivery bug, not
+a runtime dependency. Binding order: fix #934 → move.
+
+**D6 — new defects found this session (no PR without explicit invitation):**
+
+1. Stale tilde-refs to the pre-vendoring global orchestrator:
+   [pipeline/SKILL.md:22/:487/:595](../../skills/pipeline/SKILL.md) («global,
+   agent-uncommittable, owner=maintainer») and [CLAUDE.md:134](../../../CLAUDE.md) —
+   `~/.claude/skills/orchestrator/` no longer exists (probed 2026-08-17 on the operator
+   machine: `ls` → ENOENT).
+2. The per-tier rationale comment [setup.d/10-skills.sh:52-102](../../../setup.d/10-skills.sh)
+   drifted from the lib.sh lists (still holds pipeline in the factory suite; reviewer absent
+   from env) — while [lib.sh:57](../../../setup.d/lib.sh) delegates per-tier rationale to
+   exactly that comment.
+3. (already §5.3) pipeline-as-factory-marker in two shipped docs.
+4. (already §4B) pipeline dangling hook ref.
+
+**Still open — the operator's:** fork 1 (default depth `core` → core+harness; recommended
+order: fix the §4B ref first), fork 3 (invitation for the marker fix).
