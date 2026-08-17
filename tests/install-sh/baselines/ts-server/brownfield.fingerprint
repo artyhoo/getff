@@ -15,7 +15,7 @@ e9e7ba33e671dbd3635c3157f43726e4c74f9cbb923328ae5a288bdbd3e13853  .claude/agents
 8d4af21768eeba5a38e1300ffb2b78e99d10636b425b617838bdbb5d9f383393  .claude/agents/fidelity-auditor.md
 0964a4d3deb5e15e916c599f375874785af96e935bec9efbc7488e600cee719d  .claude/agents/living-docs-auditor.md
 c96ba6e4c52288f0b77a2edaeb6170ecad03e699360d79fe7794fd3e205717e8  .claude/agents/memory-codification-auditor.md
-ecd269f2c9f2e6a328eb50bb09a03b405e4462f019fbf8987fc0849b7fbfabfc  .claude/agents/review-sidecar.md
+8f9b3e025ee0981d127c23d97578daceb3dd580df79a195d89e1cc01d9161878  .claude/agents/review-sidecar.md
 e43ef48a6421767a5f028c39ff48c978141133b4c9d2668fac832c5065dea4a4  .claude/agents/rule-researcher.md
 126f04b5c4c8cff807ea0ff5efc3b2208535da443c65be81fdf56492016fd63f  .claude/agents/rule-test-author.md
 019ffec11048bfa80843200ef23965380be79c6cddecfc29ee4e5c9136f9ef7d  .claude/hooks/ask-question-reminder.sh
