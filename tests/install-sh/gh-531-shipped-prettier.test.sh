@@ -208,6 +208,18 @@ if npx --yes prettier@3.8.3 --version >/dev/null 2>&1; then
   [ "$n" -eq 0 ] \
     && ok "end-to-end: fresh ts-server consumer is Prettier-clean (prettier@3.8.3 --check . → 0 issues)" \
     || bad "end-to-end: consumer has $n prettier failures after install (#531 not fully closed)"
+  # Arm 3b (GH #1378): the assertion above measures the consumer's DEFAULT run, which honours the
+  # .prettierignore managed block — and that block lists every delivered agent + skill doc. A green
+  # there means "hidden", not "conformant". Re-measure the same tree with the ignore neutralised, so
+  # the delivered post-transform bytes are judged on their own. transform_internal_refs() rewrites
+  # refs AFTER the copy; a rewrite inside a table cell re-pads the table, and capability-reuse-
+  # auditor.md shipped dirty that way while this arm stayed green. Deterministic companion:
+  # tests/install-sh/delivered-prettier-conformance.test.sh (source-side, with the paired negative).
+  d=$( ( cd "$T" && npx --yes prettier@3.8.3 --list-different --ignore-path /dev/null \
+         '.claude/skills/**/*.md' '.claude/agents/**/*.md' 2>/dev/null ) | grep -c . )
+  [ "$d" -eq 0 ] \
+    && ok "end-to-end: delivered .claude/skills + .claude/agents are Prettier-CONFORMANT, not merely ignored" \
+    || bad "end-to-end: $d delivered skill/agent doc(s) fail prettier under the shipped config (#1378 open)"
 else
   echo "  · end-to-end arm skipped (npx prettier@3.8.3 unreachable) — deterministic arms above still hold"
 fi
