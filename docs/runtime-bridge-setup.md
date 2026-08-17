@@ -186,8 +186,8 @@ Never use `blockedReason` alone to stop the agent — the coordinator does not h
 ## Operator convenience: mount global skills
 
 By default the aif container only sees the repo clone. To give the aif agent access to
-your operator-side global skills (`~/.claude/skills/orchestrator/`, Superpowers plugins,
-etc.), add bind-mounts to your local `docker-compose.override.yml`:
+your operator-side global skills (whatever `~/.claude/skills/` holds on your machine,
+Superpowers plugins, etc.), add bind-mounts to your local `docker-compose.override.yml`:
 
 ```yaml
 services:

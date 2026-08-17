@@ -19,7 +19,7 @@ allowed-tools:
 
 > **Class:** C — prose-only runbook; mechanical substrate = existing $0 helpers (`bridge-health.sh`, `verify-bridge.sh`) + upstream read-only endpoints (`/health`, `/agent/status`). No new code, no npm deps. Promotion criterion: ≥2 «re-derived aif operational knowledge» incidents after ship → consider a session-start `bridge-health.sh` auto-run hook (`.claude/hooks/`).
 > **Authoritative for:** /aif-doctor behaviour — §0 invocation through §8; the read-only health-sweep → classify → emit-mapped-fix → mutation-needs-GO flow; the empirically-observed failure-mode catalogue (§3) and its detector→fix→reversibility mapping.
-> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). The dispatch/execution loop — see [.claude/skills/dispatcher/SKILL.md](../dispatcher/SKILL.md). Planning / priority / launch-table — see [.claude/skills/pipeline/SKILL.md](../pipeline/SKILL.md). Global `~/.claude/skills/orchestrator/` (agent-uncommittable, owner=maintainer). The host proxy tunnel itself (§3.3 names it and stops — fixing it is operator machine-level work).
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). The dispatch/execution loop — see [.claude/skills/dispatcher/SKILL.md](../dispatcher/SKILL.md). Planning / priority / launch-table — see [.claude/skills/pipeline/SKILL.md](../pipeline/SKILL.md). The `orchestrator` skill at `.claude/skills/orchestrator/`. The host proxy tunnel itself (§3.3 names it and stops — fixing it is operator machine-level work).
 
 # /aif-doctor — aif operational-health triage
 
@@ -224,7 +224,7 @@ Read-only fixes (re-running a probe) run freely. This split was introduced 2026-
 - **Does NOT add npm deps or new scripts** — reuses §1 helpers + endpoints only; a genuinely-needed new probe = surface as a finding, do not build it here.
 - **Does NOT auto-mutate destructive/system fixes** — Tier 2 mutations (DELETE task, container restart, cap bump) need operator GO (§4). Tier 1 reversible fixes (git config, npm install, retry) apply automatically.
 - **Does NOT fix the host proxy tunnel** — but DOES run the §3.3 discriminator first; if the block is host-selective (tunnel alive, only `registry.npmjs.org` dropped), the runtime is fixable via §3.1 Fix D (mirror) **without** touching the VPN. Only a whole-tunnel-down case is name-and-stop.
-- **Does NOT edit `~/.claude/skills/orchestrator/`** — maintainer-owned, agent-uncommittable.
+- **Does NOT edit `.claude/skills/orchestrator/`** — another skill's artefact; wrap, never fork.
 
 ---
 

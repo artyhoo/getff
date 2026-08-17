@@ -102,7 +102,7 @@ Write verdict to: `.claude/orchestrator-prompts/<queue-dir>/review-<K>-iter-<N>.
 - **HARD-FIX = 0 AND no hard-constraint violated AND T-counters applied** → GO is appropriate
 - **In REVISE iters:** re-list ALL previous HARD-FIX items; explicitly mark each RESOLVED or STILL-OPEN. Do not silently drop items.
 - **For Artefact A specifically:**
-  - Confirm `diff /tmp/SKILL.md.bak ~/.claude/skills/orchestrator/SKILL.md` shows ONLY additions (lines starting with `>`, no `<` lines indicating deletions outside new content)
+  - Confirm `diff /tmp/SKILL.md.bak .claude/skills/orchestrator/SKILL.md` shows ONLY additions (lines starting with `>`, no `<` lines indicating deletions outside new content)
   - Verify Glossary section + decision matrix row + Queue mode section do not break Mode A/B/B' descriptions
   - Verify cross-references in new references/ files resolve to existing or co-created files
   - Template consistency check (T-meta-B): verify references/worker-template.md + references/reviewer-template.md are semantically equivalent to §7.1 + §7.2 of the meta-kickoff

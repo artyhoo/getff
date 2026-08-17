@@ -18,8 +18,8 @@ Write Artefact <K> as specified in the kickoff at <PATH-TO-QUEUE-KICKOFF> — sp
 <LIST SPECIFIC OUTPUT FILES WITH ABSOLUTE PATHS>
 
 Example for references/ file creation:
-1. mkdir -p ~/.claude/skills/orchestrator/references/
-2. Write: ~/.claude/skills/orchestrator/references/<filename>.md
+1. mkdir -p .claude/skills/orchestrator/references/
+2. Write: .claude/skills/orchestrator/references/<filename>.md
 
 ## Discipline (Step 0 invariants inline)
 

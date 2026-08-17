@@ -19,11 +19,11 @@ allowed-tools:
 
 > **Class:** B (mixed): §0/§7.1 + §10/§7.12 = Class A (CC primitive enforces structurally — slash-command exists or not, Write tool writes file or not, frontmatter parses or not). §4/§7.5 = partial Class A via principle 12 test enforcing §5 AI-traps section presence in generated kickoffs. §1/§7.2 · §2/§7.3 · §3/§7.4 · §5/§7.6 · §6/§7.7 · §7/§7.8 · §9/§7.11 · §11/§7.13 = **Class C** (prose-only enforcement; AI can ignore `!shell`-injected data and proceed; acceptable per [parallel-subwave-isolation.md §4](../../rules/parallel-subwave-isolation.md) precedent and [research-patches/2026-05-16-readme-absolutism-vs-class-c-practice.md](../../../docs/meta-factory/research-patches/2026-05-16-readme-absolutism-vs-class-c-practice.md) maintainer-owned tension). **Re-promotion triggers per Class C:** ≥2 stage-gate-ignored incidents within 6 months → consider mechanical post-hoc check (commit-on-branch-B-only-if-PR-on-branch-A-merged via pre-push hook).
 > **Authoritative for:** /pipeline slash-command behaviour — §0 invocation through §11 failures; plan-currency check discipline; cross-umbrella priority scoring; Mode A/B/SDD/Queue launch-table generation; meta-kickoff authoring; stage-gate enforcement; reviewer dispatch.
-> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). Existing global `~/.claude/skills/orchestrator/` (agent-uncommittable, owner=maintainer). The actual R-phase verdict — see [research-patches/2026-05-23-meta-orchestrator-prior-art.md](../../../docs/meta-factory/research-patches/2026-05-23-meta-orchestrator-prior-art.md).
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). The `orchestrator` skill at `.claude/skills/orchestrator/` — a separate skill this one wraps, never forks. The actual R-phase verdict — see [research-patches/2026-05-23-meta-orchestrator-prior-art.md](../../../docs/meta-factory/research-patches/2026-05-23-meta-orchestrator-prior-art.md).
 
 # /pipeline — plan-preflight + launch-table + stage-gate dispatch
 
-**Origin:** BUILD verdict 2026-05-23. R-phase patch: [research-patches/2026-05-23-meta-orchestrator-prior-art.md](../../../docs/meta-factory/research-patches/2026-05-23-meta-orchestrator-prior-art.md). Closes 4 named gaps in the global `orchestrator` skill (plan-actuality / cross-umbrella priority / auto-launch-table / stage-gate-vs-flat-queue).
+**Origin:** BUILD verdict 2026-05-23. R-phase patch: [research-patches/2026-05-23-meta-orchestrator-prior-art.md](../../../docs/meta-factory/research-patches/2026-05-23-meta-orchestrator-prior-art.md). Closes 4 named gaps in the `orchestrator` skill (plan-actuality / cross-umbrella priority / auto-launch-table / stage-gate-vs-flat-queue).
 
 **Binding spec:** `.claude/orchestrator-prompts/meta-orchestrator-prior-art/kickoff.md §7` (gitignored, 14 sub-sections §7.1-§7.14).
 
@@ -484,7 +484,7 @@ SP `requesting-code-review` upstream problem class = «dispatch a reviewer subag
 
 - **Does NOT write sub-wave code.** Writing implementation code is the Worker's job. If invoked on an execution-build sub-wave, meta-orchestrator generates the kickoff and dispatch instructions — it does NOT implement.
 - **Does NOT finalize project strategy.** Meta-orchestrator can recommend a priority winner (§2) and say «proceeding»; it asks the maintainer on genuine strategy forks (§7.3 item 5).
-- **Does NOT modify `~/.claude/skills/orchestrator/`.** That is the global orchestrator, agent-uncommittable, owner=maintainer. Meta-orchestrator wraps and calls it; it never forks or modifies it. All paths in this skill begin with `.claude/skills/pipeline/` or consumer-repo relative refs.
+- **Does NOT modify `.claude/skills/orchestrator/`.** That is a separate skill with its own owner. Meta-orchestrator wraps and calls it; it never forks or modifies it. All paths in this skill begin with `.claude/skills/pipeline/` or consumer-repo relative refs.
 - **Does NOT violate no-paid-llm-in-ci.md §1.** All dispatch is session-bound CC subscription. Zero API-billed calls in CI. `!shell` injections are deterministic bash.
 - **Does NOT add npm deps.** Substrate stays bash + markdown + CC primitives + existing `gh` CLI.
 - **Does NOT re-litigate R-phase verdicts.** If a missed candidate is noticed, write `docs/meta-factory/research-patches/2026-<date>-meta-orchestrator-followup-<gap>.md` and surface to maintainer.
@@ -592,7 +592,7 @@ The cost of absence: orchestrator surgery time when a parallel branch contaminat
 
 - [R-phase patch (binding spec)](../../../docs/meta-factory/research-patches/2026-05-23-meta-orchestrator-prior-art.md)
 - R-phase kickoff §7 (functional spec — 14 sub-sections) — `.claude/orchestrator-prompts/meta-orchestrator-prior-art/kickoff.md` (gitignored executor reference)
-- Global `~/.claude/skills/orchestrator/SKILL.md` — the queue/dispatch primitive this skill wraps. Agent-uncommittable. (tilde-path, not a repo link)
+- `.claude/skills/orchestrator/SKILL.md` — the queue/dispatch primitive this skill wraps. Vendored into this repo by #1420; a separate skill, wrapped and never forked. (backticked path, not a repo link — the skill ships at env depth and the link would dangle wherever it does not)
 - [parallel-subwave-isolation.md §1](../../rules/parallel-subwave-isolation.md) — worktree isolation (§5 Mode B) · [reviewer-discipline.md §2](../../rules/reviewer-discipline.md) — reviewer role (§7)
 - [no-paid-llm-in-ci.md §1](../../rules/no-paid-llm-in-ci.md) — hard constraint on all dispatch · [ai-laziness-traps.md §3](../../rules/ai-laziness-traps.md) — T-enumeration + [principle 12 test](../../../packages/core/principles/12-ai-laziness-traps.test.ts)
 - [SSOT rows #66-#70](../../../docs/meta-factory/prior-art-evaluations.md) — R-phase survey evidence; [references/bundle-composition.md](references/bundle-composition.md) — §5.5 full spec (B1/B2/B3a)
