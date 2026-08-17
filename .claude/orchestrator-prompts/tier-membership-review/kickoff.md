@@ -197,3 +197,11 @@ a runtime dependency. Binding order: fix #934 → move.
 
 **Still open — the operator's:** fork 1 (default depth `core` → core+harness; recommended
 order: fix the §4B ref first), fork 3 (invitation for the marker fix).
+
+**Ratification (2026-08-17, later same session):** the operator approved D1-D5 for
+implementation («го так сделаем как ты сразу решил»). Implementation routed via dispatch
+chips (one click = one session), NOT via autonomous PRs — the PR pause governs each chip
+session's own merge step. Forks 1 and 3 remain open. Sequencing inside the approved scope:
+(1) unblocked slice — orchestrator into `GETFF_SKILLS_ENV`, the D6.1/D6.2 stale-ref repairs,
+the hooks PROFILE-gate check, the §4B pipeline ref fix; (2) night-mode move gated on its
+degradation work (D4); (3) story move gated on #934 (D5).
