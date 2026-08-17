@@ -89,6 +89,55 @@ else
   bad "(c) meta-launch kickoff dispatched (rc=$RC_C out=$OUT_C)"
 fi
 
+# ── Case (d): CONSUMER layout — only the vendor drop exists → dispatch fires ──
+# The hook ships to two audiences with different layouts: the framework repo keeps
+# dispatch.ts at packages/runtime-bridge/src/cli/, a consumer install lands it at
+# .claude/vendor/runtime-bridge/src/cli/ (setup.d/55-runtime-bridge-vendor.sh). Before the
+# two-tier resolution the hook only knew the framework path, so on every consumer it hit
+# the `neither found` branch and exited 0 in silence — while the vendor copy sat right
+# there. Measured on a real `--profile factory` install 2026-08-17.
+#
+# THIS IS THE PAIRED NEGATIVE: revert _resolve_dispatch_ts to the single framework path
+# and this case fails (no DISPATCH-CALLED), while (a)/(b)/(c) all still pass — which is
+# exactly why the defect survived the existing suite.
+#
+# CLAUDE_PROJECT_DIR is what the hook reads for REPO_ROOT, so pointing it at a synthetic
+# consumer tree reproduces the consumer layout without needing a real install.
+CONSUMER="$TMP/consumer"
+mkdir -p "$CONSUMER/.claude/vendor/runtime-bridge/src/cli" \
+         "$CONSUMER/.claude/orchestrator-prompts/vendor-probe"
+printf '// vendor dispatch entrypoint stub\n' \
+  > "$CONSUMER/.claude/vendor/runtime-bridge/src/cli/dispatch.ts"
+[ -e "$CONSUMER/packages/runtime-bridge/src/cli/dispatch.ts" ] \
+  && { echo "SETUP FAIL: (d) tree must NOT carry the framework path"; exit 1; }
+printf '<!-- bridge: auto -->\n# Kickoff on a consumer install\n' \
+  > "$CONSUMER/.claude/orchestrator-prompts/vendor-probe/kickoff.md"
+OUT_D=$(jq -n --arg fp "$CONSUMER/.claude/orchestrator-prompts/vendor-probe/kickoff.md" \
+  '{tool_name:"Write", tool_input:{file_path:$fp}}' \
+  | CLAUDE_PROJECT_DIR="$CONSUMER" bash "$HOOK" 2>/dev/null)
+if printf '%s' "$OUT_D" | grep -q 'DISPATCH-CALLED'; then
+  ok "(d) consumer layout (vendor drop only) → dispatch fires"
+else
+  bad "(d) consumer layout did NOT dispatch — hook is blind to the vendor path (out=$OUT_D)"
+fi
+
+# ── Case (e): neither entrypoint present → genuine opt-out stays a silent no-op ─
+# Guards the fix against over-reach: widening the resolution must not make the hook
+# noisy or non-zero for a project that never installed the bridge at all (core profile,
+# no --with-aif-suite). Silence here is correct; silence in (d) was the bug.
+BARE="$TMP/bare"
+mkdir -p "$BARE/.claude/orchestrator-prompts/bare-probe"
+printf '<!-- bridge: auto -->\n# Kickoff with no bridge installed\n' \
+  > "$BARE/.claude/orchestrator-prompts/bare-probe/kickoff.md"
+OUT_E=$(jq -n --arg fp "$BARE/.claude/orchestrator-prompts/bare-probe/kickoff.md" \
+  '{tool_name:"Write", tool_input:{file_path:$fp}}' \
+  | CLAUDE_PROJECT_DIR="$BARE" bash "$HOOK" 2>/dev/null); RC_E=$?
+if [ "$RC_E" -eq 0 ] && [ -z "$OUT_E" ]; then
+  ok "(e) no bridge installed → silent no-op preserved (exit 0, empty)"
+else
+  bad "(e) opt-out no longer silent (rc=$RC_E out=$OUT_E)"
+fi
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
