@@ -106,8 +106,9 @@ has no one-command entry. Never investigated; the layer cites «spec A9», unrea
 
 ## §5 Open forks — the operator's, not yours
 
-> **2026-08-17 design session #2:** fork 2 is CLOSED (widened into the three-part model) — see
-> §7. Forks 1 and 3 remain open.
+> **2026-08-17 design session #2:** forks 1 and 2 are CLOSED — see §7 (fork 2 widened into
+> the three-part model; fork 1 decided: default rises to core+harness after the §4B fix).
+> Only fork 3 (marker-fix invitation) remains open.
 
 1. **Default depth: stay `core`, or raise to `env`?** Changes installer behaviour for every
    consumer. Argument for `env`: §4A shows it needs nothing external, so gating it is a
@@ -201,7 +202,12 @@ order: fix the §4B ref first), fork 3 (invitation for the marker fix).
 **Ratification (2026-08-17, later same session):** the operator approved D1-D5 for
 implementation («го так сделаем как ты сразу решил»). Implementation routed via dispatch
 chips (one click = one session), NOT via autonomous PRs — the PR pause governs each chip
-session's own merge step. Forks 1 and 3 remain open. Sequencing inside the approved scope:
+session's own merge step. Sequencing inside the approved scope:
 (1) unblocked slice — orchestrator into `GETFF_SKILLS_ENV`, the D6.1/D6.2 stale-ref repairs,
 the hooks PROFILE-gate check, the §4B pipeline ref fix; (2) night-mode move gated on its
 degradation work (D4); (3) story move gated on #934 (D5).
+
+**Fork 1 CLOSED (2026-08-17, same session, operator: «согласен поднять дефолт»):** raise the
+default install depth so a bare install delivers core+harness (today's `env`) instead of
+`core` — sequenced strictly AFTER the §4B pipeline ref fix, so the widened default never
+ships the known dangling ref. Fork 3 (marker-fix invitation) remains the only open item.
