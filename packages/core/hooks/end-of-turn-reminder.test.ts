@@ -1166,8 +1166,12 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', () => {
 
 describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', () => {
   // spec: docs/superpowers/specs/2026-08-09-pipeline-chips-session-bus-design.md §D7.
-  // Thresholds under test are PROVISIONAL (D9 calibrates): T_soft(200k)=140k,
-  // T_soft(1M)=300k. Every case runs with a PRIVATE TMPDIR so the
+  // Thresholds under test are PROVISIONAL (D9 calibrates); none of them MOVED when the
+  // window default flipped to 1M — they are now derived from the window:
+  //   soft = min(300000, 70% of window)  → 1M: 300000    | declared 200k: 140000
+  //   deep = min(500000, 90% of window)  → 1M: 500000    | declared 200k: 180000
+  // The window itself is `AIF_CTX_WINDOW` when declared, else 1000000 (this operator's
+  // real window everywhere). Every case runs with a PRIVATE TMPDIR so the
   // once-per-session-per-tier debounce flags (${TMPDIR:-/tmp}/aif-ctx-<sid>-<tier>)
   // cannot leak between cases or into the developer's real /tmp.
 
@@ -1203,7 +1207,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', () => {
     };
   }
 
-  it('below T_soft(200k): a short turn at 100k stays silent', () => {
+  it('below the soft floor: a short turn at 100k stays silent', () => {
     const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 100_000)]);
     const r = runHook(
       { transcript_path: tr, stop_hook_active: false, session_id: 'd7-below' },
@@ -1213,17 +1217,40 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', () => {
     expect(r.stdout.trim(), 'no handoff line below the soft threshold').toBe('');
   });
 
-  it('PAIRED-POSITIVE: a short (normally silent) turn at 150k blocks with the generic handoff line', () => {
-    const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 150_000)]);
+  it('REGRESSION (false-fire): 150k on a current model id stays silent under the 1M default', () => {
+    // The defect this suite failed to catch: the old resolver defaulted to a 200k window and
+    // only widened on a `[1m]`/`-1m` marker in the model id. `claude-fable-5` carries none, so
+    // a 1M session resolved to 200k and fired its 70% tier at 140k — three wrong session stops
+    // at ~155k on 2026-08-16, one more at ~150k on 2026-08-17, with ~850k of headroom left.
+    const tr = writeTranscript([
+      aiTitle('goal'),
+      userTurn('go'),
+      assistantWithUsage('done.', 150_000, { model: 'claude-fable-5' }),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd7-fable-150k' },
+      { TMPDIR: privateTmp() },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim(), '150k against a 1M window is 15% spent — nothing to say').toBe('');
+  });
+
+  it('PAIRED-POSITIVE: a short (normally silent) turn at 320k blocks with the generic handoff line', () => {
+    const tr = writeTranscript([
+      aiTitle('goal'),
+      userTurn('go'),
+      assistantWithUsage('done.', 320_000, { model: 'claude-fable-5' }),
+    ]);
     const r = runHook(
       { transcript_path: tr, stop_hook_active: false, session_id: 'd7-fire' },
       { TMPDIR: privateTmp() },
     );
     expect(r.status).toBe(0);
     const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
-    expect(parsed.decision, 'crossing T_soft must reach the model').toBe('block');
+    expect(parsed.decision, 'crossing the soft floor must reach the model').toBe('block');
     expect(parsed.reason).toMatch(/\[context\]/);
-    expect(parsed.reason, 'names the measured size').toMatch(/150000 tokens/);
+    expect(parsed.reason, 'names the measured size').toMatch(/320000 tokens/);
+    expect(parsed.reason, 'names the window it was judged against').toMatch(/~1000000/);
     expect(parsed.reason, 'the payload is the handoff policy, generic wording').toMatch(/handoff note/);
     // Consumer-shipped surface (F10 consumer-generic): no framework artifact refs.
     expect(parsed.reason).not.toMatch(/aif|dispatcher|pipeline|\.claude/);
@@ -1231,12 +1258,12 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', () => {
 
   it('PAIRED-NEGATIVE: a huge SIDECHAIN entry after a small main-thread one stays silent (isSidechain filter)', () => {
     // Subagent turns share the transcript. Without `select(.isSidechain != true)`
-    // the arm would read the sidechain's 190k as the session size and fire.
+    // the arm would read the sidechain's 600k as the session size and fire.
     const tr = writeTranscript([
       aiTitle('goal'),
       userTurn('go'),
       assistantWithUsage('main thread, small.', 90_000),
-      assistantWithUsage('subagent, huge.', 190_000, { sidechain: true }),
+      assistantWithUsage('subagent, huge.', 600_000, { sidechain: true }),
     ]);
     const r = runHook(
       { transcript_path: tr, stop_hook_active: false, session_id: 'd7-side' },
@@ -1247,7 +1274,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', () => {
 
   it('debounce: the same session and tier fires ONCE', () => {
     const tmp = privateTmp();
-    const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 150_000)]);
+    const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 320_000)]);
     const first = runHook(
       { transcript_path: tr, stop_hook_active: false, session_id: 'd7-debounce' },
       { TMPDIR: tmp },
@@ -1260,15 +1287,43 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', () => {
     expect(second.stdout.trim(), 'second turn past the same tier is debounced').toBe('');
   });
 
-  it('1M override: observed usage > 200k flips the window, so 250k is BELOW the 1M floor — silent', () => {
-    // The sharp case: under a naive single 140k threshold 250k would fire; the
-    // self-evident override (usage > 200k ⇒ 1M window) routes it to the 300k floor.
+  it('AIF_CTX_WINDOW=200000: the declared small window restores the calibrated 140k soft floor', () => {
+    // T_soft(200k)=140k is RETAINED by the window-derived formula (70% of 200k) — it is
+    // simply no longer reachable by assumption, only by declaration.
+    const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 150_000)]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd7-declared-200k' },
+      { TMPDIR: privateTmp(), AIF_CTX_WINDOW: '200000' },
+    );
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason, 'the declared window is the one reported').toMatch(/~200000/);
+    expect(parsed.reason).toMatch(/150000 tokens/);
+  });
+
+  it('PAIRED-NEGATIVE: a junk AIF_CTX_WINDOW falls back to the 1M default, it does not silence or spam', () => {
+    // A non-numeric or zero declaration must not be trusted: `0` would make both floors 0
+    // and fire on every turn, and a word would break the integer comparisons outright.
+    for (const [bad, sid] of [['not-a-number', 'junk'], ['0', 'zero'], ['', 'empty']] as const) {
+      const quiet = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 150_000)]);
+      const r = runHook(
+        { transcript_path: quiet, stop_hook_active: false, session_id: `d7-badwin-${sid}` },
+        { TMPDIR: privateTmp(), AIF_CTX_WINDOW: bad },
+      );
+      expect(r.status, `AIF_CTX_WINDOW="${bad}" must not crash the hook`).toBe(0);
+      expect(r.stdout.trim(), `AIF_CTX_WINDOW="${bad}" falls back to 1M → 150k is silent`).toBe('');
+    }
+  });
+
+  it('over-window override: a declared 200k window with 250k observed is provably wrong → 1M floors, silent', () => {
+    // Observed usage above the declared window proves the declaration wrong. Falling back to
+    // the 1M default routes 250k to the 300k floor instead of firing the (stale) 140k one.
     const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 250_000)]);
     const r = runHook(
       { transcript_path: tr, stop_hook_active: false, session_id: 'd7-1m-below' },
-      { TMPDIR: privateTmp() },
+      { TMPDIR: privateTmp(), AIF_CTX_WINDOW: '200000' },
     );
-    expect(r.stdout.trim(), '250k on a 1M window is below the 300k operator floor').toBe('');
+    expect(r.stdout.trim(), '250k re-judged on a 1M window is below the 300k operator floor').toBe('');
   });
 
   it('1M floor: 350k fires and names the 1M window', () => {
@@ -1280,41 +1335,57 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', () => {
     const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
     expect(parsed.decision).toBe('block');
     expect(parsed.reason).toMatch(/350000 tokens/);
-    expect(parsed.reason, 'window resolved via the >200k override').toMatch(/~1000000/);
+    expect(parsed.reason, 'the 1M default window is the one reported').toMatch(/~1000000/);
   });
 
-  it('model table: an explicit 1M model id at 150k stays silent (200k tier does not apply)', () => {
-    // Both table spellings are load-bearing: `[1m]` bracket marker and `-1m` id suffix.
-    for (const model of ['claude-sonnet-5[1m]', 'claude-sonnet-5-1m']) {
+  it('model id carries no weight: 1M-marked and unmarked ids alike stay silent at 150k', () => {
+    // The `[1m]`/`-1m` table is GONE — against a 1M default it could only confirm the
+    // assumption. This pins that removing it changed no outcome for the ids it used to match.
+    for (const model of ['claude-sonnet-5[1m]', 'claude-sonnet-5-1m', 'claude-opus-5', 'claude-fable-5']) {
       const tr = writeTranscript([
         aiTitle('goal'),
         userTurn('go'),
         assistantWithUsage('done.', 150_000, { model }),
       ]);
       const r = runHook(
-        { transcript_path: tr, stop_hook_active: false, session_id: `d7-1m-model-${model.includes('[') ? 'br' : 'sfx'}` },
+        { transcript_path: tr, stop_hook_active: false, session_id: `d7-model-${model.replace(/[^a-z0-9]/gi, '')}` },
         { TMPDIR: privateTmp() },
       );
-      expect(r.stdout.trim(), `"${model}" declares a 1M window — governed by the 300k floor, not the 140k tier`).toBe('');
+      expect(r.stdout.trim(), `"${model}" is judged against the 1M default, so 150k is silent`).toBe('');
     }
   });
 
-  it('boundary pair: 139999 silent, 140000 fires (>=, not >)', () => {
-    for (const [total, fires] of [[139_999, false], [140_000, true]] as const) {
+  it('boundary pair (1M default): 299999 silent, 300000 fires (>=, not >)', () => {
+    for (const [total, fires] of [[299_999, false], [300_000, true]] as const) {
       const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', total)]);
       const r = runHook(
         { transcript_path: tr, stop_hook_active: false, session_id: `d7-edge-${total}` },
         { TMPDIR: privateTmp() },
       );
       if (fires) {
-        expect(r.stdout, `${total} is ON the threshold and must fire`).toMatch(/\[context\]/);
+        expect(r.stdout, `${total} is ON the soft floor and must fire`).toMatch(/\[context\]/);
       } else {
-        expect(r.stdout.trim(), `${total} is below the threshold`).toBe('');
+        expect(r.stdout.trim(), `${total} is below the soft floor`).toBe('');
       }
     }
   });
 
-  it('1m-deep tier: crossing 500k fires AGAIN in a session whose 1m-soft flag is already spent', () => {
+  it('boundary pair (declared 200k): 139999 silent, 140000 fires — the calibrated point survives', () => {
+    for (const [total, fires] of [[139_999, false], [140_000, true]] as const) {
+      const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', total)]);
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: `d7-edge200k-${total}` },
+        { TMPDIR: privateTmp(), AIF_CTX_WINDOW: '200000' },
+      );
+      if (fires) {
+        expect(r.stdout, `${total} is ON the 70%-of-200k floor and must fire`).toMatch(/\[context\]/);
+      } else {
+        expect(r.stdout.trim(), `${total} is below the 70%-of-200k floor`).toBe('');
+      }
+    }
+  });
+
+  it('deep tier: crossing 500k fires AGAIN in a session whose soft flag is already spent', () => {
     // The debounce is per TIER, not per session: past the 1M soft floor a session
     // still gets exactly one more reminder at the ~500k mechanical-tail ceiling.
     const tmp = privateTmp();
@@ -1342,7 +1413,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', () => {
     // A short turn normally exits silent through _autonomy_exit. With work in
     // flight AND a spent context both lines must survive on the same single block —
     // a mutation that overwrites _extra with ctx_line would drop the autonomy half.
-    const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 150_000)]);
+    const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 320_000)]);
     const r = withTasks(JSON.stringify([task('implementing')]), (url) =>
       runHook(
         { transcript_path: tr, stop_hook_active: false, session_id: 'd7-both-arms' },
@@ -1375,7 +1446,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', () => {
     const tr = writeTranscript([
       aiTitle('goal'),
       userTurn('go'),
-      assistantWithUsage(longMarkdownText(), 150_000),
+      assistantWithUsage(longMarkdownText(), 320_000),
     ]);
     const r = runHook(
       { transcript_path: tr, stop_hook_active: false, session_id: 'd7-compose' },

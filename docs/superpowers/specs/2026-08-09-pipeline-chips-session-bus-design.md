@@ -288,11 +288,21 @@ Implementation constraints (each one round-1-hardened):
   /dispatcher carry `Agent`). Sum `.message.usage.input_tokens + cache_read_input_tokens +
   cache_creation_input_tokens` (fields verified live; jq-over-transcript precedent at
   `end-of-turn-reminder.sh:148-168`).
-- **Window resolution:** `.message.model` on the same entry, via a model→window table with
+- **Window resolution:** ~~`.message.model` on the same entry, via a model→window table with
   explicit `unknown → 200k-conservative` fallback, PLUS the self-evident override «observed
   usage >200k ⇒ 1M window». Honest limit stated in the arm's comment: the 1M window is opt-in
   and the transcript does not record the request, so the table gives an upper bound — «window
-  discrimination is not *reliably* available», not «not available» (round-1 correction).
+  discrimination is not *reliably* available», not «not available» (round-1 correction).~~
+  **SUPERSEDED 2026-08-17 (false-firing fix).** The conservative fallback was the operative
+  branch in every real session — current model ids carry no `[1m]`/`-1m` marker, so the arm
+  resolved 200k everywhere and fired its 70% tier from 140k against a real 1M window (three
+  wrong session stops at ~155k on 2026-08-16, one more at ~150k on 2026-08-17). Shipped now:
+  the window is `AIF_CTX_WINDOW=<n>` when declared, else **1000000**; the model table is
+  deleted (against a 1M default it can only confirm the assumption); the over-window override
+  is kept. **No T_soft moved** — the D6 floors are now derived, `soft = min(300000, 70% of
+  window)` and `deep = min(500000, 90% of window)`, which reproduces both table rows exactly
+  (1M → 300k/500k; declared 200k → 140k/180k). The new honest limit: a consumer on a genuinely
+  smaller window who does not declare it is warned late rather than early.
 - **Placement (load-bearing):** the arm computes its line at the TOP of the hook and every
   early return routes through the F10 pattern's exit shim — the hook's own 2026-07-24
   postmortem proved a bottom-placed arm silent in its motivating case
