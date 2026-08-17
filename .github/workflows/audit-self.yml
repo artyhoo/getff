@@ -553,6 +553,12 @@ jobs:
       # on someone re-reading both lists (.claude/rules/attention-is-not-a-mechanism.md §1).
       - name: Run local-ci-sweep CI-coverage metatest (gate table mirrors this workflow)
         run: bash scripts/run-local-ci-sweep-coverage.test.sh
+      # The ask-file gate's own channel is pre-push (the mailbox lives in the operator's
+      # coordination store, which CI never has). Its detector still needs a CI channel, or
+      # the only proof it fires is that someone ran it once — the paired-negative below is
+      # hermetic (mktemp mailbox) and runs anywhere.
+      - name: Run ask-file schema paired-negative (advisor-pattern §8 item 6)
+        run: bash scripts/check-ask-files.test.sh
       - name: Run synth-bundle dep-parity paired-negative (phantom-drift guard)
         run: bash scripts/check-bundle-dep-parity.test.sh
       - name: Run synth-bundle cwd-independence test (build runs from any directory)

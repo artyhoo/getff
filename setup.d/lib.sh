@@ -56,7 +56,7 @@ UPSTREAM_BLOB_URL="${UPSTREAM_BLOB_URL:-https://github.com/artyhoo/getff/blob/ma
 # still READ them (and that no literal-slug loop reintroduces a third copy).
 # Per-tier rationale (which skill sits at which depth, and why) stays in setup.d/10-skills.sh.
 GETFF_SKILLS_CORE="template-audit ai-doc rule-research rule-tests"
-GETFF_SKILLS_ENV="arch pipeline"
+GETFF_SKILLS_ENV="arch pipeline reviewer"
 GETFF_SKILLS_FACTORY="dispatcher aif-doctor harvest night-mode story claude-glm-executor-handoff"
 
 PRETTIERIGNORE_BEGIN='# >>> rules-as-tests-aif (managed) >>>'
@@ -129,11 +129,14 @@ AGENTS_FENCE_SENTINEL_2='.ai-factory/RULES.md'
 #   - `hooks/check-worker-dispatch-channel.sh` — `.claude/hooks/` IS shipped and most hook refs
 #     resolve fine (transform-internal-refs.test.sh #5 asserts `](../../hooks/…)` stays intact),
 #     so only this one absent hook is rewritten. Source: pipeline/SKILL.md:388.
-#   - `](../reviewer/` — sibling-skill shape. Sibling refs normally resolve (skills ship next to
-#     each other), but `reviewer` is in NO tier list (GETFF_SKILLS_CORE/_ENV/_FACTORY above), so
-#     it never lands on a consumer at any depth. Source: arch/SKILL.md:94.
+# A fourth candidate was REJECTED rather than allowlisted: `](../reviewer/SKILL.md)` from
+# arch/SKILL.md:94 also dangled, but rewriting it would have papered over the real defect. The
+# sibling-skill shape is supposed to stay relative — «sibling-skill links stay relative (sibling
+# ships too)», 10-skills.sh:107 — so a dangling sibling ref means the SIBLING IS MISSING, not
+# that the ref is wrong. `reviewer` was in no tier list while arch (env tier) promised consumers
+# that `/reviewer` loads it; the fix was to ship it at env, not to bend the link.
 # Recurrence is now caught mechanically, not by review attention: the widened factory-depth
-# fixture covers 64/64 shipped *.md, so the next unshipped-target ref fails the gate.
+# fixture covers every shipped *.md, so the next unshipped-target ref fails the gate.
 # Uses `-i.bak` for BSD-sed/GNU-sed portability, then removes the backup.
 transform_internal_refs() {
   local f="$1"
@@ -154,7 +157,6 @@ transform_internal_refs() {
     -e "s#\]\((\.\./)+\.github/#](${UPSTREAM_BLOB_URL}/.github/#g" \
     -e "s#\]\((\.\./)+scripts/run-local-ci-sweep\.sh#](${UPSTREAM_BLOB_URL}/scripts/run-local-ci-sweep.sh#g" \
     -e "s#\]\((\.\./)+hooks/check-worker-dispatch-channel\.sh#](${UPSTREAM_BLOB_URL}/.claude/hooks/check-worker-dispatch-channel.sh#g" \
-    -e "s#\]\(\.\./reviewer/#](${UPSTREAM_BLOB_URL}/.claude/skills/reviewer/#g" \
     "$f"
   rm -f "${f}.bak"
 }

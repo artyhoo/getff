@@ -61,10 +61,18 @@ Read in this order:
   - **`claims-conformance-auditor` (BS3 pre-merge gate) — NOT SHIPPED.** Umbrella C has no `done.md`
     and no `claims-conformance-auditor` file exists on staging. The design's own fallback applies:
     an equivalent **compliance-verifier-class** cold run over the BS2 ledger, claim-by-claim.
-- **Target-repo state (`~/code/getff-landing`, probed 2026-08-17):** `main` at `13d7fd5` — matches the
-  design's §0.2 census commit exactly, so the census needs no re-derivation. Branch
-  `redesign-terminal-gates` at `154f2d2`, 1 commit ahead of `main`, unmerged (the BS1 asset base per B-D2).
-  No `fumadocs-migration` branch yet.
+- **Target-repo state — CORRECTED 2026-08-17 at BS-pre entry (the earlier line was measured on a
+  working copy that had never fetched).** `~/code/getff-landing` still shows `main` at `13d7fd5`, but
+  that is a stale local ref: `origin/main` is **`733197e`**, and `redesign-terminal-gates` (`154f2d2`)
+  is an **ancestor of it** — merged by PR #2 on 2026-07-10T17:35:49Z, i.e. before the design spec was
+  authored. Probe — **the `git fetch` is load-bearing**, since running it in the stale
+  `~/code/getff-landing` without one returns the opposite answer:
+  `git fetch origin && git merge-base --is-ancestor 154f2d2 origin/main` → true;
+  `gh api repos/artyhoo/getff-landing/commits/main` → `733197e`. Consequence: the redesign assets are on `main`
+  and deployed, B-D2's «NOT merged» clause and §9's anti-merge item are corrected in place, and BS1
+  ports the assets from `main`. The **URL census is unaffected** — the merge added and removed no
+  route (`git diff --stat 13d7fd5 origin/main` touches `src/pages/index.astro`, `src/styles/*`,
+  `public/demo/*`, one blog post). No `fumadocs-migration` branch yet.
 - **Runtime bridge (probed 2026-08-17):** `RUNTIME_BRIDGE_MODE=aif-handoff`; `/health` → `200`;
   container `aif-handoff-agent-1` Up. **Lever-1 verified container-side:**
   `docker exec aif-handoff-agent-1 sh -c 'echo "${AGENT_MAX_REVIEW_ITERATIONS:-UNSET}"'` → `1`.
@@ -205,8 +213,9 @@ re-run the pre-dispatch in-flight probe, and read the umbrella kickoff §Per-sta
   specifics from **current docs at build time** (context7 / DeepWiki), never training memory (T12).
   DNS is an operator step — **flag, don't block**; the github.io fallback carries the domain check to BS3.
 - **Stage 3 — BS1 (port skeleton).** Branch `fumadocs-migration` in `getff-landing`; `main` untouched.
-  Full Next + Fumadocs app; 5 docs pages on the **same slugs**; landing rebuilt from the
-  `redesign-terminal-gates` assets (that branch is the **asset base, NOT a merge** — B-D2); consulting;
+  Full Next + Fumadocs app; 5 docs pages on the **same slugs**; landing rebuilt from the redesign
+  assets, which are **on `main` since PR #2** (B-D2 as corrected 2026-08-17 — the assets are copied,
+  never linked, and `redesign-terminal-gates` is no longer a separate asset base); consulting;
   blog + `/rss.xml`; sitemap/og/favicons/CNAME parity; deploy workflow updated **on the branch**.
 - **Stage 4 — BS2 (content).** Two-layer showcase + daily-cycle pages, factory Overview, «What is getff»;
   **First Steps ×3 = CONSUME the C1 SSOT** (B-D5 as AMENDED — vendor with a provenance header; changing a
@@ -401,7 +410,8 @@ stage id, gate item, file:line, REPORT-trace, dispatch state — not per-turn pe
 - Do NOT write stage implementation code in this kickoff.
 - Do NOT edit `README.md` — the honest-claims change is a PROPOSAL via maintainer handoff (BS2).
 - Do NOT author the First-Steps SSOT — C1 owns it; BS2 vendors a render (B-D5 AMENDED).
-- Do NOT merge `redesign-terminal-gates` into `main` — it is an **asset base** (B-D2).
+- ~~Do NOT merge `redesign-terminal-gates` into `main`~~ — **MOOT since 2026-07-10**: PR #2 merged it
+  before this umbrella began (B-D2 as corrected 2026-08-17). Nothing to avoid; nothing to do.
 - Do NOT publish the announcement here — parent §7 phase 3 owns that.
 - Do NOT re-litigate parent D4/D5 (docs-stack verdict) — designed within, never reopened.
 - Do NOT modify `~/.claude/skills/orchestrator/` (agent-uncommittable).

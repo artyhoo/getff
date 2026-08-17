@@ -23,15 +23,18 @@
 #   4f. LEAVES ](../../../scripts/check-rule-enforced.sh) intact — scripts/ is PARTIALLY shipped
 #       (subset via setup.d/40-configs.sh); per-file ambiguity is a §4 park trigger
 #       (kickoff getff-honest-signals-s2 §4). Boundary documented, not blanket-rewritten.
-#   4f2-4f4. PER-FILE allowlist (2026-08-17) — the park's own stated trigger fired. Widening the
-#       lychee fixture from core to factory depth caught three refs to proven-absent targets:
-#       scripts/run-local-ci-sweep.sh, hooks/check-worker-dispatch-channel.sh, and the sibling
-#       ](../reviewer/ (a skill in NO GETFF_SKILLS_* tier). Each verified missing from a real
-#       `--profile factory` install. 4f vs 4f2 is the honest pair: same directory, opposite
-#       verdicts, decided per-file by whether that file actually ships.
-#   4f5. PREMISE GUARD for 4f4 — asserts `reviewer` is still in no tier. A stale sibling arm is
-#       the one failure here that NO link gate could catch (an extra blob URL is not a broken
-#       link), so the premise gets an explicit assertion instead of relying on someone noticing.
+#   4f2-4f3. PER-FILE allowlist (2026-08-17) — the park's own stated trigger fired. Widening the
+#       lychee fixture from core to factory depth caught two refs to proven-absent targets:
+#       scripts/run-local-ci-sweep.sh and hooks/check-worker-dispatch-channel.sh, each verified
+#       missing from a real `--profile factory` install. 4f vs 4f2 is the honest pair: same
+#       directory, opposite verdicts, decided per-file by whether that file actually ships.
+#   4f4-4f5. The sibling-skill shape stays RELATIVE, and `reviewer` must stay in a tier. The
+#       same widening caught ](../reviewer/SKILL.md) dangling, and the first fix rewrote it to a
+#       blob URL — treating the symptom. «sibling-skill links stay relative (sibling ships too)»
+#       (setup.d/10-skills.sh:107) means a dangling SIBLING ref proves the sibling is missing:
+#       arch (env tier) tells consumers `/reviewer` loads the project skill, while `reviewer`
+#       shipped to nobody. Fixed by shipping it at env; 4f4 asserts the link stayed relative and
+#       4f5 asserts the tier membership that makes it resolve.
 #   4i-4k. BLANKET arms (2026-08-17): CLAUDE.md (consumers get AGENTS.md, never CLAUDE.md — 10
 #       of the 17 factory-depth breaks, purely because the peer README.md arm existed from day
 #       one and this one never got added), the `.claude/`-PREFIXED orchestrator-prompts shape
@@ -180,21 +183,26 @@ grep -qF "](${UPSTREAM_BLOB_URL}/.claude/hooks/check-worker-dispatch-channel.sh)
   && ok "4f3: hooks/check-worker-dispatch-channel.sh → blob (allowlist: proven absent)" \
   || bad "4f3: unshipped hook allowlist arm failed; got: $(grep -F 'check-worker-dispatch' <<<"$OUT")"
 
-grep -qF "](${UPSTREAM_BLOB_URL}/.claude/skills/reviewer/SKILL.md)" <<<"$OUT" \
-  && ok "4f4: sibling ](../reviewer/ → blob (reviewer is in no GETFF_SKILLS_* tier)" \
-  || bad "4f4: sibling-skill arm failed; got: $(grep -F 'reviewer/' <<<"$OUT")"
+# Sub-test 4f4: the sibling-skill shape stays RELATIVE. `](../reviewer/SKILL.md)` from
+# arch/SKILL.md:94 dangled at factory depth, and the first fix rewrote it to a blob URL — wrong
+# cause. The invariant is «sibling-skill links stay relative (sibling ships too)»
+# (setup.d/10-skills.sh:107), so a dangling sibling ref proves the SIBLING IS MISSING, not that
+# the ref needs bending. `reviewer` was in no tier while arch — an env-tier skill consumers do
+# get — promised them that `/reviewer` loads the project skill. Shipping it at env is the fix;
+# this assertion is what keeps a future author from re-reaching for the rewrite.
+grep -qF "](../reviewer/SKILL.md)" <<<"$OUT" \
+  && ok "4f4: sibling ](../reviewer/ left RELATIVE (sibling ships too — 10-skills.sh:107)" \
+  || bad "4f4: sibling-skill ref was rewritten — a dangling sibling means the sibling is missing from a tier list, not that the link is wrong; got: $(grep -F 'reviewer/' <<<"$OUT")"
 
-# Sub-test 4f5: PREMISE GUARD for 4f4. The sibling arm is correct only while `reviewer` ships to
-# nobody. If it is ever added to a tier, the arm silently starts rewriting a ref that WOULD have
-# resolved on the consumer into a blob URL — and no link checker can see that regression, because
-# an extra blob URL is not a broken link (lychee --offline excludes remote URLs by design). That
-# makes the premise attention-dependent unless it is asserted here, so assert it: this is the one
-# place the 4f4 arm can be caught going stale.
+# Sub-test 4f5: the other half of 4f4 — the ref only resolves while `reviewer` actually ships.
+# Nothing else can catch this: a link gate sees the delivered tree, so if reviewer were dropped
+# from the tiers the ref would dangle again, and the ONLY reason the fixture would go red is
+# this assertion naming the cause. Pairs with 4f4 the way 4f pairs with 4f2.
 case " $GETFF_SKILLS_CORE $GETFF_SKILLS_ENV $GETFF_SKILLS_FACTORY " in
   *" reviewer "*)
-    bad "4f5: 'reviewer' is now in a GETFF_SKILLS_* tier — the 4f4 arm in setup.d/lib.sh MUST be removed (it now rewrites a consumer-resolvable sibling ref into a blob URL, and no link gate can detect that)" ;;
+    ok "4f5: 'reviewer' is in a GETFF_SKILLS_* tier, so arch's sibling ref resolves on a consumer" ;;
   *)
-    ok "4f5: premise holds — 'reviewer' is in no tier, so the 4f4 arm still rewrites a genuinely-absent target" ;;
+    bad "4f5: 'reviewer' left the tier lists — arch/SKILL.md:94 now points at a skill no consumer receives; re-add it to GETFF_SKILLS_ENV rather than rewriting the link" ;;
 esac
 
 # Sub-tests 4i-4k: the three BLANKET arms added 2026-08-17 alongside the allowlist above.
