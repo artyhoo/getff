@@ -26,6 +26,45 @@ All 35 Matt skills were read in full (2379 lines total). Superpowers read: brain
 SDD, requesting/receiving-code-review, systematic-debugging, writing-plans,
 dispatching-parallel-agents, verification-before-completion, writing-skills, TDD.
 
+## §1.5 Dependency edges — what OUR machinery hard-references upstream (measured 2026-08-17)
+
+Grep over `.claude/skills/**`, `.claude/rules/**`, `agents/**`, `CLAUDE.md`,
+`packages/core/templates/**` for `superpowers:*` / `mattpocock`. **Collision decisions in
+§2 must be weighted by these edges**: a misroute in a zone where our contracts NAME the
+upstream skill breaks a documented contract, not just a style preference.
+
+| Upstream skill | Our hard consumers (refs) | Matt skill in the same trigger zone | Edge-weighted risk |
+| --- | --- | --- | --- |
+| `superpowers:subagent-driven-development` | orchestrator (×6), night-mode (×5), claude-glm-executor-handoff (×2), `rules/seat-lifecycle.md`, **SHIPPED**: `packages/core/templates/shared/tier-home.md` | `implement` (a 15-line stub) | LOW — stub can't win routing on substance, but SDD is our single most-referenced upstream AND crosses the shipped axis |
+| `superpowers:requesting-code-review` | dispatcher (×3: worker instructions), harvest (×2), `agents/fidelity-auditor.md` | `code-review` (model-invocable, same «review this» space) | **HIGHEST** — worker/harvest contracts name the SP skill; Matt's picks a different output shape (two-axis reports, no SHA template, no severity contract) → downstream expectations drift silently |
+| `superpowers:brainstorming` | arch (×5), dispatcher (×5) | `grilling` | RESOLVED — the `/arch` §1 binding (D-H0) |
+| `superpowers:writing-plans` | orchestrator (×3, incl. `references/discovery.md`) | `to-tickets` / `to-spec` | MEDIUM — plan-shape divergence (bite-sized tasks vs tracer-bullet tickets) |
+| `superpowers:writing-skills` | ai-doc (×2) | `writing-for-agents` | LOW — layered altitudes (§2.6) |
+| `superpowers:using-git-worktrees`, `executing-plans`, `verification-before-completion`, `finishing-a-development-branch`, `using-superpowers` | orchestrator (×1 each) | — | none |
+| `mattpocock:grilling` | arch §1 (new, D-H0) | — | counter armed (SSOT #253) |
+
+**Transitive closure inside superpowers** (so the design session knows the true consumed
+set): SDD → requesting-code-review + finishing-a-development-branch + using-git-worktrees;
+writing-plans ↔ SDD + executing-plans + using-git-worktrees; brainstorming →
+writing-plans. The SP cluster we actually depend on is closed:
+`{SDD, brainstorming, writing-plans, requesting-code-review, executing-plans, finishing-a-development-branch, using-git-worktrees}`.
+
+**No hard edge from us** to: `systematic-debugging`, `test-driven-development`,
+`receiving-code-review`, `dispatching-parallel-agents` — they reach sessions via
+description routing only (grep = 0 refs across our surfaces). So the §2.2/§2.3 TDD and
+debugging collisions carry routing risk only, while §2.4's review collision threatens
+named contracts.
+
+**Self-contained (zero companion refs)**: pipeline, reviewer, story, self-reflection,
+rule-research, rule-tests, template-audit, tool-bootstrapping, aif-doctor, dispatcher's
+non-review sections.
+
+**Shipped-axis warning**: `tier-home.md` already ships a superpowers reference to
+consumers. Never add a `mattpocock` reference to any `packages/core/templates/**` artifact
+without the [dual-implementation-discipline.md §3](../../../.claude/rules/dual-implementation-discipline.md)
+degrade — the grilling edge is deliberately operator-axis only (`.claude/skills/arch/` is
+not shipped).
+
 ## §2 Collision map (per capability area)
 
 Collision classes: **T** = trigger overlap (two model-invocable descriptions claim the same
@@ -190,7 +229,7 @@ not decisions):
 | D-H1 ratify the §4 ownership map | open | — | wrong if a live routing test (P2) shows the router ignores bindings, forcing mechanism 3/6 |
 | D-H2 TDD refactor-placement conflict | open (rec: SP wins) | — | wrong if repo practice shows review-stage refactoring produces cleaner history |
 | D-H3 debugging merge (SP frame + Matt loop menu) | open (rec: subordinate-as-reference) | — | wrong if the two texts cannot be bound without restating (`#parallel-evolution-creep`) |
-| D-H4 no-rerank sentence in `/arch` §2 | open (rec: add; trivial) | — | wrong if §2 verdict aggregation actually needs a cross-altitude ranking |
+| D-H4 no-rerank sentence in `/arch` §2 | answered (2026-08-17) | landed as `09569a30ab` (committed by a parallel actor mid-session, matching the recommendation) — `/arch` SKILL.md:89 | wrong if §2 verdict aggregation actually needs a cross-altitude ranking |
 | D-H5 claim-first ADAPT in dispatcher | open (rec: adapt; incident base cited §2.5) | — | wrong if claim surface can't span host+container+PR (the probe-inflight population) |
 | D-H6 wizard first use | settled-by-default | use at next operator hand-off; zero build | — |
 | D-H7 collision incident counter | settled (2026-08-17) | SSOT #253 row is the recording surface; observation №0 (routing risk noted, no incident) logged there conceptually | 1st real misroute → incident №1 |
@@ -211,8 +250,10 @@ not decisions):
 ## §7 Session-start instructions for the design session
 
 Worktree isolation; `git fetch` + in-flight probe on `claude/keen-shannon-46577a` (this
-branch carries: cherry-picked `89ec69b8c2`, the ADOPT commit `aa5e779ce5`, and this
-prep-doc). Read order: this doc → the three primary-source trees (§1 paths) → SSOT #253 →
+branch carries: cherry-picked `89ec69b8c2`, the ADOPT commit `aa5e779ce5`, the parallel
+no-rerank commit `09569a30ab`, and this prep-doc). NOTE: a parallel actor committed to
+this branch mid-session on 2026-08-17 — re-run the in-flight probe immediately before any
+edit, not only at session start. Read order: this doc → the three primary-source trees (§1 paths) → SSOT #253 →
 `/arch` §1-§2. PR pause in force unless the operator lifts it. The session's engine: run
 the interview per the newly-adopted grilling mechanic — §5 is the initial decision
 register; compute the frontier from it (D-H1, D-H2, D-H3, D-H4, D-H5, D-H8 are all
