@@ -107,4 +107,6 @@ Promote a layer to a harder channel after 3 documented incidents in 6 months whe
 prose statute missed a real defect (peer criteria:
 [attention-is-not-a-mechanism.md §3](attention-is-not-a-mechanism.md)). Retire to CLAUDE.md
 prose after 12 incident-free months. The L4 budget numbers are calibrated from the audit
-rates (chip `task_c8cfb806`), never hard-coded here.
+rates (chip `task_c8cfb806`), never hard-coded here — they live as config at
+[reviewer-discipline.md §6.2](reviewer-discipline.md), with their derivation and their
+`corpus-derived, uncalibrated` provenance label.
