@@ -7,9 +7,9 @@
 # `deliver_getff_workflow`) substitutes the consumer's actual default branch at install time.
 #
 # Three cells (binding per .ai-factory/plans/feature-getff-honest-signals-s4-032181.md §3 + Task 4):
-#   (1) master-default consumer → delivered python AND cargo workflows carry `branches: [master]`
-#       AND `refs/heads/master` (T-HS-A: assert EXIT CODE / delivered-content first; T-S4-A: assert
-#       on the DELIVERED file, not the template).
+#   (1) master-default consumer → delivered python AND cargo AND go workflows carry
+#       `branches: [master]` AND `refs/heads/master` (T-HS-A: assert EXIT CODE / delivered-content
+#       first; T-S4-A: assert on the DELIVERED file, not the template).
 #   (2) main-default consumer → delivered byte-identical to template (symmetry — a substitution
 #       that always writes one value is the same bug with a different constant).
 #   (3) no-remote consumer (PARK case, kickoff §5) → byte-identical to template AND a LOUD stderr
@@ -27,6 +27,11 @@ set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 TPL_PY="$REPO_ROOT/packages/core/templates/python/github-actions-ci.yml"
 TPL_CARGO="$REPO_ROOT/packages/core/templates/cargo/github-actions-ci.yml"
+# The go lane shipped its workflow through a plain copy_safe until 2026-08-17 — S4 wired python
+# + cargo + the preset lanes and left the go lane on the pre-S4 shape, so a non-`main` go consumer
+# installed a getff-go.yml that never triggered. The lane is covered from here on, in every cell
+# its siblings are covered in: an untested third lane is how the first one drifted.
+TPL_GO="$REPO_ROOT/packages/core/templates/go/github-actions-ci.yml"
 PASS=0; FAIL=0
 ok()   { PASS=$((PASS+1)); echo "  ✓ $1"; }
 bad()  { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
@@ -49,6 +54,9 @@ setup_lanes() {
   export CARGO_LAYER_LIB_ONLY=1
   # shellcheck source=/dev/null
   source "$REPO_ROOT/setup.d/46-cargo.sh"
+  export GO_LAYER_LIB_ONLY=1
+  # shellcheck source=/dev/null
+  source "$REPO_ROOT/setup.d/47-go.sh"
 }
 setup_lanes
 
@@ -66,6 +74,12 @@ run_cargo_delivery() {
   PROJECT_ROOT="$1"; SKIPPED=(); FORCE=""; DRY_RUN=""
   unset GETFF_TOOLCHAIN_REFRESH
   deliver_cargo_toolchain
+}
+# run_go_delivery <project_root> — same for the go lane (see note above).
+run_go_delivery() {
+  PROJECT_ROOT="$1"; SKIPPED=(); FORCE=""; DRY_RUN=""
+  unset GETFF_TOOLCHAIN_REFRESH
+  deliver_go_toolchain
 }
 
 # init_consumer <project_root> <default_branch> — turn an empty dir into a consumer repo whose
@@ -95,11 +109,12 @@ printf '{"name":"c1-master","version":"0.0.0"}\n' > "$P/package.json"
 init_consumer "$P" master
 run_python_delivery "$P" >/dev/null
 run_cargo_delivery  "$P" >/dev/null
+run_go_delivery     "$P" >/dev/null
 # T-HS-A: assert EXIT CODE / delivered-content FIRST via grep -qE (no wording match).
-if [ -f "$P/.github/workflows/getff-python.yml" ] && [ -f "$P/.github/workflows/getff-cargo.yml" ]; then
-  ok "(1) both delivered workflow files exist"
+if [ -f "$P/.github/workflows/getff-python.yml" ] && [ -f "$P/.github/workflows/getff-cargo.yml" ] && [ -f "$P/.github/workflows/getff-go.yml" ]; then
+  ok "(1) all three delivered workflow files exist"
 else
-  bad "(1) one or both delivered workflow files missing (py=$( [ -f "$P/.github/workflows/getff-python.yml" ] && echo yes || echo no ) cargo=$( [ -f "$P/.github/workflows/getff-cargo.yml" ] && echo yes || echo no ))"
+  bad "(1) one or more delivered workflow files missing (py=$( [ -f "$P/.github/workflows/getff-python.yml" ] && echo yes || echo no ) cargo=$( [ -f "$P/.github/workflows/getff-cargo.yml" ] && echo yes || echo no ) go=$( [ -f "$P/.github/workflows/getff-go.yml" ] && echo yes || echo no ))"
 fi
 # Cell (1) assertions: count branch-ref occurrences in EACH delivered file.
 # Expected per file: 2× `branches: [master]` + 1× `refs/heads/master` = 3 hits.
@@ -108,14 +123,19 @@ fi
 # "0" (yielding multi-line "0\n0"), so use `|| true` to consume the non-zero exit cleanly.
 n_master_py=$(grep -cE 'branches: \[master\]|refs/heads/master' "$P/.github/workflows/getff-python.yml" 2>/dev/null || true)
 n_master_cargo=$(grep -cE 'branches: \[master\]|refs/heads/master' "$P/.github/workflows/getff-cargo.yml" 2>/dev/null || true)
+n_master_go=$(grep -cE 'branches: \[master\]|refs/heads/master' "$P/.github/workflows/getff-go.yml" 2>/dev/null || true)
 n_master_py=${n_master_py:-0}
 n_master_cargo=${n_master_cargo:-0}
+n_master_go=${n_master_go:-0}
 [ "$n_master_py" -eq 3 ] \
   && ok "(1) python delivered workflow: 3 master refs (2× branches + 1× refs/heads; pre-fix would be 0)" \
   || bad "(1) python delivered workflow: expected 3 master refs, got $n_master_py"
 [ "$n_master_cargo" -eq 3 ] \
   && ok "(1) cargo delivered workflow: 3 master refs (2× branches + 1× refs/heads; pre-fix would be 0)" \
   || bad "(1) cargo delivered workflow: expected 3 master refs, got $n_master_cargo"
+[ "$n_master_go" -eq 3 ] \
+  && ok "(1) go delivered workflow: 3 master refs (2× branches + 1× refs/heads; pre-fix would be 0)" \
+  || bad "(1) go delivered workflow: expected 3 master refs, got $n_master_go"
 # Negative assertion: the delivered file must NOT carry any `main` branch refs (the template
 # value). If it does, the substitution silently no-op'd — same bug as before.
 if grep -qE 'branches: \[main\]|refs/heads/main' "$P/.github/workflows/getff-python.yml" 2>/dev/null; then
@@ -128,6 +148,11 @@ if grep -qE 'branches: \[main\]|refs/heads/main' "$P/.github/workflows/getff-car
 else
   ok "(1) cargo delivered workflow: NO [main] refs remain (substitution replaced all three sites)"
 fi
+if grep -qE 'branches: \[main\]|refs/heads/main' "$P/.github/workflows/getff-go.yml" 2>/dev/null; then
+  bad "(1) go delivered workflow still carries [main] → installs on a master consumer and NEVER RUNS (the pre-fix go-lane shape)"
+else
+  ok "(1) go delivered workflow: NO [main] refs remain (substitution replaced all three sites)"
+fi
 rm -rf "$P"
 
 # ── Cell (2): main-default consumer — symmetry (substitution must NOT fire) ────────────────────
@@ -137,12 +162,16 @@ printf '{"name":"c2-main","version":"0.0.0"}\n' > "$P/package.json"
 init_consumer "$P" main
 run_python_delivery "$P" >/dev/null
 run_cargo_delivery  "$P" >/dev/null
+run_go_delivery     "$P" >/dev/null
 cmp -s "$TPL_PY" "$P/.github/workflows/getff-python.yml" \
   && ok "(2) python delivered workflow byte-identical to template (main-default → no substitution needed)" \
   || bad "(2) python delivered workflow differs from template on a main-default consumer (substitution over-fired)"
 cmp -s "$TPL_CARGO" "$P/.github/workflows/getff-cargo.yml" \
   && ok "(2) cargo delivered workflow byte-identical to template (main-default → no substitution needed)" \
   || bad "(2) cargo delivered workflow differs from template on a main-default consumer (substitution over-fired)"
+cmp -s "$TPL_GO" "$P/.github/workflows/getff-go.yml" \
+  && ok "(2) go delivered workflow byte-identical to template (main-default → no substitution needed)" \
+  || bad "(2) go delivered workflow differs from template on a main-default consumer (substitution over-fired)"
 rm -rf "$P"
 
 # ── Cell (3): no-remote consumer — PARK case (Option A: byte-identical + stderr warning) ──────
@@ -153,18 +182,28 @@ printf '{"name":"c3-noremote","version":"0.0.0"}\n' > "$P/package.json"
 # Captures stderr separately so we can assert the warning text was emitted.
 py_out=$(run_python_delivery "$P" 2>&1 1>/dev/null); py_rc=$?
 cargo_out=$(run_cargo_delivery "$P" 2>&1 1>/dev/null); cargo_rc=$?
+go_out=$(run_go_delivery "$P" 2>&1 1>/dev/null); go_rc=$?
 [ "$py_rc" -eq 0 ] \
   && ok "(3) python lane exit 0 on no-remote consumer (PARK Option A: deliver byte-identical, don't refuse)" \
   || bad "(3) python lane non-zero exit on no-remote consumer (rc=$py_rc) — would be Option B (refuse); review-flippable"
 [ "$cargo_rc" -eq 0 ] \
   && ok "(3) cargo lane exit 0 on no-remote consumer (PARK Option A: deliver byte-identical, don't refuse)" \
   || bad "(3) cargo lane non-zero exit on no-remote consumer (rc=$cargo_rc) — would be Option B (refuse); review-flippable"
+[ "$go_rc" -eq 0 ] \
+  && ok "(3) go lane exit 0 on no-remote consumer (PARK Option A: deliver byte-identical, don't refuse)" \
+  || bad "(3) go lane non-zero exit on no-remote consumer (rc=$go_rc) — would be Option B (refuse); review-flippable"
 cmp -s "$TPL_PY" "$P/.github/workflows/getff-python.yml" \
   && ok "(3) python delivered byte-identical to template (Option A — preserves snapshot fingerprint invariant)" \
   || bad "(3) python delivered differs from template on no-remote consumer (Option A requires byte-identical)"
 cmp -s "$TPL_CARGO" "$P/.github/workflows/getff-cargo.yml" \
   && ok "(3) cargo delivered byte-identical to template (Option A — preserves snapshot fingerprint invariant)" \
   || bad "(3) cargo delivered differs from template on no-remote consumer (Option A requires byte-identical)"
+# The go arm of this cell is what keeps the snapshot baselines honest: tests/install-sh/snapshot.sh
+# seeds a mktemp -d fixture with NO origin remote, so the go row's fingerprint depends on this
+# byte-identical guarantee holding after the copy_safe → deliver_getff_workflow swap.
+cmp -s "$TPL_GO" "$P/.github/workflows/getff-go.yml" \
+  && ok "(3) go delivered byte-identical to template (Option A — preserves snapshot fingerprint invariant)" \
+  || bad "(3) go delivered differs from template on no-remote consumer (Option A requires byte-identical)"
 # Warning text assertion (wording-secondary per T-HS-A but a useful honest-signal check).
 echo "$py_out" | grep -qiE 'could not detect default branch|no origin remote' \
   && ok "(3) python lane emitted a LOUD stderr warning naming the no-remote case (NOT silent fallback)" \
@@ -172,6 +211,9 @@ echo "$py_out" | grep -qiE 'could not detect default branch|no origin remote' \
 echo "$cargo_out" | grep -qiE 'could not detect default branch|no origin remote' \
   && ok "(3) cargo lane emitted a LOUD stderr warning naming the no-remote case (NOT silent fallback)" \
   || bad "(3) cargo lane did NOT warn on no-remote (silent fallback = the S4 defect itself)"
+echo "$go_out" | grep -qiE 'could not detect default branch|no origin remote' \
+  && ok "(3) go lane emitted a LOUD stderr warning naming the no-remote case (NOT silent fallback)" \
+  || bad "(3) go lane did NOT warn on no-remote (silent fallback = the S4 defect itself)"
 rm -rf "$P"
 
 # ── Cell (4): origin/HEAD unset but origin remote exists — PARK case (same as cell 3) ──────────
@@ -212,19 +254,25 @@ printf '{"name":"c5-amp","version":"0.0.0"}\n' > "$P/package.json"
 init_consumer "$P" "release/a&b"
 run_python_delivery "$P" >/dev/null
 run_cargo_delivery  "$P" >/dev/null
+run_go_delivery     "$P" >/dev/null
 # Expected per file: 2× 'branches: [release/a&b]' + 1× 'refs/heads/release/a&b' = 3 hits.
 # Pre-fix (no escape): the '&' expands to the entire match → the delivered file contains
 # 'branches: [release/abranches: [main]b]' instead, 0 literal 'release/a&b' matches.
 n_amp_py=$(grep -cE 'branches: \[release/a&b\]|refs/heads/release/a&b' "$P/.github/workflows/getff-python.yml" 2>/dev/null || true)
 n_amp_cargo=$(grep -cE 'branches: \[release/a&b\]|refs/heads/release/a&b' "$P/.github/workflows/getff-cargo.yml" 2>/dev/null || true)
+n_amp_go=$(grep -cE 'branches: \[release/a&b\]|refs/heads/release/a&b' "$P/.github/workflows/getff-go.yml" 2>/dev/null || true)
 n_amp_py=${n_amp_py:-0}
 n_amp_cargo=${n_amp_cargo:-0}
+n_amp_go=${n_amp_go:-0}
 [ "$n_amp_py" -eq 3 ] \
   && ok "(5) python delivered workflow: 3 literal release/a&b refs (sed &-escape works)" \
   || bad "(5) python delivered workflow: expected 3 release/a&b refs, got $n_amp_py (sed &-corruption)"
 [ "$n_amp_cargo" -eq 3 ] \
   && ok "(5) cargo delivered workflow: 3 literal release/a&b refs (sed &-escape works)" \
   || bad "(5) cargo delivered workflow: expected 3 release/a&b refs, got $n_amp_cargo (sed &-corruption)"
+[ "$n_amp_go" -eq 3 ] \
+  && ok "(5) go delivered workflow: 3 literal release/a&b refs (sed &-escape works)" \
+  || bad "(5) go delivered workflow: expected 3 release/a&b refs, got $n_amp_go (sed &-corruption)"
 # Negative assertion: the corruption signature is 'branches: [release/a' followed by the
 # original 'branches: [main]' literal — that exact doubled-output shape is the regression.
 if grep -qE 'branches: \[release/abranches' "$P/.github/workflows/getff-python.yml" 2>/dev/null; then

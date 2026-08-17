@@ -337,7 +337,7 @@ refresh_safe() {
 }
 
 # deliver_getff_workflow <tpl-src> <dst>
-# Delivers a getff CI workflow template (.github/workflows/getff-{python,cargo}.yml),
+# Delivers a getff CI workflow template (.github/workflows/getff-{python,cargo,go}.yml),
 # substituting the consumer's actual default branch for the template's hard-coded `main`
 # at install time. Closes the getff-honest-signals S4 defect class — a consumer whose
 # default branch is `master` (or anything else) gets a workflow that actually triggers,
