@@ -79,5 +79,41 @@ for src in "$SRC_DIR"/*.sh; do
   esac
 done
 
+# (3) agents population — deliberately NOT checked against the real tree here, and this
+# absence is measured rather than lazy. Arm (1) above runs the generator on the REAL tree,
+# and the generator now re-syncs agent twins, so an in-tree byte-identity arm placed after
+# it can never fail: seeding drift into agents/review-sidecar.md and running this file
+# reports "byte-identical" and silently repairs the tree (verified 2026-08-17). Such an arm
+# would be decoration — the shape of a check with no failing input.
+#
+# Real-tree drift detection for this population lives where it can actually fail, in CI:
+# packages/core/principles/24-plugin-manifest-integrity.test.ts (d). It caught a live drift
+# in PR #1430. This file's job is the GENERATOR, exercised below against a sandbox tree.
+# Do not "restore" an in-tree arm here without first moving it above arm (1).
+
+# (4) generator contract, end-to-end in a sandbox: the agents arm re-syncs drift and never
+# invents a twin. CLAUDE_PROJECT_DIR keeps the real tree untouched — and a sandbox (rather
+# than a predicate-only negative) is what proves the population is actually wired in.
+SANDBOX="$TMP/sandbox"
+mkdir -p "$SANDBOX/.claude/hooks" "$SANDBOX/plugin/hooks" "$SANDBOX/agents" "$SANDBOX/plugin/agents"
+printf -- '---\nname: drifted\n---\n\nSOURCE version\n' > "$SANDBOX/agents/drifted.md"
+printf -- '---\nname: drifted\n---\n\nSTALE twin version\n' > "$SANDBOX/plugin/agents/drifted.md"
+printf -- '---\nname: untwinned\n---\n\nno twin exists for me\n' > "$SANDBOX/agents/untwinned.md"
+
+if CLAUDE_PROJECT_DIR="$SANDBOX" bash "$REPO_ROOT/scripts/generate-plugin-twins.sh" >/dev/null 2>&1; then
+  if cmp -s "$SANDBOX/agents/drifted.md" "$SANDBOX/plugin/agents/drifted.md"; then
+    ok "sandbox: drifted agent twin re-synced to byte-identical"
+  else
+    bad "sandbox: drifted agent twin NOT re-synced (agents arm is a no-op)"
+  fi
+  if [ -f "$SANDBOX/plugin/agents/untwinned.md" ]; then
+    bad "sandbox: generator invented a twin for an intentionally-untwinned agent"
+  else
+    ok "sandbox: untwinned agent left alone (no twin invented)"
+  fi
+else
+  bad "sandbox: generator failed on a minimal tree"
+fi
+
 echo "Pass: $PASS  Fail: $FAIL"
 exit $((FAIL > 0))
