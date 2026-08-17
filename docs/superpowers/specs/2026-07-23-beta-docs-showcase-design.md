@@ -214,8 +214,11 @@ present tense** — «clippy demo, deny roadmap»; (5) everything environment-la
   subset vendored into the consumer repo, per-project dedup-log) is merged; **umbrella B
   is its first consumer**. New stage **BS-pre** instantiates A7 for `~/code/getff-landing`
   (vendor bridge subset, aif project with landing container base,
-  `RUNTIME_BRIDGE_AIF_PROJECT_ID`, per-mode defaults Plan→top / Task/Review→executor) and
-  smokes ONE no-op task end-to-end. The kickoff carries a binding **Dispatch gate**
+  `RUNTIME_BRIDGE_AIF_PROJECT_ID`, per-mode defaults — **all three modes on the executor tier;
+  «Plan→top» RETIRED 2026-08-17 by operator directive**, no Claude runtime inside aif, GLM only.
+  The tier criteria are untouched; the aif runtime-profile config, which owns which model fills
+  which tier, simply holds no Claude profile any more — a top-tier seat is a host-side CC session,
+  never an aif dispatch) and smokes ONE no-op task end-to-end. The kickoff carries a binding **Dispatch gate**
   (A7-merged probe + BS-pre green) — until it passes, B is blocked-pending-neighbor and
   nobody opens CC stage sessions for it. Operator-only steps (BS0 DNS, BS3 sign-off) are
   parked via runtime-bridge park/answer. BS2's two framework-repo PRs (First-Steps SSOT,

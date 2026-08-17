@@ -15,9 +15,15 @@
 > not a standing fact, and the `13d7fd5` census it replaces was itself an unfetched working
 > copy read (routes unchanged, so the URL census stands — design §0.2 as corrected); this repo
 > `staging` for the two cross-repo PRs (First-Steps SSOT, issue templates).
-> **Tier:** umbrella Tier 2 — factory defaults apply (Plan→top tier, Task/Review→executor
-> tier); BS1 is Tier-1-shaped and may run with the executor-tier bridge-profile marker on
-> its stage dispatch once BS0 is green (B-D6).
+> **Tier:** umbrella Tier 2. **Inside the aif factory every mode runs the executor tier —
+> operator directive 2026-08-17: no Claude runtime in aif, GLM only.** The tier *criteria*
+> are unchanged ([tier-home.md](../../../packages/core/templates/shared/tier-home.md) owns
+> them); what changed is the aif runtime-profile config, which owns *which model fills which
+> tier* (CLAUDE.md «Task-tier routing») — and it now holds no Claude profile at all
+> (`Claude Opus (plan+review)` = `enabled: false`), so «Plan→top tier» has no resolvable
+> target there and is retired for this umbrella. A top-tier seat, when a stage needs one,
+> is a **host-side** CC session, never an aif dispatch. BS1 stays Tier-1-shaped and may run
+> with the executor-tier bridge-profile marker on its stage dispatch once BS0 is green (B-D6).
 
 <!-- host-verify: none — umbrella-scope kickoff: it authors no executable deliverable in this repo. Every stage's deliverable lands in `artyhoo/getff-landing`, and the host commands that decide acceptance are declared per stage in the meta-launch kickoff §3 (`curl`/`gh`/`next build` against the target repo), each runnable only once its own stage has produced the surface it probes. -->
 
@@ -41,7 +47,8 @@
    `~/code/getff-landing` (CLI entrypoints + dispatch hook, env-parameterized,
    per-project dedup-log), create/point an aif project whose container base is the
    landing repo, set `RUNTIME_BRIDGE_AIF_PROJECT_ID` for it, per-mode defaults
-   (Plan→top, Task/Review→executor). Gate evidence: ONE no-op smoke task dispatched
+   (**all three modes → executor tier**, per the operator's GLM-only directive above;
+   the original «Plan→top» is retired, not deferred). Gate evidence: ONE no-op smoke task dispatched
    through the landing-side wiring → completes → harvested as a trivial PR (or
    clean-close) in `getff-landing`. Human steps (env/keys) parked to operator via
    park/answer.

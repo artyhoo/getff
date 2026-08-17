@@ -202,8 +202,10 @@ re-run the pre-dispatch in-flight probe, and read the umbrella kickoff §Per-sta
   shipped form does not fit the landing repo, **STOP and surface** — do not fork it. Deliverables:
   vendored CLI entrypoints + dispatch hook (env-parameterized, per-project dedup log) in
   `~/code/getff-landing`; an aif project whose container base is the landing repo;
-  `RUNTIME_BRIDGE_AIF_PROJECT_ID` set for it; per-mode defaults (Plan→top tier, Task/Review→executor
-  tier). Gate evidence: ONE no-op smoke task dispatched through the landing-side wiring → completes →
+  `RUNTIME_BRIDGE_AIF_PROJECT_ID` set for it; per-mode defaults — **all three modes on the executor
+  tier** (operator directive 2026-08-17: no Claude runtime inside aif, GLM only; the `Claude Opus
+  (plan+review)` profile is now `enabled: false`, so «Plan→top» has no resolvable target there and is
+  retired, not deferred — a top-tier seat is a host-side CC session). Gate evidence: ONE no-op smoke task dispatched through the landing-side wiring → completes →
   harvested as a trivial PR (or clean-close). **Every env/key/compose step is an operator step: PARK it,
   never improvise** (§1.1 measured why: the projects mount and `docker compose` cwd are host-side).
 - **Stage 2 — BS0 (prototype, mandatory first).** Scratch repo `artyhoo/getff-docs-smoke`. Fumadocs +
