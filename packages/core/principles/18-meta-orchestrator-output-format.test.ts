@@ -45,6 +45,27 @@
  * one. What NEITHER family asserts is the runtime payload — see the ADR D1 «What it does
  * NOT assert» paragraph; both read files from disk.
  *
+ * **2026-08-17 update (#1438 follow-up — the last two emitters, decided):** a FOURTH family
+ * (`NIGHT_CHIP_REQUIRED_SUBSTRINGS`) asserts the v3 §7 night-end chip on `night-mode`. The
+ * #1438 backward sweep found SIX emitting files, not three; four were asserted there, and the
+ * two remaining ones split, because gate-lessness of the PAYLOAD is not the predicate. None of
+ * these families asserts a payload at all (see «What it does NOT assert» above) — what they
+ * assert is that the emitter's INSTRUCTION TEXT survives a rewrite. So the predicate is
+ * severity-of-loss × exposure-to-drift, and it lands differently on the two:
+ *   `.claude/skills/night-mode/SKILL.md` — ASSERTED. Its emission-side invariants exist in no
+ *     other family, it is the one emitter that fires UNATTENDED (nobody is watching at 03:00,
+ *     so a dropped restriction surfaces at 08:00 or never), and it is live: 13 commits since
+ *     2026-06-01, three of them after the chip clause landed 2026-08-09 in #1346.
+ *   `.claude/rules/seat-lifecycle.md` — NOT asserted, deliberately. It is a BINDING whose owner
+ *     is session-bus v2 §4 (its own header says so), and its `#fifth-description-of-the-loop`
+ *     anti-pattern forbids growing operational detail the owner carries — pinning substrings
+ *     there is exactly the pressure that turns a 3-5-line pointer into a restatement. Its
+ *     continuation-chip line adds no restriction of its own (it names rung «day» of a ladder
+ *     the owner holds in full), it has one commit ever and has never been edited, and it does
+ *     not ship (`setup.d/lib.sh:58-60` ships skills; no rule). Fixing it at the owner is also
+ *     wrong: this principle's class is emitter INSTRUCTIONS an agent reads at work time, not
+ *     design specs. Full rationale + falsifier: ADR D1 «Build trigger» paragraph.
+ *
  * Slot 18 rationale: slots 01-17 occupied as of 2026-05-24 (`ls packages/core/principles/`).
  *
  * Companion paired-negative: a permutation test temporarily replaces one substring
@@ -109,6 +130,39 @@ const PARK_CHIP_REQUIRED_SUBSTRINGS = [
   'pointers only',
   'Re-verify at click time',
   'report and stop',
+] as const;
+
+// Night-end chip substrings (autonomous-night v3 §7 — the night-mode terminal-retirement
+// emitter, the #1438 follow-up). A THIRD contract profile and a THIRD family, for the same
+// reason the park family is separate: this chip carries neither the dispatch gates nor the D4
+// trio — it points at a report path, and a click opens a read. What IS load-bearing here, and
+// in neither other family, is the EMISSION side. Each token has its own failure scenario:
+//   'Review morning report'  — clause anchor + the chip's own identity; pins THIS clause rather
+//                              than some future unrelated `spawn_task` mention in the file.
+//   'NIGHT-END terminal retirement ONLY'
+//                            — the emission restriction, and the reason this surface is worth a
+//                              family at all; loss → mid-night successors emit chips v3 §7
+//                              forbids them («Mid-night successors inherit the mandate and emit
+//                              nothing»), so the operator wakes to N chips, N-1 of them minted
+//                              against a morning report that did not exist yet.
+//   'spawn_task'             — capability gate; loss → emission attempted where the tool is
+//                              absent, instead of degrading to the documented report fallback.
+//   'best-effort `dismiss_task`'
+//                            — stranded-chip cleanup after a park decided overnight; loss → a
+//                              park answered at 03:00 leaves a live park-chip whose only
+//                              remaining bound is the park family's report-and-stop, i.e. a
+//                              wasted click during the morning reconstruction. The thinnest of
+//                              the four (defence-in-depth over an already-asserted arm), kept
+//                              because the scenario is distinct, not a restatement.
+// Deliberately NOT pinned: 'never at a mid-night handoff' — an emphatic restatement of the
+// terminal-ONLY token (the knife #1438 used on 'Never the park payload body'); and naming the
+// report file as the no-tool fallback consumer — the report is written either way and v3 §7
+// holds that record, so it would pad the family without adding a scenario.
+const NIGHT_CHIP_REQUIRED_SUBSTRINGS = [
+  'Review morning report',
+  'NIGHT-END terminal retirement ONLY',
+  'spawn_task',
+  'best-effort `dismiss_task`',
 ] as const;
 
 // Files that must contain all REQUIRED_SUBSTRINGS in §10 (SKILL.md) or anywhere (output-format.md).
@@ -204,6 +258,18 @@ const PARK_CHIP_SURFACES: readonly Surface[] = [
   {
     label: 'authoring dispatcher/SKILL.md §3 (park-chip contract + decision-session protocol)',
     path: '.claude/skills/dispatcher/SKILL.md',
+    scope: 'whole-file',
+  },
+];
+
+// Night-end chip surface: the sole v3 §7 emitter. Like every other surface in this file it is
+// a SHIPPED skill (`GETFF_SKILLS_FACTORY`, setup.d/lib.sh:60 — `arch`/`pipeline` ship at the env
+// tier, setup.d/lib.sh:59), so shipping is a shared property here, not the discriminator; the
+// discriminator is unattended emission (see the family comment above).
+const NIGHT_CHIP_SURFACES: readonly Surface[] = [
+  {
+    label: 'authoring night-mode/SKILL.md (night-end chip, terminal-retirement clause)',
+    path: '.claude/skills/night-mode/SKILL.md',
     scope: 'whole-file',
   },
 ];
@@ -327,6 +393,51 @@ describe('Principle 18 — meta-orchestrator output-format structural check', ()
       if (!fakeClause.includes(sub)) missing.push(sub);
     }
     expect(missing).toEqual(['pointers only']);
+  });
+
+  for (const surface of NIGHT_CHIP_SURFACES) {
+    it(`${surface.label} contains all ${NIGHT_CHIP_REQUIRED_SUBSTRINGS.length} night-end chip substrings`, () => {
+      const result = checkSurface(surface, NIGHT_CHIP_REQUIRED_SUBSTRINGS);
+      expect(
+        result.ok,
+        result.missing.length > 0
+          ? `Missing night-end chip substrings in ${surface.label}: ${result.missing.join(', ')}`
+          : '',
+      ).toBe(true);
+    });
+  }
+
+  it('paired-negative: a night-end chip clause that drops the terminal-only restriction fails the check', () => {
+    // The v3 §7 regression this guards: without the restriction, every mid-night successor
+    // retirement emits its own chip, so the operator wakes to a stack of «Review morning
+    // report» chips minted before the report they point at existed.
+    const fakeClause = [
+      'Then write a **morning report**: what merged, decision resolutions, BLOCKED increments.',
+      'At retirement the closing seat emits ONE capability-gated chip per plan («Review morning report [<plan>]»),',
+      'pointing at the report path; without `spawn_task` the report file itself is the fallback consumer.',
+      'A night-decided park may strand an unclicked park-chip: best-effort `dismiss_task` it.',
+    ].join('\n');
+    const missing: string[] = [];
+    for (const sub of NIGHT_CHIP_REQUIRED_SUBSTRINGS) {
+      if (!fakeClause.includes(sub)) missing.push(sub);
+    }
+    expect(missing).toEqual(['NIGHT-END terminal retirement ONLY']);
+  });
+
+  it('paired-negative: a night-end chip clause that drops the capability gate fails the check', () => {
+    // D2's probe-only posture, restated at the one emitter most likely to lack the tool: a
+    // CLI-born terminal seat. Without the gate the seat attempts emission instead of falling
+    // back, and the failure lands at 03:00 with nobody watching.
+    const fakeClause = [
+      'At NIGHT-END terminal retirement ONLY — never at a mid-night handoff — the closing seat',
+      'emits ONE chip per plan («Review morning report [<plan>]»), pointing at the report path.',
+      'A night-decided park may strand an unclicked park-chip: best-effort `dismiss_task` it.',
+    ].join('\n');
+    const missing: string[] = [];
+    for (const sub of NIGHT_CHIP_REQUIRED_SUBSTRINGS) {
+      if (!fakeClause.includes(sub)) missing.push(sub);
+    }
+    expect(missing).toEqual(['spawn_task']);
   });
 
   // Paired-negative test (companion per principle 02 discipline): a temporarily-mutated
