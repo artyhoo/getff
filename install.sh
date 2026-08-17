@@ -888,6 +888,32 @@ do_refresh() {
     fi
   fi
 
+  # ── Vendored runtime-bridge subset (factory depth; spec A7) — #869 refresh parity ──
+  # setup.d/55-runtime-bridge-vendor.sh delivers BOTH halves at install time, and neither could
+  # reach a brownfield consumer non-destructively: the dispatch hook via copy_safe (skip-if-exists,
+  # the #869 mechanism), and the vendor payload only by re-running the whole installer. So a factory
+  # consumer could never receive a vendor fix through --refresh — the same drift class #1412 closed
+  # for the skill slugs, the worktree scripts and tier-home, deliberately left out of that PR's scope.
+  #
+  # Same uniform gate as every depth-gated arm above: the delivery site's OWN profile predicate
+  # (55-runtime-bridge-vendor.sh:65 — factory | WITH_AIF_SUITE) OR presence on disk (prior opt-in).
+  # The vendor DIRECTORY is the presence probe: layer 55 writes both halves in one gated block, so
+  # its presence is what «this consumer opted into the bridge» means. refresh_safe REPLACES a
+  # directory payload rather than nesting into it (#873), so the dir is deliverable as-is.
+  if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
+    || [ -e "$PROJECT_ROOT/.claude/vendor/runtime-bridge" ]; then
+    _RBV_SRC="$PKG_ROOT/packages/runtime-bridge/vendor"
+    if [ -d "$_RBV_SRC" ]; then
+      echo "▶ Runtime-bridge vendor → .claude/vendor/runtime-bridge/"
+      refresh_safe "$_RBV_SRC" "$PROJECT_ROOT/.claude/vendor/runtime-bridge"
+      _RBV_HOOK_DST="$PROJECT_ROOT/.claude/hooks/runtime-bridge-dispatch.sh"
+      refresh_safe "$_RBV_SRC/hooks/runtime-bridge-dispatch.sh" "$_RBV_HOOK_DST"
+      if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_RBV_HOOK_DST" ]; then
+        chmod_safe +x "$_RBV_HOOK_DST" 2>/dev/null || true
+      fi
+    fi
+  fi
+
   # ── Scripts ─────────────────────────────────────────────
   echo "▶ Scripts → scripts/"
   for _pair in \

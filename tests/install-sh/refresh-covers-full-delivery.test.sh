@@ -114,17 +114,84 @@ EXC
 # AGENTS.md stays EXCLUDED from do_refresh: refresh_safe rewrites a WHOLE file, which is precisely
 # wrong for a co-owned one. Re-injecting only the fence on refresh is now mechanically possible and
 # is a deliberate follow-up, not a silent behaviour change here.
+#
+# VARIABLE-INDIRECTED DESTINATIONS (a false-GREEN hole this scan carried from its first version). A delivery
+# written as `copy_safe "$HOOK_SRC" "$HOOK_DST"` carries NO literal $PROJECT_ROOT token, so the
+# line scan collected nothing from it and the artefact escaped FULL entirely — not reported as a
+# gap, simply never seen. Live blast radius when measured: the whole of
+# setup.d/55-runtime-bridge-vendor.sh (its single copy_safe line is exactly that shape) plus all
+# eight .claude/hooks/ deliveries in setup.d/10-skills.sh. That blindness is why #1412's sweep of
+# the refresh-drift class could not surface the vendor gap — the gate covering the class did not
+# cover the layer. Resolution below substitutes simple `VAR="$PROJECT_ROOT/<literal>"` assignments
+# back into that file's lines before extraction, PER FILE (never corpus-wide: layers reuse the same
+# variable names — HOOK_DST means a different path in 10-skills.sh and in 55-runtime-bridge-vendor.sh).
+resolve_layer() {  # $1 = layer file → its non-comment text with $VAR dsts substituted
+  local lyr="$1" body sedexpr
+  body=$(grep -vE '^[[:space:]]*#' "$lyr")
+  # The substitution consumes the CLOSING QUOTE too (`s#\$VAR"#<literal>"#g`). Matching a bare
+  # `\$VAR` would also rewrite the prefix of a longer name ($HOOK_DST inside $HOOK_DST_OLD), and
+  # BSD sed (macOS, where this suite also runs) has no \b word boundary to lean on.
+  # shellcheck disable=SC2016
+  sedexpr=$(printf '%s\n' "$body" \
+    | grep -oE '^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*="\$PROJECT_ROOT/[A-Za-z0-9._/-]*"' \
+    | sed -E 's/^[[:space:]]*//' \
+    | while IFS='=' read -r _v _val; do
+        _val=${_val#\"}; _val=${_val%\"}
+        printf 's#\\$%s"#%s"#g\n' "$_v" "$_val"
+      done | tr '\n' ';' | sed 's/;$//')
+  if [ -n "$sedexpr" ]; then printf '%s\n' "$body" | sed -E "$sedexpr"; else printf '%s\n' "$body"; fi
+}
+LAYER_TEXT=$(for _lyr in "${NPM_LANE_LAYERS[@]}"; do resolve_layer "$_lyr"; done)
+DELIVER_LINES=$(printf '%s\n' "$LAYER_TEXT" | grep -E 'copy_safe|deliver_getff_workflow|install_agents_md')
+[ -n "$DELIVER_LINES" ] || { echo "FATAL: no delivery lines found across the npm-lane layers — resolve_layer broke"; exit 1; }
 # shellcheck disable=SC2016  # single-quoted regex matches the literal '$PROJECT_ROOT' in source; no expansion intended
-FULL=$(grep -hE 'copy_safe|deliver_getff_workflow|install_agents_md' "${NPM_LANE_LAYERS[@]}" 2>/dev/null | grep -vE '^[[:space:]]*#' \
-  | grep -oE '\$PROJECT_ROOT/[A-Za-z0-9._/-]*' | sed -E 's#\$PROJECT_ROOT/##' | sort -u)
+FULL=$(printf '%s\n' "$DELIVER_LINES" | grep -oE '\$PROJECT_ROOT/[A-Za-z0-9._/-]*' | sed -E 's#\$PROJECT_ROOT/##' | sort -u)
 
 # Fail loud if a copy_safe/deliver_getff_workflow dst begins with an immediate variable
 # ("$PROJECT_ROOT/$x") — it would normalize to the empty string and silently escape FULL
 # (a false-GREEN hole). None exist today.
 # shellcheck disable=SC2016
-if grep -hE 'copy_safe|deliver_getff_workflow|install_agents_md' "${NPM_LANE_LAYERS[@]}" 2>/dev/null | grep -vE '^[[:space:]]*#' \
-   | grep -qE '"\$PROJECT_ROOT/\$'; then
+if printf '%s\n' "$DELIVER_LINES" | grep -qE '"\$PROJECT_ROOT/\$'; then
   echo "FATAL: a copy_safe/deliver_getff_workflow dst starts with an immediate \$var after \$PROJECT_ROOT/ — unparseable; extend the gate"; exit 1
+fi
+
+# ── Guard: every STILL-variable dst must be a KNOWN out-of-population form ───────────────────────
+# Resolution above handles the dominant shape. Anything left is a dst this scan cannot read, and
+# an unread dst is invisible rather than flagged — so the residue is enumerated by name with the
+# reason it is out of population, and a NEW one is FATAL instead of silently escaping. This is the
+# guard that would have caught $HOOK_DST at the moment layer 55 was written.
+UNPARSEABLE_DST=$(sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' <<'UNP' | sed '/^$/d'
+  _dst        # 20-agents.sh: $(basename) glob loop — namespace-covered (.claude/agents/, per GRANULARITY above)
+  _ws_abs     # 40-configs.sh: per-workspace eslint config — workspace-relative, never under $PROJECT_ROOT literally
+  dst         # 46-cargo.sh / 47-go.sh: toolchain-lane local; those lanes carry their own refresh path (cf. Check 4)
+  wf_dst      # 46-cargo.sh / 47-go.sh: toolchain-lane workflow dst — same lane, same reason
+  2           # 46-cargo.sh / 47-go.sh: generic `copy_safe "$1" "$2"` wrapper — call sites are what carry the real dst
+UNP
+)
+[ -n "$UNPARSEABLE_DST" ] || { echo "FATAL: UNPARSEABLE_DST empty — heredoc parse broke"; exit 1; }
+# Last quoted token of a delivery line is its dst (trailing comment stripped first). A dst that
+# reads (or resolved to) "$PROJECT_ROOT/…" is exactly what FULL collected — only the residue counts.
+unresolved_dst_vars() {
+  printf '%s\n' "$DELIVER_LINES" | sed -E 's/[[:space:]]+#[^"]*$//' \
+    | sed -E 's/.*"([^"]*)"[[:space:]]*$/\1/' \
+    | grep -v '^\$PROJECT_ROOT/' \
+    | grep '^\$' | sed -E 's/^\$\{?([A-Za-z_0-9][A-Za-z0-9_]*).*/\1/' | sort -u
+}
+new_var_dst=""
+for _v in $(unresolved_dst_vars); do
+  printf '%s\n' "$UNPARSEABLE_DST" | grep -qxF "$_v" || new_var_dst="$new_var_dst \$$_v"
+done
+if [ -z "${new_var_dst// }" ]; then
+  ok "dst-resolution: every delivery dst is either a resolved \$PROJECT_ROOT path or a declared out-of-population form"
+else
+  bad "dst-resolution: delivery dst(s) this scan cannot read and that are NOT declared out-of-population → the artefact escapes FULL unflagged (the variable-dst hole):$new_var_dst"
+fi
+# neg (LOAD-BEARING): a synthetic variable dst must be reported, or the guard reads nothing.
+if printf '%s\n' '  copy_safe "$SRC" "$BRAND_NEW_DST"' | sed -E 's/.*"([^"]*)"[[:space:]]*$/\1/' \
+   | grep '^\$' | sed -E 's/^\$\{?([A-Za-z_0-9][A-Za-z0-9_]*).*/\1/' | grep -qx 'BRAND_NEW_DST'; then
+  ok "neg (dst-resolution): a synthetic \$VAR dst is extracted by the same predicate (guard non-vacuous)"
+else
+  bad "neg (dst-resolution): synthetic \$VAR dst slipped the extractor → the guard is VACUOUS"
 fi
 
 # ── REFRESH: every consumer path do_refresh() actually WRITES to (write-intent lines only) ──────
@@ -134,11 +201,19 @@ fi
 # `chmod_safe +x … .husky/pre-push` line → false-GREEN.) Two write-intent forms remain:
 # (a) "$PROJECT_ROOT/<path>" on refresh_safe / cp / var-assignment lines (normalized like FULL);
 # (b) the "<src>:scripts/<dst>" _pair data lines consumed via the $_d loop var (literal basenames).
+#
+# TEST EXPRESSIONS are the same false-GREEN shape on a newer surface. Every depth-gated arm
+# #1312/#1334 introduced ends its gate with a PRESENCE PROBE — `|| [ -e "$PROJECT_ROOT/<artefact>" ]`
+# — which reads the path, never writes it, yet made it "present" in REFRESH exactly the way the
+# chmod_safe sibling used to. Measured live: with the probe counted, deleting the vendor payload's
+# real `refresh_safe` line left this gate GREEN. Bracket test groups are STRIPPED rather than their
+# lines dropped, because guarded one-liners (`[ -f "$src" ] && refresh_safe "$src" "$dst"`) carry a
+# genuine write on the same line and dropping those would false-RED.
 refresh_body() {
   awk '/^do_refresh\(\) \{/{f=1} f{print} f&&/^\}/{exit}' "$INSTALL"
 }
-refresh_writes() {  # do_refresh body minus comment / echo / chmod_safe lines (non-write noise)
-  refresh_body | grep -vE '^[[:space:]]*#|^[[:space:]]*echo |chmod_safe'
+refresh_writes() {  # do_refresh body minus comment / echo / chmod_safe lines + test groups (non-write noise)
+  refresh_body | grep -vE '^[[:space:]]*#|^[[:space:]]*echo |chmod_safe' | sed 's/\[[^]]*\]//g'
 }
 # shellcheck disable=SC2016
 REFRESH=$( { refresh_writes | grep -oE '\$PROJECT_ROOT/[A-Za-z0-9._/-]*' | sed -E 's#\$PROJECT_ROOT/##'
@@ -259,6 +334,57 @@ case " $neg_missing " in
   *" $probe "*) ok "neg: removing '$probe' from the refresh set flips the gate to flag it (non-vacuous)" ;;
   *)           bad "neg: gate stayed green with '$probe' dropped from refresh → set-difference is VACUOUS" ;;
 esac
+
+# ── Check: runtime-bridge vendor — the DIRECTORY payload no verb scan can see ───────────────────
+# setup.d/55-runtime-bridge-vendor.sh delivers two things, and only ONE of them is a copy_safe call
+# the FULL scan above can reach: the dispatch hook. The vendor payload itself lands via a raw
+# `rm -rf "$VENDOR_DST"; cp -r "$VENDOR_SRC" "$VENDOR_DST"` — no gate verb, so Check 1 is structurally
+# blind to it, and «the hook is covered» would read as «the layer is covered». Assert both of the
+# layer's destinations appear on the refresh side directly, the way the worktree-scripts list below
+# is asserted rather than inferred. (The layer's own refresh path is the factory-gated arm in
+# do_refresh; on --refresh the setup.d layers never run at all, so re-running the installer is the
+# only other route and that is precisely the destructive path --refresh exists to avoid.)
+RBV_LAYER="$REPO_ROOT/setup.d/55-runtime-bridge-vendor.sh"
+if [ -f "$RBV_LAYER" ]; then
+  # Same write-intent filter refresh_writes() applies, plus mkdir_safe: a parent directory the layer
+  # ensures exists (.claude/vendor, .claude/hooks) is not an artefact, and counting it would demand
+  # a refresh line for a namespace nobody delivers.
+  # shellcheck disable=SC2016
+  rbv_delivered=$(grep -vE '^[[:space:]]*#|^[[:space:]]*echo |chmod_safe|mkdir_safe' "$RBV_LAYER" \
+    | grep -oE '\$PROJECT_ROOT/[A-Za-z0-9._/-]*' | sed -E 's#\$PROJECT_ROOT/##' | sort -u)
+  rbv_refreshed=$(refresh_writes | grep -oE '\$PROJECT_ROOT/[A-Za-z0-9._/-]*' | sed -E 's#\$PROJECT_ROOT/##' | sort -u)
+  if [ -z "$rbv_delivered" ]; then
+    bad "runtime-bridge vendor parity: no \$PROJECT_ROOT destination parsed from 55-runtime-bridge-vendor.sh (delivery site moved, update this gate)"
+  else
+    rbv_missing=""
+    for _d in $rbv_delivered; do
+      printf '%s\n' "$rbv_refreshed" | grep -qxF "$_d" || rbv_missing="$rbv_missing $_d"
+    done
+    if [ -z "${rbv_missing// }" ]; then
+      ok "runtime-bridge vendor parity: do_refresh writes every destination 55-runtime-bridge-vendor.sh delivers ($(printf '%s' "$rbv_delivered" | tr '\n' ' '))"
+    else
+      bad "runtime-bridge vendor parity: factory consumers cannot receive vendor fixes non-destructively — delivered but never refreshed:$rbv_missing"
+    fi
+    # neg (LOAD-BEARING): drop the vendor DIRECTORY from the refresh side — the half Check 1 cannot
+    # see — and prove this check is what flags it.
+    rbv_probe=".claude/vendor/runtime-bridge"
+    if ! printf '%s\n' "$rbv_delivered" | grep -qxF "$rbv_probe"; then
+      bad "neg (runtime-bridge vendor parity): '$rbv_probe' is no longer a delivered destination → probe stale, update this gate"
+    else
+      rbv_broken=$(printf '%s\n' "$rbv_refreshed" | grep -vxF "$rbv_probe")
+      rbv_neg_missing=""
+      for _d in $rbv_delivered; do
+        printf '%s\n' "$rbv_broken" | grep -qxF "$_d" || rbv_neg_missing="$rbv_neg_missing $_d"
+      done
+      case " $rbv_neg_missing " in
+        *" $rbv_probe "*) ok "neg (runtime-bridge vendor parity): dropping '$rbv_probe' from the refresh set flips the comparison (non-vacuous — and Check 1 alone never sees this half)" ;;
+        *) bad "neg (runtime-bridge vendor parity): comparison stayed green with '$rbv_probe' dropped → VACUOUS" ;;
+      esac
+    fi
+  fi
+else
+  bad "runtime-bridge vendor parity: setup.d/55-runtime-bridge-vendor.sh absent — delivery site moved, update this gate"
+fi
 
 # ── Check: the worktree-scripts list is duplicated, so assert the duplication ────────────────────
 # setup.d/85-worktree-scripts.sh owns WORKTREE_SCRIPTS on the install path; do_refresh cannot read
