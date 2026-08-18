@@ -68,7 +68,7 @@ Steps run in order for each stage kickoff. After §2.7, loop back to §2.1 with 
 SLUG="<umbrella>" bash .claude/skills/dispatcher/helpers/probe-inflight.sh
 ```
 
-One command, five signals, one `VERDICT:` line. Branch on the verdict — do NOT re-run the
+One command, six signals, one `VERDICT:` line. Branch on the verdict — do NOT re-run the
 signals by hand, and do NOT substitute a subset. Proven by
 [`packages/core/skills/dispatcher/probe-inflight.test.ts`](../../../packages/core/skills/dispatcher/probe-inflight.test.ts).
 
@@ -79,11 +79,19 @@ signals by hand, and do NOT substitute a subset. Proven by
 | 3 `done-md`               | repo              | the Layer-C3 closure marker                                                 |
 | 4 `container-branch`      | **aif container** | branches that exist ONLY inside the container                               |
 | 5 `task-done-unharvested` | **aif API × PRs** | finished tasks whose branch carries no PR                                   |
+| 6 `claim`                 | **aif API**       | a paused, unfinished task under this slug — a lane taken, work not started  |
 
 Signals 1-3 are the original guard, and **all three are origin/host-scoped** — which is why
 they missed `feature/beta-delivery-ux-995e9c` (2026-08-08T21:22Z): run 3 had finished inside
 the container an hour earlier, invisible to every one of them, and the umbrella was dispatched
 twice. Signals 4-5 are that blind spot.
+
+Signal 6 closes the OTHER end of the timeline. Signals 1-5 all report work that has already
+STARTED, so they read clean for the whole Phase -1 cold-review window — which is where every
+historical collision actually materialised. A claim (`/pipeline` §6 Step 3: an aif task created
+`paused:true` before the review, released on GO, deleted on RED) is the artefact that makes that
+window observable; see
+[`pipeline/references/claim-machinery.md`](../pipeline/references/claim-machinery.md).
 
 Verdicts, highest precedence first:
 
@@ -93,6 +101,13 @@ Verdicts, highest precedence first:
 - **DONE-UNHARVESTED** — a finished task's work is sitting un-harvested. **Harvest it (§2.4)
   or explicitly supersede it before dispatching.** Outranks ALREADY-DONE: a loose end is loose
   even under a closed umbrella. This is the `#autonomous-done-no-harvest` shape.
+- **STALE-CLAIM** — a claim older than `PROBE_CLAIM_TTL_MIN` (default 120min): its session very
+  likely died mid-Phase -1. **Verify the owner is gone, then cancel the claim
+  (`claim.ts cancel <id>`) and proceed** — the probe never cancels one itself. Surfaced rather
+  than enforced so a dead session cannot starve the stage forever.
+- **CLAIMED** — a live claim: another session is inside its Phase -1 window on this stage right
+  now. **Do not dispatch; coordinate.** Outranks ALREADY-DONE/IN-FLIGHT because it names an
+  active session rather than an artefact.
 - **ALREADY-DONE** — `done.md` plus ≥1 other origin signal: skip dispatch → auto-write
   `done.md` + CANON sync + report (CLEAR action — **never surface as question**, T15 / P4);
   see §2.8 for schema.

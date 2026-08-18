@@ -50,10 +50,18 @@ prevent ([README.md#why-this-exists](../../../README.md#why-this-exists)).
 | `src/cli/answer.ts`    | `dispatcher`, `night-mode`, `pipeline` | none new (`backend.ts` already here) |
 | `src/cli/questions.ts` | `dispatcher`, `pipeline`               | none new (no sibling imports)        |
 | `src/harvest.ts`       | (closure of `cli/harvest.ts`)          | 0 imports — self-contained           |
+| `src/cli/claim.ts`     | `pipeline` (§6 Step 3 claim protocol)  | none new (kickoff/resolver/backend)  |
 
-The four are mutually independent: none imports another, and their only shared sibling is
+The five are mutually independent: none imports another, and their only shared sibling is
 `cli/aifHttp.ts`, already vendored for dispatch. The copy stays import-closed — every relative
 import from every vendored `.ts` resolves inside this tree (verified at copy time).
+
+`src/cli/claim.ts` was admitted 2026-08-18 under the same criterion, on the same trigger: the
+shipped `/pipeline` §6 Step 3 instructs the consumer to run it around the Phase -1 window
+(two-phase dispatch, spec §5.3). Its closure was already vendored in full, so the cost was one
+file. `src/backend.ts` and `src/AifHandoffBackend.ts` were re-vendored in the same pass — the
+claim protocol (`claim` / `release` / `cancelClaim` + the `supportsClaims` guard) lives there,
+and a vendored `claim.ts` calling into a pre-split backend would be a copy that cannot run.
 
 **Files NOT copied** (deliberate):
 

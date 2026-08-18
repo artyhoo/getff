@@ -10,8 +10,8 @@
  * @dual-pair: runtime-bridge-types
  */
 export type { KickoffSpec, TaskHandle, TaskStatus, TaskResult } from './types.js';
-export type { RuntimeBackend } from './backend.js';
-export { BackendError } from './backend.js';
+export type { RuntimeBackend, ClaimCapableBackend } from './backend.js';
+export { BackendError, supportsClaims } from './backend.js';
 export { ManualBackend } from './ManualBackend.js';
 export { AifHandoffBackend } from './AifHandoffBackend.js';
 export type { AifHandoffConfig } from './AifHandoffBackend.js';
