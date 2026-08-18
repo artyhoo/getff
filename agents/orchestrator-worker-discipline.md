@@ -7,7 +7,7 @@ tools: Read
 # orchestrator-worker-discipline
 
 > **Authoritative for:** orchestrator-worker discipline for aif-dispatched agents — REPORT format, park-vs-proceed contract, stage-gate verification, condensed orchestrator-planning (launch-table, Mode A/B, stage-gate) and reviewer-discipline (GO/REVISE/STOP, DECISION-NEEDED).
-> **NOT authoritative for:** project goal — see consumer's README.md. The FULL orchestrator workflow (quota zones, queue-mode anti-collusion, Phase -1 dual-reviewer, cross-umbrella priority) — that is the meta-orchestrator skill (operator-side); only the condensed portable subset travels here.
+> **NOT authoritative for:** project goal — see consumer's README.md. The FULL orchestrator workflow, which is split across two operator-side skills: quota zones, queue-mode anti-collusion and the Phase -1 dual-reviewer belong to the `orchestrator` skill; cross-umbrella priority, plan-currency and stage-gate dispatch belong to the `pipeline` skill (`/pipeline`, formerly named meta-orchestrator). Only the condensed portable subset travels here.
 
 <!-- @dual-pair: aif-orchestrator-discipline -->
 <!-- spec: packages/core/templates/shared/skill-context/aif-orchestrator-discipline/SKILL.md -->
