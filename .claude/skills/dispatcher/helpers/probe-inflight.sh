@@ -31,6 +31,8 @@
 #   PROBE_CONTAINER_BRANCHES  newline-separated branch names   (else: docker exec … git branch)
 #   PROBE_CONTAINER_STATUS    ok|unavailable                   (else: derived from docker exit)
 #   PROBE_TASKS               JSON array of aif task objects   (else: curl /tasks)
+#   PROBE_CLAIM_TTL_MIN       minutes before a claim reads STALE (default 120)
+#   PROBE_NOW_EPOCH           epoch seconds "now", for deterministic age fixtures
 #
 # Tested by: packages/core/skills/dispatcher/probe-inflight.test.ts
 # Consumed by: .claude/skills/dispatcher/SKILL.md §2.0
@@ -42,6 +44,11 @@ AIF_CONTAINER="${AIF_CONTAINER:-aif-handoff-agent-1}"
 AIF_REPO_PATH="${AIF_REPO_PATH:-/home/www/rules-as-tests-aif}"
 AIF_HOST="${AIF_HOST:-localhost}"
 AIF_PORT="${AIF_PORT:-3009}"
+
+# A claim older than this reads STALE rather than blocking forever (starvation mode TD-F5).
+# 120min is a deliberate over-estimate of a Phase -1 cold review: the cost of calling a live
+# claim stale is a double dispatch, the cost of calling a dead one live is one operator glance.
+CLAIM_TTL_MIN="${PROBE_CLAIM_TTL_MIN:-120}"
 
 if [[ -z "${SLUG:-}" ]]; then
   echo "SIGNAL error SLUG-not-set"
@@ -155,11 +162,68 @@ if [[ "$unharvested_count" -gt 0 ]]; then
   printf '%s\n' "$unharvested" | grep . | sed 's/^/  unharvested: /' || true
 fi
 
+# ── Signal 6: CLAIMS — a lane taken before the Phase -1 window ─────────────────
+# Signals 1-5 can all be clean while another session is three minutes into a cold
+# review of the same stage: an origin branch does not exist yet, no PR, no done.md,
+# no container branch, and signal 5 selects only FINISHED tasks that carry a branch
+# name. A claim has neither status nor branch — it is a task created `paused:true`
+# and parked at `backlog` (AifHandoffBackend.claim()). That is the whole blind spot
+# this signal closes: every historical double-dispatch materialised inside exactly
+# that window.
+#
+# Matching is deliberately by slug in title+description rather than by a claim
+# marker field. The task's `title` IS the umbrella/stage slug, and inventing a
+# marker would be the second status vocabulary premise P-5 forbids. Consequence,
+# stated rather than hidden: ANY paused unfinished task under this slug blocks the
+# stage, whether claim.ts created it or not. A guard should over-report.
+#
+# Age split (orphan expiry): a session can die between claim-create and the Phase -1
+# verdict, and its claim would otherwise block the stage forever. Past the TTL the
+# claim is reported STALE — surfaced for a human decision, never auto-cancelled here
+# (an automatic sweep would race the very sessions it protects). An unparseable
+# createdAt counts as LIVE: the guard fails toward blocking.
+now_epoch="${PROBE_NOW_EPOCH:-$(date +%s)}"
+claims=$(printf '%s' "$tasks_json" | jq -r '
+  def age_min($iso):
+    ($iso // "") as $c
+    | if $c == "" then -1
+      else (try (($c | sub("\\.[0-9]+Z$"; "Z")) | fromdateiso8601) catch null) as $e
+        | if $e == null then -1 else (($NOW | tonumber) - $e) / 60 | floor end
+      end;
+  [ .[]
+    | select(.paused == true)
+    | select((.status // "") != "done" and (.status // "") != "verified")
+    | select((((.title // "") + " " + (.description // "")) | contains($SLUG)))
+    | age_min(.createdAt) as $age
+    # Title is squashed to one line and printed LAST: the count below reads fixed
+    # fields 1-3, so no title text can ever be mistaken for probe output. A raw
+    # multi-line title would otherwise emit a second line and inflate the count.
+    | ((.title // "(untitled)") | gsub("[\r\n]+"; " ")) as $title
+    | "\(.id[0:8]) age=\($age)m \(if $age >= 0 and $age > ($TTL | tonumber) then "stale" else "live" end) \($title)" ]
+  | .[]' --arg SLUG "$SLUG" --arg TTL "$CLAIM_TTL_MIN" --arg NOW "$now_epoch" 2>/dev/null || true)
+# Field-3 match, never a substring grep: a task titled "demo fix stale refs" made
+# `grep -c ' stale '` count a one-minute-old claim as expired — the verdict then told
+# the operator to cancel a lane somebody was actively holding (found in self-review,
+# before merge). Positional fields 1-3 are ours; everything after is untrusted title.
+claim_count=$(printf '%s' "$claims" | grep -c . || true)
+stale_claim_count=$(printf '%s' "$claims" | awk '$3 == "stale"' | grep -c . || true)
+live_claim_count=$((claim_count - stale_claim_count))
+echo "SIGNAL claim ${claim_count} live=${live_claim_count} stale=${stale_claim_count} ttl=${CLAIM_TTL_MIN}min status=${task_status}"
+if [[ "$claim_count" -gt 0 ]]; then
+  printf '%s\n' "$claims" | grep . | sed 's/^/  claim: /' || true
+fi
+
 # ── Verdict ───────────────────────────────────────────────────────────────────
 # Precedence, highest first. PROBE-INCOMPLETE outranks everything because a guard
 # that reports a clean state from an unrun probe is worse than no guard: it converts
 # ignorance into permission. DONE-UNHARVESTED outranks ALREADY-DONE because an
 # unharvested finished task is a live loose end even under a closed umbrella.
+#
+# The two claim verdicts sit above ALREADY-DONE and IN-FLIGHT for the same reason: a
+# claim names a session that is acting on this stage RIGHT NOW (CLAIMED) or an orphan
+# that must be resolved before anyone can (STALE-CLAIM), and both are more actionable
+# than a merged branch or a closure marker. STALE-CLAIM outranks CLAIMED so a mixed
+# set reports the item that needs a decision, not the one that needs patience.
 origin_signals=0
 [[ "$origin_count" -gt 0 ]] && origin_signals=$((origin_signals + 1))
 [[ "$pr_count" -gt 0 ]] && origin_signals=$((origin_signals + 1))
@@ -169,6 +233,10 @@ if [[ "$container_status" != "ok" || "$task_status" != "ok" ]]; then
   echo "VERDICT: PROBE-INCOMPLETE"
 elif [[ "$unharvested_count" -gt 0 ]]; then
   echo "VERDICT: DONE-UNHARVESTED"
+elif [[ "$stale_claim_count" -gt 0 ]]; then
+  echo "VERDICT: STALE-CLAIM"
+elif [[ "$live_claim_count" -gt 0 ]]; then
+  echo "VERDICT: CLAIMED"
 elif [[ "$done_md" == "yes" && "$origin_signals" -ge 2 ]]; then
   echo "VERDICT: ALREADY-DONE"
 elif [[ "$pr_open_count" -gt 0 || "$container_only_count" -gt 0 || "$origin_count" -gt 0 ]]; then
