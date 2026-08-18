@@ -2,10 +2,14 @@
 
 > **Type:** I-phase wiring, single stage. Autonomous aif-handoff dispatch.
 > **Base branch:** staging. Branch off `origin/staging` (refresh first).
-> **Depends on:** Stage 1 (`run-helper.sh` + test) — ALREADY MERGED to staging (PR #344). The file `.claude/skills/meta-orchestrator/helpers/run-helper.sh` exists in your checkout; read it first.
+> The file `.claude/skills/meta-orchestrator/helpers/run-helper.sh` exists in your checkout; read it first.
 > **Why self-contained:** the umbrella's binding kickoff is gitignored and not in your checkout. Everything you need is inlined. You MAY read tracked files referenced here (`.claude/skills/...`).
 
 ---
+
+| Stage | Scope (one line) | Depends on |
+|---|---|---|
+| Stage 2 | route background-helper call-sites through `run-helper.sh` + Layer-1 read-rule (§1) | Stage 1 (`run-helper.sh` + test) merged to staging (PR 344) |
 
 ## §1 Goal (one line)
 

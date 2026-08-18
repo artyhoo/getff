@@ -3,8 +3,12 @@
 > **Type:** I-phase (build + design — companion-contract). Days-week scale (the design half is the longer arm).
 > **Sub-wave v3** of guard-liveness umbrella. Siblings: v0 (audit), v1 (ESLint), v1.5 (cmd/script), v2 (full-sweep).
 > **Design SSOT:** [docs/meta-factory/research-patches/2026-05-23-guard-liveness-gate.md](../../../docs/meta-factory/research-patches/2026-05-23-guard-liveness-gate.md) §3 sub-wave row v3.
-> **Depends on:** v0 lands (criticality list for the 5 manual rules). May run in parallel with v1.5.
+> May run in parallel with v1.5.
 > **Admission:** candidate ([wave-sequencing-plan.md §0](../../../docs/meta-factory/wave-sequencing-plan.md)).
+
+| Stage | Scope (one line) | Depends on |
+|---|---|---|
+| v3 | manual rules via Superpowers dogfood: pressure-scenarios for the 5 manual rules (§1) | v0 lands (criticality list for the 5 manual rules) |
 
 ## §0 Why this sub-wave (origin)
 `check.type === 'manual'` rules (5 of 26 in current manifest) have NO executable input — they are judgement-based («human/AI reads doc and decides»). `gate-rule-tester` skips them; no deterministic injection mechanism exists by construction. **But Superpowers' `writing-skills` skill solves this exact problem** for skill artifacts via **pressure-scenarios** ([SKILL.md:14-43](/Users/art/.claude/plugins/marketplaces/superpowers-dev/skills/writing-skills/SKILL.md)): subagent runs WITHOUT skill → baseline failure; subagent runs WITH skill → compliance; RED→GREEN proves the skill teaches. The project's stance ([niche-roadmap §N1 line 21](../../../docs/meta-factory/research-patches/2026-05-21-niche-strategy-and-growth-roadmap.md), [line 90](../../../docs/meta-factory/research-patches/2026-05-21-niche-strategy-and-growth-roadmap.md)) makes the right call explicit: **process-layer dogfood Superpowers; keep substrate dependency-free.** Manual rules are exactly the moment for that dogfood.

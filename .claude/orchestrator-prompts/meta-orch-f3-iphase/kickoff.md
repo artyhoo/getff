@@ -6,7 +6,7 @@
 
 **Origin:** 2026-05-28 — completes the implementation arc started by PR #261 R-phase (verdict F.3) + PR #262 research-patch (DN-1..DN-4 best-practices-backed answers).
 
-**Prerequisite:** PR #262 merged to staging — provides Issue #14956 verbatim + I-phase Stage 0 probe mandate as repo-authoritative DN-1 context. **DO NOT START** this umbrella before PR #262 merged.
+Depends on: PR 262 merged to staging — provides Issue #14956 verbatim + I-phase Stage 0 probe mandate as repo-authoritative DN-1 context. **DO NOT START** this umbrella before PR 262 merged.
 
 ---
 

@@ -32,9 +32,13 @@ round-1 fixes empirically). -->
 > implementation agents» — granted here for exactly these two files). No other `.claude/rules/*`
 > or `packages/core/*` file.
 >
-> **Depends on:** S-D′ merged (PR #1290, squash `be087d3585`) — consumed content: the corrected
+> Consumed content (from S-D′, merged as PR 1290 squash `be087d3585`): the corrected
 > §3.1 ranking + §3.2 Option-B consequence statement in
 > `docs/superpowers/specs/2026-08-07-s-d-prime-subtraction-maps.md`. Gate MET.
+
+| Stage | Scope (one line) | Depends on |
+|---|---|---|
+| S-M | Tier-0 swap: `build-first-reuse-default.md` → `paths:`-scoped (§1) | S-D′ merged (PR 1290) |
 
 ## §1 Deliverables (all in ONE PR onto staging)
 

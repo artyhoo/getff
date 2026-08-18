@@ -3,8 +3,12 @@
 > **Type:** I-phase (small, batched debt closure). Hours-scale.
 > **Origin:** PR #460 (v1 ESLint gate) cold-review + aif-review advisories, 2026-06-11. Deliberately NOT fixed in #460 (scope discipline — single-concern PR).
 > **Design SSOT:** [docs/meta-factory/research-patches/2026-05-23-guard-liveness-gate.md](../../../docs/meta-factory/research-patches/2026-05-23-guard-liveness-gate.md) §3 (v1 row) + guard-liveness-gate/kickoff.md §4.
-> **Depends on:** #460 merged. May run in parallel with v1.5 / v3 sub-waves.
+> May run in parallel with v1.5 / v3 sub-waves.
 > **Admission:** candidate.
+
+| Stage | Scope (one line) | Depends on |
+|---|---|---|
+| v1-advisories | batched debt closure: the four documented v1 gaps (§0) | PR 460 merged (v1) |
 
 ## §0 Why this sub-wave
 

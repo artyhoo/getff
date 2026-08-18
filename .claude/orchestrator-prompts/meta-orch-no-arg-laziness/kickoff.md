@@ -10,7 +10,7 @@
 
 > «Symptom fix only. The deeper issue (§3 !shell blocks executing eagerly at skill load rather than lazily after §2 selects an umbrella) is architectural and out of scope here.»
 
-**Prerequisite:** PR-A merged ([#260](https://github.com/Yhooi2/rules-as-tests-aif/pull/260) — §2.5 Step 3 Loop fix). PR-A had to land first because §2.5 produces the candidate-set N classifications that §2 priority scoring consumes to pick a winner; without iteration there's no winner to persist.
+Depends on: PR-A merged ([PR 260](https://github.com/Yhooi2/rules-as-tests-aif/pull/260) — §2.5 Step 3 Loop fix). PR-A had to land first because §2.5 produces the candidate-set N classifications that §2 priority scoring consumes to pick a winner; without iteration there's no winner to persist.
 
 ---
 
