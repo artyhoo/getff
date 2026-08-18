@@ -305,8 +305,43 @@ gh pr list --search "is:merged head:<branch> base:staging" --json number,mergedA
 
 Empty → HALT (PR not yet merged; wait for CI). Non-empty → CLEAR, proceed to §2.7.
 
-**§2.7 — Advance**
-Dispatch next stage kickoff → back to §2.1. If no remaining stages → §2.8.
+**§2.7 — Advance (frontier read, executed not narrated)**
+
+```bash
+bash .claude/skills/dispatcher/helpers/advance-frontier.sh <umbrella>
+```
+
+One command: the full `frontier.sh` emitter output teed first (the recorded evidence the
+verdict derives from), then ONE verdict line. Branch on the verdict — do NOT pick the next
+stage by eye, and do NOT re-derive the frontier from the kickoff table by hand (the
+`/pipeline`-owned emitter owns that parsing; this helper is a consumer, never a fork).
+Proven by
+[`packages/core/skills/dispatcher/advance-frontier.test.ts`](../../../packages/core/skills/dispatcher/advance-frontier.test.ts).
+
+Verdicts:
+
+- **ADVANCE-INCOMPLETE** — the question could not be asked (no umbrella, no kickoff,
+  unrecognized emitter shape). STOP and surface; never treat as a pick.
+- **ADVANCE-DEGRADE** — no `Depends on` column / no stage table: ordering is judgment
+  again. Pick per the kickoff §1 stage order AND record the degrade in the stage-gate
+  notes.
+- **COMPLETE** — `done.md` exists, or every stage is done with none left → §2.8.
+- **HALT-VERIFY `<ids>`** — a stage read done from row markers (`basis=marker-unverified`)
+  that §2.6 has not proven merged. Run the §2.6
+  `gh pr list --search "is:merged head:<branch> base:staging"` check on those ids, then
+  re-run this helper with the verdict fed back:
+  `MO_FRONTIER_DONE=<merged-ids> MO_FRONTIER_OPEN=<refuted-ids>`. Never advance a consumer
+  on a marker read alone — `done=yes basis=marker-unverified` is row text, not a merge
+  proof.
+- **HALT-BLOCKED** — no frontier while stages remain: dependency cycle or stale done
+  markers. Read the emitter's WARN lines above; surface to the operator.
+- **ADVANCE `<id>`** — the next stage: first frontier id in table order. `FRONTIER-SET`
+  lists ALL frontier ids — parallel candidates; each gets its own §2.0 re-probe before its
+  §2.1 dispatch. `ATTN-UNRESOLVED` ids: read their `raw=` cells in the teed output before
+  dispatching (prose deps the emitter echoes but cannot resolve — a documented ceiling,
+  `pipeline/references/frontier.md` §6).
+
+On ADVANCE → dispatch that stage kickoff → back to §2.1. If no remaining stages → §2.8.
 
 **§2.8 — Closure marker (P2)**
 Write `done.md` schema (`# <umbrella> — DONE` / `- Final PR: #<num>` / `- Closed: <YYYY-MM-DD>` / `- Summary: <one-line>`) and CANON sync:
@@ -451,3 +486,5 @@ The operator manually tracked task IDs, polled `GET /tasks/:id` in a shell loop,
 **Stage 1 (dispatcher-ux):** `monitor-classify.sh` REUSES `priority-score.sh` Layer-C3 completion-detection pattern (BFR verdict REUSE, `build-first-reuse-default.md:3`; same problem class confirmed — task-status classification vs umbrella-completion classification). Tests at `packages/core/skills/dispatcher/monitor.test.ts:1`. Original BUILD-verdict forward/backward checks at `docs/meta-factory/dispatcher-skill-rphase.md`.
 
 **Stage 2 (dispatcher-ux-s2):** P2 (`§2.8` closure-marker schema + CANON sync, `CLAUDE.md:umbrella-closure`), P3 (base-normalization note in `§2.0`, `parallel-subwave-isolation.md:1`), P4 (self-application — ALREADY-DONE writes done.md without surfacing question, `recommendation-laziness-discipline.md:3`), P6 (watch-link `§2.1`, `packages/core/skills/dispatcher/dispatch.test.ts:1`). No new CLI primitives, no npm deps.
+
+**Stage (frontier-residue-sweep S1):** `advance-frontier.sh` REUSES the `/pipeline`-owned `frontier.sh` emitter as a pure consumer — bindings, not a fork; the §2.6 `is:merged` check stays the merge authority and `basis=marker-unverified` never advances a consumer (T-FRS1-B). Tests at `packages/core/skills/dispatcher/advance-frontier.test.ts`.
