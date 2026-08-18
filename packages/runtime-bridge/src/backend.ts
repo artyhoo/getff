@@ -44,6 +44,65 @@ export interface RuntimeBackend {
 }
 
 /**
+ * Two-phase dispatch — the CLAIM half of the lane-race guard (spec §5.3, D-H5/P-5).
+ *
+ * `dispatch()` is create+unpause in one atomic call, which means a lane is only
+ * observable AFTER the work has already started. Every historical double-dispatch
+ * materialised inside the Phase -1 cold-review window (CLAUDE.md «Pre-dispatch
+ * in-flight probe»), i.e. BEFORE that call. Splitting the call moves the observable
+ * marker to the front of that window:
+ *
+ *   claim()       -> a paused task exists, visible to `probe-inflight.sh`, occupying
+ *                    no lane and consuming no runtime.
+ *   release()     -> Phase -1 GO: unpause, the coordinator picks the task up.
+ *   cancelClaim() -> Phase -1 RED: DELETE the task, the lane is free again.
+ *
+ * Optional on purpose: `ManualBackend` has no queue to claim in, so the capability
+ * is probed with {@link supportsClaims} rather than forced onto every backend.
+ */
+export interface ClaimCapableBackend extends RuntimeBackend {
+  /**
+   * Create the task in its paused (claim-only) state and return its handle.
+   * The task is NOT running: it sits at `backlog` with `paused:true` until
+   * {@link ClaimCapableBackend.release} is called.
+   */
+  claim(kickoff: KickoffSpec): Promise<TaskHandle>;
+
+  /**
+   * Clear `paused` so the coordinator picks the claimed task up.
+   * Throws a BackendError on failure and leaves the claim in place — the caller
+   * owns the rollback decision (`dispatch()` cancels, an operator may retry).
+   */
+  release(handle: TaskHandle): Promise<TaskHandle>;
+
+  /**
+   * Delete a claim that will never be released (Phase -1 RED, or an abandoned
+   * session). Best-effort: a delete failure resolves rather than throws, because
+   * the caller's next action must not depend on the queue's cooperation.
+   *
+   * Resolves `true` when the claim is gone and `false` when the delete failed —
+   * best-effort must not mean UNREPORTED. `dispatch()`'s rollback ignores the
+   * result (it is already throwing), but an operator cancelling a claim has to
+   * know whether the lane is actually free, or the next probe will block on a
+   * claim they were told was cancelled.
+   */
+  cancelClaim(handle: TaskHandle): Promise<boolean>;
+}
+
+/**
+ * Type guard: does this backend implement the two-phase claim protocol?
+ * A backend without a queue (ManualBackend) legitimately does not.
+ */
+export function supportsClaims(backend: RuntimeBackend): backend is ClaimCapableBackend {
+  const candidate = backend as Partial<ClaimCapableBackend>;
+  return (
+    typeof candidate.claim === 'function' &&
+    typeof candidate.release === 'function' &&
+    typeof candidate.cancelClaim === 'function'
+  );
+}
+
+/**
  * Error thrown by backend methods on dispatch failure, quota exceeded,
  * or connection refusal.
  */

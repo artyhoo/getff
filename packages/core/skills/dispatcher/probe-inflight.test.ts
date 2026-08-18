@@ -35,6 +35,27 @@ interface Fixture {
   containerBranches?: string;
   containerStatus?: 'ok' | 'unavailable';
   tasks?: unknown[];
+  /** Minutes before a claim reads STALE (probe default 120). */
+  claimTtlMin?: number;
+  /** Frozen "now" as epoch seconds, so claim ages are deterministic. */
+  nowEpoch?: number;
+}
+
+/** Fixed clock for the claim-age fixtures: 2026-08-18T12:00:00Z. */
+const NOW = Math.floor(Date.parse('2026-08-18T12:00:00.000Z') / 1000);
+
+/** A paused, unfinished task created `minutesAgo` before NOW — i.e. a claim. */
+function claimTask(slug: string, minutesAgo: number, over: Record<string, unknown> = {}): unknown {
+  return {
+    id: `claim-${minutesAgo}-abcdefgh`,
+    status: 'backlog',
+    paused: true,
+    title: slug,
+    description: `# kickoff for ${slug}`,
+    branchName: '',
+    createdAt: new Date((NOW - minutesAgo * 60) * 1000).toISOString(),
+    ...over,
+  };
 }
 
 /** Run the probe against fixtures. Returns full stdout. */
@@ -50,6 +71,8 @@ function probe(f: Fixture): string {
       PROBE_CONTAINER_BRANCHES: f.containerBranches ?? '',
       PROBE_CONTAINER_STATUS: f.containerStatus ?? 'ok',
       PROBE_TASKS: JSON.stringify(f.tasks ?? []),
+      PROBE_CLAIM_TTL_MIN: String(f.claimTtlMin ?? 120),
+      PROBE_NOW_EPOCH: String(f.nowEpoch ?? NOW),
     },
   });
 }
@@ -224,6 +247,181 @@ describe('probe-inflight.sh — verdict precedence and output integrity', () => 
 
 // ── The skill actually calls it ───────────────────────────────────────────────
 
+// ── Signal 6: the claim — the window signals 1-5 structurally cannot see ──────
+
+describe('probe-inflight.sh — claim signal (spec §5.3, probe P4)', () => {
+  it('a fresh paused claim flips the verdict off FRESH — the whole point of the signal', () => {
+    const out = probe({ slug: 'demo', tasks: [claimTask('demo', 5)] });
+    expect(out).toMatch(/SIGNAL claim 1 live=1 stale=0/);
+    expect(out.trim().split('\n').pop()).toBe('VERDICT: CLAIMED');
+  });
+
+  it('RED/GREEN pair: the SAME probe with the claim removed returns FRESH', () => {
+    expect(verdict({ slug: 'demo', tasks: [claimTask('demo', 5)] })).toBe('CLAIMED');
+    expect(verdict({ slug: 'demo', tasks: [] })).toBe('FRESH');
+  });
+
+  it('the five pre-existing signals are ALL clean while the claim blocks — the blind spot', () => {
+    const out = probe({ slug: 'demo', tasks: [claimTask('demo', 5)] });
+    expect(out).toContain('SIGNAL origin-branch 0');
+    expect(out).toContain('SIGNAL pr 0 open=0');
+    expect(out).toContain('SIGNAL done-md no');
+    expect(out).toContain('SIGNAL container-branch 0 only=0 status=ok');
+    expect(out).toContain('SIGNAL task-done-unharvested 0 status=ok');
+    expect(verdict({ slug: 'demo', tasks: [claimTask('demo', 5)] })).not.toBe('FRESH');
+  });
+
+  it('paired-negative: an UNpaused task at the same status is not a claim', () =>
+    expect(verdict({ slug: 'demo', tasks: [claimTask('demo', 5, { paused: false })] })).toBe('FRESH'));
+
+  it('paired-negative: a paused but FINISHED task is not a claim (the queue keeps those)', () => {
+    for (const status of ['done', 'verified']) {
+      expect(
+        verdict({ slug: 'demo', tasks: [claimTask('demo', 5, { status, branchName: '' })] }),
+        `paused ${status} must not read as a claim`,
+      ).toBe('FRESH');
+    }
+  });
+
+  it("paired-negative: another umbrella's claim does not leak into this slug", () =>
+    expect(verdict({ slug: 'demo', tasks: [claimTask('other-umbrella', 5)] })).toBe('FRESH'));
+
+  it('matches on the description too, not only the title', () =>
+    expect(
+      verdict({
+        slug: 'demo',
+        tasks: [claimTask('demo', 5, { title: 'unrelated-title' })],
+      }),
+    ).toBe('CLAIMED'));
+
+  it('a task TITLE containing " stale " does not corrupt the stale count', () => {
+    // Regression: the count was `grep -c ' stale '` over the whole detail line, so a
+    // claim titled "demo fix stale refs" was counted expired one minute after creation
+    // — the verdict then told the operator to cancel a live lane. Counting reads the
+    // fixed field-3 state token now; the title can say anything.
+    const out = probe({
+      slug: 'demo',
+      tasks: [claimTask('demo', 1, { title: 'demo fix stale refs' })],
+    });
+    expect(out).toMatch(/SIGNAL claim 1 live=1 stale=0/);
+    expect(out.trim().split('\n').pop()).toBe('VERDICT: CLAIMED');
+  });
+
+  it('the inverse holds too: a genuinely stale claim with "live" in its title still expires', () => {
+    const out = probe({
+      slug: 'demo',
+      tasks: [claimTask('demo', 500, { title: 'demo live smoke' })],
+    });
+    expect(out).toMatch(/SIGNAL claim 1 live=0 stale=1/);
+    expect(out.trim().split('\n').pop()).toBe('VERDICT: STALE-CLAIM');
+  });
+
+  it('a multi-line title cannot inflate the claim count', () => {
+    const out = probe({
+      slug: 'demo',
+      tasks: [claimTask('demo', 5, { title: 'demo\nsecond line\nthird' })],
+    });
+    expect(out).toMatch(/SIGNAL claim 1 /);
+    expect(out.split('\n').filter((l) => l.startsWith('  claim: '))).toHaveLength(1);
+  });
+
+  it('the printed detail lines match the signal count', () => {
+    const out = probe({ slug: 'demo', tasks: [claimTask('demo', 5), claimTask('demo', 7)] });
+    expect(out).toMatch(/SIGNAL claim 2 /);
+    expect(out.split('\n').filter((l) => l.startsWith('  claim: '))).toHaveLength(2);
+  });
+});
+
+// ── Orphan expiry — a dead session must not starve the stage forever (TD-F5) ──
+
+describe('probe-inflight.sh — orphan claim expiry', () => {
+  it('a claim past the TTL reads STALE-CLAIM, not an eternal block', () => {
+    const out = probe({ slug: 'demo', tasks: [claimTask('demo', 240)] });
+    expect(out).toMatch(/SIGNAL claim 1 live=0 stale=1 ttl=120min/);
+    expect(out.trim().split('\n').pop()).toBe('VERDICT: STALE-CLAIM');
+  });
+
+  it('the boundary is the TTL: one minute under is live, one over is stale', () => {
+    expect(verdict({ slug: 'demo', tasks: [claimTask('demo', 119)] })).toBe('CLAIMED');
+    expect(verdict({ slug: 'demo', tasks: [claimTask('demo', 121)] })).toBe('STALE-CLAIM');
+  });
+
+  it('exactly AT the TTL is still live — the predicate is strictly-older-than', () => {
+    // Pinned because the degenerate config surprises otherwise: PROBE_CLAIM_TTL_MIN=0
+    // does NOT mean "sweep everything", it means "stale once at least a minute old".
+    expect(verdict({ slug: 'demo', tasks: [claimTask('demo', 120)] })).toBe('CLAIMED');
+    expect(verdict({ slug: 'demo', tasks: [claimTask('demo', 0)], claimTtlMin: 0 })).toBe('CLAIMED');
+    expect(verdict({ slug: 'demo', tasks: [claimTask('demo', 1)], claimTtlMin: 0 })).toBe(
+      'STALE-CLAIM',
+    );
+  });
+
+  it('the TTL is configurable — the same claim flips with the knob', () => {
+    expect(verdict({ slug: 'demo', tasks: [claimTask('demo', 30)] })).toBe('CLAIMED');
+    expect(verdict({ slug: 'demo', tasks: [claimTask('demo', 30)], claimTtlMin: 10 })).toBe(
+      'STALE-CLAIM',
+    );
+  });
+
+  it('an unparseable createdAt counts as LIVE — the guard fails toward blocking', () => {
+    const out = probe({
+      slug: 'demo',
+      tasks: [claimTask('demo', 5, { createdAt: 'not-a-date' })],
+    });
+    expect(out).toMatch(/SIGNAL claim 1 live=1 stale=0/);
+    expect(out.trim().split('\n').pop()).toBe('CLAIMED'.replace(/^/, 'VERDICT: '));
+  });
+
+  it('a missing createdAt likewise reads live, never stale', () => {
+    const t = claimTask('demo', 5) as Record<string, unknown>;
+    delete t['createdAt'];
+    expect(verdict({ slug: 'demo', tasks: [t] })).toBe('CLAIMED');
+  });
+});
+
+// ── Where the claim verdicts sit in the ladder ────────────────────────────────
+
+describe('probe-inflight.sh — claim verdict precedence', () => {
+  it('STALE-CLAIM outranks CLAIMED — report the item needing a decision', () =>
+    expect(verdict({ slug: 'demo', tasks: [claimTask('demo', 5), claimTask('demo', 500)] })).toBe(
+      'STALE-CLAIM',
+    ));
+
+  it('an unharvested finished task still outranks any claim', () =>
+    expect(
+      verdict({
+        slug: 'demo',
+        tasks: [claimTask('demo', 500), { id: 'd0d0d0d0', status: 'done', branchName: 'feature/demo-1' }],
+      }),
+    ).toBe('DONE-UNHARVESTED'));
+
+  it('an unrun probe still outranks a claim — ignorance never becomes permission', () =>
+    expect(
+      verdict({ slug: 'demo', tasks: [claimTask('demo', 5)], containerStatus: 'unavailable' }),
+    ).toBe('PROBE-INCOMPLETE'));
+
+  it('a live claim outranks a closed umbrella — someone is acting on it right now', () =>
+    expect(
+      verdict({
+        slug: 'demo',
+        tasks: [claimTask('demo', 5)],
+        doneMd: 'yes',
+        originBranches: 'claude/demo-1',
+      }),
+    ).toBe('CLAIMED'));
+
+  it('a live claim outranks IN-FLIGHT — it names the session, not just the artefact', () =>
+    expect(verdict({ slug: 'demo', tasks: [claimTask('demo', 5)], originBranches: 'claude/demo-1' })).toBe(
+      'CLAIMED',
+    ));
+
+  it('still exits 0 on the claim verdicts (a guard that aborts gets skipped)', () => {
+    for (const tasks of [[claimTask('demo', 5)], [claimTask('demo', 500)]]) {
+      expect(() => probe({ slug: 'demo', tasks })).not.toThrow();
+    }
+  });
+});
+
 describe('probe-inflight.sh — wired into SKILL.md §2.0', () => {
   const skill = readFileSync(SKILL, 'utf8');
 
@@ -231,7 +429,15 @@ describe('probe-inflight.sh — wired into SKILL.md §2.0', () => {
     expect(skill).toMatch(/helpers\/probe-inflight\.sh/));
 
   it('§2.0 documents every verdict the helper can emit', () => {
-    for (const v of ['PROBE-INCOMPLETE', 'DONE-UNHARVESTED', 'ALREADY-DONE', 'IN-FLIGHT', 'FRESH']) {
+    for (const v of [
+      'PROBE-INCOMPLETE',
+      'DONE-UNHARVESTED',
+      'STALE-CLAIM',
+      'CLAIMED',
+      'ALREADY-DONE',
+      'IN-FLIGHT',
+      'FRESH',
+    ]) {
       expect(skill).toContain(v);
     }
   });

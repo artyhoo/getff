@@ -407,7 +407,7 @@ Use SP `subagent-driven-development` SSOT #64 vocabulary for role names (ADOPT-V
 gh pr list --search "is:merged head:<stage-N-branch> base:staging" --json number,title,mergedAt,headRefName --limit 10 2>/dev/null || echo "gh unavailable — cannot verify stage gate"
 ```
 
-Replace `<stage-N-branch>` with the actual head branch from the Stage N sub-wave (derived from kickoff or launch-table). See T-MOB-B below for the recycled-branch case.
+Replace `<stage-N-branch>` with the actual head branch from the Stage N sub-wave (derived from kickoff or launch-table). The recycled-branch search gotcha (T-MOB-B) and this section's honest enforcement class (Class C, prose): [`references/stage-gates.md`](references/stage-gates.md).
 
 **Step 2 — evaluate gate:**
 
@@ -422,15 +422,15 @@ Action: do NOT dispatch Stage N+1 until the above PRs are merged to staging.
 
 If Stage N PRs ARE merged → proceed to Stage N+1 dispatch.
 
-**Step 3 — Phase -1 cold-review between every stage (mandatory):**
+**Step 3 — claim the lane, THEN Phase -1 cold-review (mandatory, in this order):**
 
-After Stage N lands and before Stage N+1 dispatch, invoke §7 Reviewer dispatch. This is NOT optional. Auto-continuing without GO = T4 anti-pattern.
+Claim BEFORE the review window and release/cancel on its verdict: every historical double-dispatch materialised INSIDE that window ([CLAUDE.md `Pre-dispatch in-flight probe`](../../../CLAUDE.md)), so a marker written after it guards nothing. A claim is an ordinary aif task created `paused:true` — it occupies no lane, runs nothing, and is what makes `probe-inflight.sh` report `CLAIMED` instead of `FRESH` (spec §5.3 / D-H5; premise P-5 — no second status vocabulary, `state.md` stays the journal).
 
-**Class C compromise (honest):**
+```bash
+CLAIM=$(npx tsx packages/runtime-bridge/src/cli/claim.ts create "$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)/<slug>/kickoff.md" | jq -r .taskId)
+```
 
-This section is **prose enforcement** — the `!shell` injection surfaces the PR merge state, but the AI can technically ignore the injected data and dispatch Stage N+1 anyway. This is the same cost-benefit compromise as [parallel-subwave-isolation.md §4](../../rules/parallel-subwave-isolation.md) (Class C accepted; re-promotion trigger = ≥2 stage-gate-ignored incidents within 6 months). The `!shell` data is surfaced so the AI has no excuse for ignorance; the discipline relies on session-bound AI judgment.
-
-**T-MOB-B anti-pattern (search gotcha):** `gh pr list --search 'is:merged head:<branch>'` returns ALL merged PRs ever with that head. The `base:staging` filter above prevents false-positives from recycled branch names that landed on a different base. If a branch name has been reused across umbrellas and a date scope is genuinely needed, pass `created:>=<YYYY-MM-DD>` derived from the umbrella's kickoff timestamp — never a hardcoded literal.
+Then invoke §7 Reviewer dispatch — NOT optional; auto-continuing without GO = T4 anti-pattern. On **GO**: `claim.ts release "$CLAIM"`. On **RED**: `claim.ts cancel "$CLAIM"` — the task is deleted and the lane freed. Never leave a claim standing past the verdict; an abandoned one ages into the probe's `STALE-CLAIM`, which surfaces a loose end rather than blocking the stage forever. Bridge unreachable → `claim.ts` exits non-zero and claims NOTHING (no silent manual fallback): run Phase -1 anyway and record that the stage ran unguarded. Consumer install path: `.claude/vendor/runtime-bridge/src/cli/claim.ts`. Full protocol, failure posture, orphan expiry and the P4 proof obligation: [`references/claim-machinery.md`](references/claim-machinery.md).
 
 ---
 
