@@ -4,7 +4,9 @@
 # Usage: launch-table-generator.sh <umbrella-name>
 #
 # Outputs a markdown table skeleton with detected sub-wave rows (placeholders for
-# judgment-requiring columns). SKILL.md body fills Mode, SDD?, Stage, Parallel-sibling.
+# judgment-requiring columns). SKILL.md body fills Mode, SDD?, Parallel-sibling — and reads the
+# `Stage` column off helpers/frontier.sh (D-H13: the stage-dependency edges are derived from the
+# kickoff `Depends on` column, not eyeballed here).
 #
 # @cc-only-rationale: meta-orchestrator skill helper — runs in-session via !shell injection;
 #   no portable equivalent fires at the same moment (PostToolUse timing is CC-specific).

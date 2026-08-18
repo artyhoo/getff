@@ -112,7 +112,7 @@ built-in `code-review` a competitor of the shipped review lane).
 | Merge-conflict handling | ours [git-conflict-merge-forward.md](../../../.claude/rules/git-conflict-merge-forward.md) | Matt `resolving-merge-conflicts` (advises rebase continuation; force-push is classifier-blocked for agents machine-wide) | §5.1 binding #2 (machine-global carrier) — **collision found this session**; the T18 local-walkthrough residue DISSOLVED round 3 (skill stays invocable by name) |
 | Deep-module vocabulary | ours: seams slot (§5.5) + CONTEXT.md pointer rule (§5.2) | Matt `codebase-design` (claims seams + glossary-exactness vocabulary; no ADOPTED skill invokes it — measured round-1) | REFERENCE, cache-resident; D-H7 counter armed (D-H17) |
 | Throwaway prototyping | Matt `prototype` — KEEP | — | wayfinder `prototype` tickets invoke it — mirror of the `research` row (D-H17) |
-| Factory orchestration | ours (`pipeline`/`dispatcher`/`orchestrator`) | claim doctrine §5.3; Blocked-by edges §5.4 | build items routed §8 |
+| Factory orchestration | ours (`pipeline`/`dispatcher`/`orchestrator`) | claim doctrine §5.3; `Depends on` edges §5.4 | build items routed §8 |
 | Multi-session design maps | Matt `wayfinder` — ADOPT verbatim | our ad-hoc handoff briefs (design contours only) | setup once; slash-only, zero routing risk |
 | Glossary / domain modeling | Matt `domain-modeling` + `CONTEXT.md` — ADOPT | ADR directory | pointer rule + principle test §5.2; ADR dir REJECT (specs/research-patches cover it) |
 | Skill authoring | ours `/ai-doc` (standard) + SP `writing-skills` (process) | Matt `writing-for-agents` | REFERENCE; one ownership note in `/ai-doc` |
