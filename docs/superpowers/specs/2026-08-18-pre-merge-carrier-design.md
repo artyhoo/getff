@@ -76,8 +76,9 @@ signal merge-tree would give.
 
 ### a.2 The three-sha report is a hard output contract (T-PMC-B counter)
 
-Every terminal verdict — PASS, FAIL, CONFLICT, CANNOT-RUN — MUST name three shas: `head`,
-`base`, `merge` (or `merge: CONFLICT`). A verdict without all three is malformed by
+Every terminal verdict — PASS, FAIL, CONFLICT, CANNOT-RUN, VACUITY (the full §a.3 exit
+set) — MUST name three shas: `head`, `base`, `merge` (or `merge: CONFLICT`), and every one
+of them appends its §f ledger line. A verdict without all three is malformed by
 contract; the build stage ships a self-test that runs the carrier on a fixture repo and
 greps the verdict block for all three labels. The verified sha is the **merge** sha; any
 draft where the verified sha equals the head sha while the branch is behind base has
@@ -113,6 +114,12 @@ test`). Vacuity control parses that script entry and asserts every named gate re
   `cargo clippy --all-targets -- -D clippy::disallowed_*`), with the same pins checked
   (§b) — a pin mismatch on the host is CANNOT-RUN (exit 3) with the pin named, never a
   silent run under a different version.
+- **UI preset lanes (react-next / react-spa / react-native):** `npm run validate` is wired
+  for these stacks by the same `setup.d/70-deps.sh:95` entry; the delivered `ci.yml`
+  additionally requires browser-dependent jobs per preset (§b.1 UI row — storybook, e2e,
+  build). The carrier runs `npm run validate` + `npm run build` where required, and names
+  the browser-dependent legs NOT COVERED when playwright browsers are absent on the host
+  (§i F3 governs the policy — never a silent drop).
 - CI legs the carrier cannot reproduce locally are **named as NOT COVERED** in every
   verdict (§e) — dropping them silently would make «same validate» a subset by omission.
 
@@ -134,17 +141,23 @@ outside the throwaway worktree (#1466 item 2). Shape reuse: `meta-all-wired.test
 ## §b Cross-stack interlock inventory (deliverable 2b — measured, not estimated)
 
 The six false-verdict traps from #1466 were found on **one** consumer (timeliner: Turbo,
-pnpm, shared Postgres). Measured against the four shipped lanes (T-PMC-A: probe, don't
-extrapolate). Template roots: ts-server under [`templates/ts-server/`](../../../templates/ts-server/github-actions-ci.yml),
-python/go/cargo under [`packages/core/templates/<lane>/github-actions-ci.yml`](../../../packages/core/templates/python/github-actions-ci.yml).
-`packages/core/templates/react-next/` is EMPTY (measured 2026-08-18, `ls` → 0 entries) —
-no lane to inventory.
+pnpm, shared Postgres). Measured against the **seven** shipped lanes (T-PMC-A: probe,
+don't extrapolate). Template roots — the kickoff's «two template roots» note undercounts,
+measured: (1) ts-server under [`templates/ts-server/`](../../../templates/ts-server/github-actions-ci.yml);
+(2) python/go/cargo under [`packages/core/templates/<lane>/github-actions-ci.yml`](../../../packages/core/templates/python/github-actions-ci.yml);
+(3) **three UI preset lanes** — react-next / react-spa / react-native — each shipping a
+`github-actions-ci-ui.yml` under `packages/preset-*/templates/`, delivered to the consumer
+as `.github/workflows/ci.yml` via `deliver_getff_workflow` at
+[`setup.d/40-configs.sh:399/414/437`](../../../setup.d/40-configs.sh).
+(`packages/core/templates/react-next/` is EMPTY — measured 2026-08-18, `ls` → 0 entries —
+the live react-next lane lives in `packages/preset-next-15-canonical/`.)
 
-**Shared-resource measurement, all four lanes:** `grep -in "postgres\|services:\|database\|docker"`
-across the four CI templates → **0 hits** (2026-08-18). No shipped lane provisions a
+**Shared-resource measurement, all seven lanes:** `grep -in "postgres\|services:\|database\|docker"`
+across the four stack CI templates and `grep -in "postgres\|services:\|database\|docker\|turbo\|pnpm"`
+across the three UI templates → **0 hits** (2026-08-18). No shipped lane provisions a
 database or any service container. `grep turbo` in the wired validate
-(`setup.d/70-deps.sh:95`) → 0 hits. The ts lane is npm (`npm ci --prefer-offline` in all 7
-CI jobs), not pnpm.
+(`setup.d/70-deps.sh:95`) → 0 hits. All npm-based lanes use `npm ci --prefer-offline` in
+every CI job — not pnpm.
 
 ### b.1 Per-lane inventory
 
@@ -154,6 +167,7 @@ CI jobs), not pnpm.
 | **python**    | `ast-grep scan` (pin `@ast-grep/cli@0.44.1`) + `ruff check .` + `ruff check . --config .getff/ruff-bans.toml --no-cache` ([`getff-python.yml:34-82`](../../../packages/core/templates/python/github-actions-ci.yml))                                                             | Stateless tools; step 2 already runs `--no-cache`; carrier adds `--no-cache` to step 1 as well (ruff's cache is content-keyed but forcing is the honest setting for a verdict-re-deriving gate — same argument as TURBO_FORCE, at zero cost). Host pins checked before run: version mismatch → CANNOT-RUN                                                                                                                                     | Traps 3/4: no analogue (no task-runner, no DB). Traps 1/2/5/6: carried                                                                   |
 | **go**        | `golangci-lint run --enable forbidigo --config <resolved>` (pins: go `1.22.0`, golangci-lint `v1.55.2`, [`getff-go.yml:45-68`](../../../packages/core/templates/go/github-actions-ci.yml))                                                                                       | Go build cache is content-addressed (safe by construction). golangci-lint keeps its own analysis cache — staleness behaviour NOT measured here (`INCONCLUSIVE-needs-verification`, build stage B2 must verify); conservative prescription regardless: `GOLANGCI_LINT_CACHE=<throwaway>` so every carrier run starts cold — deterministic-safe without claiming the cache is broken                                                            | Trap 3: _possible_ analogue (lint cache), closed conservatively; trap 4: no analogue                                                     |
 | **cargo**     | `cargo clippy --all-targets -- -D clippy::disallowed_methods -D …_types -D …_macros` ([`getff-cargo.yml:47-48`](../../../packages/core/templates/cargo/github-actions-ci.yml); consumer's own toolchain, deliberately unpinned per the template header)                          | `target/` is per-worktree by default → cold build in the throwaway worktree (cost, not falseness). A consumer-set shared `CARGO_TARGET_DIR` or sccache WOULD reintroduce trap 3 → carrier unsets `CARGO_TARGET_DIR` and `RUSTC_WRAPPER` for its run (cheap, conservative)                                                                                                                                                                     | Trap 3: analogue only under consumer-set env, closed by unsetting; trap 4: no analogue                                                   |
+| **UI presets** (react-next / react-spa / react-native) | `npm run validate` is wired for these stacks too (`setup.d/70-deps.sh:95` runs for every STACK, react-next tweaks at `:102`); CI-required sets differ per preset (`ci-success.needs`, measured 2026-08-18): react-next = lint, typecheck, architecture, test-unit, **test-storybook, test-e2e, build**, security, audit-ai-docs (`github-actions-ci-ui.yml:284-293`); react-spa = same minus test-storybook (`:234-242`); react-native = lint, typecheck, test-unit, security, audit-ai-docs only (`:110-115`) | All npm; no DB, no Turbo, no pnpm (0-hit grep above). NEW interlocks the stack lanes lack: (a) **fixed TCP ports** — test-storybook serves `storybook-static` on port 6006 (`npx http-server … --port 6006`, react-next `:155-157`) and e2e starts a web server — two concurrent carrier runs contend → covered by the mkdir lock; (b) **playwright browsers** — `npx playwright install --with-deps` in CI (`:151`, `:175`) assumes root/CI; on a host, absent browsers → the browser-dependent legs are NOT COVERED (or installed once, consumer's call — §i F3); (c) `build` output (`.next/`/`dist/`) is per-worktree — safe by construction | Trap 3: no analogue (npm-run-all2 + per-worktree build outputs). Trap 4: no DB analogue, but the port-contention interlock is the same *shape* — closed by the same lock. Traps 1/2/5/6: carried |
 
 ### b.2 The six traps, generalised
 
@@ -163,7 +177,7 @@ CI jobs), not pnpm.
 | 2   | Keep logs on PASS                                                   | Universal: logs live outside the throwaway worktree, keyed by merge sha                                                                                                                                                                                                  |
 | 3   | Force the task-runner cache (`TURBO_FORCE=1`)                       | **Not imported.** No shipped lane has Turbo (measured). Per-lane equivalents where a cache exists: ruff `--no-cache`, `GOLANGCI_LINT_CACHE` isolation, `CARGO_TARGET_DIR`/`RUSTC_WRAPPER` unset. The carrier must NOT export lane-foreign env (shipped-axis agnosticism) |
 | 4   | Shared-Postgres interlock                                           | **Not imported as a DB lock** — zero shipped lanes have a DB (measured). The atomic `mkdir` lock IS kept, lane-independent, because two concurrent carrier runs still contend (log dirs, package caches' cold/warm skew) and the lock costs one syscall                  |
-| 5   | No pipe around the gate command (`cmd \| tee` reports tee's status) | Universal bash discipline; also already codified operator-side (CLAUDE.md «Exit code фоновых команд») — the carrier captures `RC` explicitly, `set +e` around the gate run only                                                                                          |
+| 5   | No pipe around the gate command (`cmd \| tee` reports tee's status) | Universal bash discipline — the carrier captures `RC` explicitly (`set +e` around the gate run only), never pipes the gate command through `tee`/`tail`                                                                                                                  |
 | 6   | Merge conflict = distinct outcome                                   | Universal: exit 2 (§a.3), with the «GitHub runs no pull_request workflow at all in this state» warning in the message (the waiter-bogus-green trap)                                                                                                                      |
 
 ## §c Delivery channel (deliverable 2c — measured)
@@ -219,6 +233,14 @@ duration** (~2 s observed), while third-party app checks stay green; on signatur
 fetches the check-run annotation (`…/check-runs/<id>/annotations`) and reports the true
 cause. Environment ≠ verdict: UNAVAILABLE is a distinct exit code, never RED. Degrades
 explicitly when `gh` is absent (CANNOT-RUN, named) — no hard dependency (shipped-axis).
+
+Resolved design choice, stated rather than silently made (the kickoff conditioned the
+waiter half on «where a shipped waiter surface exists», and none does): the third state
+lands as the NEW probe script above, not as a docs-only recipe. Rationale: the ratified
+record requires part 1 to land in the same change as the carrier (so it cannot be parked
+as a DECISION-NEEDED fork), and a docs-only recipe would be `#warning-nobody-reads`-class
+(attention as the detection layer) where a ~40-LOC deterministic classifier is available
+at the same cost class as the carrier itself.
 
 **Part 2 — the install-docs line, lands in B1 (same change, ratified):** one line each in
 the consumer-facing surfaces measured to exist:
@@ -279,7 +301,7 @@ The follow-on build umbrella, with a real `Depends on` column (frontier.sh contr
 | Stage | Scope                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Depends on                             | Volume |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------- | ------ |
 | B1    | **Opt-in carrier ship, ts-server lane + both #1465 riders in ONE change** (ratified — not later stages, not behind a fork): `packages/core/audit-self/pre-merge-local.sh` (worktree merge, three-sha contract, exit-code table, ts-lane derivation + vacuity, mkdir lock, NDJSON ledger, honest-framing strings) + `ci-available-probe.sh` (#1465 part 1) + the two docs lines (#1465 part 2) + `setup.d/40-configs.sh` delivery via `_copy_or_refresh` + fixture self-tests (§a.6) + snapshot regen (`SNAPSHOT_MODE=capture`) | — (admitted by S0 merge + Phase -1 GO) | M      |
-| B2    | python/go/cargo lane runners: per-lane gate derivation + pin checks (CANNOT-RUN on mismatch), the §b.1 cache isolations, golangci-lint cache-staleness verification (the B2 `INCONCLUSIVE` from §b.1), lane self-tests                                                                                                                                                                                                                                                                                                         | B1                                     | M      |
+| B2    | python/go/cargo + UI preset lane runners: per-lane gate derivation + pin checks (CANNOT-RUN on mismatch), the §b.1 cache isolations, golangci-lint cache-staleness verification (the B2 `INCONCLUSIVE` from §b.1), the UI browser-dependent-leg policy per the §i F3 decision, lane self-tests                                                                                                                                                                                                                                  | B1                                     | M      |
 | B3    | Promotion-to-default decision: fires on the recorded §f trigger (first live catch, non-timeliner) OR on falsifier α (usage ≈ zero) — a decision stage with an operator fork, not a scheduled build                                                                                                                                                                                                                                                                                                                             | B1 (trigger-gated)                     | S      |
 
 Capability-commit note: B1/B2 add ≥80-LOC files under `packages/` → `Prior-art:` trailers
@@ -325,11 +347,13 @@ This spec's own discipline: the consult ran before any design prose (T11/T12 —
 deliverable 1 and was spent first); every lane claim in §b carries a command or file:line
 (T3); the one unverifiable cache claim is marked `INCONCLUSIVE-needs-verification` and
 routed to B2 rather than asserted (T3/T14); the interlock set was measured per lane, not
-extrapolated (T-PMC-A — the measured result is that four of six traps do NOT transfer
-as-is); the verified sha is pinned to the merge result by a testable output contract
-(T-PMC-B); this file is 300-odd lines against the 600-line wall with the lane inventory
-kept in-file at full resolution (T-PMC-C — checked with `wc -l`, no split needed); the
-cold adversarial re-read of the diff happens before handoff (T19, recorded in the PR).
+extrapolated (T-PMC-A — the measured result is that traps 3 and 4 do NOT transfer as-is
+to any of the seven lanes); the verified sha is pinned to the merge result by a testable
+output contract (T-PMC-B); the lane inventory is kept in-file at full resolution and the
+file stays under the 600-line wall (T-PMC-C — checked with `wc -l`, no split needed); the
+cold adversarial re-read of the diff ran before handoff (T19 — round 1 returned REVISE
+with two MAJORs: the UI-preset lane population gap in §b, and a whole-file SSOT reformat
+that violated append-only; both fixed, the fix recorded in the PR).
 
 ## See also
 
