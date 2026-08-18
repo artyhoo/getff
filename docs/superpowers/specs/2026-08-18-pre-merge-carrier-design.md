@@ -208,7 +208,12 @@ every CI job — not pnpm.
 - **Ownership mode:** the `_copy_or_refresh` pattern (precedent 3), NOT bare `copy_safe` —
   the carrier is an evolving gate script (interlock inventory will grow, §h β watches it),
   and bare copy_safe would strand brownfield consumers on v1 forever; the `.override.md`
-  escape preserves consumer Layer-3 ownership.
+  escape preserves consumer Layer-3 ownership. *(Superseded 2026-08-18 on the concrete
+  form: the named helper is lane-scoped machinery that cannot execute in `40-configs.sh` —
+  `--refresh` exits before the layer loop. The build kickoff's §3 «Delivery mechanism»
+  constraint ratifies the working equivalent — install-time `copy_safe` + `do_refresh`
+  pair-list entries via `refresh_safe`, which honours `.override.md` — preserving this
+  bullet's intent: brownfield refresh delivery + Layer-3 escape.)*
 - **Profile depth:** ship at **all profiles** (core included) — recommendation, §i F1. The
   script is a standalone leaf (no companion deps beyond git + the lane's own toolchain),
   and core consumers hit the #1465 wall identically.
