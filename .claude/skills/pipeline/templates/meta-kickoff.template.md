@@ -31,6 +31,33 @@ Sub-waves and their mode decisions are in §2 launch-table below. Read in this o
 
 ---
 
+## §2a Slicing + fog-of-war (per-umbrella)
+
+> **Frontier, not a frozen plan (D-H13).** The dispatchable set is recomputed at EVERY stage
+> boundary from the umbrella kickoff's `Depends on` column, never re-derived by eye:
+> `bash .claude/skills/pipeline/helpers/frontier.sh {{UMBRELLA}}` — `FRONTIER:` may dispatch
+> now, `BLOCKED:` is waiting (with the ids it waits on), `DEGRADE:` means that kickoff carries
+> no column, so every not-yet-done stage is frontier and the ordering is judgment again. The
+> §3 gate below is what PROVES a dependency merged; the frontier only says who is eligible.
+
+- **Vertical slice — the default shape of a stage.** One thin end-to-end change carrying its
+  own live proof (RED→GREEN, gate output, or a fired check). A stage that cannot state what it
+  proves on its own is a horizontal layer, not a slice — re-cut it before dispatch.
+- **Expand–contract — the shape for renames, moves, and format changes.** Three phases, never
+  one PR: **expand** (the new path/field/spelling lands beside the old, both live), **migrate**
+  (callers move, one commit per surface), **contract** (the old form and its shim are deleted).
+  Each phase is its own stage with its own gate; expanding and contracting in one stage leaves
+  no revert point.
+- **Fog-of-war — what this umbrella does NOT know yet.** {{FOG_OF_WAR}}
+
+> **Vocabulary provenance (ADOPTED as vocabulary, not as process):** expand–contract = Danilo
+> Sato's _Parallel Change_ (martinfowler.com/bliki/ParallelChange.html — phases «expand» /
+> «migrate» / «contract», alternate name «expand and contract», fetched 2026-08-18); vertical
+> slice = agile story-slicing usage; fog-of-war = planning-under-uncertainty idiom. Detail on
+> the frontier mechanism: `.claude/skills/pipeline/references/frontier.md`.
+
+---
+
 ## §3 Stage gates (real git checks — NOT in-memory FIFO)
 
 ### Stage 1 → Stage 2

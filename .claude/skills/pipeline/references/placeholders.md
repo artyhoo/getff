@@ -1,6 +1,6 @@
 # Meta-kickoff + state template placeholders
 
-> **Authoritative for:** the 39 substitution tokens used by `meta-kickoff.template.md` and `state.md.template` when §4 Meta-kickoff write instantiates them. Grouped by source so each substitution traces to either §1 plan-currency output, §3 launch-table, the selected kickoff's content, or per-stage Phase -1 review state.
+> **Authoritative for:** the 40 substitution tokens used by `meta-kickoff.template.md` and `state.md.template` when §4 Meta-kickoff write instantiates them. Grouped by source so each substitution traces to either §1 plan-currency output, §3 launch-table, the selected kickoff's content, or per-stage Phase -1 review state.
 > **NOT authoritative for:** §4 procedure itself — that lives in `../SKILL.md §4 Step 2`. This file is the data table that procedure consults.
 
 Substitute every `{{<PLACEHOLDER_NAME>}}` token in the template using the tokens listed below.
@@ -22,6 +22,10 @@ Substitute every `{{<PLACEHOLDER_NAME>}}` token in the template using the tokens
 - `{{GIT_GATE_STAGE_2}}` → same shape, for Stage 2 dependencies. Omit (or replace with the literal «N/A — only Stage 1 in this umbrella») if no Stage 2 exists.
 - `{{ADDITIONAL_STAGE_GATES}}` → optional Stage 3+ blocks following the Stage 2 template, OR the literal empty string if no further stages.
 - `{{DISPATCH_INSTRUCTIONS}}` → per-sub-wave dispatch block: for each row in §3, emit `claude -w <umbrella>-<sub-wave-id>` (Mode B preferred per CC native `--worktree` — PR #279 hook auto-sets up worktree + symlinks) or inline Agent dispatch (Mode A) per §5 Dispatch tree. Portable `bash scripts/create-worktree.sh <name>` (or manual `git worktree add`) retained as fallback when outside CC or settings.json hook unwired.
+
+## From §2a slicing + fog-of-war
+
+- `{{FOG_OF_WAR}}` → §2a fog-of-war line: what this umbrella does NOT know yet, in concrete items — the parked decisions with their owners, the measurements the next stage boundary is expected to produce, the assumptions a stage would falsify. Name items or write the literal «none — the spec settles every fork»; «unknown unknowns» filler is not an answer.
 
 ## From §5 AI-traps obligation
 
