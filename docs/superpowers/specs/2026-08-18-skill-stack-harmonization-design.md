@@ -17,7 +17,8 @@
 
 > **Origin:** `/arch` design session 2026-08-17→18 over the prep-doc. Interview run per the
 > newly-adopted grilling mechanic (frontier rounds with recommendations + free-form pushback
-> rounds); probes P1/P2a-c/P6 executed by background subagents, P5 pending (operator hands).
+> rounds); probes P1/P2a-c/P6 executed by background subagents; P5 mooted round 3; P7/P8
+> added round 3 (fresh-session bindings probes + Skill-hook feasibility).
 
 ## §1 Goal and scope
 
@@ -32,7 +33,11 @@ left binding-free** (D-H17); the lanes are declared per mechanism in §5, not bl
 (restated round-1, TD-F1). The F7 **selective radius** survives as the *binding* radius:
 the machine-global carrier (`~/.claude/CLAUDE.md`) only for machine-globally justified
 collisions; repo-specific collisions stay counter-armed. Scope: operator-axis only; nothing here ships to consumers
-(`packages/core/templates/**` untouched; the [dual-implementation degrade](../../../.claude/rules/dual-implementation-discipline.md)
+— checked against the REAL shipping surfaces (`setup.d/companions.manifest` cc-plugin
+rows + the skill tier lists `setup.d/lib.sh:58-60`, NOT `packages/core/templates/**`
+alone: the round-3 review caught a carrier landing inside shipped
+`.claude/skills/pipeline/` — removed, §9 R1; the
+[dual-implementation degrade](../../../.claude/rules/dual-implementation-discipline.md)
 rule stands). Consumer-axis satellite shipping is a SEPARATE contour — P-7/D-H18.
 
 ## §2 Operator-premise register
@@ -54,7 +59,8 @@ copy-or-pointer, never paraphrase.
   MOTIVE, not the mechanism: the skill listing is budget-capped at ~1% of the context
   window (skills.md, fetched 2026-08-18: «The budget scales at 1% of the model's context
   window»), so token cost is minor; the standing harm is **misrouting** (P2: 3/3). Hence
-  the prune list stays narrow and collision-targeted (§5.1), not a total sweep.
+  the binding set stays narrow and collision-targeted (§5.1; prune demoted to a D-H8
+  rung, round 3), not a total sweep.
 - **P-4** (2026-08-18): «в аиф так же поставим плагин и все — как и суперпауерс» —
   container executors get the same satellite toolkit (§5.6). Distinction preserved: the
   plugin is the *client*; the claim *registry* question is settled separately (§5.4).
@@ -78,9 +84,17 @@ copy-or-pointer, never paraphrase.
 
 ## §3 Ratified capability-ownership map (D-H1)
 
-Amended from prep-doc §4 by the interview. Mechanisms: **bind** = binding paragraph in our
-wrapper (prep §3 mech 1); **prune** = cache prune list (§5.1); **REFERENCE** = consulted,
+Amended from prep-doc §4 by the interview. Mechanisms: **bind** = binding paragraph — in
+our wrapper (prep §3 mech 1) or a §5.1 injected-context carrier; **prune** = cache prune
+(a D-H8 escalation rung since round 3, no standing list); **REFERENCE** = consulted,
 never routed-to by contract; **REJECT** = recorded in SSOT.
+
+**Population note (round-3 review R1, TD-M4):** this map covers the three INSTALLED
+plugin stacks. Harness-bundled skills (`anthropic-skills:*`, CC built-ins incl.
+`code-review` / `security-review` — description-carrying, hence routable) are OUTSIDE
+the mapped population — recorded limit. Trigger: first observed misroute into a bundled
+skill inside an owned area → map rows added (`setup.d/10-skills.sh:149` already names
+built-in `code-review` a competitor of the shipped review lane).
 
 | Area | Owner | Subordinated / consumed | Mechanism |
 | --- | --- | --- | --- |
@@ -90,7 +104,7 @@ never routed-to by contract; **REJECT** = recorded in SSOT.
 | TDD loop | SP `test-driven-development` | Matt `tdd` → transfers (a)/(b) (§4 D-H2; (c) dissolved round-1) | §5.1 binding #1 + D-H14 seams slot (prune → D-H8 escalation ladder, round 3) |
 | Debugging entry | Matt `diagnosing-bugs` | SP `systematic-debugging` → REFERENCE | none needed (0 hard refs; P2c router already picks Matt) |
 | Code-review verdict + severity | ours ([reviewer-discipline.md §6](../../../.claude/rules/reviewer-discipline.md)) | Matt severity-less model | REJECT |
-| Code-review structure | ours `/arch` §2 + `agents/fidelity-auditor.md` | Matt `code-review` (no-rerank sentence already transferred, D-H4) | cache-resident, D-H7 counter armed (radius F7: collision is repo-specific; first live misroute → prune/vendor escalation) |
+| Code-review structure | ours `/arch` §2 + `agents/fidelity-auditor.md` | Matt `code-review` (no-rerank sentence already transferred, D-H4) | cache-resident, D-H7 counter armed (radius F7: collision is repo-specific; first live misroute → D-H8 ladder: neutering → prune/vendor) |
 | Merge-conflict handling | ours [git-conflict-merge-forward.md](../../../.claude/rules/git-conflict-merge-forward.md) | Matt `resolving-merge-conflicts` (advises rebase continuation; force-push is classifier-blocked for agents machine-wide) | §5.1 binding #2 (machine-global carrier) — **collision found this session**; the T18 local-walkthrough residue DISSOLVED round 3 (skill stays invocable by name) |
 | Deep-module vocabulary | ours: seams slot (§5.5) + CONTEXT.md pointer rule (§5.2) | Matt `codebase-design` (claims seams + glossary-exactness vocabulary; no ADOPTED skill invokes it — measured round-1) | REFERENCE, cache-resident; D-H7 counter armed (D-H17) |
 | Throwaway prototyping | Matt `prototype` — KEEP | — | wayfinder `prototype` tickets invoke it — mirror of the `research` row (D-H17) |
@@ -98,7 +112,7 @@ never routed-to by contract; **REJECT** = recorded in SSOT.
 | Multi-session design maps | Matt `wayfinder` — ADOPT verbatim | our ad-hoc handoff briefs (design contours only) | setup once; slash-only, zero routing risk |
 | Glossary / domain modeling | Matt `domain-modeling` + `CONTEXT.md` — ADOPT | ADR directory | pointer rule + principle test §5.2; ADR dir REJECT (specs/research-patches cover it) |
 | Skill authoring | ours `/ai-doc` (standard) + SP `writing-skills` (process) | Matt `writing-for-agents` | REFERENCE; one ownership note in `/ai-doc` |
-| Human-only procedures | Matt `wizard` — ADOPT | — | first use = §5.1 prune wizard (D-H6) |
+| Human-only procedures | Matt `wizard` — ADOPT | — | first use re-targeted round 3 (D-H6: prune wizard dissolved; next human-only procedure) |
 | Continuity / handoff | ours (seat-lifecycle + session-bus) | Matt `handoff` | REFERENCE |
 | Research | ours (`/arch` §1.5 contour) | Matt `research` | KEEP in cache — wayfinder `research` tickets invoke it (wayfinder/SKILL.md:77) |
 
@@ -114,14 +128,14 @@ never routed-to by contract; **REJECT** = recorded in SSOT.
 | D-H5 claim-first | answered 2026-08-18; mechanics specified round-1 (TD-F5, B-M1/M2) | Two populations, two EXISTING registries: design tickets → wayfinder assignee-claim (native); factory stages → **aif claim task created BEFORE the Phase -1 window** — claim = `paused:true` task (no lane occupied), unpause only on Phase -1 GO, DELETE on RED; real machinery + probe widening + orphan expiry in §5.3. state.md stays the journal; no `Claimed-by:` column (over-design, withdrawn under P-1) | wrong if the widened probe cannot see the claim from every dispatch entry point (P4, restored), or a collision recurs with the claim in place → medium insufficient, revisit (GH issues) |
 | D-H6 wizard first use | re-targeted round 3 | the prune wizard DISSOLVED with the prune (§5.1 bindings need no cache hands); first `wizard` use lands on the next human-only procedure that appears | — |
 | D-H7 incident counter | **ARMED 2026-08-18** | counter arm + observation №0 APPENDED to SSOT #253 (same commit as spec v3; round-2 caught «armed» being claimed before the append existed — B-R2/TD-R2) | 1st real misroute → incident №1, dated note on #253 |
-| D-H8 plugin fate | answered 2026-08-18; ladder re-cut round 3 | keep + §5.1 bindings (F7 radius now selects the binding carrier, not a prune list) + counter arms routed (§8 item 5). Escalation ladder per collision: 1st live misroute → frontmatter neutering `disable-model-invocation: true` in the cache (operator hands; mechanical absence from the listing, skill stays invocable by name) → cache prune → vendor keepers + uninstall | ≥3 real misroute incidents → vendor keepers + uninstall |
+| D-H8 plugin fate | answered 2026-08-18; ladder re-cut round 3 | keep + §5.1 bindings (F7 radius now selects the binding carrier, not a prune list) + counter arms routed (§8 item 5). Escalation ladder per collision: 1st live misroute → frontmatter neutering `disable-model-invocation: true` in the cache (operator hands; mechanical absence from the listing, skill stays invocable by name; R1 note — this rung is cache-resident and wiped by plugin updates, the drift class the dissolved `--check` covered: escalating re-opens the drift-detector question) → cache prune → vendor keepers + uninstall. Detection wire for «1st live misroute» = open R1 escalation (TD-M2; candidate: `Skill`-matched PreToolUse hook) | ≥3 real misroute incidents → vendor keepers + uninstall |
 | D-H9 orchestrator rewrite | ratified | thin 512-line skill to deltas+bindings (the `/arch` model); factory umbrella (§8) | wrong if re-described slices turn out load-bearing (rewrite reviewer checks) |
-| D-H10 TDD bare-acronym hazard | **RE-OPENED + FIXED round 3** (the prune that dissolved it is superseded; Matt's `tdd` stays cache-resident) | the recorded fallback is now primary: the `meta-kickoff.template.md` binding line names `superpowers:test-driven-development` explicitly for dispatched Workers, and the repo-CLAUDE.md binding covers every in-repo session incl. container executors (the checkout carries CLAUDE.md) | wrong if P7 shows the bindings do not steer the router → D-H8 ladder |
+| D-H10 TDD bare-acronym hazard | **RE-OPENED + FIXED round 3** (the prune that dissolved it is superseded; Matt's `tdd` stays cache-resident); carrier corrected R1 | closed by the repo-CLAUDE.md binding ALONE: every Worker/executor session in this repo reads the checkout's CLAUDE.md (host or container). The `meta-kickoff.template.md` line was REMOVED at R1 — `.claude/skills/pipeline/templates/` ships to consumers (`setup.d/lib.sh:59` `GETFF_SKILLS_ENV`, default env profile), and non-CC executors carry no plugin skills, so the line bought no coverage anywhere it was legal (BU-B1/TD-M1) | wrong if P7 shows the bindings do not steer the router → D-H8 ladder |
 | D-H11 domain-modeling pairing | answered 2026-08-18 | ADOPT skill + CONTEXT.md as-is (generation REJECTED on the merits: glossary is authored, not derived; the skill's value is live inline challenge-and-write). Our delta = pointer rule + principle test (§5.3). ADR dir REJECT | wrong if entries duplicate owner-doc definitions despite the rule → degrade CONTEXT.md to a generated pointer index |
 | D-H12 wayfinder | answered 2026-08-18 | ADOPT verbatim; run `/setup-matt-pocock-skills` once; tracker = local-markdown first (upstream default when unconfigured, wayfinder/SKILL.md:25); GH issues revisited if collaboration appears | wrong if design maps stay ≤2 sessions in practice |
 | D-H13 dependency frontier | ratified; spelling amended round-1 (B-M6) | standardize on the **incumbent `Depends on` column** — 14 tracked kickoffs already carry it (e.g. `arch-v2-context-pipeline/kickoff.md:91`); a second spelling (`Blocked-by:`) for the same edge would be the exact #parallel-evolution-creep this spec kills. `/pipeline` computes the dispatchable frontier mechanically; expand–contract + fog-of-war vocabulary into `meta-kickoff.template.md` (no `kickoff.template.md` exists) | wrong if real umbrellas are overwhelmingly linear |
 | D-H14 seams slot | ratified | `Testing seams` slot in the spec-template obligation (`/arch` §1); «seams: n/a — doc artifact» is a legitimate answer; self-applied in §7 | wrong if the slot is n/a in ~all meta-factory specs for 6 months → demote to optional line |
-| D-H15 prune doctrine | **SUPERSEDED 2026-08-18 (round 3, D-C8; operator-ratified in dialogue)** | the collision channel moves from the cache to the **injected-context layer** — the only layer with a proven grip on the router (P1: no mechanical per-skill disable exists; the satellites' own SessionStart injection demonstrably steers behaviour). Carriers: (1) repo `CLAUDE.md` «Skill routing bindings» section — every session in this repo, host or container; (2) `~/.claude/CLAUDE.md` — the machine-global half (the only user-scope file CC injects into every project; `~/.claude/AGENTS.md` is not a CC channel, and the repo's own AGENTS.md:1-8 declares itself off-CC-only); (3) `meta-kickoff.template.md` binding line (D-H10). DISSOLVED with the prune: script, D-H6 wizard, the `owner: 'maintainer'` pre-push `--check` section, gate P5, and the TD-F8 residue (nothing deleted — Matt's walkthrough stays invocable by name). Motive unchanged: misrouting (P2), not tokens (budget-capped, P6+fetch); total sweep stays REJECTED (SSOT #257); anthropic-skills untouched. Honest coverage gap, ACCEPTED: container sessions in OTHER projects see neither carrier — that tail stays counter-armed only (D-H7) | wrong if P7 (post-binding probe, §6) shows no steering, or a live misroute lands with the bindings in context → D-H8 ladder (neutering → prune → vendor) |
+| D-H15 prune doctrine | **SUPERSEDED 2026-08-18 (round 3, D-C8; operator-ratified in dialogue)** | the collision channel moves from the cache to the **injected-context layer** — the layer with a proven grip on the router (P1: no CONFIG-level per-skill disable exists; the satellites' own SessionStart injection demonstrably steers behaviour; the remaining mechanical channels — cache frontmatter, a possible `Skill`-matched PreToolUse hook — are priced in §5.1/R1, not nonexistent). Carriers: (1) repo `CLAUDE.md` «Skill routing bindings» section — every session in this repo, host or container; (2) `~/.claude/CLAUDE.md` — the machine-global half (the only user-scope file CC injects into every project — corroborated by live-session injection observed 2026-08-18 + AGENTS.md:1-8 self-declaring off-CC-only; not a guide-agent claim); ~~(3) `meta-kickoff.template.md` line~~ — REMOVED R1, it ships to consumers (D-H10). DISSOLVED with the prune: script, D-H6 wizard, the `owner: 'maintainer'` pre-push `--check` section, gate P5, and the TD-F8 residue (nothing deleted — Matt's walkthrough stays invocable by name). Motive unchanged: misrouting (P2), not tokens (budget-capped, P6+fetch); total sweep stays REJECTED (SSOT #257); anthropic-skills untouched. Honest coverage gap, ACCEPTED: container sessions in OTHER projects see neither carrier — that tail stays counter-armed only (D-H7) | wrong if P7 (post-binding probe, §6) shows no steering, or a live misroute lands with the bindings in context → D-H8 ladder (neutering → prune → vendor) |
 | D-H16 plugin in aif container | ratified 2026-08-18; **build item DISSOLVED round-2** | the container already mounts the operator's `~/.claude/plugins` read-only (aif-handoff local `docker-compose.override.yml`, both container-home and host-absolute paths) — mattpocock is visible to executors NOW, and the §5.1 prune/`--check` cover the container by construction (one cache). Residue: one-time verification in a container session (§5.6) | wrong if a container session's listing lacks the plugin skills → the mount premise broke, re-open |
 | D-H17 map completion | **round-1 (TD-F3), per ratified criteria** | the two model-invocable skills the map missed: `codebase-design` → REFERENCE, cache-resident under the D-H7 counter (collides with D-H11/D-H14 vocabulary but is repo-locally justified only — F7 radius keeps it; no ADOPTED skill invokes it, measured); `prototype` → KEEP (wayfinder ticket dependency, mirror of `research`) | wrong if a live `codebase-design` misroute lands → escalate per D-H8 arm |
 | D-H18 consumer-axis satellites | **NEW 2026-08-18 (P-7), routed out** | when satellite stacks ship to consumers, the collision problem ships too (per-project scoping absent, P6). SEPARATE design contour — chip emitted (§8 item 6); this spec deliberately does not price it | contour opens with its own prep; wrong if consumer shipping never happens (chip expires unused) |
@@ -130,19 +144,23 @@ never routed-to by contract; **REJECT** = recorded in SSOT.
 
 ### 5.1 Routing bindings (D-H15 superseded round 3) — the injected-context channel
 
-No mechanical channel to the router exists at all (P1: per-skill disable of plugin skills
-does not exist; `skillOverrides` excludes them) — the «router» is the model reading skill
-descriptions inside its context. The earliest reachable channel for routing influence is
-therefore **context injection**, and the layer is proven in the field: the satellites' own
-SessionStart injection (`using-superpowers`) demonstrably dominates behaviour, and
-CLAUDE.md carries «OVERRIDE any default behavior» authority framing in the same context
-the router reads. Round 3 moves the two machine-globally-justified collisions (F7 radius)
-onto that layer:
+The «router» is the model reading skill descriptions inside its context, and P1 rules
+out the CONFIG layer (`skillOverrides` excludes plugin skills). Corrected R1 (BU-M2/
+TD-M3): mechanical channels DO exist — cache-resident frontmatter
+(`disable-model-invocation: true`, CC-native, used by 13/22 of Matt's own skills) and a
+possible `Skill`-matched PreToolUse hook (unprobed candidate — ESCALATED R1, see §9) —
+but the frontmatter channel is operator-hands + wiped by plugin updates (the drift class
+the dissolved `--check` covered), so the injected layer is chosen FIRST on **cost and
+drift**, not on nonexistence: zero maintenance, survives updates, reversible. The layer
+is proven in the field: the satellites' own SessionStart injection (`using-superpowers`)
+demonstrably dominates behaviour, and CLAUDE.md carries «OVERRIDE any default behavior»
+authority framing in the same context the router reads. Round 3 moves the two
+machine-globally-justified collisions (F7 radius) onto that layer:
 
 - **Binding #1 — TDD loop:** `superpowers:test-driven-development` owns the loop (D-H2);
   «TDD» / «test-first» work invokes it by explicit name, never `mattpocock-skills:tdd`.
-  Carriers: repo CLAUDE.md section + the `meta-kickoff.template.md` binding line
-  (D-H10 — dispatched Workers).
+  Carrier: repo CLAUDE.md section (D-H10 — Workers and container executors read the
+  checkout; the template-line carrier was removed R1 as consumer-shipped).
 - **Binding #2 — merge conflicts:** follow
   [git-conflict-merge-forward.md](../../../.claude/rules/git-conflict-merge-forward.md),
   never `mattpocock-skills:resolving-merge-conflicts` (its rebase-continuation advice
@@ -156,8 +174,11 @@ dissolves — the bound-away skills stay invocable by explicit name. What is GIV
 mechanical absence (a deleted skill cannot route; a binding is prose the router-model
 follows probabilistically). That trade is priced by P7 (§6) and guarded by the D-H8
 escalation ladder: 1st live misroute → `disable-model-invocation: true` frontmatter
-neutering in the cache (mechanical absence from the listing, still invocable by name) →
-cache prune → vendor + uninstall. Coverage: repo CLAUDE.md reaches every session in this
+neutering in the cache (mechanical absence from the listing, still invocable by name;
+cache-resident and update-wiped — escalating re-opens the drift-detector question, R1) →
+cache prune → vendor + uninstall. Open R1 escalation (TD-M2): the ladder's «1st live
+misroute» trigger has NO observer — six falsifiers hang on it; candidate detection wire
+= a `Skill`-matched PreToolUse hook (log-only), operator fork. Coverage: repo CLAUDE.md reaches every session in this
 repo including aif-container executors (the checkout carries it); `~/.claude/CLAUDE.md`
 reaches every host session in every project; container sessions in OTHER projects see
 neither carrier — accepted residual under the armed D-H7 counter. Criterion for what gets
@@ -224,8 +245,9 @@ mounts of the operator's host cache** — aif-handoff's local `docker-compose.ov
 (agent service) mounts `~/.claude/plugins` at BOTH the container-home path and the
 host-absolute path (the latter so `known_marketplaces.json` install locations resolve).
 mattpocock-skills, installed in the same host cache, is therefore **already visible to
-container executors**, and the §5.1 prune + `--check` cover the container by
-construction — same files, one cache. D-H16 reduces to a one-time verification (confirm
+container executors**; container sessions in THIS repo get the §5.1 binding via the
+checkout's CLAUDE.md, and any future D-H8 cache-level rung (neutering/prune) would cover
+the container by construction — same files, one cache (re-cut R1, BU-M5). D-H16 reduces to a one-time verification (confirm
 the skills appear in a container session's listing), not a build. Explicit non-target
 (B-M3): `setup.d/companions.manifest` — that file is the consumer-shipped `./setup` flow
 (its superpowers row is how superpowers reaches CONSUMERS); adding a mattpocock row there
@@ -263,13 +285,26 @@ is D-H18's separate contour.
   P2-class triggers: «fix this bug test-first» → `superpowers:test-driven-development`
   (the answer cites the «Skill routing bindings» section and its ban on the competitor);
   «mid-merge conflicts» → `git-conflict-merge-forward.md` over
-  `mattpocock-skills:resolving-merge-conflicts`. **2/2 steered vs the P2 3/3-misroute
-  baseline.** Method finding (measured): an in-session subagent probe is INVALID for a
+  `mattpocock-skills:resolving-merge-conflicts`. **Honest count (corrected R1, BU-M3):
+  1 measured flip vs a baseline (the TDD trigger — P2a measured its pre-binding
+  misroute) + 1 post-only confirmation (the merge-conflict trigger has NO pre-binding
+  baseline; the stale-snapshot in-session probe answered correctly WITHOUT the new
+  binding in context, so the repo half of binding #2 is possibly
+  redundant-but-harmless — its machine-global half targets OTHER projects and stays
+  mechanism-class only). n=2 targeted triggers, not a sample.** Method finding
+  (measured): an in-session subagent probe is INVALID for a
   binding landed mid-session — subagents inherit the parent's session-start CLAUDE.md
   snapshot (the first probe run picked Matt's `tdd` and, on diagnostic, reported the
   bindings section absent from its context). Limitation shared with P2: meta-probes,
   not live task runs; the `~/.claude/CLAUDE.md` machine-global half is validated as
   mechanism-class only (both probes ran inside this repo).
+- **P8** (Skill-hook feasibility, 2026-08-18 R1 — the TD-M3 candidate): claude-code-guide
+  reports the hooks reference lists NO `Skill` matcher and claims skill loading bypasses
+  the tool pipeline — but that claim is CONTRADICTED by live harness observation (this
+  very session invokes skills through a `Skill` tool call), the same guide-vs-fetch
+  failure class P6 already recorded. Status: UNVERIFIED EITHER WAY; deciding it needs an
+  operator-registered test hook (`.claude/settings.json` is an operator hand-off) + one
+  skill invocation. Gates the TD-M2 detection-wire fork (§9 R1).
 
 ## §7 Testing seams (D-H14, self-applied)
 
@@ -295,8 +330,9 @@ was «not yet dispatched» while this section already leaned on it, recorded as 
    dialogue). **Re-bucketed round-1
    (TD-F4):** `/setup-matt-pocock-skills` is
    NOT «no build» — its process explores/writes `AGENTS.md` (gate-bearing: every claim
-   carries a live-fired enforcement status), `CLAUDE.md` (agent-read-only per the
-   Artifact Ownership Contract) and `docs/adr/` (D-H11 REJECT). Run it as an ATTENDED
+   carries a live-fired enforcement status), `CLAUDE.md` (no explicit ownership-contract
+   row — treated as maintainer-owned; corrected R1, BU-m1: round 3's binding section was
+   written on live in-dialogue operator ratification) and `docs/adr/` (D-H11 REJECT). Run it as an ATTENDED
    session with explicit constraints — no `## Agent skills` section in
    AGENTS.md/CLAUDE.md, no ADR scaffolding, local-markdown tracker only — and review the
    diff before committing.
@@ -414,3 +450,40 @@ was «not yet dispatched» while this section already leaned on it, recorded as 
     round-3 dispositions live in the
     [round-2 spec](2026-08-18-consumer-satellite-harmonization-design.md) §9 v2.
     Targeted-delta cold re-review of this v4 diff: recorded below on completion.
+- 2026-08-18 — round-3 review R1 (cold two-altitude over the v4 delta + carriers; both
+  seats REVISE; reports `top-down-`/`bottom-up-harmonization-round3.md`, session
+  scratchpad). Dispositions:
+  - **BU-B1 / TD-M1 / BU-M1** (BLOCKER+MAJOR, convergent) FIXED — carrier #3
+    (`meta-kickoff.template.md` line) REMOVED: `.claude/skills/pipeline/` ships to
+    consumers (`setup.d/lib.sh:59` `GETFF_SKILLS_ENV`, default env profile), so the
+    line breached the operator-axis membrane while buying ~zero coverage (Workers read
+    the checkout's CLAUDE.md; non-CC executors carry no plugin skills). Removal
+    restores the 8 install fingerprints (file returns to its baseline blob). §1's
+    scope guard rewritten to name the real shipping surfaces.
+  - **BU-M2 / TD-M3** (MAJOR, convergent) FIXED (premise) + ESCALATED (mechanism) —
+    «no mechanical channel at all» corrected: P1 rules out the CONFIG layer only;
+    cache frontmatter exists (drift-priced), and the `Skill`-matched PreToolUse hook
+    candidate is recorded as P8 UNVERIFIED (guide claims no Skill matcher; live
+    harness observation contradicts — the P6 failure class). Ladder ordering now
+    argued on cost/drift, not nonexistence. Hook verification = operator fork.
+  - **TD-M2** (MAJOR) ESCALATED — the D-H7/D-H8 «1st live misroute» trigger has no
+    observer; six falsifiers hang on it. Candidate wire = the P8 hook (log-only).
+    Operator fork, batched with P8.
+  - **BU-M3 / TD-MINOR-4** (MAJOR) FIXED — P7 restated honestly (1 measured flip vs
+    baseline + 1 post-only confirmation; n=2 targeted, not a sample).
+  - **BU-M4** (MAJOR) FIXED — dated round-3 supersession notes appended to SSOT #253
+    and #257 (append-only; no prune ever executed).
+  - **BU-M5** (MAJOR) FIXED — five residual prune assertions re-cut (§2 P-3 note, §3
+    legend, §3 wizard + code-review rows, §5.6).
+  - **TD-M4** (MAJOR) ACCEPTED as recorded limit — §3 population note: the map covers
+    the three installed plugin stacks; harness-bundled skills (anthropic-skills:*, CC
+    built-ins incl. `code-review`) are outside it, with a named re-open trigger.
+  - **TD-B1 / TD-M5 / TD-MINOR-1..3 / ESC-1** — consumer-axis findings; dispositions
+    in the [round-2 spec](2026-08-18-consumer-satellite-harmonization-design.md) §9.
+  - **BU-M6 / TD-MINOR-5** FIXED — `~/.claude/CLAUDE.md` section relocated to file
+    end; the orphaned AIF ownership bullet returned to its own heading.
+  - **BU-m1** FIXED — §8's «agent-read-only per the Artifact Ownership Contract»
+    parenthetical corrected (no such contract row exists).
+  - **BU-m2 / TD-MINOR-6** FIXED — stale metadata corrected (origin block, handoff
+    stale-line marker, consumer-spec «unmerged» label).
+  - **BU-m3** FIXED — carrier-#2 selection claims now name their evidence class.

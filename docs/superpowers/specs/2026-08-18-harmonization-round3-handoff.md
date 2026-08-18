@@ -86,7 +86,8 @@ there a simpler one?
 2. Branch state as of this writing: round-1 spec on `claude/keen-shannon-46577a`
    (2 commits, unmerged); round-2 spec + this handoff on `claude/festive-shtern-0e0296`
    (worktree `heuristic-joliot-01a0a3`). Neither has a PR — PR pause in force unless the
-   operator lifts it.
+   operator lifts it. *[STALE at writing — see the Status correction above; retained
+   verbatim as historical record.]*
 3. Read order: this file → Phase A (no other reading!) → Phase B: round-2 spec →
    round-1 spec → prep-doc `2026-08-17-arch-prep-skill-stack-harmonization.md`
    (same branch as round-1 spec) §2 collision map if needed.
