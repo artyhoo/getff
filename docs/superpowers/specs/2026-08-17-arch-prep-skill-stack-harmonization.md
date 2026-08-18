@@ -8,7 +8,7 @@
 > **NOT authoritative for:** the grilling adoption — [SSOT #253](../../meta-factory/prior-art-evaluations.md)
 > + `/arch` §1 binding (settled 2026-08-17, this branch). Project goal —
 > [README.md#why-this-exists](../../../README.md#why-this-exists).
-> **Superseded on the dependency-edge spelling by:** [D-H13 / §5.4 of the ratified 2026-08-18 spec](2026-08-18-skill-stack-harmonization-design.md) — Idea 2's `Blocked-by:` column (:347, :395) was NOT adopted; the ratified spelling is the incumbent `Depends on` stage-table column.
+> **Superseded on the dependency-edge spelling by:** [D-H13 / §5.4 of the ratified 2026-08-18 spec](2026-08-18-skill-stack-harmonization-design.md) — Idea 2's `Blocked-by:` column (:348, :396 — was :347/:395 before this pointer added a header line) was NOT adopted; the ratified spelling is the incumbent `Depends on` stage-table column.
 
 > **Origin:** 2026-08-17 operator session. After lifting grill-me/grilling to ADOPT
 > (SSOT #253), the operator installed the whole `mattpocock-skills` plugin and asked for a
