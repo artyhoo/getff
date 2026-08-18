@@ -111,6 +111,7 @@ LOGS_DIR="$GIT_DIR_PATH/pre-merge-logs"
 mkdir -p "$LOGS_DIR"
 
 WORKTREE_DIR=
+# shellcheck disable=SC2329  # invoked indirectly: `trap cleanup EXIT` below
 cleanup() {
   # Run from the main toplevel (cwd may be inside the worktree we remove).
   cd "$TOPLEVEL" 2>/dev/null || true
@@ -129,6 +130,7 @@ ledger_append() {
   _failed=$3
   _dur=$((SECONDS - START_SECS))
   _ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  # shellcheck disable=SC1003  # literal set for tr -d: strips double quotes and backslashes from the URL; no quote-escaping intended
   _remote_clean=$(printf '%s' "$REMOTE_URL" | tr -d '"\\')
   printf '{"ts":"%s","remote":"%s","head":"%s","base":"%s","merge":"%s","verdict":"%s","failed_gates":%s,"duration_s":%d}\n' \
     "$_ts" "$_remote_clean" "$HEAD_SHA" "$BASE_SHA" "$_merge_disp" "$_verdict" "$_failed" "$_dur" \
