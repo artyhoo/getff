@@ -10,7 +10,7 @@
 > **Rigor label (effort-worthiness L0):** `build-and-verify` — every item is factory-internal
 > and reversible; each carries a live RED/GREEN or a measured before/after.
 > **Prior-art:** the mechanism these items extend is already built and ratified — spec §5.4 /
-> D-H13, shipped as `.claude/skills/pipeline/helpers/frontier.sh` (PR #1468). No new capability
+> D-H13, shipped as `.claude/skills/pipeline/helpers/frontier.sh` (PR 1468). No new capability
 > is proposed by S1-S3; S4/S5 are judgment calls that MUST run the BFR consult before proposing
 > a gate.
 
@@ -32,7 +32,7 @@
 | --- | --- | --- |
 | S1 executors | **The weightiest item (operator, 2026-08-18).** `/dispatcher` §2.7 «Advance» and `night-mode` pick the next stage by eye — `grep -rln frontier .claude/skills/` hits only `pipeline/` and `arch/`, and `night-mode/SKILL.md:35` delegates stage-gate mechanics to `dispatcher` §2. Wire the frontier read into the surface that actually advances stages autonomously. Bindings, not a fork of the helper. Live proof required: a dispatcher-path run whose stage choice is traceable to a `FRONTIER:` line | — |
 | S2 spellings | Retire the third and fourth spellings of the SAME edge: `orchestrator/references/queue-mode.md:72` («predecessor GO?») + `:251` (`ESCALATE:K:blocked-by-prerequisite`), the 6 `**Prerequisite:**` kickoff lines, and the unratified prep-doc `docs/superpowers/specs/2026-08-17-arch-prep-skill-stack-harmonization.md:347` (`Blocked-by:` with no supersession pointer in its header). D-H13 allows exactly one spelling; converting the 11 prose-edge kickoffs to the column belongs here too (`frontier.md` ceiling 5) | — |
-| S3 stale claims | Two pre-existing false count claims in shipped docs: `.claude/skills/pipeline/references/failures.md:1,3` says «F1 through F8» over a nine-row table (F9 at `:18`); and the 27-of-275 `done.md` files carrying no `- Final PR: #` line (measured 2026-08-18, PR #1470 §1.7 backward-check — a `done_pr` metadata gap, NOT a detection failure, since Layer C3 tags DONE on existence: `priority-score.sh:255`) | — |
+| S3 stale claims | Two pre-existing false count claims in shipped docs: `.claude/skills/pipeline/references/failures.md:1,3` says «F1 through F8» over a nine-row table (F9 at `:18`); and the 27-of-275 `done.md` files carrying no `- Final PR: #` line (measured 2026-08-18, PR 1470 §1.7 backward-check — a `done_pr` metadata gap, NOT a detection failure, since Layer C3 tags DONE on existence: `priority-score.sh:255`) | — |
 | S4 registry gate | `SKILL.md` §4 Step 2 leaves the template↔`references/placeholders.md` `comm -23` reconciliation to «the maintainer's responsibility» — a mechanically checkable claim on bare attention. Channel precedent: principles 27/38/41 (three existing «two lists nobody reconciles» gates). **Decide, do not assume**: run the BFR consult first; a paired-negative principle test is the expected shape, «leave as prose» is a legitimate outcome if argued | — |
 | S5 evals | `/pipeline` evals carry zero scenarios for the frontier (`evals/files/scenario-2-named-state.md:57-62` states deps in prose). Add coverage OR argue on the merits that the 24-arm paired negative already carries the contract and evals should stay judgment-only | S1 (its output shape is what an eval would grade) |
 
@@ -86,8 +86,19 @@ SNAPSHOT_MODE=compare bash tests/install-sh/snapshot.sh
 bash scripts/check-skill-drift.sh
 ```
 
+> **Citation form is load-bearing — do NOT rewrite PR references into the hash form.** PR
+> references in this kickoff are written `PR 1468` or as a bare URL, never as a hash followed by
+> the number. `dup-detect.sh:113` signal (1) greps a kickoff for hash-number tokens and treats a
+> match against a merged PR as evidence that the umbrella is ALREADY DELIVERED; `priority-score.sh`
+> Layer C2 then tags the candidate `status=DONE basis=xref score=100%`, and `/pipeline` drops it
+> from the backlog before scoring. Measured on this very file, 2026-08-18: in the hash form the
+> umbrella reported DONE before a single stage ran. The citations here are PROVENANCE of inputs,
+> not evidence of delivery — the URL form keeps the trace and keeps the umbrella visible. This
+> note deliberately avoids the token too. (The signal cannot tell provenance from delivery, so
+> every future handoff-style kickoff hits it — recorded as an observation, not fixed here.)
+
 ## §5 See also
 
 - [Operator-axis spec §5.4 + §4 D-H13](../../../docs/superpowers/specs/2026-08-18-skill-stack-harmonization-design.md) — the ratified decision these items extend.
 - [`skill-harmonization-mechanisms/done.md`](../skill-harmonization-mechanisms/done.md) — the source list with anchors.
-- PR [#1468](https://github.com/artyhoo/getff/pull/1468) — the S3 build, its two cold reviews, and the nine regression arms.
+- <https://github.com/artyhoo/getff/pull/1468> (PR 1468) — the S3 build, its two cold reviews, and the nine regression arms.
