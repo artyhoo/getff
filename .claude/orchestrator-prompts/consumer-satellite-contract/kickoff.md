@@ -8,6 +8,9 @@
 > **Base branch:** staging (NOT main). NOTE: this kickoff lands on staging together
 > with the harmonization spec branch `claude/festive-shtern-0e0296` when the operator
 > lifts the PR pause — do not dispatch before that merge.
+> **Rigor label (effort-worthiness L0):** `research-grade` — S3 and S4 touch
+> consumer-shipped surfaces (`packages/core/templates/shared/AGENTS.md.template`, `./setup`),
+> which the effort-worthiness statute reserves for the research-grade contour.
 > **Prior-art (EXECUTION-PLAN §5.5 Step 1.5):** consult spent at design time — SSOT
 > #253-#257 + spec §5 (fuzzy detectors REJECTED at 13%/38% precision; inventory-join
 > scanner explicitly NOT built). No new dependency; the presence check is a <50-LOC

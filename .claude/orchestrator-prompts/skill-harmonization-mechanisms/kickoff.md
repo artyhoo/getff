@@ -9,6 +9,9 @@
 > **Base branch:** staging (NOT main). NOTE: this kickoff lands on staging together
 > with the harmonization spec branch `claude/festive-shtern-0e0296` when the operator
 > lifts the PR pause — do not dispatch before that merge.
+> **Rigor label (effort-worthiness L0):** `build-and-verify` — all three stages are
+> factory-internal and reversible (a principle test, a split of an existing runtime-bridge
+> call, a skill-side frontier helper); each carries a live RED/GREEN seam proof.
 > **Prior-art (EXECUTION-PLAN §5.5 Step 1.5):** spent at design time — spec §4
 > D-H5/D-H11/D-H13 with per-decision falsifiers; §5.2's non-duplication verified
 > round-1 (the lychee gate runs without `--include-fragments`, so anchors are
