@@ -22,6 +22,8 @@ Before repairing, read the authoritative surface for the root you are in:
 
 Then follow `agents/rule-test-author.md`'s numbered protocol against the current project, verify in single-rule isolation, and quote the tool verdict — never claim a repair verified without the isolation run.
 
+REFERENCE ([harmonization spec D-H2 transfer (b)](../../../docs/superpowers/specs/2026-08-18-skill-stack-harmonization-design.md)): when judging whether repaired material genuinely exercises the rule, consult mattpocock `tdd`'s tautological-test anti-pattern — a test that cannot fail proves nothing. Consult-only; the TDD loop itself is owned by `superpowers:test-driven-development`.
+
 ## Without this skill
 
 An agent hand-repairs a generated rule's test material ad-hoc, or «fixes» a red test by editing the rule artifact itself — inverting the drift/hash gate the rule is protected by — and claims the repair «verified» from a shared config where aliased diagnostic codes make a non-isolated green meaningless. Broken material then fails at no channel.
