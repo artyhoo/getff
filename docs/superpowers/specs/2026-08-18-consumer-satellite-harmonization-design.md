@@ -70,7 +70,7 @@ Each class has a different earliest reachable channel ([README.md#why-this-exist
 
 | Decision | Status | Resolution | Falsifier |
 | --- | --- | --- | --- |
-| D-C1 mechanism | ratified 2026-08-18 (P-C1); **form re-cut round 3 (D-C8)** | **detect + declare + prescribe, thin form**: the factory-declared collision classes + remediation recipes are CONSTANT across consumers → ship as **static census prose** in the D-C5 AGENTS.md section; the machine-specific half reduces to a **known-pair presence check** in `./setup` (~20 lines, manifest-driven: detect known colliding plugin caches present on THAT machine → print the factory's measured resolution per pair); only the consumer executes; the factory never mutates the consumer host cache. The general inventory-join engine NOT built: minus fuzzy, its only extra signal is name-clash detection with a thin harm model (F-C3/P1: plugin skills namespaced, `/tdd` resolves to the project skill, precedence undocumented). Shipped static prune stays REJECTED as primary (blind list, T18) | wrong if a live consumer misroute shows static prose + presence check insufficient → build the inventory-join (recorded escalation); reports unread → consent-gated prune |
+| D-C1 mechanism | ratified 2026-08-18 (P-C1); **form re-cut round 3 (D-C8)** | **detect + declare + prescribe, thin form**: the factory-declared collision classes + remediation recipes are CONSTANT across consumers → ship as **static census prose** in the D-C5 AGENTS.md section; the machine-specific half reduces to a **known-pair presence check** in `./setup` (~20 lines, manifest-driven: detect known colliding plugins installed AND enabled on THAT machine — install registry, not cache dirs, R2 → print the factory's measured resolution per pair); only the consumer executes; the factory never mutates the consumer host cache. The general inventory-join engine NOT built: minus fuzzy, its only extra signal is name-clash detection with a thin harm model (F-C3/P1: plugin skills namespaced, `/tdd` resolves to the project skill, precedence undocumented). Shipped static prune stays REJECTED as primary (blind list, T18) | wrong if a live consumer misroute shows static prose + presence check insufficient → build the inventory-join (recorded escalation); reports unread → consent-gated prune |
 | D-C2 admission gate | ratified 2026-08-18 | a NEW satellite row in `setup.d/companions.manifest` requires a census artifact: trigger-collision census vs the shipped skill set + capability-ownership row (D-H1 projection) + non-CC degrade path; presence enforced by a principle test on the manifest (class-1 collisions die at factory CI) | wrong if the census artifact rots into `#discipline-theatre` (form present, census stale) → add freshness bar |
 | D-C3 build timing | ratified 2026-08-18 (P-C2, operator override of the session's «wait» recommendation — conceded on the merits); **falsifier FIRED round 3 — form superseded, timing kept** | build NOW stands (the incident channel still does not exist, P-C2 logic intact); round 3 re-cut only the FORM: the thin D-C1 mechanism ships now instead of the inventory-join scanner | — (falsifier resolved 2026-08-18: round 3 found the cheaper same-result form) |
 | D-C4 consent disclosure | ratified 2026-08-18 | extend the ⚠ machine-scope warning to `kind=cc-plugin` consent (today mcp-only, `setup.d/engine.sh:60-62` — superpowers mutates user scope silently); record the upstream trigger: CC ships project-scope plugin installs → the manifest switches to it (dissolves most of class 3) | — |
@@ -132,17 +132,21 @@ keys on the install registry, not cache dirs — R1 TD-MINOR-1), plus one live r
 operator machine; (3) the
 ⚠ parity line — one-line engine.sh change, verified by the existing setup snapshot lane.
 The v1 open item (deterministic `disable-model-invocation` frontmatter inventory across
-a foreign cache) DISSOLVED with the inventory-join: presence detection needs directory
-names only, no frontmatter parse.
+a foreign cache) DISSOLVED with the inventory-join: presence detection keys on the
+install registry (`installed_plugins.json`/`enabledPlugins`), no frontmatter parse (R2).
 
 ## §8 Routed work inventory (round 3 executed)
 
 Round 3 executed — candidates re-cut to the thin form: factory umbrella
 «consumer-satellite-contract» = the D-C5 AGENTS.md «Skill routing ownership» section
-carrying the static census prose (superpowers retro-census per D-C7) + the ~20-line
-known-pair presence check in `./setup` + the D-C2 principle test + the ⚠ parity line
-(D-C4); SSOT rows (contract + host-prune REJECT). The inventory-join scanner and
-machine-readable census metadata are OUT (D-C1 thin form; escalation path recorded).
+carrying the static census prose (retro-census of BOTH shipped rows per D-C7 —
+superpowers + ast-grep; **ESC-1 ANSWERED by the operator 2026-08-18: census both, keep
+ast-grep on a clean census, red census → drop/disable-by-default**) + the ~20-line
+known-pair presence check in `./setup` (keyed on the install registry, R2) + the D-C2
+principle test + the ⚠ parity line (D-C4); SSOT rows (contract + host-prune REJECT).
+The inventory-join scanner and machine-readable census metadata are OUT (D-C1 thin
+form; escalation path recorded). The P8 detection-wire verification (operator-axis §8
+item 7) gates whether class 2 gains a mechanical local observer later.
 
 ## §9 Changelog
 
@@ -173,3 +177,9 @@ machine-readable census metadata are OUT (D-C1 thin form; escalation path record
   D-C6 aligned with the measured read-only host-cache mount. **TD-MINOR-3** FIXED —
   D-C5 carrier-reach limit recorded (AGENTS.md not CC-injected). Stale deferral
   markers + the «unmerged» label corrected (BU-m2/TD-MINOR-6).
+- 2026-08-18 — v2.2: R2 residuals closed (D-C1 cell + §7 tail re-keyed on the install
+  registry — TD-MINOR-1 leftovers; §8 re-scoped to BOTH shipped rows — TD-N4/BU-N4).
+  **Operator answers (2026-08-18, live): ESC-1 CLOSED — census both rows, keep
+  ast-grep on a clean census, red → drop/disable-by-default; P8 detection-wire
+  verification accepted (operator-axis §8 item 7).** Review round cap reached (R1+R2
+  REVISE) — residual state surfaced to the operator in lieu of a third cold round.

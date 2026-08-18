@@ -14,7 +14,7 @@
 > **Authoritative for:** the round-3 mandate, its phase order, and the continuation state.
 > **NOT authoritative for:** the designs themselves — round-1 spec
 > [2026-08-18-skill-stack-harmonization-design.md](2026-08-18-skill-stack-harmonization-design.md)
-> (branch `claude/keen-shannon-46577a`, unmerged); round-2 spec
+> (merged into this branch at `3ae6981833`); round-2 spec
 > [2026-08-18-consumer-satellite-harmonization-design.md](2026-08-18-consumer-satellite-harmonization-design.md)
 > (this branch); project goal — [README.md#why-this-exists](../../../README.md#why-this-exists).
 
