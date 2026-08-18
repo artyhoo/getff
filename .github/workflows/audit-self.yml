@@ -96,7 +96,7 @@ jobs:
           fi
           exit "$fail"
 
-      - name: Pre-merge carrier self-tests (pre-merge-carrier-build B1: live-fire arms 1-10 + probe P1/P2)
+      - name: "Pre-merge carrier self-tests (pre-merge-carrier-build B1: live-fire arms 1-10 + probe P1/P2)"
         # T-PMC-D: every arm RUNS the real carrier/probe against throwaway fixture repos
         # and asserts output + exit code — never greps the scripts' source text.
         run: bash packages/core/audit-self/pre-merge-local.test.sh
