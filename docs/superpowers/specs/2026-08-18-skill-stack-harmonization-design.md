@@ -132,7 +132,7 @@ built-in `code-review` a competitor of the shipped review lane).
 | D-H5 claim-first | answered 2026-08-18; mechanics specified round-1 (TD-F5, B-M1/M2) | Two populations, two EXISTING registries: design tickets → wayfinder assignee-claim (native); factory stages → **aif claim task created BEFORE the Phase -1 window** — claim = `paused:true` task (no lane occupied), unpause only on Phase -1 GO, DELETE on RED; real machinery + probe widening + orphan expiry in §5.3. state.md stays the journal; no `Claimed-by:` column (over-design, withdrawn under P-1) | wrong if the widened probe cannot see the claim from every dispatch entry point (P4, restored), or a collision recurs with the claim in place → medium insufficient, revisit (GH issues) |
 | D-H6 wizard first use | re-targeted round 3 | the prune wizard DISSOLVED with the prune (§5.1 bindings need no cache hands); first `wizard` use lands on the next human-only procedure that appears | — |
 | D-H7 incident counter | **ARMED 2026-08-18** | counter arm + observation №0 APPENDED to SSOT #253 (same commit as spec v3; round-2 caught «armed» being claimed before the append existed — B-R2/TD-R2) | 1st real misroute → incident №1, dated note on #253 |
-| D-H8 plugin fate | answered 2026-08-18; ladder re-cut round 3 | keep + §5.1 bindings (F7 radius now selects the binding carrier, not a prune list) + counter arms routed (§8 item 5). Escalation ladder per collision: 1st live misroute → frontmatter neutering `disable-model-invocation: true` in the cache (operator hands; mechanical absence from the listing, skill stays invocable by name; R1 note — this rung is cache-resident and wiped by plugin updates, the drift class the dissolved `--check` covered: escalating re-opens the drift-detector question) → cache prune → vendor keepers + uninstall. Detection wire for «1st live misroute» = open R1 escalation (TD-M2; candidate: `Skill`-matched PreToolUse hook) | ≥3 real misroute incidents → vendor keepers + uninstall |
+| D-H8 plugin fate | answered 2026-08-18; ladder re-cut round 3 | keep + §5.1 bindings (F7 radius now selects the binding carrier, not a prune list) + counter arms routed (§8 item 5). Escalation ladder per collision: 1st live misroute → frontmatter neutering `disable-model-invocation: true` in the cache (operator hands; mechanical absence from the listing, skill stays invocable by name; R1 note — this rung is cache-resident and wiped by plugin updates, the drift class the dissolved `--check` covered: escalating re-opens the drift-detector question) → cache prune → vendor keepers + uninstall. Detection wire for «1st live misroute» **LIVE (P8 CONFIRMED 2026-08-18)**: the operator-registered log-only PreToolUse `Skill` hook writes every model skill invocation to `~/.claude/skill-invocations.log` — the D-H7 counter's feed | ≥3 real misroute incidents → vendor keepers + uninstall |
 | D-H9 orchestrator rewrite | ratified | thin 512-line skill to deltas+bindings (the `/arch` model); factory umbrella (§8) | wrong if re-described slices turn out load-bearing (rewrite reviewer checks) |
 | D-H10 TDD bare-acronym hazard | **RE-OPENED + FIXED round 3** (the prune that dissolved it is superseded; Matt's `tdd` stays cache-resident); carrier corrected R1 | closed by the repo-CLAUDE.md binding ALONE: every Worker/executor session in this repo reads the checkout's CLAUDE.md (host or container). The `meta-kickoff.template.md` line was REMOVED at R1 — `.claude/skills/pipeline/templates/` ships to consumers (`setup.d/lib.sh:59` `GETFF_SKILLS_ENV`, default env profile), and non-CC executors carry no plugin skills, so the line bought no coverage anywhere it was legal (BU-B1/TD-M1) | wrong if P7 shows the bindings do not steer the router → D-H8 ladder |
 | D-H11 domain-modeling pairing | answered 2026-08-18 | ADOPT skill + CONTEXT.md as-is (generation REJECTED on the merits: glossary is authored, not derived; the skill's value is live inline challenge-and-write). Our delta = pointer rule + principle test (§5.3). ADR dir REJECT | wrong if entries duplicate owner-doc definitions despite the rule → degrade CONTEXT.md to a generated pointer index |
@@ -302,13 +302,18 @@ is D-H18's separate contour.
   bindings section absent from its context). Limitation shared with P2: meta-probes,
   not live task runs; the `~/.claude/CLAUDE.md` machine-global half is validated as
   mechanism-class only (both probes ran inside this repo).
-- **P8** (Skill-hook feasibility, 2026-08-18 R1 — the TD-M3 candidate): claude-code-guide
-  reports the hooks reference lists NO `Skill` matcher and claims skill loading bypasses
-  the tool pipeline — but that claim is CONTRADICTED by live harness observation (this
-  very session invokes skills through a `Skill` tool call), the same guide-vs-fetch
-  failure class P6 already recorded. Status: UNVERIFIED EITHER WAY; deciding it needs an
-  operator-registered test hook (`.claude/settings.json` is an operator hand-off) + one
-  skill invocation. Gates the TD-M2 detection-wire fork (§9 R1).
+- **P8** (Skill-hook feasibility — **CONFIRMED live 2026-08-18**): the operator
+  registered a log-only `PreToolUse` matcher `Skill` in `~/.claude/settings.json`; a
+  forced model-invoked skill in a fresh headless session landed in
+  `~/.claude/skill-invocations.log` as JSON carrying
+  `"tool_name":"Skill","tool_input":{"skill":"story"}`. The claude-code-guide claim
+  («skill loading bypasses the tool pipeline; no Skill matcher exists») is FALSIFIED —
+  the P6 guide-vs-measurement failure class again. Measured boundary: a USER-typed
+  `/story` produced NO event (typed slash commands do not pass through the Skill
+  tool) — acceptable by construction: misroutes are model-invocations, exactly the
+  observable half. The TD-M2 detection wire is therefore **LIVE in v0 form**: every
+  model skill invocation is logged with its skill name; a suspected misroute is now
+  grep-able and the D-H7 counter has a feed.
 
 ## §7 Testing seams (D-H14, self-applied)
 
@@ -358,12 +363,11 @@ was «not yet dispatched» while this section already leaned on it, recorded as 
 6. Separate design contour (P-7/D-H18, chip emitted 2026-08-18): consumer-axis satellite
    harmonization — how shipped satellite stacks and consumer-side skill collisions
    coexist when per-project plugin scoping does not exist.
-7. Operator hand-off (R2; operator chose VERIFY, 2026-08-18): register the P8 test hook —
-   log-only `PreToolUse` matcher `Skill` in `~/.claude/settings.json`
-   (agent-uncommittable) — then one skill invocation in a fresh session and read the
-   log. Hook fires → build the log-only detection wire for the D-H7/D-H8 «1st live
-   misroute» trigger (closes TD-M2 and the consumer class-2 half); hook silent → record
-   the no-wire limit as final in D-H8 + P8.
+7. Operator hand-off — **DONE 2026-08-18**: hook registered by the operator, P8
+   CONFIRMED live (§6); the log-only hook IS the v0 detection wire (TD-M2 closed).
+   Residue: the log is unbounded append — rotate/trim is a future hygiene item;
+   a consumer-side wire remains a legitimate future escalation for class 2 (consumer
+   spec §8).
 
 ## §9 Changelog
 
@@ -511,3 +515,8 @@ was «not yet dispatched» while this section already leaned on it, recorded as 
   BOTH shipped rows, keep ast-grep on a clean census; P8 → VERIFY (§8 item 7).**
   Review round cap reached (2 REVISE) — per `/arch` §2 the residual state is surfaced
   to the operator with this entry instead of a third cold round.
+- 2026-08-18 — post-R2: **P8 CONFIRMED live** (§6) — the operator registered the hook,
+  a forced model-invoked skill landed in the log with its skill name; the TD-M2
+  escalation closes: the log-only hook IS the v0 detection wire. Boundary measured:
+  user-typed slash commands bypass the Skill tool — invisible to the wire and
+  irrelevant to it (misroutes are model-invocations). §8 item 7 → DONE.
