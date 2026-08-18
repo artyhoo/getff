@@ -65,6 +65,14 @@ chmod_safe +x "$PROJECT_ROOT/scripts/run-generated-rule-mutation.sh" 2>/dev/null
 # (packages/core/hooks/pre-push.ts generatedRuleMaterialSection); also runnable on demand.
 copy_safe "$PKG_ROOT/packages/core/synthesizer/run-rule-tests-firing.sh" "$PROJECT_ROOT/scripts/run-rule-tests-firing.sh"
 chmod_safe +x "$PROJECT_ROOT/scripts/run-rule-tests-firing.sh" 2>/dev/null || true
+# pre-merge-carrier B1 (#1466/#1465): opt-in local pre-merge carrier + CI-state probe.
+# Delivered to ALL profiles (F1: core consumers hit the Actions-minutes wall identically);
+# delivery is file-landing ONLY — nothing wires these into hooks/validate/CI (W-3 opt-in;
+# default-on promotion is B3's trigger-gated decision, never an implementation detail).
+copy_safe "$PKG_ROOT/packages/core/audit-self/pre-merge-local.sh" "$PROJECT_ROOT/scripts/pre-merge-local.sh"
+chmod_safe +x "$PROJECT_ROOT/scripts/pre-merge-local.sh" 2>/dev/null || true
+copy_safe "$PKG_ROOT/packages/core/audit-self/ci-available-probe.sh" "$PROJECT_ROOT/scripts/ci-available-probe.sh"
+chmod_safe +x "$PROJECT_ROOT/scripts/ci-available-probe.sh" 2>/dev/null || true
 if [ "$STACK" = "react-next" ]; then
   copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh" "$PROJECT_ROOT/scripts/audit-ai-docs.react-next.sh"
   chmod_safe +x "$PROJECT_ROOT/scripts/audit-ai-docs.react-next.sh" 2>/dev/null || true

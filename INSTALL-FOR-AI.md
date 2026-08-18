@@ -513,6 +513,17 @@ AI-assisted workflows require a Claude Code subscription:
 
 Consumers without a Claude Code subscription: deterministic layers (pre-commit, pre-push, CI jobs) work without any subscription. Only session-bound features are affected.
 
+### CI availability on GitHub Free (Actions minutes)
+
+On GitHub Free, private repos share **2 000 Actions minutes/month per account** (not per repo). When
+that pool is exhausted, every first-party check-run on a PR dies in ~2 s as `failure` with zero
+executed steps — a red/green-only CI waiter misreports a dead CI as a red gate. Two opt-in scripts
+ship to `scripts/` at every profile: `bash scripts/ci-available-probe.sh [sha|PR]` classifies CI
+state and prints `CI UNAVAILABLE` (exit 4) for that signature instead of RED (`gh` required; a named
+CANNOT-RUN without it); `bash scripts/pre-merge-local.sh [base]` runs the ts-lane validate gates on
+the merge result in a throwaway worktree before you push — local evidence, weaker than CI, with the
+NOT-COVERED list printed on every verdict.
+
 ---
 
 ## Expected first-run failures (this is OK)

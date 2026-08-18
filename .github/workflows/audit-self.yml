@@ -96,6 +96,11 @@ jobs:
           fi
           exit "$fail"
 
+      - name: "Pre-merge carrier self-tests (pre-merge-carrier-build B1: live-fire arms 1-10 + probe P1/P2)"
+        # T-PMC-D: every arm RUNS the real carrier/probe against throwaway fixture repos
+        # and asserts output + exit code — never greps the scripts' source text.
+        run: bash packages/core/audit-self/pre-merge-local.test.sh
+
   shipped-prettier:
     name: Shipped artifacts are Prettier-clean (GH #531 dogfood)
     runs-on: ubuntu-latest
@@ -864,11 +869,15 @@ jobs:
         run: bash tests/install-sh/snapshot-exclusion-guard.test.sh
       - name: "install-sh — lane orphan residue: refresh sweeps dir payloads + loudly reports dropped top-level getff files (adapter-jig C4)"
         run: bash tests/install-sh/lane-orphan-residue.test.sh
-      - name: "install-sh — shellcheck gate: setup.d/*.sh + install.sh (pinned 0.9.0)"
+      - name: "install-sh — pre-merge carrier delivery (pre-merge-carrier-build B1: --profile core receives carrier + probe, --refresh refreshes, W-3 no wiring)"
+        run: bash tests/install-sh/pre-merge-local-delivery.test.sh
+      - name: "install-sh — shellcheck gate: setup.d/*.sh + install.sh + the two B1 carrier scripts (pinned 0.9.0)"
         run: |
           if command -v shellcheck >/dev/null 2>&1; then
             shellcheck --version | grep -E '^version:' || true
-            shellcheck --exclude=SC2034,SC2016,SC2317 setup.d/*.sh install.sh
+            shellcheck --exclude=SC2034,SC2016,SC2317 setup.d/*.sh install.sh \
+              packages/core/audit-self/pre-merge-local.sh \
+              packages/core/audit-self/ci-available-probe.sh
           else
             echo "⊝ shellcheck not available in CI runner — skipping (install shellcheck >= 0.9.0 to enable)"
           fi

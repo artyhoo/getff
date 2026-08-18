@@ -941,7 +941,9 @@ do_refresh() {
     "packages/core/audit-self/check-fences-fire.sh:scripts/check-fences-fire.sh" \
     "packages/core/audit-self/check-shields-up.sh:scripts/check-shields-up.sh" \
     "packages/core/synthesizer/run-generated-rule-mutation.sh:scripts/run-generated-rule-mutation.sh" \
-    "packages/core/synthesizer/run-rule-tests-firing.sh:scripts/run-rule-tests-firing.sh"; do
+    "packages/core/synthesizer/run-rule-tests-firing.sh:scripts/run-rule-tests-firing.sh" \
+    "packages/core/audit-self/pre-merge-local.sh:scripts/pre-merge-local.sh" \
+    "packages/core/audit-self/ci-available-probe.sh:scripts/ci-available-probe.sh"; do
     _s="${_pair%%:*}"; _d="${_pair##*:}"
     refresh_safe "$PKG_ROOT/$_s" "$PROJECT_ROOT/$_d"
     case "$_d" in
