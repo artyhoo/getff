@@ -69,7 +69,7 @@ Orchestrator initializes state.md
         ▼
 For each kickoff K in queue (sequential):
         │
-        ├─► Pre-dispatch check (predecessor GO? open D-questions? T-AO-G check?)
+        ├─► Pre-dispatch check (Depends-on edges GO per frontier verdict? open D-questions? T-AO-G check?)
         │
         ├─► DISPATCH Worker (Task subagent, Opus, per [[worker-template.md]])
         │         │
@@ -248,7 +248,7 @@ Where:
 | Code                                      | Trigger                                                              | Escalation action                                                        |
 | ----------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | `ESCALATE:K:max-iterations`               | Artefact K hit iter 5 without GO                                     | Stop K; write escalation summary; pause queue                            |
-| `ESCALATE:K:blocked-by-prerequisite`      | K requires answer to D-question from prior kickoff that was DEFERRED | Mark K DEFERRED; if K was blocking next artefacts, escalate entire queue |
+| `ESCALATE:K:dependency-unmet`             | K's `Depends on` edge is unmet per the frontier verdict (dependency stage not done, or a prior kickoff's D-question was DEFERRED) | Mark K DEFERRED; if K was blocking next artefacts, escalate entire queue |
 | `ESCALATE:K:tool-unavailable`             | claude-code-guide OR DeepWiki/context7 unreachable >30 min           | Stop; note which tool; wait for recovery or escalate                     |
 | `ESCALATE:K:scope-conflict`               | Executing K would require editing maintainer-owned project file      | Stop; document which file and why; surface for maintainer                |
 | `ESCALATE:K:maintainer-dialogue-required` | Open D-question in K has no autonomous-decidable default             | Stop K; surface D-question with both options' downstream consequences    |
