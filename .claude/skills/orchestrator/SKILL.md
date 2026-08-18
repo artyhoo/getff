@@ -13,14 +13,17 @@ when_to_use: оркестратор, организатор, ты старшая
 # Orchestrator — the senior coordinates, juniors execute and verify
 
 > **Authoritative for:** the operator-side orchestration workflow — the Mode A/B dispatch
-> vocabulary (SSOT: [pipeline/SKILL.md:382](../pipeline/SKILL.md) points here for it), the
-> task-size decision matrix, quota zones, the Phase -1 → Phase 4.5 phase sequence, and the
-> Queue-mode entry conditions.
+> **choice rule** (when B over A, and on which model), the task-size decision matrix, quota
+> zones, the Phase -1 → Phase 4.5 phase sequence, and the Queue-mode entry conditions.
+> [pipeline/SKILL.md:382](../pipeline/SKILL.md) names this **skill** as the SSOT for the
+> Mode A/B vocabulary; within the skill, the channel _definitions_ live in
+> [references/glossary.md](references/glossary.md) and the _choice_ lives here.
 > **NOT authoritative for:** the in-session executor loop (dispatch → task review → fix rounds →
 > final review) — `superpowers:subagent-driven-development` (ADOPT, wrapped, never re-described);
 > workspace isolation mechanics — `superpowers:using-git-worktrees` (its Step 0 detection and
 > `git worktree` fallback are adopted by pointer); parallel-dispatch mechanics —
 > `superpowers:dispatching-parallel-agents`; plan documents — `superpowers:writing-plans`;
+> evidence-before-claims at the verification step — `superpowers:verification-before-completion`;
 > final push/PR mechanics — `superpowers:finishing-a-development-branch`. The role and
 > dispatch-channel definitions — [references/glossary.md](references/glossary.md). Incidents,
 > ROI and provenance — [references/rationale.md](references/rationale.md). The portable
@@ -93,7 +96,7 @@ Channel definitions (mechanism ↔ quota pool ↔ use) are owned by
 
 **Why A and not B:** the Opus quota is not scarce on the Max plan, so the default is strong reasoning inline (the top tier, Fable, is reserved for the hardest tasks — see «Model rule»). Mode A gives an immediate result with no manual overhead; Mode B (a separate Sonnet window) requires hand copy-pasting every prompt and REPORT, and its latency plus overhead usually costs more than it wins — except in the cases below.
 
-**Mode B — an explicit option, not the default.** Take B only when at least one holds: (a) **N-way parallelism** across N live windows yields real throughput beyond parallel inline Agents in one message; (b) a **persistent audit trail** as a prompt file is required; (c) the user **explicitly** asks to offload onto the Sonnet quota AND accepts the manual copy-paste cost. File-prompt mechanics: [references/batch-prompt-template.md](references/batch-prompt-template.md).
+**Mode B — an explicit option, not the default.** Take B only when at least one holds: (a) **N-way parallelism** across N live windows yields real throughput beyond parallel inline Agents in one message; (b) a **persistent audit trail** as a prompt file is required; (c) the user **explicitly** asks to offload onto the Sonnet quota AND accepts the manual copy-paste cost; (d) the **Opus pool is under load** (Yellow-O or Red in §Quota monitoring) — there Mode B is a pressure-release valve, not a preference. File-prompt mechanics: [references/batch-prompt-template.md](references/batch-prompt-template.md).
 
 **Model rule for Mode A (three tiers by task difficulty):**
 
@@ -102,8 +105,9 @@ Channel definitions (mechanism ↔ quota pool ↔ use) are owned by
 - **Sonnet** (`model: "sonnet"`) — acceptable for easier tasks where it genuinely splits the quota. Verify the split landed on your setup before relying on it — history and the check: [references/rationale.md](references/rationale.md).
 
 > **Divergence from upstream, deliberate (T16).** `superpowers:subagent-driven-development`
-> §Model Selection prices **per token** and therefore prescribes «the least powerful model that
-> can handle each role». This skill allocates a **fixed subscription pool** whose Opus half is not
+> §Model Selection optimises **cost and speed per role** and therefore prescribes «the least
+> powerful model that can handle each role» — it prices turns as well as tokens («turn count beats
+> token price»). This skill allocates a **fixed subscription pool** whose Opus half is not
 > scarce and whose top tier has no published limits — a different problem class, which is why the
 > default here is Opus rather than the cheapest tier that works. Upstream's «always specify the
 > model explicitly when dispatching» stands unchanged.
@@ -218,7 +222,7 @@ Anthropic Max plan: quotas reset on a rolling 5-hour window. Exact figures come 
 
 ## Phase -1 — Self-review of your own kickoff (paranoia at start)
 
-A cold read of your own dispatch prompt by 1–2 independent reviewers **before** sending catches ambiguity, stale references and hidden assumptions while the executor has not yet acted on them. Why two rather than one, the motivating incidents and the ROI: [references/rationale.md](references/rationale.md).
+A cold read of your own dispatch prompt by 1–2 independent reviewers **before** sending catches ambiguity, stale references and hidden assumptions while the executor has not yet acted on them. A self-review embedded **inside** the prompt does NOT count as one of the reviewers — same execution context, so it is not independent. Why two rather than one, the motivating incidents and the ROI: [references/rationale.md](references/rationale.md).
 
 > **Not the same gate as upstream's.** `superpowers:subagent-driven-development` scans the **plan**
 > for internal conflicts before Task 1. Phase -1 cold-reviews the **dispatch prompt** by a seat
@@ -373,7 +377,7 @@ Yellow/Red in #6 → switch working mode.
 
 Once, before the PR: `git log --oneline <BASE_BRANCH>..HEAD`, `git diff --stat <BASE_BRANCH>..HEAD`, and the `<CHECK_ALL>` command from discovery — once, with build. `Skill('superpowers:verification-before-completion')` owns the evidence-before-claims discipline for this step; the 6-item REPORT checklist above remains the primary gate.
 
-Push and PR creation are the senior's, and the mechanics (branch push, `gh pr create`, body template, the merge-vs-PR menu) are owned by `Skill('superpowers:finishing-a-development-branch')`. If Phase 0 stashed someone else's WIP, restore it afterwards on the previous branch (`git stash pop`).
+Push and PR creation are the senior's, and the mechanics (branch push, `gh pr create`, body template, the merge-vs-PR menu) are owned by `Skill('superpowers:finishing-a-development-branch')`. Two project details it does not carry: pass `--base` **without** the remote prefix, and title the PR `<TASK_ID>: <short umbrella name>` per the discovery-detected convention. If Phase 0 stashed someone else's WIP, restore it afterwards on the previous branch (`git stash pop`).
 
 ---
 
@@ -430,7 +434,7 @@ Upstream's continuous-execution norm applies (`superpowers:subagent-driven-devel
 pause for check-ins between tasks). What this workflow adds:
 
 - **The Phase 2 plan agreement is the only pause** between intake and the PR. Do not interrupt the flow of fixes.
-- **Batched questions.** All ambiguities from Phase 1 — one list at the start of Phase 2.
+- **Batched questions.** All ambiguities from Phase 1 — one list at the start of Phase 2 (upstream's own «present everything as one batched question, before execution begins» norm, applied to the intake stream).
 - **ATTN escalation.** Judge it: solvable alone / needs the user's word.
 - **Status update.** After each batch — 1 line: «batch A: 2 commits, ok». Not a repeat of the report.
 
