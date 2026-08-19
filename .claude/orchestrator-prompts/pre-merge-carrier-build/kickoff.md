@@ -182,6 +182,13 @@ grep -qiE "actions minutes|ci-available-probe" INSTALL-FOR-AI.md
 npx vitest run --root packages/core principles/41-shell-test-ci-coverage.test.ts
 bash tests/install-sh/refresh-covers-full-delivery.test.sh
 SNAPSHOT_MODE=compare bash tests/install-sh/snapshot.sh
+# — B2 arms (operator-applied at harvest 2026-08-20 per the recorded Task-10 deviation; the B1 block above is append-only history) —
+[ "$(find . -name 'github-actions-ci*.yml' -not -path '*/.claude/worktrees/*' -not -path '*/node_modules/*' | wc -l | tr -d ' ')" = "7" ]
+[ "$(grep -cE '^run_(python|go|cargo)_lane\(\)' packages/core/audit-self/pre-merge-local.sh)" = "3" ]
+grep -q 'zero-gates guard' packages/core/audit-self/pre-merge-local.test.sh
+grep -q 'pin-unparsed' packages/core/audit-self/pre-merge-local.sh
+grep -q 'npm-lane installs' INSTALL-FOR-AI.md
+grep -q 'npm-lane installs' packages/core/templates/shared/AI-USAGE-GUIDE.md
 ```
 
 (B1 contract; the two `.test.sh` homes are ratified by this kickoff — spec §a.6 names the

@@ -20,6 +20,26 @@
 #   10 lock contention                -> exit 75
 #   P1 probe: gh absent               -> exit 3, named
 #   P2 probe: quota signature / red-with-steps / green / no-checks -> 4 / 1 / 0 / 2
+#   11 python lane: detected from getff-python.yml; pins + gates derived, --no-cache added
+#   12 python pin mismatch (ruff stub reports wrong version) -> exit 3, pin named
+#   13 seeded python gate red -> exit 1, lane-qualified failed_gates in the ledger
+#   14 python vacuity: declared bans gate's --config input missing -> exit 90
+#   15 go lane: config resolved, forbidigo args derived, GOLANGCI_LINT_CACHE isolated
+#   16 go pin mismatch -> exit 3, named
+#   17 cargo lane: denial flags derived; CARGO_TARGET_DIR/RUSTC_WRAPPER unset for the run
+#   18 cargo absent on a bare PATH -> exit 3, named
+#   19 UI preset: build gate derived from ci.yml ci-success.needs; browser legs NOT
+#      COVERED (F3 report-only), never CANNOT-RUN
+#   20 multi-lane monorepo (npm + python): every detected lane runs
+#   21 UI preset BLOCK-needs shape (real template form) + unmapped-job WARN (rework r1)
+#   22 python zero-gates guard: workflow parses to ZERO gate lines -> exit 3, named (rework r1)
+#   23 go args-unparsed guard: invocation drifted off every shape -> exit 3, named (rework r1)
+#   24 cargo flags-unparsed guard: denial-flag line drifted -> exit 3, named (rework r1)
+#   25 python unparsed pins -> exit 3, "never a silent unpinned run" (rework r1)
+#   26 go REFUSE cell: getff-golangci.yml config resolution armors the elif (rework r1)
+#   27 go skip branch: no config -> workflow's own skip, WARN + exit 0 (rework r1)
+#   28 go seeded-red: golangci-lint exits 1 -> exit 1, lane-qualified ledger (rework r1)
+#   29 go absent on a bare PATH -> exit 3, named (rework r1)
 #
 # Environment notes:
 # - Fixtures are throwaway git repos (mktemp -d); npm-run-all2 is not
@@ -29,6 +49,11 @@
 #   skips one declared gate while exiting 0 (the #1466 item-1 shape).
 # - npm cache is redirected per fixture (container caches can be root-owned).
 # - Requires git >= 2.28 (`git init -b`) and npm on PATH.
+# - B2 stack-lane arms (11-20) use PATH-shim stub toolchains (ast-grep/ruff/
+#   go/golangci-lint/cargo) that report a pinned --version and log gate
+#   invocations. They prove the carrier's DETECTION/derivation/exit-code
+#   logic on real fixture repos — NOT real toolchain behaviour; real-toolchain
+#   runs are the host's opportunistic leg (kickoff §5).
 
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
@@ -217,6 +242,592 @@ PATH_SAVE=$PATH; export PATH="$T/.shim-bin:$PATH"
 run_carrier "$T" main
 [ "$RC" -eq 75 ] && ok "arm10: held lock -> exit 75" || bad "arm10: expected 75, got $RC"
 export PATH=$PATH_SAVE
+
+echo "== B2 lane arms =="
+
+# make_stack_fixture <workflow-filename> — workflow YAML on stdin; base advanced
+# after branching (real merge), no package.json (stack-only lane); prints dir.
+make_stack_fixture() {
+  local T
+  T=$(mktemp -d)
+  mkdir -p "$T/.github/workflows"
+  cat > "$T/.github/workflows/$1"
+  git -C "$T" init -q -b main
+  git -C "$T" config user.email t@t; git -C "$T" config user.name T
+  git -C "$T" add -A; git -C "$T" commit -qm base
+  git -C "$T" checkout -qb feature/x
+  echo head-change > "$T/head.txt"; git -C "$T" add -A; git -C "$T" commit -qm headwork
+  git -C "$T" checkout -q main
+  echo base-change > "$T/base.txt"; git -C "$T" add -A; git -C "$T" commit -qm basework
+  git -C "$T" checkout -q feature/x
+  echo "$T"
+}
+
+# make_py_stubs <dir> <ast-grep-ver> <ruff-ver> — stubs report the given pinned
+# version, log gate invocations, exit rc from <dir>/py-gate-rc (missing -> 0).
+make_py_stubs() {
+  local D=$1
+  mkdir -p "$D/.stub-bin"
+  cat > "$D/.stub-bin/ast-grep" <<EOF
+#!/usr/bin/env bash
+if [ "\$1" = "--version" ]; then echo "@ast-grep/cli $2"; exit 0; fi
+echo "ast-grep \$*" >> "$D/py-gates.log"
+[ -f "$D/py-gate-rc" ] && exit "\$(cat "$D/py-gate-rc")"
+exit 0
+EOF
+  cat > "$D/.stub-bin/ruff" <<EOF
+#!/usr/bin/env bash
+if [ "\$1" = "--version" ]; then echo "ruff $3"; exit 0; fi
+echo "ruff \$*" >> "$D/py-gates.log"
+[ -f "$D/py-gate-rc" ] && exit "\$(cat "$D/py-gate-rc")"
+exit 0
+EOF
+  chmod +x "$D/.stub-bin/ast-grep" "$D/.stub-bin/ruff"
+}
+
+# make_go_stubs <dir> <go-ver> <golangci-ver>
+make_go_stubs() {
+  local D=$1
+  mkdir -p "$D/.stub-bin"
+  cat > "$D/.stub-bin/go" <<EOF
+#!/usr/bin/env bash
+if [ "\$1" = version ]; then echo "go version go$2 linux/arm64"; exit 0; fi
+echo "go \$*" >> "$D/go-gates.log"
+exit 0
+EOF
+  cat > "$D/.stub-bin/golangci-lint" <<EOF
+#!/usr/bin/env bash
+if [ "\$1" = "--version" ]; then echo "golangci-lint has version $3 built with go$2"; exit 0; fi
+echo "golangci-lint \$* [GOLANGCI_LINT_CACHE=\${GOLANGCI_LINT_CACHE:-UNSET}]" >> "$D/go-gates.log"
+[ -f "$D/go-gate-rc" ] && exit "\$(cat "$D/go-gate-rc")"
+exit 0
+EOF
+  chmod +x "$D/.stub-bin/go" "$D/.stub-bin/golangci-lint"
+}
+
+# make_cargo_stub <dir>
+make_cargo_stub() {
+  local D=$1
+  mkdir -p "$D/.stub-bin"
+  cat > "$D/.stub-bin/cargo" <<EOF
+#!/usr/bin/env bash
+if [ "\$1" = clippy ] && [ "\$2" = "--version" ]; then echo "clippy 0.1.84 (00000000 2026-01-01)"; exit 0; fi
+echo "cargo \$* [CARGO_TARGET_DIR=\${CARGO_TARGET_DIR:-UNSET} RUSTC_WRAPPER=\${RUSTC_WRAPPER:-UNSET}]" >> "$D/cargo-gates.log"
+[ -f "$D/cargo-gate-rc" ] && exit "\$(cat "$D/cargo-gate-rc")"
+exit 0
+EOF
+  chmod +x "$D/.stub-bin/cargo"
+}
+
+# The python workflow mirrors the LIVE template's own shapes (re-measured
+# 2026-08-19, rework round 1): a header comment that names the pins in prose —
+# "(@ast-grep/cli@0.44.1, ruff==0.15.21)" — the exact trap that fed an
+# unanchored pin-grep trailing ',' / ')' garbage; the zizmor trailing comment
+# on the ast-grep install line; and the three gate lines ast-grep scan /
+# ruff check . / ruff check . --config .getff/ruff-bans.toml --no-cache
+# (templates/python/github-actions-ci.yml:7,46,49,66,72,82).
+PYWF=$(cat <<'WF'
+# generated by getff — do not edit by hand
+# Tool installs are version-PINNED per .claude/rules/ci-tool-pinning.md Rule A: the pins match
+# what the getff framework CI itself fires (@ast-grep/cli@0.44.1, ruff==0.15.21) so the consumer's
+# gate is deterministic across time and matched to the rules getff delivered.
+#
+# Delivered by the getff Python lane into .github/workflows/getff-python.yml.
+name: getff-python
+on: [push]
+jobs:
+  astgrep:
+    name: ast-grep structural rules (getff)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install ast-grep (pinned)
+        run: npm install -g @ast-grep/cli@0.44.1 # zizmor: ignore[adhoc-packages]
+      - name: ast-grep scan (getff rules)
+        run: ast-grep scan
+  getff-ruff:
+    name: ruff fast-path lint (getff)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install ruff (pinned)
+        run: pip install ruff==0.15.21
+      - name: ruff check (discovered config)
+        run: ruff check .
+      - name: ruff check (getff bans — isolated --config)
+        run: ruff check . --config .getff/ruff-bans.toml --no-cache
+WF
+)
+
+# ── arm 11 + 1: python lane detected via its wired surface; gates + pins derived ──
+T=$(printf '%s\n' "$PYWF" | make_stack_fixture getff-python.yml)
+mkdir -p "$T/.getff"; echo 'select = ["DTZ005"]' > "$T/.getff/ruff-bans.toml"
+git -C "$T" add -A; git -C "$T" commit -qm banscfg
+make_py_stubs "$T" 0.44.1 0.15.21
+PATH_SAVE=$PATH; export PATH="$T/.stub-bin:$PATH"
+run_carrier "$T" main
+[ "$RC" -eq 0 ] && ok "arm11: python lane detected via getff-python.yml -> exit 0" || bad "arm11: expected 0, got $RC"
+assert_three_shas "arm11(python-PASS)" "$T/.last-out"
+assert_contains "arm11: stack-only tree carries no npm NOT-COVERED trio" "$T/.last-out" "(none — every gate of the detected lane workflows ran locally)"
+grep -qF 'ruff check . --no-cache' "$T/py-gates.log" \
+  && ok "arm11: discovered-config ruff gate gained --no-cache (§b.1)" \
+  || bad "arm11: plain ruff gate missing --no-cache (log: $(cat "$T/py-gates.log" 2>/dev/null))"
+grep -qF 'ruff check . --config .getff/ruff-bans.toml --no-cache' "$T/py-gates.log" \
+  && ok "arm11: bans gate ran against the present config" || bad "arm11: bans gate not run"
+tail -n 1 "$T/.git/getff/pre-merge-runs.ndjson" | grep -q '"verdict":"PASS"' \
+  && ok "arm11: python-lane PASS ledgered" || bad "arm11: ledger missing/malformed"
+export PATH=$PATH_SAVE
+
+# ── arm 12: ruff pin mismatch -> exit 3, the pin named ──
+T=$(printf '%s\n' "$PYWF" | make_stack_fixture getff-python.yml)
+mkdir -p "$T/.getff"; echo 'select = ["DTZ005"]' > "$T/.getff/ruff-bans.toml"
+git -C "$T" add -A; git -C "$T" commit -qm banscfg
+make_py_stubs "$T" 0.44.1 9.9.9
+PATH_SAVE=$PATH; export PATH="$T/.stub-bin:$PATH"
+run_carrier "$T" main
+[ "$RC" -eq 3 ] && ok "arm12: ruff pin mismatch -> exit 3" || bad "arm12: expected 3, got $RC"
+assert_contains "arm12: the pin named" "$T/.last-out" "ruff==0.15.21"
+assert_contains "arm12: never a silent run under a different version" "$T/.last-out" "never a silent run under a different version"
+assert_three_shas "arm12(python-CANNOT-RUN)" "$T/.last-out"
+export PATH=$PATH_SAVE
+
+# ── arm 13: seeded python gate red -> exit 1, lane-qualified failed_gates ──
+T=$(printf '%s\n' "$PYWF" | make_stack_fixture getff-python.yml)
+mkdir -p "$T/.getff"; echo 'select = ["DTZ005"]' > "$T/.getff/ruff-bans.toml"
+git -C "$T" add -A; git -C "$T" commit -qm banscfg
+make_py_stubs "$T" 0.44.1 0.15.21
+echo 1 > "$T/py-gate-rc"
+PATH_SAVE=$PATH; export PATH="$T/.stub-bin:$PATH"
+run_carrier "$T" main
+[ "$RC" -eq 1 ] && ok "arm13: seeded python gate red -> exit 1" || bad "arm13: expected 1, got $RC"
+assert_contains "arm13: FAIL verdict names the merge result" "$T/.last-out" "gate(s) red on the merge result"
+tail -n 1 "$T/.git/getff/pre-merge-runs.ndjson" | grep -qF '"python:' \
+  && ok "arm13: lane-qualified failed_gates ledgered" || bad "arm13: failed_gates not lane-qualified in ledger"
+assert_three_shas "arm13(python-FAIL)" "$T/.last-out"
+export PATH=$PATH_SAVE
+
+# ── arm 14: python vacuity — bans config missing -> declared gate never ran -> 90 ──
+T=$(printf '%s\n' "$PYWF" | make_stack_fixture getff-python.yml)
+make_py_stubs "$T" 0.44.1 0.15.21
+PATH_SAVE=$PATH; export PATH="$T/.stub-bin:$PATH"
+run_carrier "$T" main
+[ "$RC" -eq 90 ] && ok "arm14: declared bans gate missing its --config input -> exit 90" || bad "arm14: expected 90, got $RC"
+assert_contains "arm14: never-reported gate named with lane prefix" "$T/.last-out" "never reported: python:ruff check"
+assert_three_shas "arm14(python-VACUITY)" "$T/.last-out"
+tail -n 1 "$T/.git/getff/pre-merge-runs.ndjson" | grep -q '"verdict":"VACUITY"' \
+  && ok "arm14: VACUITY ledgered" || bad "arm14: VACUITY not ledgered"
+export PATH=$PATH_SAVE
+
+# ── arm 15 + 1: go lane — config resolved, args derived, cache isolated ──
+# Mirrors the LIVE template's own shapes (re-measured 2026-08-19, rework
+# round 1): the header/step comments carrying the literal "'go-version:'
+# input" fragment (the trap that killed the unanchored go-pin parse), the
+# step-NAME line "- name: golangci-lint run (getff bans)" (the trap that fed
+# an unanchored args-grep '(getff bans)' garbage), and the block-scalar run
+# with the workflow's own if/elif/else config order
+# (templates/go/github-actions-ci.yml:44,48,53,57-68).
+GOWF=$(cat <<'WF'
+# generated by getff — do not edit by hand
+# The lane pins both go-version AND golangci-lint-version per .claude/rules/ci-tool-pinning.md
+# Rule A — exact pins only, no float.
+#
+# Delivered by the getff go lane into .github/workflows/getff-go.yml.
+name: getff-go
+on: [push]
+jobs:
+  getff-golangci:
+    name: golangci-lint bans (getff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.0'
+      # installer; the pin lives in the `go-version:` input, not as a bare `run: go install`.
+      - name: Install pinned golangci-lint
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.2
+      - name: golangci-lint run (getff bans)
+        run: |
+          set -euo pipefail
+          if [ -f .golangci.yml ]; then
+            golangci-lint run --enable forbidigo --config .golangci.yml ./...
+          elif [ -f getff-golangci.yml ]; then
+            golangci-lint run --enable forbidigo --config getff-golangci.yml ./...
+          else
+            echo "no getff go config found — skip"
+            exit 0
+          fi
+WF
+)
+T=$(printf '%s\n' "$GOWF" | make_stack_fixture getff-go.yml)
+printf '%s\n' 'run:' '  timeout: 5m' > "$T/.golangci.yml"
+git -C "$T" add -A; git -C "$T" commit -qm gocfg
+make_go_stubs "$T" 1.22.0 1.55.2
+PATH_SAVE=$PATH; export PATH="$T/.stub-bin:$PATH"
+run_carrier "$T" main
+[ "$RC" -eq 0 ] && ok "arm15: go lane detected via getff-go.yml -> exit 0" || bad "arm15: expected 0, got $RC"
+assert_three_shas "arm15(go-PASS)" "$T/.last-out"
+grep -qF 'golangci-lint run --enable forbidigo ./... --config .golangci.yml' "$T/go-gates.log" \
+  && ok "arm15: forbidigo args derived from the workflow (config re-resolved)" \
+  || bad "arm15: golangci-lint invocation wrong (log: $(cat "$T/go-gates.log" 2>/dev/null))"
+# git rev-parse --show-toplevel canonicalizes symlinked roots (/var → /private/var
+# on macOS); the carrier cd's there and logs the canonical form, so the expectation
+# must be canonicalized the same way or the arm reds on macOS hosts (green in the
+# linux container where mktemp paths carry no symlink — the 2026-08-20 host run).
+_arm15_tc=$(cd "$T" && pwd -P)
+grep -qF "GOLANGCI_LINT_CACHE=$_arm15_tc/.git/getff/pre-merge-golangci-cache" "$T/go-gates.log" \
+  && ok "arm15: GOLANGCI_LINT_CACHE isolated to a throwaway dir (§b.1)" \
+  || bad "arm15: GOLANGCI_LINT_CACHE not isolated"
+grep -q "GOLANGCI_LINT_CACHE isolated" "$T"/.git/getff/pre-merge-logs/*.log \
+  && ok "arm15: isolation noted in the retained run log" || bad "arm15: isolation note missing from run log"
+export PATH=$PATH_SAVE
+
+# ── arm 16: go pin mismatch -> exit 3, named ──
+T=$(printf '%s\n' "$GOWF" | make_stack_fixture getff-go.yml)
+make_go_stubs "$T" 9.9.9 1.55.2
+PATH_SAVE=$PATH; export PATH="$T/.stub-bin:$PATH"
+run_carrier "$T" main
+[ "$RC" -eq 3 ] && ok "arm16: go pin mismatch -> exit 3" || bad "arm16: expected 3, got $RC"
+assert_contains "arm16: the pin named" "$T/.last-out" "pins go-version 1.22.0"
+assert_three_shas "arm16(go-CANNOT-RUN)" "$T/.last-out"
+export PATH=$PATH_SAVE
+
+# ── arm 17 + 1: cargo lane — denial flags derived; env unset for the run only ──
+CARGOWF=$(cat <<'WF'
+name: getff-cargo
+on: [push]
+jobs:
+  getff-clippy:
+    name: clippy bans (getff)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add clippy component
+        run: rustup component add clippy
+      - name: cargo clippy (getff bans)
+        run: cargo clippy --all-targets -- -D clippy::disallowed_methods -D clippy::disallowed_types -D clippy::disallowed_macros
+WF
+)
+T=$(printf '%s\n' "$CARGOWF" | make_stack_fixture getff-cargo.yml)
+make_cargo_stub "$T"
+PATH_SAVE=$PATH; export PATH="$T/.stub-bin:$PATH"
+export CARGO_TARGET_DIR=/tmp/arm17-should-not-leak
+export RUSTC_WRAPPER=arm17-sccache
+run_carrier "$T" main
+[ "$RC" -eq 0 ] && ok "arm17: cargo lane detected via getff-cargo.yml -> exit 0 (unpinned: presence check only)" || bad "arm17: expected 0, got $RC"
+assert_three_shas "arm17(cargo-PASS)" "$T/.last-out"
+grep -qF -- 'cargo clippy --all-targets -- -D clippy::disallowed_methods -D clippy::disallowed_types -D clippy::disallowed_macros' "$T/cargo-gates.log" \
+  && ok "arm17: denial flags derived from the consumer's workflow" \
+  || bad "arm17: clippy invocation wrong (log: $(cat "$T/cargo-gates.log" 2>/dev/null))"
+grep -qF 'CARGO_TARGET_DIR=UNSET' "$T/cargo-gates.log" && grep -qF 'RUSTC_WRAPPER=UNSET' "$T/cargo-gates.log" \
+  && ok "arm17: CARGO_TARGET_DIR/RUSTC_WRAPPER unset for the carrier's run only (§b.1)" \
+  || bad "arm17: env isolation failed (host values leaked into the gate run)"
+unset CARGO_TARGET_DIR RUSTC_WRAPPER
+export PATH=$PATH_SAVE
+
+# ── arm 18: cargo absent (bare PATH) -> exit 3, named ──
+T=$(printf '%s\n' "$CARGOWF" | make_stack_fixture getff-cargo.yml)
+mkdir -p "$T/.bare-bin"
+for b in git bash grep sed head tr date mkdir rm rmdir wc cat ls; do
+  ln -s "$(command -v "$b")" "$T/.bare-bin/$b"
+done
+OUT=$(cd "$T" && PATH="$T/.bare-bin" /bin/bash "$CARRIER" main 2>&1); RC=$?
+printf '%s\n' "$OUT" > "$T/.last-out"
+[ "$RC" -eq 3 ] && ok "arm18: cargo absent on a bare PATH -> exit 3" || bad "arm18: expected 3, got $RC"
+assert_contains "arm18: cargo named as the missing tool" "$T/.last-out" "cargo is required by getff-cargo.yml"
+assert_three_shas "arm18(cargo-CANNOT-RUN)" "$T/.last-out"
+
+# ── arm 19 + 1: UI preset — build gate derived; browser legs NOT COVERED (F3) ──
+make_ui_fixture() {
+  local T
+  T=$(mktemp -d)
+  cat > "$T/package.json" <<'EOF'
+{
+  "name": "fixture-pkg",
+  "version": "0.0.0",
+  "scripts": {
+    "validate": "npm-run-all2 --parallel typecheck lint",
+    "typecheck": "echo tc-ok",
+    "lint": "echo lint-ok",
+    "build": "echo ui-build-ok",
+    "build-storybook": "echo sb-build-ok",
+    "test-storybook": "echo sb-test-ok",
+    "test-e2e": "echo e2e-ok"
+  }
+}
+EOF
+  printf '%s\n' '{"name":"fixture-pkg","version":"0.0.0","lockfileVersion":3,"requires":true,"packages":{"":{"name":"fixture-pkg","version":"0.0.0"}}}' > "$T/package-lock.json"
+  mkdir -p "$T/.shim-bin" "$T/.github/workflows"
+  printf '%s\n' '#!/usr/bin/env bash' \
+    'args=(); for a in "$@"; do case "$a" in --*) ;; *) args+=("$a");; esac; done' \
+    'for g in "${args[@]}"; do npm run "$g" || exit 1; done' > "$T/.shim-bin/npm-run-all2"
+  chmod +x "$T/.shim-bin/npm-run-all2"
+  cat > "$T/.github/workflows/ci.yml" <<'EOF'
+name: CI
+on: [push]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - run: npm run lint
+  ci-success:
+    if: always()
+    needs: [lint, typecheck, build, test-storybook, test-e2e, security, codecov]
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+EOF
+  git -C "$T" init -q -b main
+  git -C "$T" config user.email t@t; git -C "$T" config user.name T
+  git -C "$T" add -A; git -C "$T" commit -qm base
+  git -C "$T" checkout -qb feature/x
+  echo head-change > "$T/head.txt"; git -C "$T" add -A; git -C "$T" commit -qm headwork
+  git -C "$T" checkout -q main
+  echo base-change > "$T/base.txt"; git -C "$T" add -A; git -C "$T" commit -qm basework
+  git -C "$T" checkout -q feature/x
+  echo "$T"
+}
+T=$(make_ui_fixture)
+PATH_SAVE=$PATH; export PATH="$T/.shim-bin:$PATH"
+run_carrier "$T" main
+[ "$RC" -eq 0 ] && ok "arm19: UI preset lane (validate + derived build) -> exit 0" || bad "arm19: expected 0, got $RC"
+assert_three_shas "arm19(ui-PASS)" "$T/.last-out"
+assert_contains "arm19: test-storybook leg NOT COVERED (F3 report-only)" "$T/.last-out" "test-storybook (browser-dependent: built Storybook served on port 6006)"
+assert_contains "arm19: test-e2e leg NOT COVERED (F3 report-only)" "$T/.last-out" "test-e2e (playwright; browser-dependent)"
+grep -q "ui-build-ok" "$T"/.git/getff/pre-merge-logs/*.log \
+  && ok "arm19: build gate ran (derived from ci.yml ci-success.needs)" || bad "arm19: build gate never ran"
+export PATH=$PATH_SAVE
+
+# ── arm 20 + 1: multi-lane monorepo (npm + python) — every detected lane runs ──
+T=$(make_fixture "echo lint-ok")
+mkdir -p "$T/.github/workflows"
+printf '%s\n' "$PYWF" > "$T/.github/workflows/getff-python.yml"
+mkdir -p "$T/.getff"; echo 'select = ["DTZ005"]' > "$T/.getff/ruff-bans.toml"
+git -C "$T" add -A; git -C "$T" commit -qm pywf
+make_py_stubs "$T" 0.44.1 0.15.21
+PATH_SAVE=$PATH; export PATH="$T/.shim-bin:$T/.stub-bin:$PATH"
+run_carrier "$T" main
+[ "$RC" -eq 0 ] && ok "arm20: multi-lane tree (npm + python) both green -> exit 0" || bad "arm20: expected 0, got $RC"
+assert_contains "arm20: both lanes named in the verdict" "$T/.last-out" "npm python"
+[ -s "$T/py-gates.log" ] && ok "arm20: python lane ran alongside the npm lane" || bad "arm20: python gates never ran"
+assert_three_shas "arm20(multi-PASS)" "$T/.last-out"
+export PATH=$PATH_SAVE
+
+# ── arm 21 + 1: UI BLOCK-needs shape (the production form of all three real UI
+# templates — github-actions-ci-ui.yml:281-293 et al.; arm 19's inline
+# needs: [ ... ] is the rare variant) + the unmapped-job default arm (MINOR 3c):
+# an unmapped needs entry is WARNED, never silently treated as covered ──
+T=$(make_ui_fixture)
+cat > "$T/.github/workflows/ci.yml" <<'EOF'
+name: CI
+on: [push]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - run: npm run lint
+  ci-success:
+    if: always()
+    needs:
+      - lint
+      - typecheck
+      - build
+      - test-storybook
+      - test-e2e
+      - security
+      - codecov
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+EOF
+git -C "$T" add -A; git -C "$T" commit -qm blockneeds
+PATH_SAVE=$PATH; export PATH="$T/.shim-bin:$PATH"
+run_carrier "$T" main
+[ "$RC" -eq 0 ] && ok "arm21: UI BLOCK-needs shape (real template form) -> exit 0" || bad "arm21: expected 0, got $RC"
+assert_three_shas "arm21(ui-block-PASS)" "$T/.last-out"
+assert_contains "arm21: unmapped job named loudly, not silently covered (MINOR 3c)" "$T/.last-out" "unmapped job 'security'"
+assert_contains "arm21: second unmapped job also named" "$T/.last-out" "unmapped job 'codecov'"
+assert_contains "arm21: browser leg still NOT COVERED off the BLOCK list" "$T/.last-out" "test-storybook (browser-dependent: built Storybook served on port 6006)"
+grep -q "ui-build-ok" "$T"/.git/getff/pre-merge-logs/*.log \
+  && ok "arm21: build leg derived from the BLOCK needs list" || bad "arm21: build gate never ran (BLOCK needs unparsed?)"
+export PATH=$PATH_SAVE
+
+# ── arm 22: python zero-gates guard (MAJOR 2) — install lines intact (pins
+# parse) but every gate line drifted off the tolerated run: shapes -> ZERO
+# parsed gates must CANNOT-RUN (exit 3), never a silent-subset PASS ──
+PYWF_ZG=$(cat <<'WF'
+name: getff-python
+on: [push]
+jobs:
+  astgrep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install ast-grep (pinned)
+        run: npm install -g @ast-grep/cli@0.44.1
+      - name: drifted gate
+        run: ./scripts/sg-scan.sh
+  getff-ruff:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install ruff (pinned)
+        run: pip install ruff==0.15.21
+      - name: drifted gate
+        run: make ruff
+WF
+)
+T=$(printf '%s\n' "$PYWF_ZG" | make_stack_fixture getff-python.yml)
+make_py_stubs "$T" 0.44.1 0.15.21
+PATH_SAVE=$PATH; export PATH="$T/.stub-bin:$PATH"
+run_carrier "$T" main
+[ "$RC" -eq 3 ] && ok "arm22: python zero-gates parsed -> exit 3 (no silent PASS)" || bad "arm22: expected 3, got $RC"
+assert_contains "arm22: lane + workflow file named in the vacuity verdict" "$T/.last-out" "ZERO ast-grep/ruff gate lines parsed from .github/workflows/getff-python.yml"
+assert_contains "arm22: lane-qualified CANNOT-RUN entry" "$T/.last-out" "cannot-run lane/tool: python:zero-gates-parsed"
+assert_three_shas "arm22(python-zero-gates)" "$T/.last-out"
+export PATH=$PATH_SAVE
+
+# ── arm 23: go args-unparsed guard (MAJOR 2) — pins parse (setup-go input +
+# install line), config present, but the invocation drifted off every tolerated
+# command shape -> exit 3, never a silent degrade to 'golangci-lint run
+# --config <cfg>' ──
+GOWF_UA=$(cat <<'WF'
+name: getff-go
+on: [push]
+jobs:
+  getff-golangci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.0'
+      - name: Install pinned golangci-lint
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.2
+      - name: drifted invocation
+        run: ./scripts/lint-go.sh
+WF
+)
+T=$(printf '%s\n' "$GOWF_UA" | make_stack_fixture getff-go.yml)
+printf '%s\n' 'run:' '  timeout: 5m' > "$T/.golangci.yml"
+git -C "$T" add -A; git -C "$T" commit -qm gocfg
+make_go_stubs "$T" 1.22.0 1.55.2
+PATH_SAVE=$PATH; export PATH="$T/.stub-bin:$PATH"
+run_carrier "$T" main
+[ "$RC" -eq 3 ] && ok "arm23: go invocation unparsable -> exit 3 (no silent degrade)" || bad "arm23: expected 3, got $RC"
+assert_contains "arm23: refusing the degraded invocation, named" "$T/.last-out" "refusing the degraded 'golangci-lint run --config <cfg>' invocation"
+assert_contains "arm23: lane-qualified CANNOT-RUN entry" "$T/.last-out" "cannot-run lane/tool: go:args-unparsed"
+assert_three_shas "arm23(go-args-unparsed)" "$T/.last-out"
+export PATH=$PATH_SAVE
+
+# ── arm 24: cargo flags-unparsed guard (MAJOR 2) — clippy present, but the
+# denial-flag line drifted -> exit 3, never a silent bare 'cargo clippy' ──
+CARGOWF_UF=$(cat <<'WF'
+name: getff-cargo
+on: [push]
+jobs:
+  getff-clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add clippy component
+        run: rustup component add clippy
+      - name: drifted invocation
+        run: make clippy
+WF
+)
+T=$(printf '%s\n' "$CARGOWF_UF" | make_stack_fixture getff-cargo.yml)
+make_cargo_stub "$T"
+PATH_SAVE=$PATH; export PATH="$T/.stub-bin:$PATH"
+run_carrier "$T" main
+[ "$RC" -eq 3 ] && ok "arm24: cargo denial flags unparsable -> exit 3 (no bare clippy)" || bad "arm24: expected 3, got $RC"
+assert_contains "arm24: refusing the bare clippy run, named" "$T/.last-out" "refusing a bare 'cargo clippy' run that would drop the -D clippy::disallowed_* bans"
+assert_contains "arm24: lane-qualified CANNOT-RUN entry" "$T/.last-out" "cannot-run lane/tool: cargo:flags-unparsed"
+assert_three_shas "arm24(cargo-flags-unparsed)" "$T/.last-out"
+export PATH=$PATH_SAVE
+
+# ── arm 25: python unparsed pins (MAJOR 2, pins slice) — install lines drifted
+# unpinned; gate lines intact but UNREACHED: pin-unparsed -> exit 3 BEFORE any
+# gate fires ("never a silent unpinned run") ──
+PYWF_NP=$(cat <<'WF'
+name: getff-python
+on: [push]
+jobs:
+  astgrep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install ast-grep (unpinned drift)
+        run: npm install -g @ast-grep/cli  # ci-tool-pin: allow fixture text — arm 25 feeds the carrier a deliberately unpinned consumer workflow
+      - name: ast-grep scan (getff rules)
+        run: ast-grep scan
+  getff-ruff:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install ruff (unpinned drift)
+        run: pip install ruff  # ci-tool-pin: allow fixture text — arm 25 feeds the carrier a deliberately unpinned consumer workflow
+      - name: ruff check
+        run: ruff check .
+WF
+)
+T=$(printf '%s\n' "$PYWF_NP" | make_stack_fixture getff-python.yml)
+make_py_stubs "$T" 0.44.1 0.15.21
+PATH_SAVE=$PATH; export PATH="$T/.stub-bin:$PATH"
+run_carrier "$T" main
+[ "$RC" -eq 3 ] && ok "arm25: python unparsed pins -> exit 3" || bad "arm25: expected 3, got $RC"
+assert_contains "arm25: ast-grep pin-unparsed named, never silent" "$T/.last-out" "installs ast-grep but its pin could not be parsed"
+assert_contains "arm25: ruff pin-unparsed named, never silent" "$T/.last-out" "installs ruff but its pin could not be parsed"
+assert_contains "arm25: lane-qualified CANNOT-RUN entries" "$T/.last-out" "cannot-run lane/tool: python:ast-grep-pin-unparsed"
+[ ! -s "$T/py-gates.log" ] && ok "arm25: no gate fired under an unparsed pin" || bad "arm25: a gate ran despite unparsed pins (log: $(cat "$T/py-gates.log" 2>/dev/null))"
+assert_three_shas "arm25(python-pin-unparsed)" "$T/.last-out"
+export PATH=$PATH_SAVE
+
+# ── arm 26 + 1: go REFUSE cell — getff-golangci.yml (and NOT .golangci.yml)
+# in the merge tree -> config resolution takes the elif, args re-derived from
+# the workflow's if-branch line, --config re-anchored to the REFUSE config ──
+T=$(printf '%s\n' "$GOWF" | make_stack_fixture getff-go.yml)
+printf '%s\n' 'run:' '  timeout: 5m' '  forbidigo:' '    exclude: false' > "$T/getff-golangci.yml"
+git -C "$T" add -A; git -C "$T" commit -qm refusecfg
+make_go_stubs "$T" 1.22.0 1.55.2
+PATH_SAVE=$PATH; export PATH="$T/.stub-bin:$PATH"
+run_carrier "$T" main
+[ "$RC" -eq 0 ] && ok "arm26: go REFUSE-cell config (getff-golangci.yml) -> exit 0" || bad "arm26: expected 0, got $RC"
+assert_three_shas "arm26(go-REFUSE-PASS)" "$T/.last-out"
+grep -qF 'golangci-lint run --enable forbidigo ./... --config getff-golangci.yml' "$T/go-gates.log" \
+  && ok "arm26: elif cell armored — args kept, config re-anchored to getff-golangci.yml" \
+  || bad "arm26: REFUSE-cell invocation wrong (log: $(cat "$T/go-gates.log" 2>/dev/null))"
+export PATH=$PATH_SAVE
+
+# ── arm 27: go skip branch — no config at all in the merge tree -> the
+# workflow's own else-branch applies: WARN, gate not run, exit 0 ──
+T=$(printf '%s\n' "$GOWF" | make_stack_fixture getff-go.yml)
+make_go_stubs "$T" 1.22.0 1.55.2
+PATH_SAVE=$PATH; export PATH="$T/.stub-bin:$PATH"
+run_carrier "$T" main
+[ "$RC" -eq 0 ] && ok "arm27: go skip branch (no config) -> exit 0" || bad "arm27: expected 0, got $RC"
+assert_contains "arm27: skip WARN names the workflow's own skip branch" "$T/.last-out" "the workflow's own skip branch applies; gate not run"
+[ ! -f "$T/go-gates.log" ] && ok "arm27: golangci-lint never invoked on the skip branch" || bad "arm27: gate fired despite skip (log: $(cat "$T/go-gates.log" 2>/dev/null))"
+assert_three_shas "arm27(go-skip)" "$T/.last-out"
+export PATH=$PATH_SAVE
+
+# ── arm 28: go seeded-red (MINOR 3b) — golangci-lint stub exits 1 -> exit 1,
+# lane-qualified failed_gates ledgered (per-lane shape now true for all six) ──
+T=$(printf '%s\n' "$GOWF" | make_stack_fixture getff-go.yml)
+printf '%s\n' 'run:' '  timeout: 5m' > "$T/.golangci.yml"
+git -C "$T" add -A; git -C "$T" commit -qm gocfg
+make_go_stubs "$T" 1.22.0 1.55.2
+echo 1 > "$T/go-gate-rc"
+PATH_SAVE=$PATH; export PATH="$T/.stub-bin:$PATH"
+run_carrier "$T" main
+[ "$RC" -eq 1 ] && ok "arm28: seeded go gate red -> exit 1" || bad "arm28: expected 1, got $RC"
+assert_contains "arm28: go lane FAIL names the merge result" "$T/.last-out" "FAIL (go lane): golangci-lint exited 1"
+tail -n 1 "$T/.git/getff/pre-merge-runs.ndjson" | grep -qF '"go:golangci-lint run' \
+  && ok "arm28: lane-qualified failed_gates ledgered" || bad "arm28: failed_gates not lane-qualified in ledger"
+assert_three_shas "arm28(go-FAIL)" "$T/.last-out"
+export PATH=$PATH_SAVE
+
+# ── arm 29: go absent on a bare PATH (MINOR 3b) -> exit 3, go named ──
+T=$(printf '%s\n' "$GOWF" | make_stack_fixture getff-go.yml)
+mkdir -p "$T/.bare-bin"
+for b in git bash grep sed head tr date mkdir rm rmdir wc cat ls; do
+  ln -s "$(command -v "$b")" "$T/.bare-bin/$b"
+done
+OUT=$(cd "$T" && PATH="$T/.bare-bin" /bin/bash "$CARRIER" main 2>&1); RC=$?
+printf '%s\n' "$OUT" > "$T/.last-out"
+[ "$RC" -eq 3 ] && ok "arm29: go absent on a bare PATH -> exit 3" || bad "arm29: expected 3, got $RC"
+assert_contains "arm29: go named as the missing tool" "$T/.last-out" "go is required by getff-go.yml"
+assert_three_shas "arm29(go-CANNOT-RUN)" "$T/.last-out"
 
 echo "== probe arms =="
 
