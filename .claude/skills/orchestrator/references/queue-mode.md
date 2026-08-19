@@ -245,15 +245,15 @@ Where:
 
 **Escalation triggers:**
 
-| Code                                      | Trigger                                                              | Escalation action                                                        |
-| ----------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `ESCALATE:K:max-iterations`               | Artefact K hit iter 5 without GO                                     | Stop K; write escalation summary; pause queue                            |
+| Code                                      | Trigger                                                                                                                           | Escalation action                                                        |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `ESCALATE:K:max-iterations`               | Artefact K hit iter 5 without GO                                                                                                  | Stop K; write escalation summary; pause queue                            |
 | `ESCALATE:K:dependency-unmet`             | K's `Depends on` edge is unmet per the frontier verdict (dependency stage not done, or a prior kickoff's D-question was DEFERRED) | Mark K DEFERRED; if K was blocking next artefacts, escalate entire queue |
-| `ESCALATE:K:tool-unavailable`             | claude-code-guide OR DeepWiki/context7 unreachable >30 min           | Stop; note which tool; wait for recovery or escalate                     |
-| `ESCALATE:K:scope-conflict`               | Executing K would require editing maintainer-owned project file      | Stop; document which file and why; surface for maintainer                |
-| `ESCALATE:K:maintainer-dialogue-required` | Open D-question in K has no autonomous-decidable default             | Stop K; surface D-question with both options' downstream consequences    |
-| `ESCALATE:K:infinite-loop`                | Reviewer flip-flops GO ↔ REVISE on same content across 2+ iterations | Stop; document the conflicting criteria; maintainer decides              |
-| `ESCALATE:budget-cap`                     | Token budget approaching limit (burn mode: discretionary; hard 429)  | Stop cleanly; log current state; await reset                             |
+| `ESCALATE:K:tool-unavailable`             | claude-code-guide OR DeepWiki/context7 unreachable >30 min                                                                        | Stop; note which tool; wait for recovery or escalate                     |
+| `ESCALATE:K:scope-conflict`               | Executing K would require editing maintainer-owned project file                                                                   | Stop; document which file and why; surface for maintainer                |
+| `ESCALATE:K:maintainer-dialogue-required` | Open D-question in K has no autonomous-decidable default                                                                          | Stop K; surface D-question with both options' downstream consequences    |
+| `ESCALATE:K:infinite-loop`                | Reviewer flip-flops GO ↔ REVISE on same content across 2+ iterations                                                              | Stop; document the conflicting criteria; maintainer decides              |
+| `ESCALATE:budget-cap`                     | Token budget approaching limit (burn mode: discretionary; hard 429)                                                               | Stop cleanly; log current state; await reset                             |
 
 **Escalation message format** (write to state.md + return as Orchestrator response):
 
