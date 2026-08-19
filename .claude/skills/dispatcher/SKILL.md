@@ -315,7 +315,10 @@ One command: the full `frontier.sh` emitter output teed first (the recorded evid
 verdict derives from), then ONE verdict line. Branch on the verdict — do NOT pick the next
 stage by eye, and do NOT re-derive the frontier from the kickoff table by hand (the
 `/pipeline`-owned emitter owns that parsing; this helper is a consumer, never a fork).
-Proven by
+§2.6 CLEARs feed forward: invoke the helper with `MO_FRONTIER_DONE` accumulating every id
+§2.6 has confirmed merged this run — a just-merged stage must not re-enter the frontier
+because its kickoff row still reads `done=no` (the unattended loop probes PR state, not
+row text, so the duplicate dispatch would not be caught downstream). Proven by
 [`packages/core/skills/dispatcher/advance-frontier.test.ts`](../../../packages/core/skills/dispatcher/advance-frontier.test.ts).
 
 Verdicts:
@@ -324,7 +327,9 @@ Verdicts:
   unrecognized emitter shape). STOP and surface; never treat as a pick.
 - **ADVANCE-DEGRADE** — no `Depends on` column / no stage table: ordering is judgment
   again. Pick per the kickoff §1 stage order AND record the degrade in the stage-gate
-  notes.
+  notes. A row reading `done=` in degraded output carries no `basis=` field — it is
+  unverified row text: run the §2.6 check on it before skipping that stage (T-FRS1-B
+  does not stop at the verdict path).
 - **COMPLETE** — `done.md` exists, or every stage is done with none left → §2.8.
 - **HALT-VERIFY `<ids>`** — a stage read done from row markers (`basis=marker-unverified`)
   that §2.6 has not proven merged. Run the §2.6

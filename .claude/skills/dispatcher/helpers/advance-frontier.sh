@@ -94,8 +94,10 @@ fi
 
 if [[ -n "${degrade}" ]]; then
   # The degrade path must never read as permission (frontier.md §1): ordering
-  # returns to the reader's judgment, and the judgment must be recorded.
-  echo "ADVANCE-DEGRADE: ${degrade#DEGRADE: } — pick per the kickoff §1 stage order and record the degrade"
+  # returns to the reader's judgment, and the judgment must be recorded. A
+  # degraded row carries no basis= field, so any done= read in it is unverified
+  # row text (T-FRS1-B) — §2.6 must clear it before that stage is skipped.
+  echo "ADVANCE-DEGRADE: ${degrade#DEGRADE: } — pick per the kickoff §1 stage order and record the degrade; rows reading done= here are unverified, run the §2.6 check on them before skipping any stage"
   exit 0
 fi
 
