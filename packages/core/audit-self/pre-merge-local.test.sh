@@ -467,7 +467,12 @@ assert_three_shas "arm15(go-PASS)" "$T/.last-out"
 grep -qF 'golangci-lint run --enable forbidigo ./... --config .golangci.yml' "$T/go-gates.log" \
   && ok "arm15: forbidigo args derived from the workflow (config re-resolved)" \
   || bad "arm15: golangci-lint invocation wrong (log: $(cat "$T/go-gates.log" 2>/dev/null))"
-grep -qF "GOLANGCI_LINT_CACHE=$T/.git/getff/pre-merge-golangci-cache" "$T/go-gates.log" \
+# git rev-parse --show-toplevel canonicalizes symlinked roots (/var → /private/var
+# on macOS); the carrier cd's there and logs the canonical form, so the expectation
+# must be canonicalized the same way or the arm reds on macOS hosts (green in the
+# linux container where mktemp paths carry no symlink — the 2026-08-20 host run).
+_arm15_tc=$(cd "$T" && pwd -P)
+grep -qF "GOLANGCI_LINT_CACHE=$_arm15_tc/.git/getff/pre-merge-golangci-cache" "$T/go-gates.log" \
   && ok "arm15: GOLANGCI_LINT_CACHE isolated to a throwaway dir (§b.1)" \
   || bad "arm15: GOLANGCI_LINT_CACHE not isolated"
 grep -q "GOLANGCI_LINT_CACHE isolated" "$T"/.git/getff/pre-merge-logs/*.log \
