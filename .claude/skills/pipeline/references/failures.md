@@ -1,6 +1,6 @@
-# Failure modes — F1 through F8
+# Failure modes — F1 through F9
 
-> **Authoritative for:** the eight named failure codes the `/pipeline` skill emits when its invariants are violated or its data sources unavailable. Body of `../SKILL.md §11 Failures` points here for the per-code response. Each code maps 1:1 to a `!shell`-injected condition the AI may encounter mid-invocation.
+> **Authoritative for:** the nine named failure codes the `/pipeline` skill emits when its invariants are violated or its data sources unavailable. Body of `../SKILL.md §11 Failures` points here for the per-code response. Each code maps 1:1 to a `!shell`-injected condition the AI may encounter mid-invocation.
 > **NOT authoritative for:** the §7.13 binding rationale or the Class-C re-promotion trigger («≥2 stage-gate-ignored incidents within 6 months → add pre-push hook verifying stage dependency merged before sub-wave commit») — those live in `../SKILL.md §11` body so the contract stays visible at the call site.
 
 > Class C prose enforcement: `!shell` data is surfaced so the AI has no excuse for ignorance; the correct response in each case is stated below.
