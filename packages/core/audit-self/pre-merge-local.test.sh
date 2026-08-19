@@ -749,14 +749,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install ast-grep (unpinned drift)
-        run: npm install -g @ast-grep/cli
+        run: npm install -g @ast-grep/cli  # ci-tool-pin: allow fixture text — arm 25 feeds the carrier a deliberately unpinned consumer workflow
       - name: ast-grep scan (getff rules)
         run: ast-grep scan
   getff-ruff:
     runs-on: ubuntu-latest
     steps:
       - name: Install ruff (unpinned drift)
-        run: pip install ruff
+        run: pip install ruff  # ci-tool-pin: allow fixture text — arm 25 feeds the carrier a deliberately unpinned consumer workflow
       - name: ruff check
         run: ruff check .
 WF
