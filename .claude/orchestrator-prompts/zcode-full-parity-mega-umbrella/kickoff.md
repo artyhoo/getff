@@ -72,7 +72,7 @@ Steps:
 
 **Goal:** ship the two consumer hooks that are registered on CC but lack plugin twins.
 
-Depends on: step-1 B1 source-level fix has landed (umbrella `zcode-parity-step1-emit-wrapper`). This stage uses the fixed source.
+**Depends on:** step-1 B1 source-level fix has landed (umbrella `zcode-parity-step1-emit-wrapper`). This stage uses the fixed source.
 
 **Deliverables:**
 - `plugin/hooks/inject-project-digest` (extensionless twin with B1 env-first rewrite applied at twin level too).
@@ -116,7 +116,7 @@ Depends on: step-1 B1 source-level fix has landed (umbrella `zcode-parity-step1-
 
 **Goal:** consolidate the copy-pasted `_is_zcode`/`_emit_ctx`/`_adv_violation` trio into sourced helper calls across all 9 plugin twins.
 
-Depends on: step-1 `_zcode-emit` helper has landed + Stage 2 verdict (Fork 2A lint ensures migration doesn't regress).
+**Depends on:** step-1 `_zcode-emit` helper has landed + Stage 2 verdict (Fork 2A lint ensures migration doesn't regress).
 
 **Per-twin migration:**
 1. Add `source "${SCRIPT_DIR}/_zcode-emit"` near top of twin.
