@@ -404,6 +404,11 @@ EOF
           NOT_COVERED+=("test-e2e (playwright; browser-dependent) — named by ci.yml ci-success.needs")
           E2E_OWED=1
           ;;
+        *)
+          # default arm (rework round 1, MINOR 3c): an unmapped job name must
+          # never be silently treated as covered — name it, loudly.
+          echo "WARN (npm/ui): ci-success.needs names unmapped job '$_x' — not one of the mapped legs (build/test-storybook/test-e2e); covered only insofar as 'npm run validate' includes it — verify in CI" >&2
+          ;;
       esac
     done
     if [ "$_build_owed" -eq 1 ] && [ "$_vrc" -eq 0 ]; then
@@ -471,8 +476,15 @@ run_python_lane() {
   local -a _cmds=() _missed=()
   _cr0=${#CANNOT_RUN[@]}
 
-  _ag_pin=$(grep -oE '@ast-grep/cli@[^[:space:]]+' "$WF_PYTHON" | head -n 1 | sed 's/^.*@//' || true)
-  _ruff_pin=$(grep -oE 'ruff==[^[:space:]]+' "$WF_PYTHON" | head -n 1 | sed 's/^ruff==//' || true)
+  # Pins are parsed from the workflow's INSTALL (run:) lines only, never from
+  # header comments: the live template's header comment names the pins inside
+  # prose ("... fires (@ast-grep/cli@0.44.1, ruff==0.15.21) so ...") and an
+  # unanchored grep picks that up first, yielding pins with trailing ',' / ')'
+  # (measured 2026-08-19, rework round 1 — permanent false exit 3).
+  _ag_pin=$(grep -E '^[[:space:]]*(-[[:space:]]+)?run:.*@ast-grep/cli@' "$WF_PYTHON" | head -n 1 \
+    | grep -oE '@ast-grep/cli@[^[:space:]]+' | sed 's/^.*@//' || true)
+  _ruff_pin=$(grep -E '^[[:space:]]*(-[[:space:]]+)?run:.*ruff==' "$WF_PYTHON" | head -n 1 \
+    | grep -oE 'ruff==[^[:space:]]+' | sed 's/^ruff==//' || true)
   echo "[python] pins parsed from getff-python.yml: ast-grep=${_ag_pin:-unparsed} ruff=${_ruff_pin:-unparsed}" >>"$LOG_FILE"
 
   if ! command -v ast-grep >/dev/null 2>&1; then
@@ -484,6 +496,9 @@ run_python_lane() {
       CANNOT_RUN+=("python:ast-grep-pin")
       echo "CANNOT-RUN: ast-grep version mismatch — getff-python.yml pins @ast-grep/cli@$_ag_pin, host has ${_host:-unparseable} — never a silent run under a different version" >&2
     fi
+  else
+    CANNOT_RUN+=("python:ast-grep-pin-unparsed")
+    echo "CANNOT-RUN: getff-python.yml installs ast-grep but its pin could not be parsed (tolerated shape: '@ast-grep/cli@<version>' on a run: line) — never a silent unpinned run" >&2
   fi
   if ! command -v ruff >/dev/null 2>&1; then
     CANNOT_RUN+=("python:ruff")
@@ -494,6 +509,9 @@ run_python_lane() {
       CANNOT_RUN+=("python:ruff-pin")
       echo "CANNOT-RUN: ruff version mismatch — getff-python.yml pins ruff==$_ruff_pin, host has ${_host:-unparseable} — never a silent run under a different version" >&2
     fi
+  else
+    CANNOT_RUN+=("python:ruff-pin-unparsed")
+    echo "CANNOT-RUN: getff-python.yml installs ruff but its pin could not be parsed (tolerated shape: 'ruff==<version>' on a run: line) — never a silent unpinned run" >&2
   fi
   if [ "${#CANNOT_RUN[@]}" -gt "$_cr0" ]; then
     return 0
@@ -519,6 +537,16 @@ run_python_lane() {
 $(grep -E '^[[:space:]]*(-[[:space:]]+)?run:[[:space:]]*(ast-grep|ruff)[[:space:]]' "$WF_PYTHON" \
   | sed -e 's/^[[:space:]]*//' -e 's/^-[[:space:]]*//' -e 's/^run:[[:space:]]*//' -e 's/[[:space:]]*#.*$//' || true)
 EOF
+
+  # zero-gate vacuity guard (rework round 1, MAJOR 2): a DETECTED lane whose
+  # workflow parses to ZERO gate lines must never contribute a silent nothing
+  # while the aggregate prints PASS — that is the exact silent-subset defect
+  # this carrier exists to eliminate (header contract above, :45-48).
+  if [ "${#_cmds[@]}" -eq 0 ]; then
+    CANNOT_RUN+=("python:zero-gates-parsed")
+    echo "CANNOT-RUN: python lane detected but ZERO ast-grep/ruff gate lines parsed from .github/workflows/getff-python.yml — the workflow drifted off every tolerated run: shape; refusing to report a silent subset as PASS" >&2
+    return 0
+  fi
 
   cd "$WORKTREE_DIR"
   for _cmd in ${_cmds[@]+"${_cmds[@]}"}; do
@@ -560,8 +588,14 @@ run_go_lane() {
   local _cr0 _go_pin _gl_pin _gl_pin_clean _host _cfg _args _rc
   _cr0=${#CANNOT_RUN[@]}
 
-  _go_pin=$(grep -oE 'go-version:.*' "$WF_GO" | head -n 1 | grep -oE '[0-9][0-9.]*' | head -n 1 || true)
-  _gl_pin=$(grep -oE 'golangci-lint@[^[:space:]]+' "$WF_GO" | head -n 1 | sed 's/^golangci-lint@//' || true)
+  # Pin parses are anchored to the workflow's own input/run lines, never to
+  # comments: the live template's header comment carries the literal fragment
+  # "'go-version:' input" — an unanchored 'go-version:.*' grep matches that
+  # comment FIRST and extracts no digits, silently killing the go pin check
+  # (measured 2026-08-19, rework round 1).
+  _go_pin=$(grep -E '^[[:space:]]+go-version:' "$WF_GO" | head -n 1 | grep -oE '[0-9][0-9.]*' | head -n 1 || true)
+  _gl_pin=$(grep -E '^[[:space:]]*(-[[:space:]]+)?run:.*golangci-lint@' "$WF_GO" | head -n 1 \
+    | grep -oE 'golangci-lint@[^[:space:]]+' | sed 's/^golangci-lint@//' || true)
   _gl_pin_clean=$(printf '%s' "$_gl_pin" | sed 's/^v//')
   echo "[go] pins parsed from getff-go.yml: go=${_go_pin:-unparsed} golangci-lint=${_gl_pin:-unparsed}" >>"$LOG_FILE"
 
@@ -574,6 +608,9 @@ run_go_lane() {
       CANNOT_RUN+=("go:go-pin")
       echo "CANNOT-RUN: go version mismatch — getff-go.yml pins go-version $_go_pin, host has ${_host:-unparseable}" >&2
     fi
+  else
+    CANNOT_RUN+=("go:go-pin-unparsed")
+    echo "CANNOT-RUN: getff-go.yml sets up go but its go-version pin could not be parsed (tolerated shape: an indented 'go-version: <version>' input line) — never a silent unpinned run" >&2
   fi
   if ! command -v golangci-lint >/dev/null 2>&1; then
     CANNOT_RUN+=("go:golangci-lint")
@@ -584,6 +621,9 @@ run_go_lane() {
       CANNOT_RUN+=("go:golangci-lint-pin")
       echo "CANNOT-RUN: golangci-lint version mismatch — getff-go.yml pins golangci-lint@$_gl_pin, host has ${_host:-unparseable} — never a silent run under a different version" >&2
     fi
+  else
+    CANNOT_RUN+=("go:golangci-lint-pin-unparsed")
+    echo "CANNOT-RUN: getff-go.yml installs golangci-lint but its pin could not be parsed (tolerated shape: 'golangci-lint@<version>' on a run: line) — never a silent unpinned run" >&2
   fi
   if [ "${#CANNOT_RUN[@]}" -gt "$_cr0" ]; then
     return 0
@@ -603,11 +643,25 @@ run_go_lane() {
     return 0
   fi
 
-  # invocation args derived from the workflow's own golangci-lint line (live
-  # template: "golangci-lint run --enable forbidigo --config .golangci.yml ./...");
-  # its --config token is replaced by the resolved config above.
-  _args=$(grep -oE 'golangci-lint run [^#]*' "$WF_GO" | head -n 1 \
-    | sed -e 's/^golangci-lint run //' -e 's/--config[[:space:]][[:space:]]*[^[:space:]][^[:space:]]*[[:space:]]*//' -e 's/[[:space:]]*$//' || true)
+  # invocation args derived from the workflow's own golangci-lint COMMAND line
+  # (live template, block-run shape: "golangci-lint run --enable forbidigo
+  # --config .golangci.yml ./..."); its --config token is replaced by the
+  # resolved config above. Anchored to command lines only (inline '- run:
+  # golangci-lint run ...' or a block-scalar command line): the live template's
+  # step NAME line "- name: golangci-lint run (getff bans)" also contains the
+  # literal 'golangci-lint run ' and an unanchored grep derives the garbage
+  # args '(getff bans)' from it (measured 2026-08-19, rework round 1).
+  _args=$(grep -oE '^[[:space:]]*(-[[:space:]]+)?run:[[:space:]]*golangci-lint run [^#]*|^[[:space:]]+golangci-lint run [^#]*' "$WF_GO" | head -n 1 \
+    | sed -e 's/^[[:space:]]*//' -e 's/^-[[:space:]]*//' -e 's/^run:[[:space:]]*//' \
+      -e 's/^golangci-lint run //' -e 's/--config[[:space:]][[:space:]]*[^[:space:]][^[:space:]]*[[:space:]]*//' -e 's/[[:space:]]*$//' || true)
+  # args-unparsed guard (rework round 1, MAJOR 2): never silently degrade to
+  # 'golangci-lint run --config <cfg>' — that drops the workflow's own flags
+  # (--enable forbidigo ./...) and reports a narrowed run as if it were whole.
+  if [ -z "$_args" ]; then
+    CANNOT_RUN+=("go:args-unparsed")
+    echo "CANNOT-RUN: go lane — the golangci-lint invocation could not be parsed from .github/workflows/getff-go.yml (tolerated shapes: a 'golangci-lint run ...' command line, block-scalar or inline run:); refusing the degraded 'golangci-lint run --config <cfg>' invocation that would drop the workflow's own flags" >&2
+    return 0
+  fi
   cd "$WORKTREE_DIR"
   # cache isolation (§b.1 go row): GOLANGCI_LINT_CACHE points at a throwaway
   # dir under the git dir — every carrier run starts cold (conservative
@@ -633,7 +687,7 @@ run_go_lane() {
 
 run_cargo_lane() {
   [ "$LANE_CARGO" -eq 1 ] || return 0
-  local _flags _rc _had_ctd=0 _had_rw=0 _ctd_val= _rw_val=
+  local _flags _rc _had_ctd=0 _had_rw=0 _ctd_val='' _rw_val=''
 
   # deliberately UNPINNED toolchain (getff-cargo.yml header: clippy ships with
   # the consumer's own rustc — companion-install-principle.md, never
@@ -655,13 +709,21 @@ run_cargo_lane() {
   # run: on its own); both YAML shapes are tolerated.
   _flags=$(grep -E '^[[:space:]]*(-[[:space:]]+)?run:[[:space:]]*cargo clippy' "$WF_CARGO" | head -n 1 \
     | sed -e 's/^[[:space:]]*//' -e 's/^-[[:space:]]*//' -e 's/^run:[[:space:]]*cargo clippy[[:space:]]*//' -e 's/[[:space:]]*#.*$//' || true)
+  # flags-unparsed guard (rework round 1, MAJOR 2): a bare 'cargo clippy' run
+  # drops the -D clippy::disallowed_* bans and a green result would be a
+  # silent-subset PASS — refuse with a named verdict instead of degrading.
+  if [ -z "$_flags" ]; then
+    CANNOT_RUN+=("cargo:flags-unparsed")
+    echo "CANNOT-RUN: cargo lane — the clippy denial flags could not be parsed from .github/workflows/getff-cargo.yml (tolerated shape: a run: line starting 'cargo clippy ...'); refusing a bare 'cargo clippy' run that would drop the -D clippy::disallowed_* bans" >&2
+    return 0
+  fi
   cd "$WORKTREE_DIR"
   # cache/sccache isolation (§b.1 cargo row): CARGO_TARGET_DIR and RUSTC_WRAPPER
   # are unset for the carrier's run only, then restored.
   if [ "${CARGO_TARGET_DIR+set}" = "set" ]; then _had_ctd=1; _ctd_val=$CARGO_TARGET_DIR; fi
   if [ "${RUSTC_WRAPPER+set}" = "set" ]; then _had_rw=1; _rw_val=$RUSTC_WRAPPER; fi
   unset CARGO_TARGET_DIR RUSTC_WRAPPER
-  echo "[cargo] gate start: cargo clippy ${_flags:-(flags unparsable — bare clippy run)}" >>"$LOG_FILE"
+  echo "[cargo] gate start: cargo clippy $_flags" >>"$LOG_FILE"
   echo "[cargo] env isolation: CARGO_TARGET_DIR / RUSTC_WRAPPER unset for this run only" >>"$LOG_FILE"
   set +e
   # shellcheck disable=SC2086  # gate argv word-split deliberately: parsed from the consumer's workflow
