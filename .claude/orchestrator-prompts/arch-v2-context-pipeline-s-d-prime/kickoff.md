@@ -14,10 +14,10 @@
 > (population-table obligation + C2: a custom subagent's system prompt REPLACES CC's).
 > Umbrella context: [`../arch-v2-context-pipeline/kickoff.md`](../arch-v2-context-pipeline/kickoff.md).
 >
-> **Depends on S-E, S-H AND S-L merged (rev 7)** — S-H carries the P11 probe (do Explore/Plan
+> Consumed inputs (rev 7) — S-H carries the P11 probe (do Explore/Plan
 > load rules?) and the N2/P3d attribution numbers (spec §1.6 FORK C); S-L carries the
 > re-priced P14 ranking the harness-side drops are ordered by (operator verdict 2026-08-07,
-> PR #1255 `DECISION-NEEDED` 1); S-E carries the fixed
+> PR 1255 `DECISION-NEEDED` 1); S-E carries the fixed
 > per-file meter this stage orders its repo-side drops by. Do not dispatch before all three.
 >
 > **INPUT CONDITION — baseline snapshot before any prune (operator verdict 2026-08-07, S-H
@@ -42,6 +42,11 @@
 > the dispatch choreography, and that stage inherits this same input condition.
 
 **Base:** `origin/staging`. **Mode:** design + implementation, one PR onto staging.
+
+| Stage | Scope (one line) | Depends on |
+|---|---|---|
+| S-D′ | per-seat subtraction maps (§1) | S-E + S-H + S-L merged (rev 7) |
+| ADR-8-stub | §6 follow-on stub: ADR-8's A/B re-homed; evaluates what S-D′ ships | S-D′ merged |
 
 ## §1 Deliverables
 
@@ -393,4 +398,3 @@ open promise. Scoping it is its own act, and this stage does not perform it.
   three owners S-D′ does not have, which is what made Option B a mid-stage scope crossing.
 - **Inherits** the header's INPUT CONDITION: its baseline is captured from a pre-prune
   billing-projection snapshot, not re-derived at read time.
-- **Depends on:** S-D′ merged (it evaluates what S-D′ ships).

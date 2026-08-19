@@ -13,7 +13,7 @@
 
 > **DN-4 framing reconciliation (Phase -1 B2 amend):** PR #261 R-phase verdict = «F.3 primary + F.6 supplementary PROVISIONAL» (landed 2026-05-28). Maintainer's subsequent 2026-05-27 dialogue surfaced an *alternative stance*: «defer F.6 entirely; revisit только если после F.3 проблема останется». This R-phase does NOT re-litigate PR #261. It RESEARCHES Class B (ship-vs-gate + N6b portability) to ARM either position with backed evidence — confirming the landed «F.6 PROVISIONAL ship» OR validating the maintainer's revised «defer F.6». Verdict in §5 will pick between **reaffirm-landed**, **revise-to-defer**, or **new-framing** based on companion + best-practices evidence. Worker is NOT expected to ship F.6 implementation either way — that's a future I-phase decision triggered by this R-phase output.
 
-**Prerequisite:** PR #261 merged ([research-patch landed](https://github.com/Yhooi2/rules-as-tests-aif/pull/261)). PR #261 даёт baseline F.3/F.6 verdict + DN-1..DN-4 framing.
+Depends on: PR 261 merged ([research-patch landed](https://github.com/Yhooi2/rules-as-tests-aif/pull/261)). PR 261 даёт baseline F.3/F.6 verdict + DN-1..DN-4 framing.
 
 ---
 

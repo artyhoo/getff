@@ -354,7 +354,7 @@ the *direction* of §8.5's «the gap indicts the by-difference method» — if t
 harness-injected session-start payload, `/context` under-reports instead. Fork **#6** (ADR-3's
 29-39% band against four denominators disagreeing in direction) is CLOSED — #5 = A, #6 = A.
 
-**Prerequisite MET — no stage gate.** The #5-C measurement Option C called for was run on the
+**Depends on:** none — MET, no stage gate. The #5-C measurement Option C called for was run on the
 host 2026-08-07 and is committed at
 [`docs/meta-factory/research-patches/2026-08-07-s-l-5c-first-turn-vs-context.md`](../../../docs/meta-factory/research-patches/2026-08-07-s-l-5c-first-turn-vs-context.md);
 the stage reads it as §0 input rather than re-deriving it. **Tier 2 (host-bound), NO marker** —

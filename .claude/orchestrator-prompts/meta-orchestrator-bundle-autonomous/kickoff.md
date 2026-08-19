@@ -2,7 +2,11 @@
 
 > **Type:** R-phase first (prior-art survey, $0), then conditional I-phase (~100-150k Opus, gated by Stage 2 maintainer decision).
 > **Base branch:** `staging` (NOT `main`).
-> **Depends on:** `meta-orchestrator-planner-completeness/kickoff.md` Stage 5 (L4 classifier + L5 dispatch routing). **Do NOT dispatch this umbrella before planner-completeness L4+L5 ships.** Bundle decisions consume L4 classifier outputs + L5 dispatch routes; without them = vapor.
+> **Do NOT dispatch this umbrella before planner-completeness L4+L5 ships.** Bundle decisions consume L4 classifier outputs + L5 dispatch routes; without them = vapor.
+
+| Stage | Scope (one line) | Depends on |
+|---|---|---|
+| bundle-autonomous | COMBINE direction: aggregate linear items into one autonomous batch umbrella (R-phase → gate → conditional I-phase) | `meta-orchestrator-planner-completeness/kickoff.md` Stage 5 (L4 classifier + L5 dispatch routing) |
 
 ## Maintainer's intent (verbatim, 2026-05-25)
 

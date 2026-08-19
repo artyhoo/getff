@@ -6,7 +6,7 @@
 > recorded in `docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md` §8; the §8
 > rev-4 disposition («deferred out of umbrella») was SUPERSEDED same day by explicit operator
 > invitation («умбрелла всё берёт» — CLAUDE.md «PR strategy» explicit-invitation exception).
-> **Depends on S-G MERGED** (rev 5, 2026-08-06 — corrects the rev-4 «independent, concurrent with
+> S-G merged first (rev 5, 2026-08-06 — corrects the rev-4 «independent, concurrent with
 > everything» claim, which a Phase -1 cold review falsified). The budget *surface* is indeed
 > disjoint from the rules resident set, but the *file set* is not: S-G's `§2 Permitted files`
 > reserves `.claude/skills/{arch,harvest,dispatcher}/SKILL.md` and `tests/install-sh/*`
@@ -14,6 +14,10 @@
 > `.claude/skills/*/SKILL.md` plus the same snapshots. Independent of S-E and S-H — those touch
 > neither surface. **Dispatch gate:** `gh pr list --search "is:merged head:<s-g-branch> base:staging"`
 > returns S-G's PR; the baseline in §0 is then re-measured against post-S-G `HEAD` before any trim.
+
+| Stage | Scope (one line) | Depends on |
+|---|---|---|
+| S-I | doctor-surfaced context-economy residue: skills listing + host config debt (§0) | S-G merged (rev 5) |
 
 ## §0 Problem (measured)
 
