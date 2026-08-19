@@ -197,10 +197,11 @@ The steady-state loop once First Steps is done. Every command below is shipped b
    depend on anyone's local tooling, which is exactly why it must never be the FIRST place a
    problem is caught. A CI that died without running a step is not a red gate: when a GitHub Free
    account exhausts its private-repo Actions-minutes pool, every first-party check fails in ~2 s
-   with zero steps. `bash scripts/ci-available-probe.sh` (shipped at every depth) classifies that
-   state as `CI UNAVAILABLE` instead of misreporting RED; `bash scripts/pre-merge-local.sh` runs
-   the validate gates on the merge result locally before you push (opt-in; weaker evidence than
-   CI — its verdict says so and lists what it does NOT cover).
+   with zero steps. `bash scripts/ci-available-probe.sh` (shipped on npm-lane installs only —
+   python/go/cargo installs ship no `scripts/` by construction) classifies that state as
+   `CI UNAVAILABLE` instead of misreporting RED; `bash scripts/pre-merge-local.sh` runs every
+   detected lane's gates on the merge result locally before you push (opt-in; weaker evidence
+   than CI — its verdict says so and lists what it does NOT cover).
 6. **When you add a convention** — add its executable check in the same change. A convention with
    no check is not a rule; `/rule-research` and `/rule-tests` exist to make that cheap.
 

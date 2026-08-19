@@ -518,11 +518,11 @@ Consumers without a Claude Code subscription: deterministic layers (pre-commit, 
 On GitHub Free, private repos share **2 000 Actions minutes/month per account** (not per repo). When
 that pool is exhausted, every first-party check-run on a PR dies in ~2 s as `failure` with zero
 executed steps — a red/green-only CI waiter misreports a dead CI as a red gate. Two opt-in scripts
-ship to `scripts/` at every profile: `bash scripts/ci-available-probe.sh [sha|PR]` classifies CI
-state and prints `CI UNAVAILABLE` (exit 4) for that signature instead of RED (`gh` required; a named
-CANNOT-RUN without it); `bash scripts/pre-merge-local.sh [base]` runs the ts-lane validate gates on
-the merge result in a throwaway worktree before you push — local evidence, weaker than CI, with the
-NOT-COVERED list printed on every verdict.
+ship to `scripts/` on npm-lane installs (ts-server + UI presets; python/go/cargo installs ship no
+`scripts/` by construction): `bash scripts/ci-available-probe.sh [sha|PR]` classifies that state as
+`CI UNAVAILABLE` (exit 4) instead of RED (`gh` required; a named CANNOT-RUN without it); `bash
+scripts/pre-merge-local.sh [base]` runs every detected lane's gates on the merge result before you
+push — local evidence, weaker than CI, with the NOT-COVERED list printed on every verdict.
 
 ---
 
