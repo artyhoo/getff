@@ -331,7 +331,7 @@ if _is_zcode && [ "$text_length" -gt 500 ]; then
     if [ -n "$ctx_line" ]; then
       _ze_reason="${_ze_reason}"$'\n\n'"${ctx_line}"
     fi
-    _ze_glance="🎯 $(printf '%s' "${anchor}" | head -c 60 | tr '\n' ' ')"
+    _ze_glance="🎯 $(printf '%s' "${anchor}" | head -c 60 | LC_ALL=C tr '\n' ' ')"
     jq -n --arg msg "$_ze_reason" --arg gl "$_ze_glance" '{
       decision: "block",
       reason: $msg,
@@ -485,7 +485,7 @@ if [ "$asked" = "true" ] && [ "$long_text" = "false" ]; then
     if [ -n "$prev_line" ] && [ "$prev_line" != "$last_line" ]; then
       prev_text=$(printf '%s' "$prev_line" | jq -r '.message.content[]? | select(.type=="text") | .text' 2>/dev/null || true)
       if printf '%s\n' "${prev_text}" | grep -q '## 🟢'; then
-        current_short=$(printf '%s' "$text" | head -c 120 | tr '\n' ' ')
+        current_short=$(printf '%s' "$text" | head -c 120 | LC_ALL=C tr '\n' ' ')
         # B2: if current_short is empty, never suppress (empty grep -qF "" matches anything)
         if [ -n "$current_short" ] && printf '%s\n' "${prev_text}" | grep -qF "${current_short}"; then
           idle_suppress=true
@@ -501,7 +501,7 @@ fi
 
 # -- P-user glance-line (systemMessage field) ---------------------------------
 # Shown to the USER in CC UI (not to the model). Format: 🎯 <anchor ≤60 chars>
-anchor_short=$(echo "${anchor}" | head -c 60 | tr '\n' ' ')
+anchor_short=$(echo "${anchor}" | head -c 60 | LC_ALL=C tr '\n' ' ')
 glance_line="🎯 ${anchor_short}"
 
 # Three branches:
