@@ -1,4 +1,5 @@
 # consumer-matrix-pnpm-flake — done
+- Final PR: #1289
 
 - **Umbrella:** `.claude/orchestrator-prompts/consumer-matrix-pnpm-flake/kickoff.md`
 - **Opened:** 2026-08-08 (PRs #1274, #1276). **Closed:** 2026-08-08 (UTC).
