@@ -285,16 +285,26 @@ END {
       exit 0
     }
     print "stages: " fbn
-    fr = ""; dn = ""
+    fr = ""; dn = ""; markerdone = ""
     for (i = 1; i <= fbn; i++) {
-      d = (done_md == "yes" || marked_done(fbrow[i])) ? "yes" : "no"
-      if (in_list(force_done, fbid[i])) d = "yes"
-      if (in_list(force_open, fbid[i])) d = "no"
-      printf "STAGE %s done=%s deps=? unmet=? unresolved=no label=\"%s\" raw=\"(no column)\"\n", fbid[i], d, fblabel[i]
+      # Same done-set ladder as the columned path (below): done-md > row-text marker >
+      # not done, then the §6 force flags — so a lying done/MERGED marker in a no-column
+      # kickoff reaches the consumer AS marker-unverified, never as a bare done=yes
+      # (#1498: marker-lies protection must reach the degrade path too).
+      fbbasis = ""
+      if (done_md == "yes") { d = "yes"; fbbasis = "done-md" }
+      else if (marked_done(fbrow[i])) { d = "yes"; fbbasis = "marker-unverified" }
+      else d = "no"
+      if (in_list(force_done, fbid[i])) { d = "yes"; fbbasis = "override" }
+      if (in_list(force_open, fbid[i])) { d = "no"; fbbasis = "" }
+      if (fbbasis == "marker-unverified") markerdone = markerdone " " fbid[i]
+      printf "STAGE %s done=%s%s deps=? unmet=? unresolved=no label=\"%s\" raw=\"(no column)\"\n", fbid[i], d, (d == "yes" ? " basis=" fbbasis : ""), fblabel[i]
       if (d == "yes") dn = dn " " fbid[i]; else fr = fr " " fbid[i]
     }
     print "FRONTIER:" (fr == "" ? " (none)" : fr)
     print "DONE:" (dn == "" ? " (none)" : dn)
+    if (markerdone != "")
+      print "ATTN: marker-unverified done —" markerdone " read as done from row text, NOT proven merged; confirm with the §6 gh check before dispatching a consumer"
     if (prose_note != "") print prose_note
     print "DEGRADE: kickoff carries no `Depends on` column — every not-yet-done stage is frontier (spec §5.4); ordering is judgment again"
     exit 0

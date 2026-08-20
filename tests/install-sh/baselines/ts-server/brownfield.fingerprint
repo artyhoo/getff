@@ -68,7 +68,7 @@ f58b54fd4a2c3b1bb1e99e7abc78984a8d74651612970157b233ee300b5a0a15  .claude/skills
 ff684aaf1d642a9d9d2dac1db6e8fcf442f47e7edeeff02e31d83523b0c970d6  .claude/skills/pipeline/helpers/dispatch-from-state.sh
 8ec9720ed5e3c690bb394230d5f0c7aba2f70321769e6752e46586fa7b57cc7b  .claude/skills/pipeline/helpers/dup-detect.sh
 ea812d548aa1618c3c8093795d1532ca80a747ba6fb181ec584120c1c50d8373  .claude/skills/pipeline/helpers/emit-output-strings.sh
-24ebf8be5cd6823315732cff660a4a52aea1fc1778816b237240913ccaf7045b  .claude/skills/pipeline/helpers/frontier.sh
+20d1b96ef42f25852699c91d0245cb95fa712821ebf3fc63faa16d4a618ff878  .claude/skills/pipeline/helpers/frontier.sh
 a3fca0b0d4a4f22b0c8588c0b450b431db0865dcfdd2f466cce4d4e961731033  .claude/skills/pipeline/helpers/inflight-check.sh
 acfb8b12ad82be70e3b3f3aec7ead86144b3d8e612dd11d033f3970fcc2d3ddf  .claude/skills/pipeline/helpers/integer-name-guard.sh
 4f5bb59efe97619b9d452e65e2a776edb0ff718fe726da75e7460c75ce92ae00  .claude/skills/pipeline/helpers/launch-table-generator.sh
