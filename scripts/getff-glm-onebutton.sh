@@ -294,7 +294,7 @@ do_provision() {
       '.defaultTaskRuntimeProfileId = $id | .defaultReviewRuntimeProfileId = $id
        | with_entries(select(.value != null or ((.key | endswith("MaxBudgetUsd")) | not)))')
     plan_status="preserved (existing top-tier: $existing_plan_profile)"
-    _log "provision: step B — Plan→$existing_plan_profile (preserved), Task+Review→$profile_id"
+    _log "provision: step B — Plan -> $existing_plan_profile (preserved), Task+Review -> $profile_id"
   else
     # Park the Plan half (§7c #2 Park contract) — write only Task+Review.
     put_body=$(printf '%s' "$project_json" | jq \

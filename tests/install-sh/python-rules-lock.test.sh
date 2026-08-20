@@ -185,9 +185,9 @@ grep -q 'TID999' "$P9/.getff/ruff-bans.toml" \
   || bad "(9) --force did NOT overwrite ruff-bans.toml — repro precondition unmet"
 fpB=$(lock_field "$L9" sourceFingerprint)
 if [ "$preTID" -eq 0 ] && grep -q '"TID999"' "$L9" && [ -n "$fpB" ] && [ "$fpB" != "$fpA" ]; then
-  ok "(9) lock regenerated on --force: ruffBans gained TID999 + fingerprint moved $fpA→$fpB (not stale)"
+  ok "(9) lock regenerated on --force: ruffBans gained TID999 + fingerprint moved $fpA -> $fpB (not stale)"
 else
-  bad "(9) STALE lock after --force: TID999-in-lock=$(grep -c '"TID999"' "$L9") fp $fpA→$fpB (RED before fix)"
+  bad "(9) STALE lock after --force: TID999-in-lock=$(grep -c '"TID999"' "$L9") fp $fpA -> $fpB (RED before fix)"
 fi
 rm -rf "$SRC9" "$P9"
 
@@ -254,9 +254,9 @@ if [ -f "$RESEARCHED" ]; then
   fpQ=$(lock_field "$L11" sourceFingerprint)
   nQ=$(grep -oE '"getff-[a-z0-9-]+"' "$L11" | sort -u | grep -c .)
   if grep -q '"getff-researched-no-yaml-load"' "$L11" && [ -n "$fpQ" ] && [ "$fpQ" != "$fpP" ]; then
-    ok "(11) lock regenerated on the PLAIN pass: researched id captured ($nP→$nQ ids) + fingerprint moved $fpP→$fpQ"
+    ok "(11) lock regenerated on the PLAIN pass: researched id captured ($nP -> $nQ ids) + fingerprint moved $fpP -> $fpQ"
   else
-    bad "(11) STALE lock after the plain-pass join: ids $nP→$nQ fp $fpP→$fpQ researched-in-lock=$(grep -c 'researched-no-yaml-load' "$L11" || true) (RED before fix)"
+    bad "(11) STALE lock after the plain-pass join: ids $nP -> $nQ fp $fpP -> $fpQ researched-in-lock=$(grep -c 'researched-no-yaml-load' "$L11" || true) (RED before fix)"
   fi
   rm -rf "$P11"
 else

@@ -167,7 +167,7 @@ gate_table() {
     "3${TAB}shellcheck${TAB}setup.d/,install.sh${TAB}{ command -v shellcheck >/dev/null 2>&1 && shellcheck --exclude=SC2034,SC2016,SC2317 setup.d/*.sh install.sh; } || echo '[sweep] WARN-skip shellcheck absent'" \
     "4${TAB}byte-identical${TAB}SHIPPED${TAB}SNAPSHOT_MODE=compare bash tests/install-sh/byte-identical.test.sh" \
     "4${TAB}synth-bundle-drift${TAB}packages/core/,package.json,package-lock.json${TAB}NODE_ENV=development bash scripts/build-synth-bundle.sh --check" \
-    "5${TAB}install-sh-suite${TAB}tests/install-sh/${TAB}for t in tests/install-sh/*.test.sh; do bash \"\$t\" || exit 1; done" \
+    "5${TAB}install-sh-suite${TAB}tests/install-sh/${TAB}for t in tests/install-sh/*.test.sh; do /bin/bash \"\$t\" || exit 1; done" \
     "5${TAB}agnosticism${TAB}packages/core/${TAB}bash tests/agnosticism/harness-self.test.sh" \
     "5${TAB}premerge-carrier-selftest${TAB}packages/core/audit-self/${TAB}bash packages/core/audit-self/pre-merge-local.test.sh" \
     "5${TAB}hook-tests${TAB}packages/core/hooks/,tests/hooks/,.husky/${TAB}for t in tests/hooks/*.test.sh; do bash \"\$t\" || exit 1; done" \
