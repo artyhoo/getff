@@ -1,4 +1,5 @@
 # arch-v2-context-pipeline — CLOSED 2026-08-08
+- Final PR: #1308
 
 Final act: S-K scoping → ADR-8 A/B retired (deviation #3, operator-ruled). Every other stage
 was already merged; this PR records the retirement, ships the replacement watch, and closes
