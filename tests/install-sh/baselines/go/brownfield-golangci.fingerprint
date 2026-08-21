@@ -1,3 +1,4 @@
+127cec52c03e4d9cc2ca57f814627a0ebc2ceb41b637c6506da55cb61c75d232  .ai-factory/refresh-baseline.json
 45a2fc1b7d9ad698288ff92760ecf087d77cdb90f9f96cb77d61f9389248b37d  .github/workflows/getff-go.yml
 c6cc74c6bac7a2ba482341c16c3dd57a74e790d08df202cfdea5a3c813751ca5  .golangci.yml
 4acefc0af55323931c4b0d0e18fbbd6fedbc850c5d603e4fb654505df728e0e8  getff-golangci.yml
