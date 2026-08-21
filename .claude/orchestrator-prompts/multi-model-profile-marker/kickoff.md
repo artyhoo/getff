@@ -35,3 +35,8 @@ Domain-specific:
 - **T-MMPM-A** — profile matching runs against a live per-install DB: never snapshot real profile UUIDs into tests/fixtures; tests mock the HTTP layer and assert on names, not ids.
 - **T-MMPM-B** — `firstLine`-channel regression: the auto/skip markers are matched by EXACT string equality (`kickoff.ts:47/53`), so any implementation that folds the profile hint into the first-line marker silently breaks dispatch (`buildKickoffSpec` → `null`). The profile marker MUST be a separate, orthogonal parse channel; the §3.4 regression guard is the falsifier — if it is missing from the test suite, the implementation is not accepted.
 - **T-MMPM-C** — self-reference collision: a naive "scan the whole file for `bridge-profile`" implementation false-positives on any kickoff that documents the convention in prose (this file being the proof). The marker parse MUST be scoped to the header blockquote only; the §3.5 self-reference guard is the falsifier.
+
+```bash host-verify
+# Retro-marked 2026-08-21: §3 criteria verify live against the aif runtime (T2: run e2e, not «would work»); the contract fails closed when the runtime is not reachable
+curl -fsS http://localhost:3009/tasks >/dev/null
+```

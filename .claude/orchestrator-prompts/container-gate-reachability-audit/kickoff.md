@@ -93,3 +93,5 @@ Required structure:
 2. The §5 rollup verbatim — counts per verdict class.
 3. The single most consequential finding, stated in one sentence, with its evidence.
 4. What you could not verify and why.
+
+<!-- host-verify: none — R-phase enumeration audit, docs-only deliverable (own header: no source file may be edited): the research patch under docs/meta-factory/research-patches/ is the acceptance artefact -->

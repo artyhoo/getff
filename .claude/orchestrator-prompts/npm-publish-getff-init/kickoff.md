@@ -28,3 +28,5 @@ S1 подтвердить заморозку имён (U11) + поверхнос
 
 ## Готово, когда
 `npx getff init` на свежей машине → первое подброшенное нарушение падает; имена (U11) и поверхность (U9 R3) заморожены ДО publish.
+
+<!-- host-verify: none — planning STUB (U10 of the getff-to-prod meta-launch): stages are a sketch, no executable deliverable yet; the full kickoff that replaces this stub declares the real contract -->

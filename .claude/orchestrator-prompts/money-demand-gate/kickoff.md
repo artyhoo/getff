@@ -29,3 +29,5 @@
 
 ## Готово, когда
 Зафиксирован сигнал спроса (платящие команды) ИЛИ kill/pivot-решение оператора по критерию.
+
+<!-- host-verify: none — planning STUB (U13 of the getff-to-prod meta-launch): stages are a sketch, no executable deliverable yet; the full kickoff that replaces this stub declares the real contract -->

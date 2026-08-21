@@ -28,3 +28,5 @@ S1 кандидаты + проверка доступности (npm scope, GitH
 
 ## Готово, когда
 Документ-решение с замороженной архитектурой имён + подтверждённой доступностью scope, до старта U10.
+
+<!-- host-verify: none — planning STUB (U11 of the getff-to-prod meta-launch): stages are a sketch, no executable deliverable yet; the full kickoff that replaces this stub declares the real contract -->

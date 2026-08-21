@@ -28,3 +28,5 @@ S1 synth-run при установке под стек → S2 влить snippet
 
 ## Готово, когда
 Сгенерированное правило в живом eslint-конфиге консьюмера ловит нарушение на чистом проекте; авто-вайрер доказан на >1 рецепте.
+
+<!-- host-verify: none — planning STUB (U4 of the getff-to-prod meta-launch): stages are a sketch, no executable deliverable yet; the full kickoff that replaces this stub declares the real contract -->

@@ -72,3 +72,8 @@ Deliverable = the code changes (Parts A/B/C) + SSOT #121 entry, committed on you
 ## See also
 - `docs/meta-factory/research-patches/2026-06-16-shipped-artifact-liveness.md` §4 (M1 spec) / §5.1 (verdict) / §5.2 (promotion criteria) — the binding research.
 - `agents/manual-rule-liveness-prober.md` — the existing prober (Phase 2 will ADAPT it; NOT this task).
+
+```bash host-verify
+# Retro-marked 2026-08-21: Part B, the principle test that must catch #551 (shipped as principle 21)
+npx vitest run --root packages/core principles/21-shipped-agent-tools-valid.test.ts
+```

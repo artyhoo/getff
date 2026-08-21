@@ -184,3 +184,5 @@ The reviewer reads the merged research-patch, verifies §3 admission predicates 
 - `.claude/rules/phase-research-coverage.md §4` — `#recursive-self-application-gap` (this umbrella's named root cause).
 - `.claude/rules/no-paid-llm-in-ci.md §1` — hard constraint on any dispatch-based probe.
 - `.claude/rules/reviewer-discipline.md §2` — reviewer role boundaries (§7).
+
+<!-- host-verify: none — meta-launch coordination doc: the §3 stage gates are gh/git checks the dispatch session runs interactively; each stage kickoff (m1-gate, m2-probe, postinstall-smoke-p1) carries its own host contract -->

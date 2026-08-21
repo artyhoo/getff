@@ -109,3 +109,5 @@
 
 - **R1 — AIF-viability проба (precondition).** GATE: `15-companions-stack` **stack-aware маппинг** (бывшая амбиция S3) НЕ начинать, пока R1 не подтвердит, что `/aif`+`npx skills` реально мапят стек→tools, ИЛИ не зафиксирует «движка нет → тонкий курируемый подбор». База: FQA-B P1/P3. Умбрелла при этом НЕ блокируется — S3 сужен.
 - **R2 — гипотеза единого зонтика «Личная фабрика»** (doc-factory + tool-bootstrapping + плагины). DEFERRED: отдельный R-phase + проба на 1-2 стеках.
+
+<!-- host-verify: none — orchestration umbrella + S0 boundary TABLE (§4: research only, no code moved): execution stages s1-s5 carry their own host-verify contracts in kickoff-s*.md -->

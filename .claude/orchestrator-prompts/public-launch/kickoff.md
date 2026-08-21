@@ -28,3 +28,5 @@ S1 EN-материалы (Show HN/README/PH) → S2 RU (Habr/Product Radar) → 
 
 ## Готово, когда
 ≥1 внешний проект реально зависит от `@getff` ИЛИ зафиксированы входящие обращения; метрики измеримы, не вкусовые.
+
+<!-- host-verify: none — planning STUB (U12 of the getff-to-prod meta-launch): stages are a sketch, no executable deliverable yet; the full kickoff that replaces this stub declares the real contract -->

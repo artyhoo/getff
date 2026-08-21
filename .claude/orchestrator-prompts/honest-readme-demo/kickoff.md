@@ -28,3 +28,5 @@ S1 overclaim-sweep (каждое утверждение → backing) → S2 Lice
 
 ## Готово, когда
 Overclaim-sweep зелёный, бейдж=FSL, ноль «Proprietary», демо-GIF демонстрирует реальный блок нарушения.
+
+<!-- host-verify: none — planning STUB (U8 of the getff-to-prod meta-launch): stages are a sketch, no executable deliverable yet; the full kickoff that replaces this stub declares the real contract -->

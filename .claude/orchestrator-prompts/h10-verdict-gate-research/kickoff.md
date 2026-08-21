@@ -38,3 +38,5 @@ Verdict-as-tool-call: the AI cannot emit a verdict/recommendation as prose. It m
 ## Out of scope
 
 No implementation, no MCP server code, no `settings.json` edit. Markdown decision doc only. Dispatch decision (now vs await H1/detector longitudinal data) is itself a maintainer call.
+
+<!-- host-verify: none — R-phase research kickoff: the deliverable is a markdown decision doc, NO implementation (own §research-questions) — no executable artifact to verify on the host -->

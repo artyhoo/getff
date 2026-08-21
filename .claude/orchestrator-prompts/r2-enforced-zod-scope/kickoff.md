@@ -47,3 +47,8 @@ Reuse the existing shadow-loop + `find`/`package.json` reading already in `check
 Active traps: **T3** (actual `check-rule-enforced.sh` output for every claim), **T14** (clean ≠ correct: a `skipped` must be because the package has no zod, not because the check silently passed on nothing — assert both arms), **T15** (self-application: the test fails if the zod-relevance skip is removed AND if a zod package's real inertness stops being caught).
 
 Domain trap **T-R2-SCOPE-A**: tempted to "fix" `apps/mobile` by setting the whole-layout `r2-na-marker` — it breaks (`r2_na_recheck` → `broke`) because sibling packages DO have zod boundaries. The fix is **per-package** zod-relevance inside the gate, not a layout-wide N/A; reaching for the existing marker is the wrong tool (pattern-matching-on-name, T16).
+
+```bash host-verify
+# Retro-marked 2026-08-21: §6 acceptance resolves via the existing harness that encodes rule-enforced reach (the skip-for-zod-less-packages behaviour this task scoped)
+bash tests/install-sh/gh-535-rule-enforced.test.sh
+```

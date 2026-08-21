@@ -129,3 +129,10 @@ Worker executing §2 must hold these T-numbers active throughout (T7 anti-patter
 ## §8 Post-implementation review task
 
 A separate kickoff exists at `.claude/orchestrator-prompts/zcode-parity-step1-emit-wrapper/post-review-kickoff.md` — it runs AFTER this umbrella's PR is merged (or after Stage 6 push, at operator discretion). It verifies plan-adherence + test quality + gate effectiveness on the shipped code.
+
+```bash host-verify
+# Retro-marked 2026-08-21: §3 acceptance names these exact suites (Mechanism 1 + Bespoke #1)
+npx vitest run --root packages/core hooks/_zcode-emit.test.ts
+npx vitest run --root packages/core hooks/end-of-turn-reminder.test.ts
+npx vitest run --root packages/core hooks/inject-project-digest.test.ts
+```
