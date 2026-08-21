@@ -253,21 +253,6 @@ _hash256() {
   printf '%s\n' "$h"
 }
 
-# _refresh_baseline_lookup <key> — echo the manifest hash for <key>, or nothing. A missing
-# manifest is the common pre-baseline state → silent empty (no note, no spam). An unparsable
-# manifest notes once and reads as empty.
-_refresh_baseline_lookup() {
-  local manifest key="$1" entry
-  manifest=$(_refresh_baseline_manifest)
-  [ -f "$manifest" ] || return 0
-  command -v jq >/dev/null 2>&1 || { _refresh_baseline_note "jq not found"; return 0; }
-  if ! entry=$(jq -r --arg k "$key" 'if (type == "object") and has($k) then .[$k] else "" end' "$manifest" 2>/dev/null); then
-    _refresh_baseline_note "manifest at $manifest is unreadable or not JSON"
-    return 0
-  fi
-  printf '%s\n' "$entry"
-}
-
 # refresh_baseline_stage <dst> — record a delivered dst for the end-of-run flush. Paths only
 # (hashed at flush — see the section header); regular files only; no-op under --dry-run.
 refresh_baseline_stage() {
@@ -282,12 +267,21 @@ refresh_baseline_stage() {
 # sha256(dst) ≠ manifest entry AND ≠ sha256(src), with a manifest entry present. Everything
 # else — no entry (unknown), dst absent, directory dst, jq/sha tooling missing, unreadable
 # manifest — exits 1 (not diverged). Call ONLY inside an `if` (its non-zero is a verdict, and
-# refresh_safe runs under set -euo pipefail).
+# refresh_safe runs under set -euo pipefail). The manifest read is INLINED at this parent
+# scope — not via $(... _refresh_baseline_lookup ...) — so the degrade note's once-flag
+# persists across this function's many calls (a subshell capture would re-note per file).
 refresh_baseline_diverged() {
-  local dst="$1" src="$2" entry cur src_hash
+  local dst="$1" src="$2" manifest entry cur src_hash
   [ -f "$dst" ] || return 1
   command -v jq >/dev/null 2>&1 || { _refresh_baseline_note "jq not found"; return 1; }
-  entry=$(_refresh_baseline_lookup "${dst#"${PROJECT_ROOT:-}"/}")
+  entry=""
+  manifest=$(_refresh_baseline_manifest)
+  if [ -f "$manifest" ]; then
+    if ! entry=$(jq -r --arg k "${dst#"${PROJECT_ROOT:-}"/}" 'if (type == "object") and has($k) then .[$k] else "" end' "$manifest" 2>/dev/null); then
+      _refresh_baseline_note "manifest at $manifest is unreadable or not JSON"
+      entry=""
+    fi
+  fi
   [ -n "$entry" ] || return 1
   cur=$(_hash256 "$dst") || { _refresh_baseline_note "no sha256 tool found"; return 1; }
   if [ "$cur" = "$entry" ]; then return 1; fi
