@@ -742,6 +742,8 @@ jobs:
         run: bash tests/install-sh/r2-auto-wire.test.sh
       - name: "install-sh — refresh-covers-full-delivery (#869 do_refresh ⊇ --full scripts/*.{sh,ts} delivery)"
         run: bash tests/install-sh/refresh-covers-full-delivery.test.sh
+      - name: "install-sh — refresh-divergence-guard (#1481 R1: baseline manifest + warn/preserve guard, arms a-e incl. pre-manifest + override + dry-run)"
+        run: bash tests/install-sh/refresh-divergence-guard.test.sh
       - name: "install-sh — different-stack switch prunes barrel (#882: --force/--refresh with a NEW stack removes the prior stack's stray preset rule)"
         run: bash tests/install-sh/refresh-different-stack-prunes-barrel.test.sh
       - name: install-sh — wire-eslint-r2 (GH #547 Layer 2 AST wirer degrade fixtures D+F)
