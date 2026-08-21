@@ -369,3 +369,5 @@ Then in fresh CC tab opened in that dir, paste:
 - 3 hand-crafted paste-prompts (Stage 4 / SW-A / SW-B, 2026-05-29 session, not committed) — empirical exemplar of Candidate A.
 
 Prior-art: prior-art-evaluations.md#65 (`using-git-worktrees`, REFERENCE — Red Flag #1 «use the native primitive» is direct input to Candidates B + E). prior-art-evaluations.md#64 (`subagent-driven-development`, ADOPT VOCABULARY — input to Candidate B re-evaluation).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

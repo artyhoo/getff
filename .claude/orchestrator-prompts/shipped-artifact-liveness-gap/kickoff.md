@@ -32,3 +32,5 @@ Domain-specific: **T-liveness-A** — «proposing a name-allowlist gate and call
 ## References
 - #550 (tracking), #551 (the incident), #552 (prober shipping).
 - [phase-research-coverage.md §4](../../rules/phase-research-coverage.md) `#recursive-self-application-gap`; [ai-laziness-traps.md](../../rules/ai-laziness-traps.md) `#discipline-theatre` family.
+
+<!-- host-verify: none — R-phase research-first kickoff (own Scope: research first — no premature build): deliverable is the research patch; the build stages live in the m1/m2/postinstall kickoffs that carry their own contracts -->

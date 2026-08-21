@@ -147,3 +147,5 @@ npx vitest run packages/core/principles/12-ai-laziness-traps.test.ts | tail -5
 - `.claude/rules/ai-laziness-traps.md §2` — canonical trap catalogue.
 - `packages/core/principles/09-doc-authority-hierarchy.test.ts:139` — the 18/set-equal gate.
 - GH #551, #552, #550; SSOT #115 (`docs/meta-factory/prior-art-evaluations.md:188`).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -71,3 +71,5 @@ Verify, quoting doc lines per claim:
 - STEP-1: per-item dual-channel result + quoted doc lines + VERIFIED/INCONCLUSIVE (esp. output-readability).
 - Files + diff stat. Commit SHA. VERIFY outputs (smoke + test + check:all). settings.json snippet.
 - DECISION-NEEDED (if any) + ATTN. Confidence with explicit predicates.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

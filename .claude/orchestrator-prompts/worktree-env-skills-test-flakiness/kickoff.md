@@ -28,3 +28,5 @@ Failing tests:
 ## Out of scope
 
 - No code fix unless (1) reveals genuine fragility in `run-helper.sh` itself (vs. the test's exec env). The helper passed its byte-identity drift check and the principle suite is green.
+
+<!-- host-verify: none — investigation tracker (own header): records verified facts and open questions about test flakiness; any fix lands under the owning umbrella with its own contract -->

@@ -149,3 +149,5 @@ clean-looking number that does not reproduce.
 5. The backward-check enumeration: other per-item git loops you found, with `file:line` and a verdict.
 6. **Field note (report only, not part of the PR):** record verbatim any hook output you saw while working. If you saw nothing, write `NOTHING APPEARED` rather than inferring.
 7. Anything you could not verify, named as such.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

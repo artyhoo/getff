@@ -39,3 +39,5 @@ Domain-specific trap: **T-GLV-A** — «migrating `input` variants by copy-pasti
 - One PR, base `staging`, all four items as atomic commits (or explicit per-item «decided: keep as-is + rationale» note in the PR body).
 - `npm --prefix packages/core run test:principles` green; `PREPUSH_ONLY=guard-liveness` seam run output quoted in PR body.
 - CI topology check: `npm install --prefix packages/core` + `bash tests/hooks/prior-art-trailer-hook.test.sh` stays 8/8 (regression guard for the #460 lazy-load fix).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

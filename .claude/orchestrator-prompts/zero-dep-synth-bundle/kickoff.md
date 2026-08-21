@@ -115,3 +115,8 @@ Domain-specific trap — **T-755-A: "green lie via empty synth"** — the synthe
 - Issue: #755. Umbrella: #728 (`generator-install-wiring`). Interim fix (variant 2): PR #746.
 - SSOT: #120 (install auto-wires by reading the repo), #172 (generated-bundle integrity, ADAPT), #58 (remark, ADOPT — analog). **New esbuild SSOT entry required (§4).**
 - Rules: `build-first-reuse-default.md`, `no-paid-llm-in-ci.md`, `ci-tool-pinning.md`, `consumer-install-completeness` S3; principles 17/21/25/26/27/28.
+
+```bash host-verify
+# Retro-marked 2026-08-21: step 6, the drift gate itself (build-synth-bundle.sh --check: rebuild to temp, diff vs the committed bundle)
+bash scripts/build-synth-bundle.sh --check
+```

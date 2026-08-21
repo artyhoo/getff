@@ -64,3 +64,5 @@ This fix is mostly pre-decided (GO verdict + exact 3-step plan above), so genuin
 - GH #551, #552, #550. SSOT #115 ([prior-art-evaluations.md:188](../../../docs/meta-factory/prior-art-evaluations.md)).
 - AIF subagents: `/opt/homebrew/lib/node_modules/ai-factory/subagents/*.md`.
 - [09-doc-authority-hierarchy.test.ts:139](../../../packages/core/principles/09-doc-authority-hierarchy.test.ts) (the 18/set-equal gate).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

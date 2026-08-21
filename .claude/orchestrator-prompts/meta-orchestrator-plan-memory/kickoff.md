@@ -193,3 +193,5 @@ In a fresh Opus session, paste this kickoff §1 + §3 + §4 verbatim, then say:
 - **`docs/meta-factory/research-patches/2026-05-23-meta-orchestrator-prior-art.md`** — public BUILD verdict for `/meta-orchestrator`
 - **`docs/meta-factory/research-patches/2026-05-25-planner-completeness-prior-art.md`** — L3/L4/L5 prior-art (TaskMaster + SDD + OpenHands rows #72-#75)
 - **Companion brainstorm-vs-R-phase precedent:** look at how `recommendation-laziness` umbrella separated R-phase (#206/#207) from benchmark (#210) from I-phase (#211/#212/#215) — same Phase-separation discipline applies here, with brainstorm preceding R-phase as PRE-research.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

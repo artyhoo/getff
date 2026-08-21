@@ -193,3 +193,5 @@
 - **G3b (require/type-aware кодоген)** — demand-gated; шов U4 — точка втыка.
 - **Личная фабрика** — частично в U3; остаток (единый зонтик doc-factory) — R-phase по сигналу.
 - **Деньги/структура (U13/U14)** — operator-gated, не авто-диспатч.
+
+<!-- host-verify: none — МЕГАКИКОФФ meta-launch plan (части 1-2: waves, launch-table, child stubs): no executable deliverable of its own; every child umbrella that unfolds declares its contract in its own kickoff -->

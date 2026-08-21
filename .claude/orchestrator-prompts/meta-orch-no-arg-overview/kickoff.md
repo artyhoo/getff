@@ -172,3 +172,5 @@ Canonical traps each Stage's session MUST instantiate countermeasures for:
 - [`.claude/skills/meta-orchestrator/SKILL.md`](../../../.claude/skills/pipeline/SKILL.md) lines 56/60/64/68/72/104/162/172/180/188/239/243/285/360 — all 14 `!`-block invocation sites; Stage 4 P4-a agent-side rewrite target.
 - [`.claude/skills/meta-orchestrator/helpers/dup-detect.sh:74-75`](../../../.claude/skills/pipeline/helpers/dup-detect.sh#L74-L75) — empty-arg `Usage:`+exit 1 branch; Stage 4 P4-b collapse target (treat empty arg as `--all`).
 - feedback memory `settings_json_agent_uncommittable` (auto-loaded) — why Stage 4's settings.json edit is maintainer-applied, not agent-applied.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

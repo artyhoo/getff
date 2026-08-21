@@ -71,3 +71,5 @@ See `.claude/rules/ai-laziness-traps.md §2` for the full catalogue. **Active tr
 ## §5 Stop conditions
 - aif container unreachable / docker absent → STOP, report (can't reproduce).
 - Tempted to edit aif internals or the container to "fix" mid-research → STOP (R-phase = research only).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

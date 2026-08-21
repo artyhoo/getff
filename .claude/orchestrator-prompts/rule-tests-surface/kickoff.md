@@ -102,3 +102,5 @@ for this umbrella: T3, T7, T11, T14, T15, T19, T20, T21.**
 - [docs/superpowers/specs/2026-07-21-rule-tests-surface-design.md](../../../docs/superpowers/specs/2026-07-21-rule-tests-surface-design.md) — the BINDING design.
 - [.claude/orchestrator-prompts/ecosystem-wiring/kickoff.md](../ecosystem-wiring/kickoff.md) — the co-dispatched wiring umbrella (mutual probe obligation).
 - [docs/meta-factory/research-patches/2026-07-21-universal-skill-panel-synthesis.md](../../../docs/meta-factory/research-patches/2026-07-21-universal-skill-panel-synthesis.md) — decisions D1-D3 + seam doctrine.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

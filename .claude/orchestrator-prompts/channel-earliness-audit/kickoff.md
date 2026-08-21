@@ -281,3 +281,5 @@ Re-run `git branch --show-current` before **each** commit/push (parallel session
 - The default for a single-file check sitting at pre-push/CI is **ADD an edit-time companion (keep the backstop)** — the doc-authority model — not move-and-delete.
 - This is an AUDIT. The deliverable is verdicts + evidence. Every move is a separate follow-up PR (T5).
 - Don't trust this kickoff's first-pass inventory table — at least one row («already hot») is known-wrong. Verify against source.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

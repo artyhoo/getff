@@ -403,3 +403,5 @@ If any self-application check fails — Worker must note this honestly in resear
 - [ ] Kickoff does NOT execute the audit — this file describes methodology only; audit is performed by the future Worker session
 
 ---
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

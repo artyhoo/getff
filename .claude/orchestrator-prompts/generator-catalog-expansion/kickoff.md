@@ -28,3 +28,5 @@ N рецептов, каждый с **paired-негативом** (намере�
 
 ## Готово, когда
 Каждый рецепт каталога имеет проходящий paired-негатив + messageId-coverage; анти-пустышка зелёная.
+
+<!-- host-verify: none — planning STUB (U5 of the getff-to-prod meta-launch): stages are a sketch, no executable deliverable yet; the full kickoff that replaces this stub declares the real contract -->

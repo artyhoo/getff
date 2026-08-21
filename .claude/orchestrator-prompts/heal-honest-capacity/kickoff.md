@@ -176,3 +176,9 @@ in the new logic must resolve toward **busy**. Grep your own diff for `:-0`, `||
    worktree. Record verbatim any hook output you saw while working — skip notices, violation
    messages, silence. If you saw nothing, write `NOTHING APPEARED` rather than inferring.
 6. Anything you could not verify, named as such.
+
+```bash host-verify
+# Retro-marked 2026-08-21: the fixture suite §3 demands plus criterion 8 (both files shipped with the fix)
+bash tests/aif-doctor/heal.test.sh
+bash tests/aif-doctor/refresh-aif-base.test.sh
+```

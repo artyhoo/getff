@@ -194,3 +194,5 @@ Reviewer reads the Stage N diff + the umbrella kickoff acceptance criteria, emit
 - `.claude/rules/ai-laziness-traps.md §2` — canonical trap catalogue.
 - `.claude/rules/ci-tool-pinning.md` (Rule A) vs `.claude/rules/companion-install-principle.md` — the T16 pinning pair.
 - `.claude/rules/reviewer-discipline.md §2` — reviewer role boundaries.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

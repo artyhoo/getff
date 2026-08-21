@@ -280,3 +280,5 @@ Umbrella complete when:
 - `.claude/skills/meta-orchestrator/SKILL.md` §1-§2 — surface this umbrella's L1-L2 will modify.
 - `.claude/skills/meta-orchestrator/helpers/*.sh` — primary I-phase target.
 - Memory: `project_meta_orchestrator_full_autonomous_umbrella` (G-rphase precedent), `feedback_check_inflight_prs_before_building` (related discipline).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

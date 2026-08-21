@@ -104,3 +104,5 @@ Per [.claude/rules/ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md) a
 - [setup.d/45-python.sh](../../../setup.d/45-python.sh) `:85-145` `_py_sgconfig_merge` — the repo's BSD-safe bash text-transform idiom to mirror.
 - [.claude/rules/build-first-reuse-default.md](../../rules/build-first-reuse-default.md), [no-paid-llm-in-ci.md](../../rules/no-paid-llm-in-ci.md), [ai-laziness-traps.md](../../rules/ai-laziness-traps.md), [doc-authority-hierarchy.md](../../rules/doc-authority-hierarchy.md), [kickoff-staging-placement.md](../../rules/kickoff-staging-placement.md).
 - [docs/meta-factory/prior-art-evaluations.md](../../../docs/meta-factory/prior-art-evaluations.md) — SSOT; the new stack-agnostic-staleness row lands here.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -284,3 +284,5 @@ Wave 10.6 — Port hook-stub-completeness bash audit → TS principle 11
 Твоя задача — не «написать TS-версию». Твоя задача — сначала **понять что именно делает каждая строка bash** (§2 inventory), **проверить что готовые инструменты не решают это лучше** (§5.0 prior art), и **только тогда предложить конкретный план** (§6 migration). В этом порядке, не в обратном.
 
 Если в какой-то момент ты думаешь «всё ясно, можно писать код» — ты ещё на R-phase и писать код нельзя (T5).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

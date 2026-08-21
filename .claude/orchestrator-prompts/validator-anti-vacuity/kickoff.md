@@ -66,3 +66,5 @@ Active traps: **T2, T3, T14, T15, T16**.
 
 - **Stage-gate:** Phase -1 adversarial cold-review (`reviewer-discipline.md §2`) → GO / REVISE / STOP, 1 REVISE макс. CI-green ≠ design-review (T19): ревьюер сам пишет анти-фикстуру и проверяет, что новый гейт её ловит.
 - **Staging-placement:** ДРАФТ. merge kickoff в `staging` ДО `/pipeline`. Не диспетчеризовать с feature-ветки (`#dispatch-before-staging`).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

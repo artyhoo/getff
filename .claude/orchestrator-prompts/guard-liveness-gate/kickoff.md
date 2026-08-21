@@ -54,3 +54,5 @@ Cold-review THIS kickoff (1× Opus): stale refs, ambiguity, missing constraints,
 ## §4c Autonomous dispatch — park-don't-guess (aif agent contract)
 
 > **aif agent — fork discipline (non-negotiable):** on ANY genuine fork or ambiguity (two defensible implementations, an undecided design choice, a missing spec detail that changes behaviour) — do NOT pick: park it as a question (set the task to `manualReviewRequired` / `blocked_external`, stating the fork as «Option A → consequence X / Option B → consequence Y») and stop that task. Proceed only on the unambiguous parts. Guessing a fork to «keep moving» is the failure this loop exists to prevent. Bridge env carries `AGENT_MAX_REVIEW_ITERATIONS=1` — not converged in one review pass → hand to human, don't keep guessing.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

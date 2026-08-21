@@ -388,3 +388,5 @@ If you find yourself writing «companion X integrates cleanly with us» without 
 - [.claude/orchestrator-prompts/companion-target-comparison/kickoff.md](../companion-target-comparison/kickoff.md) — Track 4b kickoff (still ARMED for other 6 candidates)
 - [.claude/orchestrator-prompts/post-1a-coordination/kickoff.md](../post-1a-coordination/kickoff.md) — post-1A overall coordinator
 - [.claude/orchestrator-prompts/goal-clarity-dialogue/drafts/atomic-commit-plan.md Commit 7](../goal-clarity-dialogue/drafts/atomic-commit-plan.md) — downstream Commit 7 (this R-phase grounds it substantively)
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

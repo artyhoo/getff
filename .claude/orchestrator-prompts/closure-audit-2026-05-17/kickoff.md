@@ -214,3 +214,5 @@ This audit kickoff was authored by the same orchestrator session that committed 
 - The very kickoff text you're reading may itself contain `#discipline-theatre` patterns. Surface them in §5/§9 if found.
 - Don't take this kickoff's framings on trust — verify them against authoritative project rules (ai-laziness-traps, phase-research-coverage, reviewer-discipline) when in doubt.
 - If you find this kickoff itself is closing on something not-done (e.g. asserting «4 incidents = threshold» without re-counting): surface that too.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

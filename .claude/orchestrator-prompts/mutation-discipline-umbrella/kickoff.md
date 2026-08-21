@@ -187,3 +187,5 @@ Umbrella complete when:
 - `packages/core/stryker.audit-ai-docs.mjs` — secondary Stryker config (audit-self scope).
 - M.4 umbrella kickoff at `.claude/orchestrator-prompts/m4-bash-hook-tests/kickoff.md` — paired-negative test pattern reference.
 - M.4 meta-launch kickoff at `.claude/orchestrator-prompts/m4-bash-hook-tests-meta-launch/kickoff.md` — Mode B × N worktrees dispatch pattern.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

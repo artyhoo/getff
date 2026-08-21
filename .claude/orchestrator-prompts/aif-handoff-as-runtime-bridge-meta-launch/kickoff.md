@@ -412,3 +412,5 @@ Any session message produced FROM this kickoff (Worker REPORT, Reviewer GO/REVIS
 - `.claude/rules/no-paid-llm-in-ci.md` — hard constraint on all probes.
 - `docs/meta-factory/research-patches/2026-05-26-companion-reuse-aif-handoff-autoqueue.md` — predecessor sub-component evaluation (autoQueueMode).
 - `docs/meta-factory/research-patches/2026-05-23-meta-orchestrator-prior-art.md` — meta-orchestrator BUILD verdict + SSOT #67 origin.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

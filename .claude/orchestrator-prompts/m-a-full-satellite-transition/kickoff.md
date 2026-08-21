@@ -123,3 +123,5 @@ T1, T3, T7, T11, T12, T13, T15 (load-bearing — recursive self-application: eac
 - `.claude/rules/phase-research-coverage.md §1` — 6-item search-coverage + §1.7 self-reflexive
 - `.claude/rules/ai-laziness-traps.md §3` — T-trap enumeration mandate
 - `agents/compliance-verifier.md` — AI-agnostic §1.7 substance review
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

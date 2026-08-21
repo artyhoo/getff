@@ -26,3 +26,5 @@ S1 enumerate фактически используемой публичной п
 
 ## Готово, когда
 Публичная поверхность core заморожена на основе перечня реальных потребителей; 1.0 выпущен после U9 R3.
+
+<!-- host-verify: none — planning STUB (U17 of the getff-to-prod meta-launch): stages are a sketch, no executable deliverable yet; the full kickoff that replaces this stub declares the real contract -->

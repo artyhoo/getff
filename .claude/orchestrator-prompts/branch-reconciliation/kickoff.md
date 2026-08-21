@@ -66,3 +66,5 @@ After all 8 are classified and MISSING content is landed + **verified on `origin
 
 ## §7 Deliverable
 A short reconciliation report (can be a research-patch under `docs/meta-factory/research-patches/` if findings are substantive): the 8-row classification table with evidence, links to any landing PRs opened, and the branch-fate recommendation for maintainer sign-off.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -101,3 +101,5 @@ All stage PRs merged → Phase -1 cold-review (read-only Agent, `reviewer-discip
 - §1.7 PR-body mandate + pre-flight greps per `.claude/orchestrator-prompts/<any>-meta-launch` §4b shape; S3 waves touching `packages/core/principles/` must run the EXEMPT_/allowlist probe (CLAUDE.md §Operational conventions) in Phase -1.
 - Last-stage merge → `done.md` here per CLAUDE.md Umbrella closure convention.
 - Quota expectation: S1 ×4 ≈ one Opus session each + 1 reviewer round; S2 single; S3 sized by S2; keep reviewers 1×Opus read-only.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

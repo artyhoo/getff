@@ -48,3 +48,5 @@ T3 (no prose-only — paste the actual WebFetch/WebSearch output for every arXiv
 4. Correction-log §8 appended.
 5. Edits confined to Fix A + Fix B (diff shows nothing else).
 6. No commit/push/PR by worker.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

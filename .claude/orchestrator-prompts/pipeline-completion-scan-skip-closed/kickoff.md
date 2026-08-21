@@ -124,3 +124,5 @@ Per [.claude/rules/kickoff-staging-placement.md §1](../../rules/kickoff-staging
 - [`helpers/dup-detect.sh`](../../skills/pipeline/helpers/dup-detect.sh) — the expensive per-umbrella scan; the dual-caller surface.
 - [`.claude/skills/pipeline/SKILL.md §2 / §2.5`](../../skills/pipeline/SKILL.md) — the two callers (completion-filter vs standalone dedup).
 - [.claude/rules/ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md) · [reviewer-discipline.md §2](../../rules/reviewer-discipline.md) · [no-paid-llm-in-ci.md](../../rules/no-paid-llm-in-ci.md) · [build-first-reuse-default.md](../../rules/build-first-reuse-default.md).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

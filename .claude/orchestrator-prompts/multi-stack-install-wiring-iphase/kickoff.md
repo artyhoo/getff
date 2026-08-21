@@ -83,3 +83,5 @@ Active canonical traps: **T3**, **T13**, **T15**, **T16**.
 
 - **Forward-check:** complies with [no-paid-llm-in-ci.md](../../rules/no-paid-llm-in-ci.md) (install.sh + principle tests are deterministic bash/TS, zero API calls); [build-first-reuse-default.md](../../rules/build-first-reuse-default.md) (pure wiring of already-decided ADOPT/BUILD verdicts — no new capability); [doc-authority-hierarchy.md §2-§3](../../rules/doc-authority-hierarchy.md) (registers the new shipped docs into the authority-header gate — this task is literally extending that gate's coverage).
 - **Backward-check:** consumes the merged phase-A presets (#646 Stage 1) + the merged kickoffs (#655/#656); supersedes nothing; this is the integration half that the two preset kickoffs explicitly fenced out (`install.sh`/`principles` marked out-of-scope there so this single task owns them).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

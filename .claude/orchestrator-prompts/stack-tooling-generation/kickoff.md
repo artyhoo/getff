@@ -53,3 +53,5 @@ exactly the trap.
 - Vision record: `.claude/orchestrator-prompts/python-delivery-v0-meta-launch/decisions.md`
   «Owner vision-clarification» (2026-07-12).
 - Seed: [.claude/skills/tool-bootstrapping/SKILL.md](../../skills/tool-bootstrapping/SKILL.md).
+
+<!-- host-verify: none — planning STUB (self-declared): scope sketch to unfold into stages later; no executable deliverable until an unfold produces real kickoffs that declare their own contracts -->

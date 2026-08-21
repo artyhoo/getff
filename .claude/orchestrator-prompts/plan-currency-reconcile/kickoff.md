@@ -69,3 +69,5 @@ No-build → self-audit нетронут, но при закрытии всё р
 ## §10 Закрытие
 
 На завершении — `done.md` по схеме CLAUDE.md «Umbrella closure convention»: `# plan-currency-reconcile — DONE` · Final PR · Closed · Summary.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

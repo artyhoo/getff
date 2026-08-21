@@ -240,3 +240,5 @@ Any session message produced FROM this kickoff (Worker REPORT, Reviewer GO/REVIS
 - `.claude/rules/reviewer-discipline.md §2` — reviewer role boundaries.
 - `.claude/orchestrator-prompts/live-generation/kickoff.md` — AUTHORITATIVE = the `origin/staging` version (post-#1021).
 - `.claude/orchestrator-prompts/deps-hash-multistack/kickoff.md` — the EXTRACTED sibling umbrella (NOT LG-S4 scope).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

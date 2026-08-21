@@ -71,3 +71,8 @@ See [`.claude/rules/ai-laziness-traps.md §2`](../../rules/ai-laziness-traps.md)
 **Domain-specific:**
 - **T-MIF-A** — «MCP адоптирован → ставится» без проверки. Counter: empirical install + reachability probe on a clean consumer.
 - **T-MIF-C** — «context7 вернули» = строка в `.mcp.json`, но MCP не грузится. Counter: `mcp__context7__*` reachable, not only file written.
+
+```bash host-verify
+# Retro-marked 2026-08-21: §4 acceptance keeps the installed surface byte-identical (empirical consumer probes stay in §4; the snapshot compare is the repo-runnable guard)
+SNAPSHOT_MODE=compare bash tests/install-sh/snapshot.sh
+```

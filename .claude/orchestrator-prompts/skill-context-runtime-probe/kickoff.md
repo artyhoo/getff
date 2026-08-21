@@ -125,3 +125,5 @@ Sections: §1 question; §2 probe setup (commands); §3 WITH-run output (verbati
 - `.claude/rules/no-paid-llm-in-ci.md` §2 — session-bound `/aif-verify` in scope.
 - `.claude/rules/ai-laziness-traps.md` §2 — trap catalogue.
 - `.claude/rules/build-first-reuse-default.md §1` — ADAPT verdict typology (skill-context = ADAPT; MERGE = ADAPT-MINIMAL).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

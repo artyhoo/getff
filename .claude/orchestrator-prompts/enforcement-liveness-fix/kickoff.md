@@ -84,3 +84,5 @@
 ## §10 Закрытие
 
 На S5 — `done.md` по схеме CLAUDE.md «Umbrella closure convention»: `# enforcement-liveness-fix — DONE` · Final PR · Closed · Summary + доказательство зелёной матрицы Node 20+22.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -85,3 +85,5 @@ react-spa is NOT dropped from the framework — its augment-first path is alread
 - **Pre-dispatch:** this kickoff must be on `staging` before any `/pipeline`/aif dispatch of Phase B/C ([kickoff-staging-placement.md §1](../../../.claude/rules/kickoff-staging-placement.md)). Probe in-flight before dispatch.
 - **Egress:** host-push default ([egress-no-api-bypass.md §1](../../../.claude/rules/egress-no-api-bypass.md)); run the FULL CI-equivalent gate set locally before harvest (CI install order before the synth-bundle #755 check — the semver-drift trap bit #824 twice).
 - **REPORT:** per stack — the real config diff proving the live rule landed (Phase A); the non-vacuous CI oracle (Phase C); principle 28 green; byte-identical path; `npm test --workspaces`. State per stack whether a real declarative demo shipped or degraded research-only, with the reason. Confidence + ATTN.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

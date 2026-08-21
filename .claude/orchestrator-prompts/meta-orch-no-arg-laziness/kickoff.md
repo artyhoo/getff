@@ -160,3 +160,5 @@ The verdict body MUST include:
 - **BFR posture** — one of ADOPT / ADOPT VOCABULARY / ADAPT / REFERENCE / KEEP NARROW / BUILD / REJECT per [build-first-reuse-default.md §1](../../../.claude/rules/build-first-reuse-default.md). If BUILD, integration-cost estimate (LOC, files touched, new dependencies).
 - **Classifier-compatibility score** — per §1.5b results, which inline-block shapes does the verdict require and are they all classifier-safe.
 - **I-phase preview** — sketch of the implementation umbrella that would land the verdict (file scope, principle test impact, capability-commit threshold check).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

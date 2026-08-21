@@ -90,3 +90,5 @@ If your diff touches `packages/core/templates/**`, `.claude/rules/**`, `.claude/
 `packages/core/principles/**`, or `CLAUDE.md`, the **§1.7 Forward/Backward sections are REQUIRED** — see the
 meta-launch kickoff §4b for the exact shape (H3 headings, the word «applied», ≥40 non-whitespace chars and
 ≥1 `path.ext:N` citation per section) and run its pre-flight grep before `gh pr create`.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

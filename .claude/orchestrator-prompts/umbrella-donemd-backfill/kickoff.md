@@ -134,3 +134,5 @@ Active traps for this run: T1, T3, T7, T10, T14.
   *kickoff-authoring* PR — live example: PR #1107 is this very umbrella's kickoff and
   would self-match. S1 requires the matched PR to plausibly deliver the umbrella's
   **final stage**, not merely to mention its name.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

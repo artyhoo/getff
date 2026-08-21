@@ -660,3 +660,5 @@ After this dialogue closes, maintainer reviews drafts at their pace and decides 
   - `project_scope_philosophy_companion_to_aif.md`
   - `project_goal_framing_narrow_vs_broad.md`
   - `MEMORY.md` (index)
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

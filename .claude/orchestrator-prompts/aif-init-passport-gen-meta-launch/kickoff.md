@@ -233,3 +233,5 @@ Reviewer discipline: surfaces strategy forks as DECISION-NEEDED (option A → co
 - `.claude/rules/build-first-reuse-default.md §3` — prior-art consult mechanism (own-stack-first).
 - `.claude/rules/dual-implementation-discipline.md §3` — delivery-channel triage (consumer-facing ⇒ portable markdown).
 - `.claude/rules/reviewer-discipline.md §2` — reviewer role boundaries.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

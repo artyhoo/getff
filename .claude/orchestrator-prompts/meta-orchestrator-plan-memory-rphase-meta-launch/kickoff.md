@@ -253,3 +253,5 @@ Skip allowed only for one-line tool acknowledgements ("OK"), pure `gh`/`git` out
 - `.claude/rules/recommendation-laziness-discipline.md` — T20 + verdict-with-evidence.
 - `.claude/rules/reviewer-discipline.md §2` — reviewer role boundaries (§7).
 - `.claude/rules/no-paid-llm-in-ci.md §1` — hard constraint on all dispatch.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

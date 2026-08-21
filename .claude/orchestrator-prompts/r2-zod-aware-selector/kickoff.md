@@ -45,3 +45,8 @@ Reuse `@typescript-eslint/utils` `parserServices` — already a dependency, `str
 Active traps: **T3** (file:line + actual `eslint` output for every claim), **T16** (pattern-matching-on-name — the rule is *named* `no-unsafe-zod-parse` but *behaves* as `no-any-parse`; name ≠ problem-class, verify behaviour), **T15** (self-application: the negative fixture must fail on a reverted selector).
 
 Domain trap **T-R2-SELECTOR-A**: tempted to keep the existing `{parse:x=>x}` test because "it passes" — that test **codifies the bug**. The fix MUST replace it with a real Zod-schema positive + stdlib-`.parse()` negative; leaving the old assertion locks the over-broad selector in and re-greens the very defect this closes (a `#trap-stated-but-not-enforced` shape).
+
+```bash host-verify
+# Retro-marked 2026-08-21: §5 names it — "make self-audit green" (covers the wired manifest liveness for no-unsafe-zod-parse)
+make self-audit
+```

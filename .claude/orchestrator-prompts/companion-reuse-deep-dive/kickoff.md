@@ -184,3 +184,5 @@ If any gate fails → this kickoff stays parked.
   - [Devin dynamic re-plan architecture (Medium 2026-04)](https://medium.com/@nitinmatani22/how-devin-ai-actually-thinks-autonomous-planning-dag-execution-and-dynamic-re-planning-explained-997be175a475)
 - [`.claude/rules/ai-laziness-traps.md §2 T16`](../../../.claude/rules/ai-laziness-traps.md) — the trap class this umbrella corrects against.
 - [`.claude/rules/build-first-reuse-default.md`](../../../.claude/rules/build-first-reuse-default.md) — verdict ladder applied per Sub-wave.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

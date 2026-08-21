@@ -211,3 +211,5 @@ Per [.claude/rules/ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md) (
 - [.claude/rules/ci-tool-pinning.md](../../rules/ci-tool-pinning.md) — Rule A pinned-install pattern for the CI live-fire wiring.
 - [.claude/rules/kickoff-staging-placement.md](../../rules/kickoff-staging-placement.md) — merge-before-dispatch discipline.
 - [docs/meta-factory/prior-art-evaluations.md](../../../docs/meta-factory/prior-art-evaluations.md) — #185 (ast-grep, search surface; triggers (b)/(c)), #197 (ecosystem adapter precedent), #198/#199 (narrow-core IR + clippy render-target lineage).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

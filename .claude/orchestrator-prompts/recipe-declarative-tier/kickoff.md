@@ -71,3 +71,5 @@ S1 трогает `recipe.schema.json` + 1 рецепт + (возможно) н�
 ## §9 Staging-placement note
 
 Этот kickoff — **ДРАФТ**. Перед любым `/pipeline recipe-declarative-tier`: автор доводит содержание → merge kickoff в `staging` (PR, squash) → **только потом** dispatch. Диспетчеризация при kickoff только на feature-ветке = нарушение `kickoff-staging-placement.md §5` (`#dispatch-before-staging`).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

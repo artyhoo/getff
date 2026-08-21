@@ -226,3 +226,5 @@ Any session message produced FROM this kickoff (Worker REPORT, Reviewer GO/REVIS
 - `.claude/rules/reviewer-discipline.md §2` — reviewer role boundaries (#552-flip is a maintainer decision).
 - `docs/meta-factory/prior-art-evaluations.md` — SSOT #115 (`manual-rule-liveness-prober`) + #55 (SP `writing-skills`).
 - `agents/manual-rule-liveness-prober.md` — the consumer of generated scenarios.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -166,3 +166,5 @@ Expected: 6 merged PRs (one per M.4.1 … M.4.6).
 - [`packages/core/hooks/git.test.ts`](../../../packages/core/hooks/git.test.ts) — Wave 3 precedent (0-tests gap closure, the analog M.4 is solving 6× over).
 - [`packages/core/principles/02-paired-negative-test.test.ts`](../../../packages/core/principles/02-paired-negative-test.test.ts) — the discipline each new test must satisfy.
 - [`packages/core/principles/12-ai-laziness-traps.test.ts`](../../../packages/core/principles/12-ai-laziness-traps.test.ts) — validates §7 T-enumeration shape.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

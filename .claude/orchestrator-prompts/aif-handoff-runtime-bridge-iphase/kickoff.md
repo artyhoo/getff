@@ -551,3 +551,5 @@ Pre-push hook will block commits missing this trailer. Workers must include it i
 ## §12 Phase -1 amendments log (audit trail) — extracted
 
 Moved verbatim to [kickoff-amendments.md](kickoff-amendments.md) (2026-08-08) to bring this file under the 600-line pre-commit gate. Audit trail unchanged there.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

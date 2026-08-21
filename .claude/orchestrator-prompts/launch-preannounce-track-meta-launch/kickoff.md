@@ -209,3 +209,5 @@ The reviewer reads the S1 calibration report + the umbrella kickoff §2 S1 accep
 - `.claude/rules/ai-laziness-traps.md §2` — canonical trap catalogue.
 - `.claude/rules/parallel-subwave-isolation.md §1` — worktree isolation (S3/S4/S6 parallel sessions).
 - `.claude/rules/reviewer-discipline.md §2` — reviewer role boundaries (§7).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

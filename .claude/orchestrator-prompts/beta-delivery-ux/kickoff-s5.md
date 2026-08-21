@@ -226,3 +226,5 @@ echo "$PR_BODY" | grep -cE '[^[:space:]]+\.[a-z]+:[0-9]+'                  # mus
 - A content drift in `/arch` or glm-handoff is noticed → surface it; do NOT fix it here.
 - The vendored dispatch cannot run end-to-end on a foreign repo → park the blocker.
 - Local CI-equivalent sweep goes red from a branch-introduced cause → fix before handoff.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -160,3 +160,5 @@ condition. If you cannot construct it, say so explicitly rather than substitutin
    nothing at all, write `NOTHING APPEARED` rather than inferring. Raw data for a separate
    audit; do not analyse it.
 5. Anything you could not verify, named as such.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

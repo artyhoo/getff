@@ -323,3 +323,5 @@ deliverable row, the AC leg, file:line, the host-verify state — not per-turn p
 - `.claude/rules/ai-laziness-traps.md §2` — canonical trap catalogue.
 - `.claude/rules/effort-worthiness.md` — the L0 `research-grade` label this stage carries.
 - `.claude/rules/reviewer-discipline.md §6` — severity contract for the Phase -1 round.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

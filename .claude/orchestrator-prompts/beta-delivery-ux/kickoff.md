@@ -82,3 +82,5 @@ Active traps for this umbrella: T3, T7, T16, T17, T19, T20, T21.
 Park questions via runtime-bridge `park`/`answer` (acceptance-contour D5 routing once
 live; until then `/arch` §4 office-hours class). Design-level drift from the spec →
 STOP + surface, never improvise past a binding decision.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

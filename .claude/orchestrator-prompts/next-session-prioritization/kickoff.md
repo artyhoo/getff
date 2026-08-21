@@ -195,3 +195,5 @@ Plus the standard self-application check (T15).
 - [docs/meta-factory/research-patches/2026-05-13-pr-body-s17-substance-gap.md](../../../docs/meta-factory/research-patches/2026-05-13-pr-body-s17-substance-gap.md) — PR-body §1.7 substance research (recently shipped).
 - [docs/meta-factory/research-patches/2026-05-13-memory-to-docs-codification-audit.md](../../../docs/meta-factory/research-patches/2026-05-13-memory-to-docs-codification-audit.md) — memory-to-docs audit (parallel session, PR #52).
 - [docs/meta-factory/prior-art-evaluations.md#41](../../../docs/meta-factory/prior-art-evaluations.md) — Danger JS ADOPT (fresh 2026-05-13).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

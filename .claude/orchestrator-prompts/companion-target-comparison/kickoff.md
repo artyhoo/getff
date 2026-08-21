@@ -252,3 +252,5 @@ If you find yourself writing «<candidate> solves problem similar to ours» with
 - [.claude/orchestrator-prompts/goal-clarity-dialogue/drafts/atomic-commit-plan.md Commit 7](../goal-clarity-dialogue/drafts/atomic-commit-plan.md) — Commit 7 dependency on this R-phase
 - [.claude/orchestrator-prompts/post-1a-coordination/kickoff.md §3.4](../post-1a-coordination/kickoff.md) — pending-kickoff-creation tracker
 - [.claude/orchestrator-prompts/prose-rules-audit-research/kickoff.md](../prose-rules-audit-research/kickoff.md) — methodology template (R-phase structure, T-XXX domain-specific trap pattern)
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

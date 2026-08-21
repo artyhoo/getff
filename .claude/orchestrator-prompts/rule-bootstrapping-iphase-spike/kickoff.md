@@ -66,3 +66,8 @@ On ANY genuine fork (e.g. exact install-time hook location: new `setup.d/NN-*.sh
 - `docs/meta-factory/research-patches/2026-06-28-rule-bootstrapping.md` — the R-phase design this spike implements (§4 seam, §11 SSOT #183 draft).
 - `docs/meta-factory/research-patches/2026-06-28-generation-live-delivery.md` — sibling R-phase (delivery axis; its Q1 — live-emit vs SSOT-projection — is PARKED, a DIFFERENT question from #798's agent-vs-code Q1). It also drafts a `#183` SSOT row (see §4 id-collision note).
 - [.claude/rules/ai-laziness-traps.md](../../rules/ai-laziness-traps.md), [build-first-reuse-default.md](../../rules/build-first-reuse-default.md), [kickoff-staging-placement.md](../../rules/kickoff-staging-placement.md).
+
+```bash host-verify
+# Retro-marked 2026-08-21: §7 Done requires the opted-out path byte-identical — the snapshot compare is that gate
+SNAPSHOT_MODE=compare bash tests/install-sh/snapshot.sh
+```

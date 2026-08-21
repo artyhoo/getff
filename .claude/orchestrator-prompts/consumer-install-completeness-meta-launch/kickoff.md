@@ -180,3 +180,5 @@ Any session message FROM this kickoff (Worker REPORT, Reviewer verdict, mid-stag
 - `.claude/rules/ai-laziness-traps.md §2` — canonical trap catalogue.
 - `.claude/rules/reviewer-discipline.md §2` — reviewer role boundaries.
 - `CLAUDE.md §Operational conventions` — pre-dispatch in-flight probe.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

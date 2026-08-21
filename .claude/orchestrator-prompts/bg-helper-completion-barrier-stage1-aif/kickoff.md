@@ -167,3 +167,5 @@ Guessing a fork "to keep moving" is the exact failure this whole task exists to 
 - Any of the 5 regression tests fail → STOP, do not open PR.
 - A genuine fork surfaces → PARK per §4c, do not guess.
 - You're tempted to touch `SKILL.md` or foreground helpers → STOP (Stage 2 / out of scope).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

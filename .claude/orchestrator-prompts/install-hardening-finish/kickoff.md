@@ -28,3 +28,5 @@ S1 rollback per-layer (trap+LIFO) + сбой-фикстура → S2 `--only/--s
 
 ## Готово, когда
 Инъецированный сбой слоя откатывается чисто (LIFO), `--only/--skip` работают, тест-матрица зелёная npm+pnpm × Node 20+22.
+
+<!-- host-verify: none — planning STUB (U6 of the getff-to-prod meta-launch): stages are a sketch, no executable deliverable yet; the full kickoff that replaces this stub declares the real contract -->

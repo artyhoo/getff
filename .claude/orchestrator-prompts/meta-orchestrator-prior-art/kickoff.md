@@ -201,3 +201,5 @@ Before writing the deliverable patch, confirm the verdict respects:
 - [ ] Verdict explicit (ADOPT / ADAPT / BUILD / REJECT), with falsifier («wrong if …»).
 
 If any item unchecked → verdict provisional, not load-bearing.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

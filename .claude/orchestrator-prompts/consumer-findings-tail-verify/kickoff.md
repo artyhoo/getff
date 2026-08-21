@@ -47,3 +47,5 @@ Domain-specific trap — **T-CFTV-A:** «closed issue ≠ fixed defect». An iss
 - [docs/meta-factory/consumer-findings-timeliner.md](../../../docs/meta-factory/consumer-findings-timeliner.md) — the preserved F1–F13 backlog (this kickoff's input).
 - GitHub issues #547–#552 (open) + #507–#546 (closed) — the dedup surface.
 - Umbrella #550 — consumer functional-acceptance tracking.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -486,3 +486,5 @@ If approaching Red zone mid-flow → pause, ask maintainer.
 - `docs/meta-factory/prior-art-evaluations.md` — SSOT (consult target)
 - `.claude/rules/phase-research-coverage.md §1.7 + §1.10` — rule-introduction discipline + type-system > prose
 - `.claude/rules/no-paid-llm-in-ci.md` — constrains drift check design
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

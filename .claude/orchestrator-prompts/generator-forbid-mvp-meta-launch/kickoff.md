@@ -238,3 +238,5 @@ Reviewer reads the dispatch kickoff (or `git diff staging...<stage-head>`) + the
 - `.claude/rules/no-paid-llm-in-ci.md §1` — deterministic-generation constraint.
 - `.claude/rules/reviewer-discipline.md §2` — reviewer role boundaries.
 - `.claude/rules/kickoff-staging-placement.md §1` — why dispatch inputs live on staging.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

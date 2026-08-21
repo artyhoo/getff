@@ -33,3 +33,5 @@ Active traps for whoever picks up a WI here: **T5** (don't fold implementation i
 
 ## Kickoff-staging-placement
 This kickoff is a tracked file; per [`.claude/rules/kickoff-staging-placement.md §1`](../../../.claude/rules/kickoff-staging-placement.md) it must reach `staging` (this PR) before any `/pipeline executable-aidocs-and-cargo-followups` dispatch. It is a **tracker**, not an immediate dispatch — pick up individual WIs on maintainer go.
+
+<!-- host-verify: none — deferred work-items record (own header: each WI gated on its own trigger): no deliverable exists until a WI fires, at which point its kickoff carries the contract -->

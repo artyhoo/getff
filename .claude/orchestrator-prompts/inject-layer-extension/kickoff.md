@@ -86,3 +86,5 @@ See [.claude/rules/ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md). 
 - [.claude/rules/build-first-reuse-default.md](../../rules/build-first-reuse-default.md) — Stage R discipline.
 - [.claude/rules/dual-implementation-discipline.md §3](../../rules/dual-implementation-discipline.md) — ship-vs-home triage (G1 seed).
 - `packages/core/detector/`, `.claude/hooks/inject-matching-rule.sh`, `packages/core/hooks/deps-hash-check.sh` — the REUSE components.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

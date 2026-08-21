@@ -75,3 +75,5 @@ Active traps for this umbrella: T3, T10, T14, T15, T16, T20.
 
 Park via runtime-bridge; owner-gated file changes surface as patch-proposal PRs to the
 maintainer; divergence from spec D7/D8 → STOP + surface.
+
+<!-- host-verify: none — orchestration umbrella: stages s1-s3 are dispatched via their own kickoff-s*.md files, each already carrying its own host-verify contract; this file authors no executable deliverable -->

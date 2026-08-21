@@ -131,3 +131,5 @@ Paste in a fresh Opus session (Mode A — single R-phase, single Worker):
 - [.claude/rules/memory-codification.md §3](../../rules/memory-codification.md) — write-time discipline
 - [.claude/rules/ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md) — canonical trap catalogue
 - [.claude/rules/recommendation-laziness-discipline.md](../../rules/recommendation-laziness-discipline.md) — T20 + verdict-with-evidence
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

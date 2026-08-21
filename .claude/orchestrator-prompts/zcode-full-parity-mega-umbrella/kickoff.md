@@ -247,3 +247,10 @@ For each stage that produces a verdict (2, 4, 7, 9), the operator (user) decides
 Stage 3 (twin shipping), Stage 5 (conditional impl), Stage 6 (migration) are execution-build and can proceed autonomously once their prerequisites are met.
 
 Stage 8 (Cursor/Codex survey) is research-only; its verdicts also go to operator.
+
+```bash host-verify
+# Retro-marked 2026-08-21: §4 acceptance rows 3/5 — the shipped twin tests (digest/language emit + end-of-turn reminder)
+npx vitest run --root packages/core hooks/_zcode-emit.test.ts
+npx vitest run --root packages/core hooks/end-of-turn-reminder.test.ts
+npx vitest run --root packages/core hooks/inject-project-digest.test.ts
+```

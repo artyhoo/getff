@@ -186,3 +186,5 @@ echo "$PR_BODY" | grep -cE '[^[:space:]]+\.[a-z]+:[0-9]+'                  # mus
 - The §1 residue diff is not decisive about supersession → park, do not guess.
 - The §2 re-triage hits a hook whose depth is genuinely ambiguous → park.
 - Local CI-equivalent sweep goes red from a branch-introduced cause → fix before handoff.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

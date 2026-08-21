@@ -83,3 +83,5 @@ T3 (re-confirm §1 gap rows with fresh evidence) · T11/T12 (BFR search before a
 - `meta-orchestrator-refactor/kickoff.md §4c` (sibling — where this gap was found; the verified availability table).
 - `docs/runtime-bridge-setup.md` (clone/mount model) · `.claude/rules/build-first-reuse-default.md §1.1` (two-axis) · `dual-implementation-discipline.md` (CC-native + portable-fallback) · `no-paid-llm-in-ci.md`.
 - `packages/core/templates/shared/skill-context/` · `agents/*.md` · `scripts/link-coordination.sh` · SSOT (`docs/meta-factory/prior-art-evaluations.md`) for aif-handoff rows (#67/#97).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -132,3 +132,5 @@ npx vitest run packages/core/principles/12-ai-laziness-traps.test.ts | tail -5
 - `.claude/rules/build-first-reuse-default.md §3` — DeepWiki-first 6-layer mechanism.
 - `.claude/rules/ai-laziness-traps.md §2` — canonical trap catalogue.
 - `.claude/rules/reviewer-discipline.md §2` — reviewer role boundaries.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

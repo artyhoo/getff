@@ -519,3 +519,5 @@ Your closing message must include self-application audit: did YOU apply Queue mo
 Three doc-audit kickoff drafts. That's it.
 
 Burn Opus. Be thorough. Cite everything. Escalate cleanly when blocked. Done.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

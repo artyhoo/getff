@@ -549,3 +549,5 @@ Must pass before §1 execution begins.
 - [Round-1 origin patch](../../../docs/meta-factory/research-patches/2026-05-23-meta-orchestrator-prior-art.md)
 - [parallel-subwave-isolation.md](../../rules/parallel-subwave-isolation.md), [reviewer-discipline.md](../../rules/reviewer-discipline.md), [no-paid-llm-in-ci.md](../../rules/no-paid-llm-in-ci.md), [ai-laziness-traps.md](../../rules/ai-laziness-traps.md), [build-first-reuse-default.md](../../rules/build-first-reuse-default.md), [rule-enforcement-channel-selection.md](../../rules/rule-enforcement-channel-selection.md), [phase-research-coverage.md](../../rules/phase-research-coverage.md)
 - [principle 12 test](../../../packages/core/principles/12-ai-laziness-traps.test.ts)
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

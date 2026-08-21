@@ -174,3 +174,5 @@ Per [.claude/rules/ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md) (
 - [.claude/rules/ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md) — the trap catalogue this §4 instantiates.
 - [.claude/rules/kickoff-staging-placement.md](../../rules/kickoff-staging-placement.md) — the merge-before-dispatch discipline §3 cites.
 - [.claude/orchestrator-prompts/rule-research-trust-tiers/kickoff.md](../rule-research-trust-tiers/kickoff.md) — the ecosystem-adapter seam MT's frontends ride.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

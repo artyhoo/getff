@@ -102,3 +102,5 @@ Spot-check that the 4 deleted branches' content is genuinely on `main` (squash-m
 - `docs/meta-factory/research-patches/2026-05-20-companion-integration-analysis.md` — C-1 origin.
 - `.claude/rules/{reviewer-discipline,build-first-reuse-default,phase-research-coverage,dual-implementation-discipline,ai-laziness-traps}.md`.
 - PRs #79, #82, #83 (all merged).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

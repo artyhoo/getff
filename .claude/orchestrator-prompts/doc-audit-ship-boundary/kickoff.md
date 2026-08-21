@@ -177,3 +177,5 @@ This umbrella *is* the project's thesis turned on the project's own documentatio
 - `README.md#why-this-exists` — the goal (maintainer-owned; re-validated, not redefined).
 - `install.sh` — the actual ship manifest (truth for G1).
 - `CLAUDE.md` «Artifact Ownership Contract» — who may edit what.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

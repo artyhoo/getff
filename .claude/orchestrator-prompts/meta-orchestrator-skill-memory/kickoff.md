@@ -326,3 +326,5 @@ When execution completes, the implementing session emits a final block:
 - [.claude/rules/ai-laziness-traps.md §3](../../rules/ai-laziness-traps.md) — §5 above complies with kickoff-author obligations
 - Cline Memory Bank — upstream pattern (ADAPT verdict per §0)
 - Round-2 audit kickoff [meta-orchestrator-followup-audit/kickoff.md](../meta-orchestrator-followup-audit/kickoff.md) — structural template this kickoff follows
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

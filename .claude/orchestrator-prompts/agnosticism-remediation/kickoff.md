@@ -75,3 +75,5 @@ T-A, T-B, T-C are parallelizable. **T-D is a maintainer decision — park to ope
 - `tests/agnosticism/` — the conformance harness (re-runnable proof engine).
 - [.claude/rules/dual-implementation-discipline.md](../../../.claude/rules/dual-implementation-discipline.md) — the posture §5 reconciles.
 - [.claude/rules/no-paid-llm-in-ci.md](../../../.claude/rules/no-paid-llm-in-ci.md) — paid-surface policy the audit verified clean.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -73,3 +73,8 @@ See [`.claude/rules/ai-laziness-traps.md §2`](../../rules/ai-laziness-traps.md)
 
 **Domain-specific:**
 - **T-MIF-D** — declaring «non-interactive» from the flag-parse code without a real run. Counter: actually run `./setup -y </dev/null` and confirm no prompt blocks + FULL pre-push fires.
+
+```bash host-verify
+# Retro-marked 2026-08-21: §4 acceptance keeps the installed surface byte-identical (empirical consumer probes stay in §4; the snapshot compare is the repo-runnable guard)
+SNAPSHOT_MODE=compare bash tests/install-sh/snapshot.sh
+```

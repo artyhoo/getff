@@ -99,3 +99,5 @@ Touches `.claude/skills/**` → every PR body needs `### §1.7 Forward-check app
 - `../meta-orchestrator-refactor/decisions.md` — architecture rationale (/pipeline + /dispatcher + sequencer split).
 - `.claude/skills/pipeline/SKILL.md` — the plan skill this complements.
 - `packages/runtime-bridge/src/cli/` — all primitives.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

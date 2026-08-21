@@ -147,3 +147,5 @@ every base-currency assertion you can find and verdict each.
 3. The T-PAR-A table: structural differences between the two copies that you deliberately preserved.
 4. The T-PAR-B enumeration: every base-currency assertion found → FIXED / NOT-APPLICABLE, with `file:line`.
 5. Anything you could not verify, named as such.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

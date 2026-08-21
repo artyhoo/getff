@@ -228,3 +228,5 @@ Per [`parallel-subwave-isolation.md §1`](../../../.claude/rules/parallel-subwav
 **OR** maintainer pastes this kickoff §1 + §2 + §3 + §5 + §7 into a fresh Opus session under `/orchestrator` (or directly under `/aif-aware` if available) and tells it «R-phase only, return research-patch». In that case the maintainer also runs the worktree setup above before pasting.
 
 **Stage 2 dispatch (later session):** new kickoff at `.claude/orchestrator-prompts/meta-orchestrator-mode-triage-and-planner/stage-2.md` (do NOT pre-write in this session per [feedback_no_drive_by_prs](../../../CLAUDE.md)).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

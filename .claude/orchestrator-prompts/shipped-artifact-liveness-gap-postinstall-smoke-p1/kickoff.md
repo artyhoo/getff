@@ -90,3 +90,11 @@ Domain-specific:
 - Harness: `tests/install-sh/` (runs in `.github/workflows/audit-self.yml`). Reuse: `packages/core/audit-self/check-rule-globs.sh` + `check-rule-enforced.sh`.
 - M2 prober (Phase 3, NOT this task): [agents/shipped-agent-liveness-prober.md](../../../agents/shipped-agent-liveness-prober.md).
 - #550 (umbrella tracker), #548, #549, #551.
+
+```bash host-verify
+# Retro-marked 2026-08-21: the four §Deliverable checks name these harness homes (Check 1 → c1-wiring; Check 2 → f13; Check 3 arm (i) → gh-535 + f3-f7)
+bash tests/install-sh/c1-wiring.test.sh
+bash tests/install-sh/f13-stryker-pm.test.sh
+bash tests/install-sh/gh-535-rule-enforced.test.sh
+bash tests/install-sh/f3-f7-rule-globs.test.sh
+```

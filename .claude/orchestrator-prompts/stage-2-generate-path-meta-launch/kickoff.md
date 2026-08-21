@@ -228,3 +228,5 @@ Reviewer reads `git diff staging...<stage-2-head>` + the §4 acceptance criteria
 - `.claude/rules/ai-laziness-traps.md §2` — canonical trap catalogue.
 - `.claude/rules/no-paid-llm-in-ci.md §1` — install-time-on-consumer-subscription constraint.
 - `.claude/rules/reviewer-discipline.md §2` — reviewer role boundaries.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

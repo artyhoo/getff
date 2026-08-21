@@ -28,3 +28,5 @@ S1 скепсис payload (что заявлено vs что грузится) �
 
 ## Готово, когда
 На чистой машине `claude plugin install` → рабочие команда/скилл/хук; self-test + принцип 24 зелёные.
+
+<!-- host-verify: none — planning STUB (U7 of the getff-to-prod meta-launch): stages are a sketch, no executable deliverable yet; the full kickoff that replaces this stub declares the real contract -->

@@ -187,3 +187,5 @@ Research-patch commit:
 **Самый честный самонаблюдательный probe** для этой сессии: «в момент когда я пишу следующее предложение recommendation'а — у меня есть mechanical evidence для каждого утверждения в нём, или я reasoning'ую from-memory?». Если from-memory — stop, verify, тогда пиши.
 
 Это и есть то что предыдущая сессия не сделала 5 раз подряд.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -186,3 +186,5 @@ Single-session R-phase has no inter-stage transition, so the between-stages Phas
 ## 🟢 Простыми словами
 
 Это умбрелла-обёртка для одной исследовательской сессии: «что в наших компаньонах (Superpowers / Superset / aif-handoff) мы ещё не используем, но что улучшило бы пайплайн `/meta-orchestrator` — и стоит ли это брать по build-first-reuse». Я проверил: план актуален, дублей нет (dup-detect = OK), но **три похожих обзора уже сделаны раньше** — Worker обязан их цитировать и расширять, а не переделывать. Это R-phase: один Opus-сеанс пишет один research-patch, никакого кода. Мост aif поднят, но автономный режим тут не советую — задача завязана на DeepWiki/WebSearch, а aif — агент для реализации, не для research с живыми MCP. §1.7-мандат в PR обязателен (патч трогает `prior-art-evaluations.md`). Дальше — твой ход: вставь 1-liner из §4 в новый CC-таб.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

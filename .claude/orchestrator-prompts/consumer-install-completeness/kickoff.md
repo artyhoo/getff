@@ -107,3 +107,5 @@ All stage PRs merged → Phase -1 cold-review (read-only Agent, [reviewer-discip
 - **DN gating is real:** S2 and S3 are BLOCKED until DN-A / DN-B(/C) are answered. S1 (#487) is fork-free — ship it first regardless.
 - Last-stage merge → `done.md` here per CLAUDE.md Umbrella-closure convention; close #482/#483/#487 with citation comments (as #478 was closed).
 - This kickoff is consumed by `/pipeline`; the generated meta-launch kickoff must pass principle 12 (its own §5 AI-traps with T-enumeration) — `/pipeline` authors that; this umbrella kickoff seeds the trap list in §4 above.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -338,3 +338,5 @@ Skip allowed only for: one-line tool acknowledgements, pure `gh`/`git` outputs, 
 - `.claude/settings.json:6-9` — current allow-list (2 narrow hook-specific entries; Stage 4 P4-a maintainer-recipe target).
 - [PR #236](https://github.com/Yhooi2/rules-as-tests-aif/pull/236) — the closed umbrella that mis-classified 2026-05-28; Stage 2 matcher must classify as DONE.
 - [PR #263](https://github.com/Yhooi2/rules-as-tests-aif/pull/263) — F.3 helper-collapse (recently merged; Stage 1 wave-plan §0 refresh must reflect).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

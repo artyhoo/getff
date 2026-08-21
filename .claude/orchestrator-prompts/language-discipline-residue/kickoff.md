@@ -113,3 +113,5 @@ If the search confirms no production analog → verdict **BUILD**; if it surface
 ## Dispatch sequence (binding — per [`kickoff-staging-placement.md §1`](../../../.claude/rules/kickoff-staging-placement.md))
 
 This kickoff must be **merged to `staging`** before any `/pipeline language-discipline-residue` or aif dispatch — a branch-only kickoff is invisible to dispatch sessions (they run on `staging`). Author → merge → only THEN dispatch.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

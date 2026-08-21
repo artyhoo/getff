@@ -69,3 +69,5 @@ S1/S2 — новый код под `packages/core/synthesizer/` (≥80 LOC → *
 ## §9 Staging-placement note
 
 ДРАФТ. merge kickoff в `staging` ДО `/pipeline generator-compile-forbid`. Не диспетчеризовать с feature-ветки (`#dispatch-before-staging`). G1+G2 должны быть закрыты (`done.md`) до старта G3.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

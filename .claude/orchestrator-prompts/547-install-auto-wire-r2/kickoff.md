@@ -42,3 +42,5 @@ Work **maximally autonomously**. Ask the maintainer **only** when truly blocked 
 - Both inertness gates honor the C3 marker (shared helper).
 - Full install-sh suite green; install `rc=0` every arm; CI Principles job green.
 - PR → `staging` (agent merge allowed for base=staging per git-safety hook).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

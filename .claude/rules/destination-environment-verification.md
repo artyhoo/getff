@@ -9,7 +9,7 @@ paths:
 <!-- globs: .claude/orchestrator-prompts/** -->
 <!-- inject: A dispatched worker runs in the aif container; the work is accepted on the HOST. Declare the host commands in a fenced block whose info-string carries `host-verify`, or opt out with an explicit `host-verify: none` HTML comment carrying a rationale of at least 20 characters. Run them with `bash scripts/host-verify.sh <umbrella>` before accepting. A green suite in the container is not evidence about the host. And in the other direction (§1b): any claim that the destination CANNOT do something — «X is NOT available in the container», «that path does not exist there» — must quote the probe that established it (`docker exec`/`docker inspect`, run against the live destination) plus the date. A citation of a doc that describes the environment is not a probe of the environment. -->
 
-> **Class:** B — the mechanism is (a) the edit-time gate `check-kickoff-traps.sh` arm 1 (asserts the contract EXISTS, paired-negative at [`packages/core/hooks/check-kickoff-traps.test.ts`](../../packages/core/hooks/check-kickoff-traps.test.ts)) plus (b) the runner [`scripts/host-verify.sh`](../../scripts/host-verify.sh), which turns "re-run it on the host" into a command with an exit code. Class A is **not yet reached**: nothing forces the runner to be *invoked* before acceptance — the orchestrator still chooses to run it. §5 names the promotion path and is honest that this half is unclosed. The **negative direction (§1b) is weaker still** — prose + the edit-time injection above, deliberately **not** a gate; §5 records the measurement that decided it.
+> **Class:** B — the mechanism is (a) the edit-time gate `check-kickoff-traps.sh` arm 1 (asserts the contract EXISTS, paired-negative at [`packages/core/hooks/check-kickoff-traps.test.ts`](../../packages/core/hooks/check-kickoff-traps.test.ts)) plus (b) the runner [`scripts/host-verify.sh`](../../scripts/host-verify.sh), which turns "re-run it on the host" into a command with an exit code, plus — since the 2026-08-21 retrofit — (c) the population principle test [`packages/core/principles/43-kickoff-host-verify-presence.test.ts`](../../packages/core/principles/43-kickoff-host-verify-presence.test.ts) (CI: contract-or-opt-out over the whole *tracked* kickoff family, detected by shelling to the runner — no second grammar). Class A is **not yet reached**: nothing forces the runner to be *invoked* before acceptance — the orchestrator still chooses to run it; principle 43 checks PRESENCE, not execution. §5 names the promotion path and is honest that this half is unclosed. The **negative direction (§1b) is weaker still** — prose + the edit-time injection above, deliberately **not** a gate; §5 records the measurement that decided it.
 > **Fires:** kickoff authoring; accepting container work; a cannot-reach claim.
 > **Authoritative for:** the destination-environment verification discipline — §1 the positive contract and its grammar, §1b the negative direction (claims that the destination *cannot*), §2 the incident base, §3 why a green container run is not evidence, §4 anti-patterns, §5 promotion / retirement.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). Gate-vs-injection channel choice — see [rule-enforcement-channel-selection.md](rule-enforcement-channel-selection.md). Why attention cannot be the detection layer — see [attention-is-not-a-mechanism.md](attention-is-not-a-mechanism.md). Where a kickoff must live before dispatch — see [kickoff-staging-placement.md](kickoff-staging-placement.md).
@@ -27,6 +27,15 @@ info-string carries the `host-verify` marker:
 npx vitest run packages/core/principles/11-build-first-reuse-default.test.ts
 ```
 ````
+
+**The stage-kickoff family is a kickoff in this sense** — `kickoff-s1.md`, `kickoff-r2.md`, …
+(the shared population in [`packages/core/principles/kickoff-population.ts`](../../packages/core/principles/kickoff-population.ts)
+`STAGE_KICKOFF_RE`): the edit-time gate already matches them, and since the 2026-08-21
+retrofit **principle 43** holds the whole *tracked* family to this contract at CI — every
+tracked kickoff declares a contract or a valid opt-out, with the back-catalog retro-marked
+(blanket legacy-closed opt-outs; individually adjudicated closures; real contracts or honest
+per-class opt-outs for the open lane). Gitignored stage kickoffs (per-umbrella un-ignore
+globs) are outside every git-carried channel and stay out of that population.
 
 Every non-blank, non-comment line is one command; they run from the repo root in declaration
 order. A kickoff with no executable deliverable opts out **explicitly**, never by silence:
