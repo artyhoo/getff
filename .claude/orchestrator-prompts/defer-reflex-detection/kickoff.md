@@ -170,7 +170,7 @@ Sub-waves not pre-decided — Stage 1 mechanism design determines breakdown. Lik
 
 ## §10 How to start next session
 
-```
+```text
 /meta-orchestrator defer-reflex-detection
 ```
 

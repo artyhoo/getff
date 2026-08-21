@@ -125,7 +125,7 @@ For each CC-specific claim identified in §4.1:
 4. **Record in output research-patch:** claim text (verbatim quote from parent patch, with line number), CC docs excerpt, URL, and preliminary verdict (AFFIRM / FLAG / REVISION-NOTE).
 
 **Example question pattern for hook events (patch #4 / CRITICAL):**
-```
+```text
 Per official Claude Code docs (docs.claude.com), what hook events are available in Claude Code settings.json hooks configuration? Specifically: does a "Stop" hook event exist? Does "UserPromptSubmit" exist? Was "Elicitation" ever a valid hook event name, and if so, is it still valid? Please WebFetch the current hooks documentation page and return the verbatim hook event list with the source URL.
 ```
 
@@ -133,7 +133,7 @@ Per official Claude Code docs (docs.claude.com), what hook events are available 
 
 After claude-code-guide returns for each claim group, cross-check with DeepWiki:
 
-```
+```text
 ask_question repo="anthropics/claude-code" question="<same question as §4.2>"
 ```
 
@@ -199,7 +199,7 @@ Per-patch verdict table format (include in output §5 of research-patch):
 
 ### §5.1 File location
 
-```
+```text
 docs/meta-factory/research-patches/2026-MM-DD-claude-code-guide-cross-verification.md
 ```
 
@@ -239,7 +239,7 @@ Replace `MM-DD` with today's date at time of execution.
 
 Write each section (§3, §4, §5, §6, §7, §8, §9, §10, §11) to the file as completed — do NOT accumulate in memory and dump at end (T-AO-C counter). After each section, append one-line summary to state.md History:
 
-```
+```text
 - <ISO-timestamp> — re-verify §<N> complete: <patch-id> — <N-claims> claims, <n-affirm> AFFIRM, <n-flag> FLAG, <n-revision> REVISION-NOTE
 ```
 

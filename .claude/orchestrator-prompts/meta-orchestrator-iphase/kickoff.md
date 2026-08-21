@@ -335,7 +335,7 @@ EOF
 
 When all sub-waves done, verify passed, commit landed, PR opened:
 
-```
+```text
 ## I-phase REPORT — /meta-orchestrator BUILD
 
 ### Files

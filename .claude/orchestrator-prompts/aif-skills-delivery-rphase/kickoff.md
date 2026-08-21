@@ -7,7 +7,7 @@
 > **Deliverable:** TWO artifacts, committed and PR-opened before handoff:
 > 1. `docs/meta-factory/research-patches/2026-06-03-aif-skills-delivery.md` — best practices survey + verdict
 > 2. PR `research/aif-skills-delivery-rphase` opened against staging with auto-merge DISABLED (maintainer reviews first)
-> 
+>
 > **Final step (mandatory):** `git checkout -b research/aif-skills-delivery-rphase origin/staging && git add ... && git commit && git push && gh pr create --base staging --no-auto-merge`
 
 ---

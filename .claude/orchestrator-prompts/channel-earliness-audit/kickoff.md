@@ -259,7 +259,7 @@ Re-run `git branch --show-current` before **each** commit/push (parallel session
 
 ## REPORT format back to maintainer
 
-```
+```text
 ## Channel-earliness audit REPORT 2026-MM-DD
 
 **Status:** COMPLETE | PARTIAL (reason: …)

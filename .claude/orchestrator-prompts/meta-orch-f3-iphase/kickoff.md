@@ -119,7 +119,7 @@ helper-collapse verdict (PR #261). The inline block was classifier-incompatible
 under no-arg mode (`${umbrella:-}` substituted before §2 picks winner, so §3 always
 emitted "MISSING kickoff" in arg-mode and contributed nothing in no-arg mode).
 Helper reads winner-id from state-file populated by §2.
-```
+```text
 
 Squash-merge collapses the diff but PRESERVES the commit message body. Future `git log --grep="Removed §3 inline"` finds this entry.
 

@@ -163,7 +163,7 @@ Expected: 6 merged PRs (one per M.4.1 … M.4.6).
 - [wave-sequencing-plan.md §2 Track M](../../../docs/meta-factory/wave-sequencing-plan.md) — full Track M roadmap.
 - [wave-sequencing-plan.md §5.4](../../../docs/meta-factory/wave-sequencing-plan.md) — origin decision record (channel-audit + mutation-hardening 2026-05-23).
 - `packages/core/hooks/check-hook-marker.test.ts` — the canonical test pattern to REFERENCE (§5 step 4).
-- [`packages/core/hooks/git.test.ts`](../../../packages/core/hooks/git.test.ts) — Wave 3 precedent (0-tests gap closure, the analog M.4 is solving 6× over).
+- [`packages/core/hooks/git.test.ts`](../../../packages/core/hooks/utils/git.test.ts) — Wave 3 precedent (0-tests gap closure, the analog M.4 is solving 6× over).
 - [`packages/core/principles/02-paired-negative-test.test.ts`](../../../packages/core/principles/02-paired-negative-test.test.ts) — the discipline each new test must satisfy.
 - [`packages/core/principles/12-ai-laziness-traps.test.ts`](../../../packages/core/principles/12-ai-laziness-traps.test.ts) — validates §7 T-enumeration shape.
 

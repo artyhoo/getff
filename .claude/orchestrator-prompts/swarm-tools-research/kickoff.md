@@ -73,7 +73,7 @@ Per [.claude/session-bootstrap.md](../../session-bootstrap.md) Step 0 reading or
 
 **Input — documentation EXAMPLE only:**
 
-- **[`inputs/spec-semantic-dedup-contracts.md`](inputs/spec-semantic-dedup-contracts.md)** — a sanitized sample spec from a different project. **Use ONLY as a real-shaped document to illustrate docstring quality and ground the AGENT.MD template.** Do NOT analyse its task graph, dependencies, or execution readiness; do NOT recommend an executor for it. Extract docstring/structural illustration only. Confidentiality rules in §5 still apply.
+- **`inputs/spec-semantic-dedup-contracts.md`** — a sanitized sample spec from a different project. **Use ONLY as a real-shaped document to illustrate docstring quality and ground the AGENT.MD template.** Do NOT analyse its task graph, dependencies, or execution readiness; do NOT recommend an executor for it. Extract docstring/structural illustration only. Confidentiality rules in §5 still apply.
 
 ---
 
@@ -91,7 +91,7 @@ The maintainer's prior session (next-session-prioritization) covered:
 
 > ⚠ **SUPERSEDED.** The phrase «учитывая нашу спеку… насколько наша спека готова к автономному выполнению роем» below is exactly what drove the original mis-scope. It read as «plan the spec's execution»; the intent was «spec as a documentation example». Do NOT execute against this prompt — follow the corrected §1 instead. Preserved verbatim because rewriting a historical quote would falsify the record (per [doc-authority-hierarchy.md §4 `#frozen-doc-still-edited`](../../rules/doc-authority-hierarchy.md)).
 
-```
+```text
 Используй Devin Wiki MCP и Context7 для исследования. Изучи всё — спеку,
 оба подхода к роям, AIF репозитории, кодовую базу.
 
@@ -184,7 +184,7 @@ Research questions: what AGENT.MD/AGENTS.md is + how agents (Claude Code, AIF wo
 
 **Output:** findings per topic with citations; 2-3 candidate phrasings where applicable; honest tradeoffs; DRAFT template skeleton with PLACEHOLDERS where maintainer decides:
 
-```
+```text
 ## Docstring rules
 Strictness: [STRICT | MODERATE | MINIMAL] — maintainer chooses
 Style guide reference: [ROOT URL | LANG-SPECIFIC | BOTH] — maintainer chooses
@@ -372,7 +372,7 @@ Closing message: §4.1 tool findings (found / not-found / analogs + verdicts); A
 - [docs/meta-factory/prior-art-evaluations.md](../../../docs/meta-factory/prior-art-evaluations.md) — SSOT
 - [.claude/rules/build-first-reuse-default.md](../../rules/build-first-reuse-default.md) — verdict typology
 - [.claude/rules/ai-laziness-traps.md](../../rules/ai-laziness-traps.md) — trap catalogue
-- **[inputs/spec-semantic-dedup-contracts.md](inputs/spec-semantic-dedup-contracts.md)** — documentation EXAMPLE only (NOT an execution target)
+- **`inputs/spec-semantic-dedup-contracts.md`** — documentation EXAMPLE only (NOT an execution target)
 - Memory: `project_swarm_research_scope_correction.md` (this revision's origin), `project_session_ordering_2026_05_13.md`
 
 <!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

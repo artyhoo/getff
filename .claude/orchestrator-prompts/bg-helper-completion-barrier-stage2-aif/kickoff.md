@@ -24,22 +24,22 @@ Route the meta-orchestrator's **background-helper call-sites** in `.claude/skill
 ### Edit A — `SKILL.md` §2 Step 1 (the `priority-score.sh` `!`-fence, ~line 107)
 
 Change:
-```
+```text
 bash "${CLAUDE_SKILL_DIR}/helpers/priority-score.sh" 2>/dev/null
 ```
 to:
-```
+```text
 bash "${CLAUDE_SKILL_DIR}/helpers/run-helper.sh" "${CLAUDE_SKILL_DIR}/helpers/priority-score.sh" 2>/dev/null
 ```
 
 ### Edit B — `SKILL.md` §2.5 Step 2 (the `dup-detect.sh` + `inflight-check.sh` `!`-fence, ~line 178)
 
 Change:
-```
+```text
 bash "${CLAUDE_SKILL_DIR}/helpers/dup-detect.sh" "${umbrella:-}" 2>/dev/null; bash "${CLAUDE_SKILL_DIR}/helpers/inflight-check.sh" "${umbrella:-}" 2>/dev/null
 ```
 to:
-```
+```text
 bash "${CLAUDE_SKILL_DIR}/helpers/run-helper.sh" "${CLAUDE_SKILL_DIR}/helpers/dup-detect.sh" "${umbrella:-}" 2>/dev/null; bash "${CLAUDE_SKILL_DIR}/helpers/run-helper.sh" "${CLAUDE_SKILL_DIR}/helpers/inflight-check.sh" "${umbrella:-}" 2>/dev/null
 ```
 

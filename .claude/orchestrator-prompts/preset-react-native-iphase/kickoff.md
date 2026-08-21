@@ -5,7 +5,7 @@
 - **Base:** staging.
 - **Issue:** [#646](https://github.com/Yhooi2/rules-as-tests-aif/issues/646) Stage 1 (curated bridge). R-phase is **merged** — this is the I-phase.
 - **Sibling task (parallel):** `preset-react-spa-iphase` builds the SPA preset in its own worktree. Independent directory — no shared files with this task.
-- **Scope decision (operator, 2026-06-22 — REVISED from Expo-only):** **BOTH baselines.** Ship `eslint-config-expo/flat` (#142, Expo path) **and** `@react-native/eslint-config` (#143, bare-RN path) as two selectable baselines over a shared RN rule layer. Rationale: the project goal is **multi-stack + a factory for any stack** ([README.md#why-this-exists](../../README.md#why-this-exists)) — covering both the Expo and the bare-RN consumer up front serves that goal directly; restricting to Expo-only would under-serve it. This supersedes the earlier Expo-only call (which leaned YAGNI; the operator weighted the multi-stack goal higher).
+- **Scope decision (operator, 2026-06-22 — REVISED from Expo-only):** **BOTH baselines.** Ship `eslint-config-expo/flat` (#142, Expo path) **and** `@react-native/eslint-config` (#143, bare-RN path) as two selectable baselines over a shared RN rule layer. Rationale: the project goal is **multi-stack + a factory for any stack** (README.md#why-this-exists (`../../README.md#why-this-exists`)) — covering both the Expo and the bare-RN consumer up front serves that goal directly; restricting to Expo-only would under-serve it. This supersedes the earlier Expo-only call (which leaned YAGNI; the operator weighted the multi-stack goal higher).
 
 ## What
 

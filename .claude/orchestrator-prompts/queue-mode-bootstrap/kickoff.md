@@ -387,7 +387,7 @@ Sections:
 - **History** — append-only event log with ISO timestamps
 
 Example entries:
-```
+```text
 - 2026-MM-DDTHH:MM+TZ — orchestrator session started
 - 2026-MM-DDTHH:MM+TZ — DISPATCHED Worker for C (iter 0)
 - 2026-MM-DDTHH:MM+TZ — C §1 complete: <one-line summary>
@@ -421,7 +421,7 @@ Escalation message in state.md + final orchestrator response. STOP — do NOT pr
 
 ### §7.1 Worker dispatch prompt template
 
-```
+```text
 You are a Worker subagent dispatched by an Orchestrator. Today is 2026-MM-DD. Burn-mode authorized — Opus everywhere.
 
 ## Your task
@@ -490,7 +490,7 @@ Append to state.md History: `- <ISO-timestamp> — RESEARCH-COMPLETE <K> (iter <
 
 ### §7.2 Reviewer dispatch prompt template
 
-```
+```text
 You are a REVIEWER subagent. You did NOT write this output. Be skeptical. DO NOT collude.
 
 ## Your task

@@ -16,7 +16,7 @@
    - T11/T12/T19 surface-mismatch claim: read `.claude/rules/ai-laziness-traps.md` §2 T11/T12/T19 — confirm each is framed for R-phase/kickoff/handoff, NOT inline-chat recommendation.
    - 2/2 incidents in origin session: not independently verifiable post-session — trust maintainer pattern-recognition (T-RLD-C below caveat).
    - T20 reservation: `~/.claude/projects/-Users-art-code-rules-as-tests-aif/memory/project_stryker_mutation_hardening_done.md` — confirm Stryker «over-eager equivalent dismissals» queued for T20 codification.
-3. **Spawn 1× Opus cold-reviewer subagent** per [orchestrator skill](~/.claude/skills/orchestrator/SKILL.md) Phase -1 default. Focus: T11/T12/T15/T16/T19 + T-RLD-A/B/C below; check whether kickoff itself violates H1 (it MUST cite evidence for every claim).
+3. **Spawn 1× Opus cold-reviewer subagent** per orchestrator skill (`~/.claude/skills/orchestrator/SKILL.md`) Phase -1 default. Focus: T11/T12/T15/T16/T19 + T-RLD-A/B/C below; check whether kickoff itself violates H1 (it MUST cite evidence for every claim).
 4. **GO → proceed to §1. REVISE → fix kickoff, re-review. Max 3 iter → escalate.**
 
 ---
@@ -77,10 +77,10 @@ Two-axis analysis:
   - **(C) New trap T20/T21** in `ai-laziness-traps.md` (catalogue extension) + companion principle test once incident count ≥3. **Falsifier:** wrong if rule-catalogue extension without enforcement channel = just more prose drift (Class C rules dominant rate).
   - **(D) Combination:** A+B+C (defense in depth) vs single-channel.
 
-Per [rule-enforcement-channel-selection.md §3](.claude/rules/rule-enforcement-channel-selection.md):
-  - judgment rule → injection, not gate
-  - reliability: deterministic matcher ≳ always-on > semantic > memory
-  - never terminate at memory
+Per [rule-enforcement-channel-selection.md §3](../../rules/rule-enforcement-channel-selection.md):
+- judgment rule → injection, not gate
+- reliability: deterministic matcher ≳ always-on > semantic > memory
+- never terminate at memory
 
 ### §1.4 Binding I-phase scope (output)
 
@@ -101,10 +101,10 @@ Fork future R-phases for:
 ### §1.6 §1.7 self-reflexive check
 
 Forward-check: does this research-patch comply with:
-- [build-first-reuse-default.md](.claude/rules/build-first-reuse-default.md) §3 (≥3 DeepWiki + ≥3 WebSearch + SSOT consult before proposing mechanism)?
-- [no-paid-llm-in-ci.md](.claude/rules/no-paid-llm-in-ci.md) (any proposed mechanism = deterministic, no paid LLM call in CI)?
-- [doc-authority-hierarchy.md](.claude/rules/doc-authority-hierarchy.md) (research-patch carries Class + Authoritative-for header per §3)?
-- [rule-enforcement-channel-selection.md](.claude/rules/rule-enforcement-channel-selection.md) §3 (channel selection procedure followed explicitly)?
+- [build-first-reuse-default.md](../../rules/build-first-reuse-default.md) §3 (≥3 DeepWiki + ≥3 WebSearch + SSOT consult before proposing mechanism)?
+- [no-paid-llm-in-ci.md](../../rules/no-paid-llm-in-ci.md) (any proposed mechanism = deterministic, no paid LLM call in CI)?
+- [doc-authority-hierarchy.md](../../rules/doc-authority-hierarchy.md) (research-patch carries Class + Authoritative-for header per §3)?
+- [rule-enforcement-channel-selection.md](../../rules/rule-enforcement-channel-selection.md) §3 (channel selection procedure followed explicitly)?
 
 Backward-check: does this research-patch silently supersede:
 - `ai-laziness-traps.md` T11/T12/T19 (no — extends to new surface, not replaces)?
@@ -134,7 +134,7 @@ R-phase is DONE when:
 1. ✅ `docs/meta-factory/research-patches/2026-05-XX-recommendation-laziness-discipline.md` shipped (committed + PR'd to staging, auto-merge per repo flow).
 2. ✅ §1.1 evidence registry contains ≥5 sampled prior-PR cases (T1 floor) with file:line/grep-output evidence + 2 origin-session incidents documented with kickoff-citation reference (§1.1 items 1–2) — origin-session incidents marked **INCONCLUSIVE-needs-human** for file-persisted evidence per §-1 acknowledgement («not independently verifiable post-session»). Optional: ship `references/origin-incidents.md` companion if grep-reconstructable artefacts found in transcript history.
 3. ✅ §1.2 prior-art search: ≥3 DeepWiki + ≥3 WebSearch phrasings + SSOT consult + claude-code-guide query + WebFetch primary docs — all cited with evidence (T11/T12).
-4. ✅ §1.3 mechanism design: per-option (A/B/C/D) verdict + falsifier + channel-selection rationale per [rule-enforcement-channel-selection.md §3](.claude/rules/rule-enforcement-channel-selection.md).
+4. ✅ §1.3 mechanism design: per-option (A/B/C/D) verdict + falsifier + channel-selection rationale per [rule-enforcement-channel-selection.md §3](../../rules/rule-enforcement-channel-selection.md).
 5. ✅ §1.4 binding I-phase scope: per-item WHAT/WHY/falsifier/owner.
 6. ✅ §1.5 out-of-scope forks listed.
 7. ✅ §1.6 §1.7 forward+backward applied with explicit rule citations.
@@ -145,7 +145,7 @@ R-phase is DONE when:
 
 ## §4 AI-laziness traps active
 
-**Canonical from [ai-laziness-traps.md §2](.claude/rules/ai-laziness-traps.md):**
+**Canonical from [ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md):**
 
 - **T1** — sampling floor = 5 (PR cold-scan).
 - **T3** — every finding needs file:line + content quoted OR command + output OR INCONCLUSIVE-needs-human.
@@ -173,7 +173,7 @@ R-phase is DONE when:
 - **S2** — §1.1 cold-scan finds 0 historical instances (only 2 origin-session) → INCONCLUSIVE rate; DEFER mechanism design, ship trap-only (Class C) with explicit «escalate to mechanism on 3rd incident» trigger.
 - **S3** — Stop hook cannot read current-turn tool_use history (per WebFetch primary docs) → §1.3 Option B mechanically infeasible; collapse to A+C.
 - **S4** — Patch >500 LOC → split into companion `references/<topic>.md` (per G precedent).
-- **S5** — DECISION-NEEDED surfaces (T-number selection, F.3-conflict file) → DEFER to maintainer per [reviewer-discipline.md §2](.claude/rules/reviewer-discipline.md).
+- **S5** — DECISION-NEEDED surfaces (T-number selection, F.3-conflict file) → DEFER to maintainer per [reviewer-discipline.md §2](../../rules/reviewer-discipline.md).
 - **S6** — REVISE > 3 → escalate.
 
 ---

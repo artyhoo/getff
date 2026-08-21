@@ -203,7 +203,7 @@ The Worker must reason through: is there a use case where Mode A is the BEST opt
 
 **Specific recommendation format:**
 
-```
+```text
 Mode A fate recommendation: KEEP (re-scoped to: <new trigger condition>) | RETIRE (rationale: <evidence-based>)
 
 If KEEP:
@@ -247,13 +247,13 @@ If RETIRE:
 ### §5.1 Primary output
 
 Single research-patch file at:
-```
+```text
 docs/meta-factory/research-patches/2026-MM-DD-skills-agents-audit.md
 ```
 (Worker substitutes today's date for MM-DD.)
 
 **First line MUST be:**
-```
+```text
 <!-- scope:skills-agents-audit -->
 ```
 
@@ -276,7 +276,7 @@ This is required by `packages/core/principles/10-research-patch-annotation.test.
 ### §5.2 Optional companion output
 
 If the Phase 2 analysis table grows to >100 rows (unlikely given current surface size, but possible if user-scope skills are extensive), Worker may create a companion file:
-```
+```text
 .claude/orchestrator-prompts/skills-agents-audit/audit-report.md
 ```
 containing the raw per-artefact rows, with the research-patch §3 summarizing highlights only. This is permitted but not required.
@@ -288,7 +288,7 @@ Before reporting RESEARCH-COMPLETE, Worker MUST run:
 cd /Users/art/code/rules-as-tests-aif && npm run test:principles
 ```
 If any test fails (especially `10-research-patch-annotation.test.ts`), fix the violation and re-run. Do NOT report RESEARCH-COMPLETE until all principles tests pass. Log the green run in state.md:
-```
+```text
 - <ISO timestamp> — skills-agents-audit principles tests green (N tests passed)
 ```
 

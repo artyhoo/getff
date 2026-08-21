@@ -365,9 +365,9 @@ If R-phase finds clean categories — say so. If R-phase finds widespread theatr
 - Memory entries (auto-loaded):
   - [`feedback_worktrees_for_parallel_subwaves.md`](../../../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/feedback_worktrees_for_parallel_subwaves.md) — Wave 8.1 shared-dir incident.
   - [`feedback_hook_self_test_pipeline_stubs.md`](../../../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/feedback_hook_self_test_pipeline_stubs.md) — Wave 8.3 §3 regression class.
-  - [`feedback_pr_s17_header_level.md`](../../../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/feedback_pr_s17_header_level.md) — recurring `### §1.7 Forward-check applied` formatting trap.
-  - [`feedback_no_paid_llm_in_ci.md`](../../../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/feedback_no_paid_llm_in_ci.md) — project policy on LLM cost.
-  - [`feedback_no_drive_by_prs.md`](../../../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/feedback_no_drive_by_prs.md) — observation-vs-action discipline.
+  - `feedback_pr_s17_header_level.md` (`../../../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/feedback_pr_s17_header_level.md`) — recurring `### §1.7 Forward-check applied` formatting trap.
+  - `feedback_no_paid_llm_in_ci.md` (`../../../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/feedback_no_paid_llm_in_ci.md`) — project policy on LLM cost.
+  - `feedback_no_drive_by_prs.md` (`../../../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/feedback_no_drive_by_prs.md`) — observation-vs-action discipline.
 
 ---
 

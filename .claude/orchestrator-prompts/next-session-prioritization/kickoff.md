@@ -55,7 +55,7 @@ Do NOT read all of open-questions.md cover-to-cover — only the 5 wishful entri
 
 For EACH of the 5, ask the maintainer one short question:
 
-```
+```text
 §13.X — <title>:
   (a) Archive — move to closed-questions.md with rationale «wishful, no formal trigger, no consumer evidence»
   (b) Formalize — keep in open-questions.md, add explicit trigger: <propose 1 candidate trigger>
@@ -109,7 +109,7 @@ Ask maintainer in this order:
 
 A single decision matrix posted to maintainer:
 
-```
+```text
 | Q | Decision | Next-action |
 |---|----------|-------------|
 | Q1 | Phase 10 = <start | defer | close> | <single-line next action> |

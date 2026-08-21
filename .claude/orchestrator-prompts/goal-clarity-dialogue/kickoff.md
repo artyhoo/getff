@@ -440,7 +440,7 @@ After dialogue closes, update `/Users/art/.claude/projects/-Users-art-code-rules
 
 ## §10 Project context for fresh AI / cold-start
 
-You are starting a session in `/Users/art/code/rules-as-tests-aif` working directory. Project is single-maintainer (Art, email yhooi2011@gmail.com), single-domain. Project ships «rules-as-tests-aif» framework — AIF extension/companion focused on Living Documentation + multi-layer enforcement + research methodology.
+You are starting a session in `/Users/art/code/rules-as-tests-aif` working directory. Project is single-maintainer (Art, email <yhooi2011@gmail.com>), single-domain. Project ships «rules-as-tests-aif» framework — AIF extension/companion focused on Living Documentation + multi-layer enforcement + research methodology.
 
 Today's date: 2026-05-14 or later (kickoff written 2026-05-13).
 

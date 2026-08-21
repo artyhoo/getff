@@ -37,7 +37,7 @@
 
 ## §2 Goal
 
-```
+```text
 bash (10 строк)   → только bootstrap/orchestration: выбрать engine, exit с его кодом
 TS-ядро           → вся логика: парсинг, проверки, output — testable, Stryker-mutatable
 AST               → для code surfaces (TS/JS анализ в audit-ai-docs)
@@ -171,7 +171,7 @@ R-phase MUST execute **NOT ONLY** the standard binary prior-art check (does an A
 
 После R-phase и maintainer Dn-ответов:
 
-```
+```text
 Wave 10.1 — TS bootstrap wrapper
   .husky/pre-push: 10-строчный bash dispatch + packages/core/hooks/pre-push.ts stub
   Тест: pre-push.test.ts (vitest) заменяет pre-push.test.sh частично
@@ -241,15 +241,15 @@ Wave 10.6 — Port hook-stub-completeness bash audit → TS principle 11
 **D5 — install.sh feature detection.** Как install.sh в consumer-проекте определяет есть ли node? `command -v node` + version check? Или всегда ставить оба варианта (TS + bash-fallback)?
 
 **D6 — Runtime engine (added 2026-05-13).** Какой движок исполняет TS-логику хуков?
-  - **(a) Own-build:** `tsx`-based hook runner написанный с нуля. Bash bootstrap → `node --import tsx/esm packages/core/hooks/pre-push.ts`. Полный контроль API. Riska: реализовать заново то, что Danger уже делает.
-  - **(b) Danger JS as engine:** `.husky/pre-push` → `npx danger local --dangerfile packages/core/dangerfiles/lite.ts`. `dangerfile.ts` (PR-time) импортирует `lite.ts` + добавляет PR-body checks. Shared modules в `packages/core/checks/*`. Adopted SSOT #41.
-  - **(c) Hybrid:** Danger для surfaces где его API хватает (commit/diff/PR body); own-build TS-core там, где Danger API не подходит (например, `audit-ai-docs.sh` D-probes, требующие AST на TS-исходниках).
-  - R-phase MUST evaluate всем context7 queries 6-8 + WebSearch #4. Не закрывать D6 без явного «Danger API дотягивается / не дотягивается до каждой из 9 секций pre-push» в §4 prior-art findings.
+- **(a) Own-build:** `tsx`-based hook runner написанный с нуля. Bash bootstrap → `node --import tsx/esm packages/core/hooks/pre-push.ts`. Полный контроль API. Riska: реализовать заново то, что Danger уже делает.
+- **(b) Danger JS as engine:** `.husky/pre-push` → `npx danger local --dangerfile packages/core/dangerfiles/lite.ts`. `dangerfile.ts` (PR-time) импортирует `lite.ts` + добавляет PR-body checks. Shared modules в `packages/core/checks/*`. Adopted SSOT #41.
+- **(c) Hybrid:** Danger для surfaces где его API хватает (commit/diff/PR body); own-build TS-core там, где Danger API не подходит (например, `audit-ai-docs.sh` D-probes, требующие AST на TS-исходниках).
+- R-phase MUST evaluate всем context7 queries 6-8 + WebSearch #4. Не закрывать D6 без явного «Danger API дотягивается / не дотягивается до каждой из 9 секций pre-push» в §4 prior-art findings.
 
 **D7 — PR-time surface scope (added 2026-05-13).** Зависит от D6.
-  - Если D6 = (b) или (c): `.github/workflows/discipline-self-check.yml` migration **в scope Wave 10** (новый sub-wave 10.X = dangerfile.ts setup + workflow simplification). Shared modules reused.
-  - Если D6 = (a): PR-time surface = scope **Wave 11** (отдельная волна Danger adoption). Wave 10 closes с pre-push only, Wave 11 owns dangerfile.ts.
-  - R-phase явно фиксирует решение по D7 в §5 architecture decision.
+- Если D6 = (b) или (c): `.github/workflows/discipline-self-check.yml` migration **в scope Wave 10** (новый sub-wave 10.X = dangerfile.ts setup + workflow simplification). Shared modules reused.
+- Если D6 = (a): PR-time surface = scope **Wave 11** (отдельная волна Danger adoption). Wave 10 closes с pre-push only, Wave 11 owns dangerfile.ts.
+- R-phase явно фиксирует решение по D7 в §5 architecture decision.
 
 ---
 
