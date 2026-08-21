@@ -29,7 +29,7 @@
 - [.claude/skills/self-reflection/references/forward-checklist.md](../../skills/self-reflection/references/forward-checklist.md) Layer 6 — sub-case (c) verify-before-accepting probe + sub-case (b) anti-tautology probe.
 
 **Promotion record:**
-- `docs/meta-factory/research-patches/2026-05-12-§13.24-h8-promotion.md` — H8 promoted 2026-05-12.
+- [docs/meta-factory/research-patches/2026-05-12-§13.24-h8-promotion.md](../../../docs/meta-factory/research-patches/2026-05-12-§13.24-h8-promotion.md) — H8 promoted 2026-05-12.
 
 **Phase 10 §13.32 «foundations audit» armed** ([docs/meta-factory/open-questions.md §13.32](../../../docs/meta-factory/open-questions.md)) — 6 streams (A1-A6); A6 «documentation artefacts» **может** cross this gap, but Phase 10 — broad audit (~120 audit points), not targeted closure.
 
@@ -89,7 +89,7 @@ Mitigation для `#recommendation-skips-own-discipline` указан как **�
 
 **Mechanism W1 — Recommendation-anchored §1.7 gate.** PRs containing research-patches that propose ≥1 recommendation **must** carry §1.7 trailer (remove research-patches allowlist for recommendation-bearing patches). Specific change: subset by content — patches declaring «Verdict:» / «Recommendation:» / «Decision:» lose allowlist exemption per [.husky/pre-push:300](../../../.husky/pre-push#L300).
 
-**Mechanism W2 — Compliance-verifier expansion to dialogue artefact.** `agents/compliance-verifier.md` currently scoped to PR-description §1.7 review. Extend to «review research-patch §6 decisions section» — verify each recommendation has mechanical evidence. **Risk:** recursive — same model class reviewing same model class.
+**Mechanism W2 — Compliance-verifier expansion to dialogue artefact.** [agents/compliance-verifier.md](../../../agents/compliance-verifier.md) currently scoped to PR-description §1.7 review. Extend to «review research-patch §6 decisions section» — verify each recommendation has mechanical evidence. **Risk:** recursive — same model class reviewing same model class.
 
 **Mechanism W3 — Two-AI session discipline.** Different vendor / model / fresh-session prompt reviews load-bearing recommendations before maintainer accepts. **Build-vs-reuse:** AIF Handoff `paused:true` pattern (SSOT #28 DEFER) — explicit machine-readable pause-for-review primitive.
 
@@ -169,7 +169,7 @@ Research-patch commit:
 
 - **Goal:** `AI agents can't silently bypass undocumented conventions — every codified rule fails CI on violation.` (README.md#why-this-exists (`README.md`))
 - **Invariants:** (1) build-vs-reuse SSOT consult before capability commit; (2) recursive self-application green; (3) search-coverage 6-item checklist on negative-existence claims.
-- **Step-0 reading order:** `README.md` → [.claude/session-bootstrap.md](../../session-bootstrap.md) → [CLAUDE.md](../../../CLAUDE.md) → [.claude/rules/phase-research-coverage.md](../../rules/phase-research-coverage.md) (особенно §4 lines 92 + 97) → parent patch [docs/meta-factory/research-patches/2026-05-13-pr-body-s17-substance-gap.md](../../../docs/meta-factory/research-patches/2026-05-13-pr-body-s17-substance-gap.md) §6.7.
+- **Step-0 reading order:** [README.md](../../../README.md) → [.claude/session-bootstrap.md](../../session-bootstrap.md) → [CLAUDE.md](../../../CLAUDE.md) → [.claude/rules/phase-research-coverage.md](../../rules/phase-research-coverage.md) (особенно §4 lines 92 + 97) → parent patch [docs/meta-factory/research-patches/2026-05-13-pr-body-s17-substance-gap.md](../../../docs/meta-factory/research-patches/2026-05-13-pr-body-s17-substance-gap.md) §6.7.
 - **No paid LLM in CI** — load-bearing constraint (feedback_no_paid_llm_in_ci memory (`file:///Users/art/.claude/projects/-Users-art-code-rules-as-tests-aif/memory/feedback_no_paid_llm_in_ci.md`))
 - **Phase 10 armed but not started** ([open-questions.md §13.32](../../../docs/meta-factory/open-questions.md)); Wave 10 ARMED waiting on Wave 9 closure ([.claude/orchestrator-prompts/wave-10-hook-architecture/kickoff.md](../wave-10-hook-architecture/kickoff.md))
 
