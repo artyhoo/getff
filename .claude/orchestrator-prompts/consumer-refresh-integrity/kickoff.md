@@ -140,6 +140,7 @@ bash tests/install-sh/meta-all-wired.test.sh
 bash tests/install-sh/refresh-covers-full-delivery.test.sh
 npx vitest run --root packages/core principles/41-shell-test-ci-coverage.test.ts
 SNAPSHOT_MODE=compare bash tests/install-sh/snapshot.sh
+npx vitest run --root packages/core hooks/inject-session-bootstrap.test.ts
 ```
 
 (R1 contract; R2 appends `bash tests/install-sh/eslint-barrel-preserve-consumer.test.sh`,
