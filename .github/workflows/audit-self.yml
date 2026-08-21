@@ -748,6 +748,8 @@ jobs:
         run: bash tests/install-sh/refresh-different-stack-prunes-barrel.test.sh
       - name: "install-sh — eslint barrel preserves consumer entries (issue 1481 casualty 2: hand-extended index.mjs survives regeneration; #882 prune unchanged)"
         run: bash tests/install-sh/eslint-barrel-preserve-consumer.test.sh
+      - name: "install-sh — deliver-gate-scripts (issues 1482+1485 R3: check-ask-files + run-local-ci-sweep delivered per RI-4 breadth; T-CRI-C warn/preserve arm; pre-vendored RI-2 pin; negative lanes; dry-run)"
+        run: bash tests/install-sh/deliver-gate-scripts.test.sh
       - name: install-sh — wire-eslint-r2 (GH #547 Layer 2 AST wirer degrade fixtures D+F)
         run: bash tests/install-sh/wire-eslint-r2.test.sh
       - name: "install-sh — install-self-verification structural + degrade test (D6: gates shipped, graceful-degrade, wired)"
