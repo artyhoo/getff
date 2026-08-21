@@ -381,3 +381,5 @@ After this kickoff is created + Phase -1 GO is recorded in §-1 amendments log (
 - **N1 (MINOR cosmetic) — log count off-by-one.** Iter-1 log said «Six occurrences corrected» but 7 sites were fixed. Reviewer flagged as cosmetic-only (operative kickoff content correct at all 7 sites; impacts log accuracy, not Worker behaviour). **Fixed in this iter-2 amendment** (M1 entry above now says «Seven occurrences»).
 
 **Re-review complete. Kickoff GO for handoff to next session.**
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

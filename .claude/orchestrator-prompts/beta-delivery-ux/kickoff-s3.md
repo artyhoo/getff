@@ -204,3 +204,5 @@ echo "$PR_BODY" | grep -cE '[^[:space:]]+\.[a-z]+:[0-9]+'                  # mus
 - A degradation-matrix row cannot be C3-validated → park the row; do NOT assert it.
 - The CLAUDE.md pointer-ization lacks maintainer sign-off → the commit is staged but the PR waits.
 - Local CI-equivalent sweep goes red from a branch-introduced cause → fix before handoff.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

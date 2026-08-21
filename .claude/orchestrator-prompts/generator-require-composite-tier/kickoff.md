@@ -81,3 +81,5 @@ S1 = новая зависимость ast-grep → capability-commit, `Prior-ar
 
 ## §8 Staging-placement
 Kickoff на staging через PR #701 ДО `/pipeline` (`kickoff-staging-placement.md §1`). Зависит от `generator-forbid-mvp` DONE (#697). Не диспетчеризовать с feature-ветки (`#dispatch-before-staging`). Sibling `generation-paths-comparison` — DONE (#698, вердикт «paths LAYER, not compete»); эта умбрелла расширяет общий declarative-compile (через него течёт и Path B), не конфликтует.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -115,3 +115,5 @@ Active: **T2, T3, T4, T7, T11, T14, T15, T16, T20**.
 - [reviewer-discipline.md](../../../.claude/rules/reviewer-discipline.md) — почему сессия surfaces, а не решает.
 - [build-first-reuse-default.md](../../../.claude/rules/build-first-reuse-default.md) — рамка «брать оба / один / совместить».
 - [kickoff-staging-placement.md](../../../.claude/rules/kickoff-staging-placement.md) — §7 merge-first.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

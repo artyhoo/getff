@@ -211,3 +211,5 @@ Resist temptation to:
 - Skip verification because «kickoff already cites it» — kickoff is unverified estimate; verify per §6 + §8
 
 The goal is **clean atomic SSOT-corrections commit** that downstream sessions can rely on for accurate AIF Handoff attribution. Three things: correct 4 entries, add 4 new entries, file:line citations throughout.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

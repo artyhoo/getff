@@ -46,3 +46,5 @@ Mirror the existing RN treatment — template: `generate.test.ts` RN oracle-cove
 Active traps: **T1** (cover ALL 3 oracle IDs — "require-error-boundary fires, looks done" is a sampling artifact, not parity), **T14** (clean ≠ covered: a green test on 1 of 3 IDs is "partial coverage", not "parity"; assert the full oracle set), **T16** (don't assume react-spa's gap rule is the same problem-class as RN's `flatlist` rule — verify each emitted rule against `RULES.react-spa.md`), **T15** (self-application: the oracle-coverage assertion fails if an oracle ID is dropped from the emitted set).
 
 Domain trap **T-SPA-ORACLE-A**: tempted to assert only `require-error-boundary` fires and call it parity — the RN test covers **all 4** oracle IDs including plugin-sourced ones. SPA parity = cover **all 3** (`R-SPA-EB` real-rule + `R-SPA-A11Y`/`R-SPA-HOOKS` plugin-presence). One-rule coverage masquerading as parity is the exact "stranded hand-maintained preset" gap this issue closes.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

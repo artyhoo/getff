@@ -74,3 +74,5 @@ T1 (sampling floor — audit ALL existing 30+ orchestrator-prompt files, not 5),
 - `.gitignore:7` — current `.claude/orchestrator-prompts/*` blanket exclusion
 - `docs/meta-factory/research-patches/2026-05-22-storm-readiness-as-positioning.md` — related «niche-work as storm-prep» framing
 - `.claude/rules/build-first-reuse-default.md §3` — verdict ladder (ADOPT vs ADAPT for Superpowers pattern)
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

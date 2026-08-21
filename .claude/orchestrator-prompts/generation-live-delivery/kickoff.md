@@ -48,3 +48,5 @@ The scoping primitive is the brick this umbrella builds on.
 - [docs/meta-factory/multi-stack-monorepo-research.md](../../../docs/meta-factory/multi-stack-monorepo-research.md) — where the two-pipeline / synth-aspirational findings were first surfaced.
 - [.claude/rules/build-first-reuse-default.md](../../rules/build-first-reuse-default.md), [ai-laziness-traps.md](../../rules/ai-laziness-traps.md), [doc-authority-hierarchy.md](../../rules/doc-authority-hierarchy.md).
 - Architectural finding (memory): `project_multi_stack_i2_state.md` — two pipelines, synth = no-op overlay, Pipeline B unwired, recipes all `next`.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -107,3 +107,5 @@ A + B1 edit the same file → **one worker, sequential**. B2, C independent → 
    active rule matches zero files → the new section FAILS the push (alarm fires).
 5. `npm run check:all` (or the pre-push test suite) green.
 6. Commit format + Prior-art escape-hatch trailer present.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

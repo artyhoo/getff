@@ -94,3 +94,5 @@ These three surfaced 2026-06-03 and are NOT caught by `bridge-health.sh` (which 
 
 - The 2026-06-03 aif runtime is STILL broken (task `cf8534d9` crash-looping on missing binary; proxy blocks npm). Fixing it = operator action (rebuild-with-proxy or API transport), tracked separately from this skill build.
 - The original `hygiene-cleanup` umbrella (wave-plan §0 reconcile, `done.md` sweep, memory-codify) was NEVER executed — it remains open. Decide separately whether to do it in-session (markdown, ~15 min) or re-dispatch once the runtime is fixed.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

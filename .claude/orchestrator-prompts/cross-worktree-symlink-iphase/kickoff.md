@@ -45,3 +45,5 @@ Build the `link-coordination.sh` helper from patch §5 (≤30 LOC bash, harness-
 5. Helper conflict path exits 1 on a pre-existing real dir (never clobbers).
 6. Capability commit (if any) carries `Prior-art:` trailer.
 ```
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

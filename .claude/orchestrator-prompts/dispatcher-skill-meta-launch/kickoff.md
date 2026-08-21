@@ -203,3 +203,5 @@ Any session message produced FROM this kickoff (Worker REPORT, Reviewer verdict,
 - `.claude/rules/build-first-reuse-default.md §3` — BFR mechanism for the Stage 0 loop verdict.
 - `.claude/rules/parallel-subwave-isolation.md §1` — worktree isolation.
 - `.claude/rules/reviewer-discipline.md §2` — reviewer role boundaries.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

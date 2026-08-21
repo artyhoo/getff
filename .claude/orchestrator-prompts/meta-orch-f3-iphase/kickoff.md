@@ -206,3 +206,5 @@ Pre-flight grep per meta-launch §4b BEFORE `gh pr create`.
 - [`dual-implementation-discipline.md`](../../../.claude/rules/dual-implementation-discipline.md) — markers + Class triage
 - [`doc-authority-hierarchy.md`](../../../.claude/rules/doc-authority-hierarchy.md) — Class + header spec
 - [Issue #14956](https://github.com/anthropics/claude-code/issues/14956) — known CC bug requiring settings.json fallback
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

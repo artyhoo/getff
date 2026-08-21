@@ -78,3 +78,5 @@ At soak close (or incrementally each round), turn `harden-target` rows into patc
 - AI-laziness traps ([.claude/rules/ai-laziness-traps.md §2](../../.claude/rules/ai-laziness-traps.md)): T3 (verify inputs — the stale-branch-content bug this session), T2 (run the methodology, don't just design it), T19 (own cold-QA before each harden-PR handoff), **T-soak-A**: «token-display lag ≠ stall — discriminate by activeTaskCount+process+log-freshness before triage; but DON'T let lag-caution defer a real stall (the 2026-06-04 orphan gap)».
 - Every harden-claim carries command+output (no prose-only).
 - §self-application: does the soak itself stall? If the soak loop ever halts on a non-destructive condition, that IS a finding.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

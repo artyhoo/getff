@@ -235,3 +235,5 @@ Cold-review (1× Opus, 2026-05-24) returned REVISE → applied:
 - §1.3 Option B verdict-word regex false-positive ceiling — Worker MUST estimate ceiling IN research-patch §1.3 before Option B is recommended for I-phase (added implicitly via T4 «adversarial counter-prompt» + §1.5 reference). If ceiling >50% trivial-sentence match → escalate to S2 «mechanism design DEFER, ship trap-only».
 
 Re-review verdict (Phase -1 step 5): pending. If GO → Worker dispatch per §2.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

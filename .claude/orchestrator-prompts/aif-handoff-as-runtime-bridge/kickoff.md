@@ -423,3 +423,5 @@ PR titled `research(aif-handoff-bridge): Sub-wave <X> — <variant name>`. Base 
 - [.claude/rules/reviewer-discipline.md](../../../.claude/rules/reviewer-discipline.md) — §2 strategy-fork surface for tied verdicts.
 - memory project_companion_abc_decisions_closed.md — DECISION=C invariant this kickoff respects.
 - memory project_automerge_staging_plan.md — PR landing flow.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -67,3 +67,5 @@ A **parallel session shared this working directory** during C2 and switched the 
 ## 8. Done = 
 
 PR into `staging`: pure-logic module + pre-push wiring + paired-negative tests green; `tsc`/`shellcheck`/`test:principles` clean; Prior-art trailer validated by C1's arm; the FORK (§3) surfaced in the PR body with your recommendation; legacy-hook batch-annotation surfaced as an observation (not done). Then update memory `project_deterministic_offload_autonomy_economy` (C4 SHIPPED, next = C3).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

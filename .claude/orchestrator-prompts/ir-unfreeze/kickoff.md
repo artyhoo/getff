@@ -72,3 +72,5 @@ See [.claude/rules/ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md). 
 - **The byte-exact order-sensitive lock** (`to-node.test.ts:129-137`) MUST stay green for legacy scalar nodes — a params-shape change that reorders keys breaks it.
 - **NO rust coverage claim** without a real fired rust census (R-patch §3 GAP) — the unfreeze is python-data-only until then.
 - **NO paid LLM in CI** — relational-params semantic validation, where not ajv-checkable (Option A string-blobs), routes to a session-side / cold-agent check, never a CI LLM gate ([no-paid-llm-in-ci.md](../../rules/no-paid-llm-in-ci.md)).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

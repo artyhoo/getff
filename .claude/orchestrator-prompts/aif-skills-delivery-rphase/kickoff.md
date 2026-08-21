@@ -101,3 +101,5 @@ When work is dispatched to aif-handoff, the agent runs in a container that only 
 - [ ] Principle 10 scope annotation present
 - [ ] `Prior-art: ...` trailer in commit message (reference SSOT rows for aif-handoff #67/#97 + skill-context #50)
 - [ ] End with `## REPORT` block per `agents/orchestrator-worker-discipline.md`
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

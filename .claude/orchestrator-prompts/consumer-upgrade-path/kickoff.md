@@ -62,3 +62,5 @@ See [.claude/rules/ai-laziness-traps.md §2](../../../.claude/rules/ai-laziness-
 ## Dispatch note
 
 Per [kickoff-staging-placement.md](../../../.claude/rules/kickoff-staging-placement.md): this kickoff must be on `staging` before `/pipeline consumer-upgrade-path` or an aif dispatch is initiated.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -194,3 +194,5 @@ R-phase не должен производить кода. Только markdown
 - [ ] Прочитал §1 (10-min orientation reads)?
 
 Когда все боксы отмечены — приступай. Удачи.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

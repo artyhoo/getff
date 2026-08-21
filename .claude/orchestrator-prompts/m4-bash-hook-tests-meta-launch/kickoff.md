@@ -205,3 +205,5 @@ Reviewer discipline per [reviewer-discipline.md §2](../../../.claude/rules/revi
 - [`.claude/rules/reviewer-discipline.md §2`](../../../.claude/rules/reviewer-discipline.md) — Phase -1 reviewer role boundaries.
 - [`packages/core/hooks/check-hook-marker.test.ts`](../../../packages/core/hooks/check-hook-marker.test.ts) — REFERENCE test pattern.
 - `packages/core/hooks/git.test.ts` — Wave 3 precedent (0-tests gap closure pattern M.4 mirrors 6×).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

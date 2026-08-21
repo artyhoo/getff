@@ -73,3 +73,5 @@ This consumer-/pipeline design is the **only open thread**.
 ## 9. How to start
 
 Open a fresh session in this repo. Read this kickoff → do §5 (coupling-depth classification) → resume `superpowers:brainstorming` at open-Q1 (product-scope) then Q2 (work-item source). Maintainer already chose **A** and endorsed **MVP-first**, pending the §5 depth check (which could resize the slices).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

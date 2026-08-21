@@ -47,3 +47,5 @@ Active: **T3** (re-read every spec `file:line` — confirm still fresh vs curren
 ## §7 Done
 
 Spec §1 Done-state: `./setup --full` on react-next → LIVE research → real `ResearchPlan` + `GenerateSelection` → factory → real `rules-lock.json` with a genuinely-researched executable rule + firing test; `$0`-in-CI; PR → `staging`.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

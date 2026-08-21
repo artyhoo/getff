@@ -278,3 +278,5 @@ Maintainer pastes this into a fresh CC tab (or current session if Mode A inline)
 - [`.claude/rules/reviewer-discipline.md §2`](../../../.claude/rules/reviewer-discipline.md) — reviewer role boundaries.
 - [`.claude/rules/dual-implementation-discipline.md §5`](../../../.claude/rules/dual-implementation-discipline.md) — `@dual-pair` markers.
 - [`docs/meta-factory/research-patches/2026-05-23-meta-orchestrator-prior-art.md`](../../../docs/meta-factory/research-patches/2026-05-23-meta-orchestrator-prior-art.md) — meta-orchestrator R-phase verdict.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

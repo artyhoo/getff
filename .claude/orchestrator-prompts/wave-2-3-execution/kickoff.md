@@ -348,3 +348,5 @@ Max plan window ~200k/5h. Likely needs 2 reset windows OR aggressive efficiency.
 - `.claude/orchestrator-prompts/d-items-strategic-dialogue/wave-1-prompt.md` — Wave 1 structural reference
 - Wave 1 PR #63 — working example of substantive §1.7 sections
 - `.claude/rules/parallel-subwave-isolation.md`, `.claude/rules/ai-laziness-traps.md`, `.claude/rules/reviewer-discipline.md` — discipline rules
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

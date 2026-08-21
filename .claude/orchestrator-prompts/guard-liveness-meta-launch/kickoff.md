@@ -199,3 +199,5 @@ Verdict routing: **GO** → §4 Stage N+1 dispatch. **REVISE** → surface findi
 - `.claude/rules/parallel-subwave-isolation.md §1` — worktree isolation (Stage 1/2 parallel sub-waves).
 - `.claude/rules/reviewer-discipline.md §2` — reviewer role boundaries.
 - `.claude/rules/rule-enforcement-channel-selection.md §3` — channel-earliness basis for each gate.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

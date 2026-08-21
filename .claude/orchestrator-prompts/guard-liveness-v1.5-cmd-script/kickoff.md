@@ -68,3 +68,5 @@ Cold-review (1× Opus): stale refs, ambiguity, missing constraints, §5 substanc
 ## §7 Coupling notes
 - **v1 schema must land first.** This sub-wave adds `fixture` to `NegativeTest` — that interface ships in v1. Coordinate via v0 → v1 → v1.5 stage gate.
 - **N5 give-back candidate:** the fixture-runner pattern is reusable across projects (deterministic, no LLM) — surface at N5.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

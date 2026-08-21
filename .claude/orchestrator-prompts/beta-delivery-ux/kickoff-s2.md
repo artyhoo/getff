@@ -318,3 +318,5 @@ echo "$PR_BODY" | grep -cE '[^[:space:]]+\.[a-z]+:[0-9]+'                  # mus
 - CC harness detection would require launching when spec says defer → STOP, park the detection design.
 - The marker value for `economy`/`aif` is ambiguous against the live runtime-profile list → park.
 - Local CI-equivalent sweep goes red from a branch-introduced cause → fix before handoff.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

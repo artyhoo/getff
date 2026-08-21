@@ -284,3 +284,5 @@ Phase A (audit) can run as **Mode A inline Agent on Opus** for the diagnostic sy
 - Closed PR #73 thread — full rationale on what aggregation tried and why rejected.
 - Maintainer investigation session `2389cb56-5959-4503-9ed9-7dea6e0f6d16.jsonl` — origin of race-condition rejection.
 - Origin session `08570cad-c697-4a9b-a2ca-b00fec323266.jsonl` — empirical silent false-negative observation (this kickoff's trigger).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

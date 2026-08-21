@@ -48,3 +48,5 @@ Domain-specific: **T-NC3-A** — «tempted to make auto-write unconditional/defa
 6. CLAUDE.md «capability commit» definition (does this cross the LOC threshold → Prior-art trailer + SSOT).
 
 Finish REPORT with: PR# · what auto-write does + fallback path · proof existing hooks preserved (before/after) · §1.7 presence · `## 🟢 Простыми словами`.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

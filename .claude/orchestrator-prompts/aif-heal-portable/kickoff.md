@@ -88,3 +88,5 @@ T3 (executable acceptance, not prose "ported"), T13/T16 (the SHIPPED helper is t
 - memory `reference_aif_dispatch_projectid` — projectId, dispatch env, stale-base lesson, the helper.
 - `.claude/skills/aif-doctor/SKILL.md` §3.4 + §1 — the codified failure mode.
 - `.gitignore:14` — `done.md` is the only tracked file under `orchestrator-prompts/*/` (this kickoff is NOT tracked).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

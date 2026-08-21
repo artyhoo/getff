@@ -241,3 +241,5 @@ Any session message produced FROM this kickoff (Worker REPORT, Reviewer GO/REVIS
 - `packages/core/ir/types.ts` (`:3` freeze, `:32-41` node) + `packages/core/ir/convention-node.schema.json` (`:6`/`:26-28` scalar ceiling) — the FROZEN artifact this umbrella unfreezes.
 - `.claude/rules/ai-laziness-traps.md §2` — canonical trap catalogue · `.claude/rules/build-first-reuse-default.md §3` — BFR consult for the S4 capability commit.
 - `.claude/rules/parallel-subwave-isolation.md §1` — worktree isolation · `.claude/rules/reviewer-discipline.md §2` — reviewer role boundaries.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

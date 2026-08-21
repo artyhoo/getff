@@ -104,3 +104,5 @@ The probe must itself be falsifiable. Add a paired-negative meta-test proving `c
 - Do NOT push to `main`. Do NOT open multiple PRs.
 - **Commit per deliverable (D1…D5) so progress is durable.** This is a large umbrella; if the run budget runs short, land **D5 (the operator's core mandate — mutation-verify generated tests) + D1 (fences-fire) FIRST**, then D2/D3/D4, and report exactly what remains. A partial-but-honest PR beats a rushed-vacuous one.
 - REPORT (returned to the harvesting orchestrator): files changed (path:line); the fences-fire self-test output (FAIL-when-neutered AND PASS-when-firing runs); the `check:fences-fire` output; **the D5 `run-generated-rule-mutation.test.ts` output (per-rule kill ≥60% AND the neuter-→-RED negative arm)**; `npm test --workspaces` result; the SSOT #184 entry added + the `Prior-art:` trailers (#184 for D1/D2, #91 ADAPT for D5). Confidence + ATTN.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

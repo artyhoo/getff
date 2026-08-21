@@ -218,3 +218,5 @@ Any session message produced FROM this kickoff (Worker REPORT, Reviewer verdict,
 - `.claude/skills/meta-orchestrator/helpers/classify-each-candidate.sh:51-52` — parse-safe filter.
 - `.claude/rules/ai-laziness-traps.md §2` (T3/T10/T15) — T10 «report completeness based on what you LOOKED at, not what EXISTS» is the canonical form of this incident.
 - `CLAUDE.md` «What is a capability commit?» — Stage 1 Prior-art trailer requirement.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

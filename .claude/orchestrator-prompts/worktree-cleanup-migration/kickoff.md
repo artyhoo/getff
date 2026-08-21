@@ -68,3 +68,5 @@ Also write this kickoff's own `worktree-cleanup-migration/done.md` at the end. B
 2. For each removed worktree: a line proving its content was in `$CANON` before removal.
 3. `git worktree list` after — only intended worktrees remain; no locked ones removed.
 4. List of branches deleted (all `git branch -d` succeeded = all were merged).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

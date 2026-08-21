@@ -251,3 +251,5 @@ Bundle direction is itself a meta-orchestrator capability. Apply own discipline:
   - `2026-05-24-meta-orchestrator-refactor-f3-scope.md` (G binding scope precedent — model for this kickoff's §1 table)
   - `2026-05-25-meta-orchestrator-f3-substance-followup.md` (most recent audit)
 - Rules: `.claude/rules/build-first-reuse-default.md`, `.claude/rules/no-paid-llm-in-ci.md`, `.claude/rules/reviewer-discipline.md`, `.claude/rules/ai-laziness-traps.md`, `.claude/rules/doc-authority-hierarchy.md`, `.claude/rules/dual-implementation-discipline.md`, `.claude/rules/phase-research-coverage.md`.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

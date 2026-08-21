@@ -192,3 +192,5 @@ Any session message produced FROM this kickoff (Worker REPORT, Reviewer verdict,
 - `.claude/rules/dual-implementation-discipline.md` — CC-native + portable-fallback (relevant to B/D shipping).
 - `.claude/rules/ai-laziness-traps.md §2` — canonical trap catalogue · `.claude/rules/reviewer-discipline.md §2` — reviewer role.
 - `packages/core/templates/shared/skill-context/` · `agents/*.md` · `scripts/link-coordination.sh` · `docs/meta-factory/prior-art-evaluations.md` (SSOT rows #67/#97).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

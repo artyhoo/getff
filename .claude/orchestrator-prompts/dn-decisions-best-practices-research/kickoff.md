@@ -205,3 +205,5 @@ Backward check: this kickoff doesn't supersede any existing rule; extends DN-1/D
 - [`dual-implementation-discipline.md §3`](../../../.claude/rules/dual-implementation-discipline.md) — Internal vs Consumer-facing triage (DN-4 N6b angle)
 - [`recommendation-laziness-discipline.md`](../../../.claude/rules/recommendation-laziness-discipline.md) — discipline this kickoff fixes (inline recommendations → research-backed)
 - [`ai-laziness-traps.md §2`](../../../.claude/rules/ai-laziness-traps.md) — T-trap catalogue
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -105,3 +105,5 @@ Per [.claude/rules/ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md) a
 - [agents/rule-researcher.md](../../../agents/rule-researcher.md) — the shipped AI-agnostic research protocol (extend with per-stack ConventionNode output contracts).
 - [.claude/rules/research-source-trust.md](../../rules/research-source-trust.md), [build-first-reuse-default.md](../../rules/build-first-reuse-default.md), [no-paid-llm-in-ci.md](../../rules/no-paid-llm-in-ci.md), [ai-laziness-traps.md](../../rules/ai-laziness-traps.md), [doc-authority-hierarchy.md](../../rules/doc-authority-hierarchy.md).
 - [docs/meta-factory/prior-art-evaluations.md](../../../docs/meta-factory/prior-art-evaluations.md) — SSOT; rows 218/219 (research-patch §BFR); #183/#199/#212/#215/#197 gate scope.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

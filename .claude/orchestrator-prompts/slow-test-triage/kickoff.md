@@ -82,3 +82,5 @@ Run AFTER PR #229 (defer-reflex Stage 1) merged. The 36s timeout in PR #229 is t
 - PR #183 / commit 33278a4 — prior testTimeout bump (principle 11) — same root cause class
 - `.claude/orchestrator-prompts/defer-reflex-detection/kickoff.md` — adjacent umbrella for context
 - `~/.claude/projects/-Users-art-code-rules-as-tests-aif/memory/project_m4_wave_done` — memory note «pre-push.test.ts:55-65 broken on staging (CI filter masks)» — sibling pre-existing flake
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

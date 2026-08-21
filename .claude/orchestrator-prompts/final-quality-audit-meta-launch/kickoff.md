@@ -252,3 +252,5 @@ Reviewer discipline: reads the Stage N diff + the umbrella §5 per-stage accepta
 - `.claude/rules/ai-laziness-traps.md §2` — canonical trap catalogue.
 - `.claude/rules/parallel-subwave-isolation.md §1` — worktree isolation (Mode B).
 - `.claude/rules/reviewer-discipline.md §2` — reviewer role boundaries.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

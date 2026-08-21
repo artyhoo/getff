@@ -399,3 +399,5 @@ This is fully specified. **If** an anchor in Edit A–E does not match the hook 
 - Plan: `docs/superpowers/plans/2026-06-16-session-story-recap.md`
 - Spec: `docs/superpowers/specs/2026-06-16-session-story-recap-design.md`
 - Sibling effort (separate PR): `/pipeline` i18n fix — `.claude/orchestrator-prompts/pipeline-i18n-fix/kickoff.md`
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

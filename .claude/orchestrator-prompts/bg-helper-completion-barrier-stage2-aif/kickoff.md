@@ -89,3 +89,5 @@ Also confirm the wrapped `!`-fence is still valid bash (no syntax error) and the
 - **T-BGB-A** — the `END rc=` trailer proves completion + exit code, NOT semantic completeness; keep that distinction in the read-rule wording (do not over-claim).
 
 > Blanket "see ai-laziness-traps.md" without the enumeration above = T7 violation.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

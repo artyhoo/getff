@@ -51,3 +51,5 @@ If a target requires a file that is not present on `staging` (e.g. an operator-n
 
 You do NOT push or open a PR (by design — no network). When the task reaches `done`, the host runs:
 `npx tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --base staging`
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

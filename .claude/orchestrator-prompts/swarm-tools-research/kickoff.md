@@ -374,3 +374,5 @@ Closing message: §4.1 tool findings (found / not-found / analogs + verdicts); A
 - [.claude/rules/ai-laziness-traps.md](../../rules/ai-laziness-traps.md) — trap catalogue
 - **[inputs/spec-semantic-dedup-contracts.md](inputs/spec-semantic-dedup-contracts.md)** — documentation EXAMPLE only (NOT an execution target)
 - Memory: `project_swarm_research_scope_correction.md` (this revision's origin), `project_session_ordering_2026_05_13.md`
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

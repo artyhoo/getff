@@ -67,3 +67,5 @@ Cold-review (1× Opus, this Wave is unusually load-bearing because it crosses in
 - **v1 schema must land first** (`NegativeTest.input: string[]`) — v3 adds a parallel field for manual, the umbrella migration is staged across sub-waves.
 - **N5 give-back:** v3's prober + the schema convention are the strongest give-back candidate of the umbrella. After v3 ships green, the maintainer decides at N5 whether to contribute (likely shape: a Superpowers skill, since SP is zero-dep and accepts skill PRs).
 - **`/aif-verify` interaction:** if folded, document the new probe surface in [INSTALL-FOR-AI.md](../../../INSTALL-FOR-AI.md).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

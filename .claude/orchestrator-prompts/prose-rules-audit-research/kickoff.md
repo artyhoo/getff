@@ -232,3 +232,5 @@ If you find yourself writing «we can mechanically test this rule» without show
 - [docs/meta-factory/research-patches/2026-05-16-goal-clarity-dialogue.md §11.3](../../../docs/meta-factory/research-patches/2026-05-16-goal-clarity-dialogue.md) — 1A prose-rules audit observation that triggers this R-phase
 - [.claude/orchestrator-prompts/goal-clarity-dialogue/drafts/atomic-commit-plan.md](../goal-clarity-dialogue/drafts/atomic-commit-plan.md) — Commits 3/4/5 blocked on this R-phase
 - [.claude/orchestrator-prompts/research-tooling-evaluation/kickoff.md](../research-tooling-evaluation/kickoff.md) — methodology template (DeepWiki vs Context7 vs WebSearch tool selection)
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

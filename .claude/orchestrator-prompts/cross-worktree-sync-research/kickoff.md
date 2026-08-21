@@ -105,3 +105,5 @@ Add others if surfaces during execution.
 - REPORT: ~10 min
 
 **Total: ~3-4h focused. Один заход.**
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

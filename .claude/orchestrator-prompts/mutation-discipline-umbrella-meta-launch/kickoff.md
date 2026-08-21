@@ -236,3 +236,5 @@ Skip allowed only for: one-line tool acks ("OK"), pure `gh`/`git` outputs withou
 ## 🟢 Простыми словами
 
 Этот meta-kickoff — обёртка для запуска mutation-discipline-umbrella. Запускаемая сейчас только Stage 1 (Sub-wave A): R-phase audit, Mode A inline Opus, ~1 час, $0. Воркер должен прогнать Stryker по полному TS scope, посчитать population бэш-хуков (9 файлов в `.claude/hooks/*.sh`), и шипнуть research-patch `docs/meta-factory/research-patches/2026-05-24-mutation-discipline-audit.md` с per-file kill % + B/C/D=GO/DEFER/DROP verdicts в §A.4. Stages 2-4 пока заморожены — после A.4 + Phase -1 reviewer GO + твоё ACK решений по B/C/D они разморозятся. Стоп-условия F1-F5 могут отменить весь хвост (например F1 = «всё уже хорошо, ничего не строим»). Активные ловушки: 11 canonical (T1/T2/T3/T9/T10/T11/T14/T15/T16/T17/T19) + 2 domain (T-MUT-A «ручной sanity ≠ автомат CI», T-MUT-B «высокий kill % ≠ хороший тест»).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

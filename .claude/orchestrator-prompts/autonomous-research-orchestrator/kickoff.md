@@ -526,3 +526,5 @@ Your closing message (escalation path):
 **Most important:** the value you bring is automation of dispatch + iterative quality loop. You do NOT replace maintainer judgment on what verdicts to set. You DISPATCH + GATE; maintainer DECIDES (eventually, post-orchestration).
 
 Burn Opus. Be thorough. Cite everything. Escalate cleanly when blocked. Done.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

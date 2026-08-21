@@ -366,3 +366,5 @@ This kickoff describes a verification methodology. The kickoff's §4.2 and §4.3
 - [ ] `npm run test:principles` ran green; logged in state.md
 - [ ] No edits to parent patches; no edits to SSOT or project-scope files
 - [ ] No PRs opened, no commits pushed
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

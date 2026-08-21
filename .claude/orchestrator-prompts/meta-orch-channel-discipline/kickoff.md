@@ -117,3 +117,5 @@ If gate 3 resolves «wait» → this kickoff stays parked. Substrate's autonomou
 - [`packages/core/principles/19-meta-orchestrator-alias-routing-consistency.test.ts`](../../../packages/core/principles/19-meta-orchestrator-alias-routing-consistency.test.ts) — precedent substrate-internal principle test (alias-routing consistency); Stage B can model on it if M2 wins.
 - [`.claude/hooks/inject-matching-rule.sh`](../../../.claude/hooks/inject-matching-rule.sh) + [`.claude/hooks/check-doc-authority.sh`](../../../.claude/hooks/check-doc-authority.sh) — existing PostToolUse hooks; Stage B can model on these if M1/M4 wins.
 - [`docs/meta-factory/research-patches/2026-05-22-rule-enforcement-channel-selection.md`](../../../docs/meta-factory/research-patches/2026-05-22-rule-enforcement-channel-selection.md) — origin patch for the channel-selection principle Stage A applies; recursive-self-application precedent.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

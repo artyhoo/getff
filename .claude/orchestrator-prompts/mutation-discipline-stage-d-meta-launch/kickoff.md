@@ -52,3 +52,5 @@ T20 (no «this assertion is enough» without running the test red-on-mutant / gr
 
 - Genuine fork on assertion shape / gate strictness → PARK (manualReviewRequired), do not guess.
 - aif container unreachable → STOP, report.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

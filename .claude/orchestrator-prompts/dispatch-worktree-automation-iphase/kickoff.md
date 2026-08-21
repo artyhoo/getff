@@ -299,3 +299,5 @@ claude -w iphase-acceptance
 - Anthropic bug #39886 — Agent({isolation:"worktree"}) silently fails for write-Workers; tracked in §2.4 and Sub-wave B `#worker-dispatch-via-subagent` anti-pattern (SKILL.md:344-348) note.
 
 Prior-art: prior-art-evaluations.md#65 (`using-git-worktrees` REFERENCE — `claude -w` is the harness-native realisation Red Flag #1 mandates).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

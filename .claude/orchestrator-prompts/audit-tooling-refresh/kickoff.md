@@ -101,3 +101,5 @@ Confirm both files still ≤500 lines, markdownlint clean, embedded bash blocks 
 - PRs #79 / #82 / #83 / #84 (all merged) — the C-1 chain.
 - `.claude/rules/ai-laziness-traps.md §2` — trap catalogue.
 - `docs/audits/README.md` — how these audit docs are run.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

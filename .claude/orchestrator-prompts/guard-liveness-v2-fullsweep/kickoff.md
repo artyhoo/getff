@@ -61,3 +61,5 @@ Cold-review (1× Opus): stale refs, ambiguity, runtime claims verified, branch-p
 - **Cannot ship before v1+v1.5+v3.** v2 has no substrate — purely an orchestrator. Premature v2 = empty CI job.
 - **N5 give-back:** the workflow + aggregator pattern is a low-novelty contribution. Likely NOT a give-back candidate (every project does CI orchestration differently). Skip.
 - **Branch-protection click required post-merge** — maintainer responsibility, signaled in PR body.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

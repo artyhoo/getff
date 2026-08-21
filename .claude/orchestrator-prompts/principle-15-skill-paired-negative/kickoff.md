@@ -134,3 +134,5 @@ grep -nE '^\| 54 \|' docs/meta-factory/prior-art-evaluations.md             # SS
 - DECISIONS: <log или «нет ambiguity»>
 - Confidence: high/medium/low
 - ATTN: <странности / нужно решение старшей; «нет» если чисто>
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

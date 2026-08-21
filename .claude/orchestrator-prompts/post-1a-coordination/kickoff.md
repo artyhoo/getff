@@ -583,3 +583,5 @@ Maintainer pastes the contents of THIS kickoff into a fresh Claude Code session 
 - ✅ **No `#discipline-theatre` in §13** — substantive paragraph above, not checkbox list
 
 **One residual concern surfaced via self-application:** this kickoff is itself a **new capability artifact** under principle 08 capability-commit gate. If committed to repo (not gitignored), it needs SSOT consult + Prior-art trailer. Recommendation: kickoff is internal coordination tool, gitignored like sibling kickoffs in `.claude/orchestrator-prompts/`. Verify before commit.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

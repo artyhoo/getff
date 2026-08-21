@@ -79,3 +79,5 @@ S2/S3/S4/S5 — код под `packages/core/` (≥80 LOC → capability-commit)
 ## §8 Staging-placement (`kickoff-staging-placement.md §1`)
 
 Этот kickoff — **дис패тч-вход**; читается с `staging`. До любого `/pipeline`/`/dispatcher`: **merge этого файла в `staging`** (PR, squash). Диспетчеризация при kickoff только на feature-ветке = `#dispatch-before-staging` (инцидент 2×). Промт-обёртка (`DISPATCH-PROMPT-overnight.md`) делает merge первым шагом.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -67,3 +67,5 @@ See `audit-plan` sibling kickoff §4c. **Recommended runner: a Claude Code sessi
 - `.claude/orchestrator-prompts/meta-orchestrator-refactor/audit-plan.md` — the substantive audit input (§10 = corrected truth).
 - `.claude/skills/meta-orchestrator/SKILL.md` — the generating skill (also the subject of this refactor).
 - `state.md` (this dir) — dispatch state log.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -89,3 +89,5 @@ Max id on origin/staging = **#181** (verified C5). **Next free = #182.** Cite la
 - [docs/meta-factory/open-questions.md §13.5](../../../docs/meta-factory/open-questions.md) — the open question (status `open, armed`).
 - `.claude/orchestrator-prompts/generation-live-delivery/kickoff.md` — sibling thesis-realization umbrella (§3b deferred work).
 - [.claude/rules/ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md), [build-first-reuse-default.md](../../rules/build-first-reuse-default.md), [doc-authority-hierarchy.md](../../rules/doc-authority-hierarchy.md).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

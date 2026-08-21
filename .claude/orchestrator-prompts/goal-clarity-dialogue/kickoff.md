@@ -507,3 +507,5 @@ After this dialogue closes, maintainer reviews drafts at their pace and decides 
   - `project_goal_framing_narrow_vs_broad.md`
   - `project_session_ordering_2026_05_13.md`
   - `MEMORY.md` (index)
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

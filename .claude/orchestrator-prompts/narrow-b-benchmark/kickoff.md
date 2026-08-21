@@ -279,3 +279,5 @@ This benchmark IS subject to its own discipline:
 - [.claude/rules/phase-research-coverage.md §1.11, §1.12](../../../.claude/rules/phase-research-coverage.md) — claim-grounding discipline
 - [.claude/rules/doc-authority-hierarchy.md §3](../../../.claude/rules/doc-authority-hierarchy.md) — Class + Authoritative-for header
 - [.claude/rules/no-paid-llm-in-ci.md](../../../.claude/rules/no-paid-llm-in-ci.md) — deterministic mechanism requirement
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

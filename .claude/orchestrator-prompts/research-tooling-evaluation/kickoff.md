@@ -350,3 +350,5 @@ Especially resist:
 - Adopting DeepWiki implementation (e.g. installing MCP, updating settings.json) — verdict first, adoption is separate.
 
 The goal is **one good decision matrix + one defensible SSOT entry + one targeted backfill check.** Three artifacts. That's it.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

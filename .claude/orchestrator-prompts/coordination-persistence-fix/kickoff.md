@@ -57,3 +57,5 @@ The fix must make ITS OWN spec + kickoff persist cross-worktree. Verify by writi
 /meta-orchestrator coordination-persistence-fix
 ```
 …or open a fresh session and invoke `superpowers:brainstorming` directly on §2 Q1-Q4 (decisions §1 are already locked — don't re-litigate).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

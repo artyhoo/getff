@@ -177,3 +177,5 @@ npx vitest run packages/core/principles/12-ai-laziness-traps.test.ts | tail -5
 - `docs/meta-factory/research-patches/2026-06-01-aif-task-isolation.md` — predecessor (Findings A+F).
 - `.claude/rules/ai-laziness-traps.md §2` — trap catalogue.
 - `.claude/rules/reviewer-discipline.md §2` — surface-as-DECISION-NEEDED pattern (§7).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -99,3 +99,5 @@
 
 ## §8 AI laziness traps (active)
 T2 (прогоняй версии, не «would»), T3 (delivery-семантику §3 — фактом+цитатой, не из головы), T11/T12 (CC docs до claim о полях хука), T15 (self-application: merged-хук сам должен пройти свой «объясни просто» тест), T16 (не матчить #81/d695ac5 по имени поля — проверь что reason/systemMessage реально делают). Domain: **T-merge-A** — соблазн выбрать «мою» (редизайн) ветку целиком, потому что она «моя последняя»; counter — §4 заставляет оценить каждую ось отдельно, #81 может быть лучше по видимому блоку.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

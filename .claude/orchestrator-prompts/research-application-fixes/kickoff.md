@@ -71,3 +71,5 @@
 
 ## §10 Закрытие
 `done.md`: `# research-application-fixes — DONE` · Final PR · Closed · Summary + ссылка на реестр аудита.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -212,3 +212,5 @@ Per [.claude/rules/ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md) a
 - [.claude/rules/ci-tool-pinning.md](../../rules/ci-tool-pinning.md) (Rule A) vs [companion-install-principle.md](../../rules/companion-install-principle.md) (no-pin companion surface) — the T16 pair.
 - [docs/meta-factory/prior-art-evaluations.md](../../../docs/meta-factory/prior-art-evaluations.md) — #212/#215 (render targets), #213/#214 (DEFER triggers), #185 (companion seam), #197 (ecosystem adapter precedent).
 - `setup.d/` layer engine + [tests/install-sh/](../../../tests/install-sh/) — the install surfaces S1/S2 extend.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

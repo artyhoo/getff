@@ -83,3 +83,5 @@ On merge → meta-orchestrator writes `done.md` + `project_mutation_discipline_u
 - `.claude/rules/dual-implementation-discipline.md §5` — `@dual-pair` convention.
 - `docs/meta-factory/prior-art-evaluations.md` #87 — `worktree-create-setup` dual-pair precedent.
 - `.claude/orchestrator-prompts/mutation-discipline-umbrella-meta-launch/state.md §0.4` — umbrella reconciliation.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

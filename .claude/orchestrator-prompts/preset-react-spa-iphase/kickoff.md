@@ -102,3 +102,5 @@ Active canonical traps: **T3**, **T11**, **T13**, **T15**, **T16**.
 
 - **Forward-check:** complies with [no-paid-llm-in-ci.md](../../rules/no-paid-llm-in-ci.md) (eslint rules are deterministic AST, zero API calls; the DeepWiki re-probe is author-time on the worker's own subscription, not CI); [build-first-reuse-default.md](../../rules/build-first-reuse-default.md) (4 ADOPT + 1 BUILD — BUILD justified by confirmed presence-gap, #140); [doc-authority-hierarchy.md §2-§3](../../rules/doc-authority-hierarchy.md) (all shipped docs carry headers).
 - **Backward-check:** implements the merged react-spa R-phase verdicts (#136–#141); supersedes nothing; the design-spec §6 "de-Next-ify shared templates" wording is corrected here per the structural recon (config is per-preset, not shared).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

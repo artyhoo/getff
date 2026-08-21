@@ -74,3 +74,5 @@ This is a **design-first** task with genuine forks (§4). If dispatched via `tsx
 - [`install.sh`](../../../install.sh) — runtime model (node-optional, runs-before-deps, `--full`).
 - [`.claude/orchestrator-prompts/migration-ast/`](../migration-ast/) — the probes→AST-rules umbrella (unclosed; "two birds" fold candidate).
 - [`.claude/rules/build-first-reuse-default.md §3`](../../../.claude/rules/build-first-reuse-default.md) · [`dual-implementation-discipline.md §3`](../../../.claude/rules/dual-implementation-discipline.md) · [`no-paid-llm-in-ci.md`](../../../.claude/rules/no-paid-llm-in-ci.md).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

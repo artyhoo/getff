@@ -47,3 +47,5 @@ Domain-specific: **T-PSG-A** — «declare isolation solved because the happy-pa
 - `agents/manual-rule-liveness-prober.md` — the consumer of generated scenarios (Step 5 `BASELINE-DIDN'T-FAIL` detector).
 - SSOT #115 (`prior-art-evaluations.md`) — verdict to update to ADAPT+generative when this ships.
 - #552 — the consumer-manifest question (kept decoupled per §6.2).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

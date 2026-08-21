@@ -79,3 +79,5 @@ Mode A inline Opus single Worker (per `orchestrator/SKILL.md` Phase 3). `isolati
 - `.claude/rules/build-first-reuse-default.md` §3 (6-layer mandatory)
 - `.claude/rules/phase-research-coverage.md §1` (6-item search-coverage)
 - `.claude/rules/ai-laziness-traps.md §3` (T-trap enumeration mandate)
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

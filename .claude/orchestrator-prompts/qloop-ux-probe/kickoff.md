@@ -38,3 +38,5 @@ See `.claude/rules/ai-laziness-traps.md §2`. Active traps for this resume-test 
 - `park.ts` — реальный примитив (SSOT #109). Не выдумывай свой стоп.
 - Если `park.ts` падает — STOP и сообщи (не хакай рантайм). См. `.claude/rules` stop-surface-not-hack.
 - Заверши REPORT строкой `## 🟢 Простыми словами`.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

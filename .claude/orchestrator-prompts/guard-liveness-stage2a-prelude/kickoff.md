@@ -86,3 +86,5 @@ Cold-review (1× Opus) before merge: schema mirrors `negative-test` style exactl
 
 - **Gates v1.5 AND v3.** Both depend on this PR merging. After it lands: v1.5 ‖ v3 dispatch in separate worktrees (Mode B ×2) over disjoint files (v1.5 → runner + cmd/script data; v3 → prober + manual data). The remaining soft-overlap is `rules-manifest.json` data edits on disjoint rule keys — isolate via worktrees, second-merged rebases.
 - **N5 give-back:** the fixture/pressure-scenario schema convention is a give-back candidate alongside v1.5's runner + v3's prober — surface at N5, not here.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

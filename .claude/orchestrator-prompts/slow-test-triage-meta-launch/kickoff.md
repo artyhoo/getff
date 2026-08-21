@@ -311,3 +311,5 @@ Any session message produced FROM this kickoff (Worker REPORT, Reviewer GO/REVIS
 - [`packages/core/audit-self/audit-ai-docs.test.ts:344`](../../../packages/core/audit-self/audit-ai-docs.test.ts) — the originating slow test.
 - [`packages/core/audit-self/audit-ai-docs.ts:155-176`](../../../packages/core/audit-self/audit-ai-docs.ts) — probeR4 implementation referenced by all three DN-1 Options.
 - [`vitest.config.ts`](../../../vitest.config.ts) — root config holding `testTimeout: 60_000` and the "longer-term fix" comment pointing at this umbrella's research-patch.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

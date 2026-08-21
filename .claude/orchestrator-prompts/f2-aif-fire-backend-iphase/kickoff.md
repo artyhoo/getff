@@ -47,3 +47,5 @@ Wire `/fire` (CC Routines) into `runtime-bridge` as an **honest dispatch-only ba
 4. `AifFireBackend` is NOT wired as default; REST default unchanged.
 5. Capability commit carries `Prior-art:` trailer.
 ```
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->
