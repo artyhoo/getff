@@ -103,7 +103,7 @@ done <<< "$CHANGED"
 #   History: the orchestrator-prompts corpus was briefly excluded on legacy
 #   touches (2026-08-21 host-verify retrofit, A/M split) with a re-entry
 #   trigger; the trigger FIRED the same day (PR: legacy lint+link repair —
-#   401 violations repaired to zero across 956 files) and the filter was
+#   401 violations repaired to zero across 956 on-disk md files) and the filter was
 #   dropped. The whole corpus lints again.
 STAGED_MD=$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null | grep -E '\.md$' || true)
 if [ -n "$STAGED_MD" ]; then

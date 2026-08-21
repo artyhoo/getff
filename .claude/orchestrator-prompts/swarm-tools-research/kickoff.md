@@ -73,7 +73,7 @@ Per [.claude/session-bootstrap.md](../../session-bootstrap.md) Step 0 reading or
 
 **Input — documentation EXAMPLE only:**
 
-- **`inputs/spec-semantic-dedup-contracts.md` (`inputs/spec-semantic-dedup-contracts.md`)** — a sanitized sample spec from a different project. **Use ONLY as a real-shaped document to illustrate docstring quality and ground the AGENT.MD template.** Do NOT analyse its task graph, dependencies, or execution readiness; do NOT recommend an executor for it. Extract docstring/structural illustration only. Confidentiality rules in §5 still apply.
+- **`inputs/spec-semantic-dedup-contracts.md`** — a sanitized sample spec from a different project. **Use ONLY as a real-shaped document to illustrate docstring quality and ground the AGENT.MD template.** Do NOT analyse its task graph, dependencies, or execution readiness; do NOT recommend an executor for it. Extract docstring/structural illustration only. Confidentiality rules in §5 still apply.
 
 ---
 

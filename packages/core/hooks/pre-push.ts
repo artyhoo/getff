@@ -1509,7 +1509,7 @@ function lycheeSection(ctx: SectionCtx): void {
     // History: the orchestrator-prompts corpus was briefly excluded on legacy
     // touches (2026-08-21 host-verify retrofit, A/M split) with a re-entry
     // trigger; the trigger FIRED the same day (PR: legacy lint+link repair —
-    // 340 offline errors repaired to zero across 3670 links) and the filter
+    // 340 offline errors repaired to zero across 3670 checked links) and the filter
     // was dropped. The whole corpus is link-checked again.
     //
     // S2 §2 Part 1: on a consumer layout, exclude framework-shipped markdown so a
