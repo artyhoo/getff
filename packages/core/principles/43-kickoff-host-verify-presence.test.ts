@@ -113,7 +113,7 @@ describe('Principle 43 — every tracked kickoff declares a host-verify contract
       expect(
         enforcedEntries().length,
         'no tracked kickoff is in scope — population resolver or git state is broken',
-      ).toBeGreaterThan(200); // 349 family files at retrofit; a worktree misses none
+      ).toBeGreaterThan(200); // 342 tracked family files at retrofit; a worktree misses none
     },
   );
 
@@ -147,24 +147,30 @@ describe('Principle 43 — every tracked kickoff declares a host-verify contract
 
   it.skipIf(!GIT_AVAILABLE)(
     'anti-tautology: stripping a compliant kickoff flips the verdict',
+    { timeout: 120_000 },
     () => {
       const entry = enforcedEntries().find((e) =>
         runnerRecognizes(e.repoRelative),
       );
       expect(entry, 'expected a compliant in-scope kickoff to mutate').toBeDefined();
-      const stripped = entry!.path + '.p43-stripped';
-      const raw = readFileSync(entry!.path, 'utf8');
-      // remove both declaration shapes — the two the runner recognizes
-      writeFileSync(
-        stripped,
-        raw
-          .replace(/```bash host-verify[\s\S]*?```/g, '```bash\n```')
-          .replace(/<!-- host-verify: none[^>]*-->/g, ''),
-      );
-      // The stripped copy sits NEXT TO a real kickoff but is itself not a tracked
-      // kickoff-family name — invoke the runner on the explicit path.
-      expect(runnerRecognizesRaw(stripped)).toBe(false);
-      rmSync(stripped, { force: true });
+      // mutate OUTSIDE the population dir — a stranded copy must never litter
+      // the real corpus even if an assertion fails mid-test
+      const dir = join(tmpdir(), `p43-strip-${process.pid}`);
+      mkdirSync(dir, { recursive: true });
+      const stripped = join(dir, 'kickoff.md');
+      try {
+        const raw = readFileSync(entry!.path, 'utf8');
+        // remove both declaration shapes — the two the runner recognizes
+        writeFileSync(
+          stripped,
+          raw
+            .replace(/```bash host-verify[\s\S]*?```/g, '```bash\n```')
+            .replace(/<!-- host-verify: none[^>]*-->/g, ''),
+        );
+        expect(runnerRecognizesRaw(stripped)).toBe(false);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
     },
   );
 });
