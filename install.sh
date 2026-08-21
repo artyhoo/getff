@@ -278,6 +278,9 @@ do_python_lane() {
   # run against. _py_deliver_agent_surface (defined in setup.d/45-python.sh, sourced above)
   # replicates the curated subset of the layer list — see its docstring for the per-layer mapping.
   _py_deliver_agent_surface
+  # consumer-refresh-integrity R1: persist the delivery baseline now that every lane delivery
+  # (and its post-copy mutations) has run. Fail-open — never fails the lane (setup.d/lib.sh).
+  refresh_baseline_flush
   echo ""
   echo "✅ getff Python toolchain + agent surface ${REFRESH:+re-}delivery complete."
 }
@@ -306,6 +309,8 @@ do_cargo_lane() {
   else
     echo "  [dry-run] would run the getff firing self-check (plant a violation in an OS temp dir → assert cargo clippy fires RED)"
   fi
+  # consumer-refresh-integrity R1: persist the delivery baseline (fail-open; setup.d/lib.sh).
+  refresh_baseline_flush
   echo ""
   echo "✅ getff Rust/cargo toolchain ${REFRESH:+re-}delivery complete."
 }
@@ -334,6 +339,8 @@ do_go_lane() {
   else
     echo "  [dry-run] would run the getff firing self-check (plant a violation in an OS temp dir → assert golangci-lint fires RED)"
   fi
+  # consumer-refresh-integrity R1: persist the delivery baseline (fail-open; setup.d/lib.sh).
+  refresh_baseline_flush
   echo ""
   echo "✅ getff Go toolchain ${REFRESH:+re-}delivery complete."
 }
@@ -1213,6 +1220,11 @@ do_refresh() {
     fi
   fi
 
+  # consumer-refresh-integrity R1: persist the delivery baseline now that every refresh arm
+  # (and its post-copy transforms — the guard hashes FINAL on-disk bytes, see setup.d/lib.sh)
+  # has run. Fail-open: a failed flush never fails the refresh.
+  refresh_baseline_flush
+
   echo ""
   if [ "$DRY_RUN" = "--dry-run" ]; then
     echo "✅ Dry-run complete (--refresh preview). Nothing was written."
@@ -1261,3 +1273,11 @@ if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
     echo "  ⊝ setup.d/aif-handoff-guided-install.sh not present in this checkout — see docs/runtime-bridge-setup.md"
   fi
 fi
+
+# ─── consumer-refresh-integrity R1 — persist the delivery baseline ────────────
+# Every copy_safe/refresh_safe delivery staged its dst (setup.d/lib.sh); hash the FINAL
+# on-disk bytes into $PROJECT_ROOT/.ai-factory/refresh-baseline.json so the next --refresh
+# can tell a consumer edit from a pristine delivery (warn + preserve, never refuse — issue
+# 1481). Runs after ALL layers + post-delivery transforms. Fail-open: a missing jq or an
+# unwritable .ai-factory/ degrades to a one-line note, never a failed install.
+refresh_baseline_flush
