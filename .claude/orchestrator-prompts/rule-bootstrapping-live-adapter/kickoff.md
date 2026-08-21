@@ -58,3 +58,5 @@ Active: **T11/T12** (prototype the real MCP research; don't invent the protocol 
 - [docs/meta-factory/research-patches/2026-06-28-rule-bootstrapping.md](../../../docs/meta-factory/research-patches/2026-06-28-rule-bootstrapping.md) — R-phase design (§3 Q1, §4 seam, §5 ledger, §8 gating, §13 architecture).
 - `.claude/orchestrator-prompts/rule-bootstrapping-iphase-spike/kickoff.md` — the spike this continues (skeleton + the parked-fork resolution to Option-1 gate placement).
 - [.claude/rules/ai-laziness-traps.md](../../rules/ai-laziness-traps.md), [build-first-reuse-default.md](../../rules/build-first-reuse-default.md), [reviewer-discipline.md](../../rules/reviewer-discipline.md), [no-paid-llm-in-ci.md](../../rules/no-paid-llm-in-ci.md).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

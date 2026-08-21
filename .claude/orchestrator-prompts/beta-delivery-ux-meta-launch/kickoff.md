@@ -576,3 +576,5 @@ commentary.
 - `.claude/rules/git-conflict-merge-forward.md §2` — the merge-forward recipe (§2.1 item 2).
 - `.claude/rules/reviewer-discipline.md §2` — reviewer role boundaries.
 - `.claude/rules/companion-install-principle.md` — S4 `factory` aif install consent model.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

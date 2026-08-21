@@ -110,3 +110,5 @@ for this umbrella: T2, T3, T11, T14, T15, T20, T21.**
 - [.claude/orchestrator-prompts/rule-tests-surface/kickoff.md](../rule-tests-surface/kickoff.md) — the dependent skill umbrella (R5 ship order).
 - [.claude/orchestrator-prompts/ir-unfreeze/kickoff.md](../ir-unfreeze/kickoff.md) — the parallel umbrella this one serializes stages with (§3).
 - [.claude/orchestrator-prompts/live-generation/done.md](../live-generation/done.md) — Gap log (a), the recorded debt this umbrella pays.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

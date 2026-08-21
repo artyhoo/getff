@@ -253,3 +253,5 @@ Any session message produced FROM this kickoff (Worker REPORT, Reviewer GO/REVIS
 - `.claude/rules/parallel-subwave-isolation.md §1` — worktree isolation.
 - `.claude/rules/reviewer-discipline.md §2` — reviewer role boundaries.
 - `.claude/rules/git-conflict-merge-forward.md §2` — §3 serialization merge-forward recipe.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

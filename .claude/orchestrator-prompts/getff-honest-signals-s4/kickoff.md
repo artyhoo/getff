@@ -98,3 +98,5 @@ This stage edits `packages/core/templates/**` (§4b path list) → the PR body *
 non-whitespace chars and ≥1 `path.ext:N` citation each). Run the meta-launch kickoff §4b pre-flight grep
 before `gh pr create`. **Do NOT use the `### §1.7 Skipped:` escape hatch** — a baseline regen bundled with a
 real template change is not «purely structural».
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

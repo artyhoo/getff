@@ -114,3 +114,5 @@ for this umbrella: T2, T3, T11, T14, T15, T19, T20, T21.**
 - [.claude/orchestrator-prompts/rule-tests-surface/kickoff.md](../rule-tests-surface/kickoff.md) — the parallel umbrella (§3 edge; PARALLEL-OK otherwise).
 - [.claude/orchestrator-prompts/ecosystem-wiring/kickoff.md](../ecosystem-wiring/kickoff.md) — the predecessor umbrella whose incidents seeded the arm catalogue.
 - [.claude/rules/attention-is-not-a-mechanism.md](../../rules/attention-is-not-a-mechanism.md) — the discipline the jig operationalizes (gates + named protocols, never bare attention).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

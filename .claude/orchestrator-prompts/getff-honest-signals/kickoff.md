@@ -93,3 +93,5 @@ for this umbrella: T3, T7, T14, T15, T19.**
 - Spec (BINDING): [2026-07-23-getff-any-stack-closure-design.md](../../../docs/superpowers/specs/2026-07-23-getff-any-stack-closure-design.md) §8, §10.
 - [byte-identical baseline regen on template edit](../../rules/evidence-regeneration.md) + memory precedent: template edits → `SNAPSHOT_MODE=capture`.
 - W5.7 (foreign-dir scan) is NOT here — carved out to `getff-foreign-scan-triage` (Tier 2).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

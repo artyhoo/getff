@@ -109,3 +109,5 @@ pre-flight grep before `gh pr create`.
 
 **Do NOT reach for the `### §1.7 Skipped:` escape hatch** — a baseline regen bundled with a real template
 semantics change is not «purely structural» (meta-launch kickoff §4b hard-rule 5).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

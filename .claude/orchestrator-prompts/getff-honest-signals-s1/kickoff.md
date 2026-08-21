@@ -78,3 +78,5 @@ See [.claude/rules/ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md) f
 `packages/core/synthesizer/**` is **not** in the §4b path list (`.claude/rules/**`, `packages/core/principles/**`, `packages/core/templates/**`, `.claude/skills/**`, `agents/**`, `CLAUDE.md`, …), so the §1.7 Forward/Backward sections are **not** required for this stage. If your diff does reach one of those paths, §4b applies in full — see the meta-launch kickoff §4b for the exact shape and the pre-flight grep.
 
 Quote both fixture runs (RED pre-fix, GREEN post-fix) and the T15 self-application run.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

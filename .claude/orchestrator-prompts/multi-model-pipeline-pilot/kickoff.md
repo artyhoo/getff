@@ -124,3 +124,5 @@ Domain-specific:
 - **T-AIP-C — quota-blindness misread as BROKEN.** An exhausted weekly cap looks like "mechanism dead". Record cycle timestamps; a quota stall is environment (→ `/aif-doctor`), not a parity verdict.
 - **T-AIP-D — importing the census's ZCode column.** The census classifies CC-vs-**ZCode**; aif runs CC, so its `cc-only` rows are NOT impossible in aif. Census = row set only; every aif verdict derives from container observation.
 - **T-AIP-E — self-observation contamination.** The carrier task audits its own environment: keep observation steps read-only, keep the shield probe (§2b.3) explicit and fully reverted, and never let "produce a clean checklist" pressure the worker into under-reporting silent channels — a silent channel IS the finding, not a blemish on the run.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -153,3 +153,5 @@ twin you touch, and grep the manual twin for its guard after editing.
 4. Confirmation that the class is closed: the grep over `.claude/hooks/*.sh` for the hard-coded-path pattern, and its output.
 5. **Field note (report only, not part of the PR):** you are running inside a container task worktree. While you worked, the repo's own PostToolUse hooks fired on your edits — including, after your fix, possibly the very hooks you are fixing. Record verbatim any hook output you saw. If you saw nothing, write `NOTHING APPEARED` rather than inferring. Raw data for a separate audit; do not analyse it.
 6. Anything you could not verify, named as such.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

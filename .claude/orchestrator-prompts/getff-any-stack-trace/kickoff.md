@@ -109,3 +109,5 @@ for this umbrella: T1, T3, T7, T11, T15, T19, T20, T21.**
 - Spec (BINDING): [2026-07-23-getff-any-stack-closure-design.md](../../../docs/superpowers/specs/2026-07-23-getff-any-stack-closure-design.md).
 - Downstream: `getff-freshness-widening` (gated on this umbrella's `done.md`).
 - Live polygon: `~/code/apiapp` (operator-side; do not script against it in CI).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->
