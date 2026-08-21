@@ -185,28 +185,6 @@ export function getChangedFiles(
     .filter(Boolean);
 }
 
-/**
- * Files ADDED in the push range (git status A only) — for full-file gates that
- * must stay live on newly authored content while excluding touches of the
- * append-only legacy corpus (the orchestrator-prompts carve-outs in pre-push §8
- * and the pre-commit markdownlint arm; the 2026-08-21 host-verify retrofit
- * surfaced both — a whole-corpus touch must not become a demand to repair
- * pre-existing debt in closed history). Renames are not "added" by this filter
- * (git status R), matching the diff-filter=A semantics of the twin carve-outs.
- */
-export function getAddedFiles(upstreamRef: string, head = 'HEAD'): Set<string> {
-  return new Set(
-    parseNameStatus(
-      gitOut([
-        'diff',
-        '--name-status',
-        `${upstreamRef}..${head}`,
-        '--diff-filter=A',
-      ]),
-    ).map((e) => e.path),
-  );
-}
-
 function parseNameStatus(out: string): { status: string; path: string }[] {
   return out
     .split('\n')

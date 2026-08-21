@@ -100,23 +100,12 @@ done <<< "$CHANGED"
 # ── markdownlint-cli2 on staged *.md (structural rules) ─────────────────────
 #   Runs after the per-file loop so line-count failures are already recorded.
 #   Uses ACMR diff-filter (includes renames) to catch moved docs with violations.
-#   `.claude/orchestrator-prompts/**`: the legacy corpus is EXCLUDED from
-#   full-file lint on touch (older files predate linting — 95 pre-existing
-#   violations, 68 MD040 bare fences, at the 2026-08-21 host-verify retrofit,
-#   all pre-existing, none introduced by the touching commit); linting a
-#   historical file on every touch turns any retrofit into a style-repair
-#   demand. NEW kickoffs (git status A) are NOT excluded — they carry no
-#   pre-existing debt and stay fully linted. Re-entry trigger for the backlog:
-#   when `npx markdownlint-cli2 .claude/orchestrator-prompts` reports zero,
-#   drop the legacy filter and lint the whole corpus again.
-STAGED_MD=$(
-  git diff --cached --name-status --diff-filter=ACMR 2>/dev/null |
-    awk -F'\t' '
-      $NF !~ /\.md$/ { next }
-      $NF ~ /^\.claude\/orchestrator-prompts\// { if ($1 ~ /A/) print $NF; next }
-      { print $NF }
-    '
-)
+#   History: the orchestrator-prompts corpus was briefly excluded on legacy
+#   touches (2026-08-21 host-verify retrofit, A/M split) with a re-entry
+#   trigger; the trigger FIRED the same day (PR: legacy lint+link repair —
+#   401 violations repaired to zero across 956 files) and the filter was
+#   dropped. The whole corpus lints again.
+STAGED_MD=$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null | grep -E '\.md$' || true)
 if [ -n "$STAGED_MD" ]; then
   if command -v npx &>/dev/null; then
     # shellcheck disable=SC2086
