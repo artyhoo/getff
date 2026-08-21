@@ -13,6 +13,9 @@
 #   transform_internal_refs <file>
 #   copy_safe <src> <dst>
 #   refresh_safe <src> <dst>
+#   refresh_baseline_stage <dst>            # consumer-refresh-integrity R1 — record a delivery
+#   refresh_baseline_flush                  # R1 — write .ai-factory/refresh-baseline.json (fail-open)
+#   refresh_baseline_diverged <dst> <src>   # R1 — 0 iff dst diverged from the baseline (if-guard only)
 #   deliver_getff_workflow <tpl-src> <dst>      # getff-honest-signals S4 — branch substitution
 #   merge_prettierignore <src> <dst>
 #   _prettierignore_in_skipped <needle>
@@ -185,6 +188,180 @@ deliver_runtime_bridge_vendor() {
   done < <(find "$dst" -name '*.md' -type f)
 }
 
+# ── consumer-refresh-integrity R1 — refresh-baseline manifest + divergence guard ──────────────
+# Issue 1481 (casualties 1+3): --refresh overwrote consumer-modified files silently. A consumer
+# has no upstream git history to diff against, so "previous upstream content" is recorded by the
+# framework itself at delivery time (kickoff RI-2): every copy_safe/refresh_safe delivery stages
+# its dst here, and the installer flushes the staged paths into
+# $PROJECT_ROOT/.ai-factory/refresh-baseline.json (sha256 per delivered dst path, keys sorted,
+# no timestamps — deterministic bytes, because the snapshot harness fingerprints this file).
+#
+# Guard (kickoff RI-1, warn + preserve, NEVER refuse): before a refresh_safe overwrite of a file
+# whose sha256(dst) differs from BOTH the manifest entry AND sha256(src) → copy the diverged
+# bytes to $PROJECT_ROOT/.ai-factory/refresh-conflicts/<basename>.<sha8> (sha8 = first 8 hex of
+# the diverged dst bytes; NEVER a sibling of the live file — no same-name collisions), print a
+# loud warning, then refresh anyway. A MISSING manifest entry means unknown → today's behaviour
+# exactly: no divergence claim, no first-refresh spam on a pre-manifest consumer (T-CRI-B).
+#
+# Fail-open discipline (binding): a missing, unparsable or unreadable manifest, a missing jq or
+# sha256 tool, an unwritable conflicts dir — each degrades to today's behaviour with a one-line
+# note and NEVER fails the install/refresh (precedent: refresh_safe's source-gone → return 0).
+#
+# Two shape decisions (measured, not accidental):
+#   - STAGE PATHS, HASH AT FLUSH. The manifest must record the bytes as SHIPPED, and callers
+#     legitimately mutate a dst after copy_safe/refresh_safe returns (transform_internal_refs on
+#     agents/skills, patch_stryker_package_manager, rewrite_arch_sot_header, the prettierignore
+#     appends). Hashing at stage time would store pre-transform bytes and then flag every
+#     transformed file as diverged on every refresh — first-refresh spam by construction.
+#     Staging paths and hashing once at end-of-run captures the final on-disk bytes.
+#   - FILES ONLY. Directory payloads (refresh_safe #873 replaces whole dirs) have no single
+#     sha256; they stage nothing and are never flagged — unknown, today's behaviour.
+#
+# SCOPE: copy_safe/refresh_safe deliveries only. Skills (copy_skill_with_transform /
+# refresh_skill_with_transform), merge_fenced and the raw-cp vendor drop have their own verbs
+# and stay outside this mechanism (W-RI-1: generic, no special-casing of any pair entry).
+REFRESH_BASELINE_STAGED=()
+REFRESH_BASELINE_NOTE_SHOWN=""
+
+# _refresh_baseline_manifest — echo the consumer-local manifest path (never tracked, never a
+# template; lives under the consumer's .ai-factory/ only).
+_refresh_baseline_manifest() {
+  printf '%s\n' "${PROJECT_ROOT:-.}/.ai-factory/refresh-baseline.json"
+}
+
+# _refresh_baseline_note <reason> — one-line fail-open note, at most ONCE per run (stderr: the
+# read-side helpers run inside $(...) captures and stdout would pollute the captured value).
+_refresh_baseline_note() {
+  if [ -z "$REFRESH_BASELINE_NOTE_SHOWN" ]; then
+    echo "  · refresh-baseline: $1 — divergence guard degraded to today's behaviour" >&2
+    REFRESH_BASELINE_NOTE_SHOWN=1
+  fi
+}
+
+# _hash256 <file> — portable sha256 (sha256sum | shasum -a 256; same ladder as the snapshot
+# harness). Echoes the hex digest or fails (caller degrades).
+_hash256() {
+  local h
+  if command -v sha256sum >/dev/null 2>&1; then
+    h=$(sha256sum "$1" 2>/dev/null | awk '{print $1}')
+  elif command -v shasum >/dev/null 2>&1; then
+    h=$(shasum -a 256 "$1" 2>/dev/null | awk '{print $1}')
+  else
+    return 1
+  fi
+  [ -n "$h" ] || return 1
+  printf '%s\n' "$h"
+}
+
+# _refresh_baseline_lookup <key> — echo the manifest hash for <key>, or nothing. A missing
+# manifest is the common pre-baseline state → silent empty (no note, no spam). An unparsable
+# manifest notes once and reads as empty.
+_refresh_baseline_lookup() {
+  local manifest key="$1" entry
+  manifest=$(_refresh_baseline_manifest)
+  [ -f "$manifest" ] || return 0
+  command -v jq >/dev/null 2>&1 || { _refresh_baseline_note "jq not found"; return 0; }
+  if ! entry=$(jq -r --arg k "$key" 'if (type == "object") and has($k) then .[$k] else "" end' "$manifest" 2>/dev/null); then
+    _refresh_baseline_note "manifest at $manifest is unreadable or not JSON"
+    return 0
+  fi
+  printf '%s\n' "$entry"
+}
+
+# refresh_baseline_stage <dst> — record a delivered dst for the end-of-run flush. Paths only
+# (hashed at flush — see the section header); regular files only; no-op under --dry-run.
+refresh_baseline_stage() {
+  if [ "${DRY_RUN:-}" = "--dry-run" ]; then return 0; fi
+  if [ -f "$1" ]; then
+    REFRESH_BASELINE_STAGED+=("$1")
+  fi
+  return 0
+}
+
+# refresh_baseline_diverged <dst> <src> — exit 0 IFF <dst> is a consumer-diverged file:
+# sha256(dst) ≠ manifest entry AND ≠ sha256(src), with a manifest entry present. Everything
+# else — no entry (unknown), dst absent, directory dst, jq/sha tooling missing, unreadable
+# manifest — exits 1 (not diverged). Call ONLY inside an `if` (its non-zero is a verdict, and
+# refresh_safe runs under set -euo pipefail).
+refresh_baseline_diverged() {
+  local dst="$1" src="$2" entry cur src_hash
+  [ -f "$dst" ] || return 1
+  command -v jq >/dev/null 2>&1 || { _refresh_baseline_note "jq not found"; return 1; }
+  entry=$(_refresh_baseline_lookup "${dst#"${PROJECT_ROOT:-}"/}")
+  [ -n "$entry" ] || return 1
+  cur=$(_hash256 "$dst") || { _refresh_baseline_note "no sha256 tool found"; return 1; }
+  if [ "$cur" = "$entry" ]; then return 1; fi
+  src_hash=$(_hash256 "$src") || return 1
+  if [ "$cur" = "$src_hash" ]; then return 1; fi
+  return 0
+}
+
+# _preserve_diverged_copy <dst> — copy the diverged bytes aside + print the loud warning.
+# Warn + preserve, never refuse: even a FAILED preserve only changes the warning text; the
+# refresh itself proceeds (RI-1).
+_preserve_diverged_copy() {
+  local dst="$1" conflicts sum8 preserved
+  conflicts="${PROJECT_ROOT:-.}/.ai-factory/refresh-conflicts"
+  if sum8=$(_hash256 "$dst"); then
+    preserved="$conflicts/$(basename "$dst").${sum8:0:8}"
+    if mkdir -p "$conflicts" 2>/dev/null && cp "$dst" "$preserved" 2>/dev/null; then
+      echo "  ⚠ overwriting locally-modified file: $dst (consumer copy preserved at $preserved)"
+      return 0
+    fi
+  fi
+  echo "  ⚠ overwriting locally-modified file: $dst (could not preserve a copy under $conflicts — refreshing anyway)"
+  return 0
+}
+
+# refresh_baseline_flush — write the staged deliveries into the manifest (merge, sorted keys —
+# deterministic bytes). Called ONCE at each installer exit path AFTER every delivery + transform
+# has run. Fail-open on every branch: a failed flush is a note, never a failed install.
+refresh_baseline_flush() {
+  local manifest tsv p h prev patch
+  if [ "${DRY_RUN:-}" = "--dry-run" ]; then return 0; fi
+  [ "${#REFRESH_BASELINE_STAGED[@]}" -gt 0 ] || return 0
+  command -v jq >/dev/null 2>&1 || { _refresh_baseline_note "jq not found — manifest not written"; return 0; }
+  manifest=$(_refresh_baseline_manifest)
+  tsv=$(mktemp) || { _refresh_baseline_note "mktemp failed — manifest not written"; return 0; }
+  printf '%s\n' "${REFRESH_BASELINE_STAGED[@]}" | LC_ALL=C sort -u \
+    | while IFS= read -r p; do
+        if [ -f "$p" ] && h=$(_hash256 "$p"); then
+          printf '%s\t%s\n' "${p#"${PROJECT_ROOT:-}"/}" "$h"
+        fi
+      done > "$tsv"
+  if [ -s "$tsv" ]; then
+    if patch=$(jq -Rn 'reduce (inputs | split("\t")) as $row ({}; .[$row[0]] = $row[1])' "$tsv" 2>/dev/null); then
+      prev='{}'
+      if [ -f "$manifest" ]; then
+        # Merge into the existing baseline (a refresh that skips an arm must not forget what the
+        # install delivered). A corrupt/unreadable existing manifest is REPLACED fresh — healing
+        # it — with a note; that is still fail-open for this run's guard (it read as empty).
+        if prev=$(cat "$manifest" 2>/dev/null); then
+          printf '%s' "$prev" | jq -e 'type == "object"' >/dev/null 2>&1 || { _refresh_baseline_note "existing manifest not JSON — replacing it fresh"; prev='{}'; }
+        else
+          _refresh_baseline_note "existing manifest unreadable — replacing it fresh"
+          prev='{}'
+        fi
+      fi
+      if mkdir -p "$(dirname "$manifest")" 2>/dev/null; then
+        if jq -S -n --argjson prev "$prev" --argjson patch "$patch" '$prev * $patch' > "${manifest}.getff.tmp" 2>/dev/null; then
+          mv "${manifest}.getff.tmp" "$manifest"
+          echo "  ✓ .ai-factory/refresh-baseline.json recorded ($(wc -l < "$tsv" | tr -d ' ') delivered files hashed)"
+        else
+          rm -f "${manifest}.getff.tmp"
+          _refresh_baseline_note "manifest write failed"
+        fi
+      else
+        _refresh_baseline_note "cannot create $(dirname "$manifest")"
+      fi
+    else
+      _refresh_baseline_note "manifest patch build failed"
+    fi
+  fi
+  rm -f "$tsv"
+  return 0
+}
+
 copy_safe() {
   local src="$1"
   local dst="$2"
@@ -207,6 +384,7 @@ copy_safe() {
   mkdir -p "$(dirname "$dst")"
   cp -r "$src" "$dst"
   echo "  ✓ $dst"
+  refresh_baseline_stage "$dst"   # R1: record the delivery for the baseline flush
 }
 
 # merge_fenced <src> <dst> <section-id> [plan-path] [sentinel-1] [sentinel-2]
@@ -386,14 +564,24 @@ refresh_safe() {
     fi
     return 0
   fi
+  # R1 divergence guard (read-only probe): fires identically under --dry-run so the preview
+  # reports `would-flag` for exactly the files the real refresh would warn about. The override
+  # skip above returns BEFORE this — the Layer-3 escape produces no conflict copy, no warning.
   if [ "$DRY_RUN" = "--dry-run" ]; then
+    if refresh_baseline_diverged "$dst" "$src"; then
+      echo "  [dry-run] would-flag: $dst (locally modified)"
+    fi
     echo "  [dry-run] would refresh: $src → $dst"
     return 0
+  fi
+  if refresh_baseline_diverged "$dst" "$src"; then
+    _preserve_diverged_copy "$dst"
   fi
   mkdir -p "$(dirname "$dst")"
   [ -d "$src" ] && rm -rf "$dst"   # #873: replace directory payloads (cp -r nests into an existing dir)
   cp -r "$src" "$dst"
   echo "  ✓ $dst (refreshed)"
+  refresh_baseline_stage "$dst"   # R1: record the delivery for the baseline flush
 }
 
 # deliver_getff_workflow <tpl-src> <dst>
