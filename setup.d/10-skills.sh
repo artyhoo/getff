@@ -169,6 +169,14 @@ if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
   for _skill in $GETFF_SKILLS_FACTORY; do
     copy_skill_with_transform "$_skill"
   done
+  # consumer-refresh-integrity R3 (issue 1485): deliver the harvest sweep gate script wherever
+  # the harvest skill ships (harvest/SKILL.md §3 gates on scripts/run-local-ci-sweep.sh — a
+  # skill that tells the consumer to run a script the install never delivered is the honest-
+  # signals defect). Same gate as the skill loop above; source stays at root scripts/ (RI-4).
+  copy_safe "$PKG_ROOT/scripts/run-local-ci-sweep.sh" "$PROJECT_ROOT/scripts/run-local-ci-sweep.sh"
+  if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$PROJECT_ROOT/scripts/run-local-ci-sweep.sh" ]; then
+    chmod_safe +x "$PROJECT_ROOT/scripts/run-local-ci-sweep.sh" 2>/dev/null || true
+  fi
 fi
 
 # aif-doctor ships portable base-refresh ("heal") helpers under helpers/ — a consumer runs

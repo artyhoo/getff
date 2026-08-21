@@ -995,6 +995,40 @@ do_refresh() {
     fi
   fi
 
+  # ── Skill-gated gate scripts (consumer-refresh-integrity R3, issues 1482 + 1485) ──
+  # scripts/check-ask-files.sh + scripts/run-local-ci-sweep.sh: their consumers are DELIVERED
+  # SKILLS, not this repo — night-mode/dispatcher route ask rows through check-ask-files.sh
+  # (env+/factory tiers) and harvest §3 gates on run-local-ci-sweep.sh (factory tier). The
+  # delivery sites are setup.d/50-hooks.sh (check-ask-files, hooks arm — every standard npm
+  # profile, so the presence clause below covers a core install) and setup.d/10-skills.sh
+  # (run-local-ci-sweep, factory suite arm); breadth per script is the
+  # REFERENCING tier union measured there (kickoff RI-4): check-ask-files.sh env+,
+  # run-local-ci-sweep.sh factory+. NOT entries in the ungated _pair loop above: that loop is
+  # profile-blind and would deliver both scripts on a core --refresh — the #1334 depth-boundary
+  # defect class (see the #931 run-mutation and worktree-scripts gated arms for the precedent).
+  # Same uniform gate as every depth-gated arm: the delivery site's own profile predicate OR
+  # presence on disk (prior opt-in) — with PROFILE defaulting to core on --refresh
+  # (install.sh:520-528), the presence clause is what keeps an installed tier updated.
+  # Sources stay at root scripts/ AS-IS (RI-4: session-bus v2 §9, pre-push.ts:1324-1327).
+  if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
+    || [ -e "$PROJECT_ROOT/scripts/check-ask-files.sh" ]; then
+    if [ -f "$PKG_ROOT/scripts/check-ask-files.sh" ]; then
+      refresh_safe "$PKG_ROOT/scripts/check-ask-files.sh" "$PROJECT_ROOT/scripts/check-ask-files.sh"
+      if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$PROJECT_ROOT/scripts/check-ask-files.sh" ]; then
+        chmod_safe +x "$PROJECT_ROOT/scripts/check-ask-files.sh" 2>/dev/null || true
+      fi
+    fi
+  fi
+  if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
+    || [ -e "$PROJECT_ROOT/scripts/run-local-ci-sweep.sh" ]; then
+    if [ -f "$PKG_ROOT/scripts/run-local-ci-sweep.sh" ]; then
+      refresh_safe "$PKG_ROOT/scripts/run-local-ci-sweep.sh" "$PROJECT_ROOT/scripts/run-local-ci-sweep.sh"
+      if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$PROJECT_ROOT/scripts/run-local-ci-sweep.sh" ]; then
+        chmod_safe +x "$PROJECT_ROOT/scripts/run-local-ci-sweep.sh" 2>/dev/null || true
+      fi
+    fi
+  fi
+
   # ── Core hooks (TS pre-push pipeline) ───────────────────
   # Ships the COMPLETE import graph of pre-push.ts: static imports (lines 30-32)
   # AND dynamic await import() targets (lines 405/469). Missing entries crash the
