@@ -6,7 +6,7 @@
 03264d66be0aceebf3e0df0a2bd361ec7db105551b93b519122c58ac9721bcda  .ai-factory/DESCRIPTION.template.md
 cd05e605ec7874fd1c233b80f623a173087a27dade26ec5b399e76c5a01005a3  .ai-factory/RULES.md
 652ed1ee550c21951637c7f3590fb4c157d634547accb5076962ac00d5060e7f  .ai-factory/RULES.react-spa.md
-34eb550e8a2f5f4ee3a542cbd9f094fc93e5f16e7eb9d7092bae7ce4ae0344a3  .ai-factory/refresh-baseline.json
+5e4b9b0cf1040433729e81c796570a94115f7e692d00d67b041af0ec66085d9b  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
 7d6b6061459f0939e64358447d0905329ddd4c52abd459ee8d9d201653ffb791  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -166,6 +166,7 @@ fe4242205c0cf69b07e8a810a0fba937a02846188bc29661a763bbb7d3f396d2  packages/core/
 1de2d3933a2636f031fcd842dcab851dbdea1b4cbc3e05efb290d5b822501370  scripts/audit-ai-docs.sh
 64902bcaedea1fb1ed26271359a5c7f2bb0a1b7c5e0d46cee28df55d8a0a3d2d  scripts/audit-r4.ts
 b047a1fde5a9f274f116435389d72b9b4d74adbac1af5469cce33bceb70a7175  scripts/check-arch-boundaries.sh
+7b3f8b46b00e2ecdd25956a5d00962214e67d41dfaba84ab4884a9c19c5262a2  scripts/check-ask-files.sh
 873c35c563e5a6744445c707f61f568415717528744787e02af105b29658c34f  scripts/check-fences-fire.sh
 a69a0c4335a6225bc9c0edd80974ba201af2d3af188f7963ecb8ff75bec448ec  scripts/check-lintstaged-resolves.sh
 2da374136bc71d38c83b17184c91c9deac03da41052a31ed41df255661ff7f79  scripts/check-rule-enforced.sh
