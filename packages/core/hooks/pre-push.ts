@@ -54,6 +54,7 @@ import {
 import {
   getCommits,
   getChangedFiles,
+  getAddedFiles,
   upstreamExists,
   resolveDefaultBase,
   realGit,
@@ -1506,6 +1507,29 @@ function lycheeSection(ctx: SectionCtx): void {
     let changedMd = getChangedFiles(rb.base, 'ACMR', rb.head).filter((f) =>
       f.endsWith('.md'),
     );
+    // Legacy-corpus carve-out (2026-08-21 host-verify retrofit; mirrors the
+    // pre-commit markdownlint arm's A/M split): the orchestrator-prompts
+    // back-catalog is append-only dispatch history whose older files carry
+    // links to since-moved targets, gitignored drafts/ scratch and
+    // machine-local paths — 101 pre-existing offline errors surfaced when the
+    // retrofit touched the whole corpus, zero introduced by the touching
+    // commit. Full-file link checking on every legacy touch = a retrofit
+    // deadlock. NEW kickoffs (git status A) are NOT excluded — they are
+    // freshly authored and stay fully checked. Re-entry trigger for the
+    // backlog: when `lychee --offline .claude/orchestrator-prompts` reports
+    // zero errors, drop this filter.
+    const addedMd = getAddedFiles(rb.base, rb.head);
+    const legacyExcluded = changedMd.filter(
+      (f) => f.startsWith('.claude/orchestrator-prompts/') && !addedMd.has(f),
+    ).length;
+    if (legacyExcluded > 0) {
+      changedMd = changedMd.filter(
+        (f) => !f.startsWith('.claude/orchestrator-prompts/') || addedMd.has(f),
+      );
+      process.stdout.write(
+        `  · §8 lychee: excluded ${legacyExcluded} legacy orchestrator-prompts *.md (M/R-status touch; newly added files still checked)\n`,
+      );
+    }
     // S2 §2 Part 1: on a consumer layout, exclude framework-shipped markdown so a
     // consumer's push is not blocked by shipped content's framework-internal refs
     // (which resolve here but dangle in a consumer checkout). Scoped to consumer
