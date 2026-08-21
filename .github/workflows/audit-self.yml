@@ -744,6 +744,8 @@ jobs:
         run: bash tests/install-sh/refresh-covers-full-delivery.test.sh
       - name: "install-sh — different-stack switch prunes barrel (#882: --force/--refresh with a NEW stack removes the prior stack's stray preset rule)"
         run: bash tests/install-sh/refresh-different-stack-prunes-barrel.test.sh
+      - name: "install-sh — eslint barrel preserves consumer entries (issue 1481 casualty 2: hand-extended index.mjs survives regeneration; #882 prune unchanged)"
+        run: bash tests/install-sh/eslint-barrel-preserve-consumer.test.sh
       - name: install-sh — wire-eslint-r2 (GH #547 Layer 2 AST wirer degrade fixtures D+F)
         run: bash tests/install-sh/wire-eslint-r2.test.sh
       - name: "install-sh — install-self-verification structural + degrade test (D6: gates shipped, graceful-degrade, wired)"
