@@ -17,7 +17,7 @@ C1 (SSOT-existence on `Prior-art:` trailers, PR #170) and C2 (kickoff T-enumerat
 
 `dual-implementation-discipline §9` is explicit: the annotation protocol is **forward-going**. As of now, **4 legacy hooks are intentionally unmarked** and that is the *expected starting state, NOT a violation*:
 
-```
+```text
 check-doc-authority.sh   deps-hash-check.sh   inject-session-bootstrap.sh   validate-prompt.sh
 ```
 
@@ -64,7 +64,7 @@ See [.claude/rules/ai-laziness-traps.md §2](../../../.claude/rules/ai-laziness-
 
 A **parallel session shared this working directory** during C2 and switched the branch between `checkout -b` and `commit`, landing the C2 commit on the wrong branch + the wrong PR (#173). **Run C4 in a dedicated `git worktree`** ([parallel-subwave-isolation.md](../../../.claude/rules/parallel-subwave-isolation.md)) with a `node_modules` symlink, and **verify `git branch --show-current` + `git log origin/staging..HEAD` immediately before every commit and push**. Branch FROM `staging` (the trunk), auto-merge INTO `staging`.
 
-## 8. Done = 
+## 8. Done =
 
 PR into `staging`: pure-logic module + pre-push wiring + paired-negative tests green; `tsc`/`shellcheck`/`test:principles` clean; Prior-art trailer validated by C1's arm; the FORK (§3) surfaced in the PR body with your recommendation; legacy-hook batch-annotation surfaced as an observation (not done). Then update memory `project_deterministic_offload_autonomy_economy` (C4 SHIPPED, next = C3).
 

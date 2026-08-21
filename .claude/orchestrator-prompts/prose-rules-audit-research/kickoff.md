@@ -38,7 +38,7 @@ Goal-clarity-dialogue 1A produced a **provisional** prose-rules audit classifyin
 
 - **§1.7 Forward-check ON THIS R-PHASE'S OUTPUT.** The classification recommendation produced here must itself pass §1.7 forward + backward + self-reflexive trigger before close. Self-review patch shipped with research-patch (T7 template per [`2026-05-09-self-review-audit.md`](../../../docs/meta-factory/research-patches/2026-05-09-self-review-audit.md)).
 - **No paid LLM in CI.** Per [`no-paid-llm-in-ci.md`](../../rules/no-paid-llm-in-ci.md). Compensating mechanisms designed in this R-phase must be subscription-bundled (AI-agnostic markdown prompts in `agents/*.md`), not API-billed CI gates.
-- **Build-vs-reuse + BFR-default discipline.** Every tool-selection or mechanism choice runs §3 mechanism of [drafts/build-first-reuse-default-rule.md](../goal-clarity-dialogue/drafts/build-first-reuse-default-rule.md): SSOT consult + DeepWiki ≥3 phrasings + WebSearch ≥3 phrasings + 6-item checklist.
+- **Build-vs-reuse + BFR-default discipline.** Every tool-selection or mechanism choice runs §3 mechanism of drafts/build-first-reuse-default-rule.md (`../goal-clarity-dialogue/drafts/build-first-reuse-default-rule.md`): SSOT consult + DeepWiki ≥3 phrasings + WebSearch ≥3 phrasings + 6-item checklist.
 - **Substantive over syntactic.** Every «this rule can be mechanically tested» claim requires a working probe run during this R-phase that demonstrates detection. No prose-only claims of testability.
 - **No T11, no T12, no T13, no T15, no T16.** Active traps listed in §7.
 - **§1.7 ON EACH ACTION.** Forward+backward check applied to each proposed Action A/B/C before approval.
@@ -230,7 +230,7 @@ If you find yourself writing «we can mechanically test this rule» without show
 - [docs/meta-factory/research-patches/2026-05-09-recommendation-skips-own-discipline.md](../../../docs/meta-factory/research-patches/2026-05-09-recommendation-skips-own-discipline.md) — origin patch for the antipattern this R-phase corrects
 - [docs/meta-factory/research-patches/2026-05-11-§13.29-substantive-compliance-research.md](../../../docs/meta-factory/research-patches/2026-05-11-§13.29-substantive-compliance-research.md) — discipline-theatre origin; relevant for «can we mechanically test prose rules?» question
 - [docs/meta-factory/research-patches/2026-05-16-goal-clarity-dialogue.md §11.3](../../../docs/meta-factory/research-patches/2026-05-16-goal-clarity-dialogue.md) — 1A prose-rules audit observation that triggers this R-phase
-- [.claude/orchestrator-prompts/goal-clarity-dialogue/drafts/atomic-commit-plan.md](../goal-clarity-dialogue/drafts/atomic-commit-plan.md) — Commits 3/4/5 blocked on this R-phase
+- .claude/orchestrator-prompts/goal-clarity-dialogue/drafts/atomic-commit-plan.md (`../goal-clarity-dialogue/drafts/atomic-commit-plan.md`) — Commits 3/4/5 blocked on this R-phase
 - [.claude/orchestrator-prompts/research-tooling-evaluation/kickoff.md](../research-tooling-evaluation/kickoff.md) — methodology template (DeepWiki vs Context7 vs WebSearch tool selection)
 
 <!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

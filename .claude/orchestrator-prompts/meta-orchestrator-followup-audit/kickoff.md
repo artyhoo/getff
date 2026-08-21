@@ -327,7 +327,7 @@ F.3 фокусируется на ORIGINAL ask из kickoff §1 Sub-wave F intro
 
 **F.3 design implications (must be addressed in F.3 SKILL.md edits):**
 
-1. **§5 dispatch tree** — добавить новую строку «Umbrella-level orchestration (≥2 stages, autonomous default)» → `Queue mode umbrella` mechanism (новый паттерн, не классический research-queue). Распространить queue-mode triggers — текущий [queue-mode.md:14-22](file:///Users/art/.claude/skills/orchestrator/references/queue-mode.md) anti-trigger «execution tasks that modify production code in parallel → Mode B × N» применим к **parallel**, не **sequential** stages umbrella; sequential umbrella execution через Queue mode совместим (verify before F.3 codifies).
+1. **§5 dispatch tree** — добавить новую строку «Umbrella-level orchestration (≥2 stages, autonomous default)» → `Queue mode umbrella` mechanism (новый паттерн, не классический research-queue). Распространить queue-mode triggers — текущий queue-mode.md:14-22 (`file:///Users/art/.claude/skills/orchestrator/references/queue-mode.md`) anti-trigger «execution tasks that modify production code in parallel → Mode B × N» применим к **parallel**, не **sequential** stages umbrella; sequential umbrella execution через Queue mode совместим (verify before F.3 codifies).
 
 2. **§5 vs queue-mode.md anti-trigger alignment** — расширить queue-mode.md (global skill, agent-uncommittable per memory `feedback_settings_json_agent_uncommittable` similar — global skills owner=maintainer) с новой строкой Triggers: «umbrella-level execution с sequential stage-gates → Queue mode OK при auto-merge to staging» или ввести подкласс «Queue-over-stages». F.3 surfaces как maintainer-applied edit (предлагает diff, не landится сам).
 

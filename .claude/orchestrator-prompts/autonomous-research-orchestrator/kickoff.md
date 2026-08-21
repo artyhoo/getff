@@ -121,7 +121,7 @@ Hard constraints on `claude -p` fallback:
 
 Use Task tool with `subagent_type: general-purpose` (or `claude` default), `model: opus`, and prompt structured as:
 
-```
+```text
 You are a research subagent dispatched by an autonomous orchestrator.
 
 Your task: execute the research kickoff at <path-to-kickoff-K> end-to-end.
@@ -156,7 +156,7 @@ After research subagent reports RESEARCH-COMPLETE, dispatch reviewer:
 
 Use Task tool with `subagent_type: general-purpose`, `model: opus`, base prompt from `agents/review-sidecar.md` + augmentation:
 
-```
+```text
 You are a REVIEWER subagent dispatched by an autonomous orchestrator.
 
 Your task: review the outputs produced by the research subagent for kickoff K at <kickoff-K-path>.
@@ -192,7 +192,7 @@ Wait for reviewer completion. Parse verdict.
 - **VERDICT: GO** → mark K as done in state.md; move to next kickoff in queue.
 - **VERDICT: REVISE** → increment iteration counter for K:
   - **iter ≤ MAX_ITERATIONS (default 5; see §6)** → re-dispatch research subagent with REVISE-fixes prompt:
-    ```
+    ```text
     You are a research subagent continuing kickoff K.
 
     Previous research output was REVIEWED. Reviewer found REQUIRED-FIXES:
@@ -285,7 +285,7 @@ Also see §4.4 `iter ≤ MAX_ITERATIONS` — that gate uses this number too.
 
 **Escalation message format (write to `state.md` + final orchestrator message):**
 
-```
+```text
 ESCALATION: <trigger>
 Kickoff: <K-name>
 Iteration: <N>

@@ -111,7 +111,7 @@ Output as `docs/meta-factory/research-patches/2026-05-17-closure-audit.md`. Stru
 
 ## VERIFIER TEMPLATE (paste into each Sonnet Agent dispatch)
 
-```
+```text
 You are a closure-audit verifier. ONE claim, ONE verdict. Self-contained: do NOT assume context from parent session.
 
 CLAIM: {CLAIM}
@@ -146,12 +146,12 @@ OUTPUT FORMAT (exact, parseable):
 ```
 VERDICT: <CONFIRMED|SUSPICIOUS|FALSE|INCONCLUSIVE>
 EVIDENCE:
-  - <command or file:line>: <output excerpt or line content>
-  - <command or file:line>: <output excerpt or line content>
+- <command or file:line>: <output excerpt or line content>
+- <command or file:line>: <output excerpt or line content>
 REASONING: <one sentence why VERDICT, citing evidence above>
 GAP (only if SUSPICIOUS or FALSE): <specific process step / evidence type missing>
 NESTED_REFERENCES_VERIFIED: <N of N or N/A>
-```
+```text
 ```
 
 ---
@@ -192,7 +192,7 @@ NESTED_REFERENCES_VERIFIED: <N of N or N/A>
 
 Когда закончил — приноси orchestrator (мне):
 
-```
+```text
 ## Closure audit REPORT 2026-05-17
 
 **Status:** COMPLETE | PARTIAL (reason: …)

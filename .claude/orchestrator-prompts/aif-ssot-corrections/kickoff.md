@@ -165,7 +165,7 @@ Each `<L>-<L>` placeholder must be filled with actual file:line citations before
 2. **For each new entry in §4:** run same verification; confirm the package/section exists; cite file path returned.
 3. **Cross-check `aif-comparison.md`** for contradicting attribution — if any AIF section there cites wrong-repo paths, update or flag.
 4. **Grep all research-patches/** for references to old (wrong) paths from SSOT #27-#30; update citing patches OR mark «valid pre-correction» per patch.
-5. **Verify PR body §1.7 sections** pass [discipline-self-check.yml](.github/workflows/discipline-self-check.yml) substance arm — each section ≥40 chars + ≥1 file:line citation.
+5. **Verify PR body §1.7 sections** pass [discipline-self-check.yml](../../../.github/workflows/discipline-self-check.yml) substance arm — each section ≥40 chars + ≥1 file:line citation.
 
 ---
 

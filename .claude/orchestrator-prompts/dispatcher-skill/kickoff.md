@@ -15,7 +15,7 @@ Extract the active aif-control loop into a separate CC-skill `/dispatcher`, so `
 **Metaphor (maintainer's framing):** air-traffic dispatcher ↔ aircraft = aif. Dispatcher stays on the line, monitors, keeps a dialog (questions ↔ answers), gives next tasks. The aircraft (aif) flies on autopilot; the dispatcher controls + intervenes, does not fly.
 
 **The loop `/dispatcher` runs:**
-```
+```text
 dispatch task to aif
 ↓
 monitor (poll status)

@@ -126,7 +126,7 @@ T3 (file:line / URL per claim), T7 (adversarial counter-prompt), T13 (REFERENCE 
 
 ## §7 Output format
 
-```
+```text
 ## Cold-Reviewer #2 verdict
 
 ### Verifications I ran

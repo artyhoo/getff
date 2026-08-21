@@ -68,7 +68,7 @@ Required sections:
 
 ## §5 How to start
 
-```
+```text
 /orchestrator .claude/orchestrator-prompts/slow-test-triage/kickoff.md
 ```
 

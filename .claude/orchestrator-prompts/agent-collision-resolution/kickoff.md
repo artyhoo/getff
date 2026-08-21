@@ -116,7 +116,7 @@ Forward: did you re-verify (not inherit) every prior verdict? did you run the pr
 ## §5 Working file — hypotheses log (write continuously, rewrite freely)
 
 Maintain `hypotheses-log.md` in your working dir. Append/rewrite as you learn. Structure:
-```
+```text
 ## Iteration N — <what I just checked>
 Hypothesis: …
 Evidence gathered (command/cite): …

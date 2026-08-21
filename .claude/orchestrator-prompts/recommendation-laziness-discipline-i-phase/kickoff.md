@@ -4,7 +4,7 @@
 > **Origin:** 2026-05-25. Follow-up to merged R-phase PRs #206 / #207 / #210. Closes recommendation-laziness-discipline umbrella via mechanism layer for parent rule [`.claude/rules/phase-research-coverage.md §1.12`](../../../.claude/rules/phase-research-coverage.md) (this is NOT a new rule — it's the missing enforcement scaffolding for the existing §1.12 prose discipline).
 > **Base branch:** staging.
 > **Parallel-safe with:** F.3 meta-orchestrator refactor (zero file overlap — F.3 touches `.claude/skills/meta-orchestrator/**` + helpers; this I-phase touches `.claude/hooks/inject-session-bootstrap.sh:11` + `.claude/rules/ai-laziness-traps.md` + `.claude/rules/recommendation-laziness-discipline.md` [new]).
-> **Authority:** maintainer 2026-05-25 (this kickoff drafted under explicit Option D = A+C verdict per [`docs/meta-factory/research-patches/2026-05-25-narrow-b-benchmark.md §1.5`](../../docs/meta-factory/research-patches/2026-05-25-narrow-b-benchmark.md)).
+> **Authority:** maintainer 2026-05-25 (this kickoff drafted under explicit Option D = A+C verdict per [`docs/meta-factory/research-patches/2026-05-25-narrow-b-benchmark.md §1.5`](../../../docs/meta-factory/research-patches/2026-05-25-narrow-b-benchmark.md)).
 
 ---
 
@@ -18,7 +18,7 @@
    - **Settings.json deny-list:** `python3 -c "import json; d = json.load(open('.claude/settings.json')); print([r for r in d['permissions']['deny'] if 'inject-session-bootstrap' in r])"` → must be **empty list** (hook body itself is agent-editable; only `settings.json` is denied). If `inject-session-bootstrap.sh` is in deny-list → Sub-wave A delivery flips to snippet-only.
    - **Benchmark verdict reference:** `grep -n "FP_rate = 84" docs/meta-factory/research-patches/2026-05-25-narrow-b-benchmark.md` (on `origin/staging`) → must confirm §1.5 contains «84.2%» / «Drop narrow-B». If verdict has been revised post-draft → re-do §1 Option D scope.
    - **Parent rule §1.12 still in repo:** `grep -n "§1.12 Lead with a reasoned recommendation" .claude/rules/phase-research-coverage.md` → must confirm §1.12 is the canonical authority. If §1.12 renamed/relocated → update §1 Sub-wave D `Authoritative-for` references.
-3. **Spawn 1× Opus cold-reviewer subagent** per [orchestrator skill](~/.claude/skills/orchestrator/SKILL.md) Phase -1 default. Focus areas (a/b/c) listed in §-2 below. Re-spawn after each amendment cycle. Max 3 iter → escalate.
+3. **Spawn 1× Opus cold-reviewer subagent** per orchestrator skill (`~/.claude/skills/orchestrator/SKILL.md`) Phase -1 default. Focus areas (a/b/c) listed in §-2 below. Re-spawn after each amendment cycle. Max 3 iter → escalate.
 4. **GO → proceed to §1. REVISE → fix kickoff, re-review.**
 
 ---
@@ -41,13 +41,13 @@ Spawn via `Agent` tool (`subagent_type: "claude"`, `model: "opus"` or omit, no `
 
 **Origin documents (both merged to staging, SSOT for this I-phase):**
 
-1. [`docs/meta-factory/research-patches/2026-05-24-recommendation-laziness-discipline.md`](../../docs/meta-factory/research-patches/2026-05-24-recommendation-laziness-discipline.md) — R-phase design, post-merge amended via PR #207.
+1. [`docs/meta-factory/research-patches/2026-05-24-recommendation-laziness-discipline.md`](../../../docs/meta-factory/research-patches/2026-05-24-recommendation-laziness-discipline.md) — R-phase design, post-merge amended via PR #207.
    - **§1.2:** prior-art survey — this patch is the **mechanism layer for parent rule `.claude/rules/phase-research-coverage.md §1.12`** (introduced 2026-05-22), NOT a new rule.
    - **§1.4:** binding I-phase scope table (items 1/2/3/4 = Sub-waves A+C below; item 6 = the dropped Sub-wave B Stop-hook).
    - **§1.6:** backward-check EXTENDS §1.12 (mechanism) / EXTENDS §1.11 (operational generalisation) / OPERATIONALISES `#recommendation-skips-own-discipline`.
    - **§10:** amendments log (PR #207 own-stack-blind-spot fix + narrow-B benchmark requirement).
 
-2. [`docs/meta-factory/research-patches/2026-05-25-narrow-b-benchmark.md`](../../docs/meta-factory/research-patches/2026-05-25-narrow-b-benchmark.md) — production-corpus FP measurement, PR #210.
+2. [`docs/meta-factory/research-patches/2026-05-25-narrow-b-benchmark.md`](../../../docs/meta-factory/research-patches/2026-05-25-narrow-b-benchmark.md) — production-corpus FP measurement, PR #210.
    - **§1.5 verdict:** `FP_rate = 84.2% (Wilson 95% CI: [62%, 95%], n=19) >> 20% threshold → Drop narrow-B from Option D. Option D = A+C only.`
    - **§1.3 + §T19 recall caveat:** §1.3 Метрики block computes `recall = TP/(TP+FN) = 3/3 = 1.0 (грубо; n=10 no-match sample only)`; §T19 Cold-QA explicitly downgrades this as «speculative; не следует интерпретировать как `filter не пропускает настоящих verdicts`. Настоящий recall, скорее всего, низкий: большинство genuine verdict acts находятся в длинных turns (>750 chars) и turns с tool_use». Load-bearing constraint for Sub-wave C/D design (no post-hoc grep may claim catch-rate without manual classification sample). (Benchmark §1.4 itself is «Char-count threshold N» — N=750 rationale, NOT recall content.)
    - **§Adversarial counter-prompt (bias disclosure):** Worker = same model-class as transcript authors → classification may understand intent too well; FP_rate at 84% is robust against this bias.
@@ -125,7 +125,7 @@ The simplified two-row table eliminates a possible gap where `HIGHEST_T=20` but 
 >
 > **Tempted output:** «Recommend Option A» / «BUILD verdict for X» / «use jq here» — without preceding grep, file read, or fetch establishing the evidence base; under the false confidence that the H1 always-on reminder substitutes for the verification act it names.
 >
-> **Counter:** Before issuing any recommendation/verdict in dialogue, run **at least ONE** evidence-bearing tool call in the same turn and **quote its output** (file:line, command result, fetched excerpt). The recommendation is then **backed**, per parent rule [`phase-research-coverage.md §1.12`](../phase-research-coverage.md). This is the operational form of the named anti-pattern [`#recommendation-skips-own-discipline`](../phase-research-coverage.md) (§4).
+> **Counter:** Before issuing any recommendation/verdict in dialogue, run **at least ONE** evidence-bearing tool call in the same turn and **quote its output** (file:line, command result, fetched excerpt). The recommendation is then **backed**, per parent rule [`phase-research-coverage.md §1.12`](../../rules/phase-research-coverage.md). This is the operational form of the named anti-pattern [`#recommendation-skips-own-discipline`](../../rules/phase-research-coverage.md) (§4).
 
 **§3 obligation update:** append the new T-number to the list of T-numbers in the existing `T-enumeration` example sentence (e.g. «`Active traps for this R-phase: T1, T3, T4, T7, T11, T13, T15, T<N>`»). Match existing prose style.
 
@@ -147,7 +147,7 @@ The simplified two-row table eliminates a possible gap where `HIGHEST_T=20` but 
 - The **named anti-pattern catalogue entry** for inline-chat verdict-without-evidence pattern.
 - The **promotion criterion to Class A** (incident-counter based).
 
-**Header (per [`doc-authority-hierarchy.md §3`](../../.claude/rules/doc-authority-hierarchy.md)):**
+**Header (per [`doc-authority-hierarchy.md §3`](../../rules/doc-authority-hierarchy.md)):**
 
 ```markdown
 # Recommendation-laziness discipline — mechanism layer
@@ -167,8 +167,8 @@ The simplified two-row table eliminates a possible gap where `HIGHEST_T=20` but 
 - **§4 Enforcement channel.** Two layers per benchmark verdict:
   - **(A) H1 wording in `inject-session-bootstrap.sh:11`** (Sub-wave A) — always-on UserPromptSubmit injection, deterministic.
   - **(C) T-trap in `ai-laziness-traps.md §2 T<N>`** (Sub-wave C) — auto-loaded session-start via `.claude/rules/*.md` CC convention; path-scoped reinforcement via `inject-matching-rule.sh` when touching `.claude/rules/**`.
-  - **(B) Stop-hook scan — EXPLICITLY DROPPED** per [`narrow-b-benchmark.md §1.5`](../../docs/meta-factory/research-patches/2026-05-25-narrow-b-benchmark.md): production-corpus FP_rate = 84.2% (Wilson 95% CI [62%, 95%], n=19) >> 20% threshold. Not shipped. Re-introduction requires new R-phase + benchmark (per benchmark §Prevention §4 «двухуровневый подход» — narrow dict + lemma-based matching = future R-phase fork). **Important:** any post-hoc grep tooling proposed in the future MUST account for the benchmark's recall caveat (per same patch §1.3 measurement block + §T19 explicit downgrade — «recall=1.0 on n=10 no-match sample is speculative; не следует интерпретировать как `filter не пропускает настоящих verdicts`»). Automated grep cannot claim catch-rate without manual classification sample.
-- **§5 Anti-patterns.** Single named anti-pattern: `#inline-verdict-without-evidence` → cross-reference to T<N> trap (Sub-wave C). Parent anti-pattern is [`#recommendation-skips-own-discipline`](phase-research-coverage.md) (§4); this anti-pattern is its inline-chat-surface specialisation.
+  - **(B) Stop-hook scan — EXPLICITLY DROPPED** per [`narrow-b-benchmark.md §1.5`](../../../docs/meta-factory/research-patches/2026-05-25-narrow-b-benchmark.md): production-corpus FP_rate = 84.2% (Wilson 95% CI [62%, 95%], n=19) >> 20% threshold. Not shipped. Re-introduction requires new R-phase + benchmark (per benchmark §Prevention §4 «двухуровневый подход» — narrow dict + lemma-based matching = future R-phase fork). **Important:** any post-hoc grep tooling proposed in the future MUST account for the benchmark's recall caveat (per same patch §1.3 measurement block + §T19 explicit downgrade — «recall=1.0 on n=10 no-match sample is speculative; не следует интерпретировать как `filter не пропускает настоящих verdicts`»). Automated grep cannot claim catch-rate without manual classification sample.
+- **§5 Anti-patterns.** Single named anti-pattern: `#inline-verdict-without-evidence` → cross-reference to T<N> trap (Sub-wave C). Parent anti-pattern is [`#recommendation-skips-own-discipline`](../../rules/phase-research-coverage.md) (§4); this anti-pattern is its inline-chat-surface specialisation.
 - **§6 Promotion to Class A.** Incident-counter based: when 3+ documented in-session violations within 6 months are recorded (file:line evidence in `.claude/rules/` or `research-patches/`), consider mechanical post-hoc grep gate. Per benchmark §1.3 + §T19 recall caveat (recall=1.0 on n=10 is speculative — true recall likely low because most genuine verdict acts live in long turns >750 chars or turns with tool_use), any such gate MUST include a manual classification sample on a representative production corpus (not automated metrics alone). Retirement: 12 months zero-incident → archive to `CLAUDE.md` prose.
 - **§See also.** Cross-references to parent §1.12, sibling §1.11, named anti-pattern `#recommendation-skips-own-discipline`, R-phase patch, benchmark patch, ai-laziness-traps T-trap entry.
 
@@ -239,7 +239,7 @@ Agent({ subagent_type: "claude", model: "opus", isolation: "worktree",
 
 ---
 
-## §4 AI-traps active (per [`.claude/rules/ai-laziness-traps.md §2`](../../.claude/rules/ai-laziness-traps.md))
+## §4 AI-traps active (per [`.claude/rules/ai-laziness-traps.md §2`](../../rules/ai-laziness-traps.md))
 
 Active trap enumeration for this I-phase:
 
@@ -290,14 +290,14 @@ R-phase §1.4 pre-resolved to **(b) = T21**, but the coordination call is the ma
 ## §6 Anti-scope (do NOT touch)
 
 - **NOT editing `.claude/settings.json`** — agent-uneditable (deny-list verified). If hook wiring change becomes necessary, deliver snippet in PR body for maintainer.
-- **NOT promoting to Class A in this I-phase** — insufficient evidence (Class C is correct first-codification per [`README.md absolutism research-patch 2026-05-16`](../../docs/meta-factory/research-patches/2026-05-16-readme-absolutism-vs-class-c-practice.md)). Promotion criterion stays §6 prose («3+ incidents in 6 months → consider mechanical gate»).
+- **NOT promoting to Class A in this I-phase** — insufficient evidence (Class C is correct first-codification per [`README.md absolutism research-patch 2026-05-16`](../../../docs/meta-factory/research-patches/2026-05-16-readme-absolutism-vs-class-c-practice.md)). Promotion criterion stays §6 prose («3+ incidents in 6 months → consider mechanical gate»).
 - **NOT editing R-phase research patches** (`2026-05-24-recommendation-laziness-discipline.md`, `2026-05-25-narrow-b-benchmark.md`) — merged, frozen per `research-patches/` folder authority. Any new finding goes in a new follow-up patch.
 - **NOT re-adding Sub-wave B (Stop-hook scan)** — explicitly dropped per benchmark §1.5. Re-introduction requires new R-phase + benchmark.
 - **NOT claiming higher precision for any post-hoc grep** without manual classification sample — benchmark §1.3 + §T19 recall caveat is load-bearing (no automated grep may claim catch-rate; manual classification on representative production corpus is mandatory before any «X% of violations caught» framing).
 - **NOT editing parent rule `phase-research-coverage.md §1.12`** — parent rule owns prose discipline; this I-phase ships mechanism only. Any prose revision to §1.12 is separate scope.
 - **NOT editing `ai-laziness-traps.md §2` entries T1-T19** — only ADD new T entry; existing entries are stable history.
 - **NOT touching `.claude/skills/meta-orchestrator/**` or `helpers/**` or `templates/**`** — F.3 scope, parallel-safe boundary.
-- **No drive-by PRs** if Worker notices systemic issues outside Sub-wave scope (per [`CLAUDE.md «PR strategy»`](../../CLAUDE.md)) — surface as observation in REPORT, do NOT autonomously spawn additional PR.
+- **No drive-by PRs** if Worker notices systemic issues outside Sub-wave scope (per [`CLAUDE.md «PR strategy»`](../../../CLAUDE.md)) — surface as observation in REPORT, do NOT autonomously spawn additional PR.
 
 ---
 
@@ -322,19 +322,19 @@ After this kickoff is created + Phase -1 GO is recorded in §-1 amendments log (
 
 ## See also
 
-- [`docs/meta-factory/research-patches/2026-05-24-recommendation-laziness-discipline.md`](../../docs/meta-factory/research-patches/2026-05-24-recommendation-laziness-discipline.md) — R-phase design (SSOT for prior-art + binding I-phase scope).
-- [`docs/meta-factory/research-patches/2026-05-25-narrow-b-benchmark.md`](../../docs/meta-factory/research-patches/2026-05-25-narrow-b-benchmark.md) — benchmark patch (SSOT for Option D = A+C verdict + recall caveat).
-- [`.claude/rules/phase-research-coverage.md §1.12`](../../.claude/rules/phase-research-coverage.md) — parent rule (prose discipline source-of-truth); §1.11 (sibling); §4 `#recommendation-skips-own-discipline` (named anti-pattern this I-phase operationalises).
-- [`.claude/rules/ai-laziness-traps.md`](../../.claude/rules/ai-laziness-traps.md) — Sub-wave C target; T11/T12/T19 (existing surface-mismatch traps); §3 obligations format; §5 promotion criteria format.
-- [`.claude/rules/doc-authority-hierarchy.md §3`](../../.claude/rules/doc-authority-hierarchy.md) — Sub-wave D header format spec.
-- [`.claude/rules/rule-enforcement-channel-selection.md §3-§4`](../../.claude/rules/rule-enforcement-channel-selection.md) — channel selection rationale (applied in R-phase §1.3).
-- [`.claude/rules/build-first-reuse-default.md`](../../.claude/rules/build-first-reuse-default.md) — `Prior-art:` trailer + 7-verdict mandate for capability commits.
-- [`.claude/hooks/inject-session-bootstrap.sh:11`](../../.claude/hooks/inject-session-bootstrap.sh) — Sub-wave A target (H1 line).
+- [`docs/meta-factory/research-patches/2026-05-24-recommendation-laziness-discipline.md`](../../../docs/meta-factory/research-patches/2026-05-24-recommendation-laziness-discipline.md) — R-phase design (SSOT for prior-art + binding I-phase scope).
+- [`docs/meta-factory/research-patches/2026-05-25-narrow-b-benchmark.md`](../../../docs/meta-factory/research-patches/2026-05-25-narrow-b-benchmark.md) — benchmark patch (SSOT for Option D = A+C verdict + recall caveat).
+- [`.claude/rules/phase-research-coverage.md §1.12`](../../rules/phase-research-coverage.md) — parent rule (prose discipline source-of-truth); §1.11 (sibling); §4 `#recommendation-skips-own-discipline` (named anti-pattern this I-phase operationalises).
+- [`.claude/rules/ai-laziness-traps.md`](../../rules/ai-laziness-traps.md) — Sub-wave C target; T11/T12/T19 (existing surface-mismatch traps); §3 obligations format; §5 promotion criteria format.
+- [`.claude/rules/doc-authority-hierarchy.md §3`](../../rules/doc-authority-hierarchy.md) — Sub-wave D header format spec.
+- [`.claude/rules/rule-enforcement-channel-selection.md §3-§4`](../../rules/rule-enforcement-channel-selection.md) — channel selection rationale (applied in R-phase §1.3).
+- [`.claude/rules/build-first-reuse-default.md`](../../rules/build-first-reuse-default.md) — `Prior-art:` trailer + 7-verdict mandate for capability commits.
+- [`.claude/hooks/inject-session-bootstrap.sh:11`](../../hooks/inject-session-bootstrap.sh) — Sub-wave A target (H1 line).
 - [`.claude/orchestrator-prompts/recommendation-laziness-discipline/kickoff.md`](../recommendation-laziness-discipline/kickoff.md) — R-phase kickoff (this I-phase's predecessor).
 - [`.claude/orchestrator-prompts/narrow-b-benchmark/kickoff.md`](../narrow-b-benchmark/kickoff.md) — benchmark kickoff (this I-phase's blocking dependency, now resolved per PR #210).
 - Memory `project_stryker_mutation_hardening_done.md` — Stryker T20 reservation (S2 collision source).
-- [`packages/core/principles/09-doc-authority-hierarchy.test.ts`](../../packages/core/principles/09-doc-authority-hierarchy.test.ts) — Sub-wave D acceptance gate.
-- [`packages/core/principles/12-ai-laziness-traps.test.ts`](../../packages/core/principles/12-ai-laziness-traps.test.ts) — Sub-wave C acceptance gate.
+- [`packages/core/principles/09-doc-authority-hierarchy.test.ts`](../../../packages/core/principles/09-doc-authority-hierarchy.test.ts) — Sub-wave D acceptance gate.
+- [`packages/core/principles/12-ai-laziness-traps.test.ts`](../../../packages/core/principles/12-ai-laziness-traps.test.ts) — Sub-wave C acceptance gate.
 
 ---
 

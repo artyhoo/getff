@@ -225,7 +225,7 @@ After this dialogue:
 
 **Maintainer's full analysis prompt (verbatim, embedded for dialogue session to use):**
 
-```
+```text
 Используй Devin Wiki MCP и Context7 для исследования. Изучи всё — спеку,
 оба подхода к роям, AIF репозитории, кодовую базу.
 
@@ -256,8 +256,8 @@ After this dialogue:
 a) **Spec readiness for autonomous swarm execution** — does the current 19-task spec format have everything an autonomous executor needs? Gaps?
 b) **What spec format changes might be needed** for AIF Handoff consumption (annotations, frontmatter, dependency syntax)
 c) **Where each approach wins:**
-   - Custom: bespoke planning depth, no infra cost, full control
-   - AIF Handoff: production-tested pipeline, watchdogs/recovery, multi-runtime adapter, kanban UI for observability
+- Custom: bespoke planning depth, no infra cost, full control
+- AIF Handoff: production-tested pipeline, watchdogs/recovery, multi-runtime adapter, kanban UI for observability
 d) **Concrete recommended process** for this specific spec + stack (Python/FastAPI/LangGraph + 4-wave execution) — step-by-step
 
 **Methodology (mandatory):**
@@ -324,7 +324,7 @@ Research questions on `lee-to/aif-handoff`:
 
 #### §4.10.4 AI SLOP in docstrings — what it is + how to avoid
 
-Research on Google Style Guide (https://google.github.io/styleguide/pyguide.html) + real examples.
+Research on Google Style Guide (<https://google.github.io/styleguide/pyguide.html>) + real examples.
 
 Specific to explain:
 - What «AI SLOP» means in code documentation — what a garbage docstring written by default agent looks like (concrete example, not abstract)
@@ -599,7 +599,7 @@ After dialogue closes, update `/Users/art/.claude/projects/-Users-art-code-rules
 
 ## §10 Project context for fresh AI / cold-start
 
-You are starting a session in `/Users/art/code/rules-as-tests-aif` working directory. Project is single-maintainer (Art, email yhooi2011@gmail.com), single-domain. Project ships «rules-as-tests-aif» framework — AIF extension/companion focused on Living Documentation + multi-layer enforcement + research methodology.
+You are starting a session in `/Users/art/code/rules-as-tests-aif` working directory. Project is single-maintainer (Art, email <yhooi2011@gmail.com>), single-domain. Project ships «rules-as-tests-aif» framework — AIF extension/companion focused on Living Documentation + multi-layer enforcement + research methodology.
 
 Today's date: 2026-05-14 or later (kickoff written 2026-05-13).
 

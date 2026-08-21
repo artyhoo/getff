@@ -53,7 +53,7 @@ The fix must make ITS OWN spec + kickoff persist cross-worktree. Verify by writi
 - No npm deps; markdown + bash + CC/Superset hook primitives only.
 
 ## Launch (new session)
-```
+```text
 /meta-orchestrator coordination-persistence-fix
 ```
 …or open a fresh session and invoke `superpowers:brainstorming` directly on §2 Q1-Q4 (decisions §1 are already locked — don't re-litigate).

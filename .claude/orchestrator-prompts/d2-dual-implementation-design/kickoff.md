@@ -17,7 +17,7 @@ Design work has more degrees of freedom than execution → even more critical to
 1. **Read this entire kickoff cold** — pretend you didn't write it.
 2. **Spawn Mode A Opus subagent** with design-critique lens:
 
-```
+```text
 Task description: Review d2-dual-implementation-design kickoff for design-readiness
 Subagent prompt:
   You are a cold-start reviewer for a design-session kickoff. Read
@@ -160,7 +160,7 @@ git status                                                         # clean
 
 Spawn Mode A research subagent:
 
-```
+```text
 Task: Build-vs-reuse SSOT consult for «dual-implementation discipline» rule
 Subagent prompt:
   Search for prior art on the discipline pattern about to be codified.
@@ -206,7 +206,7 @@ This is **§1 search-coverage rule** applied to D2's design moment. If reviewer 
 
 After SSOT consult returns, spawn one design-draft subagent:
 
-```
+```text
 Task: Draft .claude/rules/dual-implementation-discipline.md (working name)
 Subagent prompt:
   Write the new rule file per the structure in the kickoff §«Output 1»
@@ -266,7 +266,7 @@ If gaps → REVISE prompt to subagent, re-dispatch.
 
 Spawn subagent to write Output 2 (research-patch):
 
-```
+```text
 Task: Write self-review research-patch for dual-implementation discipline
 Subagent prompt:
   Read the draft rule (from Phase 1 output). Write a self-review patch
@@ -303,7 +303,7 @@ Subagent prompt:
 
 After both Outputs 1 + 2 drafted, spawn cold-start reviewer:
 
-```
+```text
 Task: Cold-start review of dual-implementation discipline rule + self-review patch
 Subagent prompt:
   You haven't seen this design. Read:

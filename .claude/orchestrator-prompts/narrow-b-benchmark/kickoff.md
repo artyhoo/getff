@@ -15,7 +15,7 @@
    - Source-of-truth §1.5 item 4 wording: `grep -n "Narrow-B production-corpus benchmark" docs/meta-factory/research-patches/2026-05-24-recommendation-laziness-discipline.md` — confirm the 20% FP-rate threshold and «исключить narrow-B из Option D» falsifier.
    - Source §1.3 regex literal: `grep -n 'рекомендую|recommend|use' docs/meta-factory/research-patches/2026-05-24-recommendation-laziness-discipline.md` — copy the regex VERBATIM from §1.3 line 187, do not paraphrase.
    - Transcript corpus exists: `ls ~/.claude/projects/-Users-art-code-rules-as-tests-aif/*.jsonl | wc -l` — confirm ≥100 files available (sweep target ≥100 assistant turns total).
-   - Schema sanity: pick one recent `.jsonl` and confirm assistant turns carry `.message.content[]` with `type` ∈ `{text, thinking, tool_use}` — see [.claude/hooks/end-of-turn-reminder.sh:30-41](.claude/hooks/end-of-turn-reminder.sh) for the production reference parser.
+   - Schema sanity: pick one recent `.jsonl` and confirm assistant turns carry `.message.content[]` with `type` ∈ `{text, thinking, tool_use}` — see [.claude/hooks/end-of-turn-reminder.sh:30-41](../../hooks/end-of-turn-reminder.sh) for the production reference parser.
 3. **GO → proceed to §1. REVISE → fix kickoff, re-review. Max 3 iter → escalate.**
 
 ---
@@ -68,7 +68,7 @@ R-phase produces ONE artifact: `docs/meta-factory/research-patches/2026-05-XX-na
 
 ### §1.2 Filter implementation (deterministic, no LLM)
 
-Implement the narrow-B filter as a bash + jq script. Reference for transcript parsing: [.claude/hooks/end-of-turn-reminder.sh:12-46](.claude/hooks/end-of-turn-reminder.sh) (production hook that reads `transcript_path`, greps the last assistant line, extracts `tool_use` names via jq).
+Implement the narrow-B filter as a bash + jq script. Reference for transcript parsing: [.claude/hooks/end-of-turn-reminder.sh:12-46](../../hooks/end-of-turn-reminder.sh) (production hook that reads `transcript_path`, greps the last assistant line, extracts `tool_use` names via jq).
 
 **Per-turn extraction:**
 
@@ -84,7 +84,7 @@ A turn MATCHES iff:
 1. `char_count < N` (Worker determines N empirically — see §1.4)
 2. `tool_count == 0`
 3. `turn_text` matches the §1.3 regex (copy verbatim from source-of-truth line 187):
-   ```
+   ```text
    рекомендую|recommend|use |pick |ADOPT|REJECT|DEFER|BUILD|should|лучше|выбираем
    ```
    Case-sensitive as written (this matches what §1.3 tested). Apply `grep -E` semantics.
@@ -149,10 +149,10 @@ If `N_matches < 10` (cannot get a 10-sample manual classification) but `N_matche
 ### §1.6 §1.7 self-reflexive check (forward + backward per phase-research-coverage.md §1.7)
 
 **Forward-check:**
-- [build-first-reuse-default.md](.claude/rules/build-first-reuse-default.md) §3 — benchmark is measurement, not capability introduction; 6-layer search not required for measurement. BUT: confirm no upstream «verdict-word benchmark on chat transcripts» tool exists (1× DeepWiki + 1× WebSearch, document negative result).
-- [no-paid-llm-in-ci.md](.claude/rules/no-paid-llm-in-ci.md) — all classification is human (Worker reads turns); no API-billed LLM. ✅ by construction.
-- [doc-authority-hierarchy.md](.claude/rules/doc-authority-hierarchy.md) — research-patch carries Class + Authoritative-for header per §3.
-- [phase-research-coverage.md §1.11](.claude/rules/phase-research-coverage.md) — every claim about transcript schema / file counts / regex match counts MUST cite a command + output. No state-claim from memory.
+- [build-first-reuse-default.md](../../rules/build-first-reuse-default.md) §3 — benchmark is measurement, not capability introduction; 6-layer search not required for measurement. BUT: confirm no upstream «verdict-word benchmark on chat transcripts» tool exists (1× DeepWiki + 1× WebSearch, document negative result).
+- [no-paid-llm-in-ci.md](../../rules/no-paid-llm-in-ci.md) — all classification is human (Worker reads turns); no API-billed LLM. ✅ by construction.
+- [doc-authority-hierarchy.md](../../rules/doc-authority-hierarchy.md) — research-patch carries Class + Authoritative-for header per §3.
+- [phase-research-coverage.md §1.11](../../rules/phase-research-coverage.md) — every claim about transcript schema / file counts / regex match counts MUST cite a command + output. No state-claim from memory.
 
 **Backward-check:**
 - Does this benchmark silently supersede `2026-05-24-recommendation-laziness-discipline.md §1.3` 12-sentence test? **NO** — extends with production measurement. The 12-sentence test stays as ad-hoc upper-bound; benchmark is the production-grade lower-bound. Cite both in the research-patch.
@@ -195,13 +195,13 @@ R-phase is DONE when:
 7. ✅ §1.6 §1.7 forward+backward applied with explicit rule citations + adversarial counter-prompt run.
 8. ✅ T19 own cold-QA pre-handoff: re-read end-to-end, downgrade speculative findings.
 9. ✅ Russian for prose, English for paths/commands/code (project convention).
-10. ✅ Doc-authority header (Class + Authoritative-for) per [doc-authority-hierarchy.md §3](.claude/rules/doc-authority-hierarchy.md).
+10. ✅ Doc-authority header (Class + Authoritative-for) per [doc-authority-hierarchy.md §3](../../rules/doc-authority-hierarchy.md).
 
 ---
 
 ## §4 AI-laziness traps active
 
-From [ai-laziness-traps.md §2](.claude/rules/ai-laziness-traps.md):
+From [ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md):
 
 - **T1** sampling floor = 5 → benchmark needs ≥10 each side (matches + no-matches) for any FP claim.
 - **T3** every finding needs command + output OR file:line + content OR INCONCLUSIVE marker.
@@ -273,7 +273,7 @@ This benchmark IS subject to its own discipline:
 ## §See also
 
 - [docs/meta-factory/research-patches/2026-05-24-recommendation-laziness-discipline.md §1.3, §1.5, §1.7](../../../docs/meta-factory/research-patches/2026-05-24-recommendation-laziness-discipline.md) — source-of-truth: regex, threshold, falsifier
-- [docs/meta-factory/research-patches/2026-05-24-recommendation-laziness-amend.md](../../../docs/meta-factory/research-patches/2026-05-24-recommendation-laziness-amend.md) — PR #207 amend, frozen
+- docs/meta-factory/research-patches/2026-05-24-recommendation-laziness-amend.md (`../../../docs/meta-factory/research-patches/2026-05-24-recommendation-laziness-amend.md`) — PR #207 amend, frozen
 - [.claude/hooks/end-of-turn-reminder.sh:12-46](../../../.claude/hooks/end-of-turn-reminder.sh) — reference parser for transcript_path / assistant lines / tool_use extraction
 - [.claude/rules/ai-laziness-traps.md §2](../../../.claude/rules/ai-laziness-traps.md) — T1/T3/T4/T7/T9/T10/T15/T16/T19
 - [.claude/rules/phase-research-coverage.md §1.11, §1.12](../../../.claude/rules/phase-research-coverage.md) — claim-grounding discipline

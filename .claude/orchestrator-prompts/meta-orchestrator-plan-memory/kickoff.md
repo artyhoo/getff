@@ -144,7 +144,7 @@ T16 check on each: «upstream problem-class = X, our problem-class = Y, match? e
 - **T11** — designing custom plan-memory without prior-art check. Counter: §4 mandatory before any «what if we…».
 - **T12** — skipping literature sweep because «I know Cline Memory Bank». Counter: WebSearch ≥3 phrasings + DeepWiki even on familiar tools.
 - **T15** — self-application skipped. Counter: §3.7 must produce explicit answer.
-- **T16** — pattern-matching-on-name. «Memory Bank» sounds catch-all; verify problem-class match (committed-markdown-on-project-launch ≠ skill-self-updating-on-every-invocation). 
+- **T16** — pattern-matching-on-name. «Memory Bank» sounds catch-all; verify problem-class match (committed-markdown-on-project-launch ≠ skill-self-updating-on-every-invocation).
 - **T20** — inline-verdict-without-evidence. Counter: no «ADOPT Cline» until §4 prior-art row written with file:line/DeepWiki-output evidence.
 - **T-PM-A (NEW, domain-specific)** — **«brainstorming as architecture-decision»**. Brainstorming explores options; it does NOT pick the winning architecture. If brainstorm output reads «we should build X with Y» — that's R-phase work, brainstorm overstepped. Counter: brainstorm output is 1-2 viable design directions WITH the questions R-phase must answer to pick between them, not a single picked direction.
 

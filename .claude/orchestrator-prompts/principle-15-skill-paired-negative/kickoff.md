@@ -81,7 +81,7 @@ Single-file (как 02/14), с чистым in-file helper для mutation-те�
 
 **Шаг 1 — добавь SSOT #54** в `docs/meta-factory/prior-art-evaluations.md` (append одной строкой после строки #53, тот же 8-колоночный формат `| ID | Candidate | Capability matched | First seen | Last reviewed | Verdict | Rationale | Trigger to revisit |`). Текст строки (maintainer-approved, вставь дословно):
 
-```
+```text
 | 54 | Superpowers (`obra/superpowers`) TDD-for-Skills discipline — «NO SKILL WITHOUT A FAILING TEST FIRST» / RED-GREEN-REFACTOR for skill authoring | Paired-negative enforcement extended from code-rule artifacts (principle 02) to skill artifacts (`SKILL.md`): a documented without-skill failure paired with the with-skill correction, checked structurally | 2026-05-21 | 2026-05-21 | ADAPT | N2 #5 ([research-patches/2026-05-21-n2-adopt-from-superpowers.md §3 row 5](research-patches/2026-05-21-n2-adopt-from-superpowers.md), maintainer DECISION=C). **T16 problem-class:** upstream = RED-GREEN-REFACTOR *process* for skill authoring; ours = re-express the paired-negative *idea* as an executable structural check on `SKILL.md` (substrate). Match on idea, not mechanism → ADAPT, not ADOPT. **Substrate-pure:** zero Superpowers dependency (C invariant — `package.json` companion-dep grep stays empty). New slot 15 (not an extension of principle 02 — `SKILL.md` has no `examples.bad/good` fields). | Superpowers ships a language-agnostic skill-test format adoptable verbatim; OR a skill-authoring pain incident motivates the N2 #6 pressure-scenario probes ([open-questions.md §13.37](open-questions.md)) |
 ```
 

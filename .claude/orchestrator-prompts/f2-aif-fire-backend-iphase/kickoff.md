@@ -46,7 +46,7 @@ Wire `/fire` (CC Routines) into `runtime-bridge` as an **honest dispatch-only ba
 3. grep: no `.github/workflows/*` references `/fire` / `routines/*/fire` (DN-2 gate).
 4. `AifFireBackend` is NOT wired as default; REST default unchanged.
 5. Capability commit carries `Prior-art:` trailer.
-```
+```text
 ```
 
 <!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -51,7 +51,7 @@ Survey, via **DeepWiki `ask_question` + WebSearch only** (no paid API call), the
 ### R3 — Cost model per candidate
 A markdown table with **exactly these four columns** (the non-metered cost axis is its own column, not folded into another cell):
 
-```
+```text
 | Candidate | $ above subscription | Human round-trips removed | Other cost axis (HW/GPU/electricity/human-time) | Position vs metered `claude -p` |
 ```
 

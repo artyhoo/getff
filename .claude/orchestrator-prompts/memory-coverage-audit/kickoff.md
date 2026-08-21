@@ -186,7 +186,7 @@ Per [reviewer-discipline.md §2](../../../.claude/rules/reviewer-discipline.md):
 
 ## REPORT format обратно maintainer'у
 
-```
+```text
 ## Memory coverage audit REPORT 2026-05-22
 
 **Status:** COMPLETE | PARTIAL (reason: …)
