@@ -31,13 +31,28 @@
 # Usage: bash refresh-aif-base.sh [branch]            (branch defaults to staging)
 #        run from inside the framework/consumer git repo (any worktree).
 # Env:   AIF_AGENT_CONTAINER  (default: auto-resolve the aif agent container)
-#        AIF_CONTAINER_REPO   (default: /home/www/rules-as-tests-aif — consumers override to their path)
+#        AIF_CONTAINER_REPO   (default: /home/www/<host main-clone dir name> — see «Which clone» below)
 #        AIF_SYNC_HELPER      (default: ~/.claude/sync-branch-from-api.sh — OPTIONAL fallback only)
+#
+# Which clone this script heals — and why it is derived, not hard-coded.
+#   The live tip comes from the GITHUB REPO of the caller's CWD (`git remote get-url origin`),
+#   so the container path must name the SAME repository or the script writes one project's
+#   staging onto another project's clone. It used to default to a literal
+#   `/home/www/rules-as-tests-aif` while the tip followed the CWD — two independent sources with
+#   nothing tying them together. Measured 2026-08-31 during a timeliner dispatch: the run
+#   reported `repo=artyhoo/getff … repo_path=/home/www/rules-as-tests-aif` and a confident
+#   `✅ already current` about a clone the dispatch did not use. Run from the consumer worktree
+#   instead — the natural way — and REPO would have been `artyhoo/timeliner` while REPO_PATH
+#   stayed the framework's: the host-bundle fallback imports objects across unrelated histories
+#   without complaint, so `branch -f staging <foreign-sha>` would land.
+#   The default now follows the host main clone's directory name (worktree-safe via
+#   --git-common-dir), which is exactly the aif projects-mount convention (`/home/www/timeliner`,
+#   `/home/www/rules-as-tests-aif`, `/home/www/getff-landing`), and an identity guard refuses to
+#   touch a container clone that cannot be proven to be the same repository.
 set -uo pipefail            # deliberately NOT -e: a failed heal must warn, never abort the caller
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 BRANCH="${1:-staging}"
-REPO_PATH="${AIF_CONTAINER_REPO:-/home/www/rules-as-tests-aif}"
 C="${AIF_AGENT_CONTAINER:-$(docker ps --filter name=agent --format '{{.Names}}' 2>/dev/null | grep -i aif | head -1)}"
 
 # Graceful no-op when no aif agent container is running (e.g. a consumer who doesn't run aif).
@@ -50,6 +65,19 @@ cd "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || { echo "[refres
 REPO="$(git remote get-url origin 2>/dev/null | sed -E 's#^.*github\.com[:/]##; s#\.git$##')"
 [ -n "$REPO" ] || { echo "[refresh-aif-base] no github origin remote — skip."; exit 0; }
 
+# Container path DERIVED from the host main clone, so it can never name a different project than
+# the tip we are about to write. --git-common-dir keeps this correct from a worktree, whose own
+# directory name is a random codename rather than the repo's. AIF_CONTAINER_REPO still overrides.
+MAIN_CLONE="$(cd "$(dirname "$(cd "$(git rev-parse --git-common-dir 2>/dev/null)" 2>/dev/null && pwd)")" 2>/dev/null && pwd)"
+if [ -n "${AIF_CONTAINER_REPO:-}" ]; then
+  REPO_PATH="$AIF_CONTAINER_REPO"
+elif [ -n "$MAIN_CLONE" ]; then
+  REPO_PATH="/home/www/$(basename "$MAIN_CLONE")"
+else
+  echo "[refresh-aif-base] cannot resolve the host main clone (--git-common-dir) — set AIF_CONTAINER_REPO; skip."
+  exit 1
+fi
+
 # Live tip via api.github.com (reachable even when github.com:443 is tunnel-blocked).
 REAL="$(gh api "repos/$REPO/git/refs/heads/$BRANCH" --jq '.object.sha' 2>/dev/null || true)"
 [ -n "$REAL" ] || { echo "[refresh-aif-base] gh api unreachable for repos/$REPO ($BRANCH) — cannot resolve live tip; skip."; exit 1; }
@@ -57,6 +85,23 @@ echo "repo=$REPO branch=$BRANCH  real_tip=${REAL:0:7}  container=$C  repo_path=$
 
 # ── Shorthand for in-container git ──────────────────────────────────────────────────
 icg() { docker exec "$C" git -C "$REPO_PATH" "$@"; }
+
+# ── Identity guard: the container clone MUST be the same repository as the caller's ──
+# Offline by construction — the aif clone has no git remote (it cannot fetch), so «same origin
+# URL» is not askable there. Two clones of one repository share a root commit; two different
+# repositories do not. A shallow clone lacking the root fails this check and is SKIPPED, which is
+# the safe direction: a missed refresh costs one manual command, a cross-repo write costs a clone.
+HOST_ROOT="$(git rev-list --max-parents=0 HEAD 2>/dev/null | tail -1)"
+if [ -z "$HOST_ROOT" ]; then
+  echo "[refresh-aif-base] cannot read the host repo's root commit — refusing to identify the container clone; skip."
+  exit 1
+fi
+if ! icg cat-file -e "${HOST_ROOT}^{commit}" 2>/dev/null; then
+  echo "[refresh-aif-base] ABORT: $C:$REPO_PATH is NOT a clone of $REPO."
+  echo "   host root commit ${HOST_ROOT:0:7} is absent there, so writing $BRANCH would cross repositories."
+  echo "   → run this from the worktree of the project you are dispatching, or set AIF_CONTAINER_REPO."
+  exit 1
+fi
 
 # ── Refuse dirty tracked changes (never stash silently, never reset --hard) ─────────
 refuse_if_dirty() {
