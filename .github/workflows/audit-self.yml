@@ -219,6 +219,13 @@ jobs:
       # a .ts module plain node cannot load on Node 20) — matches the render-rules.ts step above.
       - name: Rule-index render & diff (CTX Stage 1)
         run: npx tsx scripts/render-rule-index.mjs --check
+      # beta-ai-docs-agnosticism S3: INSTALL-FOR-AI.md `install-roster` getff:begin
+      # section must stay in sync with the installer manifests (setup.d/20-agents.sh,
+      # setup.d/10-skills.sh, setup.d/lib.sh). Same tsx runner pattern as above.
+      - name: Install-roster render & diff (beta-ai-docs S3)
+        run: npx tsx scripts/render-install-roster.mjs --check
+      - name: Pipeline-presets render & diff (beta-ai-docs S3)
+        run: npx tsx scripts/render-presets.mjs --check
 
   principles-meta-tests:
     name: Principles as meta-tests (Phase 2)
