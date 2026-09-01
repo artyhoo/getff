@@ -27,6 +27,20 @@
 #     cc-only                        — deliberate CC-only; rationale ≥20 non-whitespace chars
 #                                      (mirrors `# @cc-only-rationale` in channel-coverage)
 #
+#   The declaration must appear OUTSIDE a fenced code block (``` toggles fence state;
+#   a marker inside an example fence is documentation, not a declaration — a fenced
+#   example placed before the real declaration must never hijack the verdict, so
+#   fence-state is tracked while scanning, identically in the principle-21 TS parser).
+#
+#   Population SCOPE (recorded exclusions, backward-sweep 2026-09-01): this census
+#   covers the operator-repo live surface `.claude/skills/*/SKILL.md` (git-tracked)
+#   ONLY. Deliberately OUTSIDE the population: (a) the top-level `skills/` source
+#   templates shipped to consumers via install.sh — a separate declarable family;
+#   (b) `packages/core/templates/shared/skill-context/*/SKILL.md` — shipped consumer
+#   overrides, framework-maintainer-owned (Artifact Ownership Contract), not editable
+#   by a session. Widening the glob to either is a future owner's change, not a
+#   silent scope guess.
+#
 #   What a row verdicts: the DECLARATION's presence and shape ONLY. It does NOT run any
 #   skill cross-harness — «41/41 declarations PORTABLE» is not «41 skills proven portable»
 #   (T14 coverage honesty; the unproven half stays declared via
@@ -71,8 +85,13 @@ ALLOWED='^(portable|portable-designed-not-proven|cc-native-with-fallback|cc-only
 for f in $pop; do
   file="$REPO_ROOT/$f"
   # Marker must be on its own line, anchored `<!-- @harness-posture:` — prose mentions
-  # inside sentences/backticks do not count (same discipline as channel-coverage.sh:50).
-  marker=$(grep -m1 -E '^<!--[[:space:]]*@harness-posture:' "$file" || true)
+  # inside sentences/backticks do not count (same discipline as channel-coverage.sh:50),
+  # and lines inside a fenced code block (```) do not count either — a fenced grammar
+  # example must never satisfy the census (cold-QA MAJOR, 2026-09-01).
+  marker=$(awk '
+    /^```/ { infence = !infence; next }
+    !infence && /^<!--[[:space:]]*@harness-posture:/ { print; exit }
+  ' "$file")
   skill=${f#.claude/skills/}
   if [ -z "$marker" ]; then
     record skills-census "$f" "no @harness-posture declaration (grammar: probe header)" 1 NO-HARNESS-POSTURE

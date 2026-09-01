@@ -223,7 +223,7 @@ SKROOT=$(mktemp -d)
 mkdir -p "$SKROOT/tests/agnosticism/probes"
 cp "$REPO_ROOT/tests/agnosticism/_cc-absent-lib.sh" "$SKROOT/tests/agnosticism/"
 cp "$REPO_ROOT/tests/agnosticism/probes/skills-census.sh" "$SKROOT/tests/agnosticism/probes/"
-for s in seed-broken seed-invalid seed-valid seed-shortcc; do mkdir -p "$SKROOT/.claude/skills/$s"; done
+for s in seed-broken seed-invalid seed-valid seed-shortcc seed-fenced; do mkdir -p "$SKROOT/.claude/skills/$s"; done
 printf -- '---\nname: seed-broken\ndescription: seeded markerless skill\n---\n# body\n' \
   > "$SKROOT/.claude/skills/seed-broken/SKILL.md"
 printf -- '---\nname: seed-invalid\ndescription: seeded invalid vocab\n---\n<!-- @harness-posture: works-everywhere — invented vocab -->\n# body\n' \
@@ -232,6 +232,8 @@ printf -- '---\nname: seed-valid\ndescription: seeded valid skill\n---\n<!-- @ha
   > "$SKROOT/.claude/skills/seed-valid/SKILL.md"
 printf -- '---\nname: seed-shortcc\ndescription: seeded short cc-only rationale\n---\n<!-- @harness-posture: cc-only — todo -->\n# body\n' \
   > "$SKROOT/.claude/skills/seed-shortcc/SKILL.md"
+printf -- '---\nname: seed-fenced\ndescription: declaration only inside a fenced example\n---\n```markdown\n<!-- @harness-posture: portable — fenced example, not a declaration -->\n```\n# body\n' \
+  > "$SKROOT/.claude/skills/seed-fenced/SKILL.md"
 # The probe population comes from `git ls-files`, so the seed must be a git repo with skills staged.
 ( unset GIT_DIR GIT_COMMON_DIR GIT_WORK_TREE; cd "$SKROOT" && git init -q && git add -A ) >/dev/null 2>&1
 sk_out=$(RECORD_FILE=/dev/stdout bash "$SKROOT/tests/agnosticism/probes/skills-census.sh")
@@ -244,6 +246,9 @@ echo "$sk_out" | grep -q 'seed-invalid.*INVALID-HARNESS-POSTURE' \
 echo "$sk_out" | grep -q 'seed-shortcc.*INVALID-HARNESS-POSTURE' \
   && ok "skills-census flags a short cc-only rationale (INVALID-HARNESS-POSTURE)" \
   || bad "skills-census MISSED a short cc-only rationale — rationale gate is blind"
+echo "$sk_out" | grep -q 'seed-fenced.*NO-HARNESS-POSTURE' \
+  && ok "skills-census ignores a fenced example declaration (NO-HARNESS-POSTURE)" \
+  || bad "skills-census counted a fenced example as a declaration — fence gate is blind"
 echo "$sk_out" | grep -q 'seed-valid.*PORTABLE' \
   && ok "skills-census passes a validly-declared skill" \
   || bad "skills-census wrongly flagged a properly-declared skill"

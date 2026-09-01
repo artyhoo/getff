@@ -435,7 +435,17 @@ export type PostureViolation = { file: string; reason: string };
  * Returns the FIRST declaration line found (probe: grep -m1).
  */
 export function parseHarnessPosture(fileContent: string, file = '<synthetic>'): PostureDeclaration {
-  const line = fileContent.split('\n').find((l) => /^<!--[ \t]*@harness-posture:/.test(l));
+  // Fence-state tracking mirrors skills-census.sh's awk scanner exactly: a declaration
+  // inside a ``` fenced block is documentation, not a declaration (cold-QA MAJOR,
+  // 2026-09-01 — a fenced example must never hijack the verdict).
+  let inFence = false;
+  const line = fileContent.split('\n').find((l) => {
+    if (/^```/.test(l)) {
+      inFence = !inFence;
+      return false;
+    }
+    return !inFence && /^<!--[ \t]*@harness-posture:/.test(l);
+  });
   if (!line) return { file, vocab: null, rationale: '' };
   const rest = line.replace(/^<!--[ \t]*@harness-posture:[ \t]*/, '').replace(/[ \t]*-->[ \t]*$/, '');
   const vocab = rest.split(/[ \t]/)[0] ?? '';
@@ -541,5 +551,18 @@ describe('Principle 21 — skills-surface harness-posture census (beta S2, spec 
     const d = parseHarnessPosture('> see the <!-- @harness-posture: portable --> convention');
     expect(d.vocab).toBeNull();
     expect(postureViolations(d)).toHaveLength(1);
+  });
+
+  it('paired-negative: a declaration inside a fenced code block does NOT parse (cold-QA MAJOR)', () => {
+    // A fenced grammar example must never hijack the verdict — even when the real
+    // declaration is missing entirely (fence-state tracking, mirrors the probe's awk).
+    const fenced = ['```markdown', '<!-- @harness-posture: portable — example -->', '```'].join('\n');
+    expect(parseHarnessPosture(fenced).vocab).toBeNull();
+    expect(postureViolations(parseHarnessPosture(fenced, 'fenced/SKILL.md'))).toEqual([
+      { file: 'fenced/SKILL.md', reason: 'no @harness-posture declaration' },
+    ]);
+    // ...and when a valid declaration exists outside the fence, the fence never shadows it.
+    const real = `${fenced}\n<!-- @harness-posture: portable — real basis stated -->`;
+    expect(parseHarnessPosture(real).vocab).toBe('portable');
   });
 });

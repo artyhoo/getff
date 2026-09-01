@@ -3,7 +3,7 @@ name: night-mode
 description: Use when running a task FULLY AUTONOMOUSLY (overnight / unattended) as an orchestrator. Trigger on «работай всю ночь автономно», «оставляю на ночь», «прогони сам до готовности», «автономный режим», night mode, overnight autonomous, run to completion unattended. NOT for a single delegated edit (/orchestrator) or a one-shot review (/reviewer).
 ---
 
-<!-- @harness-posture: portable-designed-not-proven — designed for any harness with sequential subagent dispatch (SKILL.md:17); the end-to-end non-CC run is NOT yet exercised — that honest gap stays open until a live probe -->
+<!-- @harness-posture: portable-designed-not-proven — designed for any harness with sequential subagent dispatch (SKILL.md:19); the end-to-end non-CC run is NOT yet exercised — that honest gap stays open until a live probe -->
 
 > **Authoritative for:** the OVERNIGHT DELTA on top of `subagent-driven-development` — the unattended autonomy/fork policy, quota/backoff resilience, Workflow context-economy, verification discipline, and the terminal condition for an unsupervised run.
 > **NOT authoritative for:** the executor + review dispatch loop itself — that is `superpowers:subagent-driven-development` (SSOT #64, ADOPT), which this skill **layers over, never re-describes**. Project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists).
