@@ -1,0 +1,1 @@
+/Users/art/.claude-coordination/rules-as-tests-aif/beta-ai-docs-agnosticism/kickoff-s3.decisions.md
