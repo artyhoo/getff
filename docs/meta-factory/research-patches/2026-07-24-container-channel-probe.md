@@ -1,5 +1,5 @@
 > **Authoritative for:** the 2026-07-24 container-channel-probe report — verbatim captures of what the worker observed when probing gate reachability after the 2026-07-24 staging fixes. Append-only research-patch artefact, scope-bound by gap ID `container-channel-probe-0cedb6`.
-> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). The parity audit that motivated this probe — see [`docs/meta-factory/research-patches/2026-07-23-container-channel-parity-audit.md`](./2026-07-23-container-channel-parity-audit.md) (predecessor). The gate implementations themselves — see [`scripts/render-harness-config.mjs`](../../../scripts/render-harness-config.mjs) and `.claude/hooks/check-doc-authority*`.
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). The parity audit that motivated this probe — see [`docs/meta-factory/research-patches/2026-07-23-aif-parity-s4-synthesis.md`](./2026-07-23-aif-parity-s4-synthesis.md) (predecessor). The gate implementations themselves — see [`scripts/render-harness-config.mjs`](../../../scripts/render-harness-config.mjs) and `.claude/hooks/check-doc-authority*`.
 
 # Container channel probe — 2026-07-24
 
@@ -8,11 +8,13 @@ Worker: GLM-5.2 in `aif-handoff-agent-1` container, branch `feature/container-ch
 ## §A — Dependency output (verbatim)
 
 Command:
+
 ```text
 for t in jq gh python3 node npx; do printf '%s: ' "$t"; command -v $t || echo MISSING; done; ls -ld /home/node/.npm
 ```
 
 Captured stdout:
+
 ```text
 jq: /usr/bin/jq
 gh: /usr/bin/gh
@@ -27,6 +29,7 @@ All five tools present on PATH. `/home/node/.npm` exists and is owned by `node:n
 ## §B — Verbatim capture (violating rule file)
 
 Target file: `.claude/rules/_probe-channel.md` with content exactly:
+
 ```text
 # Probe
 
@@ -34,11 +37,13 @@ This file deliberately lacks the authority header.
 ```
 
 First Write call returned this tool output (verbatim):
+
 ```text
 Claude requested permissions to edit /home/www/rules-as-tests-aif-feature-container-channel-probe-0cedb6-0cedb6bd-fc50-48c0-8ed0-8abae47ff235/.claude/rules/_probe-channel.md which is a sensitive file.
 ```
 
 Second Write call (retry) returned identically:
+
 ```text
 Claude requested permissions to edit /home/www/rules-as-tests-aif-feature-container-channel-probe-0cedb6-0cedb6bd-fc50-48c0-8ed0-8abae47ff235/.claude/rules/_probe-channel.md which is a sensitive file.
 ```
@@ -54,7 +59,8 @@ The file does not exist (§B Write was blocked), so the Edit step could not be p
 ## §D — Commit-time gates
 
 **Round 1 — rejected.** Pre-commit hook ran markdownlint-cli2 via `npx`. Full output:
-```text
+
+````text
 npm warn exec The following package was not found and will be installed: markdownlint-cli2@0.23.1
 markdownlint-cli2 v0.23.1 (markdownlint v0.41.1)
 Finding: docs/meta-factory/research-patches/2026-07-24-container-channel-probe.md
@@ -66,10 +72,12 @@ docs/meta-factory/research-patches/2026-07-24-container-channel-probe.md:30 erro
 docs/meta-factory/research-patches/2026-07-24-container-channel-probe.md:37 error MD040/fenced-code-language Fenced code blocks should have a language specified [Context: "```"]
 docs/meta-factory/research-patches/2026-07-24-container-channel-probe.md:42 error MD040/fenced-code-language Fenced code blocks should have a language specified [Context: "```"]
 ❌ markdownlint-cli2 violations — fix before commit
-```
+````
+
 Exit code 1. Commit did not land. Per task instructions ("fix only what the gate names"), applied MD040 fix — added `text` language specifier to all five fenced code blocks. No other content changes.
 
 **Round 2 — accepted.** Pre-commit hook re-ran markdownlint-cli2 (already cached). Full output:
+
 ```text
 markdownlint-cli2 v0.23.1 (markdownlint v0.41.1)
 Finding: docs/meta-factory/research-patches/2026-07-24-container-channel-probe.md
@@ -79,6 +87,7 @@ Summary: 0 issues in 0 files
  1 file changed, 91 insertions(+)
  create mode 100644 docs/meta-factory/research-patches/2026-07-24-container-channel-probe.md
 ```
+
 Commit landed: `65b0e83861` on `feature/container-channel-probe-0cedb6`. (This follow-up commit appends the round-2 capture to the report — without it, the §D log would have been incomplete inside the very file the gate just accepted.)
 
 ## §E — Per-channel verdict
@@ -96,6 +105,6 @@ Commit landed: `65b0e83861` on `feature/container-channel-probe-0cedb6`. (This f
 
 3. **The `/home/node/.npm` ownership is the only divergence from the prior incident baseline.** Everything else on the dependency axis reads as the fixed image intends (`jq`, `gh`, `python3`, `node`, `npx` all on PATH; no MISSING).
 
-4. **The probe's success criterion is honest reporting.** A `SILENT` verdict on the PostToolUse channel is the truthful answer here — and per the task's own framing, "a truthful `SILENT` is a better outcome than a flattering `REACHED-ME`." The interesting nuance is *why* it is silent: not because the gate is broken, but because a different layer (permission classifier) intercepts first. This is a channel-reach finding the parity audit did not anticipate.
+4. **The probe's success criterion is honest reporting.** A `SILENT` verdict on the PostToolUse channel is the truthful answer here — and per the task's own framing, "a truthful `SILENT` is a better outcome than a flattering `REACHED-ME`." The interesting nuance is _why_ it is silent: not because the gate is broken, but because a different layer (permission classifier) intercepts first. This is a channel-reach finding the parity audit did not anticipate.
 
 5. **Plan file was missing.** The dispatch referenced `@.ai-factory/plans/container-channel-probe.md`, which did not exist in the worktree at dispatch time. The task Description WAS the spec. Noted as a bookkeeping discrepancy; not a probe finding.
