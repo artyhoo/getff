@@ -1,4 +1,5 @@
-<!-- scope: beta-ai-docs-agnosticism S3 D3 — owner-gated patch proposals (P1 zcode-doctrine D7 conversion, P2 living-docs-auditor contradiction, P3 README claim drift). Flagged for MAINTAINER SIGN-OFF; this stage made ZERO direct edits to the proposal targets. -->
+<!-- scope:beta-ai-docs-agnosticism-s3-d3-owner-proposals -->
+<!-- beta-ai-docs-agnosticism S3 D3 — owner-gated patch proposals (P1 zcode-doctrine D7 conversion, P2 living-docs-auditor contradiction, P3 README claim drift). Flagged for MAINTAINER SIGN-OFF; this stage made ZERO direct edits to the proposal targets. -->
 
 # S3 owner proposals — three owner-gated fixes awaiting maintainer sign-off
 
@@ -168,3 +169,26 @@ convert to generated sections fed by the installer manifests rather than being h
 
 `git diff --name-only` against the three targets is empty at this branch's tip (verified in the
 PR body §4 acceptance item).
+
+---
+
+## §1.7 Self-application (T15)
+
+**Forward-check applied** — the proposals were checked against the disciplines they touch:
+`doc-authority-hierarchy.md` (this patch carries scope + Authoritative-for/NOT headers; the
+proposal targets keep their own); the CLAUDE.md Artifact Ownership Contract + spec D7
+carve-out (zero direct edits to `.claude/rules/zcode-parity-doctrine.md`,
+`agents/living-docs-auditor.md`, `README.md` — sign-off record above, verified by
+`git diff --name-only staging...HEAD`); `build-first-reuse-default.md` (P1's renderer reuses
+`packages/core/composition/fence.ts`, `scripts/render-zcode-parity-rollup.mjs:1-23`; no second
+fence engine); `no-paid-llm-in-ci.md` (P3's evidence comes from a session-read cold agent,
+`agents/claims-conformance-auditor.md`, never CI).
+
+**Backward-check applied** — sibling surfaces under the same class (owner-gated proposal for a
+derivable doc slice): the maintainer-landed precedent `00-rule-index.md` via
+`scripts/render-rule-index.mjs` (P1 follows it, does not fork it); the parked D3 renderer sync
+`scripts/render-harness-config.mjs:256-268` (explicitly NOT absorbed, §P1); S1's PR #1311 parked
+question 3 (P2 carries its wording verbatim rather than re-drafting); the inventory row A2 +
+§8 Addendum 2 (`2026-09-01-s3-derivable-prose-inventory.md`) — brought into agreement with §P1
+in rework round 1. Recursive: this patch is itself a research patch under principle 10/13 and
+now satisfies both (scope slug on line 1, this section).
