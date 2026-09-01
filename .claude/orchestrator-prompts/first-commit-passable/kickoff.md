@@ -36,7 +36,7 @@
 >   **Rigor label (effort-worthiness L0):** `research-grade` — every file touched is
 >   consumer-shipped payload (the live severity axis, [effort-worthiness.md §5.2 pointer](../../rules/effort-worthiness.md)).
 >   **Prior-art (EXECUTION-PLAN §5.5 Step 1.5):** in-repo REUSE — `copy_safe` (skip-if-exists,
->   [setup.d/lib.sh:15](../../../setup.d/lib.sh)) is the delivery idiom for every new seed file;
+>   [setup.d/lib.sh:359](../../../setup.d/lib.sh)) is the delivery idiom for every new seed file;
 >   the lint-staged migration offer on refresh
 >   ([tests/install-sh/refresh-offers-lintstaged-migration.test.sh](../../../tests/install-sh/refresh-offers-lintstaged-migration.test.sh))
 >   is the already-shipped path by which EXISTING consumers learn the template changed; the
@@ -118,7 +118,13 @@ global test setup here.` + `export {};`); react-spa and next-15 → what
   the SKIPPED set — the existing primitive is `_prettierignore_in_skipped`,
   [setup.d/lib.sh:857](../../../setup.d/lib.sh)), OR the consumer tsconfig has NO `include`
   key (tsc default = whole tree; measured: lints clean), OR some `include` entry starts with
-  `tests`. Unreadable tsconfig (JSONC comments, `tsc --init` emits them) = fail-OPEN: treat as
+  `tests` (the shared template's `include` is a 3-entry array —
+  [packages/core/templates/shared/tsconfig.json:25](../../../packages/core/templates/shared/tsconfig.json)
+  — and (b) makes it 4). **Predicate home (Phase -1, 2026-09-02): implement the predicate
+  inside [setup.d/40-configs.sh](../../../setup.d/40-configs.sh)**, calling the lib.sh
+  primitive; do NOT add a helper to `setup.d/lib.sh` — the sibling stage owns that file this
+  cycle (§8). JSON reading: reuse the `node -e` idiom already at
+  [setup.d/40-configs.sh:279](../../../setup.d/40-configs.sh). Unreadable tsconfig (JSONC comments, `tsc --init` emits them) = fail-OPEN: treat as
   covered, no note, never abort the layer. Why the gate is mandatory and a note alone is not
   (measured, round-2 cold read): a shipped `tests/setup.ts` outside the consumer's tsconfig
   is staged by the install commit, lint-staged runs the `**/*.{ts,tsx}` block with
@@ -142,8 +148,10 @@ global test setup here.` + `export {};`); react-spa and next-15 → what
   option is order-dependent — `eslint src/a.ts tests/setup.ts` fails, `eslint tests/setup.ts
 src/a.ts` passes, and lint-staged's sorted index always puts `src/` first: the install
   commit fails on brownfield exactly as in issue 1530. Also: the react preset configs have NO
-  `tests/**` block to hang it on (`eslint.config.react.mjs:313` matches
-  `**/*.{test,spec}` only).
+  `tests/**` block to hang it on (the next-15 twin's `eslint.config.react.mjs:313` matches
+  `**/*.{test,spec}.{ts,tsx}` + `**/__tests__/**` only; the react-spa twin has no tests block
+  at all — its `**/*.{ts,tsx}` block at :96 with `projectService: true` at :99 parses
+  `tests/setup.ts` directly).
   (d) Doc: replace `npx vitest run --listFiles` at INSTALL-FOR-AI.md:553 with `npx vitest
 list` (verified: vitest 4.1.8 `list [...filters]`), and add the brownfield tsconfig note
   to the printed wiring steps' documented list. **Rejected:** deleting the `setupFiles` line
@@ -188,7 +196,7 @@ three issues so they close on merge; closure writes `done.md`.
   issues; (2) `git add -A && git commit -m "install"` through the REAL shipped pre-commit —
   exit 0 is the assert (issue 1529's replay; `core.hooksPath=.husky` is set directly by
   [setup.d/50-hooks.sh:80-83](../../../setup.d/50-hooks.sh), and the job configures git
-  identity before install at :1155-1157); (3) `npx vitest run` exit 0 (issue 1530's replay).
+  identity before install at :1161-1162); (3) `npx vitest run` exit 0 (issue 1530's replay).
   All four matrix stacks run (1)-(3): issue 1529 is every stack; react-native simply has no
   setup file to ship.
   Do NOT add a `.gitignore` in the job by hand — the seed FC-2 ships is what makes (2) pass on
@@ -205,7 +213,7 @@ three issues so they close on merge; closure writes `done.md`.
   migration offer still fires for a consumer whose copy is the OLD template (re-run the
   sibling test, do not re-write it); (e) the two new `copy_safe` destinations (`.gitignore`,
   `tests/setup.ts`) are added to the EXCLUDED list of
-  [tests/install-sh/refresh-covers-full-delivery.test.sh:75-114](../../../tests/install-sh/refresh-covers-full-delivery.test.sh)
+  [tests/install-sh/refresh-covers-full-delivery.test.sh:82-116](../../../tests/install-sh/refresh-covers-full-delivery.test.sh)
   with a one-line «consumer-owned after first install» rationale each — that test asserts
   FULL ⊆ REFRESH ∪ EXCLUDED over every `copy_safe` line, so without the edit it goes red for a
   non-defect; do NOT «fix» it by adding the files to `do_refresh` (Layer-2 violation);
@@ -239,6 +247,12 @@ three issues so they close on merge; closure writes `done.md`.
   machinery ([language-discipline.md](../../rules/language-discipline.md)); no paid LLM in
   CI ([no-paid-llm-in-ci.md](../../rules/no-paid-llm-in-ci.md)); a new file under
   `packages/core/templates/shared/` is a shipped artefact → `SNAPSHOT_MODE=capture` (FC-4).
+  **Neither portability constraint is verifiable in the container** (probed 2026-09-02,
+  `aif-handoff-agent-1`: `shellcheck` absent from PATH, disk and `node_modules/.bin`; bash is
+  5.2, not 3.2). [scripts/run-local-ci-sweep.sh:167](../../../scripts/run-local-ci-sweep.sh)
+  WARN-skips an absent shellcheck, so a container sweep is a FALSE clean on that row — write
+  defensively (no `local -n`, no `${var,,}`, no `mapfile`, no `declare -A`); §6 on the host
+  is the authority.
 - **PR body gates:** `### §1.7 Forward-check applied` / `### §1.7 Backward-check applied`
   each with a real `path.ext:NN` citation; `## Fidelity verdict` with `FIDELITY: GO` +
   `Basis: <this kickoff path>` + `Round: <n>` + `Audited-SHA: <PR head>` from a cold
@@ -288,7 +302,11 @@ evidence ([destination-environment-verification.md §3](../../rules/destination-
 ## §7 Stage gates
 
 - Before dispatch: `SLUG=first-commit-passable bash .claude/skills/dispatcher/helpers/probe-inflight.sh`
-  — re-probe immediately before the actual dispatch.
+  — re-probe immediately before the actual dispatch. Expected verdict at dispatch time is
+  `IN-FLIGHT`, driven only by `docs/kickoff-first-commit-passable` (1 ahead — PR 1545 was
+  squash-merged) and any review/dispatch worktree branch. `SIGNAL pr … open=0` +
+  `container-branch 0` + `claim 0` = no real work in flight → proceed. A genuine stop is
+  `open>0`, `container-only>0`, or any `claim`.
 - Phase -1 cold review of the dispatch prompt is mandatory.
 - When F1 merges, the merging session writes `done.md`
   ([operational-conventions.md §1](../../../docs/meta-factory/operational-conventions.md)).
@@ -297,7 +315,9 @@ evidence ([destination-environment-verification.md §3](../../rules/destination-
 
 - Sibling night kickoff [refresh-prune-consumer-rule](../refresh-prune-consumer-rule/kickoff.md)
   (issue 1519 — the fourth open BLOCKER; aif task `d80087a9`, dispatched 2026-09-02).
-  Files do not overlap except ONE shared anchor: both stages register a CI step at
-  `audit-self.yml:745-746`; whichever merges second resolves a textual conflict by
-  merge-forward, keeping both steps.
+  Files do not overlap: the sibling touches only `setup.d/lib.sh` +
+  `tests/install-sh/eslint-barrel-preserve-consumer.test.sh` and PARKS any `audit-self.yml`
+  step (its kickoff §2 P1 row), so `audit-self.yml:745-746` is the only _possible_ shared
+  anchor; whichever merges second resolves a textual conflict by merge-forward, keeping both
+  steps. **Do not touch `setup.d/lib.sh`** in this stage.
 - [.claude/rules/git-conflict-merge-forward.md](../../rules/git-conflict-merge-forward.md).
