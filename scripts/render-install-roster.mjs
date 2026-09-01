@@ -60,6 +60,12 @@ function shippedAgents(root) {
   for (const m of script.matchAll(/^\s*([a-z0-9-]+\.md)\)\s*continue\s*;;/gm)) skips.add(m[1]);
   const pair = script.match(/^\s*([a-z0-9-]+\.md)\|([a-z0-9-]+\.md)\)/m);
   if (pair) factoryGated = new Set([pair[1], pair[2]]);
+  // Fail-loud, never fail-open: zero skip entries means the installer was restructured and
+  // these regexes no longer match its shape — rendering would silently list ALL agents as
+  // shipped (silent-wrong, the exact lying-doc class this renderer exists to kill).
+  if (skips.size === 0) {
+    throw new Error('setup.d/20-agents.sh: skip-list parse matched 0 entries — installer restructured? Refusing to render.');
+  }
   log(`20-agents.sh: ${skips.size} skip-list + ${factoryGated.size} factory-gated entries`);
   const shipped = files.filter((f) => !skips.has(f) && !factoryGated.has(f)).sort();
   log(`agents/: ${files.length} files -> ${shipped.length} shipped at default depth`);

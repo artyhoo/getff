@@ -63,8 +63,9 @@ EXIT=2
 2. Flip the renderer's `--check` arm from fail-loud-exit-2 to the `regionsMatch` body-compare
    (mirror `scripts/render-presets.mjs:89-103`).
 3. Wire `- run: npx tsx scripts/render-zcode-parity-rollup.mjs --check` into
-   `.github/workflows/audit-self.yml` → `manifest-render-check` (the pattern of the three S3
-   gates already wired there). Do NOT wire step 3 before step 1 — the current exit-2 makes a
+   `.github/workflows/audit-self.yml` → `manifest-render-check` (the pattern of the two S3
+   gates already wired there — `render-install-roster` + `render-presets`; `render-rule-index`
+   and `render-rules` predate S3). Do NOT wire step 3 before step 1 — the current exit-2 makes a
    premature CI wiring red, never silently green.
 
 **Explicitly NOT absorbed:** the parked D3 loud-declaration sync
@@ -105,12 +106,13 @@ S1's reviewed phrasing. Not resolved here (park-don't-guess, kickoff §6).
 **Target (owner-gated):** `README.md` §Why-this-exists-adjacent claims — deliberate-edit surface.
 **Source:** cold dry-run of `agents/claims-conformance-auditor.md` over README (this stage):
 56 claims enumerated, 47 VERIFIED / 6 GAP / 3 UNVERIFIABLE. GAP rows, each with the probe output
-(re-run this session):
+(re-run this session). **Cold-QA recheck (same day):** the `:30` ESLint row did NOT survive its
+recheck — retracted in-table below; **5 actionable rows** remain:
 
 | README line | Doc says | Probe → actual | Correct claim |
 |---|---|---|---|
 | `:20` | «8 shipped by default» sub-agents | `npx tsx scripts/render-install-roster.mjs` roster → **11** `.claude/agents/` files shipped (aif-init, capability-reuse-auditor, claims-conformance-auditor, compliance-verifier, docplan-auditor, fidelity-auditor, living-docs-auditor, memory-codification-auditor, review-sidecar, rule-researcher, rule-test-author) | «11 shipped by default» — or render the roster line from the installer manifest (P1-pattern candidate) |
-| `:30` | «ESLint 10 flat config» | `grep '"eslint"' package.json` → `^9.x` line (shipped dev-dep pin is ESLint **9**) | «ESLint 9» |
+| `:30` | «ESLint 10 flat config» | **RETRACTED on recheck (2026-09-01, same session):** the dry-run's quoted probe output was unreproducible — root `package.json` contains **no** `eslint` key; the shipped pin is `packages/core/package.json:94: "eslint": "^10.4.0"`, so README:30 «ESLint 10 flat config» is **correct as written**. No change proposed. (Only `packages/preset-react-spa/package.json:25` pins `^9.0.0` — a React preset, not this claim's referent.) | — (README stays) |
 | `:133`, `:218-220` | install prints «`npx husky init`» + «`npx depcruise --init`» as wiring steps | `setup.d/99-finalize.sh:425` → «do NOT run 'npx husky init' — it would clobber the shipped .husky/pre-commit + pre-push»; `setup.d/40-configs.sh:367` → `.dependency-cruiser.cjs` is COPIED by the install (no `--init` needed) | drop both instructions; installer ships the hooks path + depcruise config itself |
 | `:191` | «R4 … returns `pass` with `(skipped: no src/domain)`» | `packages/core/audit-self/audit-ai-docs.ts:191` → `return { result: 'warn', message: …(skipped: no src/domain…) }` — the skip is **WARN**-classed, not `pass` (R17 half of the caveat not re-probed this session; needs its own firing check before rewording) | «R4 reports WARN (skipped)» — the caveat's R4 example no longer exists as written |
 | `:285` | Wave B stages 5/6/7B/9C «implementation-pending» | `.claude/rules/zcode-parity-doctrine.md:69` → «Status column reflects runtime reality for all Wave B stages (5/6/7B/9C merged via #1043/#1044/#1046/#1047)» | «implemented and merged»; keep doctrine §3 as the live status SSOT |
