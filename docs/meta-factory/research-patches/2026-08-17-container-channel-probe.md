@@ -4,7 +4,7 @@
 
 > **Authoritative for:** the 2026-08-17 container-channel-probe report — verbatim captures of
 > what the worker observed when re-probing gate reachability (next in the series after
-> [`2026-07-24-container-channel-probe.md`](../../retros/) commits `65b0e83861`/`9087b66c8d`,
+> `2026-07-24-container-channel-probe.md`, commits `65b0e83861`/`9087b66c8d`,
 > which live on the probe branches). Append-only research-patch artefact.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists).
 > Folder convention — see [README.md](README.md) (folder-level authority).
@@ -147,17 +147,17 @@ markdownlint-cli2 resolved locally rather than via npx fetch).
 
 ## §F — Per-channel verdict table
 
-| Channel | Verdict |
-|---|---|
-| Edit-time PostToolUse `check-doc-authority.sh`, violating write under `agents/` | `REACHED-ME` — blocking FAIL, verbatim |
-| Same gate, conforming write | `REACHED-ME` — clean pass, no error |
-| `inject-matching-rule.sh` additionalContext | `REACHED-ME` — five rule pins |
-| UserPromptSubmit session-bootstrap digest | `REACHED-ME` — present from first prompt |
-| Test channel (npm install + vitest principle 09) | `REACHED-ME` — 1283 pkgs, 37/37 pass |
-| npm outbound registry | `REACHED-ME` — install exit=0 (auth flipped vs 2026-08-09 memory) |
-| `gh` outbound auth | `BLOCKED (not logged in)` — exit=1; PR/push ops unavailable today |
-| Worktree node_modules provisioning at birth | `BLOCKED (handoff devDeps omitted)` — doctor row MISSING; self-provisioned in §D |
-| Commit-time gates (markdownlint MD040, 600-line, husky pre-commit) | `REACHED-ME` — round-1 clean pass, exit=0 (§E) |
+| Channel                                                                         | Verdict                                                                          |
+| ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Edit-time PostToolUse `check-doc-authority.sh`, violating write under `agents/` | `REACHED-ME` — blocking FAIL, verbatim                                           |
+| Same gate, conforming write                                                     | `REACHED-ME` — clean pass, no error                                              |
+| `inject-matching-rule.sh` additionalContext                                     | `REACHED-ME` — five rule pins                                                    |
+| UserPromptSubmit session-bootstrap digest                                       | `REACHED-ME` — present from first prompt                                         |
+| Test channel (npm install + vitest principle 09)                                | `REACHED-ME` — 1283 pkgs, 37/37 pass                                             |
+| npm outbound registry                                                           | `REACHED-ME` — install exit=0 (auth flipped vs 2026-08-09 memory)                |
+| `gh` outbound auth                                                              | `BLOCKED (not logged in)` — exit=1; PR/push ops unavailable today                |
+| Worktree node_modules provisioning at birth                                     | `BLOCKED (handoff devDeps omitted)` — doctor row MISSING; self-provisioned in §D |
+| Commit-time gates (markdownlint MD040, 600-line, husky pre-commit)              | `REACHED-ME` — round-1 clean pass, exit=0 (§E)                                   |
 
 ## §G — What surprised me (differs-from-2026-07-24 notes)
 
