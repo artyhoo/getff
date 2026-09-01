@@ -125,7 +125,10 @@ Per the schema in D0. Binding content decisions:
   re-summarising each rule file by hand. Each entry is one short imperative sentence. **Point,
   don't fork:** if an entry restates a rule's substance rather than its instruction, it becomes a
   second copy that drifts (T-BAD-C, inherited).
-- **`branch`** — see §6: which branch context7 indexes is a **fork, not a default**. Park it.
+- **`branch`** — **`staging`** (DECIDED 2026-09-02, [`kickoff-s4.decisions.md`](kickoff-s4.decisions.md)
+  Decision 1 — advisor-consulted, in-envelope). Write it explicitly rather than relying on the
+  default-branch fallback, so the flip to `main` at Phase-2 publication is a visible one-line
+  diff. The flip itself is NOT this stage's to perform — see D3.
 - `projectTitle` / `description` — keep them consistent with `README.md`'s own framing; do not
   invent a new product description here.
 
@@ -133,7 +136,8 @@ Per the schema in D0. Binding content decisions:
 
 Upstream's shape (D0), adapted to this repo:
 
-- `on: push: branches: [staging]` — plus `main` only if the D3 branch fork resolves that way.
+- `on: push: branches: [staging]` — matches the decided `branch` field (D1). Do not add `main`;
+  the Phase-2 flip replaces `staging` with `main` in both places in one commit (D3).
 - One job, one step. The job carries `# required-context: no — <reason>` (§1 row 6); the reason
   states that a push-triggered job reports on no pull request and therefore cannot be a
   registrable required context.
@@ -156,6 +160,12 @@ Upstream's shape (D0), adapted to this repo:
   The deliverable is one short recorded statement — in the PR body and, if a natural home exists,
   in the AI-facing docs S1 landed — that DeepWiki may be used for orientation snapshots and
   **never** for a freshness-critical claim. Do not wire any gate or doc claim to it.
+- **The Phase-2 index-branch flip is PROPOSED, not performed.** Decision 1 in
+  [`kickoff-s4.decisions.md`](kickoff-s4.decisions.md) owes a follow-through: the S4 PR body
+  carries a proposal line for the spec §8 integration checklist («flip Context7 index branch
+  `staging`→`main` at the Phase-2 promote — `context7.json` `branch` + workflow trigger, one
+  commit»). The spec is a separate owner artefact; the line lands as a spec-owner commit, never
+  inside the stage PR.
 - **`llms.txt` for the repo: NOT added.** Rejected in the spec on crawler-log evidence
   (`spec:374-375`); llms routes live on the docs site under D5/umbrella B (`spec:140-142`).
   Record the decision and its provenance. **Do not re-litigate it**, and do not add the file «for
@@ -240,12 +250,11 @@ separate owner commit — so this allowlist deliberately names no park-record ar
 
 **Known fork-prone spots — park rather than guess:**
 
-- **Which branch context7 indexes.** Option A → `staging` (the repo default and the trunk; agents
-  get the newest disciplines, including ones not yet promoted to prod). Option B → `main` (prod;
-  agents get only what has been promoted, at the cost of lagging the trunk). The `branch` field and
-  the workflow's `on: push: branches:` list must agree, whichever way it resolves. This is a
-  product decision about what a stranger's agent should see — **the maintainer's, not yours.**
-- **Whether the refresh workflow also fires on `main`** — follows the branch fork; park with it.
+- ~~Which branch context7 indexes~~ — **DECIDED** (`staging` now, `main` at Phase 2):
+  [`kickoff-s4.decisions.md`](kickoff-s4.decisions.md) Decision 1, night seat on advisor consult
+  2026-09-02 under the operator's explicit lift. Not a park any more — re-open it ONLY if its
+  falsifier fires (re-index churn visibly unstable to agents), and then as a new decisions.md
+  entry, not a silent flip.
 - **Whether a failed refresh fails the build.** Resolve it yourself _if_ the failure mode is
   unambiguous; park it if it turns out a red workflow on `staging` would block unrelated merges.
 - **Any `excludeFolders` row you cannot verdict from evidence** — park the ROW (leave the directory
@@ -326,8 +335,8 @@ unavailable — `packages/core/hooks/checks/pr-body-fidelity.ts:44,147-152`). **
 run (`FIDELITY: GO` + `Basis:` + `Round:` + `Audited-SHA:` prefixing the PR head at merge time + ≥1
 `file:line` evidence). Exactly one section, one `FIDELITY:` line; rework rounds REPLACE the block.
 
-**`## Parked questions`** — the §6 branch fork will almost certainly be live here. State each park
-as «Option A → consequence X / Option B → consequence Y».
+**`## Parked questions`** — the branch fork is decided (§6); this section carries whatever NEW
+parks fire, each as «Option A → consequence X / Option B → consequence Y», or an explicit «none».
 
 **`Prior-art:` trailer** on the commit carrying D0's SSOT row.
 
@@ -344,8 +353,9 @@ as «Option A → consequence X / Option B → consequence Y».
 - You are about to edit a maintainer-owned file or any `.claude/rules/*` file → STOP; proposals
   only, and this stage plans none.
 - A design decision would diverge from spec C4 / D5 → STOP and surface.
-- The branch fork (§6) is unresolved and you are about to pick one to «keep moving» → STOP and
-  park; the `branch` field and the workflow trigger both depend on it.
+- You are about to set `branch` or the workflow trigger to anything other than `staging`, or
+  to perform the Phase-2 flip yourself → STOP; Decision 1 is recorded and the flip is a
+  spec-owner follow-through (§2 D3).
 - The local CI-equivalent sweep goes red from a branch-introduced cause → fix before handoff.
 
 ## §10 See also
