@@ -66,7 +66,10 @@ assert_rc() { # <label> <expected-rc> <actual-rc-file>
   if [ "$(cat "$3")" = "$2" ]; then ok "$1 (rc=$2)"; else bad "$1 — expected rc=$2, got rc=$(cat "$3")"; fi
 }
 assert_contains() { # <label> <haystack-file> <needle>
-  if grep -qF -- "$3" "$2"; then ok "$1"; else bad "$1 — missing: $3"; fi
+  if grep -qF -- "$3" "$2"; then ok "$1"; else
+    bad "$1 — missing: $3"
+    echo "      observed: $(head -n1 "$2" 2>/dev/null)"
+  fi
 }
 assert_not_contains() { # <label> <haystack-file> <needle>
   if grep -qF -- "$3" "$2"; then bad "$1 — must NOT contain: $3"; else ok "$1"; fi
@@ -79,11 +82,18 @@ assert_not_contains() { # <label> <haystack-file> <needle>
 # non-vacuity proof that the fixture actually witnesses the defect.
 build_prefix_variant() { # <dest>
   sed 's/env -u GIT_DIR -u GIT_WORK_TREE //' "$RUNNER" > "$1" || return 1
-  # Fixture-construction precondition (not a correctness assertion): a no-op sed
-  # after a future reword of line 39 would fail below with a misleading message.
-  if cmp -s "$RUNNER" "$1"; then
-    bad "pre-fix variant construction: sed was a NO-OP — line 39 wording drifted; update the transform, do not delete this arm"
-    return 1
+  if grep -q 'env -u GIT_DIR' "$RUNNER"; then
+    # Fixture-construction precondition (not a correctness assertion): a no-op sed
+    # after a future reword of line 39 would fail below with a misleading message.
+    if cmp -s "$RUNNER" "$1"; then
+      bad "pre-fix variant construction: sed was a NO-OP — line 39 wording drifted; update the transform, do not delete this arm"
+      return 1
+    fi
+  else
+    # Non-vacuity harness mode: the runner under test ($1 override) is ALREADY
+    # pre-fix (no `env -u GIT_DIR` present). The variant is then a plain copy and
+    # the fixed-shape assertions (a1/a2) below carry the expected RED.
+    echo "  note: runner under test is already pre-fix — fixed-shape assertions will go RED by design"
   fi
   if grep -q 'env -u GIT_DIR' "$1"; then
     bad "pre-fix variant construction: copy still contains 'env -u GIT_DIR' — sed pattern drifted"
