@@ -179,9 +179,11 @@ PR body §4 acceptance item).
 proposal targets keep their own); the CLAUDE.md Artifact Ownership Contract + spec D7
 carve-out (zero direct edits to `.claude/rules/zcode-parity-doctrine.md`,
 `agents/living-docs-auditor.md`, `README.md` — sign-off record above, verified by
-`git diff --name-only staging...HEAD`); `build-first-reuse-default.md` (P1's renderer reuses
-`packages/core/composition/fence.ts`, `scripts/render-zcode-parity-rollup.mjs:1-23`; no second
-fence engine); `no-paid-llm-in-ci.md` (P3's evidence comes from a session-read cold agent,
+`git diff --name-only staging...HEAD`); `build-first-reuse-default.md` (P1's renderer emits a body for the
+maintainer-landed fence and does NOT yet import `packages/core/composition/fence.ts` —
+`scripts/render-zcode-parity-rollup.mjs:89-97` leaves the `--check` body-compare arm
+unimplemented until the fence lands, at which point the landing plan step 2 mirrors the
+`regionsMatch` import the sibling renderers already use; no second fence engine ships); `no-paid-llm-in-ci.md` (P3's evidence comes from a session-read cold agent,
 `agents/claims-conformance-auditor.md`, never CI).
 
 **Backward-check applied** — sibling surfaces under the same class (owner-gated proposal for a
