@@ -77,7 +77,7 @@ Install getff into this project. Follow these steps exactly:
 
    This installs (verified against a real default install, 2026-08-17):
    <!-- getff:begin section=install-roster plan=scripts/render-install-roster.mjs -->
-   - `.claude/agents/` — 10 files: aif-init, capability-reuse-auditor, compliance-verifier, docplan-auditor, fidelity-auditor, living-docs-auditor, memory-codification-auditor, review-sidecar, rule-researcher, rule-test-author
+   - `.claude/agents/` — 11 files: aif-init, capability-reuse-auditor, claims-conformance-auditor, compliance-verifier, docplan-auditor, fidelity-auditor, living-docs-auditor, memory-codification-auditor, review-sidecar, rule-researcher, rule-test-author
    - `.claude/skills/` — 11 dirs at the default `env` depth: the 6-dir core set — ai-doc, getff, rule-research, rule-tests, template-audit, tool-bootstrapping — plus the operator contour arch, night-mode, orchestrator, pipeline, reviewer
 <!-- getff:end section=install-roster -->
      (Roster caveats, hand-maintained outside the generated section: best-practices-sidecar is KEEP-AIF — not shipped by us; review-sidecar default-skips when AIF's exists; orchestrator-worker-discipline + reviewer-discipline appear only at --profile factory / --with-aif-suite / --all; `--profile core` ships the 6 core dirs only. NOTE the directory is `getff`, not `rules-as-tests` — see "Names you will see" below)
