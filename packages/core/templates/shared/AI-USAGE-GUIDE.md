@@ -275,10 +275,27 @@ here instead of a section pretending it exists.
 
 | Capability                                                 | State today                                                                    | Owner                                           | Trigger that lands it                                                                |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Launch presets (named run configurations for `/pipeline`)  | not shipped                                                                    | beta-delivery-ux S2                             | that stage merges; this guide gains a §Presets rendered from the shipped preset data |
 | Park routing + status classes as a consumer-facing surface | not shipped                                                                    | umbrella C, later stage                         | a shipped park/status artefact exists to render from                                 |
 | Published npm install path (`npx getff@latest init`)       | not live — the install path today is a `git clone` plus `setup` / `install.sh` | release-frame phase 2, after the R1 name freeze | the package is published under the frozen name                                       |
 | Human-voiced First Steps on the project site               | not authored                                                                   | umbrella B / BS2                                | BS2 vendors the render from the §2 SSOT and adds the provenance header               |
+
+---
+
+## §6a Launch presets (rendered)
+
+Launch presets are named run configurations for `/pipeline` (`/pipeline <task> --preset <name>`).
+The list below is **rendered from the shipped preset data** (`.claude/skills/pipeline/references/presets/*.json`
+— the same source `helpers/list-presets.sh` reads); it is regenerated, not hand-maintained:
+
+<!-- getff:begin section=pipeline-presets plan=scripts/render-presets.mjs -->
+- `aif` — Autonomous overnight aif-handoff dispatch (mode=autonomous, marker=Claude Opus (plan+review))
+- `economy` — Cost-conscious whole-line on executor tier (mode=whole-line-executor, marker=Z.AI GLM-5.2 SDK)
+- `night` — Night-mode unattended single-session (mode=mode-a-inline)
+- `sdd` — Interactive single-feature SDD (mode=in-session)
+<!-- getff:end section=pipeline-presets -->
+
+Resolve details (tier routing, predicates) live in the preset JSON itself and
+`.claude/skills/pipeline/references/mode-overrides.md`.
 
 ---
 

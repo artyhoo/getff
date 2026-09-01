@@ -224,6 +224,8 @@ jobs:
       # setup.d/10-skills.sh, setup.d/lib.sh). Same tsx runner pattern as above.
       - name: Install-roster render & diff (beta-ai-docs S3)
         run: npx tsx scripts/render-install-roster.mjs --check
+      - name: Pipeline-presets render & diff (beta-ai-docs S3)
+        run: npx tsx scripts/render-presets.mjs --check
 
   principles-meta-tests:
     name: Principles as meta-tests (Phase 2)

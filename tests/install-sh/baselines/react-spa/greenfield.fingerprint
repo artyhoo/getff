@@ -1,4 +1,4 @@
-26f50ccf39125d9f8927e91645aebf8608815ef4b88ede231dd60ef0ad186b33  .ai-factory/AI-USAGE-GUIDE.md
+baf5207d3b00bdc49dcd5fce087182b8febe1e381856227b14f3fcfcbeab8e84  .ai-factory/AI-USAGE-GUIDE.md
 9251b10cddeb605bed9369849d9ccfb1bc67679bf85f19b5bb356df8e2b5199a  .ai-factory/ARCHITECTURE.md
 9251b10cddeb605bed9369849d9ccfb1bc67679bf85f19b5bb356df8e2b5199a  .ai-factory/ARCHITECTURE.react-spa.md
 854cfb38f3d4acfd40245b5b490e5163658e2e98b0573239c15dd5802d16f5cb  .ai-factory/ARCHITECTURE.ts-server.md
@@ -6,7 +6,7 @@
 03264d66be0aceebf3e0df0a2bd361ec7db105551b93b519122c58ac9721bcda  .ai-factory/DESCRIPTION.template.md
 cd05e605ec7874fd1c233b80f623a173087a27dade26ec5b399e76c5a01005a3  .ai-factory/RULES.md
 652ed1ee550c21951637c7f3590fb4c157d634547accb5076962ac00d5060e7f  .ai-factory/RULES.react-spa.md
-be15e64444e70da98c18290e051f10a18a3caaa540202165c31443aeea597b1f  .ai-factory/refresh-baseline.json
+5e2d8a12a198cd85415b69121a6fd6edb433e0e34ec7b0ec7c86cfbe3ee7acc1  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
 7d6b6061459f0939e64358447d0905329ddd4c52abd459ee8d9d201653ffb791  .ai-factory/skill-context/aif-rules-check/SKILL.md
