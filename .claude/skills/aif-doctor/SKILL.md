@@ -15,7 +15,7 @@ allowed-tools:
   - Read
 ---
 
-<!-- @harness-posture: cc-only — deliberate: operator-internal diagnostic runbook, slash-command auto-invocation is CC-native, markdown content readable anywhere (matches the existing @cc-only-rationale, SKILL.md:18) -->
+<!-- @harness-posture: cc-only — deliberate: operator-internal diagnostic runbook, slash-command auto-invocation is CC-native, markdown content readable anywhere (matches the existing @cc-only-rationale, SKILL.md:20) -->
 
 <!-- @cc-only-rationale: operator-internal diagnostic runbook for the maintainer's local aif-handoff stack; the markdown content is harness-agnostic (any session can read it), only the slash-command auto-invocation is CC-native. No portable counterpart to keep in sync → §6 dual-implementation-discipline.md marker is @cc-only, not @dual-pair. -->
 

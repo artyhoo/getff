@@ -20,8 +20,8 @@ afe2a054dee4c3a8cd2ba876811c7374fe0806ff30c2ecd9151fdab23ca3f590  .claude/skills
 eacf5fa883d483ee76a518e889c4aeb77fbad83c77306ca8ee0a9e237a59139f  .claude/skills/getff/references/doc-organization.md
 bcff7c566ad22195b6c4884c7d0da06b3b32a8bbcab4eb8b808c79330fb19228  .claude/skills/getff/references/overview.md
 025b534cae8a3c8219e24424755c66bdca360485b1cecc248f06f51bbda7ddca  .claude/skills/getff/references/self-testing-docs.md
-cc0afd8d2a3431818b93dea0ce9ed21420c85bdca3acfcc364497f3884d70fc6  .claude/skills/rule-research/SKILL.md
-a9c741745b462fa4b4d83c821d6b48ef2f8dd8596e6a057661a5f6d3fe9a0aa6  .claude/skills/rule-tests/SKILL.md
+676d46c86a79212ade99801955c5f69e02637545cd4428ca3778ceb8d982d507  .claude/skills/rule-research/SKILL.md
+c13577fa31d3369073dc78486e21cdbfe2c31e0855634ddb3aa590b65a2ab25b  .claude/skills/rule-tests/SKILL.md
 5da07b3a03a600c90a55d6d20671e7d459557735c37ff814a3cbdacd98df0534  .claude/skills/tool-bootstrapping/SKILL.md
 18971ed38cd6a928cd9965ea202cb8fd0981d753aad6e57092603b33308d57bc  .claude/skills/tool-bootstrapping/references/decision-format.md
 f93f4a4bd693a0b1920f4e030b5f0d72f2d695fef9d501b3aeb8d02e790a7e24  .claude/skills/tool-bootstrapping/templates/tool-decisions.md.template

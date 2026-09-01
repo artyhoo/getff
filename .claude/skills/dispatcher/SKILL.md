@@ -16,7 +16,7 @@ allowed-tools:
   - Agent
 ---
 
-<!-- @harness-posture: cc-native-with-fallback — CC slash-command + !shell + REST dispatch; dual-channel degradation for CC-absent harnesses documented (SKILL.md:23) -->
+<!-- @harness-posture: cc-native-with-fallback — CC slash-command + !shell + REST dispatch; dual-channel degradation for CC-absent harnesses documented (SKILL.md:25) -->
 
 <!-- @dual-pair: dispatcher-skill -->
 <!-- Note: CC-native and portable channels are co-resident in this single SKILL.md; the dual-implementation §5 two-file drift-check finds no counterpart file by design — drift is prevented by co-location, not grep. -->
