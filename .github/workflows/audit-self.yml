@@ -101,6 +101,12 @@ jobs:
         # and asserts output + exit code — never greps the scripts' source text.
         run: bash packages/core/audit-self/pre-merge-local.test.sh
 
+      - name: "Mutation runner root-resolution self-tests (issue 1459: worktree-under-hook + plain-clone + direct-invocation arms)"
+        # Live-fire: real bare remote + linked worktree + pre-push hook + a real push.
+        # Asserts the runner's resolved root is <worktree>, not <worktree>/scripts,
+        # via the manifest-absent die message — never a grep of the runner's source.
+        run: bash packages/core/synthesizer/run-generated-rule-mutation.test.sh
+
   shipped-prettier:
     name: Shipped artifacts are Prettier-clean (GH #531 dogfood)
     runs-on: ubuntu-latest
