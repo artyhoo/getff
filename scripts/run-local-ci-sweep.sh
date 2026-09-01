@@ -161,6 +161,8 @@ gate_table() {
     "2${TAB}format-check${TAB}SHIPPED${TAB}npm run format:check" \
     "2${TAB}render-check${TAB}.claude/rules/${TAB}npx tsx packages/core/render/render-rules.ts --check" \
     "2${TAB}rule-index-check${TAB}.claude/rules/,AGENTS.md,scripts/render-rule-index.mjs${TAB}npx tsx scripts/render-rule-index.mjs --check" \
+    "2${TAB}install-roster-check${TAB}INSTALL-FOR-AI.md,setup.d/,agents/,scripts/render-install-roster.mjs${TAB}npx tsx scripts/render-install-roster.mjs --check" \
+    "2${TAB}presets-check${TAB}packages/core/templates/shared/AI-USAGE-GUIDE.md,.claude/skills/pipeline/references/presets/,scripts/render-presets.mjs${TAB}npx tsx scripts/render-presets.mjs --check" \
     "2${TAB}script-selftests${TAB}scripts/${TAB}ts=\$(grep -oE 'scripts/[a-zA-Z0-9._-]+\\.test\\.sh' .github/workflows/audit-self.yml | sort -u); [ -n \"\$ts\" ] || { echo 'no scripts/*.test.sh steps found in audit-self.yml — derivation broke'; exit 1; }; for t in \$ts; do bash \"\$t\" || exit 1; done" \
     "3${TAB}typecheck${TAB}packages/${TAB}npm run typecheck" \
     "3${TAB}shipped-rules-drift${TAB}packages/${TAB}bash scripts/build-shipped-eslint-rules.sh --check" \

@@ -22,7 +22,7 @@ tools: Read, Glob, Grep, Bash
 > **NOT authoritative for:** project goal — see consumer's README.md. The assembly checklist
 > itself — see the [spec §8](../docs/superpowers/specs/2026-07-23-beta-program-design.md).
 > Code/design quality — that is `fidelity-auditor` / `superpowers:requesting-code-review`.
-> Doc drift *inside* generated sections — those are fenced and CI-gated; this agent audits the
+> Doc drift _inside_ generated sections — those are fenced and CI-gated; this agent audits the
 > UN-gated prose claims around them.
 
 ## Role — cold by construction
@@ -68,7 +68,7 @@ history and provenance statements about the doc itself.
    state is not a probe of the state). Acceptable evidence, in order: (a) a command you ran
    THIS audit plus its output (`ls | wc -l`, `grep -c`, `git ls-tree`); (b) `file:line` of
    the source of truth you read this audit, with the line's actual content. A claim verified
-   against a *second* doc is UNVERIFIABLE, not verified — two docs agreeing proves nothing
+   against a _second_ doc is UNVERIFIABLE, not verified — two docs agreeing proves nothing
    about the repo.
 3. **Verdict per claim:**
    - `VERIFIED` — evidence quoted (`file:line` + command output agree with the claim);

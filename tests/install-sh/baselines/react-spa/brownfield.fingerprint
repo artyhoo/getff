@@ -1,4 +1,4 @@
-baf5207d3b00bdc49dcd5fce087182b8febe1e381856227b14f3fcfcbeab8e84  .ai-factory/AI-USAGE-GUIDE.md
+e5388bba624162eed20f07382bccaab25c977c1103dc587d30245062d1b9c116  .ai-factory/AI-USAGE-GUIDE.md
 9251b10cddeb605bed9369849d9ccfb1bc67679bf85f19b5bb356df8e2b5199a  .ai-factory/ARCHITECTURE.md
 9251b10cddeb605bed9369849d9ccfb1bc67679bf85f19b5bb356df8e2b5199a  .ai-factory/ARCHITECTURE.react-spa.md
 854cfb38f3d4acfd40245b5b490e5163658e2e98b0573239c15dd5802d16f5cb  .ai-factory/ARCHITECTURE.ts-server.md
@@ -6,7 +6,7 @@ baf5207d3b00bdc49dcd5fce087182b8febe1e381856227b14f3fcfcbeab8e84  .ai-factory/AI
 03264d66be0aceebf3e0df0a2bd361ec7db105551b93b519122c58ac9721bcda  .ai-factory/DESCRIPTION.template.md
 cd05e605ec7874fd1c233b80f623a173087a27dade26ec5b399e76c5a01005a3  .ai-factory/RULES.md
 652ed1ee550c21951637c7f3590fb4c157d634547accb5076962ac00d5060e7f  .ai-factory/RULES.react-spa.md
-5e2d8a12a198cd85415b69121a6fd6edb433e0e34ec7b0ec7c86cfbe3ee7acc1  .ai-factory/refresh-baseline.json
+7c8c49ba03120d5e778530885e1dbd117cd40fb15e59cc061dba952153516926  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
 7d6b6061459f0939e64358447d0905329ddd4c52abd459ee8d9d201653ffb791  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -14,6 +14,7 @@ e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/ru
 f93f4a4bd693a0b1920f4e030b5f0d72f2d695fef9d501b3aeb8d02e790a7e24  .ai-factory/tool-decisions.md
 caa7ac27268fdd5652ed66db6b5e9b708042347ebf27663687827b43f07638e4  .claude/agents/aif-init.md
 e9e7ba33e671dbd3635c3157f43726e4c74f9cbb923328ae5a288bdbd3e13853  .claude/agents/capability-reuse-auditor.md
+8a7c1173b584b11f9304a098e57854ee423e7ac0a8fb86692c438e71d9a32e58  .claude/agents/claims-conformance-auditor.md
 0ab1bd4ce7fcb0d85740aaa94546b97d27a332b4db2ec8444dad587cfda5d107  .claude/agents/compliance-verifier.md
 808654a613b6f6197fe89f5398cd3bfb766c874d135c4ee1098993dcdd9f2c4f  .claude/agents/docplan-auditor.md
 8d4af21768eeba5a38e1300ffb2b78e99d10636b425b617838bdbb5d9f383393  .claude/agents/fidelity-auditor.md
@@ -125,7 +126,7 @@ b82d3a4108c4c2ec923ca819756ec00ec52eb1e20d577de5a87f73fc5ba83cfd  .husky/pre-com
 a1b7d1e98fc2feb0abb42940f17830afd565b53b4b57bb0ac6f855e603cfc612  .husky/pre-push
 315888a74b1aa6ec62adbc0167dfec806a5c933a00491cd133baa461b55ca5b5  .lintstagedrc.json
 7d2df647f25529bd87500319c41564e032e2be642e565350fa6136d7a1ec4d10  .nvmrc
-ce5b847f86031db21ba771c9271c54af3d41c07157068f769b14e7e4631e3b6c  .prettierignore
+ac991effd0d22f19a0d5cc968e693aaf29b7e20d6104c3a1e24bf54d683f378c  .prettierignore
 37055c98043228133ffcc5cad7bba5ef6c8f24698a551cae547b90f51d22e519  .prettierrc.json
 f2d033a3de49a9f432b1c9d5108cdeb2b2faaed7a0b76b7b95f34749f65f72a5  AGENTS.md
 530d36bb3b8680d900b25a3efae04c726464e238f14a882ef24afaff4a5c8a99  eslint-rules-local/index.mjs

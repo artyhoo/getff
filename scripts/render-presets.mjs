@@ -69,7 +69,10 @@ function run(argv) {
   const rootFlag = argv.indexOf('--root');
   const root = rootFlag !== -1 ? resolve(argv[rootFlag + 1]) : findRoot(process.cwd());
 
-  const body = loadPresets(root).join('\n');
+  // Prettier-canonical body: blank line after the begin marker and before the end marker
+  // (prettier inserts these around an HTML-comment-delimited list; `injectRegion` adds one
+  // more `\n` on each side, so the content itself carries the extra blank lines).
+  const body = `\n${loadPresets(root).join('\n')}\n`;
   const expected = new Map([[SECTION_PRESETS, body]]);
 
   const targetPath = join(root, TARGET);
