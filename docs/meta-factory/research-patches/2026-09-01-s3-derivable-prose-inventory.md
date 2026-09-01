@@ -101,3 +101,12 @@ Every row: **source-of-truth · current-home file:line · ownership class · ver
 ## §6 T14 coverage statement (verbatim for the PR body)
 
 Population = 19 rows (A:5, B:8, C:1, D:3, E:1 + self-application rows §5). Depth bounded to live load-bearing surfaces + class-level sweeps of frozen corpora. Tail NOT silently truncated: the frozen-corpus long tail (retros, closed-umbrella patches) is declared as residual population with a class verdict (B8/B8-pattern) rather than row enumeration. Coverage sufficient to conclude for: all live root docs, `.claude/rules/*`, `agents/*`, AI-USAGE-GUIDE, INSTALL-FOR-AI. Coverage insufficient to row-enumerate: frozen corpora (declared, not hidden).
+
+## §7 Addendum (2026-09-01, at Task 3 implementation — B2 verdict revised MIGRATE-now → STAYS-PROSE)
+
+Implementing the B1 renderer surfaced implementation facts B2's row did not carry:
+
+1. **The B2 tree lives inside a ```text fenced code block** (`INSTALL-FOR-AI.md:330` opens the block; the tree body follows). A `getff:begin`/`getff:end` section is carried in HTML comments (`<!-- getff:begin section=… -->`); inside a ```text block those markers render **literally** — the fence cannot exist there without changing the doc's rendered appearance, i.e. migration is not shape-preserving.
+2. **The tree is annotation-bearing, not purely derivable** — per-file comments carry judgment («factory-gated pair», layer caveats). Per the D7 falsifier («a doc class proves non-derivable → it stays prose with an owner and a review trigger»), annotation content is not a mechanical function of the manifest.
+
+**Revised verdict: B2 = STAYS-PROSE** — owner: INSTALL-FOR-AI doc owners (via `/ai-doc`); trigger: any shipped-skill/agent set change, i.e. any edit to `setup.d/20-agents.sh`, `setup.d/10-skills.sh`, or `setup.d/lib.sh` skill constants. **Residual coverage note:** B1's new `install-roster` drift gate watches the same three manifests, so the highest-frequency drift vector for B2 (the shipped set changing) now has a live trip-wire one fence away even though B2's own body stays hand-maintained; the annotations remain the judgment residue (T17) the fence must not swallow. Verdict tally revised: `MIGRATE-now` = 2 · `STAYS-PROSE` = 9 (was 8).
