@@ -1,3 +1,5 @@
+<!-- scope:container-channel-probe-2026-07-24 -->
+
 > **Authoritative for:** the 2026-07-24 container-channel-probe report — verbatim captures of what the worker observed when probing gate reachability after the 2026-07-24 staging fixes. Append-only research-patch artefact, scope-bound by gap ID `container-channel-probe-0cedb6`.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). The parity audit that motivated this probe — see [`docs/meta-factory/research-patches/2026-07-23-aif-parity-s4-synthesis.md`](./2026-07-23-aif-parity-s4-synthesis.md) (predecessor). The gate implementations themselves — see [`scripts/render-harness-config.mjs`](../../../scripts/render-harness-config.mjs) and `.claude/hooks/check-doc-authority*`.
 
@@ -108,3 +110,10 @@ Commit landed: `65b0e83861` on `feature/container-channel-probe-0cedb6`. (This f
 4. **The probe's success criterion is honest reporting.** A `SILENT` verdict on the PostToolUse channel is the truthful answer here — and per the task's own framing, "a truthful `SILENT` is a better outcome than a flattering `REACHED-ME`." The interesting nuance is _why_ it is silent: not because the gate is broken, but because a different layer (permission classifier) intercepts first. This is a channel-reach finding the parity audit did not anticipate.
 
 5. **Plan file was missing.** The dispatch referenced `@.ai-factory/plans/container-channel-probe.md`, which did not exist in the worktree at dispatch time. The task Description WAS the spec. Noted as a bookkeeping discrepancy; not a probe finding.
+
+## §G — §1.7 self-application note (added at harvest, 2026-09-02)
+
+- **Self-application (T15):** this patch's own commit was the §D live-fire — the commit-time markdownlint gate rejected round 1 (MD040 on five fenced blocks) and accepted round 2, and the report records both rounds inside the very file the gate accepted.
+- **Forward check:** the next probe in this series, `2026-08-17-container-channel-probe.md`, re-ran the same edit-time probe on `agents/**` instead of `.claude/rules/**` and found the PostToolUse gate REACHED-ME there. Both findings stand; they are different path classes, and the §E `SILENT` verdict here remains correct for its own path class.
+- **Backward check:** the §B finding (permission classifier preempts the PostToolUse channel on `.claude/rules/**`) is a channel-reach observation the 2026-07-23 parity synthesis did not anticipate; it was recorded here rather than by editing that synthesis (append-only folder discipline). The `_probe-channel.md` artefact never landed, so no cleanup residue was carried.
+- **Harvested late:** the branch sat unharvested from 2026-07-24 to 2026-09-02; the scope annotation and this §G section were added at harvest to satisfy principle tests 10 and 13, which post-date the worker's run. §A–§F above are the worker's verbatim capture, untouched apart from the predecessor link fix and formatting.
