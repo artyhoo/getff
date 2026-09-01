@@ -19,6 +19,8 @@ allowed-tools:
   - Bash(cat *)
 ---
 
+<!-- @harness-posture: cc-native-with-fallback — degradations: no subagents → §2 cold seats + §1.5 probe dispatch degrade; no AskUserQuestion → serial questioning; no Skill invocation → direct file reads -->
+
 > **Class:** C — prose workflow choreography; every load-bearing gate it routes through is owned (and where applicable mechanically enforced) elsewhere: kickoff traps → principle 12; kickoff placement → [kickoff-staging-placement.md](../../rules/kickoff-staging-placement.md); tier criteria → [CLAUDE.md «Task-tier routing»](../../../CLAUDE.md). Promotion trigger: ≥2 incidents in 6 months where a phase was silently skipped and a design flaw reached the factory → add a deterministic phase-artifact check.
 > **Fires:** operator starts a design contour for a nontrivial idea (`/arch <topic|prep-doc>`).
 > **Authoritative for:** the external-contour choreography ONLY — §0 seat, §1 phase order, §1.5 research contour + membrane/K-pass, §2 the cold two-altitude design-review pass (named cold definition + unique-filenames dispatch contract + the changelog disposition vocabulary), §3 exit routing + kill channels + the exit-chip carve-out for `bridge: auto`, §4 escalation intake.

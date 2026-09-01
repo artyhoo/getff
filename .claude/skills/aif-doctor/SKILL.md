@@ -15,6 +15,8 @@ allowed-tools:
   - Read
 ---
 
+<!-- @harness-posture: cc-only — deliberate: operator-internal diagnostic runbook, slash-command auto-invocation is CC-native, markdown content readable anywhere (matches the existing @cc-only-rationale, SKILL.md:18) -->
+
 <!-- @cc-only-rationale: operator-internal diagnostic runbook for the maintainer's local aif-handoff stack; the markdown content is harness-agnostic (any session can read it), only the slash-command auto-invocation is CC-native. No portable counterpart to keep in sync → §6 dual-implementation-discipline.md marker is @cc-only, not @dual-pair. -->
 
 > **Class:** C — prose-only runbook; mechanical substrate = existing $0 helpers (`bridge-health.sh`, `verify-bridge.sh`) + upstream read-only endpoints (`/health`, `/agent/status`). No new code, no npm deps. Promotion criterion: ≥2 «re-derived aif operational knowledge» incidents after ship → consider a session-start `bridge-health.sh` auto-run hook (`.claude/hooks/`).

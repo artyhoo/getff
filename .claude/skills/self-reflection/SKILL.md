@@ -3,6 +3,8 @@ name: self-reflection
 description: Use when introducing or extending a rule, principle, pattern, methodology, discipline, or process change in this repository. Auto-trigger on «правило», «принцип», «дисциплина», «методология», «процесс», recommend, introduce rule, new principle, discipline change, process rule, meta, recursive, applies to itself, check own work, self-review, forward check, backward check, closing recommendation, discipline-bearing artefact, self-reflection, anti-pattern, or any edit touching `.claude/rules/`, `packages/core/principles/`, `docs/meta-factory/EXECUTION-PLAN.md`, `docs/meta-factory/prior-art-evaluations.md`, `CLAUDE.md`. Do NOT trigger on simple typo fixes, code edits without rule changes, or routine PR work.
 ---
 
+<!-- @harness-posture: portable — prose self-application checklist over repo artefacts; no harness primitives -->
+
 # Self-reflection — recommendation discipline gate
 
 > **Authoritative for:** skill activation conditions (frontmatter `description`); §1.7 forward+backward checklist summary; output contract for discipline-introducing recommendations; pointers to cold references.

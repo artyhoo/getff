@@ -15,6 +15,8 @@ allowed-tools:
   - Read
 ---
 
+<!-- @harness-posture: portable — bash/git/docker egress runbook over aif endpoints; helpers are plain bash; no CC-only primitive in the egress path -->
+
 > **Class:** C — prose-only wiring skill; the executable artefact it gates is [`scripts/run-local-ci-sweep.sh`](../../../scripts/run-local-ci-sweep.sh) (paired-negative test wired in CI). Promotion criterion: a harvest reddens CI **after** this skill ships (skill skipped or a gate missing) → promote the sweep to a pre-push gate (spec §Promotion).
 > **Authoritative for:** the standalone post-aif-acceptance harvest procedure — §1 egress (incl. the codified egress gotchas), §2 cross-stage integration, §3 the sweep gate, §4 cold-review + fidelity + PR.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). The egress primitives themselves (`harvest.ts`, `harvest-via-api.sh`) — owned by `packages/runtime-bridge` + [/dispatcher](../dispatcher/SKILL.md). The local gate set — owned by [`scripts/run-local-ci-sweep.sh`](../../../scripts/run-local-ci-sweep.sh) (this skill calls it, does not redefine it). The full dispatch loop — see [/dispatcher](../dispatcher/SKILL.md).

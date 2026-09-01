@@ -3,6 +3,8 @@ name: rule-tests
 description: Use when a consumer has an EXISTING generated rule whose firing test material is missing, broken, or needs a bypass variant. Triggers: rule tests, repair test material, fix negative-test, rule test material, verify the rule fires, rule-tests, починить тест правила, исправить негативный тест, проверить что правило срабатывает, тестовый материал для правила. NOT for creating new rules (/rule-research).
 ---
 
+<!-- @harness-posture: portable — prose repair methodology for existing rule test material; no harness primitives -->
+
 <!-- @dual-pair: rule-tests-protocol -->
 <!-- spec: agents/rule-test-author.md -->
 

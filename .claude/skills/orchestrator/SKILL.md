@@ -10,6 +10,8 @@ description: |
 when_to_use: оркестратор, организатор, ты старшая, батч правок, umbrella, пакет фиксов, много мелких, делегируй, младшая модель, координируй, разбей на подзадачи, orchestrator, batch fixes, delegate, queue mode, kickoff, autonomous research, worker dispatch, воркер, ревьюер, очередь задач, автономно, волнами, итеративно, работай без остановок, прогони очередь кикофов, цикл кикофов, не останавливайся, сам до конца
 ---
 
+<!-- @harness-posture: cc-native-with-fallback — Agent-tool subagent dispatch is portable (zcode evidence via night-mode SKILL.md:17); Skill-tool invocation degrades to direct file reads -->
+
 # Orchestrator — the senior coordinates, juniors execute and verify
 
 > **Authoritative for:** the operator-side orchestration workflow — the Mode A/B dispatch
