@@ -30,13 +30,20 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Resolve the repo root LAYOUT-AWARE (D-S5-mutation-root): the framework source sits at
-# packages/core/synthesizer/ (3 levels deep) but the delivered consumer copy sits at scripts/
-# (1 level deep), so the old fixed `$SCRIPT_DIR/../../..` pointed ABOVE a consumer's root and the
-# script always died exit 2 on-consumer (manifest + tsx/eslint never found — the standing arm was
-# theatre). git's toplevel is correct for BOTH layouts (a consumer's git root = its project root;
-# the framework's = the repo root); fall back to the historical `../../..` for a non-git checkout.
-REPO_ROOT="$(cd "$SCRIPT_DIR" && git rev-parse --show-toplevel 2>/dev/null || true)"
+# Resolve the repo root LAYOUT-AWARE and WORKTREE-SAFE (D-S5-mutation-root): the framework
+# source sits at packages/core/synthesizer/ (3 levels deep) but the delivered consumer copy
+# sits at scripts/ (1 level deep), so the old fixed `$SCRIPT_DIR/../../..` pointed ABOVE a
+# consumer's root and the script always died exit 2 on-consumer (manifest + tsx/eslint never
+# found — the standing arm was theatre). git's toplevel is correct for BOTH layouts (a
+# consumer's git root = its project root; the framework's = the repo root); fall back to the
+# historical `../../..` for a non-git checkout.
+# THIRD axis (issue 1459): under a git hook in a linked worktree, git exports GIT_DIR into
+# the hook env, which overrides the `cd` and misdirects rev-parse to the hook's git context
+# (root resolves as `<worktree>/scripts`). Strip ONLY GIT_DIR/GIT_WORK_TREE — measured:
+# forcing GIT_INDEX_FILE, GIT_PREFIX, GIT_COMMON_DIR, GIT_OBJECT_DIRECTORY or
+# GIT_CEILING_DIRECTORIES individually still yields the correct toplevel; only this pair
+# misdirects. Do not drop the `env -u` guard when editing this line.
+REPO_ROOT="$(cd "$SCRIPT_DIR" && env -u GIT_DIR -u GIT_WORK_TREE git rev-parse --show-toplevel 2>/dev/null || true)"
 [ -n "$REPO_ROOT" ] || REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 # ─── Args ────────────────────────────────────────────────────────────────────
