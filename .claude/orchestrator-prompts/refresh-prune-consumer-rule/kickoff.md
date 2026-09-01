@@ -8,11 +8,11 @@
 > stale-rule prune (the issue-882 loop, [setup.d/lib.sh:1239-1252](../../../setup.d/lib.sh))
 > `rm -f`s a CONSUMER-authored rule (`eslint-rules-local/<name>.ts` + `.mjs` + `.d.ts`)
 > because its basename is not in the current stack's valid set, BEFORE the issue-1481
-> preservation loop ([setup.d/lib.sh:1256-1270](../../../setup.d/lib.sh)) can keep its barrel
+> preservation loop ([setup.d/lib.sh:1274-1291](../../../setup.d/lib.sh)) can keep its barrel
 > entry — silent data loss on `--refresh`, no `⚠`, no preserved copy. **Reproduced live
 > 2026-09-01** on a fixture consumer (`install.sh ts-server --profile core`, add
 > `consumer-only.ts` + `.mjs`, `--refresh`): output line `· pruned stale rule [consumer-only]
-> — not part of the ts-server stack`, both files gone (repro transcript in the issue's
+— not part of the ts-server stack`, both files gone (repro transcript in the issue's
 > 2026-09-01 comment).
 > **Base branch:** staging. Per [kickoff-staging-placement.md §1](../../rules/kickoff-staging-placement.md),
 > do NOT dispatch until this kickoff is merged to staging.
@@ -20,7 +20,7 @@
 > refresh path, the surface every consumer's second command touches.
 > **Prior-art (EXECUTION-PLAN §5.5 Step 1.5):** in-repo REUSE only — the
 > «framework-attributable» criterion already computed for the barrel preservation loop
-> (`_fw_basenames`, [setup.d/lib.sh:1266-1274](../../../setup.d/lib.sh), PR 1505) is the
+> (`_fw_basenames`, [setup.d/lib.sh:1265-1273](../../../setup.d/lib.sh), PR 1505) is the
 > exact predicate the prune lacks; the R1 divergence guard (`refresh_baseline_diverged()`,
 > PR 1503) is the sibling precedent for «warn, never silently destroy». No new module or
 > dependency; a stage that proposes one owes a fresh 6-item consult.
@@ -33,10 +33,16 @@
 1. [README.md#why-this-exists](../../../README.md#why-this-exists) → [.claude/session-bootstrap.md](../../session-bootstrap.md) → [CLAUDE.md](../../../CLAUDE.md).
 2. The issue (URL above) and its 2026-09-01 repro comment.
 3. [setup.d/lib.sh](../../../setup.d/lib.sh) `generate_eslint_barrel` — the prune loop at
-   1239-1252 and the preservation loop at 1256-1270 (line numbers as of staging
+   1239-1252, the `_fw_basenames` block at 1265-1273 and the kept-entry loop at 1274-1291,
+   plus the two generation loops at 1295 and 1309 that RP-1b turns on (line numbers as of staging
    `ff6a02245c`; re-locate by the comment `# issue 1481 casualty 2` before editing).
-4. [tests/install-sh/refresh-divergence-guard.test.sh](../../../tests/install-sh/refresh-divergence-guard.test.sh)
-   — the fixture-install test shape to mirror (arms, `PASS=/FAIL=` summary line).
+4. [tests/install-sh/eslint-barrel-preserve-consumer.test.sh](../../../tests/install-sh/eslint-barrel-preserve-consumer.test.sh)
+   — **the regression home** (RP-3, revised). Read its header arms and its
+   `barrel_loadable()` helper BEFORE writing any test code: its arm (a) is the `.mjs`-only
+   consumer (no `.ts`), and its arms (b)/(c) are byte-identity and the issue-882 cross-stack
+   stray. [tests/install-sh/refresh-divergence-guard.test.sh](../../../tests/install-sh/refresh-divergence-guard.test.sh)
+   remains a reference only for the fixture-install shape (`PASS=/FAIL=` summary line); it is
+   a different concern (the R1 manifest) and is NOT the home for this arm.
 
 ## §1 Decisions (authored with rationale; operator-overridable at PR review)
 
@@ -47,20 +53,63 @@
   issue-1481 criterion and is left untouched — files AND barrel entry. Rationale: one
   predicate, two loops, no new concept; the issue-882 cross-stack prune stays intact (a
   stray rule from a different `--stack` IS framework-attributable → still pruned).
+- **RP-1b — BLOCKER guard, mandatory in the SAME commit as RP-1: every rule basename must
+  appear in the barrel exactly once.** RP-1 alone ships a broken installer. Once the prune
+  stops deleting the consumer `.ts`, TWO independent emitters cover that basename: the
+  issue-1481 kept-entry loop ([setup.d/lib.sh:1277-1291](../../../setup.d/lib.sh) — its three
+  guards are already-kept, framework-attributable, and dead-import; there is NO guard for «a
+  `.ts` exists on disk»), and the generation loops that iterate every `*.ts`
+  ([setup.d/lib.sh:1295](../../../setup.d/lib.sh) for the imports,
+  [setup.d/lib.sh:1309](../../../setup.d/lib.sh) for the `rules` map). The result is a
+  duplicate `import` binding — a hard ESM `SyntaxError: Identifier 'consumerOnly' has already
+been declared` — so the barrel fails to load and EVERY rule dies while CI stays green. That
+  is the FQA S1-A W1 failure mode the sibling test header already names
+  ([tests/install-sh/eslint-barrel-preserve-consumer.test.sh:11-13](../../../tests/install-sh/eslint-barrel-preserve-consumer.test.sh)).
+  Reproduced 2026-09-01 by the Phase -1 cold review, applying RP-1 verbatim to a copy of
+  `lib.sh`: two identical `import { consumerOnly } from './consumer-only.mjs';` lines, two
+  identical `'consumer-only': consumerOnly,` map entries, and `LOAD FAILED`.
+  **Chosen shape — add ONE guard to the kept-entry loop**, beside the existing dead-import
+  check: skip a barrel entry whose basename has a `.ts` on disk, because the generation loops
+  already emit the canonical entry for it. Rationale: one line instead of two (the generation
+  side would need the same guard in BOTH the import loop and the `rules` loop); it sits in the
+  same loop and the same idiom as the guard above it; and it keeps generation authoritative,
+  which is what the barrel's own «AUTO-GENERATED … do not hand-edit» header promises. The
+  issue-1481 preservation mechanism exists precisely for entries generation CANNOT see — the
+  `.mjs`-only no-tsc consumer — so an entry generation already covers is redundant by
+  construction. **Rejected alternative:** guarding the two generation loops on `_kept_names`
+  (kept entry wins). It is two edits, and it lets a stale hand-written camelCase identifier
+  override the canonical one that the `rules` map key is derived from.
 - **RP-2 — pruning is announced per file it deletes, exactly as today; keeping is silent.**
   No new `⚠` for kept consumer rules (they are the consumer's own files — nothing to warn
   about). Rationale: the divergence guard warns about DIVERGED framework files; a consumer
   rule is not framework-owned, so the R1 manifest does not apply and must not be extended
   here.
-- **RP-3 — regression home is a new `tests/install-sh/refresh-prune-consumer-rule.test.sh`**,
-  fixture-install shape (mirror `refresh-divergence-guard.test.sh`), with arms:
-  (a) consumer `.ts`+`.mjs`+`.d.ts` + hand-added barrel entry survive `--refresh`
-  byte-identical (the issue's table); (b) PAIRED NEGATIVE — a framework rule from a
-  DIFFERENT stack planted in `eslint-rules-local/` is still pruned and its barrel entry
-  dropped (issue-882 behaviour unchanged); (c) fresh install with zero consumer rules
-  produces a byte-identical barrel (pre-change control); (d) RED-before-GREEN: the test
-  MUST be run once against the unpatched `lib.sh` and its FAIL observed (paste the line
-  in the PR body) before the fix commit.
+- **RP-3 (REVISED — build-vs-reuse) — the regression home is the EXISTING
+  [tests/install-sh/eslint-barrel-preserve-consumer.test.sh](../../../tests/install-sh/eslint-barrel-preserve-consumer.test.sh),
+  extended with ONE new arm. Do NOT create a new test file.** The originally-planned new
+  file's arms (b) and (c) already exist verbatim as that file's arms (c) and (b), it is
+  already CI-wired ([.github/workflows/audit-self.yml:750](../../../.github/workflows/audit-self.yml)),
+  and it already carries the `barrel_loadable()` helper this arm needs. Its arm (a) is the
+  `.mjs`-only consumer, so the `.ts`-carrying case genuinely IS new coverage — that, and only
+  that, is what gets added. Reuse verdict per [CLAUDE.md build-vs-reuse](../../../CLAUDE.md);
+  a new file here would be a duplicate the repo's own gate exists to catch.
+  - **New arm (a2)** — consumer rule carrying `.ts` + `.mjs` (+ `.d.ts`) plus a hand-added
+    barrel entry survives `--refresh`: the three files are byte-identical afterwards (the
+    issue's table), AND the barrel loads (`barrel_loadable()`), AND the basename appears
+    **exactly once** — assert `grep -c "from './<name>.mjs';" == 1` and the same count for
+    the `rules`-map line. A bare `grep -q` for the import line is NOT sufficient: it passes
+    on the duplicated barrel, which is exactly the RP-1b blocker. This count assert is the
+    arm's load-bearing half.
+  - **Paired negative (mandatory, already present as that file's arm (c)) — re-run it, do
+    not re-write it.** A cross-stack framework stray is still pruned and its entry dropped
+    (issue-882 unchanged). Confirm it stays green; a fix that simply deletes the prune loop
+    passes (a2) and fails this.
+  - **Byte-identity control (already present as that file's arm (b)) — re-run it.**
+  - **(d) RED-before-GREEN, unchanged and mandatory:** run the extended file once against the
+    UNPATCHED `lib.sh` and observe the FAIL; paste the failing line verbatim in the PR body.
+    Note the arm must be seen RED for the RP-1 reason (files deleted) and, after RP-1 alone,
+    RED again for the RP-1b reason (duplicate import → load failure) — observe BOTH, since
+    they are different defects and a single RED does not prove the second guard.
 - **RP-4 — no delivered-file bytes change.** `setup.d/lib.sh` is installer machinery, not
   a shipped artefact; the install snapshot fingerprint is expected unchanged. If
   `SNAPSHOT_MODE=compare` goes red, STOP — that means the fix touched a delivered file, which
@@ -74,26 +123,49 @@
 > `manualReviewRequired` / `blocked_external` with the fork stated as «Option A →
 > consequence X / Option B → consequence Y») and **stop that task.** Proceed only on the
 > unambiguous parts. Guessing a fork to "keep moving" is the failure this whole loop exists
-> to prevent. Known non-forks (already decided above): RP-1..RP-4.
+> to prevent. Known non-forks (already decided above): RP-1, RP-1b, RP-2, RP-3, RP-4.
 
 ## §2 Stages
 
-| Stage | Content | Depends on | Size |
-|---|---|---|---|
-| P1 | RP-1 prune predicate in `setup.d/lib.sh` `generate_eslint_barrel` (move `_fw_basenames` above the prune; condition per RP-1); RP-3 test file with arms (a)-(d); principle-41 wiring for the new `*.test.sh` (CI step inside an EXISTING `audit-self.yml` install-sh shard, `tests/install-sh/meta-all-wired.test.sh` literal `run:` line, `scripts/run-local-ci-sweep.sh` `gate_table()` reachability); the issue's 2026-09-01 repro replayed on the patched tree and pasted in the PR body | — | S |
+| Stage | Content                                                                                                                                                                                                                                                                                                                                                                                                                                 | Depends on | Size |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ---- |
+| P1    | RP-1 prune predicate in `setup.d/lib.sh` `generate_eslint_barrel` (move `_fw_basenames` above the prune; condition per RP-1) **plus the RP-1b duplicate-entry guard in the same commit**; RP-3 new arm (a2) folded into the EXISTING `tests/install-sh/eslint-barrel-preserve-consumer.test.sh`, with the RED-before-GREEN observations of RP-3(d); the issue's 2026-09-01 repro replayed on the patched tree and pasted in the PR body | —          | S    |
+
+**No principle-41 wiring work is expected** (RP-3 adds no new file). Verified 2026-09-02, so
+do not re-derive it: `tests/install-sh/meta-all-wired.test.sh:22` globs
+`tests/install-sh/*.test.sh` and `scripts/run-local-ci-sweep.sh:170` globs the same directory
+— neither carries per-file registration, and the reverse-direction gate at
+`scripts/run-local-ci-sweep-coverage.test.sh:90` matches by family. Editing any of those three
+is a spurious diff. Should a stage nonetheless end up adding a `tests/install-sh/*.test.sh`
+file, the ONE required registration is a `- name:` / `run:` step pair inside an existing
+`install-sh` shard of `.github/workflows/audit-self.yml` (pattern:
+`.github/workflows/audit-self.yml:745-746`) — and that choice re-opens the RP-3 reuse verdict,
+so park it rather than deciding alone.
 
 Order: single stage. One PR onto staging; closure writes `done.md` and the PR body carries
 `Closes <issue URL>` so the issue closes on merge.
 
 ## §3 Binding constraints (do not re-derive)
 
-- **Issue-882 behaviour preserved** — arm (b) is mandatory; a fix that keeps stray
-  framework rules from other stacks is a regression, not a fix.
+- **Issue-882 behaviour preserved** — the paired negative is mandatory (it already exists as
+  arm (c) of `tests/install-sh/eslint-barrel-preserve-consumer.test.sh`; re-run it, do not
+  re-write it). A fix that keeps stray framework rules from other stacks is a regression, not
+  a fix.
+- **Barrel loadability is an acceptance criterion, not a nicety** — after RP-1 + RP-1b the
+  barrel must still `import()` cleanly and each basename must appear exactly once. A green
+  suite whose asserts are all `grep -q` does NOT establish this (RP-3).
 - **PMCB B2 surfaces off-limits** (W-2 honour): no edits to `packages/core/audit-self/**`
   or `setup.d/40-configs.sh` carrier lines.
 - **`lib.sh` has exactly one prune site** — verify with `grep -n 'pruned stale rule'
-  setup.d/lib.sh install.sh setup.d/*.sh` before editing (the deps-hash 3-way-guard class);
-  a second site means this kickoff under-counted and the executor parks.
+install.sh setup.d/*.sh | sort -u` before editing (the deps-hash 3-way-guard class); a
+  second site means this kickoff under-counted and the executor parks. **Do not park on a
+  doubled line:** the earlier form of this command also named `setup.d/lib.sh` explicitly
+  while `setup.d/*.sh` already matched it, so `setup.d/lib.sh:1249` printed twice for ONE
+  site. The command above removes the redundant argument.
+- **The fix's population is exactly «consumer rules that carry a `.ts`».** The prune loop
+  iterates `eslint-rules-local/*.ts` only ([setup.d/lib.sh:1239](../../../setup.d/lib.sh)), so
+  a `.mjs`-only consumer rule was never at risk — that case is the already-shipped issue-1481
+  path and its arm already exists. Do not widen scope to it.
 - **Portability:** bash 3.2-compatible, shellcheck-clean (`shellcheck setup.d/lib.sh` is
   a CI step), no GNU-only flags; English-only machinery
   ([language-discipline.md](../../rules/language-discipline.md)); no paid LLM
@@ -110,8 +182,11 @@ Order: single stage. One PR onto staging; closure writes `done.md` and the PR bo
 
 - **T3** — every claim in the PR body carries command output or `file:line`; the RED
   observation of RP-3(d) is pasted verbatim, not described.
-- **T15** — paired negative: arm (b) must be seen RED if the prune is disabled outright
-  (a fix that deletes the prune loop passes (a) and fails (b)); observe both directions.
+- **T15** — paired negative: the cross-stack arm must be seen RED if the prune is disabled
+  outright (a fix that deletes the prune loop passes the new arm (a2) and fails the
+  cross-stack one); observe both directions. Self-application: this kickoff was itself sent
+  through a cold Phase -1 review before dispatch, which is what produced RP-1b — the first
+  revision shipped a decision that would have broken every consumer's barrel.
 - **T19** — run your own adversarial cold review of the diff before handoff: «which
   consumer layout did the arms NOT cover?» (multi-stack monorepo; a consumer rule whose
   basename COLLIDES with a framework rule of another stack — that one is framework-
@@ -122,13 +197,20 @@ Order: single stage. One PR onto staging; closure writes `done.md` and the PR bo
 ## §5 Host acceptance
 
 ```bash host-verify
-bash tests/install-sh/refresh-prune-consumer-rule.test.sh
+bash tests/install-sh/eslint-barrel-preserve-consumer.test.sh
+bash tests/install-sh/refresh-different-stack-prunes-barrel.test.sh
+bash tests/install-sh/refresh-regenerates-barrel.test.sh
+bash tests/install-sh/lib-helpers.test.sh
 bash tests/install-sh/refresh-divergence-guard.test.sh
 bash tests/install-sh/meta-all-wired.test.sh
 npx vitest run --root packages/core principles/41-shell-test-ci-coverage.test.ts
 SNAPSHOT_MODE=compare bash tests/install-sh/snapshot.sh
 shellcheck setup.d/lib.sh
 ```
+
+The first four are every existing gate over `generate_eslint_barrel` (enumerated 2026-09-02;
+`refresh-different-stack-prunes-barrel.test.sh` is the direct issue-882 guard that §3's
+binding constraint depends on, and the earlier form of this block listed none of them).
 
 (Run against a COMMITTED tree — principle 41's population is `git ls-files`. A host run of
 this block is the acceptance authority; a green container run is not evidence
