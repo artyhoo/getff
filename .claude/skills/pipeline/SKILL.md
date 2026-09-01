@@ -264,8 +264,7 @@ bash "${CLAUDE_SKILL_DIR}/helpers/render-status.sh"
 | Ready-to-harvest + PR state | `gh pr list`                                              | "(no open PRs)" or "(gh unavailable)" |
 
 Ends with **suggested-next-command lines** (1-3 paste-able shell strings).
-Each section degrades independently — exit 0 unless the renderer itself
-crashes (defensive: an unreachable brick is a designed success path, §3 spec).
+Each section degrades independently — exit 0 unless the renderer itself crashes (defensive: an unreachable brick is a designed success path, §3 spec).
 
 ---
 
