@@ -274,6 +274,128 @@ test_ac5() {
   cleanup; ORIGIN=""; WORK=""
 }
 
+# ── AC6: REPO_PATH is DERIVED from the caller's repo, not a hard-coded framework path ─
+# Regression, measured 2026-08-31 on a timeliner dispatch. The live tip comes from the CWD
+# repo's github origin; REPO_PATH used to default to a literal `/home/www/rules-as-tests-aif`.
+# Two independent sources, nothing tying them: the run printed
+# `repo=artyhoo/getff … repo_path=/home/www/rules-as-tests-aif` and a confident
+# `✅ already current` about a clone the dispatch never touched. Run from the CONSUMER
+# worktree instead — the natural way — and the halves split the other direction: the tip is
+# the consumer's, the path still the framework's, and the host-bundle fallback imports across
+# unrelated histories without complaint. This case pins the derivation itself; AC8 pins the
+# guard that catches the split even when someone overrides the path by hand.
+#
+# NOTE the deliberate absence of AIF_CONTAINER_REPO here — AC1-AC5 all set it, so none of
+# them can see the default at all. That is why the defect survived a green suite.
+test_ac6() {
+  echo ""
+  echo "=== AC6: REPO_PATH derived from the host main clone (no AIF_CONTAINER_REPO) ==="
+  setup_base_fixture
+
+  export STUB_REAL_SHA="$SHA_B"
+  export AIF_AGENT_CONTAINER="aif-test-agent"
+  export AIF_SYNC_HELPER="/nonexistent-sync-helper"
+  unset AIF_CONTAINER_REPO
+  HELPER_OUTPUT="$(cd "$WORK" && bash "$HELPER" staging 2>&1)"
+  HELPER_EXIT=$?
+  echo "  exit=$HELPER_EXIT"
+  echo "$HELPER_OUTPUT" | sed 's/^/    /'
+
+  local expect="/home/www/$(basename "$WORK")"
+  if printf '%s' "$HELPER_OUTPUT" | grep -q "repo_path=$expect"; then
+    record_pass "repo_path followed the caller's clone ($expect)"
+  elif printf '%s' "$HELPER_OUTPUT" | grep -q 'repo_path=/home/www/rules-as-tests-aif'; then
+    record_fail "repo_path fell back to the hard-coded framework path — the 2026-08-31 defect"
+  else
+    record_fail "repo_path is neither the derived path nor the old default"
+  fi
+  cleanup; ORIGIN=""; WORK=""
+}
+
+# ── AC7: the derivation survives being run from a WORKTREE ───────────────────────────
+# A worktree's own directory is a random codename (`fervent-bell-02b640`), so deriving from
+# `--show-toplevel` would name a clone that does not exist. `--git-common-dir` is what makes
+# this correct, and every consumer dispatch this script serves runs from a worktree.
+test_ac7() {
+  echo ""
+  echo "=== AC7: derivation from a worktree names the MAIN clone, not the codename ==="
+  setup_base_fixture
+  local wt; wt="$(mktemp -d)/codename-9f3a"
+  git -C "$WORK" worktree add -q --detach "$wt" staging
+
+  export STUB_REAL_SHA="$SHA_B"
+  export AIF_AGENT_CONTAINER="aif-test-agent"
+  export AIF_SYNC_HELPER="/nonexistent-sync-helper"
+  unset AIF_CONTAINER_REPO
+  HELPER_OUTPUT="$(cd "$wt" && bash "$HELPER" staging 2>&1)"
+  HELPER_EXIT=$?
+  echo "  exit=$HELPER_EXIT"
+  echo "$HELPER_OUTPUT" | sed 's/^/    /'
+
+  local expect="/home/www/$(basename "$WORK")"
+  if printf '%s' "$HELPER_OUTPUT" | grep -q "repo_path=$expect" \
+     && ! printf '%s' "$HELPER_OUTPUT" | grep -q 'codename-9f3a'; then
+    record_pass "worktree run still named the main clone ($expect)"
+  else
+    record_fail "worktree run did not resolve to the main clone"
+  fi
+  git -C "$WORK" worktree remove --force "$wt" 2>/dev/null || true
+  rm -rf "$(dirname "$wt")" 2>/dev/null || true
+  cleanup; ORIGIN=""; WORK=""
+}
+
+# ── AC8: identity guard — a foreign container clone is refused, and NOTHING is moved ──
+# The dangerous half of the same defect: tip from repo X, path pointing at a clone of repo Y.
+# `git fetch <bundle>` happily imports objects across unrelated histories, so without a guard
+# `branch -f staging <foreign-sha>` lands. The guard proves identity offline — the aif clone
+# has no remote, so «same origin URL» is not askable there — via the root commit two clones of
+# one repository necessarily share.
+#
+# The no-movement half is the load-bearing one: a guard that only warns leaves the cross-repo
+# write reachable, which is the defect rather than a rough edge of it.
+test_ac8() {
+  echo ""
+  echo "=== AC8: identity guard refuses a container clone of a DIFFERENT repository ==="
+  setup_base_fixture
+
+  # A second, unrelated repository standing in for the wrong container clone.
+  local foreign; foreign="$(mktemp -d)"
+  git init -q -b staging "$foreign"
+  git -C "$foreign" config user.email t@t.tt
+  git -C "$foreign" config user.name  t
+  git -C "$foreign" commit -q --allow-empty -m "unrelated root"
+  local foreign_before; foreign_before="$(git -C "$foreign" rev-parse staging)"
+
+  # STUB_REAL_SHA is the host clone's CURRENT staging, so the host-bundle fallback has every
+  # object it needs and nothing incidental can stop the write. An earlier draft used $SHA_B and
+  # the unguarded helper bailed on «host staging stale, no sync helper» — it had already printed
+  # `container staging = … -> … (refresh needed)` about the foreign clone, i.e. the cross-repo
+  # write was REACHED and then missed by accident. A test that leans on that accident proves the
+  # guard nothing.
+  export STUB_REAL_SHA="$SHA_A"
+  export AIF_AGENT_CONTAINER="aif-test-agent"
+  export AIF_SYNC_HELPER="/nonexistent-sync-helper"
+  export AIF_CONTAINER_REPO="$foreign"
+  HELPER_OUTPUT="$(cd "$WORK" && bash "$HELPER" staging 2>&1)"
+  HELPER_EXIT=$?
+  echo "  exit=$HELPER_EXIT"
+  echo "$HELPER_OUTPUT" | sed 's/^/    /'
+
+  local foreign_after; foreign_after="$(git -C "$foreign" rev-parse staging 2>/dev/null || echo none)"
+  echo "  foreign staging: before=${foreign_before:0:7} after=${foreign_after:0:7}"
+
+  if [ "$foreign_after" != "$foreign_before" ]; then
+    record_fail "the foreign clone's staging MOVED (${foreign_before:0:7} -> ${foreign_after:0:7}) — cross-repo write"
+  elif [ "$HELPER_EXIT" -ne 0 ] \
+       && printf '%s' "$HELPER_OUTPUT" | grep -qi "NOT a clone of"; then
+    record_pass "foreign container clone refused, nothing moved"
+  else
+    record_fail "exit=$HELPER_EXIT and no refusal named — guard did not fire"
+  fi
+  rm -rf "$foreign" 2>/dev/null || true
+  cleanup; ORIGIN=""; WORK=""
+}
+
 # ── Main ────────────────────────────────────────────────────────────────────────────
 echo "refresh-aif-base.sh fixture test"
 echo "Helper:    $HELPER"
@@ -293,6 +415,9 @@ test_ac2
 test_ac3
 test_ac4
 test_ac5
+test_ac6
+test_ac7
+test_ac8
 
 echo ""
 echo "================================================================"
