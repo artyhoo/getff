@@ -376,3 +376,170 @@ describe('Principle 21 — shipped-agent tools-frontmatter portability (DN-M1 Op
     ]);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Skills-surface harness-posture census (beta-ai-docs-agnosticism S2, spec C3)
+//
+// WHY this exists — the gap the two arms above do NOT reach: the bash harness arm
+//   runs every probes/*.sh (including the new skills-census.sh) but a probe that
+//   emits ZERO skills rows would pass vacuously (its non-PORTABLE filter has
+//   nothing to reject), and the agents arm walks `agents/*.md`, not
+//   `.claude/skills/`. This arm pins the census to the real tracked population so
+//   CI enforces the skills surface structurally, not just on session runs.
+//
+// WHAT it checks — the declaration grammar lives in the probe header
+//   (tests/agnosticism/probes/skills-census.sh): every git-tracked SKILL.md must
+//   carry `<!-- @harness-posture: <vocab> — <rationale> -->` on its own line, with
+//   vocab ∈ {portable, portable-designed-not-proven, cc-native-with-fallback,
+//   cc-only}; `cc-only` requires a ≥20-non-whitespace-char rationale. The probe
+//   verdicts the DECLARATION's presence/shape only — never live cross-harness
+//   execution (T-BAD-B); `portable-designed-not-proven` is how an unproven skill
+//   stays honestly green-adjacent without faking proof.
+//
+// T16 statement (kickoff §7): upstream problem class = "agents declare tools
+//   mechanically" (the DN-M1 arm above parses `tools:` frontmatter); our problem
+//   class = "skills declare harness posture mechanically". The match is structural
+//   at the census + dynamic-enumeration + pure-parser + paired-negative level; the
+//   declaration form is designed for SKILL.md prose bodies (marker comment, per
+//   dual-implementation-discipline.md §5 markdown convention), NOT ported from
+//   agent frontmatter parsing.
+//
+// Population is enumerated DYNAMICALLY on both sides (git ls-files here, the same
+//   in the probe) — no skill name or count literal exists (T-BADC-S2-A census-that-
+//   freezes guard; kickoff §4.5 falsifier).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** The ONLY allowed harness-posture vocabulary values (mirrors the probe header grammar). */
+export const HARNESS_POSTURE_VOCAB: ReadonlySet<string> = new Set([
+  'portable',
+  'portable-designed-not-proven',
+  'cc-native-with-fallback',
+  'cc-only',
+]);
+
+export interface PostureDeclaration {
+  /** repo-relative path, e.g. ".claude/skills/arch/SKILL.md" */
+  file: string;
+  /** the vocabulary token, or null when no declaration line exists */
+  vocab: string | null;
+  /** everything after the vocab token (em-dash separator stripped), trimmed of the closing `-->` */
+  rationale: string;
+}
+
+export type PostureViolation = { file: string; reason: string };
+
+/**
+ * Pure parser for the `<!-- @harness-posture: ... -->` declaration — mirrors
+ * skills-census.sh exactly (anchored line-start marker; first whitespace-delimited
+ * token after the colon is the vocab; cc-only rationale ≥20 non-ws chars).
+ * Returns the FIRST declaration line found (probe: grep -m1).
+ */
+export function parseHarnessPosture(fileContent: string, file = '<synthetic>'): PostureDeclaration {
+  const line = fileContent.split('\n').find((l) => /^<!--[ \t]*@harness-posture:/.test(l));
+  if (!line) return { file, vocab: null, rationale: '' };
+  const rest = line.replace(/^<!--[ \t]*@harness-posture:[ \t]*/, '').replace(/[ \t]*-->[ \t]*$/, '');
+  const vocab = rest.split(/[ \t]/)[0] ?? '';
+  const rationale = rest
+    .slice(vocab.length)
+    .replace(/^[ \t]+/, '')
+    .replace(/^—[ \t]*/, '');
+  return { file, vocab, rationale };
+}
+
+/**
+ * The gate: a violation when the declaration is missing, the vocab is outside the
+ * allowed set, or a cc-only declaration carries a <20-char rationale. Pure →
+ * unit-testable with the synthetic paired-negatives below (principle 02).
+ */
+export function postureViolations(d: PostureDeclaration): PostureViolation[] {
+  if (d.vocab === null) return [{ file: d.file, reason: 'no @harness-posture declaration' }];
+  if (!HARNESS_POSTURE_VOCAB.has(d.vocab))
+    return [{ file: d.file, reason: `posture '${d.vocab}' outside allowed vocabulary` }];
+  if (d.vocab === 'cc-only' && d.rationale.replace(/\s/g, '').length < 20)
+    return [{ file: d.file, reason: 'cc-only rationale too short (<20 chars)' }];
+  return [];
+}
+
+describe('Principle 21 — skills-surface harness-posture census (beta S2, spec C3)', () => {
+  const SKILLS_TSV = (tsv: string): string[] =>
+    tsv
+      .split('\n')
+      .filter((line) => line.trim() !== '')
+      .slice(1)
+      .filter((line) => line.split('\t')[0] === 'skills-census');
+
+  it('census rows cover the full dynamic tracked-skills population (non-vacuity, T10)', () => {
+    const tsv = runHarnessOnce();
+    const tracked = execSync(`git -C "${REPO_ROOT}" ls-files '.claude/skills/*/SKILL.md'`, {
+      encoding: 'utf8',
+    })
+      .split('\n')
+      .filter((l) => l.trim() !== '');
+    const rows = SKILLS_TSV(tsv);
+    expect(
+      rows.length,
+      `expected a census row per tracked SKILL.md (${tracked.length}); got ${rows.length} — ` +
+        `a zero-row census passes the harness-wide PORTABLE filter vacuously`,
+    ).toBeGreaterThanOrEqual(tracked.length);
+    expect(tracked.length, 'expected ≥10 tracked skills — guards a vacuous population').toBeGreaterThanOrEqual(10);
+  });
+
+  it('every skills-census row is PORTABLE (census verdict, skills-specific message)', () => {
+    const tsv = runHarnessOnce();
+    const rows = SKILLS_TSV(tsv);
+    const nonPortable = rows.filter((line) => line.split('\t').pop()?.trim() !== 'PORTABLE');
+    expect(
+      nonPortable,
+      `skills harness-posture census has non-PORTABLE rows — add/fix the ` +
+        `<!-- @harness-posture: ... --> declaration (grammar: probes/skills-census.sh header):\n` +
+        nonPortable.join('\n'),
+    ).toEqual([]);
+  });
+
+  it('paired-negative: a missing declaration is a violation', () => {
+    expect(postureViolations(parseHarnessPosture('# no marker here', 'x/SKILL.md'))).toEqual([
+      { file: 'x/SKILL.md', reason: 'no @harness-posture declaration' },
+    ]);
+  });
+
+  it('paired-negative: every vocabulary value parses', () => {
+    for (const v of HARNESS_POSTURE_VOCAB) {
+      const d = parseHarnessPosture(`<!-- @harness-posture: ${v} — basis stated here -->`);
+      expect(d.vocab).toBe(v);
+      expect(postureViolations(v === 'cc-only'
+        ? parseHarnessPosture(`<!-- @harness-posture: ${v} — deliberate choice with a long-enough rationale -->`)
+        : d,
+      )).toEqual([]);
+    }
+  });
+
+  it('paired-negative: an invalid vocabulary value is a violation', () => {
+    const d = parseHarnessPosture('<!-- @harness-posture: works-everywhere — invented vocab -->');
+    expect(postureViolations(d)).toEqual([
+      { file: '<synthetic>', reason: "posture 'works-everywhere' outside allowed vocabulary" },
+    ]);
+  });
+
+  it('paired-negative: a cc-only rationale under 20 chars is a violation', () => {
+    const d = parseHarnessPosture('<!-- @harness-posture: cc-only — later -->');
+    expect(postureViolations(d)).toEqual([
+      { file: '<synthetic>', reason: 'cc-only rationale too short (<20 chars)' },
+    ]);
+  });
+
+  it('paired-negative: a valid declaration is clean (no false-positive)', () => {
+    const d = parseHarnessPosture(
+      '<!-- @harness-posture: cc-native-with-fallback — degradations documented: no subagents → serial fallback -->',
+    );
+    expect(d.vocab).toBe('cc-native-with-fallback');
+    expect(postureViolations(d)).toEqual([]);
+  });
+
+  it('paired-negative: prose mentioning the marker mid-sentence does NOT parse as a declaration', () => {
+    // Anchored line-start discipline (same as the probe's grep -E '^<!--'): a mention
+    // inside prose or a blockquote must not satisfy the census.
+    const d = parseHarnessPosture('> see the <!-- @harness-posture: portable --> convention');
+    expect(d.vocab).toBeNull();
+    expect(postureViolations(d)).toHaveLength(1);
+  });
+});

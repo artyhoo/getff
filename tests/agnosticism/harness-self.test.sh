@@ -213,4 +213,40 @@ for s in ok-capability ok-paths ok-comment; do
 done
 rm -rf "$BDROOT"
 
+# ── ANTI-THEATRE (beta-ai-docs-agnosticism S2, spec C3): skills-census probe must FLAG a
+# seeded missing/invalid harness-posture declaration AND pass a valid one. Without this
+# negative, the probe could silently rot into an always-PORTABLE no-op and principle 21's
+# census arm would stay green (the T2 "harness is theatre" gap — same shape the
+# channel-coverage seed above guards for Surface 8). RED is observed before GREEN: the
+# broken/invalid seeds assert non-PORTABLE verdicts; only the valid seed asserts PORTABLE.
+SKROOT=$(mktemp -d)
+mkdir -p "$SKROOT/tests/agnosticism/probes"
+cp "$REPO_ROOT/tests/agnosticism/_cc-absent-lib.sh" "$SKROOT/tests/agnosticism/"
+cp "$REPO_ROOT/tests/agnosticism/probes/skills-census.sh" "$SKROOT/tests/agnosticism/probes/"
+for s in seed-broken seed-invalid seed-valid seed-shortcc; do mkdir -p "$SKROOT/.claude/skills/$s"; done
+printf -- '---\nname: seed-broken\ndescription: seeded markerless skill\n---\n# body\n' \
+  > "$SKROOT/.claude/skills/seed-broken/SKILL.md"
+printf -- '---\nname: seed-invalid\ndescription: seeded invalid vocab\n---\n<!-- @harness-posture: works-everywhere — invented vocab -->\n# body\n' \
+  > "$SKROOT/.claude/skills/seed-invalid/SKILL.md"
+printf -- '---\nname: seed-valid\ndescription: seeded valid skill\n---\n<!-- @harness-posture: portable — seeded paired-negative basis -->\n# body\n' \
+  > "$SKROOT/.claude/skills/seed-valid/SKILL.md"
+printf -- '---\nname: seed-shortcc\ndescription: seeded short cc-only rationale\n---\n<!-- @harness-posture: cc-only — todo -->\n# body\n' \
+  > "$SKROOT/.claude/skills/seed-shortcc/SKILL.md"
+# The probe population comes from `git ls-files`, so the seed must be a git repo with skills staged.
+( unset GIT_DIR GIT_COMMON_DIR GIT_WORK_TREE; cd "$SKROOT" && git init -q && git add -A ) >/dev/null 2>&1
+sk_out=$(RECORD_FILE=/dev/stdout bash "$SKROOT/tests/agnosticism/probes/skills-census.sh")
+echo "$sk_out" | grep -q 'seed-broken/SKILL\.md.*NO-HARNESS-POSTURE' \
+  && ok "skills-census flags a markerless skill (NO-HARNESS-POSTURE)" \
+  || bad "skills-census MISSED a markerless skill — census probe is blind"
+echo "$sk_out" | grep -q 'seed-invalid.*INVALID-HARNESS-POSTURE' \
+  && ok "skills-census flags an out-of-vocab posture (INVALID-HARNESS-POSTURE)" \
+  || bad "skills-census MISSED an invalid vocab value — vocabulary gate is blind"
+echo "$sk_out" | grep -q 'seed-shortcc.*INVALID-HARNESS-POSTURE' \
+  && ok "skills-census flags a short cc-only rationale (INVALID-HARNESS-POSTURE)" \
+  || bad "skills-census MISSED a short cc-only rationale — rationale gate is blind"
+echo "$sk_out" | grep -q 'seed-valid.*PORTABLE' \
+  && ok "skills-census passes a validly-declared skill" \
+  || bad "skills-census wrongly flagged a properly-declared skill"
+rm -rf "$SKROOT"
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
