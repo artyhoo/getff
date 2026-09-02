@@ -126,7 +126,7 @@ probe`](../../../CLAUDE.md)).
 ```bash
 # Framework repo:
 tsx packages/runtime-bridge/src/cli/dispatch.ts \
-  .claude/orchestrator-prompts/<umbrella>/kickoff.md
+  .claude/orchestrator-prompts/<umbrella>/kickoff.md # orch-home: allow framework-only packages/ tree — the consumer twin for .ai-factory installs sits on the adjacent line
 
 # Consumer install — the CLI arrives via the vendor drop, and kickoffs live under
 # .ai-factory/ (setup.d/30-templates.sh:17), not .claude/. The `packages/` path above
@@ -352,7 +352,14 @@ On ADVANCE → dispatch that stage kickoff → back to §2.1. If no remaining st
 Write `done.md` schema (`# <umbrella> — DONE` / `- Final PR: #<num>` / `- Closed: <YYYY-MM-DD>` / `- Summary: <one-line>`) and CANON sync:
 
 ```bash
-cp .claude/orchestrator-prompts/<umbrella>/done.md \
+# Resolve the orch home by layout — consumers keep kickoffs under .ai-factory/
+# (setup.d/30-templates.sh:17), the framework under .claude/ (issue 1414).
+if [ -d .claude/orchestrator-prompts ]; then  # orch-home: allow this literal is the resolver's own -d layout probe, not a hardcoded read
+  ORCH_HOME=.claude/orchestrator-prompts      # orch-home: allow framework leg of the layout probe; the consumer .ai-factory home is the else leg
+else
+  ORCH_HOME=.ai-factory/orchestrator-prompts
+fi
+cp "$ORCH_HOME/<umbrella>/done.md" \
    ~/.claude-coordination/<repo-slug>/<umbrella>/done.md
 ```
 
