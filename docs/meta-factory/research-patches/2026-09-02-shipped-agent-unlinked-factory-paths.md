@@ -174,6 +174,22 @@ agent cannot fetch) is untouched by the link form. `living-docs-auditor` is twin
 single hit is in YAML frontmatter and §4 P1 proposes REMOVAL, not a link — the constraint never
 blocked it.
 
+**Option (iii) landed too, 2026-09-02 — deliberately, not as a fallback.** Option (i) removed the
+_punishment_ for depth-breaking links; it did not remove the _constraint_, and nothing on disk
+stated the constraint existed. The next author to add a `](../…)` link to a twinned agent would
+now get a green gate and a dangling link — the failure mode this project exists to prevent. So the
+constraint is now written where that author is standing: the header of
+`scripts/generate-plugin-twins.sh`, next to the population-(2) byte-identity paragraph it follows
+from. Two facts measured while writing it, both worth carrying: (1) the class is now live rather
+than hypothetical — `agents/compliance-verifier.md` carries 3 relative links and all 3 dangle in
+`plugin/agents/compliance-verifier.md`, an artefact THIS umbrella created in the (i) fix; (2) the
+twin population is not covered by `setup.d/20-agents.sh`'s `transform_internal_refs` (that arm
+walks `agents/` only) and `plugin/` ships no `.claude/` tree, so a twin's relative link reaches
+plugin-marketplace consumers verbatim and broken. Note what (iii) is NOT: prose is not a mechanism
+([`attention-is-not-a-mechanism.md §1`](../../../.claude/rules/attention-is-not-a-mechanism.md)),
+and the only gate that could see this was the one (i) removed on purpose. This is a documented
+uncovered surface, not a closed one — the honest promotion trigger is the first real incident.
+
 ## §4 Class (c) — patch PROPOSALS (maintainer-owned; zero edits made)
 
 Both targets are framework-maintainer-owned per the Artifact Ownership Contract. Nothing below
