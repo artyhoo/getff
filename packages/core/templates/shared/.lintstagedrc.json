@@ -1,6 +1,12 @@
 {
-  "*.{ts,tsx}": ["prettier --write", "eslint --fix --max-warnings=0 --no-warn-ignored"],
-  "*.{js,mjs,cjs,jsx}": ["prettier --write", "eslint --fix --max-warnings=0 --no-warn-ignored"],
+  "*.{ts,tsx}": [
+    "prettier --write",
+    "eslint --fix --max-warnings=0 --no-warn-ignored"
+  ],
+  "*.{js,mjs,cjs,jsx}": [
+    "prettier --write",
+    "eslint --fix --max-warnings=0 --no-warn-ignored"
+  ],
   "*.{json,md,yml,yaml}": ["prettier --write"],
   "package.json": ["sort-package-json"]
 }

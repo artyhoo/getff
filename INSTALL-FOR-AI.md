@@ -344,6 +344,7 @@ project/
 │                                        and re-run install (⚠ note at install time says so)
 ├── stryker.config.json                ← mutation testing
 ├── .dependency-cruiser.cjs            ← architectural rules
+├── .gitignore                         ← seed (node_modules/, dist/, coverage/, …); skipped when your own exists
 ├── .lintstagedrc.json                 ← pre-commit formatter
 ├── playwright.config.ts               ← only for react-next
 ├── .husky/

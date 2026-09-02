@@ -19,7 +19,6 @@ REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 INSTALL="$REPO_ROOT/install.sh"
 GITIGNORE_TPL="$REPO_ROOT/packages/core/templates/shared/gitignore"
 LINTSTAGED_TPL="$REPO_ROOT/packages/core/templates/shared/.lintstagedrc.json"
-TSCONFIG_TPL="$REPO_ROOT/packages/core/templates/shared/tsconfig.json"
 SETUP_TS_SERVER="$REPO_ROOT/templates/ts-server/tests-setup.ts"
 SETUP_REACT_SPA="$REPO_ROOT/packages/preset-react-spa/templates/tests-setup.ts"
 SETUP_NEXT15="$REPO_ROOT/packages/preset-next-15-canonical/templates/tests-setup.ts"
@@ -33,7 +32,24 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 SCRATCH=$(mktemp -d)
 trap 'rm -rf "$SCRATCH"' EXIT
 
-md5_of() { md5sum "$1" 2>/dev/null | awk '{print $1}'; }
+# md5_of <file> — first available hasher's digest; hard-fails when NO hasher
+# exists (a vacuous "" = "" comparison would silently pass every byte-identity
+# arm, T15). Falls back for hosts without coreutils md5sum (e.g. macOS).
+md5_of() {
+  local h=""
+  if command -v md5sum >/dev/null 2>&1; then
+    h=$(md5sum "$1" 2>/dev/null | awk '{print $1}')
+  elif command -v shasum >/dev/null 2>&1; then
+    h=$(shasum -a 256 "$1" 2>/dev/null | awk '{print $1}')
+  elif command -v sha256sum >/dev/null 2>&1; then
+    h=$(sha256sum "$1" 2>/dev/null | awk '{print $1}')
+  fi
+  if [ -z "$h" ]; then
+    echo "  ✗ md5_of: no hasher available (md5sum/shasum/sha256sum)" >&2
+    exit 1
+  fi
+  printf '%s\n' "$h"
+}
 
 # run_install <stack> <fixture> — prints combined output; caller reads exit via $?
 run_install() {
@@ -107,7 +123,7 @@ fi
 for stack in ts-server react-next react-spa; do
   FC="$SCRATCH/arm-c-$stack"
   seed_fixture "$FC"
-  out_c=$(run_install "$stack" "$FC"); rc_c=$?
+  run_install "$stack" "$FC" >/dev/null 2>&1; rc_c=$?
   case "$stack" in
     ts-server)  src="$SETUP_TS_SERVER"  marker="Vitest setup hook" ;;
     react-next) src="$SETUP_NEXT15"     marker="jest-dom/vitest" ;;
@@ -131,7 +147,7 @@ seed_fixture "$FCOWN"
 mkdir -p "$FCOWN/tests"
 printf '// my own setup\n' > "$FCOWN/tests/setup.ts"
 own_setup_md5=$(md5_of "$FCOWN/tests/setup.ts")
-out_cown=$(run_install ts-server "$FCOWN"); rc_cown=$?
+run_install ts-server "$FCOWN" >/dev/null 2>&1; rc_cown=$?
 if [ "$rc_cown" -eq 0 ] && [ "$(md5_of "$FCOWN/tests/setup.ts")" = "$own_setup_md5" ]; then
   ok "arm-c (own): pre-existing consumer tests/setup.ts byte-identical post-install"
 else
@@ -141,7 +157,7 @@ fi
 # ── Arm (d): delivered .lintstagedrc.json carries --no-warn-ignored on BOTH eslint lines ─
 FD="$SCRATCH/arm-d"
 seed_fixture "$FD"
-out_d=$(run_install ts-server "$FD"); rc_d=$?
+run_install ts-server "$FD" >/dev/null 2>&1; rc_d=$?
 if [ "$rc_d" -eq 0 ] \
    && [ "$(grep -c -- '--max-warnings=0 --no-warn-ignored' "$FD/.lintstagedrc.json")" -eq 2 ]; then
   ok "arm-d: delivered .lintstagedrc.json has --no-warn-ignored on both eslint lines (issue 1529)"
@@ -222,7 +238,7 @@ seed_fixture "$FG"
 mkdir -p "$FG/packages/app"
 printf '{ "name": "app", "version": "0.0.0", "private": true }\n' > "$FG/packages/app/package.json"
 printf 'packages:\n  - "packages/*"\n' > "$FG/pnpm-workspace.yaml"
-out_g=$(run_install ts-server "$FG"); rc_g=$?
+run_install ts-server "$FG" >/dev/null 2>&1; rc_g=$?
 if [ "$rc_g" -eq 0 ] \
    && [ "$(grep -c -- '--max-warnings=0 --no-warn-ignored' "$FG/packages/app/.lintstagedrc.json")" -eq 2 ]; then
   ok "arm-g: per-package stub carries --no-warn-ignored on both eslint lines (propagation)"
