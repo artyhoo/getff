@@ -3,6 +3,8 @@ name: reviewer
 description: Use when the operator or an orchestrator asks for an interactive review with a verdict — «проверь», «ревью», «вердикт», «это правильно?», «оцени результат», «phase N закрыт», review, second opinion, independent review, verify deliverable, "is this correct?" — and the deliverable is a GO/REVISE/STOP verdict or a verified answer, not code. NOT for implementing fixes or writing tests (orchestrator work), and NOT for the cold PR-boundary protocols (agents/fidelity-auditor.md, agents/review-sidecar.md — those are dispatched, not interactive).
 ---
 
+<!-- @harness-posture: portable — prose review protocol over file reads + git; the ~/.claude command mention (SKILL.md:75) is an operator invocation convenience, not a runtime dependency -->
+
 > **Authoritative for:** /reviewer skill — the interactive review-session choreography: modes, economy defaults, verdict output shape.
 > **NOT authoritative for:** reviewer ROLE discipline (role separation, never-decide-strategy) and the severity contract + ESCALATED grammar — [.claude/rules/reviewer-discipline.md](../../rules/reviewer-discipline.md) (§6 is the operating SSOT), which this skill layers over, never re-describes. Cold PR-boundary audits — [agents/fidelity-auditor.md](../../../agents/fidelity-auditor.md), [agents/review-sidecar.md](../../../agents/review-sidecar.md). Seat lifecycle — NOT applicable: the interactive reviewer is not a registry role (exactly three roles, [seat-lifecycle.md §1](../../rules/seat-lifecycle.md)); review seats are checkpoints, never execution owners ([advisor-pattern design §5](../../../docs/superpowers/specs/2026-08-10-advisor-pattern-design.md)). Project goal — [README.md#why-this-exists](../../../README.md#why-this-exists).
 

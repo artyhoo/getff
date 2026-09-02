@@ -1236,6 +1236,19 @@ generate_eslint_barrel() {
         _valid_basenames="$_valid_basenames $(basename "$_vf" .ts) "
       done
     done
+    # issue 1481 criterion, computed BEFORE the prune so the prune can reuse it (issue 1519):
+    # a rule basename is FRAMEWORK-ATTRIBUTABLE iff it exists as a rule .ts in at least one
+    # framework rules dir (core + all presets, across ALL stacks, not just the current
+    # $STACK). Absent from every framework dir → consumer-owned → never pruned.
+    _fw_basenames=" "
+    for _fw_dir in "$PKG_ROOT"/packages/core/eslint-rules "$PKG_ROOT"/packages/*/eslint-rules; do
+      [ -d "$_fw_dir" ] || continue
+      for _fw_f in "$_fw_dir"/*.ts; do
+        [ -e "$_fw_f" ] || continue
+        case "$_fw_f" in *.test.ts|*.d.ts|*/index.ts) continue ;; esac
+        _fw_basenames="$_fw_basenames $(basename "$_fw_f" .ts) "
+      done
+    done
     for _ef in "$PROJECT_ROOT"/eslint-rules-local/*.ts; do
       [ -e "$_ef" ] || continue
       case "$_ef" in *.d.ts) continue ;; esac
@@ -1243,10 +1256,17 @@ generate_eslint_barrel() {
       case "$_valid_basenames" in
         *" $_eb "*) ;;  # valid for this stack — keep
         *)
-          rm -f "$PROJECT_ROOT/eslint-rules-local/$_eb.ts" \
-                "$PROJECT_ROOT/eslint-rules-local/$_eb.mjs" \
-                "$PROJECT_ROOT/eslint-rules-local/$_eb.d.ts"
-          echo "  · pruned stale rule [$_eb] — not part of the $STACK stack"
+          # issue 1519: prune ONLY framework-attributable strays (#882 unchanged). A
+          # basename absent from EVERY framework rules dir is consumer-owned (issue 1481
+          # criterion) — its files are the consumer's own work and stay untouched, silently.
+          case "$_fw_basenames" in
+            *" $_eb "*)
+              rm -f "$PROJECT_ROOT/eslint-rules-local/$_eb.ts" \
+                    "$PROJECT_ROOT/eslint-rules-local/$_eb.mjs" \
+                    "$PROJECT_ROOT/eslint-rules-local/$_eb.d.ts"
+              echo "  · pruned stale rule [$_eb] — not part of the $STACK stack"
+              ;;
+          esac
           ;;
       esac
     done
@@ -1262,15 +1282,7 @@ generate_eslint_barrel() {
     # An entry whose module is missing on disk after the prune above is dropped (dead import),
     # not preserved — a barrel entry pointing at a missing module kills ALL rules on config load.
     # With zero consumer entries the generated barrel is byte-identical to the pre-1481 output.
-    _fw_basenames=" "
-    for _fw_dir in "$PKG_ROOT"/packages/core/eslint-rules "$PKG_ROOT"/packages/*/eslint-rules; do
-      [ -d "$_fw_dir" ] || continue
-      for _fw_f in "$_fw_dir"/*.ts; do
-        [ -e "$_fw_f" ] || continue
-        case "$_fw_f" in *.test.ts|*.d.ts|*/index.ts) continue ;; esac
-        _fw_basenames="$_fw_basenames $(basename "$_fw_f" .ts) "
-      done
-    done
+    # ($_fw_basenames is computed ABOVE the prune loop — issue 1519 — and reused here.)
     _kept_pairs=""
     _kept_names=" "
     if [ -f "$_barrel" ]; then
@@ -1282,6 +1294,13 @@ generate_eslint_barrel() {
         _kc="${_cb#* }"; _cb="${_cb%% *}"
         case "$_kept_names" in *" $_cb "*) continue ;; esac        # already kept — first entry wins
         case "$_fw_basenames" in *" $_cb "*) continue ;; esac     # framework rule — regenerated below
+        # issue 1519 RP-1b: a basename with a .ts on disk gets the CANONICAL entry from the
+        # generation loops below — keeping the hand-added entry here too would emit a
+        # duplicate import binding → hard ESM SyntaxError → the barrel fails to load and
+        # EVERY rule dies. The 1481 preservation mechanism exists for entries generation
+        # CANNOT see (the .mjs-only no-tsc consumer); an entry generation already covers is
+        # redundant by construction.
+        [ -f "$PROJECT_ROOT/eslint-rules-local/$_cb.ts" ] && continue
         [ -f "$PROJECT_ROOT/eslint-rules-local/$_cb.mjs" ] || continue  # dead import — drop
         _kept_names="$_kept_names$_cb "
         _kept_pairs="$_kept_pairs$_cb $_kc
