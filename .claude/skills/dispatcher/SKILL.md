@@ -83,6 +83,7 @@ signals by hand, and do NOT substitute a subset. Proven by
 | 5 `task-done-unharvested` | **aif API × PRs** | finished tasks whose branch carries no PR                                   |
 | 6 `claim`                 | **aif API**       | a paused, unfinished task under this slug — a lane taken, work not started  |
 
+Signal 4 derives the container checkout from the aif PROJECT record (`kickoff-l3.decisions.md#decision-1`: `GET /projects` → the record whose `.id` == `RUNTIME_BRIDGE_AIF_PROJECT_ID` → `rootPath`), overridable with `AIF_REPO_PATH`; an unaskable container names its cause on the signal line (`reason=…`), never `status=ok` from a different repository.
 Signals 1-3 are the original guard, and **all three are origin/host-scoped** — which is why
 they missed `feature/beta-delivery-ux-995e9c` (2026-08-08T21:22Z): run 3 had finished inside
 the container an hour earlier, invisible to every one of them, and the umbrella was dispatched
