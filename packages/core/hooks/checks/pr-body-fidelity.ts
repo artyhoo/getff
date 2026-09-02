@@ -11,7 +11,10 @@
  *     appended `skipped` must not neutralise a recorded REVISE, and an appended GO
  *     must not be shadowed by the round-1 REVISE above it);
  *   - HTML comments are stripped before parsing: a section that renders empty on
- *     GitHub must not pass on the strength of commented-out template text;
+ *     GitHub must not pass on the strength of commented-out template text. The
+ *     stripping is markdown-aware (utils/markdown-comments.ts) — a raw regex over the
+ *     body cannot tell a comment from a `<!--` quoted inside code, and ate this very
+ *     gate's own section on PR #1575;
  *   - the file:line evidence must come from a line other than `Basis:` (a
  *     `Basis: spec.md:12` path would otherwise satisfy the evidence requirement
  *     vacuously), and from inside the section: ANY heading closes it, so evidence
@@ -33,6 +36,8 @@
  *     must carry a `Failure-scenario:` line inside the entry. Summary counts
  *     ("0 BLOCKER / 2 MAJOR") do not open an entry; ESCALATED/MINOR entries are exempt.
  */
+import { stripHtmlComments } from '../utils/markdown-comments.ts';
+
 export interface FidelityCheckInput { body: string; headSha: string; }
 export interface FidelityCheckResult { ok: boolean; errors: string[]; }
 
@@ -70,10 +75,6 @@ const FINDING_COUNT_RE = /^(?:[-*][ \t]+)?\**\[?(?:BLOCKER|MAJOR)\]?\**:?[ \t]*\
 const FINDING_ENTRY_END_RE = /^(?:[-*][ \t]|#{1,6}[ \t])/;
 const FAILURE_SCENARIO_RE = /Failure-scenario:/;
 
-/** Strip HTML comments so commented-out template text never satisfies the gate. */
-function stripComments(text: string): string {
-  return text.replace(/<!--[\s\S]*?-->/g, '');
-}
 
 interface SectionResult { section: string | null; error?: string; }
 
@@ -147,7 +148,7 @@ function reviewFindingsErrors(lines: string[]): string[] {
 }
 
 function extractSection(body: string): SectionResult {
-  const lines = stripComments(body).split(/\r?\n/);
+  const lines = stripHtmlComments(body).split(/\r?\n/);
   const starts = lines.reduce<number[]>((acc, l, i) => (HEADING_RE.test(l) ? [...acc, i] : acc), []);
   if (starts.length === 0) {
     return { section: null, error: 'missing `## Fidelity verdict` section (see spec D3; agents/fidelity-auditor.md)' };
@@ -173,7 +174,7 @@ function hasEvidence(section: string): boolean {
 
 export function checkPrBodyFidelity({ body, headSha }: FidelityCheckInput): FidelityCheckResult {
   const errors: string[] = [];
-  errors.push(...reviewFindingsErrors(stripComments(body).split(/\r?\n/)));
+  errors.push(...reviewFindingsErrors(stripHtmlComments(body).split(/\r?\n/)));
   const { section, error } = extractSection(body);
   if (section === null) return { ok: false, errors: [error as string] };
 
@@ -192,7 +193,7 @@ export function checkPrBodyFidelity({ body, headSha }: FidelityCheckInput): Fide
   }
   const skipped = section.match(SKIPPED_RE);
   if (skipped) {
-    if (declaresProvenance(stripComments(body).split(/\r?\n/))) {
+    if (declaresProvenance(stripHtmlComments(body).split(/\r?\n/))) {
       return {
         ok: false,
         errors: ['`FIDELITY: skipped` is not available to a stage PR — this PR\'s `## Provenance` section declares a substrate, so it must carry a real verdict from agents/fidelity-auditor.md'],

@@ -311,3 +311,30 @@ describe('collectArchaeology — range walk over an injected git', () => {
     expect(collectArchaeology(g, 'BASE', 'HEAD')).toEqual({ mergeBase: null, files: [] });
   });
 });
+
+/**
+ * Same defect, same day, sibling copy (pr-body-fidelity.ts:74 / pr-stale-revert.ts:114).
+ * A body that DOCUMENTS an HTML-comment marker inside code used to lose every line
+ * between that `<!--` and the next real `-->` — including the escape token itself,
+ * so the author was told to add a token they had added.
+ */
+describe('parseStaleRevertToken — comment stripping is markdown-aware', () => {
+  const token = 'STALE-REVERT: intended — restoring the kickoff rev 2 dropped by #1285';
+  const withCode = (codeSpan: string) =>
+    `${codeSpan}\n\n${token}\n\n<!-- template footer, safe to delete -->\n`;
+
+  it('an unbalanced `<!--` inside an INLINE code span does not swallow the token', () => {
+    const t = parseStaleRevertToken(withCode('The shipped line is `a/** --> <!-- inject: X` verbatim.'));
+    expect(t.valid).toBe(true);
+  });
+
+  it('an unbalanced `<!--` inside a FENCED block does not swallow the token', () => {
+    const t = parseStaleRevertToken(withCode('```\na/** --> <!-- inject: X\n```'));
+    expect(t.valid).toBe(true);
+  });
+
+  it('CONTROL: a commented-out token inside a fence stays ignored (no widening)', () => {
+    const t = parseStaleRevertToken(`\`\`\`\n<!--\n${token}\n-->\n\`\`\`\n`);
+    expect(t.present).toBe(false);
+  });
+});

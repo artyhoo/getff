@@ -280,3 +280,50 @@ describe('checkPrBodyFidelity — sidecar count lines are not findings', () => {
     expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(false);
   });
 });
+
+/**
+ * Incident 2026-09-02 (PR #1575, this gate applied to a PR about marker syntax).
+ * The stripper ran a raw `/<!--[\s\S]*?-->/g` over the whole body, so a `<!--`
+ * written INSIDE code — where GitHub renders it as literal text, not a comment —
+ * opened a region that closed on the next real `-->` thousands of characters
+ * later, eating the `## Fidelity verdict` heading. The gate then reported a
+ * missing section for a section that was plainly present: fail-closed, but with
+ * the wrong diagnosis, and unavoidable for any PR that documents marker syntax.
+ */
+describe('checkPrBodyFidelity — comment stripping is markdown-aware', () => {
+  const verdict = 'FIDELITY: skipped — docs-only change, no kickoff substrate applies';
+  /** A body whose prose carries `codeSpan` before a legitimate trailing comment. */
+  const withCode = (codeSpan: string) =>
+    `## Summary\n\n${codeSpan}\n\n## Fidelity verdict\n\n${verdict}\n\n<!-- template footer, safe to delete -->\n`;
+
+  it('an unbalanced `<!--` inside an INLINE code span does not swallow the section', () => {
+    const body = withCode('The shipped line is `a/** --> <!-- inject: X` verbatim.');
+    expect(checkPrBodyFidelity({ body, headSha: HEAD })).toEqual({ ok: true, errors: [] });
+  });
+
+  it('an unbalanced `<!--` inside a FENCED block does not swallow the section', () => {
+    const body = withCode('```\na/** --> <!-- inject: X\n```');
+    expect(checkPrBodyFidelity({ body, headSha: HEAD })).toEqual({ ok: true, errors: [] });
+  });
+
+  it('CONTROL: a commented-out verdict is still ignored (the original invariant)', () => {
+    const body = wrap(`<!--\n${verdict}\n-->`);
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).errors.join()).toMatch(/no `FIDELITY: GO`/);
+  });
+
+  it('CONTROL: a commented-out verdict inside a fence is still ignored (no widening)', () => {
+    const body = wrap(`\`\`\`\n<!--\n${verdict}\n-->\n\`\`\``);
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).errors.join()).toMatch(/no `FIDELITY: GO`/);
+  });
+
+  it('an unterminated `<!--` in PROSE hides the rest of the body, as GitHub renders it', () => {
+    // CommonMark HTML block type 2 has no end condition but a line containing
+    // `-->`; without one the block runs to end of document, so everything below
+    // is invisible on GitHub. The gate must agree with the render, not with a
+    // regex that finds no match and therefore strips nothing.
+    const body = `## Summary\n\n<!-- oops, never closed\n\n## Fidelity verdict\n\n${verdict}\n`;
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).errors.join()).toMatch(
+      /missing `## Fidelity verdict` section/,
+    );
+  });
+});
