@@ -1,4 +1,4 @@
-<!-- scope: stage kickoff — beta-docs-showcase BS0 (Fumadocs prototype, STOP-gate), LEG A only. Dispatch input for ONE buildable task in `artyhoo/getff-landing` through aif project `361685f1-6fe0-407d-a492-ebcfa259407f`. The umbrella plan lives in ../beta-docs-showcase/kickoff.md + ../beta-docs-showcase-meta-launch/kickoff.md and is NOT this file's scope. Filename `kickoff-b0.md` = umbrella B, stage 0 (the design's «BS0»): the `kickoff-<letter><digit>` shape is what places it in the stage-kickoff family principle 12's citation gate resolves; `kickoff-bs0.md` would fall outside that family and be silently skipped. NO `<!-- bridge-profile: -->` marker on purpose — see §6. -->
+<!-- scope: stage kickoff — beta-docs-showcase BS0 (Fumadocs prototype, STOP-gate), LEG A only. Dispatch input for ONE buildable task in `artyhoo/getff-landing` through aif project `361685f1-6fe0-407d-a492-ebcfa259407f`. The umbrella plan lives in ../beta-docs-showcase/kickoff.md + ../beta-docs-showcase-meta-launch/kickoff.md and is NOT this file's scope. Filename `kickoff-b0.md` = umbrella B, stage 0 (the design's «BS0»): the `kickoff-<letter><digit>` shape is what places it in the stage-kickoff family principle 12's citation gate resolves; `kickoff-bs0.md` would fall outside that family and be silently skipped. No runtime-profile marker is attached, on purpose — see §6. (The literal marker token is deliberately NOT spelled here: `extractProfileHint` scans this header region with a lazy regex, so a kickoff that merely NAMES the token in its header gets a garbage profile hint extracted and the dispatch falls back to ManualBackend — measured 2026-09-02.) -->
 
 # beta-docs-showcase BS0 — Fumadocs prototype, leg A (build + in-container gate)
 
@@ -87,7 +87,12 @@ configured» — it is **a query for a phrase that exists only in the ported pag
 
 - `/llms.txt` and `/llms-full.txt`, both **non-empty** and both generated from the page set (not
   hand-typed placeholders).
-- `/docs/<slug>.md` — the raw-Markdown twin of each docs page, as a real file in the export.
+- `/docs/<slug>.md` — the raw-Markdown twin of each docs page, as a **real file in the export**.
+  Measure this one rather than assuming it: the mechanism Fumadocs documents for per-page
+  Markdown is a `next.config` `rewrites()` mapping, and **`rewrites()` has no static
+  equivalent** — a Pages host has no rewrite layer, so a build that relies on it yields a 404
+  at the gate with nothing in `out/`. Emit the file physically from the same source the
+  llms routes use. If you cannot, that is a headline finding (R-B1), not a reason to hand-write it.
 
 ### D5 — Site-wide `noindex` (both channels)
 
