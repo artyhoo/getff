@@ -131,6 +131,12 @@ export class AifHandoffBackend implements ClaimCapableBackend {
    * silent fallback, no guessing (the candidate list is included so the
    * operator can fix the marker).
    *
+   * Both throws carry `spec_invalid`, NOT `dispatch_failed`: the kickoff named a
+   * profile the runtime does not have, which no backend can satisfy, so
+   * `cli/dispatch.ts` must abort rather than degrade to ManualBackend. Until
+   * 2026-09-02 these were `dispatch_failed` and the blanket fallback turned an
+   * unresolvable marker into a /tmp file plus exit 0.
+   *
    * The exact-match short-circuit is load-bearing because prefix-related profile
    * names are real: `Z.AI GLM-5.2` is a strict prefix of `Z.AI GLM-5.2 SDK`, so
    * under pure substring matching a marker naming the former matched BOTH and
@@ -152,7 +158,7 @@ export class AifHandoffBackend implements ClaimCapableBackend {
       const candidates = profiles.map((p) => p.name).join(', ');
       throw new BackendError(
         `bridge-profile hint "${hint}" matched no runtime profile. Available: ${candidates || '(none)'}`,
-        'dispatch_failed',
+        'spec_invalid',
         'aif-handoff',
       );
     }
@@ -160,7 +166,7 @@ export class AifHandoffBackend implements ClaimCapableBackend {
       const candidates = matches.map((p) => `${p.name} (${p.id})`).join(', ');
       throw new BackendError(
         `bridge-profile hint "${hint}" matched ${matches.length} runtime profiles ambiguously: ${candidates}`,
-        'dispatch_failed',
+        'spec_invalid',
         'aif-handoff',
       );
     }
@@ -236,7 +242,8 @@ export class AifHandoffBackend implements ClaimCapableBackend {
     // task pipeline (plan+review+implement) routed to that profile — aif
     // already supports this via task-level runtimeProfileId, which overrides
     // every per-mode project default (data/index.ts:2746-2757). Resolution
-    // failure (0 or >1 match) aborts dispatch loudly — no silent fallback.
+    // failure (0 or >1 match) throws `spec_invalid`, which cli/dispatch.ts
+    // refuses to degrade — no silent ManualBackend fallback.
     let runtimeProfileId: string | undefined;
     if (kickoff.profileHint) {
       runtimeProfileId = await this._resolveProfileId(kickoff.profileHint);
