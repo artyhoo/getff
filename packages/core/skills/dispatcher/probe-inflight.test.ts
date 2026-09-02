@@ -46,6 +46,32 @@ const SKILL = resolve(REPO_ROOT, '.claude/skills/dispatcher/SKILL.md');
  */
 const SLOW_SHELL_MS = 30_000;
 
+/**
+ * MEMO — before you copy SLOW_SHELL_MS into another file, check the SHAPE first.
+ *
+ * The scan above is paid ONLY when a file the test CREATED ITSELF is executed DIRECTLY,
+ * i.e. the kernel loads it via its shebang. Most fake-binary fixtures in this repo do not
+ * do that and pay nothing. Measured on macOS 2026-09-02/03:
+ *
+ *   spawnSync(binPath) · fresh bin found through a PATH shadow or a *_BIN seam
+ *                                                       0.65-1.6s, 0% CPU   <- IN CLASS
+ *   spawnSync('bash', [script])  — bash is warm, the script is only READ      0.003s
+ *   symlink -> an already-warm system binary (/usr/bin/sed)                   0.004s
+ *   file gets +x but is never executed (snapshot / precedence sentinel)        0
+ *   re-exec of the SAME file                                                  0.005s
+ *
+ * Not cached by content: a fresh inode with byte-identical bytes still pays (1.606 /
+ * 0.740 / 0.821s over three runs), so the cost is per-path and the variance is wide.
+ *
+ * So: a timeout is the right fix only when the self-made file is argv[0] (or is reached
+ * through a `*_BIN` seam / a shadowed PATH) — never when it is an ARGUMENT to `bash`. A
+ * sweep on 2026-09-03 using that predicate found ZERO unguarded cases left in the repo;
+ * an earlier list of 8 «latent» files was an artifact of querying for `0o755`/`chmodSync`
+ * plus «the file spawns something», which tests neither condition — and that query also
+ * structurally missed a candidate that sets the bit via `execSync('chmod +x ...')`. If a
+ * 5s timeout appears somewhere new, measure the shape before widening any budget.
+ */
+
 interface Fixture {
   slug?: string;
   originBranches?: string;
