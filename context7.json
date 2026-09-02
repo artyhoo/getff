@@ -18,8 +18,7 @@
     "plugin",
     ".github",
     ".husky",
-    "scripts",
-    "templates"
+    "scripts"
   ],
   "excludeFiles": ["package-lock.json", "phase-8-research.md"],
   "rules": [
@@ -27,7 +26,7 @@
     "Read .claude/rules/00-rule-index.md first — it is the generated digest of every discipline rule; the authoritative text of each rule lives in .claude/rules/<name>.md.",
     "Enforce every convention at the earliest reachable channel (edit-time, pre-commit, pre-push, then CI); treat CI as the last-resort gate, never the first.",
     "Never let human or AI attention be the detection layer of a load-bearing check — see .claude/rules/attention-is-not-a-mechanism.md.",
-    "Consult docs/meta-factory/prior-art-evaluations.md before adding any capability (a new dependency, or a new file over 80 lines under packages/), and carry a Prior-art: commit trailer — see .claude/rules/build-first-reuse-default.md.",
+    "Before adding a capability, consult docs/meta-factory/prior-art-evaluations.md and carry a Prior-art: commit trailer; CLAUDE.md section \"Build-vs-reuse invariant\" defines what counts as a capability commit, and .claude/rules/build-first-reuse-default.md holds the macro-level discipline.",
     "Never call a paid LLM from CI — see .claude/rules/no-paid-llm-in-ci.md.",
     "Pin every tool install in a workflow to an exact version — see .claude/rules/ci-tool-pinning.md.",
     "Give every doc one authoritative scope and state what it is NOT authoritative for — see .claude/rules/doc-authority-hierarchy.md.",
