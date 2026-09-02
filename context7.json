@@ -13,14 +13,13 @@
     "docs/meta-factory/retros",
     "docs/meta-factory/generator-forbid-mvp",
     "docs/meta-factory/triage-corpus/sources",
-    "docs/superpowers",
     "tests/install-sh/baselines",
     "plugin",
     ".github",
     ".husky",
     "scripts"
   ],
-  "excludeFiles": ["package-lock.json", "phase-8-research.md"],
+  "excludeFiles": ["package-lock.json"],
   "rules": [
     "Start at README.md#why-this-exists for the project goal, then .claude/session-bootstrap.md for the reading order; a doc that contradicts README has drifted.",
     "Read .claude/rules/00-rule-index.md first — it is the generated digest of every discipline rule; the authoritative text of each rule lives in .claude/rules/<name>.md.",
