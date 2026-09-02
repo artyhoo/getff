@@ -16,10 +16,11 @@
  * Every collector is driven from fixtures via PROBE_* overrides, so these tests need
  * no docker, no gh, no network (the TASK_JSON pattern from monitor.test.ts).
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -39,6 +40,10 @@ interface Fixture {
   claimTtlMin?: number;
   /** Frozen "now" as epoch seconds, so claim ages are deterministic. */
   nowEpoch?: number;
+  /** Working directory for the probe (Signal 3 is cwd-relative). Default: inherit. */
+  cwd?: string;
+  /** Leave PROBE_DONE_MD UNSET so the probe resolves done.md from the real filesystem. */
+  omitDoneMd?: boolean;
 }
 
 /** Fixed clock for the claim-age fixtures: 2026-08-18T12:00:00Z. */
@@ -60,21 +65,27 @@ function claimTask(slug: string, minutesAgo: number, over: Record<string, unknow
 
 /** Run the probe against fixtures. Returns full stdout. */
 function probe(f: Fixture): string {
-  return execFileSync('bash', [PROBE], {
-    encoding: 'utf8',
-    env: {
-      ...process.env,
-      SLUG: f.slug ?? 'x',
-      PROBE_ORIGIN_BRANCHES: f.originBranches ?? '',
-      PROBE_PRS: JSON.stringify(f.prs ?? []),
-      PROBE_DONE_MD: f.doneMd ?? 'no',
-      PROBE_CONTAINER_BRANCHES: f.containerBranches ?? '',
-      PROBE_CONTAINER_STATUS: f.containerStatus ?? 'ok',
-      PROBE_TASKS: JSON.stringify(f.tasks ?? []),
-      PROBE_CLAIM_TTL_MIN: String(f.claimTtlMin ?? 120),
-      PROBE_NOW_EPOCH: String(f.nowEpoch ?? NOW),
-    },
-  });
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    SLUG: f.slug ?? 'x',
+    PROBE_ORIGIN_BRANCHES: f.originBranches ?? '',
+    PROBE_PRS: JSON.stringify(f.prs ?? []),
+    PROBE_DONE_MD: f.doneMd ?? 'no',
+    PROBE_CONTAINER_BRANCHES: f.containerBranches ?? '',
+    PROBE_CONTAINER_STATUS: f.containerStatus ?? 'ok',
+    PROBE_TASKS: JSON.stringify(f.tasks ?? []),
+    PROBE_CLAIM_TTL_MIN: String(f.claimTtlMin ?? 120),
+    PROBE_NOW_EPOCH: String(f.nowEpoch ?? NOW),
+  };
+  if (f.omitDoneMd) {
+    // The key must be ABSENT from the child env, not merely undefined: destructuring it
+    // out of the MERGED object (after the ...process.env spread) also strips any ambient
+    // exported PROBE_DONE_MD from the calling shell, so the probe really filesystem-checks.
+    const { PROBE_DONE_MD: _omit, ...rest } = env;
+    void _omit;
+    return execFileSync('bash', [PROBE], { encoding: 'utf8', env: rest, cwd: f.cwd });
+  }
+  return execFileSync('bash', [PROBE], { encoding: 'utf8', env, cwd: f.cwd });
 }
 
 const verdict = (f: Fixture): string =>
@@ -440,5 +451,94 @@ describe('probe-inflight.sh — wired into SKILL.md §2.0', () => {
     ]) {
       expect(skill).toContain(v);
     }
+  });
+});
+
+// ── Signal 3 resolves the orch home by LAYOUT (issue 1414) ────────────────────
+// A consumer install receives kickoffs under .ai-factory/orchestrator-prompts/
+// (setup.d/30-templates.sh:17) and never has .claude/orchestrator-prompts, so the old
+// single -f test read "no" for every closed consumer umbrella — measured live on
+// artyhoo/timeliner (2026-08-17). These arms drive Signal 3 against REAL filesystem
+// layouts (omitDoneMd → no override; cwd → a temp tree), which the PROBE_DONE_MD seam
+// structurally could not exercise.
+
+const AI_FACTORY_HOME = '.ai-factory/orchestrator-prompts';
+const CLAUDE_HOME = '.claude/orchestrator-prompts';
+
+/** Temp repo-root-like tree with `<home>/<slug>/done.md` present or absent, per layout. */
+function orchTree(slug: string, o: { claude?: boolean; aiFactory?: boolean }): string {
+  const root = mkdtempSync(join(tmpdir(), 'probe-orch-'));
+  for (const [home, hasDone] of [
+    [CLAUDE_HOME, o.claude],
+    [AI_FACTORY_HOME, o.aiFactory],
+  ] as const) {
+    if (hasDone === undefined) continue;
+    mkdirSync(join(root, home, slug), { recursive: true });
+    if (hasDone) writeFileSync(join(root, home, slug, 'done.md'), 'closed\n');
+  }
+  return root;
+}
+
+describe('probe-inflight.sh — orch-home resolution for consumer layouts (issue 1414)', () => {
+  const roots: string[] = [];
+  afterAll(() => {
+    for (const r of roots) rmSync(r, { recursive: true, force: true });
+  });
+  const tree = (o: { claude?: boolean; aiFactory?: boolean }): string => {
+    const t = orchTree('x', o);
+    roots.push(t);
+    return t;
+  };
+
+  it('(a) .ai-factory layout, closed umbrella, ZERO unharvested tasks → done-md yes AND ALREADY-DONE', () => {
+    // T-CLP-B: tasks MUST be empty here. With an unharvested task, DONE-UNHARVESTED
+    // outranks and a signal-only assertion would pass while the symptom persists. The
+    // merged PR is the second origin signal ALREADY-DONE requires (origin_signals >= 2).
+    const out = probe({
+      cwd: tree({ aiFactory: true }),
+      omitDoneMd: true,
+      originBranches: 'feature/x-abc123',
+      prs: [{ number: 1, state: 'MERGED', headRefName: 'feature/x-abc123' }],
+      tasks: [],
+    });
+    expect(out).toContain('SIGNAL done-md yes');
+    expect(out.trim().split('\n').pop()).toBe('VERDICT: ALREADY-DONE');
+  });
+
+  it('(b) paired-negative: the same .ai-factory tree WITHOUT done.md → done-md no', () => {
+    expect(probe({ cwd: tree({ aiFactory: false }), omitDoneMd: true })).toMatch(
+      /SIGNAL done-md no/,
+    );
+  });
+
+  it('(c) .claude layout control — framework behaviour unchanged → done-md yes', () => {
+    expect(probe({ cwd: tree({ claude: true }), omitDoneMd: true })).toMatch(
+      /SIGNAL done-md yes/,
+    );
+  });
+
+  it('(c-precedence) BOTH dirs exist, done.md only under .ai-factory → no (.claude leg wins, like resolve_orch_home)', () => {
+    expect(probe({ cwd: tree({ claude: false, aiFactory: true }), omitDoneMd: true })).toMatch(
+      /SIGNAL done-md no/,
+    );
+  });
+
+  it('(d) the PROBE_DONE_MD override still wins over a real .ai-factory done.md', () => {
+    // The fixture seam every other arm in this file relies on must stay intact.
+    expect(probe({ cwd: tree({ aiFactory: true }), doneMd: 'no' })).toMatch(
+      /SIGNAL done-md no/,
+    );
+  });
+
+  it('(e) DONE-UNHARVESTED outranks the resolved yes — the precedence the 2026-08-17 measurement pinned', () => {
+    // Selector needs all three: status done, branchName containing the slug, and no PR
+    // carrying that headRefName. The yes signal must still PRINT while the verdict ranks.
+    const out = probe({
+      cwd: tree({ aiFactory: true }),
+      omitDoneMd: true,
+      tasks: [{ id: 'abc12345-0000', status: 'done', branchName: 'feature/x-abc123' }],
+    });
+    expect(out).toContain('SIGNAL done-md yes');
+    expect(out.trim().split('\n').pop()).toBe('VERDICT: DONE-UNHARVESTED');
   });
 });

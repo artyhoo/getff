@@ -79,12 +79,26 @@ pr_open_count=$(printf '%s' "$prs_json" | jq '[.[] | select(.state == "OPEN")] |
 echo "SIGNAL pr ${pr_count} open=${pr_open_count}"
 
 # ── Signal 3: done.md closure marker ──────────────────────────────────────────
+# The orch home resolves by LAYOUT, not by hardcoding the framework path: a consumer
+# install receives kickoffs under .ai-factory/orchestrator-prompts/ (setup.d/30-templates.sh:17)
+# and never has .claude/orchestrator-prompts, so the old single -f test read "no" for every
+# closed consumer umbrella (issue 1414, measured on artyhoo/timeliner 2026-08-17). The 4-line
+# shape is forked inline from resolve_orch_home() (.claude/skills/pipeline/helpers/lib/common.sh)
+# rather than sourced — pipeline ships at env+, dispatcher at factory, so a cross-skill
+# dependency dangles where the sibling is absent (LH-2; same precedent: print-orch-home.sh, PR 1411).
 if [[ -n "${PROBE_DONE_MD+x}" ]]; then
   done_md="$PROBE_DONE_MD"
-elif [[ -f ".claude/orchestrator-prompts/${SLUG}/done.md" ]]; then
-  done_md="yes"
 else
-  done_md="no"
+  if [[ -d ".claude/orchestrator-prompts" ]]; then
+    orch_home=".claude/orchestrator-prompts"
+  else
+    orch_home=".ai-factory/orchestrator-prompts"
+  fi
+  if [[ -f "${orch_home}/${SLUG}/done.md" ]]; then
+    done_md="yes"
+  else
+    done_md="no"
+  fi
 fi
 echo "SIGNAL done-md ${done_md}"
 
