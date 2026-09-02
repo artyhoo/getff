@@ -74,5 +74,18 @@ copy consumer-clean (then A costs only the roster line and B is taste).
 **Reversibility.** Trivial: undo = drop the two skip entries + re-render + `SNAPSHOT_MODE=capture`.
 
 **decided-by:** advisor seat (night, `beta-release-plan-c20d1e-89`) — recommendation only;
-application is the operator's (floor). **status:** parked-for-operator; ask marked
-`escalated`.
+application is the operator's (floor).
+
+**RESOLVED 2026-09-02 — operator chose C, not the advisor's B.** Applied in PR #1563:
+the agent stays on the shipped roster, and every factory-only reference in it is now either
+removed or a relative markdown link the installer rewrites. The advisor's B rationale rested
+on the shipped copy carrying an issue-1535-class dangling `docs/superpowers/` reference; that
+premise was **falsified on measurement** — `transform_internal_refs` (`setup.d/lib.sh:86-87`)
+rewrites `](../docs/…)` alongside rule links, so the spec link already resolved. The real
+consumer-visible defects were narrower: an unlinked `<!-- spec: … -->` provenance comment and
+a `Fires` line naming only «spec §8 phase-2 assembly gate». C therefore cost no more than B,
+touched neither installer (so no principle-21 skip-list parity risk), and kept a capability a
+consumer can use. The falsifier recorded above fired exactly as written: «The operator wants
+consumers to audit their OWN docs with it (then C, not A)».
+
+**status:** RESOLVED (option C applied, PR #1563); ask closed.
