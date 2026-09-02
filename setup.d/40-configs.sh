@@ -96,6 +96,16 @@ fi
 # ─── 5. Shared templates ────────────────────────────────
 echo "▶ Shared templates → project root"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/.nvmrc" "$PROJECT_ROOT/.nvmrc"
+# first-commit-passable (issue 1528): ship a .gitignore seed. Source name is DOTLESS — npm pack
+# drops a dotted .gitignore from the tarball (measured 2026-09-02), so a dotted source would be
+# missing on the npm delivery channel and copy_safe would fail. Without a seed, a gitignore-less
+# consumer stages node_modules/ on `git add -A` and lint-staged v16 per-directory config
+# discovery then executes vendored configs under node_modules/. copy_safe = a consumer's own
+# .gitignore always wins (Layer-2) — warned below, never edited.
+copy_safe "$PKG_ROOT/packages/core/templates/shared/gitignore" "$PROJECT_ROOT/.gitignore"
+if _prettierignore_in_skipped "$PROJECT_ROOT/.gitignore" && ! grep -q 'node_modules' "$PROJECT_ROOT/.gitignore" 2>/dev/null; then
+  echo "  ⚠ .gitignore exists without a node_modules line — 'git add -A' will stage node_modules/. Consider adding node_modules/ to .gitignore (file left untouched)." >&2
+fi
 copy_safe "$PKG_ROOT/packages/core/templates/shared/.lintstagedrc.json" "$PROJECT_ROOT/.lintstagedrc.json"
 # cih-s3 F14 (M3): in a workspace, a single root .lintstagedrc runs `eslint` from git-root; in
 # a pnpm/isolated-node_modules monorepo the per-package eslint binary isn't at root → ENOENT
@@ -126,6 +136,46 @@ merge_prettierignore "$PKG_ROOT/packages/core/templates/shared/.prettierignore" 
 # copy_safe (skip-if-exists) never clobbers a consumer's own prettier config.
 copy_safe "$PKG_ROOT/.prettierrc.json" "$PROJECT_ROOT/.prettierrc.json"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/tsconfig.json" "$PROJECT_ROOT/tsconfig.json"
+
+# ─── 5a. tests/setup.ts delivery gate (first-commit-passable, issue 1530) ───
+# vitest.config.ts declares setupFiles: ['./tests/setup.ts'] on ts-server / react-spa /
+# react-next, but nothing shipped the file → `npx vitest run` dies with "Cannot find module".
+# The file may only ship when the consumer tsconfig covers it: typescript-eslint projectService
+# raises a hard parse error for a staged file no tsconfig includes, so delivering it anyway
+# would keep the install commit un-passable even after the --no-warn-ignored fix (issue 1529).
+# Covered ⇔ the installer wrote tsconfig.json itself (not in SKIPPED), OR the tsconfig has NO
+# include key (tsc default = whole tree), OR some include entry starts with "tests".
+# Unreadable/JSONC tsconfig → fail-OPEN: treat covered, no note, never abort the layer.
+fc3_deliver_tests_setup() {
+  local src="$1"
+  local covered=0
+  if ! _prettierignore_in_skipped "$PROJECT_ROOT/tsconfig.json"; then
+    covered=1   # greenfield (or --force refresh): installer wrote tsconfig.json
+  elif [ ! -f "$PROJECT_ROOT/tsconfig.json" ]; then
+    covered=1   # no tsconfig on disk → tsc default (whole tree)
+  elif ! command -v node >/dev/null 2>&1; then
+    covered=1   # fail-OPEN: node-free install cannot read JSON (same posture as detect_pm)
+  else
+    local _rc=0
+    AIF_FCP_TSCONFIG="$PROJECT_ROOT/tsconfig.json" node -e '
+      try {
+        const c = JSON.parse(require("fs").readFileSync(process.env.AIF_FCP_TSCONFIG, "utf8"));
+        if (!Array.isArray(c.include)) process.exit(3); // no include key → whole tree
+        if (c.include.some((e) => String(e).startsWith("tests"))) process.exit(0);
+        process.exit(1); // include present, nothing covers tests/
+      } catch { process.exit(2); } // unreadable/JSONC → fail-open
+    ' 2>/dev/null || _rc=$?
+    case $_rc in
+      1) covered=0 ;;
+      *) covered=1 ;;
+    esac
+  fi
+  if [ "$covered" -eq 1 ]; then
+    copy_safe "$src" "$PROJECT_ROOT/tests/setup.ts"
+  else
+    echo "  ⚠ tsconfig.json include does not cover tests/ — tests/setup.ts NOT delivered (staging it would fail the install commit). Add \"tests/**/*\" to tsconfig include and re-run install, or create tests/setup.ts yourself." >&2
+  fi
+}
 
 # ─── 5b'. Custom ESLint rules plugin (used by eslint.config.mjs) ───
 # O9: copy rule files THEN generate barrel (intra-layer order).
@@ -377,6 +427,7 @@ else
   if [ "$STACK" = "ts-server" ]; then
     copy_safe "$PKG_ROOT/templates/ts-server/eslint.config.mjs" "$PROJECT_ROOT/eslint.config.mjs"
     copy_safe "$PKG_ROOT/templates/ts-server/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
+    fc3_deliver_tests_setup "$PKG_ROOT/templates/ts-server/tests-setup.ts"
     # Ship the arch config directly (FQA S1-A W2: deferring to legacy setup.sh left arch:check
     # with no config on the ./setup path — the template exists, just copy it).
     copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
@@ -396,6 +447,7 @@ else
   elif [ "$STACK" = "react-next" ]; then
     copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/eslint.config.react.mjs" "$PROJECT_ROOT/eslint.config.mjs"
     copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
+    fc3_deliver_tests_setup "$PKG_ROOT/packages/preset-next-15-canonical/templates/tests-setup.ts"
     copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/playwright.config.ts" "$PROJECT_ROOT/playwright.config.ts"
     # Ship the arch config (FQA S1-A W2). The ts-server base (no-circular/no-orphans) is
     # stack-agnostic; a react-tailored layering config is a follow-up (residual R-1).
@@ -410,6 +462,7 @@ else
   elif [ "$STACK" = "react-spa" ]; then
     copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/eslint.config.react.mjs" "$PROJECT_ROOT/eslint.config.mjs"
     copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
+    fc3_deliver_tests_setup "$PKG_ROOT/packages/preset-react-spa/templates/tests-setup.ts"
     copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/playwright.config.ts" "$PROJECT_ROOT/playwright.config.ts"
     # Ship the arch config (FQA S1-A W2). The ts-server base (no-circular/no-orphans) is
     # stack-agnostic; SPA layering (Feature-Sliced Design) is enforced by eslint-plugin-boundaries

@@ -85,6 +85,10 @@ EXCLUDED=$(sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' <<'EXC' | sed 
   .prettierrc.json
   .lintstagedrc.json
   .nvmrc
+  # first-commit-passable F1 (issues 1528/1530): seeded once at first install, then consumer-owned
+  # after first install — the consumer extends/edits them; refresh must never clobber.
+  .gitignore
+  tests/setup.ts
   .dependency-cruiser.cjs
   stryker.config.json
   vitest.config.ts

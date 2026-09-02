@@ -342,8 +342,10 @@ project/
 ├── tsconfig.json                      ← strict TypeScript settings
 ├── eslint.config.mjs                  ← (or eslint.config.react.mjs for UI)
 ├── vitest.config.ts                   ← unit/integration/audit test discovery
+├── tests/setup.ts                     ← vitest setup hook (skipped unless your tsconfig include covers tests/ — add "tests/**/*", re-run; the install-time ⚠ note says so)
 ├── stryker.config.json                ← mutation testing
 ├── .dependency-cruiser.cjs            ← architectural rules
+├── .gitignore                         ← seed (node_modules/, dist/, coverage/, …); skipped when your own exists
 ├── .lintstagedrc.json                 ← pre-commit formatter
 ├── playwright.config.ts               ← only for react-next
 ├── .husky/
@@ -553,7 +555,7 @@ If a check fails for a reason not in this table — **stop and report**, do not 
 | Sub-agents loaded                       | `ls .claude/agents/living-docs-auditor.md`            | File exists, ~6KB                                                                              |
 | TypeScript compiles                     | `npm run typecheck`                                   | Exit 0                                                                                         |
 | Lint runs                               | `npm run lint`                                        | Exit 0 (warnings OK on existing code)                                                          |
-| Tests discoverable                      | `npx vitest run --listFiles`                          | Shows .unit.ts files (or empty if no tests yet)                                                |
+| Tests discoverable                      | `npx vitest list`                                     | Shows .unit.ts files (or empty if no tests yet)                                                |
 | Audit script runs                       | `npm run audit:docs`                                  | Exit 0 with PASS/FAIL/WARN output                                                              |
 | Pre-commit hook                         | `git commit --allow-empty -m "test"` (in test branch) | Lint-staged runs                                                                               |
 | Pre-push hook                           | `git push --dry-run`                                  | Typecheck + tests + audit run                                                                  |

@@ -368,7 +368,10 @@ your-project/
 ├── .dependency-cruiser.cjs           ← architecture rules
 ├── .lintstagedrc.json                ← pre-commit config
 ├── .nvmrc                            ← Node version pin
+├── .gitignore                        ← seed (skipped if you have your own)
 ├── tsconfig.json                     ← strict TS
+├── tests/setup.ts                    ← vitest setup hook (UI/ts stacks; skipped if
+│                                        your tsconfig does not include tests/)
 ├── playwright.config.ts              ← (UI projects only)
 └── AGENTS.md                         ← context for AI agents
 ```

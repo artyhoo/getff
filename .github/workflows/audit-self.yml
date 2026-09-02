@@ -755,6 +755,8 @@ jobs:
         run: bash tests/install-sh/r2-auto-wire.test.sh
       - name: "install-sh — refresh-covers-full-delivery (#869 do_refresh ⊇ --full scripts/*.{sh,ts} delivery)"
         run: bash tests/install-sh/refresh-covers-full-delivery.test.sh
+      - name: "install-sh — first-commit-passable (issues 1528/1529/1530: .gitignore seed + --no-warn-ignored + tests/setup.ts gate, paired Layer-2 negatives, pnpm stub propagation)"
+        run: bash tests/install-sh/first-commit-passable.test.sh
       - name: "install-sh — refresh-divergence-guard (#1481 R1: baseline manifest + warn/preserve guard, arms a-e incl. pre-manifest + override + dry-run)"
         run: bash tests/install-sh/refresh-divergence-guard.test.sh
       - name: "install-sh — different-stack switch prunes barrel (#882: --force/--refresh with a NEW stack removes the prior stack's stray preset rule)"
@@ -1192,6 +1194,42 @@ jobs:
           cd "$CONSUMER"
           mkdir -p src
           printf 'export const answer = 42;\n' > src/index.ts
+      - name: "Plant a test file matching THIS stack's vitest include glob (first-commit-passable)"
+        # The name must match the stack's vitest.config.ts `include` or `npx vitest run` exits 1
+        # with "No test files found" — a failure unrelated to the three issues under replay:
+        #   ts-server    → src/tests/seed.unit.ts (matches src/**/*.unit.ts)
+        #   react-next   → src/seed.test.ts (matches the legacy src/**/*.{test,spec}.* glob)
+        #   react-spa    → src/seed.test.ts (same legacy glob)
+        #   react-native → src/seed.test.ts (its only include family; it has NO setupFiles line)
+        # Explicit vitest imports work under both `globals: false` (ts-server/react/react-next/
+        # react-spa) and react-native's `globals: true`. STACK via env (zizmor template-injection).
+        env:
+          STACK: ${{ matrix.stack }}
+        run: |
+          cd "$CONSUMER"
+          mkdir -p src/tests
+          if [ "$STACK" = "ts-server" ]; then
+            SEED=src/tests/seed.unit.ts
+          else
+            SEED=src/seed.test.ts
+          fi
+          printf "import { describe, expect, it } from 'vitest';\n\ndescribe('seed', () => {\n  it('passes', () => {\n    expect(1).toBe(1);\n  });\n});\n" > "$SEED"
+      - name: "Consumer: git commit through the REAL shipped pre-commit (issues 1528+1529 replay)"
+        # No hand-added .gitignore here — the FC-2 seed is what keeps node_modules/ out of the
+        # index on this gitignore-less consumer (issue 1528); and the delivered .lintstagedrc.json
+        # with --no-warn-ignored is what lets the eslint tasks pass on the eslint-ignored
+        # installer-delivered files the commit stages (issue 1529). Exit 0 is the assert.
+        run: |
+          cd "$CONSUMER"
+          test -f .gitignore || { echo "::error::.gitignore seed not delivered — issue 1528 fix missing"; exit 1; }
+          git add -A
+          git commit -m "install"
+      - name: "Consumer: npx vitest run (issue 1530 replay)"
+        run: |
+          cd "$CONSUMER"
+          test -x node_modules/.bin/vitest \
+            || { echo "::error::vitest not installed — install.sh --full dep install failed; the vitest arm cannot run (false-green guard)"; exit 1; }
+          npx vitest run
       - name: Assert the consumer toolchain installed (else the validate gate is vacuous)
         run: |
           cd "$CONSUMER"
