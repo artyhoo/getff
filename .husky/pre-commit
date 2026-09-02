@@ -126,6 +126,38 @@ if [ -n "$STAGED_ALL" ] && command -v npx &>/dev/null; then
     || { echo "❌ staged shipped files are not Prettier-clean — fix: npm run format (= scripts/format-shipped.sh --write)"; fail=1; }
 fi
 
+# ── CANON symlink guard — orchestrator-prompts staged as mode 120000 ────────
+# spec: .claude/rules/kickoff-staging-placement.md §5 (#canon-symlink-swallows-commit)
+#
+# `.claude/orchestrator-prompts/**` is gitignored with per-umbrella `!` exceptions, and
+# scripts/link-coordination.sh adopts every UNTRACKED file there into $CANON, leaving a
+# symlink behind. Write a new kickoff, `git add` it in a LATER step, and the index takes
+# the 84-byte CANON path as a mode-120000 blob instead of the content. Measured 2026-09-02:
+# commit 9e046c6d55 carried `120000 blob 2d02772193b2b6c1ba2301edf3cc00a3e2902640` while the
+# 232-line kickoff lived only in $CANON. NOTHING surfaced it — `git status` shows a normal
+# path, `wc -l` reads through the link, markdownlint passed, the soft spec-validate below
+# passed. The damage is deferred: the commit is worthless as a copy, so a later $CANON
+# cleanup destroys the only one. Zero tracked symlinks exist repo-wide → no allowlist needed.
+#
+# ERROR, not warning: the failure is silent and the correct action is unambiguous
+# (.claude/rules/attention-is-not-a-mechanism.md §1 rejects load-bearing warnings — a warning
+# here would have exactly one consumer, «somebody reads the pre-commit log»).
+# Pre-commit is the EARLIEST reachable channel: edit-time cannot see a symlink that does not
+# exist yet. Principle 44 arm A is the durable backstop for commits husky never runs
+# (aif-container work). `--raw` reports the DESTINATION mode in field 2; the path is
+# tab-separated (last field, so a rename's new path wins and spaces survive).
+STAGED_LINKS=$(git diff --cached --raw --diff-filter=ACMR -- .claude/orchestrator-prompts 2>/dev/null \
+  | awk -F'\t' '{ split($1, m, " "); if (m[2] == "120000") print $NF }' || true)
+if [ -n "$STAGED_LINKS" ]; then
+  echo "❌ SYMLINK staged under .claude/orchestrator-prompts — the \$CANON path would be committed, not the content:"
+  echo "$STAGED_LINKS" | sed 's/^/   /'
+  echo "   The file was adopted into \$CANON (~/.claude-coordination/...) because it was still UNTRACKED"
+  echo "   when scripts/link-coordination.sh ran. Committing this loses the real content."
+  echo "   Fix: restore the real content, then write + \`git add\` in ONE step:"
+  echo "     cp \"\$(readlink <path>)\" /tmp/k.md && rm <path> && mv /tmp/k.md <path> && git add <path>"
+  fail=1
+fi
+
 # ── Spec discipline (Phase 1.C) — soft warn for staged orchestrator-prompts ──
 SPEC_FILES=$(echo "$CHANGED" | grep '^\.claude/orchestrator-prompts/.*\.md$' || true)
 if [ -n "$SPEC_FILES" ]; then
