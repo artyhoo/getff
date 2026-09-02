@@ -44,6 +44,17 @@ interface Fixture {
   cwd?: string;
   /** Leave PROBE_DONE_MD UNSET so the probe resolves done.md from the real filesystem. */
   omitDoneMd?: boolean;
+  /** Project-list fixture → PROBE_PROJECTS (default []). projectsRaw overrides with a verbatim string. */
+  projects?: unknown[];
+  projectsRaw?: string;
+  /** Drop PROBE_CONTAINER_BRANCHES/STATUS so the live (non-injected) container path runs. */
+  omitContainerInjection?: boolean;
+  /** Pinned RUNTIME_BRIDGE_AIF_PROJECT_ID (stripped from the merged env unless set here). */
+  runtimeProjectId?: string;
+  /** Pinned AIF_REPO_PATH (stripped from the merged env unless set here). */
+  aifRepoPath?: string;
+  /** Absolute path to a PROBE_DOCKER_BIN stub (arm b). */
+  dockerBin?: string;
 }
 
 /** Fixed clock for the claim-age fixtures: 2026-08-18T12:00:00Z. */
@@ -65,26 +76,44 @@ function claimTask(slug: string, minutesAgo: number, over: Record<string, unknow
 
 /** Run the probe against fixtures. Returns full stdout. */
 function probe(f: Fixture): string {
+  // Ambient-host hygiene: RUNTIME_BRIDGE_AIF_PROJECT_ID / AIF_REPO_PATH are exported on
+  // the operator host (issue 1439 payload measurement) and PROBE_* seeds may leak from
+  // the calling shell — every ambient key the probe reads is destructured OUT of the
+  // MERGED env (the omitDoneMd pattern), then re-seeded explicitly per fixture. Without
+  // this, arms behave differently host vs CI.
+  const {
+    RUNTIME_BRIDGE_AIF_PROJECT_ID: _omitPid,
+    AIF_REPO_PATH: _omitRepo,
+    PROBE_PROJECTS: _omitProjects,
+    PROBE_DOCKER_BIN: _omitDockerBin,
+    PROBE_CONTAINER_BRANCHES: _omitCb,
+    PROBE_CONTAINER_STATUS: _omitCs,
+    ...cleanEnv
+  } = process.env;
+  void _omitPid;
+  void _omitRepo;
+  void _omitProjects;
+  void _omitDockerBin;
+  void _omitCb;
+  void _omitCs;
   const env: NodeJS.ProcessEnv = {
-    ...process.env,
+    ...cleanEnv,
     SLUG: f.slug ?? 'x',
     PROBE_ORIGIN_BRANCHES: f.originBranches ?? '',
     PROBE_PRS: JSON.stringify(f.prs ?? []),
-    PROBE_DONE_MD: f.doneMd ?? 'no',
-    PROBE_CONTAINER_BRANCHES: f.containerBranches ?? '',
-    PROBE_CONTAINER_STATUS: f.containerStatus ?? 'ok',
+    PROBE_PROJECTS: f.projectsRaw ?? JSON.stringify(f.projects ?? []),
     PROBE_TASKS: JSON.stringify(f.tasks ?? []),
     PROBE_CLAIM_TTL_MIN: String(f.claimTtlMin ?? 120),
     PROBE_NOW_EPOCH: String(f.nowEpoch ?? NOW),
   };
-  if (f.omitDoneMd) {
-    // The key must be ABSENT from the child env, not merely undefined: destructuring it
-    // out of the MERGED object (after the ...process.env spread) also strips any ambient
-    // exported PROBE_DONE_MD from the calling shell, so the probe really filesystem-checks.
-    const { PROBE_DONE_MD: _omit, ...rest } = env;
-    void _omit;
-    return execFileSync('bash', [PROBE], { encoding: 'utf8', env: rest, cwd: f.cwd });
+  if (!f.omitDoneMd) env.PROBE_DONE_MD = f.doneMd ?? 'no';
+  if (!f.omitContainerInjection) {
+    env.PROBE_CONTAINER_BRANCHES = f.containerBranches ?? '';
+    env.PROBE_CONTAINER_STATUS = f.containerStatus ?? 'ok';
   }
+  if (f.runtimeProjectId !== undefined) env.RUNTIME_BRIDGE_AIF_PROJECT_ID = f.runtimeProjectId;
+  if (f.aifRepoPath !== undefined) env.AIF_REPO_PATH = f.aifRepoPath;
+  if (f.dockerBin !== undefined) env.PROBE_DOCKER_BIN = f.dockerBin;
   return execFileSync('bash', [PROBE], { encoding: 'utf8', env, cwd: f.cwd });
 }
 
@@ -118,6 +147,7 @@ describe('probe-inflight.sh — fail-closed on an unrun container probe', () => 
         PROBE_DONE_MD: 'no',
         PROBE_CONTAINER_BRANCHES: '',
         PROBE_CONTAINER_STATUS: 'ok',
+        PROBE_PROJECTS: '[]',
         PROBE_TASKS: 'curl: (7) Failed to connect',
       },
     });
@@ -540,5 +570,131 @@ describe('probe-inflight.sh — orch-home resolution for consumer layouts (issue
     });
     expect(out).toContain('SIGNAL done-md yes');
     expect(out.trim().split('\n').pop()).toBe('VERDICT: DONE-UNHARVESTED');
+  });
+});
+
+// ── Signal 4 asks the RIGHT repository (issue 1439) ───────────────────────────
+// The container checkout is derived from the aif PROJECT record (GET /projects → the
+// record whose .id == RUNTIME_BRIDGE_AIF_PROJECT_ID → rootPath, per
+// kickoff-l3.decisions.md#decision-1), never hardcoded. The signal line carries the
+// resolved path as a TRAILING repo= field so a consumer can SEE which repository was
+// asked, and every unaskable outcome names its cause instead of rendering as ok.
+
+describe('probe-inflight.sh — signal 4 asks the derived repository (issue 1439)', () => {
+  const PROJECTS = [
+    { id: 'p-timeliner', name: 'timeliner', rootPath: '/home/www/timeliner' },
+    // The decoy: the framework project. Under the old hardcoded default the probe
+    // asked THIS checkout while reporting ok — the wrong-target case no
+    // injected-status test could see until repo= existed.
+    { id: 'q-decoy', name: 'rules-as-tests-aif', rootPath: '/home/www/rules-as-tests-aif' },
+  ];
+
+  it('(a) derivable-path consumer: repo= names the RIGHT project record, not the decoy', () => {
+    // Injection precedence: container status still comes from PROBE_CONTAINER_BRANCHES
+    // (stays ok); the derived path is reported for visibility only.
+    const out = probe({
+      projects: PROJECTS,
+      runtimeProjectId: 'p-timeliner',
+      containerBranches: '',
+      containerStatus: 'ok',
+    });
+    expect(out).toContain('SIGNAL container-branch 0 only=0 status=ok repo=/home/www/timeliner');
+    expect(out).not.toContain('repo=/home/www/rules-as-tests-aif');
+    expect(out.trim().split('\n').pop()).toBe('VERDICT: FRESH');
+  });
+
+  it('(b) git-call failure surfaces its cause — the REAL capture path, not just rendering', () => {
+    // The stub is reached via PROBE_DOCKER_BIN (not PATH shadowing, which the probe's
+    // PATH prepend makes host-dependent): stderr is captured, the first line becomes
+    // the reason, and the failure is PROBE-INCOMPLETE — never a clean answer.
+    const stubDir = mkdtempSync(join(tmpdir(), 'probe-docker-stub-'));
+    try {
+      const stub = join(stubDir, 'stub-docker');
+      writeFileSync(
+        stub,
+        '#!/usr/bin/env bash\necho "fatal: detected dubious ownership in repository at \'/home/www/timeliner\'" >&2\nexit 128\n',
+        { mode: 0o755 },
+      );
+      const out = probe({
+        omitContainerInjection: true,
+        projects: [{ id: 'p-timeliner', name: 'timeliner', rootPath: '/home/www/timeliner' }],
+        runtimeProjectId: 'p-timeliner',
+        dockerBin: stub,
+      });
+      expect(out).toMatch(
+        /status=unavailable repo=\/home\/www\/timeliner reason=fatal: detected dubious ownership/,
+      );
+      expect(out).toContain(
+        "container-cause: fatal: detected dubious ownership in repository at '/home/www/timeliner'",
+      );
+      expect(out.trim().split('\n').pop()).toBe('VERDICT: PROBE-INCOMPLETE');
+    } finally {
+      rmSync(stubDir, { recursive: true, force: true });
+    }
+  });
+
+  it('(c) asked-and-got-nothing stays ok: derivable path, no matching branch → FRESH', () => {
+    const out = probe({
+      projects: PROJECTS,
+      runtimeProjectId: 'p-timeliner',
+      containerBranches: 'feature/other-abc',
+      containerStatus: 'ok',
+    });
+    expect(out).toContain(
+      'SIGNAL container-branch 0 only=0 status=ok repo=/home/www/timeliner',
+    );
+    expect(out.trim().split('\n').pop()).toBe('VERDICT: FRESH');
+  });
+
+  it('(d) framework-layout control: explicit AIF_REPO_PATH behaves as today + trailing repo=', () => {
+    const out = probe({
+      aifRepoPath: '/home/www/rules-as-tests-aif',
+      containerBranches: '',
+      containerStatus: 'ok',
+    });
+    expect(out).toContain(
+      'SIGNAL container-branch 0 only=0 status=ok repo=/home/www/rules-as-tests-aif',
+    );
+    expect(out.trim().split('\n').pop()).toBe('VERDICT: FRESH');
+  });
+
+  it('(e) no-rootpath consumer: unavailable with the named cause, never ok from another project', () => {
+    const out = probe({
+      omitContainerInjection: true,
+      runtimeProjectId: 'p-timeliner',
+      projects: [{ id: 'p-timeliner', name: 'x' }],
+    });
+    expect(out).toMatch(/SIGNAL container-branch 0 only=0 status=unavailable reason=no-rootpath/);
+    expect(out).toContain('container-cause: no-rootpath');
+    expect(out.trim().split('\n').pop()).toBe('VERDICT: PROBE-INCOMPLETE');
+  });
+
+  it('(e-sub) RUNTIME_BRIDGE_AIF_PROJECT_ID unset → reason=no-project-id', () => {
+    const out = probe({
+      omitContainerInjection: true,
+      projects: PROJECTS,
+    });
+    expect(out).toMatch(/status=unavailable reason=no-project-id/);
+    expect(out.trim().split('\n').pop()).toBe('VERDICT: PROBE-INCOMPLETE');
+  });
+
+  it('(e-sub) empty project list → reason=project-not-found', () => {
+    const out = probe({
+      omitContainerInjection: true,
+      runtimeProjectId: 'p-timeliner',
+      projects: [],
+    });
+    expect(out).toMatch(/status=unavailable reason=project-not-found/);
+    expect(out.trim().split('\n').pop()).toBe('VERDICT: PROBE-INCOMPLETE');
+  });
+
+  it('(e-sub) non-JSON projects payload → reason=projects-api-unreachable', () => {
+    const out = probe({
+      omitContainerInjection: true,
+      runtimeProjectId: 'p-timeliner',
+      projectsRaw: 'curl: (7) Failed to connect to localhost port 3009',
+    });
+    expect(out).toMatch(/status=unavailable reason=projects-api-unreachable/);
+    expect(out.trim().split('\n').pop()).toBe('VERDICT: PROBE-INCOMPLETE');
   });
 });
