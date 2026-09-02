@@ -36,18 +36,20 @@ perl -pe 's/\[[^\]]*\]\([^)]*\)//g' /tmp/x.md \
 
 Note the `perl` step: stripping whole `[text](url)` constructs is load-bearing. A raw `grep`
 also matches the **link text** of a correctly-rewritten link and inflates the count — the
-counts in the #1563 backward-check were taken that way, so the per-agent numbers there run
-slightly high. The class itself reproduces exactly.
+counts in the #1563 backward-check were taken that way. Counted as path OCCURRENCES outside a
+rewritten link, the numbers move in BOTH directions from that record — `rule-test-author` 18
+(not 12), `rule-researcher` 11 (not 9), `compliance-verifier` 3 (not 1), `review-sidecar` 4 (not
+3), the rest unchanged. The class itself reproduces exactly.
 
 | agent                         | unlinked factory paths (before) | (after this PR) | class                        |
 | ----------------------------- | ------------------------------- | --------------- | ---------------------------- |
-| `rule-test-author`            | 14                              | 14              | (b) design-by-spec           |
-| `rule-researcher`             | 9                               | 9               | (b) design-by-spec           |
+| `rule-test-author`            | 18                              | 18              | (b) design-by-spec           |
+| `rule-researcher`             | 11                              | 11              | (b) design-by-spec           |
 | `review-sidecar`              | 4                               | 4               | (c) maintainer-owned → §4 P2 |
-| `docplan-auditor`             | 3                               | **0**           | (a) fixed                    |
+| `docplan-auditor`             | 4                               | **0**           | (a) fixed                    |
 | `compliance-verifier`         | 3                               | **0**           | (a) fixed                    |
 | `memory-codification-auditor` | 2                               | **0**           | (a) fixed                    |
-| `fidelity-auditor`            | 2                               | **0**           | (a) fixed                    |
+| `fidelity-auditor`            | 3                               | **0**           | (a) fixed                    |
 | `capability-reuse-auditor`    | 1                               | **0**           | (a) fixed                    |
 | `living-docs-auditor`         | 1                               | 1               | (c) maintainer-owned → §4 P1 |
 | `aif-init`                    | 0                               | 0               | clean                        |
@@ -80,7 +82,7 @@ inconsistency, not a design decision.
 
 ## §3 Class (b) — recorded non-finding, per agent
 
-**`agents/rule-researcher.md` (9).** Every hit is the rule-generation lane's own working
+**`agents/rule-researcher.md` (11).** Every hit is the rule-generation lane's own working
 surface, reachable from the framework checkout §2 documents:
 
 - `:20` — `packages/core/synthesizer/`, `packages/core/validator/`,
@@ -96,7 +98,7 @@ surface, reachable from the framework checkout §2 documents:
 - `:290-291` — `agents/rule-test-author.md:63` / `:70` cited with line numbers as evidence for a
   claim about CI state. A link cannot carry the line anchor; the checkout can.
 
-**`agents/rule-test-author.md` (14).** Same class throughout, and the density is the point: this
+**`agents/rule-test-author.md` (18).** Same class throughout, and the density is the point: this
 protocol's entire subject matter is framework-side validator/backend/synthesizer material —
 `packages/core/synthesizer/canonical-rule-hash.ts:28`, `verify-provenance.ts:108-110`,
 `types.ts:22-26,67-68`, `validator/validate.ts:22-42`, `diagnostics/registry.ts:180-259`,
