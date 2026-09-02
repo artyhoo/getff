@@ -28,6 +28,24 @@ const REPO_ROOT = resolve(HERE, '../../../..');
 const PROBE = resolve(REPO_ROOT, '.claude/skills/dispatcher/helpers/probe-inflight.sh');
 const SKILL = resolve(REPO_ROOT, '.claude/skills/dispatcher/SKILL.md');
 
+/**
+ * Per-test timeout for the ONE arm that writes a fresh executable and then runs it.
+ * Measured 2026-09-02 (macOS, clean `origin/staging` @ 58ce396802): the FIRST exec of a
+ * newly created executable blocks ~0.65s in the kernel first-launch scan (0% CPU), while
+ * every re-exec of that same file costs ~5ms. That is the whole delta — arm (b) is ~711ms
+ * in isolation against ~60-145ms for its 57 siblings, and under `vitest run skills/`
+ * file-parallelism it inflates to ~5.3s and false-fails on vitest's 5s default: a mis-set
+ * gate, not an assertion signal (`test:skills` gave `1 failed | 276 passed` while the file
+ * alone was green in ~810ms, stopping `run-local-ci-sweep.sh` at `vitest-skills`). The
+ * cost cannot be narrowed away — the arm exists to reach the REAL stderr-capture path,
+ * which requires a stub the test must create itself. 30_000 is the SLOW_SHELL_MS
+ * convention of the sibling shell-spawning suites (PR #848; see
+ * `principles/20-bundle-classification.test.ts`, `hooks/create-worktree.test.ts`), scoped
+ * to that single `it` so the other 57 arms keep the tight 5s default. NEVER a global
+ * `testTimeout` bump.
+ */
+const SLOW_SHELL_MS = 30_000;
+
 interface Fixture {
   slug?: string;
   originBranches?: string;
@@ -616,35 +634,39 @@ describe('probe-inflight.sh — signal 4 asks the derived repository (issue 1439
     expect(out.trim().split('\n').pop()).toBe('VERDICT: FRESH');
   });
 
-  it('(b) git-call failure surfaces its cause — the REAL capture path, not just rendering', () => {
-    // The stub is reached via PROBE_DOCKER_BIN (not PATH shadowing, which the probe's
-    // PATH prepend makes host-dependent): stderr is captured, the first line becomes
-    // the reason, and the failure is PROBE-INCOMPLETE — never a clean answer.
-    const stubDir = mkdtempSync(join(tmpdir(), 'probe-docker-stub-'));
-    try {
-      const stub = join(stubDir, 'stub-docker');
-      writeFileSync(
-        stub,
-        '#!/usr/bin/env bash\necho "fatal: detected dubious ownership in repository at \'/home/www/timeliner\'" >&2\nexit 128\n',
-        { mode: 0o755 },
-      );
-      const out = probe({
-        omitContainerInjection: true,
-        projects: [{ id: 'p-timeliner', name: 'timeliner', rootPath: '/home/www/timeliner' }],
-        runtimeProjectId: 'p-timeliner',
-        dockerBin: stub,
-      });
-      expect(out).toMatch(
-        /status=unavailable repo=\/home\/www\/timeliner reason=fatal: detected dubious ownership/,
-      );
-      expect(out).toContain(
-        "container-cause: fatal: detected dubious ownership in repository at '/home/www/timeliner'",
-      );
-      expect(out.trim().split('\n').pop()).toBe('VERDICT: PROBE-INCOMPLETE');
-    } finally {
-      rmSync(stubDir, { recursive: true, force: true });
-    }
-  });
+  it(
+    '(b) git-call failure surfaces its cause — the REAL capture path, not just rendering',
+    { timeout: SLOW_SHELL_MS },
+    () => {
+      // The stub is reached via PROBE_DOCKER_BIN (not PATH shadowing, which the probe's
+      // PATH prepend makes host-dependent): stderr is captured, the first line becomes
+      // the reason, and the failure is PROBE-INCOMPLETE — never a clean answer.
+      const stubDir = mkdtempSync(join(tmpdir(), 'probe-docker-stub-'));
+      try {
+        const stub = join(stubDir, 'stub-docker');
+        writeFileSync(
+          stub,
+          '#!/usr/bin/env bash\necho "fatal: detected dubious ownership in repository at \'/home/www/timeliner\'" >&2\nexit 128\n',
+          { mode: 0o755 },
+        );
+        const out = probe({
+          omitContainerInjection: true,
+          projects: [{ id: 'p-timeliner', name: 'timeliner', rootPath: '/home/www/timeliner' }],
+          runtimeProjectId: 'p-timeliner',
+          dockerBin: stub,
+        });
+        expect(out).toMatch(
+          /status=unavailable repo=\/home\/www\/timeliner reason=fatal: detected dubious ownership/,
+        );
+        expect(out).toContain(
+          "container-cause: fatal: detected dubious ownership in repository at '/home/www/timeliner'",
+        );
+        expect(out.trim().split('\n').pop()).toBe('VERDICT: PROBE-INCOMPLETE');
+      } finally {
+        rmSync(stubDir, { recursive: true, force: true });
+      }
+    },
+  );
 
   it('(c) asked-and-got-nothing stays ok: derivable path, no matching branch → FRESH', () => {
     const out = probe({
