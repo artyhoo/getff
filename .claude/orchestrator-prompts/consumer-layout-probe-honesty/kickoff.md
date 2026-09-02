@@ -135,6 +135,8 @@ bash packages/core/synthesizer/run-generated-rule-mutation.test.sh
 bash tests/install-sh/meta-all-wired.test.sh
 npx vitest run --root packages/core principles/41-shell-test-ci-coverage.test.ts
 SNAPSHOT_MODE=compare bash tests/install-sh/snapshot.sh
+npx vitest run --root packages/core principles/39-skill-fence-orch-home.test.ts
+npx vitest run --root packages/core skills/dispatcher/probe-inflight.test.ts
 ```
 
 (L1 contract; L2 appends
