@@ -14,7 +14,8 @@
     "docs/meta-factory/generator-forbid-mvp",
     "docs/meta-factory/triage-corpus/sources",
     "tests/install-sh/baselines",
-    "plugin",
+    "plugin/agents",
+    "plugin/skills/getff",
     ".github",
     ".husky",
     "scripts"
