@@ -116,4 +116,4 @@ it, set `beta.getff.ai` DNS. None may be taken on a peer session's say-so.
 
 **Decided-by.** Night advisor seat (Fable) on the BS0 dispatch session's proposal, 2026-09-02
 ~04:15Z. **Status.** applied — stage kickoff authored on this shape by the BS0 dispatch session;
-task id to be appended here at dispatch.
+dispatched 2026-09-02T03:51:33Z as aif task `371242f1-d385-47a3-acc0-9802eefd0626` on project `361685f1` (getff-landing), `runtimeProfileId=null` → project defaults (plan/review `53eca24c` GLM-5.3 SDK, task `088182b8` GLM-5.3 Flash); stage kickoff `kickoff-b0.md` (#1561 `d813773aa3`, corrected by #1562 `b68443e094`).
