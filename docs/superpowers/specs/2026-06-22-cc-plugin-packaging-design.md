@@ -69,7 +69,8 @@ rules-as-tests-aif/                         (existing repo — internals untouch
 │   ├── skills/
 │   │   ├── using-rules-as-tests/SKILL.md   ← NEW meta-bootstrap (§3 #4)
 │   │   ├── rules-as-tests/                 ← from skills/rules-as-tests (already consumer-facing)
-│   │   └── installing-enforcement/SKILL.md ← NEW: the hard-layer seam (§6)
+│   │   ├── installing-enforcement/SKILL.md ← NEW: the hard-layer seam (§6)
+│   │   └── tool-bootstrapping/             ← ADDED 2026-09-03 (m1 trigger fired — note below)
 │   ├── agents/                             ← consumer-facing subset only (§5)
 │   ├── commands/
 │   │   └── install-enforcement.md          ← NEW: /rules-as-tests:install-enforcement
@@ -106,6 +107,8 @@ This is a **per-hook audit**, not a blanket find/replace — many hooks legitima
 | Consumer-facing agent — needs SSOT add | `compliance-verifier` (consumer-facing per CLAUDE.md Artifact Ownership Contract, but **NOT** yet in `extension.json`) | yes — **S4 must add it to `extension.json`**, do not claim «per extension.json» until then |
 | Consumer-relevant session hooks | the advisory/inject subset that operates on consumer files | yes (relocated per above) |
 | **Maintainer-internal** | `adopt-orchestrator-prompts.sh`, `runtime-bridge-dispatch.sh`, `dispatcher`/`pipeline` skills, `orchestrator-prompts/` | **no** — internal dev harness |
+
+> **Skills row resolved (2026-09-03) — `tool-bootstrapping` now ships.** This table said it ships; the tree above (as first built) listed three skills without it, and [`plans/2026-06-22-cc-plugin-packaging.md:135`](../plans/2026-06-22-cc-plugin-packaging.md) Task 3 Step 4 is why: «ship only `rules-as-tests` in v1 … `tool-bootstrapping` stays OUT of v1 (**promote to a follow-up only if a need surfaces**)». The implementation followed the plan, correctly, and the table sat contradicted for ten weeks. **The trigger has since fired, from inside the plugin's own payload:** the plugin ships the `deps-hash-check` session hook (`plugin/hooks/hooks.json:32`), whose twin at `plugin/hooks/deps-hash-check:299` emits «… — run /tool-bootstrapping to re-evaluate» into a plugin user's session on any manifest change. The plugin was therefore instructing its users to run a skill it did not ship — a shipped instruction that cannot execute, the failure class [README.md#why-this-exists](../../../README.md#why-this-exists) exists to prevent. Everything that built that need postdates the June plan (tool-bootstrap layer revived four days later; the deps-hash hooks landed in July; hook twinning into `plugin/` later still), so this is the plan's own promotion path completing, not an override of it. `rule-research` and `rule-tests` stay OUT on a different ground — honesty, not cost: both are installer-bound by their own text (`rule-research/SKILL.md:24` ends its protocol in `./setup --full`; `rule-tests/SKILL.md:23` reads per-backend files it states are «NOT delivered to consumers»). The set is no longer prose-only — principle 24 arm (g) gates both its membership and its fidelity to `skills/`.
 
 The triage output is itself a reviewable artifact; shipping the whole `.claude/` is trap T-PLUG-B.
 

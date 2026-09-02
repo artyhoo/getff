@@ -22,7 +22,7 @@ bcff7c566ad22195b6c4884c7d0da06b3b32a8bbcab4eb8b808c79330fb19228  .claude/skills
 025b534cae8a3c8219e24424755c66bdca360485b1cecc248f06f51bbda7ddca  .claude/skills/getff/references/self-testing-docs.md
 676d46c86a79212ade99801955c5f69e02637545cd4428ca3778ceb8d982d507  .claude/skills/rule-research/SKILL.md
 c13577fa31d3369073dc78486e21cdbfe2c31e0855634ddb3aa590b65a2ab25b  .claude/skills/rule-tests/SKILL.md
-5da07b3a03a600c90a55d6d20671e7d459557735c37ff814a3cbdacd98df0534  .claude/skills/tool-bootstrapping/SKILL.md
+c4bc36871e3b86d36e2c989b7a389c527c7ab333f8b77a5ec30a1abd53b066ed  .claude/skills/tool-bootstrapping/SKILL.md
 18971ed38cd6a928cd9965ea202cb8fd0981d753aad6e57092603b33308d57bc  .claude/skills/tool-bootstrapping/references/decision-format.md
 f93f4a4bd693a0b1920f4e030b5f0d72f2d695fef9d501b3aeb8d02e790a7e24  .claude/skills/tool-bootstrapping/templates/tool-decisions.md.template
 bf24cbbc3d2dc7b19b35bfe3fc93930925070b2e13082b3273d1fb117a8c55c2  .getff/astgrep-rules/getff-no-datetime-datetime-now.yml
