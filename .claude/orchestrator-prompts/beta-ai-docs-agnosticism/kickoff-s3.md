@@ -21,6 +21,8 @@
 npx vitest run packages/core/principles/09-doc-authority-hierarchy.test.ts
 npx vitest run packages/core/principles/21-agnosticism-conformance.test.ts
 bash tests/agnosticism/run-audit.sh
+npx tsx scripts/render-install-roster.mjs --check
+npx tsx scripts/render-presets.mjs --check
 ```
 
 > Run by explicit path — `bash scripts/host-verify.sh .claude/orchestrator-prompts/beta-ai-docs-agnosticism/kickoff-s3.md`

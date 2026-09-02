@@ -3,6 +3,8 @@ name: story
 description: Use when work is done / a PR was pushed, or when the user asks to recap what was done — «расскажи что сделали», «расскажи историю», story, recap, «по актам».
 ---
 
+<!-- @harness-posture: cc-native-with-fallback — !shell injection (SKILL.md:20) + Stop-hook auto-emission (SKILL.md:23) are CC-native; degradation: run helpers/emit-story-prompt.sh manually / tell the story on request -->
+
 > **Authoritative for:** /story skill — session recap narrated as a story by acts; localized to the operator's language via AIF_HOOK_LANG; single SSOT for the story spec shared with the Stop-hook branch.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). Per-turn self-diagnostic recap (`## 🟢`) — that is a separate output.
 

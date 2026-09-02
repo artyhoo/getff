@@ -76,8 +76,11 @@ Install getff into this project. Follow these steps exactly:
    "Install depth profiles" below for the full core/env/factory breakdown.
 
    This installs (verified against a real default install, 2026-08-17):
-   - .claude/agents/ — 10 files: aif-init, capability-reuse-auditor, compliance-verifier, docplan-auditor, fidelity-auditor, living-docs-auditor, memory-codification-auditor, review-sidecar, rule-researcher, rule-test-author (best-practices-sidecar is KEEP-AIF — not shipped by us; review-sidecar default-skips when AIF's exists; orchestrator-worker-discipline + reviewer-discipline appear only at --profile factory / --with-aif-suite / --all)
-   - .claude/skills/ — 11 dirs at the default `env` depth: the 6-dir core set — getff (+ 5 reference files in references/), tool-bootstrapping, rule-research, rule-tests, ai-doc, template-audit — plus the operator contour arch, night-mode, orchestrator, pipeline, reviewer. `--profile core` ships the 6 core dirs only. NOTE the directory is `getff`, not `rules-as-tests` — see "Names you will see" below
+   <!-- getff:begin section=install-roster plan=scripts/render-install-roster.mjs -->
+   - `.claude/agents/` — 11 files: aif-init, capability-reuse-auditor, claims-conformance-auditor, compliance-verifier, docplan-auditor, fidelity-auditor, living-docs-auditor, memory-codification-auditor, review-sidecar, rule-researcher, rule-test-author
+   - `.claude/skills/` — 11 dirs at the default `env` depth: the 6-dir core set — ai-doc, getff, rule-research, rule-tests, template-audit, tool-bootstrapping — plus the operator contour arch, night-mode, orchestrator, pipeline, reviewer
+<!-- getff:end section=install-roster -->
+     (Roster caveats, hand-maintained outside the generated section: best-practices-sidecar is KEEP-AIF — not shipped by us; review-sidecar default-skips when AIF's exists; orchestrator-worker-discipline + reviewer-discipline appear only at --profile factory / --with-aif-suite / --all; `--profile core` ships the 6 core dirs only. NOTE the directory is `getff`, not `rules-as-tests` — see "Names you will see" below)
    - .ai-factory/tier-home.md — the tier-routing criteria (env+ only; absent at `--profile core`)
    - .ai-factory/DESCRIPTION.template.md + DESCRIPTION.md, ARCHITECTURE.ts-server.md + ARCHITECTURE.md, RULES.md, RULES.react-next.md (if applicable), AI-USAGE-GUIDE.md, tool-decisions.md, skill-context/{aif-review,aif-rules-check}/
    - AGENTS.md — written as a `getff:begin section=getff-framework` fenced block, so a root AGENTS.md another tool already generates is extended, never replaced
