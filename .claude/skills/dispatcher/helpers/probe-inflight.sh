@@ -21,6 +21,14 @@
 # not run yields PROBE-INCOMPLETE rather than silence. An unasked question must never
 # render as a clean answer.
 #
+# Which repository is asked: the container checkout is NOT hardcoded. It resolves as
+# (i) explicit AIF_REPO_PATH, else (ii) the aif project record — GET /projects, the
+# record whose .id == RUNTIME_BRIDGE_AIF_PROJECT_ID, its rootPath
+# (kickoff-l3.decisions.md#decision-1; the per-id route 404s, only the list endpoint
+# exists). When no path is derivable the container is NOT asked: container_status
+# reads unavailable with the named cause on the signal line — never status=ok from a
+# different project's checkout (issue 1439).
+#
 # Testability: every collector honours an env override so the script can be driven from
 # fixtures with no docker, no gh and no network (the TASK_JSON pattern established by
 # monitor-classify.sh). Overrides are for tests and for degraded hosts; unset means
@@ -31,6 +39,8 @@
 #   PROBE_CONTAINER_BRANCHES  newline-separated branch names   (else: docker exec … git branch)
 #   PROBE_CONTAINER_STATUS    ok|unavailable                   (else: derived from docker exit)
 #   PROBE_TASKS               JSON array of aif task objects   (else: curl /tasks)
+#   PROBE_PROJECTS            JSON array of aif project objects (else: curl /projects)
+#   PROBE_DOCKER_BIN          docker binary to probe/exec (default: docker)
 #   PROBE_CLAIM_TTL_MIN       minutes before a claim reads STALE (default 120)
 #   PROBE_NOW_EPOCH           epoch seconds "now", for deterministic age fixtures
 #
@@ -41,9 +51,10 @@ set -euo pipefail
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 AIF_CONTAINER="${AIF_CONTAINER:-aif-handoff-agent-1}"
-AIF_REPO_PATH="${AIF_REPO_PATH:-/home/www/rules-as-tests-aif}"
+AIF_REPO_PATH="${AIF_REPO_PATH:-}"
 AIF_HOST="${AIF_HOST:-localhost}"
 AIF_PORT="${AIF_PORT:-3009}"
+PROBE_DOCKER_BIN="${PROBE_DOCKER_BIN:-docker}"
 
 # A claim older than this reads STALE rather than blocking forever (starvation mode TD-F5).
 # 120min is a deliberate over-estimate of a Phase -1 cold review: the cost of calling a live
@@ -102,20 +113,83 @@ else
 fi
 echo "SIGNAL done-md ${done_md}"
 
+# ── Container checkout resolution (issue 1439, layer 1) ───────────────────────
+# The repository Signal 4 asks is RESOLVED, never assumed: explicit AIF_REPO_PATH
+# wins; otherwise the aif PROJECT record for THIS probe's project
+# (RUNTIME_BRIDGE_AIF_PROJECT_ID → GET /projects → rootPath, per
+# kickoff-l3.decisions.md#decision-1). Every non-derivable outcome keeps a NAMED
+# reason and never falls back to some other project's checkout: a probe answering
+# `ok` from the wrong repository is the defect this resolution exists to close.
+#
+# Precedence: when PROBE_CONTAINER_BRANCHES is set (the injected fixture path),
+# container_status comes from PROBE_CONTAINER_STATUS exactly as before and the
+# derived path is reported in `repo=` for visibility only — it never flips status.
+# The network curl is skipped on that injected path; when PROBE_PROJECTS carries the
+# fixture, the derivation still runs from it.
+repo_path=""
+repo_reason=""
+if [[ -n "$AIF_REPO_PATH" ]]; then
+  repo_path="$AIF_REPO_PATH"
+elif [[ -z "${RUNTIME_BRIDGE_AIF_PROJECT_ID:-}" ]]; then
+  repo_reason="no-project-id"
+else
+  if [[ -n "${PROBE_PROJECTS+x}" ]]; then
+    projects_json="$PROBE_PROJECTS"
+  elif [[ -n "${PROBE_CONTAINER_BRANCHES+x}" ]]; then
+    projects_json="" # injected container status — the network call is skipped
+  else
+    projects_json=$(curl -s --max-time 10 "http://${AIF_HOST}:${AIF_PORT}/projects" 2>/dev/null || true)
+  fi
+  if [[ -n "$projects_json" ]] && printf '%s' "$projects_json" | jq -e 'type == "array"' &>/dev/null; then
+    repo_path=$(printf '%s' "$projects_json" | jq -r --arg id "$RUNTIME_BRIDGE_AIF_PROJECT_ID" '
+      [.[] | select(.id == $id)][0].rootPath // empty' 2>/dev/null || true)
+    if [[ -z "$repo_path" ]]; then
+      matching_count=$(printf '%s' "$projects_json" | jq --arg id "$RUNTIME_BRIDGE_AIF_PROJECT_ID" \
+        '[.[] | select(.id == $id)] | length' 2>/dev/null || echo 0)
+      if [[ "$matching_count" -gt 0 ]]; then
+        repo_reason="no-rootpath" # the record exists but carries no rootPath
+      else
+        repo_reason="project-not-found"
+      fi
+    fi
+  elif [[ -z "${PROBE_CONTAINER_BRANCHES+x}" ]]; then
+    repo_reason="projects-api-unreachable" # live fetch failed or returned non-JSON
+  fi
+fi
+
 # ── Signal 4: CONTAINER branches — the blind spot this helper exists to close ──
 # A container-only branch is work that origin cannot see. Distinguishing "the
 # container has nothing" from "we never asked the container" is the whole point:
-# the second must not be reported as the first.
+# the second must not be reported as the first. Layer 2 (issue 1439): when the
+# docker/git call itself fails, its stderr is CAPTURED, not discarded — the first
+# stderr line names the cause on the signal line and in a `container-cause:` detail
+# line. A failed question must carry its cause, never render as a clean answer.
 container_status="ok"
+container_reason=""
 if [[ -n "${PROBE_CONTAINER_BRANCHES+x}" ]]; then
   container_branches="$PROBE_CONTAINER_BRANCHES"
   container_status="${PROBE_CONTAINER_STATUS:-ok}"
-elif ! command -v docker &>/dev/null; then
-  container_branches=""
-  container_status="unavailable"
-elif ! container_branches=$(docker exec "$AIF_CONTAINER" git -C "$AIF_REPO_PATH" branch -a 2>/dev/null); then
-  container_branches=""
-  container_status="unavailable"
+else
+  if [[ -z "$repo_path" ]]; then
+    # Live path with no derivable checkout: the question cannot be asked honestly.
+    # Report unavailable with the named cause — never ask a different repository.
+    container_branches=""
+    container_status="unavailable"
+    container_reason="${repo_reason:-no-rootpath}"
+  else
+    err_file=$(mktemp)
+    if ! command -v "$PROBE_DOCKER_BIN" &>/dev/null; then
+      container_branches=""
+      container_status="unavailable"
+      container_reason="docker-not-on-PATH"
+    elif ! container_branches=$("$PROBE_DOCKER_BIN" exec "$AIF_CONTAINER" git -C "$repo_path" branch -a 2>"$err_file"); then
+      container_branches=""
+      container_status="unavailable"
+      container_reason=$(grep -m1 . "$err_file" 2>/dev/null || true)
+      [[ -z "$container_reason" ]] && container_reason="git-call-failed"
+    fi
+    rm -f "$err_file"
+  fi
 fi
 container_branches=$(printf '%s' "$container_branches" | sed 's/^[+* ]*//' | grep -- "$SLUG" || true)
 container_count=$(printf '%s' "$container_branches" | grep -c . || true)
@@ -139,7 +213,15 @@ if [[ "$container_status" == "ok" && "$container_count" -gt 0 ]]; then
   done <<< "$container_branches"
 fi
 container_only_count=$(printf '%s' "$container_only" | grep -c . || true)
-echo "SIGNAL container-branch ${container_count} only=${container_only_count} status=${container_status}"
+repo_field=""
+[[ -n "$repo_path" ]] && repo_field=" repo=${repo_path}"
+if [[ "$container_status" == "unavailable" && -n "$container_reason" ]]; then
+  repo_field="${repo_field} reason=${container_reason}"
+fi
+echo "SIGNAL container-branch ${container_count} only=${container_only_count} status=${container_status}${repo_field}"
+if [[ "$container_status" == "unavailable" && -n "$container_reason" ]]; then
+  echo "  container-cause: ${container_reason}"
+fi
 if [[ "$container_only_count" -gt 0 ]]; then
   printf '%s\n' "$container_only" | grep . | sed 's/^/  container-only: /' || true
 fi
