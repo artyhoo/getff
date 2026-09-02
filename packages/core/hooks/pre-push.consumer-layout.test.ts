@@ -698,16 +698,16 @@ describe(
           '  case "$a" in\n' +
           '    --offline|--no-progress) ;;\n' +
           // FRAMEWORK_SHIPPED_MD_PREFIXES (mirror of pre-push.ts) — these are the paths
-        // Part 1 must exclude. If any reaches lychee's argv, REJECT to surface a
-        // narrowing regression (T7/T14 — skip-reported-as-green is the trap this stub
-        // exists to catch: a stub that always exit-0 cannot distinguish narrowed from
-        // un-narrowed, so the §3 POSITIVE shape becomes a tautology).
-        '    AGENTS.md|.claude/agents/*|.claude/skills/*|.ai-factory/*|.claude/session-bootstrap.md)' +
+          // Part 1 must exclude. If any reaches lychee's argv, REJECT to surface a
+          // narrowing regression (T7/T14 — skip-reported-as-green is the trap this stub
+          // exists to catch: a stub that always exit-0 cannot distinguish narrowed from
+          // un-narrowed, so the §3 POSITIVE shape becomes a tautology).
+          '    AGENTS.md|.claude/agents/*|.claude/skills/*|.ai-factory/*|.claude/session-bootstrap.md)' +
           '      echo "✗ would-block-shipped: $a"; exit 1 ;;\n' +
           '  esac\n' +
           'done\n' +
           'exit 0\n',
-        );
+      );
       chmodSync(join(stubBin, 'lychee'), 0o755);
 
       // A SHIPPED file (AGENTS.md is the canonical framework-shipped top-level starter,
@@ -767,6 +767,87 @@ describe(
       // §3 binding (T-HS-A): exit code FIRST, wording second. exit 1 = gate lived.
       expect(r.status, out).toBe(1);
       expect(out, out).toMatch(/bad-link-in-consumer-file\.md/);
+      expect(out, out).toMatch(/lychee found broken links/);
+    });
+
+    // ── §8 plugin/agents twin exclusion (PR #1574 follow-up) ───────────────────
+    // plugin/agents/*.md are byte-identical copies of agents/*.md one directory
+    // DEEPER, so every relative link in them resolves to a non-existent plugin/… path
+    // while the same link is correct at the source. Both arms run on a MAINTAINER
+    // layout (SSOT planted) — that is where plugin/agents/ exists at all, and where
+    // the S2 Part 1 narrowing above deliberately does NOT fire, so nothing else can
+    // account for the exclusion.
+
+    it('§8 twin-exclusion POSITIVE — a changed plugin/agents twin never reaches lychee argv (maintainer layout)', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      plantSsotRegister(dir);
+      // REJECT if and only if a plugin/agents path reaches argv. A blanket exit-0 stub
+      // could not tell "excluded" from "passed and happened to be clean" — the T7/T14
+      // skip-reported-as-green trap this shape exists to avoid.
+      const stubBin = join(dir, '.stub-bin');
+      writeFileSync(
+        join(stubBin, 'lychee'),
+        '#!/bin/sh\nfor a in "$@"; do\n' +
+          '  case "$a" in\n' +
+          '    plugin/agents/*) echo "✗ would-check-twin: $a"; exit 1 ;;\n' +
+          '  esac\n' +
+          'done\n' +
+          'exit 0\n',
+      );
+      chmodSync(join(stubBin, 'lychee'), 0o755);
+      addConsumerCommit(
+        dir,
+        'plugin/agents/twin.md',
+        '# twin\n\n[rule](../.claude/rules/no-paid-llm-in-ci.md)\n',
+        'chore: sync agent twin',
+      );
+
+      const r = runHook(dir, hook, baseSha);
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      // Deliberately NOT asserting exit 0. A maintainer layout composes every
+      // maintainer-owned section, and this fixture trips unrelated ones (e.g. the
+      // always-on budget gate) — binding to the process exit code would encode "no
+      // other section fails in this sandbox", which is not the claim under test. The
+      // three assertions below are exactly the §8 claim: the twin was dropped BEFORE
+      // the shell-out (the stub's reject arm never fired), the narrowing announced
+      // itself, and §8 itself did not die.
+      expect(out, out).not.toMatch(/would-check-twin/);
+      expect(out, out).toMatch(/excluded 1 plugin\/agents twin/);
+      expect(out, out).not.toMatch(/lychee found broken links/);
+    });
+
+    it('§8 twin-exclusion NEGATIVE — the agents/ SOURCE is still walked and a broken link there still blocks (exclusion is scoped, not a hole)', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      plantSsotRegister(dir);
+      // REJECT if and only if an agents/ (non-plugin) path reaches argv. If the new
+      // filter were written as a substring match on "agents/" it would swallow the
+      // source too and this arm would go green-by-omission — that is the regression
+      // this arm exists to catch.
+      const stubBin = join(dir, '.stub-bin');
+      writeFileSync(
+        join(stubBin, 'lychee'),
+        '#!/bin/sh\nfor a in "$@"; do\n' +
+          '  case "$a" in\n' +
+          '    plugin/*) ;;\n' +
+          '    agents/*) echo "✗ source-still-checked: $a"; exit 1 ;;\n' +
+          '  esac\n' +
+          'done\n' +
+          'exit 0\n',
+      );
+      chmodSync(join(stubBin, 'lychee'), 0o755);
+      addConsumerCommit(
+        dir,
+        'agents/source.md',
+        '# source\n\n[broken](./does-not-exist.md)\n',
+        'docs: agent source with a broken link',
+      );
+
+      const r = runHook(dir, hook, baseSha);
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      expect(r.status, out).toBe(1);
+      expect(out, out).toMatch(/source-still-checked: agents\/source\.md/);
       expect(out, out).toMatch(/lychee found broken links/);
     });
 

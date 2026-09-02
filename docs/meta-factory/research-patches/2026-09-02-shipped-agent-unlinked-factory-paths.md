@@ -47,7 +47,7 @@ rewritten link, the numbers move in BOTH directions from that record — `rule-t
 | `rule-researcher`             | 11                              | 11              | (b) design-by-spec           |
 | `review-sidecar`              | 4                               | 4               | (c)+(d) → §4 P2 + §4.5       |
 | `docplan-auditor`             | 4                               | **0**           | (a) fixed                    |
-| `compliance-verifier`         | 3                               | 3               | (d) twin-blocked → §4.5      |
+| `compliance-verifier`         | 3                               | **0**           | (a) fixed (after §3.5 (i))   |
 | `memory-codification-auditor` | 2                               | **0**           | (a) fixed                    |
 | `fidelity-auditor`            | 3                               | **0**           | (a) fixed                    |
 | `capability-reuse-auditor`    | 1                               | **0**           | (a) fixed                    |
@@ -125,8 +125,17 @@ header, no marker, no transform».
 The twin sits one directory deeper than its source. A `](../.claude/rules/…)` link that resolves
 from `agents/` resolves to `plugin/.claude/rules/…` from `plugin/agents/` — a path that does not
 exist — and byte-identity forbids rewriting the depth in the copy. **So a twinned agent cannot
-carry the class-(a) fix at all.** No relative prefix satisfies both depths, and a root-relative
-`](/…)` needs a `--root-dir` the pre-push lychee arm does not pass.
+carry the class-(a) fix at all.** No relative prefix satisfies both depths.
+
+**Correction (2026-09-02, same day).** This section first claimed a root-relative `](/…)` was
+ruled out because «the pre-push lychee arm does not pass `--root-dir`». **That was false and is
+retracted** — the arm DOES pass it (`packages/core/hooks/pre-push.ts`, the `--root-dir REPO_ROOT`
+argument in `lycheeSection`), so lychee would resolve such links at both depths. Root-relative is
+still the wrong answer, for a different and better reason: `transform_internal_refs` matches only
+`](../…)` (`setup.d/lib.sh:147-163`), so a root-relative ref ships VERBATIM into consumer
+projects and dangles there. Verified by running the transform over a two-link fixture — the
+`](../…)` line was rewritten to the blob URL, the `](/…)` line came out untouched. The option
+fixes the gate and keeps the defect.
 
 Measured, not reasoned: the fix was applied to `agents/compliance-verifier.md`, the twin
 re-synced, and the pre-push §8 gate went RED on the twin —
@@ -143,16 +152,27 @@ The change was reverted; `agents/compliance-verifier.md` and its twin are byte-i
 three twinned agents carries a single `](../…)` link today**, while every non-twinned agent does.
 The constraint has been shaping these files all along, unstated.
 
-**This is an owner decision, not a link fix**, so nothing here was applied. The options, cheapest
-first: (i) narrow the pre-push §8 lychee arm to skip `plugin/agents/**` — the twin is a byte-copy
-whose links are already validated at the source path, so checking it twice at the wrong depth
-buys nothing; (ii) drop the three agent twins if the plugin does not need them; (iii) accept that
-twinned agents cite factory paths in bare prose forever, and say so in the generator's header so
-the next author does not rediscover it by going RED.
+**RESOLVED — operator chose option (i), 2026-09-02.** The options as put, cheapest first, were:
+(i) narrow the pre-push §8 lychee arm to skip `plugin/agents/**` — the twin is a byte-copy whose
+links are already validated at the source path, so checking it twice at the wrong depth buys
+nothing; (ii) drop the three agent twins if the plugin does not need them; (iii) accept that
+twinned agents cite factory paths in bare prose forever, and say so in the generator's header.
 
-Affected today: `compliance-verifier` (3 paths), `review-sidecar` (4 paths). `living-docs-auditor`
-is twinned too, but its single hit is in YAML frontmatter and §4 P1 proposes REMOVAL, not a link
-— so the constraint does not block it.
+Option (i) landed: `lycheeSection` now drops `PLUGIN_AGENT_TWIN_PREFIX` on BOTH layouts, with the
+coverage argument stated at the constant (the source is walked by the same section; a twin can
+never legitimately carry content its source does not — principle 24(d) plus the generator's
+refuse-to-overwrite arm). Two arms guard it in `pre-push.consumer-layout.test.ts`: a POSITIVE arm
+whose lychee stub REJECTS if any `plugin/agents/*` path reaches argv, and a NEGATIVE arm whose
+stub rejects if an `agents/*` path does — so a filter widened to a bare `agents/` substring, which
+would swallow the source, fails. Both were mutation-checked: neutering the filter turns the
+POSITIVE arm RED.
+
+With the constraint lifted, `compliance-verifier`'s 3 paths were converted — it moves from class
+(d) to class (a), fixed. `review-sidecar` (4 paths) stays a §4 P2 proposal: unblocked mechanically
+now, but still maintainer-owned, and P2's harder half (an instruction to read a rule file the
+agent cannot fetch) is untouched by the link form. `living-docs-auditor` is twinned too, but its
+single hit is in YAML frontmatter and §4 P1 proposes REMOVAL, not a link — the constraint never
+blocked it.
 
 ## §4 Class (c) — patch PROPOSALS (maintainer-owned; zero edits made)
 
@@ -189,13 +209,14 @@ contradiction at `:110` / `:173`. Disjoint lines; the two can land together.
 | `:158` | `.claude/rules/reviewer-discipline.md §6`                          | backticked, in body        |
 | `:160` | `.claude/rules/reviewer-discipline.md §6.1`                        | backticked, in body        |
 
-**Proposed — BLOCKED on the §3.5 owner decision.** The class-(a) fix (convert each to
-`[<path>](../<path>)`) cannot be applied here: `review-sidecar` is a plugin twin, and §3.5 shows
-that form goes RED at `plugin/agents/` depth. This proposal therefore depends on §3.5 option (i)
-or (ii) landing first. If one does, the conversion is mechanical, with one carve-out: the
-`@dual-pair: review-sidecar` anchor line must not be touched — the channel-coverage probe resolves
-counterparts by grepping that anchor (`tests/agnosticism/probes/channel-coverage.sh:56-59`), not by
-the prose path.
+**Proposed — mechanically unblocked (§3.5 option (i) landed), still owner-gated.** The class-(a)
+fix (convert each to `[<path>](../<path>)`) was blocked while the pre-push §8 arm walked the twin;
+with option (i) landed it is now applicable, and the conversion is mechanical — with one carve-out:
+the `@dual-pair: review-sidecar` anchor line must not be touched, because the channel-coverage
+probe resolves counterparts by grepping that anchor
+(`tests/agnosticism/probes/channel-coverage.sh:56-59`), not by the prose path. What still gates it
+is ownership, not mechanics: `agents/review-sidecar.md` is framework-maintainer-owned, so this
+stays a proposal.
 
 **The harder half, flagged rather than proposed.** `:160` instructs the reviewer to «grade with
 the three-axis rubric **quoted verbatim there**» — i.e. to read `.claude/rules/reviewer-discipline.md`,
