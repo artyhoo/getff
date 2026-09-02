@@ -46,6 +46,7 @@
  * checks/guard-liveness.ts, checks/cmd-script-liveness.ts, checks/skill-core-edit-scope.ts.
  */
 import { runCheck } from '../utils/run-check.ts';
+import { stripHtmlComments } from '../utils/markdown-comments.ts';
 
 /**
  * How far back the base-side history of each modified file is walked. A squash-rebuild
@@ -110,10 +111,6 @@ const TOKEN_LINE_RE = /^STALE-REVERT:.*$/m;
  */
 const TOKEN_VALID_RE = /^STALE-REVERT:[ \t]*intended[ \t]*[-–—‒―]+[ \t]*(.+)$/m;
 
-/** Strip HTML comments so a commented-out token never neutralises the gate (fidelity precedent). */
-function stripComments(text: string): string {
-  return text.replace(/<!--[\s\S]*?-->/g, '');
-}
 
 /**
  * Decide one file. Returns null for every healthy shape and a finding only when the
@@ -163,7 +160,10 @@ export function checkStaleRevert(files: readonly FileArchaeology[]): StaleRevert
  * case appears.
  */
 export function parseStaleRevertToken(body: string): EscapeToken {
-  const text = stripComments(body);
+  // Comments are stripped so a commented-out token never neutralises the gate
+  // (fidelity precedent). Markdown-aware — utils/markdown-comments.ts explains why a
+  // raw regex here deleted the token line of any body that quoted a marker in code.
+  const text = stripHtmlComments(body);
   if (!TOKEN_LINE_RE.test(text)) {
     return { present: false, valid: false, rationale: '', reason: '' };
   }
