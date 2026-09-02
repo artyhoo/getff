@@ -19,6 +19,9 @@
  *   NOT first-line-bound (auto/skip already own that line) and deliberately
  *   NOT a whole-file scan — a kickoff that merely documents this convention in
  *   its body prose (§2/§3 sections, past the first `##`) must not false-positive.
+ * - Since 2026-09-02 a HEADER-region mention is safe too: naming the token in a
+ *   scope comment in order to say no marker is attached yields no hint, and does
+ *   not shadow a real marker elsewhere in the header. See BRIDGE_PROFILE_RE.
  *
  * @cc-only-rationale: Used from both hook (CC) and CLI entrypoint (portable).
  */
@@ -27,7 +30,22 @@ import { dirname, basename } from 'node:path';
 import { hashContent } from './idempotency.js';
 import type { KickoffSpec } from './types.js';
 
-const BRIDGE_PROFILE_RE = /<!--\s*bridge-profile:\s*(.+?)\s*-->/;
+/**
+ * Profile-hint marker matcher.
+ *
+ * The hint body is `[^\s>][^>]*?` — NOT `(.+?)`. Two properties are load-bearing:
+ *
+ * - **No `>` in the body**, so the capture can never cross a `-->`. A lazy `(.+?)`
+ *   requires at least one character and therefore cannot close on a `-->` that sits
+ *   immediately after the token: it ran on to the NEXT `-->` and returned the prose
+ *   in between as the "hint" (incident 2026-09-02, beta-docs-showcase BS0 — a header
+ *   that named the token in order to state that no marker was attached). Same
+ *   exclusion-by-character-class shape as `packages/core/composition/fence.ts:38`.
+ * - **First char is non-space**, so `<!-- bridge-profile: -->` yields no match at all
+ *   rather than an empty-string hint. An empty hint substring-matches every runtime
+ *   profile in `AifHandoffBackend._resolveProfileId`.
+ */
+const BRIDGE_PROFILE_RE = /<!--\s*bridge-profile:\s*([^\s>][^>]*?)\s*-->/;
 
 /**
  * Extract the `<!-- bridge-profile: <name> -->` hint from a kickoff's HEADER
@@ -35,6 +53,11 @@ const BRIDGE_PROFILE_RE = /<!--\s*bridge-profile:\s*(.+?)\s*-->/;
  * metadata). Returns undefined when absent. Body prose past the first `##`
  * is never scanned, so a kickoff documenting this marker in its §-sections
  * (like this very source file's own kickoff) does not false-positive.
+ *
+ * A header-region MENTION is also safe: the marker body cannot contain `>`, so a
+ * capture can never run past the `-->` that closes the token it is quoting. An
+ * unresolvable hint is no longer silently absorbed either — AifHandoffBackend
+ * raises `spec_invalid` and cli/dispatch.ts aborts instead of degrading.
  */
 export function extractProfileHint(content: string): string | undefined {
   const lines = content.split('\n');
