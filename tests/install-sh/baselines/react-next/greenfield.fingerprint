@@ -6,7 +6,7 @@ e5388bba624162eed20f07382bccaab25c977c1103dc587d30245062d1b9c116  .ai-factory/AI
 03264d66be0aceebf3e0df0a2bd361ec7db105551b93b519122c58ac9721bcda  .ai-factory/DESCRIPTION.template.md
 5c035eb3e19c73eb255ee25bb4475e6b876b30a94bfe6dfa0f450dee80f47f1b  .ai-factory/RULES.md
 2e0b9b443b6159c73df29ec499cf7df12953b5139b197f77fb0f141c97b471b0  .ai-factory/RULES.react-next.md
-b7c27df1831808e3d586cd32f4946239ce69500f7af4b595c4cb4623ee6a5071  .ai-factory/refresh-baseline.json
+a527e1fbd55cf25d2e4ce9eb9609c6def103c4aab086022bd434c9c7dc109ed8  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
 7d6b6061459f0939e64358447d0905329ddd4c52abd459ee8d9d201653ffb791  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -15,7 +15,7 @@ f93f4a4bd693a0b1920f4e030b5f0d72f2d695fef9d501b3aeb8d02e790a7e24  .ai-factory/to
 caa7ac27268fdd5652ed66db6b5e9b708042347ebf27663687827b43f07638e4  .claude/agents/aif-init.md
 baf371029b0bd8af052b6abdc421096772eeee60fe4597fcb964665674b818f0  .claude/agents/capability-reuse-auditor.md
 b02f777e22aebaaf970752897b29ebc4eebf7c360eabe33fa2ee32b831ff71b1  .claude/agents/claims-conformance-auditor.md
-6b6679a548546f905ede1c9495682c8315262ed2229605cd767a559d7f19eb57  .claude/agents/compliance-verifier.md
+0ab1bd4ce7fcb0d85740aaa94546b97d27a332b4db2ec8444dad587cfda5d107  .claude/agents/compliance-verifier.md
 7fd839ccb2ad1faba23a6a423aaaa3f0524336f174a6e41236a602917374fc5e  .claude/agents/docplan-auditor.md
 94ffb1f4838b8ff9abfe3852ed24b8df2e16aaec2cb19816a02257be47fd09e6  .claude/agents/fidelity-auditor.md
 0964a4d3deb5e15e916c599f375874785af96e935bec9efbc7488e600cee719d  .claude/agents/living-docs-auditor.md

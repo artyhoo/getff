@@ -45,9 +45,9 @@ rewritten link, the numbers move in BOTH directions from that record — `rule-t
 | ----------------------------- | ------------------------------- | --------------- | ---------------------------- |
 | `rule-test-author`            | 18                              | 18              | (b) design-by-spec           |
 | `rule-researcher`             | 11                              | 11              | (b) design-by-spec           |
-| `review-sidecar`              | 4                               | 4               | (c) maintainer-owned → §4 P2 |
+| `review-sidecar`              | 4                               | 4               | (c)+(d) → §4 P2 + §4.5       |
 | `docplan-auditor`             | 4                               | **0**           | (a) fixed                    |
-| `compliance-verifier`         | 3                               | **0**           | (a) fixed                    |
+| `compliance-verifier`         | 3                               | 3               | (d) twin-blocked → §4.5      |
 | `memory-codification-auditor` | 2                               | **0**           | (a) fixed                    |
 | `fidelity-auditor`            | 3                               | **0**           | (a) fixed                    |
 | `capability-reuse-auditor`    | 1                               | **0**           | (a) fixed                    |
@@ -114,6 +114,46 @@ point, `INSTALL-FOR-AI.md:19`). On that day every path in this section becomes c
 the two rule-generation agents need a real answer — most likely vendoring the cited constants
 rather than link-rewriting the citations.
 
+## §3.5 Class (d) — blocked by the plugin-twin depth constraint
+
+Three shipped agents are also **plugin twins**: `plugin/agents/` holds byte-identical copies of
+`compliance-verifier.md`, `living-docs-auditor.md` and `review-sidecar.md`. Principle 24(d)
+(`packages/core/principles/24-plugin-manifest-integrity.test.ts:274`) requires byte-identity, and
+`scripts/generate-plugin-twins.sh:164-166` states it plainly — the agent arm is a `cp`, «no
+header, no marker, no transform».
+
+The twin sits one directory deeper than its source. A `](../.claude/rules/…)` link that resolves
+from `agents/` resolves to `plugin/.claude/rules/…` from `plugin/agents/` — a path that does not
+exist — and byte-identity forbids rewriting the depth in the copy. **So a twinned agent cannot
+carry the class-(a) fix at all.** No relative prefix satisfies both depths, and a root-relative
+`](/…)` needs a `--root-dir` the pre-push lychee arm does not pass.
+
+Measured, not reasoned: the fix was applied to `agents/compliance-verifier.md`, the twin
+re-synced, and the pre-push §8 gate went RED on the twin —
+
+```text
+[plugin/agents/compliance-verifier.md]:
+[ERROR] …/plugin/.claude/rules/phase-research-coverage.md (at 44:43) | File not found
+[ERROR] …/plugin/.claude/rules/phase-research-coverage.md (at 91:31) | File not found
+[ERROR] …/plugin/.claude/rules/phase-research-coverage.md (at 144:3) | File not found
+```
+
+The change was reverted; `agents/compliance-verifier.md` and its twin are byte-identical to
+`origin/staging`. This also explains a fact that would otherwise look accidental: **none of the
+three twinned agents carries a single `](../…)` link today**, while every non-twinned agent does.
+The constraint has been shaping these files all along, unstated.
+
+**This is an owner decision, not a link fix**, so nothing here was applied. The options, cheapest
+first: (i) narrow the pre-push §8 lychee arm to skip `plugin/agents/**` — the twin is a byte-copy
+whose links are already validated at the source path, so checking it twice at the wrong depth
+buys nothing; (ii) drop the three agent twins if the plugin does not need them; (iii) accept that
+twinned agents cite factory paths in bare prose forever, and say so in the generator's header so
+the next author does not rediscover it by going RED.
+
+Affected today: `compliance-verifier` (3 paths), `review-sidecar` (4 paths). `living-docs-auditor`
+is twinned too, but its single hit is in YAML frontmatter and §4 P1 proposes REMOVAL, not a link
+— so the constraint does not block it.
+
 ## §4 Class (c) — patch PROPOSALS (maintainer-owned; zero edits made)
 
 Both targets are framework-maintainer-owned per the Artifact Ownership Contract. Nothing below
@@ -149,11 +189,13 @@ contradiction at `:110` / `:173`. Disjoint lines; the two can land together.
 | `:158` | `.claude/rules/reviewer-discipline.md §6`                          | backticked, in body        |
 | `:160` | `.claude/rules/reviewer-discipline.md §6.1`                        | backticked, in body        |
 
-**Proposed (link form, matching the class-(a) fix in this PR):** convert each to
-`[<path>](../<path>)` so `transform_internal_refs` rewrites it to the upstream blob URL. The
-`@dual-pair: review-sidecar` anchor line itself must not be touched — the channel-coverage probe
-resolves counterparts by grepping that anchor (`tests/agnosticism/probes/channel-coverage.sh:56-59`),
-not by the prose path.
+**Proposed — BLOCKED on the §3.5 owner decision.** The class-(a) fix (convert each to
+`[<path>](../<path>)`) cannot be applied here: `review-sidecar` is a plugin twin, and §3.5 shows
+that form goes RED at `plugin/agents/` depth. This proposal therefore depends on §3.5 option (i)
+or (ii) landing first. If one does, the conversion is mechanical, with one carve-out: the
+`@dual-pair: review-sidecar` anchor line must not be touched — the channel-coverage probe resolves
+counterparts by grepping that anchor (`tests/agnosticism/probes/channel-coverage.sh:56-59`), not by
+the prose path.
 
 **The harder half, flagged rather than proposed.** `:160` instructs the reviewer to «grade with
 the three-axis rubric **quoted verbatim there**» — i.e. to read `.claude/rules/reviewer-discipline.md`,
@@ -203,6 +245,13 @@ grounds it. The residue the method could NOT reach is stated rather than hidden:
 sibling-agent filenames and the shipped-skills surface in §5 fall outside the regex that defined
 this population, and the §3 verdict carries an explicit falsifier rather than a confidence
 adjective (T6).
+
+**The surface the enumeration missed until a gate said so.** §1's population was
+`agents/*.md` — it never asked whether any member has a copy elsewhere in the tree. The
+plugin-twin depth constraint (§3.5) was found by the pre-push lychee arm going RED, not by this
+audit, and it invalidated the fix for two of the seven agents plus one of the two proposals. The
+enumeration step (T10) should have asked «where else does this artefact exist?», not only «which
+files are in the population».
 
 **The self-referential trap this triage nearly walked into.** The first measurement pass used a
 raw grep and counted the link TEXT of already-correct links as defects — an audit whose own
