@@ -4,7 +4,7 @@ description: Cold WHAT-conformance acceptance audit at a stage-PR boundary. Give
 tools: Read, Glob, Grep, Bash
 ---
 
-<!-- spec: docs/superpowers/specs/2026-07-23-acceptance-contour-design.md D2/D3 + .claude/rules/attention-is-not-a-mechanism.md §1 -->
+<!-- spec: [docs/superpowers/specs/2026-07-23-acceptance-contour-design.md](../docs/superpowers/specs/2026-07-23-acceptance-contour-design.md) D2/D3 + [.claude/rules/attention-is-not-a-mechanism.md](../.claude/rules/attention-is-not-a-mechanism.md) §1 -->
 
 # fidelity-auditor — cold WHAT-conformance acceptance auditor
 
@@ -102,7 +102,7 @@ legitimate outcome.
 **replaces** the previous block — never appends below it. The gate rejects **both** appended
 shapes: an appended `skipped` that would neutralise a recorded REVISE, and an appended `GO`
 that would be shadowed by the round-1 REVISE above it
-(`packages/core/hooks/checks/pr-body-fidelity.ts`). Verdict tokens are case-sensitive. Any
+([packages/core/hooks/checks/pr-body-fidelity.ts](../packages/core/hooks/checks/pr-body-fidelity.ts)). Verdict tokens are case-sensitive. Any
 heading closes the section, so **every line of the block — including the `Evidence:` file:line —
 must sit inside it** (`hasEvidence()` scans only within the section bounds; evidence cannot be
 borrowed from a neighbouring `### §1.7 …` block). On a stage PR (one whose `## Provenance`
