@@ -53,12 +53,30 @@ From S2 (#1552):
 
 From S4 (#1569):
 
-- **Two maintainer-only legs, both prepared and neither performed.** The umbrella AC «the Action
-  runs green» is satisfied at the maintainer's action, not at S4's merge: submit
-  `https://github.com/artyhoo/getff` at `https://context7.com/add-library` (resulting library id
-  `/artyhoo/getff`), then add the `CONTEXT7_API_KEY` repository secret from the Context7
-  dashboard. Until both are done `.github/workflows/context7-refresh.yml` fails by design, and
-  the S4 PR labels this **INCONCLUSIVE**, never a green claim.
+- **Both maintainer-only legs are DONE (operator, 2026-09-02T05:44Z), and the umbrella AC «the
+  Action runs green» is MET at the workflow level.** S4 shipped with them outstanding and #1569
+  labelled the AC INCONCLUSIVE; that label no longer holds. Measured, not asserted:
+  `gh secret list --repo artyhoo/getff` shows `CONTEXT7_API_KEY` created `2026-09-02T05:44:03Z`,
+  and run **33594897822 attempt 2** on `staging` concluded `success` at `05:45:30Z` carrying the
+  service's own response — `{"message":"Refresh started successfully"}` followed by
+  `Refresh requested for /artyhoo/getff.` A 2xx from `context7.com/api/v1/refresh` also confirms
+  the `add-library` submission landed, so `.github/workflows/context7-refresh.yml` no longer
+  fails by design. The run log echoes the whole `run:` block and contains no secret value, so the
+  `env:` indirection held up live.
+- **Residual, still open: DISCOVERABILITY — `INCONCLUSIVE` until someone quotes a hit.** A
+  refresh being *accepted* is not the same as the index being *built*. As of 2026-09-02T05:52Z,
+  `resolve-library-id` for both `getff` and `artyhoo/getff` still returns unrelated libraries and
+  no `/artyhoo/getff`. Upstream describes refresh as taking minutes and the surveyed third-party
+  action ships a 30-minute default timeout, so this is expected latency rather than a fault. To
+  close it, re-run the probe and quote the output:
+
+  ```text
+  context7 MCP → resolve-library-id(libraryName: "getff")
+  ```
+
+  It is closed when that returns `/artyhoo/getff`, and only then. Do not mark the stage's §0 goal
+  («an AI harness that has never seen this repo can find its documentation») met on the green
+  workflow alone — that is exactly the T-BADC-S4-A shape, «external-service green by assertion».
 - **The Phase-2 index-branch flip is owed to the spec §8 integration checklist as a PROPOSAL**,
   not applied — `kickoff-s4.decisions.md` Decision 1. Two cold rounds disagreed on whether it is
   a two-place or a three-place change; it depends on whether the promote also makes `main` the
