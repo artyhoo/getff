@@ -84,6 +84,7 @@ function probe(f: Fixture): string {
   const {
     RUNTIME_BRIDGE_AIF_PROJECT_ID: _omitPid,
     AIF_REPO_PATH: _omitRepo,
+    PROBE_DONE_MD: _omitDoneMd,
     PROBE_PROJECTS: _omitProjects,
     PROBE_DOCKER_BIN: _omitDockerBin,
     PROBE_CONTAINER_BRANCHES: _omitCb,
@@ -92,6 +93,7 @@ function probe(f: Fixture): string {
   } = process.env;
   void _omitPid;
   void _omitRepo;
+  void _omitDoneMd;
   void _omitProjects;
   void _omitDockerBin;
   void _omitCb;
@@ -258,9 +260,20 @@ describe('probe-inflight.sh — verdict precedence and output integrity', () => 
     ).toBe('PROBE-INCOMPLETE'));
 
   it('a missing SLUG is PROBE-INCOMPLETE, not an empty-match FRESH', () => {
+    // Seeds mirror probe()'s defaults so this raw arm stays inert against the
+    // resolution block — today the SLUG-not-set guard exits before it, the seeds
+    // keep that true even if the guard ever moves.
     const out = execFileSync('bash', [PROBE], {
       encoding: 'utf8',
-      env: { ...process.env, SLUG: '' },
+      env: {
+        ...process.env,
+        SLUG: '',
+        PROBE_PROJECTS: '[]',
+        PROBE_TASKS: '[]',
+        PROBE_DOCKER_BIN: 'docker',
+        PROBE_CONTAINER_BRANCHES: '',
+        PROBE_CONTAINER_STATUS: 'ok',
+      },
     });
     expect(out.trim().split('\n').pop()).toBe('VERDICT: PROBE-INCOMPLETE');
   });
