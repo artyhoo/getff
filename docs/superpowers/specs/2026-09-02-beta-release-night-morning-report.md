@@ -26,7 +26,7 @@
 | #1558                        | `ea032ef477`                | `done.md` — umbrella consumer-layout-probe-honesty CLOSED (issues #1459/#1414/#1439 closed)                                                   |
 | dependabot #1230/#1149/#1217 | —                           | merged after fidelity/§1.7 blocks added; #1216 stays red (real install-sh shard-A failure on the fast-uri bump — deferred, not beta-blocking) |
 
-**Umbrellas closed overnight:** refresh-prune-consumer-rule · first-commit-passable · consumer-layout-probe-honesty. **Open:** beta-ai-docs-agnosticism (S2+S3 merged; S4 gated on an operator click) · beta-docs-showcase (BS0 held by PARK-BSPRE-4).
+**Umbrellas closed overnight:** refresh-prune-consumer-rule · first-commit-passable · consumer-layout-probe-honesty. **Open:** beta-ai-docs-agnosticism (S2+S3 merged; S4 gated on an operator click) · beta-docs-showcase (BS0 dispatchable on GLM — PARK-BSPRE-4 retracted, §3 item 4).
 
 **Phase-1 issue gate:** 0 open BLOCKERs. All four (#1519, #1528, #1529, #1530) closed via `Closes` keywords on squash. 22 issues remain open: 9 `[zcode-probe]` NON-BLOCKERs (#1531–#1537, #1539, #1540), #1487, 3 dependabot PR-linked, and the rest pre-existing.
 
@@ -45,6 +45,7 @@
 1. **Decision 1, L3 (consumer-layout-probe-honesty)** — Signal-4 checkout derived from `GET /projects` (select `.id == RUNTIME_BRIDGE_AIF_PROJECT_ID` → `rootPath`, `reason=project-not-found|no-rootpath|no-project-id`, `AIF_REPO_PATH` override) instead of the kickoff's `worktreePath` suffix strip (undefined on a task-less consumer). Entry: [`kickoff-l3.decisions.md`](../../../.claude/orchestrator-prompts/consumer-layout-probe-honesty/kickoff-l3.decisions.md) (#1553, amended `11b2495fc2`). **Advisor slip recorded in the entry:** the first version named a per-id route `GET /projects/<id>` copied from the ask without probing — it is 404; the L3 executor's round-2 cold seat caught it. Rule for the seat: probe every route a decision names.
 2. **Decision 1, S4 (beta-ai-docs-agnosticism)** — Context7 indexes `staging` now, flips to `main` at the Phase-2 promote (main is 631 behind; last promote #936). Decided by the night seat on advisor consult. Entry: [`kickoff-s4.decisions.md`](../../../.claude/orchestrator-prompts/beta-ai-docs-agnosticism/kickoff-s4.decisions.md) (#1541), status applied. The flip is owed as a spec §8 checklist PROPOSAL in the S4 PR body.
 3. **PARK-BSPRE-3** — already applied by #1425 before the night (plan artifact stale); only the gitignored `state.md` record was updated. Nothing decided.
+4. **Decision 1, beta-docs-showcase — PARK-BSPRE-4 RETRACTED as stale** (correction to the first edition of this report, §5 + §6 item 15). The «container Claude login + Opus profile flip» park contradicts three merged artefacts (`beta-docs-showcase/kickoff.md:18-25`, `beta-docs-showcase-meta-launch/kickoff.md:205-208`, PR #1446: no Claude runtime in aif, «retired, not deferred») and the operator's own 2026-09-01 20:01Z directive cancelling that fork. It resurfaced from a stale plan-artifact item through a compaction summary — advisor slip, caught by the BS0 dispatch session's challenge. BS0 is dispatchable now on the executor tier (project default `53eca24c` GLM-5.3 SDK), no `--preset aif`, no Claude `bridge-profile` marker. Entry: [`kickoff.decisions.md`](../../../.claude/orchestrator-prompts/beta-docs-showcase/kickoff.decisions.md).
 
 ## 4. Night-decided asks
 
@@ -52,7 +53,7 @@
 
 ## 5. BLOCKED increments (floors — operator action required)
 
-- **BS0 (beta-docs-showcase, Fumadocs STOP-gate)** — held ONLY by **PARK-BSPRE-4**: the Claude account inside `aif-handoff-agent-1` is dead (creds 2026-08-09, `expiresAt: 0`); the operator wants BS0 on profile «Claude Opus (plan+review)» `41315ef6`, while `getff-landing` currently defaults plan/review to GLM `53eca24c`. Needs `claude /login` inside the container + a `defaultPlanRuntimeProfileId` flip — both credential/shared-infra floors. BS-pre→BS0 gate otherwise MEASURED GREEN (project `361685f1 getff-landing` listed, smoke PR artyhoo/getff-landing#4 merged). Chip «Dispatch beta-docs-showcase BS0» carries a hard precondition so a click on a dead account halts instead of tripping the STOP-gate falsely.
+- **BS0 (beta-docs-showcase, Fumadocs STOP-gate)** — **NOT blocked** (corrected): the first edition listed it under PARK-BSPRE-4 (container login + Opus flip); that park is retracted as stale (§3 item 4). BS-pre→BS0 gate MEASURED GREEN twice (project `361685f1 getff-landing` listed with `rootPath`, smoke PR artyhoo/getff-landing#4 merged; in-flight probe `IN-FLIGHT` adjudicated FALSE POSITIVE — squash branches of merged #1104/#1105). The BS0 dispatch session was cleared to dispatch on GLM; if it has not, re-click chip «Dispatch beta-docs-showcase BS0» — no operator precondition remains.
 - **S4 (beta-ai-docs-agnosticism, discoverability)** — gate CLEAR (#1550 + #1552 merged); DISPATCH CHANNEL = maintainer-paste SOLO/Mode-A (not aif), branch MUST be `beta-c-s4-discoverability`; the context7 submission leg (§2 D4) is operator-only. Chip «Dispatch beta-ai-docs-agnosticism S4» pending click. Umbrella `done.md` is owed by that session after S4 merges.
 - **frontier-residue-sweep S4/S5** — never dispatched (named in the plan); the umbrella will not close until done or explicitly parked.
 - **Standing floors untouched:** BS3 visual acceptance · staging→main promote · `npm publish` / `bin: getff` · `@getff` scope ownership.
@@ -73,7 +74,7 @@
 12. **notes-lane `md5_of` residual** (exit inside `$(…)`, no `-e`) — from first-commit-passable `done.md`.
 13. **dependabot #1524 / #1526 / #1216** — open; #1216 red for a real reason.
 14. **9 NON-BLOCKER `[zcode-probe]` issues** — triage into a post-beta umbrella or park.
-15. **Container Claude re-auth + profile flip** (the PARK-BSPRE-4 prerequisite, §5).
+15. **Stale pipeline presets against the live aif instance** — `presets/aif.json` marker `Claude Opus (plan+review)` names a disabled profile (resolves by exact name from an unfiltered `GET /runtime-profiles`, task blocks later on runtime auth — `cf894220` shape); `presets/economy.json` marker `Z.AI GLM-5.2 SDK` matches no live profile (instance runs 5.3). Repoint vs retire = pipeline skill owner's call (first surfaced in #1446). Replaces the retracted «container re-auth + profile flip» item.
 
 ## 7. Bus anomalies (this report is their named consumer)
 
