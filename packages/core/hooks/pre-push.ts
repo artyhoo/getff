@@ -1500,12 +1500,65 @@ function isFrameworkShippedMarkdown(p: string): boolean {
   );
 }
 
+// plugin/agents/*.md are BYTE-IDENTICAL copies of agents/*.md — principle 24(d)
+// (24-plugin-manifest-integrity.test.ts) compares bytes, and
+// scripts/generate-plugin-twins.sh:164-166 states the agent arm is a bare `cp`:
+// "No header, no marker, no transform".
+//
+// The twin sits ONE DIRECTORY DEEPER than its source, so a `](../x)` link that
+// resolves from `agents/` resolves to `plugin/x` from `plugin/agents/` — a path that
+// does not exist — and byte-identity forbids rewriting the depth in the copy. Checking
+// the twin therefore re-checks the SOURCE's link text at the wrong depth: zero extra
+// signal, guaranteed false positives on every relative link a source agent carries.
+//
+// COVERAGE IS NOT LOST, and the replacement is a mechanism rather than attention
+// (attention-is-not-a-mechanism.md §1): (a) the source `agents/*.md` is walked by this
+// same section; (b) a twin can never legitimately carry content its source does not —
+// principle 24(d) goes RED on any divergence, and the generator REFUSES to write a twin
+// that matches neither the source nor that source at HEAD
+// (generate-plugin-twins.sh:189-205). So the twin's link text is always some source's
+// link text, checked at the source path.
+//
+// Applies on BOTH layouts, unlike the S2 Part 1 narrowing below: the depth mismatch is
+// structural, not consumer-specific (a consumer has no plugin/agents/ at all, so this is
+// inert there).
+//
+// Measured 2026-09-02 (PR #1574): converting `agents/compliance-verifier.md`'s bare
+// factory paths to the relative-link form the installer rewrites made THIS section go RED
+// on plugin/agents/compliance-verifier.md with three
+// `plugin/.claude/rules/phase-research-coverage.md | File not found` errors, while the
+// source file was clean. That is why none of the three twinned agents carried a single
+// `](../…)` link while every non-twinned agent did.
+//
+// Rejected alternative: root-relative links `](/…)`. This section DOES pass `--root-dir`
+// (below), so lychee would resolve them at both depths — but `transform_internal_refs`
+// (setup.d/lib.sh:147-163) only matches `](../…)`, so a root-relative ref would ship
+// VERBATIM into consumer projects and dangle there. It fixes the gate and keeps the
+// defect.
+const PLUGIN_AGENT_TWIN_PREFIX = 'plugin/agents/';
+
 function lycheeSection(ctx: SectionCtx): void {
   const { rb } = ctx;
   if (rb.base !== null) {
     let changedMd = getChangedFiles(rb.base, 'ACMR', rb.head).filter((f) =>
       f.endsWith('.md'),
     );
+    // Plugin agent twins: byte-identical copies one directory deeper than their
+    // agents/ source, so every relative link in them resolves to a non-existent
+    // plugin/… path. Excluded on BOTH layouts — see PLUGIN_AGENT_TWIN_PREFIX above for
+    // why this loses no coverage.
+    {
+      const before = changedMd.length;
+      changedMd = changedMd.filter(
+        (f) => !f.startsWith(PLUGIN_AGENT_TWIN_PREFIX),
+      );
+      const excluded = before - changedMd.length;
+      if (excluded > 0) {
+        process.stdout.write(
+          `  · §8 lychee: excluded ${excluded} plugin/agents twin(s) — byte-identical copies, link-checked at their agents/ source\n`,
+        );
+      }
+    }
     // History: the orchestrator-prompts corpus was briefly excluded on legacy
     // touches (2026-08-21 host-verify retrofit, A/M split) with a re-entry
     // trigger; the trigger FIRED the same day (PR: legacy lint+link repair —
