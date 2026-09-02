@@ -1,0 +1,32 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "getff — rules as tests",
+  "description": "getff compiles your conventions into native toolchain gates (ESLint/husky for npm, clippy for cargo). Its own AGENTS.md is executable: every claim carries a live-fired enforcement status, and the gate fails when a claim drifts from reality.",
+  "branch": "staging",
+  "folders": [],
+  "excludeFolders": [
+    "node_modules",
+    "**/node_modules",
+    ".claude/worktrees",
+    ".claude/orchestrator-prompts",
+    "docs/meta-factory/retros",
+    "tests/install-sh/baselines",
+    "plugin",
+    ".github",
+    ".husky",
+    "scripts",
+    "templates"
+  ],
+  "excludeFiles": ["package-lock.json"],
+  "rules": [
+    "Start at README.md#why-this-exists for the project goal, then .claude/session-bootstrap.md for the reading order; a doc that contradicts README has drifted.",
+    "Read .claude/rules/00-rule-index.md first — it is the generated digest of every discipline rule; the authoritative text of each rule lives in .claude/rules/<name>.md.",
+    "Enforce every convention at the earliest reachable channel (edit-time, pre-commit, pre-push, then CI); treat CI as the last-resort gate, never the first.",
+    "Never let human or AI attention be the detection layer of a load-bearing check — see .claude/rules/attention-is-not-a-mechanism.md.",
+    "Consult docs/meta-factory/prior-art-evaluations.md before adding any capability (a new dependency, or a new file over 80 lines under packages/), and carry a Prior-art: commit trailer — see .claude/rules/build-first-reuse-default.md.",
+    "Never call a paid LLM from CI — see .claude/rules/no-paid-llm-in-ci.md.",
+    "Pin every tool install in a workflow to an exact version — see .claude/rules/ci-tool-pinning.md.",
+    "Give every doc one authoritative scope and state what it is NOT authoritative for — see .claude/rules/doc-authority-hierarchy.md.",
+    "Customise a getff-installed artefact through a sibling <file>.override.md, never by editing the shipped file in place — see INSTALL-FOR-AI.md."
+  ]
+}
