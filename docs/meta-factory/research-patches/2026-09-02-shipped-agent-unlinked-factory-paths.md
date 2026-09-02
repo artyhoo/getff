@@ -182,3 +182,30 @@ what this shipped capability promises, not a link fix.
   not by a mechanism — [`attention-is-not-a-mechanism.md §2`](../../../.claude/rules/attention-is-not-a-mechanism.md)
   `#warning-nobody-reads`. Recording it here is the second documented instance; a third would
   meet that rule's §3 promotion bar.
+
+## §6 §1.7 self-application — does this triage survive its own method?
+
+**Forward-check.** The method this patch applies to shipped agents is «run the real transform,
+then look at what survives outside a rewritten link». Applied to this patch itself: it is not a
+shipped artefact — `docs/meta-factory/research-patches/` is never installed — so its own factory
+paths are in-repo references, not consumer-facing ones. They are nonetheless written as relative
+markdown links wherever they are references (`../../../CLAUDE.md`, `../../../setup.d/lib.sh`,
+[2026-09-01-s3-owner-proposals.md](2026-09-01-s3-owner-proposals.md)) and left as bare paths only
+where they are `file:line` evidence citations — the same distinction §2 draws. Note this file sits
+under `lychee.toml`'s `exclude_path`, so those links are NOT gate-checked; each was resolved by
+hand against the working tree instead.
+
+**Backward-check.** The T1 sampling floor was not exercised — the population here is 11 agents,
+enumerated in full (T10: `agents/*.md` minus both installer skip-lists), so every member was read
+rather than sampled. The T3 obligation (no prose-only findings) is met per row: each class-(a)
+hit carries a `file:line` and each class-(b) verdict carries the `INSTALL-FOR-AI.md` line that
+grounds it. The residue the method could NOT reach is stated rather than hidden: the two bare
+sibling-agent filenames and the shipped-skills surface in §5 fall outside the regex that defined
+this population, and the §3 verdict carries an explicit falsifier rather than a confidence
+adjective (T6).
+
+**The self-referential trap this triage nearly walked into.** The first measurement pass used a
+raw grep and counted the link TEXT of already-correct links as defects — an audit whose own
+instrument produced findings that were not there. It is caught only by running the instrument
+against a KNOWN-clean file (`claims-conformance-auditor`, fixed by #1563) and asking why it
+still reported hits. That control is now part of the §1 repro.
