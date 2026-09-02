@@ -1,7 +1,7 @@
 {
   "$schema": "https://context7.com/schema/context7.json",
   "projectTitle": "getff — rules as tests",
-  "description": "getff compiles your conventions into native toolchain gates (ESLint/husky for npm, clippy for cargo). Its own AGENTS.md is executable: every claim carries a live-fired enforcement status, and the gate fails when a claim drifts from reality.",
+  "description": "getff turns a project's conventions into executable gates in its native toolchain — custom ESLint rules and git hooks for npm projects, clippy for cargo — so a violated convention fails at the earliest reachable channel instead of in CI. This repository is the framework itself; its installer wires that enforcement layer into a consumer project.",
   "branch": "staging",
   "folders": [],
   "excludeFolders": [
@@ -9,7 +9,11 @@
     "**/node_modules",
     ".claude/worktrees",
     ".claude/orchestrator-prompts",
+    "docs/meta-factory/research-patches",
     "docs/meta-factory/retros",
+    "docs/meta-factory/generator-forbid-mvp",
+    "docs/meta-factory/triage-corpus/sources",
+    "docs/superpowers",
     "tests/install-sh/baselines",
     "plugin",
     ".github",
@@ -17,7 +21,7 @@
     "scripts",
     "templates"
   ],
-  "excludeFiles": ["package-lock.json"],
+  "excludeFiles": ["package-lock.json", "phase-8-research.md"],
   "rules": [
     "Start at README.md#why-this-exists for the project goal, then .claude/session-bootstrap.md for the reading order; a doc that contradicts README has drifted.",
     "Read .claude/rules/00-rule-index.md first — it is the generated digest of every discipline rule; the authoritative text of each rule lives in .claude/rules/<name>.md.",
