@@ -18,6 +18,18 @@
 # frontmatter must open on line 1, so injecting a comment line would corrupt them (and break
 # byte-identity anyway). Widening the agents contract means editing principle 24(d) first.
 #
+# Population (2) consequence — TWIN DEPTH (record it here; nothing else states it): a twin sits
+# one directory deeper than its source, so a relative link that resolves from agents/ resolves
+# one level short in the twin — `](../.claude/rules/x.md)` means .claude/rules/x.md at the source
+# and plugin/.claude/rules/x.md in the twin, which does not exist. Byte-identity forbids rewriting
+# the prefix, so no single relative form satisfies both depths and the twin CANNOT carry a fixed
+# copy. Since PR #1578 the pre-push lychee arm skips plugin/agents/** (PLUGIN_AGENT_TWIN_PREFIX
+# in packages/core/hooks/pre-push.ts), so the twin's dangling copy is no longer gated — the link
+# is checked at its agents/ source only. Measured 2026-09-02: agents/compliance-verifier.md
+# carries 3 such links, all 3 dangle in plugin/agents/compliance-verifier.md on disk. Note the
+# twin population is NOT covered by setup.d/20-agents.sh's transform_internal_refs (that arm
+# rewrites agents/ only), so relative links reach plugin consumers verbatim.
+#
 # Both populations skip sources with no existing twin — that absence is the deliberate
 # "not twinned" signal, so the generator never invents a twin (16 of 19 agents, by design).
 #
