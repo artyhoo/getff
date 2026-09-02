@@ -50,6 +50,11 @@ packages/*/node_modules
 # consumer-layout-probe-honesty (night 2026-09-02): per-stage decisions logs (advisor seat)
 !.claude/orchestrator-prompts/consumer-layout-probe-honesty/kickoff-l*.decisions.md
 
+# beta-docs-showcase (night 2026-09-02): per-stage dispatch inputs. Stage names are BS0-BS3;
+# the files are `kickoff-b<N>.md` so they land in the `kickoff-<letter><digit>` stage-kickoff
+# family that principle 12's citation gate resolves (`kickoff-bs0.md` would fall outside it).
+!.claude/orchestrator-prompts/beta-docs-showcase/kickoff-b*.md
+
 # triage-kernel-v2: probe-first umbrella (design spec 2026-08-10-triage-kernel-v2-design.md
 # §9) — S1-S5 each get their OWN stage kickoff, tracked to reach `staging` for the
 # dispatch session to read (.claude/rules/kickoff-staging-placement.md §1). Per-umbrella
