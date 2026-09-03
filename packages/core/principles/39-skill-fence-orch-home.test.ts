@@ -121,13 +121,13 @@ export const NON_EXECUTABLE_FIXTURES = new Map<string, string>([
  *
  * This is a debt list, not an exemption policy: arm (e) fails when an entry has no remaining
  * hit, so a fixed file MUST be deleted from here. The list can only shrink.
+ *
+ * Empty since the consumer-layout-probe-honesty L2 stage (issue 1414, 2026-09-02): the
+ * `.claude/skills/dispatcher/SKILL.md` entry was discharged — the probe helper resolves the
+ * orch home inline, §2.8's fence resolves it, and §2.1's framework-only line carries the
+ * same-line escape. The mechanism stays (an empty Map) so future debts have a home.
  */
-export const KNOWN_GAPS = new Map<string, string>([
-  [
-    '.claude/skills/dispatcher/SKILL.md',
-    'sibling defect of getff#1245 in a different skill (§2.1 dispatch + §2.8 done.md fences); the dispatcher has its own helpers tree and no orch-home resolver, so the fix is its own change — deliberately out of #1245 scope, tracked for follow-up',
-  ],
-]);
+export const KNOWN_GAPS = new Map<string, string>([]);
 
 /** One offending line inside a fenced code block. */
 export interface FenceHit {

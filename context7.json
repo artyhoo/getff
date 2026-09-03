@@ -1,0 +1,35 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "getff — rules as tests",
+  "description": "getff turns a project's conventions into executable gates in its own native toolchain — custom ESLint rules and git hooks for npm, ruff and ast-grep for Python, clippy for cargo, golangci for Go — so a violated convention fails at the earliest reachable channel instead of in CI. This repository is the framework itself; its installer wires that enforcement layer into a consumer project.",
+  "branch": "staging",
+  "folders": [],
+  "excludeFolders": [
+    "node_modules",
+    "**/node_modules",
+    ".claude/worktrees",
+    ".claude/orchestrator-prompts",
+    "docs/meta-factory/research-patches",
+    "docs/meta-factory/retros",
+    "docs/meta-factory/generator-forbid-mvp",
+    "docs/meta-factory/triage-corpus/sources",
+    "tests/install-sh/baselines",
+    "plugin/agents",
+    "plugin/skills/getff",
+    ".github",
+    ".husky",
+    "scripts"
+  ],
+  "excludeFiles": ["package-lock.json"],
+  "rules": [
+    "Start at README.md#why-this-exists for the project goal, then .claude/session-bootstrap.md for the reading order; a doc that contradicts README has drifted.",
+    "Read .claude/rules/00-rule-index.md first — it is the generated digest of every discipline rule; the authoritative text of each rule lives in .claude/rules/<name>.md.",
+    "Enforce every convention at the earliest reachable channel (edit-time, pre-commit, pre-push, then CI); treat CI as the last-resort gate, never the first.",
+    "Never let human or AI attention be the detection layer of a load-bearing check — see .claude/rules/attention-is-not-a-mechanism.md.",
+    "Before adding a capability, consult docs/meta-factory/prior-art-evaluations.md and carry a Prior-art: commit trailer; CLAUDE.md section \"Build-vs-reuse invariant\" defines what counts as a capability commit, and .claude/rules/build-first-reuse-default.md holds the macro-level discipline.",
+    "Never call a paid LLM from CI — see .claude/rules/no-paid-llm-in-ci.md.",
+    "Pin every tool install in a workflow to an exact version — see .claude/rules/ci-tool-pinning.md.",
+    "Give every doc one authoritative scope and state what it is NOT authoritative for — see .claude/rules/doc-authority-hierarchy.md.",
+    "Customise a getff-installed artefact through a sibling <file>.override.md, never by editing the shipped file in place — see INSTALL-FOR-AI.md."
+  ]
+}

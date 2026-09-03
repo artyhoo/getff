@@ -747,3 +747,73 @@ describe.skipIf(!JQ)('check-kickoff-traps.sh — stage-kickoff family scope', ()
     expect(runHook('Write', writeKickoffNamed('done.md', '# done\n\nNo contract.\n')).status).toBe(0);
   });
 });
+
+/**
+ * Arm 3 — kickoff filename recognition (`#kickoff-name-near-miss`).
+ * spec: .claude/rules/kickoff-staging-placement.md §5
+ * SSOT for the classification: packages/core/principles/kickoff-population.ts
+ *
+ * Measured 2026-09-02 (beta-docs-showcase BS0): `kickoff-bs0.md` fails the stage form —
+ * `[a-z]` consumes `b`, then `\d` meets `s` — so the hook's own two-way `case` sent it to
+ * the sidecar bucket and exited 0 in SILENCE, exactly as principle 12 reported green having
+ * examined nothing. The third class had no name; now it does.
+ *
+ * Falsifier for the whole block: delete the `KICKOFF_NAME_CLASS="unrecognised"` branch —
+ * both negatives below flip to exit 0, which is precisely the pre-2026-09-02 behaviour.
+ */
+describe.skipIf(!JQ)('check-kickoff-traps.sh — arm 3, filename recognition', () => {
+  it.each(['kickoff-bs0.md', 'kickoff-b0-notes.md', 'kickoff-stage1.md'])(
+    'PAIRED-NEGATIVE: an unrecognised kickoff-* name → exit 2: %s',
+    (name) => {
+      // All three are contract-bearing AND trap-citing, so arms 1+2 would pass them —
+      // only arm 3 can fail these fixtures. `kickoff-bs0.md` is the measured incident;
+      // `kickoff-b0-notes.md` is the name the OLD unbounded `kickoff-[a-z][0-9]*.md` glob
+      // wrongly admitted as a stage (the latent twin divergence closed here).
+      const abs = writeKickoffNamed(
+        name,
+        '# stage\n\n```bash host-verify\nnpx vitest run packages/core/principles\n```\n\n' +
+          'Active traps: T1, T3, T7.\n',
+      );
+      const r = runHook('Write', abs);
+      expect(r.status).toBe(2);
+      expect(r.stderr).toMatch(/kickoff-name:/);
+      // The error must name BOTH alternatives — an unactionable error is a warning.
+      expect(r.stderr).toMatch(/stage form/);
+      expect(r.stderr).toMatch(/sidecar/);
+    },
+  );
+
+  it.each([
+    'kickoff.md',
+    'kickoff-b0.md',
+    'kickoff-s2b.md',
+    'kickoff-r1.md',
+    'kickoff-s10.md',
+    'kickoff-amendments.md',
+    'kickoff-s4.decisions.md',
+    'kickoff-stage-2-and-3.md',
+  ])('PAIRED-POSITIVE: a recognised name never trips arm 3: %s', (name) => {
+    // Compliant on arms 1+2 so a non-zero exit can only come from arm 3.
+    // `kickoff-stage-2-and-3.md` is the grandfathered legacy name (see
+    // GRANDFATHERED_KICKOFF_NAMES) — amnesty must hold at this channel too.
+    const abs = writeKickoffNamed(
+      name,
+      '# k\n\n```bash host-verify\nnpx vitest run packages/core/principles\n```\n\n' +
+        'Active traps: T1, T3, T7.\n',
+    );
+    const r = runHook('Write', abs);
+    expect(r.status, r.stderr).toBe(0);
+  });
+
+  it('arm 3 short-circuits: an unrecognised name is not ALSO reported by arms 1-2', () => {
+    // For a name we cannot resolve we do not know whether the file is a dispatch input,
+    // so arms 1-2 have no obligation to assert against it. Piling three violations on one
+    // rename costs the author round-trips and buries the actionable one.
+    const abs = writeKickoffNamed('kickoff-bs0.md', '# no contract, no traps\n');
+    const r = runHook('Write', abs);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/kickoff-name:/);
+    expect(r.stderr).not.toMatch(/host-verify:/);
+    expect(r.stderr).not.toMatch(/floor: 3/);
+  });
+});

@@ -34,6 +34,67 @@ export const KICKOFFS_DIR = resolve(REPO_ROOT, '.claude/orchestrator-prompts');
 export const STAGE_KICKOFF_RE = /^kickoff-[a-z]\d[a-z0-9]*\.md$/;
 
 /**
+ * Dotted sidecars — records ABOUT a kickoff, carrying no worker instructions:
+ * `kickoff.decisions.md` (umbrella-level owner-fork log), `kickoff-s4.decisions.md`
+ * (per-stage). The dot is the marker; `STAGE_KICKOFF_RE`'s trailing `[a-z0-9]*` rejects
+ * them by construction, and `.gitignore` un-ignores them by their own globs.
+ */
+export const SIDECAR_DOTTED_RE = /^kickoff(-[a-z0-9]+)?\.[a-z0-9-]+\.md$/;
+
+/**
+ * Word-form sidecars, un-ignored one-off by exact name in `.gitignore`. Exact rather than
+ * a `kickoff-[a-z]+\.md` glob: a sidecar is a deliberate one-off, and a glob would silently
+ * absorb a future near-miss stage name that happens to carry no digit.
+ */
+export const SIDECAR_EXACT: readonly string[] = ['kickoff-amendments.md'];
+
+/**
+ * Legacy free-form stage kickoffs, grandfathered at the 2026-09-02 naming gate.
+ *
+ * `defer-reflex-detection/kickoff-stage-2-and-3.md` (authored 2026-05-25) is a genuine
+ * dispatch input under a name no channel ever recognised — the live proof that
+ * `#kickoff-name-near-miss` predates its detector. It is UNTRACKED (no `.gitignore`
+ * exception matches it), so it never reached `staging` and never dispatched; its umbrella
+ * is closed (`done.md` present). Amnesty, not a free pass: any NEW unrecognised name is a
+ * violation. Same explicit-allowlist shape as principle 12's `EXEMPT_LIST` — a date cutoff
+ * cannot separate these (the files are gitignored, so git carries no authoring date).
+ */
+export const GRANDFATHERED_KICKOFF_NAMES: readonly string[] = ['kickoff-stage-2-and-3.md'];
+
+/**
+ * How a `kickoff*.md` basename resolves. The SSOT for "is this name recognised" — the gate
+ * exists because a near-miss (`kickoff-bs0.md`: `[a-z]` eats `b`, then `\d` meets `s`) was
+ * previously INDISTINGUISHABLE from a deliberate sidecar, so principle 12 skipped the file
+ * and reported green having examined nothing (measured 2026-09-02, beta-docs-showcase BS0).
+ *
+ * `unrecognised` is the whole point: it is the class that used to be silently absorbed.
+ */
+export type KickoffNameClass =
+  | 'umbrella'
+  | 'stage'
+  | 'sidecar'
+  | 'grandfathered'
+  | 'unrecognised'
+  | 'other';
+
+export function classifyKickoffName(name: string): KickoffNameClass {
+  if (name === 'kickoff.md') return 'umbrella';
+  if (STAGE_KICKOFF_RE.test(name)) return 'stage';
+  if (SIDECAR_DOTTED_RE.test(name) || SIDECAR_EXACT.includes(name)) return 'sidecar';
+  if (GRANDFATHERED_KICKOFF_NAMES.includes(name)) return 'grandfathered';
+  // Only `kickoff-….md` names are judged. `done.md`, `report.md`, `l1-dispatch.md`,
+  // `state.md` are not kickoff-shaped and carry no naming obligation.
+  if (/^kickoff-.*\.md$/.test(name)) return 'unrecognised';
+  return 'other';
+}
+
+/** The two alternatives an `unrecognised` author must pick between — used in gate text. */
+export const KICKOFF_NAME_REMEDY =
+  'rename to the stage form `kickoff-<letter><digit>[alnum].md` (e.g. `kickoff-b0.md`, `kickoff-s2b.md`) ' +
+  'so the dispatch gates resolve it, OR — if it carries no worker instructions — to a sidecar form ' +
+  '(`kickoff[-<stage>].<kind>.md`, e.g. `kickoff-s4.decisions.md`) and add its `.gitignore` exception.';
+
+/**
  * Sandbox dirs written by the sibling hook suite
  * (packages/core/hooks/check-kickoff-traps.test.ts `writeKickoffNamed`, which mkdtemps
  * `c2-test-*` under the REAL orchestrator-prompts dir because the hook matches on the
@@ -97,4 +158,32 @@ export function isCoordinationMirror(path: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Every `kickoff-*.md` on disk whose name `classifyKickoffName` cannot resolve.
+ *
+ * Walks the FULL directory rather than `getKickoffEntries()`: that helper filters the
+ * population DOWN to recognised names, which is exactly how an unrecognised one becomes
+ * invisible. Test-sandbox dirs are skipped for the same reason principle 12 skips them —
+ * the sibling hook suite mkdtemps deliberately-malformed fixtures under the real dir.
+ */
+export function getUnrecognisedKickoffNames(): { dir: string; file: string; label: string }[] {
+  if (!existsSync(KICKOFFS_DIR)) return [];
+  const out: { dir: string; file: string; label: string }[] = [];
+  for (const d of readdirSync(KICKOFFS_DIR, { withFileTypes: true })) {
+    if (!d.isDirectory()) continue;
+    if (TEST_SANDBOX_RE.test(d.name)) continue;
+    let files: string[];
+    try {
+      files = readdirSync(resolve(KICKOFFS_DIR, d.name));
+    } catch {
+      continue; // unreadable dir (broken coordination symlink) — not a violation
+    }
+    for (const file of files.sort()) {
+      if (classifyKickoffName(file) !== 'unrecognised') continue;
+      out.push({ dir: d.name, file, label: `${d.name}/${file}` });
+    }
+  }
+  return out.sort((a, b) => a.label.localeCompare(b.label));
 }

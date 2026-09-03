@@ -16,16 +16,61 @@
  * Every collector is driven from fixtures via PROBE_* overrides, so these tests need
  * no docker, no gh, no network (the TASK_JSON pattern from monitor.test.ts).
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../../..');
 const PROBE = resolve(REPO_ROOT, '.claude/skills/dispatcher/helpers/probe-inflight.sh');
 const SKILL = resolve(REPO_ROOT, '.claude/skills/dispatcher/SKILL.md');
+
+/**
+ * Per-test timeout for the ONE arm that writes a fresh executable and then runs it.
+ * Measured 2026-09-02 (macOS, clean `origin/staging` @ 58ce396802): the FIRST exec of a
+ * newly created executable blocks ~0.65s in the kernel first-launch scan (0% CPU), while
+ * every re-exec of that same file costs ~5ms. That is the whole delta — arm (b) is ~711ms
+ * in isolation against ~60-145ms for its 57 siblings, and under `vitest run skills/`
+ * file-parallelism it inflates to ~5.3s and false-fails on vitest's 5s default: a mis-set
+ * gate, not an assertion signal (`test:skills` gave `1 failed | 276 passed` while the file
+ * alone was green in ~810ms, stopping `run-local-ci-sweep.sh` at `vitest-skills`). The
+ * cost cannot be narrowed away — the arm exists to reach the REAL stderr-capture path,
+ * which requires a stub the test must create itself. 30_000 is the SLOW_SHELL_MS
+ * convention of the sibling shell-spawning suites (PR #848; see
+ * `principles/20-bundle-classification.test.ts`, `hooks/create-worktree.test.ts`), scoped
+ * to that single `it` so the other 57 arms keep the tight 5s default. NEVER a global
+ * `testTimeout` bump.
+ */
+const SLOW_SHELL_MS = 30_000;
+
+/**
+ * MEMO — before you copy SLOW_SHELL_MS into another file, check the SHAPE first.
+ *
+ * The scan above is paid ONLY when a file the test CREATED ITSELF is executed DIRECTLY,
+ * i.e. the kernel loads it via its shebang. Most fake-binary fixtures in this repo do not
+ * do that and pay nothing. Measured on macOS 2026-09-02/03:
+ *
+ *   spawnSync(binPath) · fresh bin found through a PATH shadow or a *_BIN seam
+ *                                                       0.65-1.6s, 0% CPU   <- IN CLASS
+ *   spawnSync('bash', [script])  — bash is warm, the script is only READ      0.003s
+ *   symlink -> an already-warm system binary (/usr/bin/sed)                   0.004s
+ *   file gets +x but is never executed (snapshot / precedence sentinel)        0
+ *   re-exec of the SAME file                                                  0.005s
+ *
+ * Not cached by content: a fresh inode with byte-identical bytes still pays (1.606 /
+ * 0.740 / 0.821s over three runs), so the cost is per-path and the variance is wide.
+ *
+ * So: a timeout is the right fix only when the self-made file is argv[0] (or is reached
+ * through a `*_BIN` seam / a shadowed PATH) — never when it is an ARGUMENT to `bash`. A
+ * sweep on 2026-09-03 using that predicate found ZERO unguarded cases left in the repo;
+ * an earlier list of 8 «latent» files was an artifact of querying for `0o755`/`chmodSync`
+ * plus «the file spawns something», which tests neither condition — and that query also
+ * structurally missed a candidate that sets the bit via `execSync('chmod +x ...')`. If a
+ * 5s timeout appears somewhere new, measure the shape before widening any budget.
+ */
 
 interface Fixture {
   slug?: string;
@@ -39,6 +84,21 @@ interface Fixture {
   claimTtlMin?: number;
   /** Frozen "now" as epoch seconds, so claim ages are deterministic. */
   nowEpoch?: number;
+  /** Working directory for the probe (Signal 3 is cwd-relative). Default: inherit. */
+  cwd?: string;
+  /** Leave PROBE_DONE_MD UNSET so the probe resolves done.md from the real filesystem. */
+  omitDoneMd?: boolean;
+  /** Project-list fixture → PROBE_PROJECTS (default []). projectsRaw overrides with a verbatim string. */
+  projects?: unknown[];
+  projectsRaw?: string;
+  /** Drop PROBE_CONTAINER_BRANCHES/STATUS so the live (non-injected) container path runs. */
+  omitContainerInjection?: boolean;
+  /** Pinned RUNTIME_BRIDGE_AIF_PROJECT_ID (stripped from the merged env unless set here). */
+  runtimeProjectId?: string;
+  /** Pinned AIF_REPO_PATH (stripped from the merged env unless set here). */
+  aifRepoPath?: string;
+  /** Absolute path to a PROBE_DOCKER_BIN stub (arm b). */
+  dockerBin?: string;
 }
 
 /** Fixed clock for the claim-age fixtures: 2026-08-18T12:00:00Z. */
@@ -60,21 +120,47 @@ function claimTask(slug: string, minutesAgo: number, over: Record<string, unknow
 
 /** Run the probe against fixtures. Returns full stdout. */
 function probe(f: Fixture): string {
-  return execFileSync('bash', [PROBE], {
-    encoding: 'utf8',
-    env: {
-      ...process.env,
-      SLUG: f.slug ?? 'x',
-      PROBE_ORIGIN_BRANCHES: f.originBranches ?? '',
-      PROBE_PRS: JSON.stringify(f.prs ?? []),
-      PROBE_DONE_MD: f.doneMd ?? 'no',
-      PROBE_CONTAINER_BRANCHES: f.containerBranches ?? '',
-      PROBE_CONTAINER_STATUS: f.containerStatus ?? 'ok',
-      PROBE_TASKS: JSON.stringify(f.tasks ?? []),
-      PROBE_CLAIM_TTL_MIN: String(f.claimTtlMin ?? 120),
-      PROBE_NOW_EPOCH: String(f.nowEpoch ?? NOW),
-    },
-  });
+  // Ambient-host hygiene: RUNTIME_BRIDGE_AIF_PROJECT_ID / AIF_REPO_PATH are exported on
+  // the operator host (issue 1439 payload measurement) and PROBE_* seeds may leak from
+  // the calling shell — every ambient key the probe reads is destructured OUT of the
+  // MERGED env (the omitDoneMd pattern), then re-seeded explicitly per fixture. Without
+  // this, arms behave differently host vs CI.
+  const {
+    RUNTIME_BRIDGE_AIF_PROJECT_ID: _omitPid,
+    AIF_REPO_PATH: _omitRepo,
+    PROBE_DONE_MD: _omitDoneMd,
+    PROBE_PROJECTS: _omitProjects,
+    PROBE_DOCKER_BIN: _omitDockerBin,
+    PROBE_CONTAINER_BRANCHES: _omitCb,
+    PROBE_CONTAINER_STATUS: _omitCs,
+    ...cleanEnv
+  } = process.env;
+  void _omitPid;
+  void _omitRepo;
+  void _omitDoneMd;
+  void _omitProjects;
+  void _omitDockerBin;
+  void _omitCb;
+  void _omitCs;
+  const env: NodeJS.ProcessEnv = {
+    ...cleanEnv,
+    SLUG: f.slug ?? 'x',
+    PROBE_ORIGIN_BRANCHES: f.originBranches ?? '',
+    PROBE_PRS: JSON.stringify(f.prs ?? []),
+    PROBE_PROJECTS: f.projectsRaw ?? JSON.stringify(f.projects ?? []),
+    PROBE_TASKS: JSON.stringify(f.tasks ?? []),
+    PROBE_CLAIM_TTL_MIN: String(f.claimTtlMin ?? 120),
+    PROBE_NOW_EPOCH: String(f.nowEpoch ?? NOW),
+  };
+  if (!f.omitDoneMd) env.PROBE_DONE_MD = f.doneMd ?? 'no';
+  if (!f.omitContainerInjection) {
+    env.PROBE_CONTAINER_BRANCHES = f.containerBranches ?? '';
+    env.PROBE_CONTAINER_STATUS = f.containerStatus ?? 'ok';
+  }
+  if (f.runtimeProjectId !== undefined) env.RUNTIME_BRIDGE_AIF_PROJECT_ID = f.runtimeProjectId;
+  if (f.aifRepoPath !== undefined) env.AIF_REPO_PATH = f.aifRepoPath;
+  if (f.dockerBin !== undefined) env.PROBE_DOCKER_BIN = f.dockerBin;
+  return execFileSync('bash', [PROBE], { encoding: 'utf8', env, cwd: f.cwd });
 }
 
 const verdict = (f: Fixture): string =>
@@ -107,6 +193,7 @@ describe('probe-inflight.sh — fail-closed on an unrun container probe', () => 
         PROBE_DONE_MD: 'no',
         PROBE_CONTAINER_BRANCHES: '',
         PROBE_CONTAINER_STATUS: 'ok',
+        PROBE_PROJECTS: '[]',
         PROBE_TASKS: 'curl: (7) Failed to connect',
       },
     });
@@ -217,9 +304,20 @@ describe('probe-inflight.sh — verdict precedence and output integrity', () => 
     ).toBe('PROBE-INCOMPLETE'));
 
   it('a missing SLUG is PROBE-INCOMPLETE, not an empty-match FRESH', () => {
+    // Seeds mirror probe()'s defaults so this raw arm stays inert against the
+    // resolution block — today the SLUG-not-set guard exits before it, the seeds
+    // keep that true even if the guard ever moves.
     const out = execFileSync('bash', [PROBE], {
       encoding: 'utf8',
-      env: { ...process.env, SLUG: '' },
+      env: {
+        ...process.env,
+        SLUG: '',
+        PROBE_PROJECTS: '[]',
+        PROBE_TASKS: '[]',
+        PROBE_DOCKER_BIN: 'docker',
+        PROBE_CONTAINER_BRANCHES: '',
+        PROBE_CONTAINER_STATUS: 'ok',
+      },
     });
     expect(out.trim().split('\n').pop()).toBe('VERDICT: PROBE-INCOMPLETE');
   });
@@ -440,5 +538,224 @@ describe('probe-inflight.sh — wired into SKILL.md §2.0', () => {
     ]) {
       expect(skill).toContain(v);
     }
+  });
+});
+
+// ── Signal 3 resolves the orch home by LAYOUT (issue 1414) ────────────────────
+// A consumer install receives kickoffs under .ai-factory/orchestrator-prompts/
+// (setup.d/30-templates.sh:17) and never has .claude/orchestrator-prompts, so the old
+// single -f test read "no" for every closed consumer umbrella — measured live on
+// artyhoo/timeliner (2026-08-17). These arms drive Signal 3 against REAL filesystem
+// layouts (omitDoneMd → no override; cwd → a temp tree), which the PROBE_DONE_MD seam
+// structurally could not exercise.
+
+const AI_FACTORY_HOME = '.ai-factory/orchestrator-prompts';
+const CLAUDE_HOME = '.claude/orchestrator-prompts';
+
+/** Temp repo-root-like tree with `<home>/<slug>/done.md` present or absent, per layout. */
+function orchTree(slug: string, o: { claude?: boolean; aiFactory?: boolean }): string {
+  const root = mkdtempSync(join(tmpdir(), 'probe-orch-'));
+  for (const [home, hasDone] of [
+    [CLAUDE_HOME, o.claude],
+    [AI_FACTORY_HOME, o.aiFactory],
+  ] as const) {
+    if (hasDone === undefined) continue;
+    mkdirSync(join(root, home, slug), { recursive: true });
+    if (hasDone) writeFileSync(join(root, home, slug, 'done.md'), 'closed\n');
+  }
+  return root;
+}
+
+describe('probe-inflight.sh — orch-home resolution for consumer layouts (issue 1414)', () => {
+  const roots: string[] = [];
+  afterAll(() => {
+    for (const r of roots) rmSync(r, { recursive: true, force: true });
+  });
+  const tree = (o: { claude?: boolean; aiFactory?: boolean }): string => {
+    const t = orchTree('x', o);
+    roots.push(t);
+    return t;
+  };
+
+  it('(a) .ai-factory layout, closed umbrella, ZERO unharvested tasks → done-md yes AND ALREADY-DONE', () => {
+    // T-CLP-B: tasks MUST be empty here. With an unharvested task, DONE-UNHARVESTED
+    // outranks and a signal-only assertion would pass while the symptom persists. The
+    // merged PR is the second origin signal ALREADY-DONE requires (origin_signals >= 2).
+    const out = probe({
+      cwd: tree({ aiFactory: true }),
+      omitDoneMd: true,
+      originBranches: 'feature/x-abc123',
+      prs: [{ number: 1, state: 'MERGED', headRefName: 'feature/x-abc123' }],
+      tasks: [],
+    });
+    expect(out).toContain('SIGNAL done-md yes');
+    expect(out.trim().split('\n').pop()).toBe('VERDICT: ALREADY-DONE');
+  });
+
+  it('(b) paired-negative: the same .ai-factory tree WITHOUT done.md → done-md no', () => {
+    expect(probe({ cwd: tree({ aiFactory: false }), omitDoneMd: true })).toMatch(
+      /SIGNAL done-md no/,
+    );
+  });
+
+  it('(c) .claude layout control — framework behaviour unchanged → done-md yes', () => {
+    expect(probe({ cwd: tree({ claude: true }), omitDoneMd: true })).toMatch(
+      /SIGNAL done-md yes/,
+    );
+  });
+
+  it('(c-precedence) BOTH dirs exist, done.md only under .ai-factory → no (.claude leg wins, like resolve_orch_home)', () => {
+    expect(probe({ cwd: tree({ claude: false, aiFactory: true }), omitDoneMd: true })).toMatch(
+      /SIGNAL done-md no/,
+    );
+  });
+
+  it('(d) the PROBE_DONE_MD override still wins over a real .ai-factory done.md', () => {
+    // The fixture seam every other arm in this file relies on must stay intact.
+    expect(probe({ cwd: tree({ aiFactory: true }), doneMd: 'no' })).toMatch(
+      /SIGNAL done-md no/,
+    );
+  });
+
+  it('(e) DONE-UNHARVESTED outranks the resolved yes — the precedence the 2026-08-17 measurement pinned', () => {
+    // Selector needs all three: status done, branchName containing the slug, and no PR
+    // carrying that headRefName. The yes signal must still PRINT while the verdict ranks.
+    const out = probe({
+      cwd: tree({ aiFactory: true }),
+      omitDoneMd: true,
+      tasks: [{ id: 'abc12345-0000', status: 'done', branchName: 'feature/x-abc123' }],
+    });
+    expect(out).toContain('SIGNAL done-md yes');
+    expect(out.trim().split('\n').pop()).toBe('VERDICT: DONE-UNHARVESTED');
+  });
+});
+
+// ── Signal 4 asks the RIGHT repository (issue 1439) ───────────────────────────
+// The container checkout is derived from the aif PROJECT record (GET /projects → the
+// record whose .id == RUNTIME_BRIDGE_AIF_PROJECT_ID → rootPath, per
+// kickoff-l3.decisions.md#decision-1), never hardcoded. The signal line carries the
+// resolved path as a TRAILING repo= field so a consumer can SEE which repository was
+// asked, and every unaskable outcome names its cause instead of rendering as ok.
+
+describe('probe-inflight.sh — signal 4 asks the derived repository (issue 1439)', () => {
+  const PROJECTS = [
+    { id: 'p-timeliner', name: 'timeliner', rootPath: '/home/www/timeliner' },
+    // The decoy: the framework project. Under the old hardcoded default the probe
+    // asked THIS checkout while reporting ok — the wrong-target case no
+    // injected-status test could see until repo= existed.
+    { id: 'q-decoy', name: 'rules-as-tests-aif', rootPath: '/home/www/rules-as-tests-aif' },
+  ];
+
+  it('(a) derivable-path consumer: repo= names the RIGHT project record, not the decoy', () => {
+    // Injection precedence: container status still comes from PROBE_CONTAINER_BRANCHES
+    // (stays ok); the derived path is reported for visibility only.
+    const out = probe({
+      projects: PROJECTS,
+      runtimeProjectId: 'p-timeliner',
+      containerBranches: '',
+      containerStatus: 'ok',
+    });
+    expect(out).toContain('SIGNAL container-branch 0 only=0 status=ok repo=/home/www/timeliner');
+    expect(out).not.toContain('repo=/home/www/rules-as-tests-aif');
+    expect(out.trim().split('\n').pop()).toBe('VERDICT: FRESH');
+  });
+
+  it(
+    '(b) git-call failure surfaces its cause — the REAL capture path, not just rendering',
+    { timeout: SLOW_SHELL_MS },
+    () => {
+      // The stub is reached via PROBE_DOCKER_BIN (not PATH shadowing, which the probe's
+      // PATH prepend makes host-dependent): stderr is captured, the first line becomes
+      // the reason, and the failure is PROBE-INCOMPLETE — never a clean answer.
+      const stubDir = mkdtempSync(join(tmpdir(), 'probe-docker-stub-'));
+      try {
+        const stub = join(stubDir, 'stub-docker');
+        writeFileSync(
+          stub,
+          '#!/usr/bin/env bash\necho "fatal: detected dubious ownership in repository at \'/home/www/timeliner\'" >&2\nexit 128\n',
+          { mode: 0o755 },
+        );
+        const out = probe({
+          omitContainerInjection: true,
+          projects: [{ id: 'p-timeliner', name: 'timeliner', rootPath: '/home/www/timeliner' }],
+          runtimeProjectId: 'p-timeliner',
+          dockerBin: stub,
+        });
+        expect(out).toMatch(
+          /status=unavailable repo=\/home\/www\/timeliner reason=fatal: detected dubious ownership/,
+        );
+        expect(out).toContain(
+          "container-cause: fatal: detected dubious ownership in repository at '/home/www/timeliner'",
+        );
+        expect(out.trim().split('\n').pop()).toBe('VERDICT: PROBE-INCOMPLETE');
+      } finally {
+        rmSync(stubDir, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it('(c) asked-and-got-nothing stays ok: derivable path, no matching branch → FRESH', () => {
+    const out = probe({
+      projects: PROJECTS,
+      runtimeProjectId: 'p-timeliner',
+      containerBranches: 'feature/other-abc',
+      containerStatus: 'ok',
+    });
+    expect(out).toContain(
+      'SIGNAL container-branch 0 only=0 status=ok repo=/home/www/timeliner',
+    );
+    expect(out.trim().split('\n').pop()).toBe('VERDICT: FRESH');
+  });
+
+  it('(d) framework-layout control: explicit AIF_REPO_PATH behaves as today + trailing repo=', () => {
+    const out = probe({
+      aifRepoPath: '/home/www/rules-as-tests-aif',
+      containerBranches: '',
+      containerStatus: 'ok',
+    });
+    expect(out).toContain(
+      'SIGNAL container-branch 0 only=0 status=ok repo=/home/www/rules-as-tests-aif',
+    );
+    expect(out.trim().split('\n').pop()).toBe('VERDICT: FRESH');
+  });
+
+  it('(e) no-rootpath consumer: unavailable with the named cause, never ok from another project', () => {
+    const out = probe({
+      omitContainerInjection: true,
+      runtimeProjectId: 'p-timeliner',
+      projects: [{ id: 'p-timeliner', name: 'x' }],
+    });
+    expect(out).toMatch(/SIGNAL container-branch 0 only=0 status=unavailable reason=no-rootpath/);
+    expect(out).toContain('container-cause: no-rootpath');
+    expect(out.trim().split('\n').pop()).toBe('VERDICT: PROBE-INCOMPLETE');
+  });
+
+  it('(e-sub) RUNTIME_BRIDGE_AIF_PROJECT_ID unset → reason=no-project-id', () => {
+    const out = probe({
+      omitContainerInjection: true,
+      projects: PROJECTS,
+    });
+    expect(out).toMatch(/status=unavailable reason=no-project-id/);
+    expect(out.trim().split('\n').pop()).toBe('VERDICT: PROBE-INCOMPLETE');
+  });
+
+  it('(e-sub) empty project list → reason=project-not-found', () => {
+    const out = probe({
+      omitContainerInjection: true,
+      runtimeProjectId: 'p-timeliner',
+      projects: [],
+    });
+    expect(out).toMatch(/status=unavailable reason=project-not-found/);
+    expect(out.trim().split('\n').pop()).toBe('VERDICT: PROBE-INCOMPLETE');
+  });
+
+  it('(e-sub) non-JSON projects payload → reason=projects-api-unreachable', () => {
+    const out = probe({
+      omitContainerInjection: true,
+      runtimeProjectId: 'p-timeliner',
+      projectsRaw: 'curl: (7) Failed to connect to localhost port 3009',
+    });
+    expect(out).toMatch(/status=unavailable reason=projects-api-unreachable/);
+    expect(out.trim().split('\n').pop()).toBe('VERDICT: PROBE-INCOMPLETE');
   });
 });

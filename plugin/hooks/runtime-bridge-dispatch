@@ -22,8 +22,13 @@
 #   The `<!-- bridge: skip -->` marker in kickoff.ts keeps serving the manual
 #   dispatch.ts path (/dispatcher, /pipeline) unchanged.
 #
-# Fallback: on quota_exceeded / unavailable → dispatch.ts auto-falls-back to
-#   ManualBackend and emits copy-paste instructions to stderr.
+# Fallback: on an ENVIRONMENTAL failure (quota_exceeded / unavailable / timeout /
+#   dispatch_failed) → dispatch.ts auto-falls-back to ManualBackend and emits
+#   copy-paste instructions to stderr. On `spec_invalid` (the kickoff itself is
+#   wrong — e.g. a `bridge-profile` marker naming a profile the runtime does not
+#   have) dispatch.ts ABORTS instead: no task, no /tmp artefact, exit 2. This hook
+#   still exits 0 — it forwards the abort text as additionalContext and never
+#   blocks the Write (see the output contract below).
 #
 # Output contract (verified 2026-05-22, code.claude.com/docs/en/hooks.md):
 #   plain stdout IGNORED for PostToolUse — context must be JSON additionalContext.
@@ -143,7 +148,11 @@ DISPATCH_TS="$(_resolve_dispatch_ts)" || {
 
 # ── Invoke dispatch entrypoint ────────────────────────────────────────────────
 # Use tsx (TypeScript executor) if available; fall back to node with --loader.
-# dispatch.ts exits 0 always and outputs JSON hookSpecificOutput.additionalContext.
+# dispatch.ts outputs JSON hookSpecificOutput.additionalContext. Its exit code is 0
+# for every dispatch outcome and 2 when the kickoff itself is invalid; we capture
+# stdout and deliberately DO NOT propagate that status — this hook is an injection,
+# so the Write is never blocked (rule §4 turns the gate/injection split on the
+# HOOK's exit code, which stays 0 unconditionally below).
 if command -v tsx >/dev/null 2>&1; then
   RESULT="$(tsx "$DISPATCH_TS" "$FILE_PATH" 2>/tmp/runtime-bridge-dispatch-stderr.txt)"
 elif command -v npx >/dev/null 2>&1; then

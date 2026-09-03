@@ -10,6 +10,10 @@
 #       setup.d/40-configs.sh:174-177) + hand-extended barrel → --refresh keeps the entry;
 #       the barrel must stay LOADABLE (an entry pointing at a missing module is the FQA
 #       S1-A W1 failure mode — all rules dead while CI stays green — it is NOT a pass);
+#   (a2) consumer rule carrying .ts + .mjs + .d.ts + hand-added barrel entry → --refresh
+#       leaves all three files byte-identical, the barrel stays loadable, AND the basename
+#       appears EXACTLY ONCE (import line + rules-map line — grep -c == 1; a bare grep -q
+#       passes on the duplicated barrel, which is the issue 1519 RP-1b blocker);
 #   (b) framework-only barrel → regeneration byte-identical (checksum compare);
 #   (c) #882 must survive unchanged: a cross-stack stray (rule basename from a DIFFERENT
 #       preset) is still pruned and dropped — in the SAME tree where the consumer entry
@@ -45,39 +49,72 @@ export { myConsumerRule };
 EOF
 }
 
-# hand_extend_barrel <barrel> — append the consumer import + rules-map entry, exactly how a
-# consumer extends the generated barrel by hand (issue 1481's scenario).
+# hand_extend_barrel <barrel> [base] [camel] — append the consumer import + rules-map entry,
+# exactly how a consumer extends the generated barrel by hand (issue 1481's scenario).
+# Defaults to RULE_BASE/RULE_CAMEL; arm (a2) passes its own basename/camel.
 hand_extend_barrel() {
-  awk -v imp="import { $RULE_CAMEL } from './$RULE_BASE.mjs';" \
-      -v ent="    '$RULE_BASE': $RULE_CAMEL," '
+  local _hb_base="${2:-$RULE_BASE}" _hb_camel="${3:-$RULE_CAMEL}"
+  awk -v imp="import { $_hb_camel } from './$_hb_base.mjs';" \
+      -v ent="    '$_hb_base': $_hb_camel," '
     !pi && /^const plugin = \{/ { print imp; pi = 1 }
     !pe && /^  \},$/ { print ent; pe = 1 }
     { print }
   ' "$1" > "$1.tmp" && mv "$1.tmp" "$1"
 }
 
-# barrel_loadable <fixture_dir> — the barrel must import cleanly AND expose the consumer
-# rule key (dead-import barrel = S1-A W1 = NOT a pass). The framework rule .mjs siblings
-# import '@typescript-eslint/utils', so link the repo's node_modules (f19 pattern); skips
-# (not fails) if node or the dep tree is absent in this env.
+# barrel_loadable <fixture_dir> [base] — the barrel must import cleanly AND expose the
+# consumer rule key (dead-import barrel = S1-A W1 = NOT a pass). Defaults to RULE_BASE;
+# arm (a2) passes its own basename. The framework rule .mjs siblings import
+# '@typescript-eslint/utils', so link the repo's node_modules (f19 pattern); skips (not
+# fails) if node or the dep tree is absent in this env.
 barrel_loadable() {
+  local _bl_dir="$1" _bl_base="${2:-$RULE_BASE}"
   command -v node >/dev/null 2>&1 || { skip "(loadability) node not found in env"; return 0; }
   [ -d "$REPO_ROOT/node_modules/@typescript-eslint/utils" ] || { skip "(loadability) repo node_modules incomplete (@typescript-eslint/utils absent; run npm ci)"; return 0; }
-  ln -sfn "$REPO_ROOT/node_modules" "$1/node_modules"
-  if node -e "import('file://$1/eslint-rules-local/index.mjs').then(m => { process.exit('$RULE_BASE' in m.rules ? 0 : 1); }).catch(() => process.exit(2))"; then
-    ok "(loadability) barrel imports and registers '$RULE_BASE' in plugin.rules"
+  ln -sfn "$REPO_ROOT/node_modules" "$_bl_dir/node_modules"
+  if node -e "import('file://$_bl_dir/eslint-rules-local/index.mjs').then(m => { process.exit('$_bl_base' in m.rules ? 0 : 1); }).catch(() => process.exit(2))"; then
+    ok "(loadability) barrel imports and registers '$_bl_base' in plugin.rules"
   else
-    bad "(loadability) barrel import failed or '$RULE_BASE' missing from plugin.rules"
+    bad "(loadability) barrel import failed or '$_bl_base' missing from plugin.rules"
   fi
 }
 
+# consumer_rule_trio <dir> <base> <camel> — a consumer rule carrying the FULL trio:
+# .ts (authoring source, kept for reference — the installer never compiles it, fix #752),
+# .mjs (hand-written compiled module) and .d.ts (types). The issue 1519 population.
+consumer_rule_trio() {
+  local _ct_dir="$1" _ct_base="$2" _ct_camel="$3"
+  cat > "$_ct_dir/$_ct_base.ts" <<EOF
+// consumer-authored rule source — never compiled by the installer (fix #752), kept for reference
+const $_ct_camel = {
+  meta: { name: '$_ct_base', type: 'problem', docs: { description: 'consumer-owned' }, schema: [], messages: { bad: 'bad' } },
+  create() { return {}; },
+};
+export { $_ct_camel };
+EOF
+  cat > "$_ct_dir/$_ct_base.mjs" <<EOF
+const $_ct_camel = {
+  meta: { name: '$_ct_base', type: 'problem', docs: { description: 'consumer-owned' }, schema: [], messages: { bad: 'bad' } },
+  create() { return {}; },
+};
+export { $_ct_camel };
+EOF
+  cat > "$_ct_dir/$_ct_base.d.ts" <<EOF
+export declare const $_ct_camel: {
+  meta: { name: string; type: 'problem' };
+  create(): Record<string, unknown>;
+};
+EOF
+}
+
 FIX_A=$(mktemp -d)   # arm (a): consumer entry survives --refresh
+FIX_A2=$(mktemp -d)  # arm (a2): consumer .ts+.mjs+.d.ts trio survives --refresh, exactly once
 FIX_B=$(mktemp -d)   # arm (b): framework-only byte-identity
 FIX_C=$(mktemp -d)   # arm (c): #882 cross-stack stray still pruned (+ consumer kept)
 FIX_D=$(mktemp -d)   # arm (d): dry-run writes nothing
-trap 'rm -rf "$FIX_A" "$FIX_B" "$FIX_C" "$FIX_D"' EXIT
+trap 'rm -rf "$FIX_A" "$FIX_A2" "$FIX_B" "$FIX_C" "$FIX_D"' EXIT
 
-for _d in "$FIX_A" "$FIX_B" "$FIX_C" "$FIX_D"; do
+for _d in "$FIX_A" "$FIX_A2" "$FIX_B" "$FIX_C" "$FIX_D"; do
   printf '{"name":"barrel-preserve","version":"0.0.0"}\n' > "$_d/package.json"
   ( cd "$_d" && git init -q && git config user.email "test@test.com" && git config user.name "Test" ) >/dev/null 2>&1
 done
@@ -117,6 +154,73 @@ else
   bad "(a, pos) consumer entry dropped from regenerated barrel — the issue 1481 casualty 2 bug"
 fi
 barrel_loadable "$FIX_A"
+
+# ── Arm (a2): consumer .ts+.mjs+.d.ts trio survives --refresh, entry EXACTLY ONCE ─
+# Issue 1519: the #882 stale-rule prune rm -f's the whole trio for a basename not valid
+# for the current stack — the prune fires BEFORE the issue-1481 preservation loop can
+# keep the barrel entry. Fix shape (kickoff RP-1 + RP-1b): a non-framework-attributable
+# basename is never pruned; and since the generation loops then emit the canonical entry
+# for its .ts, the kept-entry loop must SKIP that basename or the barrel ships a duplicate
+# import binding → hard ESM SyntaxError → every rule dead (the loadability assert below).
+A2_BASE="consumer-ts-rule"            # kebab basename — absent from every framework rules dir
+A2_CAMEL="consumerTsRule"
+
+( cd "$FIX_A2" && bash "$INSTALL" ts-server --force < /dev/null ) > "$FIX_A2/.i1.log" 2>&1
+A21_RC=$?
+if [ "$A21_RC" -ne 0 ] || [ ! -f "$FIX_A2/eslint-rules-local/index.mjs" ]; then
+  skip "(a2) baseline ts-server install could not complete in this env (rc=$A21_RC)"
+else
+  consumer_rule_trio "$FIX_A2/eslint-rules-local" "$A2_BASE" "$A2_CAMEL"
+  hand_extend_barrel "$FIX_A2/eslint-rules-local/index.mjs" "$A2_BASE" "$A2_CAMEL"
+  A2_TS_1=$(shasum -a 256 "$FIX_A2/eslint-rules-local/$A2_BASE.ts" | cut -d' ' -f1)
+  A2_MJS_1=$(shasum -a 256 "$FIX_A2/eslint-rules-local/$A2_BASE.mjs" | cut -d' ' -f1)
+  A2_DTS_1=$(shasum -a 256 "$FIX_A2/eslint-rules-local/$A2_BASE.d.ts" | cut -d' ' -f1)
+  ok "(a2, setup) consumer trio $A2_BASE.ts/.mjs/.d.ts + hand-added barrel entry in place"
+
+  ( cd "$FIX_A2" && bash "$INSTALL" ts-server --refresh < /dev/null ) > "$FIX_A2/.i2.log" 2>&1
+  A22_RC=$?
+  if [ "$A22_RC" -eq 0 ]; then
+    ok "(a2) ts-server --refresh completed rc=0"
+  else
+    bad "(a2) ts-server --refresh exited non-zero (rc=$A22_RC, log tail: $(tail -8 "$FIX_A2/.i2.log" | tr '\n' '|'))"
+  fi
+
+  A2_TS_2=$(shasum -a 256 "$FIX_A2/eslint-rules-local/$A2_BASE.ts" 2>/dev/null | cut -d' ' -f1)
+  A2_MJS_2=$(shasum -a 256 "$FIX_A2/eslint-rules-local/$A2_BASE.mjs" 2>/dev/null | cut -d' ' -f1)
+  A2_DTS_2=$(shasum -a 256 "$FIX_A2/eslint-rules-local/$A2_BASE.d.ts" 2>/dev/null | cut -d' ' -f1)
+  if [ "$A2_TS_1" = "$A2_TS_2" ] && [ -n "$A2_TS_2" ]; then
+    ok "(a2, pos) $A2_BASE.ts byte-identical after refresh"
+  else
+    bad "(a2, pos) $A2_BASE.ts deleted or modified by refresh (the issue 1519 prune) — before:$A2_TS_1 after:$A2_TS_2"
+  fi
+  if [ "$A2_MJS_1" = "$A2_MJS_2" ] && [ -n "$A2_MJS_2" ]; then
+    ok "(a2, pos) $A2_BASE.mjs byte-identical after refresh"
+  else
+    bad "(a2, pos) $A2_BASE.mjs deleted or modified by refresh — before:$A2_MJS_1 after:$A2_MJS_2"
+  fi
+  if [ "$A2_DTS_1" = "$A2_DTS_2" ] && [ -n "$A2_DTS_2" ]; then
+    ok "(a2, pos) $A2_BASE.d.ts byte-identical after refresh"
+  else
+    bad "(a2, pos) $A2_BASE.d.ts deleted or modified by refresh — before:$A2_DTS_1 after:$A2_DTS_2"
+  fi
+
+  # The load-bearing half: EXACTLY ONE import line + ONE rules-map line for the basename.
+  # grep -q alone passes on the RP-1b-duplicated barrel; only the count assert catches it.
+  A2_IMP_COUNT=$(grep -c "from './$A2_BASE.mjs';" "$FIX_A2/eslint-rules-local/index.mjs")
+  A2_MAP_COUNT=$(grep -c "^    '$A2_BASE': $A2_CAMEL,$" "$FIX_A2/eslint-rules-local/index.mjs")
+  if [ "$A2_IMP_COUNT" -eq 1 ]; then
+    ok "(a2, pos) import line for '$A2_BASE' appears exactly once in the regenerated barrel"
+  else
+    bad "(a2, pos) import line count for '$A2_BASE' = $A2_IMP_COUNT (expected 1; 0 = pruned/dropped, 2 = the RP-1b duplicate-entry blocker)"
+  fi
+  if [ "$A2_MAP_COUNT" -eq 1 ]; then
+    ok "(a2, pos) rules-map entry for '$A2_BASE' appears exactly once in the regenerated barrel"
+  else
+    bad "(a2, pos) rules-map entry count for '$A2_BASE' = $A2_MAP_COUNT (expected 1; 0 = pruned/dropped, 2 = the RP-1b duplicate-entry blocker)"
+  fi
+
+  barrel_loadable "$FIX_A2" "$A2_BASE"
+fi
 
 # ── Arm (b): framework-only barrel regenerates byte-identical ────────────────────
 ( cd "$FIX_B" && bash "$INSTALL" ts-server --force < /dev/null ) > "$FIX_B/.i1.log" 2>&1

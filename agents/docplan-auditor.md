@@ -4,7 +4,7 @@ description: Cold semantic-grouping judgment for a DocPlan. Given ONLY the DocPl
 tools: Read, Glob, Grep
 ---
 
-<!-- spec: docs/superpowers/specs/2026-07-03-multi-toolchain-convention-compiler-design.md §5.1 (MT-AIDOC-COMPOSITION-DESIGN) + .claude/rules/attention-is-not-a-mechanism.md §1 -->
+<!-- spec: [docs/superpowers/specs/2026-07-03-multi-toolchain-convention-compiler-design.md](../docs/superpowers/specs/2026-07-03-multi-toolchain-convention-compiler-design.md) §5.1 (MT-AIDOC-COMPOSITION-DESIGN) + [.claude/rules/attention-is-not-a-mechanism.md](../.claude/rules/attention-is-not-a-mechanism.md) §1 -->
 
 # docplan-auditor
 
@@ -13,8 +13,8 @@ tools: Read, Glob, Grep
 > exclusion-reason substance, section granularity. Reporting-only (CLEAN/GAP per section + overall).
 > **NOT authoritative for:** project goal — see the consumer's README.md. The DocPlan shape / gate
 > codes (FF8001–8004) — see the composition gate
-> (`packages/core/composition/gates/composition-gate.ts`) + the doc-plan schema
-> (`packages/core/composition/doc-plan.schema.json`). The load-bearing-check-is-a-mechanism
+> ([packages/core/composition/gates/composition-gate.ts](../packages/core/composition/gates/composition-gate.ts)) + the doc-plan schema
+> ([packages/core/composition/doc-plan.schema.json](../packages/core/composition/doc-plan.schema.json)). The load-bearing-check-is-a-mechanism
 > principle this agent instances — see
 > [attention-is-not-a-mechanism.md §1](../.claude/rules/attention-is-not-a-mechanism.md) (SSOT).
 

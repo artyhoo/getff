@@ -52,7 +52,7 @@ if ! command -v jq >/dev/null 2>&1; then
   _RAW_PATH="$(sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
   case "$_RAW_PATH" in
     *.claude/orchestrator-prompts/*/kickoff-*.*.md) ;;
-    *.claude/orchestrator-prompts/*/kickoff.md | *.claude/orchestrator-prompts/*/kickoff-[a-z][0-9]*.md | "")
+    *.claude/orchestrator-prompts/*/kickoff.md | *.claude/orchestrator-prompts/*/kickoff-*.md | "")
       _emit_skip '⚠ check-kickoff-traps: jq unavailable — BOTH kickoff checks DID NOT RUN for this edit (the host-verification contract arm and the T-enumeration arm). This is a SKIP, not a pass; install jq to restore enforcement.' ;;
   esac
   exit 0
@@ -88,10 +88,24 @@ case "$TOOL" in Edit | Write | MultiEdit) ;; *) exit 0 ;; esac
 # a different checkout — kept an absolute REL_PATH, missed the pattern, and exited 0 in
 # SILENCE. That is the exact defect class this hook's arm 1 exists to close, reintroduced in
 # the dispatcher itself. Suffix-matching is root-independent, so it cannot recur.
+#
+# Classification is THREE-way, not two — see arm 3 below. The stage test is a bash regex,
+# not a `case` glob, so it mirrors packages/core/principles/kickoff-population.ts exactly:
+# the old `kickoff-[a-z][0-9]*.md` glob left `*` unbounded and admitted names the TS SSOT
+# calls unrecognised (`kickoff-b0-notes.md`), a latent twin divergence.
+KICKOFF_NAME_CLASS=""
 case "$ABS_PATH" in
-  */.claude/orchestrator-prompts/*/kickoff-*.*.md) exit 0 ;;
-  */.claude/orchestrator-prompts/*/kickoff.md) ;;
-  */.claude/orchestrator-prompts/*/kickoff-[a-z][0-9]*.md) ;;
+  */.claude/orchestrator-prompts/*/kickoff-*.*.md) exit 0 ;;       # dotted sidecar
+  */.claude/orchestrator-prompts/*/kickoff-amendments.md) exit 0 ;; # exact-name sidecar
+  */.claude/orchestrator-prompts/*/kickoff-stage-2-and-3.md) exit 0 ;; # grandfathered (2026-09-02)
+  */.claude/orchestrator-prompts/*/kickoff.md) KICKOFF_NAME_CLASS="umbrella" ;;
+  */.claude/orchestrator-prompts/*/kickoff-*.md)
+    if [[ "${ABS_PATH##*/}" =~ ^kickoff-[a-z][0-9][a-z0-9]*\.md$ ]]; then
+      KICKOFF_NAME_CLASS="stage"
+    else
+      KICKOFF_NAME_CLASS="unrecognised"
+    fi
+    ;;
   *) exit 0 ;;
 esac
 # Display path only — never load-bearing for the scope decision above.
@@ -104,6 +118,31 @@ CONTENT="$(cat "$ABS_PATH" 2>/dev/null || true)"
 # costs the author a round-trip per rule. (Same posture as validate_s17 in the operator's
 # git-safety.sh, which loops over Forward AND Backward and joins every error.)
 VIOLATIONS=()
+
+# ── Arm 3 — kickoff filename recognition (near-miss ≠ deliberate sidecar) ─────
+# spec: .claude/rules/kickoff-staging-placement.md §5 (#kickoff-name-near-miss)
+# SSOT for the classification: packages/core/principles/kickoff-population.ts
+#
+# Runs FIRST and short-circuits: for a name we cannot resolve, we do not know whether the
+# file is a dispatch input at all, so arms 1-2 have no obligation to assert against it.
+#
+# Measured 2026-09-02 (beta-docs-showcase BS0): `kickoff-bs0.md` fails the stage form —
+# `[a-z]` consumes `b`, then `\d` meets `s` — so it landed in the sidecar bucket beside
+# `kickoff-amendments.md`. Principle 12's citation gate skipped it and reported GREEN having
+# examined nothing; this hook, matching the same two-way split, exited 0 in silence. A
+# near-miss was INDISTINGUISHABLE from a deliberate sidecar. Making the third class loud is
+# the whole fix — the name is either a stage designator or a named sidecar, never "neither".
+if [[ "$KICKOFF_NAME_CLASS" == "unrecognised" ]]; then
+  _adv_violation "❌ kickoff-name: $REL_PATH — unrecognised \`kickoff-*\` filename.
+   It is NEITHER the stage form \`kickoff-<letter><digit>[alnum].md\` (\`kickoff-b0.md\`, \`kickoff-s2b.md\`)
+   NOR a known sidecar (\`kickoff[-<stage>].<kind>.md\`, e.g. \`kickoff-s4.decisions.md\`; or \`kickoff-amendments.md\`).
+   A name in this class is SILENTLY reclassified as a sidecar: principle 12 (trap citation),
+   principle 40 (rigor label), principle 43 (host-verify) and BOTH arms of this hook skip it
+   and report green having examined nothing.
+   Fix: rename to the stage form if it carries worker instructions (and add the matching
+   \`.gitignore\` exception so it reaches \`staging\`); otherwise rename to a sidecar form."
+  exit 0
+fi
 
 
 # ── Arm 1 — destination-environment verification contract ─────────────────────

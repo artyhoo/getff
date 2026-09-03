@@ -4,7 +4,7 @@ description: Audits a proposed or just-authored new capability (a SKILL.md, an a
 tools: Read, Glob, Grep
 ---
 
-<!-- spec: .claude/rules/source-before-shape.md -->
+<!-- spec: [.claude/rules/source-before-shape.md](../.claude/rules/source-before-shape.md) -->
 
 # capability-reuse-auditor
 

@@ -43,7 +43,7 @@ One line per rule — full text: read `.claude/rules/<name>.md` (index: `.claude
 | `egress-no-api-bypass.md` | B | harvesting/egressing a finished aif-agent branch to a PR. | skill-embed |
 | `evidence-regeneration.md` | B | a freshness gate RED, or a first live-fired matrix cell. | paths:(1), edit-time inject |
 | `git-conflict-merge-forward.md` | B | a CONFLICTING PR, or any rebase/force-push urge. | claude-md |
-| `kickoff-staging-placement.md` | B | editing/creating any file under `.claude/orchestrator-prompts/<umbrella>/`. | paths:(1), edit-time inject |
+| `kickoff-staging-placement.md` | A | editing/creating any file under `.claude/orchestrator-prompts/<umbrella>/`. | paths:(1), edit-time inject |
 | `language-discipline.md` | A | writing any internal machinery or human-facing output. | paths:(3), edit-time inject |
 | `memory-codification.md` | B | writing a durable behavioural convention to agent memory. | hook |
 | `no-paid-llm-in-ci.md` | A | editing `.github/workflows/**` or `.github/actions/**`. | paths:(2), edit-time inject |

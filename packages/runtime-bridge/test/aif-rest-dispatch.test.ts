@@ -104,6 +104,9 @@ describe('AifHandoffBackend.dispatch() — REST 4-step sequence', () => {
     const backend = new AifHandoffBackend({ baseUrl: 'http://localhost:3009', projectId: 'p' });
     const err = await backend.dispatch(KICKOFF).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(BackendError);
+    // Stays dispatch_failed, NOT spec_invalid: the kickoff is fine, aif answered
+    // with a shape we did not expect — an environmental fault, so the
+    // ManualBackend fallback must still catch it (isFallbackEligible).
     expect(err).toMatchObject({ code: 'dispatch_failed', backend: 'aif-handoff' });
   });
 
@@ -236,17 +239,17 @@ describe('AifHandoffBackend.dispatch() — profileHint resolution', () => {
     expect(post?.body && 'runtimeProfileId' in post.body).toBe(false);
   });
 
-  it('zero matches → dispatch_failed, loud, naming the empty candidate outcome (no silent fallback)', async () => {
+  it('zero matches → spec_invalid, loud, naming the empty candidate outcome (no silent fallback)', async () => {
     mockWithProfiles([{ id: 'opus-id', name: 'Claude Opus (plan+review)' }]);
     const backend = new AifHandoffBackend({ baseUrl: 'http://localhost:3009', projectId: 'proj-uuid' });
     const err = await backend.dispatch(KICKOFF_WITH_HINT).catch((e: unknown) => e);
 
     expect(err).toBeInstanceOf(BackendError);
-    expect(err).toMatchObject({ code: 'dispatch_failed', backend: 'aif-handoff' });
+    expect(err).toMatchObject({ code: 'spec_invalid', backend: 'aif-handoff' });
     expect((err as Error).message).toContain('GLM');
   });
 
-  it('ambiguous (>1) matches → dispatch_failed naming BOTH candidates (no guessing)', async () => {
+  it('ambiguous (>1) matches → spec_invalid naming BOTH candidates (no guessing)', async () => {
     mockWithProfiles([
       { id: 'glm-a', name: 'Z.AI GLM-5.2 (fast)' },
       { id: 'glm-b', name: 'Z.AI GLM-5.2 (careful)' },
@@ -255,7 +258,7 @@ describe('AifHandoffBackend.dispatch() — profileHint resolution', () => {
     const err = await backend.dispatch(KICKOFF_WITH_HINT).catch((e: unknown) => e);
 
     expect(err).toBeInstanceOf(BackendError);
-    expect(err).toMatchObject({ code: 'dispatch_failed', backend: 'aif-handoff' });
+    expect(err).toMatchObject({ code: 'spec_invalid', backend: 'aif-handoff' });
     expect((err as Error).message).toContain('glm-a');
     expect((err as Error).message).toContain('glm-b');
   });
@@ -305,7 +308,7 @@ describe('AifHandoffBackend.dispatch() — profileHint resolution', () => {
     const err = await backend.dispatch({ ...KICKOFF, profileHint: 'GLM' }).catch((e: unknown) => e);
 
     expect(err).toBeInstanceOf(BackendError);
-    expect(err).toMatchObject({ code: 'dispatch_failed', backend: 'aif-handoff' });
+    expect(err).toMatchObject({ code: 'spec_invalid', backend: 'aif-handoff' });
     expect((err as Error).message).toContain('glm-api');
     expect((err as Error).message).toContain('glm-sdk');
   });

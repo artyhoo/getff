@@ -41,7 +41,7 @@ Do NOT cross into orchestrator-role decisions mid-session. On a strategic fork: 
 Work through the PR description in the open tab or from `gh pr view <number> --json body`. For
 each item below, answer YES/NO and cite the exact evidence location.
 
-### 1. Forward-check: per-layer coverage (`.claude/rules/phase-research-coverage.md §1.7`)
+### 1. Forward-check: per-layer coverage ([.claude/rules/phase-research-coverage.md](../.claude/rules/phase-research-coverage.md) §1.7)
 
 For each applicable layer (R1-R20 code-level rules · Principles 01-N · Capability-commit gate ·
 Build-vs-reuse SSOT · Trigger sweep · Doc-authority), the check must be backed by a `file.ext:line`
@@ -88,7 +88,7 @@ specificity as the PR description. **Flag ATTN** (advisory, not REVISE) if the t
 substantively thinner than the PR body. The deterministic pre-push hook (`§9 s17_check_trailer()`)
 enforces trailer _presence_ + min length; you check _substance parity_.
 
-## Anti-patterns flagged (per `.claude/rules/phase-research-coverage.md §4`)
+## Anti-patterns flagged (per [.claude/rules/phase-research-coverage.md](../.claude/rules/phase-research-coverage.md) §4)
 
 - **`#discipline-theatre`** — §1.7 section contains ≥40 chars of fluent prose asserting
   compliance without any `file:line`, `find`/`grep` output, or concrete N/A justification.
@@ -141,5 +141,5 @@ deterministic layer's job (the regex gate fails first); a present-but-hollow §1
 
 ## See also
 
-- `.claude/rules/phase-research-coverage.md §1.7` — the §1.7 discipline.
+- [.claude/rules/phase-research-coverage.md](../.claude/rules/phase-research-coverage.md) §1.7 — the §1.7 discipline.
 - [`agents/review-sidecar.md`](review-sidecar.md) — diff-level tautological-test review.
