@@ -46,7 +46,30 @@ JSON
   echo "# modern" > "$root/.claude/skills/getff/SKILL.md"
 }
 
-md5_of() { md5sum "$1" 2>/dev/null | awk '{print $1}'; }
+# md5_of <file> — first available hasher's digest. `md5sum` is coreutils-only and is
+# ABSENT on a stock macOS host; the previous one-liner swallowed that with `2>/dev/null`
+# and returned "", so every byte-identity arm below degraded to a vacuous `"" = ""` PASS
+# on exactly the host class this repo is developed on. Falls back to `shasum`, which
+# ships with macOS. When NO hasher exists the digest is a per-path sentinel, never "":
+# two different files can then never compare equal, so the arms fail loud instead of
+# passing empty. (A bare `exit 1` here would not do it — every call site is `$(md5_of …)`,
+# so the exit would kill only the command substitution and hand the caller "" anyway.)
+# Same defect class + counter as the sibling tests/install-sh/first-commit-passable.test.sh:38.
+md5_of() {
+  local h=""
+  if command -v md5sum >/dev/null 2>&1; then
+    h=$(md5sum "$1" 2>/dev/null | awk '{print $1}')
+  elif command -v shasum >/dev/null 2>&1; then
+    h=$(shasum -a 256 "$1" 2>/dev/null | awk '{print $1}')
+  elif command -v sha256sum >/dev/null 2>&1; then
+    h=$(sha256sum "$1" 2>/dev/null | awk '{print $1}')
+  fi
+  if [ -z "$h" ]; then
+    echo "  ✗ md5_of: no hasher available (md5sum/shasum/sha256sum) for $1" >&2
+    h="NO-HASHER:$1"
+  fi
+  printf '%s\n' "$h"
+}
 
 # ── Arm 1 (pos, load-bearing): stale `.lintstagedrc.json` → offer + byte-identical ─
 # This is the load-bearing arm. A test that only greps the offer text would PASS
