@@ -317,11 +317,17 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
     expect(actual, 'plugin/skills membership changed. The set is a recorded decision (plan Task 3 Step 4 + its 2026-09-03 promotion) — update M1_SET here and state in the PR body which need triggered the promotion.').toEqual([...M1_SET].sort());
 
     // Fidelity for skills that also exist under the framework's skills/. QUARANTINE: getff is
-    // exempt and must stay exempt until re-synced deliberately — its plugin copy carries BOTH a
-    // legitimate divergence (it sits one directory deeper, so ](../../x) had to become ](../../../x))
-    // AND stale content (it still names AI Factory `/aif-verify` + `rules-sidecar` where the source
-    // names ./scripts/audit-ai-docs.sh, and it is missing the /rule-research + /rule-tests line).
-    // Re-syncing changes what plugin users read, so it is the operator's call, tracked separately.
+    // exempt. The stale-content half of the drift is GONE (re-synced 2026-09-03, Decision 4
+    // item 3: the plugin copy no longer names AI Factory `/aif-verify` + `rules-sidecar` where
+    // the source names ./scripts/audit-ai-docs.sh, and it carries the /rule-research +
+    // /rule-tests line). What remains is ONLY the link divergence, and it is STRUCTURAL, so
+    // byte-identity is unreachable here by construction: the plugin copy sits one directory
+    // deeper, so SKILL.md's ](../../x) became ](../../../x) and each references/*.md's
+    // ](../../../x) became an absolute https://github.com/... URL (a marketplace consumer
+    // reads these outside the repo, where no relative path escapes correctly). Lifting the
+    // quarantine therefore requires a link-normalising comparison — a design choice, not a
+    // re-sync — so it stays until that is decided. Re-verify with:
+    //   diff -ru skills/getff plugin/skills/getff   → 7 differing lines, all link lines.
     // tool-bootstrapping can hold plain byte-identity because it has zero links escaping its own
     // directory — verified before it was copied in; a future skill that does NOT will fail here,
     // which is the point: the author must then choose depth-rewrite (and earn its own exemption,

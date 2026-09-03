@@ -157,7 +157,7 @@ EDIT-TIME      PRE-COMMIT     PRE-PUSH       PRE-PR         CI on PR        CI o
 | ------- | -------------------------------------------------------------------------------------------------------- |
 | 2       | + commitlint + sort-package-json                                                                         |
 | 3       | + dependency-cruiser strict + meta-tests на критических каталогах                                        |
-| 4       | + AIF `/aif-verify` (rules-sidecar) + review-sidecar                                                     |
+| 4       | + `audit-ai-docs.sh` + review-sidecar / living-docs-auditor (AIF `/aif-verify` only if you run AIF)      |
 | 5       | + Stryker incremental + Storybook test-runner + Playwright + bundle size + Codecov                       |
 | 6       | + Stryker full nightly + npm audit + gitleaks + OpenAPI publish                                          |
 | 7       | + Pact `can-i-deploy` + error budget burn rate check                                                     |
@@ -184,7 +184,8 @@ EDIT-TIME      PRE-COMMIT     PRE-PUSH       PRE-PR         CI on PR        CI o
 | Stryker `--incremental`            | 5                                    |
 | Stryker full                       | 6                                    |
 | dependency-cruiser                 | 3, 5                                 |
-| AIF `/aif-verify`                  | 4                                    |
+| `audit-ai-docs.sh` (shipped gate)  | 4                                    |
+| AIF `/aif-verify` (external, opt.) | 4                                    |
 | AIF sub-agents                     | 4                                    |
 | commitlint                         | 2                                    |
 | Husky                              | 2, 3                                 |
