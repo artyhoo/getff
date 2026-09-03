@@ -160,6 +160,20 @@ list` (verified: vitest 4.1.8 `list [...filters]`), and add the brownfield tscon
 - **FC-4 — delivered bytes CHANGE; the install snapshot is regenerated in the same PR.**
   `SNAPSHOT_MODE=capture bash tests/install-sh/snapshot.sh` after the fix; the diff must show
   ONLY the files FC-1..FC-3 name. Any other file in the snapshot diff = scope leak → park.
+  **Carve-out (install-time-generated manifests):** the capture regenerates the per-stack
+  fingerprints under `tests/install-sh/baselines/<stack>/*.fingerprint`, and every one of them
+  carries a hashed `.ai-factory/refresh-baseline.json` line that the installer derives from the
+  payload it just wrote — so a payload change moves that hash *by construction*. Movement in a
+  regenerated fingerprint line for an install-time-generated manifest is therefore a derivative,
+  NOT a scope leak, and does not trigger the park. Everything else in the diff still does.
+
+> **Note (2026-09-03, record fix on a closed umbrella).** The two sentences above the carve-out
+> were unpassable as written: FC-4 mandates the capture and then forbids what the capture always
+> produces, so every payload change would park falsely. The F1 executor read it correctly as
+> «derivative-of-construction, not a leak» and shipped; `done.md:6` recorded the collision as a
+> kickoff-text defect for the concept holder. This edit writes that resolution into the kickoff
+> so the next payload kickoff copies a passable rule instead of this one. Authorised by
+> Decision 4 item 7, `docs/superpowers/specs/2026-09-02-beta-release-night-morning-report.decisions.md`.
 
 ## §1b Autonomous aif dispatch — park-don't-guess contract
 
