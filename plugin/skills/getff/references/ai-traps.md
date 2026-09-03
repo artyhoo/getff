@@ -322,7 +322,7 @@ The reason isn't that AI tests are _worse_ per line — it's that AI tests are _
 
 ✅ **State the executable contracts**: "Inputs validated by Zod at boundaries. Run `npm run validate` before committing."
 
-✅ **Mention the enforced gate, then optional tooling**: "Run `npm run validate` (or `./scripts/audit-ai-docs.sh`) before committing — the pre-push hook + CI enforce it. If you use AI Factory: `/aif-plan` for features; `/aif-verify` wraps that gate."
+✅ **Name the enforced gate, and only the enforced gate**: "Run `npm run validate` (or `./scripts/audit-ai-docs.sh`) before committing — the pre-push hook + CI enforce it." Optional companion tooling belongs in the doc that owns your lifecycle (`.ai-factory/AI-USAGE-GUIDE.md`), not in the file every session reads: a command the installer does not deliver reads as a project requirement and sends agents looking for something that is not there.
 
 ❌ **Do not** rely on it for soft conventions ("prefer composition over inheritance"). Soft conventions become "we used to follow this" within a quarter of AI-driven development.
 
@@ -339,8 +339,6 @@ The mantra: **`CLAUDE.md` saves AI tokens by stating known-true facts; tests sav
 ```markdown
 # Project context for Claude Code
 
-This project uses AI Factory for spec-driven development.
-
 Before any non-trivial change:
 
 1. Read `.ai-factory/DESCRIPTION.md` — what we're building.
@@ -349,11 +347,7 @@ Before any non-trivial change:
 
 Before committing: run `npm run validate` — the pre-push hook + CI enforce the gate.
 
-If you use AI Factory (optional, not bundled):
-
-- `/aif-plan <task>` for new features.
-- `/aif-fix <error>` for bugs.
-- `/aif-verify` wraps the gate above (sub-agents over RULES.md).
+For the lifecycle past install — First Steps, the daily cycle, degradations — see `.ai-factory/AI-USAGE-GUIDE.md`.
 
 Stack constraints (enforced by lint/test/CI):
 
@@ -363,7 +357,7 @@ Stack constraints (enforced by lint/test/CI):
 - No `as any`, no `!`, no `enum`, no `Date.now()` in src/.
 - Mutation kill rate ≥70% on PR diff.
 
-If you need to bypass a rule — discuss via `/aif-rules` first, don't `--no-verify`.
+If you need to bypass a rule — change it in `.ai-factory/RULES.md` with a rationale on the PR, don't `--no-verify`.
 ```
 
 That's the entire shape of a good `CLAUDE.md`. Everything else is in `.ai-factory/` files and enforced.

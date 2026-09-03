@@ -275,8 +275,11 @@ rehearsal; the one-beat pattern established by track-1 §9.3 is the precedent).
   ready-to-harvest + PR state (`gh pr list`) — ending with suggested-next-command lines
   (git-status shape; clig.dev «suggest what to run next»). Consult found NO established
   status convention in agent frameworks — BUILD-thin over ADOPTed shape. NOT a dashboard.
-- **A6 — R1: npm release mechanics (absorbed U10+U11).** Name freeze (@getff family, bin
-  `getff`), `files` allowlist validated by a real tarball matrix cell, bin runnability
+- **A6 — R1: npm release mechanics (absorbed U10+U11).** Name freeze — the **unscoped
+  `getff`** package (bin `getff`, entry `npx getff@latest init` per D6 at `:150`) plus the
+  `@getff/*` family for libraries (Decision 1,
+  `docs/superpowers/specs/2026-09-02-beta-release-night-morning-report.decisions.md`) —
+  `files` allowlist validated by a real tarball matrix cell, bin runnability
   decision (.ts bins: tsx dependency vs prebuild — decided in-stage), package README/
   LICENSE/metadata, release notes via the existing release-drafter. `npm publish` itself
   stays an operator act in phase 2. Binding input:

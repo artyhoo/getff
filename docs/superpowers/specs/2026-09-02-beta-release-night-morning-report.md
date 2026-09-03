@@ -49,7 +49,7 @@
 
 ## 4. Night-decided asks
 
-- `session-bus/asks/2026-09-02-dispatcher-claims-auditor-ship-or-skip.md` → entry [`kickoff-s3.decisions.md`](../../../.claude/orchestrator-prompts/beta-ai-docs-agnosticism/kickoff-s3.decisions.md) (#1547). Advisor verdict **B** (skip-list, parity with backward-sweep-auditor) as a morning follow-up PR; the decision OBJECT (`setup.d/20-agents.sh:26-32` + `install.sh` twin + principle-21 drift guard) sits outside S3 §5 → **floored, status parked-for-operator**. S3 shipped unchanged, so `agents/claims-conformance-auditor.md` is delivered to consumers until the operator picks. **Operator pick needed: A (ship as is) / B (skip-list) / C (strip factory refs).** Falsifier recorded: if the operator wants a consumer-side docs audit → C, never A.
+- `session-bus/asks/2026-09-02-dispatcher-claims-auditor-ship-or-skip.md` → entry [`kickoff-s3.decisions.md`](../../../.claude/orchestrator-prompts/beta-ai-docs-agnosticism/kickoff-s3.decisions.md) (#1547). Advisor verdict **B** (skip-list, parity with backward-sweep-auditor) as a morning follow-up PR; the decision OBJECT (`setup.d/20-agents.sh:26-32` + `install.sh` twin + principle-21 drift guard) sits outside S3 §5 → **floored, status parked-for-operator**. S3 shipped unchanged, so `agents/claims-conformance-auditor.md` is delivered to consumers until the operator picks. **Operator pick needed: A (ship as is) / B (skip-list) / C (strip factory refs).** Falsifier recorded: if the operator wants a consumer-side docs audit → C, never A. **RESOLVED 2026-09-03: C** — «consumer-clean the shipped copy», merged as #1563; the fork is closed, no operator pick outstanding.
 
 ## 5. BLOCKED increments (floors — operator action required)
 
@@ -60,7 +60,7 @@
 
 ## 6. Owner-fork log (morning picks; none decided overnight)
 
-1. **claims-conformance-auditor A/B/C** (§4). If B → one PR: skip entry ×2 installers + roster re-render + `SNAPSHOT_MODE=capture`.
+1. ~~**claims-conformance-auditor A/B/C** (§4). If B → one PR: skip entry ×2 installers + roster re-render + `SNAPSHOT_MODE=capture`.~~ **RESOLVED 2026-09-03 as C in #1563** — no longer an open fork.
 2. **zcode-parity-rollup renderer** — a PROPOSAL renderer from S3 (#1550): its target fence `getff:begin section=zcode-parity-rollup` must be added to maintainer-owned `.claude/rules/zcode-parity-doctrine.md` and the `--check` step wired into `audit-self.yml` (see `docs/meta-factory/research-patches/2026-09-01-s3-owner-proposals.md`). Apply or decline; gate-less by design until then.
 3. **`tier-home.md:82-83`** cites `night-mode/SKILL.md:15` → now `:17` (A-S3 payload, outside S2 §5).
 4. **aif-version keep/remove** and **zcode §3 Option A/B** — parked in the `## Parked questions` of #1550/#1552.
@@ -96,5 +96,5 @@
 
 1. Operator: click «Dispatch beta-ai-docs-agnosticism S4» (chip `task_06d3dc51`) — everything is green for it.
 2. Operator: `claude /login` in `aif-handoff-agent-1` + profile flip → click «Dispatch beta-docs-showcase BS0» (chip `task_9eba621b`) → BS1 → BS2.
-3. Operator picks from §4 + §6 (A/B/C first — it is shipped to consumers today).
+3. Operator picks from §4 + §6 — A/B/C is no longer among them, resolved as C in #1563 on 2026-09-03.
 4. Then the phase-1 exit criteria (five points, incl. «≥10 tasks through the pipeline on ≥2 real projects») and the real clean-machine run.

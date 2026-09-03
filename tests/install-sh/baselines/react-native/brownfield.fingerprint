@@ -6,11 +6,11 @@ acafe267e1ac90afe1038da15ad9be69e8b28b8e26e67203fc414def68641068  .ai-factory/AR
 03264d66be0aceebf3e0df0a2bd361ec7db105551b93b519122c58ac9721bcda  .ai-factory/DESCRIPTION.template.md
 c3d5f5cdf92be1551ebbd6f6726db7ef892ff2f8394626ed4570f4507348c9b7  .ai-factory/RULES.md
 e43d71c23089705db64a85595800c7f87c79d38f7a39bff48a757b8d5038146e  .ai-factory/RULES.react-native.md
-a822f42b201d7a0f720cc8787ab3a84aa8bce74383af080e1a6401b6d7a6eaab  .ai-factory/refresh-baseline.json
+85b525845a2478f02571b63a99c6fa36d4f3456f0f9524f1d8666c78a3604945  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
 7d6b6061459f0939e64358447d0905329ddd4c52abd459ee8d9d201653ffb791  .ai-factory/skill-context/aif-rules-check/SKILL.md
-7650d41597eb3d825f719a5dc50e0c4d6717b3131c0ed87c966b5ef7e80dcb74  .ai-factory/tier-home.md
+f34680ff14267be474aafa0f5343acd22eb830542f90b26fc3bf71ecdbee159e  .ai-factory/tier-home.md
 f93f4a4bd693a0b1920f4e030b5f0d72f2d695fef9d501b3aeb8d02e790a7e24  .ai-factory/tool-decisions.md
 caa7ac27268fdd5652ed66db6b5e9b708042347ebf27663687827b43f07638e4  .claude/agents/aif-init.md
 baf371029b0bd8af052b6abdc421096772eeee60fe4597fcb964665674b818f0  .claude/agents/capability-reuse-auditor.md
