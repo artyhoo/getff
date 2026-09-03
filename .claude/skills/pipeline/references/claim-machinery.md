@@ -51,11 +51,18 @@ taskId can be captured as above.
 ## §3 Failure posture — loud, never silent
 
 `claim.ts` exits **non-zero** on every failure and never falls back to `ManualBackend`. This
-deliberately breaks the exit-0-always contract that
-[`dispatch.ts`](../../../../packages/runtime-bridge/src/cli/dispatch.ts) obeys, and the asymmetry
-is the point: `dispatch.ts` is a PostToolUse hook (injection, never gate), whereas a claim that
-silently failed to be created is strictly WORSE than no claim — the next session would probe a
-lane that looks clean and dispatch into it. A backend with no queue cannot hold a claim, so
+deliberately breaks the exit-0 posture that
+[`dispatch.ts`](../../../../packages/runtime-bridge/src/cli/dispatch.ts) holds for dispatch
+outcomes, and the asymmetry is the point: `dispatch.ts` is a PostToolUse hook (injection, never
+gate), whereas a claim that silently failed to be created is strictly WORSE than no claim — the
+next session would probe a lane that looks clean and dispatch into it.
+
+Since 2026-09-02 the two have **converged on one case**: `dispatch.ts` also exits non-zero (2)
+when the KICKOFF itself is invalid — `spec_invalid`, today a `bridge-profile` marker naming a
+runtime profile that does not exist. There the fallback was making the same mistake this section
+names, one layer down: a /tmp artefact and exit 0 for a dispatch that never happened. Every
+_environmental_ failure still degrades to `ManualBackend` at exit 0, so the injection contract is
+untouched — and the hook discards this CLI's status regardless. A backend with no queue cannot hold a claim, so
 `supportsClaims()` refuses it by name rather than pretending
 ([attention-is-not-a-mechanism.md §2](../../../rules/attention-is-not-a-mechanism.md)
 `#hope-as-gate`).

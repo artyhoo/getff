@@ -19,6 +19,7 @@
 ```bash host-verify
 bash tests/agnosticism/run-audit.sh
 npx vitest run packages/core/principles/21-agnosticism-conformance.test.ts
+bash tests/agnosticism/harness-self.test.sh
 ```
 
 > Run by explicit path — `bash scripts/host-verify.sh .claude/orchestrator-prompts/beta-ai-docs-agnosticism/kickoff-s2.md`

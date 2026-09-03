@@ -113,14 +113,31 @@ export function supportsClaims(
  * Error thrown by backend methods on dispatch failure, quota exceeded,
  * or connection refusal.
  */
+/**
+ * Why a dispatch failed — and, crucially, whether ANOTHER backend could have
+ * succeeded. `cli/dispatch.ts` splits on exactly this (`isFallbackEligible`):
+ *
+ * - `unavailable` / `quota_exceeded` / `timeout` / `dispatch_failed` are
+ *   ENVIRONMENTAL: the runtime is down, metered out, slow, or refused this
+ *   particular call. The kickoff is fine, so degrading to ManualBackend hands
+ *   the operator a paste-able copy and the work proceeds.
+ * - `spec_invalid` is an authoring defect in the KICKOFF ITSELF (today: a
+ *   `bridge-profile` marker naming a runtime profile that does not exist, or
+ *   several ambiguously). No backend can satisfy it, and degrading routes the
+ *   work to a seat the marker explicitly did not ask for — while reporting
+ *   success. It must abort loudly instead. (Incident 2026-09-02, BS0.)
+ */
+export type BackendErrorCode =
+  | 'unavailable'
+  | 'quota_exceeded'
+  | 'dispatch_failed'
+  | 'timeout'
+  | 'spec_invalid';
+
 export class BackendError extends Error {
   constructor(
     message: string,
-    public readonly code:
-      | 'unavailable'
-      | 'quota_exceeded'
-      | 'dispatch_failed'
-      | 'timeout',
+    public readonly code: BackendErrorCode,
     public readonly backend: string,
   ) {
     super(message);

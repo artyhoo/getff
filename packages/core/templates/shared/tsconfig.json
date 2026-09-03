@@ -22,6 +22,11 @@
     "declaration": true,
     "sourceMap": true
   },
-  "include": ["src/**/*", "apps/*/src/**/*", "packages/*/src/**/*"],
+  "include": [
+    "src/**/*",
+    "apps/*/src/**/*",
+    "packages/*/src/**/*",
+    "tests/**/*"
+  ],
   "exclude": ["node_modules", "dist", "coverage", ".stryker-tmp", "reports"]
 }

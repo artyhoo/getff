@@ -17,6 +17,8 @@ allowed-tools:
   - Agent
 ---
 
+<!-- @harness-posture: cc-native-with-fallback — CC slash-command/!shell/Write/Agent primitives; helpers are plain bash with resolved <orch-home> paths (SKILL.md:32) -->
+
 > **Class:** B (mixed): §0/§7.1 + §10/§7.12 = Class A (CC primitive enforces structurally — slash-command exists or not, Write tool writes file or not, frontmatter parses or not). §4/§7.5 = partial Class A via principle 12 test enforcing §5 AI-traps section presence in generated kickoffs. §1/§7.2 · §2/§7.3 · §3/§7.4 · §5/§7.6 · §6/§7.7 · §7/§7.8 · §9/§7.11 · §11/§7.13 = **Class C** (prose-only enforcement; AI can ignore `!shell`-injected data and proceed; acceptable per [parallel-subwave-isolation.md §4](../../rules/parallel-subwave-isolation.md) precedent and [research-patches/2026-05-16-readme-absolutism-vs-class-c-practice.md](../../../docs/meta-factory/research-patches/2026-05-16-readme-absolutism-vs-class-c-practice.md) maintainer-owned tension). **Re-promotion triggers per Class C:** ≥2 stage-gate-ignored incidents within 6 months → consider mechanical post-hoc check (commit-on-branch-B-only-if-PR-on-branch-A-merged via pre-push hook).
 > **Authoritative for:** /pipeline slash-command behaviour — §0 invocation through §11 failures; plan-currency check discipline; cross-umbrella priority scoring; Mode A/B/SDD/Queue launch-table generation; meta-kickoff authoring; stage-gate enforcement; reviewer dispatch.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). The `orchestrator` skill at `.claude/skills/orchestrator/` — a separate skill this one wraps, never forks. The actual R-phase verdict — see [research-patches/2026-05-23-meta-orchestrator-prior-art.md](../../../docs/meta-factory/research-patches/2026-05-23-meta-orchestrator-prior-art.md).
@@ -262,8 +264,7 @@ bash "${CLAUDE_SKILL_DIR}/helpers/render-status.sh"
 | Ready-to-harvest + PR state | `gh pr list`                                              | "(no open PRs)" or "(gh unavailable)" |
 
 Ends with **suggested-next-command lines** (1-3 paste-able shell strings).
-Each section degrades independently — exit 0 unless the renderer itself
-crashes (defensive: an unreachable brick is a designed success path, §3 spec).
+Each section degrades independently — exit 0 unless the renderer itself crashes (defensive: an unreachable brick is a designed success path, §3 spec).
 
 ---
 

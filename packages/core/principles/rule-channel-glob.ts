@@ -69,10 +69,18 @@ export function extractChannelMarkers(source: string): string[] {
  * visibly, with a reason — that a specific paths:/globs: pattern is intentionally forward-scoped
  * (e.g. a directory that will hold files once a feature ships) and should not fail the liveness
  * check today. Keyed by the exact pattern string so the exemption is scoped, not blanket.
+ *
+ * The pattern body is `[^\s>]+`, NOT `\S+`: `\S` matches `-` and `>`, so a marker whose
+ * `allow` carried no pattern — followed by a second comment on the same line — captured the
+ * literal `-->` as the exempted glob. That key matches nothing, so the dead-glob check stayed
+ * RED with a misleading cause. Excluding `>` makes the capture unable to cross the marker's own
+ * closing delimiter, the same fix shape as `BRIDGE_PROFILE_RE` in
+ * `packages/runtime-bridge/src/kickoff.ts` (PR #1575) and `BEGIN_RE` in
+ * `packages/core/composition/fence.ts`. Glob patterns never contain `>`.
  */
 export function extractLivenessExemptions(source: string): Set<string> {
   const out = new Set<string>();
-  const re = /^[ \t]*<!--[ \t]*glob-liveness:[ \t]*allow[ \t]+(\S+)(?:[ \t]+.*)?-->/gm;
+  const re = /^[ \t]*<!--[ \t]*glob-liveness:[ \t]*allow[ \t]+([^\s>]+)(?:[ \t]+.*)?-->/gm;
   let m: RegExpExecArray | null;
   while ((m = re.exec(source)) !== null) out.add(m[1]);
   return out;

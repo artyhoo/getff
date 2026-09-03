@@ -16,6 +16,8 @@ allowed-tools:
   - Agent
 ---
 
+<!-- @harness-posture: cc-native-with-fallback — CC slash-command + !shell + REST dispatch; dual-channel degradation for CC-absent harnesses documented (SKILL.md:25) -->
+
 <!-- @dual-pair: dispatcher-skill -->
 <!-- Note: CC-native and portable channels are co-resident in this single SKILL.md; the dual-implementation §5 two-file drift-check finds no counterpart file by design — drift is prevented by co-location, not grep. -->
 
@@ -47,14 +49,14 @@ allowed-tools:
 
 All 4 CLI primitives are pre-built. `/dispatcher` wires them — it does NOT build new ones.
 
-| Primitive                            | Path                                                                                                                                                                                                                                                    | Role in loop                                                                                                                                    |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dispatch.ts`                        | framework repo: `packages/runtime-bridge/src/cli/dispatch.ts` · consumer install: `.claude/vendor/runtime-bridge/src/cli/dispatch.ts` (the vendor drop — `setup.d/55-runtime-bridge-vendor.sh`; the `packages/` path exists ONLY in the framework repo) | Send kickoff to aif via REST; exit 0 always (injection hook, never a gate); ManualBackend fallback not deduped so retry is always possible      |
-| `harvest.ts`                         | `packages/runtime-bridge/src/cli/harvest.ts`                                                                                                                                                                                                            | Push aif branch from container, open PR, optionally enable auto-merge; ZERO LLM; throws on wrong-branch container (operator-ATTN case — see §4) |
-| `questions.ts`                       | `packages/runtime-bridge/src/cli/questions.ts`                                                                                                                                                                                                          | Read-only GET /tasks, filter to parked tasks, display park reasons; appends brainstorm nudge to output                                          |
-| `answer.ts`                          | `packages/runtime-bridge/src/cli/answer.ts`                                                                                                                                                                                                             | Resolve a parked task via REST state-machine events; invalid `--decision` is an error (never silently defaults)                                 |
-| `superpowers:brainstorming`          | CC companion skill                                                                                                                                                                                                                                      | Autonomous technical-fork resolution on CC-present path                                                                                         |
-| `superpowers:requesting-code-review` | CC companion skill                                                                                                                                                                                                                                      | Phase-1 cold-review between stages                                                                                                              |
+| Primitive                            | Path                                                                                                                                                                                                                                                    | Role in loop                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dispatch.ts`                        | framework repo: `packages/runtime-bridge/src/cli/dispatch.ts` · consumer install: `.claude/vendor/runtime-bridge/src/cli/dispatch.ts` (the vendor drop — `setup.d/55-runtime-bridge-vendor.sh`; the `packages/` path exists ONLY in the framework repo) | Send kickoff to aif via REST; exit 0 on every dispatch outcome (injection hook, never a gate) but **exit 2 when the kickoff itself is invalid** — an unresolvable `bridge-profile` marker aborts with no task and no /tmp artefact instead of degrading; ManualBackend fallback not deduped so retry is always possible |
+| `harvest.ts`                         | `packages/runtime-bridge/src/cli/harvest.ts`                                                                                                                                                                                                            | Push aif branch from container, open PR, optionally enable auto-merge; ZERO LLM; throws on wrong-branch container (operator-ATTN case — see §4)                                                                                                                                                                         |
+| `questions.ts`                       | `packages/runtime-bridge/src/cli/questions.ts`                                                                                                                                                                                                          | Read-only GET /tasks, filter to parked tasks, display park reasons; appends brainstorm nudge to output                                                                                                                                                                                                                  |
+| `answer.ts`                          | `packages/runtime-bridge/src/cli/answer.ts`                                                                                                                                                                                                             | Resolve a parked task via REST state-machine events; invalid `--decision` is an error (never silently defaults)                                                                                                                                                                                                         |
+| `superpowers:brainstorming`          | CC companion skill                                                                                                                                                                                                                                      | Autonomous technical-fork resolution on CC-present path                                                                                                                                                                                                                                                                 |
+| `superpowers:requesting-code-review` | CC companion skill                                                                                                                                                                                                                                      | Phase-1 cold-review between stages                                                                                                                                                                                                                                                                                      |
 
 ---
 
@@ -81,6 +83,7 @@ signals by hand, and do NOT substitute a subset. Proven by
 | 5 `task-done-unharvested` | **aif API × PRs** | finished tasks whose branch carries no PR                                   |
 | 6 `claim`                 | **aif API**       | a paused, unfinished task under this slug — a lane taken, work not started  |
 
+Signal 4 derives the container checkout from the aif PROJECT record (`kickoff-l3.decisions.md#decision-1`: `GET /projects` → the record whose `.id` == `RUNTIME_BRIDGE_AIF_PROJECT_ID` → `rootPath`), overridable with `AIF_REPO_PATH`; an unaskable container names its cause on the signal line (`reason=…`), never `status=ok` from a different repository.
 Signals 1-3 are the original guard, and **all three are origin/host-scoped** — which is why
 they missed `feature/beta-delivery-ux-995e9c` (2026-08-08T21:22Z): run 3 had finished inside
 the container an hour earlier, invisible to every one of them, and the umbrella was dispatched
@@ -126,7 +129,7 @@ probe`](../../../CLAUDE.md)).
 ```bash
 # Framework repo:
 tsx packages/runtime-bridge/src/cli/dispatch.ts \
-  .claude/orchestrator-prompts/<umbrella>/kickoff.md
+  .claude/orchestrator-prompts/<umbrella>/kickoff.md # orch-home: allow framework-only packages/ tree — the consumer twin for .ai-factory installs sits on the adjacent line
 
 # Consumer install — the CLI arrives via the vendor drop, and kickoffs live under
 # .ai-factory/ (setup.d/30-templates.sh:17), not .claude/. The `packages/` path above
@@ -352,7 +355,14 @@ On ADVANCE → dispatch that stage kickoff → back to §2.1. If no remaining st
 Write `done.md` schema (`# <umbrella> — DONE` / `- Final PR: #<num>` / `- Closed: <YYYY-MM-DD>` / `- Summary: <one-line>`) and CANON sync:
 
 ```bash
-cp .claude/orchestrator-prompts/<umbrella>/done.md \
+# Resolve the orch home by layout — consumers keep kickoffs under .ai-factory/
+# (setup.d/30-templates.sh:17), the framework under .claude/ (issue 1414).
+if [ -d .claude/orchestrator-prompts ]; then  # orch-home: allow this literal is the resolver's own -d layout probe, not a hardcoded read
+  ORCH_HOME=.claude/orchestrator-prompts      # orch-home: allow framework leg of the layout probe; the consumer .ai-factory home is the else leg
+else
+  ORCH_HOME=.ai-factory/orchestrator-prompts
+fi
+cp "$ORCH_HOME/<umbrella>/done.md" \
    ~/.claude-coordination/<repo-slug>/<umbrella>/done.md
 ```
 
