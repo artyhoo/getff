@@ -266,6 +266,33 @@ RUNTIME_DEPS=( "${CORE_RUNTIME_DEPS[@]}" )
 NPM_PEER_FLAG=""
 [ "$STACK" = "react-native" ] && NPM_PEER_FLAG="--legacy-peer-deps"
 
+# npm's peer-set walk can CRASH (not ERESOLVE — an unhandled TypeError inside arborist's
+# #loadPeerSet, `Cannot read properties of null (reading 'edgesOut')`) whenever a transitive
+# wildcard peer range resolves to a NEWER major than the one this manifest pins, and that newer
+# major's own peer set is self-referential. Reproduced 2026-09-03 on BOTH npm 10.9.9 and 11.4.2
+# against a cold cache: `@vitest/eslint-plugin` peer-deps `vitest: "*"` → the freshly published
+# vitest 5.0.0 → its exact peers `@vitest/coverage-v8@5.0.0` / `@vitest/browser-playwright@5.0.0`
+# → back to the vitest 4.1.x this manifest pins → null node → crash. Upstream: npm/cli#9787,
+# npm/cli#8261. The crash aborts the WHOLE dev-dep install, so a fresh `install.sh <stack> --full`
+# lands no toolchain at all — the same consumer-facing failure the RN ERESOLVE note above describes,
+# but triggered by a third party publishing a major, i.e. it can strike any stack on any day with
+# NO change on our side.
+#
+# So: keep the strict attempt as the DEFAULT (a genuine peer conflict must still surface — masking
+# it is exactly the form-over-behavior failure this repo exists to prevent), and fall back to
+# --legacy-peer-deps ONLY after the strict attempt has actually failed. The retry is not a silent
+# `|| true`: it prints what happened, and `_ok` still gates the honest "install incomplete" path
+# below, so a fallback that ALSO fails is reported as a failure. Stacks that already relax peers
+# (react-native) skip the retry — their first attempt is the relaxed one.
+_npm_install_with_peer_fallback() {
+  # $@ = the npm argv after `npm` (e.g. install --save-dev <specs…>)
+  if ( cd "$PROJECT_ROOT" && npm "$@" $NPM_PEER_FLAG ); then return 0; fi
+  if [ -n "$NPM_PEER_FLAG" ]; then return 1; fi
+  echo "  ⚠  npm could not resolve the peer graph (strict mode) — retrying with --legacy-peer-deps."
+  echo "     This is usually a third-party major published upstream, not a defect in your project."
+  ( cd "$PROJECT_ROOT" && npm "$@" --legacy-peer-deps )
+}
+
 DEPS_INSTALLED=""
 _do_dep_install=""
 if [ "$DRY_RUN" = "--dry-run" ]; then
@@ -308,8 +335,8 @@ if [ "$_do_dep_install" = "yes" ]; then
         if ( cd "$PROJECT_ROOT" && yarn add -D "${DEVDEPS[@]}" ); then _ok="yes"; fi ;;
       *)
         # $NPM_PEER_FLAG is empty for all stacks except react-native (see ERESOLVE note above).
-        # Unquoted so an empty value expands to no arg (bash 3.2 + `set -u` safe).
-        if ( cd "$PROJECT_ROOT" && npm install --save-dev $NPM_PEER_FLAG "${DEVDEPS[@]}" ); then _ok="yes"; fi ;;
+        # The helper appends it, retrying once with --legacy-peer-deps if the strict pass crashed.
+        if _npm_install_with_peer_fallback install --save-dev "${DEVDEPS[@]}"; then _ok="yes"; fi ;;
     esac
 
     # P0.2: runtime deps (zod) — SAME consent gate as the devDep install above (one prompt covers
@@ -329,7 +356,7 @@ if [ "$_do_dep_install" = "yes" ]; then
         yarn)
           if ( cd "$PROJECT_ROOT" && yarn add "${RUNTIME_DEPS[@]}" ); then _ok_rt="yes"; fi ;;
         *)
-          if ( cd "$PROJECT_ROOT" && npm install $NPM_PEER_FLAG "${RUNTIME_DEPS[@]}" ); then _ok_rt="yes"; fi ;;
+          if _npm_install_with_peer_fallback install "${RUNTIME_DEPS[@]}"; then _ok_rt="yes"; fi ;;
       esac
     fi
 
