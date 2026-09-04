@@ -54,9 +54,21 @@
 #
 # WHAT THIS GATE DELIBERATELY DOES NOT CHECK (stated, not implied away):
 #   - that the referenced decisions.md entry EXISTS or is honest. §5.3 L3(c) moves only the
-#     detectable half to channel 1: the reference must be PRESENT. The plan-local
-#     decisions.md lives in a gitignored/coordination path, so an existence check would be
-#     environment-dependent and would fail on a fresh checkout.
+#     detectable half to channel 1: the reference must be PRESENT and PATH-SHAPED. The
+#     plan-local decisions.md lives in a gitignored/coordination path, so an existence check
+#     would be environment-dependent and would fail on a fresh checkout.
+#     RE-VERIFIED 2026-09-04, and the mechanism is worth naming because the premise reads
+#     stale at first glance: 16 *.decisions.md files ARE git-tracked today, yet `.gitignore:16`
+#     ignores `.claude/orchestrator-prompts/*/*`, so each of those is present only because an
+#     author force-added it with an explicit exception. A NEW decisions file is therefore
+#     untracked by default — it exists in the advisor's worktree and nowhere else. An existence
+#     check would go green for its author and RED for every other worktree and for CI, blocking
+#     unrelated pushes repo-wide on a file that is not a defect. Environment-dependent, exactly
+#     as first stated. What IS environment-independent is the SHAPE of the pointer, and that is
+#     now checked: before 2026-09-04 the test was a bare `*decisions.md*` substring, so
+#     `decisions-entry: see the morning report; we follow the usual decisions.md convention`
+#     passed while pointing at nothing (probed live, it did). The value must now LEAD with a
+#     path ending in `.decisions.md`; prose may follow it, never replace it.
 #   - non-.md files. Ask files are written temp+rename (spec §2, atomic), so a partially
 #     written file never carries the .md extension. Ignoring everything else is what makes
 #     a concurrent write invisible to this gate rather than a flake.
@@ -76,6 +88,14 @@ ASKS_DIR="$CANON/session-bus/asks"
 QUESTION_MAX_LINES="${AIF_ASK_QUESTION_MAX_LINES:-50}"
 
 FILENAME_RE='^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z][a-z0-9]*-[a-z0-9][a-z0-9-]*\.md$'
+
+# decisions-entry SHAPE. The value must LEAD with a repo-relative path ending in
+# `.decisions.md`, optionally `#anchor`; prose may follow after whitespace. Angle brackets are
+# allowed so the `--print-answer` skeleton's `<path>/<plan>.decisions.md#<anchor>` stays valid —
+# the template must pass its own gate (see the authoring-half note above). This is the SHAPE
+# half only; existence stays deliberately unchecked, and the block at the top of this file says
+# why (re-verified 2026-09-04).
+DECISIONS_ENTRY_RE='^[A-Za-z0-9._/<>-]+\.decisions\.md$'
 
 # ── the authoring half ────────────────────────────────────────────────────────────────────
 # `<role>` in the filename is `[a-z][a-z0-9]*` — no hyphens — so the default placeholder is
@@ -316,10 +336,13 @@ for f in "$ASKS_DIR"/*.md; do
         fail "$base: status 'answered' requires 'decisions-entry:' in '## Answer' — the decisions.md entry recording this verdict"
       else
         entry="$(body_key_value "$abody" 'decisions-entry')"
-        case "$entry" in
-          *decisions.md*) ;;
-          *) fail "$base: decisions-entry '$entry' does not reference a decisions.md entry" ;;
-        esac
+        # Take the leading whitespace-delimited token, drop any #anchor: that token IS the
+        # pointer, and everything after the first space is free-form prose the advisor may add.
+        entry_path="${entry%% *}"
+        entry_path="${entry_path%%#*}"
+        if ! printf '%s' "$entry_path" | grep -qE "$DECISIONS_ENTRY_RE"; then
+          fail "$base: decisions-entry must LEAD with a path ending in .decisions.md (got '$entry_path' from '$entry') — prose that merely mentions decisions.md is not a pointer"
+        fi
       fi
     fi
   fi
