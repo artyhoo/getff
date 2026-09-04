@@ -37,7 +37,7 @@ This is the classic «DEFER row activates when its trigger condition becomes a m
 
 2. **Maintainer prioritisation explicit.** This R-phase competes with: (a) `meta-orch-channel-discipline` umbrella (promote SKILL.md:347 Class C→A); (b) `companion-reuse-deep-dive` follow-ups DN-1 through DN-4 from PR #262; (c) bundle Stage 3 follow-ups. Maintainer call which goes next. Sub-waves of multiple umbrellas in parallel = budget burn without throughput gain.
 
-3. **Phase -1 cold-review of THIS kickoff complete.** 1× Opus reviewer per orchestrator skill [Phase -1 protocol](../../../.claude/skills/meta-orchestrator/SKILL.md). Reviewer verifies §1.7 forward+backward (§10 below), DEFER-trigger citations from §1, and §3 variant analysis is genuinely 3 options (not 1 dressed as 3).
+3. **Phase -1 cold-review of THIS kickoff complete.** 1× Opus reviewer per orchestrator skill [Phase -1 protocol](../../../.claude/skills/pipeline/SKILL.md). Reviewer verifies §1.7 forward+backward (§10 below), DEFER-trigger citations from §1, and §3 variant analysis is genuinely 3 options (not 1 dressed as 3).
 
 4. **No active aif-handoff capability commit landed in last 30 days.** If aif-handoff upstream ships new MCP tools or autonomy primitives in this window, R-phase must re-sweep the new surface before locking verdict. Falsifier: `gh api repos/lee-to/aif-handoff/commits?since=<date>` returns ≥1 commit touching `packages/mcp/` or `apps/coordinator/` since 30 days before dispatch.
 
@@ -52,7 +52,7 @@ Each variant MUST be evaluated against the same 5 criteria (§5 below). R-phase 
 ### Variant A — aif-handoff as MCP-consumer of meta-kickoff'ов
 
 **Mechanism:**
-```
+```text
 /meta-orchestrator → writes .claude/orchestrator-prompts/<umbrella>-meta-launch/kickoff.md + state.md
                               ↓
             bridge script (~150-300 LOC bash):
@@ -78,7 +78,7 @@ Each variant MUST be evaluated against the same 5 criteria (§5 below). R-phase 
 ### Variant B — aif-handoff filesystem-watcher mode on `.claude/orchestrator-prompts/`
 
 **Mechanism:**
-```
+```text
 /meta-orchestrator → writes .claude/orchestrator-prompts/<umbrella>-meta-launch/kickoff.md (as today)
                               ↓
             aif-handoff coordinator daemon watches dir (via inotify / fsnotify / polling)
@@ -101,7 +101,7 @@ Each variant MUST be evaluated against the same 5 criteria (§5 below). R-phase 
 **Origin:** added 2026-05-29 after maintainer pushback on DN-2. SW-B's analysis scoped pure Variant B narrowly to «aif-handoff has built-in directory-watch as native feature», missing the alternative where **we build a small fs-watcher on OUR side** (CC PostToolUse hook OR standalone watcher) that calls aif-handoff's **existing** MCP `handoff_create_task`. SW-B's verdict for original Variant B stays (long-term ADAPT for native upstream feature); this Variant B' is a separate evaluation.
 
 **Mechanism:**
-```
+```text
 /meta-orchestrator → writes .claude/orchestrator-prompts/<umbrella>-meta-launch/kickoff.md (as today)
                               ↓
             OUR fs-watcher (one of):
@@ -124,7 +124,7 @@ Each variant MUST be evaluated against the same 5 criteria (§5 below). R-phase 
 ### Variant C — Minimal bridge: aif-handoff as Implementer-equivalent only
 
 **Mechanism:**
-```
+```text
 /meta-orchestrator → produces 1-liner block (current behaviour)
                               ↓
             maintainer pastes 1-liner into either:
@@ -137,7 +137,7 @@ Each variant MUST be evaluated against the same 5 criteria (§5 below). R-phase 
             status visible in aif-handoff UI (just for tracking, no re-plan)
 ```
 
-**Pros:** Lowest blast radius; bridge = single CLI command + status tracking; aif-handoff's own Planner+Reviewer NOT used — avoids duplication with our Phase -1 (which already uses SP `requesting-code-review` per [SKILL.md:404](../../../.claude/skills/meta-orchestrator/SKILL.md#L404)); maintainer keeps control over WHEN bridge fires.
+**Pros:** Lowest blast radius; bridge = single CLI command + status tracking; aif-handoff's own Planner+Reviewer NOT used — avoids duplication with our Phase -1 (which already uses SP `requesting-code-review` per [SKILL.md:404](../../../.claude/skills/pipeline/SKILL.md#L404)); maintainer keeps control over WHEN bridge fires.
 
 **Cons:** Doesn't actually achieve the maintainer's «autopilot» goal — Planner/Reviewer cycle of aif-handoff bypassed; bridge = mostly tracking, not orchestration; value-add = «pretty Kanban UI for tracking what's running», not autonomous re-plan.
 
@@ -157,7 +157,7 @@ Every Sub-wave verdict MUST score each variant against these 5 criteria with fil
 
 4. **Fallback ergonomics without aif-handoff installed.** Consumer without aif-handoff installed must have NO degradation in `/meta-orchestrator` experience vs today. Test: same kickoff, same 1-liner output, same maintainer-paste flow. No new manual steps added.
 
-5. **Duplication with existing /orchestrator + SP cycle.** **Note (Phase -1 finding 2026-05-29):** SKILL.md surfaces an internal inconsistency about SP `requesting-code-review` — [SKILL.md:404](../../../.claude/skills/meta-orchestrator/SKILL.md#L404) cites it as REFERENCE («SP SSOT, REFERENCE — see R-phase patch §3 leapfrog table»), while [SKILL.md:429](../../../.claude/skills/meta-orchestrator/SKILL.md#L429) says «ADOPT the SP dispatch template». Sub-wave evaluation MUST resolve which is canonical before scoring this criterion (cite R-phase patch `2026-05-23-meta-orchestrator-prior-art.md §3` for ground truth; if it disambiguates → use that; if it does NOT → surface as DECISION-NEEDED per reviewer-discipline.md §2). Per [SKILL.md:335](../../../.claude/skills/meta-orchestrator/SKILL.md#L335), Mode B parallel ADOPTs SP `subagent-driven-development`. aif-handoff's Planner/Reviewer would duplicate one or both — score variants on whether duplication is meaningful net-add or pure waste.
+5. **Duplication with existing /orchestrator + SP cycle.** **Note (Phase -1 finding 2026-05-29):** SKILL.md surfaces an internal inconsistency about SP `requesting-code-review` — [SKILL.md:404](../../../.claude/skills/pipeline/SKILL.md#L404) cites it as REFERENCE («SP SSOT, REFERENCE — see R-phase patch §3 leapfrog table»), while [SKILL.md:429](../../../.claude/skills/pipeline/SKILL.md#L429) says «ADOPT the SP dispatch template». Sub-wave evaluation MUST resolve which is canonical before scoring this criterion (cite R-phase patch `2026-05-23-meta-orchestrator-prior-art.md §3` for ground truth; if it disambiguates → use that; if it does NOT → surface as DECISION-NEEDED per reviewer-discipline.md §2). Per [SKILL.md:335](../../../.claude/skills/pipeline/SKILL.md#L335), Mode B parallel ADOPTs SP `subagent-driven-development`. aif-handoff's Planner/Reviewer would duplicate one or both — score variants on whether duplication is meaningful net-add or pure waste.
 
 ---
 
@@ -172,7 +172,7 @@ Per [.claude/rules/ai-laziness-traps.md §3](../../../.claude/rules/ai-laziness-
 - **T7** — adversarial counter-prompts run on negative-existence claims (especially Variant B «no directory-watch mode in aif-handoff» — counter-prompt: «if it had one, where would it live? `apps/coordinator/src/watchers/`? `packages/cli/commands/watch.ts`?»).
 - **T11** — search for prior bridge implementations BEFORE designing our own. Specifically: does any project bridge a planner+executor split using aif-handoff already? `code-yeongyu/oh-my-openagent`? `lee-to/ai-factory` itself?
 - **T12** — DeepWiki probes at R-phase time, not training-data recall on `lee-to/aif-handoff`. Active upstream may have shipped relevant capabilities since the SSOT #67 evaluation (2026-05-23).
-- **T13** — re-verify already-ADOPTED items. SP `requesting-code-review` already adopted ([SKILL.md:404](../../../.claude/skills/meta-orchestrator/SKILL.md#L404)) — confirm aif-handoff's Reviewer would not silently override it.
+- **T13** — re-verify already-ADOPTED items. SP `requesting-code-review` already adopted ([SKILL.md:404](../../../.claude/skills/pipeline/SKILL.md#L404)) — confirm aif-handoff's Reviewer would not silently override it.
 - **T15** — recursive self-application. R-phase patch must include its own §self-application: «did this R-phase apply BFR-default §3 6-layer search to itself?» (audit own prior-art consult quality).
 - **T16** — explicit «Upstream problem class: X. Our problem class: Y. Match? Evidence: …» per variant. Without this walk, the «reframed as optional layer» framing risks repeating the SSOT #67 muddied-scope mistake from a different angle.
 - **T17** — destructive delegation. R-phase does NOT delete or modify any meta-orchestrator code. Output is markdown only.
@@ -301,7 +301,7 @@ All four Sub-waves are research-only. Output = markdown research-patch + SSOT ro
 
 ## §7 Stage gates (real `gh` commands, not prose)
 
-Between Sub-waves: REAL git merge check, not in-memory FIFO. Per [SKILL.md §6](../../../.claude/skills/meta-orchestrator/SKILL.md#L354).
+Between Sub-waves: REAL git merge check, not in-memory FIFO. Per [SKILL.md §6](../../../.claude/skills/pipeline/SKILL.md#L354).
 
 **Sub-wave A → B admission:**
 ```bash
@@ -406,7 +406,7 @@ R-phase produces 4 markdown research-patches under `docs/meta-factory/research-p
 11. §8 §1.7 backward-check applied.
 12. §9 See also.
 
-PR titled `research(aif-handoff-bridge): Sub-wave <X> — <variant name>`. Base branch: `staging`. Auto-merge into staging via [project_automerge_staging_plan.md](../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/project_automerge_staging_plan.md) flow.
+PR titled `research(aif-handoff-bridge): Sub-wave <X> — <variant name>`. Base branch: `staging`. Auto-merge into staging via project_automerge_staging_plan.md flow.
 
 ---
 
@@ -415,11 +415,13 @@ PR titled `research(aif-handoff-bridge): Sub-wave <X> — <variant name>`. Base 
 - [docs/meta-factory/prior-art-evaluations.md](../../../docs/meta-factory/prior-art-evaluations.md) — SSOT rows #27, #28, #29, #30, #43, #44, #46, #67, #80 (existing aif-handoff entries).
 - [docs/meta-factory/research-patches/2026-05-26-companion-reuse-aif-handoff-autoqueue.md](../../../docs/meta-factory/research-patches/2026-05-26-companion-reuse-aif-handoff-autoqueue.md) — predecessor sub-component evaluation (autoQueueMode); precedent for evaluating aif-handoff capabilities separately from full-runtime REJECT.
 - [docs/meta-factory/research-patches/2026-05-23-meta-orchestrator-prior-art.md](../../../docs/meta-factory/research-patches/2026-05-23-meta-orchestrator-prior-art.md) — meta-orchestrator BUILD verdict + SSOT #66-#70 origin (including #67 REJECT).
-- [.claude/skills/meta-orchestrator/SKILL.md](../../../.claude/skills/meta-orchestrator/SKILL.md) — surface this umbrella reasons against; F.3 helper-collapse must merge before dispatch (§2 gate 1).
+- [.claude/skills/meta-orchestrator/SKILL.md](../../../.claude/skills/pipeline/SKILL.md) — surface this umbrella reasons against; F.3 helper-collapse must merge before dispatch (§2 gate 1).
 - [.claude/rules/build-first-reuse-default.md](../../../.claude/rules/build-first-reuse-default.md) — verdict ladder applied in §6 per-variant verdicts.
 - [.claude/rules/parallel-subwave-isolation.md](../../../.claude/rules/parallel-subwave-isolation.md) — relevant if Sub-waves A and B dispatch parallel.
 - [.claude/rules/no-paid-llm-in-ci.md](../../../.claude/rules/no-paid-llm-in-ci.md) — §10 forward-check enforces.
 - [.claude/rules/ai-laziness-traps.md](../../../.claude/rules/ai-laziness-traps.md) — §5 enumerates active T-numbers; §3 of the rule mandates per-kickoff enumeration.
 - [.claude/rules/reviewer-discipline.md](../../../.claude/rules/reviewer-discipline.md) — §2 strategy-fork surface for tied verdicts.
-- [memory project_companion_abc_decisions_closed.md](../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/project_companion_abc_decisions_closed.md) — DECISION=C invariant this kickoff respects.
-- [memory project_automerge_staging_plan.md](../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/project_automerge_staging_plan.md) — PR landing flow.
+- memory project_companion_abc_decisions_closed.md — DECISION=C invariant this kickoff respects.
+- memory project_automerge_staging_plan.md — PR landing flow.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

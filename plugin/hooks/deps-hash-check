@@ -1,0 +1,302 @@
+#!/usr/bin/env bash
+# AUTO-GENERATED from .claude/hooks/deps-hash-check.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)
+# @dual-pair: deps-hash-check-dogfood
+# spec: packages/core/hooks/deps-hash-check.sh — packages/ copy is the SOURCE shipped by
+# install.sh:261; .claude/ copy is this repo's dogfood instance wired in settings.json;
+# plugin/hooks/deps-hash-check is the consumer-plugin twin (T-PLUG-A). All three are kept
+# byte-identical; drift is guarded by deps-hash-check.test.ts (#382 §6, 3-way guard).
+# Consumer-facing UserPromptSubmit hook — DH-S1/DH-S2 multistack (kickoff #1016).
+#
+# Staleness detector covering three stacks: JS (package.json), python (pyproject.toml),
+# rust (Cargo.toml — DETECTION ONLY per kickoff §DH-S2: no setup.d/NN-rust.sh delivery lane
+# is built here). At each session start it sha256-hashes the consumer's DECLARED deps per
+# present stack and compares against per-stack baselines in .ai-factory/tool-decisions.md;
+# on any mismatch it prints a one-line WARN into session context (the harness auto-injects
+# stdout) telling the agent to re-run tool-bootstrapping. Non-blocking; always exits 0.
+#
+# Two-tier extraction ladder (design §1-B):
+#   Tier-1 (default, zero deps): bash/awk table-boundary hash of the relevant TOML tables.
+#     For python the 6 non-[project] dep tables (design §4 — [project] is C-resolved to Tier-2
+#     so its own version/name metadata cannot cry-wolf on every release). For rust: dependencies
+#     / dev-dependencies / build-dependencies (+ dotted sub-tables of each), target.*.{…}, and
+#     workspace.{dependencies,dev-dependencies,build-dependencies}.
+#   Tier-2 (enrichment, only if toolchain present): python → python3 tomllib (≥3.11), which
+#     covers [project].dependencies + [project].optional-dependencies precisely (deps-only).
+#     py3.7-3.10 fall back to the `tomli` back-port if installed (DH-S3 shim — tomli IS the code
+#     that became stdlib tomllib, PEP 680, so the payload is byte-identical); tomllib AND tomli
+#     both absent → Tier-1 stands + the Tier-2 sentinel (no baseline shift). Rust → `cargo
+#     metadata --no-deps --format-version 1 --offline` (NEVER --frozen/--locked) piped through
+#     python3 to pluck packages[].dependencies[]; any failure (no cargo, no python3, non-zero
+#     exit) → empty Tier-2 contribution, Tier-1 hash stands (no sentinel trick needed — unlike
+#     python, a rust toolchain upgrade does not shift an unrelated baseline).
+#
+# Storage (design §1-C): one line per stack — deps-hash-npm / deps-hash-python / deps-hash-cargo.
+# Legacy bare deps-hash: is read backward-compat as the npm slot; if BOTH deps-hash: and
+# deps-hash-npm: exist, deps-hash-npm: wins (design §3a M1).
+#
+# Under ZCode, stdout must be strict-JSON {additionalContext} (plain is discarded); _emit_warn
+# inlines that so one byte-identical file serves both harnesses. When multiple stacks drift,
+# their messages are accumulated into ONE _emit_warn call (two JSON objects on stdout would
+# break ZCode's JSON.parse — design §3a M2).
+#
+# Documented blind spots (accepted false-negatives — this is a staleness NUDGE, not a lockfile
+# audit; design §6):
+#   - Lockfiles are NOT hashed: an in-range bump (npm/poetry/cargo update) that leaves the
+#     DECLARED manifest text unchanged does not drift the hash (design §1 hashes the manifest,
+#     not the resolved lockfile).
+#   - pnpm v11 relocated `overrides` into pnpm-workspace.yaml, out of the package.json surface
+#     this hook hashes — out-of-band until a pnpm-workspace.yaml lane is added.
+#   - git-deps without a pinned rev (e.g. "foo":"github:org/repo") drift silently: the manifest
+#     text is stable while the upstream ref moves.
+#   - path-deps ({ path = "../local" }) — local-source changes are invisible to a manifest hash.
+#   - CRLF endings are normalised before hashing ({gsub(/\r/,"")}) so Windows checkouts do not
+#     spuriously drift (round-3.5 B1).
+#   - A pyproject WITHOUT [project] deps hashes via the Tier-2 sentinel whether tomllib/tomli is
+#     present or absent, so a python 3.10→3.11 upgrade does not shift its baseline (round-3.5 B2).
+#
+# Register in consumer's .claude/settings.json:
+#   "UserPromptSubmit": [{"hooks":[{"type":"command","command":"bash .claude/hooks/deps-hash-check.sh"}]}]
+
+set -uo pipefail
+
+# Harness-portable output: CC auto-injects plain stdout; ZCode needs JSON. Inlined (not
+# sourced from lib/) because install.sh ships this file standalone to consumers (no lib/).
+_emit_warn() {
+  if [ -n "${ZCODE_PROJECT_DIR:-}" ] && command -v jq >/dev/null 2>&1; then
+    jq -n --arg c "$1" '{hookEventName:"UserPromptSubmit", additionalContext:$c}'
+  else
+    printf '⚠ %s\n' "$1"
+  fi
+}
+
+# T-PLUG-A: plugin channel sets CLAUDE_PROJECT_DIR; pin cwd there so the bare-relative
+# package.json / pyproject.toml / .ai-factory/tool-decisions.md reads below resolve to the
+# CONSUMER root (not the plugin payload dir). When CLAUDE_PROJECT_DIR is unset (dogfood /
+# install-copy / tests), rely on invocation-cwd unchanged from pre-relocation behaviour. One
+# byte-identical file serves all three instances (packages/ SSOT, .claude/ dogfood, plugin/ twin)
+# — guarded by deps-hash-check.test.ts.
+[ -n "${CLAUDE_PROJECT_DIR:-}" ] && { cd "$CLAUDE_PROJECT_DIR" 2>/dev/null || exit 0; }
+
+DECISIONS=".ai-factory/tool-decisions.md"
+
+# If no tool-decisions.md exists yet, nothing to compare against.
+[ -f "$DECISIONS" ] || exit 0
+
+# Read a stored per-stack baseline. Precedence: <stack-key>: wins over legacy bare deps-hash:
+# for the npm slot (design §3a M1). $1 = stack-specific key (e.g. deps-hash-npm), $2 = legacy
+# fallback key (empty for non-npm stacks). Echoes the value (possibly empty).
+_read_stored() {
+  local stack_key="$1" legacy_key="${2:-}"
+  local val
+  val=$(grep -m1 "^${stack_key}:" "$DECISIONS" 2>/dev/null | sed "s/^${stack_key}:[[:space:]]*//" || true)
+  if [ -z "$val" ] && [ -n "$legacy_key" ]; then
+    val=$(grep -m1 "^${legacy_key}:" "$DECISIONS" 2>/dev/null | sed "s/^${legacy_key}:[[:space:]]*//" || true)
+  fi
+  printf '%s' "$val"
+}
+
+# sha256 a string ($1), portable across Linux (sha256sum) and macOS (shasum). Echoes sha256-<hex>;
+# echoes empty on no hashing tool (the caller treats empty-current as "skip compare" → silent).
+_sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    printf '%s' "$1" | sha256sum | awk '{printf "sha256-%s", $1}'
+  elif command -v shasum >/dev/null 2>&1; then
+    printf '%s' "$1" | shasum -a 256 | awk '{printf "sha256-%s", $1}'
+  fi
+}
+
+# ── JS / npm stack (package.json) ──────────────────────────────────────────
+# Widen to 7 fields (kickoff §1 line 30): dependencies, devDependencies, peerDependencies,
+# optionalDependencies, overrides, resolutions, pnpm.overrides. Each widened field guarded
+# typeof === 'object' (npm allows overrides/resolutions as a STRING — spreading a string
+# produces integer-indexed char keys and corrupts the hash; design §3a m1).
+_npm_current() {
+  [ -f package.json ] || { printf ''; return; }
+  command -v node >/dev/null 2>&1 || { printf ''; return; }
+  node -e \
+    "const p=JSON.parse(require('fs').readFileSync('package.json','utf8')); \
+     const o=(v)=>(v&&typeof v==='object')?v:{}; \
+     console.log(JSON.stringify({...o(p.dependencies),...o(p.devDependencies),...o(p.peerDependencies),...o(p.optionalDependencies),...o(p.overrides),...o(p.resolutions),...o(p.pnpm&&p.pnpm.overrides)}))" \
+    2>/dev/null || printf ''
+}
+
+# ── Python stack (pyproject.toml) — two-tier ladder (design §4) ────────────
+# Tier-1: bash/awk table-boundary hash of the 6 non-[project] dep tables. [project] is
+# deliberately excluded (its metadata would cry-wolf on every release; covered by Tier-2).
+# The leading {gsub(/\r/,"")} strips Windows CRLF line endings before the header parse —
+# without it, substr($0,2,length($0)-2) on a `[hdr]\r` line yields `hdr]` (leaked `]`),
+# silently dropping 5/6 dep tables and producing a different hash vs LF (round-3.5 review B1).
+_PY_TIER1_AWK='{gsub(/\r/,"")}function want(h){if(h=="project.optional-dependencies")return 1;if(h=="dependency-groups")return 1;if(h=="tool.poetry.dependencies")return 1;if(h=="tool.poetry.dev-dependencies")return 1;if(h~/^tool\.poetry\.group\.[^.]+\.dependencies$/)return 1;if(h~/^tool\.hatch\.envs\.[^.]+$/)return 1;return 0}/^\[/{in_t=want(substr($0,2,length($0)-2))}in_t'
+# Tier-2: tomllib (py≥3.11) OR the `tomli` back-port (py3.7-3.10) hashes [project].dependencies
+# + [project].optional-dependencies, deps-only, deterministic compact-JSON payload (design §4).
+# The nested try is the DH-S3 tomli shim: `tomli` is the exact upstream code that became stdlib
+# `tomllib` (PEP 680), so tomli.load == tomllib.load byte-for-byte → the fallback keeps the
+# same baseline across the toolchain (verified by the PYTHON-TOMLI-SHIM byte-match test). Catch
+# ImportError (superclass of ModuleNotFoundError) so a genuinely-absent tomllib on 3.10 AND a
+# blocked-name test env both route to the fallback. Both absent → the OUTER except → empty
+# stdout → _python_current substitutes the sentinel (no baseline shift; PYTHON-UPGRADE-STABLE).
+_PY_TIER2_SCRIPT='import sys
+try:
+  import json, hashlib
+  try:
+    import tomllib
+  except ImportError:
+    import tomli as tomllib
+  d=tomllib.load(open(sys.argv[1],"rb"))
+  p=d.get("project",{})
+  deps=p.get("dependencies",[]);opt=p.get("optional-dependencies",{})
+  payload=json.dumps(sorted(deps),separators=(",",":"))+json.dumps([[k,sorted(v)] for k,v in sorted(opt.items())],separators=(",",":"))
+  print(hashlib.sha256(payload.encode()).hexdigest())
+except Exception:
+  pass'
+# Sentinel Tier-2 contribution when tomllib is unavailable (python3 <3.11, or python3 absent):
+# sha256("[][]") — the EXACT Tier-2 value tomllib produces for a pyproject with no [project]
+# deps. Using this constant (not "") means a pyproject WITHOUT [project] deps hashes IDENTICALLY
+# whether tomllib is present or absent → python 3.10→3.11 upgrade does NOT shift its baseline
+# (round-3.5 review B2). A pyproject WITH [project].deps still drifts on upgrade (real coverage
+# change → honest re-baseline), documented in design §6.
+_PY_TIER2_SENTINEL='821bf06b4dcb406ea508a4a992eadc22f29850cd208ba24aea7c29148de8ccf1'
+
+_python_current() {
+  [ -f pyproject.toml ] || { printf ''; return; }
+  local tier1_hex tier2_hex combined
+  # Tier-1 (needs awk — present on every POSIX system the framework supports).
+  if command -v awk >/dev/null 2>&1; then
+    tier1_hex=$(awk "$_PY_TIER1_AWK" pyproject.toml 2>/dev/null | _sha256_only_hex)
+  else
+    tier1_hex=""
+  fi
+  # Tier-2: real tomllib hash if python3+tomllib present; else the sentinel (NOT "") so a
+  # python-upgrade does not shift the baseline for a pyproject without [project] deps (B2).
+  if command -v python3 >/dev/null 2>&1; then
+    tier2_hex=$(python3 -c "$_PY_TIER2_SCRIPT" pyproject.toml 2>/dev/null)
+    [ -n "$tier2_hex" ] || tier2_hex="$_PY_TIER2_SENTINEL"
+  else
+    tier2_hex="$_PY_TIER2_SENTINEL"
+  fi
+  combined="${tier1_hex}${tier2_hex}"
+  # Note: an empty extraction (no recognized Tier-1 tables + Tier-2 absent/failed) still
+  # hashes to sha256("") under _sha256_only_hex — it is NOT empty here. This guard only fires
+  # when BOTH tier hashes are empty, which happens only when no hash tool is on PATH (then
+  # _sha256_only_hex emits nothing). In that all-tool-absent case, skip this stack silently.
+  [ -n "$combined" ] || { printf ''; return; }
+  _sha256 "$combined"
+}
+
+# Like _sha256 but echoes the bare hex (no sha256- prefix) — used for the tier sub-hashes
+# that get concatenated before the outer sha256.
+_sha256_only_hex() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum | awk '{printf "%s", $1}'
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 | awk '{printf "%s", $1}'
+  fi
+}
+
+# ── Rust stack (Cargo.toml) — two-tier ladder, DETECT-ONLY (kickoff §DH-S2) ────
+# Tier-1: bash/awk table-boundary hash. Tables: dependencies / dev-dependencies /
+# build-dependencies (+ dotted sub-tables e.g. [dependencies.serde]) / target.*.{…} (+ dotted
+# sub-tables e.g. [target.'cfg(unix)'.dependencies.baz]) / workspace.{dependencies,
+# dev-dependencies,build-dependencies} (+ dotted sub-tables e.g. [workspace.dependencies.qux]
+# — code-review fix: these two prefixes were previously exact-match/$-anchored only, silently
+# dropping the dotted long-form that Cargo treats as identical to the bare-table form). Same
+# {gsub(/\r/,"")} CRLF guard as the python awk (round-3.5 review B1).
+_CARGO_TIER1_AWK='{gsub(/\r/,"")}function want(h){if(h=="dependencies")return 1;if(h=="dev-dependencies")return 1;if(h=="build-dependencies")return 1;if(h~/^dependencies\./)return 1;if(h~/^dev-dependencies\./)return 1;if(h~/^build-dependencies\./)return 1;if(h~/^target\..+\.dependencies$/)return 1;if(h~/^target\..+\.dev-dependencies$/)return 1;if(h~/^target\..+\.build-dependencies$/)return 1;if(h~/^target\..+\.dependencies\./)return 1;if(h~/^target\..+\.dev-dependencies\./)return 1;if(h~/^target\..+\.build-dependencies\./)return 1;if(h=="workspace.dependencies")return 1;if(h=="workspace.dev-dependencies")return 1;if(h=="workspace.build-dependencies")return 1;if(h~/^workspace\.dependencies\./)return 1;if(h~/^workspace\.dev-dependencies\./)return 1;if(h~/^workspace\.build-dependencies\./)return 1;return 0}/^\[/{in_t=want(substr($0,2,length($0)-2))}in_t'
+# Tier-2: plucks packages[].dependencies[] from `cargo metadata` JSON on stdin into a
+# deterministic sorted payload. ONE try around parse+hash so any error → empty stdout.
+_CARGO_TIER2_SCRIPT='import sys,json,hashlib
+try:
+  d=json.load(sys.stdin)
+  deps=[]
+  for p in d.get("packages",[]):
+    for dep in p.get("dependencies",[]):
+      deps.append([dep.get("name",""),dep.get("req",""),dep.get("kind") or "normal",bool(dep.get("optional"))])
+  payload=json.dumps(sorted(deps),separators=(",",":"))
+  print(hashlib.sha256(payload.encode()).hexdigest())
+except Exception:
+  pass'
+
+_cargo_current() {
+  [ -f Cargo.toml ] || { printf ''; return; }
+  local tier1_hex tier2_hex combined
+  if command -v awk >/dev/null 2>&1; then
+    tier1_hex=$(awk "$_CARGO_TIER1_AWK" Cargo.toml 2>/dev/null | _sha256_only_hex)
+  else
+    tier1_hex=""
+  fi
+  # Tier-2: cargo metadata --no-deps --offline (NEVER --frozen/--locked, design §2) piped
+  # through python3. Any failure (no cargo, no python3, non-zero exit) → empty — Tier-1 stands.
+  tier2_hex=""
+  if command -v cargo >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
+    tier2_hex=$(cargo metadata --no-deps --format-version 1 --offline 2>/dev/null | python3 -c "$_CARGO_TIER2_SCRIPT" 2>/dev/null)
+  fi
+  combined="${tier1_hex}${tier2_hex}"
+  [ -n "$combined" ] || { printf ''; return; }
+  _sha256 "$combined"
+}
+
+# ── Drift evaluation + WARN assembly ───────────────────────────────────────
+# Per-stack: compute current hash, compare to stored; collect one message per drifted stack.
+# Emit ONE combined _emit_warn at the end (ZCode JSON.parse breaks on two objects — §3a M2).
+WARN_MSGS=""
+_drifted() {
+  # $1 = stack label for the WARN, $2 = current hash (sha256-<hex> or empty), $3 = stored
+  local label="$1" current="$2" stored="$3"
+  [ -n "$current" ] || return 0          # no manifest/tool → this stack contributes nothing
+  [ -n "$stored" ] || return 0           # no baseline recorded → nothing to compare
+  [ "$current" = "$stored" ] && return 0 # match → silent
+  # Drift. Distinguish baselined (sha256-*) from unbaselined (<pending …>) for honest wording
+  # (GH #548). Accumulate into WARN_MSGS; emit once at the end.
+  local msg
+  case "$stored" in
+    sha256-*)
+      msg="${label} deps changed since last tool-bootstrap"
+      ;;
+    *)
+      msg="${label} tool decisions not yet baselined"
+      ;;
+  esac
+  if [ -z "$WARN_MSGS" ]; then
+    WARN_MSGS="$msg"
+  else
+    WARN_MSGS="${WARN_MSGS}
+${msg}"
+  fi
+}
+
+NPM_STORED=$(_read_stored deps-hash-npm deps-hash)
+PY_STORED=$(_read_stored deps-hash-python)
+CARGO_STORED=$(_read_stored deps-hash-cargo)
+# (rust has no legacy bare key to fall back to — unlike npm's `deps-hash`, `deps-hash-cargo`
+# is new with DH-S2 and never existed in a pre-multistack form.)
+
+# Hash each stack's current deps-extraction before comparing to the stored sha256 baseline.
+# (_npm_current/_python_current return either a normalized string (npm: the deps JSON) or a
+# sha256-<hex> (python: already combined + outer-hashed); both then go through _sha256 so the
+# compare is apples-to-apples with the stored sha256-* baseline. Empty current → silent skip.)
+NPM_CURRENT=$(_npm_current)
+[ -n "$NPM_CURRENT" ] && NPM_CURRENT=$(_sha256 "$NPM_CURRENT")
+_drifted "package.json" "$NPM_CURRENT" "$NPM_STORED"
+# _python_current already returns sha256-<hex> (it does its own outer hash over tier1hex+tier2hex).
+_drifted "python" "$(_python_current)" "$PY_STORED"
+# _cargo_current already returns sha256-<hex> (same tier1hex+tier2hex outer-hash shape).
+_drifted "Cargo.toml" "$(_cargo_current)" "$CARGO_STORED"
+
+# Conditional staleness seam (rule-tests-surface S4): if the consumer has generated
+# rules-lock artifacts under .ai-factory/synthesizer-output/, append a suffix routing the
+# agent to /rule-tests. PIGGYBACK is intended (spec §6): the suffix rides the deps-drift WARN
+# only — it is appended INSIDE the SINGLE existing _emit_warn below (never a second emission,
+# which would break ZCode's one-JSON-object-per-run contract; see §3a M2). A rules-lock present
+# with NO deps drift produces NO nudge. Portable glob: NO nullglob — an unmatched pattern stays
+# literal, and the [ -e "$f" ] guard makes that literal fallback safe. Bare-relative, resolved
+# against the consumer root by the cd "$CLAUDE_PROJECT_DIR" above (same convention as DECISIONS).
+RULES_STALE_SUFFIX=""
+for f in .ai-factory/synthesizer-output/rules-lock*.json; do
+  [ -e "$f" ] && { RULES_STALE_SUFFIX=" — generated rules may be stale — run /rule-tests to review"; break; }
+done
+
+if [ -n "$WARN_MSGS" ]; then
+  _emit_warn "${WARN_MSGS} — run /tool-bootstrapping to re-evaluate${RULES_STALE_SUFFIX}"
+fi
+
+exit 0

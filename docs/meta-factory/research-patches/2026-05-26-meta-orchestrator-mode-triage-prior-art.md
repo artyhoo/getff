@@ -492,9 +492,9 @@ Adversarial review of this patch before PR creation:
 
 - [docs/meta-factory/research-patches/2026-05-25-meta-orchestrator-mode-triage-and-planner-design.md](2026-05-25-meta-orchestrator-mode-triage-and-planner-design.md) — binding design doc this patch surveys (§7.2 Direction A superseded by β-2 verdict)
 - [docs/meta-factory/research-patches/2026-05-25-plan-memory-rphase.md](2026-05-25-plan-memory-rphase.md) — adjacent shipped work (Direction B ADOPT verdict, plan-cache.md origin; T16 separation in §2.1)
-- [.claude/skills/meta-orchestrator/references/plan-cache.md](../../../.claude/skills/meta-orchestrator/references/plan-cache.md) — `#cache-writer-feature-creep` anti-pattern evidence for β-2 recommendation
-- [.claude/skills/meta-orchestrator/helpers/priority-score.sh](../../../.claude/skills/meta-orchestrator/helpers/priority-score.sh) — existing surfaces (a)-(e); target for Area A new surfaces (f)/(g)/(h)
-- [.claude/skills/meta-orchestrator/helpers/update-cache.sh](../../../.claude/skills/meta-orchestrator/helpers/update-cache.sh) — helper-scope contract («writes ONLY `## Last invocation`») — evidence against β-1
+- [.claude/skills/meta-orchestrator/references/plan-cache.md](../../../.claude/skills/pipeline/references/plan-cache.md) — `#cache-writer-feature-creep` anti-pattern evidence for β-2 recommendation
+- [.claude/skills/meta-orchestrator/helpers/priority-score.sh](../../../.claude/skills/pipeline/helpers/priority-score.sh) — existing surfaces (a)-(e); target for Area A new surfaces (f)/(g)/(h)
+- [.claude/skills/meta-orchestrator/helpers/update-cache.sh](../../../.claude/skills/pipeline/helpers/update-cache.sh) — helper-scope contract («writes ONLY `## Last invocation`») — evidence against β-1
 - [docs/meta-factory/prior-art-evaluations.md](../prior-art-evaluations.md) — SSOT; new rows #78–#81 added in this commit
 - [.claude/rules/build-first-reuse-default.md](../../../.claude/rules/build-first-reuse-default.md) — BFR §3 mandatory search checklist applied
 - [.claude/rules/ai-laziness-traps.md](../../../.claude/rules/ai-laziness-traps.md) — T1/T3/T7/T10/T11/T12/T13/T15/T16/T17/T19/T20/T-MO-design-A/T-MMT-R-A/T-MMT-R-B all addressed

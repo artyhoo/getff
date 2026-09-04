@@ -12,13 +12,50 @@
 # misses — and reaches edit-time, where principle 12 (CI-skipped, gitignored) cannot.
 # Whether the named traps are the RIGHT ones stays judgment → review-time, not gated.
 #
-# Exit 1 on violation (repo PostToolUse-gate convention: check-doc-authority.sh /
-# 09-doc-authority-hierarchy.bin.ts). Graceful no-op (exit 0) without jq, off-path,
-# or on a kickoff that has not yet engaged the rule.
+# Exit 2 on violation — on a PostToolUse hook, exit-2 stderr is the ONLY non-JSON channel
+# the model receives; exit-1 stderr reaches the operator transcript but NOT the model
+# (live-verified 2026-07-24 — see
+# docs/meta-factory/research-patches/2026-07-24-posttooluse-channel-verification.md).
+# Graceful-but-LOUD skip without jq (guard below); silent exit 0 off-path or on a kickoff
+# that has not yet engaged the rule.
 set -uo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-command -v jq >/dev/null 2>&1 || exit 0   # graceful no-op without jq
+# Harness-portable output (inline — standalone in test sandboxes). CC: exit 2 + stderr =
+# feedback the model receives (advisory in effect — PostToolUse cannot block). ZCode: JSON
+# additionalContext (exit 2 swallowed as HookRunFailed); exit 0.
+_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
+# JSON-escape WITHOUT jq — jq is precisely the dependency that may be missing here.
+_json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n' ' '; }
+# Announce a dependency-missing skip on the channel the model actually receives on an
+# exit-0 path (JSON hookSpecificOutput), keeping stderr for terminal/CI readers.
+_emit_skip() {
+  if _is_zcode; then
+    printf '{"additionalContext":"%s"}\n' "$(_json_escape "$1")"
+  else
+    printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' \
+      "$(_json_escape "$1")"
+  fi
+  printf '%s\n' "$1" >&2
+}
+_emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
+    jq -n --arg c "$2" '{additionalContext:$c}'
+  else printf '%s\n' "$2"; fi; }
+_adv_violation() { if _is_zcode; then _emit_ctx "PostToolUse" "$1"; else printf '%s\n' "$1" >&2; exit 2; fi; }
+
+REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
+if ! command -v jq >/dev/null 2>&1; then
+  # jq-less best-effort path extraction (sed on raw stdin) — scope the skip notice to
+  # kickoff edits (or unparseable stdin — conservative), not every Edit/Write. Mirrors the
+  # gated set below, stage kickoffs included: a stage kickoff that silently skips BOTH arms
+  # deserves the same loud notice as `kickoff.md`.
+  _RAW_PATH="$(sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+  case "$_RAW_PATH" in
+    *.claude/orchestrator-prompts/*/kickoff-*.*.md) ;;
+    *.claude/orchestrator-prompts/*/kickoff.md | *.claude/orchestrator-prompts/*/kickoff-*.md | "")
+      _emit_skip '⚠ check-kickoff-traps: jq unavailable — BOTH kickoff checks DID NOT RUN for this edit (the host-verification contract arm and the T-enumeration arm). This is a SKIP, not a pass; install jq to restore enforcement.' ;;
+  esac
+  exit 0
+fi
 
 INPUT="$(cat)"
 TOOL="$(printf '%s' "$INPUT" | jq -r '.tool_name // ""' 2>/dev/null || true)"
@@ -27,28 +64,147 @@ ABS_PATH="$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // ""' 2>/dev/nu
 case "$TOOL" in Edit | Write | MultiEdit) ;; *) exit 0 ;; esac
 [[ -z "$ABS_PATH" ]] && exit 0
 
-REL_PATH="${ABS_PATH#"$REPO_ROOT/"}"
-# Narrow: only kickoff.md under orchestrator-prompts (one path segment for <wave>).
-case "$REL_PATH" in
-  .claude/orchestrator-prompts/*/kickoff.md) ;;
+# Narrow: kickoff.md AND the stage-kickoff family under orchestrator-prompts (one path
+# segment for <wave>). A multi-stage umbrella dispatches `kickoff-s1.md` / `kickoff-s2b.md`
+# / `kickoff-r1.md` — each one a dispatch input in exactly the same sense as `kickoff.md`,
+# each one previously ungated by BOTH arms because this case matched the literal name only.
+# The entire triage-kernel-v2 S1/S2 series passed both arms by construction, not compliance
+# (found 2026-08-12; 10 pre-existing arm-1 violations across beta-delivery-ux +
+# modular-install-fullpack, deliberately NOT suppressed — see the widening PR body).
+#
+# Stage form = `kickoff-<letter><digit>[alnum].md`. Dotted names (`kickoff-s4.decisions.md`)
+# and word-suffixed ones (`kickoff-amendments.md`) are records ABOUT a stage — an owner-fork
+# log, an audit trail extracted to dodge the 600-line gate — carrying no worker instructions,
+# so neither arm applies. `.gitignore` draws the same line: the stage family is un-ignored by
+# glob (`kickoff-s*.md`, `kickoff-r*.md`, lines 35/42/49/55) while the amendments sidecar is
+# un-ignored one-off by exact name (line 60). The dotted arm must come FIRST — the stage
+# pattern's trailing `*` would otherwise swallow `s4.decisions`.
+#
+# Match on the ABSOLUTE path's suffix, NOT on a REPO_ROOT-relative path. The older form
+# stripped a "$REPO_ROOT/" prefix and matched an anchored pattern, so any kickoff NOT under
+# the resolved root — a linked worktree (they nest inside the repo here, so a primary-rooted
+# session never matched a worktree kickoff), or a session whose CLAUDE_PROJECT_DIR points at
+# a different checkout — kept an absolute REL_PATH, missed the pattern, and exited 0 in
+# SILENCE. That is the exact defect class this hook's arm 1 exists to close, reintroduced in
+# the dispatcher itself. Suffix-matching is root-independent, so it cannot recur.
+#
+# Classification is THREE-way, not two — see arm 3 below. The stage test is a bash regex,
+# not a `case` glob, so it mirrors packages/core/principles/kickoff-population.ts exactly:
+# the old `kickoff-[a-z][0-9]*.md` glob left `*` unbounded and admitted names the TS SSOT
+# calls unrecognised (`kickoff-b0-notes.md`), a latent twin divergence.
+KICKOFF_NAME_CLASS=""
+case "$ABS_PATH" in
+  */.claude/orchestrator-prompts/*/kickoff-*.*.md) exit 0 ;;       # dotted sidecar
+  */.claude/orchestrator-prompts/*/kickoff-amendments.md) exit 0 ;; # exact-name sidecar
+  */.claude/orchestrator-prompts/*/kickoff-stage-2-and-3.md) exit 0 ;; # grandfathered (2026-09-02)
+  */.claude/orchestrator-prompts/*/kickoff.md) KICKOFF_NAME_CLASS="umbrella" ;;
+  */.claude/orchestrator-prompts/*/kickoff-*.md)
+    if [[ "${ABS_PATH##*/}" =~ ^kickoff-[a-z][0-9][a-z0-9]*\.md$ ]]; then
+      KICKOFF_NAME_CLASS="stage"
+    else
+      KICKOFF_NAME_CLASS="unrecognised"
+    fi
+    ;;
   *) exit 0 ;;
 esac
+# Display path only — never load-bearing for the scope decision above.
+REL_PATH="${ABS_PATH#"$REPO_ROOT/"}"
 
 [[ -f "$ABS_PATH" ]] || exit 0
 CONTENT="$(cat "$ABS_PATH" 2>/dev/null || true)"
 
+# Violations accumulate — a kickoff can breach both arms, and reporting one at a time
+# costs the author a round-trip per rule. (Same posture as validate_s17 in the operator's
+# git-safety.sh, which loops over Forward AND Backward and joins every error.)
+VIOLATIONS=()
+
+# ── Arm 3 — kickoff filename recognition (near-miss ≠ deliberate sidecar) ─────
+# spec: .claude/rules/kickoff-staging-placement.md §5 (#kickoff-name-near-miss)
+# SSOT for the classification: packages/core/principles/kickoff-population.ts
+#
+# Runs FIRST and short-circuits: for a name we cannot resolve, we do not know whether the
+# file is a dispatch input at all, so arms 1-2 have no obligation to assert against it.
+#
+# Measured 2026-09-02 (beta-docs-showcase BS0): `kickoff-bs0.md` fails the stage form —
+# `[a-z]` consumes `b`, then `\d` meets `s` — so it landed in the sidecar bucket beside
+# `kickoff-amendments.md`. Principle 12's citation gate skipped it and reported GREEN having
+# examined nothing; this hook, matching the same two-way split, exited 0 in silence. A
+# near-miss was INDISTINGUISHABLE from a deliberate sidecar. Making the third class loud is
+# the whole fix — the name is either a stage designator or a named sidecar, never "neither".
+if [[ "$KICKOFF_NAME_CLASS" == "unrecognised" ]]; then
+  _adv_violation "❌ kickoff-name: $REL_PATH — unrecognised \`kickoff-*\` filename.
+   It is NEITHER the stage form \`kickoff-<letter><digit>[alnum].md\` (\`kickoff-b0.md\`, \`kickoff-s2b.md\`)
+   NOR a known sidecar (\`kickoff[-<stage>].<kind>.md\`, e.g. \`kickoff-s4.decisions.md\`; or \`kickoff-amendments.md\`).
+   A name in this class is SILENTLY reclassified as a sidecar: principle 12 (trap citation),
+   principle 40 (rigor label), principle 43 (host-verify) and BOTH arms of this hook skip it
+   and report green having examined nothing.
+   Fix: rename to the stage form if it carries worker instructions (and add the matching
+   \`.gitignore\` exception so it reaches \`staging\`); otherwise rename to a sidecar form."
+  exit 0
+fi
+
+
+# ── Arm 1 — destination-environment verification contract ─────────────────────
+# spec: .claude/rules/destination-environment-verification.md §1
+# Every kickoff under orchestrator-prompts is a dispatch input, and a dispatched worker
+# executes in the aif container while the artefact is accepted on the HOST. The kickoff
+# must therefore name the commands the orchestrator runs on the host, or explicitly
+# declare that none apply via an opt-out comment with a ≥20-char rationale.
+#
+# ALL recognition logic lives in scripts/host-verify.sh — contract extraction, opt-out
+# detection, no-op guard, fence/code-span awareness, locale-independent char counting.
+# This gate is a thin caller: it runs the runner in --list mode, captures its stderr
+# verbatim, and surfaces it in the violation text. Keeping a parallel in-gate opt-out
+# scan was the source of bypasses B1-B8 (gate and runner disagreed on what counts as
+# a contract vs opt-out). One implementation, one answer.
+#
+# Sequencing: the runner-missing check fires BEFORE any opt-out acceptance. A kickoff
+# with a valid opt-out but no runner available is a LOUD "DID NOT RUN" skip, never an
+# acceptance — the gate cannot verify what it cannot run.
+#
+# Resolve the runner by TIER, and announce a miss LOUDLY rather than skipping in silence.
+# Same defect class as the 2026-07-24 tsx-resolution incident: three gates resolved their
+# runner from one hard-coded repo-local path and went inert wherever that path was absent.
+# Tier 1 = the project root the harness reports; tier 2 = this hook's own checkout.
+HV_RUNNER=""
+for _cand in \
+  "$REPO_ROOT/scripts/host-verify.sh" \
+  "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." 2>/dev/null && pwd)/scripts/host-verify.sh"; do
+  if [[ -f "$_cand" ]]; then HV_RUNNER="$_cand"; break; fi
+done
+if [[ -z "$HV_RUNNER" ]]; then
+  _emit_skip '⚠ check-kickoff-traps: scripts/host-verify.sh not found — the host-verification contract check DID NOT RUN for this edit. This is a SKIP, not a pass; the runner must be present for either a contract or an opt-out to be accepted.'
+else
+  # Capture runner output (stderr+stdout merged) and exit code. The runner's --list mode
+  # exits 0 for both "contract found" and "valid opt-out found" (both print a summary);
+  # exits 2 for missing contract, too-short opt-out, no-op-only contract, or usage error.
+  # Surface the runner's output VERBATIM in the violation text — the exit code alone
+  # cannot distinguish a missing-contract from a too-short-opt-out, and the message
+  # carries the measured rationale length (B6) and the specific failure class.
+  HV_OUTPUT="$(bash "$HV_RUNNER" --list "$ABS_PATH" 2>&1)"
+  HV_RC=$?
+  if [[ "$HV_RC" -ne 0 ]]; then
+    VIOLATIONS+=("❌ kickoff host-verify: $REL_PATH
+$HV_OUTPUT")
+  fi
+fi
+
+# ── Arm 2 — ai-laziness-traps T-enumeration floor ─────────────────────────────
 # Engagement guard: only enforce the floor once the author engages the rule. A
 # kickoff that never mentions ai-laziness-traps is principle-12 / review territory.
-printf '%s' "$CONTENT" | grep -q 'ai-laziness-traps' || exit 0
+if printf '%s' "$CONTENT" | grep -q 'ai-laziness-traps'; then
+  # Count DISTINCT canonical T-numbers (T1, T12, …). Domain labels (T-Wave9-A) are a
+  # separate §3 #3 obligation and excluded from this count.
+  DISTINCT="$(printf '%s' "$CONTENT" | grep -oE '\bT[0-9]+\b' | sort -u | grep -c .)"
+  if [[ "$DISTINCT" -lt 3 ]]; then
+    VIOLATIONS+=("❌ kickoff-traps: $REL_PATH engages ai-laziness-traps but enumerates only $DISTINCT distinct T-number(s) (floor: 3).
+   §3 obligation #2: list the active traps, e.g. \"Active traps for this R-phase: T1, T3, T7\".
+   Citing the rule without naming ≥3 traps = #trap-catalogue-blanket-reference.")
+  fi
+fi
 
-# Count DISTINCT canonical T-numbers (T1, T12, …). Domain labels (T-Wave9-A) are a
-# separate §3 #3 obligation and excluded from this count.
-DISTINCT="$(printf '%s' "$CONTENT" | grep -oE '\bT[0-9]+\b' | sort -u | grep -c .)"
-
-if [[ "$DISTINCT" -lt 3 ]]; then
-  printf '❌ kickoff-traps: %s engages ai-laziness-traps but enumerates only %s distinct T-number(s) (floor: 3).\n' "$REL_PATH" "$DISTINCT" >&2
-  printf '   §3 obligation #2: list the active traps, e.g. "Active traps for this R-phase: T1, T3, T7".\n' >&2
-  printf '   Citing the rule without naming ≥3 traps = #trap-catalogue-blanket-reference.\n' >&2
-  exit 1
+if [[ "${#VIOLATIONS[@]}" -gt 0 ]]; then
+  _adv_violation "$(printf '%s\n' "${VIOLATIONS[@]}")"
+  exit 0
 fi
 exit 0

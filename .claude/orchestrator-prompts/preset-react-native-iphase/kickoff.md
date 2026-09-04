@@ -5,7 +5,7 @@
 - **Base:** staging.
 - **Issue:** [#646](https://github.com/Yhooi2/rules-as-tests-aif/issues/646) Stage 1 (curated bridge). R-phase is **merged** — this is the I-phase.
 - **Sibling task (parallel):** `preset-react-spa-iphase` builds the SPA preset in its own worktree. Independent directory — no shared files with this task.
-- **Scope decision (operator, 2026-06-22 — REVISED from Expo-only):** **BOTH baselines.** Ship `eslint-config-expo/flat` (#142, Expo path) **and** `@react-native/eslint-config` (#143, bare-RN path) as two selectable baselines over a shared RN rule layer. Rationale: the project goal is **multi-stack + a factory for any stack** ([README.md#why-this-exists](../../README.md#why-this-exists)) — covering both the Expo and the bare-RN consumer up front serves that goal directly; restricting to Expo-only would under-serve it. This supersedes the earlier Expo-only call (which leaned YAGNI; the operator weighted the multi-stack goal higher).
+- **Scope decision (operator, 2026-06-22 — REVISED from Expo-only):** **BOTH baselines.** Ship `eslint-config-expo/flat` (#142, Expo path) **and** `@react-native/eslint-config` (#143, bare-RN path) as two selectable baselines over a shared RN rule layer. Rationale: the project goal is **multi-stack + a factory for any stack** (README.md#why-this-exists (`../../README.md#why-this-exists`)) — covering both the Expo and the bare-RN consumer up front serves that goal directly; restricting to Expo-only would under-serve it. This supersedes the earlier Expo-only call (which leaned YAGNI; the operator weighted the multi-stack goal higher).
 
 ## What
 
@@ -102,3 +102,5 @@ Active canonical traps: **T3**, **T13**, **T15**, **T16**.
 
 - **Forward-check:** complies with [no-paid-llm-in-ci.md](../../rules/no-paid-llm-in-ci.md) (deterministic eslint config; DeepWiki/smoke checks are author-time, not CI); [build-first-reuse-default.md](../../rules/build-first-reuse-default.md) (zero BUILD — all ADOPT/ADAPT/REJECT; shipping two upstream baselines is maximal REUSE, the purest build-first-reuse outcome); [doc-authority-hierarchy.md §2-§3](../../rules/doc-authority-hierarchy.md) (shipped docs carry headers).
 - **Backward-check:** implements the merged react-native R-phase verdicts (#142–#148) incl. the #651 web-globals correction; applies the operator's 2026-06-22 **both-baselines** scope decision (revised from Expo-only — multi-stack goal weighted over YAGNI); supersedes the earlier Expo-only kickoff (this file replaces it); corrects the design-spec §6 "shared template" wording per structural recon.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

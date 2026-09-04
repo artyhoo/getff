@@ -62,6 +62,19 @@ printf '1\tdoc\t.md\ttrue\n4\tbyte\tSHIPPED\ttouch %s/BYTE2\n' "$TMP" >"$TMP/gat
 SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="skills/foo/SKILL.md" bash "$SWEEP" >"$TMP/o5" 2>&1
 has_file "shipped path selected SHIPPED gate" "$TMP/BYTE2"
 
+# --- (self-truncation) a gate command carrying its own `exit 1` (the real
+# install-sh-suite row shape: `for t in …; do bash "$t" || exit 1; done`) must fail
+# THAT gate with the FAIL + stopped-at lines — not kill the sweep mid-loop.
+# Regression: handoff item 3, 2026-07-25 — sweep rc=1 with 8 PASS lines and nothing
+# else; the eval ran the gate's `exit 1` in the sweep's own shell. ---
+rm -f "$TMP/LATER"
+printf '1\tsuite\tALWAYS\tfor t in a b; do false || exit 1; done\n2\tlater\tALWAYS\ttouch %s/LATER\n' "$TMP" >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="x.txt" bash "$SWEEP" --full >"$TMP/o9" 2>&1
+check "exit-in-gate-cmd exits 1" 1 $?
+grep_out "exit-in-gate-cmd reports FAIL (no self-truncation)" "[sweep] FAIL suite" "$TMP/o9"
+grep_out "exit-in-gate-cmd reports stopped-at" "SWEEP: stopped at suite" "$TMP/o9"
+no_file "exit-in-gate-cmd keeps fail-fast (later gate skipped)" "$TMP/LATER"
+
 # --- (comma-trigger) a gate with a comma-joined trigger list matches ANY listed path ---
 rm -f "$TMP/MULTI_A" "$TMP/MULTI_B"
 printf '1\tmulti\ttests/install-sh/,.github/workflows/\ttouch %s/MULTI_A\n' "$TMP" >"$TMP/gates.tsv"
@@ -70,5 +83,35 @@ has_file "comma-trigger matched via second entry (workflows)" "$TMP/MULTI_A"
 printf '1\tmulti\ttests/install-sh/,.github/workflows/\ttouch %s/MULTI_B\n' "$TMP" >"$TMP/gates.tsv"
 SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="tests/install-sh/foo.test.sh" bash "$SWEEP" >"$TMP/o8" 2>&1
 has_file "comma-trigger matched via first entry (install-sh)" "$TMP/MULTI_B"
+
+# --- (stdin-eating gate) a gate whose command READS STDIN must not consume the heredoc
+# that drives the gate loop. Without `</dev/null` on the eval, `cat` swallows every
+# remaining gate line and the sweep prints a plausible all-PASS tail and exits 0 having
+# silently skipped the rest. Regression: 2026-08-09 — adding the tests/hooks/*.test.sh
+# battery (the pre-push stdin-detection tests feed the hook on stdin) truncated `--full`
+# at 16 gates; install-sh-suite and all eleven rank-6 gates never ran, rc=0. ---
+rm -f "$TMP/AFTER_STDIN"
+printf '1\tstdineater\tALWAYS\tcat >/dev/null\n2\tafter\tALWAYS\ttouch %s/AFTER_STDIN\n' "$TMP" >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="x.txt" bash "$SWEEP" --full >"$TMP/o10" 2>&1
+check "stdin-eating gate exits 0" 0 $?
+has_file "stdin-eating gate did NOT truncate the loop (later gate ran)" "$TMP/AFTER_STDIN"
+grep_out "stdin-eating gate: both gates accounted for" "SWEEP: 2 gate(s) passed" "$TMP/o10"
+
+# --- (degrade visibility) a gate that succeeds by DEGRADING (actionlint absent, host toolchain
+# != CI pins) must not report a bare PASS: its stdout went to /dev/null, so a WARN-skip was
+# indistinguishable from a real run — `#warning-nobody-reads`
+# (.claude/rules/attention-is-not-a-mechanism.md §2). Only the `[sweep] WARN` prefix counts;
+# a gate printing bare "WARN" during a genuine run stays PASS. ---
+printf '1\tdegraded\tALWAYS\techo "[sweep] WARN-skip thing absent"\n' >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="x.txt" bash "$SWEEP" --full >"$TMP/o11" 2>&1
+check "degraded gate still exits 0" 0 $?
+grep_out "degraded gate reported WARN-SKIP, not PASS" "[sweep] WARN-SKIP degraded" "$TMP/o11"
+if grep -qF "[sweep] PASS degraded" "$TMP/o11"; then
+  echo "  ✗ degraded gate ALSO printed a bare PASS"; fails=$((fails + 1))
+else echo "  ✓ degraded gate did not print a bare PASS"; fi
+
+printf '1\trealrun\tALWAYS\techo "WARN: drift detected but test passed"\n' >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="x.txt" bash "$SWEEP" --full >"$TMP/o12" 2>&1
+grep_out "bare-WARN output is a genuine PASS, not a degrade" "[sweep] PASS realrun" "$TMP/o12"
 
 [ "$fails" -eq 0 ] && { echo "run-local-ci-sweep: ALL PASS"; exit 0; } || { echo "run-local-ci-sweep: $fails FAIL"; exit 1; }

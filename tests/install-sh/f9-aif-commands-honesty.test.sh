@@ -65,10 +65,10 @@ out=$(grep -nE 'required before commit|Skipping[^|]*/aif-verify' "$A")
 mv "$A.bak" "$A"
 
 # ── 3. checks-map honesty (pos + neg) ──
-# Ships to consumers at .claude/skills/rules-as-tests/references/checks-map.md.
+# Ships to consumers at .claude/skills/getff/references/checks-map.md.
 # Bite on the level-4 STAGE LABEL, not "is AIF mentioned anywhere on the line" (vacuous:
 # row 44 already carries review-sidecar; a same-line audit-ai-docs already exists in prose).
-C="$T/.claude/skills/rules-as-tests/references/checks-map.md"
+C="$T/.claude/skills/getff/references/checks-map.md"
 [ -f "$C" ] || bad "checks-map not installed at $C"
 
 # pos-A1: table row 44 stage-label parens no longer contain aif-verify (parens close first)

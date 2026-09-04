@@ -4,7 +4,7 @@ import { ESLintUtils, AST_NODE_TYPES } from '@typescript-eslint/utils';
 // found no production rule enforcing presence at route/app-root; DeepWiki unavailable in
 // this environment — DeepWiki-down precedent per SSOT #121/#123, WebSearch is the
 // established fallback; Vite SPA has no Next error.tsx / RR errorElement convention → genuine gap).
-const createRule = ESLintUtils.RuleCreator(() => `https://github.com/Yhooi2/rules-as-tests-aif/blob/main/packages/preset-react-spa/RULES.react-spa.md#r-spa-eb-error-boundary-presence`);
+const createRule = ESLintUtils.RuleCreator(() => `https://github.com/artyhoo/getff/blob/main/packages/preset-react-spa/RULES.react-spa.md#r-spa-eb-error-boundary-presence`);
 function isErrorBoundaryLike(name) {
     return name.includes('ErrorBoundary') || name.includes('error-boundary');
 }

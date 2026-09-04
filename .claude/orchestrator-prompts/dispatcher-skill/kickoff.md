@@ -15,7 +15,7 @@ Extract the active aif-control loop into a separate CC-skill `/dispatcher`, so `
 **Metaphor (maintainer's framing):** air-traffic dispatcher ↔ aircraft = aif. Dispatcher stays on the line, monitors, keeps a dialog (questions ↔ answers), gives next tasks. The aircraft (aif) flies on autopilot; the dispatcher controls + intervenes, does not fly.
 
 **The loop `/dispatcher` runs:**
-```
+```text
 dispatch task to aif
 ↓
 monitor (poll status)
@@ -99,3 +99,5 @@ Touches `.claude/skills/**` → every PR body needs `### §1.7 Forward-check app
 - `../meta-orchestrator-refactor/decisions.md` — architecture rationale (/pipeline + /dispatcher + sequencer split).
 - `.claude/skills/pipeline/SKILL.md` — the plan skill this complements.
 - `packages/runtime-bridge/src/cli/` — all primitives.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

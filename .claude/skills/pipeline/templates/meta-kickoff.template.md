@@ -31,6 +31,33 @@ Sub-waves and their mode decisions are in §2 launch-table below. Read in this o
 
 ---
 
+## §2a Slicing + fog-of-war (per-umbrella)
+
+> **Frontier, not a frozen plan (D-H13).** The dispatchable set is recomputed at EVERY stage
+> boundary from the umbrella kickoff's `Depends on` column, never re-derived by eye:
+> `bash .claude/skills/pipeline/helpers/frontier.sh {{UMBRELLA}}` — `FRONTIER:` may dispatch
+> now, `BLOCKED:` is waiting (with the ids it waits on), `DEGRADE:` means that kickoff carries
+> no column, so every not-yet-done stage is frontier and the ordering is judgment again. The
+> §3 gate below is what PROVES a dependency merged; the frontier only says who is eligible.
+
+- **Vertical slice — the default shape of a stage.** One thin end-to-end change carrying its
+  own live proof (RED→GREEN, gate output, or a fired check). A stage that cannot state what it
+  proves on its own is a horizontal layer, not a slice — re-cut it before dispatch.
+- **Expand–contract — the shape for renames, moves, and format changes.** Three phases, never
+  one PR: **expand** (the new path/field/spelling lands beside the old, both live), **migrate**
+  (callers move, one commit per surface), **contract** (the old form and its shim are deleted).
+  Each phase is its own stage with its own gate; expanding and contracting in one stage leaves
+  no revert point.
+- **Fog-of-war — what this umbrella does NOT know yet.** {{FOG_OF_WAR}}
+
+> **Vocabulary provenance (ADOPTED as vocabulary, not as process):** expand–contract = Danilo
+> Sato's _Parallel Change_ (martinfowler.com/bliki/ParallelChange.html — phases «expand» /
+> «migrate» / «contract», alternate name «expand and contract», fetched 2026-08-18); vertical
+> slice = agile story-slicing usage; fog-of-war = planning-under-uncertainty idiom. Detail on
+> the frontier mechanism: `.claude/skills/pipeline/references/frontier.md`.
+
+---
+
 ## §3 Stage gates (real git checks — NOT in-memory FIFO)
 
 ### Stage 1 → Stage 2
@@ -127,7 +154,7 @@ If any of the four checks fails → fix the body before pushing. CI catches the 
 
 ## §4c Autonomous aif-handoff dispatch — park-don't-guess contract (applies ONLY when a Worker is dispatched to the runtime-bridge instead of a maintainer-paste tab)
 
-> **When this section is live:** the §10 report offered «autonomous dispatch via aif-handoff» for this umbrella AND the maintainer accepted. If every Worker below runs in a maintainer-pasted CC tab, §4c is inert — skip it. **If any sub-wave is dispatched via `tsx packages/runtime-bridge/src/cli/dispatch.ts <this-kickoff>`, §4c is MANDATORY** (SKILL §5 `#autonomous-dispatch-without-park`).
+> **When this section is live:** the §10 report offered «autonomous dispatch via aif-handoff» for this umbrella AND the maintainer accepted. If every Worker below runs in a maintainer-pasted CC tab, §4c is inert — skip it. **If any sub-wave is dispatched via `tsx packages/runtime-bridge/src/cli/dispatch.ts <this-kickoff>` (framework repo; `tsx .claude/vendor/runtime-bridge/src/cli/dispatch.ts <this-kickoff>` on a consumer install), §4c is MANDATORY** (SKILL §5 `#autonomous-dispatch-without-park`).
 
 **Why this exists (design §1 honest limitation, verified `coordinator.ts:398-476` + `reviewGate.ts`):** aif-handoff agents have **no mid-implementation "pause and ask" primitive**. They implement — _guessing_ on any ambiguity — then auto-review post-hoc. Auto-close fires when the review finds _no blocking findings_ — a bar that means "review found no blockers", NOT "a human is sure it's right". A genuine **design fork is not recognised as a question** — aif just picks and proceeds. So **without the levers below, aif decides forks wrong, silently.**
 
@@ -148,7 +175,7 @@ export AGENT_SKIP_REVIEW=false
 
 **Trust is a tunable dial, not baked-in distrust (design §1):** `MAX_REVIEW_ITERATIONS` high = trust aif more / low = hand off more. The loop (collect → resolve-in-chat → resume) is **identical at any dial setting** — so the trust level never blocks the build. Start trust-but-verify (middle), run 2–3 real umbrellas, then adjust by observed error rate. Do NOT over-design the dial upfront.
 
-**Pre-dispatch gate (run before `dispatch.ts`):** confirm this kickoff contains the Lever-2 block (`grep -qi 'park it as a question' <this-kickoff>` — case-insensitive, the contract text capitalizes «Park») AND the env carries Lever-1 (`echo "$AGENT_MAX_REVIEW_ITERATIONS"` non-empty). Either missing → STOP; do not dispatch autonomously.
+**Pre-dispatch gate (run before `dispatch.ts`):** confirm this kickoff contains the Lever-2 block (`grep -qi 'park it as a question' <this-kickoff>` — case-insensitive, the contract text capitalizes «Park») AND probe Lever-1 container-side: `docker exec <agent-container> sh -c 'echo "${AGENT_MAX_REVIEW_ITERATIONS:-UNSET}"'`. A host-side `echo "$AGENT_MAX_REVIEW_ITERATIONS"` is **UNVERIFIED** — the value is not forwarded to the aif loop (no `packages/runtime-bridge/src/**` forwarding path, no compose key, re-verified 2026-08-06). When the container probe returns `UNSET` or the container is unreachable, Lever-1 is **UNVERIFIED**: the dispatch carries «park contract present, review-iteration ceiling unconfirmed», NOT a passing gate. Either leg missing/unverified → STOP; do not dispatch autonomously.
 
 **Egress gate (mandatory after `status=done` or `status=verified`):** aif does NOT push or open PRs by design. Call harvest immediately after the task reaches done:
 
@@ -156,7 +183,7 @@ export AGENT_SKIP_REVIEW=false
 npx tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --base staging
 ```
 
-Harvest: reads `branchName` from aif REST API → `docker exec container git push origin <branch>` → `gh pr create --base staging` → `gh pr merge --auto --squash`. Anti-pattern `#autonomous-done-no-harvest`: skipping this step leaves the work permanently in the container.
+Harvest: reads `branchName` from aif REST API → Channel A egress (bundle the commit out of the container → `docker cp` → host `git fetch` → host `git push`, so `.husky/pre-push` runs; the container itself has no `github.com` route and is never pushed from) → `gh pr create --base staging` → `gh pr merge --auto --squash`. Anti-pattern `#autonomous-done-no-harvest`: skipping this step leaves the work permanently in the container.
 
 ---
 
@@ -181,7 +208,7 @@ See `.claude/rules/ai-laziness-traps.md §2` for full catalogue.
 This kickoff was generated by `/pipeline` and must itself pass `principle 12` (AI-laziness-traps format validation, `packages/core/principles/12-ai-laziness-traps.test.ts`). Verify:
 
 ```bash
-npm --prefix packages/core run test:principles -- --testPathPattern=12 2>/dev/null | tail -5
+npx vitest run packages/core/principles/12-ai-laziness-traps.test.ts | tail -5
 ```
 
 ---
@@ -219,7 +246,7 @@ Any session message produced FROM this kickoff (Worker REPORT, Reviewer GO/REVIS
 - Stage gate command returns empty AND Stage N was expected merged → halt, report.
 - Phase -1 reviewer returns STOP → halt, surface to maintainer.
 - Any sub-wave returns BLOCKER finding → halt Stage; surface before proceeding.
-- Any temptation to edit `~/.claude/skills/orchestrator/` → T-MOB-C violation; stop.
+- Any temptation to edit `.claude/skills/orchestrator/` → T-MOB-C violation; stop.
 
 ---
 
@@ -227,7 +254,7 @@ Any session message produced FROM this kickoff (Worker REPORT, Reviewer GO/REVIS
 
 - Do NOT write sub-wave implementation code in this kickoff.
 - Do NOT finalize project strategy — surface genuine forks to maintainer.
-- Do NOT modify `~/.claude/skills/orchestrator/` (agent-uncommittable).
+- Do NOT modify `.claude/skills/orchestrator/` (another skill's artefact — wrap, never fork).
 - Do NOT add npm deps (substrate-purity per no-paid-llm-in-ci.md + BFR-default).
 
 ---

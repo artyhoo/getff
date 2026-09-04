@@ -88,3 +88,5 @@ S1 merged → Phase -1 cold-review (read-only Agent) → GO before S2. Pre-dispa
 - **Tunnel caveat:** push may be blocked by the Clash fake-ip TUN; use `harvest-via-api.sh` / gh Git Data API fallback.
 - **Recursion (this umbrella eats its own dog food):** THIS kickoff was authored in CANON + symlinked (the durable way) precisely because the hook it specifies does not exist yet. Once shipped, the manual CANON-authoring step becomes unnecessary — the hook adopts automatically. Verify that property in S2.
 - Last-stage merge → `done.md` here; this kickoff is consumed by `/pipeline` (its generated meta-launch kickoff must pass principle 12 — §4 above seeds the trap list).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

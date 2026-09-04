@@ -65,3 +65,5 @@ This umbrella writes its own `.claude/orchestrator-prompts/hygiene-cleanup/done.
 - No code edits (markdown/closure only). No npm deps.
 - No Worker dispatch / PR from the meta-orchestrator session — dispatch awaits maintainer GO.
 - Do NOT rewrite §2–§6 of wave-plan; §0 snapshot only.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

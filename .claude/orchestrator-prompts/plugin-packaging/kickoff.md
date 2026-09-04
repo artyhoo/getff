@@ -86,3 +86,5 @@ Stage N PRs not merged → HALT, do not dispatch N+1. Then Phase -1 cold-review 
 - **Throwaway-consumer-repo testing is the real gate** (T19): CC plugin behaviour (env vars, SessionStart matchers, `${CLAUDE_PLUGIN_ROOT}` resolution) only manifests on a real install, not in unit tests. Every stage that ships a hook/skill/command proves it on a scratch repo.
 - **Last-stage (S8) PR merge → write `done.md`** here per CLAUDE.md Umbrella closure convention.
 - Worktree base ref = refreshed `origin/staging` (not `main`) — `scripts/create-worktree.sh` handles this.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

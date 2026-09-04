@@ -71,3 +71,5 @@ So the verification work = (1) the digest UX-works test, (2) confirm-or-add the 
 
 ## §4 Done =
 A `/pipeline <umbrella>` invocation shows ≤~15 lines to the human (verdict + graph + queue), no 47KB dump, no heat from unused helpers, no spurious aif park; full corpus in a side-file; **the §1.5 find/order/save/only-new suite stays green AND a new deterministic «digest ≤~15 lines with a seeded DRIFT visible» test passes (UX works, asserted not eyeballed) + a rank-order test exists**; §1.7 bodies present.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

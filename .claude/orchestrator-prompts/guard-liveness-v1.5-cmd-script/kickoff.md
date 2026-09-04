@@ -3,8 +3,12 @@
 > **Type:** I-phase (build, schema + runner). Days-scale.
 > **Sub-wave v1.5** of guard-liveness umbrella. Siblings: v0 (audit, parallel start with v1), v1 (ESLint), v3 (manual via SP), v2 (full-sweep, ships after v1+v1.5+v3).
 > **Design SSOT:** [docs/meta-factory/research-patches/2026-05-23-guard-liveness-gate.md](../../../docs/meta-factory/research-patches/2026-05-23-guard-liveness-gate.md) §3 sub-wave row v1.5.
-> **Depends on:** v0 lands (per-rule criticality table). v1.5 may run in parallel with v3.
+> v1.5 may run in parallel with v3.
 > **Admission:** candidate ([wave-sequencing-plan.md §0](../../../docs/meta-factory/wave-sequencing-plan.md)).
+
+| Stage | Scope (one line) | Depends on |
+|---|---|---|
+| v1.5 | command + script gate: criticality-selected command/script slice (§1) | v0 lands (per-rule criticality table) |
 
 ## §0 Why this sub-wave (origin)
 v0 audit (sibling sub-wave) will produce a per-rule criticality table. For `check.type ∈ {command, script}` (10 of 26 rules in current manifest), `gate-rule-tester.ts` skips them today ([validator/gate-rule-tester.ts:69](../../../packages/core/validator/gate-rule-tester.ts)). So no end-to-end "does this guard catch its violation" verification exists for the command/script slice — the larger non-ESLint half of the manifest. This sub-wave closes that for the LOAD-BEARING subset (per v0's table).
@@ -64,3 +68,5 @@ Cold-review (1× Opus): stale refs, ambiguity, missing constraints, §5 substanc
 ## §7 Coupling notes
 - **v1 schema must land first.** This sub-wave adds `fixture` to `NegativeTest` — that interface ships in v1. Coordinate via v0 → v1 → v1.5 stage gate.
 - **N5 give-back candidate:** the fixture-runner pattern is reusable across projects (deterministic, no LLM) — surface at N5.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

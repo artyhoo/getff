@@ -142,7 +142,7 @@ This kickoff was authored by `/meta-orchestrator`. Verify principle 12 passes if
 under a `kickoff.md` the test scans:
 
 ```bash
-npm --prefix packages/core run test:principles -- --testPathPattern=12 2>/dev/null | tail -5
+npx vitest run packages/core/principles/12-ai-laziness-traps.test.ts | tail -5
 ```
 
 ---
@@ -177,3 +177,5 @@ npm --prefix packages/core run test:principles -- --testPathPattern=12 2>/dev/nu
 - `docs/meta-factory/research-patches/2026-06-01-aif-task-isolation.md` — predecessor (Findings A+F).
 - `.claude/rules/ai-laziness-traps.md §2` — trap catalogue.
 - `.claude/rules/reviewer-discipline.md §2` — surface-as-DECISION-NEEDED pattern (§7).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

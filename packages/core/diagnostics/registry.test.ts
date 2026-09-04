@@ -136,10 +136,16 @@ const CODE_FIXTURES: Record<string, Record<string, string | number>> = {
   FF3019: {},
   FF3020: { count: 1, plural: '' },
   FF3021: { idx: 0, ruleId: 'rules-as-tests/restricted-syntax-audit-exempt', message: 'use Object.hasOwn' },
+  FF3022: {
+    gate: 'tautology',
+    ruleName: 'rules-as-tests/no-server-imports-in-client',
+    tried: './eslint-rules-local/index.mjs (from /tmp/c) — MODULE_NOT_FOUND',
+  },
   // --- FF6xxx: IR grammar gates (MT umbrella S1) ---
   FF6001: { nodeId: 'n1' },
   FF6002: { id: 'n1', count: 2 },
   FF6003: { anchor: 'FF9999', nodeId: 'n1' },
+  FF6004: { op: 'all', nodeId: 'n1' },
   // --- FF7xxx: render outcomes (MT umbrella S2 — cargo backend v0) ---
   FF7001: { backend: 'cargo-clippy-toml', selectorClass: 'syntax', nodeId: 'n1' },
   FF7002: { backend: 'cargo-clippy-toml', nodeId: 'n1', missing: 'path' },

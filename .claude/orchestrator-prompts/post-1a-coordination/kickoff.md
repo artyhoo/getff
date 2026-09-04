@@ -14,7 +14,7 @@ Do NOT skip this. Compaction may have stripped session context — re-read in or
 2. **[.claude/session-bootstrap.md](../../session-bootstrap.md)** — operational re-statement of goal + invariants
 3. **[CLAUDE.md](../../../CLAUDE.md)** — AI-tooling conventions + Artifact Ownership Contract
 4. **[docs/meta-factory/research-patches/2026-05-16-goal-clarity-dialogue.md](../../../docs/meta-factory/research-patches/2026-05-16-goal-clarity-dialogue.md)** — 1A dialogue output (full verdicts + evidence + acknowledgment of antipattern)
-5. **[.claude/orchestrator-prompts/goal-clarity-dialogue/drafts/atomic-commit-plan.md](../goal-clarity-dialogue/drafts/atomic-commit-plan.md)** — 8-commit sequence + how-to-apply
+5. **.claude/orchestrator-prompts/goal-clarity-dialogue/drafts/atomic-commit-plan.md (`../goal-clarity-dialogue/drafts/atomic-commit-plan.md`)** — 8-commit sequence + how-to-apply
 6. **THIS file (post-1a-coordination/kickoff.md)** — orchestration scope + risk surface
 7. **Memory entries** at `/Users/art/.claude/projects/-Users-art-code-rules-as-tests-aif/memory/`:
    - `project_goal_framing_narrow_vs_broad.md` (finalized)
@@ -184,7 +184,7 @@ Items ordered by what should ship first vs later. No dates. All items independen
 | **2.7** | **End-of-turn hook reliability audit + targeted bash refinements** ([kickoff](../end-of-turn-hook-reliability/kickoff.md) — ARMED 2026-05-17) | Phase A ~1-2h, Phase B (decision gate), Phase C ~2-4h conditional, Phase D ~30 min | Empirical silent false-negative discovered in session `08570cad` 2026-05-17: hook fires 2× per session despite ≥5 qualifying long-markdown turns. **Blocks Item 5a** — §13.34 R-phase's «live data» premise is false if hook is silently broken. Phase A = audit + research-patch + decision-needed surface; Phase B = maintainer picks revert/patch/defer; Phase C = atomic bash fixes (throttling, multi-paragraph proxy, code-block carve-out) if patch path chosen; Phase D = Wave 10 input. **Independent worktree, parallelizable with Items 1–2–2.5.** Hard exclusions: no aggregation/isMeta re-introduction (PR #73 rejection), no TS rewrite (Wave 10), no scope creep to other hooks. |
 | **3** | **Companion-integration-analysis R-phase** ([kickoff](../companion-integration-analysis/kickoff.md) §3.5 CLEAR) | 4-6h focused | Read-only Superpowers analysis (B2-A); real install probe AIF + our project in /tmp. Produces research-patch + Commit 7 v2 draft + install-order checklist + coexistence gate sketch. **Forbidden during R-phase:** `/plugin install superpowers@*` (B2-A). Blocks Item 4. |
 | **4** | Commit 7 (apply companion-integration output: subline widening + «is/isn't» revision in README) | ~30 min | Direct apply from `drafts/commit-7-readme-revision-v2.md` produced by Item 3. Sequence: after Item 3. |
-| **5a** | **§13.34 autonomous-self-audit R-phase** ([scaffold](../autonomous-self-audit-research/research-prompt.md) — ready since 2026-05-13) | 4-8h fresh Opus session | **Evidence base strong:** 3 documented incidents in 24h (logged in [[autonomous-self-audit-triggering-evidence]]) — Wave-9-closure misread, deps-hash-check.sh registration misread, PR #69 §1.7 header missing. Trigger spec said «Wave 10 closure» but explicit escape: «May be promoted sooner if review-round cost… becomes prohibitive» — 3 incidents satisfies. **Sequence: after Item 2.7 hook-reliability audit** — without that audit, the «end-of-turn hook accumulating live data» premise is unverified (silent false-negative observed 2026-05-17). Item 2.7 produces either a working hook (live data is real) or a verdict that data is phantom (R-phase falls back to theoretical comparison of the 7 candidates). Sequence: before Item 5c so findings can inform hook architecture. Worktree mandatory per [orchestrator skill cross-session dispatch](~/.claude/skills/orchestrator/SKILL.md). |
+| **5a** | **§13.34 autonomous-self-audit R-phase** ([scaffold](../autonomous-self-audit-research/research-prompt.md) — ready since 2026-05-13) | 4-8h fresh Opus session | **Evidence base strong:** 3 documented incidents in 24h (logged in [[autonomous-self-audit-triggering-evidence]]) — Wave-9-closure misread, deps-hash-check.sh registration misread, PR #69 §1.7 header missing. Trigger spec said «Wave 10 closure» but explicit escape: «May be promoted sooner if review-round cost… becomes prohibitive» — 3 incidents satisfies. **Sequence: after Item 2.7 hook-reliability audit** — without that audit, the «end-of-turn hook accumulating live data» premise is unverified (silent false-negative observed 2026-05-17). Item 2.7 produces either a working hook (live data is real) or a verdict that data is phantom (R-phase falls back to theoretical comparison of the 7 candidates). Sequence: before Item 5c so findings can inform hook architecture. Worktree mandatory per orchestrator skill cross-session dispatch (`~/.claude/skills/orchestrator/SKILL.md`). |
 | 5b | Independent backlog: Step 1B Swarm/Tools; Step 2 Research-tooling + SSOT; Step 4 Think-time §1.7 | per individual kickoffs | Slot anywhere per maintainer priority — no ordering constraints. |
 | **5c** | Step 3 Wave 10 (hook architecture, TS-core migration) | per Wave 10 kickoff | **Sequence after Item 5a** — §13.34 mechanism findings may inform hook-architecture choices. Wave 10 also blocked on Wave 9 M1-M5 fixes per [[project-wave-sequencing]]. |
 
@@ -522,7 +522,7 @@ Session closes when ALL of:
 
 Maintainer pastes the contents of THIS kickoff into a fresh Claude Code session (or specifies the path). Orchestrator begins:
 
-```
+```text
 [Read §0 reading order — actually read each file, not just acknowledge]
 [Generate §3 inventory snapshot — re-verify each item against current filesystem]
 [Apply §4 critical-path analysis to current week]
@@ -538,9 +538,9 @@ Maintainer pastes the contents of THIS kickoff into a fresh Claude Code session 
 ### §12.1 Source of truth artifacts (this kickoff coordinates over these)
 
 - [docs/meta-factory/research-patches/2026-05-16-goal-clarity-dialogue.md](../../../docs/meta-factory/research-patches/2026-05-16-goal-clarity-dialogue.md) — 1A research-patch
-- [.claude/orchestrator-prompts/goal-clarity-dialogue/drafts/atomic-commit-plan.md](../goal-clarity-dialogue/drafts/atomic-commit-plan.md) — commit sequencing
+- .claude/orchestrator-prompts/goal-clarity-dialogue/drafts/atomic-commit-plan.md (`../goal-clarity-dialogue/drafts/atomic-commit-plan.md`) — commit sequencing
 - [.claude/orchestrator-prompts/prose-rules-audit-research/kickoff.md](../prose-rules-audit-research/kickoff.md) — 1A.6 R-phase kickoff
-- 8 drafts in [.claude/orchestrator-prompts/goal-clarity-dialogue/drafts/](../goal-clarity-dialogue/drafts/)
+- 8 drafts in .claude/orchestrator-prompts/goal-clarity-dialogue/drafts/ (`../goal-clarity-dialogue/drafts/`)
 
 ### §12.2 Discipline rules to apply
 
@@ -583,3 +583,5 @@ Maintainer pastes the contents of THIS kickoff into a fresh Claude Code session 
 - ✅ **No `#discipline-theatre` in §13** — substantive paragraph above, not checkbox list
 
 **One residual concern surfaced via self-application:** this kickoff is itself a **new capability artifact** under principle 08 capability-commit gate. If committed to repo (not gitignored), it needs SSOT consult + Prior-art trailer. Recommendation: kickoff is internal coordination tool, gitignored like sibling kickoffs in `.claude/orchestrator-prompts/`. Verify before commit.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

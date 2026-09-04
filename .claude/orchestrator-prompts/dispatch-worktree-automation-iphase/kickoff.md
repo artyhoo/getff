@@ -175,10 +175,10 @@ This kickoff is a discipline-bearing artefact — must comply with all active di
 
 Sweep of existing artefacts under this I-phase's scope — what does it interact with, what might it silently supersede?
 
-- **[.claude/skills/meta-orchestrator/SKILL.md §3 + §4 + §5](../../../.claude/skills/meta-orchestrator/SKILL.md)** — DIRECT EDIT TARGETS (via recipe-script per classifier-block). Sub-wave B updates generation guidance. Row 3 (R-phase parallel) gets new anti-pattern note about bug #39886; row 5 (execution-build parallel) gets `claude -w` form. `#worker-dispatch-via-subagent` anti-pattern (SKILL.md:344-348) stays «bare-Agent forbidden + paste-fresh-tab permitted» BUT adds bug #39886 caveat for Agent+isolation channel.
-- **[meta-kickoff.template.md §4 `{{DISPATCH_INSTRUCTIONS}}`](../../../.claude/skills/meta-orchestrator/templates/meta-kickoff.template.md)** — DIRECT EDIT TARGET (Sub-wave B). Placeholder description updated; §4a Worker worktree setup section may shrink to hook reference.
-- **[meta-kickoff.template.md §4a Worker worktree setup](../../../.claude/skills/meta-orchestrator/templates/meta-kickoff.template.md)** — currently node_modules symlinks bash. Hook supersedes this OR coexists (defense-in-depth for cases where hook absent on consumer side). Decision: keep §4a as fallback for non-hook environments + add «if hook installed, this is no-op» preamble.
-- **[placeholders.md `{{DISPATCH_INSTRUCTIONS}}` line 24](../../../.claude/skills/meta-orchestrator/references/placeholders.md)** — direct text update.
+- **[.claude/skills/meta-orchestrator/SKILL.md §3 + §4 + §5](../../../.claude/skills/pipeline/SKILL.md)** — DIRECT EDIT TARGETS (via recipe-script per classifier-block). Sub-wave B updates generation guidance. Row 3 (R-phase parallel) gets new anti-pattern note about bug #39886; row 5 (execution-build parallel) gets `claude -w` form. `#worker-dispatch-via-subagent` anti-pattern (SKILL.md:344-348) stays «bare-Agent forbidden + paste-fresh-tab permitted» BUT adds bug #39886 caveat for Agent+isolation channel.
+- **[meta-kickoff.template.md §4 `{{DISPATCH_INSTRUCTIONS}}`](../../../.claude/skills/pipeline/templates/meta-kickoff.template.md)** — DIRECT EDIT TARGET (Sub-wave B). Placeholder description updated; §4a Worker worktree setup section may shrink to hook reference.
+- **[meta-kickoff.template.md §4a Worker worktree setup](../../../.claude/skills/pipeline/templates/meta-kickoff.template.md)** — currently node_modules symlinks bash. Hook supersedes this OR coexists (defense-in-depth for cases where hook absent on consumer side). Decision: keep §4a as fallback for non-hook environments + add «if hook installed, this is no-op» preamble.
+- **[placeholders.md `{{DISPATCH_INSTRUCTIONS}}` line 24](../../../.claude/skills/pipeline/references/placeholders.md)** — direct text update.
 - **[.claude/settings.json](../../../.claude/settings.json)** — agent-uncommittable. Diff in PR body for maintainer apply. NOT silently superseded.
 - **[.claude/hooks/](../../../.claude/hooks/)** — currently has `check-doc-authority.sh` + `inject-session-bootstrap.sh` + others. New `worktree-setup.sh` added. Coexists. No existing hook superseded.
 - **[packages/core/hooks/*test.ts](../../../packages/core/hooks/)** — new test file `worktree-setup.test.ts` added. No existing test changed.
@@ -247,7 +247,7 @@ claude -w iphase-hook
 
 Paste in opened CC session:
 
-```
+```text
 /orchestrator dispatch-worktree-automation-iphase §3 Sub-wave A — Mode A inline I-phase: hook implementation per PR #271 verdict Candidate D2 (ADAPT tfriedel/claude-worktree-hooks for project-specific node_modules symlinks). Output: .claude/hooks/worktree-setup.sh + packages/core/hooks/worktree-setup.test.ts + PR-body HEREDOC diff for .claude/settings.json. Active T-traps per §5: T3, T7, T11, T13, T15, T17, T19, T20, T-DWA-IP-A, T-DWA-IP-B, T-DWA-IP-C. PR base: staging. §1.7 PR-body mandate per §4b template applies. Branch: worktree-iphase-hook (CC default per ATTN 1+2 DECIDED — no rename needed). MUST live-probe CC hook input JSON schema before drafting (PR #271 §8 ATTN 4 marked UNVERIFIED).
 ```
 
@@ -259,7 +259,7 @@ claude -w iphase-skill-update
 # then paste:
 ```
 
-```
+```text
 /orchestrator dispatch-worktree-automation-iphase §3 Sub-wave B — Mode A inline I-phase: meta-orchestrator generation guidance update per PR #271 verdict Candidate E (ADOPT claude -w form). Output: recipe-script /tmp/iphase-skill-edit.py for SKILL.md §3+§4+§5 (classifier-blocked per session 2026-05-29 precedent — DO NOT attempt Edit, go straight to recipe per T-DWA-IP-A) + direct edits to meta-kickoff.template.md §4 + placeholders.md line 24 + `#worker-dispatch-via-subagent` anti-pattern (SKILL.md:344-348) bug #39886 note. Active T-traps: same set as Sub-wave A + emphasis on T17 (preserve curated SKILL.md content, diff-only). PR base: staging. §1.7 PR-body mandate per §4b applies. Branch: worktree-iphase-skill-update (CC default — no rename needed).
 ```
 
@@ -271,7 +271,7 @@ claude -w iphase-acceptance
 # then paste:
 ```
 
-```
+```text
 /orchestrator dispatch-worktree-automation-iphase §3 Sub-wave C — Mode A inline I-phase: recursive acceptance test + docs. Output: docs/meta-factory/research-patches/<date>-dispatch-worktree-iphase-acceptance.md + CLAUDE.md forward-reference. Active T-traps: T3, T15 (self-application is the WHOLE POINT — this dispatch IS the test), T19, T20, T-DWA-IP-C. MUST empirically invoke claude -w <test-name> for a parked umbrella (recommendation: aif-handoff-as-runtime-bridge SW-A — closes the symbolic loop). Measure actual step count vs target ≤2. PR base: staging. §1.7 PR-body mandate per §4b applies. Branch: worktree-iphase-acceptance (CC default — no rename needed).
 ```
 
@@ -299,3 +299,5 @@ claude -w iphase-acceptance
 - Anthropic bug #39886 — Agent({isolation:"worktree"}) silently fails for write-Workers; tracked in §2.4 and Sub-wave B `#worker-dispatch-via-subagent` anti-pattern (SKILL.md:344-348) note.
 
 Prior-art: prior-art-evaluations.md#65 (`using-git-worktrees` REFERENCE — `claude -w` is the harness-native realisation Red Flag #1 mandates).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

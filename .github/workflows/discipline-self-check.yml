@@ -1,27 +1,47 @@
 name: discipline-self-check
 
 # Build-side enforcement of phase-research-coverage.md §1.7 — Recommendation
-# self-discipline check. PRs touching discipline-bearing files must contain
-# explicit ### §1.7 Forward-check applied + ### §1.7 Backward-check applied
-# sections in PR description, OR a ### §1.7 Skipped: <reason ≥60 chars> marker.
+# self-discipline check. A PR must contain explicit ### §1.7 Forward-check applied +
+# ### §1.7 Backward-check applied sections in its description, OR a
+# ### §1.7 Skipped: <reason ≥60 chars> marker.
 #
 # Build-side layer of the four-layer enforcement ladder (process rule + skill +
 # pre-push + this workflow). See .claude/rules/phase-research-coverage.md §1.7.
+#
+# WHY THE TRIGGER IS UNFILTERED (changed 2026-08-10 — do not re-add `paths:`):
+# this job's `name:` is a REQUIRED status check on staging (operator ruling
+# 2026-08-10; declared by the
+# `# required-context: yes` marker on the job below). A path-filtered
+# workflow does not run at all on a PR matching none of its paths, so its context
+# never reports and branch protection parks the PR on «Expected — Waiting for status
+# to be reported» forever. GitHub's own guidance is explicit: «Workflows skipped due
+# to path filtering, branch filtering, or commit messages will remain in a pending
+# state and block merging. To avoid this, do not require workflows that can be
+# skipped» (docs.github.com, Troubleshooting required status checks). The same
+# reasoning already moved actionlint + zizmor into audit-self.yml
+# (docs/meta-factory/automerge-staging-plan.md §5) and is why all three sibling
+# PR-body gates — pr-body-prior-art.yml, pr-body-fidelity.yml, pr-stale-revert.yml —
+# ship unfiltered. Enforced by the registrability arm of
+# packages/core/principles/37-required-context-completeness.test.ts.
+#
+# The scope decision did NOT disappear, it moved to the mechanism §1.7 already had:
+# the `### §1.7 Skipped: <≥60 chars>` marker, which .github/pull_request_template.md:61
+# emits as the DEFAULT for every PR. That marker is a declared, auditable
+# out-of-scope statement; a `paths:` list was a silent one. Measured before the
+# change: of the 40 most recent merged base=staging PRs, 38 already carried a valid
+# §1.7 section (11 Skipped markers + 27 Forward/Backward pairs) — so the widening
+# costs the remaining ~5% one template-default line, and buys a mechanism where
+# `#hope-as-gate` stood (.claude/rules/attention-is-not-a-mechanism.md §2).
+#
+# A job-level `if:` is safe where a trigger filter is not: a job skipped by `if:`
+# inside a workflow that DID run reports the `skipped` conclusion, which branch
+# protection accepts — «if a job is skipped due to a conditional, it reports success»
+# (same GitHub doc). That is what the base-ref guard below relies on; see the comment
+# on the job for why its condition is `!= 'main'` and not the siblings' `== 'staging'`.
 
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
-    paths:
-      - '.claude/rules/**'
-      - 'packages/core/principles/**'
-      - 'docs/meta-factory/EXECUTION-PLAN.md'
-      - 'docs/meta-factory/prior-art-evaluations.md'
-      - 'CLAUDE.md'
-      - 'templates/**/*.md'
-      - 'packages/core/templates/**/*.md'
-      - 'packages/core/templates/**/*.template.md'
-      - 'packages/core/backends/**'
-      - 'packages/core/synthesizer/**'
 
 permissions:
   contents: read
@@ -29,8 +49,33 @@ permissions:
 
 jobs:
   verify-pr-body-sections:
+    # required-context: yes — it gates §1.7 substance, and as of this commit it is registrable.
+    # #1368 declared it `no` and named the precondition: «To make it required, the path filter
+    # must first move from `on.pull_request.paths` into the job body … so the context always
+    # reports.» That precondition is now met, by the stronger route — the filter is gone
+    # entirely rather than reimplemented in the job body, because the §1.7 Skipped marker is
+    # already the declared out-of-scope mechanism (see the trigger note above). Operator ruling
+    # 2026-08-10 requires this context on staging.
+    #
+    # `name:` below is the status-check context string, matched character-for-character by
+    # branch protection; renaming it deadlocks every staging PR on a context that never reports.
+    # Principle 37 asserts the marker ↔ list agreement, and its registrability arm asserts that
+    # this workflow's trigger stays unfiltered for as long as this marker says `yes`.
     name: §1.7 forward+backward sections present in PR description
     runs-on: ubuntu-latest
+    # Promote-flow safety: a base=main promote PR aggregates ~90 squashed commits and has
+    # no single meaningful §1.7 forward/backward pair. Today it gets a guaranteed RED;
+    # skipping reports `skipped`, which protection accepts.
+    #
+    # Deliberately `!= 'main'`, NOT the `== 'staging'` the two sibling gates use
+    # (pr-body-fidelity.yml:40, pr-stale-revert.yml:52). Those two are scoped to staging
+    # because their subject — a kickoff's fidelity verdict, a stale-base rebuild against
+    # staging — only exists on staging PRs. §1.7 has no such limit: it applies to any PR
+    # introducing or extending a discipline rule, including the base=epic/* PRs CLAUDE.md
+    # allows agents to merge. `== 'staging'` would silently drop that coverage, which the
+    # 2026-08-10 ruling did not ask for; `!= 'main'` removes exactly the promote-flow
+    # noise and nothing else.
+    if: github.event.pull_request.base.ref != 'main'
     steps:
       - name: Check PR body for §1.7 sections or skip marker
         env:
@@ -134,6 +179,9 @@ jobs:
           echo "✅ Backward-check cites ${backward_citations} file:line reference(s)."
 
   sanity-stub-fails-substance:
+    # required-context: no — a paired-negative meta-test of the gate above, not a gate on this
+    # PR's content; it asserts the substance regex rejects the Incident-1 stub. Same
+    # `paths:`-filter deadlock applies regardless.
     name: Sanity — Incident-1 stub §1.7 body MUST fail substance gate
     runs-on: ubuntu-latest
     steps:
@@ -177,6 +225,9 @@ jobs:
           echo "   Both substance gates' paired-negative arms are intact."
 
   sanity-stub-backward-passes-with-citation:
+    # required-context: no — the positive half of the paired-negative meta-test above; asserts a
+    # cited Backward-check passes. Not a gate on this PR's content, and same `paths:`-filter
+    # deadlock applies regardless.
     name: Sanity — §1.7 Backward-check with file:line citation MUST pass substance gate (Forward-check parity)
     runs-on: ubuntu-latest
     steps:

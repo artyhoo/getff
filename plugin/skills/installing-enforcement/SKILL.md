@@ -8,7 +8,7 @@ description: Use when the user wants to actually WIRE the hard enforcement layer
 > **Authoritative for:** when and how to wire the plugin's hard enforcement layer (git hooks + CI) — the soft-vs-hard split and the `/getff:install-enforcement` flow.
 > **NOT authoritative for:** the installer's deploy mechanics (those live in the project's `install.sh`); the project goal (see the consumer's own README / the framework `README#why-this-exists`).
 
-The rules-as-tests plugin ships in **two layers**. Knowing which one a request needs is the
+The getff plugin ships in **two layers**. Knowing which one a request needs is the
 whole job of this skill.
 
 ## The two layers

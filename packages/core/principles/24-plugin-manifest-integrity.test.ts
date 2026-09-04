@@ -27,7 +27,7 @@
  * the principle-02 paired-negative discipline that makes the gate non-tautological.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
@@ -199,17 +199,40 @@ export function checkPluginIntegrity(pluginDir: string, marketplaceDir: string):
   }
 
   // V7/V8 — relocated hook scripts (non-run-hook.cmd, non-json): no mis-rooted plugin-data
-  // path; carry a delivery-channel marker.
+  // path; carry a delivery-channel marker. Skip subdirectories (e.g. lang/) — only top-level
+  // hook scripts carry these markers; subdirs hold support files (lang packs, etc.).
+  // Skip _zcode-* SOURCED HELPERS (e.g. _zcode-emit, plan-v3 Mechanism 1): they are internal
+  // infrastructure, not delivery-channel artifacts — neither @dual-pair nor @cc-only-rationale
+  // applies semantically. Parallels the same skip in tests/plugin/hook-paths.test.sh (T-ZP-C).
+  // V7 checks EXECUTABLE paths only: comment lines (starting with optional whitespace + #) may
+  // contain documentation examples of the dogfood wiring ($CLAUDE_PROJECT_DIR/.claude/hooks/...)
+  // which are NOT executable in the plugin twin — strip them before the path check.
   if (existsSync(hooksDir)) {
     for (const f of readdirSync(hooksDir)) {
       if (f === 'run-hook.cmd' || f.endsWith('.json') || f.endsWith('.md')) continue;
-      const c = readFileSync(resolve(hooksDir, f), 'utf8');
-      if (/CLAUDE_PROJECT_DIR[^\s]*\/\.claude\/hooks\//.test(c)) v.push({ code: 'V7', detail: `hook ${f}: mis-rooted plugin-data path ($CLAUDE_PROJECT_DIR/.claude/hooks/)` });
+      if (f.startsWith('_zcode-')) continue;  // sourced helper, not a delivery-channel hook
+      const abs = resolve(hooksDir, f);
+      if (!statSync(abs).isFile()) continue;  // skip subdirectories (lang/, etc.)
+      const c = readFileSync(abs, 'utf8');
+      const codeLinesOnly = c.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
+      if (/CLAUDE_PROJECT_DIR[^\s]*\/\.claude\/hooks\//.test(codeLinesOnly)) v.push({ code: 'V7', detail: `hook ${f}: mis-rooted plugin-data path ($CLAUDE_PROJECT_DIR/.claude/hooks/)` });
       if (!/^# @(dual-pair|cc-only-rationale):/m.test(c)) v.push({ code: 'V8', detail: `hook ${f}: missing @dual-pair/@cc-only-rationale marker` });
     }
   }
 
   return v;
+}
+
+// Relative paths of every file under `dir`, recursively — used by (g) to compare a plugin skill
+// copy against its skills/ source without assuming a flat layout (references/, templates/).
+function walkFiles(dir: string, prefix = ''): string[] {
+  const out: string[] = [];
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const rel = prefix ? `${prefix}/${e.name}` : e.name;
+    if (e.isDirectory()) out.push(...walkFiles(resolve(dir, e.name), rel));
+    else out.push(rel);
+  }
+  return out.sort();
 }
 
 describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => {
@@ -280,6 +303,47 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
     };
     expect(coreOf(plugin), 'plugin hook must contain the glob_match core').not.toBe('');
     expect(coreOf(plugin), 'plugin/hooks/inject-matching-rule core logic drifted from .claude/hooks/inject-matching-rule.sh').toBe(coreOf(source));
+  });
+
+  // ── (g) skill payload — membership is a decision, and framework copies must not drift ─
+  it('(g) payload: plugin/skills membership is the recorded set, and framework-sourced copies match', () => {
+    // WHY THIS EXISTS. Nothing generates plugin/skills/ — no script writes it, and V3 above
+    // validates each SKILL.md's frontmatter without ever asking WHICH skills belong or whether a
+    // copy still matches its source. That gap let two real defects live: the 2026-06-22 packaging
+    // spec's shippable-set table disagreed with the payload for ten weeks unnoticed, and
+    // plugin/skills/getff drifted from skills/getff in 6 of 6 files.
+    const M1_SET = ['getff', 'installing-enforcement', 'tool-bootstrapping', 'using-getff'];
+    const actual = readdirSync(resolve(PLUGIN, 'skills'), { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort();
+    expect(actual, 'plugin/skills membership changed. The set is a recorded decision (plan Task 3 Step 4 + its 2026-09-03 promotion) — update M1_SET here and state in the PR body which need triggered the promotion.').toEqual([...M1_SET].sort());
+
+    // Fidelity for skills that also exist under the framework's skills/. QUARANTINE: getff is
+    // exempt. The stale-content half of the drift is GONE (re-synced 2026-09-03, Decision 4
+    // item 3: the plugin copy no longer names AI Factory `/aif-verify` + `rules-sidecar` where
+    // the source names ./scripts/audit-ai-docs.sh, and it carries the /rule-research +
+    // /rule-tests line). What remains is ONLY the link divergence, and it is STRUCTURAL, so
+    // byte-identity is unreachable here by construction: the plugin copy sits one directory
+    // deeper, so SKILL.md's ](../../x) became ](../../../x) and each references/*.md's
+    // ](../../../x) became an absolute https://github.com/... URL (a marketplace consumer
+    // reads these outside the repo, where no relative path escapes correctly). Lifting the
+    // quarantine therefore requires a link-normalising comparison — a design choice, not a
+    // re-sync — so it stays until that is decided. Re-verify with:
+    //   diff -ru skills/getff plugin/skills/getff   → 7 differing lines, all link lines.
+    // tool-bootstrapping can hold plain byte-identity because it has zero links escaping its own
+    // directory — verified before it was copied in; a future skill that does NOT will fail here,
+    // which is the point: the author must then choose depth-rewrite (and earn its own exemption,
+    // with the reason written here) rather than let the divergence land unnoticed.
+    const DRIFT_QUARANTINE = new Set(['getff']);
+    const drift: string[] = [];
+    for (const name of actual) {
+      if (DRIFT_QUARANTINE.has(name)) continue;
+      const src = resolve(REPO_ROOT, 'skills', name);
+      if (!existsSync(src)) continue; // plugin-native skill — no framework source to match
+      for (const rel of walkFiles(src)) {
+        const twin = resolve(PLUGIN, 'skills', name, rel);
+        if (!existsSync(twin) || readFileSync(resolve(src, rel), 'utf8') !== readFileSync(twin, 'utf8')) drift.push(`${name}/${rel}`);
+      }
+    }
+    expect(drift, `plugin/skills copies drifted from their skills/ source: ${drift.join(', ')}`).toHaveLength(0);
   });
 
   // ── (f) T15 self-application — this gate is itself an executable artifact ────

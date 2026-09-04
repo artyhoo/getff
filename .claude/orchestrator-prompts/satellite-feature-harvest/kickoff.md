@@ -83,3 +83,5 @@ Domain-specific: **T-SFH-A own-stack-blindness** (credit a companion for what CC
 ## Finish REPORT with
 
 research-patch PR# · Stage-1 CC-native list · harvest table · adopt-now set + exact wire targets · skip set (own-stack-redundant + cool-but-irrelevant, named) · defer triggers · SSOT rows · §1.7 presence · `## 🟢 Простыми словами`.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

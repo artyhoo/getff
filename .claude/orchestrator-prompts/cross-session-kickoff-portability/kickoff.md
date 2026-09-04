@@ -121,3 +121,5 @@ test (author in A → discovered in fresh checkout B) passes in CI or a document
 - [research-patch 2026-06-14](../../../docs/meta-factory/research-patches/2026-06-14-cross-session-kickoff-portability.md) — binding R-phase scope + verdict.
 - [2026-05-31-j5-orchestrator-prompts-hydration.md §3.1](../../../docs/meta-factory/research-patches/2026-05-31-j5-orchestrator-prompts-hydration.md) — the maintainer-owned deferral this resolves.
 - [scripts/link-coordination.sh](../../../scripts/link-coordination.sh) — the per-machine symlink helper to amend (D1).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

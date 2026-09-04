@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "RuleChannelCapabilities",
-  "description": "CTX Stage 3 — per-harness capability matrix (channel-as-data, design Тезис B layer 2). One row per harness declaring which delivery-channel PRIMITIVES it actually supports: rulesAutoload (does the harness auto-load .claude/rules/**-equivalent context without being told?), pathScoping (can a rule scope itself to matching paths natively?), claudeMdExcludes (does the harness honor an eviction/exclude list the same way CC's claudeMdExcludes convention does?), postToolUseInject (can a hook inject additionalContext after a tool call?), sessionStartHook (does a session-start hook event exist?). `support` distinguishes a harness this project actively delivers to (`supported`) from one recorded for future-reference only (`reference` — not gated by the Stage-3 degradation manifest or the readability probe). Values are booleans (true=native primitive exists) OR a short string naming the DIFFERENT-SHAPED mechanism the harness uses instead (e.g. cursor.rulesAutoload='agents-md' — it has no .claude/rules loader but reads AGENTS.md). A string value is still capability-bearing (non-false) for probe purposes; only `false` means the primitive is absent.",
+  "description": "CTX Stage 3 — per-harness capability matrix (channel-as-data, design Тезис B layer 2). One row per harness declaring which delivery-channel PRIMITIVES it actually supports: rulesAutoload (does the harness auto-load .claude/rules/**-equivalent context without being told?), pathScoping (can a rule scope itself to matching paths natively?), claudeMdExcludes (does the harness honor an eviction/exclude list the same way CC's claudeMdExcludes convention does?), postToolUseInject (can a hook inject additionalContext after a tool call?), sessionStartHook (does a session-start hook event exist?). `support` distinguishes a harness this project actively delivers to (`supported`) from one recorded for future-reference only (`reference` — not gated by the Stage-3 degradation manifest or the readability probe). `axis` records WHOSE environment the row's capability values were established for, so operator-env capability is never conflated with shipped-consumer delivery (launch-preannounce-track S5): `operator` = the maintainer's own daily-driver harness (e.g. zcode, probed live on the operator machine via .claude/orchestrator-prompts/launch-preannounce-track/s5-probes/); `shipped` = a harness the framework delivers to (or plans to deliver to) any consumer via install.sh. Values are booleans (true=native primitive exists) OR a short string naming the DIFFERENT-SHAPED mechanism the harness uses instead (e.g. cursor.rulesAutoload='agents-md' — it has no .claude/rules loader but reads AGENTS.md). A string value is still capability-bearing (non-false) for probe purposes; only `false` means the primitive is absent.",
   "type": "object",
   "additionalProperties": false,
   "required": ["harnesses"],
@@ -14,6 +14,7 @@
         "additionalProperties": false,
         "required": [
           "support",
+          "axis",
           "rulesAutoload",
           "pathScoping",
           "claudeMdExcludes",
@@ -24,6 +25,10 @@
           "support": {
             "type": "string",
             "enum": ["supported", "reference"]
+          },
+          "axis": {
+            "type": "string",
+            "enum": ["operator", "shipped"]
           },
           "rulesAutoload": { "$ref": "#/definitions/capabilityValue" },
           "pathScoping": { "$ref": "#/definitions/capabilityValue" },

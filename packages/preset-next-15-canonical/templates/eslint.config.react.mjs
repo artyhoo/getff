@@ -70,6 +70,7 @@ export default defineConfig(
       'eslint.config.mjs',
       'vitest.config.ts',
       'playwright.config.ts',
+      '.storybook/**',
       '.dependency-cruiser.cjs',
     ],
   },
@@ -77,6 +78,16 @@ export default defineConfig(
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
+
+  // Plain JS/CJS/MJS/JSX files have no type information under `projectService`
+  // (only the `.{ts,tsx}` block enables it), so the unscoped type-aware spread
+  // above would fatal-error (`await-thenable` et al. throw "requires type
+  // information") on any such file walked by `eslint .` outside the tsconfig
+  // `include`. Disable type-aware rules for them. Must come AFTER the spread. (GH #973)
+  {
+    files: ['**/*.{js,cjs,mjs,jsx}'],
+    ...tseslint.configs.disableTypeChecked,
+  },
 
   // Base TS block
   {

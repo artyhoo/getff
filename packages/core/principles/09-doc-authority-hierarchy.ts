@@ -49,6 +49,7 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   '.claude/rules/language-discipline.md',
   '.claude/rules/ci-tool-pinning.md',
   '.claude/rules/egress-no-api-bypass.md',
+  '.claude/rules/zcode-parity-doctrine.md',
   '.claude/rules/skill-description-quality.md',
   '.claude/rules/research-source-trust.md',
   '.claude/rules/source-before-shape.md',
@@ -78,12 +79,12 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   'docs/meta-factory/research-patches/README.md',
 
   // skills/ — primary doc + cold references
-  'skills/rules-as-tests/SKILL.md',
-  'skills/rules-as-tests/references/ai-traps.md',
-  'skills/rules-as-tests/references/checks-map.md',
-  'skills/rules-as-tests/references/doc-organization.md',
-  'skills/rules-as-tests/references/overview.md',
-  'skills/rules-as-tests/references/self-testing-docs.md',
+  'skills/getff/SKILL.md',
+  'skills/getff/references/ai-traps.md',
+  'skills/getff/references/checks-map.md',
+  'skills/getff/references/doc-organization.md',
+  'skills/getff/references/overview.md',
+  'skills/getff/references/self-testing-docs.md',
   'skills/tool-bootstrapping/SKILL.md',
   'skills/tool-bootstrapping/references/decision-format.md',
 
@@ -106,6 +107,14 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   'packages/core/templates/shared/DESCRIPTION.template.md',
   'packages/core/templates/shared/ARCHITECTURE.ts-server.md',
   'packages/core/templates/shared/integration-rules.md',
+  // tier-home.md shipped at env+ via setup.d/30-templates.sh (beta-delivery-ux S3 / spec A3).
+  // SSOT for the Tier 0/1/2 criteria + degradation matrix; CLAUDE.md «Task-tier routing» points here.
+  'packages/core/templates/shared/tier-home.md',
+  // AI Usage Guide shipped at every depth via setup.d/30-templates.sh + setup.d/45-python.sh
+  // (beta-ai-docs-agnosticism S1 / spec C1). The AI-facing lifecycle doc past install; its §2
+  // First Steps renders from packages/core/templates/shared/first-steps.source.json and the
+  // parity is gated by packages/core/audit-self/first-steps-parity.test.ts.
+  'packages/core/templates/shared/AI-USAGE-GUIDE.md',
   'packages/preset-next-15-canonical/RULES.md',
   'packages/preset-next-15-canonical/RULES.react-next.md',
   'packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md',
@@ -133,6 +142,7 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   'agents/aif-init.md',
   'agents/rule-researcher.md',
   'agents/capability-reuse-auditor.md',
+  'agents/rule-test-author.md',
 ];
 
 /**

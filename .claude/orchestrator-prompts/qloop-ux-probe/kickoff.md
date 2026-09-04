@@ -11,7 +11,7 @@
 
 1. Прочитай свой текущий plan / контекст: какие из вопросов ниже УЖЕ получили ответ оператора (ответ приходит назад в plan под якорем `## ⏸ OPEN QUESTION`).
 2. Найди **первый ещё не отвеченный** вопрос из цепочки и **запаркуй его**:
-   ```
+   ```text
    tsx packages/runtime-bridge/src/cli/park.ts --question "<текст вопроса целиком>"
    ```
    `park.ts` ставит `paused:true` — это СТОП. Ты остановишься; оператор ответит и сделает resume; тебя запустят снова — повтори с шага 1.
@@ -38,3 +38,5 @@ See `.claude/rules/ai-laziness-traps.md §2`. Active traps for this resume-test 
 - `park.ts` — реальный примитив (SSOT #109). Не выдумывай свой стоп.
 - Если `park.ts` падает — STOP и сообщи (не хакай рантайм). См. `.claude/rules` stop-surface-not-hack.
 - Заверши REPORT строкой `## 🟢 Простыми словами`.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -58,3 +58,5 @@ Deliverable = the probe prompt + fixtures, committed on your task branch, marked
 - `agents/manual-rule-liveness-prober.md` (#115) — the ADAPT source.
 - `docs/meta-factory/research-patches/2026-06-16-shipped-artifact-liveness.md` §4 M2 / §5.1 / §5.2 (trigger) — binding research.
 - `packages/core/principles/21-shipped-agent-tools-valid.test.ts` (#576) — the M1 gate this complements; reuse its shipped-surface enumeration.
+
+<!-- host-verify: none — build-only prose deliverable (own §Deliverable: agents/shipped-agent-liveness-prober.md + data fixtures, DORMANT by design, never runs in CI): the enforced machine surface is principle 21 (21-shipped-agent-tools-valid.test.ts) in the m1-gate contract -->

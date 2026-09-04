@@ -14,8 +14,9 @@
 // plane (seeded S4 — DocPlan composition gate). FF = fitness functions (getff
 // brand). This file seeds FF1001, the 15 FF2xxx codes, and the 20 FF3xxx codes
 // (Task 4, DN-D1-4 — one code per failure kind per gate, spec-literal per-gate
-// allocation; see decisions.md DN-D1-4 for the full derivation), plus 3 FF6xxx
-// codes (MT umbrella S1 — IR grammar gate), 3 FF7xxx codes (MT umbrella S2 —
+// allocation; see decisions.md DN-D1-4 for the full derivation), plus 4 FF6xxx
+// codes (MT umbrella S1 — IR grammar gate; FF6004 added by ir-unfreeze S1,
+// OWNER-FORK-1 relational unfreeze), 3 FF7xxx codes (MT umbrella S2 —
 // cargo backend v0 render outcomes), and 4 FF8xxx codes (MT umbrella S4 —
 // DocPlan composition gate). FF4xxx/FF5xxx are D2+ at-touch (reserved, not seeded here).
 //
@@ -273,6 +274,16 @@ export const REGISTRY: Readonly<Record<string, RegistryEntry>> = Object.freeze({
     explanation: 'Gate 2 (ruleTester): a declared known-safe form of the forbidden construct fired the rule — over-broad selector (GH #915 obs 4: hasOwnProperty.call / x == null class). gate-rule-tester.ts.',
   },
 
+  FF3022: {
+    template:
+      '{gate} skipped rule \'{ruleName}\': the \'rules-as-tests\' plugin registry could not be resolved, so the check cannot run. Tried: {tried}',
+    defaultSeverity: 'warning',
+    explanation:
+      'Any plugin-rule gate: neither the consumer barrel (<cwd>/eslint-rules-local/index.mjs) ' +
+      'nor the workspace preset packages resolved, so the rule could not be linted. Environmental, ' +
+      'not a defect in the plan — the gate reports `degrade`, never `pass`. validator/preset-plugin-resolver.ts.',
+  },
+
   // --- FF6xxx: IR grammar gates (MT umbrella S1 — ir/gates/grammar.ts) ---
   FF6001: {
     template: 'degenerate pairedExamples: positive === negative for node {nodeId}',
@@ -294,6 +305,16 @@ export const REGISTRY: Readonly<Record<string, RegistryEntry>> = Object.freeze({
     explanation:
       'IR grammar gate (coverage/broken-ref class, principle-08 pattern generalized): an anchor ' +
       'in node.anchors does not resolve to a key in the diagnostics REGISTRY. ir/gates/grammar.ts.',
+  },
+  FF6004: {
+    template: 'degenerate relational tree: {op} composite on node {nodeId} has duplicate children (no discriminating power)',
+    defaultSeverity: 'error',
+    explanation:
+      'IR grammar gate (relational tautology class — FF6001 analog on the relational plane): a ' +
+      'relational composite (all/any/not) carries two or more byte-identical child rules, so the ' +
+      'composition adds no discriminating power. The relational tree SHAPE is deep-validated by ajv ' +
+      '(FF1001) against the recursive convention-node.schema.json RelationalRule definition; FF6004 ' +
+      'is the residual semantic check ajv cannot express (cross-child equality). ir/gates/grammar.ts.',
   },
 
   // --- FF7xxx: render outcomes (MT umbrella S2 — backends/cargo/render-clippy.ts) ---

@@ -21,6 +21,8 @@ exclude = [
   '^https?://([a-zA-Z0-9-]+\.)?example\.(com|org|net)',
   '^https?://(www\.)?npmjs\.com', # confirmed 403 on HEAD+GET regardless of UA — bot-block, not dead links
   '^https?://gptlint\.dev', # TLS handshake fails from non-browser clients (verified live 2026-07-10, curl exit 35)
+  '^https?://explainx\.ai', # 200 from local network but consistent TIMEOUT from GitHub runners (2× on PR #1511, 2026-08-21; local curl -I → HTTP/2 200) — runner-path unreachable, not a dead link
+  '/\.\.\.$', # the literal ellipsis placeholder '/...' — quoted inside an escaped code span (migration-ast stage-1); lychee's parser misreads it as a link. Unanchored so it also matches the root-dir-resolved file URL form. Placeholder class, same posture as example.* above — not a link.
 ]
 
 # Closed historical artifacts (CLAUDE.md «Artifact Ownership Contract»):
@@ -32,11 +34,16 @@ exclude = [
 # them would violate their append-only/frozen ownership. The LIVE operational
 # docs (EXECUTION-PLAN.md, prior-art-evaluations.md, open-questions.md,
 # docs/audits/**, runtime-bridge-setup.md, …) remain fully checked.
+# triage-corpus/sources/ holds review reports preserved VERBATIM as blind
+# corpus source material (design spec §2 W-7) — their relative links were
+# written from their original untracked home and editing them would break
+# the preserved-verbatim property the corpus depends on.
 exclude_path = [
   'docs/meta-factory/research-patches/',
   'docs/meta-factory/retros/',
   'docs/meta-factory/generator-forbid-mvp/',
   'docs/meta-factory/phase-8-research\.md',
+  'docs/meta-factory/triage-corpus/sources/',
   'docs/superpowers/',
 ]
 

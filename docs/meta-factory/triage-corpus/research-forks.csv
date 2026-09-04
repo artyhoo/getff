@@ -1,0 +1,4 @@
+id,source,provenance,finding,context,class_start,orig_grade
+"rf-1","s-l-fork-verdicts","author-cell","operator decisions on DECISION-NEEDED #5, #6, #7","docs/meta-factory/research-patches/2026-08-07-s-l-fork-verdicts.md (author-written disposition)","UNRECOVERABLE","none"
+"rf-2","per-role-digest-fork","author-cell","A **recommendation-FREE fork** — this patch gives the tradeoff space, not a pick","docs/meta-factory/research-patches/2026-08-02-per-role-digest-fork.md (author-written disposition)","UNRECOVERABLE","none"
+"rf-3","rules-lock-version-semantics-fork","author-cell","an unresolved fork that blocks `getff-freshness-widening` S1","docs/meta-factory/research-patches/2026-08-08-rules-lock-version-semantics-fork.md (author-written disposition)","UNRECOVERABLE","none"

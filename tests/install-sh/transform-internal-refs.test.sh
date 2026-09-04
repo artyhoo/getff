@@ -5,12 +5,50 @@
 # Single source of truth: install.sh:39-47 — sourced in lib-only mode (INSTALL_SH_LIB_ONLY=1)
 # so the function definition is available without running the install pipeline.
 #
-# 7 sub-tests covering the 5 transform classes + idempotency:
+# Sub-tests covering the transform classes + idempotency:
 #   1.  transforms ](../../../docs/x.md) → ](${URL}/docs/x.md)
 #   1b. transforms ](../../../../docs/y.md) → ](${URL}/docs/y.md) — 4-deep depth
 #   2.  transforms ](../../../packages/y.ts) → ](${URL}/packages/y.ts)
 #   3.  transforms ](../../../../README.md#anchor) → ](${URL}/README.md#anchor) — preserves #anchor
-#   4.  LEAVES ](../../rules/foo.md) intact (consumer has .claude/rules/ post-install)
+#   4.  transforms ](../../rules/foo.md) → ](${URL}/.claude/rules/foo.md) — rules/ NOT shipped
+#       to consumers (2026-07-10 flat-install smoke: 87 dangling links → first push RED on lychee)
+#   4b. transforms ](../.claude/rules/foo.md#a) → ](${URL}/.claude/rules/foo.md#a) — agents/*.md shape
+#   4c. transforms ](../../install.sh) → ](${URL}/install.sh) — skills/rules-as-tests shape
+#   4d. transforms ](../../../agents/foo.md) → ](${URL}/agents/foo.md) — S2 2026-07-25:
+#       agents/ DOES ship to .claude/agents/, but the relative path from a skill file at
+#       depth 3 resolves to <consumer>/agents/ (wrong) instead of <consumer>/.claude/agents/.
+#       Six such leaks surfaced in the S2 corpus sweep (harvest/dispatcher/night-mode).
+#   4e. transforms ](../tests/fixtures/foo/README.md) → ](${URL}/tests/fixtures/foo/README.md)
+#       — S2 2026-07-25: tests/ is never shipped; one leak in shipped-agent-liveness-prober.md.
+#   4f. LEAVES ](../../../scripts/check-rule-enforced.sh) intact — scripts/ is PARTIALLY shipped
+#       (subset via setup.d/40-configs.sh); per-file ambiguity is a §4 park trigger
+#       (kickoff getff-honest-signals-s2 §4). Boundary documented, not blanket-rewritten.
+#   4f2-4f3. PER-FILE allowlist (2026-08-17) — the park's own stated trigger fired. Widening the
+#       lychee fixture from core to factory depth caught two refs to proven-absent targets:
+#       scripts/run-local-ci-sweep.sh and hooks/check-worker-dispatch-channel.sh, each verified
+#       missing from a real `--profile factory` install. 4f vs 4f2 is the honest pair: same
+#       directory, opposite verdicts, decided per-file by whether that file actually ships.
+#   4f4-4f5. The sibling-skill shape stays RELATIVE, and `reviewer` must stay in a tier. The
+#       same widening caught ](../reviewer/SKILL.md) dangling, and the first fix rewrote it to a
+#       blob URL — treating the symptom. «sibling-skill links stay relative (sibling ships too)»
+#       (setup.d/10-skills.sh:107) means a dangling SIBLING ref proves the sibling is missing:
+#       arch (env tier) tells consumers `/reviewer` loads the project skill, while `reviewer`
+#       shipped to nobody. Fixed by shipping it at env; 4f4 asserts the link stayed relative and
+#       4f5 asserts the tier membership that makes it resolve.
+#   4i-4k. BLANKET arms (2026-08-17): CLAUDE.md (consumers get AGENTS.md, never CLAUDE.md — 10
+#       of the 17 factory-depth breaks, purely because the peer README.md arm existed from day
+#       one and this one never got added), the `.claude/`-PREFIXED orchestrator-prompts shape
+#       (4g's bare arm does not match it), and .github/ (only .github/workflows/ ships).
+#   4g. transforms ](../../orchestrator-prompts/foo/kickoff.md) → ](${URL}/.claude/orchestrator-prompts/foo/kickoff.md)
+#       — S2 2026-07-25 round-1 rework: .claude/orchestrator-prompts/ is NEVER delivered
+#       to consumers (the only install action is mkdir_safe "$PROJECT_ROOT/.ai-factory/
+#       orchestrator-prompts" at setup.d/30-templates.sh:17 — note: .ai-factory/, not
+#       .claude/). One leak surfaced in .claude/skills/aif-doctor/SKILL.md:26.
+#   4h. transforms ](../.claude/skills/foo/SKILL.md) → ](${URL}/.claude/skills/foo/SKILL.md)
+#       — 2026-07-25 handoff item 5: agents/*.md at repo root reach skills via
+#       ../.claude/skills/...; shipped to <consumer>/.claude/agents/ that ref resolves to
+#       <consumer>/.claude/.claude/skills/... (doubled segment). Blob URL, not relative:
+#       the target skill may be absent (aif-suite–gated). Leak: agents/fidelity-auditor.md:22.
 #   5.  LEAVES ](../../../hooks/bar.sh) intact (consumer has .claude/hooks/ post-install)
 #   6.  idempotent — second pass produces no further change
 #
@@ -44,7 +82,23 @@ cat > "$FIXTURE" <<'EOF'
 - [deep docs](../../../../docs/meta-factory/bar.md) — should TRANSFORM (4-deep)
 - [pkg link](../../../packages/core/principles/x.test.ts) — should TRANSFORM
 - [readme](../../../../README.md#why-this-exists) — should TRANSFORM
-- [rule link](../../rules/no-paid-llm-in-ci.md) — should STAY
+- [rule link](../../rules/no-paid-llm-in-ci.md) — should TRANSFORM (rules/ not shipped)
+- [agent rule link](../.claude/rules/ai-laziness-traps.md#2-canonical-trap-catalogue) — should TRANSFORM
+- [installer link](../../install.sh) — should TRANSFORM (framework file, not shipped)
+- [installer anchor](../../install.sh#usage) — should TRANSFORM (anchor form)
+- [shim dir](../../install.shim/x.md) — should STAY (right boundary: not install.sh)
+- [agent file link](../../../agents/fidelity-auditor.md) — should TRANSFORM (S2: wrong path on consumer)
+- [tests fixture](../tests/fixtures/foo/README.md) — should TRANSFORM (S2: tests/ not shipped)
+- [orchestrator-prompts](../../orchestrator-prompts/aif-doctor-skill/kickoff.md) — should TRANSFORM (S2: never delivered to consumers)
+- [scripts link](../../../scripts/check-rule-enforced.sh) — should STAY (S2 park: scripts/ partial-ship)
+- [unshipped script](../../../scripts/run-local-ci-sweep.sh) — should TRANSFORM (allowlist: proven-absent)
+- [unshipped hook](../../hooks/check-worker-dispatch-channel.sh) — should TRANSFORM (allowlist: proven-absent)
+- [sibling skill](../reviewer/SKILL.md) — should TRANSFORM (reviewer is in no tier list)
+- [agent skill link](../.claude/skills/dispatcher/SKILL.md) — should TRANSFORM (agent shape: doubles to .claude/.claude on consumer)
+- [claude md](../../../CLAUDE.md) — should TRANSFORM (consumer gets AGENTS.md, never CLAUDE.md)
+- [claude md anchor](../../../CLAUDE.md#pr-strategy) — should TRANSFORM (anchor preserved)
+- [dotclaude orch](../../../.claude/orchestrator-prompts/beta/kickoff-s5.md) — should TRANSFORM (.claude/-prefixed shape)
+- [pr template](../../../.github/pull_request_template.md) — should TRANSFORM (.github/ not shipped)
 - [hook link](../../../hooks/end-of-turn-reminder.sh) — should STAY
 EOF
 
@@ -71,10 +125,124 @@ grep -qF "${UPSTREAM_BLOB_URL}/README.md#why-this-exists" <<<"$OUT" \
   && ok "3: README.md#anchor preserved through rewrite" \
   || bad "3: README.md rewrite failed; got: $(grep -F 'why-this-exists' <<<"$OUT")"
 
-# Sub-test 4: rules/ left intact (consumer has .claude/rules/)
-grep -qF "](../../rules/no-paid-llm-in-ci.md)" <<<"$OUT" \
-  && ok "4: ../../rules/ left intact (consumer-resolvable)" \
-  || bad "4: rules/ link was modified — leak; got: $(grep -F 'rules/no-paid' <<<"$OUT")"
+# Sub-test 4: rules/ rewritten to blob URL (.claude/rules/ is NOT shipped to consumers)
+grep -qF "](${UPSTREAM_BLOB_URL}/.claude/rules/no-paid-llm-in-ci.md)" <<<"$OUT" \
+  && ! grep -qF "](../../rules/no-paid-llm-in-ci.md)" <<<"$OUT" \
+  && ok "4: ../../rules/ → ${UPSTREAM_BLOB_URL}/.claude/rules/" \
+  || bad "4: rules/ rewrite failed; got: $(grep -F 'rules/no-paid' <<<"$OUT")"
+
+# Sub-test 4b: agents-shape ../.claude/rules/ rewritten, #anchor preserved
+grep -qF "](${UPSTREAM_BLOB_URL}/.claude/rules/ai-laziness-traps.md#2-canonical-trap-catalogue)" <<<"$OUT" \
+  && ! grep -qF "](../.claude/rules/ai-laziness-traps.md" <<<"$OUT" \
+  && ok "4b: ../.claude/rules/ → ${UPSTREAM_BLOB_URL}/.claude/rules/ (#anchor preserved)" \
+  || bad "4b: .claude/rules/ rewrite failed; got: $(grep -F 'ai-laziness-traps' <<<"$OUT")"
+
+# Sub-test 4c: install.sh rewritten (framework installer, not shipped to consumers);
+# right-boundary: only `install.sh)` / `install.sh#…` forms — install.shim/ stays.
+grep -qF "](${UPSTREAM_BLOB_URL}/install.sh)" <<<"$OUT" \
+  && grep -qF "](${UPSTREAM_BLOB_URL}/install.sh#usage)" <<<"$OUT" \
+  && ! grep -qF "](../../install.sh)" <<<"$OUT" \
+  && grep -qF "](../../install.shim/x.md)" <<<"$OUT" \
+  && ok "4c: ../../install.sh → ${UPSTREAM_BLOB_URL}/install.sh (anchor kept; .shim/ untouched)" \
+  || bad "4c: install.sh rewrite failed; got: $(grep -F 'install.sh' <<<"$OUT")"
+
+# Sub-test 4d: agents/ rewritten (S2 2026-07-25). agents/ ships to .claude/agents/ but
+# the relative path from a skill file at depth 3 lands at <consumer>/agents/ (wrong).
+grep -qF "](${UPSTREAM_BLOB_URL}/agents/fidelity-auditor.md)" <<<"$OUT" \
+  && ! grep -qF "](../../../agents/fidelity-auditor.md)" <<<"$OUT" \
+  && ok "4d: ../../../agents/ → ${UPSTREAM_BLOB_URL}/agents/ (S2: depth-mismatch fix)" \
+  || bad "4d: agents/ rewrite failed; got: $(grep -F 'agents/fidelity' <<<"$OUT")"
+
+# Sub-test 4e: tests/ rewritten (S2 2026-07-25). tests/ never ships to consumers.
+grep -qF "](${UPSTREAM_BLOB_URL}/tests/fixtures/foo/README.md)" <<<"$OUT" \
+  && ! grep -qF "](../tests/fixtures/foo/README.md)" <<<"$OUT" \
+  && ok "4e: ../tests/ → ${UPSTREAM_BLOB_URL}/tests/ (S2: tests/ never shipped)" \
+  || bad "4e: tests/ rewrite failed; got: $(grep -F 'tests/fixtures' <<<"$OUT")"
+
+# Sub-test 4f: scripts/ NOT rewritten (S2 park). scripts/ is partially shipped
+# (subset via setup.d/40-configs.sh); the per-file ambiguity is a §4 park trigger.
+# Documents the boundary — extend with a shipped-scripts allowlist if a future
+# scripts/ ref to a non-shipped script re-breaks a consumer push.
+grep -qF "](../../../scripts/check-rule-enforced.sh)" <<<"$OUT" \
+  && ok "4f: ../../../scripts/ left intact (S2 park: scripts/ partial-ship ambiguity)" \
+  || bad "4f: scripts/ was rewritten — park violated; got: $(grep -F 'scripts/check-rule' <<<"$OUT")"
+
+# Sub-tests 4f2-4f4: the three PER-FILE allowlist arms (2026-08-17). The park above stays a
+# park — scripts/ and .claude/hooks/ are still NOT blanket-rewritten (4f, 5) — but the park's
+# own stated trigger fired ("extend with a shipped-scripts allowlist if a future scripts/ ref
+# to a non-shipped script re-breaks a consumer push"): widening the lychee fixture from core to
+# factory depth caught all three shipping dangling. Each target was verified ABSENT from a real
+# `--profile factory` install before being allowlisted, so these three are proven-absent, not
+# guessed. Pairing 4f against 4f2 is what keeps the distinction honest: same directory, opposite
+# verdicts, decided by whether the specific file ships.
+grep -qF "](${UPSTREAM_BLOB_URL}/scripts/run-local-ci-sweep.sh)" <<<"$OUT" \
+  && ok "4f2: scripts/run-local-ci-sweep.sh → blob (allowlist: proven absent at factory depth)" \
+  || bad "4f2: unshipped scripts/ allowlist arm failed; got: $(grep -F 'run-local-ci-sweep' <<<"$OUT")"
+
+grep -qF "](${UPSTREAM_BLOB_URL}/.claude/hooks/check-worker-dispatch-channel.sh)" <<<"$OUT" \
+  && ok "4f3: hooks/check-worker-dispatch-channel.sh → blob (allowlist: proven absent)" \
+  || bad "4f3: unshipped hook allowlist arm failed; got: $(grep -F 'check-worker-dispatch' <<<"$OUT")"
+
+# Sub-test 4f4: the sibling-skill shape stays RELATIVE. `](../reviewer/SKILL.md)` from
+# arch/SKILL.md:94 dangled at factory depth, and the first fix rewrote it to a blob URL — wrong
+# cause. The invariant is «sibling-skill links stay relative (sibling ships too)»
+# (setup.d/10-skills.sh:107), so a dangling sibling ref proves the SIBLING IS MISSING, not that
+# the ref needs bending. `reviewer` was in no tier while arch — an env-tier skill consumers do
+# get — promised them that `/reviewer` loads the project skill. Shipping it at env is the fix;
+# this assertion is what keeps a future author from re-reaching for the rewrite.
+grep -qF "](../reviewer/SKILL.md)" <<<"$OUT" \
+  && ok "4f4: sibling ](../reviewer/ left RELATIVE (sibling ships too — 10-skills.sh:107)" \
+  || bad "4f4: sibling-skill ref was rewritten — a dangling sibling means the sibling is missing from a tier list, not that the link is wrong; got: $(grep -F 'reviewer/' <<<"$OUT")"
+
+# Sub-test 4f5: the other half of 4f4 — the ref only resolves while `reviewer` actually ships.
+# Nothing else can catch this: a link gate sees the delivered tree, so if reviewer were dropped
+# from the tiers the ref would dangle again, and the ONLY reason the fixture would go red is
+# this assertion naming the cause. Pairs with 4f4 the way 4f pairs with 4f2.
+case " $GETFF_SKILLS_CORE $GETFF_SKILLS_ENV $GETFF_SKILLS_FACTORY " in
+  *" reviewer "*)
+    ok "4f5: 'reviewer' is in a GETFF_SKILLS_* tier, so arch's sibling ref resolves on a consumer" ;;
+  *)
+    bad "4f5: 'reviewer' left the tier lists — arch/SKILL.md:94 now points at a skill no consumer receives; re-add it to GETFF_SKILLS_ENV rather than rewriting the link" ;;
+esac
+
+# Sub-tests 4i-4k: the three BLANKET arms added 2026-08-17 alongside the allowlist above.
+# CLAUDE.md was the single biggest offender at factory depth (10 of 17 broken links) purely
+# because the peer README.md arm had existed from the start and this one had never been added.
+grep -qF "](${UPSTREAM_BLOB_URL}/CLAUDE.md)" <<<"$OUT" \
+  && grep -qF "](${UPSTREAM_BLOB_URL}/CLAUDE.md#pr-strategy)" <<<"$OUT" \
+  && ok "4i: ../../../CLAUDE.md → blob, anchor form preserved (consumer ships AGENTS.md only)" \
+  || bad "4i: CLAUDE.md rewrite failed; got: $(grep -F 'CLAUDE.md' <<<"$OUT")"
+
+grep -qF "](${UPSTREAM_BLOB_URL}/.claude/orchestrator-prompts/beta/kickoff-s5.md)" <<<"$OUT" \
+  && ok "4j: .claude/-PREFIXED orchestrator-prompts → blob (4g's bare arm misses this shape)" \
+  || bad "4j: .claude/-prefixed orchestrator-prompts failed; got: $(grep -F 'kickoff-s5' <<<"$OUT")"
+
+grep -qF "](${UPSTREAM_BLOB_URL}/.github/pull_request_template.md)" <<<"$OUT" \
+  && ok "4k: ../../../.github/ → blob (only .github/workflows/ ships)" \
+  || bad "4k: .github/ rewrite failed; got: $(grep -F '.github/' <<<"$OUT")"
+
+# Sub-test 4g: orchestrator-prompts/ rewritten (S2 2026-07-25 round-1 rework).
+# .claude/orchestrator-prompts/ is never delivered to consumers — the only install
+# action is mkdir_safe "$PROJECT_ROOT/.ai-factory/orchestrator-prompts" at
+# setup.d/30-templates.sh:17 (note: .ai-factory/, NOT .claude/). A skill file's
+# ](../../orchestrator-prompts/...) resolves to <consumer>/.claude/orchestrator-prompts/...
+# — a path that does not exist. The rewrite targets the framework blob URL under
+# .claude/orchestrator-prompts/ (the framework-source path), matching the getff
+# install-time mapping for repo-internal refs.
+grep -qF "](${UPSTREAM_BLOB_URL}/.claude/orchestrator-prompts/aif-doctor-skill/kickoff.md)" <<<"$OUT" \
+  && ! grep -qF "](../../orchestrator-prompts/aif-doctor-skill/kickoff.md)" <<<"$OUT" \
+  && ok "4g: ../../orchestrator-prompts/ → ${UPSTREAM_BLOB_URL}/.claude/orchestrator-prompts/ (S2 rework: never delivered to consumer)" \
+  || bad "4g: orchestrator-prompts/ rewrite failed; got: $(grep -F 'orchestrator-prompts/' <<<"$OUT")"
+
+# Sub-test 4h: agent-shape .claude/skills/ rewritten (2026-07-25 handoff item 5).
+# agents/*.md live at repo root and reach skills via ](../.claude/skills/...); shipped to
+# <consumer>/.claude/agents/ the same ref resolves to <consumer>/.claude/.claude/skills/...
+# — a doubled segment that does not exist. Blob URL, not a relative rewrite: the target
+# skill may be absent on the consumer (aif-suite–gated, e.g. dispatcher).
+grep -qF "](${UPSTREAM_BLOB_URL}/.claude/skills/dispatcher/SKILL.md)" <<<"$OUT" \
+  && ! grep -qF "](../.claude/skills/dispatcher/SKILL.md)" <<<"$OUT" \
+  && ok "4h: ../.claude/skills/ → ${UPSTREAM_BLOB_URL}/.claude/skills/ (agent shape: doubled-segment fix)" \
+  || bad "4h: .claude/skills/ rewrite failed; got: $(grep -F '.claude/skills/dispatcher' <<<"$OUT")"
 
 # Sub-test 5: hooks/ left intact (consumer has .claude/hooks/)
 grep -qF "](../../../hooks/end-of-turn-reminder.sh)" <<<"$OUT" \

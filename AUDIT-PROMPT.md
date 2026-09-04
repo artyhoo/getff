@@ -157,12 +157,12 @@ PHASE 4 — Self-application (does the package follow its own rules?)
 PHASE 5 — Setup verification (~5 min, optional, requires sandbox)
 ═══════════════════════════════════════════════════════════════
 
-19. (If you have a sandbox) — run setup.sh with --skip-deps in /tmp/test
+19. (If you have a sandbox) — run `bash install.sh ts-server` in /tmp/test
     and verify:
-    - ai-factory init creates .ai-factory/
+    - .ai-factory/ is created with templates (no ai-factory CLI required)
     - install.sh overlays without crashing
-    - npm scripts added to package.json
-    - .husky/pre-commit and pre-push installed
+    - the installer prints the remaining wiring steps (dev-deps, npm scripts)
+    - .husky/pre-commit and pre-push hook files installed
 
 20. Negative test for audit-ai-docs.sh:
     - In sandbox, create src/domain/bad.ts with `const _ = Date.now()`
@@ -258,7 +258,7 @@ Produce a structured report. For each finding:
 - **Suggested fix**: <one sentence — don't write the actual fix, describe it>
 
 Severity rules:
-- BLOCKER — package won't work as advertised (e.g., setup.sh crashes, dead link
+- BLOCKER — package won't work as advertised (e.g., install.sh crashes, dead link
   in installation instructions, audit script has bug that misses violations)
 - MAJOR — significant quality issue (e.g., conceptual duplication between docs,
   rule without enforcement, misleading claim)

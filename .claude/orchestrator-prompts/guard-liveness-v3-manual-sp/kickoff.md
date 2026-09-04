@@ -3,11 +3,15 @@
 > **Type:** I-phase (build + design — companion-contract). Days-week scale (the design half is the longer arm).
 > **Sub-wave v3** of guard-liveness umbrella. Siblings: v0 (audit), v1 (ESLint), v1.5 (cmd/script), v2 (full-sweep).
 > **Design SSOT:** [docs/meta-factory/research-patches/2026-05-23-guard-liveness-gate.md](../../../docs/meta-factory/research-patches/2026-05-23-guard-liveness-gate.md) §3 sub-wave row v3.
-> **Depends on:** v0 lands (criticality list for the 5 manual rules). May run in parallel with v1.5.
+> May run in parallel with v1.5.
 > **Admission:** candidate ([wave-sequencing-plan.md §0](../../../docs/meta-factory/wave-sequencing-plan.md)).
 
+| Stage | Scope (one line) | Depends on |
+|---|---|---|
+| v3 | manual rules via Superpowers dogfood: pressure-scenarios for the 5 manual rules (§1) | v0 lands (criticality list for the 5 manual rules) |
+
 ## §0 Why this sub-wave (origin)
-`check.type === 'manual'` rules (5 of 26 in current manifest) have NO executable input — they are judgement-based («human/AI reads doc and decides»). `gate-rule-tester` skips them; no deterministic injection mechanism exists by construction. **But Superpowers' `writing-skills` skill solves this exact problem** for skill artifacts via **pressure-scenarios** ([SKILL.md:14-43](/Users/art/.claude/plugins/marketplaces/superpowers-dev/skills/writing-skills/SKILL.md)): subagent runs WITHOUT skill → baseline failure; subagent runs WITH skill → compliance; RED→GREEN proves the skill teaches. The project's stance ([niche-roadmap §N1 line 21](../../../docs/meta-factory/research-patches/2026-05-21-niche-strategy-and-growth-roadmap.md), [line 90](../../../docs/meta-factory/research-patches/2026-05-21-niche-strategy-and-growth-roadmap.md)) makes the right call explicit: **process-layer dogfood Superpowers; keep substrate dependency-free.** Manual rules are exactly the moment for that dogfood.
+`check.type === 'manual'` rules (5 of 26 in current manifest) have NO executable input — they are judgement-based («human/AI reads doc and decides»). `gate-rule-tester` skips them; no deterministic injection mechanism exists by construction. **But Superpowers' `writing-skills` skill solves this exact problem** for skill artifacts via **pressure-scenarios** (`SKILL.md:14-43` of the installed `writing-skills` skill): subagent runs WITHOUT skill → baseline failure; subagent runs WITH skill → compliance; RED→GREEN proves the skill teaches. The project's stance ([niche-roadmap §N1 line 21](../../../docs/meta-factory/research-patches/2026-05-21-niche-strategy-and-growth-roadmap.md), [line 90](../../../docs/meta-factory/research-patches/2026-05-21-niche-strategy-and-growth-roadmap.md)) makes the right call explicit: **process-layer dogfood Superpowers; keep substrate dependency-free.** Manual rules are exactly the moment for that dogfood.
 
 ## §1 Core deliverable
 A **companion-bridged liveness mechanism** for manual rules: each manual rule ships a pressure-scenario template; an AI-agnostic prober runs WITHOUT/WITH the rule via SP's pattern; reports RED→GREEN delta. Session-bound (operator-triggered), NOT CI.
@@ -26,7 +30,7 @@ A **companion-bridged liveness mechanism** for manual rules: each manual rule sh
      };
    }
    ```
-2. **AI-agnostic sub-agent prompt** at `agents/manual-rule-liveness-prober.md` — read by an active session (CC / Cursor / Aider) on operator's subscription, **never invoked from CI**. The prober: reads a manual rule's `pressure-scenario`, dispatches a fresh subagent into the baseline prompt twice (without/with the rule loaded), parses the two responses for `observable-failure` / `observable-compliance` markers, reports delta. Mirrors SP's `subagent-driven-development` two-subagent shape ([SKILL.md:8](/Users/art/.claude/plugins/marketplaces/superpowers-dev/skills/subagent-driven-development/SKILL.md)).
+2. **AI-agnostic sub-agent prompt** at `agents/manual-rule-liveness-prober.md` — read by an active session (CC / Cursor / Aider) on operator's subscription, **never invoked from CI**. The prober: reads a manual rule's `pressure-scenario`, dispatches a fresh subagent into the baseline prompt twice (without/with the rule loaded), parses the two responses for `observable-failure` / `observable-compliance` markers, reports delta. Mirrors SP's `subagent-driven-development` two-subagent shape (`SKILL.md:8` of the installed skill).
 3. **Session-trigger convention:** add `/guard-liveness-probe <rule-id>` slash-command guidance to operator workflow; OR fold into existing `/aif-verify` skill if compatible (decide in §3).
 4. **principle 02 / 15 extension:** for `check.type === 'manual'`, assert `pressure-scenario` fields are populated (non-empty, observable-failure ≠ observable-compliance).
 5. **Migration:** populate `pressure-scenario` for v0's LOAD-BEARING manual rules in this PR.
@@ -63,3 +67,5 @@ Cold-review (1× Opus, this Wave is unusually load-bearing because it crosses in
 - **v1 schema must land first** (`NegativeTest.input: string[]`) — v3 adds a parallel field for manual, the umbrella migration is staged across sub-waves.
 - **N5 give-back:** v3's prober + the schema convention are the strongest give-back candidate of the umbrella. After v3 ships green, the maintainer decides at N5 whether to contribute (likely shape: a Superpowers skill, since SP is zero-dep and accepts skill PRs).
 - **`/aif-verify` interaction:** if folded, document the new probe surface in [INSTALL-FOR-AI.md](../../../INSTALL-FOR-AI.md).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -19,7 +19,9 @@
         "good": "'use client';\nimport { useState } from 'react';\nexport function C() { return null; }"
       },
       "negative-test": {
-        "input": ["'use client';\nimport fs from 'fs';\nexport const x = 1;"],
+        "input": [
+          "'use client';\nimport fs from 'fs';\nexport const x = 1;"
+        ],
         "expect-violation": "rules-as-tests/no-server-imports-in-client"
       },
       "id": "G1",
@@ -29,14 +31,17 @@
           {
             "url": "https://nextjs.org/docs/app/building-your-application/rendering/server-components",
             "allowlistKey": "next.official",
-            "fetchedAt": "2026-05-08"
+            "fetchedAt": "2026-05-08",
+            "tier": 0
           },
           {
             "url": "https://react.dev/reference/rsc/server-components",
             "allowlistKey": "react.official",
-            "fetchedAt": "2026-05-08"
+            "fetchedAt": "2026-05-08",
+            "tier": 0
           }
-        ]
+        ],
+        "tier": 0
       }
     },
     {
@@ -57,7 +62,9 @@
         "good": "// src/app/page.tsx\nimport { useRouter } from 'next/navigation';\nexport default function Page() {\n  const router = useRouter();\n  return null;\n}"
       },
       "negative-test": {
-        "input": ["import { useRouter } from 'next/router';\nexport default function Page() { return null; }"],
+        "input": [
+          "import { useRouter } from 'next/router';\nexport default function Page() { return null; }"
+        ],
         "expect-violation": "no-restricted-imports"
       },
       "id": "G2",
@@ -67,14 +74,17 @@
           {
             "url": "https://nextjs.org/docs/app/building-your-application/routing",
             "allowlistKey": "next.official",
-            "fetchedAt": "2026-05-08"
+            "fetchedAt": "2026-05-08",
+            "tier": 0
           },
           {
             "url": "https://nextjs.org/docs/app/guides/upgrading/version-16",
             "allowlistKey": "next.official",
-            "fetchedAt": "2026-05-08"
+            "fetchedAt": "2026-05-08",
+            "tier": 0
           }
-        ]
+        ],
+        "tier": 0
       }
     },
     {
@@ -100,9 +110,11 @@
           {
             "url": "https://nextjs.org/docs/app/guides/upgrading/version-16",
             "allowlistKey": "next.official",
-            "fetchedAt": "2026-05-08"
+            "fetchedAt": "2026-05-08",
+            "tier": 0
           }
-        ]
+        ],
+        "tier": 0
       }
     }
   ],

@@ -55,7 +55,7 @@ Do NOT read all of open-questions.md cover-to-cover — only the 5 wishful entri
 
 For EACH of the 5, ask the maintainer one short question:
 
-```
+```text
 §13.X — <title>:
   (a) Archive — move to closed-questions.md with rationale «wishful, no formal trigger, no consumer evidence»
   (b) Formalize — keep in open-questions.md, add explicit trigger: <propose 1 candidate trigger>
@@ -109,7 +109,7 @@ Ask maintainer in this order:
 
 A single decision matrix posted to maintainer:
 
-```
+```text
 | Q | Decision | Next-action |
 |---|----------|-------------|
 | Q1 | Phase 10 = <start | defer | close> | <single-line next action> |
@@ -195,3 +195,5 @@ Plus the standard self-application check (T15).
 - [docs/meta-factory/research-patches/2026-05-13-pr-body-s17-substance-gap.md](../../../docs/meta-factory/research-patches/2026-05-13-pr-body-s17-substance-gap.md) — PR-body §1.7 substance research (recently shipped).
 - [docs/meta-factory/research-patches/2026-05-13-memory-to-docs-codification-audit.md](../../../docs/meta-factory/research-patches/2026-05-13-memory-to-docs-codification-audit.md) — memory-to-docs audit (parallel session, PR #52).
 - [docs/meta-factory/prior-art-evaluations.md#41](../../../docs/meta-factory/prior-art-evaluations.md) — Danger JS ADOPT (fresh 2026-05-13).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

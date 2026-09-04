@@ -7,9 +7,21 @@ export type RenderOutcome =
   | { kind: 'degraded'; code: string /* FF */; note: string }
   | { kind: 'refused'; code: string /* FF */; note: string };
 
-// v0-minimum: surface 1 'rule' only (TOML content). The firing test (surface 2, the
-// harness that proves the rendered rule actually fires against a live toolchain) is a
-// harness artefact under fixtures/firing/ — NOT an outcome field. See §3 of the S2 spec.
+// v0-minimum: surface 1 'rule' only. The firing test (surface 2, the harness that proves the
+// rendered rule actually fires against a live toolchain) is a harness artefact under
+// fixtures/firing/ — NOT an outcome field. See §3 of the S2 spec.
+//
+// `content` MEANING DIVERGES BY BACKEND (documented, not a contract violation — surface-1 content
+// is backend-defined; consumers key on outcome.kind + the RenderOutcome, never parse `content`):
+//   - cargo (render-clippy.ts): the clippy.toml TABLE NAME the rule was placed in (e.g.
+//     "disallowed-methods") — a rendered-artifact token.
+//   - npm (from-node.ts): the ACTUAL rendered eslint rule JSON (the no-restricted-syntax entry) —
+//     rendered artifact text.
+//   - astgrep (#212) + ruff (#215), the Python lane: the node's ID TOKEN (`n.id`) — an identity
+//     token for the emitted rule document, NOT its rendered text (the full YAML/TOML artifact is
+//     the renderer's return value, keyed by id). Chosen because a Python rule maps 1:1 to a rule
+//     doc identified by node id; the enforcement-line / gate never read `content`, only `kind`.
+// The divergence is intentional and inert: no code path compares `content` across backends.
 export interface RenderedSurface {
   surface: 'rule';
   content: string;

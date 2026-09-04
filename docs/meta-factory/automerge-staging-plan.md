@@ -72,7 +72,7 @@ The hard blocker was: §1.7 / Prior-art / test gates ran only in `.husky/pre-pus
 
 | PR | What it added | State |
 |---|---|---|
-| **#121** | `pr-commit-trailers` job in [audit-self.yml](../../.github/workflows/audit-self.yml) — runs §1.7 + §7 over the real PR commit range via the `PREPUSH_ONLY` seam; §1.7 hard-enforced, §7 base blocks, §7 substance warn-only (Option B). | MERGED |
+| **#121** | `pr-commit-trailers` job in [audit-self.yml](../../.github/workflows/audit-self.yml) — runs §1.7 + §7 over the real PR commit range via the `PREPUSH_ONLY` seam; §1.7 hard-enforced, §7 base blocks, §7 substance warn-only (Option B — superseded 2026-07-25: the substance arm now blocks too, see `pre-push.ts` `priorArtSection`). | MERGED |
 | **#123** | Parameterised the diff base via `PREPUSH_UPSTREAM_REF` so the backstop gates PRs targeting a **non-main base** (PRs → `staging`), not only `origin/main`. | MERGED |
 | **#125** | Real `ci-success` aggregate job (`needs:` every audit-self PR job) so branch protection can require one context. | MERGED |
 | **feat/staging-trunk-migration** | `merge_group` trigger in `audit-self.yml` (DAY-1 prerequisite for Merge Queue); push-trigger extensions to `staging`; R11 assertion repointed from `main` → `staging`; pre-push default refs flipped to `origin/staging`; this doc rewritten for new topology. | MERGED |

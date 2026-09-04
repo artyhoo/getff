@@ -1,7 +1,7 @@
 # Umbrella: meta-orchestrator channel-discipline — Class C → A promotion
 
 > **Status:** DRAFT planned 2026-05-26. **NOT yet dispatched.** Awaits Stage 5 dogfood settle + Phase -1 cold-review of this kickoff itself.
-> **Authoritative for:** umbrella scope + 3-stage breakdown + admission gates for promoting [`SKILL.md §5 #worker-dispatch-via-subagent`](../../../.claude/skills/meta-orchestrator/SKILL.md) from Class C prose enforcement to an executable artefact at the earliest reachable channel.
+> **Authoritative for:** umbrella scope + 3-stage breakdown + admission gates for promoting [`SKILL.md §5 #worker-dispatch-via-subagent`](../../../.claude/skills/pipeline/SKILL.md) from Class C prose enforcement to an executable artefact at the earliest reachable channel.
 > **NOT authoritative for:** choice of enforcement mechanism (Stage A R-phase decides — do NOT pre-commit to «principle test» despite the umbrella's working title; that wording is a starting hypothesis, not a verdict) / project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists).
 
 > **Origin:** Stage 5 dogfood Phase -1 cold-review (2026-05-26) caught Stage 5 kickoff drafted with explicit `#worker-dispatch-via-subagent` violation in §9 step 3: «Dispatch Worker via Agent tool with explicit model: opus + isolation: worktree». Substrate declares the rule in prose at SKILL.md:347 («Agent tool is ONLY for Phase -1 read-only reviewer + read-only research subagents (text return). Write-task Worker dispatch belongs in a fresh CC session opened by the maintainer pasting a §10 1-liner block»). Substrate did NOT auto-catch the violation; manual cold-review did. This is the **first documented incident** of the rule failing to fire at any earlier-reachable channel than «production-audit-by-human-review» — the worst possible channel per README invariant.
@@ -111,9 +111,11 @@ If gate 3 resolves «wait» → this kickoff stays parked. Substrate's autonomou
 
 ## §6 See also
 
-- [`SKILL.md:347-348`](../../../.claude/skills/meta-orchestrator/SKILL.md) — the anti-patterns this umbrella enforces (`#worker-dispatch-via-subagent` primary, `#commit-on-behalf-of-worker` adjacent).
+- [`SKILL.md:347-348`](../../../.claude/skills/pipeline/SKILL.md) — the anti-patterns this umbrella enforces (`#worker-dispatch-via-subagent` primary, `#commit-on-behalf-of-worker` adjacent).
 - [`.claude/rules/rule-enforcement-channel-selection.md §3-§4`](../../../.claude/rules/rule-enforcement-channel-selection.md) — channel-selection procedure Stage A applies.
 - [`.claude/rules/ai-laziness-traps.md §2 T7`](../../../.claude/rules/ai-laziness-traps.md) — the trap «AI remembers §5» relies on; mechanism's whole purpose is to remove this reliance.
 - [`packages/core/principles/19-meta-orchestrator-alias-routing-consistency.test.ts`](../../../packages/core/principles/19-meta-orchestrator-alias-routing-consistency.test.ts) — precedent substrate-internal principle test (alias-routing consistency); Stage B can model on it if M2 wins.
 - [`.claude/hooks/inject-matching-rule.sh`](../../../.claude/hooks/inject-matching-rule.sh) + [`.claude/hooks/check-doc-authority.sh`](../../../.claude/hooks/check-doc-authority.sh) — existing PostToolUse hooks; Stage B can model on these if M1/M4 wins.
 - [`docs/meta-factory/research-patches/2026-05-22-rule-enforcement-channel-selection.md`](../../../docs/meta-factory/research-patches/2026-05-22-rule-enforcement-channel-selection.md) — origin patch for the channel-selection principle Stage A applies; recursive-self-application precedent.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

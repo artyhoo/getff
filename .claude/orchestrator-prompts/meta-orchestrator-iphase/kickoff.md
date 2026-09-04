@@ -335,7 +335,7 @@ EOF
 
 When all sub-waves done, verify passed, commit landed, PR opened:
 
-```
+```text
 ## I-phase REPORT — /meta-orchestrator BUILD
 
 ### Files
@@ -403,3 +403,5 @@ When all sub-waves done, verify passed, commit landed, PR opened:
 - [Cold-Reviewer #2 kickoff (informs §6.5 baked-in findings)](../meta-orchestrator-cold-review-2/kickoff.md)
 - [BFR rule](../../rules/build-first-reuse-default.md) · [no-paid-LLM-in-CI](../../rules/no-paid-llm-in-ci.md) · [AI-laziness traps](../../rules/ai-laziness-traps.md) · [doc-authority](../../rules/doc-authority-hierarchy.md) · [reviewer-discipline](../../rules/reviewer-discipline.md) · [dual-implementation](../../rules/dual-implementation-discipline.md) · [channel-selection](../../rules/rule-enforcement-channel-selection.md) · [phase-research-coverage](../../rules/phase-research-coverage.md) · [parallel-subwave-isolation](../../rules/parallel-subwave-isolation.md) (Class C precedent)
 - [Principle 12 (AI-laziness-traps test)](../../../packages/core/principles/12-ai-laziness-traps.test.ts) — validates §5 T-enumeration format in kickoffs
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

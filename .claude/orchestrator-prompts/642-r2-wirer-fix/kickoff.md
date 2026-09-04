@@ -137,3 +137,5 @@ T2, T3, T7, T14, T15. Plus:
 - **audit-r4:** confirm the declared dep also resolves the `packages/core/probes/audit-r4.ts:11` undeclared import (one line).
 - **COMMITS:** SHA(s) + subject(s) + trailer present. **BRANCH** `fix/642-r2-wirer-cwd-resolve`.
 - **DECISIONS / Confidence (high/med/low) / ATTN** (any newly-surfaced vitest failure or other separate issue — surfaced, not fixed).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

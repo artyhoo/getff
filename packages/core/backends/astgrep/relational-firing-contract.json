@@ -1,0 +1,5 @@
+{
+  "command": "ast-grep scan --json",
+  "jsonPath": "$.ruleId",
+  "expectedCode": "require-return-type-hint"
+}

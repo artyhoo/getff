@@ -11,9 +11,9 @@ import { resolve } from 'node:path';
 import type { DriftMismatch, DriftReport } from './types.ts';
 
 export const SELF_APP_SOURCES = [
-  'skills/rules-as-tests/SKILL.md',
-  'skills/rules-as-tests/references/overview.md',
-  'skills/rules-as-tests/references/ai-traps.md',
+  'skills/getff/SKILL.md',
+  'skills/getff/references/overview.md',
+  'skills/getff/references/ai-traps.md',
 ] as const;
 
 interface Principle {

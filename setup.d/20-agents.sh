@@ -26,8 +26,29 @@ for f in "$PKG_ROOT"/agents/*.md; do
     manual-rule-liveness-prober.md) continue ;;  # authoring-only tool (#552)
     shipped-agent-liveness-prober.md) continue ;;  # authoring-only tool (M2 probe, #552 sibling)
     backward-sweep-auditor.md) continue ;;  # authoring-only tool (§1.7 backward-check cold-sweep, T21)
+    dual-channel-drift-auditor.md) continue ;;  # authoring-only tool (dual-implementation-discipline §8 semantic half — @dual-pair group drift/copy audit)
+    adapter-jig-reviewer.md) continue ;;  # authoring-only tool (framework-side adapter-wiring conformance review, adapter-jig J1)
+    dispatch-input-checker.md) continue ;;  # authoring-only station (arch-v2 S-B contract v2, dispatch-input reality-check)
+    getff-cold-run-prober.md) continue ;;  # framework-only (S4 one-beat cold-run protocol — run BY framework against consumer, not shipped; spec §9.3)
+    orchestrator-worker-discipline.md|reviewer-discipline.md)
+      # F7 companion split (agents arm): these two presuppose the aif-handoff operator runtime
+      # (runtime-bridge dispatch / reviewer-session protocol) — same class as the gated suite
+      # skills in 10-skills.sh. Ship only under --profile factory (or the legacy --with-aif-suite
+      # escape), or keep refreshing a copy already on disk (presence = prior opt-in; parity with
+      # the skills gate in 10-skills.sh).
+      if [ "${PROFILE:-core}" != "factory" ] && [ -z "${WITH_AIF_SUITE:-}" ] \
+        && [ ! -e "$PROJECT_ROOT/.claude/agents/$(basename "$f")" ]; then continue; fi ;;
   esac
-  copy_safe "$f" "$PROJECT_ROOT/.claude/agents/$(basename "$f")"
+  _dst="$PROJECT_ROOT/.claude/agents/$(basename "$f")"
+  # Agents carry ](../docs/…) + ](../.claude/rules/…) refs that dangle on a consumer tree
+  # (rules/ is not shipped) — transform freshly-written copies only, never a skipped
+  # consumer-owned file (2026-07-10 flat-install smoke: first push red on lychee §8).
+  _writes=1
+  if [ -e "$_dst" ] && [ "$FORCE" != "--force" ]; then _writes=0; fi
+  copy_safe "$f" "$_dst"
+  if [ "$_writes" = 1 ] && [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_dst" ]; then
+    transform_internal_refs "$_dst"
+  fi
 done
 
 # ─── §3c: skill-context overrides ───────────────────────
@@ -38,10 +59,17 @@ done
 # aif-rules-check gets the R10-naming + test-existence residue of the removed best-practices-sidecar.
 # Derive the skill-context copy set from SHIPPED_DOCS (single source — FQA P2 fix). Every
 # skill-context entry that is header-verified above is copied here; the two lists cannot drift.
-for _doc in "${SHIPPED_DOCS[@]}"; do
+# `${arr[@]+"${arr[@]}"}` = bash-3.2-safe empty-array expansion under set -u (macOS ships 3.2).
+for _doc in ${SHIPPED_DOCS[@]+"${SHIPPED_DOCS[@]}"}; do
   case "$_doc" in
     packages/core/templates/shared/skill-context/*/SKILL.md)
       _sc="${_doc#packages/core/templates/shared/skill-context/}"; _sc="${_sc%/SKILL.md}"
+      # F7 companion split (skill-context arm): aif-orchestrator-discipline pairs with the
+      # gated orchestrator-worker-discipline agent (@dual-pair) — factory-only (or legacy
+      # --with-aif-suite escape), or present = prior opt-in.
+      if [ "$_sc" = "aif-orchestrator-discipline" ] && [ "${PROFILE:-core}" != "factory" ] \
+        && [ -z "${WITH_AIF_SUITE:-}" ] \
+        && [ ! -e "$PROJECT_ROOT/.ai-factory/skill-context/$_sc/SKILL.md" ]; then continue; fi
       mkdir_safe "$PROJECT_ROOT/.ai-factory/skill-context/$_sc"
       copy_safe "$PKG_ROOT/$_doc" "$PROJECT_ROOT/.ai-factory/skill-context/$_sc/SKILL.md" ;;
   esac

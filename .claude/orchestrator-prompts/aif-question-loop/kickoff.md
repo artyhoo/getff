@@ -42,3 +42,5 @@ Domain-specific: **T-QL-A** — «tempted to build `cli/answer.ts` on an assumed
 
 ## Finish REPORT with
 S1 verified resume sequence (evidenced) · cli/questions.ts + cli/answer.ts file:line + tests green · BFR §3 search result · §1.7 presence · what's deferred (Superset fast-follow, live E2E pending §2) · `## 🟢 Простыми словами`.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

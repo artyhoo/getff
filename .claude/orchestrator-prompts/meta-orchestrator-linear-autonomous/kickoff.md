@@ -11,7 +11,7 @@
 
 ## §0 Cold-start verification (BEFORE any audit work)
 
-Per [`feedback_git_fetch_staging_before_drafting`](../../../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/feedback_git_fetch_staging_before_drafting.md) — verify the world state:
+Per `feedback_git_fetch_staging_before_drafting` (`../../../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/feedback_git_fetch_staging_before_drafting.md`) — verify the world state:
 
 ```bash
 # 1. PR #205 is merged (the audit subject must actually exist on staging)
@@ -120,7 +120,7 @@ The umbrella also self-applies the audit-discipline to itself: this kickoff is b
 ## §5 §1.7 forward-check applied
 
 - Complies with [`no-paid-llm-in-ci.md §1`](../../../.claude/rules/no-paid-llm-in-ci.md) — Stage 1 audit is deterministic `gh pr diff` + file Read + manual comparison; no API-billed LLM call in any audit or CI step.
-- Complies with [`build-first-reuse-default.md §1`](../../../.claude/rules/build-first-reuse-default.md) — this rescope is **ADOPT** of the existing kickoff (and the G binding spec) as the audit anchor; REUSE not BUILD. No new methodology is invented — `gh pr diff` + per-item compare is the canonical audit shape established by [`channel-earliness-audit`](../../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/project_channel_earliness_audit.md) and [`memory_coverage_audit`](../../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/project_memory_coverage_audit_kickoff.md) precedents.
+- Complies with [`build-first-reuse-default.md §1`](../../../.claude/rules/build-first-reuse-default.md) — this rescope is **ADOPT** of the existing kickoff (and the G binding spec) as the audit anchor; REUSE not BUILD. No new methodology is invented — `gh pr diff` + per-item compare is the canonical audit shape established by `channel-earliness-audit` (`../../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/project_channel_earliness_audit.md`) and `memory_coverage_audit` (`../../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/project_memory_coverage_audit_kickoff.md`) precedents.
 - Complies with [`reviewer-discipline.md §2`](../../../.claude/rules/reviewer-discipline.md) — Stage 2 fix decisions per delta surface as DECISION-NEEDED for maintainer (Option Fix vs Option Accept-Variation), not auto-resolved by the audit. Reviewer/orchestrator role separation preserved.
 - Complies with [`doc-authority-hierarchy.md §2-§3`](../../../.claude/rules/doc-authority-hierarchy.md) — audit doc carries (inherited) Authoritative-for header via folder-level pattern; this kickoff carries explicit Authoritative-for header above.
 - Complies with [`parallel-subwave-isolation.md §1`](../../../.claude/rules/parallel-subwave-isolation.md) — Stage 1 is Mode A inline (no parallel sessions); Stage 2 per-delta PRs each get their own worktree if dispatched in parallel.
@@ -156,5 +156,7 @@ The umbrella is done when:
 - **Audit doc (Stage 1 output, to be created):** [`docs/meta-factory/research-patches/2026-05-25-linear-autonomous-audit.md`](../../../docs/meta-factory/research-patches/2026-05-25-linear-autonomous-audit.md)
 - **Planner-completeness umbrella (L3 dup-detect dogfood consumer of this audit):** Stage 5.A — when L3 ships, replay this 13-item comparison and verify it surfaces ≥ the deltas Stage 1 found.
 - **Trap catalogue:** [`.claude/rules/ai-laziness-traps.md §2`](../../../.claude/rules/ai-laziness-traps.md) (T3/T13/T14/T15/T16/T19 active per §3 above + domain-specific T-F3-AF-A).
-- **Audit-discipline precedents:** [`feedback_git_fetch_staging_before_drafting`](../../../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/feedback_git_fetch_staging_before_drafting.md), [`project_channel_earliness_audit`](../../../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/project_channel_earliness_audit.md), [`project_memory_coverage_audit_kickoff`](../../../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/project_memory_coverage_audit_kickoff.md).
+- **Audit-discipline precedents:** `feedback_git_fetch_staging_before_drafting` (`../../../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/feedback_git_fetch_staging_before_drafting.md`), `project_channel_earliness_audit` (`../../../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/project_channel_earliness_audit.md`), `project_memory_coverage_audit_kickoff` (`../../../../../.claude/projects/-Users-art-code-rules-as-tests-aif/memory/project_memory_coverage_audit_kickoff.md`).
 - **Falsifier-discipline reminder (Item 10 lesson):** [`phase-research-coverage.md §1.7`](../../../.claude/rules/phase-research-coverage.md) — Falsifier in binding spec MUST be operationalised as binding criterion in the implementing PR's checklist; otherwise it's prose-only that can be silently skipped (the exact failure mode the Item 10 delta documents).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

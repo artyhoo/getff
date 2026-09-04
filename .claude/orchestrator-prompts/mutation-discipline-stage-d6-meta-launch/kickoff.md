@@ -61,3 +61,5 @@ This R-phase writes a research-patch under `docs/meta-factory/research-patches/`
 - aif container unreachable → STOP, report.
 - A lead in §2 turns out false in a way that changes the whole framing → record it, re-scope, and PARK if the new framing needs a maintainer call.
 - Genuine fork on the verdict → PARK (per §4c), do not guess.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

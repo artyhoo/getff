@@ -55,3 +55,5 @@ For each rule in the diff set (`ai-laziness-traps`, `build-first-reuse-default`,
 
 ## §5 Cleanup (after merge — DESTRUCTIVE, operator GO)
 Stale branches A/A'/C and the aif `feature/ai-doc-audit-*` workers become deletable once the BEST is merged. PARK as ATTN-operator; do NOT auto-delete.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

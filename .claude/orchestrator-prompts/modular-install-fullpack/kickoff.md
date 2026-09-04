@@ -1,5 +1,7 @@
 # Umbrella kickoff — `modular-install-fullpack` (READY)
 
+> **Status (2026-07-23 amendment):** absorbed-by `beta-delivery-ux` A1 — after a T17/T18 preserved-residue sweep of the stalled `mif-s3-integ` branches. Do not dispatch from this kickoff. See [beta-program spec §2 D1](../../../docs/superpowers/specs/2026-07-23-beta-program-design.md).
+
 > **Class:** operational kickoff (dispatch input). **Status:** READY — §7-развилки закрыты brainstorm-сессией 2026-06-24.
 > **Authoritative for:** scope + стадии умбреллы «личный фулпак одной командой через модуляризацию install»; зафиксированные решения; вынесенные-вне-умбреллы пункты (§9).
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md). Последовательность фаз / Поток L — ROADMAP.md (planning workspace `rules-as-tests`). Фактаудит — plans-check.md (planning workspace).
@@ -107,3 +109,5 @@
 
 - **R1 — AIF-viability проба (precondition).** GATE: `15-companions-stack` **stack-aware маппинг** (бывшая амбиция S3) НЕ начинать, пока R1 не подтвердит, что `/aif`+`npx skills` реально мапят стек→tools, ИЛИ не зафиксирует «движка нет → тонкий курируемый подбор». База: FQA-B P1/P3. Умбрелла при этом НЕ блокируется — S3 сужен.
 - **R2 — гипотеза единого зонтика «Личная фабрика»** (doc-factory + tool-bootstrapping + плагины). DEFERRED: отдельный R-phase + проба на 1-2 стеках.
+
+<!-- host-verify: none — orchestration umbrella + S0 boundary TABLE (§4: research only, no code moved): execution stages s1-s5 carry their own host-verify contracts in kickoff-s*.md -->

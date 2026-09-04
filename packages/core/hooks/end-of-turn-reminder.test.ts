@@ -125,6 +125,37 @@ function runHook(
   return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
 }
 
+/**
+ * Make `body` the payload the hook's probe reads, for the duration of `fn`.
+ *
+ * The F10 arm's entire contract is a function of what GET /tasks returns, so a
+ * test that cannot control that body cannot test the arm at all — which is why
+ * the arm shipped with zero in-flight coverage.
+ *
+ * The fixture is a `file://` base URL rather than an HTTP server, and both
+ * rejected alternatives are worth recording because each looks correct:
+ *   - a one-shot `nc -l` (the original) serves a single connection, spells its
+ *     flags differently on BSD and GNU, and when `nc` is absent degrades into a
+ *     test that silently asserts nothing.
+ *   - an in-process `node:http` server CANNOT work here: runHook uses
+ *     spawnSync, which blocks the event loop, so the server never accepts the
+ *     connection and every case fails as "probe unreachable".
+ * The hook only ever consumes curl's stdout, so `file://<dir>` + a file named
+ * `tasks` exercises the identical code path (curl → jq → predicate) with no
+ * port, process or platform dependency.
+ */
+function withTasks<T>(body: string, fn: (url: string) => T): T {
+  const dir = mkdtempSync(join(tmpdir(), 'f10-tasks-'));
+  tmpDirs.push(dir);
+  writeFileSync(join(dir, 'tasks'), body, 'utf8');
+  return fn(`file://${dir}`);
+}
+
+/** A minimal aif task object — only the fields the arm's filter reads. */
+function task(status: string): Record<string, unknown> {
+  return { id: `t-${status}`, title: `task ${status}`, status, paused: false };
+}
+
 /** Write a fresh orchestration-mode marker file; returns its path. */
 function writeMarker(): string {
   const dir = mkdtempSync(join(tmpdir(), 'm4-5-marker-'));
@@ -180,6 +211,46 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     // defer-reflex Stage 2 REJECT) — Branch A must mirror Branch B/C fork-check
     // since defer-reflex incidents happen in long recap turns without questions.
     expect(payload.reason).toMatch(/рекомендовал|жду твоего решения|перекладывай/i);
+  });
+
+  it('ZCode schema-compliance: top-level keys match CCt.strict() — no stray hookEventName', () => {
+    // ZCode parses hook stdout against the HookJSONOutput schema (CCt at zcode.cjs:~577900),
+    // which is `.strict()` — unknown top-level keys are REJECTED (→ hook.run.failed, output
+    // discarded). This Stop hook emits `{decision, reason, systemMessage}` UNCONDITIONALLY
+    // (hook:233-237) — all three are in the allowed set today, but there is NO guard against a
+    // future edit adding `hookEventName` (or any other key) at top level, which ZCode would
+    // silently reject. Regression guard (cold backward-sweep finding GAP-1): pin the allowed
+    // top-level set so any added key fails this test. Precedent: ask-question-reminder.test.ts:139.
+    const tr = writeTranscript([
+      aiTitle('Тестовая цель сессии'),
+      userTurn('первое задание'),
+      assistantText(longMarkdownText() + '\n\nИтог: всё описано.'),
+    ]);
+    const r = runHook({ transcript_path: tr, stop_hook_active: false });
+    expect(r.stdout, 'reminder must fire to exercise the JSON path').not.toBe('');
+    const parsed = JSON.parse(r.stdout);
+    const allowedTopLevel = new Set([
+      'additionalContext',
+      'additional_context',
+      'continue',
+      'decision',
+      'hookSpecificOutput',
+      'reason',
+      'stopReason',
+      'suppressOutput',
+      'systemMessage',
+    ]);
+    const unknownKeys = Object.keys(parsed).filter(
+      (k) => !allowedTopLevel.has(k),
+    );
+    expect(
+      unknownKeys,
+      `ZCode CCt.strict() rejects unknown top-level keys: ${unknownKeys.join(', ')}`,
+    ).toEqual([]);
+    expect(
+      parsed.hookEventName,
+      'hookEventName must NOT be at top level (CCt.strict rejects it)',
+    ).toBeUndefined();
   });
 
   // ── orchestration-mode (marker-gated; normal mode byte-for-byte) ──────────────
@@ -631,5 +702,760 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       const second = runHook({ transcript_path: mkTr(), stop_hook_active: false, session_id: 'story-dbnc' }, { TMPDIR: tdir });
       expect(second.stdout, 'same PR must not re-fire (debounce)').toBe('');
     });
+  });
+});
+
+// =============================================================================
+// zcode-parity-step1 — Bespoke #1 Part A (grep alternation) + Part B (thin-recap).
+// plan-v3 §"Bespoke #1". Fixtures: tests/fixtures/{zcode-synthetic,cc-transcript-legacy}
+// -transcript.jsonl (byte-pinned shapes — see fixture file headers / generation script).
+//
+// Part A: the `grep -E '"(type|role)":"assistant"'` alternation is load-bearing BOTH arms:
+//   - CC legacy transcript: outer `"type":"assistant"` per entry → type arm matches.
+//   - ZCode synthetic transcript: `{message:{…,role:"assistant"}}` with NO outer type →
+//     role arm matches (type arm returns 0 → pre-fix hook was runtime-DEAD on ZCode).
+// Both arms are tested in ISOLATION so a future edit collapsing to `"type"` only is caught.
+//
+// Part B: a ZCode-gated thin-recap branch emits `{decision:"block", reason, systemMessage}`
+// (T-ZP-B: `reason` field, NOT `additionalContext`) when last text > 500 chars AND
+// markdown-dense. Non-ZCode env must NOT fire (CC dogfood byte-for-byte unchanged).
+// =============================================================================
+describe.skipIf(!JQ)('end-of-turn-reminder.sh — zcode-parity Bespoke #1 (Part A grep + Part B thin-recap)', () => {
+  const ZCODE_FIXTURE = resolve(REPO_ROOT, 'tests/fixtures/zcode-synthetic-transcript.jsonl');
+  const CC_FIXTURE = resolve(REPO_ROOT, 'tests/fixtures/cc-transcript-legacy.jsonl');
+
+  // ---- Part A: grep alternation — both arms load-bearing, tested in isolation ----------
+
+  it('zcode_synthetic_transcript_last_line_extracted_via_role: synthetic line has no outer type → matched via role arm', () => {
+    // plan-v3 §1.7 Forward row 7 + Backward "role arm dropped" row.
+    // Pre-fix: grep '"type":"assistant"' alone returned 0 lines on this fixture →
+    // last_line empty → hook exit 0 (runtime-DEAD on ZCode).
+    // Post-fix: the `role` arm of the alternation matches → last_line non-empty → hook proceeds.
+    const r = runHook(
+      { transcript_path: ZCODE_FIXTURE, stop_hook_active: false },
+      // NOTE: ZCODE_PROJECT_DIR UNSET here — we want to exercise Part A's last_line extraction
+      // IN ISOLATION from Part B. Part B fires later; with ZCODE_PROJECT_DIR unset, Part B is
+      // skipped and the existing cascade runs. The cascade emits its own decision:block on the
+      // long markdown fixture, proving last_line was extracted (non-empty) — which is the
+      // Part A contract. The point of THIS test is: the hook did NOT exit-0-early at hook:54.
+      { AIF_HOOK_LANG: 'en' },
+    );
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    expect(
+      r.stdout,
+      'Part A role-arm: synthetic ZCode line must produce non-empty last_line (hook did NOT exit at :54)',
+    ).not.toBe('');
+    // If last_line was empty, the hook would have exited 0 silent at hook:54 and stdout
+    // would be ''. Non-empty stdout proves the role arm matched.
+    const parsed = JSON.parse(r.stdout);
+    expect(parsed.decision).toBe('block');
+  });
+
+  it('cc_transcript_last_line_extracted_via_type: CC fixture outer type → matched via type arm', () => {
+    // plan-v3 §1.7 Forward row 8 + Backward "type arm dropped" row.
+    // CC legacy shape carries an OUTER "type":"assistant" field (verified Mode A on
+    // ~/.claude/projects/-Users-art-code-BDDS/0b42f1ff-*.jsonl). The type arm of the
+    // alternation matches it. CC fixture has a SHORT assistant reply ("Short CC assistant
+    // reply.") so the cascade stays silent — but the role-line extraction must NOT have
+    // bailed out at hook:54 (which would happen if BOTH arms missed). We assert exit 0
+    // AND that the hook did not crash on jq parsing of the extracted line.
+    const r = runHook(
+      { transcript_path: CC_FIXTURE, stop_hook_active: false },
+      { AIF_HOOK_LANG: 'en' },
+    );
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    // CC short reply → no recap branch fires → silent exit 0 (the hook ran cleanly through
+    // the last_line extraction + text parsing without erroring). A jq failure on the parsed
+    // last_line would surface as non-zero exit under `set -euo pipefail`.
+    expect(r.stdout).toBe('');
+    // Direct grep proof of the asymmetry (re-asserted here so the test is self-documenting
+    // and fails loudly if the fixture drifts).
+    const typeMatches = execSync(
+      `grep -cE '"type":"assistant"' "${CC_FIXTURE}" 2>/dev/null || echo 0`,
+    ).toString().trim();
+    expect(parseInt(typeMatches, 10), 'CC fixture must have outer "type":"assistant"').toBeGreaterThan(0);
+  });
+
+  it('Part A both arms proven asymmetric via direct grep on fixtures (load-bearing alternation)', () => {
+    // T7 anti-pattern guard: a future edit collapsing the alternation to `"type"` only is the
+    // canonical regression. This test pins the asymmetry directly so it cannot drift.
+    // ZCode fixture MUST NOT match the type arm (only role); CC fixture matches both.
+    // We use single-quoted grep patterns (no shell escaping of the inner doubles).
+    const zcodeTypeCount = parseInt(
+      execSync(`grep -cE '"type":"assistant"' "${ZCODE_FIXTURE}" || true`).toString().trim() || '0',
+      10,
+    );
+    const zcodeRoleCount = parseInt(
+      execSync(`grep -cE '"role":"assistant"' "${ZCODE_FIXTURE}" || true`).toString().trim() || '0',
+      10,
+    );
+    // The alternation pattern: shell-single-quote wraps the whole pattern so the inner
+    // double-quotes pass through literally to grep.
+    const zcodeAltCount = parseInt(
+      execSync(`grep -cE '"(type|role)":"assistant"' "${ZCODE_FIXTURE}" || true`).toString().trim() || '0',
+      10,
+    );
+    expect(zcodeTypeCount, 'ZCode fixture must have ZERO outer "type":"assistant" (only role)').toBe(0);
+    expect(zcodeRoleCount, 'ZCode fixture must match the role arm').toBeGreaterThan(0);
+    expect(zcodeAltCount, 'ZCode fixture must match the full alternation').toBeGreaterThan(0);
+  });
+
+  // ---- Part B: thin-recap branch (ZCode-gated, reason field) --------------------------
+
+  it('zcode_long_markdown_emits_block_decision_with_reason_field: >500 chars markdown under _is_zcode → {decision:block, reason}', () => {
+    // plan-v3 §1.7 Forward row 9 + Backward "branch absent" + "additionalContext instead of reason" rows.
+    // The thin-recap branch fires when _is_zcode AND text > 500 AND markdown-dense.
+    // The fixture's assistant text is 676 chars with ## headings + ** bold + blank lines.
+    const r = runHook(
+      { transcript_path: ZCODE_FIXTURE, stop_hook_active: false },
+      { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en' },
+    );
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    expect(r.stdout, 'Part B must fire on ZCode + long markdown').not.toBe('');
+    const parsed = JSON.parse(r.stdout);
+    expect(parsed.decision).toBe('block');
+    expect(typeof parsed.reason).toBe('string');
+    expect(parsed.reason.length, 'reason must be a substantive nudge, not empty').toBeGreaterThan(100);
+    // The Branch A instruction begins with the recap marker — pin it so a future edit
+    // pointing Part B at the wrong message function is caught.
+    expect(parsed.reason).toContain('## 🟢');
+    // systemMessage is the user-UI glance line (optional but emitted).
+    expect(parsed.systemMessage).toMatch(/^🎯 /);
+  });
+
+  it('thin_recap_emits_reason_not_additional_context: emitted JSON has reason, NOT additionalContext (T-ZP-B)', () => {
+    // plan-v3 §1.7 Backward "Part B uses additionalContext instead of reason" row.
+    // Stop-hook field for delivering the nudge to the MODEL is `reason` (NOT additionalContext,
+    // which is a PostToolUse/PreToolUse field — comment at hook:227 documents this).
+    // This test fails if anyone swaps the field by pattern-matching on other hooks.
+    const r = runHook(
+      { transcript_path: ZCODE_FIXTURE, stop_hook_active: false },
+      { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en' },
+    );
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    const parsed = JSON.parse(r.stdout);
+    expect(parsed.reason, 'reason field MUST be present (Stop-hook model-bound delivery)').toBeDefined();
+    expect(parsed.additionalContext, 'additionalContext MUST NOT appear on Stop-hook emit (wrong channel)').toBeUndefined();
+  });
+
+  it('non_zcode_skips_thin_recap: under non-ZCode env, Part B branch does not fire', () => {
+    // plan-v3 §1.7 Forward row 10 + Backward "_is_zcode gate absent" row.
+    // Without ZCODE_PROJECT_DIR, Part B MUST be skipped — otherwise CC dogfood would get
+    // a duplicate nudge (Part B + the existing cascade both firing).
+    // We use a SHORT markdown turn here so the cascade ALSO stays silent — that way a
+    // non-empty stdout can ONLY mean Part B fired (isolating the gate).
+    const shortMarkdown = '## short\n\n- a\n- b\n- c\n';  // <500 chars, has ##
+    const tr = writeTranscript([
+      { type: 'ai-title', aiTitle: 'goal' },
+      { type: 'user', message: { content: 'do something' } },
+      assistantText(shortMarkdown),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false },
+      { AIF_HOOK_LANG: 'en' },  // NO ZCODE_PROJECT_DIR
+    );
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    expect(
+      r.stdout,
+      'Part B must NOT fire without ZCODE_PROJECT_DIR (short text → all branches silent)',
+    ).toBe('');
+  });
+
+  it('non_zcode_long_markdown_still_uses_existing_cascade: Part B skipped, Branch A still fires on long markdown', () => {
+    // Paired-negative companion: a long-markdown turn on non-ZCode MUST still trigger the
+    // existing Branch A cascade (proving Part B is additive, not a replacement). This is
+    // the "byte-for-byte unchanged on CC dogfood" contract.
+    const tr = writeTranscript([
+      { type: 'ai-title', aiTitle: 'goal' },
+      { type: 'user', message: { content: 'do something' } },
+      assistantText(longMarkdownText()),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false },
+      { AIF_HOOK_LANG: 'en' },  // NO ZCODE_PROJECT_DIR
+    );
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    expect(r.stdout, 'existing Branch A cascade must still fire on long markdown (CC dogfood unchanged)').not.toBe('');
+    const parsed = JSON.parse(r.stdout);
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason).toBeDefined();
+  });
+});
+
+/**
+ * F10 autonomy arm — spec: .claude/rules/autonomous-loop-continuity.md §1.
+ *
+ * The failure this closes: an unattended orchestrator ends its turn as soon as it has
+ * something reportable while dispatched work is still running. The shape that matters is a
+ * SHORT turn — the one every existing branch deliberately exits 0 on — so these cases use a
+ * short-chatter transcript and assert the arm blocks anyway.
+ *
+ * The probe is pointed at an unreachable port in every case here: the tests must not depend
+ * on a live aif runtime, and the fail-CLOSED branch is itself part of the contract.
+ */
+describe('end-of-turn-reminder.sh — F10 autonomy arm', () => {
+  const DEAD_AIF = 'http://127.0.0.1:59997';
+
+  it('OFF by default: a short turn stays silent even with work conceivably in flight', () => {
+    const tr = writeTranscript([{ type: 'assistant', message: { content: [{ type: 'text', text: 'ok' }] } }]);
+    const r = runHook({ transcript_path: tr, stop_hook_active: false, session_id: 'f10-off' });
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim(), 'no autonomy block without AIF_AUTONOMOUS=1').toBe('');
+  });
+
+  it('ON + unreachable probe: blocks and NAMES the degradation (fail-closed, not all-clear)', () => {
+    const tr = writeTranscript([{ type: 'assistant', message: { content: [{ type: 'text', text: 'ok' }] } }]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'f10-dead' },
+      { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: DEAD_AIF },
+    );
+    expect(r.status).toBe(0);
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision, 'a broken probe must not read as an all-clear').toBe('block');
+    expect(parsed.reason).toMatch(/probe FAILED/);
+    expect(parsed.reason, 'must not claim the check passed').toMatch(/not an all-clear/);
+  });
+
+  it('the loop guard holds: stop_hook_active=true never blocks, however work looks', () => {
+    const tr = writeTranscript([{ type: 'assistant', message: { content: [{ type: 'text', text: 'ok' }] } }]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: true, session_id: 'f10-guard' },
+      { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: DEAD_AIF },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim(), 'at most ONE forced reconsideration per stop chain — never a spin').toBe('');
+  });
+
+  it('an empty task list is a genuine all-clear: no block', () => {
+    // Serve a literal empty array, so "no work in flight" is distinguished from "probe broke".
+    const tr = writeTranscript([{ type: 'assistant', message: { content: [{ type: 'text', text: 'ok' }] } }]);
+    const r = withTasks('[]', (url) =>
+      runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'f10-empty' },
+        { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+      ),
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout, 'must never fabricate in-flight work').not.toMatch(/task\(s\) still in flight/);
+    expect(r.stdout.trim(), 'an empty queue is a real all-clear, not a degraded probe').toBe('');
+  });
+
+  // ── In-flight contract ──────────────────────────────────────────────────────
+  // Everything above this line points the probe at a DEAD port, so until these
+  // were added the arm's entire reason to exist — "there is work in flight, do
+  // not stop" — had zero coverage. A 2026-07-24 mutation campaign proved it:
+  // inverting the comparison, deleting the `paused` filter, dropping a status
+  // from the list, and muting the in-flight branch outright ALL left the suite
+  // green. A suite that stays green with the mechanism disabled is not a gate.
+
+  it('PAIRED-POSITIVE: an in-flight task blocks the stop and names the count', () => {
+    const tr = writeTranscript([assistantText('ok')]);
+    const r = withTasks(JSON.stringify([task('implementing')]), (url) =>
+      runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'f10-live' },
+        { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+      ),
+    );
+    expect(r.status).toBe(0);
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision, 'work in flight must not let the turn end').toBe('block');
+    expect(parsed.reason).toMatch(/1 aif task\(s\) still in flight/);
+    expect(parsed.reason, 'the directive is the payload, not just the fact').toMatch(/Do NOT end the turn on a report/);
+  });
+
+  it('counts every NON-TERMINAL status, not a hand-maintained subset', () => {
+    // The shipped predicate enumerated {planning, implementing, review,
+    // blocked_external} — a strict subset of the real vocabulary in
+    // packages/runtime-bridge/src/types.ts. `backlog` was the sharp miss: at
+    // coordinator cap, dispatched tasks queue there, so the arm went silent with
+    // work about to run. Enumerating terminal statuses instead makes any status
+    // added upstream count as in-flight by default.
+    for (const status of ['backlog', 'planning', 'plan_ready', 'implementing', 'review', 'blocked_external']) {
+      const tr = writeTranscript([assistantText('ok')]);
+      const r = withTasks(JSON.stringify([task(status)]), (url) =>
+        runHook(
+          { transcript_path: tr, stop_hook_active: false, session_id: `f10-st-${status}` },
+          { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+        ),
+      );
+      expect(r.stdout, `status "${status}" is non-terminal and MUST count as in flight`)
+        .toMatch(/still in flight/);
+    }
+  });
+
+  it('PAIRED-NEGATIVE: terminal statuses are not in flight (or every turn would block forever)', () => {
+    for (const status of ['done', 'verified']) {
+      const tr = writeTranscript([assistantText('ok')]);
+      const r = withTasks(JSON.stringify([task(status)]), (url) =>
+        runHook(
+          { transcript_path: tr, stop_hook_active: false, session_id: `f10-term-${status}` },
+          { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+        ),
+      );
+      expect(r.stdout.trim(), `"${status}" is terminal — counting it would block every turn forever`).toBe('');
+    }
+  });
+
+  it('PAIRED-NEGATIVE: a PAUSED task does not count (it cannot advance)', () => {
+    const tr = writeTranscript([assistantText('ok')]);
+    const r = withTasks(JSON.stringify([{ ...task('implementing'), paused: true }]), (url) =>
+      runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'f10-paused' },
+        { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+      ),
+    );
+    expect(r.stdout.trim(), 'a paused task is not progressing; blocking on it would spin').toBe('');
+  });
+
+  // ── Guard-shadowing regression (the 2026-07-24 cold-audit BLOCKER) ──────────
+  // The arm used to sit at the BOTTOM of the hook, behind six `exit 0` guards.
+  // The already-recapped guard exits when the turn carries $AIF_RECAP_MARKER —
+  // and an orchestrator that "ends its turn on a report" is emitting exactly
+  // that, using the marker this hook's own payloads instruct it to use. So the
+  // mechanism was silent in precisely its motivating case, and got worse the
+  // longer a session ran. These two are the regression guards.
+
+  it('a RECAP-MARKED turn still receives the continuation directive', () => {
+    const tr = writeTranscript([assistantText(`${'детали '.repeat(120)}\n\n## 🟢 Простыми словами\nвсё готово`)]);
+    const r = withTasks(JSON.stringify([task('implementing')]), (url) =>
+      runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'f10-recap' },
+        { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+      ),
+    );
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason, 'the recap guard must suppress the RECAP, never the autonomy directive')
+      .toMatch(/still in flight/);
+  });
+
+  it('an IDLE-SUPPRESSED re-ping still receives the continuation directive', () => {
+    // idle_suppress fires when the previous turn already recapped and the current
+    // turn repeats it verbatim (a re-ping). Suppressing the recap is right;
+    // suppressing the autonomy directive is not — an idle re-ping while work is
+    // dispatched is the F10 shape almost by definition.
+    const q = 'Продолжать со следующим этапом?';
+    const tr = writeTranscript([
+      aiTitle('goal'),
+      userTurn('go'),
+      assistantText(`## 🟢 Простыми словами\nсделано.\n${q}`),
+      assistantText(q),
+    ]);
+    const r = withTasks(JSON.stringify([task('planning')]), (url) =>
+      runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'f10-idle' },
+        { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+      ),
+    );
+    expect(r.stdout, 'idle-suppression must suppress the RE-PING, not the autonomy directive')
+      .toMatch(/still in flight/);
+  });
+
+  it('a STORY-TOLD turn still receives the continuation directive', () => {
+    // The story-debounce guard suppresses re-telling the same PR's story. Like the
+    // recap guard, its bare exit also swallowed the autonomy directive — and this
+    // one fires right after `gh pr create`, i.e. at a moment when dispatched work
+    // very plausibly is still running.
+    const tr = writeTranscript([
+      assistantBashToolUse(`## 🎬 Как это было\nоткрыл PR`, 'gh pr create --fill'),
+    ]);
+    const r = withTasks(JSON.stringify([task('implementing')]), (url) =>
+      runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'f10-story' },
+        { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+      ),
+    );
+    expect(r.stdout, 'story debounce must suppress the STORY, not the autonomy directive')
+      .toMatch(/still in flight/);
+  });
+
+  it('a TOOL-ONLY turn still receives the continuation directive', () => {
+    const tr = writeTranscript([
+      { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Bash', input: { command: 'ls' } }] } },
+    ]);
+    const r = withTasks(JSON.stringify([task('implementing')]), (url) =>
+      runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'f10-toolonly' },
+        { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+      ),
+    );
+    expect(r.stdout, 'a turn ending on a tool call with work in flight is still F10').toMatch(/still in flight/);
+  });
+
+  // ── Shape fail-closed ──────────────────────────────────────────────────────
+  // Malformed BYTES were already handled. Well-formed JSON of the wrong SHAPE
+  // was not: the filter yields a legitimate-looking 0 and the arm reports a
+  // clean all-clear forever. `{"tasks":[…]}` is the most plausible upstream
+  // evolution of this endpoint, which is what makes it worth a gate.
+
+  it('PAIRED-NEGATIVE: a non-array payload is a DEGRADED probe, not an all-clear', () => {
+    const tr = writeTranscript([assistantText('ok')]);
+    const r = withTasks(JSON.stringify({ tasks: [task('implementing')] }), (url) =>
+      runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'f10-envelope' },
+        { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+      ),
+    );
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision, 'a shape change must never read as "nothing in flight"').toBe('block');
+    expect(parsed.reason).toMatch(/NON-ARRAY payload/);
+    expect(parsed.reason).toMatch(/not an all-clear/);
+  });
+
+  it('PAIRED-NEGATIVE: an array of non-task elements is a DEGRADED probe', () => {
+    const tr = writeTranscript([assistantText('ok')]);
+    const r = withTasks(JSON.stringify(['a', 'b']), (url) =>
+      runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'f10-nonobj' },
+        { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+      ),
+    );
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision, 'an array of non-objects silently counted 0 before').toBe('block');
+    expect(parsed.reason).toMatch(/non-task element/);
+  });
+
+  it('the autonomy line rides ALONG with a normal recap block, never replacing it', () => {
+    // A long substantive turn triggers Branch A. The continuation directive must
+    // be appended, not swap the recap out — dropping either loses information the
+    // model needs in the same turn.
+    const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantText(longMarkdownText())]);
+    const r = withTasks(JSON.stringify([task('review')]), (url) =>
+      runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'f10-both' },
+        { AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+      ),
+    );
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string; systemMessage?: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason, 'recap half').toMatch(/🟢/);
+    expect(parsed.reason, 'autonomy half').toMatch(/still in flight/);
+  });
+
+  // ── ZCode thin-recap arm autonomy append ─────────────────────────────────
+  // The ZCode thin-recap branch (hook ~line 219) builds `_ze_reason` from
+  // `aif_msg_eot_branch_a` and then appends `autonomy_line` separately. M8 of
+  // this PR's mutation campaign proved the append had ZERO coverage — stripping
+  // it left the suite GREEN. A ZCode path needs an explicit ZCode test.
+
+  it('PAIRED-NEGATIVE: ZCode thin-recap arm appends autonomy_line to its own reason', () => {
+    // Triggers the thin-recap branch: ZCODE_PROJECT_DIR set + >500 char markdown-dense text.
+    // A dispatched task is in flight, so the autonomy directive MUST reach the model
+    // on the SAME channel as the ZCode recap (single block decision, not two).
+    const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantText(longMarkdownText())]);
+    const r = withTasks(JSON.stringify([task('implementing')]), (url) =>
+      runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'f10-zcode-append' },
+        {
+          AIF_AUTONOMOUS: '1',
+          RUNTIME_BRIDGE_AIF_URL: url,
+          ZCODE_PROJECT_DIR: '/fake-zcode-root',
+          AIF_HOOK_LANG: 'en',
+        },
+      ),
+    );
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision, 'ZCode thin-recap arm must block when work is in flight').toBe('block');
+    // The recap half (Branch A instruction begins with the recap marker):
+    expect(parsed.reason, 'ZCode arm recap half must still be delivered').toMatch(/🟢/);
+    // The autonomy half — the M8 mutation strips exactly this; without a test that
+    // asserts it under ZCODE_PROJECT_DIR, the append can be removed silently.
+    expect(parsed.reason, 'ZCode arm autonomy half must be appended, not dropped').toMatch(/still in flight/);
+  });
+});
+
+describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', () => {
+  // spec: docs/superpowers/specs/2026-08-09-pipeline-chips-session-bus-design.md §D7.
+  // Thresholds under test are PROVISIONAL (D9 calibrates); none of them MOVED when the
+  // window default flipped to 1M — they are now derived from the window:
+  //   soft = min(300000, 70% of window)  → 1M: 300000    | declared 200k: 140000
+  //   deep = min(500000, 90% of window)  → 1M: 500000    | declared 200k: 180000
+  // The window itself is `AIF_CTX_WINDOW` when declared, else 1000000 (this operator's
+  // real window everywhere). Every case runs with a PRIVATE TMPDIR so the
+  // once-per-session-per-tier debounce flags (${TMPDIR:-/tmp}/aif-ctx-<sid>-<tier>)
+  // cannot leak between cases or into the developer's real /tmp.
+
+  function privateTmp(): string {
+    const dir = mkdtempSync(join(tmpdir(), 'd7-ctx-'));
+    tmpDirs.push(dir);
+    return dir;
+  }
+
+  /** Split the total across the three summed usage fields — proves the arm
+   *  compares the SUM, not any single field. */
+  function usageOf(total: number) {
+    return {
+      input_tokens: 1000,
+      cache_read_input_tokens: total - 3000,
+      cache_creation_input_tokens: 2000,
+    };
+  }
+
+  function assistantWithUsage(
+    text: string,
+    total: number,
+    opts: { model?: string; sidechain?: boolean } = {},
+  ) {
+    return {
+      type: 'assistant',
+      isSidechain: opts.sidechain ?? false,
+      message: {
+        model: opts.model ?? 'claude-opus-5',
+        usage: usageOf(total),
+        content: [{ type: 'text', text }],
+      },
+    };
+  }
+
+  it('below the soft floor: a short turn at 100k stays silent', () => {
+    const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 100_000)]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd7-below' },
+      { TMPDIR: privateTmp() },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim(), 'no handoff line below the soft threshold').toBe('');
+  });
+
+  it('REGRESSION (false-fire): 150k on a current model id stays silent under the 1M default', () => {
+    // The defect this suite failed to catch: the old resolver defaulted to a 200k window and
+    // only widened on a `[1m]`/`-1m` marker in the model id. `claude-fable-5` carries none, so
+    // a 1M session resolved to 200k and fired its 70% tier at 140k — three wrong session stops
+    // at ~155k on 2026-08-16, one more at ~150k on 2026-08-17, with ~850k of headroom left.
+    const tr = writeTranscript([
+      aiTitle('goal'),
+      userTurn('go'),
+      assistantWithUsage('done.', 150_000, { model: 'claude-fable-5' }),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd7-fable-150k' },
+      { TMPDIR: privateTmp() },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim(), '150k against a 1M window is 15% spent — nothing to say').toBe('');
+  });
+
+  it('PAIRED-POSITIVE: a short (normally silent) turn at 320k blocks with the generic handoff line', () => {
+    const tr = writeTranscript([
+      aiTitle('goal'),
+      userTurn('go'),
+      assistantWithUsage('done.', 320_000, { model: 'claude-fable-5' }),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd7-fire' },
+      { TMPDIR: privateTmp() },
+    );
+    expect(r.status).toBe(0);
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision, 'crossing the soft floor must reach the model').toBe('block');
+    expect(parsed.reason).toMatch(/\[context\]/);
+    expect(parsed.reason, 'names the measured size').toMatch(/320000 tokens/);
+    expect(parsed.reason, 'names the window it was judged against').toMatch(/~1000000/);
+    expect(parsed.reason, 'the payload is the handoff policy, generic wording').toMatch(/handoff note/);
+    // Consumer-shipped surface (F10 consumer-generic): no framework artifact refs.
+    expect(parsed.reason).not.toMatch(/aif|dispatcher|pipeline|\.claude/);
+  });
+
+  it('PAIRED-NEGATIVE: a huge SIDECHAIN entry after a small main-thread one stays silent (isSidechain filter)', () => {
+    // Subagent turns share the transcript. Without `select(.isSidechain != true)`
+    // the arm would read the sidechain's 600k as the session size and fire.
+    const tr = writeTranscript([
+      aiTitle('goal'),
+      userTurn('go'),
+      assistantWithUsage('main thread, small.', 90_000),
+      assistantWithUsage('subagent, huge.', 600_000, { sidechain: true }),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd7-side' },
+      { TMPDIR: privateTmp() },
+    );
+    expect(r.stdout.trim(), 'a sidechain entry must never be read as the main-thread context size').toBe('');
+  });
+
+  it('debounce: the same session and tier fires ONCE', () => {
+    const tmp = privateTmp();
+    const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 320_000)]);
+    const first = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd7-debounce' },
+      { TMPDIR: tmp },
+    );
+    expect(first.stdout, 'first crossing fires').toMatch(/\[context\]/);
+    const second = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd7-debounce' },
+      { TMPDIR: tmp },
+    );
+    expect(second.stdout.trim(), 'second turn past the same tier is debounced').toBe('');
+  });
+
+  it('AIF_CTX_WINDOW=200000: the declared small window restores the calibrated 140k soft floor', () => {
+    // T_soft(200k)=140k is RETAINED by the window-derived formula (70% of 200k) — it is
+    // simply no longer reachable by assumption, only by declaration.
+    const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 150_000)]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd7-declared-200k' },
+      { TMPDIR: privateTmp(), AIF_CTX_WINDOW: '200000' },
+    );
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason, 'the declared window is the one reported').toMatch(/~200000/);
+    expect(parsed.reason).toMatch(/150000 tokens/);
+  });
+
+  it('PAIRED-NEGATIVE: a junk AIF_CTX_WINDOW falls back to the 1M default, it does not silence or spam', () => {
+    // A non-numeric or zero declaration must not be trusted: `0` would make both floors 0
+    // and fire on every turn, and a word would break the integer comparisons outright.
+    for (const [bad, sid] of [['not-a-number', 'junk'], ['0', 'zero'], ['', 'empty']] as const) {
+      const quiet = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 150_000)]);
+      const r = runHook(
+        { transcript_path: quiet, stop_hook_active: false, session_id: `d7-badwin-${sid}` },
+        { TMPDIR: privateTmp(), AIF_CTX_WINDOW: bad },
+      );
+      expect(r.status, `AIF_CTX_WINDOW="${bad}" must not crash the hook`).toBe(0);
+      expect(r.stdout.trim(), `AIF_CTX_WINDOW="${bad}" falls back to 1M → 150k is silent`).toBe('');
+    }
+  });
+
+  it('over-window override: a declared 200k window with 250k observed is provably wrong → 1M floors, silent', () => {
+    // Observed usage above the declared window proves the declaration wrong. Falling back to
+    // the 1M default routes 250k to the 300k floor instead of firing the (stale) 140k one.
+    const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 250_000)]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd7-1m-below' },
+      { TMPDIR: privateTmp(), AIF_CTX_WINDOW: '200000' },
+    );
+    expect(r.stdout.trim(), '250k re-judged on a 1M window is below the 300k operator floor').toBe('');
+  });
+
+  it('1M floor: 350k fires and names the 1M window', () => {
+    const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 350_000)]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd7-1m-fire' },
+      { TMPDIR: privateTmp() },
+    );
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason).toMatch(/350000 tokens/);
+    expect(parsed.reason, 'the 1M default window is the one reported').toMatch(/~1000000/);
+  });
+
+  it('model id carries no weight: 1M-marked and unmarked ids alike stay silent at 150k', () => {
+    // The `[1m]`/`-1m` table is GONE — against a 1M default it could only confirm the
+    // assumption. This pins that removing it changed no outcome for the ids it used to match.
+    for (const model of ['claude-sonnet-5[1m]', 'claude-sonnet-5-1m', 'claude-opus-5', 'claude-fable-5']) {
+      const tr = writeTranscript([
+        aiTitle('goal'),
+        userTurn('go'),
+        assistantWithUsage('done.', 150_000, { model }),
+      ]);
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: `d7-model-${model.replace(/[^a-z0-9]/gi, '')}` },
+        { TMPDIR: privateTmp() },
+      );
+      expect(r.stdout.trim(), `"${model}" is judged against the 1M default, so 150k is silent`).toBe('');
+    }
+  });
+
+  it('boundary pair (1M default): 299999 silent, 300000 fires (>=, not >)', () => {
+    for (const [total, fires] of [[299_999, false], [300_000, true]] as const) {
+      const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', total)]);
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: `d7-edge-${total}` },
+        { TMPDIR: privateTmp() },
+      );
+      if (fires) {
+        expect(r.stdout, `${total} is ON the soft floor and must fire`).toMatch(/\[context\]/);
+      } else {
+        expect(r.stdout.trim(), `${total} is below the soft floor`).toBe('');
+      }
+    }
+  });
+
+  it('boundary pair (declared 200k): 139999 silent, 140000 fires — the calibrated point survives', () => {
+    for (const [total, fires] of [[139_999, false], [140_000, true]] as const) {
+      const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', total)]);
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: `d7-edge200k-${total}` },
+        { TMPDIR: privateTmp(), AIF_CTX_WINDOW: '200000' },
+      );
+      if (fires) {
+        expect(r.stdout, `${total} is ON the 70%-of-200k floor and must fire`).toMatch(/\[context\]/);
+      } else {
+        expect(r.stdout.trim(), `${total} is below the 70%-of-200k floor`).toBe('');
+      }
+    }
+  });
+
+  it('deep tier: crossing 500k fires AGAIN in a session whose soft flag is already spent', () => {
+    // The debounce is per TIER, not per session: past the 1M soft floor a session
+    // still gets exactly one more reminder at the ~500k mechanical-tail ceiling.
+    const tmp = privateTmp();
+    const soft = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 350_000)]);
+    const first = runHook(
+      { transcript_path: soft, stop_hook_active: false, session_id: 'd7-deep' },
+      { TMPDIR: tmp },
+    );
+    expect(first.stdout, 'soft-floor crossing fires first').toMatch(/\[context\]/);
+    const deep = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 510_000)]);
+    const second = runHook(
+      { transcript_path: deep, stop_hook_active: false, session_id: 'd7-deep' },
+      { TMPDIR: tmp },
+    );
+    expect(second.stdout, 'the 500k ceiling is a SEPARATE tier — must fire despite the spent soft flag')
+      .toMatch(/510000 tokens/);
+    const third = runHook(
+      { transcript_path: deep, stop_hook_active: false, session_id: 'd7-deep' },
+      { TMPDIR: tmp },
+    );
+    expect(third.stdout.trim(), 'the deep tier itself debounces').toBe('');
+  });
+
+  it('composition inside the exit shim: autonomy + context lines ride ONE block on a short turn', () => {
+    // A short turn normally exits silent through _autonomy_exit. With work in
+    // flight AND a spent context both lines must survive on the same single block —
+    // a mutation that overwrites _extra with ctx_line would drop the autonomy half.
+    const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantWithUsage('done.', 320_000)]);
+    const r = withTasks(JSON.stringify([task('implementing')]), (url) =>
+      runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'd7-both-arms' },
+        { TMPDIR: privateTmp(), AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: url },
+      ),
+    );
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason, 'autonomy half survives').toMatch(/still in flight/);
+    expect(parsed.reason, 'context half survives').toMatch(/\[context\]/);
+  });
+
+  it('ZCode census consequence: an entry with NO usage fields leaves the arm inert (row 9 zcode-gap)', () => {
+    // ZCode synthetic transcripts may omit .message.usage entirely — the arm must
+    // degrade to silence, never to an error or a fabricated size.
+    const tr = writeTranscript([
+      aiTitle('goal'),
+      userTurn('go'),
+      { message: { role: 'assistant', content: [{ type: 'text', text: 'done.' }] } },
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd7-no-usage' },
+      { TMPDIR: privateTmp() },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim(), 'no usage fields → no estimate → inert').toBe('');
+  });
+
+  it('composition: the context line rides the SAME block as a Branch A recap, never a second block', () => {
+    const tr = writeTranscript([
+      aiTitle('goal'),
+      userTurn('go'),
+      assistantWithUsage(longMarkdownText(), 320_000),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd7-compose' },
+      { TMPDIR: privateTmp() },
+    );
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason, 'recap half preserved').toMatch(/🟢/);
+    expect(parsed.reason, 'context half appended').toMatch(/\[context\]/);
+    expect(r.stdout.trim().startsWith('{') && r.stdout.trim().endsWith('}'), 'exactly one JSON object emitted').toBe(true);
   });
 });

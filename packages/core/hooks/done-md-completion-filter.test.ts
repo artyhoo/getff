@@ -61,6 +61,12 @@ const HELPER = resolve(
   '.claude/skills/pipeline/helpers/priority-score.sh',
 );
 
+// Each case spawns priority-score.sh against a real git fixture, so the default 5s
+// ceiling is too tight under a fully parallel `npm run test` on a loaded box
+// (observed 14-51s). Mirrors the SLOW_SHELL_MS convention (PR #848, e.g.
+// pre-push.consumer-layout.test.ts).
+const SLOW_SHELL_MS = 30_000;
+
 const sandboxes: string[] = [];
 afterEach(() => {
   for (const d of sandboxes.splice(0)) rmSync(d, { recursive: true, force: true });
@@ -225,7 +231,7 @@ function runHelper(
   return { status: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
 }
 
-describe('done-md-completion-filter — Layer C2 + C3 paired-negative contract', () => {
+describe('done-md-completion-filter — Layer C2 + C3 paired-negative contract', { timeout: SLOW_SHELL_MS }, () => {
   it('Case 1 — C2 POSITIVE: jaccard POTENTIAL_DUPE match → status=DONE done_pr=<num> basis=jaccard', () => {
     // Targets priority-score.sh completion Layer C2 block:
     //   _dup_detect_all_output=$(MO_DUP_DETECT_BIN ... --all)

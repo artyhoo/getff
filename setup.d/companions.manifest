@@ -19,3 +19,15 @@ runtime-bridge	curl -sf "${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}/health
 deepwiki	claude mcp list --scope user 2>/dev/null | grep -q deepwiki	claude mcp add --scope user --transport http deepwiki https://mcp.deepwiki.com/mcp	mcp	*
 ast-grep-cli	command -v ast-grep	npm install -g @ast-grep/cli	cli	*
 ast-grep	claude plugin list 2>/dev/null | grep -q ast-grep	claude plugin marketplace add ast-grep/agent-skill && claude plugin install ast-grep@ast-grep-marketplace --scope user	cc-plugin	*
+# @profile: factory — the aif-handoff row ships only when --profile factory is selected
+# (or the legacy --with-aif-suite escape, which routes to factory per install.sh:395-401).
+# Per beta-delivery-ux S1 §2.5 inventory: the factory profile UPGRADES this row from detect+
+# instruct to a consented guided INSTALL. S4 replaced the placeholder; the guided-install helper
+# is setup.d/aif-handoff-guided-install.sh, invoked from install.sh under PROFILE=factory (after
+# the setup.d layer loop). The kind=external-service label means the engine (setup.d/engine.sh
+# companion_step) treats this as a no-op print line — the actual handling routes through
+# setup.d/aif-handoff-guided-install.sh, which mirrors setup.d/bridge-guided.sh's pattern.
+# detect/install fields below carry the health-check detect + the helper pointer for the engine.
+# MINOR-4 resolution (§7d.4): install field is informational for kind=external-service; engine.sh
+# companion_step returns 0 for this kind — actual handling routes via install.sh → setup.d/aif-handoff-guided-install.sh.
+aif-handoff	curl -sf "${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}/health"	(guided-install: setup.d/aif-handoff-guided-install.sh under --profile factory)	external-service	*

@@ -51,14 +51,40 @@ function readFile(p: string): string {
 }
 
 function loadSsotEntryIds(): Set<number> {
-  const content = readFile(SSOT_PATH);
+  return collectSsotEntryIds(readFile(SSOT_PATH)).ids;
+}
+
+/**
+ * Extract every §4-table entry ID, preserving duplicates. Exported for the
+ * uniqueness invariant below: `ids` is the citation-target set (unchanged
+ * behaviour), `duplicates` is every ID that appears on more than one row.
+ *
+ * Why uniqueness is load-bearing (incident 2026-08-01): token-economy stage B
+ * (#1204) and arch-v2 S-C (#1197) each appended a row claiming ID 233 —
+ * "next free ID" was computed independently on two branches forked from the
+ * same staging. Each PR was green in isolation because this principle only
+ * verified that a cited ID EXISTS; the duplicate would have been born at
+ * merge, silently splitting every future `#233` citation between two
+ * entries in an append-only register keyed by ID. Caught by a session-side
+ * probe, fixed by renumbering, and closed as a class here: the second PR to
+ * land now fails CI instead of minting the collision.
+ */
+export function collectSsotEntryIds(content: string): {
+  ids: Set<number>;
+  duplicates: number[];
+} {
   const ids = new Set<number>();
+  const duplicates = new Set<number>();
   // SSOT §4 entries: lines like `| 1 | Autogrep ... |`. Header schema tables
   // in §1/§2 have non-numeric first cells, so the digit anchor filters them.
   const rowRe = /^\|\s*(\d+)\s*\|/gm;
   let m: RegExpExecArray | null;
-  while ((m = rowRe.exec(content)) !== null) ids.add(Number(m[1]));
-  return ids;
+  while ((m = rowRe.exec(content)) !== null) {
+    const id = Number(m[1]);
+    if (ids.has(id)) duplicates.add(id);
+    ids.add(id);
+  }
+  return { ids, duplicates: [...duplicates].sort((a, b) => a - b) };
 }
 
 function extractCitations(content: string): number[] {
@@ -148,6 +174,25 @@ describe('Principle 8 — every framework artifact claiming new capability cites
     expect(() => assertPrinciple8('phase-3-research.md', fake, ssotIds)).toThrow(
       /no such entry exists in SSOT/,
     );
+  });
+
+  it('SSOT entry IDs are unique — an ID minted on two branches fails at merge, not silently (incident 2026-08-01: #1204 vs #1197 both claimed 233)', () => {
+    const { duplicates } = collectSsotEntryIds(readFile(SSOT_PATH));
+    expect(
+      duplicates,
+      `prior-art-evaluations.md assigns the same entry ID to multiple rows: ${duplicates
+        .map((d) => `#${d}`)
+        .join(', ')}. The register is append-only and keyed by ID — every citation of a ` +
+        `duplicated ID is ambiguous. Renumber the later row(s) to the next free ID and ` +
+        `update their citing files.`,
+    ).toHaveLength(0);
+  });
+
+  it('mutation: duplicated entry ID is detected (anti-tautology for the uniqueness check)', () => {
+    const fake = ['| 1 | **A** | x |', '| 2 | **B** | x |', '| 1 | **C** | x |', '| 2 | **D** | x |'].join('\n');
+    const { ids, duplicates } = collectSsotEntryIds(fake);
+    expect(duplicates).toEqual([1, 2]);
+    expect([...ids].sort()).toEqual([1, 2]);
   });
 
   it('SSOT loader extracts numeric entry IDs from §4 table only (not §1/§2 schema headers)', () => {

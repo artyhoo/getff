@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+# AUTO-GENERATED from .claude/hooks/check-doc-authority.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)
+# Wave 7 7.2.c — PostToolUse: principle-09 authority header quick-check.
+# Delegates to 09-doc-authority-hierarchy.bin.ts (Batch A, sub-wave 7.1.c).
+# Input: hook JSON via stdin. CLI filters to REQUIRED_HEADER_DOCS; exits 0 for other paths.
+# @cc-only-rationale: edit-time PostToolUse delivery of the principle-09 authority-header
+#   check (delegates to 09-doc-authority-hierarchy.bin.ts). The same rule's portable
+#   enforcement is the principle-09 CI test itself — a rule+test lifecycle, excluded from
+#   @dual-pair per dual-implementation-discipline.md §9; no portable hook fires at edit-time.
+# @file-content-gate: this hook validates a file's content (path-only — no internal
+#   tool_name filter), so its registration matcher MUST be Edit|Write|MultiEdit (else a
+#   MultiEdit that strips an authority header slips past silently). Enforced by check-hook-marker.sh.
+set -uo pipefail
+
+# Harness-portable output (inline — standalone in test sandboxes). ZCode swallows plain
+# non-zero exits; JSON additionalContext reaches the model. CC VIOLATION path: exit 2 +
+# stderr — the only non-JSON channel the model receives on PostToolUse. Exit-1 stderr
+# reaches the operator transcript but NOT the model (live-verified both directions from
+# the model's own vantage 2026-07-24 — see
+# docs/meta-factory/research-patches/2026-07-24-posttooluse-channel-verification.md; the
+# earlier "exit 1 byte-for-byte" contract locked a channel the model never received).
+#
+# Graceful-SKIP paths are a different case: they exit 0, and on an exit-0 PostToolUse the
+# model receives ONLY JSON hookSpecificOutput — plain stdout/stderr reaches nobody
+# (inject-matching-rule.sh:17 + :89-90, the proven channel). A dependency-missing skip
+# announced on stderr is therefore indistinguishable from a pass. Observed live in the aif
+# container on 2026-07-23, where `jq` is absent and the notice reached no one:
+# docs/meta-factory/research-patches/2026-07-23-aif-parity-s4-synthesis.md §3 item 1.
+_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
+# JSON-escape WITHOUT jq — jq is precisely the dependency that may be missing here.
+_json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n' ' '; }
+# Announce a skip on the channel the model actually receives on an exit-0 path, and keep
+# the human/log channel too (stderr stays for terminal + CI readers).
+_emit_skip() {
+  if _is_zcode; then
+    printf '{"additionalContext":"%s"}\n' "$(_json_escape "$1")"
+  else
+    printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' \
+      "$(_json_escape "$1")"
+  fi
+  printf '%s\n' "$1" >&2
+}
+_emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
+    jq -n --arg c "$2" '{additionalContext:$c}'
+  else printf '%s\n' "$2"; fi; }
+
+# Resolve the tsx runner through a tier list (linked worktrees carry no node_modules):
+#   1. repo-local  2. main worktree via git --git-common-dir  3. tsx on PATH
+_resolve_tsx() {
+  local candidate="$REPO_ROOT/node_modules/.bin/tsx"
+  [[ -x "$candidate" ]] && { printf '%s' "$candidate"; return 0; }
+  local common_dir
+  common_dir="$(git -C "$REPO_ROOT" rev-parse --git-common-dir 2>/dev/null || true)"
+  if [[ -n "$common_dir" ]]; then
+    [[ "$common_dir" != /* ]] && common_dir="$REPO_ROOT/$common_dir"
+    local main_root="${common_dir%/*}"
+    candidate="$main_root/node_modules/.bin/tsx"
+    [[ -x "$candidate" ]] && { printf '%s' "$candidate"; return 0; }
+  fi
+  local on_path; on_path="$(command -v tsx 2>/dev/null || true)"
+  [[ -n "$on_path" ]] && { printf '%s' "$on_path"; return 0; }
+  return 1
+}
+
+REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
+BIN="$REPO_ROOT/packages/core/principles/09-doc-authority-hierarchy.bin.ts"
+if ! command -v jq >/dev/null 2>&1; then
+  _emit_skip '⚠ check-doc-authority: jq unavailable — the principle-09 authority-header check DID NOT RUN for this edit. This is a SKIP, not a pass; install jq to restore enforcement.'
+  exit 0
+fi
+
+ABS_PATH="$(cat | jq -r '.tool_input.file_path // ""' 2>/dev/null || true)"
+[[ -z "$ABS_PATH" ]] && exit 0
+
+# Convert absolute path to repo-root-relative (CLI API expects relative paths)
+REL_PATH="${ABS_PATH#"$REPO_ROOT/"}"
+[[ "$REL_PATH" = "$ABS_PATH" ]] && exit 0   # outside repo — skip
+
+# Runtime dependency: Batch A CLI shim; graceful no-op until it lands
+[[ ! -f "$BIN" ]] && exit 0
+
+# Resolve tsx through tiers: repo-local, main-worktree (git --git-common-dir), PATH.
+# Ordered after the jq check so a missing-jq skip fires first (matches pre-fix ordering).
+TSX="$(_resolve_tsx)" || {
+  _emit_skip '⚠ check-doc-authority: tsx not found — the principle-09 authority-header check DID NOT RUN for this edit. This is a SKIP, not a pass.'
+  exit 0
+}
+
+# Delegate; capture output so under ZCode a violation reaches the model (plain exit 1 + stderr
+# is swallowed by ZCode — JSON additionalContext is merged into the tool result). Under CC the
+# bin's stderr + non-zero exit is preserved byte-for-byte.
+BIN_ERR="$("$TSX" "$BIN" "$REL_PATH" 2>&1 1>/dev/null)"
+STATUS=$?
+if [[ $STATUS -ne 0 ]] && _is_zcode; then
+  _emit_ctx "PostToolUse" "❌ check-doc-authority: principle-09 authority-header check failed for $REL_PATH.
+$BIN_ERR"
+  exit 0
+fi
+# Guard: emit only when non-empty (otherwise success-path emits a stray \n).
+[[ -n "$BIN_ERR" ]] && printf '%s\n' "$BIN_ERR" >&2
+# CC violation → exit 2 (stderr feeds the model); success → 0.
+[[ $STATUS -ne 0 ]] && exit 2
+exit 0

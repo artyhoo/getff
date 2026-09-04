@@ -13,6 +13,10 @@
 #   transform_internal_refs <file>
 #   copy_safe <src> <dst>
 #   refresh_safe <src> <dst>
+#   refresh_baseline_stage <dst>            # consumer-refresh-integrity R1 — record a delivery
+#   refresh_baseline_flush                  # R1 — write .ai-factory/refresh-baseline.json (fail-open)
+#   refresh_baseline_diverged <dst> <src>   # R1 — 0 iff dst diverged from the baseline (if-guard only)
+#   deliver_getff_workflow <tpl-src> <dst>      # getff-honest-signals S4 — branch substitution
 #   merge_prettierignore <src> <dst>
 #   _prettierignore_in_skipped <needle>
 #   ignore_shipped_configs
@@ -40,24 +44,102 @@
 # Repo-internal cross-refs (paths to docs/, packages/, README.md) get rewritten to
 # GitHub blob URLs at install time. One source of truth: .claude/skills/<skill>/SKILL.md
 # Override via env var if forking to a different repo.
-UPSTREAM_BLOB_URL="${UPSTREAM_BLOB_URL:-https://github.com/Yhooi2/rules-as-tests-aif/blob/main}"
+UPSTREAM_BLOB_URL="${UPSTREAM_BLOB_URL:-https://github.com/artyhoo/getff/blob/main}"
+
+# ── Skill-slug tier sets — SSOT for the install arm AND the refresh arm (#1312) ──────────────
+# The `.claude/skills/` payload splits by install depth (F7 split, widened S5 2026-08-01):
+#   CORE     — always shipped, consumer-facing, no aif-handoff runtime assumed.
+#   ENV      — env+ contour surface (PROFILE=env|factory, or the legacy --with-aif-suite escape).
+#   FACTORY  — AIF operator suite (PROFILE=factory or --with-aif-suite); presupposes the runtime.
+# Both consumers read these constants: setup.d/10-skills.sh (install) and install.sh do_refresh
+# (refresh). They used to hard-code a copy each and drifted three times — #1312 measured `arch`
+# absent from every refresh loop, `rule-tests` announced-then-skipped, and
+# `claude-glm-executor-handoff` present on the install arm only. One list per tier makes that
+# class unrepresentable; tests/install-sh/refresh-covers-full-delivery.test.sh asserts both arms
+# still READ them (and that no literal-slug loop reintroduces a third copy).
+# Per-tier rationale (which skill sits at which depth, and why) stays in setup.d/10-skills.sh.
+GETFF_SKILLS_CORE="template-audit ai-doc rule-research rule-tests"
+GETFF_SKILLS_ENV="arch night-mode orchestrator pipeline reviewer"
+GETFF_SKILLS_FACTORY="dispatcher aif-doctor harvest story claude-glm-executor-handoff"
 
 PRETTIERIGNORE_BEGIN='# >>> rules-as-tests-aif (managed) >>>'
 PRETTIERIGNORE_END='# <<< rules-as-tests-aif (managed) <<<'
 PRETTIERIGNORE_CFG_BEGIN='# >>> rules-as-tests-aif shipped-configs (managed) >>>'
 PRETTIERIGNORE_CFG_END='# <<< rules-as-tests-aif shipped-configs (managed) <<<'
 
+# Consumer root AGENTS.md is CO-OWNED (spec C1 (b)): ai-factory generates and auto-updates it
+# on consumer machines, so our contribution is a fenced section, never the whole file. These
+# four constants are the SSOT for both delivery paths (setup.d/30-templates.sh npm lane +
+# setup.d/45-python.sh python lane) — install_agents_md() below is the only caller, so the two
+# lanes cannot drift (dual-implementation-discipline.md §7).
+AGENTS_FENCE_SECTION='getff-framework'
+AGENTS_FENCE_PLAN='packages/core/templates/shared/AGENTS.md.template'
+# Case-(c) adopt sentinels — BOTH must match before an existing unfenced file is rewritten.
+# Verified present in all 20 historical revisions of AGENTS.md.template (2026-08-08).
+AGENTS_FENCE_SENTINEL_1='# AGENTS.md — context for AI coding agents'
+AGENTS_FENCE_SENTINEL_2='.ai-factory/RULES.md'
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 # transform_internal_refs <markdown-file>
-# Rewrites markdown links `](../../../{docs,packages}/...)` and `](../../../README.md...)`
-# in-place to `](${UPSTREAM_BLOB_URL}/...)`. Leaves consumer-resolvable refs intact
-# (e.g. `](../../rules/...)` and `](../../hooks/...)` stay relative — deemed consumer-local by
-# convention, enforced by tests/install-sh/transform-internal-refs.test.sh #4/#5).
-# NOTE (2026-07-04, flagged not fixed): a real install shows `.claude/rules/` is NOT currently
-# shipped, so relative rules/ links dangle for consumers — a latent inconsistency between this
-# convention and the installer. Resolving it (ship rules/ vs blob-ify rules/ links) is a
-# maintainer decision, out of scope here; the transform stays as tested.
+# Rewrites markdown links `](../../../{docs,packages}/...)`, `](../../../README.md...)`,
+# and `.claude/rules/` refs (both the skill shape `](../../rules/...)` and the agent shape
+# `](../.claude/rules/...)`) in-place to `](${UPSTREAM_BLOB_URL}/...)`. `.claude/rules/` is
+# NOT shipped to consumers, so relative rules/ links dangle post-install — on the consumer's
+# FIRST push, pre-push §8 (`lychee --offline` over changed *.md) went red on ~87 such links
+# (flat-install smoke 2026-07-10). Leaves genuinely consumer-resolvable refs intact
+# (e.g. `](../../hooks/...)` — tests/install-sh/transform-internal-refs.test.sh #5).
+#
+# S2 (2026-07-25) added `agents/`, `tests/`, and `.claude/orchestrator-prompts/` arms:
+#   - agents/ refs from skill files land at the WRONG path on a consumer
+#     (`<consumer>/agents/` vs shipped `.claude/agents/`); tests/ never ships.
+#   - .claude/orchestrator-prompts/ is NEVER delivered to consumers — the only install
+#     action is `mkdir_safe "$PROJECT_ROOT/.ai-factory/orchestrator-prompts"` at
+#     setup.d/30-templates.sh:17 (note: `.ai-factory/`, not `.claude/`). A skill file
+#     carrying ](../../orchestrator-prompts/aif-doctor-skill/kickoff.md) resolves to
+#     `<consumer>/.claude/orchestrator-prompts/...` post-install — a path that does not
+#     exist. Observed leaking from .claude/skills/aif-doctor/SKILL.md:26.
+# scripts/ is INTENTIONALLY UNHANDLED — partially shipped (subset via 40-configs.sh),
+# per-file ambiguity is a §4 park trigger (kickoff getff-honest-signals-s2). Extend only with a
+# shipped-scripts allowlist if a future scripts/ ref to a non-shipped script re-breaks a push.
+#
+# 2026-07-25 added the agent-shape `.claude/skills/` arm: agents/*.md live at repo root, so
+# in-repo they reach skills via ](../.claude/skills/...); shipped to `<consumer>/.claude/agents/`
+# that same ref resolves to `<consumer>/.claude/.claude/skills/...` — a doubled segment that
+# does not exist (lychee-shipped-md-offline RED on agents/fidelity-auditor.md:22 → dispatcher).
+# Blob URL, not a relative rewrite: the target skill may be absent (aif-suite–gated) — same
+# verdict as the agents/ arm above.
+# 2026-08-17 — six arms added after the lychee gate's population was widened from core to
+# factory depth (tests/install-sh/lychee-shipped-md-offline.test.sh). Every one of these had
+# been shipping dangling for as long as env/factory depth existed; none was reachable by the
+# core-depth fixture, so all six were invisible. Measured at factory depth: 17 broken links.
+#   - `CLAUDE.md` (10 of the 17 — the single biggest offender): the peer `README.md` arm above
+#     has existed since the original fix, but CLAUDE.md was never added even though it is just
+#     as absent from a consumer (install ships AGENTS.md, never CLAUDE.md — verified on the
+#     fixture). Sources: arch ×7, dispatcher, pipeline, pipeline/references/mode-overrides.
+#   - `.claude/orchestrator-prompts/` — the `.claude/`-PREFIXED shape. The 2026-07-25 arm below
+#     only matches the bare `](../../orchestrator-prompts/` shape, so a ref written as
+#     `](../../../.claude/orchestrator-prompts/…)` slipped past it untouched (vendor README:4).
+#   - `.github/` — never shipped except `.github/workflows/` (verified: the factory fixture has
+#     workflows/ only, no pull_request_template.md). Source: pipeline/SKILL.md:366.
+# The last three are DELIBERATELY per-file, not blanket arms, because their parent directories
+# are PARTIALLY shipped — a blanket arm would rewrite genuinely consumer-resolvable refs into
+# blob URLs and lose in-repo navigability:
+#   - `scripts/run-local-ci-sweep.sh` — this is the "shipped-scripts allowlist" the §park note
+#     above anticipated ("Extend only with a shipped-scripts allowlist if a future scripts/ ref
+#     to a non-shipped script re-breaks a push"). It re-broke the push; scripts/ IS partially
+#     shipped, so only the proven-absent file is rewritten. Source: harvest/SKILL.md:18,20.
+#   - `hooks/check-worker-dispatch-channel.sh` — `.claude/hooks/` IS shipped and most hook refs
+#     resolve fine (transform-internal-refs.test.sh #5 asserts `](../../hooks/…)` stays intact),
+#     so only this one absent hook is rewritten. Source: pipeline/SKILL.md:388.
+# A fourth candidate was REJECTED rather than allowlisted: `](../reviewer/SKILL.md)` from
+# arch/SKILL.md:94 also dangled, but rewriting it would have papered over the real defect. The
+# sibling-skill shape is supposed to stay relative — «sibling-skill links stay relative (sibling
+# ships too)», 10-skills.sh:107 — so a dangling sibling ref means the SIBLING IS MISSING, not
+# that the ref is wrong. `reviewer` was in no tier list while arch (env tier) promised consumers
+# that `/reviewer` loads it; the fix was to ship it at env, not to bend the link.
+# Recurrence is now caught mechanically, not by review attention: the widened factory-depth
+# fixture covers every shipped *.md, so the next unshipped-target ref fails the gate.
 # Uses `-i.bak` for BSD-sed/GNU-sed portability, then removes the backup.
 transform_internal_refs() {
   local f="$1"
@@ -66,8 +148,212 @@ transform_internal_refs() {
     -e "s#\]\((\.\./)+docs/#](${UPSTREAM_BLOB_URL}/docs/#g" \
     -e "s#\]\((\.\./)+packages/#](${UPSTREAM_BLOB_URL}/packages/#g" \
     -e "s#\]\((\.\./)+README\.md#](${UPSTREAM_BLOB_URL}/README.md#g" \
+    -e "s#\]\((\.\./)+CLAUDE\.md#](${UPSTREAM_BLOB_URL}/CLAUDE.md#g" \
+    -e "s#\]\((\.\./)+\.claude/rules/#](${UPSTREAM_BLOB_URL}/.claude/rules/#g" \
+    -e "s#\]\((\.\./)+\.claude/skills/#](${UPSTREAM_BLOB_URL}/.claude/skills/#g" \
+    -e "s#\]\((\.\./)+\.claude/orchestrator-prompts/#](${UPSTREAM_BLOB_URL}/.claude/orchestrator-prompts/#g" \
+    -e "s#\]\((\.\./)+rules/#](${UPSTREAM_BLOB_URL}/.claude/rules/#g" \
+    -e "s|\]\((\.\./)+install\.sh([#)])|](${UPSTREAM_BLOB_URL}/install.sh\2|g" \
+    -e "s#\]\((\.\./)+agents/#](${UPSTREAM_BLOB_URL}/agents/#g" \
+    -e "s#\]\((\.\./)+tests/#](${UPSTREAM_BLOB_URL}/tests/#g" \
+    -e "s#\]\((\.\./)+orchestrator-prompts/#](${UPSTREAM_BLOB_URL}/.claude/orchestrator-prompts/#g" \
+    -e "s#\]\((\.\./)+\.github/#](${UPSTREAM_BLOB_URL}/.github/#g" \
+    -e "s#\]\((\.\./)+scripts/run-local-ci-sweep\.sh#](${UPSTREAM_BLOB_URL}/scripts/run-local-ci-sweep.sh#g" \
+    -e "s#\]\((\.\./)+hooks/check-worker-dispatch-channel\.sh#](${UPSTREAM_BLOB_URL}/.claude/hooks/check-worker-dispatch-channel.sh#g" \
     "$f"
   rm -f "${f}.bak"
+}
+
+# deliver_runtime_bridge_vendor <vendor-src-dir> <vendor-dst-dir>
+# SSOT for the runtime-bridge vendor drop, called by BOTH delivery paths: the install path
+# (setup.d/55-runtime-bridge-vendor.sh) and the refresh path (install.sh do_refresh). Those two
+# are the @sync-with-layers pair the do_refresh header warns about, and they had already drifted
+# once here — the refresh path carried no vendor arm at all, so `--refresh` never updated a
+# consumer's vendor copy after an upgrade, and (observed on CI 2026-08-17, run 32022158836) the
+# delivered README could end up back at its untransformed source with the transform never
+# re-applied. One function means the wipe-recopy-transform sequence cannot diverge again
+# (dual-implementation-discipline.md §7).
+#
+# Wipe + recopy matches the skills/* idempotent pattern (10-skills.sh:22); the transform pass is
+# what keeps repo-internal relative refs from shipping dangling (see transform_internal_refs
+# above). transform_internal_refs is idempotent, so running this on an already-delivered tree is
+# safe — that is what makes it usable as the refresh path's arm.
+deliver_runtime_bridge_vendor() {
+  local src="$1" dst="$2" _md
+  [ -d "$src" ] || return 0
+  rm -rf "$dst"
+  cp -r "$src" "$dst"
+  while IFS= read -r _md; do
+    transform_internal_refs "$_md"
+  done < <(find "$dst" -name '*.md' -type f)
+}
+
+# ── consumer-refresh-integrity R1 — refresh-baseline manifest + divergence guard ──────────────
+# Issue 1481 (casualties 1+3): --refresh overwrote consumer-modified files silently. A consumer
+# has no upstream git history to diff against, so "previous upstream content" is recorded by the
+# framework itself at delivery time (kickoff RI-2): every copy_safe/refresh_safe delivery stages
+# its dst here, and the installer flushes the staged paths into
+# $PROJECT_ROOT/.ai-factory/refresh-baseline.json (sha256 per delivered dst path, keys sorted,
+# no timestamps — deterministic bytes, because the snapshot harness fingerprints this file).
+#
+# Guard (kickoff RI-1, warn + preserve, NEVER refuse): before a refresh_safe overwrite of a file
+# whose sha256(dst) differs from BOTH the manifest entry AND sha256(src) → copy the diverged
+# bytes to $PROJECT_ROOT/.ai-factory/refresh-conflicts/<basename>.<sha8> (sha8 = first 8 hex of
+# the diverged dst bytes; NEVER a sibling of the live file — no same-name collisions), print a
+# loud warning, then refresh anyway. A MISSING manifest entry means unknown → today's behaviour
+# exactly: no divergence claim, no first-refresh spam on a pre-manifest consumer (T-CRI-B).
+#
+# Fail-open discipline (binding): a missing, unparsable or unreadable manifest, a missing jq or
+# sha256 tool, an unwritable conflicts dir — each degrades to today's behaviour with a one-line
+# note and NEVER fails the install/refresh (precedent: refresh_safe's source-gone → return 0).
+#
+# Two shape decisions (measured, not accidental):
+#   - STAGE PATHS, HASH AT FLUSH. The manifest must record the bytes as SHIPPED, and callers
+#     legitimately mutate a dst after copy_safe/refresh_safe returns (transform_internal_refs on
+#     agents/skills, patch_stryker_package_manager, rewrite_arch_sot_header, the prettierignore
+#     appends). Hashing at stage time would store pre-transform bytes and then flag every
+#     transformed file as diverged on every refresh — first-refresh spam by construction.
+#     Staging paths and hashing once at end-of-run captures the final on-disk bytes.
+#   - FILES ONLY. Directory payloads (refresh_safe #873 replaces whole dirs) have no single
+#     sha256; they stage nothing and are never flagged — unknown, today's behaviour.
+#
+# SCOPE: copy_safe/refresh_safe deliveries only. Skills (copy_skill_with_transform /
+# refresh_skill_with_transform), merge_fenced and the raw-cp vendor drop have their own verbs
+# and stay outside this mechanism (W-RI-1: generic, no special-casing of any pair entry).
+REFRESH_BASELINE_STAGED=()
+REFRESH_BASELINE_NOTE_SHOWN=""
+
+# _refresh_baseline_manifest — echo the consumer-local manifest path (never tracked, never a
+# template; lives under the consumer's .ai-factory/ only).
+_refresh_baseline_manifest() {
+  printf '%s\n' "${PROJECT_ROOT:-.}/.ai-factory/refresh-baseline.json"
+}
+
+# _refresh_baseline_note <reason> — one-line fail-open note, at most ONCE per run (stderr: the
+# read-side helpers run inside $(...) captures and stdout would pollute the captured value).
+_refresh_baseline_note() {
+  if [ -z "$REFRESH_BASELINE_NOTE_SHOWN" ]; then
+    echo "  · refresh-baseline: $1 — divergence guard degraded to today's behaviour" >&2
+    REFRESH_BASELINE_NOTE_SHOWN=1
+  fi
+}
+
+# _hash256 <file> — portable sha256 (sha256sum | shasum -a 256; same ladder as the snapshot
+# harness). Echoes the hex digest or fails (caller degrades).
+_hash256() {
+  local h
+  if command -v sha256sum >/dev/null 2>&1; then
+    h=$(sha256sum "$1" 2>/dev/null | awk '{print $1}')
+  elif command -v shasum >/dev/null 2>&1; then
+    h=$(shasum -a 256 "$1" 2>/dev/null | awk '{print $1}')
+  else
+    return 1
+  fi
+  [ -n "$h" ] || return 1
+  printf '%s\n' "$h"
+}
+
+# refresh_baseline_stage <dst> — record a delivered dst for the end-of-run flush. Paths only
+# (hashed at flush — see the section header); regular files only; no-op under --dry-run.
+refresh_baseline_stage() {
+  if [ "${DRY_RUN:-}" = "--dry-run" ]; then return 0; fi
+  if [ -f "$1" ]; then
+    REFRESH_BASELINE_STAGED+=("$1")
+  fi
+  return 0
+}
+
+# refresh_baseline_diverged <dst> <src> — exit 0 IFF <dst> is a consumer-diverged file:
+# sha256(dst) ≠ manifest entry AND ≠ sha256(src), with a manifest entry present. Everything
+# else — no entry (unknown), dst absent, directory dst, jq/sha tooling missing, unreadable
+# manifest — exits 1 (not diverged). Call ONLY inside an `if` (its non-zero is a verdict, and
+# refresh_safe runs under set -euo pipefail). The manifest read is INLINED at this parent
+# scope — not via $(... _refresh_baseline_lookup ...) — so the degrade note's once-flag
+# persists across this function's many calls (a subshell capture would re-note per file).
+refresh_baseline_diverged() {
+  local dst="$1" src="$2" manifest entry cur src_hash
+  [ -f "$dst" ] || return 1
+  command -v jq >/dev/null 2>&1 || { _refresh_baseline_note "jq not found"; return 1; }
+  entry=""
+  manifest=$(_refresh_baseline_manifest)
+  if [ -f "$manifest" ]; then
+    if ! entry=$(jq -r --arg k "${dst#"${PROJECT_ROOT:-}"/}" 'if (type == "object") and has($k) then .[$k] else "" end' "$manifest" 2>/dev/null); then
+      _refresh_baseline_note "manifest at $manifest is unreadable or not JSON"
+      entry=""
+    fi
+  fi
+  [ -n "$entry" ] || return 1
+  cur=$(_hash256 "$dst") || { _refresh_baseline_note "no sha256 tool found"; return 1; }
+  if [ "$cur" = "$entry" ]; then return 1; fi
+  src_hash=$(_hash256 "$src") || return 1
+  if [ "$cur" = "$src_hash" ]; then return 1; fi
+  return 0
+}
+
+# _preserve_diverged_copy <dst> — copy the diverged bytes aside + print the loud warning.
+# Warn + preserve, never refuse: even a FAILED preserve only changes the warning text; the
+# refresh itself proceeds (RI-1).
+_preserve_diverged_copy() {
+  local dst="$1" conflicts sum8 preserved
+  conflicts="${PROJECT_ROOT:-.}/.ai-factory/refresh-conflicts"
+  if sum8=$(_hash256 "$dst"); then
+    preserved="$conflicts/$(basename "$dst").${sum8:0:8}"
+    if mkdir -p "$conflicts" 2>/dev/null && cp "$dst" "$preserved" 2>/dev/null; then
+      echo "  ⚠ overwriting locally-modified file: $dst (consumer copy preserved at $preserved)"
+      return 0
+    fi
+  fi
+  echo "  ⚠ overwriting locally-modified file: $dst (could not preserve a copy under $conflicts — refreshing anyway)"
+  return 0
+}
+
+# refresh_baseline_flush — write the staged deliveries into the manifest (merge, sorted keys —
+# deterministic bytes). Called ONCE at each installer exit path AFTER every delivery + transform
+# has run. Fail-open on every branch: a failed flush is a note, never a failed install.
+refresh_baseline_flush() {
+  local manifest tsv p h prev patch
+  if [ "${DRY_RUN:-}" = "--dry-run" ]; then return 0; fi
+  [ "${#REFRESH_BASELINE_STAGED[@]}" -gt 0 ] || return 0
+  command -v jq >/dev/null 2>&1 || { _refresh_baseline_note "jq not found — manifest not written"; return 0; }
+  manifest=$(_refresh_baseline_manifest)
+  tsv=$(mktemp) || { _refresh_baseline_note "mktemp failed — manifest not written"; return 0; }
+  printf '%s\n' "${REFRESH_BASELINE_STAGED[@]}" | LC_ALL=C sort -u \
+    | while IFS= read -r p; do
+        if [ -f "$p" ] && h=$(_hash256 "$p"); then
+          printf '%s\t%s\n' "${p#"${PROJECT_ROOT:-}"/}" "$h"
+        fi
+      done > "$tsv"
+  if [ -s "$tsv" ]; then
+    if patch=$(jq -Rn 'reduce (inputs | split("\t")) as $row ({}; .[$row[0]] = $row[1])' "$tsv" 2>/dev/null); then
+      prev='{}'
+      if [ -f "$manifest" ]; then
+        # Merge into the existing baseline (a refresh that skips an arm must not forget what the
+        # install delivered). A corrupt/unreadable existing manifest is REPLACED fresh — healing
+        # it — with a note; that is still fail-open for this run's guard (it read as empty).
+        if prev=$(cat "$manifest" 2>/dev/null); then
+          printf '%s' "$prev" | jq -e 'type == "object"' >/dev/null 2>&1 || { _refresh_baseline_note "existing manifest not JSON — replacing it fresh"; prev='{}'; }
+        else
+          _refresh_baseline_note "existing manifest unreadable — replacing it fresh"
+          prev='{}'
+        fi
+      fi
+      if mkdir -p "$(dirname "$manifest")" 2>/dev/null; then
+        if jq -S -n --argjson prev "$prev" --argjson patch "$patch" '$prev * $patch' > "${manifest}.getff.tmp" 2>/dev/null; then
+          mv "${manifest}.getff.tmp" "$manifest"
+          echo "  ✓ .ai-factory/refresh-baseline.json recorded ($(wc -l < "$tsv" | tr -d ' ') delivered files hashed)"
+        else
+          rm -f "${manifest}.getff.tmp"
+          _refresh_baseline_note "manifest write failed"
+        fi
+      else
+        _refresh_baseline_note "cannot create $(dirname "$manifest")"
+      fi
+    else
+      _refresh_baseline_note "manifest patch build failed"
+    fi
+  fi
+  rm -f "$tsv"
+  return 0
 }
 
 copy_safe() {
@@ -92,6 +378,162 @@ copy_safe() {
   mkdir -p "$(dirname "$dst")"
   cp -r "$src" "$dst"
   echo "  ✓ $dst"
+  refresh_baseline_stage "$dst"   # R1: record the delivery for the baseline flush
+}
+
+# merge_fenced <src> <dst> <section-id> [plan-path] [sentinel-1] [sentinel-2]
+#
+# Section-scoped co-ownership for a destination file that OTHER generators also write
+# (spec C1 addition (b), beta-ai-docs-agnosticism S1 §2 D1b). The canonical case is the
+# consumer's root AGENTS.md: ai-factory generates and auto-updates it, so `copy_safe`'s
+# skip-if-exists means our contribution lands NOWHERE on any consumer that already has one,
+# while `--force` would clobber the other writer. This helper writes ONLY our fenced block:
+#
+#   <!-- getff:begin section=<id> plan=<path> -->  … ours …  <!-- getff:end section=<id> -->
+#
+# Everything outside the markers is the other writer's and is preserved byte-for-byte.
+# Marker grammar mirrors packages/core/composition/fence.ts (beginMarker/endMarker/findRegions)
+# — same `getff:begin section=<id> plan=<path>` shape, so the TS fence tooling can parse what
+# this bash writer emits. Replicated, NOT imported: install.sh must run with zero Node.
+#
+# `copy_safe` is deliberately UNCHANGED (S1 §2 D1b binding constraint): it has ~142 call sites
+# across 14 files, none of which asked for merge behaviour. This is an additive helper.
+#
+# FOUR cases (all three S1 §4 item-4 acceptance cases plus the fresh-install path):
+#   (0) dst absent            → create; the whole file is our fenced section.
+#   (a) dst has FOREIGN text  → append our fenced block; foreign content survives.
+#   (b) dst already fenced    → replace the body BETWEEN the markers, in place. Idempotent:
+#                               a second run is byte-identical, never a duplicated section.
+#                               The existing begin marker line is kept VERBATIM (forward-compat
+#                               attributes an older/newer writer put on it survive) — same rule
+#                               as fence.ts injectRegion.
+#   (c) dst is a FENCE-LESS copy of an older version of our own template → adopt it exactly
+#                               once by REPLACING the whole file with the fenced form. This is
+#                               every consumer installed before this stage; a fence-writer that
+#                               only knew case (a) would append and silently DOUBLE their file.
+#
+# Case (c) detection is deliberately conservative — a false-positive adopt would destroy a
+# consumer's own file. TWO independent sentinels must BOTH be present, and both were verified
+# present in all 20 historical revisions of AGENTS.md.template (git log --follow, 2026-08-08):
+#   1. the template's H1 line, and 2. the `.ai-factory/RULES.md` convention reference.
+# Sentinels are caller-supplied (args 5/6) so the helper stays generic; with no sentinels
+# passed, case (c) never fires and an unrecognised file takes the safe (a) path.
+#
+# `--force` semantics for a co-owned file (S1 §2 D1b — stated, not left undefined): --force
+# replaces OUR fenced section ONLY, never the whole file. Mechanically that is what this helper
+# already does on every run, so FORCE is a deliberate NO-OP here. Rationale: the file is
+# co-owned by construction; there is no consumer intent under which "overwrite" should mean
+# "delete the other writer's content".
+#
+# Layer-3 escape hatch honoured (same signal as refresh_safe): a sibling <base>.override.md
+# means the consumer has taken ownership — skip entirely, write nothing.
+#
+# The body is written with a blank line on each side of the markers, and every write path does it
+# identically so the replace path is byte-equal to the create path. Without it Prettier reports the
+# consumer's AGENTS.md as unformatted (an HTML comment immediately followed by a heading), and the
+# consumer's very first `npm run validate` goes red on a file we wrote — the #531 failure class.
+#
+# Malformed fence (a begin marker with no matching end) → LOUD refuse + skip, never a guess.
+# Splicing against a missing end marker would delete everything from the marker to EOF; the
+# irreversible branch is never the default (T-Upgrade-A).
+merge_fenced() {
+  local src="$1"
+  local dst="$2"
+  local section="$3"
+  local plan="${4:-}"
+  local sentinel_1="${5:-}"
+  local sentinel_2="${6:-}"
+
+  local override="${dst%.md}.override.md"
+  local begin="<!-- getff:begin section=${section}"
+  local end_tok="<!-- getff:end section=${section} -->"
+  local begin_full="${begin} plan=${plan} -->"
+  [ -n "$plan" ] || begin_full="${begin} -->"
+
+  [ -f "$src" ] || return 0
+
+  if [ -e "$override" ]; then
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would skip: $dst (.override.md present — consumer-owned Layer 3)"
+    else
+      echo "  ⊝ $dst (.override.md — consumer-owned, keeping)"
+    fi
+    return 0
+  fi
+
+  # ── (0) fresh install ──────────────────────────────────────────────────────
+  if [ ! -e "$dst" ]; then
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would create: $dst (fenced section=$section)"
+      return 0
+    fi
+    mkdir -p "$(dirname "$dst")"
+    { echo "$begin_full"; echo ""; cat "$src"; echo ""; echo "$end_tok"; } > "$dst"
+    echo "  ✓ $dst (fenced section=$section)"
+    return 0
+  fi
+
+  # ── (b) our fence already present → replace body in place ──────────────────
+  if grep -qF "$begin" "$dst"; then
+    if ! grep -qF "$end_tok" "$dst"; then
+      echo "  ⚠ $dst: '$begin' present but no matching '$end_tok' — REFUSING to splice" >&2
+      echo "    (an unterminated fence would delete everything to EOF; fix the marker pair by hand)" >&2
+      SKIPPED+=("$dst")
+      return 0
+    fi
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would replace fenced section=$section in: $dst"
+      return 0
+    fi
+    local tmp="${dst}.getff.tmp"
+    awk -v BEG="$begin" -v END_TOK="$end_tok" -v SRC="$src" '
+      state == 0 && index($0, BEG) > 0 {
+        print                                     # keep the begin marker verbatim
+        print ""                                  # blank lines around the body: Prettier treats an
+        while ((getline line < SRC) > 0) print line
+        close(SRC)
+        print ""                                  # HTML comment glued to a heading as unformatted
+        state = 1
+        next
+      }
+      state == 1 && index($0, END_TOK) > 0 { print; state = 2; next }
+      state == 1 { next }                         # drop the previous body
+      { print }
+    ' "$dst" > "$tmp" && mv "$tmp" "$dst"
+    echo "  ✓ $dst (fenced section=$section replaced)"
+    return 0
+  fi
+
+  # ── (c) fence-less copy of an older version of our own template → adopt once ─
+  if [ -n "$sentinel_1" ] && [ -n "$sentinel_2" ] \
+    && grep -qF "$sentinel_1" "$dst" && grep -qF "$sentinel_2" "$dst"; then
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would adopt (wrap in fence): $dst"
+      return 0
+    fi
+    { echo "$begin_full"; echo ""; cat "$src"; echo ""; echo "$end_tok"; } > "$dst"
+    echo "  ✓ $dst (pre-fence getff copy adopted into section=$section)"
+    return 0
+  fi
+
+  # ── (a) foreign content → append our block, preserve theirs ────────────────
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would append fenced section=$section to: $dst (foreign content preserved)"
+    return 0
+  fi
+  # Guarantee a newline boundary so the marker never glues onto the last foreign line.
+  [ -s "$dst" ] && [ "$(tail -c 1 "$dst")" != "" ] && echo "" >> "$dst"
+  { echo "$begin_full"; echo ""; cat "$src"; echo ""; echo "$end_tok"; } >> "$dst"
+  echo "  ✓ $dst (fenced section=$section appended; existing content preserved)"
+}
+
+# install_agents_md <src> <dst>
+# The ONLY caller of merge_fenced for the consumer root AGENTS.md. Both delivery lanes
+# (30-templates.sh npm, 45-python.sh python) route through here so the section id, plan
+# attribute and case-(c) sentinels cannot drift between them.
+install_agents_md() {
+  merge_fenced "$1" "$2" "$AGENTS_FENCE_SECTION" "$AGENTS_FENCE_PLAN" \
+    "$AGENTS_FENCE_SENTINEL_1" "$AGENTS_FENCE_SENTINEL_2"
 }
 
 # refresh_safe <src> <dst>
@@ -116,14 +558,183 @@ refresh_safe() {
     fi
     return 0
   fi
+  # R1 divergence guard (read-only probe): fires identically under --dry-run so the preview
+  # reports `would-flag` for exactly the files the real refresh would warn about. The override
+  # skip above returns BEFORE this — the Layer-3 escape produces no conflict copy, no warning.
   if [ "$DRY_RUN" = "--dry-run" ]; then
+    if refresh_baseline_diverged "$dst" "$src"; then
+      echo "  [dry-run] would-flag: $dst (locally modified)"
+    fi
     echo "  [dry-run] would refresh: $src → $dst"
     return 0
+  fi
+  if refresh_baseline_diverged "$dst" "$src"; then
+    _preserve_diverged_copy "$dst"
   fi
   mkdir -p "$(dirname "$dst")"
   [ -d "$src" ] && rm -rf "$dst"   # #873: replace directory payloads (cp -r nests into an existing dir)
   cp -r "$src" "$dst"
   echo "  ✓ $dst (refreshed)"
+  refresh_baseline_stage "$dst"   # R1: record the delivery for the baseline flush
+}
+
+# deliver_getff_workflow <tpl-src> <dst>
+# Delivers a getff CI workflow template (.github/workflows/getff-{python,cargo,go}.yml),
+# substituting the consumer's actual default branch for the template's hard-coded `main`
+# at install time. Closes the getff-honest-signals S4 defect class — a consumer whose
+# default branch is `master` (or anything else) gets a workflow that actually triggers,
+# not one that installs and silently never runs.
+#
+# Three detection branches:
+#  1. Detection succeeds AND branch ≠ main → stream-substitute `branches: [main]` (×2:
+#     push + pull_request) and `refs/heads/main` (×1: cancel-in-progress) into a temp,
+#     then delegate the write to copy_safe/refresh_safe with the temp as the source.
+#  2. Detection succeeds AND branch == main → byte-identical copy (no substitution; the
+#     template is already correct for this consumer).
+#  3. Detection fails (no remote / not a git repo / origin/HEAD unset) → PARK case
+#     (getff-honest-signals-s4 kickoff §5). Recommended resolution A: loud stderr warning
+#     + byte-identical to template. This is the architecturally-forced default — the
+#     snapshot fingerprint invariant requires byte-identical no-remote bytes (mktemp-d
+#     fixtures in tests/install-sh/snapshot.sh have no `origin` remote; Options B/C
+#     would perturb the 13/0 baseline). Maintainer may flip to B (refuse) or C (env var
+#     override) in review; the LOUD stderr warning surfaces the choice to the consumer
+#     at install time (NOT a silent fallback — silent fallback IS the defect this stage
+#     removes). [handoff:park:S4-no-remote — Option A implemented; review-flippable.]
+#
+# Detection mechanism: `git symbolic-ref refs/remotes/origin/HEAD` — the canonical
+# git-native default-branch signal (set by `git remote set-head` or auto-set on clone).
+# Zero new deps, no API calls (REUSE per build-first-reuse-default.md §1.1 own-stack-first).
+#
+# Delegate semantics: the helper routes its write through copy_safe (fresh path) or
+# refresh_safe (refresh path, gated on GETFF_TOOLCHAIN_REFRESH=1), preserving every
+# existing guarantee — skip-if-exists default, FORCE override, `.override.md` Layer-3
+# consumer-ownership escape hatch, DRY_RUN, mkdir -p the parent. The caller has already
+# filtered to one of the two paths via its outer if/else (REFUSE-LOUDLY for non-getff
+# files at our namespaced destination fires BEFORE this helper runs).
+#
+# BSD/GNU-sed portable: writes to a temp file (no `-i`); uses `#` delimiter to avoid
+# conflict with `/` in branch names (git ref-name charset excludes `#` so the delimiter
+# is safe). Substitution patterns are LITERAL strings (`branches: \[main\]` with brackets
+# escaped for BRE), not regexes — the three sites are stable across template bumps.
+deliver_getff_workflow() {
+  local tpl_src="$1" dst="$2"
+  local detected_branch=""
+
+  # Detect default branch — pure read; safe under --dry-run and offline.
+  if command -v git >/dev/null 2>&1 && [ -d "${PROJECT_ROOT:-.}" ]; then
+    detected_branch=$(git -C "$PROJECT_ROOT" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@') || detected_branch=""
+  fi
+
+  # Prepare the source for the underlying delegate. Substitution needed ONLY when
+  # detection succeeded AND branch differs from main; otherwise byte-identical.
+  # Temp lives in mktemp (NOT next to $dst) — the delegate creates dirname($dst)
+  # itself, so a sibling temp would race the mkdir. mktemp also avoids polluting
+  # the consumer tree with `.getff-sub.*` residue if the delegate aborts.
+  #
+  # Sed delimiter choice: `~` (tilde) — forbidden in git branch names per `git
+  # check-ref-format` rule 5 («cannot have ... tilde ~ ... anywhere»), so the
+  # delimiter can never collide with the substituted value. Earlier draft used `#`
+  # with a wrong claim that `#` is git-forbidden — it is NOT (only ~, ^, :, space,
+  # \, *, ?, [, control chars are forbidden). `&` is also git-permitted but
+  # sed-special in the replacement (means «entire match»); escape it via parameter
+  # expansion. `\` is git-forbidden so no backslash-escape needed.
+  local src_to_use="$tpl_src" _tmp=""
+  if [ -n "$detected_branch" ] && [ "$detected_branch" != "main" ] && [ "$DRY_RUN" != "--dry-run" ]; then
+    local esc_branch="${detected_branch//&/\\&}"
+    _tmp=$(mktemp) || { echo "  ⚠ getff: mktemp failed — delivering template byte-identical (no substitution)" >&2; _tmp=""; }
+    if [ -n "$_tmp" ]; then
+      sed -e "s~branches: \[main\]~branches: [${esc_branch}]~g" \
+          -e "s~refs/heads/main~refs/heads/${esc_branch}~g" \
+          "$tpl_src" > "$_tmp"
+      src_to_use="$_tmp"
+    fi
+  fi
+
+  # Delegate the write — preserves copy_safe/refresh_safe semantics (skip-if-exists,
+  # FORCE, .override.md, DRY_RUN). The caller's outer if/else has already filtered
+  # to fresh-only or refresh-only; GETFF_TOOLCHAIN_REFRESH selects which delegate runs.
+  if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
+    refresh_safe "$src_to_use" "$dst"
+  else
+    copy_safe "$src_to_use" "$dst"
+  fi
+
+  # Clean up the substituted temp file (if any). Template bytes are NEVER mutated.
+  [ -n "$_tmp" ] && rm -f "$_tmp"
+
+  # Emit a branch-context log line (complements the delegate's ✓/⊝/dry-run line).
+  if [ -n "$detected_branch" ] && [ "$detected_branch" != "main" ]; then
+    echo "    (getff: default branch '$detected_branch' substituted from template 'main')"
+  elif [ -n "$detected_branch" ]; then
+    echo "    (getff: default branch 'main', byte-identical to template)"
+  else
+    # PARK case (kickoff §5): loud stderr warning — Option A (recommended).
+    echo "  ⚠ getff: could not detect default branch (no origin remote or origin/HEAD unset);" >&2
+    echo "    delivered workflow uses 'main' — edit $dst if your default differs" >&2
+  fi
+}
+
+# report_getff_orphans <lane> <expected-rel-path>... — adapter-jig C4 (no-orphan-residue).
+# On a --refresh pass, scan the KNOWN getff delivery locations (consumer root, .getff/,
+# .github/workflows/) for files carrying the getff ownership header ('generated by getff') that the
+# CURRENT template set no longer delivers, and report each LOUDLY — never silently left active.
+# Directory payloads (.getff/astgrep-rules) are already swept wholesale by refresh_safe above (the
+# #873 rm-rf-replace branch); this covers the individually-delivered top-level files that per-file
+# refresh can never sweep — the same root cause as the #882 npm barrel prune («do_refresh only
+# ADD/OVERWRITEs the current stack's files, never removes a leftover»), on the python/cargo lanes.
+# REPORT-ONLY by design (J2 decisions log #8): deleting consumer-tree files is the irreversible
+# branch; the loud report satisfies the C4 «swept (or loudly reported)» contract. Files WITHOUT the
+# getff header are never flagged — not ours to name. Read-only: safe under --dry-run.
+report_getff_orphans() {
+  local lane="$1"; shift
+  local expected=" $* "   # space-delimited rel paths; no delivered path contains whitespace
+  local f rel
+  { find "$PROJECT_ROOT" -maxdepth 1 -type f \( -name '*.toml' -o -name '*.yml' -o -name 'getff-*' \) 2>/dev/null
+    find "$PROJECT_ROOT/.getff" -maxdepth 1 -type f 2>/dev/null
+    find "$PROJECT_ROOT/.github/workflows" -maxdepth 1 -type f -name 'getff-*.yml' 2>/dev/null
+  } | LC_ALL=C sort | while IFS= read -r f; do
+    grep -q 'generated by getff' "$f" 2>/dev/null || continue
+    rel="${f#"$PROJECT_ROOT/"}"
+    case "$expected" in
+      *" $rel "*) ;;   # currently delivered — not an orphan
+      *)
+        echo "  ⚠ ORPHAN: $rel is getff-owned (header present) but the current $lane template set no longer delivers it."
+        echo "    Stale artefact from a PRIOR getff version — review and remove it manually (getff never deletes consumer-tree files)."
+        ;;
+    esac
+  done
+  return 0
+}
+
+# ─── .ai-factory SoT (DESCRIPTION.md + ARCHITECTURE.md) materialization helpers ──────────────
+# SSOT for the divergence-prone parts of materializing the AGENTS.md-referenced SoT pair, shared
+# by the --full path (setup.d/30-templates.sh) and the --refresh path (install.sh do_refresh, #949).
+# Both call sites keep their own copy_safe delivery lines (so the refresh-covers-full-delivery gate
+# sees real per-file write-intent), but the stack→source map and the header rewrite live here once.
+# Requires globals: STACK, PKG_ROOT (arch_sot_src_for_stack); DRY_RUN, FORCE (rewrite_arch_sot_header).
+
+# arch_sot_src_for_stack — echo the ARCHITECTURE.md source template for the current $STACK.
+# Unknown/empty stack falls back to the shared ts-server variant (never guesses a react-* preset).
+arch_sot_src_for_stack() {
+  case "$STACK" in
+    react-next)   printf '%s\n' "$PKG_ROOT/packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md" ;;
+    react-spa)    printf '%s\n' "$PKG_ROOT/packages/preset-react-spa/templates/ARCHITECTURE.react-spa.md" ;;
+    react-native) printf '%s\n' "$PKG_ROOT/packages/preset-react-native/templates/ARCHITECTURE.react-native.md" ;;
+    *)            printf '%s\n' "$PKG_ROOT/packages/core/templates/shared/ARCHITECTURE.ts-server.md" ;;
+  esac
+}
+
+# rewrite_arch_sot_header <dst> <existed_flag> — rewrite the ts-server "Drop into …" first line on
+# the freshly-materialized .ai-factory/ARCHITECTURE.md COPY only (source templates serve other flows).
+# Guard mirrors copy_safe's WRITE condition (not dry-run; freshly created OR --force-overwritten) so
+# a consumer-edited ARCHITECTURE.md is never mutated. No-op for react-* variants (no "Drop into" line).
+# sed -i.bak for BSD/GNU portability.
+rewrite_arch_sot_header() {
+  local dst="$1" existed="$2"
+  if [ "$DRY_RUN" != "--dry-run" ] && { [ "$existed" -eq 0 ] || [ "$FORCE" = "--force" ]; }; then
+    sed -i.bak -e 's#^> Drop into `.ai-factory/ARCHITECTURE.md` and override only what your project needs\. #> This install-generated starter IS your `.ai-factory/ARCHITECTURE.md` — edit it to match your project. #' "$dst"
+    rm -f "${dst}.bak"
+  fi
 }
 
 # GH #531 (reopen): non-destructive .prettierignore merge. copy_safe skips-if-exists, so a
@@ -248,7 +859,12 @@ _prettierignore_in_skipped() {
   # Guard the empty-array expansion: under `set -u` on bash 3.2 (macOS), "${SKIPPED[@]}" with an
   # empty SKIPPED throws "unbound variable" and aborts install. ${#SKIPPED[@]} (length) is safe.
   [ "${#SKIPPED[@]}" -gt 0 ] || return 1
-  for s in "${SKIPPED[@]}"; do [ "$s" = "$needle" ] && return 0; done
+  for s in "${SKIPPED[@]}"; do
+    [ "$s" = "$needle" ] && return 0
+    # Prefix match: SKIPPED may hold a DIRECTORY (e.g. a consumer-owned skill dir kept by
+    # copy_skill_with_transform) — any file inside it is consumer-owned too.
+    case "$needle" in "$s"/*) return 0 ;; esac
+  done
   return 1
 }
 
@@ -281,6 +897,31 @@ ignore_shipped_configs() {
          -path "$PROJECT_ROOT/.claude/worktrees" -prune -o \
          \( -name 'eslint.config.mjs' -o -name 'eslint.config.rn-common.mjs' \) -print 2>/dev/null
   )
+  # Shipped .claude agents/skills markdown (2026-07-11): transform_internal_refs rewrites their
+  # repo-relative links to blob URLs at install time, which shifts markdown TABLE cell widths —
+  # the installed copies are no longer prettier-format-stable under ANY config (fresh-install
+  # validate smoke went RED on .claude/agents/capability-reuse-auditor.md with zero consumer
+  # edit). Same framework-vendored class as GH #531/#884. Enumerate ONLY from OUR shipping
+  # sources ($PKG_ROOT agents/ + skill dirs), never a blanket .claude/** find — a consumer's own
+  # custom agent/skill must stay format-checked. The fresh-vs-SKIPPED guard below (now
+  # dir-prefix-aware) keeps consumer-owned same-name copies checked too.
+  local _src _slug
+  for _src in "$PKG_ROOT"/agents/*.md; do
+    [ -f "$_src" ] || continue
+    candidates+=(".claude/agents/$(basename "$_src")")
+  done
+  for _src in "$PKG_ROOT"/.claude/skills/*/ "$PKG_ROOT"/skills/*/; do
+    [ -d "$_src" ] || continue
+    _slug=$(basename "$_src")
+    [ -d "$PROJECT_ROOT/.claude/skills/$_slug" ] || continue
+    while IFS= read -r _abs; do
+      [ -n "$_abs" ] || continue
+      candidates+=("${_abs#"$PROJECT_ROOT"/}")
+    done < <(find "$PROJECT_ROOT/.claude/skills/$_slug" -name '*.md' -print 2>/dev/null | LC_ALL=C sort)
+    # LC_ALL=C sort: find's output order is filesystem-dependent (macOS APFS vs Linux ext4
+    # return different orders) — unsorted entries made the generated .prettierignore hash
+    # differ between the local snapshot capture and CI's byte-identical compare.
+  done
   local fresh=() rel
   for rel in "${candidates[@]}"; do
     [ -e "$PROJECT_ROOT/$rel" ] || continue                       # not shipped for this stack/preset
@@ -571,6 +1212,7 @@ refresh_skill_with_transform() {
 generate_eslint_barrel() {
   local _barrel _rf _b _camel _m _mstem _rid _rkey
   local _valid_dirs _vd _vf _valid_basenames _ef _eb
+  local _fw_dir _fw_f _fw_basenames _ln _cb _kc _kept_pairs _kept_names _kept_n
   if [ -z "$DRY_RUN" ]; then
     _barrel="$PROJECT_ROOT/eslint-rules-local/index.mjs"
 
@@ -594,6 +1236,19 @@ generate_eslint_barrel() {
         _valid_basenames="$_valid_basenames $(basename "$_vf" .ts) "
       done
     done
+    # issue 1481 criterion, computed BEFORE the prune so the prune can reuse it (issue 1519):
+    # a rule basename is FRAMEWORK-ATTRIBUTABLE iff it exists as a rule .ts in at least one
+    # framework rules dir (core + all presets, across ALL stacks, not just the current
+    # $STACK). Absent from every framework dir → consumer-owned → never pruned.
+    _fw_basenames=" "
+    for _fw_dir in "$PKG_ROOT"/packages/core/eslint-rules "$PKG_ROOT"/packages/*/eslint-rules; do
+      [ -d "$_fw_dir" ] || continue
+      for _fw_f in "$_fw_dir"/*.ts; do
+        [ -e "$_fw_f" ] || continue
+        case "$_fw_f" in *.test.ts|*.d.ts|*/index.ts) continue ;; esac
+        _fw_basenames="$_fw_basenames $(basename "$_fw_f" .ts) "
+      done
+    done
     for _ef in "$PROJECT_ROOT"/eslint-rules-local/*.ts; do
       [ -e "$_ef" ] || continue
       case "$_ef" in *.d.ts) continue ;; esac
@@ -601,13 +1256,57 @@ generate_eslint_barrel() {
       case "$_valid_basenames" in
         *" $_eb "*) ;;  # valid for this stack — keep
         *)
-          rm -f "$PROJECT_ROOT/eslint-rules-local/$_eb.ts" \
-                "$PROJECT_ROOT/eslint-rules-local/$_eb.mjs" \
-                "$PROJECT_ROOT/eslint-rules-local/$_eb.d.ts"
-          echo "  · pruned stale rule [$_eb] — not part of the $STACK stack"
+          # issue 1519: prune ONLY framework-attributable strays (#882 unchanged). A
+          # basename absent from EVERY framework rules dir is consumer-owned (issue 1481
+          # criterion) — its files are the consumer's own work and stay untouched, silently.
+          case "$_fw_basenames" in
+            *" $_eb "*)
+              rm -f "$PROJECT_ROOT/eslint-rules-local/$_eb.ts" \
+                    "$PROJECT_ROOT/eslint-rules-local/$_eb.mjs" \
+                    "$PROJECT_ROOT/eslint-rules-local/$_eb.d.ts"
+              echo "  · pruned stale rule [$_eb] — not part of the $STACK stack"
+              ;;
+          esac
           ;;
       esac
     done
+
+    # issue 1481 casualty 2: preserve CONSUMER-added barrel entries across regeneration.
+    # A consumer hand-extends index.mjs with their own rule imports (compiled .mjs with NO .ts —
+    # the no-tsc consumer reality, setup.d/40-configs.sh:174-177); regenerating from the on-disk
+    # framework .ts set used to silently drop every such entry. Criterion (the issue's own):
+    # an entry survives iff its rule basename is NOT framework-attributable — i.e. absent as a
+    # rule .ts from EVERY framework rules dir (core + all presets, across ALL stacks, not just
+    # the current $STACK). That keeps the #882 cross-stack prune intact: a stray rule from a
+    # DIFFERENT --stack IS framework-attributable → still pruned and dropped, exactly as before.
+    # An entry whose module is missing on disk after the prune above is dropped (dead import),
+    # not preserved — a barrel entry pointing at a missing module kills ALL rules on config load.
+    # With zero consumer entries the generated barrel is byte-identical to the pre-1481 output.
+    # ($_fw_basenames is computed ABOVE the prune loop — issue 1519 — and reused here.)
+    _kept_pairs=""
+    _kept_names=" "
+    if [ -f "$_barrel" ]; then
+      while IFS= read -r _ln; do
+        # Matches ONLY the generated import shape "import { camel } from './basename.mjs';" —
+        # basename kebab-case per the file/key convention recorded at the 40-configs call site.
+        _cb="$(printf '%s\n' "$_ln" | sed -n "s/^import { \(.*\) } from '\.\/\([a-z0-9-]*\)\.mjs';$/\2 \1/p")"
+        [ -n "$_cb" ] || continue
+        _kc="${_cb#* }"; _cb="${_cb%% *}"
+        case "$_kept_names" in *" $_cb "*) continue ;; esac        # already kept — first entry wins
+        case "$_fw_basenames" in *" $_cb "*) continue ;; esac     # framework rule — regenerated below
+        # issue 1519 RP-1b: a basename with a .ts on disk gets the CANONICAL entry from the
+        # generation loops below — keeping the hand-added entry here too would emit a
+        # duplicate import binding → hard ESM SyntaxError → the barrel fails to load and
+        # EVERY rule dies. The 1481 preservation mechanism exists for entries generation
+        # CANNOT see (the .mjs-only no-tsc consumer); an entry generation already covers is
+        # redundant by construction.
+        [ -f "$PROJECT_ROOT/eslint-rules-local/$_cb.ts" ] && continue
+        [ -f "$PROJECT_ROOT/eslint-rules-local/$_cb.mjs" ] || continue  # dead import — drop
+        _kept_names="$_kept_names$_cb "
+        _kept_pairs="$_kept_pairs$_cb $_kc
+"
+      done < "$_barrel"
+    fi
     {
       echo "// AUTO-GENERATED by install.sh — re-exports the compiled sibling rule files as one ESLint"
       echo "// plugin. Regenerated each install to match the shipped rule set; do not hand-edit."
@@ -618,6 +1317,11 @@ generate_eslint_barrel() {
         _camel=$(echo "$_b" | awk -F- '{o=$1; for(i=2;i<=NF;i++) o=o toupper(substr($i,1,1)) substr($i,2); print o}')
         echo "import { $_camel } from './$_b.mjs';"
       done
+      if [ -n "$_kept_pairs" ]; then
+        printf '%s' "$_kept_pairs" | while read -r _b _camel; do
+          echo "import { $_camel } from './$_b.mjs';"
+        done
+      fi
       echo "const plugin = {"
       echo "  meta: { name: '@rules-as-tests/local-eslint-rules', version: '0.1.0' },"
       echo "  rules: {"
@@ -627,12 +1331,21 @@ generate_eslint_barrel() {
         _camel=$(echo "$_b" | awk -F- '{o=$1; for(i=2;i<=NF;i++) o=o toupper(substr($i,1,1)) substr($i,2); print o}')
         echo "    '$_b': $_camel,"
       done
+      if [ -n "$_kept_pairs" ]; then
+        printf '%s' "$_kept_pairs" | while read -r _b _camel; do
+          echo "    '$_b': $_camel,"
+        done
+      fi
       echo "  },"
       echo "};"
       echo "export default plugin;"
       echo "export const rules = plugin.rules;"
     } > "$_barrel"
     echo "  ✓ generated eslint-rules-local/index.mjs ($(grep -c '^import ' "$_barrel") rules)"
+    if [ -n "$_kept_pairs" ]; then
+      _kept_n="$(printf '%s' "$_kept_pairs" | wc -l | tr -d ' ')"
+      echo "  ⊟ preserved $_kept_n consumer-added barrel entries (issue 1481)"
+    fi
 
     # #838: a consumer must only carry fences-fire fixtures its OWN barrel can enforce.
     # Fixtures ship unconditionally above (step 5a), but stack-specific rules (e.g. R12
@@ -755,6 +1468,90 @@ ensure_workspace_pkg_links() {
     esac
   done
   _workspace_pkg_resolves "$_root" && echo "  · workspace-link self-heal: linked @rules-as-tests/* in $_nm (#827 B4)"
+}
+
+# reassert_husky_shields PKG_ROOT PROJECT_ROOT (GH #975)
+# 50-hooks copies .husky/pre-{commit,push} + sets core.hooksPath BEFORE 70-deps. A consumer
+# whose package.json declares a `prepare`-driven git-hooks manager (simple-git-hooks, or husky
+# re-init) has that lifecycle FIRE during 70-deps' package-manager install — regenerating
+# `.husky/` from ITS config and, having no pre-push entry, REMOVING the framework's
+# `.husky/pre-push` (and replacing pre-commit). The framework push shield is then gone before
+# self-verify runs. Re-assert the framework shields AFTER deps: force-overwrite each hook only
+# when its content differs from the shipped template (idempotent), re-chmod, and re-pin
+# core.hooksPath (a competing manager may have repointed it). Echoes an honest WARN naming the
+# competing manager when it actually re-asserted (a FUTURE install may re-clobber). Callers gate
+# this on DEPS_INSTALLED=1 (a --force/no-deps install never runs the prepare lifecycle).
+reassert_husky_shields() {
+  # NB: local is `fw_root`, NOT `pkg_root` — a `pkg_root` local is a case-variant of the
+  # global PKG_ROOT and trips shellcheck 0.9.0 SC2153 on the pre-existing PKG_ROOT uses.
+  local fw_root="$1" proj="$2"
+  local reasserted=0 pair src dst
+  for pair in \
+    "packages/core/templates/shared/husky-pre-commit.sh:.husky/pre-commit" \
+    "packages/core/templates/shared/husky-pre-push.sh:.husky/pre-push"; do
+    src="$fw_root/${pair%%:*}"; dst="$proj/${pair##*:}"
+    [ -f "$src" ] || continue
+    if [ ! -f "$dst" ] || ! cmp -s "$src" "$dst"; then
+      mkdir -p "$(dirname "$dst")"
+      cp "$src" "$dst"
+      chmod +x "$dst" 2>/dev/null || true
+      reasserted=1
+    fi
+  done
+  git -C "$proj" config core.hooksPath .husky 2>/dev/null || true
+  if [ "$reasserted" = "1" ]; then
+    local mgr=""
+    grep -q '"simple-git-hooks"' "$proj/package.json" 2>/dev/null && mgr="simple-git-hooks"
+    echo "⚠  re-asserted framework .husky/pre-push + pre-commit after dep-install${mgr:+ (a competing \"$mgr\" prepare hook had clobbered them)} — a future package-manager install may re-clobber them; keep core.hooksPath=.husky or remove the competing manager's hooks. (GH #975)"
+  fi
+  return 0
+}
+
+# register_cc_hook SETTINGS EVENT CMD MARKER [MATCHER] (GH #934)
+# Idempotently register a Claude Code hook in .claude/settings.json under EVENT
+# (Stop / UserPromptSubmit / PostToolUse / …), NON-DESTRUCTIVELY: appends to any
+# existing hooks on that event (never clobbers a consumer-authored hook), and no-ops
+# when MARKER is already present (re-run adds nothing). Creates a minimal settings.json
+# if absent. SSOT for the settings hooks-merge so install (setup.d) + refresh (do_refresh)
+# share one implementation (dual-implementation-discipline §7). Requires jq for the
+# JSON-safe merge (the shipped commands carry embedded quotes for $CLAUDE_PROJECT_DIR);
+# degrades to explicit manual guidance when jq is absent — never a silent skip.
+#
+# Optional 5th arg MATCHER: for tool-scoped events (PreToolUse / PostToolUse) pass the
+# tool-name matcher (e.g. "AskUserQuestion", "Edit|Write") so the entry gets a `matcher`
+# field — parity with the framework's own settings.json shape. When MATCHER is empty
+# (Stop / UserPromptSubmit — no tool scope) the entry is written matcher-less, byte-for-byte
+# as before (the #1003 Stop path is unchanged).
+register_cc_hook() {
+  local settings="$1" event="$2" cmd="$3" marker="$4" matcher="${5:-}"
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "  ⚠ jq not found — add manually to .claude/settings.json under \"$event\" a command hook running: $cmd"
+    return 0
+  fi
+  # Build the single hook-group object once (with or without a matcher field) so the
+  # create + append paths share one shape (no drift between the two branches).
+  local group_filter
+  if [ -n "$matcher" ]; then
+    group_filter='{matcher:$m, hooks:[{"type":"command","command":$c}]}'
+  else
+    group_filter='{"hooks":[{"type":"command","command":$c}]}'
+  fi
+  if [ ! -f "$settings" ]; then
+    jq -n --arg e "$event" --arg c "$cmd" --arg m "$matcher" \
+      "{hooks: {(\$e): [$group_filter]}}" > "$settings"
+    echo "  ✓ .claude/settings.json created with $event hook ($marker)"
+  elif jq -e --arg e "$event" --arg m "$marker" \
+      '((.hooks[$e] // []) | map(.hooks[].command) | any(test($m)))' "$settings" >/dev/null 2>&1; then
+    # Idempotence is PER-EVENT (not whole-file): the same hook may register on two events
+    # (e.g. inject-project-digest on UserPromptSubmit AND SubagentStart) — a whole-file grep
+    # would false-match the first event's entry and skip the second. GH #934 batch D.
+    echo "  ⊝ $marker already registered on $event in .claude/settings.json"
+  else
+    jq --arg e "$event" --arg c "$cmd" --arg m "$matcher" \
+      ".hooks[\$e] = ((.hooks[\$e] // []) + [$group_filter])" \
+      "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings"
+    echo "  ✓ $marker registered as a $event hook in .claude/settings.json"
+  fi
 }
 
 # ── O1 fix: INSTALL_SH_LIB_ONLY guard is LAST (after all helpers are defined) ──

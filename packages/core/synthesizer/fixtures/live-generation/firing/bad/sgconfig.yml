@@ -1,0 +1,5 @@
+# ast-grep project config for the getff-researched-no-yaml-load RED firing fixture.
+# ruleDirs resolves relative to this file; ../rules is the SHARED rule dir holding the
+# committed rendered artifact (firing/rules/getff-researched-no-yaml-load.yml) — the exact
+# bytes the drift gate (AC2) pins to renderAstgrep([node]).yaml.
+ruleDirs: [../rules]

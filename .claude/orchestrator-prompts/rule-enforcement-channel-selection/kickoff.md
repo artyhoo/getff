@@ -60,3 +60,5 @@ Domain-specific:
 
 ## §6 Phase -1
 Before dispatch, cold-review THIS kickoff (1× Opus): stale refs, ambiguity, missing constraints, T-enumeration substance. Address BLOCKER/MAJOR, then proceed.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

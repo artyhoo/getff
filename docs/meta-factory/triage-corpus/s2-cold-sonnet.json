@@ -1,0 +1,1216 @@
+{
+ "rater": "s2-cold",
+ "model": "sonnet",
+ "rubric": "You are triaging ONE review finding. Decide three axes from the text alone.\n\nBinding yardstick: a finding is MATERIAL if and only if fixing it changed behaviour or a decision,\nor NOT fixing it would have cost something toward the project goal (\"AI agents can't silently\nbypass undocumented conventions\"). IMMATERIAL = cosmetic or numeric nit with zero downstream\neffect. That a finding was fixed does not make it material.\n\nApply these questions before answering:\n1. Does acting on this move the work toward the goal, or only satisfy a form?\n2. Is it theatre - the shape of diligence with no substance behind its target?\n3. Is it immaterial - would no consumer and no decision notice the difference?\n4. Materiality scales with the highest layer the finding touches (idea > design > architecture >\n   plan > implementation); conflicts resolve upward.\n\nlayer = the highest layer the finding touches: idea | design | architecture | plan | implementation.\nwhose = does settling this require a premise, concept, or value ABOVE the reviewer's authority - a\nconcept the advisor owns (OUT-OF-CONCEPT -> advisor) or a value only the operator can set\n(FLOOR -> operator-floor)? If neither, reviewer (the default - a reviewer can settle it without\nescalation).\n\nAnswer with EXACTLY one line and nothing else:\nclass=<MATERIAL|IMMATERIAL> layer=<idea|design|architecture|plan|implementation> whose=<reviewer|advisor|operator-floor>\n",
+ "rubricSource": "docs/meta-factory/triage-corpus/s2-rubric-whose.md",
+ "results": [
+  {
+   "id": "1290-r1-1",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1290-r1-2",
+   "raw": "class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1290-r1-3",
+   "raw": "class=MATERIAL layer=design whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1290-r1-4",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1290-r1-5",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1290-r1-6",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1290-r1-7",
+   "raw": "class=MATERIAL layer=design whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1290-r1-8",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1290-r1-9",
+   "raw": "class=MATERIAL layer=design whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1290-r1-10",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1290-r2-1",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1290-r2-2",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1290-r2-3",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-1",
+   "raw": "class=MATERIAL layer=plan whose=advisor",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1297-r1-2",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-3",
+   "raw": "class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-4",
+   "raw": "class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-5",
+   "raw": "class=MATERIAL layer=design whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-6",
+   "raw": "class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-7",
+   "raw": "class=MATERIAL layer=plan whose=advisor",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1297-r1-8",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-9",
+   "raw": "class=MATERIAL layer=architecture whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-10",
+   "raw": "## 🟢 In plain words\n\n**What I am doing right now:** Triaging a single review finding to determine if it's material or immaterial.\n\n**Whether I am on goal:** ON GOAL — I was asked to classify one finding along three axes (materiality, layer, whose-decision) and I did exactly that.\n\n**What I just did:** \n- Read the finding: \"a review finding claimed `FIDELITY: skipped` is not available to a stage PR but omitted the `## Provenance` precondition\"\n- Applied the four-test card from effort-worthiness.md\n- Concluded: missing a precondition in documentation is immaterial — it doesn't change behavior or decisions\n- Output the required one-line answer: `class=IMMATERIAL layer=implementation whose=reviewer`\n\n**Non-trivial decisions:** None — the materiality test was straightforward (documentation omission vs. behavior change).\n\n**What I am least sure of:** Whether the \"implementation\" layer classification is correct vs. \"plan\" layer — this touches how findings are documented, which could be seen as process/plan layer. But I classified it as implementation because it's about the mechanical writing of a finding, not the plan itself.\n\n**The next step:** None — the task was to output one line, which I did.\n\n**Forks surfaced:** None — this was a deterministic classification task with no ambiguities requiring operator input.",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-11",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-12",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-13",
+   "raw": "Looking at the finding about the \"bridge-health causal claim\" from row 3 of the §1 table, I need to assess its materiality, layer, and ownership.\n\nThe finding concerns the characterization that bridge health \"flaps\" based on inconsistent probe results (000 then 200). However, the table explicitly states this is \"informational only\" and that bridge health does NOT govern the autonomous gate - the gate stays shut regardless of `/health` status.\n\nThis appears to be a wording nitpick about a characterization in a table, where the actual behavioral description is correct (informational only, doesn't govern the gate). Fixing this wouldn't change any behavior or decision.\n\nclass=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-14",
+   "raw": "class=IMMATERIAL layer=plan whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-15",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-16",
+   "raw": "class=IMMATERIAL layer=plan whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-17",
+   "raw": "class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-18",
+   "raw": "class=IMMATERIAL layer=plan whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1297-r1-19",
+   "raw": "class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1302-r1-1",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1311-r1-1",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1311-r1-2",
+   "raw": "class=MATERIAL layer=architecture whose=advisor",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1311-r1-3",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1311-r1-4",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1311-r1-5",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1329-r1-1",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1329-r1-2",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1329-r2-1",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1332-r1-1",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1332-r1-2",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1332-r1-3",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1333-r3-1",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1333-r4-1",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1333-r5-1",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1341-r1-1",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1341-r1-2",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1341-r1-3",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1341-r1-4",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1341-r1-5",
+   "raw": "Looking at this test file, I can see the \"leak block\" refers to the key-handling invariant tests (lines 203, 288, 408-411, 701-738) that verify the secret key value (`ANTHROPIC_AUTH_TOKEN`) is never leaked in output or request bodies.\n\nclass=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1346-r1-1",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1349-r1-1",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1349-r1-2",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1349-r1-3",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1353-r1-1",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1353-r1-2",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1353-r1-3",
+   "raw": "## 🟢 In plain words\n\n**What I am doing right now:** Triaging a single review finding to determine if it's material, which layer it touches, and who has authority to settle it.\n\n**Whether I am on goal:** ON GOAL — the task explicitly asked me to \"triage ONE review finding. Decide three axes from the text alone\" and I returned exactly that: `class=MATERIAL layer=architecture whose=reviewer`\n\n**What I just did:** Analyzed the test discrepancy (`.getff/rules-lock.{cargo,go}.json` vs `.ai-factory/synthesizer-output/`) and applied the materiality framework to determine the finding touches the architecture layer because it reveals a structural gap in verification coverage, not just a path typo.\n\n**Non-trivial decisions:** Chose `architecture` over `implementation` because the issue isn't just a wrong path string — it's that the test's verification logic doesn't align with the actual system behavior, which is an architectural concern about test-implementation correspondence.\n\n**What I am least sure of:** Whether `architecture` vs `design` is the right call — the layer hierarchy says \"idea > design > architecture > plan > implementation\" but the distinction between design and architecture for this specific finding could be debated.\n\n**The next step:** Wait for confirmation that my triage judgment is correct, since this was a single-turn classification task.\n\n**Alternatives weighed:** I considered `implementation` (since it's a path discrepancy in a test) but rejected it because the test-implementation gap represents a structural verification failure, which scales to architecture-level concern per the materiality-rules-by-layer principle.\n\n**Silently decided forks:** None — this was a straight classification task with no branching alternatives.",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1353-r1-4a",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1353-r1-4b",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1353-r1-4c",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1353-r1-4d",
+   "raw": "class=IMMATERIAL layer=design whose=advisor",
+   "class": "IMMATERIAL",
+   "layer": "design",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1353-r2-1",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1353-r3-1",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1353-r3-2",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1358-r1-1",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1358-r1-2",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1358-r1-3",
+   "raw": "Looking at the context around line 104, this is about the test checking that LICENSE and README files are present in the installed npm tarball, as part of the `files` allowlist validation mechanism.\n\nclass=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1358-r1-4",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1358-r2-1",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1358-r3-1",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r1-1",
+   "raw": "class=MATERIAL layer=architecture whose=advisor",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1360-r1-2",
+   "raw": "class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r1-3",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r1-4",
+   "raw": "class=MATERIAL layer=architecture whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r1-5",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r1k-1",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r1k-2",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r1k-3",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r1k-4",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r1k-5",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r2-1",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r2-2",
+   "raw": "class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r2-3",
+   "raw": "class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r3-1",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1360-r3-2",
+   "raw": "class=MATERIAL layer=architecture whose=advisor",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1360-r3-3",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1341-r7-1",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1341-r7-2",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1341-r7-3",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1341-r7-4",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1341-r7-5",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1341-r7-6",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-td1-1",
+   "raw": "class=MATERIAL layer=design whose=advisor",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1376-td1-2",
+   "raw": "class=MATERIAL layer=architecture whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-td1-3",
+   "raw": "class=MATERIAL layer=architecture whose=advisor",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1376-td1-4",
+   "raw": "class=MATERIAL layer=architecture whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-td1-5",
+   "raw": "class=MATERIAL layer=architecture whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-td1-6",
+   "raw": "class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-td1-7",
+   "raw": "class=MATERIAL layer=architecture whose=advisor",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1376-td1-8",
+   "raw": "class=MATERIAL layer=design whose=advisor",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1376-td1-9",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-td1-10",
+   "raw": "class=MATERIAL layer=plan whose=advisor",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1376-td1-11",
+   "raw": "class=MATERIAL layer=architecture whose=advisor",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1376-td1-12",
+   "raw": "## 🟢 In plain words\n\n**What I am doing right now:** Triaging a single review finding to classify it by materiality, layer, and ownership.\n\n**Whether I am on goal:** ON GOAL - I delivered the exact three-axis classification requested.\n\n**What I just did:**\n- Applied the effort-worthiness four-test card to the finding about \"proportionality of *this scale* of measurement is an unrecorded value premise\"\n- Determined IMMATERIAL because it's a methodology documentation note with no demonstrated impact on behavior, decisions, or costs toward the goal\n- Classified layer=design because it touches methodology design principles (effort-worthiness, proportionality)\n- Classified whose=advisor because value premises are concept-level the advisor owns\n- Output the required one-line format: `class=IMMATERIAL layer=design whose=advisor`\n\n**Non-trivial decisions:** \n- Chose IMMATERIAL over MATERIAL — the finding identifies missing documentation but shows no instance where the absence caused a problem or wrong decision, so it satisfies form but changes nothing substantive\n\n**What I am least sure of:**\n- Whether \"design\" vs \"plan\" layer is the right call — methodology design principles could be argued either way, but design felt more accurate since it concerns the structure of rigor itself rather than a specific execution plan\n\n**The next step and why it is next:** None — I completed the requested single-finding triage with the three-axis output format specified.\n\n**Did I recommend something or say \"you decide\"?** No — I provided a definitive verdict.\n\n**Did I silently decide a fork?** No — this was a straight classification task with no ambiguous forks requiring surfacing.",
+   "class": "IMMATERIAL",
+   "layer": "design",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1376-td1-13",
+   "raw": "class=MATERIAL layer=design whose=operator-floor",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "operator-floor",
+   "error": null
+  },
+  {
+   "id": "1376-td1-14",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-td1-15",
+   "raw": "class=MATERIAL layer=design whose=advisor",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1376-td1-16",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-td1-17",
+   "raw": "class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-td1-18",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-bu1-1",
+   "raw": "class=MATERIAL layer=design whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-bu1-2",
+   "raw": "class=MATERIAL layer=implementation whose=advisor",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1376-bu1-3",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-bu1-4",
+   "raw": "class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-bu1-5",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-bu1-6",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-bu1-7",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-bu1-8",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-bu1-9",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-bu1-10",
+   "raw": "class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-bu1-11",
+   "raw": "class=MATERIAL layer=architecture whose=advisor",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1376-bu1-12",
+   "raw": "class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-r2v-1",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-r2v-2",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-r2v-3",
+   "raw": "class=MATERIAL layer=architecture whose=advisor",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "1376-r2v-4",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-r2v-5",
+   "raw": "class=MATERIAL layer=implementation whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-r2v-6",
+   "raw": "class=IMMATERIAL layer=design whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "design",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-r2v-7",
+   "raw": "## 🟢 In plain words\n\n**What I'm doing**: Applying a four-question test card to judge whether a specific review finding is material or immaterial, and categorizing it by layer and ownership.\n\n**On goal**: ON GOAL — I was asked to triage one review finding using the provided criteria, and I did exactly that.\n\n**What I just did**:\n- Applied the four-test card (goal movement, theatre check, immateriality check, layer determination)\n- Judged the finding \"ESCALATED-1's §13 summary drops the half that grounds it\" as MATERIAL because incomplete summaries affect decision integrity\n- Categorized it as layer=plan (documentation affecting decision-making)\n- Assigned whose=reviewer (ensuring summary completeness is within reviewer authority)\n\n**Non-trivial decisions**: None — the criteria and the finding's content pointed directly to the verdict.\n\n**What I'm least sure of**: The layer determination — this could also be argued as implementation (the summary itself) rather than plan (what it informs). The plan-layer judgment rests on treating summaries as decision-support artifacts, not just output.\n\n**Next step**: Submit the triage verdict as requested: `class=MATERIAL layer=plan whose=reviewer`\n\n**Silent decisions**: I chose the plan layer over implementation without surfacing the ambiguity — if operator has a different view on where summary documentation sits in the layer hierarchy, that's a fork I should have surfaced.",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-r2v-8",
+   "raw": "class=IMMATERIAL layer=plan whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-r2v-9",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-fid1-1",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-fid1-2",
+   "raw": "class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-fid1-3",
+   "raw": "class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-fid1-4",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "1376-fid1-5",
+   "raw": "class=MATERIAL layer=architecture whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "kl-1292-1",
+   "raw": "class=MATERIAL layer=design whose=advisor",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "advisor",
+   "error": null
+  },
+  {
+   "id": "kl-1296-1",
+   "raw": "class=MATERIAL layer=design whose=operator-floor",
+   "class": "MATERIAL",
+   "layer": "design",
+   "whose": "operator-floor",
+   "error": null
+  },
+  {
+   "id": "kl-1305-1",
+   "raw": "class=IMMATERIAL layer=plan whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "kl-1315-1",
+   "raw": "class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "kl-1317-1",
+   "raw": "class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "kl-1328-1",
+   "raw": "class=IMMATERIAL layer=plan whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "kl-1295-1",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "kl-1310-1",
+   "raw": "class=MATERIAL layer=architecture whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "architecture",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "kl-1318-1",
+   "raw": "Looking at this finding about \"facts that only exist on the host, plus the run-2 defects that had no instruction attached to them,\" let me apply the four-test card:\n\n1. Does acting on this move toward the goal? Only if not documenting these facts would cause silent convention bypasses or decision failures.\n2. Is it theatre? Could be - the finding itself doesn't state what breaks if these facts stay undocumented.\n3. Is it immaterial? Likely yes - the finding doesn't show that missing these facts changed any decision or behavior.\n4. Layer: This touches implementation details (host-specific facts, run instructions) - no architectural/design principles implicated.\n\nA reviewer can assess whether documentation is complete against stated requirements; no concept-owner values are invoked.\n\nclass=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "kl-1319-1",
+   "raw": "class=IMMATERIAL layer=implementation whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "implementation",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "kl-1324-1",
+   "raw": "class=IMMATERIAL layer=plan whose=reviewer",
+   "class": "IMMATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "kl-1340-1",
+   "raw": "class=MATERIAL layer=plan whose=reviewer",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "reviewer",
+   "error": null
+  },
+  {
+   "id": "kl-1351-1",
+   "raw": "class=MATERIAL layer=plan whose=operator-floor",
+   "class": "MATERIAL",
+   "layer": "plan",
+   "whose": "operator-floor",
+   "error": null
+  }
+ ]
+}

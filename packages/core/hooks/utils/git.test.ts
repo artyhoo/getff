@@ -183,6 +183,32 @@ describe('getCommits', () => {
     expect(args[1]).toBe('origin/main..HEAD');
     expect(args[1]).not.toBe('origin/main..');
   });
+
+  // Merge-forward range fix (2026-08-07): commits already reachable from the trunk
+  // (origin/staging squash commits swept in by `git merge origin/staging`) must be
+  // excluded from the gated set — the pusher does not own them and cannot amend them.
+  it('appends --not <ref> when an exclusion ref is supplied', () => {
+    runCheckMock.mockReturnValue(ok(''));
+    getCommits('remotesha', 'localsha', 'origin/staging');
+    const [cmd, args] = runCheckMock.mock.calls[0];
+    expect(cmd).toBe('git');
+    expect(args).toEqual([
+      'rev-list',
+      'remotesha..localsha',
+      '--not',
+      'origin/staging',
+    ]);
+  });
+
+  // PAIRED-NEGATIVE: without an exclusion ref the range must stay bare — the
+  // exclusion is opt-in per resolved base, never an unconditional narrowing.
+  it('does NOT append --not when no exclusion ref is supplied', () => {
+    runCheckMock.mockReturnValue(ok(''));
+    getCommits('remotesha', 'localsha');
+    const [, args] = runCheckMock.mock.calls[0];
+    expect(args).toEqual(['rev-list', 'remotesha..localsha']);
+    expect(args).not.toContain('--not');
+  });
 });
 
 // ── getChangedFiles ───────────────────────────────────────────────────────────

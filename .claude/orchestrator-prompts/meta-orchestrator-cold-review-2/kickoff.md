@@ -126,7 +126,7 @@ T3 (file:line / URL per claim), T7 (adversarial counter-prompt), T13 (REFERENCE 
 
 ## §7 Output format
 
-```
+```text
 ## Cold-Reviewer #2 verdict
 
 ### Verifications I ran
@@ -180,3 +180,5 @@ Maintainer:
 1. Landing'ит SSOT-block #66–#70 в `docs/meta-factory/prior-art-evaluations.md` (paste from patch §9)
 2. Admit'ит I-phase по skeleton'у в patch §5
 3. I-phase сама делает первый capability commit с `Prior-art:` trailer referencing #66–#70
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

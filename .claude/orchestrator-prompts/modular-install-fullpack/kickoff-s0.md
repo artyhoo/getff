@@ -142,3 +142,5 @@ finalize (post-70)─ R2-L2 AST-wire (needs ts-morph from 70) · V2 otel-WARN ·
 - **What S0 did NOT do (scope fence, T5):** moved no code; created/edited only this one file; applied no fix from O1–O10 (each is a record for S1+). No PR/branch/drive-by.
 - **Confidence:** high on the install.sh census + ordering edges (mechanically grepped + full read). Medium-and-flagged on the two judgment calls handed to S1/maintainer: §3b tool-decisions placement (30 mechanically vs 15 by-concern — O7) and `do_refresh` strategy (O4). Both surfaced as decisions, not silently chosen.
 - **Calibration:** first pass over this surface; one self-caught omission in cold-QA (V2 otel-WARN). The post-70 finalize tail (O3) is the highest-risk item for S1 to get wrong and is called out three times (table, dep-list, O3).
+
+<!-- host-verify: none — S0 is RESEARCH ONLY (own header: the layer-boundary table, no code moved) — the executable stages s1-s5 carry the contracts -->

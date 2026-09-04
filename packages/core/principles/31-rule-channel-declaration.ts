@@ -56,9 +56,8 @@ import {
  * set, so a growing ALWAYS_ON_CORE would silently undo that work).
  */
 export const ALWAYS_ON_CORE: readonly string[] = [
-  'build-first-reuse-default.md',
   'attention-is-not-a-mechanism.md',
-  'ai-laziness-traps.md',
+  'ai-laziness-digest.md',
   '00-rule-index.md',
 ];
 
@@ -243,10 +242,16 @@ export interface ClaudeMdExcludesSettings {
  * §"Consistency of eviction": a file listed in `claudeMdExcludes` MUST carry a channel-token
  * with a live artifact (i.e. branch (d) of the PASS predicate must independently hold for it).
  *
+ * STATUS UPDATE 2026-08-06: the "EMPTY/absent" premise below is NO LONGER TRUE — the committed
+ * `claudeMdExcludes` now carries 7 entries, in `**\/<name>.md` glob form (see
+ * `resolveExcludeEntry` for why that form, and for the 0-of-7 vs 7-of-7 measurement). The
+ * excluded⇒live-token direction below therefore now fires against real repo state rather than
+ * vacuously; all 7 carry live `<!-- channel: ... -->` markers, verified on the host.
+ *
  * IMPLEMENTED DIRECTION ONLY: excluded ⇒ live-token. The REVERSE ("carries a channel token ⇒
  * must be excluded") is deliberately NOT checked — as of this principle's authoring,
- * `.claude/settings.json` `claudeMdExcludes` is EMPTY/absent (agent-uncommittable; the 4
- * CTX-Stage-1 evictions are a maintainer-handoff patch not yet applied), while 5 rules already
+ * `.claude/settings.json` `claudeMdExcludes` was EMPTY/absent (agent-uncommittable; the 4
+ * CTX-Stage-1 evictions were a maintainer-handoff patch not yet applied), while 5 rules already
  * carry `<!-- channel: ... -->` tokens (egress-no-api-bypass, memory-codification,
  * reviewer-discipline, recommendation-laziness-discipline, research-source-trust) WITHOUT
  * being excluded yet. Over-delivery (a token present but the rule still always-on) is legal —
@@ -258,6 +263,58 @@ export interface ClaudeMdExcludesSettings {
  * .claude/settings.json — needed for N31-6 (excluded-without-token -> RED), since the real
  * settings.json has an empty exclude set and can never exercise that branch.
  */
+/**
+ * Resolve one `claudeMdExcludes` entry to the enumerated rule it evicts.
+ *
+ * TWO FORMS ARE LEGAL, because the SHIPPED CLIENT honours only one of them and the repo's own
+ * history contains both:
+ *
+ *  - `**\/<name>.md` — the GLOB form, and the only form that actually evicts anything. The client
+ *    matches `claudeMdExcludes` with picomatch against ABSOLUTE paths, and its normaliser skips
+ *    any pattern not starting with "/", so a repo-relative entry can never match. Measured on the
+ *    host 2026-08-06 against the real `.claude/rules/` tree: relative form matched 0 of 7 entries,
+ *    glob form matched 7 of 7.
+ *  - `.claude/rules/<name>.md` — the repo-relative form. Accepted here for continuity (it is what
+ *    this function originally required, and what shipped in `.claude/settings.json` until the
+ *    glob rewrite), but it is INERT at runtime. It is resolved, not blessed: a rule listed in this
+ *    form is still subject to the live-channel-token assertion below, so the check stays honest
+ *    either way.
+ *
+ * Resolution of the glob form is deliberately basename-exact rather than a glob engine: the
+ * entries this gate must serve are always `**\/<basename>`, and adding a matcher dependency here
+ * would be a capability commit for no gain. An ambiguous basename (two enumerated rules sharing
+ * one filename) is an ERROR rather than a silent first-match — matching the client's own
+ * behaviour would be guesswork, and guessing is what this whole principle exists to prevent.
+ */
+function resolveExcludeEntry(
+  entry: string,
+  ruleFieldsByPath: Map<string, RuleChannelFields>,
+): { fields?: RuleChannelFields; error?: string } {
+  const exact = ruleFieldsByPath.get(entry);
+  if (exact) return { fields: exact };
+
+  const globPrefix = '**/';
+  if (entry.startsWith(globPrefix)) {
+    const basename = entry.slice(globPrefix.length);
+    if (basename.includes('/')) {
+      return {
+        error: `claudeMdExcludes lists "${entry}" — only the \`**/<basename>\` glob shape is supported here; a multi-segment glob cannot be resolved to a single enumerated rule.`,
+      };
+    }
+    const hits = [...ruleFieldsByPath.entries()].filter(([rel]) => rel.endsWith(`/${basename}`));
+    if (hits.length === 1) return { fields: hits[0][1] };
+    if (hits.length > 1) {
+      return {
+        error: `claudeMdExcludes lists "${entry}" but "${basename}" matches ${hits.length} enumerated rules (${hits.map(([rel]) => rel).join(', ')}) — ambiguous eviction.`,
+      };
+    }
+  }
+
+  return {
+    error: `claudeMdExcludes lists "${entry}" but that file is not an enumerated rule (typo or removed?)`,
+  };
+}
+
 export function checkExclusionConsistency(
   repoRoot: string,
   ruleFieldsByPath: Map<string, RuleChannelFields>,
@@ -275,13 +332,12 @@ export function checkExclusionConsistency(
   }
   const excludes = parsed.claudeMdExcludes ?? [];
   for (const excludedPath of excludes) {
-    const fields = ruleFieldsByPath.get(excludedPath);
-    if (!fields) {
-      errs.push(
-        `claudeMdExcludes lists "${excludedPath}" but that file is not an enumerated rule (typo or removed?)`,
-      );
+    const resolved = resolveExcludeEntry(excludedPath, ruleFieldsByPath);
+    if (resolved.error) {
+      errs.push(resolved.error);
       continue;
     }
+    const fields = resolved.fields!;
     const channelResult = checkChannelMarkersLive(fields, repoRoot);
     if (!channelResult.ok) {
       errs.push(

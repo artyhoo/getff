@@ -1,0 +1,111 @@
+# Proposal 3 — .claude/settings.json claudeMdExcludes diff
+
+> **Apply to:** `.claude/settings.json` `claudeMdExcludes` array (currently lines 214-219, 4 entries).
+> **Origin:** session-start-token-audit S2 §1 table rows 2 + 3 + Note B (BINDING pairing).
+> **Mechanism:** `claudeMdExcludes` is the CC-native list of `.claude/rules/*.md` files that
+> the CC auto-loader must skip at session-start (verified at S1: `.claude/settings.json:214-219`
+> lists exactly 4 entries today). Adding 2 rules removes them from every session's start
+> payload.
+>
+> **Diff-content invariant (BINDING per kickoff):** this diff adds **exactly 2 lines** with
+> **ZERO deletions** and **ZERO other changes**. `claudeMdExcludes` goes from 4 entries → 6
+> entries. Any other shape violates the invariant and MUST be rejected at review.
+>
+> **Token impact:** 13,459 + 9,285 = 22,744 bytes / ~5,686 tokens removed from every
+> session-start. (Proposal 2's hook-line addition is the compensating channel for the
+> `autonomous-loop-continuity.md` exclusion — without proposal 2, this diff is REJECTED.)
+> **Diff verification:** mechanically generated + `git apply --check` returns clean against the
+> pre-application HEAD of `feature/session-start-token-audit-c781e8` (commit 336d031ef,
+> 2026-07-30).
+
+## The diff (apply with `git apply`)
+
+```diff
+diff --git a/.claude/settings.json b/.claude/settings.json
+--- a/.claude/settings.json
++++ b/.claude/settings.json
+@@ -215,6 +215,8 @@
+     ".claude/rules/egress-no-api-bypass.md",
+     ".claude/rules/memory-codification.md",
+     ".claude/rules/recommendation-laziness-discipline.md",
+-    ".claude/rules/reviewer-discipline.md"
++    ".claude/rules/reviewer-discipline.md",
++    ".claude/rules/autonomous-loop-continuity.md",
++    ".claude/rules/git-conflict-merge-forward.md"
+   ]
+ }
+```
+
+## Apply recipe
+
+```bash
+# 0. PRECONDITION — proposal 2 (the §2 hook line + test) MUST already be applied atomically
+#    with this proposal. Verify it before proceeding:
+grep -q '(4) §2 wait rule' .claude/hooks/inject-session-bootstrap.sh \
+  && echo "proposal 2 applied — proceed" \
+  || { echo "REJECTED: proposal 2 not applied — claudeMdExcludes addition would strand §2 (Note B)"; exit 1; }
+
+# 1. Apply the diff (maintainer hands; agents are deny-listed on .claude/settings.json):
+git apply docs/meta-factory/research-patches/2026-07-26-session-start-token-audit-proposals/03-settings-claudeMdExcludes.diff
+
+# 2. Verify the array is now 6 entries:
+jq '.claudeMdExcludes' .claude/settings.json
+# expected:
+# [
+#   ".claude/rules/egress-no-api-bypass.md",
+#   ".claude/rules/memory-codification.md",
+#   ".claude/rules/recommendation-laziness-discipline.md",
+#   ".claude/rules/reviewer-discipline.md",
+#   ".claude/rules/autonomous-loop-continuity.md",
+#   ".claude/rules/git-conflict-merge-forward.md"
+# ]
+
+# 3. Verify CC-native loader honours the new excludes (live session start):
+#    Start a fresh CC session in this repo and confirm neither rule appears in the loaded
+#    context. (The CC-native auto-load honours claudeMdExcludes — verified at S1 attribution
+#    for the 4 existing entries; the loader treats the array as a deny-list, no other
+#    mechanism is at play.)
+```
+
+## §1.7 prose update check (NON-ACTION — verified clean at S2 authoring time)
+
+A natural worry on applying this diff is whether the two excluded rules' own §1.7
+self-reflexive notes name "always-on CLAUDE.md injection" as a delivery channel that would
+now be stale. Verified at proposal authoring time (2026-07-30):
+
+- `.claude/rules/autonomous-loop-continuity.md §5` — its §1.7 forward-check names
+  "Stop hook" + "always-on autonomy block in `inject-session-bootstrap.sh`" as the channels.
+  Always-on CLAUDE.md injection is NOT named. No prose update needed.
+- `.claude/rules/git-conflict-merge-forward.md §6/§7` — its forward-check names
+  "`~/.claude/hooks/git-safety.sh` (operator-global PreToolUse hook)" + "the always-on
+  CLAUDE.md `Harness gates` pointer bullet". The CLAUDE.md pointer stays in CLAUDE.md (it is
+  a one-line bullet in `### Harness gates`, not the rule file); the rule file itself was
+  never named as the channel. No prose update needed.
+
+If you are reading this proposal at a later date and either rule's §1.7 has been amended to
+claim always-on CLAUDE.md injection as a channel, re-verify and update the rule's §1.7 prose
+in the same maintainer commit. As of commit 336d031ef there is nothing to update.
+
+## Why this is safe
+
+- **`autonomous-loop-continuity.md` — proposal 2 compensates.** The rule's own Class header
+  (`:9`) declares its channels as (a) Stop-hook arm + (b) autonomy block in
+  `inject-session-bootstrap.sh`. Always-on CLAUDE.md injection was never a declared channel;
+  removing it aligns runtime with the declared contract (the failure mode Note B exists to
+  prevent — declaring a channel that doesn't fire is the dual failure).
+- **`git-conflict-merge-forward.md` — accepted degradation.** Note C records the cost (one
+  wasted first-attempt cycle for an agent meeting a CONFLICTING PR) and the mitigation (the
+  operator-global `git-safety.sh` blocks `git rebase` at execution time, and the CLAUDE.md
+  Harness-gates pointer bullet still routes to the recipe). 9,285 bytes saved per
+  session-start in exchange for that cost.
+
+## Risks if misapplied
+
+- **Applying without proposal 2** strands §2 for every session. Rejected by step 0 of the
+  apply recipe above.
+- **Adding extra entries** (e.g. copying `egress-no-api-bypass.md` twice) silently breaks
+  other invariants — `claudeMdExcludes` is a flat array, no schema enforcement beyond JSON
+  validity. Use `jq` to verify the post-apply array contents.
+- **Including a non-existent file** is a silent no-op (CC's loader just skips it). Both new
+  entries are verified-existent at S1: `ls .claude/rules/autonomous-loop-continuity.md
+  .claude/rules/git-conflict-merge-forward.md` → both present.

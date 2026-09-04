@@ -186,7 +186,7 @@ Per [reviewer-discipline.md §2](../../../.claude/rules/reviewer-discipline.md):
 
 ## REPORT format обратно maintainer'у
 
-```
+```text
 ## Memory coverage audit REPORT 2026-05-22
 
 **Status:** COMPLETE | PARTIAL (reason: …)
@@ -207,3 +207,5 @@ Per [reviewer-discipline.md §2](../../../.claude/rules/reviewer-discipline.md):
 - Линза «memory → docs → tests» — трёхстадийная. Не схлопывай stage 1 в stage 2 (T-Mem-A). «Есть rule-файл» — это waystation, не финиш.
 - Не доверяй формулировкам этого kickoff на веру — сверяй против authoritative-правил (ai-laziness-traps, phase-research-coverage, reviewer-discipline, build-first-reuse-default), если сомневаешься.
 - Если найдёшь что сам этот kickoff закрывает что-то на недосказанном (например выдаёт «stage 1 = covered») — surface в §9/§10.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -18,10 +18,12 @@ printf '{ "name": "c1t", "version": "0.0.0", "scripts": { "test": "echo keep" } 
 # P1 — seed lands so deps-hash-check.sh no longer short-circuits to silent exit 0
 [ -f "$T/.ai-factory/tool-decisions.md" ] && ok "P1: tool-decisions.md seeded" || bad "P1: tool-decisions.md missing"
 
-# P2 — all 3 skill-context land (verify-list ↔ copy-list single-sourced)
+# P2 — the 2 default skill-context land (verify-list ↔ copy-list single-sourced);
+# aif-orchestrator-discipline is AIF-suite-gated (F7 agents arm) — absent by default,
+# flag-gated presence asserted in with-aif-suite-flag.test.sh.
 n=$(find "$T/.ai-factory/skill-context" -name SKILL.md 2>/dev/null | wc -l | tr -d ' ')
-[ "$n" = "3" ] && ok "P2: 3/3 skill-context landed" || bad "P2: only $n/3 skill-context"
-[ -f "$T/.ai-factory/skill-context/aif-orchestrator-discipline/SKILL.md" ] && ok "P2: aif-orchestrator-discipline present (was the dropped one)" || bad "P2: aif-orchestrator-discipline missing"
+[ "$n" = "2" ] && ok "P2: 2/2 default skill-context landed" || bad "P2: $n/2 default skill-context"
+[ ! -f "$T/.ai-factory/skill-context/aif-orchestrator-discipline/SKILL.md" ] && ok "P2: aif-orchestrator-discipline absent by default (suite-gated)" || bad "P2: aif-orchestrator-discipline leaked into default install"
 
 # W1 — compiled ESM barrel generated, valid, covers every landed rule file (eslint.config imports it)
 [ -f "$T/eslint-rules-local/index.mjs" ] && ok "W1: eslint ESM barrel generated" || bad "W1: eslint ESM barrel missing (S2 fix)"
@@ -75,8 +77,14 @@ if [ -x "$HOOK_C548" ]; then
     # syntax — BSD reads the next token as a backup suffix, so `sed -i 's/…/…/' file` errors
     # and never mutates the file, making this negative arm VACUOUS on macOS (spurious FAIL).
     # Write to a sibling temp file and move it back — works identically on both seds.
+    # NOTE (DH-S1 round-3.5): the install template now seeds BOTH deps-hash-npm: AND the legacy
+    # bare deps-hash:; the hook reads deps-hash-npm: with precedence (design §3a M1). To prove
+    # real-drift detection non-vacuously, BOTH keys must carry the mismatched sha256 — otherwise
+    # the <pending>-seeded deps-hash-npm: shadows the drifted legacy key and the WARN wording is
+    # "not yet baselined" (honest for unbaselined), not "deps changed". Replace both lines.
     TDM_NEG="$C548/.ai-factory/tool-decisions.md"
-    sed 's/^deps-hash:.*/deps-hash: sha256-0000000000000000000000000000000000000000000000000000000000000000/' \
+    sed -e 's/^deps-hash-npm:.*/deps-hash-npm: sha256-0000000000000000000000000000000000000000000000000000000000000000/' \
+        -e 's/^deps-hash:.*/deps-hash: sha256-0000000000000000000000000000000000000000000000000000000000000000/' \
       "$TDM_NEG" > "$TDM_NEG.tmp" && mv "$TDM_NEG.tmp" "$TDM_NEG"
     out_c548_neg=$( cd "$C548" && bash "$HOOK_C548" 2>&1 )
     if echo "$out_c548_neg" | grep -q 'deps changed'; then

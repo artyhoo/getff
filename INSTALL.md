@@ -28,7 +28,7 @@ cd /tmp/getff
 ai-factory extension add ./path/to/getff
 
 # Or from a git URL
-ai-factory extension add https://github.com/<org>/getff
+ai-factory extension add https://github.com/artyhoo/getff
 
 # Verify
 ai-factory extension list
@@ -57,6 +57,9 @@ ai-factory init --agents claude
 /path/to/getff/setup -y react-spa       # for React + Vite SPA
 /path/to/getff/setup -y react-native    # for React Native / Expo
 
+# For a Python project (no package.json — a separate non-npm lane):
+/path/to/getff/setup python             # ast-grep + ruff, no Node dependency on the consumer machine
+
 # Or framework-only (install.sh, interactive stack picker):
 /path/to/getff/install.sh ts-server
 
@@ -73,7 +76,12 @@ The installer:
 
 By default it **never overwrites** existing files. Use `--force` to overwrite.
 
-Two further opt-in flags (see `install.sh` header for exact semantics): `--full` — also auto-installs the shipped dev-deps via the consumer's package manager (mutating, no prompts; stack arg required); `--wire-ci` — also auto-wires missing CI gates into an existing workflow via `yq` (detect-first). The recommended `./setup -y <stack>` one-shot path already implies `--full` + companions.
+`./setup python` / `./install.sh python` is a separate, non-npm delivery lane (no `package.json`
+required) — see [INSTALL-FOR-AI.md — Python toolchain lane](INSTALL-FOR-AI.md#python-toolchain-lane-installsh-python)
+for what it ships and how the firing proof works. The rest of this section (`--force`, `--full`,
+`--wire-ci`, etc.) describes the npm-stack path (`ts-server`/`react-next`/`react-spa`/`react-native`).
+
+Four further opt-in flags (see `install.sh` header for exact semantics): `--full` — also auto-installs the shipped dev-deps via the consumer's package manager (mutating, no prompts; stack arg required); `--wire-ci` — also auto-wires missing CI gates into an existing workflow via `yq` (detect-first); `--with-aif-suite` — also ships the AIF operator suite: the five skills (dispatcher, aif-doctor, harvest, story, claude-glm-executor-handoff) plus the two suite agents (orchestrator-worker-discipline, reviewer-discipline) and their aif-orchestrator-discipline skill-context — all presuppose the aif-handoff operator runtime (default installs only the consumer-facing set); `--all` — operator shorthand for `--full` + `--with-aif-suite` («everything»). The recommended `./setup -y <stack>` one-shot path already implies `--full` + companions and stays curated; `./setup --all <stack>` is the operator-machine equivalent that also pulls the suite.
 
 ---
 
@@ -189,6 +197,7 @@ For React/Next, also add:
 ```json
 {
   "scripts": {
+    "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "test-storybook": "test-storybook",
     "test:e2e": "playwright test"
@@ -204,16 +213,16 @@ For React/Next, also add:
 
 ```bash
 npm install --save-dev \
-  eslint@^9.0.0 typescript-eslint@^8.59.0 @eslint/js@^9.0.0 @typescript-eslint/utils@^8.59.0 \
-  globals@^15.14.0 \
-  prettier@^3.4.0 eslint-config-prettier@^9.1.0 @vitest/eslint-plugin@^1.0.0 \
+  eslint@^9.0.0 typescript-eslint@^8.59.0 @eslint/js@^9.0.0 @typescript-eslint/utils@^8.62.0 \
+  globals@^17.7.0 \
+  prettier@^3.4.0 eslint-config-prettier@^10.1.8 @vitest/eslint-plugin@^1.6.20 \
   typescript@^5.7.0 \
   vitest@^4.1.5 @vitest/coverage-v8@^4.1.5 \
-  @stryker-mutator/core@^8.7.0 @stryker-mutator/vitest-runner@^8.7.0 @stryker-mutator/typescript-checker@^8.7.0 stryker-cli \
-  dependency-cruiser@^16.8.0 \
-  fast-check@^3.23.0 glob@^11.0.0 tsx@^4.19.0 \
-  husky@^9.1.7 lint-staged@^15.2.10 sort-package-json@^2.12.0 \
-  npm-run-all2@^7.0.0 \
+  @stryker-mutator/core@^9.6.1 @stryker-mutator/vitest-runner@^9.6.1 @stryker-mutator/typescript-checker@^9.6.1 stryker-cli \
+  dependency-cruiser@~17.4.3 \
+  fast-check@^4.8.0 glob@^13.0.6 ts-morph@^28.0.0 tsx@^4.22.4 \
+  husky@^9.1.7 lint-staged@~16.4.0 sort-package-json@~3.7.1 \
+  npm-run-all2@~8.0.4 \
   @types/node@^22.10.0
 ```
 
@@ -233,13 +242,13 @@ npm install --save-dev \
   eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-jsx-a11y \
   eslint-plugin-testing-library \
   @playwright/test \
-  @storybook/react-vite @storybook/test \
-  @storybook/test-runner concurrently wait-on http-server
+  storybook@^10.5.0 @storybook/nextjs-vite@^10.5.0 vite@^8.0.0 \
+  @storybook/test-runner@^0.24.4 concurrently@^9.0.0 wait-on@^8.0.0 http-server@^14.1.0
 ```
 
 Also: `import 'server-only'` and `import 'client-only'` packages — bundled with Next.js, no install needed.
 
-> **Verification protocol:** these versions were verified as latest stable on May 6, 2026. For your own project, run `npm view <package> version` for each before committing. See `references/checks-map.md` and `SKILL.md` "Verification protocol" section.
+> **Verification protocol:** these pins were re-verified against the registry on August 8, 2026. Each is the newest line satisfying BOTH the peer constraints of the rest of the toolchain AND a node 20.19 `engines.node` floor (brownfield consumers may keep an older 20.19+ `.nvmrc`) — so four of them are deliberately BELOW registry latest and tilde-pinned, not caret: `dependency-cruiser@~17.4.3` (18 needs `^22||^24||>=26`), `lint-staged@~16.4.0` (17 needs `>=22.22.1`), `sort-package-json@~3.7.1` (4 needs `>=22`), `npm-run-all2@~8.0.4` (9 needs `^22.22.2||^24.15.0||>=26`). Tilde because the engines floor has moved WITHIN a major before (`sort-package-json@3.7.0` = `>=22`, `3.7.1` = `>=20`), so a caret would re-open the hole. `typescript@^5.7.0` and `@types/node@^22.10.0` are likewise deliberate caps, not stale lines. If your project has no node-20 floor, run `npm view <package> version` for each and raise them. See `references/checks-map.md` and `SKILL.md` "Verification protocol" section.
 
 ---
 
@@ -359,7 +368,10 @@ your-project/
 ├── .dependency-cruiser.cjs           ← architecture rules
 ├── .lintstagedrc.json                ← pre-commit config
 ├── .nvmrc                            ← Node version pin
+├── .gitignore                        ← seed (skipped if you have your own)
 ├── tsconfig.json                     ← strict TS
+├── tests/setup.ts                    ← vitest setup hook (UI/ts stacks; skipped if
+│                                        your tsconfig does not include tests/)
 ├── playwright.config.ts              ← (UI projects only)
 └── AGENTS.md                         ← context for AI agents
 ```
@@ -380,7 +392,7 @@ bash /path/to/getff/install.sh --refresh
 
 Consumer-owned files (`AGENTS.md`, `RULES.md`, `eslint.config.mjs`, `ci.yml`, etc.) are never touched. Files with a sibling `.override.md` are also skipped. See [INSTALL-FOR-AI.md §Refreshing framework artefacts](INSTALL-FOR-AI.md#refreshing-framework-artefacts-after-an-upgrade) for the full boundary table.
 
-**Path B (AIF extension):** `ai-factory extension update rules-as-tests-aif`
+**Path B (AIF extension):** `ai-factory extension update getff`
 
 **Path C (force overwrite):** re-run `./install.sh <stack> --force` to overwrite. **Will overwrite ALL configs including your customizations** — back up first.
 

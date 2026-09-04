@@ -33,7 +33,12 @@ Surfaced during the `multi-stack-monorepo` (§13.5) umbrella, 2026-06-28, when t
 
 ## §4 Sequencing
 
-- **Depends on** §13.5 L2 (Path A) shipping the per-workspace scoping primitive (the brick this umbrella builds on).
+| Stage | Scope (one line) | Depends on |
+|---|---|---|
+| generation-live-delivery | R-phase scoping: decide whether/how generation becomes the live delivery (§0) | §13.5 L2 (Path A) ships the per-workspace scoping primitive |
+
+The scoping primitive is the brick this umbrella builds on.
+
 - **Large + exploratory** → R-phase (this kickoff drives research) → then an I-phase per the research verdict. Do NOT jump to implementation.
 - This umbrella is the home for the §3b OUT-OF-SCOPE items deferred by the §13.5 L2 kickoff.
 
@@ -43,3 +48,5 @@ Surfaced during the `multi-stack-monorepo` (§13.5) umbrella, 2026-06-28, when t
 - [docs/meta-factory/multi-stack-monorepo-research.md](../../../docs/meta-factory/multi-stack-monorepo-research.md) — where the two-pipeline / synth-aspirational findings were first surfaced.
 - [.claude/rules/build-first-reuse-default.md](../../rules/build-first-reuse-default.md), [ai-laziness-traps.md](../../rules/ai-laziness-traps.md), [doc-authority-hierarchy.md](../../rules/doc-authority-hierarchy.md).
 - Architectural finding (memory): `project_multi_stack_i2_state.md` — two pipelines, synth = no-op overlay, Pipeline B unwired, recipes all `next`.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

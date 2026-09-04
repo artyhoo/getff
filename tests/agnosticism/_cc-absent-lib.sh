@@ -13,7 +13,18 @@ cc_scrub() {
   local shim; shim=$(mktemp -d)
   printf '#!/bin/sh\necho "CC INVOKED UNDER SCRUB" >&2; exit 127\n' > "$shim/claude"
   chmod +x "$shim/claude"
-  env "${unset_args[@]}" PATH="$shim:$PATH" CC_ABSENT=1 bash -c "$1"
+  # Bash-3.2-safe empty-array expansion: under `set -uo pipefail` (see harness-self.test.sh),
+  # an unguarded `"${unset_args[@]}"` aborts with 'unset_args[@]: unbound variable' when no
+  # CLAUDE_* env vars are present to scrub (the common case on a clean host). macOS ships bash
+  # 3.2, where empty-array expansion is not implicitly empty under `set -u`. Same class as
+  # refresh-covers-full-delivery.test.sh:68 / format-shipped.sh:64 / memory
+  # installsh_set_u_empty_array — guard the expansion against the empty case. When unset_args
+  # IS empty we still run `env` (with PATH + CC_ABSENT only), preserving the scrub semantics.
+  if [ "${#unset_args[@]}" -gt 0 ]; then
+    env "${unset_args[@]}" PATH="$shim:$PATH" CC_ABSENT=1 bash -c "$1"
+  else
+    env PATH="$shim:$PATH" CC_ABSENT=1 bash -c "$1"
+  fi
   local rc=$?
   rm -rf "$shim"
   return $rc

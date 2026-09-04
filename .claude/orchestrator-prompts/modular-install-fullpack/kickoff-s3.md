@@ -73,3 +73,8 @@ See [`.claude/rules/ai-laziness-traps.md §2`](../../rules/ai-laziness-traps.md)
 **Domain-specific:**
 - **T-MIF-A (this stage's reason to exist)** — «tool-bootstrap адоптирован → работает» — FALSE (FQA-B). Counter: empirical loop-fires probe.
 - **T-MIF-R1-creep** — tempted to «just wire `/aif` since we're here». Counter: §0 hard gate — that work is R1, park it.
+
+```bash host-verify
+# Retro-marked 2026-08-21: §4 acceptance keeps the installed surface byte-identical (empirical consumer probes stay in §4; the snapshot compare is the repo-runnable guard)
+SNAPSHOT_MODE=compare bash tests/install-sh/snapshot.sh
+```

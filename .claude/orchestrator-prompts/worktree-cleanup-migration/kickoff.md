@@ -45,7 +45,7 @@ Current scale (verify yourself, may have drifted): ~45 worktrees, ~72 branches m
 
 **Phase 3.5 — closure marker (fold in, since you're committing anyway).**
 8a. Write `.claude/orchestrator-prompts/cross-worktree-symlink-iphase/done.md` (tracked file) per CLAUDE.md «Umbrella closure convention»:
-```
+```text
 # cross-worktree-symlink-iphase — DONE
 - Final PR: #346
 - Closed: 2026-06-01
@@ -68,3 +68,5 @@ Also write this kickoff's own `worktree-cleanup-migration/done.md` at the end. B
 2. For each removed worktree: a line proving its content was in `$CANON` before removal.
 3. `git worktree list` after — only intended worktrees remain; no locked ones removed.
 4. List of branches deleted (all `git branch -d` succeeded = all were merged).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

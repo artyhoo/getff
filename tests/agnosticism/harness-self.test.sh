@@ -75,13 +75,14 @@ cp "$REPO_ROOT/.ai-factory/rule-channel-capabilities.schema.json" "$RCROOT/.ai-f
 # Seed ONE Tier-0-shaped rule via its real name (ALWAYS_ON_CORE is name-keyed in the script) and
 # ONE paths:-declaring rule — both must resolve to "refused" once the capability matrix below
 # strips every fallback primitive from the (only) supported harness.
-cp "$REPO_ROOT/.claude/rules/ai-laziness-traps.md" "$RCROOT/.claude/rules/ai-laziness-traps.md"
+cp "$REPO_ROOT/.claude/rules/ai-laziness-digest.md" "$RCROOT/.claude/rules/ai-laziness-digest.md"
 cp "$REPO_ROOT/.claude/rules/ci-tool-pinning.md" "$RCROOT/.claude/rules/ci-tool-pinning.md"
 cat > "$RCROOT/.ai-factory/rule-channel-capabilities.json" <<'EOF'
 {
   "harnesses": {
     "seeded-broken": {
       "support": "supported",
+      "axis": "shipped",
       "rulesAutoload": false,
       "pathScoping": false,
       "claudeMdExcludes": false,
@@ -101,7 +102,7 @@ printf '{"degradations":[]}\n' > "$RCROOT/.ai-factory/rule-channel-degradations.
 RC_TSX="$REPO_ROOT/packages/core/node_modules/.bin/tsx"
 [ -x "$RC_TSX" ] || RC_TSX="$REPO_ROOT/node_modules/.bin/tsx"
 rc_out=$("$RC_TSX" "$REPO_ROOT/scripts/render-rule-channels.mjs" --json --root "$RCROOT" 2>&1)
-echo "$rc_out" | grep -q '"rule":"ai-laziness-traps".*"verdict":"refused"' \
+echo "$rc_out" | grep -q '"rule":"ai-laziness-digest".*"verdict":"refused"' \
   && ok "rule-channel-readability data: Tier-0 rule computes refused when every fallback is stripped" \
   || bad "rule-channel-readability data MISSED the Tier-0 refusal — seeded-break not reaching computeVerdict()"
 echo "$rc_out" | grep -q '"rule":"ci-tool-pinning".*"verdict":"refused"' \
@@ -122,5 +123,135 @@ echo "$probe_out" | grep -qE 'no-invisible-core-rules.*CC-ONLY' \
   && ok "rule-channel-readability probe (end-to-end) flags the seeded invisible rules — CC-ONLY, not silently PORTABLE" \
   || bad "rule-channel-readability probe MISSED the seeded invisible rules — probe is blind (T2 harness-theatre gap)"
 rm -rf "$RCROOT"
+
+# ── ANTI-THEATRE (N-S9-c): rule-channel-readability must resolve tsx the way .husky/pre-push:28
+# already does, and must blame the ENVIRONMENT — not the rule channels — when tsx is genuinely
+# absent. Incident 2026-07-23: in a git worktree under .claude/worktrees/<name>/ whose node_modules
+# symlinks were never provisioned, BOTH hard-coded tsx paths missed and the probe recorded
+# `fallback-check-mode ... --check exit=127 ... DEGRADED:no-json-mode` — a RED rule-channel verdict
+# for a purely environmental cause (63 of 125 live worktrees were in that state). The probe was
+# loud, but about the wrong thing. c1 pins the attribution; c2 pins the resolution (red->green).
+#
+# Both seeds deliberately OMIT the `node_modules` symlink that the N-S3-b seed above installs —
+# that absence IS the seeded break. `packages` is symlinked one level DEEPER than N-S3-b does
+# (only the two subdirs render-rule-channels.mjs imports), because a whole-`packages` symlink
+# would expose packages/core/node_modules/.bin/tsx — which EXISTS in CI after
+# `npm ci --prefix packages/core` — and would silently un-seed the break (false-green in CI only).
+seed_s9_root() {                       # $1 = target dir
+  local R="$1"
+  mkdir -p "$R/.ai-factory" "$R/.claude/rules" "$R/tests/agnosticism/probes" "$R/packages/core"
+  cp "$REPO_ROOT/tests/agnosticism/_cc-absent-lib.sh"                 "$R/tests/agnosticism/"
+  cp "$REPO_ROOT/tests/agnosticism/probes/rule-channel-readability.sh" "$R/tests/agnosticism/probes/"
+  cp "$REPO_ROOT/.ai-factory/rule-channel-capabilities.schema.json"    "$R/.ai-factory/"
+  cp "$REPO_ROOT/.claude/rules/ai-laziness-digest.md"                   "$R/.claude/rules/"
+  printf '{"harnesses":{"seeded-ok":{"support":"supported","axis":"shipped","rulesAutoload":true,"pathScoping":true,"claudeMdExcludes":true,"postToolUseInject":true,"sessionStartHook":true}}}\n' \
+    > "$R/.ai-factory/rule-channel-capabilities.json"
+  printf '{"degradations":[]}\n' > "$R/.ai-factory/rule-channel-degradations.json"
+  ln -sfn "$REPO_ROOT/scripts"                      "$R/scripts"
+  ln -sfn "$REPO_ROOT/packages/core/principles"     "$R/packages/core/principles"
+  ln -sfn "$REPO_ROOT/packages/core/diagnostics"    "$R/packages/core/diagnostics"
+  ( unset GIT_DIR GIT_COMMON_DIR GIT_WORK_TREE; cd "$R" && git init -q && git add -A ) >/dev/null 2>&1
+}
+
+# c1 — seeded OUTSIDE the repo, so Node's upward module resolution cannot reach any install
+# either: tsx is unreachable by every route. The probe must name THAT, not a channel verdict.
+S9A=$(mktemp -d)
+seed_s9_root "$S9A"
+s9a_out=$(cd "$S9A/tests/agnosticism/probes" && RECORD_FILE=/dev/stdout bash rule-channel-readability.sh)
+rm -rf "$S9A"
+echo "$s9a_out" | grep -q 'tsx-unresolvable' \
+  && ok "rule-channel-readability attributes an unreachable tsx to the ENVIRONMENT (tsx-unresolvable)" \
+  || bad "rule-channel-readability did NOT report tsx-unresolvable — environment failure is being misattributed"
+echo "$s9a_out" | grep -q 'fallback-check-mode' \
+  && bad "rule-channel-readability laundered a missing toolchain into a rule-channel verdict (fallback-check-mode) — incident 2026-07-23 regression" \
+  || ok "rule-channel-readability does NOT emit a rule-channel verdict for a missing toolchain"
+
+# c2 — seeded INSIDE the repo, reproducing the incident's shape: both hard-coded tsx paths miss,
+# but Node's own upward walk reaches the primary checkout's install (exactly what .husky/pre-push:28
+# relies on). Pre-fix this recorded DEGRADED:no-json-mode; post-fix it must compute a real verdict.
+S9B="$REPO_ROOT/.s9-nested-probe-$$"
+seed_s9_root "$S9B"
+s9b_out=$(cd "$S9B/tests/agnosticism/probes" && RECORD_FILE=/dev/stdout bash rule-channel-readability.sh)
+rm -rf "$S9B"
+echo "$s9b_out" | grep -q 'no-invisible-core-rules' \
+  && ok "rule-channel-readability computes a real verdict in an unprovisioned nested worktree (node-loader resolution)" \
+  || bad "rule-channel-readability could NOT run in an unprovisioned nested worktree — incident 2026-07-23 regression"
+echo "$s9b_out" | grep -qE 'fallback-check-mode|tsx-unresolvable' \
+  && bad "rule-channel-readability degraded in a nested worktree where Node CAN resolve tsx upward" \
+  || ok "rule-channel-readability does not degrade when tsx is reachable via the node loader"
+
+# ── ANTI-THEATRE: brand-detection probe (Surface 10) must FLAG a seeded brand-literal
+# branch AND stay silent on the legitimate §4 capability-check shapes. BOTH directions are
+# load-bearing: the rule's own §8 falsification sketch (`grep '"claude"\|"cc"\|ANTHROPIC'`)
+# passed the first direction but flagged `ANTHROPIC_API_KEY` — a legit capability check — so a
+# positive-only negative-test would have shipped a false-positive machine. Measured
+# 2026-08-09: refined detector = 4/4 true-positive, 0/3 false-positive, 0 hits on 267 real files.
+BDROOT=$(mktemp -d)
+mkdir -p "$BDROOT/tests/agnosticism/probes" "$BDROOT/scripts"
+cp "$REPO_ROOT/tests/agnosticism/_cc-absent-lib.sh"                "$BDROOT/tests/agnosticism/"
+cp "$REPO_ROOT/tests/agnosticism/probes/brand-detection.sh"        "$BDROOT/tests/agnosticism/probes/"
+# TRUE POSITIVES — four brand-literal comparison shapes, each must be flagged.
+printf '#!/usr/bin/env bash\nif [[ "$AI_HARNESS" == "claude" ]]; then echo x; fi\n' > "$BDROOT/scripts/seed-eq.sh"
+printf '#!/usr/bin/env bash\nif [ "$h" = '"'"'claude'"'"' ]; then echo x; fi\n'      > "$BDROOT/scripts/seed-single.sh"
+printf '#!/usr/bin/env bash\ncase "$A" in claude) echo x ;; esac\n'                  > "$BDROOT/scripts/seed-case.sh"
+printf '#!/usr/bin/env bash\nif [[ "$UA" =~ anthropic ]]; then echo x; fi\n'         > "$BDROOT/scripts/seed-regex.sh"
+# TRUE NEGATIVES — the §4-legitimate shapes; flagging any of these is the FP failure mode.
+printf '#!/usr/bin/env bash\nif [[ -n "$ANTHROPIC_API_KEY" ]]; then echo x; fi\nif [[ -n "$CLAUDE_CODE_HOOKS_ENABLED" ]]; then echo y; fi\n' > "$BDROOT/scripts/ok-capability.sh"
+printf '#!/usr/bin/env bash\nCFG="$CLAUDE_PROJECT_DIR/.claude/settings.json"\nif [[ ! "$R" =~ ^\\.claude/rules/ ]]; then exit 0; fi\n'        > "$BDROOT/scripts/ok-paths.sh"
+printf '#!/usr/bin/env bash\n# never write: if [[ "$H" == "claude" ]] — that is brand detection\necho hi\n'                                  > "$BDROOT/scripts/ok-comment.sh"
+( unset GIT_DIR GIT_COMMON_DIR GIT_WORK_TREE; cd "$BDROOT" && git init -q && git add -A ) >/dev/null 2>&1
+bd_out=$(RECORD_FILE=/dev/stdout bash "$BDROOT/tests/agnosticism/probes/brand-detection.sh")
+for s in seed-eq seed-single seed-case seed-regex; do
+  echo "$bd_out" | grep -q "$s\.sh.*BRAND-DETECTION" \
+    && ok "brand-detection flags $s.sh (§8 #brand-name-detection)" \
+    || bad "brand-detection MISSED $s.sh — probe is blind to a real brand branch"
+done
+for s in ok-capability ok-paths ok-comment; do
+  echo "$bd_out" | grep -q "$s\.sh" \
+    && bad "brand-detection FALSE-POSITIVE on $s.sh — a §4-legitimate capability check was flagged" \
+    || ok "brand-detection stays silent on $s.sh (§4 capability check / path / comment)"
+done
+rm -rf "$BDROOT"
+
+# ── ANTI-THEATRE (beta-ai-docs-agnosticism S2, spec C3): skills-census probe must FLAG a
+# seeded missing/invalid harness-posture declaration AND pass a valid one. Without this
+# negative, the probe could silently rot into an always-PORTABLE no-op and principle 21's
+# census arm would stay green (the T2 "harness is theatre" gap — same shape the
+# channel-coverage seed above guards for Surface 8). RED is observed before GREEN: the
+# broken/invalid seeds assert non-PORTABLE verdicts; only the valid seed asserts PORTABLE.
+SKROOT=$(mktemp -d)
+mkdir -p "$SKROOT/tests/agnosticism/probes"
+cp "$REPO_ROOT/tests/agnosticism/_cc-absent-lib.sh" "$SKROOT/tests/agnosticism/"
+cp "$REPO_ROOT/tests/agnosticism/probes/skills-census.sh" "$SKROOT/tests/agnosticism/probes/"
+for s in seed-broken seed-invalid seed-valid seed-shortcc seed-fenced; do mkdir -p "$SKROOT/.claude/skills/$s"; done
+printf -- '---\nname: seed-broken\ndescription: seeded markerless skill\n---\n# body\n' \
+  > "$SKROOT/.claude/skills/seed-broken/SKILL.md"
+printf -- '---\nname: seed-invalid\ndescription: seeded invalid vocab\n---\n<!-- @harness-posture: works-everywhere — invented vocab -->\n# body\n' \
+  > "$SKROOT/.claude/skills/seed-invalid/SKILL.md"
+printf -- '---\nname: seed-valid\ndescription: seeded valid skill\n---\n<!-- @harness-posture: portable — seeded paired-negative basis -->\n# body\n' \
+  > "$SKROOT/.claude/skills/seed-valid/SKILL.md"
+printf -- '---\nname: seed-shortcc\ndescription: seeded short cc-only rationale\n---\n<!-- @harness-posture: cc-only — todo -->\n# body\n' \
+  > "$SKROOT/.claude/skills/seed-shortcc/SKILL.md"
+printf -- '---\nname: seed-fenced\ndescription: declaration only inside a fenced example\n---\n```markdown\n<!-- @harness-posture: portable — fenced example, not a declaration -->\n```\n# body\n' \
+  > "$SKROOT/.claude/skills/seed-fenced/SKILL.md"
+# The probe population comes from `git ls-files`, so the seed must be a git repo with skills staged.
+( unset GIT_DIR GIT_COMMON_DIR GIT_WORK_TREE; cd "$SKROOT" && git init -q && git add -A ) >/dev/null 2>&1
+sk_out=$(RECORD_FILE=/dev/stdout bash "$SKROOT/tests/agnosticism/probes/skills-census.sh")
+echo "$sk_out" | grep -q 'seed-broken/SKILL\.md.*NO-HARNESS-POSTURE' \
+  && ok "skills-census flags a markerless skill (NO-HARNESS-POSTURE)" \
+  || bad "skills-census MISSED a markerless skill — census probe is blind"
+echo "$sk_out" | grep -q 'seed-invalid.*INVALID-HARNESS-POSTURE' \
+  && ok "skills-census flags an out-of-vocab posture (INVALID-HARNESS-POSTURE)" \
+  || bad "skills-census MISSED an invalid vocab value — vocabulary gate is blind"
+echo "$sk_out" | grep -q 'seed-shortcc.*INVALID-HARNESS-POSTURE' \
+  && ok "skills-census flags a short cc-only rationale (INVALID-HARNESS-POSTURE)" \
+  || bad "skills-census MISSED a short cc-only rationale — rationale gate is blind"
+echo "$sk_out" | grep -q 'seed-fenced.*NO-HARNESS-POSTURE' \
+  && ok "skills-census ignores a fenced example declaration (NO-HARNESS-POSTURE)" \
+  || bad "skills-census counted a fenced example as a declaration — fence gate is blind"
+echo "$sk_out" | grep -q 'seed-valid.*PORTABLE' \
+  && ok "skills-census passes a validly-declared skill" \
+  || bad "skills-census wrongly flagged a properly-declared skill"
+rm -rf "$SKROOT"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

@@ -30,34 +30,20 @@
 // covered the moment it lands, no static-list edit.
 import { describe, it, expect } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { npmAdapter } from './ecosystem-npm.ts';
 import { cargoAdapter } from './ecosystem-cargo.ts';
+import { ADAPTER_IMPL_RE, trackedResearchSources } from './adapter-census.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '..', '..', '..'); // research → core → packages → root
 
-/** Tracked non-test TypeScript sources under packages/core/research (git-aware,
- *  mirrors principle 30's trackedStoreFiles + the principle 12/29/09 git ls-files
- *  pattern — reaches committed sources identically in CI and locally). Empty list
- *  ⇒ the sentinel below fails loudly (glob broke), never a vacuous pass. */
-function trackedResearchSources(): string[] {
-  const out = execFileSync('git', ['ls-files', '-z', 'packages/core/research/*.ts'], {
-    cwd: REPO_ROOT,
-    encoding: 'utf8',
-  });
-  return out
-    .split('\0')
-    .filter(Boolean)
-    .filter((rel) => !rel.endsWith('.test.ts'))
-    .map((rel) => resolve(REPO_ROOT, rel));
-}
-
 /** Files declaring a *value* of type EcosystemAdapter — the seam's concrete
- *  implementations. Matches the typed-const idiom the sole existing impl uses
+ *  implementations. ADAPTER_IMPL_RE (the BROAD census, shared single source of
+ *  truth in ./adapter-census.ts since adapter-jig increment H) matches the
+ *  typed-const idiom the shipped impls use
  *  (`export const npmAdapter: EcosystemAdapter = {` in ecosystem-npm.ts) plus the
  *  four other ways a value of this type is declared in TS: `satisfies
  *  EcosystemAdapter`, an `as EcosystemAdapter` cast, a `class … implements
@@ -66,6 +52,11 @@ function trackedResearchSources(): string[] {
  *  (`export interface EcosystemAdapter {` in allowlist-resolver.ts) and type-only
  *  annotation positions (`adapter?: EcosystemAdapter;`) are deliberately NOT
  *  matched — a declaration/annotation is the seam, not an implementation of it.
+ *  This BROAD census and the NARROW typed-const census consumed by
+ *  ecosystem-unwired-debt.test.ts are held set-equal over the live tree by arm H3
+ *  (tripwire-population-equality, in that file) — an off-idiom impl matching only
+ *  this broad form REDs there (spec §2 F5: stamped adapters use the idiom
+ *  verbatim).
  *
  *  Residual (documented, NOT backstopped): a second adapter that carries NO
  *  textual `EcosystemAdapter` type at its definition (e.g. an untyped object
@@ -75,9 +66,9 @@ function trackedResearchSources(): string[] {
  *  If a dynamically-registered adapter shape ever lands, add a registry-level
  *  assertion here. */
 function adapterImplFiles(): string[] {
-  const IMPL =
-    /:\s*EcosystemAdapter\s*=|satisfies\s+EcosystemAdapter|\bimplements\s+EcosystemAdapter\b|\bas\s+EcosystemAdapter\b|\):\s*EcosystemAdapter\s*(?:\{|=>)/;
-  return trackedResearchSources().filter((f) => IMPL.test(readFileSync(f, 'utf8')));
+  return trackedResearchSources(REPO_ROOT).filter((f) =>
+    ADAPTER_IMPL_RE.test(readFileSync(f, 'utf8')),
+  );
 }
 
 /** Textual signal that a file contains a path-traversal / separator guard on
@@ -146,6 +137,17 @@ describe('D-tripwire — EcosystemAdapter precondition (research-source-trust.md
     expect(cargoAdapter.readInstalledMeta(cargoRoot, '../evil')).toBeNull();
   });
 
+  // @arm:B2:neg value-guard-containment (behavioural VALUE-surface paired
+  // negatives — non-symlink `../` traversal values, complementing the symlink
+  // escapes registered in ecosystem-cargo.test.ts / ecosystem-python.test.ts.
+  // HONEST POPULATION LIMIT (spec §3.2 B2, binding): this arm's fixtures verify
+  // KNOWN path-resolving surfaces only. The textual sentinel above
+  // (hasTraversalGuardSignal) proves the NAME guard per adapter but does NOT
+  // verify the VALUE guard (resolvedWithinRoot) — a future path-resolving
+  // adapter shipped without it would pass this file. That is a recorded gap +
+  // promotion trigger per research-source-trust.md §5 item 2 — caught by the §5
+  // review protocol's trust dimension, deliberately NOT a fabricated
+  // value-guard sentinel here.)
   it('behavioural end-to-end paired-negatives: cargoAdapter rejects a traversing path-override VALUE and a traversing workspace-member VALUE (§5 BLOCKER — distinct surface from the dep-NAME guard above)', () => {
     // The dep-NAME guard (isUnsafeDepName on `pkg`) is necessary but NOT
     // sufficient — the path-override and workspace-member *values* (declared
@@ -192,6 +194,11 @@ describe('D-tripwire — EcosystemAdapter precondition (research-source-trust.md
   });
 
   // ── Part B: the sole adapter's dep source IS the consumer's package.json ──
+  // @arm:B3:pos direct-deps-only (npm lane, declared-dep positive)
+  // @arm:B3:neg direct-deps-only (npm lane, undeclared-in-pkgjson negative — the
+  // positive+negative PAIR lives in this single test's two assertions; sibling
+  // family pairs: ecosystem-python.test.ts (pip) + ecosystem-cargo.test.ts
+  // (cargo) + tier1.test.ts S2-N2 (npm at the tier1For seam).)
   it('npmAdapter derives direct deps ONLY from the consumer package.json (trusted source)', () => {
     const root = mkdtempSync(join(tmpdir(), 'd-tripwire-'));
     // Consumer package.json declares exactly one dep.

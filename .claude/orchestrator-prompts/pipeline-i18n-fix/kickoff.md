@@ -121,3 +121,5 @@ This work is fully specified; you should not hit a real fork. **If you do** (e.g
 - Plan: `docs/superpowers/plans/2026-06-16-pipeline-i18n-fix.md`
 - Spec: `docs/superpowers/specs/2026-06-16-session-story-recap-design.md` §Component 4
 - Sibling effort (separate PR): `/story` recap — `docs/superpowers/plans/2026-06-16-session-story-recap.md`
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

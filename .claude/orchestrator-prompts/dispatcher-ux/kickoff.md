@@ -64,3 +64,5 @@ The first real run short-circuited *correctly* — but only because the operatin
 
 ## §4 Done =
 `/dispatcher <umbrella>` (a) detects an already-merged umbrella BEFORE dispatch (branch + broad search + artifact, ≥2 signals), skipping re-dispatch and writing the closure marker; (b) writes a schema-compliant `done.md` at completion AND retroactively for unmarked-done umbrellas, without asking when the action is clear; (c) reconciles the kickoff's stated base vs the live trunk; (d) monitors via a harness-safe poll proven by a deterministic transition-test (stubbed status sequence → correct detection/termination) + a no-foreground-`sleep`/no-compound safety check, not by prose; (e) emits the aif web-UI watch-link at dispatch; (f) **UX-works asserted, not eyeballed** — a deterministic test confirms the dispatch output contains the watch-link and the run report is bounded (not a wall); tests green; §1.7 bodies present.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

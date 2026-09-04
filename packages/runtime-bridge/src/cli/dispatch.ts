@@ -21,20 +21,35 @@
  *      so it must not block a later real retry once the blocker (e.g. a dirty
  *      worktree) is cleared. (qloop-ux-probe Finding B.)
  *   5. Output JSON hookSpecificOutput.additionalContext for CC PostToolUse contract
- *   6. On quota_exceeded / unavailable → fall back to ManualBackend + stderr warn
+ *   6. On an ENVIRONMENTAL failure (quota_exceeded / unavailable / timeout /
+ *      dispatch_failed) → fall back to ManualBackend + stderr warn
+ *   7. On `spec_invalid` (the KICKOFF is wrong — see isFallbackEligible) → ABORT.
+ *      No fallback, no /tmp artefact, exit 2.
  *
- * Exit codes: 0 always (non-blocking injection per rule-enforcement-channel-selection
- * §4 "injection, never gate" contract).
+ * Exit codes: 0 on every dispatch outcome the operator cannot fix by editing the
+ * kickoff — including every fallback (non-blocking injection per
+ * rule-enforcement-channel-selection §4 "injection, never gate"). 2 when the
+ * kickoff itself is invalid.
+ *
+ * The §4 contract is not weakened by that 2: the gate/injection split "turns on
+ * the exit code" of the HOOK (rule §4), and .claude/hooks/runtime-bridge-dispatch.sh
+ * captures this CLI's stdout in a command substitution, never inspects its status,
+ * and `exit 0`s unconditionally — so a Write is never blocked. The non-zero code is
+ * for the OTHER caller: /dispatcher, /pipeline and operators invoking the CLI
+ * directly, where exit 0 was the whole defect. Same judgment cli/claim.ts already
+ * makes ("a claim that silently failed is worse than no claim").
  *
  * @cc-only-rationale: PostToolUse hook entrypoint — but the logic is pure TS
  *   so also callable from portable test harness.
  */
 import { spawnSync } from 'node:child_process';
+import { realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { buildKickoffSpec } from '../kickoff.js';
 import { checkDedup, recordDispatch } from '../idempotency.js';
 import { resolveBackend } from '../resolver.js';
 import { ManualBackend } from '../ManualBackend.js';
-import { BackendError } from '../backend.js';
+import { BackendError, type BackendErrorCode } from '../backend.js';
 
 /** True when --force is passed: skip the dedup check and re-dispatch deliberately. */
 export function dispatchUsesForce(argv: readonly string[]): boolean {
@@ -54,6 +69,29 @@ export function resolveKickoffPath(argv: readonly string[]): string | undefined 
  */
 export function shouldRecordDedup(backendName: string): boolean {
   return backendName !== 'manual';
+}
+
+/**
+ * May a failure of this class degrade to ManualBackend?
+ *
+ * The fallback exists so a backend outage never leaves the operator stuck: the
+ * kickoff lands in /tmp, they paste it, the work proceeds. That answer is only
+ * correct when the KICKOFF IS FINE and the environment is not.
+ *
+ * `spec_invalid` inverts both halves. The operator is not stuck — a one-line
+ * edit fixes it — and the fallback does not deliver what was asked: a kickoff
+ * carrying `<!-- bridge-profile: X -->` requested a specific execution seat
+ * (a specific model, a specific cost), and a /tmp file gets pasted into whatever
+ * seat happens to be open. Degrading therefore reports success for work that did
+ * not happen, which is the failure mode this split exists to remove
+ * (.claude/rules/attention-is-not-a-mechanism.md §2 `#warning-nobody-reads`).
+ *
+ * An operator who genuinely wants the copy-paste artefact already has a
+ * first-class way to ask for it — `RUNTIME_BRIDGE_MODE=manual` (resolver.ts:41-43)
+ * selects ManualBackend outright, so no new escape flag is introduced here.
+ */
+export function isFallbackEligible(code: BackendErrorCode): boolean {
+  return code !== 'spec_invalid';
 }
 
 /**
@@ -139,12 +177,32 @@ async function main(): Promise<void> {
   try {
     handle = await backend.dispatch(kickoff);
   } catch (err) {
-    // Auto-fallback to ManualBackend on ANY BackendError — unavailable,
-    // quota_exceeded, timeout, AND dispatch_failed (e.g. the dirty-worktree
-    // guard). The bridge's contract is "never leave the operator stuck": any
-    // backend failure degrades to copy-paste rather than a silent dead end.
+    // Auto-fallback to ManualBackend on every ENVIRONMENTAL BackendError —
+    // unavailable, quota_exceeded, timeout, AND dispatch_failed (e.g. the
+    // dirty-worktree guard). The bridge's contract is "never leave the operator
+    // stuck": a backend failure degrades to copy-paste rather than a silent dead
+    // end. `spec_invalid` is deliberately excluded (see isFallbackEligible):
+    // there the kickoff is the defect, and degrading reports success for a
+    // dispatch that never happened.
     // (AifHandoffBackend.dispatch best-effort deletes any half-created task
     // before throwing, so no orphan is left on the project.)
+    if (err instanceof BackendError && !isFallbackEligible(err.code)) {
+      // The kickoff is wrong, not the runtime. Abort: no ManualBackend artefact
+      // (it would read as a successful dispatch), no dedup record, exit 2.
+      const abort =
+        `[runtime-bridge] ABORTED — the kickoff is invalid, so no task was created ` +
+        `and nothing was written to /tmp. Fix ${kickoff.filePath} and re-run.\n` +
+        `[runtime-bridge] ${backend.name} (${err.code}): ${err.message}\n`;
+      process.stderr.write(abort);
+      // Also on stdout so the PostToolUse consumer sees it as additionalContext —
+      // the hook forwards stdout and swallows this exit code by design.
+      outputContext(
+        `[runtime-bridge] ABORTED (${err.code}): ${err.message} — no aif task was created, ` +
+          `no /tmp artefact written. Fix ${kickoff.filePath} and re-dispatch.`,
+      );
+      process.exit(2);
+    }
+
     if (err instanceof BackendError) {
       process.stderr.write(
         `[runtime-bridge] ${backend.name} dispatch failed (${err.code}): ${err.message} — falling back to ManualBackend\n`,
@@ -224,7 +282,26 @@ function outputContext(message: string): void {
   process.stdout.write(JSON.stringify(output) + '\n');
 }
 
-main().catch((err) => {
-  process.stderr.write(`[runtime-bridge] Unhandled dispatch error: ${err}\n`);
-  process.exit(0);
-});
+/**
+ * True only when this file is the executed script (tsx/node dispatch.ts …),
+ * not when imported for its named exports (tests import runPreflight etc.;
+ * an import must be side-effect-free — under vitest a top-level main() hits
+ * process.exit(0), which the runner turns into an unhandled rejection).
+ * realpath both sides: worktrees/macOS /tmp reach this file via symlinks.
+ */
+function isDirectCliInvocation(): boolean {
+  const argv1 = process.argv[1];
+  if (!argv1) return false;
+  try {
+    return realpathSync(argv1) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+if (isDirectCliInvocation()) {
+  main().catch((err) => {
+    process.stderr.write(`[runtime-bridge] Unhandled dispatch error: ${err}\n`);
+    process.exit(0);
+  });
+}

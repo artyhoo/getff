@@ -26,3 +26,5 @@ S1 prior-art drift-инструментов (problem-class match) → S2 пер�
 
 ## Готово, когда
 Инъецированное расхождение доки↔код ловится автоматически; prior-art-вердикт по инструменту зафиксирован.
+
+<!-- host-verify: none — planning STUB (U15 of the getff-to-prod meta-launch): stages are a sketch, no executable deliverable yet; the full kickoff that replaces this stub declares the real contract -->

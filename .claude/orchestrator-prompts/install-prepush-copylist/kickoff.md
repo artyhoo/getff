@@ -57,3 +57,8 @@ Reuse the existing copy-list `refresh_safe` mechanism — no new install machine
 Active traps for this fix: **T3** (every finding has command-output / file:line, no prose-only claims), **T10** (enumerate the FULL import graph — static AND dynamic — before claiming the copy-list complete; the headline module is only 1 of 5), **T15** (self-application: the drift guard must itself fail when mutated), **T19** (own cold-QA: actually run a fresh install and the hook, don't trust the diff — CI form-checks, not consumer behaviour).
 
 Domain trap **T-PREPUSH-COPYLIST-A**: tempted to ship only `unpinned-tool-install.ts` (the crash headline) and stop — the static crash **masks** the two downstream dynamic `die()`s (`guard-liveness`, `cmd-script-liveness`) and the transitive eslint-rules barrel. Enumerate every module reachable from `pre-push.ts` via static `import` *and* `await import()`, per the issue's corrected table; a fix that resolves only the headline is the 2nd recurrence, not a fix.
+
+```bash host-verify
+# Retro-marked 2026-08-21: §5 bullet 2 verbatim with the placeholder SHAs zeroed (the no-op deletion shape)
+printf 'refs/heads/x 0000000000000000000000000000000000000000 refs/heads/y 0000000000000000000000000000000000000000\n' | bash .husky/pre-push origin https://example.invalid/r.git
+```

@@ -79,21 +79,38 @@ if ! git -C "$PROJECT_DIR" worktree add "$WORKTREE_DIR" -b "$BRANCH" "$BASE_REF"
   fi
 fi
 
-# D2 workspace optimisation: symlink node_modules from the primary checkout.
-# Skip if no primary node_modules exists (fresh clone before install).
-if [[ -e "$PROJECT_DIR/node_modules" ]] && [[ ! -e "$WORKTREE_DIR/node_modules" ]]; then
-  ln -sfn "$PROJECT_DIR/node_modules" "$WORKTREE_DIR/node_modules"
-fi
-# packages/core/node_modules must point at the primary's REAL nested dir when it
-# exists — a ../../node_modules link shadows the nested layer the root lock plans
-# (diverging dep versions) and fakes synth-bundle drift in fresh worktrees
-# (incident 2026-07-02). Fallback only when the primary has no nested dir.
-if [[ -d "$WORKTREE_DIR/packages/core" ]] && [[ ! -e "$WORKTREE_DIR/packages/core/node_modules" ]]; then
-  if [[ -d "$PROJECT_DIR/packages/core/node_modules" ]]; then
-    ln -sfn "$PROJECT_DIR/packages/core/node_modules" "$WORKTREE_DIR/packages/core/node_modules"
-  else
-    ln -sfn ../../node_modules "$WORKTREE_DIR/packages/core/node_modules"
+# D2 workspace optimisation: symlink node_modules from the primary checkout. Delegated to
+# scripts/worktree-node-modules.sh — the ONE canonical implementation, shared with
+# .claude/hooks/worktree-setup.sh (the CC half of this @dual-pair). Keeping a second copy here
+# is #sync-by-copy-paste (.claude/rules/dual-implementation-discipline.md §8).
+# `|| true` keeps a provisioning failure from aborting creation under `set -euo pipefail`.
+bash "$PROJECT_DIR/scripts/worktree-node-modules.sh" --apply "$WORKTREE_DIR" "$PROJECT_DIR" >&2 || true
+
+# Self-heal the packages/core toolchain when the symlinks above did NOT surface
+# it. Symlink delivery only works when the primary was already installed at
+# create-time; a cold primary (worktree born mid-install — incident 2026-07-21:
+# the worktree predated the primary's tsx by ~48 min) or a later clobber (vite
+# materialising a real node_modules over the link) leaves tsx unreachable at BOTH
+# probe paths the principle-21 harness checks (packages/core/node_modules/.bin/tsx,
+# then root node_modules/.bin/tsx — tests/agnosticism/probes/rule-channel-readability.sh),
+# so those probes silently degrade to a PORTABLE fallback instead of running.
+# Install standalone IN THE WORKTREE, mirroring CI's `npm ci --prefix packages/core`
+# (audit-self.yml). Non-fatal: an offline/failed install must never block creation.
+# Guarded on a present lockfile + reachable npm: without them the install cannot
+# run, and dropping the delivery symlink (below) would strictly WORSEN the state
+# — so skip entirely and leave the symlink in place.
+if [[ -d "$WORKTREE_DIR/packages/core" ]] \
+   && [[ -f "$WORKTREE_DIR/packages/core/package-lock.json" ]] \
+   && command -v npm >/dev/null 2>&1 \
+   && [[ ! -x "$WORKTREE_DIR/packages/core/node_modules/.bin/tsx" ]] \
+   && [[ ! -x "$WORKTREE_DIR/node_modules/.bin/tsx" ]]; then
+  # Never write THROUGH a delivery symlink into the primary — drop a link that
+  # pointed at a tsx-less primary, then install a real nested dir locally.
+  if [[ -L "$WORKTREE_DIR/packages/core/node_modules" ]]; then
+    rm -f "$WORKTREE_DIR/packages/core/node_modules"
   fi
+  npm ci --prefix "$WORKTREE_DIR/packages/core" --silent >/dev/null 2>&1 \
+    || printf '⚠ create-worktree: could not ensure packages/core toolchain (tsx); run `npm ci --prefix packages/core` in the worktree\n' >&2
 fi
 
 # Link gitignored orchestrator-prompts to a canonical store outside every
@@ -102,6 +119,14 @@ fi
 # live-shared identity: one file, N symlinks.
 # `>&2` keeps helper output off this script's stdout (stdout = worktree path only).
 # `|| true` prevents a link conflict from aborting worktree creation (set -euo pipefail).
+# LOUD miss (handoff item 2, 2026-07-25 — @dual-pair parity with worktree-setup.sh):
+# PROJECT_DIR may be caller-supplied or cwd-derived, i.e. a tree without the helper —
+# previously the `|| true` swallowed that silently and the worktree stayed unlinked.
+# The call stays a standalone literal line: the hydration paired-negative strips it
+# by regex and the remaining script must stay valid bash.
+if [[ ! -f "$PROJECT_DIR/scripts/link-coordination.sh" ]]; then
+  printf '⚠ create-worktree: %s/scripts/link-coordination.sh not found — orchestrator-prompts NOT linked to the canonical store; files created under .claude/orchestrator-prompts/ in this worktree are sole-copy until scripts/link-coordination.sh is run manually\n' "$PROJECT_DIR" >&2
+fi
 bash "$PROJECT_DIR/scripts/link-coordination.sh" "$WORKTREE_DIR" "$PROJECT_DIR" >&2 || true
 
 # Print path — the ONLY thing on stdout (orchestration contract).

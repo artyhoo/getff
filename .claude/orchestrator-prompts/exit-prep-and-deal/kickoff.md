@@ -26,3 +26,5 @@ Data room собран И **прошёл due-diligence** контрагента 
 
 ## Готово, когда
 Data room прошёл внешнюю due-diligence; структура и банкинг операциональны под конкретную сделку.
+
+<!-- host-verify: none — planning STUB (U14 of the getff-to-prod meta-launch): stages are a sketch, no executable deliverable yet; the full kickoff that replaces this stub declares the real contract -->

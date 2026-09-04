@@ -3,7 +3,7 @@ import type { TSESTree } from '@typescript-eslint/utils';
 
 const createRule = ESLintUtils.RuleCreator(
   () =>
-    `https://github.com/Yhooi2/rules-as-tests-aif/blob/main/packages/preset-next-15-canonical/RULES.md#r7--time-randomness-io`,
+    `https://github.com/artyhoo/getff/blob/main/packages/preset-next-15-canonical/RULES.md#r7--time-randomness-io`,
 );
 
 const FORBIDDEN_MODULES = new Set([

@@ -96,7 +96,7 @@ Parent meta-kickoff `queue-mode-bootstrap` writes:
 
 ### §3.3.1 Schedule (when to EXECUTE D1/D2/D3 outputs — for maintainer reference)
 
-```
+```text
 PR #54 (SSOT corrections) ──→ Session 2 (queue-mode-bootstrap) ──→ Session 3 (B + C execution)
                                                                           │
                                                                           └─→ ★ Session 4: THIS meta-kickoff (writes D1/D2/D3 kickoffs) ★
@@ -295,7 +295,7 @@ If skill not yet exists, apply these abbreviated templates (consistent with queu
 
 ### §7.1 Worker template (abbreviated)
 
-```
+```text
 You are a Worker subagent dispatched by an Orchestrator. Today is YYYY-MM-DD. Burn-mode authorized — Opus everywhere.
 
 ## Your task
@@ -344,7 +344,7 @@ Append to state.md: `- <ISO timestamp> — RESEARCH-COMPLETE <K> (iter <N>)`. Re
 
 ### §7.2 Reviewer template (abbreviated)
 
-```
+```text
 You are a REVIEWER subagent. You did NOT write this. Be skeptical. DO NOT collude.
 
 ## Method
@@ -519,3 +519,5 @@ Your closing message must include self-application audit: did YOU apply Queue mo
 Three doc-audit kickoff drafts. That's it.
 
 Burn Opus. Be thorough. Cite everything. Escalate cleanly when blocked. Done.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

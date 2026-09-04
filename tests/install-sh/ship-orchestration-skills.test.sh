@@ -25,7 +25,10 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 
 T=$(mktemp -d)
 printf '{"name":"ship-orch","version":"0.0.0"}\n' > "$T/package.json"
-( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1
+# --with-aif-suite: the transform check targets the AIF operator suite (dispatcher, aif-doctor,
+# night-mode, harvest, story), which the F7 split gates behind this flag. The default set no
+# longer ships them — the flag installs the full nine so this transform assertion stays reachable.
+( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force --with-aif-suite ) >/dev/null 2>&1
 
 # ── pos: the orchestration companion skills land ─────────────────────────────
 for s in dispatcher aif-doctor template-audit night-mode ai-doc rule-research harvest story; do
@@ -58,17 +61,17 @@ else
   bad "source dispatcher has NO repo-internal refs — transform assertion would be vacuous"
 fi
 
-# ── clean (2026-07-04): the skills added/edited THIS session carry no dangling TRANSFORM-TARGET link ──
-# transform_internal_refs rewrites docs/packages/README refs to blob URLs; rules/ + hooks/ stay relative
-# by convention (tests/install-sh/transform-internal-refs.test.sh #4/#5 — deemed consumer-local). A
-# surviving ](../…/{docs,packages}/ , ](../…/README.md , or ](../…/install.sh (never transformed) in a
-# SHIPPED copy = a transform miss (consumer-dangling). Sibling-skill + same-dir links are consumer-valid.
-# (rules/ links stay relative for EVERY shipped skill incl. dispatcher — the latent "rules/ not shipped"
-# inconsistency is flagged in setup.d/lib.sh, out of this test's scope.)
+# ── clean (2026-07-04; widened 2026-07-11): shipped skills carry no dangling TRANSFORM-TARGET link ──
+# transform_internal_refs rewrites docs/packages/README/install.sh AND rules/ refs to blob URLs
+# (.claude/rules/ is NOT shipped to consumers — 2026-07-10 flat-install smoke: 87 dangling rules/
+# links → first consumer push red on pre-push §8 lychee); hooks/ stays relative
+# (tests/install-sh/transform-internal-refs.test.sh #4/#4b/#4c/#5). A surviving transform-target
+# link in a SHIPPED copy = a transform miss (consumer-dangling). Sibling-skill + same-dir links
+# are consumer-valid.
 for s in night-mode ai-doc rule-research harvest story; do
   SF="$T/.claude/skills/$s/SKILL.md"
   [ -f "$SF" ] || { bad "clean-check: shipped skill missing: $s"; continue; }
-  if grep -qE '\]\((\.\./)+(docs|packages)/|\]\((\.\./)+(README\.md|install\.sh)' "$SF"; then
+  if grep -qE '\]\((\.\./)+(docs|packages|rules)/|\]\((\.\./)+\.claude/rules/|\]\((\.\./)+(README\.md|install\.sh)' "$SF"; then
     bad "$s: surviving transform-target repo-internal link (consumer-dangling) — transform missed it"
   else
     ok "$s: no dangling transform-target link"

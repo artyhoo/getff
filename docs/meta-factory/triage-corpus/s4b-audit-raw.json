@@ -1,0 +1,1269 @@
+[
+  {
+    "group": "1292",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:28:22Z",
+    "rows": [
+      {
+        "id": "kl-1292-1",
+        "outcome": "HOLDS",
+        "cost": "NONE-FOUND",
+        "witness": ".claude/orchestrator-prompts/getff-freshness-widening-s1/kickoff.md:279",
+        "rationale": "Decision recorded in research patch §9: Option A (every lane records DEPENDENCY version) decided by operator 2026-08-08. Implementation landed via PR #1333 (commit 4f68ed560a): all three shell lanes (45-python.sh:660-668, 46-cargo.sh:240-249, 47-go.sh:207-218) now READ generation-context.json and derive version from manifest; npm lane already honored this (install.ts:95 version:plan.version). Tests enforce both directions: dependency bump→version differs (rules-lock-version-diff.test.sh:26-38) and consumer project bump→version does NOT differ (rules-lock-version-diff.test.sh:39-61), confirming Option A semantics. Current state validates that lanes now agree: version=null means no manifest/named dependency, not project own version."
+      }
+    ]
+  },
+  {
+    "group": "1295",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:28:22Z",
+    "rows": [
+      {
+        "id": "kl-1295-1",
+        "outcome": "MOVED",
+        "cost": "N/A",
+        "witness": ".claude/orchestrator-prompts/beta-delivery-ux/kickoff-s2.md:220",
+        "rationale": "The finding description misidentified the target file as S4 kickoff; PR #1295 (commit dbbea38a6f) actually added §8a \"Operator resolutions (2026-08-08 — re-dispatch rev; the six #1284 parks are ANSWERED)\" to the S2 kickoff file. The complete record is present today: all six fork resolutions (Park-1 through Park-6) are documented at lines 220-273 in kickoff-s2.md, with detailed binding decisions for preset schema/format, economy reviewer semantics, CC detection, marker values, and functional set shipping. Git log shows no later removals; the record has been present since 2026-08-08 and remains intact."
+      }
+    ]
+  },
+  {
+    "group": "1296",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:28:22Z",
+    "rows": [
+      {
+        "id": "kl-1296-1",
+        "outcome": "MOVED",
+        "cost": "NONE-FOUND",
+        "witness": "docs/meta-factory/research-patches/2026-08-08-rules-lock-version-semantics-fork.md#9",
+        "rationale": "Cited path .claude/orchestrator-prompts/getff-freshness-widening/kickoff-s1.md does not exist; the kickoff was split per-stage and lives at getff-freshness-widening-s1/kickoff.md. The RulesLock.version decision record is alive and well in research-patch §9 (Option A decided 2026-08-08), cross-referenced from the S1 kickoff rev 2 at lines 10-11, and resolved into the current kickoff rev 6 which fully incorporates the decision."
+      }
+    ]
+  },
+  {
+    "group": "1305",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:37:43Z",
+    "rows": [
+      {
+        "id": "kl-1305-1",
+        "outcome": "MOVED",
+        "cost": "NONE-FOUND",
+        "witness": ".claude/orchestrator-prompts/getff-freshness-widening-s1/kickoff.md:14-15,287-301",
+        "rationale": "The cited path in the finding (.claude/orchestrator-prompts/getff-freshness-widening/kickoff-s1.md) reflected the pre-per-stage-split structure. The actual artifact lives today at getff-freshness-widening-s1/kickoff.md (the umbrella adopted per-stage kickoffs). PR #1305 (commit 7beecfe5a6, 2026-08-08) recorded the operator's decisions on the three remaining S1 parks: PARK-S1-1 → staged-A (line 287-290), PARK-S1-2 → Option C (line 291-294), PARK-S1-4 → refined-A (line 295-301). Summary at line 14-15. The decisions remain present and unmodified in the current tree (file verified 323 lines, last modified Aug 16 17:13). Substance is HOLDS at the new path; this is MOVED per the stratum C three-probe discipline."
+      }
+    ]
+  },
+  {
+    "group": "1310",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:37:43Z",
+    "rows": [
+      {
+        "id": "kl-1310-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": ".claude/orchestrator-prompts/beta-delivery-ux/kickoff-s4.md:260-298",
+        "rationale": "§7b added 2026-08-08 (PR #1310, commit 465a0da376) resolves the missing channel between §7a's key storage location and the reading process. Lines 285-295 specify the complete channel: make key value reachable in aif runtime's process environment under ANTHROPIC_AUTH_TOKEN, sourced from §7a #4(ii) file, mechanism left to implementer, verify reachability before ping. Original §7a parked env-var name and file path; §7b adds the required wiring step."
+      }
+    ]
+  },
+  {
+    "group": "1311",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:37:43Z",
+    "rows": [
+      {
+        "id": "1311-r1-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "packages/core/templates/shared/AI-USAGE-GUIDE.md:229-232",
+        "rationale": "The ENOENT caveat for monorepo lint-staged resolution is explicitly present at lines 229-232 with the full explanation and fix guidance, showing the caveat was not dropped"
+      },
+      {
+        "id": "1311-r1-2",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "packages/core/templates/shared/AI-USAGE-GUIDE.md:178",
+        "rationale": "The /aif-doctor reference remains at line 178 as the diagnostic entry point for runtime misbehavior, still present in the current state"
+      },
+      {
+        "id": "1311-r1-3",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "packages/core/templates/shared/AI-USAGE-GUIDE.md:100-102",
+        "rationale": "The false upgrade claim was corrected in commits 501af27ea5 and ebb974afde to state that --refresh re-delivers fixes but does NOT reliably deepen an install, with the explicit warning about core projects"
+      },
+      {
+        "id": "1311-r1-4",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "packages/core/templates/shared/AGENTS.md.template:30",
+        "rationale": "The factory row at line 30 lists exactly 7 skills: pipeline, dispatcher, harvest, aif-doctor, night-mode, story, claude-glm-executor-handoff, which matches the actual operator suite count"
+      },
+      {
+        "id": "1311-r1-5",
+        "outcome": "NEVER-DONE",
+        "cost": "NONE-FOUND",
+        "witness": "none",
+        "rationale": "The factory row at line 30 of AGENTS.md.template still lists only the 7-skill operator suite and does NOT mention the two factory-gated sub-agents orchestrator-worker-discipline and reviewer-discipline, which setup.d/20-agents.sh:33-38 shows are gated behind factory profile. Searched git log and AGENTS.md.template for any mention of these sub-agents in the factory row - none found. The finding stands unaddressed."
+      }
+    ]
+  },
+  {
+    "group": "1297",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:40:50Z",
+    "rows": [
+      {
+        "id": "1297-r1-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": ".claude/orchestrator-prompts/beta-ai-docs-agnosticism/kickoff-s1.md:189-207",
+        "rationale": "C1 authored First-Steps SSOT per §3 decision as documented in beta-docs-showcase-design.md:164-179, amending B-D5 default-owner rule to handle B-D6 deferral case; separate commit mechanism applied with maintainer sign-off flag"
+      },
+      {
+        "id": "1297-r1-2",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": ".claude/orchestrator-prompts/beta-ai-docs-agnosticism/kickoff-s1.md:85-88",
+        "rationale": "kickoff §2 D1 correctly states tier-home.md is A-S3-owned and .ai-factory/RULES.md is copy_safe-installed from preset packages; not named as relocation targets"
+      },
+      {
+        "id": "1297-r1-3",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": ".claude/orchestrator-prompts/beta-ai-docs-agnosticism/kickoff-s1.md:169-173",
+        "rationale": "npm path clause preserved as deferral with owner+trigger line: spec 348 names it as part of C1, publication is release-frame phase 2 after R1 name freeze"
+      },
+      {
+        "id": "1297-r1-4",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": ".claude/orchestrator-prompts/beta-ai-docs-agnosticism/kickoff-s1.md:53-54",
+        "rationale": "kickoff §1 row 1 documents A-S4 has NOT merged and covers both INSTALL-FOR-AI.md and setup.d/** contention analysis; sequence after merge guidance present"
+      },
+      {
+        "id": "1297-r1-5",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": ".claude/orchestrator-prompts/beta-ai-docs-agnosticism/kickoff-s1.md:121-128",
+        "rationale": "co-ownership AC in §2 D1b covers case (c): consumer AGENTS.md that is fence-less copy of older template; exactly what exists in field for consumers installed before this stage"
+      },
+      {
+        "id": "1297-r1-6",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": ".claude/orchestrator-prompts/beta-ai-docs-agnosticism/kickoff-s1.md:268-283",
+        "rationale": "inherited traps T2/T14/T15 all present in §6; T15 specifically marked as mandatory per ai-laziness-traps.md §4 self-protection-omitted"
+      },
+      {
+        "id": "1297-r1-7",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": ".claude/orchestrator-prompts/beta-ai-docs-agnosticism/kickoff-s1.md:89-96",
+        "rationale": "≤150 park now priced with per-block ownership inventory requirement; every block must get KEEP-first-read/MOVE-to-<doc>/DROP verdict with line count"
+      },
+      {
+        "id": "1297-r1-8",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "packages/core/audit-self/first-steps-parity.test.ts:1-127",
+        "rationale": "parity fixture specifies source as packages/core/templates/shared/first-steps.source.json (JSON, never markdown render); compares ordered step lists; makes seeded-red possible"
+      },
+      {
+        "id": "1297-r1-9",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": ".claude/orchestrator-prompts/beta-ai-docs-agnosticism/kickoff-s1.md:144-149",
+        "rationale": "REQUIRED_HEADER_DOCS correctly cites packages/core/principles/09-doc-authority-hierarchy.ts:28-141 with AGENTS.md.template:105 and tier-home.md:112 examples"
+      },
+      {
+        "id": "1297-r1-10",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": ".claude/orchestrator-prompts/beta-ai-docs-agnosticism/kickoff-s1.md:367-372",
+        "rationale": "## Provenance requirement explicitly states it makes FIDELITY: skipped mechanically unavailable via pr-body-fidelity.ts:44,147-152 precondition"
+      },
+      {
+        "id": "1297-r1-11",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": ".claude/orchestrator-prompts/beta-ai-docs-agnosticism/kickoff-s1.md:223,279",
+        "rationale": "baseline correctly states 33 rows across 7 surfaces in §1 row 4 table and §6 T14; numbers match throughout"
+      },
+      {
+        "id": "1297-r1-12",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": ".claude/orchestrator-prompts/beta-ai-docs-agnosticism/kickoff-s1.md:54",
+        "rationale": "§1 row 2 fact measured: grep -rn First Steps --include=*.md . finds 14 lines in 6 files including umbrella B kickoff:58 naming BS2 as First-Steps owner"
+      },
+      {
+        "id": "1297-r1-13",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": ".claude/orchestrator-prompts/beta-ai-docs-agnosticism/kickoff-s1.md:55",
+        "rationale": "bridge health causal claim in §1 row 3 marked as informational only; states gate stays shut regardless of /health status"
+      },
+      {
+        "id": "1297-r1-14",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": ".claude/orchestrator-prompts/beta-ai-docs-agnosticism/kickoff-s1.md:169-173",
+        "rationale": "npm path clause not silently dropped; preserved as deferral with explicit owner+trigger line naming R1 per spec R4"
+      },
+      {
+        "id": "1297-r1-15",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": ".claude/orchestrator-prompts/beta-ai-docs-agnosticism/kickoff-s1.md:144-149",
+        "rationale": "citation format uses required packages/core/principles/09-doc-authority-hierarchy.ts module with array range :28-141; template precedent examples properly cited"
+      },
+      {
+        "id": "1297-r1-16",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": ".claude/orchestrator-prompts/beta-ai-docs-agnosticism/kickoff-s1.md:56-57",
+        "rationale": "600-line pre-commit gate flagged in §1 row 5: INSTALL-FOR-AI.md = 563 lines against 600-line gate at .husky/pre-commit:77"
+      },
+      {
+        "id": "1297-r1-17",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": ".claude/orchestrator-prompts/beta-ai-docs-agnosticism/kickoff-s1.md:313-333",
+        "rationale": "park-don't-guess contract §7 documents recording parks in park payload AND PR's Parked questions section; correction lands as separate owner commit"
+      },
+      {
+        "id": "1297-r1-18",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": ".claude/orchestrator-prompts/beta-ai-docs-agnosticism/kickoff-s1.md:382-389",
+        "rationale": "pre-flight before gh pr create includes four grep/awk commands that validate §1.7 sections have ≥40 chars and ≥2 file:line citations"
+      },
+      {
+        "id": "1297-r1-19",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "AGENTS.md:3-7",
+        "rationale": "AGENTS.md scope statement at lines 3-7 clarifies authoritative for off-CC harnesses; NOT authoritative for project goal or CC-specific session boot which live in README.md and CLAUDE.md"
+      }
+    ]
+  },
+  {
+    "group": "1302",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:40:50Z",
+    "rows": [
+      {
+        "id": "1302-r1-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "scripts/render-rule-index.mjs:8",
+        "rationale": "All three stale-prose anchors fixed in PR #1302 r1 cold review and verified correct today: (1) render-rule-index.mjs:8 changed from \"3 Tier-0\" to \"2 Tier-0\" matching actual TIER0_CORE set size (lines 56-59 show 2 entries: attention-is-not-a-mechanism, ai-laziness-digest); (2) packages/core/principles/31-rule-channel-declaration.test.ts:133 comment changed from \"4-entry\" to \"3-entry\" matching actual ALWAYS_ON_CORE length (lines 59-62 show 3 entries); (3) .claude/rules/build-first-reuse-default.md:131 now correctly references \"this rule's `paths:` globs (frontmatter above)\" instead of stale §1.2 refs. Git history shows no subsequent edits that would re-stale these anchors."
+      }
+    ]
+  },
+  {
+    "group": "1315",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:40:50Z",
+    "rows": [
+      {
+        "id": "kl-1315-1",
+        "outcome": "MOVED",
+        "cost": "N/A",
+        "witness": ".claude/orchestrator-prompts/getff-freshness-widening-s1/kickoff.md:66-99",
+        "rationale": "PR #1315 (rev 4, commit 76bc164d07) added the two omitted permitted-files entries to §2: docs/meta-factory/prior-art-evaluations.md (lines 78-80) and .github/workflows/audit-self.yml (lines 81-87). These entries remain present in the current kickoff.md file (now at rev 6, §2 lines 66-99) under the per-stage split path getff-freshness-widening-s1/kickoff.md. The original path getff-freshness-widening/kickoff-s1.md does not exist (umbrella kickoffs split per stage), but the artifact lives on with both omitted entries now included."
+      }
+    ]
+  },
+  {
+    "group": "1317",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:40:50Z",
+    "rows": [
+      {
+        "id": "kl-1317-1",
+        "outcome": "MOVED",
+        "cost": "NONE-FOUND",
+        "witness": ".claude/orchestrator-prompts/getff-freshness-widening-s1/kickoff.md:81-92",
+        "rationale": "The finding cited two files forced by the change but missing from §2: .github/workflows/audit-self.yml (lines 81-87) and packages/core/ir/convention-node.schema.json (lines 88-92). PR #1317 added both files to §2 permitted-files list in rev 5, which remains present in the current rev 6 kickoff. The cited path .claude/orchestrator-prompts/getff-freshness-widening/kickoff-s1.md reflects the pre-split umbrella naming; the file lives today as getff-freshness-widening-s1/kickoff.md under the same parent directory, with both FORCED files now properly listed."
+      }
+    ]
+  },
+  {
+    "group": "1318",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:40:50Z",
+    "rows": [
+      {
+        "id": "kl-1318-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": ".claude/orchestrator-prompts/beta-delivery-ux/kickoff-s4.md:319",
+        "rationale": "The §7d addendum from PR #1318 is present in the current kickoff-s4.md at line 319, documenting \"facts read on the host, where ~/code/aif-handoff exists and your container's checkout does not, plus the run-2 defects §7b/§7c did not cover.\" The addendum supplies endpoint-level contract facts (§7d.1), corrects the falsified clone URL (§7d.2), lists the four red CI checks (§7d.3), and enumerates the two open MINORs (§7d.4). No subsequent edit moved this content; it remains in the original location with §7b-§7e sections intact."
+      }
+    ]
+  },
+  {
+    "group": "1290",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:43:52Z",
+    "rows": [
+      {
+        "id": "1290-r1-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "packages/core/principles/24-plugin-manifest-integrity.test.ts:266-275",
+        "rationale": "Plugin twin sync fixed in PR #1290 commit be087d3585 which copied agents/compliance-verifier.md to plugin/agents/compliance-verifier.md to restore principle-24 arm (d) twin invariant. Current state shows files are byte-identical (diff produces no output). No subsequent commits undid this fix."
+      },
+      {
+        "id": "1290-r1-2",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-07-s-d-prime-subtraction-maps.md:104-110",
+        "rationale": "Spec corrected in PR #1290 to state ~17.3 KB/session is the corrected figure (line 104-110) and explicitly calls out ~53 KB as falsified pre-measurement estimate (line 107-110). Current text: Raw injected volume ~17.3 KB per session (line 104) and The ~53 KB/session figure this spec previously carried is the falsified pre-measurement estimate (lines 107-110)."
+      },
+      {
+        "id": "1290-r1-3",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-07-s-d-prime-subtraction-maps.md:66,93-94",
+        "rationale": "Spec corrected in PR #1290 to state re-derived by content-shape (NOT flat 4 B/tok) at line 66 and A flat 4 B/tok point estimate understates token counts (lines 93-94). The spec now consistently uses band measurements throughout all tables instead of flat 4 B/tok conversion."
+      },
+      {
+        "id": "1290-r1-4",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-07-s-d-prime-subtraction-maps.md:102-110",
+        "rationale": "S-L band data correctly cited at lines 102-110 showing S-H §5 corrected figure ~17.3 KB per session with proper S-H source citations. Band measurements properly applied with 1,835-3.416 B/t and 1,835-3,128 cp/t divisors."
+      },
+      {
+        "id": "1290-r1-5",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-07-s-d-prime-subtraction-maps.md:104,158",
+        "rationale": "All citations checked and current. Line 104 cites 2026-08-07-s-h-turn-attribution-p3d-p11.md:352-361. Line 158 cites s-h-...:282-283,335-336. Git log shows no changes to this file since PR #1290, so citations remain as corrected."
+      },
+      {
+        "id": "1290-r1-6",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "agents/adapter-jig-reviewer.md:1-10",
+        "rationale": "All shipped agents cite valid spec files that exist. adapter-jig-reviewer.md (line 10) cites docs/superpowers/specs/2026-07-22-adapter-jig-design.md which exists. Other agents similarly cite only shipped specs. No agents cite unshipped files."
+      },
+      {
+        "id": "1290-r1-7",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-07-s-d-prime-subtraction-maps.md:455-465",
+        "rationale": "Reclassification mechanics explicitly preserved and documented at lines 455-465 in §6. Text states: Reclassification mechanics preserved here (Task 6 deleted three Revisit criterion blocks) and provides the full mechanics for future reclassification."
+      },
+      {
+        "id": "1290-r1-8",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-07-s-d-prime-subtraction-maps.md:337-360",
+        "rationale": "Population census complete at line 337 stating 18 files with full classification table from lines 340-360. Table rows 1-8 enumerate all 8 in-scope review-seat agents with dispositions, rows 9-18 enumerate all 10 out-of-scope files with detailed reasons."
+      },
+      {
+        "id": "1290-r1-9",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-07-s-d-prime-subtraction-maps.md:104,230,237",
+        "rationale": "All links verified. Line 104 links to 2026-08-07-s-h-turn-attribution-p3d-p11.md:352-361. Lines 230,237 link to 2026-08-07-s-l-recalculation.md. Git log shows these are the corrected citations from PR #1290 and no subsequent changes."
+      },
+      {
+        "id": "1290-r1-10",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "tests/fixtures/shipped-agent-liveness/compliance-verifier.md:1",
+        "rationale": "Fixture file exists and contains complete compliance-verifier test fixture with 89 lines. Git log shows fixture created in PR #580 and last modified in PR #1290. No subsequent changes."
+      },
+      {
+        "id": "1290-r2-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-07-s-d-prime-subtraction-maps.md:250-251",
+        "rationale": "Strengthening claim corrected in PR #1294 which resolved DECISION-NEEDED. Lines 250-251 now correctly state: Its band floor 3,708 clears every harness-block ceiling except the hook injects 3,735 (band floor vs hook ceiling comparison, not band floor vs hook floor)."
+      },
+      {
+        "id": "1290-r2-2",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-07-s-d-prime-subtraction-maps.md:230,237",
+        "rationale": "All instances of 6,903 verified correct in current text. Line 230 states 3,708-6,903 est-tokens. Line 237 shows band 3,708-6,903 @ 1.835-3.416 B/t. Line 284 cites band ~3,708-6,903. This is the corrected figure from PR #1290."
+      },
+      {
+        "id": "1290-r2-3",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-07-s-d-prime-subtraction-maps.md:363,377",
+        "rationale": "Percentage corrected to -20.5% in current text. Line 363 states this stages -20.5% does not touch. Line 377 shows -15,942 B (-20.5%) in the TOTAL row. This is the corrected figure from PR #1290."
+      }
+    ]
+  },
+  {
+    "group": "1319",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:43:52Z",
+    "rows": [
+      {
+        "id": "kl-1319-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": ".claude/orchestrator-prompts/beta-delivery-ux/kickoff-s4.md:47-48",
+        "rationale": "The self-referential citation \"(§7e.1)\" and \"(§7e.1-§7e.3)\" at lines 47-48 is now valid because PR #1319 merged and created the §7e section. The citation that was self-referential at author time now points to an existing section (§7e.1 \"The §1 / §7a #1 host-path instruction is RETRACTED — probe instead\") which properly documents why the ~/code/aif-handoff/packages/api/src/routes/runtimeProfiles.ts path is unreachable from the container and must be probed via live API instead."
+      }
+    ]
+  },
+  {
+    "group": "1324",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:43:52Z",
+    "rows": [
+      {
+        "id": "kl-1324-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": ".claude/orchestrator-prompts/beta-delivery-ux/kickoff-s4.md:522-551",
+        "rationale": "§7f run-4 dispatch facts section present (lines 522-551) with explicit \"not a re-plan\" statement; §7e design intact (lines 423-521); git history confirms PR #1324 added §7f (commit 49eaafe804) and both sections remain in current tree; no per-stage split occurred"
+      }
+    ]
+  },
+  {
+    "group": "1328",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:43:52Z",
+    "rows": [
+      {
+        "id": "kl-1328-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": ".claude/orchestrator-prompts/getff-freshness-widening-s1/kickoff.md:1,93,108",
+        "rationale": "All three repairs from PR #1328 are present in the current getff-freshness-widening-s1/kickoff.md. The file shows REV 6 in its header and title (lines 1,3). Repair 1: packages/core/install/synth-and-wire.bundle.mjs added to §2 permitted files (lines 93-99). Repair 2: blanket PARK instruction gained two unparkable exceptions for §3-mandated files and generated twins (lines 108-115). Repair 3: topic-based references (\"the lockfile-provenance SSOT row\") replaced numeric \"row 241\" pointers in §4 (line 236) and §5 T11/T12 (line 249) and §6 fork 5 (line 305), though historical \"row 241\" references remain in §0 (line 34) and §4 (line 233) where they describe r1 research. PR #1328 (commit 0f8aac7b37) is the latest revision and no subsequent changes exist."
+      }
+    ]
+  },
+  {
+    "group": "1332",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:43:52Z",
+    "rows": [
+      {
+        "id": "1332-r1-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "packages/core/templates/shared/AI-USAGE-GUIDE.md:98-102",
+        "rationale": "Current guide sentence states \"--refresh re-delivers fixes to what you already have and does not reliably deepen an install: on a core project --refresh --profile env exits 0 while tier-home.md and .claude/skills/arch/ stay absent\" — verified TRUE against install.sh:1091-1093 (tier-home presence-gated) and install.sh:1001-1005 (worktree-scripts arm with no profile check), exactly as INSTALL-FOR-AI.md:162 documents. The replacement claim from PR #1332 holds today."
+      },
+      {
+        "id": "1332-r1-2",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "INSTALL-FOR-AI.md:162",
+        "rationale": "INSTALL-FOR-AI.md correctly cites \"install.sh:678\" for the F7 gate — verified at install.sh:678 showing the actual F7 gate condition: \"if [ \\\"${PROFILE:-core}\\\" = \\\"factory\\\" ] || [ -n \\\"${WITH_AIF_SUITE:-}\\\" ]\". The fix PR #1332 applied is present and correct."
+      },
+      {
+        "id": "1332-r1-3",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "INSTALL-FOR-AI.md:162",
+        "rationale": "INSTALL-FOR-AI.md correctly cites \"install.sh:1090-1093\" for the tier-home presence gate — verified at install.sh:1091-1093 showing the actual presence check: \"if [ -e \\\"$PROJECT_ROOT/.ai-factory/tier-home.md\\\" ]; then\". The fix PR #1332 applied is present and correct."
+      }
+    ]
+  },
+  {
+    "group": "1329",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:52:39Z",
+    "rows": [
+      {
+        "id": "1329-r1-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "packages/core/templates/shared/AI-USAGE-GUIDE.md:100-102",
+        "rationale": "PR #1329 fixed the false upgrade claim (B1). Current doc at lines 100-102 states: `--refresh re-delivers fixes to what you already have and does NOT reliably deepen an install. On a core project --refresh --profile env exits 0 while tier-home.md and .claude/skills/arch/ stay absent.` This measured claim holds per commit ebb974afde (#1332) which re-measured and corrected after a related PR made the original fix stale. The documented upgrade path now truthfully reflects actual installer behavior."
+      },
+      {
+        "id": "1329-r1-2",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": ".github/workflows/audit-self.yml:178-185",
+        "rationale": "PR #1329 registered the parity gate by NAME in CI (lines 178-185 of audit-self.yml) and scripts/run-local-ci-sweep.sh. The registration includes load-bearing else-arm that fails if the test vanishes (line 183). Fixed per commit 501af27ea5 which addressed B2: `first-steps-parity.test.ts was registered in no runner at all` - now it runs in audit-self CI workflow and local sweep, gated by name not directory scope."
+      },
+      {
+        "id": "1329-r2-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "tests/install-sh/baselines/ts-server/greenfield.fingerprint:1",
+        "rationale": "Snapshot regeneration happened in both PR #1329 and #1332. PR #1329 commit message: `regenerated with SNAPSHOT_MODE=capture, not hand-edited... across all 11 files the diff is 11 added / 11 removed lines and every one of them is .ai-factory/AI-USAGE-GUIDE.md`. PR #1332 repeated the regeneration. Current baselines show the corrected AI-USAGE-GUIDE.md hashes (line 1 of ts-server/greenfield.fingerprint). Mechanism is tests/install-sh/snapshot.sh (lines 4-5 declare SNAPSHOT_MODE capture/compare)."
+      }
+    ]
+  },
+  {
+    "group": "1333",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:52:39Z",
+    "rows": [
+      {
+        "id": "1333-r3-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "packages/core/installer/install.ts:89",
+        "rationale": "The finding substance was addressed in PR #1333 commit 4f68ed560a. The installer/buildLock function now calls weakestTier(r.research.provenance, r.research.tier) which reads the tier stamped at synthesis time from the SynthesisPlan. The tier derivation is canonical in packages/core/synthesizer/tier.ts and applied by all three synthesis producers synthesize.ts synthesize.ts generate.ts menu-pick.ts at lines 100 90 61 respectively. The finding that tier was re-derived at install time collapsing to DEFAULT_TIER was fixed by stamping tier at synthesis per PARK-S1-2 Option C and the 2026-08-08 fork decision recorded in research patch 2026-08-08-rules-lock-version-semantics-fork.md section 9."
+      },
+      {
+        "id": "1333-r4-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": ".github/workflows/audit-self.yml:457",
+        "rationale": "The committed bundle at packages/core/install/synth-and-wire.bundle.mjs was rebuilt in PR #1333 commit 4f68ed560a as shown by git log. The drift gate at audit-self.yml line 457 runs scripts/build-synth-bundle.sh --check unconditionally. The bundle contains the tier.ts weakestTier implementation at lines 9293 9301 9770 showing tier derivation is properly bundled. The functional smoke test at lines 465-472 proves the bundle loads and synthesizes correctly. The drift check is still active and would fail if the bundle drifted from its source."
+      },
+      {
+        "id": "1333-r5-1",
+        "outcome": "MOVED",
+        "cost": "N/A",
+        "witness": "setup.d/45-python.sh:539",
+        "rationale": "The finding substance was addressed and the artifact MOVED. The original finding noted an unreachable arm at 45-python.sh 531 that caused every python rule to fall to tier 2. This was PARKED as PARK-S1-7 and later UNPARKED by PR #1353 commit 8d2e7173cf. The per-lane subdir generation-context/python was introduced and the fragment reader moved to use the per-lane subdir. The tier 2 fallback is now at line 539 in the else branch of _py_json_rules function and the comment at lines 527-529 explicitly states this is the DERIVED value for template rules with no research provenance. The arm precondition is now documented as intentional per PARK-S1-7 unpark decision."
+      }
+    ]
+  },
+  {
+    "group": "1340",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:52:39Z",
+    "rows": [
+      {
+        "id": "kl-1340-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": ".claude/orchestrator-prompts/beta-delivery-ux/kickoff-s4.md:536-543",
+        "rationale": "The fork was resolved by PR #1340 (commit 30ef50015a), which corrected §7f.2's false negative-existence claim. Both §7a #3's completion proof and §2 constraint 1's key-handling invariant were preserved - the resolution measured that POST /chat/sessions exists and aif makes calls using its own process.env, so no weakening was needed. This is documented in the current kickoff at lines 536-543 stating \"§7a #3 and §2 constraint 1 both hold; no amendment needed\" and proven via a billed call showing assistantMessage, costUsd, and runtime.profileId in the response."
+      }
+    ]
+  },
+  {
+    "group": "1341",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:52:39Z",
+    "rows": [
+      {
+        "id": "1341-r1-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/meta-factory/research-patches/2026-08-08-s4-glm-onebutton-entry-verification.md:279-283",
+        "rationale": "Coincidence guard documented in research patch: step D first written as single POST /chat carrying runtimeProfileId, appeared to pass because echoed profile matched by coincidence (pinned profile was already project default). Current code uses two-call form (session pin then completion) with explicit profile binding assertion at scripts/getff-glm-onebutton.sh:519-523."
+      },
+      {
+        "id": "1341-r1-2",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "tests/install-sh/glm-onebutton.test.sh:303-307",
+        "rationale": "N5 stub now fail-closed: comment at lines 303-307 explicitly states \"FAIL-CLOSED, same contract as base stub (§7e.6). This block previously carried a catch-all returning rc=0 and a create arm with no body rule.\" Stub now includes full allowlist with explicit non-zero returns (lines 310, 311, 319, 320, 322, 323) and reject-all catch-all at line 325."
+      },
+      {
+        "id": "1341-r1-3",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "scripts/getff-glm-onebutton.sh:314-323",
+        "rationale": "PUT failure now fails closed: lines 314-323 show explicit rc!=0 check with return 1 on failure. Comment at 318-322 explains \"FAIL-CLOSED (§2 constraint 4). This branch used to warn and fall through to GLM_PROVISION: DONE\" — historical acknowledgment of the prior defect, now fixed."
+      },
+      {
+        "id": "1341-r1-4",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "tests/install-sh/glm-onebutton.test.sh:666-684",
+        "rationale": "Subshell vacuous assertion fixed: lines 666-684 show capture to _ND_SEEN_FILE (a temp file, not shell variable) because \"helper invokes curl inside $( ), so each stub call runs in its own subshell and a variable assignment dies with it\" (line 661-665). Paired negative at lines 717-738 confirms live wiring."
+      },
+      {
+        "id": "1341-r1-5",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "tests/install-sh/glm-onebutton.test.sh:459-465",
+        "rationale": "Leak block fail-closed: preflight stub at lines 459-465 uses `curl() { return 1; }` (explicit non-zero return), with comment at 455-458 explaining \"Fail-CLOSED even though curl never fires here — preflight env-file check returns before any request is made. return 0 was the caseless fail-open shape.\""
+      },
+      {
+        "id": "1341-r7-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "tests/install-sh/glm-onebutton.test.sh:687-700",
+        "rationale": "Guard-the-guard asserts /chat request: lines 687-700 show guard checks for POST /chat specifically, not just non-empty capture. Comment at 687-694 explains \"guard has to establish that step D's completion request is actually in the capture — not merely that the capture is non-empty.\" Uses grep pattern matching /chat token (line 695)."
+      },
+      {
+        "id": "1341-r7-2",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "tests/install-sh/glm-onebutton.test.sh:706-738",
+        "rationale": "Paired-negative tests real discrimination: lines 706-738 show mutation test that injects actual leak value into helper copy and runs against SAME capture stub. Comment at 707-710 explains \"has to exercise the REAL path: an earlier version wrote a leak-shaped string to a temp file and grepped it back, which proved that grep works.\""
+      },
+      {
+        "id": "1341-r7-3",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "scripts/getff-glm-onebutton.sh:532-538",
+        "rationale": "Zero-usage gate fails closed on non-numeric: lines 532-538 use case statement to reject non-integer values before comparison. Comment at 524-531 explains \"case statement...because [ -le ] errors on non-numeric\" and \"12.5 is valid JSON but [ -le ] errors on it identically, so it must not reach the comparison.\""
+      },
+      {
+        "id": "1341-r7-4",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "tests/install-sh/glm-onebutton.test.sh:775-782",
+        "rationale": "Meta-scanner population includes caseless stub: comment at lines 775-782 explicitly widens population beyond case-based stubs to include \"CASELESS stub — curl() { return 0; }\" because \"scanner's declared population was case-based stubs only, so this shape was invisible to it; the file carried one (the preflight stub).\""
+      },
+      {
+        "id": "1341-r7-5",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/meta-factory/research-patches/2026-08-08-s4-glm-onebutton-entry-verification.md:250-257",
+        "rationale": "Research-patch addendum header corrected: lines 250-257 show provenance now cites commit 3bf1d18ce9 (2026-08-10) that added the addendum, not commit 34ccc8cece that the section describes. Comment explains \"heading previously read (run-5, commit 34ccc8cece), naming the commit the section was about rather than the commit that added it: a stale provenance label.\""
+      },
+      {
+        "id": "1341-r7-6",
+        "outcome": "DECLINED",
+        "cost": "NONE-FOUND",
+        "witness": "docs/meta-factory/research-patches/2026-08-08-s4-glm-onebutton-entry-verification.md:248-258",
+        "rationale": "Divergence accepted and documented: research patch at lines 248-258 records \"SUPERSEDING ADDENDUM — three statements above are now false\" with explicit acceptance that routing through aif's own /chat meets stated purpose while keeping §2 constraint 1 intact. This is the formal record of the accepted divergence described in the finding itself."
+      }
+    ]
+  },
+  {
+    "group": "1346",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:52:39Z",
+    "rows": [
+      {
+        "id": "1346-r1-1",
+        "outcome": "NEVER-DONE",
+        "cost": "NONE-FOUND",
+        "witness": "none",
+        "rationale": "Current session-bus-v2.md:447 still carries the compressed scope text \"Any F4b LANDING\" while the v3 spec at 2026-08-09-autonomous-night-v3-design.md:375 uses the unscoped \"any landing\". The PR body/review finding identified this compression as MINOR/IMMATERIAL but the text was never corrected. No named artifact (research patch, rule, follow-up PR) exists to address this. Search verification: checked both spec files at line 447 and 375; searched git history showing no edits to this line after PR 1346; confirmed no session-bus kickoff artifacts exist under .claude/orchestrator-prompts/ to carry the compression."
+      }
+    ]
+  },
+  {
+    "group": "1349",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:52:39Z",
+    "rows": [
+      {
+        "id": "1349-r1-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "tests/install-sh/baselines/ts-server/brownfield.fingerprint:1",
+        "rationale": "fingerprints regenerated 2026-08-16 17:13:12 per git log f6f9042ee7 which states \"8 fingerprints recaptured (the hook's sha256 line only)\", the baselines are current and deterministic red snapshot gate would not persist"
+      },
+      {
+        "id": "1349-r1-2",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": ".claude/hooks/end-of-turn-reminder.sh:219",
+        "rationale": "debounce flag write uses brace-group redirect `{ : > \"$ctx_flag\"; } 2>/dev/null` on line 219 with comment explaining \"failed flag write must go to /dev/null BEFORE the redirect list of the simple command is applied\", identical pattern also used on story flag at line 468"
+      },
+      {
+        "id": "1349-r1-3",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "packages/core/hooks/end-of-turn-reminder.test.ts:1287,1317,1344",
+        "rationale": "all three mutations now have test coverage: `-1m` table branch tested at lines 1287-1299 verifying both bracket and suffix spellings, `1m-deep` tier tested at lines 1317-1339 verifying re-fire after soft flag spent, autonomy+ctx composition tested at lines 1341-1356 verifying both halves survive in exit shim"
+      }
+    ]
+  },
+  {
+    "group": "1353",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:56:50Z",
+    "rows": [
+      {
+        "id": "1353-r1-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "tests/install-sh/python-rules-lock.test.sh:455",
+        "rationale": "The criterion-3 tier assertion now uses `\",\"provenance\":[[^]]*],\"tier\":0` which binds the rule-level tier AFTER the `]` closing the provenance array, correctly crossing object boundaries and avoiding the source-tier binding defect."
+      },
+      {
+        "id": "1353-r1-2",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "packages/core/synthesizer/emit.test.ts:108",
+        "rationale": "Criterion 7 now has a proper assertion (`it('writes a per-rule generation-context fragment for the Node synthesize lane (S1b criterion 7)'`) that binds generation-context/G1.json from the synthesize path with file existence + shape checks."
+      },
+      {
+        "id": "1353-r1-3",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "tests/install-sh/python-rules-lock.test.sh:546,548",
+        "rationale": "Lock-level checks now point at the correct `.ai-factory/synthesizer-output/rules-lock.{cargo,go}.json` paths (lines 546, 548) which is where cargo/go actually write per setup.d/46-cargo.sh:198-199 + 47-go.sh:164-165, not the non-existent .getff/ paths."
+      },
+      {
+        "id": "1353-r1-4a",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "tests/install-sh/python-rules-lock.test.sh:347",
+        "rationale": "The tsx-missing case now calls `bad \"(13) tsx not found — producer arm CANNOT run\"` instead of skip, eliminating the skip-that-passes concealment on the proving arm."
+      },
+      {
+        "id": "1353-r1-4b",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "tests/install-sh/python-rules-lock.test.sh:402-404",
+        "rationale": "Criterion 3 now asserts all three provenance fields (url + allowlistKey + fetchedAt) via separate grep checks (lines 402-404), not just URL-only grep."
+      },
+      {
+        "id": "1353-r1-4c",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "tests/install-sh/python-rules-lock.test.sh:462-494",
+        "rationale": "The synthetic lock corpus now calls the real `_py_json_rules` through `PY_LAYER_LIB_ONLY=1` seam (lines 466-469), emitting the actual separator bytes instead of hand-copied `},{` joins."
+      },
+      {
+        "id": "1353-r1-4d",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "packages/core/synthesizer/emit.ts:89-94",
+        "rationale": "The §2 justification for the second inline writer is documented at emit.ts:89-94 explaining the fork 2 / §3a option B design with fragment-per-rule composition rationale for shell lanes."
+      },
+      {
+        "id": "1353-r2-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "tests/install-sh/python-rules-lock.test.sh:455",
+        "rationale": "The tier pattern is now bounded with `[^]]*` instead of unbounded `.*`, preventing traversal past the researched rule's object into later rules in multi-rule arrays."
+      },
+      {
+        "id": "1353-r3-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "tests/install-sh/python-rules-lock.test.sh:462-494",
+        "rationale": "The proof corpus now emits synthetic locks via the real `_py_json_rules` function through the PY_LAYER_LIB_ONLY seam (lines 466-494), reproducing the exact `}, {` separator that the emitter uses."
+      },
+      {
+        "id": "1353-r3-2",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "setup.d/45-python.sh:517-521",
+        "rationale": "The audit-round narrative was removed from the shipped layer; the comment now states \"named rather than line-numbered: a line pointer into this same file goes stale the moment anything above the caller is edited\" without mentioning audit rounds or line numbers."
+      }
+    ]
+  },
+  {
+    "group": "1358",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:56:50Z",
+    "rows": [
+      {
+        "id": "1358-r1-1",
+        "outcome": "HOLDS",
+        "cost": "NONE-FOUND",
+        "witness": "Makefile:34-38",
+        "rationale": "The Makefile consumer-matrix target (lines 34-38) runs both pnpm-monorepo-cell.sh and npm-tarball-cell.sh. This wiring was fixed in round-2 per the PR commit message which states \"consumer-matrix now runs both cells (make -n consumer-matrix lists pnpm-monorepo-cell.sh AND npm-tarball-cell.sh)\"."
+      },
+      {
+        "id": "1358-r1-2",
+        "outcome": "HOLDS",
+        "cost": "NONE-FOUND",
+        "witness": "tests/consumer-matrix/npm-tarball-cell.sh:149-173",
+        "rationale": "Step (5) at lines 149-173 now uses three proper assertions: node --check for syntax integrity, grep for entry guard, and grep for tail export. Lines 156-166 explicitly document why the previous readFileSync().length > 100 approach was wrong (#contract-that-cannot-fail). This fix was applied in round-2 per the commit message."
+      },
+      {
+        "id": "1358-r1-3",
+        "outcome": "HOLDS",
+        "cost": "NONE-FOUND",
+        "witness": "tests/consumer-matrix/npm-tarball-cell.sh:104-105",
+        "rationale": "LICENSE (line 104) and README.md (line 105) are both asserted in the by-path asset loop at step (4), ensuring these files are gated for arrival in the installed package. This addresses the MINOR finding about LICENSE/README gating."
+      },
+      {
+        "id": "1358-r1-4",
+        "outcome": "HOLDS",
+        "cost": "NONE-FOUND",
+        "witness": "docs/meta-factory/getff-name-architecture-freeze.md:177",
+        "rationale": "The over-ship evidence is recorded in the before/after table at line 177: before (707 files) to after (494 files), Δ = -213 files (-30%). The table is present and correctly documents the file reduction achieved by the files allowlist."
+      },
+      {
+        "id": "1358-r2-1",
+        "outcome": "HOLDS",
+        "cost": "NONE-FOUND",
+        "witness": "docs/meta-factory/getff-name-architecture-freeze.md:146",
+        "rationale": "Line 146 now correctly cites all four sibling packages with accurate line numbers: preset-react-spa/package.json:15, preset-next-15-canonical/package.json:15, preset-react-native/package.json:11, and meta-factory/package.json:13. This was fixed in round-2 per the commit message which notes \"line 11 of that file is scripts and its peerDependencies block is at :15\"."
+      },
+      {
+        "id": "1358-r3-1",
+        "outcome": "NEVER-DONE",
+        "cost": "NONE-FOUND",
+        "witness": "none",
+        "rationale": "The \"publishable-intent\" qualifier was dropped from line 146, leaving \"all four siblings do\" without the clarification of which four. While the four enumerated packages and their line numbers are correct (making the referent recoverable), the precision qualifier that would clarify the scope was never restored. No later commits modified this line after PR #1358."
+      }
+    ]
+  },
+  {
+    "group": "1360",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:56:50Z",
+    "rows": [
+      {
+        "id": "1360-r1-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/meta-factory/research-patches/2026-08-09-context-degradation-calibration.md:157",
+        "rationale": "The §search-coverage section exists and documents the 6-item checklist. Line 157 contains the heading \"## §search-coverage — the 6-item checklist on this patch's negative-existence claims\". The section shows that two of four negative-existence claims were falsified when the checklist was actually run, exactly as the finding states."
+      },
+      {
+        "id": "1360-r1-2",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/meta-factory/research-patches/2026-08-09-context-degradation-calibration.md:45,51",
+        "rationale": "RQ1 now carries a per-tier disposition as seen in the table at lines 45-51. The table shows separate rows for \"Opus family\" (ANSWERED) and \"Fable 5\" (COVERAGE WIDENED, STILL INSUFFICIENT FOR A THRESHOLD), with the per-tier heading at line 45 stating \"Per-tier disposition (rev 2 — the RQ1 question is «onset *per model tier*»\"."
+      },
+      {
+        "id": "1360-r1-3",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/meta-factory/research-patches/2026-08-09-context-degradation-calibration.md:233",
+        "rationale": "T_soft(200k) is parked as PARK-CDC-1 at line 233, which reads \"**PARK-CDC-1 — which quantity is `T_soft(200k)`?**\" The parked question section presents Option A (65% ~130k) and Option B (75% ~150k) rather than silently proposing 75%."
+      },
+      {
+        "id": "1360-r1-4",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/meta-factory/research-patches/2026-08-09-context-degradation-calibration.md:261,276,277",
+        "rationale": "The unsourced values are demoted to INCONCLUSIVE-needs-human. Line 261 shows the mechanical-tail uplift marked as \"**INCONCLUSIVE-needs-human**\". Lines 276-277 show the per-task-class deltas both marked as \"**INCONCLUSIVE-needs-human**\" with explanations that rev 1's unsourced ranges appear in no cited source."
+      },
+      {
+        "id": "1360-r1-5",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/meta-factory/research-patches/2026-08-09-context-degradation-calibration.md:94,97,114",
+        "rationale": "Four citation years are corrected: arXiv 2505.13353 at line 94 shows \"v1 2025-05-19, v2 2025-05-20\"; claude-code#13239 at line 114 shows \"2025-12-06\"; and the Addy Osmani post at line 97 shows \"2025-12-19\" with correction note that title's \"2026\" is its subject not its date."
+      },
+      {
+        "id": "1360-r1k-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/meta-factory/research-patches/2026-08-09-context-degradation-calibration.md:59",
+        "rationale": "The 404 anchor slug was fixed. Line 59 shows the corrected URL: \"https://codingfleet.com/blog/context-window-lie-how-well-ai-models-use-1m-tokens-2026/\" with the correct \"use-1m-tokens-2026\" slug instead of the broken \"use-1m-2026\"."
+      },
+      {
+        "id": "1360-r1k-2",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/meta-factory/research-patches/2026-08-09-context-degradation-calibration.md:59,60",
+        "rationale": "The anchor is now rated NO MATCH in both places. Line 59 states \"**NO MATCH, corrected rev 2**\" for the CodingFleet source, and line 60 shows the Opus 4.6 benchmark also rated \"**NO MATCH**\" with the correction that Sonnet 4.5 (not Opus 4.6's predecessor) scores 18.5%."
+      },
+      {
+        "id": "1360-r1k-3",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/meta-factory/research-patches/2026-08-09-context-degradation-calibration.md:94,97,114",
+        "rationale": "Three sources are correctly dated to 2025 instead of 2026: arXiv 2505.13353 at line 94 shows \"v1 2025-05-19, v2 2025-05-20 (ACL 2026 main; acceptance year ≠ revision date\"; the Addy Osmani post at line 97 shows \"2025-12-19\"; and claude-code#13239 at line 114 shows \"2025-12-06\"."
+      },
+      {
+        "id": "1360-r1k-4",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/meta-factory/research-patches/2026-08-09-context-degradation-calibration.md:19",
+        "rationale": "The export-control attribution was removed. Line 19 states \"suspended 2026-06-12, restored 2026-07-01 — reason not stated by the source, do not attribute one\" and correctly identifies the interval as 18 days (06-12 to 07-01) rather than attributing export control as the reason."
+      },
+      {
+        "id": "1360-r1k-5",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/meta-factory/research-patches/2026-08-09-context-degradation-calibration.md:60",
+        "rationale": "The Sonnet 4.5 attribution is corrected. Line 60 states \"Opus 4.6 scored 76% on the MRCR v2 8-needle 1M variant; **Sonnet 4.5** scores 18.5% on the same variant (not «Opus 4.6's predecessor» — corrected rev 2)\"."
+      },
+      {
+        "id": "1360-r2-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/meta-factory/research-patches/2026-08-09-context-degradation-calibration.md:113,114",
+        "rationale": "Both ranking cells now read UNRANKED. Lines 113-114 show the Fresh-session handoff row as \"**UNRANKED (rev 3).**\" and the Auto-compact row as \"**UNRANKED (rev 3).**\" with explanations that the rankings were withdrawn."
+      },
+      {
+        "id": "1360-r2-2",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/meta-factory/research-patches/2026-08-09-context-degradation-calibration.md:233,246",
+        "rationale": "The two negative-existence claims are properly scoped. Line 233 shows PARK-CDC-1 scoped to \"this sweep's coverage\" and line 246 states the fork is \"parked on **this sweep's** coverage\" rather than making unqualified literature claims."
+      },
+      {
+        "id": "1360-r2-3",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/meta-factory/research-patches/2026-08-09-context-degradation-calibration.md:377,148",
+        "rationale": "Dates verified predicate corrected to 23/26 and signal 4.3 marked NO SUPPORTING SOURCE. Line 377 shows \"Dates verified against the source rather than against its label: **23/26 (rev 3 correction).**\" Line 148 shows signal 4.3 as \"**NO SUPPORTING SOURCE (rev 3).**\" with explanation that the cited page states the opposite of the claim."
+      },
+      {
+        "id": "1360-r3-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/meta-factory/research-patches/2026-08-09-context-degradation-calibration.md:30",
+        "rationale": "Row 1.12 is correctly excluded from dated count. Line 30 states \"Dated **2026: 11 of 13.**\" and lines 32-34 explain that \"Row 1.12 carries **NO publication date at all** and is therefore excluded from the dated count rather than absorbed into it\"."
+      },
+      {
+        "id": "1360-r3-2",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/meta-factory/research-patches/2026-08-09-context-degradation-calibration.md:269",
+        "rationale": "The ~600k upper falsifier disclosure is present with mechanical-tails transfer warning. Line 269 shows the cross-class caution: \"⚠️ **Task-class transfer is UNVERIFIED (T16):** 1.10's ~600k is a judgment-class ceiling; RQ2's measured direction is that gated/mechanical work tolerates *more* context than judgment work, so if the transfer holds at all it points to a mechanical ceiling **at or above** ~600k, not at it.\""
+      },
+      {
+        "id": "1360-r3-3",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/meta-factory/research-patches/2026-08-09-context-degradation-calibration.md:51",
+        "rationale": "The Fable-5 disposition reads \"COVERAGE WIDENED, STILL INSUFFICIENT FOR A THRESHOLD\" at line 51, not \"PARTLY ANSWERED\". The line explains the label was chosen \"on the round-3 seat's point that «PARTLY ANSWERED» signals more resolution than one unreplicated source can carry\"."
+      }
+    ]
+  },
+  {
+    "group": "1351",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:59:43Z",
+    "rows": [
+      {
+        "id": "kl-1351-1",
+        "outcome": "HOLDS",
+        "cost": "NONE-FOUND",
+        "witness": ".claude/orchestrator-prompts/beta-delivery-ux/kickoff-s4.decisions.md:121-165",
+        "rationale": "PR #1351 (commit af14f91062) created the dedicated decisions file that records the operator's resolutions to both open questions from the unattended S4 run: §4 item 1 (live end-to-end on a clean machine) ACCEPTED AS MET, and §7a #3 recurring per-consumer spend ACCEPTED AS-IS. Both resolutions are durably recorded with full rationale, accepted risks, and falsifiers. The file exists today with no subsequent modifications, confirmed by git log showing no commits after af14f91062 touching either kickoff-s4.md or kickoff-s4.decisions.md."
+      }
+    ]
+  },
+  {
+    "group": "1376-bu-r1",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:59:43Z",
+    "rows": [
+      {
+        "id": "1376-bu1-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:165-171",
+        "rationale": "Binary vocabulary defined: MATERIAL/IMMATERIAL for class_final, with MATERIAL-b only in class_start, OUT-OF-CONCEPT and FLOOR mapped to whose_final axis - §2 vocabulary mapping + §3.3 adjudication routes resolve MAJOR-1's three-vocabulary conflict"
+      },
+      {
+        "id": "1376-bu1-2",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:172-184",
+        "rationale": "Anti-leakage extraction contract implemented: grade-strip normalization, provenance-substring probe, grade-token scan prevent audit Basis leakage - S1 DoD includes deterministic two-arm leakage probe"
+      },
+      {
+        "id": "1376-bu1-3",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:122-130",
+        "rationale": "Disjoint file populations enforced: audit-1369.csv (~104 rows MINUS #1341 R7 rows) and s4-round7.csv (the 6 R7 rows) are separate by round-split construction, S1 DoD includes cross-file uniqueness check"
+      },
+      {
+        "id": "1376-bu1-4",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:386-387",
+        "rationale": "SSOT entry and capability commit both in S4: promptfoo devDependency + Prior-art trailer + SSOT entry (id≥250) land in SAME S4 commit per §9 stage table, SSOT entry #250 confirmed live"
+      },
+      {
+        "id": "1376-bu1-5",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:132-134",
+        "rationale": "TD-M3 sources dual-cited: session-bus-v2 §14 row TD-M3 AND advisor-pattern-design §0/§11 second instance, corpus README confirms both rows in td-m3.csv (2 rows, author-cell provenance)"
+      },
+      {
+        "id": "1376-bu1-6",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:40-42",
+        "rationale": "Line reference updated from :165 to :212 after PR #1374 - spec §0 now correctly cites pr-body-fidelity.ts:212 for Audited-SHA prefix requirement, MINOR N1 fixed in place"
+      },
+      {
+        "id": "1376-bu1-7",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:41-43",
+        "rationale": "Three-vs-four inconsistency documented: spec says S4 under-graded three (audit prose), table shows four - §0 records upstream inconsistency explicitly, S1 counts from table"
+      },
+      {
+        "id": "1376-bu1-8",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:208-211",
+        "rationale": "UNRECOVERABLE route added: §3.3 provides advisor confirm-or-override route for class_start=UNRECOVERABLE rows to reach class_final, r2 NEW-M3 fix documented"
+      },
+      {
+        "id": "1376-bu1-9",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:395-396",
+        "rationale": "Exit routing clarified: decided at arch/SKILL.md §3 exit step (this spec's §3 referent corrected), r1 BU N4 fixed in §9 table note"
+      },
+      {
+        "id": "1376-bu1-10",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:140-141",
+        "rationale": "Per-spec locators implemented: §2 cites advisor §11/§11b, session-bus-v2 §14, night-v3 §13+§13b as disposition changelog sources, r1 BU N5 fixed with explicit per-spec section numbers"
+      },
+      {
+        "id": "1376-bu1-11",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:387",
+        "rationale": "S5 ownership handoff documented: reviewer-discipline.md is maintainer-owned, the operator-gated landing PR IS the explicit handoff (precedent #1374), r1 BU N6 resolved"
+      },
+      {
+        "id": "1376-bu1-12",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:356-361",
+        "rationale": "FIXED addition documented: §7 records that FIXED is this spec's addition beyond upstream advisor-pattern-design sentence (which named only ACCEPTED/DISSOLVED/ESCALATED), grounded in live use"
+      }
+    ]
+  },
+  {
+    "group": "1376-fid-r1",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:59:43Z",
+    "rows": [
+      {
+        "id": "1376-fid1-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:111-112",
+        "rationale": "Round 2 repair added \"and it enters only at S1-S5 scale-up — the S0 probe runs on the plain scorer, no dependency added (gate 2026-08-11)\" to both §1:111-112 and §4:240-241; verified present at HEAD commit 2ed2f7fc33; risk direction closed by explicit \"no dependency added\""
+      },
+      {
+        "id": "1376-fid1-2",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:443",
+        "rationale": "Round 2 repair inserted \"Gate 2026-08-11: the fallback scorer is the S0 probe's PRIMARY; promptfoo enters at scale-up only\" between Grounds and Falsifiers in D-K3; decision record and stage plan now consistent; verified present at HEAD"
+      },
+      {
+        "id": "1376-fid1-3",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:448-450",
+        "rationale": "Round 2 repair added explicit pointer \"(The mandate's cheap devil's-advocate layer stays parked upstream at advisor-pattern-design D-AP6 — not a candidate here.)\"; link target exists and contains the falsifier that gates it; verified present at HEAD"
+      },
+      {
+        "id": "1376-fid1-4",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:499-500",
+        "rationale": "Round 2 repair corrected filenames to top-down-r1.md and bottom-up-r1.md; verified against actual files in docs/meta-factory/triage-corpus/sources/ which contain exactly these three files (top-down-r1.md, bottom-up-r1.md, r2-verify.md); §13 now matches on-disk reality with added \"on-disk filenames\" note"
+      },
+      {
+        "id": "1376-fid1-5",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:382",
+        "rationale": "S0 probe was implemented per commit 7daf16a155 creating s0-probe.csv (32 operator-adjudicated rows) and corpus README confirming grade-strip + provenance contract at probe scale; design spec §9 S0 row explicitly states \"grade-strip + provenance contract §2 applies at probe scale\"; S0 is itself a micro corpus-assembly as the report found; fully implemented and present"
+      }
+    ]
+  },
+  {
+    "group": "1376-td-r1",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T17:59:43Z",
+    "rows": [
+      {
+        "id": "1376-td1-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:298",
+        "rationale": "Spec §5 states layer/whose axes ship explicitly labeled 'judgment-only, not corpus-validated' (r1 TD BLOCKER-1), and §3 three-axis labeling plus §5 per-axis bars addressed the measurement gap; corpus README confirms whose axis is judgment-only at 90.1% reviewer dominance."
+      },
+      {
+        "id": "1376-td1-2",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:254-258",
+        "rationale": "C0 redefined as orig_grade mapping per spec §4 (r1 TD BLOCKER-2), with scenario-presence excluded as bench bar and expected strength 0.8-0.9; acceptance rule now uses McNemar test and binomial CI for noise floor per §5."
+      },
+      {
+        "id": "1376-td1-3",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:309-311",
+        "rationale": "Spec §5b.1 records provenance sharing honestly - 'every labeler and every candidate is a Claude-family seat reasoning from the same ratified yardstick' and 'the only fully independent anchor is the operator slice (§3.5)'; §3.5 stratified slice implemented with 22 rows (5 from disputed/material-b stratum per kickoff-s3.md §2)."
+      },
+      {
+        "id": "1376-td1-4",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:314-316",
+        "rationale": "Spec §5b.2 records construct validity gap - 'bench judges decontextualized rows; deployed seats judge with the full diff in context, often their OWN findings (self-grading)' with live detectors named (L5 morning review + materiality-dispute rate + periodic audit-mold re-measurement)."
+      },
+      {
+        "id": "1376-td1-5",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:177-185",
+        "rationale": "Spec §2 anti-leakage extraction contract with grade-strip normalization, provenance-substring probe, and grade-token scan as S1 DoD; corpus README shows 6-file union probe passed with 0 failures."
+      },
+      {
+        "id": "1376-td1-6",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:288-291",
+        "rationale": "Spec §5 now includes pass rule with McNemar test and CI on paired difference (r2 NEW-m1), with minimum detectable effect ~±9pp at n≈120; MATERIAL-miss measured against C0's own miss-rate per §5."
+      },
+      {
+        "id": "1376-td1-7",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/meta-factory/triage-corpus/README.md:21,24",
+        "rationale": "Corpus README §Files lists arch-reviews.csv rows=44 as 'S1: 44 review-report rows — design-layer findings extracted from sources/ (top-down-r1 · bottom-up-r1 · r2-verify · fidelity-r1), PR #1376' implementing r1 TD MAJOR-5 fix."
+      },
+      {
+        "id": "1376-td1-8",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": ".claude/orchestrator-prompts/triage-kernel-v2/kickoff-s3.md:33-39",
+        "rationale": "Spec §3.5 stratified slice implemented per kickoff-s3.md §2: '22 rows = 5 disputed/material-b stratum + 5 random agreed + 5 advisor-overridden + all 7 then-FLOOR rows' with operator disputed 4/22 (18.2%) below escalation bar."
+      },
+      {
+        "id": "1376-td1-9",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:223-225",
+        "rationale": "Spec §3.4 journal segregation: corpus-adjudication verdicts land in segregated section tagged 'class: corpus-adjudication', EXCLUDED from journal-volume door per r1 TD MAJOR-7 fix; D-K4 volume door now applies to live-consult entries only."
+      },
+      {
+        "id": "1376-td1-10",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:380-415",
+        "rationale": "Spec §9 stage plan table includes L4 budget column per stage (r1 TD MAJOR-8), with rough orders of magnitude for S0-S5; P6 'cheap' condition recorded in §10 but without numeric estimate."
+      },
+      {
+        "id": "1376-td1-11",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:300-302,457-462",
+        "rationale": "Spec §5 records asymmetry: 'a missed MATERIAL is a defect escaping toward consumers; a false MATERIAL costs one visible round'; §5b.3 states 'inverse population is out of reach' and D-K5 falsifier covers both directions (over-flagging AND defect suppression)."
+      },
+      {
+        "id": "1376-td1-12",
+        "outcome": "MOVED",
+        "cost": "NONE-FOUND",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:530-533",
+        "rationale": "Finding routed as ESCALATED-1 per spec §13 (proportionality of THIS scale of measurement) and RESOLVED at operator gate 2026-08-11 to 'probe-first' approach (S0: ~30 stratified rows, C1 vs C0) - moved from full corpus to cheaper probe per §9 S0."
+      },
+      {
+        "id": "1376-td1-13",
+        "outcome": "MOVED",
+        "cost": "NONE-FOUND",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:530-533",
+        "rationale": "Finding routed as ESCALATED-2 (null result worth full corpus cost) and RESOLVED at operator gate 2026-08-11 to same 'probe-first' approach - moved from full 5-stage corpus to ~30-row probe per §9 S0."
+      },
+      {
+        "id": "1376-td1-14",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:40-41",
+        "rationale": "Spec §0 now cites 'pr-body-fidelity.ts:212' (corrected from :165) for head-prefix check; stale cite fixed per r1 TD MINOR-1 / BU N1 disposition in spec §13."
+      },
+      {
+        "id": "1376-td1-15",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:202-203",
+        "rationale": "Spec §3.2 agreement metrics include 'Cohen's κ plus raw agreement and PABAK (r1 TD MINOR-2: κ's prevalence paradox)' published in corpus README - prevalence paradox guarded by PABAK reporting."
+      },
+      {
+        "id": "1376-td1-16",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:383",
+        "rationale": "Spec §9 S1 pre-flight includes 'docs-gate pre-flight: principle 09 + doc gates on the new folder — first tracked CSV under docs/' (r1 TD MINOR-3) - first tracked CSV now explicitly gated."
+      },
+      {
+        "id": "1376-td1-17",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:486-496",
+        "rationale": "Spec §12b self-application section added (r1 TD MINOR-4): 'The spec's own discipline applied to itself' with two cold reviews running ESCALATED rung; corpus includes contour's own review population."
+      },
+      {
+        "id": "1376-td1-18",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:201",
+        "rationale": "Spec §3.1 states 'S1 never pre-fills judgment axes (r1 TD MINOR-5): layer/whose have no _start' - S1 ownership clarified as cold blind labeling only, judgment axes filled at S2 per design."
+      }
+    ]
+  },
+  {
+    "group": "1376-r2-verify",
+    "model": "sonnet",
+    "startedAt": "2026-08-16T18:10:00Z",
+    "rows": [
+      {
+        "id": "1376-r2v-1",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:177-190,542",
+        "rationale": "Grade-strip normalization (line 177-181) plus grade-token scan (line 189-190) implemented in spec §2 and referenced in §13 disposition as FIXED (line 542); corpus README shows 6-file probe passed with 0 failures; triage-corpus-probe.mjs implements stripGrades function scanning for BLOCKER|MAJOR|MINOR tokens and finding-ID patterns"
+      },
+      {
+        "id": "1376-r2v-2",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:185-188,544",
+        "rationale": "Probe re-based on provenance-substring check (line 185-188) replacing the fixed phrase grep that failed on correctly-built rows; §13 disposition explicitly FIXED (line 544) noting \"probe re-based on the provenance-substring check, phrase list dropped with reason\"; kickoff-s1.md §3 implements the two-arm probe with substring verification"
+      },
+      {
+        "id": "1376-r2v-3",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:135-152,546-550",
+        "rationale": "§2 arch-reviews.csv re-cut to tracked full review reports (line 135-142) with sources/ pre-step; provenance field added (line 154-156); author-cell rows excluded from S2/bench (line 146-149, 198, 326-330); §13 disposition FIXED (line 546-550) details the provenance field and arch-reviews re-cut; corpus README shows both files as author-cell with under-powered honesty"
+      },
+      {
+        "id": "1376-r2v-4",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:208-211,551",
+        "rationale": "§3.3 UNRECOVERABLE route added (line 208-211) giving advisor confirm-or-override path to class_final; §13 disposition FIXED (line 551) confirms \"§3.3 advisor confirm-or-override route\"; triage-s3-agreement.mjs script implements the unrecoverable route (line 107) with adjudication path handling"
+      },
+      {
+        "id": "1376-r2v-5",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:563-568,576-578",
+        "rationale": "Gate note replaced (line 563-568) stating \"E2 is SHARPENED, not softened\" and explaining C0 now pre-reads strong (0.8-0.9); operator gate resolution (line 576-578) confirms E1/E2 RESOLVED to probe-first approach buying the null at 1/10 the price; note carries effort-worthiness §1 both ways as required"
+      },
+      {
+        "id": "1376-r2v-6",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:288-291,556",
+        "rationale": "§5 pass rule added (line 288-291) with explicit decision rule: \"the CI on the paired difference must exclude zero (equivalently McNemar p < α); the rule FORM is statute, α/CI-level are config\"; §13 disposition FIXED (line 556) confirms \"§5 pass rule (CI excludes zero — form statute, values config)\"; bench report applies the rule with discordant-pair counts and binomial CI"
+      },
+      {
+        "id": "1376-r2v-7",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:563-565,556",
+        "rationale": "Gate note (line 563-565) explicitly restates \"E1 carries effort-worthiness §1 both ways — whoever keeps the full 5-stage scale must state what breaks if the ~30-row probe replaced it and what learning-in-practice costs instead\"; §13 disposition (line 556) confirms \"E1 summary dropped its effort-worthiness ground — FIXED in the gate note below\""
+      },
+      {
+        "id": "1376-r2v-8",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:223-225,374-376,557",
+        "rationale": "§3.4 attribution corrected (line 223-225) naming D-K4 as the volume door trigger; §8.3 (line 374-376) states D-K4 falsifier closes D-AP4's own falsifier; §13 disposition FIXED (line 557) confirms \"D-AP4 mis-credited with the volume door — FIXED: §3.4 / §8.3 / D-K4 attribution\"; corpus shows segregation implemented with corpus-adjudication class tag"
+      },
+      {
+        "id": "1376-r2v-9",
+        "outcome": "HOLDS",
+        "cost": "N/A",
+        "witness": "docs/superpowers/specs/2026-08-10-triage-kernel-v2-design.md:383,558",
+        "rationale": "§9 S1 table (line 383) corrected to \"mid tier\" with parenthetical \"verbatim-matching ~104 findings across ~13 PR bodies is a reading task, not mechanical\"; §13 disposition FIXED (line 558) confirms \"S1 '~0 mechanical' mis-tiered — FIXED: §9 S1 mid tier + honest estimate\"; kickoff-s1.md line 4-5 executor tier field reflects mid tier Opus assignment"
+      }
+    ]
+  }
+]

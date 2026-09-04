@@ -237,6 +237,16 @@ fi
 # Runs after ALL copy_safe calls so SKIPPED is complete, and after the static .prettierignore merge.
 ignore_shipped_configs
 
+# ─── GH #975: re-assert .husky/* AFTER the dep-install lifecycle ────────────────
+# A consumer `prepare`-driven git-hooks manager (simple-git-hooks / husky re-init) fires during
+# 70-deps' package-manager install and clobbers the framework's .husky/pre-push (+ pre-commit)
+# that 50-hooks copied BEFORE deps. Restore the shields here so the push shield survives before
+# self-verify checks it. Gated on DEPS_INSTALLED (a --force/no-deps install never ran the
+# lifecycle, so its hooks are intact). Logic lives in lib.sh (SSOT).
+if [ "${DEPS_INSTALLED:-}" = "1" ] && [ "${DRY_RUN:-}" != "--dry-run" ]; then
+  reassert_husky_shields "$PKG_ROOT" "$PROJECT_ROOT"
+fi
+
 # ─── install-self-verification capstone (FULL only) ─────────────────────────
 # Runs at the end of --full install to PROVE — not just assert — that:
 #   1. Installed ESLint fences FIRE on deliberately-bad input (D1)
@@ -250,21 +260,54 @@ elif [ "${DRY_RUN:-}" = "--dry-run" ]; then
   echo "· install-self-verify: [dry-run] would run fences-fire + shields-up + mutation gates"
 else
   echo ""
-  echo "▶ install-self-verify: proving fences fire, shields are up, generated tests non-vacuous"
+  # "probing", not "proving": this line prints BEFORE any check ran — announcing intent, not a
+  # verdict. The verdict lines below carry the actual (form-scoped) claims.
+  echo "▶ install-self-verify: probing — do fences fire, are shields wired, are generated tests non-vacuous"
 
-  _ISV_PASS=0; _ISV_FAIL=0
+  _ISV_PASS=0; _ISV_FAIL=0; _ISV_SKIP=0; _ISV_SKIPPED_NAMES=""
+  # A SKIP is a check that DID NOT RUN (its script is absent) — it is NOT a pass. Counting it
+  # separately keeps the success banner from claiming a property the run never proved
+  # (attention-is-not-a-mechanism.md §1: a check nobody ran is not a mechanism).
+  _isv_skip() {  # $1 = check name
+    _ISV_SKIP=$((_ISV_SKIP+1))
+    if [ -z "$_ISV_SKIPPED_NAMES" ]; then
+      _ISV_SKIPPED_NAMES="$1"
+    else
+      _ISV_SKIPPED_NAMES="$_ISV_SKIPPED_NAMES, $1"
+    fi
+  }
 
-  # D1: fences fire
+  # D1: fences fire.
+  # Deps landed in THIS run (70-deps → DEPS_INSTALLED=1), so a dep-missing SKIP inside the probe
+  # now is a real delivery gap, not a benign pre-install degrade: promote it to rc=1 via
+  # FENCES_FIRE_STRICT=1 (#932 semantics live inside check-fences-fire.sh) so a silently-degraded
+  # probe cannot be counted as a pass here. When deps were NOT installed this run, leave the env
+  # untouched — the gate's own default (auto-strict only under CI) applies.
   _FF_SCRIPT="$PROJECT_ROOT/scripts/check-fences-fire.sh"
   if [ -x "$_FF_SCRIPT" ]; then
-    if AIF_PROJECT_ROOT="$PROJECT_ROOT" bash "$_FF_SCRIPT"; then
+    # GH #976: this is a --full install self-verify (the capstone only runs on FULL), so a
+    # PLACED eslint.config.mjs that cannot `import()` is a real delivery gap even when the
+    # dep-install was only PARTIAL (#974 trust-downgrade → DEPS_INSTALLED unset) — the install
+    # still CLAIMED success. FENCES_FIRE_LOAD_PROBE=1 promotes the load-probe to a hard FAIL
+    # here (and ONLY here) so it does not fire in the check-fences-fire-full-barrel test / plain
+    # CI runs, which legitimately probe fences without a full plugin install.
+    if [ "${DEPS_INSTALLED:-}" = "1" ]; then
+      AIF_PROJECT_ROOT="$PROJECT_ROOT" FENCES_FIRE_STRICT=1 FENCES_FIRE_LOAD_PROBE=1 bash "$_FF_SCRIPT" && _ff_rc=0 || _ff_rc=$?
+    else
+      AIF_PROJECT_ROOT="$PROJECT_ROOT" FENCES_FIRE_LOAD_PROBE=1 bash "$_FF_SCRIPT" && _ff_rc=0 || _ff_rc=$?
+    fi
+    if [ "$_ff_rc" -eq 0 ]; then
       _ISV_PASS=$((_ISV_PASS+1))
     else
       _ISV_FAIL=$((_ISV_FAIL+1))
-      echo "  ✗ fences-fire FAILED — some installed ESLint rules are silent on bad input"
+      # Two distinct causes land here and rc alone cannot tell them apart; the specific reason is
+      # in check-fences-fire.sh's own line above. Under FENCES_FIRE_STRICT=1 a dep-missing SKIP is
+      # promoted to rc=1 (a real delivery gap post-install), which is NOT "rules are silent".
+      echo "  ✗ fences-fire FAILED — see check-fences-fire.sh output above (a rule was silent on bad input, or strict mode promoted a dep-missing SKIP to a failure)"
     fi
   else
     echo "  · fences-fire: script not found at $_FF_SCRIPT (40-configs.sh copy skipped?) — skipped"
+    _isv_skip "fences-fire"
   fi
 
   # D2: shields up
@@ -278,6 +321,7 @@ else
     fi
   else
     echo "  · shields-up: script not found at $_SU_SCRIPT — skipped"
+    _isv_skip "shields-up"
   fi
 
   # D5: mutation gate (install-time, framework-side — not shipped to consumer)
@@ -291,13 +335,24 @@ else
     fi
   else
     echo "  · generated-rule-mutation: script not at $_MUT_SCRIPT — skipped"
+    _isv_skip "generated-rule-mutation"
   fi
 
   echo ""
-  if [ "$_ISV_FAIL" -eq 0 ]; then
-    echo "✓ self-verify: $_ISV_PASS/3 checks passed — fences fire, shields active, generated tests non-vacuous"
+  if [ "$_ISV_FAIL" -gt 0 ]; then
+    _isv_fail_tail=""
+    [ "$_ISV_SKIP" -gt 0 ] && _isv_fail_tail=", $_ISV_SKIP skipped"
+    echo "⚠  self-verify: $_ISV_PASS/3 passed, $_ISV_FAIL FAILED$_isv_fail_tail — review output above before committing"
+  elif [ "$_ISV_SKIP" -gt 0 ]; then
+    # No failures, but ≥1 check never ran — DO NOT claim the three properties. Skipped checks
+    # are unproven, not proven-good.
+    echo "⚠  self-verify: ✓ $_ISV_PASS passed · ⚠ $_ISV_SKIP skipped ($_ISV_SKIPPED_NAMES) — skipped checks are NOT proven"
   else
-    echo "⚠  self-verify: $_ISV_PASS/3 passed, $_ISV_FAIL FAILED — review output above before committing"
+    # "shields WIRED (form)", not "active": the D2 pass comes from check-shields-up.sh, a
+    # form-only check (hook present + references its dispatcher) that never RUNS the hook —
+    # the capstone must not upgrade a form verdict into a behavioural claim (same P0.4 class
+    # the leaf script already fixed; behavioural push probe is the planned P1.2 gate).
+    echo "✓ self-verify: $_ISV_PASS/3 checks passed — fences fire, shields wired (form check), generated tests non-vacuous"
   fi
 fi
 
@@ -313,16 +368,34 @@ if [ ${#SKIPPED[@]} -gt 0 ]; then
   echo ""
 fi
 
+# GH #974: a --full install that FAILED to land its dependencies (e.g. pnpm
+# `trustPolicy: no-downgrade` aborting the devdep batch — #974's trust-downgrade case, or any
+# PM hiccup) must NOT print an unqualified "✅ Installation complete". The install CLAIMED to
+# deliver a usable ESLint/test toolchain but did not — a silent rc0 there is the exact
+# form-over-behaviour false-green the project exists to prevent. `--full` is the only mode that
+# promises deps (FULL set ⇒ deps were attempted); DEPS_INSTALLED=1 iff BOTH dev + runtime deps
+# landed (70-deps.sh). So FULL-set + DEPS_INSTALLED≠1 = an honestly-degraded install → downgrade
+# the banner AND exit non-zero so automation/CI sees the failure, not a green install.
+_deps_incomplete=""
+if [ -n "${FULL:-}" ] && [ "${DEPS_INSTALLED:-}" != "1" ] && [ "$DRY_RUN" != "--dry-run" ]; then
+  _deps_incomplete=1
+fi
+
 echo ""
 if [ "$DRY_RUN" = "--dry-run" ]; then
   echo "✅ Dry-run complete. Nothing was written."
+elif [ -n "$_deps_incomplete" ]; then
+  echo "⚠  Installation finished, but dependencies did NOT fully install — the shipped ESLint/test"
+  echo "    toolchain is not usable yet. This is NOT a full success (see step 4 below to complete it,"
+  echo "    or re-run \`./install.sh ${STACK:-ts-server} --full\`). Exiting non-zero so this is not"
+  echo "    mistaken for a green install."
 else
   echo "✅ Installation complete."
 fi
 echo ""
 echo "Next steps:"
-echo "  1. Edit .ai-factory/DESCRIPTION.template.md → save as .ai-factory/DESCRIPTION.md"
-echo "  2. Edit .ai-factory/ARCHITECTURE.${STACK:-ts-server}.md → save as .ai-factory/ARCHITECTURE.md"
+echo "  1. Review/edit the generated .ai-factory/DESCRIPTION.md (project domain, stack, constraints)"
+echo "  2. Review/edit the generated .ai-factory/ARCHITECTURE.md (layer structure, dependency direction)"
 echo "  3. Edit AGENTS.md placeholders to match your project"
 if [ "${DEPS_INSTALLED:-}" = "1" ]; then
   echo "  4. ✓ Dev + runtime dependencies installed into node_modules/ — nothing to do."
@@ -340,14 +413,23 @@ else
   esac
   echo "  4. Install dependencies (or re-run: ./install.sh ${STACK:-ts-server} --full):"
   echo ""
+  # `[*]-` (default-empty) = bash-3.2-safe under set -u when the array is empty/unset (macOS
+  # ships 3.2); non-empty output is byte-identical. Real installs always reach here with both
+  # arrays populated by 70-deps.sh — the guard covers minimal-scope sourcing (layer-units test).
   echo "     $_add \\"
-  printf '       %s\n' "${DEVDEPS[*]}"
+  printf '       %s\n' "${DEVDEPS[*]-}"
   echo ""
   echo "     $_add_rt \\"
-  printf '       %s\n' "${RUNTIME_DEPS[*]}"
+  printf '       %s\n' "${RUNTIME_DEPS[*]-}"
 fi
 echo "  5. Verify git hooks: 'git config core.hooksPath' should print .husky (install activated it; do NOT run 'npx husky init' — it would clobber the shipped .husky/pre-commit + pre-push)"
 echo "  6. Run: ./scripts/audit-ai-docs.sh — should PASS"
 echo "  7. Run: npm run validate"
 echo ""
 echo "For full guide: see INSTALL.md"
+
+# GH #974: honest non-zero exit on a --full install whose deps did not fully land (banner above
+# already said so). The dispatcher sources this file last, so this is install.sh's final rc.
+if [ -n "${_deps_incomplete:-}" ]; then
+  exit 1
+fi

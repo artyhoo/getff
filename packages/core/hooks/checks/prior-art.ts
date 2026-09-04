@@ -72,13 +72,38 @@ function stripPunctLower(word: string): string {
  * A package.json diff adds a NEW dependency (not a version bump) when a dep key
  * appears on a `+` line but no matching `-` line. Semver-prefix coverage mirrors
  * the bash: caret / tilde / range / digit / wildcard (dist-tags + URL specs slip).
+ *
+ * Keys inside `overrides` / `resolutions` / `pnpm` blocks are NOT dependencies —
+ * they force versions of packages already in the tree (PR #980 incident: security
+ * `overrides` entries were flagged as new explicit deps). Tracking is indent-based
+ * over the diff text and resets at each `@@` hunk header; a hunk that edits deep
+ * inside an existing overrides block without its opening line in context can still
+ * false-positive — accepted residual, the escape-hatch trailer covers it.
  */
 export function isNewDepAdded(packageJsonDiff: string): boolean {
   if (!packageJsonDiff) return false;
   const added = new Set<string>();
   const removed = new Set<string>();
   const re = /^([+-])\s+"([^"]+)":\s*"(\^|~|>=?|<=?|=|[0-9*])/;
+  const nonDepBlockRe = /^[+\- ]\s*"(overrides|resolutions|pnpm)"\s*:\s*\{/;
+  let skipIndent: number | null = null; // indent of the open non-dep block, if any
   for (const line of packageJsonDiff.split('\n')) {
+    if (line.startsWith('@@')) {
+      skipIndent = null; // new hunk — block context is lost
+      continue;
+    }
+    const body = line.slice(1); // strip the +/-/space diff marker
+    const indent = body.length - body.trimStart().length;
+    if (skipIndent !== null) {
+      // Inside overrides/resolutions/pnpm: nothing here is a dependency. The
+      // block ends at a closing brace back at (or above) the opening indent.
+      if (indent <= skipIndent && /^\s*[}\]]/.test(body)) skipIndent = null;
+      continue;
+    }
+    if (nonDepBlockRe.test(line)) {
+      skipIndent = indent;
+      continue;
+    }
     const m = re.exec(line);
     if (!m) continue;
     (m[1] === '+' ? added : removed).add(m[2]);
@@ -89,14 +114,27 @@ export function isNewDepAdded(packageJsonDiff: string): boolean {
   return false;
 }
 
+/**
+ * Documentation files never count toward the LOC triggers: the CLAUDE.md prose
+ * definition has always exempted doc edits («Refactors, doc edits, … NOT
+ * capability commits»); the detector lacked the parity until a shipped ≥80-LOC
+ * doc template tripped it (PR #1272 incident, 2026-08-07).
+ */
+const DOC_FILE_RE = /\.(md|markdown)$/i;
+
 function isNewCoreSubdir50Loc(sha: string, g: GitProvider): boolean {
   for (const { status, path } of g.changedFiles(sha)) {
     if (status !== 'A') continue;
     if (!path.startsWith('packages/core/')) continue;
+    if (DOC_FILE_RE.test(path)) continue;
     const subdir = path.slice('packages/core/'.length).split('/')[0];
     if (g.subdirExistedAtParent(sha, subdir)) continue; // not a NEW subdir
     const content = g.fileContent(sha, path);
-    if (content !== null && loc(content) >= 50) return true;
+    if (content !== null && loc(content) >= 50) {
+      // Byte-identical to a blob elsewhere in the tree = relocation/vendor
+      // copy, no new capability by construction (PR #1271 incident).
+      if (!g.blobDuplicatedInTree(sha, path)) return true;
+    }
   }
   return false;
 }
@@ -105,8 +143,11 @@ function isNewPackages80Loc(sha: string, g: GitProvider): boolean {
   for (const { status, path } of g.changedFiles(sha)) {
     if (status !== 'A') continue;
     if (!path.startsWith('packages/')) continue;
+    if (DOC_FILE_RE.test(path)) continue;
     const content = g.fileContent(sha, path);
-    if (content !== null && loc(content) >= 80) return true;
+    if (content !== null && loc(content) >= 80) {
+      if (!g.blobDuplicatedInTree(sha, path)) return true;
+    }
   }
   return false;
 }
@@ -234,6 +275,37 @@ export type SsotIdsSource =
  * the C1 broken-citation arm; when omitted the existence check is skipped and
  * `brokenCitations` stays empty.
  */
+/** Result of the PR-body arm: ok, plus why the PR is a capability change. */
+export interface PrBodyPriorArtResult {
+  ok: boolean;
+  /** Capability reason, or null when the PR range is not a capability change. */
+  reason: string | null;
+  message: string;
+}
+
+/**
+ * PR-body arm of the §7 check (2026-07-22 squash-trailer-loss incident,
+ * PR #1094 → #1097 on artyhoo/getff): a squash merge writes ONE commit whose
+ * diff is the whole PR range and whose message the agent merge path takes from
+ * the PR BODY — branch-commit `Prior-art:` trailers do NOT survive, so the F1
+ * gate (principle 11) goes red on the next unrelated PR. Counter: a capability
+ * PR must carry a valid `Prior-art:` line in the PR body itself.
+ *
+ * `g` is a range provider (utils/git.ts `rangeGit`) viewing merge-base..head
+ * as one synthetic commit. authorDate is passed '' — a PR merging today is
+ * never pre-cutoff, so the historical bypass must not fire.
+ */
+export function checkPrBodyPriorArt(
+  prBody: string,
+  g: GitProvider,
+  ssotIds?: ReadonlySet<number>,
+): PrBodyPriorArtResult {
+  const reason = detectCapabilityReason('PR_RANGE', g);
+  if (reason === null) return { ok: true, reason: null, message: '' };
+  const { code, message } = checkTrailerBody(prBody, '', undefined, ssotIds);
+  return { ok: code === 0, reason, message };
+}
+
 export function runPriorArtCheck(
   commits: readonly string[],
   g: GitProvider,

@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# AUTO-GENERATED from .claude/hooks/inject-memory-codification.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)
+# PostToolUse memory-codification reminder — path-scoped just-in-time delivery of the
+# codify-then-pointer discipline (codify durable conventions into the repo, not just agent memory).
+# @dual-pair: memory-codification-writemoment
+#   Two channels deliver this discipline at different moments: this hook (write-time, fires
+#   the instant a Write targets a user-scope agent-memory file) and the AI-agnostic
+#   agents/memory-codification-auditor.md (session-read, semantic audit of the whole memory
+#   store — a periodic sweep, not a per-write nudge). This hook is CC-only (PostToolUse);
+#   the portable contract is the discipline itself, readable by any harness that wants to
+#   build its own write-time injector against the same "/memory/" path signal.
+# spec: the codify-then-pointer discipline (write-time) + the auditor agent (session-read sweep).
+#
+# CAPABILITY-CHECK BY PATH, NOT BRAND NAME (dual-implementation-discipline.md §4): fires only
+# when the Write's target path contains a "/memory/" path segment under a user-scope Claude
+# Code projects directory — never on a brand string, never on a specific harness identifier.
+# Mirrors inject-matching-rule.sh's structure (session-cache, JSON additionalContext contract).
+#
+# Output contract (verified 2026-05-22, code.claude.com/docs/en/hooks.md):
+#   plain stdout is IGNORED for PostToolUse; context must be JSON additionalContext.
+set -uo pipefail
+
+command -v jq >/dev/null 2>&1 || exit 0   # graceful no-op without jq
+
+INPUT="$(cat)"
+TOOL="$(printf '%s' "$INPUT" | jq -r '.tool_name // ""' 2>/dev/null || true)"
+ABS_PATH="$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // ""' 2>/dev/null || true)"
+SESSION="$(printf '%s' "$INPUT" | jq -r '.session_id // "nosession"' 2>/dev/null || true)"
+
+case "$TOOL" in Write) ;; *) exit 0 ;; esac
+[[ -z "$ABS_PATH" ]] && exit 0
+
+# Path-based capability check: does the target path have a "/memory/" segment? This matches
+# the user-scope agent-memory convention (~/.claude/projects/<slug>/memory/*.md) without
+# hardcoding a home-directory path or any brand-specific prefix — any harness that stores
+# per-project agent memory under a "memory/" directory is covered the same way.
+case "$ABS_PATH" in
+  */memory/*) ;;
+  *) exit 0 ;;
+esac
+
+CACHE="${TMPDIR:-/tmp}/cc-memory-codification-${SESSION//[^A-Za-z0-9_-]/_}.txt"
+touch "$CACHE" 2>/dev/null || CACHE=""
+
+# Once per session — mirrors inject-matching-rule.sh's session-cache pattern.
+if [[ -n "$CACHE" ]] && grep -qxF "fired" "$CACHE" 2>/dev/null; then exit 0; fi
+[[ -n "$CACHE" ]] && printf 'fired\n' >> "$CACHE"
+
+MSG='📎 Memory-codification reminder — writing a durable behavioural convention ("always/never do X", "How to apply:") to agent memory? Codify it into the repo in the SAME step (e.g. CLAUDE.md or a .claude/rules/*.md rule), then reduce this memory entry to a one-line pointer: "See <repo-path> — codified at <SHA>". Ephemeral state, identity, and reference-fact pointers are fine to leave as-is.'
+
+jq -n --arg ctx "$MSG" \
+  '{hookSpecificOutput:{hookEventName:"PostToolUse",additionalContext:$ctx}}'
+exit 0

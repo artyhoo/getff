@@ -6,7 +6,7 @@
 
 **Origin:** 2026-05-28 — completes the implementation arc started by PR #261 R-phase (verdict F.3) + PR #262 research-patch (DN-1..DN-4 best-practices-backed answers).
 
-**Prerequisite:** PR #262 merged to staging — provides Issue #14956 verbatim + I-phase Stage 0 probe mandate as repo-authoritative DN-1 context. **DO NOT START** this umbrella before PR #262 merged.
+Depends on: PR 262 merged to staging — provides Issue #14956 verbatim + I-phase Stage 0 probe mandate as repo-authoritative DN-1 context. **DO NOT START** this umbrella before PR 262 merged.
 
 ---
 
@@ -119,7 +119,7 @@ helper-collapse verdict (PR #261). The inline block was classifier-incompatible
 under no-arg mode (`${umbrella:-}` substituted before §2 picks winner, so §3 always
 emitted "MISSING kickoff" in arg-mode and contributed nothing in no-arg mode).
 Helper reads winner-id from state-file populated by §2.
-```
+```text
 
 Squash-merge collapses the diff but PRESERVES the commit message body. Future `git log --grep="Removed §3 inline"` finds this entry.
 
@@ -206,3 +206,5 @@ Pre-flight grep per meta-launch §4b BEFORE `gh pr create`.
 - [`dual-implementation-discipline.md`](../../../.claude/rules/dual-implementation-discipline.md) — markers + Class triage
 - [`doc-authority-hierarchy.md`](../../../.claude/rules/doc-authority-hierarchy.md) — Class + header spec
 - [Issue #14956](https://github.com/anthropics/claude-code/issues/14956) — known CC bug requiring settings.json fallback
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

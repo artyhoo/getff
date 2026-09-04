@@ -16,7 +16,7 @@ You don't get to start execution until you've critiqued this kickoff itself. Wit
 1. **Read this entire kickoff cold** — pretend you didn't write it.
 2. **Spawn Mode A Opus subagent** with reviewer-discipline lens:
 
-```
+```text
 Task description: Review wave-2-3-execution kickoff for execution-readiness
 Subagent prompt:
   You are a cold-start reviewer. Read `.claude/orchestrator-prompts/wave-2-3-execution/kickoff.md`
@@ -102,7 +102,7 @@ Source: D-AuditC-1 verdict B + D-AuditC-6 verdict A+ + D-AuditC-3 verdict B + D6
 | R-4 | `~/.claude/skills/orchestrator/SKILL.md:10` | **Already done as of 2026-05-16** — `triggers:` field already contains `queue mode, kickoff, autonomous research, worker dispatch, воркер, ревьюер, очередь задач`. No action required. Listed here for traceability against `decisions.md §D-AuditC-1` (which lists R-1..R-4 + R-6, R-7). Executor: `grep "^triggers:" ~/.claude/skills/orchestrator/SKILL.md` — confirm presence, log in REPORT, move on. |
 | R-6 | `agents/docs-auditor.md` frontmatter `description:` | Add «Consumer-facing context» paragraph using template from `decisions.md §D-AuditC-6`. **Placeholder substitution discipline:** template literal `<consumer-only-path>` → `scripts/audit-ai-docs.sh`. Template literal `(see lines X-Y)` → **grep the file's graceful-degradation block first** (`grep -n "INFO:\|not present" agents/docs-auditor.md`), substitute real line range. If no clear graceful-degradation block exists, replace `(see lines X-Y)` with `(graceful degradation via Step-2 script-existence check)` or omit the parenthetical entirely — do NOT ship literal `X-Y`. |
 | R-7 | `agents/best-practices-sidecar.md` frontmatter `description:` | Same D-AuditC-6 template, adapted: `<consumer-only-path>` → `.ai-factory/RULES.md`. Same X-Y substitution discipline as R-6 (grep agent's graceful-degradation block, substitute real lines or rewrite). |
-| D6 | `docs/meta-factory/research-patches/2026-05-16-§17-think-time-gate.md` `## See also` | Add as first line of See also: «⚠ Erratum 2026-05-16 — see [2026-05-16-think-time-s17-gate-correction.md](2026-05-16-think-time-s17-gate-correction.md). H2 vs H10 re-evaluation with corrected Stop semantics deferred to implementation moment (Phase 11+).» |
+| D6 | `docs/meta-factory/research-patches/2026-05-16-§17-think-time-gate.md` `## See also` | Add as first line of See also: «⚠ Erratum 2026-05-16 — see [2026-05-16-think-time-s17-gate-correction.md](../../../docs/meta-factory/research-patches/2026-05-16-think-time-s17-gate-correction.md). H2 vs H10 re-evaluation with corrected Stop semantics deferred to implementation moment (Phase 11+).» |
 | D-AuditC-6 | `CLAUDE.md` Artifact Ownership Contract | Add ONE row. Owner column: «framework maintainers». Read-only column: «all sessions». Why column: «design-by-spec ref consumer-project paths absent in source repo». Artifact column: «agents/docs-auditor.md, agents/best-practices-sidecar.md (consumer-facing agents)». |
 
 **User-home edits (NOT in PR, no git):**
@@ -190,7 +190,7 @@ PR body MUST include:
 
 After PR opens, monitor CI. Then spawn Mode A reviewer subagent:
 
-```
+```text
 Task: Cold-start review of PR #<N> (Wave 2 OR Wave 3) — verify CI passes substantively + spot-check claims
 Subagent prompt:
   You are an independent reviewer. Read PR #<N> diff, body, CI checks. Verify:
@@ -348,3 +348,5 @@ Max plan window ~200k/5h. Likely needs 2 reset windows OR aggressive efficiency.
 - `.claude/orchestrator-prompts/d-items-strategic-dialogue/wave-1-prompt.md` — Wave 1 structural reference
 - Wave 1 PR #63 — working example of substantive §1.7 sections
 - `.claude/rules/parallel-subwave-isolation.md`, `.claude/rules/ai-laziness-traps.md`, `.claude/rules/reviewer-discipline.md` — discipline rules
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

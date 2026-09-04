@@ -19,16 +19,22 @@ import { Linter } from 'eslint';
 // the first plugin-rule negative-test with TS-only syntax; the default-import shape
 // only failed on that case, which is why the fixture tests never tripped.
 import * as tseslintParser from '@typescript-eslint/parser';
-import presetPlugin from '@rules-as-tests/preset-next-15-canonical/eslint-rules';
-import spaPlugin from '@rules-as-tests/preset-react-spa/eslint-rules';
-import corePlugin from '../eslint-rules/index.ts';
+import {
+  degradeFor,
+  gateOutcome,
+  isUnresolvablePluginRule,
+  knownPlugins,
+  resolvePluginRegistry,
+  type PluginRegistry,
+  type PresetResolutionOptions,
+} from './preset-plugin-resolver.ts';
 import {
   ESLINT_RESTRICTED_RULE_NAME,
   declarativeRestrictedConfigEntry,
   extractDeclarativeRuleConfigFromSnippet,
 } from '../synthesizer/compile-declarative-md.ts';
 import type { SynthesisPlan, SynthesizedRule } from '../synthesizer/types.ts';
-import type { GateFailure, GateOutcome } from './types.ts';
+import type { GateDegrade, GateFailure, GateOutcome } from './types.ts';
 
 // `plugins` and `parser` types in ESLint 10's flat config are stricter than
 // what @typescript-eslint/utils RuleModule and @typescript-eslint/parser
@@ -39,16 +45,11 @@ import type { GateFailure, GateOutcome } from './types.ts';
 // rules for Next.js), and the preset-react-spa plugin (handwritten rules for React SPA,
 // including require-error-boundary). A consumer receives all under one barrel
 // (install.sh copies core + preset into eslint-rules-local), so the gate must resolve
-// the same union. Recipe expansion (Phase 8 R12/14/20) will add entries here.
-const KNOWN_PLUGINS: Record<string, unknown> = {
-  'rules-as-tests': {
-    rules: { ...corePlugin.rules, ...presetPlugin.rules, ...spaPlugin.rules },
-  },
-};
-
+// the same union — which is exactly what preset-plugin-resolver.ts resolves, barrel first.
 function buildSingleRuleConfig(
   ruleName: string,
   ruleConfig: unknown,
+  registry: PluginRegistry,
 ): Linter.Config[] {
   return [
     {
@@ -61,7 +62,7 @@ function buildSingleRuleConfig(
           sourceType: 'module',
         },
       },
-      plugins: KNOWN_PLUGINS,
+      plugins: knownPlugins(registry),
       rules: { [ruleName]: ruleConfig as Linter.RuleEntry },
     },
   ] as Linter.Config[];
@@ -81,6 +82,8 @@ function matches(
 function runEslintRoundtrip(
   rule: SynthesizedRule,
   parsedSnippet: Record<string, unknown>,
+  registry: PluginRegistry,
+  degraded: GateDegrade[],
 ): GateFailure[] {
   if (rule.check.type !== 'eslint' && rule.check.type !== 'declarative') return [];
 
@@ -113,6 +116,12 @@ function runEslintRoundtrip(
     rule.check.type === 'eslint'
       ? rule.check.rule
       : ESLINT_RESTRICTED_RULE_NAME;
+  // Roundtripping an unregistered plugin rule throws inside linter.verify ("Could not find
+  // plugin") — record the skip instead of crashing the shipped bin.
+  if (isUnresolvablePluginRule(ruleName, registry)) {
+    degraded.push(degradeFor('ruleTester', ruleName, registry, rule.id));
+    return [];
+  }
   // Declarative rules are tested in ISOLATION against their OWN emitted entry (matched by
   // selector in the merged snippet) — never the whole merged set — so a sibling rule's
   // selector cannot fire on this rule's examples (e.g. R14's good code lacks 'use server',
@@ -124,7 +133,7 @@ function runEslintRoundtrip(
           rule.check.selector,
         ) ?? declarativeRestrictedConfigEntry(rule.check))
       : (parsedSnippet[ruleName] ?? 'error');
-  const config = buildSingleRuleConfig(ruleName, ruleConfig);
+  const config = buildSingleRuleConfig(ruleName, ruleConfig, registry);
   const linter = new Linter();
   const failures: GateFailure[] = [];
 
@@ -180,22 +189,27 @@ function runEslintRoundtrip(
   return failures;
 }
 
-export function runRuleTesterGate(plan: SynthesisPlan): GateOutcome {
+export function runRuleTesterGate(
+  plan: SynthesisPlan,
+  opts?: PresetResolutionOptions,
+): GateOutcome {
   const eslintRules = plan.rules.filter(
     (r) => r.check.type === 'eslint' || r.check.type === 'declarative',
   );
   if (eslintRules.length === 0) {
     return { status: 'n/a', failures: [] };
   }
+  const registry = resolvePluginRegistry(opts);
   const parsedSnippet = JSON.parse(plan.eslintConfigSnippet) as Record<
     string,
     unknown
   >;
   const failures: GateFailure[] = [];
+  const degraded: GateDegrade[] = [];
   for (const rule of eslintRules) {
-    failures.push(...runEslintRoundtrip(rule, parsedSnippet));
+    failures.push(
+      ...runEslintRoundtrip(rule, parsedSnippet, registry, degraded),
+    );
   }
-  return failures.length === 0
-    ? { status: 'pass', failures: [] }
-    : { status: 'fail', failures };
+  return gateOutcome(failures, degraded);
 }

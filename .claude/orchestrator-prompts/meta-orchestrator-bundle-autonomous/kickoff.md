@@ -2,7 +2,11 @@
 
 > **Type:** R-phase first (prior-art survey, $0), then conditional I-phase (~100-150k Opus, gated by Stage 2 maintainer decision).
 > **Base branch:** `staging` (NOT `main`).
-> **Depends on:** `meta-orchestrator-planner-completeness/kickoff.md` Stage 5 (L4 classifier + L5 dispatch routing). **Do NOT dispatch this umbrella before planner-completeness L4+L5 ships.** Bundle decisions consume L4 classifier outputs + L5 dispatch routes; without them = vapor.
+> **Do NOT dispatch this umbrella before planner-completeness L4+L5 ships.** Bundle decisions consume L4 classifier outputs + L5 dispatch routes; without them = vapor.
+
+| Stage | Scope (one line) | Depends on |
+|---|---|---|
+| bundle-autonomous | COMBINE direction: aggregate linear items into one autonomous batch umbrella (R-phase → gate → conditional I-phase) | `meta-orchestrator-planner-completeness/kickoff.md` Stage 5 (L4 classifier + L5 dispatch routing) |
 
 ## Maintainer's intent (verbatim, 2026-05-25)
 
@@ -247,3 +251,5 @@ Bundle direction is itself a meta-orchestrator capability. Apply own discipline:
   - `2026-05-24-meta-orchestrator-refactor-f3-scope.md` (G binding scope precedent — model for this kickoff's §1 table)
   - `2026-05-25-meta-orchestrator-f3-substance-followup.md` (most recent audit)
 - Rules: `.claude/rules/build-first-reuse-default.md`, `.claude/rules/no-paid-llm-in-ci.md`, `.claude/rules/reviewer-discipline.md`, `.claude/rules/ai-laziness-traps.md`, `.claude/rules/doc-authority-hierarchy.md`, `.claude/rules/dual-implementation-discipline.md`, `.claude/rules/phase-research-coverage.md`.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

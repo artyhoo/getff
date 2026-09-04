@@ -54,6 +54,12 @@ const HELPER = resolve(
   '.claude/skills/pipeline/helpers/priority-score.sh',
 );
 
+// Each case spawns priority-score.sh against a real git fixture, so the default 5s
+// ceiling is too tight under a fully parallel `npm run test` on a loaded box
+// (observed 14-51s). Mirrors the SLOW_SHELL_MS convention (PR #848, e.g.
+// pre-push.consumer-layout.test.ts).
+const SLOW_SHELL_MS = 30_000;
+
 const sandboxes: string[] = [];
 afterEach(() => {
   for (const d of sandboxes.splice(0)) rmSync(d, { recursive: true, force: true });
@@ -162,7 +168,7 @@ function lineFor(stdout: string, name: string): string | undefined {
   return stdout.split('\n').find((l) => l.startsWith(`${name} `));
 }
 
-describe('priority-score.sh — skip-closed optimisation (AC-1 + AC-2)', () => {
+describe('priority-score.sh — skip-closed optimisation (AC-1 + AC-2)', { timeout: SLOW_SHELL_MS }, () => {
   it('excludes cheap-closed (done.md + branch) from the C2 subset, keeps C2-only + open in it; DONE-membership unchanged', () => {
     // Targets priority-score.sh skip-closed pre-filter block:
     //   _open_survivors = umbrellas with kickoff.md, NO done.md, NO merged-branch match

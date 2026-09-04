@@ -9,16 +9,27 @@
 #   ./install.sh ts-server --full               # also auto-install dev-deps (no prompts; stack required)
 #   ./setup -y ts-server                        # recommended one-shot path (wrapper: --full + companions)
 #   ./install.sh ts-server --wire-ci            # also auto-wire missing CI gates via yq (opt-in, detect-first)
+#   ./install.sh ts-server --with-aif-suite     # also ship the AIF operator suite (aif-handoff runtime required)
+#   ./install.sh ts-server --all                # everything: --full + --with-aif-suite (operator machines)
+#   ./install.sh python                         # Python toolchain lane (non-npm; ast-grep + ruff, no package.json — see INSTALL-FOR-AI.md)
+#   ./install.sh ts-server --profile core       # rules + tests + guards + killer payload only (below the default)
+#   ./install.sh ts-server --profile env        # DEFAULT: core + the operator contour (/arch, /orchestrator, /pipeline, /reviewer, night-mode/SDD)
+#   ./install.sh ts-server --profile factory    # env + AIF operator suite (dispatcher/harvest/aif-doctor + runtime-bridge + GLM one-button)
 #
 # What it does:
-#   1. Copies skills/ + .claude/skills/{pipeline,dispatcher,aif-doctor,template-audit,night-mode,ai-doc,rule-research,harvest,story}/ → .claude/skills/
-#      (the meta-orchestrator pipeline + its orchestration companions are shipped from
-#       .claude/skills/ as single source of truth; ONLY self-reflection is intentionally
-#       NOT shipped — repo-internal §1.7 self-review discipline per build-first-reuse-default.md §1.1 shipped-axis;
+#   1. Copies skills/ + the consumer-facing core skill set
+#      .claude/skills/{template-audit,ai-doc,rule-research}/ → .claude/skills/ (always).
+#      With --with-aif-suite, also ships the AIF operator suite
+#      {dispatcher,aif-doctor,harvest,story,claude-glm-executor-handoff}/ (F7, owner GO 2026-07-10) —
+#      those presuppose the aif-handoff operator runtime + `story`'s lang-pack (#934), so they
+#      are opt-in, not default (see setup.d/10-skills.sh + --with-aif-suite below).
+#      (all shipped from .claude/skills/ as single source of truth; ONLY self-reflection is
+#       intentionally NOT shipped — repo-internal §1.7 self-review discipline per build-first-reuse-default.md §1.1 shipped-axis;
 #       cross-refs to repo-internal paths get sed-transformed to GitHub blob URLs —
 #       see UPSTREAM_BLOB_URL + transform_internal_refs() below;
 #       per .claude/rules/dual-implementation-discipline.md §7 SSOT)
-#   2. Copies agents/  → .claude/agents/
+#   2. Copies agents/  → .claude/agents/ (consumer-facing set; orchestrator-worker-discipline +
+#      reviewer-discipline are AIF-suite-gated — F7 agents arm; authoring-only probers never ship)
 #   3. Copies factory templates → .ai-factory/  (templates: as-is, you fill in placeholders)
 #   4. Copies packages/core/audit-self/ + packages/preset-*/audit-self/ → scripts/
 #   5. Copies packages/core/templates/shared/ + packages/preset-*/templates/ → project root
@@ -30,6 +41,13 @@
 # Use --wire-ci to also auto-wire any CI-orphan rule-enforcement gate (§6c) into your existing
 # workflow via yq (used-if-present, never installed by us; default is the non-destructive WARN +
 # paste-block — wiring edits your kept workflow in place, so it is opt-in). No effect in --dry-run.
+# Use --with-aif-suite to also ship the AIF operator suite: the five skills (dispatcher,
+# aif-doctor, harvest, story, claude-glm-executor-handoff) PLUS the two suite agents (orchestrator-worker-discipline,
+# reviewer-discipline) and their aif-orchestrator-discipline skill-context. Those presuppose the
+# aif-handoff operator runtime and story's lang-pack (#934); default installs only the
+# consumer-facing core set. Opt-in + reversible (delete the six .claude/skills/ dirs, the two
+# .claude/agents/ files and the skill-context dir to undo) — same posture as companions.manifest.
+# Use --all as the operator shorthand for --full + --with-aif-suite («everything»).
 
 set -euo pipefail
 
@@ -63,16 +81,81 @@ DRY_RUN=""
 FULL=""
 WIRE_CI=""
 REFRESH=""
-for arg in "$@"; do
+# python-delivery-v0 S2: the getff Python toolchain lane. TOOLCHAIN="" = the default npm lane;
+# TOOLCHAIN="python" routes to the pure-bash Python delivery (setup.d/45-python.sh) instead of the
+# npm stack pipeline. Set by an explicit `install.sh python` positional (always wins — the
+# auto-detect block below is gated on `[ -z "$TOOLCHAIN" ]`, so a non-empty TOOLCHAIN already IS the
+# "explicit wins" signal; no separate _EXPLICIT flag needed) OR by auto-detect (pyproject.toml
+# present + no package.json → OFFER; non-interactive declines). The npm flow is untouched when
+# TOOLCHAIN stays "" (byte-identical baselines are the gate).
+TOOLCHAIN=""
+# F7 (owner GO 2026-07-10): the AIF operator suite (dispatcher aif-doctor harvest story
+# claude-glm-executor-handoff) ships ONLY under this explicit opt-in. Those five presuppose the aif-handoff
+# operator runtime and `story` crashes on landing until its lang-pack ships (#934) — a consumer
+# without that runtime should not get them by default. Opt-in + reversible, same posture as the
+# companions.manifest flow (.claude/rules/companion-install-principle.md; BFR §1.1 integrate-
+# never-hard-depend). The consumer-facing core set (template-audit ai-doc rule-research) stays
+# default. See setup.d/10-skills.sh for the split.
+WITH_AIF_SUITE=""
+# PROFILE_RAW holds the literal `--profile <value>` until the resolution block below normalises
+# it to one of {core, env, factory} (case-insensitive). PROFILE is the resolved variable that
+# setup.d layers read; set later. Empty PROFILE_RAW = no --profile flag passed (resolved to the
+# TTY-menu / non-TTY-default path in the resolution block).
+PROFILE_RAW=""
+# while-loop (not `for arg in "$@"`) so value-taking flags like `--profile <name>` can consume
+# their value via shift without snapshot-vs-positional skew. The `*)` no-op preserves
+# forward-compat for unknown flags (today they're silently ignored; future flags can be added
+# without rewriting the loop).
+while [ "$#" -gt 0 ]; do
+  arg="$1"
   case "$arg" in
     --dry-run)              DRY_RUN="--dry-run" ;;
     --force)                FORCE="--force" ;;
     --full)                 FULL="--full" ;;
     --wire-ci)              WIRE_CI="--wire-ci" ;;
     --refresh)              REFRESH="--refresh" ;;
+    --with-aif-suite)       WITH_AIF_SUITE="--with-aif-suite" ;;
+    # --profile <name> — install depth (kickoff §0 + design spec §4 A1, beta-delivery-ux S1).
+    # Three values, monotonic depth: core (rules-only, no operator contour) → env (the default;
+    # multi-model contour surface as placeholders, no AIF runtime) → factory (env + the AIF
+    # operator suite + runtime-bridge wiring + GLM one-button placeholder). The flag LAYERS OVER
+    # the existing flag machinery (kickoff §4 item 3: every flag that worked before still works).
+    # Mutually-aware with --with-aif-suite: if both are passed and disagree → WARN + --profile
+    # wins (explicit depth signal overrides the escape hatch). --all stays as the legacy alias
+    # for `--full --with-aif-suite` AND additionally sets PROFILE=factory (factory = env + AIF
+    # suite per §2.1 of the inventory, so the legacy alias maps cleanly to the deepest profile).
+    # Case-insensitive: normalised to lower-case in the resolution block below.
+    --profile)
+      shift
+      # Fail-loud if --profile is the last arg OR the next arg is itself a flag
+      # (cold-QA MINOR 1 fix: previously `--profile --dry-run` consumed --dry-run
+      # as the value and emitted a misleading "unknown value" error).
+      if [ "$#" -eq 0 ] || [ "${1#-}" != "${1:-}" ]; then
+        echo "❌ --profile requires a value (core|env|factory)" >&2
+        exit 1
+      fi
+      PROFILE_RAW="$1"
+      ;;
+    --profile=*)            PROFILE_RAW="${arg#--profile=}" ;;
+    # --all = everything: --full (dev-deps, no prompts) + the AIF operator suite. Operator
+    # convenience alias (owner directive 2026-07-11); consumer default (-y/--full) stays curated.
+    # Under --profile semantics (S1): --all additionally implies --profile factory, since
+    # factory = env + AIF suite per inventory §2.1 (the AIF suite IS the factory-only payload).
+    --all)                  FULL="--full"; WITH_AIF_SUITE="--with-aif-suite" ;;
     ts-server|react-next|react-spa|react-native)   STACK="$arg"; STACK_EXPLICIT="1" ;;
+    # python = a TOOLCHAIN lane, not a fifth npm stack. Explicit positional → always wins over
+    # auto-detect (python-delivery-v0 S2 §1). Routed to do_python_lane below, before the npm
+    # package.json precondition + stack pick, then early-exits (never touches the npm layer loop).
+    python)                 TOOLCHAIN="python" ;;
+    # cargo = the Rust TOOLCHAIN lane (ecosystem-wiring W4), same shape as python: explicit
+    # positional wins over auto-detect, routed to do_cargo_lane below, early-exits.
+    cargo)                  TOOLCHAIN="cargo" ;;
+    # go = the Go TOOLCHAIN lane (adapter-jig J3), same shape as python/cargo: explicit
+    # positional wins over auto-detect, routed to do_go_lane below, early-exits.
+    go)                     TOOLCHAIN="go" ;;
     *)                      ;;
   esac
+  shift
 done
 SKIPPED=()
 
@@ -106,6 +189,8 @@ SHIPPED_DOCS=(
   "packages/core/templates/shared/DESCRIPTION.template.md"
   "packages/core/templates/shared/ARCHITECTURE.ts-server.md"
   "packages/core/templates/shared/integration-rules.md"
+  "packages/core/templates/shared/tier-home.md"
+  "packages/core/templates/shared/AI-USAGE-GUIDE.md"
   "packages/preset-next-15-canonical/RULES.md"
   "packages/preset-next-15-canonical/RULES.react-next.md"
   "packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md"
@@ -126,6 +211,7 @@ SHIPPED_DOCS=(
   "agents/aif-init.md"
   "agents/rule-researcher.md"
   "agents/capability-reuse-auditor.md"
+  "agents/rule-test-author.md"
   "skills/tool-bootstrapping/SKILL.md"
   "skills/tool-bootstrapping/references/decision-format.md"
 )
@@ -150,6 +236,304 @@ if [ "$verify_fail" -ne 0 ]; then
   exit 1
 fi
 echo "  ✓ all ${#SHIPPED_DOCS[@]} shipped artefacts carry valid headers"
+
+# ─── getff Python toolchain lane (python-delivery-v0 S2) ─────────────────────
+# A NON-npm entry: delivers the pre-rendered ast-grep + ruff lint bundle (setup.d/45-python.sh) into a
+# consumer PYTHON project, then proves it fires. Runs the pure-bash delivery under the env-var contract
+# GETFF_TOOLCHAIN=python and EXITS — it never enters the npm package.json precondition, stack pick, or
+# the setup.d layer loop, so no npm-assuming step fires on this lane. do_python_lane is defined here so
+# it is in scope for the detection block just below (which runs before the npm package.json require).
+do_python_lane() {
+  export GETFF_TOOLCHAIN=python
+  [ -n "$REFRESH" ] && export GETFF_TOOLCHAIN_REFRESH=1
+  if [ -n "$REFRESH" ]; then
+    echo "▶ Refreshing getff Python toolchain artefacts in $PROJECT_ROOT"
+  else
+    echo "▶ Installing getff Python toolchain into $PROJECT_ROOT"
+  fi
+  # Source the delivery layer: its activation guard (GETFF_TOOLCHAIN=python) runs
+  # deliver_python_toolchain, reusing copy_safe/refresh_safe from lib.sh (already in scope). The layer
+  # also DEFINES _py_firing_self_check (helper) without auto-running it — we call it below so the
+  # firing proof is an install-flow concern (parity with 99-finalize.sh's capstone self-verify).
+  # shellcheck source=setup.d/45-python.sh
+  source "$PKG_ROOT/setup.d/45-python.sh"
+  # Emit the python rules-lock variant (machine-reproducibility record of the DELIVERED rule set —
+  # ledger 2 the rule-tests skill reads: emittedAt/sourceFingerprint). Rides the .getff/ namespace the
+  # seam already owns (NO new delivery channel). Skipped under --dry-run (nothing was written to lock).
+  if [ "$DRY_RUN" != "--dry-run" ]; then
+    _py_write_rules_lock
+  fi
+  # Post-install firing self-check: always-run with graceful degrade (matches the 99-finalize.sh
+  # capstone UX — no separate opt-in flag; an absent tool degrades loudly, never silently green).
+  # Skipped only under --dry-run (nothing was written to fire against).
+  if [ "$DRY_RUN" != "--dry-run" ]; then
+    _py_firing_self_check
+  else
+    echo "  [dry-run] would run the getff firing self-check (plant a violation in an OS temp dir → assert ast-grep + ruff fire RED)"
+  fi
+  # D8 / getff-any-stack-trace S2: deliver the curated agent surface (skills / agents / hooks /
+  # .mcp.json / AGENTS.md / .ai-factory/) the npm-lane setup.d layer loop would have delivered.
+  # install.sh EXITS at this point (exit 0 below) BEFORE the layer loop, so the python lane would
+  # otherwise ship rules without a runnable agent — the one-beat loop S3 depends on has nothing to
+  # run against. _py_deliver_agent_surface (defined in setup.d/45-python.sh, sourced above)
+  # replicates the curated subset of the layer list — see its docstring for the per-layer mapping.
+  _py_deliver_agent_surface
+  # consumer-refresh-integrity R1: persist the delivery baseline now that every lane delivery
+  # (and its post-copy mutations) has run. Fail-open — never fails the lane (setup.d/lib.sh).
+  refresh_baseline_flush
+  echo ""
+  echo "✅ getff Python toolchain + agent surface ${REFRESH:+re-}delivery complete."
+}
+
+# ─── getff Rust/cargo toolchain lane (ecosystem-wiring W4) ───────────────────
+# A NON-npm entry: delivers the pre-rendered clippy.toml bans + cargo-deny surface (setup.d/46-cargo.sh)
+# into a consumer RUST crate, then proves it fires. Runs the pure-bash delivery under the env-var
+# contract GETFF_TOOLCHAIN=cargo and EXITS — parity with do_python_lane; it never enters the npm
+# package.json precondition, stack pick, or the setup.d layer loop.
+do_cargo_lane() {
+  export GETFF_TOOLCHAIN=cargo
+  [ -n "$REFRESH" ] && export GETFF_TOOLCHAIN_REFRESH=1
+  if [ -n "$REFRESH" ]; then
+    echo "▶ Refreshing getff Rust/cargo toolchain artefacts in $PROJECT_ROOT"
+  else
+    echo "▶ Installing getff Rust/cargo toolchain into $PROJECT_ROOT"
+  fi
+  # Source the delivery layer: its activation guard (GETFF_TOOLCHAIN=cargo) runs
+  # deliver_cargo_toolchain, reusing copy_safe/refresh_safe from lib.sh (already in scope). The layer
+  # also DEFINES _cargo_firing_self_check without auto-running it — we call it below so the firing
+  # proof is an install-flow concern (parity with do_python_lane + 99-finalize.sh's capstone self-verify).
+  # shellcheck source=setup.d/46-cargo.sh
+  source "$PKG_ROOT/setup.d/46-cargo.sh"
+  if [ "$DRY_RUN" != "--dry-run" ]; then
+    _cargo_firing_self_check
+  else
+    echo "  [dry-run] would run the getff firing self-check (plant a violation in an OS temp dir → assert cargo clippy fires RED)"
+  fi
+  # consumer-refresh-integrity R1: persist the delivery baseline (fail-open; setup.d/lib.sh).
+  refresh_baseline_flush
+  echo ""
+  echo "✅ getff Rust/cargo toolchain ${REFRESH:+re-}delivery complete."
+}
+
+# ─── getff Go toolchain lane (adapter-jig J3) ─────────────────────────────────
+# A NON-npm entry: delivers the pre-rendered .golangci.yml forbidigo bans surface (setup.d/47-go.sh)
+# into a consumer GO module, then proves it fires. Runs the pure-bash delivery under the env-var
+# contract GETFF_TOOLCHAIN=go and EXITS — parity with do_cargo_lane; it never enters the npm
+# package.json precondition, stack pick, or the setup.d layer loop.
+do_go_lane() {
+  export GETFF_TOOLCHAIN=go
+  [ -n "$REFRESH" ] && export GETFF_TOOLCHAIN_REFRESH=1
+  if [ -n "$REFRESH" ]; then
+    echo "▶ Refreshing getff Go toolchain artefacts in $PROJECT_ROOT"
+  else
+    echo "▶ Installing getff Go toolchain into $PROJECT_ROOT"
+  fi
+  # Source the delivery layer: its activation guard (GETFF_TOOLCHAIN=go) runs
+  # deliver_go_toolchain, reusing copy_safe/refresh_safe from lib.sh (already in scope). The layer
+  # also DEFINES _go_firing_self_check without auto-running it — we call it below so the firing
+  # proof is an install-flow concern (parity with do_cargo_lane + 99-finalize.sh's capstone self-verify).
+  # shellcheck source=setup.d/47-go.sh
+  source "$PKG_ROOT/setup.d/47-go.sh"
+  if [ "$DRY_RUN" != "--dry-run" ]; then
+    _go_firing_self_check
+  else
+    echo "  [dry-run] would run the getff firing self-check (plant a violation in an OS temp dir → assert golangci-lint fires RED)"
+  fi
+  # consumer-refresh-integrity R1: persist the delivery baseline (fail-open; setup.d/lib.sh).
+  refresh_baseline_flush
+  echo ""
+  echo "✅ getff Go toolchain ${REFRESH:+re-}delivery complete."
+}
+
+# Python-lane detection (before the npm package.json precondition, which a python repo cannot satisfy):
+#   (a) explicit `install.sh python` positional → TOOLCHAIN already "python" (always wins).
+#   (b) --refresh of a PRIOR python install (marker: .getff-python-install.log or .getff/astgrep-rules) —
+#       ONLY when no explicit npm STACK arg was given (STACK_EXPLICIT). Review fix (S2 round 1): an
+#       explicit `install.sh ts-server --refresh` on a repo that carries BOTH package.json and a stale
+#       python marker must refresh the npm stack, not silently reroute to the python-only refresh and
+#       exit 0 — that used to skip the npm refresh entirely with no error. An explicit stack/toolchain
+#       arg now always takes precedence over the marker auto-detect.
+#   (c) fresh auto-detect: pyproject.toml present + NO package.json → OFFER. Interactive prompt defaults
+#       No; the non-interactive (-y/--full) and --dry-run paths DECLINE (npm lane) — the explicit
+#       `python` positional is the non-interactive opt-in (kickoff §1 detect order).
+if [ -z "$TOOLCHAIN" ]; then
+  if [ -n "$REFRESH" ] && [ -z "$STACK_EXPLICIT" ] && { [ -f "$PROJECT_ROOT/.getff-python-install.log" ] || [ -d "$PROJECT_ROOT/.getff/astgrep-rules" ]; }; then
+    TOOLCHAIN="python"
+  elif [ -z "$REFRESH" ] && [ ! -f "$PROJECT_ROOT/package.json" ] && [ -f "$PROJECT_ROOT/pyproject.toml" ]; then
+    if [ -n "$FULL" ] || [ "$DRY_RUN" = "--dry-run" ]; then
+      : # non-interactive / dry-run → decline (npm lane). Explicit `python` arg is the opt-in.
+    else
+      echo "▶ Detected a Python project (pyproject.toml present, no package.json)."
+      # Review fix (S2 round 1): a bare `read` returns non-zero at EOF (non-tty invocation with a
+      # closed stdin, e.g. this script run without -y in CI or a scripted harness) — under
+      # `set -euo pipefail` that used to abort the whole script right here with a message-less
+      # `exit 1`, instead of falling through to the documented "decline → npm lane → clean
+      # no-package.json abort" behaviour. `|| _py_ans=""` makes the read EOF-safe: a closed stdin is
+      # treated as an empty (declining) answer, same as an explicit empty Enter-press.
+      read -rp "  Install the getff Python toolchain lane (ast-grep + ruff rules)? [y/N]: " _py_ans || _py_ans=""
+      case "$_py_ans" in [yY]|[yY][eE][sS]) TOOLCHAIN="python" ;; esac
+    fi
+  fi
+fi
+
+if [ "$TOOLCHAIN" = "python" ]; then
+  do_python_lane
+  exit 0
+fi
+
+# Cargo-lane detection (same shape as python; runs only if the python block did not claim TOOLCHAIN):
+#   (a) explicit `install.sh cargo` positional → TOOLCHAIN already "cargo" (always wins).
+#   (b) --refresh of a PRIOR cargo install (marker: .getff-cargo-install.log or a getff-owned clippy.toml)
+#       — ONLY when no explicit npm STACK arg was given (parity with the python marker precedence fix).
+#   (c) fresh auto-detect: Cargo.toml present + NO package.json → OFFER. Interactive prompt defaults No;
+#       the non-interactive (-y/--full) + --dry-run paths DECLINE — the explicit `cargo` positional is
+#       the non-interactive opt-in.
+if [ -z "$TOOLCHAIN" ]; then
+  if [ -n "$REFRESH" ] && [ -z "$STACK_EXPLICIT" ] && { [ -f "$PROJECT_ROOT/.getff-cargo-install.log" ] || { [ -f "$PROJECT_ROOT/clippy.toml" ] && grep -q 'generated by getff' "$PROJECT_ROOT/clippy.toml" 2>/dev/null; }; }; then
+    TOOLCHAIN="cargo"
+  elif [ -z "$REFRESH" ] && [ ! -f "$PROJECT_ROOT/package.json" ] && [ -f "$PROJECT_ROOT/Cargo.toml" ]; then
+    if [ -n "$FULL" ] || [ "$DRY_RUN" = "--dry-run" ]; then
+      : # non-interactive / dry-run → decline (npm lane). Explicit `cargo` arg is the opt-in.
+    else
+      echo "▶ Detected a Rust project (Cargo.toml present, no package.json)."
+      read -rp "  Install the getff Rust/cargo toolchain lane (clippy bans + cargo-deny)? [y/N]: " _cargo_ans || _cargo_ans=""
+      case "$_cargo_ans" in [yY]|[yY][eE][sS]) TOOLCHAIN="cargo" ;; esac
+    fi
+  fi
+fi
+
+if [ "$TOOLCHAIN" = "cargo" ]; then
+  do_cargo_lane
+  exit 0
+fi
+
+# Go-lane detection (same shape as cargo; runs only if neither python nor cargo claimed TOOLCHAIN):
+#   (a) explicit `install.sh go` positional → TOOLCHAIN already "go" (always wins).
+#   (b) --refresh of a PRIOR go install (marker: .getff-go-install.log or a getff-owned .golangci.yml)
+#       — ONLY when no explicit npm STACK arg was given (parity with the python/cargo marker fix).
+#   (c) fresh auto-detect: go.mod present + NO package.json/pyproject.toml/Cargo.toml → OFFER.
+#       Interactive prompt defaults No; the non-interactive (-y/--full) + --dry-run paths DECLINE —
+#       the explicit `go` positional is the non-interactive opt-in.
+if [ -z "$TOOLCHAIN" ]; then
+  if [ -n "$REFRESH" ] && [ -z "$STACK_EXPLICIT" ] && { [ -f "$PROJECT_ROOT/.getff-go-install.log" ] || { [ -f "$PROJECT_ROOT/.golangci.yml" ] && grep -q 'generated by getff' "$PROJECT_ROOT/.golangci.yml" 2>/dev/null; }; }; then
+    TOOLCHAIN="go"
+  elif [ -z "$REFRESH" ] && [ ! -f "$PROJECT_ROOT/package.json" ] && [ ! -f "$PROJECT_ROOT/pyproject.toml" ] && [ ! -f "$PROJECT_ROOT/Cargo.toml" ] && [ -f "$PROJECT_ROOT/go.mod" ]; then
+    if [ -n "$FULL" ] || [ "$DRY_RUN" = "--dry-run" ]; then
+      : # non-interactive / dry-run → decline (npm lane). Explicit `go` arg is the opt-in.
+    else
+      echo "▶ Detected a Go project (go.mod present, no package.json/pyproject.toml/Cargo.toml)."
+      read -rp "  Install the getff Go toolchain lane (golangci-lint forbidigo bans)? [y/N]: " _go_ans || _go_ans=""
+      case "$_go_ans" in [yY]|[yY][eE][sS]) TOOLCHAIN="go" ;; esac
+    fi
+  fi
+fi
+
+if [ "$TOOLCHAIN" = "go" ]; then
+  do_go_lane
+  exit 0
+fi
+# ─── Profile resolution (beta-delivery-ux S1, design spec §4 A1) ──────────────
+# Resolve the install depth: core (default) | env (core + multi-model contour
+# placeholders, no AIF runtime) | factory (env + AIF operator suite + runtime-bridge
+# + GLM one-button placeholder). The flag is the agent/CI surface; the TTY menu is
+# the human surface; non-TTY defaults to env (core for --refresh). The variable exported here (PROFILE)
+# is read by setup.d/10-skills.sh (F7 split is now profile-driven) and by setup.d/
+# companions.manifest (@profile: factory comment marker for the aif-handoff row).
+#
+# Mutual-awareness with --with-aif-suite: factory-depth installs the AIF suite, so
+# `--with-aif-suite` is the explicit escape that selects factory-equivalent skill
+# scope. If both are passed and they disagree → WARN + --profile wins (explicit
+# depth signal overrides the escape hatch). `--all` is the legacy alias for
+# `--full --with-aif-suite`; we additionally derive PROFILE=factory from it for
+# downstream consistency (factory = env + AIF suite per inventory §2.1).
+#
+# The flag LAYERS OVER the existing flag machinery: every flag that worked before
+# still works (kickoff §4 item 3). Profiles are an additive surface, not a
+# replacement for --with-aif-suite / --all.
+PROFILE=""
+# Normalise --profile value to lower-case + validate against the allowed set.
+if [ -n "$PROFILE_RAW" ]; then
+  # to-lower via tr; pure-bash ${var,,} would also work but tr is portable across
+  # the bash 3.2 (macOS default) / bash 4+ split that has bitten this script before.
+  PROFILE="$(printf '%s' "$PROFILE_RAW" | tr '[:upper:]' '[:lower:]')"
+  case "$PROFILE" in
+    core|env|factory) ;;
+    *)
+      echo "❌ --profile: unknown value '$PROFILE_RAW' (allowed: core | env | factory)" >&2
+      exit 1
+      ;;
+  esac
+fi
+# If --with-aif-suite was passed without an explicit --profile, derive factory (the
+# AIF suite IS the factory-only payload per inventory §2.1 — the escape hatch selects
+# the deeper profile). If both were passed and disagree, WARN + --profile wins.
+if [ -n "$WITH_AIF_SUITE" ] && [ -z "$PROFILE" ]; then
+  PROFILE="factory"
+elif [ -n "$WITH_AIF_SUITE" ] && [ "$PROFILE" != "factory" ]; then
+  echo "⚠  --with-aif-suite is factory-depth, but --profile $PROFILE was also passed." >&2
+  echo "   --profile wins (explicit depth signal); --with-aif-suite is ignored for depth routing." >&2
+  echo "   (The AIF suite will still be installed only if your profile is factory.)" >&2
+fi
+# No --profile flag at all → TTY menu (interactive human) or non-TTY default.
+# The TTY menu is the HUMAN surface. The non-interactive contract used everywhere
+# else in this script (--full/-y at install.sh:468 fail-loud instead of showing
+# the stack menu; --full/--dry-run at :316 and :348 decline the python/cargo
+# toolchain prompts) MUST also skip this menu. Otherwise `bash /tmp/getff/setup
+# -y <stack>` attached to a terminal — the exact invocation INSTALL-FOR-AI.md:66
+# tells an AI to run — hangs on `read -rp` here, regressing kickoff §4 item 3
+# (existing flag back-compat) and breaking the diff's own claim at
+# INSTALL-FOR-AI.md:83 ("Every flag that worked before still works"). The flag
+# LAYERS OVER the menu; it does not replace it.
+#
+# Round-3 gate (rework MAJOR): the menu MUST also skip when a positional stack
+# arg was supplied (STACK_EXPLICIT=1). Per the reviewer's binding constraint
+# («existing interactive prompt order must keep working»), the §8 dev-deps →
+# §8b tsx prompts in setup.d/70-deps.sh:269/374 are the existing interactive
+# flow for `install.sh <stack>`; inserting the profile menu in front of them
+# intercepts the first positional answer meant for §8 (e.g. 'n') and exits 1
+# at the `*)` branch below. tests/install-sh/gh-636-ensure-tsx-root.test.sh
+# Arm D feeds `n` then `y` under a real pty — the menu ate `n` → exit 1 (16/3
+# red). A positional stack signals the user is already on the existing flow;
+# depth selection via `--profile <name>` still works as a flag in that case.
+# The menu only fires for the no-stack-arg path (`./install.sh` bare at a TTY).
+if [ -z "$PROFILE" ]; then
+  if [ -t 0 ] && [ -z "$DRY_RUN" ] && [ -z "$FULL" ] && [ -z "$STACK_EXPLICIT" ]; then
+    echo "What install depth do you want?"
+    echo "  1) core    — rules + tests + guard hooks + killer payload only. No operator contour, no AIF runtime."
+    echo "  2) env     — core + the operator working contour (/arch, /orchestrator, /pipeline, /reviewer, night-mode/SDD, tier criteria); no AIF runtime. THE DEFAULT."
+    echo "  3) factory — env + the AIF operator suite (dispatcher/harvest/aif-doctor + runtime-bridge + GLM one-button placeholder) — full aif-handoff runtime stack."
+    read -rp "Choose [1/2/3] (default 2): " _profile_ans || _profile_ans=""
+    case "$_profile_ans" in
+      1) PROFILE="core" ;;
+      3) PROFILE="factory" ;;
+      "") PROFILE="env" ;;
+      2) PROFILE="env" ;;
+      *) echo "❌ Invalid choice (use 1, 2, or 3)"; exit 1 ;;
+    esac
+  else
+    # Non-TTY (piped stdin, --dry-run, or closed stdin) OR non-interactive flag
+    # (-y/--full): take the same default the menu offers, with a one-line notice.
+    # Never blocks; CI / agents / `./install.sh < /dev/null` / `./setup -y` always
+    # proceed. `factory` stays an explicit opt-in (--profile factory) because it
+    # presupposes the aif-handoff runtime; `core` is the explicit way down.
+    #
+    # --refresh is the ONE exception and keeps `core`. Refresh is not an install:
+    # the env/factory arms of do_refresh carry a presence clause, so with PROFILE=core
+    # a refresh updates whatever tiers are already on disk and creates none. Defaulting
+    # a refresh to `env` would silently deepen a consumer who deliberately chose core —
+    # exactly what install.sh:697 already forbids for the factory arm. A consumer who
+    # wants the new default on an existing install asks for it: `--refresh --profile env`.
+    if [ -n "$REFRESH" ]; then
+      PROFILE="core"
+      echo "[profile] core (refresh keeps the depth already on disk; pass --profile env to deepen)"
+    else
+      PROFILE="env"
+      echo "[profile] env (non-interactive default; --profile core for rules-only, --profile factory for the AIF suite)"
+    fi
+  fi
+fi
+export PROFILE
+echo "[profile] $PROFILE"
 
 # Must be a project (has package.json) — but in dry-run we just warn so the user can preview.
 if [ ! -f "$PROJECT_ROOT/package.json" ]; then
@@ -246,13 +630,39 @@ do_refresh() {
       manual-rule-liveness-prober.md) continue ;;
       shipped-agent-liveness-prober.md) continue ;;
       backward-sweep-auditor.md) continue ;;  # authoring-only tool (§1.7 backward-check cold-sweep, T21)
+      dual-channel-drift-auditor.md) continue ;;  # authoring-only tool (dual-implementation-discipline §8 semantic half — @dual-pair group drift/copy audit)
+      adapter-jig-reviewer.md) continue ;;  # authoring-only tool (framework-side adapter-wiring conformance review, adapter-jig J1)
+      dispatch-input-checker.md) continue ;;  # authoring-only station (arch-v2 S-B contract v2, dispatch-input reality-check)
+      getff-cold-run-prober.md) continue ;;  # framework-only (S4 one-beat cold-run protocol — run BY framework against consumer, not shipped; spec §9.3)
+      orchestrator-worker-discipline.md|reviewer-discipline.md)
+        # F7 companion split (agents arm) — parity with setup.d/20-agents.sh: factory-only
+        # (or legacy --with-aif-suite), or keep refreshing a copy already on disk (presence =
+        # prior opt-in).
+        if [ "${PROFILE:-core}" != "factory" ] && [ -z "${WITH_AIF_SUITE:-}" ] \
+          && [ ! -e "$PROJECT_ROOT/.claude/agents/$(basename "$f")" ]; then continue; fi ;;
     esac
-    refresh_safe "$f" "$PROJECT_ROOT/.claude/agents/$(basename "$f")"
+    _dst="$PROJECT_ROOT/.claude/agents/$(basename "$f")"
+    refresh_safe "$f" "$_dst"
+    # Transform freshly-refreshed copies only (override-kept files untouched) — parity with
+    # setup.d/20-agents.sh. Without this, --refresh reintroduces dangling rules/ links and the
+    # consumer's next push after an upgrade goes red on pre-push §8 lychee (cold-review of
+    # 081447838, reproduced: 35 broken links post-refresh).
+    if [ "$DRY_RUN" != "--dry-run" ] && [ ! -e "${_dst%.md}.override.md" ] && [ -f "$_dst" ]; then
+      transform_internal_refs "$_dst"
+    fi
   done
 
-  # ── Skills (plain copy, no internal-ref transform) ──────
-  echo "▶ Skills (rules-as-tests, tool-bootstrapping) → .claude/skills/"
-  for _slug in rules-as-tests tool-bootstrapping; do
+  # ── Skills (plain copy + internal-ref transform) ────────
+  # Payload root matters: this loop copies from $PKG_ROOT/skills/, which holds getff +
+  # tool-bootstrapping ONLY. `rule-tests` used to be listed here too — its payload lives under
+  # .claude/skills/, so the `[ -d "$_src" ] || continue` guard below dropped it on every run
+  # while the header claimed it shipped (#1312, honest-signals defect: the operator reads the
+  # line and believes it landed). It now refreshes with its tier peers in the orchestration
+  # loops below. The header renders FROM the list so the two cannot diverge again; the
+  # announce↔deliver assertion lives in tests/install-sh/consumer-upgrade-path.test.sh TEST 10.
+  _PLAIN_SKILLS="getff tool-bootstrapping"
+  echo "▶ Skills ($_PLAIN_SKILLS) → .claude/skills/"
+  for _slug in $_PLAIN_SKILLS; do
     _src="$PKG_ROOT/skills/$_slug"
     _dst="$PROJECT_ROOT/.claude/skills/$_slug"
     _override="${_dst}.override.md"
@@ -271,18 +681,130 @@ do_refresh() {
     fi
     rm -rf "$_dst"
     cp -r "$_src" "$_dst"
-    echo "  ✓ .claude/skills/$_slug/ (refreshed)"
+    # Same transform pass as the install path (setup.d/10-skills.sh) — install/refresh parity.
+    while IFS= read -r -d '' _mdfile; do
+      transform_internal_refs "$_mdfile"
+    done < <(find "$_dst" -name '*.md' -print0)
+    echo "  ✓ .claude/skills/$_slug/ (refreshed, cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
   done
 
   # ── Orchestration skills (with internal-ref transform) ──
+  # Three tiers, three gates — the slug LISTS are the shared constants from setup.d/lib.sh
+  # (GETFF_SKILLS_CORE / _ENV / _FACTORY), read by this arm and by the install arm
+  # (setup.d/10-skills.sh) alike. Hand-maintained copies drifted three times before #1312.
+  #
+  # Gate shape, uniform across every depth-gated refresh arm in this function:
+  #   the install arm's OWN profile predicate  OR  the artefact is already on disk.
+  # The presence half is the brownfield upgrade path (#1312): a consumer who opted into a
+  # deeper depth keeps receiving fixes from a bare `--refresh`, with no --profile to repeat
+  # (PROFILE resolves to core on a non-interactive run). The profile half is what keeps
+  # refresh from DEEPENING a core project by accident (#1334) — absence + shallower profile
+  # = never installed → refresh must not create it.
   echo "▶ Orchestration skills → .claude/skills/"
-  for _skill in pipeline dispatcher aif-doctor template-audit night-mode ai-doc rule-research harvest story; do
+  for _skill in $GETFF_SKILLS_CORE; do
     refresh_skill_with_transform "$_skill"
+  done
+  for _skill in $GETFF_SKILLS_ENV; do
+    # env+ contour surface — parity with setup.d/10-skills.sh:125 (env | factory |
+    # WITH_AIF_SUITE), plus the presence clause.
+    if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
+      || [ -e "$PROJECT_ROOT/.claude/skills/$_skill" ]; then
+      refresh_skill_with_transform "$_skill"
+    fi
+  done
+  for _skill in $GETFF_SKILLS_FACTORY; do
+    # AIF operator suite — parity with setup.d/10-skills.sh:131 (factory | WITH_AIF_SUITE),
+    # plus the presence clause. Never created on a shallower profile: the suite presupposes
+    # the aif-handoff runtime, so refresh must not silently opt a consumer into it.
+    if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
+      || [ -e "$PROJECT_ROOT/.claude/skills/$_skill" ]; then
+      refresh_skill_with_transform "$_skill"
+    fi
   done
   _AIF_HELPERS="$PROJECT_ROOT/.claude/skills/aif-doctor/helpers"
   if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$_AIF_HELPERS" ]; then
     chmod_safe +x "$_AIF_HELPERS/heal.sh" "$_AIF_HELPERS/refresh-aif-base.sh" 2>/dev/null || true
   fi
+
+  # ── Skill-rename orphan reclaim (framework-owned) ───────
+  # getff-honest-signals S5 / kickoff §1 + §2: a consumer that installed before the
+  # `rules-as-tests` → `getff` rename ends up with BOTH `.claude/skills/rules-as-tests/`
+  # (stale, framework-owned) AND `.claude/skills/getff/` (modern) after refresh. The
+  # superseded dir looks like a live skill but isn't — an "honest signals" defect.
+  # Asymmetry (load-bearing, T-S5-A): this RECLAIMS a framework-owned dir ONLY.
+  # The consumer-owned `.lintstagedrc.json` reconciliation (next block) is OFFER-ONLY.
+  echo "▶ Skill-rename orphan reclaim → .claude/skills/rules-as-tests/ (framework-owned)"
+  _LEGACY_SKILL_DIR="$PROJECT_ROOT/.claude/skills/rules-as-tests"
+  _MODERN_SKILL_DIR="$PROJECT_ROOT/.claude/skills/getff"
+  _LEGACY_OVERRIDE="${_LEGACY_SKILL_DIR}.override.md"
+  if [ -d "$_MODERN_SKILL_DIR" ] && [ -d "$_LEGACY_SKILL_DIR" ]; then
+    # Decision tree (kickoff §2 DECIDES ownership — no per-consumer probe):
+    #   1. override sibling present  → KEEP, say so (consumer opt-out, Layer-3)
+    #   2. no override               → RECLAIM (rm -rf), say so (dry-run honoured)
+    # The consumer's escape hatch is the `.override.md` sibling — works identically
+    # for git, Mercurial, SVN, and no-VCS consumers. Ownership is decided by the
+    # KICKOFF §2 («framework-owned — do not redesign»), not probed per-consumer: a
+    # tracked-ness probe disables the reclaim for ANY consumer who commits `.claude/`
+    # (falsifier: 68 tracked files under .claude/skills/ in the framework's own dogfood
+    # repo). T17/T18 still honoured — the override is the named preservation seam.
+    if [ -e "$_LEGACY_OVERRIDE" ]; then
+      echo "  ⊝ $_LEGACY_SKILL_DIR (.override.md — consumer-owned opt-out, keeping)"
+    else
+      if [ "$DRY_RUN" = "--dry-run" ]; then
+        echo "  [dry-run] would reclaim: $_LEGACY_SKILL_DIR (renamed → getff; superseded)"
+      else
+        rm -rf "$_LEGACY_SKILL_DIR"
+        echo "  ♻ reclaimed superseded framework skill dir $_LEGACY_SKILL_DIR (renamed → getff)"
+      fi
+    fi
+  elif [ -d "$_LEGACY_SKILL_DIR" ] && [ ! -d "$_MODERN_SKILL_DIR" ]; then
+    # Do NOT remove the legacy dir if the modern dir is absent — that would leave
+    # the consumer with NO skill at all (T17: preserve future-value content).
+    echo "  · $_LEGACY_SKILL_DIR kept ($_MODERN_SKILL_DIR/ not delivered — removal would leave no skill)"
+    echo "    migration hint: this looks like a pre-rename install that has not yet received getff/; refresh after upgrading the framework to also receive getff/"
+  else
+    echo "  · no legacy $_LEGACY_SKILL_DIR present (fresh install or already reclaimed)"
+  fi
+  unset _LEGACY_SKILL_DIR _MODERN_SKILL_DIR _LEGACY_OVERRIDE
+
+  # ── Stale `.lintstagedrc.json` reconciliation (consumer-owned — OFFER ONLY) ─
+  # getff-honest-signals S5 / kickoff §1 + §2: the shipped `.lintstagedrc.json`
+  # template evolves; a consumer who diverged must NOT be silently overwritten
+  # (T-S5-A — destroys consumer work irreversibly). Print a migration offer; the
+  # consumer decides whether to apply it.
+  #
+  # LOAD-BEARING GUARDRAIL (T-S5-A): this block is READ-ONLY against the consumer
+  # file. It MUST NOT call cp/mv/rm/> redirect (or any other mutation) against
+  # $PROJECT_ROOT/.lintstagedrc.json. The asymmetry vs the skill-reclaim block
+  # above is the entire point of this stage — framework-owned vs consumer-owned.
+  echo "▶ Stale .lintstagedrc reconciliation (consumer-owned — offer only, never overwrite)"
+  _CONSUMER_LINTSTAGED="$PROJECT_ROOT/.lintstagedrc.json"
+  _TEMPLATE_LINTSTAGED="$PKG_ROOT/packages/core/templates/shared/.lintstagedrc.json"
+  if [ ! -f "$_CONSUMER_LINTSTAGED" ]; then
+    echo "  · no consumer .lintstagedrc.json — skipping (consumer may have opted out of lint-staged)"
+  elif [ ! -f "$_TEMPLATE_LINTSTAGED" ]; then
+    # Defensive: framework template missing — don't even attempt the comparison.
+    echo "  · framework template $_TEMPLATE_LINTSTAGED not found — skipping reconciliation"
+  else
+    if cmp -s "$_CONSUMER_LINTSTAGED" "$_TEMPLATE_LINTSTAGED"; then
+      echo "  ✓ .lintstagedrc.json matches framework template — no offer needed"
+    else
+      # PARK-P-2: migration-offer wording fork (kickoff §4c names this explicitly).
+      # The spec does not fix the format. Two defensible shapes:
+      #   Option A (verbose, instructive): print the literal diff + a cp command.
+      #   Option B (terse, advisory): one-line INFO + pointer to docs.
+      # Implementer MUST NOT pick — surface to maintainer via blocked_external.
+      # Until P-2 resolves, print a NEUTRAL placeholder that:
+      #   (a) honestly labels itself as a placeholder (not a real offer);
+      #   (b) names the consumer-owned file by absolute path (consumer can act);
+      #   (c) names the framework template by absolute path (consumer can compare);
+      #   (d) does NOT embed a recommended action (would tacitly pick A).
+      echo "  ⚠ $_CONSUMER_LINTSTAGED differs from framework template"
+      echo "    framework template: $_TEMPLATE_LINTSTAGED"
+      echo "    consumer-owned — never overwritten; review the diff and decide."
+    fi
+  fi
+  unset _CONSUMER_LINTSTAGED _TEMPLATE_LINTSTAGED
 
   # ── Claude hooks ────────────────────────────────────────
   echo "▶ Claude hooks → .claude/hooks/"
@@ -292,6 +814,123 @@ do_refresh() {
     refresh_safe "$_HOOK_SRC" "$_HOOK_DST"
     if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_HOOK_DST" ]; then
       chmod_safe +x "$_HOOK_DST" 2>/dev/null || true
+    fi
+  fi
+
+  # GH #934: refresh coverage for the end-of-turn session-recap Stop hook + lang pack (parity with
+  # the fresh-install delivery in setup.d/10-skills.sh §1c — closes the refresh-drift class #869/#890).
+  # A brownfield consumer that installed before #934 gets the hook + the Stop registration via --refresh.
+  _EOT_SRC="$PKG_ROOT/.claude/hooks/end-of-turn-reminder.sh"
+  _EOT_DST="$PROJECT_ROOT/.claude/hooks/end-of-turn-reminder.sh"
+  if [ -f "$_EOT_SRC" ]; then
+    refresh_safe "$_EOT_SRC" "$_EOT_DST"
+    # if-then (not `A && B || true`) to stay SC2015-clean under the pinned shellcheck 0.9.0 gate
+    # — parity with the deps-hash block above.
+    if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_EOT_DST" ]; then chmod_safe +x "$_EOT_DST" 2>/dev/null || true; fi
+    mkdir_safe "$PROJECT_ROOT/.claude/hooks/lang"
+    for _lp in en.sh ru.sh check-parity.sh; do
+      [ -f "$PKG_ROOT/.claude/hooks/lang/$_lp" ] && refresh_safe "$PKG_ROOT/.claude/hooks/lang/$_lp" "$PROJECT_ROOT/.claude/hooks/lang/$_lp"
+    done
+    if [ "$DRY_RUN" != "--dry-run" ]; then chmod_safe +x "$PROJECT_ROOT/.claude/hooks/lang/check-parity.sh" 2>/dev/null || true; fi
+    if [ "$DRY_RUN" != "--dry-run" ]; then
+      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "Stop" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/end-of-turn-reminder.sh"' "end-of-turn-reminder"
+    fi
+  fi
+
+  # GH #934: refresh coverage for the two session-UX hooks (setup.d/10-skills.sh §1d/§1e parity) —
+  # ask-question-reminder (PreToolUse:AskUserQuestion) + inject-matching-rule (PostToolUse:Edit|Write).
+  # A brownfield consumer installed before #934 gets both hooks + their matcher-scoped registration
+  # via --refresh (not --force-only). ask-question-reminder reuses the lang pack refreshed above.
+  _AQR_SRC="$PKG_ROOT/.claude/hooks/ask-question-reminder.sh"
+  _AQR_DST="$PROJECT_ROOT/.claude/hooks/ask-question-reminder.sh"
+  if [ -f "$_AQR_SRC" ]; then
+    refresh_safe "$_AQR_SRC" "$_AQR_DST"
+    if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_AQR_DST" ]; then chmod_safe +x "$_AQR_DST" 2>/dev/null || true; fi
+    if [ "$DRY_RUN" != "--dry-run" ]; then
+      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "PreToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/ask-question-reminder.sh"' "ask-question-reminder" "AskUserQuestion"
+    fi
+  fi
+  _IMR_SRC="$PKG_ROOT/.claude/hooks/inject-matching-rule.sh"
+  _IMR_DST="$PROJECT_ROOT/.claude/hooks/inject-matching-rule.sh"
+  if [ -f "$_IMR_SRC" ]; then
+    refresh_safe "$_IMR_SRC" "$_IMR_DST"
+    if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_IMR_DST" ]; then chmod_safe +x "$_IMR_DST" 2>/dev/null || true; fi
+    if [ "$DRY_RUN" != "--dry-run" ]; then
+      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh"' "inject-matching-rule" "Edit|Write|MultiEdit"
+    fi
+  fi
+  # GH #934 batch B: refresh coverage for the output-language UserPromptSubmit hook (setup.d/10-skills.sh
+  # §1f parity). A brownfield consumer installed before batch B gets it + the registration via --refresh.
+  _OLH_SRC="$PKG_ROOT/.claude/hooks/inject-output-language.sh"
+  _OLH_DST="$PROJECT_ROOT/.claude/hooks/inject-output-language.sh"
+  if [ -f "$_OLH_SRC" ]; then
+    refresh_safe "$_OLH_SRC" "$_OLH_DST"
+    if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_OLH_DST" ]; then chmod_safe +x "$_OLH_DST" 2>/dev/null || true; fi
+    if [ "$DRY_RUN" != "--dry-run" ]; then
+      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "UserPromptSubmit" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-output-language.sh"' "inject-output-language"
+    fi
+  fi
+
+  # GH #934 (per-hook audit follow-up): refresh coverage for the doc-authority-header PostToolUse gate
+  # (setup.d/10-skills.sh §1g parity). A brownfield consumer installed before this batch gets the hook +
+  # the Edit|Write|MultiEdit registration via --refresh (closes the refresh-drift class #869/#890).
+  _DAH_SRC="$PKG_ROOT/.claude/hooks/check-doc-authority-header.sh"
+  _DAH_DST="$PROJECT_ROOT/.claude/hooks/check-doc-authority-header.sh"
+  if [ -f "$_DAH_SRC" ]; then
+    refresh_safe "$_DAH_SRC" "$_DAH_DST"
+    if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_DAH_DST" ]; then chmod_safe +x "$_DAH_DST" 2>/dev/null || true; fi
+    if [ "$DRY_RUN" != "--dry-run" ]; then
+      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/check-doc-authority-header.sh"' "check-doc-authority-header" "Edit|Write|MultiEdit"
+    fi
+  fi
+  # GH #934 batch D: refresh coverage for the project-anchor digest injector (setup.d/10-skills.sh §1h)
+  # + the memory-codification reminder (§1i). The HOOKS are framework-owned → refresh_safe (overwrite).
+  # The .claude/session-bootstrap.md TEMPLATE is a consumer-owned seed → copy_safe (never clobber a
+  # filled anchor); it is on the refresh-covers EXCLUDED list.
+  _PDG_SRC="$PKG_ROOT/.claude/hooks/inject-project-digest.sh"
+  _PDG_DST="$PROJECT_ROOT/.claude/hooks/inject-project-digest.sh"
+  if [ -f "$_PDG_SRC" ]; then
+    refresh_safe "$_PDG_SRC" "$_PDG_DST"
+    if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_PDG_DST" ]; then chmod_safe +x "$_PDG_DST" 2>/dev/null || true; fi
+    [ -f "$PKG_ROOT/.claude/templates/session-bootstrap.md" ] && copy_safe "$PKG_ROOT/.claude/templates/session-bootstrap.md" "$PROJECT_ROOT/.claude/session-bootstrap.md"
+    if [ "$DRY_RUN" != "--dry-run" ]; then
+      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "UserPromptSubmit" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-project-digest.sh"' "inject-project-digest"
+      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "SubagentStart" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-project-digest.sh"' "inject-project-digest"
+    fi
+  fi
+  _MCF_SRC="$PKG_ROOT/.claude/hooks/inject-memory-codification.sh"
+  _MCF_DST="$PROJECT_ROOT/.claude/hooks/inject-memory-codification.sh"
+  if [ -f "$_MCF_SRC" ]; then
+    refresh_safe "$_MCF_SRC" "$_MCF_DST"
+    if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_MCF_DST" ]; then chmod_safe +x "$_MCF_DST" 2>/dev/null || true; fi
+    if [ "$DRY_RUN" != "--dry-run" ]; then
+      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-memory-codification.sh"' "inject-memory-codification" "Write"
+    fi
+  fi
+
+  # ── Vendored runtime-bridge subset (factory depth; spec A7) — #869 refresh parity ──
+  # setup.d/55-runtime-bridge-vendor.sh delivers BOTH halves at install time, and neither could
+  # reach a brownfield consumer non-destructively: the dispatch hook via copy_safe (skip-if-exists,
+  # the #869 mechanism), and the vendor payload only by re-running the whole installer. So a factory
+  # consumer could never receive a vendor fix through --refresh — the same drift class #1412 closed
+  # for the skill slugs, the worktree scripts and tier-home, deliberately left out of that PR's scope.
+  #
+  # Same uniform gate as every depth-gated arm above: the delivery site's OWN profile predicate
+  # (55-runtime-bridge-vendor.sh:65 — factory | WITH_AIF_SUITE) OR presence on disk (prior opt-in).
+  # The vendor DIRECTORY is the presence probe: layer 55 writes both halves in one gated block, so
+  # its presence is what «this consumer opted into the bridge» means. refresh_safe REPLACES a
+  # directory payload rather than nesting into it (#873), so the dir is deliverable as-is.
+  if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
+    || [ -e "$PROJECT_ROOT/.claude/vendor/runtime-bridge" ]; then
+    _RBV_SRC="$PKG_ROOT/packages/runtime-bridge/vendor"
+    if [ -d "$_RBV_SRC" ]; then
+      echo "▶ Runtime-bridge vendor → .claude/vendor/runtime-bridge/"
+      refresh_safe "$_RBV_SRC" "$PROJECT_ROOT/.claude/vendor/runtime-bridge"
+      _RBV_HOOK_DST="$PROJECT_ROOT/.claude/hooks/runtime-bridge-dispatch.sh"
+      refresh_safe "$_RBV_SRC/hooks/runtime-bridge-dispatch.sh" "$_RBV_HOOK_DST"
+      if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_RBV_HOOK_DST" ]; then
+        chmod_safe +x "$_RBV_HOOK_DST" 2>/dev/null || true
+      fi
     fi
   fi
 
@@ -308,7 +947,10 @@ do_refresh() {
     "packages/core/audit-self/check-lintstaged-resolves.sh:scripts/check-lintstaged-resolves.sh" \
     "packages/core/audit-self/check-fences-fire.sh:scripts/check-fences-fire.sh" \
     "packages/core/audit-self/check-shields-up.sh:scripts/check-shields-up.sh" \
-    "packages/core/synthesizer/run-generated-rule-mutation.sh:scripts/run-generated-rule-mutation.sh"; do
+    "packages/core/synthesizer/run-generated-rule-mutation.sh:scripts/run-generated-rule-mutation.sh" \
+    "packages/core/synthesizer/run-rule-tests-firing.sh:scripts/run-rule-tests-firing.sh" \
+    "packages/core/audit-self/pre-merge-local.sh:scripts/pre-merge-local.sh" \
+    "packages/core/audit-self/ci-available-probe.sh:scripts/ci-available-probe.sh"; do
     _s="${_pair%%:*}"; _d="${_pair##*:}"
     refresh_safe "$PKG_ROOT/$_s" "$PROJECT_ROOT/$_d"
     case "$_d" in
@@ -316,6 +958,18 @@ do_refresh() {
               chmod_safe +x "$PROJECT_ROOT/$_d" 2>/dev/null || true; fi ;;
     esac
   done
+  # #931: scripts/run-mutation.sh is monorepo-conditional — setup.d/40-configs.sh only copy_safe's
+  # it inside the per-workspace (multi-stack) branch, never on the flat/single-stack branch. Guard
+  # the refresh with the SAME signal 40-configs.sh uses to decide whether to enter that branch
+  # (_resolve_workspace_stacks non-empty, lib.sh) so a flat-install consumer's --refresh doesn't
+  # plant an orphaned wrapper script it never had. Closes refresh-covers-full-delivery.test.sh.
+  if [ -n "$(_resolve_workspace_stacks "$PROJECT_ROOT")" ]; then
+    _rm_dst="$PROJECT_ROOT/scripts/run-mutation.sh"
+    refresh_safe "$PKG_ROOT/templates/ts-server/run-mutation.sh.tmpl" "$_rm_dst"
+    if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_rm_dst" ]; then
+      chmod_safe +x "$_rm_dst" 2>/dev/null || true
+    fi
+  fi
   if [ "$STACK" = "react-next" ]; then
     _rn_src="$PKG_ROOT/packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh"
     _rn_dst="$PROJECT_ROOT/scripts/audit-ai-docs.react-next.sh"
@@ -338,6 +992,40 @@ do_refresh() {
     refresh_safe "$_rnat_src" "$_rnat_dst"
     if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_rnat_dst" ]; then
       chmod_safe +x "$_rnat_dst" 2>/dev/null || true
+    fi
+  fi
+
+  # ── Skill-gated gate scripts (consumer-refresh-integrity R3, issues 1482 + 1485) ──
+  # scripts/check-ask-files.sh + scripts/run-local-ci-sweep.sh: their consumers are DELIVERED
+  # SKILLS, not this repo — night-mode/dispatcher route ask rows through check-ask-files.sh
+  # (env+/factory tiers) and harvest §3 gates on run-local-ci-sweep.sh (factory tier). The
+  # delivery sites are setup.d/50-hooks.sh (check-ask-files, hooks arm — every standard npm
+  # profile, so the presence clause below covers a core install) and setup.d/10-skills.sh
+  # (run-local-ci-sweep, factory suite arm); breadth per script is the
+  # REFERENCING tier union measured there (kickoff RI-4): check-ask-files.sh env+,
+  # run-local-ci-sweep.sh factory+. NOT entries in the ungated _pair loop above: that loop is
+  # profile-blind and would deliver both scripts on a core --refresh — the #1334 depth-boundary
+  # defect class (see the #931 run-mutation and worktree-scripts gated arms for the precedent).
+  # Same uniform gate as every depth-gated arm: the delivery site's own profile predicate OR
+  # presence on disk (prior opt-in) — with PROFILE defaulting to core on --refresh
+  # (install.sh:520-528), the presence clause is what keeps an installed tier updated.
+  # Sources stay at root scripts/ AS-IS (RI-4: session-bus v2 §9, pre-push.ts:1324-1327).
+  if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
+    || [ -e "$PROJECT_ROOT/scripts/check-ask-files.sh" ]; then
+    if [ -f "$PKG_ROOT/scripts/check-ask-files.sh" ]; then
+      refresh_safe "$PKG_ROOT/scripts/check-ask-files.sh" "$PROJECT_ROOT/scripts/check-ask-files.sh"
+      if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$PROJECT_ROOT/scripts/check-ask-files.sh" ]; then
+        chmod_safe +x "$PROJECT_ROOT/scripts/check-ask-files.sh" 2>/dev/null || true
+      fi
+    fi
+  fi
+  if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
+    || [ -e "$PROJECT_ROOT/scripts/run-local-ci-sweep.sh" ]; then
+    if [ -f "$PKG_ROOT/scripts/run-local-ci-sweep.sh" ]; then
+      refresh_safe "$PKG_ROOT/scripts/run-local-ci-sweep.sh" "$PROJECT_ROOT/scripts/run-local-ci-sweep.sh"
+      if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$PROJECT_ROOT/scripts/run-local-ci-sweep.sh" ]; then
+        chmod_safe +x "$PROJECT_ROOT/scripts/run-local-ci-sweep.sh" 2>/dev/null || true
+      fi
     fi
   fi
 
@@ -404,6 +1092,33 @@ do_refresh() {
   # Directory payload: refresh_safe now replaces (not nests) an existing dir (setup.d/lib.sh, #873).
   refresh_safe "$PKG_ROOT/packages/core/audit-self/fixtures/fences-fire" "$PROJECT_ROOT/scripts/fences-fire-fixtures"
 
+  # ── Worktree + workspace scripts → scripts/ (S2, spec A9) ──
+  # setup.d/85-worktree-scripts.sh copy_safe's these on the --full env+ path. Without a refresh
+  # arm a brownfield env+ consumer gets NONE of them on --refresh — the #869 class this gate
+  # exists to catch, and the reason `refresh-covers-full-delivery` was RED on this branch.
+  # The list is duplicated deliberately and the duplication is asserted: the delivery site is a
+  # setup.d module sourced only on the install path, so do_refresh cannot read its array, and a
+  # silent divergence is exactly what the paired check in
+  # tests/install-sh/refresh-covers-full-delivery.test.sh now forbids.
+  # Depth gate (#1334): this arm carried NO profile check, so ANY --refresh on a `core` project
+  # delivered all four env+ scripts — the inverse of #1312 and a depth-boundary defect, since
+  # `--profile` is the product's promise about what lands on disk (delivery site:
+  # setup.d/85-worktree-scripts.sh:19-22 documents `PROFILE=core → skip`). Same uniform shape as
+  # the skills arms above: the delivery site's own predicate (env | factory | WITH_AIF_SUITE) OR
+  # presence. create-worktree.sh is the presence probe — the cluster's load-bearing entry point,
+  # present in every version of it, and the four ship together by construction (they form one
+  # call chain), so probing the entry point covers a consumer who opted in before getff-work.sh
+  # was added to the cluster.
+  if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
+    || [ -e "$PROJECT_ROOT/scripts/create-worktree.sh" ]; then
+    echo "▶ Worktree scripts → scripts/"
+    for _ws in create-worktree.sh worktree-node-modules.sh link-coordination.sh getff-work.sh; do
+      [ -f "$PKG_ROOT/scripts/$_ws" ] || continue
+      refresh_safe "$PKG_ROOT/scripts/$_ws" "$PROJECT_ROOT/scripts/$_ws"
+      chmod_safe +x "$PROJECT_ROOT/scripts/$_ws" 2>/dev/null || true
+    done
+  fi
+
   # ── Regenerate the eslint-rules-local barrel + prune stack-absent fixtures (#876) ──
   # do_refresh re-delivers individual rule files above but the GENERATED index.mjs barrel would keep
   # its old import list → a newly-shipped rule lands unregistered. Regenerate from the on-disk rule
@@ -467,15 +1182,82 @@ do_refresh() {
     merge_prettierignore "$PKG_ROOT/packages/core/templates/shared/.prettierignore" "$PROJECT_ROOT/.prettierignore"
   fi
 
+  # ── .ai-factory SoT pair (DESCRIPTION.md + ARCHITECTURE.md) → .ai-factory/ (#949) ──
+  # AGENTS.md points the very first agent session at .ai-factory/DESCRIPTION.md + ARCHITECTURE.md.
+  # The --full path materializes them (setup.d/30-templates.sh); a brownfield consumer whose install
+  # predates that feature has DANGLING references until they run --refresh. copy_safe (no-clobber)
+  # semantics — NOT refresh_safe — because these are consumer-EDITABLE content docs: a fresh install
+  # that never wrote them (or a consumer who deleted one) gets the starter, but an edited
+  # DESCRIPTION.md/ARCHITECTURE.md is NEVER overwritten (copy_safe skips-if-exists). $STACK is always
+  # resolved on the --refresh path (install.sh stack inference defaults to ts-server), so the arch
+  # variant is chosen, never guessed. SSOT helpers (arch_sot_src_for_stack / rewrite_arch_sot_header,
+  # setup.d/lib.sh) shared with the --full delivery so the two paths cannot diverge.
+  echo "▶ .ai-factory SoT → .ai-factory/"
+  copy_safe "$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md" "$PROJECT_ROOT/.ai-factory/DESCRIPTION.md"
+  _arch_sot_src="$(arch_sot_src_for_stack)"
+  _arch_sot_dst="$PROJECT_ROOT/.ai-factory/ARCHITECTURE.md"
+  _arch_sot_existed=0; [ -e "$_arch_sot_dst" ] && _arch_sot_existed=1
+  copy_safe "$_arch_sot_src" "$_arch_sot_dst"
+  rewrite_arch_sot_header "$_arch_sot_dst" "$_arch_sot_existed"
+
+  # ── tier-home doc (env+ profiles; beta-delivery-ux S3) — #869 refresh parity ──
+  # Framework-owned: refresh must re-deliver fixes, and it must not create the doc on core.
+  # Same uniform gate as the arms above (#1334 follow-through): the delivery site's own
+  # predicate — setup.d/30-templates.sh:108 gates on env | factory, with no WITH_AIF_SUITE
+  # clause, so this mirror has none either — OR presence. Before this stage the arm was
+  # presence-ONLY, which made `--refresh --profile env` deepen some arms and not others (the
+  # «each arm decides for itself» state INSTALL-FOR-AI.md had to describe in a paragraph).
+  if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] \
+    || [ -e "$PROJECT_ROOT/.ai-factory/tier-home.md" ]; then
+    refresh_safe "$PKG_ROOT/packages/core/templates/shared/tier-home.md" "$PROJECT_ROOT/.ai-factory/tier-home.md"
+  fi
+
+  # ── AI Usage Guide (every depth; beta-ai-docs-agnosticism S1) — refresh parity ──
+  # Framework-owned: refresh must re-deliver fixes, and its §2 First Steps renders from an SSOT
+  # that moves, so a brownfield consumer stuck on an old copy would follow stale steps.
+  refresh_safe "$PKG_ROOT/packages/core/templates/shared/AI-USAGE-GUIDE.md" "$PROJECT_ROOT/.ai-factory/AI-USAGE-GUIDE.md"
+
   # ── Skill-context overrides (derived from SHIPPED_DOCS — cannot drift) ──
   echo "▶ Skill-context → .ai-factory/skill-context/"
   for _doc in "${SHIPPED_DOCS[@]}"; do
     case "$_doc" in
       packages/core/templates/shared/skill-context/*/SKILL.md)
         _sc="${_doc#packages/core/templates/shared/skill-context/}"; _sc="${_sc%/SKILL.md}"
+        # F7 companion split (skill-context arm) — parity with setup.d/20-agents.sh §3c:
+        # factory-only (or legacy --with-aif-suite escape), or present = prior opt-in.
+        if [ "$_sc" = "aif-orchestrator-discipline" ] && [ "${PROFILE:-core}" != "factory" ] \
+          && [ -z "${WITH_AIF_SUITE:-}" ] \
+          && [ ! -e "$PROJECT_ROOT/.ai-factory/skill-context/$_sc/SKILL.md" ]; then continue; fi
         refresh_safe "$PKG_ROOT/$_doc" "$PROJECT_ROOT/.ai-factory/skill-context/$_sc/SKILL.md" ;;
     esac
   done
+
+  # ── runtime-bridge vendor drop (factory depth; beta-delivery-ux S5 A7) — refresh parity ──
+  # Framework-owned, and it had NO refresh arm at all: a consumer who upgraded never got vendor
+  # fixes, and CI observed the delivered README reverting to its untransformed source across
+  # `--refresh` (run 32022158836 — `before: ](https:/…` → `after: ](../../.`), which is the
+  # dangling-link shape pre-push §8 goes red on. Same uniform gate as the arms above (#1334):
+  # the delivery site's own predicate — setup.d/55-runtime-bridge-vendor.sh gates on factory OR
+  # the legacy WITH_AIF_SUITE escape — OR presence, so refresh never CREATES the drop at a depth
+  # that did not ask for it, but always updates one that is already installed. The wipe-recopy-
+  # transform sequence is shared with the install path via deliver_runtime_bridge_vendor
+  # (setup.d/lib.sh) rather than restated here, so this arm cannot drift from layer 55.
+  if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
+    || [ -d "$PROJECT_ROOT/.claude/vendor/runtime-bridge" ]; then
+    echo "▶ Runtime-bridge vendor → .claude/vendor/runtime-bridge/"
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would refresh: .claude/vendor/runtime-bridge/"
+    else
+      deliver_runtime_bridge_vendor "$PKG_ROOT/packages/runtime-bridge/vendor" \
+        "$PROJECT_ROOT/.claude/vendor/runtime-bridge"
+      echo "  ✓ .claude/vendor/runtime-bridge/ (refreshed)"
+    fi
+  fi
+
+  # consumer-refresh-integrity R1: persist the delivery baseline now that every refresh arm
+  # (and its post-copy transforms — the guard hashes FINAL on-disk bytes, see setup.d/lib.sh)
+  # has run. Fail-open: a failed flush never fails the refresh.
+  refresh_baseline_flush
 
   echo ""
   if [ "$DRY_RUN" = "--dry-run" ]; then
@@ -508,3 +1290,28 @@ for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do
   # shellcheck source=/dev/null
   source "$f"
 done
+
+# ─── aif-handoff guided install (beta-delivery-ux S4, spec §4 A1) ────────────
+# Under PROFILE=factory (or legacy --with-aif-suite), offer the consented guided INSTALL
+# for the aif-handoff runtime. The helper mirrors setup.d/bridge-guided.sh's shape: detect-first
+# (bridge_diagnose), consented docker-compose install, decline → graceful env-level degradation.
+# Gating matches setup.d/10-skills.sh:95 exactly (PROFILE=factory OR WITH_AIF_SUITE set).
+# Runs AFTER the setup.d layer loop so RUNTIME_BRIDGE_AIF_URL is in scope + all layers shipped.
+if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
+  echo "▶ aif-handoff guided install (profile=factory)"
+  if [ -f "$PKG_ROOT/setup.d/aif-handoff-guided-install.sh" ]; then
+    bash "$PKG_ROOT/setup.d/aif-handoff-guided-install.sh" || true
+  else
+    # Consumer install payload may not include this helper (e.g. core-only checkout refreshed
+    # with --profile factory but the helper file was not in the original payload). Graceful skip.
+    echo "  ⊝ setup.d/aif-handoff-guided-install.sh not present in this checkout — see docs/runtime-bridge-setup.md"
+  fi
+fi
+
+# ─── consumer-refresh-integrity R1 — persist the delivery baseline ────────────
+# Every copy_safe/refresh_safe delivery staged its dst (setup.d/lib.sh); hash the FINAL
+# on-disk bytes into $PROJECT_ROOT/.ai-factory/refresh-baseline.json so the next --refresh
+# can tell a consumer edit from a pristine delivery (warn + preserve, never refuse — issue
+# 1481). Runs after ALL layers + post-delivery transforms. Fail-open: a missing jq or an
+# unwritable .ai-factory/ degrades to a one-line note, never a failed install.
+refresh_baseline_flush

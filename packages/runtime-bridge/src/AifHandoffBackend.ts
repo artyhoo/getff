@@ -29,6 +29,14 @@
  *     - status is EVENT-only — `PUT { status }` is silently ignored (no direct write).
  *     - step 2 (unpause) is wrapped; a failure best-effort DELETEs the half-created task
  *       (rollback, no orphan), and the CLI (dispatch.ts) falls back to ManualBackend.
+ *
+ * claim() / release() / cancelClaim() — the same two steps, separable (spec §5.3,
+ *   D-H5/P-5). Step 1 alone is a CLAIM: a paused task that exists, is visible to
+ *   `probe-inflight.sh`, and occupies no lane. `/pipeline` §6 Step 3 claims BEFORE the
+ *   Phase -1 cold-review window, releases on GO, and cancels on RED — which is what moves
+ *   the observable marker in front of the window where every historical double-dispatch
+ *   materialised. `dispatch()` is now literally claim+release with the old rollback, so
+ *   the one-shot callers (PostToolUse hook, /dispatcher) are behaviourally unchanged.
  * available(): GET /health reachability probe (1s timeout).
  * getStatus(): REST GET /tasks/:id (non-blocking snapshot via aifWsStatus.getTaskStatus).
  * awaitDone(): WebSocket status event stream (aifWsStatus.awaitTaskDone, :3009/ws).
@@ -38,7 +46,7 @@
  *
  * @dual-pair: runtime-bridge-aif-handoff
  */
-import type { RuntimeBackend } from './backend.js';
+import type { ClaimCapableBackend } from './backend.js';
 import { BackendError } from './backend.js';
 import { ensureParallelEnabled } from './cli/ensure-parallel.js';
 import type { KickoffSpec, TaskHandle, TaskStatus, TaskResult } from './types.js';
@@ -90,7 +98,7 @@ export interface AifHandoffConfig {
   readonly WebSocketImpl?: WebSocketConstructor;
 }
 
-export class AifHandoffBackend implements RuntimeBackend {
+export class AifHandoffBackend implements ClaimCapableBackend {
   readonly name = 'aif-handoff' as const;
 
   private readonly baseUrl: string;
@@ -115,6 +123,56 @@ export class AifHandoffBackend implements RuntimeBackend {
     return httpUrl.replace(/^http(s?):\/\//, (_match: string, s: string) => `ws${s}://`) + '/ws';
   }
 
+  /**
+   * Resolve a profile-name hint (from a kickoff's `<!-- bridge-profile: -->`
+   * marker) to a concrete runtime-profile id via GET /runtime-profiles.
+   * An exact (case-insensitive) name match wins outright; otherwise falls back
+   * to case-insensitive substring match. Throws loudly on 0 or >1 matches — no
+   * silent fallback, no guessing (the candidate list is included so the
+   * operator can fix the marker).
+   *
+   * Both throws carry `spec_invalid`, NOT `dispatch_failed`: the kickoff named a
+   * profile the runtime does not have, which no backend can satisfy, so
+   * `cli/dispatch.ts` must abort rather than degrade to ManualBackend. Until
+   * 2026-09-02 these were `dispatch_failed` and the blanket fallback turned an
+   * unresolvable marker into a /tmp file plus exit 0.
+   *
+   * The exact-match short-circuit is load-bearing because prefix-related profile
+   * names are real: `Z.AI GLM-5.2` is a strict prefix of `Z.AI GLM-5.2 SDK`, so
+   * under pure substring matching a marker naming the former matched BOTH and
+   * threw `dispatch_failed` — i.e. the correct, unambiguous name was unusable.
+   */
+  private async _resolveProfileId(hint: string): Promise<string> {
+    const profiles = (await this._rest('GET', '/runtime-profiles')) as Array<{
+      id: string;
+      name: string;
+    }>;
+    const needle = hint.toLowerCase();
+    // Exact name match wins: a profile whose name IS the hint is never ambiguous,
+    // even when that name is also a prefix of other profile names.
+    const exact = profiles.filter((p) => p.name.toLowerCase() === needle);
+    const matches =
+      exact.length > 0 ? exact : profiles.filter((p) => p.name.toLowerCase().includes(needle));
+
+    if (matches.length === 0) {
+      const candidates = profiles.map((p) => p.name).join(', ');
+      throw new BackendError(
+        `bridge-profile hint "${hint}" matched no runtime profile. Available: ${candidates || '(none)'}`,
+        'spec_invalid',
+        'aif-handoff',
+      );
+    }
+    if (matches.length > 1) {
+      const candidates = matches.map((p) => `${p.name} (${p.id})`).join(', ');
+      throw new BackendError(
+        `bridge-profile hint "${hint}" matched ${matches.length} runtime profiles ambiguously: ${candidates}`,
+        'spec_invalid',
+        'aif-handoff',
+      );
+    }
+    return matches[0].id;
+  }
+
   async available(): Promise<boolean> {
     // Cheap reachability probe: GET /health (or root) with 1s timeout.
     // Returns true on any 2xx or 4xx (server is up but auth needed is still
@@ -136,7 +194,20 @@ export class AifHandoffBackend implements RuntimeBackend {
     }
   }
 
-  async dispatch(kickoff: KickoffSpec): Promise<TaskHandle> {
+  /**
+   * Two-phase dispatch, phase 1 — create the task PAUSED and stop there.
+   *
+   * This is steps 0, 0.5 and 1 of the old atomic `dispatch()`, unchanged: the
+   * parallel-isolation self-heal, the `bridge-profile` resolution, and the
+   * `POST /tasks { paused:true }` create. What it deliberately does NOT do is
+   * unpause — so the returned handle names a task that exists, is visible to
+   * `probe-inflight.sh`, and consumes no runtime (it never leaves `backlog`).
+   *
+   * That gap is the point: `/pipeline` §6 Step 3 opens the Phase -1 cold-review
+   * window between this call and {@link AifHandoffBackend.release}, and the race
+   * this whole split exists to close lives inside that window.
+   */
+  async claim(kickoff: KickoffSpec): Promise<TaskHandle> {
     if (!this.projectId) {
       throw new BackendError(
         'AifHandoffBackend requires projectId -- set RUNTIME_BRIDGE_AIF_PROJECT_ID env var',
@@ -165,13 +236,31 @@ export class AifHandoffBackend implements RuntimeBackend {
       );
     }
 
+    // -- Step 0.5: resolve profileHint (if any) to a concrete runtimeProfileId --
+    // multi-model-profile-marker (2026-07-21): a kickoff carrying
+    // `<!-- bridge-profile: <name> -->` in its header region gets its WHOLE
+    // task pipeline (plan+review+implement) routed to that profile — aif
+    // already supports this via task-level runtimeProfileId, which overrides
+    // every per-mode project default (data/index.ts:2746-2757). Resolution
+    // failure (0 or >1 match) throws `spec_invalid`, which cli/dispatch.ts
+    // refuses to degrade — no silent ManualBackend fallback.
+    let runtimeProfileId: string | undefined;
+    if (kickoff.profileHint) {
+      runtimeProfileId = await this._resolveProfileId(kickoff.profileHint);
+    }
+
     // -- Step 1: Create the task with the kickoff as its DESCRIPTION --------
     // description carries the kickoff content because that is the planner's
     // INPUT spec (planner.ts:246 `Description: ${task.description}`). We do NOT
     // push `plan` — that is the planner's OUTPUT slot (@planPath), which it
-    // overwrites. paused:true so the coordinator does not advance until step 2.
+    // overwrites. paused:true so the coordinator does not advance until release().
     // autoMode:true so the auto-queue advances backlog -> planning (where the
     // worktree is created). Live-verified 2026-06-03: returns 201 + task object.
+    //
+    // `title` is the umbrella/stage slug, and that is what makes the claim
+    // FINDABLE: probe-inflight.sh matches a paused, non-terminal task by slug in
+    // title+description. No separate claim marker is introduced — a second
+    // status vocabulary is exactly what P-5 forbids.
     const createResult = await this._rest('POST', '/tasks', {
       projectId: this.projectId,
       title: kickoff.umbrellaName,
@@ -180,6 +269,7 @@ export class AifHandoffBackend implements RuntimeBackend {
       paused: true,
       autoMode: true,
       skipReview: false, // reviewer runs per reviewer-discipline.md §2
+      ...(runtimeProfileId !== undefined ? { runtimeProfileId } : {}),
     });
 
     if (!createResult || typeof createResult !== 'object' || !('id' in createResult)) {
@@ -191,27 +281,71 @@ export class AifHandoffBackend implements RuntimeBackend {
     }
     const taskId = (createResult as { id: string }).id;
 
-    // Step 2 is wrapped so a failure does not strand the paused task created in
-    // step 1. Best-effort DELETE rolls it back, then we re-throw — the CLI then
-    // falls back to ManualBackend (dispatch.ts) with no orphan left on the project.
-    try {
-      // -- Step 2: Clear paused so the coordinator picks the task up ----------
-      // The task stays at `backlog`; the auto-queue advances it through
-      // `planning` (NOT skipped — that is the whole fix), so runPlanner runs and
-      // creates the per-task worktree. NO `accept_existing_plan` event: that
-      // skipped `planning` and was why no worktree was ever created (#372).
-      await this._rest('PUT', `/tasks/${taskId}`, { paused: false });
-    } catch (err) {
-      // Best-effort rollback; ignore delete failures (the throw below is what matters).
-      await this._rest('DELETE', `/tasks/${taskId}`).catch(() => undefined);
-      throw err;
-    }
-
     return {
       backend: 'aif-handoff',
       taskId,
       dispatchedAt: new Date().toISOString(),
     };
+  }
+
+  /**
+   * Two-phase dispatch, phase 2 — clear `paused` so the coordinator picks the
+   * claimed task up. The task stays at `backlog`; the auto-queue advances it
+   * through `planning` (NOT skipped — that is the whole fix), so runPlanner runs
+   * and creates the per-task worktree. NO `accept_existing_plan` event: that
+   * skipped `planning` and was why no worktree was ever created (#372).
+   *
+   * On failure this throws and LEAVES THE CLAIM STANDING. Rollback is the
+   * caller's call: `dispatch()` cancels (preserving the pre-split behaviour),
+   * while a two-phase caller may legitimately retry the release instead of
+   * losing its place in the queue.
+   */
+  async release(handle: TaskHandle): Promise<TaskHandle> {
+    await this._rest('PUT', `/tasks/${handle.taskId}`, { paused: false });
+    return handle;
+  }
+
+  /**
+   * Delete a claim that will never be released — Phase -1 RED, or an orphan whose
+   * session died. Best-effort by contract: a delete failure resolves rather than
+   * throws, because the caller's next step (report RED, move on) must not hinge on
+   * the queue's cooperation. An undeletable claim ages out instead — probe-inflight
+   * surfaces it as STALE-CLAIM rather than blocking the stage forever.
+   *
+   * Returns whether the claim is actually gone, so a caller that CAN act on the
+   * failure (the CLI, an operator) is told, instead of being handed a silent
+   * "lane is free" for a lane that is still taken.
+   */
+  async cancelClaim(handle: TaskHandle): Promise<boolean> {
+    try {
+      await this._rest('DELETE', `/tasks/${handle.taskId}`);
+      return true;
+    } catch (err) {
+      // 404 means the claim is ALREADY gone — cancelling twice, or cancelling one
+      // another session cleaned up. The lane is free, which is what the caller asked
+      // about, so this is success. Reporting it as failure made an idempotent retry
+      // print a false "the lane is still taken" alarm (found in the live proof run).
+      const msg = err instanceof Error ? err.message : String(err);
+      return /HTTP 404\b/.test(msg);
+    }
+  }
+
+  /**
+   * One-shot dispatch — claim + release with the original rollback semantics.
+   *
+   * Retained verbatim in behaviour: callers that do not need a Phase -1 window
+   * (the PostToolUse hook, `/dispatcher`) still see one atomic call whose failed
+   * unpause best-effort DELETEs the half-created task, so no orphan is left on
+   * the project and the CLI falls back to ManualBackend (dispatch.ts).
+   */
+  async dispatch(kickoff: KickoffSpec): Promise<TaskHandle> {
+    const handle = await this.claim(kickoff);
+    try {
+      return await this.release(handle);
+    } catch (err) {
+      await this.cancelClaim(handle);
+      throw err;
+    }
   }
 
   async getStatus(handle: TaskHandle): Promise<TaskStatus> {

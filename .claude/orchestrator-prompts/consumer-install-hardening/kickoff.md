@@ -117,3 +117,5 @@ All stage PRs merged → Phase -1 cold-review (read-only Agent, `reviewer-discip
 - **Reuse, don't rebuild (BFR):** `scripts/audit-ai-docs.sh`, principle tests, `tests/install-sh/*.test.sh` harness, `make self-audit`, the `/tmp` fresh-install pattern.
 - Last-stage merge → `done.md` here per CLAUDE.md Umbrella closure convention.
 - This kickoff is consumed by `/pipeline`; the generated meta-launch kickoff must pass principle 12 (its own §5 AI-traps with T-enumeration) — `/pipeline` authors that, this umbrella kickoff seeds the trap list above.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

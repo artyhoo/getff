@@ -1,0 +1,12 @@
+# S4 bench C1 — per-row rubric judge (kickoff-s4 §3.4). 151 tests, one per labelable row.
+# Provider: exec-shaped wrapper shelling `claude -p --model sonnet` (judge model pinned by
+# name inside provider.mjs; NOT a promptfoo model setting — §3.4). Prompt = the frozen
+# buildPayload output, verbatim (single-var template). Cache left ON for re-run headroom.
+prompts:
+  - '{{payload}}'
+providers:
+  - id: 'exec:node provider.mjs'
+    label: s4-c1-sonnet
+    config:
+      timeout: 300000
+tests: file://tests-c1.json

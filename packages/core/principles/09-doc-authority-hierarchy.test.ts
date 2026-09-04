@@ -91,8 +91,8 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
     // otherwise pass vacuously) or accidentally explodes it. Semantic alignment
     // with rule §2 is the maintainer's responsibility on each list update.
     expect(REQUIRED_HEADER_DOCS.length).toBeGreaterThanOrEqual(20);
-    // Upper bound tracks the list in lockstep (66 → 69 react-spa → 72: +3 react-native docs, 2026-06-24 → 73: +egress-no-api-bypass.md, 2026-06-27 → 81: +8 project-local .claude/skills/*/SKILL.md, DN-M1 → 82: +skill-description-quality.md, 2026-06-27 → 84: +rule-researcher agent + rule-research skill (live-adapter Phase 1), 2026-06-29 → 85: +research-source-trust.md, 2026-07-02 (rule-research-trust-tiers S3) → 87: +source-before-shape.md rule + capability-reuse-auditor.md agent, 2026-07-02 (source-before-shape mechanism)).
-    expect(REQUIRED_HEADER_DOCS.length).toBeLessThanOrEqual(87);
+    // Upper bound tracks the list in lockstep (66 → 69 react-spa → 72: +3 react-native docs, 2026-06-24 → 73: +egress-no-api-bypass.md, 2026-06-27 → 81: +8 project-local .claude/skills/*/SKILL.md, DN-M1 → 82: +skill-description-quality.md, 2026-06-27 → 84: +rule-researcher agent + rule-research skill (live-adapter Phase 1), 2026-06-29 → 85: +research-source-trust.md, 2026-07-02 (rule-research-trust-tiers S3) → 87: +source-before-shape.md rule + capability-reuse-auditor.md agent, 2026-07-02 (source-before-shape mechanism), 2026-07-19 (zcode-parity-s10-doctrine-doc) → 88: +zcode-parity-doctrine.md rule → 89: +rule-test-author.md agent (rule-tests-surface S1), 2026-07-22 → 90: +tier-home.md template (beta-delivery-ux S3 / spec A3), 2026-08-01 → 91: +AI-USAGE-GUIDE.md template (beta-ai-docs-agnosticism S1 / spec C1), 2026-08-08).
+    expect(REQUIRED_HEADER_DOCS.length).toBeLessThanOrEqual(91);
     // Canonical roots must always be present
     expect(REQUIRED_HEADER_DOCS).toContain('README.md');
     expect(REQUIRED_HEADER_DOCS).toContain('CLAUDE.md');
@@ -108,7 +108,7 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
   // not flagged (i.e. the rule's failure detection still functions outside the
   // exempt scope).
   it('positive: file under exempt glob is recognised as exempt', () => {
-    expect(isExempt('packages/core/research/fixtures/drift/with-drift/skills/rules-as-tests/SKILL.md')).toBe(true);
+    expect(isExempt('packages/core/research/fixtures/drift/with-drift/skills/getff/SKILL.md')).toBe(true);
     expect(isExempt('packages/core/detector/fixtures/with-aif/.ai-factory/ARCHITECTURE.md')).toBe(true);
   });
 
@@ -124,7 +124,7 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
     // exempt scope. Pick a fixture path that matches the exempt glob — if its
     // file exists and lacks a header, exemption is the only reason it does
     // not appear in the canonical violations list.
-    const fixtureRel = 'packages/core/research/fixtures/drift/with-drift/skills/rules-as-tests/SKILL.md';
+    const fixtureRel = 'packages/core/research/fixtures/drift/with-drift/skills/getff/SKILL.md';
     const fullPath = resolve(REPO_ROOT, fixtureRel);
     if (!existsSync(fullPath)) return; // skip if fixture relocated; sentinel-only assertion
     const content = readFileSync(fullPath, 'utf8');
@@ -173,8 +173,11 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
     // 19 baseline + 3 react-spa + 3 react-native shipped docs (each: RULES.md,
     // RULES.<stack>.md, templates/ARCHITECTURE.<stack>.md) wired by install.sh = 25;
     // +1 rule-researcher agent (live-adapter Phase 1, 2026-06-29) = 26;
-    // +1 capability-reuse-auditor agent (source-before-shape, 2026-07-02) = 27.
-    expect(installShipped).toHaveLength(27);
+    // +1 capability-reuse-auditor agent (source-before-shape, 2026-07-02) = 27;
+    // +1 rule-test-author agent (rule-tests-surface S1, 2026-07-22) = 28;
+    // +1 tier-home doc (beta-delivery-ux S3 / spec A3, 2026-08-01) = 29;
+    // +1 AI Usage Guide (beta-ai-docs-agnosticism S1 / spec C1, 2026-08-08) = 30.
+    expect(installShipped).toHaveLength(30);
     expect(new Set(installShipped)).toEqual(new Set(shippedSubset));
   });
 
@@ -232,7 +235,7 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
   it('bin shim: exits 0 when exempt path passed', () => {
     // Exempt fixture paths survive the filter (so callers can pass mixed lists)
     // and then are skipped inside checkDocsHaveAuthorityHeader → no violation.
-    const exemptPath = 'packages/core/research/fixtures/drift/with-drift/skills/rules-as-tests/SKILL.md';
+    const exemptPath = 'packages/core/research/fixtures/drift/with-drift/skills/getff/SKILL.md';
     const filtered = selectRequiredPaths([exemptPath]);
     expect(filtered).toEqual([exemptPath]);
     const result = checkDocsHaveAuthorityHeader(filtered, REPO_ROOT);
@@ -243,7 +246,7 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
     expect(EXEMPT_PATTERNS.length).toBeGreaterThan(0);
     expect(
       EXEMPT_PATTERNS.some((re) =>
-        re.test('packages/core/research/fixtures/drift/with-drift/skills/rules-as-tests/SKILL.md'),
+        re.test('packages/core/research/fixtures/drift/with-drift/skills/getff/SKILL.md'),
       ),
     ).toBe(true);
   });
@@ -270,7 +273,7 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
       expect(enumerated).toContain('.claude/skills/tool-bootstrapping/SKILL.md');
       expect(enumerated).toContain('.claude/skills/pipeline/references/red-flags.md');
       expect(enumerated).toContain('.claude/skills/story/SKILL.md');
-      expect(enumerated).toContain('skills/rules-as-tests/SKILL.md');
+      expect(enumerated).toContain('skills/getff/SKILL.md');
       expect(enumerated.length).toBeGreaterThanOrEqual(20);
     });
 
@@ -289,8 +292,8 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
     it('positive: patterns match skill primary docs + cold references in both roots', () => {
       expect(matchesRequiredPattern('.claude/skills/story/SKILL.md')).toBe(true);
       expect(matchesRequiredPattern('.claude/skills/pipeline/references/red-flags.md')).toBe(true);
-      expect(matchesRequiredPattern('skills/rules-as-tests/SKILL.md')).toBe(true);
-      expect(matchesRequiredPattern('skills/rules-as-tests/references/ai-traps.md')).toBe(true);
+      expect(matchesRequiredPattern('skills/getff/SKILL.md')).toBe(true);
+      expect(matchesRequiredPattern('skills/getff/references/ai-traps.md')).toBe(true);
     });
 
     it('negative: patterns do NOT match helpers, fixtures, non-md, or nested extras', () => {
@@ -299,7 +302,7 @@ describe('Principle 9 — every authority-bearing doc declares Authoritative-for
       // fixture copies live under packages/** — EXEMPT territory, never required
       expect(
         matchesRequiredPattern(
-          'packages/core/research/fixtures/drift/with-drift/skills/rules-as-tests/SKILL.md',
+          'packages/core/research/fixtures/drift/with-drift/skills/getff/SKILL.md',
         ),
       ).toBe(false);
       // non-markdown and root-level files

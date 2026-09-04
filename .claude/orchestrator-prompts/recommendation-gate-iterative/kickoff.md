@@ -93,3 +93,5 @@ Domain-specific:
 **Решение по запуску (принято maintainer'ом 2026-05-21):** эта итеративная сессия запускается как **пере-валидация** доставленных think-time-выводов (Option B), **НЕ** как их замена — think-time уже доставил патч + errata + промотированное правило `§1.10`, заменить исполненную работу нельзя. Этот выбор уже сделан — Round 0 его НЕ переоткрывает.
 
 **Остаётся открытым (surface в Round 5 как decision-needed, не решай сам — reviewer-discipline):** слить ли overlapping scope с **неисполненным** autonomous-self-audit в один R-phase, чтобы не плодить фрагментацию. Вынеси maintainer'у с опциями (Option «слить» → следствие X / Option «оставить раздельно» → следствие Y), выбор за ним.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

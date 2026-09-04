@@ -7,7 +7,7 @@
 > **Deliverable:** TWO artifacts, committed and PR-opened before handoff:
 > 1. `docs/meta-factory/research-patches/2026-06-03-aif-skills-delivery.md` — best practices survey + verdict
 > 2. PR `research/aif-skills-delivery-rphase` opened against staging with auto-merge DISABLED (maintainer reviews first)
-> 
+>
 > **Final step (mandatory):** `git checkout -b research/aif-skills-delivery-rphase origin/staging && git add ... && git commit && git push && gh pr create --base staging --no-auto-merge`
 
 ---
@@ -101,3 +101,5 @@ When work is dispatched to aif-handoff, the agent runs in a container that only 
 - [ ] Principle 10 scope annotation present
 - [ ] `Prior-art: ...` trailer in commit message (reference SSOT rows for aif-handoff #67/#97 + skill-context #50)
 - [ ] End with `## REPORT` block per `agents/orchestrator-worker-discipline.md`
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

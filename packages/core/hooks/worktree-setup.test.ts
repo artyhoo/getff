@@ -19,11 +19,14 @@
  * is absent — exercising only the jq-missing path would yield no signal).
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { execFileSync, execSync } from 'node:child_process';
+import { execFileSync, execSync, spawnSync } from 'node:child_process';
 import {
+  copyFileSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   readlinkSync,
   rmSync,
   writeFileSync,
@@ -45,6 +48,17 @@ function hasJq(): boolean {
   }
 }
 const JQ = hasJq();
+
+// This suite spawns the real worktree-setup.sh hook, which does real git +
+// filesystem work (worktree add, node_modules wiring, and — in the SELF-HEAL case —
+// an `npm ci --prefix packages/core`). Multi-second runtimes are inherent, so the
+// vitest 5s default is a mis-set gate rather than a signal: run in isolation the
+// SELF-HEAL case measures 3.8s, but under full-suite parallel load
+// (`vitest run hooks/ skills/`, measured 2026-08-10) it times out at 5000ms.
+// 30_000 is the SLOW_SHELL_MS convention already used by the sibling shell-spawning
+// suites (priority-score-synthetic, priority-score-skip-closed,
+// done-md-completion-filter, pre-push.consumer-layout).
+const SLOW_SHELL_MS = 30_000;
 
 interface Result {
   stdout: string;
@@ -87,6 +101,14 @@ function setupTempRepo(): string {
   // Primary node_modules — symlink target.
   mkdirSync(resolve(dir, 'node_modules'), { recursive: true });
   writeFileSync(resolve(dir, 'node_modules/.keep'), '');
+  // The hook delegates provisioning to scripts/worktree-node-modules.sh (single source of
+  // truth shared with scripts/create-worktree.sh). The fixture must ship that dependency or
+  // the hook silently no-ops on its `|| true` and every symlink assertion below fails.
+  mkdirSync(resolve(dir, 'scripts'), { recursive: true });
+  copyFileSync(
+    resolve(REPO_ROOT, 'scripts/worktree-node-modules.sh'),
+    resolve(dir, 'scripts/worktree-node-modules.sh'),
+  );
   return dir;
 }
 
@@ -170,7 +192,7 @@ function payload(name: string, cwd: string, session = 'sess-1'): Record<string, 
   };
 }
 
-describe.skipIf(!JQ)('worktree-setup.sh — WorktreeCreate hook', () => {
+describe.skipIf(!JQ)('worktree-setup.sh — WorktreeCreate hook', { timeout: SLOW_SHELL_MS }, () => {
   let repo: string;
 
   beforeEach(() => {
@@ -216,6 +238,73 @@ describe.skipIf(!JQ)('worktree-setup.sh — WorktreeCreate hook', () => {
     expect(readlinkSync(`${wt}/packages/core/node_modules`)).toBe('../../node_modules');
   });
 
+  // ── Self-heal: tsx toolchain reachability (incident 2026-07-21) ──
+
+  it('SELF-HEAL: cold primary (tsx unreachable at both probe paths) → installs packages/core so tsx becomes reachable', () => {
+    // Reproduce a worktree created while the primary was still cold: no tsx in
+    // either probe path, so symlink delivery cannot surface it. Stub `npm` on
+    // PATH so the self-heal `npm ci --prefix` is deterministic + offline — it
+    // just materialises the tsx bin a real install would produce.
+    const fakeBin = mkdtempSync(resolve(tmpdir(), 'wtc-fakenpm-'));
+    writeFileSync(
+      resolve(fakeBin, 'npm'),
+      [
+        '#!/usr/bin/env bash',
+        'prefix=""',
+        'while [ $# -gt 0 ]; do case "$1" in --prefix) prefix="$2"; shift 2;; *) shift;; esac; done',
+        '[ -n "$prefix" ] || exit 1',
+        'mkdir -p "$prefix/node_modules/.bin"',
+        'printf "#!/bin/sh\\necho tsx\\n" > "$prefix/node_modules/.bin/tsx"',
+        'chmod +x "$prefix/node_modules/.bin/tsx"',
+      ].join('\n') + '\n',
+      { mode: 0o755 },
+    );
+    // packages/core must carry a COMMITTED lockfile for the self-heal `npm ci`
+    // to run (production tracks it, so every worktree checkout has it; the guard
+    // skips self-heal without it). Commit it so the worktree checkout includes it.
+    writeFileSync(resolve(repo, 'packages/core/package-lock.json'), '{}\n');
+    execSync('git add packages/core/package-lock.json && git commit -q -m lock', { cwd: repo });
+    try {
+      const r = runHook(payload('self-heal', repo), {
+        CLAUDE_PROJECT_DIR: repo,
+        PATH: `${fakeBin}:${process.env.PATH}`,
+      });
+      expect(r.status).toBe(0);
+      const wt = `${repo}/.claude/worktrees/self-heal`;
+      // tsx now reachable at the first probe path, in a REAL dir (the tsx-less
+      // delivery symlink was dropped before the local install).
+      expect(existsSync(`${wt}/packages/core/node_modules/.bin/tsx`)).toBe(true);
+      expect(lstatSync(`${wt}/packages/core/node_modules`).isSymbolicLink()).toBe(false);
+    } finally {
+      rmSync(fakeBin, { recursive: true, force: true });
+    }
+  });
+
+  it('SELF-HEAL NO-OP: tsx already reachable via root-node_modules symlink → no reinstall, delivery symlink preserved', () => {
+    // Warm primary in workspace-hoist layout: tsx in ROOT node_modules. The
+    // worktree's root symlink surfaces it via the 2nd probe path, so self-heal
+    // must NOT fire (must not clobber the packages/core delivery symlink). Stub
+    // `npm` to fail loudly so an erroneous reinstall would break the assertions.
+    mkdirSync(resolve(repo, 'node_modules/.bin'), { recursive: true });
+    writeFileSync(resolve(repo, 'node_modules/.bin/tsx'), '#!/bin/sh\necho tsx\n', { mode: 0o755 });
+    const fakeBin = mkdtempSync(resolve(tmpdir(), 'wtc-fakenpm-noop-'));
+    writeFileSync(resolve(fakeBin, 'npm'), '#!/usr/bin/env bash\nexit 7\n', { mode: 0o755 });
+    try {
+      const r = runHook(payload('noop', repo), {
+        CLAUDE_PROJECT_DIR: repo,
+        PATH: `${fakeBin}:${process.env.PATH}`,
+      });
+      expect(r.status).toBe(0);
+      const wt = `${repo}/.claude/worktrees/noop`;
+      // Delivery symlink intact (self-heal did not clobber it).
+      expect(lstatSync(`${wt}/packages/core/node_modules`).isSymbolicLink()).toBe(true);
+      // tsx reachable via the root-node_modules symlink (2nd probe path).
+      expect(existsSync(`${wt}/node_modules/.bin/tsx`)).toBe(true);
+    } finally {
+      rmSync(fakeBin, { recursive: true, force: true });
+    }
+  });
+
   it('branch name follows CC default convention: worktree-<name>', () => {
     runHook(payload('branch-conv', repo), { CLAUDE_PROJECT_DIR: repo });
     const wtList = execSync(`git -C "${repo}" worktree list --porcelain`, {
@@ -245,6 +334,41 @@ describe.skipIf(!JQ)('worktree-setup.sh — WorktreeCreate hook', () => {
     });
     expect(r.status).toBe(0);
     expect(r.stdout).toBe(`${repo}/.claude/worktrees/env-precedes`);
+  });
+
+  // ── Coordination-link helper: loud on miss, silent-run on hit ─────────────
+  // Regression (handoff item 2, 2026-07-25): a missing scripts/link-coordination.sh
+  // was swallowed by `|| true` — the worktree stayed silently unlinked from the
+  // canonical store. Now the miss is announced on stderr (stdout stays path-only).
+
+  it('LOUD-WARN: missing link-coordination.sh → stderr notice, stdout still path-only, exit 0', () => {
+    // The fixture repo ships no scripts/link-coordination.sh — the miss path.
+    const r = spawnSync('bash', [HOOK], {
+      input: JSON.stringify(payload('loud-warn', repo)),
+      encoding: 'utf8',
+      env: { ...process.env, CLAUDE_PROJECT_DIR: repo },
+    });
+    expect(r.status).toBe(0);
+    expect((r.stderr ?? '')).toContain('link-coordination.sh not found');
+    const out = (r.stdout ?? '').trim();
+    expect(out.split('\n').length, 'warning must NOT leak onto stdout').toBe(1);
+    expect(out.startsWith('/')).toBe(true);
+  });
+
+  it('helper present → invoked with (worktree, project) args, no missing-helper warning', () => {
+    const stub = resolve(repo, 'scripts/link-coordination.sh');
+    const marker = resolve(repo, 'link-ran.txt');
+    writeFileSync(stub, `#!/usr/bin/env bash\nprintf '%s %s\\n' "$1" "$2" > "${marker}"\n`, { mode: 0o755 });
+    const r = spawnSync('bash', [HOOK], {
+      input: JSON.stringify(payload('helper-hit', repo)),
+      encoding: 'utf8',
+      env: { ...process.env, CLAUDE_PROJECT_DIR: repo },
+    });
+    rmSync(stub, { force: true }); // keep the shared fixture helper-less for other tests
+    expect(r.status).toBe(0);
+    expect((r.stderr ?? '')).not.toContain('link-coordination.sh not found');
+    expect(existsSync(marker), 'helper must have run').toBe(true);
+    expect(readFileSync(marker, 'utf8')).toBe(`${repo}/.claude/worktrees/helper-hit ${repo}\n`);
   });
 
   // ── Paired-negative scenarios: failure modes the hook is paid to detect ──

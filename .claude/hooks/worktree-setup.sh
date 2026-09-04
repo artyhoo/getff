@@ -65,8 +65,11 @@ fi
 WORKTREE_DIR="$PROJECT_DIR/.claude/worktrees/$NAME"
 BRANCH="worktree-$NAME"
 
-# Idempotent: pre-existing worktree → reuse.
+# Idempotent: pre-existing worktree → reuse. Still RE-PROVISION before returning: a worktree
+# reused after any vitest run holds real node_modules/.vite cache dirs where the symlinks
+# belong, and returning early left it permanently unprovisioned (incident 2026-07-23).
 if [[ -d "$WORKTREE_DIR" ]]; then
+  bash "$PROJECT_DIR/scripts/worktree-node-modules.sh" --apply "$WORKTREE_DIR" "$PROJECT_DIR" >&2 || true
   printf '%s\n' "$WORKTREE_DIR"
   exit 0
 fi
@@ -105,24 +108,39 @@ if ! git -C "$PROJECT_DIR" worktree add "$WORKTREE_DIR" -b "$BRANCH" "$BASE_REF"
   fi
 fi
 
-# Project-specific D2 customisation: symlink node_modules from the primary
-# checkout. Skip if no primary node_modules exists (fresh clone before install).
-if [[ -e "$PROJECT_DIR/node_modules" ]] && [[ ! -e "$WORKTREE_DIR/node_modules" ]]; then
-  ln -sfn "$PROJECT_DIR/node_modules" "$WORKTREE_DIR/node_modules"
-fi
-# packages/core/node_modules must point at the primary's REAL nested dir when it
-# exists: the root lock plans nested dep versions (packages/core/node_modules/<dep>)
-# that diverge from the root layer, and a ../../node_modules link SHADOWS the
-# nested layer — esbuild then bundles the root versions and
-# `scripts/build-synth-bundle.sh --check` false-fails with "synth-bundle drift"
-# in every fresh worktree (incident 2026-07-02). Fallback to ../../node_modules
-# only when the primary has no nested dir (fresh clone before install).
-if [[ -d "$WORKTREE_DIR/packages/core" ]] && [[ ! -e "$WORKTREE_DIR/packages/core/node_modules" ]]; then
-  if [[ -d "$PROJECT_DIR/packages/core/node_modules" ]]; then
-    ln -sfn "$PROJECT_DIR/packages/core/node_modules" "$WORKTREE_DIR/packages/core/node_modules"
-  else
-    ln -sfn ../../node_modules "$WORKTREE_DIR/packages/core/node_modules"
+# Project-specific D2 customisation: symlink node_modules from the primary checkout.
+# The logic lives in scripts/worktree-node-modules.sh — ONE canonical implementation shared
+# with scripts/create-worktree.sh, the portable half of this @dual-pair. Both channels used to
+# carry byte-identical copies of this block, which is #sync-by-copy-paste
+# (.claude/rules/dual-implementation-discipline.md §8); §7 requires the shared logic to have a
+# single home. Non-fatal: a failed provisioning must never block worktree creation.
+bash "$PROJECT_DIR/scripts/worktree-node-modules.sh" --apply "$WORKTREE_DIR" "$PROJECT_DIR" >&2 || true
+
+# Self-heal the packages/core toolchain when the symlinks above did NOT surface
+# it. Symlink delivery only works when the primary was already installed at
+# create-time; a cold primary (worktree born mid-install — incident 2026-07-21:
+# the worktree predated the primary's tsx by ~48 min) or a later clobber (vite
+# materialising a real node_modules over the link) leaves tsx unreachable at BOTH
+# probe paths the principle-21 harness checks (packages/core/node_modules/.bin/tsx,
+# then root node_modules/.bin/tsx — tests/agnosticism/probes/rule-channel-readability.sh),
+# so those probes silently degrade to a PORTABLE fallback instead of running.
+# Install standalone IN THE WORKTREE, mirroring CI's `npm ci --prefix packages/core`
+# (audit-self.yml). Non-fatal: an offline/failed install must never block creation.
+# Guarded on a present lockfile + reachable npm: without them the install cannot
+# run, and dropping the delivery symlink (below) would strictly WORSEN the state
+# — so skip entirely and leave the symlink in place.
+if [[ -d "$WORKTREE_DIR/packages/core" ]] \
+   && [[ -f "$WORKTREE_DIR/packages/core/package-lock.json" ]] \
+   && command -v npm >/dev/null 2>&1 \
+   && [[ ! -x "$WORKTREE_DIR/packages/core/node_modules/.bin/tsx" ]] \
+   && [[ ! -x "$WORKTREE_DIR/node_modules/.bin/tsx" ]]; then
+  # Never write THROUGH a delivery symlink into the primary — drop a link that
+  # pointed at a tsx-less primary, then install a real nested dir locally.
+  if [[ -L "$WORKTREE_DIR/packages/core/node_modules" ]]; then
+    rm -f "$WORKTREE_DIR/packages/core/node_modules"
   fi
+  npm ci --prefix "$WORKTREE_DIR/packages/core" --silent >/dev/null 2>&1 \
+    || printf '⚠ worktree-setup: could not ensure packages/core toolchain (tsx); run `npm ci --prefix packages/core` in the worktree\n' >&2
 fi
 
 # Link gitignored orchestrator-prompts to a canonical store outside every
@@ -131,6 +149,20 @@ fi
 # live-shared identity: one file, N symlinks.
 # `>&2` keeps helper output off this hook's stdout (stdout = worktree path only).
 # `|| true` prevents a link conflict from blocking worktree creation.
+# LOUD miss (stderr — stdout stays path-only per the WorktreeCreate contract): the
+# previous call swallowed a missing helper via `|| true`, leaving the new worktree
+# silently unlinked from the canonical store (handoff item 2, 2026-07-25; same class
+# as the 2026-07-24 tsx-resolution incident). Deliberately NOT tiered to this hook's
+# own checkout (unlike adopt-orchestrator-prompts.sh): the helper is project-local by
+# contract — $PROJECT_DIR is the project being provisioned, and borrowing another
+# checkout's copy would run coordination-linking a foreign project never opted into.
+# The call stays a standalone literal line (not folded into the if/else): the
+# worktree-setup-hydration.test.ts paired-negative strips exactly that line by regex
+# and the remaining script must stay valid bash. On a miss the call still runs and
+# no-ops under `|| true` — the warning above is the load-bearing signal.
+if [[ ! -f "$PROJECT_DIR/scripts/link-coordination.sh" ]]; then
+  printf '⚠ worktree-setup: %s/scripts/link-coordination.sh not found — orchestrator-prompts NOT linked to the canonical store; files created under .claude/orchestrator-prompts/ in this worktree are sole-copy until scripts/link-coordination.sh is run manually\n' "$PROJECT_DIR" >&2
+fi
 bash "$PROJECT_DIR/scripts/link-coordination.sh" "$WORKTREE_DIR" "$PROJECT_DIR" >&2 || true
 
 # Print path — the ONLY thing on stdout per CC command-hook contract.

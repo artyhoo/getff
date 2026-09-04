@@ -155,6 +155,10 @@ For each issue, output:
 
 Severity rules:
 
+**Severity contract (`.claude/rules/reviewer-discipline.md` §6, 2026-08-10):** a BLOCKER/MAJOR that is meant to trigger a re-review round must carry a `Failure-scenario:` line (concrete failure / goal-impact — the «Why it's a problem» field names the mechanism; Failure-scenario names the consequence). A finding standing on an UNRECORDED value premise is graded `ESCALATED` and routed to the concept holder, never priced here. Scenario-less findings go to the notes lane; zero-finding reviews are a legitimate outcome.
+
+**Triage rubric (`.claude/rules/reviewer-discipline.md` §6.1, 2026-08-17):** grade with the three-axis rubric quoted verbatim there, and carry its per-axis provenance — `layer` is `corpus-measured`, `whose` is `judgment-only, not corpus-validated`, and the class axis is a measured null (the recorded grade, not the rubric, remains the class bar).
+
 - **BLOCKER** — security/correctness/data integrity (allows silent breakage; e.g., tautological test on critical path).
 - **MAJOR** — anti-pattern that will cause maintainability or accessibility issues at scale.
 - **MINOR** — style or minor inefficiency.

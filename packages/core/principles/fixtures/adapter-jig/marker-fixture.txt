@@ -1,0 +1,9 @@
+Fixture for principle 33 (adapter-jig arm registry) — N33-2 positive control.
+
+NOT a live suite: scanSuiteMarkers only scans *.test.ts / *.test.sh files, so the
+markers below can never pollute the population sentinel; vitest never runs .txt files.
+The two lines below let a synthetic ArmEntry's case refs RESOLVE (file exists AND
+contains the locator verbatim) without registering anything real.
+
+// @arm:A1:pos no-new-throw-on-prewired-path (fixture-only, not a live case)
+// @arm:A1:neg no-new-throw-on-prewired-path (fixture-only, not a live case)

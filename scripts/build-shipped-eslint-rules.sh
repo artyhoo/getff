@@ -14,7 +14,9 @@
 #
 # The `--check` mode is the executable artifact (CI-runnable, deterministic, no LLM)
 # that keeps the committed .mjs/.d.ts in sync with the .ts authoring source — the
-# "documents lie; tests don't" guard for shipped compiled output.
+# "documents lie; tests don't" guard for shipped compiled output. It also flags
+# ORPHANS: committed artifacts whose .ts source was deleted (or stopped being
+# shippable), so removing a rule source cannot leave stale compiled output behind.
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
@@ -77,11 +79,31 @@ if [ "$MODE" = "--check" ]; then
       done
     done < <(_rule_sources "$dir")
   done
+  # Orphan walk: a committed .mjs/.d.ts whose authoring .ts source is gone (or no
+  # longer shippable) must go RED, not linger silently. Without this, deleting a
+  # rule source leaves its compiled artifacts orphaned — install.sh keeps copying
+  # a rule nobody authors anymore. Mirrors the python-template drift gate's
+  # committed-artifacts-without-source walk.
+  for dir in "${RULE_DIRS[@]}"; do
+    [ -d "$ROOT/$dir" ] || continue
+    for artifact in "$ROOT/$dir"/*.mjs "$ROOT/$dir"/*.d.ts; do
+      [ -e "$artifact" ] || continue
+      case "$artifact" in
+        *.d.ts) stem="$(basename "$artifact" .d.ts)" ;;
+        *)      stem="$(basename "$artifact" .mjs)" ;;
+      esac
+      checked=$((checked + 1))
+      if ! _rule_sources "$dir" | grep -qxF "$ROOT/$dir/$stem.ts"; then
+        echo "ORPHAN: $dir/$(basename "$artifact") has no matching rule source $dir/$stem.ts (delete the artifact or restore the source)"
+        drift=1
+      fi
+    done
+  done
   if [ "$drift" -ne 0 ]; then
-    echo "✗ shipped-rule drift detected ($checked artifacts checked). Re-run: scripts/build-shipped-eslint-rules.sh" >&2
+    echo "✗ shipped-rule drift detected ($checked checks). Re-run: scripts/build-shipped-eslint-rules.sh" >&2
     exit 1
   fi
-  echo "✓ shipped compiled rules in sync with .ts sources ($checked artifacts checked)."
+  echo "✓ shipped compiled rules in sync with .ts sources ($checked checks)."
   exit 0
 fi
 

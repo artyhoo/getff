@@ -1,6 +1,6 @@
 # Output format — `/pipeline <umbrella>` inline session report
 
-> **Authoritative for:** the 3-layer structure shape emitted by `/pipeline <umbrella>` invocations — §1 grammar, §2 dependency-graph template, §3 action-queue template, §4 1-liner block grammar, §5 four worked examples (Mode A / SDD / Mode B × N / Queue mode), §6 anti-patterns for 1-liner format. Principle 18 (`packages/core/principles/18-meta-orchestrator-output-format.test.ts`) enforces the literal substrings below.
+> **Authoritative for:** the 3-layer structure shape emitted by `/pipeline <umbrella>` invocations — §1 grammar, §2 dependency-graph template, §3 action-queue template, §4 1-liner block grammar, §5 four worked examples (Mode A / SDD / Mode B × N / Queue mode), §6 anti-patterns for 1-liner format, §9 dispatch-chip contract. Principle 18 (`packages/core/principles/18-meta-orchestrator-output-format.test.ts`) enforces the literal substrings below.
 > **NOT authoritative for:** project goal — see [`../../../../README.md#why-this-exists`](../../../../README.md#why-this-exists). The `/pipeline` skill body authority — see [`../SKILL.md`](../SKILL.md).
 
 > **Origin:** F.3 (2026-05-24). The 3-layer structure synthesises F.1 prior-art (PR #203) — Argo Workflows' `├── / └──` ASCII tree (ADAPT vocabulary, SSOT row TBA) + maintainer's binding 1-liner format refinement (parent kickoff §1 Sub-wave F.3 lines 237-254). The slash-tag draft (`/Mode-A /Roles-… /Skills-…`) was rated «not convenient» by the maintainer and has zero upstream precedent across 10 surveyed tools (GHA, Concourse, Argo, Dagger, just, LangGraph, Cline, Superpowers, gh workflow run, orchestrator-guide).
@@ -146,6 +146,43 @@ EXECUTION PLAN — <umbrella> (<YYYY-MM-DD>)
 
 **Falsifiers:** wrong if §1B output exceeds ~15 lines for a 2-stage umbrella; wrong if any of the 6 principle-18 substrings (`## Dependency graph` / `↓` / `## Action queue` / `Paste into a new CC tab` / `Can parallel with` / `### Stage`) is absent from the §1B skeleton above.
 
+## §1C Status format (beta-delivery-ux S2, A5)
+
+> **Origin:** beta-delivery-ux S2 (2026-08-08). Spec: [2026-07-23-beta-program-design.md §4 A5](../../../../docs/superpowers/specs/2026-07-23-beta-program-design.md). Read-only, three-section, no persistent state, NOT a dashboard.
+
+Emitted by `/pipeline status`. The status verb does NOT enter the §1 dispatch tree — it short-circuits to a read-only render against live bricks.
+
+```text
+## Pipeline status
+
+### In-factory
+  <running aif tasks + their state — from bridge REST /health + /tasks>
+  (or: "(bridge unreachable at <url>)" — designed degradation)
+
+### Parked questions
+  <each parked task + its fork — from questions.ts --json>
+  (or: "(no parked questions)" — designed degradation)
+
+### Ready-to-harvest + PR state
+  <open PRs + mergeable state — from gh pr list>
+  (or: "(no open PRs)" / "(gh unavailable)" — designed degradation)
+
+### Suggested next
+→ next: <suggested command 1>
+→ next: <suggested command 2 — optional>
+```
+
+**Rules:**
+
+- Each section degrades **independently** — an unreachable bridge does NOT block parked-questions or PR sections.
+- Exit code is 0 unless the renderer itself crashes; degraded sections are a **designed success path** (§3 spec).
+- 1-3 suggested-next lines tail the output (clig.dev «suggest what to run next»).
+- No persistent state, no refresh loop, no TUI. One-shot read + print.
+
+**Falsifiers:** wrong if any section is silently elided (each MUST appear, even in degraded form); wrong if the renderer exits non-zero on a missing brick; wrong if the output omits the `### Suggested next` tail.
+
+**See also:** [`helpers/render-status.sh`](../helpers/render-status.sh) — the renderer. [`SKILL.md §2.6`](../SKILL.md) — invocation point.
+
 ---
 
 ## §2 Dependency graph
@@ -216,7 +253,7 @@ Exactly one block per stage. Maintainer pastes the entire block into a fresh CC 
 
 **Tokens:**
 
-- `/orchestrator` — deterministic CC slash-command routing token. Activates the global `~/.claude/skills/orchestrator/SKILL.md`.
+- `/orchestrator` — deterministic CC slash-command routing token. Activates `.claude/skills/orchestrator/SKILL.md`.
 - `<umbrella-name>` — kebab-case identifier matching the kickoff directory `.claude/orchestrator-prompts/<umbrella-name>/kickoff.md`.
 - `§<section-anchor>` — exact section header from the kickoff (e.g. `§1`, `§4 Stage 1`, `§1 Sub-wave F.3`).
 - `— <natural-language payload>` — free-form description naming Mode/role/autonomous?/iterative-review-status. The global `orchestrator` skill parses this as natural language, NOT as `--flag=value` args.
@@ -226,7 +263,7 @@ Exactly one block per stage. Maintainer pastes the entire block into a fresh CC 
 
 - 10 mature tools surveyed (GHA, Concourse, Argo, Dagger, just, LangGraph, Cline, Superpowers, `gh workflow run`, chat-orchestrator pattern article) — all converge on `/<command> <natural-language-payload>` for chat-medium dispatch. None use `/Flag-Value /Flag-Value …` shape.
 - Maintainer (2026-05-24) explicitly rated the earlier `/Mode-A /Roles-worker /Skills-foo /Autonomous-yes /Iterative-review-no` draft «not a convenient format, I don't like it».
-- The global orchestrator skill at `~/.claude/skills/orchestrator/SKILL.md` parses natural-language payload (no structured-args parser).
+- The orchestrator skill at `.claude/skills/orchestrator/SKILL.md` parses natural-language payload (no structured-args parser).
 
 ## §4.1 Description block above each 1-liner (mandatory, prose-discipline)
 
@@ -446,20 +483,67 @@ Total pastes: 1 (Queue mode internally processes all 4 R-iters autonomously).
 
 ## §6 Anti-patterns for the 1-liner format
 
-- **`#slash-tag-flag-format`** — formatting payload as `/Mode-A /Roles-… /Skills-… /Autonomous-yes /Iterative-review-no /Kickoff:<path>`. F.1 §A.5(i) — ZERO upstream precedent across 10 surveyed tools. Maintainer 2026-05-24 explicit «not a convenient format». Counter: natural-language payload after `— ` (em-dash + space). **Falsifier:** if a future revision of `~/.claude/skills/orchestrator/SKILL.md` adds a structured-args parser, the slash-tag format may regain viability — verify by reading the global skill body before falsifying.
+- **`#slash-tag-flag-format`** — formatting payload as `/Mode-A /Roles-… /Skills-… /Autonomous-yes /Iterative-review-no /Kickoff:<path>`. F.1 §A.5(i) — ZERO upstream precedent across 10 surveyed tools. Maintainer 2026-05-24 explicit «not a convenient format». Counter: natural-language payload after `— ` (em-dash + space). **Falsifier:** if a future revision of `.claude/skills/orchestrator/SKILL.md` adds a structured-args parser, the slash-tag format may regain viability — verify by reading that skill body before falsifying.
 - **`#paste-block-with-kickoff-content-inlined`** — copying acceptance criteria / T-traps / skills list / stop conditions INTO the 1-liner. Defeats `rest in kickoff` deferral; the new session re-reads the kickoff at the anchor anyway. Counter: keep the 1-liner under ~150 chars; anything more belongs in the kickoff.
 - **`#missing-section-anchor`** — emitting `/orchestrator <umbrella> — Mode A …` without `§<section>`. The receiving session has no anchor to read; defaults to the kickoff top, which may be `§0 Status` or `§-1 RE-VERIFY` rather than the action body. Counter: every 1-liner carries an explicit `§<section>` anchor.
-- **`#pattern-matching-on-name-T16`** — assuming the format works because it visually resembles `/aif-handoff` slash-tag examples (which DO have structured args). Our `/orchestrator` is a different problem class — it parses NL payload, not args. Verify by reading the global skill body, not by analogy.
+- **`#pattern-matching-on-name-T16`** — assuming the format works because it visually resembles `/aif-handoff` slash-tag examples (which DO have structured args). Our `/orchestrator` is a different problem class — it parses NL payload, not args. Verify by reading that skill body, not by analogy.
 
 ---
 
 ## §7 Falsifiers
 
-- **Wrong if** `~/.claude/skills/orchestrator/SKILL.md` is replaced by a structured-args parser — re-read the global skill body before relying on the natural-language form documented here. (Agent-uncommittable: F.3 reads the global skill but does NOT edit it.)
+- **Wrong if** `.claude/skills/orchestrator/SKILL.md` is replaced by a structured-args parser — re-read that skill body before relying on the natural-language form documented here. (F.3 reads the orchestrator skill but does NOT edit it.)
 - **Wrong if** Argo Workflows discontinues the `├── / └──` ASCII tree convention or the upstream pattern is superseded by a better chat-medium-renderable graph notation. Re-check F.1 SSOT entry on a 12-month cadence.
 - **Wrong if** the `Can parallel with` column proves redundant in practice (e.g. maintainer never consults it; or all umbrellas turn out to be strictly sequential). Promotion-to-drop trigger: 3 consecutive umbrellas where the column is empty for every row.
 
 ---
+
+## §8 Step 3b — the TTY-only preset row
+
+Spec A4 ([`2026-07-23-beta-program-design.md`](../../../../docs/superpowers/specs/2026-07-23-beta-program-design.md) §4 A4, lines 269-271) proposes presets via a TTY menu row in the §3 launch-table. The row is **additive**: `--preset <name>` / `AIF_PIPELINE_PRESET=<name>` stays the primary path per the S2 kickoff §2 binding constraint 1 and clig.dev flag-first. **Menu-only UX is REJECTED** — it breaks agents and CI, which have no TTY.
+
+Render only when `[ -t 0 ] && [ -t 1 ]`. The four presets are data-driven from the `presets/` directory ([`presets/aif.json`](presets/aif.json), [`presets/night.json`](presets/night.json), [`presets/economy.json`](presets/economy.json), [`presets/sdd.json`](presets/sdd.json)); each line's text is the preset's own `description` field, read via [`../helpers/list-presets.sh`](../helpers/list-presets.sh) — never hard-coded here, so adding a preset JSON is the only edit a new preset needs.
+
+```text
+Presets (optional — use --preset <name> or AIF_PIPELINE_PRESET=<name> to activate):
+  aif      — <description from presets/aif.json>
+  night    — <description from presets/night.json>
+  economy  — <description from presets/economy.json>
+  sdd      — <description from presets/sdd.json>
+```
+
+**Falsifier:** if this row ever appears in a non-TTY transcript, the TTY guard regressed; if it lists a preset absent from `presets/*.json` (or omits one present there), the row stopped being data-driven.
+
+## §9 Dispatch chips (ADR D1/D2)
+
+> **Origin:** [`2026-08-09-pipeline-chips-session-bus-design.md`](../../../../docs/superpowers/specs/2026-08-09-pipeline-chips-session-bus-design.md) D1 + D2, stage S1. Chips are an **addition** to the report above, never a replacement: the report + the kickoff files stay the durable record, and chips die on app restart.
+
+**Capability gate.** Emit chips only when `spawn_task` is invocable in this session — a runtime roster probe, never a version-sniff and never an `allowed-tools` declaration (skill-frontmatter `allowed-tools` is not CC-enforced, [SSOT #121](../../../../docs/meta-factory/prior-art-evaluations.md), and an `mcp__ccd_session__*` entry would additionally turn [principle 21](../../../../packages/core/principles/21-shipped-agent-tools-valid.test.ts) red on its `MCP_TOOL_RE`). A tool named in the roster but deferred needs its schema fetched before the first call. When the probe fails, render the paste tabs alone, verbatim — no apology line.
+
+**Emission points.** `/pipeline` §10 — one chip per Stage 1-liner. `/arch` §3 — one chip per routed next action, **except** the single-task `bridge: auto` route, where the write-time hook `.claude/hooks/runtime-bridge-dispatch.sh` (factory depth only) already dispatches the kickoff and a chip would be a second dispatch path for the same task (the `dispatcher/SKILL.md §2.0` (factory depth only) probe's three signals are all empty while that task sits in `backlog`, so it cannot catch the collision). `/dispatcher` emits no dispatch chips at all (REST + self-advance); its park-chips are D3, outside this section.
+
+**Chip contract.**
+
+| Field    | Content                                                                                                                                                                                                                                      |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `title`  | ≤60-char imperative with the DISTINGUISHING tokens first — `S2 auth: dispatch [<umbrella>]`, never the raw 1-liner (real 1-liners run 85–146 chars and carry their `§section` / Mode tokens in the tail, which the title cap truncates away) |
+| `tldr`   | the Action-queue context the chip drops — `When` + `Waiting on`                                                                                                                                                                              |
+| `prompt` | self-contained, carrying its own gates (below), **and rendered in full in the report next to the chip** — the payload is invisible in the chip UI, so the report is the only place the operator can inspect what a click authorizes          |
+
+**Chip prompt — four mandatory steps, in this order:**
+
+1. **Isolation first** (STOP-on-fail): enter or verify an isolated worktree before any write ([parallel-subwave-isolation.md §1](../../../rules/parallel-subwave-isolation.md)). The app's worktree default is NOT assumed — the prompt step is the mechanism, the default is a convenience.
+2. **In-flight probe**, widened: the `dispatcher/SKILL.md §2.0` (factory depth only) three-signal dedup PLUS an aif queue scan (`curl "$RUNTIME_BRIDGE_AIF_URL/tasks"` filtered by the kickoff slug) — the queue is exactly where those three signals are blind.
+3. **Stage-gate at click time**, never frozen at plan time: a stage-N chip opens with the gate predicate AND its resolution instruction — «derive Stage N-1's head branch from the umbrella's PR list / kickoff / state.md NOW, then `gh pr list --search "is:merged head:<derived> base:staging"`; empty → HALT and report». A plan-time literal branch name is wrong on the factory path (aif names branches per task at dispatch time; harvest may rename), so the HALT would fire forever on a branch that never existed. Without this step the chips strip `When` / `Waiting on` off the Action queue and become premature-dispatch buttons (`#flat-queue-no-gates`).
+4. **cwd = repo root**, plus the kickoff/residue path and «read and execute».
+
+**Lifecycle.** Superseded chips get a best-effort `dismiss_task`. The operator's click IS the «maintainer opens a fresh session» channel, so `#worker-dispatch-via-subagent` is untouched — the session is born from the click, not from an Agent-tool call.
+
+**Language.** `title` and `tldr` are operator-facing prose: write them in `AIF_OUTPUT_LANG`, like the rest of the report. The chip prompt itself is machinery — English always ([language-discipline.md §1](../../../rules/language-discipline.md)). **The rendered payload therefore needs a gloss:** when `AIF_OUTPUT_LANG` is not `en`, the in-report rendering of the prompt (required above) is accompanied by a short step-by-step gloss in `AIF_OUTPUT_LANG` — what each of the four steps authorizes, plus any hard stop the payload carries. Rendering the English payload alone in a non-English report satisfies the letter of «inspectable» while leaving nothing the operator can actually read, which is `#hope-as-gate` wearing the shape of compliance. The gloss is prose about machinery, never a translated payload: the prompt that ships to the session stays English verbatim.
+
+**What principle 18 asserts, and what it does not.** The chip check asserts that THIS section and both emitter clauses literally name the three gates — it reads the files from disk and never sees a rendered report or a runtime chip payload. So a chip whose `prompt` silently drops step 1, 2, or 3 is **not** caught by any gate today: the payload rests on emitter diligence (`#hope-as-gate`, [attention-is-not-a-mechanism.md §1](../../../rules/attention-is-not-a-mechanism.md)). Emit accordingly — render the prompt in full next to the chip (above) so the omission is at least visible to the operator before the click.
+
+**Falsifier:** wrong if a chip payload is inspected anywhere before dispatch — no `spawn_task` PreToolUse matcher exists in `.claude/settings.json` as of 2026-08-17. The reachable gate + its build trigger are recorded in [ADR D1](../../../../docs/superpowers/specs/2026-08-09-pipeline-chips-session-bus-design.md).
 
 ## §A — See also
 

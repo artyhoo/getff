@@ -9,11 +9,11 @@
 - **DN-4:** «N6b нужно думать в том числе уже сейчас и учитывать»
 Эти принципы заслуживают backed evidence через ресёрч, не inline reasoning. Maintainer 2026-05-27: «D1 тоже видимо надо заресерчить бест практики для таких случаев и как сделано у спутников» + «DN-4 — вместе это заресерчить и обсудить отдельно».
 
-> **Quote provenance disclaimer (Phase -1 M4 amend):** All Russian-language verbatim maintainer quotes in §0/§7 originate from 2026-05-27 live session dialogue with maintainer Art (yhooi2011@gmail.com). They are NOT transcribed to a PR comment, commit message, or research-patch in the repo. Quote accuracy is from the orchestrator session memory at time of kickoff drafting — Worker cannot mechanically verify provenance. If a quote feels load-bearing for a verdict, surface as a `DECISION-NEEDED` for maintainer confirmation rather than treating as ground truth.
+> **Quote provenance disclaimer (Phase -1 M4 amend):** All Russian-language verbatim maintainer quotes in §0/§7 originate from 2026-05-27 live session dialogue with maintainer Art (<yhooi2011@gmail.com>). They are NOT transcribed to a PR comment, commit message, or research-patch in the repo. Quote accuracy is from the orchestrator session memory at time of kickoff drafting — Worker cannot mechanically verify provenance. If a quote feels load-bearing for a verdict, surface as a `DECISION-NEEDED` for maintainer confirmation rather than treating as ground truth.
 
 > **DN-4 framing reconciliation (Phase -1 B2 amend):** PR #261 R-phase verdict = «F.3 primary + F.6 supplementary PROVISIONAL» (landed 2026-05-28). Maintainer's subsequent 2026-05-27 dialogue surfaced an *alternative stance*: «defer F.6 entirely; revisit только если после F.3 проблема останется». This R-phase does NOT re-litigate PR #261. It RESEARCHES Class B (ship-vs-gate + N6b portability) to ARM either position with backed evidence — confirming the landed «F.6 PROVISIONAL ship» OR validating the maintainer's revised «defer F.6». Verdict in §5 will pick between **reaffirm-landed**, **revise-to-defer**, or **new-framing** based on companion + best-practices evidence. Worker is NOT expected to ship F.6 implementation either way — that's a future I-phase decision triggered by this R-phase output.
 
-**Prerequisite:** PR #261 merged ([research-patch landed](https://github.com/Yhooi2/rules-as-tests-aif/pull/261)). PR #261 даёт baseline F.3/F.6 verdict + DN-1..DN-4 framing.
+Depends on: PR 261 merged ([research-patch landed](https://github.com/Yhooi2/rules-as-tests-aif/pull/261)). PR 261 даёт baseline F.3/F.6 verdict + DN-1..DN-4 framing.
 
 ---
 
@@ -205,3 +205,5 @@ Backward check: this kickoff doesn't supersede any existing rule; extends DN-1/D
 - [`dual-implementation-discipline.md §3`](../../../.claude/rules/dual-implementation-discipline.md) — Internal vs Consumer-facing triage (DN-4 N6b angle)
 - [`recommendation-laziness-discipline.md`](../../../.claude/rules/recommendation-laziness-discipline.md) — discipline this kickoff fixes (inline recommendations → research-backed)
 - [`ai-laziness-traps.md §2`](../../../.claude/rules/ai-laziness-traps.md) — T-trap catalogue
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

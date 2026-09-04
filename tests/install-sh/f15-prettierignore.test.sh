@@ -281,4 +281,47 @@ else
   ok "#915 prune: no per-worktree config path enumerated in .prettierignore (find pruned)"
 fi
 
+# ── 2026-07-11 transformed shipped .claude md: conditional ignore (fresh-install validate RED) ──
+# transform_internal_refs rewrites repo-relative links in shipped .claude/agents/*.md +
+# .claude/skills/**/*.md to blob URLs at install time; the rewrite shifts markdown TABLE cell
+# widths, so installed copies are no longer prettier-format-stable under ANY config — the
+# fresh-install validate smoke went RED on .claude/agents/capability-reuse-auditor.md with zero
+# consumer edit. Same framework-vendored class as GH #531/#884: ignore ONLY the shipped-fresh
+# copies via ignore_shipped_configs; consumer-owned files stay format-checked.
+TC=$(mktemp -d)
+printf '{ "name":"claudemd","version":"0.0.0" }\n' > "$TC/package.json"
+( cd "$TC" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1
+PIC="$TC/.prettierignore"
+
+# pos: a transformed shipped agent + the bare-cp shipped skill are in the managed cfg block
+grep -qx '.claude/agents/capability-reuse-auditor.md' "$PIC" \
+  && ok "claude-md pos: shipped transformed agent md is prettier-ignored" \
+  || bad "claude-md pos: .claude/agents/capability-reuse-auditor.md NOT ignored (consumer format:check goes RED on landing)"
+grep -qx '.claude/skills/getff/SKILL.md' "$PIC" \
+  && ok "claude-md pos: shipped getff SKILL.md is prettier-ignored" \
+  || bad "claude-md pos: .claude/skills/getff/SKILL.md NOT ignored"
+
+# guard-neg (LOAD-BEARING): a consumer-OWNED same-name agent (pre-existing, install without
+# --force → copy_safe SKIPPED) must stay format-checked — NOT silently hidden.
+TO=$(mktemp -d)
+printf '{ "name":"owned","version":"0.0.0" }\n' > "$TO/package.json"
+mkdir -p "$TO/.claude/agents"
+printf '# my own agent\n' > "$TO/.claude/agents/capability-reuse-auditor.md"
+( cd "$TO" && git init -q && bash "$REPO_ROOT/install.sh" ts-server ) >/dev/null 2>&1
+if grep -qx '.claude/agents/capability-reuse-auditor.md' "$TO/.prettierignore" 2>/dev/null; then
+  bad "claude-md guard-neg: consumer-OWNED agent md was prettier-ignored (silently hidden from format:check)"
+else
+  ok "claude-md guard-neg: consumer-owned (SKIPPED) agent md stays format-checked"
+fi
+
+# consumer's own custom skill (slug we never ship) must NOT be enumerated
+mkdir -p "$TC/.claude/skills/my-own-skill"
+printf '# mine\n' > "$TC/.claude/skills/my-own-skill/SKILL.md"
+( cd "$TC" && bash "$REPO_ROOT/install.sh" ts-server --force ) >/dev/null 2>&1
+if grep -q 'my-own-skill' "$PIC"; then
+  bad "claude-md guard-neg: consumer's own custom skill got prettier-ignored (over-broad enumeration)"
+else
+  ok "claude-md guard-neg: consumer's custom skill slug not enumerated (only shipped slugs ignored)"
+fi
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

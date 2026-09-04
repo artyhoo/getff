@@ -116,7 +116,7 @@ Forward: did you re-verify (not inherit) every prior verdict? did you run the pr
 ## §5 Working file — hypotheses log (write continuously, rewrite freely)
 
 Maintain `hypotheses-log.md` in your working dir. Append/rewrite as you learn. Structure:
-```
+```text
 ## Iteration N — <what I just checked>
 Hypothesis: …
 Evidence gathered (command/cite): …
@@ -185,3 +185,5 @@ Per `ai-laziness-traps.md §3` — enumerated + instantiated, not blanket-cited.
 - `.claude/rules/build-first-reuse-default.md` — verdict typology
 - `.claude/rules/dual-implementation-discipline.md` — portable-vs-CC-native framing of the merge question
 - `.claude/rules/ai-laziness-traps.md` — trap catalogue
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

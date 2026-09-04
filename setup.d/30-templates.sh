@@ -40,6 +40,15 @@ copy_safe "$PKG_ROOT/packages/core/templates/shared/integration-rules.md" "$PROJ
 # The actual tool-bootstrapping workflow (picking tools, recording decisions) is a separate S3 concern.
 copy_safe "$PKG_ROOT/skills/tool-bootstrapping/templates/tool-decisions.md.template" "$PROJECT_ROOT/.ai-factory/tool-decisions.md"
 
+# ─── AI Usage Guide (EVERY depth; beta-ai-docs-agnosticism S1 / spec C1) ─────
+# The AI-facing lifecycle doc past install: First Steps -> daily cycle -> degradations. Installed
+# at core+ deliberately, NOT gated to env+ like tier-home.md: its §2.1 sequence IS the `core`
+# First-Steps path, so an env+ gate would withhold the core walkthrough from exactly the consumers
+# who need it. Cost to a core consumer is one on-demand file — AGENTS.md carries only a pointer,
+# so always-on context is unchanged (spec D8). [PARKED FORK — see the stage PR body: the A1
+# payload inventory predates this doc and does not settle its depth; maintainer may re-gate.]
+copy_safe "$PKG_ROOT/packages/core/templates/shared/AI-USAGE-GUIDE.md" "$PROJECT_ROOT/.ai-factory/AI-USAGE-GUIDE.md"
+
 # ─── §3d: stack-specific .ai-factory/ files ─────────────
 if [ "$STACK" = "react-next" ]; then
   copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md" "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.react-next.md"
@@ -54,10 +63,49 @@ if [ "$STACK" = "react-native" ]; then
   copy_safe "$PKG_ROOT/packages/preset-react-native/RULES.react-native.md" "$PROJECT_ROOT/.ai-factory/RULES.react-native.md"
 fi
 
+# ─── Materialize the AGENTS.md-referenced SoT (.ai-factory/DESCRIPTION.md + ARCHITECTURE.md) ──
+# AGENTS.md.template sends the very first agent session to `.ai-factory/DESCRIPTION.md` and
+# `.ai-factory/ARCHITECTURE.md`. Historically the installer shipped only DESCRIPTION.template.md +
+# ARCHITECTURE.<stack>.md and asked the HUMAN to manually rename — so on landing the referenced
+# files did not exist (dangling references as the framework's first impression). Materialize them
+# here with copy_safe semantics: NEVER clobber a consumer-edited DESCRIPTION.md/ARCHITECTURE.md on
+# re-run (--refresh early-exits before this file is sourced, so only the normal install path runs).
+# Source the stack-appropriate ARCHITECTURE variant directly from $PKG_ROOT (order-independent).
+# Stack→source map + header rewrite are the SSOT helpers in setup.d/lib.sh (shared with do_refresh,
+# #949) — this delivery must never diverge from the --refresh delivery.
+_arch_sot_src="$(arch_sot_src_for_stack)"
+copy_safe "$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md" "$PROJECT_ROOT/.ai-factory/DESCRIPTION.md"
+
+_arch_sot_dst="$PROJECT_ROOT/.ai-factory/ARCHITECTURE.md"
+_arch_sot_existed=0; [ -e "$_arch_sot_dst" ] && _arch_sot_existed=1
+copy_safe "$_arch_sot_src" "$_arch_sot_dst"
+rewrite_arch_sot_header "$_arch_sot_dst" "$_arch_sot_existed"
+
 # ── aif-handoff integration note ─────────────────────────
 # Per Stage 2 v3 §4.6 — single informational note, no prompt needed;
 # our Phase 3 skill-context files ARE the client-side aif-handoff integration.
 echo "  ✓ aif-handoff integration: skill-context files installed at .ai-factory/skill-context/ (auto)"
 
 # ─── §5b: AGENTS.md ─────────────────────────────────────
-copy_safe "$PKG_ROOT/packages/core/templates/shared/AGENTS.md.template" "$PROJECT_ROOT/AGENTS.md"
+# CO-OWNED file (spec C1 addition (b)): ai-factory generates + auto-updates the consumer's root
+# AGENTS.md, so copy_safe's skip-if-exists landed our contribution NOWHERE on any consumer that
+# already had one, and --force would have clobbered the other writer. install_agents_md writes
+# only our `getff:begin section=getff-framework` block; everything outside it is preserved.
+# Helper + the four cases: setup.d/lib.sh merge_fenced.
+install_agents_md "$PKG_ROOT/packages/core/templates/shared/AGENTS.md.template" "$PROJECT_ROOT/AGENTS.md"
+
+# ─── §3e: tier-home doc (env+ profile only; beta-delivery-ux S3 / spec A3) ───
+# The authoritative Tier 0/1/2 criteria + capability-absence degradation matrix. CLAUDE.md
+# «Task-tier routing» in the operator repo points here; the consumer's AGENTS.md (rendered from
+# AGENTS.md.template) carries a pointer in its §Tier routing + degradation section.
+#
+# F-A′ RESOLVED (operator-delegated verdict 2026-08-07): home = Option A,
+# .ai-factory/tier-home.md — it is the path the consumer AGENTS.md pointer targets
+# (the doc's only live reader); Option B's skill-context slot has no consumer today
+# (aif skills MANDATORY-read skill-context per their OWN skill name, and no skill is
+# named tier-home), so installing it was build-ahead-of-need. Re-add Option B iff an
+# aif skill named tier-home appears (falsifier recorded in PR #1272).
+if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ]; then
+  copy_safe "$PKG_ROOT/packages/core/templates/shared/tier-home.md" "$PROJECT_ROOT/.ai-factory/tier-home.md"
+  echo "  ✓ tier-home doc installed at .ai-factory/tier-home.md (profile: $PROFILE)"
+fi

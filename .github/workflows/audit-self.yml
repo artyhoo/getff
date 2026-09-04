@@ -96,6 +96,17 @@ jobs:
           fi
           exit "$fail"
 
+      - name: "Pre-merge carrier self-tests (pre-merge-carrier-build B1: live-fire arms 1-10 + probe P1/P2)"
+        # T-PMC-D: every arm RUNS the real carrier/probe against throwaway fixture repos
+        # and asserts output + exit code — never greps the scripts' source text.
+        run: bash packages/core/audit-self/pre-merge-local.test.sh
+
+      - name: "Mutation runner root-resolution self-tests (issue 1459: worktree-under-hook + plain-clone + direct-invocation arms)"
+        # Live-fire: real bare remote + linked worktree + pre-push hook + a real push.
+        # Asserts the runner's resolved root is <worktree>, not <worktree>/scripts,
+        # via the manifest-absent die message — never a grep of the runner's source.
+        run: bash packages/core/synthesizer/run-generated-rule-mutation.test.sh
+
   shipped-prettier:
     name: Shipped artifacts are Prettier-clean (GH #531 dogfood)
     runs-on: ubuntu-latest
@@ -107,12 +118,20 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       # The framework never ran its own authored shipped artifacts (skill docs, agent prompts,
       # ESLint-rule sources, config templates) through Prettier, so install delivered ~50 files
       # that fail a consumer's first `prettier --check .` (#531). This gate fails when any shipped
       # source drifts from Prettier — keeping "one button → green validate" true out-of-box.
       # Deterministic (Prettier, not an LLM) — complies with no-paid-llm-in-ci.
+      #
+      # Since GH #1378 the script also checks the DELIVERED shape, not just the source: install.sh
+      # rewrites repo-internal refs into blob URLs AFTER the copy (transform_internal_refs), and a
+      # rewrite inside a table cell re-pads the table, so a source-clean file can ship dirty. That
+      # phase materialises each transform-routed doc at its consumer-final path and re-checks it.
+      # GH #1377's half is the population: `.claude/skills` is enumerated whole rather than as a
+      # hand-maintained allowlist of slugs, which had drifted eight shipped skills out of the gate.
+      # Paired negative: tests/install-sh/delivered-prettier-conformance.test.sh.
       - name: npm run format:check (shipped surface only)
         run: npm run format:check
   rule-to-probe:
@@ -160,7 +179,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install packages/core deps (remark + vitest for audit-ai-docs.test.ts)
         run: npm ci --prefix packages/core --silent
       - name: Run packages/core/audit-self/audit-ai-docs.test.ts (Wave 10.4 — vitest)
@@ -169,6 +188,18 @@ jobs:
             npx --prefix packages/core vitest run --reporter=default packages/core/audit-self/audit-ai-docs.test.ts
           else
             echo "::error::packages/core/audit-self/audit-ai-docs.test.ts missing"
+            exit 1
+          fi
+      # First-Steps SSOT ↔ AI Usage Guide parity (beta-ai-docs-agnosticism S1). Registered by
+      # NAME, not via an `audit-self/` directory scope: a directory sweep would also pull in
+      # currently-unregistered neighbours, which is scope this umbrella did not ask for.
+      # The else-arm is load-bearing — a silently-vanished gate is the failure being closed here.
+      - name: Run packages/core/audit-self/first-steps-parity.test.ts (beta-ai-docs-agnosticism S1)
+        run: |
+          if [ -f packages/core/audit-self/first-steps-parity.test.ts ]; then
+            npx --prefix packages/core vitest run --reporter=default packages/core/audit-self/first-steps-parity.test.ts
+          else
+            echo "::error::packages/core/audit-self/first-steps-parity.test.ts missing"
             exit 1
           fi
 
@@ -183,7 +214,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install workspace deps (hoists tsx to root)
         run: npm install --silent
       - name: Render & diff
@@ -194,6 +225,13 @@ jobs:
       # a .ts module plain node cannot load on Node 20) — matches the render-rules.ts step above.
       - name: Rule-index render & diff (CTX Stage 1)
         run: npx tsx scripts/render-rule-index.mjs --check
+      # beta-ai-docs-agnosticism S3: INSTALL-FOR-AI.md `install-roster` getff:begin
+      # section must stay in sync with the installer manifests (setup.d/20-agents.sh,
+      # setup.d/10-skills.sh, setup.d/lib.sh). Same tsx runner pattern as above.
+      - name: Install-roster render & diff (beta-ai-docs S3)
+        run: npx tsx scripts/render-install-roster.mjs --check
+      - name: Pipeline-presets render & diff (beta-ai-docs S3)
+        run: npx tsx scripts/render-presets.mjs --check
 
   principles-meta-tests:
     name: Principles as meta-tests (Phase 2)
@@ -207,7 +245,7 @@ jobs:
           fetch-depth: 0  # principle 11 needs full git history for introducing-commit detection
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install packages/core deps
         run: npm ci --prefix packages/core --silent
       - name: Run principles meta-tests
@@ -217,12 +255,151 @@ jobs:
       # `npm ci --prefix packages/core` install above (same job, no new job/npm-ci).
       - name: Run packages/core/ir tests (MT S1)
         run: npm --prefix packages/core run test:ir
+      # MT umbrella S1 (python-backend-v0): the astgrep-python-yaml backend's live-fire tests
+      # (packages/core/backends/astgrep/firing.test.ts + capability-matrix.test.ts) fire the bare
+      # PATH `ast-grep` binary FOR REAL in CI (owner STOP-line: no `!isCI` guard). The tool is NOT
+      # a package.json dependency — it comes via this hard, exact-pinned global install. A pin (not
+      # a float/`latest`) keeps the fired toolchain deterministic and matched to the committed
+      # capability-matrix evidence (ast-grep 0.44.1); a hard install fails loud-red on a registry
+      # flake rather than loud-skipping CI green (which an npx-resolved pin would do). Pinned per
+      # .claude/rules/ci-tool-pinning.md Rule A. zizmor adhoc-packages is suppressed on this line:
+      # the audit wants lockfile-backed installs, but a global CLI tool has no lockfile surface —
+      # the exact `@0.44.1` pin is the determinism mechanism here (same posture as the pinned
+      # `pip install zizmor==` install below).
+      - name: Install pinned ast-grep for astgrep backend live-fire (MT S1)
+        run: npm install -g @ast-grep/cli@0.44.1 # zizmor: ignore[adhoc-packages]
+      # MT umbrella S2 (python-backend-v0): the ruff-tidy-imports-toml backend's live-fire tests
+      # (packages/core/backends/ruff/firing.test.ts + capability-matrix.test.ts) fire the bare PATH
+      # `ruff` binary FOR REAL in CI (owner STOP-line: no `!isCI` guard), same posture as the ast-grep
+      # install above. ruff is NOT a package.json dependency — it comes via this hard, exact-pinned
+      # `pip install ruff==0.15.21`. The pin (not a float) keeps the fired toolchain deterministic and
+      # matched to the committed capability-matrix evidence (ruff 0.15.21); a hard install fails
+      # loud-red on a registry flake rather than loud-skipping CI green (which a uvx-resolved pin would
+      # do). Pinned per .claude/rules/ci-tool-pinning.md Rule A.
+      - name: Install pinned ruff for ruff backend live-fire (MT S2)
+        run: pip install ruff==0.15.21
+      # ecosystem-wiring W4 (operator challenge 2026-07-21, superseding the LG-S3-era
+      # "dev-machine-only" caveat): the cargo backend live-fire (backends/cargo/firing.test.ts
+      # R7/R8/R8b) + the researched-cargo live-fire (synthesizer/live-generation-clippy.test.ts
+      # AC2) now fire FOR REAL in CI. The runner is plain ubuntu-latest and the ast-grep/ruff
+      # precedent (hard exact-pinned installs above) extends directly to rust. Cache the pinned
+      # rustup toolchain so the ~200MB install is not re-downloaded every run (first-party cache,
+      # SHA-pinned; correctness-neutral — a miss only makes the next step slower).
+      - name: Cache pinned rust toolchain (ecosystem-wiring W4)
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809  # v4.2.4
+        with:
+          path: |
+            ~/.rustup/toolchains
+            ~/.rustup/update-hashes
+            ~/.rustup/settings.toml
+          key: rust-toolchain-1.96.1-${{ runner.os }}
+      # The cargo fixtures pin rust-toolchain.toml channel=1.96.1; installing that EXACT toolchain
+      # + the clippy component and making it the default makes `cargo clippy` (in a fixture dir)
+      # AND `rustc --version` (the freshness anchor, run from the packages/core cwd) both resolve
+      # rustc 1.96.1 (31fca3adb 2026-06-26) — the SAME toolchain the committed capability-matrix
+      # evidence was fired against, so no false-RED from the runner's default rust. The rustc
+      # toolchain-freshness gate (capability-matrix.test.ts checkToolchainFreshness) turns RED if
+      # the resolving rustc ever drifts from the evidence — the deriveToolVersion analog for rust.
+      # Exact-pinned (1.96.1, not a channel float) per .claude/rules/ci-tool-pinning.md Rule A —
+      # same posture as the ast-grep/ruff pins above; a pin bump is a deliberate edit that bumps
+      # this line + the fixtures' rust-toolchain.toml + the committed evidence in tandem.
+      - name: Install pinned rust toolchain + clippy for cargo backend live-fire (ecosystem-wiring W4)
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.96.1 --profile minimal --component clippy
+          rustup default 1.96.1
+          rustc --version
+          cargo clippy --version
+      # adapter-jig J3: the go CI arm. The go EcosystemAdapter has NO backends/go/ capability-matrix
+      # (E3 PARKED — see PR body §5 «E3 park» for Option A vs Option B with consequences), so the
+      # arm does NOT run a vitest include-allowlist like MT S2's test:backends. Instead it proves
+      # E1 red/green directly: install the exact-pinned go toolchain + golangci-lint, then run
+      # `install.sh go` against a scratch fixture so the lane's _go_firing_self_check (F8) fires
+      # FOR REAL against the pinned binary (kickoff §1.3: where the E1 red/green proof actually
+      # lands — T-EW-C posture: until the runner arm is green and linked, E1 is unproven).
+      #
+      # F10 two-surface pin parity (arm P1): the framework pin strings here MUST match the consumer
+      # template at packages/core/templates/go/github-actions-ci.yml; bump them in lockstep.
+      # MAJOR 1 fix (pre-egress fidelity audit 2026-07-25): `go version` only PRINTS — it does not
+      # pin. We use actions/setup-go@<SHA> with go-version: '1.22.0', exactly like the consumer
+      # template, so a runner-default bump can never silently change the toolchain while the cache
+      # key still reads go-1.22.0. Both surfaces now carry a real pin string that must move together.
+      - name: Install pinned go toolchain (adapter-jig J3)
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b  # v5.4.0
+        with:
+          go-version: '1.22.0'
+          cache: false
+      # MINOR fix (fidelity audit round 2): the binary path was `${{ env.GOBIN }}`, but GOBIN is
+      # unset workflow-wide, so that entry expanded to empty and golangci-lint itself was never
+      # cached — only the module + build caches were. `go install` writes to $(go env GOPATH)/bin,
+      # which is ~/go/bin on the runner (the same path the next step invokes by absolute path).
+      - name: Cache go module + golangci-lint binaries (adapter-jig J3)
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809  # v4.2.4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/go/bin
+          key: go-mod-1.22.0-golangci-v1.55.2-${{ runner.os }}
+      - name: Install pinned golangci-lint for go lane live-fire (adapter-jig J3)
+        run: |
+          set -euo pipefail
+          # Exact-pinned golangci-lint @ v1.55.2 (ci-tool-pinning.md Rule A — the pin lives in the @tag).
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.2
+          # MINOR 5 fix (pre-egress fidelity audit 2026-07-25): GITHUB_PATH only takes effect on
+          # SUBSEQUENT steps, so a same-step `golangci-lint --version` under `set -euo pipefail`
+          # would die if $GOPATH/bin is not already on PATH. Invoke by absolute path here; the
+          # next step finds golangci-lint on PATH via the setup-go-added $GOPATH/bin.
+          "$(go env GOPATH)/bin/golangci-lint" --version
+      - name: Run getff go lane live-fire (adapter-jig J3)
+        run: |
+          set -euo pipefail
+          # Scratch fixture: a fresh Go module in an OS temp dir, then install.sh go fires the lane's
+          # _go_firing_self_check (F8). The self-check plants a violating .go file (os.Getenv) in its
+          # OWN mktemp -d, asserts golangci-lint fires RED on the violation + GREEN on the clean control,
+          # prints ✓-prefixed PASS lines. The self-check returns 0 on EVERY branch by contract (F8
+          # mandates rc=0 always so a self-check never aborts install.sh) — so the step cannot rely
+          # on exit code alone. We capture the output and grep for the lane's OWN failure markers.
+          # MAJOR 2 fix (pre-egress fidelity audit 2026-07-25): the previous version asserted only
+          # artefact existence, which proves DELIVERY but not FIRING — a SILENT or OVER-BROAD config
+          # prints its ✗ marker and the step still went GREEN. Now: the step fails on any ✗ / ⚠
+          # degrade line (on this runner the toolchain IS present, so a degrade means the install
+          # step did not take effect), and asserts the positive «enforcement is live» line is present.
+          fixture="$(mktemp -d)"
+          printf 'module example.com/j3-livefire\n\ngo 1.22\n' > "$fixture/go.mod"
+          cd "$fixture"
+          # Tee captures the install.sh output (including _go_firing_self_check markers) to a log
+          # AND surfaces it to the GitHub Actions step log for operator visibility.
+          bash "$GITHUB_WORKSPACE/install.sh" go 2>&1 | tee /tmp/j3-go-livefire.log
+          # Re-affirm the lane delivered the artefacts the firing self-check attested against:
+          [ -f "$fixture/.golangci.yml" ] || { echo "❌ J3 live-fire: .golangci.yml not delivered"; exit 1; }
+          [ -f "$fixture/.github/workflows/getff-go.yml" ] || { echo "❌ J3 live-fire: getff-go.yml not delivered"; exit 1; }
+          [ -f "$fixture/.ai-factory/synthesizer-output/rules-lock.go.json" ] || { echo "❌ J3 live-fire: rules-lock.go.json not emitted"; exit 1; }
+          # FIRING assertions (the load-bearing half — artefact existence alone is delivery, not firing):
+          #  (a) on this runner go AND golangci-lint ARE present (installed in the previous step),
+          #      so a "NOT proven (tool absent)" degrade line means the install did not take effect.
+          #  (b) a SILENT config (golangci-lint does not fire on the planted os.Getenv violation)
+          #      or an OVER-BROAD one (it fires on the clean control) is a delivery bug; the self-check
+          #      prints ✗ for both. The summary line repeats SILENT/OVER-BROAD/NOT proven tokens.
+          if grep -E 'SILENT|OVER-BROAD|NOT proven \(tool absent\)|✗' /tmp/j3-go-livefire.log; then
+            echo "❌ J3 live-fire: firing self-check produced a failure marker (see lines above)"
+            exit 1
+          fi
+          # Assert the POSITIVE too: the lane MUST print the «enforcement is live» summary, proving
+          # both directions fired correctly. Its absence means the self-check did not run at all
+          # (a worse failure than a wrong config — the lane silently skipped its own proof).
+          if ! grep -F 'enforcement is live' /tmp/j3-go-livefire.log; then
+            echo "❌ J3 live-fire: «enforcement is live» summary line absent — self-check did not complete successfully"
+            exit 1
+          fi
+          echo "✓ J3 go lane live-fire: artefacts delivered + firing self-check proven on the pinned go 1.22.0 + golangci-lint v1.55.2 toolchain"
       # MT umbrella S2: packages/core/backends/ (cargo-backend-v0 renderer + firing harness
       # + capability matrix) is a new vitest include-allowlist entry (vitest.config.ts) —
-      # gate it here, reusing the `npm ci --prefix packages/core` install above. No Rust
-      # toolchain is installed on this runner, so the live-fire tests (R7/R8) loudly
-      # describe.skipIf(!cargoPresent) and warn rather than silently passing (T-MT-C) —
-      # the renderer/routing/registry/matrix-honesty tests still run and gate for real.
+      # gate it here, reusing the `npm ci --prefix packages/core` install above. The cargo
+      # live-fire (R7/R8/R8b) fires FOR REAL against the pinned 1.96.1 toolchain installed above
+      # (ecosystem-wiring W4) — exactly like the astgrep backend's pinned live-fire; the rustc
+      # toolchain-freshness gate keeps that evidence honest. The renderer/routing/registry/matrix-
+      # honesty tests are always-on and gate regardless of tool presence.
       - name: Run packages/core/backends tests (MT S2)
         run: npm --prefix packages/core run test:backends
       # MT umbrella S4: packages/core/composition/ (executable-AI-doc plane — DocPlan
@@ -231,6 +408,25 @@ jobs:
       # install above (same job, no new job/npm-ci). Deterministic, no toolchain.
       - name: Run packages/core/composition tests (MT S4)
         run: npm --prefix packages/core run test:composition
+      # live-generation umbrella: its synthesizer/ tests — the live-research → ConventionNode bridges
+      # (research-to-node / research-to-clippy-node), the Model A′ byte-drift gates, and the rust
+      # always-on capability-evidence validator — were never gated by a CI step (only the astgrep
+      # firing tests landed under backends/, test:backends). A test-that-does-not-gate is the
+      # #discipline-theatre this project exists to prevent. Gate the umbrella's OWN tests here,
+      # reusing the `npm ci --prefix packages/core` install above (same job, deterministic).
+      # UN-SCOPED as of 2026-08-10 (principle 38): this step used to run only 3 named synthesizer
+      # files because the other 20 import the workspace eslint preset
+      # `@rules-as-tests/preset-next-15-canonical`, which `npm ci --prefix packages/core` does not
+      # provide (the preset is a workspace sibling, absent from packages/core's own package.json
+      # and its standalone lock) → they failed to COLLECT at THIS point in the job. The old comment
+      # called wiring them in "a separate task"; that task is done. The fix was placement, not
+      # scoping: the root `npm install` below creates the `@rules-as-tests/*` workspace symlinks in
+      # the repo-root node_modules, and node resolution from packages/core walks up to find them —
+      # so the full `synthesizer/` suite is now run by `test:synthesizer` AFTER that install.
+      # The researched-cargo clippy live-fire (live-generation-clippy.test.ts AC2) still fires FOR
+      # REAL against the pinned 1.96.1 toolchain installed above (ecosystem-wiring W4 — runLiveFire
+      # = cargoPresent, no !isCI); the rust toolchain is job-scoped, so moving the step later keeps
+      # it on PATH. The `test:live-generation` script itself is retained for narrow local use.
       # CI-gap option C (hook-test-suite-rot): the packages/core/hooks/ vitest suite was
       # never gated — only principles/ was — which is how a real cross-platform regression
       # (priority-score-synthetic.sh xargs) accumulated 15 failures unnoticed. Gate it here.
@@ -242,6 +438,39 @@ jobs:
         run: npm install --silent
       - name: Run packages/core/hooks/ suite (CI-gap option C — gate the hooks suite)
         run: npm --prefix packages/core run test:hooks
+      # ── vitest include-allowlist coverage (principle 38, 2026-08-10) ─────────────────────
+      # Before this block, 87 *.test.ts files across 12 include-allowlist directories had ZERO
+      # CI invocation (skills 22, research 22, validator 16, eslint-rules 7, detector 7,
+      # installer 4, scenario-generator 2, diff 2, diagnostics 2, detector-v0 1, spec-validation
+      # 1, python-starter 1), plus partial coverage of synthesizer (3/23), install (2/5) and
+      # audit-self (3/6). A test wired at no channel fails at none — the #armed-but-not-fired
+      # false-green. `principles/38-vitest-include-ci-coverage.test.ts` now asserts this list
+      # cannot fall behind `vitest.config.ts` again; it reads THESE steps to decide coverage,
+      # so deleting one turns the principles suite RED at pre-push, before CI.
+      #
+      # Placement is load-bearing: all three steps run AFTER the root `npm install` above,
+      # because `validator/gate-*.ts`, `install/rule-bootstrap-cli.ts` and
+      # `synthesizer/generate-react-spa.test.ts` import `@rules-as-tests/preset-next-15-canonical`
+      # — a workspace sibling that only exists in node_modules once the root install has linked
+      # it. Moving them above that install reproduces the collection failure this block fixes.
+      - name: Run packages/core deterministic unit suites (principle 38 — 12 previously-unwired dirs)
+        run: npm --prefix packages/core run test:units
+      # Split out from test:units: every case spawns a real bash helper against a sandbox tree,
+      # so this is the slow arm (~90s locally, 211 tests) and deserves its own attributable step.
+      - name: Run packages/core/skills/ suite (principle 38)
+        run: npm --prefix packages/core run test:skills
+      # Split out because it is the only suite in the package that touches the network: it shells
+      # out to the real `gh` CLI to resolve action SHAs against the GitHub API. GH_TOKEN makes
+      # those calls authenticated so the assertions are real rather than uniformly rate-limited
+      # into the exit-2 "tooling unavailable" branch that the tests tolerate by design.
+      - name: Run packages/core/spec-validation/ suite (principle 38)
+        run: npm --prefix packages/core run test:spec-validation
+        env:
+          GH_TOKEN: ${{ github.token }}
+      # Full synthesizer/ — supersedes the narrow 3-file test:live-generation step above; see the
+      # UN-SCOPED note there for why it had to move below the root install.
+      - name: Run packages/core/synthesizer/ suite (principle 38 — was 3/23 files)
+        run: npm --prefix packages/core run test:synthesizer
       # #752 fix (Variant A): rule .mjs/.d.ts are pre-compiled + committed (install copies them,
       # consumer needs no tsc). This gate fails if a committed artifact drifts from its .ts source
       # — the executable guard that keeps "ship pre-compiled" honest. Root tsc hoisted above.
@@ -292,8 +521,63 @@ jobs:
         run: bash tests/hooks/prepush-upstream-ref.test.sh
       - name: Run pre-push base-ref stdin-detection paired-negative (hook-base-ref-detection I-phase)
         run: bash tests/hooks/prepush-fallback-base-ref.test.sh
+      - name: Run merge-forward range paired-negative (trunk-reachable commits exempt, 2026-08-07)
+        run: bash tests/hooks/prepush-merge-forward-range.test.sh
+      - name: Run cross-checkout range paired-negative (HEAD ≠ pushed local_sha; §7 tree-scoped SSOT)
+        run: bash tests/hooks/prepush-cross-checkout-range.test.sh
       - name: Run runtime-bridge dispatch opt-IN gate paired-negative (one-click-installer kickoff §7)
         run: bash tests/hooks/runtime-bridge-dispatch-optin.test.sh
+      # Wired 2026-08-17. This suite had existed since the S6 twin generator shipped but was
+      # invoked by NO workflow step and NO pre-push section — a test nobody ran. It is the only
+      # coverage of scripts/generate-plugin-twins.sh, including the sandbox arms proving the
+      # agents population re-syncs and never invents a twin. Principle 38 gates vitest↔CI
+      # coverage only, so a stranded *.sh test is invisible to it (that wider gap is recorded,
+      # not fixed here).
+      - name: Run plugin twin generator acceptance (hooks + agents populations)
+        run: bash tests/plugin/twin-generation.test.sh
+      # Wired 2026-08-17 by principle 41. These eleven were git-tracked and invoked by NO
+      # workflow step: tests/plugin/ (9 of 10), tests/aif-doctor/ (2), probe-channels (1).
+      # meta-all-wired.test.sh had only ever gated tests/install-sh/, so every other shell-test
+      # directory was un-gated. All eleven passed on first run; the twelfth
+      # (tests/plugin/end-of-turn-reminder-zcode.test.sh) was RED on a pre-existing defect,
+      # allowlisted in principle 41 with the diagnosis, and is wired below now that the defect
+      # it caught — the lost S9C rollout arm — is repaired at the source.
+      - name: Run plugin bootstrap test
+        run: bash tests/plugin/bootstrap.test.sh
+      - name: Run plugin hook-paths test
+        run: bash tests/plugin/hook-paths.test.sh
+      - name: Run plugin install-seam test
+        run: bash tests/plugin/install-seam.test.sh
+      - name: Run plugin manifest-valid test
+        run: bash tests/plugin/manifest-valid.test.sh
+      - name: Run plugin opencode-adapter test
+        run: bash tests/plugin/opencode-adapter.test.sh
+      - name: Run plugin run-hook test
+        run: bash tests/plugin/run-hook.test.sh
+      - name: Run plugin twin-emit test
+        run: bash tests/plugin/twin-emit.test.sh
+      - name: Run plugin warn-subagent-report ZCode arm test
+        run: bash tests/plugin/warn-subagent-report-zcode.test.sh
+      # Wired 2026-08-17 alongside the S9C rollout-arm restore. This is the acceptance test that
+      # went RED for five hook revisions while running on no channel at all; it is the only
+      # coverage of the multi-turn idle-suppression arm, so it must stay wired for the arm to be
+      # regeneration-safe (the arm was lost exactly once nobody ran this).
+      - name: Run plugin end-of-turn-reminder ZCode multi-turn arm test
+        run: bash tests/plugin/end-of-turn-reminder-zcode.test.sh
+      # The generator's fail-closed guard. twin-generation.test.sh checks byte-identity AFTER a
+      # regeneration, so it reports GREEN on a twin that was just silently clobbered; this one
+      # covers the write itself. Sandboxed (throwaway clones), so it never touches the live tree.
+      - name: Run plugin twin clobber guard test
+        run: bash tests/plugin/twin-clobber-guard.test.sh
+      # aif-doctor pair: both stub docker/gh explicitly and carry an in-file
+      # "ENVIRONMENT-INDEPENDENCE PROOF" (must pass with real docker on PATH), so they are
+      # hermetic on a clean runner — verified locally at 9/9 and 5/5.
+      - name: Run aif-doctor heal test
+        run: bash tests/aif-doctor/heal.test.sh
+      - name: Run aif-doctor refresh-aif-base test
+        run: bash tests/aif-doctor/refresh-aif-base.test.sh
+      - name: Run probe-channels self-test
+        run: bash scripts/probe-channels.test.sh
 
   install-sh-a:
     name: install-sh battery (shard A)
@@ -307,7 +591,7 @@ jobs:
           fetch-depth: 0  # install-sh tests copy the repo; full history is the safe default
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install packages/core deps
         run: npm ci --prefix packages/core --silent
       - name: Install workspace deps (hoists tsx to root)
@@ -316,18 +600,49 @@ jobs:
         run: bash tests/install-sh/no-companion-blocks.test.sh
       - name: Run install-sh bridge-guided test (one-click-installer S2)
         run: bash tests/install-sh/bridge-guided.test.sh
+      - name: Run install-sh GLM one-button test (beta-delivery-ux S4)
+        run: bash tests/install-sh/glm-onebutton.test.sh
       - name: Run install-sh B1 stack-research-lookup test (multistack-augment-first #827 B1)
         run: bash tests/install-sh/b1-stack-research-lookup.test.sh
       - name: Run live-snippet wire oracle + override tests (live-research-default-delivery D1/D2/§6)
         run: npx --prefix packages/core vitest run --reporter=default packages/core/install/wire-live-snippet.test.ts packages/core/install/wire-synth-rules.test.ts
       - name: Run local-ci-sweep paired-negative (harvest sweep aggregator)
         run: bash scripts/run-local-ci-sweep.test.sh
+      # Reverse direction of tests/install-sh/meta-all-wired.test.sh: every atomic command THIS
+      # workflow runs must be reachable from the sweep's gate table, or carry an explicit
+      # UNREACHABLE rationale. Without it the sweep's "green locally ⇒ green in CI" promise rests
+      # on someone re-reading both lists (.claude/rules/attention-is-not-a-mechanism.md §1).
+      - name: Run local-ci-sweep CI-coverage metatest (gate table mirrors this workflow)
+        run: bash scripts/run-local-ci-sweep-coverage.test.sh
+      # The ask-file gate's own channel is pre-push (the mailbox lives in the operator's
+      # coordination store, which CI never has). Its detector still needs a CI channel, or
+      # the only proof it fires is that someone ran it once — the paired-negative below is
+      # hermetic (mktemp mailbox) and runs anywhere.
+      - name: Run ask-file schema paired-negative (advisor-pattern §8 item 6)
+        run: bash scripts/check-ask-files.test.sh
+      - name: Run synth-bundle dep-parity paired-negative (phantom-drift guard)
+        run: bash scripts/check-bundle-dep-parity.test.sh
+      - name: Run synth-bundle cwd-independence test (build runs from any directory)
+        run: bash scripts/build-synth-bundle.test.sh
+      # Paired contract for the K4 contract-coverage emitter. The emitter is not a gate
+      # (it always exits 0), so the negative leg is on its OUTPUT: a kickoff whose
+      # host-verify block misses a permitted area must emit a CANDIDATE naming it, and a
+      # kickoff whose block covers the allowlist must emit none. Wired here so the
+      # emitter cannot go silently dead — an unwired can-it-fire proof is not a proof.
+      - name: Run host-verify contract-coverage paired-negative (K4 emitter)
+        run: bash scripts/host-verify-coverage.test.sh
       - name: Run install-sh audit-r4 shipped test (consumer-install-hardening F6)
         run: bash tests/install-sh/audit-r4-shipped.test.sh
       - name: Run install-sh hook-activation test (consumer-install-hardening F2)
         run: bash tests/install-sh/f2-hook-activation.test.sh
       - name: Run install-sh AGENTS scripts-shipped test (consumer-install-hardening F8)
         run: bash tests/install-sh/f8-agents-scripts-shipped.test.sh
+      - name: Run install-sh .ai-factory SoT-materialized test (consumer-install-hardening F8d)
+        run: bash tests/install-sh/f8d-ai-factory-sot-materialized.test.sh
+      - name: Run install-sh AGENTS.md fenced co-ownership test (beta-ai-docs-agnosticism S1 D1b)
+        run: bash tests/install-sh/fence-agents-coownership.test.sh
+      - name: Run install-sh with-aif-suite flag test (F7 — operator-suite skills gated behind explicit opt-in)
+        run: bash tests/install-sh/with-aif-suite-flag.test.sh
       - name: Run install-sh no-husky-init-advice test (consumer-install-hardening F8c)
         run: bash tests/install-sh/f8c-no-husky-init-advice.test.sh
       - name: Run install-sh prettierignore-generated-docs test (consumer-install-hardening F15)
@@ -342,6 +657,24 @@ jobs:
         run: bash tests/install-sh/c1-wiring.test.sh
       - name: Run install-sh ship-orchestration-skills test (#500 — was present-but-unwired)
         run: bash tests/install-sh/ship-orchestration-skills.test.sh
+      - name: install-sh — lychee-shipped-md-offline (consumer first-push link integrity, 2026-07-10 smoke)
+        # Pinned release install (ci-tool-pinning.md §1). The 0.24.2 release tarball nests
+        # the binary under lychee-x86_64-unknown-linux-gnu/, so --strip-components=1 is
+        # load-bearing: without it lychee never lands on PATH and the test self-skips,
+        # making this arm vacuous (PR #1272 run 31230567666 — a broken shipped link merged
+        # green, fixed in PR #1304). The test's SKIP branch is therefore promoted to a hard
+        # step failure here (attention-is-not-a-mechanism.md §1: no #hope-as-gate).
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz -o "$RUNNER_TEMP/lychee.tgz"
+          echo "1f4e0ef7f6554a6ed33dd7ac144fb2e1bbed98598e7af973042fc5cd43951c9a  $RUNNER_TEMP/lychee.tgz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/lychee.tgz" -C "$RUNNER_TEMP" --strip-components=1
+          "$RUNNER_TEMP/lychee" --version
+          PATH="$RUNNER_TEMP:$PATH" bash tests/install-sh/lychee-shipped-md-offline.test.sh | tee "$RUNNER_TEMP/lychee-test.out"
+          if grep -qF 'SKIP: lychee not on PATH' "$RUNNER_TEMP/lychee-test.out"; then
+            echo "::error::lychee-shipped-md-offline self-skipped despite the pinned install — this CI arm is vacuous; fix the PATH/extraction above"
+            exit 1
+          fi
       - name: install-sh — r2-na-marker (GH #547 C4 two-gates-one-marker)
         run: bash tests/install-sh/r2-na-marker.test.sh
       - name: install-sh — consumer-upgrade-path (--refresh acceptance gate — stale-refreshed + customise-survives)
@@ -352,6 +685,10 @@ jobs:
         run: bash tests/install-sh/gh-636-ensure-tsx-root.test.sh
       - name: install-sh — f17 lint rules planted-violation (post-install liveness smoke Check3 Arm ii)
         run: bash tests/install-sh/f17-lint-rules-planted-violation.test.sh
+      - name: "install-sh — f18 eslint non-TS no-crash (#973: strictTypeChecked must not fatal on .js/.cjs/.mjs outside tsconfig)"
+        run: bash tests/install-sh/f18-eslint-nonts-no-crash.test.sh
+      - name: "install-sh — f19 fences-fire load-probe (#976: self-verify must load-probe PLACED configs, not just the fixture)"
+        run: bash tests/install-sh/f19-fences-fire-load-probe.test.sh
       - name: "install-sh — check-fences-fire FULL barrel (#838: R12 ACTIVE on react-next; neutered-R12 teeth; partial-barrel stacks not false-RED)"
         run: bash tests/install-sh/check-fences-fire-full-barrel.test.sh
       - name: install-sh — lib-helpers unit test (O1 guard regression + all helpers exposed)
@@ -375,7 +712,7 @@ jobs:
           fetch-depth: 0  # install-sh tests copy the repo; full history is the safe default
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install packages/core deps
         run: npm ci --prefix packages/core --silent
       - name: Install workspace deps (hoists tsx to root)
@@ -402,6 +739,8 @@ jobs:
         run: bash tests/install-sh/f3-f7-rule-globs.test.sh
       - name: Run install-sh gh-531 shipped-prettier test (GH #531 reopen — prettier pin + .prettierignore merge)
         run: bash tests/install-sh/gh-531-shipped-prettier.test.sh
+      - name: Run install-sh delivered-prettier conformance test (GH #1378/#1377 — post-transform delivery shape)
+        run: bash tests/install-sh/delivered-prettier-conformance.test.sh
       - name: Run install-sh dev-dep install test (consumer-install-completeness S3 one-button #483)
         run: bash tests/install-sh/cic-s3-dep-install.test.sh
       - name: Run install-sh R2 glob-reach test — CI-orphan WARN + per-package shadow + globals (GH #507 reopen)
@@ -416,14 +755,38 @@ jobs:
         run: bash tests/install-sh/r2-auto-wire.test.sh
       - name: "install-sh — refresh-covers-full-delivery (#869 do_refresh ⊇ --full scripts/*.{sh,ts} delivery)"
         run: bash tests/install-sh/refresh-covers-full-delivery.test.sh
+      - name: "install-sh — first-commit-passable (issues 1528/1529/1530: .gitignore seed + --no-warn-ignored + tests/setup.ts gate, paired Layer-2 negatives, pnpm stub propagation)"
+        run: bash tests/install-sh/first-commit-passable.test.sh
+      - name: "install-sh — refresh-divergence-guard (#1481 R1: baseline manifest + warn/preserve guard, arms a-e incl. pre-manifest + override + dry-run)"
+        run: bash tests/install-sh/refresh-divergence-guard.test.sh
       - name: "install-sh — different-stack switch prunes barrel (#882: --force/--refresh with a NEW stack removes the prior stack's stray preset rule)"
         run: bash tests/install-sh/refresh-different-stack-prunes-barrel.test.sh
+      - name: "install-sh — eslint barrel preserves consumer entries (issue 1481 casualty 2: hand-extended index.mjs survives regeneration; #882 prune unchanged)"
+        run: bash tests/install-sh/eslint-barrel-preserve-consumer.test.sh
+      - name: "install-sh — deliver-gate-scripts (issues 1482+1485 R3: check-ask-files + run-local-ci-sweep delivered per RI-4 breadth; T-CRI-C warn/preserve arm; pre-vendored RI-2 pin; negative lanes; dry-run)"
+        run: bash tests/install-sh/deliver-gate-scripts.test.sh
       - name: install-sh — wire-eslint-r2 (GH #547 Layer 2 AST wirer degrade fixtures D+F)
         run: bash tests/install-sh/wire-eslint-r2.test.sh
       - name: "install-sh — install-self-verification structural + degrade test (D6: gates shipped, graceful-degrade, wired)"
         run: bash tests/install-sh/install-self-verification.test.sh
       - name: "install-sh — check-shields-up paired-negative (#831: husky v9 .husky/_ accepted; positive + negative arms)"
         run: bash tests/install-sh/check-shields-up-paired-negative.test.sh
+      - name: "install-sh — gh-975 husky re-assert after deps (prepare-driven manager clobber; @aif-shield marker gate)"
+        run: bash tests/install-sh/gh-975-husky-reassert.test.sh
+      - name: "install-sh — gh-974 honest incomplete-deps banner (--full + failed dep-install → degraded banner + rc!=0, not silent ✅)"
+        run: bash tests/install-sh/gh-974-honest-incomplete-deps.test.sh
+      - name: "install-sh — gh-934 ship end-of-turn Stop hook + lang (delivery + settings-merge + firing EN/RU + jq-guard)"
+        run: bash tests/install-sh/gh-934-ship-eot-hook.test.sh
+      - name: "install-sh — gh-934 ship session-UX hooks (ask-question PreToolUse + inject-matching PostToolUse: delivery + non-destructive matcher-merge + firing + jq-guard)"
+        run: bash tests/install-sh/gh-934-ship-session-ux-hooks.test.sh
+      - name: "install-sh — gh-934 ship output-language hook (UserPromptSubmit: extracted lang slice, non-destructive same-event merge, firing RU/de, zero-setup en no-op, refresh)"
+        run: bash tests/install-sh/gh-934-ship-output-language-hook.test.sh
+      - name: "install-sh — gh-934 ship doc-authority-header gate (PostToolUse: zero-dep reimpl, non-destructive same-event merge, firing miss/pass, escape valves, jq-degrade, refresh)"
+        run: bash tests/install-sh/gh-934-ship-doc-authority-hook.test.sh
+      - name: "install-sh — gh-934 ship project-agnostic hooks (batch D: digest UPS+SubagentStart + memory-codification generic, template-empty no-op, both-events merge, per-event idempotence, firing, refresh-non-clobber, lang-pack A fix)"
+        run: bash tests/install-sh/gh-934-ship-project-agnostic-hooks.test.sh
+      - name: "install-sh — self-verify banner honesty (P0.4: SKIP accounting withholds property claim + strict D1 under DEPS_INSTALLED)"
+        run: bash tests/install-sh/install-self-verify-banner-honesty.test.sh
       - name: install-sh — layer-units (per-layer sourcing + structural integrity checks)
         run: bash tests/install-sh/layer-units.test.sh
       - name: "install-sh — setup -y yes-path (S4: forward --full, fail-loud no-hang, 4-stack, no self/consumer branch)"
@@ -445,7 +808,7 @@ jobs:
           fetch-depth: 0  # install-sh tests copy the repo; full history is the safe default
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install packages/core deps
         run: npm ci --prefix packages/core --silent
       - name: Install workspace deps (hoists tsx to root)
@@ -491,6 +854,8 @@ jobs:
         run: bash tests/install-sh/gh-636-dispatcher-tsx-probe.test.sh
       - name: install-sh — f16 stryker live-mutants (post-install liveness smoke #549 class)
         run: bash tests/install-sh/f16-stryker-live-mutants.test.sh
+      - name: "install-sh — f20 stryker monorepo emit (#931 PR-2: per-package stryker/*.json + scripts/run-mutation.sh wrapper on a multi-stack monorepo)"
+        run: bash tests/install-sh/f20-stryker-monorepo-emit.test.sh
       - name: "install-sh — check-fences-fire paired-negative (D4: probe is falsifiable; FENCE SILENT + FALSE POSITIVE arms)"
         run: bash tests/install-sh/check-fences-fire-paired-negative.test.sh
       - name: "install-sh — byte-identical snapshot compare: all 4 stacks × {greenfield,brownfield} (modular-install-fullpack S1)"
@@ -499,11 +864,41 @@ jobs:
         run: bash tests/install-sh/mcp-layer.test.sh
       - name: "install-sh — stack auto-detect (GH #780: no-arg → detect from package.json, fail-loud only on unknown)"
         run: bash tests/install-sh/stack-autodetect.test.sh
-      - name: "install-sh — shellcheck gate: setup.d/*.sh + install.sh (pinned 0.9.0)"
+      - name: "install-sh — Python delivery layer + collision matrix + live-fire (python-delivery-v0 S1 T5)"
+        run: bash tests/install-sh/python-delivery.test.sh
+      - name: "install-sh — Python entry lane: install.sh python detection + no-package.json bypass + --refresh + firing self-check (python-delivery-v0 S2 T1)"
+        run: bash tests/install-sh/python-entry-lane.test.sh
+      - name: "install-sh — Python rules-lock variant: schema + non-vacuity + determinism + teeth (ecosystem-wiring W3)"
+        run: bash tests/install-sh/python-rules-lock.test.sh
+      - name: "install-sh — Cargo entry lane: install.sh cargo detection + no-package.json bypass + --refresh + REFUSE cell + firing self-check (ecosystem-wiring W4)"
+        run: bash tests/install-sh/cargo-entry-lane.test.sh
+      - name: "install-sh — getff default-branch substitution: delivered CI workflow triggers on the consumer's real default branch (getff-honest-signals S4)"
+        run: bash tests/install-sh/getff-default-branch-substitution.test.sh
+      - name: "install-sh — refresh reconciles skill rename: superseded rules-as-tests/ reclaimed, .override.md + modern-absent guards (getff-honest-signals S5)"
+        run: bash tests/install-sh/refresh-reconciles-skill-rename.test.sh
+      - name: "install-sh — refresh offers lintstaged migration: consumer .lintstagedrc byte-identical, offer printed never written (getff-honest-signals S5)"
+        run: bash tests/install-sh/refresh-offers-lintstaged-migration.test.sh
+      - name: "install-sh — rules-lock schema parity: F11 core set ⊆ each lane's ACTUAL emitted lock JSON (adapter-jig D3)"
+        run: bash tests/install-sh/rules-lock-schema-parity.test.sh
+      - name: "install-sh — rules-lock version diff shape: dependency bump differs, consumer bump does not (getff-freshness-widening S1 criterion 5)"
+        run: bash tests/install-sh/rules-lock-version-diff.test.sh
+      - name: "install-sh — rules-lock malformed-value vectors: consumer manifest toxins never reach the lock (getff-freshness-widening S1 criterion 7)"
+        run: bash tests/install-sh/rules-lock-malformed-values.test.sh
+      - name: "install-sh — rules-lock scope trap: no research/detector fixtures in branch diff (getff-freshness-widening S1 criterion 9)"
+        run: bash tests/install-sh/rules-lock-scope-trap.test.sh
+      - name: "install-sh — snapshot exclusion guard: volatile-only exclusions never mask deterministic drift (adapter-jig C3)"
+        run: bash tests/install-sh/snapshot-exclusion-guard.test.sh
+      - name: "install-sh — lane orphan residue: refresh sweeps dir payloads + loudly reports dropped top-level getff files (adapter-jig C4)"
+        run: bash tests/install-sh/lane-orphan-residue.test.sh
+      - name: "install-sh — pre-merge carrier delivery (pre-merge-carrier-build B1: --profile core receives carrier + probe, --refresh refreshes, W-3 no wiring)"
+        run: bash tests/install-sh/pre-merge-local-delivery.test.sh
+      - name: "install-sh — shellcheck gate: setup.d/*.sh + install.sh + the two B1 carrier scripts (pinned 0.9.0)"
         run: |
           if command -v shellcheck >/dev/null 2>&1; then
             shellcheck --version | grep -E '^version:' || true
-            shellcheck --exclude=SC2034,SC2016,SC2317 setup.d/*.sh install.sh
+            shellcheck --exclude=SC2034,SC2016,SC2317 setup.d/*.sh install.sh \
+              packages/core/audit-self/pre-merge-local.sh \
+              packages/core/audit-self/ci-available-probe.sh
           else
             echo "⊝ shellcheck not available in CI runner — skipping (install shellcheck >= 0.9.0 to enable)"
           fi
@@ -523,7 +918,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install workspace deps
         run: npm install --silent
       - name: Typecheck all workspaces (tsc --noEmit)
@@ -556,7 +951,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}  # PR tip, not the synthetic merge commit
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install workspace deps (hoists tsx to root)
         run: npm install --silent
       - name: Ensure PR base ref is present
@@ -586,12 +981,61 @@ jobs:
           S17_SUBSTANCE_WARN_ONLY: 'false'
           PREPUSH_UPSTREAM_REF: origin/${{ github.base_ref }}
         run: PREPUSH_ONLY=s17 npx tsx packages/core/hooks/pre-push.ts
-      - name: §7 Prior-art trailer check over PR commits (base blocks; substance warn-only per Option B)
+      - name: §7 Prior-art trailer check over PR commits (base + substance both block)
         # Same promotion exemption as the §1.7 step above (head=staging && base=main).
+        # Substance arm: warn-only until 2026-07-25 (Option B calibration), enforcing since —
+        # the default in pre-push.ts priorArtSection flipped, and this step deliberately does
+        # NOT pin PA_SUBSTANCE_WARN_ONLY so it tracks that default (unlike the §1.7 step above,
+        # which pins its arms explicitly). Population note: this arm checks EACH branch commit,
+        # while pr-body-prior-art.yml checks the PR body — a granular branch commit carrying
+        # `Prior-art: skipped` now fails here even when the PR body carries a positive trailer.
         continue-on-error: ${{ github.base_ref == 'main' && github.head_ref == 'staging' }}
         env:
           PREPUSH_UPSTREAM_REF: origin/${{ github.base_ref }}
         run: PREPUSH_ONLY=prior-art npx tsx packages/core/hooks/pre-push.ts
+
+  # arch-v2 S-E P3a CI mirror of the pre-push always-on-budget gate. The resident
+  # set is repo state (size of CLAUDE.md + non-path-scoped .claude/rules/*.md), not
+  # a per-PR-commit property. Trigger scope is this workflow's own `on:` block —
+  # push to the branches it lists, plus pull_request; this job adds no `if:` guard
+  # of its own, so it runs wherever the workflow runs. (The earlier comment here
+  # claimed "runs on every push … NOT gated on pull_request"; both halves were
+  # wrong — corrected after the round-1 cold fidelity audit of this stage.)
+  # It is listed in `ci-success.needs`, so a RED here blocks the merge rather than
+  # sitting unread in the checks list. Bash + jq only (both pre-installed on
+  # ubuntu-latest); no
+  # node/setup-node step needed because the gate is pure shell.
+  # Declared coverage: this gate sees the repo-authored always-on set only — 48,671 B at
+  # HEAD. Its SHARE of the session-start total is UNMEASURED — channel absent: S-G moved
+  # the numerator (69,453 -> 48,671 B) while every denominator in hand was measured on a
+  # pre-S-G seat, so no current-set percentage is computable. The "29-39%" that stood here
+  # was exactly that cross-population division and is withdrawn (arch-v2 S-L, PR #1263;
+  # docs/meta-factory/research-patches/2026-08-07-s-l-recalculation.md section 4).
+  # Falsifier: one /context reading on a post-S-G seat makes the share computable again.
+  # Direction-preserving remainder: a substantial majority of session-start context is
+  # still harness-resident and unreachable by any file-trim; P14 (S-H) addresses it as
+  # operator recommendations, never by this gate.
+  alwayson-budget:
+    name: Always-on context budget (arch-v2 S-E P3a CI mirror)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      # Floor first, then ceiling: the meter's own self-test asserts it still measures a
+      # non-empty set, so a green ceiling below cannot be green because the meter broke.
+      # Wired here 2026-08-07 — the file had shipped attached to no channel at all.
+      - name: Run scripts/measure-always-on.test.sh (meter floor)
+        run: bash scripts/measure-always-on.test.sh
+      # Paired-negative for the gate below: proves it still goes RED over a zero ceiling.
+      # Also shipped unwired (sibling sweep of the line above, same defect class): a gate
+      # whose can-it-fail proof runs at no channel is not proven to fail at all.
+      - name: Run scripts/check-alwayson-budget.test.sh (gate paired-negative)
+        run: bash scripts/check-alwayson-budget.test.sh
+      - name: Run scripts/check-alwayson-budget.sh
+        run: bash scripts/check-alwayson-budget.sh
 
   enforce-husky-presence:
     name: Verify .husky/ hooks exist and are non-trivial
@@ -627,7 +1071,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install python pyyaml (required by audit probes)
         run: pip install pyyaml==6.0.2
       - name: Install packages/core deps (remark + vitest for audit-ai-docs.test.ts)
@@ -657,7 +1101,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install python pyyaml (required by audit probes)
         run: pip install pyyaml==6.0.2
       - name: Install packages/core deps (remark + vitest for audit-ai-docs.test.ts)
@@ -669,7 +1113,7 @@ jobs:
           git config user.email "ci@example.com"
           git config user.name "CI"
           echo '{"name":"fake-consumer-rn","version":"0.0.0","private":true}' > package.json
-          # next.config.js triggers auto-detection in setup.sh; also pass explicit stack to install.sh
+          # next.config.js marks the consumer as react-next; explicit stack passed to install.sh
           echo 'module.exports = {};' > next.config.js
           bash "$GITHUB_WORKSPACE/install.sh" react-next
       - name: Run framework own audits (Wave 10.4 — vitest, react-next)
@@ -719,7 +1163,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: "Fresh ./setup -y install (install.sh --full) into a tmp consumer"
         # STACK via env (not inline ${{…}} in run:) to avoid template-injection (zizmor). The
         # value is a GitHub-controlled matrix token from the allowlist above.
@@ -750,6 +1194,42 @@ jobs:
           cd "$CONSUMER"
           mkdir -p src
           printf 'export const answer = 42;\n' > src/index.ts
+      - name: "Plant a test file matching THIS stack's vitest include glob (first-commit-passable)"
+        # The name must match the stack's vitest.config.ts `include` or `npx vitest run` exits 1
+        # with "No test files found" — a failure unrelated to the three issues under replay:
+        #   ts-server    → src/tests/seed.unit.ts (matches src/**/*.unit.ts)
+        #   react-next   → src/seed.test.ts (matches the legacy src/**/*.{test,spec}.* glob)
+        #   react-spa    → src/seed.test.ts (same legacy glob)
+        #   react-native → src/seed.test.ts (its only include family; it has NO setupFiles line)
+        # Explicit vitest imports work under both `globals: false` (ts-server/react/react-next/
+        # react-spa) and react-native's `globals: true`. STACK via env (zizmor template-injection).
+        env:
+          STACK: ${{ matrix.stack }}
+        run: |
+          cd "$CONSUMER"
+          mkdir -p src/tests
+          if [ "$STACK" = "ts-server" ]; then
+            SEED=src/tests/seed.unit.ts
+          else
+            SEED=src/seed.test.ts
+          fi
+          printf "import { describe, expect, it } from 'vitest';\n\ndescribe('seed', () => {\n  it('passes', () => {\n    expect(1).toBe(1);\n  });\n});\n" > "$SEED"
+      - name: "Consumer: git commit through the REAL shipped pre-commit (issues 1528+1529 replay)"
+        # No hand-added .gitignore here — the FC-2 seed is what keeps node_modules/ out of the
+        # index on this gitignore-less consumer (issue 1528); and the delivered .lintstagedrc.json
+        # with --no-warn-ignored is what lets the eslint tasks pass on the eslint-ignored
+        # installer-delivered files the commit stages (issue 1529). Exit 0 is the assert.
+        run: |
+          cd "$CONSUMER"
+          test -f .gitignore || { echo "::error::.gitignore seed not delivered — issue 1528 fix missing"; exit 1; }
+          git add -A
+          git commit -m "install"
+      - name: "Consumer: npx vitest run (issue 1530 replay)"
+        run: |
+          cd "$CONSUMER"
+          test -x node_modules/.bin/vitest \
+            || { echo "::error::vitest not installed — install.sh --full dep install failed; the vitest arm cannot run (false-green guard)"; exit 1; }
+          npx vitest run
       - name: Assert the consumer toolchain installed (else the validate gate is vacuous)
         run: |
           cd "$CONSUMER"
@@ -809,7 +1289,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: "Fresh install.sh ts-server --full into a multi-stack monorepo consumer"
         run: |
           CONSUMER=$(mktemp -d)
@@ -872,7 +1352,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install workspace deps (hoists tsx + transitive semver)
         run: npm install --silent
       - name: Detect this repo and diff against frozen snapshot
@@ -884,17 +1364,22 @@ jobs:
             exit 1
           fi
           echo "✓ self-detect snapshot stable"
-      - name: Verify setup.sh --stack=$(detect) --dry-run idempotent
+      # install.sh replaced the retired setup.sh wrapper here (2026-07-10); it refuses to run
+      # inside the package dir, so the probe targets a minimal tmp consumer instead.
+      - name: Verify install.sh --dry-run idempotent (stack from detect)
         run: |
           DETECTED=$(npm --prefix packages/core run detect --silent -- "$GITHUB_WORKSPACE" | jq -r .stack)
-          bash setup.sh --stack="$DETECTED" --dry-run --skip-aif-init --skip-deps > /tmp/run1.txt 2>&1
-          bash setup.sh --stack="$DETECTED" --dry-run --skip-aif-init --skip-deps > /tmp/run2.txt 2>&1
+          mkdir -p /tmp/dryrun-consumer && cd /tmp/dryrun-consumer
+          git init --quiet
+          echo '{"name":"dryrun-consumer","version":"0.0.0","private":true}' > package.json
+          bash "$GITHUB_WORKSPACE/install.sh" "$DETECTED" --dry-run > /tmp/run1.txt 2>&1
+          bash "$GITHUB_WORKSPACE/install.sh" "$DETECTED" --dry-run > /tmp/run2.txt 2>&1
           if ! diff /tmp/run1.txt /tmp/run2.txt > /dev/null; then
-            echo "::error::setup.sh --dry-run is not idempotent — L1 acceptance (a) violated"
+            echo "::error::install.sh --dry-run is not idempotent — L1 acceptance (a) violated"
             diff /tmp/run1.txt /tmp/run2.txt
             exit 1
           fi
-          echo "✓ setup.sh --dry-run idempotent (L1 acceptance a)"
+          echo "✓ install.sh --dry-run idempotent (L1 acceptance a)"
 
   framework-self-research:
     name: Research Agent v1 — self-application snapshot (L2 invariant)
@@ -907,7 +1392,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install workspace deps (hoists tsx + transitive semver + ajv)
         run: npm install --silent
       - name: Run research --self and diff against frozen snapshot
@@ -941,7 +1426,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install workspace deps
         run: npm install --silent
       - name: Synth on own repo and diff against frozen snapshot
@@ -976,7 +1461,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install workspace deps (hoists eslint + ts-eslint)
         run: npm install --silent
       - name: Validate own repo synth output and diff against frozen snapshot
@@ -1024,7 +1509,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install workspace deps
         run: npm install --silent
       - name: Synth → install → diff deterministic shape vs frozen snapshot
@@ -1040,7 +1525,7 @@ jobs:
               installed: $r[0].installed,
               failuresCount: ($r[0].failures | length),
               artifactNames: [$r[0].artifacts[] | split("/") | last],
-              lockShape: { schemaVersion: $l[0].schemaVersion, framework: $l[0].framework, version: $l[0].version, ruleIds: $l[0].ruleIds },
+              lockShape: { schemaVersion: $l[0].schemaVersion, framework: $l[0].framework, version: $l[0].version, rules: $l[0].rules },
               preValidation: $r[0].preValidation,
               postValidation: $r[0].postValidation
             }')
@@ -1063,7 +1548,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install workspace deps
         run: npm install --silent
       - name: Emit a declarative forbid bundle, verify clean, then prove it reds on a hand-edit
@@ -1115,7 +1600,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install workspace deps
         run: npm install --silent
       - name: Run canonical regen acceptance test (similarity ≥0.95)
@@ -1165,7 +1650,22 @@ jobs:
         # Avoiding SARIF upload keeps this runnable without GitHub Advanced Security.
         # Also scan the SHIPPED CI templates (#637) so they can't drift past the
         # gate — they live OUTSIDE .github/workflows/, so these are extra path args.
-        run: zizmor --format plain .github/workflows/ templates/ts-server/github-actions-ci.yml templates/ts-server/github-actions-workflow-integrity.yml packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml
+        # Keep this list in sync with zizmorTemplatesSection() in
+        # packages/core/hooks/pre-push.ts (the HARD-gate twin). New presets added via
+        # setup.d deliver_getff_workflow MUST be appended here AND there — the list
+        # below drifted past cargo/python/react-spa/react-native for 4+ months (#130
+        # was the last edit; presets landed in #661/#662/#996/#1080) because nothing
+        # enforced parity. If you ship a new github-actions template, add its path
+        # to BOTH places.
+        run: >-
+          zizmor --format plain .github/workflows/
+          templates/ts-server/github-actions-ci.yml
+          templates/ts-server/github-actions-workflow-integrity.yml
+          packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml
+          packages/core/templates/cargo/github-actions-ci.yml
+          packages/core/templates/python/github-actions-ci.yml
+          packages/preset-react-spa/templates/github-actions-ci-ui.yml
+          packages/preset-react-native/templates/github-actions-ci-ui.yml
 
   # enforcement-liveness-fix S5: f17 planted-violation test on Node 20 + 22 matrix.
   # Scoped to f17 only — proves barrel loads without tsx loader on both LTS versions.
@@ -1191,6 +1691,111 @@ jobs:
       - name: "f17 lint-rules planted-violation (Node ${{ matrix.node }})"
         run: bash tests/install-sh/f17-lint-rules-planted-violation.test.sh
 
+  consumer-matrix-start-cell:
+    # launch-preannounce-track S2: the consumer-matrix acceptance gate START CELL. Runs the real
+    # `install.sh ts-server --full` into a FRESH pnpm workspace monorepo fixture (the fixture
+    # installs its OWN deps — T-LPT-A) and asserts the umbrella §1 acceptance through the real
+    # channels: self-verify verdict honesty (a), in-fixture toolchain + placed-config load (b), the
+    # deterministic per-workspace validation gates green-on-clean (c), a planted R2 violation blocked
+    # via scoped eslint + the lint-staged pre-commit shield + check:fences-fire (d), the false-positive
+    # arm (e), and a clean-tree real git push (i). XFAIL #973 (root `eslint .` on a per-workspace
+    # monorepo) is pinned as reproducing. Fail-closed: a missing tool is RED, never SKIP. Fixture is
+    # S1-calibrated (s1-calibration-report.md §4). Deterministic + API-free per no-paid-llm-in-ci.md.
+    name: "Consumer-matrix start cell — pnpm workspace monorepo (launch-preannounce-track S2)"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '22'
+      - name: Enable pnpm via corepack (the fixture is a pnpm workspace monorepo)
+        run: corepack enable
+      - name: Run the consumer-matrix start cell
+        run: bash tests/consumer-matrix/pnpm-monorepo-cell.sh
+        env:
+          FRAMEWORK_ROOT: ${{ github.workspace }}
+
+  # getff-any-stack-trace S4 (spec §9.1 W6 cell v1): python unfamiliar-stack e2e —
+  # scripted fresh python project (FastAPI/SQLAlchemy-class, master default branch)
+  # → install.sh python under Node-stripped PATH (proves F-A DECLARE on the install
+  # path) → assert the S2 agent surface (4 skills + curated 2 agents + hooks +
+  # .mcp.json + AGENTS.md + .ai-factory/ + .getff/) → committed Tier-1-provenance
+  # practice fixture → rule-bootstrap-cli --from-practice resolves Tier-1 via
+  # vendored .dist-info METADATA (`Project-URL: Documentation, <url>`, the D7 host-
+  # derivation surface) → RED arm: ast-grep fires non-zero on planted print() →
+  # GREEN arm: ast-grep silent on conforming logger.info() → REJECT arm: a practice
+  # citing a non-direct-dep package is downgraded to research-only (FF2007, honest
+  # degrade) → R1-input: delivered workflow trigger carries `branches: [master]`
+  # (deliver_getff_workflow substitutes via git symbolic-ref origin/HEAD). A cell
+  # that only passes is `#discipline-theatre` with a workflow file attached — the
+  # RED/GREEN/REJECT arms ARE the §3 «works» claim, not a green-CI narrative.
+  # Fail-closed: a missing tool is RED, never SKIP. Deterministic + API-free per
+  # no-paid-llm-in-ci.md §1. ast-grep pinned per ci-tool-pinning.md Rule A.
+  consumer-matrix-python-unfamiliar-stack-cell:
+    name: "Consumer-matrix W6 cell — python unfamiliar-stack e2e (getff-any-stack-trace S4)"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '22'
+      # tsx lives in packages/core/node_modules — the cell invokes
+      # `npx --no-install tsx ... rule-bootstrap-cli.ts` at cell:300-303 from
+      # $FRAMEWORK_ROOT (root), so tsx must resolve from root/node_modules.
+      # Pattern B (lines 467-469, 555-557, 641-643, 881-883, 911-913): npm ci
+      # --prefix packages/core installs packages/core's own deps, then the
+      # workspace install hoists tsx to root where the cell's cd-root invocation
+      # finds it. Without these steps the cell fails at the Tier-1 generation
+      # arm with "tsx not found". Container masks this via ambient
+      # /app/node_modules + /home/node/.npm-global — destination-environment-
+      # verification.md §2 incident-1 pattern (caught by round-1 rework review
+      # 2026-08-07).
+      - name: Install packages/core deps (tsx for rule-bootstrap-cli)
+        run: npm ci --prefix packages/core --silent
+      - name: Install workspace deps (hoists tsx to root)
+        run: npm install --silent
+      - name: Run the consumer-matrix W6 cell (python unfamiliar-stack e2e)
+        run: bash tests/consumer-matrix/python-unfamiliar-stack-cell.sh
+        env:
+          FRAMEWORK_ROOT: ${{ github.workspace }}
+
+  # beta-delivery-ux R1 (spec A6): the consumer-matrix NPM-TARBALL CELL.
+  # Packs `packages/core` into a tarball, installs it into a fresh fixture
+  # (no registry needed — install by path), and asserts the real consumer
+  # path: manifest loads, by-path assets exist (install bundle, manifest
+  # schema, eslint-rules, templates/, skills/), every `bin:` and `exports:`
+  # target resolves, and ≥1 bin executes end-to-end from the installed
+  # package (F-C′ resolution: tsx as runtime dep). This cell IS the `files`
+  # allowlist validation mechanism per kickoff §3 — every entry in
+  # `packages/core/package.json:files` carries paired RED→GREEN evidence
+  # from this cell. A green `npm pack` is NOT a gate (T-BDU-R1-A); only
+  # installing + running the consumer path is. Deterministic + API-free per
+  # no-paid-llm-in-ci.md §1.
+  consumer-matrix-npm-tarball-cell:
+    name: "Consumer-matrix npm-tarball cell — files allowlist + bin runnability (beta-delivery-ux R1)"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '22'
+      - name: Run the consumer-matrix npm-tarball cell
+        run: bash tests/consumer-matrix/npm-tarball-cell.sh
+        env:
+          FRAMEWORK_ROOT: ${{ github.workspace }}
+
   # Single aggregate context for branch protection. `needs:` every other
   # audit-self PR job — including actionlint + zizmor above — so requiring just
   # `ci-success` gates them all, and stays correct as jobs are added/removed (vs
@@ -1198,10 +1803,21 @@ jobs:
   # the gate still runs (and can FAIL) when a need failed; pass/fail logic lives
   # in scripts/ci-success-gate.sh (paired-negative tested).
   ci-success:
+    # required-context: yes — the single aggregate every other audit-self job routes into via
+    # `needs:` (completeness asserted by packages/core/principles/36-ci-needs-completeness.test.ts);
+    # nothing else in this file is separately registrable, so this is its only fail-closed transport.
     name: ci-success
     if: always()
     needs:
       - mechanical
+      # ci-needs-completeness gap (found by the beta-delivery-ux R1 backward sweep, fixed
+      # here): without this line the shipped surface could drift off Prettier-clean while
+      # `ci-success` stayed green and the PR merged — every consumer's first
+      # `prettier --check .` then fails out-of-box (the GH #531 regression this job exists
+      # to prevent). Never wired since the job shipped in #540 (`git log -S` on the needs
+      # entry returns empty) — the `#warning-nobody-reads` shape
+      # (.claude/rules/attention-is-not-a-mechanism.md §2), now gated by principle 36.
+      - shipped-prettier
       - actionlint
       - zizmor
       - rule-to-probe
@@ -1217,6 +1833,13 @@ jobs:
       - framework-self-install-ts-server
       - framework-self-install-react-next
       - framework-fresh-install-validate
+      # Same ci-needs-completeness gap. Without this line the #807 monorepo cell could go
+      # RED while `ci-success` stayed green and the PR merged: the flat-matrix job above
+      # only covers a SINGLE-package consumer, so this is the ONLY surface asserting that
+      # check:globs / check:enforced / arch:check survive a no-root-config multi-stack
+      # layout. A green `ci-success` alone proves none of those three gates. Never wired
+      # since the job shipped in #815.
+      - framework-fresh-install-validate-multistack
       - framework-self-detect
       - framework-self-research
       - framework-self-synth
@@ -1225,6 +1848,29 @@ jobs:
       - framework-provenance-anti-hand-edit
       - phase-8-canonical-regen-acceptance
       - f17-node-compat
+      - consumer-matrix-start-cell
+      # getff-any-stack-trace S4 (spec §9.1): without this line the W6 cell could go
+      # RED (or SKIP its firing arms) while `ci-success` stays green and the PR merges,
+      # because branch protection requires only `ci-success`. Same `#warning-nobody-reads
+      # shape as the alwayson-budget incident below — load-bearing assertion lives in the
+      # cell's RED/GREEN/REJECT arms, none of which a green `ci-success` alone proves.
+      - consumer-matrix-python-unfamiliar-stack-cell
+      # beta-delivery-ux R1 (spec A6): without this line the tarball cell
+      # could go RED (a `files` entry dropped, a bin broken) while
+      # `ci-success` stayed green and the PR merged, because branch
+      # protection requires only `ci-success` — the `#warning-nobody-reads`
+      # shape (.claude/rules/attention-is-not-a-mechanism.md §2). The
+      # load-bearing assertion lives in the cell's paired-RED→GREEN evidence
+      # per `files` entry + the F-C′ bin execution; a green `ci-success`
+      # alone proves none of that.
+      - consumer-matrix-npm-tarball-cell
+      # arch-v2 S-E P3a. Without this line the budget job could go RED while
+      # `ci-success` stayed green and the PR merged, because branch protection
+      # requires only `ci-success` — a gate whose sole consumer is someone
+      # reading the checks list (`#warning-nobody-reads`,
+      # .claude/rules/attention-is-not-a-mechanism.md §2). Caught by the round-1
+      # cold fidelity audit of the S-E stage.
+      - alwayson-budget
     runs-on: ubuntu-latest
     permissions:
       contents: read

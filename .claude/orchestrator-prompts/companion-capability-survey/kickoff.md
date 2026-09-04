@@ -42,3 +42,5 @@ Domain-specific: **T-CCS-A** — «tempted to ADOPT a Superpowers skill because 
 
 ## Finish REPORT with
 research-patch PR# · the capability×stage×verdict table · top 3-5 adopt-now + rationale · SSOT rows added · §1.7 presence · `## 🟢 Простыми словами`.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

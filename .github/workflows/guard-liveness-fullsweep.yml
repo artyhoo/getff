@@ -47,6 +47,10 @@ concurrency:
 
 jobs:
   guard-liveness-fullsweep:
+    # required-context: no — triggers on `pull_request: branches: [main]` only, so it never
+    # reports on a staging-base PR; registering it in STAGING protection would deadlock every
+    # staging PR on a context that never runs. It is a main-promotion backstop, and belongs in
+    # main's protection if anywhere — a separate decision on a branch this list does not cover.
     name: guard-liveness-fullsweep
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -58,7 +62,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
       # Root workspace install — the v1 ESLint arm imports the preset eslint-rules
       # package via the workspace symlink, which only exists after a root-level install
       # (see guard-liveness.ts header). `npm ci` is exact + reproducible from the lockfile.

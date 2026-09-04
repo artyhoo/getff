@@ -75,3 +75,5 @@ npx tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --base staging
 ```
 
 Anti-pattern `#autonomous-done-no-harvest`: skipping leaves the work permanently in the container.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -4,7 +4,7 @@ import { AST_NODE_TYPES } from '@typescript-eslint/utils';
 
 const createRule = ESLintUtils.RuleCreator(
   () =>
-    `https://github.com/Yhooi2/rules-as-tests-aif/blob/main/packages/preset-next-15-canonical/RULES.md#r8--observability`,
+    `https://github.com/artyhoo/getff/blob/main/packages/preset-next-15-canonical/RULES.md#r8--observability`,
 );
 
 // Keys that form circular refs or are not AST children

@@ -69,3 +69,7 @@ Trigger для запуска этого umbrella: drift между shipped фа
 - [ ] `Prior-art: skipped — new script, no capability commit (scripts/ not packages/)` в commit trailer
 EOF
 echo "kickoff written"
+```bash host-verify
+# Retro-marked 2026-08-21: the sibling drift gate on the same shipped-skill surface; the deliverable script scripts/sync-shipped-skill-context.sh lands beside it
+bash scripts/check-skill-drift.sh
+```

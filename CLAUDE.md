@@ -5,15 +5,9 @@ This file is auto-loaded by Claude Code when sessions run inside this repo.
 > **Authoritative for:** AI-tooling conventions, capability-commit gates, build-vs-reuse discipline, Artifact Ownership Contract.
 > **NOT authoritative for:** project goal, methodology, design invariants — see [README.md#why-this-exists](README.md#why-this-exists).
 
-## Read-first (Step 0)
+## Goal + Step 0 (methodology ≠ goal)
 
-At session start, read [.claude/session-bootstrap.md](.claude/session-bootstrap.md) — it re-states the project goal + invariants from README in compaction-resilient form. Implements the AIF Step 0 / Cline Memory Bank re-read pattern: anchors goal across context-loss events that compaction cannot guarantee to preserve.
-
-## Project goal pointer (do not elevate methodology to goal)
-
-**Goal:** AI agents can't silently bypass undocumented conventions. Every codified rule is an executable artifact (ESLint rule, pre-push check, principle test, mutation gate, drift probe, Living Documentation assertion) that fails at the earliest reachable channel — edit-time → pre-commit → pre-push → CI → production audit. **CI is the last-resort gate, not the primary one.** Full statement: [README.md#why-this-exists](README.md#why-this-exists).
-
-**Methodology:** recursive self-application — framework validates itself with its own logic. *Quality signal* (per GCC bootstrap precedent, `rustc` compile-self analogy), not the project's goal. **Do not elevate to «north star» in any operational doc.** If you find yourself reasoning under a goal that contradicts README — stop. The contradicting doc has drifted, not README. Surface as a coverage-gap patch under [docs/meta-factory/research-patches/](docs/meta-factory/research-patches/).
+[Step-0](.claude/session-bootstrap.md) + [goal](README.md#why-this-exists). If a doc contradicts README, it has drifted — surface as a [research-patch](docs/meta-factory/research-patches/).
 
 ## Build-vs-reuse invariant (Phase 8.8)
 
@@ -35,9 +29,11 @@ For the **consumer-side authority model** governing how shipped artefacts may be
 
 A commit that does **any** of the following (mirrors `packages/core/hooks/checks/prior-art.ts` detection — the prose definition and the hook stay in sync):
 
-- Adds a new **explicit dependency** in `package.json` (transitive deps don't count; detected as a dependency key present on an added `+` line with no matching removed `-` line for the same key, across common semver-prefix forms `^ ~ >= <= = *`, in the package.json diff).
+- Adds a new **explicit dependency** in `package.json` (transitive deps don't count; detected as a dependency key present on an added `+` line with no matching removed `-` line for the same key, across common semver-prefix forms `^ ~ >= <= = *`, in the package.json diff). Keys inside `overrides` / `resolutions` / `pnpm` blocks do NOT count — they force versions of packages already in the tree, adding no capability (PR #980 incident).
 - Adds a new file **≥50 LOC** under a new subdirectory of `packages/core/<new-dir>/`.
 - Adds a new file **≥80 LOC** anywhere under `packages/`.
+
+Two carve-outs on the LOC triggers (hook parity 2026-08-07, mirroring the PR #980 overrides carve-out pattern): **documentation files** (`*.md`/`*.markdown`) never count — the «doc edits are NOT capability commits» exemption below always covered them, but a shipped ≥80-LOC doc template tripped the detector (PR #1272 incident); and a new file **byte-identical to a blob already tracked elsewhere in the same tree** never counts — a relocation/vendor copy adds no capability by construction (PR #1271 incident: vendored runtime-bridge subset).
 
 Refactors, doc edits, test additions for existing capabilities, bug fixes, snapshot regenerations, recipe data edits — **NOT** capability commits.
 
@@ -81,7 +77,7 @@ Each artifact has one owner. Cross-owner edits require explicit handoff (separat
 | [docs/meta-factory/research-patches/](docs/meta-factory/research-patches/) `*` | session that discovered the gap | all subsequent sessions | one patch per gap, append-only |
 | [.husky/pre-push](.husky/pre-push), [.claude/rules/](.claude/rules/) `*` | maintainers | all session agents | enforcement layer |
 | [.claude/session-bootstrap.md](.claude/session-bootstrap.md) | maintainers (deliberate edit) | reviewer agents | operational restatement; modify only when invariants/reading-order change |
-| `agents/living-docs-auditor.md`, `agents/review-sidecar.md` (consumer-facing agents); `packages/core/templates/shared/skill-context/*/SKILL.md` (shipped AIF skill-context overrides) | framework maintainers | all sessions | design-by-spec ref consumer-project paths absent in source repo (per D-AuditC-6, 2026-05-16; renamed from `docs-auditor` + `best-practices-sidecar` removed per C-1 resolution 2026-05-20; skill-context overrides added per C-1 follow-up + SSOT #50, 2026-05-20) |
+| `agents/living-docs-auditor.md`, `agents/review-sidecar.md`, `agents/rule-test-author.md` (rule-tests write-half protocol, added 2026-07-22) (consumer-facing agents); `packages/core/templates/shared/skill-context/*/SKILL.md` (shipped AIF skill-context overrides) | framework maintainers | all sessions | design-by-spec ref consumer-project paths absent in source repo (per D-AuditC-6, 2026-05-16; renamed from `docs-auditor` + `best-practices-sidecar` removed per C-1 resolution 2026-05-20; skill-context overrides added per C-1 follow-up + SSOT #50, 2026-05-20) |
 | [packages/core/principles/](packages/core/principles/) `*` | meta-tests CI | implementation agents | enforcement code |
 
 The contract addresses the exact mechanism of the 2026-05-09 incident: reviewer agents pattern-matching on language in [docs/meta-factory/EXECUTION-PLAN.md](docs/meta-factory/EXECUTION-PLAN.md) §1 («north star»), then reinforcing the wrong goal across reviewer cycles. Read-only constraint on goal-bearing artifacts (README) prevents reviewer agents from silently re-establishing a different goal.
@@ -101,47 +97,56 @@ When working on an agreed scope (a defined umbrella, batch, or single-concern PR
 - The `work-without-stopping` user override applies to **clarification within the agreed scope**, not to expanding scope with new shared-state operations.
 - Exception: if maintainer explicitly invited the systemic fix in this session, proceed — but that's an explicit invitation, not autopilot.
 
+## Task-tier routing (which model plans, and whether to use the pipeline at all)
+
+The Tier 0/1/2 criteria + the bridge-profile mechanic + the marker value rule + the
+explicit capability-absence degradation matrix live in the shipped tier-home doc — the
+**single source of truth**, installed at `.ai-factory/tier-home.md` for `env`+ consumers
+and referenced here for the operator repo:
+
+[`packages/core/templates/shared/tier-home.md`](packages/core/templates/shared/tier-home.md)
+
+That doc owns the *criteria*; night-mode + the aif runtime profile config own *which model
+fills which tier*. The acceptance-contour D1 exception (Tier-2 + /arch-reviewed
+plan-complete kickoff → bridge-profile marker) still applies — see the doc's §2 lift.
+
+## Skill routing bindings (three-stack harmonization)
+
+Ratified 2026-08-18 (harmonization round 3 — [operator-axis spec §5.1](docs/superpowers/specs/2026-08-18-skill-stack-harmonization-design.md)): satellite-skill routing collisions die in THIS injected layer, not by cache pruning.
+
+- **TDD loop:** `superpowers:test-driven-development` owns the loop. On «TDD» / «test-first» work, invoke it by explicit name; never route to `mattpocock-skills:tdd`.
+- **Merge conflicts:** follow [.claude/rules/git-conflict-merge-forward.md](.claude/rules/git-conflict-merge-forward.md); never `mattpocock-skills:resolving-merge-conflicts` — its rebase-continuation advice dead-ends (force-push is classifier-blocked for agents machine-wide).
+
+Full ownership map: [harmonization spec §3](docs/superpowers/specs/2026-08-18-skill-stack-harmonization-design.md). A live misroute despite these bindings = D-H7 incident (SSOT #253) → D-H8 escalation ladder (frontmatter neutering → prune → vendor).
+
 ## Umbrella closure convention
 
-When the **last stage** of a multi-stage umbrella merges, the merging session writes a `done.md` file at:
-
-```text
-.claude/orchestrator-prompts/<umbrella>/done.md
-```
-
-**Schema (binding):**
-
-```text
-# <umbrella> — DONE
-- Final PR: #<num>
-- Closed: <YYYY-MM-DD>
-- Summary: <one-line>
-```
-
-**When to write:** at the last-stage PR merge only — not at intermediate stage merges. For single-stage umbrellas, write at the one-and-only merge.
-
-**Why this convention:** `priority-score.sh` completion-detection Layer C3 checks `done.md` existence per candidate and tags `status=DONE done_pr=<num> basis=done-md`. This is the load-bearing fallback layer (deterministic, zero gh rate-limit cost, covers the 83% NO-MATCH bucket that branch-prefix and jaccard cannot reach). ADAPT of Cline Memory Bank committed-markdown sub-pattern (SSOT #77 — ~85% problem-class match on storage format; diverges on update trigger: Cline = on-demand AI-signalled, ours = explicit at-merge convention).
+> **See:** [docs/meta-factory/operational-conventions.md#1-umbrella-closure-convention](docs/meta-factory/operational-conventions.md#1-umbrella-closure-convention) — when the last stage of a multi-stage umbrella merges, the merging session writes `done.md` (the load-bearing `priority-score.sh` Layer C3 fallback).
 
 ## Operational conventions (non-obvious harness gates + orchestration obligations)
 
 ### Harness gates
 
 - **Agent PR merge gating:** `~/.claude/hooks/git-safety.sh` allows `gh pr merge --squash` when `base=staging` or `base=epic/*`. Base=`main` is blocked — maintainer merges manually. Retrying on a real `main`-base block is futile.
-- **Promote staging→main mechanics (two hard rules):** (1) the promote PR MUST have `head=staging` (base=`main`) — the §7 real-commit trailer backstop in `.github/workflows/audit-self.yml` (`continue-on-error` only when `base_ref==main && head_ref==staging`) is exempt ONLY for that head; a promote from any other branch loses the exemption and the required `ci-success` gate goes RED on pre-existing staging squash-commits whose `Prior-art:` trailers live in their PR bodies, not as git trailers (`--no-verify` cannot help — `ci-success` is server-side). (2) the maintainer MUST merge the promote as a **merge commit, never squash** — squash collapses to one parent and severs `staging`↔`main` ancestry, so the next promote surfaces false conflicts across ~all files. Recovery from a prior squash: a content-free reconciling merge (`git commit-tree origin/staging^{tree} -p origin/staging -p origin/main`, tree byte-identical to staging) pushed to `staging` with `--no-verify` (maintainer's hands — agents are deny-listed on `--no-verify`), then the canonical `head=staging` PR is clean + exempt. Precedent: `4ca44598c`. (Codified from memory `feedback_promote_staging_to_main_mechanics`; incident 2026-07-05 getff Wave-0.)
+- **CONFLICTING PR → merge-forward, never rebase:** force-push is permission-classifier-blocked for agents in every form (`--force`, `--force-with-lease`, rewritten history to a new branch — verified 2026-07-21), so `git rebase` on a published PR branch is a dead end. Instead merge the base INTO the PR branch, regenerate conflicted generated artefacts (`SNAPSHOT_MODE=capture bash tests/install-sh/snapshot.sh`; `plugin/hooks` twins regenerate via pre-commit), verify, then plain fast-forward push. Full recipe + triage: [.claude/rules/git-conflict-merge-forward.md](.claude/rules/git-conflict-merge-forward.md). (Incident 2026-07-21, PR #1058.)
+- **Promote staging→main mechanics (two hard rules):** see [docs/meta-factory/operational-conventions.md#promote-stagingmain-mechanics-two-hard-rules](docs/meta-factory/operational-conventions.md#promote-stagingmain-mechanics-two-hard-rules) — fires when promoting staging→main (the `head=staging`-only §7 exemption + the merge-commit-never-squash rule).
+- **Never move a branch ref with `git update-ref`:** see [docs/meta-factory/operational-conventions.md#never-move-a-branch-ref-with-git-update-ref--check-every-worktree-first](docs/meta-factory/operational-conventions.md#never-move-a-branch-ref-with-git-update-ref--check-every-worktree-first) — fires before any `git update-ref` / branch-ref move (worktree-desync hazard — check EVERY worktree first).
 - **600-line markdown gate:** pre-commit hook blocks commits that push any markdown file past 600 lines. Check `wc -l <file>` before adding content to near-600 files (e.g. `docs/meta-factory/open-questions.md`). To free lines: migrate resolved `§13.x` entries to `docs/meta-factory/closed-questions.md` (append-only archive — TOC row + full entry under `## Archived entries`).
 - **Homebrew PATH in hooks:** CC-launched hooks run with a stripped PATH (Homebrew absent). Hooks calling `gh`, `jq`, or other Homebrew tools must export `PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"` after `set -euo pipefail`. Symptom: hook returns empty output from `gh pr view` despite correct auth. (Codified from memory `feedback_harness_merge_block_and_500line_gate`.)
 
 ### Meta-orchestrator self-review obligation
 
-Before any `/meta-orchestrator` session hands off a meta-kickoff to an orchestrator, spawn a Phase -1 cold-review (read-only Agent, adversarial) on the generated `<umbrella>-meta-launch/kickoff.md` against the umbrella's `kickoff.md`. One REVISE round maximum. The orchestrator's own Phase -1 reviews the dispatch prompt — it does NOT cover meta-synthesis bugs. Evidence: 2026-05-28 — a BLOCKER in §3 stage-gate logic was caught only by meta-level cold-review. Codification target is `~/.claude/skills/meta-orchestrator/SKILL.md §4.5` (agent-uncommittable global skill); interim home: this section. (Codified from memory `feedback_meta_orch_self_reviews_own_kickoff`.)
+> **See:** [docs/meta-factory/operational-conventions.md#3-meta-orchestrator-self-review-obligation](docs/meta-factory/operational-conventions.md#3-meta-orchestrator-self-review-obligation) — before any `/meta-orchestrator` session hands off a meta-kickoff to an orchestrator, spawn a Phase -1 cold-review on the generated `<umbrella>-meta-launch/kickoff.md` against the umbrella's `kickoff.md`.
 
 ### Phase -1 principle-test allowlist probe
 
-Phase -1 cold-review on any dispatch that ships ≥1 NEW file under principle-test-watched paths MUST include a dimension: «for each NEW path, grep `packages/core/principles/` `EXEMPT_*` allowlists + structural rule; confirm the artefact satisfies the rule OR qualifies for exemption». Watched paths: `.claude/skills/**`, `.claude/rules/**`, `agents/**`, `docs/meta-factory/research-patches/**`, `packages/core/templates/**`. Probe: `grep -rn 'EXEMPT_\|allowlist\|skip' packages/core/principles/ | grep -E '\.(test\.)?ts:' | head -20`. Evidence: PR #264 pushed twice — principle 15 (paired-negative) + principle 10 (scope annotation) both fired after an 11-dimension Phase -1 missed both. Codification target is `~/.claude/skills/orchestrator/SKILL.md` Phase -1 §Critique dimension (l) (agent-uncommittable global skill); interim home: this section. (Codified from memory `feedback_phase_minus_1_probe_exempt_allowlists`.)
+Moved 2026-07-21 to its declared codification target: `.claude/skills/orchestrator/SKILL.md` Phase -1 → «Principle-test allowlist probe». This stub stays because in-flight kickoffs cite «CLAUDE.md §Operational conventions» for the probe; new kickoffs should cite the skill directly.
 
 ### Pre-dispatch in-flight probe
 
-Before dispatching any stage/sub-wave Worker, probe for in-flight parallel work — ALL of: (a) `gh pr list --head <branch> --state all` (PR-stage); (b) `git log origin/staging..<branch>` ahead-commits on any existing worktree/branch (commit-stage — the window the PR-probe misses); (c) scan for parallel CC sessions working the same umbrella (e.g. other worktrees named for the same stage); (d) RE-probe immediately after any Phase -1 review completes, before the actual dispatch — all three historical collisions materialized inside the Phase -1 window. On any hit: STOP and surface, never double-dispatch. Root cause: one stage = one executor session (single-owner-per-stage). (Codified from memory `feedback_probe_inflight_automation_before_dispatch`; 3/3 incident threshold reached 2026-06-10, all during the one-click-installer umbrella.)
+Before dispatching any stage/sub-wave Worker, probe for in-flight parallel work — ALL of: (a) `gh pr list --head <branch> --state all` (PR-stage); (b) `git log origin/staging..<branch>` ahead-commits on any existing worktree/branch (commit-stage — the window the PR-probe misses); (c) scan for parallel CC sessions working the same umbrella (e.g. other worktrees named for the same stage); (d) **container branches + un-harvested finished tasks** — `docker exec <container> git -C <repo> branch -a`, and any aif task at `done`/`verified` whose branch carries no PR. Items (a)-(c) are ALL origin/host-scoped, so a branch that exists only inside the aif container is invisible to every one of them; (e) RE-probe immediately after any Phase -1 review completes, before the actual dispatch — all historical collisions materialized inside the Phase -1 window. On any hit: STOP and surface, never double-dispatch. Root cause: one stage = one executor session (single-owner-per-stage).
+
+**Run it, do not re-derive it:** `SLUG=<umbrella> bash .claude/skills/dispatcher/helpers/probe-inflight.sh` executes all of the above and emits one `VERDICT:` line; a probe that could not be *asked* yields `PROBE-INCOMPLETE`, never a clean answer ([.claude/skills/dispatcher/SKILL.md](.claude/skills/dispatcher/SKILL.md) §2.0). (Codified from memory `feedback_probe_inflight_automation_before_dispatch`; 3/3 incident threshold reached 2026-06-10, all during the one-click-installer umbrella. Item (d) added 2026-08-09 after `feature/beta-delivery-ux-995e9c` — a duplicate dispatch fired by an origin-only probe an hour after the real run had finished in the container.)
 
 ## See also
 
@@ -150,4 +155,5 @@ Before dispatching any stage/sub-wave Worker, probe for in-flight parallel work 
 - [.github/pull_request_template.md](.github/pull_request_template.md) — PR checklist.
 - [packages/core/principles/08-prior-art-cited.test.ts](packages/core/principles/08-prior-art-cited.test.ts) — meta-test enforcing citations.
 - [agents/compliance-verifier.md](agents/compliance-verifier.md) — AI-agnostic sub-agent for §1.7 substance review; read in your active session before merging a discipline-bearing PR (Wave 8.1b, $0 LLM-in-CI).
-- **Parallel-session dispatch:** spawn isolated worktrees with `claude -w <name>` — the [`worktree-setup.sh`](.claude/hooks/worktree-setup.sh) `WorktreeCreate` hook auto-creates the worktree + `node_modules` symlinks (≤2-step pipeline, empirically accepted in [docs/meta-factory/research-patches/2026-05-29-dispatch-worktree-iphase-acceptance.md](docs/meta-factory/research-patches/2026-05-29-dispatch-worktree-iphase-acceptance.md)).
+- **Parallel-session dispatch:** spawn isolated worktrees with `claude -w <name>`, or portably via `bash scripts/create-worktree.sh <name>` (≤2-step pipeline, empirically accepted in [docs/meta-factory/research-patches/2026-05-29-dispatch-worktree-iphase-acceptance.md](docs/meta-factory/research-patches/2026-05-29-dispatch-worktree-iphase-acceptance.md)).
+- **Worktree `node_modules` provisioning:** [`scripts/worktree-node-modules.sh`](scripts/worktree-node-modules.sh) is the single source of truth; [`scripts/create-worktree.sh`](scripts/create-worktree.sh) and [`.claude/hooks/worktree-setup.sh`](.claude/hooks/worktree-setup.sh) both call it. **Do not assume the CC hook runs** — `WorktreeCreate` is NOT registered in [`.claude/settings.json`](.claude/settings.json) (verify: `jq '.hooks.WorktreeCreate' .claude/settings.json`), and `.claude/settings.json` is agent-uncommittable, so the hook only fires for maintainers who registered it by hand. Worktrees born any other way (desktop app, agent container, bare `git worktree add`) are provisioned by the `worktree-provisioning` pre-push section, which self-heals before the test sections run. To sweep every worktree at once: `bash scripts/worktree-doctor.sh [--fix]`. (Incident 2026-07-23: the hook had never been registered since it shipped in PR #279, this bullet claimed otherwise, and 63 of 125 worktrees were unprovisioned.)

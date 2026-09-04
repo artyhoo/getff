@@ -161,7 +161,7 @@ See `.claude/rules/ai-laziness-traps.md §2` for the full catalogue. **Active ca
 This umbrella fixes the meta-orchestrator's own read-discipline. Verify end-to-end on the **real** `/meta-orchestrator` no-arg path: after wiring, a no-arg invocation must wait for the `priority-score.sh` notification/trailer before scoring, or visibly emit «helper still running — re-reading» — never «zero candidates» off a header-only file. This meta-kickoff must itself pass `principle 12` (AI-laziness-traps format — §5 above has explicit T-enumeration + 1 domain trap).
 
 ```bash
-npm --prefix packages/core run test:principles -- --testPathPattern=12 2>/dev/null | tail -5
+npx vitest run packages/core/principles/12-ai-laziness-traps.test.ts | tail -5
 ```
 
 ---
@@ -218,3 +218,5 @@ Any session message produced FROM this kickoff (Worker REPORT, Reviewer verdict,
 - `.claude/skills/meta-orchestrator/helpers/classify-each-candidate.sh:51-52` — parse-safe filter.
 - `.claude/rules/ai-laziness-traps.md §2` (T3/T10/T15) — T10 «report completeness based on what you LOOKED at, not what EXISTS» is the canonical form of this incident.
 - `CLAUDE.md` «What is a capability commit?» — Stage 1 Prior-art trailer requirement.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

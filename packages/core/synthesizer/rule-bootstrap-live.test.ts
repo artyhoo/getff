@@ -59,7 +59,7 @@ describe('rule-bootstrap LIVE — file-clients e2e', () => {
     const lock = JSON.parse(readFileSync(lockPathOf(consumerRoot), 'utf8')) as RulesLock;
     expect(lock.framework).toBe('react-next');
     // The manual server-only candidate was dropped → exactly ONE rule shipped.
-    expect(lock.ruleIds).toEqual(['G1']);
+    expect(lock.rules.map((r) => r.id)).toEqual(['G1']);
     expect(lock.sourceFingerprint).toMatch(/^[0-9a-f]{16}$/);
   });
 

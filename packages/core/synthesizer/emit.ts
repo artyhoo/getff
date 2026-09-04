@@ -2,10 +2,11 @@
 // Deliberately segregated from index.ts (Planner-Executor): L4 Validator
 // (Phase 7+) consumes the pure SynthesisPlan via index.ts, not file output.
 
-import { existsSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { canonicalRuleHash } from './canonical-rule-hash.ts';
-import type { SynthesisPlan } from './types.ts';
+import { weakestTier } from './tier.ts';
+import type { SynthesisPlan, SynthesizedRule } from './types.ts';
 
 export class EmitError extends Error {
   constructor(public readonly path: string, reason: string) {
@@ -67,4 +68,38 @@ export function emit(plan: SynthesisPlan, outputDir: string): void {
       2,
     ) + '\n',
   );
+
+  // S1: generation-context manifest — the source of truth for the dependency
+  // version + per-rule provenance/tier that shell lanes (python/cargo/go) read
+  // at install time (PARK-S1-3 → Option B; getff-freshness-widening S1 §3 criterion 2).
+  // npm lanes go through install.ts directly; shell lanes have no Node and must
+  // grep/sed-extract from this flat JSON (indent=2 = one field per line).
+  // Tier derivation: single canonical weakestTier() from synthesizer/tier.ts — same
+  // function install.ts uses for the lock (no sync-by-copy-paste, dual-impl §8).
+  const ctxRules = plan.rules.map((r: SynthesizedRule) => ({
+    id: r.id,
+    provenance: r.research.provenance,
+    tier: weakestTier(r.research.provenance, r.research.tier),
+  }));
+  writeFileSync(
+    resolve(dir, 'generation-context.json'),
+    JSON.stringify({ version: plan.version, rules: ctxRules }, null, 2) + '\n',
+  );
+
+  // §6 fork 2 / §3a option B: fragment-per-rule composition. One JSON file per rule
+  // id in generation-context/<rule-id>.json, each in final lock shape. Shell lanes
+  // glob+cat-join by filename (no JSON parsing in shell). The nested
+  // generation-context.json above is POSIX-extractable for `version` (single scalar
+  // via grep/sed) but NOT for the per-rule array, so per-rule data ships as fragments.
+  // Template lanes (python/cargo/go) that produce rules with no research provenance
+  // get honest fragments with provenance:[] + tier:DEFAULT_TIER — DERIVED from the
+  // fragment dir, never literal-printed by the shell writer.
+  const fragDir = resolve(dir, 'generation-context');
+  mkdirSync(fragDir, { recursive: true });
+  for (const r of ctxRules) {
+    writeFileSync(
+      resolve(fragDir, `${r.id}.json`),
+      JSON.stringify(r) + '\n',
+    );
+  }
 }

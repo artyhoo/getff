@@ -114,7 +114,7 @@ grep -n "^## §" .claude/skills/meta-orchestrator/SKILL.md
 
 4. **oh-my-openagent (`code-yeongyu/oh-my-openagent`):** их Tier-1 reference (per `feedback_ai_doc_research_priority_pool`). Multi-agent decomposition — но как они держат каждого agent compact?
 
-5. **CC docs:** https://docs.claude.com/en/docs/claude-code/sub-agents (read via WebFetch) — есть ли формальное skill-composition мечanism в harness?
+5. **CC docs:** <https://docs.claude.com/en/docs/claude-code/sub-agents> (read via WebFetch) — есть ли формальное skill-composition мечanism в harness?
 
 6. **Cline (`cline/cline`):** Memory Bank methodology — есть ли там паттерн «один SKILL, много references»?
 
@@ -194,3 +194,5 @@ R-phase не должен производить кода. Только markdown
 - [ ] Прочитал §1 (10-min orientation reads)?
 
 Когда все боксы отмечены — приступай. Удачи.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

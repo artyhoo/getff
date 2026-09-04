@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
-# @cc-only-rationale: internal dev tooling — pre-question fork-challenge for the maintainer's CC session; not shipped to consumer projects via install.sh
+# @cc-only-rationale: CC-specific PreToolUse:AskUserQuestion hook — it can only fire inside a
+#   Claude Code session (the deny/permissionDecision contract is CC-native), so there is no
+#   portable counterpart by nature (the @dual-pair below is the internal en/ru i18n split, not a
+#   portability pair). NOW SHIPPED to consumer CC projects (GH #934): a generic pre-question
+#   fork-challenge nudge — session UX, not framework-bound. Consumer-safe: no framework-internal
+#   artefact dependency, reuses the already-shipped lang pack (aif_msg_question_challenge), and
+#   degrades to exit 0 when jq is absent.
 #
 # Companion to .claude/hooks/end-of-turn-reminder.sh (Stop hook). Division of labour:
 #   • end-of-turn-reminder.sh (Stop)      → END-OF-TURN recap + goal-drift verdict.
@@ -14,11 +20,26 @@
 #
 # Loop-safety: PreToolUse has NO stop_hook_active equivalent. A blanket deny on every
 # AskUserQuestion would loop (deny → regenerate → ask → deny …). Guard = a session-scoped
-# recency flag: challenge once, then let the immediate retry (and any AUQ within the
-# window) through. A genuinely-new question moment (>window since the last reminder) is
-# challenged afresh. Worst case if any assumption is wrong: malformed JSON → CC falls back
+# TWO-STATE flag (content "challenged"/"passed" + mtime): challenge once, then let the
+# post-challenge retry through COUNT-BASED — the next AUQ after a challenge passes however
+# long card generation took. (A purely time-based 45s window was measured too short live
+# 2026-08-11: regenerating a 3-question card with Russian option descriptions takes >45s,
+# so every retry expired the window and was challenged afresh — 4 consecutive denies.)
+# After the retry passes, closely-following AUQs within $window still pass (same question
+# moment); older → a genuinely-new question moment → challenged afresh. A "challenged"
+# flag older than $challenge_ttl is an abandoned question moment (the model heeded the
+# nudge and continued in prose) → challenged afresh, so a stale challenge never grants a
+# silent pass much later. No deny loop by construction: every deny (re)writes a fresh
+# "challenged" state, and "challenged" always admits the next attempt within
+# $challenge_ttl. An empty flag (legacy bare `touch`) keeps the old 45s recency
+# semantics. Worst case if any assumption is wrong: malformed JSON → CC falls back
 # to normal flow → the question proceeds (benign, no block).
 set -euo pipefail
+
+# Consumer-skip guard (GH #934): the hook parses stdin + emits its decision via jq. Absent jq →
+# no work possible → exit 0 silently (never error-spam a consumer's every AskUserQuestion). The
+# framework session always has jq; a minimal consumer may not.
+command -v jq >/dev/null 2>&1 || exit 0
 
 # Language pack (payload prose). Default en (canonical, public repo); operator sets
 # AIF_HOOK_LANG=ru in ~/.claude/settings.json env. Missing pack → en fallback.
@@ -40,22 +61,37 @@ fi
 
 session_id=$(echo "$input" | jq -r '.session_id // "nosession"' 2>/dev/null || echo "nosession")
 flag="${TMPDIR:-/tmp}/aif-ask-reminded-${session_id}"
-window=45
+window=45          # post-pass recency: closely-following AUQs = same question moment
+challenge_ttl=600  # max age of an unanswered challenge still awaiting its retry
 
-# Recency guard: if we reminded within the window, this AUQ is the retry (or a
-# closely-following question) — let it through to avoid the deny→retry loop.
+# Two-state loop guard (see "Loop-safety" in the header). Flag content is the state:
+#   "challenged" — we denied; the next AUQ is the retry → allow regardless of elapsed
+#                  time (unless the challenge is older than $challenge_ttl — abandoned).
+#   "passed"     — the retry went through; AUQs within $window are the same question
+#                  moment → allow; older → genuinely-new moment → challenge afresh.
+#   empty        — legacy flag from the pre-two-state hook (bare `touch`): same
+#                  handling as "passed" (identical to the old 45s recency semantics).
 if [ -f "$flag" ]; then
+  state=$(cat "$flag" 2>/dev/null || echo "")
   now=$(date +%s)
   # GNU-first, BSD-fallback (see end-of-turn-reminder.sh): GNU `stat -f %m` exits 0 with a
   # garbage value on Linux, so BSD-first silently breaks the freshness check there.
   mtime=$(stat -c %Y "$flag" 2>/dev/null || stat -f %m "$flag" 2>/dev/null || echo 0)
-  if [ "$(( now - mtime ))" -lt "$window" ]; then
+  age=$(( now - mtime ))
+  if [ "$state" = "challenged" ]; then
+    if [ "$age" -lt "$challenge_ttl" ]; then
+      # The post-challenge retry: consume the challenge, let the question through.
+      printf 'passed' > "$flag"
+      exit 0
+    fi
+  elif [ "$age" -lt "$window" ]; then
     exit 0
   fi
 fi
 
-# Fresh challenge: record the moment, then deny once so the model reconsiders before asking.
-touch "$flag"
+# Fresh challenge: record the moment + state, then deny once so the model reconsiders
+# before asking.
+printf 'challenged' > "$flag"
 
 reminder=$(aif_msg_question_challenge)
 

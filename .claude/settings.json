@@ -85,11 +85,20 @@
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/ask-question-reminder.sh\""
           }
         ]
+      },
+      {
+        "matcher": "Agent|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-subagent-context.sh\""
+          }
+        ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|MultiEdit",
         "hooks": [
           {
             "type": "command",
@@ -98,7 +107,7 @@
         ]
       },
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|MultiEdit",
         "hooks": [
           {
             "type": "command",
@@ -107,7 +116,7 @@
         ]
       },
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|MultiEdit",
         "hooks": [
           {
             "type": "command",
@@ -116,7 +125,7 @@
         ]
       },
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|MultiEdit",
         "hooks": [
           {
             "type": "command",
@@ -125,7 +134,7 @@
         ]
       },
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|MultiEdit",
         "hooks": [
           {
             "type": "command",
@@ -200,12 +209,25 @@
           }
         ]
       }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/precompact-residue.sh\""
+          }
+        ]
+      }
     ]
   },
   "claudeMdExcludes": [
-    ".claude/rules/egress-no-api-bypass.md",
-    ".claude/rules/memory-codification.md",
-    ".claude/rules/recommendation-laziness-discipline.md",
-    ".claude/rules/reviewer-discipline.md"
+    "**/egress-no-api-bypass.md",
+    "**/memory-codification.md",
+    "**/recommendation-laziness-discipline.md",
+    "**/reviewer-discipline.md",
+    "**/autonomous-loop-continuity.md",
+    "**/git-conflict-merge-forward.md",
+    "**/cold-seat-economy.md"
   ]
 }

@@ -51,3 +51,5 @@ See `.claude/rules/ai-laziness-traps.md §2`. **Active traps for Stage 3 C:**
 - F4: principle 02 extension false-positive-cascades on existing tests → revert, narrow scope, retry.
 - aif container unreachable → STOP, report.
 - Genuine fork on gate strictness / assertion shape → PARK (per §4c), do not guess.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

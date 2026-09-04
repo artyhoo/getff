@@ -170,8 +170,10 @@ Sub-waves not pre-decided — Stage 1 mechanism design determines breakdown. Lik
 
 ## §10 How to start next session
 
-```
+```text
 /meta-orchestrator defer-reflex-detection
 ```
 
 Or — if the session loader prefers explicit Mode framing — paste this kickoff §1 + §3 Stage 1 block into a fresh Opus session under `/orchestrator` and tell it «R-phase only, return research-patch».
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

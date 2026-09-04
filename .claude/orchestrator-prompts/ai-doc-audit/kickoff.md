@@ -17,3 +17,5 @@ R research-patch = binding target for Audit · Audit fix-list = binding scope fo
 
 ## Closure
 C3-I writes .claude/orchestrator-prompts/ai-doc-audit/done.md (CLAUDE.md §Umbrella closure schema).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

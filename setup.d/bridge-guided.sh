@@ -27,6 +27,12 @@ bridge_guided_run() {
     native)  printf '  aif-handoff CLI present but not responding — start it, then re-run.\n' ;;
     absent)  printf '  aif-handoff not detected (docker down + no CLI). See docs/runtime-bridge-setup.md for install.\n' ;;
   esac
+  # Cross-layer warning (owner GO 2026-07-11): the AIF operator suite (--with-aif-suite/--all)
+  # presupposes this runtime — files landed but no runtime means the suite skills dead-end.
+  # WITH_AIF_SUITE is in scope when sourced from ./setup; harmless empty otherwise.
+  if [ "$state" != "up" ] && [ -n "${WITH_AIF_SUITE:-}" ]; then
+    printf '  ⚠ AIF operator suite installed (--with-aif-suite/--all) but the aif-handoff runtime is not reachable — suite skills (pipeline/dispatcher/harvest/…) will dead-end until it is up.\n'
+  fi
   # our-side writes are delegated to the existing, tested script:
   if [ "$state" = "up" ]; then
     # Lib is sourced (from ./setup and from tests) → $0 is the caller, not this

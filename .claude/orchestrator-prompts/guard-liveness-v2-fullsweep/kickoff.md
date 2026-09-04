@@ -3,8 +3,12 @@
 > **Type:** I-phase (build — thin CI orchestrator over already-shipped mechanisms). 2–3 days.
 > **Sub-wave v2** of guard-liveness umbrella. Siblings: v0 (audit), v1 (ESLint), v1.5 (cmd/script), v3 (manual via SP).
 > **Design SSOT:** [docs/meta-factory/research-patches/2026-05-23-guard-liveness-gate.md](../../../docs/meta-factory/research-patches/2026-05-23-guard-liveness-gate.md) §3 sub-wave row v2.
-> **Depends on:** v1 + v1.5 + v3 ALL merged. v2 has no own substrate — it orchestrates the three change-scoped mechanisms in full-sweep mode.
+> v2 has no own substrate — it orchestrates the three change-scoped mechanisms in full-sweep mode.
 > **Admission:** candidate ([wave-sequencing-plan.md §0](../../../docs/meta-factory/wave-sequencing-plan.md)).
+
+| Stage | Scope (one line) | Depends on |
+|---|---|---|
+| v2 | periodic full-sweep regression at CI/pre-merge over the change-scoped mechanisms (§0) | v1 + v1.5 + v3 ALL merged |
 
 ## §0 Why this sub-wave (origin)
 v1 / v1.5 / v3 are **change-scoped** — they only verify rules touched in the current PR. That leaves a regression hole: a rule shipped clean today can rot tomorrow (its `bad`/`fixture`/`pressure-scenario` becomes inert as the rule's check logic drifts, dependencies update, or the rule itself silently weakens). The change-scoped gate won't catch it because the rule wasn't touched in the rotting PR. v2 fills the hole with a **periodic full-sweep** at CI/pre-merge (the project's last-resort gate per [README invariant](../../../README.md)).
@@ -57,3 +61,5 @@ Cold-review (1× Opus): stale refs, ambiguity, runtime claims verified, branch-p
 - **Cannot ship before v1+v1.5+v3.** v2 has no substrate — purely an orchestrator. Premature v2 = empty CI job.
 - **N5 give-back:** the workflow + aggregator pattern is a low-novelty contribution. Likely NOT a give-back candidate (every project does CI orchestration differently). Skip.
 - **Branch-protection click required post-merge** — maintainer responsibility, signaled in PR body.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

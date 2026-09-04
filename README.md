@@ -5,7 +5,7 @@
 [![Audit Self](https://github.com/artyhoo/getff/actions/workflows/audit-self.yml/badge.svg?branch=main)](https://github.com/artyhoo/getff/actions/workflows/audit-self.yml)
 [![Workflow Integrity](https://github.com/artyhoo/getff/actions/workflows/workflow-integrity.yml/badge.svg?branch=main)](https://github.com/artyhoo/getff/actions/workflows/workflow-integrity.yml)
 
-getff compiles your conventions into native toolchain gates (ESLint/husky for npm, clippy/cargo-deny for cargo). Its own [AGENTS.md](AGENTS.md) is executable — every claim carries a live-fired enforcement status; the gate fails when a claim drifts from reality. Docs lie; tests don't.
+getff compiles your conventions into native toolchain gates (ESLint/husky for npm, clippy for cargo — cargo-deny dependency bans are on the roadmap). Its own [AGENTS.md](AGENTS.md) is executable — every claim carries a live-fired enforcement status; the gate fails when a claim drifts from reality. Docs lie; tests don't.
 
 **Honest framing:** today the executable AGENTS.md is this repo's own — [open it](AGENTS.md), every statement has an enforcement line. `getff init` (via `./setup`, see [Installation](#installation)) installs the enforcement layer (ESLint/husky/CI gates) into your TypeScript project; generating *your* executable AGENTS.md is the next milestone, not shipped yet.
 
@@ -16,11 +16,12 @@ getff compiles your conventions into native toolchain gates (ESLint/husky for np
 
 After install, your project has:
 
-1. **A skill** (`.claude/skills/rules-as-tests/`) — auto-activates in Claude Code on questions about lint, tests, CI, mutation testing, contracts, AI-driven code drift.
-2. **Sub-agents** (`.claude/agents/`) — 8 shipped: `review-sidecar`, `living-docs-auditor`, `compliance-verifier`, `memory-codification-auditor`, `orchestrator-worker-discipline`, `aif-init`, `rule-researcher`, `capability-reuse-auditor`:
+1. **A skill** (`.claude/skills/getff/`) — auto-activates in Claude Code on questions about lint, tests, CI, mutation testing, contracts, AI-driven code drift.
+2. **Sub-agents** (`.claude/agents/`) — 8 shipped by default: `review-sidecar`, `living-docs-auditor`, `compliance-verifier`, `memory-codification-auditor`, `aif-init`, `rule-researcher`, `capability-reuse-auditor`, `docplan-auditor`:
    - `review-sidecar` — two-AI tautology review of tests (our differentiator; no earlier deterministic channel — its cousin Stryker is CI-only).
    - `living-docs-auditor` — runs `audit-ai-docs.sh` and interprets results (backward Living-Documentation drift).
-   - the remaining 6 cover §1.7 PR-review substance (`compliance-verifier`), memory-to-repo codification audits (`memory-codification-auditor`), aif-dispatched worker discipline (`orchestrator-worker-discipline`), AIF onboarding scaffolds (`aif-init`), live-documentation rule research (`rule-researcher`), and build-vs-reuse capability audits (`capability-reuse-auditor`) — see `agents/` for each agent's own description.
+   - the remaining 6 cover §1.7 PR-review substance (`compliance-verifier`), memory-to-repo codification audits (`memory-codification-auditor`), AIF onboarding scaffolds (`aif-init`), live-documentation rule research (`rule-researcher`), build-vs-reuse capability audits (`capability-reuse-auditor`), and DocPlan semantic-grouping judgment for the composition gate (`docplan-auditor`) — see `agents/` for each agent's own description.
+   - 2 more agents ship only under `--with-aif-suite` / `--all` (they presuppose the aif-handoff operator runtime, same gate as the operator-suite skills — F7 split): `orchestrator-worker-discipline` + `reviewer-discipline`, with their `aif-orchestrator-discipline` skill-context.
    - R1–R20 code-rule validation is enforced **earlier** (edit-time custom ESLint + pre-push) and via AI Factory's own `rules-sidecar` (which reads your `.ai-factory/RULES.md`) — so we no longer ship a competing `best-practices-sidecar` (C-1 KEEP-AIF, 2026-05-20).
    - **skill-context overrides** (`.ai-factory/skill-context/`) ride AIF's own pipeline instead of colliding agent slots (C-1 follow-up, SSOT #50): `aif-review/SKILL.md` injects our anti-tautology test-review into AIF's `review-sidecar`; `aif-rules-check/SKILL.md` injects the R10-naming + test-existence residue into AIF's `rules-sidecar`.
 3. **AI Factory templates** (`.ai-factory/`) — DESCRIPTION, ARCHITECTURE, RULES (R1–R11 + R12–R20 for UI + IR1–IR6 for microservices).
@@ -99,7 +100,7 @@ Plus extensions:
 - **Between services**: Pact contract testing with `can-i-deploy --to production`.
 - **Between code and AI docs**: `audit-ai-docs.sh` with drift detection + code-vs-docs probes.
 
-For details, see `skills/rules-as-tests/references/`:
+For details, see `skills/getff/references/`:
 - `checks-map.md` — map of all 8 enforcement levels (edit-time → production)
 - `overview.md` — 5 layers with patterns and anti-patterns
 - `ai-traps.md` — what AI violates most + Lessons learned (real grabli)
@@ -118,7 +119,8 @@ bash /tmp/rt/setup ts-server                 # or react-next; omit to get a stac
 
 `./setup` is the one-click orchestrator (framework + companions + runtime-bridge). Flags:
 
-- `--yes` / `--all` — non-interactive: skip the prompts, install missing companions, run the bridge step.
+- `--yes` — non-interactive consumer default: skip the prompts, install missing companions, run the bridge step; ships the curated consumer set only.
+- `--all` — everything: `--yes` PLUS the AIF operator suite (6 skills + 2 agents + their skill-context — presupposes the aif-handoff runtime; operator machines).
 - `--dry-run` — print the full plan, write nothing.
 
 It runs four steps:
@@ -130,7 +132,7 @@ It runs four steps:
 
 `./setup` deploys files; it does **not** run `npm install`. When it finishes, the installer prints the remaining wiring steps — the exact `npm install -D` dev-dependency list, the `package.json` scripts to add (`INSTALL.md §3`), and `npx husky init`.
 
-> `setup.sh` (the previous end-to-end wrapper: `ai-factory init` + `npm install` + husky init + npm scripts via `jq`) is **legacy** — superseded by `./setup` and will be absorbed by it.
+> The previous end-to-end wrapper `setup.sh` (`ai-factory init` + `npm install` + husky init + npm scripts via `jq`) has been **retired** (2026-07-10) — `./setup` supersedes it. It also ran an unpinned `npm install -g ai-factory`; companions now install detect-first via the manifest below. If older instructions point you at `bash setup.sh`, use `./setup` instead.
 
 ### As a Claude Code plugin (per-harness)
 
@@ -141,7 +143,7 @@ The **soft layer** (skills, sub-agents, session hooks) also ships as a Claude Co
 /plugin install getff@getff
 ```
 
-One install and the skills **auto-trigger** (a `SessionStart` hook injects a `using-rules-as-tests` bootstrap — no manual `Skill` call), the consumer-facing sub-agents resolve, and the path-scoped rule-injector fires on edits.
+One install and the skills **auto-trigger** (a `SessionStart` hook injects a `using-getff` bootstrap — no manual `Skill` call), the consumer-facing sub-agents resolve, and the path-scoped rule-injector fires on edits.
 
 **The honest boundary (soft vs hard).** A plugin **never** silently mutates your git/CI, so the plugin delivers only the soft layer. The **hard** layer — `.husky` pre-commit/pre-push hooks + the CI workflow that actually *fail the build* — is opt-in via one command:
 
@@ -160,13 +162,13 @@ Companion installs run as `./setup` step 3, driven by a manifest (`setup.d/compa
 
 - **Detect-first:** a companion that is already present is skipped.
 - **Consent per companion (interactive):** `Install <name>? [y/N]` — default is N; no companion is mandatory. When stdin is not a tty (piped / CI), prompts fall through to N automatically.
-- **Headless:** `--yes` / `--all` install every missing manifest companion without prompting; `--dry-run` prints what would be installed.
+- **Headless:** `--yes` / `--all` install every missing manifest companion without prompting (for companions the two are equivalent; `--all` additionally ships the AIF operator suite — see Installation flags above); `--dry-run` prints what would be installed.
 - **Official installers only, no version pin** — currently Superpowers via `claude plugin install superpowers@claude-plugins-official`, and ast-grep (structural code search: CLI via `npm install -g @ast-grep/cli`, then the official `ast-grep/agent-skill` plugin).
 - **External services** (manifest kind `external-service` — the aif-handoff runtime-bridge) are not plain installs; they route to the guided-detect bridge step (`./setup` step 4) instead.
 
 Each `cc-plugin` companion is installed via `claude plugin install` — this is **administrative file-management** (file copy + manifest registration into `~/.claude/`), **not** an API-billed LLM call. Verified VERIFIED-FREE per Stage 2 v3 §4.8.
 
-TaskMaster is no longer an offered companion — its marketplace plugin slug does not resolve, and the install offer was withdrawn in the one-click rework. The `COMPANIONS=...` env var belonged to the legacy `setup.sh` flow and is gone — use the manifest + flags above.
+TaskMaster is no longer an offered companion — its marketplace plugin slug does not resolve, and the install offer was withdrawn in the one-click rework. The `COMPANIONS=...` env var belonged to the retired `setup.sh` wrapper and is gone — use the manifest + flags above.
 
 ### What gets installed automatically
 
@@ -174,7 +176,7 @@ After the framework deploy (`./setup` step 2 — or `bash install.sh <stack>` di
 
 | Path | Source | Edit needed? |
 |---|---|---|
-| `.claude/skills/rules-as-tests/` | skill + 5 references, on-demand | No — auto-activates in Claude Code |
+| `.claude/skills/getff/` | skill + 5 references, on-demand | No — auto-activates in Claude Code |
 | `.claude/agents/review-sidecar.md`, `living-docs-auditor.md` | sub-agents for `/aif-verify` (R1–R20 validation is earlier-channel: ESLint + pre-push + AIF `rules-sidecar`) | No |
 | `.ai-factory/skill-context/aif-review/SKILL.md`, `aif-rules-check/SKILL.md` | overrides injected into AIF's own sidecars (anti-tautology review + R10/test-existence residue) | No |
 | `.ai-factory/RULES.md` | R1-R11 (or +R12-R20 for react-next) | **Yes — review and trim per project** |
@@ -188,7 +190,7 @@ After the framework deploy (`./setup` step 2 — or `bash install.sh <stack>` di
 
 > **† Layout-honesty caveat.** The shipped audits (`scripts/audit-ai-docs.sh` / `.react-next.sh`, and the `ci.yml` that runs them) assume the canonical `src/` + DDD layout. Several layout-specific probes are hardcoded to that layout, so on a non-`src/` project (`app/`, `lib/`, `apps/*/src/`, or a flat tree) they currently report **PASS while checking zero files** — green that means "the rule could not run on your layout", not "the rule ran and found nothing wrong". Two concrete examples at current HEAD: **R4** (`packages/core/audit-self/audit-ai-docs.ts`, `probeR4`) returns `pass` with `(skipped: no src/domain)` when `src/domain` is absent; **R17** (`audit-ai-docs.react-next.sh`, `for f in $(find src/shared/ui src/features/*/ui …)`) iterates zero times when those dirs don't exist and then unconditionally passes. So "works as-is" is accurate **on** the canonical layout, but a consumer on another layout must not read green from these audits as a real pass — extend or repoint the probes to your own paths first.
 
-**Manual work after install:** the three project-specific items above (DESCRIPTION placeholders, RULES.md trimming, AGENTS.md review), plus the wiring steps the installer prints — `npm install -D` dev-deps, `package.json` scripts (`INSTALL.md §3`), `npx husky init`, and `npx depcruise --init` to generate `.dependency-cruiser.cjs` (the legacy `setup.sh` wrapper automated these). Typically 5-10 minutes — or zero, if you delegate it to an AI (next section).
+**Manual work after install:** the three project-specific items above (DESCRIPTION placeholders, RULES.md trimming, AGENTS.md review), plus the wiring steps the installer prints — `npm install -D` dev-deps, `package.json` scripts (`INSTALL.md §3`), `npx husky init`, and `npx depcruise --init` to generate `.dependency-cruiser.cjs` (the retired `setup.sh` wrapper used to automate these). Typically 5-10 minutes — or zero, if you delegate it to an AI (next section).
 
 ### For AI agents — let Claude/Cursor do the install
 
@@ -232,7 +234,7 @@ If you already have `ai-factory` set up or want partial install:
 bash /tmp/rt/install.sh ts-server     # or react-next; --force to overwrite
 
 # Path A — AIF extension (forward-compat, schema landing soon):
-ai-factory extension add ./rules-as-tests-aif
+ai-factory extension add ./getff
 
 # Path C — cherry-pick configs only (no skill, no sub-agents, no audit):
 cp /tmp/rt/templates/ts-server/eslint.config.mjs .
@@ -242,12 +244,12 @@ cp /tmp/rt/packages/core/templates/shared/tsconfig.json .
 
 ## What stack does it support?
 
-- **`ts-server`** — Node.js 20.19+ server-only (Fastify, Hono, Express, plain HTTP).
+- **`ts-server`** — Node.js 22.23+ server-only (Fastify, Hono, Express, plain HTTP).
 - **`react-next`** — React 19 + Next.js 15 (App Router) + TypeScript.
 - **`react-spa`** — React 19 + Vite SPA (Feature-Sliced Design). _Early — ships the `require-error-boundary` rule; the rule-pack is still growing._
 - **`react-native`** — React Native / Expo (Expo or bare-RN baseline). _Experimental baseline — stack scaffold + templates; a dedicated rule-pack is not yet shipped._
 
-Pass the stack to `./setup` (or `install.sh`) as a positional argument — `ts-server` / `react-next` / `react-spa` / `react-native` — or omit it to get an interactive picker. (The legacy `setup.sh` wrapper auto-detected the stack from `next.config.*` / `react` in `package.json`.) All share base configs (tsconfig, husky, lint-staged, RULES R1-R11); the React stacks add R12-R20 + Storybook/Playwright where applicable.
+Pass the stack to `./setup` (or `install.sh`) as a positional argument — `ts-server` / `react-next` / `react-spa` / `react-native` — or omit it to get an interactive picker. All share base configs (tsconfig, husky, lint-staged, RULES R1-R11); the React stacks add R12-R20 + Storybook/Playwright where applicable.
 
 ### Multi-toolchain roadmap
 
@@ -263,6 +265,24 @@ The AIF `extension.json` schema is **in active development** as of May 2026 (PR 
 - **`install.sh`** — guaranteed fallback that does not depend on AIF extension support
 
 When the schema finalizes, `extension.json` may need updates. `install.sh` will continue to work regardless.
+
+## Compatibility
+
+The framework is **AI-agnostic by design** — any harness with a CC-compatible hook system works. Per-hook coverage and dogfood depth vary; the doctrine lives at [`.claude/rules/zcode-parity-doctrine.md`](.claude/rules/zcode-parity-doctrine.md).
+
+**Supported today:**
+- **Claude Code** — primary dogfood harness; deepest coverage (all 20 hooks).
+- **ZCode** — full parity via plugin channel + `_zcode-emit` helper. Three CC-only events (`SubagentStart`, `SubagentStop`, `WorktreeCreate`) have documented fallbacks or accepted CC-only rationale per the doctrine §4.
+- **Cursor** — high CC-overlap (native `SubagentStart`/`Stop`, lifecycle hooks). Listed based on docs-verification in the [S8 agnosticism survey](docs/meta-factory/research-patches/2026-07-18-zcode-parity-s8-harness-survey.md); live end-to-end testing is a follow-up.
+
+**Roadmap (FEASIBLE-WITH-WORK — adapter needed):**
+- **Codex CLI** — lifecycle hooks present; per-tool matcher adapter needed.
+- **Windsurf** — Cascade Hooks present; taxonomy adapter needed.
+
+**Out-of-scope:**
+- **Aider** — no hook system (upstream issues `aider#2045`, `aider#2557`).
+
+**Wave B rollout status:** Stages 5 (`warn-subagent-report` ZCode variant), 6 (9-twin migration + generator), 7B (`inject-subagent-context` extension for full `SubagentStart` payload parity), 9C (`end-of-turn-reminder` ZCode multi-turn arm) are decided ([decisions.md](docs/meta-factory/zcode-parity-mega.decisions.md) §Wave A brainstorm resolutions) and implementation-pending. See doctrine §3 for live merge status.
 
 ## Verified versions (May 6, 2026)
 
@@ -322,7 +342,7 @@ Each lesson includes the **rule that came from it** — typically a specific che
 ## Updating
 
 ```bash
-ai-factory extension update rules-as-tests-aif      # Path A
+ai-factory extension update getff                   # Path A
 ./install.sh <stack> --force                        # Path B (overwrites configs)
 # Path C: cherry-pick changes manually
 ```

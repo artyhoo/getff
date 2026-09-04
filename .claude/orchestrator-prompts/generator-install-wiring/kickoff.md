@@ -78,3 +78,5 @@ Domain-specific trap — **T-GIW-B** (oracle tautology): the gold side of the or
 **Conservative config (set on bridge env before dispatch):** `AGENT_MAX_REVIEW_ITERATIONS=1` (not converged in 1 pass → hand to human, don't keep guessing), `AGENT_AUTO_REVIEW_STRATEGY=closure_first`, `AGENT_SKIP_REVIEW=false`.
 
 **Egress (mandatory after `status=done`):** aif does NOT push or open PRs by design — run `npx tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --base staging` to push the branch from the container + open the PR.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

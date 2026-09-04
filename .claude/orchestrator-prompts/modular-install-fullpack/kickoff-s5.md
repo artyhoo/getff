@@ -71,3 +71,8 @@ See [`.claude/rules/ai-laziness-traps.md §2`](../../rules/ai-laziness-traps.md)
 
 **Domain-specific:**
 - **T-MIF-E** — «файлы легли → готово». The umbrella's whole point (§2.6) is the rule FIRES, not that the install exited 0. Counter: planted-violation GREEN on target Node is the gate.
+
+```bash host-verify
+# Retro-marked 2026-08-21: §4 acceptance keeps the installed surface byte-identical (empirical consumer probes stay in §4; the snapshot compare is the repo-runnable guard)
+SNAPSHOT_MODE=compare bash tests/install-sh/snapshot.sh
+```

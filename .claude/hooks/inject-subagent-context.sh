@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# Backup digest-injection for harnesses WITHOUT the SubagentStart hook event (zcode).
+#
+# @cc-only-rationale: SubagentDigest zcode-fallback backup — CC+ZCode dual-harness via inline
+#   _is_zcode gate. The CC-first primary (inject-subagent-digest.sh on SubagentStart) is a
+#   distinct mechanism, not a portable-counterpart artifact, so @dual-pair does not apply;
+#   this hook is the best-available backup that fires only when the primary's event is absent.
+#   • PRIMARY (CC-first): SubagentStart event → inject-subagent-digest.sh (additionalContext on
+#     the subagent lifecycle). This is the CC-native, persistent path — registered unchanged in
+#     harness-model.json.
+#   • BACKUP (this hook): PreToolUse:Agent + updatedInput. Fires ONLY when the primary's event
+#     is absent — gated by _is_zcode so it stays silent on CC (no double injection; the primary
+#     handles CC). On zcode SubagentStart does not exist (0 occurrences in the host bundle), so
+#     this backup is the active path.
+#
+# Declared degradation (attention-is-not-a-mechanism §1 — not hidden): on zcode the digest is
+# one-shot — it becomes the subagent's FIRST user message via updatedInput.prompt, not a
+# persistent-lifecycle context as on CC. This is the best-available mechanism; SubagentStart has
+# no zcode equivalent. The single remaining CC-only hook with no backup is warn-subagent-report
+# (SubagentStop, post-dispatch report check — no updatedInput analogue).
+#
+# spec: mirrors the SubagentStart arm of .claude/hooks/inject-project-digest.sh — same digest
+# source (the `<!-- digest:start -->…<!-- digest:end -->` block of $REPO_ROOT/.claude/
+# session-bootstrap.md), same awk pipeline, same no-op-on-empty semantics. Payload parity
+# (not just role parity) with the CC-primary SubagentStart path; closes doctrine §3 Stage 7B.
+# Output contract: PreToolUse updatedInput is applied by the host before dispatch (verified
+# empirically in zcode.cjs: updatedInput applied pre-handler; fR re-validates, silent revert
+# to original on invalid — non-fatal).
+set -uo pipefail
+
+# @plugin-transform: manual — plugin twin carries a 4-line TWIN DIVERGENCE comment block + extensionless sibling call (.sh dropped). Comment block is prose, not mechanically transformable.
+_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
+_is_zcode || exit 0   # CC: the SubagentStart primary handles digest injection; stay silent here
+command -v jq >/dev/null 2>&1 || exit 0   # graceful no-op without jq
+
+INPUT="$(cat)"
+TOOL_NAME="$(printf '%s' "$INPUT" | jq -r '.tool_name // ""' 2>/dev/null || true)"
+# Defensive: the matcher (Agent|Task) already restricts this, but never act on another tool
+# if the matcher is ever broadened (cf. ask-question-reminder.sh:46).
+case "$TOOL_NAME" in Agent | Task) ;; *) exit 0 ;; esac
+
+# B1 fix: env-first REPO_ROOT resolution — `$0`-relative breaks when invoked as a plugin twin
+# ($0 = ${CLAUDE_PLUGIN_ROOT}/hooks/, NOT the consumer root). Mirrors inject-project-digest.sh:28.
+REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
+DIGEST_FILE="$REPO_ROOT/.claude/session-bootstrap.md"
+
+# Extract the digest block (awk pipeline mirrored from inject-project-digest.sh:36). No-op when
+# the file is absent or the block is empty/whitespace-only (zero-setup default — same semantics
+# as inject-project-digest.sh:30,38).
+if [ ! -f "$DIGEST_FILE" ]; then
+  [ "${LOG_LEVEL:-}" = "DEBUG" ] && printf '[DEBUG] inject-subagent-context: no digest file, no-op\n' >&2
+  exit 0
+fi
+DIGEST="$(awk '/<!--[[:space:]]*digest:start[[:space:]]*-->/{f=1;next} /<!--[[:space:]]*digest:end[[:space:]]*-->/{f=0} f' "$DIGEST_FILE" 2>/dev/null || true)"
+if [ -z "$(printf '%s' "$DIGEST" | tr -d '[:space:]')" ]; then
+  [ "${LOG_LEVEL:-}" = "DEBUG" ] && printf '[DEBUG] inject-subagent-context: no digest block, no-op\n' >&2
+  exit 0
+fi
+[ "${LOG_LEVEL:-}" = "DEBUG" ] && printf '[DEBUG] inject-subagent-context: digest source=session-bootstrap.md bytes=%d\n' "${#DIGEST}" >&2
+
+# Echo back the FULL tool_input with prompt augmented. jq's `.tool_input | .prompt = ...`
+# preserves every other field (description, subagent_type, model, run_in_background) — required,
+# because the host re-validates updatedInput against the Agent runtimeInputSchema and silently
+# reverts to the original if a required field (description/prompt) is missing.
+#
+# Type guard: the Agent runtimeInputSchema requires prompt as a string. If tool_input.prompt is
+# absent or non-string (number/null/array — malformed dispatch), jq's `+` would throw a type
+# error and the hook would exit 0 with empty stdout (no updatedInput → host reverts to original,
+# digest silently undelivered). Guard explicitly: skip on non-string prompt (graceful no-op, same
+# outcome as the fR revert but without stderr noise).
+PROMPT_TYPE="$(printf '%s' "$INPUT" | jq -r '.tool_input.prompt | type' 2>/dev/null || echo error)"
+[[ "$PROMPT_TYPE" == "string" ]] || exit 0
+printf '%s' "$INPUT" | jq -c --arg d "$DIGEST" \
+  '{hookSpecificOutput:{hookEventName:"PreToolUse",
+     updatedInput:(.tool_input | .prompt = (.prompt + "\n\n---\n[subagent context anchor]\n" + $d))}}'
+exit 0

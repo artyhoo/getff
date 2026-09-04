@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { detectStack } from './index.ts';
+import { detectPassportFields } from './passport.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
@@ -114,19 +115,45 @@ describe('detectStack — missing[] field (v1.1)', () => {
     expect(r.missing).not.toContain('vitest');
   });
 
-  it('package.json with none of the known packages → all 5 in missing', () => {
+  it('package.json with none of the known packages → all 6 in missing', () => {
     writePkg({ next: '^16.0.0' });
     const r = detectStack(TMP);
     expect(r.missing).toContain('@opentelemetry/api');
     expect(r.missing).toContain('@playwright/test');
     expect(r.missing).toContain('vitest');
     expect(r.missing).toContain('@storybook/nextjs');
+    expect(r.missing).toContain('@storybook/nextjs-vite');
     expect(r.missing).toContain('tailwindcss');
   });
 
   it('empty dir (unknown stack) → missing is an array (not undefined)', () => {
     const r = detectStack(TMP);
     expect(Array.isArray(r.missing)).toBe(true);
+  });
+});
+
+describe('detectPassportFields — uiLayer Storybook framework packages', () => {
+  beforeEach(() => {
+    rmSync(TMP, { recursive: true, force: true });
+    mkdirSync(TMP, { recursive: true });
+  });
+  afterEach(() => {
+    rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it('@storybook/nextjs-vite alone (no meta storybook package) → Storybook', () => {
+    writePkg({}, { '@storybook/nextjs-vite': '^10.5.0' });
+    expect(detectPassportFields(TMP).uiLayer).toBe('Storybook');
+  });
+
+  it('@storybook/react-vite alone → Storybook', () => {
+    writePkg({}, { '@storybook/react-vite': '^10.5.0' });
+    expect(detectPassportFields(TMP).uiLayer).toBe('Storybook');
+  });
+
+  it('negative control: no storybook packages → uiLayer null', () => {
+    writePkg({ next: '^16.0.0' }, { vitest: '^4.1.5' });
+    expect(detectPassportFields(TMP).uiLayer).toBeNull();
   });
 });
 

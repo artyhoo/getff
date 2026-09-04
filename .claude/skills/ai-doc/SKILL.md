@@ -3,6 +3,8 @@ name: ai-doc
 description: Use when creating or fixing an AI-facing doc/rule/skill/agent in this repo (SKILL.md, .claude/rules/*, agents/*, CLAUDE.md, AGENTS.md) — to apply the project's context-hygiene + rule-as-test + AI-agnostic authoring standard. Triggers: write a rule, author a skill, fix a doc, doc-authority header, progressive disclosure, channel selection, документация, правило, скилл.
 ---
 
+<!-- @harness-posture: portable — prose-only authoring standard; no harness primitives; the AI-agnostic marker convention it mandates is itself portable (SKILL.md:27) -->
+
 > **Authoritative for:** /ai-doc skill — AI-doc authoring standard for this repo; channel selection, doc-authority header, rule-as-test, and AI-agnostic authoring residue not covered by upstream (loaded from [anthropic-and-aif-residue.md](anthropic-and-aif-residue.md)).
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). Upstream authoring mechanics — see `superpowers:writing-skills`. Doc-authority header spec — see [.claude/rules/doc-authority-hierarchy.md](../../rules/doc-authority-hierarchy.md).
 
@@ -14,6 +16,9 @@ Composes existing skills; does NOT reinvent. For the authoring mechanics invoke
 `superpowers:writing-skills` (TDD-for-docs + bundled Anthropic best-practices + progressive
 disclosure). This wrapper adds only the residue upstream lacks → see
 [anthropic-and-aif-residue.md](anthropic-and-aif-residue.md) (loaded on demand).
+Ownership ([harmonization spec §3](../../../docs/superpowers/specs/2026-08-18-skill-stack-harmonization-design.md)):
+this skill owns the repo STANDARD, `superpowers:writing-skills` owns the authoring PROCESS;
+mattpocock `writing-for-agents` is REFERENCE — consulted, never routed-to.
 
 ## The standard (judgment calls; mechanics are upstream)
 

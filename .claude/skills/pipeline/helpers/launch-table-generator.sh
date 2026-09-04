@@ -4,7 +4,9 @@
 # Usage: launch-table-generator.sh <umbrella-name>
 #
 # Outputs a markdown table skeleton with detected sub-wave rows (placeholders for
-# judgment-requiring columns). SKILL.md body fills Mode, SDD?, Stage, Parallel-sibling.
+# judgment-requiring columns). SKILL.md body fills Mode, SDD?, Parallel-sibling — and reads the
+# `Stage` column off helpers/frontier.sh (D-H13: the stage-dependency edges are derived from the
+# kickoff `Depends on` column, not eyeballed here).
 #
 # @cc-only-rationale: meta-orchestrator skill helper — runs in-session via !shell injection;
 #   no portable equivalent fires at the same moment (PostToolUse timing is CC-specific).
@@ -26,7 +28,8 @@ fi
 KICKOFF="$(resolve_orch_home)/${UMBRELLA}/kickoff.md"
 
 if [[ ! -f "${KICKOFF}" ]]; then
-  echo "MISSING kickoff: .claude/orchestrator-prompts/${UMBRELLA}/kickoff.md"
+  # Report the resolved home, not a hardcoded `.claude/…` — see resolve_orch_home_rel().
+  echo "MISSING kickoff: $(resolve_orch_home_rel)/${UMBRELLA}/kickoff.md"
   exit 0
 fi
 

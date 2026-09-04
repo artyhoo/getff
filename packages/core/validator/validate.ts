@@ -30,6 +30,10 @@ export function validate(plan: SynthesisPlan): ValidationReport {
   const autofixClean = downstreamSkipped ? SKIPPED : runAutofixCleanGate(plan);
   const requireVacuity = downstreamSkipped ? SKIPPED : runRequireVacuityGate(plan);
 
+  // `degrade` (a gate that could not resolve the plugin registry — U10 option b) is not a
+  // failure: the plan is not proven bad, so `ok` stays true. It is not a pass either — the
+  // status and the per-rule `degraded` entries travel in the report, and both renderers
+  // (to-aif-gate-result.ts → status "warn", diagnostics/to-diagnostics.ts → warnings) surface it.
   const ok =
     schema.status !== 'fail' &&
     ruleTester.status !== 'fail' &&

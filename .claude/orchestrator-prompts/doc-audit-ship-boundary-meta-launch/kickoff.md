@@ -116,3 +116,5 @@ This run is the project's thesis ("documents lie; tests don't") turned on the pr
 3. The §A self-classification list is present and shows no silently-resolved (b)-class decision.
 4. No surprises: branched from `staging`, scope = findings + proposed diffs only, no drive-by PRs.
 5. Mutation run captured (or documented tooling caveat).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

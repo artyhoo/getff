@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# Wave 7 sub-wave 7.2.b — PostToolUse hook: validate batch-spec on orchestrator-prompts.
+# Fires on Edit|Write tool calls. Input: hook JSON via stdin (tool_input.file_path).
+# Exits 0 silently on pass or unmatched path; non-zero + diagnostic on red.
+# Gracefully skips if jq or tsx unavailable (never block tool calls for missing tooling).
+# @cc-only-rationale: edit-time PostToolUse delivery; the validator itself is portable
+#   (packages/core/spec-validation/validate-batch-spec.ts) — the hook is only its CC
+#   fire-point. No portable hook fires at edit-time.
+
+set -uo pipefail
+
+# Harness-portable output (inline — standalone in test sandboxes). ZCode swallows plain
+# non-zero exits; JSON additionalContext reaches the model. CC VIOLATION path: exit 2 +
+# stderr — the only non-JSON channel the model receives on PostToolUse; exit-1 stderr
+# reaches the operator transcript but NOT the model (live-verified 2026-07-24 — see
+# docs/meta-factory/research-patches/2026-07-24-posttooluse-channel-verification.md).
+#
+# Graceful-SKIP paths differ: they exit 0, and on an exit-0 PostToolUse the model receives
+# ONLY JSON hookSpecificOutput — plain stdout/stderr reaches nobody (inject-matching-rule.sh
+# :17 + :89-90). A dependency-missing skip on stderr is therefore indistinguishable from a
+# pass. Sibling of the check-doc-authority.sh fix; same defect class, swept 2026-07-24
+# (docs/meta-factory/research-patches/2026-07-23-aif-parity-s4-synthesis.md §3 item 1).
+_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
+# JSON-escape WITHOUT jq — jq is precisely the dependency that may be missing here.
+_json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n' ' '; }
+# Announce a skip on the channel the model actually receives on an exit-0 path, and keep
+# the human/log channel too.
+_emit_skip() {
+  if _is_zcode; then
+    printf '{"additionalContext":"%s"}\n' "$(_json_escape "$1")"
+  else
+    printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' \
+      "$(_json_escape "$1")"
+  fi
+  printf '%s\n' "$1" >&2
+}
+_emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
+    jq -n --arg c "$2" '{additionalContext:$c}'
+  else printf '%s\n' "$2"; fi; }
+
+# Resolve the tsx runner through a tier list (linked worktrees carry no node_modules):
+#   1. repo-local  2. main worktree via git --git-common-dir  3. tsx on PATH
+# Reference: .claude/hooks/check-doc-authority.sh _resolve_tsx (PR #1126).
+_resolve_tsx() {
+  local candidate="$REPO_ROOT/node_modules/.bin/tsx"
+  [[ -x "$candidate" ]] && { printf '%s' "$candidate"; return 0; }
+  local common_dir
+  common_dir="$(git -C "$REPO_ROOT" rev-parse --git-common-dir 2>/dev/null || true)"
+  if [[ -n "$common_dir" ]]; then
+    [[ "$common_dir" != /* ]] && common_dir="$REPO_ROOT/$common_dir"
+    local main_root="${common_dir%/*}"
+    candidate="$main_root/node_modules/.bin/tsx"
+    [[ -x "$candidate" ]] && { printf '%s' "$candidate"; return 0; }
+  fi
+  local on_path; on_path="$(command -v tsx 2>/dev/null || true)"
+  [[ -n "$on_path" ]] && { printf '%s' "$on_path"; return 0; }
+  return 1
+}
+
+REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
+VALIDATOR="$REPO_ROOT/packages/core/spec-validation/validate-batch-spec.ts"
+[[ ! -f "$VALIDATOR" ]] && exit 0   # T-PLUG-A: framework-internal artefact; consumer plugins lack packages/core/
+
+# Graceful-but-loud skip if jq unavailable. jq-less best-effort path extraction (sed on
+# raw stdin) scopes the notice to orchestrator-prompts *.md edits (or unparseable stdin —
+# conservative) instead of announcing on every Edit/Write in a jq-less environment.
+if ! command -v jq >/dev/null 2>&1; then
+  _RAW_PATH="$(sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+  case "$_RAW_PATH" in
+    *.claude/orchestrator-prompts/*.md | "")
+      _emit_skip '⚠ validate-prompt: jq unavailable — batch-spec validation DID NOT RUN for this edit. This is a SKIP, not a pass; install jq to restore enforcement.' ;;
+  esac
+  exit 0
+fi
+
+FILE_PATH="$(cat | jq -r '.tool_input.file_path // ""' 2>/dev/null || true)"
+
+# Only process files under .claude/orchestrator-prompts/**/*.md
+if [[ -z "$FILE_PATH" ]] || [[ "$FILE_PATH" != *".claude/orchestrator-prompts/"*".md" ]]; then
+  exit 0
+fi
+
+# Resolve tsx through tiers: repo-local, main-worktree (git --git-common-dir), PATH.
+# Ordered after the jq check so a missing-jq skip fires first (matches pre-fix ordering).
+# Tier-miss is announced on the model channel via _emit_skip (NEVER silent — silent exit 0
+# is indistinguishable from a pass, the defect class this sweep closes).
+TSX="$(_resolve_tsx)" || {
+  _emit_skip '⚠ validate-prompt: tsx not found — batch-spec validation DID NOT RUN for this edit. This is a SKIP, not a pass.'
+  exit 0
+}
+
+# Validator exit 2 = gh CLI unavailable (soft-skip inside validate-batch-spec.ts). A silent
+# exit 0 here is the same dependency-skip defect class as the jq/tsx guards above — in the
+# aif container gh IS absent, so the gh-dependent cross-checks never ran and nobody knew.
+# Capture output so that under ZCode a violation reaches the model (non-zero exit + stderr is
+# swallowed by ZCode; JSON additionalContext is merged into the tool result).
+VALIDATOR_OUT="$("$TSX" "$VALIDATOR" "$FILE_PATH" 2>&1 1>/dev/null)"
+STATUS=$?
+if [[ $STATUS -eq 2 ]]; then
+  _emit_skip '⚠ validate-prompt: gh CLI unavailable — the gh-dependent spec cross-checks DID NOT RUN for this edit (soft-skip by validate-batch-spec.ts). This is a partial SKIP, not a pass; install gh to restore full validation.'
+  exit 0
+fi
+if [[ $STATUS -ne 0 ]] && _is_zcode; then
+  _emit_ctx "PostToolUse" "❌ validate-prompt: batch-spec validation failed for ${FILE_PATH#${REPO_ROOT}/}
+$VALIDATOR_OUT"
+  exit 0
+fi
+# CC path: re-emit captured stderr, then exit 2 on violation — the only non-JSON channel
+# the model receives on PostToolUse (exit-1 stderr reaches the operator only; live-verified
+# 2026-07-24). Guard: emit only when non-empty (success-path emits nothing).
+[[ -n "$VALIDATOR_OUT" ]] && printf '%s\n' "$VALIDATOR_OUT" >&2
+[[ $STATUS -ne 0 ]] && exit 2
+exit 0

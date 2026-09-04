@@ -13,7 +13,13 @@
 #
 # Both hooks are installed by install.sh alongside this file.
 # See packages/core/hooks/pre-push.fallback.sh for the fallback's check set.
-set -euo pipefail
+#
+# POSIX-sh safe (no `pipefail`): husky v9 invokes the hook via `sh` on
+# Debian/Ubuntu (/bin/sh = dash), which ignores the bash shebang above — a
+# bashism like `set -o pipefail` aborts the hook with "Illegal option" and
+# hard-blocks every consumer push there. The only pipe below (`node_major`)
+# carries its own `|| echo 0` fallback, so `set -eu` is sufficient.
+set -eu
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 TS_HOOK="$REPO_ROOT/packages/core/hooks/pre-push.ts"

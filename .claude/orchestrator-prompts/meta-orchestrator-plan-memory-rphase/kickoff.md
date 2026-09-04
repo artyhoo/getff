@@ -123,11 +123,13 @@ Paste in a fresh Opus session (Mode A — single R-phase, single Worker):
 
 - [docs/meta-factory/research-patches/2026-05-25-plan-memory-brainstorm.md](../../../docs/meta-factory/research-patches/2026-05-25-plan-memory-brainstorm.md) — binding scope (2 directions + 8 questions + 5 falsifiers)
 - [.claude/orchestrator-prompts/meta-orchestrator-plan-memory/kickoff.md](../meta-orchestrator-plan-memory/kickoff.md) — predecessor brainstorm kickoff
-- [.claude/skills/meta-orchestrator/SKILL.md](../../skills/meta-orchestrator/SKILL.md) — current skill surface
-- [.claude/skills/meta-orchestrator/helpers/plan-currency-check.sh](../../skills/meta-orchestrator/helpers/plan-currency-check.sh) — L2 detector (write-back missing half)
+- [.claude/skills/meta-orchestrator/SKILL.md](../../skills/pipeline/SKILL.md) — current skill surface
+- [.claude/skills/meta-orchestrator/helpers/plan-currency-check.sh](../../skills/pipeline/helpers/plan-currency-check.sh) — L2 detector (write-back missing half)
 - [.claude/rules/phase-research-coverage.md §1, §1.7, §1.11–§1.13](../../rules/phase-research-coverage.md) — R-phase discipline
 - [.claude/rules/build-first-reuse-default.md §3](../../rules/build-first-reuse-default.md) — 6-item search-coverage
 - [.claude/rules/dual-implementation-discipline.md §7](../../rules/dual-implementation-discipline.md) — Direction-B SSOT-pointer requirement
 - [.claude/rules/memory-codification.md §3](../../rules/memory-codification.md) — write-time discipline
 - [.claude/rules/ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md) — canonical trap catalogue
 - [.claude/rules/recommendation-laziness-discipline.md](../../rules/recommendation-laziness-discipline.md) — T20 + verdict-with-evidence
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -5,7 +5,7 @@
  * WHY: the always-on rule context (`.claude/rules/*.md`, auto-loaded by CC every session) grows
  * linearly with rule count. CTX Stage 0/1 shrink this WITHOUT losing enforcement — every rule
  * still fails at its earliest reachable channel (Class A/B gate, or the Tier-0 core rules for
- * Class C via ai-laziness T20) — by replacing the full always-on rule bodies with (a) 3 Tier-0
+ * Class C via ai-laziness T20) — by replacing the full always-on rule bodies with (a) 2 Tier-0
  * core rules that stay always-on, and (b) a ONE-LINE-PER-RULE index (this renderer's output)
  * that tells the model WHERE to find the rest and WHEN it would have fired. Full rule text is
  * still reachable — via `paths:`/globs edit-time injection, skill-embeds, or a manual read of
@@ -44,14 +44,18 @@ const RULE_INDEX_SECTION_ID = 'rule-index';
 // marker's `plan=` attribute records the generating script instead (self-descriptive, T15).
 const RULE_INDEX_PLAN_PATH = 'scripts/render-rule-index.mjs';
 
-const INDEX_MAX_BYTES = 3 * 1024; // 3KB size ceiling asserted by --check (ii)
+// 4KB size ceiling asserted by --check (ii). Raised from 3KB 2026-07-21: the rule population
+// (21 rules × ~150B/row) had consumed 3044/3072 BEFORE the 22nd rule landed, so the old ceiling
+// was structurally unmeetable — any legitimate new rule broke every push repo-wide. 4KB restores
+// headroom for ~5 more rules at the same row budget; raise again only with the same reasoning,
+// and prefer trimming verbose `Fires:` lines (the row's only elastic field) first.
+const INDEX_MAX_BYTES = 4 * 1024;
 
 // Tier-0 core rules: never evicted, always-on regardless of paths:/globs — declared here as the
 // project's own current decision (P4 resolution), not derived from any rule's own markers.
 const TIER0_CORE = new Set([
-  'build-first-reuse-default',
   'attention-is-not-a-mechanism',
-  'ai-laziness-traps',
+  'ai-laziness-digest',
 ]);
 
 function findRoot(start) {
@@ -83,9 +87,16 @@ function deriveChannels(name, fields) {
   if (TIER0_CORE.has(name)) chans.push('always-on core');
   if (fields.paths) chans.push(`paths:(${fields.paths.length})`);
   if (fields.globsMarker) chans.push('edit-time inject');
+  // Aggregate repeated channel-marker mechanisms (e.g. cold-seat-economy has two
+  // skill-embed targets → 'skill-embed(2)' rather than 'skill-embed, skill-embed').
+  // Iteration order is the file order of the markers (Map preserves insertion order).
+  const counts = new Map();
   for (const c of fields.channelMarkers) {
     const mech = c.split(/\s+/)[0];
-    chans.push(mech);
+    counts.set(mech, (counts.get(mech) || 0) + 1);
+  }
+  for (const [mech, count] of counts) {
+    chans.push(count > 1 ? `${mech}(${count})` : mech);
   }
   if (chans.length === 0) chans.push('gate-only');
   return chans.join(', ');

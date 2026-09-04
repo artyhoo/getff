@@ -1,6 +1,6 @@
 ---
 name: dispatcher
-description: Use when you need to EXECUTE a chosen umbrella's stages through the aif-control loop — dispatch kickoff to aif, monitor status, resolve parked Q&A (technical forks autonomously, strategic forks to operator), harvest done tasks (push + PR + auto-merge), run Phase-1 cold-review, check stage gate, advance to next stage. Does NOT plan (priority/launch-table = /pipeline). Invoked explicitly via /dispatcher slash command only (disable-model-invocation:true). Triggers: dispatcher, execute umbrella, run stages, aif loop, harvest PR, stage gate advance.
+description: Use when you need to EXECUTE a chosen umbrella's stages through the aif-control loop. Triggers: dispatcher, execute umbrella, run stages, aif loop, harvest PR, stage gate advance. Invoked explicitly via /dispatcher only (disable-model-invocation:true). NOT for planning — priority and launch-table are /pipeline.
 arguments: [umbrella]
 argument-hint: "[umbrella-name]"
 disable-model-invocation: true
@@ -16,12 +16,14 @@ allowed-tools:
   - Agent
 ---
 
+<!-- @harness-posture: cc-native-with-fallback — CC slash-command + !shell + REST dispatch; dual-channel degradation for CC-absent harnesses documented (SKILL.md:25) -->
+
 <!-- @dual-pair: dispatcher-skill -->
 <!-- Note: CC-native and portable channels are co-resident in this single SKILL.md; the dual-implementation §5 two-file drift-check finds no counterpart file by design — drift is prevented by co-location, not grep. -->
 
 > **Class:** C — prose-only wiring skill; mechanical enforcement = CC slash-command primitive (exists or does not). Promotion criterion: ≥2 harvest-forgotten incidents within 6 months → consider a PostToolUse hook checking done-task dedup against harvested PRs.
-> **Authoritative for:** /dispatcher slash-command behaviour — §0 invocation through §6 advance; dispatch→monitor→Q&A→harvest→Phase-1→stage-gate→advance loop; Q&A park-type taxonomy; dual-channel degradation for CC-absent harnesses.
-> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). Planning, priority scoring, launch-table generation — see [.claude/skills/pipeline/SKILL.md](../pipeline/SKILL.md). Global `~/.claude/skills/orchestrator/` (agent-uncommittable, owner=maintainer).
+> **Authoritative for:** /dispatcher slash-command behaviour — §0 invocation through §6 advance; dispatch→monitor→Q&A→harvest→Phase-1→stage-gate→advance loop; Q&A park-type taxonomy; the §3 Type-2 park-chip contract + decision-session protocol (ADR D3/D4); dual-channel degradation for CC-absent harnesses.
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). Planning, priority scoring, launch-table generation — see [.claude/skills/pipeline/SKILL.md](../pipeline/SKILL.md). The `orchestrator` skill at `.claude/skills/orchestrator/`.
 
 # /dispatcher — aif-control execution loop
 
@@ -47,14 +49,14 @@ allowed-tools:
 
 All 4 CLI primitives are pre-built. `/dispatcher` wires them — it does NOT build new ones.
 
-| Primitive                            | Path                                           | Role in loop                                                                                                                                    |
-| ------------------------------------ | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dispatch.ts`                        | `packages/runtime-bridge/src/cli/dispatch.ts`  | Send kickoff to aif via REST; exit 0 always (injection hook, never a gate); ManualBackend fallback not deduped so retry is always possible      |
-| `harvest.ts`                         | `packages/runtime-bridge/src/cli/harvest.ts`   | Push aif branch from container, open PR, optionally enable auto-merge; ZERO LLM; throws on wrong-branch container (operator-ATTN case — see §4) |
-| `questions.ts`                       | `packages/runtime-bridge/src/cli/questions.ts` | Read-only GET /tasks, filter to parked tasks, display park reasons; appends brainstorm nudge to output                                          |
-| `answer.ts`                          | `packages/runtime-bridge/src/cli/answer.ts`    | Resolve a parked task via REST state-machine events; invalid `--decision` is an error (never silently defaults)                                 |
-| `superpowers:brainstorming`          | CC companion skill                             | Autonomous technical-fork resolution on CC-present path                                                                                         |
-| `superpowers:requesting-code-review` | CC companion skill                             | Phase-1 cold-review between stages                                                                                                              |
+| Primitive                            | Path                                                                                                                                                                                                                                                    | Role in loop                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dispatch.ts`                        | framework repo: `packages/runtime-bridge/src/cli/dispatch.ts` · consumer install: `.claude/vendor/runtime-bridge/src/cli/dispatch.ts` (the vendor drop — `setup.d/55-runtime-bridge-vendor.sh`; the `packages/` path exists ONLY in the framework repo) | Send kickoff to aif via REST; exit 0 on every dispatch outcome (injection hook, never a gate) but **exit 2 when the kickoff itself is invalid** — an unresolvable `bridge-profile` marker aborts with no task and no /tmp artefact instead of degrading; ManualBackend fallback not deduped so retry is always possible |
+| `harvest.ts`                         | `packages/runtime-bridge/src/cli/harvest.ts`                                                                                                                                                                                                            | Push aif branch from container, open PR, optionally enable auto-merge; ZERO LLM; throws on wrong-branch container (operator-ATTN case — see §4)                                                                                                                                                                         |
+| `questions.ts`                       | `packages/runtime-bridge/src/cli/questions.ts`                                                                                                                                                                                                          | Read-only GET /tasks, filter to parked tasks, display park reasons; appends brainstorm nudge to output                                                                                                                                                                                                                  |
+| `answer.ts`                          | `packages/runtime-bridge/src/cli/answer.ts`                                                                                                                                                                                                             | Resolve a parked task via REST state-machine events; invalid `--decision` is an error (never silently defaults)                                                                                                                                                                                                         |
+| `superpowers:brainstorming`          | CC companion skill                                                                                                                                                                                                                                      | Autonomous technical-fork resolution on CC-present path                                                                                                                                                                                                                                                                 |
+| `superpowers:requesting-code-review` | CC companion skill                                                                                                                                                                                                                                      | Phase-1 cold-review between stages                                                                                                                                                                                                                                                                                      |
 
 ---
 
@@ -62,33 +64,96 @@ All 4 CLI primitives are pre-built. `/dispatcher` wires them — it does NOT bui
 
 Steps run in order for each stage kickoff. After §2.7, loop back to §2.1 with the next stage kickoff, or emit "umbrella complete".
 
-**§2.0 — Pre-dispatch dedup guard (run before §2.1)**
+**§2.0 — Pre-dispatch guard (run before §2.1)**
 
 ```bash
-slug="<umbrella>"
-git branch -a --list "*${slug}*"                              # Signal 1: branch match
-gh pr list --state all --search "${slug}" --json number,state # Signal 2: broad PR search (not in:title)
-test -f ".claude/orchestrator-prompts/${slug}/done.md"        # Signal 3: done.md (Layer-C3)
+SLUG="<umbrella>" bash .claude/skills/dispatcher/helpers/probe-inflight.sh
 ```
 
-Verdict — **≥2 of 3 signals required** to mark ALREADY-DONE (T-DUX-A: lone slug-substring PR hit is insufficient):
+One command, six signals, one `VERDICT:` line. Branch on the verdict — do NOT re-run the
+signals by hand, and do NOT substitute a subset. Proven by
+[`packages/core/skills/dispatcher/probe-inflight.test.ts`](../../../packages/core/skills/dispatcher/probe-inflight.test.ts).
 
-- **ALREADY-DONE**: skip dispatch → auto-write `done.md` + CANON sync + report (CLEAR action — **never surface as question**, T15 / P4); see §2.8 for schema
-- **IN-FLIGHT**: open PR or live branch, no done.md → surface + let operator decide
-- **FRESH** (0–1 signals): proceed to §2.1
+| Signal                    | Scope             | What it can see                                                             |
+| ------------------------- | ----------------- | --------------------------------------------------------------------------- |
+| 1 `origin-branch`         | host              | branches git already knows about                                            |
+| 2 `pr`                    | origin            | PRs in any state (broad search, T-DUX-A: a lone slug-substring hit is weak) |
+| 3 `done-md`               | repo              | the Layer-C3 closure marker                                                 |
+| 4 `container-branch`      | **aif container** | branches that exist ONLY inside the container                               |
+| 5 `task-done-unharvested` | **aif API × PRs** | finished tasks whose branch carries no PR                                   |
+| 6 `claim`                 | **aif API**       | a paused, unfinished task under this slug — a lane taken, work not started  |
+
+Signal 4 derives the container checkout from the aif PROJECT record (`kickoff-l3.decisions.md#decision-1`: `GET /projects` → the record whose `.id` == `RUNTIME_BRIDGE_AIF_PROJECT_ID` → `rootPath`), overridable with `AIF_REPO_PATH`; an unaskable container names its cause on the signal line (`reason=…`), never `status=ok` from a different repository.
+Signals 1-3 are the original guard, and **all three are origin/host-scoped** — which is why
+they missed `feature/beta-delivery-ux-995e9c` (2026-08-08T21:22Z): run 3 had finished inside
+the container an hour earlier, invisible to every one of them, and the umbrella was dispatched
+twice. Signals 4-5 are that blind spot.
+
+Signal 6 closes the OTHER end of the timeline. Signals 1-5 all report work that has already
+STARTED, so they read clean for the whole Phase -1 cold-review window — which is where every
+historical collision actually materialised. A claim (`/pipeline` §6 Step 3: an aif task created
+`paused:true` before the review, released on GO, deleted on RED) is the artefact that makes that
+window observable; see
+[`pipeline/references/claim-machinery.md`](../pipeline/references/claim-machinery.md).
+
+Verdicts, highest precedence first:
+
+- **PROBE-INCOMPLETE** — a probe could not be _asked_ (docker down, aif API unreachable, no
+  `SLUG`). **STOP and surface. Never treat as FRESH** — the whole defect class is a guard that
+  renders an unasked question as a clean answer, so this outranks every other verdict.
+- **DONE-UNHARVESTED** — a finished task's work is sitting un-harvested. **Harvest it (§2.4)
+  or explicitly supersede it before dispatching.** Outranks ALREADY-DONE: a loose end is loose
+  even under a closed umbrella. This is the `#autonomous-done-no-harvest` shape.
+- **STALE-CLAIM** — a claim older than `PROBE_CLAIM_TTL_MIN` (default 120min): its session very
+  likely died mid-Phase -1. **Verify the owner is gone, then cancel the claim
+  (`claim.ts cancel <id>`) and proceed** — the probe never cancels one itself. Surfaced rather
+  than enforced so a dead session cannot starve the stage forever.
+- **CLAIMED** — a live claim: another session is inside its Phase -1 window on this stage right
+  now. **Do not dispatch; coordinate.** Outranks ALREADY-DONE/IN-FLIGHT because it names an
+  active session rather than an artefact.
+- **ALREADY-DONE** — `done.md` plus ≥1 other origin signal: skip dispatch → auto-write
+  `done.md` + CANON sync + report (CLEAR action — **never surface as question**, T15 / P4);
+  see §2.8 for schema.
+- **IN-FLIGHT** — open PR, live branch, or a container-only branch: surface + let the operator
+  decide.
+- **FRESH** — every probe ran and found nothing: proceed to §2.1.
+
+**Re-probe immediately before the actual dispatch**, after any Phase -1 review completes — all
+historical collisions materialised inside that window ([CLAUDE.md `Pre-dispatch in-flight
+probe`](../../../CLAUDE.md)).
 
 **Base normalization (P3):** before §2.1, run `git remote set-head origin --auto` to refresh trunk ref. If kickoff's stated base diverges from live trunk, warn and use live trunk for harvest `--base` in §2.4.
 
 **§2.1 — Dispatch**
 
 ```bash
+# Framework repo:
 tsx packages/runtime-bridge/src/cli/dispatch.ts \
-  .claude/orchestrator-prompts/<umbrella>/kickoff.md
+  .claude/orchestrator-prompts/<umbrella>/kickoff.md # orch-home: allow framework-only packages/ tree — the consumer twin for .ai-factory installs sits on the adjacent line
+
+# Consumer install — the CLI arrives via the vendor drop, and kickoffs live under
+# .ai-factory/ (setup.d/30-templates.sh:17), not .claude/. The `packages/` path above
+# does not exist outside the framework repo.
+tsx .claude/vendor/runtime-bridge/src/cli/dispatch.ts \
+  .ai-factory/orchestrator-prompts/<umbrella>/kickoff.md
 ```
 
 `AifHandoffBackend.dispatch()` → `POST /tasks (paused:true)` → `PUT /tasks/:id (unpause)` → aif coordinator picks up: `backlog → planning` (per-task worktree created) → `implementing`. The `exit 0` contract holds at every call-site — a ManualBackend fallback (written to `/tmp/runtime-bridge-<taskId>.md`) means aif was unreachable; retry once the blocker clears.
 
 Emit watch-link immediately after dispatch (P6): `http://${AIF_WEB_HOST:-localhost}:${AIF_WEB_PORT:-5180}/tasks/<taskId>`. Web port (`AIF_WEB_PORT`, default `5180`) is separate from API port (`AIF_PORT`, default `3009`). If the web container is absent, emit the REST task URL instead.
+
+**Model routing — do NOT override the runtime profile per task (operator verdict, 2026-08-09).** A
+dispatch runs on the aif project's configured profiles; leave `runtimeProfileId` / `modelOverride`
+(per-task fields in both the create and update schemas) unset. The top-tier profile is an **external
+seat only** — an extra cold reviewer the host session spawns on top of the pipeline (`§2.5`
+Phase-1 cold-review, the fidelity/compliance agents), never the in-container dispatch runtime. Tier
+2 therefore selects the _criteria_ and the review depth, not a costlier executor: raising the
+dispatch tier per task is a cost decision the operator has already answered «no» to. Bring the
+question back only with a **new** incident of the review-blindness class (counter: 1 — a review gate
+reported `total=0` on a diff a cold audit then STOPped, getff-freshness-widening S1 r2), not as a
+per-stage judgement call. Tier criteria live in [`tier-home.md`](../../../packages/core/templates/shared/tier-home.md); which model fills a tier is the
+aif runtime profile config's, and this line records the standing answer so each dispatch does not
+re-litigate it.
 
 **§2.2 — Monitor (single-poll-per-turn)**
 Classify one poll using `monitor-classify.sh` (proven by `packages/core/skills/dispatcher/monitor.test.ts`):
@@ -112,17 +177,89 @@ Timeout: track invocation count; after operator-configured ceiling → surface *
 bash scripts/run-local-ci-sweep.sh        # diff-aware; escalates to --full on unmapped paths
 ```
 
-A **branch-introduced** red ⇒ HALT harvest, surface it, do NOT push (interpret against the merge-base — a red on `origin/staging` too is pre-existing, not the harvest's). Then push:
+A **branch-introduced** red ⇒ HALT harvest, surface it, do NOT push (interpret against the merge-base — a red on `origin/staging` too is pre-existing, not the harvest's).
+
+**Unattended runs:** the standing authorization for dispatching the cold auditor below, driving
+the `REVISE` cycle via `answer.ts`, and pushing/opening/squash-merging to `staging` without a
+confirmation round is stated once in [`night-mode/SKILL.md` delta item 8](../night-mode/SKILL.md)
+— with its escalation set (`base=main`, second consecutive `REVISE`, `STOP`, parked forks) and its
+honest Class-C classification. Not restated here (`#two-prompts-drift`); this section keeps owning
+the mechanics.
+
+**Pre-egress fidelity gate (design altitude — spec D2/D6).** `harvest.ts` creates the PR and
+queues auto-merge inside one binary, so the fidelity seam is HERE, before invoking it.
+Dispatch [`agents/fidelity-auditor.md`](../../../agents/fidelity-auditor.md) cold, **with an
+explicit `name`** (keeps the resume exception of [cold-seat-economy.md §3](../../rules/cold-seat-economy.md)
+reachable; the follow-up default is a fresh narrow seat): inputs = the
+stage kickoff path + the container diff (read-only; in-container `origin/staging` is the
+established §2.4/harvest-§1 inspect pattern; 3-dot tolerates a stale base):
+
+```bash
+docker exec aif-handoff-agent-1 git -C <worktree> diff origin/staging...HEAD
+```
+
+**Default format: inputs-inlined** (spec P7, [cold-seat-economy.md §3](../../rules/cold-seat-economy.md) row 4). The default dispatch payload **inlines** the kickoff scope sections + the diff into the prompt («answer without reading files») — measured at ~85k tokens / 0 tool calls vs ~177k tokens / 7 tool calls for the file-reading form (row 4 vs row 3). The file-reading form is the **fallback** when content size prohibits inlining. **Promotion trigger** (cross-stage boundary): 3 incidents of >100k-token file-reading seats → a mechanical check in **S-B's station** (S-B is the stage that owns the bottom-seat check station; not implemented here).
+
+- `GO` → record the block (Basis/Round/Audited-SHA/Evidence) into the prepared PR body
+  (pass via `--body-file` — without the section the `pr-body-fidelity` gate holds the PR
+  red) and proceed to `harvest.ts`. **`Audited-SHA` = container HEAD is correct ONLY on
+  this stock path**, because `harvest.ts` pushes the container commit as-is, so its SHA
+  survives to become PR head. It is WRONG on the §2.4b API path, which mints a new commit
+  — see the ordering note there (`pr-body-fidelity` requires `Audited-SHA` to prefix PR
+  head, `packages/core/hooks/checks/pr-body-fidelity.ts:165`).
+- `REVISE` → **no egress, no PR**: `tsx packages/runtime-bridge/src/cli/answer.ts --task <id> --answer "<auditor findings>" --decision request_changes` → task returns to `implementing`;
+  the next harvest attempt audits as `Round: 2`. **Deliver rework ONLY via `answer.ts` — never a
+  bare events-API POST.** A raw `POST /tasks/:id/events {"event":"request_changes"}` (curl) flips
+  the task to `implementing` but **silently drops your findings**: the rework prompt consumes the
+  LATEST human comment, and the bare event posts none, so the worker reworks blind against
+  internal-review advisories and returns with zero changes. `answer.ts` posts the comment AND the
+  event as one step — that is the whole reason it exists. (Incident: task `dfaf72a5`, 2026-07-25 —
+  one full rework round burned; cross-model side: `.claude/skills/claude-glm-executor-handoff/SKILL.md`
+  §4 — plain path, not a link: that skill does not ship, a relative link here would dangle on an
+  aif-suite consumer tree.) **Cap 2 CONSECUTIVE REVISE rounds on unchanged scope**
+  (spec D6 «What the cap counts» — the counter resets on any GO or scope addition; the
+  Audited-SHA guard forces a re-audit after every new commit, so audits themselves are not
+  what is capped): the second consecutive REVISE → STOP — do not resume; emit an escalation
+  block (task id + both rounds' findings) in the report.
+- `KICKOFF-AMBIGUOUS` → escalate to `/arch` §4 office hours immediately (a broken kickoff
+  wastes both rework rounds). `STOP` → escalate immediately.
+- Calibration window (spec D1): while merged staging PRs whose `## Review findings` contains
+  `Plan spot-check:` number <5, also run a top-tier read-only spot-check of the task's plan
+  (`GET /tasks/:id` → `plan`) and record it in `## Review findings`.
+- Restart safety (spec D10): all rework state above lives in durable stores (aif task
+  comments, PR body, git) — a fresh dispatcher session resumes by re-probing (§2.0/§2.2);
+  never carry contour state only in session memory (`#state-in-session-memory`).
+- <!-- seat-economy embed (spec-of: .claude/rules/cold-seat-economy.md) -->
+  Seat economy ([cold-seat-economy.md](../../rules/cold-seat-economy.md)): the Audited-SHA
+  guard forces a refresh after every new commit, but a commit that moves none of what the seat
+  judges (deliverables / permitted files / descopes) earns only a **narrow cold delta check** —
+  a fresh cold agent handed the incremental diff + kickoff scope sections + the round-1
+  watch-list (resume the same auditor by name only when the watch-list cannot carry it) — not a
+  full re-audit, and never a self-issued verdict. Have the round-1 seat leave that watch-list
+  in the PR body / task comment. Order seats so this audit runs on the final diff.
+- <!-- re-write-trigger embed (spec-of: .claude/rules/cold-seat-economy.md §3) -->
+  **Re-write-trigger economy** ([cold-seat-economy.md §3](../../rules/cold-seat-economy.md)): when
+  the seat has reached its natural end, the cached-prefix cost discipline applies —
+  - prefer **artifact handoff** to a fresh seat over `/compact` — a fresh seat billed at read
+    price on a narrow input is cheaper than re-billing the cached prefix at write price;
+  - do **not** stretch a seat across the 1-hour TTL idle gap — the cached prefix expires; the
+    next turn re-bills the whole prefix at write price;
+  - avoid mid-session **model / effort switches** and **MCP toggles** on a fat context — each
+    invalidates the cached prefix and re-bills it at write price (pending S-H P3d verification
+    of the config-change class — rev 4 moved P3d there; same handoff rule applies until verified
+    otherwise).
+
+Then push:
 
 ```bash
 tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --base staging
 ```
 
-`harvest.ts` → `GET /tasks/:id` → `docker exec aif-handoff-agent-1 git push origin <branch>` → `gh pr create --base staging --head <branch>` → `gh pr merge <prUrl> --auto --squash`. Emits `{ prUrl, branch, autoMerge, committed }`.
+`harvest.ts` → `GET /tasks/:id` → **Channel A** (`docker exec … git bundle create` → `docker cp` → host `git fetch <bundle>` → host `git push origin <sha>:refs/heads/<branch>`, so `.husky/pre-push` runs — the container has no `github.com` route and is never pushed from, per [egress-no-api-bypass.md §1](../../rules/egress-no-api-bypass.md)) → `gh pr create --base staging --head <branch>` → `gh pr merge <prUrl> --auto --squash`. Emits `{ prUrl, branch, autoMerge, committed }`.
 
 If `/dispatcher` has prepared a §1.7-compliant PR body, pass it via `--body-file <path>`. Otherwise a minimal pointer body is used (harvest warns about missing §1.7 sections in that case).
 
-**§2.4b — Harvest when the container github-host is unroutable (resilience helper).** When the proxy/tunnel blocks `github.com` from the container (`git push` → `gnutls_handshake`/`SSL_ERROR_SYSCALL`/000) but `api.github.com` is reachable (discriminate via `gh api rate_limit`), the stock `harvest.ts` push fails. Use the API-harvest helper instead — it commits the task's declared file via the GitHub Contents API (branch ref + PUT), no `git push` needed:
+**§2.4b — Harvest when the HOST transport is dead (break-glass helper).** A container-side `github.com` block is **not** a trigger for this path any more: `harvest.ts` pushes from the host (Channel A above), so the container's missing egress is expected and harmless. Reach for the API helper **only when the host transport is ALSO dead** (host `git ls-remote origin` fails) while `api.github.com` is still reachable (discriminate via `gh api rate_limit`) — the channel of last resort per [egress-no-api-bypass.md §1](../../rules/egress-no-api-bypass.md), because it lands server-side and so **skips `.husky/pre-push` by construction**; when taken, `scripts/run-local-ci-sweep.sh` is the mandatory gate-substitute. It commits the task's declared file via the GitHub Contents API (branch ref + PUT), no `git push` needed:
 
 ```bash
 bash .claude/skills/dispatcher/helpers/harvest-via-api.sh <taskId> staging [path]
@@ -131,6 +268,27 @@ gh pr merge <prUrl> --auto --squash
 ```
 
 It reads the file from the container worktree (uncommitted ok), and **append-merges** onto the current `staging` version (never `git add -A`, never clobber — fixes the stale-overwrite hazard where a worker's stale full-file copy silently reverts newer rounds). Proven 2026-06-05 (PRs #427/#429/#431). Single-file; multi-file needs the Git Data API.
+
+**Fidelity ordering on THIS path (differs from §2.4 — load-bearing).** `harvest-via-api.sh`
+mints a NEW commit (blobs→tree→commit), so the container commit the cold auditor judged
+never becomes PR head — and, never being pushed, CI cannot resolve it either. Running the
+§2.4 audit _before_ this helper therefore yields an `Audited-SHA` the gate MUST reject
+([`pr-body-fidelity.ts:165`](../../../packages/core/hooks/checks/pr-body-fidelity.ts) requires it to prefix PR head). Unlike stock `harvest.ts`, this
+path **has a seam**: the helper only creates the branch commit, and `gh pr create` is a
+separate command. So here the audit runs **between** them, on the pushed commit — whose SHA
+IS the PR head:
+
+1. `harvest-via-api.sh …` → note the emitted `commit=<sha>`
+2. cold [`agents/fidelity-auditor.md`](../../../agents/fidelity-auditor.md) on kickoff-scope + that commit → `Audited-SHA: <sha>`
+3. `GO` → `gh pr create --body-file <body carrying the block>`; `REVISE` → **no PR**
+   (`answer.ts --decision request_changes`) — a branch with no PR releases nothing.
+
+The D2 «pre-egress» intent is preserved in substance: the seam exists so the verdict lands
+before the PR **and** auto-merge, and it still does. Pre-egress _placement_ on the stock path
+is a consequence of `harvest.ts` being atomic (push+PR+merge in one binary — no seam inside),
+not a rule that a branch may never exist un-audited. Incident: PR #1111 (2026-07-23) — the
+gate fail-closed twice and the operator re-anchored the SHA by hand; a manual re-anchor is a
+workaround, not the fix.
 
 **§2.4c — Notification discipline for unattended runs (3-tier).** Routine ticks are SILENT (journal only). A heartbeat fires at most once per ~30min via `helpers/notify-gate.sh` (so the operator sees "alive" without per-tick spam). Only genuine human-decisions/blockers ping immediately. aif's own notifier sends a TG per status-change with no verbosity knob; to filter to **done / stalled / question only**, silence aif's raw channel (unset `TELEGRAM_BOT_TOKEN` in the container on a between-runs restart) and let the dispatcher send the filtered set via `helpers/tg-notify.sh <done|stalled|question|blocker> "<msg>"`. The operator does not go dark — they get the important events, deduped.
 
@@ -150,14 +308,61 @@ gh pr list --search "is:merged head:<branch> base:staging" --json number,mergedA
 
 Empty → HALT (PR not yet merged; wait for CI). Non-empty → CLEAR, proceed to §2.7.
 
-**§2.7 — Advance**
-Dispatch next stage kickoff → back to §2.1. If no remaining stages → §2.8.
+**§2.7 — Advance (frontier read, executed not narrated)**
+
+```bash
+bash .claude/skills/dispatcher/helpers/advance-frontier.sh <umbrella>
+```
+
+One command: the full `frontier.sh` emitter output teed first (the recorded evidence the
+verdict derives from), then ONE verdict line. Branch on the verdict — do NOT pick the next
+stage by eye, and do NOT re-derive the frontier from the kickoff table by hand (the
+`/pipeline`-owned emitter owns that parsing; this helper is a consumer, never a fork).
+§2.6 CLEARs feed forward: invoke the helper with `MO_FRONTIER_DONE` accumulating every id
+§2.6 has confirmed merged this run — a just-merged stage must not re-enter the frontier
+because its kickoff row still reads `done=no` (the unattended loop probes PR state, not
+row text, so the duplicate dispatch would not be caught downstream). Proven by
+[`packages/core/skills/dispatcher/advance-frontier.test.ts`](../../../packages/core/skills/dispatcher/advance-frontier.test.ts).
+
+Verdicts:
+
+- **ADVANCE-INCOMPLETE** — the question could not be asked (no umbrella, no kickoff,
+  unrecognized emitter shape). STOP and surface; never treat as a pick.
+- **ADVANCE-DEGRADE** — no `Depends on` column / no stage table: ordering is judgment
+  again. Pick per the kickoff §1 stage order AND record the degrade in the stage-gate
+  notes. A row reading `done=` in degraded output carries no `basis=` field — it is
+  unverified row text: run the §2.6 check on it before skipping that stage (T-FRS1-B
+  does not stop at the verdict path).
+- **COMPLETE** — `done.md` exists, or every stage is done with none left → §2.8.
+- **HALT-VERIFY `<ids>`** — a stage read done from row markers (`basis=marker-unverified`)
+  that §2.6 has not proven merged. Run the §2.6
+  `gh pr list --search "is:merged head:<branch> base:staging"` check on those ids, then
+  re-run this helper with the verdict fed back:
+  `MO_FRONTIER_DONE=<merged-ids> MO_FRONTIER_OPEN=<refuted-ids>`. Never advance a consumer
+  on a marker read alone — `done=yes basis=marker-unverified` is row text, not a merge
+  proof.
+- **HALT-BLOCKED** — no frontier while stages remain: dependency cycle or stale done
+  markers. Read the emitter's WARN lines above; surface to the operator.
+- **ADVANCE `<id>`** — the next stage: first frontier id in table order. `FRONTIER-SET`
+  lists ALL frontier ids — parallel candidates; each gets its own §2.0 re-probe before its
+  §2.1 dispatch. `ATTN-UNRESOLVED` ids: read their `raw=` cells in the teed output before
+  dispatching (prose deps the emitter echoes but cannot resolve — a documented ceiling,
+  `pipeline/references/frontier.md` §6).
+
+On ADVANCE → dispatch that stage kickoff → back to §2.1. If no remaining stages → §2.8.
 
 **§2.8 — Closure marker (P2)**
 Write `done.md` schema (`# <umbrella> — DONE` / `- Final PR: #<num>` / `- Closed: <YYYY-MM-DD>` / `- Summary: <one-line>`) and CANON sync:
 
 ```bash
-cp .claude/orchestrator-prompts/<umbrella>/done.md \
+# Resolve the orch home by layout — consumers keep kickoffs under .ai-factory/
+# (setup.d/30-templates.sh:17), the framework under .claude/ (issue 1414).
+if [ -d .claude/orchestrator-prompts ]; then  # orch-home: allow this literal is the resolver's own -d layout probe, not a hardcoded read
+  ORCH_HOME=.claude/orchestrator-prompts      # orch-home: allow framework leg of the layout probe; the consumer .ai-factory home is the else leg
+else
+  ORCH_HOME=.ai-factory/orchestrator-prompts
+fi
+cp "$ORCH_HOME/<umbrella>/done.md" \
    ~/.claude-coordination/<repo-slug>/<umbrella>/done.md
 ```
 
@@ -180,6 +385,21 @@ When §2.2 detects a parked signal, identify the park type from the taxonomy tab
 
 Sources: `questions.ts:85-93` (detection), `answer.ts:207-212` (A-park resume).
 
+### Routing seats (who answers which class — spec D5)
+
+<!-- prettier-ignore -->
+| Question class                                                     | Day                                                                                                                                                                                                | Night (unattended)                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| technical / in-scope (implementation choice within kickoff bounds) | this dispatcher session resolves autonomously (brainstorm → `answer.ts`); decision recorded in the task comment + PR `## Parked questions`                                                         | same — autonomous                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| intent / goal / design (changes WHAT to build)                     | file an ask + `ASK` when the advisor is reachable ([advisor-pattern-design §2/§5.1](../../../docs/superpowers/specs/2026-08-10-advisor-pattern-design.md); ask-file format — see below the table); else `/arch` §4 office hours, top seat | file an ask + `ASK` when the advisor is reachable (same ref + the same format note; non-blocking — defer the item, keep working); else: a live top-tier seat exists and is sweeping → it may decide the park per the night envelope ([session-bus v2 §4](../../../docs/superpowers/specs/2026-08-09-session-bus-v2.md) + [night v3 §6 object cut](../../../docs/superpowers/specs/2026-08-09-autonomous-night-v3-design.md)); else **stay parked — never guess**; morning batch sweep (`questions.ts --project`) |
+| environment (container/tooling broken)                             | `/aif-doctor`                                                                                                                                                                                      | `/aif-doctor` non-destructive arm; else stay parked                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+
+**Filing the ask — do not hand-write the format.** `bash scripts/check-ask-files.sh --print-template [consult|materiality-dispute] [role]` emits a fileable skeleton; `--help` prints the mailbox path resolved on this machine plus the filename convention and the atomic write-temp+rename recipe; the same script with no arguments validates the result and is the pre-push section `ask-file-schema`. Emitter and validator are deliberately one file, so a skeleton that stops passing is a red test rather than a stale doc. A **materiality dispute** additionally carries the reviewer's finding copied verbatim, never paraphrased ([reviewer-discipline.md §6](../../rules/reviewer-discipline.md)) — `--print-template materiality-dispute` lays out both extra sections. _Operator-repo surface at v1_: the mailbox default is `rules-as-tests-aif`-scoped and the script is not shipped by `setup.d/`, so on a consumer install this row degrades to its `else` branch (`/arch` office hours by day, stay-parked by night) — consumer delivery is a later stage, never a silent copy ([advisor-pattern-design §1](../../../docs/superpowers/specs/2026-08-10-advisor-pattern-design.md)).
+
+<!-- effort-worthiness embed (spec-of: .claude/rules/effort-worthiness.md) -->
+
+**Effort-worthiness** ([effort-worthiness.md](../../rules/effort-worthiness.md)): before demanding a probe/extra round on any park resolution, run the four-test card — practice-first on reversible surfaces; a round-budget breach escalates via ASK, never a guillotine and never a silent push-through.
+
 ### Type 1 — Technical fork (HOW to implement; no taste involved)
 
 **Detected:** parked reason describes an implementation choice where either path is technically valid and does not affect project scope or direction (e.g. "which API variant", "which data structure", "retry or fail-fast on 429").
@@ -200,9 +420,29 @@ Sources: `questions.ts:85-93` (detection), `answer.ts:207-212` (A-park resume).
 **Resolution:**
 
 1. `tsx packages/runtime-bridge/src/cli/questions.ts` → surface parked task to operator
-2. Operator reviews, optionally invokes `superpowers:brainstorming` for deliberation
-3. Operator provides answer; `/dispatcher` applies: `tsx packages/runtime-bridge/src/cli/answer.ts --task <id> --answer "<decision>" --decision request_changes` (B-park) OR `--decision resume` (A-park)
-4. Loop resumes
+2. **Park-chip (ADR D3/D4, stage S3)** — emit one, per the contract below, so the decision stops depending on this session staying alive
+3. Operator reviews, optionally invokes `superpowers:brainstorming` for deliberation
+4. Operator provides answer; `/dispatcher` applies: `tsx packages/runtime-bridge/src/cli/answer.ts --task <id> --answer "<decision>" --decision request_changes` (B-park) OR `--decision resume` (A-park)
+5. Loop resumes
+
+Step 2 composes with the routing-seats table above, it does not replace it: when the advisor is reachable, the ask + `ASK` stays the first move, and the chip is what materialises a decision venue when no live seat holds the question — at night it simply waits, unclicked and inert, until morning.
+
+**Park-chip contract (pointer-only — the emitter is `/dispatcher`; dispatch chips are a different animal, contract in [pipeline `references/output-format.md` §9](../pipeline/references/output-format.md)).** Capability-gated exactly like the dispatch chips: emit only when `spawn_task` is invocable in this session (runtime roster probe — never a version-sniff, never an `allowed-tools` entry). Probe fails → today's behaviour verbatim, no apology line.
+
+| Field    | Content                                                                                                                                                                                                                                                                            |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `title`  | `Decide: <one-line question> [<umbrella>]`. One chip MAY batch a burst — `Decide 6 parked questions [<umbrella>]` — because bursts are the observed shape, not the exception                                                                                                       |
+| `tldr`   | the recommended **seat class** plus the umbrella — `spawn_task` cannot name a model, so the operator's model pick at click IS the seat control (`intent/goal fork — open in a top-tier session`, per [arch/SKILL.md §4](../arch/SKILL.md))                                         |
+| `prompt` | **pointers only**: parked task-id(s), kickoff path, and the routing-seat context above. **Never the park payload body** — an inlined hint is untrusted by construction, since the chip outlives the state it was minted from (`REPORT supplementary, mechanical state wins`, §2.2) |
+
+**Decision-session protocol — what a click authorizes.** The chip prompt instructs the spawned session to:
+
+1. **Re-verify at click time, never trust the chip:** re-fetch the park from aif (`questions.ts`, read-only) using the task-id. No matching parked task, or the park is already answered → **report and stop**; the chip was stale (`dismiss_task` is best-effort, never a guarantee).
+2. **Assemble a decision package** — question · evidence · a reasoned recommendation with its falsifier (H1 discipline) · options with consequences — and present it. Apply the class split internally per [arch/SKILL.md §4](../arch/SKILL.md): in-scope architecture is answerable at the senior seat, intent/goal belongs to the operator.
+3. **Apply from that session, with the owning CLI:** `tsx packages/runtime-bridge/src/cli/answer.ts --task <id> --answer "<decision>" --decision <request_changes|resume>`. A fresh session has full tools — nothing is relayed back through the emitting `/dispatcher`.
+4. **Record durably:** the aif task comment + the PR `## Parked questions` section. The chip is ephemeral by design — a restart loses the chip, never the park, and the morning sweep (`questions.ts --project`) stays the mechanical backstop.
+
+**Coverage honesty.** A park raised while no `/dispatcher` session is alive produces no chip at all and falls back to that sweep. Worker-emitted park-chips are out of scope (ADR F7 — factory containers configure no ccd server). **Falsifier:** if parks keep getting answered through some other path while chips rot unclicked, the edge costs nothing standing and retires by deleting this block.
 
 ### Type 3 — Terminal (no Q&A needed)
 
@@ -214,11 +454,13 @@ Sources: `questions.ts:85-93` (detection), `answer.ts:207-212` (A-park resume).
 
 If the brainstorming companion is unreachable (Cursor / Aider / Codex / no Superpowers installed): **technical forks degrade to Type 2 behaviour** — surface to operator rather than resolving autonomously. The portable markdown of this skill provides the same discrimination discipline; the autonomous resolution step is skipped. This is the CC-absent path by necessity, not a stub.
 
+**Park-chips degrade the same way, and by the same probe:** no invocable `spawn_task` in the roster → skip step 2 of Type 2 silently and surface the park as before. Nothing downstream depends on a chip existing — the decision package, `answer.ts` application, and the morning sweep are all chip-independent, so the degraded path loses latency, never coverage.
+
 ---
 
 ## §4 Harvest details and ATTN conditions
 
-**Rework-commit gap:** if aif's container has a dirty working tree at harvest time (`request_changes→implementing→done` path), `harvest.ts` auto-commits all changes with a templated message (ZERO LLM). This is expected and logged in the harvest JSON output (`committed: true`).
+**Rework-commit gap:** a dirty container tree at harvest time is auto-committed ONLY when the branch is **0 commits ahead** of base — the true-rework signature (`request_changes→implementing→done` with nothing committed, branch == base HEAD). Even that leg first HOLDs as ambiguous (`needsConfirm`, false-done guard); re-running with `--confirm-rework` produces the templated `git add -A` commit (ZERO LLM, `committed: true` in the harvest JSON). When the branch is **≥1 commit ahead**, harvest treats the dirty tree as stale base-state residue and never `add -A`s it: modified tracked files HOLD (`needsResidueConfirm`; `--confirm-dirty-residue` to proceed), while untracked-only residue is warned and left behind (`dirtyTreeLeftBehind: true`) — uncommitted work on such a branch is NOT shipped. **Operator rule: before harvesting a branch that already carries commits, commit any in-container work you want shipped.** (Decision logic: `packages/runtime-bridge/src/harvest.ts` `harvestTask` dirty-tree branch; near-loss incident 2026-08-08, getff-freshness-widening S1.)
 
 **ATTN: container on wrong branch.** `harvest.ts` throws (does NOT self-heal) when the aif container's git state is on a different branch than the task's `branchName`. When this occurs, `/dispatcher` surfaces `ATTN: harvest threw — container may be on wrong branch. Manual check required: docker exec aif-handoff-agent-1 git branch` and does NOT silently retry. The operator must resolve the container state before re-running harvest.
 
@@ -232,10 +474,17 @@ If the brainstorming companion is unreachable (Cursor / Aider / Codex / no Super
 
 - **Does NOT plan** — priority scoring, launch-table generation, plan-currency check = `/pipeline`'s job. `/dispatcher` only executes a named umbrella.
 - **Does NOT build new CLI primitives** — wires the 4 existing ones in `packages/runtime-bridge/src/cli/`. A genuinely-needed new primitive = surface as a finding to maintainer, do not add it here.
-- **Does NOT edit `~/.claude/skills/orchestrator/`** — global skill, agent-uncommittable; maintainer-owned.
+- **Does NOT edit `.claude/skills/orchestrator/`** — another skill's artefact; wrap, never fork.
 - **Does NOT add npm deps** — zero new dependencies; `tsx` runs existing TypeScript.
 
 ---
+
+## Seat lifecycle
+
+Registry-role seat sessions (birth · work · self-cleaning · retirement) follow ONE protocol —
+[.claude/rules/seat-lifecycle.md](../../rules/seat-lifecycle.md) (SLP): each phase binds a
+settled owner (ADR D6/D7/D8, session-bus v2, night-mode); bus-touching steps are
+Part-II-gated. Never restate it here (`#fifth-description-of-the-loop`).
 
 ## Without this skill
 
@@ -252,3 +501,5 @@ The operator manually tracked task IDs, polled `GET /tasks/:id` in a shell loop,
 **Stage 1 (dispatcher-ux):** `monitor-classify.sh` REUSES `priority-score.sh` Layer-C3 completion-detection pattern (BFR verdict REUSE, `build-first-reuse-default.md:3`; same problem class confirmed — task-status classification vs umbrella-completion classification). Tests at `packages/core/skills/dispatcher/monitor.test.ts:1`. Original BUILD-verdict forward/backward checks at `docs/meta-factory/dispatcher-skill-rphase.md`.
 
 **Stage 2 (dispatcher-ux-s2):** P2 (`§2.8` closure-marker schema + CANON sync, `CLAUDE.md:umbrella-closure`), P3 (base-normalization note in `§2.0`, `parallel-subwave-isolation.md:1`), P4 (self-application — ALREADY-DONE writes done.md without surfacing question, `recommendation-laziness-discipline.md:3`), P6 (watch-link `§2.1`, `packages/core/skills/dispatcher/dispatch.test.ts:1`). No new CLI primitives, no npm deps.
+
+**Stage (frontier-residue-sweep S1):** `advance-frontier.sh` REUSES the `/pipeline`-owned `frontier.sh` emitter as a pure consumer — bindings, not a fork; the §2.6 `is:merged` check stays the merge authority and `basis=marker-unverified` never advances a consumer (T-FRS1-B). Tests at `packages/core/skills/dispatcher/advance-frontier.test.ts`.

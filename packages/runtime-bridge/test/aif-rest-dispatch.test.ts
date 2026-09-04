@@ -104,6 +104,9 @@ describe('AifHandoffBackend.dispatch() — REST 4-step sequence', () => {
     const backend = new AifHandoffBackend({ baseUrl: 'http://localhost:3009', projectId: 'p' });
     const err = await backend.dispatch(KICKOFF).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(BackendError);
+    // Stays dispatch_failed, NOT spec_invalid: the kickoff is fine, aif answered
+    // with a shape we did not expect — an environmental fault, so the
+    // ManualBackend fallback must still catch it (isFallbackEligible).
     expect(err).toMatchObject({ code: 'dispatch_failed', backend: 'aif-handoff' });
   });
 
@@ -179,5 +182,134 @@ describe('AifHandoffBackend.dispatch() — REST 4-step sequence', () => {
   it('defaults mcpUrl to :3100 when not configured', () => {
     const backend = new AifHandoffBackend({ baseUrl: 'http://localhost:3009', projectId: 'p' });
     expect(backend.mcpUrl).toBe('http://localhost:3100');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// bridge-profile resolution (multi-model-profile-marker, 2026-07-21)
+// ═══════════════════════════════════════════════════════════════════════════════
+describe('AifHandoffBackend.dispatch() — profileHint resolution', () => {
+  const KICKOFF_WITH_HINT: KickoffSpec = { ...KICKOFF, profileHint: 'GLM' };
+
+  function mockWithProfiles(profiles: Array<{ id: string; name: string }>) {
+    const calls: Array<{ url: string; method: string; body: Record<string, unknown> | undefined }> =
+      [];
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const method = init?.method ?? 'GET';
+        const body = init?.body
+          ? (JSON.parse(String(init.body)) as Record<string, unknown>)
+          : undefined;
+        calls.push({ url, method, body });
+        if (method === 'GET' && url.endsWith('/projects')) {
+          return Promise.resolve(jsonResponse([{ id: 'proj-uuid', parallelEnabled: true }], 200));
+        }
+        if (method === 'GET' && url.endsWith('/runtime-profiles')) {
+          return Promise.resolve(jsonResponse(profiles, 200));
+        }
+        if (method === 'POST' && url.endsWith('/tasks')) {
+          return Promise.resolve(jsonResponse({ id: 'task-123', status: 'backlog' }, 201));
+        }
+        return Promise.resolve(new Response('', { status: 200 }));
+      },
+    );
+    return calls;
+  }
+
+  it('single case-insensitive substring match → runtimeProfileId included in POST /tasks body', async () => {
+    const calls = mockWithProfiles([
+      { id: 'opus-id', name: 'Claude Opus (plan+review)' },
+      { id: 'glm-id', name: 'Z.AI GLM-5.2' },
+    ]);
+    const backend = new AifHandoffBackend({ baseUrl: 'http://localhost:3009', projectId: 'proj-uuid' });
+    await backend.dispatch(KICKOFF_WITH_HINT);
+
+    const post = calls.find((c) => c.method === 'POST' && c.url.endsWith('/tasks'));
+    expect(post?.body).toMatchObject({ runtimeProfileId: 'glm-id' });
+  });
+
+  it('no profileHint → GET /runtime-profiles is never called, no runtimeProfileId in POST body (regression guard)', async () => {
+    const calls = mockWithProfiles([{ id: 'glm-id', name: 'Z.AI GLM-5.2' }]);
+    const backend = new AifHandoffBackend({ baseUrl: 'http://localhost:3009', projectId: 'proj-uuid' });
+    await backend.dispatch(KICKOFF); // no profileHint
+
+    expect(calls.some((c) => c.url.endsWith('/runtime-profiles'))).toBe(false);
+    const post = calls.find((c) => c.method === 'POST' && c.url.endsWith('/tasks'));
+    expect(post?.body && 'runtimeProfileId' in post.body).toBe(false);
+  });
+
+  it('zero matches → spec_invalid, loud, naming the empty candidate outcome (no silent fallback)', async () => {
+    mockWithProfiles([{ id: 'opus-id', name: 'Claude Opus (plan+review)' }]);
+    const backend = new AifHandoffBackend({ baseUrl: 'http://localhost:3009', projectId: 'proj-uuid' });
+    const err = await backend.dispatch(KICKOFF_WITH_HINT).catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(BackendError);
+    expect(err).toMatchObject({ code: 'spec_invalid', backend: 'aif-handoff' });
+    expect((err as Error).message).toContain('GLM');
+  });
+
+  it('ambiguous (>1) matches → spec_invalid naming BOTH candidates (no guessing)', async () => {
+    mockWithProfiles([
+      { id: 'glm-a', name: 'Z.AI GLM-5.2 (fast)' },
+      { id: 'glm-b', name: 'Z.AI GLM-5.2 (careful)' },
+    ]);
+    const backend = new AifHandoffBackend({ baseUrl: 'http://localhost:3009', projectId: 'proj-uuid' });
+    const err = await backend.dispatch(KICKOFF_WITH_HINT).catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(BackendError);
+    expect(err).toMatchObject({ code: 'spec_invalid', backend: 'aif-handoff' });
+    expect((err as Error).message).toContain('glm-a');
+    expect((err as Error).message).toContain('glm-b');
+  });
+
+  // Regression: `Z.AI GLM-5.2` is a strict PREFIX of `Z.AI GLM-5.2 SDK`, so pure
+  // substring matching made the correct, unambiguous marker value throw
+  // dispatch_failed — the exact name was unusable. Observed live 2026-07-23.
+  it('exact name match wins over a longer superset name (prefix-related profiles stay usable)', async () => {
+    const calls = mockWithProfiles([
+      { id: 'glm-api', name: 'Z.AI GLM-5.2' },
+      { id: 'glm-sdk', name: 'Z.AI GLM-5.2 SDK' },
+    ]);
+    const backend = new AifHandoffBackend({
+      baseUrl: 'http://localhost:3009',
+      projectId: 'proj-uuid',
+    });
+    await backend.dispatch({ ...KICKOFF, profileHint: 'Z.AI GLM-5.2' });
+
+    const post = calls.find((c) => c.method === 'POST' && c.url.endsWith('/tasks'));
+    expect(post?.body).toMatchObject({ runtimeProfileId: 'glm-api' });
+  });
+
+  it('exact match stays case-insensitive', async () => {
+    const calls = mockWithProfiles([
+      { id: 'glm-api', name: 'Z.AI GLM-5.2' },
+      { id: 'glm-sdk', name: 'Z.AI GLM-5.2 SDK' },
+    ]);
+    const backend = new AifHandoffBackend({
+      baseUrl: 'http://localhost:3009',
+      projectId: 'proj-uuid',
+    });
+    await backend.dispatch({ ...KICKOFF, profileHint: 'z.ai glm-5.2' });
+
+    const post = calls.find((c) => c.method === 'POST' && c.url.endsWith('/tasks'));
+    expect(post?.body).toMatchObject({ runtimeProfileId: 'glm-api' });
+  });
+
+  it('a non-exact hint matching several profiles still throws (exact-match short-circuit did NOT weaken the ambiguity guard)', async () => {
+    mockWithProfiles([
+      { id: 'glm-api', name: 'Z.AI GLM-5.2' },
+      { id: 'glm-sdk', name: 'Z.AI GLM-5.2 SDK' },
+    ]);
+    const backend = new AifHandoffBackend({
+      baseUrl: 'http://localhost:3009',
+      projectId: 'proj-uuid',
+    });
+    const err = await backend.dispatch({ ...KICKOFF, profileHint: 'GLM' }).catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(BackendError);
+    expect(err).toMatchObject({ code: 'spec_invalid', backend: 'aif-handoff' });
+    expect((err as Error).message).toContain('glm-api');
+    expect((err as Error).message).toContain('glm-sdk');
   });
 });

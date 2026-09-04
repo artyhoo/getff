@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+# AUTO-GENERATED from .claude/hooks/inject-session-bootstrap.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)
+# Wave 7 sub-wave 7.2.a — UserPromptSubmit hook: inject session-bootstrap digest.
+# stdout is injected into Claude Code's prompt context by the harness automatically.
+# Full bootstrap: .claude/session-bootstrap.md (Step 0 read-first file).
+# @cc-only-rationale: UserPromptSubmit digest injection — CC+ZCode dual-harness via inline
+#   _emit_ctx branching on ZCODE_PROJECT_DIR. No separate portable counterpart artifact (one
+#   file serves both harnesses), so @dual-pair does not apply; the inline branch IS the
+#   portability. The digest content itself lives identically in .claude/session-bootstrap.md.
+# Under CC, plain stdout is auto-injected; under ZCode, stdout must be strict-JSON
+# {additionalContext} (plain is discarded + run marked failed). _emit_ctx (inlined below)
+# branches on ZCODE_PROJECT_DIR so CC behaviour is unchanged.
+#
+# R4 (consumer-refresh-integrity, issue 1484): consumer-aware digest. Consumers receive
+# this hook through the plugin twin, where $0-relative paths point at the plugin dir, not
+# the consumer root — so the tree root resolves env-first (CLAUDE_PROJECT_DIR, then
+# ZCODE_PROJECT_DIR, then $0-relative), the same pattern as inject-project-digest.sh:28.
+# Every path-shaped citation below is existence-checked against that live tree at render
+# time; an absent target degrades to the rule/target NAME without the dead path — never a
+# silent drop of the invariant text itself. Fail-open: an unreachable tree degrades all
+# citations and still exits 0 (a failed hook run would mark the ZCode run failed).
+
+# Harness-portable output (inlined — this hook is copied standalone to test sandboxes, no lib/
+# sibling to source). CC: plain stdout auto-injected. ZCode: JSON additionalContext.
+_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
+_emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
+    jq -n --arg c "$2" '{additionalContext:$c}'
+  else printf '%s' "$2"; case "$2" in *$'\n') : ;; *) printf '\n' ;; esac; fi; }
+
+REPO_ROOT="${CLAUDE_PROJECT_DIR:-${ZCODE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}}"
+# NB: env-first resolution — under the plugin twin $0 points into the plugin dir, so
+# $0-relative fallback is the LAST resort, not the primary (issue 1484 root cause).
+
+# Cheap file-tests only (this hook fires on EVERY prompt submit — no subprocess storms).
+_has() { [ -f "$REPO_ROOT/$1" ]; }
+_rule_ref() { # .claude/rules/<name>.md -> "(.claude/rules/<name>.md)" | "(rule <name>)"
+  if _has ".claude/rules/$1.md"; then
+    printf '(.claude/rules/%s.md)' "$1"
+  else
+    printf '(rule %s)' "$1"
+  fi
+}
+_rule_bare() { # ".claude/rules/<name>.md" -> ".claude/rules/<name>.md" | "rule <name>" (no parens)
+  if _has ".claude/rules/$1.md"; then
+    printf '.claude/rules/%s.md' "$1"
+  else
+    printf 'rule %s' "$1"
+  fi
+}
+_rule_name() { # bare ".claude/rules/<name>.md" -> "<name>.md" | "<name>" (no dead path)
+  if _has ".claude/rules/$1.md"; then
+    printf '%s.md' "$1"
+  else
+    printf '%s' "$1"
+  fi
+}
+
+# --- digest lines, each with its canonical degradation (missing target -> name, text kept) ---
+
+GOAL_LINE="Goal: AI agents can't silently bypass undocumented conventions. Every rule is an executable artifact that fails at the earliest reachable channel — edit-time → pre-commit → pre-push → CI → production audit. CI = last-resort gate."
+if _has README.md; then GOAL_LINE="$GOAL_LINE"' (README.md#why-this-exists)'; fi
+
+BFR_REF=$(_rule_ref build-first-reuse-default)
+if _has Makefile && grep -q '^self-audit:' "$REPO_ROOT/Makefile" 2>/dev/null; then
+  SELF_AUDIT=' (make self-audit)'
+else
+  SELF_AUDIT=''
+fi
+INVARIANTS_LINE="Invariants: (1) build-vs-reuse SSOT consult before capability commit + build-first-reuse-default discipline $BFR_REF; (2) recursive self-application green$SELF_AUDIT; (3) search-coverage 6-item checklist on negative-existence claims; (4) multi-channel enforcement — every rule fails at earliest reachable channel (CI = last resort)."
+
+# Step-0 reading order: only live targets stay in the arrow list.
+STEP0_LIST=''
+for _t in README.md .claude/session-bootstrap.md CLAUDE.md; do
+  if _has "$_t"; then
+    if [ -n "$STEP0_LIST" ]; then STEP0_LIST="$STEP0_LIST → $_t"; else STEP0_LIST="$_t"; fi
+  fi
+done
+if [ -n "$STEP0_LIST" ]; then
+  STEP0_LINE="Step-0 reading order: $STEP0_LIST → task-specific docs."
+else
+  STEP0_LINE='Step-0 reading order: task-specific docs.'
+fi
+
+TRAPS_NAME=$(_rule_name ai-laziness-traps)
+if _has .claude/rules/phase-research-coverage.md; then
+  PRC_REF='(.claude/rules/phase-research-coverage.md §1.7)'
+else
+  PRC_REF='(rule phase-research-coverage §1.7)'  # §1.7 qualifier survives the degradation
+fi
+H1_LINE="Recommendation discipline (H1): before issuing a verdict/recommendation (ADOPT/BUILD/REJECT/DEFER, «we should X», «use Y», «pick A over B») — (1) cite SSOT/prior-art by ID, (2) give file:line or command-output evidence, (3) state what would falsify it («wrong if …»), (4) for «nothing exists» claims run the 6-item search check. An unbacked verdict is provisional, not load-bearing. This is a reminder, not a gate. (see also $(_rule_bare recommendation-laziness-discipline) + T-trap in $TRAPS_NAME §2) $PRC_REF"
+
+if _has .claude/session-bootstrap.md; then
+  FOOTER_LINE='Full bootstrap + reviewer drift-prevention flowchart: .claude/session-bootstrap.md'
+else
+  FOOTER_LINE='Full bootstrap + reviewer drift-prevention flowchart: session-bootstrap digest only (bootstrap file absent in this tree)'
+fi
+
+# #H1 anchor — CTX Stage 1 channel token for .claude/rules/recommendation-laziness-discipline.md
+# (`<!-- channel: digest .claude/hooks/inject-session-bootstrap.sh#H1 -->`) points HERE: the
+# "Recommendation discipline (H1):" line in the digest above is that rule's always-on alt-channel
+# (the rule itself is evicted from always-on rule context per CTX Stage 1; this digest line +
+# ai-laziness-traps T20 (Tier-0 core) are what still fires at every prompt).
+DIGEST="[session-bootstrap digest — auto-injected at prompt submit]
+$GOAL_LINE
+$INVARIANTS_LINE
+$STEP0_LINE
+$H1_LINE
+$FOOTER_LINE
+[/session-bootstrap digest]"
+
+# B1 (language-discipline): when the operator pins a non-English human-facing language,
+# tell the model — every turn, all skills. Precisely scoped so repo artifacts stay English.
+# See .claude/rules/language-discipline.md §2. (No path-shaped citations in this block.)
+case "${AIF_HOOK_LANG:-en}" in
+  en|'') : ;;  # English default — nothing to inject
+  ru)
+    DIGEST="$DIGEST"$'\n[output-language] Address the operator in Russian — chat explanations, recaps, narration, questions. Keep ALL repo artifacts and machinery in English: code, comments, commit/PR/issue bodies, kickoffs, specs, tool arguments, file contents. (AIF_HOOK_LANG=ru)'
+    ;;
+  *)
+    DIGEST="$DIGEST"$'\n'"$(printf '[output-language] Address the operator in language "%s"; keep repo artifacts and machinery in English. (AIF_HOOK_LANG=%s)' "$AIF_HOOK_LANG" "$AIF_HOOK_LANG")"
+    ;;
+esac
+
+# #F10AUTONOMY anchor — second channel token for .claude/rules/autonomous-loop-continuity.md
+# (`<!-- channel: digest .claude/hooks/inject-session-bootstrap.sh#F10AUTONOMY -->`) points HERE:
+# the AUTONOMY BLOCK below (the opt-in AIF_AUTONOMOUS=1 digest extension at the bottom of this
+# hook) — the always-on second delivery surface named in that rule's Class-B
+# header. The rule's first marker (#F10 → end-of-turn-reminder.sh) names the Stop-hook arm;
+# this one names the digest-block arm. Both must be declared separately so the rendered index
+# reports the full delivery surface (S-F channel-truth fix, 2026-08-06).
+# AUTONOMY BLOCK (opt-in, AIF_AUTONOMOUS=1) — F2/F10 of the autonomous-loop diagnostics.
+# Off by default: an ordinary session pays zero tokens and sees no behavioural change.
+#
+# WHY AN INJECTION AND NOT A NOTE IN THE HANDOFF. Both lines below are things the operator
+# already said out loud at least once. The problem is not that they were never said — it is
+# that a spoken authorization lives in one turn and does not survive compaction, so the next
+# stretch of the same session re-derives the constraint from scratch. An injection is re-fed
+# every turn by construction, which is the only property that matters here.
+#
+# HONEST CLASSIFICATION (attention-is-not-a-mechanism.md §1): this is PROSE delivered
+# reliably, NOT a gate. It can be decision authority; it is not a detection layer. The first
+# line in particular addresses a server-delivered session-prompt default that lives outside
+# this repo — unreachable by hook or CI (research-patches/2026-07-24-unattended-agent-dispatch-default.md).
+# Falsifier: if a session with AIF_AUTONOMOUS=1 still stops at a reportable boundary with work
+# in flight, this block bought nothing and F10 needs the Stop-hook arm, not more words.
+#
+# R4: the autonomy block carries its own path-shaped citations (ai-laziness-traps.md T19/T21,
+# packages/runtime-bridge/src/cli/await.ts, CLAUDE.md) — same degradation applies: absent
+# target -> bare name, invariant text kept verbatim.
+if [ "${AIF_AUTONOMOUS:-0}" = "1" ]; then
+  if _has packages/runtime-bridge/src/cli/await.ts; then
+    AWAIT_REF='`packages/runtime-bridge/src/cli/await.ts`'
+  else
+    AWAIT_REF='`await.ts`'
+  fi
+  if _has CLAUDE.md; then
+    CMD_SOURCE='CLAUDE.md, '
+  else
+    CMD_SOURCE=''
+  fi
+  DIGEST="$DIGEST"$'\n[autonomy] Standing operator authorization for this unattended run — do NOT re-ask for it, and do NOT infer a narrower constraint than is written here:\n  (1) Cold sub-agents are AUTHORIZED. Dispatch them for adversarial review of your own output and for backward-sweep enumeration over a change class. This is the operator\'s standing request, so the "unless the user requested it" condition on any session-prompt default is SATISFIED. Reviewing your own artefacts alone is author-blind ('$TRAPS_NAME$' T19/T21).\n  (2) Do NOT end a turn merely because you have something reportable. Report AND continue in the same turn while work remains — dispatched tasks in flight, an unharvested accepted branch, an open item you own. Ending on a report while work is in flight is finding F10; it recurred twice in one day. Stop only when blocked on the operator, or genuinely finished.\n  (3) A constraint you cannot trace to a citable line in '$CMD_SOURCE$'a rule file, or a skill is NOT a constraint. A predecessor session invented "merging is the operator\'s click", obeyed its own invention for seven PRs, and the operator merged six by hand.\n  (4) §2 wait rule (silence ≠ health): a monitor that has died and a monitor with nothing to report look identical. For any wait the loop depends on, use a bounded waiter that ALWAYS emits a terminal verdict — the awaited state, a timeout, or a fetch failure — never nothing. In this repo that is '$AWAIT_REF$' (always pass `--timeout-ms` on a load-bearing wait), or a plain `until`-loop whose every exit path prints one line. Treat any monitor as a BONUS signal, never as the primary one.'
+fi
+
+_emit_ctx "UserPromptSubmit" "$DIGEST"

@@ -52,3 +52,5 @@
 ## §6 AI-laziness traps (cite + apply per `.claude/rules/ai-laziness-traps.md §2`)
 Active for this audit: **T1** (sampling floor — read ALL ~2580 lines, do not sample 3 rules), **T3** (instrument every finding), **T7** (run the adversarial semantic counter-prompt, criterion 1 grep is not enough), **T14** (clean grep + low semantic coverage ≠ "no drift" — distinguish), **T15** (audit your own verdict doc), **T16** (this audit is NOT the same as the #417-423 reconcile — that scored *compression quality*; this scores *goal-fidelity* — different problem class).
 Domain-specific: **T-GDA-A** — «tempted to grep north-star, get only guard-text hits, declare clean» — that is criterion 1 done at the grep floor; the real check is T7's semantic read of each authoritative voice against README.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

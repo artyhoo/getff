@@ -1,7 +1,9 @@
 ---
 name: tool-bootstrapping
-description: Use when analysing project stack for MCP or skill recommendations, user mentions tool bootstrapping, MCP installation, skill discovery, project onboarding tools, package.json deps changed, .ai-factory/tool-decisions.md, AIF /aif, tool detection, инструменты, бутстраппинг, MCP серверы, скиллы, зависимости, онбординг, подбор инструментов, предложение инструментов, подтверждение установки, memory persistence for tools, tool proposal confirmation, incremental tool re-evaluation, rejected tools memory.
+description: Use when analysing project stack for MCP or skill recommendations. Triggers: tool bootstrapping, MCP installation, skill discovery, project onboarding tools, package.json deps changed, .ai-factory/tool-decisions.md, AIF /aif, tool detection, инструменты, бутстраппинг, MCP серверы, скиллы, зависимости, онбординг, подбор инструментов, предложение инструментов, подтверждение установки, tool proposal confirmation, incremental tool re-evaluation, rejected tools memory, memory persistence for tools.
 ---
+
+<!-- @harness-posture: portable — prose + npx skills CLI; the deps-hash UserPromptSubmit hook is companion infrastructure, not this skill's runtime dependency -->
 
 # Tool Bootstrapping — project-aware MCP/skill proposal discipline
 
@@ -32,7 +34,7 @@ Two-question filter before committing to any proposal: (a) is the capability cod
 
 ### Rule 5 — Incrementality
 
-At each session start, a UserPromptSubmit hook compares `sha256(package.json deps section)` with the last-known hash in `.ai-factory/tool-decisions.md`. Mismatch → inject one-line WARN into session context: `⚠ package.json deps changed since last tool-bootstrap — run /tool-bootstrapping to re-evaluate`. Hook implementation landed in Wave 5.3; `deps-hash:` frontmatter in [references/decision-format.md](references/decision-format.md) is the anchor field.
+At each session start, a UserPromptSubmit hook compares the current deps hash **per stack** with the last-known baseline in `.ai-factory/tool-decisions.md`. Mismatch on any present stack → inject one WARN into session context naming the drifted stack: `⚠ <stack> deps changed since last tool-bootstrap — run /tool-bootstrapping to re-evaluate`. The hook (`packages/core/hooks/deps-hash-check.sh`) covers JS (`package.json`), python (`pyproject.toml`), and rust (`Cargo.toml`, detection in DH-S2); each stack has its own baseline key (`deps-hash-npm` / `deps-hash-python` / `deps-hash-cargo`), and the legacy bare `deps-hash:` key is read backward-compatibly as the npm slot. Anchor schema: [references/decision-format.md](references/decision-format.md) §2. (Multistack landed in DH-S1, kickoff #1016; the original Wave 5.3 JS-only hook is the substrate.)
 
 ### Rule 6 — Persistence
 
@@ -44,7 +46,7 @@ Rules 1-4 are AIF `/aif` reuse (SSOT #31 ADOPT). Building a parallel surface for
 
 ## §3 Recursive bootstrap (D3=b)
 
-Chicken-and-egg: rule 2 needs `context7` MCP to research what MCPs exist, but `context7` is itself a rule 2 candidate. Resolution: `setup.sh` installs `context7` unconditionally as «stage 1 of tool bootstrapping» (GCC stage1 / `rustc` self-host analogue — cited in [README.md `Methodology`](../../../README.md)). `context7` is never proposed by rule 2; it is assumed present. Wave 5.2 implements the `setup.sh` hook.
+Chicken-and-egg: rule 2 needs `context7` MCP to research what MCPs exist, but `context7` is itself a rule 2 candidate. Resolution: the installer seeds `context7` unconditionally as «stage 1 of tool bootstrapping» — the `05-mcp` layer (`setup.d/05-mcp.sh`, run inside `install.sh` on the full path) merges it into `.mcp.json` (GCC stage1 / `rustc` self-host analogue — cited in [README.md `Methodology`](../../../README.md)). `context7` is never proposed by rule 2; it is assumed present. (Originally a Wave 5.2 `setup.sh` hook; ported to `05-mcp` when the legacy wrapper was retired, 2026-07-10.)
 
 ## §4 Cross-references
 

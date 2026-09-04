@@ -1,8 +1,16 @@
 #!/usr/bin/env bash
 # SubagentStop WARN hook — scan the finishing subagent's output for canonical
-# REPORT sections; if any are missing, print a warning to stderr and exit 0
-# (non-blocking). Maintainer chose WARN over block (exit 2) — judgment target,
-# not mechanically gateable (#gate-where-judgment-needed). SSOT #108 candidate-3.
+# REPORT sections; if any are missing, WARN and exit 0 (non-blocking). Maintainer
+# chose WARN over block (exit 2) — judgment target, not mechanically gateable
+# (#gate-where-judgment-needed). SSOT #108 candidate-3.
+#
+# Channel note (2026-07-24): the warning's consumer is the ORCHESTRATOR (the model
+# deciding whether to trust the subagent's REPORT) — but stderr on an exit-0 hook
+# reaches only the operator transcript, never the model (live-verified; see
+# docs/meta-factory/research-patches/2026-07-24-posttooluse-channel-verification.md).
+# The warning therefore also goes out as SubagentStop JSON additionalContext — the
+# documented model-visible channel ("the conversation continues so Claude can act on
+# the feedback") — preserving WARN-not-block semantics (exit 0, nothing blocked).
 #
 # @cc-only-rationale: internal orchestrator hook, maintainer-env only, no portable fire-point
 #
@@ -38,7 +46,22 @@
 #   the substantive completeness signal the orchestrator needs).
 set -uo pipefail
 
-command -v jq >/dev/null 2>&1 || exit 0   # graceful no-op without jq
+# JSON-escape WITHOUT jq — jq is precisely the dependency that may be missing here.
+_json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n' ' '; }
+# Emit on the model-visible channel (SubagentStop JSON additionalContext) + keep stderr
+# for terminal/CI readers. SubagentStop is CC-only (census row 19) — no ZCode branch.
+_emit_note() {
+  printf '{"hookSpecificOutput":{"hookEventName":"SubagentStop","additionalContext":"%s"}}\n' \
+    "$(_json_escape "$1")"
+  printf '%s\n' "$1" >&2
+}
+
+if ! command -v jq >/dev/null 2>&1; then
+  # SubagentStop fires once per finished subagent (rare) — a loud skip is low-noise and
+  # the alternative (silent) makes a skipped completeness check read as a pass.
+  _emit_note '⚠ warn-subagent-report: jq unavailable — the subagent REPORT completeness check DID NOT RUN. This is a SKIP, not a pass; install jq to restore the check.'
+  exit 0
+fi
 
 INPUT="$(cat)"
 
@@ -99,7 +122,7 @@ fi
 # ── Emit warning if any sections missing ────────────────────────────────────
 if [ "${#MISSING[@]}" -gt 0 ]; then
   MISSING_LIST="$(IFS=', '; echo "${MISSING[*]}")"
-  printf '⚠ SubagentStop: REPORT missing section(s): %s\n' "$MISSING_LIST" >&2
+  _emit_note "⚠ SubagentStop: subagent REPORT missing section(s): $MISSING_LIST — treat the report as incomplete; ask the subagent for the missing section(s) before acting on its claims."
 fi
 
 exit 0

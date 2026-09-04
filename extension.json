@@ -2,24 +2,46 @@
   "$comment": "AIF extension manifest (best-effort format as of May 2026). The official extension.json schema is in draft (PR #34 in lee-to/ai-factory). When the schema lands, update this file accordingly. For now, install.sh provides a guaranteed fallback path.",
   "$plugin-packaging": "The same shippable set is also packaged as a Claude Code plugin under plugin/ (in-repo marketplace: .claude-plugin/marketplace.json). OpenCode adapter: .opencode/INSTALL.md. The skill/agent paths below are SOURCE paths read by install.sh; the plugin payload mirrors this set (the plugin ships the curated consumer-facing subset).",
 
-  "name": "rules-as-tests-aif",
+  "name": "getff",
   "version": "0.1.0",
   "description": "Rules-as-Tests framework for AI Factory: 5-layer enforcement (architecture, meta-tests, spec-by-example, mutation, living docs) + AI-documentation audit. Server TS + React/Next stacks.",
 
-  "author": "rules-as-tests-aif contributors",
-  "license": "MIT",
-  "homepage": "https://github.com/<org>/rules-as-tests-aif",
+  "author": "getff contributors",
+  "license": "FSL-1.1-ALv2",
+  "homepage": "https://github.com/artyhoo/getff",
 
   "compatibility": {
     "ai-factory": ">=2.0.0",
     "agents": ["claude", "codex", "cursor"]
   },
 
+  "$suite-comment": "This manifest lists the CONSUMER-DEFAULT payload only. The AIF operator suite (skills pipeline/dispatcher/aif-doctor/harvest/night-mode/story + agents orchestrator-worker-discipline/reviewer-discipline + skill-context aif-orchestrator-discipline) ships via install.sh --with-aif-suite (or --all) and is deliberately not listed here — Path A has no flag channel in the draft schema.",
+
   "skills": [
     {
-      "name": "rules-as-tests",
-      "path": "skills/rules-as-tests",
+      "name": "getff",
+      "path": "skills/getff",
       "description": "Convert any codebase rule into an executable test. AI-driven code drift defense."
+    },
+    {
+      "name": "tool-bootstrapping",
+      "path": "skills/tool-bootstrapping",
+      "description": "Analyse the project stack and propose MCP servers / skills; records decisions in .ai-factory/tool-decisions.md."
+    },
+    {
+      "name": "template-audit",
+      "path": ".claude/skills/template-audit",
+      "description": "Local advisory audit of the rendered templates this framework ships (paraphrase / cue-placement checks)."
+    },
+    {
+      "name": "ai-doc",
+      "path": ".claude/skills/ai-doc",
+      "description": "AI-doc authoring standard: channel selection, doc-authority header, rule-as-test, AI-agnostic authoring."
+    },
+    {
+      "name": "rule-research",
+      "path": ".claude/skills/rule-research",
+      "description": "Bootstrap stack-aware ESLint rules from LIVE documentation (rule-bootstrapping bridge)."
     }
   ],
 
@@ -28,52 +50,62 @@
       "files": [
         "agents/review-sidecar.md",
         "agents/living-docs-auditor.md",
-        "agents/compliance-verifier.md"
+        "agents/compliance-verifier.md",
+        "agents/memory-codification-auditor.md",
+        "agents/aif-init.md",
+        "agents/rule-researcher.md",
+        "agents/capability-reuse-auditor.md",
+        "agents/docplan-auditor.md"
       ]
     }
   },
 
+  "$paths-comment": "All paths below are SOURCE paths relative to this repo root, matching what install.sh + setup.d/ actually copy (the guaranteed fallback path). The base RULES.md is the manifest-rendered multi-stack doc shared by ts-server/react-next (setup.d/30-templates.sh); react-spa/react-native stacks exist in packages/preset-*/ but are not yet listed here — extend when the upstream schema lands.",
+
   "factory": {
     "templates": {
-      "DESCRIPTION.md": "factory/DESCRIPTION.template.md",
-      "ARCHITECTURE.md": "factory/ARCHITECTURE.ts-server.md",
-      "RULES.md": "factory/RULES.md"
+      "DESCRIPTION.md": "packages/core/templates/shared/DESCRIPTION.template.md",
+      "ARCHITECTURE.md": "packages/core/templates/shared/ARCHITECTURE.ts-server.md",
+      "RULES.md": "packages/preset-next-15-canonical/RULES.md"
     },
     "react-next": {
-      "ARCHITECTURE.react-next.md": "factory/ARCHITECTURE.react-next.md",
-      "RULES.react-next.md": "factory/RULES.react-next.md"
+      "ARCHITECTURE.react-next.md": "packages/preset-next-15-canonical/templates/ARCHITECTURE.react-next.md",
+      "RULES.react-next.md": "packages/preset-next-15-canonical/RULES.react-next.md"
     },
     "rules": {
-      "rules/integration-rules.md": "factory/rules/integration-rules.md"
+      "rules/integration-rules.md": "packages/core/templates/shared/integration-rules.md"
     }
   },
 
   "scripts": [
-    "scripts/audit-ai-docs.sh",
-    "scripts/audit-ai-docs.react-next.sh"
+    "packages/core/audit-self/audit-ai-docs.sh",
+    "packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh"
   ],
 
   "templates": {
     "shared": [
-      "templates/shared/AGENTS.md.template",
-      "templates/shared/tsconfig.json",
-      "templates/shared/.nvmrc",
-      "templates/shared/.lintstagedrc.json",
-      "templates/shared/husky-pre-commit.sh",
-      "templates/shared/husky-pre-push.sh"
+      "packages/core/templates/shared/AGENTS.md.template",
+      "packages/core/templates/shared/tsconfig.json",
+      "packages/core/templates/shared/.nvmrc",
+      "packages/core/templates/shared/.lintstagedrc.json",
+      "packages/core/templates/shared/husky-pre-commit.sh",
+      "packages/core/templates/shared/husky-pre-push.sh"
     ],
     "ts-server": [
       "templates/ts-server/eslint.config.mjs",
       "templates/ts-server/vitest.config.ts",
       "templates/ts-server/dependency-cruiser.cjs",
       "templates/ts-server/stryker.config.json",
-      "templates/ts-server/github-actions-ci.yml"
+      "templates/ts-server/github-actions-ci.yml",
+      "templates/ts-server/github-actions-workflow-integrity.yml"
     ],
     "react-next": [
-      "templates/react-next/eslint.config.react.mjs",
-      "templates/react-next/vitest.config.ts",
-      "templates/react-next/playwright.config.ts",
-      "templates/react-next/github-actions-ci-ui.yml"
+      "packages/preset-next-15-canonical/templates/eslint.config.react.mjs",
+      "packages/preset-next-15-canonical/templates/vitest.config.ts",
+      "packages/preset-next-15-canonical/templates/playwright.config.ts",
+      "packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml",
+      "packages/core/templates/react-next/.storybook/main.ts",
+      "packages/core/templates/react-next/.storybook/preview.ts"
     ]
   },
 

@@ -25,6 +25,21 @@ export const ALLOWED_SOURCES = {
   'tailwind.official': ['tailwindcss.com'],
   'mdn': ['developer.mozilla.org'],
   'typescript.official': ['typescriptlang.org', 'www.typescriptlang.org'],
+  // Python Tier-0 hosts (live-generation umbrella, LG-S1 — data change, NOT a resolver-source
+  // edit; the #allowlist-as-code-not-data discipline, research-source-trust.md §3, parallel to
+  // how react-native/expo were added). Canonical Python-language docs + the PEP index.
+  'python.official': ['docs.python.org', 'peps.python.org'],
+  // PyYAML's own documentation host — the canonical source for the `yaml.load` security guidance
+  // (use `safe_load`) that the `getff-no-yaml-load` flagship rule cites. Single-tenant apex.
+  'pyyaml': ['pyyaml.org'],
+  // Rust Tier-0 hosts (live-generation umbrella, LG-S3 — data change, NOT a resolver-source edit;
+  // the #allowlist-as-code-not-data discipline, research-source-trust.md §3, parallel to how the
+  // python keys were added by LG-S1). Canonical Rust-language docs + the crate docs host.
+  'rust.official': ['doc.rust-lang.org', 'docs.rs'],
+  // Clippy's own lint documentation host — the canonical source for the `mem_forget` restriction-lint
+  // guidance the `mem-forget` flagship rust rule cites (rust-lang.github.io/rust-clippy). Single-tenant
+  // GitHub-Pages project apex (rust-lang.github.io is the rust-lang org's Pages host).
+  'clippy': ['rust-lang.github.io'],
 } as const satisfies Record<string, readonly string[]>;
 
 export type AllowlistKey = keyof typeof ALLOWED_SOURCES;

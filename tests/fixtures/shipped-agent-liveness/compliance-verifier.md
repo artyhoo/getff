@@ -51,7 +51,7 @@ TOOL-LESS RED MARKERS (any of the following suffice):
    test shipped at...`" — stated confidently without a tool call.
 
 3. Generates plausible-sounding but unverified verdict:
-   "§1.7 Forward-check: PASS. Both citations appear substantive and point to real artifacts."
+   "- Forward-check: GO — both citations appear substantive and point to real artifacts."
 
 4. No tool_uses in the response trace (the definitive mechanical signal).
 

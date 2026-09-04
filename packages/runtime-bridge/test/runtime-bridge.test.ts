@@ -268,3 +268,130 @@ describe('Test 5 — buildKickoffSpec opt-in marker contract (kickoff §7)', () 
     expect(spec?.contentHash).toMatch(/^[0-9a-f]{64}$/); // SHA-256 hex
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Test 6: bridge-profile marker — SEPARATE channel from firstLine auto/skip
+// (multi-model-profile-marker, 2026-07-21). Source: kickoff.ts extractProfileHint.
+// ═══════════════════════════════════════════════════════════════════════════════
+describe('Test 6 — extractProfileHint / bridge-profile marker (header-region-only)', () => {
+  function writeKickoff(content: string): string {
+    const sandbox = makeSandbox();
+    const kickoffDir = join(sandbox, 'my-feature-meta-launch');
+    mkdirSync(kickoffDir, { recursive: true });
+    const kickoffPath = join(kickoffDir, 'kickoff.md');
+    writeFileSync(kickoffPath, content, 'utf8');
+    return kickoffPath;
+  }
+
+  it('(a) marker in header region → profileHint set (positive)', async () => {
+    const { extractProfileHint } = await import('../src/kickoff.js');
+    const content =
+      '# Kickoff\n> **Umbrella:** demo\n> <!-- bridge-profile: GLM -->\n\n## §1 Why\nBody.\n';
+    expect(extractProfileHint(content)).toBe('GLM');
+  });
+
+  it('(b) no marker anywhere → undefined (negative)', async () => {
+    const { extractProfileHint } = await import('../src/kickoff.js');
+    expect(extractProfileHint('# Kickoff\n> **Umbrella:** demo\n\n## §1 Why\nBody.\n')).toBeUndefined();
+  });
+
+  it('(c) marker string only in BODY (past first ##) → undefined (self-reference guard, paired-negative)', async () => {
+    // This is the exact shape of multi-model-profile-marker/kickoff.md itself:
+    // it documents `<!-- bridge-profile: GLM -->` in prose under a `##` section,
+    // never as a real header-region directive. A whole-file scan would
+    // false-positive here; the header-region-only scan must not.
+    const { extractProfileHint } = await import('../src/kickoff.js');
+    const content =
+      '# Kickoff\n> **Umbrella:** demo\n\n' +
+      '## §2 Scope\nUse the `<!-- bridge-profile: GLM -->` marker to route this.\n';
+    expect(extractProfileHint(content)).toBeUndefined();
+  });
+
+  it('(d) auto/skip firstLine marker untouched by a bridge-profile marker present too (regression guard)', async () => {
+    const { buildKickoffSpec } = await import('../src/kickoff.js');
+    const content = '<!-- bridge: auto -->\n# Kickoff\n> <!-- bridge-profile: GLM -->\n\n## §1\nBody.\n';
+    const kickoffPath = writeKickoff(content);
+    const spec = buildKickoffSpec(kickoffPath);
+
+    expect(spec).not.toBeNull(); // auto marker still dispatches
+    expect(spec?.profileHint).toBe('GLM');
+  });
+
+  it('(e) buildKickoffSpec omits profileHint when absent (no stray undefined key leaking as "present")', async () => {
+    const { buildKickoffSpec } = await import('../src/kickoff.js');
+    const kickoffPath = writeKickoff('<!-- bridge: auto -->\n# Kickoff\nNo marker here.\n');
+    const spec = buildKickoffSpec(kickoffPath);
+
+    expect(spec).not.toBeNull();
+    expect('profileHint' in (spec as object)).toBe(false);
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // (f)-(j): the capture group must not run PAST the marker's own `-->`.
+  // Incident 2026-09-02 (beta-docs-showcase BS0): the header of
+  // .claude/orchestrator-prompts/beta-docs-showcase/kickoff-b0.md NAMED the
+  // marker token in order to state that no marker was attached. The old
+  // `(.+?)` body required >=1 character, so it could not close on the `-->`
+  // sitting immediately after the token — it ran on to the NEXT `-->` and
+  // returned surrounding prose as the hint. That bogus hint matched no runtime
+  // profile, AifHandoffBackend._resolveProfileId threw, and cli/dispatch.ts
+  // degraded to ManualBackend: a /tmp file and exit 0 with no aif task.
+  // Reproduced on the pre-fix blob (git show b68443e094^:...kickoff-b0.md):
+  //   hint === '-->` marker on purpose — see §6.'
+  // ───────────────────────────────────────────────────────────────────────────
+
+  it('(f) header NAMES the marker token to deny it → undefined, not swallowed prose (BS0 incident shape)', async () => {
+    const { extractProfileHint } = await import('../src/kickoff.js');
+    const content =
+      '<!-- scope: no <!-- bridge-profile: --> marker on purpose — see §6. -->\n' +
+      '# Kickoff\n\n## §1 Why\nBody.\n';
+
+    expect(extractProfileHint(content)).toBeUndefined();
+  });
+
+  it('(g) a deny-mention must NOT shadow a real marker later in the header', async () => {
+    // Worse variant of (f): the over-running capture consumed the deny-mention
+    // AND won the match, so the operator's genuine marker on the next line was
+    // never reached. Old behaviour returned '--> marker'.
+    const { extractProfileHint } = await import('../src/kickoff.js');
+    const content =
+      '<!-- scope: no <!-- bridge-profile: --> marker -->\n' +
+      '<!-- bridge-profile: Z.AI GLM-5.2 SDK -->\n' +
+      '# Kickoff\n\n## §1\nBody.\n';
+
+    expect(extractProfileHint(content)).toBe('Z.AI GLM-5.2 SDK');
+  });
+
+  it('(h) an EMPTY marker is not a hint → undefined (old regex returned "")', async () => {
+    // `profileHint: ''` is falsy, so AifHandoffBackend.dispatch skipped it by
+    // accident rather than by contract. Make the absence explicit: an empty
+    // marker carries no name, so it yields no hint.
+    const { extractProfileHint } = await import('../src/kickoff.js');
+
+    expect(extractProfileHint('<!-- bridge-profile: -->\n# Kickoff\n\n## §1\nBody.\n')).toBeUndefined();
+    expect(extractProfileHint('<!--bridge-profile:-->\n# Kickoff\n\n## §1\nBody.\n')).toBeUndefined();
+  });
+
+  it('(i) a real marker followed by other header comments still resolves', async () => {
+    const { extractProfileHint } = await import('../src/kickoff.js');
+    const content =
+      '<!-- bridge-profile: Z.AI GLM-5.2 SDK -->\n' +
+      '<!-- host-verify: none — prose-only kickoff, no executable deliverable -->\n' +
+      '# Kickoff\n\n## §1\nBody.\n';
+
+    expect(extractProfileHint(content)).toBe('Z.AI GLM-5.2 SDK');
+  });
+
+  it('(j) buildKickoffSpec omits profileHint for a deny-mention header (end-to-end of (f))', async () => {
+    const { buildKickoffSpec } = await import('../src/kickoff.js');
+    const kickoffPath = writeKickoff(
+      '<!-- bridge: auto -->\n' +
+        '<!-- scope: no <!-- bridge-profile: --> marker on purpose — see §6. -->\n' +
+        '# Kickoff\n\n## §1\nBody.\n',
+    );
+    const spec = buildKickoffSpec(kickoffPath);
+
+    expect(spec).not.toBeNull();
+    expect('profileHint' in (spec as object)).toBe(false);
+  });
+});

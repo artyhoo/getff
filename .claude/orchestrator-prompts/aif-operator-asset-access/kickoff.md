@@ -41,7 +41,7 @@ Read: `README.md#why-this-exists` → `.claude/session-bootstrap.md` → `CLAUDE
 - **A — Mount operator assets into the container** (bind-mount selected `~/.claude/skills/` + `~/.claude-coordination/<repo>/` into the aif agent service). Operator-axis legitimate (your machine). Con: aif-handoff docker-compose change (operator-owned, not this repo); machine-specific; global skills may reference operator-only paths.
 - **B — In-repo AI-agnostic equivalents** (ship the needed orchestrator/reviewer discipline as `agents/*.md` or `.claude/skills/*` IN the repo, so they ride the clone). Shipped-axis aligned (agnostic, degrades gracefully). Con: duplication risk vs the global skills; **must respect CLAUDE.md: the global `~/.claude/skills/orchestrator/` is agent-uncommittable / owner=maintainer — do NOT just commit it.**
 - **C — Extend the dispatch payload** (`dispatch.ts` resolves + inlines a kickoff's referenced sibling files — audit-plan, cited rules — into the transmitted content). Solves the "audit-plan doesn't travel" half. Con: payload bloat; doesn't help global skills.
-- **D — Extend the skill-context shipping** (`templates/shared/skill-context/`) to carry the orchestrator/reviewer/launch-table discipline aif needs. Reuses an existing shipped mechanism. 
+- **D — Extend the skill-context shipping** (`templates/shared/skill-context/`) to carry the orchestrator/reviewer/launch-table discipline aif needs. Reuses an existing shipped mechanism.
 - **E — Pre-dispatch hydration step** (a script that stages the operator's needed assets into the clone or a mounted dir before `docker compose up` / dispatch).
 
 **R-phase deliverable:** `docs/meta-factory/research-patches/2026-06-XX-aif-operator-asset-access.md` — per-candidate verdict (ADOPT/ADAPT/BUILD/REJECT) + the recommended composition. Likely a **combo** (e.g. B+D for disciplines that should be agnostic anyway + C for per-dispatch inputs + A only for operator-private convenience), but that is the R-phase's call, not pre-committed here.
@@ -83,3 +83,5 @@ T3 (re-confirm §1 gap rows with fresh evidence) · T11/T12 (BFR search before a
 - `meta-orchestrator-refactor/kickoff.md §4c` (sibling — where this gap was found; the verified availability table).
 - `docs/runtime-bridge-setup.md` (clone/mount model) · `.claude/rules/build-first-reuse-default.md §1.1` (two-axis) · `dual-implementation-discipline.md` (CC-native + portable-fallback) · `no-paid-llm-in-ci.md`.
 - `packages/core/templates/shared/skill-context/` · `agents/*.md` · `scripts/link-coordination.sh` · SSOT (`docs/meta-factory/prior-art-evaluations.md`) for aif-handoff rows (#67/#97).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -1,0 +1,558 @@
+#!/usr/bin/env bash
+# AUTO-GENERATED from .claude/hooks/end-of-turn-reminder.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)
+# @cc-only-rationale: CC-specific Stop hook (session-recap) — a Stop hook only runs INSIDE a
+#   Claude Code session, so there is no portable counterpart by nature (the @dual-pair below is
+#   the internal en/ru i18n split, not a portability pair). NOW SHIPPED to consumer CC projects
+#   (GH #934): companion of the shipped /story skill (SKILL.md SSOT names "the Stop-hook
+#   aif_msg_eot_branch_story branch"), delivered by install.sh + do_refresh. Consumer-safe: no
+#   framework-internal artefact dependency (the only path refs are comment-citations); degrades
+#   to exit 0 when jq or a transcript is absent.
+set -euo pipefail
+
+# Consumer-skip guard (GH #934): the hook parses the transcript with jq. Absent jq → no work
+# possible → exit 0 silently (never error-spam a consumer's every turn). The framework session
+# always has jq; a minimal consumer may not.
+command -v jq >/dev/null 2>&1 || exit 0
+
+# ZCode predicate (canonical form — verified across 7 plugin twins + end-of-turn-reminder
+# per plan-v3 §"Codebase convention"). ZCODE_PROJECT_DIR is the SSOT env var the ZCode client
+# sets in every plugin-hook subprocess; _is_zcode is the derived sugar. Introduced here for
+# the B2-C thin-recap branch below (Part B) — previously this hook had no ZCode gate at all.
+_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
+
+# Language pack (payload prose). Default en (canonical, public repo); operator sets
+# AIF_HOOK_LANG=ru in ~/.claude/settings.json env. Missing pack → en fallback.
+# Provides AIF_RECAP_MARKER (the recap heading, used by the guard below AND embedded
+# in the messages) + aif_msg_eot_* functions.
+# @dual-pair: hook-lang-i18n (spec: docs/superpowers/specs/2026-06-01-hook-lang-i18n-design.md)
+_lang_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lang"
+_lang_file="${_lang_dir}/${AIF_HOOK_LANG:-en}.sh"
+[ -f "$_lang_file" ] || _lang_file="${_lang_dir}/en.sh"
+# shellcheck source=/dev/null
+. "$_lang_file"
+
+input=$(cat)
+
+stop_hook_active=$(echo "$input" | jq -r '.stop_hook_active // false' 2>/dev/null || echo "false")
+if [ "$stop_hook_active" = "true" ]; then
+  exit 0
+fi
+
+# ── F10 autonomy arm (opt-in, AIF_AUTONOMOUS=1) ───────────────────────────────
+# #F10 anchor — channel token for .claude/rules/autonomous-loop-continuity.md
+# (`<!-- channel: hook .claude/hooks/end-of-turn-reminder.sh#F10 -->`) points HERE.
+# spec: .claude/rules/autonomous-loop-continuity.md §1
+# Finding F10 of the 2026-07-24 autonomous-loop diagnostics: an unattended orchestrator ends
+# its turn as soon as it has something REPORTABLE, while dispatched work is still in flight.
+# It recurred twice in one day, in two forms, and the operator caught it both times — so the
+# prose written in the morning did not survive to the evening. A Stop hook is the only channel
+# that fires at the exact moment of the failure, and `decision:block` makes it a MECHANISM
+# (the turn does not end) rather than another reminder.
+#
+# POSITION IS LOAD-BEARING — this arm sits immediately after the `stop_hook_active` guard and
+# BEFORE every other early return. It was originally placed near the bottom of the file, behind
+# six `exit 0` guards, and a cold audit (2026-07-24) proved the arm was silent in its own
+# motivating case: the already-recapped guard exits 0 whenever the turn carries
+# $AIF_RECAP_MARKER, and an autonomous orchestrator that "ends its turn on a report" is by
+# definition emitting a recap — one this hook's own Branch A/B/C payloads instruct the model to
+# begin with that exact marker. Measured: identical report text, 1 task `implementing`, only
+# the marker differing → marker absent = block, marker present = SILENT. The tool-only,
+# story-told and idle-suppress guards shadowed it the same way. Computing the line up here and
+# routing every early return through `_autonomy_exit` keeps each guard's own intent (do not
+# re-inject a recap) while the continuation directive survives.
+#
+# Loop safety: the `stop_hook_active` guard above exits 0 when the stop was already
+# hook-triggered, so this cannot spin WITHIN a stop chain. A fresh chain re-blocks; the outer
+# bound on that is Claude Code's own cap (it overrides a Stop hook after eight consecutive
+# blocks without progress) — the harness, not this hook. Do not read the guard as a global
+# "at most once" guarantee; it is not, and the docs do not define what resets the field.
+#
+# Fail CLOSED on a broken probe (block once, and SAY the probe broke) rather than fail open:
+# a silent non-block is exactly the "silence is indistinguishable from health" shape that
+# finding F2 is about. Cheap because of the single-block guard above. Off by default.
+autonomy_line=""
+ctx_line=""
+if [ "${AIF_AUTONOMOUS:-0}" = "1" ]; then
+  _aif_url="${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}"
+  _tasks="$(curl -s --max-time 5 "${_aif_url}/tasks" 2>/dev/null || true)"
+  if [ -z "$_tasks" ]; then
+    autonomy_line="[autonomy] The in-flight probe FAILED (${_aif_url}/tasks unreachable or empty). This is a degraded check, not an all-clear: decide for yourself whether dispatched work is still running before you stop."
+  else
+    # Shape guard BEFORE counting. Well-formed JSON of the wrong SHAPE (e.g. the payload
+    # growing a `{"tasks":[…]}` envelope — the single most plausible upstream evolution)
+    # makes the filter below yield a perfectly legitimate-looking 0, converting the mechanism
+    # into a permanent silent all-clear. Only malformed BYTES were caught before.
+    case "$_tasks" in
+      [[]*) _shape_ok=1 ;;
+      *) _shape_ok=0 ;;
+    esac
+    if [ "$_shape_ok" != "1" ]; then
+      autonomy_line="[autonomy] The in-flight probe returned a NON-ARRAY payload from ${_aif_url}/tasks — the task list shape changed, so the count cannot be trusted. Degraded check, not an all-clear: verify yourself before stopping."
+    else
+      # Count every task that is not TERMINAL, rather than enumerating live statuses. The
+      # enumerating form shipped as a strict subset of the real vocabulary
+      # (packages/runtime-bridge/src/types.ts) and was silent on `backlog` and `plan_ready` —
+      # `backlog` being the sharp miss: at coordinator cap, dispatched tasks queue there, so
+      # the arm went quiet with work about to run. Excluding terminal statuses also means a
+      # status added upstream later counts as in-flight by default (fail-closed), and a task
+      # with no status field at all counts too.
+      # Two numbers, one pass: how many elements are NOT task objects (a shape signal), and
+      # how many live tasks there are. An array of non-objects is still an array, so the
+      # bracket check above lets it through while `select(type == "object")` quietly drops
+      # every element — count 0, indistinguishable from a genuinely empty queue.
+      _probe="$(printf '%s' "$_tasks" | jq -r '
+        ([ .[]? | select(type != "object") ] | length) as $bad
+        | ([ .[]? | select(type == "object")
+                  | select((.paused // false) | not)
+                  | select((.status // "") as $s | ["done","verified"] | index($s) | not) ] | length) as $live
+        | "\($bad) \($live)"' 2>/dev/null || echo "PARSE_FAIL")"
+      _bad="${_probe%% *}"
+      _inflight="${_probe##* }"
+      if [ "$_probe" = "PARSE_FAIL" ]; then
+        _inflight="PARSE_FAIL"
+      elif [ "$_bad" != "0" ]; then
+        _inflight="SHAPE_FAIL"
+      fi
+      case "$_inflight" in
+        SHAPE_FAIL)
+          autonomy_line="[autonomy] The in-flight probe returned an array containing ${_bad} non-task element(s) from ${_aif_url}/tasks — the payload shape changed, so the count cannot be trusted. Degraded check, not an all-clear: verify yourself before stopping." ;;
+        '' | *[!0-9]*)
+          # Covers PARSE_FAIL and the subtler case the old `-gt 0` test swallowed silently:
+          # a multi-document body makes jq emit one count PER document, so `_inflight` is
+          # "1\n1" — `[ … -gt 0 ]` then errors, `2>/dev/null` hides it, and the arm is mute.
+          autonomy_line="[autonomy] The in-flight probe returned a non-integer count from ${_aif_url}/tasks. Degraded check, not an all-clear — verify yourself before stopping." ;;
+        0) : ;;
+        *)
+          autonomy_line="[autonomy] ${_inflight} aif task(s) still in flight. Do NOT end the turn on a report — that is finding F10. Continue in the same turn: verify the worker's FIRST COMMIT rather than waiting for status=done, harvest anything already accepted, or do the next item you own. Stop only if blocked on the operator." ;;
+      esac
+    fi
+  fi
+fi
+
+# Every early return below routes through this, so a guard whose intent is "do not re-inject a
+# recap" can no longer also swallow "work is still in flight" — or, since the D7 context-arm,
+# "the context is nearly spent". Both lines ride ONE block; never two blocks per turn.
+_autonomy_exit() {
+  _extra="${autonomy_line:-}"
+  if [ -n "${ctx_line:-}" ]; then
+    if [ -n "$_extra" ]; then
+      _extra="${_extra}"$'\n\n'"${ctx_line}"
+    else
+      _extra="${ctx_line}"
+    fi
+  fi
+  if [ -n "$_extra" ]; then
+    jq -n --arg msg "$_extra" '{decision: "block", reason: $msg}'
+  fi
+  exit 0
+}
+
+transcript=$(echo "$input" | jq -r '.transcript_path // empty' 2>/dev/null || echo "")
+if [ -z "$transcript" ] || [ ! -f "$transcript" ]; then
+  _autonomy_exit
+fi
+
+session_id=$(echo "$input" | jq -r '.session_id // "nosession"' 2>/dev/null || echo "nosession")
+
+# ── D7 context-arm (handoff trigger) ──────────────────────────────────────────
+# spec: docs/superpowers/specs/2026-08-09-pipeline-chips-session-bus-design.md §D7 (S2a)
+# POSITION IS LOAD-BEARING — same postmortem as the F10 arm above: the line is computed HERE,
+# before every subsequent early return, and each of those returns routes through
+# _autonomy_exit, so a guard whose intent is "do not re-inject a recap" cannot also swallow
+# "the context is nearly spent". (The transcript-absent return above precedes this arm by
+# construction: no transcript, no estimate.)
+#
+# Estimator: LAST MAIN-THREAD assistant entry — `select(.isSidechain != true)` is REQUIRED:
+# subagent turns share the transcript file, and the sessions this arm targets are exactly the
+# subagent-heavy ones. Context size = input_tokens + cache_read_input_tokens +
+# cache_creation_input_tokens on that entry (jq-over-transcript precedent: the anchor grep).
+#
+# Window resolution: `AIF_CTX_WINDOW=<n>` if declared, else 1000000. The transcript records
+# usage but NOT the request, so the window is never observable here — it can only be assumed
+# or declared, and the assumption must match the environment the hook actually runs in.
+# The default is 1M because that is what this operator's Claude Code runs everywhere; a
+# consumer on a smaller window declares it via the env var.
+#
+# HISTORY — why the old heuristic was removed (do not restore it): the previous form defaulted
+# to 200k and promoted to 1M only on a `[1m]`/`-1m` marker in `.message.model`, or once observed
+# usage had already passed 200k. Current model ids carry no such marker (`claude-fable-5`), so
+# every session resolved to 200k and the 70% tier fired from 140k with ~860k of headroom left.
+# Measured cost: three wrong session stops at ~155k on 2026-08-16, one more at ~150k on
+# 2026-08-17. The model-id table is gone with it — against a 1M default those markers can only
+# confirm what is already assumed, so they carried no information while implying a
+# discrimination the transcript cannot support. The NEW honest limit: a consumer whose window
+# is genuinely smaller and who does not declare `AIF_CTX_WINDOW` is warned late, not early.
+#
+# Floors are window-DERIVED, so both calibrated points survive one formula (D9 /
+# context-degradation-calibration owns the numbers; none moved here):
+#   soft = min(300000, 70% of window)   → 1M: 300000 (operator floor);  200k: 140000
+#   deep = min(500000, 90% of window)   → 1M: 500000 (mechanical tails); 200k: 180000
+# T_soft(200k)=140k is therefore RETAINED — but only reachable when the small window is
+# DECLARED, never assumed. Kept-in-place: the self-evident override — observed usage above the
+# declared window proves the declaration wrong, so it falls back to the 1M default.
+#
+# Debounce: once per session per tier via ${TMPDIR:-/tmp}/aif-ctx-<session_id>-<tier>
+# (guarded expansion — set -euo pipefail; story-flag precedent below). Tiers renamed
+# `1m-soft`/`1m-deep`/`200k-soft` → `soft`/`deep`: the old labels named a fixed window, the
+# floors no longer do. Known limitation,
+# accepted: after an auto-compact the flag stays spent, so a re-climbing 200k session is
+# covered by D8's PreCompact snapshot (S2b), not a second reminder.
+#
+# Audience: this hook ships to consumers (see header) — the prose is GENERIC, zero
+# framework-artifact references (F10 resolved consumer-generic, operator directive 2026-08-09).
+# ZCode: synthetic transcripts may carry no usage fields → the arm is inert there
+# (zcode-parity-doctrine.md §2 row 9: zcode-gap).
+ctx_entry=$(grep -E '"(type|role)":"assistant"' "$transcript" 2>/dev/null \
+  | jq -c 'select(.isSidechain != true) | select(.message.usage.input_tokens != null)' 2>/dev/null \
+  | tail -1 || true)
+if [ -n "$ctx_entry" ]; then
+  ctx_tokens=$(printf '%s' "$ctx_entry" | jq -r '
+    ((.message.usage.input_tokens // 0)
+     + (.message.usage.cache_read_input_tokens // 0)
+     + (.message.usage.cache_creation_input_tokens // 0))' 2>/dev/null || echo 0)
+  case "$ctx_tokens" in '' | *[!0-9]*) ctx_tokens=0 ;; esac
+  ctx_window="${AIF_CTX_WINDOW:-1000000}"
+  # A junk or zero declaration is worse than no declaration: it would silence the arm forever
+  # (0% floors) or fire it on every turn. Fall back to the default rather than trusting it.
+  case "$ctx_window" in '' | *[!0-9]* | 0) ctx_window=1000000 ;; esac
+  if [ "$ctx_tokens" -gt "$ctx_window" ]; then
+    ctx_window=1000000
+  fi
+  # Floors are `min(absolute, share-of-window)`; the `-lt 1` clamp keeps an absurdly small
+  # declaration (AIF_CTX_WINDOW=1) from producing a 0 floor that fires on every single turn.
+  ctx_soft=$(( ctx_window * 70 / 100 ))
+  if [ "$ctx_soft" -gt 300000 ]; then ctx_soft=300000; fi
+  if [ "$ctx_soft" -lt 1 ]; then ctx_soft=1; fi
+  ctx_deep=$(( ctx_window * 90 / 100 ))
+  if [ "$ctx_deep" -gt 500000 ]; then ctx_deep=500000; fi
+  if [ "$ctx_deep" -lt 1 ]; then ctx_deep=1; fi
+  ctx_tier=""
+  if [ "$ctx_tokens" -ge "$ctx_deep" ]; then
+    ctx_tier="deep"
+  elif [ "$ctx_tokens" -ge "$ctx_soft" ]; then
+    ctx_tier="soft"
+  fi
+  if [ -n "$ctx_tier" ]; then
+    ctx_flag="${TMPDIR:-/tmp}/aif-ctx-${session_id}-${ctx_tier}"
+    if [ ! -f "$ctx_flag" ]; then
+      # Brace group: a failed flag write must go to /dev/null BEFORE the redirect list of the
+      # simple command is applied, or the error leaks to stderr and the debounce fails open.
+      { : > "$ctx_flag"; } 2>/dev/null || true
+      ctx_line="[context] This session's context is ≈ ${ctx_tokens} tokens (window ~${ctx_window}). If substantial judgment work (design, review, novel debugging) remains, write a short handoff note and continue it in a fresh session; if what is left is mechanical (commits, merges, regenerations guarded by external checks), finishing here is fine."
+    fi
+  fi
+fi
+
+# Session-goal anchor (deterministic, no LLM). Primary signal: CC's own session
+# title (`{"type":"ai-title","aiTitle":...}`) — empirically present even when the
+# first user message has no extractable text block. Fallback: head of the first
+# user instruction. grep avoids a full-file jq slurp (cheap on large transcripts).
+anchor=$(grep '"type":"ai-title"' "$transcript" 2>/dev/null | tail -1 | jq -r '.aiTitle // empty' 2>/dev/null || true)
+if [ -z "$anchor" ]; then
+  anchor=$(grep -m1 '"type":"user"' "$transcript" 2>/dev/null | jq -r 'if (.message.content|type=="array") then (.message.content[]? | select(.type=="text") | .text) else (.message.content // empty) end' 2>/dev/null | head -1 | tr "\n" " " | cut -c1-120 || true)
+fi
+[ -z "$anchor" ] && anchor="$(aif_msg_eot_anchor_fallback)"
+
+# Last assistant line. `grep ... | tail -1` (portable: equivalent to BSD `tail -r |
+# grep -m1` on macOS, and works on Linux/CI where `tail -r` is unavailable — lets the
+# companion test exercise this hook in CI).
+#
+# B2 Part A (zcode-parity-step1): the alternation `"(type|role)"` is REQUIRED — both arms
+# are load-bearing. CC transcripts carry an OUTER `"type":"assistant"` field per entry; the
+# ZCode synthetic-transcript producer ($_n at zcode.cjs:~1072550) emits only
+# `{message:{content:[…],role:"assistant"}}` with NO outer type field. Dropping the `role`
+# arm makes this hook runtime-DEAD on ZCode (the pre-fix state); dropping the `type` arm
+# would miss the CC outer-type shape. Verified Mode A on a real CC transcript
+# (~/.claude/projects/-Users-art-code-BDDS/0b42f1ff-*.jsonl) + the synthetic producer shape.
+# Both arms are exercised in isolation by end-of-turn-reminder.test.ts:
+#   zcode_synthetic_transcript_last_line_extracted_via_role
+#   cc_transcript_last_line_extracted_via_type
+last_line=$(grep -E '"(type|role)":"assistant"' "$transcript" 2>/dev/null | tail -1 || true)
+if [ -z "$last_line" ]; then
+  _autonomy_exit
+fi
+
+tool_names=$(echo "$last_line" | jq -r '.message.content[]? | select(.type=="tool_use") | .name' 2>/dev/null || true)
+has_askuserquestion=false
+if echo "$tool_names" | grep -qx 'AskUserQuestion'; then
+  has_askuserquestion=true
+fi
+
+text=$(echo "$last_line" | jq -r '.message.content[]? | select(.type=="text") | .text' 2>/dev/null || true)
+# -- story branch detection: a PR was just created this turn → engaging recap ----
+# (session_id is read above, before the D7 context-arm.)
+story_signal=""
+_gh=$(echo "$last_line" | jq -r '.message.content[]? | select(.type=="tool_use" and .name=="Bash") | .input.command // empty' 2>/dev/null | grep -c 'gh pr create' || true)
+_url=$(printf '%s' "$text" | grep -oE 'github\.com/[^ )]+/pull/[0-9]+' | head -1 || true)
+if [ "${_gh:-0}" -gt 0 ] || [ -n "$_url" ]; then
+  story_signal="${_url:-pr-created}"
+fi
+if [ -z "$text" ] && [ "$has_askuserquestion" != "true" ] && [ -z "$story_signal" ]; then
+  # Tool-only turn. Nothing to recap — but an unattended turn that ends on a tool call with
+  # dispatched work outstanding is still F10.
+  _autonomy_exit
+fi
+
+text_length=${#text}
+
+# -- B2 Part C — anchor degradation under ZCode (honest, non-plan-breaking) -------
+# L43 (ai-title grep) and L45 (user-message grep) below both assume CC's outer "type"
+# field. ZCode's synthetic transcript has no ai-title AND likely no outer type on user
+# turns → anchor falls through to aif_msg_eot_anchor_fallback. Part B (thin-recap) does
+# NOT depend on the anchor quality, so this is documented degradation, not a fix target.
+# Plan-v3 §"Part C" defers restoration to a follow-up.
+
+# -- B2 Part B — ZCode thin-recap branch (plan-v3 §"Bespoke #1 Part B") -----------
+# On ZCode the full recap cascade below (Branch A/B/C via systemMessage+reason) reaches
+# the model only through the `reason` field (the comment at the bottom documents that
+# systemMessage is user-UI-only and does NOT reach the model). The cascade still fires
+# correctly on ZCode post-Part-A — but we additionally surface a thin ZCode-only recap
+# nudge EARLIER, on the long-markdown case, so the model gets a clean per-turn recap
+# instruction without competing with the cascade's heavier whole-session recap.
+# Branch fires when: _is_zcode AND last assistant text > 500 chars AND markdown-dense
+# (heuristic: contains ## or ** or a blank line — same density signal as the cascade).
+# Field shape: {decision:"block", reason:<nudge>, systemMessage:<optional glance>} —
+# the proven Stop-hook emit shape (T-ZP-B: reason, NOT additionalContext). Emitting
+# `reason` is load-bearing: that is the field delivered to the MODEL on Stop decision:block.
+if _is_zcode && [ "$text_length" -gt 500 ]; then
+  # markdown-dense check: ## heading, ** bold, or a blank line (paragraph break).
+  # The blank-line check uses an ANSI-C quoted $'\n\n' literal — portable across bash 3.2+.
+  if printf '%s' "$text" | grep -qE '\*\*|^##?[[:space:]]' \
+     || printf '%s' "$text" | grep -qF $'\n\n'; then
+    # Reuse the Branch A lighter per-turn recap instruction (same anchor interpolation).
+    _ze_reason="$(aif_msg_eot_branch_a)"
+    # The ZCode arm blocks and hands back a recap instruction, so without this the model
+    # spends a turn writing a recap while the continuation directive it actually needed was
+    # dropped — a parity gap, not accepted degradation (zcode-parity-doctrine.md §5 lists
+    # ZCode as supported today). Same append as the CC bottom block.
+    if [ -n "$autonomy_line" ]; then
+      _ze_reason="${_ze_reason}"$'\n\n'"${autonomy_line}"
+    fi
+    if [ -n "$ctx_line" ]; then
+      _ze_reason="${_ze_reason}"$'\n\n'"${ctx_line}"
+    fi
+    _ze_glance="🎯 $(printf '%s' "${anchor}" | head -c 60 | LC_ALL=C tr '\n' ' ')"
+    jq -n --arg msg "$_ze_reason" --arg gl "$_ze_glance" '{
+      decision: "block",
+      reason: $msg,
+      systemMessage: $gl
+    }'
+    exit 0
+  fi
+fi
+unset _ze_reason _ze_glance 2>/dev/null || true
+
+# -- orchestration-mode marker (deterministic; normal mode = marker absent) ----
+# In orchestration mode (driving aif-handoff, relaying state every turn) two
+# triggers are re-tuned (Bug A regex dropped, recap threshold lowered); normal
+# mode is byte-for-byte unchanged. Freshness (mtime within TTL) guards against a
+# forgotten marker silently muting a normal session. Spec: docs/superpowers/
+# specs/2026-06-01-hook-nudge-orchestration-mode-design.md.
+orch_mode=false
+marker="${ORCHESTRATION_MODE_MARKER:-${CLAUDE_PROJECT_DIR:-.}/.claude/orchestration-mode}"
+ttl="${ORCHESTRATION_MODE_TTL_SECONDS:-21600}"
+if [ -f "$marker" ]; then
+  marker_now=$(date +%s)
+  # GNU-first, BSD-fallback: try `stat -c %Y` (GNU/Linux) before `stat -f %m` (BSD/macOS).
+  # The reverse order silently breaks on Linux — GNU `stat -f` is --file-system, so
+  # `stat -f %m` EXITS 0 with a garbage value (not mtime), the `||` fallback never fires,
+  # and the marker reads as expired → orchestration mode never activates on Linux/CI.
+  # BSD `stat -c` fails cleanly (illegal option), so GNU-first degrades correctly on macOS.
+  marker_mtime=$(stat -c %Y "$marker" 2>/dev/null || stat -f %m "$marker" 2>/dev/null || echo 0)
+  if [ "$(( marker_now - marker_mtime ))" -lt "$ttl" ]; then
+    orch_mode=true
+  fi
+fi
+
+# Already-recapped guard: if the current assistant turn already contains the
+# active-language recap marker ($AIF_RECAP_MARKER, sourced from lang/), the recap
+# is done — re-firing would re-inject the recap instruction over an existing recap.
+# Complements the built-in stop_hook_active guard (hook:7-10) for the case where the
+# model proactively recaps in a fresh natural turn (stop_hook_active=false).
+if [ -n "$text" ] && printf '%s' "$text" | grep -qF "$AIF_RECAP_MARKER"; then
+  # THE case the 2026-07-24 cold audit caught: this guard is correct about recaps and was
+  # catastrophically wrong about autonomy. "Ends the turn on a report" IS a recap-marked turn,
+  # so a bare `exit 0` here made the F10 arm silent in precisely its motivating scenario —
+  # and worse as the session got longer, because the Branch A/B/C payloads train the model to
+  # emit this marker. Suppress the recap re-injection, keep the continuation directive.
+  _autonomy_exit
+fi
+
+# Story already told this turn → do not re-inject.
+if [ -n "$story_signal" ] && [ -n "$text" ] && printf '%s' "$text" | grep -qF "$AIF_STORY_MARKER"; then
+  _autonomy_exit
+fi
+# Debounce by PR: same PR already storied this session → fall through to normal branches.
+if [ -n "$story_signal" ]; then
+  story_flag="${TMPDIR:-/tmp}/aif-story-${session_id}"
+  if [ -f "$story_flag" ] && [ "$(cat "$story_flag" 2>/dev/null || true)" = "$story_signal" ]; then
+    story_signal=""
+  fi
+fi
+
+# Trigger ONLY on (a) a substantial structured answer (a long body) or
+# (b) a question. Tool calls alone do NOT trigger — a short "done, fixed X"
+# turn with no question needs no recap.
+#
+# NOTE: the v1 factual-claim scan (numeric / file:line / negative-existence) was
+# REMOVED 2026-06-01 (maintainer decision). Measured recall ≈0.43 + precision
+# ≈0.20-0.25 (cry-wolf) made it a net-negative sentry — the same class as the
+# recommendation-laziness narrow-B stop-scan dropped at FP 84% (#210). Rationale +
+# evidence: docs/meta-factory/research-patches/2026-06-01-remove-claim-detector.md.
+# The recap (Branch A/C) + question-check (Branch B) survive; the always-on H1
+# reminder in inject-session-bootstrap.sh remains the cheap salience layer.
+# Recap threshold is lowered in orchestration mode (status turns are short+dense)
+# but the markdown-structure gate is KEPT, so unstructured chatter stays silent.
+long_text=false
+recap_threshold=500
+if [ "$orch_mode" = "true" ]; then
+  recap_threshold="${ORCHESTRATION_MODE_RECAP_MIN_CHARS:-200}"
+fi
+if [ "$text_length" -gt "$recap_threshold" ]; then
+  if echo "$text" | grep -qE '^#|^- |^\* |\*\*|```|\[[^]]+\]\([^)]+\)'; then
+    long_text=true
+  fi
+fi
+
+# Did the turn end in a question?
+asked=false
+if [ "$has_askuserquestion" = "true" ]; then
+  asked=true
+elif [ -n "$text" ]; then
+  tail_chunk=$(echo "$text" | tail -c 500)
+  if echo "$tail_chunk" | grep -qE '\?[[:space:]]*$'; then
+    asked=true
+  elif [ "$orch_mode" = "false" ] && echo "$tail_chunk" | grep -qiE "$AIF_EOT_QUESTION_PATTERN"; then
+    asked=true
+  fi
+fi
+
+
+# -- MAJOR-1 idle-suppression guard -------------------------------------------
+# Suppress Branch B (asked=true, long_text=false) ONLY when BOTH hold:
+#   (a) Previous assistant turn already produced a "## 🟢" recap block.
+#   (b) Current turn text is NOT new -- its first 120 chars appear verbatim in
+#       the previous turn text (same question repeated/re-ping after recap).
+# A genuinely new question will NOT match (b) because it contains content the
+# previous turn never had. Only idle re-pings are suppressed.
+# Guard never fires if only one assistant turn exists in the transcript.
+# B2 fix: NEVER suppress when text is empty (AskUserQuestion-only turn) or
+# has_askuserquestion=true or current_short is empty — a tool-only turn asking a
+# NEW question must always fire. Short-circuit BEFORE the grep -qF call.
+idle_suppress=false
+if [ "$asked" = "true" ] && [ "$long_text" = "false" ]; then
+  # B2: if text is empty or it's an AskUserQuestion-only turn, never suppress
+  if [ -z "$text" ] || [ "$has_askuserquestion" = "true" ]; then
+    idle_suppress=false
+  else
+    # Stage 9C (zcode-parity-s9c-multiturn-zcode-arm) — source for prev_line:
+    # CC reads its native transcript (multi-line per session); ZCode's synthetic
+    # transcript has 1 line per turn (step-1 evidence, zcode.cjs:~1072550 $_n
+    # producer), making tail-2|head-1 structurally inert on ZCode. When _is_zcode,
+    # prefer the rollout file (~/.zcode/cli/rollout/model-io-*.jsonl) which has
+    # multi-line per session (R1 INHERITED-INFERRED per research-patch
+    # 2026-07-18-zcode-parity-s9-multiturn-anchor.md §3.3; own-verification BLOCKED
+    # on container access — runtime gated on rollout reachability, degrades
+    # gracefully to synthetic when rollout is absent). Operator decision ADOPT 9C
+    # (decisions.md §Fork 3): hybrid — synthetic anchor (unchanged) + rollout
+    # multi-turn guard. CC path byte-identical (default branch).
+    _prev_src="$transcript"
+    if _is_zcode; then
+      _zc_dir="${ZCODE_ROLLOUT_DIR:-$HOME/.zcode/cli/rollout}"
+      _zc_file=""
+      if [ -d "$_zc_dir" ]; then
+        # Prefer session-id-pinned file; fall back to newest model-io-*.jsonl.
+        if [ -n "$session_id" ] && [ "$session_id" != "nosession" ] \
+           && [ -f "$_zc_dir/model-io-$session_id.jsonl" ]; then
+          _zc_file="$_zc_dir/model-io-$session_id.jsonl"
+        else
+          _zc_file=$(ls -t "$_zc_dir"/model-io-*.jsonl 2>/dev/null | head -1 || true)
+        fi
+      fi
+      if [ -n "$_zc_file" ] && [ -f "$_zc_file" ]; then
+        # Need ≥2 assistant turns in rollout for prev_line to be meaningful;
+        # otherwise tail-2|head-1 equals tail-1 (degenerate == current turn).
+        _zc_n=$(grep -cE '"(type|role)":"assistant"' "$_zc_file" 2>/dev/null || echo 0)
+        if [ "${_zc_n:-0}" -ge 2 ]; then
+          _prev_src="$_zc_file"
+        fi
+        unset _zc_n
+      fi
+      unset _zc_dir _zc_file
+    fi
+    prev_line=$(grep -E '"(type|role)":"assistant"' "$_prev_src" 2>/dev/null | tail -2 | head -1 || true)
+    unset _prev_src
+    if [ -n "$prev_line" ] && [ "$prev_line" != "$last_line" ]; then
+      prev_text=$(printf '%s' "$prev_line" | jq -r '.message.content[]? | select(.type=="text") | .text' 2>/dev/null || true)
+      if printf '%s\n' "${prev_text}" | grep -q '## 🟢'; then
+        current_short=$(printf '%s' "$text" | head -c 120 | LC_ALL=C tr '\n' ' ')
+        # B2: if current_short is empty, never suppress (empty grep -qF "" matches anything)
+        if [ -n "$current_short" ] && printf '%s\n' "${prev_text}" | grep -qF "${current_short}"; then
+          idle_suppress=true
+        fi
+      fi
+    fi
+  fi
+fi
+
+if [ "$idle_suppress" = "true" ]; then
+  _autonomy_exit
+fi
+
+# -- P-user glance-line (systemMessage field) ---------------------------------
+# Shown to the USER in CC UI (not to the model). Format: 🎯 <anchor ≤60 chars>
+anchor_short=$(echo "${anchor}" | head -c 60 | LC_ALL=C tr '\n' ' ')
+glance_line="🎯 ${anchor_short}"
+
+# Three branches:
+#   Branch C — long answer AND a trailing fork-question: needs BOTH the work
+#     recap (+ goal drift verdict) AND the recommendation-first/fork-challenge.
+#     A pure long-wins collapse would drop the recommendation nudge exactly when
+#     a fork is on the table — the highest-value moment for it.
+#     DECISION-1=B (gated): Branch C = whole-session recap, Branch A = lighter per-turn body;
+#     maintainer may switch to A by extending the recap to Branch A.
+#   Branch A — long substantive answer, no question: lighter per-turn work recap.
+#   Branch B — a question with no long answer body: fork-challenge + recommend-first.
+#   Neither (short chatter, bare tool call) — stay silent (no reminder).
+if [ "$long_text" = "false" ] && [ "$asked" = "false" ] && [ -z "$story_signal" ]; then
+  # Normally silent — but if autonomous work is in flight, a silent stop IS the F10 failure;
+  # and a spent-context turn deserves its handoff line even when no recap is due.
+  _autonomy_exit
+fi
+
+if [ -n "$story_signal" ]; then
+  reminder=$(aif_msg_eot_branch_story)
+  printf '%s' "$story_signal" > "${TMPDIR:-/tmp}/aif-story-${session_id}" 2>/dev/null || true
+elif [ "$long_text" = "true" ] && [ "$asked" = "true" ]; then
+  # Branch C: whole-session recap + fork-challenge (DECISION-1=B full recap stays here)
+  reminder=$(aif_msg_eot_branch_c)
+elif [ "$long_text" = "true" ]; then
+  # Branch A: lighter per-turn body (DECISION-1=B — whole-session recap stays in Branch C only)
+  reminder=$(aif_msg_eot_branch_a)
+elif [ "$asked" = "true" ]; then
+  # Branch B: bare fork-question, no long body
+  reminder=$(aif_msg_eot_branch_b)
+fi
+
+# `reason` is the field delivered to the MODEL when decision=block on a Stop hook
+# (the agent does not stop and gets one more turn with `reason` injected — so the
+# recap instruction MUST go here). `systemMessage` is user-UI only and does NOT
+# reach the model. Verified dual-channel 2026-05-21: Claude Code hooks docs (Stop
+# decision-control: "reason must be provided for Claude to know how to proceed")
+# + WebSearch corroboration; #81's systemMessage-delivery never reached the model.
+# When the autonomy arm has something to say AND a normal branch already fired, the two ride
+# on the same block — never two blocks, and the continuation directive is never dropped just
+# because a recap happened to be due this turn.
+if [ -n "$autonomy_line" ]; then
+  reminder="${reminder}"$'\n\n'"${autonomy_line}"
+fi
+if [ -n "$ctx_line" ]; then
+  reminder="${reminder}"$'\n\n'"${ctx_line}"
+fi
+
+jq -n --arg msg "$reminder" --arg gl "${glance_line}" '{
+  decision: "block",
+  reason: $msg,
+  systemMessage: $gl
+}'
+exit 0

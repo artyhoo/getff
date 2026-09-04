@@ -68,6 +68,12 @@ const HELPER = resolve(
   '.claude/skills/pipeline/helpers/priority-score.sh',
 );
 
+// Each case spawns priority-score.sh against a real git fixture, so the default 5s
+// ceiling is too tight under a fully parallel `npm run test` on a loaded box
+// (observed 14-51s). Mirrors the SLOW_SHELL_MS convention (PR #848, e.g.
+// pre-push.consumer-layout.test.ts).
+const SLOW_SHELL_MS = 30_000;
+
 const sandboxes: string[] = [];
 afterEach(() => {
   for (const d of sandboxes.splice(0)) rmSync(d, { recursive: true, force: true });
@@ -199,7 +205,7 @@ function runHelper(
 // priority-score.sh lines ~210-215 (find + while loop, section "(a)")
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('synthetic surface (a) — cold-review-fixes.md', () => {
+describe('synthetic surface (a) — cold-review-fixes.md', { timeout: SLOW_SHELL_MS }, () => {
   it('POSITIVE: cold-review-fixes.md present → emits "<umbrella>-cold-review-fixes type=cleanup" line', () => {
     // Targets priority-score.sh section (a):
     //   find "${PROMPTS_DIR}" -mindepth 2 -maxdepth 2 -name 'cold-review-fixes.md'
@@ -238,7 +244,7 @@ describe('synthetic surface (a) — cold-review-fixes.md', () => {
 // priority-score.sh lines ~218-223 (section "(b)")
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('synthetic surface (b) — state.md PENDING marker', () => {
+describe('synthetic surface (b) — state.md PENDING marker', { timeout: SLOW_SHELL_MS }, () => {
   it('POSITIVE: state.md contains PENDING → emits "<umbrella>-state-pending type=state-followup" line', () => {
     // Targets priority-score.sh section (b):
     //   find ... -name 'state.md' | xargs grep -l -iE 'PENDING|TODO|AWAITING|REVIEW-PENDING'
@@ -306,7 +312,7 @@ describe('synthetic surface (b) — state.md PENDING marker', () => {
 // priority-score.sh lines ~251-259 (section "(e)")
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('synthetic surface (e) — wave-plan 🟡 rows', () => {
+describe('synthetic surface (e) — wave-plan 🟡 rows', { timeout: SLOW_SHELL_MS }, () => {
   it('POSITIVE: wave plan has 🟡 table row → emits "wave-plan-<id> type=plan-followup" line', () => {
     // Targets priority-score.sh section (e):
     //   grep -E '^\|' "${MO_WAVE_PLAN}" | grep -E '🟡|🔲...' | sed row_id extraction
@@ -400,7 +406,7 @@ describe('synthetic surface (e) — wave-plan 🟡 rows', () => {
 // priority-score.sh lines ~262-268 (section "(f)")
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('synthetic surface (f) — open-questions.md §13.x entries', () => {
+describe('synthetic surface (f) — open-questions.md §13.x entries', { timeout: SLOW_SHELL_MS }, () => {
   it('POSITIVE: open-questions.md has "### 13.42" heading → emits "openq-§13-42 type=open-question"', () => {
     // Targets priority-score.sh section (f):
     //   grep -nE '^### 13\.[0-9]+' "${MO_OPEN_QUESTIONS}"
@@ -475,7 +481,7 @@ describe('synthetic surface (f) — open-questions.md §13.x entries', () => {
 // priority-score.sh lines ~271-280 (section "(g)")
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('synthetic surface (g) — TODO/FIXME/XXX in .ts files', () => {
+describe('synthetic surface (g) — TODO/FIXME/XXX in .ts files', { timeout: SLOW_SHELL_MS }, () => {
   it('POSITIVE: .ts file with "// TODO: fix this" → emits "todo-<path>-<lineno> type=code-todo" line', () => {
     // Targets priority-score.sh section (g):
     //   grep -rnE '//[[:space:]]*(TODO|FIXME|XXX):' "${MO_PACKAGES_DIR}" --include='*.ts' ...
@@ -588,10 +594,133 @@ describe('synthetic surface (g) — TODO/FIXME/XXX in .ts files', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Closure suppression for the DIRECTORY-SCOPED surfaces (a) + (b)
+// priority-score-synthetic.sh `_umbrella_closed` + its two call sites
+//
+// A done.md is the same completion signal priority-score.sh trusts as load-bearing
+// (Layer C3, operational-conventions.md §1). Surfaces (a) and (b) key on an umbrella
+// directory, so a closed umbrella must stop generating follow-up candidates.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('closure suppression — done.md silences surfaces (a) + (b)', { timeout: SLOW_SHELL_MS }, () => {
+  it('NEGATIVE: state.md PENDING + done.md in the same dir → no state-pending entry', () => {
+    // Paired with the surface-(b) POSITIVE above: identical fixture plus done.md.
+    const sandbox = makeSandbox();
+    setupPromptsDir(sandbox, ['closed-umbrella']);
+    const dir = join(sandbox, '.claude', 'orchestrator-prompts', 'closed-umbrella');
+    writeFileSync(join(dir, 'state.md'), '# State\n\nStatus: PENDING\n', 'utf8');
+    writeFileSync(
+      join(dir, 'done.md'),
+      '# closed-umbrella — DONE\n- Final PR: #1407\n- Closed: 2026-08-17\n- Summary: closed\n',
+      'utf8',
+    );
+
+    const r = runHelper(sandbox);
+    expect(r.status).toBe(0);
+    expect(r.stdout).not.toMatch(/closed-umbrella-state-pending/);
+  });
+
+  it('NEGATIVE: cold-review-fixes.md + done.md in the same dir → no cold-review-fixes entry', () => {
+    // Paired with the surface-(a) POSITIVE above: identical fixture plus done.md.
+    const sandbox = makeSandbox();
+    setupPromptsDir(sandbox, ['closed-umbrella']);
+    const dir = join(sandbox, '.claude', 'orchestrator-prompts', 'closed-umbrella');
+    writeFileSync(join(dir, 'cold-review-fixes.md'), '# cold review fixes\n\n- fix A\n', 'utf8');
+    writeFileSync(
+      join(dir, 'done.md'),
+      '# closed-umbrella — DONE\n- Final PR: #1407\n- Closed: 2026-08-17\n- Summary: closed\n',
+      'utf8',
+    );
+
+    const r = runHelper(sandbox);
+    expect(r.status).toBe(0);
+    expect(r.stdout).not.toMatch(/cold-review-fixes/);
+  });
+
+  it('NEGATIVE: <x>-meta-launch state.md PENDING + done.md in the PARENT <x> → no state-pending entry', () => {
+    // Parent inheritance: `<x>-meta-launch` is the launch staging FOR `<x>`, so closing
+    // `<x>` closes its staging. Live case: triage-kernel-v2 closed by PR #1407 while
+    // triage-kernel-v2-meta-launch/state.md still named a superseded aif task.
+    const sandbox = makeSandbox();
+    setupPromptsDir(sandbox, ['parent-umbrella', 'parent-umbrella-meta-launch']);
+    const promptsDir = join(sandbox, '.claude', 'orchestrator-prompts');
+    writeFileSync(
+      join(promptsDir, 'parent-umbrella-meta-launch', 'state.md'),
+      '# State\n\nStatus: PENDING — dispatched to a superseded task\n',
+      'utf8',
+    );
+    // done.md lives in the PARENT only — the meta-launch sibling carries none.
+    writeFileSync(
+      join(promptsDir, 'parent-umbrella', 'done.md'),
+      '# parent-umbrella — DONE\n- Final PR: #1407\n- Closed: 2026-08-17\n- Summary: closed\n',
+      'utf8',
+    );
+
+    const r = runHelper(sandbox);
+    expect(r.status).toBe(0);
+    expect(r.stdout).not.toMatch(/parent-umbrella-meta-launch-state-pending/);
+  });
+
+  it('POSITIVE: inheritance is ONE-DIRECTIONAL — done.md in <x>-meta-launch does NOT silence <x>', () => {
+    // The reverse of the case above must NOT suppress: a finished launch staging says
+    // nothing about the umbrella's own work. 6 dirs in the live tree are in exactly this
+    // state (meta-launch done.md, parent umbrella still open).
+    const sandbox = makeSandbox();
+    setupPromptsDir(sandbox, ['open-umbrella', 'open-umbrella-meta-launch']);
+    const promptsDir = join(sandbox, '.claude', 'orchestrator-prompts');
+    writeFileSync(
+      join(promptsDir, 'open-umbrella', 'state.md'),
+      '# State\n\nStatus: PENDING — stage 2 still in flight\n',
+      'utf8',
+    );
+    writeFileSync(
+      join(promptsDir, 'open-umbrella-meta-launch', 'done.md'),
+      '# open-umbrella-meta-launch — DONE\n- Final PR: #1400\n- Closed: 2026-08-17\n- Summary: launched\n',
+      'utf8',
+    );
+
+    const r = runHelper(sandbox);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toMatch(/open-umbrella-state-pending\s+type=state-followup/);
+  });
+
+  it('POSITIVE: a done.md does NOT silence the non-directory-scoped surfaces (f) + (g)', () => {
+    // Per-surface decision, not a blanket rule: (c)-(h) key on repo-level artefacts
+    // (memory, live PRs, wave plan, open-questions, packages/**/*.ts, research-patches),
+    // where "a done.md in the same directory" is undefined. They must survive closure.
+    const sandbox = makeSandbox();
+    setupPromptsDir(sandbox, ['closed-umbrella']);
+    writeFileSync(
+      join(sandbox, '.claude', 'orchestrator-prompts', 'closed-umbrella', 'done.md'),
+      '# closed-umbrella — DONE\n- Final PR: #1407\n- Closed: 2026-08-17\n- Summary: closed\n',
+      'utf8',
+    );
+    const openQPath = join(sandbox, 'open-questions.md');
+    writeFileSync(openQPath, '# Open questions\n\n### 13.42\n\nStill open.\n', 'utf8');
+    const pkgsDir = join(sandbox, 'packages');
+    mkdirSync(join(pkgsDir, 'mylib', 'src'), { recursive: true });
+    writeFileSync(
+      join(pkgsDir, 'mylib', 'src', 'helper.ts'),
+      '// Some code\n// TODO: fix this before release\n',
+      'utf8',
+    );
+
+    const r = runHelper(sandbox, {
+      MO_OPEN_QUESTIONS: openQPath,
+      MO_PACKAGES_DIR: pkgsDir,
+      REPO_ROOT: sandbox,
+    });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toMatch(/openq-§13-42\s+type=open-question/);
+    expect(r.stdout).toMatch(/todo-.*helper\.ts-2\s+type=code-todo/);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Cross-surface: script always emits the synthetic section header
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('synthetic section header always present', () => {
+describe('synthetic section header always present', { timeout: SLOW_SHELL_MS }, () => {
   it('script emits the synthetic section header even with empty sandbox', () => {
     // Verifies priority-score.sh line ~207:
     //   echo "=== priority-score: synthetic candidates (synthetic-candidate extension) ==="

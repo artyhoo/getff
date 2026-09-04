@@ -64,6 +64,8 @@ function makeCargoRootWithHomepage(homepage: string): string {
 }
 
 describe('tier1For — ecosystem-prefix dispatch (S4)', () => {
+  // @arm:B2:pos value-guard-containment (a KNOWN prefix matching the wired
+  // adapter resolves — the paired positive for the F4 fail-closed negatives below)
   it('cargo: prefix with cargo adapter resolves Tier-1', () => {
     const root = makeCargoRoot();
     const resolved = resolveAllowedSources({ root, adapter: cargoAdapter });
@@ -134,11 +136,32 @@ describe('tier1For — ecosystem-prefix dispatch (S4)', () => {
     });
   });
 
-  it('unknown ecosystem prefix fails closed regardless of wired adapter', () => {
+  // Title drift fixed at adapter-jig time: since LG-S4 shipped pipAdapter, `pip`
+  // is a KNOWN prefix (ecosystem-name.ts KNOWN_ECOSYSTEM_PREFIXES), so this
+  // fixture exercises the cross-ecosystem MISMATCH branch (known prefix ≠ wired
+  // adapter), NOT the parse-level 'unknown' branch — the genuinely-unknown-prefix
+  // F4 fixture is the gem: test below.
+  it('known-but-unwired ecosystem prefix (pip: vs cargo adapter) fails closed via the mismatch branch', () => {
     const root = makeCargoRoot();
     const resolved = resolveAllowedSources({ root, adapter: cargoAdapter });
     const r = resolved.tier1For('pip:requests');
     expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.reason).toMatch(/ecosystem "pip"/);
+  });
+
+  // @arm:B2:neg value-guard-containment (F4 fail-closed: a genuinely-UNKNOWN
+  // prefix — gem: has no adapter — parses to ecosystem:'unknown'
+  // (ecosystem-name.ts:45) and can match NO wired adapter, so tier1For always
+  // misses. The reason string pins the 'unknown' parse verdict, discriminating
+  // this branch from the known-prefix mismatch above. RED-proof: inverted
+  // assertion (`ok → toBe(true)`) observed failing ("expected false to be
+  // true") before landing this GREEN form.)
+  it('genuinely-unknown prefix (gem: — no adapter exists) hits the F4 unknown fail-closed branch', () => {
+    const root = makeCargoRoot();
+    const resolved = resolveAllowedSources({ root, adapter: cargoAdapter });
+    const r = resolved.tier1For('gem:rails');
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.reason).toMatch(/ecosystem "unknown"/);
   });
 
   it('scope-lock stays prefix-consistent: the RAW-STRING check requires BOTH sides to carry the identical prefixed-or-bare form via validateProvenance', () => {

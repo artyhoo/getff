@@ -1,6 +1,6 @@
 # Companion-integration analysis — R-PHASE KICKOFF
 
-> **§3.5 status (added 2026-05-17):** **CLEAR per Iteration 2** — [drafts/kickoff-self-review-iteration-1.md](drafts/kickoff-self-review-iteration-1.md) + [drafts/kickoff-self-review-iteration-2.md](drafts/kickoff-self-review-iteration-2.md) document 2 BLOCKERS (B1 D-IDs, B2 Superpowers install-model) + 5 MAJOR + 3 MINOR + 8 propagation defects identified and resolved. Maintainer decisions applied: B1 → strip-numbers-keep-labels; B2 → option A (skip Superpowers install probe; read-only DeepWiki + WebFetch only). **Fresh sessions: SKIP §3.5 iteration loop and start at §4.0 unless kickoff content has changed since 2026-05-17 (verify via `git log --oneline -- .claude/orchestrator-prompts/companion-integration-analysis/kickoff.md`).** If kickoff has changed, re-run §3.5 starting from Iteration 3.
+> **§3.5 status (added 2026-05-17):** **CLEAR per Iteration 2** — `drafts/kickoff-self-review-iteration-1.md` + `drafts/kickoff-self-review-iteration-2.md` document 2 BLOCKERS (B1 D-IDs, B2 Superpowers install-model) + 5 MAJOR + 3 MINOR + 8 propagation defects identified and resolved. Maintainer decisions applied: B1 → strip-numbers-keep-labels; B2 → option A (skip Superpowers install probe; read-only DeepWiki + WebFetch only). **Fresh sessions: SKIP §3.5 iteration loop and start at §4.0 unless kickoff content has changed since 2026-05-17 (verify via `git log --oneline -- .claude/orchestrator-prompts/companion-integration-analysis/kickoff.md`).** If kickoff has changed, re-run §3.5 starting from Iteration 3.
 > **Execution-mode hint for fresh sessions:** at session start, request maintainer to enable «work without stopping for clarifying questions» override. Per §6.1 §12, maintainer-decision items are COLLECTED in research-patch §12 DECISION-NEEDED list and reviewed post-session — they should NOT block §4.0-§4.7 execution mid-flight.
 >
 > **Status:** ARMED 2026-05-16
@@ -99,7 +99,7 @@ Before executing §4 methodology, the R-phase MUST self-review this kickoff itse
 
 For EACH of 4 projects (US + AIF + aif-handoff + Superpowers), enumerate capabilities into a flat list. Format:
 
-```
+```text
 PROJECT: <name>
 Source: <repo / file path / DeepWiki query>
 
@@ -203,7 +203,7 @@ This is the most expensive section but the most load-bearing.
 
 **Document EACH conflict as:**
 
-```
+```text
 CONFLICT C-N:
 - What: <file / hook / trigger>
 - Who collides: <project A vs project B>
@@ -230,7 +230,7 @@ Drawing from §4.2 overlap + §4.3 conflicts, for each row produce final verdict
 
 Based on §4.3 conflicts, produce:
 
-```
+```text
 INSTALL ORDER (recommended):
 1. <project A> first because <reason>
 2. <project B> second because <depends on A or non-conflicting>
@@ -387,4 +387,6 @@ If you find yourself writing «companion X integrates cleanly with us» without 
 - [docs/meta-factory/prior-art-evaluations.md](../../../docs/meta-factory/prior-art-evaluations.md) — SSOT (no Superpowers entry yet; add after this R-phase if integration recommends)
 - [.claude/orchestrator-prompts/companion-target-comparison/kickoff.md](../companion-target-comparison/kickoff.md) — Track 4b kickoff (still ARMED for other 6 candidates)
 - [.claude/orchestrator-prompts/post-1a-coordination/kickoff.md](../post-1a-coordination/kickoff.md) — post-1A overall coordinator
-- [.claude/orchestrator-prompts/goal-clarity-dialogue/drafts/atomic-commit-plan.md Commit 7](../goal-clarity-dialogue/drafts/atomic-commit-plan.md) — downstream Commit 7 (this R-phase grounds it substantively)
+- .claude/orchestrator-prompts/goal-clarity-dialogue/drafts/atomic-commit-plan.md Commit 7 (`../goal-clarity-dialogue/drafts/atomic-commit-plan.md`) — downstream Commit 7 (this R-phase grounds it substantively)
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

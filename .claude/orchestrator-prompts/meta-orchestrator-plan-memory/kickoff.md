@@ -144,7 +144,7 @@ T16 check on each: «upstream problem-class = X, our problem-class = Y, match? e
 - **T11** — designing custom plan-memory without prior-art check. Counter: §4 mandatory before any «what if we…».
 - **T12** — skipping literature sweep because «I know Cline Memory Bank». Counter: WebSearch ≥3 phrasings + DeepWiki even on familiar tools.
 - **T15** — self-application skipped. Counter: §3.7 must produce explicit answer.
-- **T16** — pattern-matching-on-name. «Memory Bank» sounds catch-all; verify problem-class match (committed-markdown-on-project-launch ≠ skill-self-updating-on-every-invocation). 
+- **T16** — pattern-matching-on-name. «Memory Bank» sounds catch-all; verify problem-class match (committed-markdown-on-project-launch ≠ skill-self-updating-on-every-invocation).
 - **T20** — inline-verdict-without-evidence. Counter: no «ADOPT Cline» until §4 prior-art row written with file:line/DeepWiki-output evidence.
 - **T-PM-A (NEW, domain-specific)** — **«brainstorming as architecture-decision»**. Brainstorming explores options; it does NOT pick the winning architecture. If brainstorm output reads «we should build X with Y» — that's R-phase work, brainstorm overstepped. Counter: brainstorm output is 1-2 viable design directions WITH the questions R-phase must answer to pick between them, not a single picked direction.
 
@@ -193,3 +193,5 @@ In a fresh Opus session, paste this kickoff §1 + §3 + §4 verbatim, then say:
 - **`docs/meta-factory/research-patches/2026-05-23-meta-orchestrator-prior-art.md`** — public BUILD verdict for `/meta-orchestrator`
 - **`docs/meta-factory/research-patches/2026-05-25-planner-completeness-prior-art.md`** — L3/L4/L5 prior-art (TaskMaster + SDD + OpenHands rows #72-#75)
 - **Companion brainstorm-vs-R-phase precedent:** look at how `recommendation-laziness` umbrella separated R-phase (#206/#207) from benchmark (#210) from I-phase (#211/#212/#215) — same Phase-separation discipline applies here, with brainstorm preceding R-phase as PRE-research.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

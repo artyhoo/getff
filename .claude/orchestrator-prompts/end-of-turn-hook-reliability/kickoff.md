@@ -33,7 +33,7 @@ During an orchestrator session where the maintainer + assistant were **literally
 
 **None did.** Empirical fire log for the session (from `~/.claude/projects/-Users-art-code-rules-as-tests-aif/08570cad-*.jsonl`):
 
-```
+```text
 2026-05-17T11:36:09Z — fire
 2026-05-17T11:50:29Z — fire
 (silent thereafter — 3 qualifying turns went un-instrumented)
@@ -257,7 +257,7 @@ Phase C edits are **modifications** to existing `.claude/hooks/end-of-turn-remin
 
 ## §9 Worktree + session dispatch
 
-Per [orchestrator skill cross-session dispatch](~/.claude/skills/orchestrator/SKILL.md) — **mandatory worktree**, not shared workdir:
+Per orchestrator skill cross-session dispatch (`~/.claude/skills/orchestrator/SKILL.md`) — **mandatory worktree**, not shared workdir:
 
 ```bash
 git worktree add ../rules-as-tests-aif-eot-hook origin/main
@@ -284,3 +284,5 @@ Phase A (audit) can run as **Mode A inline Agent on Opus** for the diagnostic sy
 - Closed PR #73 thread — full rationale on what aggregation tried and why rejected.
 - Maintainer investigation session `2389cb56-5959-4503-9ed9-7dea6e0f6d16.jsonl` — origin of race-condition rejection.
 - Origin session `08570cad-c697-4a9b-a2ca-b00fec323266.jsonl` — empirical silent false-negative observation (this kickoff's trigger).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -73,3 +73,9 @@ See [`.claude/rules/ai-laziness-traps.md §2`](../../rules/ai-laziness-traps.md)
 
 **Domain-specific:**
 - **T-MIF-B** — «модуляризация байт-в-байт» заявлена, не доказана. Counter: greenfield+brownfield snapshot before/after = identical, per cut.
+
+```bash host-verify
+# Retro-marked 2026-08-21: §4 acceptance — byte-identical snapshots + shellcheck clean
+SNAPSHOT_MODE=compare bash tests/install-sh/snapshot.sh
+shellcheck setup.d/*.sh install.sh
+```

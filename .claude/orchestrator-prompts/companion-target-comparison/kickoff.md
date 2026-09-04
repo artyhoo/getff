@@ -5,7 +5,7 @@
 > **Type:** standalone R-phase, NOT wave/phase, NOT dialogue. Single focused sitting, 3-4 hours.
 > **Deliverable:** research-patch + per-target verdict (ADOPT / ADOPT-VOCABULARY / ADAPT / REFERENCE / KEEP-NARROW / BUILD / REJECT) per BFR-default rule §1 + recommendation for §4.4 5-item vocabulary mapping codification + draft content for Commit 7 (README subline widening).
 > **NO PR. NO commits beyond research-patch. NO scope expansion beyond the 7 named candidates.**
-> **Blocking dependency for:** Commit 7 (README subline + «is/isn't» widening) of [atomic-commit-plan.md](../goal-clarity-dialogue/drafts/atomic-commit-plan.md). Also unblocks §4.4 5-item codification (vocabulary mapping currently DEFERRED).
+> **Blocking dependency for:** Commit 7 (README subline + «is/isn't» widening) of atomic-commit-plan.md (`../goal-clarity-dialogue/drafts/atomic-commit-plan.md`). Also unblocks §4.4 5-item codification (vocabulary mapping currently DEFERRED).
 
 ---
 
@@ -130,7 +130,7 @@ After per-candidate research:
 
 ### §4.4 Draft Commit 7 content (mandatory if ≥3 candidates pass companion test)
 
-Draft revised README subline + «is/isn't» subsection updates in [drafts/commit-7-readme-revision.md](drafts/commit-7-readme-revision.md) — content per maintainer review.
+Draft revised README subline + «is/isn't» subsection updates in `drafts/commit-7-readme-revision.md` — content per maintainer review.
 
 ---
 
@@ -249,6 +249,8 @@ If you find yourself writing «<candidate> solves problem similar to ours» with
 - [reviewer-discipline.md §2](../../rules/reviewer-discipline.md) — DECISION-NEEDED surface pattern
 - [docs/meta-factory/research-patches/2026-05-16-goal-clarity-dialogue.md §4.2 v2 + §4.4](../../../docs/meta-factory/research-patches/2026-05-16-goal-clarity-dialogue.md) — 1A origin
 - [docs/meta-factory/research-patches/2026-05-16-bfr-default-upstream-verification.md](../../../docs/meta-factory/research-patches/2026-05-16-bfr-default-upstream-verification.md) — Track 2 BFR upstream survey (already covers 4 of the 7 candidates' partial profiles)
-- [.claude/orchestrator-prompts/goal-clarity-dialogue/drafts/atomic-commit-plan.md Commit 7](../goal-clarity-dialogue/drafts/atomic-commit-plan.md) — Commit 7 dependency on this R-phase
+- .claude/orchestrator-prompts/goal-clarity-dialogue/drafts/atomic-commit-plan.md Commit 7 (`../goal-clarity-dialogue/drafts/atomic-commit-plan.md`) — Commit 7 dependency on this R-phase
 - [.claude/orchestrator-prompts/post-1a-coordination/kickoff.md §3.4](../post-1a-coordination/kickoff.md) — pending-kickoff-creation tracker
 - [.claude/orchestrator-prompts/prose-rules-audit-research/kickoff.md](../prose-rules-audit-research/kickoff.md) — methodology template (R-phase structure, T-XXX domain-specific trap pattern)
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

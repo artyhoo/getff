@@ -30,6 +30,7 @@ import {
   checkExclusionConsistency,
   type RuleChannelFields,
 } from './31-rule-channel-declaration.ts';
+import { extractLivenessExemptions } from './rule-channel-glob.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
@@ -55,12 +56,11 @@ describe('Principle 31 — every rule declares a delivery channel (4-branch PASS
       expect(ALWAYS_ON_CORE.length).toBeLessThanOrEqual(4);
     });
 
-    it('contains the 4 expected rule basenames', () => {
+    it('contains the 3 expected rule basenames', () => {
       expect([...ALWAYS_ON_CORE].sort()).toEqual(
         [
-          'build-first-reuse-default.md',
           'attention-is-not-a-mechanism.md',
-          'ai-laziness-traps.md',
+          'ai-laziness-digest.md',
           '00-rule-index.md',
         ].sort(),
       );
@@ -121,7 +121,7 @@ describe('Principle 31 — every rule declares a delivery channel (4-branch PASS
     });
 
     it('positive control: the SAME fixture content, but named as an ALWAYS_ON_CORE member, passes', () => {
-      const fields = loadFixtureFields('no-channel-at-all.md', 'ai-laziness-traps.md');
+      const fields = loadFixtureFields('no-channel-at-all.md', 'ai-laziness-digest.md');
       const result = evaluateRuleChannel(fields, REPO_ROOT);
       expect(result.ok).toBe(true);
     });
@@ -131,13 +131,13 @@ describe('Principle 31 — every rule declares a delivery channel (4-branch PASS
     it('RED: constructing a 5-entry core array throws past the asserted ceiling', async () => {
       // ALWAYS_ON_CORE's ceiling check runs at module-load time (module-level throw). To
       // exercise the SAME assertion logic without re-importing the real module (which would
-      // just re-use its already-passing 4-entry array), replicate the identical guard here
+      // just re-use its already-passing 3-entry array), replicate the identical guard here
       // against a synthetic 5-entry array — proving the guard's condition is correctly wired
       // to reject >4, not merely documented as a comment.
       const fiveEntryCore = [
-        'build-first-reuse-default.md',
+        'n31-2-placeholder.md',
         'attention-is-not-a-mechanism.md',
-        'ai-laziness-traps.md',
+        'ai-laziness-digest.md',
         '00-rule-index.md',
         'one-too-many.md',
       ];
@@ -151,7 +151,7 @@ describe('Principle 31 — every rule declares a delivery channel (4-branch PASS
       expect(() => assertCeiling(fiveEntryCore)).toThrow(/ceiling of 4/);
     });
 
-    it('positive control: the real ALWAYS_ON_CORE (4 entries) does not throw', () => {
+    it('positive control: the real ALWAYS_ON_CORE (3 entries) does not throw', () => {
       const assertCeiling = (core: readonly string[]) => {
         if (core.length > 4) throw new Error('too many');
       };
@@ -208,6 +208,60 @@ describe('Principle 31 — every rule declares a delivery channel (4-branch PASS
       const fields = parseRuleChannelFields('.claude/rules/doc-authority-hierarchy.md', REPO_ROOT);
       const errs = checkGlobParity(fields, REPO_ROOT);
       expect(errs).toHaveLength(0);
+    });
+  });
+
+  describe('extractLivenessExemptions — the escape-hatch parser must not capture its own `-->`', () => {
+    // Same defect class as BRIDGE_PROFILE_RE (PR #1575): a capture body that can consume
+    // `-` and `>` will happily run past the marker's own closing delimiter. Here `(\S+)`
+    // could match `-->` itself, so a marker whose `allow` carries NO pattern, followed by a
+    // second comment on the same line, exempted the literal string "-->" — a key that
+    // matches no glob, so the dead-glob check stayed RED with a misleading cause.
+
+    it('captures the pattern when a reason follows', () => {
+      const out = extractLivenessExemptions(
+        '<!-- glob-liveness: allow docs/future/** ships in phase 12 -->',
+      );
+      expect([...out]).toEqual(['docs/future/**']);
+    });
+
+    it('captures the pattern when no reason follows', () => {
+      expect([...extractLivenessExemptions('<!-- glob-liveness: allow docs/future/** -->')]).toEqual(
+        ['docs/future/**'],
+      );
+    });
+
+    it('a pattern-less marker exempts NOTHING even when another comment follows on the line', () => {
+      // Pre-fix this returned Set { '-->' }. The single-comment form already returned an
+      // empty set, so the second comment is load-bearing to the reproduction.
+      const out = extractLivenessExemptions(
+        '<!-- glob-liveness: allow --> <!-- TODO: fill in the pattern later -->',
+      );
+      expect([...out]).toEqual([]);
+    });
+
+    it('GUARD: no captured exemption may contain a comment delimiter', () => {
+      // Population-level invariant rather than a single shape — any future loosening of the
+      // capture body that lets `>` back in fails here regardless of the input that triggers it.
+      const out = extractLivenessExemptions(
+        '<!-- glob-liveness: allow --> <!-- x -->\n<!-- glob-liveness: allow a/** why -->',
+      );
+      for (const pattern of out) expect(pattern).not.toContain('-->');
+    });
+
+    it('a real marker is unaffected by a trailing second comment on the same line', () => {
+      const out = extractLivenessExemptions(
+        '<!-- glob-liveness: allow docs/future/** why --> <!-- inject: summary -->',
+      );
+      expect([...out]).toEqual(['docs/future/**']);
+    });
+
+    it('positive control: the two real markers tracked in .claude/rules/ still parse', () => {
+      // Anti-tautology: proves the tightened body did not break the live corpus.
+      for (const rel of ['.claude/rules/ci-tool-pinning.md', '.claude/rules/no-paid-llm-in-ci.md']) {
+        const out = extractLivenessExemptions(readFileSync(resolve(REPO_ROOT, rel), 'utf8'));
+        expect([...out]).toEqual(['.github/actions/**']);
+      }
     });
   });
 

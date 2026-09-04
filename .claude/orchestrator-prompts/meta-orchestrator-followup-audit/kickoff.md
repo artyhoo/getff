@@ -199,7 +199,7 @@ Maintainer's binding UX requirements (verbatim from 2026-05-24 dialogue, this ki
 | Layer | Knows | Does | Does NOT |
 |---|---|---|---|
 | Meta-orchestrator | Overall plan; checks state per invocation via plan-currency + `gh pr list`; next step | Plan-currency check; priority scoring; plan updates; meta-kickoff writes; 1-liner blocks for maintainer; spawn read-only research subagents (text return); accept maintainer-passed REPORT as supplementary input (cross-check, never replace, mechanical state via `gh pr list`) | Spawn Worker subagent for write tasks (PR/commit/push). Make commits to production code / rules / principles / hooks / skills. **Trust maintainer-passed REPORT as load-bearing without mechanical re-verification** |
-| Orchestrator (new CC session via maintainer's 1-liner paste) | One stage from the meta-kickoff; its own Mode/Roles/Skills from 1-liner tags | Selects Mode A/B/SDD/Queue internally; spawns workers via Agent tool internally; **own QA + self-verify + own cold-review pre-handoff (T19)**; autonomous merge to staging per [feedback_harness_merge_block_and_500line_gate](memory) (staging/epic = agent autonomous; main = human-click only) | Plan umbrella-level work; touch other waves; **ask maintainer to verify CI / kill rate / file diff** (T19 — AI self-verifies these mechanically) |
+| Orchestrator (new CC session via maintainer's 1-liner paste) | One stage from the meta-kickoff; its own Mode/Roles/Skills from 1-liner tags | Selects Mode A/B/SDD/Queue internally; spawns workers via Agent tool internally; **own QA + self-verify + own cold-review pre-handoff (T19)**; autonomous merge to staging per `feedback_harness_merge_block_and_500line_gate` (staging/epic = agent autonomous; main = human-click only) | Plan umbrella-level work; touch other waves; **ask maintainer to verify CI / kill rate / file diff** (T19 — AI self-verifies these mechanically) |
 | Maintainer | When to re-invoke `/meta-orchestrator <umbrella>` after stages auto-merge; DECISION-NEEDED forks где AI cannot pick (e.g. F.1 verdict ADAPT vs ADOPT when both viable; F.2 BLOCKER fix scope) | Paste 1-liner in new CC session; re-invoke `/meta-orchestrator` after stage auto-merges (or whenever convenient); optionally pass REPORT for context (convenience, not load-bearing); **DECIDE** on genuine forks AI surfaced (option A → consequence X / option B → consequence Y per [reviewer-discipline.md §2](../../rules/reviewer-discipline.md)) | **Mechanical verification** (CI status / kill rate numbers / file diffs / test passes — AI verifies these itself, even if maintainer offers); drive details inside orchestrator's session (autonomous) |
 
 **Closed-loop workflow (N+1 invocations per umbrella with N stages):**
@@ -327,7 +327,7 @@ F.3 фокусируется на ORIGINAL ask из kickoff §1 Sub-wave F intro
 
 **F.3 design implications (must be addressed in F.3 SKILL.md edits):**
 
-1. **§5 dispatch tree** — добавить новую строку «Umbrella-level orchestration (≥2 stages, autonomous default)» → `Queue mode umbrella` mechanism (новый паттерн, не классический research-queue). Распространить queue-mode triggers — текущий [queue-mode.md:14-22](file:///Users/art/.claude/skills/orchestrator/references/queue-mode.md) anti-trigger «execution tasks that modify production code in parallel → Mode B × N» применим к **parallel**, не **sequential** stages umbrella; sequential umbrella execution через Queue mode совместим (verify before F.3 codifies).
+1. **§5 dispatch tree** — добавить новую строку «Umbrella-level orchestration (≥2 stages, autonomous default)» → `Queue mode umbrella` mechanism (новый паттерн, не классический research-queue). Распространить queue-mode triggers — текущий queue-mode.md:14-22 (`file:///Users/art/.claude/skills/orchestrator/references/queue-mode.md`) anti-trigger «execution tasks that modify production code in parallel → Mode B × N» применим к **parallel**, не **sequential** stages umbrella; sequential umbrella execution через Queue mode совместим (verify before F.3 codifies).
 
 2. **§5 vs queue-mode.md anti-trigger alignment** — расширить queue-mode.md (global skill, agent-uncommittable per memory `feedback_settings_json_agent_uncommittable` similar — global skills owner=maintainer) с новой строкой Triggers: «umbrella-level execution с sequential stage-gates → Queue mode OK при auto-merge to staging» или ввести подкласс «Queue-over-stages». F.3 surfaces как maintainer-applied edit (предлагает diff, не landится сам).
 
@@ -399,16 +399,16 @@ Surfaced by maintainer during the /meta-orchestrator session that authored Sub-w
 - The generator detects «sub-waves» via a regex of the shape `^| <number> |` which matches **both** hook rows in `§1` tables of an umbrella kickoff AND real sub-wave rows in `§4`. If an umbrella has e.g. §1 with 6 hooks and §4 with 3 sub-waves, the generator returns 6 sub-wave rows — incorrect.
 - Maintainer's session was a coincidence — both counts happened to be the same (6 = 6), so the result looked right but was structurally wrong.
 - **Partial-fix status (Phase -1 verified):** PR #194 fixed the *symptomatic* `exit 1` on empty-arg path (which triggered §3 `!shell` failure). The **structural regex-scope issue remains open** — `detect_subwaves()` line ~43 still uses `grep -E '^\| *(\*\*)?([A-D]|[0-9]+)(\*\*)? *\|'` which matches any `| 1 |` row in §1 hook tables AND §4 sub-wave rows. Testing the kickoff.md itself with the current regex still over-matches §2 dispatch table rows.
-- **Fix locus:** [`.claude/skills/meta-orchestrator/helpers/launch-table-generator.sh`](../../skills/meta-orchestrator/helpers/launch-table-generator.sh) — tighten the regex to anchor on a `§4` / «Sub-wave» heading boundary, not on row shape alone. **AND mirror to `skills/meta-orchestrator/helpers/launch-table-generator.sh`** (consumer mirror — #194 did NOT mirror its own fix, so this Gap fix and the #194 mirror-sync land in the same commit).
+- **Fix locus:** [`.claude/skills/meta-orchestrator/helpers/launch-table-generator.sh`](../../skills/pipeline/helpers/launch-table-generator.sh) — tighten the regex to anchor on a `§4` / «Sub-wave» heading boundary, not on row shape alone. **AND mirror to `skills/meta-orchestrator/helpers/launch-table-generator.sh`** (consumer mirror — #194 did NOT mirror its own fix, so this Gap fix and the #194 mirror-sync land in the same commit).
 
 **Gap-2 — §1 `plan-currency-check.sh` misses fresh PRs.**
 - Currently only checks `gh pr list --state merged`. Does **not** cross-check against `git log origin/<branch>` for commits that landed *after* the most recent local `git fetch`.
 - Maintainer's session missed #193 and #194 at session-start because they merged seconds before the helper ran — `gh pr list --state merged --limit 30` returned them, but the helper didn't reconcile to `git log staging..origin/staging` or remind the model to `git fetch` first.
-- **Fix locus:** [`.claude/skills/meta-orchestrator/helpers/plan-currency-check.sh`](../../skills/meta-orchestrator/helpers/plan-currency-check.sh) — add a `git fetch origin <branch>` step + diff against local; surface «remote ahead by N» as part of §1 drift output.
+- **Fix locus:** [`.claude/skills/meta-orchestrator/helpers/plan-currency-check.sh`](../../skills/pipeline/helpers/plan-currency-check.sh) — add a `git fetch origin <branch>` step + diff against local; surface «remote ahead by N» as part of §1 drift output.
 
 **Gap-3 — §4 meta-kickoff template missing worktree symlink slot.**
 - Worker sub-agents dispatched into worktrees each re-discover `packages/core/node_modules` symlink discipline (workspaces / remark dep resolution). Could be inlined as a template slot («§Xa Worktree prep») so every kickoff carries the exact `ln -s ../../node_modules packages/core/node_modules` (or current equivalent) instruction.
-- **Fix locus:** [`.claude/skills/meta-orchestrator/templates/meta-kickoff.template.md`](../../skills/meta-orchestrator/templates/meta-kickoff.template.md) — add a new template section + corresponding placeholder + SKILL.md §10 update + `references/placeholders.md` entry.
+- **Fix locus:** [`.claude/skills/meta-orchestrator/templates/meta-kickoff.template.md`](../../skills/pipeline/templates/meta-kickoff.template.md) — add a new template section + corresponding placeholder + SKILL.md §10 update + `references/placeholders.md` entry.
 
 **Scope-guard (falsifier from maintainer):**
 
@@ -545,7 +545,9 @@ Must pass before §1 execution begins.
 ## §9 See also
 
 - Round-1 PR: **#192** (merged 2026-05-24). Follow-up hotfixes: **#193** + **#194**. See §0 for verification command.
-- [meta-orchestrator SKILL.md](../../skills/meta-orchestrator/SKILL.md) (post-round-1 state)
+- [meta-orchestrator SKILL.md](../../skills/pipeline/SKILL.md) (post-round-1 state)
 - [Round-1 origin patch](../../../docs/meta-factory/research-patches/2026-05-23-meta-orchestrator-prior-art.md)
 - [parallel-subwave-isolation.md](../../rules/parallel-subwave-isolation.md), [reviewer-discipline.md](../../rules/reviewer-discipline.md), [no-paid-llm-in-ci.md](../../rules/no-paid-llm-in-ci.md), [ai-laziness-traps.md](../../rules/ai-laziness-traps.md), [build-first-reuse-default.md](../../rules/build-first-reuse-default.md), [rule-enforcement-channel-selection.md](../../rules/rule-enforcement-channel-selection.md), [phase-research-coverage.md](../../rules/phase-research-coverage.md)
 - [principle 12 test](../../../packages/core/principles/12-ai-laziness-traps.test.ts)
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

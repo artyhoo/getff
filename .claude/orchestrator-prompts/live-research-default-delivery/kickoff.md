@@ -88,3 +88,5 @@ This connects existing primitives (REUSE: `wireNRules`, `mergeEslintRuleConfig`,
 - One branch off `staging`, one PR `--base staging`, `Closes #811` + `Closes #812`. Conventional commits; **commit per deliverable (D1…D4)** so a long run lands durably — if budget runs short, land D1 (the disconnect fix — the operator's core) + D2 first, then D3/D4, and report what remains.
 - Do NOT push to `main`. Do NOT open multiple PRs.
 - REPORT: files changed (path:line); the fixture-merge output proving the live rule is in the config + presets retained; principle 28: green (unmodified); the §6 oracle: live-path positive + both negatives, non-vacuous; which byte-identical path the baselines exercise (and whether re-captured); the staleness-WARN firing; `npm test --workspaces` result. Confidence + ATTN.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

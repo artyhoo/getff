@@ -21,9 +21,9 @@
 2. **J5 verdict — PRIORITISED, NOT RESOLVED (relaxed 2026-05-26 by orchestrator).** R-phase findings of THIS umbrella are about EXTERNAL companion patterns — their architecture doesn't depend on our gitignore policy. Original strict gate («J5 resolved») was over-strict; relaxed to: **J5 must be on maintainer's queue, but Sub-wave findings explicitly evaluate adoption-candidates under BOTH Option A (gitignored status quo) AND Option C (hybrid track) assumptions, NOT commit on one J5 outcome**. Each Sub-wave verdict carries dual-assumption check. Sub-wave A specifically: `roadmapAlias` tag schema viability differs sharply between A (tags live in gitignored state files only) vs C (tags live in tracked kickoff frontmatter); verdict cites both paths.
 
   **J5 Option A/B/C definitions** (inlined to remove pointer-rot risk per reviewer M4 finding) — full context at `docs/meta-factory/research-patches/2026-05-26-meta-orchestrator-stage-5-dogfood.md` §5 J5 row:
-  - **Option A:** keep `.claude/orchestrator-prompts/*` fully gitignored as today. Substrate broken in fresh worktrees by design; manual `cp -r` workaround per session.
-  - **Option B:** track ALL files under `.claude/orchestrator-prompts/`. Repo history bloat + PII risk if state files contain workspace-specific paths.
-  - **Option C (hybrid, orchestrator-recommended):** track only `kickoff.md` files (decision-bearing artefacts, Superpowers-aligned per `docs/superpowers/plans/` precedent); gitignore `state.md` / `_plan-cache.md` / `_master-backlog-delta.json` / meta-launch directories (ephemeral session state, Superpowers `.worktrees/` precedent).
+- **Option A:** keep `.claude/orchestrator-prompts/*` fully gitignored as today. Substrate broken in fresh worktrees by design; manual `cp -r` workaround per session.
+- **Option B:** track ALL files under `.claude/orchestrator-prompts/`. Repo history bloat + PII risk if state files contain workspace-specific paths.
+- **Option C (hybrid, orchestrator-recommended):** track only `kickoff.md` files (decision-bearing artefacts, Superpowers-aligned per `docs/superpowers/plans/` precedent); gitignore `state.md` / `_plan-cache.md` / `_master-backlog-delta.json` / meta-launch directories (ephemeral session state, Superpowers `.worktrees/` precedent).
 3. **Concurrent umbrella ordering** with `meta-orch-channel-discipline` (sibling kickoff at `.claude/orchestrator-prompts/meta-orch-channel-discipline/kickoff.md`). Either:
    - Run channel-discipline R-phase first (yields enforcement mechanism), then this umbrella (deep-dive uses channel-discipline insight to test adoption candidates against the enforcement layer); OR
    - Run this umbrella first (deep-dive yields ADOPT candidates), then channel-discipline takes them as starting prior-art.
@@ -184,3 +184,5 @@ If any gate fails → this kickoff stays parked.
   - [Devin dynamic re-plan architecture (Medium 2026-04)](https://medium.com/@nitinmatani22/how-devin-ai-actually-thinks-autonomous-planning-dag-execution-and-dynamic-re-planning-explained-997be175a475)
 - [`.claude/rules/ai-laziness-traps.md §2 T16`](../../../.claude/rules/ai-laziness-traps.md) — the trap class this umbrella corrects against.
 - [`.claude/rules/build-first-reuse-default.md`](../../../.claude/rules/build-first-reuse-default.md) — verdict ladder applied per Sub-wave.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

@@ -67,7 +67,7 @@ const x = data as unknown as User;
 
 ## R2 — Validation at boundaries
 
-**Policy:** Zod schema `.parse()` is forbidden in HTTP boundary code. Use `.safeParse()` and branch on `.success`. Stdlib `.parse()` (`JSON.parse`, `Date.parse`, `path.parse`) is **not** flagged — the rule targets Zod schema `.parse()` only.
+**Policy:** Zod schema `.parse()` is forbidden in HTTP boundary code. Use `.safeParse()` and branch on `.success`. Stdlib `.parse()` (`JSON.parse`, `Date.parse`, `path.parse`) is **not** flagged — the rule targets Zod schema `.parse()` only. A `.parse()` whose argument is a **fully-static literal** (e.g. `ConfigSchema.parse({ port: 3000 })`) is also **not** flagged — no external input can flow through it, so a throwing parse is deliberate fail-fast; any identifier, member access, call, or spread inside the argument makes it non-static and the rule fires.
 
 **Path-scoped enforcement:** the ESLint rule `rules-as-tests/no-unsafe-zod-parse` is enabled only for these globs (configured in `eslint.config.mjs`):
 
@@ -294,9 +294,11 @@ import fs from 'fs'; // in src/domain/
 **Check:** two executable layers, both shipped by `install.sh`:
 
 1. `.github/workflows/ci.yml` — every quality job (`lint`, `typecheck`, `architecture`, `test`, `security`, `audit-ai-docs`) is funnelled into the single required `ci-success` aggregate via `needs:`. `ci-success` is the only context that must be a required check (it always runs and depends on all jobs).
-2. `.github/workflows/workflow-integrity.yml` — `branch-protection-assertion` job asserts the `ci-success` gate stays a required status check on the default protected branch. Tri-states: pass when configured-and-present, fail when configured-but-missing, warn-and-pass when no protection is configured (so it never blocks a fresh consumer).
+2. `.github/workflows/workflow-integrity.yml` — `branch-protection-assertion` job *checks* (best-effort — see the caveat below) that the `ci-success` gate stays a required status check on the default protected branch. Tri-states: pass when the state is readable and present, fail when readable and missing, warn-and-pass when the state is **unreadable or unconfigured** — and with `GITHUB_TOKEN` it is unreadable by default, so that third arm is the normal outcome.
 
-> **Caveat — GitHub Free private repos:** classic branch protection AND rulesets both require GitHub Pro (or Team/Enterprise) on a _private_ repo — or making the repo public. On that plan `branches/*/protection` and `rulesets` return `403 Upgrade to GitHub Pro or make this repository public`, so the warn-and-pass branch is **permanent** and there is no consumer-side remediation. Treat R11 branch-protection as **unavailable** on a GitHub Free private repo, not "not yet adopted" — it activates automatically once the repo moves to a paid plan or becomes public. The `ci-success` aggregate (layer 1) still runs everywhere; only the protection _assertion_ is plan-gated.
+> **Caveat — the protection check is BEST-EFFORT everywhere, on every plan (measured 2026-07-23):** reading `branches/*/protection` requires admin rights, and GitHub exposes **no workflow permission scope** that grants them to `GITHUB_TOKEN` (`administration` is not a valid scope). Measured on a **public** repo with protection configured and `ci-success` present: the job could not read the state and warn-passed anyway. So the warn-and-pass branch is the normal outcome, the plan/visibility is **not** the blocker, and R11 branch-protection does **not** "activate automatically" on upgrade. A GitHub Free private repo additionally gets a `403 Upgrade…` on both endpoints, but fixing that changes nothing here.
+>
+> Treat this layer as **unverified, not enforced**: its green says nothing about whether the required contexts are registered. Making it real needs an admin-scoped PAT secret (a long-lived credential in CI — a deliberate trade-off) or an out-of-CI probe run with a credential that has admin rights. The `ci-success` aggregate (layer 1) still runs and blocks everywhere; only this protection _check_ is affected.
 
 Why one aggregate context: `needs:` aggregation works only within one workflow file, and a path-filtered required check (e.g. one scoped to `.github/workflows/**`) never reports on PRs that don't touch that path → the PR deadlocks. Requiring only `ci-success` (which always runs and `needs:` every job) avoids both.
 
@@ -321,6 +323,12 @@ Why one aggregate context: `needs:` aggregation works only within one workflow f
 2. `/aif-fix` is invoked automatically on flagged items.
 3. If the rule is genuinely incompatible with the task — `/aif-rules` to discuss
    updating the rule (with rationale), not to silently bypass it.
+
+## Push channel (pre-push) — thin by contract
+
+The pre-push hook is a **thin** channel for a consumer: it does **not** re-run per-file lint. Per-file lint is enforced at the earliest reachable channel — edit-time ESLint and the pre-commit `lint-staged` gate — so re-running it at push would be a slower, redundant duplicate that also risks blocking a push over a pre-existing issue in an unrelated touched file.
+
+What the push channel *does* run is framework **enforcement-integrity** that per-file pre-commit cannot see: rule-glob liveness (an active rule whose globs match zero files), lint-staged binary resolution, and offline link integrity on Markdown *changed in this push*. **On the TS-core channel** (Node ≥20 with `tsx` resolvable) it does **not** run the framework's workflow-**security** scanners (actionlint / zizmor / action-pinning) over your own workflows, so a clean-tree `git push` is **allowed** and your first `git push` is never blocked over pre-existing `@v6` action refs — that workflow-security linting is **out of the framework's scope** (neither this hook nor any shipped CI template runs it; add it to your own CI if you want it). It *does* apply one narrow, deterministic, no-tool check to your `.github/workflows/*.yml`: the `ci-tool-pinning.md §2` Rule A scan flags an **un-pinned bare** `run: pip install <pkg>` or `npm install -g <pkg>` (fix: add a version pin, e.g. `pip install <pkg>==<ver>`, or the escape hatch `# ci-tool-pin: allow <reason>`). Per §2 that workflow scan runs on framework and consumer repos alike; the framework's shell-script pinning scan stays framework-only, so your own scripts are not gated. A shipped-rule violation is blocked at edit-time + pre-commit + `npx eslint .`, with CI the backstop for a deliberate `git commit --no-verify` bypass. **Reduced-fallback caveat:** if Node <20 or `tsx` is unresolvable (some pnpm-monorepo layouts where `tsx` lives in a sub-package), the hook degrades to a bash critical-only fallback that additionally requires a `Prior-art:` trailer on commits after 2026-05-12 — a framework authoring-discipline gate not yet scoped to a consumer layout (known-open gap), so the thin-channel guarantee above holds on the TS-core channel. (Structure: the owner-tagged section registry in `packages/core/hooks/pre-push.ts`.)
 
 ## Rule maintenance
 

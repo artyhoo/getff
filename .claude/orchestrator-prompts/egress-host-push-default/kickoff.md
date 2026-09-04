@@ -68,3 +68,5 @@ Confirm `make self-audit` green, principles 17 (no-paid-LLM) + 21 (agnosticism) 
 ## §10 Closure
 
 On S3 — `done.md` per CLAUDE.md "Umbrella closure convention": `# egress-host-push-default — DONE` · Final PR · Closed · Summary + proof the placement push ran `.husky/pre-push`.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

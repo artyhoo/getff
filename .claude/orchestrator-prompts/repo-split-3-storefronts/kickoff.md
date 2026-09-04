@@ -26,3 +26,5 @@ R0 границы → changesets + npm/pnpm развилка → вынос `pri
 
 ## Готово, когда
 Каждая из 3 витрин независимо `build`+`test` зелёная; `make self-audit` + принципы 17/21 зелёные после разреза; R3-маркировка выполнена последней.
+
+<!-- host-verify: none — planning STUB (U9 of the getff-to-prod meta-launch): stages are a sketch, no executable deliverable yet; the full kickoff that replaces this stub declares the real contract -->

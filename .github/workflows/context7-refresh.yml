@@ -1,0 +1,92 @@
+name: context7-refresh
+
+# C4 discoverability — keep the Context7 index of this repo deterministic instead of waiting on
+# popularity-driven refresh. Upstream ships this integration as a workflow snippet, not a
+# marketplace action (upstash/context7 `docs/integrations/github-actions.mdx`, retrieved
+# 2026-09-02); the shape below is that snippet, adapted to this repo's conventions.
+# Design SSOT: docs/superpowers/specs/2026-07-23-beta-program-design.md §6 C4.
+# Index branch = `staging` — decided in
+# .claude/orchestrator-prompts/beta-ai-docs-agnosticism/kickoff-s4.decisions.md Decision 1.
+# The flip to `main` at Phase-2 publication changes this trigger AND `context7.json`'s
+# `branch` field, in one commit.
+
+on:
+  push:
+    branches: [staging]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: context7-refresh-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    # required-context: no — this workflow has no `pull_request:` trigger at all, so its result
+    # can never report on a pull request and registering it as a required status check would
+    # leave every PR Pending forever. It is a post-merge side effect on `staging`, not a gate on
+    # the diff. (Principle 37's declarable population is the `pull_request:`-triggered workflows
+    # only — packages/core/principles/37-required-context-completeness.test.ts `declarableJobs`
+    # iterates `prTriggeredWorkflows` — so this marker is a declaration of intent, not an entry
+    # that gate reads.)
+    name: context7 — refresh library index
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      # No `actions/checkout`: the refresh call carries the library name in its body and reads
+      # nothing from the working tree. No tool installs either, so ci-tool-pinning.md has no
+      # surface here. Zero LLM calls — a documentation-index refresh is an HTTP POST to an
+      # indexing service, not model inference (.claude/rules/no-paid-llm-in-ci.md).
+      - name: Trigger Context7 refresh
+        env:
+          # `env:` indirection rather than `${{ … }}` inside `run:` — the repo's established
+          # zizmor template-injection posture (audit-self.yml:946, :1153).
+          CONTEXT7_API_KEY: ${{ secrets.CONTEXT7_API_KEY }}
+          LIBRARY_NAME: /${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # Fail LOUDLY, never warn-and-pass: a refresh that silently no-ops is
+          # `#warning-nobody-reads` (.claude/rules/attention-is-not-a-mechanism.md §2). This is
+          # safe to fail hard because the job reports on no pull request (see the marker above),
+          # so a red run here cannot block any merge — it only reddens `staging`'s own history
+          # until the maintainer legs below are done.
+          #
+          # ONE documented carve-out, matched on the exact response: the service enforces a
+          # 10-day minimum between refreshes and answers HTTP 400 with
+          # {"error":"too-early", ...} for the nine days after any successful refresh. That
+          # body means the index is already fresh — a no-op, not a defect — so exactly that
+          # error token in the body is treated as success. Everything else still exits
+          # non-zero: an unset key (below), a 401, any other 4xx/5xx body, a network failure.
+          # No `|| true`, no dropped `--fail-with-body`, no `continue-on-error` — those would
+          # convert this gate into the `#warning-nobody-reads` pattern this job refuses.
+          if [ -z "${CONTEXT7_API_KEY}" ]; then
+            echo "::error::CONTEXT7_API_KEY is unset. Two maintainer actions are required, in order: (1) submit ${LIBRARY_NAME} at https://context7.com/add-library so the library exists; (2) add the CONTEXT7_API_KEY repository secret from https://context7.com/dashboard. Until both are done this workflow cannot succeed."
+            exit 1
+          fi
+
+          refresh_rc=0
+          body="$(curl --fail-with-body -sS -X POST https://context7.com/api/v1/refresh \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${CONTEXT7_API_KEY}" \
+            -d "{\"libraryName\": \"${LIBRARY_NAME}\"}")" || refresh_rc=$?
+
+          echo "${body}"
+          echo
+          if [ "${refresh_rc}" -eq 0 ]; then
+            echo "Refresh requested for ${LIBRARY_NAME}."
+            exit 0
+          fi
+
+          # curl exit 22 = --fail-with-body tripped on an HTTP error status; the body it
+          # printed is echoed above. Only the documented too-early body is the no-op success.
+          if [ "${refresh_rc}" -eq 22 ] && printf '%s' "${body}" | grep -q '"error":"too-early"'; then
+            echo "Context7 index for ${LIBRARY_NAME} is already fresh: service answered too-early (10-day minimum between refreshes). Nothing to do — treated as success."
+            exit 0
+          fi
+
+          echo "::error::Context7 refresh failed for ${LIBRARY_NAME} (curl exit ${refresh_rc}; body above)."
+          exit "${refresh_rc}"

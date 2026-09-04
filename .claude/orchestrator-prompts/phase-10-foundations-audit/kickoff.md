@@ -246,3 +246,5 @@ Honest «cannot conclude — coverage insufficient» is a valid stream finding. 
 If a stream session itself illustrates the failure mode it's auditing (e.g., A2 audit proposes mechanism revision without external search), that is **valid and load-bearing data** — surface honestly, do not paper over.
 
 Recursion warning per T-Phase10-E: this scaffold itself is subject to Phase 10's own discipline. Pre-flight §11.3 mandates cold-start re-read; umbrella summary §self-application audits this scaffold against the methodology it specifies.
+
+<!-- host-verify: none — research umbrella, not implementation (own §2): audit streams deliver findings and re-evaluations as docs; each implementation follow-up gets its own kickoff with a contract -->

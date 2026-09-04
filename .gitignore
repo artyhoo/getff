@@ -16,6 +16,16 @@ packages/*/node_modules
 .claude/orchestrator-prompts/*/*
 !.claude/orchestrator-prompts/*/done.md
 !.claude/orchestrator-prompts/*/kickoff.md
+# Umbrella backfill reports (e.g. umbrella-donemd-backfill/report.md) are durable
+# committed audit artefacts: population enumeration + per-verdict evidence + the
+# UNCLEAR table. Same durable-committed class as done.md/kickoff.md. Per-umbrella
+# glob mirrors the done.md/kickoff.md exceptions.
+!.claude/orchestrator-prompts/*/report.md
+# Calibration ledgers (arch-v2-context-pipeline ADR-5/ADR-6/ADR-8). Same durable-committed
+# class as done.md/kickoff.md/report.md: pre-registered threshold + row schema + per-row
+# dispatch records. Tracked so the dispatching session can append rows that reach `staging`
+# for the next stage's aif container base to read (kickoff-staging-placement.md §1 shape).
+!.claude/orchestrator-prompts/*/calibration.md
 # Stage dispatch chain for the modular-install-fullpack umbrella (S0 boundary
 # blueprint + S1-S5 dispatch inputs). Same durable-committed-design-doc class as
 # kickoff.md; tracked so kickoff-s0.md reaches `staging` for aif/S1 to read from
@@ -23,6 +33,40 @@ packages/*/node_modules
 # stay portable across sessions/worktrees (SSOT #116). Per-umbrella glob (not the
 # migration-ast per-file form) because this chain has five dispatch stages, not one.
 !.claude/orchestrator-prompts/modular-install-fullpack/kickoff-s*.md
+# beta-delivery-ux per-stage dispatch inputs (S1-S5 + R1). Same rationale as the
+# modular-install-fullpack glob above: `dispatch.ts:207` refuses a `-meta-launch`
+# kickoff (a meta-plan yields no code), so each stage needs its OWN buildable
+# kickoff, and it must be tracked to reach `staging` for the aif container base to
+# read (.claude/rules/kickoff-staging-placement.md §1). Per-umbrella glob — this
+# umbrella has six dispatch stages.
+!.claude/orchestrator-prompts/beta-delivery-ux/kickoff-s*.md
+!.claude/orchestrator-prompts/beta-delivery-ux/kickoff-r*.md
+# beta-ai-docs-agnosticism per-stage dispatch inputs (S1-S4). Same rationale as the
+# two globs above: the meta-launch kickoff is a plan, not a buildable task, so each
+# stage needs its OWN kickoff, tracked so it reaches `staging` for the dispatch
+# session to read (.claude/rules/kickoff-staging-placement.md §1). Per-umbrella glob
+# — this umbrella has four dispatch stages.
+!.claude/orchestrator-prompts/beta-ai-docs-agnosticism/kickoff-s*.md
+# consumer-layout-probe-honesty (night 2026-09-02): per-stage decisions logs (advisor seat)
+!.claude/orchestrator-prompts/consumer-layout-probe-honesty/kickoff-l*.decisions.md
+# beta-docs-showcase (night 2026-09-02): umbrella-level decisions log (advisor seat)
+!.claude/orchestrator-prompts/beta-docs-showcase/kickoff.decisions.md
+
+# beta-docs-showcase (night 2026-09-02): per-stage dispatch inputs. Stage names are BS0-BS3;
+# the files are `kickoff-b<N>.md` so they land in the `kickoff-<letter><digit>` stage-kickoff
+# family that principle 12's citation gate resolves (`kickoff-bs0.md` would fall outside it).
+!.claude/orchestrator-prompts/beta-docs-showcase/kickoff-b*.md
+
+# triage-kernel-v2: probe-first umbrella (design spec 2026-08-10-triage-kernel-v2-design.md
+# §9) — S1-S5 each get their OWN stage kickoff, tracked to reach `staging` for the
+# dispatch session to read (.claude/rules/kickoff-staging-placement.md §1). Per-umbrella
+# glob mirrors the beta-delivery-ux exception above.
+!.claude/orchestrator-prompts/triage-kernel-v2/kickoff-s*.md
+# aif-handoff-runtime-bridge-iphase §12 audit-trail extraction (2026-08-08): the
+# kickoff hit the 600-line pre-commit gate (651 lines), so §12 moved verbatim to
+# kickoff-amendments.md. Tracked for the same reason as the globs above — it is
+# part of the durable kickoff record and must survive on `staging`.
+!.claude/orchestrator-prompts/aif-handoff-runtime-bridge-iphase/kickoff-amendments.md
 *.log
 .DS_Store
 *.tgz
@@ -41,6 +85,8 @@ packages/*/reports/
 # touching the framework's own tracked .claude/skills/* entries.
 /.ai-factory/*
 /.ai-factory.json
+# Operator worktrees (CC `worktree` + bare `git worktree add`) — root-anchored per the same dirty-worktree-guard rationale as /.ai-factory/* above (fresh clones incl. the aif container base otherwise see permanent `?? .claude/worktrees/` drift).
+/.claude/worktrees/
 # Exception: harness-model.json is the framework's OWN tracked SSOT — the neutral
 # harness-config model that scripts/render-harness-config.mjs derives CC + zcode
 # config from (#894). NOT installer output. The `/*` glob above keeps every OTHER

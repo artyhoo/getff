@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# Stub: curl — serves canned JSON for heal.test.sh.
+#
+# Dispatches on STUB_MODE and the URL argument. Two URL patterns are handled:
+#   $AIF_URL/agent/status → always returns the "lie" {"activeTaskCount":0,...}
+#     (pre-fix code read this and was fooled; post-fix code never consults it,
+#      but the stub still serves it so AC2 proves the regression on pre-fix code).
+#   $AIF_URL/tasks        → returns the test-mode-specific task list.
+#
+# Other URLs return empty body + exit 1 (helper fail-closes).
+#
+# Modes for /tasks:
+#   tasks_implementing              one task status:"implementing"
+#   tasks_implementing_with_lie     same as tasks_implementing (AC2: pre-fix should be fooled
+#                                   by the /agent/status lie; post-fix ignores /agent/status)
+#   tasks_idle                      mix of done/verified/paused-plan_ready
+#   tasks_plan_ready_unpaused       one plan_ready task, paused:false  → in-flight (fail-safe)
+#   tasks_plan_ready_paused         one plan_ready task, paused:true   → idle
+#   tasks_unreachable               exit 7 (curl connection refused)
+#   tasks_malformed                 non-JSON body
+set -uo pipefail
+
+# Last argument is the URL (curl invocation: curl -s -m5 <url>).
+url="${!#}"
+
+# Always answer /agent/status with the lie.
+case "$url" in
+  */agent/status)
+    cat <<'EOF'
+{"activeTaskCount":0,"heartbeatLagMs":0,"heartbeatStale":false,"staleTasks":[]}
+EOF
+    exit 0
+    ;;
+esac
+
+case "$url" in
+  */tasks)
+    case "${STUB_MODE:-}" in
+      tasks_implementing|tasks_implementing_with_lie)
+        cat <<'EOF'
+[{"id":"t1","status":"implementing","paused":false,"worktreePath":"/tmp/x"}]
+EOF
+        exit 0
+        ;;
+      tasks_idle)
+        cat <<'EOF'
+[
+  {"id":"t1","status":"done","paused":false,"worktreePath":"/tmp/x"},
+  {"id":"t2","status":"verified","paused":false,"worktreePath":"/tmp/y"},
+  {"id":"t3","status":"plan_ready","paused":true,"worktreePath":"/tmp/z"}
+]
+EOF
+        exit 0
+        ;;
+      tasks_plan_ready_unpaused)
+        cat <<'EOF'
+[{"id":"t1","status":"plan_ready","paused":false,"worktreePath":"/tmp/x"}]
+EOF
+        exit 0
+        ;;
+      tasks_plan_ready_paused)
+        cat <<'EOF'
+[{"id":"t1","status":"plan_ready","paused":true,"worktreePath":"/tmp/x"}]
+EOF
+        exit 0
+        ;;
+      tasks_malformed)
+        # Non-JSON body — looks like an HTML error page.
+        echo "<html><body>not json</body></html>"
+        exit 0
+        ;;
+      tasks_unreachable)
+        # Simulate curl connection-refused (exit 7).
+        exit 7
+        ;;
+      *)
+        echo "curl stub: unknown STUB_MODE='${STUB_MODE:-}' for URL '$url'" >&2
+        exit 1
+        ;;
+    esac
+    ;;
+  *)
+    # Unknown URL — empty body + non-zero (helper fail-closes).
+    exit 1
+    ;;
+esac

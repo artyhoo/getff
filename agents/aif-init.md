@@ -1,6 +1,6 @@
 ---
 name: aif-init
-description: Generate a draft .ai-factory/DESCRIPTION.md and .ai-factory/ARCHITECTURE.md for a consumer repo. Reads package.json(s) and directory layout, detects the tech stack, and writes a filled draft with a DRAFT review banner. Use after installing AI Factory, or whenever DESCRIPTION.md still contains <PLACEHOLDER> fields. Invoke as `/aif-init` in your AI session.
+description: Generate a draft .ai-factory/DESCRIPTION.md and .ai-factory/ARCHITECTURE.md for a consumer repo. Reads package.json(s) and directory layout, detects the tech stack, and writes a filled draft with a DRAFT review banner. Use whenever DESCRIPTION.md or ARCHITECTURE.md still contains <PLACEHOLDER> fields — the getff installer creates `.ai-factory/` itself, so no external tool is a prerequisite. Invoke as `/aif-init` in your AI session.
 tools: Read, Glob, Write
 ---
 
@@ -122,7 +122,7 @@ Template (fill all `${DETECTED_*}` slots with detected values or `[GUESSED — v
 
 ## Stack
 
-- **Runtime:** Node.js 20+
+- **Runtime:** Node.js 22+
 - **Language:** TypeScript (strict)
 - **Framework:** ${DETECTED_FRAMEWORK or "[GUESSED — verify]"}
 - **Database:** ${DETECTED_DATABASE or "[GUESSED — verify]"} + ${DETECTED_ORM or "[GUESSED — verify]"}

@@ -50,7 +50,7 @@ Leaning **(a)** on the dual-caller constraint (keeps dup-detect's two callers cl
 
 - **AC-0 (MEASURE-first — gates everything else):** before writing the fix, time the expensive pass on the **full** set vs an **open-only** prototype and record both numbers in the PR body, e.g. `time MO_… dup-detect.sh --all` (162) vs the same restricted to the ~26 open umbrellas. **If the delta is NOT the dominant cost** (i.e. the real cost is umbrella-invariant — `precompute_deliverables` `git ls-tree`, or the `gh pr list` fetches at [`priority-score.sh:116/135`](../../skills/pipeline/helpers/priority-score.sh)) → **STOP, do not ship the reorder**, re-scope as a micro-R and surface to maintainer. (Counters T-PCS-A.)
 - **AC-1:** already-closed umbrellas (provable via cheap C3 `done.md` or C1 branch-match) are excluded from the expensive C2/dup-detect scan input.
-- **AC-2 (correctness invariant — paired-negative, mandatory):** an umbrella closed **only** by C2 jaccard (no `done.md`, no branch-match) is **still** classified `status=DONE` after the fix; an open umbrella stays open. Add a paired-negative test fixture proving the optimisation does not change DONE-membership (per [.claude/rules/testing.md «Негативные тесты»](../../rules/testing.md)).
+- **AC-2 (correctness invariant — paired-negative, mandatory):** an umbrella closed **only** by C2 jaccard (no `done.md`, no branch-match) is **still** classified `status=DONE` after the fix; an open umbrella stays open. Add a paired-negative test fixture proving the optimisation does not change DONE-membership (per `~/.claude/rules/testing.md` «Негативные тесты» (operator-global rule)).
 - **AC-3:** Caller B (standalone `dup-detect.sh <name>` / `--all` for §2.5 dedup) behaviour is unchanged — its existing test stays green; if shape (b), the skip path is off unless `MO_SKIP_CLOSED` is set.
 - **AC-4:** deterministic, no new dependency, no paid LLM ([no-paid-llm-in-ci.md](../../rules/no-paid-llm-in-ci.md)); helper self-tests under `packages/core/hooks/` (or wherever the existing dup-detect / priority-score tests live) updated + green.
 - **AC-5:** re-run `/pipeline` (no-arg) after the fix and record the new wall-time vs the >15 min baseline in the PR body (evidence, not assertion — per H1 / [phase-research-coverage.md §1.7](../../rules/phase-research-coverage.md)).
@@ -92,7 +92,7 @@ See [.claude/rules/ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md) f
 This kickoff was authored to scope a fix to the `/pipeline` skill's own helpers and must itself pass `principle 12` (AI-laziness-traps citation/enumeration) — it carries §5 above. The fix's AC-2 paired-negative is the self-application guard (the optimisation must not regress the detection it optimises). Verify principle 12 before merge:
 
 ```bash
-npm --prefix packages/core run test:principles -- --testPathPattern=12 2>/dev/null | tail -5
+npx vitest run packages/core/principles/12-ai-laziness-traps.test.ts | tail -5
 ```
 
 ---
@@ -124,3 +124,5 @@ Per [.claude/rules/kickoff-staging-placement.md §1](../../rules/kickoff-staging
 - [`helpers/dup-detect.sh`](../../skills/pipeline/helpers/dup-detect.sh) — the expensive per-umbrella scan; the dual-caller surface.
 - [`.claude/skills/pipeline/SKILL.md §2 / §2.5`](../../skills/pipeline/SKILL.md) — the two callers (completion-filter vs standalone dedup).
 - [.claude/rules/ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md) · [reviewer-discipline.md §2](../../rules/reviewer-discipline.md) · [no-paid-llm-in-ci.md](../../rules/no-paid-llm-in-ci.md) · [build-first-reuse-default.md](../../rules/build-first-reuse-default.md).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

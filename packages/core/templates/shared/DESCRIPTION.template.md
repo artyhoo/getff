@@ -12,7 +12,7 @@
 
 ## Stack
 
-- **Runtime:** Node.js 20.19+
+- **Runtime:** Node.js 22.23+
 - **Language:** TypeScript 5.7+ (strict + noUncheckedIndexedAccess)
 - **Framework:** <Fastify | Hono | Express | Next.js 15 App Router>
 - **Database:** <Postgres | MySQL | SQLite> + <Drizzle | Prisma | Kysely>
@@ -61,13 +61,7 @@ Before every commit / PR, run the gate this installer ships (unconditional — n
 - the pre-push hook (`.husky/pre-push`) fires on `git push` (typecheck, `vitest related`, dependency-cruiser).
 - CI gates the PR (`ci-success` required check) — the last-resort authority, independent of local tooling.
 
-**If you use AI Factory (aif)** (not bundled by this installer) for non-trivial changes:
-
-- `/aif-plan <task>` — create plan + branch
-- `/aif-implement` — execute plan step-by-step with checkpoints
-- `/aif-verify` — _if you use aif_, runs sub-agents over RULES.md + the audit-ai-docs probes. A convenience wrapper around the gate above, not a substitute for it.
-- `/aif-fix <error>` — targeted fix
-- `/aif-commit` — final commit + push
+For the lifecycle past install — First Steps per install depth, the daily cycle, and what degrades when a capability is absent — see `.ai-factory/AI-USAGE-GUIDE.md`.
 
 Don't bypass the pre-push hook / `./scripts/audit-ai-docs.sh` with `--no-verify`. If a rule is genuinely incompatible — discuss it, don't silently skip.
 

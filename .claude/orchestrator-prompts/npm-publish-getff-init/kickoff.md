@@ -1,5 +1,7 @@
 # npm-publish-getff-init — umbrella kickoff (U10) — STUB
 
+> **Status (2026-07-23 amendment):** re-gated — depends on `beta-delivery-ux` R1 + release-frame phase-1 exit (supersedes the former U9+U11+U8 edges; hybrid-lite single-package publish per plan-v2 F1). Publish stays an operator act, 🔒 irreversible. See [beta-program spec §2 D1](../../../docs/superpowers/specs/2026-07-23-beta-program-design.md).
+
 > **Class:** operational kickoff (dispatch input) — **STUB**.
 > **Authoritative for:** scope-набросок умбреллы U10; до диспатча развернуть в полный `kickoff.md` (§1–§9 per [getff-to-prod-meta-launch §D](../getff-to-prod-meta-launch/kickoff.md)).
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). Программа/очередность — [getff-to-prod-meta-launch/kickoff.md](../getff-to-prod-meta-launch/kickoff.md).
@@ -26,3 +28,5 @@ S1 подтвердить заморозку имён (U11) + поверхнос
 
 ## Готово, когда
 `npx getff init` на свежей машине → первое подброшенное нарушение падает; имена (U11) и поверхность (U9 R3) заморожены ДО publish.
+
+<!-- host-verify: none — planning STUB (U10 of the getff-to-prod meta-launch): stages are a sketch, no executable deliverable yet; the full kickoff that replaces this stub declares the real contract -->

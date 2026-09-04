@@ -58,3 +58,5 @@ Domain-specific: **T-MCPfix-A** — «tempted to declare REST the answer because
 6. `.claude/rules/dual-implementation-discipline.md` + `no-paid-llm-in-ci.md` + `build-first-reuse-default.md`.
 
 Finish REPORT with: research-patch PR# · MCP-vs-REST verdict + rationale · handshake contract (evidenced) · §1.7 presence · `## 🟢 Простыми словами`.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

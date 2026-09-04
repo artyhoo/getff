@@ -9,6 +9,8 @@
 // Routing (exhaustive — every node resolves to exactly one RenderOutcome):
 //   selectorClass 'syntax'                        -> refused FF7001
 //   selectorClass 'dep-graph'                      -> refused FF7001
+//   node.relational present (any class)            -> refused FF7001 (no relational surface in
+//                                                     clippy.toml; checked before params validation)
 //   selectorClass 'type-aware', off-contract params -> refused FF7002
 //   selectorClass 'type-aware', valid params        -> rendered | degraded (by severity)
 //
@@ -92,6 +94,27 @@ export function renderCargoClippy(nodes: ConventionNode[]): { toml: string; outc
       continue;
     }
 
+    // --- relational-tree refusal (FF7001, OWNER-FORK-1 Option B, ir-unfreeze S3) ---
+    // clippy.toml's disallowed-methods/-types/-macros tables are a FLAT qualified-name ban list
+    // with ZERO relational surface — no has/not/all/any, not even a selector language. A
+    // RelationalRule tree cannot be partially/lossily rendered (there is no FF7003
+    // "rendered-with-loss" path for a structural composition, only for severity). This is a hard
+    // capability gap, refused honestly, same idiom as the syntax/dep-graph class-refusal above.
+    // Checked BEFORE isValidParams so a relational node whose scalar {kind,path} params LOOK
+    // bannable is STILL refused (closes the pre-S3 silent drop where such a node rendered into the
+    // toml, dropping the tree). NOTE: clippy refusing IS the honesty boundary — it says "clippy
+    // cannot express this", the OPPOSITE of a rust relational-coverage claim (ast-grep, #212, owns
+    // the rust relational surface).
+    if (n.relational !== undefined) {
+      outcomes.set(n.id, {
+        kind: 'refused',
+        code: 'FF7001',
+        note: "relational composition not expressible in clippy's disallowed-methods/-types/-macros vocabulary; route to the ast-grep escape-hatch backend (post-v0)",
+      });
+      diag('FF7001', { backend: BACKEND_NAME, selectorClass: n.selectorClass, nodeId: n.id });
+      continue;
+    }
+
     // selectorClass === 'type-aware' from here on (the only remaining CapabilityClass).
     if (!isValidParams(n.params)) {
       const missing = missingOrInvalidField(n.params);
@@ -120,11 +143,14 @@ export function renderCargoClippy(nodes: ConventionNode[]): { toml: string; outc
       outcomes.set(n.id, { kind: 'rendered', surfaces: [{ surface: 'rule', content: table }] });
     } else {
       // 'error' | 'note' — clippy.toml carries no severity; degraded = rendered-with-loss,
-      // NOT dropped. The entry is still emitted into the toml below.
+      // NOT dropped. The entry is still emitted into the toml below. clippy.toml genuinely has
+      // no severity field, so this degrade STAYS on the clippy.toml plane; the build-failing
+      // severity is projected on a SEPARATE plane (Cargo.toml [lints.clippy] deny — surface-5,
+      // shipped in write-clippy.ts, launch-preannounce-track S4).
       outcomes.set(n.id, {
         kind: 'degraded',
         code: 'FF7003',
-        note: 'clippy.toml carries no severity; [lints.clippy] emission is surface-5 (post-MVP)',
+        note: 'clippy.toml carries no severity; build-failing severity is projected via Cargo.toml [lints.clippy] (write-clippy.ts)',
       });
       diag('FF7003', { backend: BACKEND_NAME, nodeId: n.id, requested: n.defaultSeverity });
     }

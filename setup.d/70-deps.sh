@@ -32,8 +32,14 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
     #   2. else a root src/ present → src
     #   3. else → "." (cwd always exists; never "Can't open"). Exotic-named workspace roots fall to
     #      (2)/(3); a one-line arch:check edit lets the consumer point at their exact roots.
-    AIF_ARCH_TARGET=""
+    # #508 arch:check target signal — kept as-is (only the mutation-wiring signal below changes,
+    # per plan Amendment A1). AIF_MONOREPO_SIG / AIF_ARCH_TARGET stay the manifest-key-based check.
+    AIF_MONOREPO_SIG=0
     if [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ] || grep -q '"workspaces"' "$PROJECT_ROOT/package.json" 2>/dev/null; then
+      AIF_MONOREPO_SIG=1
+    fi
+    AIF_ARCH_TARGET=""
+    if [ "$AIF_MONOREPO_SIG" = "1" ]; then
       for _d in apps packages services libs modules; do
         [ -d "$PROJECT_ROOT/$_d" ] && AIF_ARCH_TARGET="$AIF_ARCH_TARGET $_d"
       done
@@ -42,11 +48,29 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
     if [ -z "$AIF_ARCH_TARGET" ]; then
       if [ -d "$PROJECT_ROOT/src" ]; then AIF_ARCH_TARGET="src"; else AIF_ARCH_TARGET="."; fi
     fi
-    AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" node -e '
+    # #931 PR-2 (C2 fix, plan Amendment A1): test:mutation must route to the per-package wrapper
+    # based on ARTIFACT PRESENCE (scripts/run-mutation.sh), NOT the AIF_MONOREPO_SIG manifest
+    # signal above. AIF_MONOREPO_SIG (pnpm-workspace.yaml / "workspaces" key) and the EMIT gate in
+    # setup.d/40-configs.sh (_ws_lines — a conventional-dir enumeration: apps|packages|services|
+    # libs|modules — that does NOT consult the workspace manifest) are two DIFFERENT signals that
+    # diverge both ways: a `packages/*` monorepo with no manifest key would wire "stryker run"
+    # against configs that were never emitted (SF-1 stays unfixed); a
+    # `"workspaces":["client","server"]` repo with non-conventional dirs would wire the wrapper
+    # form even though 40-configs.sh took the FLAT branch (no wrapper ever copied) — a hard error
+    # on first run (working → broken regression). 40-configs.sh runs BEFORE 70-deps.sh (setup.d
+    # numeric order), so the wrapper's on-disk presence is the authoritative "per-workspace
+    # configs were emitted" signal — wire⟺emit by construction.
+    AIF_HAS_MUTATION_WRAPPER=0
+    [ -f "$PROJECT_ROOT/scripts/run-mutation.sh" ] && AIF_HAS_MUTATION_WRAPPER=1
+    AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" AIF_STACK="$STACK" AIF_HAS_MUTATION_WRAPPER="$AIF_HAS_MUTATION_WRAPPER" node -e '
       const fs = require("fs");
       const p = process.env.AIF_PKG;
       const pkg = JSON.parse(fs.readFileSync(p, "utf8"));
       pkg.scripts = pkg.scripts || {};
+      // #931 PR-2 (C2 fix): route test:mutation to the per-package wrapper IFF setup.d/40-configs.sh
+      // actually emitted it (scripts/run-mutation.sh on disk) — see the AIF_HAS_MUTATION_WRAPPER
+      // comment above for why this replaced the AIF_MONOREPO_SIG manifest-key signal.
+      const hasMutationWrapper = process.env.AIF_HAS_MUTATION_WRAPPER === "1";
       const want = {
         "lint": "eslint . --max-warnings=0",
         "lint:fix": "eslint . --fix",
@@ -57,8 +81,8 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
         "test:watch": "vitest",
         "test:coverage": "vitest run --coverage",
         "test:integration": "vitest run -- --include 'src/**/*.integration.{ts,tsx}'",
-        "test:mutation": "stryker run",
-        "test:mutation:incremental": "stryker run --incremental",
+        "test:mutation": hasMutationWrapper ? "bash scripts/run-mutation.sh" : "stryker run",
+        "test:mutation:incremental": hasMutationWrapper ? "bash scripts/run-mutation.sh --incremental" : "stryker run --incremental",
         "arch:check": "depcruise --config .dependency-cruiser.cjs " + (process.env.AIF_ARCH_TARGET || "src"),
         "audit:docs": "./scripts/audit-ai-docs.sh",
         "check:globs": "bash scripts/check-rule-globs.sh",
@@ -71,19 +95,31 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
         "validate": "npm-run-all2 --parallel typecheck lint format:check arch:check audit:docs check:globs check:enforced check:arch-boundaries check:lintstaged check:fences-fire check:shields-up test",
         "prepare": "husky"
       };
+      // react-next only: the shipped ci.yml test-storybook job calls build-storybook +
+      // test-storybook (github-actions-ci-ui.yml:152-157). Scripts were historically merged by
+      // retired setup.sh Batch K (storybook-package-additions.json, #946) — this is that merge,
+      // relocated to the live path. Same non-destructive guard as the rest of `want`.
+      if (process.env.AIF_STACK === "react-next") {
+        want["storybook"] = "storybook dev -p 6006";
+        want["build-storybook"] = "storybook build";
+        want["test-storybook"] = "test-storybook";
+      }
       let added = 0;
       for (const [k, v] of Object.entries(want)) if (!(k in pkg.scripts)) { pkg.scripts[k] = v; added++; }
       // cih-s1 F2: also merge the devDeps the SHIPPED HOOKS need so they run, not just exist.
       // .husky/pre-commit calls `npx lint-staged`; the canonical scripts call `husky` (prepare)
       // and sort-package-json. Without these the hooks are dead even after `npm install`. Same
-      // non-destructive guard as scripts: only keys the consumer lacks; caret ranges (not in the
-      // framework root package.json — no range to mirror, per orchestrator note) so consumers get
-      // patches. devDependencies object created if absent.
+      // non-destructive guard as scripts: only keys the consumer lacks. 2026-08-08: these three
+      // specs now mirror CORE_DEVDEPS below EXACTLY — tilde, not caret, where the node-20.19
+      // engines floor forced a pin below registry latest (the floor has moved WITHIN a major, so
+      // a caret would re-open it). Fourth copy of the same specs lives in
+      // tests/install-sh/f2-hook-activation.test.sh:34 (strict equality).
+      // devDependencies object created if absent.
       pkg.devDependencies = pkg.devDependencies || {};
       const wantDev = {
         "husky": "^9.1.7",
-        "lint-staged": "^15.2.10",
-        "sort-package-json": "^2.10.1"
+        "lint-staged": "~16.4.0",
+        "sort-package-json": "~3.7.1"
       };
       let addedDev = 0;
       for (const [k, v] of Object.entries(wantDev)) if (!(k in pkg.devDependencies)) { pkg.devDependencies[k] = v; addedDev++; }
@@ -109,31 +145,71 @@ fi
 # P0.2 (ultrareview): typescript + @types/node were DECLARED required by INSTALL.md §4 but never
 # actually in CORE_DEVDEPS, so a fresh --full flat-npm install left `tsc --noEmit` with no Node
 # globals ("Cannot find name 'console'") and let typescript free-float to an unvalidated major via
-# the typescript-eslint peer (verified: unpinned resolves to 6.0.3, incompatible with the shipped
+# the typescript-eslint peer (at the time, unpinned resolved to 6.0.3, incompatible with the shipped
 # tsconfig even WITH @types/node present). typescript@^5.7.0 satisfies typescript-eslint's own peer
 # range (>=4.8.4 <6.1.0) and matches the INSTALL.md pin exactly — INSTALL.md and this array are the
 # two sides of the #two-prompts-drift check (tests/install-sh/cic-s3-dep-install.test.sh).
+#
+# The `<6.1.0` upper bound is LOAD-BEARING, not cosmetic: on 2026-07-08 typescript@7.0.2 (the
+# Go-native rewrite) became the registry `latest`, and its JS API dropped `ts.Extension`, so an
+# unpinned resolve crashes @typescript-eslint/typescript-estree at module load
+# (create-program/shared.js:59 — "Cannot read properties of undefined (reading 'Cjs')"), taking down
+# `npm run lint` on every fresh consumer. The react-native arm was the first to hit this because it
+# installs under --legacy-peer-deps (see REACT_NATIVE_DEVDEPS below), which suppresses the peer-RANGE
+# check that shields the strict-peer stacks — so its typescript spec must carry its own cap. Revisit
+# this pin (and the RN one) when typescript-eslint's peer range admits TS 7.
+# 2026-08-08 pin sweep (consumer-matrix-pnpm-flake follow-up #2): the 16 remaining floats pinned at
+# the newest line whose engines.node admits the node-20.19 brownfield floor (the "brownfield
+# consumers may keep an older 20.19+ .nvmrc" note below); tilde = engines-forced below registry latest.
 CORE_DEVDEPS=(
-  eslint@^9 typescript-eslint@^8.59 @eslint/js@^9 @typescript-eslint/utils globals
-  prettier@3.8.3 eslint-config-prettier @vitest/eslint-plugin
+  eslint@^9 typescript-eslint@^8.59 @eslint/js@^9 @typescript-eslint/utils@^8.62.0 globals@^17.7.0
+  prettier@3.8.3 eslint-config-prettier@^10.1.8 @vitest/eslint-plugin@^1.6.20
   typescript@^5.7.0
   vitest@^4.1.5 @vitest/coverage-v8@^4.1.5
-  @stryker-mutator/core @stryker-mutator/vitest-runner @stryker-mutator/typescript-checker
-  dependency-cruiser fast-check glob ts-morph tsx
-  husky lint-staged sort-package-json
-  npm-run-all2 @types/node@^22.10.0
+  @stryker-mutator/core@^9.6.1 @stryker-mutator/vitest-runner@^9.6.1 @stryker-mutator/typescript-checker@^9.6.1
+  dependency-cruiser@~17.4.3 fast-check@^4.8.0 glob@^13.0.6 ts-morph@^28.0.0 tsx@^4.22.4
+  husky@^9.1.7 lint-staged@~16.4.0 sort-package-json@~3.7.1
+  npm-run-all2@~8.0.4 @types/node@^22.10.0
 )
+# npx-float (2026-07-10): concurrently/http-server/wait-on are invoked via bare `npx` by the
+# shipped react-next CI template (packages/preset-next-15-canonical/templates/
+# github-actions-ci-ui.yml, test-storybook job). The installer delivered none of the three, so
+# non-TTY npx silently registry-fetched <pkg>@latest on every consumer CI run — no lockfile
+# coverage, floats with upstream majors (the P0.2 typescript@7.0.2 failure class on a new
+# surface). Pins were chosen node-20 compatible (concurrently@10 needs node >=22) and still run
+# fine on the shipped .nvmrc 22.23.1 (brownfield consumers may keep an older 20.19+ .nvmrc); this array is the single canonical pin source now that the orphaned Batch-K
+# storybook-package-additions.json template is retired (its only consumer was setup.sh, deleted
+# in #946); INSTALL.md §4 mirrors these pins (two-way parity). Guarded by
+# tests/install-sh/cic-s3-dep-install.test.sh Arms H+I.
+#
+# Storybook toolchain (same job): build-storybook + test-storybook need storybook itself, the
+# Next.js framework pkg, and the test runner — ship them or that job is red-on-arrival.
+# SB 10.x: nextjs-vite is the canonical Next.js framework pkg; addon-essentials/-interactions
+# no longer exist past 8.x (merged into core — the retired JSON pinned them at ^10.3.3, a
+# version that does not exist). Same pin discipline: majors pinned, node-20-and-up compatible.
+# vite is @storybook/nextjs-vite's declared peer (^5||^6||^7||^8) and NOT its direct dep; a
+# Next.js consumer has no vite of its own, so without this pin build-storybook resolves vite
+# only via vitest's transitive hoist — declare it explicitly (cold-review MAJOR, PR #953).
+# ^8 not ^7: the unpinned @vitejs/plugin-react above resolves to 6.x which peers vite@^8 —
+# vite@^7 ERESOLVEs against it (PR #956 CI smoke); ^8 satisfies plugin-react 6.x, vitest 4.x
+# (^6||^7||^8), nextjs-vite, and node 20+ (engines ^20.19.0||>=22.12.0 — covers the shipped .nvmrc 22.23.1 and brownfield 20.19+ pins).
+# @testing-library/user-event: INSTALL.md §4 declares it for React stacks but no array delivered
+# it (same INSTALL.md↔installer parity class as P0.2; loud-fail — consumer interaction tests die
+# at import). Unpinned like its @testing-library siblings; also in REACT_SPA_DEVDEPS below.
 REACT_DEVDEPS=(
   @vitejs/plugin-react jsdom @testing-library/react
-  @testing-library/jest-dom @next/eslint-plugin-next
+  @testing-library/jest-dom @testing-library/user-event @next/eslint-plugin-next
   eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-jsx-a11y
   eslint-plugin-testing-library @playwright/test
+  concurrently@^9.0.0 http-server@^14.1.0 wait-on@^8.0.0
+  storybook@^10.5.0 @storybook/nextjs-vite@^10.5.0 @storybook/test-runner@^0.24.4
+  vite@^8.0.0
 )
 # react-spa (Vite SPA): de-Next-ified — drop @next/eslint-plugin-next, add eslint-plugin-boundaries
 # (Feature-Sliced Design layering the shipped SPA eslint.config enforces). Mirrors REACT_DEVDEPS otherwise.
 REACT_SPA_DEVDEPS=(
   @vitejs/plugin-react jsdom @testing-library/react
-  @testing-library/jest-dom eslint-plugin-boundaries
+  @testing-library/jest-dom @testing-library/user-event eslint-plugin-boundaries
   eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-jsx-a11y
   eslint-plugin-testing-library @playwright/test
 )
@@ -190,6 +266,33 @@ RUNTIME_DEPS=( "${CORE_RUNTIME_DEPS[@]}" )
 NPM_PEER_FLAG=""
 [ "$STACK" = "react-native" ] && NPM_PEER_FLAG="--legacy-peer-deps"
 
+# npm's peer-set walk can CRASH (not ERESOLVE — an unhandled TypeError inside arborist's
+# #loadPeerSet, `Cannot read properties of null (reading 'edgesOut')`) whenever a transitive
+# wildcard peer range resolves to a NEWER major than the one this manifest pins, and that newer
+# major's own peer set is self-referential. Reproduced 2026-09-03 on BOTH npm 10.9.9 and 11.4.2
+# against a cold cache: `@vitest/eslint-plugin` peer-deps `vitest: "*"` → the freshly published
+# vitest 5.0.0 → its exact peers `@vitest/coverage-v8@5.0.0` / `@vitest/browser-playwright@5.0.0`
+# → back to the vitest 4.1.x this manifest pins → null node → crash. Upstream: npm/cli#9787,
+# npm/cli#8261. The crash aborts the WHOLE dev-dep install, so a fresh `install.sh <stack> --full`
+# lands no toolchain at all — the same consumer-facing failure the RN ERESOLVE note above describes,
+# but triggered by a third party publishing a major, i.e. it can strike any stack on any day with
+# NO change on our side.
+#
+# So: keep the strict attempt as the DEFAULT (a genuine peer conflict must still surface — masking
+# it is exactly the form-over-behavior failure this repo exists to prevent), and fall back to
+# --legacy-peer-deps ONLY after the strict attempt has actually failed. The retry is not a silent
+# `|| true`: it prints what happened, and `_ok` still gates the honest "install incomplete" path
+# below, so a fallback that ALSO fails is reported as a failure. Stacks that already relax peers
+# (react-native) skip the retry — their first attempt is the relaxed one.
+_npm_install_with_peer_fallback() {
+  # $@ = the npm argv after `npm` (e.g. install --save-dev <specs…>)
+  if ( cd "$PROJECT_ROOT" && npm "$@" $NPM_PEER_FLAG ); then return 0; fi
+  if [ -n "$NPM_PEER_FLAG" ]; then return 1; fi
+  echo "  ⚠  npm could not resolve the peer graph (strict mode) — retrying with --legacy-peer-deps."
+  echo "     This is usually a third-party major published upstream, not a defect in your project."
+  ( cd "$PROJECT_ROOT" && npm "$@" --legacy-peer-deps )
+}
+
 DEPS_INSTALLED=""
 _do_dep_install=""
 if [ "$DRY_RUN" = "--dry-run" ]; then
@@ -232,8 +335,8 @@ if [ "$_do_dep_install" = "yes" ]; then
         if ( cd "$PROJECT_ROOT" && yarn add -D "${DEVDEPS[@]}" ); then _ok="yes"; fi ;;
       *)
         # $NPM_PEER_FLAG is empty for all stacks except react-native (see ERESOLVE note above).
-        # Unquoted so an empty value expands to no arg (bash 3.2 + `set -u` safe).
-        if ( cd "$PROJECT_ROOT" && npm install --save-dev $NPM_PEER_FLAG "${DEVDEPS[@]}" ); then _ok="yes"; fi ;;
+        # The helper appends it, retrying once with --legacy-peer-deps if the strict pass crashed.
+        if _npm_install_with_peer_fallback install --save-dev "${DEVDEPS[@]}"; then _ok="yes"; fi ;;
     esac
 
     # P0.2: runtime deps (zod) — SAME consent gate as the devDep install above (one prompt covers
@@ -253,7 +356,7 @@ if [ "$_do_dep_install" = "yes" ]; then
         yarn)
           if ( cd "$PROJECT_ROOT" && yarn add "${RUNTIME_DEPS[@]}" ); then _ok_rt="yes"; fi ;;
         *)
-          if ( cd "$PROJECT_ROOT" && npm install $NPM_PEER_FLAG "${RUNTIME_DEPS[@]}" ); then _ok_rt="yes"; fi ;;
+          if _npm_install_with_peer_fallback install "${RUNTIME_DEPS[@]}"; then _ok_rt="yes"; fi ;;
       esac
     fi
 

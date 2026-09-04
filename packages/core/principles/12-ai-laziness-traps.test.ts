@@ -5,9 +5,10 @@
  *         docs/meta-factory/research-patches/2026-05-16-prose-rules-audit-research.md §3.1
  *         (Track 3 evidence-based probe confirming BUILD verdict; principle 10 precedent)
  *
- * Invariant: every REAL (non-symlink) kickoff.md file under
- * .claude/orchestrator-prompts/<dir>/ (excluding pre-rule exempt dirs AND
- * coordination mirrors — symlinks into $CANON authored in another worktree, see
+ * Invariant: every REAL (non-symlink) kickoff under .claude/orchestrator-prompts/<dir>/ —
+ * the umbrella `kickoff.md` AND the stage-kickoff family (`kickoff-s1.md`,
+ * `kickoff-s2b.md`, `kickoff-r1.md`; see STAGE_KICKOFF_RE) — excluding pre-rule exempt
+ * dirs AND coordination mirrors (symlinks into $CANON authored in another worktree, see
  * isCoordinationMirror) must satisfy the COMPOUND CITATION CHECK:
  * at least ONE of the following must be present —
  *   (a) string "ai-laziness-traps" anywhere in the file (explicit rule citation)
@@ -24,13 +25,15 @@
  * maintained as an explicit list rather than a date filter.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync, existsSync, lstatSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const HERE = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(HERE, '../../..');
-const KICKOFFS_DIR = resolve(REPO_ROOT, '.claude/orchestrator-prompts');
+import { readFileSync, existsSync } from 'node:fs';
+import {
+  KICKOFFS_DIR,
+  STAGE_KICKOFF_RE,
+  TEST_SANDBOX_RE,
+  getKickoffEntries,
+  isCoordinationMirror,
+  type KickoffEntry,
+} from './kickoff-population.ts';
 
 /**
  * Exempt kickoff dirs (allowlist; must grow only with documented rationale):
@@ -72,22 +75,11 @@ function passesCompoundCheck(content: string): boolean {
   );
 }
 
-interface KickoffEntry {
-  dir: string;
-  path: string;
-}
-
-function getKickoffEntries(): KickoffEntry[] {
-  if (!existsSync(KICKOFFS_DIR)) return [];
-  return readdirSync(KICKOFFS_DIR, { withFileTypes: true })
-    .filter((e) => e.isDirectory())
-    .map((e) => ({
-      dir: e.name,
-      path: resolve(KICKOFFS_DIR, e.name, 'kickoff.md'),
-    }))
-    .filter((e) => existsSync(e.path))
-    .sort((a, b) => a.dir.localeCompare(b.dir));
-}
+// The population itself (STAGE_KICKOFF_RE, TEST_SANDBOX_RE, getKickoffEntries,
+// isCoordinationMirror) now lives in ./kickoff-population.ts — principle 40 resolves the
+// same family, and two hand-kept copies of "what a kickoff is" is the copy-paste drift
+// this repo names. The assertions pinning that population's behaviour stay HERE (see the
+// stage-family and sandbox-exclusion cases below).
 
 // Population sentinel bound: catch a runaway-glob explosion (absurd count), NOT
 // assert a lower floor — "few or zero kickoffs" is a VALID state (fresh clone, a
@@ -100,27 +92,11 @@ export function withinPopulationBounds(n: number): boolean {
   return n >= 0 && n <= POPULATION_CAP;
 }
 
-/**
- * A "coordination mirror" is an umbrella whose kickoff.md is a SYMLINK into the
- * shared coordination store ($CANON), materialised locally by channel G
- * (.husky/post-checkout → scripts/link-coordination.sh). Such an umbrella was
- * authored in some other worktree and adopted into $CANON; its citation was (or
- * should have been) checked AT ITS AUTHORING worktree while its kickoff.md was a
- * real file. Re-checking every mirror in every worktree made this gate fail on
- * historical umbrellas the current worktree never wrote — the principle-12-vs-G
- * conflict. The citation check therefore runs only on REAL (non-symlink) kickoffs
- * = the ones locally authored / not-yet-adopted. The population sentinel, by
- * contrast, deliberately counts the FULL set (mirrors included) as a "mirror
- * present" guard. (maintainer-directed 2026-06-02)
- */
-function isCoordinationMirror(path: string): boolean {
-  try {
-    return lstatSync(path).isSymbolicLink();
-  } catch {
-    return false;
-  }
-}
-
+// The citation check runs only on REAL (non-symlink) kickoffs = the ones locally authored
+// or not yet adopted; a coordination mirror was checked at its authoring worktree (see
+// isCoordinationMirror in ./kickoff-population.ts — the principle-12-vs-channel-G conflict,
+// maintainer-directed 2026-06-02). The population sentinel below deliberately counts the
+// FULL set, mirrors included, as a "mirror present" guard.
 function getNonExemptEntries(): KickoffEntry[] {
   return getKickoffEntries()
     .filter((e) => !EXEMPT_LIST.includes(e.dir))
@@ -147,10 +123,10 @@ describe('Principle 12 — every kickoff.md cites ai-laziness-traps rule', () =>
     () => {
       const entries = getNonExemptEntries();
       const violations: string[] = [];
-      for (const { dir, path } of entries) {
+      for (const { label, path } of entries) {
         const content = readFileSync(path, 'utf8');
         if (!passesCompoundCheck(content)) {
-          violations.push(dir);
+          violations.push(label);
         }
       }
       expect(
@@ -168,7 +144,9 @@ describe('Principle 12 — every kickoff.md cites ai-laziness-traps rule', () =>
       // migration transitional) — there an exempt dir is legitimately absent. Only run
       // the stale-check when the set is at least as large as the exempt list, i.e. when
       // an exempt dir SHOULD be present. (SSOT #116 few-plans-safety.)
-      const allDirs = getKickoffEntries().map((e) => e.dir);
+      // DISTINCT dirs — a multi-stage umbrella now contributes several entries for one
+      // dir, and counting them would inflate the "back-catalog is present" proxy below.
+      const allDirs = [...new Set(getKickoffEntries().map((e) => e.dir))];
       if (allDirs.length < EXEMPT_LIST.length) return;
       for (const exemptDir of EXEMPT_LIST) {
         expect(
@@ -216,6 +194,40 @@ describe('Principle 12 — every kickoff.md cites ai-laziness-traps rule', () =>
     expect(passesCompoundCheck('Active traps: **T1**, **T3**, **T7**')).toBe(true);
     expect(passesCompoundCheck('Active traps for this R-phase: T1, T3, T7')).toBe(true);
     expect(passesCompoundCheck('Domain trap: T-WAVE9-A captures specific failure')).toBe(true);
+  });
+
+  it('stage-kickoff pattern admits the dispatch family and rejects sidecars', () => {
+    // Both directions, because "widen the glob" fails as easily by over-reach as by
+    // under-reach. The IN list is every live shape in .claude/orchestrator-prompts/;
+    // the OUT list is the sidecars + the wave-dir artefacts that share the prefix.
+    for (const name of [
+      'kickoff-s0.md', 'kickoff-s1.md', 'kickoff-s2b.md', 'kickoff-s10.md', 'kickoff-r1.md',
+    ]) {
+      expect(STAGE_KICKOFF_RE.test(name), `${name} should be IN scope`).toBe(true);
+    }
+    for (const name of [
+      'kickoff-s4.decisions.md', // owner-fork log — a record ABOUT a stage
+      'kickoff-amendments.md', // audit trail extracted to clear the 600-line gate
+      'kickoff.md', // the umbrella kickoff — matched separately, not by this pattern
+      'done.md',
+      'report.md',
+      'kickoff-s1.md.bak',
+      'notes-kickoff-s1.md', // anchored: the prefix must start the basename
+    ]) {
+      expect(STAGE_KICKOFF_RE.test(name), `${name} should be OUT of scope`).toBe(false);
+    }
+  });
+
+  it('the sandbox exclusion is narrow: only the sibling suite prefix, never a real umbrella', () => {
+    // Over-broad exclusion is the dangerous direction — it would silently un-gate real
+    // umbrellas. Pin both sides.
+    expect(TEST_SANDBOX_RE.test('c2-test-Ab12Cd')).toBe(true);
+    for (const dir of [
+      'triage-kernel-v2', 'beta-delivery-ux', 'modular-install-fullpack',
+      'c2-something-real', 'my-c2-test-umbrella',
+    ]) {
+      expect(TEST_SANDBOX_RE.test(dir), `${dir} must stay gated`).toBe(false);
+    }
   });
 
   it.skipIf(!KICKOFFS_AVAILABLE)(

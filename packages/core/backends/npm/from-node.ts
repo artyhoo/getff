@@ -12,6 +12,11 @@
 //                                                 declarative no-restricted-syntax class)
 //   selectorClass 'dep-graph'                  -> refused FF7001 (dependency-level bans are
 //                                                 not a syntax-selector class)
+//   node.relational present (any class)        -> refused FF7001 (the RelationalRule leaf is an
+//                                                 ast-grep PYTHON-AST pattern, not an esquery
+//                                                 selector; checked before params validation. The
+//                                                 exported nodeToSynthesizedRule THROWS on the same
+//                                                 case — defense-in-depth for direct callers.)
 //   selectorClass 'syntax', off-contract params -> refused FF7002
 //   selectorClass 'syntax', valid params        -> rendered
 //
@@ -80,6 +85,15 @@ export function nodeToSynthesizedRule(node: ConventionNode, enrichment: NpmEnric
       `nodeToSynthesizedRule(): node ${node.id} has selectorClass '${node.selectorClass}', only 'syntax' maps to a declarative rule`,
     );
   }
+  if (node.relational !== undefined) {
+    // Defense-in-depth (OWNER-FORK-1 Option B, ir-unfreeze S3): renderNpmDeclarative's FF7001
+    // gates the BATCH path, but this projection is EXPORTED — a direct caller would otherwise
+    // silently drop the relational tree (only non-relational syntax nodes map to a declarative
+    // rule; routing must gate this). Consistent with the throw-contract above (programmer-bug class).
+    throw new Error(
+      `nodeToSynthesizedRule(): node ${node.id} carries a relational tree; only non-relational syntax nodes map to a declarative rule (route to the ast-grep backend, #212 — routing must gate this)`,
+    );
+  }
   if (!isValidParams(node.params)) {
     throw new Error(
       `nodeToSynthesizedRule(): node ${node.id} params fail the npm declarative contract (missing/invalid ${missingOrInvalidField(node.params)})`,
@@ -128,6 +142,25 @@ export function renderNpmDeclarative(nodes: ConventionNode[]): {
           ? 'typed rules are not expressible in the no-restricted-syntax declarative class; route to a type-aware backend (post-v0)'
           : 'dependency-level bans are not a syntax-selector class; route to a dep-graph backend (post-v0)';
       outcomes.set(n.id, { kind: 'refused', code: 'FF7001', note });
+      diag('FF7001', { backend: BACKEND_NAME, selectorClass: n.selectorClass, nodeId: n.id });
+      continue;
+    }
+
+    // --- relational-tree refusal (FF7001, OWNER-FORK-1 Option B, ir-unfreeze S3) ---
+    // esquery (what no-restricted-syntax consumes) is a JS-AST selector language WITH relational
+    // operators (:has/:not/combinators), so this is NOT "eslint can't do relational at all". The
+    // narrower, defensible claim: the RelationalRule LEAF (RelationalHas.pattern) is an ast-grep
+    // metavariable pattern over PYTHON AST (e.g. `return $V`), not an esquery selector; there is no
+    // faithful ast-grep-pattern -> esquery translator, and fabricating selector-composition would be
+    // a "works"-without-evidence claim. So refuse honestly and route to ast-grep (#212). Checked
+    // BEFORE isValidParams so an otherwise-renderable {selector,presence} node is STILL refused
+    // (closes the pre-S3 silent drop where the tree dropped into the config).
+    if (n.relational !== undefined) {
+      outcomes.set(n.id, {
+        kind: 'refused',
+        code: 'FF7001',
+        note: 'relational composition not expressible in the no-restricted-syntax declarative class; route to the ast-grep backend (#212)',
+      });
       diag('FF7001', { backend: BACKEND_NAME, selectorClass: n.selectorClass, nodeId: n.id });
       continue;
     }

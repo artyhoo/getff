@@ -12,27 +12,31 @@
       {
         "matcher": "AskUserQuestion",
         "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/ask-question-reminder.sh\""
+      },
+      {
+        "matcher": "Agent|Task",
+        "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-subagent-context.sh\""
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|MultiEdit",
         "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/validate-prompt.sh\""
       },
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|MultiEdit",
         "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-doc-authority.sh\""
       },
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|MultiEdit",
         "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh\""
       },
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|MultiEdit",
         "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-kickoff-traps.sh\""
       },
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|MultiEdit",
         "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-hook-marker.sh\""
       },
       {
@@ -66,6 +70,11 @@
     "SessionStart": [
       {
         "command": "bash \"$CLAUDE_PROJECT_DIR/scripts/link-coordination.sh\" >/dev/null 2>&1 || true"
+      }
+    ],
+    "PreCompact": [
+      {
+        "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/precompact-residue.sh\""
       }
     ]
   },

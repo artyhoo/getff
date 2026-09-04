@@ -29,3 +29,5 @@ S0 (gate) U1 S3 подтвердил пробелы → S1 enumerate реаль�
 
 ## Готово, когда
 Подтверждённые e2e-пробелы обоих пресетов закрыты, прогон e2e зелёный; либо precondition показал отсутствие пробелов → умбрелла закрыта как не-нужная.
+
+<!-- host-verify: none — planning STUB (U16 of the getff-to-prod meta-launch): stages are a sketch, no executable deliverable yet; the full kickoff that replaces this stub declares the real contract -->

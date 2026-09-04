@@ -70,3 +70,5 @@ The shipped CC plugin **loads in current Claude Code** — `claude plugin tag --
 On last-stage merge — `done.md` per [CLAUDE.md «Umbrella closure convention»](../../../CLAUDE.md): `# plugin-loadability — DONE` · Final PR · Closed · Summary.
 
 > **Dispatch note (per [kickoff-staging-placement.md §1](../../rules/kickoff-staging-placement.md)):** this kickoff must be merged to `staging` BEFORE `/pipeline plugin-loadability` or any aif dispatch — a kickoff living only on a feature branch is invisible to the dispatch session (which runs on `staging`).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

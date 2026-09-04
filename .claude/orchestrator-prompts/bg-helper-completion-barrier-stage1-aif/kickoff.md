@@ -19,7 +19,7 @@ Build `.claude/skills/meta-orchestrator/helpers/run-helper.sh` — a trivial bas
 
 Create `.claude/skills/meta-orchestrator/helpers/run-helper.sh`. It runs its arguments as a child command and appends ONE terminal trailer line to stdout, in this exact shape:
 
-```
+```text
 === <helper-name>: END rc=<exit-code> (lines=<stdout-line-count>) ===
 ```
 
@@ -81,7 +81,7 @@ npm --prefix packages/core test -- <your-test-file-basename> 2>&1 | tail -15
 2. Run the negative-existence check (`.claude/rules/phase-research-coverage.md §1` 6-item checklist) on the claim «no upstream run-child-and-append-exit-trailer tool is worth a dependency».
 3. The BFR verdict is pre-reasoned **BUILD** — trivial bash exec-wrapper, no upstream analog worth a dep. Carry a commit trailer:
 
-```
+```text
 Prior-art: prior-art-evaluations.md — escape hatch: trivial bash exec-wrapper, no upstream analog worth a dependency (BFR BUILD, pre-reasoned).
 ```
 
@@ -167,3 +167,5 @@ Guessing a fork "to keep moving" is the exact failure this whole task exists to 
 - Any of the 5 regression tests fail → STOP, do not open PR.
 - A genuine fork surfaces → PARK per §4c, do not guess.
 - You're tempted to touch `SKILL.md` or foreground helpers → STOP (Stage 2 / out of scope).
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->

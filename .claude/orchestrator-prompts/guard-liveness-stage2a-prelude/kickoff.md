@@ -3,9 +3,13 @@
 > **Type:** I-phase-small (schema + types + principle-test extension). Single small PR. Hours-scale.
 > **Stage 2a prelude** of the guard-liveness umbrella. Created 2026-06-11 by `/pipeline guard-liveness` Phase -1 (1→2) REVISE verdict to resolve BLOCKER-2 (v1.5 ‖ v3 shared-file collision) before the two runners parallelize.
 > **Design SSOT:** [docs/meta-factory/research-patches/2026-05-23-guard-liveness-gate.md](../../../docs/meta-factory/research-patches/2026-05-23-guard-liveness-gate.md) §3; v0 audit table [docs/meta-factory/research-patches/2026-06-10-guard-liveness-v0-audit.md](../../../docs/meta-factory/research-patches/2026-06-10-guard-liveness-v0-audit.md) §1/§4.
-> **Depends on:** v0 (#458) + v1 (#460) merged — DONE. Gate green.
+> Both dependency edges DONE — gate green.
 > **Gates:** v1.5 (`guard-liveness-v1.5-cmd-script/`) AND v3 (`guard-liveness-v3-manual-sp/`) both depend on THIS prelude merging — it lands the shared manifest schema surface + principle-02/15 extension so the two runners then edit disjoint files.
 > **Base branch:** staging.
+
+| Stage | Scope (one line) | Depends on |
+|---|---|---|
+| stage2a | shared-schema prelude: manifest schema surface + principle-02/15 extension (§0) | v0 (PR 458) + v1 (PR 460) merged |
 
 ## §0 Why this prelude exists (origin)
 
@@ -82,3 +86,5 @@ Cold-review (1× Opus) before merge: schema mirrors `negative-test` style exactl
 
 - **Gates v1.5 AND v3.** Both depend on this PR merging. After it lands: v1.5 ‖ v3 dispatch in separate worktrees (Mode B ×2) over disjoint files (v1.5 → runner + cmd/script data; v3 → prober + manual data). The remaining soft-overlap is `rules-manifest.json` data edits on disjoint rule keys — isolate via worktrees, second-merged rebases.
 - **N5 give-back:** the fixture/pressure-scenario schema convention is a give-back candidate alongside v1.5's runner + v3's prober — surface at N5, not here.
+
+<!-- host-verify: none — legacy closed umbrella (done.md): work already accepted; no live host acceptance to declare — retro-marked 2026-08-21 -->
