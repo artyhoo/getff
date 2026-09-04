@@ -119,6 +119,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
       # The framework never ran its own authored shipped artifacts (skill docs, agent prompts,
       # ESLint-rule sources, config templates) through Prettier, so install delivered ~50 files
       # that fail a consumer's first `prettier --check .` (#531). This gate fails when any shipped
@@ -180,6 +184,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
       - name: Install packages/core deps (remark + vitest for audit-ai-docs.test.ts)
         run: npm ci --prefix packages/core --silent
       - name: Run packages/core/audit-self/audit-ai-docs.test.ts (Wave 10.4 — vitest)
@@ -215,6 +223,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
       - name: Install workspace deps (hoists tsx to root)
         run: npm install --silent
       - name: Render & diff
@@ -246,6 +258,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
       - name: Install packages/core deps
         run: npm ci --prefix packages/core --silent
       - name: Run principles meta-tests
@@ -592,6 +608,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
       - name: Install packages/core deps
         run: npm ci --prefix packages/core --silent
       - name: Install workspace deps (hoists tsx to root)
@@ -713,6 +733,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
       - name: Install packages/core deps
         run: npm ci --prefix packages/core --silent
       - name: Install workspace deps (hoists tsx to root)
@@ -809,6 +833,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
       - name: Install packages/core deps
         run: npm ci --prefix packages/core --silent
       - name: Install workspace deps (hoists tsx to root)
@@ -919,6 +947,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
       - name: Install workspace deps
         run: npm install --silent
       - name: Typecheck all workspaces (tsc --noEmit)
@@ -952,6 +984,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
       - name: Install workspace deps (hoists tsx to root)
         run: npm install --silent
       - name: Ensure PR base ref is present
@@ -1072,6 +1108,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
       - name: Install python pyyaml (required by audit probes)
         run: pip install pyyaml==6.0.2
       - name: Install packages/core deps (remark + vitest for audit-ai-docs.test.ts)
@@ -1102,6 +1142,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
       - name: Install python pyyaml (required by audit probes)
         run: pip install pyyaml==6.0.2
       - name: Install packages/core deps (remark + vitest for audit-ai-docs.test.ts)
@@ -1164,6 +1208,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
       - name: "Fresh ./setup -y install (install.sh --full) into a tmp consumer"
         # STACK via env (not inline ${{…}} in run:) to avoid template-injection (zizmor). The
         # value is a GitHub-controlled matrix token from the allowlist above.
@@ -1290,6 +1338,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
       - name: "Fresh install.sh ts-server --full into a multi-stack monorepo consumer"
         run: |
           CONSUMER=$(mktemp -d)
@@ -1353,6 +1405,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
       - name: Install workspace deps (hoists tsx + transitive semver)
         run: npm install --silent
       - name: Detect this repo and diff against frozen snapshot
@@ -1393,6 +1449,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
       - name: Install workspace deps (hoists tsx + transitive semver + ajv)
         run: npm install --silent
       - name: Run research --self and diff against frozen snapshot
@@ -1427,6 +1487,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
       - name: Install workspace deps
         run: npm install --silent
       - name: Synth on own repo and diff against frozen snapshot
@@ -1462,6 +1526,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
       - name: Install workspace deps (hoists eslint + ts-eslint)
         run: npm install --silent
       - name: Validate own repo synth output and diff against frozen snapshot
@@ -1510,6 +1578,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
       - name: Install workspace deps
         run: npm install --silent
       - name: Synth → install → diff deterministic shape vs frozen snapshot
@@ -1549,6 +1621,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
       - name: Install workspace deps
         run: npm install --silent
       - name: Emit a declarative forbid bundle, verify clean, then prove it reds on a hand-edit
@@ -1601,6 +1677,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
       - name: Install workspace deps
         run: npm install --silent
       - name: Run canonical regen acceptance test (similarity ≥0.95)
@@ -1684,6 +1764,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
       - name: Install workspace deps (provides tsx + tsc for barrel compilation)
         run: npm install --silent
       - name: Install packages/core deps (provides eslint binary for Arm ii)
@@ -1712,6 +1796,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
       - name: Enable pnpm via corepack (the fixture is a pnpm workspace monorepo)
         run: corepack enable
       - name: Run the consumer-matrix start cell
@@ -1747,6 +1835,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
       # tsx lives in packages/core/node_modules — the cell invokes
       # `npx --no-install tsx ... rule-bootstrap-cli.ts` at cell:300-303 from
       # $FRAMEWORK_ROOT (root), so tsx must resolve from root/node_modules.
@@ -1791,6 +1883,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
       - name: Run the consumer-matrix npm-tarball cell
         run: bash tests/consumer-matrix/npm-tarball-cell.sh
         env:
