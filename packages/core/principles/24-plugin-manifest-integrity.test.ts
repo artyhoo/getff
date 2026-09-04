@@ -316,34 +316,46 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
     const actual = readdirSync(resolve(PLUGIN, 'skills'), { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort();
     expect(actual, 'plugin/skills membership changed. The set is a recorded decision (plan Task 3 Step 4 + its 2026-09-03 promotion) — update M1_SET here and state in the PR body which need triggered the promotion.').toEqual([...M1_SET].sort());
 
-    // Fidelity for skills that also exist under the framework's skills/. QUARANTINE: getff is
-    // exempt. The stale-content half of the drift is GONE (re-synced 2026-09-03, Decision 4
-    // item 3: the plugin copy no longer names AI Factory `/aif-verify` + `rules-sidecar` where
-    // the source names ./scripts/audit-ai-docs.sh, and it carries the /rule-research +
-    // /rule-tests line). What remains is ONLY the link divergence, and it is STRUCTURAL, so
-    // byte-identity is unreachable here by construction: the plugin copy sits one directory
-    // deeper, so SKILL.md's ](../../x) became ](../../../x) and each references/*.md's
-    // ](../../../x) became an absolute https://github.com/... URL (a marketplace consumer
-    // reads these outside the repo, where no relative path escapes correctly). Lifting the
-    // quarantine therefore requires a link-normalising comparison — a design choice, not a
-    // re-sync — so it stays until that is decided. Re-verify with:
-    //   diff -ru skills/getff plugin/skills/getff   → 7 differing lines, all link lines.
-    // tool-bootstrapping can hold plain byte-identity because it has zero links escaping its own
-    // directory — verified before it was copied in; a future skill that does NOT will fail here,
-    // which is the point: the author must then choose depth-rewrite (and earn its own exemption,
-    // with the reason written here) rather than let the divergence land unnoticed.
-    const DRIFT_QUARANTINE = new Set(['getff']);
+    // Fidelity for skills that also exist under the framework's skills/. Two tiers, strongest
+    // first: byte-identity where it is reachable, and content-identity (links normalised away)
+    // where the channel forces the link form to differ.
+    //
+    // WHY A SECOND TIER IS NEEDED. A plugin/skills copy is read by a marketplace consumer OUTSIDE
+    // this repo and sits one directory deeper than its source, so its links are mechanically
+    // rewritten in two different ways — measured across all 6 getff files, 2026-09-03:
+    //   · depth bump      — SKILL.md's ](../../x)      became ](../../../x)
+    //   · blob-URL escape — references/*.md's ](../../../x) became ](https://github.com/...),
+    //                       and the link TEXT lost its leading ../ ladder with it.
+    // Neither is drift; both are required for the link to resolve at all. Byte-identity is
+    // therefore unreachable for any skill carrying an escaping link, which is why getff sat
+    // quarantined — and a quarantine is an exemption, so getff's CONTENT went unwatched, which is
+    // the half that actually went stale (it named AI Factory `/aif-verify` + `rules-sidecar` long
+    // after the source moved to ./scripts/audit-ai-docs.sh, and had lost the /rule-research line).
+    //
+    // Normalising drops every link TARGET and the ../ ladder from link TEXT, leaving the prose.
+    // Validated against reality rather than assumed: on the current tree all 6 getff files are
+    // raw-DIFF but normalised-SAME, and against the pre-re-sync twin (commit 4adff07b4d) the same
+    // comparison reports 79 differing lines whose first two are exactly the two stale-content
+    // defects above. The guard would have caught the real incident; that is the claim it earns.
+    //
+    // What this deliberately no longer checks is whether a link points at the RIGHT document —
+    // that is the link gates' job (pre-push §8 lychee, transform_internal_refs), not this arm's.
+    const normaliseChannelLinks = (s: string): string =>
+      s.replace(/\]\([^)]*\)/g, ']()').replace(/\[(?:\.\.\/)+/g, '[');
     const drift: string[] = [];
     for (const name of actual) {
-      if (DRIFT_QUARANTINE.has(name)) continue;
       const src = resolve(REPO_ROOT, 'skills', name);
       if (!existsSync(src)) continue; // plugin-native skill — no framework source to match
       for (const rel of walkFiles(src)) {
         const twin = resolve(PLUGIN, 'skills', name, rel);
-        if (!existsSync(twin) || readFileSync(resolve(src, rel), 'utf8') !== readFileSync(twin, 'utf8')) drift.push(`${name}/${rel}`);
+        if (!existsSync(twin)) { drift.push(`${name}/${rel} (missing in plugin)`); continue; }
+        const a = readFileSync(resolve(src, rel), 'utf8');
+        const b = readFileSync(twin, 'utf8');
+        if (a === b) continue; // tier 1: byte-identical (tool-bootstrapping — no escaping links)
+        if (normaliseChannelLinks(a) !== normaliseChannelLinks(b)) drift.push(`${name}/${rel}`);
       }
     }
-    expect(drift, `plugin/skills copies drifted from their skills/ source: ${drift.join(', ')}`).toHaveLength(0);
+    expect(drift, `plugin/skills copies drifted from their skills/ source in CONTENT (link-form differences are normalised away, so these are real): ${drift.join(', ')}`).toHaveLength(0);
   });
 
   // ── (f) T15 self-application — this gate is itself an executable artifact ────
