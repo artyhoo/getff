@@ -364,4 +364,82 @@ else
   bad "parity3: storybook-package-additions.json resurrected — third pin copy will drift; fold pins into REACT_DEVDEPS instead"
 fi
 
+# ── helper: read overrides["@vitest/eslint-plugin"].vitest from a consumer package.json ──
+#    (echoes "" when absent). NESTED, not top-level: see the Arm J/M rationale below.
+_read_vitest_override() {
+  node -e 'try{const p=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));const e=(p.overrides||{})["@vitest/eslint-plugin"];process.stdout.write(String((e&&e.vitest)||""))}catch(e){}' "$1" 2>/dev/null
+}
+# ── helper: read a TOP-LEVEL overrides.vitest (the shape that must NEVER be written — Arm M) ──
+_read_toplevel_vitest_override() {
+  node -e 'try{const p=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));const v=(p.overrides||{}).vitest;process.stdout.write(typeof v==="string"?v:"")}catch(e){}' "$1" 2>/dev/null
+}
+# The CORE_DEVDEPS vitest pin — the SINGLE source the installer derives the override from.
+# Matches the bare `vitest@…` entry only, never `@vitest/coverage-v8@…` / `@vitest/eslint-plugin@…`.
+_vitest_pin=$(sed -n '/^CORE_DEVDEPS=(/,/^)/p' "$REPO_ROOT/setup.d/70-deps.sh" \
+  | grep -oE '(^|[[:space:]])vitest@[^[:space:])]+' | head -1 | sed 's/^[[:space:]]*//; s/^vitest@//')
+
+# ════ Arm J — ts-server + npm, --full → overrides.vitest bounds the wildcard peer ════
+# npm arborist CRASHES (`Cannot read properties of null (reading 'edgesOut')`) when
+# @vitest/eslint-plugin's wildcard peer `vitest: "*"` resolves to a newer major than the
+# vitest@^4.1.5 CORE_DEVDEPS pins: vitest 5's own peers are EXACT self-references
+# (@vitest/coverage-v8@5.0.0, @vitest/browser-playwright@5.0.0) that walk back to the pinned 4.1.x.
+# Measured offline (no network, 3 reps, 24 CORE_DEVDEPS): the strict attempt burns 35.7-38.8s of
+# CPU and THEN crashes; bounded, the same resolve succeeds in 2.5-2.6s. The --legacy-peer-deps
+# retry cannot recover that CPU — it only runs AFTER the crash. Upstream: npm/cli#9787, #8261.
+J=$(mktemp -d); export AIF_PM_LOG="$J.log"; : > "$AIF_PM_LOG"
+printf '{ "name":"j","version":"0.0.0" }\n' > "$J/package.json"
+( cd "$J" && git init -q && git config user.email t@t && git config user.name t )
+run_install "$J" ts-server --force --full < /dev/null
+_j_ovr=$(_read_vitest_override "$J/package.json")
+if [ -z "$_vitest_pin" ]; then
+  bad "J: could not extract the bare vitest pin from CORE_DEVDEPS (harness stale vs 70-deps.sh)"
+elif [ "$_j_ovr" = "$_vitest_pin" ]; then
+  ok "J: --full wrote overrides.vitest=$_j_ovr, DERIVED from the CORE_DEVDEPS pin (cannot drift)"
+else
+  bad "J: overrides.vitest is '$_j_ovr', expected the CORE_DEVDEPS pin '$_vitest_pin' — arborist crash guard missing or drifted"
+fi
+
+# ════ Arm K (paired-negative for J) — a consumer's OWN vitest override is NEVER overwritten ════
+# Same non-destructive contract as the scripts/devDeps merges: a consumer who deliberately moved to
+# the vitest 5 line keeps their choice. Without this the guard would be a silent downgrade.
+K=$(mktemp -d); export AIF_PM_LOG="$K.log"; : > "$AIF_PM_LOG"
+printf '{ "name":"k","version":"0.0.0","overrides":{"@vitest/eslint-plugin":{"vitest":"^3.0.0"}} }\n' > "$K/package.json"
+( cd "$K" && git init -q && git config user.email t@t && git config user.name t )
+run_install "$K" ts-server --force --full < /dev/null
+_k_ovr=$(_read_vitest_override "$K/package.json")
+[ "$_k_ovr" = "^3.0.0" ] \
+  && ok "K neg: pre-existing overrides.vitest=^3.0.0 preserved (merge is non-destructive)" \
+  || bad "K neg: consumer override was overwritten to '$_k_ovr' — silent downgrade of a deliberate choice"
+
+# ════ Arm L (paired-negative for J) — pnpm consumer gets NO npm-shaped `overrides` key ════
+# The crash is arborist-specific. pnpm keys overrides under `pnpm.overrides` and yarn under
+# `resolutions`, so a bare top-level `overrides` would be dead config there. Mirrors the Arm F/G
+# $NPM_PEER_FLAG scoping: the workaround lands exactly where the defect lives, never blanket.
+L=$(mktemp -d); export AIF_PM_LOG="$L.log"; : > "$AIF_PM_LOG"
+printf '{ "name":"l","version":"0.0.0" }\n' > "$L/package.json"
+printf '' > "$L/pnpm-lock.yaml"     # flat pnpm marker → detect_pm yields pnpm
+( cd "$L" && git init -q && git config user.email t@t && git config user.name t )
+run_install "$L" ts-server --force --full < /dev/null
+_l_ovr=$(_read_vitest_override "$L/package.json")
+if [ -z "$_l_ovr" ]; then
+  ok "L neg: pnpm consumer → NO top-level overrides.vitest (guard is npm-scoped, non-vacuous)"
+else
+  bad "L neg: pnpm consumer got overrides.vitest='$_l_ovr' — npm-only workaround leaked into a pnpm manifest"
+fi
+
+# ════ Arm M (regression guard) — the override is NESTED, never TOP-LEVEL `overrides.vitest` ════
+# npm refuses an override on a package that is ALSO a direct dependency unless the specs match
+# exactly. `npm install --save-dev vitest@^4.1.5` re-saves the direct spec as the resolved
+# `^4.1.11`, so a top-level `overrides.vitest: "^4.1.5"` goes stale the moment the devDep install
+# finishes — and the very next npm invocation in the same run (the runtime-dep/zod install) dies
+# with `EOVERRIDE: Override for vitest@^4.1.11 conflicts with direct dependency`. Measured
+# end-to-end 2026-09-04: install.sh exited 1 and reported "dep install incomplete". Re-introducing
+# the top-level form would restore that, so the shape itself is pinned here. Arm J reuses fixture J.
+_j_top=$(_read_toplevel_vitest_override "$J/package.json")
+if [ -z "$_j_top" ]; then
+  ok "M neg: NO top-level overrides.vitest written (nested-only → EOVERRIDE cannot fire on the zod install)"
+else
+  bad "M neg: top-level overrides.vitest='$_j_top' written — the next npm invocation will EOVERRIDE once npm re-saves the direct spec"
+fi
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
