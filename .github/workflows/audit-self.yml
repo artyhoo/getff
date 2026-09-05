@@ -1892,6 +1892,36 @@ jobs:
         env:
           FRAMEWORK_ROOT: ${{ github.workspace }}
 
+  # npm-publish-getff-init U10 (S2): the `npx getff init` gate. The `getff` distribution
+  # package is ASSEMBLED from the repo root (scripts/build-getff-dist.sh; committed artefact =
+  # packages/getff/MANIFEST.sha256). This cell is what makes that package TRUE: drift gate →
+  # npm pack → npm i <tarball> into a fresh consumer → `getff init -y ts-server` → a planted
+  # OrderSchema.parse(req.body) under src/routes/ must FAIL eslint with the R2 message.
+  # «Published → installs cleanly» is not the assertion (T-NPI-A); the first violation failing
+  # is. Fail-closed, deterministic, API-free (no-paid-llm-in-ci.md §1); actions pinned per
+  # ci-tool-pinning.md. The consumer install fetches the ts-server dev-deps from the registry
+  # exactly as a real `npx getff init` would.
+  consumer-matrix-getff-dist-cell:
+    name: "Consumer-matrix getff-dist cell — npx getff init from the assembled tarball (npm-publish-getff-init S2)"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
+      - name: Run the consumer-matrix getff-dist cell
+        run: bash tests/consumer-matrix/getff-dist-cell.sh
+        env:
+          FRAMEWORK_ROOT: ${{ github.workspace }}
+
   # Single aggregate context for branch protection. `needs:` every other
   # audit-self PR job — including actionlint + zizmor above — so requiring just
   # `ci-success` gates them all, and stays correct as jobs are added/removed (vs
@@ -1960,6 +1990,13 @@ jobs:
       # per `files` entry + the F-C′ bin execution; a green `ci-success`
       # alone proves none of that.
       - consumer-matrix-npm-tarball-cell
+      # npm-publish-getff-init U10 (S2): without this line the getff-dist cell could go RED
+      # (a payload root dropped from `files`, install.sh unable to find a PKG_ROOT read
+      # inside the tarball) while `ci-success` stayed green and the PR merged — the
+      # `#warning-nobody-reads` shape (.claude/rules/attention-is-not-a-mechanism.md §2).
+      # The load-bearing assertion is the planted violation failing from the installed
+      # tarball; a green `ci-success` alone proves none of that. Principle 36 gates the mirror.
+      - consumer-matrix-getff-dist-cell
       # arch-v2 S-E P3a. Without this line the budget job could go RED while
       # `ci-success` stayed green and the PR merged, because branch protection
       # requires only `ci-success` — a gate whose sole consumer is someone
