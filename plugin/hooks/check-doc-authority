@@ -26,43 +26,27 @@ set -uo pipefail
 # announced on stderr is therefore indistinguishable from a pass. Observed live in the aif
 # container on 2026-07-23, where `jq` is absent and the notice reached no one:
 # docs/meta-factory/research-patches/2026-07-23-aif-parity-s4-synthesis.md §3 item 1.
-_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
-# JSON-escape WITHOUT jq — jq is precisely the dependency that may be missing here.
-_json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n' ' '; }
-# Announce a skip on the channel the model actually receives on an exit-0 path, and keep
-# the human/log channel too (stderr stays for terminal + CI readers).
-_emit_skip() {
-  if _is_zcode; then
-    printf '{"additionalContext":"%s"}\n' "$(_json_escape "$1")"
-  else
-    printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' \
-      "$(_json_escape "$1")"
-  fi
-  printf '%s\n' "$1" >&2
-}
-_emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
-    jq -n --arg c "$2" '{additionalContext:$c}'
-  else printf '%s\n' "$2"; fi; }
 
-# Announce at most ONCE PER SESSION (flag file keyed on session_id + tag). The bounded form
-# of _emit_skip, for a dependency whose absence is STRUCTURAL rather than transient: a gate
-# that can never resolve on this layout would otherwise nag on every single edit for the
-# whole session (the permanent-loud-skip defect, #1597 review ledger A3-6), and error-spam
-# is the reason the silent-skip posture was chosen in the first place. Once-per-session keeps
-# both properties: no per-turn spam AND a dead gate stops reading as a live one.
-# Precedent: .claude/hooks/check-doc-authority-header.sh (jq guard, GH #934).
-_emit_skip_once() {
-  # No session_id (a non-CC caller, or a harness that omits the field) → announce EVERY time.
-  # Suppression needs a session to scope to; without one the choice is between a shared
-  # global key — which silences unrelated later runs after the first — and repeating the
-  # notice. Repeating is the safe direction: this whole fix exists because silence reads as
-  # a pass.
-  [ -z "${SESSION_ID:-}" ] && { _emit_skip "$2"; return 0; }
-  local flag="${TMPDIR:-/tmp}/aif-$1-${SESSION_ID}"
-  [ -f "$flag" ] && return 0
-  : > "$flag" 2>/dev/null || true
-  _emit_skip "$2"
-}
+# ── Shared emit prelude (#1597 review ledger R-2, K-1) ────────────────────────
+# _is_zcode / _json_escape / _emit_skip / _emit_skip_once / _emit_ctx and the Homebrew PATH
+# prepend have ONE definition, at lib/hook-emit.sh. Five gates used to carry a private 13-line
+# copy each; the copies had begun to diverge (a lost _is_zcode branch, a sed escaper that
+# produced invalid JSON for a tab or CR). Resolved next to THIS file so the framework copy and
+# the plugin twin each load their own sibling — both channels ship the directory.
+# Pure parameter expansion — no `dirname`, no `cd`, no subshell. These gates run on a
+# stripped PATH (a jq-less consumer, a sandbox that rebuilt PATH to hide a tool), and the
+# prelude must resolve before any external command is known to exist.
+_HOOK_DIR="${BASH_SOURCE[0]%/*}"
+[ "$_HOOK_DIR" = "${BASH_SOURCE[0]}" ] && _HOOK_DIR="."
+_HOOK_LIB="$_HOOK_DIR/lib/hook-emit.sh"
+# shellcheck source=lib/hook-emit.sh
+if ! . "$_HOOK_LIB" 2>/dev/null; then
+  # Broken install: announce on the model channel with constant text (no escaper available
+  # yet) and exit 0 — a missing prelude must not block the edit.
+  printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' \
+    '⚠ check-doc-authority: lib/hook-emit.sh could not be sourced — this gate DID NOT RUN for this edit. This is a SKIP, not a pass; reinstall the hooks.'
+  exit 0
+fi
 
 # Resolve the tsx runner through a tier list (linked worktrees carry no node_modules):
 #   1. repo-local  2. main worktree via git --git-common-dir  3. tsx on PATH

@@ -66,6 +66,7 @@ import { REQUIRED_HEADER_DOCS } from '../principles/09-doc-authority-hierarchy.t
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const REAL_HOOK = resolve(REPO_ROOT, '.claude/hooks/check-doc-authority.sh');
+const HOOK_LIB = resolve(REPO_ROOT, '.claude/hooks/lib/hook-emit.sh');
 const REAL_BIN = resolve(
   REPO_ROOT,
   'packages/core/principles/09-doc-authority-hierarchy.bin.ts',
@@ -134,7 +135,22 @@ mkdirSync(join(SANDBOX, '.claude', 'hooks'), { recursive: true });
 mkdirSync(join(SANDBOX, '.claude', 'rules'), { recursive: true });
 mkdirSync(join(SANDBOX, 'packages', 'core', 'principles'), { recursive: true });
 const HOOK = join(SANDBOX, '.claude', 'hooks', 'check-doc-authority.sh');
-copyFileSync(REAL_HOOK, HOOK);
+/**
+ * Copy the real hook into a sandbox AND seed its `lib/` sibling.
+ *
+ * Since the #1597 review-ledger R-2 fix the gate sources `<hook dir>/lib/hook-emit.sh` for
+ * its emit helpers (one definition instead of five diverging copies). A sandbox that copies
+ * the script alone therefore reproduces a BROKEN install, not the shipped one — both channels
+ * that carry this gate carry the directory: `.claude/hooks/lib/` and `plugin/hooks/lib/`.
+ */
+function copyHook(dest: string): void {
+  copyFileSync(REAL_HOOK, dest);
+  const libDir = join(dirname(dest), 'lib');
+  mkdirSync(libDir, { recursive: true });
+  copyFileSync(HOOK_LIB, join(libDir, 'hook-emit.sh'));
+}
+
+copyHook(HOOK);
 copyFileSync(
   REAL_BIN,
   join(
@@ -544,7 +560,7 @@ describe.skipIf(!JQ || !TSX)(
       mkdirSync(join(root, '.claude', 'hooks'), { recursive: true });
       mkdirSync(join(root, '.claude', 'rules'), { recursive: true });
       mkdirSync(join(root, 'packages', 'core', 'principles'), { recursive: true });
-      copyFileSync(REAL_HOOK, join(root, '.claude', 'hooks', 'check-doc-authority.sh'));
+      copyHook(join(root, '.claude', 'hooks', 'check-doc-authority.sh'));
       copyFileSync(
         REAL_BIN,
         join(root, 'packages', 'core', 'principles', '09-doc-authority-hierarchy.bin.ts'),
@@ -639,7 +655,7 @@ describe.skipIf(!JQ || !TSX)(
       mkdirSync(join(box, '.claude', 'hooks'), { recursive: true });
       mkdirSync(join(box, '.claude', 'rules'), { recursive: true });
       mkdirSync(join(box, 'packages', 'core', 'principles'), { recursive: true });
-      copyFileSync(REAL_HOOK, join(box, '.claude', 'hooks', 'check-doc-authority.sh'));
+      copyHook(join(box, '.claude', 'hooks', 'check-doc-authority.sh'));
       copyFileSync(
         REAL_BIN,
         join(box, 'packages', 'core', 'principles', '09-doc-authority-hierarchy.bin.ts'),
@@ -676,7 +692,7 @@ describe.skipIf(!JQ || !TSX)(
       mkdirSync(join(box, '.claude', 'hooks'), { recursive: true });
       mkdirSync(join(box, '.claude', 'rules'), { recursive: true });
       mkdirSync(join(box, 'packages', 'core', 'principles'), { recursive: true });
-      copyFileSync(REAL_HOOK, join(box, '.claude', 'hooks', 'check-doc-authority.sh'));
+      copyHook(join(box, '.claude', 'hooks', 'check-doc-authority.sh'));
       copyFileSync(
         REAL_BIN,
         join(box, 'packages', 'core', 'principles', '09-doc-authority-hierarchy.bin.ts'),
@@ -718,7 +734,7 @@ describe('check-doc-authority.sh — tsx not found (all tiers miss) → existing
     extraTmpDirs.push(box);
     mkdirSync(join(box, '.claude', 'hooks'), { recursive: true });
     mkdirSync(join(box, 'packages', 'core', 'principles'), { recursive: true });
-    copyFileSync(REAL_HOOK, join(box, '.claude', 'hooks', 'check-doc-authority.sh'));
+    copyHook(join(box, '.claude', 'hooks', 'check-doc-authority.sh'));
     copyFileSync(
       REAL_BIN,
       join(box, 'packages', 'core', 'principles', '09-doc-authority-hierarchy.bin.ts'),

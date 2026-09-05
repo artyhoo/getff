@@ -291,6 +291,25 @@ import { join as _join } from 'node:path';
 import { tmpdir as _osTmpdir } from 'node:os';
 
 const tierWorktrees: string[] = [];
+
+/**
+ * Copy the real hook into a sandbox AND seed its `lib/` sibling.
+ *
+ * Since the #1597 review-ledger R-2 fix the gate sources `<hook dir>/lib/hook-emit.sh` for
+ * its emit helpers (one definition instead of five diverging copies). A sandbox that copies
+ * the script alone therefore reproduces a BROKEN install, not the shipped one — both channels
+ * that carry this gate carry the directory: `.claude/hooks/lib/` and `plugin/hooks/lib/`.
+ */
+function copyHook(dest: string): void {
+  _copyFileSync(HOOK, dest);
+  const libDir = _join(dest.slice(0, dest.lastIndexOf('/')), 'lib');
+  _mkdirSync(libDir, { recursive: true });
+  _copyFileSync(_resolveRepo('.claude/hooks/lib/hook-emit.sh'), _join(libDir, 'hook-emit.sh'));
+}
+function _resolveRepo(rel: string): string {
+  return _join(REPO_ROOT, rel);
+}
+
 afterEach(() => {
   for (const wt of tierWorktrees.splice(0)) {
     try {
@@ -350,7 +369,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     _execSync(`git worktree add --detach "${wt}" 2>&1`, { stdio: 'pipe' });
     tierWorktrees.push(wt);
     // Overwrite worktree's checked-out hook with the FIXED working-tree version.
-    _copyFileSync(HOOK, _join(wt, '.claude/hooks/check-worker-dispatch-channel.sh'));
+    copyHook(_join(wt, '.claude/hooks/check-worker-dispatch-channel.sh'));
 
     const binDir = scrubbedPathBin();
     const abs = writeKickoffAt(wt, `# C1 kickoff\n\n${VIOLATION_LINE}\n`);
@@ -399,7 +418,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     const binDir = scrubbedPathBin();
     _writeFileSync(_join(binDir, 'tsx'), '#!/bin/sh\necho "TIER3_INVOKED_WRONG" >&2\n', 'utf8');
     _execSync(`chmod +x "${binDir}/tsx"`);
-    _copyFileSync(HOOK, _join(dir, 'check-worker-dispatch-channel.sh'));
+    copyHook(_join(dir, 'check-worker-dispatch-channel.sh'));
     const env: Record<string, string> = {
       ...process.env,
       CLAUDE_PROJECT_DIR: dir,
@@ -428,7 +447,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     const binDir = scrubbedPathBin();
     const realTsx = _spawnSync('/usr/bin/which', ['tsx'], { encoding: 'utf8' }).stdout?.trim();
     if (realTsx) _symlinkSync(realTsx, _join(binDir, 'tsx'));
-    _copyFileSync(HOOK, _join(dir, 'check-worker-dispatch-channel.sh'));
+    copyHook(_join(dir, 'check-worker-dispatch-channel.sh'));
     const env: Record<string, string> = {
       ...process.env,
       CLAUDE_PROJECT_DIR: dir,
@@ -458,7 +477,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     const dir = _mkdtempSync(_join(_osTmpdir(), 'wdc-c4-'));
     const abs = writeKickoffAt(dir, `# C4 kickoff\n\n${VIOLATION_LINE}\n`);
     const binDir = scrubbedPathBin();
-    _copyFileSync(HOOK, _join(dir, 'check-worker-dispatch-channel.sh'));
+    copyHook(_join(dir, 'check-worker-dispatch-channel.sh'));
     const env: Record<string, string> = {
       ...process.env,
       CLAUDE_PROJECT_DIR: dir,
@@ -485,7 +504,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     const abs = writeKickoffAt(dir, `# C5 kickoff\n\n${VIOLATION_LINE}\n`);
     stubBin(dir);
     const binDir = scrubbedPathBin();
-    _copyFileSync(HOOK, _join(dir, 'check-worker-dispatch-channel.sh'));
+    copyHook(_join(dir, 'check-worker-dispatch-channel.sh'));
     const env: Record<string, string> = {
       ...process.env,
       CLAUDE_PROJECT_DIR: dir,
@@ -526,7 +545,7 @@ describe('PAIRED-NEGATIVE: tsx-missing skip is announced on the model channel (s
     const abs = writeKickoffAt(dir, `# silence-test\n\n${VIOLATION_LINE}\n`);
     stubBin(dir);
     const binDir = scrubbedPathBin();
-    _copyFileSync(HOOK, _join(dir, 'check-worker-dispatch-channel.sh'));
+    copyHook(_join(dir, 'check-worker-dispatch-channel.sh'));
     const env: Record<string, string> = {
       ...process.env,
       CLAUDE_PROJECT_DIR: dir,
