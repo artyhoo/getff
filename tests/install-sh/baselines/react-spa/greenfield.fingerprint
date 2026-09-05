@@ -1,4 +1,4 @@
-e5388bba624162eed20f07382bccaab25c977c1103dc587d30245062d1b9c116  .ai-factory/AI-USAGE-GUIDE.md
+3b2b6bc53271ab2c69ed79bf8b991d04656d1142b60f0b2d7fea5c37412662c1  .ai-factory/AI-USAGE-GUIDE.md
 9251b10cddeb605bed9369849d9ccfb1bc67679bf85f19b5bb356df8e2b5199a  .ai-factory/ARCHITECTURE.md
 9251b10cddeb605bed9369849d9ccfb1bc67679bf85f19b5bb356df8e2b5199a  .ai-factory/ARCHITECTURE.react-spa.md
 854cfb38f3d4acfd40245b5b490e5163658e2e98b0573239c15dd5802d16f5cb  .ai-factory/ARCHITECTURE.ts-server.md
@@ -6,7 +6,7 @@ e5388bba624162eed20f07382bccaab25c977c1103dc587d30245062d1b9c116  .ai-factory/AI
 03264d66be0aceebf3e0df0a2bd361ec7db105551b93b519122c58ac9721bcda  .ai-factory/DESCRIPTION.template.md
 cd05e605ec7874fd1c233b80f623a173087a27dade26ec5b399e76c5a01005a3  .ai-factory/RULES.md
 652ed1ee550c21951637c7f3590fb4c157d634547accb5076962ac00d5060e7f  .ai-factory/RULES.react-spa.md
-5c61e28d5be7468be9e484ab0556a0d953fc4425919a2eb3bada1a4e31edead1  .ai-factory/refresh-baseline.json
+b02f0177d36f4873acb27233d94b846e061881b318c29a6a9987bf78ee728f37  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
 7d6b6061459f0939e64358447d0905329ddd4c52abd459ee8d9d201653ffb791  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -57,7 +57,7 @@ cbbc1b85447ca5a142ead82554f21a213db7bbe1b991d9635d8cf9ad566bb981  .claude/skills
 51e3cedd718d6c3ecb484d3e76e39afbba4e678779762201d39ec9b91bd355e0  .claude/skills/orchestrator/references/rationale.md
 880a55cd0376217499179570ad21cc4a549e2371daa877591bc31da8b94a4f47  .claude/skills/orchestrator/references/reviewer-template.md
 6720454f3af61c3d859aac7184800c66746bc4860984f0bb99e21ae9274dbfe7  .claude/skills/orchestrator/references/worker-template.md
-5b4dbdd37c1fb148270a9e95b247dbc50f2281752a71091d7c5c545f05df0f83  .claude/skills/pipeline/SKILL.md
+676ea4bddc644ce13f2d82cb6b8dce65535a16c626eafa4956dacd15435c0105  .claude/skills/pipeline/SKILL.md
 7b016aef242405688029efd80b2e24dccabf3d03060a64cd019e522601fd990f  .claude/skills/pipeline/evals/RESULTS.md
 29731fcb8f314d897b786fbf6b840302bf7eb4dcc27e18d7cd5cb855b3341fee  .claude/skills/pipeline/evals/evals.json
 3fb659d0d73c6bdf90ab35758808c0e0ac47f31d19c7665bcc719dcf2497df2b  .claude/skills/pipeline/evals/files/scenario-1-noarg-state.md
@@ -104,8 +104,8 @@ b1e2f1f3cb0fb98fa8b8cf55f90004cd3d7724b2f046d3e4e449bb718e534248  .claude/skills
 751b5757e686227980fbe18c61cbd10ff585b0c18621858877ed58a983ba88e7  .claude/skills/pipeline/references/placeholders.md
 55a302f7c8159825e4d2e2088a981a8e9ca1ee7f80ea36bd0709b0199866e0af  .claude/skills/pipeline/references/plain-language-tail.md
 11f373da25a809bbb754bf088a210bc4d95b944eb3a57d6406a22d8b74cdb0e9  .claude/skills/pipeline/references/plan-cache.md
-5289fdee078f735a14f7d605fb6ca043c9f3a848a23b65cb594789b70e7e65d7  .claude/skills/pipeline/references/presets/aif.json
-ff034e4536603d2abda091c5a33113dd453ed512180bd93a84f4bdd5ee561134  .claude/skills/pipeline/references/presets/economy.json
+82388b6e46bb35badcd6afce2abff667e7cac222e81fc2f29ee3aa277564cc32  .claude/skills/pipeline/references/presets/aif.json
+93d7b20bd1672c5264fb9ec9824c38d52f6a61c74dbc9d772581c120acdbf5f7  .claude/skills/pipeline/references/presets/economy.json
 12dd732cdfe8a472e5e1ceebf938af46fe33f01bdacd96002b0d045b95d498c8  .claude/skills/pipeline/references/presets/night.json
 b99a3a092faeaa3f6ebced1712788d923fd4a8bd73b475404484541c32cb4552  .claude/skills/pipeline/references/presets/sdd.json
 157d6f525d20190cd715a26d1bff536e12471147802db7b68dc8aa30f815f246  .claude/skills/pipeline/references/red-flags.md
