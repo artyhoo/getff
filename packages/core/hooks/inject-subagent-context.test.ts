@@ -22,7 +22,7 @@
  * first user message), not persistent-lifecycle as on CC — honest, best-available.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -84,26 +84,48 @@ function runHook(
   return { status: 0, stdout: r };
 }
 
-/** Run the hook capturing exit code (for the silent CC branch that produces no stdout). */
+/**
+ * Run the hook capturing exit code, stdout AND stderr (for the silent branches, which produce no
+ * stdout). stderr is part of the contract: the hook's non-string-prompt guard (hook:72) exists
+ * precisely to keep jq's type error off stderr, and WITHOUT that guard the hook still exits 0
+ * with empty stdout — stderr is the only observable that separates guarded from unguarded.
+ * execFileSync forwards the child's stderr to the parent instead of returning it, so these runs
+ * go through spawnSync.
+ */
 function runHookStatus(
   input: Record<string, unknown>,
   env: Record<string, string | undefined>,
-): { status: number; stdout: string } {
+): { status: number; stdout: string; stderr: string } {
   const fullEnv = { ...process.env };
   if (env.ZCODE_PROJECT_DIR === undefined) delete fullEnv.ZCODE_PROJECT_DIR;
   else fullEnv.ZCODE_PROJECT_DIR = env.ZCODE_PROJECT_DIR;
   if (env.CLAUDE_PROJECT_DIR !== undefined) fullEnv.CLAUDE_PROJECT_DIR = env.CLAUDE_PROJECT_DIR;
-  try {
-    const stdout = execFileSync('bash', [HOOK], {
-      input: JSON.stringify(input),
-      encoding: 'utf8',
-      env: fullEnv,
-    });
-    return { status: 0, stdout };
-  } catch (e) {
-    const err = e as { status?: number; stdout?: string };
-    return { status: err.status ?? -1, stdout: err.stdout ?? '' };
-  }
+  const r = spawnSync('bash', [HOOK], {
+    input: JSON.stringify(input),
+    encoding: 'utf8',
+    env: fullEnv,
+  });
+  return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+}
+
+/**
+ * Anti-vacuity precondition for every silent-branch negative below.
+ *
+ * The hook exits 0 with empty stdout at its digest-empty guard (hook:50-58) LONG BEFORE either
+ * behaviour the negatives claim to pin — the tool filter (hook:40) and the prompt type guard
+ * (hook:72). The real repo's .claude/session-bootstrap.md carries no `digest:start` block by
+ * design, so a negative that omits CLAUDE_PROJECT_DIR asserts exit-0/empty-stdout against a hook
+ * that never reached the guarded line: mutants with hook:40 or hook:72 deleted passed unchanged.
+ * Asserting the precondition — a well-formed Agent payload in THIS env DOES emit updatedInput —
+ * makes the negatives fail when the guard is removed instead of passing for the wrong reason.
+ */
+function assertDigestReachable(env: Record<string, string | undefined>): void {
+  const { status, stdout } = runHookStatus(agentPayload(), env);
+  expect(status, 'precondition: the hook must run to completion in this env').toBe(0);
+  expect(
+    stdout,
+    'precondition: this env must reach the injection path — an empty digest makes every negative below vacuous',
+  ).toContain('updatedInput');
 }
 
 const agentPayload = (overrides: Partial<Record<string, unknown>> = {}) => ({
@@ -192,31 +214,52 @@ describe('inject-subagent-context.sh — CC-first backup gated by _is_zcode', ()
   });
 
   it('non-Agent/Task tool: silent exit 0 even under zcode (defensive tool filter)', () => {
-    const { status, stdout } = runHookStatus(
-      { tool_name: 'Bash', tool_input: { command: 'ls' } },
-      { ZCODE_PROJECT_DIR: REPO_ROOT },
-    );
-    expect(status).toBe(0);
-    expect(stdout).toBe('');
+    // Paired-negative discipline: the fixture and the payload are the POSITIVE case's, and the
+    // single flipped variable is tool_name. The previous shape ({tool_name:'Bash',
+    // tool_input:{command:'ls'}} with no CLAUDE_PROJECT_DIR) differed from the positive in three
+    // ways at once — empty digest, no prompt field, foreign tool — and the empty digest alone
+    // produced the asserted exit-0/empty-stdout, so deleting hook:40 left this test green.
+    const env = { ZCODE_PROJECT_DIR: REPO_ROOT, CLAUDE_PROJECT_DIR: FIXTURE_ROOT };
+    assertDigestReachable(env);
+    for (const tool_name of ['Bash', 'Read', 'Write']) {
+      const payload = agentPayload();
+      payload.tool_name = tool_name;
+      const { status, stdout, stderr } = runHookStatus(payload, env);
+      expect(status, `${tool_name}: hook must exit 0`).toBe(0);
+      expect(
+        stdout,
+        `${tool_name}: a non-Agent/Task tool must never receive updatedInput (hook:40 filter)`,
+      ).toBe('');
+      expect(stderr, `${tool_name}: the filtered path must be silent`).toBe('');
+    }
   });
 
   it('non-string prompt (number/null/missing/array tool_input): graceful exit 0, no updatedInput, no stderr noise', () => {
     // The Agent runtimeInputSchema requires prompt:string. A malformed dispatch (prompt:123,
     // prompt:null, missing prompt, array tool_input) must NOT crash jq (type error) nor emit
     // updatedInput (fR would revert anyway, but we guard to avoid stderr noise). Silent exit 0.
-    const cases = [
+    //
+    // Two things make this negative real rather than vacuous. (1) The fixture: the guard sits at
+    // hook:72, after the digest-empty exit at hook:55-58, so without CLAUDE_PROJECT_DIR none of
+    // these cases ever reach it. (2) stderr: exit 0 + empty stdout is ALSO what the unguarded
+    // hook produces (jq's type error goes to stderr and the script still ends with `exit 0`),
+    // so status/stdout alone cannot tell the guard's presence from its absence. With both, a
+    // hook:72 mutant fails here: prompt:123 and the array case emit a jq error on stderr, while
+    // prompt:null and the missing-prompt case emit updatedInput (jq's `null + "…"` is a string).
+    const env = { ZCODE_PROJECT_DIR: REPO_ROOT, CLAUDE_PROJECT_DIR: FIXTURE_ROOT };
+    assertDigestReachable(env);
+    const cases: unknown[] = [
       { description: 'x', prompt: 123 },
       { description: 'x', prompt: null },
       { description: 'x' }, // missing prompt
       [1, 2, 3], // array tool_input
     ];
     for (const tool_input of cases) {
-      const { status, stdout } = runHookStatus(
-        { tool_name: 'Agent', tool_input },
-        { ZCODE_PROJECT_DIR: REPO_ROOT },
-      );
-      expect(status).toBe(0);
-      expect(stdout).toBe(''); // no updatedInput emitted on bad prompt type
+      const label = JSON.stringify(tool_input);
+      const { status, stdout, stderr } = runHookStatus({ tool_name: 'Agent', tool_input }, env);
+      expect(status, `${label}: graceful exit 0`).toBe(0);
+      expect(stdout, `${label}: no updatedInput may be emitted on a non-string prompt`).toBe('');
+      expect(stderr, `${label}: the guard exists to keep jq's type error off stderr`).toBe('');
     }
   });
 
