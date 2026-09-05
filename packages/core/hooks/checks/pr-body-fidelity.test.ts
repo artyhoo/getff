@@ -293,6 +293,18 @@ describe('checkPrBodyFidelity — sidecar count lines are not findings', () => {
     const body = withFindings('- BLOCKER: 1\n- MAJOR: 3\n- MINOR: 2');
     expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
   });
+  it('exempts the digit zero-tally `- BLOCKER: 0` (control — pre-A4-5 behavior)', () => {
+    const body = withFindings('- BLOCKER: 0\n- MAJOR: 0');
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
+  it('exempts the natural zero-form `- BLOCKER: none` / `- MAJOR: none` (A4-5)', () => {
+    const body = withFindings('- BLOCKER: none\n- MAJOR: none\n- MINOR: 2 (notes lane)');
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
+  it('still gates a bare grade word with trailing prose after `none` (`- BLOCKER: none found so far`)', () => {
+    const body = withFindings('- BLOCKER: none found so far (src/x.ts:1)');
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(false);
+  });
   it('still gates a real finding whose text follows the colon', () => {
     const body = withFindings('- MAJOR: 3 retries silently swallowed (src/net.ts:12)');
     expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(false);

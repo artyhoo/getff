@@ -73,13 +73,18 @@ const REVIEW_FINDINGS_HEADING_RE = /^##[ \t]+Review findings[ \t]*$/;
  */
 const FINDING_GRADE_RE = /^(?:[-*][ \t]+|\d+[.)][ \t]+|\|[ \t]*)?\**\[?(BLOCKER|MAJOR)\b/;
 /**
- * Count line, not a finding: `- BLOCKER: 1` (the review-sidecar summary shape). Exempt —
- * a bare tally opens no entry. NOTE (recorded fail-open): a sidecar block pasted WITH its
+ * Count line, not a finding: `- BLOCKER: 1` (the review-sidecar summary shape) or its
+ * natural zero-form `- BLOCKER: none` — A4-5: the digit-only grammar parsed the zero-form
+ * as an opened finding and went RED demanding a Failure-scenario for a finding that does
+ * not exist. Exempt — a bare tally opens no entry. The exemption stays end-anchored and
+ * case-sensitive (`none` exactly, no trailing prose): `- BLOCKER: none found so far` still
+ * gates, consistent with the case-sensitive verdict grammar elsewhere in this module.
+ * NOTE (recorded fail-open): a sidecar block pasted WITH its
  * own `## …` heading terminates the Review-findings section early (any heading closes a
  * section), so heading-wrapped pastes are invisible to this arm — a visible template
  * deviation, same posture as the Provenance detector above.
  */
-const FINDING_COUNT_RE = /^(?:[-*][ \t]+)?\**\[?(?:BLOCKER|MAJOR)\]?\**:?[ \t]*\d+[ \t]*$/;
+const FINDING_COUNT_RE = /^(?:[-*][ \t]+)?\**\[?(?:BLOCKER|MAJOR)\]?\**:?[ \t]*(?:\d+|none)[ \t]*$/;
 /** A new top-level list item ends the entry; indented sub-bullets stay inside it. */
 const FINDING_ENTRY_END_RE = /^(?:[-*][ \t]|#{1,6}[ \t])/;
 const FAILURE_SCENARIO_RE = /Failure-scenario:/;
