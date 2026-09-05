@@ -86,7 +86,7 @@
         {
           "id": "verify-payload",
           "title": "Verify the payload landed",
-          "action": "`ls AGENTS.md .ai-factory/ scripts/` plus `.ai-factory/tier-home.md` and `.claude/skills/arch/` — the two artefacts env adds over core.",
+          "action": "`ls AGENTS.md .ai-factory/ scripts/` plus `.ai-factory/tier-home.md` and the five skills env adds over core: `.claude/skills/arch/`, `.claude/skills/night-mode/`, `.claude/skills/orchestrator/`, `.claude/skills/pipeline/` and `.claude/skills/reviewer/`.",
           "evidence": "setup.d/30-templates.sh (tier-home at env+); verified in a temp consumer 2026-08-08"
         },
         {
@@ -128,7 +128,7 @@
         {
           "id": "verify-payload",
           "title": "Verify the payload landed",
-          "action": "`ls .claude/skills/` — on top of env you should see `pipeline`, `dispatcher`, `harvest`, `aif-doctor`, `night-mode`, `story` and `claude-glm-executor-handoff`.",
+          "action": "`ls .claude/skills/` — on top of env you should see `.claude/skills/dispatcher/`, `.claude/skills/aif-doctor/`, `.claude/skills/harvest/`, `.claude/skills/story/` and `.claude/skills/claude-glm-executor-handoff/`. `pipeline` and `night-mode` are NOT factory additions — they arrive with env+ and are already there.",
           "evidence": "setup.d/10-skills.sh; verified in a temp consumer 2026-08-08"
         },
         {
@@ -159,7 +159,7 @@
           "id": "run-pipeline",
           "title": "Ask the pipeline what to start next",
           "action": "Invoke `/pipeline`. It reads your kickoffs plus `.ai-factory/orchestrator-prompts/plan.md` (created on first run), ranks them, and emits a launch table. An empty backlog reports «nothing queued» — that is normal, not an error.",
-          "evidence": ".claude/skills/pipeline/SKILL.md (shipped at factory; verified in a temp consumer 2026-08-08)"
+          "evidence": ".claude/skills/pipeline/SKILL.md (shipped at env+; verified in a temp consumer 2026-08-08)"
         },
         {
           "id": "dispatch-one",

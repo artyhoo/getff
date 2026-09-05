@@ -315,6 +315,13 @@ if command -v ruff >/dev/null 2>&1 || command -v uvx >/dev/null 2>&1; then
   echo "$ordr" | grep -qF 'ruff did NOT fire' \
     && bad "(11) explicit false-SILENT verdict printed (delivered-config resolution bug)" \
     || ok "(11) no false-SILENT verdict (getff-owned-first ordering holds)"
+elif [ "${GETFF_REQUIRE_RESEARCH_TOOLS:-}" = "1" ]; then
+  # Arm (11) is the ONLY negative the adapter-jig registry lists for arm E2
+  # (packages/core/principles/33-adapter-jig-arm-registry.ts). Where the toolchain is
+  # DECLARED to be present — CI — a skip means that RED-proof did not run, and a
+  # RED-proof that never runs is an unfired gate that principle 33 still reports green
+  # (ledger A8-2). Loud failure, never a silent skip.
+  bad "(11) REQUIRED but skipped: no ruff/uvx on PATH while GETFF_REQUIRE_RESEARCH_TOOLS=1 — E2's only registered negative did not execute"
 else
   echo ""; echo "  ── (11) SKIP fallback-ordering negative (no ruff/uvx on PATH) ──"
 fi
@@ -361,6 +368,9 @@ if { command -v ast-grep >/dev/null 2>&1 || { command -v sg >/dev/null 2>&1 && s
   echo "$ovb" | grep -qF 'enforcement is live' \
     && bad "(12) «enforcement is live» printed for over-broad rules (false green)" \
     || ok "(12) no false «enforcement is live» claim"
+elif [ "${GETFF_REQUIRE_RESEARCH_TOOLS:-}" = "1" ]; then
+  # Arm (12) is E1's python negative — same reasoning as (11) above (ledger A8-2).
+  bad "(12) REQUIRED but skipped: ast-grep and/or ruff missing while GETFF_REQUIRE_RESEARCH_TOOLS=1 — E1's python negative did not execute"
 else
   echo ""; echo "  ── (12) SKIP over-broad negative (ast-grep and/or ruff not on PATH) ──"
 fi

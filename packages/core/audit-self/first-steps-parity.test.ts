@@ -112,6 +112,103 @@ describe('First-Steps SSOT ↔ AI Usage Guide parity', () => {
     });
   }
 
+  // ── Profile claims vs setup.d/lib.sh (ledger A8-3) ──────────────────────────────────────
+  //
+  // The arms above compare the SOURCE to its RENDER. Nothing compared either to the INSTALLER,
+  // and the source — the declared SSOT — had drifted from it three times over: `factory`'s
+  // verify-payload listed `pipeline` and `night-mode` as factory additions (both ship at env+),
+  // `run-pipeline`'s evidence said pipeline is «shipped at factory», and `env`'s verify-payload
+  // called tier-home + arch «the two artefacts env adds over core» when env adds five skills.
+  // The render disagreed with its own source on the first of those and was RIGHT — proof that
+  // an (id, title) comparison cannot see a claim rewritten inside `action`/`evidence`.
+  //
+  // The fix is not «read it more carefully»: it is to compare the claims against the three
+  // lists that actually decide delivery (setup.d/lib.sh GETFF_SKILLS_CORE/_ENV/_FACTORY), so a
+  // retiering of any skill reds this test until the SSOT is updated with it.
+  const SKILL_TIERS = ((): Record<string, string> => {
+    const lib = readFileSync(join(REPO_ROOT, 'setup.d/lib.sh'), 'utf8');
+    const listOf = (name: string): string[] => {
+      const m = new RegExp(`^${name}="([^"]*)"`, 'm').exec(lib);
+      expect(m, `setup.d/lib.sh no longer defines ${name} — the tier lists moved`).not.toBeNull();
+      return (m as RegExpExecArray)[1].split(/\s+/).filter(Boolean);
+    };
+    const tiers: Record<string, string> = {};
+    for (const skill of listOf('GETFF_SKILLS_CORE')) tiers[skill] = 'core';
+    for (const skill of listOf('GETFF_SKILLS_ENV')) tiers[skill] = 'env+';
+    for (const skill of listOf('GETFF_SKILLS_FACTORY')) tiers[skill] = 'factory';
+    return tiers;
+  })();
+
+  /** `.claude/skills/<name>/…` occurrences in a string, deduplicated in first-seen order. */
+  const skillsNamedIn = (text: string): string[] => [
+    ...new Set([...text.matchAll(/\.claude\/skills\/([a-z0-9-]+)\//g)].map((m) => m[1] as string)),
+  ];
+
+  it('lib.sh still declares all three tier lists, and they are disjoint and non-empty', () => {
+    // Non-vacuity floor: an empty or collapsed map would make both arms below pass for free.
+    expect(Object.keys(SKILL_TIERS).length).toBeGreaterThanOrEqual(12);
+    expect(new Set(Object.values(SKILL_TIERS))).toEqual(new Set(['core', 'env+', 'factory']));
+  });
+
+  it('`factory`: verify-payload names EXACTLY the skills factory adds over env', () => {
+    const step = (source.sequences['factory'] as SourceSequence).steps.find(
+      (s) => s.id === 'verify-payload',
+    );
+    expect(step, 'factory sequence has no verify-payload step').toBeDefined();
+    const claimed = skillsNamedIn((step as SourceStep).action).sort();
+    const factoryTier = Object.entries(SKILL_TIERS)
+      .filter(([, tier]) => tier === 'factory')
+      .map(([name]) => name)
+      .sort();
+    expect(
+      claimed,
+      `factory verify-payload claims ${JSON.stringify(claimed)} but setup.d/lib.sh ships ` +
+        `${JSON.stringify(factoryTier)} at factory`,
+    ).toEqual(factoryTier);
+  });
+
+  it('`env`: verify-payload names EXACTLY the skills env adds over core', () => {
+    const step = (source.sequences['env'] as SourceSequence).steps.find(
+      (s) => s.id === 'verify-payload',
+    );
+    expect(step, 'env sequence has no verify-payload step').toBeDefined();
+    const claimed = skillsNamedIn((step as SourceStep).action).sort();
+    const envTier = Object.entries(SKILL_TIERS)
+      .filter(([, tier]) => tier === 'env+')
+      .map(([name]) => name)
+      .sort();
+    expect(
+      claimed,
+      `env verify-payload claims ${JSON.stringify(claimed)} but setup.d/lib.sh ships ` +
+        `${JSON.stringify(envTier)} at env+`,
+    ).toEqual(envTier);
+  });
+
+  it('every «shipped at <tier>» evidence claim matches the tier lib.sh actually ships it at', () => {
+    const wrong: string[] = [];
+    let checked = 0;
+    for (const [profile, sequence] of Object.entries(source.sequences)) {
+      for (const step of (sequence as SourceSequence).steps) {
+        const claim = /\.claude\/skills\/([a-z0-9-]+)\/SKILL\.md \(shipped at ([a-z+]+)/.exec(
+          step.evidence,
+        );
+        if (!claim) continue;
+        checked += 1;
+        const [, skill, claimedTier] = claim as unknown as [string, string, string];
+        const realTier = SKILL_TIERS[skill];
+        if (realTier !== claimedTier) {
+          wrong.push(
+            `${profile}/${step.id}: evidence says \`${skill}\` is shipped at "${claimedTier}", ` +
+              `setup.d/lib.sh ships it at "${realTier ?? '(no tier — unknown skill)'}"`,
+          );
+        }
+      }
+    }
+    // Non-vacuity: a regex that stopped matching would make this arm pass on any drift.
+    expect(checked, 'no «shipped at <tier>» evidence claim was parsed at all').toBeGreaterThan(0);
+    expect(wrong, `Evidence claims contradicting setup.d/lib.sh:\n${wrong.join('\n')}`).toEqual([]);
+  });
+
   it('every rendered step marker belongs to a declared source step (no orphan markers)', () => {
     const declared = new Set<string>();
     for (const sequence of Object.values(source.sequences)) {
