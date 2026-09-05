@@ -27,6 +27,17 @@ out=$(companion_step "rb" "false" "echo SHOULD_NOT_RUN" "external-service" "yes"
 echo "$out" | grep -q SHOULD_NOT_RUN && bad "external-service ran install_cmd" || ok "external-service → not a plain install"
 
 
+# === return status under `set -e` (the caller `setup` runs with -e; a companion must never kill it) ===
+# Regression: the trailing `[ "$kind" = "mcp" ] && printf` made every non-mcp companion return 1
+# on both the ✓ and the ⚠ branch → `setup -y` died on a fresh machine (PR #1613 CI, getff-dist cell).
+_rc_probe() {  # $1 = install_cmd ; prints the caller-visible outcome under set -e
+  bash -c 'set -euo pipefail; ENGINE_LIB_ONLY=1 source "$1/setup.d/engine.sh"; companion_step probe "false" "$2" "cc-plugin" "yes" >/dev/null; echo CALLER_CONTINUES' _ "$REPO_ROOT" "$1" 2>/dev/null
+}
+_rc_probe "true"  | grep -q CALLER_CONTINUES && ok "cc-plugin install OK → caller under set -e continues (rc 0)"   || bad "cc-plugin install OK → companion_step returned non-zero under set -e"
+_rc_probe "false" | grep -q CALLER_CONTINUES && ok "cc-plugin install FAILS → caller under set -e continues (⚠, rc 0)" || bad "cc-plugin install failure killed the set -e caller"
+out=$(companion_step "probe" "false" "false" "cc-plugin" "yes")
+echo "$out" | grep -q 'install failed — run manually' && ok "install failure still emits the ⚠ run-manually line" || bad "⚠ run-manually line missing on install failure"
+
 # === kind=mcp tests (S2 — engine.sh kind=mcp support) ===
 
 # Create a temporary claude stub so command -v claude succeeds for mcp tests.
