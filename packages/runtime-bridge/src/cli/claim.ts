@@ -23,8 +23,7 @@
  * so layering the 24h content-hash dedup on top would suppress a legitimate re-claim
  * after a cancelled Phase -1.
  */
-import { realpathSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { isMain } from './cliEntry.js';
 import { buildKickoffSpec } from '../kickoff.js';
 import { resolveBackend } from '../resolver.js';
 import { supportsClaims } from '../backend.js';
@@ -186,22 +185,9 @@ async function main(): Promise<void> {
   process.exit(0);
 }
 
-/**
- * True only when this file is the executed script, not when imported for its named
- * exports (an import must be side-effect-free — under vitest a top-level main() hits
- * process.exit, which the runner turns into an unhandled rejection).
- */
-function isDirectCliInvocation(): boolean {
-  const argv1 = process.argv[1];
-  if (!argv1) return false;
-  try {
-    return realpathSync(argv1) === realpathSync(fileURLToPath(import.meta.url));
-  } catch {
-    return false;
-  }
-}
-
-if (isDirectCliInvocation()) {
+// Run only as a real entrypoint — an import (for the named exports) must stay
+// side-effect-free. Shared realpath-both-sides guard: cliEntry.ts isMain (R-6).
+if (isMain(import.meta.url)) {
   main().catch((err) => {
     process.stderr.write(`[runtime-bridge] Unhandled claim error: ${err}\n`);
     process.exit(1);
