@@ -164,28 +164,68 @@ transform_internal_refs() {
   rm -f "${f}.bak"
 }
 
-# deliver_runtime_bridge_vendor <vendor-src-dir> <vendor-dst-dir>
-# SSOT for the runtime-bridge vendor drop, called by BOTH delivery paths: the install path
-# (setup.d/55-runtime-bridge-vendor.sh) and the refresh path (install.sh do_refresh). Those two
-# are the @sync-with-layers pair the do_refresh header warns about, and they had already drifted
-# once here — the refresh path carried no vendor arm at all, so `--refresh` never updated a
-# consumer's vendor copy after an upgrade, and (observed on CI 2026-08-17, run 32022158836) the
-# delivered README could end up back at its untransformed source with the transform never
-# re-applied. One function means the wipe-recopy-transform sequence cannot diverge again
-# (dual-implementation-discipline.md §7).
+# _transform_md_tree <tree-root>
+# Rewrite repo-internal relative refs to upstream blob URLs in EVERY *.md under <tree-root>.
+# transform_internal_refs is idempotent, so re-running this over an already-delivered tree is
+# safe — that is what makes the same helper usable on both the install and the refresh path.
 #
-# Wipe + recopy matches the skills/* idempotent pattern (10-skills.sh:22); the transform pass is
-# what keeps repo-internal relative refs from shipping dangling (see transform_internal_refs
-# above). transform_internal_refs is idempotent, so running this on an already-delivered tree is
-# safe — that is what makes it usable as the refresh path's arm.
-deliver_runtime_bridge_vendor() {
-  local src="$1" dst="$2" _md
+# The walk is NUL-delimited ON PURPOSE (ledger S-7): the copy this replaced used
+# `find … -type f | read -r`, which silently skips any delivered path containing a newline, and
+# it was the ONLY one of the seven copies that had diverged that way.
+_transform_md_tree() {
+  local _md
+  while IFS= read -r -d '' _md; do
+    transform_internal_refs "$_md"
+  done < <(find "$1" -name '*.md' -type f -print0 2>/dev/null)
+}
+
+# _copy_tree_with_transform <src-dir> <dst-dir>
+# SSOT for "wipe the destination, recopy the tree, rewrite shipped markdown refs" — the sequence
+# that had been inlined SEVEN times (ledger S-7: setup.d/lib.sh ×3, setup.d/10-skills.sh ×2,
+# setup.d/45-python.sh, install.sh) and had therefore already drifted. Wipe-and-recopy rather
+# than merge is the deliberate skills/* idempotent pattern (10-skills.sh) and the twin of
+# refresh_safe's #873 directory arm: `cp -r src dst` onto an existing dst NESTS instead of
+# replacing. The transform pass is what keeps repo-internal relative refs from shipping dangling
+# (see transform_internal_refs above; the 2026-08-17 CI incident, run 32022158836, was exactly a
+# delivered README landing back at its untransformed source).
+#
+# NOT a delivery verb: it applies no ownership policy at all — no skip-if-exists, no `.override.md`
+# escape, no R1 divergence guard. Callers that owe the consumer an ownership decision go through
+# copy_safe / refresh_safe / refresh_tree_with_transform; this helper is only the raw sequence
+# those verbs and the fresh-install layers share. Handing it a destination the consumer may own
+# is the ledger A1-1 defect (see refresh_tree_with_transform below).
+_copy_tree_with_transform() {
+  local src="$1" dst="$2"
   [ -d "$src" ] || return 0
   rm -rf "$dst"
+  mkdir -p "$(dirname "$dst")"
   cp -r "$src" "$dst"
-  while IFS= read -r _md; do
-    transform_internal_refs "$_md"
-  done < <(find "$dst" -name '*.md' -type f)
+  _transform_md_tree "$dst"
+}
+
+# refresh_tree_with_transform <src-dir> <dst-dir>
+# refresh_safe for a DIRECTORY payload PLUS the shipped-markdown transform, as ONE verb.
+#
+# Ledger A1-1: do_refresh used to deliver .claude/vendor/runtime-bridge TWICE — first through
+# refresh_safe (which honours the Layer-3 `.override.md` escape and the R1 divergence guard, and
+# printed "⊝ … keeping"), then again through a policy-free `rm -rf`/`cp -r` arm for the same
+# destination. A consumer who had claimed the tree saw "keeping" printed and their edits plus
+# every consumer-only file under it deleted anyway, while the closing banner still promised that
+# override files were preserved; `--dry-run` skipped only the second arm, so the preview showed
+# a skip the real run did not honour. The second arm existed because refresh_safe alone does not
+# transform. One verb removes that reason: the transform can no longer justify an unguarded
+# second delivery of a destination the consumer may own.
+#
+# The transform runs only when this refresh actually WROTE: under `--dry-run` and under a
+# Layer-3 override nothing was written, and rewriting refs inside a consumer-owned tree would be
+# the same defect class in reverse.
+refresh_tree_with_transform() {
+  local src="$1" dst="$2"
+  [ -d "$src" ] || return 0
+  refresh_safe "$src" "$dst"
+  if [ "$DRY_RUN" = "--dry-run" ]; then return 0; fi
+  if [ -e "${dst%.md}.override.md" ]; then return 0; fi
+  _transform_md_tree "$dst"
 }
 
 # ── consumer-refresh-integrity R1 — refresh-baseline manifest + divergence guard ──────────────
@@ -1160,12 +1200,8 @@ copy_skill_with_transform() {
     echo "  [dry-run] would copy: $src → $dst (+ transform internal refs)"
     return 0
   fi
-  rm -rf "$dst"
-  cp -r "$src" "$dst"
-  # Rewrite repo-internal cross-refs in all .md files to GitHub blob URLs.
-  while IFS= read -r -d '' mdfile; do
-    transform_internal_refs "$mdfile"
-  done < <(find "$dst" -name '*.md' -print0)
+  # Wipe, recopy, rewrite repo-internal cross-refs in all .md files to GitHub blob URLs.
+  _copy_tree_with_transform "$src" "$dst"
   echo "  ✓ .claude/skills/$slug/ (cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
 }
 
@@ -1191,11 +1227,7 @@ refresh_skill_with_transform() {
     echo "  [dry-run] would refresh: $src → $dst (+ transform internal refs)"
     return 0
   fi
-  rm -rf "$dst"
-  cp -r "$src" "$dst"
-  while IFS= read -r -d '' mdfile; do
-    transform_internal_refs "$mdfile"
-  done < <(find "$dst" -name '*.md' -print0)
+  _copy_tree_with_transform "$src" "$dst"
   echo "  ✓ .claude/skills/$slug/ (refreshed, cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
 }
 

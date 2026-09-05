@@ -19,15 +19,11 @@ if [ -e "$PROJECT_ROOT/.claude/skills/getff" ] && [ "$FORCE" != "--force" ]; the
 elif [ "$DRY_RUN" = "--dry-run" ]; then
   echo "  [dry-run] would copy: $PKG_ROOT/skills/getff → $PROJECT_ROOT/.claude/skills/getff"
 else
-  rm -rf "$PROJECT_ROOT/.claude/skills/getff"
-  cp -r "$PKG_ROOT/skills/getff" "$PROJECT_ROOT/.claude/skills/getff"
   # getff ships from repo-root skills/ (not .claude/skills/), so it bypasses
   # copy_skill_with_transform — its ](../../../README.md), ](../../install.sh) and
   # ](../../../.claude/rules/…) refs dangle on a consumer tree without this pass
   # (2026-07-10 flat-install smoke: first consumer push red on pre-push §8 lychee).
-  while IFS= read -r -d '' mdfile; do
-    transform_internal_refs "$mdfile"
-  done < <(find "$PROJECT_ROOT/.claude/skills/getff" -name '*.md' -print0)
+  _copy_tree_with_transform "$PKG_ROOT/skills/getff" "$PROJECT_ROOT/.claude/skills/getff"
   echo "  ✓ .claude/skills/getff/ (cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
 fi
 if [ -e "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" ] && [ "$FORCE" != "--force" ]; then
@@ -40,13 +36,9 @@ if [ -e "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" ] && [ "$FORCE" != "--
 elif [ "$DRY_RUN" = "--dry-run" ]; then
   echo "  [dry-run] would copy: $PKG_ROOT/skills/tool-bootstrapping → $PROJECT_ROOT/.claude/skills/tool-bootstrapping"
 else
-  rm -rf "$PROJECT_ROOT/.claude/skills/tool-bootstrapping"
-  cp -r "$PKG_ROOT/skills/tool-bootstrapping" "$PROJECT_ROOT/.claude/skills/tool-bootstrapping"
   # No up-dir repo refs in tool-bootstrapping today (transform is a no-op) — run it anyway for
   # install/refresh parity with do_refresh and so a future added ref cannot dangle silently.
-  while IFS= read -r -d '' mdfile; do
-    transform_internal_refs "$mdfile"
-  done < <(find "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" -name '*.md' -print0)
+  _copy_tree_with_transform "$PKG_ROOT/skills/tool-bootstrapping" "$PROJECT_ROOT/.claude/skills/tool-bootstrapping"
   echo "  ✓ .claude/skills/tool-bootstrapping/"
 fi
 # meta-orchestrator + its orchestration companions: shipped from authoring location

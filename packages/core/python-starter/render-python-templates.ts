@@ -80,8 +80,16 @@ export const RULES_DIR = '.getff/astgrep-rules';
  * and a pre-commit config fragment, neither of which the lint-rule render pipeline produces. Their
  * byte-integrity is guarded by the install fingerprint gate + the `(14)`/`(16b)` arms of
  * tests/install-sh/python-entry-lane.test.sh, and their FIRING by the `(15)` RED/GREEN arm.
+ *
+ * `RULES.md` is the python-lane rule doc (ledger finding A2-5) — a prose SHELL whose one generated
+ * region is filled at INSTALL time by `_py_render_rules_md` (setup.d/45-python.sh) from the rules
+ * actually delivered into the consumer's `.getff/`. The render plan here produces rule FILES, not
+ * the doc that describes them, and the doc's per-consumer body does not exist until install, so it
+ * is hand-authored by construction. Its content contract (delivered rule ids present, no
+ * TypeScript-lane checks) is guarded by tests/install-sh/python-agent-surface-refresh.test.sh.
  */
 export const NON_RENDERED_TEMPLATE_FILES: readonly string[] = [
+  'RULES.md',
   'github-actions-ci.yml',
   'hooks/getff.pre-commit-config.yaml.fragment',
   'hooks/pre-push.sh',
