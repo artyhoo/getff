@@ -33,8 +33,13 @@ const PLACEHOLDERS = new Set([
   'placeholder',
   '',
 ]);
-// file:line citation — non-space chars, dot, lowercase ext, colon, digits.
-const FILE_LINE_RE = /[^\s]+\.[a-z]+:[0-9]+/;
+/**
+ * file:line citation — non-space chars, dot, lowercase ext, colon, digits.
+ * THE shared §1.7 citation grammar (R-8): pr-body-fidelity.ts imports this exact
+ * object rather than keeping its own divergent copy, so every §1.7-consumer judges
+ * a citation identically. Keep the grammar case-sensitive on the extension.
+ */
+export const FILE_LINE_RE = /[^\s]+\.[a-z]+:[0-9]+/;
 // §1.7 in discourse (not embedded in a URL/path): line start, or a non-slash char before.
 const PROSE_S17_RE = /(^|[^/])§1\.7/;
 

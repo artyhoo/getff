@@ -37,6 +37,7 @@
  *     ("0 BLOCKER / 2 MAJOR") do not open an entry; ESCALATED/MINOR entries are exempt.
  */
 import { stripHtmlComments } from '../utils/markdown-comments.ts';
+import { FILE_LINE_RE } from './s17.ts';
 
 export interface FidelityCheckInput { body: string; headSha: string; }
 export interface FidelityCheckResult { ok: boolean; errors: string[]; }
@@ -59,7 +60,7 @@ const ANY_VERDICT_RE = /^FIDELITY:/gm;
 const BASIS_RE = /^Basis:[ \t]*\S+/m;
 const ROUND_RE = /^Round:[ \t]*\d+[ \t]*$/m;
 const SHA_RE = /^Audited-SHA:[ \t]*([0-9a-fA-F]{12,40})[ \t]*$/m;
-const FILE_LINE_RE = /[\w./-]+\.[A-Za-z]{1,6}:\d+/;
+// file:line citation grammar = the ONE shared `FILE_LINE_RE` exported by s17.ts (R-8).
 const REVIEW_FINDINGS_HEADING_RE = /^##[ \t]+Review findings[ \t]*$/;
 /**
  * Grade token OPENING a list entry (optionally bolded/bracketed). Openers: `- `/`* ` bullet,
