@@ -38,6 +38,24 @@ _emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
     jq -n --arg c "$2" '{additionalContext:$c}'
   else printf '%s\n' "$2"; fi; }
 
+# Announce at most ONCE PER SESSION (flag file keyed on session_id + tag). The bounded form
+# of _emit_skip, for a dependency whose absence is STRUCTURAL rather than transient: a gate
+# that can never resolve on this layout would otherwise nag on every prompt edit for the whole
+# session (the permanent-loud-skip defect, #1597 review ledger A3-6).
+# Precedent: .claude/hooks/check-doc-authority-header.sh (jq guard, GH #934).
+_emit_skip_once() {
+  # No session_id (a non-CC caller, or a harness that omits the field) → announce EVERY time.
+  # Suppression needs a session to scope to; without one the choice is between a shared
+  # global key — which silences unrelated later runs after the first — and repeating the
+  # notice. Repeating is the safe direction: this whole fix exists because silence reads as
+  # a pass.
+  [ -z "${SESSION_ID:-}" ] && { _emit_skip "$2"; return 0; }
+  local flag="${TMPDIR:-/tmp}/aif-$1-${SESSION_ID}"
+  [ -f "$flag" ] && return 0
+  : > "$flag" 2>/dev/null || true
+  _emit_skip "$2"
+}
+
 # Resolve the tsx runner through a tier list (linked worktrees carry no node_modules):
 #   1. repo-local  2. main worktree via git --git-common-dir  3. tsx on PATH
 # Reference: .claude/hooks/check-doc-authority.sh _resolve_tsx (PR #1126).
@@ -58,8 +76,29 @@ _resolve_tsx() {
 }
 
 REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
-VALIDATOR="$REPO_ROOT/packages/core/spec-validation/validate-batch-spec.ts"
-[[ ! -f "$VALIDATOR" ]] && exit 0   # T-PLUG-A: framework-internal artefact; consumer plugins lack packages/core/
+
+# Resolve the batch-spec validator through a tier list — framework layout first, vendor drop
+# second. Mirrors the `_resolve_dispatch_ts` precedent (.claude/hooks/runtime-bridge-dispatch.sh,
+# PR #1448), which closed exactly this defect class: a shipped artefact that resolves a
+# FRAMEWORK-ONLY path and then exits 0 is a permanent silent no-op on every consumer,
+# indistinguishable from a pass (#1597 review ledger L-2).
+#
+# Honest note on tier 2: no delivery site ships packages/core today (install.sh vendors only
+# packages/runtime-bridge). The tier exists so a future vendor drop is found; TODAY the
+# load-bearing half of this fix is the loud miss branch below.
+_resolve_validator() {
+  local candidate
+  for candidate in \
+    "$REPO_ROOT/packages/core/spec-validation/validate-batch-spec.ts" \
+    "$REPO_ROOT/.claude/vendor/core/spec-validation/validate-batch-spec.ts"; do
+    [[ -f "$candidate" ]] && { printf '%s' "$candidate"; return 0; }
+  done
+  return 1
+}
+
+# Escape token (rationale-bearing opt-out, ci-tool-pinning.md §3 precedent): a project that
+# deliberately runs without this gate silences the notice instead of living with it.
+[[ "${AIF_VALIDATE_PROMPT:-1}" == "0" ]] && exit 0
 
 # Graceful-but-loud skip if jq unavailable. jq-less best-effort path extraction (sed on
 # raw stdin) scopes the notice to orchestrator-prompts *.md edits (or unparseable stdin —
@@ -73,12 +112,25 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 0
 fi
 
-FILE_PATH="$(cat | jq -r '.tool_input.file_path // ""' 2>/dev/null || true)"
+# Read stdin ONCE: the session_id is needed for the once-per-session skip flag below, and
+# stdin is not re-readable after `cat`.
+INPUT="$(cat)"
+FILE_PATH="$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // ""' 2>/dev/null || true)"
+SESSION_ID="$(printf '%s' "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || true)"
 
 # Only process files under .claude/orchestrator-prompts/**/*.md
 if [[ -z "$FILE_PATH" ]] || [[ "$FILE_PATH" != *".claude/orchestrator-prompts/"*".md" ]]; then
   exit 0
 fi
+
+# Runtime dependency: the batch-spec validator. A miss is announced, never swallowed — on an
+# exit-0 PostToolUse the model receives ONLY JSON hookSpecificOutput, so a bare `exit 0` here
+# reads to the model exactly like a clean pass. Ordered AFTER the path filter so only an
+# orchestrator-prompts edit can trigger the notice.
+VALIDATOR="$(_resolve_validator)" || {
+  _emit_skip_once 'vp-novalidator' '⚠ validate-prompt: the batch-spec validator (packages/core/spec-validation/validate-batch-spec.ts) is not present on this layout — batch-spec validation DID NOT RUN for this edit, and will not run this session. This is a SKIP, not a pass. Set AIF_VALIDATE_PROMPT=0 to opt out. Announced once per session.'
+  exit 0
+}
 
 # Resolve tsx through tiers: repo-local, main-worktree (git --git-common-dir), PATH.
 # Ordered after the jq check so a missing-jq skip fires first (matches pre-fix ordering).

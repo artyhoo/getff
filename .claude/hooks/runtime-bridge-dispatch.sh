@@ -60,7 +60,12 @@ if ! command -v jq >/dev/null 2>&1 || ! command -v node >/dev/null 2>&1; then
     *.claude/orchestrator-prompts/*/kickoff.md)
       if [ -f "$_RAW_PATH" ] \
          && [ "$(head -1 "$_RAW_PATH" | tr -d '[:space:]')" = '<!--bridge:auto-->' ]; then
-        _emit_dep_skip '⚠ runtime-bridge-dispatch: jq/node unavailable — the auto-dispatch this kickoff opted into DID NOT RUN. Dispatch manually: tsx packages/runtime-bridge/src/cli/dispatch.ts <kickoff-path>.'
+        # Name BOTH layouts. This file ships to the framework repo AND, via the vendor drop
+        # (setup.d/55-runtime-bridge-vendor.sh), to every factory consumer — whose only copy
+        # lives under .claude/vendor/runtime-bridge/. Naming the framework-only path sent the
+        # consumer's model to a module that does not exist there (#1597 review ledger E-4);
+        # _resolve_dispatch_ts below already knows both locations.
+        _emit_dep_skip '⚠ runtime-bridge-dispatch: jq/node unavailable — the auto-dispatch this kickoff opted into DID NOT RUN. Dispatch manually with whichever path exists in this project: `tsx packages/runtime-bridge/src/cli/dispatch.ts <kickoff-path>` (framework checkout) or `tsx .claude/vendor/runtime-bridge/src/cli/dispatch.ts <kickoff-path>` (consumer install).'
       fi ;;
   esac
   exit 0
@@ -138,10 +143,17 @@ _resolve_dispatch_ts() {
 }
 
 DISPATCH_TS="$(_resolve_dispatch_ts)" || {
-  # Genuine no-op: neither the framework package nor the vendor drop is present, so the
-  # consumer really did opt out of runtime-bridge (no `--profile factory`, no
-  # `--with-aif-suite`). Silent by design — a project without the bridge should not be
-  # nagged on every kickoff write.
+  # NOT a genuine no-op. Control only reaches here past the opt-in gate above, i.e. the
+  # kickoff's own first line is `<!-- bridge: auto -->` — the author explicitly asked for this
+  # dispatch. The pre-fix comment read the miss as «the consumer really did opt out», a premise
+  # that is false for a kickoff that just opted in: a consumer on `--profile env` (no vendor
+  # drop), or any layout where the vendor path moves again, got exit 0 and silence while the
+  # jq/node-miss branch above announced DID NOT RUN for the identical condition — two policies
+  # for one opted-in condition (#1597 review ledger L-6). Same announcement, same channel.
+  #
+  # Scope note: a kickoff WITHOUT the opt-in marker still exits silently at the gate above, so
+  # a project that never asked for the bridge is still never nagged.
+  _emit_dep_skip '⚠ runtime-bridge-dispatch: no dispatch entrypoint found — the auto-dispatch this kickoff opted into (`<!-- bridge: auto -->`) DID NOT RUN. This is a SKIP, not a pass. Neither packages/runtime-bridge/src/cli/dispatch.ts (framework checkout) nor .claude/vendor/runtime-bridge/src/cli/dispatch.ts (consumer install) exists here; re-run the installer with --profile factory to get the vendor drop, or remove the `<!-- bridge: auto -->` marker if auto-dispatch is not wanted.'
   exit 0
 }
 

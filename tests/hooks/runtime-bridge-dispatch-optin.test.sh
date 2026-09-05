@@ -121,21 +121,43 @@ else
   bad "(d) consumer layout did NOT dispatch — hook is blind to the vendor path (out=$OUT_D)"
 fi
 
-# ── Case (e): neither entrypoint present → genuine opt-out stays a silent no-op ─
-# Guards the fix against over-reach: widening the resolution must not make the hook
-# noisy or non-zero for a project that never installed the bridge at all (core profile,
-# no --with-aif-suite). Silence here is correct; silence in (d) was the bug.
+# ── Case (e): OPTED-IN kickoff, neither entrypoint present → LOUD skip ────────
+# Rewritten for #1597 review ledger L-6. The previous case asserted silence here on an
+# `<!-- bridge: auto -->` kickoff, encoding the premise the fix falsifies: control reaches
+# the resolver miss only PAST the opt-in gate, so the author explicitly asked for this
+# dispatch and got exit 0 + nothing — while the jq/node-miss branch announced DID NOT RUN for
+# the identical opted-in condition. Two policies for one condition; this is now one.
+# The genuine-opt-out guard the old case meant to provide moved to (f), where it belongs:
+# a kickoff with no marker at all.
+OPTED="$TMP/opted-in-no-bridge"
+mkdir -p "$OPTED/.claude/orchestrator-prompts/opted-probe"
+printf '<!-- bridge: auto -->\n# Kickoff with no bridge installed\n' \
+  > "$OPTED/.claude/orchestrator-prompts/opted-probe/kickoff.md"
+OUT_E=$(jq -n --arg fp "$OPTED/.claude/orchestrator-prompts/opted-probe/kickoff.md" \
+  '{tool_name:"Write", tool_input:{file_path:$fp}}' \
+  | CLAUDE_PROJECT_DIR="$OPTED" bash "$HOOK" 2>/dev/null); RC_E=$?
+if [ "$RC_E" -eq 0 ] \
+   && printf '%s' "$OUT_E" | grep -q 'DID NOT RUN' \
+   && printf '%s' "$OUT_E" | grep -q '.claude/vendor/runtime-bridge/src/cli/dispatch.ts'; then
+  ok "(e) opted-in kickoff, no entrypoint → loud SKIP naming both layouts (exit 0)"
+else
+  bad "(e) opted-in miss is still silent or under-specified (rc=$RC_E out=$OUT_E)"
+fi
+
+# ── Case (f): kickoff with NO opt-in marker → genuine opt-out stays silent ─────
+# Guards the L-6 fix against over-reach: a project that never asked for the bridge must not
+# be nagged on kickoff writes. This is the invariant the old case (e) was reaching for.
 BARE="$TMP/bare"
 mkdir -p "$BARE/.claude/orchestrator-prompts/bare-probe"
-printf '<!-- bridge: auto -->\n# Kickoff with no bridge installed\n' \
+printf '# Kickoff with no bridge marker\n' \
   > "$BARE/.claude/orchestrator-prompts/bare-probe/kickoff.md"
-OUT_E=$(jq -n --arg fp "$BARE/.claude/orchestrator-prompts/bare-probe/kickoff.md" \
+OUT_F=$(jq -n --arg fp "$BARE/.claude/orchestrator-prompts/bare-probe/kickoff.md" \
   '{tool_name:"Write", tool_input:{file_path:$fp}}' \
-  | CLAUDE_PROJECT_DIR="$BARE" bash "$HOOK" 2>/dev/null); RC_E=$?
-if [ "$RC_E" -eq 0 ] && [ -z "$OUT_E" ]; then
-  ok "(e) no bridge installed → silent no-op preserved (exit 0, empty)"
+  | CLAUDE_PROJECT_DIR="$BARE" bash "$HOOK" 2>/dev/null); RC_F=$?
+if [ "$RC_F" -eq 0 ] && [ -z "$OUT_F" ]; then
+  ok "(f) no opt-in marker → silent no-op preserved (exit 0, empty)"
 else
-  bad "(e) opt-out no longer silent (rc=$RC_E out=$OUT_E)"
+  bad "(f) an un-marked kickoff is being nagged (rc=$RC_F out=$OUT_F)"
 fi
 
 echo ""
