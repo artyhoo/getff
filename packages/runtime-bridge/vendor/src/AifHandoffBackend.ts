@@ -62,6 +62,28 @@ import {
   type WebSocketConstructor,
 } from './aifWsStatus.js';
 
+/**
+ * Raw aif-handoff statuses that mean no worker can still be running for the task
+ * (packages/shared/src/types.ts TASK_STATUSES). `blocked_external` is terminal in
+ * the same sense the bridge already uses it — aifWsStatus.ts treats it as an
+ * error-class terminal that resolves rather than keeps waiting.
+ */
+const TERMINAL_RAW_STATUSES = new Set(['done', 'verified', 'blocked_external']);
+
+/**
+ * What happened to a cancel request — the reported form of
+ * {@link AifHandoffBackend.cancelClaim}'s boolean. `running` is the A5-1 refusal:
+ * the task is live and the backend has no way to stop its worker, so the record
+ * is deliberately left alone.
+ */
+export type CancelOutcome =
+  | { cancelled: true; reason: 'deleted' | 'already-gone' }
+  | {
+      cancelled: false;
+      reason: 'running' | 'delete-failed' | 'unverifiable';
+      detail: string;
+    };
+
 /** Configuration for AifHandoffBackend. */
 export interface AifHandoffConfig {
   /**
@@ -151,9 +173,27 @@ export class AifHandoffBackend implements ClaimCapableBackend {
    * names are real: `Z.AI GLM-5.2` is a strict prefix of `Z.AI GLM-5.2 SDK`, so
    * under pure substring matching a marker naming the former matched BOTH and
    * threw `dispatch_failed` — i.e. the correct, unambiguous name was unusable.
+   *
+   * A5-2 (#1597 ledger): the candidate set is scoped to THIS project and to
+   * ENABLED profiles. The list endpoint applies no project filter when
+   * `projectId` is absent and defaults `enabledOnly=false`
+   * (aif-handoff packages/api/src/routes/runtimeProfiles.ts:525-555), so the
+   * unscoped GET ranged over every project's profiles plus disabled ones: a name
+   * unique within this project collided with a same-named profile in another and
+   * hard-aborted `spec_invalid` on a correct kickoff, or — worse — a DISABLED
+   * profile's id was written onto the task and the coordinator never ran it.
+   * `scope` stays at its `visible` default so GLOBAL profiles remain candidates;
+   * they are usable by this project by construction.
    */
-  private async _resolveProfileId(hint: string): Promise<string> {
-    const profiles = (await this._rest('GET', '/runtime-profiles')) as Array<{
+  private async _resolveProfileId(
+    hint: string,
+    projectId: string,
+  ): Promise<string> {
+    const query = new URLSearchParams({ projectId, enabledOnly: 'true' });
+    const profiles = (await this._rest(
+      'GET',
+      `/runtime-profiles?${query.toString()}`,
+    )) as Array<{
       id: string;
       name: string;
     }>;
@@ -220,10 +260,19 @@ export class AifHandoffBackend implements ClaimCapableBackend {
    * this whole split exists to close lives inside that window.
    */
   async claim(kickoff: KickoffSpec): Promise<TaskHandle> {
-    if (!this.projectId) {
+    // E-3 (#1597 ledger): `spec_invalid`, NOT `dispatch_failed`. The distinction
+    // cli/dispatch.ts splits on is "can another backend satisfy this?", and no
+    // backend can dispatch to a project that was never named. Classified as
+    // environmental, this took the blanket ManualBackend fallback: a misspelled or
+    // wrong-shell RUNTIME_BRIDGE_AIF_PROJECT_ID produced a /tmp file, exit 0 and an
+    // additionalContext line reporting success, while no aif task existed and the
+    // stage was re-dispatched later as a duplicate. It is operator-fixable in one
+    // line, so it belongs on the abort side (isFallbackEligible).
+    const projectId = this.projectId;
+    if (!projectId) {
       throw new BackendError(
         'AifHandoffBackend requires projectId -- set RUNTIME_BRIDGE_AIF_PROJECT_ID env var',
-        'dispatch_failed',
+        'spec_invalid',
         'aif-handoff',
       );
     }
@@ -235,10 +284,10 @@ export class AifHandoffBackend implements ClaimCapableBackend {
     // failure must NOT block dispatch (warn + proceed) — the dispatch itself still works,
     // only the isolation is degraded. See research-patch 2026-06-01-aif-task-isolation.md §2.
     try {
-      const ensured = await ensureParallelEnabled(this.baseUrl, this.projectId);
+      const ensured = await ensureParallelEnabled(this.baseUrl, projectId);
       if (ensured.changed) {
         process.stderr.write(
-          `[runtime-bridge] self-heal: enabled parallelEnabled on project ${this.projectId} (Finding A — per-task worktree isolation)\n`,
+          `[runtime-bridge] self-heal: enabled parallelEnabled on project ${projectId} (Finding A — per-task worktree isolation)\n`,
         );
       }
     } catch (err) {
@@ -258,7 +307,10 @@ export class AifHandoffBackend implements ClaimCapableBackend {
     // refuses to degrade — no silent ManualBackend fallback.
     let runtimeProfileId: string | undefined;
     if (kickoff.profileHint) {
-      runtimeProfileId = await this._resolveProfileId(kickoff.profileHint);
+      runtimeProfileId = await this._resolveProfileId(
+        kickoff.profileHint,
+        projectId,
+      );
     }
 
     // -- Step 1: Create the task with the kickoff as its DESCRIPTION --------
@@ -274,7 +326,7 @@ export class AifHandoffBackend implements ClaimCapableBackend {
     // title+description. No separate claim marker is introduced — a second
     // status vocabulary is exactly what P-5 forbids.
     const createResult = await this._rest('POST', '/tasks', {
-      projectId: this.projectId,
+      projectId,
       title: kickoff.umbrellaName,
       description: kickoff.content,
       plannerMode: 'fast',
@@ -331,18 +383,100 @@ export class AifHandoffBackend implements ClaimCapableBackend {
    * Returns whether the claim is actually gone, so a caller that CAN act on the
    * failure (the CLI, an operator) is told, instead of being handed a silent
    * "lane is free" for a lane that is still taken.
+   *
+   * See {@link AifHandoffBackend.cancelClaimChecked} for WHY this is a guarded
+   * delete rather than an unconditional one; this boolean form is the
+   * `ClaimCapableBackend` contract and reports only the yes/no.
    */
   async cancelClaim(handle: TaskHandle): Promise<boolean> {
+    return (await this.cancelClaimChecked(handle)).cancelled;
+  }
+
+  /**
+   * Cancel a claim, reporting WHY when it could not be cancelled.
+   *
+   * A5-1 (#1597 ledger, and the live 2026-09-02 beta-run incident): this used to
+   * be an unconditional `DELETE /tasks/:id`. aif-handoff's DELETE removes the DB
+   * row and broadcasts `task:deleted`, which nothing outside the web UI consumes
+   * — the coordinator re-reads the row only at stage boundaries. So deleting a
+   * RELEASED task removes every trace of it while its worker keeps running
+   * headless: the lane stays occupied, `probe-inflight.sh` sees nothing, the
+   * stage looks free and gets re-dispatched, and `tokens=0` on the vanished
+   * record proves nothing. The CLI then printed «lane is free».
+   *
+   * aif-handoff exposes NO stop/kill surface for a running task — `TASK_EVENTS`
+   * (packages/shared/src/types.ts:565-581) carries no stop/abort/cancel member and
+   * `packages/api/src/routes/tasks.ts` exposes no such route (checked 2026-09-05).
+   * There is therefore nothing to call, and the only honest answer is to refuse
+   * and say so, per `.claude/rules/attention-is-not-a-mechanism.md §2`
+   * (`#hope-as-gate`): a cancel that cannot stop the worker must not report a
+   * free lane.
+   *
+   * Cancellable — no worker can be running:
+   *   - the pre-check 404s: the task is already gone (idempotent re-cancel);
+   *   - `paused === true`: it is still a claim, never picked up (the `/pipeline`
+   *     §6 Step 3 RED branch this whole protocol exists for);
+   *   - a terminal status (`done` / `verified` / `blocked_external`): finished.
+   * Everything else refuses, INCLUDING a state we could not read: «cannot prove
+   * the lane is idle» is not «safe to delete», and the recoverable branch is the
+   * refusal (the operator deletes it from the board), not the silent DELETE.
+   */
+  async cancelClaimChecked(handle: TaskHandle): Promise<CancelOutcome> {
+    let task: { status?: unknown; paused?: unknown };
     try {
-      await this._rest('DELETE', `/tasks/${handle.taskId}`);
-      return true;
+      task = (await this._rest(
+        'GET',
+        `/tasks/${handle.taskId}`,
+      )) as typeof task;
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
       // 404 means the claim is ALREADY gone — cancelling twice, or cancelling one
       // another session cleaned up. The lane is free, which is what the caller asked
       // about, so this is success. Reporting it as failure made an idempotent retry
       // print a false "the lane is still taken" alarm (found in the live proof run).
+      if (/HTTP 404\b/.test(msg))
+        return { cancelled: true, reason: 'already-gone' };
+      return { cancelled: false, reason: 'unverifiable', detail: msg };
+    }
+
+    const status = typeof task?.status === 'string' ? task.status : undefined;
+    if (status === undefined) {
+      return {
+        cancelled: false,
+        reason: 'unverifiable',
+        detail: `GET /tasks/${handle.taskId} returned no status field`,
+      };
+    }
+    const idle = task.paused === true || TERMINAL_RAW_STATUSES.has(status);
+    if (!idle) {
+      return {
+        cancelled: false,
+        reason: 'running',
+        detail: `status=${status} paused=${String(task.paused ?? false)}`,
+      };
+    }
+
+    return this._deleteTask(handle);
+  }
+
+  /**
+   * Unconditional DELETE — the rollback primitive, deliberately NOT guarded.
+   *
+   * `dispatch()` calls this on a task it created `paused` microseconds earlier
+   * whose unpause FAILED, so it provably never started. Making that path pay for
+   * the {@link AifHandoffBackend.cancelClaimChecked} pre-check would trade a
+   * known-safe delete for a guaranteed orphan whenever the GET is the broken
+   * thing. The operator-facing cancel is the guarded one.
+   */
+  private async _deleteTask(handle: TaskHandle): Promise<CancelOutcome> {
+    try {
+      await this._rest('DELETE', `/tasks/${handle.taskId}`);
+      return { cancelled: true, reason: 'deleted' };
+    } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      return /HTTP 404\b/.test(msg);
+      if (/HTTP 404\b/.test(msg))
+        return { cancelled: true, reason: 'already-gone' };
+      return { cancelled: false, reason: 'delete-failed', detail: msg };
     }
   }
 
@@ -359,7 +493,8 @@ export class AifHandoffBackend implements ClaimCapableBackend {
     try {
       return await this.release(handle);
     } catch (err) {
-      await this.cancelClaim(handle);
+      // Unguarded on purpose — see _deleteTask: this task never started.
+      await this._deleteTask(handle);
       throw err;
     }
   }
