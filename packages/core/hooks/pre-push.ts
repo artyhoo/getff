@@ -1559,8 +1559,8 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
 //   (4) tests/install-sh/refresh-covers-full-delivery.test.sh:121-123 — derivation of
 //       the consumer-DESTINATION shipped set from setup.d copy_safe commands.
 // SHIPPED_MD_DESTINATIONS below is predicate (1)'s PATHSPECS translated to
-// consumer-destination paths via the destinations enumerated in setup.d/*.sh + install.sh
-// (the predicate-(4) derivation, made a gate rather than a reading).
+// consumer-destination paths — derived from, and gated against, the snapshot fingerprint
+// corpus (predicate (4)'s question answered by a real install rather than a shell scan).
 //
 // Both halves of this classifier are now drift-GATED, and neither is a bare subtree:
 // SHIPPED_MD_DESTINATIONS + SHIPPED_MD_PREFIXES below, and SHIPPED_SKILL_SLUGS further
@@ -1591,12 +1591,13 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
  *       surface over. Exact paths, not prefixes: the installer delivers exactly four
  *       ARCHITECTURE.* and four RULES.* names, and every other name is the consumer's.
  *
- * SSOT: the `$PROJECT_ROOT/<dst>` destinations named in setup.d/*.sh + install.sh. Kept
- * honest by a derivation check in pre-push.test.ts, which scans those shell sources for
- * DESTINATION path shapes — never delivery verbs (#1624 replaced a `cp -r` with
- * _copy_tree_with_transform and a verb-shaped regex went stale within hours). Both
- * directions are gated: a new destination with no row fails, and a row no destination
- * backs fails too.
+ * SSOT: the snapshot fingerprint corpus, tests/install-sh/baselines/** — the sha256
+ * manifest of a REAL install into a scratch fixture, one per stack x greenfield/brownfield.
+ * A derivation check in pre-push.test.ts compares this list against it in BOTH directions:
+ * a delivered *.md with no row fails, and a row no install produces fails too. The corpus
+ * is the destination SSOT that cannot go verb-stale — it holds no delivery verbs at all,
+ * only the tree the installer produced (#1624 replaced a `cp -r` with
+ * _copy_tree_with_transform and a verb-shaped regex over setup.d went stale within hours).
  *
  * `AGENTS.md` and the whole `.ai-factory/*` set are ALSO recorded in
  * .ai-factory/refresh-baseline.json on a real install — verified by installing ts-server
@@ -1634,9 +1635,11 @@ export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
  * is framework territory by construction: every path under it is an override of a
  * framework-vendored sub-agent's context, so there is no consumer-authored file to swallow.
  *
- * Same gate as SHIPPED_MD_DESTINATIONS: pre-push.test.ts requires every variable-indirected
- * destination in the shell sources to be covered by a row here, and every row here to back
- * at least one such destination.
+ * Same gate as SHIPPED_MD_DESTINATIONS: pre-push.test.ts requires every row here to prefix
+ * at least one delivered *.md in the fingerprint corpus, and to stay scoped below a
+ * top-level directory — a bare `.claude/skills/` was the #1630 defect, and a bare
+ * `.ai-factory/` would swallow the consumer's own .ai-factory/orchestrator-prompts/
+ * backlog (30-templates.sh:17).
  */
 export const SHIPPED_MD_PREFIXES: readonly string[] = [
   '.ai-factory/skill-context/',
