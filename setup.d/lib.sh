@@ -615,8 +615,21 @@ merge_fenced() {
       echo "  [dry-run] would replace fenced section=$section in: $dst"
       return 0
     fi
+    # ledger A1-8: `awk … > "$tmp" && mv …` followed by an unconditional success echo had
+    # two silent-corruption paths. (1) awk or the redirect fails → `&&` skips the mv, the old
+    # body survives, the half-written tmp is left in the consumer tree, and the installer
+    # still prints `✓ … replaced`. (2) $src is present but unreadable → awk's
+    # `getline line < SRC` returns -1 WITHOUT failing the program (measured on macOS awk;
+    # POSIX permits it anywhere), so the consumer's fenced section is replaced with an empty
+    # body under that same `✓`. The `-r` probe closes (2); the if/else closes (1).
     local tmp="${dst}.getff.tmp"
-    awk -v BEG="$begin" -v END_TOK="$end_tok" -v SRC="$src" '
+    if [ ! -r "$src" ]; then
+      echo "  ⚠ $dst: source $src is not readable — REFUSING to splice section=$section" >&2
+      echo "    (an unreadable source would empty the fenced body without failing awk)" >&2
+      SKIPPED+=("$dst")
+      return 0
+    fi
+    if ! awk -v BEG="$begin" -v END_TOK="$end_tok" -v SRC="$src" '
       state == 0 && index($0, BEG) > 0 {
         print                                     # keep the begin marker verbatim
         print ""                                  # blank lines around the body: Prettier treats an
@@ -629,7 +642,12 @@ merge_fenced() {
       state == 1 && index($0, END_TOK) > 0 { print; state = 2; next }
       state == 1 { next }                         # drop the previous body
       { print }
-    ' "$dst" > "$tmp" && mv "$tmp" "$dst"
+    ' "$dst" > "$tmp" || ! mv "$tmp" "$dst"; then
+      rm -f "$tmp" 2>/dev/null || true
+      echo "  ⚠ $dst: fenced splice failed (awk or write error) — left unchanged, section=$section" >&2
+      SKIPPED+=("$dst")
+      return 0
+    fi
     echo "  ✓ $dst (fenced section=$section replaced)"
     return 0
   fi

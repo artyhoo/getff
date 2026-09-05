@@ -1297,12 +1297,28 @@ done
 # Runs AFTER the setup.d layer loop so RUNTIME_BRIDGE_AIF_URL is in scope + all layers shipped.
 if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
   echo "▶ aif-handoff guided install (profile=factory)"
-  if [ -f "$PKG_ROOT/setup.d/aif-handoff-guided-install.sh" ]; then
-    bash "$PKG_ROOT/setup.d/aif-handoff-guided-install.sh" || true
-  else
+  if [ ! -f "$PKG_ROOT/setup.d/aif-handoff-guided-install.sh" ]; then
     # Consumer install payload may not include this helper (e.g. core-only checkout refreshed
     # with --profile factory but the helper file was not in the original payload). Graceful skip.
     echo "  ⊝ setup.d/aif-handoff-guided-install.sh not present in this checkout — see docs/runtime-bridge-setup.md"
+  elif [ "$DRY_RUN" = "--dry-run" ]; then
+    # ledger A1-3: the helper clones a repo and starts containers on consent. 99-finalize has
+    # already printed "Dry-run complete. Nothing was written." by now, so a --dry-run that
+    # spawns it makes that banner false. Preview instead of spawning.
+    echo "  [dry-run] would run setup.d/aif-handoff-guided-install.sh: probe the aif-handoff"
+    echo "  [dry-run] runtime and, only on explicit consent, clone it + \`docker compose up -d\`"
+    echo "  [dry-run] nothing cloned, no containers started"
+  else
+    # The helper is a SEPARATE `bash` process, so DRY_RUN/FULL are invisible to it unless
+    # exported (ledger A1-3: only PROFILE and GETFF_TOOLCHAIN* were, so the child could not
+    # self-gate and blocked on its [y/N] prompt at a TTY under `./setup -y`, contradicting
+    # ./setup's documented never-prompt contract). GETFF_DRY_RUN is exported too so a helper
+    # invoked directly honours the same gate.
+    GETFF_DRY_RUN="$DRY_RUN"
+    GETFF_NONINTERACTIVE=""
+    if [ -n "$FULL" ]; then GETFF_NONINTERACTIVE="1"; fi
+    export GETFF_DRY_RUN GETFF_NONINTERACTIVE
+    bash "$PKG_ROOT/setup.d/aif-handoff-guided-install.sh" || true
   fi
 fi
 

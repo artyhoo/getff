@@ -1,5 +1,14 @@
 # runtime-bridge vendor copy (S5 A7)
 
+> **Authoritative for:** the vendored runtime-bridge COPY delivered to a consumer at
+> `.claude/vendor/runtime-bridge/` — §«What's in the copy» (which files are carried and the
+> criterion that admits one), §«Env-var contract» (every env var the vendored CLIs read),
+> §«Per-project dedup-log path», §«Parked forks» P1-P5 and §«How to run».
+> **NOT authoritative for:** the runtime-bridge design or the framework-side CLI surface — see
+> the framework's own `packages/runtime-bridge/README.md` + `DESIGN.md`. Delivery + refresh
+> mechanics — see `setup.d/55-runtime-bridge-vendor.sh`. Project goal — see the framework
+> `README.md` §«Why this exists».
+
 > **Spec:** [`docs/superpowers/specs/2026-07-23-beta-program-design.md`](../../../docs/superpowers/specs/2026-07-23-beta-program-design.md) §4 A7 (lines 285-289).
 > **Kickoff:** [`.claude/orchestrator-prompts/beta-delivery-ux/kickoff-s5.md`](../../../.claude/orchestrator-prompts/beta-delivery-ux/kickoff-s5.md) §3.
 > **Plan:** `.ai-factory/plans/feature-beta-delivery-ux-eac3a0.md` (gitignored task plan — container-side) §3 + §4 Tasks 3-5.
@@ -82,33 +91,51 @@ and a vendored `claim.ts` calling into a pre-split backend would be a copy that 
 
 ## Env-var contract
 
-The vendored CLI reads these env vars (same convention as the framework copy; resolution in
-`src/resolver.ts` + `src/AifHandoffBackend.ts`):
+The vendored CLIs read these env vars (same convention as the framework copy; resolution in
+`src/resolver.ts` + `src/AifHandoffBackend.ts` for dispatch, `src/cli/harvest.ts` for egress):
 
-| Env var                         | Purpose                                                                                         | Required?                |
-| ------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------ |
-| `RUNTIME_BRIDGE_MODE`           | `manual` / `aif-handoff` / `auto` (auto falls back to ManualBackend if aif-handoff unreachable) | yes (or `--mode` flag)   |
-| `RUNTIME_BRIDGE_AIF_URL`        | aif-handoff REST/WS base (default `http://localhost:3009`)                                      | for `aif-handoff`/`auto` |
-| `RUNTIME_BRIDGE_AIF_MCP_URL`    | aif-handoff MCP base (default `http://localhost:3100`)                                          | optional                 |
-| `RUNTIME_BRIDGE_AIF_PROJECT_ID` | project ID for the aif-handoff task queue                                                       | for `aif-handoff`/`auto` |
-| `RUNTIME_BRIDGE_DEDUP_PATH`     | per-project dedup-log path (see «Smoke-enabling stub» below)                                    | optional (smoke only)    |
+| Env var                         | Purpose                                                                                               | Required?                |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------ |
+| `RUNTIME_BRIDGE_MODE`           | `manual` / `aif-handoff` / `auto` (auto falls back to ManualBackend if aif-handoff unreachable)       | yes (or `--mode` flag)   |
+| `RUNTIME_BRIDGE_AIF_URL`        | aif-handoff REST/WS base (default `http://localhost:3009`)                                            | for `aif-handoff`/`auto` |
+| `RUNTIME_BRIDGE_AIF_MCP_URL`    | aif-handoff MCP base (default `http://localhost:3100`)                                                | optional                 |
+| `RUNTIME_BRIDGE_AIF_PROJECT_ID` | project ID for the aif-handoff task queue                                                             | for `aif-handoff`/`auto` |
+| `RUNTIME_BRIDGE_DEDUP_PATH`     | per-project dedup-log path (see «Per-project dedup-log path» below)                                   | optional                 |
+| `RUNTIME_BRIDGE_AIF_REPO_PATH`  | this project's base clone INSIDE the aif container; overrides what aif's own project record says      | optional (`harvest.ts`)  |
+| `RUNTIME_BRIDGE_AIF_CONTAINER`  | aif container name (default `aif-handoff-agent-1`)                                                    | optional (`harvest.ts`)  |
+| `RUNTIME_BRIDGE_HOST_REPO`      | host clone the egress push runs from — where `.husky/pre-push` executes (default: the cwd's checkout) | optional (`harvest.ts`)  |
+| `AIF_HOOK_LANG`                 | operator-facing language: `ru` → Russian, anything else incl. unset → English                         | optional                 |
 
-## Per-project dedup-log path — smoke-enabling STUB
+`harvest.ts` needs to know which directory inside the container holds this project. It asks aif
+first — every project record carries the `rootPath` aif runs git in, filtered out of
+`GET /projects` by `RUNTIME_BRIDGE_AIF_PROJECT_ID` — so on a consumer the answer is the
+consumer's own mount, not the framework's. Order: `--repo-path` → `RUNTIME_BRIDGE_AIF_REPO_PATH`
+→ aif's project record → a warned last-resort default. The re-run commands harvest prints on a
+HOLD name the file by the path it was actually invoked as, so they are runnable from the
+consumer install too.
 
-The framework copy at `packages/runtime-bridge/src/idempotency.ts:20` hardcodes
-`/tmp/runtime-bridge-dedup.jsonl` (shared global log). When vendored into N consumers,
-that global path would cross-contaminate dedup state — spec A7 (lines 287-288) mandates
-«dedup-log path becomes per-project».
+## Per-project dedup-log path
 
-**In this vendored copy ONLY**, `src/idempotency.ts:32` reads:
+A single hard-coded `/tmp/runtime-bridge-dedup.jsonl` is a global log. Vendored into N
+consumers on one host it cross-contaminates dedup state — project B's identical-content kickoff
+reads as «already dispatched» because project A dispatched it inside the 24h TTL — and spec A7
+(lines 287-288) mandates «dedup-log path becomes per-project».
+
+`src/idempotency.ts` therefore reads:
 
 ```ts
 const DEDUP_PATH =
-  process.env.RUNTIME_BRIDGE_DEDUP_PATH ??
-  join(tmpdir(), 'runtime-bridge-dedup.jsonl');
+  process.env['RUNTIME_BRIDGE_DEDUP_PATH']?.trim() ||
+  '/tmp/runtime-bridge-dedup.jsonl';
 ```
 
-**This is a stub, NOT a resolution of the underlying mechanism choice.** The actual mechanism
+The default is unchanged, so nothing relocates for anyone who leaves the var unset; an empty or
+whitespace-only value falls back to it rather than writing to `''`. This section used to
+document the env var while no code read it, in either copy — the knob a consumer was told to
+export did nothing (#1597 review ledger A5-3 / E-1). The framework copy carries the identical
+read, so vendor and upstream stay content-identical.
+
+**The env var is a stub, NOT a resolution of the underlying mechanism choice.** The actual mechanism
 (env var vs relative path vs config file) is **PARKED (P3/P5)** — see below. The stub is the
 minimum to make the dispatch smoke (Task 7) runnable without guessing the parked decision.
 
