@@ -86,11 +86,11 @@ describe('AifHandoffBackend.dispatch() — REST 4-step sequence', () => {
     expect(calls.some((c) => c.body !== undefined && 'plan' in c.body)).toBe(false);
   });
 
-  it('throws dispatch_failed (no fetch) when projectId is unset', async () => {
+  it('throws spec_invalid (no fetch) when projectId is unset — E-3, an operator-fixable spec defect', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
     const backend = new AifHandoffBackend({ baseUrl: 'http://localhost:3009' });
     await expect(backend.dispatch(KICKOFF)).rejects.toMatchObject({
-      code: 'dispatch_failed',
+      code: 'spec_invalid',
       backend: 'aif-handoff',
     });
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -205,7 +205,7 @@ describe('AifHandoffBackend.dispatch() — profileHint resolution', () => {
         if (method === 'GET' && url.endsWith('/projects')) {
           return Promise.resolve(jsonResponse([{ id: 'proj-uuid', parallelEnabled: true }], 200));
         }
-        if (method === 'GET' && url.endsWith('/runtime-profiles')) {
+        if (method === 'GET' && url.includes('/runtime-profiles')) {
           return Promise.resolve(jsonResponse(profiles, 200));
         }
         if (method === 'POST' && url.endsWith('/tasks')) {
@@ -234,7 +234,7 @@ describe('AifHandoffBackend.dispatch() — profileHint resolution', () => {
     const backend = new AifHandoffBackend({ baseUrl: 'http://localhost:3009', projectId: 'proj-uuid' });
     await backend.dispatch(KICKOFF); // no profileHint
 
-    expect(calls.some((c) => c.url.endsWith('/runtime-profiles'))).toBe(false);
+    expect(calls.some((c) => c.url.includes('/runtime-profiles'))).toBe(false);
     const post = calls.find((c) => c.method === 'POST' && c.url.endsWith('/tasks'));
     expect(post?.body && 'runtimeProfileId' in post.body).toBe(false);
   });
