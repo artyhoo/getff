@@ -747,8 +747,10 @@ deliver_python_toolchain() {
 # Activation (default): git config core.hooksPath .getff/hooks. The hook file is delivered to
 # .getff/hooks/pre-push (getff-namespaced, parallel to .getff/astgrep-rules/ and
 # .getff/ruff-bans.toml). The consumer's existing core.hooksPath / .pre-commit-config.yaml /
-# .git/hooks/pre-push are NEVER clobbered (kickoff §2 item 2, criterion (b), T-S2B-B). Three
-# integration cases handled by _py_integrate_* helpers below.
+# $GIT_DIR/hooks/* are NEVER clobbered (kickoff §2 item 2, criterion (b), T-S2B-B) — including
+# by omission: setting core.hooksPath makes git stop consulting $GIT_DIR/hooks entirely, so the
+# presence of ANY live hook there declines activation, not just a pre-push. Three integration
+# cases handled by _py_integrate_* helpers below.
 #
 # Opt-out (kickoff §2 item 3): GETFF_SKIP_HOOKS=1 at install-time → return early, no delivery.
 # Runtime opt-out lives in the hook body itself (exit 0 on GETFF_SKIP_HOOKS=1). The opt-out story
@@ -794,7 +796,8 @@ _py_deliver_local_hook_rung() {
   # checked BEFORE this guard — pre-commit does not need git to read its config.
   #
   # ── Integration arm (kickoff §2 item 2 + §3 + T-S2B-B): never clobber the consumer's hooks ──
-  # Three pre-existing-hook cases, in priority order; default = set core.hooksPath ourselves.
+  # Three pre-existing-hook cases, in priority order; default = set core.hooksPath ourselves
+  # (only when the consumer has NO live hooks of their own — see the Case 3 enumeration below).
   # Case 2 is checked FIRST because the verdict (SSOT #237) names pre-commit as the integration
   # arm — if the consumer already uses it, we honour their choice and do not compete for
   # core.hooksPath.
@@ -818,12 +821,20 @@ _py_deliver_local_hook_rung() {
   local _existing_hookspath
   _existing_hookspath=$(git -C "$PROJECT_ROOT" config --get core.hooksPath 2>/dev/null || true)
 
+  # Case 3 detection is an ENUMERATION of the repo's real hook directory, not a single-file test:
+  # git-config(1) says that once core.hooksPath is set, git looks for hooks in that directory
+  # «instead of $GIT_DIR/hooks», so activating our rung over ANY pre-existing hook (pre-commit,
+  # commit-msg, post-checkout, git-secrets, gitlint, hand-written …) silently disables all of
+  # them — the exact clobber this function's docstring promises never happens.
+  local _existing_hooks
+  _existing_hooks=$(_py_existing_git_hooks)
+
   if [ -n "$_existing_hookspath" ] && [ "$_existing_hookspath" != ".getff/hooks" ]; then
     # Case 1: consumer has core.hooksPath set to a non-getff path.
     _py_integrate_existing_hookspath "$_existing_hookspath"
-  elif [ -f "$PROJECT_ROOT/.git/hooks/pre-push" ]; then
-    # Case 3: consumer has a legacy .git/hooks/pre-push file (and no core.hooksPath).
-    _py_integrate_legacy_githook
+  elif [ -z "$_existing_hookspath" ] && [ -n "$_existing_hooks" ]; then
+    # Case 3: consumer has hook(s) in $GIT_DIR/hooks (and no core.hooksPath).
+    _py_integrate_legacy_githook "$(_py_git_hooks_dir)" "$_existing_hooks"
   else
     # Default: activate core.hooksPath = .getff/hooks (getff-namespaced, parallel to .getff/
     # astgrep-rules/). git config is idempotent — a re-install writes the same value, no-op.
@@ -882,13 +893,52 @@ _py_integrate_precommit_consumer() {
   echo "    ⚠ run 'pre-commit install --hook-type pre-push' to activate the pre-push stage" >&2
 }
 
-# _py_integrate_legacy_githook — Case 3: consumer has .git/hooks/pre-push file (no core.hooksPath).
-# A printed notice is the entire integration — we never touch .git/hooks/ directly (T-S2B-B).
+# _py_git_hooks_dir — absolute path of the repository's REAL hook directory.
+#
+# `git rev-parse --git-path hooks` is the only correct way to reach it. A literal
+# "$PROJECT_ROOT/.git/hooks" is wrong in a linked worktree, where `.git` is a FILE and the hooks
+# live in the common dir — the literal test reads FALSE even when the repo HAS hooks, while
+# `git config core.hooksPath` writes the SHARED config, so the pre-fix code disabled the main
+# checkout's hooks from inside a worktree. `--git-path` resolves relative to the git process cwd
+# (`-C "$PROJECT_ROOT"`), and returns an absolute path in the worktree case — normalise both.
+_py_git_hooks_dir() {
+  local _dir
+  _dir=$(git -C "$PROJECT_ROOT" rev-parse --git-path hooks 2>/dev/null || true)
+  [ -n "$_dir" ] || return 0
+  case "$_dir" in
+    /*) : ;;
+    *) _dir="$PROJECT_ROOT/$_dir" ;;
+  esac
+  printf '%s\n' "$_dir"
+}
+
+# _py_existing_git_hooks — newline-separated names of the consumer's LIVE hooks: executable,
+# non-`.sample` files in _py_git_hooks_dir. `git init` seeds that directory with executable
+# `*.sample` templates that git never runs, so excluding them is what keeps the default
+# activation branch reachable on a fresh repo.
+_py_existing_git_hooks() {
+  local _dir _f
+  _dir=$(_py_git_hooks_dir)
+  [ -n "$_dir" ] && [ -d "$_dir" ] || return 0
+  for _f in "$_dir"/*; do
+    [ -f "$_f" ] && [ -x "$_f" ] || continue
+    case "$_f" in *.sample) continue ;; esac
+    printf '%s\n' "${_f##*/}"
+  done
+}
+
+# _py_integrate_legacy_githook — Case 3: consumer has live hook(s) in $GIT_DIR/hooks (no
+# core.hooksPath). A printed notice is the entire integration — we never touch $GIT_DIR/hooks
+# directly, and we do NOT set core.hooksPath, which would make git ignore that whole directory
+# (T-S2B-B / augment-first; the never-clobber contract in the rung docstring above).
 _py_integrate_legacy_githook() {
-  echo "  ⚠ .git/hooks/pre-push exists — NOT overwriting (T-S2B-B / augment-first)" >&2
+  local hooks_dir="$1" names="$2" list
+  list=$(printf '%s' "$names" | tr '\n' ' ')
+  echo "  ⚠ existing git hook(s) in $hooks_dir: ${list% } — NOT setting core.hooksPath (T-S2B-B / augment-first)" >&2
+  echo "    core.hooksPath would make git look ONLY in .getff/hooks, silently disabling them." >&2
   echo "    getff hook body delivered to .getff/hooks/pre-push; to activate, EITHER:" >&2
-  echo "      (a) add this line to your .git/hooks/pre-push:  . .getff/hooks/pre-push" >&2
-  echo "      (b) delete .git/hooks/pre-push and run: git config core.hooksPath .getff/hooks" >&2
+  echo "      (a) add this line to $hooks_dir/pre-push:  . \"\$(git rev-parse --show-toplevel)/.getff/hooks/pre-push\"" >&2
+  echo "      (b) move your hooks into .getff/hooks/ and run: git config core.hooksPath .getff/hooks" >&2
 }
 
 # _py_deliver_agent_surface — D8 / spec §5: deliver the curated agent surface on the python lane.
