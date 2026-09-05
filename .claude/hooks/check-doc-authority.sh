@@ -43,6 +43,26 @@ _emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
     jq -n --arg c "$2" '{additionalContext:$c}'
   else printf '%s\n' "$2"; fi; }
 
+# Announce at most ONCE PER SESSION (flag file keyed on session_id + tag). The bounded form
+# of _emit_skip, for a dependency whose absence is STRUCTURAL rather than transient: a gate
+# that can never resolve on this layout would otherwise nag on every single edit for the
+# whole session (the permanent-loud-skip defect, #1597 review ledger A3-6), and error-spam
+# is the reason the silent-skip posture was chosen in the first place. Once-per-session keeps
+# both properties: no per-turn spam AND a dead gate stops reading as a live one.
+# Precedent: .claude/hooks/check-doc-authority-header.sh (jq guard, GH #934).
+_emit_skip_once() {
+  # No session_id (a non-CC caller, or a harness that omits the field) → announce EVERY time.
+  # Suppression needs a session to scope to; without one the choice is between a shared
+  # global key — which silences unrelated later runs after the first — and repeating the
+  # notice. Repeating is the safe direction: this whole fix exists because silence reads as
+  # a pass.
+  [ -z "${SESSION_ID:-}" ] && { _emit_skip "$2"; return 0; }
+  local flag="${TMPDIR:-/tmp}/aif-$1-${SESSION_ID}"
+  [ -f "$flag" ] && return 0
+  : > "$flag" 2>/dev/null || true
+  _emit_skip "$2"
+}
+
 # Resolve the tsx runner through a tier list (linked worktrees carry no node_modules):
 #   1. repo-local  2. main worktree via git --git-common-dir  3. tsx on PATH
 _resolve_tsx() {
@@ -62,21 +82,66 @@ _resolve_tsx() {
 }
 
 REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
-BIN="$REPO_ROOT/packages/core/principles/09-doc-authority-hierarchy.bin.ts"
+
+# Resolve the principle-09 bin through a tier list — framework layout first, vendor drop
+# second. Mirrors the `_resolve_dispatch_ts` precedent (.claude/hooks/runtime-bridge-dispatch.sh,
+# PR #1448), which closed exactly this defect class for the dispatch hook: a shipped artefact
+# that resolves a FRAMEWORK-ONLY path and then exits 0 is a permanent silent no-op on every
+# consumer, indistinguishable from a pass.
+#
+# Honest note on tier 2: no delivery site ships packages/core today — install.sh vendors only
+# packages/runtime-bridge (install.sh `.claude/vendor/runtime-bridge`), and
+# `packages/core/principles/*.bin.ts` appears in no manifest. The tier exists so a future
+# vendor drop is found without another silent-no-op incident; TODAY the load-bearing half of
+# this fix is the loud miss branch below, not the second candidate.
+_resolve_bin() {
+  local candidate
+  for candidate in \
+    "$REPO_ROOT/packages/core/principles/09-doc-authority-hierarchy.bin.ts" \
+    "$REPO_ROOT/.claude/vendor/core/principles/09-doc-authority-hierarchy.bin.ts"; do
+    [[ -f "$candidate" ]] && { printf '%s' "$candidate"; return 0; }
+  done
+  return 1
+}
+
+# Escape token (rationale-bearing opt-out, ci-tool-pinning.md §3 precedent; same variable the
+# consumer-side sibling check-doc-authority-header.sh already honours): a project that
+# deliberately runs without this gate silences the notice instead of living with it.
+[[ "${AIF_DOC_AUTHORITY:-1}" == "0" ]] && exit 0
+
 if ! command -v jq >/dev/null 2>&1; then
   _emit_skip '⚠ check-doc-authority: jq unavailable — the principle-09 authority-header check DID NOT RUN for this edit. This is a SKIP, not a pass; install jq to restore enforcement.'
   exit 0
 fi
 
-ABS_PATH="$(cat | jq -r '.tool_input.file_path // ""' 2>/dev/null || true)"
+# Read stdin ONCE: the session_id is needed for the once-per-session skip flag below, and
+# stdin is not re-readable after `cat`.
+INPUT="$(cat)"
+ABS_PATH="$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // ""' 2>/dev/null || true)"
+SESSION_ID="$(printf '%s' "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || true)"
 [[ -z "$ABS_PATH" ]] && exit 0
 
 # Convert absolute path to repo-root-relative (CLI API expects relative paths)
 REL_PATH="${ABS_PATH#"$REPO_ROOT/"}"
 [[ "$REL_PATH" = "$ABS_PATH" ]] && exit 0   # outside repo — skip
 
-# Runtime dependency: Batch A CLI shim; graceful no-op until it lands
-[[ ! -f "$BIN" ]] && exit 0
+# Extension prefilter BEFORE any spawn. Every path the bin can require is markdown — the
+# static REQUIRED_HEADER_DOCS list is *.md throughout and all four REQUIRED_PATH_PATTERNS
+# (packages/core/principles/09-doc-authority-hierarchy.ts:177-182) end in `\.md$` — so a
+# non-markdown edit can only ever make the bin exit 0 after a ~0.45 s cold tsx boot.
+# Measured 0.44-0.46 s per no-op edit (#1597 review ledger F-3).
+case "$REL_PATH" in
+  *.md | *.markdown) ;;
+  *) exit 0 ;;
+esac
+
+# Runtime dependency: the principle-09 CLI shim. A miss is announced, never swallowed —
+# on an exit-0 PostToolUse the model receives ONLY JSON hookSpecificOutput, so a bare
+# `exit 0` here reads to the model exactly like a clean pass (#1597 review ledger L-2).
+BIN="$(_resolve_bin)" || {
+  _emit_skip_once 'cda-nobin' '⚠ check-doc-authority: the principle-09 CLI shim (packages/core/principles/09-doc-authority-hierarchy.bin.ts) is not present on this layout — the authority-header check DID NOT RUN for this edit, and will not run this session. This is a SKIP, not a pass. On a consumer install the equivalent gate is .claude/hooks/check-doc-authority-header.sh (zero-dep, shipped by setup.d/10-skills.sh); set AIF_DOC_AUTHORITY=0 to opt out of both. Announced once per session.'
+  exit 0
+}
 
 # Resolve tsx through tiers: repo-local, main-worktree (git --git-common-dir), PATH.
 # Ordered after the jq check so a missing-jq skip fires first (matches pre-fix ordering).
