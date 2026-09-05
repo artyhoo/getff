@@ -679,12 +679,9 @@ do_refresh() {
       echo "  [dry-run] would refresh: $_src → $_dst"
       continue
     fi
-    rm -rf "$_dst"
-    cp -r "$_src" "$_dst"
-    # Same transform pass as the install path (setup.d/10-skills.sh) — install/refresh parity.
-    while IFS= read -r -d '' _mdfile; do
-      transform_internal_refs "$_mdfile"
-    done < <(find "$_dst" -name '*.md' -print0)
+    # Same wipe-recopy-transform sequence as the install path (setup.d/10-skills.sh) —
+    # install/refresh parity, one helper (setup.d/lib.sh).
+    _copy_tree_with_transform "$_src" "$_dst"
     echo "  ✓ .claude/skills/$_slug/ (refreshed, cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
   done
 
@@ -925,7 +922,16 @@ do_refresh() {
     _RBV_SRC="$PKG_ROOT/packages/runtime-bridge/vendor"
     if [ -d "$_RBV_SRC" ]; then
       echo "▶ Runtime-bridge vendor → .claude/vendor/runtime-bridge/"
-      refresh_safe "$_RBV_SRC" "$PROJECT_ROOT/.claude/vendor/runtime-bridge"
+      # ONE delivery for this destination (ledger A1-1). A second, policy-free `rm -rf`/`cp -r`
+      # arm used to run later in this function purely because refresh_safe does not transform
+      # shipped markdown: it re-wiped the tree this call had just decided to keep, so a consumer
+      # with .claude/vendor/runtime-bridge.override.md saw the Layer-3 skip printed and their
+      # edits (plus every consumer-only file under the tree) deleted anyway, with no
+      # refresh-conflicts copy and no dry-run preview of the wipe. refresh_tree_with_transform
+      # carries the transform itself, so that reason is gone. CI had observed the opposite
+      # failure too (run 32022158836: the delivered README reverting to its untransformed
+      # source across --refresh), which is why the transform must stay on this path.
+      refresh_tree_with_transform "$_RBV_SRC" "$PROJECT_ROOT/.claude/vendor/runtime-bridge"
       _RBV_HOOK_DST="$PROJECT_ROOT/.claude/hooks/runtime-bridge-dispatch.sh"
       refresh_safe "$_RBV_SRC/hooks/runtime-bridge-dispatch.sh" "$_RBV_HOOK_DST"
       if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_RBV_HOOK_DST" ]; then
@@ -1231,28 +1237,6 @@ do_refresh() {
         refresh_safe "$PKG_ROOT/$_doc" "$PROJECT_ROOT/.ai-factory/skill-context/$_sc/SKILL.md" ;;
     esac
   done
-
-  # ── runtime-bridge vendor drop (factory depth; beta-delivery-ux S5 A7) — refresh parity ──
-  # Framework-owned, and it had NO refresh arm at all: a consumer who upgraded never got vendor
-  # fixes, and CI observed the delivered README reverting to its untransformed source across
-  # `--refresh` (run 32022158836 — `before: ](https:/…` → `after: ](../../.`), which is the
-  # dangling-link shape pre-push §8 goes red on. Same uniform gate as the arms above (#1334):
-  # the delivery site's own predicate — setup.d/55-runtime-bridge-vendor.sh gates on factory OR
-  # the legacy WITH_AIF_SUITE escape — OR presence, so refresh never CREATES the drop at a depth
-  # that did not ask for it, but always updates one that is already installed. The wipe-recopy-
-  # transform sequence is shared with the install path via deliver_runtime_bridge_vendor
-  # (setup.d/lib.sh) rather than restated here, so this arm cannot drift from layer 55.
-  if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
-    || [ -d "$PROJECT_ROOT/.claude/vendor/runtime-bridge" ]; then
-    echo "▶ Runtime-bridge vendor → .claude/vendor/runtime-bridge/"
-    if [ "$DRY_RUN" = "--dry-run" ]; then
-      echo "  [dry-run] would refresh: .claude/vendor/runtime-bridge/"
-    else
-      deliver_runtime_bridge_vendor "$PKG_ROOT/packages/runtime-bridge/vendor" \
-        "$PROJECT_ROOT/.claude/vendor/runtime-bridge"
-      echo "  ✓ .claude/vendor/runtime-bridge/ (refreshed)"
-    fi
-  fi
 
   # consumer-refresh-integrity R1: persist the delivery baseline now that every refresh arm
   # (and its post-copy transforms — the guard hashes FINAL on-disk bytes, see setup.d/lib.sh)
