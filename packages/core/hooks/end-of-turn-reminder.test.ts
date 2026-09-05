@@ -26,7 +26,7 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { execSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -1457,5 +1457,226 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', () => {
     expect(parsed.reason, 'recap half preserved').toMatch(/🟢/);
     expect(parsed.reason, 'context half appended').toMatch(/\[context\]/);
     expect(r.stdout.trim().startsWith('{') && r.stdout.trim().endsWith('}'), 'exactly one JSON object emitted').toBe(true);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Local review ledger of promote #1597 — A3-3 / A3-5 / D-2 / F-2.
+//
+// Every case below was proven RED against the pre-fix hook (the whole point: a
+// hook test that passes while the hook does nothing is the defect class these
+// findings are about — .claude/rules/attention-is-not-a-mechanism.md §2
+// `#warning-nobody-reads`). Each defect ships with its paired negative so the
+// fix cannot be satisfied by deleting the guard it repairs.
+// ═══════════════════════════════════════════════════════════════════════════════
+describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3 / A3-5 / D-2 / F-2', () => {
+  function privateTmpDir(): string {
+    const dir = mkdtempSync(join(tmpdir(), 'ledger-1597-'));
+    tmpDirs.push(dir);
+    return dir;
+  }
+
+  /** Text longer than the 64 KB pipe buffer, so an early `grep -q` match makes the
+   *  producer die of SIGPIPE — 141 under `set -o pipefail` (measured on bash 3.2.57:
+   *  60 KB → rc 0, 70 KB → rc 141). */
+  const OVER_PIPE_BUFFER = 'x'.repeat(200_000);
+
+  // ── A3-5 — SIGPIPE under pipefail flips the guards ────────────────────────
+  it('A3-5: a >64 KB markdown turn still fires the recap (producer SIGPIPE must not flip long_text)', () => {
+    // hook long_text arm: `echo "$text" | grep -qE '^#|…'`. The match is on line 1, so
+    // grep exits immediately and echo takes SIGPIPE → pipefail → 141 → long_text=false
+    // → the hook goes silent on exactly the turn it exists to recap.
+    const tr = writeTranscript([
+      aiTitle('goal'),
+      userTurn('go'),
+      assistantText(`## Heading\n\n${OVER_PIPE_BUFFER}`),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'a35-long' },
+      { TMPDIR: privateTmpDir() },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim(), 'a 200 KB markdown turn must still reach Branch A').not.toBe('');
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason).toMatch(/🟢/);
+  });
+
+  it('A3-5 PAIRED: a >64 KB turn that ALREADY carries the recap marker stays silent', () => {
+    // Same SIGPIPE mechanism on the already-recapped guard (`printf | grep -qF "$MARKER"`):
+    // the marker is at the top, so grep exits early, printf dies, the guard reads false and
+    // the hook re-injects a recap over an existing one. Made observable by a trailing
+    // question: pre-fix the turn falls through to Branch B instead of exiting silent.
+    const tr = writeTranscript([
+      aiTitle('goal'),
+      userTurn('go'),
+      assistantText(`## 🟢 Простыми словами\n\n${OVER_PIPE_BUFFER}\n\nWhat next?`),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'a35-recapped' },
+      { TMPDIR: privateTmpDir() },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim(), 'already-recapped guard must hold on a 200 KB turn').toBe('');
+  });
+
+  // ── D-2 — `grep -qF $'\n\n'` passes TWO EMPTY patterns → matches everything ─
+  it('D-2: ZCode arm does NOT fire on a >500-char single-paragraph turn (no blank line)', () => {
+    // `grep -qF $'\n\n'` splits on the newline into two EMPTY patterns, which match every
+    // non-empty input — so the blank-line half of the markdown-density heuristic was always
+    // true and the ZCode recap fired on every turn longer than 500 chars.
+    const flat = 'plain sentence number one and it just keeps going. '.repeat(20); // >500, one line
+    const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantText(flat)]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd2-flat' },
+      { TMPDIR: privateTmpDir(), ZCODE_PROJECT_DIR: privateTmpDir() },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim(), 'no blank line and no markdown → the density heuristic must be false').toBe('');
+  });
+
+  it('D-2 PAIRED-POSITIVE: the ZCode arm still fires when the turn really has a blank line', () => {
+    const para = `${'first paragraph text that is reasonably long. '.repeat(8)}\n\n${'second paragraph text here. '.repeat(8)}`;
+    const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantText(para)]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd2-para' },
+      { TMPDIR: privateTmpDir(), ZCODE_PROJECT_DIR: privateTmpDir() },
+    );
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision, 'a real paragraph break must still trigger the ZCode thin recap').toBe('block');
+  });
+
+  // ── D-2 (needle half) — an unescaped needle is parsed as grep OPTIONS ──────
+  it('D-2: idle-suppression survives a repeated question that starts with "-" (needle must be literal)', () => {
+    // `grep -qF "$current_short"` without `--`: a needle starting with `-` is parsed as
+    // options — measured `grep: invalid option`, rc 2 — so the guard silently reads false
+    // and Branch B re-fires on an idle re-ping.
+    const q =
+      '- Should we continue with this option or switch to another approach, and why exactly that way and not otherwise, briefly?';
+    const tr = writeTranscript([
+      aiTitle('goal'),
+      userTurn('go'),
+      assistantText(`## 🟢 Простыми словами\n\n${q}\n\nthat is all`),
+      assistantText(q),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd2-dash' },
+      { TMPDIR: privateTmpDir() },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim(), 'an idle re-ping starting with "-" must be suppressed like any other').toBe('');
+  });
+
+  // ── F-2 — 3-4 full transcript scans per turn end ──────────────────────────
+  /** A transcript whose ONLY usage-bearing entry sits at the head, followed by
+   *  `fillerBytes` of usage-free assistant turns and a final markdown turn. */
+  function transcriptWithEarlyUsage(): string {
+    const lines: Record<string, unknown>[] = [
+      aiTitle('goal'),
+      userTurn('go'),
+      {
+        type: 'assistant',
+        message: {
+          content: [{ type: 'text', text: 'early turn' }],
+          usage: { input_tokens: 1000, cache_read_input_tokens: 317_000, cache_creation_input_tokens: 2000 },
+        },
+      },
+    ];
+    for (let i = 0; i < 40; i++) lines.push(assistantText(`filler turn ${i} ${'y'.repeat(500)}`));
+    lines.push(assistantText(longMarkdownText()));
+    return writeTranscript(lines);
+  }
+
+  it('F-2: AIF_EOT_TAIL_BYTES bounds the scan — a usage entry outside the window is not read', () => {
+    const tr = transcriptWithEarlyUsage();
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'f2-windowed' },
+      { TMPDIR: privateTmpDir(), AIF_EOT_TAIL_BYTES: '4096' },
+    );
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.reason, 'the recap itself must still be produced').toMatch(/🟢/);
+    expect(parsed.reason, 'the 320k usage entry sits outside a 4 KB tail window').not.toMatch(/\[context\]/);
+  });
+
+  it('F-2 PAIRED-POSITIVE: the same entry inside the default window IS read', () => {
+    const tr = transcriptWithEarlyUsage();
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'f2-default' },
+      { TMPDIR: privateTmpDir() },
+    );
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.reason, 'default window covers the whole fixture → the ctx arm fires').toMatch(/\[context\]/);
+  });
+
+  it('F-2: at most ONE grep names the full transcript per turn end (was 3-4)', () => {
+    // Deterministic stand-in for the ledger's wall-clock measurement (3.75 s per Stop on a
+    // 114 MB transcript): a PATH shim logs every grep invocation, and the assertion counts
+    // the ones whose argv still names the ORIGINAL transcript rather than the bounded
+    // window. Pre-fix: ctx_entry, the ai-title anchor and last_line each re-scan the file.
+    const binDir = privateTmpDir();
+    const logFile = join(privateTmpDir(), 'grep.log');
+    const realGrep = spawnSync('/usr/bin/which', ['grep'], { encoding: 'utf8' }).stdout.trim() || '/usr/bin/grep';
+    writeFileSync(
+      join(binDir, 'grep'),
+      `#!/bin/sh\nprintf '%s\\n' "$*" >> ${JSON.stringify(logFile)}\nexec ${realGrep} "$@"\n`,
+      { encoding: 'utf8', mode: 0o755 },
+    );
+    const tr = transcriptWithEarlyUsage();
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'f2-scans' },
+      { TMPDIR: privateTmpDir(), AIF_EOT_TAIL_BYTES: '4096', PATH: `${binDir}:${process.env.PATH}` },
+    );
+    expect(r.status).toBe(0);
+    const log = readFileSync(logFile, 'utf8');
+    const fullScans = log.split('\n').filter((l) => l.includes(tr)).length;
+    expect(fullScans, `greps naming the full transcript: ${fullScans}\n${log}`).toBeLessThanOrEqual(1);
+    // Generous budget: every grep in this case is a shell shim that re-execs the real binary,
+    // so the wall clock measures the harness, not the hook.
+  }, 60_000);
+
+  // ── A3-3 — the context floors must be configurable, not hard-coded ────────
+  it('A3-3: AIF_CTX_SOFT_FLOOR makes the soft tier reachable without redeclaring the window', () => {
+    // The floors were hard-coded at min(300000, 70%) / min(500000, 90%), so a consumer whose
+    // real window is smaller than the assumed 1M could never reach soft=300000 — the arm was
+    // dead by default while the in-file comment claimed it merely warned late.
+    const tr = writeTranscript([
+      aiTitle('goal'),
+      userTurn('go'),
+      {
+        type: 'assistant',
+        message: {
+          content: [{ type: 'text', text: 'short turn' }],
+          usage: { input_tokens: 1000, cache_read_input_tokens: 157_000, cache_creation_input_tokens: 2000 },
+        },
+      },
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'a33-floor' },
+      { TMPDIR: privateTmpDir(), AIF_CTX_SOFT_FLOOR: '150000' },
+    );
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.reason, 'a declared 150k soft floor must fire at 160k').toMatch(/\[context\]/);
+  });
+
+  it('A3-3 PAIRED-NEGATIVE: a junk AIF_CTX_SOFT_FLOOR falls back to the documented 300000 default', () => {
+    const tr = writeTranscript([
+      aiTitle('goal'),
+      userTurn('go'),
+      {
+        type: 'assistant',
+        message: {
+          content: [{ type: 'text', text: 'short turn' }],
+          usage: { input_tokens: 1000, cache_read_input_tokens: 157_000, cache_creation_input_tokens: 2000 },
+        },
+      },
+    ]);
+    for (const bad of ['abc', '0', '-5', '']) {
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: `a33-junk-${bad || 'empty'}` },
+        { TMPDIR: privateTmpDir(), AIF_CTX_SOFT_FLOOR: bad },
+      );
+      expect(r.status, `AIF_CTX_SOFT_FLOOR="${bad}" must not crash the hook`).toBe(0);
+      expect(r.stdout.trim(), `AIF_CTX_SOFT_FLOOR="${bad}" → 300000 default → 160k is silent`).toBe('');
+    }
   });
 });
