@@ -27,8 +27,18 @@
  * the principle-02 paired-negative discipline that makes the gate non-tautological.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import {
+  readFileSync,
+  readdirSync,
+  existsSync,
+  statSync,
+  writeFileSync,
+  mkdtempSync,
+  cpSync,
+  rmSync,
+} from 'node:fs';
+import { resolve, dirname, join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 
@@ -235,6 +245,67 @@ function walkFiles(dir: string, prefix = ''): string[] {
   return out.sort();
 }
 
+/**
+ * (h) — LINK FORM in a plugin-shipped agent twin. PURE (takes a directory) so the same
+ * function runs on the real payload and on a paired-negative replay.
+ *
+ * WHY THIS EXISTS. `plugin/agents/*.md` is a SECOND distribution channel, and the only one
+ * with no link handling of its own: `setup.d/20-agents.sh` iterates `agents/*.md` and runs
+ * `transform_internal_refs` on the copies it writes, so the INSTALLER channel rewrites a
+ * `](../x)` ref to a blob URL — but nothing touches the plugin twin, which a marketplace
+ * consumer unpacks on its own with no `.claude/` tree above it. The twin also sits one
+ * directory deeper than its source, and principle 24(d) requires byte-identity, so no
+ * relative form can resolve at both depths (scripts/generate-plugin-twins.sh header).
+ *
+ * That surface was STATED and left ungated (PR #1582), and the gap then admitted the defect
+ * it predicted: `agents/compliance-verifier.md` carried three `](../.claude/rules/…)` links
+ * whose twin copies pointed at `plugin/.claude/rules/…`, which has never existed — found by
+ * the #1597 promote review (ledger L-3), not by any check. pre-push §8 cannot be that check:
+ * it EXCLUDES `plugin/agents/**` (PLUGIN_AGENT_TWIN_PREFIX) and only ever walks files changed
+ * in the push range, so a link that landed before the exclusion is invisible to it forever.
+ * This arm is unconditional and channel-correct instead: it asks what the twin's own payload
+ * root can resolve.
+ *
+ * Two violation classes, both judged from `plugin/agents/` as the root:
+ *   L1 — the target ESCAPES the payload (`../…`, or an absolute `/…`). Unfixable in the copy
+ *        by construction; the fix belongs in the `agents/` source, as a blob URL (the form
+ *        `transform_internal_refs` itself produces, so the installer pass stays a no-op on it).
+ *   L2 — the target stays inside the payload but resolves to nothing there. This is the class
+ *        a `../`-substring check would miss: `](fidelity-auditor.md)` resolves from `agents/`
+ *        (19 agents) and dangles in the twin dir (3).
+ *
+ * Off-payload targets (http(s)/mailto/protocol-relative) and in-page anchors are not this
+ * arm's business — whether a URL is reachable is the link gates' job, per (g)'s same split.
+ */
+export function checkAgentTwinLinks(twinDir: string): Violation[] {
+  const out: Violation[] = [];
+  for (const f of readdirSync(twinDir).filter((x) => x.endsWith('.md')).sort()) {
+    const text = readFileSync(resolve(twinDir, f), 'utf8');
+    // `](target)` / `](target "title")` — inline links and images alike.
+    for (const m of text.matchAll(/\]\(\s*(<[^>]*>|[^)\s]+)(?:\s+"[^"]*")?\s*\)/g)) {
+      const target = m[1].replace(/^<|>$/g, '');
+      if (/^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(target)) continue; // URL, scheme, or in-page anchor
+      const path = target.split('#')[0];
+      if (path === '') continue;
+      const line = text.slice(0, m.index).split('\n').length;
+      if (path.startsWith('/') || path.split('/').includes('..')) {
+        out.push({
+          code: 'L1',
+          detail: `${f}:${line} — \`](${target})\` escapes the plugin payload; rewrite it in agents/${f} as a blob URL (https://github.com/<owner>/<repo>/blob/<ref>/…) — byte-identity forbids fixing the copy`,
+        });
+        continue;
+      }
+      if (!existsSync(resolve(twinDir, path))) {
+        out.push({
+          code: 'L2',
+          detail: `${f}:${line} — \`](${target})\` does not resolve inside plugin/agents/ (it may resolve at the agents/ source depth, which is not the shipped depth)`,
+        });
+      }
+    }
+  }
+  return out;
+}
+
 describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => {
   const PLUGIN = resolve(REPO_ROOT, 'plugin');
   // marketplace.json lives at the repo-root marketplace dir; plugin.json is resolved FROM its
@@ -356,6 +427,57 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
       }
     }
     expect(drift, `plugin/skills copies drifted from their skills/ source in CONTENT (link-form differences are normalised away, so these are real): ${drift.join(', ')}`).toHaveLength(0);
+  });
+
+  // ── (h) link form — no plugin-shipped agent twin carries an escaping link ───
+  it('(h) real-tree: every plugin/agents twin link resolves inside the plugin payload', () => {
+    const v = checkAgentTwinLinks(resolve(PLUGIN, 'agents'));
+    expect(
+      v,
+      `plugin/agents twin links that a marketplace consumer cannot resolve:\n` +
+        v.map((x) => `  [${x.code}] ${x.detail}`).join('\n'),
+    ).toHaveLength(0);
+  });
+
+  it('(h) paired-negative: the pre-fix relative form is RED, and the link-form-only fix is GREEN', () => {
+    // Both arms are required, and for opposite reasons. A check that only proves itself RED on
+    // drift may be RED on everything; a check that only proves itself GREEN may be RED on
+    // nothing. So: replay the REAL defect (ledger L-3 — the three `](../.claude/rules/…)` links
+    // agents/compliance-verifier.md carried from PR #1578 until this commit) and assert it is
+    // caught, then assert the shipped tree — which differs from that replay in link FORM ONLY —
+    // is clean. Same recipe the (g) normaliser was validated with.
+    const tmp = mkdtempSync(join(tmpdir(), 'p24h-'));
+    try {
+      cpSync(resolve(PLUGIN, 'agents'), tmp, { recursive: true });
+
+      // GREEN arm — the shipped link form, judged with only the payload around it.
+      expect(
+        checkAgentTwinLinks(tmp),
+        'the shipped twin payload must be clean in isolation',
+      ).toHaveLength(0);
+
+      // RED arm — un-fix it: blob URL back to the relative form, nothing else touched.
+      const file = join(tmp, 'compliance-verifier.md');
+      const fixed = readFileSync(file, 'utf8');
+      const preFix = fixed.replace(
+        /https:\/\/github\.com\/[^)/\s]+\/[^)/\s]+\/blob\/[^)/\s]+\//g,
+        '../',
+      );
+      expect(preFix, 'the replay must actually differ from the shipped form').not.toBe(fixed);
+      writeFileSync(file, preFix);
+      const red = checkAgentTwinLinks(tmp);
+      expect(red.map((x) => x.code)).toContain('L1');
+      expect(red, `expected the 3 replayed L-3 links; got ${JSON.stringify(red)}`).toHaveLength(3);
+
+      // L2 arm — a link that DOES resolve at the agents/ source depth (19 agents) and dangles at
+      // the twin's shipped depth (3). A `../`-substring check cannot see this class.
+      writeFileSync(join(tmp, 'probe.md'), '[fidelity-auditor](fidelity-auditor.md)\n');
+      expect(existsSync(resolve(REPO_ROOT, 'agents/fidelity-auditor.md')), 'probe target must exist at the source depth').toBe(true);
+      const l2 = checkAgentTwinLinks(tmp).filter((x) => x.detail.startsWith('probe.md:'));
+      expect(l2.map((x) => x.code), `expected L2 for the source-depth-only link; got ${JSON.stringify(l2)}`).toEqual(['L2']);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
   });
 
   // ── (f) T15 self-application — this gate is itself an executable artifact ────
