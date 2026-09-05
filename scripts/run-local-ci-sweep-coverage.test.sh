@@ -106,6 +106,7 @@ unreachable_allowlist() {
     "tests/consumer-matrix/pnpm-monorepo-cell.sh${TAB}real install.sh --full into a tmp consumer plus its dependency tree: network, minutes, non-hermetic" \
     "tests/consumer-matrix/python-unfamiliar-stack-cell.sh${TAB}real install.sh --full into a tmp consumer plus its dependency tree: network, minutes, non-hermetic" \
     "tests/consumer-matrix/npm-tarball-cell.sh${TAB}real install.sh --full against a packed tarball: network, minutes, non-hermetic" \
+    "tests/consumer-matrix/getff-dist-cell.sh${TAB}npm pack + npm i of the getff tarball into a tmp consumer, then a real getff init -y: network, minutes, non-hermetic" \
     "packages/core/hooks/pre-push.ts${TAB}pr-commit-trailers needs the PR base ref and the real PR commit range; its local channel is the .husky/pre-push hook, not this sweep"
 }
 
