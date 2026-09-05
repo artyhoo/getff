@@ -452,6 +452,23 @@ jobs:
       # (guard-liveness) comes from the packages/core install above.
       - name: Install workspace deps (hoists tsx to root for the hooks-suite gate)
         run: npm install --silent
+      # Ledger A8-6. The prose above claims «jq is preinstalled on ubuntu runners»,
+      # and 34 `describe.skipIf(!JQ)` blocks across 19 suites in packages/core/hooks/
+      # rest on that claim. A premise nobody asserts is not a mechanism
+      # (.claude/rules/attention-is-not-a-mechanism.md §1): measured on a
+      # jq-stripped PATH, hooks/inject-matching-rule.test.ts goes from «12 passed»
+      # to «12 skipped» and vitest still exits 0 — a runner-image change would EMPTY
+      # every one of those suites while this job reported green. One assertion turns
+      # that silent degrade into a loud red; editing 34 describe blocks to each
+      # re-derive the same premise would not.
+      - name: Assert jq is on PATH (34 skipIf(!JQ) blocks in the hooks suite need it)
+        run: |
+          set -euo pipefail
+          if ! command -v jq >/dev/null 2>&1; then
+            echo "::error::jq is NOT on PATH — every describe.skipIf(!JQ) suite under packages/core/hooks/ would report green while running nothing"
+            exit 1
+          fi
+          jq --version
       - name: Run packages/core/hooks/ suite (CI-gap option C — gate the hooks suite)
         run: npm --prefix packages/core run test:hooks
       # ── vitest include-allowlist coverage (principle 38, 2026-08-10) ─────────────────────
@@ -1739,23 +1756,38 @@ jobs:
         # Plain console output. zizmor exits non-zero on findings; that's the gate.
         # Avoiding SARIF upload keeps this runnable without GitHub Advanced Security.
         # Also scan the SHIPPED CI templates (#637) so they can't drift past the
-        # gate — they live OUTSIDE .github/workflows/, so these are extra path args.
-        # Keep this list in sync with zizmorTemplatesSection() in
-        # packages/core/hooks/pre-push.ts (the HARD-gate twin). New presets added via
-        # setup.d deliver_getff_workflow MUST be appended here AND there — the list
-        # below drifted past cargo/python/react-spa/react-native for 4+ months (#130
-        # was the last edit; presets landed in #661/#662/#996/#1080) because nothing
-        # enforced parity. If you ship a new github-actions template, add its path
-        # to BOTH places.
-        run: >-
-          zizmor --format plain .github/workflows/
-          templates/ts-server/github-actions-ci.yml
-          templates/ts-server/github-actions-workflow-integrity.yml
-          packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml
-          packages/core/templates/cargo/github-actions-ci.yml
-          packages/core/templates/python/github-actions-ci.yml
-          packages/preset-react-spa/templates/github-actions-ci-ui.yml
-          packages/preset-react-native/templates/github-actions-ci-ui.yml
+        # gate — they live OUTSIDE .github/workflows/, so they are extra path args.
+        #
+        # The list used to be HAND-MAINTAINED here and in zizmorTemplatesSection()
+        # (packages/core/hooks/pre-push.ts, the HARD-gate twin), and it drifted:
+        # past cargo/python/react-spa/react-native for 4+ months (#130 → #661/#662/
+        # #996/#1080), and then past packages/core/templates/go/github-actions-ci.yml
+        # — shipped to every go consumer by setup.d/47-go.sh, scanned by neither twin
+        # (ledger A8-4). Two hand-maintained mirrors of an automatically-growing
+        # population is a `#warning-nobody-reads` detection layer resting on someone
+        # noticing (.claude/rules/attention-is-not-a-mechanism.md §1).
+        #
+        # So DISCOVER the population instead of restating it: every git-tracked
+        # `*github-actions*.yml` outside .github/workflows/ IS a shipped template by
+        # construction, and a new preset is covered the moment it is committed. The
+        # empty-set guard is load-bearing — a pattern that silently stops matching
+        # would turn this gate into a no-op that still reports green.
+        run: |
+          set -euo pipefail
+          # Newline-delimited string + xargs, NOT `mapfile`/arrays: the same block
+          # has to stay reproducible by hand on a maintainer Mac, whose /bin/bash is
+          # 3.2 (no mapfile; `${#arr[@]}` on an empty array trips `set -u`). Tracked
+          # workflow paths carry no whitespace, so word-splitting via xargs is safe.
+          # `|| true` keeps the empty case reaching the explicit error below instead
+          # of dying on grep's exit 1 under `set -e`.
+          TEMPLATES="$(git ls-files '*github-actions*.yml' | grep -v '^\.github/' | sort || true)"
+          if [ -z "$TEMPLATES" ]; then
+            echo "::error::zizmor template discovery matched NOTHING — the shipped-template scan would be a silent no-op"
+            exit 1
+          fi
+          printf 'Scanning %s shipped CI template(s):\n' "$(printf '%s\n' "$TEMPLATES" | wc -l | tr -d ' ')"
+          printf '%s\n' "$TEMPLATES" | sed 's/^/  /'
+          printf '%s\n' "$TEMPLATES" | xargs zizmor --format plain .github/workflows/
 
   # enforcement-liveness-fix S5: f17 planted-violation test on Node 20 + 22 matrix.
   # Scoped to f17 only — proves barrel loads without tsx loader on both LTS versions.
@@ -1785,20 +1817,51 @@ jobs:
       - name: "f17 lint-rules planted-violation (Node ${{ matrix.node }})"
         run: bash tests/install-sh/f17-lint-rules-planted-violation.test.sh
 
-  consumer-matrix-start-cell:
-    # launch-preannounce-track S2: the consumer-matrix acceptance gate START CELL. Runs the real
-    # `install.sh ts-server --full` into a FRESH pnpm workspace monorepo fixture (the fixture
-    # installs its OWN deps — T-LPT-A) and asserts the umbrella §1 acceptance through the real
-    # channels: self-verify verdict honesty (a), in-fixture toolchain + placed-config load (b), the
-    # deterministic per-workspace validation gates green-on-clean (c), a planted R2 violation blocked
-    # via scoped eslint + the lint-staged pre-commit shield + check:fences-fire (d), the false-positive
-    # arm (e), and a clean-tree real git push (i). XFAIL #973 (root `eslint .` on a per-workspace
-    # monorepo) is pinned as reproducing. Fail-closed: a missing tool is RED, never SKIP. Fixture is
-    # S1-calibrated (s1-calibration-report.md §4). Deterministic + API-free per no-paid-llm-in-ci.md.
-    name: "Consumer-matrix start cell — pnpm workspace monorepo (launch-preannounce-track S2)"
+  # ── Consumer-matrix acceptance cells (one job, one dimension per cell) ──────
+  # Four cells used to be four top-level jobs (ledger S-8): the SAME 11-line
+  # checkout / setup-node / `bash tests/consumer-matrix/<cell>.sh` skeleton with
+  # FRAMEWORK_ROOT, differing only in the script name and one optional deps step.
+  # The duplication was not cosmetic — every runner-wide change had to be applied
+  # four times or the cells drifted, and the setup-node cache block (f75e15a696)
+  # was in fact replicated per cell after the fact. One job with a matrix
+  # dimension makes the runner shape single-sourced and `ci-success.needs` list
+  # one entry instead of N.
+  #
+  # WHY the cell SCRIPT PATH is still written out literally per cell, instead of
+  # the obvious `run: bash tests/consumer-matrix/${{ matrix.cell }}`:
+  # `scripts/run-local-ci-sweep-coverage.test.sh` reconciles this workflow against
+  # the local sweep's gate table, and it can only see SINGLE-LINE `run:` steps
+  # whose artifact path is a literal token (its CEILING comment + `sig_tokens`/
+  # `artifact_of`). Interpolating the path — via `${{ matrix.cell }}` or an env
+  # indirection — erases the token, and a `case`/multi-line `run: |` block drops
+  # out of its population entirely: all four cells would silently leave the
+  # coverage comparison and their UNREACHABLE allowlist entries would go stale.
+  # That is the exact silent-hole shape that gate exists to close, so the literal
+  # `if:`-guarded steps are load-bearing, not clumsiness. Collapse them the moment
+  # that test learns the interpolated form.
+  #
+  # Per-cell rationale is preserved with each step below. All cells: fail-closed
+  # (a missing tool is RED, never SKIP), deterministic + API-free per
+  # no-paid-llm-in-ci.md §1, actions exact-pinned per ci-tool-pinning.md Rule A.
+  consumer-matrix:
+    name: "Consumer-matrix — ${{ matrix.label }}"
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    strategy:
+      # One red cell must not cancel the others: each cell is an independent
+      # acceptance claim, and a partial matrix hides which claims still hold.
+      fail-fast: false
+      matrix:
+        include:
+          - cell: pnpm-monorepo
+            label: "start cell — pnpm workspace monorepo (launch-preannounce-track S2)"
+          - cell: python-unfamiliar-stack
+            label: "W6 cell — python unfamiliar-stack e2e (getff-any-stack-trace S4)"
+          - cell: npm-tarball
+            label: "npm-tarball cell — files allowlist + bin runnability (beta-delivery-ux R1)"
+          - cell: getff-dist
+            label: "getff-dist cell — npx getff init from the assembled tarball (npm-publish-getff-init S2)"
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
@@ -1811,123 +1874,87 @@ jobs:
             package-lock.json
             packages/core/package-lock.json
       - name: Enable pnpm via corepack (the fixture is a pnpm workspace monorepo)
+        if: matrix.cell == 'pnpm-monorepo'
         run: corepack enable
+      # tsx lives in packages/core/node_modules — the W6 cell invokes
+      # `npx --no-install tsx ... rule-bootstrap-cli.ts` at cell:300-303 from
+      # $FRAMEWORK_ROOT (root), so tsx must resolve from root/node_modules.
+      # Pattern B: npm ci --prefix packages/core installs packages/core's own
+      # deps, then the workspace install hoists tsx to root where the cell's
+      # cd-root invocation finds it. Without these steps the cell fails at the
+      # Tier-1 generation arm with "tsx not found". Container masks this via
+      # ambient /app/node_modules + /home/node/.npm-global —
+      # destination-environment-verification.md §2 incident-1 pattern (caught by
+      # round-1 rework review 2026-08-07).
+      - name: Install packages/core deps (tsx for rule-bootstrap-cli)
+        if: matrix.cell == 'python-unfamiliar-stack'
+        run: npm ci --prefix packages/core --silent
+      - name: Install workspace deps (hoists tsx to root)
+        if: matrix.cell == 'python-unfamiliar-stack'
+        run: npm install --silent
+      # launch-preannounce-track S2: runs the real `install.sh ts-server --full`
+      # into a FRESH pnpm workspace monorepo fixture (the fixture installs its OWN
+      # deps — T-LPT-A) and asserts the umbrella §1 acceptance through the real
+      # channels: self-verify verdict honesty (a), in-fixture toolchain + placed-
+      # config load (b), the deterministic per-workspace validation gates
+      # green-on-clean (c), a planted R2 violation blocked via scoped eslint + the
+      # lint-staged pre-commit shield + check:fences-fire (d), the false-positive
+      # arm (e), and a clean-tree real git push (i). XFAIL #973 (root `eslint .` on
+      # a per-workspace monorepo) is pinned as reproducing. Fixture is
+      # S1-calibrated (s1-calibration-report.md §4).
       - name: Run the consumer-matrix start cell
+        if: matrix.cell == 'pnpm-monorepo'
         run: bash tests/consumer-matrix/pnpm-monorepo-cell.sh
         env:
           FRAMEWORK_ROOT: ${{ github.workspace }}
-
-  # getff-any-stack-trace S4 (spec §9.1 W6 cell v1): python unfamiliar-stack e2e —
-  # scripted fresh python project (FastAPI/SQLAlchemy-class, master default branch)
-  # → install.sh python under Node-stripped PATH (proves F-A DECLARE on the install
-  # path) → assert the S2 agent surface (4 skills + curated 2 agents + hooks +
-  # .mcp.json + AGENTS.md + .ai-factory/ + .getff/) → committed Tier-1-provenance
-  # practice fixture → rule-bootstrap-cli --from-practice resolves Tier-1 via
-  # vendored .dist-info METADATA (`Project-URL: Documentation, <url>`, the D7 host-
-  # derivation surface) → RED arm: ast-grep fires non-zero on planted print() →
-  # GREEN arm: ast-grep silent on conforming logger.info() → REJECT arm: a practice
-  # citing a non-direct-dep package is downgraded to research-only (FF2007, honest
-  # degrade) → R1-input: delivered workflow trigger carries `branches: [master]`
-  # (deliver_getff_workflow substitutes via git symbolic-ref origin/HEAD). A cell
-  # that only passes is `#discipline-theatre` with a workflow file attached — the
-  # RED/GREEN/REJECT arms ARE the §3 «works» claim, not a green-CI narrative.
-  # Fail-closed: a missing tool is RED, never SKIP. Deterministic + API-free per
-  # no-paid-llm-in-ci.md §1. ast-grep pinned per ci-tool-pinning.md Rule A.
-  consumer-matrix-python-unfamiliar-stack-cell:
-    name: "Consumer-matrix W6 cell — python unfamiliar-stack e2e (getff-any-stack-trace S4)"
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            packages/core/package-lock.json
-      # tsx lives in packages/core/node_modules — the cell invokes
-      # `npx --no-install tsx ... rule-bootstrap-cli.ts` at cell:300-303 from
-      # $FRAMEWORK_ROOT (root), so tsx must resolve from root/node_modules.
-      # Pattern B (lines 467-469, 555-557, 641-643, 881-883, 911-913): npm ci
-      # --prefix packages/core installs packages/core's own deps, then the
-      # workspace install hoists tsx to root where the cell's cd-root invocation
-      # finds it. Without these steps the cell fails at the Tier-1 generation
-      # arm with "tsx not found". Container masks this via ambient
-      # /app/node_modules + /home/node/.npm-global — destination-environment-
-      # verification.md §2 incident-1 pattern (caught by round-1 rework review
-      # 2026-08-07).
-      - name: Install packages/core deps (tsx for rule-bootstrap-cli)
-        run: npm ci --prefix packages/core --silent
-      - name: Install workspace deps (hoists tsx to root)
-        run: npm install --silent
+      # getff-any-stack-trace S4 (spec §9.1 W6 cell v1): python unfamiliar-stack
+      # e2e — scripted fresh python project (FastAPI/SQLAlchemy-class, master
+      # default branch) → install.sh python under Node-stripped PATH (proves F-A
+      # DECLARE on the install path) → assert the S2 agent surface (4 skills +
+      # curated 2 agents + hooks + .mcp.json + AGENTS.md + .ai-factory/ + .getff/)
+      # → committed Tier-1-provenance practice fixture → rule-bootstrap-cli
+      # --from-practice resolves Tier-1 via vendored .dist-info METADATA
+      # (`Project-URL: Documentation, <url>`, the D7 host-derivation surface) →
+      # RED arm: ast-grep fires non-zero on planted print() → GREEN arm: ast-grep
+      # silent on conforming logger.info() → REJECT arm: a practice citing a
+      # non-direct-dep package is downgraded to research-only (FF2007, honest
+      # degrade) → R1-input: delivered workflow trigger carries `branches:
+      # [master]` (deliver_getff_workflow substitutes via git symbolic-ref
+      # origin/HEAD). A cell that only passes is `#discipline-theatre` with a
+      # workflow file attached — the RED/GREEN/REJECT arms ARE the §3 «works»
+      # claim, not a green-CI narrative. ast-grep pinned per ci-tool-pinning.md.
       - name: Run the consumer-matrix W6 cell (python unfamiliar-stack e2e)
+        if: matrix.cell == 'python-unfamiliar-stack'
         run: bash tests/consumer-matrix/python-unfamiliar-stack-cell.sh
         env:
           FRAMEWORK_ROOT: ${{ github.workspace }}
-
-  # beta-delivery-ux R1 (spec A6): the consumer-matrix NPM-TARBALL CELL.
-  # Packs `packages/core` into a tarball, installs it into a fresh fixture
-  # (no registry needed — install by path), and asserts the real consumer
-  # path: manifest loads, by-path assets exist (install bundle, manifest
-  # schema, eslint-rules, templates/, skills/), every `bin:` and `exports:`
-  # target resolves, and ≥1 bin executes end-to-end from the installed
-  # package (F-C′ resolution: tsx as runtime dep). This cell IS the `files`
-  # allowlist validation mechanism per kickoff §3 — every entry in
-  # `packages/core/package.json:files` carries paired RED→GREEN evidence
-  # from this cell. A green `npm pack` is NOT a gate (T-BDU-R1-A); only
-  # installing + running the consumer path is. Deterministic + API-free per
-  # no-paid-llm-in-ci.md §1.
-  consumer-matrix-npm-tarball-cell:
-    name: "Consumer-matrix npm-tarball cell — files allowlist + bin runnability (beta-delivery-ux R1)"
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            packages/core/package-lock.json
+      # beta-delivery-ux R1 (spec A6): packs `packages/core` into a tarball,
+      # installs it into a fresh fixture (no registry needed — install by path),
+      # and asserts the real consumer path: manifest loads, by-path assets exist
+      # (install bundle, manifest schema, eslint-rules, templates/, skills/),
+      # every `bin:` and `exports:` target resolves, and ≥1 bin executes
+      # end-to-end from the installed package (F-C′ resolution: tsx as runtime
+      # dep). This cell IS the `files` allowlist validation mechanism per kickoff
+      # §3 — every entry in `packages/core/package.json:files` carries paired
+      # RED→GREEN evidence from this cell. A green `npm pack` is NOT a gate
+      # (T-BDU-R1-A); only installing + running the consumer path is.
       - name: Run the consumer-matrix npm-tarball cell
+        if: matrix.cell == 'npm-tarball'
         run: bash tests/consumer-matrix/npm-tarball-cell.sh
         env:
           FRAMEWORK_ROOT: ${{ github.workspace }}
-
-  # npm-publish-getff-init U10 (S2): the `npx getff init` gate. The `getff` distribution
-  # package is ASSEMBLED from the repo root (scripts/build-getff-dist.sh; committed artefact =
-  # packages/getff/MANIFEST.sha256). This cell is what makes that package TRUE: drift gate →
-  # npm pack → npm i <tarball> into a fresh consumer → `getff init -y ts-server` → a planted
-  # OrderSchema.parse(req.body) under src/routes/ must FAIL eslint with the R2 message.
-  # «Published → installs cleanly» is not the assertion (T-NPI-A); the first violation failing
-  # is. Fail-closed, deterministic, API-free (no-paid-llm-in-ci.md §1); actions pinned per
-  # ci-tool-pinning.md. The consumer install fetches the ts-server dev-deps from the registry
-  # exactly as a real `npx getff init` would.
-  consumer-matrix-getff-dist-cell:
-    name: "Consumer-matrix getff-dist cell — npx getff init from the assembled tarball (npm-publish-getff-init S2)"
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            packages/core/package-lock.json
+      # npm-publish-getff-init U10 (S2): the `npx getff init` gate. The `getff`
+      # distribution package is ASSEMBLED from the repo root
+      # (scripts/build-getff-dist.sh; committed artefact =
+      # packages/getff/MANIFEST.sha256). This cell is what makes that package
+      # TRUE: drift gate → npm pack → npm i <tarball> into a fresh consumer →
+      # `getff init -y ts-server` → a planted OrderSchema.parse(req.body) under
+      # src/routes/ must FAIL eslint with the R2 message. «Published → installs
+      # cleanly» is not the assertion (T-NPI-A); the first violation failing is.
+      # The consumer install fetches the ts-server dev-deps from the registry
+      # exactly as a real `npx getff init` would.
       - name: Run the consumer-matrix getff-dist cell
+        if: matrix.cell == 'getff-dist'
         run: bash tests/consumer-matrix/getff-dist-cell.sh
         env:
           FRAMEWORK_ROOT: ${{ github.workspace }}
@@ -1984,29 +2011,20 @@ jobs:
       - framework-provenance-anti-hand-edit
       - phase-8-canonical-regen-acceptance
       - f17-node-compat
-      - consumer-matrix-start-cell
-      # getff-any-stack-trace S4 (spec §9.1): without this line the W6 cell could go
-      # RED (or SKIP its firing arms) while `ci-success` stays green and the PR merges,
-      # because branch protection requires only `ci-success`. Same `#warning-nobody-reads
-      # shape as the alwayson-budget incident below — load-bearing assertion lives in the
-      # cell's RED/GREEN/REJECT arms, none of which a green `ci-success` alone proves.
-      - consumer-matrix-python-unfamiliar-stack-cell
-      # beta-delivery-ux R1 (spec A6): without this line the tarball cell
-      # could go RED (a `files` entry dropped, a bin broken) while
-      # `ci-success` stayed green and the PR merged, because branch
-      # protection requires only `ci-success` — the `#warning-nobody-reads`
-      # shape (.claude/rules/attention-is-not-a-mechanism.md §2). The
-      # load-bearing assertion lives in the cell's paired-RED→GREEN evidence
-      # per `files` entry + the F-C′ bin execution; a green `ci-success`
-      # alone proves none of that.
-      - consumer-matrix-npm-tarball-cell
-      # npm-publish-getff-init U10 (S2): without this line the getff-dist cell could go RED
-      # (a payload root dropped from `files`, install.sh unable to find a PKG_ROOT read
-      # inside the tarball) while `ci-success` stayed green and the PR merged — the
-      # `#warning-nobody-reads` shape (.claude/rules/attention-is-not-a-mechanism.md §2).
-      # The load-bearing assertion is the planted violation failing from the installed
-      # tarball; a green `ci-success` alone proves none of that. Principle 36 gates the mirror.
-      - consumer-matrix-getff-dist-cell
+      # The four consumer-matrix acceptance cells are ONE job with a matrix
+      # dimension (ledger S-8); `needs:` a matrix job waits on EVERY cell, so this
+      # single line carries what four lines carried before. Without it any cell
+      # could go RED while `ci-success` stayed green and the PR merged, because
+      # branch protection requires only `ci-success` — the `#warning-nobody-reads`
+      # shape (.claude/rules/attention-is-not-a-mechanism.md §2). What a green
+      # `ci-success` alone proves NOTHING about, per cell: the start cell's
+      # self-verify/planted-R2/false-positive arms (launch-preannounce-track S2);
+      # the W6 cell's RED/GREEN/REJECT discrimination arms (getff-any-stack-trace
+      # S4); the tarball cell's paired RED→GREEN evidence per `files` entry + the
+      # F-C′ bin execution (beta-delivery-ux R1); the getff-dist cell's planted
+      # violation failing from the installed tarball (npm-publish-getff-init U10
+      # S2). Principle 36 gates the mirror.
+      - consumer-matrix
       # arch-v2 S-E P3a. Without this line the budget job could go RED while
       # `ci-success` stayed green and the PR merged, because branch protection
       # requires only `ci-success` — a gate whose sole consumer is someone
