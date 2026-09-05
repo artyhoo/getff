@@ -23,13 +23,19 @@
  *   5. Output JSON hookSpecificOutput.additionalContext for CC PostToolUse contract
  *   6. On an ENVIRONMENTAL failure (quota_exceeded / unavailable / timeout /
  *      dispatch_failed) → fall back to ManualBackend + stderr warn
- *   7. On `spec_invalid` (the KICKOFF is wrong — see isFallbackEligible) → ABORT.
- *      No fallback, no /tmp artefact, exit 2.
+ *   7. On `spec_invalid` (the dispatch SPEC is wrong — the kickoff, or the
+ *      configuration it requires; see isFallbackEligible) → ABORT. No fallback,
+ *      no /tmp artefact, exit 2.
+ *   8. On any non-BackendError (a defect in this code) → report on stdout as
+ *      additionalContext and exit 1. Never a silent exit 0 (A5-4).
  *
  * Exit codes: 0 on every dispatch outcome the operator cannot fix by editing the
  * kickoff — including every fallback (non-blocking injection per
  * rule-enforcement-channel-selection §4 "injection, never gate"). 2 when the
- * kickoff itself is invalid.
+ * dispatch spec itself is invalid (a `bridge-profile` marker naming no runtime
+ * profile, or a missing RUNTIME_BRIDGE_AIF_PROJECT_ID). 1 on an UNEXPECTED
+ * internal error — a non-BackendError throw, which is a defect in this code
+ * rather than an outcome, and which exit 0 used to hide entirely (A5-4).
  *
  * The §4 contract is not weakened by that 2: the gate/injection split "turns on
  * the exit code" of the HOOK (rule §4), and .claude/hooks/runtime-bridge-dispatch.sh
@@ -85,6 +91,10 @@ export function shouldRecordDedup(backendName: string): boolean {
  * seat happens to be open. Degrading therefore reports success for work that did
  * not happen, which is the failure mode this split exists to remove
  * (.claude/rules/attention-is-not-a-mechanism.md §2 `#warning-nobody-reads`).
+ *
+ * The class is the SPEC, not the kickoff file alone: a missing
+ * RUNTIME_BRIDGE_AIF_PROJECT_ID is the same shape — one line for the operator to
+ * fix, and unsatisfiable by every backend until they do (E-3, #1597 ledger).
  *
  * An operator who genuinely wants the copy-paste artefact already has a
  * first-class way to ask for it — `RUNTIME_BRIDGE_MODE=manual` (resolver.ts:41-43)
@@ -190,15 +200,17 @@ async function main(): Promise<void> {
       // The kickoff is wrong, not the runtime. Abort: no ManualBackend artefact
       // (it would read as a successful dispatch), no dedup record, exit 2.
       const abort =
-        `[runtime-bridge] ABORTED — the kickoff is invalid, so no task was created ` +
-        `and nothing was written to /tmp. Fix ${kickoff.filePath} and re-run.\n` +
+        `[runtime-bridge] ABORTED — the dispatch spec is invalid (the kickoff, or the ` +
+        `configuration it requires), so no task was created and nothing was written to /tmp. ` +
+        `Fix it (see below; the kickoff is ${kickoff.filePath}) and re-run.\n` +
         `[runtime-bridge] ${backend.name} (${err.code}): ${err.message}\n`;
       process.stderr.write(abort);
       // Also on stdout so the PostToolUse consumer sees it as additionalContext —
       // the hook forwards stdout and swallows this exit code by design.
       outputContext(
         `[runtime-bridge] ABORTED (${err.code}): ${err.message} — no aif task was created, ` +
-          `no /tmp artefact written. Fix ${kickoff.filePath} and re-dispatch.`,
+          `no /tmp artefact written. Fix the spec (kickoff ${kickoff.filePath}, or the ` +
+          `configuration named in the message above) and re-dispatch.`,
       );
       process.exit(2);
     }
@@ -215,9 +227,24 @@ async function main(): Promise<void> {
         process.exit(0);
       }
     } else {
-      // Non-BackendError (programming bug) — log and exit without dispatching.
-      process.stderr.write(`[runtime-bridge] Dispatch error: ${err}\n`);
-      process.exit(0);
+      // A5-4 (#1597 ledger): an unexpected, non-BackendError throw — a shape or
+      // programming error (the cited repro: _rest tolerates an empty body by
+      // returning {}, so _resolveProfileId calls .filter on an object). This used
+      // to write ONE stderr line and exit 0 with no additionalContext, and the
+      // shipped hook redirects this CLI's stderr to a file and forwards only
+      // stdout — so an auto-marked kickoff silently did not dispatch while its
+      // author saw nothing but a successful Write. Report it on the channel that
+      // is actually read, and exit non-zero for the direct callers (/dispatcher,
+      // /pipeline, operators). The hook still never propagates this status, so
+      // the "injection, never gate" contract is untouched.
+      process.stderr.write(`[runtime-bridge] Dispatch error (unexpected): ${err}\n`);
+      outputContext(
+        `[runtime-bridge] UNEXPECTED internal error — NO task was dispatched and nothing was ` +
+          `written to /tmp: ${err instanceof Error ? err.message : String(err)}. ` +
+          `Re-run \`tsx <bridge>/src/cli/dispatch.ts ${kickoff.filePath} --force\` to see the ` +
+          `full trace; do not treat the kickoff as dispatched.`,
+      );
+      process.exit(1);
     }
   }
 
@@ -301,7 +328,9 @@ function isDirectCliInvocation(): boolean {
 
 if (isDirectCliInvocation()) {
   main().catch((err) => {
+    // Same class as the non-BackendError branch above (A5-4): a silent exit 0
+    // here would report a dispatch that never happened.
     process.stderr.write(`[runtime-bridge] Unhandled dispatch error: ${err}\n`);
-    process.exit(0);
+    process.exit(1);
   });
 }

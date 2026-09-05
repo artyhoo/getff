@@ -29,6 +29,7 @@ import { buildKickoffSpec } from '../kickoff.js';
 import { resolveBackend } from '../resolver.js';
 import { supportsClaims } from '../backend.js';
 import type { RuntimeBackend } from '../backend.js';
+import type { CancelOutcome } from '../AifHandoffBackend.js';
 import type { TaskHandle } from '../types.js';
 
 export type ClaimVerb = 'create' | 'release' | 'cancel';
@@ -70,6 +71,64 @@ export function handleFromTaskId(taskId: string): TaskHandle {
   return { backend: 'aif-handoff', taskId, dispatchedAt: new Date().toISOString() };
 }
 
+/** A backend that can say WHY a cancel did not happen, not just that it did not. */
+interface CheckedCanceller {
+  cancelClaimChecked(handle: TaskHandle): Promise<CancelOutcome>;
+}
+
+/** Capability probe, same shape as `supportsClaims` — optional by construction. */
+export function supportsCheckedCancel(backend: unknown): backend is CheckedCanceller {
+  return typeof (backend as Partial<CheckedCanceller>).cancelClaimChecked === 'function';
+}
+
+/**
+ * Turn a cancel outcome into what the operator is told, and what the shell sees.
+ *
+ * A5-1 (#1597 ledger): the old branch printed «cancelled claim <id> — lane is
+ * free» for any DELETE that returned 2xx. aif-handoff's DELETE removes the row
+ * and nothing stops the worker, so on a RELEASED task that line was false in the
+ * most expensive direction available: the worker kept running headless, the lane
+ * stayed occupied, `probe-inflight.sh` saw nothing, and the stage was free to be
+ * re-dispatched on top of itself (live, 2026-09-02). Backend-side the delete is
+ * now refused; here the refusal has to READ as a refusal — a non-zero exit and a
+ * line that never contains «lane is free».
+ */
+export function describeCancelOutcome(
+  taskId: string,
+  outcome: CancelOutcome,
+): { text: string; exit: 0 | 1 } {
+  if (outcome.cancelled) {
+    return { text: `[runtime-bridge] cancelled claim ${taskId} — lane is free\n`, exit: 0 };
+  }
+  if (outcome.reason === 'running') {
+    return {
+      text:
+        `[runtime-bridge] claim ${taskId} was NOT cancelled — the task is live (${outcome.detail}), ` +
+        `not a paused claim. aif-handoff cannot stop a running worker (its task API exposes no ` +
+        `stop/abort event), so deleting the record would drop the row while the worker keeps going ` +
+        `headless — the lane stays taken and probe-inflight sees nothing. Stop the work on the aif ` +
+        `board first, or let it finish; do NOT report the stage as cancelled.\n`,
+      exit: 1,
+    };
+  }
+  if (outcome.reason === 'unverifiable') {
+    return {
+      text:
+        `[runtime-bridge] claim ${taskId} was NOT cancelled — its state could not be read ` +
+        `(${outcome.detail}), and a task that cannot be shown to be idle is not safe to delete: a ` +
+        `running worker survives the delete. Check the task on the aif board.\n`,
+      exit: 1,
+    };
+  }
+  return {
+    text:
+      `[runtime-bridge] claim ${taskId} could NOT be deleted (${outcome.detail}) — the lane is ` +
+      `still taken. Delete it from the aif board, or leave it to age into STALE-CLAIM; do not ` +
+      `report the stage as cancelled.\n`,
+    exit: 1,
+  };
+}
+
 async function main(): Promise<void> {
   const parsed = parseClaimArgs(process.argv.slice(2));
   if ('error' in parsed) {
@@ -107,16 +166,18 @@ async function main(): Promise<void> {
       await backend.release(handleFromTaskId(parsed.arg));
       process.stderr.write(`[runtime-bridge] released claim ${parsed.arg} — coordinator picks it up\n`);
     } else {
-      const gone = await backend.cancelClaim(handleFromTaskId(parsed.arg));
-      if (!gone) {
-        process.stderr.write(
-          `[runtime-bridge] claim ${parsed.arg} could NOT be deleted — the lane is still taken. ` +
-            `Delete it from the aif board, or leave it to age into STALE-CLAIM; do not report the ` +
-            `stage as cancelled.\n`,
-        );
-        process.exit(1);
-      }
-      process.stderr.write(`[runtime-bridge] cancelled claim ${parsed.arg} — lane is free\n`);
+      const handle = handleFromTaskId(parsed.arg);
+      // Prefer the reporting form when the backend has it: «could not delete» and
+      // «refused to delete a live task» are different answers and need different
+      // operator moves (A5-1). A backend without it keeps the boolean contract.
+      const outcome: CancelOutcome = supportsCheckedCancel(backend)
+        ? await backend.cancelClaimChecked(handle)
+        : (await backend.cancelClaim(handle))
+          ? { cancelled: true, reason: 'deleted' }
+          : { cancelled: false, reason: 'delete-failed', detail: 'DELETE did not succeed' };
+      const { text, exit } = describeCancelOutcome(parsed.arg, outcome);
+      process.stderr.write(text);
+      if (exit !== 0) process.exit(exit);
     }
   } catch (err) {
     process.stderr.write(`[runtime-bridge] claim ${parsed.verb} failed: ${err}\n`);

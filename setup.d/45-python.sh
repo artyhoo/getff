@@ -674,8 +674,10 @@ EOF
 # _py_join_researched_rules delivered a new consumer-researched rule (the join runs on EVERY pass —
 # the W3-era flag-gated guard assumed «no overwrite flag ⇒ delivered set unchanged», which the join
 # falsified: a plain pass CAN change the set). Invariant: the lock is NEVER stale relative to the
-# delivered .getff/ artefacts, on ANY pass (its whole job is to record the DELIVERED set; a lagging
-# lock would LIE about what was delivered). Its emittedAt is wall-clock → the lock is EXCLUDED from the install byte-identical snapshot
+# delivered .getff/ artefacts NOR to the generation-context/python/ provenance fragments it reports,
+# on ANY pass (its whole job is to record the DELIVERED set AND where it came from; a lagging lock
+# would LIE about either). A2-7 widened the fingerprint to the fragments for exactly this reason —
+# they are lock INPUTS, so a fragment-only delta must defeat the skip. Its emittedAt is wall-clock → the lock is EXCLUDED from the install byte-identical snapshot
 # (tests/install-sh/snapshot.sh compute_fingerprint), exactly as the running audit log is; its
 # deterministic content is gated by tests/install-sh/python-rules-lock.test.sh instead
 # (attention-is-not-a-mechanism §1: a non-deterministic field is not left byte-guarded, it is moved to
@@ -689,6 +691,15 @@ _py_write_rules_lock() {
   local rules_dir="$PROJECT_ROOT/.getff/astgrep-rules"
   local bans="$PROJECT_ROOT/.getff/ruff-bans.toml"
   local lock="$PROJECT_ROOT/.getff/rules-lock.python.json"
+  # Fragment-per-rule dir per §6 fork 2 — the synthesizer's generation-context/ per-lane subdir.
+  # S1b (PARK-S1-7 unparked): the producer (rule-bootstrap-cli.ts runPracticeRender) writes here.
+  # Closes kickoff criterion 4 by construction: the cargo/go glob is `*.json` NON-RECURSIVE on the
+  # parent generation-context/ dir (46-cargo.sh:262, 47-go.sh:229), so python fragments in this
+  # subdir are invisible to those lanes. Node synthesize (emit.ts) keeps writing `G${n}.json` to
+  # the parent dir. Resolved HERE, at the top, because BOTH the sourceFingerprint (A2-7 below) and
+  # the provenance read further down consume it — one path constant, never two.
+  local _synth_dir="$PROJECT_ROOT/.ai-factory/synthesizer-output"
+  local _frag_dir="$_synth_dir/generation-context/python"
 
   # Nothing delivered (no rules dir) → nothing to lock (defensive; delivery precedes this call).
   [ -d "$rules_dir" ] || { echo "  ⊝ rules-lock: no .getff/astgrep-rules present — skipping"; return 0; }
@@ -708,10 +719,26 @@ _py_write_rules_lock() {
   [ -f "$bans" ] && ban_codes=$(grep -oE 'TID[0-9]+' "$bans" 2>/dev/null | sort -u)
 
   # Deterministic sourceFingerprint: sha256/16 over the sorted delivered rule bytes (astgrep ymls +
-  # the always-delivered ruff bans). Same rule set → same fingerprint (reproducibility), independent
-  # of emittedAt. Portable hash ladder (parity with tests/install-sh/snapshot.sh).
+  # the always-delivered ruff bans) AND the generation-context/python/*.json provenance fragments.
+  # Same delivered set → same fingerprint (reproducibility), independent of emittedAt. Portable
+  # hash ladder (parity with tests/install-sh/snapshot.sh).
+  #
+  # A2-7 (ledger addendum): the fragments MUST be in this hash. The fingerprint is the input to the
+  # content-aware idempotent skip below, and the lock's `provenance` field is built from exactly
+  # these fragments (`_py_json_rules "$ids" "$_frag_dir"`). Hashing only the rule bytes meant a
+  # fragment added WITHOUT a rule-byte change could not perturb the fingerprint — the skip fired and
+  # the lock stayed permanently stale, contradicting this function's own «NEVER stale relative to
+  # the delivered .getff/ artefacts» invariant. The hole was masked on the --force path by A2-1
+  # (copy_safe nested the rules dir, and this `find` is recursive, so the yml count doubled and the
+  # hash changed for the wrong reason); fixing A2-1 exposed it on the plain path too.
   local _hash_input _fp
-  _hash_input=$( { find "$rules_dir" -name '*.yml' 2>/dev/null | sort | while IFS= read -r f; do cat "$f"; done; [ -f "$bans" ] && cat "$bans"; } )
+  # The trailing `true` is load-bearing under install.sh's `set -euo pipefail`: `$_frag_dir` is
+  # absent on any consumer that has never run the rule-bootstrap CLI, and with `pipefail` a failing
+  # `find` makes the whole pipeline — and therefore this assignment — non-zero, which `set -e` turns
+  # into an aborted install. (The pre-A2-7 form had the same latent shape via its trailing
+  # `[ -f "$bans" ] && cat "$bans"`; caught live by tests/install-sh/python-rules-lock.test.sh, which
+  # went from 36/3 to 18/22 with no `true` — the lock was never written at all.)
+  _hash_input=$( { find "$rules_dir" -name '*.yml' 2>/dev/null | sort | while IFS= read -r f; do cat "$f"; done; [ -f "$bans" ] && cat "$bans"; [ -d "$_frag_dir" ] && find "$_frag_dir" -name '*.json' 2>/dev/null | sort | while IFS= read -r f; do cat "$f"; done; true; } )
   if command -v sha256sum >/dev/null 2>&1; then
     _fp=$(printf '%s' "$_hash_input" | sha256sum | awk '{print $1}')
   elif command -v shasum >/dev/null 2>&1; then
@@ -752,15 +779,9 @@ _py_write_rules_lock() {
   mkdir -p "$PROJECT_ROOT/.getff"
 
   local _json_rules _json_bans
-  # Fragment-per-rule per §6 fork 2. The fragment dir is the synthesizer's
-  # generation-context/ subdir — one <rule-id>.json per rule in final lock shape.
-  # S1b (PARK-S1-7 unparked): per-lane subdir `generation-context/python/` — the producer
-  # (rule-bootstrap-cli.ts runPracticeRender, S1b) writes here. Closes kickoff criterion 4 by
-  # construction: the cargo/go glob is `*.json` NON-RECURSIVE on the parent generation-context/
-  # dir (46-cargo.sh:262, 47-go.sh:229), so python fragments in this subdir are invisible to
-  # those lanes. Node synthesize (emit.ts) keeps writing `G${n}.json` to the parent dir.
-  local _synth_dir="$PROJECT_ROOT/.ai-factory/synthesizer-output"
-  local _frag_dir="$_synth_dir/generation-context/python"
+  # Fragment-per-rule per §6 fork 2 — one <rule-id>.json per rule in final lock shape. `_frag_dir`
+  # and `_synth_dir` are resolved once at the top of this function (they are also hashed into the
+  # sourceFingerprint above, A2-7); do NOT re-derive either path here.
   _json_rules=$(_py_json_rules "$ids" "$_frag_dir")
   _json_bans=$(_py_json_array "$ban_codes")
 
