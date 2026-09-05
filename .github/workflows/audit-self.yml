@@ -637,6 +637,10 @@ jobs:
         run: bash tests/install-sh/no-companion-blocks.test.sh
       - name: Run install-sh bridge-guided test (one-click-installer S2)
         run: bash tests/install-sh/bridge-guided.test.sh
+      - name: Run install-sh aif guided-install gating test (ledger #1597 A1-3/A1-4/A1-7)
+        run: bash tests/install-sh/aif-guided-install-gating.test.sh
+      - name: Run install-sh merge_fenced splice-failure test (ledger #1597 A1-8)
+        run: bash tests/install-sh/merge-fenced-splice-failure.test.sh
       - name: Run install-sh GLM one-button test (beta-delivery-ux S4)
         run: bash tests/install-sh/glm-onebutton.test.sh
       - name: Run install-sh B1 stack-research-lookup test (multistack-augment-first #827 B1)

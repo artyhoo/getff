@@ -48,10 +48,30 @@ set -uo pipefail
 # §3 item 1). jq-less best-effort parse (sed) recovers the path; the notice fires ONLY
 # when the file carries the `<!-- bridge: auto -->` opt-in — every other edit stays
 # silent (this hook is an injection, never a gate).
-_json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n' ' '; }
+#
+# Inline by necessity, NOT by preference: the five sibling PostToolUse gates share one
+# definition at .claude/hooks/lib/hook-emit.sh (#1597 review ledger R-2), but this file is
+# ALSO delivered to consumers on its own — setup.d/55-runtime-bridge-vendor.sh copies just
+# this script into .claude/hooks/ — so it cannot source a sibling that was never delivered.
+# The two measured divergences of the old private copy are fixed here instead:
+#   - it had no _is_zcode branch, so on ZCode it emitted the CC hookSpecificOutput envelope
+#     that harness does not read;
+#   - its escaper handled only backslash, quote and newline, so a message carrying a tab or a
+#     CR produced a raw control byte inside a JSON string — invalid JSON, discarded (jq 5).
+_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
+_json_escape() {
+  printf '%s' "$1" \
+    | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' \
+    | tr '\n\r\t' '   ' \
+    | tr -d '\000-\037'
+}
 _emit_dep_skip() {
-  printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' \
-    "$(_json_escape "$1")"
+  if _is_zcode; then
+    printf '{"additionalContext":"%s"}\n' "$(_json_escape "$1")"
+  else
+    printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' \
+      "$(_json_escape "$1")"
+  fi
   printf '%s\n' "$1" >&2
 }
 if ! command -v jq >/dev/null 2>&1 || ! command -v node >/dev/null 2>&1; then

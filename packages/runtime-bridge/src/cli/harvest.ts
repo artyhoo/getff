@@ -1,8 +1,9 @@
 /**
  * CLI harvest entrypoint — the deterministic egress leg of the bridge.
  *
- * Usage:
- *   tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> \
+ * Usage (framework: `packages/runtime-bridge/src/cli/harvest.ts`; consumer install:
+ * `.claude/vendor/runtime-bridge/src/cli/harvest.ts` — see setup.d/55-runtime-bridge-vendor.sh):
+ *   tsx <path-to>/harvest.ts <taskId> \
  *     [--base <branch>] [--body-file <path>] [--no-auto-merge] [--container <name>] \
  *     [--repo-path <path>] [--work-dir <path>] [--host-repo <path>] \
  *     [--confirm-rework] [--confirm-unreported-files] [--confirm-dirty-residue]
@@ -101,10 +102,10 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { isMain, parseCliArgs, CliArgError } from './cliEntry.js';
-import { getTask } from './aifHttp.js';
-import type { AifTaskFull } from './aifHttp.js';
+import { getProjects, getTask } from './aifHttp.js';
+import type { AifProjectFull, AifTaskFull } from './aifHttp.js';
 import {
   bundleFileName,
   channelAFallbackCommands,
@@ -115,9 +116,82 @@ import {
 } from '../harvest.js';
 import type { ChannelAContext, HarvestDeps, WorkDirResolution } from '../harvest.js';
 
-/** Base clone inside the container — the ROOT, not any task's checkout (see {@link resolveTaskWorkDir}).
- *  Overridable for a differently-mounted aif via `--repo-path` / RUNTIME_BRIDGE_AIF_REPO_PATH. */
-const DEFAULT_AIF_REPO_PATH = '/home/www/rules-as-tests-aif';
+/**
+ * LAST-RESORT base clone inside the container — the ROOT, not any task's checkout (see
+ * {@link resolveTaskWorkDir}).
+ *
+ * It is the FRAMEWORK's own mount, and it is the fallback only. This file ships to consumers
+ * at `.claude/vendor/runtime-bridge/src/cli/harvest.ts` (setup.d/55-runtime-bridge-vendor.sh,
+ * `--profile factory`), where aif mounts the project at `/home/www/<consumer>` and this path
+ * is not a directory at all: the `worktree list` probe swallows its failure, the checkout
+ * falls back to a repo root that does not exist, and every task aborts at `cannot read git
+ * HEAD` (#1597 review ledger A6-3). Resolution order: {@link resolveRepoPath}.
+ */
+const FALLBACK_AIF_REPO_PATH = '/home/www/rules-as-tests-aif';
+
+/** Where {@link resolveRepoPath} got the container checkout from (surfaced in the warning). */
+export type RepoPathSource = 'flag' | 'env' | 'aif-project' | 'fallback';
+
+export interface RepoPathResolution {
+  /** Absolute path of the project's base clone INSIDE the container. */
+  path: string;
+  source: RepoPathSource;
+}
+
+/**
+ * WHICH checkout inside the container is this project's base clone.
+ *
+ * aif already knows — every project record carries the `rootPath` it runs git in — so the
+ * consumer-correct answer is to ask it rather than to hard-code one repo's mount. aif exposes
+ * no `GET /projects/:id`, so this filters `GET /projects` by `RUNTIME_BRIDGE_AIF_PROJECT_ID`,
+ * the same id the dispatch leg already requires.
+ *
+ * Order: `--repo-path` → `RUNTIME_BRIDGE_AIF_REPO_PATH` → aif's project record →
+ * {@link FALLBACK_AIF_REPO_PATH}. The last step is WARNED by the caller, never silent: a
+ * fallback that is wrong produces a HOLD/abort several steps later, in a message that names
+ * a path the operator never chose.
+ *
+ * Never throws — an unreachable aif is the fallback's own trigger, and harvest's next call
+ * (`getTask`) reports that failure properly through the classified exit path.
+ */
+export async function resolveRepoPath(
+  baseUrl: string,
+  flagValue: string | undefined,
+  env: NodeJS.ProcessEnv = process.env,
+  fetchProjects: (url: string) => Promise<AifProjectFull[]> = getProjects,
+): Promise<RepoPathResolution> {
+  if (flagValue) return { path: flagValue, source: 'flag' };
+  const fromEnv = env['RUNTIME_BRIDGE_AIF_REPO_PATH'];
+  if (fromEnv) return { path: fromEnv, source: 'env' };
+  const projectId = env['RUNTIME_BRIDGE_AIF_PROJECT_ID'];
+  if (projectId) {
+    try {
+      const project = (await fetchProjects(baseUrl)).find((p) => p.id === projectId);
+      if (project?.rootPath) return { path: project.rootPath, source: 'aif-project' };
+    } catch {
+      // aif unreachable / no /projects — fall through to the WARNED fallback below.
+    }
+  }
+  return { path: FALLBACK_AIF_REPO_PATH, source: 'fallback' };
+}
+
+/**
+ * How to re-invoke THIS file, as a path that works where it is actually installed.
+ *
+ * The three HOLD hints used to print `tsx packages/runtime-bridge/src/cli/harvest.ts …` — the
+ * framework's own layout. A consumer runs the vendored copy from
+ * `.claude/vendor/runtime-bridge/src/cli/harvest.ts`, where that command is an ENOENT, so
+ * every HOLD handed the operator a fix that cannot run (#1597 review ledger A6-3). Derived
+ * from `process.argv[1]`, relative to the cwd when that stays inside it (the readable form),
+ * absolute otherwise. Both inputs are parameters with NO defaults: a default would make an
+ * explicit `undefined` fall back to the live argv, so the missing-entrypoint arm could not
+ * be tested at all.
+ */
+export function selfPath(argv1: string | undefined, cwd: string): string {
+  if (!argv1) return 'harvest.ts';
+  const rel = relative(cwd, argv1);
+  return rel !== '' && !rel.startsWith('..') ? rel : argv1;
+}
 
 interface ParsedArgs {
   taskId?: string;
@@ -125,7 +199,8 @@ interface ParsedArgs {
   bodyFile?: string;
   autoMerge: boolean;
   container: string;
-  repoPath: string;
+  /** `--repo-path` ONLY — the full resolution (env → aif → fallback) is {@link resolveRepoPath}. */
+  repoPath?: string;
   workDir?: string;
   hostRepo?: string;
   confirmRework: boolean;
@@ -166,7 +241,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     bodyFile: str('body-file'),
     autoMerge: values['no-auto-merge'] !== true,
     container: str('container') ?? process.env['RUNTIME_BRIDGE_AIF_CONTAINER'] ?? 'aif-handoff-agent-1',
-    repoPath: str('repo-path') ?? process.env['RUNTIME_BRIDGE_AIF_REPO_PATH'] ?? DEFAULT_AIF_REPO_PATH,
+    repoPath: str('repo-path'),
     workDir: str('work-dir'),
     hostRepo: str('host-repo') ?? process.env['RUNTIME_BRIDGE_HOST_REPO'],
     confirmRework: values['confirm-rework'] === true,
@@ -174,6 +249,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
     confirmDirtyResidue: values['confirm-dirty-residue'] === true,
   };
 }
+
+/** {@link ParsedArgs} once the container checkout is known (see {@link resolveRepoPath}). */
+type ResolvedArgs = ParsedArgs & { repoPath: string };
 
 /**
  * Run a git command in a specific checkout inside the aif container; returns stdout with
@@ -250,7 +328,7 @@ function resolveHostRepo(explicit?: string): string {
  *     mechanism — attention-is-not-a-mechanism.md §1). Throwing degrades to the CLI's
  *     printed manual-fallback path, so the operator is never stuck.
  */
-function resolveTaskWorkDir(container: string, args: ParsedArgs, task: AifTaskFull, branch: string): WorkDirResolution {
+function resolveTaskWorkDir(container: string, args: ResolvedArgs, task: AifTaskFull, branch: string): WorkDirResolution {
   let worktrees = new Map<string, string>();
   if (!args.workDir) {
     // Ground truth for branch→checkout. Non-fatal if it fails (e.g. an ancient git): the
@@ -324,7 +402,7 @@ function resolveBaseRef(container: string, workDir: string, base: string): strin
  */
 function realDeps(
   container: string,
-  args: ParsedArgs,
+  args: ResolvedArgs,
   task: AifTaskFull,
 ): { deps: HarvestDeps; checkout: () => string } {
   let resolved: WorkDirResolution | null = null;
@@ -500,15 +578,15 @@ function containerRead(container: string, workDir: string, gitArgs: string): str
 }
 
 async function main(): Promise<void> {
-  let args: ParsedArgs;
+  let parsed: ParsedArgs;
   try {
-    args = parseArgs(process.argv.slice(2));
+    parsed = parseArgs(process.argv.slice(2));
   } catch (err) {
     const msg = err instanceof CliArgError ? err.message : String(err);
     process.stderr.write(`[harvest] ${msg}\n`);
     process.exit(1);
   }
-  if (!args.taskId) {
+  if (!parsed.taskId) {
     process.stderr.write(
       '[harvest] usage: harvest.ts <taskId> [--base staging] [--body-file P] [--no-auto-merge] [--host-repo P]\n' +
         '[harvest]   egress = Channel A: the container\'s commit is bundled to the HOST and pushed from there\n' +
@@ -518,6 +596,32 @@ async function main(): Promise<void> {
   }
 
   const baseUrl = process.env['RUNTIME_BRIDGE_AIF_URL'] ?? 'http://localhost:3009';
+
+  // A6-3: WHICH checkout inside the container, asked of aif rather than hard-coded to the
+  // framework's own mount — the vendored copy runs on consumers whose project lives at
+  // /home/www/<consumer>. The fallback is warned, never silent: it surfaces here, before any
+  // git read, instead of as a `cannot read git HEAD` about a path the operator never chose.
+  const repoPath = await resolveRepoPath(baseUrl, parsed.repoPath);
+  if (repoPath.source === 'fallback') {
+    process.stderr.write(
+      `[harvest] WARNING: falling back to '${repoPath.path}' as this project's checkout inside ` +
+        `container '${parsed.container}' — aif's own project record was not readable ` +
+        `(set RUNTIME_BRIDGE_AIF_PROJECT_ID so GET /projects can be filtered, or pass --repo-path / ` +
+        `RUNTIME_BRIDGE_AIF_REPO_PATH). On any project other than the framework itself that path ` +
+        `does not exist and every container git read below will fail.\n`,
+    );
+  }
+  // `taskId` is restated rather than left to the spread: the `!parsed.taskId` guard above
+  // narrows `parsed`, and spreading into a fresh object would widen it back to `undefined`.
+  const args: ResolvedArgs & { taskId: string } = {
+    ...parsed,
+    taskId: parsed.taskId,
+    repoPath: repoPath.path,
+  };
+
+  // How to name THIS file back to the operator in the HOLD hints below: the framework path is
+  // wrong wherever the vendored copy is the one running (A6-3).
+  const self = selfPath(process.argv[1], process.cwd());
 
   // A5-7: getTask and the --body-file read used to run BEFORE this try, so an
   // unreachable aif, an unknown taskId or a mistyped --body-file escaped as a raw
@@ -561,7 +665,7 @@ async function main(): Promise<void> {
           `reviewed by aif's gate. Re-run with --confirm-unreported-files to proceed. ` +
           `(aif review-gate gap — see docs/meta-factory/research-patches/2026-07-17-aif-review-gate-affected-files-gap.md §7)\n` +
           `[harvest]   inspect:  ${containerRead(args.container, checkout(), `diff -- ${(res.unreportedFiles ?? []).join(' ')}`)}\n` +
-          `[harvest]   ship anyway:  tsx packages/runtime-bridge/src/cli/harvest.ts ${args.taskId} --confirm-unreported-files\n`,
+          `[harvest]   ship anyway:  tsx ${self} ${args.taskId} --confirm-unreported-files\n`,
       );
       process.exit(2);
     }
@@ -578,7 +682,7 @@ async function main(): Promise<void> {
             ? `[harvest]   park signals in the task log: ${res.parkSignals.join(', ')} → likely INCOMPLETE; inspect before shipping.\n`
             : `[harvest]   no park markers in the log, but 0-ahead+dirty is still ambiguous — inspect the diff.\n`) +
           `[harvest]   inspect:  ${containerRead(args.container, checkout(), 'diff')}\n` +
-          `[harvest]   ship only if it IS a complete rework:  tsx packages/runtime-bridge/src/cli/harvest.ts ${args.taskId} --confirm-rework\n`,
+          `[harvest]   ship only if it IS a complete rework:  tsx ${self} ${args.taskId} --confirm-rework\n`,
       );
       process.exit(2);
     }
@@ -596,7 +700,7 @@ async function main(): Promise<void> {
           `rework). Nothing pushed.\n` +
           `[harvest]   inspect:  ${containerRead(args.container, checkout(), 'diff')}\n` +
           `[harvest]   preferred: deliver a request_changes round so the worker commits its own work\n` +
-          `[harvest]   ship WITHOUT them (discardable residue only):  tsx packages/runtime-bridge/src/cli/harvest.ts ${args.taskId} --confirm-dirty-residue\n`,
+          `[harvest]   ship WITHOUT them (discardable residue only):  tsx ${self} ${args.taskId} --confirm-dirty-residue\n`,
       );
       process.exit(2);
     }
