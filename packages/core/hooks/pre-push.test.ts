@@ -204,12 +204,16 @@ describe('isFrameworkShippedMarkdown — shipped, not "everything under .claude/
       tiers.length,
       'tier lists must parse (setup.d/lib.sh:61-63)',
     ).toBeGreaterThan(0);
+    // Match the DESTINATION, not the delivery verb: #1624 replaced the `cp -r` in this
+    // file with _copy_tree_with_transform, and a verb-shaped regex went stale the moment
+    // it landed (this gate caught it). The `$PROJECT_ROOT/.claude/skills/<slug>` path is
+    // what the installer promises regardless of how it copies.
     const byName = [
-      ...skills.matchAll(/cp -r "\$PKG_ROOT\/skills\/([a-z0-9-]+)"/g),
+      ...skills.matchAll(/\$PROJECT_ROOT\/\.claude\/skills\/([a-z0-9-]+)/g),
     ].map((m) => m[1] as string);
     expect(
       byName.length,
-      '10-skills.sh must copy the named skill dirs',
+      '10-skills.sh must name the skill dirs it delivers',
     ).toBeGreaterThan(0);
     const delivered = [...new Set([...tiers, ...byName])].sort();
     expect([...SHIPPED_SKILL_SLUGS].sort()).toEqual(delivered);

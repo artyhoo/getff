@@ -109,14 +109,14 @@ _py_skill_copy_or_refresh() {
 
 # _py_plain_skill_deliver <slug> — a skill shipping from the REPO-ROOT skills/ payload (getff,
 # tool-bootstrapping). No lib.sh helper covers this root (copy_skill_with_transform reads
-# $PKG_ROOT/.claude/skills/), so do_refresh open-codes it too (install.sh:664-689) and this is the
-# python-lane twin of that block: same override check, same rm -rf/cp -r/transform sequence.
+# $PKG_ROOT/.claude/skills/), so do_refresh has its own arm for this root and this is the
+# python-lane twin of that block: same override check, and the wipe/copy/transform sequence itself
+# comes from _copy_tree_with_transform (setup.d/lib.sh) so the two cannot drift (ledger S-7).
 _py_plain_skill_deliver() {
   local slug="$1"
   local src="$PKG_ROOT/skills/$slug"
   local dst="$PROJECT_ROOT/.claude/skills/$slug"
   local override="${dst}.override.md"
-  local _mdf
   [ -d "$src" ] || return 0
   if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
     if [ -e "$override" ]; then
@@ -146,11 +146,7 @@ _py_plain_skill_deliver() {
       return 0
     fi
   fi
-  rm -rf "$dst"
-  cp -r "$src" "$dst"
-  while IFS= read -r -d '' _mdf; do
-    transform_internal_refs "$_mdf"
-  done < <(find "$dst" -name '*.md' -print0)
+  _copy_tree_with_transform "$src" "$dst"
   if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
     echo "  ✓ .claude/skills/$slug/ (refreshed, cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
   else
