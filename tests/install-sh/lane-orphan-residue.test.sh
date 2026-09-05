@@ -76,7 +76,12 @@ out=$(
   PKG_ROOT="$REPO_ROOT"; PROJECT_ROOT="$DST"; FORCE=""; DRY_RUN=""; SKIPPED=()
   # shellcheck source=/dev/null
   source "$REPO_ROOT/setup.d/lib.sh"
-  refresh_safe "$SRC/rules" "$DST/rules"          # the REAL mechanism: dir replace → orphan gone
+  # The REAL mechanism, called exactly as the python lane calls it (setup.d/45-python.sh):
+  # `framework-exclusive`, because .getff/astgrep-rules is a scan dir nothing but the framework
+  # owns. Since ledger L-4 the 2-arg form keeps files it cannot attribute to a delivery — right
+  # for shared payloads, wrong for a dir whose stale contents are live scan configuration — so
+  # dropping the flag here would test a call the lane does not make.
+  refresh_safe "$SRC/rules" "$DST/rules" framework-exclusive   # dir replace → orphan gone
   [ -e "$DST/rules/getff-stale-rule.yml" ] && echo "REFRESH_LEFT_ORPHAN"
   printf 'orphan\n' > "$DST/rules/getff-stale-rule.yml"   # re-plant, then the violating shape:
   copy_safe "$SRC/rules" "$DST/rules"             # skip-if-exists → whole dir skipped → orphan alive

@@ -69,6 +69,20 @@ if [ "${INSTALL_SH_LIB_ONLY:-}" = "1" ]; then
   return 0 2>/dev/null || true
 fi
 
+# ─── consumer-refresh-integrity R1 — flush the delivery baseline on EVERY exit path ───────────
+# Ledger A1-2: setup.d/99-finalize.sh ends a deps-incomplete `--full` with `exit 1` (GH #974:
+# an install that promised a toolchain and did not deliver one must not report green). That file
+# is SOURCED, so its `exit` is install.sh's exit — and it fired BEFORE the explicit
+# refresh_baseline_flush at the end of this script, so the R1 manifest was never written. With
+# copy_safe skipping every already-present file on the next run, the manifest could then stay
+# absent indefinitely and the issue-1481 divergence guard read «unknown» for every delivered
+# path. The trap makes «record what we delivered» independent of how this process ends.
+#
+# Safe to pair with the explicit calls: refresh_baseline_flush clears its staging lists, so a
+# second invocation is a no-op, and it never returns non-zero. An EXIT trap that does not call
+# `exit` itself leaves the triggering status intact, so GH #974's rc=1 is preserved.
+trap 'refresh_baseline_flush' EXIT
+
 STACK=""
 # P0.3 (ultrareview): distinguish an EXPLICIT positional stack (the user typed `./setup ts-server`)
 # from a stack that was auto-detected or menu-picked. The multi-stack monorepo config placement
