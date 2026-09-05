@@ -1520,28 +1520,88 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
 //       (the files install.sh copies into consumer projects).
 //   (4) tests/install-sh/refresh-covers-full-delivery.test.sh:121-123 — derivation of
 //       the consumer-DESTINATION shipped set from setup.d copy_safe commands.
-// FRAMEWORK_SHIPPED_MD_PREFIXES below is predicate (1)'s PATHSPECS translated to
-// consumer-destination path prefixes via the copy_safe destinations enumerated in
-// setup.d/{10-skills,20-agents,30-templates}.sh (the predicate-(4) derivation).
+// SHIPPED_MD_DESTINATIONS below is predicate (1)'s PATHSPECS translated to
+// consumer-destination paths via the destinations enumerated in setup.d/*.sh + install.sh
+// (the predicate-(4) derivation, made a gate rather than a reading).
 //
-// A stale list degrades safely in the consumer-blocking direction this stage exists to
-// fix (an un-listed shipped file is treated as consumer-authored, so lychee still walks
+// Both halves of this classifier are now drift-GATED, and neither is a bare subtree:
+// SHIPPED_MD_DESTINATIONS + SHIPPED_MD_PREFIXES below, and SHIPPED_SKILL_SLUGS further
+// down. A stale list degrades safely in the consumer-blocking direction this stage exists
+// to fix (an un-listed shipped file is treated as consumer-authored, so lychee still walks
 // it and a dangling framework ref can still block a consumer push) — it never silently
-// disables the gate. The skill half of the list is drift-GATED (see SHIPPED_SKILL_SLUGS);
-// the `.ai-factory/*` rows below are still author attention, and stay stated plainly
-// rather than implied away (.claude/rules/attention-is-not-a-mechanism.md §1).
-const FRAMEWORK_SHIPPED_MD_PREFIXES: readonly string[] = [
-  '.ai-factory/skill-context/', // 20-agents.sh:67 — copy_safe skill-context overrides
-  'AGENTS.md', // 30-templates.sh:81 — top-level starter (exact match)
+// disables the gate — but "degrades safely" is not a mechanism
+// (.claude/rules/attention-is-not-a-mechanism.md §1), which is why the gate exists.
+
+/**
+ * The EXACT consumer-destination paths of the framework's non-skill, non-agent shipped
+ * markdown (ledger A4-8, second half).
+ *
+ * These rows used to be hand-maintained author attention — the code said so, and nothing
+ * failed when they drifted. Measured on the live tree 2026-09-06, both failure directions
+ * were already realized:
+ *
+ *   (a) UNDER-coverage — `.ai-factory/AI-USAGE-GUIDE.md` (30-templates.sh:50) and
+ *       `.ai-factory/tier-home.md` (30-templates.sh:109) had no row at all, so on a
+ *       consumer they classified as consumer-AUTHORED. The moment either grows a relative
+ *       ref to a framework path, lychee walks it on a consumer tree, the ref dangles there
+ *       (no docs/ on that checkout) and OUR shipped content blocks THEIR push — the
+ *       getff-honest-signals defect the S2 Part 1 narrowing exists to kill.
+ *   (b) OVER-coverage — `.ai-factory/RULES.` and `.ai-factory/ARCHITECTURE.` were BARE
+ *       prefixes standing in for stack variants, so a consumer's own
+ *       `.ai-factory/RULES.internal.md` matched and was silently dropped from the walk.
+ *       That is precisely the `.claude/skills/` swallowing defect PR #1630 fixed one
+ *       surface over. Exact paths, not prefixes: the installer delivers exactly four
+ *       ARCHITECTURE.* and four RULES.* names, and every other name is the consumer's.
+ *
+ * SSOT: the `$PROJECT_ROOT/<dst>` destinations named in setup.d/*.sh + install.sh. Kept
+ * honest by a derivation check in pre-push.test.ts, which scans those shell sources for
+ * DESTINATION path shapes — never delivery verbs (#1624 replaced a `cp -r` with
+ * _copy_tree_with_transform and a verb-shaped regex went stale within hours). Both
+ * directions are gated: a new destination with no row fails, and a row no destination
+ * backs fails too.
+ *
+ * `AGENTS.md` and the whole `.ai-factory/*` set are ALSO recorded in
+ * .ai-factory/refresh-baseline.json on a real install — verified by installing ts-server
+ * into a scratch fixture 2026-09-06: 95 keys, every one of these paths present except
+ * AGENTS.md (merge_fenced is outside the baseline mechanism by design, setup.d/lib.sh:260-262).
+ * So on a consumer WITH a readable manifest this list is redundant. It is kept for the
+ * arm that has no manifest — no jq, or an unwritable .ai-factory/ — where dropping it
+ * would move shipped content back into the walk, i.e. exactly the wrong direction.
+ */
+export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
+  'AGENTS.md', // 30-templates.sh:95 / 45-python.sh:1313 (install_agents_md)
+  '.ai-factory/AI-USAGE-GUIDE.md',
+  '.ai-factory/ARCHITECTURE.md',
+  '.ai-factory/ARCHITECTURE.react-native.md',
+  '.ai-factory/ARCHITECTURE.react-next.md',
+  '.ai-factory/ARCHITECTURE.react-spa.md',
+  '.ai-factory/ARCHITECTURE.ts-server.md',
   '.ai-factory/DESCRIPTION.md',
   '.ai-factory/DESCRIPTION.template.md',
-  '.ai-factory/ARCHITECTURE.md',
-  '.ai-factory/ARCHITECTURE.', // stack variants: ARCHITECTURE.<stack>.md + ARCHITECTURE.ts-server.md
   '.ai-factory/RULES.md',
-  '.ai-factory/RULES.', // stack variants: RULES.<stack>.md
-  '.ai-factory/rules/', // 30-templates.sh:31 — integration-rules.md
-  '.ai-factory/tool-decisions.md', // 30-templates.sh:41
-  '.claude/session-bootstrap.md', // 10-skills.sh:266 — starter template (conditional)
+  '.ai-factory/RULES.react-native.md',
+  '.ai-factory/RULES.react-next.md',
+  '.ai-factory/RULES.react-spa.md',
+  '.ai-factory/rules/integration-rules.md',
+  '.ai-factory/tier-home.md',
+  '.ai-factory/tool-decisions.md',
+  '.claude/session-bootstrap.md', // 10-skills.sh:338 / install.sh:892 (conditional starter)
+];
+
+/**
+ * The one shipped markdown namespace an exact enumeration cannot cover: skill-context
+ * overrides are delivered as `.ai-factory/skill-context/$_sc/SKILL.md` for every entry of
+ * SHIPPED_DOCS (20-agents.sh:74), and WHICH entries land is profile-gated — a factory
+ * consumer also gets aif-orchestrator-discipline (20-agents.sh:70-72). The whole subtree
+ * is framework territory by construction: every path under it is an override of a
+ * framework-vendored sub-agent's context, so there is no consumer-authored file to swallow.
+ *
+ * Same gate as SHIPPED_MD_DESTINATIONS: pre-push.test.ts requires every variable-indirected
+ * destination in the shell sources to be covered by a row here, and every row here to back
+ * at least one such destination.
+ */
+export const SHIPPED_MD_PREFIXES: readonly string[] = [
+  '.ai-factory/skill-context/',
 ];
 
 /**
@@ -1622,8 +1682,8 @@ export function isFrameworkShippedMarkdown(
   p: string,
   baseline: ReadonlySet<string> | null,
 ): boolean {
-  if (FRAMEWORK_SHIPPED_MD_PREFIXES.some((x) => p === x || p.startsWith(x)))
-    return true;
+  if (SHIPPED_MD_DESTINATIONS.includes(p)) return true;
+  if (SHIPPED_MD_PREFIXES.some((x) => p.startsWith(x))) return true;
   if (
     SHIPPED_SKILL_SLUGS.some((slug) => p.startsWith(`.claude/skills/${slug}/`))
   )
