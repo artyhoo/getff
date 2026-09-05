@@ -6,7 +6,7 @@ e23ec866e82d4d0972e9ed11754e3aff70ce0a448006426a199e6dd2e9a94d11  .claude/hooks/
 131a7e71446486ec182decfb61edef4fe34475c15a1cc418eb0cde47a246bbc1  .claude/hooks/check-kickoff-traps.sh
 aa191dfac63e8e48ae9643db5ca5f90766b28e45db3d2fab6d70a819f89f82ba  .claude/hooks/check-worker-dispatch-channel.sh
 e2404b3623a04b6f89e731f32480f26c350503d9c4a6c72c2a706a63a35c544a  .claude/hooks/deps-hash-check.sh
-60e9db7767679abd85b0e8f809e46aebe7a228d81a2824f6f0c12d8231fb087f  .claude/hooks/end-of-turn-reminder.sh
+3055dfded6db09c0ff5a080df7026db837e8096a70596ef4ff1d9a6e23031045  .claude/hooks/end-of-turn-reminder.sh
 6fdc8128cd549df4bbdd7b8549f89599f41315978a1739d1a8fe41ca405bfeeb  .claude/hooks/inject-matching-rule.sh
 d783e618156d9dc26dad1627281e44ea10a128cee9c29a91cea273b37251e47c  .claude/hooks/inject-memory-codification.sh
 005732895415bdde432bc805f0da3247776373e702a57d1be2b012738de8ccc3  .claude/hooks/inject-output-language.sh
@@ -441,7 +441,7 @@ bf8e51ec82e6b33af33c1416703ac72f48be2f46bacfe49bcad354dc69af38ed  packages/core/
 444b29e50614470ba141f62b1d1f4c9925fc25952b6266255638f22320c5cd52  packages/core/hooks/dispatch-from-state.test.ts
 8e34d65552e50c3798c30fcbdb888132a081e7d68ebf4136754ad2e89ddc2b00  packages/core/hooks/done-md-completion-filter.test.ts
 0f903db141eba8ce0db6bd4678cb6e8e0cefd2c565e3cd4343fe3af9eb01863a  packages/core/hooks/dup-detect-empty-arg.test.ts
-9f604aa41354f470f3cd8486e9936bbd46ced697530d83f090a2f1e5898782ac  packages/core/hooks/end-of-turn-reminder.test.ts
+2ad9bed976f79def3e89f006eb65ad0dfbe93f990e94dd79f92980ffeac7fd2e  packages/core/hooks/end-of-turn-reminder.test.ts
 3339c8a729b6faf284fb38e5b36544c102547c9801fe1334633b4375943aab9c  packages/core/hooks/frontier.test.ts
 cc15534af142a5cccd85618788d39482d38a220c7d601f7047a46f7411aa72fa  packages/core/hooks/getff-work.test.ts
 03fd5e7155d0d4b8b76847d4e639e67b7a1050c5671e9aa059ab21c22485df00  packages/core/hooks/harness-config-drift.test.ts
@@ -482,7 +482,7 @@ ca0794944baccb739c780a6754a589d5b4f3c2c213c5605be16f90ca0c79861a  packages/core/
 4e36b17b0f5e2a4d60ce0a4b6c40609c4734f0d2208518bb2cbd1f98b837e771  packages/core/hooks/utils/run-check.test.ts
 3138a1f52bc9f04f83a70d31793efb0eda355c1cbf1a13276f1ac4017f2c8fc2  packages/core/hooks/utils/run-check.ts
 2083b7789ce200b521a38625002c8f4e412f40714705db17e4c5c6b1960884d7  packages/core/hooks/validate-prompt.test.ts
-06c4c67728d35447b46ca429dc06d9db9c68124294826bf4b2adcfd8e4821906  packages/core/hooks/warn-subagent-report.test.ts
+b86e17b4e5dde46b94fcd858afe66f1dff13c1aeaa1a3e258f457dd386fec0d2  packages/core/hooks/warn-subagent-report.test.ts
 9a0724be4578bca5fa6d0f29c7154986d99324c28d9a203b9ab2475e42ee4360  packages/core/hooks/worktree-node-modules.test.ts
 179dce7a5ddf2584efd08f0379638820d52119f7365b267af2130ed6eafb5a6b  packages/core/hooks/worktree-setup-hydration.test.ts
 920e2c821c12c6981b1ef0ff56932ed58156470a8fa240d5b9439b4967b611d5  packages/core/hooks/worktree-setup.test.ts

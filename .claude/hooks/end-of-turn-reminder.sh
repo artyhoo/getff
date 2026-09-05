@@ -153,6 +153,39 @@ fi
 
 session_id=$(echo "$input" | jq -r '.session_id // "nosession"' 2>/dev/null || echo "nosession")
 
+# ── F-2 scan window (ONE bounded read of the transcript, reused below) ────────
+# The hook used to make 3-4 FULL passes over the transcript per turn end (the ctx
+# estimator, the ai-title anchor, the last-assistant line and — on the idle path — the
+# previous line), although every record it wants sits at the END of the file. Measured on
+# the local 114 MB transcript: 3.75 s per Stop, i.e. every turn end of a long session
+# blocked for seconds. Above AIF_EOT_TAIL_BYTES the passes below read a bounded tail copy
+# instead, which makes the cost independent of session length.
+#
+# The first line of the window is dropped (`tail -n +2`): a byte-oriented tail cuts mid-line,
+# and a partial line is not valid JSON. Below the threshold nothing is copied and $scan_file
+# IS the transcript — no temp file, no behaviour change on short sessions.
+_eot_tail_bytes="${AIF_EOT_TAIL_BYTES:-2000000}"
+case "$_eot_tail_bytes" in '' | *[!0-9]* | 0) _eot_tail_bytes=2000000 ;; esac
+scan_file="$transcript"
+_scan_tmp=""
+_eot_cleanup() { [ -n "${_scan_tmp:-}" ] && rm -f "$_scan_tmp" 2>/dev/null; return 0; }
+trap _eot_cleanup EXIT
+# `tr -d` is load-bearing: BSD `wc -c` right-pads its count with spaces ("       4"), which
+# the numeric guard below would read as junk and zero out — disabling the window on macOS
+# while passing on GNU coreutils.
+_t_size=$(wc -c < "$transcript" 2>/dev/null | tr -d '[:space:]' || echo 0)
+case "$_t_size" in '' | *[!0-9]*) _t_size=0 ;; esac
+if [ "$_t_size" -gt "$_eot_tail_bytes" ]; then
+  _scan_tmp="${TMPDIR:-/tmp}/aif-eot-scan-$$"
+  if tail -c "$_eot_tail_bytes" "$transcript" 2>/dev/null | tail -n +2 > "$_scan_tmp" 2>/dev/null \
+     && [ -s "$_scan_tmp" ]; then
+    scan_file="$_scan_tmp"
+  else
+    _eot_cleanup
+    _scan_tmp=""
+  fi
+fi
+
 # ── D7 context-arm (handoff trigger) ──────────────────────────────────────────
 # spec: docs/superpowers/specs/2026-08-09-pipeline-chips-session-bus-design.md §D7 (S2a)
 # POSITION IS LOAD-BEARING — same postmortem as the F10 arm above: the line is computed HERE,
@@ -179,13 +212,25 @@ session_id=$(echo "$input" | jq -r '.session_id // "nosession"' 2>/dev/null || e
 # Measured cost: three wrong session stops at ~155k on 2026-08-16, one more at ~150k on
 # 2026-08-17. The model-id table is gone with it — against a 1M default those markers can only
 # confirm what is already assumed, so they carried no information while implying a
-# discrimination the transcript cannot support. The NEW honest limit: a consumer whose window
-# is genuinely smaller and who does not declare `AIF_CTX_WINDOW` is warned late, not early.
+# discrimination the transcript cannot support.
+#
+# HONEST LIMIT (corrected — the previous wording said "warned late, not early", which is
+# false below a certain size): the transcript records usage but NEVER the window, so an
+# UNDECLARED window is assumed to be the 1M default. A consumer whose real window is smaller
+# than the resulting soft floor can never reach it — the arm is silent for them, not late.
+# With the shipped defaults that boundary is a real window of 300000 tokens (soft) / 500000
+# (deep). Such a consumer declares `AIF_CTX_WINDOW`, or moves the floor directly with
+# `AIF_CTX_SOFT_FLOOR` / `AIF_CTX_DEEP_FLOOR`. This is accepted degradation, not a fixable
+# estimate: nothing in the Stop payload or the transcript reports the request window.
 #
 # Floors are window-DERIVED, so both calibrated points survive one formula (D9 /
 # context-degradation-calibration owns the numbers; none moved here):
-#   soft = min(300000, 70% of window)   → 1M: 300000 (operator floor);  200k: 140000
-#   deep = min(500000, 90% of window)   → 1M: 500000 (mechanical tails); 200k: 180000
+#   soft = min(AIF_CTX_SOFT_FLOOR, AIF_CTX_SOFT_PCT% of window)  → 1M: 300000; 200k: 140000
+#   deep = min(AIF_CTX_DEEP_FLOOR, AIF_CTX_DEEP_PCT% of window)  → 1M: 500000; 200k: 180000
+# Documented defaults: SOFT_FLOOR=300000, DEEP_FLOOR=500000, SOFT_PCT=70, DEEP_PCT=90. All
+# four are env-configurable (a junk value falls back to its default, never to 0) so a consumer
+# can retune the arm without editing a shipped hook — the hard-coded caps made the arm
+# unreachable-by-construction for anyone whose real window is below them.
 # T_soft(200k)=140k is therefore RETAINED — but only reachable when the small window is
 # DECLARED, never assumed. Kept-in-place: the self-evident override — observed usage above the
 # declared window proves the declaration wrong, so it falls back to the 1M default.
@@ -201,7 +246,11 @@ session_id=$(echo "$input" | jq -r '.session_id // "nosession"' 2>/dev/null || e
 # framework-artifact references (F10 resolved consumer-generic, operator directive 2026-08-09).
 # ZCode: synthetic transcripts may carry no usage fields → the arm is inert there
 # (zcode-parity-doctrine.md §2 row 9: zcode-gap).
-ctx_entry=$(grep -E '"(type|role)":"assistant"' "$transcript" 2>/dev/null \
+# F-2: read the bounded window, and hand jq at most the last 50 assistant lines — the
+# estimator only ever keeps the LAST match, so parsing every assistant line of the session
+# was pure waste (1.45 s of the 3.75 s measured on a 114 MB transcript).
+ctx_entry=$(grep -E '"(type|role)":"assistant"' "$scan_file" 2>/dev/null \
+  | tail -50 \
   | jq -c 'select(.isSidechain != true) | select(.message.usage.input_tokens != null)' 2>/dev/null \
   | tail -1 || true)
 if [ -n "$ctx_entry" ]; then
@@ -219,11 +268,22 @@ if [ -n "$ctx_entry" ]; then
   fi
   # Floors are `min(absolute, share-of-window)`; the `-lt 1` clamp keeps an absurdly small
   # declaration (AIF_CTX_WINDOW=1) from producing a 0 floor that fires on every single turn.
-  ctx_soft=$(( ctx_window * 70 / 100 ))
-  if [ "$ctx_soft" -gt 300000 ]; then ctx_soft=300000; fi
+  # Same junk-declaration contract as ctx_window above: an empty / non-numeric / zero value
+  # falls back to the documented default rather than silencing the arm (0 floor ⇒ fires every
+  # turn) or being trusted blindly.
+  ctx_soft_floor="${AIF_CTX_SOFT_FLOOR:-300000}"
+  case "$ctx_soft_floor" in '' | *[!0-9]* | 0) ctx_soft_floor=300000 ;; esac
+  ctx_deep_floor="${AIF_CTX_DEEP_FLOOR:-500000}"
+  case "$ctx_deep_floor" in '' | *[!0-9]* | 0) ctx_deep_floor=500000 ;; esac
+  ctx_soft_pct="${AIF_CTX_SOFT_PCT:-70}"
+  case "$ctx_soft_pct" in '' | *[!0-9]* | 0) ctx_soft_pct=70 ;; esac
+  ctx_deep_pct="${AIF_CTX_DEEP_PCT:-90}"
+  case "$ctx_deep_pct" in '' | *[!0-9]* | 0) ctx_deep_pct=90 ;; esac
+  ctx_soft=$(( ctx_window * ctx_soft_pct / 100 ))
+  if [ "$ctx_soft" -gt "$ctx_soft_floor" ]; then ctx_soft="$ctx_soft_floor"; fi
   if [ "$ctx_soft" -lt 1 ]; then ctx_soft=1; fi
-  ctx_deep=$(( ctx_window * 90 / 100 ))
-  if [ "$ctx_deep" -gt 500000 ]; then ctx_deep=500000; fi
+  ctx_deep=$(( ctx_window * ctx_deep_pct / 100 ))
+  if [ "$ctx_deep" -gt "$ctx_deep_floor" ]; then ctx_deep="$ctx_deep_floor"; fi
   if [ "$ctx_deep" -lt 1 ]; then ctx_deep=1; fi
   ctx_tier=""
   if [ "$ctx_tokens" -ge "$ctx_deep" ]; then
@@ -246,9 +306,27 @@ fi
 # title (`{"type":"ai-title","aiTitle":...}`) — empirically present even when the
 # first user message has no extractable text block. Fallback: head of the first
 # user instruction. grep avoids a full-file jq slurp (cheap on large transcripts).
-anchor=$(grep '"type":"ai-title"' "$transcript" 2>/dev/null | tail -1 | jq -r '.aiTitle // empty' 2>/dev/null || true)
+#
+# F-2: both source records sit near the START of the session, so re-deriving the anchor from
+# the whole file on EVERY turn was the most wasteful of this hook's passes. Resolution order:
+#   (1) the bounded window — a title CHANGED mid-session is appended at the end of the file and
+#       therefore lands inside the window, so a fresh title still wins over the cache;
+#   (2) the per-session cache — one file per session_id, same convention as the ctx/story flags;
+#   (3) one full scan, whose result is cached so no later turn in this session repeats it.
+_anchor_cache="${TMPDIR:-/tmp}/aif-eot-anchor-${session_id}"
+anchor=$(grep -F '"type":"ai-title"' "$scan_file" 2>/dev/null | tail -1 | jq -r '.aiTitle // empty' 2>/dev/null || true)
+if [ -z "$anchor" ] && [ -f "$_anchor_cache" ]; then
+  anchor=$(cat "$_anchor_cache" 2>/dev/null || true)
+fi
+if [ -z "$anchor" ] && [ "$scan_file" != "$transcript" ]; then
+  anchor=$(grep -F '"type":"ai-title"' "$transcript" 2>/dev/null | tail -1 | jq -r '.aiTitle // empty' 2>/dev/null || true)
+fi
 if [ -z "$anchor" ]; then
-  anchor=$(grep -m1 '"type":"user"' "$transcript" 2>/dev/null | jq -r 'if (.message.content|type=="array") then (.message.content[]? | select(.type=="text") | .text) else (.message.content // empty) end' 2>/dev/null | head -1 | tr "\n" " " | cut -c1-120 || true)
+  anchor=$(grep -m1 -F '"type":"user"' "$transcript" 2>/dev/null | jq -r 'if (.message.content|type=="array") then (.message.content[]? | select(.type=="text") | .text) else (.message.content // empty) end' 2>/dev/null | head -1 | tr "\n" " " | cut -c1-120 || true)
+fi
+if [ -n "$anchor" ]; then
+  # Brace group: a failed cache write must not leak to stderr (same shape as the ctx debounce).
+  { printf '%s' "$anchor" > "$_anchor_cache"; } 2>/dev/null || true
 fi
 [ -z "$anchor" ] && anchor="$(aif_msg_eot_anchor_fallback)"
 
@@ -266,14 +344,20 @@ fi
 # Both arms are exercised in isolation by end-of-turn-reminder.test.ts:
 #   zcode_synthetic_transcript_last_line_extracted_via_role
 #   cc_transcript_last_line_extracted_via_type
-last_line=$(grep -E '"(type|role)":"assistant"' "$transcript" 2>/dev/null | tail -1 || true)
+# A3-5 note for every `grep -q` below: they read from a HERE-STRING, never from a pipe.
+# Under `set -o pipefail` (line 9) a `printf | grep -q` guard whose match is early makes grep
+# exit first, the producer die of SIGPIPE, and the pipeline return 141 — measured on bash
+# 3.2.57: 60 KB of text → rc 0, 70 KB → rc 141, i.e. every guard in this hook silently
+# inverted once an assistant turn crossed the 64 KB pipe buffer. A here-string is a temp file,
+# so an early `grep -q` exit costs nothing and no producer can be signalled.
+last_line=$(grep -E '"(type|role)":"assistant"' "$scan_file" 2>/dev/null | tail -1 || true)
 if [ -z "$last_line" ]; then
   _autonomy_exit
 fi
 
 tool_names=$(echo "$last_line" | jq -r '.message.content[]? | select(.type=="tool_use") | .name' 2>/dev/null || true)
 has_askuserquestion=false
-if echo "$tool_names" | grep -qx 'AskUserQuestion'; then
+if grep -qxF -- 'AskUserQuestion' <<<"$tool_names"; then
   has_askuserquestion=true
 fi
 
@@ -315,9 +399,17 @@ text_length=${#text}
 # `reason` is load-bearing: that is the field delivered to the MODEL on Stop decision:block.
 if _is_zcode && [ "$text_length" -gt 500 ]; then
   # markdown-dense check: ## heading, ** bold, or a blank line (paragraph break).
-  # The blank-line check uses an ANSI-C quoted $'\n\n' literal — portable across bash 3.2+.
-  if printf '%s' "$text" | grep -qE '\*\*|^##?[[:space:]]' \
-     || printf '%s' "$text" | grep -qF $'\n\n'; then
+  # D-2: the blank-line half used to be `grep -qF $'\n\n'`, and grep -F treats the newline as
+  # a PATTERN SEPARATOR — that passed TWO EMPTY patterns, which match every non-empty input.
+  # The heuristic therefore reduced to "length > 500" and the ZCode arm fired on every long
+  # turn. A bash pattern match is exact, needs no escaping and cannot be re-split.
+  _md_dense=false
+  if grep -qE -- '\*\*|^##?[[:space:]]' <<<"$text"; then
+    _md_dense=true
+  else
+    case "$text" in *$'\n\n'*) _md_dense=true ;; esac
+  fi
+  if [ "$_md_dense" = "true" ]; then
     # Reuse the Branch A lighter per-turn recap instruction (same anchor interpolation).
     _ze_reason="$(aif_msg_eot_branch_a)"
     # The ZCode arm blocks and hands back a recap instruction, so without this the model
@@ -339,7 +431,7 @@ if _is_zcode && [ "$text_length" -gt 500 ]; then
     exit 0
   fi
 fi
-unset _ze_reason _ze_glance 2>/dev/null || true
+unset _ze_reason _ze_glance _md_dense 2>/dev/null || true
 
 # -- orchestration-mode marker (deterministic; normal mode = marker absent) ----
 # In orchestration mode (driving aif-handoff, relaying state every turn) two
@@ -368,7 +460,7 @@ fi
 # is done — re-firing would re-inject the recap instruction over an existing recap.
 # Complements the built-in stop_hook_active guard (hook:7-10) for the case where the
 # model proactively recaps in a fresh natural turn (stop_hook_active=false).
-if [ -n "$text" ] && printf '%s' "$text" | grep -qF "$AIF_RECAP_MARKER"; then
+if [ -n "$text" ] && grep -qF -- "$AIF_RECAP_MARKER" <<<"$text"; then
   # THE case the 2026-07-24 cold audit caught: this guard is correct about recaps and was
   # catastrophically wrong about autonomy. "Ends the turn on a report" IS a recap-marked turn,
   # so a bare `exit 0` here made the F10 arm silent in precisely its motivating scenario —
@@ -378,7 +470,7 @@ if [ -n "$text" ] && printf '%s' "$text" | grep -qF "$AIF_RECAP_MARKER"; then
 fi
 
 # Story already told this turn → do not re-inject.
-if [ -n "$story_signal" ] && [ -n "$text" ] && printf '%s' "$text" | grep -qF "$AIF_STORY_MARKER"; then
+if [ -n "$story_signal" ] && [ -n "$text" ] && grep -qF -- "$AIF_STORY_MARKER" <<<"$text"; then
   _autonomy_exit
 fi
 # Debounce by PR: same PR already storied this session → fall through to normal branches.
@@ -408,7 +500,7 @@ if [ "$orch_mode" = "true" ]; then
   recap_threshold="${ORCHESTRATION_MODE_RECAP_MIN_CHARS:-200}"
 fi
 if [ "$text_length" -gt "$recap_threshold" ]; then
-  if echo "$text" | grep -qE '^#|^- |^\* |\*\*|```|\[[^]]+\]\([^)]+\)'; then
+  if grep -qE -- '^#|^- |^\* |\*\*|```|\[[^]]+\]\([^)]+\)' <<<"$text"; then
     long_text=true
   fi
 fi
@@ -419,9 +511,9 @@ if [ "$has_askuserquestion" = "true" ]; then
   asked=true
 elif [ -n "$text" ]; then
   tail_chunk=$(echo "$text" | tail -c 500)
-  if echo "$tail_chunk" | grep -qE '\?[[:space:]]*$'; then
+  if grep -qE -- '\?[[:space:]]*$' <<<"$tail_chunk"; then
     asked=true
-  elif [ "$orch_mode" = "false" ] && echo "$tail_chunk" | grep -qiE "$AIF_EOT_QUESTION_PATTERN"; then
+  elif [ "$orch_mode" = "false" ] && grep -qiE -- "$AIF_EOT_QUESTION_PATTERN" <<<"$tail_chunk"; then
     asked=true
   fi
 fi
@@ -455,7 +547,7 @@ if [ "$asked" = "true" ] && [ "$long_text" = "false" ]; then
     # gracefully to synthetic when rollout is absent). Operator decision ADOPT 9C
     # (decisions.md §Fork 3): hybrid — synthetic anchor (unchanged) + rollout
     # multi-turn guard. CC path byte-identical (default branch).
-    _prev_src="$transcript"
+    _prev_src="$scan_file"
     if _is_zcode; then
       _zc_dir="${ZCODE_ROLLOUT_DIR:-$HOME/.zcode/cli/rollout}"
       _zc_file=""
@@ -483,10 +575,13 @@ if [ "$asked" = "true" ] && [ "$long_text" = "false" ]; then
     unset _prev_src
     if [ -n "$prev_line" ] && [ "$prev_line" != "$last_line" ]; then
       prev_text=$(printf '%s' "$prev_line" | jq -r '.message.content[]? | select(.type=="text") | .text' 2>/dev/null || true)
-      if printf '%s\n' "${prev_text}" | grep -q '## 🟢'; then
+      if grep -qF -- '## 🟢' <<<"${prev_text}"; then
         current_short=$(printf '%s' "$text" | head -c 120 | LC_ALL=C tr '\n' ' ')
-        # B2: if current_short is empty, never suppress (empty grep -qF "" matches anything)
-        if [ -n "$current_short" ] && printf '%s\n' "${prev_text}" | grep -qF "${current_short}"; then
+        # B2: if current_short is empty, never suppress (empty grep -qF "" matches anything).
+        # D-2: `--` is load-bearing — current_short is the head of the assistant's own text, so
+        # a turn opening with a bullet ("- ...") made grep parse the NEEDLE as options
+        # (measured: `grep: invalid option`, rc 2) and the guard silently read false.
+        if [ -n "$current_short" ] && grep -qF -- "${current_short}" <<<"${prev_text}"; then
           idle_suppress=true
         fi
       fi

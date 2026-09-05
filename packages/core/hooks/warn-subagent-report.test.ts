@@ -257,31 +257,39 @@ describe.skipIf(!JQ)('warn-subagent-report.sh — SubagentStop REPORT-schema WAR
 // pass. Channel verified 2026-07-24 —
 // research-patches/2026-07-24-posttooluse-channel-verification.md.
 // ═══════════════════════════════════════════════════════════════════════════════
-import { mkdtempSync as _mkdtempSync, symlinkSync as _symlinkSync } from 'node:fs';
+import { mkdtempSync as _mkdtempSync, symlinkSync as _symlinkSync, rmSync as _rmSync } from 'node:fs';
 import { join as _join } from 'node:path';
 import { tmpdir as _tmpdir } from 'node:os';
 import { spawnSync as _spawnSync } from 'node:child_process';
 
 describe('dependency-missing skip is announced on the model channel', () => {
   it('jq missing → SubagentStop JSON additionalContext says DID NOT RUN (exit 0)', () => {
+    // T-3 (#1597 ledger): the mkdtemp dir was never removed — `ls -d $TMPDIR/nojq-* | wc -l`
+    // reported 226 leaked dirs (5 symlinks each) on the reviewer's machine, one more per
+    // vitest run on every developer box and self-hosted runner. `finally` so the cleanup
+    // survives a failing assertion, which is exactly when a leak used to be guaranteed.
     const binDir = _mkdtempSync(_join(_tmpdir(), 'nojq-'));
-    for (const tool of ['sed', 'tr', 'cat', 'grep', 'head']) {
-      const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
-      if (real) _symlinkSync(real, _join(binDir, tool));
+    try {
+      for (const tool of ['sed', 'tr', 'cat', 'grep', 'head']) {
+        const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
+        if (real) _symlinkSync(real, _join(binDir, tool));
+      }
+      const env: Record<string, string> = { ...process.env, PATH: binDir } as Record<string, string>;
+      delete env.ZCODE_PROJECT_DIR;
+      const r = _spawnSync('/bin/bash', [HOOK], {
+        input: JSON.stringify({ agent_type: 'general-purpose', last_assistant_message: 'VERIFY: x' }),
+        encoding: 'utf8',
+        env,
+      });
+      expect(r.status).toBe(0);
+      const parsed = JSON.parse((r.stdout ?? '').trim()) as {
+        hookSpecificOutput: { hookEventName: string; additionalContext: string };
+      };
+      expect(parsed.hookSpecificOutput.hookEventName).toBe('SubagentStop');
+      expect(parsed.hookSpecificOutput.additionalContext).toMatch(/DID NOT RUN/);
+      expect(parsed.hookSpecificOutput.additionalContext).toMatch(/not a pass/i);
+    } finally {
+      _rmSync(binDir, { recursive: true, force: true });
     }
-    const env: Record<string, string> = { ...process.env, PATH: binDir } as Record<string, string>;
-    delete env.ZCODE_PROJECT_DIR;
-    const r = _spawnSync('/bin/bash', [HOOK], {
-      input: JSON.stringify({ agent_type: 'general-purpose', last_assistant_message: 'VERIFY: x' }),
-      encoding: 'utf8',
-      env,
-    });
-    expect(r.status).toBe(0);
-    const parsed = JSON.parse((r.stdout ?? '').trim()) as {
-      hookSpecificOutput: { hookEventName: string; additionalContext: string };
-    };
-    expect(parsed.hookSpecificOutput.hookEventName).toBe('SubagentStop');
-    expect(parsed.hookSpecificOutput.additionalContext).toMatch(/DID NOT RUN/);
-    expect(parsed.hookSpecificOutput.additionalContext).toMatch(/not a pass/i);
   });
 });
