@@ -7,6 +7,12 @@
 > [`skill-harmonization-mechanisms/done.md`](../skill-harmonization-mechanisms/done.md)
 > «Routed onward». The operator called item 1 «the weightiest residue».
 > **Base branch:** staging (NOT main).
+> **Status (2026-09-05):** S1 #1488 · S2 #1491 · S3 #1490 merged. **S4 and S5 are PARKED until
+> after the beta release** — neither the registry gate nor the evals coverage is a release-frame
+> phase-1 exit criterion (`docs/superpowers/specs/2026-07-23-beta-program-design.md` §7), and both
+> are reversible judgment calls (S4 explicitly allows «keep it prose» as an outcome). Parked by the
+> release-handoff execution session; re-open by deleting this line and dispatching S4/S5 per §4.
+> The umbrella stays open (no `done.md`) — a park is not a close.
 > **Rigor label (effort-worthiness L0):** `build-and-verify` — every item is factory-internal
 > and reversible; each carries a live RED/GREEN or a measured before/after.
 > **Prior-art:** the mechanism these items extend is already built and ratified — spec §5.4 /
