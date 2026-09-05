@@ -180,26 +180,25 @@ _go_write_rules_lock() {
   fi
 
   mkdir -p "$lock_dir"
-  # Fingerprint ladder (adapter-jig D2 — no-silent-fingerprint-degrade; mirrors 46-cargo.sh +
-  # 45-python.sh): sha256 rungs first, md5 fallback rungs next (value carries its algorithm
-  # prefix so a fallback digest is never mislabelled sha256), and BOTH degrade triggers — no
-  # hash tool on PATH AND delivered-config-absent — warn LOUDLY to stderr
-  # (attention-is-not-a-mechanism §1 / degrade-loudly): the "sha256:unknown" constant below is
-  # a FAKE fingerprint, not an authoritative digest, and must never be silently trusted. Do NOT
-  # hard-fail — the sourceFingerprint is an optional auditability field, not an install
-  # precondition.
+  # Fingerprint (adapter-jig D2 — no-silent-fingerprint-degrade) via the shared lib.sh _hash256
+  # ladder — R-3 dedupe: the inline sha256/shasum/md5 ladder this lane used to carry is GONE; one
+  # ladder, one degradation policy repo-wide. The lane adopts _hash256's policy verbatim: no sha
+  # tool on PATH → _hash256 returns 1 → log the loud stderr warning and SKIP the fingerprint
+  # ("sha256:unknown" constant; md5 rungs deleted). Behavior change on a no-sha host: the old
+  # ladder wrote a real-but-md5 "md5:…" fingerprint here while refresh-baseline degraded for the
+  # same file — two schemes for one artefact; now both surfaces degrade identically (sha256-only).
+  # BOTH degrade triggers — no hash tool (the _hash256 failure above) AND delivered-config-absent
+  # (below) — warn LOUDLY to stderr (attention-is-not-a-mechanism §1 / degrade-loudly): the
+  # "sha256:unknown" constant is a FAKE fingerprint, never to be silently trusted. Do NOT hard-fail
+  # — the sourceFingerprint is an optional auditability field, not an install precondition.
   local fp="sha256:unknown"
   if [ -e "$cfg" ]; then
-    if command -v sha256sum >/dev/null 2>&1; then
-      fp="sha256:$(sha256sum "$cfg" | awk '{print $1}')"
-    elif command -v shasum >/dev/null 2>&1; then
-      fp="sha256:$(shasum -a 256 "$cfg" | awk '{print $1}')"
-    elif command -v md5 >/dev/null 2>&1; then          # BSD/macOS md5 fallback (lane parity: 46-cargo.sh ladder)
-      fp="md5:$(md5 "$cfg" | awk '{print $NF}')"
-    elif command -v md5sum >/dev/null 2>&1; then        # Linux md5sum fallback
-      fp="md5:$(md5sum "$cfg" | awk '{print $1}')"
+    local _h
+    if _h=$(_hash256 "$cfg"); then
+      fp="sha256:$_h"
     else
-      echo "  ⚠ getff: no hash tool (sha256sum/shasum/md5/md5sum); go rules-lock sourceFingerprint is non-authoritative" >&2
+      echo "  ⚠ getff: no sha256 tool on PATH; go rules-lock sourceFingerprint is non-authoritative" >&2
+      fp="sha256:unknown"
     fi
   else
     echo "  ⚠ getff: delivered golangci config missing ($cfg); go rules-lock sourceFingerprint is non-authoritative" >&2

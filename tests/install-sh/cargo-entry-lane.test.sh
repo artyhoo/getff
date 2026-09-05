@@ -196,8 +196,10 @@ rm -rf "$C"
 #   (8b) delivered clippy config ABSENT ([ -e "$clippy" ] false) → same constant, same obligation.
 # RED before the fix: the writer emitted "sha256:unknown" with ZERO stderr on both paths (the exact
 # W3-class silent degrade the python lane fixed — 45-python.sh loud else branch, python-rules-lock
-# arm 10). Driven via the CARGO_LAYER_LIB_ONLY seam like arm (7); pruned PATH holds only the
-# coreutils the writer needs — NOT the hash tools — so the no-tool rung is reached deterministically.
+# arm 10). Driven via the CARGO_LAYER_LIB_ONLY seam like arm (7); R-3: the writer now fingerprints
+# via lib.sh _hash256, so the seam sources lib.sh BEFORE the layer. The pruned-PATH intent of (8a)
+# is unchanged — NO sha tool is reachable there, so _hash256 hits its `return 1` rung deterministically
+# (verified: lib.sh's source-time surface needs none of the absent tools).
 echo "  ── (8) lock-writer degrade: no hash tool / clippy absent → loud non-authoritative warning ──"
 BASHBIN=$(command -v bash)
 BIN8=$(mktemp -d)
@@ -208,7 +210,7 @@ C=$(cargo_fixture)
 cp "$TPL/clippy.toml" "$C/clippy.toml"   # getff-header copy → delivered path resolves to clippy.toml
 warn8a=$(
   CARGO_LAYER_LIB_ONLY=1 PROJECT_ROOT="$C" DRY_RUN="" PATH="$BIN8" \
-    "$BASHBIN" -c 'source "$1"; _cargo_write_rules_lock >/dev/null' _ "$LAYER" 2>&1
+    "$BASHBIN" -c 'source "$1"; source "$2"; _cargo_write_rules_lock >/dev/null' _ "$LAYER" "$REPO_ROOT/setup.d/lib.sh" 2>&1
 )
 fp8a=$(sed -n 's/.*"sourceFingerprint": "\([^"]*\)".*/\1/p' "$C/.ai-factory/synthesizer-output/rules-lock.cargo.json" 2>/dev/null)
 printf '%s' "$warn8a" | grep -q "non-authoritative" \
@@ -221,7 +223,7 @@ rm -rf "$C"
 C=$(cargo_fixture)   # NO clippy config at all → the clippy-absent trigger (full PATH, hash tools present)
 warn8b=$(
   CARGO_LAYER_LIB_ONLY=1 PROJECT_ROOT="$C" DRY_RUN="" \
-    "$BASHBIN" -c 'source "$1"; _cargo_write_rules_lock >/dev/null' _ "$LAYER" 2>&1
+    "$BASHBIN" -c 'source "$1"; source "$2"; _cargo_write_rules_lock >/dev/null' _ "$LAYER" "$REPO_ROOT/setup.d/lib.sh" 2>&1
 )
 fp8b=$(sed -n 's/.*"sourceFingerprint": "\([^"]*\)".*/\1/p' "$C/.ai-factory/synthesizer-output/rules-lock.cargo.json" 2>/dev/null)
 printf '%s' "$warn8b" | grep -q "non-authoritative" \
@@ -235,7 +237,7 @@ printf '%s' "$warn8b" | grep -q "non-authoritative" \
 cp "$TPL/clippy.toml" "$C/clippy.toml"
 warn8c=$(
   CARGO_LAYER_LIB_ONLY=1 PROJECT_ROOT="$C" DRY_RUN="" \
-    "$BASHBIN" -c 'source "$1"; _cargo_write_rules_lock >/dev/null' _ "$LAYER" 2>&1
+    "$BASHBIN" -c 'source "$1"; source "$2"; _cargo_write_rules_lock >/dev/null' _ "$LAYER" "$REPO_ROOT/setup.d/lib.sh" 2>&1
 )
 fp8c=$(sed -n 's/.*"sourceFingerprint": "\([^"]*\)".*/\1/p' "$C/.ai-factory/synthesizer-output/rules-lock.cargo.json" 2>/dev/null)
 printf '%s' "$fp8c" | grep -qE '^sha256:[0-9a-f]{64}$' \
