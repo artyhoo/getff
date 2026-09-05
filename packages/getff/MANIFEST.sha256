@@ -527,7 +527,7 @@ b75ae60ff7789448cc4de4248c0e904dda62335a8dfd91f747a5f660d9c05299  packages/core/
 27f115894fe029dbbe2bc61d9915572e6d63c69fca37d46bbde8537c5d7d482f  packages/core/principles/09-doc-authority-hierarchy.ts
 27bfad4e8a7be55658abaf07acb7d633779d4b9a67b4f9b78403eb0bb18bb528  packages/core/principles/10-research-patch-annotation.test.ts
 030b9348938bc687bed853dacccb78643d867fde4a38e285cd5f44aa6a91131e  packages/core/principles/11-build-first-reuse-default.design.md
-5413523d105014ccdde5ceda766bc2e069dc395923ed27962e70c12f1e1bbaab  packages/core/principles/11-build-first-reuse-default.test.ts
+530d631a9b0227385c42e6d0eb4d2b93cd2195a91de735c216d66f1c8e5d8590  packages/core/principles/11-build-first-reuse-default.test.ts
 7ed85c7babb1acee67062102c5ddce7665fc0cb1ddc35427000a7a438ed152f1  packages/core/principles/12-ai-laziness-traps.test.ts
 51bb959320f6adf2697f9f9c332dd664a7eaf4da914d4ad3c77a1fb618712303  packages/core/principles/13-phase-research-coverage-s17.test.ts
 ea660f8a6efcc2b73bff0b8fa0bbecb267de493b2cb19b863e3a72ac7c8497f4  packages/core/principles/14-skill-drift-detection.test.ts
