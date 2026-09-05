@@ -1005,11 +1005,7 @@ _py_deliver_agent_surface() {
     elif [ "$DRY_RUN" = "--dry-run" ]; then
       echo "  [dry-run] would copy: $PKG_ROOT/skills/$_py_skill → $PROJECT_ROOT/.claude/skills/$_py_skill"
     else
-      rm -rf "$PROJECT_ROOT/.claude/skills/$_py_skill"
-      cp -r "$PKG_ROOT/skills/$_py_skill" "$PROJECT_ROOT/.claude/skills/$_py_skill"
-      while IFS= read -r -d '' _py_mdfile; do
-        transform_internal_refs "$_py_mdfile"
-      done < <(find "$PROJECT_ROOT/.claude/skills/$_py_skill" -name '*.md' -print0)
+      _copy_tree_with_transform "$PKG_ROOT/skills/$_py_skill" "$PROJECT_ROOT/.claude/skills/$_py_skill"
       echo "  ✓ .claude/skills/$_py_skill/ (cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
     fi
   done
