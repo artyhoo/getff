@@ -906,6 +906,8 @@ jobs:
         run: bash tests/install-sh/python-rules-lock.test.sh
       - name: "install-sh — Cargo entry lane: install.sh cargo detection + no-package.json bypass + --refresh + REFUSE cell + firing self-check (ecosystem-wiring W4)"
         run: bash tests/install-sh/cargo-entry-lane.test.sh
+      - name: "install-sh — Go entry lane: REFUSE-cell config selection in the DELIVERED getff-go.yml, with the pre-fix order as paired negative (ledger A8-1)"
+        run: bash tests/install-sh/go-entry-lane.test.sh
       - name: "install-sh — getff default-branch substitution: delivered CI workflow triggers on the consumer's real default branch (getff-honest-signals S4)"
         run: bash tests/install-sh/getff-default-branch-substitution.test.sh
       - name: "install-sh — refresh reconciles skill rename: superseded rules-as-tests/ reclaimed, .override.md + modern-absent guards (getff-honest-signals S5)"
