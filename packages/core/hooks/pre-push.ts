@@ -1672,22 +1672,34 @@ export function isFrameworkShippedMarkdown(
 
 // plugin/agents/*.md are BYTE-IDENTICAL copies of agents/*.md — principle 24(d)
 // (24-plugin-manifest-integrity.test.ts) compares bytes, and
-// scripts/generate-plugin-twins.sh:164-166 states the agent arm is a bare `cp`:
+// scripts/generate-plugin-twins.sh:183-185 states the agent arm is a bare `cp`:
 // "No header, no marker, no transform".
 //
 // The twin sits ONE DIRECTORY DEEPER than its source, so a `](../x)` link that
 // resolves from `agents/` resolves to `plugin/x` from `plugin/agents/` — a path that
 // does not exist — and byte-identity forbids rewriting the depth in the copy. Checking
-// the twin therefore re-checks the SOURCE's link text at the wrong depth: zero extra
-// signal, guaranteed false positives on every relative link a source agent carries.
+// the twin here therefore re-checks the SOURCE's link text at the wrong depth: this
+// section resolves against the repo tree, where `plugin/.claude/rules/…` is simply
+// absent, so the finding it produces names a file the copy is forbidden to fix.
 //
 // COVERAGE IS NOT LOST, and the replacement is a mechanism rather than attention
 // (attention-is-not-a-mechanism.md §1): (a) the source `agents/*.md` is walked by this
 // same section; (b) a twin can never legitimately carry content its source does not —
 // principle 24(d) goes RED on any divergence, and the generator REFUSES to write a twin
 // that matches neither the source nor that source at HEAD
-// (generate-plugin-twins.sh:189-205). So the twin's link text is always some source's
+// (generate-plugin-twins.sh:205-224). So the twin's link text is always some source's
 // link text, checked at the source path.
+//
+// (c) — added 2026-09-06 (#1597 ledger L-3), because (a)+(b) covered only the link's
+// TEXT, never its shipped MEANING. plugin/ is its own distribution channel and is not
+// ref-transformed (setup.d/20-agents.sh rewrites the agents/ copies it writes, never
+// plugin/), so a `](../…)` link that is legitimate at the source ships broken to a
+// marketplace consumer — and it did, unnoticed, from PR #1578 until L-3 found it by
+// hand. Principle 24(h)
+// (packages/core/principles/24-plugin-manifest-integrity.test.ts) now owns that
+// question: every twin link must resolve INSIDE plugin/agents/, judged unconditionally
+// rather than only for files changed in a push range, which is the coverage this
+// section could not have supplied even without the exclusion.
 //
 // Applies on BOTH layouts, unlike the S2 Part 1 narrowing below: the depth mismatch is
 // structural, not consumer-specific (a consumer has no plugin/agents/ at all, so this is
@@ -1698,7 +1710,9 @@ export function isFrameworkShippedMarkdown(
 // on plugin/agents/compliance-verifier.md with three
 // `plugin/.claude/rules/phase-research-coverage.md | File not found` errors, while the
 // source file was clean. That is why none of the three twinned agents carried a single
-// `](../…)` link while every non-twinned agent did.
+// `](../…)` link while every non-twinned agent did — an invariant this exclusion then
+// removed, so the same three links went in and stayed broken until L-3. Principle 24(h)
+// restores it as a gate rather than as a side effect of a link checker.
 //
 // Rejected alternative: root-relative links `](/…)`. This section DOES pass `--root-dir`
 // (below), so lychee would resolve them at both depths — but `transform_internal_refs`
