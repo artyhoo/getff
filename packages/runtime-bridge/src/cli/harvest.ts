@@ -102,6 +102,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { isMain, parseCliArgs, CliArgError } from './cliEntry.js';
 import { getTask } from './aifHttp.js';
 import type { AifTaskFull } from './aifHttp.js';
 import {
@@ -132,24 +133,45 @@ interface ParsedArgs {
   confirmDirtyResidue: boolean;
 }
 
-function parseArgs(argv: string[]): ParsedArgs {
-  const positional = argv.find((a) => !a.startsWith('--'));
-  const flag = (name: string): string | undefined => {
-    const i = argv.indexOf(name);
-    return i !== -1 ? argv[i + 1] : undefined;
-  };
+/**
+ * Parse the harvest invocation: one positional <taskId> plus flags.
+ *
+ * Strict (cliEntry.parseCliArgs over node:util parseArgs). The hand-rolled version
+ * took the FIRST non-`--` token as the taskId, so `--base staging f1010da4` harvested
+ * task 'staging' (A6-4 / D-4), and its `--flag <value>` lookup accepted the next token
+ * even when that token was another flag, with the truthiness guard its four sibling
+ * copies had dropped along the way (A6-7 / R-6). Throws {@link CliArgError} on every
+ * such shape; main() turns that into exit 1 with the message.
+ */
+export function parseArgs(argv: string[]): ParsedArgs {
+  const { values, positionals } = parseCliArgs(argv, {
+    options: {
+      base: { type: 'string' },
+      'body-file': { type: 'string' },
+      'no-auto-merge': { type: 'boolean' },
+      container: { type: 'string' },
+      'repo-path': { type: 'string' },
+      'work-dir': { type: 'string' },
+      'host-repo': { type: 'string' },
+      'confirm-rework': { type: 'boolean' },
+      'confirm-unreported-files': { type: 'boolean' },
+      'confirm-dirty-residue': { type: 'boolean' },
+    },
+    maxPositionals: 1,
+  });
+  const str = (name: string): string | undefined => values[name] as string | undefined;
   return {
-    taskId: positional,
-    base: flag('--base') ?? 'staging',
-    bodyFile: flag('--body-file'),
-    autoMerge: !argv.includes('--no-auto-merge'),
-    container: flag('--container') ?? process.env['RUNTIME_BRIDGE_AIF_CONTAINER'] ?? 'aif-handoff-agent-1',
-    repoPath: flag('--repo-path') ?? process.env['RUNTIME_BRIDGE_AIF_REPO_PATH'] ?? DEFAULT_AIF_REPO_PATH,
-    workDir: flag('--work-dir'),
-    hostRepo: flag('--host-repo') ?? process.env['RUNTIME_BRIDGE_HOST_REPO'],
-    confirmRework: argv.includes('--confirm-rework'),
-    confirmUnreportedFiles: argv.includes('--confirm-unreported-files'),
-    confirmDirtyResidue: argv.includes('--confirm-dirty-residue'),
+    taskId: positionals[0],
+    base: str('base') ?? 'staging',
+    bodyFile: str('body-file'),
+    autoMerge: values['no-auto-merge'] !== true,
+    container: str('container') ?? process.env['RUNTIME_BRIDGE_AIF_CONTAINER'] ?? 'aif-handoff-agent-1',
+    repoPath: str('repo-path') ?? process.env['RUNTIME_BRIDGE_AIF_REPO_PATH'] ?? DEFAULT_AIF_REPO_PATH,
+    workDir: str('work-dir'),
+    hostRepo: str('host-repo') ?? process.env['RUNTIME_BRIDGE_HOST_REPO'],
+    confirmRework: values['confirm-rework'] === true,
+    confirmUnreportedFiles: values['confirm-unreported-files'] === true,
+    confirmDirtyResidue: values['confirm-dirty-residue'] === true,
   };
 }
 
@@ -478,7 +500,14 @@ function containerRead(container: string, workDir: string, gitArgs: string): str
 }
 
 async function main(): Promise<void> {
-  const args = parseArgs(process.argv.slice(2));
+  let args: ParsedArgs;
+  try {
+    args = parseArgs(process.argv.slice(2));
+  } catch (err) {
+    const msg = err instanceof CliArgError ? err.message : String(err);
+    process.stderr.write(`[harvest] ${msg}\n`);
+    process.exit(1);
+  }
   if (!args.taskId) {
     process.stderr.write(
       '[harvest] usage: harvest.ts <taskId> [--base staging] [--body-file P] [--no-auto-merge] [--host-repo P]\n' +
@@ -489,17 +518,26 @@ async function main(): Promise<void> {
   }
 
   const baseUrl = process.env['RUNTIME_BRIDGE_AIF_URL'] ?? 'http://localhost:3009';
-  const task = await getTask(baseUrl, args.taskId);
 
-  // Body: prefer an explicit --body-file (the §1.7-compliant text the orchestrator
-  // prepared); else a minimal pointer body. Harvest does not invent §1.7 substance.
-  const body = args.bodyFile
-    ? readFileSync(args.bodyFile, 'utf8')
-    : `Harvested by runtime-bridge from aif task \`${args.taskId}\` (branch \`${task.branchName ?? '?'}\`).\n\n` +
-      `> ⚠ No --body-file supplied — if this PR touches a §4b-gated path, edit the body to add the §1.7 sections before CI.`;
-
-  const { deps, checkout } = realDeps(args.container, args, task);
+  // A5-7: getTask and the --body-file read used to run BEFORE this try, so an
+  // unreachable aif, an unknown taskId or a mistyped --body-file escaped as a raw
+  // unhandled-rejection stack — no `[harvest] FAILED:` line, no Channel-A fallback.
+  // Every failure mode now reaches the classifier below.
+  let task: AifTaskFull | undefined;
+  let checkout: (() => string) | undefined;
   try {
+    task = await getTask(baseUrl, args.taskId);
+
+    // Body: prefer an explicit --body-file (the §1.7-compliant text the orchestrator
+    // prepared); else a minimal pointer body. Harvest does not invent §1.7 substance.
+    const body = args.bodyFile
+      ? readFileSync(args.bodyFile, 'utf8')
+      : `Harvested by runtime-bridge from aif task \`${args.taskId}\` (branch \`${task.branchName ?? '?'}\`).\n\n` +
+        `> ⚠ No --body-file supplied — if this PR touches a §4b-gated path, edit the body to add the §1.7 sections before CI.`;
+
+    const real = realDeps(args.container, args, task);
+    const deps = real.deps;
+    checkout = real.checkout;
     const res = await harvestTask(
       task,
       {
@@ -599,11 +637,21 @@ async function main(): Promise<void> {
     // stuck — host-pull + host push, the same channel the automated leg takes. Never the
     // container-side `git push` this fallback used to print: that channel is dead (no
     // github.com egress from the container) and pointing at it sent the operator in circles.
-    if (task.branchName) {
+    // Channel-A fallback needs the task record; when getTask itself is what failed
+    // there is nothing to point at, so the FAILED line above stands alone.
+    if (task?.branchName) {
       const bundleName = bundleFileName(task.branchName, args.taskId ?? task.id);
       const ctx: ChannelAContext = {
         container: args.container,
-        workDir: checkout(),
+        // Resolving the per-task checkout shells into docker; if that fails too, name
+        // the flag that fixes it rather than throwing out of the error handler.
+        workDir: (() => {
+          try {
+            return checkout ? checkout() : '<work-dir — pass --work-dir>';
+          } catch {
+            return '<work-dir — pass --work-dir>';
+          }
+        })(),
         branch: task.branchName,
         baseRef: `origin/${args.base}`,
         base: args.base,
@@ -632,4 +680,15 @@ async function main(): Promise<void> {
   }
 }
 
-void main();
+// Run only as a real entrypoint (shared realpath-both-sides guard, cliEntry.ts isMain).
+// harvest.ts had a bare top-level `void main()`: importing it for parseArgs/realDeps
+// fired a real getTask and exited the importing process (A6-1 class, R-6).
+//
+// A5-7: a rejection escaping main() (including one thrown by the handler inside) must
+// still print the harvest-shaped diagnostic, never a bare unhandled-rejection stack.
+if (isMain(import.meta.url)) {
+  void main().catch((err) => {
+    process.stderr.write(`[harvest] FAILED: ${err instanceof Error ? err.message : String(err)}\n`);
+    process.exit(1);
+  });
+}

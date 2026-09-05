@@ -173,6 +173,43 @@ describe('parkTask — GET current plan then PUT the park fields', () => {
     expect((spy.mock.calls[0][1] as RequestInit).method).toBe('GET');
   });
 
+  // ── A6-6 (#1597 ledger): park had NO current-state check beyond status==='review'.
+  // A retried park (agent retry, night-loop re-entry) appended a SECOND identical
+  // OPEN QUESTION block and overwrote blockedReason, so the operator saw the same fork
+  // twice in one plan and questions.ts surfaced a doubled reason. A repeat park of the
+  // same question is now a no-op with a notice — the stop is already in place. ──
+  it('A6-6: a repeat park of the SAME question issues NO PUT and reports alreadyParked', async () => {
+    const plan = buildOpenQuestionPlan('# Plan', 'tone: A or B?');
+    const task = { id: 't-9', title: 'x', status: 'implementing', plan, paused: true, blockedReason: 'tone: A or B?' };
+    const spy = vi.spyOn(globalThis, 'fetch').mockImplementation((url) =>
+      Promise.resolve(String(url).endsWith('/tasks/t-9') ? okResponse(task) : okResponse({})),
+    );
+
+    const res = await parkTask('http://localhost:3009', 't-9', 'tone: A or B?');
+
+    expect(res).toEqual({ taskId: 't-9', paused: true, blockedReason: 'tone: A or B?', alreadyParked: true });
+    // Only the GET — no PUT, so the plan keeps exactly one OPEN QUESTION block.
+    expect(spy.mock.calls).toHaveLength(1);
+    expect((spy.mock.calls[0][1] as RequestInit).method).toBe('GET');
+  });
+
+  // Negative control for A6-6: a DIFFERENT question on an already-paused task is a new
+  // fork, not a duplicate — it must still be recorded (RED if the idempotency guard
+  // over-reaches and starts swallowing genuine follow-up questions).
+  it('CONTROL: a DIFFERENT question on an already-paused task still PUTs', async () => {
+    const plan = buildOpenQuestionPlan('# Plan', 'tone: A or B?');
+    const task = { id: 't-9', title: 'x', status: 'implementing', plan, paused: true, blockedReason: 'tone: A or B?' };
+    const spy = vi.spyOn(globalThis, 'fetch').mockImplementation((url) =>
+      Promise.resolve(String(url).endsWith('/tasks/t-9') ? okResponse(task) : okResponse({})),
+    );
+
+    const res = await parkTask('http://localhost:3009', 't-9', 'second fork: C or D?');
+
+    expect(res.alreadyParked).toBeUndefined();
+    expect(spy.mock.calls).toHaveLength(2);
+    expect(JSON.parse((spy.mock.calls[1][1] as RequestInit).body as string).blockedReason).toBe('second fork: C or D?');
+  });
+
   // Negative control paired with the guard: at a pre-review status the park DOES proceed
   // and PUTs paused:true — proving the guard blocks ONLY review, not every status (RED if
   // the guard ever over-reaches and starts rejecting legitimate pre-review parks).
