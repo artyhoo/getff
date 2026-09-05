@@ -313,3 +313,55 @@ describe('AifHandoffBackend.dispatch() — profileHint resolution', () => {
     expect((err as Error).message).toContain('glm-sdk');
   });
 });
+
+// ── A5-8 (#1597 ledger addendum): AifHandoffBackend._rest was the FOURTH copy of the
+// request + BackendError mapping that R-7 / S-4 folded into cli/aifHttp.ts — the one that
+// survived. It is now a thin delegation to aifRequest, and these arms pin that the mapping
+// the backend exposes IS the shared one.
+//
+// Which arm proves what, precisely (T3): the 500 arm is RED on the pre-fold code — that copy
+// emitted `aif-handoff REST POST /tasks HTTP 500` (origin/staging AifHandoffBackend.ts:576),
+// so the asserted substring cannot match it. The 429 arm is a PRESERVATION arm: its message
+// was already byte-identical in both copies (:570), so it would have passed pre-fold too —
+// it is here to pin that the fold did not move the quota classification, not as a RED. ──
+describe('AifHandoffBackend REST mapping is the shared cli/aifHttp one (A5-8)', () => {
+  it('HTTP 429 → quota_exceeded, carrying the shared helper\'s message shape', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/projects')) {
+        return Promise.resolve(jsonResponse([{ id: 'proj-uuid', parallelEnabled: true }], 200));
+      }
+      return Promise.resolve(new Response('slow down', { status: 429 }));
+    });
+
+    const backend = new AifHandoffBackend({
+      baseUrl: 'http://localhost:3009',
+      projectId: 'proj-uuid',
+    });
+
+    await expect(backend.dispatch(KICKOFF)).rejects.toMatchObject({
+      code: 'quota_exceeded',
+      message: expect.stringContaining('aif-handoff rate limit (POST /tasks)'),
+    });
+  });
+
+  it('HTTP 500 → dispatch_failed with the shared message shape (no "REST" prefix)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/projects')) {
+        return Promise.resolve(jsonResponse([{ id: 'proj-uuid', parallelEnabled: true }], 200));
+      }
+      return Promise.resolve(new Response('boom', { status: 500 }));
+    });
+
+    const backend = new AifHandoffBackend({
+      baseUrl: 'http://localhost:3009',
+      projectId: 'proj-uuid',
+    });
+
+    const err = await backend.dispatch(KICKOFF).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(BackendError);
+    expect((err as BackendError).code).toBe('dispatch_failed');
+    expect((err as BackendError).message).toContain('aif-handoff POST /tasks HTTP 500');
+  });
+});

@@ -37,6 +37,9 @@ export interface AifTaskFull {
  */
 export const DEFAULT_HTTP_TIMEOUT_MS = 30_000;
 
+/** The HTTP methods this tree issues against aif-handoff. */
+export type AifHttpMethod = 'GET' | 'PUT' | 'POST' | 'DELETE';
+
 export interface RequestOptions {
   /** Abort the request after this many ms (default {@link DEFAULT_HTTP_TIMEOUT_MS}). */
   timeoutMs?: number;
@@ -55,7 +58,7 @@ export interface RequestOptions {
  * exist and had already diverged — see R-7 / S-4 in the #1597 review ledger.
  */
 async function request(
-  method: 'GET' | 'PUT' | 'POST',
+  method: AifHttpMethod,
   baseUrl: string,
   path: string,
   body?: unknown,
@@ -69,6 +72,8 @@ async function request(
   let res: Response;
   try {
     res = await fetch(`${baseUrl}${path}`, {
+      // Only declare a JSON content-type when a body is actually sent — a no-body DELETE
+      // carrying `Content-Type: application/json` is malformed to some servers.
       method,
       headers:
         body === undefined ? undefined : { 'Content-Type': 'application/json' },
@@ -76,7 +81,22 @@ async function request(
       signal: controller.signal,
     });
   } catch (err) {
+    const name = err instanceof Error ? err.name : '';
     const msg = err instanceof Error ? err.message : String(err);
+    // A timeout and a refused connection are both 'unavailable', but they tell the operator
+    // different things — «the API is wedged» vs «nothing is listening». Prefer the canonical
+    // AbortError name; fall back to a message substring for exotic fetch implementations.
+    if (
+      name === 'AbortError' ||
+      msg.includes('abort') ||
+      msg.includes('timeout')
+    ) {
+      throw new BackendError(
+        `aif-handoff ${method} ${path} timed out`,
+        'unavailable',
+        'aif-handoff',
+      );
+    }
     throw new BackendError(
       `aif-handoff ${method} ${path} unreachable: ${msg}`,
       'unavailable',
@@ -114,6 +134,21 @@ async function request(
   } catch {
     return text;
   }
+}
+
+/**
+ * The generic request, exported for the one caller that needs a method this module's named
+ * helpers do not cover: AifHandoffBackend, whose claim protocol issues a DELETE and whose
+ * own timeout is shorter (A5-8 — it carried a fourth private copy of all of this).
+ */
+export async function aifRequest(
+  method: AifHttpMethod,
+  baseUrl: string,
+  path: string,
+  body?: unknown,
+  opts?: RequestOptions,
+): Promise<unknown> {
+  return request(method, baseUrl, path, body, opts);
 }
 
 /** GET <path> → the parsed JSON body (the generic half of {@link getTask}). */
