@@ -212,6 +212,41 @@ else
 fi
 rm -rf "$PROJECT_ROOT"
 
+# ══════════════════════════════════════════════════════════════════════════════
+# ARM 5 — the `framework-exclusive` opt-out, and that it is an OPT-out
+# ══════════════════════════════════════════════════════════════════════════════
+# Arm 4's default (keep what we cannot attribute) is wrong for one destination shape: a directory
+# whose entire contents are live framework configuration, where a stale file is not inert residue.
+# The python lane's `.getff/astgrep-rules` scan dir is that shape — adapter-jig C4 requires a
+# dropped ast-grep rule to be swept, and `_py_join_researched_rules` re-assembles the dir from
+# `.getff/rules-research` on every pass precisely because the refresh wipes it. Both halves are
+# asserted here: exclusive sweeps, and the DEFAULT does not — or the opt-in would be a no-op and
+# arm 4's guarantee would silently be the exception rather than the rule.
+E5="$(mktemp -d)"
+PROJECT_ROOT="$E5"
+mkdir -p "$E5/src" "$E5/excl" "$E5/shared"
+printf 'shipped
+' > "$E5/src/keep.yml"
+printf 'orphan
+' > "$E5/excl/getff-stale.yml"
+printf 'orphan
+' > "$E5/shared/getff-stale.yml"
+
+refresh_safe "$E5/src" "$E5/excl" framework-exclusive >/dev/null 2>&1
+refresh_safe "$E5/src" "$E5/shared" >/dev/null 2>&1
+
+if [ ! -e "$E5/excl/getff-stale.yml" ] && [ -f "$E5/excl/keep.yml" ]; then
+  ok "arm 5: framework-exclusive sweeps an unattributed orphan and keeps the delivered set"
+else
+  bad "arm 5: framework-exclusive did not sweep the orphan (adapter-jig C4 would regress)"
+fi
+if [ -f "$E5/shared/getff-stale.yml" ]; then
+  ok "arm 5 neg: the DEFAULT call left the identical orphan alone (exclusivity is opt-in)"
+else
+  bad "arm 5 neg: the default call swept it too — the flag changes nothing and arm 4 is the exception"
+fi
+rm -rf "$E5"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

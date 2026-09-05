@@ -675,9 +675,19 @@ install_agents_md() {
 # #873: directory payloads are REPLACED, not nested — mirrors the existing
 # refresh_skill_with_transform precedent (rm -rf "$dst"; cp -r). File refresh is unchanged (a
 # file source cp -r's over an existing file correctly).
+# Optional 3rd argument, `framework-exclusive`: declares that <dst> is a directory NOTHING but
+# the framework may own, so the sweep may also remove files it cannot attribute to a delivery.
+# Default (omitted) is shared ownership — unattributable files are the consumer's and stay.
+# The one declared-exclusive destination today is the python lane's `.getff/astgrep-rules` scan
+# dir, and its exclusivity is load-bearing rather than incidental: `_py_join_researched_rules`
+# (setup.d/45-python.sh) re-assembles that dir from `.getff/rules-research` on EVERY pass
+# precisely because the refresh wipes it, and adapter-jig C4 requires that a dropped rule cannot
+# stay silently active there — a stale ast-grep rule is live scan configuration, not inert
+# residue. Everywhere else the L-4 default holds.
 refresh_safe() {
   local src="$1"
   local dst="$2"
+  local exclusive="${3:-}"
   local override="${dst%.md}.override.md"
   [ -e "$src" ] || return 0  # source gone — leave consumer copy alone
   if [ -e "$override" ]; then
@@ -691,7 +701,7 @@ refresh_safe() {
   # #873 + ledger L-4: a directory payload is REPLACED, not nested into — but file by file, so
   # every file inside it gets the same ownership decision a file payload gets.
   if [ -d "$src" ]; then
-    _refresh_dir_payload "$src" "$dst"
+    _refresh_dir_payload "$src" "$dst" "$exclusive"
     return 0
   fi
   _refresh_one_file "$src" "$dst"
@@ -752,10 +762,14 @@ _refresh_one_file() {
 # framework has since stopped shipping, that stale file is unattributable and survives
 # indefinitely. The alternative — deleting what we cannot prove is ours — is the defect.
 #
+# A destination whose contents are ENTIRELY the framework's can opt out of (2)'s caution with the
+# `framework-exclusive` third argument to refresh_safe; see its docstring for the one such
+# destination and why its exclusivity is load-bearing.
+#
 # Empty source directories are not reproduced (the walk is `-type f`); git tracks no empty
 # directories, and neither shipped payload contains one or any symlink (verified 2026-09-05).
 _refresh_dir_payload() {
-  local src="$1" dst="$2" f rel cur kept=0
+  local src="$1" dst="$2" exclusive="${3:-}" f rel cur kept=0
   while IFS= read -r -d '' f; do
     rel="${f#"$src"/}"
     refresh_safe "$f" "$dst/$rel"
@@ -766,12 +780,14 @@ _refresh_dir_payload() {
     rel="${f#"$dst"/}"
     [ -e "$src/$rel" ] && continue                    # still shipped — pass (1) handled it
     case "$rel" in *.override.md) continue ;; esac    # a Layer-3 marker is the consumer's own
-    _refresh_baseline_lookup "$f"
-    cur=""
-    if [ -n "$REFRESH_BASELINE_ENTRY" ]; then cur=$(_hash256 "$f") || cur=""; fi
-    if [ -z "$REFRESH_BASELINE_ENTRY" ] || [ "$cur" != "$REFRESH_BASELINE_ENTRY" ]; then
-      kept=$((kept+1))
-      continue
+    if [ "$exclusive" != "framework-exclusive" ]; then
+      _refresh_baseline_lookup "$f"
+      cur=""
+      if [ -n "$REFRESH_BASELINE_ENTRY" ]; then cur=$(_hash256 "$f") || cur=""; fi
+      if [ -z "$REFRESH_BASELINE_ENTRY" ] || [ "$cur" != "$REFRESH_BASELINE_ENTRY" ]; then
+        kept=$((kept+1))
+        continue
+      fi
     fi
     if [ "$DRY_RUN" = "--dry-run" ]; then
       echo "  [dry-run] would remove: $f (framework-delivered, no longer shipped)"
