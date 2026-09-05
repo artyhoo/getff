@@ -258,6 +258,19 @@ export function parseSingleCallGitLog(out: string): { sha: string; date: Date; b
 }
 
 /**
+ * Turn an introducing commit's (date, body) into a TrailerResult. Shared by the
+ * per-path walk and the batched index below, so the two resolution strategies
+ * cannot drift on the classification half — they can differ only in WHICH
+ * commit they select, which is exactly what the equivalence tests pin down.
+ */
+function classifyTrailer(commitDate: Date, body: string, grandfatherDate: Date): TrailerResult {
+  if (commitDate < grandfatherDate) return '__grandfathered__';
+  const trailerLines = body.split('\n').filter((l) => l.startsWith('Prior-art:'));
+  if (trailerLines.length === 0) return null;
+  return trailerLines.map((l) => l.slice('Prior-art:'.length).trim()).join(' ');
+}
+
+/**
  * The single-call trailer lookup. `repoRoot` is a parameter (not hardcoded)
  * so the awkward-case tests can point it at a throwaway git repo.
  */
@@ -273,10 +286,7 @@ export function getPriorArtTrailerAt(
   );
   const parsed = parseSingleCallGitLog(out);
   if (!parsed || !parsed.sha) return '__no-introducing-commit__';
-  if (parsed.date < grandfatherDate) return '__grandfathered__';
-  const trailerLines = parsed.body.split('\n').filter((l) => l.startsWith('Prior-art:'));
-  if (trailerLines.length === 0) return null;
-  return trailerLines.map((l) => l.slice('Prior-art:'.length).trim()).join(' ');
+  return classifyTrailer(parsed.date, parsed.body, grandfatherDate);
 }
 
 function getPriorArtTrailer(filePath: string, grandfatherDate: Date): TrailerResult {
@@ -301,6 +311,182 @@ function getPriorArtTrailerLegacy3Calls(
   const trailerLines = body.split('\n').filter((l) => l.startsWith('Prior-art:'));
   if (trailerLines.length === 0) return null;
   return trailerLines.map((l) => l.slice('Prior-art:'.length).trim()).join(' ');
+}
+
+// ── Batched introducing-commit resolution ─────────────────────────────────────
+// The per-path `git log --diff-filter=A -1 -- <path>` walk is correct but costs
+// one subprocess AND one pathspec history walk per capability file. At 243 files
+// that is ~13.5s on the operator's macOS host at load average ~9, and ~31.7s at
+// load average 81 — i.e. the F1 verdict was a function of host load, not of the
+// repository's compliance (incident 2026-09-05: six parallel sessions turned
+// pre-push into a lottery). This block removes the per-file walk for the large
+// majority of the population, leaving the walk only where it is load-bearing.
+//
+// Two fixed-cost passes replace it:
+//   pass 1 — `git log --diff-filter=AD --name-status --no-renames` enumerates
+//            EVERY add-event and delete-event for EVERY path reachable from
+//            HEAD, in one subprocess (~0.23s over 1897 commits).
+//   pass 2 — `git log --no-walk=unsorted --stdin` fetches author-date + body for
+//            just the resolved shas (~0.04s for 143 distinct commits).
+//
+// SAFETY CONDITION — why this cannot weaken the gate.
+// A batched pass and the pathspec walk disagree because the pathspec walk
+// applies git's history simplification and the batched pass does not: a
+// "Promote staging → main" squash commit re-adds files that already exist on
+// staging, so the unsimplified walk sees a phantom add-event that the pathspec
+// walk prunes. (This is the failure the previous batched-map attempt hit —
+// see the single-call comment above.) The resolution here is not a heuristic:
+//
+//   (1) The pathspec walk can only ever RETURN an add-event that the batched
+//       pass also enumerates — it prunes commits, it never invents them. Two
+//       conditions make that superset relation hold in practice, and both are
+//       load-bearing flags on pass 1:
+//         · `--no-renames` — without it, a commit that EXTRACTS a file from
+//           another one is reported as `R`, which `--diff-filter=A` discards,
+//           so the true add-event goes missing from the pass. Measured
+//           2026-09-05: exactly one such file in the current population
+//           (packages/core/backends/shared/render-outcome.ts, introduced by
+//           82e19786). Guarded by the `--no-renames` awkward case below.
+//         · `--diff-filter=AD` (not just `A`) — the delete half is what makes
+//           condition (2) decidable.
+//   (2) If a path has NO delete-event anywhere reachable from HEAD, then on any
+//       single simplified line of history it can have been added exactly once —
+//       a second add on the same line is impossible without an intervening
+//       delete. Every additional add-event therefore sits on a pruned side line
+//       (the promote squash), and a phantom is necessarily COMMITTED LATER than
+//       the real introduction, because the phantom exists only by re-applying
+//       content that was already committed elsewhere. So the oldest add-event by
+//       committer date is the introducing commit.
+//
+// When the safety condition does not hold — the path has a delete-event (a
+// genuine delete/re-add, where "most recent add wins" and only the simplified
+// walk can say which), or the pass produced no add-event at all (an uncommitted
+// file) — this code does NOT guess. It falls back to the authoritative per-path
+// `getPriorArtTrailerAt` walk. Measured 2026-09-05: 226 of 243 files resolve
+// from the index, 17 fall back.
+//
+// Equivalence evidence: `WRONG=0` over all 226 resolved files, compared against
+// the per-path walk on sha, author date AND commit body (the full-population
+// EQUIV_VERIFY test below re-runs that comparison on demand; the awkward cases
+// pin the hazard classes in every CI run).
+
+interface AddEvent {
+  sha: string;
+  /** Committer timestamp (`%ct`), the ordering key for condition (2) above. */
+  committedAt: number;
+}
+
+export interface AddEventIndex {
+  adds: Map<string, AddEvent[]>;
+  deletedPaths: Set<string>;
+}
+
+/** Pass 1 — one walk over the whole history, every add/delete event for every path. */
+export function buildAddEventIndex(repoRoot: string): AddEventIndex {
+  const out = execSync(
+    `git log --diff-filter=AD --name-status --no-renames --format='%x00%H%x00%ct'`,
+    { encoding: 'utf8', cwd: repoRoot, maxBuffer: 512 * 1024 * 1024, env: GIT_ENV_SCRUB },
+  );
+  const adds = new Map<string, AddEvent[]>();
+  const deletedPaths = new Set<string>();
+  // NUL is the record marker because git rejects NUL inside commit objects, so
+  // no commit message or path can forge one. chunks[0] is the empty prefix
+  // before the first marker; records are then (sha, `<ct>\n\n<name-status>`) pairs.
+  const chunks = out.split('\0');
+  for (let i = 1; i + 1 < chunks.length; i += 2) {
+    const sha = chunks[i];
+    const rest = chunks[i + 1];
+    const nl = rest.indexOf('\n');
+    if (nl === -1) continue;
+    const committedAt = Number(rest.slice(0, nl));
+    if (!Number.isFinite(committedAt)) continue;
+    for (const line of rest.slice(nl + 1).split('\n')) {
+      const tab = line.indexOf('\t');
+      if (tab === -1) continue;
+      const status = line.slice(0, tab);
+      const path = line.slice(tab + 1);
+      if (status === 'A') {
+        let list = adds.get(path);
+        if (!list) {
+          list = [];
+          adds.set(path, list);
+        }
+        list.push({ sha, committedAt });
+      } else if (status === 'D') {
+        deletedPaths.add(path);
+      }
+    }
+  }
+  return { adds, deletedPaths };
+}
+
+/**
+ * Resolve `relPath`'s introducing commit from the index, or return null when the
+ * safety condition does not hold and the caller must use the per-path walk.
+ */
+export function resolveIntroducingSha(index: AddEventIndex, relPath: string): string | null {
+  if (index.deletedPaths.has(relPath)) return null; // delete/re-add — walk decides
+  const list = index.adds.get(relPath);
+  if (!list || list.length === 0) return null; // uncommitted, or merge-only add
+  let best = list[0];
+  for (const ev of list) if (ev.committedAt < best.committedAt) best = ev;
+  return best.sha;
+}
+
+/** Pass 2 — author date + body for the resolved shas only, in one subprocess. */
+function loadCommitMetadata(
+  repoRoot: string,
+  shas: string[],
+): Map<string, { date: Date; body: string }> {
+  const meta = new Map<string, { date: Date; body: string }>();
+  if (shas.length === 0) return meta;
+  const out = execSync(`git log --no-walk=unsorted --format='%x00%H%x00%ai%x00%B' --stdin`, {
+    encoding: 'utf8',
+    cwd: repoRoot,
+    input: `${shas.join('\n')}\n`,
+    maxBuffer: 512 * 1024 * 1024,
+    env: GIT_ENV_SCRUB,
+  });
+  const chunks = out.split('\0');
+  for (let i = 1; i + 2 < chunks.length; i += 3) {
+    meta.set(chunks[i], { date: new Date(chunks[i + 1]), body: chunks[i + 2] });
+  }
+  return meta;
+}
+
+/**
+ * Batched population lookup. Keyed by ABSOLUTE path (the shape `scanCapabilities`
+ * hands out), value semantics byte-identical to `getPriorArtTrailerAt`.
+ */
+export function getPriorArtTrailersBatched(
+  repoRoot: string,
+  absPaths: string[],
+  grandfatherDate: Date,
+): Map<string, TrailerResult> {
+  const index = buildAddEventIndex(repoRoot);
+  const resolved = new Map<string, string>();
+  const fallback: string[] = [];
+  for (const abs of absPaths) {
+    const sha = resolveIntroducingSha(index, relative(repoRoot, abs));
+    if (sha) resolved.set(abs, sha);
+    else fallback.push(abs);
+  }
+  const meta = loadCommitMetadata(repoRoot, [...new Set(resolved.values())]);
+  const out = new Map<string, TrailerResult>();
+  for (const [abs, sha] of resolved) {
+    const m = meta.get(sha);
+    // A resolved sha with no metadata should be unreachable; degrade to the
+    // authoritative walk rather than guess.
+    if (!m) {
+      out.set(abs, getPriorArtTrailerAt(repoRoot, abs, grandfatherDate));
+      continue;
+    }
+    out.set(abs, classifyTrailer(m.date, m.body, grandfatherDate));
+  }
+  for (const abs of fallback) {
+    out.set(abs, getPriorArtTrailerAt(repoRoot, abs, grandfatherDate));
+  }
+  return out;
 }
 
 /**
@@ -402,13 +588,14 @@ export function assertF3(relPath: string, rationale: string): void {
 }
 
 // ── Shared capability scan (perf memo) ─────────────────────────────────────────
-// Cost model (post-single-call, 2026-07-24): scanCapabilities() walks each
-// capability file ONCE via `getPriorArtTrailer` → `git log --diff-filter=A
-// --format='%H%n%ai%n%B' -1 -- <path>` (one subprocess per file, down from
-// three). Container: ~5.0s for 228 files; host: ~17.7s (was ~26s pre-fix).
-// F1 runs first and pays the full walk cost; F3 hits the cached trailers map.
-// The legacy 3-call reference (`getPriorArtTrailerLegacy3Calls` above) is
-// retained for the EQUIV_VERIFY=1 equivalence test only.
+// Cost model (post-batched-index, 2026-09-05): scanCapabilities() runs TWO
+// fixed-cost git passes (`buildAddEventIndex` + `loadCommitMetadata`) and then
+// pays the per-path walk only for the files the index cannot answer
+// authoritatively — 17 of 243 in the current population. F1 runs first and pays
+// that cost; F3 hits the cached trailers map. The per-path walk
+// (`getPriorArtTrailerAt`) and the legacy 3-call reference
+// (`getPriorArtTrailerLegacy3Calls`) both remain: the former as the fallback and
+// the awkward-case oracle, the latter for the EQUIV_VERIFY=1 test only.
 interface CapabilityScan {
   ssotContent: string;
   files: string[];
@@ -420,8 +607,7 @@ function scanCapabilities(): CapabilityScan {
   const grandfatherDate = getGrandfatherDate();
   const ssotContent = readFile(SSOT_PATH);
   const files = getCapabilityFiles();
-  const trailers = new Map<string, TrailerResult>();
-  for (const f of files) trailers.set(f, getPriorArtTrailer(f, grandfatherDate));
+  const trailers = getPriorArtTrailersBatched(REPO_ROOT, files, grandfatherDate);
   _capabilityScan = { ssotContent, files, trailers };
   return _capabilityScan;
 }
@@ -429,21 +615,31 @@ function scanCapabilities(): CapabilityScan {
 // ── Test suite ────────────────────────────────────────────────────────────────
 
 describe('Principle 11 — build-first reuse-default', () => {
-  // Cost model (post-single-call, 2026-07-24): scanCapabilities() does ONE
-  // `git log --diff-filter=A --format='%H%n%ai%n%B' -1 -- <path>` per file
-  // (down from 3 git spawns per file in the legacy implementation).
-  // Timing depends heavily on environment — the container (Linux overlayfs)
-  // is ~3× faster than the operator's macOS host at this workload:
-  //   container: ~5.0s for 228 files
-  //   host:      ~17.7s for 228 files  (the gate runs here at push time)
-  // The budget is sized to the HOST: 30s gives ~41% margin over 17.7s.
-  // Host speedup vs the legacy 3-call baseline (~26s) is 1.47× — under 2×,
-  // an honest small win. NOTE: the expensive part (the per-file walk with
-  // pathspec history-simplification) is unchanged, so cost still grows with
-  // repository age (1481 commits today, ~365 in the last 30 days) — this
-  // fix lowered the constant, not the exponent.
-  // A regression past 30s means the per-file walk degraded — investigate
-  // before raising this. F3 then hits the cached trailers map (sub-ms).
+  // Cost model (post-batched-index, 2026-09-05): scanCapabilities() no longer
+  // walks history once per capability file. It runs two fixed-cost passes and
+  // then the per-path walk only for the residue the index cannot answer (see
+  // the safety condition at `buildAddEventIndex`). Measured on the operator's
+  // macOS host, 243 files, 1897 commits:
+  //   pass 1 (add/delete index)        0.23s
+  //   pass 2 (metadata, 143 shas)      0.04s
+  //   residue (17 per-path walks)      ~1.0s
+  //   F1 total                         1.3s   (was 13.5s at load average 9)
+  // Why this budget stopped being a load lottery. The old scan spent its time in
+  // 243 subprocess spawns plus 243 pathspec walks, and that is exactly the work
+  // that degrades when other sessions saturate the host. Paired measurement of
+  // the two scans back to back, same host, git-contention load generators
+  // running (2026-09-05):
+  //   load  17    old 15.65s   new 1.28s
+  //   load 131    old 26.85s   new 2.62s
+  //   load 174    old 28.49s   new 2.20s
+  // The old scan walks into the 30s budget somewhere past load ~150 — which is
+  // how six parallel sessions turned pre-push into a coin flip (the reported
+  // 31.7s timeout, incident 2026-09-05). The budget stays at 30s; the new scan
+  // holds ~11× headroom at the load that used to blow it.
+  // Cost still grows with repository age, but through TWO whole-history passes
+  // rather than 243 of them.
+  // A regression past 30s means the index degraded or the residue exploded —
+  // investigate before raising this. F3 then hits the cached trailers map (sub-ms).
   it('F1: all post-grandfather capability artifacts have SSOT match or Prior-art trailer', { timeout: 30000 }, () => {
     const { ssotContent, files, trailers } = scanCapabilities();
     expect(files.length, 'capability set must be non-empty').toBeGreaterThan(0);
@@ -479,7 +675,7 @@ describe('Principle 11 — build-first reuse-default', () => {
   });
 
   // Reorder-safety: normally a sub-ms cache hit, but if F3 ran before F1 it
-  // would carry the full walk — size for that case. 30s matches F1 (host-sized).
+  // would carry the whole scan — size for that case. 30s matches F1.
   it('F3: all Post-grandfather Prior-art trailers are valid (≥20 chars, non-placeholder)', { timeout: 30000 }, () => {
     const { files, trailers } = scanCapabilities();
     const violations: string[] = [];
@@ -573,22 +769,25 @@ describe('Principle 11 — build-first reuse-default', () => {
   });
 
   /**
-   * Equivalence proof (T-BATCH-A falsifier): run the legacy 3-call git lookup
-   * AND the single-call lookup over the FULL population and assert byte-identical
-   * TrailerResult per file. A bug in the single-call format/parser that drops
-   * or mis-attributes trailers is caught here. Gated on EQUIV_VERIFY=1 because
-   * the legacy 3-call walk is the slow path the single-call replaces
-   * (container ~8.5s, host ~26s for 228 files) —
-   * running it in every CI would defeat the purpose. Run once per PR that
-   * touches the lookup (paste output into the PR body).
+   * Equivalence proof (T-BATCH-A falsifier): run the legacy 3-call git lookup,
+   * the single-call per-path lookup AND the batched index over the FULL
+   * population and assert byte-identical TrailerResult per file. A bug in any
+   * of the three that drops or mis-attributes trailers is caught here. Gated on
+   * EQUIV_VERIFY=1 because the two per-path strategies are exactly the slow
+   * paths the index replaces (host ~26s and ~13.5s for 243 files) — running
+   * them in every CI would defeat the purpose. Run once per PR that touches the
+   * lookup (paste output into the PR body). Corpus-level only: the per-class
+   * hazard cases at the bottom of this file run unconditionally, so a batched
+   * regression is never dependent on somebody setting this variable.
    */
-  it('equivalence: single-call lookup matches legacy 3-call lookup over full population', { timeout: 60000 }, () => {
+  it('equivalence: batched index and single-call lookup match legacy 3-call over full population', { timeout: 120000 }, () => {
     if (process.env.EQUIV_VERIFY !== '1') {
-      console.log('  [equivalence skipped] Set EQUIV_VERIFY=1 to run legacy-vs-singlecall comparison.');
+      console.log('  [equivalence skipped] Set EQUIV_VERIFY=1 to run legacy-vs-singlecall-vs-batched comparison.');
       return;
     }
     const grandfatherDate = getGrandfatherDate();
     const files = getCapabilityFiles();
+    const batched = getPriorArtTrailersBatched(REPO_ROOT, files, grandfatherDate);
     // T14 — assert we're comparing a non-trivial population, not a sample. The
     // capability set should include ≥100 files in any real checkout.
     expect(files.length, 'capability set must be non-trivial').toBeGreaterThan(100);
@@ -598,8 +797,9 @@ describe('Principle 11 — build-first reuse-default', () => {
     for (const filePath of files) {
       const legacy = getPriorArtTrailerLegacy3Calls(filePath, grandfatherDate);
       const singleCall = getPriorArtTrailer(filePath, grandfatherDate);
+      const batchedResult = batched.get(filePath) as TrailerResult;
       compared++;
-      if (legacy !== singleCall) {
+      if (legacy !== singleCall || legacy !== batchedResult) {
         const rel = relative(REPO_ROOT, filePath);
         // Truncate values in the mismatch message — trailers can be very long
         // and we only need to see the divergence point.
@@ -608,7 +808,9 @@ describe('Principle 11 — build-first reuse-default', () => {
           const s = String(v);
           return s.length > 100 ? s.slice(0, 100) + `…(${s.length} chars)` : s;
         };
-        mismatches.push(`${rel}: legacy=${JSON.stringify(trunc(legacy))} single=${JSON.stringify(trunc(singleCall))}`);
+        mismatches.push(
+          `${rel}: legacy=${JSON.stringify(trunc(legacy))} single=${JSON.stringify(trunc(singleCall))} batched=${JSON.stringify(trunc(batchedResult))}`,
+        );
       }
     }
     expect(compared, 'must compare the full population, not a sample').toBe(files.length);
@@ -748,6 +950,182 @@ describe('Principle 11 — single-call lookup awkward cases', () => {
       const grandfatherDate = new Date('2024-06-01 00:00:00 +0000');
       const result = lookup(dir, 'f.txt', grandfatherDate);
       expect(result).toBe('__grandfathered__');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // ── Batched-index hazard cases ─────────────────────────────────────────────
+  // These pin the three classes that decide whether the batched index may skip
+  // the per-path walk. They run in EVERY CI pass (five tiny repos, ~100ms each)
+  // rather than behind EQUIV_VERIFY, because a batched-vs-per-path divergence
+  // whose only detector is "somebody remembers to set an env var" is not a
+  // mechanism (.claude/rules/attention-is-not-a-mechanism.md §1).
+
+  /** Batched twin of `lookup` — resolves a single path through the index path. */
+  function lookupBatched(dir: string, relPath: string, grandfatherDate: Date): TrailerResult {
+    const abs = join(dir, relPath);
+    return getPriorArtTrailersBatched(dir, [abs], grandfatherDate).get(abs) as TrailerResult;
+  }
+
+  it('hazard 1: promote-squash phantom add — batched index picks the real introduction', () => {
+    const dir = makeTempRepo();
+    try {
+      // Reproduce the exact shape that defeats a naive batched map: a file is
+      // introduced on the working line, a squash-promote commit on another line
+      // re-adds the SAME path with a different message, and that line is later
+      // merged back. The pathspec walk prunes the promote side; the batched
+      // index must reach the same verdict via the oldest-add rule.
+      commit(dir, 'root', '2025-01-01T00:00:00 +0000', [{ name: 'seed.txt', content: 's' }]);
+      execSync('git branch other', { cwd: dir, encoding: 'utf8', env: GIT_ENV_SCRUB });
+      commit(dir, 'feat: introduce f\n\nPrior-art: the real introduction rationale', '2025-02-01T00:00:00 +0000', [
+        { name: 'f.txt', content: 'shared-content' },
+      ]);
+      execSync('git checkout -q other', { cwd: dir, encoding: 'utf8', env: GIT_ENV_SCRUB });
+      commit(dir, 'Promote → main (squash)\n\nPrior-art: phantom promote rationale', '2025-03-01T00:00:00 +0000', [
+        { name: 'f.txt', content: 'shared-content' },
+      ]);
+      execSync('git checkout -q -', { cwd: dir, encoding: 'utf8', env: GIT_ENV_SCRUB });
+      execSync(
+        "GIT_AUTHOR_DATE='2025-04-01T00:00:00 +0000' GIT_COMMITTER_DATE='2025-04-01T00:00:00 +0000' " +
+          'git merge -q --no-ff other -m "merge promote line back"',
+        { cwd: dir, encoding: 'utf8', env: GIT_ENV_SCRUB },
+      );
+      const grandfatherDate = new Date('2020-01-01 00:00:00 +0000');
+      const perPath = lookup(dir, 'f.txt', grandfatherDate);
+      // The per-path walk is the oracle; assert its verdict explicitly so a
+      // change in git's simplification cannot make this test vacuously pass.
+      expect(perPath).toBe('the real introduction rationale');
+      expect(lookupBatched(dir, 'f.txt', grandfatherDate)).toBe(perPath);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('hazard 2: rename-introduced path shadowed by a phantom add — --no-renames is load-bearing', () => {
+    const dir = makeTempRepo();
+    try {
+      // The shape measured on the real repo 2026-09-05
+      // (packages/core/backends/shared/render-outcome.ts): the TRUE
+      // introduction is a rename, which git reports as `R` and
+      // `--diff-filter=A` therefore discards — while a later promote-squash on
+      // another line adds the same path as a plain `A`. With rename detection
+      // left on, pass 1 sees ONLY the phantom, the path looks
+      // single-add-no-delete, and the index confidently returns the wrong
+      // commit. `--no-renames` is what makes the true add-event visible.
+      const body = Array.from({ length: 40 }, (_, i) => `line ${i}`).join('\n');
+      commit(dir, 'root', '2025-01-01T00:00:00 +0000', [{ name: 'seed.txt', content: 's' }]);
+      execSync('git branch other', { cwd: dir, encoding: 'utf8', env: GIT_ENV_SCRUB });
+      commit(dir, 'add original', '2025-01-15T00:00:00 +0000', [{ name: 'a.txt', content: body }]);
+      execSync('git mv a.txt b.txt', { cwd: dir, encoding: 'utf8', env: GIT_ENV_SCRUB });
+      execSync(
+        "GIT_AUTHOR_DATE='2025-02-01T00:00:00 +0000' GIT_COMMITTER_DATE='2025-02-01T00:00:00 +0000' " +
+          "git commit -q -m 'refactor: extract b from a\n\nPrior-art: the real rename introduction'",
+        { cwd: dir, encoding: 'utf8', env: GIT_ENV_SCRUB },
+      );
+      // Promote line: branched before a.txt existed, so it adds b.txt outright.
+      execSync('git checkout -q other', { cwd: dir, encoding: 'utf8', env: GIT_ENV_SCRUB });
+      commit(dir, 'Promote → main (squash)\n\nPrior-art: phantom promote rationale', '2025-03-01T00:00:00 +0000', [
+        { name: 'b.txt', content: body },
+      ]);
+      execSync('git checkout -q -', { cwd: dir, encoding: 'utf8', env: GIT_ENV_SCRUB });
+      execSync(
+        "GIT_AUTHOR_DATE='2025-04-01T00:00:00 +0000' GIT_COMMITTER_DATE='2025-04-01T00:00:00 +0000' " +
+          'git merge -q --no-ff other -m "merge promote line back"',
+        { cwd: dir, encoding: 'utf8', env: GIT_ENV_SCRUB },
+      );
+      const grandfatherDate = new Date('2020-01-01 00:00:00 +0000');
+      const perPath = lookup(dir, 'b.txt', grandfatherDate);
+      expect(perPath).toBe('the real rename introduction');
+      expect(lookupBatched(dir, 'b.txt', grandfatherDate)).toBe(perPath);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('hazard 3: delete then re-add — index defers to the per-path walk', () => {
+    const dir = makeTempRepo();
+    try {
+      commit(dir, 'add v1\n\nPrior-art: the older rationale that must lose', '2024-01-01T00:00:00 +0000', [
+        { name: 'f.txt', content: 'v1' },
+      ]);
+      execSync('git rm -q f.txt && git commit -q -m delete', { cwd: dir, encoding: 'utf8', env: GIT_ENV_SCRUB });
+      commit(dir, 're-add v2\n\nPrior-art: the newer rationale that must win', '2025-06-01T00:00:00 +0000', [
+        { name: 'f.txt', content: 'v2' },
+      ]);
+      const grandfatherDate = new Date('2020-01-01 00:00:00 +0000');
+      // The oldest-add rule would return the LOSING trailer here; the safety
+      // condition must route this path to the walk instead.
+      const index = buildAddEventIndex(dir);
+      expect(resolveIntroducingSha(index, 'f.txt'), 'delete-event must force fallback').toBeNull();
+      expect(lookupBatched(dir, 'f.txt', grandfatherDate)).toBe('the newer rationale that must win');
+      expect(lookupBatched(dir, 'f.txt', grandfatherDate)).toBe(lookup(dir, 'f.txt', grandfatherDate));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('hazard 4: whole-population equivalence — batched map matches the walk file by file', () => {
+    const dir = makeTempRepo();
+    try {
+      // One repo carrying every class at once, resolved as a population rather
+      // than one path at a time — the shape scanCapabilities() actually calls.
+      commit(dir, 'root\n\nPrior-art: root rationale long enough to be valid', '2025-01-01T00:00:00 +0000', [
+        { name: 'kept.txt', content: 'k' },
+        { name: 'doomed.txt', content: 'd' },
+      ]);
+      execSync('git rm -q doomed.txt && git commit -q -m drop', { cwd: dir, encoding: 'utf8', env: GIT_ENV_SCRUB });
+      commit(dir, 'restore\n\nPrior-art: restored rationale long enough to be valid', '2025-05-01T00:00:00 +0000', [
+        { name: 'doomed.txt', content: 'd2' },
+        { name: 'fresh.txt', content: 'f' },
+      ]);
+      const grandfatherDate = new Date('2020-01-01 00:00:00 +0000');
+      const names = ['kept.txt', 'doomed.txt', 'fresh.txt', 'never-added.txt'];
+      const abs = names.map((n) => join(dir, n));
+      const batched = getPriorArtTrailersBatched(dir, abs, grandfatherDate);
+      let compared = 0;
+      for (const a of abs) {
+        expect(batched.get(a), `batched result for ${a}`).toBe(getPriorArtTrailerAt(dir, a, grandfatherDate));
+        compared++;
+      }
+      expect(compared, 'must compare every path in the fixture population').toBe(names.length);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // ── Paired negative ────────────────────────────────────────────────────────
+  // The gate must still go RED when an artifact is missing its trailer, and it
+  // must go RED through the NEW resolution path, not only through a direct
+  // assertF1 call on a hand-made argument (the existing anti-tautology test).
+  it('paired negative: post-grandfather artifact with no trailer fails F1 through the batched index', () => {
+    const dir = makeTempRepo();
+    try {
+      commit(dir, 'feat: compliant artifact\n\nPrior-art: a genuinely substantive rationale here', '2025-06-01T00:00:00 +0000', [
+        { name: 'compliant.ts', content: 'export const a = 1;\n' },
+      ]);
+      commit(dir, 'feat: add a capability with no trailer at all', '2025-07-01T00:00:00 +0000', [
+        { name: 'delinquent.ts', content: 'export const b = 2;\n' },
+      ]);
+      const grandfatherDate = new Date('2020-01-01 00:00:00 +0000');
+      const compliant = join(dir, 'compliant.ts');
+      const delinquent = join(dir, 'delinquent.ts');
+      const batched = getPriorArtTrailersBatched(dir, [compliant, delinquent], grandfatherDate);
+
+      // Both paths must have resolved through the INDEX, not the fallback —
+      // otherwise this asserts nothing about the new code.
+      const index = buildAddEventIndex(dir);
+      expect(resolveIntroducingSha(index, 'compliant.ts')).not.toBeNull();
+      expect(resolveIntroducingSha(index, 'delinquent.ts')).not.toBeNull();
+
+      // RED half: no trailer, no SSOT match → F1 must throw.
+      expect(batched.get(delinquent)).toBeNull();
+      expect(() => assertF1('delinquent.ts', batched.get(delinquent) as TrailerResult, false)).toThrow(
+        /F1:.*capability artifact has neither/,
+      );
+      // GREEN half: the same code path, same repo, trailer present → no throw.
+      expect(batched.get(compliant)).toBe('a genuinely substantive rationale here');
+      expect(() => assertF1('compliant.ts', batched.get(compliant) as TrailerResult, false)).not.toThrow();
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
