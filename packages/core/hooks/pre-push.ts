@@ -831,29 +831,67 @@ function zizmorLiveSection(): void {
 // owner=maintainer composes it on the framework layout only. `onMissing` stays 'die':
 // a maintainer whose zizmor is missing must fix-first, never DEGRADE past a template.
 function zizmorTemplatesSection(): void {
-  // KEEP IN SYNC with the zizmor run: line in .github/workflows/audit-self.yml
-  // (the CI twin). New presets added via setup.d deliver_getff_workflow MUST be
-  // appended here AND there — this list drifted past cargo/python/react-spa/
+  // The population is DISCOVERED, never restated. Both this twin and the CI one
+  // (`Run zizmor` in .github/workflows/audit-self.yml) used to carry the same
+  // hand-written seven-path array, and a hand-maintained mirror of an
+  // automatically-growing population drifts: past cargo/python/react-spa/
   // react-native for 4+ months (last touched in #130; presets landed in
-  // #661/#662/#996/#1080) because nothing enforced parity. Ship a new
-  // github-actions template → add its path to BOTH places.
-  const existingTemplates = [
-    'templates/ts-server/github-actions-ci.yml',
-    'templates/ts-server/github-actions-workflow-integrity.yml',
-    'packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml',
-    'packages/core/templates/cargo/github-actions-ci.yml',
-    'packages/core/templates/python/github-actions-ci.yml',
-    'packages/preset-react-spa/templates/github-actions-ci-ui.yml',
-    'packages/preset-react-native/templates/github-actions-ci-ui.yml',
-  ].filter((p) => existsSync(resolve(REPO_ROOT, p)));
-  if (existingTemplates.length > 0) {
+  // #661/#662/#996/#1080), and then past packages/core/templates/go/
+  // github-actions-ci.yml — shipped to every go consumer by setup.d/47-go.sh and
+  // scanned by NEITHER twin (ledger A8-4). Nothing enforced parity because the
+  // only detection layer was someone noticing
+  // (.claude/rules/attention-is-not-a-mechanism.md §1 `#warning-nobody-reads`).
+  //
+  // Every git-tracked `*github-actions*.yml` OUTSIDE .github/workflows/ is a
+  // shipped CI template by construction, so a new preset enters the scan the
+  // moment it is committed — no second place to remember.
+  const templates = trackedShippedWorkflowTemplates();
+  // An honest empty set is legal HERE and only here: `owner: maintainer` keys off
+  // the SSOT register (isFrameworkRepo), which a synthetic framework-flagged tree
+  // can carry while shipping no templates at all — the owner-split fixtures in
+  // pre-push.consumer-layout.test.ts are exactly that. So this channel cannot tell
+  // «the repo has none» from «discovery lost them», and a floor asserted here would
+  // be a floor asserted against the wrong population.
+  //
+  // The floor therefore lives where the population is knowable: the `Run zizmor`
+  // step in .github/workflows/audit-self.yml errors when discovery matches nothing,
+  // on the real repo, every run. What IS knowable here is a discovery that could
+  // not even be ASKED — `git ls-files` failing — which the old hand list could not
+  // detect at all because it never asked git anything.
+  if (templates === null) {
+    die(
+      '❌ zizmor shipped-template scan: `git ls-files` failed, so the shipped-template\n' +
+        '   population could not be determined. The scan would silently cover nothing.\n' +
+        '   Fix the repository state; do not skip the gate.',
+    );
+  }
+  if (templates.length > 0) {
     requireTool(
       'zizmor',
-      ['--format', 'plain', ...existingTemplates],
+      ['--format', 'plain', ...templates],
       '   Install: pip install zizmor',
       ZIZMOR_FIX_HINT,
     );
   }
+}
+
+/**
+ * Git-tracked shipped CI templates: every `*github-actions*.yml` outside
+ * `.github/workflows/` (which zizmor scans as a directory in its own right).
+ * Tracked-only, mirroring `shellScriptFiles()` — an untracked scratch copy must
+ * never gate a push. Sorted so the scanned set is deterministic across platforms.
+ *
+ * Returns `null` — distinct from `[]` — when git itself could not answer, so the
+ * caller can tell «this repo ships no templates» from «the question failed».
+ */
+function trackedShippedWorkflowTemplates(): string[] | null {
+  const r = run('git', ['ls-files', '-z', '--', '*github-actions*.yml']);
+  if (r.exitCode !== 0) return null;
+  return r.stdout
+    .split('\0')
+    .filter((l) => l.length > 0 && !l.startsWith('.github/'))
+    .filter((l) => existsSync(resolve(REPO_ROOT, l)))
+    .sort();
 }
 
 // ── 3. Self-test pipeline: audit-ai-docs (maintainer) ────────────────────────
