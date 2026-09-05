@@ -5,7 +5,7 @@ c46cce1bd40827c283581e6fc4ffac337d71e38ca062ada64024be2131092084  .claude/hooks/
 e23ec866e82d4d0972e9ed11754e3aff70ce0a448006426a199e6dd2e9a94d11  .claude/hooks/check-hook-marker.sh
 131a7e71446486ec182decfb61edef4fe34475c15a1cc418eb0cde47a246bbc1  .claude/hooks/check-kickoff-traps.sh
 bc4ceee35e6cd325f9910f720678b07b88540306f8c3e595a278d32be4a50a29  .claude/hooks/check-worker-dispatch-channel.sh
-e2404b3623a04b6f89e731f32480f26c350503d9c4a6c72c2a706a63a35c544a  .claude/hooks/deps-hash-check.sh
+4fc3ccee69bd4bb12f5c7ee68671841e3f944b926952bd87f2ffacf0f2ccde6a  .claude/hooks/deps-hash-check.sh
 3055dfded6db09c0ff5a080df7026db837e8096a70596ef4ff1d9a6e23031045  .claude/hooks/end-of-turn-reminder.sh
 6fdc8128cd549df4bbdd7b8549f89599f41315978a1739d1a8fe41ca405bfeeb  .claude/hooks/inject-matching-rule.sh
 d783e618156d9dc26dad1627281e44ea10a128cee9c29a91cea273b37251e47c  .claude/hooks/inject-memory-codification.sh
@@ -155,7 +155,7 @@ ed0d47877440378ce79ed217998095613859e8af018e166fbf38cd83b8389fa7  packages/core/
 97a89b7ec81c18b5d99b86719d467f065fca14b59be906a5b2bb97a3251f6fa6  packages/core/audit-self/check-shields-up.sh
 1a0b69a6491e5a5d610b5ff7aa0e66ca56d712d750a0830d97198c87e7660a37  packages/core/audit-self/ci-available-probe.sh
 ca5419371e38813b79616116dec6274147b128192147fc7b13321ea11726fb26  packages/core/audit-self/detect-r2-boundary.sh
-e1360b23955af775e34d377a1e2fd5f69289e59899ca9d7c3e2e51791384b4cd  packages/core/audit-self/first-steps-parity.test.ts
+7d02fca028572a11002da2c1c4ef1fba224f39cbeeeb4ea5b27fc2a54b52358f  packages/core/audit-self/first-steps-parity.test.ts
 8eaec66627b18b6e451bda7c19fc70a28cac19603e6bfc6b33f8688ecd276193  packages/core/audit-self/fixtures/README.md
 a36e789e192c142d952035a41aab06eca0bbcfc5905511847206df8b1b91683c  packages/core/audit-self/fixtures/fences-fire/no-server-imports-in-client.bad.txt
 0792817f9701f328551a39c66e63b784405b0f3c6ef709a49d554ef4b31e1e73  packages/core/audit-self/fixtures/fences-fire/no-server-imports-in-client.good.txt
@@ -186,8 +186,8 @@ c7fe2fd1d4c14a784231afa024c715f77de85c728526d558069a9d64572e6f70  packages/core/
 2dad54343f0e0d674e82c8eecb878a43167bd45906b49641e6e2617be60868ed  packages/core/audit-self/hooks-tree-guard.ts
 1e1c79bc91e41d8c57e215b029b7bdf1f435199cf2da4ad6837fa81c14e27353  packages/core/audit-self/md-line-gate.sh
 cc2bab9b0d801efc943574d3e91682d4960f755ab78fab9f4d212fc5c0643944  packages/core/audit-self/md-line-gate.test.ts
-6dc8f440f277db1fdd3d1c88d6cfe34f90230d9233edf2598fe5207821b7cc87  packages/core/audit-self/pre-merge-local.sh
-dbc248010a8875d18f8bd4e2d7ed22933b4624a7c5ff7460f56328e50ddd6e62  packages/core/audit-self/pre-merge-local.test.sh
+b6b73cf075c3a6153cd87db95c96c651e4077c06073942f0082ecd5d5bb5fa56  packages/core/audit-self/pre-merge-local.sh
+d488881038c8a75b6230d3770b6ec9eb902d1a70782d089f502c7d76d234645e  packages/core/audit-self/pre-merge-local.test.sh
 7cf8b8f736f50de99cf2e8633a0b65f4de109ebc914835607f520ff1a3ae3953  packages/core/audit-self/r2-na-marker.sh
 532f6a9b7cc02e64228fdb8d4b0ed88482769eb8832d744c8a94a30b182ea8f6  packages/core/audit-self/run-bash-mutation.sh
 ee2e43857159ae9f685873dd3538392dd9536b2e3bca48645bac776fcdea5e36  packages/core/audit-self/run-bash-mutation.test.ts
@@ -436,8 +436,8 @@ ca448b7aff2a64d1047a3a104574317f12f920138f945ff0781c0645d231b74d  packages/core/
 2fc3c415dc0c4b4a936148194e61d07cc520db4cc460a6526107229f5175f3ae  packages/core/hooks/create-worktree.test.ts
 102d0f1d52db74e42ecb3763499328d7a7c5606e9393d8dd674b3094169dc85f  packages/core/hooks/delta-diff.test.ts
 190ffb849134f8346cd9b8671708d67e521169de0111fab066213820c3b1cfe9  packages/core/hooks/delta-write-from-state.test.ts
-e2404b3623a04b6f89e731f32480f26c350503d9c4a6c72c2a706a63a35c544a  packages/core/hooks/deps-hash-check.sh
-bf8e51ec82e6b33af33c1416703ac72f48be2f46bacfe49bcad354dc69af38ed  packages/core/hooks/deps-hash-check.test.ts
+4fc3ccee69bd4bb12f5c7ee68671841e3f944b926952bd87f2ffacf0f2ccde6a  packages/core/hooks/deps-hash-check.sh
+341a7a4f0d2afde84e9687a87dafccac458b04398e07d236b5766fada6d249c7  packages/core/hooks/deps-hash-check.test.ts
 444b29e50614470ba141f62b1d1f4c9925fc25952b6266255638f22320c5cd52  packages/core/hooks/dispatch-from-state.test.ts
 8e34d65552e50c3798c30fcbdb888132a081e7d68ebf4136754ad2e89ddc2b00  packages/core/hooks/done-md-completion-filter.test.ts
 0f903db141eba8ce0db6bd4678cb6e8e0cefd2c565e3cd4343fe3af9eb01863a  packages/core/hooks/dup-detect-empty-arg.test.ts
@@ -555,8 +555,8 @@ c324d3fb250081af76e884b73a77d1fb1c2301a26206b8607458e260dd692f9e  packages/core/
 08dfb3cde69825051ae62c3ebe9942625a35aca0b47a01d19b6d56cb28414df3  packages/core/principles/31-rule-channel-declaration.test.ts
 ed6ade29e2125b33ce5b9da5f3f61bf4ffbae887447065fa698bd9b9248a4e4e  packages/core/principles/31-rule-channel-declaration.ts
 680e3952bf2306dea88262ffb2a673143701278cc3eda4be143c67dd36ab6de8  packages/core/principles/32-prepush-section-owner.test.ts
-dbb4893907344c58cdd3be6e61dfcd9e3ac60c731faed14ff2ce1fe903e220c4  packages/core/principles/33-adapter-jig-arm-registry.test.ts
-cc26e88f1de6fd9b06ce229b69432f783b49e3600022f8065143ba5a57ab71e3  packages/core/principles/33-adapter-jig-arm-registry.ts
+5a9264bdf2664ca08227e732990bccf5233f44f7218d47615fa533010d6dedf1  packages/core/principles/33-adapter-jig-arm-registry.test.ts
+366430647883c28bff5ec762afec2755043f3cf0cbc7eca93ce877c9ed820942  packages/core/principles/33-adapter-jig-arm-registry.ts
 ab249211ec5c218921f18d2bfe460ab5bf894ae451083dae6e537013a7b00a49  packages/core/principles/34-claudemd-excludes-liveness.test.ts
 0db1035c6268b9cfd7e2ee1753ba715ca4c03e7d34c2b0ea489ec9be766e7978  packages/core/principles/35-ai-laziness-digest-anti-drift.test.ts
 0091b0c5c855fdb56e6ca55261163902f7863dc5f5890da6d0acbdcfecf54a6a  packages/core/principles/36-ci-needs-completeness.test.ts
@@ -603,7 +603,7 @@ e1027d6257894d9f8440060decb90aafd66b6a7d59373384b512eb14d9566804  packages/core/
 8e9c29dd112d9a203e880334abed0c6e2ce1a416e30c0fbc6168c5c018d90528  packages/core/research/ecosystem-adapter-precondition.test.ts
 2d0615a6f7d2151d9c3379e419858160fc50cf8d99bbbf65216a7501733014cf  packages/core/research/ecosystem-cargo.test.ts
 39cca0d002603679d0aadda739f198ca9d95017e707e9c55155a485104d1daa3  packages/core/research/ecosystem-cargo.ts
-63fc4126f950e92ecc9e59975bb37796e7aad26eef34b30a1ca509063e067c2a  packages/core/research/ecosystem-go.test.ts
+7d449e32b146839ff733c91537bbf77328c634b2ca96778fd63ad765a15c432b  packages/core/research/ecosystem-go.test.ts
 2db30b71778fc06ef8138d944a1493cdc110aa94d67337928413856d191a40de  packages/core/research/ecosystem-go.ts
 f62bc249a75dcf951c807e03e5779d6c651b58cc38d863a90dd082c1ab075b62  packages/core/research/ecosystem-name.test.ts
 fb573ac6233a28d64aee53caacc188a31afb654e9ad25c8c4eb919fd1b39332b  packages/core/research/ecosystem-name.ts
@@ -806,7 +806,7 @@ ff6cf04ade78dbba88e073842e95f0f820023f01b4d155235193711fc0b83829  packages/core/
 99bd2f5dc463181d1b499e583fb81c99022277a4221a874ca2c698cca6f9ba8a  packages/core/templates/cargo/deny.toml
 93cb6f02bb1e74099e981d4048f3fadc18aaf359029f590eabef944bc4bad7a1  packages/core/templates/cargo/github-actions-ci.yml
 4acefc0af55323931c4b0d0e18fbbd6fedbc850c5d603e4fb654505df728e0e8  packages/core/templates/go/.golangci.yml
-45a2fc1b7d9ad698288ff92760ecf087d77cdb90f9f96cb77d61f9389248b37d  packages/core/templates/go/github-actions-ci.yml
+8b5ed10ffd8638a50bbbad25201352dec7667a01037108df5aff3c14dddd1cb6  packages/core/templates/go/github-actions-ci.yml
 bf24cbbc3d2dc7b19b35bfe3fc93930925070b2e13082b3273d1fb117a8c55c2  packages/core/templates/python/.getff/astgrep-rules/getff-no-datetime-datetime-now.yml
 e8c7e0045250bc00050ff28f10004e8acf14dcdf6333507e97d1d472cda244ee  packages/core/templates/python/.getff/astgrep-rules/getff-no-datetime-now.yml
 28c3b74073ff6a3beb0c87a081589f72bc44d0a96e46942520d5f86a46651d5e  packages/core/templates/python/.getff/astgrep-rules/getff-no-eval.yml
@@ -823,11 +823,11 @@ d5922f168d791959ac945d0bba7af989af81eafae2ed00ea151f0d28e45090f7  packages/core/
 7d2df647f25529bd87500319c41564e032e2be642e565350fa6136d7a1ec4d10  packages/core/templates/shared/.nvmrc
 934987a3d1b425ad7a9469836543c1c98a924191774cd301375a005b1006c6f5  packages/core/templates/shared/.prettierignore
 53993403f03789d67a3beb29141fefb0a9ec7f9bab84c16cf6b4d00a45d05a19  packages/core/templates/shared/AGENTS.md.template
-3b2b6bc53271ab2c69ed79bf8b991d04656d1142b60f0b2d7fea5c37412662c1  packages/core/templates/shared/AI-USAGE-GUIDE.md
+97bc4d9830ff6f96c43491938d90eca1144acba7748939b22e5e04bf6b1c11dc  packages/core/templates/shared/AI-USAGE-GUIDE.md
 854cfb38f3d4acfd40245b5b490e5163658e2e98b0573239c15dd5802d16f5cb  packages/core/templates/shared/ARCHITECTURE.ts-server.md
 17c78498f9ee3fd4b4922684a4f291fb05a84bf70deccfcbc58d6e694c509d9d  packages/core/templates/shared/CLAUDE.md.template
 03264d66be0aceebf3e0df0a2bd361ec7db105551b93b519122c58ac9721bcda  packages/core/templates/shared/DESCRIPTION.template.md
-7dcf42a2e2f741e576aeb6ecf8329bcf16eda36a7de146b8af897ec2b7ce0460  packages/core/templates/shared/first-steps.source.json
+77cccb2500089e94fca5688860b00b2c6590b9add5d1d35cfb23ed9376e7b17a  packages/core/templates/shared/first-steps.source.json
 003a28ff8ef13cfabaaabb140bd758611c6560faa783b4a173fc39136bfa2887  packages/core/templates/shared/gitignore
 3ca9d4afd21425087cf31893b8f9f63c81b0b8408db5e343ca76e5f8aa26ab9a  packages/core/templates/shared/hooks-package.json
 b82d3a4108c4c2ec923ca819756ec00ec52eb1e20d577de5a87f73fc5ba83cfd  packages/core/templates/shared/husky-pre-commit.sh
