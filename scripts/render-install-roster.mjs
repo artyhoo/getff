@@ -14,7 +14,8 @@
  *     factory-gated pair (the `orchestrator-worker-discipline.md|reviewer-discipline.md`
  *     case in the same file).
  *   - skills core set: the hard-copy literals in setup.d/10-skills.sh
- *     (`cp -r "$PKG_ROOT/skills/<name>"`) PLUS `GETFF_SKILLS_CORE` from setup.d/lib.sh.
+ *     (`cp -r` or `_copy_tree_with_transform` on `"$PKG_ROOT/skills/<name>"`) PLUS
+ *     `GETFF_SKILLS_CORE` from setup.d/lib.sh.
  *   - skills env contour: `GETFF_SKILLS_ENV` from setup.d/lib.sh (the default depth).
  *
  * RENDER TARGET: INSTALL-FOR-AI.md fenced region `install-roster`
@@ -75,7 +76,13 @@ function shippedAgents(root) {
 /** Skill slugs per depth, derived from the installer's own literals/constants. */
 function shippedSkills(root) {
   const tenSkills = readFileSync(join(root, 'setup.d', '10-skills.sh'), 'utf8');
-  const base = [...tenSkills.matchAll(/cp -r "\$PKG_ROOT\/skills\/([a-z0-9-]+)"/g)].map((m) => m[1]);
+  // The delivery verb changed when the seven copies of the wipe/copy/transform loop were
+  // collapsed onto _copy_tree_with_transform (ledger S-7), so match on the SOURCE literal and
+  // accept either verb in front of it. Anchoring on `cp -r` alone made this roster silently
+  // render an empty base set the moment the installer stopped open-coding the copy.
+  const base = [
+    ...tenSkills.matchAll(/(?:cp -r|_copy_tree_with_transform) "\$PKG_ROOT\/skills\/([a-z0-9-]+)"/g),
+  ].map((m) => m[1]);
   const lib = readFileSync(join(root, 'setup.d', 'lib.sh'), 'utf8');
   const readSet = (name) => {
     const m = lib.match(new RegExp(`${name}="([^"]+)"`));

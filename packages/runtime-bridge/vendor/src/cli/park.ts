@@ -24,8 +24,8 @@
  * @cc-only-rationale: pure TS over plain HTTP — also callable from a smoke-test
  *   and an orchestrator session. No CC-only primitive, no Superset import, no paid LLM.
  */
-import { fileURLToPath } from 'node:url';
-import { getTask, putTask } from './aifHttp.js';
+import { isMain, parseCliArgs, CliArgError } from './cliEntry.js';
+import { getTask, putTask, type AifTaskFull } from './aifHttp.js';
 import { OPEN_QUESTION_ANCHOR } from './openQuestion.js';
 
 const DEFAULT_AIF_URL = 'http://localhost:3009';
@@ -90,19 +90,27 @@ export interface ParkArgs {
   json: boolean;
 }
 
-/** Parse CLI args: --task <id> (else $HANDOFF_TASK_ID), --question <text>, --json. */
+/**
+ * Parse CLI args: --task <id> (else $HANDOFF_TASK_ID), --question <text>, --json.
+ * Throws {@link CliArgError} on a malformed invocation (unknown flag, a flag whose
+ * value is the next flag) rather than guessing — see cliEntry.ts (A6-7).
+ */
 export function parseParkArgs(
   argv: string[],
   env: NodeJS.ProcessEnv,
 ): ParkArgs {
-  const valueOf = (flag: string): string | undefined => {
-    const i = argv.indexOf(flag);
-    return i !== -1 && argv[i + 1] ? argv[i + 1] : undefined;
-  };
+  const { values } = parseCliArgs(argv, {
+    options: {
+      task: { type: 'string' },
+      question: { type: 'string' },
+      json: { type: 'boolean' },
+    },
+  });
   return {
-    taskId: valueOf('--task') ?? env.HANDOFF_TASK_ID ?? undefined,
-    question: valueOf('--question'),
-    json: argv.includes('--json'),
+    taskId:
+      (values.task as string | undefined) ?? env.HANDOFF_TASK_ID ?? undefined,
+    question: values.question as string | undefined,
+    json: values.json === true,
   };
 }
 
@@ -128,6 +136,24 @@ export interface ParkResult {
   taskId: string;
   paused: true;
   blockedReason: string;
+  /** Set when the task was ALREADY parked on this exact question — no PUT was issued (A6-6). */
+  alreadyParked?: true;
+}
+
+/**
+ * True when the task is already stopped on THIS question: paused, and the most recent
+ * OPEN QUESTION block in the plan carries the same text. That is the retry shape — an
+ * agent re-running park, or a night loop re-entering the same fork.
+ */
+function isAlreadyParkedOn(task: AifTaskFull, question: string): boolean {
+  if (task.paused !== true || typeof task.plan !== 'string') return false;
+  const idx = task.plan.lastIndexOf(OPEN_QUESTION_ANCHOR);
+  if (idx === -1) return false;
+  const latest = task.plan
+    .slice(idx + OPEN_QUESTION_ANCHOR.length)
+    .replace(/^[^\n]*\n/, '')
+    .trim();
+  return latest === question;
 }
 
 /**
@@ -155,6 +181,12 @@ export async function parkTask(
         `answer.ts (request_changes).`,
     );
   }
+  // A6-6: a repeat park of the SAME question is a no-op. Without this, a retried park
+  // appended a second identical OPEN QUESTION block and overwrote blockedReason — the
+  // operator saw one fork twice, and the stop it would have set is already in place.
+  if (isAlreadyParkedOn(task, reason)) {
+    return { taskId, paused: true, blockedReason: reason, alreadyParked: true };
+  }
   const plan = buildOpenQuestionPlan(task.plan, reason);
   await putTask(baseUrl, taskId, { paused: true, blockedReason: reason, plan });
   return { taskId, paused: true, blockedReason: reason };
@@ -162,18 +194,31 @@ export async function parkTask(
 
 /** Render a ParkResult as a human-readable confirmation. */
 export function formatParkResult(result: ParkResult): string {
-  return `task:   ${result.taskId}\nparked: paused=true\nreason: ${result.blockedReason}`;
+  const state = result.alreadyParked
+    ? 'paused=true (ALREADY parked on this question — no change made)'
+    : 'paused=true';
+  return `task:   ${result.taskId}\nparked: ${state}\nreason: ${result.blockedReason}`;
 }
 
 async function main(): Promise<void> {
-  const baseUrl = await resolveReachableBaseUrl(process.env);
-  const args = parseParkArgs(process.argv.slice(2), process.env);
+  // Args BEFORE the network probe: a malformed invocation must not spend a
+  // multi-candidate reachability probe before it is rejected.
+  let args: ParkArgs;
+  try {
+    args = parseParkArgs(process.argv.slice(2), process.env);
+  } catch (err) {
+    const msg = err instanceof CliArgError ? err.message : String(err);
+    process.stderr.write(`[runtime-bridge] park: ${msg}\n`);
+    process.exit(1);
+  }
 
   const argError = validateParkArgs(args);
   if (argError) {
     process.stderr.write(`[runtime-bridge] park: ${argError}\n`);
     process.exit(1);
   }
+
+  const baseUrl = await resolveReachableBaseUrl(process.env);
 
   let result: ParkResult;
   try {
@@ -193,7 +238,9 @@ async function main(): Promise<void> {
 }
 
 // Run only as a real entrypoint — importing the module (tests) must not fetch/exit.
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+// realpath BOTH sides (cliEntry.isMain): a symlinked invocation path used to make this
+// false, so the CLI exited 0 having done nothing (A6-1).
+if (isMain(import.meta.url)) {
   main().catch((err) => {
     process.stderr.write(`[runtime-bridge] park: unhandled error: ${err}\n`);
     process.exit(1);
