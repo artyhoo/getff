@@ -89,9 +89,35 @@ esac
 # app.id 15368 == GitHub Actions (first-party); anything else is a third-party
 # app check whose green does not speak for Actions.
 
-if ! CHECKS_TSV=$(gh api "repos/$OWNER_REPO/commits/$SHA/check-runs" \
+# --paginate is LOAD-BEARING, not tidiness (ledger A8-1 sweep, 2026-09-05). The
+# check-runs endpoint returns only the FIRST 30 runs without it — measured on this repo,
+# 30 of total_count 47 — so a probe that omits it can report GREEN while a FAILURE sits
+# on page 2. That is the exact false-GREEN class this whole verdict script exists to
+# prevent, in the script itself.
+if ! CHECKS_TSV=$(gh api "repos/$OWNER_REPO/commits/$SHA/check-runs" --paginate \
     --jq '.check_runs[] | [.id, .name, .status, (.conclusion // "none"), (.app.id // 0)] | @tsv' 2>/dev/null); then
   echo "CANNOT-RUN: gh api failed for check-runs of $SHA (auth? network? rate limit?)" >&2
+  exit 3
+fi
+
+# Reconcile what we READ against what GitHub SAYS exists. --paginate alone is a promise;
+# this is the check that the promise held. A pagination that stops early (rate limit
+# mid-walk, a transport hiccup) otherwise degrades silently into the very defect above —
+# fewer runs seen, all of them green, verdict GREEN. Fail-closed: an unverifiable read is
+# CANNOT-RUN, never a verdict. total_count comes from an UNPAGINATED call on purpose: the
+# first page carries the true total, and --paginate would print one total per page.
+CHECKS_TOTAL=$(gh api "repos/$OWNER_REPO/commits/$SHA/check-runs" --jq '.total_count' 2>/dev/null || true)
+CHECKS_SEEN=$(printf '%s' "$CHECKS_TSV" | grep -c . || true)
+CHECKS_SEEN=${CHECKS_SEEN:-0}
+case "$CHECKS_TOTAL" in
+  ''|*[!0-9]*)
+    echo "CANNOT-RUN: could not read total_count for check-runs of $SHA — cannot prove the read was complete" >&2
+    exit 3
+    ;;
+esac
+if [ "$CHECKS_SEEN" -lt "$CHECKS_TOTAL" ]; then
+  echo "CANNOT-RUN: truncated check-runs read for $SHA — saw $CHECKS_SEEN of total_count $CHECKS_TOTAL" >&2
+  echo "A verdict on a partial list can report GREEN while a failure sits on an unread page." >&2
   exit 3
 fi
 

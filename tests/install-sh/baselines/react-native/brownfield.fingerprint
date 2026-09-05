@@ -6,7 +6,7 @@ acafe267e1ac90afe1038da15ad9be69e8b28b8e26e67203fc414def68641068  .ai-factory/AR
 03264d66be0aceebf3e0df0a2bd361ec7db105551b93b519122c58ac9721bcda  .ai-factory/DESCRIPTION.template.md
 c3d5f5cdf92be1551ebbd6f6726db7ef892ff2f8394626ed4570f4507348c9b7  .ai-factory/RULES.md
 e43d71c23089705db64a85595800c7f87c79d38f7a39bff48a757b8d5038146e  .ai-factory/RULES.react-native.md
-6746c067149caf534a445def9e7c4cf8ab0a32da5aca80dff9612f3128db1852  .ai-factory/refresh-baseline.json
+9dce7f2413db36300c6a388ed2a7fed055a2df950ce5fb1f8504e972dd335a47  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
 7d6b6061459f0939e64358447d0905329ddd4c52abd459ee8d9d201653ffb791  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -172,7 +172,7 @@ a69a0c4335a6225bc9c0edd80974ba201af2d3af188f7963ecb8ff75bec448ec  scripts/check-
 2da374136bc71d38c83b17184c91c9deac03da41052a31ed41df255661ff7f79  scripts/check-rule-enforced.sh
 ed0d47877440378ce79ed217998095613859e8af018e166fbf38cd83b8389fa7  scripts/check-rule-globs.sh
 97a89b7ec81c18b5d99b86719d467f065fca14b59be906a5b2bb97a3251f6fa6  scripts/check-shields-up.sh
-1a0b69a6491e5a5d610b5ff7aa0e66ca56d712d750a0830d97198c87e7660a37  scripts/ci-available-probe.sh
+d0a772b6b24f8c23d91b51994385028eed7167ea14b9edb1fca7ec4ce0d787f1  scripts/ci-available-probe.sh
 e7f784c23d55b9e5c7aec9cd12ea12c984656b6e406e15f71abe236b4f3406ad  scripts/create-worktree.sh
 ca5419371e38813b79616116dec6274147b128192147fc7b13321ea11726fb26  scripts/detect-r2-boundary.sh
 759bb5a1f591ec4367582cb93072679f4cc658efb0d14a05530164dfbb3bda06  scripts/fences-fire-fixtures/no-unsafe-zod-parse.bad.txt

@@ -154,7 +154,7 @@ a69a0c4335a6225bc9c0edd80974ba201af2d3af188f7963ecb8ff75bec448ec  packages/core/
 2da374136bc71d38c83b17184c91c9deac03da41052a31ed41df255661ff7f79  packages/core/audit-self/check-rule-enforced.sh
 ed0d47877440378ce79ed217998095613859e8af018e166fbf38cd83b8389fa7  packages/core/audit-self/check-rule-globs.sh
 97a89b7ec81c18b5d99b86719d467f065fca14b59be906a5b2bb97a3251f6fa6  packages/core/audit-self/check-shields-up.sh
-1a0b69a6491e5a5d610b5ff7aa0e66ca56d712d750a0830d97198c87e7660a37  packages/core/audit-self/ci-available-probe.sh
+d0a772b6b24f8c23d91b51994385028eed7167ea14b9edb1fca7ec4ce0d787f1  packages/core/audit-self/ci-available-probe.sh
 ca5419371e38813b79616116dec6274147b128192147fc7b13321ea11726fb26  packages/core/audit-self/detect-r2-boundary.sh
 7d02fca028572a11002da2c1c4ef1fba224f39cbeeeb4ea5b27fc2a54b52358f  packages/core/audit-self/first-steps-parity.test.ts
 8eaec66627b18b6e451bda7c19fc70a28cac19603e6bfc6b33f8688ecd276193  packages/core/audit-self/fixtures/README.md
@@ -188,7 +188,7 @@ c7fe2fd1d4c14a784231afa024c715f77de85c728526d558069a9d64572e6f70  packages/core/
 1e1c79bc91e41d8c57e215b029b7bdf1f435199cf2da4ad6837fa81c14e27353  packages/core/audit-self/md-line-gate.sh
 cc2bab9b0d801efc943574d3e91682d4960f755ab78fab9f4d212fc5c0643944  packages/core/audit-self/md-line-gate.test.ts
 b6b73cf075c3a6153cd87db95c96c651e4077c06073942f0082ecd5d5bb5fa56  packages/core/audit-self/pre-merge-local.sh
-d488881038c8a75b6230d3770b6ec9eb902d1a70782d089f502c7d76d234645e  packages/core/audit-self/pre-merge-local.test.sh
+8aaf132b16aed11efb73e18cf2a44898df3b9e2a2affb32108681e13dc464e4b  packages/core/audit-self/pre-merge-local.test.sh
 7cf8b8f736f50de99cf2e8633a0b65f4de109ebc914835607f520ff1a3ae3953  packages/core/audit-self/r2-na-marker.sh
 532f6a9b7cc02e64228fdb8d4b0ed88482769eb8832d744c8a94a30b182ea8f6  packages/core/audit-self/run-bash-mutation.sh
 ee2e43857159ae9f685873dd3538392dd9536b2e3bca48645bac776fcdea5e36  packages/core/audit-self/run-bash-mutation.test.ts

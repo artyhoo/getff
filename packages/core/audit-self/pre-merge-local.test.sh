@@ -61,7 +61,10 @@ REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 # PMC_CARRIER_UNDER_TEST points the arms at a COPY, so the RED direction of a fix can
 # be reproduced against the pre-fix script without mutating the tracked file.
 CARRIER="${PMC_CARRIER_UNDER_TEST:-$REPO_ROOT/packages/core/audit-self/pre-merge-local.sh}"
-PROBE="$REPO_ROOT/packages/core/audit-self/ci-available-probe.sh"
+# Same seam shape as PMC_CARRIER_UNDER_TEST above: point the probe arms at a COPY so a
+# fix's RED direction is reproducible against the pre-fix script without mutating the
+# tracked file. Never set in a real run.
+PROBE="${PMC_PROBE_UNDER_TEST:-$REPO_ROOT/packages/core/audit-self/ci-available-probe.sh}"
 
 PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); echo "  ✓ $1"; }
@@ -910,12 +913,26 @@ OUT=$(cd "$P" && PATH="$P/p1bin" /bin/bash "$PROBE" HEAD 2>&1); RC=$?
 [ "$RC" -eq 3 ] && ok "P1: gh absent -> exit 3" || bad "P1: expected 3, got $RC"
 case "$OUT" in *"gh (GitHub CLI) is required"*) ok "P1: gh named as the missing tool";; *) bad "P1: gh not named";; esac
 
-# make_gh_shim <fixture-dir> <tsv-lines...>  — simulates gh INCLUDING --jq
+# make_gh_shim <fixture-dir> <tsv-lines...>  — simulates gh INCLUDING --jq.
+#
+# The probe now makes TWO calls against the same check-runs path: the paginated TSV
+# fetch, and an unpaginated `--jq .total_count` used to prove the read was complete
+# (ledger sweep 2026-09-05). Both carry the same "$2", so the shim distinguishes them
+# by the jq expression instead. `.total_count` answers by re-invoking the shim's own
+# check-runs branch and counting its lines — so every arm below keeps working unchanged
+# and a consistent fixture stays consistent by construction. Writing a number into
+# <dir>/.gh-total overrides that, which is what makes the TRUNCATED arm expressible:
+# GitHub says N, the walk yielded fewer.
 make_gh_shim() {
   local dir=$1; shift
   mkdir -p "$dir/.ghbin"
   {
     echo '#!/usr/bin/env bash'
+    echo 'for _a in "$@"; do'
+    echo '  [ "$_a" = ".total_count" ] || continue'
+    echo '  if [ -f "'"$dir"'/.gh-total" ]; then cat "'"$dir"'/.gh-total"; else "$0" api "$2" --jq x | grep -c . || true; fi'
+    echo '  exit 0'
+    echo 'done'
     echo 'case "$2" in'
     for entry in "$@"; do
       printf '%s\n' "$entry"
@@ -955,6 +972,40 @@ make_gh_shim "$P" \
 OUT=$(cd "$P" && PATH="$P/.ghbin:$PATH" bash "$PROBE" HEAD 2>&1); RC=$?
 [ "$RC" -eq 2 ] && ok "P2d: no check-runs -> exit 2" || bad "P2d: expected 2, got $RC"
 case "$OUT" in *"MERGE CONFLICT looks exactly like this"*) ok "P2d: conflict-state hint present";; *) bad "P2d: conflict hint missing";; esac
+
+# ── P3a: a TRUNCATED check-runs read must be CANNOT-RUN, never GREEN ──
+# The defect this pair closes: the probe fetched check-runs WITHOUT --paginate, and that
+# endpoint returns only the first 30 (measured on this repo: 30 of total_count 47). Every
+# run it could see was green, so the verdict was GREEN while a failure sat on page 2 — a
+# false GREEN inside the script whose whole job is to judge CI honestly. --paginate alone
+# is a promise; the total_count reconciliation is the proof it held, and a walk that stops
+# early now fails closed instead of shrinking the population it judges.
+rm -f "$P/.gh-total"
+make_gh_shim "$P" \
+  '  */check-runs) printf "1\tlint\tcompleted\tsuccess\t15368\n2\ttest\tcompleted\tsuccess\t15368\n" ;;'
+printf '47\n' > "$P/.gh-total"     # GitHub says 47 exist; the walk yielded 2
+OUT=$(cd "$P" && PATH="$P/.ghbin:$PATH" bash "$PROBE" HEAD 2>&1); RC=$?
+[ "$RC" -eq 3 ] && ok "P3a: truncated check-runs read -> exit 3 (CANNOT-RUN), not a GREEN verdict" \
+  || bad "P3a: expected 3, got $RC — a partial list produced a verdict (out: $OUT)"
+case "$OUT" in *"saw 2 of total_count 47"*) ok "P3a: names what was read vs what exists";; *) bad "P3a: truncation not quantified in the output";; esac
+rm -f "$P/.gh-total"
+
+# ── P3b: GREEN control — same all-success list, complete read -> exit 0 ──
+# Without this arm P3a is satisfiable by a probe that simply never returns 0.
+make_gh_shim "$P" \
+  '  */check-runs) printf "1\tlint\tcompleted\tsuccess\t15368\n2\ttest\tcompleted\tsuccess\t15368\n" ;;'
+OUT=$(cd "$P" && PATH="$P/.ghbin:$PATH" bash "$PROBE" HEAD 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "P3b: complete read of the same all-success list -> exit 0" \
+  || bad "P3b: expected 0, got $RC (out: $OUT)"
+
+# ── P3c: an unreadable total_count is CANNOT-RUN — completeness must be PROVABLE ──
+make_gh_shim "$P" \
+  '  */check-runs) printf "1\tlint\tcompleted\tsuccess\t15368\n" ;;'
+printf 'not-a-number\n' > "$P/.gh-total"
+OUT=$(cd "$P" && PATH="$P/.ghbin:$PATH" bash "$PROBE" HEAD 2>&1); RC=$?
+[ "$RC" -eq 3 ] && ok "P3c: unreadable total_count -> exit 3 (cannot prove the read was complete)" \
+  || bad "P3c: expected 3, got $RC (out: $OUT)"
+rm -f "$P/.gh-total"
 
 echo ""
 echo "Result: $PASS pass / $FAIL fail"
