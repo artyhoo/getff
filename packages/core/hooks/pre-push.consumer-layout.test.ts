@@ -697,7 +697,7 @@ describe(
         '#!/bin/sh\nfor a in "$@"; do\n' +
           '  case "$a" in\n' +
           '    --offline|--no-progress) ;;\n' +
-          // FRAMEWORK_SHIPPED_MD_PREFIXES (mirror of pre-push.ts) — these are the paths
+          // SHIPPED_MD_DESTINATIONS/_PREFIXES (mirror of pre-push.ts) — these are the paths
           // Part 1 must exclude. If any reaches lychee's argv, REJECT to surface a
           // narrowing regression (T7/T14 — skip-reported-as-green is the trap this stub
           // exists to catch: a stub that always exit-0 cannot distinguish narrowed from
@@ -916,6 +916,78 @@ describe(
       expect(r.status, out).toBe(0);
       expect(out, out).toMatch(/excluded 1 framework-shipped \*\.md/);
       expect(out, out).not.toMatch(/would-block-shipped/);
+    });
+
+    // ── ledger A4-8 (second half): the `.ai-factory/*` rows were still hand-maintained
+    // author attention. Measured 2026-09-06 on the fingerprint corpus: 2 of the 19
+    // shipped *.md destinations (.ai-factory/AI-USAGE-GUIDE.md, .ai-factory/tier-home.md)
+    // had no row, and two rows over-reached as bare prefixes (`.ai-factory/RULES.`,
+    // `.ai-factory/ARCHITECTURE.`) — both halves of the #1630 defect class, on a surface
+    // nothing failed on. These arms pin the pair; the drift GATE is in pre-push.test.ts.
+    //
+    // Both run WITHOUT .ai-factory/refresh-baseline.json (makeConsumerSandbox plants none),
+    // so they exercise the null-baseline fallback — the arm the static list actually serves.
+    it('A4-8b POSITIVE — a shipped .ai-factory/*.md the old list forgot is excluded, not walked', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      const stubBin = join(dir, '.stub-bin');
+      writeFileSync(
+        join(stubBin, 'lychee'),
+        '#!/bin/sh\nfor a in "$@"; do\n' +
+          '  case "$a" in\n' +
+          '    .ai-factory/AI-USAGE-GUIDE.md)\n' +
+          '      echo "✗ would-block-shipped: $a"; exit 1 ;;\n' +
+          '  esac\n' +
+          'done\nexit 0\n',
+      );
+      chmodSync(join(stubBin, 'lychee'), 0o755);
+      addConsumerCommit(
+        dir,
+        '.ai-factory/AI-USAGE-GUIDE.md',
+        '# AI Usage Guide\n\n[framework-ref](../docs/meta-factory/EXECUTION-PLAN.md)\n',
+        'chore: refresh the shipped AI usage guide',
+      );
+
+      const r = runHook(dir, hook, baseSha);
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      // Pre-fix: no row matched, the file was classified consumer-authored, lychee walked
+      // it, its framework-internal ref dangled on this tree and the push was BLOCKED.
+      expect(r.status, out).toBe(0);
+      expect(out, out).toMatch(/excluded 1 framework-shipped \*\.md/);
+      expect(out, out).not.toMatch(/would-block-shipped/);
+    });
+
+    it('A4-8b NEGATIVE — a CONSUMER-authored .ai-factory/RULES.<name>.md reaches lychee (the bare-prefix over-reach)', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      const stubBin = join(dir, '.stub-bin');
+      writeFileSync(
+        join(stubBin, 'lychee'),
+        '#!/bin/sh\nfor a in "$@"; do\n' +
+          '  case "$a" in\n' +
+          '    .ai-factory/RULES.internal.md)\n' +
+          '      echo "✗ consumer-rules-checked: $a"; exit 1 ;;\n' +
+          '  esac\n' +
+          'done\nexit 0\n',
+      );
+      chmodSync(join(stubBin, 'lychee'), 0o755);
+      addConsumerCommit(
+        dir,
+        '.ai-factory/RULES.internal.md',
+        '# House rules\n\n[broken](./does-not-exist.md)\n',
+        'docs: our own extra rule doc',
+      );
+
+      const r = runHook(dir, hook, baseSha);
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      // Pre-fix this was exit 0: the file matched the bare `.ai-factory/RULES.` prefix —
+      // a stack-variant shape the installer never delivers under that name — and was
+      // silently dropped from the walk.
+      expect(r.status, out).toBe(1);
+      expect(out, out).toMatch(
+        /consumer-rules-checked: \.ai-factory\/RULES\.internal\.md/,
+      );
+      expect(out, out).toMatch(/lychee found broken links/);
     });
 
     // ── ledger S-6 + F-1: the registry-driven PREPUSH_ONLY seam, and the 3g gate's

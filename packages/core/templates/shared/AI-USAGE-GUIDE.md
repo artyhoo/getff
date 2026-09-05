@@ -105,8 +105,9 @@ not know: `env` is the default, `core` is the rules-only depth below it and puts
 <!-- step: verify-payload -->
 
 2. **Verify the payload landed** — `ls AGENTS.md .ai-factory/ scripts/`, plus
-   `.ai-factory/tier-home.md` and `.claude/skills/arch/` — the two artefacts `env` adds over
-   `core`.
+   `.ai-factory/tier-home.md` and the five skills `env` adds over `core`:
+   `.claude/skills/arch/`, `.claude/skills/night-mode/`, `.claude/skills/orchestrator/`,
+   `.claude/skills/pipeline/` and `.claude/skills/reviewer/`.
 
 <!-- step: fill-passport -->
 

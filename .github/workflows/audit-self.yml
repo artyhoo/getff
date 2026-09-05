@@ -870,6 +870,19 @@ jobs:
         run: npm ci --prefix packages/core --silent
       - name: Install workspace deps (hoists tsx to root)
         run: npm install --silent
+      # Ledger A8-2. tests/install-sh/python-entry-lane.test.sh gates two arms on the
+      # research toolchain being present: arm (11) is the ONLY negative registered for
+      # adapter-jig arm E2, and arm (12) is E1's python negative. This shard installed
+      # neither ruff nor ast-grep, so both printed `SKIP` and exited 0 — the registered
+      # RED-proofs had never executed on any CI channel, while principle 33 stayed green
+      # because it only greps for the marker string. Same exact pins as the backend
+      # live-fire steps in principles-meta-tests (ci-tool-pinning.md Rule A); bump them
+      # together. GETFF_REQUIRE_RESEARCH_TOOLS makes a skip here a hard failure, so a
+      # dropped install cannot quietly re-empty the arms.
+      - name: Install pinned ruff (E2/E1 python negatives — ledger A8-2)
+        run: pip install ruff==0.15.21
+      - name: Install pinned ast-grep (E1 python negative — ledger A8-2)
+        run: npm install -g @ast-grep/cli@0.44.1 # zizmor: ignore[adhoc-packages]
       - name: Run install-sh engine test (one-click-installer S2)
         run: bash tests/install-sh/engine.test.sh
       - name: Run install-sh preset-staleness test (live-research-default-delivery #811 D4)
@@ -927,12 +940,17 @@ jobs:
         run: bash tests/install-sh/python-delivery.test.sh
       - name: "install-sh — Python entry lane: install.sh python detection + no-package.json bypass + --refresh + firing self-check (python-delivery-v0 S2 T1)"
         run: bash tests/install-sh/python-entry-lane.test.sh
+        env:
+          # A registered RED-proof that silently SKIPs is an unfired gate (ledger A8-2).
+          GETFF_REQUIRE_RESEARCH_TOOLS: '1'
       - name: "install-sh — Python agent surface: --refresh parity (A2-4) + python-lane RULES.md (A2-5)"
         run: bash tests/install-sh/python-agent-surface-refresh.test.sh
       - name: "install-sh — Python rules-lock variant: schema + non-vacuity + determinism + teeth (ecosystem-wiring W3)"
         run: bash tests/install-sh/python-rules-lock.test.sh
       - name: "install-sh — Cargo entry lane: install.sh cargo detection + no-package.json bypass + --refresh + REFUSE cell + firing self-check (ecosystem-wiring W4)"
         run: bash tests/install-sh/cargo-entry-lane.test.sh
+      - name: "install-sh — Go entry lane: REFUSE-cell config selection in the DELIVERED getff-go.yml, with the pre-fix order as paired negative (ledger A8-1)"
+        run: bash tests/install-sh/go-entry-lane.test.sh
       - name: "install-sh — getff default-branch substitution: delivered CI workflow triggers on the consumer's real default branch (getff-honest-signals S4)"
         run: bash tests/install-sh/getff-default-branch-substitution.test.sh
       - name: "install-sh — refresh reconciles skill rename: superseded rules-as-tests/ reclaimed, .override.md + modern-absent guards (getff-honest-signals S5)"
