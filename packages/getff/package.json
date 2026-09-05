@@ -1,6 +1,7 @@
 {
   "name": "getff",
   "version": "0.1.0",
+  "private": false,
   "description": "getff — AI DX for your codebase: conventions AI agents can't silently bypass. `npx getff init` installs the enforcement layer (ESLint rules generated from live docs, husky gates, CI) into a TypeScript, Python, Rust or Go project.",
   "license": "FSL-1.1-ALv2",
   "homepage": "https://getff.ai",

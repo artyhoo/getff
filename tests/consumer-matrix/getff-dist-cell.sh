@@ -22,7 +22,8 @@
 #       the false-positive arm: a static-literal `.parse` outside the boundary → eslint rc=0.
 #   (6) OPT-IN paired-RED arms (`GETFF_DIST_CELL_RED_ARMS=1`): for each payload root, pack with
 #       that `files` entry removed and show step (5) fails — the evidence table lives in the
-#       PR body / freeze record, not in CI (each arm re-installs a consumer; ~2 min apiece).
+#       PR body / freeze record, not in CI (each arm re-installs a consumer, ~7 min apiece;
+#       `GETFF_DIST_CELL_RED_ONLY=1` + `GETFF_DIST_CELL_RED_ENTRIES="<entry>"` runs one arm alone).
 #
 # Runs on ubuntu (CI, merge-blocking via ci-success needs:) and macOS (`make consumer-matrix-getff-dist`).
 set -euo pipefail
@@ -81,6 +82,12 @@ TS
 step "(1) drift gate — committed MANIFEST.sha256 == fresh assembly; \`files\` covers every payload root"
 bash "$FRAMEWORK_ROOT/scripts/build-getff-dist.sh" --check || fail "(1) build-getff-dist.sh --check is RED — re-run scripts/build-getff-dist.sh and commit MANIFEST.sha256"
 
+# GETFF_DIST_CELL_RED_ONLY=1 skips the main consumer path (steps 2-5) so one arm fits a bounded
+# runner slot: every arm re-installs a consumer (~7 min of dev-deps) and ten of them serially do
+# not fit anywhere. Run the arms as parallel single-entry invocations with GETFF_DIST_CELL_RED_ENTRIES.
+if [ "${GETFF_DIST_CELL_RED_ONLY:-}" = "1" ]; then
+  GETFF_DIST_CELL_RED_ARMS=1
+else
 step "(2)+(3) npm pack packages/getff → tarball → npm i <tarball> into a fresh fixture"
 FIXTURE="$WORK/fixture"
 pack_and_install "$PKG_DIR" "$FIXTURE"
@@ -152,10 +159,13 @@ set -e
 grep -q "no-unsafe-zod-parse" "$WORK/fp.log" && fail "(5) R2 fired on a static-literal parse outside the boundary (cries-wolf arm): $(tail -6 "$WORK/fp.log")"
 echo "  ✓ false-positive arm: no R2 message on src/config.ts (eslint rc=$FP_RC)"
 
+fi  # GETFF_DIST_CELL_RED_ONLY
+
 if [ "${GETFF_DIST_CELL_RED_ARMS:-}" = "1" ]; then
   step "(6) paired-RED arms — pack with one \`files\` entry removed, expect the consumer path to FAIL"
   printf '  %-20s %-8s %s\n' "files entry" "arm" "evidence"
-  for entry in install.sh setup setup.d/ agents/ skills/ templates/ .claude/ .prettierrc.json packages/ scripts/; do
+  # shellcheck disable=SC2086  # deliberate word-split list; override with GETFF_DIST_CELL_RED_ENTRIES
+  for entry in ${GETFF_DIST_CELL_RED_ENTRIES:-install.sh setup setup.d/ agents/ skills/ templates/ .claude/ .prettierrc.json packages/ scripts/}; do
     ARM="$WORK/arm-$(echo "$entry" | tr -c 'A-Za-z0-9' '_')"
     rm -rf "$ARM"; mkdir -p "$ARM/pkg"
     ( cd "$PKG_DIR" && tar -cf - --exclude='*.tgz' . ) | ( cd "$ARM/pkg" && tar -xf - )
@@ -176,5 +186,9 @@ if [ "${GETFF_DIST_CELL_RED_ARMS:-}" = "1" ]; then
 fi
 
 echo ""
-echo "✅ consumer-matrix getff-dist cell: GREEN (${FILE_COUNT:-?} files in tarball, version $PKG_VERSION)"
-echo "   getff init -y ts-server from the installed tarball → the planted R2 violation FAILED under eslint."
+if [ "${GETFF_DIST_CELL_RED_ONLY:-}" = "1" ]; then
+  echo "✅ consumer-matrix getff-dist cell: RED-ARMS-ONLY run finished (main consumer path skipped by request)"
+else
+  echo "✅ consumer-matrix getff-dist cell: GREEN (${FILE_COUNT:-?} files in tarball, version $PKG_VERSION)"
+  echo "   getff init -y ts-server from the installed tarball → the planted R2 violation FAILED under eslint."
+fi
