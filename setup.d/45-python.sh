@@ -919,9 +919,9 @@ _py_git_hooks_dir() {
 _py_existing_git_hooks() {
   local _dir _f
   _dir=$(_py_git_hooks_dir)
-  [ -n "$_dir" ] && [ -d "$_dir" ] || return 0
+  if [ -z "$_dir" ] || [ ! -d "$_dir" ]; then return 0; fi
   for _f in "$_dir"/*; do
-    [ -f "$_f" ] && [ -x "$_f" ] || continue
+    if [ ! -f "$_f" ] || [ ! -x "$_f" ]; then continue; fi
     case "$_f" in *.sample) continue ;; esac
     printf '%s\n' "${_f##*/}"
   done
