@@ -23,6 +23,8 @@
 #   3. negative: new dep + valid escape hatch → exit 1 (substance arm ENFORCING by
 #      default since 2026-07-25, handoff item 4 — matches the S17 arm)
 #   3b. positive: same commit + explicit PA_SUBSTANCE_WARN_ONLY=true → exit 0 (local opt-in downgrade)
+#   3c. negative: same commit + PA_SUBSTANCE_WARN_ONLY=0 / '' → exit non-zero (ledger D-3:
+#       only an AFFIRMATIVE value opts in; `0`/empty used to silently downgrade the gate)
 #   4. negative: short escape hatch ("Prior-art: skipped — TODO") → exit 1
 #   5. anti-tautology: trailer-matching load-bearing — verified by Stryker mutation
 #      score ≥80% on prior-art.ts (checkTrailerBody paired-negative in vitest).
@@ -331,6 +333,27 @@ test_3b_positive_escape_hatch_explicit_warnonly() {
   rm -rf "$repo"
 }
 
+# Test 3c (ledger D-3): a NON-affirmative value must NOT downgrade the gate. The parse
+# used to be `(env ?? 'false') !== 'false'`, so PA_SUBSTANCE_WARN_ONLY=0 — or the empty
+# string a workflow `env:` block yields when it maps an unset repo variable — selected
+# warn-only, the exact opposite of the operator's intent. Both spellings must still BLOCK.
+test_3c_negative_nonaffirmative_warnonly_still_enforces() {
+  local repo v
+  for v in 0 "" no off; do
+    repo=$(make_test_repo)
+    add_capability_commit "$repo" \
+      "chore: bump dep" \
+      "Body." \
+      "Prior-art: skipped — refactor only, no new capability"
+    if run_hook "$repo" PA_SUBSTANCE_WARN_ONLY="$v"; then
+      record fail "3c — PA_SUBSTANCE_WARN_ONLY='$v' must NOT downgrade the gate, but the push exited 0"
+    else
+      record pass "3c — PA_SUBSTANCE_WARN_ONLY='$v' → exit non-zero (enforcing default held)"
+    fi
+    rm -rf "$repo"
+  done
+}
+
 # Test 4: short escape-hatch rationale → exit non-zero
 test_4_negative_short_escape() {
   local repo
@@ -441,6 +464,7 @@ test_1_positive_dep_with_trailer
 test_2_negative_dep_no_trailer
 test_3_negative_escape_hatch_enforcing_default
 test_3b_positive_escape_hatch_explicit_warnonly
+test_3c_negative_nonaffirmative_warnonly_still_enforces
 test_4_negative_short_escape
 test_5_antitautology_covered_by_vitest
 test_6_antitautology_covered_by_vitest

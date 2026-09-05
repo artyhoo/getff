@@ -392,6 +392,25 @@ describe.skipIf(!JQ || !GH || !TSX)(
 import { mkdtempSync as _mkdtempSync, symlinkSync as _symlinkSync } from 'node:fs';
 import { join as _join } from 'node:path';
 import { tmpdir as _tmpdir } from 'node:os';
+
+/**
+ * Copy the real hook into a sandbox AND seed its `lib/` sibling.
+ *
+ * Since the #1597 review-ledger R-2 fix the gate sources `<hook dir>/lib/hook-emit.sh` for
+ * its emit helpers (one definition instead of five diverging copies). A sandbox that copies
+ * the script alone therefore reproduces a BROKEN install, not the shipped one — both channels
+ * that carry this gate carry the directory: `.claude/hooks/lib/` and `plugin/hooks/lib/`.
+ */
+function copyHook(dest: string): void {
+  _copyFileSync(HOOK, dest);
+  const libDir = _join(dest.slice(0, dest.lastIndexOf('/')), 'lib');
+  _mkdirSync(libDir, { recursive: true });
+  _copyFileSync(_resolveRepo('.claude/hooks/lib/hook-emit.sh'), _join(libDir, 'hook-emit.sh'));
+}
+function _resolveRepo(rel: string): string {
+  return _join(REPO_ROOT, rel);
+}
+
 import { spawnSync as _spawnSync } from 'node:child_process';
 
 describe('dependency-missing skip is announced on the model channel', () => {
@@ -596,7 +615,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     // Overwrite the worktree's checked-out hook with the FIXED working-tree version
     // (HEAD's hook is the pre-fix version; the worktree checks out HEAD).
     const wtHook = _join(wt, '.claude/hooks/validate-prompt.sh');
-    _copyFileSync(HOOK, wtHook);
+    copyHook(wtHook);
 
     const binDir = scrubbedPathBin();
     const abs = writeViolatingOrchestratorPrompt(wt);
@@ -681,7 +700,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     } as Record<string, string>;
     delete env.ZCODE_PROJECT_DIR;
     const hookCopy = _join(dir, 'validate-prompt.sh');
-    _copyFileSync(HOOK, hookCopy);
+    copyHook(hookCopy);
     const r = _spawnSync('/bin/bash', [hookCopy], {
       input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: abs } }),
       encoding: 'utf8',
@@ -708,7 +727,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     const realTsx = _spawnSync('/usr/bin/which', ['tsx'], { encoding: 'utf8' }).stdout?.trim();
     if (realTsx) _symlinkSync(realTsx, _join(binDir, 'tsx'));
     const hookCopy = _join(dir, 'validate-prompt.sh');
-    _copyFileSync(HOOK, hookCopy);
+    copyHook(hookCopy);
     const env: Record<string, string> = {
       ...process.env,
       CLAUDE_PROJECT_DIR: dir,
@@ -739,7 +758,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     const abs = writeViolatingOrchestratorPrompt(dir);
     const binDir = scrubbedPathBin();
     const hookCopy = _join(dir, 'validate-prompt.sh');
-    _copyFileSync(HOOK, hookCopy);
+    copyHook(hookCopy);
     const env: Record<string, string> = {
       ...process.env,
       CLAUDE_PROJECT_DIR: dir,
@@ -769,7 +788,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     const abs = writeViolatingOrchestratorPrompt(dir);
     const binDir = scrubbedPathBin();
     const hookCopy = _join(dir, 'validate-prompt.sh');
-    _copyFileSync(HOOK, hookCopy);
+    copyHook(hookCopy);
     const env: Record<string, string> = {
       ...process.env,
       CLAUDE_PROJECT_DIR: dir,
