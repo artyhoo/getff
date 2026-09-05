@@ -848,11 +848,11 @@ deliver_python_toolchain() {
 
   # adapter-jig C4 (no-orphan-residue): on a refresh pass, loudly report getff-header-marked
   # top-level files the CURRENT template set no longer delivers (lib.sh report_getff_orphans;
+  # the expected path list is lib.sh getff_lane_expected — SINGLE source, so the set this lane
+  # delivers and the set OTHER lanes union in on a polyglot consumer can never drift apart;
   # in-dir payloads are swept by refresh_safe already). Report-only — J2 decisions log #8.
   if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
-    report_getff_orphans python \
-      ruff.toml sgconfig.yml getff-ruff.toml \
-      .getff/ruff-bans.toml .github/workflows/getff-python.yml
+    report_getff_orphans python
   fi
 
   echo "  ✓ Python toolchain delivery complete (see .getff-python-install.log for the audit trail)."
