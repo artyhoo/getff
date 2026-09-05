@@ -878,6 +878,8 @@ jobs:
         run: bash tests/install-sh/consumer-pipeline.test.sh
       - name: "install-sh — refresh-safe dir-payload (#873: refresh_safe replaces directory payloads, not nests)"
         run: bash tests/install-sh/refresh-safe-dir-payload.test.sh
+      - name: "install-sh — copy-safe --force dir-payload (A2-1: copy_safe --force replaces directory payloads, not nests)"
+        run: bash tests/install-sh/copy-safe-force-dir-payload.test.sh
       - name: install-sh — gh-636 dispatcher tsx probe (degrade to fallback, never crash on unresolvable tsx)
         run: bash tests/install-sh/gh-636-dispatcher-tsx-probe.test.sh
       - name: install-sh — f16 stryker live-mutants (post-install liveness smoke #549 class)

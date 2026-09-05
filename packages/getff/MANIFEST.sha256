@@ -527,7 +527,7 @@ b75ae60ff7789448cc4de4248c0e904dda62335a8dfd91f747a5f660d9c05299  packages/core/
 27f115894fe029dbbe2bc61d9915572e6d63c69fca37d46bbde8537c5d7d482f  packages/core/principles/09-doc-authority-hierarchy.ts
 27bfad4e8a7be55658abaf07acb7d633779d4b9a67b4f9b78403eb0bb18bb528  packages/core/principles/10-research-patch-annotation.test.ts
 030b9348938bc687bed853dacccb78643d867fde4a38e285cd5f44aa6a91131e  packages/core/principles/11-build-first-reuse-default.design.md
-5413523d105014ccdde5ceda766bc2e069dc395923ed27962e70c12f1e1bbaab  packages/core/principles/11-build-first-reuse-default.test.ts
+530d631a9b0227385c42e6d0eb4d2b93cd2195a91de735c216d66f1c8e5d8590  packages/core/principles/11-build-first-reuse-default.test.ts
 7ed85c7babb1acee67062102c5ddce7665fc0cb1ddc35427000a7a438ed152f1  packages/core/principles/12-ai-laziness-traps.test.ts
 51bb959320f6adf2697f9f9c332dd664a7eaf4da914d4ad3c77a1fb618712303  packages/core/principles/13-phase-research-coverage-s17.test.ts
 ea660f8a6efcc2b73bff0b8fa0bbecb267de493b2cb19b863e3a72ac7c8497f4  packages/core/principles/14-skill-drift-detection.test.ts
@@ -1019,7 +1019,7 @@ dc0bec752fb0c4efaf84de561003173070dd36a24cde7c78842fa9c62aabbcde  setup.d/05-mcp
 75a08a95a2a3a03e2b1c43ea34249295db3e63bc3547172d5bb11b04e0016390  setup.d/20-agents.sh
 d2d0c62000ac39e011753b1d1e0bb0bef167bdb5a67162cdfc52cb8be934be38  setup.d/30-templates.sh
 6066c53be6918fa3c663f51497c1fa6579a7d3455e728e10dd85fd6b65155798  setup.d/40-configs.sh
-6afc1f38bdea2a50cf5f1b66cdb135c92d5c1271d9c5e6496d2abb9f7af32af9  setup.d/45-python.sh
+223b87def01d35bd22302baba1fece6d80222e286b57ac87a3678b39b1d7c01b  setup.d/45-python.sh
 b1ce59587ef2c43c88caa964cbf9306acd6920291694a445d50f8838f3fe8039  setup.d/46-cargo.sh
 5a0f93feccab0b2e67081dd2bdc5d1db2f6bed35f5307fff322c645039806c46  setup.d/47-go.sh
 4aff85e9ca969801cb6e028ca9643223fbaebbac4c386d803a365d38442d340c  setup.d/50-hooks.sh
@@ -1034,7 +1034,7 @@ a50a002a79481343127fd896d7b6a6b692975e68077e4ac201c33374589a4be8  setup.d/70-dep
 8aa0ac5a8337af982223eced061ceaeff8c4a68eda7affd8deece2b10999f1ff  setup.d/bridge-guided.sh
 99cae53e95cd2f5f520d722012a7ca8e2b7d09eb0de7c9238fa44908ec64231d  setup.d/companions.manifest
 f8eb7204b6b84f62e81dbc8e9ce40400fa448553d5e34c84281deb8ad3f2474b  setup.d/engine.sh
-6467bb39af4ebbabf0adc2578c684e6080733da49de093d3a1f2321a44d6997c  setup.d/lib.sh
+9c4e146468b21e303f2fd5a3084a0df39f08e0c07591eff74da79f22561601f1  setup.d/lib.sh
 ec7a4ccd7ab49f2514b47118c54977ed2ccf31c27a26a2c85b5cdb53f3c43096  skills/getff/SKILL.md
 22fee6545a68052ca0096421dd59f39621a9cb9dd1c8d50c7e170623aa153382  skills/getff/references/ai-traps.md
 b0c46db7bc6da1861a4d7e4ccf79654a770af0d31ebe816c65fc84d62cb13e6c  skills/getff/references/checks-map.md
