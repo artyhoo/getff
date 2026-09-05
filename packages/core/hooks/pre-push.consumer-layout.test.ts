@@ -851,6 +851,175 @@ describe(
       expect(out, out).toMatch(/lychee found broken links/);
     });
 
+    // ── ledger A4-8: the narrowing must exclude SHIPPED markdown, not the subtree ──
+    // The classifier held the bare prefixes `.claude/skills/` and `.claude/agents/`, so
+    // every skill/agent a CONSUMER authored was dropped from the walk (and counted in the
+    // "excluded N framework-shipped *.md" notice). These two arms are the pair: the
+    // consumer's own skill must reach lychee, the shipped one must not.
+    it('A4-8 NEGATIVE — a CONSUMER-authored .claude/skills/**/*.md with a broken link reaches lychee and blocks the push', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      const stubBin = join(dir, '.stub-bin');
+      // Reject only when the consumer's own skill file is in argv, so the assertion
+      // cannot pass by lychee being handed something else (or nothing at all).
+      writeFileSync(
+        join(stubBin, 'lychee'),
+        '#!/bin/sh\nfor a in "$@"; do\n' +
+          '  case "$a" in\n' +
+          '    .claude/skills/deploy/SKILL.md)\n' +
+          '      echo "✗ consumer-skill-checked: $a"; exit 1 ;;\n' +
+          '  esac\n' +
+          'done\nexit 0\n',
+      );
+      chmodSync(join(stubBin, 'lychee'), 0o755);
+      addConsumerCommit(
+        dir,
+        '.claude/skills/deploy/SKILL.md',
+        '# Deploy\n\n[broken](./does-not-exist.md)\n',
+        'skills: consumer-authored deploy skill',
+      );
+
+      const r = runHook(dir, hook, baseSha);
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      // Pre-fix this was exit 0: the file matched the `.claude/skills/` prefix, was
+      // excluded, and lychee was never invoked at all.
+      expect(r.status, out).toBe(1);
+      expect(out, out).toMatch(
+        /consumer-skill-checked: \.claude\/skills\/deploy\/SKILL\.md/,
+      );
+      expect(out, out).toMatch(/lychee found broken links/);
+    });
+
+    it('A4-8 POSITIVE — a SHIPPED skill slug is still excluded (the S2 Part 1 narrowing is intact)', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      const stubBin = join(dir, '.stub-bin');
+      writeFileSync(
+        join(stubBin, 'lychee'),
+        '#!/bin/sh\nfor a in "$@"; do\n' +
+          '  case "$a" in\n' +
+          '    .claude/skills/pipeline/*)\n' +
+          '      echo "✗ would-block-shipped: $a"; exit 1 ;;\n' +
+          '  esac\n' +
+          'done\nexit 0\n',
+      );
+      chmodSync(join(stubBin, 'lychee'), 0o755);
+      addConsumerCommit(
+        dir,
+        '.claude/skills/pipeline/SKILL.md',
+        '# Pipeline\n\n[framework-ref](../../../docs/meta-factory/EXECUTION-PLAN.md)\n',
+        'skills: refresh the shipped pipeline skill',
+      );
+
+      const r = runHook(dir, hook, baseSha);
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      expect(r.status, out).toBe(0);
+      expect(out, out).toMatch(/excluded 1 framework-shipped \*\.md/);
+      expect(out, out).not.toMatch(/would-block-shipped/);
+    });
+
+    // ── ledger S-6 + F-1: the registry-driven PREPUSH_ONLY seam, and the 3g gate's
+    // change-scope. Both are exercised through the seam itself, which is what makes the
+    // 3g arms hermetic: no other maintainer section runs in these two cases.
+    function runSection(
+      dir: string,
+      hook: string,
+      baseRef: string,
+      id: string,
+    ): { status: number; stdout: string; stderr: string } {
+      const stubBin = join(dir, '.stub-bin');
+      const r = spawnSync('node', ['--import', TSX_LOADER, hook], {
+        encoding: 'utf8',
+        cwd: dir,
+        input: '',
+        env: {
+          ...process.env,
+          NODE_PATH: REAL_NODE_MODULES,
+          PATH: `${stubBin}:${resolve(REAL_NODE_MODULES, '.bin')}:${process.env['PATH']}`,
+          PREPUSH_UPSTREAM_REF: baseRef,
+          PREPUSH_ONLY: id,
+        },
+      });
+      return {
+        status: r.status ?? -1,
+        stdout: r.stdout ?? '',
+        stderr: r.stderr ?? '',
+      };
+    }
+
+    /** Plant a build-script stub that records the fact it was invoked. */
+    function plantDriftScriptStub(dir: string): string {
+      const script = join(dir, 'scripts/build-shipped-eslint-rules.sh');
+      mkdirSync(dirname(script), { recursive: true });
+      writeFileSync(
+        script,
+        '#!/bin/sh\ntouch "$PWD/.drift-gate-ran"\nexit 0\n',
+      );
+      chmodSync(script, 0o755);
+      return join(dir, '.drift-gate-ran');
+    }
+
+    it('S-6 — an unknown PREPUSH_ONLY value FAILS LOUDLY (it used to run the whole hook and exit 0)', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      const r = runSection(dir, hook, baseSha, 'ask-file-scheme');
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      expect(r.status, out).toBe(1);
+      expect(out, out).toMatch(/matches no pre-push section id/);
+      // The diagnostic must name the real ids so a typo is self-correcting.
+      expect(out, out).toMatch(/ask-file-schema/);
+    });
+
+    it('F-1 — 3g drift gate does NOT spawn the build script when no eslint-rule changed', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      const marker = plantDriftScriptStub(dir);
+      addConsumerCommit(
+        dir,
+        'docs/notes.md',
+        '# Notes\n',
+        'docs: a docs-only push',
+      );
+
+      const r = runSection(dir, hook, baseSha, 'shipped-rule-drift');
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      expect(r.status, out).toBe(0);
+      // Pre-fix this ran unconditionally: six cold tsc spawns (~4 s wall) per push.
+      expect(existsSync(marker), out).toBe(false);
+    });
+
+    it('F-1 paired-negative — an eslint-rules change DOES spawn it (the scoping is not a hole)', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      const marker = plantDriftScriptStub(dir);
+      addConsumerCommit(
+        dir,
+        'packages/core/eslint-rules/no-fixture-rule.ts',
+        'export const rule = {};\n',
+        'feat(eslint-rules): a rule source lands',
+      );
+
+      const r = runSection(dir, hook, baseSha, 'shipped-rule-drift');
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      expect(r.status, out).toBe(0);
+      expect(existsSync(marker), out).toBe(true);
+    });
+
+    it('F-1 deletions — removing a rule source still spawns the gate (the orphan walk needs it)', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      const marker = plantDriftScriptStub(dir);
+      const victim = 'packages/core/eslint-rules/no-direct-time-randomness.ts';
+      rmSync(join(dir, victim));
+      execSync(`git add -A "${victim}"`, { cwd: dir });
+      execSync('git commit -m "chore: drop a rule source"', { cwd: dir });
+
+      const r = runSection(dir, hook, baseSha, 'shipped-rule-drift');
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      expect(r.status, out).toBe(0);
+      expect(existsSync(marker), out).toBe(true);
+    });
+
     // ── S3 deliverable 2: consumer-topology smoke ──────────────────────────────
     // The kickoff's explicit smoke: a tmp repo whose default branch is `main`, only the
     // consumer copy-list installed (no maintainer packages/core parts, no SSOT register),
