@@ -785,6 +785,12 @@ jobs:
         run: bash tests/install-sh/refresh-divergence-guard.test.sh
       - name: "install-sh — refresh-vendor-single-delivery (ledger A1-1 + S-7: one guarded vendor delivery honouring .override.md; single _copy_tree_with_transform)"
         run: bash tests/install-sh/refresh-vendor-single-delivery.test.sh
+      - name: "install-sh — refresh-dir-payload-ownership (ledger L-4: directory payloads walk per file through the divergence guard; deletion is manifest-scoped)"
+        run: bash tests/install-sh/refresh-dir-payload-ownership.test.sh
+      - name: "install-sh — refresh-baseline-survives-early-exit (ledger A1-2: flush on every exit path + weak staging of skipped files)"
+        run: bash tests/install-sh/refresh-baseline-survives-early-exit.test.sh
+      - name: "install-sh — eslint-rule-prune-by-manifest (ledger L-5: rule ownership from the delivery manifest, not a basename collision)"
+        run: bash tests/install-sh/eslint-rule-prune-by-manifest.test.sh
       - name: "install-sh — different-stack switch prunes barrel (#882: --force/--refresh with a NEW stack removes the prior stack's stray preset rule)"
         run: bash tests/install-sh/refresh-different-stack-prunes-barrel.test.sh
       - name: "install-sh — eslint barrel preserves consumer entries (issue 1481 casualty 2: hand-extended index.mjs survives regeneration; #882 prune unchanged)"
