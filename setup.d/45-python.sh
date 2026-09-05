@@ -70,9 +70,12 @@ _py_log() {
 # python surface. refresh_safe honours a sibling <dst>.override.md (Layer-3 consumer ownership). Both
 # branches carry the caller's "$tpl/…" source, so the refresh-covers-full-delivery gate (Check 4)
 # sees this call as a delivery on BOTH the install and the --refresh path (source-token parity).
+# Optional 3rd argument is forwarded verbatim to refresh_safe (`framework-exclusive` — see its
+# docstring in setup.d/lib.sh). copy_safe never sees it: on the install path the destination is
+# either absent or skipped, so there is nothing to sweep.
 _py_copy_or_refresh() {
   if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
-    refresh_safe "$1" "$2"
+    refresh_safe "$1" "$2" "${3:-}"
   else
     copy_safe "$1" "$2"
   fi
@@ -297,7 +300,12 @@ _py_deliver_astgrep() {
   # The rules dir MUST exist before any `ast-grep scan` (missing dir = exit 6, Probe 6). Copy it in
   # every branch (fresh AND pre-existing sgconfig). Framework-owned → refresh-aware (overwrite on
   # --refresh so updated rule YAML reaches a brownfield consumer; skip-if-exists on plain install).
-  _py_copy_or_refresh "$tpl/.getff/astgrep-rules" "$PROJECT_ROOT/.getff/astgrep-rules"
+  # framework-exclusive: this is a SCAN dir, not a shared one. _py_join_researched_rules below
+  # re-assembles it from .getff/rules-research on every pass precisely because the refresh wipes
+  # it, and adapter-jig C4 requires that a rule the current template no longer ships cannot stay
+  # silently active here — a stale ast-grep rule is live configuration. The L-4 default (keep
+  # what we cannot attribute) is the right call for shared payloads and the wrong one here.
+  _py_copy_or_refresh "$tpl/.getff/astgrep-rules" "$PROJECT_ROOT/.getff/astgrep-rules" framework-exclusive
   _py_log "ast-grep rules dir → .getff/astgrep-rules (framework-owned)"
 
   # Consumer-side researched rules (rendered by rule-bootstrap-cli --from-practice) join the scan
