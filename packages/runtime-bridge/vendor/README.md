@@ -34,6 +34,7 @@ time by tracing `import { ... } from '...'` chains:
 | `src/cli/aifHttp.ts`               | cli/ensure-parallel → `./aifHttp.js`                              |
 | `src/cli/park.ts`                  | cli/ensure-parallel → `./park.js`                                 |
 | `src/cli/openQuestion.ts`          | cli/park → `./openQuestion.js`                                    |
+| `src/cli/cliEntry.ts`              | every `src/cli/*.ts` → `./cliEntry.js`                            |
 | `hooks/runtime-bridge-dispatch.sh` | bash PostToolUse hook (paired with this CLI)                      |
 
 ### Agent-loop entrypoints (added 2026-08-17 — P1 resolved PARTIALLY)
@@ -55,6 +56,12 @@ prevent ([README.md#why-this-exists](../../../README.md#why-this-exists)).
 The five are mutually independent: none imports another, and their only shared sibling is
 `cli/aifHttp.ts`, already vendored for dispatch. The copy stays import-closed — every relative
 import from every vendored `.ts` resolves inside this tree (verified at copy time).
+
+`src/cli/cliEntry.ts` was admitted 2026-09-05 as the shared entrypoint plumbing every vendored
+CLI now imports (the realpath main-module guard + strict argv parsing over node:util
+`parseArgs`). It is closure, not a new promise: the copies it replaces were already in this
+tree, one per CLI, and the naive non-realpath guard among them made a symlink-invoked CLI exit
+0 having done nothing (#1597 review ledger A6-1 / A6-4 / A6-7 / R-6).
 
 `src/cli/claim.ts` was admitted 2026-08-18 under the same criterion, on the same trigger: the
 shipped `/pipeline` §6 Step 3 instructs the consumer to run it around the Phase -1 window

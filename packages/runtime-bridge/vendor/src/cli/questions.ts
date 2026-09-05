@@ -34,7 +34,7 @@
  *   maintainer's bash smoke-test and from an orchestrator session. No CC-only
  *   primitive, no Superset import, no paid LLM.
  */
-import { fileURLToPath } from 'node:url';
+import { isMain, parseCliArgs, CliArgError } from './cliEntry.js';
 import { OPEN_QUESTION_ANCHOR } from './openQuestion.js';
 
 const DEFAULT_AIF_URL = 'http://localhost:3009';
@@ -59,17 +59,24 @@ interface QuestionsArgs {
   json: boolean;
 }
 
-/** Parse CLI args: --project <id> (overrides env) and --json. */
+/**
+ * Parse CLI args: --project <id> (overrides env) and --json.
+ * Throws {@link CliArgError} on a malformed invocation — see cliEntry.ts (A6-7).
+ */
 export function parseQuestionsArgs(
   argv: string[],
   env: NodeJS.ProcessEnv,
 ): QuestionsArgs {
-  let projectId = env.RUNTIME_BRIDGE_AIF_PROJECT_ID || undefined;
-  const pIdx = argv.indexOf('--project');
-  if (pIdx !== -1 && argv[pIdx + 1]) {
-    projectId = argv[pIdx + 1];
-  }
-  return { projectId, json: argv.includes('--json') };
+  const { values } = parseCliArgs(argv, {
+    options: { project: { type: 'string' }, json: { type: 'boolean' } },
+  });
+  return {
+    projectId:
+      (values.project as string | undefined) ??
+      env.RUNTIME_BRIDGE_AIF_PROJECT_ID ??
+      undefined,
+    json: values.json === true,
+  };
 }
 
 /**
@@ -211,10 +218,18 @@ export async function fetchTasks(baseUrl: string): Promise<AifTask[]> {
 
 async function main(): Promise<void> {
   const baseUrl = process.env.RUNTIME_BRIDGE_AIF_URL || DEFAULT_AIF_URL;
-  const { projectId, json } = parseQuestionsArgs(
-    process.argv.slice(2),
-    process.env,
-  );
+  let projectId: string | undefined;
+  let json = false;
+  try {
+    ({ projectId, json } = parseQuestionsArgs(
+      process.argv.slice(2),
+      process.env,
+    ));
+  } catch (err) {
+    const msg = err instanceof CliArgError ? err.message : String(err);
+    process.stderr.write(`[runtime-bridge] questions: ${msg}\n`);
+    process.exit(1);
+  }
 
   let tasks: AifTask[];
   try {
@@ -238,8 +253,9 @@ async function main(): Promise<void> {
 }
 
 // Run only as a real entrypoint — importing the module (e.g. from tests) must
-// NOT trigger the fetch + process.exit side effects.
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+// NOT trigger the fetch + process.exit side effects. realpath BOTH sides
+// (cliEntry.isMain): a symlinked invocation path used to silently no-op (A6-1).
+if (isMain(import.meta.url)) {
   main().catch((err) => {
     process.stderr.write(
       `[runtime-bridge] questions: unhandled error: ${err}\n`,

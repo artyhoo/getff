@@ -35,7 +35,10 @@
  * dispatch spec itself is invalid (a `bridge-profile` marker naming no runtime
  * profile, or a missing RUNTIME_BRIDGE_AIF_PROJECT_ID). 1 on an UNEXPECTED
  * internal error — a non-BackendError throw, which is a defect in this code
- * rather than an outcome, and which exit 0 used to hide entirely (A5-4).
+ * rather than an outcome, and which exit 0 used to hide entirely (A5-4) — and
+ * likewise 1 when the kickoff path is ABSENT or UNREADABLE: that is a defect in the
+ * CALL, not a dispatch outcome, and exit 0 let a wrapper checking $? record the stage
+ * as dispatched while nothing was (A6-2).
  *
  * The §4 contract is not weakened by that 2: the gate/injection split "turns on
  * the exit code" of the HOOK (rule §4), and .claude/hooks/runtime-bridge-dispatch.sh
@@ -49,8 +52,7 @@
  *   so also callable from portable test harness.
  */
 import { spawnSync } from 'node:child_process';
-import { realpathSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { isMain } from './cliEntry.js';
 import { buildKickoffSpec } from '../kickoff.js';
 import { checkDedup, recordDispatch } from '../idempotency.js';
 import { resolveBackend } from '../resolver.js';
@@ -147,10 +149,12 @@ async function main(): Promise<void> {
   const kickoffPath = resolveKickoffPath(cliArgs);
   const force = dispatchUsesForce(cliArgs);
   if (!kickoffPath) {
+    // A6-2: a caller defect, not a dispatch outcome — never exit 0 (the hook does not
+    // read this status; /dispatcher, /pipeline and operators do).
     process.stderr.write(
       '[runtime-bridge] dispatch.ts: no kickoff path provided\n',
     );
-    process.exit(0);
+    process.exit(1);
   }
 
   // ── Step 1: Build KickoffSpec ─────────────────────────────────────────────
@@ -161,10 +165,12 @@ async function main(): Promise<void> {
   try {
     kickoff = buildKickoffSpec(kickoffPath, { requireAutoMarker: false });
   } catch (err) {
+    // A6-2: an unreadable/mistyped kickoff path is fixable by the caller and must be
+    // visible in $? — exit 0 made a missing file look like a completed dispatch.
     process.stderr.write(
       `[runtime-bridge] Failed to read kickoff ${kickoffPath}: ${err}\n`,
     );
-    process.exit(0);
+    process.exit(1);
   }
 
   if (!kickoff) {
@@ -328,24 +334,11 @@ function outputContext(message: string): void {
   process.stdout.write(JSON.stringify(output) + '\n');
 }
 
-/**
- * True only when this file is the executed script (tsx/node dispatch.ts …),
- * not when imported for its named exports (tests import runPreflight etc.;
- * an import must be side-effect-free — under vitest a top-level main() hits
- * process.exit(0), which the runner turns into an unhandled rejection).
- * realpath both sides: worktrees/macOS /tmp reach this file via symlinks.
- */
-function isDirectCliInvocation(): boolean {
-  const argv1 = process.argv[1];
-  if (!argv1) return false;
-  try {
-    return realpathSync(argv1) === realpathSync(fileURLToPath(import.meta.url));
-  } catch {
-    return false;
-  }
-}
-
-if (isDirectCliInvocation()) {
+// Run only as a real entrypoint — an import (for the named exports) must stay
+// side-effect-free. The realpath-both-sides guard lives in cliEntry.ts so all CLIs
+// share ONE copy: it was hand-rolled here and in claim.ts, and the naive non-realpath
+// form in the other four silently no-op'd under a symlinked path (A6-1 / R-6).
+if (isMain(import.meta.url)) {
   main().catch((err) => {
     // Same class as the non-BackendError branch above (A5-4): a silent exit 0
     // here would report a dispatch that never happened.
