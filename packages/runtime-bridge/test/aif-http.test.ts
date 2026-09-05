@@ -1,7 +1,7 @@
 // packages/runtime-bridge/test/aif-http.test.ts
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { BackendError } from '../src/backend.js';
-import { getTask, putTask, postJson, getJson, DEFAULT_HTTP_TIMEOUT_MS } from '../src/cli/aifHttp.js';
+import { getTask, putTask, postJson, getJson, aifRequest, DEFAULT_HTTP_TIMEOUT_MS } from '../src/cli/aifHttp.js';
 
 function okResponse(body: unknown = {}, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -96,5 +96,60 @@ describe('request timeout — no CLI hangs forever on a wedged API (R-7)', () =>
     await expect(
       getJson('http://localhost:3009', '/tasks/t-x', { notFoundCode: 'unavailable' }),
     ).rejects.toMatchObject({ code: 'unavailable' });
+  });
+});
+
+// ── A5-8 (#1597 ledger addendum): AifHandoffBackend._rest was a FOURTH copy of this
+// request + BackendError mapping, surviving the R-7/S-4 fold. Two things it did that the
+// shared helper could not, and which must therefore live here before the fold: a DELETE
+// (cancelClaim), and a distinct 'timed out' message on an abort. ──
+describe('aifRequest — the generic half the backend folds onto (A5-8)', () => {
+  it('supports DELETE (AifHandoffBackend.cancelClaim issues one)', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(okResponse({}));
+    await aifRequest('DELETE', 'http://localhost:3009', '/tasks/t-1');
+    const init = spy.mock.calls[0][1] as RequestInit;
+    expect(init.method).toBe('DELETE');
+    // A no-body DELETE must not declare a JSON content-type (malformed to some servers).
+    expect(init.headers).toBeUndefined();
+  });
+
+  it('an ABORT reports "timed out", not "unreachable" (the backend distinction)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      (_url, init) =>
+        new Promise((_ok, reject) => {
+          (init as RequestInit).signal?.addEventListener('abort', () =>
+            reject(new DOMException('The operation was aborted.', 'AbortError')),
+          );
+        }),
+    );
+
+    await expect(
+      aifRequest('GET', 'http://localhost:3009', '/tasks/t-1', undefined, { timeoutMs: 25 }),
+    ).rejects.toMatchObject({ code: 'unavailable', message: expect.stringContaining('timed out') });
+  });
+
+  it('a genuine connection failure still reports "unreachable" (paired negative)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('ECONNREFUSED'));
+    await expect(aifRequest('GET', 'http://localhost:3009', '/tasks/t-1')).rejects.toMatchObject({
+      code: 'unavailable',
+      message: expect.stringContaining('unreachable'),
+    });
+  });
+
+  it('honours a caller-supplied timeout (the backend keeps 10 s, the CLIs 30 s)', async () => {
+    const started = Date.now();
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      (_url, init) =>
+        new Promise((_ok, reject) => {
+          (init as RequestInit).signal?.addEventListener('abort', () =>
+            reject(new DOMException('aborted', 'AbortError')),
+          );
+        }),
+    );
+    await expect(
+      aifRequest('GET', 'http://localhost:3009', '/tasks/t-1', undefined, { timeoutMs: 30 }),
+    ).rejects.toMatchObject({ code: 'unavailable' });
+    // Proves the option is wired, not the 30 s default silently applied.
+    expect(Date.now() - started).toBeLessThan(5_000);
   });
 });
