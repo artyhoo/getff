@@ -157,9 +157,9 @@ export function parkedReason(task: AifTask): string {
  * deliberately left untouched (nothing to brainstorm about).
  */
 const BRAINSTORM_FOOTER =
-  '⚠ Если среди этих есть развилка о дизайне/стратегии — открой ' +
-  '`superpowers:brainstorming` ПЕРЕД ответом (исследуй → рекомендация с ' +
-  'аргументами), не релей голой карточкой.';
+  '⚠ If any of these is a design/strategy fork, open ' +
+  '`superpowers:brainstorming` BEFORE answering (research first, then a ' +
+  'reasoned recommendation) — do not relay it as a bare card.';
 
 /** Render the selected tasks as a human-readable block list. */
 export function formatHuman(tasks: AifTask[]): string {

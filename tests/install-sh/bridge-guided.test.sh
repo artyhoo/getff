@@ -79,4 +79,26 @@ out=$(WITH_AIF_SUITE="--with-aif-suite" bridge_guided_run)
 case "$out" in *"dead-end"*) bad "suite flag + runtime up: warning misfired: $out" ;; *) ok "suite flag + runtime up → no warning" ;; esac
 rm -rf "$TMP_WARN"
 
+# --- A1-7 (ledger #1597): docker-down is its OWN state ------------------------
+# `absent` used to mean two different machines: no docker at all, and docker installed
+# with the daemon stopped. The helper's absent arm then re-ran bridge_diagnose's own
+# `command -v docker && docker info` test to tell them apart — a test that has already
+# failed by the time `absent` is returned, so the "daemon down" guidance was unreachable.
+BRIDGE_LIB_ONLY=1 source "$REPO_ROOT/setup.d/bridge-guided.sh"
+curl() { return 1; }; export -f curl        # nothing responds → never state=up
+
+# binary present, daemon refusing → docker-down (NOT absent)
+docker() { return 1; }; export -f docker
+[ "$(bridge_diagnose http://localhost:3009)" = "docker-down" ] && ok "diagnose=docker-down when the binary is present but the daemon is down" || bad "diagnose=$(bridge_diagnose http://localhost:3009) for binary-present/daemon-down (want docker-down)"
+case "$(bridge_guided_run)" in *"daemon"*) ok "guided_run has a docker-down arm (daemon named in the guidance)" ;; *) bad "guided_run printed no docker-down guidance: $(bridge_guided_run)" ;; esac
+
+# paired-negative 1: daemon answering → docker (unchanged)
+docker() { return 0; }; export -f docker
+[ "$(bridge_diagnose http://localhost:3009)" = "docker" ] && ok "neg: diagnose=docker when the daemon answers" || bad "neg: diagnose=$(bridge_diagnose http://localhost:3009) when the daemon answers"
+
+# paired-negative 2: no docker binary at all → absent (unchanged). PATH is emptied so
+# `command -v docker` genuinely finds nothing; bridge_diagnose calls no external command.
+unset -f docker
+[ "$(PATH=/nonexistent-getff-probe bridge_diagnose http://localhost:3009)" = "absent" ] && ok "neg: diagnose=absent when no docker binary exists" || bad "neg: diagnose=$(PATH=/nonexistent-getff-probe bridge_diagnose http://localhost:3009) with no docker binary"
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

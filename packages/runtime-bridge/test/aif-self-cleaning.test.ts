@@ -4,9 +4,12 @@
 //   - idempotency.pruneStaleEntries: dedup log self-prunes on every write (bounded +
 //     stale-manual entries auto-expire → Finding B never recurs after TTL).
 //   - ManualBackend.isStaleArtifact: /tmp kickoffs self-prune on the next dispatch.
-import { describe, it, expect } from 'vitest';
-import { parseEntries, pruneStaleEntries } from '../src/idempotency.js';
-import { isStaleArtifact } from '../src/ManualBackend.js';
+import { describe, it, expect, vi } from 'vitest';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { parseEntries, pruneStaleEntries, resolveDedupPath } from '../src/idempotency.js';
+import { isStaleArtifact, manualInstructions } from '../src/ManualBackend.js';
 import type { TaskHandle } from '../src/types.js';
 
 const HANDLE: TaskHandle = { backend: 'manual', taskId: 't', dispatchedAt: '2026-06-01T00:00:00.000Z' };
@@ -60,5 +63,84 @@ describe('isStaleArtifact — /tmp kickoff self-prune predicate', () => {
   // Negative guard: green now; RED if the scope check regressed to match any old file.
   it('GUARD: an unrelated old .md must NOT be considered a prunable artefact', () => {
     expect(isStaleArtifact('my-research.md', now - 365 * DAY, now, SEVEN_D)).not.toBe(true);
+  });
+});
+
+// ── A5-3 / E-1: the dedup path the vendor README documented and no code read ──────────────
+// A single hard-coded global log cross-contaminates N vendored consumers on one host: B's
+// identical-content kickoff reads as "already dispatched" because A dispatched it inside the
+// TTL. resolveDedupPath is the pure core; one arm below proves the write really follows it.
+describe('resolveDedupPath — the per-project dedup log (A5-3 / E-1)', () => {
+  it('POSITIVE: the env var wins — this is the knob the vendor README documents', () => {
+    expect(resolveDedupPath({ RUNTIME_BRIDGE_DEDUP_PATH: '/srv/proj-a/dedup.jsonl' })).toBe(
+      '/srv/proj-a/dedup.jsonl',
+    );
+  });
+
+  it('POSITIVE: two projects resolve to two different logs (the cross-contamination fix)', () => {
+    const a = resolveDedupPath({ RUNTIME_BRIDGE_DEDUP_PATH: '/srv/a/dedup.jsonl' });
+    const b = resolveDedupPath({ RUNTIME_BRIDGE_DEDUP_PATH: '/srv/b/dedup.jsonl' });
+
+    expect(a).not.toBe(b);
+  });
+
+  it('NEGATIVE: unset / empty / whitespace-only all fall back to the default, never to \'\'', () => {
+    for (const env of [{}, { RUNTIME_BRIDGE_DEDUP_PATH: '' }, { RUNTIME_BRIDGE_DEDUP_PATH: '   ' }]) {
+      expect(resolveDedupPath(env)).toBe('/tmp/runtime-bridge-dedup.jsonl');
+    }
+  });
+
+  it('the resolved path is where the write actually lands (the const is not bypassed)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'rb-dedup-'));
+    const path = join(dir, 'dedup.jsonl');
+    try {
+      vi.resetModules();
+      process.env['RUNTIME_BRIDGE_DEDUP_PATH'] = path;
+      const { recordDispatch, checkDedup } = await import('../src/idempotency.js');
+
+      recordDispatch('hash-a', HANDLE);
+
+      expect(existsSync(path)).toBe(true);
+      expect(checkDedup('hash-a')?.taskId).toBe('t');
+    } finally {
+      delete process.env['RUNTIME_BRIDGE_DEDUP_PATH'];
+      vi.resetModules();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+// ── K-2: the ManualBackend box called itself bilingual and was Russian-only ───────────────
+// language-discipline.md §1 row 2 + §2: human-facing output follows AIF_HOOK_LANG, and an
+// UNSET var means English. The vendor drop shipped the Russian-only box to every consumer.
+describe('manualInstructions — AIF_HOOK_LANG gate on the operator box (K-2)', () => {
+  it('POSITIVE: unset language renders English', () => {
+    const out = manualInstructions('t1', '/tmp/k.md', '/tmp/r.md', undefined);
+
+    expect(out).toContain('Kickoff written to: /tmp/k.md');
+    expect(out).toContain('Open a new Claude Code window and run the task.');
+    expect(out).toContain('Put the report in: /tmp/r.md');
+  });
+
+  it('POSITIVE: AIF_HOOK_LANG=ru renders Russian', () => {
+    const out = manualInstructions('t1', '/tmp/k.md', '/tmp/r.md', 'ru');
+
+    expect(out).toContain('Kickoff сохранён: /tmp/k.md');
+    expect(out).toContain('Откройте новое окно Claude Code');
+  });
+
+  it('NEGATIVE: a non-ru language never leaks Cyrillic to the operator', () => {
+    for (const lang of [undefined, '', 'en', 'de']) {
+      expect(manualInstructions('t1', '/tmp/k.md', '/tmp/r.md', lang)).not.toMatch(/[\u0400-\u04FF]/);
+    }
+  });
+
+  it('the box borders line up in BOTH languages (the RU title used to be a column short)', () => {
+    for (const lang of [undefined, 'ru']) {
+      const [, top, title, bottom] = manualInstructions('t1', '/tmp/k.md', '/tmp/r.md', lang).split('\n');
+
+      expect(title?.length).toBe(top?.length);
+      expect(title?.length).toBe(bottom?.length);
+    }
   });
 });

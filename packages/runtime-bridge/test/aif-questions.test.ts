@@ -260,6 +260,18 @@ describe('BRAINSTORM FOOTER — appended on a non-empty list, absent on the empt
     expect(out).toBe('No parked questions.');
     expect(out).not.toMatch(/brainstorming/);
   });
+
+  // K-3: the footer is an AI-facing instruction — language-discipline.md §1 row 1, "English,
+  // always", no AIF_HOOK_LANG gate. It shipped to consumers in Russian via the vendor drop,
+  // so a non-Russian consumer's session read a Russian directive.
+  it('NEGATIVE — the AI-facing footer carries no Cyrillic (internal machinery is English)', () => {
+    const out = formatHuman([
+      { id: 'f-1', title: 'A fork', status: 'blocked_external', blockedReason: 'A or B?' },
+    ]);
+
+    expect(out).not.toMatch(/[\u0400-\u04FF]/);
+    expect(out).toMatch(/BEFORE answering/);
+  });
 });
 
 // ── FETCH ERROR ───────────────────────────────────────────────────────────────
