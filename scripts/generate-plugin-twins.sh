@@ -23,12 +23,19 @@
 # one level short in the twin — `](../.claude/rules/x.md)` means .claude/rules/x.md at the source
 # and plugin/.claude/rules/x.md in the twin, which does not exist. Byte-identity forbids rewriting
 # the prefix, so no single relative form satisfies both depths and the twin CANNOT carry a fixed
-# copy. Since PR #1578 the pre-push lychee arm skips plugin/agents/** (PLUGIN_AGENT_TWIN_PREFIX
-# in packages/core/hooks/pre-push.ts), so the twin's dangling copy is no longer gated — the link
-# is checked at its agents/ source only. Measured 2026-09-02: agents/compliance-verifier.md
-# carries 3 such links, all 3 dangle in plugin/agents/compliance-verifier.md on disk. Note the
-# twin population is NOT covered by setup.d/20-agents.sh's transform_internal_refs (that arm
-# rewrites agents/ only), so relative links reach plugin consumers verbatim.
+# copy. The twin population is also NOT covered by setup.d/20-agents.sh's transform_internal_refs
+# (that arm rewrites the agents/ copies it writes, never plugin/), so a relative link reaches
+# plugin-marketplace consumers verbatim and broken.
+#
+# GATED since 2026-09-06 (#1597 ledger L-3) by principle 24(h),
+# packages/core/principles/24-plugin-manifest-integrity.test.ts — every link in a twin must
+# resolve INSIDE plugin/agents/: `../…` and `/…` are L1, an in-payload target that resolves to
+# nothing is L2. It is unconditional, unlike pre-push §8, which skips plugin/agents/**
+# (PLUGIN_AGENT_TWIN_PREFIX in packages/core/hooks/pre-push.ts) and only walks changed files.
+# The fix form for a twinned agent is therefore a BLOB URL in the agents/ source, not a relative
+# link: it resolves from every channel and transform_internal_refs is a no-op on it. Measured
+# 2026-09-02 and left unfixed until L-3: agents/compliance-verifier.md carried 3 relative links,
+# all 3 dangling in the twin on disk — that was the state the new arm goes RED on.
 #
 # Both populations skip sources with no existing twin — that absence is the deliberate
 # "not twinned" signal, so the generator never invents a twin (16 of 19 agents, by design).
