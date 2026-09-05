@@ -289,8 +289,8 @@ The list below is **rendered from the shipped preset data** (`.claude/skills/pip
 
 <!-- getff:begin section=pipeline-presets plan=scripts/render-presets.mjs -->
 
-- `aif` — Autonomous overnight aif-handoff dispatch (mode=autonomous, marker=Claude Opus (plan+review))
-- `economy` — Cost-conscious whole-line on executor tier (mode=whole-line-executor, marker=Z.AI GLM-5.2 SDK)
+- `aif` — Autonomous overnight aif-handoff dispatch (project-default profiles, no marker) (mode=autonomous)
+- `economy` — Cost-conscious whole-line on executor tier (mode=whole-line-executor, marker=Z.AI GLM-5.3 SDK)
 - `night` — Night-mode unattended single-session (mode=mode-a-inline)
 - `sdd` — Interactive single-feature SDD (mode=in-session)
 
