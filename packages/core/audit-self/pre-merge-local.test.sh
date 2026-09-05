@@ -57,7 +57,10 @@
 
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
-CARRIER="$REPO_ROOT/packages/core/audit-self/pre-merge-local.sh"
+# Test seam (mirrors the script's own PMC_* seams, never used in a real run):
+# PMC_CARRIER_UNDER_TEST points the arms at a COPY, so the RED direction of a fix can
+# be reproduced against the pre-fix script without mutating the tracked file.
+CARRIER="${PMC_CARRIER_UNDER_TEST:-$REPO_ROOT/packages/core/audit-self/pre-merge-local.sh}"
 PROBE="$REPO_ROOT/packages/core/audit-self/ci-available-probe.sh"
 
 PASS=0; FAIL=0
@@ -170,6 +173,73 @@ assert_contains "arm2: FAIL verdict names the merge result" "$T/.last-out" "gate
 tail -n 1 "$T/.git/getff/pre-merge-runs.ndjson" | grep -q '"verdict":"FAIL"' \
   && ok "arm2: FAIL ledgered" || bad "arm2: FAIL not ledgered"
 export PATH=$PATH_SAVE
+
+# ── arm 2b: package.json but NO lockfile -> CANNOT-RUN (3), never FAIL (ledger A4-2) ──
+# The npm lane is detected from package.json alone, and the carrier used to hard-run
+# `npm ci` on whatever it found. Without a lockfile npm ci exits non-zero and the run was
+# recorded as verdict FAIL / exit 1 — «a gate went red on the merge result» — for a tree
+# whose gates never ran. That is the tool-absence axis, which :21 reserves exit 3 for.
+T=$(make_fixture "echo lint-ok")
+rm -f "$T/package-lock.json"
+git -C "$T" add -A; git -C "$T" commit -qm "drop the lockfile"
+PATH_SAVE=$PATH; export PATH="$T/.shim-bin:$PATH"
+run_carrier "$T" main
+[ "$RC" -eq 3 ] && ok "arm2b: package.json with no lockfile -> CANNOT-RUN exit 3 (was FAIL exit 1)" \
+  || bad "arm2b: expected 3 (CANNOT-RUN), got $RC"
+assert_contains "arm2b: names the missing lockfile, not a red gate" "$T/.last-out" "no lockfile is"
+# The ledger reuses `failed_gates` to carry the CANNOT-RUN reasons (:790), so the
+# discriminating field is the VERDICT plus what the reason names: a precondition
+# (`npm:no-lockfile`) rather than a gate that ran and went red (`npm:npm ci`).
+_l2b=$(tail -n 1 "$T/.git/getff/pre-merge-runs.ndjson" 2>/dev/null)
+if printf '%s' "$_l2b" | grep -q '"verdict":"CANNOT-RUN"' \
+   && printf '%s' "$_l2b" | grep -q 'npm:no-lockfile' \
+   && ! printf '%s' "$_l2b" | grep -q 'npm ci'; then
+  ok "arm2b: ledger records CANNOT-RUN naming the precondition, not a red npm ci gate"
+else
+  bad "arm2b: ledger line does not distinguish precondition from failed gate: $_l2b"
+fi
+export PATH=$PATH_SAVE
+
+# ── arm 2c: pnpm-lock.yaml -> the carrier uses pnpm, frozen, with CI=true (ledger A4-2) ──
+# Paired with 2b: 2b proves the honest verdict when no lane is runnable, 2c proves the
+# lane is actually SELECTED from the lockfile rather than assumed to be npm. The stub
+# records argv + whether CI was exported, and delegates `run` to real npm so the gate
+# legs behave exactly as in the npm arms.
+T=$(make_fixture "echo lint-ok")
+rm -f "$T/package-lock.json"
+printf 'lockfileVersion: "9.0"\n' > "$T/pnpm-lock.yaml"
+git -C "$T" add -A; git -C "$T" commit -qm "switch to a pnpm lockfile"
+printf '%s\n' '#!/usr/bin/env bash' \
+  'echo "pnpm $* [CI=${CI:-UNSET}]" >> "'"$T"'/pm-calls.log"' \
+  'if [ "$1" = run ]; then shift; exec npm run "$@"; fi' \
+  'exit 0' > "$T/.shim-bin/pnpm"
+printf '%s\n' '#!/usr/bin/env bash' \
+  'echo "npm $*" >> "'"$T"'/pm-calls.log"' \
+  'exec /usr/bin/env -i PATH="$PATH" HOME="$HOME" "$(command -v npm.real 2>/dev/null || echo npm)" "$@"' > /dev/null
+chmod +x "$T/.shim-bin/pnpm"
+PATH_SAVE=$PATH; export PATH="$T/.shim-bin:$PATH"
+run_carrier "$T" main
+export PATH=$PATH_SAVE
+if grep -q 'pnpm install --frozen-lockfile' "$T/pm-calls.log" 2>/dev/null; then
+  ok "arm2c: pnpm-lock.yaml selected pnpm with a FROZEN install"
+else
+  bad "arm2c: carrier did not run a frozen pnpm install — log: $(tr '\n' '|' < "$T/pm-calls.log" 2>/dev/null)"
+fi
+if grep -q 'pnpm install --frozen-lockfile.*CI=true' "$T/pm-calls.log" 2>/dev/null; then
+  ok "arm2c: CI=true exported (pnpm aborts a no-TTY node_modules removal without it)"
+else
+  bad "arm2c: CI not exported for the pnpm install"
+fi
+if grep -q 'pnpm run validate' "$T/pm-calls.log" 2>/dev/null; then
+  ok "arm2c: the validate gate ran through pnpm, not npm"
+else
+  bad "arm2c: validate did not run through pnpm"
+fi
+if grep -q 'npm ci' "$T/pm-calls.log" 2>/dev/null; then
+  bad "arm2c: carrier still reached for npm ci on a pnpm tree (the A4-2 defect)"
+else
+  ok "arm2c: no npm ci attempted on a pnpm tree"
+fi
 
 # ── arm 3: seeded conflict -> 2 ──
 T=$(make_fixture "echo lint-ok")

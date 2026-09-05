@@ -23,7 +23,14 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync, readFileSync } from 'node:fs';
+import {
+  mkdtempSync,
+  writeFileSync,
+  mkdirSync,
+  rmSync,
+  readFileSync,
+  readdirSync,
+} from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -320,6 +327,11 @@ function runHook(cwd: string, env: Record<string, string> = {}): { status: numbe
   const fullEnv = { ...process.env };
   if (env.ZCODE_PROJECT_DIR === undefined) delete fullEnv.ZCODE_PROJECT_DIR;
   else fullEnv.ZCODE_PROJECT_DIR = env.ZCODE_PROJECT_DIR;
+  // Any other key passes straight through — the F-4 memo arms below set TMPDIR so the
+  // memo file lands inside the fixture dir instead of the shared system temp dir.
+  for (const [k, v] of Object.entries(env)) {
+    if (k !== 'ZCODE_PROJECT_DIR') fullEnv[k] = v;
+  }
   const r = spawnSync('bash', [HOOK], {
     cwd,
     encoding: 'utf8',
@@ -428,6 +440,48 @@ describe('deps-hash-check.sh — UserPromptSubmit deps-drift context injector', 
     expect(status).toBe(0);
     // Silent on match — no warning injected into context.
     expect(stdout).toBe('');
+  });
+
+  // ---------------------------------------------------------------------------
+  // F-4 memo cache (ledger): the hook runs on EVERY UserPromptSubmit and now memoises
+  // each stack's hash on a content signature of its manifests plus a 60s TTL. The arm
+  // that matters is not «is it faster» — it is that a warm memo can never answer for a
+  // manifest that has since changed. Both arms below stay well inside the TTL, so a
+  // key-insensitive cache would pass the first and fail the second.
+  // ---------------------------------------------------------------------------
+  it('F-4: a warm memo stays silent while package.json is unchanged', () => {
+    const pkg = { dependencies: { react: '^18.0.0' } };
+    const cwd = makeFixtureDir({
+      packageJson: pkg,
+      toolDecisions: `---\ndeps-hash: ${computeHash(buildDepsJson(pkg))}\n---\n`,
+    });
+    expect(runHook(cwd, { TMPDIR: cwd }).stdout).toBe('');
+    // Second run reads the memo written by the first.
+    const warm = runHook(cwd, { TMPDIR: cwd });
+    expect(warm.status).toBe(0);
+    expect(warm.stdout).toBe('');
+    // The memo was actually written — otherwise the arm below proves nothing about caching.
+    const memos = readdirSync(cwd).filter((f) => f.startsWith('.getff-deps-memo.'));
+    expect(memos.length, `no memo file written into ${cwd}`).toBeGreaterThan(0);
+  });
+
+  it('F-4: editing package.json inside the TTL still WARNS (the memo cannot mask drift)', () => {
+    const pkg = { dependencies: { react: '^18.0.0' } };
+    const cwd = makeFixtureDir({
+      packageJson: pkg,
+      toolDecisions: `---\ndeps-hash: ${computeHash(buildDepsJson(pkg))}\n---\n`,
+    });
+    expect(runHook(cwd, { TMPDIR: cwd }).stdout).toBe('');
+
+    // Same second, memo warm, TTL nowhere near expiry — only the content key can catch this.
+    writeFileSync(
+      join(cwd, 'package.json'),
+      JSON.stringify({ dependencies: { react: '^18.0.0', 'left-pad': '^1.0.0' } }),
+      'utf8',
+    );
+    const after = runHook(cwd, { TMPDIR: cwd });
+    expect(after.status).toBe(0);
+    expect(after.stdout).toContain('deps changed since last tool-bootstrap');
   });
 
   it('SKIP: no .ai-factory/tool-decisions.md → silent exit 0', () => {
