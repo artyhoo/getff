@@ -66,9 +66,38 @@ const SANDBOX = realpathSync(mkdtempSync(join(tmpdir(), 'c4-marker-')));
 const SANDBOX_HOOKS = join(SANDBOX, '.claude', 'hooks');
 mkdirSync(SANDBOX_HOOKS, { recursive: true });
 const HOOK = join(SANDBOX_HOOKS, 'check-hook-marker.sh');
+/** Set by the Layer-2 describe so the A3-8 arms can reuse its fixture-root staging. */
+let runInFixtureRootExported: (hookBody: string, matcher: string) => number;
+
+// Applicability seed (#1597 review ledger A3-4). The gate now runs only where the convention
+// it enforces actually lives: it probes for .claude/rules/dual-implementation-discipline.md,
+// the rule that defines @dual-pair / @cc-only-rationale. That rule reaches no consumer — no
+// setup.d/install.sh site ships .claude/rules/, and the plugin has no .claude/ at all — so
+// without the probe the gate fired exit 2 on a CONSUMER's own hooks, demanding a
+// getff-internal marker and citing a file they cannot read. The sandbox stands in for the
+// FRAMEWORK repo, so it must carry the rule; the consumer-layout arm below asserts the other
+// side of the same fork.
+mkdirSync(join(SANDBOX, '.claude', 'rules'), { recursive: true });
+writeFileSync(
+  join(SANDBOX, '.claude', 'rules', 'dual-implementation-discipline.md'),
+  '# Dual-implementation discipline (sandbox stand-in)\n',
+  'utf8',
+);
+// Copy the real hook into the sandbox AND seed its `lib/` sibling: since the #1597
+// review-ledger R-2 fix the gate sources `<hook dir>/lib/hook-emit.sh` for its emit helpers,
+// so copying the script alone would reproduce a broken install rather than the shipped one.
 copyFileSync(SOURCE_HOOK, HOOK);
+mkdirSync(join(dirname(HOOK), 'lib'), { recursive: true });
+copyFileSync(
+  resolve(REPO_ROOT, '.claude/hooks/lib/hook-emit.sh'),
+  join(dirname(HOOK), 'lib', 'hook-emit.sh'),
+);
+
+/** Extra roots staged by individual tests (consumer-layout fixtures). */
+const extraTmpDirs: string[] = [];
 
 afterAll(() => {
+  for (const d of extraTmpDirs.splice(0)) rmSync(d, { recursive: true, force: true });
   rmSync(SANDBOX, { recursive: true, force: true });
 });
 
@@ -381,10 +410,21 @@ describe.skipIf(!JQ)(
 
     // Stage a throwaway CLAUDE_PROJECT_DIR with one hook + a settings.json registering it at
     // `matcher`, run the REAL gate against it, return the exit code. Root is removed by caller.
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
+    runInFixtureRootExported = runInFixtureRoot;
     function runInFixtureRoot(hookBody: string, matcher: string): number {
       const root = realpathSync(mkdtempSync(join(tmpdir(), 'c4-backstop-')));
       const hooksDir = join(root, '.claude', 'hooks');
       mkdirSync(hooksDir, { recursive: true });
+      // The gate is applicability-scoped to projects carrying the rule it enforces
+      // (#1597 review ledger A3-4); a fixture root standing in for the framework must
+      // therefore carry it, or every arm below passes vacuously with exit 0.
+      mkdirSync(join(root, '.claude', 'rules'), { recursive: true });
+      writeFileSync(
+        join(root, '.claude', 'rules', 'dual-implementation-discipline.md'),
+        '# Dual-implementation discipline (fixture stand-in)\n',
+        'utf8',
+      );
       const hookName = 'zzz-backstop.sh';
       writeFileSync(join(hooksDir, hookName), hookBody, 'utf8');
       writeFileSync(
@@ -493,5 +533,130 @@ describe('dependency-missing skip is announced on the model channel', () => {
     const { status, stdout } = runNoJq('/x/README.md');
     expect(status).toBe(0);
     expect(stdout.trim()).toBe('');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Consumer scoping (#1597 review ledger A3-4) + order-independent matcher membership (A3-8).
+// ═══════════════════════════════════════════════════════════════════════════════
+describe.skipIf(!hasJq())('consumer scoping (A3-4) and matcher membership (A3-8)', () => {
+  const REAL_HOOK_PATH = resolve(REPO_ROOT, '.claude/hooks/check-hook-marker.sh');
+
+  /**
+   * A tree shaped like a consumer install: the consumer's own hook, no .claude/rules/.
+   * `withRule` seeds the rule that defines the convention, i.e. the framework/adopter side.
+   */
+  function tree(withRule: boolean): { root: string; hook: string } {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'c4-consumer-')));
+    extraTmpDirs.push(root);
+    const hooksDir = join(root, '.claude', 'hooks');
+    mkdirSync(hooksDir, { recursive: true });
+    const hook = join(hooksDir, 'my-consumer-hook.sh');
+    // Deliberately marker-less: the exact payload that used to earn a consumer an exit 2.
+    writeFileSync(hook, '#!/usr/bin/env bash\necho hi\n', 'utf8');
+    if (withRule) {
+      mkdirSync(join(root, '.claude', 'rules'), { recursive: true });
+      writeFileSync(
+        join(root, '.claude', 'rules', 'dual-implementation-discipline.md'),
+        '# Dual-implementation discipline (stand-in)\n',
+        'utf8',
+      );
+    }
+    return { root, hook };
+  }
+
+  function run(root: string, hook: string): { status: number; stderr: string; stdout: string } {
+    const env = { ...process.env, CLAUDE_PROJECT_DIR: root } as Record<string, string>;
+    delete env.ZCODE_PROJECT_DIR;
+    const r = spawnSync('/bin/bash', [REAL_HOOK_PATH], {
+      input: JSON.stringify({
+        tool_name: 'Write',
+        tool_input: { file_path: hook },
+      }),
+      encoding: 'utf8',
+      cwd: root,
+      env,
+    });
+    return { status: r.status ?? -1, stderr: r.stderr ?? '', stdout: r.stdout ?? '' };
+  }
+
+  it('A3-4: a consumer without the rule is NOT told to add a getff-internal marker', () => {
+    const { root, hook } = tree(false);
+    const r = run(root, hook);
+    // NOT-APPLICABLE, not a dependency SKIP: there is no convention in this project for the
+    // edit to violate, so silence here is a true statement rather than the L-2 silent-pass.
+    expect(r.status, 'pre-fix this was exit 2 on the consumer’s own hook').toBe(0);
+    expect(r.stderr).not.toMatch(/dual-pair|cc-only-rationale/);
+    expect(r.stdout.trim()).toBe('');
+  });
+
+  it('A3-4: the same edit in a project that DOES carry the rule is still gated', () => {
+    // The other half of the fork — the scoping must not turn the gate off for the framework
+    // (or for a consumer who deliberately vendored the rule and thereby opted in).
+    const { root, hook } = tree(true);
+    const r = run(root, hook);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/no delivery-channel marker/);
+  });
+
+  it('A3-8: Write|Edit|MultiEdit satisfies @file-content-gate (order must not matter)', () => {
+    // hooks.json itself registers runtime-bridge-dispatch as Write|Edit|MultiEdit; the old
+    // positional glob `*Edit*Write*MultiEdit*` rejected exactly that form while its own
+    // comment claimed both orders were fine.
+    for (const matcher of ['Edit|Write|MultiEdit', 'Write|Edit|MultiEdit', 'MultiEdit|Write|Edit']) {
+      const status = runInFixtureRootExported(
+        '#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n',
+        matcher,
+      );
+      expect(status, `matcher '${matcher}' must pass — all three tokens are present`).toBe(0);
+    }
+  });
+
+  it('A3-8: a genuinely narrow matcher is still caught, and the message names what is missing', () => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'c4-narrow-')));
+    extraTmpDirs.push(root);
+    const hooksDir = join(root, '.claude', 'hooks');
+    mkdirSync(hooksDir, { recursive: true });
+    mkdirSync(join(root, '.claude', 'rules'), { recursive: true });
+    writeFileSync(
+      join(root, '.claude', 'rules', 'dual-implementation-discipline.md'),
+      '# stand-in\n',
+      'utf8',
+    );
+    const hookName = 'zzz-narrow.sh';
+    writeFileSync(
+      join(hooksDir, hookName),
+      '#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n',
+      'utf8',
+    );
+    writeFileSync(
+      join(root, '.claude', 'settings.json'),
+      JSON.stringify({
+        hooks: {
+          PostToolUse: [
+            {
+              matcher: 'Write|Edit',
+              hooks: [
+                { type: 'command', command: `bash "$CLAUDE_PROJECT_DIR/.claude/hooks/${hookName}"` },
+              ],
+            },
+          ],
+        },
+      }),
+      'utf8',
+    );
+    const env = { ...process.env, CLAUDE_PROJECT_DIR: root } as Record<string, string>;
+    delete env.ZCODE_PROJECT_DIR;
+    const r = spawnSync('/bin/bash', [REAL_HOOK_PATH], {
+      input: JSON.stringify({
+        tool_name: 'Edit',
+        tool_input: { file_path: join(hooksDir, hookName) },
+      }),
+      encoding: 'utf8',
+      cwd: root,
+      env,
+    });
+    expect(r.status).toBe(2);
+    expect(r.stderr, 'the diagnostic must name the missing token').toMatch(/missing \[MultiEdit\]/);
   });
 });
