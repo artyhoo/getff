@@ -129,3 +129,4 @@ tests/agnosticism/conformance-record.tsv
 # real installed-package.json on disk without requiring `npm install` in the
 # fixture dir. Negate the blanket node_modules ignores above for this one path.
 !packages/core/research/fixtures/**/node_modules/
+!.claude/orchestrator-prompts/ledger-1597-fixes/kickoff-f*.md

@@ -145,21 +145,55 @@ DISPATCH_TS="$(_resolve_dispatch_ts)" || {
   exit 0
 }
 
+# ── Capture the CLI's stderr in a PRIVATE, per-invocation file ───────────────
+# This used to be a truncating redirect to the fixed `/tmp/runtime-bridge-dispatch-stderr.txt`,
+# which was wrong twice over (A5-5, #1597 review ledger):
+#   - fixed + predictable + world-writable: on a shared host another user pre-creates
+#     the path as a symlink to a file the operator owns and every kickoff Write
+#     truncates it; on a single-user box concurrent CC sessions clobber each other;
+#   - nothing ever read it back (`git grep` found writers only), so the ManualBackend
+#     fallback and ABORT diagnostics — the ONLY output those paths produce — were
+#     discarded by construction. That is `#warning-nobody-reads`
+#     (.claude/rules/attention-is-not-a-mechanism.md §2) in a shipped artefact.
+# mktemp gives an unpredictable name with 0600 semantics and no pre-existing target to
+# follow; the trap removes it on every exit path. If mktemp itself fails we let the
+# CLI's stderr flow straight through rather than losing it.
+_STDERR_LOG=""
+if command -v mktemp >/dev/null 2>&1; then
+  _STDERR_LOG="$(mktemp "${TMPDIR:-/tmp}/runtime-bridge-dispatch-stderr.XXXXXX" 2>/dev/null || printf '')"
+fi
+# `\$` (escaped) defers expansion to trap time — the value is read when the trap runs.
+trap "[ -n \"\$_STDERR_LOG\" ] && rm -f \"\$_STDERR_LOG\"" EXIT
+
 # ── Invoke dispatch entrypoint ────────────────────────────────────────────────
 # Use tsx (TypeScript executor) if available; fall back to node with --loader.
 # dispatch.ts outputs JSON hookSpecificOutput.additionalContext. Its exit code is 0
-# for every dispatch outcome and 2 when the kickoff itself is invalid; we capture
-# stdout and deliberately DO NOT propagate that status — this hook is an injection,
-# so the Write is never blocked (rule §4 turns the gate/injection split on the
-# HOOK's exit code, which stays 0 unconditionally below).
+# for every dispatch outcome, 1 on an unexpected internal error, and 2 when the
+# dispatch spec itself is invalid; we capture stdout and deliberately DO NOT
+# propagate that status — this hook is an injection, so the Write is never blocked
+# (rule §4 turns the gate/injection split on the HOOK's exit code, which stays 0
+# unconditionally below).
+if [ -n "$_STDERR_LOG" ]; then
+  _run() { "$@" 2>"$_STDERR_LOG"; }
+else
+  _run() { "$@"; }
+fi
+
 if command -v tsx >/dev/null 2>&1; then
-  RESULT="$(tsx "$DISPATCH_TS" "$FILE_PATH" 2>/tmp/runtime-bridge-dispatch-stderr.txt)"
+  RESULT="$(_run tsx "$DISPATCH_TS" "$FILE_PATH")"
 elif command -v npx >/dev/null 2>&1; then
-  RESULT="$(npx --yes tsx "$DISPATCH_TS" "$FILE_PATH" 2>/tmp/runtime-bridge-dispatch-stderr.txt)"
+  RESULT="$(_run npx --yes tsx "$DISPATCH_TS" "$FILE_PATH")"
 else
   # Neither tsx nor npx — fall back to manual instructions via stderr
   printf '[runtime-bridge] tsx not found — paste kickoff manually: %s\n' "$FILE_PATH" >&2
   exit 0
+fi
+
+# ── Surface what the CLI reported ─────────────────────────────────────────────
+# The captured stderr goes to OUR stderr, which the harness shows the operator.
+# Silence stays silence — only a non-empty capture is forwarded.
+if [ -n "$_STDERR_LOG" ] && [ -s "$_STDERR_LOG" ]; then
+  cat "$_STDERR_LOG" >&2
 fi
 
 # ── Forward JSON output (additionalContext) ───────────────────────────────────

@@ -51,6 +51,17 @@ function mockRest(calls: Call[], failOn?: { method: string; suffix: string }): v
           new Response(JSON.stringify({ id: 'task-123', status: 'backlog' }), { status: 201 }),
         );
       }
+      // A5-1: cancelClaim now reads the task before deleting it, so a claim
+      // fixture has to BE a claim — a paused backlog row. The unguarded-DELETE
+      // behaviour this replaces is what deleted live tasks out from under their
+      // workers (see aif-backend-semantics.test.ts for the refusal arms).
+      if (method === 'GET' && /\/tasks\/[^/]+$/.test(url)) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ id: 'task-123', status: 'backlog', paused: true }), {
+            status: 200,
+          }),
+        );
+      }
       return Promise.resolve(new Response('', { status: 200 }));
     },
   );
@@ -147,6 +158,8 @@ describe('release() / cancelClaim() — phase 2 and the RED branch', () => {
   });
 
   it('cancelClaim() still reports a REAL failure (500) as not-cancelled', async () => {
+    // With the A5-1 guard in front, a 500 on everything means the pre-check
+    // itself could not answer — still not-cancelled, and deliberately no DELETE.
     vi.spyOn(globalThis, 'fetch').mockImplementation(() =>
       Promise.resolve(new Response('boom', { status: 500 })),
     );
