@@ -259,6 +259,24 @@ describe('checkPrBodyFidelity — severity-contract arm (Failure-scenario in Rev
     const body = withFindings('- MAJOR: a (src/a.ts:1)\n<!-- Failure-scenario: hidden -->');
     expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(false);
   });
+  it('fails a NUMBERED-LIST BLOCKER entry without a scenario (A4-3: digit-led opener was invisible)', () => {
+    const r = checkPrBodyFidelity({ body: withFindings('1. BLOCKER: hook never fires (pre-push.ts:10)'), headSha: HEAD });
+    expect(r.ok).toBe(false);
+    expect(r.errors.join()).toMatch(/Failure-scenario/);
+  });
+  it('fails a TABLE-ROW BLOCKER entry without a scenario (A4-3: leading-pipe opener was invisible)', () => {
+    const r = checkPrBodyFidelity({ body: withFindings('| BLOCKER | hook never fires (pre-push.ts:10) |'), headSha: HEAD });
+    expect(r.ok).toBe(false);
+    expect(r.errors.join()).toMatch(/Failure-scenario/);
+  });
+  it('passes a numbered-list entry whose indented continuation carries the scenario', () => {
+    const body = withFindings('1. BLOCKER: hook never fires (pre-push.ts:10)\n   Failure-scenario: a round-triggering finding merges with the gate green');
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
+  it('passes a table-row entry whose later row carries the scenario', () => {
+    const body = withFindings('| BLOCKER | hook never fires (pre-push.ts:10) |\n| scenario | Failure-scenario: a round-triggering finding merges with the gate green |');
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
   it('reports the arm error alongside the skipped path too', () => {
     const body = `## Review findings\n\n- MAJOR: a (src/a.ts:1)\n\n## Fidelity verdict\nFIDELITY: skipped — docs-only change, no kickoff applies\n`;
     const r = checkPrBodyFidelity({ body, headSha: HEAD });

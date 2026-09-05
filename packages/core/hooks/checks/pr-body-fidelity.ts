@@ -61,8 +61,17 @@ const ROUND_RE = /^Round:[ \t]*\d+[ \t]*$/m;
 const SHA_RE = /^Audited-SHA:[ \t]*([0-9a-fA-F]{12,40})[ \t]*$/m;
 const FILE_LINE_RE = /[\w./-]+\.[A-Za-z]{1,6}:\d+/;
 const REVIEW_FINDINGS_HEADING_RE = /^##[ \t]+Review findings[ \t]*$/;
-/** Grade token OPENING a list entry (optionally bolded/bracketed). A digit-led summary line never matches. */
-const FINDING_GRADE_RE = /^(?:[-*][ \t]+)?\**\[?(BLOCKER|MAJOR)\b/;
+/**
+ * Grade token OPENING a list entry (optionally bolded/bracketed). Openers: `- `/`* ` bullet,
+ * `1.`/`1)` ordered list, or a table row's leading `|` — A4-3: the bullet-only grammar let
+ * numbered-list and table-shaped round-triggering findings pass with no Failure-scenario
+ * enforced. A digit-led summary line (`round 1: 0 BLOCKER / 2 MAJOR`) still never matches:
+ * the opener is punctuation + space, and the grade must sit at the entry head. Known
+ * consequence (fail-closed direction): a numbered TALLY (`1. BLOCKER: 1`) now reads as an
+ * opened entry and demands a Failure-scenario — a false RED on a shape the review-sidecar
+ * never emits (its canonical tally is `- BLOCKER: 1`, exempt via FINDING_COUNT_RE below).
+ */
+const FINDING_GRADE_RE = /^(?:[-*][ \t]+|\d+[.)][ \t]+|\|[ \t]*)?\**\[?(BLOCKER|MAJOR)\b/;
 /**
  * Count line, not a finding: `- BLOCKER: 1` (the review-sidecar summary shape). Exempt —
  * a bare tally opens no entry. NOTE (recorded fail-open): a sidecar block pasted WITH its
