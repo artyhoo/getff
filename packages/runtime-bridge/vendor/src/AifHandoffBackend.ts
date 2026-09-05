@@ -49,6 +49,7 @@
 import type { ClaimCapableBackend } from './backend.js';
 import { BackendError } from './backend.js';
 import { ensureParallelEnabled } from './cli/ensure-parallel.js';
+import { aifRequest, type AifHttpMethod } from './cli/aifHttp.js';
 import type {
   KickoffSpec,
   TaskHandle,
@@ -69,6 +70,13 @@ import {
  * error-class terminal that resolves rather than keeps waiting.
  */
 const TERMINAL_RAW_STATUSES = new Set(['done', 'verified', 'blocked_external']);
+
+/**
+ * Backend REST timeout. Deliberately shorter than the CLI default
+ * (cli/aifHttp.ts DEFAULT_HTTP_TIMEOUT_MS): a dispatch runs inside a PostToolUse hook, so a
+ * wedged aif must not hold the author's editor for half a minute — it falls back to Manual.
+ */
+const REST_TIMEOUT_MS = 10_000;
 
 /**
  * What happened to a cancel request — the reported form of
@@ -553,85 +561,34 @@ export class AifHandoffBackend implements ClaimCapableBackend {
 
   /**
    * Call an aif-handoff REST endpoint (plain JSON, no MCP handshake).
-   * Used by dispatch() for the 4-step planner-skip sequence on baseUrl (:3009).
+   * Used by dispatch() for the 4-step planner-skip sequence on baseUrl (:3009), by the
+   * claim protocol (GET + DELETE), and by the runtime-profile lookup.
    *
-   * Error mapping (per RuntimeBackend BackendError contract):
-   *   - connection refused / abort / timeout -> 'unavailable' (triggers Manual fallback)
-   *   - HTTP 429                              -> 'quota_exceeded' (triggers Manual fallback)
+   * The transport, the timeout plumbing and the BackendError mapping live in
+   * cli/aifHttp.ts — this used to be a fourth private copy of all three, the one that
+   * survived the R-7 / S-4 fold (#1597 ledger addendum A5-8). The two properties this
+   * caller does not share with the CLIs are passed, not re-implemented:
+   *   - DELETE, which the claim protocol issues and the named CLI helpers do not;
+   *   - a 10 s timeout rather than the CLI default, because a dispatch runs inside a
+   *     PostToolUse hook that must not block the author's editor.
+   *
+   * Error mapping (unchanged, per the RuntimeBackend BackendError contract):
+   *   - connection refused -> 'unavailable' (triggers Manual fallback)
+   *   - abort / timeout    -> 'unavailable', reported as "timed out"
+   *   - HTTP 429           -> 'quota_exceeded' (triggers Manual fallback)
    *   - any other non-2xx (incl. the dirty-worktree 4xx guard) -> 'dispatch_failed'
    *
-   * @param method  HTTP method (POST / PUT / ...).
+   * @param method  HTTP method (GET / POST / PUT / DELETE).
    * @param path    Path appended to baseUrl (e.g. '/tasks', '/tasks/:id/events').
    * @param body    Optional JSON body. Omitted bodies send no payload.
    */
   private async _rest(
-    method: string,
+    method: AifHttpMethod,
     path: string,
     body?: unknown,
   ): Promise<unknown> {
-    let res: Response;
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10_000);
-      try {
-        res = await fetch(`${this.baseUrl}${path}`, {
-          method,
-          // Only declare a JSON content-type when we actually send a body
-          // (a no-body DELETE with Content-Type: application/json is malformed
-          // to some servers).
-          headers:
-            body === undefined ? {} : { 'Content-Type': 'application/json' },
-          body: body === undefined ? undefined : JSON.stringify(body),
-          signal: controller.signal,
-        });
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    } catch (err) {
-      const name = err instanceof Error ? err.name : '';
-      const msg = err instanceof Error ? err.message : String(err);
-      // Prefer the canonical AbortError name; fall back to message-substring.
-      if (
-        name === 'AbortError' ||
-        msg.includes('abort') ||
-        msg.includes('timeout')
-      ) {
-        throw new BackendError(
-          `aif-handoff REST ${method} ${path} timed out`,
-          'unavailable',
-          'aif-handoff',
-        );
-      }
-      throw new BackendError(
-        `aif-handoff REST ${method} ${path} unreachable: ${msg}`,
-        'unavailable',
-        'aif-handoff',
-      );
-    }
-
-    if (!res.ok) {
-      const errBody = await res.text().catch(() => '');
-      if (res.status === 429) {
-        throw new BackendError(
-          `aif-handoff rate limit (${method} ${path}): ${errBody}`,
-          'quota_exceeded',
-          'aif-handoff',
-        );
-      }
-      throw new BackendError(
-        `aif-handoff REST ${method} ${path} HTTP ${res.status}: ${errBody}`,
-        'dispatch_failed',
-        'aif-handoff',
-      );
-    }
-
-    // REST returns plain JSON (no SSE framing). Tolerate an empty body.
-    const text = await res.text();
-    if (!text) return {};
-    try {
-      return JSON.parse(text) as unknown;
-    } catch {
-      return text;
-    }
+    return aifRequest(method, this.baseUrl, path, body, {
+      timeoutMs: REST_TIMEOUT_MS,
+    });
   }
 }
