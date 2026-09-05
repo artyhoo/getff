@@ -53,7 +53,13 @@ createServer((req, res) => {
   req.resume();
   if (url.startsWith('/health')) return send(res, 200, { ok: true });
   if (url.startsWith('/projects')) return send(res, 200, [{ id: 'proj-uuid', parallelEnabled: true }]);
-  if (url.startsWith('/runtime-profiles')) return send(res, 200, cfg.profiles);
+  if (url.startsWith('/runtime-profiles')) {
+    // emptyProfilesBody: 200 with NO body. _rest tolerates an empty body by
+    // returning {}, so _resolveProfileId then calls profiles.filter on an object
+    // and throws a TypeError — the exact non-BackendError repro A5-4 cites.
+    if (cfg.emptyProfilesBody) { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(); }
+    return send(res, 200, cfg.profiles);
+  }
   if (url.startsWith('/tasks') && req.method === 'POST')
     return cfg.failCreate ? send(res, 500, { error: 'boom' }) : send(res, 201, { id: 'task-123' });
   return send(res, 200, {});
@@ -75,6 +81,7 @@ afterEach(() => {
 function startStub(cfg: {
   profiles: Array<{ id: string; name: string }>;
   failCreate?: boolean;
+  emptyProfilesBody?: boolean;
 }): Promise<string> {
   const dir = mkdtempSync(resolve(tmpdir(), 'rb-stub-'));
   const stubPath = resolve(dir, 'stub.mjs');
@@ -110,7 +117,11 @@ function writeKickoff(marker: string): string {
   return path;
 }
 
-function runDispatch(kickoffPath: string, baseUrl: string): SpawnSyncReturns<string> {
+function runDispatch(
+  kickoffPath: string,
+  baseUrl: string,
+  envOverride: Record<string, string> = {},
+): SpawnSyncReturns<string> {
   return spawnSync(TSX, [CLI, kickoffPath, '--force'], {
     encoding: 'utf8',
     timeout: SLOW_SHELL_MS,
@@ -120,6 +131,7 @@ function runDispatch(kickoffPath: string, baseUrl: string): SpawnSyncReturns<str
       RUNTIME_BRIDGE_AIF_URL: baseUrl,
       RUNTIME_BRIDGE_AIF_PROJECT_ID: 'proj-uuid',
       RUNTIME_BRIDGE_PREFLIGHT: '',
+      ...envOverride,
     },
   });
 }
@@ -205,6 +217,76 @@ describe('cli/dispatch.ts — an unresolvable bridge-profile marker aborts inste
       const named = /runtime-bridge-([0-9A-Za-z:.-]+)\.md/.exec(r.stdout);
       expect(named).not.toBeNull();
       expect(existsSync(`/tmp/runtime-bridge-${named![1]}.md`)).toBe(true);
+    },
+    SLOW_SHELL_MS + 15_000,
+  );
+});
+
+// ── E-3: a missing projectId aborts instead of degrading ──────────────────────
+
+describe('E-3 — a missing RUNTIME_BRIDGE_AIF_PROJECT_ID aborts, it does not degrade', () => {
+  it(
+    'unset project id → exit 2, no /tmp artefact, no "dispatched" claim',
+    async () => {
+      // The consumer exported the var in the wrong shell or misspelled it. aif is
+      // UP, so available() passes and auto mode selects it — the misconfiguration
+      // only surfaces inside claim(). Classified environmental, it took the
+      // blanket fallback: a /tmp file, exit 0, and an additionalContext line
+      // reporting success while no aif task existed and the stage was silently
+      // re-dispatchable later as a duplicate.
+      const url = await startStub({ profiles: [] });
+      const before = new Set(manualArtifacts());
+      const r = runDispatch(writeKickoff('<!-- no profile marker here -->'), url, {
+        RUNTIME_BRIDGE_AIF_PROJECT_ID: '',
+      });
+
+      expect(r.status).toBe(2);
+      expect(r.stderr).toContain('RUNTIME_BRIDGE_AIF_PROJECT_ID');
+      expect(manualArtifacts().filter((f) => !before.has(f))).toEqual([]);
+      expect(r.stdout).not.toContain('paste into a new Claude Code session');
+      // The abort must reach the agent as additionalContext, not stderr alone.
+      expect(r.stdout).toContain('ABORTED');
+    },
+    SLOW_SHELL_MS + 15_000,
+  );
+});
+
+// ── A5-4: a non-BackendError must not exit 0 in silence ───────────────────────
+
+describe('A5-4 — an unexpected (non-BackendError) failure is reported, not swallowed', () => {
+  it(
+    'a shape error inside dispatch() → exit 1 + additionalContext, no false success',
+    async () => {
+      // Ledger repro: GET /runtime-profiles answers 200 with an EMPTY body, _rest
+      // tolerates that by returning {}, and _resolveProfileId calls .filter on it
+      // → TypeError. That is not a BackendError, so it fell through to a branch
+      // that wrote one stderr line and exited 0 with no additionalContext — and
+      // the shipped hook redirects this CLI's stderr to a file and forwards only
+      // stdout, so an auto-marked kickoff silently did not dispatch while the
+      // author saw nothing but a successful Write.
+      const url = await startStub({ profiles: [], emptyProfilesBody: true });
+      const before = new Set(manualArtifacts());
+      const r = runDispatch(writeKickoff('<!-- bridge-profile: Some Seat -->'), url);
+
+      expect(r.status).toBe(1);
+      // Reaches the agent through the ONE channel the hook forwards.
+      expect(r.stdout).toContain('[runtime-bridge]');
+      expect(r.stdout).toMatch(/unexpected|internal error/i);
+      // Nothing may read as a dispatch that happened.
+      expect(r.stdout).not.toContain('paste into a new Claude Code session');
+      expect(r.stdout).not.toMatch(/Dispatched to/);
+      expect(manualArtifacts().filter((f) => !before.has(f))).toEqual([]);
+    },
+    SLOW_SHELL_MS + 15_000,
+  );
+
+  it(
+    'CONTROL: the same wire with a resolvable profile still dispatches (exit 0)',
+    async () => {
+      const url = await startStub({ profiles: [{ id: 'seat-1', name: 'Some Seat' }] });
+      const r = runDispatch(writeKickoff('<!-- bridge-profile: Some Seat -->'), url);
+      expect(r.status).toBe(0);
+      expect(r.stdout).toContain('task-123');
     },
     SLOW_SHELL_MS + 15_000,
   );
