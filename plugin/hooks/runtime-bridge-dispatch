@@ -61,7 +61,12 @@ if ! command -v jq >/dev/null 2>&1 || ! command -v node >/dev/null 2>&1; then
     *.claude/orchestrator-prompts/*/kickoff.md)
       if [ -f "$_RAW_PATH" ] \
          && [ "$(head -1 "$_RAW_PATH" | tr -d '[:space:]')" = '<!--bridge:auto-->' ]; then
-        _emit_dep_skip '⚠ runtime-bridge-dispatch: jq/node unavailable — the auto-dispatch this kickoff opted into DID NOT RUN. Dispatch manually: tsx packages/runtime-bridge/src/cli/dispatch.ts <kickoff-path>.'
+        # Name BOTH layouts. This file ships to the framework repo AND, via the vendor drop
+        # (setup.d/55-runtime-bridge-vendor.sh), to every factory consumer — whose only copy
+        # lives under .claude/vendor/runtime-bridge/. Naming the framework-only path sent the
+        # consumer's model to a module that does not exist there (#1597 review ledger E-4);
+        # _resolve_dispatch_ts below already knows both locations.
+        _emit_dep_skip '⚠ runtime-bridge-dispatch: jq/node unavailable — the auto-dispatch this kickoff opted into DID NOT RUN. Dispatch manually with whichever path exists in this project: `tsx packages/runtime-bridge/src/cli/dispatch.ts <kickoff-path>` (framework checkout) or `tsx .claude/vendor/runtime-bridge/src/cli/dispatch.ts <kickoff-path>` (consumer install).'
       fi ;;
   esac
   exit 0
@@ -139,28 +144,69 @@ _resolve_dispatch_ts() {
 }
 
 DISPATCH_TS="$(_resolve_dispatch_ts)" || {
-  # Genuine no-op: neither the framework package nor the vendor drop is present, so the
-  # consumer really did opt out of runtime-bridge (no `--profile factory`, no
-  # `--with-aif-suite`). Silent by design — a project without the bridge should not be
-  # nagged on every kickoff write.
+  # NOT a genuine no-op. Control only reaches here past the opt-in gate above, i.e. the
+  # kickoff's own first line is `<!-- bridge: auto -->` — the author explicitly asked for this
+  # dispatch. The pre-fix comment read the miss as «the consumer really did opt out», a premise
+  # that is false for a kickoff that just opted in: a consumer on `--profile env` (no vendor
+  # drop), or any layout where the vendor path moves again, got exit 0 and silence while the
+  # jq/node-miss branch above announced DID NOT RUN for the identical condition — two policies
+  # for one opted-in condition (#1597 review ledger L-6). Same announcement, same channel.
+  #
+  # Scope note: a kickoff WITHOUT the opt-in marker still exits silently at the gate above, so
+  # a project that never asked for the bridge is still never nagged.
+  _emit_dep_skip '⚠ runtime-bridge-dispatch: no dispatch entrypoint found — the auto-dispatch this kickoff opted into (`<!-- bridge: auto -->`) DID NOT RUN. This is a SKIP, not a pass. Neither packages/runtime-bridge/src/cli/dispatch.ts (framework checkout) nor .claude/vendor/runtime-bridge/src/cli/dispatch.ts (consumer install) exists here; re-run the installer with --profile factory to get the vendor drop, or remove the `<!-- bridge: auto -->` marker if auto-dispatch is not wanted.'
   exit 0
 }
+
+# ── Capture the CLI's stderr in a PRIVATE, per-invocation file ───────────────
+# This used to be a truncating redirect to the fixed `/tmp/runtime-bridge-dispatch-stderr.txt`,
+# which was wrong twice over (A5-5, #1597 review ledger):
+#   - fixed + predictable + world-writable: on a shared host another user pre-creates
+#     the path as a symlink to a file the operator owns and every kickoff Write
+#     truncates it; on a single-user box concurrent CC sessions clobber each other;
+#   - nothing ever read it back (`git grep` found writers only), so the ManualBackend
+#     fallback and ABORT diagnostics — the ONLY output those paths produce — were
+#     discarded by construction. That is `#warning-nobody-reads`
+#     (.claude/rules/attention-is-not-a-mechanism.md §2) in a shipped artefact.
+# mktemp gives an unpredictable name with 0600 semantics and no pre-existing target to
+# follow; the trap removes it on every exit path. If mktemp itself fails we let the
+# CLI's stderr flow straight through rather than losing it.
+_STDERR_LOG=""
+if command -v mktemp >/dev/null 2>&1; then
+  _STDERR_LOG="$(mktemp "${TMPDIR:-/tmp}/runtime-bridge-dispatch-stderr.XXXXXX" 2>/dev/null || printf '')"
+fi
+# `\$` (escaped) defers expansion to trap time — the value is read when the trap runs.
+trap "[ -n \"\$_STDERR_LOG\" ] && rm -f \"\$_STDERR_LOG\"" EXIT
 
 # ── Invoke dispatch entrypoint ────────────────────────────────────────────────
 # Use tsx (TypeScript executor) if available; fall back to node with --loader.
 # dispatch.ts outputs JSON hookSpecificOutput.additionalContext. Its exit code is 0
-# for every dispatch outcome and 2 when the kickoff itself is invalid; we capture
-# stdout and deliberately DO NOT propagate that status — this hook is an injection,
-# so the Write is never blocked (rule §4 turns the gate/injection split on the
-# HOOK's exit code, which stays 0 unconditionally below).
+# for every dispatch outcome, 1 on an unexpected internal error, and 2 when the
+# dispatch spec itself is invalid; we capture stdout and deliberately DO NOT
+# propagate that status — this hook is an injection, so the Write is never blocked
+# (rule §4 turns the gate/injection split on the HOOK's exit code, which stays 0
+# unconditionally below).
+if [ -n "$_STDERR_LOG" ]; then
+  _run() { "$@" 2>"$_STDERR_LOG"; }
+else
+  _run() { "$@"; }
+fi
+
 if command -v tsx >/dev/null 2>&1; then
-  RESULT="$(tsx "$DISPATCH_TS" "$FILE_PATH" 2>/tmp/runtime-bridge-dispatch-stderr.txt)"
+  RESULT="$(_run tsx "$DISPATCH_TS" "$FILE_PATH")"
 elif command -v npx >/dev/null 2>&1; then
-  RESULT="$(npx --yes tsx "$DISPATCH_TS" "$FILE_PATH" 2>/tmp/runtime-bridge-dispatch-stderr.txt)"
+  RESULT="$(_run npx --yes tsx "$DISPATCH_TS" "$FILE_PATH")"
 else
   # Neither tsx nor npx — fall back to manual instructions via stderr
   printf '[runtime-bridge] tsx not found — paste kickoff manually: %s\n' "$FILE_PATH" >&2
   exit 0
+fi
+
+# ── Surface what the CLI reported ─────────────────────────────────────────────
+# The captured stderr goes to OUR stderr, which the harness shows the operator.
+# Silence stays silence — only a non-empty capture is forwarded.
+if [ -n "$_STDERR_LOG" ] && [ -s "$_STDERR_LOG" ]; then
+  cat "$_STDERR_LOG" >&2
 fi
 
 # ── Forward JSON output (additionalContext) ───────────────────────────────────

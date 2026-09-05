@@ -900,6 +900,8 @@ jobs:
         run: bash tests/install-sh/python-delivery.test.sh
       - name: "install-sh — Python entry lane: install.sh python detection + no-package.json bypass + --refresh + firing self-check (python-delivery-v0 S2 T1)"
         run: bash tests/install-sh/python-entry-lane.test.sh
+      - name: "install-sh — Python agent surface: --refresh parity (A2-4) + python-lane RULES.md (A2-5)"
+        run: bash tests/install-sh/python-agent-surface-refresh.test.sh
       - name: "install-sh — Python rules-lock variant: schema + non-vacuity + determinism + teeth (ecosystem-wiring W3)"
         run: bash tests/install-sh/python-rules-lock.test.sh
       - name: "install-sh — Cargo entry lane: install.sh cargo detection + no-package.json bypass + --refresh + REFUSE cell + firing self-check (ecosystem-wiring W4)"

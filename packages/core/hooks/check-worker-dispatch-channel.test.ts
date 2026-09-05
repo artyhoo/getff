@@ -9,7 +9,9 @@
  * divergent copies (anti-pattern #two-prompts-drift).
  *
  * Paired-negative contract:
- *   ❌ kickoff that instructs Agent-tool write-Worker dispatch -> exit 1 (the gap M6 closes)
+ *   ❌ kickoff that instructs Agent-tool write-Worker dispatch -> exit 2 (the gap M6 closes;
+ *      exit 2 — not the matcher's own exit 1 — is the PostToolUse channel whose stderr the
+ *      MODEL receives, #1597 review ledger D-1)
  *   ✅ kickoff with no such instruction -> exit 0
  *   ✅ non-kickoff path / wrong tool -> exit 0 (off-path skip, hook:51-61)
  *   ✅ per-line escape token <!-- channel-discipline: allow <reason> --> -> exit 0 (exemption)
@@ -153,10 +155,14 @@ const VIOLATION_LINE =
 describe.skipIf(!JQ || !TSX)(
   'check-worker-dispatch-channel.sh — PostToolUse worker-dispatch gate',
   () => {
-    it('PAIRED-NEGATIVE: kickoff instructs Agent-tool write-Worker dispatch → exit 1', () => {
+    it('PAIRED-NEGATIVE: kickoff instructs Agent-tool write-Worker dispatch → exit 2', () => {
       const abs = writeKickoff(`# Wave N kickoff\n\n${VIOLATION_LINE}\n`);
       const r = runHook('Write', abs);
-      expect(r.status).toBe(1);
+      // D-1 (#1597 review ledger): the hook converts the matcher's exit 1 to exit 2. Only
+      // exit 2 routes PostToolUse stderr to the MODEL; exit 1 reaches the operator transcript
+      // alone, so the model never learned of the violation and kept going. Siblings
+      // validate-prompt.sh / check-doc-authority.sh already converted.
+      expect(r.status).toBe(2);
       expect(r.stderr).toContain('worker-dispatch-channel');
     });
 
@@ -361,11 +367,11 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
       env,
       cwd: wt,
     });
-    // POST-FIX: tier 2 resolved tsx → matcher ran. Either status=1 (violation found) OR
-    // status=0 + stdout has skip-notice (bin shim absent / other skip). The DEFECT shape
-    // (silent exit 0 + empty stdout + status 0) is asserted against.
+    // POST-FIX: tier 2 resolved tsx → matcher ran. Either status=2 (violation found; D-1
+    // converts the matcher's exit 1) OR status=0 + stdout has skip-notice (bin shim absent /
+    // other skip). The DEFECT shape (silent exit 0 + empty stdout + status 0) is asserted against.
     const out = (r.stdout ?? '').trim();
-    const ranCheck = r.status === 1 || /check-worker-dispatch-channel/i.test(out);
+    const ranCheck = r.status === 2 || /check-worker-dispatch-channel/i.test(out);
     expect(
       ranCheck,
       `C1 FAIL: expected hook to run, got status=${r.status} stdout="${out.slice(0, 200)}" stderr="${(r.stderr ?? '').slice(0, 200)}"`,
@@ -438,8 +444,9 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     });
     const out = (r.stdout ?? '').trim();
     const err = (r.stderr ?? '');
-    // Hook ran the check via tier 3: stub emitted BIN_STUB_RAN, hook re-emitted on stderr + exit 1.
-    const ranCheck = r.status === 1 && err.includes('BIN_STUB_RAN');
+    // Hook ran the check via tier 3: stub emitted BIN_STUB_RAN, hook re-emitted on stderr and
+    // exited 2 (D-1 converts the matcher's non-zero to the model-visible code).
+    const ranCheck = r.status === 2 && err.includes('BIN_STUB_RAN');
     expect(
       ranCheck,
       `C3 FAIL: expected hook to run via tier 3, got status=${r.status} stdout="${out.slice(0, 200)}" stderr="${err.slice(0, 200)}"`,
@@ -560,10 +567,10 @@ describe('PAIRED-NEGATIVE: tsx-missing skip is announced on the model channel (s
 describe.skipIf(!JQ || !TSX)(
   'PAIRED-POSITIVE: violation path unchanged by the loud-skip addition',
  () => {
-    it('status 1 + stderr contains "worker-dispatch-channel" (same shape as the existing block at :131)', () => {
+    it('status 2 + stderr contains "worker-dispatch-channel" (the model-visible block channel)', () => {
       const abs = writeKickoff(`# Wave N kickoff\n\n${VIOLATION_LINE}\n`);
       const r = runHook('Write', abs);
-      expect(r.status).toBe(1);
+      expect(r.status).toBe(2);
       expect(r.stderr).toContain('worker-dispatch-channel');
       // The violation path emits NOTHING on stdout (no JSON). The new _emit_skip lives
       // on a separate branch (tsx-miss only). Verify stdout is empty here.
@@ -571,3 +578,134 @@ describe.skipIf(!JQ || !TSX)(
     });
   },
 );
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Consumer-layout resolution + dependency-skip contract (#1597 review ledger L-2, E-6).
+//
+// L-2: the hook resolved `$REPO_ROOT/packages/core/principles/29-…bin.ts` and ran
+// `[[ ! -f "$BIN" ]] && exit 0` when it was absent. No consumer install ships packages/core
+// (install.sh vendors only packages/runtime-bridge), so on the marketplace-plugin channel the
+// gate was a PERMANENT silent no-op — exit 0 with empty output, which on an exit-0 PostToolUse
+// the model cannot tell from a clean pass.
+//
+// E-6: the jq guard was a bare `command -v jq || exit 0` while the sibling in the SAME plugin
+// payload (check-doc-authority.sh) announced the identical dependency-miss. Two dependency-skip
+// contracts for one class of check; this file's own comment already said a silent exit 0 is
+// indistinguishable from a pass.
+//
+// Both are RED against the pre-fix hook: it produced no stdout in either scenario.
+// Exit code stays 0 in both — a missing dependency is a SKIP and must never block the edit;
+// the load-bearing assertion is the notice reaching the model channel.
+// ═══════════════════════════════════════════════════════════════════════════════
+describe('consumer layout + dependency-skip contract (L-2, E-6)', () => {
+  /** A scratch tree shaped like a consumer install: .claude/ only, no packages/core. */
+  function consumerTree(): { root: string; kickoff: string; flags: string } {
+    const root = _mkdtempSync(_join(_osTmpdir(), 'wdc-consumer-'));
+    tierWorktrees.push(root);
+    const dir = _join(root, '.claude', 'orchestrator-prompts', 'u1');
+    _mkdirSync(dir, { recursive: true });
+    const kickoff = _join(dir, 'kickoff.md');
+    _writeFileSync(kickoff, `# Wave N kickoff\n\n${VIOLATION_LINE}\n`, 'utf8');
+    const flags = _join(root, '.flags');
+    _mkdirSync(flags, { recursive: true });
+    return { root, kickoff, flags };
+  }
+
+  /** `pathDirs` overrides PATH — used to hide jq for the E-6 arm. */
+  function run(
+    t: { root: string; flags: string },
+    filePath: string,
+    sessionId: string,
+    pathDirs?: string,
+  ) {
+    const env: Record<string, string> = {
+      ...process.env,
+      CLAUDE_PROJECT_DIR: t.root,
+      TMPDIR: t.flags,
+    } as Record<string, string>;
+    if (pathDirs) env['PATH'] = pathDirs;
+    delete env.ZCODE_PROJECT_DIR;
+    return _spawnSync('/bin/bash', [HOOK], {
+      input: JSON.stringify({
+        session_id: sessionId,
+        tool_name: 'Write',
+        tool_input: { file_path: filePath },
+      }),
+      encoding: 'utf8',
+      cwd: t.root,
+      env,
+    });
+  }
+
+  function ctxOf(stdout: string): string {
+    const parsed = JSON.parse(stdout.trim()) as {
+      hookSpecificOutput: { hookEventName: string; additionalContext: string };
+    };
+    expect(parsed.hookSpecificOutput.hookEventName).toBe('PostToolUse');
+    return parsed.hookSpecificOutput.additionalContext;
+  }
+
+  it.skipIf(!JQ)('L-2: bin unresolvable → loud SKIP on the model channel, not silent exit 0', () => {
+    const t = consumerTree();
+    const r = run(t, t.kickoff, 'sess-wdc-L2-a');
+    expect(r.status, 'a dependency miss is a SKIP, not a block').toBe(0);
+    expect(r.stdout.trim(), 'empty stdout is the DEFECT shape').not.toBe('');
+    const ctx = ctxOf(r.stdout);
+    expect(ctx).toMatch(/DID NOT RUN/);
+    expect(ctx).toMatch(/not a pass/i);
+    // Honest about the backstop: principle 29 runs in framework CI, which a consumer lacks.
+    expect(ctx).toMatch(/principle 29/i);
+  });
+
+  it.skipIf(!JQ)('L-2: announced once per session, and AIF_WORKER_DISPATCH_CHANNEL=0 opts out', () => {
+    const t = consumerTree();
+    expect(run(t, t.kickoff, 'sess-wdc-L2-b').stdout.trim()).not.toBe('');
+    expect(
+      run(t, t.kickoff, 'sess-wdc-L2-b').stdout.trim(),
+      'second kickoff edit in the same session must stay quiet',
+    ).toBe('');
+
+    const optOut = consumerTree();
+    const env: Record<string, string> = {
+      ...process.env,
+      CLAUDE_PROJECT_DIR: optOut.root,
+      TMPDIR: optOut.flags,
+      AIF_WORKER_DISPATCH_CHANNEL: '0',
+    } as Record<string, string>;
+    delete env.ZCODE_PROJECT_DIR;
+    const r = _spawnSync('/bin/bash', [HOOK], {
+      input: JSON.stringify({
+        session_id: 'sess-wdc-L2-c',
+        tool_name: 'Write',
+        tool_input: { file_path: optOut.kickoff },
+      }),
+      encoding: 'utf8',
+      cwd: optOut.root,
+      env,
+    });
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim()).toBe('');
+  });
+
+  it('E-6: jq absent + kickoff edit → loud SKIP (pre-fix: bare `|| exit 0`, silent)', () => {
+    const t = consumerTree();
+    const binDir = _mkdtempSync(_join(_osTmpdir(), 'wdc-nojq-'));
+    tierWorktrees.push(binDir);
+    for (const tool of ['sed', 'tr', 'cat', 'head', 'dirname', 'git']) {
+      const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
+      if (real) _symlinkSync(real, _join(binDir, tool));
+    }
+    const r = run(t, t.kickoff, 'sess-wdc-E6-a', binDir);
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim(), 'silent exit 0 is the pre-fix defect').not.toBe('');
+    const ctx = ctxOf(r.stdout);
+    expect(ctx).toMatch(/jq unavailable/i);
+    expect(ctx).toMatch(/DID NOT RUN/);
+
+    // Scoping: without jq the hook cannot parse the payload, so the notice must still be
+    // narrowed to the population this gate covers — an off-path edit stays silent.
+    const off = run(t, _join(t.root, 'src', 'app.ts'), 'sess-wdc-E6-b', binDir);
+    expect(off.status).toBe(0);
+    expect(off.stdout.trim(), 'off-path edits must not be announced').toBe('');
+  });
+});

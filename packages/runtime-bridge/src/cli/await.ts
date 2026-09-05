@@ -38,6 +38,7 @@
  * @cc-only-rationale: pure TS, callable from the maintainer's bash smoke-test
  *   script and from an orchestrator session alike — no CC-only primitive used.
  */
+import { isMain } from './cliEntry.js';
 import { resolveBackend } from '../resolver.js';
 import { BackendError } from '../backend.js';
 import type { TaskHandle } from '../types.js';
@@ -147,7 +148,12 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err) => {
-  process.stderr.write(`[runtime-bridge] await unhandled error: ${err}\n`);
-  process.exit(1);
-});
+// Run only as a real entrypoint (shared realpath-both-sides guard, cliEntry.ts isMain).
+// await.ts is the one CLI that had NO guard at all — importing it for a named export
+// ran main() and exited the importing process.
+if (isMain(import.meta.url)) {
+  main().catch((err) => {
+    process.stderr.write(`[runtime-bridge] await unhandled error: ${err}\n`);
+    process.exit(1);
+  });
+}
