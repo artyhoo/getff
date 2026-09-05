@@ -18,7 +18,7 @@ d24e7c291d55c3c9d7420cc8bfdab60a2d90cda7486d321cb81aa6889edd55d5  .claude/hooks/
 b6098596547239daa6c720dff390a321cc0a8d921acc54222f75e2fd325b3a17  .claude/hooks/lang/en.sh
 4d45cc97e71c1f58182036d6fc13c5e53cf414008b4366a4fbfc599a9b16db32  .claude/hooks/lang/ru.sh
 e370d8a33965386cd579da573231eb88dc5826d90116c4e4c407541277f353ef  .claude/hooks/precompact-residue.sh
-a759da71ec9cba37b83b0f12f62a01657b602bf207e86300d73ad0c8e922ba20  .claude/hooks/runtime-bridge-dispatch.sh
+dcae525063e497ac1a20380606410be4dd9e1c810acfb1088f1ce8cd946ab299  .claude/hooks/runtime-bridge-dispatch.sh
 393b7b7157bca73ef4a370b0d2b9db8094562479b198712afb8aadccb1818910  .claude/hooks/validate-prompt.sh
 20d95f8e504bfe69f3be8bd64c25b761e85899b5063b5e02480493d8f1d2ded8  .claude/hooks/warn-subagent-report.sh
 f08fb7bb09646a6c6806bfc49ba26d1b072deb79d38fa288d5d40b17fa75ccdd  .claude/hooks/worktree-setup.sh
