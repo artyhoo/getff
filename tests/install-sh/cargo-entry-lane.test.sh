@@ -447,6 +447,38 @@ grep -q '\[lints\.clippy\]' "$C/Cargo.toml" \
   || bad "(15) stub did not merge [lints.clippy] — fixture does not reproduce the forbidden mutation"
 rm -rf "$C" "$STUBDIR"
 
+# ── (16) A2-3: a non-zero cargo exit must NOT abort install.sh under set -euo pipefail ────────────
+# The rustup `--profile minimal` consumer (official rust:* Docker images) has cargo but NO clippy
+# component: `cargo clippy` exits 101 with EMPTY stdout (the self-check discards stderr). The
+# self-check contract (46-cargo.sh) is rc=0 on every branch, but the capture `_out=$( … cargo … )`
+# is a PLAIN assignment — it returns cargo's status, install.sh runs `set -euo pipefail` and calls
+# the self-check unguarded, so the assignment killed the WHOLE install mid-self-check: no verdict
+# lines, no refresh_baseline_flush, no completion line. The go twin guards the identical call with
+# `|| _rc=$?` (47-go.sh). cargo/rustup are absent in this runtime, so a PATH-prepended stub that
+# exits 101 with no stdout IS the deterministic minimal-profile host — driving the REAL install.sh.
+echo "  ── (16) cargo exits 101 mid-self-check → install.sh must still complete (A2-3) ──"
+C=$(cargo_fixture)
+SHIM16=$(mktemp -d)
+printf '#!/usr/bin/env sh\nexit 101\n' > "$SHIM16/cargo"
+chmod +x "$SHIM16/cargo"
+out=$( cd "$C" && PATH="$SHIM16:$PATH" bash "$INSTALL" cargo < /dev/null 2>&1 ); rc16=$?
+[ "$rc16" -eq 0 ] \
+  && ok "(16) install.sh survived the 101 exit (rc=0 — set -e did not abort mid-self-check)" \
+  || bad "(16) install.sh ABORTED on the non-zero cargo exit (rc=$rc16 — the set -e trap, A2-3): $(echo "$out" | tail -3 | tr '\n' '|')"
+echo "$out" | grep -q "getff Rust/cargo toolchain delivery complete" \
+  && ok "(16) completion line printed (self-check + refresh_baseline_flush + capstone all reached)" \
+  || bad "(16) completion line never printed — install died before the end of do_cargo_lane"
+echo "$out" | grep -q "did NOT fire on a planted violation" \
+  && ok "(16) SILENT verdict line printed (the self-check reported instead of dying)" \
+  || bad "(16) SILENT verdict line missing — the self-check never reported"
+echo "$out" | grep "self-check" | grep -q "SILENT" \
+  && ok "(16) self-check summary line printed with the SILENT count (not swallowed)" \
+  || bad "(16) self-check summary missing (or carries no SILENT count)"
+echo "$out" | grep -q "cargo exit=101" \
+  && ok "(16) ✗ verdict carries the captured cargo exit code (exit context in the log)" \
+  || bad "(16) ✗ verdict missing the captured cargo exit context"
+rm -rf "$C" "$SHIM16"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
