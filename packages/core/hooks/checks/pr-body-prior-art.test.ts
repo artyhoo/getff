@@ -12,6 +12,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import type { GitProvider } from '../utils/git.ts';
+import { stripHtmlComments } from '../utils/markdown-comments.ts';
 import { checkPrBodyPriorArt } from './prior-art.ts';
 
 /** ≥80-line file body to trip the packages/ capability threshold. */
@@ -36,7 +37,7 @@ function fakeGit(overrides: Partial<GitProvider> = {}): GitProvider {
     authorDate: () => '',
     commitSubject: () => '',
     diffForPaths: () => '',
-    blobDuplicatedInTree: () => false,
+    blobTrackedAtBase: () => false,
     ...overrides,
   };
 }
@@ -55,7 +56,7 @@ const VALID_TRAILER =
 
 describe('checkPrBodyPriorArt — PR-body §7 arm (squash-trailer-loss gate)', () => {
   it('non-capability PR: passes with no Prior-art line required', () => {
-    const res = checkPrBodyPriorArt('Just a docs PR body.', fakeGit());
+    const res = checkPrBodyPriorArt('Just a docs PR body.', fakeGit(), stripHtmlComments);
     expect(res.ok).toBe(true);
     expect(res.reason).toBeNull();
   });
@@ -64,6 +65,7 @@ describe('checkPrBodyPriorArt — PR-body §7 arm (squash-trailer-loss gate)', (
     const res = checkPrBodyPriorArt(
       '## What this is\n\nBig PR body with §1.7 sections but no trailer.',
       capabilityGit(),
+      stripHtmlComments,
     );
     expect(res.ok).toBe(false);
     expect(res.reason).toBe('new file ≥50 LOC under new packages/core/<dir>/');
@@ -74,6 +76,7 @@ describe('checkPrBodyPriorArt — PR-body §7 arm (squash-trailer-loss gate)', (
     const res = checkPrBodyPriorArt(
       `## What this is\n\nBody.\n\n${VALID_TRAILER}\n`,
       capabilityGit(),
+      stripHtmlComments,
     );
     expect(res.ok).toBe(true);
     expect(res.reason).toBe('new file ≥50 LOC under new packages/core/<dir>/');
@@ -83,6 +86,7 @@ describe('checkPrBodyPriorArt — PR-body §7 arm (squash-trailer-loss gate)', (
     const res = checkPrBodyPriorArt(
       'body without trailer',
       fakeGit({ packageJsonDiff: () => NEW_DEP_DIFF }),
+      stripHtmlComments,
     );
     expect(res.ok).toBe(false);
     expect(res.reason).toBe('new explicit dep in package.json');
@@ -92,6 +96,7 @@ describe('checkPrBodyPriorArt — PR-body §7 arm (squash-trailer-loss gate)', (
     const res = checkPrBodyPriorArt(
       'Prior-art: skipped — refactor only, no new capability here at all',
       capabilityGit(),
+      stripHtmlComments,
     );
     expect(res.ok).toBe(false);
     expect(res.message).toContain('skipped on capability commit');
@@ -101,6 +106,7 @@ describe('checkPrBodyPriorArt — PR-body §7 arm (squash-trailer-loss gate)', (
     const res = checkPrBodyPriorArt(
       'Prior-art: prior-art-evaluations.md#9999 (ghost entry, verdict BUILD).',
       capabilityGit(),
+      stripHtmlComments,
       new Set([1, 2, 3]),
     );
     expect(res.ok).toBe(false);
@@ -111,20 +117,60 @@ describe('checkPrBodyPriorArt — PR-body §7 arm (squash-trailer-loss gate)', (
     const res = checkPrBodyPriorArt(
       VALID_TRAILER,
       capabilityGit(),
+      stripHtmlComments,
       new Set([1]),
     );
     expect(res.ok).toBe(true);
   });
 
   it('empty PR body on a capability PR: FAILS', () => {
-    const res = checkPrBodyPriorArt('', capabilityGit());
+    const res = checkPrBodyPriorArt('', capabilityGit(), stripHtmlComments);
     expect(res.ok).toBe(false);
   });
 
   it('historical cutoff never fires: authorDate is empty by construction', () => {
     // A body that would pass ONLY via the pre-cutoff bypass must still fail —
     // PR merges happen today, so the bypass is unreachable on this surface.
-    const res = checkPrBodyPriorArt('no trailer', capabilityGit());
+    const res = checkPrBodyPriorArt('no trailer', capabilityGit(), stripHtmlComments);
     expect(res.ok).toBe(false);
+  });
+});
+
+// ── A4-4 (2026-09-05): the body must be read the way GitHub RENDERS it ───────
+// A `Prior-art:` line inside an HTML comment is invisible on the PR page, so it
+// cannot be the trailer a reviewer saw — and the squash commit it produces
+// carries no visible trailer either, which is the exact loss this gate exists to
+// prevent. The two sibling PR-body gates already strip comments
+// (utils/markdown-comments.ts); this arm did not until the stripper became a
+// required injected parameter.
+describe('checkPrBodyPriorArt — commented-out trailers do not satisfy the gate', () => {
+  it('NEGATIVE — the only Prior-art line lives inside a multi-line HTML comment: FAILS', () => {
+    const body = `Summary\n\n<!--\n${VALID_TRAILER}\n-->\n`;
+    const res = checkPrBodyPriorArt(body, capabilityGit(), stripHtmlComments);
+    expect(res.ok).toBe(false);
+    expect(res.message).toContain('no Prior-art: trailer');
+  });
+
+  it('NEGATIVE — an inline commented trailer: FAILS', () => {
+    const res = checkPrBodyPriorArt(
+      `Summary <!-- ${VALID_TRAILER} -->\n`,
+      capabilityGit(),
+      stripHtmlComments,
+    );
+    expect(res.ok).toBe(false);
+  });
+
+  it('POSITIVE — a VISIBLE trailer alongside a commented template example: passes', () => {
+    const body = `Summary\n\n<!--\nPrior-art: prior-art-evaluations.md#N (verdict X — rationale)\n-->\n\n${VALID_TRAILER}\n`;
+    const res = checkPrBodyPriorArt(body, capabilityGit(), stripHtmlComments);
+    expect(res.ok).toBe(true);
+  });
+
+  it('a trailer quoted inside a fenced code block is not swallowed with it', () => {
+    // The stripper is markdown-aware: a `<!--` inside a fence is literal text and
+    // must not hide the real trailer below (incident 2026-09-02, PR #1575).
+    const body = `Summary\n\n\`\`\`\n<!-- not a comment, just quoted markup\n\`\`\`\n\n${VALID_TRAILER}\n`;
+    const res = checkPrBodyPriorArt(body, capabilityGit(), stripHtmlComments);
+    expect(res.ok).toBe(true);
   });
 });

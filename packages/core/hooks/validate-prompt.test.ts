@@ -458,8 +458,20 @@ describe('manual plugin twin carries the same channel fixes as the source', () =
     expect(twin).toMatch(/\[\[ \$STATUS -ne 0 \]\] && exit 2/);
   });
 
-  it('twin keeps its declared divergence (T-PLUG-A validator guard)', () => {
-    expect(twin).toContain('T-PLUG-A');
+  it('twin and source share the SAME consumer-layout validator resolution (L-2)', () => {
+    // Pre-#1597-ledger the twin carried a hand-added one-liner
+    // `[[ ! -f "$VALIDATOR" ]] && exit 0` (marker T-PLUG-A) and the source carried nothing:
+    // on any layout without packages/core/ the shipped twin exited 0 SILENTLY, which on an
+    // exit-0 PostToolUse reads to the model exactly like a clean pass (ledger L-2). Both
+    // copies now carry the tier resolver plus a loud miss branch; the assertion is that
+    // neither the silent one-liner nor a source/twin divergence comes back.
+    expect(twin).toContain('_resolve_validator');
+    expect(source).toContain('_resolve_validator');
+    expect(twin).not.toMatch(/\[\[ ! -f "\$VALIDATOR" \]\] && exit 0/);
+    expect(source).not.toMatch(/\[\[ ! -f "\$VALIDATOR" \]\] && exit 0/);
+    // Bodies must be byte-identical below the header block the twin deliberately drops.
+    const bodyOf = (t: string): string => t.slice(t.indexOf('_is_zcode()'));
+    expect(bodyOf(twin)).toBe(bodyOf(source));
   });
 
   it('source and twin share the same skip-notice wording (drift tell)', () => {
@@ -548,6 +560,29 @@ function writeViolatingOrchestratorPrompt(repoRoot: string): string {
 // parallel load (`vitest run hooks/ skills/`, measured 2026-08-10). A suite-level
 // default closes that gap for every case, present and future; the per-test values
 // below are now redundant-but-harmless restatements of it.
+/**
+ * Seed a stand-in batch-spec validator inside a sandbox REPO_ROOT.
+ *
+ * Since the #1597 review-ledger L-2 fix the hook resolves the validator through a tier list
+ * and announces a LOUD skip when no tier hits (validate-prompt.sh `_resolve_validator`), and
+ * that branch is ordered BEFORE tsx resolution. A tsx-tier sandbox therefore has to carry a
+ * validator or it never reaches the tier logic these cases exist to exercise. The resolver
+ * only tests `-f`, so any file selects the tier; where the sandbox actually spawns tsx the
+ * stub stands in for the real validator judging the violating fixture these cases write —
+ * exit 1 + a stderr diagnostic, which the hook converts to its model-visible exit 2. Exit 1
+ * specifically, never 2: exit 2 from the validator is the gh-unavailable soft-skip
+ * (validate-prompt.sh) and would make the hook exit 0 with a skip notice instead.
+ */
+function seedValidator(root: string): void {
+  const dir = _join(root, 'packages', 'core', 'spec-validation');
+  _mkdirSync(dir, { recursive: true });
+  _writeFileSync(
+    _join(dir, 'validate-batch-spec.ts'),
+    'process.stderr.write("VALIDATOR_STUB_RAN\\n");\nprocess.exit(1);\n',
+    'utf8',
+  );
+}
+
 describe('tier-based tsx resolution (paired-negative for the worktree defect class)', { timeout: 30_000 }, () => {
   it('C1: linked worktree (no local node_modules, main has tsx, PATH scrubbed) → hook runs check (NOT silent exit 0)', () => {
     // Setup: real linked worktree of REPO_ROOT. The worktree has NO node_modules (git
@@ -602,6 +637,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     // at $REPO_ROOT/node_modules/.bin/tsx that echoes a marker; tier 2 also available.
     // Assert: sentinel invoked (marker visible) → tier 1 precedence held.
     const dir = _mkdtempSync(_join(_tmpdir(), 'vp-c2-'));
+    seedValidator(dir);
     const nmBin = _join(dir, 'node_modules', '.bin');
     _mkdirSync(nmBin, { recursive: true });
     // Sentinel: prints a marker to stderr, then exits 0 (so the hook proceeds; we only
@@ -665,6 +701,7 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
     // node_modules (tier 1 misses); real tsx available on PATH (tier 3 hits).
     // Pre-fix: only REPO_ROOT/node_modules/.bin/tsx was checked → exit 0 silent (defect).
     const dir = _mkdtempSync(_join(_tmpdir(), 'vp-c3-'));
+    seedValidator(dir);
     const abs = writeViolatingOrchestratorPrompt(dir);
     const binDir = scrubbedPathBin();
     // Place the REAL tsx (resolved via the existing test env's PATH) into binDir.
@@ -755,5 +792,84 @@ describe('tier-based tsx resolution (paired-negative for the worktree defect cla
       parsed.hookSpecificOutput?.additionalContext ?? JSON.stringify(parsed);
     expect(ctx).toMatch(/DID NOT RUN/);
     expect(ctx).toMatch(/not a pass/i);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Consumer-layout validator resolution (#1597 review ledger L-2).
+//
+// Pre-fix the SHIPPED copy (plugin/hooks/validate-prompt) carried a hand-added
+// `[[ ! -f "$VALIDATOR" ]] && exit 0` and the source carried no guard at all. No consumer
+// install ships packages/core (install.sh vendors only packages/runtime-bridge), so on the
+// marketplace-plugin channel the gate was a PERMANENT silent no-op: exit 0 with empty output,
+// which on an exit-0 PostToolUse the model cannot tell from a clean pass. Both copies now
+// resolve through a tier list and announce the miss on the model channel.
+//
+// RED against the pre-fix twin: it produced no stdout here at all.
+// Exit stays 0 — a dependency miss is a SKIP and must never block the edit.
+// ═══════════════════════════════════════════════════════════════════════════════
+describe.skipIf(!JQ)('consumer layout without packages/core (L-2)', () => {
+  const TWIN = _resolve(REPO_ROOT, 'plugin/hooks/validate-prompt');
+
+  function consumerTree(): { root: string; prompt: string; flags: string } {
+    const root = _mkdtempSync(_join(_tmpdir(), 'vp-consumer-'));
+    tmpFiles.push(root);
+    const dir = _join(root, '.claude', 'orchestrator-prompts', 'u1');
+    _mkdirSync(dir, { recursive: true });
+    const prompt = _join(dir, 'batch.md');
+    _writeFileSync(prompt, '# Batch spec\n', 'utf8');
+    const flags = _join(root, '.flags');
+    _mkdirSync(flags, { recursive: true });
+    return { root, prompt, flags };
+  }
+
+  function run(hook: string, t: { root: string; prompt: string; flags: string }, sid: string) {
+    const env: Record<string, string> = {
+      ...process.env,
+      CLAUDE_PROJECT_DIR: t.root,
+      TMPDIR: t.flags,
+    } as Record<string, string>;
+    delete env.ZCODE_PROJECT_DIR;
+    return _spawnSync('/bin/bash', [hook], {
+      input: JSON.stringify({
+        session_id: sid,
+        tool_name: 'Write',
+        tool_input: { file_path: t.prompt },
+      }),
+      encoding: 'utf8',
+      cwd: t.root,
+      env,
+    });
+  }
+
+  // Both channels asserted: the framework hook AND the shipped plugin twin. The twin is the
+  // copy a marketplace consumer actually executes, and it is the one that was silent.
+  for (const [label, hook] of [
+    ['source .claude/hooks/validate-prompt.sh', HOOK],
+    ['shipped plugin/hooks/validate-prompt twin', TWIN],
+  ] as const) {
+    it(`L-2: ${label} — validator unresolvable → loud SKIP, never a silent exit 0`, () => {
+      const t = consumerTree();
+      const r = run(hook, t, `sess-vp-${label.length}`);
+      expect(r.status, 'a dependency miss is a SKIP, not a block').toBe(0);
+      expect(r.stdout.trim(), 'empty stdout is the DEFECT shape').not.toBe('');
+      const ctx = (
+        JSON.parse(r.stdout.trim()) as {
+          hookSpecificOutput: { hookEventName: string; additionalContext: string };
+        }
+      ).hookSpecificOutput;
+      expect(ctx.hookEventName).toBe('PostToolUse');
+      expect(ctx.additionalContext).toMatch(/DID NOT RUN/);
+      expect(ctx.additionalContext).toMatch(/not a pass/i);
+      expect(ctx.additionalContext).toMatch(/AIF_VALIDATE_PROMPT=0/);
+    });
+  }
+
+  it('L-2: an edit outside orchestrator-prompts never reaches the notice', () => {
+    const t = consumerTree();
+    const outside = { ...t, prompt: _join(t.root, 'src', 'app.ts') };
+    const r = run(HOOK, outside, 'sess-vp-offpath');
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim()).toBe('');
   });
 });

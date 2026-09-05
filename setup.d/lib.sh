@@ -376,6 +376,15 @@ copy_safe() {
   fi
 
   mkdir -p "$(dirname "$dst")"
+  # A2-1 (twin of #873 in refresh_safe): REPLACE directory payloads instead of nesting into them.
+  # This line is reachable only on the write path — dst absent (rm is a no-op) or FORCE=--force,
+  # where a bare `cp -r src dst` onto an EXISTING dir creates dst/$(basename src) rather than
+  # replacing dst's contents. Live blast radius: `install.sh python --force` nested
+  # .getff/astgrep-rules/astgrep-rules/, and ast-grep — which walks ruleDirs recursively — then
+  # aborted every scan with `Duplicate rule id … is found` (exit 8), killing the CI gate, the
+  # .getff/hooks/pre-push rung and _py_firing_self_check at once. File payloads are untouched:
+  # `cp -r` over an existing file overwrites it correctly.
+  [ -d "$src" ] && rm -rf "$dst"
   cp -r "$src" "$dst"
   echo "  ✓ $dst"
   refresh_baseline_stage "$dst"   # R1: record the delivery for the baseline flush
