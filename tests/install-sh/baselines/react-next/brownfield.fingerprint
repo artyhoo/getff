@@ -6,7 +6,7 @@
 03264d66be0aceebf3e0df0a2bd361ec7db105551b93b519122c58ac9721bcda  .ai-factory/DESCRIPTION.template.md
 5c035eb3e19c73eb255ee25bb4475e6b876b30a94bfe6dfa0f450dee80f47f1b  .ai-factory/RULES.md
 2e0b9b443b6159c73df29ec499cf7df12953b5139b197f77fb0f141c97b471b0  .ai-factory/RULES.react-next.md
-0a56dffb48b2074bc8f4039a4f5ee2cb3c844f4043a5b6f4e5555c954092be54  .ai-factory/refresh-baseline.json
+28b8fce19a10720deefea9d2f8eec7b3788452a77b3e94ead58bc5610961a3b1  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
 7d6b6061459f0939e64358447d0905329ddd4c52abd459ee8d9d201653ffb791  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -189,7 +189,7 @@ d84e2e51a615c491e7b0d9e922a2fedb22675096d553d34833b0e3f44e4ee598  scripts/fences
 ffa91b9e12dc00462e7ad1b7f9cedb8dd363981057b4163c77c39515e13d77da  scripts/fences-fire-fixtures/require-use-server-directive.bad.txt
 711f6726810ec279fcbe36464a371b902f074aa42440b4ddb1778a88a163b080  scripts/fences-fire-fixtures/require-use-server-directive.good.txt
 5ee39faf997c935fd99386ca25fa69045f73fe1db5a697e536057b5de4c215ce  scripts/fences-fire-fixtures/require-use-server-directive.manifest.json
-150f503a7583313380669aa999429cbafec6eaa53656f6185eddc2f764d1ff0a  scripts/getff-work.sh
+6fc70ba99094be2bf723f26ebb501ac460af7d23986e0e5caaa440f3cf06fc7e  scripts/getff-work.sh
 6f634f183432d31f34f5bda5f094f2444218a5606ef850e4d601abfc27229671  scripts/link-coordination.sh
 6dc8f440f277db1fdd3d1c88d6cfe34f90230d9233edf2598fe5207821b7cc87  scripts/pre-merge-local.sh
 7cf8b8f736f50de99cf2e8633a0b65f4de109ebc914835607f520ff1a3ae3953  scripts/r2-na-marker.sh

@@ -21,7 +21,16 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { execSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, chmodSync, existsSync, readdirSync } from 'node:fs';
+import {
+  mkdtempSync,
+  writeFileSync,
+  readFileSync,
+  mkdirSync,
+  chmodSync,
+  existsSync,
+  readdirSync,
+  rmSync,
+} from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -45,11 +54,34 @@ const RECAP_EN = '## 🟢 In plain words';
 /** The ru pack's heading, for the language-sensitivity case. */
 const RECAP_RU = '## 🟢 Простыми словами';
 
+/**
+ * chmod u+rwx every directory in the tree so the removal below can descend into it. The
+ * read-only-residue-dir case locks one directory at 0555, which is why cleanup used to be
+ * skipped altogether; restoring the bit first is all that case needs.
+ */
+function makeTreeRemovable(dir: string): void {
+  chmodSync(dir, 0o700);
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    // isDirectory() is false for symlinks, so this never follows one out of the sandbox.
+    if (entry.isDirectory()) makeTreeRemovable(join(dir, entry.name));
+  }
+}
+
 const dirs: string[] = [];
 afterEach(() => {
-  // Deliberately NOT rm -rf: case 9 chmod-0555's a directory, and the cleanup of a
-  // read-only dir is noisy across platforms. tmpdir entries are OS-reaped.
-  dirs.splice(0);
+  // Every case in this file mkdtemp's its own sandbox (~18 per run). Emptying the list without
+  // removing the directories leaked all of them into $TMPDIR on every local run, pre-push and CI
+  // job — 288 s2b-precompact-* dirs had accumulated on the dev box that caught this, one of them
+  // read-only and so resistant to a naive `rm -rf` sweep. tmpdir is not reliably reaped on macOS
+  // or on persistent runners, so the suite cleans up after itself.
+  for (const dir of dirs.splice(0)) {
+    try {
+      makeTreeRemovable(dir);
+      rmSync(dir, { recursive: true, force: true });
+    } catch {
+      // Best-effort teardown: a tmpdir that resists removal must never turn a green run red.
+    }
+  }
 });
 
 function sandbox(): { dir: string; residueDir: string } {

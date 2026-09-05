@@ -248,11 +248,32 @@ describe('getff-work.sh — workspace one-command (AC-5)', { timeout: SLOW_SHELL
     // test inherited the ambient env, so it passed in CI and failed inside any
     // real CC session — a latent env-dependency that the branch-collision
     // failure masked until 2026-08-12.
+    //
+    // The assertion is on `reason=flag`, not on the literal '--no-launch'. The print-only line
+    // reads '✓ done (--no-launch / non-TTY; reason=…)' and is also produced by the non-TTY
+    // auto-enable at getff-work.sh:68-71 — and spawnSync is never a TTY. So a bare
+    // toMatch(/--no-launch/) held whether or not the flag was parsed at all: breaking the
+    // `--no-launch) NO_LAUNCH=1` arm left this test green while the operator's flag was
+    // silently ignored in a real terminal. `reason` is the only observable that separates the
+    // two paths under a test runner; the paired-negative below pins the other value.
     const r = runScript([uniqueName('smoke-nolaunch'), '--no-launch'], {
       CLAUDE_CODE_SESSION_ID: '',
     });
     expect(r.status, `getff-work.sh exit code. output:\n${r.stdout}${r.stderr}`).toBe(0);
-    expect(r.stdout).toMatch(/--no-launch/);
+    expect(r.stdout).toMatch(/reason=flag/);
+  });
+
+  // ✅ NO-LAUNCH-FLAG paired-negative (same run, flag withheld)
+  it('NO-LAUNCH-FLAG (neg): without --no-launch the same print-only path reports reason=non-tty', () => {
+    // Identical invocation minus the flag. Print-only is still reached (spawnSync is non-TTY),
+    // so this pins the auto-enable path to its own reason value — which is what makes the
+    // positive above falsifiable rather than a restatement of "the runner has no TTY".
+    const r = runScript([uniqueName('smoke-nolaunch-neg')], { CLAUDE_CODE_SESSION_ID: '' });
+    expect(r.status, `getff-work.sh exit code. output:\n${r.stdout}${r.stderr}`).toBe(0);
+    expect(r.stdout).toMatch(/reason=non-tty/);
+    expect(r.stdout, 'the flag was not passed — reason must not claim it was').not.toMatch(
+      /reason=flag/,
+    );
   });
 
   // ✅ NO-INSTALL-THROUGH-DELIVERY-SYMLINK (paired-negative for the 2026-08-16 incident)
