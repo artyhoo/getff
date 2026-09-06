@@ -210,6 +210,47 @@ describe('parkTask — GET current plan then PUT the park fields', () => {
     expect(JSON.parse((spy.mock.calls[1][1] as RequestInit).body as string).blockedReason).toBe('second fork: C or D?');
   });
 
+  // ── A6-6b (#1597 ledger, the half C12/#1625 deferred): park had a status guard for
+  // `review` only, so a park against a TERMINAL task (done / verified / blocked_external —
+  // the set AifHandoffBackend.ts TERMINAL_RAW_STATUSES calls "no worker can still be
+  // running") wrote paused:true + blockedReason + a plan block onto a task nothing will
+  // ever pick up again. `paused` gates the coordinator's candidate query, and a terminal
+  // task is not a candidate regardless — so the "stop" is a no-op, while the fork it
+  // records looks answerable in questions.ts. The operator then answers it with
+  // `answer.ts --decision resume`, which PUTs paused:false and nothing else: no event, no
+  // status change, no rework. The answer is silently lost, exactly the Finding-F shape the
+  // `review` guard was added for. Refuse at the CLI so the loss is a loud error. ──
+  for (const status of ['done', 'verified', 'blocked_external']) {
+    it(`A6-6b: refuses to park a TERMINAL task (status=${status}) — issues NO PUT`, async () => {
+      const task = { id: 't-9', title: 'x', status, plan: '# Plan', paused: false, blockedReason: null };
+      const spy = vi.spyOn(globalThis, 'fetch').mockImplementation((url) =>
+        Promise.resolve(String(url).endsWith('/tasks/t-9') ? okResponse(task) : okResponse({})),
+      );
+      await expect(parkTask('http://localhost:3009', 't-9', 'q')).rejects.toThrow(
+        new RegExp(`terminal status=${status}`, 'i'),
+      );
+      // Only the GET: the park PUT must NOT fire, else paused=true lands on a dead task.
+      expect(spy.mock.calls).toHaveLength(1);
+      expect((spy.mock.calls[0][1] as RequestInit).method).toBe('GET');
+    });
+  }
+
+  // Paired negative for A6-6b: the statuses where a worker CAN still act on the answer must
+  // keep parking. `backlog` is deliberately NOT terminal here — a backlog task is re-picked
+  // once unpaused, so park+resume on it is coherent and reversible. RED if the terminal set
+  // is ever widened to "anything not implementing" and starts eating legitimate parks.
+  for (const status of ['backlog', 'planning', 'plan_ready', 'implementing']) {
+    it(`CONTROL: still parks at the non-terminal status=${status}`, async () => {
+      const task = { id: 't-9', title: 'x', status, plan: '# Plan', paused: false, blockedReason: null };
+      const spy = vi.spyOn(globalThis, 'fetch').mockImplementation((url) =>
+        Promise.resolve(String(url).endsWith('/tasks/t-9') ? okResponse(task) : okResponse({})),
+      );
+      await parkTask('http://localhost:3009', 't-9', 'q');
+      expect(spy.mock.calls).toHaveLength(2);
+      expect(JSON.parse((spy.mock.calls[1][1] as RequestInit).body as string).paused).toBe(true);
+    });
+  }
+
   // Negative control paired with the guard: at a pre-review status the park DOES proceed
   // and PUTs paused:true — proving the guard blocks ONLY review, not every status (RED if
   // the guard ever over-reaches and starts rejecting legitimate pre-review parks).

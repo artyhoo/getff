@@ -1878,10 +1878,18 @@ register_cc_hook() {
     # would false-match the first event's entry and skip the second. GH #934 batch D.
     echo "  ⊝ $marker already registered on $event in .claude/settings.json"
   else
-    jq --arg e "$event" --arg c "$cmd" --arg m "$matcher" \
+    # ledger A1-9 (the A1-8 class, fixed for merge_fenced in #1632): the unconditional ✓ below used
+    # to print even when jq or the redirect failed — `&&` skipped the mv, the consumer's
+    # settings.json kept its old content with the hook absent, and settings.json.tmp was left in
+    # their tree. Every caller of register_cc_hook shipped that lie.
+    if jq --arg e "$event" --arg c "$cmd" --arg m "$matcher" \
       ".hooks[\$e] = ((.hooks[\$e] // []) + [$group_filter])" \
-      "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings"
-    echo "  ✓ $marker registered as a $event hook in .claude/settings.json"
+      "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings"; then
+      echo "  ✓ $marker registered as a $event hook in .claude/settings.json"
+    else
+      rm -f "$settings.tmp" 2>/dev/null || true
+      echo "  ⚠ jq rewrite of $settings failed — file left unchanged, $marker NOT registered on $event" >&2
+    fi
   fi
 }
 

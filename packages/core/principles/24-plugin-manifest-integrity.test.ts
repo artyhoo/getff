@@ -37,7 +37,7 @@ import {
   cpSync,
   rmSync,
 } from 'node:fs';
-import { resolve, dirname, join } from 'node:path';
+import { resolve, dirname, join, relative } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
@@ -55,6 +55,8 @@ const REPO_ROOT = resolve(HERE, '../../../');
 interface Violation {
   code: string;
   detail: string;
+  /** Line-independent identity (`<payload-relative file> — ](<target>)`), set by (h). */
+  key?: string;
 }
 
 function tryJSON(p: string): any | null {
@@ -246,30 +248,34 @@ function walkFiles(dir: string, prefix = ''): string[] {
 }
 
 /**
- * (h) — LINK FORM in a plugin-shipped agent twin. PURE (takes a directory) so the same
- * function runs on the real payload and on a paired-negative replay.
+ * (h) — LINK FORM anywhere in the shipped plugin payload. PURE (takes a payload root) so the
+ * same function runs on the real payload and on a paired-negative replay.
  *
- * WHY THIS EXISTS. `plugin/agents/*.md` is a SECOND distribution channel, and the only one
- * with no link handling of its own: `setup.d/20-agents.sh` iterates `agents/*.md` and runs
+ * WHY THIS EXISTS. `plugin/` is a SECOND distribution channel, and the only one with no link
+ * handling of its own: `setup.d/20-agents.sh` iterates `agents/*.md` and runs
  * `transform_internal_refs` on the copies it writes, so the INSTALLER channel rewrites a
- * `](../x)` ref to a blob URL — but nothing touches the plugin twin, which a marketplace
- * consumer unpacks on its own with no `.claude/` tree above it. The twin also sits one
- * directory deeper than its source, and principle 24(d) requires byte-identity, so no
- * relative form can resolve at both depths (scripts/generate-plugin-twins.sh header).
+ * `](../x)` ref to a blob URL — but nothing touches the plugin payload, which a marketplace
+ * consumer unpacks on its own with no repo tree above it. Twinned files also sit one directory
+ * deeper than their source, and principle 24(d) requires byte-identity for the agent twins, so
+ * no relative form can resolve at both depths (scripts/generate-plugin-twins.sh header).
  *
  * That surface was STATED and left ungated (PR #1582), and the gap then admitted the defect
  * it predicted: `agents/compliance-verifier.md` carried three `](../.claude/rules/…)` links
- * whose twin copies pointed at `plugin/.claude/rules/…`, which has never existed — found by
- * the #1597 promote review (ledger L-3), not by any check. pre-push §8 cannot be that check:
- * it EXCLUDES `plugin/agents/**` (PLUGIN_AGENT_TWIN_PREFIX) and only ever walks files changed
- * in the push range, so a link that landed before the exclusion is invisible to it forever.
- * This arm is unconditional and channel-correct instead: it asks what the twin's own payload
- * root can resolve.
+ * whose twin copies pointed at `plugin/agents/.claude/rules/…`, which has never existed —
+ * found by the #1597 promote review (ledger L-3), not by any check. The first fix (PR #1636)
+ * gated `plugin/agents` only, and the SAME class was then found one directory up, in
+ * `plugin/README.md` (ledger L-3b): the payload root is what a consumer unpacks, so the payload
+ * root is what this arm judges. pre-push §8 cannot be that check: it EXCLUDES
+ * `plugin/agents/**` (PLUGIN_AGENT_TWIN_PREFIX) and only ever walks files changed in the push
+ * range, so a link that landed before the exclusion is invisible to it forever. This arm is
+ * unconditional and channel-correct instead: it asks what the payload root can resolve.
  *
- * Two violation classes, both judged from `plugin/agents/` as the root:
- *   L1 — the target ESCAPES the payload (`../…`, or an absolute `/…`). Unfixable in the copy
- *        by construction; the fix belongs in the `agents/` source, as a blob URL (the form
- *        `transform_internal_refs` itself produces, so the installer pass stays a no-op on it).
+ * Two violation classes, both judged from the payload ROOT (`plugin/`, per the marketplace
+ * entry's `source: "./plugin"`), with each target resolved from its own file's directory:
+ *   L1 — the target ESCAPES the payload (`../…` past the root, or an absolute `/…`). Unfixable
+ *        in a byte-identical copy by construction; the fix belongs in the source, as a blob URL
+ *        (the form `transform_internal_refs` itself produces — `setup.d/lib.sh` `UPSTREAM_BLOB_URL`
+ *        — so the installer pass stays a no-op on it).
  *   L2 — the target stays inside the payload but resolves to nothing there. This is the class
  *        a `../`-substring check would miss: `](fidelity-auditor.md)` resolves from `agents/`
  *        (19 agents) and dangles in the twin dir (3).
@@ -277,10 +283,10 @@ function walkFiles(dir: string, prefix = ''): string[] {
  * Off-payload targets (http(s)/mailto/protocol-relative) and in-page anchors are not this
  * arm's business — whether a URL is reachable is the link gates' job, per (g)'s same split.
  */
-export function checkAgentTwinLinks(twinDir: string): Violation[] {
+export function checkPluginPayloadLinks(payloadRoot: string): Violation[] {
   const out: Violation[] = [];
-  for (const f of readdirSync(twinDir).filter((x) => x.endsWith('.md')).sort()) {
-    const text = readFileSync(resolve(twinDir, f), 'utf8');
+  for (const f of walkFiles(payloadRoot).filter((x) => x.endsWith('.md'))) {
+    const text = readFileSync(resolve(payloadRoot, f), 'utf8');
     // `](target)` / `](target "title")` — inline links and images alike.
     for (const m of text.matchAll(/\]\(\s*(<[^>]*>|[^)\s]+)(?:\s+"[^"]*")?\s*\)/g)) {
       const target = m[1].replace(/^<|>$/g, '');
@@ -288,23 +294,50 @@ export function checkAgentTwinLinks(twinDir: string): Violation[] {
       const path = target.split('#')[0];
       if (path === '') continue;
       const line = text.slice(0, m.index).split('\n').length;
-      if (path.startsWith('/') || path.split('/').includes('..')) {
+      const key = `${f} — ](${target})`;
+      // Resolve from the LINK'S OWN directory, then ask whether the result is still under the
+      // payload root — a plain `..`-substring test cannot judge depth (`skills/x/../y` is fine,
+      // `skills/x/../../../y` is not), and the payload is no longer a single flat directory.
+      const abs = path.startsWith('/') ? null : resolve(payloadRoot, dirname(f), path);
+      const rel = abs === null ? '..' : relative(payloadRoot, abs);
+      if (rel === '' || rel === '..' || rel.startsWith(`..${'/'}`)) {
         out.push({
           code: 'L1',
-          detail: `${f}:${line} — \`](${target})\` escapes the plugin payload; rewrite it in agents/${f} as a blob URL (https://github.com/<owner>/<repo>/blob/<ref>/…) — byte-identity forbids fixing the copy`,
+          key,
+          detail: `${f}:${line} — \`](${target})\` escapes the plugin payload; rewrite it at the SOURCE as a blob URL (https://github.com/<owner>/<repo>/blob/<ref>/…) — byte-identity forbids fixing a twinned copy`,
         });
         continue;
       }
-      if (!existsSync(resolve(twinDir, path))) {
+      if (!existsSync(abs as string)) {
         out.push({
           code: 'L2',
-          detail: `${f}:${line} — \`](${target})\` does not resolve inside plugin/agents/ (it may resolve at the agents/ source depth, which is not the shipped depth)`,
+          key,
+          detail: `${f}:${line} — \`](${target})\` does not resolve inside the plugin payload (it may resolve at the source depth, which is not the shipped depth)`,
         });
       }
     }
   }
   return out;
 }
+
+/**
+ * The payload's KNOWN escaping links, pinned exactly (line-independent: file + target).
+ *
+ * `plugin/skills/getff/SKILL.md` carries two depth-adjusted `../../../` links that resolve in
+ * THIS repo (payload → repo root) and escape for a marketplace consumer — the same L-3b class,
+ * in a channel this session does not own. It is not arm (h)'s call to fix: the skills twins are
+ * arm (g)'s (link FORMS are normalised away there precisely because the two channels ship at
+ * different depths), and the source `skills/getff/SKILL.md` is also installed by
+ * `setup.d/10-skills.sh` at a third depth — so the fix has its own blast radius and its own PR.
+ *
+ * Pinning it here is what keeps it from being a silent carve-out: the assertion is SET EQUALITY,
+ * so a new escaping link anywhere in the payload is RED, and a stale entry — once these two are
+ * fixed at the source — is RED too. The list can only shrink.
+ */
+const KNOWN_PAYLOAD_LINK_DEBT = [
+  'skills/getff/SKILL.md — ](../../../install.sh)',
+  'skills/getff/SKILL.md — ](../../../README.md#why-this-exists)',
+];
 
 describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => {
   const PLUGIN = resolve(REPO_ROOT, 'plugin');
@@ -429,17 +462,56 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
     expect(drift, `plugin/skills copies drifted from their skills/ source in CONTENT (link-form differences are normalised away, so these are real): ${drift.join(', ')}`).toHaveLength(0);
   });
 
-  // ── (h) link form — no plugin-shipped agent twin carries an escaping link ───
-  it('(h) real-tree: every plugin/agents twin link resolves inside the plugin payload', () => {
-    const v = checkAgentTwinLinks(resolve(PLUGIN, 'agents'));
+  // ── (h) link form — no file in the shipped payload carries an unresolvable link ───
+  it('(h) real-tree: every plugin payload link resolves inside the payload (pinned debt aside)', () => {
+    const v = checkPluginPayloadLinks(PLUGIN);
+    // Set equality, not `toHaveLength(0)`: the two known out-of-zone entries are PINNED
+    // (see KNOWN_PAYLOAD_LINK_DEBT), so this is RED both on a new violation and on a stale pin.
     expect(
-      v,
-      `plugin/agents twin links that a marketplace consumer cannot resolve:\n` +
-        v.map((x) => `  [${x.code}] ${x.detail}`).join('\n'),
-    ).toHaveLength(0);
+      (v.map((x) => x.key) as string[]).sort(),
+      `plugin payload links a marketplace consumer cannot resolve:\n` +
+        v.map((x) => `  [${x.code}] ${x.detail}`).join('\n') +
+        `\n(expected exactly the pinned debt: ${KNOWN_PAYLOAD_LINK_DEBT.join(' | ')})`,
+    ).toEqual([...KNOWN_PAYLOAD_LINK_DEBT].sort());
   });
 
-  it('(h) paired-negative: the pre-fix relative form is RED, and the link-form-only fix is GREEN', () => {
+  it('(h) paired-negative: the pre-fix payload README is RED, the shipped blob form is GREEN', () => {
+    // The L-3b replay, at the payload root this arm was widened to reach. `plugin/README.md`
+    // closed with a Spec:/Plan: pair pointing at `](../docs/superpowers/…)`; `..` is above the
+    // root a marketplace consumer unpacks, so both dangled. Rebuild the payload, un-fix ONLY
+    // the README's link form, and assert the widened arm sees exactly those two — then assert
+    // the shipped form is clean, so the check is not RED on everything.
+    const tmp = mkdtempSync(join(tmpdir(), 'p24h-readme-'));
+    try {
+      cpSync(PLUGIN, tmp, { recursive: true });
+      const file = join(tmp, 'README.md');
+      const fixed = readFileSync(file, 'utf8');
+
+      // GREEN arm — the shipped form contributes nothing.
+      expect(
+        checkPluginPayloadLinks(tmp).filter((x) => (x.key as string).startsWith('README.md ')),
+        'the shipped README link form must be clean',
+      ).toHaveLength(0);
+
+      // RED arm — blob URL back to the relative form, nothing else touched.
+      const preFix = fixed.replace(
+        /https:\/\/github\.com\/[^)/\s]+\/[^)/\s]+\/blob\/[^)/\s]+\//g,
+        '../',
+      );
+      expect(preFix, 'the replay must actually differ from the shipped form').not.toBe(fixed);
+      writeFileSync(file, preFix);
+      const red = checkPluginPayloadLinks(tmp).filter((x) => (x.key as string).startsWith('README.md '));
+      expect(red.map((x) => x.code), `got ${JSON.stringify(red)}`).toEqual(['L1', 'L1']);
+      expect(red.map((x) => x.key)).toEqual([
+        'README.md — ](../docs/superpowers/specs/2026-06-22-cc-plugin-packaging-design.md)',
+        'README.md — ](../docs/superpowers/plans/2026-06-22-cc-plugin-packaging.md)',
+      ]);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('(h) paired-negative: the L-3 agent-twin replay is RED, and the shipped form is GREEN', () => {
     // Both arms are required, and for opposite reasons. A check that only proves itself RED on
     // drift may be RED on everything; a check that only proves itself GREEN may be RED on
     // nothing. So: replay the REAL defect (ledger L-3 — the three `](../.claude/rules/…)` links
@@ -452,7 +524,7 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
 
       // GREEN arm — the shipped link form, judged with only the payload around it.
       expect(
-        checkAgentTwinLinks(tmp),
+        checkPluginPayloadLinks(tmp),
         'the shipped twin payload must be clean in isolation',
       ).toHaveLength(0);
 
@@ -465,7 +537,7 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
       );
       expect(preFix, 'the replay must actually differ from the shipped form').not.toBe(fixed);
       writeFileSync(file, preFix);
-      const red = checkAgentTwinLinks(tmp);
+      const red = checkPluginPayloadLinks(tmp);
       expect(red.map((x) => x.code)).toContain('L1');
       expect(red, `expected the 3 replayed L-3 links; got ${JSON.stringify(red)}`).toHaveLength(3);
 
@@ -473,7 +545,7 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
       // the twin's shipped depth (3). A `../`-substring check cannot see this class.
       writeFileSync(join(tmp, 'probe.md'), '[fidelity-auditor](fidelity-auditor.md)\n');
       expect(existsSync(resolve(REPO_ROOT, 'agents/fidelity-auditor.md')), 'probe target must exist at the source depth').toBe(true);
-      const l2 = checkAgentTwinLinks(tmp).filter((x) => x.detail.startsWith('probe.md:'));
+      const l2 = checkPluginPayloadLinks(tmp).filter((x) => x.detail.startsWith('probe.md:'));
       expect(l2.map((x) => x.code), `expected L2 for the source-depth-only link; got ${JSON.stringify(l2)}`).toEqual(['L2']);
     } finally {
       rmSync(tmp, { recursive: true, force: true });

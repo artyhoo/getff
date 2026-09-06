@@ -32,6 +32,16 @@ const DEFAULT_AIF_URL = 'http://localhost:3009';
 const DOCKER_SERVICE_URL = 'http://api:3009';
 
 /**
+ * Raw aif statuses at which NO worker can still act on an injected answer — the same set
+ * AifHandoffBackend.ts calls TERMINAL_RAW_STATUSES (packages/shared TASK_STATUSES). A park
+ * here is a stop that stops nothing: `paused` only gates the coordinator's candidate query,
+ * and a terminal task is not a candidate either way. See parkTask's A6-6b guard.
+ * `backlog` / `planning` / `plan_ready` / `implementing` are deliberately NOT in the set —
+ * a task at those statuses is re-picked once unpaused, so park+resume on it is coherent.
+ */
+const TERMINAL_PARK_STATUSES = new Set(['done', 'verified', 'blocked_external']);
+
+/**
  * Resolve the aif-handoff base URL with container-awareness.
  * Precedence: RUNTIME_BRIDGE_AIF_URL (explicit override) → API_BASE_URL (set inside the
  * aif agent container, e.g. http://api:3009) → http://localhost:3009 (host orchestrator).
@@ -167,6 +177,22 @@ export async function parkTask(baseUrl: string, taskId: string, question: string
         `"done" without re-implementing the answer (the next chain question is never parked). ` +
         `Park before the implement→review transition, or wait until status=done and use ` +
         `answer.ts (request_changes).`,
+    );
+  }
+  // A6-6b guard (#1597 ledger, the half #1625 deferred): the same silent-loss shape as
+  // Finding F above, one status later. Parking a TERMINAL task wrote paused:true +
+  // blockedReason + an OPEN QUESTION block onto a task nothing re-picks, so the fork read
+  // as answerable in questions.ts while the stop was a no-op. The operator then resolves it
+  // with `answer.ts --decision resume`, which PUTs paused:false and dispatches no event —
+  // the answer lands in the plan of a task that never runs again and is silently lost.
+  // Refuse here so it is a loud error naming the decision that actually moves the task.
+  if (TERMINAL_PARK_STATUSES.has(task.status)) {
+    throw new Error(
+      `cannot park task ${taskId} at terminal status=${task.status} — no worker will pick it ` +
+        `up again, so paused:true stops nothing and an operator answer pushed with ` +
+        `"answer.ts --decision resume" (a PUT, no state-machine event) is silently lost. ` +
+        `Use answer.ts --decision request_changes (done/verified) or --decision retry ` +
+        `(blocked_external) to move the task instead.`,
     );
   }
   // A6-6: a repeat park of the SAME question is a no-op. Without this, a retried park
