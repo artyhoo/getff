@@ -781,9 +781,12 @@ _refresh_one_file() {
 # Two classes, because "getff cannot attribute this" and "you edited it" are different facts and
 # the old single `kept` counter asserted the wrong one for both (it called every kept file
 # "consumer-owned", which is precisely the claim getff has no evidence for):
-#   unattributable — no refresh-baseline entry. Either the consumer's own file, or residue of a
-#                    PRIOR getff version delivered before the baseline existed. Reported as an
-#                    ORPHAN because the second reading is live configuration: a stale
+#   unattributable — no refresh-baseline entry. Either the consumer's own file — the PRIMARY
+#                    reading, since a payload may be a declared extension point (ledger L-4f:
+#                    scripts/fences-fire-fixtures is one; see check-fences-fire.sh's header) — or
+#                    residue of a PRIOR getff version delivered before the baseline existed. Both
+#                    readings are printed, benign one first, because getff cannot distinguish them
+#                    and the second one is live configuration: a stale
 #                    `scripts/fences-fire-fixtures/*.manifest.json` is enumerated by
 #                    check-fences-fire.sh, counts toward its non-vacuity denominator and is
 #                    probed — a dropped fixture whose rule left the barrel turns the consumer's
@@ -797,8 +800,9 @@ _report_dir_residue() {
   rel="${rel#"${PROJECT_ROOT:-}/"}"
   reldst="${reldst#"${PROJECT_ROOT:-}/"}"
   if [ "$class" = "unattributable" ]; then
-    echo "  ⚠ ORPHAN: $rel sits inside the getff-delivered payload $reldst, is not in the current template set, and has no refresh-baseline entry — getff cannot tell your own file from residue of a PRIOR getff version."
-    echo "    Kept in place (getff never removes what it cannot attribute). If it is yours, ignore this line; otherwise remove it manually — a stale file in a payload is LIVE configuration for the checks that read that directory, not inert residue."
+    echo "  ⚠ ORPHAN: $rel sits inside the getff-delivered payload $reldst, is not in the current template set, and has no refresh-baseline entry."
+    echo "    Kept in place. If you added it, that is expected — a payload can be consumer-extensible (scripts/fences-fire-fixtures is; see its gate header and INSTALL.md) and getff never removes what it cannot attribute to its own delivery."
+    echo "    If you did NOT add it, it is residue of a PRIOR getff version: remove it manually, because a stale file in a payload is LIVE configuration for the checks that read that directory, not inert residue."
   else
     echo "  · kept (locally modified): $rel — getff delivered it, you have since edited it, and the current template set no longer ships it; review whether it is still wanted."
   fi

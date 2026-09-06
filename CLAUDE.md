@@ -33,7 +33,9 @@ A commit that does **any** of the following (mirrors `packages/core/hooks/checks
 - Adds a new file **≥50 LOC** under a new subdirectory of `packages/core/<new-dir>/`.
 - Adds a new file **≥80 LOC** anywhere under `packages/`.
 
-Two carve-outs on the LOC triggers (hook parity 2026-08-07, mirroring the PR #980 overrides carve-out pattern): **documentation files** (`*.md`/`*.markdown`) never count — the «doc edits are NOT capability commits» exemption below always covered them, but a shipped ≥80-LOC doc template tripped the detector (PR #1272 incident); and a new file **byte-identical to a blob already tracked in the pre-image tree** — the commit's parent, or the merge-base for the PR-body arm — never counts, because a relocation/vendor copy adds no capability by construction (PR #1271 incident: vendored runtime-bridge subset). The pre-image tree is the whole of that carve-out: a new file and a byte-identical copy **both created in the same commit** (a new hook plus the plugin twin the pre-commit twin-sync generates) are a new capability, not a relocation, and are still detected (2026-09-05 fix).
+Three carve-outs on the LOC triggers (hook parity 2026-08-07, mirroring the PR #980 overrides carve-out pattern): **documentation files** (`*.md`/`*.markdown`) never count — the «doc edits are NOT capability commits» exemption below always covered them, but a shipped ≥80-LOC doc template tripped the detector (PR #1272 incident); and a new file **byte-identical to a blob already tracked in the pre-image tree** — the commit's parent, or the merge-base for the PR-body arm — never counts, because a relocation/vendor copy adds no capability by construction (PR #1271 incident: vendored runtime-bridge subset). The pre-image tree is the whole of that carve-out: a new file and a byte-identical copy **both created in the same commit** (a new hook plus the plugin twin the pre-commit twin-sync generates) are a new capability, not a relocation, and are still detected (2026-09-05 fix).
+
+The third carve-out is **test material** — a `*.test.*` / `*.spec.*` file, or any file under a `test(s)/`, `__tests__/` or `*fixtures/` directory — which never counts, because the closing sentence below has always exempted «test additions for existing capabilities» while the detector counted them anyway (2026-09-06 fix: over the last 250 first-parent commits on staging the ≥80-LOC arm fired on 27 commits, 18 of them test-only, and the trailers it forced cited SSOT rows the commit never touched). The carve-out cannot hide a capability: a commit that adds test material **alongside** a qualifying production file still trips on that production file. Its one exception is a file directly in `packages/core/principles/` — a principle IS the enforcement capability, not a test for one, so those keep demanding a consult (subdirectories such as `packages/core/principles/fixtures/` are ordinary test material and stay exempt).
 
 Refactors, doc edits, test additions for existing capabilities, bug fixes, snapshot regenerations, recipe data edits — **NOT** capability commits.
 
@@ -42,8 +44,16 @@ Refactors, doc edits, test additions for existing capabilities, bug fixes, snaps
 In the commit message body, after the blank line that follows the subject:
 
 ```text
-Prior-art: <free-form narrative referencing prior-art-evaluations.md#<ID>, or escape hatch>
+Prior-art: <narrative naming a resolvable referent — prior-art-evaluations.md#<ID>, an artefact path, or an issue/PR reference — or the escape hatch>
 ```
+
+A positive trailer must name something a reader can open. Three accepted referent forms (enforced by `packages/core/hooks/checks/prior-art.ts`; measured 2026-09-06 against the post-cutoff first-parent history — 2 of 145 capability commits with a positive trailer fail this grammar, both from before 2026-07-19):
+
+1. an **SSOT row** — `prior-art-evaluations.md#<ID>` (the primary form; the cited row must exist);
+2. an **artefact path** — `setup.d/lib.sh:359`, `research-patches/2026-05-23-guard-liveness-gate.md §2`;
+3. an **issue / PR reference** — `#1271`, `PR #1094`.
+
+A referent-free assertion (`Prior-art: consulted — no entry applies`) is rejected: it is the `#hope-as-gate` shape of [attention-is-not-a-mechanism.md §2](.claude/rules/attention-is-not-a-mechanism.md).
 
 **Examples:**
 
