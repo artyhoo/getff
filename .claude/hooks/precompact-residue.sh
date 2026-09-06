@@ -50,6 +50,27 @@
 # live probe showed PreCompact firing on a manual compaction that was then REFUSED ("Not
 # enough messages to compact"), so a manual trigger can carry an arbitrarily small sum.
 #
+# `#aif-ctx-debounce-reset` — THE SECOND HALF OF THE SAME CONTRACT (ledger #1597 A3-3c). The
+# D7 arm debounces its handoff line once per session per tier via
+# `${TMPDIR:-/tmp}/aif-ctx-<session_key>-{soft,deep}`. Nothing ever cleared those flags, so a
+# session that compacted three times still got exactly ONE reminder in its whole life —
+# harmless while the arm was unreachable for a small window, load-bearing the moment A3-3b
+# made it reachable. A compaction is precisely what makes the earlier reminder spent history,
+# and this hook is the one that observes it, so this hook clears them.
+#
+#   Removes : <TMPDIR>/aif-ctx-<session_key>-soft and -deep, that session's only.
+#   Keeps   : <TMPDIR>/aif-ctx-observed-<session_key> — the measurement, which shares the
+#             directory and the `aif-ctx-` prefix. The removal is BY EXACT NAME for that
+#             reason; a `aif-ctx-<key>*` sweep would delete the ceiling it just recorded.
+#   Trigger : `auto` only, same evidence as the ceiling above — the live probe showed
+#             PreCompact firing on a manual /compact that was then REFUSED, and re-arming the
+#             reminder after a compaction that never happened makes the next turn re-fire it,
+#             which is the exact spam the debounce exists to prevent.
+#
+# KNOWN AND ACCEPTED: if a compaction leaves the session still above the (window-derived) soft
+# floor, the freshly cleared flag means the very next turn warns again. That is the honest
+# reading of the state — the context really is still nearly spent — not a debounce failure.
+#
 # NOT the residue markdown: the reader would have to resolve the orchestration home to find
 # it, i.e. a THIRD copy of the `_residue_dir()` logic flagged below as this file's only
 # duplication — on every turn end, for one integer. The tmp channel reuses the directory and
@@ -213,6 +234,17 @@ if [ "$trigger" = "auto" ] && [ -n "$transcript" ] && [ -f "$transcript" ]; then
   if [ -n "$observed_tokens" ]; then
     { printf '%s\n' "$observed_tokens" > "${TMPDIR:-/tmp}/aif-ctx-observed-${session_key}"; } 2>/dev/null || true
   fi
+
+  # `#aif-ctx-debounce-reset` (contract in the header). Exact names, never a glob: the
+  # observed-ceiling file written just above lives in the same directory under the same
+  # `aif-ctx-` prefix, and a wildcard sweep would take the measurement with the flags. The
+  # tier list is spelled out rather than derived for the same reason the key is duplicated —
+  # two scripts, no shared library; an unknown tier here is a silent no-op, not a wrong
+  # deletion. `rm -f` never fails on an absent flag, and a failure to delete must not surface
+  # as a compaction error, so the whole group is quiet.
+  for _tier in soft deep; do
+    rm -f "${TMPDIR:-/tmp}/aif-ctx-${session_key}-${_tier}" 2>/dev/null || true
+  done
 fi
 
 # ── Branch + head, for the continuing session ────────────────────────────────

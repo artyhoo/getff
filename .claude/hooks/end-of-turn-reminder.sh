@@ -256,12 +256,23 @@ fi
 # DECLARED, never assumed. Kept-in-place: the self-evident override — observed usage above the
 # declared window proves the declaration wrong, so it falls back to the 1M default.
 #
-# Debounce: once per session per tier via ${TMPDIR:-/tmp}/aif-ctx-<session_id>-<tier>
+# Debounce: once per session per tier via ${TMPDIR:-/tmp}/aif-ctx-<session-key>-<tier>,
+# where <session-key> is the SAME sanitisation the observed-ceiling channel uses above.
+# Load-bearing, not cosmetic (A3-3c): built from the RAW id, a session id carrying a path
+# separator named a directory that does not exist, `: > "$ctx_flag"` failed, the failure was
+# swallowed by the `|| true` that exists to keep a full disk quiet — and the debounce failed
+# OPEN, re-firing the arm on every turn for the rest of that session.
+#
+# CLEARED ON COMPACTION (`#aif-ctx-observed` sibling, A3-3c): precompact-residue.sh removes
+# both tier flags on an `auto` trigger, because a compaction is exactly what makes the earlier
+# reminder spent history. Without that the arm fired ONCE per session however many times the
+# session compacted. It stays a per-TIER, per-SESSION flag between compactions.
 # (guarded expansion — set -euo pipefail; story-flag precedent below). Tiers renamed
 # `1m-soft`/`1m-deep`/`200k-soft` → `soft`/`deep`: the old labels named a fixed window, the
-# floors no longer do. Known limitation,
-# accepted: after an auto-compact the flag stays spent, so a re-climbing 200k session is
-# covered by D8's PreCompact snapshot (S2b), not a second reminder.
+# floors no longer do. The former limitation here — «after an auto-compact the flag stays
+# spent, so a re-climbing session is covered by D8's PreCompact snapshot, not a second
+# reminder» — is CLOSED by A3-3c: the PreCompact hook clears the flags, so the re-climb gets
+# its own reminder. The snapshot still rides along; it is no longer the only cover.
 #
 # Audience: this hook ships to consumers (see header) — the prose is GENERIC, zero
 # framework-artifact references (F10 resolved consumer-generic, operator directive 2026-08-09).
@@ -290,9 +301,12 @@ if [ -n "$ctx_entry" ]; then
   # records the transcript's usage sum at the instant the harness chose to auto-compact,
   # which is an empirical ceiling on the USABLE window. Same directory and key derivation as
   # the tier debounce flags below, so no second path convention enters this hook.
+  # ONE key derivation for both tmp channels this arm owns (the observed ceiling and the
+  # tier flags below), and the same one precompact-residue.sh applies — a second expression
+  # anywhere here silently unlinks a channel rather than failing.
+  ctx_key=$(printf '%s' "$session_id" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-96)
   if [ -z "$ctx_window" ]; then
-    ctx_obs_key=$(printf '%s' "$session_id" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-96)
-    ctx_obs_file="${TMPDIR:-/tmp}/aif-ctx-observed-${ctx_obs_key}"
+    ctx_obs_file="${TMPDIR:-/tmp}/aif-ctx-observed-${ctx_key}"
     if [ -f "$ctx_obs_file" ]; then
       ctx_window=$(head -n1 "$ctx_obs_file" 2>/dev/null | tr -d '[:space:]' || true)
       case "$ctx_window" in '' | *[!0-9]* | 0) ctx_window="" ;; esac
@@ -328,7 +342,7 @@ if [ -n "$ctx_entry" ]; then
     ctx_tier="soft"
   fi
   if [ -n "$ctx_tier" ]; then
-    ctx_flag="${TMPDIR:-/tmp}/aif-ctx-${session_id}-${ctx_tier}"
+    ctx_flag="${TMPDIR:-/tmp}/aif-ctx-${ctx_key}-${ctx_tier}"
     if [ ! -f "$ctx_flag" ]; then
       # Brace group: a failed flag write must go to /dev/null BEFORE the redirect list of the
       # simple command is applied, or the error leaks to stderr and the debounce fails open.
