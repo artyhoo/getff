@@ -139,7 +139,7 @@ if [[ $STATUS -eq 2 ]]; then
   exit 0
 fi
 if [[ $STATUS -ne 0 ]] && _is_zcode; then
-  _emit_ctx "PostToolUse" "❌ validate-prompt: batch-spec validation failed for ${FILE_PATH#${REPO_ROOT}/}
+  _emit_ctx "PostToolUse" "❌ validate-prompt: batch-spec validation failed for ${FILE_PATH#"${REPO_ROOT}"/}
 $VALIDATOR_OUT"
   exit 0
 fi

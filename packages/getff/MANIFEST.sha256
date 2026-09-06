@@ -20,7 +20,7 @@ b6098596547239daa6c720dff390a321cc0a8d921acc54222f75e2fd325b3a17  .claude/hooks/
 a66ae5ca7e50e361661b3d9659a4c4a699693125da6f9745d7ba33b775bab393  .claude/hooks/lib/hook-emit.sh
 feefb2e42c4b683e7fac9f3d31e09a4b81c1daef8df0595b05ba70ede7c0e4fc  .claude/hooks/precompact-residue.sh
 cc056b99050db0d1e2ab459a76d0bbe756b8b7f238b211789dfd9c76311e5dff  .claude/hooks/runtime-bridge-dispatch.sh
-96a737a47c81f8d2658b9a154ccfab57f48349409b0acdf5cb4086b5e77918cb  .claude/hooks/validate-prompt.sh
+8347ab25e5b20929a2def4a5f428580b02ac976d67a03cac717f23beec747a1d  .claude/hooks/validate-prompt.sh
 20d95f8e504bfe69f3be8bd64c25b761e85899b5063b5e02480493d8f1d2ded8  .claude/hooks/warn-subagent-report.sh
 f08fb7bb09646a6c6806bfc49ba26d1b072deb79d38fa288d5d40b17fa75ccdd  .claude/hooks/worktree-setup.sh
 c472bd68a4e94e685aa5ff4140cc469b90d06ecee2fbc40fa2a8609dfa673dcd  .claude/skills/ai-doc/SKILL.md
