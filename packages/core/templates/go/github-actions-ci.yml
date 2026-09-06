@@ -51,17 +51,27 @@ jobs:
       # framework audit-self.yml mirror arm installs the SAME version; bump them in lockstep.
       - name: Install pinned golangci-lint
         run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.2
-      # Fails RED when the getff .golangci.yml forbidigo ban fires on os.Getenv. The ban lives
-      # in the consumer's delivered .golangci.yml (fresh cell) or getff-golangci.yml (REFUSE
-      # cell, opt-in via --config flag).
+      # Fails RED when the getff forbidigo ban fires on os.Getenv. WHICH file carries that
+      # ban depends on the delivery cell, and getff-golangci.yml is what tells the two apart:
+      # setup.d/47-go.sh writes it in exactly ONE case — the REFUSE cell, where the consumer
+      # already had their own .golangci.yml and ours would have replaced it (golangci-lint
+      # reads exactly one .golangci.yml). So it is tested FIRST.
+      #
+      # The order used to be the other way round, and in the REFUSE cell that was wrong twice
+      # over: the getff ban was never loaded (the elif branch was unreachable there), AND
+      # `--enable forbidigo` force-enabled forbidigo against the CONSUMER's config, where the
+      # linter falls back to its DEFAULT forbid pattern `^(fmt\.Print(|f|ln)|print|println)$`
+      # — so any fmt.Println in their tree reddened their CI while os.Getenv passed. A gate
+      # that enforces someone else's rule instead of its own, and reds on the wrong thing.
+      # Fixed per ledger A8-1; paired-negative in tests/install-sh/go-entry-lane.test.sh.
       - name: golangci-lint run (getff bans)
         run: |
           set -euo pipefail
-          if [ -f .golangci.yml ]; then
-            golangci-lint run --enable forbidigo --config .golangci.yml ./...
-          elif [ -f getff-golangci.yml ]; then
-            echo "⚠ consumer .golangci.yml absent — running against getff-golangci.yml (REFUSE cell, opt-in)"
+          if [ -f getff-golangci.yml ]; then
+            echo "ℹ REFUSE cell: your .golangci.yml is untouched; the getff bans live in getff-golangci.yml"
             golangci-lint run --enable forbidigo --config getff-golangci.yml ./...
+          elif [ -f .golangci.yml ]; then
+            golangci-lint run --enable forbidigo --config .golangci.yml ./...
           else
             echo "⚠ no getff go config found — skip (run 'install.sh go' to deliver)"
             exit 0

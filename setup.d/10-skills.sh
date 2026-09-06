@@ -19,15 +19,11 @@ if [ -e "$PROJECT_ROOT/.claude/skills/getff" ] && [ "$FORCE" != "--force" ]; the
 elif [ "$DRY_RUN" = "--dry-run" ]; then
   echo "  [dry-run] would copy: $PKG_ROOT/skills/getff → $PROJECT_ROOT/.claude/skills/getff"
 else
-  rm -rf "$PROJECT_ROOT/.claude/skills/getff"
-  cp -r "$PKG_ROOT/skills/getff" "$PROJECT_ROOT/.claude/skills/getff"
   # getff ships from repo-root skills/ (not .claude/skills/), so it bypasses
   # copy_skill_with_transform — its ](../../../README.md), ](../../install.sh) and
   # ](../../../.claude/rules/…) refs dangle on a consumer tree without this pass
   # (2026-07-10 flat-install smoke: first consumer push red on pre-push §8 lychee).
-  while IFS= read -r -d '' mdfile; do
-    transform_internal_refs "$mdfile"
-  done < <(find "$PROJECT_ROOT/.claude/skills/getff" -name '*.md' -print0)
+  _copy_tree_with_transform "$PKG_ROOT/skills/getff" "$PROJECT_ROOT/.claude/skills/getff"
   echo "  ✓ .claude/skills/getff/ (cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
 fi
 if [ -e "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" ] && [ "$FORCE" != "--force" ]; then
@@ -40,13 +36,9 @@ if [ -e "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" ] && [ "$FORCE" != "--
 elif [ "$DRY_RUN" = "--dry-run" ]; then
   echo "  [dry-run] would copy: $PKG_ROOT/skills/tool-bootstrapping → $PROJECT_ROOT/.claude/skills/tool-bootstrapping"
 else
-  rm -rf "$PROJECT_ROOT/.claude/skills/tool-bootstrapping"
-  cp -r "$PKG_ROOT/skills/tool-bootstrapping" "$PROJECT_ROOT/.claude/skills/tool-bootstrapping"
   # No up-dir repo refs in tool-bootstrapping today (transform is a no-op) — run it anyway for
   # install/refresh parity with do_refresh and so a future added ref cannot dangle silently.
-  while IFS= read -r -d '' mdfile; do
-    transform_internal_refs "$mdfile"
-  done < <(find "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" -name '*.md' -print0)
+  _copy_tree_with_transform "$PKG_ROOT/skills/tool-bootstrapping" "$PROJECT_ROOT/.claude/skills/tool-bootstrapping"
   echo "  ✓ .claude/skills/tool-bootstrapping/"
 fi
 # meta-orchestrator + its orchestration companions: shipped from authoring location
@@ -213,10 +205,17 @@ elif [ ! -f "$SETTINGS" ]; then
   echo "  ✓ .claude/settings.json created with UserPromptSubmit hook"
 elif command -v jq >/dev/null 2>&1; then
   if ! grep -q "deps-hash-check" "$SETTINGS" 2>/dev/null; then
-    jq --arg cmd "$HOOK_CMD" \
+    # ledger A1-9 (the A1-8 class): see setup.d/05-mcp.sh — an unconditional ✓ over a failed jq
+    # rewrite claimed the hook was registered while settings.json still had none, and left a stale
+    # settings.json.tmp behind.
+    if jq --arg cmd "$HOOK_CMD" \
       '.hooks.UserPromptSubmit += [{"hooks":[{"type":"command","command":$cmd}]}]' \
-      "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
-    echo "  ✓ deps-hash-check registered in existing .claude/settings.json"
+      "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"; then
+      echo "  ✓ deps-hash-check registered in existing .claude/settings.json"
+    else
+      rm -f "$SETTINGS.tmp" 2>/dev/null || true
+      echo "  ⚠ jq rewrite of $SETTINGS failed — file left unchanged, deps-hash-check NOT registered" >&2
+    fi
   else
     echo "  ⊝ .claude/hooks/deps-hash-check.sh already registered in settings.json"
   fi

@@ -376,12 +376,12 @@ deliver_go_toolchain() {
   _go_write_rules_lock
 
   # adapter-jig C4 (no-orphan-residue): on a refresh pass, loudly report getff-header-marked
-  # top-level files the CURRENT template set no longer delivers (lib.sh report_getff_orphans).
+  # top-level files the CURRENT template set no longer delivers (lib.sh report_getff_orphans;
+  # expected path list = lib.sh getff_lane_expected, the SINGLE source shared with the union
+  # this call performs over every OTHER lane installed in the tree).
   # Report-only — J2 decisions log #8; parity with the cargo lane.
   if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
-    report_getff_orphans go \
-      .golangci.yml getff-golangci.yml \
-      .github/workflows/getff-go.yml
+    report_getff_orphans go
   fi
 
   echo "  ✓ Go toolchain delivery complete (see .getff-go-install.log for the audit trail)."

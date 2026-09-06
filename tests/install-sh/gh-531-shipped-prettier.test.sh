@@ -439,4 +439,72 @@ grep -qE '^[[:space:]]*packages/runtime-bridge/vendor[[:space:]]*$' "$_fmt_v" \
   && ok "vendor source is format-checked at the framework (packages/runtime-bridge/vendor in PATHSPECS — ignored, not hidden)" \
   || bad "packages/runtime-bridge/vendor absent from format-shipped.sh PATHSPECS — the ignore would HIDE unformatted shipped bytes"
 
+# ── Arm 12 (#1597 ledger C14 follow-up): Arm 11 proves the vendor drop is FORMAT-checked. It
+# says nothing about whether the drop is still the same CODE as the source it was copied from.
+# packages/runtime-bridge/vendor/src is `prettier(packages/runtime-bridge/src)` by construction,
+# and nothing enforced that: an edit to src/ never re-vendored left every consumer running older
+# logic with all gates green (the parity had to be checked BY HAND while fixing ledger A6-3 /
+# A5-3 / K-2 / K-3 / A5-6). format-shipped.sh Phase 3 owns it now; these arms prove the check is
+# real and, critically, that it does NOT fire on the formatting difference that is by design. ──
+if npx --yes prettier@3.8.3 --version >/dev/null 2>&1; then
+  _p3_src="$REPO_ROOT/packages/runtime-bridge/src/idempotency.ts"
+  _p3_bak=$(mktemp)
+  cp "$_p3_src" "$_p3_bak"
+
+  # POS: clean tree passes (and the phase is actually reached — see the vacuity guard below).
+  ( cd "$REPO_ROOT" && bash scripts/format-shipped.sh --check ) >/dev/null 2>&1     && ok "vendor parity: the tracked tree is in parity (vendor == prettier(src))"     || bad "vendor parity: the tracked tree FAILS its own parity check — vendor drifted from src"
+
+  # NEG (load-bearing): a real CONTENT change in src with no re-vendor must go RED. Without this
+  # the POS arm above is satisfied by a check that never looks at anything.
+  perl -pi -e "s|'/tmp/runtime-bridge-dedup\.jsonl'|'/tmp/_neg_probe_drift.jsonl'|" "$_p3_src"
+  _p3_out=$( cd "$REPO_ROOT" && bash scripts/format-shipped.sh --check 2>&1 )
+  printf '%s' "$_p3_out" | grep -q 'DRIFT .*vendor/src/idempotency\.ts' \
+    && ok "vendor parity neg: a content edit to src/ with no re-vendor is caught (non-vacuous)" \
+    || bad "vendor parity neg: planted src drift NOT caught → the parity check is VACUOUS"
+  cp "$_p3_bak" "$_p3_src"
+
+  # NEG-2 (the false-positive arm, equally load-bearing): src is deliberately NOT prettier-formatted,
+  # so a check that compared raw bytes would flag all 19 files forever and be turned off within a day.
+  # Reflowing a signature in src changes no code and MUST stay green.
+  perl -0pi -e "s|export function resolveDedupPath\(env: NodeJS\.ProcessEnv = process\.env\): string \{|export function resolveDedupPath(\n  env: NodeJS.ProcessEnv = process.env,\n): string {|" "$_p3_src"
+  if ! cmp -s "$_p3_bak" "$_p3_src"; then
+    ( cd "$REPO_ROOT" && bash scripts/format-shipped.sh --check ) >/dev/null 2>&1 \
+      && ok "vendor parity: a FORMATTING-only reflow of src stays green (no false positive)" \
+      || bad "vendor parity: reflowing src went RED — the check compares bytes, not content; unusable"
+  else
+    bad "vendor parity: the reflow probe did not modify src — arm is VACUOUS, update the pattern"
+  fi
+  cp "$_p3_bak" "$_p3_src"
+  rm -f "$_p3_bak"
+
+  # The vendor drop's OTHER pair: the bash hook twin, byte-identical (no prettier in the loop).
+  # It was the one remaining ungated copy of this class (#1597 ledger addendum D-5) — the backward
+  # sweep for the parity rule found it, so Phase 3 closes it in the same pass.
+  _hv="$REPO_ROOT/packages/runtime-bridge/vendor/hooks/runtime-bridge-dispatch.sh"
+  _hv_bak=$(mktemp)
+  cp "$_hv" "$_hv_bak"
+  printf '\n# _neg_probe twin drift\n' >> "$_hv"
+  _hv_out=$( cd "$REPO_ROOT" && bash scripts/format-shipped.sh --check 2>&1 )
+  printf '%s' "$_hv_out" | grep -q 'dispatch hook has drifted' \
+    && ok "hook twin neg: vendor/hooks ↔ .claude/hooks drift is caught (D-5 gap closed, non-vacuous)" \
+    || bad "hook twin neg: planted twin drift NOT caught → the twin is still ungated"
+  # Change-scoped reality: a commit staging ONLY the .claude/hooks half must still wake the phase.
+  _hv_scoped=$( cd "$REPO_ROOT" && bash scripts/format-shipped.sh --check .claude/hooks/runtime-bridge-dispatch.sh 2>&1 )
+  printf '%s' "$_hv_scoped" | grep -q 'dispatch hook has drifted' \
+    && ok "hook twin: a filter naming only the .claude/hooks half still runs the parity phase" \
+    || bad "hook twin: filtering to the .claude/hooks half skipped the phase — pre-commit blind spot"
+  cp "$_hv_bak" "$_hv"
+  rm -f "$_hv_bak"
+  cmp -s "$_hv" "$REPO_ROOT/.claude/hooks/runtime-bridge-dispatch.sh" \
+    && ok "hook twin: restored — the tracked pair is byte-identical" \
+    || bad "hook twin: the probe left the pair drifted (restore failed)"
+
+  # Vacuity sentinel: every arm above is meaningless if Phase 3 was never wired in.
+  grep -q 'Phase 3: vendored-copy' "$_fmt_v" \
+    && ok "vendor parity: Phase 3 is present in format-shipped.sh (arms above are non-vacuous)" \
+    || bad "format-shipped.sh has no Phase 3 vendor-parity block — the arms above prove nothing"
+else
+  echo "  ⊝ SKIP Arm 12: prettier@3.8.3 unavailable (offline)"
+fi
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

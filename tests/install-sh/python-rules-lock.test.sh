@@ -588,6 +588,72 @@ else
   fi
 fi
 
+# ── (14) A2-7: sourceFingerprint must cover the provenance fragments the lock WRITES ──────────────
+# Ledger addendum A2-7. The fingerprint is the input to the CONTENT-AWARE idempotent skip
+# (45-python.sh, "fingerprint unchanged … no-op"). It hashed only the delivered rule bytes
+# (astgrep ymls + ruff bans) — but the lock's `provenance` field is built from the
+# generation-context/python/*.json fragments read further down the same function. A fragment
+# added without a rule-byte change therefore could not perturb the fingerprint, the skip fired,
+# and the lock stayed STALE forever — contradicting the invariant its own docstring states
+# ("the lock is NEVER stale relative to the delivered .getff/ artefacts").
+#
+# This was MASKED on the --force path by A2-1: copy_safe nested .getff/astgrep-rules/astgrep-rules/,
+# the fingerprint's `find … -name '*.yml'` is recursive, so the yml count doubled (4 → 8) and the
+# hash changed for the wrong reason. Arm (12) above passed on that accident. With A2-1 fixed the
+# tree is genuinely identical and the hole is exposed on BOTH the plain and the --force path.
+#
+# PAIRED: (14a) fragment added, rule bytes untouched → fingerprint CHANGES + provenance lands.
+#         (14b) nothing changed at all → the skip line STILL fires and the lock stays byte-identical
+#               (the content-aware skip is preserved, not defeated by hashing more inputs).
+echo ""; echo "  ── (14) A2-7: fingerprint covers provenance fragments; idempotent skip preserved ──"
+P14=$(py_fixture)
+( cd "$P14" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+L14="$P14/$LOCK_REL"
+_fp_before=$(lock_field "$L14" sourceFingerprint)
+_id14=$(grep -hE '^id:' "$P14"/.getff/astgrep-rules/*.yml 2>/dev/null | head -1 | sed -E 's/^id:[[:space:]]*"?([^"]*)"?[[:space:]]*$/\1/')
+_yml_sha_before=$(cat "$P14"/.getff/astgrep-rules/*.yml 2>/dev/null | shasum -a 256 2>/dev/null | awk '{print $1}')
+
+if [ -z "$_fp_before" ] || [ -z "$_id14" ]; then
+  bad "(14) precondition FAILED: no lock fingerprint ('$_fp_before') or no delivered rule id ('$_id14')"
+else
+  ok "(14) precondition: first install emitted fingerprint $_fp_before for delivered id $_id14"
+
+  # (14a) add ONLY a provenance fragment — rule bytes stay byte-identical.
+  mkdir -p "$P14/.ai-factory/synthesizer-output/generation-context/python"
+  printf '{"id":"%s","provenance":[{"url":"https://pyyaml.org","allowlistKey":"a2-7-probe","fetchedAt":"2026-09-05","tier":0}],"tier":0}\n' "$_id14" \
+    > "$P14/.ai-factory/synthesizer-output/generation-context/python/$_id14.json"
+  ( cd "$P14" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+  _fp_after=$(lock_field "$L14" sourceFingerprint)
+  _yml_sha_after=$(cat "$P14"/.getff/astgrep-rules/*.yml 2>/dev/null | shasum -a 256 2>/dev/null | awk '{print $1}')
+
+  # Non-vacuity: the rule bytes MUST be unchanged, else any fingerprint change proves nothing.
+  [ "$_yml_sha_before" = "$_yml_sha_after" ] \
+    && ok "(14a) non-vacuity: delivered rule bytes byte-identical across the two passes (the fragment is the only delta)" \
+    || bad "(14a) non-vacuity BROKEN: rule bytes changed between passes — a fingerprint change would prove nothing"
+
+  [ -n "$_fp_after" ] && [ "$_fp_after" != "$_fp_before" ] \
+    && ok "(14a) fingerprint changed ($_fp_before → $_fp_after) after a provenance-fragment-only delta" \
+    || bad "(14a) fingerprint UNCHANGED ($_fp_before) after adding a provenance fragment — the skip is blind to the lock's own provenance inputs (A2-7)"
+
+  grep -q '"allowlistKey": *"a2-7-probe"' "$L14" 2>/dev/null || grep -q 'a2-7-probe' "$L14" 2>/dev/null \
+    && ok "(14a) lock regenerated and carries the fragment's provenance (reader reached on a plain, non-force pass)" \
+    || bad "(14a) lock does NOT carry the fragment provenance — it was skipped as 'unchanged' and is now permanently stale"
+
+  # (14b) NOTHING changes → the content-aware skip must still fire and the lock stay byte-identical.
+  _lock_sha_before=$(shasum -a 256 "$L14" 2>/dev/null | awk '{print $1}')
+  _out14b=$( cd "$P14" && bash "$INSTALL" python < /dev/null 2>&1 )
+  _lock_sha_after=$(shasum -a 256 "$L14" 2>/dev/null | awk '{print $1}')
+
+  echo "$_out14b" | grep -q 'fingerprint unchanged' \
+    && ok "(14b) no-delta re-run still prints the content-aware skip (hashing more inputs did not defeat idempotency)" \
+    || bad "(14b) skip line GONE on a no-delta re-run — the lock now regenerates every pass (emittedAt churn): $(echo "$_out14b" | grep -i 'rules-lock' | tr '\n' '|' | cut -c1-160)"
+
+  [ "$_lock_sha_before" = "$_lock_sha_after" ] \
+    && ok "(14b) lock byte-identical across a no-delta re-run" \
+    || bad "(14b) lock bytes changed on a no-delta re-run (fingerprint is not deterministic over the fragment set)"
+fi
+rm -rf "$P14"
+
 rm -rf "$P" "$P2"
 echo ""
 echo "── python-rules-lock: $PASS passed, $FAIL failed ──"

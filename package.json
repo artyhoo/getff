@@ -12,7 +12,9 @@
     "build:synth-bundle": "bash scripts/build-synth-bundle.sh",
     "build:synth-bundle:check": "bash scripts/build-synth-bundle.sh --check",
     "test": "npm test --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build:getff-dist": "bash scripts/build-getff-dist.sh",
+    "build:getff-dist:check": "bash scripts/build-getff-dist.sh --check"
   },
   "devDependencies": {
     "esbuild": "0.28.1",
