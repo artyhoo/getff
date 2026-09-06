@@ -506,9 +506,20 @@ copy_safe() {
   # .getff/hooks/pre-push rung and _py_firing_self_check at once. File payloads are untouched:
   # `cp -r` over an existing file overwrites it correctly.
   [ -d "$src" ] && rm -rf "$dst"
-  cp -r "$src" "$dst"
-  echo "  ✓ $dst"
-  refresh_baseline_stage "$dst"   # R1: record the delivery for the baseline flush
+  # A1-9d: the ✓ and the baseline staging must follow THIS copy's exit code, not the ambient
+  # set -e. install.sh's set -e used to be the only thing keeping the ✓ honest — in any
+  # set -e-EXEMPT caller (`copy_safe … || true`, `if copy_safe …`, or the existing
+  # `[ -f … ] && copy_safe …` guards in 10-skills.sh / 40-configs.sh / install.sh) a failed cp
+  # still printed ✓ and staged a refresh-baseline hash for a file that never landed, which the
+  # next --refresh then reported as «kept».
+  if cp -r "$src" "$dst"; then
+    echo "  ✓ $dst"
+    refresh_baseline_stage "$dst"   # R1: record the delivery for the baseline flush
+  else
+    echo "  ⚠ copy failed: $src → $dst — nothing delivered at $dst, install continues without it" >&2
+    rm -rf "$dst"   # an interrupted cp can leave a partial destination — do not leave it behind
+    return 0        # fail-open, same contract as A1-9 (#1643) and A1-9b/c (#1645)
+  fi
 }
 
 # merge_fenced <src> <dst> <section-id> [plan-path] [sentinel-1] [sentinel-2]
