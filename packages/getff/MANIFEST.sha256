@@ -6,7 +6,7 @@ c46cce1bd40827c283581e6fc4ffac337d71e38ca062ada64024be2131092084  .claude/hooks/
 a56029e75fb285cfc4345e34ccb066f09d391f44af2a08326dde54b02b60514c  .claude/hooks/check-kickoff-traps.sh
 f05c9a8ce70ce103948afe184cc60d1cb79c69e4b2f5672cac459389e7e34b74  .claude/hooks/check-worker-dispatch-channel.sh
 4fc3ccee69bd4bb12f5c7ee68671841e3f944b926952bd87f2ffacf0f2ccde6a  .claude/hooks/deps-hash-check.sh
-3055dfded6db09c0ff5a080df7026db837e8096a70596ef4ff1d9a6e23031045  .claude/hooks/end-of-turn-reminder.sh
+ac8532965f594ae0b63cf793baf0dd9bcab67ad7176e119fcfd7496764e22806  .claude/hooks/end-of-turn-reminder.sh
 6fdc8128cd549df4bbdd7b8549f89599f41315978a1739d1a8fe41ca405bfeeb  .claude/hooks/inject-matching-rule.sh
 d783e618156d9dc26dad1627281e44ea10a128cee9c29a91cea273b37251e47c  .claude/hooks/inject-memory-codification.sh
 005732895415bdde432bc805f0da3247776373e702a57d1be2b012738de8ccc3  .claude/hooks/inject-output-language.sh
@@ -18,7 +18,7 @@ d783e618156d9dc26dad1627281e44ea10a128cee9c29a91cea273b37251e47c  .claude/hooks/
 b6098596547239daa6c720dff390a321cc0a8d921acc54222f75e2fd325b3a17  .claude/hooks/lang/en.sh
 4d45cc97e71c1f58182036d6fc13c5e53cf414008b4366a4fbfc599a9b16db32  .claude/hooks/lang/ru.sh
 a66ae5ca7e50e361661b3d9659a4c4a699693125da6f9745d7ba33b775bab393  .claude/hooks/lib/hook-emit.sh
-e370d8a33965386cd579da573231eb88dc5826d90116c4e4c407541277f353ef  .claude/hooks/precompact-residue.sh
+e5358071e78ca4eb0aec6cf96cd61fbebdd2c0bf85be05d49c84b4b30712896b  .claude/hooks/precompact-residue.sh
 cc056b99050db0d1e2ab459a76d0bbe756b8b7f238b211789dfd9c76311e5dff  .claude/hooks/runtime-bridge-dispatch.sh
 96a737a47c81f8d2658b9a154ccfab57f48349409b0acdf5cb4086b5e77918cb  .claude/hooks/validate-prompt.sh
 20d95f8e504bfe69f3be8bd64c25b761e85899b5063b5e02480493d8f1d2ded8  .claude/hooks/warn-subagent-report.sh
@@ -442,7 +442,7 @@ ca448b7aff2a64d1047a3a104574317f12f920138f945ff0781c0645d231b74d  packages/core/
 444b29e50614470ba141f62b1d1f4c9925fc25952b6266255638f22320c5cd52  packages/core/hooks/dispatch-from-state.test.ts
 8e34d65552e50c3798c30fcbdb888132a081e7d68ebf4136754ad2e89ddc2b00  packages/core/hooks/done-md-completion-filter.test.ts
 0f903db141eba8ce0db6bd4678cb6e8e0cefd2c565e3cd4343fe3af9eb01863a  packages/core/hooks/dup-detect-empty-arg.test.ts
-2ad9bed976f79def3e89f006eb65ad0dfbe93f990e94dd79f92980ffeac7fd2e  packages/core/hooks/end-of-turn-reminder.test.ts
+9cfdaa984e2ad0fd48a0860fb1bf9336aed95213750e80a1c8cb91940dc899e0  packages/core/hooks/end-of-turn-reminder.test.ts
 3339c8a729b6faf284fb38e5b36544c102547c9801fe1334633b4375943aab9c  packages/core/hooks/frontier.test.ts
 e8bcb769b383ebf58aa2c800cb01424400a73461f4afe245a703f112eabf5348  packages/core/hooks/getff-work.test.ts
 03fd5e7155d0d4b8b76847d4e639e67b7a1050c5671e9aa059ab21c22485df00  packages/core/hooks/harness-config-drift.test.ts
@@ -465,8 +465,8 @@ d637a9d9344e8db5d773c54dff8f950a3468e99f0fdc38d2661ccd620b7aa4ce  packages/core/
 457cbfde763fcb4d7b1a6e8d9253086b0a0e31be48b86acbadec356b321c0417  packages/core/hooks/pre-push.fallback.sh
 4cfc5c1a3fb7991056d67038f0efa9f25f6d9f07b348a2a0e1e86bd780def899  packages/core/hooks/pre-push.fallback.test.ts
 58880c9daf066e9eec87ca5ba9adba15fa8a2af65ba3f86b39522cd8f1514453  packages/core/hooks/pre-push.test.ts
-9589af5d9751599b122e1353180d015d037ec0e466b7181c5e0d396224743e38  packages/core/hooks/pre-push.ts
-479e17e252c7ea6b4d75fbf7e3f1e620178679444142b823b2fccc7403514e45  packages/core/hooks/precompact-residue.test.ts
+9a985dbd1e971e4bc5b22f2e77f574cb08f492755fb321317d3fee5afffb95c1  packages/core/hooks/pre-push.ts
+2d7aef23ef08d1d2f16faa4f088e7de3d9a62812f00ac34ee99624a8c3a1c938  packages/core/hooks/precompact-residue.test.ts
 d39ccea449f34eb7cd063b887c036d71072e0dc070dcfe159b7420a5417f3175  packages/core/hooks/priority-score-branch-matcher.test.ts
 24156ab0edbf03f4cb4c2ca1e65d155aff93e172748493e93a72385c6fa94975  packages/core/hooks/priority-score-reconstruct-stub.test.ts
 984700c4813aaa788f359e41b6279633a031323d1cfee3ac3cfa8070f7542e63  packages/core/hooks/priority-score-skip-closed.test.ts
@@ -540,8 +540,9 @@ ea660f8a6efcc2b73bff0b8fa0bbecb267de493b2cb19b863e3a72ac7c8497f4  packages/core/
 8d2ecb4738103b6730e7a9e7109d1f36889200f4a914e802ced5803e1741d237  packages/core/principles/17-no-paid-llm-in-ci.test.ts
 93d5ae9fd4f1e49d7708bc28157f16952b9fe4a31ace8014701c46a9e0c9b4f5  packages/core/principles/18-meta-orchestrator-output-format.test.ts
 acfa56a824762a2168b1e0dd4813b18233180ab2cafcfa8e804bab255a353b7a  packages/core/principles/19-meta-orchestrator-alias-routing-consistency.test.ts
-5fd20d49e181da31ebc4a460f5e64579a9ff3261388a6cd46f3fe7479263254d  packages/core/principles/20-bundle-classification.paired-negative.test.ts
-9eb563ab894f5f0accdc073d28a05f2ec9483fe8286e2b61e0ab9e680f4ee8c8  packages/core/principles/20-bundle-classification.test.ts
+1d8916cc18a3cd25b6baca8bf6043e3e057de61c72f59f339012b63b69992dc6  packages/core/principles/20-bundle-classification.paired-negative.test.ts
+915c7ed8d0f465b97908036cbfc18d9cd146f3b17c9d7d02763af39175e3af92  packages/core/principles/20-bundle-classification.test.ts
+c196d0ff1bd80fb8d7be00691ac92d09270bdb1063236705703dafc161f6e8fa  packages/core/principles/20-bundle-classification.ts
 8f8e8138f66968f331b2b0ce3330b6ceb413217558846bf0b532d5209636392c  packages/core/principles/21-agnosticism-conformance.test.ts
 a2716658638b10df3caef8167ee0a0d60b55324baea327888afa3d2664ce478e  packages/core/principles/21-shipped-agent-tools-valid.test.ts
 3776ce34dc5a5fe1404b76b7d714cf8ec7a8ce712308baece8a643a8f7676210  packages/core/principles/22-internal-english.test.ts
@@ -585,7 +586,7 @@ d7b2cb83caaa54f2d700cc998c824abb76e125180dd8e99d405bb37e5b5bb987  packages/core/
 dfdf1a23c8d509e9af36d0d56bd131be4aa24f9e12fb0129c24f465a34890fd5  packages/core/principles/kickoff-population.ts
 c3992548e73a01c1eec2067f32b33f7b8c62791170e4054e8fd645762c305442  packages/core/principles/rule-channel-glob.ts
 64902bcaedea1fb1ed26271359a5c7f2bb0a1b7c5e0d46cee28df55d8a0a3d2d  packages/core/probes/audit-r4.ts
-b60edafeca070f536a7df2548b32694884ef740510cfadc73511d87668591ab2  packages/core/python-starter/render-python-templates.ts
+1b2887c828c8a5e88f26bb38ba41de065300ff6cb5d881d5acc6f7991b7172fe  packages/core/python-starter/render-python-templates.ts
 612a70b89cdbc2956a48f1e573eb8ab63fef3539f795fb91f8887a52fe816689  packages/core/python-starter/starter-nodes.test.ts
 dc95a6823db46db33f5d27a0c8debca2432a7c6d2b46d57e7e89607874f20c16  packages/core/python-starter/starter-nodes.ts
 ae6dcca3b481dd4e53db7d7f3a8da154d00bee4839955d13eb662fc1efec5421  packages/core/render/__snapshots__/render-rules.test.ts.snap
@@ -814,7 +815,6 @@ bf24cbbc3d2dc7b19b35bfe3fc93930925070b2e13082b3273d1fb117a8c55c2  packages/core/
 e8c7e0045250bc00050ff28f10004e8acf14dcdf6333507e97d1d472cda244ee  packages/core/templates/python/.getff/astgrep-rules/getff-no-datetime-now.yml
 28c3b74073ff6a3beb0c87a081589f72bc44d0a96e46942520d5f86a46651d5e  packages/core/templates/python/.getff/astgrep-rules/getff-no-eval.yml
 fca5ac5056b74ac9d09c742ad6f3db8edd6480f9aad14585105e80819f3b6ba0  packages/core/templates/python/.getff/astgrep-rules/getff-no-os-system.yml
-fb03a9916de1ae1e6e1731dab3e939998a90008ef79c849ee1be774c53308905  packages/core/templates/python/ARCHITECTURE.md
 222de72d54304d935dbc2d1e79b0693b354f7570ff2271333116ca97e5afb67c  packages/core/templates/python/RULES.md
 f2dae0f99c7c794f57ea1baf2d5a670fa523065bb789f849ffd6e05e87c9d959  packages/core/templates/python/github-actions-ci.yml
 3867dcb2e110d07727a97c14bef9401f2619917bd83b28668f667145f5a97ca7  packages/core/templates/python/hooks/getff.pre-commit-config.yaml.fragment
@@ -1028,8 +1028,8 @@ f29969fde76a0430b87a020468c69af78374a41a319ee88dc9a33f4270070287  setup.d/10-ski
 29200fa13a26533dce3f937dc300ea6e2d6003415d5a136be85882895956c59f  setup.d/15-companions-stack.sh
 75a08a95a2a3a03e2b1c43ea34249295db3e63bc3547172d5bb11b04e0016390  setup.d/20-agents.sh
 d2d0c62000ac39e011753b1d1e0bb0bef167bdb5a67162cdfc52cb8be934be38  setup.d/30-templates.sh
-6066c53be6918fa3c663f51497c1fa6579a7d3455e728e10dd85fd6b65155798  setup.d/40-configs.sh
-f1de43ed3b91fc8841ed3a6e9fe7dc3eb310c81bad9e7b53e16bcb7908f2d89f  setup.d/45-python.sh
+778e36629bf3e5d992155209e36429af630536130175dff99da394e5d46511ae  setup.d/40-configs.sh
+dbc0998beb78d4bf9cb90f158219e68d530a95f6ede8794a1919f50cf786dd2f  setup.d/45-python.sh
 bd6a78939401fd49b313309d8cd24550b49535ccd80c5bff3443821a6eda3e66  setup.d/46-cargo.sh
 ce2f9ee777959736ab6961225dd63c434c548cfc4b0bb81ae0522721d1ccf63b  setup.d/47-go.sh
 4aff85e9ca969801cb6e028ca9643223fbaebbac4c386d803a365d38442d340c  setup.d/50-hooks.sh
@@ -1044,7 +1044,7 @@ a50a002a79481343127fd896d7b6a6b692975e68077e4ac201c33374589a4be8  setup.d/70-dep
 2ffe9541c4dfaecaa2ad38cee467d97097ba7d531afb44404219d7c103b32050  setup.d/bridge-guided.sh
 99cae53e95cd2f5f520d722012a7ca8e2b7d09eb0de7c9238fa44908ec64231d  setup.d/companions.manifest
 f8eb7204b6b84f62e81dbc8e9ce40400fa448553d5e34c84281deb8ad3f2474b  setup.d/engine.sh
-ded60848d57efd6334ab39a5e7146f2753821731cdb0ac250f33b771292876e6  setup.d/lib.sh
+bd5c24da91b275cb6faf0b823865e903ab25c05eaaccaa3654eaac4baf7140c4  setup.d/lib.sh
 ec7a4ccd7ab49f2514b47118c54977ed2ccf31c27a26a2c85b5cdb53f3c43096  skills/getff/SKILL.md
 22fee6545a68052ca0096421dd59f39621a9cb9dd1c8d50c7e170623aa153382  skills/getff/references/ai-traps.md
 b0c46db7bc6da1861a4d7e4ccf79654a770af0d31ebe816c65fc84d62cb13e6c  skills/getff/references/checks-map.md

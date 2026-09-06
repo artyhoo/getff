@@ -1680,3 +1680,118 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3 / A3-5 / D-2
     }
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Ledger #1597 A3-3b — the UNDECLARED-window half of A3-3 (the half #1619 could not
+// reach from inside the Stop hook).
+//
+// A3-3 made the floors configurable; it did NOT make them reachable for a consumer
+// who declares nothing. Live-probed 2026-09-06: the Stop payload carries no window,
+// the PreCompact payload carries no window either (session_id, transcript_path, cwd,
+// prompt_id, hook_event_name, trigger, custom_instructions — that is the whole set).
+// What PreCompact DOES carry is the FACT that the harness decided to compact, and the
+// transcript at that instant carries the usage sum. That sum is an empirical ceiling
+// on the usable window, and it is the only window signal either hook can observe.
+//
+// Contract under test: PreCompact writes `${TMPDIR:-/tmp}/aif-ctx-observed-<session>`;
+// the D7 arm reads it when AIF_CTX_WINDOW is undeclared. Precedence is
+// declared > observed > 1M default.
+// ═══════════════════════════════════════════════════════════════════════════════
+describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3b (observed window)', () => {
+  function privateTmpDir(): string {
+    const dir = mkdtempSync(join(tmpdir(), 'a33b-'));
+    tmpDirs.push(dir);
+    return dir;
+  }
+
+  /** A turn sized for a 200k consumer: 190k spent — 95% of their real window, and
+   *  47% of the 1M the hook assumes when nothing is declared. */
+  const at190k = () =>
+    writeTranscript([
+      aiTitle('goal'),
+      userTurn('go'),
+      {
+        type: 'assistant',
+        message: {
+          content: [{ type: 'text', text: 'short turn' }],
+          usage: { input_tokens: 1000, cache_read_input_tokens: 187_000, cache_creation_input_tokens: 2000 },
+        },
+      },
+    ]);
+
+  /** Write the PreCompact-side half of the contract by hand, so the reader is tested
+   *  against the file FORMAT rather than against the writer's implementation. */
+  function recordObservation(tmp: string, sessionId: string, value: string): void {
+    writeFileSync(join(tmp, `aif-ctx-observed-${sessionId}`), `${value}\n`, 'utf8');
+  }
+
+  it('CONTROL (the honest limit): with NO observation on record, 190k is still silent', () => {
+    // Nothing observes the window before the first auto-compaction. This case is expected
+    // to hold both before and after the fix — it pins that the fix does not pretend to
+    // know a window nobody measured.
+    const r = runHook(
+      { transcript_path: at190k(), stop_hook_active: false, session_id: 'a33b-none' },
+      { TMPDIR: privateTmpDir() },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim(), 'no declaration and no observation → 1M assumed → 190k is 19% spent').toBe('');
+  });
+
+  it('A3-3b: an observed 195k ceiling makes the same 190k turn fire, with the observed window named', () => {
+    const tmp = privateTmpDir();
+    recordObservation(tmp, 'a33b-observed', '195000');
+    const r = runHook(
+      { transcript_path: at190k(), stop_hook_active: false, session_id: 'a33b-observed' },
+      { TMPDIR: tmp },
+    );
+    expect(r.status).toBe(0);
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision, 'soft = 70% of the observed 195000 = 136500; 190000 is past it').toBe('block');
+    expect(parsed.reason).toMatch(/\[context\]/);
+    expect(parsed.reason, 'the observed ceiling is the window it reports').toMatch(/~195000/);
+    expect(parsed.reason).toMatch(/190000 tokens/);
+  });
+
+  it('A3-3b PAIRED-NEGATIVE: an explicit AIF_CTX_WINDOW outranks the observation', () => {
+    // Operator intent beats measurement: a declared 1M window must not be overridden by a
+    // stale observation from an earlier, smaller-window run of the same session id.
+    const tmp = privateTmpDir();
+    recordObservation(tmp, 'a33b-declared', '195000');
+    const r = runHook(
+      { transcript_path: at190k(), stop_hook_active: false, session_id: 'a33b-declared' },
+      { TMPDIR: tmp, AIF_CTX_WINDOW: '1000000' },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim(), 'the declared 1M window wins → 190k is silent').toBe('');
+  });
+
+  it('A3-3b PAIRED-NEGATIVE: a junk observation is ignored, it neither crashes nor silences the arm', () => {
+    // Same junk-value contract as every other knob in this arm: fall back to the documented
+    // default rather than trusting a 0 (fires every turn) or a word (breaks the arithmetic).
+    for (const [bad, sid] of [
+      ['not-a-number', 'word'],
+      ['0', 'zero'],
+      ['', 'empty'],
+      ['-5', 'negative'],
+    ] as const) {
+      const tmp = privateTmpDir();
+      recordObservation(tmp, `a33b-junk-${sid}`, bad);
+      const r = runHook(
+        { transcript_path: at190k(), stop_hook_active: false, session_id: `a33b-junk-${sid}` },
+        { TMPDIR: tmp },
+      );
+      expect(r.status, `observation "${bad}" must not crash the hook`).toBe(0);
+      expect(r.stdout.trim(), `observation "${bad}" → 1M default → 190k is silent`).toBe('');
+    }
+  });
+
+  it('A3-3b: the observation is per-session — another session id does not inherit it', () => {
+    const tmp = privateTmpDir();
+    recordObservation(tmp, 'a33b-owner', '195000');
+    const r = runHook(
+      { transcript_path: at190k(), stop_hook_active: false, session_id: 'a33b-stranger' },
+      { TMPDIR: tmp },
+    );
+    expect(r.stdout.trim(), 'a neighbouring session on a 1M window must not be judged on this one').toBe('');
+  });
+});
