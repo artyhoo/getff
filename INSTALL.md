@@ -96,6 +96,32 @@ It skips **nothing else**. `sgconfig.yml`, `ruff.toml`, `.getff/astgrep-rules/`,
 
 Activation is separately conditional: the lane never takes `core.hooksPath` away from a consumer that already has hooks of their own (an existing `core.hooksPath`, a `.pre-commit-config.yaml`, or any live hook under `$GIT_DIR/hooks`). On those repos the hook body is delivered but **not** activated — it is integrated or declined with a printed notice — so `GETFF_SKIP_HOOKS` has nothing to suppress at push time there.
 
+### Consumer-extensible directory payloads
+
+Most files getff installs are single files it owns. A few destinations are **directory payloads** — getff fills the directory but does not claim everything in it. `scripts/fences-fire-fixtures/` is the declared example: you may add your own fixture triple there and the shipped gate will run it.
+
+**Adding your own fence fixture.** Drop three files into `scripts/fences-fire-fixtures/`:
+
+```text
+my-rule.bad.ts        # the minimal snippet your rule must reject
+my-rule.good.ts       # the closest-passing counterpart it must accept
+my-rule.manifest.json # {"rule-id": "local/my-rule"}  (+ optional "rule-options")
+```
+
+`scripts/check-fences-fire.sh` builds its corpus from a mask, not an allowlist — `find "$FIXTURE_DIR" -maxdepth 1 -name '*.manifest.json'` — so your triple is enumerated, counted toward the gate's non-vacuity assertion and probed exactly like a shipped one. The `rule-id` must exist in your `eslint-rules-local/index.mjs` barrel; the installer's barrel prune only ever removes **framework** fixture stems, so it never deletes yours.
+
+**What happens on `install.sh --refresh`.** The framework's own fixtures are re-delivered file by file. A file in the directory that getff no longer ships is removed **only** when the refresh-baseline manifest (`.ai-factory/refresh-baseline.json`) attributes it to a past getff delivery and its bytes still match. Anything else is kept — that is what protects your fixtures — and each kept file is named on stdout:
+
+```text
+⚠ ORPHAN: scripts/fences-fire-fixtures/my-rule.manifest.json sits inside the getff-delivered
+  payload scripts/fences-fire-fixtures, is not in the current template set, and has no
+  refresh-baseline entry.
+```
+
+For a file you added, that line is expected and needs no action. If you see it for a file you do **not** recognise, it is residue of an older getff version: delete it, because a stale fixture there is live configuration — the gate will still enumerate and probe it.
+
+**Owning the whole directory.** To take the directory out of getff's hands entirely, create the Layer-3 sibling `scripts/fences-fire-fixtures.override.md`. `--refresh` then skips the directory wholesale and prints `⊝ … (.override.md — consumer-owned, keeping)`. See [INSTALL-FOR-AI.md — Three-layer authority](INSTALL-FOR-AI.md#three-layer-authority-for-shipped-artefacts).
+
 ---
 
 ## Path C: manual copy (full control)
