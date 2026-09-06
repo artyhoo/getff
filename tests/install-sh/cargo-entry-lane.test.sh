@@ -196,8 +196,10 @@ rm -rf "$C"
 #   (8b) delivered clippy config ABSENT ([ -e "$clippy" ] false) → same constant, same obligation.
 # RED before the fix: the writer emitted "sha256:unknown" with ZERO stderr on both paths (the exact
 # W3-class silent degrade the python lane fixed — 45-python.sh loud else branch, python-rules-lock
-# arm 10). Driven via the CARGO_LAYER_LIB_ONLY seam like arm (7); pruned PATH holds only the
-# coreutils the writer needs — NOT the hash tools — so the no-tool rung is reached deterministically.
+# arm 10). Driven via the CARGO_LAYER_LIB_ONLY seam like arm (7); R-3: the writer now fingerprints
+# via lib.sh _hash256, so the seam sources lib.sh BEFORE the layer. The pruned-PATH intent of (8a)
+# is unchanged — NO sha tool is reachable there, so _hash256 hits its `return 1` rung deterministically
+# (verified: lib.sh's source-time surface needs none of the absent tools).
 echo "  ── (8) lock-writer degrade: no hash tool / clippy absent → loud non-authoritative warning ──"
 BASHBIN=$(command -v bash)
 BIN8=$(mktemp -d)
@@ -208,7 +210,7 @@ C=$(cargo_fixture)
 cp "$TPL/clippy.toml" "$C/clippy.toml"   # getff-header copy → delivered path resolves to clippy.toml
 warn8a=$(
   CARGO_LAYER_LIB_ONLY=1 PROJECT_ROOT="$C" DRY_RUN="" PATH="$BIN8" \
-    "$BASHBIN" -c 'source "$1"; _cargo_write_rules_lock >/dev/null' _ "$LAYER" 2>&1
+    "$BASHBIN" -c 'source "$1"; source "$2"; _cargo_write_rules_lock >/dev/null' _ "$LAYER" "$REPO_ROOT/setup.d/lib.sh" 2>&1
 )
 fp8a=$(sed -n 's/.*"sourceFingerprint": "\([^"]*\)".*/\1/p' "$C/.ai-factory/synthesizer-output/rules-lock.cargo.json" 2>/dev/null)
 printf '%s' "$warn8a" | grep -q "non-authoritative" \
@@ -221,7 +223,7 @@ rm -rf "$C"
 C=$(cargo_fixture)   # NO clippy config at all → the clippy-absent trigger (full PATH, hash tools present)
 warn8b=$(
   CARGO_LAYER_LIB_ONLY=1 PROJECT_ROOT="$C" DRY_RUN="" \
-    "$BASHBIN" -c 'source "$1"; _cargo_write_rules_lock >/dev/null' _ "$LAYER" 2>&1
+    "$BASHBIN" -c 'source "$1"; source "$2"; _cargo_write_rules_lock >/dev/null' _ "$LAYER" "$REPO_ROOT/setup.d/lib.sh" 2>&1
 )
 fp8b=$(sed -n 's/.*"sourceFingerprint": "\([^"]*\)".*/\1/p' "$C/.ai-factory/synthesizer-output/rules-lock.cargo.json" 2>/dev/null)
 printf '%s' "$warn8b" | grep -q "non-authoritative" \
@@ -235,7 +237,7 @@ printf '%s' "$warn8b" | grep -q "non-authoritative" \
 cp "$TPL/clippy.toml" "$C/clippy.toml"
 warn8c=$(
   CARGO_LAYER_LIB_ONLY=1 PROJECT_ROOT="$C" DRY_RUN="" \
-    "$BASHBIN" -c 'source "$1"; _cargo_write_rules_lock >/dev/null' _ "$LAYER" 2>&1
+    "$BASHBIN" -c 'source "$1"; source "$2"; _cargo_write_rules_lock >/dev/null' _ "$LAYER" "$REPO_ROOT/setup.d/lib.sh" 2>&1
 )
 fp8c=$(sed -n 's/.*"sourceFingerprint": "\([^"]*\)".*/\1/p' "$C/.ai-factory/synthesizer-output/rules-lock.cargo.json" 2>/dev/null)
 printf '%s' "$fp8c" | grep -qE '^sha256:[0-9a-f]{64}$' \
@@ -446,6 +448,38 @@ grep -q '\[lints\.clippy\]' "$C/Cargo.toml" \
   && ok "(15) stub's merged [lints.clippy] block is exactly what arm (14)'s grep assertion catches" \
   || bad "(15) stub did not merge [lints.clippy] — fixture does not reproduce the forbidden mutation"
 rm -rf "$C" "$STUBDIR"
+
+# ── (16) A2-3: a non-zero cargo exit must NOT abort install.sh under set -euo pipefail ────────────
+# The rustup `--profile minimal` consumer (official rust:* Docker images) has cargo but NO clippy
+# component: `cargo clippy` exits 101 with EMPTY stdout (the self-check discards stderr). The
+# self-check contract (46-cargo.sh) is rc=0 on every branch, but the capture `_out=$( … cargo … )`
+# is a PLAIN assignment — it returns cargo's status, install.sh runs `set -euo pipefail` and calls
+# the self-check unguarded, so the assignment killed the WHOLE install mid-self-check: no verdict
+# lines, no refresh_baseline_flush, no completion line. The go twin guards the identical call with
+# `|| _rc=$?` (47-go.sh). cargo/rustup are absent in this runtime, so a PATH-prepended stub that
+# exits 101 with no stdout IS the deterministic minimal-profile host — driving the REAL install.sh.
+echo "  ── (16) cargo exits 101 mid-self-check → install.sh must still complete (A2-3) ──"
+C=$(cargo_fixture)
+SHIM16=$(mktemp -d)
+printf '#!/usr/bin/env sh\nexit 101\n' > "$SHIM16/cargo"
+chmod +x "$SHIM16/cargo"
+out=$( cd "$C" && PATH="$SHIM16:$PATH" bash "$INSTALL" cargo < /dev/null 2>&1 ); rc16=$?
+[ "$rc16" -eq 0 ] \
+  && ok "(16) install.sh survived the 101 exit (rc=0 — set -e did not abort mid-self-check)" \
+  || bad "(16) install.sh ABORTED on the non-zero cargo exit (rc=$rc16 — the set -e trap, A2-3): $(echo "$out" | tail -3 | tr '\n' '|')"
+echo "$out" | grep -q "getff Rust/cargo toolchain delivery complete" \
+  && ok "(16) completion line printed (self-check + refresh_baseline_flush + capstone all reached)" \
+  || bad "(16) completion line never printed — install died before the end of do_cargo_lane"
+echo "$out" | grep -q "did NOT fire on a planted violation" \
+  && ok "(16) SILENT verdict line printed (the self-check reported instead of dying)" \
+  || bad "(16) SILENT verdict line missing — the self-check never reported"
+echo "$out" | grep "self-check" | grep -q "SILENT" \
+  && ok "(16) self-check summary line printed with the SILENT count (not swallowed)" \
+  || bad "(16) self-check summary missing (or carries no SILENT count)"
+echo "$out" | grep -q "cargo exit=101" \
+  && ok "(16) ✗ verdict carries the captured cargo exit code (exit context in the log)" \
+  || bad "(16) ✗ verdict missing the captured cargo exit context"
+rm -rf "$C" "$SHIM16"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
