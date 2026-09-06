@@ -85,7 +85,7 @@ Four further opt-in flags (see `install.sh` header for exact semantics): `--full
 
 ### Python lane — the local hook rung and `GETFF_SKIP_HOOKS`
 
-Besides the CI gate, `install.sh python` delivers a **local** rung: `.getff/hooks/pre-push`, which runs the same ast-grep + ruff arms the CI gate runs, before a push leaves your machine. `GETFF_SKIP_HOOKS=1` is the opt-out, and it is read at **two separate moments** — it is also the only environment knob any getff-delivered hook body consults at runtime.
+Besides the CI gate, `install.sh python` delivers a **local** rung: `.getff/hooks/pre-push`, which runs the same ast-grep + ruff arms the CI gate runs, before a push leaves your machine. `GETFF_SKIP_HOOKS=1` is the opt-out, and it is read at **two separate moments** — it is also the only environment knob **named `GETFF_*`** any getff-delivered hook body consults at runtime (runtime variables with other prefixes exist — see [Environment knobs](#environment-knobs-read-by-delivered-artefacts) below).
 
 | When | Command | Effect |
 | --- | --- | --- |
@@ -121,6 +121,42 @@ my-rule.manifest.json # {"rule-id": "local/my-rule"}  (+ optional "rule-options"
 For a file you added, that line is expected and needs no action. If you see it for a file you do **not** recognise, it is residue of an older getff version: delete it, because a stale fixture there is live configuration — the gate will still enumerate and probe it.
 
 **Owning the whole directory.** To take the directory out of getff's hands entirely, create the Layer-3 sibling `scripts/fences-fire-fixtures.override.md`. `--refresh` then skips the directory wholesale and prints `⊝ … (.override.md — consumer-owned, keeping)`. See [INSTALL-FOR-AI.md — Three-layer authority](INSTALL-FOR-AI.md#three-layer-authority-for-shipped-artefacts).
+
+---
+
+## Environment knobs read by delivered artefacts
+
+`GETFF_SKIP_HOOKS` (previous section) is the only `GETFF_*`-prefixed variable a delivered hook body reads at runtime. One further knob with a different prefix exists, plus four look-alike names that are **not** knobs at all. (`AIF_*`-prefixed tuning variables — e.g. `AIF_HOOK_LANG`, the output-language switch — are documented in the delivered hook headers themselves.)
+
+### `RULES_DIR_OVERRIDE` — scan a different rules corpus (runtime)
+
+`.claude/hooks/inject-matching-rule.sh` — delivered by the npm/ts lanes (`setup.d/10-skills.sh`) and the python lane (`setup.d/45-python.sh`), registered as `PostToolUse:Edit|Write|MultiEdit` — injects a one-line rule pointer when the file just edited matches a `<!-- globs: … -->` marker in a rule file. Which corpus it scans is decided at **every hook firing**:
+
+```bash
+RULES_DIR="${RULES_DIR_OVERRIDE:-$REPO_ROOT/.claude/rules}"
+```
+
+| Aspect | Behaviour |
+| --- | --- |
+| Read at | runtime — each Edit/Write/MultiEdit, inside your project |
+| Default | `<your project>/.claude/rules` (resolved from the hook's own location) |
+| Shape | use an absolute path; relative values resolve against the hook's working directory, which is not stable |
+| Does NOT | copy or move anything — the scan is redirected, nothing is written |
+| Does NOT | rewrite the injected pointer — it still reads `see .claude/rules/<slug>.md` even when the corpus lives elsewhere |
+| Does NOT | fail on a missing or empty directory — the hook prints a once-per-session notice, then stays silent for the session |
+
+Measured 2026-09-06 on a delivered copy in a scratch project: default → the project's own rule is injected; `RULES_DIR_OVERRIDE=/abs/alt-rules` → the alt corpus's rule is injected instead; `RULES_DIR_OVERRIDE=<nonexistent dir>` → `⚠ inject-matching-rule: no rules corpus found at <dir>` exactly once, then silence. The variable began life as the hook's test seam (its header says so), but the read sits in a delivered hook body at a boundary you control — set it if you keep your rule corpus outside `.claude/rules/`.
+
+### Installer variables that are NOT knobs
+
+These four names look like knobs but are internal constants — three are plain assignments that overwrite any exported value, and the fourth is recomputed from your project's shape before use. Proven by a double install into identical scratch projects, one clean and one with all four exported: identical trees, identical logs (modulo the scratch-project path), identical `arch:check` line.
+
+| Name | Where | What it actually is |
+| --- | --- | --- |
+| `GETFF_LANES` | `setup.d/lib.sh:974` | the fixed lane list (`python cargo go`) the orphan sweep walks — a constant |
+| `GETFF_SKILLS_CORE` | `setup.d/lib.sh:61` | the core skill set; the consumer-facing control is `--profile` |
+| `GETFF_SKILLS_FACTORY` | `setup.d/lib.sh:63` | the factory skill list; the control is `--profile factory` or `--with-aif-suite` |
+| `AIF_ARCH_TARGET` | `setup.d/70-deps.sh:41-49` | wiped, then recomputed (monorepo roots → `src` → `.`) into your `package.json` `arch:check` line; to aim at exotic roots, edit that one line after install |
 
 ---
 
