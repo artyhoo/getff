@@ -203,7 +203,7 @@ rm -rf "$C"
 echo "  ── (8) lock-writer degrade: no hash tool / clippy absent → loud non-authoritative warning ──"
 BASHBIN=$(command -v bash)
 BIN8=$(mktemp -d)
-for t in cat awk sed grep date mkdir rm head wc ls; do
+for t in cat awk sed grep date mkdir rm mktemp head wc ls; do
   p=$(command -v "$t" 2>/dev/null) && ln -sf "$p" "$BIN8/$t"
 done
 C=$(cargo_fixture)
@@ -480,6 +480,61 @@ echo "$out" | grep -q "cargo exit=101" \
   && ok "(16) ✗ verdict carries the captured cargo exit code (exit context in the log)" \
   || bad "(16) ✗ verdict missing the captured cargo exit context"
 rm -rf "$C" "$SHIM16"
+
+# ── (17) A2-9: the fingerprint covers the PROVENANCE inputs the lock body reads ────────────────────
+# Ledger addendum A2-9 — the cargo twin of python's A2-7 (fixed in #1617). `_cargo_write_rules_lock`
+# hashes the delivered clippy config, but the lock BODY reads two more inputs in the same function:
+# `generation-context.json` (→ `version`) and `generation-context/*.json` fragments (→ `rules`). A
+# fragment-only delta that left the config byte-identical could never perturb the fingerprint, so
+# the reproducibility record silently lagged its own provenance. PAIRED arms below: (17a) pins the
+# backward-compat shape (with no manifest and no fragments the fp IS sha256(delivered config) — the
+# concatenation is separator-free, which is also what keeps arm 5b green); (17b) non-vacuity (the
+# config bytes never move); (17c/d/e) each provenance input MUST move the fp. RED before the A2-9
+# fix on 17c/17d/17e (fp unchanged); GREEN after. Drives the REAL install.sh like arms 1/2 — the
+# cargo lane rewrites the lock on every pass (no content-aware skip), so each pass lands the fp.
+echo "  ── (17) A2-9: fingerprint covers generation-context manifest + fragments ──"
+C=$(cargo_fixture)
+( cd "$C" && bash "$INSTALL" cargo < /dev/null ) >/dev/null 2>&1
+LOCK17="$C/.ai-factory/synthesizer-output/rules-lock.cargo.json"
+_clippy_fp17() { sed -n 's/.*"sourceFingerprint": "sha256:\([0-9a-f]*\)".*/\1/p' "$LOCK17" 2>/dev/null; }
+fp17a=$(_clippy_fp17)
+if { command -v sha256sum >/dev/null 2>&1 || command -v shasum >/dev/null 2>&1; } \
+   && [ -n "$fp17a" ] && [ "$fp17a" = "$(_sha256 "$C/clippy.toml")" ]; then
+  ok "(17a) precondition: fragment-free tree → fp == sha256(delivered clippy.toml) (separator-free input; arm 5b shape intact)"
+else
+  bad "(17a) precondition unmet: fp17a='${fp17a:-<none>}' expected '$(_sha256 "$C/clippy.toml")'"
+fi
+# Plant ONE provenance fragment (the parent-dir *.json the body's `rules` derivation reads) —
+# config bytes untouched. The subdir layout keeps python fragments invisible here (DC-1).
+mkdir -p "$C/.ai-factory/synthesizer-output/generation-context"
+printf '{"id":"G1","rule":"cargo-ban-x","tier":2}\n' > "$C/.ai-factory/synthesizer-output/generation-context/G1.json"
+_clippy_sha17=$(_sha256 "$C/clippy.toml")
+( cd "$C" && bash "$INSTALL" cargo < /dev/null ) >/dev/null 2>&1
+fp17b=$(_clippy_fp17)
+[ "$(_sha256 "$C/clippy.toml")" = "$_clippy_sha17" ] \
+  && ok "(17b) non-vacuity: delivered config byte-identical across passes (the fragment is the only delta)" \
+  || bad "(17b) non-vacuity BROKEN: clippy.toml moved — a fingerprint change would prove nothing"
+if [ -n "$fp17b" ] && [ "$fp17b" != "$fp17a" ]; then
+  ok "(17c) fingerprint moved on a fragment-only delta ($fp17a → $fp17b) — A2-9 closed"
+else
+  bad "(17c) fingerprint UNCHANGED ($fp17a) after adding a provenance fragment — the lock lags its own provenance (A2-9 RED)"
+fi
+printf '{"id":"G1","rule":"cargo-ban-x","tier":0,"note":"mutated"}\n' > "$C/.ai-factory/synthesizer-output/generation-context/G1.json"
+( cd "$C" && bash "$INSTALL" cargo < /dev/null ) >/dev/null 2>&1
+fp17c=$(_clippy_fp17)
+[ -n "$fp17c" ] && [ "$fp17c" != "$fp17b" ] \
+  && ok "(17d) fingerprint moved again on a fragment MUTATION ($fp17b → $fp17c)" \
+  || bad "(17d) fingerprint UNCHANGED ($fp17b) after mutating the fragment (A2-9 RED)"
+printf '{"framework":"cargo","version":"4.5.6","rules":[]}\n' > "$C/.ai-factory/synthesizer-output/generation-context.json"
+( cd "$C" && bash "$INSTALL" cargo < /dev/null ) >/dev/null 2>&1
+fp17d=$(_clippy_fp17)
+[ -n "$fp17d" ] && [ "$fp17d" != "$fp17c" ] \
+  && ok "(17e) fingerprint moved when the ctx MANIFEST appeared ($fp17c → $fp17d) — version input covered" \
+  || bad "(17e) fingerprint UNCHANGED ($fp17c) after adding generation-context.json (A2-9 RED)"
+grep -q '"version": "4.5.6"' "$LOCK17" \
+  && ok "(17f) the lock body actually consumed the manifest (version=4.5.6 recorded — the hashed input is a REAL input)" \
+  || bad "(17f) lock did not record the manifest version — (17e) would be hashing a dead input"
+rm -rf "$C"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
