@@ -207,6 +207,22 @@ describe('pr-body-prior-art-bin.ts — CI hint ↔ referent grammar sync', () =>
     expect(binSource).toContain('CLAUDE.md §`Prior-art:` trailer syntax');
   });
 
+  it('CONTRIBUTING.md — the contributor-facing twin names the same three forms', () => {
+    // CONTRIBUTING.md:3 declares itself authoritative for «capability-commit
+    // definition + Prior-art trailer convention», so it is a teaching surface
+    // for the same grammar and drifts the same way. Found stale by the backward
+    // check on this PR, after CLAUDE.md and the two hook messages were updated.
+    const contributing = readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', 'CONTRIBUTING.md'),
+      'utf8',
+    );
+    expect(contributing).toContain('prior-art-evaluations.md#<ID>');
+    expect(contributing).toMatch(/artefact path/i);
+    expect(contributing).toMatch(/issue \/ PR reference/i);
+    expect(contributing).toMatch(/test material/i);
+    expect(contributing).toContain('packages/core/principles/');
+  });
+
   it('paired negative: the pre-fix hint text fails the containment check', () => {
     const staleHint =
       'Add to the PR body:\n  Prior-art: prior-art-evaluations.md#N (verdict X — rationale)\n' +
