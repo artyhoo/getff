@@ -206,25 +206,25 @@ _cargo_write_rules_lock() {
   fi
 
   mkdir -p "$lock_dir"
-  # Fingerprint ladder (adapter-jig D2 — no-silent-fingerprint-degrade; mirrors 45-python.sh):
-  # sha256 rungs first, md5 fallback rungs next (value carries its algorithm prefix so a fallback
-  # digest is never mislabelled sha256), and BOTH degrade triggers — no hash tool on PATH AND
-  # delivered-clippy-absent — warn LOUDLY to stderr (attention-is-not-a-mechanism §1 /
-  # degrade-loudly): the "sha256:unknown" constant below is a FAKE fingerprint, not an
-  # authoritative digest, and must never be silently trusted. Do NOT hard-fail — the
-  # sourceFingerprint is an optional auditability field, not an install precondition.
+  # Fingerprint (adapter-jig D2 — no-silent-fingerprint-degrade) via the shared lib.sh _hash256
+  # ladder — R-3 dedupe: the inline sha256/shasum/md5 ladder this lane used to carry is GONE; one
+  # ladder, one degradation policy repo-wide. The lane adopts _hash256's policy verbatim: no sha
+  # tool on PATH → _hash256 returns 1 → log the loud stderr warning and SKIP the fingerprint
+  # ("sha256:unknown" constant; md5 rungs deleted). Behavior change on a no-sha host: the old
+  # ladder wrote a real-but-md5 "md5:…" fingerprint here while refresh-baseline degraded for the
+  # same file — two schemes for one artefact; now both surfaces degrade identically (sha256-only).
+  # BOTH degrade triggers — no hash tool (the _hash256 failure above) AND delivered-clippy-absent
+  # (below) — warn LOUDLY to stderr (attention-is-not-a-mechanism §1 / degrade-loudly): the
+  # "sha256:unknown" constant is a FAKE fingerprint, never to be silently trusted. Do NOT hard-fail
+  # — the sourceFingerprint is an optional auditability field, not an install precondition.
   local fp="sha256:unknown"
   if [ -e "$clippy" ]; then
-    if command -v sha256sum >/dev/null 2>&1; then
-      fp="sha256:$(sha256sum "$clippy" | awk '{print $1}')"
-    elif command -v shasum >/dev/null 2>&1; then
-      fp="sha256:$(shasum -a 256 "$clippy" | awk '{print $1}')"
-    elif command -v md5 >/dev/null 2>&1; then          # BSD/macOS md5 fallback (lane parity: 45-python.sh ladder)
-      fp="md5:$(md5 "$clippy" | awk '{print $NF}')"
-    elif command -v md5sum >/dev/null 2>&1; then        # Linux md5sum fallback
-      fp="md5:$(md5sum "$clippy" | awk '{print $1}')"
+    local _h
+    if _h=$(_hash256 "$clippy"); then
+      fp="sha256:$_h"
     else
-      echo "  ⚠ getff: no hash tool (sha256sum/shasum/md5/md5sum); cargo rules-lock sourceFingerprint is non-authoritative" >&2
+      echo "  ⚠ getff: no sha256 tool on PATH; cargo rules-lock sourceFingerprint is non-authoritative" >&2
+      fp="sha256:unknown"
     fi
   else
     echo "  ⚠ getff: delivered clippy config missing ($clippy); cargo rules-lock sourceFingerprint is non-authoritative" >&2
@@ -304,23 +304,29 @@ _cargo_firing_self_check() {
     printf '[package]\nname = "getff-selfcheck"\nversion = "0.0.0"\nedition = "2021"\n\n[dependencies]\n' > "$_t/Cargo.toml"
     printf 'fn main() {\n    let _ = std::env::var("HOME");\n}\n' > "$_t/src/main.rs"
     # Run FROM the temp dir so cargo writes its target/ there, NOT under the consumer tree (STOP line).
-    local _out
-    _out=$( cd "$_t" && cargo clippy --message-format=json 2>/dev/null )
+    # A2-3: the capture MUST be guarded — a plain assignment returns cargo's status, and under
+    # install.sh's set -euo pipefail (self-check called unguarded) any non-zero cargo exit (clippy
+    # component missing on rustup --profile minimal → 101) aborted the whole install mid-self-check:
+    # no verdict lines, no refresh_baseline_flush, no completion line. Mirrors the go twin's
+    # `|| _rc=$?` form (47-go.sh); rc=0 on every branch, verdict lines always print.
+    local _out _rc=0
+    _out=$( cd "$_t" && cargo clippy --message-format=json 2>/dev/null ) || _rc=$?
     if printf '%s' "$_out" | grep -q '"clippy::disallowed_methods"'; then
       echo "  ✓ cargo clippy fired RED on the planted violation (std::env::var disallowed-methods ban live)"
       _pass=$((_pass+1))
     else
-      echo "  ✗ cargo clippy did NOT fire on a planted violation — the delivered clippy config is SILENT (delivery bug)"
+      echo "  ✗ cargo clippy did NOT fire on a planted violation — the delivered clippy config is SILENT (delivery bug), cargo exit=$_rc"
       _silent=$((_silent+1))
     fi
     # Paired CLEAN CONTROL (adapter-jig E1): conforming code the delivered config must stay quiet on.
     # Without it an always-red config (one that flags every crate) prints the same "enforcement is
     # live" — the RED direction alone cannot discriminate a working config from a broken one.
     printf 'fn main() {\n    let _ = std::env::args();\n}\n' > "$_t/src/main.rs"
-    local _out_clean
-    _out_clean=$( cd "$_t" && cargo clippy --message-format=json 2>/dev/null )
+    # A2-3: same guard as the planted-violation capture above (rc=0 on every branch).
+    local _out_clean _rc_clean=0
+    _out_clean=$( cd "$_t" && cargo clippy --message-format=json 2>/dev/null ) || _rc_clean=$?
     if printf '%s' "$_out_clean" | grep -q '"clippy::disallowed_methods"'; then
-      echo "  ✗ cargo clippy FIRED on the clean control — the delivered clippy config is OVER-BROAD (an always-red config is not enforcement)"
+      echo "  ✗ cargo clippy FIRED on the clean control — the delivered clippy config is OVER-BROAD (an always-red config is not enforcement; clean-control exit=$_rc_clean)"
       _overbroad=$((_overbroad+1))
     else
       echo "  ✓ cargo clippy clean control GREEN — no disallowed-methods diagnostic on conforming code (config discriminates)"
