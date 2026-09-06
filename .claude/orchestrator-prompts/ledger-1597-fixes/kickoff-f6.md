@@ -1,13 +1,13 @@
-# KICKOFF — ledger-1597-fixes / F6 — three installer latents: A2-9, A2-11, A2-12
+# KICKOFF — ledger-1597-fixes / F6 — four installer latents: A2-9, A2-11, A2-12, R-3b
 
 > **Umbrella:** [kickoff.md](kickoff.md) — read §2 scope lock and §3 constraints first; this is a **§1b tail stage**.
 > **Rigor label (effort-worthiness L0):** `build-and-verify`.
-> **Findings:** campaign addenda A2-9, A2-11, A2-12 (text below — these are addenda recorded during the fix campaign, not ledger entries). Line numbers relocated at `e55e4bf2f6`.
+> **Findings:** campaign addenda A2-9, A2-11, A2-12, R-3b (text below — these are addenda recorded during the fix campaign, not ledger entries). Line numbers relocated at `e55e4bf2f6`; R-3b at `3633456a24`.
 > **Ordering:** dispatched only AFTER stage F1 (A2-3 + R-3, the 46/47 hash ladders) is harvested — A2-9 edits the same `_write_rules_lock` bodies.
 
 ## Task
 
-Close three latents of one class (lane-machinery neighbours of fixed findings): the cargo/go rules-lock fingerprints that may be blind to the provenance input #1617 added to the python lane (A2-9); the refresh-parity test population that cannot see `$PKG_ROOT`-sourced deliveries (A2-11); the unbounded recursive `find` inside the python rules-lock hash input (A2-12). One PR to `staging`.
+Close four latents of one class (lane-machinery neighbours of fixed findings): the cargo/go rules-lock fingerprints that may be blind to the provenance input #1617 added to the python lane (A2-9); the refresh-parity test population that cannot see `$PKG_ROOT`-sourced deliveries (A2-11); the unbounded recursive `find` inside the python rules-lock hash input (A2-12); the python lane's own hash ladder that R-3 left behind (R-3b). One PR to `staging`.
 
 ## Context (data — the three addenda)
 
@@ -28,9 +28,15 @@ Close three latents of one class (lane-machinery neighbours of fixed findings): 
 - **Defect:** the walk is recursive; a nested directory under the rules dir silently changes the hash. The trigger that made this misfire is gone since #1617, but the shape is latent. The trailing `true` (trap: optional dir under `set -e`) is present at :745 — keep it and say why it is load-bearing.
 - **Verifier:** bound the walk (`-maxdepth 1`, or the documented intended population — state which and why) and add a paired-negative arm to `tests/install-sh/python-rules-lock.test.sh` (a nested `*.yml` must NOT change the fingerprint after the fix; it MUST before).
 
+### R-3b — the python rules-lock keeps the inline hash ladder R-3 deleted from cargo/go
+- **Where:** `setup.d/45-python.sh:746-760` (the `sha256sum | shasum | md5 | md5sum | constant` ladder right after `_hash_input`), installer. Found by the F1 harvest's backward check (PR #1660).
+- **Defect:** F1 (R-3) moved the cargo/go lanes onto `lib.sh _hash256` and deleted their `md5` rungs, so a no-sha host now degrades identically on rules-lock and refresh-baseline for those lanes. The python lane still hashes a STRING (`_hash_input`, a concatenation of delivered bytes) through its own ladder — including the two `md5` rungs — so on a no-sha host the python lock writes a real `md5` digest while every other surface writes the loud non-authoritative constant: the exact two-schemes-for-one-artefact divergence R-3 closed, surviving in one lane. `_hash256` takes a PATH, which is why the python lane could not adopt it as-is.
+- **Failure-scenario:** a no-sha CI runner installs the python lane; `rules.lock` carries an `md5`-shaped `sourceFingerprint` the parity test (`tests/install-sh/rules-lock-schema-parity.test.sh`) reads as authoritative, while `refresh-baseline.json` records the degrade constant for the same delivered file.
+- **Verifier:** route the string through the existing helper instead of a fourth ladder — write `_hash_input` to a `mktemp` file and call `_hash256 "$tmp"`; on its return-1 rung print the SAME loud warning and the SAME non-authoritative constant the cargo/go lanes use after F1 (quote both lanes' constant and match it), then delete the md5 rungs. `lib.sh` is NOT yours — if `_hash256`'s contract must change, PARK with the exact divergence. RED-first: prune PATH of every sha tool in the existing `python-rules-lock.test.sh` harness (the F1 arm-8 technique) and show the `md5` digest pre-fix; GREEN: the constant + stderr warning. Keep the trailing `true` at :745 (A2-12 owns that line) and the `_hash_input` composition byte-for-byte.
+
 ## Constraints
 
-- Owned files: `setup.d/45-python.sh` (`_hash_input` at :745 ONLY), `setup.d/46-cargo.sh` + `setup.d/47-go.sh` (`_write_rules_lock` bodies ONLY, on top of the harvested F1), `tests/install-sh/refresh-covers-full-delivery.test.sh`, `tests/install-sh/python-rules-lock.test.sh`, `tests/install-sh/cargo-entry-lane.test.sh` + `go-entry-lane.test.sh` (new arms only), `packages/getff/MANIFEST.sha256`.
+- Owned files: `setup.d/45-python.sh` (`_hash_input` at :745 and the fingerprint ladder at :746-760 ONLY), `setup.d/46-cargo.sh` + `setup.d/47-go.sh` (`_write_rules_lock` bodies ONLY, on top of the harvested F1), `tests/install-sh/refresh-covers-full-delivery.test.sh`, `tests/install-sh/python-rules-lock.test.sh`, `tests/install-sh/cargo-entry-lane.test.sh` + `go-entry-lane.test.sh` (new arms only), `packages/getff/MANIFEST.sha256`.
 - `setup.d/lib.sh`, `install.sh`, `setup.d/50-hooks.sh` are NOT yours (other tail stages). Extend existing test files; a NEW test file ≥80 LOC trips the prior-art capability detector.
 - Every setup.d/ edit ⇒ `bash scripts/build-getff-dist.sh` in the SAME commit, then `--check`. `shellcheck --exclude=SC2034,SC2016,SC2317 setup.d/*.sh install.sh` at default severity. BSD sed/awk portability. `cargo`/`go` are absent in this runtime: stub them on PATH where a test needs them (F1's shim precedent).
 - Iteration cap: 6 tool-loop rounds per finding; then report PARTIAL.
@@ -49,7 +55,7 @@ A REPORT with a literal `Status: DONE|BLOCKED|PARTIAL` line, `Deliverable:`, `Ev
 
 ## Verify
 
-1. Per finding: RED before / GREEN after quoted (A2-9 may legitimately end as «no analog» with the delivered-vs-hashed list).
+1. Per finding: RED before / GREEN after quoted (A2-9 may legitimately end as «no analog» with the delivered-vs-hashed list; R-3b RED = an md5 digest on a sha-less PATH, GREEN = the shared constant + warning).
 2. `bash tests/install-sh/python-rules-lock.test.sh`, `refresh-covers-full-delivery.test.sh`, `cargo-entry-lane.test.sh`, `go-entry-lane.test.sh` all green; say which lanes executed (T14).
 3. `bash scripts/build-getff-dist.sh --check` in sync.
 
