@@ -724,8 +724,8 @@ _py_write_rules_lock() {
 
   # Deterministic sourceFingerprint: sha256/16 over the sorted delivered rule bytes (astgrep ymls +
   # the always-delivered ruff bans) AND the generation-context/python/*.json provenance fragments.
-  # Same delivered set → same fingerprint (reproducibility), independent of emittedAt. Portable
-  # hash ladder (parity with tests/install-sh/snapshot.sh).
+  # Same delivered set → same fingerprint (reproducibility), independent of emittedAt. Hashed via
+  # lib.sh _hash256 (R-3b — one ladder, one degradation policy repo-wide; parity with cargo/go).
   #
   # A2-7 (ledger addendum): the fragments MUST be in this hash. The fingerprint is the input to the
   # content-aware idempotent skip below, and the lock's `provenance` field is built from exactly
@@ -742,32 +742,42 @@ _py_write_rules_lock() {
   # into an aborted install. (The pre-A2-7 form had the same latent shape via its trailing
   # `[ -f "$bans" ] && cat "$bans"`; caught live by tests/install-sh/python-rules-lock.test.sh, which
   # went from 36/3 to 18/22 with no `true` — the lock was never written at all.)
-  _hash_input=$( { find "$rules_dir" -name '*.yml' 2>/dev/null | sort | while IFS= read -r f; do cat "$f"; done; [ -f "$bans" ] && cat "$bans"; [ -d "$_frag_dir" ] && find "$_frag_dir" -name '*.json' 2>/dev/null | sort | while IFS= read -r f; do cat "$f"; done; true; } )
-  if command -v sha256sum >/dev/null 2>&1; then
-    _fp=$(printf '%s' "$_hash_input" | sha256sum | awk '{print $1}')
-  elif command -v shasum >/dev/null 2>&1; then
-    _fp=$(printf '%s' "$_hash_input" | shasum -a 256 | awk '{print $1}')
-  elif command -v md5 >/dev/null 2>&1; then          # BSD/macOS md5 fallback
-    _fp=$(printf '%s' "$_hash_input" | md5 | awk '{print $NF}')
-  elif command -v md5sum >/dev/null 2>&1; then        # Linux md5sum fallback (was missing → constant on Linux)
-    _fp=$(printf '%s' "$_hash_input" | md5sum | awk '{print $1}')
+  # A2-12: BOTH walks are BOUNDED (-maxdepth 1). The delivered rules population is flat by
+  # construction — the template dir holds N *.yml files and NO subdirectories, and copy_safe /
+  # refresh_safe replace the directory wholesale, so a subdirectory under the delivered rules dir
+  # is consumer residue, never part of a delivery; the recursive walk let such residue silently
+  # change the hash (the #1617/A2-1 nesting removed the live trigger, the shape stayed latent).
+  # The fragment dir is flat too — one <rule-id>.json per rule (§6 fork 2). Pinned paired-negative:
+  # tests/install-sh/python-rules-lock.test.sh arm (15).
+  _hash_input=$( { find "$rules_dir" -maxdepth 1 -name '*.yml' 2>/dev/null | sort | while IFS= read -r f; do cat "$f"; done; [ -f "$bans" ] && cat "$bans"; [ -d "$_frag_dir" ] && find "$_frag_dir" -maxdepth 1 -name '*.json' 2>/dev/null | sort | while IFS= read -r f; do cat "$f"; done; true; } )
+  # R-3b (F1 backward check, PR #1660): this lane carried the LAST inline hash ladder — R-3 already
+  # moved cargo/go onto lib.sh _hash256 and deleted their md5 rungs, so on a no-sha host the python
+  # lock wrote a REAL md5 digest while every other surface wrote the loud non-authoritative constant:
+  # two schemes for one artefact. _hash256 takes a PATH, so the string is staged to a temp file first
+  # (the _hash_input composition above is untouched). On _hash256's return-1 rung the lane prints the
+  # SAME warning and writes the SAME constant as cargo/go post-F1 (46-cargo.sh/47-go.sh:
+  # "sha256:unknown") — one ladder, one degradation policy repo-wide; the md5/md5sum rungs are GONE.
+  # Do NOT hard-fail — sourceFingerprint is an optional auditability field, not an install precondition
+  # (attention-is-not-a-mechanism §1 / degrade-loudly: the constant is never silently trusted).
+  local _hash_tmp
+  _hash_tmp=$(mktemp)
+  printf '%s' "$_hash_input" > "$_hash_tmp"
+  if _fp=$(_hash256 "$_hash_tmp"); then
+    : # authoritative 64-hex digest; truncated to 16 below (success shape unchanged)
   else
-    # Degrade LOUDLY (attention-is-not-a-mechanism §1 / degrade-loudly): NO sha256/md5 tool on the host, so
-    # the fingerprint below is a FAKE CONSTANT, not an authoritative digest of the delivered rule bytes.
-    # Warn to stderr so the constant is NEVER silently trusted as the lock's auditability primitive. Do NOT
-    # hard-fail — sourceFingerprint is an optional auditability field, not an install precondition.
-    echo "  ⚠ getff: no sha256 tool (sha256sum/shasum/md5/md5sum); rules-lock sourceFingerprint is non-authoritative" >&2
-    _fp=0000000000000000
+    echo "  ⚠ getff: no sha256 tool on PATH; python rules-lock sourceFingerprint is non-authoritative" >&2
+    _fp="sha256:unknown"
   fi
+  rm -f "$_hash_tmp"
   _fp="${_fp:0:16}"
 
   # CONTENT-AWARE idempotent skip (W5 rework): skip ONLY when the existing lock's sourceFingerprint
   # equals the freshly-computed one — the delivered set is provably unchanged, so the lock (incl. its
   # emittedAt) stays byte-identical. NOT flag-gated: the delivered set can change on a PLAIN pass too
   # (_py_join_researched_rules runs on every pass), and a flag-gated skip left the lock STALE there.
-  # The no-hash-tool degrade constant (0000000000000000) can NOT prove «unchanged», so it never
-  # skips — conservative regenerate, already loudly declared non-authoritative above.
-  if [ -f "$lock" ] && [ "$_fp" != "0000000000000000" ]; then
+  # The no-hash-tool degrade constant (sha256:unknown — shared with cargo/go per R-3b) can NOT prove
+  # «unchanged», so it never skips — conservative regenerate, already loudly declared non-authoritative above.
+  if [ -f "$lock" ] && [ "$_fp" != "sha256:unknown" ]; then
     local _prev_fp
     _prev_fp=$(grep -oE '"sourceFingerprint"[[:space:]]*:[[:space:]]*"[^"]*"' "$lock" 2>/dev/null \
       | head -1 | sed -E 's/.*"([^"]*)"$/\1/')
