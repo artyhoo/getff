@@ -33,6 +33,34 @@ ok()   { PASS=$((PASS+1)); echo "  ✓ $1"; }
 bad()  { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 skip() { SKIP=$((SKIP+1)); echo "  · $1"; }
 
+# arm_ready <label> <install-rc> <artefact> [log] — the gate every arm's baseline install passes
+# through. It separates two conditions the arms used to collapse into a single skip:
+#
+#   rc != 0                  → the install could not RUN here (missing tool, no network): SKIP.
+#   rc == 0 and no artefact  → the install RAN and produced no barrel. That is the very
+#                              regression these arms exist to catch — a generate_eslint_barrel()
+#                              early-exit drops eslint-rules-local/index.mjs — so it FAILS.
+#
+# Skipping the second case made the defect's own signature the condition under which the whole
+# file reported green (PASS=0 FAIL=0 SKIP=1, rc=0) with no arm ever exercised. Arms (b) and (d)
+# additionally used to shasum a possibly-absent barrel: two empty sums compare equal, so a
+# missing barrel read as "byte-identical across --refresh".
+arm_ready() {
+  local _label="$1" _rc="$2" _artefact="$3" _log="${4:-}" _tail=""
+  if [ -n "$_log" ] && [ -f "$_log" ]; then
+    _tail=", log tail: $(tail -5 "$_log" 2>/dev/null | tr '\n' '|')"
+  fi
+  if [ "$_rc" -ne 0 ]; then
+    skip "$_label baseline install could not complete in this env (rc=$_rc$_tail)"
+    return 1
+  fi
+  if [ ! -f "$_artefact" ]; then
+    bad "$_label baseline install returned rc=0 but produced no $(basename "$_artefact") — barrel generation is broken; this is the regression the arm guards, not an env skip$_tail"
+    return 1
+  fi
+  return 0
+}
+
 [ -f "$INSTALL" ] || { echo "FATAL: $INSTALL not found"; exit 1; }
 
 RULE_BASE="my-consumer-rule"          # kebab basename  → camel export per the file/key convention
@@ -122,11 +150,11 @@ done
 # ── Arm (a): consumer-added entry survives --refresh ─────────────────────────────
 ( cd "$FIX_A" && bash "$INSTALL" ts-server --force < /dev/null ) > "$FIX_A/.i1.log" 2>&1
 A1_RC=$?
-if [ "$A1_RC" -ne 0 ] || [ ! -f "$FIX_A/eslint-rules-local/index.mjs" ]; then
-  skip "(all arms) baseline ts-server install could not complete in this env (rc=$A1_RC, log tail: $(tail -5 "$FIX_A/.i1.log" 2>/dev/null | tr '\n' '|'))"
+if ! arm_ready "(all arms)" "$A1_RC" "$FIX_A/eslint-rules-local/index.mjs" "$FIX_A/.i1.log"; then
   echo ""
   echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP"
-  exit 0
+  [ "$FAIL" -eq 0 ]
+  exit $?
 fi
 ok "(a, setup) ts-server --force install completed rc=0"
 
@@ -167,8 +195,8 @@ A2_CAMEL="consumerTsRule"
 
 ( cd "$FIX_A2" && bash "$INSTALL" ts-server --force < /dev/null ) > "$FIX_A2/.i1.log" 2>&1
 A21_RC=$?
-if [ "$A21_RC" -ne 0 ] || [ ! -f "$FIX_A2/eslint-rules-local/index.mjs" ]; then
-  skip "(a2) baseline ts-server install could not complete in this env (rc=$A21_RC)"
+if ! arm_ready "(a2)" "$A21_RC" "$FIX_A2/eslint-rules-local/index.mjs" "$FIX_A2/.i1.log"; then
+  :
 else
   consumer_rule_trio "$FIX_A2/eslint-rules-local" "$A2_BASE" "$A2_CAMEL"
   hand_extend_barrel "$FIX_A2/eslint-rules-local/index.mjs" "$A2_BASE" "$A2_CAMEL"
@@ -225,8 +253,8 @@ fi
 # ── Arm (b): framework-only barrel regenerates byte-identical ────────────────────
 ( cd "$FIX_B" && bash "$INSTALL" ts-server --force < /dev/null ) > "$FIX_B/.i1.log" 2>&1
 B1_RC=$?
-if [ "$B1_RC" -ne 0 ]; then
-  skip "(b) baseline ts-server --force could not complete (rc=$B1_RC)"
+if ! arm_ready "(b)" "$B1_RC" "$FIX_B/eslint-rules-local/index.mjs" "$FIX_B/.i1.log"; then
+  :
 else
   B_SUM_1=$(shasum -a 256 "$FIX_B/eslint-rules-local/index.mjs" | cut -d' ' -f1)
   ( cd "$FIX_B" && bash "$INSTALL" ts-server --refresh < /dev/null ) > "$FIX_B/.i2.log" 2>&1
@@ -242,8 +270,8 @@ fi
 # ── Arm (c): #882 cross-stack stray still pruned, consumer entry still kept ──────
 ( cd "$FIX_C" && bash "$INSTALL" react-next --force < /dev/null ) > "$FIX_C/.i1.log" 2>&1
 C1_RC=$?
-if [ "$C1_RC" -ne 0 ] || [ ! -f "$FIX_C/eslint-rules-local/no-server-imports-in-client.ts" ]; then
-  skip "(c) react-next --force setup could not complete (rc=$C1_RC) — cross-stack arm skipped"
+if ! arm_ready "(c, cross-stack)" "$C1_RC" "$FIX_C/eslint-rules-local/no-server-imports-in-client.ts" "$FIX_C/.i1.log"; then
+  :
 else
   consumer_rule_mjs "$FIX_C/eslint-rules-local/$RULE_BASE.mjs"
   hand_extend_barrel "$FIX_C/eslint-rules-local/index.mjs"
@@ -277,8 +305,8 @@ fi
 # ── Arm (d): --dry-run writes nothing (full no-op) ───────────────────────────────
 ( cd "$FIX_D" && bash "$INSTALL" ts-server --force < /dev/null ) > "$FIX_D/.i1.log" 2>&1
 D1_RC=$?
-if [ "$D1_RC" -ne 0 ]; then
-  skip "(d) baseline ts-server --force could not complete (rc=$D1_RC)"
+if ! arm_ready "(d)" "$D1_RC" "$FIX_D/eslint-rules-local/index.mjs" "$FIX_D/.i1.log"; then
+  :
 else
   consumer_rule_mjs "$FIX_D/eslint-rules-local/$RULE_BASE.mjs"
   hand_extend_barrel "$FIX_D/eslint-rules-local/index.mjs"

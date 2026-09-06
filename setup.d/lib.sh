@@ -164,28 +164,68 @@ transform_internal_refs() {
   rm -f "${f}.bak"
 }
 
-# deliver_runtime_bridge_vendor <vendor-src-dir> <vendor-dst-dir>
-# SSOT for the runtime-bridge vendor drop, called by BOTH delivery paths: the install path
-# (setup.d/55-runtime-bridge-vendor.sh) and the refresh path (install.sh do_refresh). Those two
-# are the @sync-with-layers pair the do_refresh header warns about, and they had already drifted
-# once here — the refresh path carried no vendor arm at all, so `--refresh` never updated a
-# consumer's vendor copy after an upgrade, and (observed on CI 2026-08-17, run 32022158836) the
-# delivered README could end up back at its untransformed source with the transform never
-# re-applied. One function means the wipe-recopy-transform sequence cannot diverge again
-# (dual-implementation-discipline.md §7).
+# _transform_md_tree <tree-root>
+# Rewrite repo-internal relative refs to upstream blob URLs in EVERY *.md under <tree-root>.
+# transform_internal_refs is idempotent, so re-running this over an already-delivered tree is
+# safe — that is what makes the same helper usable on both the install and the refresh path.
 #
-# Wipe + recopy matches the skills/* idempotent pattern (10-skills.sh:22); the transform pass is
-# what keeps repo-internal relative refs from shipping dangling (see transform_internal_refs
-# above). transform_internal_refs is idempotent, so running this on an already-delivered tree is
-# safe — that is what makes it usable as the refresh path's arm.
-deliver_runtime_bridge_vendor() {
-  local src="$1" dst="$2" _md
+# The walk is NUL-delimited ON PURPOSE (ledger S-7): the copy this replaced used
+# `find … -type f | read -r`, which silently skips any delivered path containing a newline, and
+# it was the ONLY one of the seven copies that had diverged that way.
+_transform_md_tree() {
+  local _md
+  while IFS= read -r -d '' _md; do
+    transform_internal_refs "$_md"
+  done < <(find "$1" -name '*.md' -type f -print0 2>/dev/null)
+}
+
+# _copy_tree_with_transform <src-dir> <dst-dir>
+# SSOT for "wipe the destination, recopy the tree, rewrite shipped markdown refs" — the sequence
+# that had been inlined SEVEN times (ledger S-7: setup.d/lib.sh ×3, setup.d/10-skills.sh ×2,
+# setup.d/45-python.sh, install.sh) and had therefore already drifted. Wipe-and-recopy rather
+# than merge is the deliberate skills/* idempotent pattern (10-skills.sh) and the twin of
+# refresh_safe's #873 directory arm: `cp -r src dst` onto an existing dst NESTS instead of
+# replacing. The transform pass is what keeps repo-internal relative refs from shipping dangling
+# (see transform_internal_refs above; the 2026-08-17 CI incident, run 32022158836, was exactly a
+# delivered README landing back at its untransformed source).
+#
+# NOT a delivery verb: it applies no ownership policy at all — no skip-if-exists, no `.override.md`
+# escape, no R1 divergence guard. Callers that owe the consumer an ownership decision go through
+# copy_safe / refresh_safe / refresh_tree_with_transform; this helper is only the raw sequence
+# those verbs and the fresh-install layers share. Handing it a destination the consumer may own
+# is the ledger A1-1 defect (see refresh_tree_with_transform below).
+_copy_tree_with_transform() {
+  local src="$1" dst="$2"
   [ -d "$src" ] || return 0
   rm -rf "$dst"
+  mkdir -p "$(dirname "$dst")"
   cp -r "$src" "$dst"
-  while IFS= read -r _md; do
-    transform_internal_refs "$_md"
-  done < <(find "$dst" -name '*.md' -type f)
+  _transform_md_tree "$dst"
+}
+
+# refresh_tree_with_transform <src-dir> <dst-dir>
+# refresh_safe for a DIRECTORY payload PLUS the shipped-markdown transform, as ONE verb.
+#
+# Ledger A1-1: do_refresh used to deliver .claude/vendor/runtime-bridge TWICE — first through
+# refresh_safe (which honours the Layer-3 `.override.md` escape and the R1 divergence guard, and
+# printed "⊝ … keeping"), then again through a policy-free `rm -rf`/`cp -r` arm for the same
+# destination. A consumer who had claimed the tree saw "keeping" printed and their edits plus
+# every consumer-only file under it deleted anyway, while the closing banner still promised that
+# override files were preserved; `--dry-run` skipped only the second arm, so the preview showed
+# a skip the real run did not honour. The second arm existed because refresh_safe alone does not
+# transform. One verb removes that reason: the transform can no longer justify an unguarded
+# second delivery of a destination the consumer may own.
+#
+# The transform runs only when this refresh actually WROTE: under `--dry-run` and under a
+# Layer-3 override nothing was written, and rewriting refs inside a consumer-owned tree would be
+# the same defect class in reverse.
+refresh_tree_with_transform() {
+  local src="$1" dst="$2"
+  [ -d "$src" ] || return 0
+  refresh_safe "$src" "$dst"
+  if [ "$DRY_RUN" = "--dry-run" ]; then return 0; fi
+  if [ -e "${dst%.md}.override.md" ]; then return 0; fi
+  _transform_md_tree "$dst"
 }
 
 # ── consumer-refresh-integrity R1 — refresh-baseline manifest + divergence guard ──────────────
@@ -214,13 +254,23 @@ deliver_runtime_bridge_vendor() {
 #     appends). Hashing at stage time would store pre-transform bytes and then flag every
 #     transformed file as diverged on every refresh — first-refresh spam by construction.
 #     Staging paths and hashing once at end-of-run captures the final on-disk bytes.
-#   - FILES ONLY. Directory payloads (refresh_safe #873 replaces whole dirs) have no single
-#     sha256; they stage nothing and are never flagged — unknown, today's behaviour.
+#   - PER FILE, INCLUDING INSIDE DIRECTORY PAYLOADS. A directory has no single sha256, so a
+#     directory dst stages every regular file under it and the guard runs on those (ledger L-4).
+#     The original shape staged nothing for a directory payload, which made «unknown» permanent
+#     for every file inside one and left refresh_safe's directory arm free to `rm -rf` a
+#     consumer's edits with no warning and no conflicts copy — issue 1481, guaranteed rather
+#     than merely possible, for exactly the payloads the guard never covered.
 #
 # SCOPE: copy_safe/refresh_safe deliveries only. Skills (copy_skill_with_transform /
 # refresh_skill_with_transform), merge_fenced and the raw-cp vendor drop have their own verbs
 # and stay outside this mechanism (W-RI-1: generic, no special-casing of any pair entry).
 REFRESH_BASELINE_STAGED=()
+# Paths staged WEAKLY: recorded only if the manifest has no entry for them yet (ledger A1-2).
+# copy_safe's skip-if-exists path uses this — a skipped file's bytes are evidence of what was
+# delivered ONLY when nothing better is on record. Recording them strongly would let a consumer's
+# own edit become the baseline on any plain re-install, which silences the guard for exactly the
+# file the consumer cares about.
+REFRESH_BASELINE_STAGED_WEAK=()
 REFRESH_BASELINE_NOTE_SHOWN=""
 
 # _refresh_baseline_manifest — echo the consumer-local manifest path (never tracked, never a
@@ -254,11 +304,40 @@ _hash256() {
 }
 
 # refresh_baseline_stage <dst> — record a delivered dst for the end-of-run flush. Paths only
-# (hashed at flush — see the section header); regular files only; no-op under --dry-run.
+# (hashed at flush — see the section header); no-op under --dry-run.
+#
+# A DIRECTORY dst stages every file under it (ledger L-4). The original shape recorded regular
+# files only, which is what left every directory payload — the fences-fire fixtures, the
+# runtime-bridge vendor tree — outside the baseline entirely: with no manifest entry the
+# divergence guard reads «unknown» for every file inside them, so a consumer edit could never be
+# flagged, preserved, or previewed. Staging per file is what makes the guard reach the class,
+# and it is the install path (copy_safe) that has to do it, or the guard is a whole refresh cycle
+# late — the consumer's first `--refresh` after the edit is exactly the run that destroys it.
 refresh_baseline_stage() {
+  local p="$1" f
   if [ "${DRY_RUN:-}" = "--dry-run" ]; then return 0; fi
-  if [ -f "$1" ]; then
-    REFRESH_BASELINE_STAGED+=("$1")
+  if [ -f "$p" ]; then
+    REFRESH_BASELINE_STAGED+=("$p")
+  elif [ -d "$p" ]; then
+    while IFS= read -r -d '' f; do
+      REFRESH_BASELINE_STAGED+=("$f")
+    done < <(find "$p" -type f -print0 2>/dev/null)
+  fi
+  return 0
+}
+
+# refresh_baseline_stage_weak <dst> — record a dst that this run did NOT write but found already
+# in place (copy_safe's skip path). Same path-only, hash-at-flush contract; the flush lets any
+# existing manifest entry win over these (ledger A1-2 — see REFRESH_BASELINE_STAGED_WEAK above).
+refresh_baseline_stage_weak() {
+  local p="$1" f
+  if [ "${DRY_RUN:-}" = "--dry-run" ]; then return 0; fi
+  if [ -f "$p" ]; then
+    REFRESH_BASELINE_STAGED_WEAK+=("$p")
+  elif [ -d "$p" ]; then
+    while IFS= read -r -d '' f; do
+      REFRESH_BASELINE_STAGED_WEAK+=("$f")
+    done < <(find "$p" -type f -print0 2>/dev/null)
   fi
   return 0
 }
@@ -270,18 +349,29 @@ refresh_baseline_stage() {
 # refresh_safe runs under set -euo pipefail). The manifest read is INLINED at this parent
 # scope — not via $(... _refresh_baseline_lookup ...) — so the degrade note's once-flag
 # persists across this function's many calls (a subshell capture would re-note per file).
-refresh_baseline_diverged() {
-  local dst="$1" src="$2" manifest entry cur src_hash
-  [ -f "$dst" ] || return 1
-  command -v jq >/dev/null 2>&1 || { _refresh_baseline_note "jq not found"; return 1; }
-  entry=""
+# _refresh_baseline_lookup <dst> — set REFRESH_BASELINE_ENTRY to the manifest hash recorded for
+# <dst> ("" = no entry, i.e. UNKNOWN, i.e. not attributable to the framework). Sets a GLOBAL
+# rather than echoing on purpose: a $(...) capture runs in a subshell and would lose
+# _refresh_baseline_note's once-per-run flag, re-noting a missing jq for every file walked.
+REFRESH_BASELINE_ENTRY=""
+_refresh_baseline_lookup() {
+  local dst="$1" manifest
+  REFRESH_BASELINE_ENTRY=""
+  command -v jq >/dev/null 2>&1 || { _refresh_baseline_note "jq not found"; return 0; }
   manifest=$(_refresh_baseline_manifest)
-  if [ -f "$manifest" ]; then
-    if ! entry=$(jq -r --arg k "${dst#"${PROJECT_ROOT:-}"/}" 'if (type == "object") and has($k) then .[$k] else "" end' "$manifest" 2>/dev/null); then
-      _refresh_baseline_note "manifest at $manifest is unreadable or not JSON"
-      entry=""
-    fi
+  [ -f "$manifest" ] || return 0
+  if ! REFRESH_BASELINE_ENTRY=$(jq -r --arg k "${dst#"${PROJECT_ROOT:-}"/}" 'if (type == "object") and has($k) then .[$k] else "" end' "$manifest" 2>/dev/null); then
+    _refresh_baseline_note "manifest at $manifest is unreadable or not JSON"
+    REFRESH_BASELINE_ENTRY=""
   fi
+  return 0
+}
+
+refresh_baseline_diverged() {
+  local dst="$1" src="$2" entry cur src_hash
+  [ -f "$dst" ] || return 1
+  _refresh_baseline_lookup "$dst"
+  entry="$REFRESH_BASELINE_ENTRY"
   [ -n "$entry" ] || return 1
   cur=$(_hash256 "$dst") || { _refresh_baseline_note "no sha256 tool found"; return 1; }
   if [ "$cur" = "$entry" ]; then return 1; fi
@@ -310,20 +400,42 @@ _preserve_diverged_copy() {
 # refresh_baseline_flush — write the staged deliveries into the manifest (merge, sorted keys —
 # deterministic bytes). Called ONCE at each installer exit path AFTER every delivery + transform
 # has run. Fail-open on every branch: a failed flush is a note, never a failed install.
-refresh_baseline_flush() {
-  local manifest tsv p h prev patch
-  if [ "${DRY_RUN:-}" = "--dry-run" ]; then return 0; fi
-  [ "${#REFRESH_BASELINE_STAGED[@]}" -gt 0 ] || return 0
-  command -v jq >/dev/null 2>&1 || { _refresh_baseline_note "jq not found — manifest not written"; return 0; }
-  manifest=$(_refresh_baseline_manifest)
-  tsv=$(mktemp) || { _refresh_baseline_note "mktemp failed — manifest not written"; return 0; }
-  printf '%s\n' "${REFRESH_BASELINE_STAGED[@]}" | LC_ALL=C sort -u \
+# _refresh_baseline_hash_into <tsv-path> <path>... — hash each existing regular file and write
+# `<rel-path>\t<sha256>` rows into <tsv-path>. Shared by the strong and weak passes.
+_refresh_baseline_hash_into() {
+  local out="$1" p h
+  shift
+  [ "$#" -gt 0 ] || return 0
+  printf '%s\n' "$@" | LC_ALL=C sort -u \
     | while IFS= read -r p; do
         if [ -f "$p" ] && h=$(_hash256 "$p"); then
           printf '%s\t%s\n' "${p#"${PROJECT_ROOT:-}"/}" "$h"
         fi
-      done > "$tsv"
-  if [ -s "$tsv" ]; then
+      done >> "$out"
+  return 0
+}
+
+refresh_baseline_flush() {
+  local manifest tsv wtsv p h prev patch weak
+  if [ "${DRY_RUN:-}" = "--dry-run" ]; then return 0; fi
+  if [ "${#REFRESH_BASELINE_STAGED[@]}" -eq 0 ] && [ "${#REFRESH_BASELINE_STAGED_WEAK[@]}" -eq 0 ]; then
+    return 0
+  fi
+  command -v jq >/dev/null 2>&1 || { _refresh_baseline_note "jq not found — manifest not written"; return 0; }
+  manifest=$(_refresh_baseline_manifest)
+  tsv=$(mktemp) || { _refresh_baseline_note "mktemp failed — manifest not written"; return 0; }
+  wtsv=$(mktemp) || { rm -f "$tsv"; _refresh_baseline_note "mktemp failed — manifest not written"; return 0; }
+  _refresh_baseline_hash_into "$tsv"  ${REFRESH_BASELINE_STAGED[@]+"${REFRESH_BASELINE_STAGED[@]}"}
+  _refresh_baseline_hash_into "$wtsv" ${REFRESH_BASELINE_STAGED_WEAK[@]+"${REFRESH_BASELINE_STAGED_WEAK[@]}"}
+  # Once flushed, the staging lists are EMPTY: install.sh flushes both explicitly and from an
+  # EXIT trap (ledger A1-2), and a second flush must be a no-op rather than a second write.
+  REFRESH_BASELINE_STAGED=()
+  REFRESH_BASELINE_STAGED_WEAK=()
+  if [ -s "$tsv" ] || [ -s "$wtsv" ]; then
+    weak='{}'
+    if [ -s "$wtsv" ]; then
+      weak=$(jq -Rn 'reduce (inputs | split("\t")) as $row ({}; .[$row[0]] = $row[1])' "$wtsv" 2>/dev/null) || weak='{}'
+    fi
     if patch=$(jq -Rn 'reduce (inputs | split("\t")) as $row ({}; .[$row[0]] = $row[1])' "$tsv" 2>/dev/null); then
       prev='{}'
       if [ -f "$manifest" ]; then
@@ -338,7 +450,10 @@ refresh_baseline_flush() {
         fi
       fi
       if mkdir -p "$(dirname "$manifest")" 2>/dev/null; then
-        if jq -S -n --argjson prev "$prev" --argjson patch "$patch" '$prev * $patch' > "${manifest}.getff.tmp" 2>/dev/null; then
+        # Precedence weak < prev < patch: a skipped file fills a HOLE in the manifest and never
+        # overwrites what a real delivery recorded (ledger A1-2 — `$weak + $prev` lets prev win,
+        # `* $patch` lets this run's actual writes win over both).
+        if jq -S -n --argjson weak "$weak" --argjson prev "$prev" --argjson patch "$patch" '($weak + $prev) * $patch' > "${manifest}.getff.tmp" 2>/dev/null; then
           mv "${manifest}.getff.tmp" "$manifest"
           echo "  ✓ .ai-factory/refresh-baseline.json recorded ($(wc -l < "$tsv" | tr -d ' ') delivered files hashed)"
         else
@@ -352,7 +467,7 @@ refresh_baseline_flush() {
       _refresh_baseline_note "manifest patch build failed"
     fi
   fi
-  rm -f "$tsv"
+  rm -f "$tsv" "$wtsv"
   return 0
 }
 
@@ -366,6 +481,12 @@ copy_safe() {
       echo "  [dry-run] would skip: $dst (exists)"
     else
       echo "  ⊝ $dst (exists — skipping; use --force to overwrite)"
+      # A1-2: this early return used to precede the staging call, so an install whose deliveries
+      # were all skips staged NOTHING — and after any install that never reached its flush (the
+      # 99-finalize `exit 1` on a deps-incomplete --full), no later re-run could ever rebuild the
+      # manifest. Staged WEAKLY: fills a hole, never overwrites an entry a real delivery made,
+      # so a consumer edit sitting on disk at re-install time cannot become its own baseline.
+      refresh_baseline_stage_weak "$dst"
     fi
     return 0
   fi
@@ -376,6 +497,15 @@ copy_safe() {
   fi
 
   mkdir -p "$(dirname "$dst")"
+  # A2-1 (twin of #873 in refresh_safe): REPLACE directory payloads instead of nesting into them.
+  # This line is reachable only on the write path — dst absent (rm is a no-op) or FORCE=--force,
+  # where a bare `cp -r src dst` onto an EXISTING dir creates dst/$(basename src) rather than
+  # replacing dst's contents. Live blast radius: `install.sh python --force` nested
+  # .getff/astgrep-rules/astgrep-rules/, and ast-grep — which walks ruleDirs recursively — then
+  # aborted every scan with `Duplicate rule id … is found` (exit 8), killing the CI gate, the
+  # .getff/hooks/pre-push rung and _py_firing_self_check at once. File payloads are untouched:
+  # `cp -r` over an existing file overwrites it correctly.
+  [ -d "$src" ] && rm -rf "$dst"
   cp -r "$src" "$dst"
   echo "  ✓ $dst"
   refresh_baseline_stage "$dst"   # R1: record the delivery for the baseline flush
@@ -485,8 +615,21 @@ merge_fenced() {
       echo "  [dry-run] would replace fenced section=$section in: $dst"
       return 0
     fi
+    # ledger A1-8: `awk … > "$tmp" && mv …` followed by an unconditional success echo had
+    # two silent-corruption paths. (1) awk or the redirect fails → `&&` skips the mv, the old
+    # body survives, the half-written tmp is left in the consumer tree, and the installer
+    # still prints `✓ … replaced`. (2) $src is present but unreadable → awk's
+    # `getline line < SRC` returns -1 WITHOUT failing the program (measured on macOS awk;
+    # POSIX permits it anywhere), so the consumer's fenced section is replaced with an empty
+    # body under that same `✓`. The `-r` probe closes (2); the if/else closes (1).
     local tmp="${dst}.getff.tmp"
-    awk -v BEG="$begin" -v END_TOK="$end_tok" -v SRC="$src" '
+    if [ ! -r "$src" ]; then
+      echo "  ⚠ $dst: source $src is not readable — REFUSING to splice section=$section" >&2
+      echo "    (an unreadable source would empty the fenced body without failing awk)" >&2
+      SKIPPED+=("$dst")
+      return 0
+    fi
+    if ! awk -v BEG="$begin" -v END_TOK="$end_tok" -v SRC="$src" '
       state == 0 && index($0, BEG) > 0 {
         print                                     # keep the begin marker verbatim
         print ""                                  # blank lines around the body: Prettier treats an
@@ -499,7 +642,12 @@ merge_fenced() {
       state == 1 && index($0, END_TOK) > 0 { print; state = 2; next }
       state == 1 { next }                         # drop the previous body
       { print }
-    ' "$dst" > "$tmp" && mv "$tmp" "$dst"
+    ' "$dst" > "$tmp" || ! mv "$tmp" "$dst"; then
+      rm -f "$tmp" 2>/dev/null || true
+      echo "  ⚠ $dst: fenced splice failed (awk or write error) — left unchanged, section=$section" >&2
+      SKIPPED+=("$dst")
+      return 0
+    fi
     echo "  ✓ $dst (fenced section=$section replaced)"
     return 0
   fi
@@ -545,9 +693,19 @@ install_agents_md() {
 # #873: directory payloads are REPLACED, not nested — mirrors the existing
 # refresh_skill_with_transform precedent (rm -rf "$dst"; cp -r). File refresh is unchanged (a
 # file source cp -r's over an existing file correctly).
+# Optional 3rd argument, `framework-exclusive`: declares that <dst> is a directory NOTHING but
+# the framework may own, so the sweep may also remove files it cannot attribute to a delivery.
+# Default (omitted) is shared ownership — unattributable files are the consumer's and stay.
+# The one declared-exclusive destination today is the python lane's `.getff/astgrep-rules` scan
+# dir, and its exclusivity is load-bearing rather than incidental: `_py_join_researched_rules`
+# (setup.d/45-python.sh) re-assembles that dir from `.getff/rules-research` on EVERY pass
+# precisely because the refresh wipes it, and adapter-jig C4 requires that a dropped rule cannot
+# stay silently active there — a stale ast-grep rule is live scan configuration, not inert
+# residue. Everywhere else the L-4 default holds.
 refresh_safe() {
   local src="$1"
   local dst="$2"
+  local exclusive="${3:-}"
   local override="${dst%.md}.override.md"
   [ -e "$src" ] || return 0  # source gone — leave consumer copy alone
   if [ -e "$override" ]; then
@@ -558,9 +716,27 @@ refresh_safe() {
     fi
     return 0
   fi
+  # #873 + ledger L-4: a directory payload is REPLACED, not nested into — but file by file, so
+  # every file inside it gets the same ownership decision a file payload gets.
+  if [ -d "$src" ]; then
+    _refresh_dir_payload "$src" "$dst" "$exclusive"
+    return 0
+  fi
+  _refresh_one_file "$src" "$dst"
+}
+
+# _refresh_one_file <src-file> <dst-file>
+# The per-file half of refresh_safe: divergence guard, preserve-then-overwrite, stage. Split out
+# of refresh_safe (ledger L-4) so the directory arm can route every file it delivers through the
+# identical decision instead of through a bare `rm -rf`. The `.override.md` check lives in
+# refresh_safe, which the directory arm re-enters per file — so a Layer-3 escape works on a
+# single file INSIDE a directory payload exactly as it does on a file payload.
+_refresh_one_file() {
+  local src="$1" dst="$2"
   # R1 divergence guard (read-only probe): fires identically under --dry-run so the preview
   # reports `would-flag` for exactly the files the real refresh would warn about. The override
-  # skip above returns BEFORE this — the Layer-3 escape produces no conflict copy, no warning.
+  # skip in refresh_safe returns BEFORE this — the Layer-3 escape produces no conflict copy,
+  # no warning.
   if [ "$DRY_RUN" = "--dry-run" ]; then
     if refresh_baseline_diverged "$dst" "$src"; then
       echo "  [dry-run] would-flag: $dst (locally modified)"
@@ -572,10 +748,131 @@ refresh_safe() {
     _preserve_diverged_copy "$dst"
   fi
   mkdir -p "$(dirname "$dst")"
-  [ -d "$src" ] && rm -rf "$dst"   # #873: replace directory payloads (cp -r nests into an existing dir)
   cp -r "$src" "$dst"
   echo "  ✓ $dst (refreshed)"
   refresh_baseline_stage "$dst"   # R1: record the delivery for the baseline flush
+}
+
+# _report_dir_residue <dst-file> <dst-dir> <class>
+# The orphan-report surface for INSIDE a framework-delivered directory payload (ledger L-4b/L-4c),
+# sibling to report_getff_orphans and sharing its `ORPHAN:` vocabulary so one grep finds both.
+#
+# Why here and not inside report_getff_orphans: that function scans three FIXED locations at
+# `-maxdepth 1` (consumer root, `.getff/`, `.github/workflows/`) and runs only on the three
+# toolchain lanes. Neither reaches a directory payload — `scripts/fences-fire-fixtures` is
+# delivered by install.sh's do_refresh on the npm/ts lane, which never calls it, and no
+# `-maxdepth 1` glob descends into a payload at all. Extending it would need a second registry of
+# payload destinations to keep in sync with the refresh_safe call sites. The sweep below already
+# walks exactly those destinations, already knows which files it could not attribute, and runs on
+# EVERY lane — so the report is emitted where the knowledge is, and report_getff_orphans's header
+# points here for the directory half.
+#
+# Two classes, because "getff cannot attribute this" and "you edited it" are different facts and
+# the old single `kept` counter asserted the wrong one for both (it called every kept file
+# "consumer-owned", which is precisely the claim getff has no evidence for):
+#   unattributable — no refresh-baseline entry. Either the consumer's own file — the PRIMARY
+#                    reading, since a payload may be a declared extension point (ledger L-4f:
+#                    scripts/fences-fire-fixtures is one; see check-fences-fire.sh's header) — or
+#                    residue of a PRIOR getff version delivered before the baseline existed. Both
+#                    readings are printed, benign one first, because getff cannot distinguish them
+#                    and the second one is live configuration: a stale
+#                    `scripts/fences-fire-fixtures/*.manifest.json` is enumerated by
+#                    check-fences-fire.sh, counts toward its non-vacuity denominator and is
+#                    probed — a dropped fixture whose rule left the barrel turns the consumer's
+#                    own gate RED with no way to trace where the file came from.
+#   modified       — a baseline entry exists but the bytes differ, so the consumer demonstrably
+#                    edited it. Attributable, not an orphan; named quietly for review.
+# REPORT-ONLY, like report_getff_orphans (J2 decisions log #8): nothing here deletes. Read-only,
+# so it prints identically under --dry-run — the preview and the real run agree.
+_report_dir_residue() {
+  local f="$1" dst="$2" class="$3" rel="$1" reldst="$2"
+  rel="${rel#"${PROJECT_ROOT:-}/"}"
+  reldst="${reldst#"${PROJECT_ROOT:-}/"}"
+  if [ "$class" = "unattributable" ]; then
+    echo "  ⚠ ORPHAN: $rel sits inside the getff-delivered payload $reldst, is not in the current template set, and has no refresh-baseline entry."
+    echo "    Kept in place. If you added it, that is expected — a payload can be consumer-extensible (scripts/fences-fire-fixtures is; see its gate header and INSTALL.md) and getff never removes what it cannot attribute to its own delivery."
+    echo "    If you did NOT add it, it is residue of a PRIOR getff version: remove it manually, because a stale file in a payload is LIVE configuration for the checks that read that directory, not inert residue."
+  else
+    echo "  · kept (locally modified): $rel — getff delivered it, you have since edited it, and the current template set no longer ships it; review whether it is still wanted."
+  fi
+  return 0
+}
+
+# _refresh_dir_payload <src-dir> <dst-dir>
+# The directory half of refresh_safe (ledger L-4).
+#
+# It used to be one line — `rm -rf "$dst"; cp -r "$src" "$dst"` — and the R1 divergence guard
+# said so in its own header: «FILES ONLY. Directory payloads … stage nothing and are never
+# flagged». That exemption made the issue-1481 casualty (a consumer edit destroyed silently on
+# `--refresh`) not merely possible but GUARANTEED for every directory payload — the fences-fire
+# fixtures and the runtime-bridge vendor tree — with no refresh-conflicts copy, no warning and
+# no `--dry-run` preview, because the guard was bolted onto one code path instead of onto the
+# per-file mechanism both paths share.
+#
+# Two passes:
+#   (1) DELIVER — every file the framework ships goes back through refresh_safe at its own path,
+#       so it gets the `.override.md` escape, the divergence guard, the preserve copy and the
+#       baseline staging that a file payload gets. Writing each destination explicitly is also
+#       what keeps #873 closed: nothing ever `cp -r`s a directory onto an existing directory,
+#       so nothing can nest.
+#   (2) SWEEP — a destination file the source no longer ships is removed ONLY when the
+#       refresh-baseline manifest says the framework delivered it AND its bytes still match that
+#       entry. Everything else — a consumer-authored file, a file predating the manifest, a
+#       framework file the consumer has since edited — is unattributable to us, so it stays.
+#       Keeping a file is reversible; deleting one is not (the whole point of issue 1481).
+#
+# Known cost of (2), accepted deliberately: on a consumer whose baseline predates a file the
+# framework has since stopped shipping, that stale file is unattributable and survives
+# indefinitely. The alternative — deleting what we cannot prove is ours — is the defect.
+# What is NOT accepted is that it survives SILENTLY (ledger L-4b/L-4c): every kept file is now
+# named by _report_dir_residue below, so the surviving-forever cost is at least readable. See
+# that helper for why the naming lives here rather than in report_getff_orphans.
+#
+# A destination whose contents are ENTIRELY the framework's can opt out of (2)'s caution with the
+# `framework-exclusive` third argument to refresh_safe; see its docstring for the one such
+# destination and why its exclusivity is load-bearing.
+#
+# Empty source directories are not reproduced (the walk is `-type f`); git tracks no empty
+# directories, and neither shipped payload contains one or any symlink (verified 2026-09-05).
+_refresh_dir_payload() {
+  local src="$1" dst="$2" exclusive="${3:-}" f rel cur kept=0
+  while IFS= read -r -d '' f; do
+    rel="${f#"$src"/}"
+    refresh_safe "$f" "$dst/$rel"
+  done < <(find "$src" -type f -print0 2>/dev/null)
+
+  [ -d "$dst" ] || return 0
+  while IFS= read -r -d '' f; do
+    rel="${f#"$dst"/}"
+    [ -e "$src/$rel" ] && continue                    # still shipped — pass (1) handled it
+    case "$rel" in *.override.md) continue ;; esac    # a Layer-3 marker is the consumer's own
+    if [ "$exclusive" != "framework-exclusive" ]; then
+      _refresh_baseline_lookup "$f"
+      cur=""
+      if [ -n "$REFRESH_BASELINE_ENTRY" ]; then cur=$(_hash256 "$f") || cur=""; fi
+      if [ -z "$REFRESH_BASELINE_ENTRY" ]; then
+        kept=$((kept+1))
+        _report_dir_residue "$f" "$dst" unattributable
+        continue
+      fi
+      if [ "$cur" != "$REFRESH_BASELINE_ENTRY" ]; then
+        kept=$((kept+1))
+        _report_dir_residue "$f" "$dst" modified
+        continue
+      fi
+    fi
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would remove: $f (framework-delivered, no longer shipped)"
+      continue
+    fi
+    rm -f "$f"
+    echo "  ✓ $f (removed — no longer shipped)"
+  done < <(find "$dst" -type f -print0 2>/dev/null)
+
+  if [ "$kept" -gt 0 ]; then
+    echo "  · $dst: $kept file(s) kept and named above (getff removes only what the refresh-baseline attributes to it)"
+  fi
+  return 0
 }
 
 # deliver_getff_workflow <tpl-src> <dst>
@@ -674,21 +971,81 @@ deliver_getff_workflow() {
   fi
 }
 
-# report_getff_orphans <lane> <expected-rel-path>... — adapter-jig C4 (no-orphan-residue).
+# ─── Lane presence + per-lane delivered-set SSOT (report_getff_orphans support) ───────────────
+# GETFF_LANES — every toolchain lane that delivers getff-header-marked files into the scan
+# locations report_getff_orphans walks (consumer root, .getff/, .github/workflows/). The npm/ts
+# lane delivers no header-marked file there, so it is deliberately absent.
+GETFF_LANES="python cargo go"
+
+# getff_lane_expected <lane> — the rel paths the CURRENT <lane> template set delivers, one per
+# line. SINGLE SOURCE for both the active lane's own list and the OTHER lanes' lists that
+# report_getff_orphans unions in on a polyglot consumer — the lane files call
+# `report_getff_orphans <lane>` with no list precisely so the two can never drift apart.
+# Kept honest empirically by the false-positive control arms of
+# tests/install-sh/lane-orphan-residue.test.sh: a clean refresh must report ZERO orphans, so a
+# path that drops out of this list while the lane still delivers it goes RED there.
+getff_lane_expected() {
+  case "$1" in
+    python) printf '%s\n' 'ruff.toml' 'sgconfig.yml' 'getff-ruff.toml' \
+                          '.getff/ruff-bans.toml' '.github/workflows/getff-python.yml' ;;
+    cargo)  printf '%s\n' 'clippy.toml' 'getff-clippy.toml' 'deny.toml' 'getff-deny.toml' \
+                          '.getff/Cargo.lints.toml' '.github/workflows/getff-cargo.yml' ;;
+    go)     printf '%s\n' '.golangci.yml' 'getff-golangci.yml' '.github/workflows/getff-go.yml' ;;
+    *)      : ;;   # unknown lane → empty set (never invents a path)
+  esac
+}
+
+# getff_lane_installed <lane> — true when <lane> has a prior/current install in $PROJECT_ROOT.
+# Dual signal, mirroring the --refresh auto-route arms in install.sh (which call this helper):
+# the lane's install-log marker, OR a lane-exclusive getff-owned artefact, for consumers whose
+# log was never written (dry-run install) or was removed. Read-only; safe under --dry-run.
+getff_lane_installed() {
+  case "$1" in
+    python) [ -f "$PROJECT_ROOT/.getff-python-install.log" ] || [ -d "$PROJECT_ROOT/.getff/astgrep-rules" ] ;;
+    cargo)  [ -f "$PROJECT_ROOT/.getff-cargo-install.log" ] \
+              || { [ -f "$PROJECT_ROOT/clippy.toml" ] && grep -q 'generated by getff' "$PROJECT_ROOT/clippy.toml" 2>/dev/null; } ;;
+    go)     [ -f "$PROJECT_ROOT/.getff-go-install.log" ] \
+              || { [ -f "$PROJECT_ROOT/.golangci.yml" ] && grep -q 'generated by getff' "$PROJECT_ROOT/.golangci.yml" 2>/dev/null; } ;;
+    *)      return 1 ;;
+  esac
+}
+
+# report_getff_orphans <lane> — adapter-jig C4 (no-orphan-residue).
 # On a --refresh pass, scan the KNOWN getff delivery locations (consumer root, .getff/,
 # .github/workflows/) for files carrying the getff ownership header ('generated by getff') that the
 # CURRENT template set no longer delivers, and report each LOUDLY — never silently left active.
-# Directory payloads (.getff/astgrep-rules) are already swept wholesale by refresh_safe above (the
-# #873 rm-rf-replace branch); this covers the individually-delivered top-level files that per-file
+# Directory payloads are NOT covered here — the three scan globs below are all `-maxdepth 1` and
+# never descend into one, and this helper runs only on the three toolchain lanes. Since ledger L-4
+# only a `framework-exclusive` payload (`.getff/astgrep-rules`) is still swept wholesale; a SHARED
+# payload keeps every file it cannot attribute, and those are named by _report_dir_residue inside
+# the sweep itself (ledger L-4b/L-4c — the claim this comment used to make, that refresh_safe
+# swept all directory payloads wholesale, stopped being true at L-4 and is why the residue class
+# went unreported). This function covers the individually-delivered top-level files that per-file
 # refresh can never sweep — the same root cause as the #882 npm barrel prune («do_refresh only
 # ADD/OVERWRITEs the current stack's files, never removes a leftover»), on the python/cargo lanes.
 # REPORT-ONLY by design (J2 decisions log #8): deleting consumer-tree files is the irreversible
 # branch; the loud report satisfies the C4 «swept (or loudly reported)» contract. Files WITHOUT the
 # getff header are never flagged — not ours to name. Read-only: safe under --dry-run.
+#
+# LANE-AWARE (A2-6): the three scan locations above are lane-AGNOSTIC — they hold every lane's
+# deliveries side by side. Matching them against the ACTIVE lane's expected set alone made a
+# polyglot consumer's `install.sh go --refresh` name the live python configs (ruff.toml,
+# sgconfig.yml, .getff/ruff-bans.toml, .github/workflows/getff-python.yml) stale and tell the
+# reader to «remove it manually» — a consumer, or an AI agent acting on the log, would delete live
+# enforcement. So the expected set is the UNION of the active lane's paths and the paths of every
+# OTHER lane that is actually installed in this tree (getff_lane_installed). A header-marked file
+# belonging to NO installed lane is still a true orphan and is still reported — a lane that was
+# uninstalled leaves no marker, so its residue keeps surfacing, which is the point of the report.
 report_getff_orphans() {
-  local lane="$1"; shift
-  local expected=" $* "   # space-delimited rel paths; no delivered path contains whitespace
-  local f rel
+  local lane="$1"
+  local expected f rel other
+  # space-delimited rel paths; no delivered path contains whitespace
+  expected=" $(getff_lane_expected "$lane" | tr '\n' ' ') "
+  for other in $GETFF_LANES; do
+    [ "$other" = "$lane" ] && continue
+    getff_lane_installed "$other" || continue
+    expected="$expected$(getff_lane_expected "$other" | tr '\n' ' ') "
+  done
   { find "$PROJECT_ROOT" -maxdepth 1 -type f \( -name '*.toml' -o -name '*.yml' -o -name 'getff-*' \) 2>/dev/null
     find "$PROJECT_ROOT/.getff" -maxdepth 1 -type f 2>/dev/null
     find "$PROJECT_ROOT/.github/workflows" -maxdepth 1 -type f -name 'getff-*.yml' 2>/dev/null
@@ -1151,12 +1508,8 @@ copy_skill_with_transform() {
     echo "  [dry-run] would copy: $src → $dst (+ transform internal refs)"
     return 0
   fi
-  rm -rf "$dst"
-  cp -r "$src" "$dst"
-  # Rewrite repo-internal cross-refs in all .md files to GitHub blob URLs.
-  while IFS= read -r -d '' mdfile; do
-    transform_internal_refs "$mdfile"
-  done < <(find "$dst" -name '*.md' -print0)
+  # Wipe, recopy, rewrite repo-internal cross-refs in all .md files to GitHub blob URLs.
+  _copy_tree_with_transform "$src" "$dst"
   echo "  ✓ .claude/skills/$slug/ (cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
 }
 
@@ -1182,12 +1535,37 @@ refresh_skill_with_transform() {
     echo "  [dry-run] would refresh: $src → $dst (+ transform internal refs)"
     return 0
   fi
-  rm -rf "$dst"
-  cp -r "$src" "$dst"
-  while IFS= read -r -d '' mdfile; do
-    transform_internal_refs "$mdfile"
-  done < <(find "$dst" -name '*.md' -print0)
+  _copy_tree_with_transform "$src" "$dst"
   echo "  ✓ .claude/skills/$slug/ (refreshed, cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
+}
+
+# _rule_basename_consumer_owned <basename>
+# Exit 0 IFF the eslint-rules-local/<basename>.{ts,mjs,d.ts} triple must be treated as the
+# CONSUMER's (ledger L-5): true when any present member of the triple is absent from the
+# refresh-baseline manifest (we cannot prove we delivered it) or no longer matches its recorded
+# hash (the consumer adapted it). Exit 1 only when every present member is a pristine framework
+# delivery — the one case where removing it is ours to do.
+#
+# What this replaces: ownership decided by BASENAME COLLISION with any framework rules dir, a
+# heuristic reworked across five fix-of-fix commits (#880 -> #887 -> #1503 -> #1505 -> #1548)
+# while the same umbrella was building the actual ownership record. A consumer's copy-and-adapt
+# of a same-named preset rule was deleted with one info line, on EVERY non-dry-run pass, without
+# ever consulting the divergence guard that every other overwrite path consults.
+#
+# All-or-nothing over the triple on purpose: deleting half a consumer's rule — say the .mjs while
+# keeping their .ts — is a worse outcome than leaving a stray file behind.
+_rule_basename_consumer_owned() {
+  local eb="$1" f h
+  for f in "$PROJECT_ROOT/eslint-rules-local/$eb.ts" \
+           "$PROJECT_ROOT/eslint-rules-local/$eb.mjs" \
+           "$PROJECT_ROOT/eslint-rules-local/$eb.d.ts"; do
+    [ -e "$f" ] || continue
+    _refresh_baseline_lookup "$f"
+    [ -n "$REFRESH_BASELINE_ENTRY" ] || return 0
+    h=$(_hash256 "$f") || return 0
+    [ "$h" = "$REFRESH_BASELINE_ENTRY" ] || return 0
+  done
+  return 1
 }
 
 # generate_eslint_barrel
@@ -1261,10 +1639,16 @@ generate_eslint_barrel() {
           # criterion) — its files are the consumer's own work and stay untouched, silently.
           case "$_fw_basenames" in
             *" $_eb "*)
-              rm -f "$PROJECT_ROOT/eslint-rules-local/$_eb.ts" \
-                    "$PROJECT_ROOT/eslint-rules-local/$_eb.mjs" \
-                    "$PROJECT_ROOT/eslint-rules-local/$_eb.d.ts"
-              echo "  · pruned stale rule [$_eb] — not part of the $STACK stack"
+              # ledger L-5: a basename collision proves the NAME is ours, never that the FILE is.
+              # Ownership comes from the delivery manifest (_rule_basename_consumer_owned).
+              if _rule_basename_consumer_owned "$_eb"; then
+                echo "  · kept rule [$_eb] — locally modified or not framework-delivered (consumer-owned)"
+              else
+                rm -f "$PROJECT_ROOT/eslint-rules-local/$_eb.ts" \
+                      "$PROJECT_ROOT/eslint-rules-local/$_eb.mjs" \
+                      "$PROJECT_ROOT/eslint-rules-local/$_eb.d.ts"
+                echo "  · pruned stale rule [$_eb] — not part of the $STACK stack"
+              fi
               ;;
           esac
           ;;
@@ -1293,7 +1677,13 @@ generate_eslint_barrel() {
         [ -n "$_cb" ] || continue
         _kc="${_cb#* }"; _cb="${_cb%% *}"
         case "$_kept_names" in *" $_cb "*) continue ;; esac        # already kept — first entry wins
-        case "$_fw_basenames" in *" $_cb "*) continue ;; esac     # framework rule — regenerated below
+        # A PRISTINE framework rule is regenerated below, so its hand-copied entry is dropped
+        # here. A consumer-owned one (ledger L-5) is not regenerated by anything — dropping its
+        # entry would leave their surviving .mjs on disk and unloadable, which is the prune
+        # defect moved one layer up.
+        case "$_fw_basenames" in
+          *" $_cb "*) _rule_basename_consumer_owned "$_cb" || continue ;;
+        esac
         # issue 1519 RP-1b: a basename with a .ts on disk gets the CANONICAL entry from the
         # generation loops below — keeping the hand-added entry here too would emit a
         # duplicate import binding → hard ESM SyntaxError → the barrel fails to load and
@@ -1353,11 +1743,18 @@ generate_eslint_barrel() {
     # rule is absent from the barrel makes linter.verify THROW ("Could not find <rule> in
     # plugin") → check:fences-fire false-REDs on every non-next stack. The loop below only
     # ever targets basenames of the manifests WE ship (it iterates the framework source dir,
-    # never the consumer's own tree), so it can only ever delete FRAMEWORK fixtures — but on
-    # --refresh the fixtures dir itself is framework-owned: refresh_safe replaces the whole
-    # dir unless the consumer sets scripts/fences-fire-fixtures.override.md (the Layer-3
-    # escape hatch), so a consumer file dropped into that dir WITHOUT the override is removed
-    # on refresh regardless of this loop. Keeps the gate strict where it must be: on
+    # never the consumer's own tree), so it can only ever delete FRAMEWORK fixtures.
+    #
+    # STALE CLAIM CORRECTED (ledger L-4b/L-4c): this comment used to continue «on --refresh the
+    # fixtures dir itself is framework-owned: refresh_safe replaces the whole dir … so a consumer
+    # file dropped into that dir WITHOUT the override is removed on refresh regardless of this
+    # loop.» That stopped being true at ledger L-4. refresh_safe's directory arm no longer
+    # rm -rf's a SHARED payload; it removes only what the refresh-baseline attributes to the
+    # framework and KEEPS everything else (_refresh_dir_payload). So a consumer file dropped in
+    # here survives every refresh with or without the override — pinned behaviourally by arm 1 of
+    # tests/install-sh/refresh-dir-payload-ownership.test.sh — and so does residue of a prior
+    # getff version, which is why each kept file is now named (_report_dir_residue).
+    # Keeps the gate strict where it must be: on
     # react-next the R12 fixture still ships, so R12 vanishing from the barrel still turns
     # the gate RED.
     #
@@ -1537,9 +1934,22 @@ register_cc_hook() {
     group_filter='{"hooks":[{"type":"command","command":$c}]}'
   fi
   if [ ! -f "$settings" ]; then
-    jq -n --arg e "$event" --arg c "$cmd" --arg m "$matcher" \
-      "{hooks: {(\$e): [$group_filter]}}" > "$settings"
-    echo "  ✓ .claude/settings.json created with $event hook ($marker)"
+    # ledger A1-9b (sibling of A1-9 below, same "✓ as a success claim" family): this used to be
+    # `jq -n … > "$settings"` followed by an UNCONDITIONAL ✓. Because the redirect creates the
+    # file BEFORE jq runs, a failing jq (absent filter support, OOM, a read-only tree) left a
+    # ZERO-BYTE .claude/settings.json in the consumer tree — which Claude Code rejects outright
+    # and which every later `jq -e … "$settings"` in the same install then fails to parse.
+    # Unlike the append path this is a SIMPLE command, so under install.sh's `set -euo pipefail`
+    # it aborted the whole install message-lessly right after the empty file appeared; in any
+    # set -e-exempt context it printed the ✓ over the empty file instead. Write to a tmp, ✓ only
+    # after the mv, drop the tmp and warn on failure, and never leave a half-created settings.json.
+    if jq -n --arg e "$event" --arg c "$cmd" --arg m "$matcher" \
+      "{hooks: {(\$e): [$group_filter]}}" > "$settings.tmp" && mv "$settings.tmp" "$settings"; then
+      echo "  ✓ .claude/settings.json created with $event hook ($marker)"
+    else
+      rm -f "$settings.tmp" 2>/dev/null || true
+      echo "  ⚠ jq could not create $settings — no settings file written, $marker NOT registered on $event" >&2
+    fi
   elif jq -e --arg e "$event" --arg m "$marker" \
       '((.hooks[$e] // []) | map(.hooks[].command) | any(test($m)))' "$settings" >/dev/null 2>&1; then
     # Idempotence is PER-EVENT (not whole-file): the same hook may register on two events
@@ -1547,10 +1957,18 @@ register_cc_hook() {
     # would false-match the first event's entry and skip the second. GH #934 batch D.
     echo "  ⊝ $marker already registered on $event in .claude/settings.json"
   else
-    jq --arg e "$event" --arg c "$cmd" --arg m "$matcher" \
+    # ledger A1-9 (the A1-8 class, fixed for merge_fenced in #1632): the unconditional ✓ below used
+    # to print even when jq or the redirect failed — `&&` skipped the mv, the consumer's
+    # settings.json kept its old content with the hook absent, and settings.json.tmp was left in
+    # their tree. Every caller of register_cc_hook shipped that lie.
+    if jq --arg e "$event" --arg c "$cmd" --arg m "$matcher" \
       ".hooks[\$e] = ((.hooks[\$e] // []) + [$group_filter])" \
-      "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings"
-    echo "  ✓ $marker registered as a $event hook in .claude/settings.json"
+      "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings"; then
+      echo "  ✓ $marker registered as a $event hook in .claude/settings.json"
+    else
+      rm -f "$settings.tmp" 2>/dev/null || true
+      echo "  ⚠ jq rewrite of $settings failed — file left unchanged, $marker NOT registered on $event" >&2
+    fi
   fi
 }
 

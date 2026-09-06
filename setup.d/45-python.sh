@@ -70,11 +70,117 @@ _py_log() {
 # python surface. refresh_safe honours a sibling <dst>.override.md (Layer-3 consumer ownership). Both
 # branches carry the caller's "$tpl/…" source, so the refresh-covers-full-delivery gate (Check 4)
 # sees this call as a delivery on BOTH the install and the --refresh path (source-token parity).
+# Optional 3rd argument is forwarded verbatim to refresh_safe (`framework-exclusive` — see its
+# docstring in setup.d/lib.sh). copy_safe never sees it: on the install path the destination is
+# either absent or skipped, so there is nothing to sweep.
 _py_copy_or_refresh() {
   if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
-    refresh_safe "$1" "$2"
+    refresh_safe "$1" "$2" "${3:-}"
   else
     copy_safe "$1" "$2"
+  fi
+}
+
+# ── Agent-surface refresh parity (A2-4) ──────────────────────────────────────────────────────────
+# The three helpers below are to _py_deliver_agent_surface what _py_copy_or_refresh is to the
+# toolchain delivery: they make the FRAMEWORK-OWNED half of the agent surface honour
+# GETFF_TOOLCHAIN_REFRESH=1. Before them every agent-surface delivery was skip-if-exists only, so
+# `install.sh python --refresh` printed "re-delivery complete" while .claude/skills, .claude/agents
+# and .claude/hooks stayed at the version the consumer first installed (ledger finding A2-4) — the
+# #869 refresh-drift class again, on the surface install.sh's own do_refresh() can never reach
+# (do_python_lane exits at install.sh:381, long before do_refresh at install.sh:1276).
+#
+# The framework-owned / consumer-owned BOUNDARY is copied from do_refresh's own contract
+# (install.sh:614 "Consumer-authored files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs …) are
+# NEVER in this set"), so the two lanes cannot diverge on what --refresh may overwrite:
+#   refreshed  — skills, agents, hooks, skill-context overrides, AI-USAGE-GUIDE.md
+#   copy_safe  — RULES.md, DESCRIPTION*.md, ARCHITECTURE*.md, integration-rules.md, tool-decisions.md
+# Every refreshed path keeps the Layer-3 `<dst>.override.md` escape hatch (INSTALL-FOR-AI.md
+# §Three-layer), inherited from refresh_safe / refresh_skill_with_transform or checked inline.
+
+# _py_skill_copy_or_refresh <slug> — a skill shipping from $PKG_ROOT/.claude/skills/.
+# Install: copy_skill_with_transform (skip-if-exists). --refresh: refresh_skill_with_transform
+# (rm -rf + cp -r + transform, `.claude/skills/<slug>.override.md` honoured). Mirrors do_refresh's
+# orchestration-skills arm (install.sh:705).
+_py_skill_copy_or_refresh() {
+  if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
+    refresh_skill_with_transform "$1"
+  else
+    copy_skill_with_transform "$1"
+  fi
+}
+
+# _py_plain_skill_deliver <slug> — a skill shipping from the REPO-ROOT skills/ payload (getff,
+# tool-bootstrapping). No lib.sh helper covers this root (copy_skill_with_transform reads
+# $PKG_ROOT/.claude/skills/), so do_refresh has its own arm for this root and this is the
+# python-lane twin of that block: same override check, and the wipe/copy/transform sequence itself
+# comes from _copy_tree_with_transform (setup.d/lib.sh) so the two cannot drift (ledger S-7).
+_py_plain_skill_deliver() {
+  local slug="$1"
+  local src="$PKG_ROOT/skills/$slug"
+  local dst="$PROJECT_ROOT/.claude/skills/$slug"
+  local override="${dst}.override.md"
+  [ -d "$src" ] || return 0
+  if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
+    if [ -e "$override" ]; then
+      if [ "$DRY_RUN" = "--dry-run" ]; then
+        echo "  [dry-run] would skip: .claude/skills/$slug (.override.md — consumer-owned)"
+      else
+        echo "  ⊝ .claude/skills/$slug (.override.md — consumer-owned, keeping)"
+      fi
+      return 0
+    fi
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would refresh: $src → $dst"
+      return 0
+    fi
+  else
+    if [ -e "$dst" ] && [ "$FORCE" != "--force" ]; then
+      SKIPPED+=("$dst")
+      if [ "$DRY_RUN" = "--dry-run" ]; then
+        echo "  [dry-run] would skip: .claude/skills/$slug (exists)"
+      else
+        echo "  ⊝ .claude/skills/$slug (exists — skipping)"
+      fi
+      return 0
+    fi
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would copy: $src → $dst"
+      return 0
+    fi
+  fi
+  _copy_tree_with_transform "$src" "$dst"
+  if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
+    echo "  ✓ .claude/skills/$slug/ (refreshed, cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
+  else
+    echo "  ✓ .claude/skills/$slug/ (cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
+  fi
+}
+
+# _py_agent_copy_or_refresh <src> <dst> — a single markdown artefact that needs the internal-ref
+# transform after it is written (the curated sub-agents). The transform must run ONLY on a file this
+# pass actually wrote: transforming a consumer-owned file that copy_safe skipped, or one kept by an
+# `.override.md`, would rewrite bytes we do not own (the 2026-07-10 flat-install smoke contract,
+# 20-agents.sh:41-46, and do_refresh's own `[ ! -e "${_dst%.md}.override.md" ]` guard at
+# install.sh:650). Every branch is an explicit `if` — a trailing `A && B` under install.sh's
+# `set -euo pipefail` would return 1 and abort the lane (the A2-3 defect class).
+_py_agent_copy_or_refresh() {
+  local src="$1" dst="$2"
+  local _writes=1
+  [ -f "$src" ] || return 0
+  if [ -e "${dst%.md}.override.md" ]; then
+    _writes=0
+  fi
+  if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
+    refresh_safe "$src" "$dst"
+  else
+    if [ -e "$dst" ] && [ "$FORCE" != "--force" ]; then
+      _writes=0
+    fi
+    copy_safe "$src" "$dst"
+  fi
+  if [ "$_writes" = 1 ] && [ "$DRY_RUN" != "--dry-run" ] && [ -f "$dst" ]; then
+    transform_internal_refs "$dst"
   fi
 }
 
@@ -194,7 +300,12 @@ _py_deliver_astgrep() {
   # The rules dir MUST exist before any `ast-grep scan` (missing dir = exit 6, Probe 6). Copy it in
   # every branch (fresh AND pre-existing sgconfig). Framework-owned → refresh-aware (overwrite on
   # --refresh so updated rule YAML reaches a brownfield consumer; skip-if-exists on plain install).
-  _py_copy_or_refresh "$tpl/.getff/astgrep-rules" "$PROJECT_ROOT/.getff/astgrep-rules"
+  # framework-exclusive: this is a SCAN dir, not a shared one. _py_join_researched_rules below
+  # re-assembles it from .getff/rules-research on every pass precisely because the refresh wipes
+  # it, and adapter-jig C4 requires that a rule the current template no longer ships cannot stay
+  # silently active here — a stale ast-grep rule is live configuration. The L-4 default (keep
+  # what we cannot attribute) is the right call for shared payloads and the wrong one here.
+  _py_copy_or_refresh "$tpl/.getff/astgrep-rules" "$PROJECT_ROOT/.getff/astgrep-rules" framework-exclusive
   _py_log "ast-grep rules dir → .getff/astgrep-rules (framework-owned)"
 
   # Consumer-side researched rules (rendered by rule-bootstrap-cli --from-practice) join the scan
@@ -567,8 +678,10 @@ EOF
 # _py_join_researched_rules delivered a new consumer-researched rule (the join runs on EVERY pass —
 # the W3-era flag-gated guard assumed «no overwrite flag ⇒ delivered set unchanged», which the join
 # falsified: a plain pass CAN change the set). Invariant: the lock is NEVER stale relative to the
-# delivered .getff/ artefacts, on ANY pass (its whole job is to record the DELIVERED set; a lagging
-# lock would LIE about what was delivered). Its emittedAt is wall-clock → the lock is EXCLUDED from the install byte-identical snapshot
+# delivered .getff/ artefacts NOR to the generation-context/python/ provenance fragments it reports,
+# on ANY pass (its whole job is to record the DELIVERED set AND where it came from; a lagging lock
+# would LIE about either). A2-7 widened the fingerprint to the fragments for exactly this reason —
+# they are lock INPUTS, so a fragment-only delta must defeat the skip. Its emittedAt is wall-clock → the lock is EXCLUDED from the install byte-identical snapshot
 # (tests/install-sh/snapshot.sh compute_fingerprint), exactly as the running audit log is; its
 # deterministic content is gated by tests/install-sh/python-rules-lock.test.sh instead
 # (attention-is-not-a-mechanism §1: a non-deterministic field is not left byte-guarded, it is moved to
@@ -582,6 +695,15 @@ _py_write_rules_lock() {
   local rules_dir="$PROJECT_ROOT/.getff/astgrep-rules"
   local bans="$PROJECT_ROOT/.getff/ruff-bans.toml"
   local lock="$PROJECT_ROOT/.getff/rules-lock.python.json"
+  # Fragment-per-rule dir per §6 fork 2 — the synthesizer's generation-context/ per-lane subdir.
+  # S1b (PARK-S1-7 unparked): the producer (rule-bootstrap-cli.ts runPracticeRender) writes here.
+  # Closes kickoff criterion 4 by construction: the cargo/go glob is `*.json` NON-RECURSIVE on the
+  # parent generation-context/ dir (46-cargo.sh:262, 47-go.sh:229), so python fragments in this
+  # subdir are invisible to those lanes. Node synthesize (emit.ts) keeps writing `G${n}.json` to
+  # the parent dir. Resolved HERE, at the top, because BOTH the sourceFingerprint (A2-7 below) and
+  # the provenance read further down consume it — one path constant, never two.
+  local _synth_dir="$PROJECT_ROOT/.ai-factory/synthesizer-output"
+  local _frag_dir="$_synth_dir/generation-context/python"
 
   # Nothing delivered (no rules dir) → nothing to lock (defensive; delivery precedes this call).
   [ -d "$rules_dir" ] || { echo "  ⊝ rules-lock: no .getff/astgrep-rules present — skipping"; return 0; }
@@ -601,10 +723,26 @@ _py_write_rules_lock() {
   [ -f "$bans" ] && ban_codes=$(grep -oE 'TID[0-9]+' "$bans" 2>/dev/null | sort -u)
 
   # Deterministic sourceFingerprint: sha256/16 over the sorted delivered rule bytes (astgrep ymls +
-  # the always-delivered ruff bans). Same rule set → same fingerprint (reproducibility), independent
-  # of emittedAt. Portable hash ladder (parity with tests/install-sh/snapshot.sh).
+  # the always-delivered ruff bans) AND the generation-context/python/*.json provenance fragments.
+  # Same delivered set → same fingerprint (reproducibility), independent of emittedAt. Portable
+  # hash ladder (parity with tests/install-sh/snapshot.sh).
+  #
+  # A2-7 (ledger addendum): the fragments MUST be in this hash. The fingerprint is the input to the
+  # content-aware idempotent skip below, and the lock's `provenance` field is built from exactly
+  # these fragments (`_py_json_rules "$ids" "$_frag_dir"`). Hashing only the rule bytes meant a
+  # fragment added WITHOUT a rule-byte change could not perturb the fingerprint — the skip fired and
+  # the lock stayed permanently stale, contradicting this function's own «NEVER stale relative to
+  # the delivered .getff/ artefacts» invariant. The hole was masked on the --force path by A2-1
+  # (copy_safe nested the rules dir, and this `find` is recursive, so the yml count doubled and the
+  # hash changed for the wrong reason); fixing A2-1 exposed it on the plain path too.
   local _hash_input _fp
-  _hash_input=$( { find "$rules_dir" -name '*.yml' 2>/dev/null | sort | while IFS= read -r f; do cat "$f"; done; [ -f "$bans" ] && cat "$bans"; } )
+  # The trailing `true` is load-bearing under install.sh's `set -euo pipefail`: `$_frag_dir` is
+  # absent on any consumer that has never run the rule-bootstrap CLI, and with `pipefail` a failing
+  # `find` makes the whole pipeline — and therefore this assignment — non-zero, which `set -e` turns
+  # into an aborted install. (The pre-A2-7 form had the same latent shape via its trailing
+  # `[ -f "$bans" ] && cat "$bans"`; caught live by tests/install-sh/python-rules-lock.test.sh, which
+  # went from 36/3 to 18/22 with no `true` — the lock was never written at all.)
+  _hash_input=$( { find "$rules_dir" -name '*.yml' 2>/dev/null | sort | while IFS= read -r f; do cat "$f"; done; [ -f "$bans" ] && cat "$bans"; [ -d "$_frag_dir" ] && find "$_frag_dir" -name '*.json' 2>/dev/null | sort | while IFS= read -r f; do cat "$f"; done; true; } )
   if command -v sha256sum >/dev/null 2>&1; then
     _fp=$(printf '%s' "$_hash_input" | sha256sum | awk '{print $1}')
   elif command -v shasum >/dev/null 2>&1; then
@@ -645,15 +783,9 @@ _py_write_rules_lock() {
   mkdir -p "$PROJECT_ROOT/.getff"
 
   local _json_rules _json_bans
-  # Fragment-per-rule per §6 fork 2. The fragment dir is the synthesizer's
-  # generation-context/ subdir — one <rule-id>.json per rule in final lock shape.
-  # S1b (PARK-S1-7 unparked): per-lane subdir `generation-context/python/` — the producer
-  # (rule-bootstrap-cli.ts runPracticeRender, S1b) writes here. Closes kickoff criterion 4 by
-  # construction: the cargo/go glob is `*.json` NON-RECURSIVE on the parent generation-context/
-  # dir (46-cargo.sh:262, 47-go.sh:229), so python fragments in this subdir are invisible to
-  # those lanes. Node synthesize (emit.ts) keeps writing `G${n}.json` to the parent dir.
-  local _synth_dir="$PROJECT_ROOT/.ai-factory/synthesizer-output"
-  local _frag_dir="$_synth_dir/generation-context/python"
+  # Fragment-per-rule per §6 fork 2 — one <rule-id>.json per rule in final lock shape. `_frag_dir`
+  # and `_synth_dir` are resolved once at the top of this function (they are also hashed into the
+  # sourceFingerprint above, A2-7); do NOT re-derive either path here.
   _json_rules=$(_py_json_rules "$ids" "$_frag_dir")
   _json_bans=$(_py_json_array "$ban_codes")
 
@@ -716,11 +848,11 @@ deliver_python_toolchain() {
 
   # adapter-jig C4 (no-orphan-residue): on a refresh pass, loudly report getff-header-marked
   # top-level files the CURRENT template set no longer delivers (lib.sh report_getff_orphans;
+  # the expected path list is lib.sh getff_lane_expected — SINGLE source, so the set this lane
+  # delivers and the set OTHER lanes union in on a polyglot consumer can never drift apart;
   # in-dir payloads are swept by refresh_safe already). Report-only — J2 decisions log #8.
   if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
-    report_getff_orphans python \
-      ruff.toml sgconfig.yml getff-ruff.toml \
-      .getff/ruff-bans.toml .github/workflows/getff-python.yml
+    report_getff_orphans python
   fi
 
   echo "  ✓ Python toolchain delivery complete (see .getff-python-install.log for the audit trail)."
@@ -747,8 +879,10 @@ deliver_python_toolchain() {
 # Activation (default): git config core.hooksPath .getff/hooks. The hook file is delivered to
 # .getff/hooks/pre-push (getff-namespaced, parallel to .getff/astgrep-rules/ and
 # .getff/ruff-bans.toml). The consumer's existing core.hooksPath / .pre-commit-config.yaml /
-# .git/hooks/pre-push are NEVER clobbered (kickoff §2 item 2, criterion (b), T-S2B-B). Three
-# integration cases handled by _py_integrate_* helpers below.
+# $GIT_DIR/hooks/* are NEVER clobbered (kickoff §2 item 2, criterion (b), T-S2B-B) — including
+# by omission: setting core.hooksPath makes git stop consulting $GIT_DIR/hooks entirely, so the
+# presence of ANY live hook there declines activation, not just a pre-push. Three integration
+# cases handled by _py_integrate_* helpers below.
 #
 # Opt-out (kickoff §2 item 3): GETFF_SKIP_HOOKS=1 at install-time → return early, no delivery.
 # Runtime opt-out lives in the hook body itself (exit 0 on GETFF_SKIP_HOOKS=1). The opt-out story
@@ -794,7 +928,8 @@ _py_deliver_local_hook_rung() {
   # checked BEFORE this guard — pre-commit does not need git to read its config.
   #
   # ── Integration arm (kickoff §2 item 2 + §3 + T-S2B-B): never clobber the consumer's hooks ──
-  # Three pre-existing-hook cases, in priority order; default = set core.hooksPath ourselves.
+  # Three pre-existing-hook cases, in priority order; default = set core.hooksPath ourselves
+  # (only when the consumer has NO live hooks of their own — see the Case 3 enumeration below).
   # Case 2 is checked FIRST because the verdict (SSOT #237) names pre-commit as the integration
   # arm — if the consumer already uses it, we honour their choice and do not compete for
   # core.hooksPath.
@@ -818,12 +953,20 @@ _py_deliver_local_hook_rung() {
   local _existing_hookspath
   _existing_hookspath=$(git -C "$PROJECT_ROOT" config --get core.hooksPath 2>/dev/null || true)
 
+  # Case 3 detection is an ENUMERATION of the repo's real hook directory, not a single-file test:
+  # git-config(1) says that once core.hooksPath is set, git looks for hooks in that directory
+  # «instead of $GIT_DIR/hooks», so activating our rung over ANY pre-existing hook (pre-commit,
+  # commit-msg, post-checkout, git-secrets, gitlint, hand-written …) silently disables all of
+  # them — the exact clobber this function's docstring promises never happens.
+  local _existing_hooks
+  _existing_hooks=$(_py_existing_git_hooks)
+
   if [ -n "$_existing_hookspath" ] && [ "$_existing_hookspath" != ".getff/hooks" ]; then
     # Case 1: consumer has core.hooksPath set to a non-getff path.
     _py_integrate_existing_hookspath "$_existing_hookspath"
-  elif [ -f "$PROJECT_ROOT/.git/hooks/pre-push" ]; then
-    # Case 3: consumer has a legacy .git/hooks/pre-push file (and no core.hooksPath).
-    _py_integrate_legacy_githook
+  elif [ -z "$_existing_hookspath" ] && [ -n "$_existing_hooks" ]; then
+    # Case 3: consumer has hook(s) in $GIT_DIR/hooks (and no core.hooksPath).
+    _py_integrate_legacy_githook "$(_py_git_hooks_dir)" "$_existing_hooks"
   else
     # Default: activate core.hooksPath = .getff/hooks (getff-namespaced, parallel to .getff/
     # astgrep-rules/). git config is idempotent — a re-install writes the same value, no-op.
@@ -882,13 +1025,177 @@ _py_integrate_precommit_consumer() {
   echo "    ⚠ run 'pre-commit install --hook-type pre-push' to activate the pre-push stage" >&2
 }
 
-# _py_integrate_legacy_githook — Case 3: consumer has .git/hooks/pre-push file (no core.hooksPath).
-# A printed notice is the entire integration — we never touch .git/hooks/ directly (T-S2B-B).
+# _py_git_hooks_dir — absolute path of the repository's REAL hook directory.
+#
+# `git rev-parse --git-path hooks` is the only correct way to reach it. A literal
+# "$PROJECT_ROOT/.git/hooks" is wrong in a linked worktree, where `.git` is a FILE and the hooks
+# live in the common dir — the literal test reads FALSE even when the repo HAS hooks, while
+# `git config core.hooksPath` writes the SHARED config, so the pre-fix code disabled the main
+# checkout's hooks from inside a worktree. `--git-path` resolves relative to the git process cwd
+# (`-C "$PROJECT_ROOT"`), and returns an absolute path in the worktree case — normalise both.
+_py_git_hooks_dir() {
+  local _dir
+  _dir=$(git -C "$PROJECT_ROOT" rev-parse --git-path hooks 2>/dev/null || true)
+  [ -n "$_dir" ] || return 0
+  case "$_dir" in
+    /*) : ;;
+    *) _dir="$PROJECT_ROOT/$_dir" ;;
+  esac
+  printf '%s\n' "$_dir"
+}
+
+# _py_existing_git_hooks — newline-separated names of the consumer's LIVE hooks: executable,
+# non-`.sample` files in _py_git_hooks_dir. `git init` seeds that directory with executable
+# `*.sample` templates that git never runs, so excluding them is what keeps the default
+# activation branch reachable on a fresh repo.
+_py_existing_git_hooks() {
+  local _dir _f
+  _dir=$(_py_git_hooks_dir)
+  if [ -z "$_dir" ] || [ ! -d "$_dir" ]; then return 0; fi
+  for _f in "$_dir"/*; do
+    if [ ! -f "$_f" ] || [ ! -x "$_f" ]; then continue; fi
+    case "$_f" in *.sample) continue ;; esac
+    printf '%s\n' "${_f##*/}"
+  done
+}
+
+# _py_integrate_legacy_githook — Case 3: consumer has live hook(s) in $GIT_DIR/hooks (no
+# core.hooksPath). A printed notice is the entire integration — we never touch $GIT_DIR/hooks
+# directly, and we do NOT set core.hooksPath, which would make git ignore that whole directory
+# (T-S2B-B / augment-first; the never-clobber contract in the rung docstring above).
 _py_integrate_legacy_githook() {
-  echo "  ⚠ .git/hooks/pre-push exists — NOT overwriting (T-S2B-B / augment-first)" >&2
+  local hooks_dir="$1" names="$2" list
+  list=$(printf '%s' "$names" | tr '\n' ' ')
+  echo "  ⚠ existing git hook(s) in $hooks_dir: ${list% } — NOT setting core.hooksPath (T-S2B-B / augment-first)" >&2
+  echo "    core.hooksPath would make git look ONLY in .getff/hooks, silently disabling them." >&2
   echo "    getff hook body delivered to .getff/hooks/pre-push; to activate, EITHER:" >&2
-  echo "      (a) add this line to your .git/hooks/pre-push:  . .getff/hooks/pre-push" >&2
-  echo "      (b) delete .git/hooks/pre-push and run: git config core.hooksPath .getff/hooks" >&2
+  echo "      (a) add this line to $hooks_dir/pre-push:  . \"\$(git rev-parse --show-toplevel)/.getff/hooks/pre-push\"" >&2
+  echo "      (b) move your hooks into .getff/hooks/ and run: git config core.hooksPath .getff/hooks" >&2
+}
+
+# ── Python-lane RULES.md (A2-5) ──────────────────────────────────────────────────────────────────
+# _py_render_rules_md <src-template> <dst>
+#
+# Before this, the python lane copied packages/preset-next-15-canonical/RULES.md to the consumer's
+# .ai-factory/RULES.md while the AGENTS.md it ships alongside declares that file "the rule list and
+# the only place rules are stated" (AGENTS.md.template §Project rules). A Python repo therefore told
+# its agents to satisfy a TypeScript/React rule set, and the ast-grep + ruff bans getff had actually
+# installed were documented NOWHERE the pointer doc points (ledger finding A2-5).
+#
+# Rendered, not static, because the delivered rule set is NOT fixed: _py_join_researched_rules folds
+# consumer-researched rules from .getff/rules-research/ into .getff/astgrep-rules/ on EVERY pass, so
+# a hand-written list would start lying the first time a consumer researched a rule (principle 07,
+# "documents lie"). Reading the delivered artefacts makes the table true by construction.
+#
+# Ownership: copy_safe semantics — skip-if-exists, --force overwrites, --refresh does NOT. This is
+# the do_refresh contract for RULES.md (install.sh:614 names it consumer-authored), so the python
+# lane cannot overwrite a consumer's edited rule list either. That is also why this helper carries no
+# literal "$tpl/…" token: the refresh-parity gate (Check 4, refresh-covers-full-delivery.test.sh)
+# demands a --refresh path for every $tpl-sourced delivery, and a consumer-owned doc must not have
+# one. The template source is resolved from PY_TEMPLATE_DIR at the call site instead.
+#
+# Determinism: rows are sorted by rule id / ban code and carry no timestamp, so the rendered file is
+# byte-stable across runs and the install snapshot fingerprint stays reproducible.
+_py_render_rules_md() {
+  local src="$1" dst="$2"
+  local rules_dir="$PROJECT_ROOT/.getff/astgrep-rules"
+  local bans="$PROJECT_ROOT/.getff/ruff-bans.toml"
+  [ -f "$src" ] || return 0
+
+  if [ -e "$dst" ] && [ "$FORCE" != "--force" ]; then
+    SKIPPED+=("$dst")
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would skip: $dst (exists)"
+    else
+      echo "  ⊝ $dst (exists — skipping; use --force to overwrite)"
+    fi
+    return 0
+  fi
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would render: $dst (python rule table from the delivered .getff/ rule set)"
+    return 0
+  fi
+
+  # ── Build the generated region ────────────────────────────────────────────────
+  local body table msgs f id msg codes code n=0
+  table='| Rule | Lane | Check |
+|---|---|---|'
+  msgs=''
+  if [ -d "$rules_dir" ]; then
+    # FLAT glob, NOT `find` — the scan dir is flat by construction (the template copy and
+    # _py_join_researched_rules both write `<id>.yml` directly into it), and a recursive walk would
+    # also pick up any NESTED copy of the dir, listing every rule twice. Same flat-glob shape as
+    # _py_write_rules_lock's id extraction and _py_join_researched_rules' own loop.
+    for f in "$rules_dir"/*.yml; do
+      [ -e "$f" ] || continue   # empty-glob guard (nullglob off → literal *.yml)
+      # awk, not `sed … | head -1`: awk stops at the first match on its own, so there is no
+      # SIGPIPE-through-pipefail abort, and no BRE alternation (BSD sed rejects `\|` — the bug this
+      # replaced). Tolerates an unquoted scalar as well as the renderer's quoted form.
+      id=$(awk '/^id:/ { sub(/^id:[ \t]*/, ""); gsub(/^"|"$/, ""); print; exit }' "$f")
+      [ -n "$id" ] || continue
+      # A message may legitimately contain a pipe; escape it so the markdown table survives.
+      msg=$(awk '/^message:/ { sub(/^message:[ \t]*/, ""); gsub(/^"|"$/, ""); print; exit }' "$f" \
+        | sed 's/|/\\|/g')
+      table="$table
+| \`$id\` | ast-grep | \`ast-grep scan\` (rule file \`.getff/astgrep-rules/$(basename "$f")\`) |"
+      if [ -n "$msg" ]; then
+        msgs="$msgs
+- **\`$id\`** — $msg"
+      fi
+      n=$((n+1))
+    done
+  fi
+  if [ -f "$bans" ]; then
+    # grep -E (ERE) throughout — BSD sed has no BRE alternation, and a `select`/`extend-select`
+    # line with no recognisable code must yield an EMPTY list, not a set-e abort (`|| true`).
+    codes=$(grep -E '^[[:space:]]*(extend-select|select)[[:space:]]*=' "$bans" 2>/dev/null \
+      | grep -oE '"[A-Z]+[0-9]+"' | tr -d '"' | LC_ALL=C sort -u || true)
+    while IFS= read -r code; do
+      [ -n "$code" ] || continue
+      table="$table
+| \`$code\` | ruff | \`ruff check . --config .getff/ruff-bans.toml --no-cache\` |"
+      n=$((n+1))
+    done <<EOF
+$codes
+EOF
+  fi
+
+  if [ "$n" = 0 ]; then
+    # Honest empty state (degrade-loudly): say nothing was found rather than render a table that
+    # claims an empty rule set is a rule set.
+    body='_No getff rules were found under `.getff/` when this file was rendered._'
+  else
+    body="$table"
+    if [ -n "$msgs" ]; then
+      body="$body
+
+**What each ast-grep rule flags:**
+$msgs"
+    fi
+  fi
+
+  # ── Substitute between the markers (same grammar as the npm-lane preset RULES.md) ──
+  # Assembled with two `sed` RANGES, not `awk -v body=…`: a -v assignment cannot carry literal
+  # newlines on BSD awk (macOS) — it dies with "newline in string" and leaves a 0-byte RULES.md.
+  # `sed -n '1,/pat/p'` + `sed -n '/pat/,$p'` is POSIX and needs no temp file.
+  # Marker integrity is a precondition, not an assumption: without BOTH markers the ranges would
+  # silently emit a duplicated or truncated doc, so fall back to a verbatim copy and say so.
+  if ! grep -qxF '<!-- begin: rules-table-generated -->' "$src" \
+    || ! grep -qxF '<!-- end: rules-table-generated -->' "$src"; then
+    echo "  ⚠ $src is missing its rules-table-generated markers — delivering the template verbatim" >&2
+    mkdir -p "$(dirname "$dst")"
+    cp "$src" "$dst"
+    refresh_baseline_stage "$dst"
+    return 0
+  fi
+  mkdir -p "$(dirname "$dst")"
+  {
+    sed -n '1,/^<!-- begin: rules-table-generated -->$/p' "$src"
+    printf '\n%s\n\n' "$body"
+    sed -n '/^<!-- end: rules-table-generated -->$/,$p' "$src"
+  } > "$dst"
+  echo "  ✓ $dst (rendered from the delivered rule set — ${n} rule(s)/ban(s))"
+  refresh_baseline_stage "$dst"
 }
 
 # _py_deliver_agent_surface — D8 / spec §5: deliver the curated agent surface on the python lane.
@@ -923,28 +1230,14 @@ _py_deliver_agent_surface() {
   # getff + tool-bootstrapping ship from repo-root skills/ (not .claude/skills/). Same direct cp
   # + transform pattern as 10-skills.sh:22-30 (getff) and :43-49 (tool-bootstrapping) — the
   # up-dir repo refs in getff/SKILL.md would dangle on a consumer tree without this pass.
+  # A2-4: refresh-aware (was an inline skip-if-exists block). _py_plain_skill_deliver keeps the
+  # install-path behaviour byte-for-byte and adds the --refresh branch + `.override.md` escape.
   for _py_skill in getff tool-bootstrapping; do
-    if [ -e "$PROJECT_ROOT/.claude/skills/$_py_skill" ] && [ "$FORCE" != "--force" ]; then
-      SKIPPED+=("$PROJECT_ROOT/.claude/skills/$_py_skill")
-      if [ "$DRY_RUN" = "--dry-run" ]; then
-        echo "  [dry-run] would skip: .claude/skills/$_py_skill (exists)"
-      else
-        echo "  ⊝ .claude/skills/$_py_skill (exists — skipping)"
-      fi
-    elif [ "$DRY_RUN" = "--dry-run" ]; then
-      echo "  [dry-run] would copy: $PKG_ROOT/skills/$_py_skill → $PROJECT_ROOT/.claude/skills/$_py_skill"
-    else
-      rm -rf "$PROJECT_ROOT/.claude/skills/$_py_skill"
-      cp -r "$PKG_ROOT/skills/$_py_skill" "$PROJECT_ROOT/.claude/skills/$_py_skill"
-      while IFS= read -r -d '' _py_mdfile; do
-        transform_internal_refs "$_py_mdfile"
-      done < <(find "$PROJECT_ROOT/.claude/skills/$_py_skill" -name '*.md' -print0)
-      echo "  ✓ .claude/skills/$_py_skill/ (cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
-    fi
+    _py_plain_skill_deliver "$_py_skill"
   done
   # rule-research + rule-tests ship from .claude/skills/ via copy_skill_with_transform (10-skills.sh:92-94).
   for _py_skill in rule-research rule-tests; do
-    copy_skill_with_transform "$_py_skill"
+    _py_skill_copy_or_refresh "$_py_skill"   # A2-4: refresh-aware
   done
 
   # ── Agents (2-agent curated subset) ──────────────────────────────────────────
@@ -954,17 +1247,10 @@ _py_deliver_agent_surface() {
   # npm-lane concerns; the python lane ships only the rule-research pair the one-beat S3 loop needs.
   mkdir_safe "$PROJECT_ROOT/.claude/agents"
   for _py_agent in rule-researcher rule-test-author; do
-    _py_asrc="$PKG_ROOT/agents/${_py_agent}.md"
-    _py_adst="$PROJECT_ROOT/.claude/agents/${_py_agent}.md"
-    [ -f "$_py_asrc" ] || continue
-    # Same skip-freshly-written-transform-on-skipped-file contract as 20-agents.sh:41-46 (avoid
-    # transforming a consumer-owned file that copy_safe left untouched — 2026-07-10 flat-install smoke).
-    _py_awrites=1
-    if [ -e "$_py_adst" ] && [ "$FORCE" != "--force" ]; then _py_awrites=0; fi
-    copy_safe "$_py_asrc" "$_py_adst"
-    if [ "$_py_awrites" = 1 ] && [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_py_adst" ]; then
-      transform_internal_refs "$_py_adst"
-    fi
+    # A2-4: refresh-aware. The skip-freshly-written-transform-on-skipped-file contract of
+    # 20-agents.sh:41-46 now lives inside the helper, together with the --refresh branch.
+    _py_agent_copy_or_refresh "$PKG_ROOT/agents/${_py_agent}.md" \
+                              "$PROJECT_ROOT/.claude/agents/${_py_agent}.md"
   done
 
   # ── Hooks: deps-hash-check (UserPromptSubmit) + inject-matching-rule (PostToolUse:Edit|Write|MultiEdit) ─
@@ -978,7 +1264,7 @@ _py_deliver_agent_surface() {
   local _py_dhc_src="$PKG_ROOT/packages/core/hooks/deps-hash-check.sh"
   local _py_dhc_dst="$PROJECT_ROOT/.claude/hooks/deps-hash-check.sh"
   if [ -f "$_py_dhc_src" ]; then
-    copy_safe "$_py_dhc_src" "$_py_dhc_dst"
+    _py_copy_or_refresh "$_py_dhc_src" "$_py_dhc_dst"   # A2-4: refresh-aware
     chmod_safe +x "$_py_dhc_dst" 2>/dev/null || true
     if [ "$DRY_RUN" = "--dry-run" ]; then
       echo "  [dry-run] would: register deps-hash-check as UserPromptSubmit hook in .claude/settings.json"
@@ -991,7 +1277,7 @@ _py_deliver_agent_surface() {
   local _py_imr_src="$PKG_ROOT/.claude/hooks/inject-matching-rule.sh"
   local _py_imr_dst="$PROJECT_ROOT/.claude/hooks/inject-matching-rule.sh"
   if [ -f "$_py_imr_src" ]; then
-    copy_safe "$_py_imr_src" "$_py_imr_dst"
+    _py_copy_or_refresh "$_py_imr_src" "$_py_imr_dst"   # A2-4: refresh-aware
     chmod_safe +x "$_py_imr_dst" 2>/dev/null || true
     if [ "$DRY_RUN" = "--dry-run" ]; then
       echo "  [dry-run] would: register inject-matching-rule as a PostToolUse:Edit|Write|MultiEdit hook in .claude/settings.json"
@@ -1015,9 +1301,14 @@ _py_deliver_agent_surface() {
     echo "  [dry-run] would: add context7 to .mcp.json ($_py_mcp)"
   elif command -v jq >/dev/null 2>&1; then
     if [ -f "$_py_mcp" ]; then
-      jq '.mcpServers["context7"] = {"command": "npx", "args": ["-y", "@upstash/context7-mcp@latest"]}' \
-        "$_py_mcp" > "$_py_mcp.tmp" && mv "$_py_mcp.tmp" "$_py_mcp"
-      echo "  ✓ context7 added/updated in existing .mcp.json"
+      # ledger A1-9 (the A1-8 class): same shape as setup.d/05-mcp.sh, which this block replicates.
+      if jq '.mcpServers["context7"] = {"command": "npx", "args": ["-y", "@upstash/context7-mcp@latest"]}' \
+        "$_py_mcp" > "$_py_mcp.tmp" && mv "$_py_mcp.tmp" "$_py_mcp"; then
+        echo "  ✓ context7 added/updated in existing .mcp.json"
+      else
+        rm -f "$_py_mcp.tmp" 2>/dev/null || true
+        echo "  ⚠ jq rewrite of $_py_mcp failed — file left unchanged, context7 NOT added" >&2
+      fi
     else
       printf '{"mcpServers":{"context7":{"command":"npx","args":["-y","@upstash/context7-mcp@latest"]}}}\n' \
         > "$_py_mcp"
@@ -1036,18 +1327,30 @@ _py_deliver_agent_surface() {
 
   # ── .ai-factory/ agent-surface subtree ───────────────────────────────────────
   # Replicates setup.d/30-templates.sh:13-73 — minus the react-* stack branches (the python lane
-  # has no STACK context — install.sh exits at do_python_lane before the npm stack pick). Default
-  # stack source = ts-server (canonical SSOT).
+  # has no STACK context — install.sh exits at do_python_lane before the npm stack pick). The
+  # npm-lane default stack source (ts-server) is NOT the python default: see A2-10 below.
   mkdir_safe "$PROJECT_ROOT/.ai-factory/rules"
   mkdir_safe "$PROJECT_ROOT/.ai-factory/orchestrator-prompts"
   copy_safe "$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md" "$PROJECT_ROOT/.ai-factory/DESCRIPTION.template.md"
-  copy_safe "$PKG_ROOT/packages/core/templates/shared/ARCHITECTURE.ts-server.md" "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.ts-server.md"
-  copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/RULES.md" "$PROJECT_ROOT/.ai-factory/RULES.md"
+  # A2-10 (same class as A2-5): the named-variant arch doc must name THIS lane's stack. It used to
+  # be ARCHITECTURE.ts-server.md — a hexagonal server-TypeScript doc (Zod, vitest, dependency-
+  # cruiser, `Date.now()` bans) handed to a Python repo as its architecture SSOT.
+  # Stays copy_safe (never _py_copy_or_refresh): the `.ai-factory/ARCHITECTURE.*` family is
+  # consumer-owned from first landing — the same classification its ts-server sibling carries in
+  # tests/install-sh/refresh-covers-full-delivery.test.sh's EXCLUDED list.
+  copy_safe "${PY_TEMPLATE_DIR:-$PKG_ROOT/packages/core/templates/python}/ARCHITECTURE.md" "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.python.md"
+  # A2-5: the python lane renders its OWN rule list from the rules it actually delivered. It used
+  # to copy the Next.js-15 preset's RULES.md here, which told a Python repo's agents to satisfy a
+  # TypeScript/React rule set while the delivered ast-grep/ruff bans went undocumented.
+  _py_render_rules_md "${PY_TEMPLATE_DIR:-$PKG_ROOT/packages/core/templates/python}/RULES.md" \
+                      "$PROJECT_ROOT/.ai-factory/RULES.md"
   copy_safe "$PKG_ROOT/packages/core/templates/shared/integration-rules.md" "$PROJECT_ROOT/.ai-factory/rules/integration-rules.md"
   copy_safe "$PKG_ROOT/skills/tool-bootstrapping/templates/tool-decisions.md.template" "$PROJECT_ROOT/.ai-factory/tool-decisions.md"
   # AI Usage Guide — same every-depth delivery as the npm lane (30-templates.sh). Lane parity:
   # a python consumer that lands AGENTS.md's pointer but not its target gets a dangling reference.
-  copy_safe "$PKG_ROOT/packages/core/templates/shared/AI-USAGE-GUIDE.md" "$PROJECT_ROOT/.ai-factory/AI-USAGE-GUIDE.md"
+  # A2-4: refresh-aware — the ONE .ai-factory/ content doc do_refresh also refreshes
+  # (install.sh:1218). Its siblings below stay copy_safe: they are consumer-editable by contract.
+  _py_copy_or_refresh "$PKG_ROOT/packages/core/templates/shared/AI-USAGE-GUIDE.md" "$PROJECT_ROOT/.ai-factory/AI-USAGE-GUIDE.md"
 
   # Materialize the AGENTS.md-referenced SoT (30-templates.sh:67-73). AGENTS.md.template sends the
   # first agent session to .ai-factory/DESCRIPTION.md + ARCHITECTURE.md; without materialization
@@ -1055,7 +1358,13 @@ _py_deliver_agent_surface() {
   copy_safe "$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md" "$PROJECT_ROOT/.ai-factory/DESCRIPTION.md"
   _py_arch_dst="$PROJECT_ROOT/.ai-factory/ARCHITECTURE.md"
   _py_arch_existed=0; [ -e "$_py_arch_dst" ] && _py_arch_existed=1
-  copy_safe "$PKG_ROOT/packages/core/templates/shared/ARCHITECTURE.ts-server.md" "$_py_arch_dst"
+  # A2-10: the materialized SoT gets the python starter, not the ts-server one. The npm lane picks
+  # its source through arch_sot_src_for_stack (setup.d/lib.sh) whose `*)` fallback is ts-server —
+  # correct there (an unknown NPM stack is still TypeScript), wrong here. This lane never enters
+  # that helper (no STACK), so the source is named directly rather than by adding a python case to
+  # a stack map the python lane does not consult. The python starter carries the same
+  # `> Drop into …` first line, so rewrite_arch_sot_header below still fires on the COPY.
+  copy_safe "${PY_TEMPLATE_DIR:-$PKG_ROOT/packages/core/templates/python}/ARCHITECTURE.md" "$_py_arch_dst"
   rewrite_arch_sot_header "$_py_arch_dst" "$_py_arch_existed"
 
   # skill-context overrides (replicates 20-agents.sh:58-69). SHIPPED_DOCS is in scope from install.sh:145.
@@ -1069,7 +1378,8 @@ _py_deliver_agent_surface() {
         if [ "$_py_sc" = "aif-orchestrator-discipline" ] && [ -z "${WITH_AIF_SUITE:-}" ] \
           && [ ! -e "$PROJECT_ROOT/.ai-factory/skill-context/$_py_sc/SKILL.md" ]; then continue; fi
         mkdir_safe "$PROJECT_ROOT/.ai-factory/skill-context/$_py_sc"
-        copy_safe "$PKG_ROOT/$_py_doc" "$PROJECT_ROOT/.ai-factory/skill-context/$_py_sc/SKILL.md" ;;
+        # A2-4: refresh-aware — parity with do_refresh's skill-context arm (install.sh:1231).
+        _py_copy_or_refresh "$PKG_ROOT/$_py_doc" "$PROJECT_ROOT/.ai-factory/skill-context/$_py_sc/SKILL.md" ;;
     esac
   done
 

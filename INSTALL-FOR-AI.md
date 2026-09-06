@@ -263,6 +263,7 @@ project/
 ├── .getff/
 │   ├── astgrep-rules/*.yml               ← getff structural rules (no-eval, no-os-system,
 │   │                                       no-datetime[.datetime].now) — framework-owned
+│   ├── hooks/pre-push                    ← local rung, same arms as the CI gate; opt-out `GETFF_SKIP_HOOKS=1` at install AND at push time — see [INSTALL.md](INSTALL.md#python-lane--the-local-hook-rung-and-getff_skip_hooks)
 │   └── ruff-bans.toml                    ← stable getff-bans config the CI gate points --config at
 ├── .github/workflows/getff-python.yml    ← pinned CI gate (getff-namespaced — never your ci.yml)
 └── .getff-python-install.log             ← delivery audit trail (every action + degrade path)
@@ -468,7 +469,7 @@ Consumer-authored files are **never** in the refresh set — they are not framew
 - `AGENTS.md`, `.ai-factory/RULES.md`, `.ai-factory/ARCHITECTURE.*.md` (filled in by you)
 - `eslint.config.mjs`, `vitest.config.ts`, `tsconfig.json`, `.prettierrc.json`
 - `.github/workflows/ci.yml`, `.prettierignore`
-- Any file with a sibling `.override.md` (Layer 3 — you have taken ownership)
+- Any file with a sibling `.override.md` (Layer 3 — you have taken ownership); and, inside a framework-delivered **directory** payload, any file `--refresh` cannot attribute to a past delivery — kept and named with a `⚠ ORPHAN:` line, because such a payload may be a declared extension point (`scripts/fences-fire-fixtures/` is one — see [INSTALL.md — Consumer-extensible directory payloads](INSTALL.md#consumer-extensible-directory-payloads))
 
 ### How the three-layer model and `--refresh` interact
 

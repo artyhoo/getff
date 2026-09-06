@@ -32,9 +32,14 @@ set -euo pipefail
 # ─── Args ──────────────────────────────────────────────
 NAME=""
 NO_LAUNCH=0
+# Why the reason is tracked and printed: print-only is reachable two ways — the explicit flag and
+# the non-TTY auto-enable below — and they used to be indistinguishable in the output. A test can
+# only ever run non-TTY, so an assertion on the print-only line held whether or not the flag arm
+# below worked, and a broken `--no-launch` (ignored in a real operator TTY) shipped green.
+NO_LAUNCH_REASON=""
 for arg in "$@"; do
   case "$arg" in
-    --no-launch) NO_LAUNCH=1 ;;
+    --no-launch) NO_LAUNCH=1; NO_LAUNCH_REASON="flag" ;;
     -h|--help)
       sed -n '2,20p' "$0"
       exit 0
@@ -62,6 +67,7 @@ fi
 # contamination; the operator runs the printed command).
 if [ ! -t 0 ] && [ ! -t 1 ]; then
   NO_LAUNCH=1
+  if [ -z "$NO_LAUNCH_REASON" ]; then NO_LAUNCH_REASON="non-tty"; fi
 fi
 
 # ─── Locate scripts/create-worktree.sh ─────────────────
@@ -177,7 +183,7 @@ unset HARNESS
 
 if [ "$NO_LAUNCH" = "1" ]; then
   echo
-  echo "✓ done (--no-launch / non-TTY). worktree=$WORKTREE_PATH"
+  echo "✓ done (--no-launch / non-TTY; reason=$NO_LAUNCH_REASON). worktree=$WORKTREE_PATH"
   exit 0
 fi
 

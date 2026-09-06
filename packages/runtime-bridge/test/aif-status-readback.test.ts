@@ -528,6 +528,21 @@ describe('Test 7 — getTaskStatus: 404 throws BackendError unavailable', () => 
     fetchSpy.mockRestore();
   });
 
+  // R-7: getTaskStatus hand-wrote its own mapping and simply had no 429 branch, so an
+  // aif under rate-limit surfaced as dispatch_failed — the environmental-vs-quota
+  // distinction the CLIs act on. Sharing cli/aifHttp.ts request() closes it.
+  it('429 response → quota_exceeded (was dispatch_failed: the missing branch)', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('slow down', { status: 429 }));
+
+    await expect(getTaskStatus('rate-limited', 'http://localhost:3009')).rejects.toMatchObject({
+      code: 'quota_exceeded',
+    });
+
+    fetchSpy.mockRestore();
+  });
+
   it('NEGATIVE: 404 does NOT silently return rawStatus="unknown"', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response('not found', { status: 404 }),

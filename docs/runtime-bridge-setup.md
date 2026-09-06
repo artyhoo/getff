@@ -1,6 +1,6 @@
 # Runtime bridge — consumer setup
 
-> **Authoritative for:** consumer-facing setup of the runtime bridge (Phase 1, aif-handoff backend) — install/opt-out flow, required config env, cost-cap behaviour, port layout, and the auto-review escalation path.
+> **Authoritative for:** consumer-facing setup of the runtime bridge (Phase 1, aif-handoff backend) — install/opt-out flow, the `--profile factory` guided install and its `AIF_GUIDED_INSTALL` consent knob, required config env, cost-cap behaviour, port layout, and the auto-review escalation path.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../README.md#why-this-exists). The bridge architecture/interface — see [packages/runtime-bridge/DESIGN.md](../packages/runtime-bridge/DESIGN.md). amux backend — Phase 2 (not yet functional).
 
 The runtime bridge lets `/pipeline` kickoffs dispatch cross-session work to an aif-handoff runtime instead of manual copy-paste. It is **opt-in**: with nothing installed, `ManualBackend` (copy-paste) is always the default, and the bridge never degrades that experience — it only adds automation when aif-handoff is present and you opt in.
@@ -23,7 +23,50 @@ The script probes `${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}/health` for 
 
 On **yes** the script prompts for your aif-handoff project UUID; leaving it empty triggers an **explicit warning** — the bridge will throw `dispatch_failed` and stay on `ManualBackend` until `RUNTIME_BRIDGE_AIF_PROJECT_ID` is set. No silent degrade at setup time (the silent fallback described under *Required config env* below is the runtime's behaviour when the env is missing, not the setup script's).
 
-The script **detects and instructs — it never installs aif-handoff for you** (`docker compose up`, MCP server bring-up, and the `transport: "cli"` profile change are yours to run).
+The script **detects and instructs — it never installs aif-handoff for you** (`docker compose up`, MCP server bring-up, and the `transport: "cli"` profile change are yours to run). The one path that *can* install it is the factory-profile guided install described in the next section, and only on explicit consent.
+
+## Guided install under `--profile factory` (`AIF_GUIDED_INSTALL`)
+
+The Quick-start paths above only **detect** aif-handoff. Under the **factory profile** the installer additionally offers to *install* it, behind explicit consent. Line references below are to `setup.d/aif-handoff-guided-install.sh` unless prefixed with another filename.
+
+**When it fires.** `install.sh` runs the helper after the `setup.d/` layer loop when `PROFILE=factory` **or** `WITH_AIF_SUITE` is set (`install.sh:1302`) — i.e. `./setup --profile factory`, `./setup --all`, or the legacy `--with-aif-suite`. Under `--profile core` / `--profile env` the block is skipped entirely. If the install payload does not carry the helper (a core-only checkout later refreshed with `--profile factory`), the step prints a pointer to this doc and continues (`install.sh:1304-1307`).
+
+**What it does.** The helper reuses `bridge_diagnose` — the same `/health` probe as the detect-only path (`setup.d/bridge-guided.sh:18-27`) — and branches on the state it reports:
+
+| Diagnosed state | Behaviour | Prompts? |
+|---|---|---|
+| `up` | detect-first: prints `✓ aif-handoff already running`, does nothing else (`:111-116`) | no |
+| `docker` (daemon answering) | **the only install path** — asks for consent, then clones + `docker compose up -d` (`:117-165`) | yes, unless pre-answered |
+| `native` (aif-handoff CLI on `PATH`, not responding) | prints "start it manually (e.g. `aif-handoff serve`), then re-run with `--profile factory`", then degrades (`:166-173`) | no |
+| `docker-down` (docker binary present, daemon stopped) | prints "start docker, then re-run", then degrades (`:174-184`) | no |
+| `absent` (no docker binary, no CLI) | prints "install docker, then re-run", then degrades (`:185-192`) | no |
+
+On the `docker` path with consent the helper clones `$AIF_HANDOFF_REPO_URL` into `$AIF_HANDOFF_CHECKOUT` — or, when that directory already exists, runs `git -C … pull --ff-only` and tolerates a failed pull (`:131-139`); runs `docker compose up -d` in the checkout (`:142`); then polls `/health` for up to **30 seconds** (`:149-160`). A failed clone, a failed `docker compose up -d`, or a health timeout each append a line to the audit log and fall through to the same degrade path as a decline (`:134-147`, `:161-164`).
+
+**The consent ladder** (`_aif_handoff_resolve_consent`, `:64-89`), evaluated in order:
+
+1. `AIF_GUIDED_INSTALL` = `1` / `y` / `Y` / `yes` / `YES` / `true` → consent granted, no prompt (`:66-71`).
+2. `AIF_GUIDED_INSTALL` = `0` / `n` / `N` / `no` / `NO` / `false` → refused, no prompt (`:72-75`). Any other value — including unset or empty — falls through.
+3. Otherwise, a non-interactive run (`-y` / `--full` / `--all`, surfaced to the helper as `GETFF_NONINTERACTIVE=1` — `install.sh:1322-1324`) **auto-declines** rather than blocking on a prompt, and prints `Set AIF_GUIDED_INSTALL=1 to opt in without a prompt` (`:77-82`). This preserves `./setup -y`'s never-prompt contract.
+4. Otherwise an interactive `Clone aif-handoff + docker compose up -d? [y/N]:` prompt; anything other than `y`/`yes` declines (`:83-88`).
+
+Consequence worth internalising: `./setup --all` on its own will **not** install aif-handoff (it is a `--full` path, so rule 3 applies). The opt-in is `AIF_GUIDED_INSTALL=1 ./setup --all <stack>`.
+
+**Declining is a designed success path.** A decline — and every failure branch above — prints that the factory profile degrades to env-level (multi-model contour placeholders only, no aif runtime) and appends `AIF_HANDOFF: degrade env-level` to the audit log (`:206-212`). `install.sh` additionally wraps the helper in `|| true` (`:1325`), so nothing in this flow can fail the install.
+
+**Dry-run is inert twice over.** `install.sh --dry-run` does not even spawn the helper — it prints a preview instead (`install.sh:1308-1315`). A helper invoked by hand with `GETFF_DRY_RUN=--dry-run` self-gates identically: no probe, no clone, no containers, no audit-log line (`:100-106`).
+
+**Without Docker nothing is installed.** `docker-down` and `absent` are deliberately distinct states with opposite guidance ("start docker" vs "install docker"), and neither one prompts or clones.
+
+**Env knobs for this flow:**
+
+| Env var | Default | Purpose |
+|---|---|---|
+| `AIF_GUIDED_INSTALL` | unset | `1`/`y`/`yes`/`true` = install without prompting; `0`/`n`/`no`/`false` = never install. Unset → prompt when interactive, auto-decline when not (`:44-48`, `:66-75`). |
+| `AIF_HANDOFF_REPO_URL` | `https://github.com/lee-to/aif-handoff.git` | Clone source; override when you mirror the repo to another remote (`:26-28`). |
+| `AIF_HANDOFF_CHECKOUT` | `$HOME/code/aif-handoff` | Where the clone lands, or is `pull --ff-only`'d if already present (`:29-30`). |
+| `AIF_INSTALL_LOG` | `$HOME/.getff-factory-install.log` | Audit trail — one line per bring-up outcome, including every failure (`:31-32`, `:55-58`). |
+| `RUNTIME_BRIDGE_AIF_URL` | `http://localhost:3009` | The URL probed for `/health`; same knob as the *Required config env* table below (`:24`). |
 
 ## Required config env
 

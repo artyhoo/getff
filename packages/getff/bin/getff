@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# getff — the CLI entry of the `getff` npm distribution package.
+#
+#   npx getff init [<stack>] [-y] [--profile core|env|factory] [--dry-run] ...
+#
+# `init` hands every argument to the shipped `setup` orchestrator (README:10 — «getff init
+# (via ./setup)»), which runs install.sh from THIS package's root. The tarball lays its
+# contents out exactly as the repository root does (docs/meta-factory/
+# getff-name-architecture-freeze.md §2 §0.5), so `install.sh`'s PKG_ROOT resolves to the
+# installed package and none of its relative reads change. No network fetch happens here —
+# a clone-at-runtime shim was rejected in the same record (unpinned, offline-hostile).
+#
+# The bin is linked as node_modules/.bin/getff → ../getff/bin/getff, so $0 is a symlink;
+# the loop below resolves it without `readlink -f` (absent on older macOS).
+set -euo pipefail
+
+SELF="${BASH_SOURCE[0]}"
+while [ -L "$SELF" ]; do
+  target="$(readlink "$SELF")"
+  case "$target" in
+    /*) SELF="$target" ;;
+    *) SELF="$(dirname "$SELF")/$target" ;;
+  esac
+done
+ROOT="$(cd "$(dirname "$SELF")/.." && pwd -P)"
+
+usage() {
+  cat <<USAGE
+getff — AI DX for your codebase: conventions AI agents can't silently bypass.
+
+Usage:
+  getff init [<stack>] [-y|--yes] [--profile core|env|factory] [--dry-run] [--all]
+  getff --version
+  getff --help
+
+  init     Install the enforcement layer into the current project (runs the shipped
+           setup/install.sh from this package). <stack> = ts-server | react-next |
+           react-spa | react-native | python; omitted = auto-detected from package.json.
+           Run it from the project root.
+
+Docs: https://getff.ai/docs/  ·  Issues: https://github.com/artyhoo/getff/issues
+USAGE
+}
+
+version() {
+  # node is present wherever npm installed this package; the sed arm is the no-node fallback.
+  node -e "console.log(require('$ROOT/package.json').version)" 2>/dev/null \
+    || sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$ROOT/package.json" | head -1
+}
+
+cmd="${1:-}"
+case "$cmd" in
+  init)
+    shift
+    [ -f "$ROOT/setup" ] || { echo "getff: shipped setup not found at $ROOT/setup — the package is incomplete" >&2; exit 1; }
+    exec bash "$ROOT/setup" "$@"
+    ;;
+  -v | --version | version)
+    version
+    ;;
+  -h | --help | help | "")
+    usage
+    ;;
+  *)
+    echo "getff: unknown command '$cmd'" >&2
+    echo "" >&2
+    usage >&2
+    exit 2
+    ;;
+esac
