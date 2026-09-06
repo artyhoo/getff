@@ -1019,29 +1019,28 @@ do_refresh() {
     fi
   fi
 
-  # ── Skill-gated gate scripts (consumer-refresh-integrity R3, issues 1482 + 1485) ──
-  # scripts/check-ask-files.sh + scripts/run-local-ci-sweep.sh: their consumers are DELIVERED
-  # SKILLS, not this repo — night-mode/dispatcher route ask rows through check-ask-files.sh
-  # (env+/factory tiers) and harvest §3 gates on run-local-ci-sweep.sh (factory tier). The
-  # delivery sites are setup.d/50-hooks.sh (check-ask-files, hooks arm — every standard npm
-  # profile, so the presence clause below covers a core install) and setup.d/10-skills.sh
-  # (run-local-ci-sweep, factory suite arm); breadth per script is the
-  # REFERENCING tier union measured there (kickoff RI-4): check-ask-files.sh env+,
-  # run-local-ci-sweep.sh factory+. NOT entries in the ungated _pair loop above: that loop is
-  # profile-blind and would deliver both scripts on a core --refresh — the #1334 depth-boundary
-  # defect class (see the #931 run-mutation and worktree-scripts gated arms for the precedent).
-  # Same uniform gate as every depth-gated arm: the delivery site's own profile predicate OR
-  # presence on disk (prior opt-in) — with PROFILE defaulting to core on --refresh
-  # (install.sh:520-528), the presence clause is what keeps an installed tier updated.
+  # ── Skill-gated gate script (consumer-refresh-integrity R3, issues 1482 + 1485) ──
+  # scripts/run-local-ci-sweep.sh: its consumers are DELIVERED SKILLS, not this repo — harvest
+  # §3 gates on run-local-ci-sweep.sh (factory tier). The delivery site is setup.d/10-skills.sh
+  # (factory suite arm); breadth is the REFERENCING tier union measured there (kickoff RI-4):
+  # factory+. NOT an entry in the ungated _pair loop above: that loop is profile-blind and would
+  # deliver the script on a core --refresh — the #1334 depth-boundary defect class (see the #931
+  # run-mutation and worktree-scripts gated arms for the precedent). Same uniform gate as every
+  # depth-gated arm: the delivery site's own profile predicate OR presence on disk (prior
+  # opt-in) — with PROFILE defaulting to core on --refresh (install.sh:520-528), the presence
+  # clause is what keeps an installed tier updated.
   # Sources stay at root scripts/ AS-IS (RI-4: session-bus v2 §9, pre-push.ts:1324-1327).
-  if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
-    || [ -e "$PROJECT_ROOT/scripts/check-ask-files.sh" ]; then
-    if [ -f "$PKG_ROOT/scripts/check-ask-files.sh" ]; then
-      refresh_safe "$PKG_ROOT/scripts/check-ask-files.sh" "$PROJECT_ROOT/scripts/check-ask-files.sh"
-      if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$PROJECT_ROOT/scripts/check-ask-files.sh" ]; then
-        chmod_safe +x "$PROJECT_ROOT/scripts/check-ask-files.sh" 2>/dev/null || true
-      fi
-    fi
+  #
+  # scripts/check-ask-files.sh is NO LONGER DELIVERED (ledger C-2, #1597): the pre-push
+  # ask-file-schema section is maintainer-only (owner: 'maintainer' in
+  # packages/core/hooks/pre-push.ts) and composeSections() drops maintainer sections on
+  # consumers, so this arm's refresh maintained a gate that never ran there (the delivery site,
+  # setup.d/50-hooks.sh, was removed in the same commit). A copy already on disk from a prior
+  # delivery is a stale artefact — report it and leave it alone (never refresh it, never delete
+  # a consumer-tree file). The report is read-only, so it prints identically under --dry-run.
+  if [ -e "$PROJECT_ROOT/scripts/check-ask-files.sh" ]; then
+    echo "  ⚠ ORPHAN: scripts/check-ask-files.sh is no longer delivered (its pre-push ask-file gate is maintainer-only and never ran on consumers — ledger C-2)."
+    echo "    Stale artefact from a PRIOR installer version — review and remove it manually (the installer never deletes consumer-tree files)."
   fi
   if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
     || [ -e "$PROJECT_ROOT/scripts/run-local-ci-sweep.sh" ]; then
