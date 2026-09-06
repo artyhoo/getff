@@ -418,8 +418,8 @@ cff85d30ae62cf8a7e30e6f9d25c1084135cb5797b7c456ac8c710a41858017b  packages/core/
 70629451b86cb9594b5f55ee15a377c6a9ee800b6b868f68dcb3257ae02a8ff7  packages/core/hooks/checks/pr-body-fidelity-bin.ts
 8c3d4a7d0afc70ad1d0c198ddfbdd572b268439b12c3627f3b5ff5a1b3185908  packages/core/hooks/checks/pr-body-fidelity.test.ts
 13e3fc759cbf4e5a393c33772196730d079a46d6c30d5d09140477a414f6629e  packages/core/hooks/checks/pr-body-fidelity.ts
-e4a44afa8fd5ba85e7ea55d26591916eba04d64bb1753307c7ea96fd8b1b6db6  packages/core/hooks/checks/pr-body-prior-art-bin.ts
-248f048adfd4fd972ffd1ff985092459dd61e157b98b9d71a9854c8ccaab78c8  packages/core/hooks/checks/pr-body-prior-art.test.ts
+b07f9fe8eed4ddd5d9ffa987387e8b77aa7f390f808ecb3ba9ef2d6fdd161965  packages/core/hooks/checks/pr-body-prior-art-bin.ts
+b36d5d662865b0eaebe55c62c0f8e20e5697ecbbd368bad29ac1d97a959f10b6  packages/core/hooks/checks/pr-body-prior-art.test.ts
 a1ba0dd99f189f8f9200cd6f62229ea62fe03122a61f0df4e8839b3eac33f263  packages/core/hooks/checks/pr-stale-revert-bin.test.ts
 4f16c568561eda76634b7c23b95623608e9122f47f673845765d2d53b4688379  packages/core/hooks/checks/pr-stale-revert-bin.ts
 296a21bff0334dd59fa133bfc77cc0bc8cbcea45bf79b228ce65464831cf4b87  packages/core/hooks/checks/pr-stale-revert.test.ts
