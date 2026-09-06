@@ -7,6 +7,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { goAdapter } from './ecosystem-go.ts';
+import { isUnsafeDepName } from './research-path-guards.ts';
 
 function makeRoot(goMod: string): string {
   const root = mkdtempSync(join(tmpdir(), 'go-adapter-'));
@@ -212,5 +213,26 @@ describe('goAdapter.readInstalledMeta', () => {
     // module paths legitimately contain `/` (divergence from npm/cargo/pip
     // guards which reject `/`).
     expect(goAdapter.readInstalledMeta(root, 'github.com/user/repo')).not.toBeNull();
+  });
+
+  // R-1 (ledger-1597-fixes): the shared name guard has TWO modes by design.
+  // DEFAULT ('strictest') rejects `/`-bearing names — the cargo/python fs-join
+  // contract. go adopts 'go-feed-raw' mode, which admits them (a go module path
+  // legitimately contains `/`; host-shape rejection is tier1For's job — F3
+  // frozen). This pins the boundary explicitly so a future "unify to one mode"
+  // refactor flips a test instead of silently killing go Tier-1. Byte-equivalence
+  // of go's mode with the former private guard: `..` and `\` rejected in both.
+  it('boundary pin: shared DEFAULT mode rejects `/`-bearing names, go-feed-raw mode admits them (R-1)', () => {
+    expect(isUnsafeDepName('github.com/user/repo')).toBe(true); // strictest default
+    expect(isUnsafeDepName('github.com/user/repo', 'go-feed-raw')).toBe(false); // go contract
+    // go's mode keeps the former private guard's rejections byte-equivalent:
+    expect(isUnsafeDepName('../escape', 'go-feed-raw')).toBe(true);
+    expect(isUnsafeDepName('github.com/../etc/passwd', 'go-feed-raw')).toBe(true);
+    expect(isUnsafeDepName('foo\\bar', 'go-feed-raw')).toBe(true);
+    // And the strictest default rejects every shape go's mode rejects, plus `/`:
+    expect(isUnsafeDepName('../escape')).toBe(true);
+    expect(isUnsafeDepName('foo\\bar')).toBe(true);
+    expect(isUnsafeDepName('plain-name')).toBe(false);
+    expect(isUnsafeDepName('plain-name', 'go-feed-raw')).toBe(false);
   });
 });

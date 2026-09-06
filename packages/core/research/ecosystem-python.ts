@@ -35,9 +35,17 @@ export function extractPep508Name(spec: string): string | null {
   return normalizePep503(m[1]!);
 }
 
-import { existsSync, readFileSync, realpathSync, readdirSync } from 'node:fs';
-import { join, resolve, sep } from 'node:path';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import type { EcosystemAdapter, InstalledMeta } from './allowlist-resolver.ts';
+// R-1 (ledger-1597-fixes): the NAME + VALUE guards are the shared definitions in
+// research-path-guards.ts — ONE definition per guard, so a hardening fix reaches
+// every adapter at once instead of dying in a private copy. This adapter's
+// contract is unchanged: isUnsafeDepName rejects a traversal ("..") or
+// separator-bearing dep name before any join, and resolvedWithinRoot is the
+// realpath-both-sides VALUE containment gate over the venv site-packages path
+// (research-source-trust.md §5 item 2).
+import { isUnsafeDepName, resolvedWithinRoot } from './research-path-guards.ts';
 
 /** Strips `#` line comments. Quote-aware: a `#` inside a double-quoted string
  *  is NOT a comment start. Mirrors ecosystem-cargo.ts stripComments. */
@@ -168,42 +176,6 @@ function extractPoetryDeps(sectionBody: string[]): Set<string> {
     }
   }
   return names;
-}
-
-/** Rejects a dependency name containing path-traversal or separator segments
- *  before it is ever joined into a filesystem path. Mirrors the per-adapter
- *  `isUnsafeDepName` in ecosystem-npm.ts:21 / ecosystem-cargo.ts:252 (each
- *  adapter carries its own private copy — cargo's is NOT exported). */
-function isUnsafeDepName(name: string): boolean {
-  return name.includes('..') || name.includes('/') || name.includes(sep) || name.includes('\\');
-}
-
-/** Lexical within-root check on already-absolute paths. Low-level primitive;
- *  the containment gate is `resolvedWithinRoot` (realpath both sides). */
-function isWithinRoot(candidateAbs: string, root: string): boolean {
-  const base = root.endsWith(sep) ? root : root + sep;
-  return candidateAbs === root || candidateAbs.startsWith(base);
-}
-
-/** Resolves `resolve(root, ...segments)` and returns it ONLY if (a) it exists
- *  and (b) its REALPATH (symlink-resolved) lies within root's OWN realpath.
- *  Canonicalizes BOTH sides before comparison (canonicalizing only the
- *  candidate would false-reject legitimate in-tree paths when root itself sits
- *  under a symlinked ancestor, e.g. macOS /tmp → /private/tmp). Fail-closed on
- *  any realpath error. Mirrors ecosystem-cargo.ts:289 resolvedWithinRoot. */
-function resolvedWithinRoot(root: string, ...segments: string[]): string | null {
-  const candidate = resolve(root, ...segments);
-  if (!isWithinRoot(candidate, root)) return null;
-  if (!existsSync(candidate)) return null;
-  let real: string;
-  let realRoot: string;
-  try {
-    real = realpathSync(candidate);
-    realRoot = realpathSync(root);
-  } catch {
-    return null;
-  }
-  return isWithinRoot(real, realRoot) ? candidate : null;
 }
 
 /** Reads the `Name:` field from RFC 822 METADATA. Returns null if absent
