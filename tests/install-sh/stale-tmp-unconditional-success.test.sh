@@ -116,6 +116,52 @@ for _st in ts-server react-next react-spa react-native; do
                    || bad "E: $_st — real placement not counted (_ws_placed=$got)"
 done
 
+# ── (F) A1-9d: copy_safe's ✓ + baseline staging must follow the COPY, not the ambient set -e ──
+# copy_safe's write path ran `cp -r` and then UNCONDITIONALLY printed ✓ and staged the baseline.
+# install.sh's ambient set -e was the only thing keeping that ✓ honest (a failing cp aborted the
+# install with cp's own stderr). Any set -e-EXEMPT caller — `copy_safe … || true`, `if copy_safe …`,
+# or the existing `[ -f … ] && copy_safe …` guards (10-skills.sh, 40-configs.sh, install.sh) — and
+# the ✓ prints and the baseline records a hash for a file that was never delivered; the next
+# --refresh reports the phantom as «kept». Same technique as arms D/E: condition-context call +
+# shadowed tool.
+# The shadow leaves a PARTIAL destination on disk before failing: refresh_baseline_stage stages
+# only existing -f/-d targets, so a cp failing with nothing on disk stages nothing and the
+# «baseline staged for an undelivered file» claim would be untestable without bytes on disk.
+echo ""
+echo "  ── F: a failed cp in a set -e-exempt caller ──"
+T=$(mktemp -d); mkdir -p "$T/src-dir"
+printf 'payload\n' > "$T/src-dir/payload.txt"
+cp() { mkdir -p "$3"; printf 'partial\n' > "$3/partial-file"; return 1; }   # interrupted-copy mimic
+REFRESH_BASELINE_STAGED=()
+if copy_safe "$T/src-dir" "$T/dst-dir" > "$T/out" 2> "$T/err"; then f_rc=0; else f_rc=$?; fi
+unset -f cp
+out=$(cat "$T/out"); err=$(cat "$T/err")
+case "$out" in *"✓"*) bad "F: ✓ printed for a copy that failed: $out" ;; *) ok "F: no ✓ when the copy fails" ;; esac
+case "$err" in *"⚠"*) ok "F: a ⚠ warning is emitted on stderr" ;; *) bad "F: no ⚠ on stderr: '$err'" ;; esac
+case "$err" in *"$T/dst-dir"*) ok "F: the ⚠ names the undelivered destination" ;; *) bad "F: the warning does not name the destination: '$err'" ;; esac
+[ "${#REFRESH_BASELINE_STAGED[@]}" -eq 0 ] \
+  && ok "F: nothing staged into the refresh baseline for the failed copy" \
+  || bad "F: baseline staged ${#REFRESH_BASELINE_STAGED[@]} entries for an undelivered file: ${REFRESH_BASELINE_STAGED[*]:-none}"
+[ ! -e "$T/dst-dir" ] && ok "F: no partial destination left on disk" \
+                      || bad "F: partial destination left on disk: $(ls "$T/dst-dir" 2>/dev/null | tr '\n' ' ')"
+[ "$f_rc" -eq 0 ] && ok "F: copy_safe returns 0 (fail-open, never aborts the install)" || bad "F: rc=$f_rc"
+rm -rf "$T"
+
+# ── (F2) paired-positive: a healthy cp still delivers, prints ✓, stages the baseline ──
+echo "  ── F2: healthy cp paired-positive ──"
+T=$(mktemp -d)
+printf 'payload\n' > "$T/src.txt"
+REFRESH_BASELINE_STAGED=()
+if copy_safe "$T/src.txt" "$T/dst.txt" > "$T/out" 2> "$T/err"; then f_rc=0; else f_rc=$?; fi
+out=$(cat "$T/out")
+case "$out" in *"$T/dst.txt"*) ok "F2: the ✓ line still prints on the happy path" ;; *) bad "F2: success line lost on the happy path: '$out'" ;; esac
+[ -f "$T/dst.txt" ] && ok "F2: the file is delivered" || bad "F2: file NOT delivered on the happy path"
+[ "${#REFRESH_BASELINE_STAGED[@]}" -eq 1 ] && [ "${REFRESH_BASELINE_STAGED[0]}" = "$T/dst.txt" ] \
+  && ok "F2: the delivery is staged into the refresh baseline" \
+  || bad "F2: baseline staging lost on the happy path (staged: ${REFRESH_BASELINE_STAGED[*]:-none})"
+[ "$f_rc" -eq 0 ] && ok "F2: rc=0 on the happy path" || bad "F2: rc=$f_rc on the happy path"
+rm -rf "$T"
+
 # ── (C) structural anti-drift: the raw shape is gone from every installer script ──
 # A logical line (continuations joined) that redirects into a *.tmp and then `&& mv` is only
 # honest when the whole && list is an if/while CONDITION — otherwise the next statement runs
