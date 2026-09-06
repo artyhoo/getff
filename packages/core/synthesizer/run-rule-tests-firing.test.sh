@@ -265,6 +265,114 @@ x = httpx.get(1)
   assert_contains  "ru-d bad sample honestly did NOT fire" "$SCRATCH/ru-d.all" "did NOT fire"
 }
 
+# ── cargo lane (A7-3, opt-in GETFF_PREPUSH_CARGO_FIRE=1) ─────────────────────
+# `cargo clippy -- -D warnings` exits ≠0 on ANY compile error or unrelated warning (dead_code
+# on the private `fn main` every pairedExamples sample carries, E0433 unresolved crate), so
+# exit code ≠ firing. Diagnostic truth = `--message-format=json` codes (the identity the TS
+# contract extracts, $.message.code.code): the sidecar key IS the clippy code, mirroring
+# _cargo_firing_self_check, which "reads the code regardless of warn/deny level". The sidecar
+# key for this lane is therefore the clippy lint name itself (`clippy::disallowed_methods`).
+CA_RID='clippy::disallowed_methods'
+CA_FIRE_NDJSON="$SCRATCH/ca-fire.ndjson"
+# Warning-LEVEL ban diagnostic + exit 0 — the honest post-fix invocation (no -D warnings);
+# the code carries the firing, exactly as _cargo_firing_self_check reads it.
+cat > "$CA_FIRE_NDJSON" <<'NDJSON'
+{"reason":"compiler-artifact","package_id":"getff_fire 0.0.0","target":{},"profile":{},"filenames":[]}
+{"reason":"compiler-message","package_id":"getff_fire 0.0.0","message":{"rendered":"warning: use of disallowed method `std::env::var`","code":{"code":"clippy::disallowed_methods","explanation":null},"level":"warning","spans":[],"children":[]}}
+{"reason":"build-finished","success":false}
+NDJSON
+CA_CLEAN_NDJSON="$SCRATCH/ca-clean.ndjson"
+cat > "$CA_CLEAN_NDJSON" <<'NDJSON'
+{"reason":"build-finished","success":true}
+NDJSON
+CA_E0433_NDJSON="$SCRATCH/ca-e0433.ndjson"
+# rustc hard error only — the sample does not COMPILE; it proves nothing in either direction.
+cat > "$CA_E0433_NDJSON" <<'NDJSON'
+{"reason":"compiler-message","package_id":"getff_fire 0.0.0","message":{"rendered":"error[E0433]: failed to resolve: use of undeclared crate or module `app_config`","code":{"code":"E0433","explanation":null},"level":"error","spans":[],"children":[]}}
+{"reason":"build-finished","success":false}
+NDJSON
+CA_DEADCODE_NDJSON="$SCRATCH/ca-deadcode.ndjson"
+# An unrelated warning (dead_code) with no banned-code diagnostic: the ban did NOT fire.
+cat > "$CA_DEADCODE_NDJSON" <<'NDJSON'
+{"reason":"compiler-message","package_id":"getff_fire 0.0.0","message":{"rendered":"warning: function `f` is never used","code":{"code":"dead_code","explanation":null},"level":"warning","spans":[],"children":[]}}
+{"reason":"build-finished","success":true}
+NDJSON
+CA_NOISE_NDJSON="$SCRATCH/ca-noise.ndjson"
+# Heterogeneous NDJSON: non-JSON noise + compiler-artifact + build-finished lines must be
+# skipped (parseCodesFromStdout tolerance); the compiler-message carries the firing.
+cat > "$CA_NOISE_NDJSON" <<'NDJSON'
+   Compiling getff_fire v0.0.0 (noise line — not JSON)
+{"reason":"compiler-artifact","package_id":"getff_fire 0.0.0","target":{},"profile":{},"filenames":[]}
+{"reason":"compiler-message","package_id":"getff_fire 0.0.0","message":{"rendered":"warning: use of disallowed method `std::env::var`","code":{"code":"clippy::disallowed_methods","explanation":null},"level":"warning","spans":[],"children":[]}}
+{"reason":"build-finished","success":false}
+NDJSON
+
+arm_ca_a() { # warning-level banned-code diagnostic, exit 0: fired from the CODE, not the rc
+  echo "arm ca-a: warning-level clippy::disallowed_methods + rc 0 — fired"
+  _shim2 cargo 0 "$CA_FIRE_NDJSON" 0 "$CA_CLEAN_NDJSON"
+  _sidecar "$SCRATCH/ca-a.json" "$CA_RID" 'fn f() {
+    let _ = std::env::var("HOME");
+}
+' 'fn f() {
+    let _ = std::env::args();
+}
+'
+  local tree; tree="$(_consumer_tree ca-a cargo "$SCRATCH/ca-a.json" "$CA_RID")"
+  run_firing "$tree" cargo "ca-a" 1
+  assert_rc        "ca-a run exits 0 (sound material)" 0 "$SCRATCH/ca-a.rc"
+  assert_contains  "ca-a bad sample read as fired RED" "$SCRATCH/ca-a.all" "bad sample fired RED"
+  assert_contains  "ca-a good sample clean" "$SCRATCH/ca-a.all" "good sample clean"
+}
+arm_ca_b() { # E0433-only compile error + rc≠0 on BOTH shots: sample invalid, never fired (A7-3)
+  echo "arm ca-b: rc≠0 + E0433 only — sample invalid on both arms, never fired"
+  _shim2 cargo 1 "$CA_E0433_NDJSON" 1 "$CA_E0433_NDJSON"
+  _sidecar "$SCRATCH/ca-b.json" "$CA_RID" 'fn f() {
+    let _ = std::env::var("HOME");
+}
+' 'fn f() {
+    let _ = std::env::args();
+}
+'
+  local tree; tree="$(_consumer_tree ca-b cargo "$SCRATCH/ca-b.json" "$CA_RID")"
+  run_firing "$tree" cargo "ca-b" 1
+  assert_rc          "ca-b run exits 1 (sample invalid is RED)" 1 "$SCRATCH/ca-b.rc"
+  assert_contains    "ca-b bad[] sample invalid" "$SCRATCH/ca-b.all" "sample invalid"
+  assert_contains    "ca-b good[] sample invalid" "$SCRATCH/ca-b.all" "sample invalid"
+  assert_not_contains "ca-b no sample counted as fired" "$SCRATCH/ca-b.all" "fired RED"
+}
+arm_ca_c() { # dead_code-only warning + rc 0: the ban did NOT fire — good[] clean (test-fixtures scenario)
+  echo "arm ca-c: dead_code-only warning + rc 0 — good clean, bad honestly did NOT fire"
+  _shim2 cargo 0 "$CA_DEADCODE_NDJSON" 0 "$CA_DEADCODE_NDJSON"
+  _sidecar "$SCRATCH/ca-c.json" "$CA_RID" 'fn f() {
+    let _ = std::env::var("HOME");
+}
+' 'fn f() {
+    let _ = std::env::args();
+}
+'
+  local tree; tree="$(_consumer_tree ca-c cargo "$SCRATCH/ca-c.json" "$CA_RID")"
+  run_firing "$tree" cargo "ca-c" 1
+  assert_rc        "ca-c run exits 1 (bad[] blind = broken material)" 1 "$SCRATCH/ca-c.rc"
+  assert_contains  "ca-c good sample clean (dead_code is not the ban firing)" "$SCRATCH/ca-c.all" "good sample clean"
+  assert_contains  "ca-c bad sample honestly did NOT fire" "$SCRATCH/ca-c.all" "did NOT fire"
+}
+arm_ca_d() { # non-JSON noise + compiler-artifact/build-finished lines skipped; code still read
+  echo "arm ca-d: heterogeneous NDJSON — noise skipped, compiler-message still read"
+  _shim2 cargo 0 "$CA_NOISE_NDJSON" 0 "$CA_CLEAN_NDJSON"
+  _sidecar "$SCRATCH/ca-d.json" "$CA_RID" 'fn f() {
+    let _ = std::env::var("HOME");
+}
+' 'fn f() {
+    let _ = std::env::args();
+}
+'
+  local tree; tree="$(_consumer_tree ca-d cargo "$SCRATCH/ca-d.json" "$CA_RID")"
+  run_firing "$tree" cargo "ca-d" 1
+  assert_rc        "ca-d run exits 0 (noise tolerated, code read)" 0 "$SCRATCH/ca-d.rc"
+  assert_contains  "ca-d bad sample fired RED despite noise lines" "$SCRATCH/ca-d.all" "bad sample fired RED"
+  assert_contains  "ca-d good sample clean" "$SCRATCH/ca-d.all" "good sample clean"
+}
+
 [ -f "$RUNNER" ] || { echo "runner not found: $RUNNER" >&2; exit 2; }
 arm_sg_a
 arm_sg_b
@@ -274,8 +382,12 @@ arm_ru_a
 arm_ru_b
 arm_ru_c
 arm_ru_d
+arm_ca_a
+arm_ca_b
+arm_ca_c
+arm_ca_d
 
 echo
-echo "run-rule-tests-firing.test.sh: PASS=$PASS FAIL=$FAIL (lanes exercised via shim: astgrep, ruff)"
+echo "run-rule-tests-firing.test.sh: PASS=$PASS FAIL=$FAIL (lanes exercised via shim: astgrep, ruff, cargo)"
 [ "$FAIL" -eq 0 ] || exit 1
 exit 0

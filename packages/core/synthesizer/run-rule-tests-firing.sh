@@ -338,7 +338,28 @@ _fire_ruff() {
 # ── cargo lane (OPT-IN — compile cost) ────────────────────────────────────────
 # `cargo clippy` compiles on every invocation, so this lane is OFF by default and gated on
 # GETFF_PREPUSH_CARGO_FIRE=1 (D-S5-guards). When enabled it mirrors _cargo_firing_self_check
-# (setup.d/46-cargo.sh:233) in single-rule isolation.
+# (setup.d/46-cargo.sh) in single-rule isolation — including the SIGNAL, not just the
+# invocation: `--message-format=json` + the diagnostic code, which the self-check "reads
+# regardless of warn/deny level" (A7-3: the `-D warnings` exit conflated any compile error
+# or unrelated warning with the ban firing).
+# _ndjson_codes <file> — shell mirror of parseCodesFromStdout (packages/core/backends/cargo/
+# firing-runner.ts — keep in sync): cargo --message-format=json stdout is heterogeneous NDJSON,
+# so each line is JSON.parse'd independently (non-JSON lines skipped, never a throw), filtered
+# to `reason === "compiler-message"`, and the null-safe `message.code.code` extracted (null on
+# non-lint diagnostics = "no code found"). Prints one code per line.
+_ndjson_codes() {
+  node -e '
+    const fs = require("node:fs");
+    for (const line of fs.readFileSync(process.argv[1], "utf8").split("\n")) {
+      const t = line.trim();
+      if (t.length === 0) continue;
+      let p; try { p = JSON.parse(t); } catch { continue; }
+      if (typeof p !== "object" || p === null || p.reason !== "compiler-message") continue;
+      const c = p.message && p.message.code && p.message.code.code;
+      if (typeof c === "string" && c.length > 0) console.log(c);
+    }
+  ' "$1"
+}
 _fire_cargo() {
   local sidecar="$RT_DIR/cargo.json"
   [ -f "$sidecar" ] || return 0
@@ -355,7 +376,7 @@ _fire_cargo() {
     return 0
   fi
   echo "▶ cargo firing (single-rule isolation, opt-in) — $sidecar"
-  local rid kind b64 clippy_cfg t rc
+  local rid kind b64 clippy_cfg t
   clippy_cfg=""
   [ -f "$GETFF_DIR/clippy.toml" ] && clippy_cfg="$GETFF_DIR/clippy.toml"
   while IFS=$'\t' read -r rid kind b64; do
@@ -369,9 +390,24 @@ _fire_cargo() {
     printf '%s' "$b64" | base64 -d > "$t/src/lib.rs"
     printf '[package]\nname = "getff_fire"\nversion = "0.0.0"\nedition = "2021"\n' > "$t/Cargo.toml"
     cp "$clippy_cfg" "$t/clippy.toml"
-    rc=0
-    ( cd "$t" && cargo clippy --quiet -- -D warnings ) >/dev/null 2>&1 || rc=$?
-    if [ "$rc" -ne 0 ]; then _verdict cargo "$rid" "$kind" 1; else _verdict cargo "$rid" "$kind" 0; fi
+    # A7-3: `-D warnings` is DROPPED — it was the conflation source. Its exit ≠0 counted ANY
+    # compile error (E0433 unresolved crate) or unrelated warning (dead_code on the private
+    # fn every planted sample carries) as the ban firing, unlike _cargo_firing_self_check it
+    # claims to mirror, which parses the diagnostic code from --message-format=json. The side-
+    # car key for this lane IS the clippy code (the identity the TS contract extracts:
+    # backends/cargo/firing-contract.json $.message.code.code); clippy lints stay warn-level
+    # and are read from the diagnostics regardless of warn/deny level, so the exit code is
+    # used for nothing.
+    ( cd "$t" && cargo clippy --quiet --message-format=json ) >"$t/clippy-ndjson.txt" 2>/dev/null || true
+    codes="$(_ndjson_codes "$t/clippy-ndjson.txt")"
+    if printf '%s\n' "$codes" | grep -qxF -- "$rid"; then
+      _verdict cargo "$rid" "$kind" 1
+    elif printf '%s\n' "$codes" | grep -qE '^E[0-9]+$'; then
+      _verdict_invalid cargo "$rid" "$kind" "sample invalid" \
+        "sample does not compile (rustc hard error); proves nothing"
+    else
+      _verdict cargo "$rid" "$kind" 0
+    fi
     rm -rf "$t"
   done < <(_emit_samples "$sidecar")
 }
