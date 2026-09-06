@@ -205,10 +205,17 @@ elif [ ! -f "$SETTINGS" ]; then
   echo "  ✓ .claude/settings.json created with UserPromptSubmit hook"
 elif command -v jq >/dev/null 2>&1; then
   if ! grep -q "deps-hash-check" "$SETTINGS" 2>/dev/null; then
-    jq --arg cmd "$HOOK_CMD" \
+    # ledger A1-9 (the A1-8 class): see setup.d/05-mcp.sh — an unconditional ✓ over a failed jq
+    # rewrite claimed the hook was registered while settings.json still had none, and left a stale
+    # settings.json.tmp behind.
+    if jq --arg cmd "$HOOK_CMD" \
       '.hooks.UserPromptSubmit += [{"hooks":[{"type":"command","command":$cmd}]}]' \
-      "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
-    echo "  ✓ deps-hash-check registered in existing .claude/settings.json"
+      "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"; then
+      echo "  ✓ deps-hash-check registered in existing .claude/settings.json"
+    else
+      rm -f "$SETTINGS.tmp" 2>/dev/null || true
+      echo "  ⚠ jq rewrite of $SETTINGS failed — file left unchanged, deps-hash-check NOT registered" >&2
+    fi
   else
     echo "  ⊝ .claude/hooks/deps-hash-check.sh already registered in settings.json"
   fi
