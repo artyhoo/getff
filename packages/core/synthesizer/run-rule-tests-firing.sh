@@ -23,6 +23,21 @@
 #   - all sidecars absent                       → loud no-op, exit 0.
 #   - lane tool absent for a present sidecar    → LOUD DEGRADED skip ("a skipped check is NOT
 #                                                 green"), exit 0 (a skip must not block a push).
+#   - "fired" is decided from the tool's STRUCTURED diagnostics — the rule id / diagnostic
+#     code extracted from the tool's JSON output (the same identity the TS firing contracts
+#     extract: packages/core/backends/{astgrep,ruff,cargo}/firing-contract.json) — NEVER
+#     from the process exit code (A7-2/A7-3/A7-5: ast-grep exits 0 on warning-severity
+#     matches and 8 on broken rule YAML; ruff exits 1 on a sample syntax error; cargo
+#     exits ≠0 on any compile error). Per-sample outcomes:
+#       fired (diagnostics carry the rule id) → bad[] arm = expected RED;
+#                                               good[] arm = FAIL (over-fire).
+#       sample invalid (the SAMPLE does not   → RED on BOTH arms — the sample proves
+#         parse/compile: ruff `code: null`,     nothing in either direction. UNREACHABLE
+#         cargo rustc E* hard error)            on the astgrep lane: ast-grep scans
+#                                               leniently, a non-parsing sample simply
+#                                               matches nothing (it cannot fail the scan).
+#       rule invalid (the RULE artifact is    → RED, never "fired" (astgrep exit 8 /
+#         broken)                               non-JSON stdout; ruff config error, exit 2).
 #   - bad[] sample does NOT fire, or good[]     → per-sample loud FAIL; overall exit 1 (RED).
 #     sample DOES fire (broken material)
 #
@@ -138,9 +153,56 @@ _verdict() {
   fi
 }
 
+# _verdict_invalid <lane> <ruleId> <kind> <class> <reason> — a sample that proves NOTHING
+# (A7-2/A7-3/A7-5): <class> ∈ {rule invalid, sample invalid}. RED on BOTH arms — the named
+# artifact is broken, so neither direction (fires / stays quiet) is attested — and it is an
+# overall FAIL, never a "fired" verdict (an exit code is not a firing signal).
+_verdict_invalid() {
+  local lane="$1" rid="$2" kind="$3" class="$4" reason="$5"
+  echo "  ✗ FAIL [$lane $rid] $class — $reason ($kind arm)"
+  _overall_fail=$((_overall_fail + 1))
+}
+
+# _json_array_field <file> <field> — shell mirror of parseIdentitiesFromJsonArray
+# (packages/core/backends/shared/json-array-parse.ts — keep in sync): parse a JSON-ARRAY
+# diagnostic stdout (the ast-grep `scan --json` / ruff `--output-format json` shape) and
+# print the identity at <field> of each element, one per line. Tolerances mirror the TS
+# parser (non-JSON / non-array resolves to no identities, never a throw) with one caller
+# need added: the shell must distinguish "clean run, zero findings" from "stdout was not
+# diagnostics JSON at all", so a non-array prints the sentinel `<<not-array>>` (no rule id
+# can collide — `<`/`>` are outside every lane's id charset). A null field (ruff reports
+# `code: null` for a sample that does not PARSE) prints the sentinel `<<null-code>>`, which
+# the ruff lane reads as "sample invalid"; the astgrep lane has no such field and never
+# sees it.
+_json_array_field() {
+  node -e '
+    const fs = require("node:fs");
+    let parsed;
+    try { parsed = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); }
+    catch { console.log("<<not-array>>"); process.exit(0); }
+    if (!Array.isArray(parsed)) { console.log("<<not-array>>"); process.exit(0); }
+    for (const el of parsed) {
+      const v = el === null || typeof el !== "object" ? undefined : el[process.argv[2]];
+      if (v === null) console.log("<<null-code>>");
+      else if (typeof v === "string" && v.length > 0) console.log(v);
+    }
+  ' "$1" "$2"
+}
+
 # ── astgrep lane ──────────────────────────────────────────────────────────────
 # TRUE single-rule isolation: the delivered per-rule config .getff/astgrep-rules/<ruleId>.yml is
-# the ONLY rule planted, so any error-severity finding is unambiguously that rule.
+# the ONLY rule planted, so any diagnostic carrying this rule's id (`scan --json` `ruleId`) is
+# unambiguously that rule.
+# _sg_is_astgrep — identity probe for the `sg` alias fallback. On Linux, /usr/bin/sg is
+# shadow-utils' setgroup tool, NOT ast-grep: a bare `command -v sg` resolution made every
+# invocation exit non-zero, which the old exit-code-keyed verdict read as "every rule fires"
+# (the A7-2 class — a non-firing exit code is not a firing signal). Probe that the binary can
+# do the one thing the lane needs (`scan --help`, rc 0 on a real ast-grep) before trusting it;
+# an impostor leaves the lane tool ABSENT → the loud DEGRADED path. Only reached when no
+# `ast-grep` binary resolves (the primary name wins everywhere it exists).
+_sg_is_astgrep() {
+  "$1" scan --help >/dev/null 2>&1
+}
 _fire_astgrep() {
   local sidecar="$RT_DIR/astgrep.json"
   [ -f "$sidecar" ] || return 0
@@ -148,8 +210,11 @@ _fire_astgrep() {
   local _why
   if ! _why="$(_validate_sidecar "$sidecar" 2>&1)"; then _fail_shape astgrep "$sidecar" "$_why"; return 0; fi
   local sg=""
-  if   command -v ast-grep >/dev/null 2>&1; then sg="ast-grep"
-  elif command -v sg       >/dev/null 2>&1; then sg="sg"; fi
+  if command -v ast-grep >/dev/null 2>&1; then
+    sg="ast-grep"
+  elif command -v sg >/dev/null 2>&1 && _sg_is_astgrep sg; then
+    sg="sg"
+  fi
   if [ -z "$sg" ]; then
     _degrade "ast-grep not on PATH — astgrep rule-test firing NOT proven"
     return 0
@@ -175,10 +240,24 @@ _fire_astgrep() {
     printf 'ruleDirs:\n  - %s\n' "$t/rules" > "$t/sgconfig.yml"
     printf '%s' "$b64" | base64 -d > "$t/sample.py"
     rc=0
-    ( cd "$t" && "$sg" scan . ) >/dev/null 2>&1 || rc=$?
-    # ast-grep exits non-zero when an error-severity rule matches (same signal
-    # _py_firing_self_check relies on); rc != 0 → fired.
-    if [ "$rc" -ne 0 ]; then _verdict astgrep "$rid" "$kind" 1; else _verdict astgrep "$rid" "$kind" 0; fi
+    ( cd "$t" && "$sg" scan --json . ) >"$t/scan.json" 2>/dev/null || rc=$?
+    # A7-2: the exit code is NOT a firing signal — ast-grep exits 0 on a matched
+    # warning/hint-severity rule (so a firing researched rule with defaultSeverity warning
+    # was reported broken) and 8 on an unparseable rule YAML (so a broken rule file counted
+    # every bad[] sample as fired). "Fired" ⇔ the structured diagnostics carry THIS rule's
+    # id — the same identity the TS contract extracts (backends/astgrep/firing-contract.json
+    # `$.ruleId`). rc=8 / non-JSON stdout = the RULE artifact is broken → "rule invalid"
+    # (RED, never "fired"). "sample invalid" is unreachable here: a non-parsing sample
+    # matches nothing, it cannot fail the scan (documented in CONTRACT).
+    ids="$(_json_array_field "$t/scan.json" ruleId)"
+    if [ "$rc" -eq 8 ] || printf '%s\n' "$ids" | grep -qF '<<not-array>>'; then
+      _verdict_invalid astgrep "$rid" "$kind" "rule invalid" \
+        "broken rule artifact (ast-grep exited 8 / produced no diagnostics JSON)"
+    elif printf '%s\n' "$ids" | grep -qxF -- "$rid"; then
+      _verdict astgrep "$rid" "$kind" 1
+    else
+      _verdict astgrep "$rid" "$kind" 0
+    fi
     rm -rf "$t"
   done < <(_emit_samples "$sidecar")
 }

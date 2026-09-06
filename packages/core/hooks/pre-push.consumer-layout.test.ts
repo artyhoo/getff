@@ -1078,9 +1078,14 @@ describe(
 
     // Does this runner have ast-grep? The NEGATIVE RED path needs it present; CI installs the
     // pinned ast-grep before test:hooks. A box without it green-skips (never a false GREEN).
+    // Existence is NOT enough: on Linux, /usr/bin/sg is shadow-utils' setgroup tool, not
+    // ast-grep — an `sg` impostor made the exit-code-keyed runner read its error exit as
+    // "every rule fires" (the A7-2 theatre the diagnostics-based verdict exposes), so the sg
+    // branch must prove the binary answers `scan --help` (rc 0 on a real ast-grep), mirroring
+    // the runner's own _sg_is_astgrep probe.
     const hasAstGrep =
-      !spawnSync('ast-grep', ['--version']).error ||
-      !spawnSync('sg', ['--version']).error;
+      spawnSync('ast-grep', ['--version']).status === 0 ||
+      spawnSync('sg', ['scan', '--help']).status === 0;
 
     it('S5 POSITIVE — astgrep sidecar present, lane tool ABSENT → LOUD skip + exit 0 (NOT a silent green)', () => {
       const { dir, hook } = makeConsumerSandbox();

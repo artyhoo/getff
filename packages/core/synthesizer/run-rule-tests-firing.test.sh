@@ -1,0 +1,202 @@
+#!/usr/bin/env bash
+# run-rule-tests-firing.test.sh — shim-driven regression home for the firing runner's "fired"
+# decision (findings A7-2 / A7-3 / A7-5, ledger-1597): every lane of
+# run-rule-tests-firing.sh must decide "fired" from the linter's STRUCTURED diagnostics
+# (rule id / diagnostic code in the tool's JSON output), NEVER from the process exit code.
+#
+# Why shims: the runtime has NO ast-grep / ruff / cargo (the linters install only in CI and
+# on consumers), so every arm drives the REAL runner through a fake `ast-grep` / `ruff` /
+# `cargo` on PATH that emits a RECORDED diagnostic payload + the exit code named in the
+# finding — the firing-harness-as-data pattern (committed fixture + scripted firing stdout,
+# SSOT #199's PMD precedent). Real-tool coverage stays with the consumer-layout arms in
+# packages/core/hooks/pre-push.consumer-layout.test.ts (green-skip without the tool).
+#
+# Live-fire contract (mirrors run-generated-rule-mutation.test.sh): every arm RUNS the real
+# runner against a fixture consumer tree and asserts its verdict lines + exit code. Nothing
+# here greps the runner's source text.
+#
+# The runner discards tool STDERR (every lane redirects 2>/dev/null), so a shim scripts
+# STDOUT + exit code only — stderr could never move a verdict.
+#
+# Shot model: the runner fires the tool once per sample, in `_emit_samples` order — all
+# bad[] first, then good[], per rule — so a one-rule sidecar = shot 1 = bad, shot 2 = good.
+# `_shim2` scripts each shot's payload + rc; shots beyond the scripted ones repeat the last.
+#
+# Portability: bash 3.2-compatible (no mapfile / associative arrays / ${var,,}).
+# Requires node on PATH (the runner parses JSON with node, not jq).
+
+set -uo pipefail
+
+TEST_ROOT="$(cd "$(dirname "$0")" && pwd -P)"
+# Runner under test — overridable as $1 so a pre-fix variant can be pointed at; CI / sweep
+# invoke with NO argument, so the default must resolve to the tracked runner.
+RUNNER="${1:-$TEST_ROOT/run-rule-tests-firing.sh}"
+
+PASS=0; FAIL=0
+ok()  { PASS=$((PASS+1)); echo "  ok: $1"; }
+bad() { FAIL=$((FAIL+1)); echo "  FAIL: $1"; }
+
+SCRATCH="$(cd "$(mktemp -d)" && pwd -P)"
+# shellcheck disable=SC2329  # invoked indirectly, via `trap cleanup EXIT`
+cleanup() { rm -rf "$SCRATCH"; }
+trap cleanup EXIT
+
+assert_rc() { # <label> <expected-rc> <rc-file>
+  if [ "$(cat "$3")" = "$2" ]; then ok "$1 (rc=$2)"; else bad "$1 — expected rc=$2, got rc=$(cat "$3")"; fi
+}
+assert_contains() { # <label> <haystack-file> <needle>
+  if grep -qF -- "$3" "$2"; then ok "$1"; else
+    bad "$1 — missing: $3"
+    echo "      observed: $(grep -m1 -E '✓|✗|❌|⚠' "$2" 2>/dev/null | head -1)"
+  fi
+}
+assert_not_contains() { # <label> <haystack-file> <needle>
+  if grep -qF -- "$3" "$2"; then bad "$1 — must NOT contain: $3"; else ok "$1"; fi
+}
+
+BIN_DIR="$SCRATCH/bin"
+mkdir -p "$BIN_DIR"
+
+# _shim2 <name> <rc1> <out1> <rc2> <out2> — write a fake tool: shot 1 cats <out1> + exits
+# <rc1>; shot 2+ cats <out2> + exits <rc2>. The counter file lives in BIN_DIR and is reset
+# on every rewrite, so each arm starts from shot 1.
+_shim2() {
+  local name="$1" rc1="$2" out1="$3" rc2="$4" out2="$5"
+  rm -f "$BIN_DIR/.shots-$name"
+  cat > "$BIN_DIR/$name" <<EOF
+#!/bin/sh
+# generated shim — scripted stdout + exit code per invocation shot (see header comment)
+SHOTS="$BIN_DIR/.shots-$name"
+n=\$(cat "\$SHOTS" 2>/dev/null || echo 0)
+n=\$((n + 1))
+echo "\$n" > "\$SHOTS"
+if [ "\$n" -le 1 ]; then
+  [ -s "$out1" ] && cat "$out1"
+  exit $rc1
+fi
+[ -s "$out2" ] && cat "$out2"
+exit $rc2
+EOF
+  chmod +x "$BIN_DIR/$name"
+}
+
+# _sidecar <dest> <rid> <bad-sample> <good-sample> — valid-shape sidecar (one rule, one
+# sample per arm), written via node so multi-line samples JSON-escape correctly.
+_sidecar() {
+  node -e '
+    const [dest, rid, bad, good] = process.argv.slice(1);
+    const m = { [rid]: { bad: [bad], good: [good] } };
+    require("node:fs").writeFileSync(dest, JSON.stringify(m, null, 2) + "\n");
+  ' "$1" "$2" "$3" "$4"
+}
+
+# _consumer_tree <tag> <backend> <sidecar.json> <rid> — fixture consumer tree (unique per
+# arm tag): the sidecar plus every lane's delivered config stub (.getff/astgrep-rules/<rid>.yml,
+# .getff/ruff-bans.toml with a `select =` line so the runner's sed-narrow path is exercised,
+# .getff/clippy.toml). Prints the tree path. The sidecar must already exist (write it with
+# _sidecar FIRST).
+_consumer_tree() {
+  local tag="$1" backend="$2" sidecar="$3" rid="$4"
+  local tree="$SCRATCH/tree-$tag"
+  mkdir -p "$tree/.ai-factory/rule-tests" "$tree/.getff/astgrep-rules"
+  cp "$sidecar" "$tree/.ai-factory/rule-tests/$backend.json"
+  { printf 'id: %s\n' "$rid"
+    printf 'language: Python\nseverity: warning\nrule:\n  pattern: yaml.load($X)\n'
+  } > "$tree/.getff/astgrep-rules/$rid.yml"
+  cat > "$tree/.getff/ruff-bans.toml" <<'TOML'
+select = ["E4", "F401"]
+
+[lint.flake8-tidy-imports.banned-api]
+"requests".msg = "Use httpx instead."
+TOML
+  printf 'disallowed-methods = [{ path = "std::env::var", reason = "use a typed config layer" }]\n' \
+    > "$tree/.getff/clippy.toml"
+  printf '%s' "$tree"
+}
+
+# run_firing <tree> <backend> <tag> [cargo-toggle] — invoke the runner the way a consumer
+# does (env-clean apart from PATH + the lane toggle), capturing out/err/rc under <tag>.*
+run_firing() {
+  local tree="$1" backend="$2" tag="$3" toggle="${4:-0}"
+  if [ "$toggle" = "1" ]; then
+    ( cd "$SCRATCH" && env -i PATH="$BIN_DIR:$PATH" GETFF_PREPUSH_CARGO_FIRE=1 \
+        bash "$RUNNER" "$tree" "$backend" ) >"$SCRATCH/$tag.out" 2>"$SCRATCH/$tag.err"
+  else
+    ( cd "$SCRATCH" && env -i PATH="$BIN_DIR:$PATH" \
+        bash "$RUNNER" "$tree" "$backend" ) >"$SCRATCH/$tag.out" 2>"$SCRATCH/$tag.err"
+  fi
+  echo $? > "$SCRATCH/$tag.rc"
+  cat "$SCRATCH/$tag.out" "$SCRATCH/$tag.err" > "$SCRATCH/$tag.all"
+}
+
+# ── shared samples ────────────────────────────────────────────────────────────
+BAD_PY='import yaml
+data = yaml.load(raw)
+'
+GOOD_PY='import yaml
+data = yaml.safe_load(raw)
+'
+
+# ── ast-grep lane (A7-2) ──────────────────────────────────────────────────────
+# ast-grep exits 0 on a matched warning/hint-severity rule and 8 on unparseable rule YAML,
+# so exit code ≠ firing: a firing warning rule was reported broken (false RED) and a broken
+# rule file reported every bad[] sample as fired. Diagnostic truth = `scan --json` ruleIds.
+SG_RID='no-yaml-load'
+SG_FIRE_JSON="$SCRATCH/sg-fire.json"
+printf '%s\n' '[{"ruleId":"no-yaml-load","severity":"warning","message":"avoid yaml.load","file":"sample.py"}]' > "$SG_FIRE_JSON"
+SG_CLEAN_JSON="$SCRATCH/sg-clean.json"
+printf '%s\n' '[]' > "$SG_CLEAN_JSON"
+SG_EMPTY="$SCRATCH/sg-empty.json"
+: > "$SG_EMPTY"
+
+arm_sg_a() { # firing warning-severity rule: bad[] must read as fired RED (the A7-2 false-RED case)
+  echo "arm sg-a: exit 0 + warning-severity match on bad[] — must count as FIRED"
+  _shim2 ast-grep 0 "$SG_FIRE_JSON" 0 "$SG_CLEAN_JSON"
+  _sidecar "$SCRATCH/sg-a.json" "$SG_RID" "$BAD_PY" "$GOOD_PY"
+  local tree; tree="$(_consumer_tree sg-a astgrep "$SCRATCH/sg-a.json" "$SG_RID")"
+  run_firing "$tree" astgrep "sg-a"
+  assert_rc        "sg-a run exits 0 (sound material)" 0 "$SCRATCH/sg-a.rc"
+  assert_contains  "sg-a bad sample read as fired RED" "$SCRATCH/sg-a.all" "bad sample fired RED"
+  assert_contains  "sg-a good sample clean" "$SCRATCH/sg-a.all" "good sample clean"
+}
+arm_sg_b() { # same firing JSON on BOTH shots: good[] must read as over-fire (broken material)
+  echo "arm sg-b: exit 0 + warning-severity match on good[] — must count as over-fire"
+  _shim2 ast-grep 0 "$SG_FIRE_JSON" 0 "$SG_FIRE_JSON"
+  _sidecar "$SCRATCH/sg-b.json" "$SG_RID" "$BAD_PY" "$GOOD_PY"
+  local tree; tree="$(_consumer_tree sg-b astgrep "$SCRATCH/sg-b.json" "$SG_RID")"
+  run_firing "$tree" astgrep "sg-b"
+  assert_rc        "sg-b run exits 1 (over-fire is broken material)" 1 "$SCRATCH/sg-b.rc"
+  assert_contains  "sg-b bad sample fired RED" "$SCRATCH/sg-b.all" "bad sample fired RED"
+  assert_contains  "sg-b good sample read as over-fire" "$SCRATCH/sg-b.all" "FIRED — over-fire"
+}
+arm_sg_c() { # exit 8 + no diagnostics: broken RULE file → rule invalid, never "fired"
+  echo "arm sg-c: exit 8 (unparseable rule YAML) — rule invalid, never fired"
+  _shim2 ast-grep 8 "$SG_EMPTY" 8 "$SG_EMPTY"
+  _sidecar "$SCRATCH/sg-c.json" "$SG_RID" "$BAD_PY" "$GOOD_PY"
+  local tree; tree="$(_consumer_tree sg-c astgrep "$SCRATCH/sg-c.json" "$SG_RID")"
+  run_firing "$tree" astgrep "sg-c"
+  assert_rc          "sg-c run exits 1 (rule invalid is RED)" 1 "$SCRATCH/sg-c.rc"
+  assert_contains    "sg-c verdict is rule invalid" "$SCRATCH/sg-c.all" "rule invalid"
+  assert_not_contains "sg-c no sample counted as fired" "$SCRATCH/sg-c.all" "fired RED"
+}
+arm_sg_d() { # exit 0 + zero diagnostics: good[] clean; the blind bad[] arm stays honestly RED
+  echo "arm sg-d: exit 0 + [] — good clean, bad honestly did NOT fire"
+  _shim2 ast-grep 0 "$SG_CLEAN_JSON" 0 "$SG_CLEAN_JSON"
+  _sidecar "$SCRATCH/sg-d.json" "$SG_RID" "$BAD_PY" "$GOOD_PY"
+  local tree; tree="$(_consumer_tree sg-d astgrep "$SCRATCH/sg-d.json" "$SG_RID")"
+  run_firing "$tree" astgrep "sg-d"
+  assert_rc        "sg-d run exits 1 (bad[] blind = broken material)" 1 "$SCRATCH/sg-d.rc"
+  assert_contains  "sg-d good sample clean" "$SCRATCH/sg-d.all" "good sample clean"
+  assert_contains  "sg-d bad sample honestly did NOT fire" "$SCRATCH/sg-d.all" "did NOT fire"
+}
+
+[ -f "$RUNNER" ] || { echo "runner not found: $RUNNER" >&2; exit 2; }
+arm_sg_a
+arm_sg_b
+arm_sg_c
+arm_sg_d
+
+echo
+echo "run-rule-tests-firing.test.sh: PASS=$PASS FAIL=$FAIL (lanes exercised via shim: astgrep)"
+[ "$FAIL" -eq 0 ] || exit 1
+exit 0
