@@ -10,6 +10,9 @@
  *
  * All git I/O is injected via a fake GitProvider — no subprocess shelling.
  */
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 import type { GitProvider } from '../utils/git.ts';
 import { stripHtmlComments } from '../utils/markdown-comments.ts';
@@ -172,5 +175,60 @@ describe('checkPrBodyPriorArt — commented-out trailers do not satisfy the gate
     const body = `Summary\n\n\`\`\`\n<!-- not a comment, just quoted markup\n\`\`\`\n\n${VALID_TRAILER}\n`;
     const res = checkPrBodyPriorArt(body, capabilityGit(), stripHtmlComments);
     expect(res.ok).toBe(true);
+  });
+});
+
+// ─── the CI hint must name every accepted referent form ──────────────────────
+//
+// The gate rejects a trailer that names no resolvable referent (K-5, 2026-09-06),
+// and the three accepted forms are enumerated in CLAUDE.md's «`Prior-art:`
+// trailer syntax» section. The bin's stderr hint is what an author actually
+// reads when the gate fires, and it named only the SSOT form — so an author
+// whose consult legitimately rests on in-repo precedent was told to invent a
+// register row. This arm keeps the hint and the grammar in step.
+
+describe('pr-body-prior-art-bin.ts — CI hint ↔ referent grammar sync', () => {
+  const binSource = readFileSync(
+    resolve(dirname(fileURLToPath(import.meta.url)), 'pr-body-prior-art-bin.ts'),
+    'utf8',
+  );
+
+  it('the hint names all three accepted referent forms', () => {
+    expect(binSource).toContain('prior-art-evaluations.md#N');
+    expect(binSource).toMatch(/artefact path/i);
+    expect(binSource).toMatch(/issue\/PR reference/i);
+  });
+
+  it('the hint no longer claims the SSOT row is the only way', () => {
+    expect(binSource).not.toContain('cite an SSOT entry instead');
+  });
+
+  it('the hint still points at the CLAUDE.md section that owns the grammar', () => {
+    expect(binSource).toContain('CLAUDE.md §`Prior-art:` trailer syntax');
+  });
+
+  it('CONTRIBUTING.md — the contributor-facing twin names the same three forms', () => {
+    // CONTRIBUTING.md:3 declares itself authoritative for «capability-commit
+    // definition + Prior-art trailer convention», so it is a teaching surface
+    // for the same grammar and drifts the same way. Found stale by the backward
+    // check on this PR, after CLAUDE.md and the two hook messages were updated.
+    const contributing = readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', 'CONTRIBUTING.md'),
+      'utf8',
+    );
+    expect(contributing).toContain('prior-art-evaluations.md#<ID>');
+    expect(contributing).toMatch(/artefact path/i);
+    expect(contributing).toMatch(/issue \/ PR reference/i);
+    expect(contributing).toMatch(/test material/i);
+    expect(contributing).toContain('packages/core/principles/');
+  });
+
+  it('paired negative: the pre-fix hint text fails the containment check', () => {
+    const staleHint =
+      'Add to the PR body:\n  Prior-art: prior-art-evaluations.md#N (verdict X — rationale)\n' +
+      '(the escape hatch is rejected — cite an SSOT entry instead).';
+    expect(staleHint).toContain('prior-art-evaluations.md#N');
+    expect(staleHint).not.toMatch(/artefact path/i);
+    expect(staleHint).toContain('cite an SSOT entry instead');
   });
 });

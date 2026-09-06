@@ -1113,6 +1113,14 @@ do_refresh() {
 
   # ── fences-fire fixtures (directory payload) → scripts/ (#873) ──
   # Directory payload: refresh_safe now replaces (not nests) an existing dir (setup.d/lib.sh, #873).
+  # CONSUMER-EXTENSIBLE destination (declared 2026-09-06, ledger L-4f): a consumer may add their own
+  # <name>.{bad,good}.<ext> + <name>.manifest.json triple here — check-fences-fire.sh enumerates the
+  # dir by mask, not by an allowlist, so a consumer fixture is probed like a shipped one (its header
+  # is the consumer-facing statement). Hence the 2-arg (shared-ownership) form is deliberate and
+  # `framework-exclusive` MUST NOT be added: it would delete the consumer's own fixtures, and unlike
+  # .getff/astgrep-rules there is no durable home to rebuild this dir from. The cost is that residue
+  # of a prior getff version is equally unattributable and survives; _refresh_dir_payload names every
+  # such file instead (ledger L-4b/L-4c). Whole-dir ownership: scripts/fences-fire-fixtures.override.md.
   refresh_safe "$PKG_ROOT/packages/core/audit-self/fixtures/fences-fire" "$PROJECT_ROOT/scripts/fences-fire-fixtures"
 
   # ── Worktree + workspace scripts → scripts/ (S2, spec A9) ──

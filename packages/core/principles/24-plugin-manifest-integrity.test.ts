@@ -323,21 +323,20 @@ export function checkPluginPayloadLinks(payloadRoot: string): Violation[] {
 /**
  * The payload's KNOWN escaping links, pinned exactly (line-independent: file + target).
  *
- * `plugin/skills/getff/SKILL.md` carries two depth-adjusted `../../../` links that resolve in
- * THIS repo (payload → repo root) and escape for a marketplace consumer — the same L-3b class,
- * in a channel this session does not own. It is not arm (h)'s call to fix: the skills twins are
- * arm (g)'s (link FORMS are normalised away there precisely because the two channels ship at
- * different depths), and the source `skills/getff/SKILL.md` is also installed by
- * `setup.d/10-skills.sh` at a third depth — so the fix has its own blast radius and its own PR.
+ * EMPTY — the debt is closed. `plugin/skills/getff/SKILL.md` used to carry two depth-adjusted
+ * `../../../` links (install.sh + README.md#why-this-exists) that resolved in THIS repo
+ * (payload → repo root) and escaped for a marketplace consumer. Fixed at the SOURCE
+ * (`skills/getff/SKILL.md`) as blob URLs (ledger L-3c), which is correct at all THREE depths the
+ * skill ships at: the source in-repo, the plugin twin (now byte-identical, arm (g) tier 1), and
+ * a consumer's `.claude/skills/getff` — `setup.d/10-skills.sh` runs the same file through
+ * `_copy_tree_with_transform`, whose `transform_internal_refs` pass produced exactly this blob
+ * form and is a no-op on it.
  *
- * Pinning it here is what keeps it from being a silent carve-out: the assertion is SET EQUALITY,
- * so a new escaping link anywhere in the payload is RED, and a stale entry — once these two are
- * fixed at the source — is RED too. The list can only shrink.
+ * The list stays here, and the assertion stays SET EQUALITY, because that is what keeps a future
+ * pin from being a silent carve-out: a new escaping link anywhere in the payload is RED, and a
+ * stale entry is RED too. The list can only shrink.
  */
-const KNOWN_PAYLOAD_LINK_DEBT = [
-  'skills/getff/SKILL.md — ](../../../install.sh)',
-  'skills/getff/SKILL.md — ](../../../README.md#why-this-exists)',
-];
+const KNOWN_PAYLOAD_LINK_DEBT: string[] = [];
 
 describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => {
   const PLUGIN = resolve(REPO_ROOT, 'plugin');
