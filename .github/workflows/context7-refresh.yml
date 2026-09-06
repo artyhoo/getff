@@ -54,14 +54,39 @@ jobs:
           # safe to fail hard because the job reports on no pull request (see the marker above),
           # so a red run here cannot block any merge — it only reddens `staging`'s own history
           # until the maintainer legs below are done.
+          #
+          # ONE documented carve-out, matched on the exact response: the service enforces a
+          # 10-day minimum between refreshes and answers HTTP 400 with
+          # {"error":"too-early", ...} for the nine days after any successful refresh. That
+          # body means the index is already fresh — a no-op, not a defect — so exactly that
+          # error token in the body is treated as success. Everything else still exits
+          # non-zero: an unset key (below), a 401, any other 4xx/5xx body, a network failure.
+          # No `|| true`, no dropped `--fail-with-body`, no `continue-on-error` — those would
+          # convert this gate into the `#warning-nobody-reads` pattern this job refuses.
           if [ -z "${CONTEXT7_API_KEY}" ]; then
             echo "::error::CONTEXT7_API_KEY is unset. Two maintainer actions are required, in order: (1) submit ${LIBRARY_NAME} at https://context7.com/add-library so the library exists; (2) add the CONTEXT7_API_KEY repository secret from https://context7.com/dashboard. Until both are done this workflow cannot succeed."
             exit 1
           fi
 
-          curl --fail-with-body -sS -X POST https://context7.com/api/v1/refresh \
+          refresh_rc=0
+          body="$(curl --fail-with-body -sS -X POST https://context7.com/api/v1/refresh \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${CONTEXT7_API_KEY}" \
-            -d "{\"libraryName\": \"${LIBRARY_NAME}\"}"
+            -d "{\"libraryName\": \"${LIBRARY_NAME}\"}")" || refresh_rc=$?
+
+          echo "${body}"
           echo
-          echo "Refresh requested for ${LIBRARY_NAME}."
+          if [ "${refresh_rc}" -eq 0 ]; then
+            echo "Refresh requested for ${LIBRARY_NAME}."
+            exit 0
+          fi
+
+          # curl exit 22 = --fail-with-body tripped on an HTTP error status; the body it
+          # printed is echoed above. Only the documented too-early body is the no-op success.
+          if [ "${refresh_rc}" -eq 22 ] && printf '%s' "${body}" | grep -q '"error":"too-early"'; then
+            echo "Context7 index for ${LIBRARY_NAME} is already fresh: service answered too-early (10-day minimum between refreshes). Nothing to do — treated as success."
+            exit 0
+          fi
+
+          echo "::error::Context7 refresh failed for ${LIBRARY_NAME} (curl exit ${refresh_rc}; body above)."
+          exit "${refresh_rc}"

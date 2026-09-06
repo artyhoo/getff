@@ -52,7 +52,7 @@ function fakeGit(overrides: Partial<GitProvider> = {}): GitProvider {
     authorDate: () => FUTURE,
     commitSubject: () => 'feat: x',
     diffForPaths: () => '',
-    blobDuplicatedInTree: () => false,
+    blobTrackedAtBase: () => false,
     ...overrides,
   };
 }
@@ -167,6 +167,59 @@ describe('isNewDepAdded()', () => {
       '+  "brand-new-dep": "^1.0.0"',
     ].join('\n');
     expect(isNewDepAdded(diff)).toBe(true);
+  });
+
+  // ── A4-6 (2026-09-05): a block that opens AND closes on ONE line — the
+  //    shape prettier produces whenever the object fits printWidth ──────────
+  it('detects a new dep added AFTER a ONE-LINE overrides block in the same hunk', () => {
+    const diff = [
+      '@@ -1,6 +1,8 @@',
+      ' {',
+      '   "overrides": { "lodash": "4.17.21" },',
+      '   "dependencies": {',
+      '+    "left-pad": "^1.3.0"',
+      '   }',
+    ].join('\n');
+    expect(isNewDepAdded(diff)).toBe(true);
+  });
+
+  it('detects a new dep after a one-line "resolutions" block on an ADDED line', () => {
+    const diff = [
+      '+  "resolutions": { "qs": "^6.15.2" },',
+      '+  "brand-new-dep": "^1.0.0"',
+    ].join('\n');
+    expect(isNewDepAdded(diff)).toBe(true);
+  });
+
+  it('paired negative: the one-line block\'s OWN keys are still not deps', () => {
+    const diff = ['+  "overrides": { "lodash": "4.17.21" }'].join('\n');
+    expect(isNewDepAdded(diff)).toBe(false);
+  });
+
+  it('paired negative: a one-line pnpm block with a nested object stays closed', () => {
+    const diff = [
+      '+  "pnpm": { "overrides": { "qs": "^6.15.2" } },',
+      '+  "another-new-dep": "~2.0.0"',
+    ].join('\n');
+    expect(isNewDepAdded(diff)).toBe(true);
+  });
+
+  it('paired negative: a MULTI-line overrides block still swallows its keys', () => {
+    const diff = [
+      '+  "overrides": {',
+      '+    "qs": "^6.15.2"',
+      '+  }',
+    ].join('\n');
+    expect(isNewDepAdded(diff)).toBe(false);
+  });
+
+  it('a brace inside a version string does not close the block early', () => {
+    const diff = [
+      '+  "overrides": {',
+      '+    "weird": "1.0.0-}build"',
+      '+  }',
+    ].join('\n');
+    expect(isNewDepAdded(diff)).toBe(false);
   });
 
   it('paired negative: nested closing braces inside overrides do not end the skip early', () => {
@@ -344,14 +397,58 @@ describe('detectCapabilityReason()', () => {
     expect(detectCapabilityReason('abc123', g)).toBeNull();
   });
 
-  it('does NOT flag a new ≥80 LOC file byte-identical to an existing blob (vendor copy, PR #1271)', () => {
+  it('does NOT flag a new ≥80 LOC file byte-identical to a blob tracked at the BASE tree (vendor copy, PR #1271)', () => {
     const content100 = 'x\n'.repeat(100);
     const g = fakeGit({
       changedFiles: () => [
         { status: 'A', path: 'packages/runtime-bridge/vendor/dispatch.ts' },
       ],
       fileContent: () => content100,
-      blobDuplicatedInTree: () => true,
+      blobTrackedAtBase: () => true,
+    });
+    expect(detectCapabilityReason('abc123', g)).toBeNull();
+  });
+
+  // ── B-1 / L-1 (2026-09-05): the carve-out is about RELOCATION, so it asks the
+  //    PRE-IMAGE tree. A brand-new file and its byte-identical twin, both born in
+  //    this commit (what the pre-commit twin-sync produces for every new hook),
+  //    are tracked at no base tree — the trigger must still fire. Real-git
+  //    coverage: tests/hooks/prior-art-trailer-hook.test.sh sub-tests 9 + 10.
+  it('STILL flags a new ≥80 LOC file whose only duplicate is its twin in the SAME commit', () => {
+    const content100 = 'x\n'.repeat(100);
+    const g = fakeGit({
+      changedFiles: () => [
+        { status: 'A', path: 'packages/core/hooks/checks/new-check.ts' },
+        { status: 'A', path: 'plugin/hooks/new-check.ts' },
+      ],
+      fileContent: () => content100,
+      subdirExistedAtParent: () => true, // packages/core/hooks/ already exists
+      blobTrackedAtBase: () => false, // neither blob existed before this commit
+    });
+    expect(detectCapabilityReason('abc123', g)).toMatch(/80 LOC/);
+  });
+
+  it('the ≥50 LOC new-subdir arm asks the base tree too (twin pair still flagged)', () => {
+    const content60 = 'x\n'.repeat(60);
+    const g = fakeGit({
+      changedFiles: () => [
+        { status: 'A', path: 'packages/core/newcheck/check.ts' },
+        { status: 'A', path: 'plugin/hooks/check.ts' },
+      ],
+      fileContent: () => content60,
+      subdirExistedAtParent: () => false,
+      blobTrackedAtBase: () => false,
+    });
+    expect(detectCapabilityReason('abc123', g)).toMatch(/50 LOC/);
+  });
+
+  it('the ≥50 LOC arm keeps exempting a relocation of a base-tracked blob', () => {
+    const content60 = 'x\n'.repeat(60);
+    const g = fakeGit({
+      changedFiles: () => [{ status: 'A', path: 'packages/core/newdir/moved.ts' }],
+      fileContent: () => content60,
+      subdirExistedAtParent: () => false,
+      blobTrackedAtBase: () => true,
     });
     expect(detectCapabilityReason('abc123', g)).toBeNull();
   });
@@ -361,7 +458,7 @@ describe('detectCapabilityReason()', () => {
     const g = fakeGit({
       changedFiles: () => [{ status: 'A', path: 'packages/other/new-module.ts' }],
       fileContent: () => content100,
-      blobDuplicatedInTree: () => false,
+      blobTrackedAtBase: () => false,
     });
     expect(detectCapabilityReason('abc123', g)).toMatch(/80 LOC/);
   });

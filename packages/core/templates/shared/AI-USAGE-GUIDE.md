@@ -105,8 +105,9 @@ not know: `env` is the default, `core` is the rules-only depth below it and puts
 <!-- step: verify-payload -->
 
 2. **Verify the payload landed** — `ls AGENTS.md .ai-factory/ scripts/`, plus
-   `.ai-factory/tier-home.md` and `.claude/skills/arch/` — the two artefacts `env` adds over
-   `core`.
+   `.ai-factory/tier-home.md` and the five skills `env` adds over `core`:
+   `.claude/skills/arch/`, `.claude/skills/night-mode/`, `.claude/skills/orchestrator/`,
+   `.claude/skills/pipeline/` and `.claude/skills/reviewer/`.
 
 <!-- step: fill-passport -->
 
@@ -289,8 +290,8 @@ The list below is **rendered from the shipped preset data** (`.claude/skills/pip
 
 <!-- getff:begin section=pipeline-presets plan=scripts/render-presets.mjs -->
 
-- `aif` — Autonomous overnight aif-handoff dispatch (mode=autonomous, marker=Claude Opus (plan+review))
-- `economy` — Cost-conscious whole-line on executor tier (mode=whole-line-executor, marker=Z.AI GLM-5.2 SDK)
+- `aif` — Autonomous overnight aif-handoff dispatch (project-default profiles, no marker) (mode=autonomous)
+- `economy` — Cost-conscious whole-line on executor tier (mode=whole-line-executor, marker=Z.AI GLM-5.3 SDK)
 - `night` — Night-mode unattended single-session (mode=mode-a-inline)
 - `sdd` — Interactive single-feature SDD (mode=in-session)
 

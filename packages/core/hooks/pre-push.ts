@@ -277,31 +277,28 @@ function shellScriptFiles(): string[] {
  * `failHint` (optional) is appended to the abort output when the tool ran but
  * reported problems (exitCode !== 0) — used to hand the operator a concrete
  * remediation path. Callers that omit it keep the original behaviour verbatim.
- * `onMissing` (default `'die'`) controls the TOOL-ABSENCE axis only (#923 follow-up):
- *   - `'die'`      — fail-closed on `notFound` (framework repo; ci-tool-pinning).
- *   - `'warn-skip'`— consumer layout: a missing OPTIONAL workflow-security scanner
- *                    must DEGRADE loudly and continue, never DoS the consumer's push.
- * A tool that IS present but reports findings (exitCode !== 0) still dies in BOTH
- * modes — real findings are real; only absence is downgraded on a consumer.
+ * TOOL ABSENCE IS ALWAYS FAIL-CLOSED (ledger B-2, 2026-09-06). The #923 follow-up
+ * once carried a second `'warn-skip'` policy here, for the consumer layout: a missing
+ * OPTIONAL workflow-security scanner had to DEGRADE loudly rather than DoS a
+ * consumer's push. The S3 owner-split made that policy unreachable — the only two
+ * callers (actionlint, zizmor-live) are `owner: 'maintainer'`, so they are never
+ * composed on a consumer layout at all (SECTIONS below), and the framework layout
+ * only ever selected `'die'`. The dead parameter + branch are removed rather than
+ * left as a comment promising behaviour the code cannot produce
+ * (`.claude/rules/attention-is-not-a-mechanism.md` §2 `#warning-nobody-reads`).
+ * The consumer-degrade guarantee itself is UNCHANGED and now rests on ONE mechanism:
+ * owner composition. A future `owner: 'both'`/`'consumer'` section that needs an
+ * optional binary must degrade in its own body (the `⚠ DEGRADED:` idiom used by
+ * §8 lychee and generatedRuleMaterialSection), not by re-adding a policy flag.
  */
 function requireTool(
   cmd: string,
   args: readonly string[],
   installHint: string,
   failHint?: string,
-  onMissing: 'die' | 'warn-skip' = 'die',
 ): void {
   const r = run(cmd, args);
   if (r.notFound) {
-    if (onMissing === 'warn-skip') {
-      // stdout (not stderr) to match the closest tool-absence-skip precedent — the
-      // lychee "not found → skip" path below (§8) writes its degradation notice to
-      // stdout. Keeps the consumer-degrade convention consistent across sections.
-      process.stdout.write(
-        `⚠ DEGRADED: ${cmd} not found — workflow security lint SKIPPED\n${installHint}\n`,
-      );
-      return;
-    }
     die(`❌ ${cmd} not found in PATH.\n${installHint}`);
   }
   if (r.exitCode !== 0) {
@@ -313,6 +310,25 @@ function requireTool(
     die(`❌ ${cmd} reported problems:`, r);
   }
   emit(r);
+}
+
+/**
+ * Is a warn-only downgrade EXPLICITLY opted into?
+ *
+ * Ledger D-3. The trailer gates used to read `(process.env[X] ?? 'false') !== 'false'`,
+ * which downgrades the gate for ANY value that is not the literal string `false` —
+ * `0`, `no`, `off`, and (the realistic one) the empty string a workflow `env:` block
+ * produces when it maps a repo variable that does not exist. An operator writing
+ * `PA_SUBSTANCE_WARN_ONLY=0` to KEEP enforcement silently disabled it instead.
+ *
+ * The documented contract in every message these gates print is `=true`, so the parse
+ * now matches the contract: only an affirmative value opts in, everything else —
+ * including an empty or malformed one — keeps the ENFORCING default. Unset ⇒ enforcing.
+ * Deliberately fail-closed: an unrecognised value must never be the lenient branch.
+ */
+function envWarnOnly(name: string): boolean {
+  const raw = (process.env[name] ?? '').trim().toLowerCase();
+  return raw === 'true' || raw === '1' || raw === 'yes' || raw === 'on';
 }
 
 /**
@@ -347,8 +363,7 @@ function priorArtSection(rb: ResolvedBase): void {
   // backstop; this restores the earlier local channel per the
   // earliest-reachable-channel invariant. PA_SUBSTANCE_WARN_ONLY=true is the
   // explicit local opt-in downgrade, mirroring S17_SUBSTANCE_WARN_ONLY.
-  const substanceWarnOnly =
-    (process.env['PA_SUBSTANCE_WARN_ONLY'] ?? 'false') !== 'false';
+  const substanceWarnOnly = envWarnOnly('PA_SUBSTANCE_WARN_ONLY');
   const report = runPriorArtCheck(commits, realGit, undefined, ssotIdsAt);
 
   if (report.failures.length > 0) {
@@ -423,9 +438,8 @@ function priorArtSection(rb: ResolvedBase): void {
 function s17Section(rb: ResolvedBase): void {
   const commits = commitsToCheck(rb, '§1.7');
   if (commits === null) return;
-  const warnOnly = (process.env['S17_WARN_ONLY'] ?? 'false') !== 'false';
-  const substanceWarnOnly =
-    (process.env['S17_SUBSTANCE_WARN_ONLY'] ?? 'false') !== 'false';
+  const warnOnly = envWarnOnly('S17_WARN_ONLY');
+  const substanceWarnOnly = envWarnOnly('S17_SUBSTANCE_WARN_ONLY');
   const report = runS17Check(commits, realGit);
 
   if (report.failures.length > 0) {
@@ -630,14 +644,14 @@ async function cmdScriptLivenessSection(rb: ResolvedBase): Promise<void> {
  *     zizmor F-push exclusion was the over-reach corrected in the S3 rework round.
  *   • SHELL-SCRIPT population (`*.sh`, `setup`, pop 2) — framework-repo-only (SSOT-register
  *     presence, same detector as the #923 tool-absence split): "A consumer's own scripts
- *     are NOT gated". The internal `isFrameworkRepo` check below scopes THIS population
- *     alone (`: []` on a consumer), leaving the workflow population unconditional.
+ *     are NOT gated". `ctx.isFrameworkRepo` — the ONE signal main() derives, never a
+ *     re-derivation of its own (ledger S-5) — scopes THIS population alone (`: []` on a
+ *     consumer), leaving the workflow population unconditional.
  */
-function unpinnedToolInstallSection(): void {
-  const isFrameworkRepo = existsSync(resolve(REPO_ROOT, SSOT_REL));
+function unpinnedToolInstallSection(ctx: SectionCtx): void {
   const population = [
     ...workflowYmlFiles(),
-    ...(isFrameworkRepo ? shellScriptFiles() : []),
+    ...(ctx.isFrameworkRepo ? shellScriptFiles() : []),
   ];
   if (population.length === 0) return;
 
@@ -691,7 +705,11 @@ function unpinnedToolInstallSection(): void {
 // ONLY within-layout runtime-presence guards (a maintainer file legitimately absent
 // mid-migration, or a fixture with a partial layout), NOT the consumer/maintainer
 // DETECTION mechanism. Detection is the single `isFrameworkRepo` signal (SSOT-register
-// presence), consumed once in main() to pick the owner-classes to compose.
+// presence), derived once in main() to pick the owner-classes to compose and threaded to
+// every section as `ctx.isFrameworkRepo` — the two sections that still need the layout
+// signal INSIDE their body (§8 lychee's shipped-markdown narrowing, the ci-tool-pinning
+// shell-script population) read it from ctx, never from their own existsSync (ledger S-5:
+// this docstring's "consumed once" claim was false for both of them until 2026-09-06).
 //
 // Owner semantics:
 //   • 'consumer'   — runs on a consumer layout only (e.g. rule-glob liveness §3c,
@@ -738,9 +756,6 @@ export interface SectionCtx {
   rb: ResolvedBase;
   /** SSOT-register presence — the single consumer/maintainer layout signal. */
   isFrameworkRepo: boolean;
-  /** Tool-absence policy for 'both' security scanners (#923 split): framework →
-   *  fail-closed ('die'); consumer → loud DEGRADE ('warn-skip'). */
-  onMissingTool: 'die' | 'warn-skip';
 }
 
 export interface PrePushSection {
@@ -769,8 +784,8 @@ const ZIZMOR_FIX_HINT =
 // not framework enforcement-integrity. Scoped OUT on a consumer (see the
 // Owner-semantics block above). NB: distinct from the ci-tool-pinning Rule A gate,
 // which stays owner:'both' on its workflow population. On the maintainer layout it
-// stays fail-closed (ctx.onMissingTool is 'die' when isFrameworkRepo).
-function actionlintSection(ctx: SectionCtx): void {
+// stays fail-closed (owner: 'maintainer' is the whole tool-absence axis — see requireTool).
+function actionlintSection(): void {
   const workflows = workflowYmlFiles();
   if (workflows.length > 0) {
     requireTool(
@@ -778,8 +793,6 @@ function actionlintSection(ctx: SectionCtx): void {
       workflows,
       '   Install: brew install actionlint   (macOS)\n' +
         '         or: go install github.com/rhysd/actionlint/cmd/actionlint@latest',
-      undefined,
-      ctx.onMissingTool,
     );
   }
 }
@@ -796,10 +809,10 @@ function actionlintSection(ctx: SectionCtx): void {
 // its workflow population on consumers). Workflow-security linting of a consumer's OWN
 // workflows is out of the framework's scope — neither this hook nor any shipped CI
 // template runs it; a consumer adds it to their own CI if they want it.
-// On the maintainer layout the scan stays full-repo fail-closed (ctx.onMissingTool
-// is 'die' when isFrameworkRepo); the `workflows.length > 0` guard still no-ops a
+// On the maintainer layout the scan stays full-repo fail-closed (owner: 'maintainer'
+// keeps it off a consumer entirely); the `workflows.length > 0` guard still no-ops a
 // framework checkout that somehow has no workflows.
-function zizmorLiveSection(ctx: SectionCtx): void {
+function zizmorLiveSection(): void {
   const workflows = workflowYmlFiles();
   if (workflows.length > 0) {
     requireTool(
@@ -807,7 +820,6 @@ function zizmorLiveSection(ctx: SectionCtx): void {
       ['--format', 'plain', '.github/workflows/'],
       '   Install: pip install zizmor',
       ZIZMOR_FIX_HINT,
-      ctx.onMissingTool,
     );
   }
 }
@@ -819,29 +831,67 @@ function zizmorLiveSection(ctx: SectionCtx): void {
 // owner=maintainer composes it on the framework layout only. `onMissing` stays 'die':
 // a maintainer whose zizmor is missing must fix-first, never DEGRADE past a template.
 function zizmorTemplatesSection(): void {
-  // KEEP IN SYNC with the zizmor run: line in .github/workflows/audit-self.yml
-  // (the CI twin). New presets added via setup.d deliver_getff_workflow MUST be
-  // appended here AND there — this list drifted past cargo/python/react-spa/
+  // The population is DISCOVERED, never restated. Both this twin and the CI one
+  // (`Run zizmor` in .github/workflows/audit-self.yml) used to carry the same
+  // hand-written seven-path array, and a hand-maintained mirror of an
+  // automatically-growing population drifts: past cargo/python/react-spa/
   // react-native for 4+ months (last touched in #130; presets landed in
-  // #661/#662/#996/#1080) because nothing enforced parity. Ship a new
-  // github-actions template → add its path to BOTH places.
-  const existingTemplates = [
-    'templates/ts-server/github-actions-ci.yml',
-    'templates/ts-server/github-actions-workflow-integrity.yml',
-    'packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml',
-    'packages/core/templates/cargo/github-actions-ci.yml',
-    'packages/core/templates/python/github-actions-ci.yml',
-    'packages/preset-react-spa/templates/github-actions-ci-ui.yml',
-    'packages/preset-react-native/templates/github-actions-ci-ui.yml',
-  ].filter((p) => existsSync(resolve(REPO_ROOT, p)));
-  if (existingTemplates.length > 0) {
+  // #661/#662/#996/#1080), and then past packages/core/templates/go/
+  // github-actions-ci.yml — shipped to every go consumer by setup.d/47-go.sh and
+  // scanned by NEITHER twin (ledger A8-4). Nothing enforced parity because the
+  // only detection layer was someone noticing
+  // (.claude/rules/attention-is-not-a-mechanism.md §1 `#warning-nobody-reads`).
+  //
+  // Every git-tracked `*github-actions*.yml` OUTSIDE .github/workflows/ is a
+  // shipped CI template by construction, so a new preset enters the scan the
+  // moment it is committed — no second place to remember.
+  const templates = trackedShippedWorkflowTemplates();
+  // An honest empty set is legal HERE and only here: `owner: maintainer` keys off
+  // the SSOT register (isFrameworkRepo), which a synthetic framework-flagged tree
+  // can carry while shipping no templates at all — the owner-split fixtures in
+  // pre-push.consumer-layout.test.ts are exactly that. So this channel cannot tell
+  // «the repo has none» from «discovery lost them», and a floor asserted here would
+  // be a floor asserted against the wrong population.
+  //
+  // The floor therefore lives where the population is knowable: the `Run zizmor`
+  // step in .github/workflows/audit-self.yml errors when discovery matches nothing,
+  // on the real repo, every run. What IS knowable here is a discovery that could
+  // not even be ASKED — `git ls-files` failing — which the old hand list could not
+  // detect at all because it never asked git anything.
+  if (templates === null) {
+    die(
+      '❌ zizmor shipped-template scan: `git ls-files` failed, so the shipped-template\n' +
+        '   population could not be determined. The scan would silently cover nothing.\n' +
+        '   Fix the repository state; do not skip the gate.',
+    );
+  }
+  if (templates.length > 0) {
     requireTool(
       'zizmor',
-      ['--format', 'plain', ...existingTemplates],
+      ['--format', 'plain', ...templates],
       '   Install: pip install zizmor',
       ZIZMOR_FIX_HINT,
     );
   }
+}
+
+/**
+ * Git-tracked shipped CI templates: every `*github-actions*.yml` outside
+ * `.github/workflows/` (which zizmor scans as a directory in its own right).
+ * Tracked-only, mirroring `shellScriptFiles()` — an untracked scratch copy must
+ * never gate a push. Sorted so the scanned set is deterministic across platforms.
+ *
+ * Returns `null` — distinct from `[]` — when git itself could not answer, so the
+ * caller can tell «this repo ships no templates» from «the question failed».
+ */
+function trackedShippedWorkflowTemplates(): string[] | null {
+  const r = run('git', ['ls-files', '-z', '--', '*github-actions*.yml']);
+  if (r.exitCode !== 0) return null;
+  return r.stdout
+    .split('\0')
+    .filter((l) => l.length > 0 && !l.startsWith('.github/'))
+    .filter((l) => existsSync(resolve(REPO_ROOT, l)))
+    .sort();
 }
 
 // ── 3. Self-test pipeline: audit-ai-docs (maintainer) ────────────────────────
@@ -942,33 +992,59 @@ function lintStagedResolvesSection(): void {
   }
 }
 
-// SHAPE probe (BLOCKER fix, whole-work round): a node `-e` mirror of the S2 loader
-// validateRuleTestsSidecar (packages/core/synthesizer/rule-tests-sidecar.ts:96-123 — keep in sync;
-// that module is NOT shipped to consumers, so the check is re-implemented inline). Parse-only was
-// insufficient: a `badd` typo or an empty `bad[]` is valid JSON but yields zero samples → the
-// firing runner would end green. This RED's the arm even if the runner is bypassed. Exits non-zero
-// with the first violation reason on stderr; exit 0 on a fully-valid file.
-const SIDECAR_SHAPE_PROBE = `
-  const fs = require('node:fs');
-  let m;
-  try { m = JSON.parse(fs.readFileSync(process.argv[1], 'utf8')); }
-  catch (e) { console.error('not valid JSON — ' + e.message); process.exit(1); }
-  const fail = (msg) => { console.error(msg); process.exit(1); };
-  if (typeof m !== 'object' || m === null || Array.isArray(m)) fail('top level must be an object keyed by ruleId');
-  for (const [id, s] of Object.entries(m)) {
-    if (typeof s !== 'object' || s === null || Array.isArray(s)) fail('entry "' + id + '" must be an object { bad: string[], good: string[] }');
-    for (const k of Object.keys(s)) if (k !== 'bad' && k !== 'good') fail('entry "' + id + '" has an unexpected key "' + k + '" (only "bad" and "good" are allowed)');
-    if (!('bad' in s)) fail('entry "' + id + '" is missing "bad"');
-    if (!('good' in s)) fail('entry "' + id + '" is missing "good"');
-    for (const f of ['bad', 'good']) {
-      const v = s[f];
-      if (!Array.isArray(v)) fail('entry "' + id + '" field "' + f + '" must be an array of code samples');
-      if (v.length === 0) fail('entry "' + id + '" field "' + f + '" must be a non-empty array (' + (f === 'bad' ? 'no violating sample = nothing fires' : 'no clean counter-sample = over-firing unproven') + ')');
-      for (const x of v) if (typeof x !== 'string' || x.length === 0) fail('entry "' + id + '" field "' + f + '" each sample must be a non-empty string');
+/**
+ * Rule-test sidecar SHAPE validation — the S2 loader contract, in-process.
+ *
+ * Returns `null` when the file at `path` is valid rule-test material, or the first
+ * violation reason otherwise. Mirrors `validateRuleTestsSidecar`
+ * (packages/core/synthesizer/rule-tests-sidecar.ts) — that module is NOT shipped to
+ * consumers, so the contract is re-implemented here rather than imported.
+ *
+ * Parse-only was insufficient: a `badd` typo or an empty `bad[]` is valid JSON but
+ * yields zero samples, and the firing runner would then end green. This RED's the arm
+ * even when the runner is bypassed (and needs no lane tool, since it is pure JS).
+ *
+ * Ledger S-1: this used to be the same ~20 lines embedded in a template string and run
+ * per sidecar via `node -e`. In that form it was invisible to tsc, eslint, prettier and
+ * vitest — an `Array.isarray` typo would have shipped to consumers and surfaced only as
+ * a runtime crash on their push — and it spawned one extra node process per sidecar.
+ * As a typed function it is checked by the same toolchain as the rest of this hook, and
+ * the error strings (asserted by pre-push.consumer-layout.test.ts) are unchanged.
+ */
+function validateSidecarShape(path: string): string | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(path, 'utf8'));
+  } catch (e) {
+    return `not valid JSON — ${(e as Error).message}`;
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed))
+    return 'top level must be an object keyed by ruleId';
+  for (const [id, entry] of Object.entries(parsed as Record<string, unknown>)) {
+    if (typeof entry !== 'object' || entry === null || Array.isArray(entry))
+      return `entry "${id}" must be an object { bad: string[], good: string[] }`;
+    const sample = entry as Record<string, unknown>;
+    for (const k of Object.keys(sample))
+      if (k !== 'bad' && k !== 'good')
+        return `entry "${id}" has an unexpected key "${k}" (only "bad" and "good" are allowed)`;
+    for (const f of ['bad', 'good'] as const) {
+      if (!(f in sample)) return `entry "${id}" is missing "${f}"`;
+      const v = sample[f];
+      if (!Array.isArray(v))
+        return `entry "${id}" field "${f}" must be an array of code samples`;
+      if (v.length === 0)
+        return `entry "${id}" field "${f}" must be a non-empty array (${
+          f === 'bad'
+            ? 'no violating sample = nothing fires'
+            : 'no clean counter-sample = over-firing unproven'
+        })`;
+      for (const x of v)
+        if (typeof x !== 'string' || x.length === 0)
+          return `entry "${id}" field "${f}" each sample must be a non-empty string`;
     }
   }
-  process.exit(0);
-`;
+  return null;
+}
 
 // ── 3d2. Generated rule-material firing (consumer, rule-tests-surface S5) ─────
 // Standing consumer channel for the hash-exempt rule-test material a repair touches (spec §2):
@@ -1065,12 +1141,12 @@ function generatedRuleMaterialSection(): void {
     if (!existsSync(sidecar)) continue;
     // BLOCKER fix: a malformed OR mis-shaped sidecar is BROKEN MATERIAL, not an absence — it must
     // RED regardless of whether the lane tool is installed (the runner would otherwise coerce a
-    // typo'd/empty field to zero samples and end green). node is always present; needs no lane tool.
-    const shapeProbe = run('node', ['-e', SIDECAR_SHAPE_PROBE, sidecar]);
-    if (shapeProbe.exitCode !== 0) {
+    // typo'd/empty field to zero samples and end green). Runs in-process — no lane tool, and
+    // (since ledger S-1) no spawned node either.
+    const shapeError = validateSidecarShape(sidecar);
+    if (shapeError !== null) {
       die(
-        `❌ ${backend} rule-test sidecar is not valid rule-test material — broken material (.ai-factory/rule-tests/${backend}.json)`,
-        shapeProbe,
+        `❌ ${backend} rule-test sidecar is not valid rule-test material — broken material (.ai-factory/rule-tests/${backend}.json)\n   ${shapeError}`,
       );
     }
     if (
@@ -1207,21 +1283,41 @@ function synthBundleSection(): void {
 // maintainer: the build script + rule .ts sources live in the framework repo only
 // (consumers receive compiled .mjs per #752); the existsSync guard stays as
 // belt-and-suspenders on top of owner routing. exit 2 = tsc absent → skip, not fail.
-function shippedRuleDriftSection(): void {
-  if (existsSync(resolve(REPO_ROOT, 'scripts/build-shipped-eslint-rules.sh'))) {
-    const r = run('bash', ['scripts/build-shipped-eslint-rules.sh', '--check']);
-    if (r.exitCode === 2) {
-      process.stderr.write(
-        '⚠️  shipped-rule drift gate skipped — tsc not installed (run: npm install at repo root)\n',
-      );
-    } else if (r.exitCode !== 0) {
-      die(
-        '❌ shipped-rule drift/orphan detected — run: bash scripts/build-shipped-eslint-rules.sh (and delete orphaned .mjs/.d.ts)',
-        r,
-      );
-    } else {
-      emit(r);
-    }
+//
+// CHANGE-SCOPED since 2026-09-06 (ledger F-1). `--check` recompiles every rule source
+// with a COLD tsc — six spawns, measured 4.07 s wall / 8.0 s CPU — and it ran on every
+// framework push, docs-only ones included. The gate can only go RED when this push
+// touches an eslint-rule source, its compiled artifact, or the build script itself, so
+// that is exactly when it now runs. The predicate matches ANY `*/eslint-rules/*` path
+// (not a hard-coded copy of the script's RULE_DIRS list), so a rule directory added to
+// a future preset is covered without editing this hook.
+//
+// Deletions are IN scope (`--diff-filter` includes D): deleting a rule source is the
+// exact input the orphan walk exists to catch. An unresolvable base ⇒ the push cannot
+// be scoped ⇒ the gate runs in full — narrowing must never be the silent branch.
+function shippedRuleDriftSection(ctx: SectionCtx): void {
+  if (!existsSync(resolve(REPO_ROOT, 'scripts/build-shipped-eslint-rules.sh')))
+    return;
+  if (ctx.rb.base !== null) {
+    const touched = getChangedFiles(ctx.rb.base, 'ACMRD', ctx.rb.head).some(
+      (f) =>
+        f.includes('/eslint-rules/') ||
+        f === 'scripts/build-shipped-eslint-rules.sh',
+    );
+    if (!touched) return;
+  }
+  const r = run('bash', ['scripts/build-shipped-eslint-rules.sh', '--check']);
+  if (r.exitCode === 2) {
+    process.stderr.write(
+      '⚠️  shipped-rule drift gate skipped — tsc not installed (run: npm install at repo root)\n',
+    );
+  } else if (r.exitCode !== 0) {
+    die(
+      '❌ shipped-rule drift/orphan detected — run: bash scripts/build-shipped-eslint-rules.sh (and delete orphaned .mjs/.d.ts)',
+      r,
+    );
+  } else {
+    emit(r);
   }
 }
 
@@ -1462,62 +1558,211 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
 //       (the files install.sh copies into consumer projects).
 //   (4) tests/install-sh/refresh-covers-full-delivery.test.sh:121-123 — derivation of
 //       the consumer-DESTINATION shipped set from setup.d copy_safe commands.
-// FRAMEWORK_SHIPPED_MD_PREFIXES below is predicate (1)'s PATHSPECS translated to
-// consumer-destination path prefixes via the copy_safe destinations enumerated in
-// setup.d/{10-skills,20-agents,30-templates}.sh (the predicate-(4) derivation).
+// SHIPPED_MD_DESTINATIONS below is predicate (1)'s PATHSPECS translated to
+// consumer-destination paths — derived from, and gated against, the snapshot fingerprint
+// corpus (predicate (4)'s question answered by a real install rather than a shell scan).
 //
-// DRIFT RISK IS NOT MECHANISED — stated plainly rather than implied away. New
-// setup.d copy_safe'd .md destinations MUST be added here in the same PR, and
-// nothing currently FAILS if they are not: the S2 §3 POSITIVE fixture exercises
-// only `AGENTS.md`, so it would not surface a newly-added destination. Until a
-// derivation check exists (compare this list against the copy_safe'd .md
-// destinations enumerated from setup.d/*.sh, the predicate-(4) shape), the
-// lockstep above is author attention, not a gate — see
-// .claude/rules/attention-is-not-a-mechanism.md §1. A stale list degrades safely
-// in the consumer-blocking direction this stage exists to fix (an un-listed
-// shipped file is treated as consumer-authored, so lychee still walks it and a
-// dangling framework ref can still block a consumer push) — it never silently
-// disables the gate.
-const FRAMEWORK_SHIPPED_MD_PREFIXES: readonly string[] = [
-  '.claude/skills/', // 10-skills.sh — copy_skill_with_transform + skills/{getff,tool-bootstrapping}
-  '.claude/agents/', // 20-agents.sh:37 — copy_safe agents/*.md → .claude/agents/
-  '.ai-factory/skill-context/', // 20-agents.sh:67 — copy_safe skill-context overrides
-  'AGENTS.md', // 30-templates.sh:81 — top-level starter (exact match)
+// Both halves of this classifier are now drift-GATED, and neither is a bare subtree:
+// SHIPPED_MD_DESTINATIONS + SHIPPED_MD_PREFIXES below, and SHIPPED_SKILL_SLUGS further
+// down. A stale list degrades safely in the consumer-blocking direction this stage exists
+// to fix (an un-listed shipped file is treated as consumer-authored, so lychee still walks
+// it and a dangling framework ref can still block a consumer push) — it never silently
+// disables the gate — but "degrades safely" is not a mechanism
+// (.claude/rules/attention-is-not-a-mechanism.md §1), which is why the gate exists.
+
+/**
+ * The EXACT consumer-destination paths of the framework's non-skill, non-agent shipped
+ * markdown (ledger A4-8, second half).
+ *
+ * These rows used to be hand-maintained author attention — the code said so, and nothing
+ * failed when they drifted. Measured on the live tree 2026-09-06, both failure directions
+ * were already realized:
+ *
+ *   (a) UNDER-coverage — `.ai-factory/AI-USAGE-GUIDE.md` (30-templates.sh:50) and
+ *       `.ai-factory/tier-home.md` (30-templates.sh:109) had no row at all, so on a
+ *       consumer they classified as consumer-AUTHORED. The moment either grows a relative
+ *       ref to a framework path, lychee walks it on a consumer tree, the ref dangles there
+ *       (no docs/ on that checkout) and OUR shipped content blocks THEIR push — the
+ *       getff-honest-signals defect the S2 Part 1 narrowing exists to kill.
+ *   (b) OVER-coverage — `.ai-factory/RULES.` and `.ai-factory/ARCHITECTURE.` were BARE
+ *       prefixes standing in for stack variants, so a consumer's own
+ *       `.ai-factory/RULES.internal.md` matched and was silently dropped from the walk.
+ *       That is precisely the `.claude/skills/` swallowing defect PR #1630 fixed one
+ *       surface over. Exact paths, not prefixes: the installer delivers exactly four
+ *       ARCHITECTURE.* and four RULES.* names, and every other name is the consumer's.
+ *
+ * SSOT: the snapshot fingerprint corpus, tests/install-sh/baselines/** — the sha256
+ * manifest of a REAL install into a scratch fixture, one per stack x greenfield/brownfield.
+ * A derivation check in pre-push.test.ts compares this list against it in BOTH directions:
+ * a delivered *.md with no row fails, and a row no install produces fails too. The corpus
+ * is the destination SSOT that cannot go verb-stale — it holds no delivery verbs at all,
+ * only the tree the installer produced (#1624 replaced a `cp -r` with
+ * _copy_tree_with_transform and a verb-shaped regex over setup.d went stale within hours).
+ *
+ * `AGENTS.md` and the whole `.ai-factory/*` set are ALSO recorded in
+ * .ai-factory/refresh-baseline.json on a real install — verified by installing ts-server
+ * into a scratch fixture 2026-09-06: 95 keys, every one of these paths present except
+ * AGENTS.md (merge_fenced is outside the baseline mechanism by design, setup.d/lib.sh:260-262).
+ * So on a consumer WITH a readable manifest this list is redundant. It is kept for the
+ * arm that has no manifest — no jq, or an unwritable .ai-factory/ — where dropping it
+ * would move shipped content back into the walk, i.e. exactly the wrong direction.
+ */
+export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
+  'AGENTS.md', // 30-templates.sh:95 / 45-python.sh:1313 (install_agents_md)
+  '.ai-factory/AI-USAGE-GUIDE.md',
+  '.ai-factory/ARCHITECTURE.md',
+  '.ai-factory/ARCHITECTURE.react-native.md',
+  '.ai-factory/ARCHITECTURE.react-next.md',
+  '.ai-factory/ARCHITECTURE.react-spa.md',
+  '.ai-factory/ARCHITECTURE.ts-server.md',
   '.ai-factory/DESCRIPTION.md',
   '.ai-factory/DESCRIPTION.template.md',
-  '.ai-factory/ARCHITECTURE.md',
-  '.ai-factory/ARCHITECTURE.', // stack variants: ARCHITECTURE.<stack>.md + ARCHITECTURE.ts-server.md
   '.ai-factory/RULES.md',
-  '.ai-factory/RULES.', // stack variants: RULES.<stack>.md
-  '.ai-factory/rules/', // 30-templates.sh:31 — integration-rules.md
-  '.ai-factory/tool-decisions.md', // 30-templates.sh:41
-  '.claude/session-bootstrap.md', // 10-skills.sh:266 — starter template (conditional)
+  '.ai-factory/RULES.react-native.md',
+  '.ai-factory/RULES.react-next.md',
+  '.ai-factory/RULES.react-spa.md',
+  '.ai-factory/rules/integration-rules.md',
+  '.ai-factory/tier-home.md',
+  '.ai-factory/tool-decisions.md',
+  '.claude/session-bootstrap.md', // 10-skills.sh:338 / install.sh:892 (conditional starter)
 ];
 
-function isFrameworkShippedMarkdown(p: string): boolean {
-  return FRAMEWORK_SHIPPED_MD_PREFIXES.some(
-    (prefix) => p === prefix || p.startsWith(prefix),
-  );
+/**
+ * The one shipped markdown namespace an exact enumeration cannot cover: skill-context
+ * overrides are delivered as `.ai-factory/skill-context/$_sc/SKILL.md` for every entry of
+ * SHIPPED_DOCS (20-agents.sh:74), and WHICH entries land is profile-gated — a factory
+ * consumer also gets aif-orchestrator-discipline (20-agents.sh:70-72). The whole subtree
+ * is framework territory by construction: every path under it is an override of a
+ * framework-vendored sub-agent's context, so there is no consumer-authored file to swallow.
+ *
+ * Same gate as SHIPPED_MD_DESTINATIONS: pre-push.test.ts requires every row here to prefix
+ * at least one delivered *.md in the fingerprint corpus, and to stay scoped below a
+ * top-level directory — a bare `.claude/skills/` was the #1630 defect, and a bare
+ * `.ai-factory/` would swallow the consumer's own .ai-factory/orchestrator-prompts/
+ * backlog (30-templates.sh:17).
+ */
+export const SHIPPED_MD_PREFIXES: readonly string[] = [
+  '.ai-factory/skill-context/',
+];
+
+/**
+ * The skill directories the installer delivers, by slug (ledger A4-8).
+ *
+ * The list this replaces held the BARE prefix `.claude/skills/`, i.e. the whole subtree.
+ * But 10-skills.sh delivers NAMED directories only (getff + tool-bootstrapping, then the
+ * GETFF_SKILLS_{CORE,ENV,FACTORY} tiers), so on a consumer every skill THEY authored —
+ * `.claude/skills/deploy/SKILL.md` and friends — matched the prefix and was silently
+ * dropped from the §8 walk, with the "excluded N framework-shipped *.md" notice printed
+ * over it. A dangling relative link in a consumer's own skill shipped unchecked, which is
+ * the exact opposite of the "consumer-authored only" narrowing this section announces.
+ * `.claude/agents/` had the same shape and is handled by the baseline lookup below.
+ *
+ * Per-slug prefixes are exact: a consumer slug that is NOT in this list is walked.
+ * Delivering a skill under `<slug>.override.md` marks it consumer-OWNED, and that path
+ * does not match `<slug>/` — correctly walked as consumer content.
+ *
+ * SSOT: setup.d/lib.sh:61-63 (GETFF_SKILLS_CORE/_ENV/_FACTORY) + the two dirs
+ * 10-skills.sh:12-50 copies by name. Kept honest by a derivation check in
+ * pre-push.test.ts, which parses those shell sources — adding a skill to a tier without
+ * adding it here (or vice versa) fails that test, so this half is a GATE, not attention.
+ */
+export const SHIPPED_SKILL_SLUGS: readonly string[] = [
+  'ai-doc',
+  'aif-doctor',
+  'arch',
+  'claude-glm-executor-handoff',
+  'dispatcher',
+  'getff',
+  'harvest',
+  'night-mode',
+  'orchestrator',
+  'pipeline',
+  'reviewer',
+  'rule-research',
+  'rule-tests',
+  'story',
+  'template-audit',
+  'tool-bootstrapping',
+];
+
+/**
+ * The consumer-local record of what the installer actually delivered:
+ * `.ai-factory/refresh-baseline.json`, a `{ "<consumer-relative dst>": "<sha256>" }` map
+ * written by refresh_baseline_flush (setup.d/lib.sh:310-355) for every copy_safe /
+ * refresh_safe delivery — which is how `.claude/agents/*.md` reaches a consumer.
+ *
+ * Returns null when the manifest is absent or unreadable/not an object. The installer
+ * itself is fail-open here (no jq ⇒ no manifest), so null is an expected state, not an
+ * error — the caller falls back to the pre-A4-8 blanket treatment for `.claude/agents/`,
+ * which errs toward NOT blocking a consumer's push on our own shipped content.
+ */
+function refreshBaselinePaths(): ReadonlySet<string> | null {
+  const manifest = resolve(REPO_ROOT, '.ai-factory/refresh-baseline.json');
+  if (!existsSync(manifest)) return null;
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(manifest, 'utf8'));
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed))
+      return null;
+    return new Set(Object.keys(parsed as Record<string, unknown>));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Is `p` (a consumer-relative path) framework-shipped markdown?
+ *
+ * `baseline` is {@link refreshBaselinePaths}'s result — the delivery record. When it is
+ * null the `.claude/agents/` subtree is treated as shipped wholesale (the pre-A4-8
+ * behaviour) rather than walked: a consumer whose installer could not write the manifest
+ * must not start failing pushes on OUR agents' framework-internal refs.
+ *
+ * Exported for pre-push.test.ts (classification arms + the SHIPPED_SKILL_SLUGS drift check).
+ */
+export function isFrameworkShippedMarkdown(
+  p: string,
+  baseline: ReadonlySet<string> | null,
+): boolean {
+  if (SHIPPED_MD_DESTINATIONS.includes(p)) return true;
+  if (SHIPPED_MD_PREFIXES.some((x) => p.startsWith(x))) return true;
+  if (
+    SHIPPED_SKILL_SLUGS.some((slug) => p.startsWith(`.claude/skills/${slug}/`))
+  )
+    return true;
+  if (baseline !== null) return baseline.has(p);
+  return p.startsWith('.claude/agents/');
 }
 
 // plugin/agents/*.md are BYTE-IDENTICAL copies of agents/*.md — principle 24(d)
 // (24-plugin-manifest-integrity.test.ts) compares bytes, and
-// scripts/generate-plugin-twins.sh:164-166 states the agent arm is a bare `cp`:
+// scripts/generate-plugin-twins.sh:183-185 states the agent arm is a bare `cp`:
 // "No header, no marker, no transform".
 //
 // The twin sits ONE DIRECTORY DEEPER than its source, so a `](../x)` link that
 // resolves from `agents/` resolves to `plugin/x` from `plugin/agents/` — a path that
 // does not exist — and byte-identity forbids rewriting the depth in the copy. Checking
-// the twin therefore re-checks the SOURCE's link text at the wrong depth: zero extra
-// signal, guaranteed false positives on every relative link a source agent carries.
+// the twin here therefore re-checks the SOURCE's link text at the wrong depth: this
+// section resolves against the repo tree, where `plugin/.claude/rules/…` is simply
+// absent, so the finding it produces names a file the copy is forbidden to fix.
 //
 // COVERAGE IS NOT LOST, and the replacement is a mechanism rather than attention
 // (attention-is-not-a-mechanism.md §1): (a) the source `agents/*.md` is walked by this
 // same section; (b) a twin can never legitimately carry content its source does not —
 // principle 24(d) goes RED on any divergence, and the generator REFUSES to write a twin
 // that matches neither the source nor that source at HEAD
-// (generate-plugin-twins.sh:189-205). So the twin's link text is always some source's
+// (generate-plugin-twins.sh:205-224). So the twin's link text is always some source's
 // link text, checked at the source path.
+//
+// (c) — added 2026-09-06 (#1597 ledger L-3), because (a)+(b) covered only the link's
+// TEXT, never its shipped MEANING. plugin/ is its own distribution channel and is not
+// ref-transformed (setup.d/20-agents.sh rewrites the agents/ copies it writes, never
+// plugin/), so a `](../…)` link that is legitimate at the source ships broken to a
+// marketplace consumer — and it did, unnoticed, from PR #1578 until L-3 found it by
+// hand. Principle 24(h)
+// (packages/core/principles/24-plugin-manifest-integrity.test.ts) now owns that
+// question: every twin link must resolve INSIDE plugin/agents/, judged unconditionally
+// rather than only for files changed in a push range, which is the coverage this
+// section could not have supplied even without the exclusion.
 //
 // Applies on BOTH layouts, unlike the S2 Part 1 narrowing below: the depth mismatch is
 // structural, not consumer-specific (a consumer has no plugin/agents/ at all, so this is
@@ -1528,7 +1773,9 @@ function isFrameworkShippedMarkdown(p: string): boolean {
 // on plugin/agents/compliance-verifier.md with three
 // `plugin/.claude/rules/phase-research-coverage.md | File not found` errors, while the
 // source file was clean. That is why none of the three twinned agents carried a single
-// `](../…)` link while every non-twinned agent did.
+// `](../…)` link while every non-twinned agent did — an invariant this exclusion then
+// removed, so the same three links went in and stayed broken until L-3. Principle 24(h)
+// restores it as a gate rather than as a side effect of a link checker.
 //
 // Rejected alternative: root-relative links `](/…)`. This section DOES pass `--root-dir`
 // (below), so lychee would resolve them at both depths — but `transform_internal_refs`
@@ -1572,13 +1819,28 @@ function lycheeSection(ctx: SectionCtx): void {
     // authoring locations whose refs resolve against framework files (lychee covers
     // them there). Closes the getff-honest-signals defect class: a consumer whose
     // own changed markdown is clean still got blocked by our shipped content.
-    if (!existsSync(resolve(REPO_ROOT, SSOT_REL))) {
+    if (!ctx.isFrameworkRepo) {
+      // The exclusion set is the DELIVERY record (.ai-factory/refresh-baseline.json)
+      // plus the shipped skill slugs — never a whole `.claude/skills/` or
+      // `.claude/agents/` subtree, which used to swallow every consumer-AUTHORED skill
+      // and agent (ledger A4-8). Read once per push, not per file.
+      const baseline = refreshBaselinePaths();
       const before = changedMd.length;
-      changedMd = changedMd.filter((f) => !isFrameworkShippedMarkdown(f));
+      changedMd = changedMd.filter(
+        (f) => !isFrameworkShippedMarkdown(f, baseline),
+      );
       const excluded = before - changedMd.length;
       if (excluded > 0) {
         process.stdout.write(
           `  · §8 lychee: excluded ${excluded} framework-shipped *.md (S2 Part 1 narrowing; consumer-authored only)\n`,
+        );
+      }
+      if (baseline === null && before > 0) {
+        // Loud, because the fallback is the BROAD one: without the delivery record the
+        // whole `.claude/agents/` subtree is treated as shipped, so a consumer-authored
+        // agent there is not link-checked. Re-running the installer writes the manifest.
+        process.stdout.write(
+          '  · §8 lychee: .ai-factory/refresh-baseline.json absent or unreadable — .claude/agents/*.md excluded wholesale (re-run the installer to record the delivery set and get consumer-authored agents checked)\n',
         );
       }
     }
@@ -1632,8 +1894,8 @@ const SECTIONS: readonly PrePushSection[] = [
     owner: 'maintainer',
     run: () => worktreeProvisioningSection(),
   },
-  { id: 'actionlint', owner: 'maintainer', run: (c) => actionlintSection(c) },
-  { id: 'zizmor-live', owner: 'maintainer', run: (c) => zizmorLiveSection(c) },
+  { id: 'actionlint', owner: 'maintainer', run: () => actionlintSection() },
+  { id: 'zizmor-live', owner: 'maintainer', run: () => zizmorLiveSection() },
   {
     id: 'zizmor-templates',
     owner: 'maintainer',
@@ -1661,7 +1923,7 @@ const SECTIONS: readonly PrePushSection[] = [
   {
     id: 'shipped-rule-drift',
     owner: 'maintainer',
-    run: () => shippedRuleDriftSection(),
+    run: (c) => shippedRuleDriftSection(c),
   },
   {
     id: 'manifest-render',
@@ -1711,10 +1973,10 @@ const SECTIONS: readonly PrePushSection[] = [
     // owner: 'both' — the WORKFLOW population (ci-tool-pinning.md §2 pop 1) is
     // "scanned on every push, framework and consumer repos alike"; the SHELL-SCRIPT
     // population (pop 2) is framework-only, gated inside the section body by
-    // isFrameworkRepo. See the section docstring + owner-semantics block above.
+    // ctx.isFrameworkRepo. See the section docstring + owner-semantics block above.
     id: 'unpinned-tool-install',
     owner: 'both',
-    run: () => unpinnedToolInstallSection(),
+    run: (c) => unpinnedToolInstallSection(c),
   },
   {
     // arch-v2 S-E P3a: standing drift-guard on the always-on resident set size.
@@ -1771,53 +2033,41 @@ async function main(): Promise<void> {
   // §1.7, §8) thread the same ResolvedBase via SectionCtx.
   const rb = resolveBase();
 
-  // Test seam: run a single section in isolation. The §7 anti-tautology
-  // end-to-end test (tests/hooks/prior-art-trailer-hook.test.sh) sets this so it
-  // exercises only the prior-art logic, independent of the other sections' deps/env.
-  if (process.env['PREPUSH_ONLY'] === 'prior-art') {
-    priorArtSection(rb);
-    process.exit(0);
-  }
-  if (process.env['PREPUSH_ONLY'] === 's17') {
-    s17Section(rb);
-    process.exit(0);
-  }
-  if (process.env['PREPUSH_ONLY'] === 'guard-liveness') {
-    await guardLivenessSection(rb);
-    process.exit(0);
-  }
-  if (process.env['PREPUSH_ONLY'] === 'cmd-script-liveness') {
-    await cmdScriptLivenessSection(rb);
-    process.exit(0);
-  }
-  if (process.env['PREPUSH_ONLY'] === 'unpinned-tool-install') {
-    unpinnedToolInstallSection();
-    process.exit(0);
-  }
-  if (process.env['PREPUSH_ONLY'] === 'alwayson-budget') {
-    alwaysonBudgetSection();
-    process.exit(0);
-  }
-  if (process.env['PREPUSH_ONLY'] === 'generated-rule-material') {
-    generatedRuleMaterialSection();
-    process.exit(0);
-  }
-  if (process.env['PREPUSH_ONLY'] === 'ask-file-schema') {
-    askFileSchemaSection();
-    process.exit(0);
-  }
-
   // Framework-vs-consumer layout signal (SSOT-register presence) — the SINGLE
-  // detection axis. Drives (a) which owner-classes compose and (b) the TOOL-ABSENCE
-  // policy split (#923 follow-up): the framework repo stays fail-closed on a missing
-  // workflow linter (ci-tool-pinning); a consumer without the optional scanner
-  // DEGRADES loudly instead of being DoS'd on every push.
+  // detection axis, derived ONCE here and threaded via ctx.isFrameworkRepo. It drives
+  // which owner-classes compose; no section re-derives it (ledger S-5 — lycheeSection
+  // and unpinnedToolInstallSection each used to run their own existsSync, so one
+  // boolean had three detection points).
   const isFrameworkRepo = existsSync(resolve(REPO_ROOT, SSOT_REL));
-  const ctx: SectionCtx = {
-    rb,
-    isFrameworkRepo,
-    onMissingTool: isFrameworkRepo ? 'die' : 'warn-skip',
-  };
+  const ctx: SectionCtx = { rb, isFrameworkRepo };
+
+  // Test seam: run a single REGISTERED section in isolation, by its registry id (the
+  // §7 anti-tautology end-to-end test sets PREPUSH_ONLY=prior-art so it exercises only
+  // the prior-art logic, independent of the other sections' deps/env).
+  //
+  // Registry-driven since 2026-09-06 (ledger S-6). It used to be eight copy-pasted
+  // `if (env === '<id>') { section(); exit(0); }` arms — four of which no test ever
+  // set — and an unknown value (a typo like `ask-file-scheme`) fell through to the
+  // FULL hook and still exited 0, i.e. a test could believe it had isolated a section
+  // while running every maintainer gate. Now: every id in SECTIONS is a seam by
+  // construction (no per-section code to forget), and an unmatched value FAILS LOUDLY
+  // instead of silently running everything.
+  //
+  // The seam deliberately looks the section up in SECTIONS, not activeSections(): a
+  // test isolating a maintainer section on a consumer-shaped fixture must still be
+  // able to run it.
+  const only = process.env['PREPUSH_ONLY'];
+  if (only !== undefined && only !== '') {
+    const section = SECTIONS.find((s) => s.id === only);
+    if (!section) {
+      die(
+        `❌ PREPUSH_ONLY='${only}' matches no pre-push section id.\n` +
+          `   Known ids: ${SECTIONS.map((s) => s.id).join(', ')}`,
+      );
+    }
+    await section.run(ctx);
+    process.exit(0);
+  }
 
   // Compose ONLY the sections this layout owns, then run them in registry order.
   // A maintainer-only section is never in the consumer composition — it cannot leak.

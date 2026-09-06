@@ -35,11 +35,32 @@ _is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
 . "$(dirname "$0")/_zcode-emit"
 
 # _warn <arm-name> <text>
-# Emits a warning line via _ze_emit so output reaches both CC operators (plain stderr) and
-# ZCode operators ({additionalContext}). Tagged with the arm name for log traceability.
+# A3-1 (#1597 ledger). The single emit path used to be `… | _ze_emit >&2`, i.e. fd 2 on BOTH
+# harnesses — so the warning reached NO model anywhere:
+#   * ZCode parses fd 1 only (plugin/hooks/session-start:10-12), so the strict-JSON
+#     {additionalContext} landed on the wrong descriptor entirely;
+#   * on CC an exit-0 hook's stderr goes to the operator transcript and never to the model —
+#     measured live, zero bytes received (research-patches/
+#     2026-07-24-posttooluse-channel-verification.md §2 channel table).
+# The consumer of this warning is the ORCHESTRATOR MODEL, so the payload now goes to STDOUT in
+# each harness's own shape, and stderr keeps a plain copy for terminal/CI readers.
+# WARN-not-block is preserved deliberately: exit 0, and NO `decision:"block"` — blocking a Stop
+# is a gate, and this is a judgment target (#gate-where-judgment-needed, see
+# .claude/hooks/warn-subagent-report.sh:4).
 _warn() {
-  local arm="$1" text="$2"
-  printf '⚠ %s: subagent REPORT %s\n' "$arm" "$text" | _ze_emit >&2
+  local arm="$1" text="$2" msg
+  msg="$(printf '⚠ %s: subagent REPORT %s' "$arm" "$text")"
+  printf '%s\n' "$msg" >&2
+  if _is_zcode; then
+    # _ze_classify wraps plain text as {additionalContext:<text>} — the proven ZCode shape.
+    printf '%s' "$msg" | _ze_emit
+  else
+    # CC's model-visible exit-0 channel: stdout JSON hookSpecificOutput.additionalContext —
+    # the same shape .claude/hooks/warn-subagent-report.sh:56-58 emits for SubagentStop.
+    # jq -Rs does the string escaping (embedded quotes/newlines/backslashes).
+    printf '%s' "$msg" | jq -Rs --arg ev "${EVENT:-PostToolUse}" \
+      '{hookSpecificOutput: {hookEventName: $ev, additionalContext: .}}'
+  fi
 }
 
 # _required_sections_check <text>
@@ -197,10 +218,16 @@ _arm_b_stop() {
   # every line in the transcript for tool_result text where the linked tool_use name is
   # Agent|Task.
   #
-  # Cheap grep prefilter: only lines containing tool_result OR Agent/Task (avoids full
-  # jq slurp on large transcripts — matches end-of-turn-reminder:49,51,69 pattern).
+  # A3-2 (#1597 ledger): the prefilter used to include `"(type|role)"`, which is present on
+  # EVERY JSONL line — measured selectivity 2548 of 2548 on a real 5.6 MB CC transcript, so it
+  # filtered nothing and the extraction below ran once per line: 12.99 s per Stop event, 2004
+  # jq spawns, and past ~12k lines the 60 s hook timeout kills the hook on every single turn.
+  # Narrowed to the ONE shape this arm extracts, and bounded by a tail window: entries older
+  # than the window were already swept (and recorded) by an earlier Stop.
+  local MAX_LINES="${AIF_WSR_MAX_LINES:-500}"
+  case "$MAX_LINES" in '' | *[!0-9]* | 0) MAX_LINES=500 ;; esac
   local CANDIDATES
-  CANDIDATES="$(grep -E '"(type|role)"|"tool_(use|result)"|"Agent"|"Task"' "$TRANSCRIPT" 2>/dev/null || true)"
+  CANDIDATES="$(grep -F '"tool_result"' "$TRANSCRIPT" 2>/dev/null | tail -n "$MAX_LINES" || true)"
   [ -z "$CANDIDATES" ] && exit 0
 
   # Dedup + check loop. Iterate over jq-extracted records via process substitution.
@@ -240,18 +267,20 @@ _arm_b_stop() {
       flagged+=("$MISSING_LIST")
     fi
     _record_key "$STATE_FILE" "$k"
-  done < <(printf '%s\n' "$CANDIDATES" | while IFS= read -r line; do
-    [ -z "$line" ] && continue
+  done < <(printf '%s\n' "$CANDIDATES" | jq -R -r -j '
+    # ONE jq process for the whole candidate set (A3-2). `-R` + `fromjson?` is what makes a
+    # single process safe: a malformed line is skipped instead of aborting the stream, which
+    # is the only property the per-line loop had over this form.
     # Emit each tool_result as `id<TAB>text<NUL>`. id from tool_use_id / toolCallId / id;
-    # text from content/text. jq -j (no trailing newline) + NUL delimiter.
-    printf '%s' "$line" | jq -r -j '
-      (.message.content // .content // []) | if type == "array" then
+    # text from content/text. -j (no trailing newline) + NUL delimiter.
+    (fromjson? // empty) as $e
+    | ($e.message.content // $e.content // [])
+    | if type == "array" then
         .[] | select(.type == "tool_result") |
         ((.tool_use_id // .toolCallId // .id // "") + "\t" +
          ((.content // .text // "") | tostring) + "\u0000")
       else empty end
-    ' 2>/dev/null || true
-  done)
+  ' 2>/dev/null || true)
 
   if [ "${#flagged[@]}" -gt 0 ]; then
     if [ "${#flagged[@]}" -eq 1 ]; then

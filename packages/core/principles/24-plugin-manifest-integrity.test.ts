@@ -27,8 +27,18 @@
  * the principle-02 paired-negative discipline that makes the gate non-tautological.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import {
+  readFileSync,
+  readdirSync,
+  existsSync,
+  statSync,
+  writeFileSync,
+  mkdtempSync,
+  cpSync,
+  rmSync,
+} from 'node:fs';
+import { resolve, dirname, join, relative } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 
@@ -45,6 +55,8 @@ const REPO_ROOT = resolve(HERE, '../../../');
 interface Violation {
   code: string;
   detail: string;
+  /** Line-independent identity (`<payload-relative file> — ](<target>)`), set by (h). */
+  key?: string;
 }
 
 function tryJSON(p: string): any | null {
@@ -235,6 +247,98 @@ function walkFiles(dir: string, prefix = ''): string[] {
   return out.sort();
 }
 
+/**
+ * (h) — LINK FORM anywhere in the shipped plugin payload. PURE (takes a payload root) so the
+ * same function runs on the real payload and on a paired-negative replay.
+ *
+ * WHY THIS EXISTS. `plugin/` is a SECOND distribution channel, and the only one with no link
+ * handling of its own: `setup.d/20-agents.sh` iterates `agents/*.md` and runs
+ * `transform_internal_refs` on the copies it writes, so the INSTALLER channel rewrites a
+ * `](../x)` ref to a blob URL — but nothing touches the plugin payload, which a marketplace
+ * consumer unpacks on its own with no repo tree above it. Twinned files also sit one directory
+ * deeper than their source, and principle 24(d) requires byte-identity for the agent twins, so
+ * no relative form can resolve at both depths (scripts/generate-plugin-twins.sh header).
+ *
+ * That surface was STATED and left ungated (PR #1582), and the gap then admitted the defect
+ * it predicted: `agents/compliance-verifier.md` carried three `](../.claude/rules/…)` links
+ * whose twin copies pointed at `plugin/agents/.claude/rules/…`, which has never existed —
+ * found by the #1597 promote review (ledger L-3), not by any check. The first fix (PR #1636)
+ * gated `plugin/agents` only, and the SAME class was then found one directory up, in
+ * `plugin/README.md` (ledger L-3b): the payload root is what a consumer unpacks, so the payload
+ * root is what this arm judges. pre-push §8 cannot be that check: it EXCLUDES
+ * `plugin/agents/**` (PLUGIN_AGENT_TWIN_PREFIX) and only ever walks files changed in the push
+ * range, so a link that landed before the exclusion is invisible to it forever. This arm is
+ * unconditional and channel-correct instead: it asks what the payload root can resolve.
+ *
+ * Two violation classes, both judged from the payload ROOT (`plugin/`, per the marketplace
+ * entry's `source: "./plugin"`), with each target resolved from its own file's directory:
+ *   L1 — the target ESCAPES the payload (`../…` past the root, or an absolute `/…`). Unfixable
+ *        in a byte-identical copy by construction; the fix belongs in the source, as a blob URL
+ *        (the form `transform_internal_refs` itself produces — `setup.d/lib.sh` `UPSTREAM_BLOB_URL`
+ *        — so the installer pass stays a no-op on it).
+ *   L2 — the target stays inside the payload but resolves to nothing there. This is the class
+ *        a `../`-substring check would miss: `](fidelity-auditor.md)` resolves from `agents/`
+ *        (19 agents) and dangles in the twin dir (3).
+ *
+ * Off-payload targets (http(s)/mailto/protocol-relative) and in-page anchors are not this
+ * arm's business — whether a URL is reachable is the link gates' job, per (g)'s same split.
+ */
+export function checkPluginPayloadLinks(payloadRoot: string): Violation[] {
+  const out: Violation[] = [];
+  for (const f of walkFiles(payloadRoot).filter((x) => x.endsWith('.md'))) {
+    const text = readFileSync(resolve(payloadRoot, f), 'utf8');
+    // `](target)` / `](target "title")` — inline links and images alike.
+    for (const m of text.matchAll(/\]\(\s*(<[^>]*>|[^)\s]+)(?:\s+"[^"]*")?\s*\)/g)) {
+      const target = m[1].replace(/^<|>$/g, '');
+      if (/^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(target)) continue; // URL, scheme, or in-page anchor
+      const path = target.split('#')[0];
+      if (path === '') continue;
+      const line = text.slice(0, m.index).split('\n').length;
+      const key = `${f} — ](${target})`;
+      // Resolve from the LINK'S OWN directory, then ask whether the result is still under the
+      // payload root — a plain `..`-substring test cannot judge depth (`skills/x/../y` is fine,
+      // `skills/x/../../../y` is not), and the payload is no longer a single flat directory.
+      const abs = path.startsWith('/') ? null : resolve(payloadRoot, dirname(f), path);
+      const rel = abs === null ? '..' : relative(payloadRoot, abs);
+      if (rel === '' || rel === '..' || rel.startsWith(`..${'/'}`)) {
+        out.push({
+          code: 'L1',
+          key,
+          detail: `${f}:${line} — \`](${target})\` escapes the plugin payload; rewrite it at the SOURCE as a blob URL (https://github.com/<owner>/<repo>/blob/<ref>/…) — byte-identity forbids fixing a twinned copy`,
+        });
+        continue;
+      }
+      if (!existsSync(abs as string)) {
+        out.push({
+          code: 'L2',
+          key,
+          detail: `${f}:${line} — \`](${target})\` does not resolve inside the plugin payload (it may resolve at the source depth, which is not the shipped depth)`,
+        });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * The payload's KNOWN escaping links, pinned exactly (line-independent: file + target).
+ *
+ * `plugin/skills/getff/SKILL.md` carries two depth-adjusted `../../../` links that resolve in
+ * THIS repo (payload → repo root) and escape for a marketplace consumer — the same L-3b class,
+ * in a channel this session does not own. It is not arm (h)'s call to fix: the skills twins are
+ * arm (g)'s (link FORMS are normalised away there precisely because the two channels ship at
+ * different depths), and the source `skills/getff/SKILL.md` is also installed by
+ * `setup.d/10-skills.sh` at a third depth — so the fix has its own blast radius and its own PR.
+ *
+ * Pinning it here is what keeps it from being a silent carve-out: the assertion is SET EQUALITY,
+ * so a new escaping link anywhere in the payload is RED, and a stale entry — once these two are
+ * fixed at the source — is RED too. The list can only shrink.
+ */
+const KNOWN_PAYLOAD_LINK_DEBT = [
+  'skills/getff/SKILL.md — ](../../../install.sh)',
+  'skills/getff/SKILL.md — ](../../../README.md#why-this-exists)',
+];
+
 describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => {
   const PLUGIN = resolve(REPO_ROOT, 'plugin');
   // marketplace.json lives at the repo-root marketplace dir; plugin.json is resolved FROM its
@@ -316,34 +420,136 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
     const actual = readdirSync(resolve(PLUGIN, 'skills'), { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort();
     expect(actual, 'plugin/skills membership changed. The set is a recorded decision (plan Task 3 Step 4 + its 2026-09-03 promotion) — update M1_SET here and state in the PR body which need triggered the promotion.').toEqual([...M1_SET].sort());
 
-    // Fidelity for skills that also exist under the framework's skills/. QUARANTINE: getff is
-    // exempt. The stale-content half of the drift is GONE (re-synced 2026-09-03, Decision 4
-    // item 3: the plugin copy no longer names AI Factory `/aif-verify` + `rules-sidecar` where
-    // the source names ./scripts/audit-ai-docs.sh, and it carries the /rule-research +
-    // /rule-tests line). What remains is ONLY the link divergence, and it is STRUCTURAL, so
-    // byte-identity is unreachable here by construction: the plugin copy sits one directory
-    // deeper, so SKILL.md's ](../../x) became ](../../../x) and each references/*.md's
-    // ](../../../x) became an absolute https://github.com/... URL (a marketplace consumer
-    // reads these outside the repo, where no relative path escapes correctly). Lifting the
-    // quarantine therefore requires a link-normalising comparison — a design choice, not a
-    // re-sync — so it stays until that is decided. Re-verify with:
-    //   diff -ru skills/getff plugin/skills/getff   → 7 differing lines, all link lines.
-    // tool-bootstrapping can hold plain byte-identity because it has zero links escaping its own
-    // directory — verified before it was copied in; a future skill that does NOT will fail here,
-    // which is the point: the author must then choose depth-rewrite (and earn its own exemption,
-    // with the reason written here) rather than let the divergence land unnoticed.
-    const DRIFT_QUARANTINE = new Set(['getff']);
+    // Fidelity for skills that also exist under the framework's skills/. Two tiers, strongest
+    // first: byte-identity where it is reachable, and content-identity (links normalised away)
+    // where the channel forces the link form to differ.
+    //
+    // WHY A SECOND TIER IS NEEDED. A plugin/skills copy is read by a marketplace consumer OUTSIDE
+    // this repo and sits one directory deeper than its source, so its links are mechanically
+    // rewritten in two different ways — measured across all 6 getff files, 2026-09-03:
+    //   · depth bump      — SKILL.md's ](../../x)      became ](../../../x)
+    //   · blob-URL escape — references/*.md's ](../../../x) became ](https://github.com/...),
+    //                       and the link TEXT lost its leading ../ ladder with it.
+    // Neither is drift; both are required for the link to resolve at all. Byte-identity is
+    // therefore unreachable for any skill carrying an escaping link, which is why getff sat
+    // quarantined — and a quarantine is an exemption, so getff's CONTENT went unwatched, which is
+    // the half that actually went stale (it named AI Factory `/aif-verify` + `rules-sidecar` long
+    // after the source moved to ./scripts/audit-ai-docs.sh, and had lost the /rule-research line).
+    //
+    // Normalising drops every link TARGET and the ../ ladder from link TEXT, leaving the prose.
+    // Validated against reality rather than assumed: on the current tree all 6 getff files are
+    // raw-DIFF but normalised-SAME, and against the pre-re-sync twin (commit 4adff07b4d) the same
+    // comparison reports 79 differing lines whose first two are exactly the two stale-content
+    // defects above. The guard would have caught the real incident; that is the claim it earns.
+    //
+    // What this deliberately no longer checks is whether a link points at the RIGHT document —
+    // that is the link gates' job (pre-push §8 lychee, transform_internal_refs), not this arm's.
+    const normaliseChannelLinks = (s: string): string =>
+      s.replace(/\]\([^)]*\)/g, ']()').replace(/\[(?:\.\.\/)+/g, '[');
     const drift: string[] = [];
     for (const name of actual) {
-      if (DRIFT_QUARANTINE.has(name)) continue;
       const src = resolve(REPO_ROOT, 'skills', name);
       if (!existsSync(src)) continue; // plugin-native skill — no framework source to match
       for (const rel of walkFiles(src)) {
         const twin = resolve(PLUGIN, 'skills', name, rel);
-        if (!existsSync(twin) || readFileSync(resolve(src, rel), 'utf8') !== readFileSync(twin, 'utf8')) drift.push(`${name}/${rel}`);
+        if (!existsSync(twin)) { drift.push(`${name}/${rel} (missing in plugin)`); continue; }
+        const a = readFileSync(resolve(src, rel), 'utf8');
+        const b = readFileSync(twin, 'utf8');
+        if (a === b) continue; // tier 1: byte-identical (tool-bootstrapping — no escaping links)
+        if (normaliseChannelLinks(a) !== normaliseChannelLinks(b)) drift.push(`${name}/${rel}`);
       }
     }
-    expect(drift, `plugin/skills copies drifted from their skills/ source: ${drift.join(', ')}`).toHaveLength(0);
+    expect(drift, `plugin/skills copies drifted from their skills/ source in CONTENT (link-form differences are normalised away, so these are real): ${drift.join(', ')}`).toHaveLength(0);
+  });
+
+  // ── (h) link form — no file in the shipped payload carries an unresolvable link ───
+  it('(h) real-tree: every plugin payload link resolves inside the payload (pinned debt aside)', () => {
+    const v = checkPluginPayloadLinks(PLUGIN);
+    // Set equality, not `toHaveLength(0)`: the two known out-of-zone entries are PINNED
+    // (see KNOWN_PAYLOAD_LINK_DEBT), so this is RED both on a new violation and on a stale pin.
+    expect(
+      (v.map((x) => x.key) as string[]).sort(),
+      `plugin payload links a marketplace consumer cannot resolve:\n` +
+        v.map((x) => `  [${x.code}] ${x.detail}`).join('\n') +
+        `\n(expected exactly the pinned debt: ${KNOWN_PAYLOAD_LINK_DEBT.join(' | ')})`,
+    ).toEqual([...KNOWN_PAYLOAD_LINK_DEBT].sort());
+  });
+
+  it('(h) paired-negative: the pre-fix payload README is RED, the shipped blob form is GREEN', () => {
+    // The L-3b replay, at the payload root this arm was widened to reach. `plugin/README.md`
+    // closed with a Spec:/Plan: pair pointing at `](../docs/superpowers/…)`; `..` is above the
+    // root a marketplace consumer unpacks, so both dangled. Rebuild the payload, un-fix ONLY
+    // the README's link form, and assert the widened arm sees exactly those two — then assert
+    // the shipped form is clean, so the check is not RED on everything.
+    const tmp = mkdtempSync(join(tmpdir(), 'p24h-readme-'));
+    try {
+      cpSync(PLUGIN, tmp, { recursive: true });
+      const file = join(tmp, 'README.md');
+      const fixed = readFileSync(file, 'utf8');
+
+      // GREEN arm — the shipped form contributes nothing.
+      expect(
+        checkPluginPayloadLinks(tmp).filter((x) => (x.key as string).startsWith('README.md ')),
+        'the shipped README link form must be clean',
+      ).toHaveLength(0);
+
+      // RED arm — blob URL back to the relative form, nothing else touched.
+      const preFix = fixed.replace(
+        /https:\/\/github\.com\/[^)/\s]+\/[^)/\s]+\/blob\/[^)/\s]+\//g,
+        '../',
+      );
+      expect(preFix, 'the replay must actually differ from the shipped form').not.toBe(fixed);
+      writeFileSync(file, preFix);
+      const red = checkPluginPayloadLinks(tmp).filter((x) => (x.key as string).startsWith('README.md '));
+      expect(red.map((x) => x.code), `got ${JSON.stringify(red)}`).toEqual(['L1', 'L1']);
+      expect(red.map((x) => x.key)).toEqual([
+        'README.md — ](../docs/superpowers/specs/2026-06-22-cc-plugin-packaging-design.md)',
+        'README.md — ](../docs/superpowers/plans/2026-06-22-cc-plugin-packaging.md)',
+      ]);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('(h) paired-negative: the L-3 agent-twin replay is RED, and the shipped form is GREEN', () => {
+    // Both arms are required, and for opposite reasons. A check that only proves itself RED on
+    // drift may be RED on everything; a check that only proves itself GREEN may be RED on
+    // nothing. So: replay the REAL defect (ledger L-3 — the three `](../.claude/rules/…)` links
+    // agents/compliance-verifier.md carried from PR #1578 until this commit) and assert it is
+    // caught, then assert the shipped tree — which differs from that replay in link FORM ONLY —
+    // is clean. Same recipe the (g) normaliser was validated with.
+    const tmp = mkdtempSync(join(tmpdir(), 'p24h-'));
+    try {
+      cpSync(resolve(PLUGIN, 'agents'), tmp, { recursive: true });
+
+      // GREEN arm — the shipped link form, judged with only the payload around it.
+      expect(
+        checkPluginPayloadLinks(tmp),
+        'the shipped twin payload must be clean in isolation',
+      ).toHaveLength(0);
+
+      // RED arm — un-fix it: blob URL back to the relative form, nothing else touched.
+      const file = join(tmp, 'compliance-verifier.md');
+      const fixed = readFileSync(file, 'utf8');
+      const preFix = fixed.replace(
+        /https:\/\/github\.com\/[^)/\s]+\/[^)/\s]+\/blob\/[^)/\s]+\//g,
+        '../',
+      );
+      expect(preFix, 'the replay must actually differ from the shipped form').not.toBe(fixed);
+      writeFileSync(file, preFix);
+      const red = checkPluginPayloadLinks(tmp);
+      expect(red.map((x) => x.code)).toContain('L1');
+      expect(red, `expected the 3 replayed L-3 links; got ${JSON.stringify(red)}`).toHaveLength(3);
+
+      // L2 arm — a link that DOES resolve at the agents/ source depth (19 agents) and dangles at
+      // the twin's shipped depth (3). A `../`-substring check cannot see this class.
+      writeFileSync(join(tmp, 'probe.md'), '[fidelity-auditor](fidelity-auditor.md)\n');
+      expect(existsSync(resolve(REPO_ROOT, 'agents/fidelity-auditor.md')), 'probe target must exist at the source depth').toBe(true);
+      const l2 = checkPluginPayloadLinks(tmp).filter((x) => x.detail.startsWith('probe.md:'));
+      expect(l2.map((x) => x.code), `expected L2 for the source-depth-only link; got ${JSON.stringify(l2)}`).toEqual(['L2']);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
   });
 
   // ── (f) T15 self-application — this gate is itself an executable artifact ────

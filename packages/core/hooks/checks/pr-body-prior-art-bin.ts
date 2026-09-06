@@ -8,6 +8,7 @@
  * PR #1094 → #1097). Logic lives in checks/prior-art.ts (checkPrBodyPriorArt).
  */
 import { rangeGit } from '../utils/git.ts';
+import { stripHtmlComments } from '../utils/markdown-comments.ts';
 import { checkPrBodyPriorArt, loadSsotIds } from './prior-art.ts';
 
 const base = process.env['BASE_SHA'] ?? '';
@@ -22,6 +23,7 @@ const ssot = g.fileContent(head, 'docs/meta-factory/prior-art-evaluations.md');
 const res = checkPrBodyPriorArt(
   body,
   g,
+  stripHtmlComments,
   ssot === null ? undefined : loadSsotIds(ssot),
 );
 if (res.ok) {

@@ -1,11 +1,13 @@
 // packages/runtime-bridge/src/cli/aifHttp.ts
 /**
- * Shared aif-handoff REST helpers for the field-mutating CLIs (park, answer-resume).
- * GET a task and PUT field updates, with the same BackendError mapping as
- * answer.ts `post` (connection → unavailable, 429 → quota_exceeded, other → dispatch_failed).
+ * Shared aif-handoff REST helpers — the SINGLE request implementation for every CLI in
+ * this tree and for the aifWsStatus REST snapshot. GET/PUT/POST with one BackendError
+ * mapping (connection → unavailable, 429 → quota_exceeded, other → dispatch_failed) and
+ * one timeout policy. answer.ts `post` and aifWsStatus `getTaskStatus` used to carry
+ * their own copies, which had already diverged (#1597 ledger R-7 / S-4).
  * @cc-only-rationale: pure TS over plain HTTP — no CC-only primitive, no paid LLM.
  */
-import { BackendError } from '../backend.js';
+import { BackendError, type BackendErrorCode } from '../backend.js';
 
 /** The subset of an aif-handoff task these CLIs read/mutate (GET /tasks/:id). */
 export interface AifTaskFull {
@@ -27,22 +29,77 @@ export interface AifTaskFull {
   worktreePath?: string | null;
 }
 
-async function request(method: 'GET' | 'PUT', baseUrl: string, path: string, body?: unknown): Promise<unknown> {
+/**
+ * How long any aif-handoff request may hang before it is aborted. There used to be NO
+ * timeout here at all while aifWsStatus.getTaskStatus aborted its own copy of GET
+ * /tasks/:id after 5 s — so the status probe of a wedged API returned while
+ * park/answer/harvest/ensure-parallel hung on it forever (R-7). One module, one policy.
+ */
+export const DEFAULT_HTTP_TIMEOUT_MS = 30_000;
+
+/** The HTTP methods this tree issues against aif-handoff. */
+export type AifHttpMethod = 'GET' | 'PUT' | 'POST' | 'DELETE';
+
+export interface RequestOptions {
+  /** Abort the request after this many ms (default {@link DEFAULT_HTTP_TIMEOUT_MS}). */
+  timeoutMs?: number;
+  /**
+   * BackendError code for a 404. Defaults to 'dispatch_failed' (a bad id from a CLI
+   * flag is a caller defect); the status probe passes 'unavailable' — the task it was
+   * told to watch may simply not exist yet.
+   */
+  notFoundCode?: BackendErrorCode;
+}
+
+/**
+ * The ONE aif-handoff request in this tree. Every CLI + the status probe funnel through
+ * it, so the BackendError mapping (connection → unavailable, 429 → quota_exceeded, other
+ * → dispatch_failed) and the timeout are defined once. Three hand-written copies used to
+ * exist and had already diverged — see R-7 / S-4 in the #1597 review ledger.
+ */
+async function request(
+  method: AifHttpMethod,
+  baseUrl: string,
+  path: string,
+  body?: unknown,
+  opts: RequestOptions = {},
+): Promise<unknown> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), opts.timeoutMs ?? DEFAULT_HTTP_TIMEOUT_MS);
   let res: Response;
   try {
     res = await fetch(`${baseUrl}${path}`, {
+      // Only declare a JSON content-type when a body is actually sent — a no-body DELETE
+      // carrying `Content-Type: application/json` is malformed to some servers.
       method,
       headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal: controller.signal,
     });
   } catch (err) {
+    const name = err instanceof Error ? err.name : '';
     const msg = err instanceof Error ? err.message : String(err);
+    // A timeout and a refused connection are both 'unavailable', but they tell the operator
+    // different things — «the API is wedged» vs «nothing is listening». Prefer the canonical
+    // AbortError name; fall back to a message substring for exotic fetch implementations.
+    if (name === 'AbortError' || msg.includes('abort') || msg.includes('timeout')) {
+      throw new BackendError(`aif-handoff ${method} ${path} timed out`, 'unavailable', 'aif-handoff');
+    }
     throw new BackendError(`aif-handoff ${method} ${path} unreachable: ${msg}`, 'unavailable', 'aif-handoff');
+  } finally {
+    clearTimeout(timeoutId);
   }
   if (!res.ok) {
     const errBody = await res.text().catch(() => '');
     if (res.status === 429) {
       throw new BackendError(`aif-handoff rate limit (${method} ${path}): ${errBody}`, 'quota_exceeded', 'aif-handoff');
+    }
+    if (res.status === 404 && opts.notFoundCode) {
+      throw new BackendError(
+        `aif-handoff ${method} ${path} HTTP 404 (not found): ${errBody}`,
+        opts.notFoundCode,
+        'aif-handoff',
+      );
     }
     throw new BackendError(`aif-handoff ${method} ${path} HTTP ${res.status}: ${errBody}`, 'dispatch_failed', 'aif-handoff');
   }
@@ -53,6 +110,39 @@ async function request(method: 'GET' | 'PUT', baseUrl: string, path: string, bod
   } catch {
     return text;
   }
+}
+
+/**
+ * The generic request, exported for the one caller that needs a method this module's named
+ * helpers do not cover: AifHandoffBackend, whose claim protocol issues a DELETE and whose
+ * own timeout is shorter (A5-8 — it carried a fourth private copy of all of this).
+ */
+export async function aifRequest(
+  method: AifHttpMethod,
+  baseUrl: string,
+  path: string,
+  body?: unknown,
+  opts?: RequestOptions,
+): Promise<unknown> {
+  return request(method, baseUrl, path, body, opts);
+}
+
+/** GET <path> → the parsed JSON body (the generic half of {@link getTask}). */
+export async function getJson(baseUrl: string, path: string, opts?: RequestOptions): Promise<unknown> {
+  return request('GET', baseUrl, path, undefined, opts);
+}
+
+/**
+ * POST a JSON body → the parsed JSON response. answer.ts carried a verbatim copy of
+ * this (S-4); the mapping contract lives here, not in each caller.
+ */
+export async function postJson(
+  baseUrl: string,
+  path: string,
+  body: unknown,
+  opts?: RequestOptions,
+): Promise<unknown> {
+  return request('POST', baseUrl, path, body, opts);
 }
 
 /** GET /tasks/:id → the task object. */

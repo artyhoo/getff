@@ -117,7 +117,7 @@ D4's verification, not a fix target. Then, item by item:
 
 ## §7 See also
 
-- [docs/meta-factory/operational-conventions.md#promote-stagingmain-mechanics-two-hard-rules](../../../docs/meta-factory/operational-conventions.md) — why the promote PR's head must stay `staging`.
+- [docs/meta-factory/operational-conventions.md#promote-stagingmain-mechanics-three-hard-rules](../../../docs/meta-factory/operational-conventions.md) — why the promote PR's head must stay `staging`.
 - [.claude/rules/attention-is-not-a-mechanism.md](../../rules/attention-is-not-a-mechanism.md) — the posture PG-2 must preserve.
 - [.claude/rules/effort-worthiness.md](../../rules/effort-worthiness.md) — the L0 label above.
 

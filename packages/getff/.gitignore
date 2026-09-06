@@ -1,0 +1,16 @@
+# The distribution payload is ASSEMBLED by scripts/build-getff-dist.sh from the repo root
+# (git-tracked files only) and is never committed here — the committed artefact is
+# MANIFEST.sha256, and `build-getff-dist.sh --check` is the drift gate. Every copied
+# top-level path is named explicitly (no `*`), so a new payload root has to be added in
+# three places on purpose: the assembler's PAYLOAD list, package.json `files`, and here.
+/install.sh
+/setup
+/setup.d/
+/agents/
+/skills/
+/templates/
+/.claude/
+/.prettierrc.json
+/packages/
+/scripts/
+/*.tgz

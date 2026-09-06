@@ -12,7 +12,11 @@
 
 set -uo pipefail
 
-# @plugin-transform: manual — plugin twin adds T-PLUG-A $VALIDATOR guard (consumer plugins lack packages/core/); source-side guard is a no-op (framework repo always has packages/core)
+# @plugin-transform: manual — the twin drops the Wave-7 header lines and the @file-content-gate
+#   marker, so it cannot be regenerated in identity mode. The consumer-layout $VALIDATOR guard is
+#   NO LONGER a twin-only addition: since the #1597 review-ledger L-2 fix both copies carry the
+#   same _resolve_validator tier list + loud miss branch, and the source-side guard is no longer a
+#   no-op (it fires on any layout without packages/core/). Keep the two blocks in sync by hand.
 # Harness-portable output (inline — standalone in test sandboxes). ZCode swallows plain
 # non-zero exits; JSON additionalContext reaches the model. CC VIOLATION path: exit 2 +
 # stderr — the only non-JSON channel the model receives on PostToolUse; exit-1 stderr
@@ -24,23 +28,27 @@ set -uo pipefail
 # :17 + :89-90). A dependency-missing skip on stderr is therefore indistinguishable from a
 # pass. Sibling of the check-doc-authority.sh fix; same defect class, swept 2026-07-24
 # (docs/meta-factory/research-patches/2026-07-23-aif-parity-s4-synthesis.md §3 item 1).
-_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
-# JSON-escape WITHOUT jq — jq is precisely the dependency that may be missing here.
-_json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n' ' '; }
-# Announce a skip on the channel the model actually receives on an exit-0 path, and keep
-# the human/log channel too.
-_emit_skip() {
-  if _is_zcode; then
-    printf '{"additionalContext":"%s"}\n' "$(_json_escape "$1")"
-  else
-    printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' \
-      "$(_json_escape "$1")"
-  fi
-  printf '%s\n' "$1" >&2
-}
-_emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
-    jq -n --arg c "$2" '{additionalContext:$c}'
-  else printf '%s\n' "$2"; fi; }
+
+# ── Shared emit prelude (#1597 review ledger R-2, K-1) ────────────────────────
+# _is_zcode / _json_escape / _emit_skip / _emit_skip_once / _emit_ctx and the Homebrew PATH
+# prepend have ONE definition, at lib/hook-emit.sh. Five gates used to carry a private 13-line
+# copy each; the copies had begun to diverge (a lost _is_zcode branch, a sed escaper that
+# produced invalid JSON for a tab or CR). Resolved next to THIS file so the framework copy and
+# the plugin twin each load their own sibling — both channels ship the directory.
+# Pure parameter expansion — no `dirname`, no `cd`, no subshell. These gates run on a
+# stripped PATH (a jq-less consumer, a sandbox that rebuilt PATH to hide a tool), and the
+# prelude must resolve before any external command is known to exist.
+_HOOK_DIR="${BASH_SOURCE[0]%/*}"
+[ "$_HOOK_DIR" = "${BASH_SOURCE[0]}" ] && _HOOK_DIR="."
+_HOOK_LIB="$_HOOK_DIR/lib/hook-emit.sh"
+# shellcheck source=lib/hook-emit.sh
+if ! . "$_HOOK_LIB" 2>/dev/null; then
+  # Broken install: announce on the model channel with constant text (no escaper available
+  # yet) and exit 0 — a missing prelude must not block the edit.
+  printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' \
+    '⚠ validate-prompt: lib/hook-emit.sh could not be sourced — this gate DID NOT RUN for this edit. This is a SKIP, not a pass; reinstall the hooks.'
+  exit 0
+fi
 
 # Resolve the tsx runner through a tier list (linked worktrees carry no node_modules):
 #   1. repo-local  2. main worktree via git --git-common-dir  3. tsx on PATH
@@ -62,7 +70,29 @@ _resolve_tsx() {
 }
 
 REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
-VALIDATOR="$REPO_ROOT/packages/core/spec-validation/validate-batch-spec.ts"
+
+# Resolve the batch-spec validator through a tier list — framework layout first, vendor drop
+# second. Mirrors the `_resolve_dispatch_ts` precedent (.claude/hooks/runtime-bridge-dispatch.sh,
+# PR #1448), which closed exactly this defect class: a shipped artefact that resolves a
+# FRAMEWORK-ONLY path and then exits 0 is a permanent silent no-op on every consumer,
+# indistinguishable from a pass (#1597 review ledger L-2).
+#
+# Honest note on tier 2: no delivery site ships packages/core today (install.sh vendors only
+# packages/runtime-bridge). The tier exists so a future vendor drop is found; TODAY the
+# load-bearing half of this fix is the loud miss branch below.
+_resolve_validator() {
+  local candidate
+  for candidate in \
+    "$REPO_ROOT/packages/core/spec-validation/validate-batch-spec.ts" \
+    "$REPO_ROOT/.claude/vendor/core/spec-validation/validate-batch-spec.ts"; do
+    [[ -f "$candidate" ]] && { printf '%s' "$candidate"; return 0; }
+  done
+  return 1
+}
+
+# Escape token (rationale-bearing opt-out, ci-tool-pinning.md §3 precedent): a project that
+# deliberately runs without this gate silences the notice instead of living with it.
+[[ "${AIF_VALIDATE_PROMPT:-1}" == "0" ]] && exit 0
 
 # Graceful-but-loud skip if jq unavailable. jq-less best-effort path extraction (sed on
 # raw stdin) scopes the notice to orchestrator-prompts *.md edits (or unparseable stdin —
@@ -76,12 +106,25 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 0
 fi
 
-FILE_PATH="$(cat | jq -r '.tool_input.file_path // ""' 2>/dev/null || true)"
+# Read stdin ONCE: the session_id is needed for the once-per-session skip flag below, and
+# stdin is not re-readable after `cat`.
+INPUT="$(cat)"
+FILE_PATH="$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // ""' 2>/dev/null || true)"
+SESSION_ID="$(printf '%s' "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || true)"
 
 # Only process files under .claude/orchestrator-prompts/**/*.md
 if [[ -z "$FILE_PATH" ]] || [[ "$FILE_PATH" != *".claude/orchestrator-prompts/"*".md" ]]; then
   exit 0
 fi
+
+# Runtime dependency: the batch-spec validator. A miss is announced, never swallowed — on an
+# exit-0 PostToolUse the model receives ONLY JSON hookSpecificOutput, so a bare `exit 0` here
+# reads to the model exactly like a clean pass. Ordered AFTER the path filter so only an
+# orchestrator-prompts edit can trigger the notice.
+VALIDATOR="$(_resolve_validator)" || {
+  _emit_skip_once 'vp-novalidator' '⚠ validate-prompt: the batch-spec validator (packages/core/spec-validation/validate-batch-spec.ts) is not present on this layout — batch-spec validation DID NOT RUN for this edit, and will not run this session. This is a SKIP, not a pass. Set AIF_VALIDATE_PROMPT=0 to opt out. Announced once per session.'
+  exit 0
+}
 
 # Resolve tsx through tiers: repo-local, main-worktree (git --git-common-dir), PATH.
 # Ordered after the jq check so a missing-jq skip fires first (matches pre-fix ordering).

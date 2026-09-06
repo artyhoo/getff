@@ -50,6 +50,7 @@
 import { WebSocket } from 'node:http';
 import { appendFileSync } from 'node:fs';
 import { BackendError } from './backend.js';
+import { getJson } from './cli/aifHttp.js';
 
 /** The shape of aif-handoff's task:updated broadcast payload. */
 interface AifTaskBroadcastPayload {
@@ -294,48 +295,16 @@ export function awaitTaskDone(opts: AwaitTaskDoneOptions): Promise<AwaitTaskDone
 export async function getTaskStatus(
   taskId: string,
   apiBaseUrl: string,
+  timeoutMs = 5_000,
 ): Promise<{ rawStatus: string; checkedAt: string }> {
-  const url = `${apiBaseUrl}/tasks/${taskId}`;
-  let res: Response;
-
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5_000);
-    try {
-      res = await fetch(url, {
-        method: 'GET',
-        signal: controller.signal,
-      });
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    throw new BackendError(
-      `aif-handoff REST GET /tasks/${taskId} unreachable: ${msg}`,
-      'unavailable',
-      'aif-handoff',
-    );
-  }
-
-  if (res.status === 404) {
-    throw new BackendError(
-      `aif-handoff task ${taskId} not found (GET /tasks/${taskId} returned 404)`,
-      'unavailable',
-      'aif-handoff',
-    );
-  }
-
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new BackendError(
-      `aif-handoff REST GET /tasks/${taskId} HTTP ${res.status}: ${body}`,
-      'dispatch_failed',
-      'aif-handoff',
-    );
-  }
-
-  const json = (await res.json()) as { status?: string };
+  // R-7: this used to be a third hand-written GET /tasks/:id with its own BackendError
+  // mapping — no 429 branch, and a 5 s abort the CLI copy in cli/aifHttp.ts did not have,
+  // so a wedged API timed out here and hung there. One request implementation now; the
+  // 404 → 'unavailable' contract this probe documents is passed in, not re-derived.
+  const json = (await getJson(apiBaseUrl, `/tasks/${taskId}`, {
+    timeoutMs,
+    notFoundCode: 'unavailable',
+  })) as { status?: string };
   const rawStatus = typeof json.status === 'string' ? json.status : 'unknown';
   return { rawStatus, checkedAt: new Date().toISOString() };
 }

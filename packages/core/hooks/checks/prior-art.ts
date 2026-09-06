@@ -69,6 +69,22 @@ function stripPunctLower(word: string): string {
 }
 
 /**
+ * Net bracket depth a package.json line leaves open: `{`/`[` minus `}`/`]`,
+ * counted outside string literals (a key or version containing a brace must not
+ * shift the depth). Used to tell a block that stays open (`"overrides": {`) from
+ * one that closes on its own line (`"overrides": { "lodash": "4.17.21" },`).
+ */
+function braceDelta(body: string): number {
+  const code = body.replace(/"(?:[^"\\]|\\.)*"/g, '""');
+  let depth = 0;
+  for (const ch of code) {
+    if (ch === '{' || ch === '[') depth++;
+    else if (ch === '}' || ch === ']') depth--;
+  }
+  return depth;
+}
+
+/**
  * A package.json diff adds a NEW dependency (not a version bump) when a dep key
  * appears on a `+` line but no matching `-` line. Semver-prefix coverage mirrors
  * the bash: caret / tilde / range / digit / wildcard (dist-tags + URL specs slip).
@@ -79,6 +95,13 @@ function stripPunctLower(word: string): string {
  * over the diff text and resets at each `@@` hunk header; a hunk that edits deep
  * inside an existing overrides block without its opening line in context can still
  * false-positive — accepted residual, the escape-hatch trailer covers it.
+ *
+ * A block that opens AND closes on ONE line (`"overrides": { "lodash": "4.17.21" },`
+ * — an ordinary prettier `printWidth` outcome) skips nothing beyond itself. The
+ * indent-based closer needs a line that STARTS with `}`/`]`, so a one-line block
+ * used to open a skip that never closed, swallowing every dependency added after
+ * it in the same hunk — the detector went blind on exactly the package.json shape
+ * a formatter produces (fixed 2026-09-05).
  */
 export function isNewDepAdded(packageJsonDiff: string): boolean {
   if (!packageJsonDiff) return false;
@@ -101,7 +124,8 @@ export function isNewDepAdded(packageJsonDiff: string): boolean {
       continue;
     }
     if (nonDepBlockRe.test(line)) {
-      skipIndent = indent;
+      // Only a block left OPEN at end of line skips the lines that follow.
+      if (braceDelta(body) > 0) skipIndent = indent;
       continue;
     }
     const m = re.exec(line);
@@ -131,9 +155,9 @@ function isNewCoreSubdir50Loc(sha: string, g: GitProvider): boolean {
     if (g.subdirExistedAtParent(sha, subdir)) continue; // not a NEW subdir
     const content = g.fileContent(sha, path);
     if (content !== null && loc(content) >= 50) {
-      // Byte-identical to a blob elsewhere in the tree = relocation/vendor
-      // copy, no new capability by construction (PR #1271 incident).
-      if (!g.blobDuplicatedInTree(sha, path)) return true;
+      // Byte-identical to a blob ALREADY TRACKED in the pre-image tree =
+      // relocation/vendor copy, no new capability by construction (PR #1271).
+      if (!g.blobTrackedAtBase(sha, path)) return true;
     }
   }
   return false;
@@ -146,7 +170,10 @@ function isNewPackages80Loc(sha: string, g: GitProvider): boolean {
     if (DOC_FILE_RE.test(path)) continue;
     const content = g.fileContent(sha, path);
     if (content !== null && loc(content) >= 80) {
-      if (!g.blobDuplicatedInTree(sha, path)) return true;
+      // Same pre-image carve-out as the ≥50-LOC arm: a copy of content the repo
+      // already tracked is a relocation; a new file and its twin, both born in
+      // THIS commit, are not (the twin-sync bypass fixed 2026-09-05).
+      if (!g.blobTrackedAtBase(sha, path)) return true;
     }
   }
   return false;
@@ -294,15 +321,32 @@ export interface PrBodyPriorArtResult {
  * `g` is a range provider (utils/git.ts `rangeGit`) viewing merge-base..head
  * as one synthetic commit. authorDate is passed '' — a PR merging today is
  * never pre-cutoff, so the historical bypass must not fire.
+ *
+ * `stripComments` is REQUIRED, not defaulted: the gate must read the body the
+ * way GitHub RENDERS it. A `Prior-art:` line inside an HTML comment is invisible
+ * on the PR page and is dropped from nothing at squash time — accepting it let a
+ * template-style commented example satisfy the very gate the squash-trailer-loss
+ * incident created (fixed 2026-09-05; the two sibling PR-body gates,
+ * checks/pr-body-fidelity.ts and checks/pr-stale-revert.ts, already strip).
+ * Injected rather than imported because this module ships to consumers inside
+ * the pre-push import graph (setup.d/50-hooks.sh) while `utils/markdown-comments.ts`
+ * and its remark dependency do NOT — a static import here would crash every
+ * consumer's pre-push at module load. CI callers pass `stripHtmlComments`.
  */
 export function checkPrBodyPriorArt(
   prBody: string,
   g: GitProvider,
+  stripComments: (body: string) => string,
   ssotIds?: ReadonlySet<number>,
 ): PrBodyPriorArtResult {
   const reason = detectCapabilityReason('PR_RANGE', g);
   if (reason === null) return { ok: true, reason: null, message: '' };
-  const { code, message } = checkTrailerBody(prBody, '', undefined, ssotIds);
+  const { code, message } = checkTrailerBody(
+    stripComments(prBody),
+    '',
+    undefined,
+    ssotIds,
+  );
   return { ok: code === 0, reason, message };
 }
 

@@ -50,30 +50,53 @@ elif [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
   case "$_r2_verdict" in
     boundary-present)
       _patched=0
+      _r2_glob_failed=0
       while IFS= read -r _line; do
         case "$_line" in glob:*) ;; *) continue ;; esac
         _g="${_line#glob:}"
         grep -qF "$_g" "$PROJECT_ROOT/eslint.config.mjs" && continue   # already covered → idempotent
-        awk -v ins="    '$_g'," '
+        # ledger A1-9 (the A1-8 class): the counter used to be incremented unconditionally, so a
+        # failed awk/redirect still produced "✓ added N glob(s)" over an untouched config plus a
+        # stale eslint.config.mjs.tmp.
+        if awk -v ins="    '$_g'," '
           done2!=1 && /^[[:space:]]*boundary:[[:space:]]*\[/ { print; print ins; done2=1; next }
           { print }
         ' "$PROJECT_ROOT/eslint.config.mjs" > "$PROJECT_ROOT/eslint.config.mjs.tmp" \
-          && mv "$PROJECT_ROOT/eslint.config.mjs.tmp" "$PROJECT_ROOT/eslint.config.mjs"
-        _patched=$((_patched + 1))
+          && mv "$PROJECT_ROOT/eslint.config.mjs.tmp" "$PROJECT_ROOT/eslint.config.mjs"; then
+          _patched=$((_patched + 1))
+        else
+          rm -f "$PROJECT_ROOT/eslint.config.mjs.tmp" 2>/dev/null || true
+          _r2_glob_failed=$((_r2_glob_failed + 1))
+          echo "  ⚠ could not add glob $_g to RULE_GLOBS.boundary (awk or write failure) — eslint.config.mjs left unchanged" >&2
+        fi
       done <<EOF
 $_r2_out
 EOF
       if [ "$_patched" -gt 0 ]; then
         echo "  ✓ HTTP boundary detected → added $_patched glob(s) to RULE_GLOBS.boundary in eslint.config.mjs so R2 covers it"
+      elif [ "$_r2_glob_failed" -gt 0 ]; then
+        echo "  ⚠ HTTP boundary detected but $_r2_glob_failed glob(s) could not be written — R2 does NOT cover it yet; widen RULE_GLOBS.boundary by hand" >&2
       else
         echo "  ✓ HTTP boundary detected → already covered by the default RULE_GLOBS.boundary (no change)"
       fi ;;
     no-boundary-confident)
       _dec="$PROJECT_ROOT/.ai-factory/tool-decisions.md"
       if [ -f "$_dec" ]; then
+        # ledger A1-9 (the A1-8 class): a failed awk/redirect skipped the mv, so the OLD R2 N/A block
+        # survived — and the append below then wrote a SECOND one, leaving the consumer with a
+        # duplicated fenced block under a ✓. Refusing the whole record is the only honest outcome.
+        _r2_strip_ok=1
         if grep -qF '<!-- aif:r2-na:begin -->' "$_dec"; then   # replace existing block (idempotent re-install)
-          awk '/<!-- aif:r2-na:begin -->/{skip=1} skip&&/<!-- aif:r2-na:end -->/{skip=0;next} !skip' "$_dec" > "$_dec.tmp" && mv "$_dec.tmp" "$_dec"
+          if awk '/<!-- aif:r2-na:begin -->/{skip=1} skip&&/<!-- aif:r2-na:end -->/{skip=0;next} !skip' "$_dec" > "$_dec.tmp" && mv "$_dec.tmp" "$_dec"; then
+            :
+          else
+            rm -f "$_dec.tmp" 2>/dev/null || true
+            _r2_strip_ok=0
+          fi
         fi
+        if [ "$_r2_strip_ok" = "0" ]; then
+          echo "  ⚠ could not replace the previous R2 N/A block in $_dec (awk or write failure) — left unchanged, no record appended (appending would duplicate the block)" >&2
+        else
         {
           echo ""
           echo "<!-- aif:r2-na:begin -->"
@@ -86,6 +109,7 @@ EOF
           echo "<!-- aif:r2-na:end -->"
         } >> "$_dec"
         echo "  ✓ declarative validation, no manual-parse boundary → recorded a re-checkable R2 N/A in .ai-factory/tool-decisions.md"
+        fi
       else
         echo "  · declarative validation detected, but .ai-factory/ absent → skipped R2 N/A record (gate behaviour unchanged)"
       fi ;;

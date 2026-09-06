@@ -315,6 +315,13 @@ if command -v ruff >/dev/null 2>&1 || command -v uvx >/dev/null 2>&1; then
   echo "$ordr" | grep -qF 'ruff did NOT fire' \
     && bad "(11) explicit false-SILENT verdict printed (delivered-config resolution bug)" \
     || ok "(11) no false-SILENT verdict (getff-owned-first ordering holds)"
+elif [ "${GETFF_REQUIRE_RESEARCH_TOOLS:-}" = "1" ]; then
+  # Arm (11) is the ONLY negative the adapter-jig registry lists for arm E2
+  # (packages/core/principles/33-adapter-jig-arm-registry.ts). Where the toolchain is
+  # DECLARED to be present — CI — a skip means that RED-proof did not run, and a
+  # RED-proof that never runs is an unfired gate that principle 33 still reports green
+  # (ledger A8-2). Loud failure, never a silent skip.
+  bad "(11) REQUIRED but skipped: no ruff/uvx on PATH while GETFF_REQUIRE_RESEARCH_TOOLS=1 — E2's only registered negative did not execute"
 else
   echo ""; echo "  ── (11) SKIP fallback-ordering negative (no ruff/uvx on PATH) ──"
 fi
@@ -361,6 +368,9 @@ if { command -v ast-grep >/dev/null 2>&1 || { command -v sg >/dev/null 2>&1 && s
   echo "$ovb" | grep -qF 'enforcement is live' \
     && bad "(12) «enforcement is live» printed for over-broad rules (false green)" \
     || ok "(12) no false «enforcement is live» claim"
+elif [ "${GETFF_REQUIRE_RESEARCH_TOOLS:-}" = "1" ]; then
+  # Arm (12) is E1's python negative — same reasoning as (11) above (ledger A8-2).
+  bad "(12) REQUIRED but skipped: ast-grep and/or ruff missing while GETFF_REQUIRE_RESEARCH_TOOLS=1 — E1's python negative did not execute"
 else
   echo ""; echo "  ── (12) SKIP over-broad negative (ast-grep and/or ruff not on PATH) ──"
 fi
@@ -604,10 +614,71 @@ _act5=$(git -C "$P6" config --get core.hooksPath 2>/dev/null || true)
 [ -f "$P6/.git/hooks/pre-push" ] \
   && ok "(16c) case 3: legacy .git/hooks/pre-push preserved (NOT overwritten)" \
   || bad "(16c) case 3 FAILED: legacy .git/hooks/pre-push REMOVED (T-S2B-B violation)"
-echo "$out3" | grep -qi '\.git/hooks/pre-push exists' \
-  && ok "(16c) case 3: printed notice (consumer informed)" \
+echo "$out3" | grep -qi 'existing git hook.*pre-push' \
+  && ok "(16c) case 3: printed notice naming the existing pre-push (consumer informed)" \
   || bad "(16c) case 3: no notice printed (silently broken): $(echo "$out3" | grep -i hook | tr '\n' '|')"
 rm -rf "$P6"
+
+# ── (16d) A2-2 paired-negative: ANY existing executable hook must keep firing (never-clobber) ──
+# git-config(1): once core.hooksPath is set, git looks for hooks in that directory INSTEAD of
+# $GIT_DIR/hooks — so activating our rung over a consumer that has .git/hooks/pre-commit (or
+# commit-msg, post-checkout, …) silently disables every one of them, contradicting the
+# never-clobber contract in 45-python.sh's own docstring. The pre-fix code only ever looked for
+# .git/hooks/pre-push, so this arm is RED against it.
+# Firing proof goes THROUGH git (a real `git commit`), not a file-existence check — a hook that
+# exists but never runs is exactly the defect.
+echo ""; echo "  ── (16d) A2-2: existing .git/hooks/pre-commit still fires after install ──"
+P7=$(py_fixture); git -C "$P7" init -q
+git -C "$P7" config user.email t@example.com; git -C "$P7" config user.name t
+mkdir -p "$P7/.git/hooks"
+printf '#!/bin/sh\n: > .pre-commit-fired\nexit 0\n' > "$P7/.git/hooks/pre-commit"
+chmod +x "$P7/.git/hooks/pre-commit"
+out4=$( cd "$P7" && bash "$INSTALL" python < /dev/null 2>&1 )
+_act6=$(git -C "$P7" config --get core.hooksPath 2>/dev/null || true)
+[ -z "$_act6" ] \
+  && ok "(16d) core.hooksPath NOT set over an existing .git/hooks/pre-commit" \
+  || bad "(16d) FAILED: core.hooksPath='$_act6' — every existing .git/hooks/* is now dead"
+( cd "$P7" && git add -A >/dev/null 2>&1; git commit -q -m probe >/dev/null 2>&1 ); _c_rc=$?
+[ -f "$P7/.pre-commit-fired" ] \
+  && ok "(16d) existing pre-commit FIRED through git after install (never-clobber contract held)" \
+  || bad "(16d) FAILED: pre-commit did NOT fire after install (commit rc=$_c_rc) — silently disabled"
+echo "$out4" | grep -qi 'existing git hook' \
+  && ok "(16d) printed notice naming the existing hook(s) (consumer informed)" \
+  || bad "(16d) no notice printed (silently declined): $(echo "$out4" | grep -i hook | tr '\n' '|')"
+[ -f "$P7/.getff/hooks/pre-push" ] \
+  && ok "(16d) getff hook body still delivered to .getff/hooks/pre-push" \
+  || bad "(16d) getff hook body NOT delivered (declined too hard)"
+rm -rf "$P7"
+
+# ── (16e) A2-2 worktree shape: `.git` is a FILE, hooks live in the common dir ──────────────────
+# In a linked worktree the literal `-f .git/hooks/pre-push` test is FALSE even when the repo HAS
+# that hook, and `git config core.hooksPath` writes the SHARED config — so the pre-fix code
+# disabled the main checkout's hooks from inside a worktree. `git rev-parse --git-path hooks`
+# is the only correct way to reach the real hook directory. RED against pre-fix code.
+echo ""; echo "  ── (16e) A2-2: linked worktree resolves hooks via git rev-parse --git-path ──"
+P8M=$(py_fixture); git -C "$P8M" init -q
+git -C "$P8M" config user.email t@example.com; git -C "$P8M" config user.name t
+git -C "$P8M" add -A >/dev/null 2>&1; git -C "$P8M" commit -q -m init >/dev/null 2>&1
+mkdir -p "$P8M/.git/hooks"
+printf '#!/bin/sh\nexit 0\n' > "$P8M/.git/hooks/pre-push"; chmod +x "$P8M/.git/hooks/pre-push"
+P8=$(mktemp -d)/wt
+if git -C "$P8M" worktree add -q "$P8" -b wtprobe >/dev/null 2>&1; then
+  [ -f "$P8/.git" ] \
+    && ok "(16e) fixture is a real linked worktree (.git is a FILE)" \
+    || bad "(16e) fixture is not a linked worktree — arm would be vacuous"
+  ( cd "$P8" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+  _act7=$(git -C "$P8" config --get core.hooksPath 2>/dev/null || true)
+  [ -z "$_act7" ] \
+    && ok "(16e) core.hooksPath NOT set from inside the worktree (shared config untouched)" \
+    || bad "(16e) FAILED: core.hooksPath='$_act7' written to the SHARED config — main checkout's pre-push is now dead"
+  [ -x "$P8M/.git/hooks/pre-push" ] \
+    && ok "(16e) main checkout's .git/hooks/pre-push preserved" \
+    || bad "(16e) main checkout's .git/hooks/pre-push removed"
+  git -C "$P8M" worktree remove --force "$P8" >/dev/null 2>&1 || true
+else
+  bad "(16e) could not create the linked-worktree fixture (arm did not run)"
+fi
+rm -rf "$P8M"
 
 # Self-verifying TEETH assertion: arms (14)-(16) are fail-closed — T14 (a green install with the
 # hook delivered-but-never-fired is «coverage insufficient», not «works»). The RED run in arm (15)
