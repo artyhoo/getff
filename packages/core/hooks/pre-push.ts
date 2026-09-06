@@ -379,7 +379,10 @@ function priorArtSection(rb: ResolvedBase): void {
         '  Prior-art: prior-art-evaluations.md#1 (Autogrep, verdict DEFER — different domain).\n' +
         '  Prior-art: skipped — refactor only, no new capability\n\n' +
         'Rules: ≥20 chars after "Prior-art:" (or after "skipped — "); placeholder\n' +
-        'rationales (TODO / later / n/a / tbd / fixme / placeholder) are rejected.\n\n',
+        'rationales (TODO / later / n/a / tbd / fixme / placeholder) are rejected.\n' +
+        'A positive line must also name a resolvable referent — an SSOT row\n' +
+        '(prior-art-evaluations.md#N), an artefact path (setup.d/lib.sh:359), or an\n' +
+        'issue/PR reference (#1271). See CLAUDE.md §`Prior-art:` trailer syntax.\n\n',
     );
     process.exit(1);
   }
@@ -1611,6 +1614,7 @@ export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
   'AGENTS.md', // 30-templates.sh:95 / 45-python.sh:1313 (install_agents_md)
   '.ai-factory/AI-USAGE-GUIDE.md',
   '.ai-factory/ARCHITECTURE.md',
+  '.ai-factory/ARCHITECTURE.python.md', // 45-python.sh:1341 (ledger A2-10)
   '.ai-factory/ARCHITECTURE.react-native.md',
   '.ai-factory/ARCHITECTURE.react-next.md',
   '.ai-factory/ARCHITECTURE.react-spa.md',

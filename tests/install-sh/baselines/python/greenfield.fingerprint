@@ -1,10 +1,10 @@
 97bc4d9830ff6f96c43491938d90eca1144acba7748939b22e5e04bf6b1c11dc  .ai-factory/AI-USAGE-GUIDE.md
-df45f99ce099a46da636ab027a49131b350b8174123eec6d6418700e4d76c2f2  .ai-factory/ARCHITECTURE.md
-854cfb38f3d4acfd40245b5b490e5163658e2e98b0573239c15dd5802d16f5cb  .ai-factory/ARCHITECTURE.ts-server.md
+5ae31e39e6a3bc220820ee850ec1884f0e5724a32de8a79e5f9f0fdf59be1052  .ai-factory/ARCHITECTURE.md
+fb03a9916de1ae1e6e1731dab3e939998a90008ef79c849ee1be774c53308905  .ai-factory/ARCHITECTURE.python.md
 03264d66be0aceebf3e0df0a2bd361ec7db105551b93b519122c58ac9721bcda  .ai-factory/DESCRIPTION.md
 03264d66be0aceebf3e0df0a2bd361ec7db105551b93b519122c58ac9721bcda  .ai-factory/DESCRIPTION.template.md
 49062080a90b66eaa853a548d45c5a505f3cfef86eaf1baa2d8d4bc27c9ee2fd  .ai-factory/RULES.md
-dd697454292e42d7cd6f408b75a3d8aa9643f858b032661d51b1992807b1f1bb  .ai-factory/refresh-baseline.json
+8e5c96a3e2d93e8fe6c3df93c18ba0b4db60f5f12e7c84e133a214f6b144f7d2  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
 7d6b6061459f0939e64358447d0905329ddd4c52abd459ee8d9d201653ffb791  .ai-factory/skill-context/aif-rules-check/SKILL.md

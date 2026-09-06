@@ -1327,12 +1327,18 @@ _py_deliver_agent_surface() {
 
   # ── .ai-factory/ agent-surface subtree ───────────────────────────────────────
   # Replicates setup.d/30-templates.sh:13-73 — minus the react-* stack branches (the python lane
-  # has no STACK context — install.sh exits at do_python_lane before the npm stack pick). Default
-  # stack source = ts-server (canonical SSOT).
+  # has no STACK context — install.sh exits at do_python_lane before the npm stack pick). The
+  # npm-lane default stack source (ts-server) is NOT the python default: see A2-10 below.
   mkdir_safe "$PROJECT_ROOT/.ai-factory/rules"
   mkdir_safe "$PROJECT_ROOT/.ai-factory/orchestrator-prompts"
   copy_safe "$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md" "$PROJECT_ROOT/.ai-factory/DESCRIPTION.template.md"
-  copy_safe "$PKG_ROOT/packages/core/templates/shared/ARCHITECTURE.ts-server.md" "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.ts-server.md"
+  # A2-10 (same class as A2-5): the named-variant arch doc must name THIS lane's stack. It used to
+  # be ARCHITECTURE.ts-server.md — a hexagonal server-TypeScript doc (Zod, vitest, dependency-
+  # cruiser, `Date.now()` bans) handed to a Python repo as its architecture SSOT.
+  # Stays copy_safe (never _py_copy_or_refresh): the `.ai-factory/ARCHITECTURE.*` family is
+  # consumer-owned from first landing — the same classification its ts-server sibling carries in
+  # tests/install-sh/refresh-covers-full-delivery.test.sh's EXCLUDED list.
+  copy_safe "${PY_TEMPLATE_DIR:-$PKG_ROOT/packages/core/templates/python}/ARCHITECTURE.md" "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.python.md"
   # A2-5: the python lane renders its OWN rule list from the rules it actually delivered. It used
   # to copy the Next.js-15 preset's RULES.md here, which told a Python repo's agents to satisfy a
   # TypeScript/React rule set while the delivered ast-grep/ruff bans went undocumented.
@@ -1352,7 +1358,13 @@ _py_deliver_agent_surface() {
   copy_safe "$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md" "$PROJECT_ROOT/.ai-factory/DESCRIPTION.md"
   _py_arch_dst="$PROJECT_ROOT/.ai-factory/ARCHITECTURE.md"
   _py_arch_existed=0; [ -e "$_py_arch_dst" ] && _py_arch_existed=1
-  copy_safe "$PKG_ROOT/packages/core/templates/shared/ARCHITECTURE.ts-server.md" "$_py_arch_dst"
+  # A2-10: the materialized SoT gets the python starter, not the ts-server one. The npm lane picks
+  # its source through arch_sot_src_for_stack (setup.d/lib.sh) whose `*)` fallback is ts-server —
+  # correct there (an unknown NPM stack is still TypeScript), wrong here. This lane never enters
+  # that helper (no STACK), so the source is named directly rather than by adding a python case to
+  # a stack map the python lane does not consult. The python starter carries the same
+  # `> Drop into …` first line, so rewrite_arch_sot_header below still fires on the COPY.
+  copy_safe "${PY_TEMPLATE_DIR:-$PKG_ROOT/packages/core/templates/python}/ARCHITECTURE.md" "$_py_arch_dst"
   rewrite_arch_sot_header "$_py_arch_dst" "$_py_arch_existed"
 
   # skill-context overrides (replicates 20-agents.sh:58-69). SHIPPED_DOCS is in scope from install.sh:145.

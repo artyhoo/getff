@@ -48,6 +48,32 @@ export function loadSsotIds(ssotContent: string): Set<number> {
   return ids;
 }
 
+/**
+ * A positive `Prior-art:` trailer must name a RESOLVABLE REFERENT — something a
+ * reader can go and open. Three accepted forms, mirroring the CLAUDE.md
+ * «`Prior-art:` trailer syntax» section:
+ *
+ *   1. an SSOT row — `prior-art-evaluations.md#N` (the documented primary form,
+ *      additionally existence-checked by the C1 arm below);
+ *   2. a concrete artefact path — `setup.d/lib.sh:359`,
+ *      `research-patches/2026-05-23-guard-liveness-gate.md §2`;
+ *   3. an issue / PR reference — `#1271`, `PR #1094`.
+ *
+ * Before this arm the check accepted ANY ≥20-char payload that was not the
+ * `skipped` escape hatch, so `Prior-art: consulted — no entry applies` (39
+ * chars, zero traceability) satisfied the gate on a capability commit — the
+ * `#hope-as-gate` shape of `.claude/rules/attention-is-not-a-mechanism.md` §2.
+ *
+ * The grammar is deliberately wider than «cite an SSOT id»: measured over the
+ * post-cutoff first-parent history, 145 capability commits carry a positive
+ * trailer and 23 of them (16%) reference in-repo precedent or a research patch
+ * rather than a register row — legitimate consults the strict reading would
+ * reject. Under this grammar the same corpus fails 2 (1.4%), both from before
+ * 2026-07-19, and both vacuity probes above are rejected.
+ */
+const REFERENT_RE =
+  /prior-art-evaluations\.md#\d+|[\w.-]+(?:\/[\w.-]+)*\.(?:tsx?|[cm]?js|sh|md|markdown|json|ya?ml|py|rs|toml)\b|#\d{2,}/;
+
 const PLACEHOLDERS = new Set([
   'todo',
   'later',
@@ -146,11 +172,63 @@ export function isNewDepAdded(packageJsonDiff: string): boolean {
  */
 const DOC_FILE_RE = /\.(md|markdown)$/i;
 
+/**
+ * Test material: a `*.test.*` / `*.spec.*` file, or anything under a `test(s)/`,
+ * `__tests__/` or `*fixtures/` directory.
+ */
+const TEST_FILE_RE =
+  /(?:^|\/)(?:tests?|__tests__|__fixtures__|[\w.-]*fixtures)\/|\.(?:test|spec)\.(?:[cm]?[jt]sx?|sh|mjs)$/;
+
+/**
+ * Files directly in `packages/core/principles/` are the meta-test enforcement
+ * layer itself, not tests OF something else — a new principle IS a new
+ * capability (a new enforcement rule), which is why the prose exemption is
+ * «test additions **for existing capabilities**». Subdirectories
+ * (`principles/fixtures/`, `principles/__fixtures__/`) are ordinary test
+ * material and stay exempt.
+ */
+const ENFORCEMENT_FILE_RE = /^packages\/core\/principles\/[^/]+$/;
+
+/**
+ * Test material never counts toward the LOC triggers — the CLAUDE.md prose
+ * definition has always exempted «test additions for existing capabilities»,
+ * and the detector claims to mirror that prose (`CLAUDE.md`, «What is a
+ * capability commit?»). It did not: measured over the last 250 first-parent
+ * commits on staging, 18 of the 27 commits the ≥80-LOC arm fired on added ONLY
+ * test files, and the trailers they forced cited SSOT rows that the commit did
+ * not touch (#242/#20/#16 on a hook-test pair, #45 «unchanged by this») — the
+ * gate was manufacturing rote citations, which is the failure mode
+ * `.claude/rules/attention-is-not-a-mechanism.md` §2 names.
+ *
+ * A commit that adds test material ALONGSIDE a qualifying production file still
+ * trips on that production file, so the carve-out cannot hide a capability: it
+ * only removes commits whose entire qualifying content is test material.
+ *
+ * The exception is the principles directory (`ENFORCEMENT_FILE_RE`): those files
+ * are the enforcement capability, not a test for one. All 9 principle files that
+ * tripped the arm in the same window carried a substantive, on-topic SSOT
+ * citation (#244 actionlint, #245 safe-settings, #246 Vitest `test.include`,
+ * #251 markdownlint, #19 lychee …) — the gate does real work there and keeps it.
+ *
+ * Both halves match the OTHER enforcement channel of the same invariant, which
+ * has held this semantic since it shipped: principle 11 (SSOT #48) builds its
+ * capability set from «non-test» TS files only
+ * (`packages/core/principles/11-build-first-reuse-default.test.ts:192`) while
+ * singling principle tests out as needing «a dedicated SSOT entry with verbatim
+ * path OR a Prior-art trailer» (`…:525`). This carve-out brings the pre-push
+ * channel into parity with the CI one.
+ */
+function isExemptTestMaterial(path: string): boolean {
+  if (ENFORCEMENT_FILE_RE.test(path)) return false;
+  return TEST_FILE_RE.test(path);
+}
+
 function isNewCoreSubdir50Loc(sha: string, g: GitProvider): boolean {
   for (const { status, path } of g.changedFiles(sha)) {
     if (status !== 'A') continue;
     if (!path.startsWith('packages/core/')) continue;
     if (DOC_FILE_RE.test(path)) continue;
+    if (isExemptTestMaterial(path)) continue;
     const subdir = path.slice('packages/core/'.length).split('/')[0];
     if (g.subdirExistedAtParent(sha, subdir)) continue; // not a NEW subdir
     const content = g.fileContent(sha, path);
@@ -168,6 +246,7 @@ function isNewPackages80Loc(sha: string, g: GitProvider): boolean {
     if (status !== 'A') continue;
     if (!path.startsWith('packages/')) continue;
     if (DOC_FILE_RE.test(path)) continue;
+    if (isExemptTestMaterial(path)) continue;
     const content = g.fileContent(sha, path);
     if (content !== null && loc(content) >= 80) {
       // Same pre-image carve-out as the ≥50-LOC arm: a copy of content the repo
@@ -221,6 +300,7 @@ export function checkTrailerBody(
   if (authorDate && authorDate < cutoff) return { code: 0, message: '' };
 
   let foundAny = false;
+  let sawUnreferenced = false;
   for (const line of body.split('\n')) {
     if (!line.startsWith('Prior-art:')) continue;
     foundAny = true;
@@ -242,6 +322,13 @@ export function checkTrailerBody(
           'substance: Prior-art: skipped on capability commit — cite an SSOT entry (prior-art-evaluations.md#N) instead',
       };
     }
+    // A positive trailer that names no resolvable referent is not a consult —
+    // skip it so a later stacked line can still carry the commit, and remember
+    // the shape so the final message names the real defect.
+    if (!REFERENT_RE.test(payload)) {
+      sawUnreferenced = true;
+      continue;
+    }
     // Valid positive trailer. C1: when the register's id-set is supplied, every
     // cited prior-art-evaluations.md#N must resolve to a real entry. A trailer
     // with no #N citation (free-form prose) has nothing to resolve → passes.
@@ -259,6 +346,15 @@ export function checkTrailerBody(
       }
     }
     return { code: 0, message: '' };
+  }
+  if (sawUnreferenced) {
+    return {
+      code: 1,
+      message:
+        'Prior-art: line names no resolvable referent — cite an SSOT row ' +
+        '(prior-art-evaluations.md#N), a concrete artefact path (path/to/file.ts:12), ' +
+        'or an issue/PR reference (#1271)',
+    };
   }
   return {
     code: 1,

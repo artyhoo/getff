@@ -687,6 +687,75 @@ rm -rf "$P8M"
   && ok "(14-16) local git rung delivered + activated + integrated — fail-closed arm held GREEN" \
   || bad "(14-16) local git rung delivery/activation issues — see MISSING items above"
 
+# ── (17) A2-10 paired-negative: the delivered architecture SSOT is PYTHON, not ts-server ───────
+# RED against pre-fix code: setup.d/45-python.sh copied packages/core/templates/shared/
+# ARCHITECTURE.ts-server.md into BOTH .ai-factory/ARCHITECTURE.ts-server.md and the materialized
+# .ai-factory/ARCHITECTURE.md, so a Python consumer's architecture SSOT opened with
+# "# Architecture — server-side TypeScript" and prescribed Zod / vitest / dependency-cruiser /
+# `Date.now()` bans — none of which this lane installs or can run. Same class as A2-5 (the
+# Next.js-15 RULES.md), and the same shape of fix: a lane-owned template wired at both call sites.
+echo ""; echo "  ── (17) A2-10: .ai-factory architecture doc is the PYTHON one ──"
+P9=$(py_fixture)
+git -C "$P9" init -q
+( cd "$P9" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+_a210_fail=0
+_a210_arch="$P9/.ai-factory/ARCHITECTURE.md"
+if [ ! -f "$_a210_arch" ]; then
+  bad "(17) MISSING .ai-factory/ARCHITECTURE.md — the AGENTS.md-referenced SoT did not materialize"
+  _a210_fail=1
+else
+  # (a) POSITIVE — the materialized SoT names this lane's language.
+  head -1 "$_a210_arch" | grep -q 'Python' \
+    && ok "(17a) ARCHITECTURE.md H1 names Python: $(head -1 "$_a210_arch")" \
+    || { bad "(17a) ARCHITECTURE.md H1 is not a Python doc: $(head -1 "$_a210_arch")"; _a210_fail=1; }
+  # (b) PAIRED NEGATIVE — the ts-server PRESCRIPTIONS must be gone. Matched on strings verbatim
+  # from packages/core/templates/shared/ARCHITECTURE.ts-server.md (its H1, its dependency-cruiser
+  # heading, its Zod/vitest/suffix rules), NOT on bare tool names: the python doc deliberately
+  # NAMES those tools once to tell an agent they are absent here (same disclaimer paragraph as
+  # packages/core/templates/python/RULES.md:10-12), and a negation is not the defect. Every one of
+  # these strings landed in a pre-fix python install.
+  _a210_ts=$(grep -nE 'server-side TypeScript|Enforced by `dependency-cruiser`|Stdlib \+ Zod ONLY|Zod schemas|vitest run|\.unit\.ts|inject Clock' "$_a210_arch" || true)
+  [ -z "$_a210_ts" ] \
+    && ok "(17b) no TypeScript-lane prescriptions in the Python ARCHITECTURE.md" \
+    || { bad "(17b) ts-server content survived in ARCHITECTURE.md: $(echo "$_a210_ts" | head -3 | tr '\n' '|')"; _a210_fail=1; }
+fi
+# (c) the named-variant sibling is the python one, byte-identical to the shipped template …
+cmp -s "$TPL/ARCHITECTURE.md" "$P9/.ai-factory/ARCHITECTURE.python.md" \
+  && ok "(17c) .ai-factory/ARCHITECTURE.python.md delivered byte-identical to the template" \
+  || { bad "(17c) .ai-factory/ARCHITECTURE.python.md missing or differs from $TPL/ARCHITECTURE.md"; _a210_fail=1; }
+# (d) … and the ts-server variant is NOT delivered on this lane at all.
+[ ! -e "$P9/.ai-factory/ARCHITECTURE.ts-server.md" ] \
+  && ok "(17d) no .ai-factory/ARCHITECTURE.ts-server.md on the python lane" \
+  || { bad "(17d) .ai-factory/ARCHITECTURE.ts-server.md still delivered — wrong-lane SSOT"; _a210_fail=1; }
+# (e) rewrite_arch_sot_header still fires on the python source: the "Drop into" line is rewritten
+# on the materialized COPY and preserved on the named variant (proves the shared helper was not
+# silently bypassed by pointing it at a template whose first lines no longer match its sed range).
+if [ -f "$_a210_arch" ] && [ -f "$P9/.ai-factory/ARCHITECTURE.python.md" ]; then
+  grep -q 'This install-generated starter IS your' "$_a210_arch" \
+    && ok "(17e) rewrite_arch_sot_header fired on the materialized ARCHITECTURE.md" \
+    || { bad "(17e) header NOT rewritten — the python template's first lines fell out of the helper's sed range"; _a210_fail=1; }
+  grep -q '^> Drop into' "$P9/.ai-factory/ARCHITECTURE.python.md" \
+    && ok "(17e) the named variant keeps its 'Drop into' guidance (only the copy is rewritten)" \
+    || { bad "(17e) ARCHITECTURE.python.md lost its 'Drop into' line"; _a210_fail=1; }
+fi
+# (f) anti-theatre: every enforcement channel the doc names must exist in the delivered tree. A
+# doc that cites a check the lane never installed is the failure this ledger finding is about,
+# only pointing the other way.
+for _a210_p in .getff/astgrep-rules .getff/ruff-bans.toml \
+               .getff/hooks/pre-push .github/workflows/getff-python.yml; do
+  if grep -qF "$_a210_p" "$_a210_arch" 2>/dev/null; then
+    [ -e "$P9/$_a210_p" ] \
+      && ok "(17f) doc cites $_a210_p and the install delivered it" \
+      || { bad "(17f) doc cites $_a210_p but the install never delivered it"; _a210_fail=1; }
+  else
+    bad "(17f) expected the doc to cite $_a210_p in its enforcement table"; _a210_fail=1
+  fi
+done
+[ "$_a210_fail" = "0" ] \
+  && ok "(17) A2-10 fail-closed arm held GREEN — python lane ships a python architecture doc" \
+  || bad "(17) A2-10 arm RED — see items above"
+rm -rf "$P9"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
