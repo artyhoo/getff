@@ -213,9 +213,38 @@ export function checkResearchedAstgrepDrift(
   return findings;
 }
 
-function main(): void {
+/** The per-backend pieces of the shared session-side render CLI ({@link runRenderCli}).
+ *  `P` is the backend's plan shape — only `researchOnly` is contract (the driver surfaces
+ *  those findings itself); everything else stays backend-local. */
+export interface RenderCliBackendConfig<
+  P extends { researchOnly: readonly { entryId: string; reason: string; detail: string }[] },
+> {
+  /** Backend word in the CLI's contract lines: `researched <backend> artifacts up-to-date`,
+   *  `researched <backend> artifact drift detected:`, `render-researched-<backend>.ts`. */
+  backend: string;
+  /** Produce the plan — WRITE mode when `write` is true (the fs-mutating path), check-only
+   *  otherwise (the drift gate imports the pure planners and must not write). */
+  plan(write: boolean): P;
+  /** Drift findings for --check mode (empty = up-to-date). */
+  drift(): readonly { path: string; reason: string }[];
+  /** The write-mode success summary — already multi-line, each line newline-terminated. */
+  summary(plan: P): string;
+}
+
+/**
+ * THE shared session-side render CLI driver (R-5, ledger-1597-fixes) — the main() skeleton
+ * render-researched-clippy.ts had cloned verbatim from this file. Parameterised over
+ * {@link RenderCliBackendConfig}; per-backend stdout/stderr bytes and exit codes are
+ * UNCHANGED (the drift-gate messages are contract, not implementation detail). Exported from
+ * this file (the canonical older pair member) rather than a new module — the kickoff's
+ * owned-file row has no new synthesizer module in scope. The per-file `isMain` idiom stays
+ * in each entry file — it must fire per entrypoint and is deliberately NOT part of the dedup.
+ */
+export function runRenderCli<
+  P extends { researchOnly: readonly { entryId: string; reason: string; detail: string }[] },
+>(config: RenderCliBackendConfig<P>): void {
   const check = process.argv.includes('--check');
-  const plan = check ? planFromCommittedRecords() : writeResearchedAstgrep();
+  const plan = config.plan(!check);
 
   // Surface every research-only finding — MAJOR-1 honesty is never a silent drop.
   for (const finding of plan.researchOnly) {
@@ -225,26 +254,34 @@ function main(): void {
   }
 
   if (check) {
-    const drift = checkResearchedAstgrepDrift();
+    const drift = config.drift();
     if (drift.length === 0) {
-      process.stdout.write('researched astgrep artifacts up-to-date\n');
+      process.stdout.write(`researched ${config.backend} artifacts up-to-date\n`);
       process.exit(0);
     }
-    process.stderr.write('❌ researched astgrep artifact drift detected:\n');
+    process.stderr.write(`❌ researched ${config.backend} artifact drift detected:\n`);
     for (const d of drift) process.stderr.write(`  ${d.reason}: ${d.path}\n`);
     process.stderr.write(
-      'Run: npx tsx packages/core/synthesizer/render-researched-astgrep.ts\n',
+      `Run: npx tsx packages/core/synthesizer/render-researched-${config.backend}.ts\n`,
     );
     process.exit(1);
   }
 
-  process.stdout.write(
-    `rendered ${plan.rendered.length} researched rule(s), ` +
-      `${plan.researchOnly.length} research-only finding(s) under ` +
-      `${relative(resolve(HERE, '../..'), LIVE_GEN_DIR)}/\n`,
-  );
-  for (const rule of plan.rendered) process.stdout.write(`  ${rule.path}\n`);
+  process.stdout.write(config.summary(plan));
   process.exit(0);
+}
+
+function main(): void {
+  runRenderCli({
+    backend: 'astgrep',
+    plan: (write) => (write ? writeResearchedAstgrep() : planFromCommittedRecords()),
+    drift: () => checkResearchedAstgrepDrift(),
+    summary: (plan) =>
+      `rendered ${plan.rendered.length} researched rule(s), ` +
+      `${plan.researchOnly.length} research-only finding(s) under ` +
+      `${relative(resolve(HERE, '../..'), LIVE_GEN_DIR)}/\n` +
+      plan.rendered.map((rule) => `  ${rule.path}\n`).join(''),
+  });
 }
 
 // Run only when invoked directly (`tsx render-researched-astgrep.ts`), never on import — the drift
