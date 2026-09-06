@@ -90,7 +90,10 @@ function parsePyproject(text: string): ParsedPyproject {
 
 /** Extracts PEP 508 names from a `[project]` section's body lines. Recognizes
  *  `dependencies = ["…", "…"]` (single-line array) and
- *  `[project.optional-dependencies]` tables `key = ["…", …]`.
+ *  `[project.optional-dependencies]` tables `key = ["…", …]`. Multi-line
+ *  arrays are handled by the CALLER for `[project]` (see {@link collectArrayLines}
+ *  in listDirectDeps): the accumulated lines are re-joined into the single-line
+ *  shape before reaching this function.
  *
  *  NOTE: the closing `]` of the array is matched quote-aware — a `]` inside a
  *  quoted string (e.g. `django[bcrypt]`) is not treated as the array terminator.
@@ -113,6 +116,32 @@ function extractPep621Deps(sectionBody: string[]): Set<string> {
     // Non-array lines (e.g. `name = "myproj"`) contribute nothing.
   }
   return names;
+}
+
+/** Collects the body lines of a (possibly multi-line) TOML string-array value
+ *  that OPENS on `body[start]` (`key = [ …`). Returns the accumulated lines
+ *  (opening line through the line closing the array) plus the index of the next
+ *  unconsumed line. Quote-aware: brackets inside a double-quoted spec (e.g.
+ *  `django[bcrypt]`) are not array brackets. Returns null when the array is
+ *  left unterminated at the end of the section body — fail-closed: the caller
+ *  contributes NOTHING for that key (A7-1 keeps the malformed-input posture). */
+function collectArrayLines(body: string[], start: number): { lines: string[]; next: number } | null {
+  const lines: string[] = [];
+  let depth = 0;
+  let inQuotes = false;
+  for (let i = start; i < body.length; i++) {
+    const line = body[i]!;
+    lines.push(line);
+    for (let j = 0; j < line.length; j++) {
+      const ch = line[j]!;
+      if (ch === '"') { inQuotes = !inQuotes; continue; }
+      if (inQuotes) continue;
+      if (ch === '[') depth++;
+      else if (ch === ']') depth--;
+    }
+    if (depth <= 0 && !inQuotes) return { lines, next: i + 1 };
+  }
+  return null;
 }
 
 /** Extracts dep names from a Poetry-style section: KEYS are names; values
@@ -259,11 +288,18 @@ export const pipAdapter: EcosystemAdapter = {
     const names = new Set<string>();
     for (const [header, body] of parsed.sections) {
       if (header === 'project') {
-        // PEP 621: only `dependencies = [...]` (other [project] fields are not deps).
-        for (const line of body) {
-          if (/^\s*dependencies\s*=/.test(line)) {
-            for (const n of extractPep621Deps([line])) names.add(n);
-          }
+        // PEP 621: only `dependencies = [...]` (other [project] fields are not deps —
+        // the key filter stays, so multi-line `classifiers`/`authors` arrays still
+        // contribute nothing). The array value may span multiple lines (the dominant
+        // uv/hatch/pdm form — A7-1): accumulate from the opening `[` to its
+        // quote-aware closing `]`, re-join into the single-line shape, and hand that
+        // to extractPep621Deps. Unterminated arrays contribute nothing (fail-closed).
+        for (let i = 0; i < body.length; ) {
+          if (!/^\s*dependencies\s*=\s*\[/.test(body[i]!)) { i++; continue; }
+          const acc = collectArrayLines(body, i);
+          if (acc === null) break; // unterminated multi-line array — fail-closed
+          for (const n of extractPep621Deps([acc.lines.join(' ')])) names.add(n);
+          i = acc.next;
         }
       } else if (header === 'project.optional-dependencies') {
         for (const n of extractPep621Deps(body)) names.add(n);
