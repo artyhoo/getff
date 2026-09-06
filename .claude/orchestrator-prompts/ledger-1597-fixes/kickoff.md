@@ -41,13 +41,14 @@ Stages are independent: no two stages share a file, and none shares a file with 
 | Stage | Kickoff | Findings | Files owned by the stage | Dispatch gate |
 | --- | --- | --- | --- | --- |
 | F5 | `kickoff-f5.md` | C-2 (absorbs A1-5) | `setup.d/50-hooks.sh` (:61-70 delivery block only), `install.sh` (a `check-ask-files` refresh arm if one exists), `tests/install-sh/deliver-gate-scripts.test.sh`, npm baselines, `packages/getff/MANIFEST.sha256` | none |
-| F6 | `kickoff-f6.md` | A2-9, A2-11, A2-12 (campaign addenda) | `setup.d/45-python.sh` (`_hash_input` only), `setup.d/46-cargo.sh` + `setup.d/47-go.sh` (`_write_rules_lock` bodies only), `tests/install-sh/{refresh-covers-full-delivery,python-rules-lock,cargo-entry-lane,go-entry-lane}.test.sh`, `packages/getff/MANIFEST.sha256` | after F1 is harvested |
+| F6 | `kickoff-f6.md` | A2-9, A2-11, A2-12, R-3b (campaign addenda) | `setup.d/45-python.sh` (`_hash_input` + its fingerprint ladder only), `setup.d/46-cargo.sh` + `setup.d/47-go.sh` (`_write_rules_lock` bodies only), `tests/install-sh/{refresh-covers-full-delivery,python-rules-lock,cargo-entry-lane,go-entry-lane}.test.sh`, `packages/getff/MANIFEST.sha256` | after F1 is harvested |
 | F7 | `kickoff-f7.md` | K-6, T-6 (campaign addenda) | `.claude/hooks/validate-prompt.sh` (+ regenerated `plugin/hooks/validate-prompt`), `vitest.config.ts`, `packages/core/vitest.config.ts`, npm baselines, `packages/getff/MANIFEST.sha256` | none |
 | F8 | `kickoff-f8.md` | S-2, S-3 | `setup.d/lib.sh`, `setup.d/45-python.sh`, `setup.d/46-cargo.sh`, `setup.d/47-go.sh`, `install.sh` (lane functions + detection blocks), `packages/getff/MANIFEST.sha256`, existing `tests/install-sh/*.test.sh` arms | after F1, F5, F6 and the desktop installer chain |
 | F9 | `kickoff-f9.md` | A1-9d (campaign addendum) | `setup.d/lib.sh` (`copy_safe` body only), `tests/install-sh/stale-tmp-unconditional-success.test.sh`, `packages/getff/MANIFEST.sha256` | before F8, or after F8 on the relocated helper — never concurrently |
 | F10 | `kickoff-f10.md` | D-7c (campaign addendum, docs-only) | `INSTALL.md`, `docs/runtime-bridge-setup.md`, `INSTALL-FOR-AI.md` (one pointer line max) | none |
+| F11 | `kickoff-f11.md` | L-4d, L-4e (campaign addenda from #1647) | `setup.d/lib.sh` (`refresh_safe` early-exit + `_report_dir_residue` / `report_getff_orphans` bodies only), `tests/install-sh/lane-orphan-residue.test.sh` (new arms), `packages/getff/MANIFEST.sha256` | after F9 is merged; never concurrently with F8 |
 
-Tail stages own their rows exactly as F1–F4 own theirs; the §2 «owned by another session» list applies to a tail stage only for files NOT in its row. Tail stages share files with each other (F6/F8 on 46/47, F5/F8 on install.sh, F9/F8 on lib.sh) — that is why the dispatch gates above are sequential, not a scope violation.
+Tail stages own their rows exactly as F1–F4 own theirs; the §2 «owned by another session» list applies to a tail stage only for files NOT in its row. Tail stages share files with each other (F6/F8 on 46/47, F5/F8 on install.sh, F9/F8/F11 on lib.sh) — that is why the dispatch gates above are sequential, not a scope violation.
 
 ## §2 Scope lock (binding for every stage)
 
