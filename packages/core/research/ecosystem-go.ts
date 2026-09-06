@@ -22,23 +22,15 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { EcosystemAdapter, InstalledMeta } from './allowlist-resolver.ts';
-
-/** Rejects a dependency name containing path-traversal segments before any URL
- *  synthesis. Mirrors the per-adapter `isUnsafeDepName` in ecosystem-npm.ts /
- *  ecosystem-cargo.ts / ecosystem-python.ts (each adapter carries its own private
- *  copy — the precondition tripwire at ecosystem-adapter-precondition.test.ts
- *  greps every adapter impl file for the textual signal).
- *
- *  Go module paths legitimately contain `/` (e.g. `github.com/user/repo`), so
- *  this guard diverges from npm/cargo/python: it rejects `..` (path-traversal
- *  signal — disallowed by the go module path spec) and `\\` (windows separator
- *  defense), but NOT the unix separator `/`. The dep NAME surface is the only
- *  traversal vector for go: cargo's VALUE-containment (`resolvedWithinRoot`
- *  over path-override / workspace-member / vendored branches) has no go
- *  equivalent — `readInstalledMeta` synthesizes URLs without any FS join. */
-function isUnsafeDepName(name: string): boolean {
-  return name.includes('..') || name.includes('\\');
-}
+// R-1 (ledger-1597-fixes): the NAME guard is the shared definition
+// (research-path-guards.ts); go adopts it in 'go-feed-raw' mode, preserving the
+// FROZEN F3 / T-AJ3-A contract byte-for-byte: this adapter rejects a traversal
+// ("..") and windows-separator name before URL synthesis, and passes every
+// `/`-bearing module path through RAW for tier1For to judge (go module paths
+// legitimately contain `/`; host-shape rejection is never the adapter's job).
+// go has NO VALUE surface: readInstalledMeta synthesizes URLs without any FS
+// join, so resolvedWithinRoot has no go equivalent (unchanged).
+import { isUnsafeDepName } from './research-path-guards.ts';
 
 /** Strips a `//` line comment from a go.mod line. NOT quote-aware — go.mod has
  *  no string literals in require directives. Mirrors ecosystem-python.ts
@@ -138,9 +130,9 @@ export const goAdapter: EcosystemAdapter = {
   readInstalledMeta(_root: string, pkg: string): InstalledMeta | null {
     // Reject path-traversal names before any URL synthesis — `..` is not
     // legitimate in a go module path (spec disallows it). This is the NAME-
-    // surface guard (F6 legitimately adapter-local); all HOST-shape
-    // rejection stays in tier1For.
-    if (isUnsafeDepName(pkg)) return null;
+    // surface guard in its 'go-feed-raw' mode (F6 legitimately adapter-local);
+    // all HOST-shape rejection stays in tier1For.
+    if (isUnsafeDepName(pkg, 'go-feed-raw')) return null;
 
     // §2.1 hard node: go has NO registry metadata document. Synthesize a
     // {homepage, repository} surface from the module path and feed it RAW to

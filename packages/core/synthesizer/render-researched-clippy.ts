@@ -49,6 +49,7 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { renderCargoClippy } from '../backends/cargo/render-clippy.ts';
 import type { ResolveCtx } from '../research/allowlist-resolver.ts';
+import { runRenderCli } from './render-researched-astgrep.ts';
 import {
   researchedPracticeToClippyNode,
   type ClippyResearchedPractice,
@@ -234,40 +235,24 @@ export function checkResearchedClippyDrift(
 }
 
 function main(): void {
-  const check = process.argv.includes('--check');
-  const plan = check ? planFromCommittedRecords() : writeResearchedClippy();
-
-  // Surface every research-only finding — MAJOR-1 honesty is never a silent drop.
-  for (const finding of plan.researchOnly) {
-    process.stderr.write(
-      `research-only (${finding.reason}): ${finding.entryId} — ${finding.detail}\n`,
-    );
-  }
-
-  if (check) {
-    const drift = checkResearchedClippyDrift();
-    if (drift.length === 0) {
-      process.stdout.write('researched clippy artifacts up-to-date\n');
-      process.exit(0);
-    }
-    process.stderr.write('❌ researched clippy artifact drift detected:\n');
-    for (const d of drift) process.stderr.write(`  ${d.reason}: ${d.path}\n`);
-    process.stderr.write(
-      'Run: npx tsx packages/core/synthesizer/render-researched-clippy.ts\n',
-    );
-    process.exit(1);
-  }
-
-  const banCount = plan.rendered?.entryIds.length ?? 0;
-  process.stdout.write(
-    `rendered ${banCount} researched clippy ban(s) into ${CRATE_DIRS.length} crate clippy.toml, ` +
-      `${plan.researchOnly.length} research-only finding(s) under ` +
-      `${relative(resolve(HERE, '../..'), LIVE_GEN_RUST_DIR)}/\n`,
-  );
-  for (const crateDir of CRATE_DIRS) {
-    process.stdout.write(`  ${renderedClippyPath(crateDir)}\n`);
-  }
-  process.exit(0);
+  // R-5 (ledger-1597-fixes): the CLI skeleton is the SHARED driver (runRenderCli, exported
+  // from render-researched-astgrep.ts — the canonical pair member; no new module). This
+  // file supplies only the per-backend pieces; stdout/stderr bytes and exit codes are
+  // unchanged (the drift-gate messages are contract).
+  runRenderCli({
+    backend: 'clippy',
+    plan: (write) => (write ? writeResearchedClippy() : planFromCommittedRecords()),
+    drift: () => checkResearchedClippyDrift(),
+    summary: (plan) => {
+      const banCount = plan.rendered?.entryIds.length ?? 0;
+      return (
+        `rendered ${banCount} researched clippy ban(s) into ${CRATE_DIRS.length} crate clippy.toml, ` +
+        `${plan.researchOnly.length} research-only finding(s) under ` +
+        `${relative(resolve(HERE, '../..'), LIVE_GEN_RUST_DIR)}/\n` +
+        CRATE_DIRS.map((crateDir) => `  ${renderedClippyPath(crateDir)}\n`).join('')
+      );
+    },
+  });
 }
 
 // Run only when invoked directly (`tsx render-researched-clippy.ts`), never on import — the drift

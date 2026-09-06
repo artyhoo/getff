@@ -26,6 +26,11 @@
 #   3c. negative: same commit + PA_SUBSTANCE_WARN_ONLY=0 / '' → exit non-zero (ledger D-3:
 #       only an AFFIRMATIVE value opts in; `0`/empty used to silently downgrade the gate)
 #   4. negative: short escape hatch ("Prior-art: skipped — TODO") → exit 1
+#   11. positive: test-only >=80-LOC additions + no trailer → exit 0 (L-1/B-3)
+#   12. negative: new packages/core/principles/ file + no trailer → exit non-zero
+#       (the carve-out is narrowed, not removed — a principle IS the capability)
+#   13. negative: new dep + a referent-free `Prior-art:` line → exit non-zero (K-5)
+#   14. positive: new dep + an artefact-path referent → exit 0 (K-5 paired positive)
 #   5. anti-tautology: trailer-matching load-bearing — verified by Stryker mutation
 #      score ≥80% on prior-art.ts (checkTrailerBody paired-negative in vitest).
 #   6. anti-tautology: capability detection load-bearing — verified by Stryker mutation
@@ -458,6 +463,91 @@ test_10_relocation_of_tracked_blob_is_not_capability() {
   rm -rf "$repo"
 }
 
+
+# add_files_commit: stages the given paths (each a 100-line generated file) and
+# commits with the given message lines.
+add_files_commit() {
+  local repo="$1" msgcount="$2"; shift 2
+  local msgs=() paths=() i=0
+  while [ "$i" -lt "$msgcount" ]; do msgs+=("$1"); shift; i=$((i+1)); done
+  for path in "$@"; do
+    make_big_file "$repo" "$path" 100
+    paths+=("$path")
+  done
+  git -C "$repo" add "${paths[@]}"
+  local args=()
+  for msg in "${msgs[@]}"; do args+=("-m" "$msg"); done
+  git -C "$repo" -c commit.gpgsign=false commit -q "${args[@]}"
+}
+
+# Test 11 (L-1 / B-3): a commit whose only >=80-LOC new file under packages/ is
+# TEST MATERIAL is not a capability commit — CLAUDE.md has always exempted «test
+# additions for existing capabilities», the detector did not.
+test_11_test_only_commit_is_not_capability() {
+  local repo
+  repo=$(make_test_repo)
+  add_files_commit "$repo" 2 \
+    "test: cover the existing emit prelude" \
+    "Body without any Prior-art line." \
+    "packages/core/hooks/hook-emit-prelude.test.ts" \
+    "packages/runtime-bridge/test/aif-backend-semantics.ts"
+  if run_hook "$repo"; then
+    record pass "11 — test-only >=80-LOC additions + no trailer → exit 0 (prose parity)"
+  else
+    record fail "11 — test-only additions wrongly flagged as a capability commit"
+  fi
+  rm -rf "$repo"
+}
+
+# Test 12 (L-1 paired negative): a principle file is the enforcement capability
+# itself, not a test for one — the carve-out must NOT reach it.
+test_12_principle_file_is_still_capability() {
+  local repo
+  repo=$(make_test_repo)
+  add_files_commit "$repo" 2 \
+    "feat: add principle 99" \
+    "Body without any Prior-art line." \
+    "packages/core/principles/99-new-rule.test.ts"
+  if run_hook "$repo"; then
+    record fail "12 — a new principle file should still demand a trailer but exited 0"
+  else
+    record pass "12 — new principle file + no trailer → exit non-zero (carve-out narrowed, not removed)"
+  fi
+  rm -rf "$repo"
+}
+
+# Test 13 (K-5): a positive trailer naming no resolvable referent is not a
+# consult — it satisfied the gate by length alone before the fix.
+test_13_referent_free_trailer_rejected() {
+  local repo
+  repo=$(make_test_repo)
+  add_capability_commit "$repo" \
+    "feat: add a new dependency" \
+    "Prior-art: consulted — no entry applies"
+  if run_hook "$repo"; then
+    record fail "13 — a referent-free Prior-art line should be rejected but exited 0"
+  else
+    record pass "13 — referent-free Prior-art line on a capability commit → exit non-zero"
+  fi
+  rm -rf "$repo"
+}
+
+# Test 14 (K-5 paired positive): an artefact path is a resolvable referent — the
+# grammar is wider than «cite an SSOT id», so in-repo precedent still passes.
+test_14_artefact_path_referent_accepted() {
+  local repo
+  repo=$(make_test_repo)
+  add_capability_commit "$repo" \
+    "feat: add a new dependency" \
+    "Prior-art: REUSE — setup.d/lib.sh:359 copy_safe skip-if-exists idiom"
+  if run_hook "$repo"; then
+    record pass "14 — artefact-path referent accepted → exit 0"
+  else
+    record fail "14 — an artefact-path referent was rejected"
+  fi
+  rm -rf "$repo"
+}
+
 # ── Run all ──────────────────────────────────────────────────────────────────
 
 test_1_positive_dep_with_trailer
@@ -472,6 +562,10 @@ test_7_bump_existing_dep_no_trailer_is_not_capability
 test_8_new_dep_with_tilde_version_caught_with_trailer
 test_9_twin_pair_in_same_commit_is_still_capability
 test_10_relocation_of_tracked_blob_is_not_capability
+test_11_test_only_commit_is_not_capability
+test_12_principle_file_is_still_capability
+test_13_referent_free_trailer_rejected
+test_14_artefact_path_referent_accepted
 
 printf '\n── Summary ──\n%d pass / %d fail\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1

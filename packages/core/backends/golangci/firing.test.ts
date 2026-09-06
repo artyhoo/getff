@@ -107,10 +107,13 @@ describe('parseCodesFromStdout — R9 (pure, always-on, no golangci-lint require
     expect(parseCodesFromStdout(stdout, '$.FromLinter').size).toBe(0);
   });
 
-  // Documents WHY this backend cannot share backends/shared/json-array-parse.ts: golangci's
-  // container is genuinely a different shape, and a bare array — the worker-time assumption —
-  // is not something the binary ever emits. Deleting this case would re-open the door to
-  // "just reuse the shared array parser".
+  // R-4 re-scope (ledger-1597-fixes): this backend DOES share the shared array parser now —
+  // via its `containerPath` parameter ('$.Issues' → see parseCodesFromStdout). What this pin
+  // still documents is WHY the container parameter exists at all: golangci's container is
+  // genuinely a different shape, and a bare array — the worker-time assumption — is not
+  // something the binary ever emits. A bare array root resolves `$.Issues` to undefined →
+  // non-array container → empty set. Deleting this case would re-open the door to dropping the
+  // container hop and silently parsing nothing.
   it('a BARE JSON array (the wrong worker-time assumption) yields nothing — shapes are distinct', () => {
     const stdout = JSON.stringify([{ FromLinter: 'forbidigo' }]);
     expect(parseCodesFromStdout(stdout, '$.FromLinter').size).toBe(0);
