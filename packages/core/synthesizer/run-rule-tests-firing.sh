@@ -307,11 +307,30 @@ _fire_ruff() {
     printf '%s' "$b64" | base64 -d > "$t/sample.py"
     rc=0
     if [ "$ruff_mode" = "uvx" ]; then
-      ( cd "$t" && uvx ruff@0.15.21 check --no-cache --config "$cfg" sample.py ) >/dev/null 2>&1 || rc=$?
+      ( cd "$t" && uvx ruff@0.15.21 check --no-cache --output-format json --config "$cfg" sample.py ) >"$t/ruff-out.json" 2>/dev/null || rc=$?
     else
-      ( cd "$t" && ruff check --no-cache --config "$cfg" sample.py ) >/dev/null 2>&1 || rc=$?
+      ( cd "$t" && ruff check --no-cache --output-format json --config "$cfg" sample.py ) >"$t/ruff-out.json" 2>/dev/null || rc=$?
     fi
-    if [ "$rc" -ne 0 ]; then _verdict ruff "$rid" "$kind" 1; else _verdict ruff "$rid" "$kind" 0; fi
+    # A7-5: ruff exits 1 for a syntax error in the sample regardless of the narrowed select
+    # (and 2 for a config error), so the exit code is NOT a firing signal — an unparsable
+    # bad[] sample was reported as firing the code under test, an arm that could never go
+    # RED for that sample. "Fired" ⇔ the structured diagnostics (`--output-format json`,
+    # the same identity the TS contract extracts: backends/ruff/firing-contract.json
+    # `$.code`) carry THIS code. A `code: null` diagnostic = the SAMPLE does not parse →
+    # "sample invalid" (RED on BOTH arms — it proves nothing in either direction); rc=2 /
+    # non-JSON stdout = the RULE artifact (config) is broken → "rule invalid", never fired.
+    lines="$(_json_array_field "$t/ruff-out.json" code)"
+    if [ "$rc" -eq 2 ] || printf '%s\n' "$lines" | grep -qF '<<not-array>>'; then
+      _verdict_invalid ruff "$rid" "$kind" "rule invalid" \
+        "broken ruff config (ruff exited 2 / produced no diagnostics JSON)"
+    elif printf '%s\n' "$lines" | grep -qF '<<null-code>>'; then
+      _verdict_invalid ruff "$rid" "$kind" "sample invalid" \
+        "sample does not parse; proves nothing"
+    elif printf '%s\n' "$lines" | grep -qxF -- "$rid"; then
+      _verdict ruff "$rid" "$kind" 1
+    else
+      _verdict ruff "$rid" "$kind" 0
+    fi
     rm -rf "$t"
   done < <(_emit_samples "$sidecar")
 }

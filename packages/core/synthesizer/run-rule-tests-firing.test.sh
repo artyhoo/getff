@@ -190,13 +190,92 @@ arm_sg_d() { # exit 0 + zero diagnostics: good[] clean; the blind bad[] arm stay
   assert_contains  "sg-d bad sample honestly did NOT fire" "$SCRATCH/sg-d.all" "did NOT fire"
 }
 
+# ── ruff lane (A7-5) ──────────────────────────────────────────────────────────
+# ruff exits 1 for a syntax error in the sample REGARDLESS of the narrowed select (and 2
+# for a config error), so exit code ≠ firing: an unparsable bad[] sample was reported as
+# firing the code under test — an arm that could never go RED for that sample. Diagnostic
+# truth = `check --output-format json` codes; `code: null` = the sample does not parse.
+# (The `uvx` invocation branch gets the same flag appended; it is not shimmed — a fake
+# `uvx` swallows its args, so the arm could not observe anything the `ruff` arm doesn't.)
+RU_RID='TID251'
+RU_FIRE_JSON="$SCRATCH/ru-fire.json"
+printf '%s\n' '[{"code":"TID251","message":"requests is banned — use httpx","url":"https://docs.astral.sh/ruff/rules/banned-api/","file":"sample.py"}]' > "$RU_FIRE_JSON"
+RU_SYNTAX_JSON="$SCRATCH/ru-syntax.json"
+printf '%s\n' '[{"code":null,"message":"SyntaxError: unexpected EOF while parsing (sample.py:2)","url":"https://docs.astral.sh/ruff/","file":"sample.py"}]' > "$RU_SYNTAX_JSON"
+RU_CLEAN_JSON="$SCRATCH/ru-clean.json"
+printf '%s\n' '[]' > "$RU_CLEAN_JSON"
+RU_EMPTY="$SCRATCH/ru-empty.json"
+: > "$RU_EMPTY"
+
+arm_ru_a() { # real TID251 match (exit 1 + code): bad[] fired RED; good[] clean on a quiet run
+  echo "arm ru-a: exit 1 + TID251 on bad[] — fired RED; good[] quiet — clean"
+  _shim2 ruff 1 "$RU_FIRE_JSON" 0 "$RU_CLEAN_JSON"
+  _sidecar "$SCRATCH/ru-a.json" "$RU_RID" 'import requests
+x = requests.get(1)
+' 'import httpx
+x = httpx.get(1)
+'
+  local tree; tree="$(_consumer_tree ru-a ruff "$SCRATCH/ru-a.json" "$RU_RID")"
+  run_firing "$tree" ruff "ru-a"
+  assert_rc        "ru-a run exits 0 (sound material)" 0 "$SCRATCH/ru-a.rc"
+  assert_contains  "ru-a bad sample read as fired RED" "$SCRATCH/ru-a.all" "bad sample fired RED"
+  assert_contains  "ru-a good sample clean" "$SCRATCH/ru-a.all" "good sample clean"
+}
+arm_ru_b() { # exit 1 + code:null on BOTH shots: syntax-error sample proves NOTHING (A7-5)
+  echo "arm ru-b: exit 1 + code:null (syntax error) — sample invalid on both arms, never fired"
+  _shim2 ruff 1 "$RU_SYNTAX_JSON" 1 "$RU_SYNTAX_JSON"
+  _sidecar "$SCRATCH/ru-b.json" "$RU_RID" 'import requests
+x = requests.get(1)
+' 'import httpx
+x = httpx.get(1)
+'
+  local tree; tree="$(_consumer_tree ru-b ruff "$SCRATCH/ru-b.json" "$RU_RID")"
+  run_firing "$tree" ruff "ru-b"
+  assert_rc          "ru-b run exits 1 (sample invalid is RED)" 1 "$SCRATCH/ru-b.rc"
+  assert_contains    "ru-b bad[] sample invalid" "$SCRATCH/ru-b.all" "sample invalid"
+  assert_contains    "ru-b good[] sample invalid" "$SCRATCH/ru-b.all" "sample invalid"
+  assert_not_contains "ru-b no sample counted as fired" "$SCRATCH/ru-b.all" "fired RED"
+}
+arm_ru_c() { # exit 2 (config error): the RULE artifact is broken — rule invalid, never fired
+  echo "arm ru-c: exit 2 (config error) — rule invalid, never fired"
+  _shim2 ruff 2 "$RU_EMPTY" 2 "$RU_EMPTY"
+  _sidecar "$SCRATCH/ru-c.json" "$RU_RID" 'import requests
+x = requests.get(1)
+' 'import httpx
+x = httpx.get(1)
+'
+  local tree; tree="$(_consumer_tree ru-c ruff "$SCRATCH/ru-c.json" "$RU_RID")"
+  run_firing "$tree" ruff "ru-c"
+  assert_rc          "ru-c run exits 1 (rule invalid is RED)" 1 "$SCRATCH/ru-c.rc"
+  assert_contains    "ru-c verdict is rule invalid" "$SCRATCH/ru-c.all" "rule invalid"
+  assert_not_contains "ru-c no sample counted as fired" "$SCRATCH/ru-c.all" "fired RED"
+}
+arm_ru_d() { # exit 0 + zero diagnostics: good[] clean; the blind bad[] arm stays honestly RED
+  echo "arm ru-d: exit 0 + [] — good clean, bad honestly did NOT fire"
+  _shim2 ruff 0 "$RU_CLEAN_JSON" 0 "$RU_CLEAN_JSON"
+  _sidecar "$SCRATCH/ru-d.json" "$RU_RID" 'import requests
+x = requests.get(1)
+' 'import httpx
+x = httpx.get(1)
+'
+  local tree; tree="$(_consumer_tree ru-d ruff "$SCRATCH/ru-d.json" "$RU_RID")"
+  run_firing "$tree" ruff "ru-d"
+  assert_rc        "ru-d run exits 1 (bad[] blind = broken material)" 1 "$SCRATCH/ru-d.rc"
+  assert_contains  "ru-d good sample clean" "$SCRATCH/ru-d.all" "good sample clean"
+  assert_contains  "ru-d bad sample honestly did NOT fire" "$SCRATCH/ru-d.all" "did NOT fire"
+}
+
 [ -f "$RUNNER" ] || { echo "runner not found: $RUNNER" >&2; exit 2; }
 arm_sg_a
 arm_sg_b
 arm_sg_c
 arm_sg_d
+arm_ru_a
+arm_ru_b
+arm_ru_c
+arm_ru_d
 
 echo
-echo "run-rule-tests-firing.test.sh: PASS=$PASS FAIL=$FAIL (lanes exercised via shim: astgrep)"
+echo "run-rule-tests-firing.test.sh: PASS=$PASS FAIL=$FAIL (lanes exercised via shim: astgrep, ruff)"
 [ "$FAIL" -eq 0 ] || exit 1
 exit 0
