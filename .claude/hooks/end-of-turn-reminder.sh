@@ -220,8 +220,29 @@ fi
 # than the resulting soft floor can never reach it — the arm is silent for them, not late.
 # With the shipped defaults that boundary is a real window of 300000 tokens (soft) / 500000
 # (deep). Such a consumer declares `AIF_CTX_WINDOW`, or moves the floor directly with
-# `AIF_CTX_SOFT_FLOOR` / `AIF_CTX_DEEP_FLOOR`. This is accepted degradation, not a fixable
-# estimate: nothing in the Stop payload or the transcript reports the request window.
+# `AIF_CTX_SOFT_FLOOR` / `AIF_CTX_DEEP_FLOOR`.
+#
+# `#aif-ctx-observed` — THE TWO-HOOK CONTRACT that narrows that limit for an undeclared
+# consumer (ledger #1597 A3-3b; the half A3-3 / PR #1619 could not reach from inside this
+# hook). Nothing in the Stop payload reports the window — live-probed, and the PreCompact
+# payload carries no window either (session_id, transcript_path, cwd, prompt_id,
+# hook_event_name, trigger, custom_instructions is the whole set, probed 2026-09-06). But
+# PreCompact observes the INSTANT the harness itself decided to compact, and the transcript's
+# usage sum at that instant is an empirical ceiling on the USABLE window.
+#
+#   Channel : ${TMPDIR:-/tmp}/aif-ctx-observed-<session-key>
+#   Payload : ONE decimal integer on the first line, nothing else.
+#   Writer  : .claude/hooks/precompact-residue.sh, `trigger=auto` ONLY.
+#   Reader  : this arm, when AIF_CTX_WINDOW is undeclared.
+#   Key     : session_id sanitised with `tr -c 'A-Za-z0-9._-' '_' | cut -c1-96` — BOTH sides
+#             derive it that way; changing it on one side silently unlinks the contract.
+#   Junk    : any non-numeric / zero / absent value falls through to the 1M default. A reader
+#             that trusted a 0 would derive 0 floors and fire on every turn.
+#
+# WHAT THIS STILL DOES NOT FIX (accepted, not papered over): nothing observes the window
+# BEFORE the first auto-compaction, so a 200k consumer's first climb is still silent and the
+# arm becomes reachable only on the climb after it. And a `trigger=manual` /compact is not a
+# measurement — the operator, not the window, decided — so it is never recorded.
 #
 # Floors are window-DERIVED, so both calibrated points survive one formula (D9 /
 # context-degradation-calibration owns the numbers; none moved here):
@@ -259,10 +280,25 @@ if [ -n "$ctx_entry" ]; then
      + (.message.usage.cache_read_input_tokens // 0)
      + (.message.usage.cache_creation_input_tokens // 0))' 2>/dev/null || echo 0)
   case "$ctx_tokens" in '' | *[!0-9]*) ctx_tokens=0 ;; esac
-  ctx_window="${AIF_CTX_WINDOW:-1000000}"
-  # A junk or zero declaration is worse than no declaration: it would silence the arm forever
-  # (0% floors) or fire it on every turn. Fall back to the default rather than trusting it.
-  case "$ctx_window" in '' | *[!0-9]* | 0) ctx_window=1000000 ;; esac
+  # Window precedence: DECLARED > OBSERVED > the 1M default.
+  # A junk or zero value at any level is worse than no value: it would silence the arm forever
+  # (0% floors) or fire it on every turn. Each level falls through rather than being trusted.
+  ctx_window="${AIF_CTX_WINDOW:-}"
+  case "$ctx_window" in '' | *[!0-9]* | 0) ctx_window="" ;; esac
+  # OBSERVED (A3-3b) — the one window signal either hook can actually measure. See the
+  # `#aif-ctx-observed` contract note in the block comment above: precompact-residue.sh
+  # records the transcript's usage sum at the instant the harness chose to auto-compact,
+  # which is an empirical ceiling on the USABLE window. Same directory and key derivation as
+  # the tier debounce flags below, so no second path convention enters this hook.
+  if [ -z "$ctx_window" ]; then
+    ctx_obs_key=$(printf '%s' "$session_id" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-96)
+    ctx_obs_file="${TMPDIR:-/tmp}/aif-ctx-observed-${ctx_obs_key}"
+    if [ -f "$ctx_obs_file" ]; then
+      ctx_window=$(head -n1 "$ctx_obs_file" 2>/dev/null | tr -d '[:space:]' || true)
+      case "$ctx_window" in '' | *[!0-9]* | 0) ctx_window="" ;; esac
+    fi
+  fi
+  [ -n "$ctx_window" ] || ctx_window=1000000
   if [ "$ctx_tokens" -gt "$ctx_window" ]; then
     ctx_window=1000000
   fi
