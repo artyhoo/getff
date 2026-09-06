@@ -36,7 +36,8 @@ export default {
       // stale duplicate (CLI path filters are substring matches, so
       // `vitest run packages/core/hooks/<x>` matches the payload copy too;
       // TAIL-7 measured 5 false-red zcode-parity cases this way, 2026-09-06).
-      // MANIFEST.sha256 is not a test file — this excludes the copies only.
+      // No tracked test file lives under packages/getff/ (assembled copies +
+      // npm-package scaffolding only) — do NOT add one there; it would never run.
       'packages/getff/**',
     ],
     testTimeout: 60_000,
