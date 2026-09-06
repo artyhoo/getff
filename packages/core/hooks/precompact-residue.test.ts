@@ -579,3 +579,167 @@ describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3b (observed win
     expect(observation(tmp, 'a33b-notr'), 'nothing to measure → nothing recorded').toBe(null);
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Ledger #1597 A3-3c — clearing the D7 tier debounce flags.
+//
+// The D7 arm debounces once per session per tier. Nothing ever cleared those flags, so
+// a session that auto-compacts repeatedly got exactly ONE reminder in its whole life —
+// harmless while the arm was unreachable for small windows (A3-3b), load-bearing the
+// moment it became reachable. Compaction is the event that makes the earlier reminder
+// spent history, and this hook is the one that observes it.
+//
+// AUTO ONLY, same evidence as the ceiling recording: the live probe showed PreCompact
+// firing on a MANUAL /compact that was then REFUSED ("Not enough messages to compact").
+// Clearing the flags on a compaction that never happened re-arms the reminder at an
+// unchanged token count, so the very next turn re-fires it — which is the exact spam the
+// debounce exists to prevent.
+// ═══════════════════════════════════════════════════════════════════════════════
+describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3c (debounce reset)', () => {
+  function privateTmp(): string {
+    const dir = mkdtempSync(join(tmpdir(), 'a33c-precompact-'));
+    dirs.push(dir);
+    return dir;
+  }
+
+  const usageEntry = (total: number) => ({
+    type: 'assistant',
+    isSidechain: false,
+    message: {
+      usage: {
+        input_tokens: 1000,
+        cache_read_input_tokens: total - 3000,
+        cache_creation_input_tokens: 2000,
+      },
+      content: [{ type: 'text', text: 'a turn' }],
+    },
+  });
+
+  /** The flag names the D7 arm owns, derived the way the arm derives them. */
+  const flagPath = (tmp: string, sessionKey: string, tier: string) =>
+    join(tmp, `aif-ctx-${sessionKey}-${tier}`);
+
+  it('an AUTO trigger clears the spent tier flags, so the next climb can warn again', () => {
+    const { dir, residueDir } = sandbox();
+    const tmp = privateTmp();
+    const transcript = writeTranscript(dir, [userTurn('go'), usageEntry(190_000)]);
+    // Both tiers already spent by an earlier climb in this session.
+    writeFileSync(flagPath(tmp, 'a33c-auto', 'soft'), '', 'utf8');
+    writeFileSync(flagPath(tmp, 'a33c-auto', 'deep'), '', 'utf8');
+
+    const r = run(
+      residueDir,
+      { session_id: 'a33c-auto', transcript_path: transcript, trigger: 'auto' },
+      'en',
+      { TMPDIR: tmp },
+    );
+    expect(r.status).toBe(0);
+    expect(existsSync(flagPath(tmp, 'a33c-auto', 'soft')), 'soft flag cleared').toBe(false);
+    expect(existsSync(flagPath(tmp, 'a33c-auto', 'deep')), 'deep flag cleared').toBe(false);
+  });
+
+  it('PAIRED-NEGATIVE: a MANUAL trigger leaves the flags alone (the probe showed it can fire on a REFUSED compaction)', () => {
+    const { dir, residueDir } = sandbox();
+    const tmp = privateTmp();
+    const transcript = writeTranscript(dir, [userTurn('go'), usageEntry(190_000)]);
+    writeFileSync(flagPath(tmp, 'a33c-manual', 'soft'), '', 'utf8');
+
+    run(
+      residueDir,
+      { session_id: 'a33c-manual', transcript_path: transcript, trigger: 'manual' },
+      'en',
+      { TMPDIR: tmp },
+    );
+    expect(
+      existsSync(flagPath(tmp, 'a33c-manual', 'soft')),
+      'a compaction that may never have happened must not re-arm the reminder',
+    ).toBe(true);
+  });
+
+  it('PAIRED-NEGATIVE: the reset does NOT take the observed ceiling with it', () => {
+    // `aif-ctx-observed-<key>` sits in the same directory under the same prefix. A sweep
+    // written as "remove aif-ctx-<key>*" would delete the measurement this whole contract
+    // exists to carry, silently returning the reader to its 1M assumption.
+    const { dir, residueDir } = sandbox();
+    const tmp = privateTmp();
+    const transcript = writeTranscript(dir, [userTurn('go'), usageEntry(190_000)]);
+    writeFileSync(flagPath(tmp, 'a33c-keep', 'soft'), '', 'utf8');
+
+    run(
+      residueDir,
+      { session_id: 'a33c-keep', transcript_path: transcript, trigger: 'auto' },
+      'en',
+      { TMPDIR: tmp },
+    );
+    expect(existsSync(flagPath(tmp, 'a33c-keep', 'soft')), 'flag cleared').toBe(false);
+    expect(
+      readFileSync(join(tmp, 'aif-ctx-observed-a33c-keep'), 'utf8').trim(),
+      'the ceiling recorded on this very run must survive its own sweep',
+    ).toBe('190000');
+  });
+
+  it('PAIRED-NEGATIVE: a neighbouring session’s flags are untouched', () => {
+    const { dir, residueDir } = sandbox();
+    const tmp = privateTmp();
+    const transcript = writeTranscript(dir, [userTurn('go'), usageEntry(190_000)]);
+    writeFileSync(flagPath(tmp, 'a33c-other', 'soft'), '', 'utf8');
+
+    run(
+      residueDir,
+      { session_id: 'a33c-mine', transcript_path: transcript, trigger: 'auto' },
+      'en',
+      { TMPDIR: tmp },
+    );
+    expect(
+      existsSync(flagPath(tmp, 'a33c-other', 'soft')),
+      'N parallel sessions share one TMPDIR — a compaction in one must not re-arm another',
+    ).toBe(true);
+  });
+
+  it('END-TO-END: after an auto compaction the arm warns again on the SECOND climb', () => {
+    // The whole point, exercised through both hooks: climb → warn → debounced → compact →
+    // climb → warn again. Pre-fix the last step was silent for the rest of the session.
+    const EOT_HOOK = resolve(REPO_ROOT, '.claude/hooks/end-of-turn-reminder.sh');
+    const { dir, residueDir } = sandbox();
+    const tmp = privateTmp();
+    const sessionId = 'a33c-e2e';
+    const climb = writeTranscript(dir, [userTurn('go'), usageEntry(320_000)]);
+
+    const stop = (label: string) =>
+      spawnSync('bash', [EOT_HOOK], {
+        input: JSON.stringify({
+          session_id: sessionId,
+          transcript_path: climb,
+          stop_hook_active: false,
+        }),
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          AIF_HOOK_LANG: 'en',
+          TMPDIR: tmp,
+          CLAUDE_PROJECT_DIR: REPO_ROOT,
+          // PINNED, and load-bearing: without it the A3-3b observation this very PreCompact
+          // records (320000) becomes the window, which moves 320k from the soft tier to the
+          // deep one — whose flag is unspent, so the arm fires for a reason that has nothing
+          // to do with the reset. Measured: this case passed against the PRE-FIX hooks until
+          // the window was pinned. A declared window keeps the tier fixed across all three
+          // turns, so the only thing that can change the verdict is the flag itself.
+          AIF_CTX_WINDOW: '1000000',
+        },
+      }).stdout ?? `__no_stdout_${label}`;
+
+    expect(stop('first'), 'first climb warns').toMatch(/\[context\]/);
+    expect(stop('second').trim(), 'same climb is debounced').toBe('');
+
+    run(
+      residueDir,
+      { session_id: sessionId, transcript_path: climb, trigger: 'auto' },
+      'en',
+      { TMPDIR: tmp },
+    );
+
+    expect(stop('after-compaction'), 'the climb after a compaction must warn again').toMatch(
+      /\[context\]/,
+    );
+  });
+});

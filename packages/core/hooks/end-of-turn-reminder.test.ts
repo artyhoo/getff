@@ -1795,3 +1795,70 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3b (observed w
     expect(r.stdout.trim(), 'a neighbouring session on a 1M window must not be judged on this one').toBe('');
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Ledger #1597 A3-3c — the debounce half: the D7 arm must fire once per CLIMB,
+// not once per session.
+//
+// A3-3b made the arm reachable for an undeclared small window. That exposed the
+// limitation the header had always carried: the once-per-session-per-tier flags are
+// never cleared, so a session that auto-compacts three times still gets exactly one
+// reminder. Compaction is precisely the event that makes the previous reminder spent
+// history, and PreCompact is the hook that observes it.
+//
+// It also exposed a latent defect underneath: the flag path was built from the RAW
+// session id, so an id carrying a path separator wrote into a directory that does not
+// exist, the write failed silently behind `|| true`, and the debounce failed OPEN.
+// ═══════════════════════════════════════════════════════════════════════════════
+describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3c (debounce key + reset)', () => {
+  function privateTmpDir(): string {
+    const dir = mkdtempSync(join(tmpdir(), 'a33c-'));
+    tmpDirs.push(dir);
+    return dir;
+  }
+
+  const at320k = () =>
+    writeTranscript([aiTitle('goal'), userTurn('go'), {
+      type: 'assistant',
+      message: {
+        content: [{ type: 'text', text: 'short turn' }],
+        usage: { input_tokens: 1000, cache_read_input_tokens: 317_000, cache_creation_input_tokens: 2000 },
+      },
+    }]);
+
+  it('A3-3c: the debounce holds for a session id carrying a path separator (key must be sanitised)', () => {
+    // RAW-id path: `${TMPDIR}/aif-ctx-a33c/slash:1-soft` names a directory that does not
+    // exist, so `: > "$ctx_flag"` fails, the failure is swallowed by the `|| true` that
+    // exists to keep a full disk quiet, and the debounce fails OPEN — the arm re-fires on
+    // every single turn for the rest of the session.
+    const tmp = privateTmpDir();
+    const tr = at320k();
+    const first = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'a33c/slash:1' },
+      { TMPDIR: tmp },
+    );
+    expect(first.stdout, 'first crossing fires').toMatch(/\[context\]/);
+    const second = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'a33c/slash:1' },
+      { TMPDIR: tmp },
+    );
+    expect(second.stdout.trim(), 'an odd session id must not disarm the debounce').toBe('');
+  });
+
+  it('A3-3c PAIRED: the ordinary session id keeps debouncing exactly as before', () => {
+    // The sanitisation must not change behaviour for the ids every real session actually
+    // uses (CC hands out UUIDs), or this fix trades one silent regression for another.
+    const tmp = privateTmpDir();
+    const tr = at320k();
+    const first = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'a33c-plain' },
+      { TMPDIR: tmp },
+    );
+    expect(first.stdout).toMatch(/\[context\]/);
+    const second = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'a33c-plain' },
+      { TMPDIR: tmp },
+    );
+    expect(second.stdout.trim()).toBe('');
+  });
+});
