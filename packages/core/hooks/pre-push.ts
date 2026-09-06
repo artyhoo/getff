@@ -1614,6 +1614,7 @@ export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
   'AGENTS.md', // 30-templates.sh:95 / 45-python.sh:1313 (install_agents_md)
   '.ai-factory/AI-USAGE-GUIDE.md',
   '.ai-factory/ARCHITECTURE.md',
+  '.ai-factory/ARCHITECTURE.python.md', // 45-python.sh:1341 (ledger A2-10)
   '.ai-factory/ARCHITECTURE.react-native.md',
   '.ai-factory/ARCHITECTURE.react-next.md',
   '.ai-factory/ARCHITECTURE.react-spa.md',

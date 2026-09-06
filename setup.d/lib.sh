@@ -753,6 +753,47 @@ _refresh_one_file() {
   refresh_baseline_stage "$dst"   # R1: record the delivery for the baseline flush
 }
 
+# _report_dir_residue <dst-file> <dst-dir> <class>
+# The orphan-report surface for INSIDE a framework-delivered directory payload (ledger L-4b/L-4c),
+# sibling to report_getff_orphans and sharing its `ORPHAN:` vocabulary so one grep finds both.
+#
+# Why here and not inside report_getff_orphans: that function scans three FIXED locations at
+# `-maxdepth 1` (consumer root, `.getff/`, `.github/workflows/`) and runs only on the three
+# toolchain lanes. Neither reaches a directory payload — `scripts/fences-fire-fixtures` is
+# delivered by install.sh's do_refresh on the npm/ts lane, which never calls it, and no
+# `-maxdepth 1` glob descends into a payload at all. Extending it would need a second registry of
+# payload destinations to keep in sync with the refresh_safe call sites. The sweep below already
+# walks exactly those destinations, already knows which files it could not attribute, and runs on
+# EVERY lane — so the report is emitted where the knowledge is, and report_getff_orphans's header
+# points here for the directory half.
+#
+# Two classes, because "getff cannot attribute this" and "you edited it" are different facts and
+# the old single `kept` counter asserted the wrong one for both (it called every kept file
+# "consumer-owned", which is precisely the claim getff has no evidence for):
+#   unattributable — no refresh-baseline entry. Either the consumer's own file, or residue of a
+#                    PRIOR getff version delivered before the baseline existed. Reported as an
+#                    ORPHAN because the second reading is live configuration: a stale
+#                    `scripts/fences-fire-fixtures/*.manifest.json` is enumerated by
+#                    check-fences-fire.sh, counts toward its non-vacuity denominator and is
+#                    probed — a dropped fixture whose rule left the barrel turns the consumer's
+#                    own gate RED with no way to trace where the file came from.
+#   modified       — a baseline entry exists but the bytes differ, so the consumer demonstrably
+#                    edited it. Attributable, not an orphan; named quietly for review.
+# REPORT-ONLY, like report_getff_orphans (J2 decisions log #8): nothing here deletes. Read-only,
+# so it prints identically under --dry-run — the preview and the real run agree.
+_report_dir_residue() {
+  local f="$1" dst="$2" class="$3" rel="$1" reldst="$2"
+  rel="${rel#"${PROJECT_ROOT:-}/"}"
+  reldst="${reldst#"${PROJECT_ROOT:-}/"}"
+  if [ "$class" = "unattributable" ]; then
+    echo "  ⚠ ORPHAN: $rel sits inside the getff-delivered payload $reldst, is not in the current template set, and has no refresh-baseline entry — getff cannot tell your own file from residue of a PRIOR getff version."
+    echo "    Kept in place (getff never removes what it cannot attribute). If it is yours, ignore this line; otherwise remove it manually — a stale file in a payload is LIVE configuration for the checks that read that directory, not inert residue."
+  else
+    echo "  · kept (locally modified): $rel — getff delivered it, you have since edited it, and the current template set no longer ships it; review whether it is still wanted."
+  fi
+  return 0
+}
+
 # _refresh_dir_payload <src-dir> <dst-dir>
 # The directory half of refresh_safe (ledger L-4).
 #
@@ -779,6 +820,9 @@ _refresh_one_file() {
 # Known cost of (2), accepted deliberately: on a consumer whose baseline predates a file the
 # framework has since stopped shipping, that stale file is unattributable and survives
 # indefinitely. The alternative — deleting what we cannot prove is ours — is the defect.
+# What is NOT accepted is that it survives SILENTLY (ledger L-4b/L-4c): every kept file is now
+# named by _report_dir_residue below, so the surviving-forever cost is at least readable. See
+# that helper for why the naming lives here rather than in report_getff_orphans.
 #
 # A destination whose contents are ENTIRELY the framework's can opt out of (2)'s caution with the
 # `framework-exclusive` third argument to refresh_safe; see its docstring for the one such
@@ -802,8 +846,14 @@ _refresh_dir_payload() {
       _refresh_baseline_lookup "$f"
       cur=""
       if [ -n "$REFRESH_BASELINE_ENTRY" ]; then cur=$(_hash256 "$f") || cur=""; fi
-      if [ -z "$REFRESH_BASELINE_ENTRY" ] || [ "$cur" != "$REFRESH_BASELINE_ENTRY" ]; then
+      if [ -z "$REFRESH_BASELINE_ENTRY" ]; then
         kept=$((kept+1))
+        _report_dir_residue "$f" "$dst" unattributable
+        continue
+      fi
+      if [ "$cur" != "$REFRESH_BASELINE_ENTRY" ]; then
+        kept=$((kept+1))
+        _report_dir_residue "$f" "$dst" modified
         continue
       fi
     fi
@@ -816,7 +866,7 @@ _refresh_dir_payload() {
   done < <(find "$dst" -type f -print0 2>/dev/null)
 
   if [ "$kept" -gt 0 ]; then
-    echo "  · $dst: $kept file(s) kept (not framework-delivered — consumer-owned)"
+    echo "  · $dst: $kept file(s) kept and named above (getff removes only what the refresh-baseline attributes to it)"
   fi
   return 0
 }
@@ -960,8 +1010,13 @@ getff_lane_installed() {
 # On a --refresh pass, scan the KNOWN getff delivery locations (consumer root, .getff/,
 # .github/workflows/) for files carrying the getff ownership header ('generated by getff') that the
 # CURRENT template set no longer delivers, and report each LOUDLY — never silently left active.
-# Directory payloads (.getff/astgrep-rules) are already swept wholesale by refresh_safe above (the
-# #873 rm-rf-replace branch); this covers the individually-delivered top-level files that per-file
+# Directory payloads are NOT covered here — the three scan globs below are all `-maxdepth 1` and
+# never descend into one, and this helper runs only on the three toolchain lanes. Since ledger L-4
+# only a `framework-exclusive` payload (`.getff/astgrep-rules`) is still swept wholesale; a SHARED
+# payload keeps every file it cannot attribute, and those are named by _report_dir_residue inside
+# the sweep itself (ledger L-4b/L-4c — the claim this comment used to make, that refresh_safe
+# swept all directory payloads wholesale, stopped being true at L-4 and is why the residue class
+# went unreported). This function covers the individually-delivered top-level files that per-file
 # refresh can never sweep — the same root cause as the #882 npm barrel prune («do_refresh only
 # ADD/OVERWRITEs the current stack's files, never removes a leftover»), on the python/cargo lanes.
 # REPORT-ONLY by design (J2 decisions log #8): deleting consumer-tree files is the irreversible
@@ -1684,11 +1739,18 @@ generate_eslint_barrel() {
     # rule is absent from the barrel makes linter.verify THROW ("Could not find <rule> in
     # plugin") → check:fences-fire false-REDs on every non-next stack. The loop below only
     # ever targets basenames of the manifests WE ship (it iterates the framework source dir,
-    # never the consumer's own tree), so it can only ever delete FRAMEWORK fixtures — but on
-    # --refresh the fixtures dir itself is framework-owned: refresh_safe replaces the whole
-    # dir unless the consumer sets scripts/fences-fire-fixtures.override.md (the Layer-3
-    # escape hatch), so a consumer file dropped into that dir WITHOUT the override is removed
-    # on refresh regardless of this loop. Keeps the gate strict where it must be: on
+    # never the consumer's own tree), so it can only ever delete FRAMEWORK fixtures.
+    #
+    # STALE CLAIM CORRECTED (ledger L-4b/L-4c): this comment used to continue «on --refresh the
+    # fixtures dir itself is framework-owned: refresh_safe replaces the whole dir … so a consumer
+    # file dropped into that dir WITHOUT the override is removed on refresh regardless of this
+    # loop.» That stopped being true at ledger L-4. refresh_safe's directory arm no longer
+    # rm -rf's a SHARED payload; it removes only what the refresh-baseline attributes to the
+    # framework and KEEPS everything else (_refresh_dir_payload). So a consumer file dropped in
+    # here survives every refresh with or without the override — pinned behaviourally by arm 1 of
+    # tests/install-sh/refresh-dir-payload-ownership.test.sh — and so does residue of a prior
+    # getff version, which is why each kept file is now named (_report_dir_residue).
+    # Keeps the gate strict where it must be: on
     # react-next the R12 fixture still ships, so R12 vanishing from the barrel still turns
     # the gate RED.
     #
