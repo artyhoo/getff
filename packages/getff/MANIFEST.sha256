@@ -585,7 +585,7 @@ d7b2cb83caaa54f2d700cc998c824abb76e125180dd8e99d405bb37e5b5bb987  packages/core/
 dfdf1a23c8d509e9af36d0d56bd131be4aa24f9e12fb0129c24f465a34890fd5  packages/core/principles/kickoff-population.ts
 c3992548e73a01c1eec2067f32b33f7b8c62791170e4054e8fd645762c305442  packages/core/principles/rule-channel-glob.ts
 64902bcaedea1fb1ed26271359a5c7f2bb0a1b7c5e0d46cee28df55d8a0a3d2d  packages/core/probes/audit-r4.ts
-1b2887c828c8a5e88f26bb38ba41de065300ff6cb5d881d5acc6f7991b7172fe  packages/core/python-starter/render-python-templates.ts
+b60edafeca070f536a7df2548b32694884ef740510cfadc73511d87668591ab2  packages/core/python-starter/render-python-templates.ts
 612a70b89cdbc2956a48f1e573eb8ab63fef3539f795fb91f8887a52fe816689  packages/core/python-starter/starter-nodes.test.ts
 dc95a6823db46db33f5d27a0c8debca2432a7c6d2b46d57e7e89607874f20c16  packages/core/python-starter/starter-nodes.ts
 ae6dcca3b481dd4e53db7d7f3a8da154d00bee4839955d13eb662fc1efec5421  packages/core/render/__snapshots__/render-rules.test.ts.snap
@@ -814,6 +814,7 @@ bf24cbbc3d2dc7b19b35bfe3fc93930925070b2e13082b3273d1fb117a8c55c2  packages/core/
 e8c7e0045250bc00050ff28f10004e8acf14dcdf6333507e97d1d472cda244ee  packages/core/templates/python/.getff/astgrep-rules/getff-no-datetime-now.yml
 28c3b74073ff6a3beb0c87a081589f72bc44d0a96e46942520d5f86a46651d5e  packages/core/templates/python/.getff/astgrep-rules/getff-no-eval.yml
 fca5ac5056b74ac9d09c742ad6f3db8edd6480f9aad14585105e80819f3b6ba0  packages/core/templates/python/.getff/astgrep-rules/getff-no-os-system.yml
+fb03a9916de1ae1e6e1731dab3e939998a90008ef79c849ee1be774c53308905  packages/core/templates/python/ARCHITECTURE.md
 222de72d54304d935dbc2d1e79b0693b354f7570ff2271333116ca97e5afb67c  packages/core/templates/python/RULES.md
 f2dae0f99c7c794f57ea1baf2d5a670fa523065bb789f849ffd6e05e87c9d959  packages/core/templates/python/github-actions-ci.yml
 3867dcb2e110d07727a97c14bef9401f2619917bd83b28668f667145f5a97ca7  packages/core/templates/python/hooks/getff.pre-commit-config.yaml.fragment
@@ -1028,7 +1029,7 @@ f29969fde76a0430b87a020468c69af78374a41a319ee88dc9a33f4270070287  setup.d/10-ski
 75a08a95a2a3a03e2b1c43ea34249295db3e63bc3547172d5bb11b04e0016390  setup.d/20-agents.sh
 d2d0c62000ac39e011753b1d1e0bb0bef167bdb5a67162cdfc52cb8be934be38  setup.d/30-templates.sh
 6066c53be6918fa3c663f51497c1fa6579a7d3455e728e10dd85fd6b65155798  setup.d/40-configs.sh
-dbc0998beb78d4bf9cb90f158219e68d530a95f6ede8794a1919f50cf786dd2f  setup.d/45-python.sh
+f1de43ed3b91fc8841ed3a6e9fe7dc3eb310c81bad9e7b53e16bcb7908f2d89f  setup.d/45-python.sh
 bd6a78939401fd49b313309d8cd24550b49535ccd80c5bff3443821a6eda3e66  setup.d/46-cargo.sh
 ce2f9ee777959736ab6961225dd63c434c548cfc4b0bb81ae0522721d1ccf63b  setup.d/47-go.sh
 4aff85e9ca969801cb6e028ca9643223fbaebbac4c386d803a365d38442d340c  setup.d/50-hooks.sh
