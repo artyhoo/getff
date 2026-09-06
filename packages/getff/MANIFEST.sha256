@@ -424,8 +424,8 @@ a1ba0dd99f189f8f9200cd6f62229ea62fe03122a61f0df4e8839b3eac33f263  packages/core/
 4f16c568561eda76634b7c23b95623608e9122f47f673845765d2d53b4688379  packages/core/hooks/checks/pr-stale-revert-bin.ts
 296a21bff0334dd59fa133bfc77cc0bc8cbcea45bf79b228ce65464831cf4b87  packages/core/hooks/checks/pr-stale-revert.test.ts
 cd77ff0890775654fc6290e0efd45f61026f84bf97f945c868dfb501c8f9a7b4  packages/core/hooks/checks/pr-stale-revert.ts
-98407e5cfe77061deb76a6448abffe62ea168040e17ae418b65b3022961bc503  packages/core/hooks/checks/prior-art.test.ts
-561b4d4df7734bc084aa9fb311988b83273811aea222f2517589d45ff43935a0  packages/core/hooks/checks/prior-art.ts
+3583b2635eb6df5b8af3fa5e3e060142ab734720da5c44f850c9af8f83e56405  packages/core/hooks/checks/prior-art.test.ts
+2a4d82eebb0198d74ea139b69dc668bd982f17dbccce6d5f3ff83c1e19857805  packages/core/hooks/checks/prior-art.ts
 0d6905e01c812d51d05069b844e3afc46dcaab5485319c9e5aadc7f106b6953a  packages/core/hooks/checks/registry.test.ts
 806e65c8025020378a8b063664d059c1c6aceadc9d19deb0a38729e9a91e8669  packages/core/hooks/checks/registry.ts
 9f5f7b25cb03e51a888f3cc16d80b4db4d8158635f8c6347d4cec6745f362555  packages/core/hooks/checks/s17.test.ts
@@ -465,7 +465,7 @@ d637a9d9344e8db5d773c54dff8f950a3468e99f0fdc38d2661ccd620b7aa4ce  packages/core/
 457cbfde763fcb4d7b1a6e8d9253086b0a0e31be48b86acbadec356b321c0417  packages/core/hooks/pre-push.fallback.sh
 4cfc5c1a3fb7991056d67038f0efa9f25f6d9f07b348a2a0e1e86bd780def899  packages/core/hooks/pre-push.fallback.test.ts
 58880c9daf066e9eec87ca5ba9adba15fa8a2af65ba3f86b39522cd8f1514453  packages/core/hooks/pre-push.test.ts
-9589af5d9751599b122e1353180d015d037ec0e466b7181c5e0d396224743e38  packages/core/hooks/pre-push.ts
+ff44cd7a796e21ee0de437d95b012db47ddb3f308a73f6ca1510ba065de77422  packages/core/hooks/pre-push.ts
 2357ccbd4eadd323651e2fbf6c8e387e1cf0ead0efe515b517d66a432ec2155a  packages/core/hooks/precompact-residue.test.ts
 d39ccea449f34eb7cd063b887c036d71072e0dc070dcfe159b7420a5417f3175  packages/core/hooks/priority-score-branch-matcher.test.ts
 24156ab0edbf03f4cb4c2ca1e65d155aff93e172748493e93a72385c6fa94975  packages/core/hooks/priority-score-reconstruct-stub.test.ts
