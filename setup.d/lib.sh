@@ -1930,9 +1930,22 @@ register_cc_hook() {
     group_filter='{"hooks":[{"type":"command","command":$c}]}'
   fi
   if [ ! -f "$settings" ]; then
-    jq -n --arg e "$event" --arg c "$cmd" --arg m "$matcher" \
-      "{hooks: {(\$e): [$group_filter]}}" > "$settings"
-    echo "  ✓ .claude/settings.json created with $event hook ($marker)"
+    # ledger A1-9b (sibling of A1-9 below, same "✓ as a success claim" family): this used to be
+    # `jq -n … > "$settings"` followed by an UNCONDITIONAL ✓. Because the redirect creates the
+    # file BEFORE jq runs, a failing jq (absent filter support, OOM, a read-only tree) left a
+    # ZERO-BYTE .claude/settings.json in the consumer tree — which Claude Code rejects outright
+    # and which every later `jq -e … "$settings"` in the same install then fails to parse.
+    # Unlike the append path this is a SIMPLE command, so under install.sh's `set -euo pipefail`
+    # it aborted the whole install message-lessly right after the empty file appeared; in any
+    # set -e-exempt context it printed the ✓ over the empty file instead. Write to a tmp, ✓ only
+    # after the mv, drop the tmp and warn on failure, and never leave a half-created settings.json.
+    if jq -n --arg e "$event" --arg c "$cmd" --arg m "$matcher" \
+      "{hooks: {(\$e): [$group_filter]}}" > "$settings.tmp" && mv "$settings.tmp" "$settings"; then
+      echo "  ✓ .claude/settings.json created with $event hook ($marker)"
+    else
+      rm -f "$settings.tmp" 2>/dev/null || true
+      echo "  ⚠ jq could not create $settings — no settings file written, $marker NOT registered on $event" >&2
+    fi
   elif jq -e --arg e "$event" --arg m "$marker" \
       '((.hooks[$e] // []) | map(.hooks[].command) | any(test($m)))' "$settings" >/dev/null 2>&1; then
     # Idempotence is PER-EVENT (not whole-file): the same hook may register on two events
