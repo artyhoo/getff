@@ -6,7 +6,7 @@ acafe267e1ac90afe1038da15ad9be69e8b28b8e26e67203fc414def68641068  .ai-factory/AR
 03264d66be0aceebf3e0df0a2bd361ec7db105551b93b519122c58ac9721bcda  .ai-factory/DESCRIPTION.template.md
 c3d5f5cdf92be1551ebbd6f6726db7ef892ff2f8394626ed4570f4507348c9b7  .ai-factory/RULES.md
 e43d71c23089705db64a85595800c7f87c79d38f7a39bff48a757b8d5038146e  .ai-factory/RULES.react-native.md
-21f43a368830f0b563dcd6162d0ef28f183022ffaa0752d9ec74ba37f14759a9  .ai-factory/refresh-baseline.json
+b38e52143d967094fd47dc269cf49092b3f97aeee4e45be9d101c6dda42614e1  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
 7d6b6061459f0939e64358447d0905329ddd4c52abd459ee8d9d201653ffb791  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -154,8 +154,8 @@ a380122e42347b23290ad0113bb2a733aece7b2d76672ed13d44fdff389651c2  packages/core/
 d03a610b21ee13e6dd3efedfed90e1a3a8e5722bcb998358c7aa3e163926b001  packages/core/hooks/checks/cmd-script-liveness.ts
 5c37e5f230f0fed95f6b95bb58247ff6ccb2c56b81e7b8d7f3e6fd252bd4b395  packages/core/hooks/checks/guard-liveness.ts
 2a4d82eebb0198d74ea139b69dc668bd982f17dbccce6d5f3ff83c1e19857805  packages/core/hooks/checks/prior-art.ts
-a5fd46853e3fd267bbd7fc41f9a1bd908ab58edb935381c6cd9c51f317f8d332  packages/core/hooks/checks/s17.ts
-662aa2caf562365b0e02b4bde2a5bac22ab7154439bbf089b17b9440ae82ed35  packages/core/hooks/checks/unpinned-tool-install.ts
+50f50e6b085102cdb3d7db60d7b4830880b0a8394dcb7ed92bb46499eddce2b6  packages/core/hooks/checks/s17.ts
+f4c1f211d58ce63401d094b04ec9c9b1d6dcede4895df0143112aec4fb0201f7  packages/core/hooks/checks/unpinned-tool-install.ts
 3ca9d4afd21425087cf31893b8f9f63c81b0b8408db5e343ca76e5f8aa26ab9a  packages/core/hooks/package.json
 457cbfde763fcb4d7b1a6e8d9253086b0a0e31be48b86acbadec356b321c0417  packages/core/hooks/pre-push.fallback.sh
 ff44cd7a796e21ee0de437d95b012db47ddb3f308a73f6ca1510ba065de77422  packages/core/hooks/pre-push.ts
