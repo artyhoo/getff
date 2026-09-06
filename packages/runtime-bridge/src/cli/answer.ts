@@ -28,6 +28,8 @@
  *                              → done → implementing, reworkRequested:true (aif redoes with the feedback)
  *   approve : POST /tasks/:id/events { event: 'approve_done' }        → done → verified
  *   retry   : POST /tasks/:id/events { event: 'retry_from_blocked' }  → blocked_external → prior status
+ *   resume  : PUT  /tasks/:id { plan+answer, paused:false, blockedReason:null }
+ *                              → lifts an A-park; NO event, so it REQUIRES paused:true (A6-6b)
  *
  * Non-destructive (kickoff §4.2 "idempotent/reversible"): only ever creates a
  * comment + dispatches a FORWARD state-machine event — no DELETE, no force-push.
@@ -40,7 +42,7 @@
  * Flags:
  *   --task <id>      — REQUIRED: the parked task to resolve.
  *   --answer <text>  — the resolution text; REQUIRED for request_changes (attached as a comment).
- *   --decision <d>   — request_changes (default) | approve | retry.
+ *   --decision <d>   — request_changes (default) | approve | retry | resume (A-park only).
  *   --json           — print the result as a JSON object.
  *
  * Exit codes:
@@ -170,6 +172,26 @@ export async function postEvent(baseUrl: string, taskId: string, event: string):
  */
 export async function resumePark(baseUrl: string, taskId: string, answer: string): Promise<PushResult> {
   const task = await getTask(baseUrl, taskId);
+  // A6-6b guard (#1597 ledger, the half #1625 deferred): `resume` dispatches NO
+  // state-machine event — it is a bare PUT that lifts `paused`. On a task that is not
+  // paused there is nothing to lift, so the call degrades to a silent plan rewrite: the
+  // operator's answer is appended to the plan of a task whose status nothing changed, no
+  // worker re-reads it, and the CLI still prints its success line. That is the easy
+  // misroute in the park-type taxonomy (dispatcher SKILL.md §3) — a B-park (blockedReason
+  // set, paused false) and an A-park differ only by `paused`, and `resume` is correct for
+  // exactly one of them. Refuse, naming the decisions that DO move a non-paused task.
+  // Deliberately here and not in pushAnswer: request_changes / approve / retry are
+  // event-driven and legitimately act on non-paused tasks (the /pipeline done→REVISE flow).
+  if (task.paused !== true) {
+    throw new BackendError(
+      `task ${taskId} is not paused (status=${task.status}) — "resume" only lifts an A-park ` +
+        `(paused:true + an OPEN QUESTION block in the plan) and dispatches no state-machine ` +
+        `event, so on this task it would rewrite the plan and change nothing else, losing the ` +
+        `answer. Use --decision request_changes (or retry for blocked_external) instead.`,
+      'dispatch_failed',
+      'aif-handoff',
+    );
+  }
   const plan = appendAnswerToPlan(task.plan, answer);
   await putTask(baseUrl, taskId, { plan, paused: false, blockedReason: null });
   return { taskId, decision: 'resume', event: 'unpause (PUT paused=false)', commented: false };

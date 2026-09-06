@@ -1301,9 +1301,14 @@ _py_deliver_agent_surface() {
     echo "  [dry-run] would: add context7 to .mcp.json ($_py_mcp)"
   elif command -v jq >/dev/null 2>&1; then
     if [ -f "$_py_mcp" ]; then
-      jq '.mcpServers["context7"] = {"command": "npx", "args": ["-y", "@upstash/context7-mcp@latest"]}' \
-        "$_py_mcp" > "$_py_mcp.tmp" && mv "$_py_mcp.tmp" "$_py_mcp"
-      echo "  ✓ context7 added/updated in existing .mcp.json"
+      # ledger A1-9 (the A1-8 class): same shape as setup.d/05-mcp.sh, which this block replicates.
+      if jq '.mcpServers["context7"] = {"command": "npx", "args": ["-y", "@upstash/context7-mcp@latest"]}' \
+        "$_py_mcp" > "$_py_mcp.tmp" && mv "$_py_mcp.tmp" "$_py_mcp"; then
+        echo "  ✓ context7 added/updated in existing .mcp.json"
+      else
+        rm -f "$_py_mcp.tmp" 2>/dev/null || true
+        echo "  ⚠ jq rewrite of $_py_mcp failed — file left unchanged, context7 NOT added" >&2
+      fi
     else
       printf '{"mcpServers":{"context7":{"command":"npx","args":["-y","@upstash/context7-mcp@latest"]}}}\n' \
         > "$_py_mcp"
