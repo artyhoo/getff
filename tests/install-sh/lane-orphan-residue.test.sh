@@ -9,6 +9,9 @@
 # Two delivery shapes, two mechanisms:
 #   IN-DIR payloads (.getff/astgrep-rules) — swept WHOLESALE by refresh_safe (rm -rf + re-copy,
 #     setup.d/lib.sh #873 branch): a rule the current template no longer ships vanishes on --refresh.
+#     NOTE (ledger L-4, post-dating arms 1-5): that sentence now holds only for a payload declared
+#     `framework-exclusive` — which .getff/astgrep-rules is, so arms 1-2 stand unchanged. A SHARED
+#     payload (scripts/fences-fire-fixtures) keeps every file it cannot attribute; arm (6) covers it.
 #   TOP-LEVEL individually-delivered files (clippy.toml/deny.toml/ruff.toml/getff-*.yml/…) — per-file
 #     refresh can never sweep a DROPPED file; the lanes call report_getff_orphans (setup.d/lib.sh) on
 #     the refresh pass to LOUDLY report getff-header-marked files outside the current delivered set
@@ -33,6 +36,20 @@
 #       consumer, or an AI agent acting on the log, deletes it. Both directions are pinned, plus the
 #       discriminator: a header-marked file belonging to NO installed lane is STILL reported, so the
 #       union suppresses false positives without blinding the report.
+#   (6) INSIDE a shared directory payload (ledger L-4b/L-4c, RED pre-fix) — the three scan globs of
+#       report_getff_orphans are all `-maxdepth 1` and it runs only on the toolchain lanes, so
+#       nothing looked inside scripts/fences-fire-fixtures — an npm/ts-lane payload. A file there
+#       with no refresh-baseline entry is unattributable, is KEPT by the L-4 sweep, and pre-fix the
+#       whole set collapsed into one anonymous count line that additionally mislabelled it
+#       "consumer-owned". Measured cost: a stale `*.manifest.json` planted that way survives every
+#       --refresh, and check-fences-fire.sh then enumerates it, counts it in the non-vacuity
+#       denominator and probes it — `probing 3 fence(s)` / `manifests=3` / rc=1 on a two-fixture
+#       corpus. Live configuration, not inert residue. Post-fix each kept file is NAMED with the
+#       same `ORPHAN:` token arms 3-5 grep for, and still not deleted (report-only).
+#   (7) C4-ATTN-3 collateral control — a cargo+python polyglot tree, both lanes refreshed: the new
+#       in-payload scan must add ZERO orphan lines where nothing is stale. Arm (5) pins the same
+#       property for python+go on the top-level scan; this pins it for the second lane pair and for
+#       the surface arm (6) introduced.
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 INSTALL="$REPO_ROOT/install.sh"
@@ -62,6 +79,25 @@ polyglot_py_go_fixture() {
   ( cd "$d" && git init -q && git config user.email t@t.co && git config user.name t ) >/dev/null 2>&1
   ( cd "$d" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
   ( cd "$d" && bash "$INSTALL" go     < /dev/null ) >/dev/null 2>&1
+  echo "$d"
+}
+# An npm/ts consumer — the only lane that receives scripts/fences-fire-fixtures, the cheapest live
+# specimen of a SHARED (non-`framework-exclusive`) directory payload. Same shape as the
+# make_consumer helper in refresh-dir-payload-ownership.test.sh, which pins the sibling L-4 contract.
+ts_fixture() {
+  local d; d=$(mktemp -d)
+  printf '{ "name":"consumer","version":"0.0.0" }\n' > "$d/package.json"
+  ( cd "$d" && git init -q && bash "$INSTALL" ts-server < /dev/null ) >/dev/null 2>&1
+  echo "$d"
+}
+# A polyglot consumer carrying the OTHER lane pair from arm (5): a python service and a rust crate.
+polyglot_py_cargo_fixture() {
+  local d; d=$(mktemp -d)
+  printf '[project]\nname = "poly"\nversion = "1.0.0"\n' > "$d/pyproject.toml"
+  printf '[package]\nname = "demo"\nversion = "0.0.1"\nedition = "2021"\n\n[dependencies]\n' > "$d/Cargo.toml"
+  ( cd "$d" && git init -q && git config user.email t@t.co && git config user.name t ) >/dev/null 2>&1
+  ( cd "$d" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+  ( cd "$d" && bash "$INSTALL" cargo  < /dev/null ) >/dev/null 2>&1
   echo "$d"
 }
 
@@ -195,6 +231,74 @@ echo "$out" | grep 'ORPHAN:' | grep -qv 'getff-legacy-bans.toml' \
   && bad "(5-true) extra ORPHAN lines beyond the planted one: $(echo "$out" | grep 'ORPHAN:' | tr '\n' '|')" \
   || ok "(5-true) the planted file is the ONLY orphan reported (no collateral false positives)"
 rm -rf "$G"
+
+# ── (6) inside a SHARED directory payload (ledger L-4b/L-4c) ───────────────────────────────────────
+# @arm:C4:neg no-orphan-residue (pre-fix: kept-but-anonymous inside a payload; post-fix: named)
+echo "  ── (6) unattributable file INSIDE scripts/fences-fire-fixtures → named ORPHAN on --refresh ──"
+D6="scripts/fences-fire-fixtures"
+S=$(ts_fixture)
+if [ ! -d "$S/$D6" ]; then
+  bad "(6) precondition: ts install did not deliver the $D6 directory payload"
+else
+  ok "(6) precondition: ts install delivered the $D6 directory payload"
+  # Paired negative FIRST, on the very same tree: a clean refresh must name nothing. Run before the
+  # plant so it cannot pass by the payload being absent or the refresh never reaching it.
+  out=$( cd "$S" && bash "$INSTALL" --refresh < /dev/null 2>&1 ) || true
+  echo "$out" | grep -q "ORPHAN:" \
+    && bad "(6-neg) clean ts refresh emitted ORPHAN lines (false-positive noise from the new in-payload scan): $(echo "$out" | grep 'ORPHAN:' | tr '\n' '|')" \
+    || ok "(6-neg) clean ts refresh → ZERO ORPHAN lines (the in-payload scan is discriminating, not noise)"
+  echo "$out" | grep -qF "$D6" \
+    && ok "(6-neg) the clean run did reach the payload (the zero above is a verdict, not vacancy)" \
+    || bad "(6-neg) no $D6 activity in the refresh output — arm (6-neg) is vacuous"
+
+  # A triple a PRIOR getff version delivered before this consumer's baseline existed: present in the
+  # payload, absent from the current template set, and carrying NO baseline entry — the exact state
+  # _refresh_dir_payload keeps and, pre-fix, never named.
+  printf '{ "rule-id": "local/getff-legacy-fence" }\n' > "$S/$D6/getff-legacy-fence.manifest.json"
+  printf 'export const bad = 1;\n'  > "$S/$D6/getff-legacy-fence.bad.ts"
+  printf 'export const good = 1;\n' > "$S/$D6/getff-legacy-fence.good.ts"
+  out=$( cd "$S" && bash "$INSTALL" --refresh < /dev/null 2>&1 ) || true
+  named=0
+  for _s in manifest.json bad.ts good.ts; do
+    echo "$out" | grep "ORPHAN:" | grep -qF "getff-legacy-fence.$_s" && named=$((named+1))
+  done
+  [ "$named" -eq 3 ] \
+    && ok "(6) all 3 unattributable files inside the payload are NAMED as orphans (pre-fix: one anonymous count line, mislabelled consumer-owned)" \
+    || bad "(6) only $named/3 in-payload orphans named — a stale file survives unnamed (C4 violation): $(echo "$out" | grep 'ORPHAN:' | tr '\n' '|')"
+  survived=0
+  for _s in manifest.json bad.ts good.ts; do
+    [ -f "$S/$D6/getff-legacy-fence.$_s" ] && survived=$((survived+1))
+  done
+  [ "$survived" -eq 3 ] \
+    && ok "(6) all 3 files still present — report-only contract holds inside a payload too (J2 decisions log #8)" \
+    || bad "(6) the report DELETED $((3-survived)) in-payload file(s) it could not attribute — the irreversible branch (issue 1481 class)"
+  echo "$out" | grep 'ORPHAN:' | grep -qv 'getff-legacy-fence' \
+    && bad "(6) extra ORPHAN lines beyond the planted triple: $(echo "$out" | grep 'ORPHAN:' | grep -v 'getff-legacy-fence' | tr '\n' '|')" \
+    || ok "(6) the planted triple is the ONLY thing reported (no collateral inside the payload)"
+fi
+rm -rf "$S"
+
+# ── (7) C4-ATTN-3: cargo+python polyglot control — the new scan adds no collateral orphans ─────────
+# @arm:C4:neg no-orphan-residue (collateral control for the second lane pair)
+echo "  ── (7) polyglot python+cargo tree: both lanes refresh with ZERO orphan lines ──"
+K=$(polyglot_py_cargo_fixture)
+py_live=0
+for f in ruff.toml sgconfig.yml .getff/ruff-bans.toml .github/workflows/getff-python.yml; do
+  [ -f "$K/$f" ] && grep -q 'generated by getff' "$K/$f" 2>/dev/null && py_live=$((py_live+1))
+done
+[ "$py_live" -eq 4 ] \
+  && ok "(7) fixture: all 4 python-lane getff-owned files live in the python+cargo tree" \
+  || bad "(7) fixture: expected 4 live python-lane files, found $py_live — arm would pass vacuously"
+[ -f "$K/clippy.toml" ] && grep -q 'generated by getff' "$K/clippy.toml" 2>/dev/null \
+  && ok "(7) fixture: cargo-lane clippy.toml live in the same tree" \
+  || bad "(7) fixture: cargo lane did not deliver — the polyglot precondition is not met"
+for _lane in cargo python; do
+  out=$( cd "$K" && bash "$INSTALL" "$_lane" --refresh < /dev/null 2>&1 ) || true
+  echo "$out" | grep -q "ORPHAN:" \
+    && bad "(7-$_lane) $_lane --refresh emitted ORPHAN lines on a clean polyglot tree: $(echo "$out" | grep 'ORPHAN:' | tr '\n' '|')" \
+    || ok "(7-$_lane) $_lane --refresh reported ZERO orphans (no collateral from the in-payload scan)"
+done
+rm -rf "$K"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
