@@ -37,6 +37,7 @@
  *     ("0 BLOCKER / 2 MAJOR") do not open an entry; ESCALATED/MINOR entries are exempt.
  */
 import { stripHtmlComments } from '../utils/markdown-comments.ts';
+import { FILE_LINE_RE } from './s17.ts';
 
 export interface FidelityCheckInput { body: string; headSha: string; }
 export interface FidelityCheckResult { ok: boolean; errors: string[]; }
@@ -59,18 +60,32 @@ const ANY_VERDICT_RE = /^FIDELITY:/gm;
 const BASIS_RE = /^Basis:[ \t]*\S+/m;
 const ROUND_RE = /^Round:[ \t]*\d+[ \t]*$/m;
 const SHA_RE = /^Audited-SHA:[ \t]*([0-9a-fA-F]{12,40})[ \t]*$/m;
-const FILE_LINE_RE = /[\w./-]+\.[A-Za-z]{1,6}:\d+/;
+// file:line citation grammar = the ONE shared `FILE_LINE_RE` exported by s17.ts (R-8).
 const REVIEW_FINDINGS_HEADING_RE = /^##[ \t]+Review findings[ \t]*$/;
-/** Grade token OPENING a list entry (optionally bolded/bracketed). A digit-led summary line never matches. */
-const FINDING_GRADE_RE = /^(?:[-*][ \t]+)?\**\[?(BLOCKER|MAJOR)\b/;
 /**
- * Count line, not a finding: `- BLOCKER: 1` (the review-sidecar summary shape). Exempt —
- * a bare tally opens no entry. NOTE (recorded fail-open): a sidecar block pasted WITH its
+ * Grade token OPENING a list entry (optionally bolded/bracketed). Openers: `- `/`* ` bullet,
+ * `1.`/`1)` ordered list, or a table row's leading `|` — A4-3: the bullet-only grammar let
+ * numbered-list and table-shaped round-triggering findings pass with no Failure-scenario
+ * enforced. A digit-led summary line (`round 1: 0 BLOCKER / 2 MAJOR`) still never matches:
+ * the opener is punctuation + space, and the grade must sit at the entry head. Known
+ * consequence (fail-closed direction): a numbered TALLY (`1. BLOCKER: 1`) now reads as an
+ * opened entry and demands a Failure-scenario — a false RED on a shape the review-sidecar
+ * never emits (its canonical tally is `- BLOCKER: 1`, exempt via FINDING_COUNT_RE below).
+ */
+const FINDING_GRADE_RE = /^(?:[-*][ \t]+|\d+[.)][ \t]+|\|[ \t]*)?\**\[?(BLOCKER|MAJOR)\b/;
+/**
+ * Count line, not a finding: `- BLOCKER: 1` (the review-sidecar summary shape) or its
+ * natural zero-form `- BLOCKER: none` — A4-5: the digit-only grammar parsed the zero-form
+ * as an opened finding and went RED demanding a Failure-scenario for a finding that does
+ * not exist. Exempt — a bare tally opens no entry. The exemption stays end-anchored and
+ * case-sensitive (`none` exactly, no trailing prose): `- BLOCKER: none found so far` still
+ * gates, consistent with the case-sensitive verdict grammar elsewhere in this module.
+ * NOTE (recorded fail-open): a sidecar block pasted WITH its
  * own `## …` heading terminates the Review-findings section early (any heading closes a
  * section), so heading-wrapped pastes are invisible to this arm — a visible template
  * deviation, same posture as the Provenance detector above.
  */
-const FINDING_COUNT_RE = /^(?:[-*][ \t]+)?\**\[?(?:BLOCKER|MAJOR)\]?\**:?[ \t]*\d+[ \t]*$/;
+const FINDING_COUNT_RE = /^(?:[-*][ \t]+)?\**\[?(?:BLOCKER|MAJOR)\]?\**:?[ \t]*(?:\d+|none)[ \t]*$/;
 /** A new top-level list item ends the entry; indented sub-bullets stay inside it. */
 const FINDING_ENTRY_END_RE = /^(?:[-*][ \t]|#{1,6}[ \t])/;
 const FAILURE_SCENARIO_RE = /Failure-scenario:/;
