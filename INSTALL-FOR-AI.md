@@ -263,6 +263,7 @@ project/
 ├── .getff/
 │   ├── astgrep-rules/*.yml               ← getff structural rules (no-eval, no-os-system,
 │   │                                       no-datetime[.datetime].now) — framework-owned
+│   ├── hooks/pre-push                    ← local rung, same arms as the CI gate; opt-out `GETFF_SKIP_HOOKS=1` at install AND at push time — see [INSTALL.md](INSTALL.md#python-lane--the-local-hook-rung-and-getff_skip_hooks)
 │   └── ruff-bans.toml                    ← stable getff-bans config the CI gate points --config at
 ├── .github/workflows/getff-python.yml    ← pinned CI gate (getff-namespaced — never your ci.yml)
 └── .getff-python-install.log             ← delivery audit trail (every action + degrade path)

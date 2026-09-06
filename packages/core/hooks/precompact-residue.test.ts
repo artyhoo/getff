@@ -125,6 +125,7 @@ function run(
   residueDir: string,
   payload: Record<string, unknown>,
   lang = 'en',
+  env: Record<string, string> = {},
 ): RunResult {
   const r = spawnSync('bash', [HOOK], {
     input: JSON.stringify(payload),
@@ -134,6 +135,7 @@ function run(
       AIF_HOOK_LANG: lang,
       AIF_RESIDUE_DIR: residueDir,
       CLAUDE_PROJECT_DIR: REPO_ROOT,
+      ...env,
     },
   });
   const files = existsSync(residueDir) ? readdirSync(residueDir) : [];
@@ -387,5 +389,357 @@ describe.skipIf(!JQ)('precompact-residue.sh (S2b / D8)', () => {
     });
     expect(r.status).toBe(0);
     expect(r.stdout ?? '').toBe('');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Ledger #1597 A3-3b — the writer half of the observed-window contract.
+//
+// The PreCompact payload was live-probed on 2026-09-06 (`claude --print --settings
+// '{"hooks":{"PreCompact":…}}' /compact`, captured stdin):
+//   session_id, transcript_path, cwd, prompt_id, hook_event_name, trigger,
+//   custom_instructions
+// There is NO token count and NO window in it — so nothing here may invent one. What
+// this hook uniquely observes is the INSTANT the harness chose to compact; the
+// transcript's own usage sum at that instant is an empirical ceiling on the usable
+// window, and it is the only window signal available to either hook.
+//
+// The probe also showed PreCompact firing on a MANUAL /compact that was then refused
+// ("Not enough messages to compact"), which is exactly why only `trigger=auto` may be
+// recorded: a manual compaction says nothing about how full the window was.
+// ═══════════════════════════════════════════════════════════════════════════════
+describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3b (observed window)', () => {
+  function privateTmp(): string {
+    const dir = mkdtempSync(join(tmpdir(), 'a33b-precompact-'));
+    dirs.push(dir);
+    return dir;
+  }
+
+  /** CC assistant entry carrying the three summed usage fields — same split as the D7
+   *  arm's own fixtures, so the sum (not any single field) is what gets recorded. */
+  const withUsage = (text: string, total: number, extra: Record<string, unknown> = {}) => ({
+    type: 'assistant',
+    isSidechain: false,
+    ...extra,
+    message: {
+      usage: {
+        input_tokens: 1000,
+        cache_read_input_tokens: total - 3000,
+        cache_creation_input_tokens: 2000,
+      },
+      content: [{ type: 'text', text }],
+    },
+  });
+
+  function observation(tmp: string, sessionId: string): string | null {
+    const p = join(tmp, `aif-ctx-observed-${sessionId}`);
+    return existsSync(p) ? readFileSync(p, 'utf8').trim() : null;
+  }
+
+  it('an AUTO trigger records the observed ceiling where the Stop hook looks for it', () => {
+    const { dir, residueDir } = sandbox();
+    const tmp = privateTmp();
+    const transcript = writeTranscript(dir, [
+      { type: 'ai-title', aiTitle: 'long session' },
+      userTurn('go'),
+      withUsage('nearly full', 190_000),
+    ]);
+    const r = run(
+      residueDir,
+      { session_id: 'a33b-auto', transcript_path: transcript, trigger: 'auto' },
+      'en',
+      { TMPDIR: tmp },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout, 'the writer must still emit nothing — a PreCompact decision can block compaction').toBe('');
+    expect(observation(tmp, 'a33b-auto'), 'the usage SUM at the compaction instant').toBe('190000');
+  });
+
+  it('PAIRED-NEGATIVE: a MANUAL trigger records nothing — /compact says nothing about the window', () => {
+    const { dir, residueDir } = sandbox();
+    const tmp = privateTmp();
+    const transcript = writeTranscript(dir, [userTurn('go'), withUsage('half full', 90_000)]);
+    const r = run(
+      residueDir,
+      { session_id: 'a33b-manual', transcript_path: transcript, trigger: 'manual' },
+      'en',
+      { TMPDIR: tmp },
+    );
+    expect(r.status).toBe(0);
+    expect(observation(tmp, 'a33b-manual'), 'an operator-invoked compaction is not a measurement').toBe(null);
+  });
+
+  it('PAIRED-NEGATIVE: a SIDECHAIN entry is not the main thread’s size', () => {
+    // Subagent turns share the transcript file. Recording a sidechain's usage would pin the
+    // main thread's window to whatever a subagent happened to consume.
+    const { dir, residueDir } = sandbox();
+    const tmp = privateTmp();
+    const transcript = writeTranscript(dir, [
+      userTurn('go'),
+      withUsage('main thread', 120_000),
+      withUsage('subagent', 600_000, { isSidechain: true }),
+    ]);
+    run(
+      residueDir,
+      { session_id: 'a33b-side', transcript_path: transcript, trigger: 'auto' },
+      'en',
+      { TMPDIR: tmp },
+    );
+    expect(observation(tmp, 'a33b-side'), 'the main-thread sum, never the sidechain’s').toBe('120000');
+  });
+
+  it('PAIRED-NEGATIVE: an auto trigger with no usage fields records nothing, never a 0 ceiling', () => {
+    // A recorded 0 would make both derived floors 1 and fire the D7 arm on every single turn
+    // of the next session — strictly worse than the silence it replaces.
+    const { dir, residueDir } = sandbox();
+    const tmp = privateTmp();
+    const transcript = writeTranscript(dir, [userTurn('go'), zcodeAssistant('no usage fields here')]);
+    const r = run(
+      residueDir,
+      { session_id: 'a33b-nousage', transcript_path: transcript, trigger: 'auto' },
+      'en',
+      { TMPDIR: tmp },
+    );
+    expect(r.status).toBe(0);
+    expect(observation(tmp, 'a33b-nousage')).toBe(null);
+  });
+
+  it('the residue file states the observed ceiling, so a human reader sees the same number', () => {
+    const { dir, residueDir } = sandbox();
+    const tmp = privateTmp();
+    const transcript = writeTranscript(dir, [userTurn('go'), withUsage('nearly full', 190_000)]);
+    const r = run(
+      residueDir,
+      { session_id: 'a33b-residue', transcript_path: transcript, trigger: 'auto' },
+      'en',
+      { TMPDIR: tmp },
+    );
+    expect(r.residue, 'the number the next session will be judged against belongs in the handoff').toMatch(
+      /190000/,
+    );
+  });
+
+  it('END-TO-END: what this hook writes is what the Stop hook\u2019s D7 arm then reads', () => {
+    // The one case that fails if either SIDE of the contract drifts \u2014 in particular the key
+    // derivation, which is duplicated by necessity (two independent scripts, no shared lib).
+    // The session id here needs sanitising, so a mismatch between the two `tr -c` expressions
+    // shows up as a missing observation rather than as a silently-passing happy path.
+    const EOT_HOOK = resolve(REPO_ROOT, '.claude/hooks/end-of-turn-reminder.sh');
+    const { dir, residueDir } = sandbox();
+    const tmp = privateTmp();
+    const sessionId = 'a33b/e2e:1';
+
+    // A 200k consumer, 190k spent \u2014 95% of their real window, 19% of the 1M the Stop hook
+    // assumes when nothing is declared. This is the shape that was silent by construction.
+    const transcript = writeTranscript(dir, [
+      { type: 'ai-title', aiTitle: 'a long 200k session' },
+      userTurn('go'),
+      withUsage('nearly full', 190_000),
+    ]);
+
+    // 1. The harness decides to compact. This hook records the ceiling it can observe.
+    const pre = run(
+      residueDir,
+      { session_id: sessionId, transcript_path: transcript, trigger: 'auto' },
+      'en',
+      { TMPDIR: tmp },
+    );
+    expect(pre.status).toBe(0);
+
+    // 2. The next turn ends. The D7 arm must now judge 190k against the OBSERVED 190000
+    //    rather than the assumed 1000000 \u2014 soft = 70% of 190000 = 133000, so it fires.
+    const stop = spawnSync('bash', [EOT_HOOK], {
+      input: JSON.stringify({
+        session_id: sessionId,
+        transcript_path: transcript,
+        stop_hook_active: false,
+      }),
+      encoding: 'utf8',
+      env: { ...process.env, AIF_HOOK_LANG: 'en', TMPDIR: tmp, CLAUDE_PROJECT_DIR: REPO_ROOT },
+    });
+    expect(stop.status, `stderr: ${stop.stderr}`).toBe(0);
+    expect(stop.stdout.trim(), 'the arm must no longer be silent for an undeclared small window').not.toBe('');
+    const parsed = JSON.parse(stop.stdout) as { decision: string; reason: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason, 'judged against the observed ceiling, not the 1M assumption').toMatch(/~190000/);
+    expect(parsed.reason).toMatch(/190000 tokens/);
+  });
+
+  it('no transcript on an auto trigger: the residue is still written, the observation is not', () => {
+    const { residueDir } = sandbox();
+    const tmp = privateTmp();
+    const r = run(
+      residueDir,
+      { session_id: 'a33b-notr', transcript_path: '/nonexistent/transcript.jsonl', trigger: 'auto' },
+      'en',
+      { TMPDIR: tmp },
+    );
+    expect(r.status).toBe(0);
+    expect(r.files, 'D8: a compacted session always leaves the fact behind').toContain('_residue-a33b-notr.md');
+    expect(observation(tmp, 'a33b-notr'), 'nothing to measure → nothing recorded').toBe(null);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Ledger #1597 A3-3c — clearing the D7 tier debounce flags.
+//
+// The D7 arm debounces once per session per tier. Nothing ever cleared those flags, so
+// a session that auto-compacts repeatedly got exactly ONE reminder in its whole life —
+// harmless while the arm was unreachable for small windows (A3-3b), load-bearing the
+// moment it became reachable. Compaction is the event that makes the earlier reminder
+// spent history, and this hook is the one that observes it.
+//
+// AUTO ONLY, same evidence as the ceiling recording: the live probe showed PreCompact
+// firing on a MANUAL /compact that was then REFUSED ("Not enough messages to compact").
+// Clearing the flags on a compaction that never happened re-arms the reminder at an
+// unchanged token count, so the very next turn re-fires it — which is the exact spam the
+// debounce exists to prevent.
+// ═══════════════════════════════════════════════════════════════════════════════
+describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3c (debounce reset)', () => {
+  function privateTmp(): string {
+    const dir = mkdtempSync(join(tmpdir(), 'a33c-precompact-'));
+    dirs.push(dir);
+    return dir;
+  }
+
+  const usageEntry = (total: number) => ({
+    type: 'assistant',
+    isSidechain: false,
+    message: {
+      usage: {
+        input_tokens: 1000,
+        cache_read_input_tokens: total - 3000,
+        cache_creation_input_tokens: 2000,
+      },
+      content: [{ type: 'text', text: 'a turn' }],
+    },
+  });
+
+  /** The flag names the D7 arm owns, derived the way the arm derives them. */
+  const flagPath = (tmp: string, sessionKey: string, tier: string) =>
+    join(tmp, `aif-ctx-${sessionKey}-${tier}`);
+
+  it('an AUTO trigger clears the spent tier flags, so the next climb can warn again', () => {
+    const { dir, residueDir } = sandbox();
+    const tmp = privateTmp();
+    const transcript = writeTranscript(dir, [userTurn('go'), usageEntry(190_000)]);
+    // Both tiers already spent by an earlier climb in this session.
+    writeFileSync(flagPath(tmp, 'a33c-auto', 'soft'), '', 'utf8');
+    writeFileSync(flagPath(tmp, 'a33c-auto', 'deep'), '', 'utf8');
+
+    const r = run(
+      residueDir,
+      { session_id: 'a33c-auto', transcript_path: transcript, trigger: 'auto' },
+      'en',
+      { TMPDIR: tmp },
+    );
+    expect(r.status).toBe(0);
+    expect(existsSync(flagPath(tmp, 'a33c-auto', 'soft')), 'soft flag cleared').toBe(false);
+    expect(existsSync(flagPath(tmp, 'a33c-auto', 'deep')), 'deep flag cleared').toBe(false);
+  });
+
+  it('PAIRED-NEGATIVE: a MANUAL trigger leaves the flags alone (the probe showed it can fire on a REFUSED compaction)', () => {
+    const { dir, residueDir } = sandbox();
+    const tmp = privateTmp();
+    const transcript = writeTranscript(dir, [userTurn('go'), usageEntry(190_000)]);
+    writeFileSync(flagPath(tmp, 'a33c-manual', 'soft'), '', 'utf8');
+
+    run(
+      residueDir,
+      { session_id: 'a33c-manual', transcript_path: transcript, trigger: 'manual' },
+      'en',
+      { TMPDIR: tmp },
+    );
+    expect(
+      existsSync(flagPath(tmp, 'a33c-manual', 'soft')),
+      'a compaction that may never have happened must not re-arm the reminder',
+    ).toBe(true);
+  });
+
+  it('PAIRED-NEGATIVE: the reset does NOT take the observed ceiling with it', () => {
+    // `aif-ctx-observed-<key>` sits in the same directory under the same prefix. A sweep
+    // written as "remove aif-ctx-<key>*" would delete the measurement this whole contract
+    // exists to carry, silently returning the reader to its 1M assumption.
+    const { dir, residueDir } = sandbox();
+    const tmp = privateTmp();
+    const transcript = writeTranscript(dir, [userTurn('go'), usageEntry(190_000)]);
+    writeFileSync(flagPath(tmp, 'a33c-keep', 'soft'), '', 'utf8');
+
+    run(
+      residueDir,
+      { session_id: 'a33c-keep', transcript_path: transcript, trigger: 'auto' },
+      'en',
+      { TMPDIR: tmp },
+    );
+    expect(existsSync(flagPath(tmp, 'a33c-keep', 'soft')), 'flag cleared').toBe(false);
+    expect(
+      readFileSync(join(tmp, 'aif-ctx-observed-a33c-keep'), 'utf8').trim(),
+      'the ceiling recorded on this very run must survive its own sweep',
+    ).toBe('190000');
+  });
+
+  it('PAIRED-NEGATIVE: a neighbouring session’s flags are untouched', () => {
+    const { dir, residueDir } = sandbox();
+    const tmp = privateTmp();
+    const transcript = writeTranscript(dir, [userTurn('go'), usageEntry(190_000)]);
+    writeFileSync(flagPath(tmp, 'a33c-other', 'soft'), '', 'utf8');
+
+    run(
+      residueDir,
+      { session_id: 'a33c-mine', transcript_path: transcript, trigger: 'auto' },
+      'en',
+      { TMPDIR: tmp },
+    );
+    expect(
+      existsSync(flagPath(tmp, 'a33c-other', 'soft')),
+      'N parallel sessions share one TMPDIR — a compaction in one must not re-arm another',
+    ).toBe(true);
+  });
+
+  it('END-TO-END: after an auto compaction the arm warns again on the SECOND climb', () => {
+    // The whole point, exercised through both hooks: climb → warn → debounced → compact →
+    // climb → warn again. Pre-fix the last step was silent for the rest of the session.
+    const EOT_HOOK = resolve(REPO_ROOT, '.claude/hooks/end-of-turn-reminder.sh');
+    const { dir, residueDir } = sandbox();
+    const tmp = privateTmp();
+    const sessionId = 'a33c-e2e';
+    const climb = writeTranscript(dir, [userTurn('go'), usageEntry(320_000)]);
+
+    const stop = (label: string) =>
+      spawnSync('bash', [EOT_HOOK], {
+        input: JSON.stringify({
+          session_id: sessionId,
+          transcript_path: climb,
+          stop_hook_active: false,
+        }),
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          AIF_HOOK_LANG: 'en',
+          TMPDIR: tmp,
+          CLAUDE_PROJECT_DIR: REPO_ROOT,
+          // PINNED, and load-bearing: without it the A3-3b observation this very PreCompact
+          // records (320000) becomes the window, which moves 320k from the soft tier to the
+          // deep one — whose flag is unspent, so the arm fires for a reason that has nothing
+          // to do with the reset. Measured: this case passed against the PRE-FIX hooks until
+          // the window was pinned. A declared window keeps the tier fixed across all three
+          // turns, so the only thing that can change the verdict is the flag itself.
+          AIF_CTX_WINDOW: '1000000',
+        },
+      }).stdout ?? `__no_stdout_${label}`;
+
+    expect(stop('first'), 'first climb warns').toMatch(/\[context\]/);
+    expect(stop('second').trim(), 'same climb is debounced').toBe('');
+
+    run(
+      residueDir,
+      { session_id: sessionId, transcript_path: climb, trigger: 'auto' },
+      'en',
+      { TMPDIR: tmp },
+    );
+
+    expect(stop('after-compaction'), 'the climb after a compaction must warn again').toMatch(
+      /\[context\]/,
+    );
   });
 });
