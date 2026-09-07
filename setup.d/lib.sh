@@ -713,12 +713,31 @@ install_agents_md() {
 # precisely because the refresh wipes it, and adapter-jig C4 requires that a dropped rule cannot
 # stay silently active there — a stale ast-grep rule is live scan configuration, not inert
 # residue. Everywhere else the L-4 default holds.
+# L-4d: a vanished source is left alone but not SILENTLY alone. When the source is a whole
+# directory payload the framework stopped shipping, the early-exit below returns before
+# _refresh_dir_payload can run, so the per-file sweep never walks the consumer's copy and
+# _report_dir_residue never names what is inside it — the one delivery shape whose ghost is
+# quiet. The early-exit names the retired directory once, report-only.
 refresh_safe() {
   local src="$1"
   local dst="$2"
   local exclusive="${3:-}"
   local override="${dst%.md}.override.md"
-  [ -e "$src" ] || return 0  # source gone — leave consumer copy alone
+  if [ ! -e "$src" ]; then
+    # Source gone — leave the consumer copy alone (behaviour unchanged: nothing is deleted or
+    # refreshed here). But name it (ledger L-4d): if the vanished source was a whole directory
+    # payload, the consumer's copy is now theirs ALONE — the framework will never refresh it,
+    # sweep it, or mention it again. The gate is -d (not -e) so a vanished FILE source keeps its
+    # historical silent leave-alone: L-4d scopes to retired directory payloads, the class whose
+    # residue walk dies with the source. ⊝ vocabulary — the `.override.md` skip below is the
+    # precedent — NOT the `ORPHAN:` token, which report_getff_orphans reserves for files
+    # getff once owned and clean-tree arms grep to zero. Read-only, so the SAME line is the
+    # --dry-run preview: preview and real run agree because neither does anything.
+    if [ -d "$dst" ]; then
+      echo "  ⊝ $dst (retired payload — no longer shipped by this version; consumer-owned now, left untouched)"
+    fi
+    return 0
+  fi
   if [ -e "$override" ]; then
     if [ "$DRY_RUN" = "--dry-run" ]; then
       echo "  [dry-run] would skip: $dst (.override.md present — consumer-owned Layer 3)"
@@ -1071,6 +1090,19 @@ report_getff_orphans() {
         ;;
     esac
   done
+  # L-4e: the three globs above deliberately scan only getff's OWN delivery locations and stay at
+  # -maxdepth 1, so they never descend into .getff/rules-research/ — and that directory is never
+  # a refresh_safe destination either, so _report_dir_residue cannot see it. Yet its *.yml files
+  # re-join into the live scan dir on EVERY delivery pass (_py_join_researched_rules,
+  # setup.d/45-python.sh): a stale researched rule is enforced forever with zero mention in any
+  # refresh output. Name the directory once when it exists — a read-only ⊝ line, awareness not
+  # verdict: which individual researched rule is stale is the JOIN's judgment (barrel prune +
+  # REFUSE-LOUDLY collision guard), not this scan's. NOT the ORPHAN: token — getff never
+  # delivered anything here, so it is not an orphan of ours; and clean-tree arms of
+  # lane-orphan-residue grep ORPHAN: to zero. Fires identically under --dry-run (read-only).
+  if [ -d "$PROJECT_ROOT/.getff/rules-research" ]; then
+    echo "  ⊝ .getff/rules-research/ is consumer-owned researched-rule storage — getff joins *.yml from it into .getff/astgrep-rules on every pass and never writes, sweeps, or prunes here; stale entries stay until you remove them."
+  fi
   return 0
 }
 

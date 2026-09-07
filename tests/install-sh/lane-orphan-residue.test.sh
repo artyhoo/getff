@@ -50,6 +50,22 @@
 #       in-payload scan must add ZERO orphan lines where nothing is stale. Arm (5) pins the same
 #       property for python+go on the top-level scan; this pins it for the second lane pair and for
 #       the surface arm (6) introduced.
+#   (8) RETIRED directory payload (ledger L-4d, RED pre-fix) — the framework STOPPED shipping a
+#       whole directory: refresh_safe's source-gone early-exit returns before _refresh_dir_payload
+#       can run, so the consumer's copy is neither refreshed nor walked nor named. A version-N
+#       consumer of a payload dropped in version N+1 gets ZERO signal that the directory is now
+#       theirs alone. Post-fix the early-exit names the directory once (⊝ vocabulary — NOT the
+#       ORPHAN: token, which arms 4/5/7 grep to zero on clean trees), report-only, byte-identical
+#       under --dry-run, and the «leave consumer copy alone» behaviour is unchanged.
+#   (9) .getff/rules-research/ (ledger L-4e, RED pre-fix) — the consumer-owned durable home for
+#       researched rules is never a refresh_safe destination (so _report_dir_residue cannot see
+#       it) and report_getff_orphans' three globs are all -maxdepth 1 (so they never descend into
+#       it): a stale *.yml there is re-joined into the live scan dir on EVERY pass and no refresh
+#       output ever mentions the directory. Post-fix the orphan scan names it once as
+#       consumer-owned storage (⊝ line, NOT the ORPHAN: token — arms 4/5/7) when it exists, and
+#       stays silent when it does not. Per-rule staleness is deliberately NOT judged here — the
+#       join in setup.d/45-python.sh owns that decision; this line only makes the reader aware
+#       the directory exists, is theirs, and is never swept.
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 INSTALL="$REPO_ROOT/install.sh"
@@ -299,6 +315,99 @@ for _lane in cargo python; do
     || ok "(7-$_lane) $_lane --refresh reported ZERO orphans (no collateral from the in-payload scan)"
 done
 rm -rf "$K"
+
+# ── (8) RETIRED directory payload: the framework stopped shipping the whole dir (ledger L-4d) ──────
+# @arm:C4:neg no-orphan-residue (pre-fix: source-gone early-exit is silent; post-fix: one naming line)
+echo "  ── (8) retired directory payload (source dir gone) → named once, kept untouched ──"
+S8=$(mktemp -d); D8=$(mktemp -d)
+mkdir -p "$S8/rules"
+printf 'shipped\n' > "$S8/rules/current.yml"
+mkdir -p "$D8/rules"
+printf 'version-N bytes\n' > "$D8/rules/current.yml"
+printf 'consumer own\n' > "$D8/rules/mine.yml"
+rm -rf "$S8"   # version N+1 stopped shipping the payload entirely — $src no longer exists
+out=$(
+  export INSTALL_SH_LIB_ONLY=1
+  PKG_ROOT="$REPO_ROOT"; PROJECT_ROOT="$D8"; FORCE=""; DRY_RUN=""; SKIPPED=()
+  # shellcheck source=/dev/null
+  source "$REPO_ROOT/setup.d/lib.sh"
+  # The 2-arg shared-ownership form, called exactly as install.sh's do_refresh calls the
+  # fences-fire payload — the shape whose vanished source used to return 0 without a word.
+  refresh_safe "$S8/rules" "$D8/rules"
+)
+[ -f "$D8/rules/current.yml" ] && [ "$(cat "$D8/rules/current.yml")" = "version-N bytes" ] \
+  && ok "(8) consumer copy untouched (the change is naming, not touching — «leave consumer copy alone» holds)" \
+  || bad "(8) the vanished-source early-exit mutated the consumer copy it was told to leave alone"
+[ -f "$D8/rules/mine.yml" ] \
+  && ok "(8) the consumer's own file inside the retired payload untouched" \
+  || bad "(8) consumer file deleted from the retired payload (report-only contract violated)"
+echo "$out" | grep -qF "retired payload" \
+  && ok "(8) refresh NAMES the retired payload as consumer-owned (pre-fix: silent early-exit, the L-4d blind spot)" \
+  || bad "(8) retired directory payload unnamed on refresh — no signal that the payload is now the consumer's alone: $(echo "$out" | tr '\n' '|')"
+echo "$out" | grep -F "retired payload" | grep -qF "$D8/rules" \
+  && ok "(8) the naming line identifies the retired directory itself" \
+  || bad "(8) the naming line does not name the directory path"
+echo "$out" | grep -F "retired payload" | grep -q "ORPHAN:" \
+  && bad "(8) the retired-payload line borrowed the ORPHAN: token — clean-tree arms grep ORPHAN: to zero" \
+  || ok "(8) the naming uses the ⊝ vocabulary, not the ORPHAN: token (vocabulary separation holds)"
+# --dry-run twin: read-only naming must preview byte-identically, and still write nothing.
+out_dry=$(
+  export INSTALL_SH_LIB_ONLY=1
+  PKG_ROOT="$REPO_ROOT"; PROJECT_ROOT="$D8"; FORCE=""; DRY_RUN="--dry-run"; SKIPPED=()
+  # shellcheck source=/dev/null
+  source "$REPO_ROOT/setup.d/lib.sh"
+  refresh_safe "$S8/rules" "$D8/rules"
+)
+[ "$out" = "$out_dry" ] \
+  && ok "(8) --dry-run prints the IDENTICAL naming line (preview agrees with the real run)" \
+  || bad "(8) --dry-run output differs from the real run: [$(echo "$out_dry" | tr '\n' '|')]"
+[ -f "$D8/rules/mine.yml" ] && [ "$(cat "$D8/rules/current.yml")" = "version-N bytes" ] \
+  && ok "(8) dry-run wrote nothing inside the retired payload" \
+  || bad "(8) dry-run mutated the retired payload"
+rm -rf "$S8" "$D8"
+
+# ── (9) .getff/rules-research/ — consumer-owned durable home, named when it exists (ledger L-4e) ───
+# @arm:C4:neg no-orphan-residue (pre-fix: unseen by both guards; post-fix: one ⊝ line names it)
+echo "  ── (9) .getff/rules-research/ named as consumer-owned storage when it exists ──"
+P9=$(py_fixture)
+( cd "$P9" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+# Paired negative FIRST, on the same fixture: the guard must be silent while the directory does
+# not exist (a clean python consumer has none — only the session-side rule-bootstrap CLI creates
+# it), so the post-fix line below is a real signal, not ambient noise.
+out=$( cd "$P9" && bash "$INSTALL" python --refresh < /dev/null 2>&1 ) || true
+echo "$out" | grep -qF "consumer-owned researched-rule storage" \
+  && bad "(9-neg) the guard fired without .getff/rules-research/ existing (ambient noise): $(echo "$out" | grep -F 'consumer-owned researched-rule storage' | tr '\n' '|')" \
+  || ok "(9-neg) no rules-research line on a consumer that never had the directory (discriminating, not noise)"
+# Now the L-4e state: a stale researched rule (an id the barrel prune no longer recognises) plus
+# its *.practice.json input record — exactly what an older rule-bootstrap CLI leaves behind.
+RR9="$P9/.getff/rules-research"
+mkdir -p "$RR9"
+printf 'id: getff-researched-legacy\nlanguage: python\nrule:\n  pattern: eval($X)\n' > "$RR9/getff-researched-legacy.yml"
+printf '{ "entryId": "getff-researched-legacy", "practice": "legacy" }\n' > "$RR9/getff-researched-legacy.practice.json"
+out=$( cd "$P9" && bash "$INSTALL" python --refresh < /dev/null 2>&1 ) || true
+echo "$out" | grep -cF "consumer-owned researched-rule storage" | grep -q '^1$' \
+  && ok "(9) refresh names .getff/rules-research/ exactly once as consumer-owned storage (pre-fix: unseen by both guards)" \
+  || bad "(9) .getff/rules-research/ not named (or named more than once): $(echo "$out" | grep -cF 'consumer-owned researched-rule storage') line(s)"
+echo "$out" | grep -F "consumer-owned researched-rule storage" | grep -q "ORPHAN:" \
+  && bad "(9) the rules-research line borrowed the ORPHAN: token — clean-tree arms grep ORPHAN: to zero" \
+  || ok "(9) the naming uses the ⊝ vocabulary, not the ORPHAN: token (vocabulary separation holds)"
+# The join still runs on the same pass — naming the directory must not disturb the mechanism
+# that owns the per-rule judgment (kickoff: do NOT classify individual researched rules).
+[ -f "$P9/.getff/astgrep-rules/getff-researched-legacy.yml" ] \
+  && ok "(9) the stale researched rule STILL joined into the scan dir (the join owns that judgment, unchanged)" \
+  || bad "(9) the researched join stopped working — the naming line broke _py_join_researched_rules"
+[ -f "$RR9/getff-researched-legacy.yml" ] && [ -f "$RR9/getff-researched-legacy.practice.json" ] \
+  && ok "(9) both planted files still present — report-only contract (nothing in .getff/rules-research/ is deleted)" \
+  || bad "(9) a planted file in .getff/rules-research/ was deleted — the irreversible branch"
+# --dry-run twin: the same guard line, and the directory untouched.
+out_dry=$( cd "$P9" && bash "$INSTALL" python --refresh --dry-run < /dev/null 2>&1 ) || true
+echo "$out_dry" | grep -cF "consumer-owned researched-rule storage" | grep -q '^1$' \
+  && ok "(9) --dry-run prints the SAME guard line for the directory (preview agrees with the real run)" \
+  || bad "(9) --dry-run guard line missing or duplicated: $(echo "$out_dry" | grep -cF 'consumer-owned researched-rule storage')"
+[ -f "$RR9/getff-researched-legacy.yml" ] && [ -f "$RR9/getff-researched-legacy.practice.json" ] \
+  && ok "(9) dry-run wrote nothing in .getff/rules-research/" \
+  || bad "(9) dry-run mutated .getff/rules-research/"
+rm -rf "$P9"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
