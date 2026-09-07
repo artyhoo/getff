@@ -107,6 +107,14 @@ jobs:
         # via the manifest-absent die message — never a grep of the runner's source.
         run: bash packages/core/synthesizer/run-generated-rule-mutation.test.sh
 
+      - name: "Rule-tests firing runner self-tests (A7-2/A7-3/A7-5: fired decided from structured diagnostics, not exit codes)"
+        # Live-fire via PATH shims: each arm RUNS the real runner against a fixture consumer
+        # tree and asserts verdict lines + exit code — never a grep of the runner's source.
+        # The linters' diagnostic payloads are recorded fixtures (the runtime has no
+        # ast-grep/ruff/cargo); real-tool coverage stays with the consumer-layout arms in
+        # test:hooks. Pure bash+node — no tool installs, no LLM (no-paid-llm-in-ci).
+        run: bash packages/core/synthesizer/run-rule-tests-firing.test.sh
+
   shipped-prettier:
     name: Shipped artifacts are Prettier-clean (GH #531 dogfood)
     runs-on: ubuntu-latest
