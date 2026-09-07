@@ -294,6 +294,71 @@ else
 fi
 rm -rf "$Q"
 
+# ── (10) A2-9: the fingerprint covers the PROVENANCE inputs the lock body reads ────────────────────
+# Ledger addendum A2-9 — the go twin of python's A2-7 (fixed in #1617). `_go_write_rules_lock`
+# hashes the delivered golangci config, but the lock BODY reads two more inputs in the same
+# function: `generation-context.json` (→ `version`) and `generation-context/*.json` fragments
+# (→ `rules`). A fragment-only delta that left the config byte-identical could never perturb the
+# fingerprint, so the reproducibility record silently lagged its own provenance. PAIRED arms:
+# (10a) pins the backward-compat shape (no manifest + no fragments → fp IS sha256(delivered
+# config) — separator-free concatenation, arm 1's shape intact); (10b) non-vacuity; (10c/d/e) each
+# provenance input MUST move the fp. RED before the A2-9 fix on 10c/10d/10e; GREEN after. Drives
+# the REAL install.sh like arms 1/2 — the go lane rewrites the lock on every pass (no skip).
+echo "  ── (10) A2-9: fingerprint covers generation-context manifest + fragments ──"
+if [ "$HAS_SHA_TOOL" -eq 1 ]; then
+  # ORDERING COUPLING (named, not hidden): the A8-1 section above sources lib.sh + 47-go.sh
+  # IN-PROCESS and exports INSTALL_SH_LIB_ONLY/GO_LAYER_LIB_ONLY. Inherited by this arm's
+  # `install.sh` child, those flags make install.sh return early and the delivery never happens —
+  # every assertion below would then fail for the WRONG reason. Unset them before the subprocess.
+  unset INSTALL_SH_LIB_ONLY GO_LAYER_LIB_ONLY PY_LAYER_LIB_ONLY CARGO_LAYER_LIB_ONLY
+  G=$(go_fixture)
+  ( cd "$G" && bash "$INSTALL" go < /dev/null ) >/dev/null 2>&1
+  # Precondition the DELIVERY itself, so (10b)'s sha comparison can never pass on two empty
+  # strings (a missing config makes both sides empty → vacuously equal — the T15 shape).
+  [ -f "$G/.golangci.yml" ] \
+    && ok "(10-pre) fresh go install delivered .golangci.yml (subprocess not neutered by the A8-1 exports)" \
+    || bad "(10-pre) .golangci.yml MISSING after install.sh go — the subprocess was neutered (LIB_ONLY export leak?)"
+  LOCK10="$G/.ai-factory/synthesizer-output/rules-lock.go.json"
+  _golangci_fp10() { sed -n 's/.*"sourceFingerprint": "sha256:\([0-9a-f]*\)".*/\1/p' "$LOCK10" 2>/dev/null; }
+  fp10a=$(_golangci_fp10)
+  if [ -f "$G/.golangci.yml" ] && [ -n "$fp10a" ] && [ "$fp10a" = "$(_sha256 "$G/.golangci.yml")" ]; then
+    ok "(10a) precondition: fragment-free tree → fp == sha256(delivered .golangci.yml) (separator-free input; arm 1 shape intact)"
+  else
+    bad "(10a) precondition unmet: fp10a='${fp10a:-<none>}' expected '$([ -f "$G/.golangci.yml" ] && _sha256 "$G/.golangci.yml")'"
+  fi
+  mkdir -p "$G/.ai-factory/synthesizer-output/generation-context"
+  printf '{"id":"G1","rule":"go-ban-x","tier":2}\n' > "$G/.ai-factory/synthesizer-output/generation-context/G1.json"
+  _golangci_sha10=$(_sha256 "$G/.golangci.yml")
+  ( cd "$G" && bash "$INSTALL" go < /dev/null ) >/dev/null 2>&1
+  fp10b=$(_golangci_fp10)
+  [ -n "$_golangci_sha10" ] && [ "$(_sha256 "$G/.golangci.yml")" = "$_golangci_sha10" ] \
+    && ok "(10b) non-vacuity: delivered config byte-identical across passes (the fragment is the only delta)" \
+    || bad "(10b) non-vacuity BROKEN: .golangci.yml moved or missing — a fingerprint change would prove nothing"
+  if [ -n "$fp10b" ] && [ "$fp10b" != "$fp10a" ]; then
+    ok "(10c) fingerprint moved on a fragment-only delta ($fp10a → $fp10b) — A2-9 closed"
+  else
+    bad "(10c) fingerprint UNCHANGED ($fp10a) after adding a provenance fragment — the lock lags its own provenance (A2-9 RED)"
+  fi
+  printf '{"id":"G1","rule":"go-ban-x","tier":0,"note":"mutated"}\n' > "$G/.ai-factory/synthesizer-output/generation-context/G1.json"
+  ( cd "$G" && bash "$INSTALL" go < /dev/null ) >/dev/null 2>&1
+  fp10c=$(_golangci_fp10)
+  [ -n "$fp10c" ] && [ "$fp10c" != "$fp10b" ] \
+    && ok "(10d) fingerprint moved again on a fragment MUTATION ($fp10b → $fp10c)" \
+    || bad "(10d) fingerprint UNCHANGED ($fp10b) after mutating the fragment (A2-9 RED)"
+  printf '{"framework":"go","version":"7.8.9","rules":[]}\n' > "$G/.ai-factory/synthesizer-output/generation-context.json"
+  ( cd "$G" && bash "$INSTALL" go < /dev/null ) >/dev/null 2>&1
+  fp10d=$(_golangci_fp10)
+  [ -n "$fp10d" ] && [ "$fp10d" != "$fp10c" ] \
+    && ok "(10e) fingerprint moved when the ctx MANIFEST appeared ($fp10c → $fp10d) — version input covered" \
+    || bad "(10e) fingerprint UNCHANGED ($fp10c) after adding generation-context.json (A2-9 RED)"
+  grep -q '"version": "7.8.9"' "$LOCK10" \
+    && ok "(10f) the lock body actually consumed the manifest (version=7.8.9 recorded — the hashed input is a REAL input)" \
+    || bad "(10f) lock did not record the manifest version — (10e) would be hashing a dead input"
+  rm -rf "$G"
+else
+  echo "  ── SKIP (10) needs a sha tool (fingerprint-value arms) — same gate arms 1/2 take ──"
+fi
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

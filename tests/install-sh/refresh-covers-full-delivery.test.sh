@@ -301,13 +301,22 @@ fi
 # install.sh (do_python_lane / do_cargo_lane / do_go_lane) all `export GETFF_TOOLCHAIN_REFRESH=1` when
 # --refresh is passed, and the layer's `_<lane>_copy_or_refresh` wrapper switches copy_safe →
 # refresh_safe on that flag; that pair IS the lane's refresh path.
-# Every framework-owned artefact a lane delivers (identified by its `$tpl/<x>` TEMPLATE SOURCE —
+# Every framework-owned artefact a lane delivers (identified by its TEMPLATE SOURCE token —
 # everything copied FROM the template dir is framework-owned) MUST also be re-delivered on --refresh,
 # or a brownfield consumer of that toolchain never receives updated rules (the #869 refresh-drift
 # class, per lane). Source-token parity (not dst) because one template can feed two dsts (python's
 # ruff.toml → ruff.toml + getff-ruff.toml; cargo's clippy.toml → clippy.toml + getff-clippy.toml) —
 # the source is the unambiguous key. `_<lane>_copy_or_refresh` call sites deliver on BOTH paths, so
 # they count for copy AND refresh; explicit copy_safe / refresh_safe lines count for their own side only.
+#
+# A2-11 (ledger addendum): the population is the union of BOTH source forms — the literal `$tpl/…`
+# tokens AND the `$PKG_ROOT/…` ones. PR #1623's refresh-aware python agent surface delivers from
+# `packages/core/templates/...` directly (AI-USAGE-GUIDE.md, skill-context SKILL.md), so a
+# `$tpl`-only scan never saw those rows at all: a PKG_ROOT-sourced artefact the refresh path
+# missed would have passed this gate green (population measured 2026-09-06 — python copy side
+# 4 tokens → 10 under the widened form; cargo/go unchanged at 4/2). Consumer-owned PKG_ROOT
+# deliveries are exempt via the LANE_EXCLUDED list below — NOT silently: the exemption is
+# data-driven, lane-scoped, and each row cites its in-code ownership classification.
 #
 # S4 (getff-honest-signals): the python + cargo workflow deliveries moved from copy_safe onto
 # deliver_getff_workflow. The COPY verb alternation MUST include it, or $tpl/github-actions-ci.yml
@@ -317,6 +326,29 @@ fi
 # FRESH-only call site (no env prefix) and manufacture a false green. Lookbehind is unavailable
 # (grep -E is ERE, rejects (?<!...)). The go lane refreshes its workflow through plain refresh_safe,
 # which the alternation already covers.
+# ── LANE_EXCLUDED: $PKG_ROOT-sourced delivery SOURCES deliberately NOT refreshed, per lane ────────
+# A2-11's widened extraction sees a SECOND source form (`$PKG_ROOT/…`). Widening without an escape
+# hatch would false-flag the DELIBERATELY consumer-owned PKG_ROOT deliveries: 45-python.sh:1348-1350
+# classifies the `.ai-factory/ARCHITECTURE.*` family as consumer-owned from first landing — «the same
+# classification its ts-server sibling carries in tests/install-sh/refresh-covers-full-delivery.test.sh's
+# EXCLUDED list» — and :1362 extends the contract to the sibling docs («consumer-editable by contract»).
+# Rows are `<layer-basename>|<source token>`. Source-keyed (unlike the npm EXCLUDED above, which keys
+# on destination) because lane parity keys on source. A NEW $PKG_ROOT-sourced FRAMEWORK-OWNED
+# artefact must be REFRESHED (routed through the lane's copy_or_refresh wrapper), never added here.
+LANE_EXCLUDED=$(sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' <<'LEXC' | sed '/^$/d'
+  # 45-python.sh agent-surface docs (45-python.sh:1344-1377). The ARCHITECTURE.md token is the
+  # ${PY_TEMPLATE_DIR:-$PKG_ROOT/...python}/ARCHITECTURE.md source (:1351/:1377 — two consumer-owned
+  # dsts: ARCHITECTURE.python.md and the materialized ARCHITECTURE.md SoT).
+  45-python.sh|$PKG_ROOT/packages/core/templates/python
+  45-python.sh|$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md
+  45-python.sh|$PKG_ROOT/packages/core/templates/shared/integration-rules.md
+  45-python.sh|$PKG_ROOT/skills/tool-bootstrapping/templates/tool-decisions.md.template
+  # 46-cargo.sh / 47-go.sh: ZERO $PKG_ROOT-sourced delivery rows today (verified 2026-09-06 — the
+  # widened extraction adds no rows for either lane). Add a row here only if a consumer-owned
+  # PKG_ROOT delivery lands on those lanes; framework-owned ones go through the wrapper instead.
+LEXC
+)
+
 lane_refresh_parity() {  # $1 = layer basename, $2 = the lane's copy-or-refresh wrapper fn
   local base="$1" wrap="$2" layer="$REPO_ROOT/setup.d/$1"
   local copy_src refresh_src s missing="" probe broken neg_missing=""
@@ -326,15 +358,22 @@ lane_refresh_parity() {  # $1 = layer basename, $2 = the lane's copy-or-refresh 
   # letting the rename surface as a pile of unexplained parity failures.
   grep -qE "^[[:space:]]*$wrap\(\)" "$layer" \
     || { echo "FATAL: $base does not define $wrap() — wrapper renamed, update TOOLCHAIN_LANES"; exit 1; }
-  # shellcheck disable=SC2016  # single-quoted regex matches the literal '$tpl' in source; no expansion intended
+  # shellcheck disable=SC2016  # single-quoted regex matches the literal '$tpl'/'$PKG_ROOT' in source; no expansion intended
   copy_src=$(grep -hE "copy_safe|$wrap|deliver_getff_workflow" "$layer" | grep -vE '^[[:space:]]*#' \
-    | grep -oE '\$tpl/[A-Za-z0-9._/-]*' | sort -u)
+    | grep -oE '\$(tpl|PKG_ROOT)/[A-Za-z0-9._/-]*' | sort -u)
   # shellcheck disable=SC2016
   refresh_src=$(grep -hE "refresh_safe|$wrap|GETFF_TOOLCHAIN_REFRESH=1 deliver_getff_workflow" "$layer" | grep -vE '^[[:space:]]*#' \
-    | grep -oE '\$tpl/[A-Za-z0-9._/-]*' | sort -u)
-  [ -n "$copy_src" ] || { echo "FATAL: copy set empty for $base — \$tpl delivery extraction broke"; exit 1; }
+    | grep -oE '\$(tpl|PKG_ROOT)/[A-Za-z0-9._/-]*' | sort -u)
+  [ -n "$copy_src" ] || { echo "FATAL: copy set empty for $base — \$(tpl|\$PKG_ROOT) delivery extraction broke"; exit 1; }
+  # A2-11 lane-scoped escape hatch: this lane's consumer-owned $PKG_ROOT sources (LANE_EXCLUDED,
+  # data-driven like the npm EXCLUDED above — but source-keyed, because lane parity keys on source).
+  local lane_excl
+  lane_excl=$(printf '%s\n' "$LANE_EXCLUDED" | grep -F "$base|" | cut -d'|' -f2-)
+  [ -n "$lane_excl" ] && echo "  · $base: LANE_EXCLUDED (consumer-owned PKG_ROOT sources, exempt from parity): $(printf '%s' "$lane_excl" | tr '\n' ' ')"
   for s in $copy_src; do
-    printf '%s\n' "$refresh_src" | grep -qxF "$s" || missing="$missing $s"
+    printf '%s\n' "$refresh_src" | grep -qxF "$s" && continue
+    printf '%s\n' "$lane_excl" | grep -qxF "$s" && continue
+    missing="$missing $s"
   done
   if [ -z "${missing// }" ]; then
     ok "$base: every framework-owned delivery has a --refresh path (no refresh drift on this lane)"
